@@ -6,6 +6,18 @@ set -o nounset
 set -o pipefail
 
 ROOT=$(dirname "${BASH_SOURCE}")/..
+
+RUBY=`which ruby`
+if [ -z $RUBY ]; then
+	echo "The 'ruby' utility can't be found."
+	exit 1
+fi
+
+$RUBY -e "require 'yaml'" 2>/dev/null || (
+	echo "The ruby 'yaml' library can't be found."
+	exit 1
+)
+
 cd "${ROOT}"
 
 find_files() {

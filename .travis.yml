@@ -4,8 +4,7 @@ go:
   - 1.5.1
   - tip
 sudo: false
-install:
-  - 'go get ./...'
+install: 'make deps'
 script: 'make test'
 matrix:
   allow_failures:

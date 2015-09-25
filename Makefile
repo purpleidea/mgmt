@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-.PHONY: all version run race build clean test format docs
+.PHONY: all version deps run race build clean test format docs
 .SILENT: clean
 
 VERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty)
@@ -10,6 +10,9 @@ all: docs
 # show the current version
 version:
 	@echo $(VERSION)
+
+deps:
+	./misc/make-deps.sh
 
 run:
 	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.version $(VERSION) -X main.program $(PROGRAM)"

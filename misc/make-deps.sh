@@ -27,4 +27,16 @@ fi
 
 echo "gopath is: $GOPATH"
 
+# some versions of golang apparently require this to run go get :(
+if ! env | grep -q '^GOBIN='; then
+	export GOBIN="${GOPATH}bin/"
+	mkdir "$GOBIN"
+	if ! grep -q '^export GOBIN=' ~/.bashrc; then
+		echo 'export GOBIN="${GOPATH}bin/"' >> ~/.bashrc
+	fi
+	echo "setting go bin to: $GOBIN"
+fi
+
+echo "gobin is: $GOBIN"
+
 go get ./...	# get all the go dependencies

@@ -1,3 +1,6 @@
+.omv/
+.ssh/
+.vagrant/
 mgmt-documentation.pdf
 old/
 tmp/

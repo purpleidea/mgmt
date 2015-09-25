@@ -1,0 +1,7 @@
+This is a list of authors/contributors to the mgmt project.
+If you're a contributor, please send a patch with your name.
+If you appreciate the work of one of the contributors, thank them a beverage!
+For a more exhaustive list please run: git log --format='%aN' | sort -u
+This list is sorted alphabetically by first name.
+
+James Shubin

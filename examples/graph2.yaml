@@ -1,0 +1,30 @@
+---
+graph: mygraph
+types:
+  noop:
+  - name: noop1
+  file:
+  - name: file1
+    path: /tmp/mgmt/f1
+    content: |
+      i am f1
+    state: exists
+  service:
+  - name: purpleidea
+    state: running
+    startup: enabled
+edges:
+- name: e1
+  from:
+    type: noop
+    name: noop1
+  to:
+    type: file
+    name: file1
+- name: e2
+  from:
+    type: file
+    name: file1
+  to:
+    type: service
+    name: purpleidea

@@ -14,7 +14,7 @@ version:
 run:
 	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.version $(VERSION) -X main.program $(PROGRAM)"
 
-# include race test
+# include race flag
 race:
 	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.version $(VERSION) -X main.program $(PROGRAM)"
 

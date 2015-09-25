@@ -19,7 +19,7 @@ fi
 if ! env | grep -q '^GOPATH='; then
 	export GOPATH="$HOME/gopath/"
 	mkdir "$GOPATH"
-	if ! grep -F '^export GOPATH=' ~/.bashrc; then
+	if ! grep -q '^export GOPATH=' ~/.bashrc; then
 		echo "export GOPATH=~/gopath/" >> ~/.bashrc
 	fi
 	echo "setting go path to: $GOPATH"

@@ -1,0 +1,25 @@
+language: go
+go:
+  - 1.4.2
+  - 1.5.1
+  - tip
+sudo: false
+install:
+  - 'go get ./...'
+script: 'make test'
+matrix:
+  allow_failures:
+    - go: tip
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.net#mgmtconfig"
+    template:
+      - "%{repository} (%{commit}: %{author}): %{message}"
+      - "More info : %{build_url}"
+    on_success: always
+    on_failure: always
+    use_notice: false
+    skip_join: false
+  email:
+    - travis-ci@shubin.ca

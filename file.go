@@ -176,6 +176,10 @@ func (obj FileType) Watch(v *Vertex) {
 				}
 
 				if delta_depth < 0 {
+					log.Println("Parent!")
+					if PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
+						send = true
+					}
 					watcher.Remove(current)
 					index++
 				}

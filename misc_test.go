@@ -82,6 +82,41 @@ func TestMiscT3(t *testing.T) {
 
 func TestMiscT4(t *testing.T) {
 
+	if PathPrefixDelta("/foo/bar/baz", "/foo/ba") != -1 {
+		t.Errorf("Result should be -1.")
+	}
+
+	if PathPrefixDelta("/foo/bar/baz", "/foo/bar") != 1 {
+		t.Errorf("Result should be 1.")
+	}
+
+	if PathPrefixDelta("/foo/bar/baz", "/foo/bar/") != 1 {
+		t.Errorf("Result should be 1.")
+	}
+
+	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar") != 1 {
+		t.Errorf("Result should be 1.")
+	}
+
+	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar/") != 1 {
+		t.Errorf("Result should be 1.")
+	}
+
+	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar/baz/dude") != -1 {
+		t.Errorf("Result should be -1.")
+	}
+
+	if PathPrefixDelta("/foo/bar/baz/a/b/c/", "/foo/bar/baz") != 3 {
+		t.Errorf("Result should be 3.")
+	}
+
+	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar/baz") != 0 {
+		t.Errorf("Result should be 0.")
+	}
+}
+
+func TestMiscT5(t *testing.T) {
+
 	if PathIsDir("/foo/bar/baz/") != true {
 		t.Errorf("Result should be false.")
 	}
@@ -97,5 +132,4 @@ func TestMiscT4(t *testing.T) {
 	if PathIsDir("/") != true {
 		t.Errorf("Result should be true.")
 	}
-
 }

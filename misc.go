@@ -52,6 +52,17 @@ func HasPathPrefix(p, prefix string) bool {
 	return true
 }
 
+// Delta of path prefix, tells you how many path tokens different the prefix is
+func PathPrefixDelta(p, prefix string) int {
+
+	if !HasPathPrefix(p, prefix) {
+		return -1
+	}
+	patharray := PathSplit(p)
+	prefixarray := PathSplit(prefix)
+	return len(patharray) - len(prefixarray)
+}
+
 func PathIsDir(p string) bool {
 	return p[len(p)-1:] == "/" // a dir has a trailing slash in this context
 }

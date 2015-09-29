@@ -1,6 +1,6 @@
 # *mgmt*: This is: mgmt!
 
-[![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png)](http://travis-ci.org/purpleidea/mgmt)
+[![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png)](http://travis-ci.org/purpleidea/mgmt) [![Documentation](https://img.shields.io/docs/markdown.png)](DOCUMENTATION.md) [![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
 
 ## Documentation:
 Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md).

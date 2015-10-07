@@ -40,7 +40,7 @@ test:
 
 format:
 	find -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -exec gofmt -w {} \;
-	find -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml; File.open('{}', 'w').write x" \;
+	find -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml; File.open('{}', 'w').write x" \;
 
 docs: mgmt-documentation.pdf
 

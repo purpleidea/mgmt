@@ -30,6 +30,7 @@ find_files() {
 		\( \
 			-wholename './old' \
 			-o -wholename './tmp' \
+			-o -wholename './omv.yaml' \
 		\) -prune \
 	\) -name '*.yaml'
 }

@@ -15,16 +15,16 @@ deps:
 	./misc/make-deps.sh
 
 run:
-	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.version $(VERSION) -X main.program $(PROGRAM)"
+	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.version=$(VERSION) -X main.program=$(PROGRAM)"
 
 # include race flag
 race:
-	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.version $(VERSION) -X main.program $(PROGRAM)"
+	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.version=$(VERSION) -X main.program=$(PROGRAM)"
 
 build: mgmt
 
 mgmt: main.go
-	go build -ldflags "-X main.version $(VERSION) -X main.program $(PROGRAM)"
+	go build -ldflags "-X main.version=$(VERSION) -X main.program=$(PROGRAM)"
 
 clean:
 	[ ! -e mgmt ] || rm mgmt

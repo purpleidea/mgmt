@@ -31,12 +31,6 @@ clean:
 
 test:
 	./test.sh
-	./test/test-gofmt.sh
-	./test/test-yamlfmt.sh
-	go test
-	#go test ./pgraph
-	go test -race
-	#go test -race ./pgraph
 
 format:
 	find -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -exec gofmt -w {} \;

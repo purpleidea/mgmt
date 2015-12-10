@@ -20,7 +20,6 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"fmt"
 	systemd "github.com/coreos/go-systemd/dbus" // change namespace
 	"github.com/coreos/go-systemd/util"
@@ -29,29 +28,27 @@ import (
 )
 
 type ServiceType struct {
-	uuid    string
-	Type    string      // always "service"
-	Name    string      // name variable
-	Events  chan string // FIXME: eventually a struct for the event?
-	State   string      // state: running, stopped
-	Startup string      // enabled, disabled, undefined
+	BaseType `yaml:",inline"`
+	State    string `yaml:"state"`   // state: running, stopped
+	Startup  string `yaml:"startup"` // enabled, disabled, undefined
 }
 
 func NewServiceType(name, state, startup string) *ServiceType {
 	return &ServiceType{
-		uuid:    uuid.New(),
-		Type:    "service",
-		Name:    name,
-		Events:  make(chan string, 1), // XXX: chan size?
+		BaseType: BaseType{
+			Name:   name,
+			events: make(chan Event),
+			vertex: nil,
+		},
 		State:   state,
 		Startup: startup,
 	}
 }
 
 // Service watcher
-func (obj ServiceType) Watch(v *Vertex) {
+func (obj *ServiceType) Watch() {
 	// obj.Name: service name
-
+	//vertex := obj.GetVertex()         // stored with SetVertex
 	if !util.IsRunningSystemd() {
 		log.Fatal("Systemd is not running.")
 	}
@@ -119,12 +116,11 @@ func (obj ServiceType) Watch(v *Vertex) {
 				// loop so that we can see the changed invalid signal
 				log.Printf("Service[%v]->DaemonReload()\n", service)
 
-			case exit := <-obj.Events:
-				if exit == "exit" {
-					return
-				} else {
-					log.Fatal("Unknown event: %v\n", exit)
+			case event := <-obj.events:
+				if ok := obj.ReadEvent(&event); !ok {
+					return // exit
 				}
+				send = true
 			}
 		} else {
 			if !activeSet {
@@ -156,31 +152,25 @@ func (obj ServiceType) Watch(v *Vertex) {
 			case err := <-subErrors:
 				log.Println("error:", err)
 				log.Fatal(err)
-				v.Events <- fmt.Sprintf("service: %v", "error")
+				//vertex.events <- fmt.Sprintf("service: %v", "error") // XXX: how should we handle errors?
 
-			case exit := <-obj.Events:
-				if exit == "exit" {
-					return
-				} else {
-					log.Fatal("Unknown event: %v\n", exit)
+			case event := <-obj.events:
+				if ok := obj.ReadEvent(&event); !ok {
+					return // exit
 				}
+				send = true
 			}
 		}
 
 		if send {
 			send = false
-			//log.Println("Sending event!")
-			v.Events <- fmt.Sprintf("service(%v): %v", obj.Name, "event!") // FIXME: use struct
+			obj.Process(obj) // XXX: rename this function
 		}
+
 	}
 }
 
-func (obj ServiceType) Exit() bool {
-	obj.Events <- "exit"
-	return true
-}
-
-func (obj ServiceType) StateOK() bool {
+func (obj *ServiceType) StateOK() bool {
 
 	if !util.IsRunningSystemd() {
 		log.Fatal("Systemd is not running.")
@@ -232,8 +222,8 @@ func (obj ServiceType) StateOK() bool {
 	return true // all is good, no state change needed
 }
 
-func (obj ServiceType) Apply() bool {
-	fmt.Printf("Apply->%v[%v]\n", obj.Type, obj.Name)
+func (obj *ServiceType) Apply() bool {
+	fmt.Printf("Apply->Service[%v]\n", obj.Name)
 
 	if !util.IsRunningSystemd() {
 		log.Fatal("Systemd is not running.")
@@ -290,5 +280,27 @@ func (obj ServiceType) Apply() bool {
 
 	// XXX: also set enabled on boot
 
+	return true
+}
+
+func (obj *ServiceType) Compare(typ Type) bool {
+	switch typ.(type) {
+	case *ServiceType:
+		return obj.compare(typ.(*ServiceType))
+	default:
+		return false
+	}
+}
+
+func (obj *ServiceType) compare(typ *ServiceType) bool {
+	if obj.Name != typ.Name {
+		return false
+	}
+	if obj.State != typ.State {
+		return false
+	}
+	if obj.Startup != typ.Startup {
+		return false
+	}
 	return true
 }

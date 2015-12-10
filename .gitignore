@@ -4,3 +4,5 @@
 mgmt-documentation.pdf
 old/
 tmp/
+*_stringer.go
+mgmt

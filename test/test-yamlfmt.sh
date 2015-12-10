@@ -37,7 +37,7 @@ find_files() {
 
 bad_files=$(
 	for i in $(find_files); do
-		if ! diff -q <( ruby -e "require 'yaml'; puts YAML.load_file('$i').to_yaml" 2>/dev/null ) <( cat "$i" ) &>/dev/null; then
+		if ! diff -q <( ruby -e "require 'yaml'; puts YAML.load_file('$i').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr" 2>/dev/null ) <( cat "$i" ) &>/dev/null; then
 			echo "$i"
 		fi
 	done

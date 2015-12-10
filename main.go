@@ -63,6 +63,8 @@ func run(c *cli.Context) {
 	var wg sync.WaitGroup
 	exit := make(chan bool) // exit signal
 	log.Printf("This is: %v, version: %v\n", program, version)
+	log.Printf("Start: %v\n", start)
+	G := NewGraph("Graph") // give graph a default name
 
 	// exit after `exittime` seconds for no reason at all...
 	if i := c.Int("exittime"); i > 0 {
@@ -72,29 +74,58 @@ func run(c *cli.Context) {
 		}()
 	}
 
-	// build the graph from a config file
-	G := GraphFromConfig(c.String("file"))
-	log.Printf("Graph: %v\n", G) // show graph
-
-	log.Printf("Start: %v\n", start)
-
-	for x := range G.GetVerticesChan() { // XXX ?
-		log.Printf("Main->Starting[%v]\n", x.Name)
-
-		wg.Add(1)
-		// must pass in value to avoid races...
-		// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
-		go func(v *Vertex) {
-			defer wg.Done()
-			v.Start()
-			log.Printf("Main->Finish[%v]\n", v.Name)
-		}(x)
-
-		// generate a startup "poke" so that an initial check happens
-		go func(v *Vertex) {
-			v.Events <- fmt.Sprintf("Startup(%v)", v.Name)
-		}(x)
+	// etcd
+	hostname := c.String("hostname")
+	if hostname == "" {
+		hostname, _ = os.Hostname() // etcd watch key // XXX: this is not the correct key name this is the set key name... WOOPS
 	}
+	go func(hostname string) {
+		log.Printf("Starting etcd...\n")
+		kapi := EtcdGetKAPI()
+		first := true // first loop or not
+		for x := range EtcdWatch(kapi, true) {
+
+			// run graph vertex LOCK...
+			if !first {
+				log.Printf("Watcher().Node.Value(%v): %+v", hostname, x)
+
+				G.SetState(graphPausing)
+				log.Printf("State: %v", G.State())
+				G.Pause() // sync
+				G.SetState(graphPaused)
+				log.Printf("State: %v", G.State())
+			}
+
+			// build the graph from a config file
+			// build the graph on events (eg: from etcd) but kick it once...
+			if !UpdateGraphFromConfig(c.String("file"), hostname, G, kapi) {
+				log.Fatal("Graph failure")
+			}
+			log.Printf("Graph: %v\n", G) // show graph
+			G.SetVertex()
+			if first {
+				// G.Start(...) needs to be synchronous or wait,
+				// because if half of the nodes are started and
+				// some are not ready yet and the EtcdWatch
+				// loops, we'll cause G.Pause(...) before we
+				// even got going, thus causing nil pointer errors
+				G.SetState(graphStarting)
+				log.Printf("State: %v", G.State())
+				G.Start(&wg)
+				G.SetState(graphStarted)
+				log.Printf("State: %v", G.State())
+
+			} else {
+				G.SetState(graphContinuing)
+				log.Printf("State: %v", G.State())
+
+				G.Continue() // sync
+				G.SetState(graphStarted)
+				log.Printf("State: %v", G.State())
+			}
+			first = false
+		}
+	}(hostname)
 
 	log.Println("Running...")
 
@@ -116,6 +147,10 @@ func run(c *cli.Context) {
 }
 
 func main() {
+	//if DEBUG {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	//}
+	log.SetFlags(log.Flags() - log.Ldate) // remove the date for now
 	app := cli.NewApp()
 	app.Name = program
 	app.Usage = "next generation config management"
@@ -133,6 +168,17 @@ func main() {
 					Name:  "file, f",
 					Value: "",
 					Usage: "graph definition to run",
+				},
+				cli.StringFlag{
+					Name:  "code, c",
+					Value: "",
+					Usage: "code definition to run",
+				},
+				// useful for testing multiple instances on same machine
+				cli.StringFlag{
+					Name:  "hostname",
+					Value: "",
+					Usage: "hostname to use",
 				},
 				cli.IntFlag{
 					Name:  "exittime",

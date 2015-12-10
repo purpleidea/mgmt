@@ -17,20 +17,36 @@
 
 package main
 
-import (
-	"code.google.com/p/go-uuid/uuid"
+//go:generate stringer -type=eventName -output=eventname_stringer.go
+type eventName int
+
+const (
+	eventExit eventName = iota
+	eventStart
+	eventPause
+	eventContinue
+	eventPoke
+	eventChanged
+	//eventPaused
+	eventStarted
 )
 
 type Event struct {
-	uuid string
-	Name string
-	Type string
+	Name eventName
+	Resp chan bool // channel to send an ack response on, nil to skip
+	//Wg   *sync.WaitGroup // receiver barrier to Wait() for everyone else on
+	Msg string // some words for fun
 }
 
-func NewEvent(name, t string) *Event {
-	return &Event{
-		uuid: uuid.New(),
-		Name: name,
-		Type: t,
+// send a single acknowledgement on the channel if one was requested
+func (event *Event) ACK() {
+	if event.Resp != nil { // if they've requested an ACK
+		event.Resp <- true // send ACK
+	}
+}
+
+func (event *Event) NACK() {
+	if event.Resp != nil { // if they've requested an ACK
+		event.Resp <- false // send NACK
 	}
 }

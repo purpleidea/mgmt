@@ -18,6 +18,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -131,5 +132,56 @@ func TestMiscT5(t *testing.T) {
 
 	if PathIsDir("/") != true {
 		t.Errorf("Result should be true.")
+	}
+}
+
+func TestMiscT6(t *testing.T) {
+
+	type foo struct {
+		Name  string `yaml:"name"`
+		Type  string `yaml:"type"`
+		Value int    `yaml:"value"`
+	}
+
+	obj := foo{"dude", "sweet", 42}
+	output, ok := ObjToB64(obj)
+	if ok != true {
+		t.Errorf("First result should be true.")
+	}
+	var data foo
+	if B64ToObj(output, &data) != true {
+		t.Errorf("Second result should be true.")
+	}
+	// TODO: there is probably a better way to compare these two...
+	if fmt.Sprintf("%+v\n", obj) != fmt.Sprintf("%+v\n", data) {
+		t.Errorf("Strings should match.")
+	}
+}
+
+func TestMiscT7(t *testing.T) {
+
+	type Foo struct {
+		Name  string `yaml:"name"`
+		Type  string `yaml:"type"`
+		Value int    `yaml:"value"`
+	}
+
+	type bar struct {
+		Foo     `yaml:",inline"` // anonymous struct must be public!
+		Comment string           `yaml:"comment"`
+	}
+
+	obj := bar{Foo{"dude", "sweet", 42}, "hello world"}
+	output, ok := ObjToB64(obj)
+	if ok != true {
+		t.Errorf("First result should be true.")
+	}
+	var data bar
+	if B64ToObj(output, &data) != true {
+		t.Errorf("Second result should be true.")
+	}
+	// TODO: there is probably a better way to compare these two...
+	if fmt.Sprintf("%+v\n", obj) != fmt.Sprintf("%+v\n", data) {
+		t.Errorf("Strings should match.")
 	}
 }

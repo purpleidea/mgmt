@@ -18,6 +18,9 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"path"
 	"strings"
 )
@@ -65,4 +68,34 @@ func PathPrefixDelta(p, prefix string) int {
 
 func PathIsDir(p string) bool {
 	return p[len(p)-1:] == "/" // a dir has a trailing slash in this context
+}
+
+// encode an object as base 64, serialize and then base64 encode
+func ObjToB64(obj interface{}) (string, bool) {
+	b := bytes.Buffer{}
+	e := gob.NewEncoder(&b)
+	err := e.Encode(obj)
+	if err != nil {
+		//log.Println("Gob failed to Encode: ", err)
+		return "", false
+	}
+	return base64.StdEncoding.EncodeToString(b.Bytes()), true
+}
+
+// TODO: is it possible to somehow generically just return the obj?
+// decode an object into the waiting obj which you pass a reference to
+func B64ToObj(str string, obj interface{}) bool {
+	bb, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		//log.Println("Base64 failed to Decode: ", err)
+		return false
+	}
+	b := bytes.NewBuffer(bb)
+	d := gob.NewDecoder(b)
+	err = d.Decode(obj)
+	if err != nil {
+		//log.Println("Gob failed to Decode: ", err)
+		return false
+	}
+	return true
 }

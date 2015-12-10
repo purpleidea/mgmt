@@ -19,69 +19,93 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	//"container/list" // doubly linked list
 	"fmt"
 	"log"
 	"sync"
-	"time"
+)
+
+//go:generate stringer -type=graphState -output=graphstate_stringer.go
+type graphState int
+
+const (
+	graphNil graphState = iota
+	graphStarting
+	graphStarted
+	graphPausing
+	graphPaused
+	graphContinuing
 )
 
 // The graph abstract data type (ADT) is defined as follows:
-// NOTE: the directed graph arrows point from left to right ( --> )
-// NOTE: the arrows point towards their dependencies (eg: arrows mean requires)
+// * the directed graph arrows point from left to right ( -> )
+// * the arrows point away from their dependencies (eg: arrows mean "before")
+// * IOW, you might see package -> file -> service (where package runs first)
+// * This is also the direction that the notify should happen in...
 type Graph struct {
-	uuid      string
 	Name      string
-	Adjacency map[*Vertex]map[*Vertex]*Edge
+	Adjacency map[*Vertex]map[*Vertex]*Edge // *Vertex -> *Vertex (edge)
+	state     graphState
+	mutex     sync.Mutex // used when modifying graph State variable
 	//Directed  bool
-	startcount int
 }
 
 type Vertex struct {
-	uuid      string
-	graph     *Graph // store a pointer to the graph it's on
-	Name      string
-	Type      string
-	Timestamp int64       // last updated timestamp ?
-	Events    chan string // FIXME: eventually a struct for the event?
-	Typedata  Type
-	data      map[string]string
+	graph *Graph            // store a pointer to the graph it's on
+	Type                    // anonymous field
+	data  map[string]string // XXX: currently unused i think, remove?
 }
 
 type Edge struct {
-	uuid string
 	Name string
 }
 
 func NewGraph(name string) *Graph {
 	return &Graph{
-		uuid:      uuid.New(),
 		Name:      name,
 		Adjacency: make(map[*Vertex]map[*Vertex]*Edge),
+		state:     graphNil,
 	}
 }
 
-func NewVertex(name, t string) *Vertex {
+func NewVertex(t Type) *Vertex {
 	return &Vertex{
-		uuid:      uuid.New(),
-		Name:      name,
-		Type:      t,
-		Timestamp: -1,
-		Events:    make(chan string, 1), // XXX: chan size?
-		data:      make(map[string]string),
+		Type: t,
+		data: make(map[string]string),
 	}
 }
 
 func NewEdge(name string) *Edge {
 	return &Edge{
-		uuid: uuid.New(),
 		Name: name,
 	}
 }
 
-// Graph() creates a new, empty graph.
-// addVertex(vert) adds an instance of Vertex to the graph.
+// set name of the graph
+func (g *Graph) SetName(name string) {
+	g.Name = name
+}
+
+func (g *Graph) State() graphState {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return g.state
+}
+
+func (g *Graph) SetState(state graphState) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.state = state
+}
+
+// store a pointer in the type to it's parent vertex
+func (g *Graph) SetVertex() {
+	for v := range g.GetVerticesChan() {
+		v.Type.SetVertex(v)
+	}
+}
+
+// add a new vertex to the graph
 func (g *Graph) AddVertex(v *Vertex) {
 	if _, exists := g.Adjacency[v]; !exists {
 		g.Adjacency[v] = make(map[*Vertex]*Edge)
@@ -91,7 +115,14 @@ func (g *Graph) AddVertex(v *Vertex) {
 	}
 }
 
-// addEdge(fromVert, toVert) Adds a new, directed edge to the graph that connects two vertices.
+func (g *Graph) DeleteVertex(v *Vertex) {
+	delete(g.Adjacency, v)
+	for k := range g.Adjacency {
+		delete(g.Adjacency[k], v)
+	}
+}
+
+// adds a directed edge to the graph from v1 to v2
 func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	// NOTE: this doesn't allow more than one edge between two vertexes...
 	// TODO: is this a problem?
@@ -100,30 +131,55 @@ func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	g.Adjacency[v1][v2] = e
 }
 
-// addEdge(fromVert, toVert, weight) Adds a new, weighted, directed edge to the graph that connects two vertices.
-// getVertex(vertKey) finds the vertex in the graph named vertKey.
-func (g *Graph) GetVertex(uuid string) chan *Vertex {
+// XXX: does it make sense to return a channel here?
+// GetVertex finds the vertex in the graph with a particular search name
+func (g *Graph) GetVertex(name string) chan *Vertex {
 	ch := make(chan *Vertex, 1)
-	go func(uuid string) {
+	go func(name string) {
 		for k := range g.Adjacency {
-			v := *k
-			if v.uuid == uuid {
+			if k.GetName() == name {
 				ch <- k
 				break
 			}
 		}
 		close(ch)
-	}(uuid)
+	}(name)
 	return ch
 }
 
+func (g *Graph) GetVertexMatch(obj Type) *Vertex {
+	for k := range g.Adjacency {
+		if k.Compare(obj) { // XXX test
+			return k
+		}
+	}
+	return nil
+}
+
+func (g *Graph) HasVertex(v *Vertex) bool {
+	if _, exists := g.Adjacency[v]; exists {
+		return true
+	}
+	//for k := range g.Adjacency {
+	//	if k == v {
+	//		return true
+	//	}
+	//}
+	return false
+}
+
+// number of vertices in the graph
 func (g *Graph) NumVertices() int {
 	return len(g.Adjacency)
 }
 
+// number of edges in the graph
 func (g *Graph) NumEdges() int {
-	// XXX: not implemented
-	return -1
+	count := 0
+	for k := range g.Adjacency {
+		count += len(g.Adjacency[k])
+	}
+	return count
 }
 
 // get an array (slice) of all vertices in the graph
@@ -138,7 +194,6 @@ func (g *Graph) GetVertices() []*Vertex {
 // returns a channel of all vertices in the graph
 func (g *Graph) GetVerticesChan() chan *Vertex {
 	ch := make(chan *Vertex)
-	// TODO: do you need to pass this through into the go routine?
 	go func(ch chan *Vertex) {
 		for k := range g.Adjacency {
 			ch <- k
@@ -153,7 +208,6 @@ func (g *Graph) String() string {
 	return fmt.Sprintf("Vertices(%d), Edges(%d)", g.NumVertices(), g.NumEdges())
 }
 
-//func (s []*Vertex) contains(element *Vertex) bool {
 // google/golang hackers apparently do not think contains should be a built-in!
 func Contains(s []*Vertex, element *Vertex) bool {
 	for _, v := range s {
@@ -164,20 +218,15 @@ func Contains(s []*Vertex, element *Vertex) bool {
 	return false
 }
 
-// return an array (slice) of all vertices that connect to vertex v
-func (g *Graph) GraphEdges(vertex *Vertex) []*Vertex {
+// return an array (slice) of all directed vertices to vertex v (??? -> v)
+// ostimestamp should use this
+func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
 	// TODO: we might be able to implement this differently by reversing
 	// the Adjacency graph and then looping through it again...
-	s := make([]*Vertex, 0)                 // stack
-	for w, _ := range g.Adjacency[vertex] { // forward paths
-		//fmt.Printf("forward: %v -> %v\n", v.Name, w.Name)
-		s = append(s, w)
-	}
-
-	for k, x := range g.Adjacency { // reverse paths
-		for w, _ := range x {
-			if w == vertex {
-				//fmt.Printf("reverse: %v -> %v\n", v.Name, k.Name)
+	s := make([]*Vertex, 0)
+	for k, _ := range g.Adjacency { // reverse paths
+		for w, _ := range g.Adjacency[k] {
+			if w == v {
 				s = append(s, k)
 			}
 		}
@@ -185,27 +234,22 @@ func (g *Graph) GraphEdges(vertex *Vertex) []*Vertex {
 	return s
 }
 
-// return an array (slice) of all directed vertices to vertex v
-func (g *Graph) DirectedGraphEdges(vertex *Vertex) []*Vertex {
-	// TODO: we might be able to implement this differently by reversing
-	// the Adjacency graph and then looping through it again...
-	s := make([]*Vertex, 0)                 // stack
-	for w, _ := range g.Adjacency[vertex] { // forward paths
-		//fmt.Printf("forward: %v -> %v\n", v.Name, w.Name)
-		s = append(s, w)
+// return an array (slice) of all vertices that vertex v points to (v -> ???)
+// poke should use this
+func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Vertex {
+	s := make([]*Vertex, 0)
+	for k, _ := range g.Adjacency[v] { // forward paths
+		s = append(s, k)
 	}
 	return s
 }
 
-// get timestamp of a vertex
-func (v *Vertex) GetTimestamp() int64 {
-	return v.Timestamp
-}
-
-// update timestamp of a vertex
-func (v *Vertex) UpdateTimestamp() int64 {
-	v.Timestamp = time.Now().UnixNano() // update
-	return v.Timestamp
+// return an array (slice) of all vertices that connect to vertex v
+func (g *Graph) GraphEdges(v *Vertex) []*Vertex {
+	s := make([]*Vertex, 0)
+	s = append(s, g.IncomingGraphEdges(v)...)
+	s = append(s, g.OutgoingGraphEdges(v)...)
+	return s
 }
 
 func (g *Graph) DFS(start *Vertex) []*Vertex {
@@ -279,10 +323,87 @@ func (g *Graph) GetDisconnectedGraphs() chan *Graph {
 			// if we've found all the elements, then we're done
 			// otherwise loop through to continue...
 		}
-
 		close(ch)
 	}()
 	return ch
+}
+
+// return the indegree for the graph
+func (g *Graph) InDegree() map[*Vertex]int {
+	result := make(map[*Vertex]int)
+	for k := range g.Adjacency {
+		result[k] = 0 // initialize
+	}
+
+	for k := range g.Adjacency {
+		for z := range g.Adjacency[k] {
+			result[z] += 1
+		}
+	}
+	return result
+}
+
+// return the outdegree for the graph
+func (g *Graph) OutDegree() map[*Vertex]int {
+	result := make(map[*Vertex]int)
+
+	for k := range g.Adjacency {
+		result[k] = 0 // initialize
+		for _ = range g.Adjacency[k] {
+			result[k] += 1
+		}
+	}
+	return result
+}
+
+// returns a topological sort for the graph
+// based on descriptions and code from wikipedia and rosetta code
+// TODO: add memoization, and cache invalidation to speed this up :)
+func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algorithm
+
+	L := make([]*Vertex, 0)            // empty list that will contain the sorted elements
+	S := make([]*Vertex, 0)            // set of all nodes with no incoming edges
+	remaining := make(map[*Vertex]int) // amount of edges remaining
+
+	for v, d := range g.InDegree() {
+		if d == 0 {
+			// accumulate set of all nodes with no incoming edges
+			S = append(S, v)
+		} else {
+			// initialize remaining edge count from indegree
+			remaining[v] = d
+		}
+	}
+
+	for len(S) > 0 {
+		last := len(S) - 1 // remove a node v from S
+		v := S[last]
+		S = S[:last]
+		L = append(L, v) // add v to tail of L
+		for n, _ := range g.Adjacency[v] {
+			// for each node n remaining in the graph, consume from
+			// remaining, so for remaining[n] > 0
+			if remaining[n] > 0 {
+				remaining[n]--         // remove edge from the graph
+				if remaining[n] == 0 { // if n has no other incoming edges
+					S = append(S, n) // insert n into S
+				}
+			}
+		}
+	}
+
+	// if graph has edges, eg if any value in rem is > 0
+	for c, in := range remaining {
+		if in > 0 {
+			for n, _ := range g.Adjacency[c] {
+				if remaining[n] > 0 {
+					return nil, false // not a dag!
+				}
+			}
+		}
+	}
+
+	return L, true
 }
 
 func (v *Vertex) Value(key string) (string, bool) {
@@ -324,91 +445,68 @@ func HeisenbergCount(ch chan *Vertex) int {
 	return c
 }
 
-func (v *Vertex) Associate(t Type) {
-	v.Typedata = t
-}
+// main kick to start the graph
+func (g *Graph) Start(wg *sync.WaitGroup) {
+	t, _ := g.TopologicalSort()
+	for _, v := range Reverse(t) {
 
-func (v *Vertex) OKTimestamp() bool {
-	g := v.GetGraph()
-	for _, n := range g.DirectedGraphEdges(v) {
-		if v.GetTimestamp() > n.GetTimestamp() {
-			return false
-		}
+		wg.Add(1)
+		// must pass in value to avoid races...
+		// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
+		go func(vv *Vertex) {
+			defer wg.Done()
+			vv.Type.Watch()
+			log.Printf("Finish: %v", vv.GetName())
+		}(v)
+
+		// ensure state is started before continuing on to next vertex
+		v.Type.SendEvent(eventStart, true)
+
 	}
-
-	return true
 }
 
-// poke the XXX children?
-func (v *Vertex) Poke() {
-	g := v.GetGraph()
+func (g *Graph) Continue() {
+	t, _ := g.TopologicalSort()
+	for _, v := range Reverse(t) {
+		v.Type.SendEvent(eventContinue, true)
+	}
+}
 
-	for _, n := range g.DirectedGraphEdges(v) { // XXX: do we want the reverse order?
-		// poke!
-		n.Events <- fmt.Sprintf("poke(%v)", v.Name)
+func (g *Graph) Pause() {
+	t, _ := g.TopologicalSort()
+	for _, v := range t { // squeeze out the events...
+		v.Type.SendEvent(eventPause, true)
 	}
 }
 
 func (g *Graph) Exit() {
-	// tell all the vertices to exit...
-	for v := range g.GetVerticesChan() {
-		v.Exit()
+	t, _ := g.TopologicalSort()
+	for _, v := range t { // squeeze out the events...
+		// turn off the taps...
+		// XXX: do this by sending an exit signal, and then returning
+		// when we hit the 'default' in the select statement!
+		// XXX: we can do this to quiesce, but it's not necessary now
+
+		v.Type.SendEvent(eventExit, true)
 	}
 }
 
-func (v *Vertex) Exit() {
-	v.Events <- "exit"
-}
-
-// main loop for each vertex
-// warning: this logic might be subtle and tricky.
-// be careful as it might not even be correct now!
-func (v *Vertex) Start() {
-	log.Printf("Main->Vertex[%v]->Start()\n", v.Name)
-
-	//g := v.GetGraph()
-	var t = v.Typedata
-
-	// this whole wg2 wait group is only necessary if we need to wait for
-	// the go routine to exit...
-	var wg2 sync.WaitGroup
-
-	wg2.Add(1)
-	go func(v *Vertex, t Type) {
-		defer wg2.Done()
-		//fmt.Printf("About to watch [%v].\n", v.Name)
-		t.Watch(v)
-	}(v, t)
-
-	var ok bool
-	//XXX make sure dependencies run and become more current first...
-	for {
-		select {
-		case event := <-v.Events:
-
-			log.Printf("Event[%v]: %v\n", v.Name, event)
-
-			if event == "exit" {
-				t.Exit()   // type exit
-				wg2.Wait() // wait for worker to exit
-				return
-			}
-
-			ok = true
-			if v.OKTimestamp() {
-				if !t.StateOK() { // TODO: can we rename this to something better?
-					// throw an error if apply fails...
-					// if this fails, don't UpdateTimestamp()
-					if !t.Apply() { // check for error
-						ok = false
-					}
-				}
-
-				if ok {
-					v.UpdateTimestamp() // this was touched...
-					v.Poke()            // XXX
-				}
-			}
+// in array function to test *vertices in a slice of *vertices
+func HasVertex(v *Vertex, haystack []*Vertex) bool {
+	for _, r := range haystack {
+		if v == r {
+			return true
 		}
 	}
+	return false
+}
+
+// reverse a list of vertices
+func Reverse(vs []*Vertex) []*Vertex {
+	out := make([]*Vertex, 0) // empty list
+	l := len(vs)
+	for i := range vs {
+		out = append(out, vs[l-i-1])
+	}
+	return out
 }

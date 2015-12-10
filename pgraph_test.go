@@ -20,6 +20,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -31,25 +32,33 @@ func TestPgraphT1(t *testing.T) {
 		t.Errorf("Should have 0 vertices instead of: %d.", i)
 	}
 
-	v1 := NewVertex("v1", "type")
-	v2 := NewVertex("v2", "type")
+	if i := G.NumEdges(); i != 0 {
+		t.Errorf("Should have 0 edges instead of: %d.", i)
+	}
+
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
 	e1 := NewEdge("e1")
 	G.AddEdge(v1, v2, e1)
 
 	if i := G.NumVertices(); i != 2 {
 		t.Errorf("Should have 2 vertices instead of: %d.", i)
 	}
+
+	if i := G.NumEdges(); i != 1 {
+		t.Errorf("Should have 1 edges instead of: %d.", i)
+	}
 }
 
 func TestPgraphT2(t *testing.T) {
 
 	G := NewGraph("g2")
-	v1 := NewVertex("v1", "type")
-	v2 := NewVertex("v2", "type")
-	v3 := NewVertex("v3", "type")
-	v4 := NewVertex("v4", "type")
-	v5 := NewVertex("v5", "type")
-	v6 := NewVertex("v6", "type")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -71,12 +80,12 @@ func TestPgraphT2(t *testing.T) {
 func TestPgraphT3(t *testing.T) {
 
 	G := NewGraph("g3")
-	v1 := NewVertex("v1", "type")
-	v2 := NewVertex("v2", "type")
-	v3 := NewVertex("v3", "type")
-	v4 := NewVertex("v4", "type")
-	v5 := NewVertex("v5", "type")
-	v6 := NewVertex("v6", "type")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -95,7 +104,7 @@ func TestPgraphT3(t *testing.T) {
 		t.Errorf("Should have 3 vertices instead of: %d.", i)
 		t.Errorf("Found: %v", out1)
 		for _, v := range out1 {
-			t.Errorf("Value: %v", v.Name)
+			t.Errorf("Value: %v", v.GetName())
 		}
 	}
 
@@ -104,7 +113,7 @@ func TestPgraphT3(t *testing.T) {
 		t.Errorf("Should have 3 vertices instead of: %d.", i)
 		t.Errorf("Found: %v", out1)
 		for _, v := range out1 {
-			t.Errorf("Value: %v", v.Name)
+			t.Errorf("Value: %v", v.GetName())
 		}
 	}
 }
@@ -112,9 +121,9 @@ func TestPgraphT3(t *testing.T) {
 func TestPgraphT4(t *testing.T) {
 
 	G := NewGraph("g4")
-	v1 := NewVertex("v1", "type")
-	v2 := NewVertex("v2", "type")
-	v3 := NewVertex("v3", "type")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -127,19 +136,19 @@ func TestPgraphT4(t *testing.T) {
 		t.Errorf("Should have 3 vertices instead of: %d.", i)
 		t.Errorf("Found: %v", out)
 		for _, v := range out {
-			t.Errorf("Value: %v", v.Name)
+			t.Errorf("Value: %v", v.GetName())
 		}
 	}
 }
 
 func TestPgraphT5(t *testing.T) {
 	G := NewGraph("g5")
-	v1 := NewVertex("v1", "type")
-	v2 := NewVertex("v2", "type")
-	v3 := NewVertex("v3", "type")
-	v4 := NewVertex("v4", "type")
-	v5 := NewVertex("v5", "type")
-	v6 := NewVertex("v6", "type")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -159,17 +168,16 @@ func TestPgraphT5(t *testing.T) {
 	if i := out.NumVertices(); i != 3 {
 		t.Errorf("Should have 3 vertices instead of: %d.", i)
 	}
-
 }
 
 func TestPgraphT6(t *testing.T) {
 	G := NewGraph("g6")
-	v1 := NewVertex("v1", "type")
-	v2 := NewVertex("v2", "type")
-	v3 := NewVertex("v3", "type")
-	v4 := NewVertex("v4", "type")
-	v5 := NewVertex("v5", "type")
-	v6 := NewVertex("v6", "type")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -196,6 +204,205 @@ func TestPgraphT6(t *testing.T) {
 
 	if i := HeisenbergGraphCount(graphs); i != 2 {
 		t.Errorf("Should have 2 graphs instead of: %d.", i)
+	}
+}
+
+func TestPgraphT7(t *testing.T) {
+
+	G := NewGraph("g7")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+	e3 := NewEdge("e3")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v2, v3, e2)
+	G.AddEdge(v3, v1, e3)
+
+	if i := G.NumVertices(); i != 3 {
+		t.Errorf("Should have 3 vertices instead of: %d.", i)
+	}
+
+	G.DeleteVertex(v2)
+
+	if i := G.NumVertices(); i != 2 {
+		t.Errorf("Should have 2 vertices instead of: %d.", i)
+	}
+
+	G.DeleteVertex(v1)
+
+	if i := G.NumVertices(); i != 1 {
+		t.Errorf("Should have 1 vertices instead of: %d.", i)
+	}
+
+	G.DeleteVertex(v3)
+
+	if i := G.NumVertices(); i != 0 {
+		t.Errorf("Should have 0 vertices instead of: %d.", i)
+	}
+
+	G.DeleteVertex(v2) // duplicate deletes don't error...
+
+	if i := G.NumVertices(); i != 0 {
+		t.Errorf("Should have 0 vertices instead of: %d.", i)
+	}
+}
+
+func TestPgraphT8(t *testing.T) {
+
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	if HasVertex(v1, []*Vertex{v1, v2, v3}) != true {
+		t.Errorf("Should be true instead of false.")
+	}
+
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
+	if HasVertex(v4, []*Vertex{v5, v6}) != false {
+		t.Errorf("Should be false instead of true.")
+	}
+
+	v7 := NewVertex(NewNoopType("v7"))
+	v8 := NewVertex(NewNoopType("v8"))
+	v9 := NewVertex(NewNoopType("v9"))
+	if HasVertex(v8, []*Vertex{v7, v8, v9}) != true {
+		t.Errorf("Should be true instead of false.")
+	}
+
+	v_1 := NewVertex(NewNoopType("v1")) // same value, different objects
+	if HasVertex(v_1, []*Vertex{v1, v2, v3}) != false {
+		t.Errorf("Should be false instead of true.")
+	}
+}
+
+func TestPgraphT9(t *testing.T) {
+
+	G := NewGraph("g9")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+	e3 := NewEdge("e3")
+	e4 := NewEdge("e4")
+	e5 := NewEdge("e5")
+	e6 := NewEdge("e6")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v1, v3, e2)
+	G.AddEdge(v2, v4, e3)
+	G.AddEdge(v3, v4, e4)
+
+	G.AddEdge(v4, v5, e5)
+	G.AddEdge(v5, v6, e6)
+
+	indegree := G.InDegree() // map[*Vertex]int
+	if i := indegree[v1]; i != 0 {
+		t.Errorf("Indegree of v1 should be 0 instead of: %d.", i)
+	}
+	if i := indegree[v2]; i != 1 {
+		t.Errorf("Indegree of v2 should be 1 instead of: %d.", i)
+	}
+	if i := indegree[v3]; i != 1 {
+		t.Errorf("Indegree of v3 should be 1 instead of: %d.", i)
+	}
+	if i := indegree[v4]; i != 2 {
+		t.Errorf("Indegree of v4 should be 2 instead of: %d.", i)
+	}
+	if i := indegree[v5]; i != 1 {
+		t.Errorf("Indegree of v5 should be 1 instead of: %d.", i)
+	}
+	if i := indegree[v6]; i != 1 {
+		t.Errorf("Indegree of v6 should be 1 instead of: %d.", i)
+	}
+
+	outdegree := G.OutDegree() // map[*Vertex]int
+	if i := outdegree[v1]; i != 2 {
+		t.Errorf("Outdegree of v1 should be 2 instead of: %d.", i)
+	}
+	if i := outdegree[v2]; i != 1 {
+		t.Errorf("Outdegree of v2 should be 1 instead of: %d.", i)
+	}
+	if i := outdegree[v3]; i != 1 {
+		t.Errorf("Outdegree of v3 should be 1 instead of: %d.", i)
+	}
+	if i := outdegree[v4]; i != 1 {
+		t.Errorf("Outdegree of v4 should be 1 instead of: %d.", i)
+	}
+	if i := outdegree[v5]; i != 1 {
+		t.Errorf("Outdegree of v5 should be 1 instead of: %d.", i)
+	}
+	if i := outdegree[v6]; i != 0 {
+		t.Errorf("Outdegree of v6 should be 0 instead of: %d.", i)
+	}
+
+	s, ok := G.TopologicalSort()
+	// either possibility is a valid toposort
+	match := reflect.DeepEqual(s, []*Vertex{v1, v2, v3, v4, v5, v6}) || reflect.DeepEqual(s, []*Vertex{v1, v3, v2, v4, v5, v6})
+	if !ok || !match {
+		t.Errorf("Topological sort failed, status: %v.", ok)
+		str := "Found:"
+		for _, v := range s {
+			str += " " + v.Type.GetName()
+		}
+		t.Errorf(str)
+	}
+}
+
+func TestPgraphT10(t *testing.T) {
+
+	G := NewGraph("g10")
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+	e3 := NewEdge("e3")
+	e4 := NewEdge("e4")
+	e5 := NewEdge("e5")
+	e6 := NewEdge("e6")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v2, v3, e2)
+	G.AddEdge(v3, v4, e3)
+	G.AddEdge(v4, v5, e4)
+	G.AddEdge(v5, v6, e5)
+	G.AddEdge(v4, v2, e6) // cycle
+
+	if _, ok := G.TopologicalSort(); ok {
+		t.Errorf("Topological sort passed, but graph is cyclic.")
+	}
+}
+
+func TestPgraphT11(t *testing.T) {
+	v1 := NewVertex(NewNoopType("v1"))
+	v2 := NewVertex(NewNoopType("v2"))
+	v3 := NewVertex(NewNoopType("v3"))
+	v4 := NewVertex(NewNoopType("v4"))
+	v5 := NewVertex(NewNoopType("v5"))
+	v6 := NewVertex(NewNoopType("v6"))
+
+	if rev := Reverse([]*Vertex{}); !reflect.DeepEqual(rev, []*Vertex{}) {
+		t.Errorf("Reverse of vertex slice failed.")
+	}
+
+	if rev := Reverse([]*Vertex{v1}); !reflect.DeepEqual(rev, []*Vertex{v1}) {
+		t.Errorf("Reverse of vertex slice failed.")
+	}
+
+	if rev := Reverse([]*Vertex{v1, v2, v3, v4, v5, v6}); !reflect.DeepEqual(rev, []*Vertex{v6, v5, v4, v3, v2, v1}) {
+		t.Errorf("Reverse of vertex slice failed.")
+	}
+
+	if rev := Reverse([]*Vertex{v6, v5, v4, v3, v2, v1}); !reflect.DeepEqual(rev, []*Vertex{v1, v2, v3, v4, v5, v6}) {
+		t.Errorf("Reverse of vertex slice failed.")
 	}
 
 }

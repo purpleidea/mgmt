@@ -24,6 +24,7 @@ race:
 build: mgmt
 
 mgmt: main.go
+	go generate
 	go build -ldflags "-X main.version=$(VERSION) -X main.program=$(PROGRAM)"
 
 clean:
@@ -34,7 +35,7 @@ test:
 
 format:
 	find -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -exec gofmt -w {} \;
-	find -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml; File.open('{}', 'w').write x" \;
+	find -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
 
 docs: mgmt-documentation.pdf
 

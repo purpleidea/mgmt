@@ -18,7 +18,6 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -34,23 +33,21 @@ import (
 )
 
 type FileType struct {
-	uuid      string
-	Type      string      // always "file"
-	Name      string      // name variable
-	Events    chan string // FIXME: eventually a struct for the event?
-	Path      string      // path variable (should default to name)
-	Content   string
-	State     string // state: exists/present?, absent, (undefined?)
+	BaseType  `yaml:",inline"`
+	Path      string `yaml:"path"` // path variable (should default to name)
+	Content   string `yaml:"content"`
+	State     string `yaml:"state"` // state: exists/present?, absent, (undefined?)
 	sha256sum string
 }
 
 func NewFileType(name, path, content, state string) *FileType {
 	// FIXME if path = nil, path = name ...
 	return &FileType{
-		uuid:      uuid.New(),
-		Type:      "file",
-		Name:      name,
-		Events:    make(chan string, 1), // XXX: chan size?
+		BaseType: BaseType{
+			Name:   name,
+			events: make(chan Event),
+			vertex: nil,
+		},
 		Path:      path,
 		Content:   content,
 		State:     state,
@@ -60,12 +57,12 @@ func NewFileType(name, path, content, state string) *FileType {
 
 // File watcher for files and directories
 // Modify with caution, probably important to write some test cases first!
-func (obj FileType) Watch(v *Vertex) {
-	// obj.Path: file or directory
+// obj.Path: file or directory
+func (obj *FileType) Watch() {
 	//var recursive bool = false
 	//var isdir = (obj.Path[len(obj.Path)-1:] == "/") // dirs have trailing slashes
 	//fmt.Printf("IsDirectory: %v\n", isdir)
-
+	//vertex := obj.GetVertex()         // stored with SetVertex
 	var safename = path.Clean(obj.Path) // no trailing slash
 
 	watcher, err := fsnotify.NewWatcher()
@@ -79,7 +76,6 @@ func (obj FileType) Watch(v *Vertex) {
 	var current string               // current "watcher" location
 	var delta_depth int              // depth delta between watcher and event
 	var send = false                 // send event?
-	var extraCheck = false
 
 	for {
 		current = strings.Join(patharray[0:index], "/")
@@ -94,9 +90,9 @@ func (obj FileType) Watch(v *Vertex) {
 			if err == syscall.ENOENT {
 				index-- // usually not found, move up one dir
 			} else if err == syscall.ENOSPC {
-				// XXX: i sometimes see: no space left on device
-				// XXX: why causes this to happen ?
-				log.Printf("Strange file[%v] error: %+v\n", obj.Name, err.Error) // 0x408da0
+				// XXX: occasionally: no space left on device,
+				// XXX: probably due to lack of inotify watches
+				log.Printf("Lack of watches for file[%v] error: %+v\n", obj.Name, err.Error) // 0x408da0
 				log.Fatal(err)
 			} else {
 				log.Printf("Unknown file[%v] error:\n", obj.Name)
@@ -104,19 +100,6 @@ func (obj FileType) Watch(v *Vertex) {
 			}
 			index = int(math.Max(1, float64(index)))
 			continue
-		}
-
-		// XXX: check state after inotify started
-		// SMALL RACE: after we terminate watch, till when it's started
-		// something could have gotten created/changed/etc... right?
-		if extraCheck {
-			extraCheck = false
-			// XXX
-			//if exists ... {
-			//	send signal
-			//	continue
-			//	change index? i don't think so. be thorough and check
-			//}
 		}
 
 		select {
@@ -134,15 +117,10 @@ func (obj FileType) Watch(v *Vertex) {
 				delta_depth = len(PathSplit(event.Name)) - len(PathSplit(current)) // +1 or more
 
 			} else {
-				// XXX multiple watchers receive each others events
+				// TODO different watchers get each others events!
 				// https://github.com/go-fsnotify/fsnotify/issues/95
 				// this happened with two values such as:
 				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
-				// are the different watchers getting each others events??
-				//log.Printf("The delta depth is NaN...\n")
-				//log.Printf("Value of event.Name is: %v\n", event.Name)
-				//log.Printf("........    current is: %v\n", current)
-				//log.Fatal("The delta depth is NaN!")
 				continue
 			}
 			//log.Printf("The delta depth is: %v\n", delta_depth)
@@ -193,32 +171,24 @@ func (obj FileType) Watch(v *Vertex) {
 		case err := <-watcher.Errors:
 			log.Println("error:", err)
 			log.Fatal(err)
-			v.Events <- fmt.Sprintf("file: %v", "error")
+			//obj.events <- fmt.Sprintf("file: %v", "error") // XXX: how should we handle errors?
 
-		case exit := <-obj.Events:
-			if exit == "exit" {
-				return
-			} else {
-				log.Fatal("Unknown event: %v\n", exit)
+		case event := <-obj.events:
+			if ok := obj.ReadEvent(&event); !ok {
+				return // exit
 			}
+			send = true
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			//log.Println("Sending event!")
-			//v.Events <- fmt.Sprintf("file(%v): %v", obj.Path, event.Op)
-			v.Events <- fmt.Sprintf("file(%v): %v", obj.Path, "event!") // FIXME: use struct
+			obj.Process(obj) // XXX: rename this function
 		}
 	}
 }
 
-func (obj FileType) Exit() bool {
-	obj.Events <- "exit"
-	return true
-}
-
-func (obj FileType) HashSHA256fromContent() string {
+func (obj *FileType) HashSHA256fromContent() string {
 	if obj.sha256sum != "" { // return if already computed
 		return obj.sha256sum
 	}
@@ -229,7 +199,7 @@ func (obj FileType) HashSHA256fromContent() string {
 	return obj.sha256sum
 }
 
-func (obj FileType) StateOK() bool {
+func (obj *FileType) StateOK() bool {
 	if _, err := os.Stat(obj.Path); os.IsNotExist(err) {
 		// no such file or directory
 		if obj.State == "absent" {
@@ -249,7 +219,7 @@ func (obj FileType) StateOK() bool {
 	}
 }
 
-func (obj FileType) StateOKFile() bool {
+func (obj *FileType) StateOKFile() bool {
 	if PathIsDir(obj.Path) {
 		log.Fatal("This should only be called on a File type.")
 	}
@@ -280,7 +250,7 @@ func (obj FileType) StateOKFile() bool {
 	return false
 }
 
-func (obj FileType) StateOKDir() bool {
+func (obj *FileType) StateOKDir() bool {
 	if !PathIsDir(obj.Path) {
 		log.Fatal("This should only be called on a Dir type.")
 	}
@@ -290,8 +260,8 @@ func (obj FileType) StateOKDir() bool {
 	return false
 }
 
-func (obj FileType) Apply() bool {
-	fmt.Printf("Apply->%v[%v]\n", obj.Type, obj.Name)
+func (obj *FileType) Apply() bool {
+	fmt.Printf("Apply->File[%v]\n", obj.Name)
 
 	if PathIsDir(obj.Path) {
 		return obj.ApplyDir()
@@ -300,7 +270,7 @@ func (obj FileType) Apply() bool {
 	}
 }
 
-func (obj FileType) ApplyFile() bool {
+func (obj *FileType) ApplyFile() bool {
 
 	if PathIsDir(obj.Path) {
 		log.Fatal("This should only be called on a File type.")
@@ -332,12 +302,37 @@ func (obj FileType) ApplyFile() bool {
 	return true
 }
 
-func (obj FileType) ApplyDir() bool {
+func (obj *FileType) ApplyDir() bool {
 	if !PathIsDir(obj.Path) {
 		log.Fatal("This should only be called on a Dir type.")
 	}
 
 	// XXX: not implemented
 	log.Fatal("Not implemented!")
+	return true
+}
+
+func (obj *FileType) Compare(typ Type) bool {
+	switch typ.(type) {
+	case *FileType:
+		return obj.compare(typ.(*FileType))
+	default:
+		return false
+	}
+}
+
+func (obj *FileType) compare(typ *FileType) bool {
+	if obj.Name != typ.Name {
+		return false
+	}
+	if obj.Path != typ.Path {
+		return false
+	}
+	if obj.Content != typ.Content {
+		return false
+	}
+	if obj.State != typ.State {
+		return false
+	}
 	return true
 }

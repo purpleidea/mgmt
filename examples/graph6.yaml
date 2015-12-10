@@ -1,0 +1,6 @@
+---
+graph: mygraph
+types:
+  noop:
+  - name: noop1
+edges:

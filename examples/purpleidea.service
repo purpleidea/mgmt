@@ -1,0 +1,8 @@
+[Unit]
+Description=Fake service for testing
+
+[Service]
+ExecStart=/usr/bin/sleep 8h
+
+[Install]
+WantedBy=multi-user.target

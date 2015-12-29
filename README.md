@@ -1,6 +1,8 @@
 # *mgmt*: This is: mgmt!
 
-[![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png)](http://travis-ci.org/purpleidea/mgmt) [![Documentation](https://img.shields.io/docs/markdown.png)](DOCUMENTATION.md) [![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
+[![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png)](http://travis-ci.org/purpleidea/mgmt)
+[![Documentation](https://img.shields.io/docs/markdown.png)](DOCUMENTATION.md)
+[![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
 
 ## Documentation:
 Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md).
@@ -25,8 +27,9 @@ Please look in the [examples/](examples/) folder for usage. If none exist, pleas
   * TODO
 
 ## Dependencies:
-* golang (available in most distros)
-* pandoc (for building a pdf of the documentation)
+* golang (required, available in most distros)
+* pandoc (optional, for building a pdf of the documentation)
+* graphviz (optional, for building a visual representation of the graph)
 
 ## Patches:
 We'd love to have your patch! Please send it by email, or as a pull request.

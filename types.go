@@ -26,6 +26,7 @@ import (
 type Type interface {
 	Init()
 	GetName() string // can't be named "Name()" because of struct field
+	GetType() string
 	Watch()
 	StateOK() bool // TODO: can we rename this to something better?
 	Apply() bool
@@ -69,6 +70,10 @@ func (obj *BaseType) Init() {
 // this method gets used by all the types, if we have one of (obj NoopType) it would get overridden in that case!
 func (obj *BaseType) GetName() string {
 	return obj.Name
+}
+
+func (obj *BaseType) GetType() string {
+	return "Base"
 }
 
 func (obj *BaseType) GetVertex() *Vertex {
@@ -196,6 +201,10 @@ func (obj *BaseType) Process(typ Type) {
 		}
 	}
 
+}
+
+func (obj *NoopType) GetType() string {
+	return "Noop"
 }
 
 func (obj *NoopType) Watch() {

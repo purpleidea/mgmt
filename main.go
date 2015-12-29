@@ -102,6 +102,12 @@ func run(c *cli.Context) {
 				log.Fatal("Graph failure")
 			}
 			log.Printf("Graph: %v\n", G) // show graph
+			err := G.ExecGraphviz(c.String("graphviz-filter"), c.String("graphviz"))
+			if err != nil {
+				log.Printf("Graphviz: %v", err)
+			} else {
+				log.Printf("Graphviz: Successfully generated graph!")
+			}
 			G.SetVertex()
 			if first {
 				// G.Start(...) needs to be synchronous or wait,
@@ -173,6 +179,16 @@ func main() {
 					Name:  "code, c",
 					Value: "",
 					Usage: "code definition to run",
+				},
+				cli.StringFlag{
+					Name:  "graphviz, g",
+					Value: "",
+					Usage: "output file for graphviz data",
+				},
+				cli.StringFlag{
+					Name:  "graphviz-filter, gf",
+					Value: "dot", // directed graph default
+					Usage: "graphviz filter to use",
 				},
 				// useful for testing multiple instances on same machine
 				cli.StringFlag{

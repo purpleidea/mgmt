@@ -19,10 +19,15 @@
 package main
 
 import (
-	//"container/list" // doubly linked list
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
+	"os/exec"
+	"strconv"
 	"sync"
+	"syscall"
 )
 
 //go:generate stringer -type=graphState -output=graphstate_stringer.go
@@ -79,6 +84,11 @@ func NewEdge(name string) *Edge {
 	return &Edge{
 		Name: name,
 	}
+}
+
+// returns the name of the graph
+func (g *Graph) GetName() string {
+	return g.Name
 }
 
 // set name of the graph
@@ -206,6 +216,88 @@ func (g *Graph) GetVerticesChan() chan *Vertex {
 // make the graph pretty print
 func (g *Graph) String() string {
 	return fmt.Sprintf("Vertices(%d), Edges(%d)", g.NumVertices(), g.NumEdges())
+}
+
+// output the graph in graphviz format
+// https://en.wikipedia.org/wiki/DOT_%28graph_description_language%29
+func (g *Graph) Graphviz() (out string) {
+	//digraph g {
+	//	label="hello world";
+	//	node [shape=box];
+	//	A [label="A"];
+	//	B [label="B"];
+	//	C [label="C"];
+	//	D [label="D"];
+	//	E [label="E"];
+	//	A -> B [label=f];
+	//	B -> C [label=g];
+	//	D -> E [label=h];
+	//}
+	out += fmt.Sprintf("digraph %v {\n", g.GetName())
+	out += fmt.Sprintf("\tlabel=\"%v\";\n", g.GetName())
+	//out += "\tnode [shape=box];\n"
+	str := ""
+	for i, _ := range g.Adjacency { // reverse paths
+		out += fmt.Sprintf("\t%v [label=\"%v[%v]\"];\n", i.GetName(), i.GetType(), i.GetName())
+		for j, _ := range g.Adjacency[i] {
+			k := g.Adjacency[i][j]
+			// use str for clearer output ordering
+			str += fmt.Sprintf("\t%v -> %v [label=%v];\n", i.GetName(), j.GetName(), k.Name)
+		}
+	}
+	out += str
+	out += "}\n"
+	return
+}
+
+// write out the graphviz data and run the correct graphviz filter command
+func (g *Graph) ExecGraphviz(program, filename string) error {
+
+	switch program {
+	case "dot", "neato", "twopi", "circo", "fdp":
+	default:
+		return errors.New("Invalid graphviz program selected!")
+	}
+
+	if filename == "" {
+		return errors.New("No filename given!")
+	}
+
+	// run as a normal user if possible when run with sudo
+	uid, err1 := strconv.Atoi(os.Getenv("SUDO_UID"))
+	gid, err2 := strconv.Atoi(os.Getenv("SUDO_GID"))
+
+	err := ioutil.WriteFile(filename, []byte(g.Graphviz()), 0644)
+	if err != nil {
+		return errors.New("Error writing to filename!")
+	}
+
+	if err1 == nil && err2 == nil {
+		if err := os.Chown(filename, uid, gid); err != nil {
+			return errors.New("Error changing file owner!")
+		}
+	}
+
+	path, err := exec.LookPath(program)
+	if err != nil {
+		return errors.New("Graphviz is missing!")
+	}
+
+	out := fmt.Sprintf("%v.png", filename)
+	cmd := exec.Command(path, "-Tpng", fmt.Sprintf("-o%v", out), filename)
+
+	if err1 == nil && err2 == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		cmd.SysProcAttr.Credential = &syscall.Credential{
+			Uid: uint32(uid),
+			Gid: uint32(gid),
+		}
+	}
+	_, err = cmd.Output()
+	if err != nil {
+		return errors.New("Error writing to image!")
+	}
+	return nil
 }
 
 // google/golang hackers apparently do not think contains should be a built-in!

@@ -55,6 +55,10 @@ func NewFileType(name, path, content, state string) *FileType {
 	}
 }
 
+func (obj *FileType) GetType() string {
+	return "File"
+}
+
 // File watcher for files and directories
 // Modify with caution, probably important to write some test cases first!
 // obj.Path: file or directory

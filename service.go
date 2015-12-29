@@ -45,6 +45,10 @@ func NewServiceType(name, state, startup string) *ServiceType {
 	}
 }
 
+func (obj *ServiceType) GetType() string {
+	return "Service"
+}
+
 // Service watcher
 func (obj *ServiceType) Watch() {
 	// obj.Name: service name

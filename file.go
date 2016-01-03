@@ -35,12 +35,14 @@ import (
 type FileType struct {
 	BaseType  `yaml:",inline"`
 	Path      string `yaml:"path"` // path variable (should default to name)
+	Dirname   string `yaml:"dirname"`
+	Basename  string `yaml:"basename"`
 	Content   string `yaml:"content"`
 	State     string `yaml:"state"` // state: exists/present?, absent, (undefined?)
 	sha256sum string
 }
 
-func NewFileType(name, path, content, state string) *FileType {
+func NewFileType(name, path, dirname, basename, content, state string) *FileType {
 	// FIXME if path = nil, path = name ...
 	return &FileType{
 		BaseType: BaseType{
@@ -49,6 +51,8 @@ func NewFileType(name, path, content, state string) *FileType {
 			vertex: nil,
 		},
 		Path:      path,
+		Dirname:   dirname,
+		Basename:  basename,
 		Content:   content,
 		State:     state,
 		sha256sum: "",
@@ -59,15 +63,52 @@ func (obj *FileType) GetType() string {
 	return "File"
 }
 
+// validate if the params passed in are valid data
+func (obj *FileType) Validate() bool {
+	if obj.Dirname != "" {
+		// must end with /
+		if obj.Dirname[len(obj.Dirname)-1:] != "/" {
+			return false
+		}
+	}
+	if obj.Basename != "" {
+		// must not start with /
+		if obj.Basename[0:1] == "/" {
+			return false
+		}
+	}
+	return true
+}
+
+func (obj *FileType) GetPath() string {
+	d := Dirname(obj.Path)
+	b := Basename(obj.Path)
+	if !obj.Validate() || (obj.Dirname == "" && obj.Basename == "") {
+		return obj.Path
+	} else if obj.Dirname == "" {
+		return d + obj.Basename
+	} else if obj.Basename == "" {
+		return obj.Dirname + b
+	} else { // if obj.dirname != "" && obj.basename != "" {
+		return obj.Dirname + obj.Basename
+	}
+}
+
 // File watcher for files and directories
 // Modify with caution, probably important to write some test cases first!
-// obj.Path: file or directory
+// obj.GetPath(): file or directory
 func (obj *FileType) Watch() {
+	if obj.IsWatching() {
+		return
+	}
+	obj.SetWatching(true)
+	defer obj.SetWatching(false)
+
 	//var recursive bool = false
-	//var isdir = (obj.Path[len(obj.Path)-1:] == "/") // dirs have trailing slashes
+	//var isdir = (obj.GetPath()[len(obj.GetPath())-1:] == "/") // dirs have trailing slashes
 	//fmt.Printf("IsDirectory: %v\n", isdir)
 	//vertex := obj.GetVertex()         // stored with SetVertex
-	var safename = path.Clean(obj.Path) // no trailing slash
+	var safename = path.Clean(obj.GetPath()) // no trailing slash
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -204,7 +245,7 @@ func (obj *FileType) HashSHA256fromContent() string {
 }
 
 func (obj *FileType) StateOK() bool {
-	if _, err := os.Stat(obj.Path); os.IsNotExist(err) {
+	if _, err := os.Stat(obj.GetPath()); os.IsNotExist(err) {
 		// no such file or directory
 		if obj.State == "absent" {
 			return true // missing file should be missing, phew :)
@@ -216,7 +257,7 @@ func (obj *FileType) StateOK() bool {
 
 	// TODO: add file mode check here...
 
-	if PathIsDir(obj.Path) {
+	if PathIsDir(obj.GetPath()) {
 		return obj.StateOKDir()
 	} else {
 		return obj.StateOKFile()
@@ -224,7 +265,7 @@ func (obj *FileType) StateOK() bool {
 }
 
 func (obj *FileType) StateOKFile() bool {
-	if PathIsDir(obj.Path) {
+	if PathIsDir(obj.GetPath()) {
 		log.Fatal("This should only be called on a File type.")
 	}
 
@@ -232,7 +273,7 @@ func (obj *FileType) StateOKFile() bool {
 
 	hash := sha256.New()
 
-	f, err := os.Open(obj.Path)
+	f, err := os.Open(obj.GetPath())
 	if err != nil {
 		//log.Fatal(err)
 		return false
@@ -255,7 +296,7 @@ func (obj *FileType) StateOKFile() bool {
 }
 
 func (obj *FileType) StateOKDir() bool {
-	if !PathIsDir(obj.Path) {
+	if !PathIsDir(obj.GetPath()) {
 		log.Fatal("This should only be called on a Dir type.")
 	}
 
@@ -267,7 +308,7 @@ func (obj *FileType) StateOKDir() bool {
 func (obj *FileType) Apply() bool {
 	fmt.Printf("Apply->File[%v]\n", obj.Name)
 
-	if PathIsDir(obj.Path) {
+	if PathIsDir(obj.GetPath()) {
 		return obj.ApplyDir()
 	} else {
 		return obj.ApplyFile()
@@ -276,13 +317,13 @@ func (obj *FileType) Apply() bool {
 
 func (obj *FileType) ApplyFile() bool {
 
-	if PathIsDir(obj.Path) {
+	if PathIsDir(obj.GetPath()) {
 		log.Fatal("This should only be called on a File type.")
 	}
 
 	if obj.State == "absent" {
-		log.Printf("About to remove: %v\n", obj.Path)
-		err := os.Remove(obj.Path)
+		log.Printf("About to remove: %v\n", obj.GetPath())
+		err := os.Remove(obj.GetPath())
 		if err != nil {
 			return false
 		}
@@ -290,7 +331,7 @@ func (obj *FileType) ApplyFile() bool {
 	}
 
 	//fmt.Println("writing: " + filename)
-	f, err := os.Create(obj.Path)
+	f, err := os.Create(obj.GetPath())
 	if err != nil {
 		log.Println("error:", err)
 		return false
@@ -307,7 +348,7 @@ func (obj *FileType) ApplyFile() bool {
 }
 
 func (obj *FileType) ApplyDir() bool {
-	if !PathIsDir(obj.Path) {
+	if !PathIsDir(obj.GetPath()) {
 		log.Fatal("This should only be called on a Dir type.")
 	}
 
@@ -329,7 +370,7 @@ func (obj *FileType) compare(typ *FileType) bool {
 	if obj.Name != typ.Name {
 		return false
 	}
-	if obj.Path != typ.Path {
+	if obj.GetPath() != typ.Path {
 		return false
 	}
 	if obj.Content != typ.Content {

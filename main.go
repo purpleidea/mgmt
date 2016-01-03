@@ -74,21 +74,61 @@ func run(c *cli.Context) {
 		}()
 	}
 
+	// initial etcd peer endpoint
+	seed := c.String("seed")
+	if seed == "" {
+		// XXX: start up etcd server, others will join me!
+		seed = "http://127.0.0.1:2379" // thus we use the local server!
+	}
+	// then, connect to `seed` as a client
+
+	// FIXME: validate seed, or wait for it to fail in etcd init?
+
 	// etcd
 	hostname := c.String("hostname")
 	if hostname == "" {
 		hostname, _ = os.Hostname() // etcd watch key // XXX: this is not the correct key name this is the set key name... WOOPS
 	}
-	go func(hostname string) {
+	go func() {
+		startchan := make(chan struct{}) // start signal
+		go func() { startchan <- struct{}{} }()
+		file := c.String("file")
+		configchan := ConfigWatch(file)
 		log.Printf("Starting etcd...\n")
-		kapi := EtcdGetKAPI()
+		kapi := EtcdGetKAPI(seed)
+		etcdchan := EtcdWatch(kapi)
 		first := true // first loop or not
-		for x := range EtcdWatch(kapi, true) {
+		for {
+			select {
+			case _ = <-startchan: // kick the loop once at start
+				// pass
+			case msg := <-etcdchan:
+				switch msg {
+				// some types of messages we ignore...
+				case etcdFoo, etcdBar:
+					continue
+				// while others passthrough and cause a compile!
+				case etcdStart, etcdEvent:
+					// pass
+				default:
+					log.Fatal("Etcd: Unhandled message: %v", msg)
+				}
+			case msg := <-configchan:
+				if c.Bool("no-watch") || !msg {
+					continue // not ready to read config
+				}
+
+				//case compile_event: XXX
+			}
+
+			config := ParseConfigFromFile(file)
+			if config == nil {
+				log.Printf("Config parse failure")
+				continue
+			}
 
 			// run graph vertex LOCK...
-			if !first {
-				log.Printf("Watcher().Node.Value(%v): %+v", hostname, x)
-
+			if !first { // XXX: we can flatten this check out I think
 				G.SetState(graphPausing)
 				log.Printf("State: %v", G.State())
 				G.Pause() // sync
@@ -97,10 +137,8 @@ func run(c *cli.Context) {
 			}
 
 			// build the graph from a config file
-			// build the graph on events (eg: from etcd) but kick it once...
-			if !UpdateGraphFromConfig(c.String("file"), hostname, G, kapi) {
-				log.Fatal("Graph failure")
-			}
+			// build the graph on events (eg: from etcd)
+			UpdateGraphFromConfig(config, hostname, G, kapi)
 			log.Printf("Graph: %v\n", G) // show graph
 			err := G.ExecGraphviz(c.String("graphviz-filter"), c.String("graphviz"))
 			if err != nil {
@@ -109,29 +147,20 @@ func run(c *cli.Context) {
 				log.Printf("Graphviz: Successfully generated graph!")
 			}
 			G.SetVertex()
-			if first {
-				// G.Start(...) needs to be synchronous or wait,
-				// because if half of the nodes are started and
-				// some are not ready yet and the EtcdWatch
-				// loops, we'll cause G.Pause(...) before we
-				// even got going, thus causing nil pointer errors
-				G.SetState(graphStarting)
-				log.Printf("State: %v", G.State())
-				G.Start(&wg)
-				G.SetState(graphStarted)
-				log.Printf("State: %v", G.State())
+			// G.Start(...) needs to be synchronous or wait,
+			// because if half of the nodes are started and
+			// some are not ready yet and the EtcdWatch
+			// loops, we'll cause G.Pause(...) before we
+			// even got going, thus causing nil pointer errors
+			G.SetState(graphStarting)
+			log.Printf("State: %v", G.State())
+			G.Start(&wg) // sync
+			G.SetState(graphStarted)
+			log.Printf("State: %v", G.State())
 
-			} else {
-				G.SetState(graphContinuing)
-				log.Printf("State: %v", G.State())
-
-				G.Continue() // sync
-				G.SetState(graphStarted)
-				log.Printf("State: %v", G.State())
-			}
 			first = false
 		}
-	}(hostname)
+	}()
 
 	log.Println("Running...")
 
@@ -175,6 +204,10 @@ func main() {
 					Value: "",
 					Usage: "graph definition to run",
 				},
+				cli.BoolFlag{
+					Name:  "no-watch",
+					Usage: "do not update graph on watched graph definition file changes",
+				},
 				cli.StringFlag{
 					Name:  "code, c",
 					Value: "",
@@ -195,6 +228,12 @@ func main() {
 					Name:  "hostname",
 					Value: "",
 					Usage: "hostname to use",
+				},
+				// if empty, it will startup a new server
+				cli.StringFlag{
+					Name:  "seed, s",
+					Value: "",
+					Usage: "default etc peer endpoint",
 				},
 				cli.IntFlag{
 					Name:  "exittime",

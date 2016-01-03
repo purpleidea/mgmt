@@ -27,10 +27,19 @@ import (
 	"time"
 )
 
-func EtcdGetKAPI() etcd.KeysAPI {
+//go:generate stringer -type=etcdMsg -output=etcdmsg_stringer.go
+type etcdMsg int
 
+const (
+	etcdStart etcdMsg = iota
+	etcdEvent
+	etcdFoo
+	etcdBar
+)
+
+func EtcdGetKAPI(seed string) etcd.KeysAPI {
 	cfg := etcd.Config{
-		Endpoints: []string{"http://127.0.0.1:2379"},
+		Endpoints: []string{seed},
 		Transport: etcd.DefaultTransport,
 		// set timeout per request to fail fast when the target endpoint is unavailable
 		HeaderTimeoutPerRequest: time.Second,
@@ -56,24 +65,21 @@ func EtcdGetKAPI() etcd.KeysAPI {
 	return etcd.NewKeysAPI(c)
 }
 
-func EtcdWatch(kapi etcd.KeysAPI, kick bool) chan string {
+func EtcdWatch(kapi etcd.KeysAPI) chan etcdMsg {
 	// XXX: i think we need this buffered so that when we're hanging on the
 	// channel, which is inside the EtcdWatch main loop, we still want the
 	// calls to Get/Set on etcd to succeed, so blocking them here would
 	// kill the whole thing
-	ch := make(chan string, 1) // XXX: buffer of at least 1 is required
-	if kick {
-		ch <- "hello"
-	}
-	go func(ch chan string) {
+	ch := make(chan etcdMsg, 1) // XXX: buffer of at least 1 is required
+	go func(ch chan etcdMsg) {
 		tmin := 500   // initial (min) delay in ms
 		t := tmin     // current time
 		tmult := 2    // multiplier for exponential delay
 		tmax := 16000 // max delay
 		watcher := kapi.Watcher("/exported/", &etcd.WatcherOptions{Recursive: true})
 		for {
-			log.Printf("Watching etcd...")
-			resp, err := watcher.Next(etcd_context.Background())
+			log.Printf("Etcd: Watching...")
+			resp, err := watcher.Next(etcd_context.Background()) // blocks here
 			if err != nil {
 				if err == etcd_context.Canceled {
 					// ctx is canceled by another routine
@@ -87,8 +93,18 @@ func EtcdWatch(kapi etcd.KeysAPI, kick bool) chan string {
 					for _, e := range cerr.Errors {
 						if strings.HasSuffix(e.Error(), "getsockopt: connection refused") {
 							t = int(math.Min(float64(t*tmult), float64(tmax)))
-							log.Printf("Waiting %d ms for etcd...", t)
+							log.Printf("Etcd: Waiting %d ms for connection...", t)
 							time.Sleep(time.Duration(t) * time.Millisecond) // sleep for t ms
+
+						} else if e.Error() == "unexpected EOF" {
+							log.Printf("Etcd: Disconnected...")
+
+						} else if strings.HasPrefix(e.Error(), "unsupported protocol scheme") {
+							// usually a bad peer endpoint value
+							log.Fatal("Bad peer endpoint value?")
+
+						} else {
+							log.Fatal("Woops: ", e.Error())
 						}
 					}
 				} else {
@@ -114,7 +130,8 @@ func EtcdWatch(kapi etcd.KeysAPI, kick bool) chan string {
 				// IOW, ignore everything except for the value or some
 				// field which gets set last... this could be the max count field thing...
 
-				ch <- resp.Node.Value // event
+				log.Printf("Etcd: Value: %v", resp.Node.Value) // event
+				ch <- etcdEvent                                // event
 			}
 
 		} // end for loop
@@ -127,7 +144,7 @@ func EtcdWatch(kapi etcd.KeysAPI, kick bool) chan string {
 func EtcdPut(kapi etcd.KeysAPI, hostname, key, typ string, obj interface{}) bool {
 	output, ok := ObjToB64(obj)
 	if !ok {
-		log.Printf("Could not encode %v for etcd.", key)
+		log.Printf("Etcd: Could not encode %v key.", key)
 		return false
 	}
 
@@ -146,7 +163,7 @@ func EtcdPut(kapi etcd.KeysAPI, hostname, key, typ string, obj interface{}) bool
 				//if e == etcd.ErrClusterUnavailable
 			}
 		}
-		log.Printf("Could not store %v in etcd.", key)
+		log.Printf("Etcd: Could not store %v key.", key)
 		return false
 	}
 	log.Print("Etcd: ", resp) // w00t... bonus
@@ -155,7 +172,6 @@ func EtcdPut(kapi etcd.KeysAPI, hostname, key, typ string, obj interface{}) bool
 
 // lookup /exported/ node hierarchy
 func EtcdGet(kapi etcd.KeysAPI) (etcd.Nodes, bool) {
-
 	// key structure is /exported/<hostname>/types/...
 	resp, err := kapi.Get(etcd_context.Background(), "/exported/", &etcd.GetOptions{Recursive: true})
 	if err != nil {
@@ -165,7 +181,6 @@ func EtcdGet(kapi etcd.KeysAPI) (etcd.Nodes, bool) {
 }
 
 func EtcdGetProcess(nodes etcd.Nodes, typ string) []string {
-
 	//path := fmt.Sprintf("/exported/%s/types/", h)
 	top := "/exported/"
 	log.Printf("Etcd: Get: %+v", nodes) // Get().Nodes.Nodes

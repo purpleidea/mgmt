@@ -39,7 +39,6 @@ const (
 	graphStarted
 	graphPausing
 	graphPaused
-	graphContinuing
 )
 
 // The graph abstract data type (ADT) is defined as follows:
@@ -538,29 +537,24 @@ func HeisenbergCount(ch chan *Vertex) int {
 }
 
 // main kick to start the graph
-func (g *Graph) Start(wg *sync.WaitGroup) {
+func (g *Graph) Start(wg *sync.WaitGroup) { // start or continue
 	t, _ := g.TopologicalSort()
 	for _, v := range Reverse(t) {
 
-		wg.Add(1)
-		// must pass in value to avoid races...
-		// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
-		go func(vv *Vertex) {
-			defer wg.Done()
-			vv.Type.Watch()
-			log.Printf("Finish: %v", vv.GetName())
-		}(v)
+		if !v.Type.IsWatching() { // if Watch() is not running...
+			wg.Add(1)
+			// must pass in value to avoid races...
+			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
+			go func(vv *Vertex) {
+				defer wg.Done()
+				vv.Type.Watch()
+				log.Printf("Finish: %v", vv.GetName())
+			}(v)
+		}
 
 		// ensure state is started before continuing on to next vertex
 		v.Type.SendEvent(eventStart, true)
 
-	}
-}
-
-func (g *Graph) Continue() {
-	t, _ := g.TopologicalSort()
-	for _, v := range Reverse(t) {
-		v.Type.SendEvent(eventContinue, true)
 	}
 }
 

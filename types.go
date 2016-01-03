@@ -33,6 +33,8 @@ type Type interface {
 	SetVertex(*Vertex)
 	Compare(Type) bool
 	SendEvent(eventName, bool)
+	IsWatching() bool
+	SetWatching(bool)
 	GetTimestamp() int64
 	UpdateTimestamp() int64
 	//Process()
@@ -43,6 +45,7 @@ type BaseType struct {
 	timestamp int64  // last updated timestamp ?
 	events    chan Event
 	vertex    *Vertex
+	watching  bool // is Watch() loop running ?
 }
 
 type NoopType struct {
@@ -82,6 +85,16 @@ func (obj *BaseType) GetVertex() *Vertex {
 
 func (obj *BaseType) SetVertex(v *Vertex) {
 	obj.vertex = v
+}
+
+// is the Watch() function running?
+func (obj *BaseType) IsWatching() bool {
+	return obj.watching
+}
+
+// store status of if the Watch() function is running
+func (obj *BaseType) SetWatching(b bool) {
+	obj.watching = b
 }
 
 // get timestamp of a vertex
@@ -160,7 +173,7 @@ func (obj *BaseType) ReadEvent(event *Event) bool {
 			e.ACK()
 			if e.Name == eventExit {
 				return false
-			} else if e.Name == eventContinue {
+			} else if e.Name == eventStart { // eventContinue
 				return true
 			} else {
 				log.Fatal("Unknown event: ", e)
@@ -208,6 +221,12 @@ func (obj *NoopType) GetType() string {
 }
 
 func (obj *NoopType) Watch() {
+	if obj.IsWatching() {
+		return
+	}
+	obj.SetWatching(true)
+	defer obj.SetWatching(false)
+
 	//vertex := obj.vertex // stored with SetVertex
 	var send = false // send event?
 	for {

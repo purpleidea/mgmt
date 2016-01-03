@@ -3,7 +3,7 @@ graph: mygraph
 types:
   file:
   - name: file1
-    path: /tmp/mgmt/f1
+    path: "/tmp/mgmt/f1"
     content: |
       i am f1
     state: exists

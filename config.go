@@ -66,7 +66,23 @@ func (c *graphConfig) Parse(data []byte) error {
 	return nil
 }
 
-func UpdateGraphFromConfig(filename, hostname string, g *Graph, kapi etcd.KeysAPI) bool {
+func ParseConfigFromFile(filename string) *graphConfig {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Printf("Error: Config: ParseConfigFromFile: File: %v", err)
+		return nil
+	}
+
+	var config graphConfig
+	if err := config.Parse(data); err != nil {
+		log.Printf("Error: Config: ParseConfigFromFile: Parse: %v", err)
+		return nil
+	}
+
+	return &config
+}
+
+func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, kapi etcd.KeysAPI) {
 
 	var NoopMap map[string]*Vertex = make(map[string]*Vertex)
 	var FileMap map[string]*Vertex = make(map[string]*Vertex)
@@ -77,17 +93,6 @@ func UpdateGraphFromConfig(filename, hostname string, g *Graph, kapi etcd.KeysAP
 	lookup["file"] = FileMap
 	lookup["service"] = ServiceMap
 
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Fatal(err)
-		return false
-	}
-
-	var config graphConfig
-	if err := config.Parse(data); err != nil {
-		log.Fatal(err)
-		return false
-	}
 	//fmt.Printf("%+v\n", config) // debug
 
 	g.SetName(config.Graph) // set graph name
@@ -116,7 +121,7 @@ func UpdateGraphFromConfig(filename, hostname string, g *Graph, kapi etcd.KeysAP
 				continue
 			}
 		} else {
-			obj := NewFileType(t.Name, t.Path, t.Content, t.State)
+			obj := NewFileType(t.Name, t.Path, t.Dirname, t.Basename, t.Content, t.State)
 			v := g.GetVertexMatch(obj)
 			if v == nil { // no match found
 				v = NewVertex(obj)
@@ -145,15 +150,19 @@ func UpdateGraphFromConfig(filename, hostname string, g *Graph, kapi etcd.KeysAP
 	if ok {
 		for _, t := range config.Collector {
 			// XXX: use t.Type and optionally t.Pattern to collect from etcd storage
-			log.Printf("Collect: %v(%v)", t.Type, t.Pattern)
+			log.Printf("Collect: %v; Pattern: %v", t.Type, t.Pattern)
 
 			for _, x := range EtcdGetProcess(nodes, "file") {
 				var obj *FileType
 				if B64ToObj(x, &obj) != true {
-					log.Printf("File: %v error!", x)
+					log.Printf("Collect: File: %v not collected!", x)
 					continue
 				}
-				log.Printf("File: %v found!", obj.GetName())
+				if t.Pattern != "" { // XXX: currently the pattern for files can only override the Dirname variable :P
+					obj.Dirname = t.Pattern
+				}
+
+				log.Printf("Collect: File: %v collected!", obj.GetName())
 
 				// XXX: similar to file add code:
 				v := g.GetVertexMatch(obj)
@@ -182,6 +191,4 @@ func UpdateGraphFromConfig(filename, hostname string, g *Graph, kapi etcd.KeysAP
 	for _, e := range config.Edges {
 		g.AddEdge(lookup[e.From.Type][e.From.Name], lookup[e.To.Type][e.To.Name], NewEdge(e.Name))
 	}
-
-	return true
 }

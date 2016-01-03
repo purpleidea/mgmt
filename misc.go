@@ -27,8 +27,19 @@ import (
 
 // Similar to the GNU dirname command
 func Dirname(p string) string {
+	if p == "/" {
+		return ""
+	}
 	d, _ := path.Split(path.Clean(p))
 	return d
+}
+
+func Basename(p string) string {
+	_, b := path.Split(path.Clean(p))
+	if p[len(p)-1:] == "/" { // don't loose the tail slash
+		b += "/"
+	}
+	return b
 }
 
 // Split a path into an array of tokens excluding any trailing empty tokens

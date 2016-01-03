@@ -32,9 +32,22 @@ func TestMiscT1(t *testing.T) {
 		t.Errorf("Result is incorrect.")
 	}
 
-	if Dirname("/") != "/" {
+	if Dirname("/") != "" { // TODO: should this equal "/" or "" ?
 		t.Errorf("Result is incorrect.")
 	}
+
+	if Basename("/foo/bar/baz") != "baz" {
+		t.Errorf("Result is incorrect.")
+	}
+
+	if Basename("/foo/bar/baz/") != "baz/" {
+		t.Errorf("Result is incorrect.")
+	}
+
+	if Basename("/") != "/" { // TODO: should this equal "" or "/" ?
+		t.Errorf("Result is incorrect.")
+	}
+
 }
 
 func TestMiscT2(t *testing.T) {

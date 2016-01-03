@@ -1,0 +1,44 @@
+---
+graph: mygraph
+types:
+  noop:
+  - name: noop1c
+  file:
+  - name: file1c
+    path: "/tmp/mgmt3/f1c"
+    content: |
+      i am f1
+    state: exists
+  - name: file2c
+    path: "/tmp/mgmt3/f2c"
+    content: |
+      i am f2
+    state: exists
+  - name: "@@file3c"
+    path: "/tmp/mgmt3/f3c"
+    content: |
+      i am f3, exported from host C
+    state: exists
+  - name: "@@file4c"
+    path: "/tmp/mgmt3/f4c"
+    content: |
+      i am f4, exported from host C
+    state: exists
+collect:
+- type: file
+  pattern: "/tmp/mgmt3/"
+edges:
+- name: e1
+  from:
+    type: noop
+    name: noop1c
+  to:
+    type: file
+    name: file1c
+- name: e2
+  from:
+    type: file
+    name: file1c
+  to:
+    type: file
+    name: file2c

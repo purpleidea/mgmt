@@ -51,6 +51,12 @@ func (obj *ServiceType) GetType() string {
 
 // Service watcher
 func (obj *ServiceType) Watch() {
+	if obj.IsWatching() {
+		return
+	}
+	obj.SetWatching(true)
+	defer obj.SetWatching(false)
+
 	// obj.Name: service name
 	//vertex := obj.GetVertex()         // stored with SetVertex
 	if !util.IsRunningSystemd() {

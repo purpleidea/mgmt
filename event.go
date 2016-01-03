@@ -24,11 +24,8 @@ const (
 	eventExit eventName = iota
 	eventStart
 	eventPause
-	eventContinue
 	eventPoke
 	eventChanged
-	//eventPaused
-	eventStarted
 )
 
 type Event struct {

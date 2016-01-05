@@ -135,7 +135,7 @@ func EtcdWatch(kapi etcd.KeysAPI) chan etcdMsg {
 			}
 
 		} // end for loop
-		close(ch)
+		//close(ch)
 	}(ch) // call go routine
 	return ch
 }

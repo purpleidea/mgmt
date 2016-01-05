@@ -111,7 +111,7 @@ func run(c *cli.Context) {
 				case etcdStart, etcdEvent:
 					// pass
 				default:
-					log.Fatal("Etcd: Unhandled message: %v", msg)
+					log.Fatal("Etcd: Unhandled message: ", msg)
 				}
 			case msg := <-configchan:
 				if c.Bool("no-watch") || !msg {

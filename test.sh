@@ -13,10 +13,12 @@ diff <(tail -n +$start AUTHORS | sort) <(tail -n +$start AUTHORS)
 ./test/test-gofmt.sh
 ./test/test-yamlfmt.sh
 go test
-#go test ./pgraph
+echo running go vet	# since it doesn't output an ok message on pass
+go vet && echo PASS
 
 # do these longer tests only when running on ci
-if env | grep -q '^TRAVIS=true$'; then
+if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL='; then
 	go test -race
-	#go test -race ./pgraph
+	echo running go vet
+	go vet && echo PASS
 fi

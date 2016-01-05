@@ -71,7 +71,7 @@ func (obj *ServiceType) Watch() {
 
 	bus, err := dbus.SystemBus()
 	if err != nil {
-		log.Fatal("Failed to connect to bus: %v\n", err)
+		log.Fatal("Failed to connect to bus: ", err)
 	}
 
 	// XXX: will this detect new units?

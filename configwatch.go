@@ -149,7 +149,7 @@ func ConfigWatch(file string) chan bool {
 				ch <- true
 			}
 		}
-		close(ch)
+		//close(ch)
 	}()
 	return ch
 }

@@ -28,6 +28,15 @@ Please look in the [examples/](examples/) folder for usage. If none exist, pleas
 
 ## Dependencies:
 * golang (required, available in most distros)
+* golang libraries (required, available with `go get`)
+  ```
+  go get github.com/coreos/etcd/client
+  go get gopkg.in/yaml.v2
+  go get gopkg.in/fsnotify.v1
+  go get github.com/codegangsta/cli
+  go get github.com/coreos/go-systemd/dbus
+  go get github.com/coreos/go-systemd/util
+  ```
 * pandoc (optional, for building a pdf of the documentation)
 * graphviz (optional, for building a visual representation of the graph)
 

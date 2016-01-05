@@ -9,10 +9,10 @@ fi
 if [ $travis -eq 0 ]; then
 	YUM=`which yum`
 	if [ -z $YUM ]; then
-		echo "The 'yum' utility can't be installed."
+		echo "The 'yum' utility can't be found."
 		exit 1
 	fi
-	sudo yum install -y golang
+	sudo yum install -y golang golang-googlecode-tools-stringer
 	sudo yum install -y hg	# some go dependencies are stored in mercurial
 fi
 

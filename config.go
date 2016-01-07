@@ -18,9 +18,6 @@
 package main
 
 import (
-	//etcd_context "github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
-	etcd "github.com/coreos/etcd/client"
-
 	"errors"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -82,7 +79,7 @@ func ParseConfigFromFile(filename string) *graphConfig {
 	return &config
 }
 
-func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, kapi etcd.KeysAPI) {
+func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, etcdO *EtcdWObject) {
 
 	var NoopMap map[string]*Vertex = make(map[string]*Vertex)
 	var FileMap map[string]*Vertex = make(map[string]*Vertex)
@@ -116,7 +113,7 @@ func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, kapi 
 		if strings.HasPrefix(t.Name, "@@") { // exported resource
 			// add to etcd storage...
 			t.Name = t.Name[2:] //slice off @@
-			if !EtcdPut(kapi, hostname, t.Name, "file", t) {
+			if !etcdO.EtcdPut(hostname, t.Name, "file", t) {
 				log.Printf("Problem exporting file resource %v.", t.Name)
 				continue
 			}
@@ -146,13 +143,13 @@ func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, kapi 
 	// lookup from etcd graph
 	// do all the graph look ups in one single step, so that if the etcd
 	// database changes, we don't have a partial state of affairs...
-	nodes, ok := EtcdGet(kapi)
+	nodes, ok := etcdO.EtcdGet()
 	if ok {
 		for _, t := range config.Collector {
 			// XXX: use t.Type and optionally t.Pattern to collect from etcd storage
 			log.Printf("Collect: %v; Pattern: %v", t.Type, t.Pattern)
 
-			for _, x := range EtcdGetProcess(nodes, "file") {
+			for _, x := range etcdO.EtcdGetProcess(nodes, "file") {
 				var obj *FileType
 				if B64ToObj(x, &obj) != true {
 					log.Printf("Collect: File: %v not collected!", x)

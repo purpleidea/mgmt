@@ -23,6 +23,15 @@ import (
 	"time"
 )
 
+//go:generate stringer -type=typeState -output=typestate_stringer.go
+type typeState int
+
+const (
+	typeNil typeState = iota
+	//typeConverged
+	typeConvergedTimeout
+)
+
 type Type interface {
 	Init()
 	GetName() string // can't be named "Name()" because of struct field
@@ -31,10 +40,13 @@ type Type interface {
 	StateOK() bool // TODO: can we rename this to something better?
 	Apply() bool
 	SetVertex(*Vertex)
+	SetConvegedCallback(ctimeout int, converged chan bool)
 	Compare(Type) bool
 	SendEvent(eventName, bool)
 	IsWatching() bool
 	SetWatching(bool)
+	GetState() typeState
+	SetState(typeState)
 	GetTimestamp() int64
 	UpdateTimestamp() int64
 	//Process()
@@ -45,7 +57,10 @@ type BaseType struct {
 	timestamp int64  // last updated timestamp ?
 	events    chan Event
 	vertex    *Vertex
+	state     typeState
 	watching  bool // is Watch() loop running ?
+	ctimeout  int  // converged timeout
+	converged chan bool
 }
 
 type NoopType struct {
@@ -87,6 +102,11 @@ func (obj *BaseType) SetVertex(v *Vertex) {
 	obj.vertex = v
 }
 
+func (obj *BaseType) SetConvegedCallback(ctimeout int, converged chan bool) {
+	obj.ctimeout = ctimeout
+	obj.converged = converged
+}
+
 // is the Watch() function running?
 func (obj *BaseType) IsWatching() bool {
 	return obj.watching
@@ -95,6 +115,14 @@ func (obj *BaseType) IsWatching() bool {
 // store status of if the Watch() function is running
 func (obj *BaseType) SetWatching(b bool) {
 	obj.watching = b
+}
+
+func (obj *BaseType) GetState() typeState {
+	return obj.state
+}
+
+func (obj *BaseType) SetState(state typeState) {
+	obj.state = state
 }
 
 // get timestamp of a vertex
@@ -230,14 +258,18 @@ func (obj *NoopType) Watch() {
 	//vertex := obj.vertex // stored with SetVertex
 	var send = false // send event?
 	for {
-
 		select {
 		case event := <-obj.events:
-
+			obj.SetState(typeNil)
 			if ok := obj.ReadEvent(&event); !ok {
 				return // exit
 			}
 			send = true
+
+		case _ = <-TimeAfterOrBlock(obj.ctimeout):
+			obj.SetState(typeConvergedTimeout)
+			obj.converged <- true
+			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

@@ -37,9 +37,38 @@ const (
 	etcdBar
 )
 
-func EtcdGetKAPI(seed string) etcd.KeysAPI {
+//go:generate stringer -type=etcdState -output=etcdstate_stringer.go
+type etcdState int
+
+const (
+	etcdNil etcdState = iota
+	//etcdConverged
+	etcdConvergedTimeout
+)
+
+type EtcdWObject struct { // etcd wrapper object
+	seed      string
+	ctimeout  int
+	converged chan bool
+	kapi      etcd.KeysAPI
+	state     etcdState
+}
+
+func (obj *EtcdWObject) GetState() etcdState {
+	return obj.state
+}
+
+func (obj *EtcdWObject) SetState(state etcdState) {
+	obj.state = state
+}
+
+func (etcdO *EtcdWObject) GetKAPI() etcd.KeysAPI {
+	if etcdO.kapi != nil { // memoize
+		return etcdO.kapi
+	}
+
 	cfg := etcd.Config{
-		Endpoints: []string{seed},
+		Endpoints: []string{etcdO.seed},
 		Transport: etcd.DefaultTransport,
 		// set timeout per request to fail fast when the target endpoint is unavailable
 		HeaderTimeoutPerRequest: time.Second,
@@ -62,10 +91,31 @@ func EtcdGetKAPI(seed string) etcd.KeysAPI {
 		}
 		log.Fatal(err) // some unhandled error
 	}
-	return etcd.NewKeysAPI(c)
+	etcdO.kapi = etcd.NewKeysAPI(c)
+	return etcdO.kapi
 }
 
-func EtcdWatch(kapi etcd.KeysAPI) chan etcdMsg {
+type EtcdChannelWatchResponse struct {
+	resp *etcd.Response
+	err  error
+}
+
+// wrap the etcd watcher.Next blocking function inside of a channel
+func (etcdO *EtcdWObject) EtcdChannelWatch(watcher etcd.Watcher, context etcd_context.Context) chan *EtcdChannelWatchResponse {
+	ch := make(chan *EtcdChannelWatchResponse)
+	go func() {
+		for {
+			resp, err := watcher.Next(context) // blocks here
+			ch <- &EtcdChannelWatchResponse{resp, err}
+		}
+	}()
+	return ch
+}
+
+func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
+	kapi := etcdO.GetKAPI()
+	ctimeout := etcdO.ctimeout
+	converged := etcdO.converged
 	// XXX: i think we need this buffered so that when we're hanging on the
 	// channel, which is inside the EtcdWatch main loop, we still want the
 	// calls to Get/Set on etcd to succeed, so blocking them here would
@@ -79,7 +129,19 @@ func EtcdWatch(kapi etcd.KeysAPI) chan etcdMsg {
 		watcher := kapi.Watcher("/exported/", &etcd.WatcherOptions{Recursive: true})
 		for {
 			log.Printf("Etcd: Watching...")
-			resp, err := watcher.Next(etcd_context.Background()) // blocks here
+			var resp *etcd.Response = nil
+			var err error = nil
+			select {
+			case out := <-etcdO.EtcdChannelWatch(watcher, etcd_context.Background()):
+				etcdO.SetState(etcdNil)
+				resp, err = out.resp, out.err
+
+			case _ = <-TimeAfterOrBlock(ctimeout):
+				etcdO.SetState(etcdConvergedTimeout)
+				converged <- true
+				continue
+			}
+
 			if err != nil {
 				if err == etcd_context.Canceled {
 					// ctx is canceled by another routine
@@ -141,7 +203,8 @@ func EtcdWatch(kapi etcd.KeysAPI) chan etcdMsg {
 }
 
 // helper function to store our data in etcd
-func EtcdPut(kapi etcd.KeysAPI, hostname, key, typ string, obj interface{}) bool {
+func (etcdO *EtcdWObject) EtcdPut(hostname, key, typ string, obj interface{}) bool {
+	kapi := etcdO.GetKAPI()
 	output, ok := ObjToB64(obj)
 	if !ok {
 		log.Printf("Etcd: Could not encode %v key.", key)
@@ -171,7 +234,8 @@ func EtcdPut(kapi etcd.KeysAPI, hostname, key, typ string, obj interface{}) bool
 }
 
 // lookup /exported/ node hierarchy
-func EtcdGet(kapi etcd.KeysAPI) (etcd.Nodes, bool) {
+func (etcdO *EtcdWObject) EtcdGet() (etcd.Nodes, bool) {
+	kapi := etcdO.GetKAPI()
 	// key structure is /exported/<hostname>/types/...
 	resp, err := kapi.Get(etcd_context.Background(), "/exported/", &etcd.GetOptions{Recursive: true})
 	if err != nil {
@@ -180,7 +244,7 @@ func EtcdGet(kapi etcd.KeysAPI) (etcd.Nodes, bool) {
 	return resp.Node.Nodes, true
 }
 
-func EtcdGetProcess(nodes etcd.Nodes, typ string) []string {
+func (etcdO *EtcdWObject) EtcdGetProcess(nodes etcd.Nodes, typ string) []string {
 	//path := fmt.Sprintf("/exported/%s/types/", h)
 	top := "/exported/"
 	log.Printf("Etcd: Get: %+v", nodes) // Get().Nodes.Nodes

@@ -123,14 +123,20 @@ func (obj *ServiceType) Watch() {
 
 			select {
 			case _ = <-buschan: // XXX wait for new units event to unstick
+				obj.SetState(typeNil)
 				// loop so that we can see the changed invalid signal
 				log.Printf("Service[%v]->DaemonReload()\n", service)
 
 			case event := <-obj.events:
+				obj.SetState(typeNil)
 				if ok := obj.ReadEvent(&event); !ok {
 					return // exit
 				}
 				send = true
+			case _ = <-TimeAfterOrBlock(obj.ctimeout):
+				obj.SetState(typeConvergedTimeout)
+				obj.converged <- true
+				continue
 			}
 		} else {
 			if !activeSet {
@@ -160,11 +166,13 @@ func (obj *ServiceType) Watch() {
 				send = true
 
 			case err := <-subErrors:
+				obj.SetState(typeNil) // XXX ?
 				log.Println("error:", err)
 				log.Fatal(err)
 				//vertex.events <- fmt.Sprintf("service: %v", "error") // XXX: how should we handle errors?
 
 			case event := <-obj.events:
+				obj.SetState(typeNil)
 				if ok := obj.ReadEvent(&event); !ok {
 					return // exit
 				}

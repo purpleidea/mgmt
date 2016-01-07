@@ -23,6 +23,7 @@ import (
 	"encoding/gob"
 	"path"
 	"strings"
+	"time"
 )
 
 // Similar to the GNU dirname command
@@ -109,4 +110,13 @@ func B64ToObj(str string, obj interface{}) bool {
 		return false
 	}
 	return true
+}
+
+// special version of time.After that blocks when given a negative integer
+// when used in a case statement, the timer restarts on each select call to it
+func TimeAfterOrBlock(t int) <-chan time.Time {
+	if t < 0 {
+		return make(chan time.Time) // blocks forever
+	}
+	return time.After(time.Duration(t) * time.Second)
 }

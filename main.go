@@ -26,6 +26,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	//etcd_context "github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 )
 
 // set at compile time
@@ -61,13 +62,14 @@ func waitForSignal(exit chan bool) {
 func run(c *cli.Context) {
 	var start int64 = time.Now().UnixNano()
 	var wg sync.WaitGroup
-	exit := make(chan bool) // exit signal
+	exit := make(chan bool)      // exit signal
+	converged := make(chan bool) // converged signal
 	log.Printf("This is: %v, version: %v\n", program, version)
 	log.Printf("Start: %v\n", start)
 	G := NewGraph("Graph") // give graph a default name
 
-	// exit after `exittime` seconds for no reason at all...
-	if i := c.Int("exittime"); i > 0 {
+	// exit after `max-runtime` seconds for no reason at all...
+	if i := c.Int("max-runtime"); i > 0 {
 		go func() {
 			time.Sleep(time.Duration(i) * time.Second)
 			exit <- true
@@ -85,6 +87,12 @@ func run(c *cli.Context) {
 	// FIXME: validate seed, or wait for it to fail in etcd init?
 
 	// etcd
+	etcdO := &EtcdWObject{
+		seed:      seed,
+		ctimeout:  c.Int("converged-timeout"),
+		converged: converged,
+	}
+
 	hostname := c.String("hostname")
 	if hostname == "" {
 		hostname, _ = os.Hostname() // etcd watch key // XXX: this is not the correct key name this is the set key name... WOOPS
@@ -95,8 +103,7 @@ func run(c *cli.Context) {
 		file := c.String("file")
 		configchan := ConfigWatch(file)
 		log.Printf("Starting etcd...\n")
-		kapi := EtcdGetKAPI(seed)
-		etcdchan := EtcdWatch(kapi)
+		etcdchan := etcdO.EtcdWatch()
 		first := true // first loop or not
 		for {
 			select {
@@ -117,7 +124,6 @@ func run(c *cli.Context) {
 				if c.Bool("no-watch") || !msg {
 					continue // not ready to read config
 				}
-
 				//case compile_event: XXX
 			}
 
@@ -130,15 +136,15 @@ func run(c *cli.Context) {
 			// run graph vertex LOCK...
 			if !first { // XXX: we can flatten this check out I think
 				G.SetState(graphPausing)
-				log.Printf("State: %v", G.State())
+				log.Printf("State: %v", G.GetState())
 				G.Pause() // sync
 				G.SetState(graphPaused)
-				log.Printf("State: %v", G.State())
+				log.Printf("State: %v", G.GetState())
 			}
 
 			// build the graph from a config file
 			// build the graph on events (eg: from etcd)
-			UpdateGraphFromConfig(config, hostname, G, kapi)
+			UpdateGraphFromConfig(config, hostname, G, etcdO)
 			log.Printf("Graph: %v\n", G) // show graph
 			err := G.ExecGraphviz(c.String("graphviz-filter"), c.String("graphviz"))
 			if err != nil {
@@ -147,20 +153,52 @@ func run(c *cli.Context) {
 				log.Printf("Graphviz: Successfully generated graph!")
 			}
 			G.SetVertex()
+			G.SetConvergedCallback(c.Int("converged-timeout"), converged)
 			// G.Start(...) needs to be synchronous or wait,
 			// because if half of the nodes are started and
 			// some are not ready yet and the EtcdWatch
 			// loops, we'll cause G.Pause(...) before we
 			// even got going, thus causing nil pointer errors
 			G.SetState(graphStarting)
-			log.Printf("State: %v", G.State())
+			log.Printf("State: %v", G.GetState())
 			G.Start(&wg) // sync
 			G.SetState(graphStarted)
-			log.Printf("State: %v", G.State())
+			log.Printf("State: %v", G.GetState())
 
 			first = false
 		}
 	}()
+
+	if i := c.Int("converged-timeout"); i >= 0 {
+		go func() {
+			for {
+				isConverged := true
+				<-converged // when anyone says they have converged
+
+				if etcdO.GetState() != etcdConvergedTimeout {
+					isConverged = false
+					goto ConvergedCheck // efficiency boost
+				}
+				for v := range G.GetVerticesChan() {
+					if v.Type.GetState() != typeConvergedTimeout {
+						isConverged = false
+						break
+					}
+				}
+
+			ConvergedCheck:
+				// if all have converged, exit
+				if isConverged {
+					log.Printf("Converged for %d seconds, exiting!", i)
+					exit <- true
+					for {
+						<-converged
+					} // unblock/drain
+					return
+				}
+			}
+		}()
+	}
 
 	log.Println("Running...")
 
@@ -236,7 +274,12 @@ func main() {
 					Usage: "default etc peer endpoint",
 				},
 				cli.IntFlag{
-					Name:  "exittime",
+					Name:  "converged-timeout",
+					Value: -1,
+					Usage: "exit after approximately this many seconds in a converged state",
+				},
+				cli.IntFlag{
+					Name:  "max-runtime",
 					Value: 0,
 					Usage: "exit after a maximum of approximately this many seconds",
 				},

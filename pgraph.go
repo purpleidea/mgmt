@@ -95,7 +95,7 @@ func (g *Graph) SetName(name string) {
 	g.Name = name
 }
 
-func (g *Graph) State() graphState {
+func (g *Graph) GetState() graphState {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	return g.state
@@ -574,6 +574,12 @@ func (g *Graph) Exit() {
 		// XXX: we can do this to quiesce, but it's not necessary now
 
 		v.Type.SendEvent(eventExit, true)
+	}
+}
+
+func (g *Graph) SetConvergedCallback(ctimeout int, converged chan bool) {
+	for v := range g.GetVerticesChan() {
+		v.Type.SetConvegedCallback(ctimeout, converged)
 	}
 }
 

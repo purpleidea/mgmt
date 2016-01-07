@@ -99,6 +99,13 @@ documentation, please run `mgmt --help`.
 ####`--file <graph.yaml>`
 Point to a graph file to run.
 
+####`--converged-timeout <seconds>`
+Exit if the machine has converged for approximately this many seconds.
+
+####`--max-runtime <seconds>`
+Exit when the agent has run for approximately this many seconds. This is not
+generally recommended, but may be useful for users who know what they're doing.
+
 ##Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git
 source repository. It is available from:

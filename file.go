@@ -149,6 +149,7 @@ func (obj *FileType) Watch() {
 
 		select {
 		case event := <-watcher.Events:
+			obj.SetState(typeNil) // XXX: technically i can detect is the event is erroneous or not first
 			// the deeper you go, the bigger the delta_depth is...
 			// this is the difference between what we're watching,
 			// and the event... doesn't mean we can't watch deeper
@@ -214,15 +215,22 @@ func (obj *FileType) Watch() {
 			}
 
 		case err := <-watcher.Errors:
+			obj.SetState(typeNil) // XXX ?
 			log.Println("error:", err)
 			log.Fatal(err)
 			//obj.events <- fmt.Sprintf("file: %v", "error") // XXX: how should we handle errors?
 
 		case event := <-obj.events:
+			obj.SetState(typeNil)
 			if ok := obj.ReadEvent(&event); !ok {
 				return // exit
 			}
 			send = true
+
+		case _ = <-TimeAfterOrBlock(obj.ctimeout):
+			obj.SetState(typeConvergedTimeout)
+			obj.converged <- true
+			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

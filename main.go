@@ -194,7 +194,7 @@ func run(c *cli.Context) {
 					for {
 						<-converged
 					} // unblock/drain
-					return
+					//return
 				}
 			}
 		}()

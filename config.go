@@ -47,6 +47,7 @@ type graphConfig struct {
 		Noop    []NoopType    `yaml:"noop"`
 		File    []FileType    `yaml:"file"`
 		Service []ServiceType `yaml:"service"`
+		Exec    []ExecType    `yaml:"exec"`
 	} `yaml:"types"`
 	Collector []collectorTypeConfig `yaml:"collect"`
 	Edges     []edgeConfig          `yaml:"edges"`
@@ -79,18 +80,31 @@ func ParseConfigFromFile(filename string) *graphConfig {
 	return &config
 }
 
-func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, etcdO *EtcdWObject) {
+// XXX: we need to fix this function so that it either fails without modifying
+// the graph, passes successfully and modifies it, or basically panics i guess
+// this way an invalid compilation can leave the old graph running, and we we
+// don't modify a partial graph. so we really need to validate, and then perform
+// whatever actions are necessary
+// finding some way to do this on a copy of the graph, and then do a graph diff
+// and merge the new data into the old graph would be more appropriate, in
+// particular if we can ensure the graph merge can't fail. As for the putting
+// of stuff into etcd, we should probably store the operations to complete in
+// the new graph, and keep retrying until it succeeds, thus blocking any new
+// etcd operations until that time.
+func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, etcdO *EtcdWObject) bool {
 
 	var NoopMap map[string]*Vertex = make(map[string]*Vertex)
 	var FileMap map[string]*Vertex = make(map[string]*Vertex)
 	var ServiceMap map[string]*Vertex = make(map[string]*Vertex)
+	var ExecMap map[string]*Vertex = make(map[string]*Vertex)
 
 	var lookup map[string]map[string]*Vertex = make(map[string]map[string]*Vertex)
 	lookup["noop"] = NoopMap
 	lookup["file"] = FileMap
 	lookup["service"] = ServiceMap
+	lookup["exec"] = ExecMap
 
-	//fmt.Printf("%+v\n", config) // debug
+	//log.Printf("%+v", config) // debug
 
 	g.SetName(config.Graph) // set graph name
 
@@ -140,6 +154,17 @@ func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, etcdO
 		keep = append(keep, v)   // append
 	}
 
+	for _, t := range config.Types.Exec {
+		obj := NewExecType(t.Name, t.Cmd, t.Shell, t.Timeout, t.WatchCmd, t.WatchShell, t.IfCmd, t.IfShell, t.PollInt, t.State)
+		v := g.GetVertexMatch(obj)
+		if v == nil { // no match found
+			v = NewVertex(obj)
+			g.AddVertex(v) // call standalone in case not part of an edge
+		}
+		ExecMap[obj.Name] = v  // used for constructing edges
+		keep = append(keep, v) // append
+	}
+
 	// lookup from etcd graph
 	// do all the graph look ups in one single step, so that if the etcd
 	// database changes, we don't have a partial state of affairs...
@@ -186,6 +211,19 @@ func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, etcdO
 	}
 
 	for _, e := range config.Edges {
+		if _, ok := lookup[e.From.Type]; !ok {
+			return false
+		}
+		if _, ok := lookup[e.To.Type]; !ok {
+			return false
+		}
+		if _, ok := lookup[e.From.Type][e.From.Name]; !ok {
+			return false
+		}
+		if _, ok := lookup[e.To.Type][e.To.Name]; !ok {
+			return false
+		}
 		g.AddEdge(lookup[e.From.Type][e.From.Name], lookup[e.To.Type][e.To.Name], NewEdge(e.Name))
 	}
+	return true
 }

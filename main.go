@@ -18,7 +18,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/codegangsta/cli"
 	"log"
 	"os"
@@ -49,7 +48,6 @@ func waitForSignal(exit chan bool) {
 	select {
 	case e := <-signals: // any signal will do
 		if e == os.Interrupt {
-			fmt.Println() // put ^C char from terminal on its own line
 			log.Println("Interrupted by ^C")
 		} else {
 			log.Println("Interrupted by signal")
@@ -64,8 +62,8 @@ func run(c *cli.Context) {
 	var wg sync.WaitGroup
 	exit := make(chan bool)      // exit signal
 	converged := make(chan bool) // converged signal
-	log.Printf("This is: %v, version: %v\n", program, version)
-	log.Printf("Start: %v\n", start)
+	log.Printf("This is: %v, version: %v", program, version)
+	log.Printf("Main: Start: %v", start)
 	G := NewGraph("Graph") // give graph a default name
 
 	// exit after `max-runtime` seconds for no reason at all...
@@ -102,7 +100,7 @@ func run(c *cli.Context) {
 		go func() { startchan <- struct{}{} }()
 		file := c.String("file")
 		configchan := ConfigWatch(file)
-		log.Printf("Starting etcd...\n")
+		log.Printf("Etcd: Starting...")
 		etcdchan := etcdO.EtcdWatch()
 		first := true // first loop or not
 		for {
@@ -144,8 +142,10 @@ func run(c *cli.Context) {
 
 			// build the graph from a config file
 			// build the graph on events (eg: from etcd)
-			UpdateGraphFromConfig(config, hostname, G, etcdO)
-			log.Printf("Graph: %v\n", G) // show graph
+			if !UpdateGraphFromConfig(config, hostname, G, etcdO) {
+				log.Fatal("Config: We borked the graph.") // XXX
+			}
+			log.Printf("Graph: %v", G) // show graph
 			err := G.ExecGraphviz(c.String("graphviz-filter"), c.String("graphviz"))
 			if err != nil {
 				log.Printf("Graphviz: %v", err)
@@ -200,7 +200,7 @@ func run(c *cli.Context) {
 		}()
 	}
 
-	log.Println("Running...")
+	log.Println("Main: Running...")
 
 	waitForSignal(exit) // pass in exit channel to watch
 
@@ -208,9 +208,9 @@ func run(c *cli.Context) {
 
 	if DEBUG {
 		for i := range G.GetVerticesChan() {
-			fmt.Printf("Vertex: %v\n", i)
+			log.Printf("Vertex: %v", i)
 		}
-		fmt.Printf("Graph: %v\n", G)
+		log.Printf("Graph: %v", G)
 	}
 
 	wg.Wait() // wait for primary go routines to exit

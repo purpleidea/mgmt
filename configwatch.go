@@ -51,7 +51,7 @@ func ConfigWatch(file string) chan bool {
 			if current == "" { // the empty string top is the root dir ("/")
 				current = "/"
 			}
-			log.Printf("Watching: %v\n", current) // attempting to watch...
+			log.Printf("Watching: %v", current) // attempting to watch...
 
 			// initialize in the loop so that we can reset on rm-ed handles
 			err = watcher.Add(current)
@@ -61,10 +61,10 @@ func ConfigWatch(file string) chan bool {
 				} else if err == syscall.ENOSPC {
 					// XXX: occasionally: no space left on device,
 					// XXX: probably due to lack of inotify watches
-					log.Printf("Lack of watches for config(%v) error: %+v\n", file, err.Error) // 0x408da0
+					log.Printf("Lack of watches for config(%v) error: %+v", file, err.Error) // 0x408da0
 					log.Fatal(err)
 				} else {
-					log.Printf("Unknown config(%v) error:\n", file)
+					log.Printf("Unknown config(%v) error:", file)
 					log.Fatal(err)
 				}
 				index = int(math.Max(1, float64(index)))
@@ -92,7 +92,7 @@ func ConfigWatch(file string) chan bool {
 					// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
 					continue
 				}
-				//log.Printf("The delta depth is: %v\n", delta_depth)
+				//log.Printf("The delta depth is: %v", delta_depth)
 
 				// if we have what we wanted, awesome, send an event...
 				if event.Name == safename {

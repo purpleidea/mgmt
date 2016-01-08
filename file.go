@@ -20,7 +20,6 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"gopkg.in/fsnotify.v1"
 	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 	"io"
@@ -106,7 +105,7 @@ func (obj *FileType) Watch() {
 
 	//var recursive bool = false
 	//var isdir = (obj.GetPath()[len(obj.GetPath())-1:] == "/") // dirs have trailing slashes
-	//fmt.Printf("IsDirectory: %v\n", isdir)
+	//log.Printf("IsDirectory: %v", isdir)
 	//vertex := obj.GetVertex()         // stored with SetVertex
 	var safename = path.Clean(obj.GetPath()) // no trailing slash
 
@@ -127,7 +126,7 @@ func (obj *FileType) Watch() {
 		if current == "" { // the empty string top is the root dir ("/")
 			current = "/"
 		}
-		log.Printf("Watching: %v\n", current) // attempting to watch...
+		log.Printf("Watching: %v", current) // attempting to watch...
 
 		// initialize in the loop so that we can reset on rm-ed handles
 		err = watcher.Add(current)
@@ -137,10 +136,10 @@ func (obj *FileType) Watch() {
 			} else if err == syscall.ENOSPC {
 				// XXX: occasionally: no space left on device,
 				// XXX: probably due to lack of inotify watches
-				log.Printf("Lack of watches for file[%v] error: %+v\n", obj.Name, err.Error) // 0x408da0
+				log.Printf("Lack of watches for file[%v] error: %+v", obj.Name, err.Error) // 0x408da0
 				log.Fatal(err)
 			} else {
-				log.Printf("Unknown file[%v] error:\n", obj.Name)
+				log.Printf("Unknown file[%v] error:", obj.Name)
 				log.Fatal(err)
 			}
 			index = int(math.Max(1, float64(index)))
@@ -169,7 +168,7 @@ func (obj *FileType) Watch() {
 				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
 				continue
 			}
-			//log.Printf("The delta depth is: %v\n", delta_depth)
+			//log.Printf("The delta depth is: %v", delta_depth)
 
 			// if we have what we wanted, awesome, send an event...
 			if event.Name == safename {
@@ -294,7 +293,7 @@ func (obj *FileType) StateOKFile() bool {
 	}
 
 	sha256sum := hex.EncodeToString(hash.Sum(nil))
-	//fmt.Printf("sha256sum: %v\n", sha256sum)
+	//log.Printf("sha256sum: %v", sha256sum)
 
 	if obj.HashSHA256fromContent() == sha256sum {
 		return true
@@ -314,7 +313,7 @@ func (obj *FileType) StateOKDir() bool {
 }
 
 func (obj *FileType) Apply() bool {
-	fmt.Printf("Apply->File[%v]\n", obj.Name)
+	log.Printf("%v[%v]: Apply", obj.GetType(), obj.GetName())
 
 	if PathIsDir(obj.GetPath()) {
 		return obj.ApplyDir()
@@ -330,7 +329,7 @@ func (obj *FileType) ApplyFile() bool {
 	}
 
 	if obj.State == "absent" {
-		log.Printf("About to remove: %v\n", obj.GetPath())
+		log.Printf("About to remove: %v", obj.GetPath())
 		err := os.Remove(obj.GetPath())
 		if err != nil {
 			return false
@@ -338,7 +337,7 @@ func (obj *FileType) ApplyFile() bool {
 		return true
 	}
 
-	//fmt.Println("writing: " + filename)
+	//log.Println("writing: " + filename)
 	f, err := os.Create(obj.GetPath())
 	if err != nil {
 		log.Println("error:", err)

@@ -127,12 +127,13 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 		tmult := 2    // multiplier for exponential delay
 		tmax := 16000 // max delay
 		watcher := kapi.Watcher("/exported/", &etcd.WatcherOptions{Recursive: true})
+		etcdch := etcdO.EtcdChannelWatch(watcher, etcd_context.Background())
 		for {
 			log.Printf("Etcd: Watching...")
 			var resp *etcd.Response = nil
 			var err error = nil
 			select {
-			case out := <-etcdO.EtcdChannelWatch(watcher, etcd_context.Background()):
+			case out := <-etcdch:
 				etcdO.SetState(etcdNil)
 				resp, err = out.resp, out.err
 

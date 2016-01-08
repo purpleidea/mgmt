@@ -373,7 +373,7 @@ func (g *Graph) FilterGraph(name string, vertices []*Vertex) *Graph {
 	for k1, x := range g.Adjacency {
 		for k2, e := range x {
 
-			//fmt.Printf("Filter: %v -> %v # %v\n", k1.Name, k2.Name, e.Name)
+			//log.Printf("Filter: %v -> %v # %v", k1.Name, k2.Name, e.Name)
 			if Contains(vertices, k1) || Contains(vertices, k2) {
 				newgraph.AddEdge(k1, k2, e)
 			}
@@ -548,7 +548,7 @@ func (g *Graph) Start(wg *sync.WaitGroup) { // start or continue
 			go func(vv *Vertex) {
 				defer wg.Done()
 				vv.Type.Watch()
-				log.Printf("Finish: %v", vv.GetName())
+				log.Printf("%v[%v]: Exited", vv.GetType(), vv.GetName())
 			}(v)
 		}
 

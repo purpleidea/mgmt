@@ -18,7 +18,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 )
@@ -286,7 +285,7 @@ func (obj *NoopType) StateOK() bool {
 }
 
 func (obj *NoopType) Apply() bool {
-	fmt.Printf("Apply->Noop[%v]\n", obj.Name)
+	log.Printf("%v[%v]: Apply", obj.GetType(), obj.GetName())
 	return true
 }
 

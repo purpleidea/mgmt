@@ -98,14 +98,14 @@ func (obj *ServiceType) Watch() {
 		// firstly, does service even exist or not?
 		loadstate, err := conn.GetUnitProperty(service, "LoadState")
 		if err != nil {
-			log.Printf("Failed to get property: %v\n", err)
+			log.Printf("Failed to get property: %v", err)
 			invalid = true
 		}
 
 		if !invalid {
 			var notFound = (loadstate.Value == dbus.MakeVariant("not-found"))
 			if notFound { // XXX: in the loop we'll handle changes better...
-				log.Printf("Failed to find service: %v\n", service)
+				log.Printf("Failed to find service: %v", service)
 				invalid = true // XXX ?
 			}
 		}
@@ -115,7 +115,7 @@ func (obj *ServiceType) Watch() {
 		}
 
 		if invalid {
-			log.Printf("Waiting for: %v\n", service) // waiting for service to appear...
+			log.Printf("Waiting for: %v", service) // waiting for service to appear...
 			if activeSet {
 				activeSet = false
 				set.Remove(service) // no return value should ever occur
@@ -125,7 +125,7 @@ func (obj *ServiceType) Watch() {
 			case _ = <-buschan: // XXX wait for new units event to unstick
 				obj.SetState(typeNil)
 				// loop so that we can see the changed invalid signal
-				log.Printf("Service[%v]->DaemonReload()\n", service)
+				log.Printf("Service[%v]->DaemonReload()", service)
 
 			case event := <-obj.events:
 				obj.SetState(typeNil)
@@ -144,24 +144,24 @@ func (obj *ServiceType) Watch() {
 				set.Add(service) // no return value should ever occur
 			}
 
-			log.Printf("Watching: %v\n", service) // attempting to watch...
+			log.Printf("Watching: %v", service) // attempting to watch...
 			select {
 			case event := <-subChannel:
 
-				log.Printf("Service event: %+v\n", event)
+				log.Printf("Service event: %+v", event)
 				// NOTE: the value returned is a map for some reason...
 				if event[service] != nil {
 					// event[service].ActiveState is not nil
 					if event[service].ActiveState == "active" {
-						log.Printf("Service[%v]->Started()\n", service)
+						log.Printf("Service[%v]->Started()", service)
 					} else if event[service].ActiveState == "inactive" {
-						log.Printf("Service[%v]->Stopped!()\n", service)
+						log.Printf("Service[%v]->Stopped!()", service)
 					} else {
 						log.Fatal("Unknown service state: ", event[service].ActiveState)
 					}
 				} else {
 					// service stopped (and ActiveState is nil...)
-					log.Printf("Service[%v]->Stopped\n", service)
+					log.Printf("Service[%v]->Stopped", service)
 				}
 				send = true
 
@@ -204,14 +204,14 @@ func (obj *ServiceType) StateOK() bool {
 
 	loadstate, err := conn.GetUnitProperty(service, "LoadState")
 	if err != nil {
-		log.Printf("Failed to get load state: %v\n", err)
+		log.Printf("Failed to get load state: %v", err)
 		return false
 	}
 
 	// NOTE: we have to compare variants with other variants, they are really strings...
 	var notFound = (loadstate.Value == dbus.MakeVariant("not-found"))
 	if notFound {
-		log.Printf("Failed to find service: %v\n", service)
+		log.Printf("Failed to find service: %v", service)
 		return false
 	}
 
@@ -241,7 +241,7 @@ func (obj *ServiceType) StateOK() bool {
 }
 
 func (obj *ServiceType) Apply() bool {
-	fmt.Printf("Apply->Service[%v]\n", obj.Name)
+	log.Printf("%v[%v]: Apply", obj.GetType(), obj.GetName())
 
 	if !util.IsRunningSystemd() {
 		log.Fatal("Systemd is not running.")
@@ -264,7 +264,7 @@ func (obj *ServiceType) Apply() bool {
 		err = nil
 	}
 	if err != nil {
-		log.Printf("Unable to change startup status: %v\n", err)
+		log.Printf("Unable to change startup status: %v", err)
 		return false
 	}
 

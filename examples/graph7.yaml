@@ -1,0 +1,17 @@
+---
+graph: mygraph
+types:
+  noop:
+  - name: noop1
+  exec:
+  - name: exec1
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges:

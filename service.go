@@ -304,20 +304,17 @@ func (obj *ServiceType) Apply() bool {
 func (obj *ServiceType) Compare(typ Type) bool {
 	switch typ.(type) {
 	case *ServiceType:
-		return obj.compare(typ.(*ServiceType))
+		typ := typ.(*ServiceType)
+		if obj.Name != typ.Name {
+			return false
+		}
+		if obj.State != typ.State {
+			return false
+		}
+		if obj.Startup != typ.Startup {
+			return false
+		}
 	default:
-		return false
-	}
-}
-
-func (obj *ServiceType) compare(typ *ServiceType) bool {
-	if obj.Name != typ.Name {
-		return false
-	}
-	if obj.State != typ.State {
-		return false
-	}
-	if obj.Startup != typ.Startup {
 		return false
 	}
 	return true

@@ -368,23 +368,20 @@ func (obj *FileType) ApplyDir() bool {
 func (obj *FileType) Compare(typ Type) bool {
 	switch typ.(type) {
 	case *FileType:
-		return obj.compare(typ.(*FileType))
+		typ := typ.(*FileType)
+		if obj.Name != typ.Name {
+			return false
+		}
+		if obj.GetPath() != typ.Path {
+			return false
+		}
+		if obj.Content != typ.Content {
+			return false
+		}
+		if obj.State != typ.State {
+			return false
+		}
 	default:
-		return false
-	}
-}
-
-func (obj *FileType) compare(typ *FileType) bool {
-	if obj.Name != typ.Name {
-		return false
-	}
-	if obj.GetPath() != typ.Path {
-		return false
-	}
-	if obj.Content != typ.Content {
-		return false
-	}
-	if obj.State != typ.State {
 		return false
 	}
 	return true

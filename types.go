@@ -294,14 +294,11 @@ func (obj *NoopType) Compare(typ Type) bool {
 	switch typ.(type) {
 	// we can only compare NoopType to others of the same type
 	case *NoopType:
-		return obj.compare(typ.(*NoopType))
+		typ := typ.(*NoopType)
+		if obj.Name != typ.Name {
+			return false
+		}
 	default:
-		return false
-	}
-}
-
-func (obj *NoopType) compare(typ *NoopType) bool {
-	if obj.Name != typ.Name {
 		return false
 	}
 	return true

@@ -2,7 +2,7 @@
 
 <!--
 Mgmt
-Copyright (C) 2013-2015+ James Shubin and the project contributors
+Copyright (C) 2013-2016+ James Shubin and the project contributors
 Written by James Shubin <james@shubin.ca> and the project contributors
 
 This program is free software: you can redistribute it and/or modify
@@ -124,7 +124,7 @@ To report any bugs, please file a ticket at: [https://github.com/purpleidea/mgmt
 
 ##Authors
 
-Copyright (C) 2013-2015+ James Shubin and the project contributors
+Copyright (C) 2013-2016+ James Shubin and the project contributors
 
 Please see the
 [AUTHORS](https://github.com/purpleidea/mgmt/tree/master/AUTHORS) file

@@ -5,28 +5,28 @@ types:
   - name: noop1a
   file:
   - name: file1a
-    path: "/tmp/mgmt1/f1a"
+    path: "/tmp/mgmtA/f1a"
     content: |
       i am f1
     state: exists
   - name: file2a
-    path: "/tmp/mgmt1/f2a"
+    path: "/tmp/mgmtA/f2a"
     content: |
       i am f2
     state: exists
   - name: "@@file3a"
-    path: "/tmp/mgmt1/f3a"
+    path: "/tmp/mgmtA/f3a"
     content: |
       i am f3, exported from host A
     state: exists
   - name: "@@file4a"
-    path: "/tmp/mgmt1/f4a"
+    path: "/tmp/mgmtA/f4a"
     content: |
       i am f4, exported from host A
     state: exists
 collect:
 - type: file
-  pattern: "/tmp/mgmt1/"
+  pattern: "/tmp/mgmtA/"
 edges:
 - name: e1
   from:

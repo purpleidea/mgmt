@@ -160,6 +160,9 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 							time.Sleep(time.Duration(t) * time.Millisecond) // sleep for t ms
 
 						} else if e.Error() == "unexpected EOF" {
+							log.Printf("Etcd: Unexpected disconnect...")
+
+						} else if e.Error() == "EOF" {
 							log.Printf("Etcd: Disconnected...")
 
 						} else if strings.HasPrefix(e.Error(), "unsupported protocol scheme") {

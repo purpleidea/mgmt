@@ -143,7 +143,9 @@ func (obj *BaseType) OKTimestamp() bool {
 	for _, n := range g.IncomingGraphEdges(v) {
 		// if the vertex has a greater timestamp than any pre-req (n)
 		// then we can't run right now...
-		if obj.GetTimestamp() > n.Type.GetTimestamp() {
+		// if they're equal (eg: on init of 0) then we also can't run
+		// b/c we should let our pre-req's go first...
+		if obj.GetTimestamp() >= n.Type.GetTimestamp() {
 			return false
 		}
 	}
@@ -215,16 +217,22 @@ func (obj *BaseType) ReadEvent(event *Event) bool {
 
 // XXX: rename this function
 func (obj *BaseType) Process(typ Type) {
-	var ok bool
-
-	ok = true
+	if DEBUG {
+		log.Printf("%v[%v]: Process()", obj.GetType(), obj.GetName())
+	}
+	var ok bool = true
 	// is it okay to run dependency wise right now?
 	// if not, that's okay because when the dependency runs, it will poke
 	// us back and we will run if needed then!
 	if obj.OKTimestamp() {
+		if DEBUG {
+			log.Printf("%v[%v]: OKTimestamp(%v)", obj.GetType(), obj.GetName(), obj.GetTimestamp())
+		}
 		// XXX XXX: why does this have to be typ instead of just obj! "obj.StateOK undefined (type *BaseType has no field or method StateOK)"
-
 		if !typ.StateOK() { // TODO: can we rename this to something better?
+			if DEBUG {
+				log.Printf("%v[%v]: !StateOK()", obj.GetType(), obj.GetName())
+			}
 			// throw an error if apply fails...
 			// if this fails, don't UpdateTimestamp()
 			if !typ.Apply() { // check for error

@@ -171,31 +171,26 @@ func run(c *cli.Context) {
 
 	if i := c.Int("converged-timeout"); i >= 0 {
 		go func() {
+		ConvergedLoop:
 			for {
-				isConverged := true
 				<-converged // when anyone says they have converged
 
 				if etcdO.GetState() != etcdConvergedTimeout {
-					isConverged = false
-					goto ConvergedCheck // efficiency boost
+					continue
 				}
 				for v := range G.GetVerticesChan() {
 					if v.Type.GetState() != typeConvergedTimeout {
-						isConverged = false
-						break
+						continue ConvergedLoop
 					}
 				}
 
-			ConvergedCheck:
 				// if all have converged, exit
-				if isConverged {
-					log.Printf("Converged for %d seconds, exiting!", i)
-					exit <- true
-					for {
-						<-converged
-					} // unblock/drain
-					//return
-				}
+				log.Printf("Converged for %d seconds, exiting!", i)
+				exit <- true
+				for {
+					<-converged
+				} // unblock/drain
+				//return
 			}
 		}()
 	}

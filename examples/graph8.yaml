@@ -1,8 +1,6 @@
 ---
 graph: mygraph
 types:
-  noop:
-  - name: noop1
   exec:
   - name: exec1
     cmd: sleep 10s

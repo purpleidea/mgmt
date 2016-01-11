@@ -1,0 +1,22 @@
+---
+graph: mygraph
+types:
+  file:
+  - name: file1
+    path: "/tmp/mgmt/f1"
+    content: |
+      i am f1
+    state: exists
+  - name: file2
+    path: "/tmp/mgmt/f2"
+    content: |
+      i am f2
+    state: exists
+edges:
+- name: e1
+  from:
+    type: file
+    name: file1
+  to:
+    type: file
+    name: file2

@@ -48,7 +48,9 @@ type Type interface {
 	SetState(typeState)
 	GetTimestamp() int64
 	UpdateTimestamp() int64
-	//Process()
+	OKTimestamp() bool
+	Poke()
+	ParentPoke()
 }
 
 type BaseType struct {
@@ -145,21 +147,39 @@ func (obj *BaseType) OKTimestamp() bool {
 		// then we can't run right now...
 		// if they're equal (eg: on init of 0) then we also can't run
 		// b/c we should let our pre-req's go first...
-		if obj.GetTimestamp() >= n.Type.GetTimestamp() {
+		x, y := obj.GetTimestamp(), n.Type.GetTimestamp()
+		if x >= y {
 			return false
 		}
 	}
 	return true
 }
 
-func (obj *BaseType) Poke() bool { // XXX: how can this ever fail and return false? eg: when is a poke not possible and should be rescheduled?
+// notify nodes after me in the dependency graph that they need refreshing...
+// NOTE: this assumes that this can never fail or need to be rescheduled
+func (obj *BaseType) Poke() {
 	v := obj.GetVertex()
 	g := v.GetGraph()
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
 	for _, n := range g.OutgoingGraphEdges(v) {
 		n.SendEvent(eventPoke, false) // XXX: should this be sync or not? XXX: try it as async for now, but switch to sync and see if we deadlock -- maybe it's possible, i don't know for sure yet
 	}
-	return true
+}
+
+// poke the pre-requisites that are stale and need to run before I can run...
+func (obj *BaseType) ParentPoke() {
+	v := obj.GetVertex()
+	g := v.GetGraph()
+	// these are all the vertices pointing TO v, eg: ??? -> v
+	for _, n := range g.IncomingGraphEdges(v) {
+		x, y := obj.GetTimestamp(), n.Type.GetTimestamp()
+		if x >= y {
+			if DEBUG {
+				log.Printf("ParentPoke: From(%v): To(%v)", v.GetName(), n.GetName())
+			}
+			n.SendEvent(eventPoke, false) // XXX: should this be sync or not? XXX: try it as async for now, but switch to sync and see if we deadlock -- maybe it's possible, i don't know for sure yet
+		}
+	}
 }
 
 // push an event into the message queue for a particular type vertex
@@ -216,7 +236,7 @@ func (obj *BaseType) ReadEvent(event *Event) bool {
 }
 
 // XXX: rename this function
-func (obj *BaseType) Process(typ Type) {
+func Process(obj Type) {
 	if DEBUG {
 		log.Printf("%v[%v]: Process()", obj.GetType(), obj.GetName())
 	}
@@ -228,27 +248,28 @@ func (obj *BaseType) Process(typ Type) {
 		if DEBUG {
 			log.Printf("%v[%v]: OKTimestamp(%v)", obj.GetType(), obj.GetName(), obj.GetTimestamp())
 		}
-		// XXX XXX: why does this have to be typ instead of just obj! "obj.StateOK undefined (type *BaseType has no field or method StateOK)"
-		if !typ.StateOK() { // TODO: can we rename this to something better?
+		if !obj.StateOK() { // TODO: can we rename this to something better?
 			if DEBUG {
 				log.Printf("%v[%v]: !StateOK()", obj.GetType(), obj.GetName())
 			}
 			// throw an error if apply fails...
 			// if this fails, don't UpdateTimestamp()
-			if !typ.Apply() { // check for error
+			if !obj.Apply() { // check for error
 				ok = false
 			}
 		}
 
 		if ok {
-			// if poke fails, don't update timestamp
-			// since we didn't propagate the pokes!
-			if obj.Poke() {
-				obj.UpdateTimestamp() // this was touched...
-			}
+			// update this timestamp *before* we poke or the poked
+			// nodes might fail due to having a too old timestamp!
+			obj.UpdateTimestamp() // this was touched...
+			obj.Poke()
 		}
+		// poke at our pre-req's instead since they need to refresh/run...
+	} else {
+		// only poke at the pre-req's that need to run
+		go obj.ParentPoke()
 	}
-
 }
 
 func (obj *NoopType) GetType() string {
@@ -283,7 +304,7 @@ func (obj *NoopType) Watch() {
 		if send {
 			send = false
 
-			obj.Process(obj) // XXX: rename this function
+			Process(obj) // XXX: rename this function
 		}
 	}
 }

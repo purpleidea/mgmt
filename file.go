@@ -235,7 +235,7 @@ func (obj *FileType) Watch() {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Process(obj) // XXX: rename this function
+			Process(obj) // XXX: rename this function
 		}
 	}
 }

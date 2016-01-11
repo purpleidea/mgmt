@@ -183,7 +183,7 @@ func (obj *ExecType) Watch() {
 		if send {
 			send = false
 			obj.isStateOK = false // something made state dirty
-			obj.Process(obj)      // XXX: rename this function
+			Process(obj)          // XXX: rename this function
 		}
 	}
 }

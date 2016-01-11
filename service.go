@@ -182,7 +182,7 @@ func (obj *ServiceType) Watch() {
 
 		if send {
 			send = false
-			obj.Process(obj) // XXX: rename this function
+			Process(obj) // XXX: rename this function
 		}
 
 	}

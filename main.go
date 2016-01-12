@@ -133,11 +133,9 @@ func run(c *cli.Context) {
 
 			// run graph vertex LOCK...
 			if !first { // XXX: we can flatten this check out I think
-				G.SetState(graphPausing)
-				log.Printf("State: %v", G.GetState())
+				log.Printf("State: %v -> %v", G.SetState(graphPausing), G.GetState())
 				G.Pause() // sync
-				G.SetState(graphPaused)
-				log.Printf("State: %v", G.GetState())
+				log.Printf("State: %v -> %v", G.SetState(graphPaused), G.GetState())
 			}
 
 			// build the graph from a config file
@@ -159,12 +157,9 @@ func run(c *cli.Context) {
 			// some are not ready yet and the EtcdWatch
 			// loops, we'll cause G.Pause(...) before we
 			// even got going, thus causing nil pointer errors
-			G.SetState(graphStarting)
-			log.Printf("State: %v", G.GetState())
+			log.Printf("State: %v -> %v", G.SetState(graphStarting), G.GetState())
 			G.Start(&wg) // sync
-			G.SetState(graphStarted)
-			log.Printf("State: %v", G.GetState())
-
+			log.Printf("State: %v -> %v", G.SetState(graphStarted), G.GetState())
 			first = false
 		}
 	}()
@@ -175,11 +170,11 @@ func run(c *cli.Context) {
 			for {
 				<-converged // when anyone says they have converged
 
-				if etcdO.GetState() != etcdConvergedTimeout {
+				if etcdO.GetConvergedState() != etcdConvergedTimeout {
 					continue
 				}
 				for v := range G.GetVerticesChan() {
-					if v.Type.GetState() != typeConvergedTimeout {
+					if v.Type.GetConvergedState() != typeConvergedTimeout {
 						continue ConvergedLoop
 					}
 				}
@@ -202,9 +197,6 @@ func run(c *cli.Context) {
 	G.Exit() // tell all the children to exit
 
 	if DEBUG {
-		for i := range G.GetVerticesChan() {
-			log.Printf("Vertex: %v", i)
-		}
 		log.Printf("Graph: %v", G)
 	}
 

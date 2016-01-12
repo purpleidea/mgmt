@@ -27,6 +27,17 @@ type typeState int
 
 const (
 	typeNil typeState = iota
+	typeWatching
+	typeEvent // an event has happened, but we haven't poked yet
+	typeApplying
+	typePoking
+)
+
+//go:generate stringer -type=typeConvergedState -output=typeconvergedstate_stringer.go
+type typeConvergedState int
+
+const (
+	typeConvergedNil typeConvergedState = iota
 	//typeConverged
 	typeConvergedTimeout
 )
@@ -44,24 +55,27 @@ type Type interface {
 	SendEvent(eventName, bool)
 	IsWatching() bool
 	SetWatching(bool)
+	GetConvergedState() typeConvergedState
+	SetConvergedState(typeConvergedState)
 	GetState() typeState
 	SetState(typeState)
 	GetTimestamp() int64
 	UpdateTimestamp() int64
 	OKTimestamp() bool
 	Poke()
-	ParentPoke()
+	BackPoke()
 }
 
 type BaseType struct {
-	Name      string `yaml:"name"`
-	timestamp int64  // last updated timestamp ?
-	events    chan Event
-	vertex    *Vertex
-	state     typeState
-	watching  bool // is Watch() loop running ?
-	ctimeout  int  // converged timeout
-	converged chan bool
+	Name           string `yaml:"name"`
+	timestamp      int64  // last updated timestamp ?
+	events         chan Event
+	vertex         *Vertex
+	state          typeState
+	convergedState typeConvergedState
+	watching       bool // is Watch() loop running ?
+	ctimeout       int  // converged timeout
+	converged      chan bool
 }
 
 type NoopType struct {
@@ -118,11 +132,22 @@ func (obj *BaseType) SetWatching(b bool) {
 	obj.watching = b
 }
 
+func (obj *BaseType) GetConvergedState() typeConvergedState {
+	return obj.convergedState
+}
+
+func (obj *BaseType) SetConvergedState(state typeConvergedState) {
+	obj.convergedState = state
+}
+
 func (obj *BaseType) GetState() typeState {
 	return obj.state
 }
 
 func (obj *BaseType) SetState(state typeState) {
+	if DEBUG {
+		log.Printf("%v[%v]: State: %v -> %v", obj.GetType(), obj.GetName(), obj.GetState(), state)
+	}
 	obj.state = state
 }
 
@@ -148,6 +173,9 @@ func (obj *BaseType) OKTimestamp() bool {
 		// if they're equal (eg: on init of 0) then we also can't run
 		// b/c we should let our pre-req's go first...
 		x, y := obj.GetTimestamp(), n.Type.GetTimestamp()
+		if DEBUG {
+			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): %v", obj.GetType(), obj.GetName(), x, n.GetType(), n.GetName(), y, !(x >= y))
+		}
 		if x >= y {
 			return false
 		}
@@ -162,22 +190,43 @@ func (obj *BaseType) Poke() {
 	g := v.GetGraph()
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
 	for _, n := range g.OutgoingGraphEdges(v) {
-		n.SendEvent(eventPoke, false) // XXX: should this be sync or not? XXX: try it as async for now, but switch to sync and see if we deadlock -- maybe it's possible, i don't know for sure yet
+		// if we're in state event and haven't been cancelled by apply,
+		// then we can cancel a poke to a child XXX: right?
+		if n.Type.GetState() != typeEvent {
+			if DEBUG {
+				log.Printf("%v[%v]: Poke: %v[%v]", v.GetType(), v.GetName(), n.GetType(), n.GetName())
+			}
+			n.SendEvent(eventPoke, false) // XXX: should this be sync or not? XXX: try it as async for now, but switch to sync and see if we deadlock -- maybe it's possible, i don't know for sure yet
+		} else {
+			if DEBUG {
+				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.GetType(), v.GetName(), n.GetType(), n.GetName())
+			}
+		}
 	}
 }
 
 // poke the pre-requisites that are stale and need to run before I can run...
-func (obj *BaseType) ParentPoke() {
+func (obj *BaseType) BackPoke() {
 	v := obj.GetVertex()
 	g := v.GetGraph()
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphEdges(v) {
-		x, y := obj.GetTimestamp(), n.Type.GetTimestamp()
-		if x >= y {
+		x, y, s := obj.GetTimestamp(), n.Type.GetTimestamp(), n.Type.GetState()
+		// if the parent timestamp needs poking AND it's not in state
+		// typeEvent, then poke it. If the parent is in typeEvent it
+		// means that an event is pending, so we'll be expecting a poke
+		// back soon, so we can safely discard the extra parent poke...
+		// TODO: implement a stateLT (less than) to tell if something
+		// happens earlier in the state cycle and that doesn't wrap nil
+		if x >= y && (s != typeEvent && s != typeApplying) {
 			if DEBUG {
-				log.Printf("ParentPoke: From(%v): To(%v)", v.GetName(), n.GetName())
+				log.Printf("%v[%v]: BackPoke: %v[%v]", v.GetType(), v.GetName(), n.GetType(), n.GetName())
 			}
 			n.SendEvent(eventPoke, false) // XXX: should this be sync or not? XXX: try it as async for now, but switch to sync and see if we deadlock -- maybe it's possible, i don't know for sure yet
+		} else {
+			if DEBUG {
+				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.GetType(), v.GetName(), n.GetType(), n.GetName())
+			}
 		}
 	}
 }
@@ -203,7 +252,6 @@ func (obj *BaseType) SendEvent(event eventName, sync bool) {
 // process events when a select gets one
 // this handles the pause code too!
 func (obj *BaseType) ReadEvent(event *Event) bool {
-
 	event.ACK()
 	switch event.Name {
 	case eventStart:
@@ -240,6 +288,7 @@ func Process(obj Type) {
 	if DEBUG {
 		log.Printf("%v[%v]: Process()", obj.GetType(), obj.GetName())
 	}
+	obj.SetState(typeEvent)
 	var ok bool = true
 	// is it okay to run dependency wise right now?
 	// if not, that's okay because when the dependency runs, it will poke
@@ -254,6 +303,7 @@ func Process(obj Type) {
 			}
 			// throw an error if apply fails...
 			// if this fails, don't UpdateTimestamp()
+			obj.SetState(typeApplying)
 			if !obj.Apply() { // check for error
 				ok = false
 			}
@@ -262,13 +312,14 @@ func Process(obj Type) {
 		if ok {
 			// update this timestamp *before* we poke or the poked
 			// nodes might fail due to having a too old timestamp!
-			obj.UpdateTimestamp() // this was touched...
+			obj.UpdateTimestamp()    // this was touched...
+			obj.SetState(typePoking) // can't cancel parent poke
 			obj.Poke()
 		}
 		// poke at our pre-req's instead since they need to refresh/run...
 	} else {
 		// only poke at the pre-req's that need to run
-		go obj.ParentPoke()
+		go obj.BackPoke()
 	}
 }
 
@@ -286,16 +337,17 @@ func (obj *NoopType) Watch() {
 	//vertex := obj.vertex // stored with SetVertex
 	var send = false // send event?
 	for {
+		obj.SetState(typeWatching) // reset
 		select {
 		case event := <-obj.events:
-			obj.SetState(typeNil)
+			obj.SetConvergedState(typeConvergedNil)
 			if ok := obj.ReadEvent(&event); !ok {
 				return // exit
 			}
 			send = true
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetState(typeConvergedTimeout)
+			obj.SetConvergedState(typeConvergedTimeout)
 			obj.converged <- true
 			continue
 		}
@@ -303,7 +355,6 @@ func (obj *NoopType) Watch() {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-
 			Process(obj) // XXX: rename this function
 		}
 	}

@@ -37,29 +37,29 @@ const (
 	etcdBar
 )
 
-//go:generate stringer -type=etcdState -output=etcdstate_stringer.go
-type etcdState int
+//go:generate stringer -type=etcdConvergedState -output=etcdconvergedstate_stringer.go
+type etcdConvergedState int
 
 const (
-	etcdNil etcdState = iota
+	etcdConvergedNil etcdConvergedState = iota
 	//etcdConverged
 	etcdConvergedTimeout
 )
 
 type EtcdWObject struct { // etcd wrapper object
-	seed      string
-	ctimeout  int
-	converged chan bool
-	kapi      etcd.KeysAPI
-	state     etcdState
+	seed           string
+	ctimeout       int
+	converged      chan bool
+	kapi           etcd.KeysAPI
+	convergedState etcdConvergedState
 }
 
-func (obj *EtcdWObject) GetState() etcdState {
-	return obj.state
+func (obj *EtcdWObject) GetConvergedState() etcdConvergedState {
+	return obj.convergedState
 }
 
-func (obj *EtcdWObject) SetState(state etcdState) {
-	obj.state = state
+func (obj *EtcdWObject) SetConvergedState(state etcdConvergedState) {
+	obj.convergedState = state
 }
 
 func (etcdO *EtcdWObject) GetKAPI() etcd.KeysAPI {
@@ -134,11 +134,11 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 			var err error = nil
 			select {
 			case out := <-etcdch:
-				etcdO.SetState(etcdNil)
+				etcdO.SetConvergedState(etcdConvergedNil)
 				resp, err = out.resp, out.err
 
 			case _ = <-TimeAfterOrBlock(ctimeout):
-				etcdO.SetState(etcdConvergedTimeout)
+				etcdO.SetConvergedState(etcdConvergedTimeout)
 				converged <- true
 				continue
 			}

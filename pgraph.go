@@ -96,15 +96,18 @@ func (g *Graph) SetName(name string) {
 }
 
 func (g *Graph) GetState() graphState {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
+	//g.mutex.Lock()
+	//defer g.mutex.Unlock()
 	return g.state
 }
 
-func (g *Graph) SetState(state graphState) {
+// set graph state and return previous state
+func (g *Graph) SetState(state graphState) graphState {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
+	prev := g.GetState()
 	g.state = state
+	return prev
 }
 
 // store a pointer in the type to it's parent vertex

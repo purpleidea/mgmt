@@ -126,11 +126,15 @@ func (obj *FileType) Watch() {
 		if current == "" { // the empty string top is the root dir ("/")
 			current = "/"
 		}
-		log.Printf("Watching: %v", current) // attempting to watch...
-
+		if DEBUG {
+			log.Printf("File[%v]: Watching: %v", obj.GetName(), current) // attempting to watch...
+		}
 		// initialize in the loop so that we can reset on rm-ed handles
 		err = watcher.Add(current)
 		if err != nil {
+			if DEBUG {
+				log.Printf("File[%v]: watcher.Add(%v): Error: %v", obj.GetName(), current, err)
+			}
 			if err == syscall.ENOENT {
 				index-- // usually not found, move up one dir
 			} else if err == syscall.ENOSPC {
@@ -146,9 +150,13 @@ func (obj *FileType) Watch() {
 			continue
 		}
 
+		obj.SetState(typeWatching) // reset
 		select {
 		case event := <-watcher.Events:
-			obj.SetState(typeNil) // XXX: technically i can detect is the event is erroneous or not first
+			if DEBUG {
+				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event)
+			}
+			obj.SetConvergedState(typeConvergedNil) // XXX: technically i can detect if the event is erroneous or not first
 			// the deeper you go, the bigger the delta_depth is...
 			// this is the difference between what we're watching,
 			// and the event... doesn't mean we can't watch deeper
@@ -214,20 +222,20 @@ func (obj *FileType) Watch() {
 			}
 
 		case err := <-watcher.Errors:
-			obj.SetState(typeNil) // XXX ?
+			obj.SetConvergedState(typeConvergedNil) // XXX ?
 			log.Println("error:", err)
 			log.Fatal(err)
 			//obj.events <- fmt.Sprintf("file: %v", "error") // XXX: how should we handle errors?
 
 		case event := <-obj.events:
-			obj.SetState(typeNil)
+			obj.SetConvergedState(typeConvergedNil)
 			if ok := obj.ReadEvent(&event); !ok {
 				return // exit
 			}
 			send = true
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetState(typeConvergedTimeout)
+			obj.SetConvergedState(typeConvergedTimeout)
 			obj.converged <- true
 			continue
 		}

@@ -144,10 +144,10 @@ func (obj *ExecType) Watch() {
 	}
 
 	for {
+		obj.SetState(typeWatching) // reset
 		select {
 		case text := <-bufioch:
-			obj.SetState(typeNil)
-
+			obj.SetConvergedState(typeConvergedNil)
 			// each time we get a line of output, we loop!
 			log.Printf("%v[%v]: Watch output: %s", obj.GetType(), obj.GetName(), text)
 			if text != "" {
@@ -155,8 +155,8 @@ func (obj *ExecType) Watch() {
 			}
 
 		case err := <-errch:
-			obj.SetState(typeNil) // XXX ?
-			if err == nil {       // EOF
+			obj.SetConvergedState(typeConvergedNil) // XXX ?
+			if err == nil {                         // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
 				log.Printf("%v[%v]: Reached EOF", obj.GetType(), obj.GetName())
@@ -167,14 +167,14 @@ func (obj *ExecType) Watch() {
 			// XXX: how should we handle errors?
 
 		case event := <-obj.events:
-			obj.SetState(typeNil)
+			obj.SetConvergedState(typeConvergedNil)
 			if ok := obj.ReadEvent(&event); !ok {
 				return // exit
 			}
 			send = true
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetState(typeConvergedTimeout)
+			obj.SetConvergedState(typeConvergedTimeout)
 			obj.converged <- true
 			continue
 		}

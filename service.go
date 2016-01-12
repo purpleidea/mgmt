@@ -121,20 +121,21 @@ func (obj *ServiceType) Watch() {
 				set.Remove(service) // no return value should ever occur
 			}
 
+			obj.SetState(typeWatching) // reset
 			select {
 			case _ = <-buschan: // XXX wait for new units event to unstick
-				obj.SetState(typeNil)
+				obj.SetConvergedState(typeConvergedNil)
 				// loop so that we can see the changed invalid signal
 				log.Printf("Service[%v]->DaemonReload()", service)
 
 			case event := <-obj.events:
-				obj.SetState(typeNil)
+				obj.SetConvergedState(typeConvergedNil)
 				if ok := obj.ReadEvent(&event); !ok {
 					return // exit
 				}
 				send = true
 			case _ = <-TimeAfterOrBlock(obj.ctimeout):
-				obj.SetState(typeConvergedTimeout)
+				obj.SetConvergedState(typeConvergedTimeout)
 				obj.converged <- true
 				continue
 			}
@@ -145,6 +146,7 @@ func (obj *ServiceType) Watch() {
 			}
 
 			log.Printf("Watching: %v", service) // attempting to watch...
+			obj.SetState(typeWatching)          // reset
 			select {
 			case event := <-subChannel:
 
@@ -166,13 +168,13 @@ func (obj *ServiceType) Watch() {
 				send = true
 
 			case err := <-subErrors:
-				obj.SetState(typeNil) // XXX ?
+				obj.SetConvergedState(typeConvergedNil) // XXX ?
 				log.Println("error:", err)
 				log.Fatal(err)
 				//vertex.events <- fmt.Sprintf("service: %v", "error") // XXX: how should we handle errors?
 
 			case event := <-obj.events:
-				obj.SetState(typeNil)
+				obj.SetConvergedState(typeConvergedNil)
 				if ok := obj.ReadEvent(&event); !ok {
 					return // exit
 				}

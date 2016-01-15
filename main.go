@@ -211,6 +211,9 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	//}
 	log.SetFlags(log.Flags() - log.Ldate) // remove the date for now
+	if program == "" || version == "" {
+		log.Fatal("Program was not compiled correctly. Please see Makefile.")
+	}
 	app := cli.NewApp()
 	app.Name = program
 	app.Usage = "next generation config management"

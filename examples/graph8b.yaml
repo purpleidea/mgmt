@@ -1,0 +1,32 @@
+---
+graph: mygraph
+types:
+  exec:
+  - name: exec1
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: 'true'
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec2
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: 'true'
+    ifshell: ''
+    pollint: 0
+    state: present
+edges:
+- name: e1
+  from:
+    type: exec
+    name: exec1
+  to:
+    type: exec
+    name: exec2

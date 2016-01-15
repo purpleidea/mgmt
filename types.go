@@ -76,6 +76,7 @@ type BaseType struct {
 	watching       bool // is Watch() loop running ?
 	ctimeout       int  // converged timeout
 	converged      chan bool
+	isStateOK      bool // whether the state is okay based on events or not
 }
 
 type NoopType struct {
@@ -174,7 +175,7 @@ func (obj *BaseType) OKTimestamp() bool {
 		// b/c we should let our pre-req's go first...
 		x, y := obj.GetTimestamp(), n.Type.GetTimestamp()
 		if DEBUG {
-			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): %v", obj.GetType(), obj.GetName(), x, n.GetType(), n.GetName(), y, !(x >= y))
+			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): !%v", obj.GetType(), obj.GetName(), x, n.GetType(), n.GetName(), y, x >= y)
 		}
 		if x >= y {
 			return false
@@ -190,9 +191,10 @@ func (obj *BaseType) Poke() {
 	g := v.GetGraph()
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
 	for _, n := range g.OutgoingGraphEdges(v) {
-		// if we're in state event and haven't been cancelled by apply,
-		// then we can cancel a poke to a child XXX: right?
-		if n.Type.GetState() != typeEvent {
+		// XXX: if we're in state event and haven't been cancelled by
+		// apply, then we can cancel a poke to a child, right? XXX
+		// XXX: if n.Type.GetState() != typeEvent { // is this correct?
+		if true { // XXX
 			if DEBUG {
 				log.Printf("%v[%v]: Poke: %v[%v]", v.GetType(), v.GetName(), n.GetType(), n.GetName())
 			}
@@ -283,6 +285,13 @@ func (obj *BaseType) ReadEvent(event *Event) bool {
 	return false // required to keep the stupid go compiler happy
 }
 
+// useful for using as: return CleanState() in the StateOK functions when there
+// are multiple `true` return exits
+func (obj *BaseType) CleanState() bool {
+	obj.isStateOK = true
+	return true
+}
+
 // XXX: rename this function
 func Process(obj Type) {
 	if DEBUG {
@@ -344,6 +353,7 @@ func (obj *NoopType) Watch() {
 			if ok := obj.ReadEvent(&event); !ok {
 				return // exit
 			}
+			// XXX: should we avoid sending events on UNPAUSE ?
 			send = true
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
@@ -355,6 +365,8 @@ func (obj *NoopType) Watch() {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
+			// only do this on certain types of events
+			//obj.isStateOK = false // something made state dirty
 			Process(obj) // XXX: rename this function
 		}
 	}

@@ -36,7 +36,6 @@ type ExecType struct {
 	IfCmd      string `yaml:"ifcmd"`      // the if command to run
 	IfShell    string `yaml:"ifshell"`    // the (optional) shell to use to run the if cmd
 	PollInt    int    `yaml:"pollint"`    // the poll interval for the ifcmd
-	isStateOK  bool   // whether the state is okay based on events or not
 }
 
 func NewExecType(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) *ExecType {
@@ -182,6 +181,7 @@ func (obj *ExecType) Watch() {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
+			// it is okay to invalidate the clean state on poke too
 			obj.isStateOK = false // something made state dirty
 			Process(obj)          // XXX: rename this function
 		}
@@ -231,7 +231,9 @@ func (obj *ExecType) StateOK() bool {
 
 		// if there is no watcher and no onlyif check, assume we should run
 	} else { // if obj.WatchCmd == "" && obj.IfCmd == "" {
-		return false // just run
+		b := obj.isStateOK
+		obj.isStateOK = true
+		return b // just run if state is dirty
 	}
 }
 

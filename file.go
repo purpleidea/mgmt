@@ -120,6 +120,7 @@ func (obj *FileType) Watch() {
 	var current string               // current "watcher" location
 	var delta_depth int              // depth delta between watcher and event
 	var send = false                 // send event?
+	var dirty = false
 
 	for {
 		current = strings.Join(patharray[0:index], "/")
@@ -154,7 +155,7 @@ func (obj *FileType) Watch() {
 		select {
 		case event := <-watcher.Events:
 			if DEBUG {
-				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event)
+				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event.Op)
 			}
 			obj.SetConvergedState(typeConvergedNil) // XXX: technically i can detect if the event is erroneous or not first
 			// the deeper you go, the bigger the delta_depth is...
@@ -181,7 +182,9 @@ func (obj *FileType) Watch() {
 			// if we have what we wanted, awesome, send an event...
 			if event.Name == safename {
 				//log.Println("Event!")
+				// FIXME: should all these below cases trigger?
 				send = true
+				dirty = true
 
 				// file removed, move the watch upwards
 				if delta_depth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
@@ -210,6 +213,7 @@ func (obj *FileType) Watch() {
 					log.Println("Parent!")
 					if PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
 						send = true
+						dirty = true
 					}
 					watcher.Remove(current)
 					index++
@@ -219,6 +223,7 @@ func (obj *FileType) Watch() {
 			} else if HasPathPrefix(event.Name, safename) {
 				//log.Println("Event2!")
 				send = true
+				dirty = true
 			}
 
 		case err := <-watcher.Errors:
@@ -233,6 +238,7 @@ func (obj *FileType) Watch() {
 				return // exit
 			}
 			send = true
+			//dirty = false // these events don't invalidate state
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
 			obj.SetConvergedState(typeConvergedTimeout)
@@ -243,6 +249,11 @@ func (obj *FileType) Watch() {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
+			// only invalid state on certain types of events
+			if dirty {
+				dirty = false
+				obj.isStateOK = false // something made state dirty
+			}
 			Process(obj) // XXX: rename this function
 		}
 	}
@@ -259,11 +270,16 @@ func (obj *FileType) HashSHA256fromContent() string {
 	return obj.sha256sum
 }
 
+// FIXME: add the obj.CleanState() calls all over the true returns!
 func (obj *FileType) StateOK() bool {
+	if obj.isStateOK { // cache the state
+		return true
+	}
+
 	if _, err := os.Stat(obj.GetPath()); os.IsNotExist(err) {
 		// no such file or directory
 		if obj.State == "absent" {
-			return true // missing file should be missing, phew :)
+			return obj.CleanState() // missing file should be missing, phew :)
 		} else {
 			// state invalid, skip expensive checksums
 			return false

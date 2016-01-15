@@ -52,7 +52,7 @@ type Type interface {
 	SetVertex(*Vertex)
 	SetConvegedCallback(ctimeout int, converged chan bool)
 	Compare(Type) bool
-	SendEvent(eventName, bool, bool)
+	SendEvent(eventName, bool, bool) bool
 	IsWatching() bool
 	SetWatching(bool)
 	GetConvergedState() typeConvergedState
@@ -234,10 +234,14 @@ func (obj *BaseType) BackPoke() {
 }
 
 // push an event into the message queue for a particular type vertex
-func (obj *BaseType) SendEvent(event eventName, sync bool, activity bool) {
+func (obj *BaseType) SendEvent(event eventName, sync bool, activity bool) bool {
+	// TODO: isn't this race-y ?
+	if !obj.IsWatching() { // element has already exited
+		return false // if we don't return, we'll block on the send
+	}
 	if !sync {
 		obj.events <- Event{event, nil, "", activity}
-		return
+		return true
 	}
 
 	resp := make(chan bool)
@@ -246,7 +250,7 @@ func (obj *BaseType) SendEvent(event eventName, sync bool, activity bool) {
 		value := <-resp
 		// wait until true value
 		if value {
-			return
+			return true
 		}
 	}
 }

@@ -1,0 +1,15 @@
+---
+graph: mygraph
+types:
+  exec:
+  - name: exec1
+    cmd: echo hello from exec1
+    shell: ''
+    timeout: 0
+    watchcmd: sleep 5s
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges: []

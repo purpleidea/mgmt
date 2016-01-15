@@ -132,8 +132,12 @@ func (obj *ExecType) Watch() {
 		}
 		scanner := bufio.NewScanner(cmdReader)
 
-		defer cmd.Wait()         // XXX: is this necessary?
-		defer cmd.Process.Kill() // TODO: is this necessary?
+		defer cmd.Wait() // XXX: is this necessary?
+		defer func() {
+			// FIXME: without wrapping this in this func it panic's
+			// when running examples/graph8d.yaml
+			cmd.Process.Kill() // TODO: is this necessary?
+		}()
 		if err := cmd.Start(); err != nil {
 			log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetType(), obj.GetName(), err)
 			log.Fatal(err) // XXX: how should we handle errors?

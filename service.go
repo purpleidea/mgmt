@@ -82,9 +82,10 @@ func (obj *ServiceType) Watch() {
 
 	var service = fmt.Sprintf("%v.service", obj.Name) // systemd name
 	var send = false                                  // send event?
-	var invalid = false                               // does the service exist or not?
-	var previous bool                                 // previous invalid value
-	set := conn.NewSubscriptionSet()                  // no error should be returned
+	var dirty = false
+	var invalid = false              // does the service exist or not?
+	var previous bool                // previous invalid value
+	set := conn.NewSubscriptionSet() // no error should be returned
 	subChannel, subErrors := set.Subscribe()
 	var activeSet = false
 
@@ -112,6 +113,7 @@ func (obj *ServiceType) Watch() {
 
 		if previous != invalid { // if invalid changed, send signal
 			send = true
+			dirty = true
 		}
 
 		if invalid {
@@ -132,6 +134,9 @@ func (obj *ServiceType) Watch() {
 				obj.SetConvergedState(typeConvergedNil)
 				if ok := obj.ReadEvent(&event); !ok {
 					return // exit
+				}
+				if event.GetActivity() {
+					dirty = true
 				}
 				send = true
 			case _ = <-TimeAfterOrBlock(obj.ctimeout):
@@ -166,6 +171,7 @@ func (obj *ServiceType) Watch() {
 					log.Printf("Service[%v]->Stopped", service)
 				}
 				send = true
+				dirty = true
 
 			case err := <-subErrors:
 				obj.SetConvergedState(typeConvergedNil) // XXX ?
@@ -178,12 +184,19 @@ func (obj *ServiceType) Watch() {
 				if ok := obj.ReadEvent(&event); !ok {
 					return // exit
 				}
+				if event.GetActivity() {
+					dirty = true
+				}
 				send = true
 			}
 		}
 
 		if send {
 			send = false
+			if dirty {
+				dirty = false
+				obj.isStateOK = false // something made state dirty
+			}
 			Process(obj) // XXX: rename this function
 		}
 
@@ -191,6 +204,9 @@ func (obj *ServiceType) Watch() {
 }
 
 func (obj *ServiceType) StateOK() bool {
+	if obj.isStateOK { // cache the state
+		return true
+	}
 
 	if !util.IsRunningSystemd() {
 		log.Fatal("Systemd is not running.")

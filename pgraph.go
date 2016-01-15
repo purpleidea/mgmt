@@ -556,7 +556,7 @@ func (g *Graph) Start(wg *sync.WaitGroup) { // start or continue
 		}
 
 		// ensure state is started before continuing on to next vertex
-		v.Type.SendEvent(eventStart, true)
+		v.Type.SendEvent(eventStart, true, false)
 
 	}
 }
@@ -564,7 +564,7 @@ func (g *Graph) Start(wg *sync.WaitGroup) { // start or continue
 func (g *Graph) Pause() {
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
-		v.Type.SendEvent(eventPause, true)
+		v.Type.SendEvent(eventPause, true, false)
 	}
 }
 
@@ -576,7 +576,7 @@ func (g *Graph) Exit() {
 		// when we hit the 'default' in the select statement!
 		// XXX: we can do this to quiesce, but it's not necessary now
 
-		v.Type.SendEvent(eventExit, true)
+		v.Type.SendEvent(eventExit, true, false)
 	}
 }
 

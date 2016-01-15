@@ -52,7 +52,7 @@ type Type interface {
 	SetVertex(*Vertex)
 	SetConvegedCallback(ctimeout int, converged chan bool)
 	Compare(Type) bool
-	SendEvent(eventName, bool)
+	SendEvent(eventName, bool, bool)
 	IsWatching() bool
 	SetWatching(bool)
 	GetConvergedState() typeConvergedState
@@ -62,7 +62,7 @@ type Type interface {
 	GetTimestamp() int64
 	UpdateTimestamp() int64
 	OKTimestamp() bool
-	Poke()
+	Poke(bool)
 	BackPoke()
 }
 
@@ -186,7 +186,7 @@ func (obj *BaseType) OKTimestamp() bool {
 
 // notify nodes after me in the dependency graph that they need refreshing...
 // NOTE: this assumes that this can never fail or need to be rescheduled
-func (obj *BaseType) Poke() {
+func (obj *BaseType) Poke(activity bool) {
 	v := obj.GetVertex()
 	g := v.GetGraph()
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
@@ -198,7 +198,7 @@ func (obj *BaseType) Poke() {
 			if DEBUG {
 				log.Printf("%v[%v]: Poke: %v[%v]", v.GetType(), v.GetName(), n.GetType(), n.GetName())
 			}
-			n.SendEvent(eventPoke, false) // XXX: should this be sync or not? XXX: try it as async for now, but switch to sync and see if we deadlock -- maybe it's possible, i don't know for sure yet
+			n.SendEvent(eventPoke, false, activity) // XXX: can this be switched to sync?
 		} else {
 			if DEBUG {
 				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.GetType(), v.GetName(), n.GetType(), n.GetName())
@@ -224,7 +224,7 @@ func (obj *BaseType) BackPoke() {
 			if DEBUG {
 				log.Printf("%v[%v]: BackPoke: %v[%v]", v.GetType(), v.GetName(), n.GetType(), n.GetName())
 			}
-			n.SendEvent(eventPoke, false) // XXX: should this be sync or not? XXX: try it as async for now, but switch to sync and see if we deadlock -- maybe it's possible, i don't know for sure yet
+			n.SendEvent(eventBackPoke, false, false) // XXX: can this be switched to sync?
 		} else {
 			if DEBUG {
 				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.GetType(), v.GetName(), n.GetType(), n.GetName())
@@ -234,14 +234,14 @@ func (obj *BaseType) BackPoke() {
 }
 
 // push an event into the message queue for a particular type vertex
-func (obj *BaseType) SendEvent(event eventName, sync bool) {
+func (obj *BaseType) SendEvent(event eventName, sync bool, activity bool) {
 	if !sync {
-		obj.events <- Event{event, nil, ""}
+		obj.events <- Event{event, nil, "", activity}
 		return
 	}
 
 	resp := make(chan bool)
-	obj.events <- Event{event, resp, ""}
+	obj.events <- Event{event, resp, "", activity}
 	for {
 		value := <-resp
 		// wait until true value
@@ -260,6 +260,9 @@ func (obj *BaseType) ReadEvent(event *Event) bool {
 		return true
 
 	case eventPoke:
+		return true
+
+	case eventBackPoke:
 		return true
 
 	case eventExit:
@@ -299,6 +302,7 @@ func Process(obj Type) {
 	}
 	obj.SetState(typeEvent)
 	var ok bool = true
+	var apply bool = false // did we run an apply?
 	// is it okay to run dependency wise right now?
 	// if not, that's okay because when the dependency runs, it will poke
 	// us back and we will run if needed then!
@@ -315,6 +319,8 @@ func Process(obj Type) {
 			obj.SetState(typeApplying)
 			if !obj.Apply() { // check for error
 				ok = false
+			} else {
+				apply = true
 			}
 		}
 
@@ -323,7 +329,7 @@ func Process(obj Type) {
 			// nodes might fail due to having a too old timestamp!
 			obj.UpdateTimestamp()    // this was touched...
 			obj.SetState(typePoking) // can't cancel parent poke
-			obj.Poke()
+			obj.Poke(apply)
 		}
 		// poke at our pre-req's instead since they need to refresh/run...
 	} else {

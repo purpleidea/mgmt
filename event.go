@@ -25,14 +25,15 @@ const (
 	eventStart
 	eventPause
 	eventPoke
-	eventChanged
+	eventBackPoke
 )
 
 type Event struct {
 	Name eventName
 	Resp chan bool // channel to send an ack response on, nil to skip
 	//Wg   *sync.WaitGroup // receiver barrier to Wait() for everyone else on
-	Msg string // some words for fun
+	Msg      string // some words for fun
+	Activity bool   // did something interesting happen?
 }
 
 // send a single acknowledgement on the channel if one was requested
@@ -46,4 +47,9 @@ func (event *Event) NACK() {
 	if event.Resp != nil { // if they've requested an ACK
 		event.Resp <- false // send NACK
 	}
+}
+
+// get the activity value
+func (event *Event) GetActivity() bool {
+	return event.Activity
 }

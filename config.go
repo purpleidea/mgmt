@@ -205,7 +205,7 @@ func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, etcdO
 	for _, v := range g.GetVertices() {
 		if !HasVertex(v, keep) {
 			// wait for exit before starting new graph!
-			v.Type.SendEvent(eventExit, true)
+			v.Type.SendEvent(eventExit, true, false)
 			g.DeleteVertex(v)
 		}
 	}

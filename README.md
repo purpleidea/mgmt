@@ -13,6 +13,10 @@ Come join us in [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig
 ## Examples:
 Please look in the [examples/](examples/) folder!
 
+## Bugs:
+Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
+There are currently a few known bugs which I hope to squash soon.
+
 ## Notes:
 * This is currently a research project into next generation config management technologies!
 * This is my first complex project in golang, please notify me of any issues.

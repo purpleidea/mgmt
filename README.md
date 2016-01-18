@@ -22,7 +22,7 @@ Please look in the [examples/](examples/) folder for usage. If none exist, pleas
 * I first started hacking on this in ~2013, even though I had very little time for it.
 * I couldn't think of a good name for the project, so it's now being called `mgmt` until someone contributes a better one!
 * I've published a number of articles about this tool:
-  * TODO
+  * [https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
 * There are some screencasts available:
   * TODO
 

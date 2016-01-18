@@ -1,8 +1,6 @@
 ---
 graph: mygraph
 types:
-  noop:
-  - name: noop1c
   file:
   - name: file1c
     path: "/tmp/mgmtC/f1c"
@@ -27,18 +25,4 @@ types:
 collect:
 - type: file
   pattern: "/tmp/mgmtC/"
-edges:
-- name: e1
-  from:
-    type: noop
-    name: noop1c
-  to:
-    type: file
-    name: file1c
-- name: e2
-  from:
-    type: file
-    name: file1c
-  to:
-    type: file
-    name: file2c
+edges: []

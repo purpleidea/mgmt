@@ -11,7 +11,7 @@ Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purplei
 Come join us in [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) on Freenode!
 
 ## Examples:
-Please look in the [examples/](examples/) folder for usage. If none exist, please contribute one!
+Please look in the [examples/](examples/) folder!
 
 ## Notes:
 * This is currently a research project into next generation config management technologies!

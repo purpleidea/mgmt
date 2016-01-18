@@ -17,7 +17,7 @@ Please look in the [examples/](examples/) folder!
 * This is currently a research project into next generation config management technologies!
 * This is my first complex project in golang, please notify me of any issues.
 * I have some well thought out designs for the future of this project, which I'll try and write up clearly and publish as soon as possible.
-* Please don't expect stable interfaces, code, or any data safety.
+* The interfaces and code are not yet stable. Please run in development environments only!
 * This design is the result of ideas I've had from hacking on advanced config management projects.
 * I first started hacking on this in ~2013, even though I had very little time for it.
 * I couldn't think of a good name for the project, so it's now being called `mgmt` until someone contributes a better one!

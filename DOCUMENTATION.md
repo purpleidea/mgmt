@@ -67,6 +67,14 @@ I wanted a next generation config management solution that didn't have all of
 the design flaws or limitations that the current generation of tools do, and no
 tool existed!
 
+###Why did you use etcd? What about consul?
+
+Etcd and consul are both written in golang, which made them the top two
+contenders for my prototype. Ultimately a choice had to be made, and etcd was
+chosen, but it was also somewhat arbitrary. If there is available interest,
+good reasoning, *and* patches, then we would consider either switching or
+supporting both, but this is not a high priority at this time.
+
 ###You didn't answer my question, or I have a question!
 
 It's best to ask on [IRC](https://webchat.freenode.net/?channels=#mgmtconfig)

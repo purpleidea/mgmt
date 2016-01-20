@@ -255,22 +255,22 @@ func (obj *BaseType) SendEvent(event eventName, sync bool, activity bool) bool {
 	}
 }
 
-// process events when a select gets one
-// this handles the pause code too!
-func (obj *BaseType) ReadEvent(event *Event) bool {
+// process events when a select gets one, this handles the pause code too!
+// the return values specify if we should exit and poke respectively
+func (obj *BaseType) ReadEvent(event *Event) (exit, poke bool) {
 	event.ACK()
 	switch event.Name {
 	case eventStart:
-		return true
+		return false, true
 
 	case eventPoke:
-		return true
+		return false, true
 
 	case eventBackPoke:
-		return true
+		return false, true // forward poking in response to a back poke!
 
 	case eventExit:
-		return false
+		return true, false
 
 	case eventPause:
 		// wait for next event to continue
@@ -278,18 +278,19 @@ func (obj *BaseType) ReadEvent(event *Event) bool {
 		case e := <-obj.events:
 			e.ACK()
 			if e.Name == eventExit {
-				return false
+				return true, false
 			} else if e.Name == eventStart { // eventContinue
-				return true
+				return false, false // don't poke on unpause!
 			} else {
-				log.Fatal("Unknown event: ", e)
+				// if we get a poke event here, it's a bug!
+				log.Fatalf("%v[%v]: Unknown event: %v, while paused!", obj.GetType(), obj.GetName(), e)
 			}
 		}
 
 	default:
 		log.Fatal("Unknown event: ", event)
 	}
-	return false // required to keep the stupid go compiler happy
+	return true, false // required to keep the stupid go compiler happy
 }
 
 // useful for using as: return CleanState() in the StateOK functions when there
@@ -355,16 +356,16 @@ func (obj *NoopType) Watch() {
 
 	//vertex := obj.vertex // stored with SetVertex
 	var send = false // send event?
+	var exit = false
 	for {
 		obj.SetState(typeWatching) // reset
 		select {
 		case event := <-obj.events:
 			obj.SetConvergedState(typeConvergedNil)
-			if ok := obj.ReadEvent(&event); !ok {
+			// we avoid sending events on unpause
+			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
-			// XXX: should we avoid sending events on UNPAUSE ?
-			send = true
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
 			obj.SetConvergedState(typeConvergedTimeout)

@@ -158,7 +158,7 @@ func run(c *cli.Context) {
 			// loops, we'll cause G.Pause(...) before we
 			// even got going, thus causing nil pointer errors
 			log.Printf("State: %v -> %v", G.SetState(graphStarting), G.GetState())
-			G.Start(&wg) // sync
+			G.Start(&wg, first) // sync
 			log.Printf("State: %v -> %v", G.SetState(graphStarted), G.GetState())
 			first = false
 		}

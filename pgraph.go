@@ -543,8 +543,9 @@ func HeisenbergCount(ch chan *Vertex) int {
 }
 
 // main kick to start the graph
-func (g *Graph) Start(wg *sync.WaitGroup) { // start or continue
+func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 	t, _ := g.TopologicalSort()
+	// TODO: only calculate indegree if `first` is true to save resources
 	indegree := g.InDegree() // compute all of the indegree's
 	for _, v := range Reverse(t) {
 
@@ -568,7 +569,10 @@ func (g *Graph) Start(wg *sync.WaitGroup) { // start or continue
 		// failures, such as any poke limiting code in Poke() or
 		// BackPoke(). You might want to disable this selective start
 		// when experimenting with and testing those elements.
-		if indegree[v] == 0 {
+		// if we are unpausing (since it's not the first run of this
+		// function) we need to poke to *unpause* every graph vertex,
+		// and not just selectively the subset with no indegree.
+		if (!first) || indegree[v] == 0 {
 			// ensure state is started before continuing on to next vertex
 			for !v.Type.SendEvent(eventStart, true, false) {
 				if DEBUG {

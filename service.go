@@ -82,6 +82,7 @@ func (obj *ServiceType) Watch() {
 
 	var service = fmt.Sprintf("%v.service", obj.Name) // systemd name
 	var send = false                                  // send event?
+	var exit = false
 	var dirty = false
 	var invalid = false              // does the service exist or not?
 	var previous bool                // previous invalid value
@@ -132,13 +133,13 @@ func (obj *ServiceType) Watch() {
 
 			case event := <-obj.events:
 				obj.SetConvergedState(typeConvergedNil)
-				if ok := obj.ReadEvent(&event); !ok {
+				if exit, send = obj.ReadEvent(&event); exit {
 					return // exit
 				}
 				if event.GetActivity() {
 					dirty = true
 				}
-				send = true
+
 			case _ = <-TimeAfterOrBlock(obj.ctimeout):
 				obj.SetConvergedState(typeConvergedTimeout)
 				obj.converged <- true
@@ -181,13 +182,12 @@ func (obj *ServiceType) Watch() {
 
 			case event := <-obj.events:
 				obj.SetConvergedState(typeConvergedNil)
-				if ok := obj.ReadEvent(&event); !ok {
+				if exit, send = obj.ReadEvent(&event); exit {
 					return // exit
 				}
 				if event.GetActivity() {
 					dirty = true
 				}
-				send = true
 			}
 		}
 

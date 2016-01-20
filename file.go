@@ -120,6 +120,7 @@ func (obj *FileType) Watch() {
 	var current string               // current "watcher" location
 	var delta_depth int              // depth delta between watcher and event
 	var send = false                 // send event?
+	var exit = false
 	var dirty = false
 
 	for {
@@ -234,10 +235,9 @@ func (obj *FileType) Watch() {
 
 		case event := <-obj.events:
 			obj.SetConvergedState(typeConvergedNil)
-			if ok := obj.ReadEvent(&event); !ok {
+			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
-			send = true
 			//dirty = false // these events don't invalidate state
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):

@@ -104,6 +104,7 @@ func (obj *ExecType) Watch() {
 	defer obj.SetWatching(false)
 
 	var send = false // send event?
+	var exit = false
 	bufioch, errch := make(chan string), make(chan error)
 	//vertex := obj.GetVertex()         // stored with SetVertex
 
@@ -171,10 +172,9 @@ func (obj *ExecType) Watch() {
 
 		case event := <-obj.events:
 			obj.SetConvergedState(typeConvergedNil)
-			if ok := obj.ReadEvent(&event); !ok {
+			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
-			send = true
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
 			obj.SetConvergedState(typeConvergedTimeout)

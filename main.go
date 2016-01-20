@@ -99,7 +99,10 @@ func run(c *cli.Context) {
 		startchan := make(chan struct{}) // start signal
 		go func() { startchan <- struct{}{} }()
 		file := c.String("file")
-		configchan := ConfigWatch(file)
+		configchan := make(chan bool)
+		if !c.Bool("no-watch") {
+			configchan = ConfigWatch(file)
+		}
 		log.Printf("Etcd: Starting...")
 		etcdchan := etcdO.EtcdWatch()
 		first := true // first loop or not

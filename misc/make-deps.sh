@@ -40,3 +40,4 @@ fi
 echo "gobin is: $GOBIN"
 
 go get ./...	# get all the go dependencies
+go get golang.org/x/tools/cmd/vet # add in `go vet` for travis

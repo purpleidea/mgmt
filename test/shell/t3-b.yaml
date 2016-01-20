@@ -1,0 +1,28 @@
+---
+graph: mygraph
+types:
+  file:
+  - name: file1b
+    path: "/tmp/mgmt/mgmtB/f1b"
+    content: |
+      i am f1
+    state: exists
+  - name: file2b
+    path: "/tmp/mgmt/mgmtB/f2b"
+    content: |
+      i am f2
+    state: exists
+  - name: "@@file3b"
+    path: "/tmp/mgmt/mgmtB/f3b"
+    content: |
+      i am f3, exported from host B
+    state: exists
+  - name: "@@file4b"
+    path: "/tmp/mgmt/mgmtB/f4b"
+    content: |
+      i am f4, exported from host B
+    state: exists
+collect:
+- type: file
+  pattern: "/tmp/mgmt/mgmtB/"
+edges: []

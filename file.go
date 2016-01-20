@@ -118,7 +118,7 @@ func (obj *FileType) Watch() {
 	patharray := PathSplit(safename) // tokenize the path
 	var index = len(patharray)       // starting index
 	var current string               // current "watcher" location
-	var delta_depth int              // depth delta between watcher and event
+	var deltaDepth int               // depth delta between watcher and event
 	var send = false                 // send event?
 	var exit = false
 	var dirty = false
@@ -159,17 +159,17 @@ func (obj *FileType) Watch() {
 				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event.Op)
 			}
 			obj.SetConvergedState(typeConvergedNil) // XXX: technically i can detect if the event is erroneous or not first
-			// the deeper you go, the bigger the delta_depth is...
+			// the deeper you go, the bigger the deltaDepth is...
 			// this is the difference between what we're watching,
 			// and the event... doesn't mean we can't watch deeper
 			if current == event.Name {
-				delta_depth = 0 // i was watching what i was looking for
+				deltaDepth = 0 // i was watching what i was looking for
 
 			} else if HasPathPrefix(event.Name, current) {
-				delta_depth = len(PathSplit(current)) - len(PathSplit(event.Name)) // -1 or less
+				deltaDepth = len(PathSplit(current)) - len(PathSplit(event.Name)) // -1 or less
 
 			} else if HasPathPrefix(current, event.Name) {
-				delta_depth = len(PathSplit(event.Name)) - len(PathSplit(current)) // +1 or more
+				deltaDepth = len(PathSplit(event.Name)) - len(PathSplit(current)) // +1 or more
 
 			} else {
 				// TODO different watchers get each others events!
@@ -178,7 +178,7 @@ func (obj *FileType) Watch() {
 				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
 				continue
 			}
-			//log.Printf("The delta depth is: %v", delta_depth)
+			//log.Printf("The delta depth is: %v", deltaDepth)
 
 			// if we have what we wanted, awesome, send an event...
 			if event.Name == safename {
@@ -188,14 +188,14 @@ func (obj *FileType) Watch() {
 				dirty = true
 
 				// file removed, move the watch upwards
-				if delta_depth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
+				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
 					//log.Println("Removal!")
 					watcher.Remove(current)
 					index--
 				}
 
 				// we must be a parent watcher, so descend in
-				if delta_depth < 0 {
+				if deltaDepth < 0 {
 					watcher.Remove(current)
 					index++
 				}
@@ -204,13 +204,13 @@ func (obj *FileType) Watch() {
 			} else if HasPathPrefix(safename, event.Name) {
 				//log.Println("Above!")
 
-				if delta_depth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
+				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
 					log.Println("Removal!")
 					watcher.Remove(current)
 					index--
 				}
 
-				if delta_depth < 0 {
+				if deltaDepth < 0 {
 					log.Println("Parent!")
 					if PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
 						send = true

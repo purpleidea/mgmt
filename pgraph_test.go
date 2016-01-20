@@ -272,8 +272,8 @@ func TestPgraphT8(t *testing.T) {
 		t.Errorf("Should be true instead of false.")
 	}
 
-	v_1 := NewVertex(NewNoopType("v1")) // same value, different objects
-	if HasVertex(v_1, []*Vertex{v1, v2, v3}) != false {
+	v1b := NewVertex(NewNoopType("v1")) // same value, different objects
+	if HasVertex(v1b, []*Vertex{v1, v2, v3}) != false {
 		t.Errorf("Should be false instead of true.")
 	}
 }

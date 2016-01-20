@@ -54,12 +54,12 @@ type EtcdWObject struct { // etcd wrapper object
 	convergedState etcdConvergedState
 }
 
-func (obj *EtcdWObject) GetConvergedState() etcdConvergedState {
-	return obj.convergedState
+func (etcdO *EtcdWObject) GetConvergedState() etcdConvergedState {
+	return etcdO.convergedState
 }
 
-func (obj *EtcdWObject) SetConvergedState(state etcdConvergedState) {
-	obj.convergedState = state
+func (etcdO *EtcdWObject) SetConvergedState(state etcdConvergedState) {
+	etcdO.convergedState = state
 }
 
 func (etcdO *EtcdWObject) GetKAPI() etcd.KeysAPI {
@@ -130,8 +130,8 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 		etcdch := etcdO.EtcdChannelWatch(watcher, etcd_context.Background())
 		for {
 			log.Printf("Etcd: Watching...")
-			var resp *etcd.Response = nil
-			var err error = nil
+			var resp *etcd.Response // = nil by default
+			var err error
 			select {
 			case out := <-etcdch:
 				etcdO.SetConvergedState(etcdConvergedNil)
@@ -252,7 +252,7 @@ func (etcdO *EtcdWObject) EtcdGetProcess(nodes etcd.Nodes, typ string) []string 
 	//path := fmt.Sprintf("/exported/%s/types/", h)
 	top := "/exported/"
 	log.Printf("Etcd: Get: %+v", nodes) // Get().Nodes.Nodes
-	output := make([]string, 0)
+	var output []string
 
 	for _, x := range nodes { // loop through hosts
 		if !strings.HasPrefix(x.Key, top) {

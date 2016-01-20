@@ -197,7 +197,7 @@ func (g *Graph) NumEdges() int {
 
 // get an array (slice) of all vertices in the graph
 func (g *Graph) GetVertices() []*Vertex {
-	vertices := make([]*Vertex, 0)
+	var vertices []*Vertex
 	for k := range g.Adjacency {
 		vertices = append(vertices, k)
 	}
@@ -240,9 +240,9 @@ func (g *Graph) Graphviz() (out string) {
 	out += fmt.Sprintf("\tlabel=\"%v\";\n", g.GetName())
 	//out += "\tnode [shape=box];\n"
 	str := ""
-	for i, _ := range g.Adjacency { // reverse paths
+	for i := range g.Adjacency { // reverse paths
 		out += fmt.Sprintf("\t%v [label=\"%v[%v]\"];\n", i.GetName(), i.GetType(), i.GetName())
-		for j, _ := range g.Adjacency[i] {
+		for j := range g.Adjacency[i] {
 			k := g.Adjacency[i][j]
 			// use str for clearer output ordering
 			str += fmt.Sprintf("\t%v -> %v [label=%v];\n", i.GetName(), j.GetName(), k.Name)
@@ -318,9 +318,9 @@ func Contains(s []*Vertex, element *Vertex) bool {
 func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
 	// TODO: we might be able to implement this differently by reversing
 	// the Adjacency graph and then looping through it again...
-	s := make([]*Vertex, 0)
-	for k, _ := range g.Adjacency { // reverse paths
-		for w, _ := range g.Adjacency[k] {
+	var s []*Vertex
+	for k := range g.Adjacency { // reverse paths
+		for w := range g.Adjacency[k] {
 			if w == v {
 				s = append(s, k)
 			}
@@ -332,8 +332,8 @@ func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
 // return an array (slice) of all vertices that vertex v points to (v -> ???)
 // poke should use this
 func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Vertex {
-	s := make([]*Vertex, 0)
-	for k, _ := range g.Adjacency[v] { // forward paths
+	var s []*Vertex
+	for k := range g.Adjacency[v] { // forward paths
 		s = append(s, k)
 	}
 	return s
@@ -341,15 +341,15 @@ func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Vertex {
 
 // return an array (slice) of all vertices that connect to vertex v
 func (g *Graph) GraphEdges(v *Vertex) []*Vertex {
-	s := make([]*Vertex, 0)
+	var s []*Vertex
 	s = append(s, g.IncomingGraphEdges(v)...)
 	s = append(s, g.OutgoingGraphEdges(v)...)
 	return s
 }
 
 func (g *Graph) DFS(start *Vertex) []*Vertex {
-	d := make([]*Vertex, 0) // discovered
-	s := make([]*Vertex, 0) // stack
+	var d []*Vertex // discovered
+	var s []*Vertex // stack
 	if _, exists := g.Adjacency[start]; !exists {
 		return nil // TODO: error
 	}
@@ -393,7 +393,7 @@ func (g *Graph) GetDisconnectedGraphs() chan *Graph {
 	ch := make(chan *Graph)
 	go func() {
 		var start *Vertex
-		d := make([]*Vertex, 0) // discovered
+		var d []*Vertex // discovered
 		c := g.NumVertices()
 		for len(d) < c {
 
@@ -433,7 +433,7 @@ func (g *Graph) InDegree() map[*Vertex]int {
 
 	for k := range g.Adjacency {
 		for z := range g.Adjacency[k] {
-			result[z] += 1
+			result[z]++
 		}
 	}
 	return result
@@ -447,7 +447,7 @@ func (g *Graph) OutDegree() map[*Vertex]int {
 	for k := range g.Adjacency {
 		result[k] = 0 // initialize
 		for _ = range g.Adjacency[k] {
-			result[k] += 1
+			result[k]++
 		}
 	}
 	return result
@@ -458,8 +458,8 @@ func (g *Graph) OutDegree() map[*Vertex]int {
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algorithm
 
-	L := make([]*Vertex, 0)            // empty list that will contain the sorted elements
-	S := make([]*Vertex, 0)            // set of all nodes with no incoming edges
+	var L []*Vertex                    // empty list that will contain the sorted elements
+	var S []*Vertex                    // set of all nodes with no incoming edges
 	remaining := make(map[*Vertex]int) // amount of edges remaining
 
 	for v, d := range g.InDegree() {
@@ -477,7 +477,7 @@ func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algori
 		v := S[last]
 		S = S[:last]
 		L = append(L, v) // add v to tail of L
-		for n, _ := range g.Adjacency[v] {
+		for n := range g.Adjacency[v] {
 			// for each node n remaining in the graph, consume from
 			// remaining, so for remaining[n] > 0
 			if remaining[n] > 0 {
@@ -492,7 +492,7 @@ func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algori
 	// if graph has edges, eg if any value in rem is > 0
 	for c, in := range remaining {
 		if in > 0 {
-			for n, _ := range g.Adjacency[c] {
+			for n := range g.Adjacency[c] {
 				if remaining[n] > 0 {
 					return nil, false // not a dag!
 				}
@@ -624,6 +624,7 @@ func HasVertex(v *Vertex, haystack []*Vertex) bool {
 
 // reverse a list of vertices
 func Reverse(vs []*Vertex) []*Vertex {
+	//var out []*Vertex       // XXX: golint suggests, but it fails testing
 	out := make([]*Vertex, 0) // empty list
 	l := len(vs)
 	for i := range vs {

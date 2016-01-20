@@ -41,7 +41,7 @@ type edgeConfig struct {
 	To   vertexConfig `yaml:"to"`
 }
 
-type graphConfig struct {
+type GraphConfig struct {
 	Graph string `yaml:"graph"`
 	Types struct {
 		Noop    []NoopType    `yaml:"noop"`
@@ -54,7 +54,7 @@ type graphConfig struct {
 	Comment   string                `yaml:"comment"`
 }
 
-func (c *graphConfig) Parse(data []byte) error {
+func (c *GraphConfig) Parse(data []byte) error {
 	if err := yaml.Unmarshal(data, c); err != nil {
 		return err
 	}
@@ -64,14 +64,14 @@ func (c *graphConfig) Parse(data []byte) error {
 	return nil
 }
 
-func ParseConfigFromFile(filename string) *graphConfig {
+func ParseConfigFromFile(filename string) *GraphConfig {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		log.Printf("Error: Config: ParseConfigFromFile: File: %v", err)
 		return nil
 	}
 
-	var config graphConfig
+	var config GraphConfig
 	if err := config.Parse(data); err != nil {
 		log.Printf("Error: Config: ParseConfigFromFile: Parse: %v", err)
 		return nil
@@ -91,14 +91,14 @@ func ParseConfigFromFile(filename string) *graphConfig {
 // of stuff into etcd, we should probably store the operations to complete in
 // the new graph, and keep retrying until it succeeds, thus blocking any new
 // etcd operations until that time.
-func UpdateGraphFromConfig(config *graphConfig, hostname string, g *Graph, etcdO *EtcdWObject) bool {
+func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO *EtcdWObject) bool {
 
-	var NoopMap map[string]*Vertex = make(map[string]*Vertex)
-	var FileMap map[string]*Vertex = make(map[string]*Vertex)
-	var ServiceMap map[string]*Vertex = make(map[string]*Vertex)
-	var ExecMap map[string]*Vertex = make(map[string]*Vertex)
+	var NoopMap = make(map[string]*Vertex)
+	var FileMap = make(map[string]*Vertex)
+	var ServiceMap = make(map[string]*Vertex)
+	var ExecMap = make(map[string]*Vertex)
 
-	var lookup map[string]map[string]*Vertex = make(map[string]map[string]*Vertex)
+	var lookup = make(map[string]map[string]*Vertex)
 	lookup["noop"] = NoopMap
 	lookup["file"] = FileMap
 	lookup["service"] = ServiceMap

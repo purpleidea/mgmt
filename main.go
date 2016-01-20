@@ -58,7 +58,7 @@ func waitForSignal(exit chan bool) {
 }
 
 func run(c *cli.Context) {
-	var start int64 = time.Now().UnixNano()
+	var start = time.Now().UnixNano()
 	var wg sync.WaitGroup
 	exit := make(chan bool)      // exit signal
 	converged := make(chan bool) // converged signal

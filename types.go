@@ -152,12 +152,12 @@ func (obj *BaseType) SetState(state typeState) {
 	obj.state = state
 }
 
-// get timestamp of a vertex
+// GetTimestamp returns the timestamp of a vertex
 func (obj *BaseType) GetTimestamp() int64 {
 	return obj.timestamp
 }
 
-// update timestamp of a vertex
+// UpdateTimestamp updates the timestamp on a vertex and returns the new value
 func (obj *BaseType) UpdateTimestamp() int64 {
 	obj.timestamp = time.Now().UnixNano() // update
 	return obj.timestamp
@@ -306,8 +306,8 @@ func Process(obj Type) {
 		log.Printf("%v[%v]: Process()", obj.GetType(), obj.GetName())
 	}
 	obj.SetState(typeEvent)
-	var ok bool = true
-	var apply bool = false // did we run an apply?
+	var ok = true
+	var apply = false // did we run an apply?
 	// is it okay to run dependency wise right now?
 	// if not, that's okay because when the dependency runs, it will poke
 	// us back and we will run if needed then!

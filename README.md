@@ -24,7 +24,6 @@ There are currently a few known bugs which I hope to squash soon.
 * The interfaces and code are not yet stable. Please run in development environments only!
 * This design is the result of ideas I've had from hacking on advanced config management projects.
 * I first started hacking on this in ~2013, even though I had very little time for it.
-* I couldn't think of a good name for the project, so it's now being called `mgmt` until someone contributes a better one!
 * I've published a number of articles about this tool:
   * [https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
 * There are some screencasts available:

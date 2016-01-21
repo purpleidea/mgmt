@@ -2,7 +2,7 @@ SHELL = /bin/bash
 .PHONY: all version deps run race build clean test format docs
 .SILENT: clean
 
-VERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty)
+VERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always)
 PROGRAM := $(notdir $(CURDIR))
 
 all: docs

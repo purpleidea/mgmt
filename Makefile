@@ -26,7 +26,12 @@ build: mgmt
 mgmt: main.go
 	@echo "Building: $(PROGRAM), version: $(VERSION)."
 	go generate
-	go build -ldflags "-X main.version=$(VERSION) -X main.program=$(PROGRAM)"
+	# avoid equals sign in old golang versions eg in: -X foo=bar
+	if go version | grep -qE 'go1.3|go1.4'; then \
+		go build -ldflags "-X main.version $(VERSION) -X main.program $(PROGRAM)"; \
+	else \
+		go build -ldflags "-X main.version=$(VERSION) -X main.program=$(PROGRAM)"; \
+	fi
 
 clean:
 	[ ! -e mgmt ] || rm mgmt

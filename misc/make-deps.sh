@@ -16,28 +16,16 @@ if [ $travis -eq 0 ]; then
 	sudo yum install -y hg	# some go dependencies are stored in mercurial
 fi
 
-if ! env | grep -q '^GOPATH='; then
-	export GOPATH="$HOME/gopath/"
-	mkdir "$GOPATH"
-	if ! grep -q '^export GOPATH=' ~/.bashrc; then
-		echo "export GOPATH=~/gopath/" >> ~/.bashrc
-	fi
-	echo "setting go path to: $GOPATH"
-fi
-
-echo "gopath is: $GOPATH"
-
-# some versions of golang apparently require this to run go get :(
-if ! env | grep -q '^GOBIN='; then
-	export GOBIN="${GOPATH}bin/"
-	mkdir "$GOBIN"
-	if ! grep -q '^export GOBIN=' ~/.bashrc; then
-		echo 'export GOBIN="${GOPATH}bin/"' >> ~/.bashrc
-	fi
-	echo "setting go bin to: $GOBIN"
-fi
-
-echo "gobin is: $GOBIN"
+$(	# build etcd
+	git clone --recursive https://github.com/coreos/etcd/ && cd etcd
+	git checkout v2.2.4	# TODO: update to newer versions as needed
+	[ -x build ] && ./build
+	echo $PATH
+	mkdir -p ~/bin/
+	cp bin/etcd ~/bin/
+	cd -
+	rm -rf etcd	# clean up to avoid failing on upstream gofmt errors
+)
 
 go get ./...	# get all the go dependencies
 go get golang.org/x/tools/cmd/vet # add in `go vet` for travis

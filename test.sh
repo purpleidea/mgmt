@@ -19,5 +19,5 @@ go vet && echo PASS
 # do these longer tests only when running on ci
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL='; then
 	go test -race
-	#./test/test-shell.sh
+	./test/test-shell.sh
 fi

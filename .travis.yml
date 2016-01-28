@@ -3,7 +3,8 @@ go:
   - 1.4.3
   - 1.5.2
   - tip
-sudo: false
+dist: trusty
+sudo: required
 install: 'make deps'
 script: 'make test'
 matrix:

@@ -14,18 +14,17 @@ if [ $travis -eq 0 ]; then
 	fi
 	sudo yum install -y golang golang-googlecode-tools-stringer
 	sudo yum install -y hg	# some go dependencies are stored in mercurial
+	sudo yum install -y etcd
 fi
 
-$(	# build etcd
-	git clone --recursive https://github.com/coreos/etcd/ && cd etcd
-	git checkout v2.2.4	# TODO: update to newer versions as needed
-	[ -x build ] && ./build
-	echo $PATH
-	mkdir -p ~/bin/
-	cp bin/etcd ~/bin/
-	cd -
-	rm -rf etcd	# clean up to avoid failing on upstream gofmt errors
-)
+# build etcd
+git clone --recursive https://github.com/coreos/etcd/ && cd etcd
+git checkout v2.2.4	# TODO: update to newer versions as needed
+[ -x build ] && ./build
+mkdir -p ~/bin/
+cp bin/etcd ~/bin/
+cd -
+rm -rf etcd	# clean up to avoid failing on upstream gofmt errors
 
 go get ./...	# get all the go dependencies
 go get golang.org/x/tools/cmd/vet # add in `go vet` for travis

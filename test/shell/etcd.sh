@@ -1,7 +1,4 @@
 # NOTE: boiler plate to run etcd; source with: . etcd.sh; should NOT be +x
-set -o errexit
-set -o nounset
-set -o pipefail
 cleanup ()
 {
 	killall etcd || killall -9 etcd || true	# kill etcd

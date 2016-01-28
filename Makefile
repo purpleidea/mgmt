@@ -24,6 +24,7 @@ race:
 build: mgmt
 
 mgmt: main.go
+	@echo "Building: $(PROGRAM), version: $(VERSION)."
 	go generate
 	go build -ldflags "-X main.version=$(VERSION) -X main.program=$(PROGRAM)"
 

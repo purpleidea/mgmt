@@ -59,7 +59,7 @@ if r != 0:
 
 # the second ssh call will run with the omv /etc/profile.d/ script loaded
 git = "git clone --recursive %s %s && cd %s && git checkout %s" % (git_url, folder, folder, branch)
-cmd = "%s '%s && %s'" % (ssh, git, run) # run
+cmd = "%s 'export JENKINS_URL=%s && %s && %s'" % (ssh, os.getenv('JENKINS_URL', ''), git, run) # run
 print cmd
 r = subprocess.call(cmd, shell=True)
 if r != 0:

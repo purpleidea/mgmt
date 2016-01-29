@@ -23,3 +23,14 @@ if ! env | grep -q '^GOBIN='; then
 fi
 
 echo "gobin is: $GOBIN"
+
+# add gobin to $PATH
+if ! env | grep '^PATH=' | grep -q "$GOBIN"; then
+	if ! grep -q '^export PATH="'"${GOBIN}:${PATH}"'"' ~/.bashrc; then
+	        echo 'export PATH="'"${GOBIN}"':'"${PATH}"'"' >> ~/.bashrc
+	fi
+	export PATH="${PATH}"	# basically useless
+	echo "setting path to: $PATH"
+fi
+
+echo "path is: $PATH"

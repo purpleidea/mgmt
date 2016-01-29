@@ -45,7 +45,7 @@ bad_files=$(
 
 if [[ -n "${bad_files}" ]]; then
 	echo 'FAIL'
-	echo 'The following files are not properly formatted:'
+	echo 'The following yaml files are not properly formatted:'
 	echo "${bad_files}"
 	exit 1
 fi

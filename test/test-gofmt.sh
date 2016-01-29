@@ -29,7 +29,7 @@ GOFMT="gofmt"	# we prefer to not use the -s flag, which is pretty annoying...
 bad_files=$(find_files | xargs $GOFMT -l)
 if [[ -n "${bad_files}" ]]; then
 	echo 'FAIL'
-	echo 'The following files are not properly formatted:'
+	echo 'The following golang files are not properly formatted:'
 	echo "${bad_files}"
 	exit 1
 fi

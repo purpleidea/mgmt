@@ -17,12 +17,12 @@ echo running go vet	# since it doesn't output an ok message on pass
 go vet && echo PASS
 
 # do these longer tests only when running on ci
-if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL='; then
+if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	go test -race
 	./test/test-shell.sh
 fi
 
 # run omv tests on jenkins physical hosts only
-if env | grep -q -e '^JENKINS_URL='; then
+if env | grep -q -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	./test/test-omv.sh
 fi

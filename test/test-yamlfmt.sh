@@ -5,7 +5,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e 'BUILD_TAG=jenkins'; then
+if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	echo "Travis and Jenkins give wonky results here, skipping test!"
 	exit 0
 fi

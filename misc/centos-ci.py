@@ -46,7 +46,7 @@ ssid = data['ssid']
 done_nodes_url = "%s/Node/done?key=%s&ssid=%s" % (url_base, apikey, ssid)
 
 host = hosts[0]
-ssh = "ssh -tt -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@%s" % host
+ssh = "ssh -tt -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o SendEnv=JENKINS_URL root@%s" % host
 yum = 'yum -y install git wget'
 omv = 'wget https://github.com/purpleidea/oh-my-vagrant/raw/master/extras/install-omv.sh && chmod u+x install-omv.sh && ./install-omv.sh && wget https://github.com/purpleidea/mgmt/raw/master/misc/make-gopath.sh && chmod u+x make-gopath.sh && ./make-gopath.sh'
 cmd = "%s '%s && %s'" % (ssh, yum, omv) # setup

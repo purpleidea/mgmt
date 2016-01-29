@@ -21,3 +21,8 @@ if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL='; then
 	go test -race
 	./test/test-shell.sh
 fi
+
+# run omv tests on jenkins physical hosts only
+if env | grep -q -e '^JENKINS_URL='; then
+	./test/test-omv.sh
+fi

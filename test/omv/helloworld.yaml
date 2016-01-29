@@ -1,0 +1,51 @@
+---
+:domain: example.com
+:network: 192.168.123.0/24
+:image: fedora-23
+:cpus: ''
+:memory: ''
+:disks: 0
+:disksize: 40G
+:boxurlprefix: ''
+:sync: rsync
+:syncdir: ''
+:syncsrc: ''
+:folder: ".omv"
+:extern:
+- type: git
+  repository: https://github.com/purpleidea/mgmt
+  directory: mgmt
+:cd: ''
+:puppet: false
+:classes: []
+:shell:
+- mkdir /tmp/mgmt/
+:docker: false
+:kubernetes: false
+:ansible: []
+:playbook: []
+:ansible_extras: {}
+:cachier: false
+:vms:
+- :name: etcd
+  :shell:
+  - iptables -F
+  - cd /vagrant/mgmt/ && make deps && make build && cp mgmt ~/bin/
+  - etcd -bind-addr "`hostname --ip-address`:2379" &
+  - cd && mgmt --help
+:namespace: omv
+:count: 0
+:username: ''
+:password: ''
+:poolid: true
+:repos: []
+:update: false
+:reboot: false
+:unsafe: false
+:nested: false
+:tests:
+- omv up etcd
+- vssh root@etcd -c pidof etcd
+- omv destroy
+:comment: simple hello world test case for mgmt
+:reallyrm: false

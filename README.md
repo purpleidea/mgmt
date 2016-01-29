@@ -3,6 +3,7 @@
 [![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png?branch=master)](http://travis-ci.org/purpleidea/mgmt)
 [![Documentation](https://img.shields.io/docs/markdown.png)](DOCUMENTATION.md)
 [![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
+[![Jenkins](https://img.shields.io/jenkins/status.png)](https://ci.centos.org/job/purpleidea-mgmt/)
 
 ## Documentation:
 Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md).
@@ -15,6 +16,7 @@ Please look in the [examples/](examples/) folder!
 
 ## Bugs:
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
+Bonus points if you provide an [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
 There are currently a few known bugs which I hope to squash soon.
 
 ## Notes:

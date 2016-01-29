@@ -2,6 +2,8 @@
 
 # test suite...
 echo running test.sh
+echo "ENV:"
+env
 
 # ensure there is no trailing whitespace or other whitespace errors
 git diff-tree --check $(git hash-object -t tree /dev/null) HEAD

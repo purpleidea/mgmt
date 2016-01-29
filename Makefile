@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-.PHONY: all version deps run race build clean test format docs
+.PHONY: all version gopath deps run race build clean test format docs
 .SILENT: clean
 
 VERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always)
@@ -10,6 +10,9 @@ all: docs
 # show the current version
 version:
 	@echo $(VERSION)
+
+gopath:
+	./misc/make-gopath.sh
 
 deps:
 	./misc/make-deps.sh

@@ -267,7 +267,7 @@ func main() {
 					Usage: "default etc peer endpoint",
 				},
 				cli.IntFlag{
-					Name:  "converged-timeout",
+					Name:  "converged-timeout, t",
 					Value: -1,
 					Usage: "exit after approximately this many seconds in a converged state",
 				},

@@ -3,7 +3,6 @@
 # NOTE: this will rm -rf /tmp/mgmt/
 
 set -o errexit
-set -o nounset
 set -o pipefail
 
 LINE=$(printf '=%.0s' `seq -s ' ' $(tput cols)`)	# a terminal width string

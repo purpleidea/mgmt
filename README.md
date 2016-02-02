@@ -45,7 +45,7 @@ There are currently a few known bugs which I hope to squash soon.
   * TODO
 
 ## Dependencies:
-* golang (required, available in most distros)
+* golang 1.4 or higher (required, available in most distros)
 * golang libraries (required, available with `go get`)
 
         go get github.com/coreos/etcd/client

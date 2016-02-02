@@ -1,0 +1,20 @@
+---
+graph: mygraph
+comment: hello world example
+types:
+  noop:
+  - name: noop1
+  file:
+  - name: file1
+    path: "/tmp/mgmt-hello-world"
+    content: |
+      hello world from @purpleidea
+    state: exists
+edges:
+- name: e1
+  from:
+    type: noop
+    name: noop1
+  to:
+    type: file
+    name: file1

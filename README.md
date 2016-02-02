@@ -5,18 +5,31 @@
 [![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
 [![Jenkins](https://img.shields.io/jenkins/status.png)](https://ci.centos.org/job/purpleidea-mgmt/)
 
+## Community:
+Come join us on IRC in [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) on Freenode!
+You may like the [#mgmtconfig](https://twitter.com/hashtag/mgmtconfig) hashtag if you're on [Twitter](https://twitter.com/#!/purpleidea).
+
+## Questions:
+Please join the [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) IRC community!
+If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!
+
+## Quick start:
+* Either get the golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
+* Run `make build` to get a fresh built `mgmt` binary.
+* Run `cd $(mktemp --tmpdir -d tmp.XXX) && etcd` to get etcd running. The `mgmt` software will do this automatically for you in the future.
+* Run `time ./mgmt run --file examples/graph0.yaml --converged-timeout=1` to try out a very simple example!
+* To run continuously in the default mode of operation, omit the `--converged-timeout` option.
+* Have fun hacking on our future technology!
+
+## Examples:
+Please look in the [examples/](examples/) folder for more examples!
+
 ## Documentation:
 Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md).
 
-## Questions:
-Come join us in [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) on Freenode!
-
-## Examples:
-Please look in the [examples/](examples/) folder!
-
 ## Bugs:
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
-Bonus points if you provide an [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
+Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell) or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
 There are currently a few known bugs which I hope to squash soon.
 
 ## Notes:

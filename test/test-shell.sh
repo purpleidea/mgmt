@@ -13,17 +13,22 @@ make build
 MGMT="$DIR/test/shell/mgmt"
 cp -a "$DIR/mgmt" "$MGMT"	# put a copy there
 failures=""
+count=0
 
 # loop through tests
 for i in $DIR/test/shell/*.sh; do
 	[ -x "$i" ] || continue	# file must be executable
-	# TODO: if ARGV has test names, only execute those!
 	ii=`basename "$i"`	# short name
+	# if ARGV has test names, only execute those!
+	if [ "$1" != '' ]; then
+		[ "$ii" != "$1" ] && continue
+	fi
 	cd $DIR/test/shell/ >/dev/null	# shush the cd operation
 	mkdir -p '/tmp/mgmt/'	# directory for mgmt to put files in
 	#echo "Running: $ii"
-	set +o errexit	# don't kill script on test failure
 	export MGMT_TMPDIR='/tmp/mgmt/'	# we can add to env like this
+	count=`expr $count + 1`
+	set +o errexit	# don't kill script on test failure
 	out=$($i 2>&1)	# run and capture stdout & stderr
 	e=$?	# save exit code
 	set -o errexit	# re-enable killing on script failure
@@ -52,6 +57,12 @@ done
 # clean up
 rm -f "$MGMT"
 make clean
+
+if [ "$count" = '0' ]; then
+	echo 'FAIL'
+	echo 'No tests were run!'
+	exit 1
+fi
 
 # display errors
 if [[ -n "${failures}" ]]; then

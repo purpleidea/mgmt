@@ -1,0 +1,77 @@
+---
+graph: mygraph
+comment: simple exec fan in example to demonstrate optimization)
+types:
+  exec:
+  - name: exec1
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec2
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec3
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec4
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec5
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges:
+- name: e1
+  from:
+    type: exec
+    name: exec1
+  to:
+    type: exec
+    name: exec5
+- name: e2
+  from:
+    type: exec
+    name: exec2
+  to:
+    type: exec
+    name: exec5
+- name: e3
+  from:
+    type: exec
+    name: exec3
+  to:
+    type: exec
+    name: exec5

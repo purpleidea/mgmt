@@ -58,7 +58,7 @@ type Graph struct {
 type Vertex struct {
 	graph *Graph            // store a pointer to the graph it's on
 	Type                    // anonymous field
-	data  map[string]string // XXX: currently unused i think, remove?
+	data  map[string]string // An array of stored data
 }
 
 type Edge struct {

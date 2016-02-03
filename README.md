@@ -55,6 +55,10 @@ There are currently a few known bugs which I hope to squash soon.
         go get github.com/coreos/go-systemd/dbus
         go get github.com/coreos/go-systemd/util
 
+* stringer (required for building), available as a package on some platforms, otherwise via `go get`
+
+        go get golang.org/x/tools/cmd/stringer
+
 * pandoc (optional, for building a pdf of the documentation)
 * graphviz (optional, for building a visual representation of the graph)
 

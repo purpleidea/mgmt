@@ -26,13 +26,7 @@ $RUBY -e "require 'yaml'" 2>/dev/null || (
 cd "${ROOT}"
 
 find_files() {
-	find . -not \( \
-		\( \
-			-wholename './old' \
-			-o -wholename './tmp' \
-			-o -wholename './omv.yaml' \
-		\) -prune \
-	\) -name '*.yaml'
+	git ls-files | grep '\.yaml$'
 }
 
 bad_files=$(

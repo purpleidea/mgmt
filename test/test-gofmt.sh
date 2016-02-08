@@ -17,12 +17,7 @@ fi
 cd "${ROOT}"
 
 find_files() {
-	find . -not \( \
-		\( \
-			-wholename './old' \
-			-o -wholename './tmp' \
-		\) -prune \
-	\) -name '*.go'
+	git ls-files | grep '\.go$'
 }
 
 GOFMT="gofmt"	# we prefer to not use the -s flag, which is pretty annoying...

@@ -28,3 +28,5 @@ fi
 if env | grep -q -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	./test/test-omv.sh
 fi
+
+./test/test-reproducible.sh

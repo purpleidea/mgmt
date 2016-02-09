@@ -16,9 +16,9 @@ case "$OSTYPE" in
 	*)        echo "unknown: $OSTYPE"; exit 1 ;;
 esac
 
-# if we're not doing a travis run we need to install some prereqs
-if [ $travis -eq 0 ]; then
-	if [ "$os" == "linux" ]; then
+if [ "$os" == "linux" ]; then
+	# if we're not doing a travis run we need to install some prereqs
+	if [ $travis -eq 0 ]; then
 		YUM=`which yum`
 		if [ -z $YUM ]; then
 			echo "The 'yum' utility can't be found."
@@ -26,25 +26,26 @@ if [ $travis -eq 0 ]; then
 		fi
 		sudo yum install -y golang golang-googlecode-tools-stringer
 		sudo yum install -y hg	# some go dependencies are stored in mercurial
-
-		# build etcd
-		git clone --recursive https://github.com/coreos/etcd/ && cd etcd
-		git checkout v2.2.4 # TODO: update to newer versions as needed
-		[ -x build ] && ./build
-		mkdir -p ~/bin/
-		cp bin/etcd ~/bin/
-		cd -
-		rm -rf etcd # clean up to avoid failing on upstream gofmt errors
-
 	fi
-	if [ "$os" = "osx" ]; then
-		BREW=`which brew`
-		if [ -z $BREW ]; then
-			echo "The 'brew' utility can't be found."
-			exit 1
-		fi
-		brew install -y go etcd
+
+	# build etcd
+	git clone --recursive https://github.com/coreos/etcd/ && cd etcd
+	git checkout v2.2.4 # TODO: update to newer versions as needed
+	[ -x build ] && ./build
+	mkdir -p ~/bin/
+	cp bin/etcd ~/bin/
+	cd -
+	rm -rf etcd # clean up to avoid failing on upstream gofmt errors
+
+fi
+
+if [ "$os" = "osx" ]; then
+	BREW=`which brew`
+	if [ -z $BREW ]; then
+		echo "The 'brew' utility can't be found."
+		exit 1
 	fi
+	brew install -y go etcd
 fi
 
 

@@ -18,6 +18,8 @@ esac
 
 if [ "$os" == "linux" ]; then
 	# if we're not doing a travis run we need to install some prereqs
+	# if we're on travis we won't have yum in the first place and in the second
+	# place we will already have golang installed
 	if [ $travis -eq 0 ]; then
 		YUM=`which yum`
 		if [ -z $YUM ]; then
@@ -28,7 +30,7 @@ if [ "$os" == "linux" ]; then
 		sudo yum install -y hg	# some go dependencies are stored in mercurial
 	fi
 
-	# build etcd
+	# build etcd since it's not available on trusty, which is what travis is running
 	git clone --recursive https://github.com/coreos/etcd/ && cd etcd
 	git checkout v2.2.4 # TODO: update to newer versions as needed
 	[ -x build ] && ./build

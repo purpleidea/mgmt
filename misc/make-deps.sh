@@ -28,7 +28,6 @@ if [ $travis -eq 0 ]; then
 		fi
 		sudo yum install -y golang golang-googlecode-tools-stringer
 		sudo yum install -y hg	# some go dependencies are stored in mercurial
-		fi
 	fi
 
 	if [ "$os" = "osx" ]; then

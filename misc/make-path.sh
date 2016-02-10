@@ -26,10 +26,10 @@ echo "gobin is: $GOBIN"
 
 # add gobin to $PATH
 if ! env | grep '^PATH=' | grep -q "$GOBIN"; then
-	if ! grep -q '^export PATH="'"${GOBIN}:${PATH}"'"' ~/.bashrc; then
-	        echo 'export PATH="'"${GOBIN}"':'"${PATH}"'"' >> ~/.bashrc
+	if ! grep -q '^export PATH="'"${GOBIN}"':${PATH}"' ~/.bashrc; then
+	        echo 'export PATH="'"${GOBIN}"':${PATH}"' >> ~/.bashrc
 	fi
-	export PATH="${PATH}"	# basically useless
+	export PATH="${GOBIN}:${PATH}"
 	echo "setting path to: $PATH"
 fi
 
@@ -37,10 +37,11 @@ echo "path is: $PATH"
 
 # add ~/bin/ to $PATH
 if ! env | grep '^PATH=' | grep -q "$HOME/bin"; then
-	if ! grep -q '^export PATH="'"${HOME}/bin:${PATH}"'"' ~/.bashrc; then
-	        echo 'export PATH="'"${HOME}/bin"':'"${PATH}"'"' >> ~/.bashrc
+	mkdir -p "${HOME}/bin"
+	if ! grep -q '^export PATH="'"${HOME}/bin"':${PATH}"' ~/.bashrc; then
+	        echo 'export PATH="'"${HOME}/bin"':${PATH}"' >> ~/.bashrc
 	fi
-	export PATH="${PATH}"	# basically useless
+	export PATH="${HOME}/bin:${PATH}"
 	echo "setting path to: $PATH"
 fi
 

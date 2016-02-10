@@ -12,7 +12,7 @@ import subprocess
 
 # static argv to be used if running script inline
 argv = [
-	#'https://github.com/purpleidea/oh-my-vagrant', # giturl
+	#'https://github.com/purpleidea/mgmt', # giturl
 	#'master',
 	#'make test',
 ]
@@ -35,7 +35,7 @@ if len(argv) <= 1:
 git_url = argv[1]
 branch = 'master'
 if len(argv) > 2: branch = argv[2]
-folder = os.path.splitext(os.path.basename(__file__))[0]
+folder = os.path.basename(git_url)	# should be project name
 run = 'make vtest' # the omv vtest cmd is a good option to run from this target
 if len(argv) > 3: run = ' '.join(argv[3:])
 

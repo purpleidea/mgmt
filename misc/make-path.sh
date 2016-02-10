@@ -1,5 +1,5 @@
 #!/bin/bash
-# setup a simple go environment
+# setup a few environment path values
 
 if ! env | grep -q '^GOPATH='; then
 	export GOPATH="$HOME/gopath/"
@@ -28,6 +28,17 @@ echo "gobin is: $GOBIN"
 if ! env | grep '^PATH=' | grep -q "$GOBIN"; then
 	if ! grep -q '^export PATH="'"${GOBIN}:${PATH}"'"' ~/.bashrc; then
 	        echo 'export PATH="'"${GOBIN}"':'"${PATH}"'"' >> ~/.bashrc
+	fi
+	export PATH="${PATH}"	# basically useless
+	echo "setting path to: $PATH"
+fi
+
+echo "path is: $PATH"
+
+# add ~/bin/ to $PATH
+if ! env | grep '^PATH=' | grep -q "$HOME/bin"; then
+	if ! grep -q '^export PATH="'"${HOME}/bin:${PATH}"'"' ~/.bashrc; then
+	        echo 'export PATH="'"${HOME}/bin"':'"${PATH}"'"' >> ~/.bashrc
 	fi
 	export PATH="${PATH}"	# basically useless
 	echo "setting path to: $PATH"

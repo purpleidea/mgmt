@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-.PHONY: all version gopath deps run race build clean test format docs
+.PHONY: all version path deps run race build clean test format docs
 .SILENT: clean
 
 VERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always)
@@ -11,8 +11,8 @@ all: docs
 version:
 	@echo $(VERSION)
 
-gopath:
-	./misc/make-gopath.sh
+path:
+	./misc/make-path.sh
 
 deps:
 	./misc/make-deps.sh

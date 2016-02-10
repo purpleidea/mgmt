@@ -6,6 +6,9 @@ go:
 dist: trusty
 sudo: required
 install: 'make deps'
+os:
+  - linux
+  - osx
 script: 'make test'
 matrix:
   allow_failures:

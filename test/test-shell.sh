@@ -10,7 +10,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "$DIR" >/dev/null	# work from main mgmt directory
 make build
 MGMT="$DIR/test/shell/mgmt"
-cp -a "$DIR/mgmt" "$MGMT"	# put a copy there
+cp -a "$DIR/mgmt" "$MGMT" || cp -a "$GOBIN/mgmt" "$MGMT"	# put a copy there
 failures=""
 count=0
 

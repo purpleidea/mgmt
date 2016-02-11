@@ -12,7 +12,7 @@ fi
 
 ROOT=$(dirname "${BASH_SOURCE}")/..
 
-RUBY=`which ruby`
+RUBY=`which ruby 2>/dev/null`
 if [ -z $RUBY ]; then
 	echo "The 'ruby' utility can't be found."
 	exit 1

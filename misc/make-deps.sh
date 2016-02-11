@@ -8,12 +8,20 @@ fi
 
 if [ $travis -eq 0 ]; then
 	YUM=`which yum`
-	if [ -z $YUM ]; then
-		echo "The 'yum' utility can't be found."
+	APT=`which apt-get`
+	if [ -z "$YUM" -a -z "$APT" ]; then
+		echo "The package managers can't be found."
 		exit 1
 	fi
-	sudo yum install -y golang golang-googlecode-tools-stringer
-	sudo yum install -y hg	# some go dependencies are stored in mercurial
+	if [ ! -z "$YUM" ]; then
+		# some go dependencies are stored in mercurial
+		sudo $YUM install -y golang golang-googlecode-tools-stringer hg
+
+	fi
+	if [ ! -z "$APT" ]; then
+		sudo $APT install -y golang mercurial
+
+	fi
 fi
 
 # build etcd

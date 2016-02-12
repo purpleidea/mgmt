@@ -14,6 +14,8 @@ Requires: graphviz
 
 BuildRequires:	golang
 BuildRequires:	golang-googlecode-tools-stringer
+BuildRequires:	git-core
+BuildRequires:	mercurial
 
 %description
 A next generation config management prototype!

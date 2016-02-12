@@ -4,6 +4,7 @@
 [![Documentation](https://img.shields.io/docs/markdown.png)](DOCUMENTATION.md)
 [![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
 [![Jenkins](https://img.shields.io/jenkins/status.png)](https://ci.centos.org/job/purpleidea-mgmt/)
+[![COPR](https://img.shields.io/copr/builds.png)](https://copr.fedoraproject.org/coprs/purpleidea/mgmt/)
 
 ## Community:
 Come join us on IRC in [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) on Freenode!

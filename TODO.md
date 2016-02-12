@@ -37,7 +37,6 @@ Let us know if you're working on one of the items.
 - [ ] better error/retry handling
 - [ ] resource grouping
 - [ ] automatic dependency adding (eg: packagekit file dependencies)
-- [ ] rpm package target in Makefile
 - [ ] deb package target in Makefile
 - [ ] reproducible builds
 - [ ] add your suggestions!

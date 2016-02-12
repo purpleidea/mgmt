@@ -1,6 +1,6 @@
 #!/bin/bash
 # original version of this script from kubernetes project, under ALv2 license
-
+echo running test-gofmt.sh
 set -o errexit
 set -o nounset
 set -o pipefail

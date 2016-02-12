@@ -1,5 +1,4 @@
 #!/bin/bash -e
-
 # test suite...
 echo running test.sh
 echo "ENV:"

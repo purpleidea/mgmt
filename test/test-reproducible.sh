@@ -1,6 +1,6 @@
 #!/bin/bash
 # simple test for reproducibility, probably needs major improvements
-
+echo running test-reproducible.sh
 set -o errexit
 set -o pipefail
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 # simple test harness for testing mgmt
 # NOTE: this will rm -rf /tmp/mgmt/
-
+echo running test-shell.sh
 set -o errexit
 set -o pipefail
 

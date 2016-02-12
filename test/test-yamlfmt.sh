@@ -1,6 +1,6 @@
 #!/bin/bash
 # check for any yaml files that aren't properly formatted
-
+echo running test-yamlfmt.sh
 set -o errexit
 set -o nounset
 set -o pipefail

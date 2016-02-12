@@ -6,3 +6,4 @@ old/
 tmp/
 *_stringer.go
 mgmt
+rpmbuild/

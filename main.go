@@ -30,8 +30,8 @@ import (
 
 // set at compile time
 var (
-	version string
 	program string
+	version string
 )
 
 const (

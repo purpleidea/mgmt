@@ -37,6 +37,7 @@ Let us know if you're working on one of the items.
 - [ ] better error/retry handling
 - [ ] resource grouping
 - [ ] automatic dependency adding (eg: packagekit file dependencies)
+- [ ] mgmt systemd service file [bug](https://github.com/purpleidea/mgmt/issues/12) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] deb package target in Makefile
 - [ ] reproducible builds
 - [ ] add your suggestions!

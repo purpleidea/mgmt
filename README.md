@@ -31,6 +31,7 @@ Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purplei
 ## Roadmap:
 Please see: [TODO.md](TODO.md) for a list of upcoming work and TODO items.
 Please get involved by working on one of these items or by suggesting something else!
+Please grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove) issues if you're a first time contributor.
 
 ## Bugs:
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).

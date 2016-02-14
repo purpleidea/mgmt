@@ -14,6 +14,7 @@ diff <(tail -n +$start AUTHORS | sort) <(tail -n +$start AUTHORS)
 ./test/test-gofmt.sh
 ./test/test-yamlfmt.sh
 ./test/test-bashfmt.sh
+./test/test-headerfmt.sh
 go test
 echo running go vet	# since it doesn't output an ok message on pass
 go vet && echo PASS

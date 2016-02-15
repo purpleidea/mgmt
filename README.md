@@ -36,6 +36,7 @@ Please grab one of the straightforward [#mgmtlove](https://github.com/purpleidea
 ## Bugs:
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
 Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell) or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
+Feel free to read my article on [debugging golang programs](https://ttboj.wordpress.com/2016/02/15/debugging-golang-programs/).
 
 ## Dependencies:
 * golang 1.4 or higher (required, available in most distros)

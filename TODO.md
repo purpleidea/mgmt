@@ -7,7 +7,7 @@ Let us know if you're working on one of the items.
 - [ ] dnf blocker [bug](https://github.com/hughsie/PackageKit/issues/110)
 - [ ] install signal blocker [bug](https://github.com/hughsie/PackageKit/issues/109)
 
-## File resource
+## File resource [bug](https://github.com/purpleidea/mgmt/issues/13) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] ability to make/delete folders
 - [ ] recursive argument (can recursively watch/modify contents)
 - [ ] force argument (can cause switch from file <-> folder)
@@ -17,7 +17,7 @@ Let us know if you're working on one of the items.
 - [ ] base resource improvements
 
 ## Timer resource
-- [ ] base resource
+- [ ] base resource [bug](https://github.com/purpleidea/mgmt/issues/15) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] reset on recompile
 - [ ] increment algorithm (linear, exponential, etc...)
 

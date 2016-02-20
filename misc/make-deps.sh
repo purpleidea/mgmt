@@ -19,7 +19,7 @@ if [ $travis -eq 0 ]; then
 
 	fi
 	if [ ! -z "$APT" ]; then
-		sudo $APT install -y golang mercurial
+		sudo $APT install -y golang golang-golang-x-tools mercurial
 
 	fi
 fi

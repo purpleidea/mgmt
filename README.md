@@ -61,9 +61,10 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 
 ## On the web:
 * Introductory blog post: [https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
-* Introductory recording from DevConf.cz: [https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1](https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1)
-* Julian Dunn at Cfgmgmtcamp 2016: [https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1](https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1)
-* Walter Heck at Cfgmgmtcamp 2016: [http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3](http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3)
+* Introductory recording from DevConf.cz 2016: [https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1](https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1)
+* Introductory recording from CfgMgmtCamp.eu 2016: [https://www.youtube.com/watch?v=fNeooSiIRnA&html5=1](https://www.youtube.com/watch?v=fNeooSiIRnA&html5=1)
+* Julian Dunn at CfgMgmtCamp.eu 2016: [https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1](https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1)
+* Walter Heck at CfgMgmtCamp.eu 2016: [http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3](http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3)
 * Marco Marongiu on mgmt: [http://syslog.me/2016/02/15/leap-or-die/](http://syslog.me/2016/02/15/leap-or-die/)
 
 ##

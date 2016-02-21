@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   exec:
   - name: exec1
     cmd: echo hello from exec1

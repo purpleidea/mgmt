@@ -31,8 +31,8 @@ import (
 	"syscall"
 )
 
-type FileType struct {
-	BaseType  `yaml:",inline"`
+type FileRes struct {
+	BaseRes   `yaml:",inline"`
 	Path      string `yaml:"path"` // path variable (should default to name)
 	Dirname   string `yaml:"dirname"`
 	Basename  string `yaml:"basename"`
@@ -41,10 +41,10 @@ type FileType struct {
 	sha256sum string
 }
 
-func NewFileType(name, path, dirname, basename, content, state string) *FileType {
+func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
 	// FIXME if path = nil, path = name ...
-	return &FileType{
-		BaseType: BaseType{
+	return &FileRes{
+		BaseRes: BaseRes{
 			Name:   name,
 			events: make(chan Event),
 			vertex: nil,
@@ -58,12 +58,12 @@ func NewFileType(name, path, dirname, basename, content, state string) *FileType
 	}
 }
 
-func (obj *FileType) GetType() string {
+func (obj *FileRes) GetRes() string {
 	return "File"
 }
 
 // validate if the params passed in are valid data
-func (obj *FileType) Validate() bool {
+func (obj *FileRes) Validate() bool {
 	if obj.Dirname != "" {
 		// must end with /
 		if obj.Dirname[len(obj.Dirname)-1:] != "/" {
@@ -79,7 +79,7 @@ func (obj *FileType) Validate() bool {
 	return true
 }
 
-func (obj *FileType) GetPath() string {
+func (obj *FileRes) GetPath() string {
 	d := Dirname(obj.Path)
 	b := Basename(obj.Path)
 	if !obj.Validate() || (obj.Dirname == "" && obj.Basename == "") {
@@ -96,7 +96,7 @@ func (obj *FileType) GetPath() string {
 // File watcher for files and directories
 // Modify with caution, probably important to write some test cases first!
 // obj.GetPath(): file or directory
-func (obj *FileType) Watch() {
+func (obj *FileRes) Watch() {
 	if obj.IsWatching() {
 		return
 	}
@@ -152,13 +152,13 @@ func (obj *FileType) Watch() {
 			continue
 		}
 
-		obj.SetState(typeWatching) // reset
+		obj.SetState(resStateWatching) // reset
 		select {
 		case event := <-watcher.Events:
 			if DEBUG {
 				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event.Op)
 			}
-			obj.SetConvergedState(typeConvergedNil) // XXX: technically i can detect if the event is erroneous or not first
+			obj.SetConvergedState(resConvergedNil) // XXX: technically i can detect if the event is erroneous or not first
 			// the deeper you go, the bigger the deltaDepth is...
 			// this is the difference between what we're watching,
 			// and the event... doesn't mean we can't watch deeper
@@ -228,20 +228,20 @@ func (obj *FileType) Watch() {
 			}
 
 		case err := <-watcher.Errors:
-			obj.SetConvergedState(typeConvergedNil) // XXX ?
+			obj.SetConvergedState(resConvergedNil) // XXX ?
 			log.Println("error:", err)
 			log.Fatal(err)
 			//obj.events <- fmt.Sprintf("file: %v", "error") // XXX: how should we handle errors?
 
 		case event := <-obj.events:
-			obj.SetConvergedState(typeConvergedNil)
+			obj.SetConvergedState(resConvergedNil)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
 			//dirty = false // these events don't invalidate state
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetConvergedState(typeConvergedTimeout)
+			obj.SetConvergedState(resConvergedTimeout)
 			obj.converged <- true
 			continue
 		}
@@ -259,7 +259,7 @@ func (obj *FileType) Watch() {
 	}
 }
 
-func (obj *FileType) HashSHA256fromContent() string {
+func (obj *FileRes) HashSHA256fromContent() string {
 	if obj.sha256sum != "" { // return if already computed
 		return obj.sha256sum
 	}
@@ -271,7 +271,7 @@ func (obj *FileType) HashSHA256fromContent() string {
 }
 
 // FIXME: add the obj.CleanState() calls all over the true returns!
-func (obj *FileType) StateOK() bool {
+func (obj *FileRes) StateOK() bool {
 	if obj.isStateOK { // cache the state
 		return true
 	}
@@ -295,9 +295,9 @@ func (obj *FileType) StateOK() bool {
 	}
 }
 
-func (obj *FileType) StateOKFile() bool {
+func (obj *FileRes) StateOKFile() bool {
 	if PathIsDir(obj.GetPath()) {
-		log.Fatal("This should only be called on a File type.")
+		log.Fatal("This should only be called on a File resource.")
 	}
 
 	// run a diff, and return true if needs changing
@@ -326,9 +326,9 @@ func (obj *FileType) StateOKFile() bool {
 	return false
 }
 
-func (obj *FileType) StateOKDir() bool {
+func (obj *FileRes) StateOKDir() bool {
 	if !PathIsDir(obj.GetPath()) {
-		log.Fatal("This should only be called on a Dir type.")
+		log.Fatal("This should only be called on a Dir resource.")
 	}
 
 	// XXX: not implemented
@@ -336,8 +336,8 @@ func (obj *FileType) StateOKDir() bool {
 	return false
 }
 
-func (obj *FileType) Apply() bool {
-	log.Printf("%v[%v]: Apply", obj.GetType(), obj.GetName())
+func (obj *FileRes) Apply() bool {
+	log.Printf("%v[%v]: Apply", obj.GetRes(), obj.GetName())
 
 	if PathIsDir(obj.GetPath()) {
 		return obj.ApplyDir()
@@ -346,10 +346,10 @@ func (obj *FileType) Apply() bool {
 	}
 }
 
-func (obj *FileType) ApplyFile() bool {
+func (obj *FileRes) ApplyFile() bool {
 
 	if PathIsDir(obj.GetPath()) {
-		log.Fatal("This should only be called on a File type.")
+		log.Fatal("This should only be called on a File resource.")
 	}
 
 	if obj.State == "absent" {
@@ -378,9 +378,9 @@ func (obj *FileType) ApplyFile() bool {
 	return true
 }
 
-func (obj *FileType) ApplyDir() bool {
+func (obj *FileRes) ApplyDir() bool {
 	if !PathIsDir(obj.GetPath()) {
-		log.Fatal("This should only be called on a Dir type.")
+		log.Fatal("This should only be called on a Dir resource.")
 	}
 
 	// XXX: not implemented
@@ -388,20 +388,20 @@ func (obj *FileType) ApplyDir() bool {
 	return true
 }
 
-func (obj *FileType) Compare(typ Type) bool {
-	switch typ.(type) {
-	case *FileType:
-		typ := typ.(*FileType)
-		if obj.Name != typ.Name {
+func (obj *FileRes) Compare(res Res) bool {
+	switch res.(type) {
+	case *FileRes:
+		res := res.(*FileRes)
+		if obj.Name != res.Name {
 			return false
 		}
-		if obj.GetPath() != typ.Path {
+		if obj.GetPath() != res.Path {
 			return false
 		}
-		if obj.Content != typ.Content {
+		if obj.Content != res.Content {
 			return false
 		}
-		if obj.State != typ.State {
+		if obj.State != res.State {
 			return false
 		}
 	default:

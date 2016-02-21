@@ -3,7 +3,7 @@ If you're looking for something to do, look here!
 Let us know if you're working on one of the items.
 
 ## Package resource
-- [ ] base type [bug](https://github.com/purpleidea/mgmt/issues/11)
+- [ ] base resource [bug](https://github.com/purpleidea/mgmt/issues/11)
 - [ ] dnf blocker [bug](https://github.com/hughsie/PackageKit/issues/110)
 - [ ] install signal blocker [bug](https://github.com/hughsie/PackageKit/issues/109)
 

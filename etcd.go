@@ -191,8 +191,8 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 					}
 				}
 
-				// FIXME: we get events on key/type/value changes for
-				// each type directory... ignore the non final ones...
+				// FIXME: we get events on key/res/value changes for
+				// each res directory... ignore the non final ones...
 				// IOW, ignore everything except for the value or some
 				// field which gets set last... this could be the max count field thing...
 
@@ -207,7 +207,7 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 }
 
 // helper function to store our data in etcd
-func (etcdO *EtcdWObject) EtcdPut(hostname, key, typ string, obj interface{}) bool {
+func (etcdO *EtcdWObject) EtcdPut(hostname, key, res string, obj interface{}) bool {
 	kapi := etcdO.GetKAPI()
 	output, ok := ObjToB64(obj)
 	if !ok {
@@ -215,11 +215,11 @@ func (etcdO *EtcdWObject) EtcdPut(hostname, key, typ string, obj interface{}) bo
 		return false
 	}
 
-	path := fmt.Sprintf("/exported/%s/types/%s/type", hostname, key)
-	_, err := kapi.Set(etcd_context.Background(), path, typ, nil)
+	path := fmt.Sprintf("/exported/%s/resources/%s/res", hostname, key)
+	_, err := kapi.Set(etcd_context.Background(), path, res, nil)
 	// XXX validate...
 
-	path = fmt.Sprintf("/exported/%s/types/%s/value", hostname, key)
+	path = fmt.Sprintf("/exported/%s/resources/%s/value", hostname, key)
 	resp, err := kapi.Set(etcd_context.Background(), path, output, nil)
 	if err != nil {
 		if cerr, ok := err.(*etcd.ClusterError); ok {
@@ -240,7 +240,7 @@ func (etcdO *EtcdWObject) EtcdPut(hostname, key, typ string, obj interface{}) bo
 // lookup /exported/ node hierarchy
 func (etcdO *EtcdWObject) EtcdGet() (etcd.Nodes, bool) {
 	kapi := etcdO.GetKAPI()
-	// key structure is /exported/<hostname>/types/...
+	// key structure is /exported/<hostname>/resources/...
 	resp, err := kapi.Get(etcd_context.Background(), "/exported/", &etcd.GetOptions{Recursive: true})
 	if err != nil {
 		return nil, false // not found
@@ -248,8 +248,8 @@ func (etcdO *EtcdWObject) EtcdGet() (etcd.Nodes, bool) {
 	return resp.Node.Nodes, true
 }
 
-func (etcdO *EtcdWObject) EtcdGetProcess(nodes etcd.Nodes, typ string) []string {
-	//path := fmt.Sprintf("/exported/%s/types/", h)
+func (etcdO *EtcdWObject) EtcdGetProcess(nodes etcd.Nodes, res string) []string {
+	//path := fmt.Sprintf("/exported/%s/resources/", h)
 	top := "/exported/"
 	log.Printf("Etcd: Get: %+v", nodes) // Get().Nodes.Nodes
 	var output []string
@@ -261,20 +261,20 @@ func (etcdO *EtcdWObject) EtcdGetProcess(nodes etcd.Nodes, typ string) []string 
 		host := x.Key[len(top):]
 		//log.Printf("Get().Nodes[%v]: %+v ==> %+v", -1, host, x.Nodes)
 		//log.Printf("Get().Nodes[%v]: %+v ==> %+v", i, x.Key, x.Nodes)
-		types, ok := EtcdGetChildNodeByKey(x, "types")
+		resources, ok := EtcdGetChildNodeByKey(x, "resources")
 		if !ok {
 			continue
 		}
-		for _, y := range types.Nodes { // loop through types
+		for _, y := range resources.Nodes { // loop through resources
 			//key := y.Key # UUID?
-			//log.Printf("Get(%v): TYPE[%v]", host, y.Key)
-			t, ok := EtcdGetChildNodeByKey(y, "type")
+			//log.Printf("Get(%v): RES[%v]", host, y.Key)
+			t, ok := EtcdGetChildNodeByKey(y, "res")
 			if !ok {
 				continue
 			}
-			if typ != "" && typ != t.Value {
+			if res != "" && res != t.Value {
 				continue
-			} // filter based on type
+			} // filter based on res
 
 			v, ok := EtcdGetChildNodeByKey(y, "value") // B64ToObj this
 			if !ok {

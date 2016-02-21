@@ -27,7 +27,7 @@ import (
 	"syscall"
 )
 
-// XXX: it would be great if we could reuse code between this and the file type
+// XXX: it would be great if we could reuse code between this and the file resource
 // XXX: patch this to submit it as part of go-fsnotify if they're interested...
 func ConfigWatch(file string) chan bool {
 	ch := make(chan bool)

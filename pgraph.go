@@ -57,7 +57,7 @@ type Graph struct {
 
 type Vertex struct {
 	graph *Graph            // store a pointer to the graph it's on
-	Type                    // anonymous field
+	Res                     // anonymous field
 	data  map[string]string // XXX: currently unused i think, remove?
 }
 
@@ -73,9 +73,9 @@ func NewGraph(name string) *Graph {
 	}
 }
 
-func NewVertex(t Type) *Vertex {
+func NewVertex(r Res) *Vertex {
 	return &Vertex{
-		Type: t,
+		Res:  r,
 		data: make(map[string]string),
 	}
 }
@@ -111,10 +111,10 @@ func (g *Graph) SetState(state graphState) graphState {
 	return prev
 }
 
-// store a pointer in the type to it's parent vertex
+// store a pointer in the resource to it's parent vertex
 func (g *Graph) SetVertex() {
 	for v := range g.GetVerticesChan() {
-		v.Type.SetVertex(v)
+		v.Res.SetVertex(v)
 	}
 }
 
@@ -160,7 +160,7 @@ func (g *Graph) GetVertex(name string) chan *Vertex {
 	return ch
 }
 
-func (g *Graph) GetVertexMatch(obj Type) *Vertex {
+func (g *Graph) GetVertexMatch(obj Res) *Vertex {
 	for k := range g.Adjacency {
 		if k.Compare(obj) { // XXX test
 			return k
@@ -241,7 +241,7 @@ func (g *Graph) Graphviz() (out string) {
 	//out += "\tnode [shape=box];\n"
 	str := ""
 	for i := range g.Adjacency { // reverse paths
-		out += fmt.Sprintf("\t%v [label=\"%v[%v]\"];\n", i.GetName(), i.GetType(), i.GetName())
+		out += fmt.Sprintf("\t%v [label=\"%v[%v]\"];\n", i.GetName(), i.GetRes(), i.GetName())
 		for j := range g.Adjacency[i] {
 			k := g.Adjacency[i][j]
 			// use str for clearer output ordering
@@ -549,14 +549,14 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 	indegree := g.InDegree() // compute all of the indegree's
 	for _, v := range Reverse(t) {
 
-		if !v.Type.IsWatching() { // if Watch() is not running...
+		if !v.Res.IsWatching() { // if Watch() is not running...
 			wg.Add(1)
 			// must pass in value to avoid races...
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
 			go func(vv *Vertex) {
 				defer wg.Done()
-				vv.Type.Watch()
-				log.Printf("%v[%v]: Exited", vv.GetType(), vv.GetName())
+				vv.Res.Watch()
+				log.Printf("%v[%v]: Exited", vv.GetRes(), vv.GetName())
 			}(v)
 		}
 
@@ -574,10 +574,10 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 		// and not just selectively the subset with no indegree.
 		if (!first) || indegree[v] == 0 {
 			// ensure state is started before continuing on to next vertex
-			for !v.Type.SendEvent(eventStart, true, false) {
+			for !v.Res.SendEvent(eventStart, true, false) {
 				if DEBUG {
 					// if SendEvent fails, we aren't up yet
-					log.Printf("%v[%v]: Retrying SendEvent(Start)", v.GetType(), v.GetName())
+					log.Printf("%v[%v]: Retrying SendEvent(Start)", v.GetRes(), v.GetName())
 					// sleep here briefly or otherwise cause
 					// a different goroutine to be scheduled
 					time.Sleep(1 * time.Millisecond)
@@ -590,7 +590,7 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 func (g *Graph) Pause() {
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
-		v.Type.SendEvent(eventPause, true, false)
+		v.Res.SendEvent(eventPause, true, false)
 	}
 }
 
@@ -602,13 +602,13 @@ func (g *Graph) Exit() {
 		// when we hit the 'default' in the select statement!
 		// XXX: we can do this to quiesce, but it's not necessary now
 
-		v.Type.SendEvent(eventExit, true, false)
+		v.Res.SendEvent(eventExit, true, false)
 	}
 }
 
 func (g *Graph) SetConvergedCallback(ctimeout int, converged chan bool) {
 	for v := range g.GetVerticesChan() {
-		v.Type.SetConvegedCallback(ctimeout, converged)
+		v.Res.SetConvergedCallback(ctimeout, converged)
 	}
 }
 

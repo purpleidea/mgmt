@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   exec:
   - name: exec1
     cmd: sleep 10s
@@ -45,15 +45,15 @@ types:
 edges:
 - name: e1
   from:
-    type: exec
+    res: exec
     name: exec1
   to:
-    type: exec
+    res: exec
     name: exec2
 - name: e2
   from:
-    type: exec
+    res: exec
     name: exec2
   to:
-    type: exec
+    res: exec
     name: exec3

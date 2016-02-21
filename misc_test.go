@@ -152,7 +152,7 @@ func TestMiscT6(t *testing.T) {
 
 	type foo struct {
 		Name  string `yaml:"name"`
-		Type  string `yaml:"type"`
+		Res   string `yaml:"res"`
 		Value int    `yaml:"value"`
 	}
 
@@ -175,7 +175,7 @@ func TestMiscT7(t *testing.T) {
 
 	type Foo struct {
 		Name  string `yaml:"name"`
-		Type  string `yaml:"type"`
+		Res   string `yaml:"res"`
 		Value int    `yaml:"value"`
 	}
 

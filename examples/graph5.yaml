@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   file:
   - name: file1
     path: "/tmp/mgmt/f1"
@@ -8,6 +8,6 @@ types:
       i am f1
     state: exists
 collect:
-- type: file
+- res: file
   pattern: ''
 edges:

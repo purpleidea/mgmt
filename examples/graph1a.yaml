@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   file:
   - name: file1
     path: "/tmp/mgmt/f1"
@@ -15,8 +15,8 @@ types:
 edges:
 - name: e1
   from:
-    type: file
+    res: file
     name: file1
   to:
-    type: file
+    res: file
     name: file2

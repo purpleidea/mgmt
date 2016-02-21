@@ -1,7 +1,7 @@
 ---
 graph: mygraph
 comment: simple exec fan in to fan out example to demonstrate optimization
-types:
+resources:
   exec:
   - name: exec1
     cmd: sleep 10s
@@ -86,43 +86,43 @@ types:
 edges:
 - name: e1
   from:
-    type: exec
+    res: exec
     name: exec1
   to:
-    type: exec
+    res: exec
     name: exec4
 - name: e2
   from:
-    type: exec
+    res: exec
     name: exec2
   to:
-    type: exec
+    res: exec
     name: exec4
 - name: e3
   from:
-    type: exec
+    res: exec
     name: exec3
   to:
-    type: exec
+    res: exec
     name: exec4
 - name: e4
   from:
-    type: exec
+    res: exec
     name: exec4
   to:
-    type: exec
+    res: exec
     name: exec5
 - name: e5
   from:
-    type: exec
+    res: exec
     name: exec4
   to:
-    type: exec
+    res: exec
     name: exec6
 - name: e6
   from:
-    type: exec
+    res: exec
     name: exec4
   to:
-    type: exec
+    res: exec
     name: exec7

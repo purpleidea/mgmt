@@ -177,7 +177,7 @@ func run(c *cli.Context) {
 					continue
 				}
 				for v := range G.GetVerticesChan() {
-					if v.Type.GetConvergedState() != typeConvergedTimeout {
+					if v.Res.GetConvergedState() != resConvergedTimeout {
 						continue ConvergedLoop
 					}
 				}

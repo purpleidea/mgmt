@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   file:
   - name: file1c
     path: "/tmp/mgmt/mgmtC/f1c"
@@ -23,6 +23,6 @@ types:
       i am f4, exported from host C
     state: exists
 collect:
-- type: file
+- res: file
   pattern: "/tmp/mgmt/mgmtC/"
 edges: []

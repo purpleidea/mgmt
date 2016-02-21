@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   noop:
   - name: noop1
   file:
@@ -9,22 +9,22 @@ types:
     content: |
       i am f1
     state: exists
-  service:
+  svc:
   - name: purpleidea
     state: running
     startup: enabled
 edges:
 - name: e1
   from:
-    type: noop
+    res: noop
     name: noop1
   to:
-    type: file
+    res: file
     name: file1
 - name: e2
   from:
-    type: file
+    res: file
     name: file1
   to:
-    type: service
+    res: svc
     name: purpleidea

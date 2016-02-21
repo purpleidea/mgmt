@@ -25,8 +25,8 @@ import (
 	"strings"
 )
 
-type ExecType struct {
-	BaseType   `yaml:",inline"`
+type ExecRes struct {
+	BaseRes    `yaml:",inline"`
 	State      string `yaml:"state"`      // state: exists/present?, absent, (undefined?)
 	Cmd        string `yaml:"cmd"`        // the command to run
 	Shell      string `yaml:"shell"`      // the (optional) shell to use to run the cmd
@@ -38,10 +38,10 @@ type ExecType struct {
 	PollInt    int    `yaml:"pollint"`    // the poll interval for the ifcmd
 }
 
-func NewExecType(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) *ExecType {
+func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) *ExecRes {
 	// FIXME if path = nil, path = name ...
-	return &ExecType{
-		BaseType: BaseType{
+	return &ExecRes{
+		BaseRes: BaseRes{
 			Name:   name,
 			events: make(chan Event),
 			vertex: nil,
@@ -58,13 +58,13 @@ func NewExecType(name, cmd, shell string, timeout int, watchcmd, watchshell, ifc
 	}
 }
 
-func (obj *ExecType) GetType() string {
+func (obj *ExecRes) GetRes() string {
 	return "Exec"
 }
 
 // validate if the params passed in are valid data
 // FIXME: where should this get called ?
-func (obj *ExecType) Validate() bool {
+func (obj *ExecRes) Validate() bool {
 	if obj.Cmd == "" { // this is the only thing that is really required
 		return false
 	}
@@ -78,7 +78,7 @@ func (obj *ExecType) Validate() bool {
 }
 
 // wraps the scanner output in a channel
-func (obj *ExecType) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan error) {
+func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan error) {
 	ch, errch := make(chan string), make(chan error)
 	go func() {
 		for scanner.Scan() {
@@ -96,7 +96,7 @@ func (obj *ExecType) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan
 }
 
 // Exec watcher
-func (obj *ExecType) Watch() {
+func (obj *ExecRes) Watch() {
 	if obj.IsWatching() {
 		return
 	}
@@ -128,7 +128,7 @@ func (obj *ExecType) Watch() {
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
-			log.Printf("%v[%v]: Error creating StdoutPipe for Cmd: %v", obj.GetType(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error creating StdoutPipe for Cmd: %v", obj.GetRes(), obj.GetName(), err)
 			log.Fatal(err) // XXX: how should we handle errors?
 		}
 		scanner := bufio.NewScanner(cmdReader)
@@ -140,7 +140,7 @@ func (obj *ExecType) Watch() {
 			cmd.Process.Kill() // TODO: is this necessary?
 		}()
 		if err := cmd.Start(); err != nil {
-			log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetType(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetRes(), obj.GetName(), err)
 			log.Fatal(err) // XXX: how should we handle errors?
 		}
 
@@ -148,36 +148,36 @@ func (obj *ExecType) Watch() {
 	}
 
 	for {
-		obj.SetState(typeWatching) // reset
+		obj.SetState(resStateWatching) // reset
 		select {
 		case text := <-bufioch:
-			obj.SetConvergedState(typeConvergedNil)
+			obj.SetConvergedState(resConvergedNil)
 			// each time we get a line of output, we loop!
-			log.Printf("%v[%v]: Watch output: %s", obj.GetType(), obj.GetName(), text)
+			log.Printf("%v[%v]: Watch output: %s", obj.GetRes(), obj.GetName(), text)
 			if text != "" {
 				send = true
 			}
 
 		case err := <-errch:
-			obj.SetConvergedState(typeConvergedNil) // XXX ?
-			if err == nil {                         // EOF
+			obj.SetConvergedState(resConvergedNil) // XXX ?
+			if err == nil {                        // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
-				log.Printf("%v[%v]: Reached EOF", obj.GetType(), obj.GetName())
+				log.Printf("%v[%v]: Reached EOF", obj.GetRes(), obj.GetName())
 				return
 			}
-			log.Printf("%v[%v]: Error reading input?: %v", obj.GetType(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error reading input?: %v", obj.GetRes(), obj.GetName(), err)
 			log.Fatal(err)
 			// XXX: how should we handle errors?
 
 		case event := <-obj.events:
-			obj.SetConvergedState(typeConvergedNil)
+			obj.SetConvergedState(resConvergedNil)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
 
 		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetConvergedState(typeConvergedTimeout)
+			obj.SetConvergedState(resConvergedTimeout)
 			obj.converged <- true
 			continue
 		}
@@ -193,7 +193,7 @@ func (obj *ExecType) Watch() {
 }
 
 // TODO: expand the IfCmd to be a list of commands
-func (obj *ExecType) StateOK() bool {
+func (obj *ExecRes) StateOK() bool {
 
 	// if there is a watch command, but no if command, run based on state
 	if b := obj.isStateOK; obj.WatchCmd != "" && obj.IfCmd == "" {
@@ -241,8 +241,8 @@ func (obj *ExecType) StateOK() bool {
 	}
 }
 
-func (obj *ExecType) Apply() bool {
-	log.Printf("%v[%v]: Apply", obj.GetType(), obj.GetName())
+func (obj *ExecRes) Apply() bool {
+	log.Printf("%v[%v]: Apply", obj.GetRes(), obj.GetName())
 	var cmdName string
 	var cmdArgs []string
 	if obj.Shell == "" {
@@ -264,7 +264,7 @@ func (obj *ExecType) Apply() bool {
 	cmd.Stdout = &out
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetType(), obj.GetName(), err)
+		log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetRes(), obj.GetName(), err)
 		return false
 	}
 
@@ -278,12 +278,12 @@ func (obj *ExecType) Apply() bool {
 	select {
 	case err := <-done:
 		if err != nil {
-			log.Printf("%v[%v]: Error waiting for Cmd: %v", obj.GetType(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error waiting for Cmd: %v", obj.GetRes(), obj.GetName(), err)
 			return false
 		}
 
 	case <-TimeAfterOrBlock(timeout):
-		log.Printf("%v[%v]: Timeout waiting for Cmd", obj.GetType(), obj.GetName())
+		log.Printf("%v[%v]: Timeout waiting for Cmd", obj.GetRes(), obj.GetName())
 		//cmd.Process.Kill() // TODO: is this necessary?
 		return false
 	}
@@ -301,35 +301,35 @@ func (obj *ExecType) Apply() bool {
 	return true
 }
 
-func (obj *ExecType) Compare(typ Type) bool {
-	switch typ.(type) {
-	case *ExecType:
-		typ := typ.(*ExecType)
-		if obj.Name != typ.Name {
+func (obj *ExecRes) Compare(res Res) bool {
+	switch res.(type) {
+	case *ExecRes:
+		res := res.(*ExecRes)
+		if obj.Name != res.Name {
 			return false
 		}
-		if obj.Cmd != typ.Cmd {
+		if obj.Cmd != res.Cmd {
 			return false
 		}
-		if obj.Shell != typ.Shell {
+		if obj.Shell != res.Shell {
 			return false
 		}
-		if obj.Timeout != typ.Timeout {
+		if obj.Timeout != res.Timeout {
 			return false
 		}
-		if obj.WatchCmd != typ.WatchCmd {
+		if obj.WatchCmd != res.WatchCmd {
 			return false
 		}
-		if obj.WatchShell != typ.WatchShell {
+		if obj.WatchShell != res.WatchShell {
 			return false
 		}
-		if obj.IfCmd != typ.IfCmd {
+		if obj.IfCmd != res.IfCmd {
 			return false
 		}
-		if obj.PollInt != typ.PollInt {
+		if obj.PollInt != res.PollInt {
 			return false
 		}
-		if obj.State != typ.State {
+		if obj.State != res.State {
 			return false
 		}
 	default:

@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   noop:
   - name: noop1
   file:
@@ -27,15 +27,15 @@ types:
 edges:
 - name: e1
   from:
-    type: file
+    res: file
     name: file1
   to:
-    type: file
+    res: file
     name: file2
 - name: e2
   from:
-    type: file
+    res: file
     name: file2
   to:
-    type: file
+    res: file
     name: file3

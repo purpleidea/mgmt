@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-types:
+resources:
   noop:
   - name: noop1
 edges:

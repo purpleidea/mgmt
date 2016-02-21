@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
+	"github.com/godbus/dbus"
 	"path"
 	"strings"
 	"time"
@@ -119,4 +120,23 @@ func TimeAfterOrBlock(t int) <-chan time.Time {
 		return make(chan time.Time) // blocks forever
 	}
 	return time.After(time.Duration(t) * time.Second)
+}
+
+// making using the private bus usable, should be upstream:
+// TODO: https://github.com/godbus/dbus/issues/15
+func SystemBusPrivateUsable() (conn *dbus.Conn, err error) {
+	conn, err = dbus.SystemBusPrivate()
+	if err != nil {
+		return nil, err
+	}
+	if err = conn.Auth(nil); err != nil {
+		conn.Close()
+		conn = nil
+		return
+	}
+	if err = conn.Hello(); err != nil {
+		conn.Close()
+		conn = nil
+	}
+	return conn, nil // success
 }

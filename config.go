@@ -45,6 +45,7 @@ type GraphConfig struct {
 	Graph     string `yaml:"graph"`
 	Resources struct {
 		Noop []NoopRes `yaml:"noop"`
+		Pkg  []PkgRes  `yaml:"pkg"`
 		File []FileRes `yaml:"file"`
 		Svc  []SvcRes  `yaml:"svc"`
 		Exec []ExecRes `yaml:"exec"`
@@ -94,12 +95,14 @@ func ParseConfigFromFile(filename string) *GraphConfig {
 func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO *EtcdWObject) bool {
 
 	var NoopMap = make(map[string]*Vertex)
+	var PkgMap = make(map[string]*Vertex)
 	var FileMap = make(map[string]*Vertex)
 	var SvcMap = make(map[string]*Vertex)
 	var ExecMap = make(map[string]*Vertex)
 
 	var lookup = make(map[string]map[string]*Vertex)
 	lookup["noop"] = NoopMap
+	lookup["pkg"] = PkgMap
 	lookup["file"] = FileMap
 	lookup["svc"] = SvcMap
 	lookup["exec"] = ExecMap
@@ -118,6 +121,17 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 			g.AddVertex(v) // call standalone in case not part of an edge
 		}
 		NoopMap[obj.Name] = v  // used for constructing edges
+		keep = append(keep, v) // append
+	}
+
+	for _, t := range config.Resources.Pkg {
+		obj := NewPkgRes(t.Name, t.State, false, false, false)
+		v := g.GetVertexMatch(obj)
+		if v == nil { // no match found
+			v = NewVertex(obj)
+			g.AddVertex(v) // call standalone in case not part of an edge
+		}
+		PkgMap[obj.Name] = v   // used for constructing edges
 		keep = append(keep, v) // append
 	}
 

@@ -1,0 +1,7 @@
+---
+graph: mygraph
+resources:
+  pkg:
+  - name: powertop
+    state: uninstalled
+edges: []

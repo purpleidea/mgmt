@@ -20,6 +20,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"log"
 	"os/exec"
 	"strings"
@@ -193,13 +194,14 @@ func (obj *ExecRes) Watch() {
 }
 
 // TODO: expand the IfCmd to be a list of commands
-func (obj *ExecRes) StateOK() bool {
+func (obj *ExecRes) CheckApply(apply bool) (stateok bool, err error) {
+	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
 
 	// if there is a watch command, but no if command, run based on state
-	if b := obj.isStateOK; obj.WatchCmd != "" && obj.IfCmd == "" {
-		obj.isStateOK = true // reset
-		//if !obj.isStateOK { obj.isStateOK = true; return false }
-		return b
+	if obj.WatchCmd != "" && obj.IfCmd == "" {
+		if obj.isStateOK {
+			return true, nil
+		}
 
 		// if there is no watcher, but there is an onlyif check, run it to see
 	} else if obj.IfCmd != "" { // && obj.WatchCmd == ""
@@ -229,20 +231,23 @@ func (obj *ExecRes) StateOK() bool {
 		err := exec.Command(cmdName, cmdArgs...).Run()
 		if err != nil {
 			// TODO: check exit value
-			return true // don't run
+			return true, nil // don't run
 		}
-		return false // just run
 
 		// if there is no watcher and no onlyif check, assume we should run
 	} else { // if obj.WatchCmd == "" && obj.IfCmd == "" {
-		b := obj.isStateOK
-		obj.isStateOK = true
-		return b // just run if state is dirty
+		// just run if state is dirty
+		if obj.isStateOK {
+			return true, nil
+		}
 	}
-}
 
-func (obj *ExecRes) Apply() bool {
-	log.Printf("%v[%v]: Apply", obj.GetRes(), obj.GetName())
+	// state is not okay, no work done, exit, but without error
+	if !apply {
+		return false, nil
+	}
+
+	// apply portion
 	var cmdName string
 	var cmdArgs []string
 	if obj.Shell == "" {
@@ -263,9 +268,9 @@ func (obj *ExecRes) Apply() bool {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
-	if err := cmd.Start(); err != nil {
+	if err = cmd.Start(); err != nil {
 		log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetRes(), obj.GetName(), err)
-		return false
+		return false, err
 	}
 
 	timeout := obj.Timeout
@@ -276,16 +281,16 @@ func (obj *ExecRes) Apply() bool {
 	go func() { done <- cmd.Wait() }()
 
 	select {
-	case err := <-done:
+	case err = <-done:
 		if err != nil {
 			log.Printf("%v[%v]: Error waiting for Cmd: %v", obj.GetRes(), obj.GetName(), err)
-			return false
+			return false, err
 		}
 
 	case <-TimeAfterOrBlock(timeout):
 		log.Printf("%v[%v]: Timeout waiting for Cmd", obj.GetRes(), obj.GetName())
 		//cmd.Process.Kill() // TODO: is this necessary?
-		return false
+		return false, errors.New("Timeout waiting for Cmd!")
 	}
 
 	// TODO: if we printed the stdout while the command is running, this
@@ -298,7 +303,13 @@ func (obj *ExecRes) Apply() bool {
 		log.Printf(out.String())
 	}
 	// XXX: return based on exit value!!
-	return true
+
+	// the state tracking is for exec resources that can't "detect" their
+	// state, and assume it's invalid when the Watch() function triggers.
+	// if we apply state successfully, we should reset it here so that we
+	// know that we have applied since the state was set not ok by event!
+	obj.isStateOK = true // reset
+	return false, nil    // success
 }
 
 func (obj *ExecRes) Compare(res Res) bool {

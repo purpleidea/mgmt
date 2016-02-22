@@ -15,21 +15,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// NOTE: docs are found at: https://godoc.org/github.com/coreos/go-systemd/dbus
+// DOCS: https://godoc.org/github.com/coreos/go-systemd/dbus
 
 package main
 
 import (
+	"errors"
 	"fmt"
 	systemd "github.com/coreos/go-systemd/dbus" // change namespace
-	"github.com/coreos/go-systemd/util"
+	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus" // namespace collides with systemd wrapper
 	"log"
 )
 
 type SvcRes struct {
 	BaseRes `yaml:",inline"`
-	State   string `yaml:"state"`   // state: running, stopped
+	State   string `yaml:"state"`   // state: running, stopped, undefined
 	Startup string `yaml:"startup"` // enabled, disabled, undefined
 }
 
@@ -49,6 +50,16 @@ func (obj *SvcRes) GetRes() string {
 	return "Svc"
 }
 
+func (obj *SvcRes) Validate() bool {
+	if obj.State != "running" && obj.State != "stopped" && obj.State != "" {
+		return false
+	}
+	if obj.Startup != "enabled" && obj.Startup != "disabled" && obj.Startup != "" {
+		return false
+	}
+	return true
+}
+
 // Service watcher
 func (obj *SvcRes) Watch() {
 	if obj.IsWatching() {
@@ -59,7 +70,7 @@ func (obj *SvcRes) Watch() {
 
 	// obj.Name: svc name
 	//vertex := obj.GetVertex()         // stored with SetVertex
-	if !util.IsRunningSystemd() {
+	if !systemdUtil.IsRunningSystemd() {
 		log.Fatal("Systemd is not running.")
 	}
 
@@ -203,18 +214,20 @@ func (obj *SvcRes) Watch() {
 	}
 }
 
-func (obj *SvcRes) StateOK() bool {
+func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
+	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+
 	if obj.isStateOK { // cache the state
-		return true
+		return true, nil
 	}
 
-	if !util.IsRunningSystemd() {
-		log.Fatal("Systemd is not running.")
+	if !systemdUtil.IsRunningSystemd() {
+		return false, errors.New("Systemd is not running.")
 	}
 
 	conn, err := systemd.NewSystemdConnection() // needs root access
 	if err != nil {
-		log.Fatal("Failed to connect to systemd: ", err)
+		return false, errors.New(fmt.Sprintf("Failed to connect to systemd: %v", err))
 	}
 	defer conn.Close()
 
@@ -222,15 +235,13 @@ func (obj *SvcRes) StateOK() bool {
 
 	loadstate, err := conn.GetUnitProperty(svc, "LoadState")
 	if err != nil {
-		log.Printf("Failed to get load state: %v", err)
-		return false
+		return false, errors.New(fmt.Sprintf("Failed to get load state: %v", err))
 	}
 
 	// NOTE: we have to compare variants with other variants, they are really strings...
 	var notFound = (loadstate.Value == dbus.MakeVariant("not-found"))
 	if notFound {
-		log.Printf("Failed to find svc: %v", svc)
-		return false
+		return false, errors.New(fmt.Sprintf("Failed to find svc: %v", svc))
 	}
 
 	// XXX: check svc "enabled at boot" or not status...
@@ -238,85 +249,61 @@ func (obj *SvcRes) StateOK() bool {
 	//conn.GetUnitProperties(svc)
 	activestate, err := conn.GetUnitProperty(svc, "ActiveState")
 	if err != nil {
-		log.Fatal("Failed to get active state: ", err)
+		return false, errors.New(fmt.Sprintf("Failed to get active state: %v", err))
 	}
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
+	var stateOK = ((obj.State == "") || (obj.State == "running" && running) || (obj.State == "stopped" && !running))
+	var startupOK = true // XXX DETECT AND SET
 
-	if obj.State == "running" {
-		if !running {
-			return false // we are in the wrong state
-		}
-	} else if obj.State == "stopped" {
-		if running {
-			return false
-		}
-	} else {
-		log.Fatal("Unknown state: ", obj.State)
+	if stateOK && startupOK {
+		return true, nil // we are in the correct state
 	}
 
-	return true // all is good, no state change needed
-}
-
-func (obj *SvcRes) Apply() bool {
-	log.Printf("%v[%v]: Apply", obj.GetRes(), obj.GetName())
-
-	if !util.IsRunningSystemd() {
-		log.Fatal("Systemd is not running.")
+	// state is not okay, no work done, exit, but without error
+	if !apply {
+		return false, nil
 	}
 
-	conn, err := systemd.NewSystemdConnection() // needs root access
-	if err != nil {
-		log.Fatal("Failed to connect to systemd: ", err)
-	}
-	defer conn.Close()
-
-	var svc = fmt.Sprintf("%v.service", obj.Name) // systemd name
-	var files = []string{svc}                     // the svc represented in a list
+	// apply portion
+	var files = []string{svc} // the svc represented in a list
 	if obj.Startup == "enabled" {
 		_, _, err = conn.EnableUnitFiles(files, false, true)
 
 	} else if obj.Startup == "disabled" {
 		_, err = conn.DisableUnitFiles(files, false)
-	} else {
-		err = nil
-	}
-	if err != nil {
-		log.Printf("Unable to change startup status: %v", err)
-		return false
 	}
 
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("Unable to change startup status: %v", err))
+	}
+
+	// XXX: do we need to use a buffered channel here?
 	result := make(chan string, 1) // catch result information
 
 	if obj.State == "running" {
-		_, err := conn.StartUnit(svc, "fail", result)
+		_, err = conn.StartUnit(svc, "fail", result)
 		if err != nil {
-			log.Fatal("Failed to start unit: ", err)
-			return false
+			return false, errors.New(fmt.Sprintf("Failed to start unit: %v", err))
 		}
 	} else if obj.State == "stopped" {
 		_, err = conn.StopUnit(svc, "fail", result)
 		if err != nil {
-			log.Fatal("Failed to stop unit: ", err)
-			return false
+			return false, errors.New(fmt.Sprintf("Failed to stop unit: %v", err))
 		}
-	} else {
-		log.Fatal("Unknown state: ", obj.State)
 	}
 
 	status := <-result
 	if &status == nil {
-		log.Fatal("Result is nil")
-		return false
+		return false, errors.New("Systemd service action result is nil")
 	}
 	if status != "done" {
-		log.Fatal("Unknown return string: ", status)
-		return false
+		return false, errors.New(fmt.Sprintf("Unknown systemd return string: %v", status))
 	}
 
 	// XXX: also set enabled on boot
 
-	return true
+	return false, nil // success
 }
 
 func (obj *SvcRes) Compare(res Res) bool {

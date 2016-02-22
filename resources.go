@@ -47,8 +47,7 @@ type Res interface {
 	GetName() string // can't be named "Name()" because of struct field
 	GetRes() string
 	Watch()
-	StateOK() bool // TODO: can we rename this to something better?
-	Apply() bool
+	CheckApply(bool) (bool, error)
 	SetVertex(*Vertex)
 	SetConvergedCallback(ctimeout int, converged chan bool)
 	Compare(Res) bool
@@ -101,7 +100,7 @@ func (obj *BaseRes) Init() {
 	obj.events = make(chan Event)
 }
 
-// this method gets used by all the types, if we have one of (obj NoopRes) it would get overridden in that case!
+// this method gets used by all the resources, if we have one of (obj NoopRes) it would get overridden in that case!
 func (obj *BaseRes) GetName() string {
 	return obj.Name
 }
@@ -293,13 +292,6 @@ func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
 	return true, false // required to keep the stupid go compiler happy
 }
 
-// useful for using as: return CleanState() in the StateOK functions when there
-// are multiple `true` return exits
-func (obj *BaseRes) CleanState() bool {
-	obj.isStateOK = true
-	return true
-}
-
 // XXX: rename this function
 func Process(obj Res) {
 	if DEBUG {
@@ -315,14 +307,19 @@ func Process(obj Res) {
 		if DEBUG {
 			log.Printf("%v[%v]: OKTimestamp(%v)", obj.GetRes(), obj.GetName(), obj.GetTimestamp())
 		}
-		if !obj.StateOK() { // TODO: can we rename this to something better?
-			if DEBUG {
-				log.Printf("%v[%v]: !StateOK()", obj.GetRes(), obj.GetName())
-			}
-			// throw an error if apply fails...
-			// if this fails, don't UpdateTimestamp()
-			obj.SetState(resStateCheckApply)
-			if !obj.Apply() { // check for error
+
+		obj.SetState(resStateCheckApply)
+		// if this fails, don't UpdateTimestamp()
+		stateok, err := obj.CheckApply(true)
+		if stateok && err != nil { // should never return this way
+			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.GetRes(), obj.GetName(), stateok, err)
+		}
+		if DEBUG {
+			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.GetRes(), obj.GetName(), stateok, err)
+		}
+
+		if !stateok { // if state *was* not ok, we had to have apply'ed
+			if err != nil { // error during check or apply
 				ok = false
 			} else {
 				apply = true
@@ -345,6 +342,12 @@ func Process(obj Res) {
 
 func (obj *NoopRes) GetRes() string {
 	return "Noop"
+}
+
+// validate if the params passed in are valid data
+// FIXME: where should this get called ?
+func (obj *NoopRes) Validate() bool {
+	return true
 }
 
 func (obj *NoopRes) Watch() {
@@ -383,13 +386,10 @@ func (obj *NoopRes) Watch() {
 	}
 }
 
-func (obj *NoopRes) StateOK() bool {
-	return true // never needs updating
-}
-
-func (obj *NoopRes) Apply() bool {
-	log.Printf("%v[%v]: Apply", obj.GetRes(), obj.GetName())
-	return true
+// CheckApply method for Noop resource. Does nothing, returns happy!
+func (obj *NoopRes) CheckApply(apply bool) (stateok bool, err error) {
+	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+	return true, nil // state is always okay
 }
 
 func (obj *NoopRes) Compare(res Res) bool {

@@ -62,6 +62,20 @@ func (obj *FileRes) GetRes() string {
 	return "File"
 }
 
+func (obj *FileRes) GetPath() string {
+	d := Dirname(obj.Path)
+	b := Basename(obj.Path)
+	if !obj.Validate() || (obj.Dirname == "" && obj.Basename == "") {
+		return obj.Path
+	} else if obj.Dirname == "" {
+		return d + obj.Basename
+	} else if obj.Basename == "" {
+		return obj.Dirname + b
+	} else { // if obj.dirname != "" && obj.basename != "" {
+		return obj.Dirname + obj.Basename
+	}
+}
+
 // validate if the params passed in are valid data
 func (obj *FileRes) Validate() bool {
 	if obj.Dirname != "" {
@@ -77,20 +91,6 @@ func (obj *FileRes) Validate() bool {
 		}
 	}
 	return true
-}
-
-func (obj *FileRes) GetPath() string {
-	d := Dirname(obj.Path)
-	b := Basename(obj.Path)
-	if !obj.Validate() || (obj.Dirname == "" && obj.Basename == "") {
-		return obj.Path
-	} else if obj.Dirname == "" {
-		return d + obj.Basename
-	} else if obj.Basename == "" {
-		return obj.Dirname + b
-	} else { // if obj.dirname != "" && obj.basename != "" {
-		return obj.Dirname + obj.Basename
-	}
 }
 
 // File watcher for files and directories
@@ -270,84 +270,29 @@ func (obj *FileRes) HashSHA256fromContent() string {
 	return obj.sha256sum
 }
 
-// FIXME: add the obj.CleanState() calls all over the true returns!
-func (obj *FileRes) StateOK() bool {
-	if obj.isStateOK { // cache the state
-		return true
-	}
-
-	if _, err := os.Stat(obj.GetPath()); os.IsNotExist(err) {
-		// no such file or directory
-		if obj.State == "absent" {
-			return obj.CleanState() // missing file should be missing, phew :)
-		} else {
-			// state invalid, skip expensive checksums
-			return false
-		}
-	}
-
-	// TODO: add file mode check here...
-
-	if PathIsDir(obj.GetPath()) {
-		return obj.StateOKDir()
-	} else {
-		return obj.StateOKFile()
-	}
-}
-
-func (obj *FileRes) StateOKFile() bool {
-	if PathIsDir(obj.GetPath()) {
+func (obj *FileRes) FileHashSHA256Check() (bool, error) {
+	if PathIsDir(obj.GetPath()) { // assert
 		log.Fatal("This should only be called on a File resource.")
 	}
-
 	// run a diff, and return true if needs changing
-
 	hash := sha256.New()
-
 	f, err := os.Open(obj.GetPath())
 	if err != nil {
-		//log.Fatal(err)
-		return false
+		return false, err
 	}
 	defer f.Close()
-
 	if _, err := io.Copy(hash, f); err != nil {
-		//log.Fatal(err)
-		return false
+		return false, err
 	}
-
 	sha256sum := hex.EncodeToString(hash.Sum(nil))
 	//log.Printf("sha256sum: %v", sha256sum)
-
 	if obj.HashSHA256fromContent() == sha256sum {
-		return true
+		return true, nil
 	}
-
-	return false
+	return false, nil
 }
 
-func (obj *FileRes) StateOKDir() bool {
-	if !PathIsDir(obj.GetPath()) {
-		log.Fatal("This should only be called on a Dir resource.")
-	}
-
-	// XXX: not implemented
-	log.Fatal("Not implemented!")
-	return false
-}
-
-func (obj *FileRes) Apply() bool {
-	log.Printf("%v[%v]: Apply", obj.GetRes(), obj.GetName())
-
-	if PathIsDir(obj.GetPath()) {
-		return obj.ApplyDir()
-	} else {
-		return obj.ApplyFile()
-	}
-}
-
-func (obj *FileRes) ApplyFile() bool {
-
+func (obj *FileRes) FileApply() error {
 	if PathIsDir(obj.GetPath()) {
 		log.Fatal("This should only be called on a File resource.")
 	}
@@ -355,37 +300,72 @@ func (obj *FileRes) ApplyFile() bool {
 	if obj.State == "absent" {
 		log.Printf("About to remove: %v", obj.GetPath())
 		err := os.Remove(obj.GetPath())
-		if err != nil {
-			return false
-		}
-		return true
+		return err // either nil or not, for success or failure
 	}
 
-	//log.Println("writing: " + filename)
 	f, err := os.Create(obj.GetPath())
 	if err != nil {
-		log.Println("error:", err)
-		return false
+		return nil
 	}
 	defer f.Close()
 
 	_, err = io.WriteString(f, obj.Content)
 	if err != nil {
-		log.Println("error:", err)
-		return false
+		return err
 	}
 
-	return true
+	return nil // success
 }
 
-func (obj *FileRes) ApplyDir() bool {
-	if !PathIsDir(obj.GetPath()) {
-		log.Fatal("This should only be called on a Dir resource.")
+func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
+	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+
+	if obj.isStateOK { // cache the state
+		return true, nil
 	}
 
-	// XXX: not implemented
-	log.Fatal("Not implemented!")
-	return true
+	if _, err := os.Stat(obj.GetPath()); os.IsNotExist(err) {
+		// no such file or directory
+		if obj.State == "absent" {
+			// missing file should be missing, phew :)
+			obj.isStateOK = true
+			return true, nil
+		}
+	}
+
+	// FIXME: add file mode check here...
+
+	if PathIsDir(obj.GetPath()) {
+		log.Fatal("Not implemented!") // XXX
+	} else {
+		ok, err := obj.FileHashSHA256Check()
+		if err != nil {
+			return false, err
+		}
+		if ok {
+			obj.isStateOK = true
+			return true, nil
+		}
+		// if no err, but !ok, then we continue on...
+	}
+
+	// state is not okay, no work done, exit, but without error
+	if !apply {
+		return false, nil
+	}
+
+	// apply portion
+	if PathIsDir(obj.GetPath()) {
+		log.Fatal("Not implemented!") // XXX
+	} else {
+		err = obj.FileApply()
+		if err != nil {
+			return false, err
+		}
+	}
+
+	obj.isStateOK = true
+	return false, nil // success
 }
 
 func (obj *FileRes) Compare(res Res) bool {

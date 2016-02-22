@@ -61,7 +61,7 @@ func ConfigWatch(file string) chan bool {
 				} else if err == syscall.ENOSPC {
 					// XXX: occasionally: no space left on device,
 					// XXX: probably due to lack of inotify watches
-					log.Printf("Lack of watches for config(%v) error: %+v", file, err.Error) // 0x408da0
+					log.Printf("Out of inotify watches for config(%v)", file)
 					log.Fatal(err)
 				} else {
 					log.Printf("Unknown config(%v) error:", file)

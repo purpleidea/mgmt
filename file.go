@@ -142,7 +142,7 @@ func (obj *FileRes) Watch() {
 			} else if err == syscall.ENOSPC {
 				// XXX: occasionally: no space left on device,
 				// XXX: probably due to lack of inotify watches
-				log.Printf("Lack of watches for file[%v] error: %+v", obj.Name, err.Error) // 0x408da0
+				log.Printf("%v[%v]: Out of inotify watches!", obj.GetRes(), obj.GetName())
 				log.Fatal(err)
 			} else {
 				log.Printf("Unknown file[%v] error:", obj.Name)

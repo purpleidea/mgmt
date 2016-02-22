@@ -16,7 +16,7 @@ If you have a well phrased question that might benefit others, consider asking i
 
 ## Quick start:
 * Either get the golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
-* Run `make build` to get a fresh built `mgmt` binary.
+* Run `make build` to get a freshly built `mgmt` binary.
 * Run `cd $(mktemp --tmpdir -d tmp.XXX) && etcd` to get etcd running. The `mgmt` software will do this automatically for you in the future.
 * Run `time ./mgmt run --file examples/graph0.yaml --converged-timeout=1` to try out a very simple example!
 * To run continuously in the default mode of operation, omit the `--converged-timeout` option.
@@ -31,7 +31,7 @@ Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purplei
 ## Roadmap:
 Please see: [TODO.md](TODO.md) for a list of upcoming work and TODO items.
 Please get involved by working on one of these items or by suggesting something else!
-Please grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove) issues if you're a first time contributor.
+Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove) issues if you're a first time contributor to the project or if you're unsure about what to hack on!
 
 ## Bugs:
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).

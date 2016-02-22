@@ -16,8 +16,7 @@ diff <(tail -n +$start AUTHORS | sort) <(tail -n +$start AUTHORS)
 ./test/test-bashfmt.sh
 ./test/test-headerfmt.sh
 go test
-echo running go vet	# since it doesn't output an ok message on pass
-go vet && echo PASS
+./test/test-govet.sh
 
 # do these longer tests only when running on ci
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then

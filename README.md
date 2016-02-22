@@ -66,6 +66,7 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 * Julian Dunn at CfgMgmtCamp.eu 2016: [https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1](https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1)
 * Walter Heck at CfgMgmtCamp.eu 2016: [http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3](http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3)
 * Marco Marongiu on mgmt: [http://syslog.me/2016/02/15/leap-or-die/](http://syslog.me/2016/02/15/leap-or-die/)
+* Felix Frank on puppet to mgmt "transpiling" [https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/](https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/)
 
 ##
 

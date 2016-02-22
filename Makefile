@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /bin/bash
-.PHONY: all version program path deps run race build clean test format docs rpmbuild rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
+.PHONY: all version program path deps run race build clean test format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean
 
 SVERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always)
@@ -156,7 +156,7 @@ $(SOURCE): rpmbuild/
 rpmbuild/:
 	mkdir -p rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
-rpmbuild:
+mkdirs:
 	mkdir -p rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
 #

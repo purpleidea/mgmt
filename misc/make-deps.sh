@@ -26,7 +26,11 @@ fi
 
 # build etcd
 git clone --recursive https://github.com/coreos/etcd/ && cd etcd
-git checkout v2.2.4	# TODO: update to newer versions as needed
+goversion=$(go version)
+# if 'go version' contains string 'devel', then use git master of etcd...
+if [ "${goversion#*devel}" == "$goversion" ]; then
+	git checkout v2.2.4	# TODO: update to newer versions as needed
+fi
 [ -x build ] && ./build
 mkdir -p ~/bin/
 cp bin/etcd ~/bin/

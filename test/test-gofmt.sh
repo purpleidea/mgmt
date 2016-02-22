@@ -9,7 +9,7 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 
 GO_VERSION=($(go version))
 
-if [[ -z $(echo "${GO_VERSION[2]}" | grep -E 'go1.2|go1.3|go1.4|go1.5') ]]; then
+if [[ -z $(echo "${GO_VERSION[2]}" | grep -E 'go1.2|go1.3|go1.4|go1.5|go1.6') ]]; then
 	echo "Unknown go version '${GO_VERSION}', skipping gofmt."
 	exit 0
 fi

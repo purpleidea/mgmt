@@ -46,7 +46,7 @@ func NewSvcRes(name, state, startup string) *SvcRes {
 	}
 }
 
-func (obj *SvcRes) GetRes() string {
+func (obj *SvcRes) Kind() string {
 	return "Svc"
 }
 
@@ -216,7 +216,7 @@ func (obj *SvcRes) Watch() {
 }
 
 func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.isStateOK { // cache the state
 		return true, nil

@@ -47,7 +47,7 @@ func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupporte
 	}
 }
 
-func (obj *PkgRes) GetRes() string {
+func (obj *PkgRes) Kind() string {
 	return "Pkg"
 }
 
@@ -136,10 +136,10 @@ func (obj *PkgRes) Watch() {
 }
 
 func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.State == "" { // TODO: Validate() should replace this check!
-		log.Fatalf("%v[%v]: Package state is undefined!", obj.GetRes(), obj.GetName())
+		log.Fatalf("%v[%v]: Package state is undefined!", obj.Kind(), obj.GetName())
 	}
 
 	if obj.isStateOK { // cache the state
@@ -254,7 +254,7 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 		transactionFlags += PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED
 	}
 	// apply correct state!
-	log.Printf("%v[%v]: Set: %v...", obj.GetRes(), obj.GetName(), obj.State)
+	log.Printf("%v[%v]: Set: %v...", obj.Kind(), obj.GetName(), obj.State)
 	switch obj.State {
 	case "uninstalled": // run remove
 		// NOTE: packageId is different than when installed, because now
@@ -272,7 +272,7 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	if err != nil {
 		return false, err // fail
 	}
-	log.Printf("%v[%v]: Set: %v success!", obj.GetRes(), obj.GetName(), obj.State)
+	log.Printf("%v[%v]: Set: %v success!", obj.Kind(), obj.GetName(), obj.State)
 	return false, nil // success
 }
 

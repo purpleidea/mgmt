@@ -241,7 +241,7 @@ func (g *Graph) Graphviz() (out string) {
 	//out += "\tnode [shape=box];\n"
 	str := ""
 	for i := range g.Adjacency { // reverse paths
-		out += fmt.Sprintf("\t%v [label=\"%v[%v]\"];\n", i.GetName(), i.GetRes(), i.GetName())
+		out += fmt.Sprintf("\t%v [label=\"%v[%v]\"];\n", i.GetName(), i.Kind(), i.GetName())
 		for j := range g.Adjacency[i] {
 			k := g.Adjacency[i][j]
 			// use str for clearer output ordering
@@ -556,7 +556,7 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 			go func(vv *Vertex) {
 				defer wg.Done()
 				vv.Res.Watch()
-				log.Printf("%v[%v]: Exited", vv.GetRes(), vv.GetName())
+				log.Printf("%v[%v]: Exited", vv.Kind(), vv.GetName())
 			}(v)
 		}
 
@@ -577,7 +577,7 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 			for !v.Res.SendEvent(eventStart, true, false) {
 				if DEBUG {
 					// if SendEvent fails, we aren't up yet
-					log.Printf("%v[%v]: Retrying SendEvent(Start)", v.GetRes(), v.GetName())
+					log.Printf("%v[%v]: Retrying SendEvent(Start)", v.Kind(), v.GetName())
 					// sleep here briefly or otherwise cause
 					// a different goroutine to be scheduled
 					time.Sleep(1 * time.Millisecond)

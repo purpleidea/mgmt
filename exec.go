@@ -59,7 +59,7 @@ func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcm
 	}
 }
 
-func (obj *ExecRes) GetRes() string {
+func (obj *ExecRes) Kind() string {
 	return "Exec"
 }
 
@@ -129,7 +129,7 @@ func (obj *ExecRes) Watch() {
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
-			log.Printf("%v[%v]: Error creating StdoutPipe for Cmd: %v", obj.GetRes(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error creating StdoutPipe for Cmd: %v", obj.Kind(), obj.GetName(), err)
 			log.Fatal(err) // XXX: how should we handle errors?
 		}
 		scanner := bufio.NewScanner(cmdReader)
@@ -141,7 +141,7 @@ func (obj *ExecRes) Watch() {
 			cmd.Process.Kill() // TODO: is this necessary?
 		}()
 		if err := cmd.Start(); err != nil {
-			log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetRes(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error starting Cmd: %v", obj.Kind(), obj.GetName(), err)
 			log.Fatal(err) // XXX: how should we handle errors?
 		}
 
@@ -154,7 +154,7 @@ func (obj *ExecRes) Watch() {
 		case text := <-bufioch:
 			obj.SetConvergedState(resConvergedNil)
 			// each time we get a line of output, we loop!
-			log.Printf("%v[%v]: Watch output: %s", obj.GetRes(), obj.GetName(), text)
+			log.Printf("%v[%v]: Watch output: %s", obj.Kind(), obj.GetName(), text)
 			if text != "" {
 				send = true
 			}
@@ -164,10 +164,10 @@ func (obj *ExecRes) Watch() {
 			if err == nil {                        // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
-				log.Printf("%v[%v]: Reached EOF", obj.GetRes(), obj.GetName())
+				log.Printf("%v[%v]: Reached EOF", obj.Kind(), obj.GetName())
 				return
 			}
-			log.Printf("%v[%v]: Error reading input?: %v", obj.GetRes(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error reading input?: %v", obj.Kind(), obj.GetName(), err)
 			log.Fatal(err)
 			// XXX: how should we handle errors?
 
@@ -195,7 +195,7 @@ func (obj *ExecRes) Watch() {
 
 // TODO: expand the IfCmd to be a list of commands
 func (obj *ExecRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	// if there is a watch command, but no if command, run based on state
 	if obj.WatchCmd != "" && obj.IfCmd == "" {
@@ -269,7 +269,7 @@ func (obj *ExecRes) CheckApply(apply bool) (stateok bool, err error) {
 	cmd.Stdout = &out
 
 	if err = cmd.Start(); err != nil {
-		log.Printf("%v[%v]: Error starting Cmd: %v", obj.GetRes(), obj.GetName(), err)
+		log.Printf("%v[%v]: Error starting Cmd: %v", obj.Kind(), obj.GetName(), err)
 		return false, err
 	}
 
@@ -283,12 +283,12 @@ func (obj *ExecRes) CheckApply(apply bool) (stateok bool, err error) {
 	select {
 	case err = <-done:
 		if err != nil {
-			log.Printf("%v[%v]: Error waiting for Cmd: %v", obj.GetRes(), obj.GetName(), err)
+			log.Printf("%v[%v]: Error waiting for Cmd: %v", obj.Kind(), obj.GetName(), err)
 			return false, err
 		}
 
 	case <-TimeAfterOrBlock(timeout):
-		log.Printf("%v[%v]: Timeout waiting for Cmd", obj.GetRes(), obj.GetName())
+		log.Printf("%v[%v]: Timeout waiting for Cmd", obj.Kind(), obj.GetName())
 		//cmd.Process.Kill() // TODO: is this necessary?
 		return false, errors.New("Timeout waiting for Cmd!")
 	}

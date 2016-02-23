@@ -58,7 +58,7 @@ func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
 	}
 }
 
-func (obj *FileRes) GetRes() string {
+func (obj *FileRes) Kind() string {
 	return "File"
 }
 
@@ -142,7 +142,7 @@ func (obj *FileRes) Watch() {
 			} else if err == syscall.ENOSPC {
 				// XXX: occasionally: no space left on device,
 				// XXX: probably due to lack of inotify watches
-				log.Printf("%v[%v]: Out of inotify watches!", obj.GetRes(), obj.GetName())
+				log.Printf("%v[%v]: Out of inotify watches!", obj.Kind(), obj.GetName())
 				log.Fatal(err)
 			} else {
 				log.Printf("Unknown file[%v] error:", obj.Name)
@@ -318,7 +318,7 @@ func (obj *FileRes) FileApply() error {
 }
 
 func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.isStateOK { // cache the state
 		return true, nil

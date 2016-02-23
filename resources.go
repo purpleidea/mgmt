@@ -45,7 +45,7 @@ const (
 type Res interface {
 	Init()
 	GetName() string // can't be named "Name()" because of struct field
-	GetRes() string
+	Kind() string
 	Watch()
 	CheckApply(bool) (bool, error)
 	SetVertex(*Vertex)
@@ -105,7 +105,7 @@ func (obj *BaseRes) GetName() string {
 	return obj.Name
 }
 
-func (obj *BaseRes) GetRes() string {
+func (obj *BaseRes) Kind() string {
 	return "Base"
 }
 
@@ -146,7 +146,7 @@ func (obj *BaseRes) GetState() resState {
 
 func (obj *BaseRes) SetState(state resState) {
 	if DEBUG {
-		log.Printf("%v[%v]: State: %v -> %v", obj.GetRes(), obj.GetName(), obj.GetState(), state)
+		log.Printf("%v[%v]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state
 }
@@ -174,7 +174,7 @@ func (obj *BaseRes) OKTimestamp() bool {
 		// b/c we should let our pre-req's go first...
 		x, y := obj.GetTimestamp(), n.Res.GetTimestamp()
 		if DEBUG {
-			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): !%v", obj.GetRes(), obj.GetName(), x, n.GetRes(), n.GetName(), y, x >= y)
+			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): !%v", obj.Kind(), obj.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
 		}
 		if x >= y {
 			return false
@@ -195,12 +195,12 @@ func (obj *BaseRes) Poke(activity bool) {
 		// XXX: if n.Res.GetState() != resStateEvent { // is this correct?
 		if true { // XXX
 			if DEBUG {
-				log.Printf("%v[%v]: Poke: %v[%v]", v.GetRes(), v.GetName(), n.GetRes(), n.GetName())
+				log.Printf("%v[%v]: Poke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 			n.SendEvent(eventPoke, false, activity) // XXX: can this be switched to sync?
 		} else {
 			if DEBUG {
-				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.GetRes(), v.GetName(), n.GetRes(), n.GetName())
+				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
 	}
@@ -221,12 +221,12 @@ func (obj *BaseRes) BackPoke() {
 		// happens earlier in the state cycle and that doesn't wrap nil
 		if x >= y && (s != resStateEvent && s != resStateCheckApply) {
 			if DEBUG {
-				log.Printf("%v[%v]: BackPoke: %v[%v]", v.GetRes(), v.GetName(), n.GetRes(), n.GetName())
+				log.Printf("%v[%v]: BackPoke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 			n.SendEvent(eventBackPoke, false, false) // XXX: can this be switched to sync?
 		} else {
 			if DEBUG {
-				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.GetRes(), v.GetName(), n.GetRes(), n.GetName())
+				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
 	}
@@ -282,7 +282,7 @@ func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
 				return false, false // don't poke on unpause!
 			} else {
 				// if we get a poke event here, it's a bug!
-				log.Fatalf("%v[%v]: Unknown event: %v, while paused!", obj.GetRes(), obj.GetName(), e)
+				log.Fatalf("%v[%v]: Unknown event: %v, while paused!", obj.Kind(), obj.GetName(), e)
 			}
 		}
 
@@ -295,7 +295,7 @@ func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
 // XXX: rename this function
 func Process(obj Res) {
 	if DEBUG {
-		log.Printf("%v[%v]: Process()", obj.GetRes(), obj.GetName())
+		log.Printf("%v[%v]: Process()", obj.Kind(), obj.GetName())
 	}
 	obj.SetState(resStateEvent)
 	var ok = true
@@ -305,17 +305,17 @@ func Process(obj Res) {
 	// us back and we will run if needed then!
 	if obj.OKTimestamp() {
 		if DEBUG {
-			log.Printf("%v[%v]: OKTimestamp(%v)", obj.GetRes(), obj.GetName(), obj.GetTimestamp())
+			log.Printf("%v[%v]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), obj.GetTimestamp())
 		}
 
 		obj.SetState(resStateCheckApply)
 		// if this fails, don't UpdateTimestamp()
 		stateok, err := obj.CheckApply(true)
 		if stateok && err != nil { // should never return this way
-			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.GetRes(), obj.GetName(), stateok, err)
+			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), stateok, err)
 		}
 		if DEBUG {
-			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.GetRes(), obj.GetName(), stateok, err)
+			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), stateok, err)
 		}
 
 		if !stateok { // if state *was* not ok, we had to have apply'ed
@@ -340,7 +340,7 @@ func Process(obj Res) {
 	}
 }
 
-func (obj *NoopRes) GetRes() string {
+func (obj *NoopRes) Kind() string {
 	return "Noop"
 }
 
@@ -388,7 +388,7 @@ func (obj *NoopRes) Watch() {
 
 // CheckApply method for Noop resource. Does nothing, returns happy!
 func (obj *NoopRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.GetRes(), obj.GetName(), apply)
+	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	return true, nil // state is always okay
 }
 

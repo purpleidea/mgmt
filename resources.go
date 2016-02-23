@@ -42,12 +42,40 @@ const (
 	resConvergedTimeout
 )
 
+// a unique identifier for a resource, namely it's name, and the kind ("type")
+type ResUUID interface {
+	GetName() string
+	Kind() string
+	IFF(ResUUID) bool
+
+	Reversed() bool // true means this resource happens before the generator
+}
+
+type BaseUUID struct {
+	name string
+	kind string
+
+	reversed *bool // piggyback edge information here
+}
+
+type AutoEdge interface {
+	Next() []ResUUID  // call to get list of edges to add
+	Test([]bool) bool // call until false
+}
+
+type MetaParams struct {
+	AutoEdge bool `yaml:"autoedge"` // metaparam, should we generate auto edges? // XXX should default to true
+}
+
 type Res interface {
 	Init()
-	GetName() string // can't be named "Name()" because of struct field
+	GetName() string     // can't be named "Name()" because of struct field
+	GetUUIDs() []ResUUID // most resources only return one
+	GetMeta() MetaParams
 	Kind() string
 	Watch()
 	CheckApply(bool) (bool, error)
+	AutoEdges() AutoEdge
 	SetVertex(*Vertex)
 	SetConvergedCallback(ctimeout int, converged chan bool)
 	Compare(Res) bool
@@ -66,8 +94,9 @@ type Res interface {
 }
 
 type BaseRes struct {
-	Name           string `yaml:"name"`
-	timestamp      int64  // last updated timestamp ?
+	Name           string     `yaml:"name"`
+	Meta           MetaParams `yaml:"meta"` // struct of all the metaparams
+	timestamp      int64      // last updated timestamp ?
 	events         chan Event
 	vertex         *Vertex
 	state          resState
@@ -95,6 +124,43 @@ func NewNoopRes(name string) *NoopRes {
 	}
 }
 
+// wraps the IFF method when used with a list of UUID's
+func UUIDExistsInUUIDs(uuid ResUUID, uuids []ResUUID) bool {
+	for _, u := range uuids {
+		if uuid.IFF(u) {
+			return true
+		}
+	}
+	return false
+}
+
+func (obj *BaseUUID) GetName() string {
+	return obj.name
+}
+
+func (obj *BaseUUID) Kind() string {
+	return obj.kind
+}
+
+// if and only if they are equivalent, return true
+// if they are not equivalent, return false
+// most resource will want to override this method, since it does the important
+// work of actually discerning if two resources are identical in function
+func (obj *BaseUUID) IFF(uuid ResUUID) bool {
+	res, ok := uuid.(*BaseUUID)
+	if !ok {
+		return false
+	}
+	return obj.name == res.name
+}
+
+func (obj *BaseUUID) Reversed() bool {
+	if obj.reversed == nil {
+		log.Fatal("Programming error!")
+	}
+	return *obj.reversed
+}
+
 // initialize structures like channels if created without New constructor
 func (obj *BaseRes) Init() {
 	obj.events = make(chan Event)
@@ -107,6 +173,10 @@ func (obj *BaseRes) GetName() string {
 
 func (obj *BaseRes) Kind() string {
 	return "Base"
+}
+
+func (obj *BaseRes) GetMeta() MetaParams {
+	return obj.Meta
 }
 
 func (obj *BaseRes) GetVertex() *Vertex {
@@ -390,6 +460,23 @@ func (obj *NoopRes) Watch() {
 func (obj *NoopRes) CheckApply(apply bool) (stateok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	return true, nil // state is always okay
+}
+
+type NoopUUID struct {
+	BaseUUID
+}
+
+func (obj *NoopRes) AutoEdges() AutoEdge {
+	return nil
+}
+
+// include all params to make a unique identification of this object
+// most resources only return one
+func (obj *NoopRes) GetUUIDs() []ResUUID {
+	x := &NoopUUID{
+		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
+	}
+	return []ResUUID{x}
 }
 
 func (obj *NoopRes) Compare(res Res) bool {

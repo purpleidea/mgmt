@@ -27,6 +27,16 @@ import (
 	"time"
 )
 
+// reverse a list of strings
+func ReverseStringList(in []string) []string {
+	var out []string // empty list
+	l := len(in)
+	for i := range in {
+		out = append(out, in[l-i-1])
+	}
+	return out
+}
+
 // Similar to the GNU dirname command
 func Dirname(p string) string {
 	if p == "/" {
@@ -46,6 +56,9 @@ func Basename(p string) string {
 
 // Split a path into an array of tokens excluding any trailing empty tokens
 func PathSplit(p string) []string {
+	if p == "/" { // TODO: can't this all be expressed nicely in one line?
+		return []string{""}
+	}
 	return strings.Split(path.Clean(p), "/")
 }
 
@@ -81,6 +94,22 @@ func PathPrefixDelta(p, prefix string) int {
 
 func PathIsDir(p string) bool {
 	return p[len(p)-1:] == "/" // a dir has a trailing slash in this context
+}
+
+// return the full list of "dependency" paths for a given path in reverse order
+func PathSplitFullReversed(p string) []string {
+	var result []string
+	split := PathSplit(p)
+	count := len(split)
+	var x string
+	for i := 0; i < count; i++ {
+		x = "/" + path.Join(split[0:i+1]...)
+		if i != 0 && !(i+1 == count && !PathIsDir(p)) {
+			x += "/" // add trailing slash
+		}
+		result = append(result, x)
+	}
+	return ReverseStringList(result)
 }
 
 // encode an object as base 64, serialize and then base64 encode

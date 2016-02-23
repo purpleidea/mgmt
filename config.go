@@ -19,6 +19,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
@@ -115,6 +116,7 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 
 	for _, t := range config.Resources.Noop {
 		obj := NewNoopRes(t.Name)
+		obj.Meta = t.Meta
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
 			v = NewVertex(obj)
@@ -126,6 +128,7 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 
 	for _, t := range config.Resources.Pkg {
 		obj := NewPkgRes(t.Name, t.State, false, false, false)
+		obj.Meta = t.Meta
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
 			v = NewVertex(obj)
@@ -147,6 +150,10 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 			}
 		} else {
 			obj := NewFileRes(t.Name, t.Path, t.Dirname, t.Basename, t.Content, t.State)
+			// XXX: we don't have a way of knowing if any of the
+			// metaparams are undefined, and as a result to set the
+			// defaults that we want! I hate the go yaml parser!!!
+			obj.Meta = t.Meta
 			v := g.GetVertexMatch(obj)
 			if v == nil { // no match found
 				v = NewVertex(obj)
@@ -159,6 +166,7 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 
 	for _, t := range config.Resources.Svc {
 		obj := NewSvcRes(t.Name, t.State, t.Startup)
+		obj.Meta = t.Meta
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
 			v = NewVertex(obj)
@@ -170,6 +178,7 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 
 	for _, t := range config.Resources.Exec {
 		obj := NewExecRes(t.Name, t.Cmd, t.Shell, t.Timeout, t.WatchCmd, t.WatchShell, t.IfCmd, t.IfShell, t.PollInt, t.State)
+		obj.Meta = t.Meta
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
 			v = NewVertex(obj)
@@ -239,5 +248,83 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 		}
 		g.AddEdge(lookup[e.From.Res][e.From.Name], lookup[e.To.Res][e.To.Name], NewEdge(e.Name))
 	}
+
+	// add auto edges
+	log.Println("Compile: Adding AutoEdges...")
+	for _, v := range g.GetVertices() { // for each vertexes autoedges
+		if !v.GetMeta().AutoEdge { // is the metaparam true?
+			continue
+		}
+		autoEdgeObj := v.AutoEdges()
+		if autoEdgeObj == nil {
+			log.Printf("%v[%v]: Config: No auto edges were found!", v.Kind(), v.GetName())
+			continue // next vertex
+		}
+
+		for { // while the autoEdgeObj has more uuids to add...
+			uuids := autoEdgeObj.Next() // get some!
+			if uuids == nil {
+				log.Printf("%v[%v]: Config: The auto edge list is empty!", v.Kind(), v.GetName())
+				break // inner loop
+			}
+			if DEBUG {
+				log.Println("Compile: AutoEdge: UUIDS:")
+				for i, u := range uuids {
+					log.Printf("Compile: AutoEdge: UUID%d: %v", i, u)
+				}
+			}
+
+			// match and add edges
+			result := g.AddEdgesByMatchingUUIDS(v, uuids)
+
+			// report back, and find out if we should continue
+			if !autoEdgeObj.Test(result) {
+				break
+			}
+		}
+	}
+
 	return true
+}
+
+// add edges to the vertex in a graph based on if it matches a uuid list
+func (g *Graph) AddEdgesByMatchingUUIDS(v *Vertex, uuids []ResUUID) []bool {
+	// search for edges and see what matches!
+	var result []bool
+
+	// loop through each uuid, and see if it matches any vertex
+	for _, uuid := range uuids {
+		var found = false
+		// uuid is a ResUUID object
+		for _, vv := range g.GetVertices() { // search
+			if v == vv { // skip self
+				continue
+			}
+			if DEBUG {
+				log.Printf("Compile: AutoEdge: Match: %v[%v] with UUID: %v[%v]", vv.Kind(), vv.GetName(), uuid.Kind(), uuid.GetName())
+			}
+			// we must match to an effective UUID for the resource,
+			// that is to say, the name value of a res is a helpful
+			// handle, but it is not necessarily a unique identity!
+			// remember, resources can return multiple UUID's each!
+			if UUIDExistsInUUIDs(uuid, vv.GetUUIDs()) {
+				// add edge from: vv -> v
+				if uuid.Reversed() {
+					txt := fmt.Sprintf("AutoEdge: %v[%v] -> %v[%v]", vv.Kind(), vv.GetName(), v.Kind(), v.GetName())
+					log.Printf("Compile: Adding %v", txt)
+					g.AddEdge(vv, v, NewEdge(txt))
+				} else { // edges go the "normal" way, eg: pkg resource
+					txt := fmt.Sprintf("AutoEdge: %v[%v] -> %v[%v]", v.Kind(), v.GetName(), vv.Kind(), vv.GetName())
+					log.Printf("Compile: Adding %v", txt)
+					g.AddEdge(v, vv, NewEdge(txt))
+				}
+				found = true
+				break
+			}
+		}
+
+		result = append(result, found)
+	}
+
+	return result
 }

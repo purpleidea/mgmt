@@ -308,6 +308,33 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 	return false, nil // success
 }
 
+type SvcUUID struct {
+	BaseUUID
+}
+
+// if and only if they are equivalent, return true
+// if they are not equivalent, return false
+func (obj *SvcUUID) IFF(uuid ResUUID) bool {
+	res, ok := uuid.(*SvcUUID)
+	if !ok {
+		return false
+	}
+	return obj.name == res.name
+}
+
+func (obj *SvcRes) AutoEdges() AutoEdge {
+	// TODO: add auto edges to the files that provide the service files,
+	// which might come from a pkg resource perhaps!
+	return nil
+}
+
+// include all params to make a unique identification of this object
+func (obj *SvcRes) GetUUIDs() []ResUUID {
+	x := &SvcUUID{BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()}}
+	return []ResUUID{x}
+
+}
+
 func (obj *SvcRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *SvcRes:

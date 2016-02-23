@@ -373,6 +373,90 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	return false, nil // success
 }
 
+
+type FileUUID struct {
+	BaseUUID
+	path string
+}
+
+// if and only if they are equivalent, return true
+// if they are not equivalent, return false
+func (obj *FileUUID) IFF(uuid ResUUID) bool {
+	res, ok := uuid.(*FileUUID)
+	if !ok {
+		return false
+	}
+	return obj.path == res.path
+}
+
+type FileResAutoEdges struct {
+	data    []ResUUID
+	pointer int
+	found   bool
+}
+
+func (obj *FileResAutoEdges) Next() []ResUUID {
+	if obj.found {
+		log.Fatal("Shouldn't be called anymore!")
+	}
+	if len(obj.data) == 0 { // check length for rare scenarios
+		return nil
+	}
+	value := obj.data[obj.pointer]
+	obj.pointer += 1
+	return []ResUUID{value} // we return one, even though api supports N
+}
+
+// get results of the earlier Next() call, return if we should continue!
+func (obj *FileResAutoEdges) Test(input []bool) bool {
+	// if there aren't any more remaining
+	if len(obj.data) <= obj.pointer {
+		return false
+	}
+	if obj.found { // already found, done!
+		return false
+	}
+	if len(input) != 1 { // in case we get given bad data
+		log.Fatal("Expecting a single value!")
+	}
+	if input[0] { // if a match is found, we're done!
+		obj.found = true // no more to find!
+		return false
+	}
+	return true // keep going
+}
+
+// generate a simple linear sequence of each parent directory from bottom up!
+func (obj *FileRes) AutoEdges() AutoEdge {
+	var data []ResUUID                             // store linear result chain here...
+	values := PathSplitFullReversed(obj.GetPath()) // build it
+	_, values = values[0], values[1:]              // get rid of first value which is me!
+	for _, x := range values {
+		var reversed bool = true // cheat by passing a pointer
+		data = append(data, &FileUUID{
+			BaseUUID: BaseUUID{
+				name:     obj.GetName(),
+				kind:     obj.Kind(),
+				reversed: &reversed,
+			},
+			path: x, // what matters
+		}) // build list
+	}
+	return &FileResAutoEdges{
+		data:    data,
+		pointer: 0,
+		found:   false,
+	}
+}
+
+func (obj *FileRes) GetUUIDs() []ResUUID {
+	x := &FileUUID{
+		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
+		path:     obj.GetPath(),
+	}
+	return []ResUUID{x}
+}
+
 func (obj *FileRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *FileRes:

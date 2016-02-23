@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -53,6 +54,13 @@ func TestMiscT1(t *testing.T) {
 func TestMiscT2(t *testing.T) {
 
 	// TODO: compare the output with the actual list
+	p0 := "/"
+	r0 := []string{""} // TODO: is this correct?
+	if len(PathSplit(p0)) != len(r0) {
+		t.Errorf("Result should be: %q.", r0)
+		t.Errorf("Result should have a length of: %v.", len(r0))
+	}
+
 	p1 := "/foo/bar/baz"
 	r1 := []string{"", "foo", "bar", "baz"}
 	if len(PathSplit(p1)) != len(r1) {
@@ -197,4 +205,23 @@ func TestMiscT7(t *testing.T) {
 	if fmt.Sprintf("%+v\n", obj) != fmt.Sprintf("%+v\n", data) {
 		t.Errorf("Strings should match.")
 	}
+}
+
+func TestMiscT8(t *testing.T) {
+
+	r0 := []string{"/"}
+	if fullList0 := PathSplitFullReversed("/"); !reflect.DeepEqual(r0, fullList0) {
+		t.Errorf("PathSplitFullReversed expected: %v; got: %v.", r0, fullList0)
+	}
+
+	r1 := []string{"/foo/bar/baz/file", "/foo/bar/baz/", "/foo/bar/", "/foo/", "/"}
+	if fullList1 := PathSplitFullReversed("/foo/bar/baz/file"); !reflect.DeepEqual(r1, fullList1) {
+		t.Errorf("PathSplitFullReversed expected: %v; got: %v.", r1, fullList1)
+	}
+
+	r2 := []string{"/foo/bar/baz/dir/", "/foo/bar/baz/", "/foo/bar/", "/foo/", "/"}
+	if fullList2 := PathSplitFullReversed("/foo/bar/baz/dir/"); !reflect.DeepEqual(r2, fullList2) {
+		t.Errorf("PathSplitFullReversed expected: %v; got: %v.", r2, fullList2)
+	}
+
 }

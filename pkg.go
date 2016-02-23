@@ -278,6 +278,10 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	return false, nil // success
 }
 
+func (obj *PkgRes) AutoEdges() AutoEdge {
+	return nil
+}
+
 func (obj *PkgRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *PkgRes:

@@ -1,0 +1,19 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: file1
+    meta:
+      autoedge: true
+    path: "/tmp/foo/bar/f1"
+    content: |
+      i am f1
+    state: exists
+  - name: file2
+    meta:
+      autoedge: true
+    path: "/tmp/foo/"
+    content: |
+      i am f2
+    state: exists
+edges: []

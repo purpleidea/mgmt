@@ -462,6 +462,71 @@ loop:
 	return nil
 }
 
+// get the list of files that are contained inside a list of packageids
+func (bus *Conn) GetFilesByPackageId(packageIds []string) (files map[string][]string, err error) {
+	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
+	interfacePath, err := bus.CreateTransaction()
+	if err != nil {
+		return
+	}
+
+	var signals = []string{"Files", "ErrorCode", "Finished", "Destroy"} // "ItemProgress", "Status" ?
+	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
+
+	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
+	call := obj.Call(FmtTransactionMethod("GetFiles"), 0, packageIds)
+	if call.Err != nil {
+		err = call.Err
+		return
+	}
+	files = make(map[string][]string)
+loop:
+	for {
+		// FIXME: add a timeout option to error in case signals are dropped!
+		select {
+		case signal := <-ch:
+
+			if signal.Path != interfacePath {
+				log.Println("PackageKit: Some wires have been crossed!")
+				continue loop
+			}
+
+			if signal.Name == FmtTransactionMethod("ErrorCode") {
+				err = errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return
+
+				// one signal returned per packageId found...
+			} else if signal.Name == FmtTransactionMethod("Files") {
+				if len(signal.Body) != 2 { // bad data
+					continue loop
+				}
+				var ok bool
+				var key string
+				var fileList []string
+				if key, ok = signal.Body[0].(string); !ok {
+					continue loop
+				}
+				if fileList, ok = signal.Body[1].([]string); !ok {
+					continue loop // failed conversion
+				}
+				files[key] = fileList // build up map
+
+				continue loop
+			} else if signal.Name == FmtTransactionMethod("Finished") {
+				// TODO: should we wait for the Destroy signal?
+				break loop
+			} else if signal.Name == FmtTransactionMethod("Destroy") {
+				// should already be broken
+				break loop
+			} else {
+				err = errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return
+			}
+		}
+	}
+	return
+}
+
 // does flag exist inside data portion of packageId field?
 func FlagInData(flag, data string) bool {
 	flags := strings.Split(data, ":")

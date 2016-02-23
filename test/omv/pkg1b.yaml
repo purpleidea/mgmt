@@ -29,6 +29,7 @@
 :vms:
 - :name: mgmt1
   :shell:
+  - apt-get install -y make
   - iptables -F
   - cd /vagrant/mgmt/ && make path
   - cd /vagrant/mgmt/ && make deps && make build && cp mgmt ~/bin/

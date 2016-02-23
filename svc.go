@@ -80,7 +80,8 @@ func (obj *SvcRes) Watch() {
 	}
 	defer conn.Close()
 
-	bus, err := dbus.SystemBus()
+	// if we share the bus with others, we will get each others messages!!
+	bus, err := SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
 		log.Fatal("Failed to connect to bus: ", err)
 	}

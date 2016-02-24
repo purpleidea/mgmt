@@ -20,6 +20,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/cf-guardian/guardian/kernel/fileutils"
 	"gopkg.in/fsnotify.v1"
 	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 	"encoding/gob"
@@ -328,6 +329,30 @@ func (obj *FileRes) FileApply() error {
 	return nil // success
 }
 
+func (obj *FileRes) DirApply() error {
+	if !PathIsDir(obj.GetPath()) {
+		log.Fatal("This should only be called on a Dir resource.")
+	}
+
+	if obj.State == "absent" {
+		log.Printf("About to remove: %v", obj.GetPath())
+		err := os.Remove(obj.GetPath())
+		return err // either nil or not, for success or failure
+	}
+
+	if obj.Content == "" {
+		if err := os.MkDir(obj.GetPath(), 0777); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err := fileutils.Copy(obj.GetPath(), obj.Content); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
@@ -348,7 +373,11 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	// FIXME: add file mode check here...
 
 	if PathIsDir(obj.GetPath()) {
-		log.Fatal("Not implemented!") // XXX
+		_, err := os.Stat(obj.GetPath())
+		if obj.Content == "" && os.IsExist(err) {
+			obj.isStateOK = true
+			return true, nil
+		}
 	} else {
 		ok, err := obj.FileHashSHA256Check()
 		if err != nil {
@@ -369,12 +398,12 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	// apply portion
 	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
 	if PathIsDir(obj.GetPath()) {
-		log.Fatal("Not implemented!") // XXX
+		err = obj.DirApply()
 	} else {
 		err = obj.FileApply()
-		if err != nil {
-			return false, err
-		}
+	}
+	if err != nil {
+		return false, err
 	}
 
 	obj.isStateOK = true
@@ -472,6 +501,27 @@ func (obj *FileRes) GroupCmp(r Res) bool {
 	// TODO: we might be able to group directory children into a single
 	// recursive watcher in the future, thus saving fanotify watches
 	return false // not possible atm
+}
+
+func (obj *FileRes) CopyFile(srcpath, dstpath string) error {
+        srcfile, err := os.Open(srcpath)
+        if err != nil {
+                return err
+        }
+        defer srcfile.Close()
+
+        dstfile, err := os.Create(dstpath)
+        if err != nil {
+                return err
+        }
+        defer dstfile.Close()
+
+        if _, err := io.Copy(dstfile, srcfile); err != nil {
+                dstfile.Close()
+                return err
+        }
+
+        return dstfile.Close()
 }
 
 func (obj *FileRes) Compare(res Res) bool {

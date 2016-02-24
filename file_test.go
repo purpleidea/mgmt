@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -106,3 +108,59 @@ var comparetests = []struct {
 //		}
 //	}
 //}
+
+func TestCopyFileWithExistingPathsShouldNotReturnAnyErrors(t *testing.T) {
+	dstpath := "./file_copy_test.txt"
+	err := (&FileRes{Path: "./test_resources/non_existent.txt"}).CopyFile("./test_resources/file_content_test.txt", dstpath)
+	if err != nil {
+		t.Error("Shouldn't return any errors when copying a file")
+	}
+	defer os.Remove(dstpath)
+
+	content, err := ioutil.ReadFile(dstpath)
+	if err != nil {
+		t.Error("Destination file should be readable")
+	}
+	if string(content) != "test content" {
+		t.Error("Expected copied file to contain 'test content', got: '", content, "'")
+	}
+}
+
+func TestCopyFileToNonExistentDir(t *testing.T) {
+	err := (&FileRes{Path: "./test_resources/non_existent.txt"}).CopyFile("./test_resources/file_content_test.txt", "./a/b/file_content_test.txt")
+	if err == nil {
+		t.Error("Should return an error on attempting to copy a file to a non-existent dir")
+	}
+}
+
+func TestCopyNonExistentSourceFile(t *testing.T) {
+	err := (&FileRes{Path: "./test_resources/non_existent.txt"}).CopyFile("./a/b/file_content_test.txt", "./file_content_test.txt")
+	if err == nil {
+		t.Error("Should return an error on attempting to copy a non-existent file")
+	}
+}
+
+func TestCopyDirWithExistingPaths(t *testing.T) {
+	dstdirpath := "./dir_copy_test"
+	dstfilepath := "./dir_copy_test/file_content_test.txt"
+	err := (&FileRes{Path: "./test_resources/non_existent.txt"}).CopyDir("./test_resources/file_content_test.txt", dstdirpath)
+	if err != nil {
+		t.Error("Shouldn't return any errors when copying a dir")
+	}
+
+	if _, err := os.Stat(dstdirpath); err != nil {
+		t.Error("Should've created dst dir, but: ", err)
+	}
+	if _, err := os.Stat(dstfilepath); err != nil {
+		t.Error("Should've created dst file, but: ", err)
+	}
+	defer os.Remove(dstdirpath)
+
+	content, err := ioutil.ReadFile(dstfilepath)
+	if err != nil {
+		t.Error("Destination file should be readable")
+	}
+	if string(content) != "test content" {
+		t.Error("Expected copied file to contain 'test content', got: '", content, "'")
+	}
+}

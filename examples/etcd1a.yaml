@@ -1,0 +1,18 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: file1a
+    path: "/tmp/mgmtA/f1a"
+    content: |
+      i am f1
+    state: exists
+  - name: "@@file2a"
+    path: "/tmp/mgmtA/f2a"
+    content: |
+      i am f2, exported from host A
+    state: exists
+collect:
+- res: file
+  pattern: "/tmp/mgmtA/"
+edges: []

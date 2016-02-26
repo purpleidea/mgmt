@@ -1,0 +1,83 @@
+---
+graph: mygraph
+resources:
+  exec:
+  - name: exec1
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec2
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec3
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec4
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec5
+    cmd: sleep 15s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges:
+- name: e1
+  from:
+    res: exec
+    name: exec1
+  to:
+    res: exec
+    name: exec2
+- name: e2
+  from:
+    res: exec
+    name: exec1
+  to:
+    res: exec
+    name: exec3
+- name: e3
+  from:
+    res: exec
+    name: exec2
+  to:
+    res: exec
+    name: exec4
+- name: e4
+  from:
+    res: exec
+    name: exec3
+  to:
+    res: exec
+    name: exec4

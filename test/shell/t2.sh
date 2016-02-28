@@ -1,5 +1,11 @@
 #!/bin/bash -e
 
+if env | grep -q -e '^TRAVIS=true$'; then
+	# inotify doesn't seem to work properly on travis
+	echo "Travis and Jenkins give wonky results here, skipping test!"
+	exit
+fi
+
 . etcd.sh	# start etcd as job # 1
 
 # run till completion

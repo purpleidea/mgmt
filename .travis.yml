@@ -1,10 +1,10 @@
 language: go
 go:
   - 1.4.3
-  - 1.5.2
+  - 1.5.3
+  - 1.6.0
   - tip
-dist: trusty
-sudo: required
+sudo: false
 install: 'make deps'
 script: 'make test'
 matrix:

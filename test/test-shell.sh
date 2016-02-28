@@ -34,6 +34,7 @@ for i in $DIR/test/shell/*.sh; do
 	cd - >/dev/null
 	rm -rf '/tmp/mgmt/'	# clean up after test
 	if [ $e -ne 0 ]; then
+		echo -e "FAIL\t$ii"	# fail
 		# store failures...
 		failures=$(
 			# prepend previous failures if any

@@ -1,7 +1,9 @@
 #!/bin/bash -e
 
 if env | grep -q -e '^TRAVIS=true$'; then
-	exit 0	# XXX: this test only fails on travis! why?
+	# inotify doesn't seem to work properly on travis
+	echo "Travis and Jenkins give wonky results here, skipping test!"
+	exit
 fi
 
 . etcd.sh	# start etcd as job # 1
@@ -25,5 +27,7 @@ test "`cat /tmp/mgmt/f2`" = "i am f2"
 rm -f /tmp/mgmt/f2
 sleep 0.1s
 test -e /tmp/mgmt/f2
+
+killall -SIGINT mgmt	# send ^C to exit mgmt
 
 . wait.sh	# wait for everything except etcd

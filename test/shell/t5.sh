@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 . etcd.sh	# start etcd as job # 1
 

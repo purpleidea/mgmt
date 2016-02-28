@@ -248,6 +248,8 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 		return false, nil
 	}
 
+	// apply portion
+	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
 	packageList := []string{usePackageId}
 	var transactionFlags uint64 = 0
 	if !obj.AllowUntrusted { // allow

@@ -248,6 +248,7 @@ func (obj *ExecRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 
 	// apply portion
+	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
 	var cmdName string
 	var cmdArgs []string
 	if obj.Shell == "" {

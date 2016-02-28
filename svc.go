@@ -267,6 +267,7 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 
 	// apply portion
+	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
 	var files = []string{svc} // the svc represented in a list
 	if obj.Startup == "enabled" {
 		_, _, err = conn.EnableUnitFiles(files, false, true)

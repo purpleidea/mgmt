@@ -274,10 +274,13 @@ func (obj *FileRes) FileHashSHA256Check() (bool, error) {
 	if PathIsDir(obj.GetPath()) { // assert
 		log.Fatal("This should only be called on a File resource.")
 	}
-	// run a diff, and return true if needs changing
+	// run a diff, and return true if it needs changing
 	hash := sha256.New()
 	f, err := os.Open(obj.GetPath())
 	if err != nil {
+		if e, ok := err.(*os.PathError); ok && (e.Err.(syscall.Errno) == syscall.ENOENT) {
+			return false, nil // no "error", file is just absent
+		}
 		return false, err
 	}
 	defer f.Close()
@@ -324,7 +327,7 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 		return true, nil
 	}
 
-	if _, err := os.Stat(obj.GetPath()); os.IsNotExist(err) {
+	if _, err = os.Stat(obj.GetPath()); os.IsNotExist(err) {
 		// no such file or directory
 		if obj.State == "absent" {
 			// missing file should be missing, phew :)
@@ -332,6 +335,7 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 			return true, nil
 		}
 	}
+	err = nil // reset
 
 	// FIXME: add file mode check here...
 
@@ -355,6 +359,7 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 
 	// apply portion
+	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
 	if PathIsDir(obj.GetPath()) {
 		log.Fatal("Not implemented!") // XXX
 	} else {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 # NOTES:
 #	* this is a simple shell based `mgmt` test case
 #	* it is recommended that you run mgmt wrapped in the timeout command

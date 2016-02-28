@@ -34,7 +34,7 @@ fi
 [ -x build ] && ./build
 mkdir -p ~/bin/
 cp bin/etcd ~/bin/
-cd -
+cd - >/dev/null
 rm -rf etcd	# clean up to avoid failing on upstream gofmt errors
 
 go get ./...	# get all the go dependencies

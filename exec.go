@@ -228,7 +228,7 @@ func (obj *ExecRes) CheckApply(apply bool) (stateok bool, err error) {
 			cmdName = obj.IfShell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.IfCmd}
 		}
-		err := exec.Command(cmdName, cmdArgs...).Run()
+		err = exec.Command(cmdName, cmdArgs...).Run()
 		if err != nil {
 			// TODO: check exit value
 			return true, nil // don't run

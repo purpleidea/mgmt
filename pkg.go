@@ -33,8 +33,9 @@ type PkgRes struct {
 	AllowUnsupported bool   `yaml:"allowunsupported"` // allow unsupported packages to be found?
 }
 
+// helper function for creating new pkg resources that calls Init()
 func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupported bool) *PkgRes {
-	return &PkgRes{
+	obj := &PkgRes{
 		BaseRes: BaseRes{
 			Name:   name,
 			events: make(chan Event),
@@ -45,6 +46,13 @@ func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupporte
 		AllowNonFree:     allownonfree,
 		AllowUnsupported: allowunsupported,
 	}
+	obj.Init()
+	return obj
+}
+
+func (obj *PkgRes) Init() {
+	obj.BaseRes.kind = "Pkg"
+	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 func (obj *PkgRes) Kind() string {

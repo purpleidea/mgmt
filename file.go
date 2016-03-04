@@ -43,11 +43,9 @@ type FileRes struct {
 
 func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
 	// FIXME if path = nil, path = name ...
-	return &FileRes{
+	obj := &FileRes{
 		BaseRes: BaseRes{
-			Name:   name,
-			events: make(chan Event),
-			vertex: nil,
+			Name: name,
 		},
 		Path:      path,
 		Dirname:   dirname,
@@ -56,10 +54,13 @@ func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
 		State:     state,
 		sha256sum: "",
 	}
+	obj.Init()
+	return obj
 }
 
-func (obj *FileRes) Kind() string {
-	return "File"
+func (obj *FileRes) Init() {
+	obj.BaseRes.kind = "File"
+	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 func (obj *FileRes) GetPath() string {

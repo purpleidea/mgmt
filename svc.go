@@ -35,19 +35,20 @@ type SvcRes struct {
 }
 
 func NewSvcRes(name, state, startup string) *SvcRes {
-	return &SvcRes{
+	obj := &SvcRes{
 		BaseRes: BaseRes{
-			Name:   name,
-			events: make(chan Event),
-			vertex: nil,
+			Name: name,
 		},
 		State:   state,
 		Startup: startup,
 	}
+	obj.Init()
+	return obj
 }
 
-func (obj *SvcRes) Kind() string {
-	return "Svc"
+func (obj *SvcRes) Init() {
+	obj.BaseRes.kind = "Svc"
+	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 func (obj *SvcRes) Validate() bool {

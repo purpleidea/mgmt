@@ -96,7 +96,8 @@ type Res interface {
 type BaseRes struct {
 	Name           string     `yaml:"name"`
 	Meta           MetaParams `yaml:"meta"` // struct of all the metaparams
-	timestamp      int64      // last updated timestamp ?
+	kind           string
+	timestamp      int64 // last updated timestamp ?
 	events         chan Event
 	vertex         *Vertex
 	state          resState
@@ -114,14 +115,14 @@ type NoopRes struct {
 
 func NewNoopRes(name string) *NoopRes {
 	// FIXME: we could get rid of this New constructor and use raw object creation with a required Init()
-	return &NoopRes{
+	obj := &NoopRes{
 		BaseRes: BaseRes{
-			Name:   name,
-			events: make(chan Event), // unbuffered chan size to avoid stale events
-			vertex: nil,
+			Name: name,
 		},
 		Comment: "",
 	}
+	obj.Init()
+	return obj
 }
 
 // wraps the IFF method when used with a list of UUID's
@@ -163,7 +164,7 @@ func (obj *BaseUUID) Reversed() bool {
 
 // initialize structures like channels if created without New constructor
 func (obj *BaseRes) Init() {
-	obj.events = make(chan Event)
+	obj.events = make(chan Event) // unbuffered chan size to avoid stale events
 }
 
 // this method gets used by all the resources, if we have one of (obj NoopRes) it would get overridden in that case!
@@ -171,8 +172,9 @@ func (obj *BaseRes) GetName() string {
 	return obj.Name
 }
 
+// return the kind of resource this is
 func (obj *BaseRes) Kind() string {
-	return "Base"
+	return obj.kind
 }
 
 func (obj *BaseRes) GetMeta() MetaParams {
@@ -410,8 +412,9 @@ func Process(obj Res) {
 	}
 }
 
-func (obj *NoopRes) Kind() string {
-	return "Noop"
+func (obj *NoopRes) Init() {
+	obj.BaseRes.kind = "Noop"
+	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // validate if the params passed in are valid data

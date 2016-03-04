@@ -45,11 +45,11 @@ type edgeConfig struct {
 type GraphConfig struct {
 	Graph     string `yaml:"graph"`
 	Resources struct {
-		Noop []NoopRes `yaml:"noop"`
-		Pkg  []PkgRes  `yaml:"pkg"`
-		File []FileRes `yaml:"file"`
-		Svc  []SvcRes  `yaml:"svc"`
-		Exec []ExecRes `yaml:"exec"`
+		Noop []*NoopRes `yaml:"noop"`
+		Pkg  []*PkgRes  `yaml:"pkg"`
+		File []*FileRes `yaml:"file"`
+		Svc  []*SvcRes  `yaml:"svc"`
+		Exec []*ExecRes `yaml:"exec"`
 	} `yaml:"resources"`
 	Collector []collectorResConfig `yaml:"collect"`
 	Edges     []edgeConfig         `yaml:"edges"`
@@ -114,11 +114,10 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 
 	var keep []*Vertex // list of vertex which are the same in new graph
 
-	for _, t := range config.Resources.Noop {
-		obj := NewNoopRes(t.Name)
-		obj.Meta = t.Meta
+	for _, obj := range config.Resources.Noop {
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
+			obj.Init()
 			v = NewVertex(obj)
 			g.AddVertex(v) // call standalone in case not part of an edge
 		}
@@ -126,11 +125,10 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 		keep = append(keep, v) // append
 	}
 
-	for _, t := range config.Resources.Pkg {
-		obj := NewPkgRes(t.Name, t.State, false, false, false)
-		obj.Meta = t.Meta
+	for _, obj := range config.Resources.Pkg {
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
+			obj.Init()
 			v = NewVertex(obj)
 			g.AddVertex(v) // call standalone in case not part of an edge
 		}
@@ -138,24 +136,23 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 		keep = append(keep, v) // append
 	}
 
-	for _, t := range config.Resources.File {
+	for _, obj := range config.Resources.File {
 		// XXX: should we export based on a @@ prefix, or a metaparam
 		// like exported => true || exported => (host pattern)||(other pattern?)
-		if strings.HasPrefix(t.Name, "@@") { // exported resource
+		if strings.HasPrefix(obj.Name, "@@") { // exported resource
 			// add to etcd storage...
-			t.Name = t.Name[2:] //slice off @@
-			if !etcdO.EtcdPut(hostname, t.Name, "file", t) {
-				log.Printf("Problem exporting file resource %v.", t.Name)
+			obj.Name = obj.Name[2:] //slice off @@
+			if !etcdO.EtcdPut(hostname, obj.Name, "file", obj) {
+				log.Printf("Problem exporting file resource %v.", obj.Name)
 				continue
 			}
 		} else {
-			obj := NewFileRes(t.Name, t.Path, t.Dirname, t.Basename, t.Content, t.State)
 			// XXX: we don't have a way of knowing if any of the
 			// metaparams are undefined, and as a result to set the
 			// defaults that we want! I hate the go yaml parser!!!
-			obj.Meta = t.Meta
 			v := g.GetVertexMatch(obj)
 			if v == nil { // no match found
+				obj.Init()
 				v = NewVertex(obj)
 				g.AddVertex(v) // call standalone in case not part of an edge
 			}
@@ -164,11 +161,10 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 		}
 	}
 
-	for _, t := range config.Resources.Svc {
-		obj := NewSvcRes(t.Name, t.State, t.Startup)
-		obj.Meta = t.Meta
+	for _, obj := range config.Resources.Svc {
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
+			obj.Init()
 			v = NewVertex(obj)
 			g.AddVertex(v) // call standalone in case not part of an edge
 		}
@@ -176,11 +172,10 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 		keep = append(keep, v) // append
 	}
 
-	for _, t := range config.Resources.Exec {
-		obj := NewExecRes(t.Name, t.Cmd, t.Shell, t.Timeout, t.WatchCmd, t.WatchShell, t.IfCmd, t.IfShell, t.PollInt, t.State)
-		obj.Meta = t.Meta
+	for _, obj := range config.Resources.Exec {
 		v := g.GetVertexMatch(obj)
 		if v == nil { // no match found
+			obj.Init()
 			v = NewVertex(obj)
 			g.AddVertex(v) // call standalone in case not part of an edge
 		}

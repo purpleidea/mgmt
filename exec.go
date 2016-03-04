@@ -40,12 +40,9 @@ type ExecRes struct {
 }
 
 func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) *ExecRes {
-	// FIXME if path = nil, path = name ...
-	return &ExecRes{
+	obj := &ExecRes{
 		BaseRes: BaseRes{
-			Name:   name,
-			events: make(chan Event),
-			vertex: nil,
+			Name: name,
 		},
 		Cmd:        cmd,
 		Shell:      shell,
@@ -57,10 +54,13 @@ func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcm
 		PollInt:    pollint,
 		State:      state,
 	}
+	obj.Init()
+	return obj
 }
 
-func (obj *ExecRes) Kind() string {
-	return "Exec"
+func (obj *ExecRes) Init() {
+	obj.BaseRes.kind = "Exec"
+	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // validate if the params passed in are valid data

@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/godbus/dbus"
 	"log"
+	"runtime"
 	"strings"
 )
 
@@ -34,7 +35,8 @@ const (
 )
 
 const (
-	PkBufferSize       = 100
+	// FIXME: if PkBufferSize is too low, install seems to drop signals
+	PkBufferSize       = 1000
 	PkPath             = "/org/freedesktop/PackageKit"
 	PkIface            = "org.freedesktop.PackageKit"
 	PkIfaceTransaction = PkIface + ".Transaction"
@@ -43,8 +45,8 @@ const (
 
 var (
 	PkArchMap = map[string]string{ // map of PackageKit arch to GOARCH
-		"x86_64": "amd64",
 		// TODO: add more values
+		"x86_64": "amd64",
 	}
 )
 
@@ -91,9 +93,48 @@ const ( //static const PkEnumMatch enum_transaction_flag[]
 	PK_TRANSACTION_FLAG_ENUM_ALLOW_DOWNGRADE                    // "allow-downgrade"
 )
 
+const ( //typedef enum
+	PK_INFO_ENUM_UNKNOWN uint64 = 1 << iota
+	PK_INFO_ENUM_INSTALLED
+	PK_INFO_ENUM_AVAILABLE
+	PK_INFO_ENUM_LOW
+	PK_INFO_ENUM_ENHANCEMENT
+	PK_INFO_ENUM_NORMAL
+	PK_INFO_ENUM_BUGFIX
+	PK_INFO_ENUM_IMPORTANT
+	PK_INFO_ENUM_SECURITY
+	PK_INFO_ENUM_BLOCKED
+	PK_INFO_ENUM_DOWNLOADING
+	PK_INFO_ENUM_UPDATING
+	PK_INFO_ENUM_INSTALLING
+	PK_INFO_ENUM_REMOVING
+	PK_INFO_ENUM_CLEANUP
+	PK_INFO_ENUM_OBSOLETING
+	PK_INFO_ENUM_COLLECTION_INSTALLED
+	PK_INFO_ENUM_COLLECTION_AVAILABLE
+	PK_INFO_ENUM_FINISHED
+	PK_INFO_ENUM_REINSTALLING
+	PK_INFO_ENUM_DOWNGRADING
+	PK_INFO_ENUM_PREPARING
+	PK_INFO_ENUM_DECOMPRESSING
+	PK_INFO_ENUM_UNTRUSTED
+	PK_INFO_ENUM_TRUSTED
+	PK_INFO_ENUM_UNAVAILABLE
+	PK_INFO_ENUM_LAST
+)
+
 // wrapper struct so we can pass bus connection around in the struct
 type Conn struct {
 	conn *dbus.Conn
+}
+
+// struct that is returned by PackagesToPackageIds in the map values
+type PkPackageIdActionData struct {
+	Found     bool
+	Installed bool
+	Version   string
+	PackageId string
+	Newest    bool
 }
 
 // get a new bus connection
@@ -184,7 +225,7 @@ func (bus *Conn) WatchChanges() (chan *dbus.Signal, error) {
 					// i think this was caused by using the shared
 					// bus, but we might as well leave it in for now
 					if event.Path != PkPath || event.Name != fmt.Sprintf("%s.%s", PkIface, signal) {
-						log.Println("PackageKit: Some wires have been crossed!")
+						log.Printf("PackageKit: Woops: Event: %+v", event)
 						continue
 					}
 					rch <- event // forward...
@@ -245,7 +286,7 @@ loop:
 				log.Printf("PackageKit: ResolvePackages(): Signal: %+v", signal)
 			}
 			if signal.Path != interfacePath {
-				log.Println("PackageKit: Some wires have been crossed!")
+				log.Printf("PackageKit: Woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -346,7 +387,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				log.Println("PackageKit: Some wires have been crossed!")
+				log.Printf("PackageKit: Woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -394,7 +435,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				log.Println("PackageKit: Some wires have been crossed!")
+				log.Printf("PackageKit: Woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -439,7 +480,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				log.Println("PackageKit: Some wires have been crossed!")
+				log.Printf("PackageKit: Woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -487,7 +528,7 @@ loop:
 		case signal := <-ch:
 
 			if signal.Path != interfacePath {
-				log.Println("PackageKit: Some wires have been crossed!")
+				log.Printf("PackageKit: Woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -525,6 +566,234 @@ loop:
 		}
 	}
 	return
+}
+
+// get list of packages that are installed and which can be updated, mod filter
+func (bus *Conn) GetUpdates(filter uint64) ([]string, error) {
+	packageIds := []string{}
+	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
+	interfacePath, err := bus.CreateTransaction()
+	if err != nil {
+		return nil, err
+	}
+
+	var signals = []string{"Package", "ErrorCode", "Finished", "Destroy"} // "ItemProgress" ?
+	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
+
+	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
+	call := obj.Call(FmtTransactionMethod("GetUpdates"), 0, filter)
+	if call.Err != nil {
+		return nil, call.Err
+	}
+loop:
+	for {
+		// FIXME: add a timeout option to error in case signals are dropped!
+		select {
+		case signal := <-ch:
+			if signal.Path != interfacePath {
+				log.Printf("PackageKit: Woops: Signal.Path: %+v", signal.Path)
+				continue loop
+			}
+
+			if signal.Name == FmtTransactionMethod("ErrorCode") {
+				return nil, errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+			} else if signal.Name == FmtTransactionMethod("Package") {
+
+				//pkg_int, ok := signal.Body[0].(int)
+				packageId, ok := signal.Body[1].(string)
+				// format is: name;version;arch;data
+				if !ok {
+					continue loop
+				}
+				//comment, ok := signal.Body[2].(string)
+				for _, p := range packageIds { // optional?
+					if packageId == p {
+						continue loop // duplicate!
+					}
+				}
+				packageIds = append(packageIds, packageId)
+
+			} else if signal.Name == FmtTransactionMethod("Finished") {
+				// TODO: should we wait for the Destroy signal?
+				break loop
+			} else if signal.Name == FmtTransactionMethod("Destroy") {
+				// should already be broken
+				break loop
+			} else {
+				return nil, errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+			}
+		}
+	}
+	return packageIds, nil
+}
+
+// this is a helper function that *might* be generally useful outside mgmtconfig
+// packageMap input has the package names as keys and requested states as values
+// these states can be installed, uninstalled, newest or a requested version str
+func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint64) (map[string]*PkPackageIdActionData, error) {
+	count := 0
+	packages := make([]string, len(packageMap))
+	for k := range packageMap { // lol, golang has no hash.keys() function!
+		packages[count] = k
+		count++
+	}
+
+	if !(filter&PK_FILTER_ENUM_ARCH == PK_FILTER_ENUM_ARCH) {
+		filter += PK_FILTER_ENUM_ARCH // always search in our arch
+	}
+
+	if PK_DEBUG {
+		log.Printf("PackageKit: PackagesToPackageIds(): %v", strings.Join(packages, ", "))
+	}
+	resolved, e := bus.ResolvePackages(packages, filter)
+	if e != nil {
+		return nil, errors.New(fmt.Sprintf("Resolve error: %v", e))
+	}
+
+	found := make([]bool, count) // default false
+	installed := make([]bool, count)
+	version := make([]string, count)
+	usePackageId := make([]string, count)
+	newest := make([]bool, count) // default true
+	for i := range newest {
+		newest[i] = true // assume, for now
+	}
+	var index int
+
+	for _, packageId := range resolved {
+		index = -1
+		//log.Printf("* %v", packageId)
+		// format is: name;version;arch;data
+		s := strings.Split(packageId, ";")
+		//if len(s) != 4 { continue } // this would be a bug!
+		pkg, ver, arch, data := s[0], s[1], s[2], s[3]
+		if goarch, ok := PkArchMap[arch]; !ok || goarch != runtime.GOARCH {
+			continue
+		}
+
+		for i := range packages { // find pkg if it exists
+			if pkg == packages[i] {
+				index = i
+			}
+		}
+		if index == -1 { // can't find what we're looking for
+			continue
+		}
+		state := packageMap[pkg] // lookup the requested state/version
+		if state == "" {
+			return nil, errors.New(fmt.Sprintf("Empty package state for %v", pkg))
+		}
+		found[index] = true
+
+		if state != "installed" && state != "uninstalled" && state != "newest" { // must be a ver. string
+			if state == ver && ver != "" { // we match what we want...
+				usePackageId[index] = packageId
+			}
+		}
+
+		if FlagInData("installed", data) {
+			installed[index] = true
+			version[index] = ver
+			if state == "uninstalled" {
+				usePackageId[index] = packageId // save for later
+			}
+		} else { // not installed...
+			if state == "installed" || state == "newest" {
+				// if there is more than one result, eg: there
+				// is the old and newest version of a package,
+				// then this section can run more than once...
+				// in that case, don't worry, we'll choose the
+				// right value in the "updates" section below!
+				usePackageId[index] = packageId
+			}
+		}
+	}
+
+	// we can't determine which packages are "newest", without searching
+	// for each one individually, so instead we check if any updates need
+	// to be done, and if so, anything that needs updating isn't newest!
+	// if something isn't installed, we can't verify it with this method
+	// FIXME: https://github.com/hughsie/PackageKit/issues/116
+	updates, e := bus.GetUpdates(filter)
+	if e != nil {
+		return nil, errors.New(fmt.Sprintf("Updates error: %v", e))
+	}
+	for _, packageId := range updates {
+		//log.Printf("* %v", packageId)
+		// format is: name;version;arch;data
+		s := strings.Split(packageId, ";")
+		//if len(s) != 4 { continue } // this would be a bug!
+		pkg, _, _, _ := s[0], s[1], s[2], s[3]
+		for index := range packages { // find pkg if it exists
+			if pkg == packages[index] {
+				state := packageMap[pkg] // lookup
+				newest[index] = false
+				if state == "installed" || state == "newest" {
+					// fix up in case above wasn't correct!
+					usePackageId[index] = packageId
+				}
+				break
+			}
+		}
+	}
+
+	// skip if the "newest" filter was used, otherwise we might need fixing
+	// this check is for packages that need to verify their "newest" status
+	// we need to know this so we can install the correct newest packageId!
+	recursion := make(map[string]*PkPackageIdActionData)
+	if !(filter&PK_FILTER_ENUM_NEWEST == PK_FILTER_ENUM_NEWEST) {
+		checkPackages := []string{}
+		filteredPackageMap := make(map[string]string)
+		for index, pkg := range packages {
+			state := packageMap[pkg]               // lookup the requested state/version
+			if !found[index] || installed[index] { // skip these, they're okay
+				continue
+			}
+			if !(state == "newest" || state == "installed") {
+				continue
+			}
+
+			checkPackages = append(checkPackages, pkg)
+			filteredPackageMap[pkg] = packageMap[pkg] // check me!
+		}
+
+		// we _could_ do a second resolve and then parse like this...
+		//resolved, e := bus.ResolvePackages(..., filter+PK_FILTER_ENUM_NEWEST)
+		// but that's basically what recursion here could do too!
+		if len(checkPackages) > 0 {
+			if PK_DEBUG {
+				log.Printf("PackageKit: PackagesToPackageIds(): Recurse: %v", strings.Join(checkPackages, ", "))
+			}
+			recursion, e = bus.PackagesToPackageIds(filteredPackageMap, filter+PK_FILTER_ENUM_NEWEST)
+			if e != nil {
+				return nil, errors.New(fmt.Sprintf("Recursion error: %v", e))
+			}
+		}
+	}
+
+	// fix up and build result format
+	result := make(map[string]*PkPackageIdActionData)
+	for index, pkg := range packages {
+
+		if !found[index] || !installed[index] {
+			newest[index] = false // make the results more logical!
+		}
+
+		// prefer recursion results if present
+		if lookup, ok := recursion[pkg]; ok {
+			result[pkg] = lookup
+		} else {
+			result[pkg] = &PkPackageIdActionData{
+				Found:     found[index],
+				Installed: installed[index],
+				Version:   version[index],
+				PackageId: usePackageId[index],
+				Newest:    newest[index],
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // does flag exist inside data portion of packageId field?

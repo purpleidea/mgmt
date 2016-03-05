@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 )
 
 type PkgRes struct {
@@ -160,12 +159,16 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 	defer bus.Close()
 
-	var packages = []string{obj.Name}
+	var packageMap = map[string]string{
+		obj.Name: obj.State, // key is pkg name, value is pkg state
+	}
 	var filter uint64 = 0
-	filter += PK_FILTER_ENUM_ARCH // always search in our arch
+	filter += PK_FILTER_ENUM_ARCH // always search in our arch (optional!)
 	// we're requesting latest version, or to narrow down install choices!
 	if obj.State == "newest" || obj.State == "installed" {
 		// if we add this, we'll still see older packages if installed
+		// this is an optimization, and is *optional*, this logic is
+		// handled inside of PackagesToPackageIds now automatically!
 		filter += PK_FILTER_ENUM_NEWEST // only search for newest packages
 	}
 	if !obj.AllowNonFree {
@@ -174,80 +177,38 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	if !obj.AllowUnsupported {
 		filter += PK_FILTER_ENUM_SUPPORTED
 	}
-	if DEBUG {
-		log.Printf("Pkg[%v]: ResolvePackages: %v", obj.GetName(), strings.Join(packages, ", "))
-	}
-	resolved, e := bus.ResolvePackages(packages, filter)
+	result, e := bus.PackagesToPackageIds(packageMap, filter)
 	if e != nil {
-		return false, errors.New(fmt.Sprintf("Resolve error: %v", e))
+		return false, errors.New(fmt.Sprintf("PackagesToPackageIds error: %v", e))
 	}
 
-	var found = false
-	var installed = false
-	var version = ""
-	var newest = true // assume, for now
-	var usePackageId = ""
-	for _, packageId := range resolved {
-		//log.Printf("* %v", packageId)
-		// format is: name;version;arch;data
-		s := strings.Split(packageId, ";")
-		//if len(s) != 4 { continue } // this would be a bug!
-		pkg, ver, _, data := s[0], s[1], s[2], s[3]
-		//arch := s[2] // TODO: double check match on arch?
-		if pkg != obj.Name { // not what we're looking for
-			continue
-		}
-		found = true
-		if obj.State != "installed" && obj.State != "uninstalled" && obj.State != "newest" { // must be a ver. string
-			if obj.State == ver && ver != "" { // we match what we want...
-				usePackageId = packageId
-			}
-		}
-		if FlagInData("installed", data) {
-			installed = true
-			version = ver
-			if obj.State == "uninstalled" {
-				usePackageId = packageId // save for later
-			}
-		} else { // not installed...
-			if obj.State == "installed" || obj.State == "newest" {
-				usePackageId = packageId
-			}
-		}
-
-		// if the first iteration didn't contain the installed package,
-		// then since the NEWEST filter was on, we're not the newest!
-		if !installed {
-			newest = false
-		}
-	}
-
+	data, ok := result[obj.Name] // lookup single package
 	// package doesn't exist, this is an error!
-	if !found {
+	if !ok || !data.Found {
 		return false, errors.New(fmt.Sprintf("Can't find package named '%s'.", obj.Name))
 	}
 
 	//obj.State == "installed" || "uninstalled" || "newest" || "4.2-1.fc23"
 	switch obj.State {
 	case "installed":
-		if installed {
+		if data.Installed {
 			return true, nil // state is correct, exit!
 		}
 	case "uninstalled":
-		if !installed {
+		if !data.Installed {
 			return true, nil
 		}
 	case "newest":
-		if newest {
+		if data.Newest {
 			return true, nil
 		}
 	default: // version string
-		if obj.State == version && version != "" {
+		if obj.State == data.Version && data.Version != "" {
 			return true, nil
 		}
 	}
 
-	if usePackageId == "" {
+	if data.PackageId == "" {
 		return false, errors.New("Can't find package id to use.")
 	}
 
@@ -258,7 +219,7 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 
 	// apply portion
 	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
-	packageList := []string{usePackageId}
+	packageList := []string{data.PackageId}
 	var transactionFlags uint64 = 0
 	if !obj.AllowUntrusted { // allow
 		transactionFlags += PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED

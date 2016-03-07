@@ -26,10 +26,11 @@ import (
 
 type PkgRes struct {
 	BaseRes          `yaml:",inline"`
-	State            string `yaml:"state"`            // state: installed, uninstalled, newest, <version>
-	AllowUntrusted   bool   `yaml:"allowuntrusted"`   // allow untrusted packages to be installed?
-	AllowNonFree     bool   `yaml:"allownonfree"`     // allow nonfree packages to be found?
-	AllowUnsupported bool   `yaml:"allowunsupported"` // allow unsupported packages to be found?
+	State            string   `yaml:"state"`            // state: installed, uninstalled, newest, <version>
+	AllowUntrusted   bool     `yaml:"allowuntrusted"`   // allow untrusted packages to be installed?
+	AllowNonFree     bool     `yaml:"allownonfree"`     // allow nonfree packages to be found?
+	AllowUnsupported bool     `yaml:"allowunsupported"` // allow unsupported packages to be found?
+	fileList         []string // FIXME: update if pkg changes
 }
 
 // helper function for creating new pkg resources that calls Init()
@@ -247,8 +248,115 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	return false, nil // success
 }
 
+type PkgResAutoEdges struct {
+	fileList   []string
+	testIsNext bool   // safety
+	name       string // saved data from PkgRes obj
+	kind       string
+}
+
+func (obj *PkgResAutoEdges) Next() []ResUUID {
+	if obj.testIsNext {
+		log.Fatal("Expecting a call to Test()")
+	}
+	obj.testIsNext = true // set after all the errors paths are past
+	var result []ResUUID
+
+	// return UUID's for whatever is in obj.fileList
+	for _, x := range obj.fileList {
+		var reversed bool = false // cheat by passing a pointer
+		result = append(result, &FileUUID{
+			BaseUUID: BaseUUID{
+				name:     obj.name,
+				kind:     obj.kind,
+				reversed: &reversed,
+			},
+			path: x, // what matters
+		}) // build list
+	}
+	return result
+}
+
+func (obj *PkgResAutoEdges) Test(input []bool) bool {
+	if !obj.testIsNext {
+		log.Fatal("Expecting a call to Next()")
+	}
+	count := len(obj.fileList)
+	if count != len(input) {
+		log.Fatalf("Expecting %d value(s)!", count)
+	}
+	obj.testIsNext = false // set after all the errors paths are past
+
+	// while i do believe this algorithm generates the *correct* result, i
+	// don't know if it does so in the optimal way. improvements welcome!
+	// the basic logic is:
+	// 0) Next() returns whatever is in fileList
+	// 1) Test() computes the dirname of each file, and removes duplicates
+	// and dirname's that have been in the path of an ack from input results
+	// 2) It then simplifies the list by removing the common path prefixes
+	// 3) Lastly, the remaining set of files (dirs) is used as new fileList
+	// 4) We then iterate in (0) until the fileList is empty!
+	var dirs = make([]string, count)
+	done := []string{}
+	for i := 0; i < count; i++ {
+		dir := Dirname(obj.fileList[i]) // dirname of /foo/ should be /
+		dirs[i] = dir
+		if input[i] {
+			done = append(done, dir)
+		}
+	}
+	nodupes := StrRemoveDuplicatesInList(dirs)                // remove duplicates
+	nodones := StrFilterElementsInList(done, nodupes)         // filter out done
+	noempty := StrFilterElementsInList([]string{""}, nodones) // remove the "" from /
+	obj.fileList = RemoveCommonFilePrefixes(noempty)          // magic
+
+	if len(obj.fileList) == 0 { // nothing more, don't continue
+		return false
+	}
+	return true // continue, there are more files!
+}
+
+type PkgUUID struct {
+	BaseUUID
+}
+
+// if and only if they are equivalent, return true
+// if they are not equivalent, return false
+func (obj *PkgUUID) IFF(uuid ResUUID) bool {
+	res, ok := uuid.(*PkgUUID)
+	if !ok {
+		return false
+	}
+	return obj.name == res.name
+}
+
+// produce an object which generates a minimal pkg file optimization sequence
 func (obj *PkgRes) AutoEdges() AutoEdge {
-	return nil
+	// in contrast with the FileRes AutoEdges() function which contains
+	// more of the mechanics, most of the AutoEdge mechanics for the PkgRes
+	// is contained in the Test() method! This design is completely okay!
+	return &PkgResAutoEdges{
+		fileList:   obj.fileList,
+		testIsNext: false,         // start with Next() call
+		name:       obj.GetName(), // save data for PkgResAutoEdges obj
+		kind:       obj.Kind(),
+	}
+}
+
+// include all params to make a unique identification of this object
+func (obj *PkgRes) GetUUIDs() []ResUUID {
+	x := &PkgUUID{
+		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
+	}
+	result := []ResUUID{x}
+	for _, path := range obj.fileList {
+		x := &FileUUID{
+			BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
+			path:     path,
+		}
+		result = append(result, x)
+	}
+	return result
 }
 
 func (obj *PkgRes) Compare(res Res) bool {

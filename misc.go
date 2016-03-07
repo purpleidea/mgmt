@@ -27,6 +27,39 @@ import (
 	"time"
 )
 
+// return true if a string exists inside a list, otherwise false
+func StrInList(needle string, haystack []string) bool {
+	for _, x := range haystack {
+		if needle == x {
+			return true
+		}
+	}
+	return false
+}
+
+// remove any duplicate values in the list
+// possibly sub-optimal, O(n^2)? implementation
+func StrRemoveDuplicatesInList(list []string) []string {
+	unique := []string{}
+	for _, x := range list {
+		if !StrInList(x, unique) {
+			unique = append(unique, x)
+		}
+	}
+	return unique
+}
+
+// remove any of the elements in filter, if they exist in list
+func StrFilterElementsInList(filter []string, list []string) []string {
+	result := []string{}
+	for _, x := range list {
+		if !StrInList(x, filter) {
+			result = append(result, x)
+		}
+	}
+	return result
+}
+
 // reverse a list of strings
 func ReverseStringList(in []string) []string {
 	var out []string // empty list
@@ -81,6 +114,46 @@ func HasPathPrefix(p, prefix string) bool {
 	return true
 }
 
+func StrInPathPrefixList(needle string, haystack []string) bool {
+	for _, x := range haystack {
+		if HasPathPrefix(x, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// remove redundant file path prefixes that are under the tree of other files
+func RemoveCommonFilePrefixes(paths []string) []string {
+	var result = make([]string, len(paths))
+	for i := 0; i < len(paths); i++ { // copy, b/c append can modify the args!!
+		result[i] = paths[i]
+	}
+	// is there a string path which is common everywhere?
+	// if so, remove it, and iterate until nothing common is left
+	// return what's left over, that's the most common superset
+loop:
+	for {
+		if len(result) <= 1 {
+			return result
+		}
+		for i := 0; i < len(result); i++ {
+			var copied = make([]string, len(result))
+			for j := 0; j < len(result); j++ { // copy, b/c append can modify the args!!
+				copied[j] = result[j]
+			}
+			noi := append(copied[:i], copied[i+1:]...) // rm i
+			if StrInPathPrefixList(result[i], noi) {
+				// delete the element common to everyone
+				result = noi
+				continue loop
+			}
+		}
+		break
+	}
+	return result
+}
+
 // Delta of path prefix, tells you how many path tokens different the prefix is
 func PathPrefixDelta(p, prefix string) int {
 
@@ -110,6 +183,31 @@ func PathSplitFullReversed(p string) []string {
 		result = append(result, x)
 	}
 	return ReverseStringList(result)
+}
+
+// add trailing slashes to any likely dirs in a package manager fileList
+// if removeDirs is true, instead, don't keep the dirs in our output
+func DirifyFileList(fileList []string, removeDirs bool) []string {
+	dirs := []string{}
+	for _, file := range fileList {
+		dir, _ := path.Split(file) // dir
+		dir = path.Clean(dir)      // clean so cmp is easier
+		if !StrInList(dir, dirs) {
+			dirs = append(dirs, dir)
+		}
+	}
+
+	result := []string{}
+	for _, file := range fileList {
+		cleanFile := path.Clean(file)
+		if !StrInList(cleanFile, dirs) { // we're not a directory!
+			result = append(result, file) // pass through
+		} else if !removeDirs {
+			result = append(result, cleanFile+"/")
+		}
+	}
+
+	return result
 }
 
 // encode an object as base 64, serialize and then base64 encode

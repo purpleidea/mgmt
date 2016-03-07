@@ -36,17 +36,30 @@ const (
 
 const (
 	// FIXME: if PkBufferSize is too low, install seems to drop signals
-	PkBufferSize       = 1000
-	PkPath             = "/org/freedesktop/PackageKit"
-	PkIface            = "org.freedesktop.PackageKit"
-	PkIfaceTransaction = PkIface + ".Transaction"
-	dbusAddMatch       = "org.freedesktop.DBus.AddMatch"
+	PkBufferSize = 1000
+	// TODO: the PkSignalTimeout value might be too low
+	PkSignalPackageTimeout = 60 // 60 seconds, arbitrary
+	PkSignalDestroyTimeout = 15 // 15 seconds, arbitrary
+	PkPath                 = "/org/freedesktop/PackageKit"
+	PkIface                = "org.freedesktop.PackageKit"
+	PkIfaceTransaction     = PkIface + ".Transaction"
+	dbusAddMatch           = "org.freedesktop.DBus.AddMatch"
 )
 
 var (
+	// GOARCH's: 386, amd64, arm, arm64, mips64, mips64le, ppc64, ppc64le
 	PkArchMap = map[string]string{ // map of PackageKit arch to GOARCH
 		// TODO: add more values
-		"x86_64": "amd64",
+		// fedora
+		"x86_64":  "amd64",
+		"aarch64": "arm64",
+		// debian, from: https://www.debian.org/ports/
+		"amd64": "amd64",
+		"arm64": "arm64",
+		"i386":  "386",
+		"i486":  "386",
+		"i586":  "386",
+		"i686":  "386",
 	}
 )
 
@@ -311,7 +324,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return []string{}, errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return []string{}, errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			}
 		}
 	}
@@ -381,9 +394,10 @@ func (bus *Conn) InstallPackages(packageIds []string, transactionFlags uint64) e
 	if call.Err != nil {
 		return call.Err
 	}
+	timeout := -1 // disabled initially
+	finished := false
 loop:
 	for {
-		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
@@ -392,22 +406,29 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
+				// only start the timer once we're here...
+				timeout = PkSignalPackageTimeout
 				continue loop
 			} else if signal.Name == FmtTransactionMethod("Finished") {
-				// TODO: should we wait for the Destroy signal?
-				break loop
+				finished = true
+				timeout = PkSignalDestroyTimeout // wait a bit
+				continue loop
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
-				// should already be broken
-				break loop
+				return nil // success
 			} else {
-				return errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			}
+		case _ = <-TimeAfterOrBlock(timeout):
+			if finished {
+				log.Println("PackageKit: Timeout: InstallPackages: Waiting for 'Destroy'")
+				return nil // got tired of waiting for Destroy
+			}
+			return errors.New(fmt.Sprintf("PackageKit: Timeout: InstallPackages: %v", strings.Join(packageIds, ", ")))
 		}
 	}
-	return nil
 }
 
 // remove list of packages
@@ -440,7 +461,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
 				continue loop
@@ -451,7 +472,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			}
 		}
 	}
@@ -485,7 +506,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
 				continue loop
@@ -496,7 +517,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			}
 		}
 	}
@@ -505,6 +526,8 @@ loop:
 
 // get the list of files that are contained inside a list of packageids
 func (bus *Conn) GetFilesByPackageId(packageIds []string) (files map[string][]string, err error) {
+	// NOTE: the maximum number of files in an RPM is 52116 in Fedora 23
+	// https://gist.github.com/purpleidea/b98e60dcd449e1ac3b8a
 	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction()
 	if err != nil {
@@ -533,7 +556,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				err = errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				err = errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 				return
 
 				// one signal returned per packageId found...
@@ -560,7 +583,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				err = errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				err = errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 				return
 			}
 		}
@@ -596,7 +619,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return nil, errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return nil, errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			} else if signal.Name == FmtTransactionMethod("Package") {
 
 				//pkg_int, ok := signal.Body[0].(int)
@@ -620,7 +643,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return nil, errors.New(fmt.Sprintf("PackageKit error: %v", signal.Body))
+				return nil, errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			}
 		}
 	}
@@ -667,7 +690,8 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 		s := strings.Split(packageId, ";")
 		//if len(s) != 4 { continue } // this would be a bug!
 		pkg, ver, arch, data := s[0], s[1], s[2], s[3]
-		if goarch, ok := PkArchMap[arch]; !ok || goarch != runtime.GOARCH {
+		// we might need to allow some of this, eg: i386 .deb on amd64
+		if !IsMyArch(arch) {
 			continue
 		}
 
@@ -810,4 +834,13 @@ func FlagInData(flag, data string) bool {
 // builds the transaction method string
 func FmtTransactionMethod(method string) string {
 	return fmt.Sprintf("%s.%s", PkIfaceTransaction, method)
+}
+
+func IsMyArch(arch string) bool {
+	goarch, ok := PkArchMap[arch]
+	if !ok {
+		// if you get this error, please update the PkArchMap const
+		log.Fatalf("PackageKit: Arch '%v', not found!", arch)
+	}
+	return goarch == runtime.GOARCH
 }

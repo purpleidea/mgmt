@@ -374,7 +374,6 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	return false, nil // success
 }
 
-
 type FileUUID struct {
 	BaseUUID
 	path string

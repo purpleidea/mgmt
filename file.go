@@ -341,13 +341,13 @@ func (obj *FileRes) DirApply() error {
 	}
 
 	if obj.Content == "" {
-		if err := os.MkDir(obj.GetPath(), 0777); err != nil {
+		if err := os.Mkdir(obj.GetPath(), 0777); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err := fileutils.Copy(obj.GetPath(), obj.Content); err != nil {
+	if err := fileutils.New().Copy(obj.GetPath(), obj.Content); err != nil {
 		return err
 	}
 	return nil

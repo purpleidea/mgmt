@@ -15,4 +15,4 @@ edges:
     name: noop1
   to:
     res: file
-    name: file1
+    name: dir1

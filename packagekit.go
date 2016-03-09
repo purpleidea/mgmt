@@ -21,7 +21,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/godbus/dbus"
 	"log"
@@ -141,12 +140,12 @@ type Conn struct {
 	conn *dbus.Conn
 }
 
-// struct that is returned by PackagesToPackageIds in the map values
-type PkPackageIdActionData struct {
+// struct that is returned by PackagesToPackageIDs in the map values
+type PkPackageIDActionData struct {
 	Found     bool
 	Installed bool
 	Version   string
-	PackageId string
+	PackageID string
 	Newest    bool
 }
 
@@ -263,7 +262,7 @@ func (bus *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 }
 
 func (bus *Conn) ResolvePackages(packages []string, filter uint64) ([]string, error) {
-	packageIds := []string{}
+	packageIDs := []string{}
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction() // emits Destroy on close
 	if err != nil {
@@ -299,18 +298,18 @@ loop:
 
 			if signal.Name == FmtTransactionMethod("Package") {
 				//pkg_int, ok := signal.Body[0].(int)
-				packageId, ok := signal.Body[1].(string)
+				packageID, ok := signal.Body[1].(string)
 				// format is: name;version;arch;data
 				if !ok {
 					continue loop
 				}
 				//comment, ok := signal.Body[2].(string)
-				for _, p := range packageIds {
-					if packageId == p {
+				for _, p := range packageIDs {
+					if packageID == p {
 						continue loop // duplicate!
 					}
 				}
-				packageIds = append(packageIds, packageId)
+				packageIDs = append(packageIDs, packageID)
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
 				break loop
@@ -318,24 +317,24 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return []string{}, errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return []string{}, fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
 		}
 	}
-	return packageIds, nil
+	return packageIDs, nil
 }
 
 func (bus *Conn) IsInstalledList(packages []string) ([]bool, error) {
-	var filter uint64 = 0
+	var filter uint64             // initializes at the "zero" value of 0
 	filter += PK_FILTER_ENUM_ARCH // always search in our arch
-	packageIds, e := bus.ResolvePackages(packages, filter)
+	packageIDs, e := bus.ResolvePackages(packages, filter)
 	if e != nil {
-		return nil, errors.New(fmt.Sprintf("ResolvePackages error: %v", e))
+		return nil, fmt.Errorf("ResolvePackages error: %v", e)
 	}
 
-	var m map[string]int = make(map[string]int)
-	for _, packageId := range packageIds {
-		s := strings.Split(packageId, ";")
+	var m = make(map[string]int)
+	for _, packageID := range packageIDs {
+		s := strings.Split(packageID, ";")
 		//if len(s) != 4 { continue } // this would be a bug!
 		pkg := s[0]
 		flags := strings.Split(s[3], ":")
@@ -371,8 +370,8 @@ func (bus *Conn) IsInstalled(pkg string) (bool, error) {
 	return p[0], nil
 }
 
-// install list of packages by packageId
-func (bus *Conn) InstallPackages(packageIds []string, transactionFlags uint64) error {
+// install list of packages by packageID
+func (bus *Conn) InstallPackages(packageIDs []string, transactionFlags uint64) error {
 
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction() // emits Destroy on close
@@ -384,7 +383,7 @@ func (bus *Conn) InstallPackages(packageIds []string, transactionFlags uint64) e
 	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
 
 	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
-	call := obj.Call(FmtTransactionMethod("InstallPackages"), 0, transactionFlags, packageIds)
+	call := obj.Call(FmtTransactionMethod("InstallPackages"), 0, transactionFlags, packageIDs)
 	if call.Err != nil {
 		return call.Err
 	}
@@ -400,7 +399,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
 				// only start the timer once we're here...
@@ -411,23 +410,23 @@ loop:
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
 				return nil // success
 			} else {
-				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
 		case _ = <-TimeAfterOrBlock(timeout):
 			if finished {
 				log.Println("PackageKit: Timeout: InstallPackages: Waiting for 'Destroy'")
 				return nil // got tired of waiting for Destroy
 			}
-			return errors.New(fmt.Sprintf("PackageKit: Timeout: InstallPackages: %v", strings.Join(packageIds, ", ")))
+			return fmt.Errorf("PackageKit: Timeout: InstallPackages: %v", strings.Join(packageIDs, ", "))
 		}
 	}
 }
 
 // remove list of packages
-func (bus *Conn) RemovePackages(packageIds []string, transactionFlags uint64) error {
+func (bus *Conn) RemovePackages(packageIDs []string, transactionFlags uint64) error {
 
-	var allowDeps bool = true                     // TODO: configurable
-	var autoremove bool = false                   // unsupported on GNU/Linux
+	var allowDeps = true                          // TODO: configurable
+	var autoremove = false                        // unsupported on GNU/Linux
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction() // emits Destroy on close
 	if err != nil {
@@ -438,7 +437,7 @@ func (bus *Conn) RemovePackages(packageIds []string, transactionFlags uint64) er
 	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
 
 	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
-	call := obj.Call(FmtTransactionMethod("RemovePackages"), 0, transactionFlags, packageIds, allowDeps, autoremove)
+	call := obj.Call(FmtTransactionMethod("RemovePackages"), 0, transactionFlags, packageIDs, allowDeps, autoremove)
 	if call.Err != nil {
 		return call.Err
 	}
@@ -453,7 +452,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
 				continue loop
@@ -464,7 +463,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
 		}
 	}
@@ -472,7 +471,7 @@ loop:
 }
 
 // update list of packages to versions that are specified
-func (bus *Conn) UpdatePackages(packageIds []string, transactionFlags uint64) error {
+func (bus *Conn) UpdatePackages(packageIDs []string, transactionFlags uint64) error {
 	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction()
 	if err != nil {
@@ -483,7 +482,7 @@ func (bus *Conn) UpdatePackages(packageIds []string, transactionFlags uint64) er
 	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
 
 	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
-	call := obj.Call(FmtTransactionMethod("UpdatePackages"), 0, transactionFlags, packageIds)
+	call := obj.Call(FmtTransactionMethod("UpdatePackages"), 0, transactionFlags, packageIDs)
 	if call.Err != nil {
 		return call.Err
 	}
@@ -498,7 +497,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
@@ -507,7 +506,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
 		}
 	}
@@ -515,7 +514,7 @@ loop:
 }
 
 // get the list of files that are contained inside a list of packageids
-func (bus *Conn) GetFilesByPackageId(packageIds []string) (files map[string][]string, err error) {
+func (bus *Conn) GetFilesByPackageID(packageIDs []string) (files map[string][]string, err error) {
 	// NOTE: the maximum number of files in an RPM is 52116 in Fedora 23
 	// https://gist.github.com/purpleidea/b98e60dcd449e1ac3b8a
 	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
@@ -528,7 +527,7 @@ func (bus *Conn) GetFilesByPackageId(packageIds []string) (files map[string][]st
 	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
 
 	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
-	call := obj.Call(FmtTransactionMethod("GetFiles"), 0, packageIds)
+	call := obj.Call(FmtTransactionMethod("GetFiles"), 0, packageIDs)
 	if call.Err != nil {
 		err = call.Err
 		return
@@ -546,10 +545,10 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				err = errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				err = fmt.Errorf("PackageKit: Error: %v", signal.Body)
 				return
 
-				// one signal returned per packageId found...
+				// one signal returned per packageID found...
 			} else if signal.Name == FmtTransactionMethod("Files") {
 				if len(signal.Body) != 2 { // bad data
 					continue loop
@@ -571,7 +570,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				err = errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				err = fmt.Errorf("PackageKit: Error: %v", signal.Body)
 				return
 			}
 		}
@@ -584,7 +583,7 @@ func (bus *Conn) GetUpdates(filter uint64) ([]string, error) {
 	if PK_DEBUG {
 		log.Println("PackageKit: GetUpdates()")
 	}
-	packageIds := []string{}
+	packageIDs := []string{}
 	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction()
 	if err != nil {
@@ -610,22 +609,22 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return nil, errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return nil, fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 
 				//pkg_int, ok := signal.Body[0].(int)
-				packageId, ok := signal.Body[1].(string)
+				packageID, ok := signal.Body[1].(string)
 				// format is: name;version;arch;data
 				if !ok {
 					continue loop
 				}
 				//comment, ok := signal.Body[2].(string)
-				for _, p := range packageIds { // optional?
-					if packageId == p {
+				for _, p := range packageIDs { // optional?
+					if packageID == p {
 						continue loop // duplicate!
 					}
 				}
-				packageIds = append(packageIds, packageId)
+				packageIDs = append(packageIDs, packageID)
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
 				break loop
@@ -633,17 +632,17 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return nil, errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
+				return nil, fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
 		}
 	}
-	return packageIds, nil
+	return packageIDs, nil
 }
 
 // this is a helper function that *might* be generally useful outside mgmtconfig
 // packageMap input has the package names as keys and requested states as values
 // these states can be installed, uninstalled, newest or a requested version str
-func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint64) (map[string]*PkPackageIdActionData, error) {
+func (bus *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint64) (map[string]*PkPackageIDActionData, error) {
 	count := 0
 	packages := make([]string, len(packageMap))
 	for k := range packageMap { // lol, golang has no hash.keys() function!
@@ -656,28 +655,28 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 	}
 
 	if PK_DEBUG {
-		log.Printf("PackageKit: PackagesToPackageIds(): %v", strings.Join(packages, ", "))
+		log.Printf("PackageKit: PackagesToPackageIDs(): %v", strings.Join(packages, ", "))
 	}
 	resolved, e := bus.ResolvePackages(packages, filter)
 	if e != nil {
-		return nil, errors.New(fmt.Sprintf("Resolve error: %v", e))
+		return nil, fmt.Errorf("Resolve error: %v", e)
 	}
 
 	found := make([]bool, count) // default false
 	installed := make([]bool, count)
 	version := make([]string, count)
-	usePackageId := make([]string, count)
+	usePackageID := make([]string, count)
 	newest := make([]bool, count) // default true
 	for i := range newest {
 		newest[i] = true // assume, for now
 	}
 	var index int
 
-	for _, packageId := range resolved {
+	for _, packageID := range resolved {
 		index = -1
-		//log.Printf("* %v", packageId)
+		//log.Printf("* %v", packageID)
 		// format is: name;version;arch;data
-		s := strings.Split(packageId, ";")
+		s := strings.Split(packageID, ";")
 		//if len(s) != 4 { continue } // this would be a bug!
 		pkg, ver, arch, data := s[0], s[1], s[2], s[3]
 		// we might need to allow some of this, eg: i386 .deb on amd64
@@ -695,14 +694,14 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 		}
 		state := packageMap[pkg] // lookup the requested state/version
 		if state == "" {
-			return nil, errors.New(fmt.Sprintf("Empty package state for %v", pkg))
+			return nil, fmt.Errorf("Empty package state for %v", pkg)
 		}
 		found[index] = true
 		stateIsVersion := (state != "installed" && state != "uninstalled" && state != "newest") // must be a ver. string
 
 		if stateIsVersion {
 			if state == ver && ver != "" { // we match what we want...
-				usePackageId[index] = packageId
+				usePackageID[index] = packageID
 			}
 		}
 
@@ -712,7 +711,7 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 			// state of "uninstalled" matched during CheckApply, and
 			// states of "installed" and "newest" for fileList
 			if !stateIsVersion {
-				usePackageId[index] = packageId // save for later
+				usePackageID[index] = packageID // save for later
 			}
 		} else { // not installed...
 			if !stateIsVersion {
@@ -721,7 +720,7 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 				// then this section can run more than once...
 				// in that case, don't worry, we'll choose the
 				// right value in the "updates" section below!
-				usePackageId[index] = packageId
+				usePackageID[index] = packageID
 			}
 		}
 	}
@@ -733,12 +732,12 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 	// FIXME: https://github.com/hughsie/PackageKit/issues/116
 	updates, e := bus.GetUpdates(filter)
 	if e != nil {
-		return nil, errors.New(fmt.Sprintf("Updates error: %v", e))
+		return nil, fmt.Errorf("Updates error: %v", e)
 	}
-	for _, packageId := range updates {
-		//log.Printf("* %v", packageId)
+	for _, packageID := range updates {
+		//log.Printf("* %v", packageID)
 		// format is: name;version;arch;data
-		s := strings.Split(packageId, ";")
+		s := strings.Split(packageID, ";")
 		//if len(s) != 4 { continue } // this would be a bug!
 		pkg, _, _, _ := s[0], s[1], s[2], s[3]
 		for index := range packages { // find pkg if it exists
@@ -747,7 +746,7 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 				newest[index] = false
 				if state == "installed" || state == "newest" {
 					// fix up in case above wasn't correct!
-					usePackageId[index] = packageId
+					usePackageID[index] = packageID
 				}
 				break
 			}
@@ -756,8 +755,8 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 
 	// skip if the "newest" filter was used, otherwise we might need fixing
 	// this check is for packages that need to verify their "newest" status
-	// we need to know this so we can install the correct newest packageId!
-	recursion := make(map[string]*PkPackageIdActionData)
+	// we need to know this so we can install the correct newest packageID!
+	recursion := make(map[string]*PkPackageIDActionData)
 	if !(filter&PK_FILTER_ENUM_NEWEST == PK_FILTER_ENUM_NEWEST) {
 		checkPackages := []string{}
 		filteredPackageMap := make(map[string]string)
@@ -779,17 +778,17 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 		// but that's basically what recursion here could do too!
 		if len(checkPackages) > 0 {
 			if PK_DEBUG {
-				log.Printf("PackageKit: PackagesToPackageIds(): Recurse: %v", strings.Join(checkPackages, ", "))
+				log.Printf("PackageKit: PackagesToPackageIDs(): Recurse: %v", strings.Join(checkPackages, ", "))
 			}
-			recursion, e = bus.PackagesToPackageIds(filteredPackageMap, filter+PK_FILTER_ENUM_NEWEST)
+			recursion, e = bus.PackagesToPackageIDs(filteredPackageMap, filter+PK_FILTER_ENUM_NEWEST)
 			if e != nil {
-				return nil, errors.New(fmt.Sprintf("Recursion error: %v", e))
+				return nil, fmt.Errorf("Recursion error: %v", e)
 			}
 		}
 	}
 
 	// fix up and build result format
-	result := make(map[string]*PkPackageIdActionData)
+	result := make(map[string]*PkPackageIDActionData)
 	for index, pkg := range packages {
 
 		if !found[index] || !installed[index] {
@@ -800,11 +799,11 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 		if lookup, ok := recursion[pkg]; ok {
 			result[pkg] = lookup
 		} else {
-			result[pkg] = &PkPackageIdActionData{
+			result[pkg] = &PkPackageIDActionData{
 				Found:     found[index],
 				Installed: installed[index],
 				Version:   version[index],
-				PackageId: usePackageId[index],
+				PackageID: usePackageID[index],
 				Newest:    newest[index],
 			}
 		}
@@ -813,7 +812,7 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 	return result, nil
 }
 
-// does flag exist inside data portion of packageId field?
+// does flag exist inside data portion of packageID field?
 func FlagInData(flag, data string) bool {
 	flags := strings.Split(data, ":")
 	for _, f := range flags {

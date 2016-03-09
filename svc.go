@@ -229,7 +229,7 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 
 	conn, err := systemd.NewSystemdConnection() // needs root access
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("Failed to connect to systemd: %v", err))
+		return false, fmt.Errorf("Failed to connect to systemd: %v", err)
 	}
 	defer conn.Close()
 
@@ -237,13 +237,13 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 
 	loadstate, err := conn.GetUnitProperty(svc, "LoadState")
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("Failed to get load state: %v", err))
+		return false, fmt.Errorf("Failed to get load state: %v", err)
 	}
 
 	// NOTE: we have to compare variants with other variants, they are really strings...
 	var notFound = (loadstate.Value == dbus.MakeVariant("not-found"))
 	if notFound {
-		return false, errors.New(fmt.Sprintf("Failed to find svc: %v", svc))
+		return false, fmt.Errorf("Failed to find svc: %v", svc)
 	}
 
 	// XXX: check svc "enabled at boot" or not status...
@@ -251,7 +251,7 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 	//conn.GetUnitProperties(svc)
 	activestate, err := conn.GetUnitProperty(svc, "ActiveState")
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("Failed to get active state: %v", err))
+		return false, fmt.Errorf("Failed to get active state: %v", err)
 	}
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
@@ -278,7 +278,7 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("Unable to change startup status: %v", err))
+		return false, fmt.Errorf("Unable to change startup status: %v", err)
 	}
 
 	// XXX: do we need to use a buffered channel here?
@@ -287,12 +287,12 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 	if obj.State == "running" {
 		_, err = conn.StartUnit(svc, "fail", result)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf("Failed to start unit: %v", err))
+			return false, fmt.Errorf("Failed to start unit: %v", err)
 		}
 	} else if obj.State == "stopped" {
 		_, err = conn.StopUnit(svc, "fail", result)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf("Failed to stop unit: %v", err))
+			return false, fmt.Errorf("Failed to stop unit: %v", err)
 		}
 	}
 
@@ -301,7 +301,7 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 		return false, errors.New("Systemd service action result is nil")
 	}
 	if status != "done" {
-		return false, errors.New(fmt.Sprintf("Unknown systemd return string: %v", status))
+		return false, fmt.Errorf("Unknown systemd return string: %v", status)
 	}
 
 	// XXX: also set enabled on boot
@@ -342,7 +342,7 @@ func (obj *SvcResAutoEdges) Next() []ResUUID {
 		return nil
 	}
 	value := obj.data[obj.pointer]
-	obj.pointer += 1
+	obj.pointer++
 	return []ResUUID{value} // we return one, even though api supports N
 }
 
@@ -372,7 +372,7 @@ func (obj *SvcRes) AutoEdges() AutoEdge {
 		fmt.Sprintf("/usr/lib/systemd/system/%s.service", obj.Name), // pkg default
 	}
 	for _, x := range svcFiles {
-		var reversed bool = true
+		var reversed = true
 		data = append(data, &FileUUID{
 			BaseUUID: BaseUUID{
 				name:     obj.GetName(),

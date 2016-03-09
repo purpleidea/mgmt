@@ -70,14 +70,14 @@ func (obj *PkgRes) Init() {
 		return
 	}
 
-	packageIds := []string{data.PackageId} // just one for now
-	filesMap, err := bus.GetFilesByPackageId(packageIds)
+	packageIDs := []string{data.PackageID} // just one for now
+	filesMap, err := bus.GetFilesByPackageID(packageIDs)
 	if err != nil {
 		// FIXME: return error?
-		log.Fatalf("Can't run GetFilesByPackageId: %v", err)
+		log.Fatalf("Can't run GetFilesByPackageID: %v", err)
 		return
 	}
-	if files, ok := filesMap[data.PackageId]; ok {
+	if files, ok := filesMap[data.PackageID]; ok {
 		obj.fileList = DirifyFileList(files, false)
 	}
 }
@@ -129,7 +129,6 @@ func (obj *PkgRes) Watch() {
 		obj.SetState(resStateWatching) // reset
 		select {
 		case event := <-ch:
-
 			// FIXME: ask packagekit for info on what packages changed
 			if DEBUG {
 				log.Printf("Pkg[%v]: Event: %v", obj.GetName(), event.Name)
@@ -171,18 +170,18 @@ func (obj *PkgRes) Watch() {
 	}
 }
 
-func (obj *PkgRes) PkgMappingHelper(bus *Conn) (*PkPackageIdActionData, error) {
+func (obj *PkgRes) PkgMappingHelper(bus *Conn) (*PkPackageIDActionData, error) {
 
 	var packageMap = map[string]string{
 		obj.Name: obj.State, // key is pkg name, value is pkg state
 	}
-	var filter uint64 = 0
+	var filter uint64             // initializes at the "zero" value of 0
 	filter += PK_FILTER_ENUM_ARCH // always search in our arch (optional!)
 	// we're requesting latest version, or to narrow down install choices!
 	if obj.State == "newest" || obj.State == "installed" {
 		// if we add this, we'll still see older packages if installed
 		// this is an optimization, and is *optional*, this logic is
-		// handled inside of PackagesToPackageIds now automatically!
+		// handled inside of PackagesToPackageIDs now automatically!
 		filter += PK_FILTER_ENUM_NEWEST // only search for newest packages
 	}
 	if !obj.AllowNonFree {
@@ -191,15 +190,15 @@ func (obj *PkgRes) PkgMappingHelper(bus *Conn) (*PkPackageIdActionData, error) {
 	if !obj.AllowUnsupported {
 		filter += PK_FILTER_ENUM_SUPPORTED
 	}
-	result, e := bus.PackagesToPackageIds(packageMap, filter)
+	result, e := bus.PackagesToPackageIDs(packageMap, filter)
 	if e != nil {
-		return nil, errors.New(fmt.Sprintf("Can't run PackagesToPackageIds: %v", e))
+		return nil, fmt.Errorf("Can't run PackagesToPackageIDs: %v", e)
 	}
 
 	data, ok := result[obj.Name] // lookup single package
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
-		return nil, errors.New(fmt.Sprintf("Can't find package named '%s'.", obj.Name))
+		return nil, fmt.Errorf("Can't find package named '%s'.", obj.Name)
 	}
 
 	return data, nil
@@ -224,7 +223,7 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 
 	data, err := obj.PkgMappingHelper(bus)
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("The PkgMappingHelper failed with: %v.", err))
+		return false, fmt.Errorf("The PkgMappingHelper failed with: %v.", err)
 	}
 
 	// obj.State == "installed" || "uninstalled" || "newest" || "4.2-1.fc23"
@@ -247,7 +246,7 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 		}
 	}
 
-	if data.PackageId == "" {
+	if data.PackageID == "" {
 		return false, errors.New("Can't find package id to use.")
 	}
 
@@ -258,16 +257,16 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 
 	// apply portion
 	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
-	packageList := []string{data.PackageId}
-	var transactionFlags uint64 = 0
-	if !obj.AllowUntrusted { // allow
+	packageList := []string{data.PackageID}
+	var transactionFlags uint64 // initializes at the "zero" value of 0
+	if !obj.AllowUntrusted {    // allow
 		transactionFlags += PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED
 	}
 	// apply correct state!
 	log.Printf("%v[%v]: Set: %v...", obj.Kind(), obj.GetName(), obj.State)
 	switch obj.State {
 	case "uninstalled": // run remove
-		// NOTE: packageId is different than when installed, because now
+		// NOTE: packageID is different than when installed, because now
 		// it has the "installed" flag added to the data portion if it!!
 		err = bus.RemovePackages(packageList, transactionFlags)
 
@@ -325,7 +324,7 @@ func (obj *PkgResAutoEdges) Next() []ResUUID {
 	var result []ResUUID
 	// return UUID's for whatever is in obj.fileList
 	for _, x := range obj.fileList {
-		var reversed bool = false // cheat by passing a pointer
+		var reversed = false // cheat by passing a pointer
 		result = append(result, &FileUUID{
 			BaseUUID: BaseUUID{
 				name:     obj.name,
@@ -397,7 +396,7 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 	// add matches for any svc resources found in pkg definition!
 	var svcUUIDs []ResUUID
 	for _, x := range ReturnSvcInFileList(obj.fileList) {
-		var reversed bool = false
+		var reversed = false
 		svcUUIDs = append(svcUUIDs, &SvcUUID{
 			BaseUUID: BaseUUID{
 				name:     obj.GetName(),

@@ -403,7 +403,7 @@ func (obj *FileResAutoEdges) Next() []ResUUID {
 		return nil
 	}
 	value := obj.data[obj.pointer]
-	obj.pointer += 1
+	obj.pointer++
 	return []ResUUID{value} // we return one, even though api supports N
 }
 
@@ -432,7 +432,7 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 	values := PathSplitFullReversed(obj.GetPath()) // build it
 	_, values = values[0], values[1:]              // get rid of first value which is me!
 	for _, x := range values {
-		var reversed bool = true // cheat by passing a pointer
+		var reversed = true // cheat by passing a pointer
 		data = append(data, &FileUUID{
 			BaseUUID: BaseUUID{
 				name:     obj.GetName(),

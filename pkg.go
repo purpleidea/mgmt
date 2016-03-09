@@ -22,15 +22,18 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path"
+	"strings"
 )
 
 type PkgRes struct {
 	BaseRes          `yaml:",inline"`
-	State            string   `yaml:"state"`            // state: installed, uninstalled, newest, <version>
-	AllowUntrusted   bool     `yaml:"allowuntrusted"`   // allow untrusted packages to be installed?
-	AllowNonFree     bool     `yaml:"allownonfree"`     // allow nonfree packages to be found?
-	AllowUnsupported bool     `yaml:"allowunsupported"` // allow unsupported packages to be found?
-	fileList         []string // FIXME: update if pkg changes
+	State            string `yaml:"state"`            // state: installed, uninstalled, newest, <version>
+	AllowUntrusted   bool   `yaml:"allowuntrusted"`   // allow untrusted packages to be installed?
+	AllowNonFree     bool   `yaml:"allownonfree"`     // allow nonfree packages to be found?
+	AllowUnsupported bool   `yaml:"allowunsupported"` // allow unsupported packages to be found?
+	//bus              *Conn    // pk bus connection
+	fileList []string // FIXME: update if pkg changes
 }
 
 // helper function for creating new pkg resources that calls Init()
@@ -53,10 +56,35 @@ func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupporte
 func (obj *PkgRes) Init() {
 	obj.BaseRes.kind = "Pkg"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
+
+	bus := NewBus()
+	if bus == nil {
+		log.Fatal("Can't connect to PackageKit bus.")
+	}
+	defer bus.Close()
+
+	data, err := obj.PkgMappingHelper(bus)
+	if err != nil {
+		// FIXME: return error?
+		log.Fatalf("The PkgMappingHelper failed with: %v.", err)
+		return
+	}
+
+	packageIds := []string{data.PackageId} // just one for now
+	filesMap, err := bus.GetFilesByPackageId(packageIds)
+	if err != nil {
+		// FIXME: return error?
+		log.Fatalf("Can't run GetFilesByPackageId: %v", err)
+		return
+	}
+	if files, ok := filesMap[data.PackageId]; ok {
+		obj.fileList = DirifyFileList(files, false)
+	}
 }
 
-func (obj *PkgRes) Kind() string {
-	return "Pkg"
+// XXX: run this when resource exits
+func (obj *PkgRes) Close() {
+	//obj.bus.Close()
 }
 
 func (obj *PkgRes) Validate() bool {
@@ -143,22 +171,7 @@ func (obj *PkgRes) Watch() {
 	}
 }
 
-func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
-
-	if obj.State == "" { // TODO: Validate() should replace this check!
-		log.Fatalf("%v[%v]: Package state is undefined!", obj.Kind(), obj.GetName())
-	}
-
-	if obj.isStateOK { // cache the state
-		return true, nil
-	}
-
-	bus := NewBus()
-	if bus == nil {
-		return false, errors.New("Can't connect to PackageKit bus.")
-	}
-	defer bus.Close()
+func (obj *PkgRes) PkgMappingHelper(bus *Conn) (*PkPackageIdActionData, error) {
 
 	var packageMap = map[string]string{
 		obj.Name: obj.State, // key is pkg name, value is pkg state
@@ -180,16 +193,41 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 	result, e := bus.PackagesToPackageIds(packageMap, filter)
 	if e != nil {
-		return false, errors.New(fmt.Sprintf("PackagesToPackageIds error: %v", e))
+		return nil, errors.New(fmt.Sprintf("Can't run PackagesToPackageIds: %v", e))
 	}
 
 	data, ok := result[obj.Name] // lookup single package
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
-		return false, errors.New(fmt.Sprintf("Can't find package named '%s'.", obj.Name))
+		return nil, errors.New(fmt.Sprintf("Can't find package named '%s'.", obj.Name))
 	}
 
-	//obj.State == "installed" || "uninstalled" || "newest" || "4.2-1.fc23"
+	return data, nil
+}
+
+func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
+	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+
+	if obj.State == "" { // TODO: Validate() should replace this check!
+		log.Fatalf("%v[%v]: Package state is undefined!", obj.Kind(), obj.GetName())
+	}
+
+	if obj.isStateOK { // cache the state
+		return true, nil
+	}
+
+	bus := NewBus()
+	if bus == nil {
+		return false, errors.New("Can't connect to PackageKit bus.")
+	}
+	defer bus.Close()
+
+	data, err := obj.PkgMappingHelper(bus)
+	if err != nil {
+		return false, errors.New(fmt.Sprintf("The PkgMappingHelper failed with: %v.", err))
+	}
+
+	// obj.State == "installed" || "uninstalled" || "newest" || "4.2-1.fc23"
 	switch obj.State {
 	case "installed":
 		if data.Installed {
@@ -248,8 +286,26 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	return false, nil // success
 }
 
+type PkgUUID struct {
+	BaseUUID
+	name  string // pkg name
+	state string // pkg state or "version"
+}
+
+// if and only if they are equivalent, return true
+// if they are not equivalent, return false
+func (obj *PkgUUID) IFF(uuid ResUUID) bool {
+	res, ok := uuid.(*PkgUUID)
+	if !ok {
+		return false
+	}
+	// FIXME: match on obj.state vs. res.state ?
+	return obj.name == res.name
+}
+
 type PkgResAutoEdges struct {
 	fileList   []string
+	svcUUIDs   []ResUUID
 	testIsNext bool   // safety
 	name       string // saved data from PkgRes obj
 	kind       string
@@ -260,8 +316,13 @@ func (obj *PkgResAutoEdges) Next() []ResUUID {
 		log.Fatal("Expecting a call to Test()")
 	}
 	obj.testIsNext = true // set after all the errors paths are past
-	var result []ResUUID
 
+	// first return any matching svcUUIDs
+	if x := obj.svcUUIDs; len(x) > 0 {
+		return x
+	}
+
+	var result []ResUUID
 	// return UUID's for whatever is in obj.fileList
 	for _, x := range obj.fileList {
 		var reversed bool = false // cheat by passing a pointer
@@ -281,6 +342,17 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	if !obj.testIsNext {
 		log.Fatal("Expecting a call to Next()")
 	}
+
+	// ack the svcUUID's...
+	if x := obj.svcUUIDs; len(x) > 0 {
+		if y := len(x); y != len(input) {
+			log.Fatalf("Expecting %d value(s)!", y)
+		}
+		obj.svcUUIDs = []ResUUID{} // empty
+		obj.testIsNext = false
+		return true
+	}
+
 	count := len(obj.fileList)
 	if count != len(input) {
 		log.Fatalf("Expecting %d value(s)!", count)
@@ -316,27 +388,29 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	return true // continue, there are more files!
 }
 
-type PkgUUID struct {
-	BaseUUID
-}
-
-// if and only if they are equivalent, return true
-// if they are not equivalent, return false
-func (obj *PkgUUID) IFF(uuid ResUUID) bool {
-	res, ok := uuid.(*PkgUUID)
-	if !ok {
-		return false
-	}
-	return obj.name == res.name
-}
-
 // produce an object which generates a minimal pkg file optimization sequence
 func (obj *PkgRes) AutoEdges() AutoEdge {
 	// in contrast with the FileRes AutoEdges() function which contains
 	// more of the mechanics, most of the AutoEdge mechanics for the PkgRes
 	// is contained in the Test() method! This design is completely okay!
+
+	// add matches for any svc resources found in pkg definition!
+	var svcUUIDs []ResUUID
+	for _, x := range ReturnSvcInFileList(obj.fileList) {
+		var reversed bool = false
+		svcUUIDs = append(svcUUIDs, &SvcUUID{
+			BaseUUID: BaseUUID{
+				name:     obj.GetName(),
+				kind:     obj.Kind(),
+				reversed: &reversed,
+			},
+			name: x, // the svc name itself in the SvcUUID object!
+		}) // build list
+	}
+
 	return &PkgResAutoEdges{
-		fileList:   obj.fileList,
+		fileList:   RemoveCommonFilePrefixes(obj.fileList), // clean start!
+		svcUUIDs:   svcUUIDs,
 		testIsNext: false,         // start with Next() call
 		name:       obj.GetName(), // save data for PkgResAutoEdges obj
 		kind:       obj.Kind(),
@@ -347,15 +421,10 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 func (obj *PkgRes) GetUUIDs() []ResUUID {
 	x := &PkgUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
+		name:     obj.Name,
+		state:    obj.State,
 	}
 	result := []ResUUID{x}
-	for _, path := range obj.fileList {
-		x := &FileUUID{
-			BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-			path:     path,
-		}
-		result = append(result, x)
-	}
 	return result
 }
 
@@ -382,4 +451,23 @@ func (obj *PkgRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// return a list of svc names for matches like /usr/lib/systemd/system/*.service
+func ReturnSvcInFileList(fileList []string) []string {
+	result := []string{}
+	for _, x := range fileList {
+		dirname, basename := path.Split(path.Clean(x))
+		// TODO: do we also want to look for /etc/systemd/system/ ?
+		if dirname != "/usr/lib/systemd/system/" {
+			continue
+		}
+		if !strings.HasSuffix(basename, ".service") {
+			continue
+		}
+		if s := strings.TrimSuffix(basename, ".service"); !StrInList(s, result) {
+			result = append(result, s)
+		}
+	}
+	return result
 }

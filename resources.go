@@ -52,7 +52,7 @@ type ResUUID interface {
 }
 
 type BaseUUID struct {
-	name string
+	name string // name and kind are the values of where this is coming from
 	kind string
 
 	reversed *bool // piggyback edge information here
@@ -467,6 +467,7 @@ func (obj *NoopRes) CheckApply(apply bool) (stateok bool, err error) {
 
 type NoopUUID struct {
 	BaseUUID
+	name string
 }
 
 func (obj *NoopRes) AutoEdges() AutoEdge {
@@ -474,10 +475,11 @@ func (obj *NoopRes) AutoEdges() AutoEdge {
 }
 
 // include all params to make a unique identification of this object
-// most resources only return one
+// most resources only return one, although some resources return multiple
 func (obj *NoopRes) GetUUIDs() []ResUUID {
 	x := &NoopUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
+		name:     obj.Name,
 	}
 	return []ResUUID{x}
 }

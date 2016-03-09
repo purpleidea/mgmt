@@ -1,0 +1,29 @@
+---
+graph: mygraph
+resources:
+  pkg:
+  - name: drbd-utils
+    meta:
+      autoedge: true
+    state: installed
+  file:
+  - name: file1
+    meta:
+      autoedge: true
+    path: "/etc/drbd.conf"
+    content: |
+      # this is an mgmt test
+    state: exists
+  - name: file2
+    meta:
+      autoedge: true
+    path: "/etc/drbd.d/"
+    content: |
+      i am a directory
+    state: exists
+  svc:
+  - name: drbd
+    meta:
+      autoedge: true
+    state: stopped
+edges: []

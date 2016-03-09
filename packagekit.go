@@ -196,16 +196,10 @@ func (bus *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	if call.Err != nil {
 		return call.Err
 	}
-	if PK_DEBUG {
-		log.Println("PackageKit: matchSignal(): Added!")
-	}
 	// The caller has to make sure that ch is sufficiently buffered; if a
 	// message arrives when a write to c is not possible, it is discarded!
 	// This can be disastrous if we're waiting for a "Finished" signal!
 	bus.GetBus().Signal(ch)
-	if PK_DEBUG {
-		log.Println("PackageKit: matchSignal(): Success!")
-	}
 	return nil
 }
 
@@ -411,11 +405,9 @@ loop:
 				// a package was installed...
 				// only start the timer once we're here...
 				timeout = PkSignalPackageTimeout
-				continue loop
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				finished = true
 				timeout = PkSignalDestroyTimeout // wait a bit
-				continue loop
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
 				return nil // success
 			} else {
@@ -508,8 +500,6 @@ loop:
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
 				return errors.New(fmt.Sprintf("PackageKit: Error: %v", signal.Body))
 			} else if signal.Name == FmtTransactionMethod("Package") {
-				// a package was installed...
-				continue loop
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
 				break loop
@@ -574,8 +564,6 @@ loop:
 					continue loop // failed conversion
 				}
 				files[key] = fileList // build up map
-
-				continue loop
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
 				break loop
@@ -593,6 +581,9 @@ loop:
 
 // get list of packages that are installed and which can be updated, mod filter
 func (bus *Conn) GetUpdates(filter uint64) ([]string, error) {
+	if PK_DEBUG {
+		log.Println("PackageKit: GetUpdates()")
+	}
 	packageIds := []string{}
 	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction()
@@ -635,7 +626,6 @@ loop:
 					}
 				}
 				packageIds = append(packageIds, packageId)
-
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
 				break loop
@@ -708,8 +698,9 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 			return nil, errors.New(fmt.Sprintf("Empty package state for %v", pkg))
 		}
 		found[index] = true
+		stateIsVersion := (state != "installed" && state != "uninstalled" && state != "newest") // must be a ver. string
 
-		if state != "installed" && state != "uninstalled" && state != "newest" { // must be a ver. string
+		if stateIsVersion {
 			if state == ver && ver != "" { // we match what we want...
 				usePackageId[index] = packageId
 			}
@@ -718,11 +709,13 @@ func (bus *Conn) PackagesToPackageIds(packageMap map[string]string, filter uint6
 		if FlagInData("installed", data) {
 			installed[index] = true
 			version[index] = ver
-			if state == "uninstalled" {
+			// state of "uninstalled" matched during CheckApply, and
+			// states of "installed" and "newest" for fileList
+			if !stateIsVersion {
 				usePackageId[index] = packageId // save for later
 			}
 		} else { // not installed...
-			if state == "installed" || state == "newest" {
+			if !stateIsVersion {
 				// if there is more than one result, eg: there
 				// is the old and newest version of a package,
 				// then this section can run more than once...

@@ -310,7 +310,12 @@ func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
 }
 
 type SvcUUID struct {
+	// NOTE: there is also a name variable in the BaseUUID struct, this is
+	// information about where this UUID came from, and is unrelated to the
+	// information about the resource we're matching. That data which is
+	// used in the IFF function, is what you see in the struct fields here.
 	BaseUUID
+	name string // the svc name
 }
 
 // if and only if they are equivalent, return true
@@ -323,17 +328,74 @@ func (obj *SvcUUID) IFF(uuid ResUUID) bool {
 	return obj.name == res.name
 }
 
+type SvcResAutoEdges struct {
+	data    []ResUUID
+	pointer int
+	found   bool
+}
+
+func (obj *SvcResAutoEdges) Next() []ResUUID {
+	if obj.found {
+		log.Fatal("Shouldn't be called anymore!")
+	}
+	if len(obj.data) == 0 { // check length for rare scenarios
+		return nil
+	}
+	value := obj.data[obj.pointer]
+	obj.pointer += 1
+	return []ResUUID{value} // we return one, even though api supports N
+}
+
+// get results of the earlier Next() call, return if we should continue!
+func (obj *SvcResAutoEdges) Test(input []bool) bool {
+	// if there aren't any more remaining
+	if len(obj.data) <= obj.pointer {
+		return false
+	}
+	if obj.found { // already found, done!
+		return false
+	}
+	if len(input) != 1 { // in case we get given bad data
+		log.Fatal("Expecting a single value!")
+	}
+	if input[0] { // if a match is found, we're done!
+		obj.found = true // no more to find!
+		return false
+	}
+	return true // keep going
+}
+
 func (obj *SvcRes) AutoEdges() AutoEdge {
-	// TODO: add auto edges to the files that provide the service files,
-	// which might come from a pkg resource perhaps!
-	return nil
+	var data []ResUUID
+	svcFiles := []string{
+		fmt.Sprintf("/etc/systemd/system/%s.service", obj.Name),     // takes precedence
+		fmt.Sprintf("/usr/lib/systemd/system/%s.service", obj.Name), // pkg default
+	}
+	for _, x := range svcFiles {
+		var reversed bool = true
+		data = append(data, &FileUUID{
+			BaseUUID: BaseUUID{
+				name:     obj.GetName(),
+				kind:     obj.Kind(),
+				reversed: &reversed,
+			},
+			path: x, // what matters
+		})
+	}
+	return &FileResAutoEdges{
+		data:    data,
+		pointer: 0,
+		found:   false,
+	}
 }
 
 // include all params to make a unique identification of this object
 func (obj *SvcRes) GetUUIDs() []ResUUID {
-	x := &SvcUUID{BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()}}
+	x := &SvcUUID{
+		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
+		name:     obj.Name, // svc name
+	}
 	return []ResUUID{x}
-
 }
 
 func (obj *SvcRes) Compare(res Res) bool {

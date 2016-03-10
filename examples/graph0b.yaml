@@ -6,7 +6,8 @@ resources:
   - name: noop1
   file:
   - name: dir1
-    path: "/tmp/mgmt-hello-world-dir/"
+    path: "/tmp/mgmt-hello-world-dir-2/"
+    content: "./examples/content_example_dir"
     state: exists
 edges:
 - name: e1

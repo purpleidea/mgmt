@@ -350,7 +350,8 @@ func (obj *FileRes) DirApply() error {
 	if err := fileutils.New().Copy(obj.GetPath(), obj.Content); err != nil {
 		return err
 	}
-	return nil
+
+        return nil
 }
 
 func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
@@ -371,24 +372,22 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	err = nil // reset
 
 	// FIXME: add file mode check here...
-
-	if PathIsDir(obj.GetPath()) {
-		_, err := os.Stat(obj.GetPath())
-		if obj.Content == "" && os.IsExist(err) {
+        if _, err := os.Stat(obj.GetPath()); os.IsExist(err) {
+		if PathIsDir(obj.GetPath()) && obj.Content == "" {
 			obj.isStateOK = true
 			return true, nil
+		} else {
+			ok, err := obj.FileHashSHA256Check()
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				obj.isStateOK = true
+				return true, nil
+			}
+			// if no err, but !ok, then we continue on...
 		}
-	} else {
-		ok, err := obj.FileHashSHA256Check()
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			obj.isStateOK = true
-			return true, nil
-		}
-		// if no err, but !ok, then we continue on...
-	}
+        }
 
 	// state is not okay, no work done, exit, but without error
 	if !apply {

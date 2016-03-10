@@ -32,7 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 3. [Setup - Getting started with mgmt](#setup)
 4. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
 5. [Reference - Detailed reference](#reference)
-	* [graph.yaml](#graph.yaml)
+	* [Graph definition file](#graph-definition-file)
 	* [Command line](#command-line)
 6. [Examples - Example configurations](#examples)
 7. [Development - Background on module development and reporting bugs](#development)
@@ -92,11 +92,11 @@ information on these options, please view the source at:
 If you feel that a well used option needs documenting here, please patch it!
 
 ###Overview of reference
-* [graph.yaml](#graph.yaml): Main graph definition file.
+* [Graph definition file](#graph-definition-file): Main graph definition file.
 * [Command line](#command-line): Command line parameters.
 
-###graph.yaml
-This is the compiled graph definition file. The format is currently
+###Graph definition file
+graph.yaml is the compiled graph definition file. The format is currently
 undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)
 you can probably figure out most of it, as it's fairly intuitive.
 

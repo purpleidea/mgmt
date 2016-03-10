@@ -38,7 +38,7 @@ cd "$XPWD" >/dev/null
 rm -rf "$T"
 
 [ "$LINT1" = "" ] && echo PASS && exit	# everything is "perfect"
-DELTA=$(printf "%.0f\n" `echo "(($COUNT1 - $COUNT) / $DIFF1) * 100" | bc -l`)
+DELTA=$(printf "%.0f\n" `echo - | awk "{ print (($COUNT1 - $COUNT) / $DIFF1) * 100 }"`)
 
 echo "Lines of code: $DIFF1"
 echo "Prev. # of issues: $COUNT"

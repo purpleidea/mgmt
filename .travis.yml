@@ -5,6 +5,7 @@ go:
   - 1.6
   - tip
 sudo: false
+before_install: 'git fetch --unshallow'
 install: 'make deps'
 script: 'make test'
 matrix:

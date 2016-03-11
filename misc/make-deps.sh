@@ -1,5 +1,8 @@
 #!/bin/bash
 # setup a simple go environment
+XPWD=`pwd`
+ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+cd "${ROOT}" >/dev/null
 
 travis=0
 if env | grep -q '^TRAVIS=true$'; then
@@ -19,8 +22,11 @@ if [ $travis -eq 0 ]; then
 
 	fi
 	if [ ! -z "$APT" ]; then
-		sudo $APT install -y golang golang-golang-x-tools mercurial
-
+		sudo $APT update
+		sudo $APT install -y golang make gcc packagekit mercurial
+		# one of these two golang tools packages should work on debian
+		sudo $APT install -y golang-golang-x-tools || true
+		sudo $APT install -y golang-go.tools || true
 	fi
 fi
 
@@ -42,3 +48,4 @@ go get ./...	# get all the go dependencies
 go get golang.org/x/tools/cmd/vet	# add in `go vet` for travis
 go get golang.org/x/tools/cmd/stringer	# for automatic stringer-ing
 go get github.com/golang/lint/golint	# for `golint`-ing
+cd "$XPWD" >/dev/null

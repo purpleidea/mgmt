@@ -21,6 +21,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/godbus/dbus"
 	"log"
@@ -285,9 +286,10 @@ func (bus *Conn) ResolvePackages(packages []string, filter uint64) ([]string, er
 	if call.Err != nil {
 		return []string{}, call.Err
 	}
+	timeout := -1 // disabled initially
+	finished := false
 loop:
 	for {
-		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
 		case signal := <-ch:
 			if PK_DEBUG {
@@ -299,6 +301,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("Package") {
+				timeout = PkSignalPackageTimeout
 				//pkg_int, ok := signal.Body[0].(int)
 				packageID, ok := signal.Body[1].(string)
 				// format is: name;version;arch;data
@@ -313,17 +316,22 @@ loop:
 				}
 				packageIDs = append(packageIDs, packageID)
 			} else if signal.Name == FmtTransactionMethod("Finished") {
-				// TODO: should we wait for the Destroy signal?
-				break loop
+				finished = true
+				timeout = PkSignalDestroyTimeout // wait a bit
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
 				// should already be broken
-				break loop
+				return packageIDs, nil // success
 			} else {
 				return []string{}, fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
+		case _ = <-TimeAfterOrBlock(timeout):
+			if finished {
+				log.Println("PackageKit: Timeout: ResolvePackages: Waiting for 'Destroy'")
+				return packageIDs, nil // got tired of waiting for Destroy
+			}
+			return packageIDs, fmt.Errorf("PackageKit: Timeout: ResolvePackages: %v", strings.Join(packages, ", "))
 		}
 	}
-	return packageIDs, nil
 }
 
 func (bus *Conn) IsInstalledList(packages []string) ([]bool, error) {
@@ -443,9 +451,11 @@ func (bus *Conn) RemovePackages(packageIDs []string, transactionFlags uint64) er
 	if call.Err != nil {
 		return call.Err
 	}
+
+	timeout := -1 // disabled initially
+	finished := false
 loop:
 	for {
-		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
@@ -456,20 +466,25 @@ loop:
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
 				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
-				// a package was installed...
-				continue loop
+				// a package was removed...
+				// only start the timer once we're here...
+				timeout = PkSignalPackageTimeout
 			} else if signal.Name == FmtTransactionMethod("Finished") {
-				// TODO: should we wait for the Destroy signal?
-				break loop
+				finished = true
+				timeout = PkSignalDestroyTimeout
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
-				// should already be broken
-				break loop
+				return nil // success
 			} else {
 				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
+		case _ = <-TimeAfterOrBlock(timeout):
+			if finished {
+				log.Println("PackageKit: Timeout: RemovePackages: Waiting for 'Destroy'")
+				return nil // got tired of waiting for Destroy
+			}
+			return fmt.Errorf("PackageKit: Timeout: RemovePackages: %v", strings.Join(packageIDs, ", "))
 		}
 	}
-	return nil
 }
 
 // update list of packages to versions that are specified
@@ -488,9 +503,10 @@ func (bus *Conn) UpdatePackages(packageIDs []string, transactionFlags uint64) er
 	if call.Err != nil {
 		return call.Err
 	}
+	timeout := -1 // disabled initially
+	finished := false
 loop:
 	for {
-		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
@@ -501,18 +517,24 @@ loop:
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
 				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
+				// a package was updated...
+				timeout = PkSignalPackageTimeout
 			} else if signal.Name == FmtTransactionMethod("Finished") {
-				// TODO: should we wait for the Destroy signal?
-				break loop
+				finished = true
+				timeout = PkSignalDestroyTimeout // wait a bit
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
-				// should already be broken
-				break loop
+				return nil // success
 			} else {
 				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
+		case _ = <-TimeAfterOrBlock(timeout):
+			if finished {
+				log.Println("PackageKit: Timeout: UpdatePackages: Waiting for 'Destroy'")
+				return nil // got tired of waiting for Destroy
+			}
+			return fmt.Errorf("PackageKit: Timeout: UpdatePackages: %v", strings.Join(packageIDs, ", "))
 		}
 	}
-	return nil
 }
 
 // get the list of files that are contained inside a list of packageids
@@ -535,9 +557,10 @@ func (bus *Conn) GetFilesByPackageID(packageIDs []string) (files map[string][]st
 		return
 	}
 	files = make(map[string][]string)
+	timeout := -1 // disabled initially
+	finished := false
 loop:
 	for {
-		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
 		case signal := <-ch:
 
@@ -566,18 +589,22 @@ loop:
 				}
 				files[key] = fileList // build up map
 			} else if signal.Name == FmtTransactionMethod("Finished") {
-				// TODO: should we wait for the Destroy signal?
-				break loop
+				finished = true
+				timeout = PkSignalDestroyTimeout // wait a bit
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
-				// should already be broken
-				break loop
+				return // success
 			} else {
 				err = fmt.Errorf("PackageKit: Error: %v", signal.Body)
 				return
 			}
+		case _ = <-TimeAfterOrBlock(timeout):
+			if finished {
+				log.Println("PackageKit: Timeout: GetFilesByPackageId: Waiting for 'Destroy'")
+				return // got tired of waiting for Destroy
+			}
+			return files, fmt.Errorf("PackageKit: Timeout: GetFilesByPackageId: %v", strings.Join(packageIDs, ", "))
 		}
 	}
-	return
 }
 
 // get list of packages that are installed and which can be updated, mod filter
@@ -600,9 +627,10 @@ func (bus *Conn) GetUpdates(filter uint64) ([]string, error) {
 	if call.Err != nil {
 		return nil, call.Err
 	}
+	timeout := -1 // disabled initially
+	finished := false
 loop:
 	for {
-		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
@@ -613,6 +641,7 @@ loop:
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
 				return nil, fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
+				timeout = PkSignalPackageTimeout
 
 				//pkg_int, ok := signal.Body[0].(int)
 				packageID, ok := signal.Body[1].(string)
@@ -628,17 +657,21 @@ loop:
 				}
 				packageIDs = append(packageIDs, packageID)
 			} else if signal.Name == FmtTransactionMethod("Finished") {
-				// TODO: should we wait for the Destroy signal?
-				break loop
+				finished = true
+				timeout = PkSignalDestroyTimeout // wait a bit
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
-				// should already be broken
-				break loop
+				return packageIDs, nil // success
 			} else {
 				return nil, fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
+		case _ = <-TimeAfterOrBlock(timeout):
+			if finished {
+				log.Println("PackageKit: Timeout: GetUpdates: Waiting for 'Destroy'")
+				return packageIDs, nil // got tired of waiting for Destroy
+			}
+			return packageIDs, errors.New(fmt.Sprint("PackageKit: Timeout: GetUpdates()"))
 		}
 	}
-	return packageIDs, nil
 }
 
 // this is a helper function that *might* be generally useful outside mgmtconfig

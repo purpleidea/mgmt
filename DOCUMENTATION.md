@@ -30,13 +30,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1. [Overview](#overview)
 2. [Project description - What the project does](#project-description)
 3. [Setup - Getting started with mgmt](#setup)
-4. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
-5. [Reference - Detailed reference](#reference)
+4. [Features - All things mgmt can do](#features)
+	* [Autoedges - Automatic resource relationships](#autoedges)
+5. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
+6. [Reference - Detailed reference](#reference)
 	* [Graph definition file](#graph-definition-file)
 	* [Command line](#command-line)
-6. [Examples - Example configurations](#examples)
-7. [Development - Background on module development and reporting bugs](#development)
-8. [Authors - Authors and contact information](#authors)
+7. [Examples - Example configurations](#examples)
+8. [Development - Background on module development and reporting bugs](#development)
+9. [Authors - Authors and contact information](#authors)
 
 ##Overview
 
@@ -63,6 +65,37 @@ You'll probably want to use ```./run.sh run --file examples/graph1.yaml``` to
 get started. Beware that this _can_ cause data loss. Understand what you're
 doing first, or perform these actions in a virtual environment such as the one
 provided by [Oh-My-Vagrant](https://github.com/purpleidea/oh-my-vagrant).
+
+##Features
+
+This section details the numerous features of mgmt and some caveats you might
+need to be aware of.
+
+###Autoedges
+
+Automatic edges, or AutoEdges, is the mechanism in mgmt by which it will
+automatically create dependencies for you between resources. For example,
+since mgmt can discover which files are installed by a package it will
+automatically ensure that any file resource you declare that matches a
+file installed by your package resource will only be processed after the
+package is installed.
+
+####Controlling autodeges
+
+Though autoedges is likely to be very helpful and avoid you having to declare
+all dependencies explicitly, there are cases where this behaviour is
+undesirable.
+
+Some distributions allow package installations to automatically start the
+service they ship. This can be problematic in the case of packages like MySQL
+as there are configuration options that need to be set before MySQL is ever
+started for the first time (or you'll need to wipe the data directory). In
+order to handle this situation you can disable autoedges per resource and
+explicitly declare that you want `my.cnf` to be written to disk before the
+installation of the `mysql-server` package.
+
+You can disable autoedges for a resource by setting the `autoedge` key for
+the meta attributes of a resource to `false`.
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

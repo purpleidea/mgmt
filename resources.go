@@ -67,18 +67,14 @@ type MetaParams struct {
 	AutoEdge bool `yaml:"autoedge"` // metaparam, should we generate auto edges? // XXX should default to true
 }
 
-type Res interface {
-	Init()
-	GetName() string     // can't be named "Name()" because of struct field
-	GetUUIDs() []ResUUID // most resources only return one
-	GetMeta() MetaParams
+// this interface is everything that is common to all resources
+// everything here only needs to be implemented once, in the BaseRes
+type Base interface {
+	GetName() string // can't be named "Name()" because of struct field
 	Kind() string
-	Watch()
-	CheckApply(bool) (bool, error)
-	AutoEdges() AutoEdge
+	GetMeta() MetaParams
 	SetVertex(*Vertex)
 	SetConvergedCallback(ctimeout int, converged chan bool)
-	Compare(Res) bool
 	SendEvent(eventName, bool, bool) bool
 	IsWatching() bool
 	SetWatching(bool)
@@ -91,6 +87,18 @@ type Res interface {
 	OKTimestamp() bool
 	Poke(bool)
 	BackPoke()
+}
+
+// this is the minimum interface you need to implement to make a new resource
+type Res interface {
+	Base // include everything from the Base interface
+	Init()
+	//Validate() bool    // TODO: this might one day be added
+	GetUUIDs() []ResUUID // most resources only return one
+	Watch()
+	CheckApply(bool) (bool, error)
+	AutoEdges() AutoEdge
+	Compare(Res) bool
 }
 
 type BaseRes struct {

@@ -372,6 +372,14 @@ func (obj *ExecRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+func (obj *ExecRes) GroupCmp(r Res) bool {
+	_, ok := r.(*SvcRes)
+	if !ok {
+		return false
+	}
+	return false // not possible atm
+}
+
 func (obj *ExecRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *ExecRes:

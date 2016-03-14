@@ -18,6 +18,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 )
@@ -64,7 +65,8 @@ type AutoEdge interface {
 }
 
 type MetaParams struct {
-	AutoEdge bool `yaml:"autoedge"` // metaparam, should we generate auto edges? // XXX should default to true
+	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges? // XXX should default to true
+	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group? // XXX should default to true
 }
 
 // this interface is everything that is common to all resources
@@ -87,6 +89,12 @@ type Base interface {
 	OKTimestamp() bool
 	Poke(bool)
 	BackPoke()
+	GroupCmp(Res) bool  // TODO: is there a better name for this?
+	GroupRes(Res) error // group resource (arg) into self
+	IsGrouped() bool    // am I grouped?
+	SetGrouped(bool)    // set grouped bool
+	GetGroup() []Res    // return everyone grouped inside me
+	SetGroup([]Res)
 }
 
 // this is the minimum interface you need to implement to make a new resource
@@ -113,7 +121,9 @@ type BaseRes struct {
 	watching       bool // is Watch() loop running ?
 	ctimeout       int  // converged timeout
 	converged      chan bool
-	isStateOK      bool // whether the state is okay based on events or not
+	isStateOK      bool  // whether the state is okay based on events or not
+	isGrouped      bool  // am i contained within a group?
+	grouped        []Res // list of any grouped resources
 }
 
 // wraps the IFF method when used with a list of UUID's
@@ -353,6 +363,35 @@ func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
 		log.Fatal("Unknown event: ", event)
 	}
 	return true, false // required to keep the stupid go compiler happy
+}
+
+func (obj *BaseRes) GroupRes(res Res) error {
+	if l := len(res.GetGroup()); l > 0 {
+		return fmt.Errorf("Res: %v already contains %d grouped resources!", res, l)
+	}
+	if res.IsGrouped() {
+		return fmt.Errorf("Res: %v is already grouped!", res)
+	}
+
+	obj.grouped = append(obj.grouped, res)
+	res.SetGrouped(true) // i am contained _in_ a group
+	return nil
+}
+
+func (obj *BaseRes) IsGrouped() bool { // am I grouped?
+	return obj.isGrouped
+}
+
+func (obj *BaseRes) SetGrouped(b bool) {
+	obj.isGrouped = b
+}
+
+func (obj *BaseRes) GetGroup() []Res { // return everyone grouped inside me
+	return obj.grouped
+}
+
+func (obj *BaseRes) SetGroup(g []Res) {
+	obj.grouped = g
 }
 
 // XXX: rename this function

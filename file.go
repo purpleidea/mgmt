@@ -457,6 +457,16 @@ func (obj *FileRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+func (obj *FileRes) GroupCmp(r Res) bool {
+	_, ok := r.(*FileRes)
+	if !ok {
+		return false
+	}
+	// TODO: we might be able to group directory children into a single
+	// recursive watcher in the future, thus saving fanotify watches
+	return false // not possible atm
+}
+
 func (obj *FileRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *FileRes:

@@ -814,6 +814,75 @@ func (bus *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 	return result, nil
 }
 
+// returns a list of packageIDs which match the set of package names in packages
+func FilterPackageIDs(m map[string]*PkPackageIDActionData, packages []string) ([]string, error) {
+	result := []string{}
+	for _, k := range packages {
+		obj, ok := m[k] // lookup single package
+		// package doesn't exist, this is an error!
+		if !ok || !obj.Found || obj.PackageID == "" {
+			return nil, fmt.Errorf("Can't find package named '%s'.", k)
+		}
+		result = append(result, obj.PackageID)
+	}
+	return result, nil
+}
+
+func FilterState(m map[string]*PkPackageIDActionData, packages []string, state string) (result map[string]bool, err error) {
+	result = make(map[string]bool)
+	pkgs := []string{} // bad pkgs that don't have a bool state
+	for _, k := range packages {
+		obj, ok := m[k] // lookup single package
+		// package doesn't exist, this is an error!
+		if !ok || !obj.Found {
+			return nil, fmt.Errorf("Can't find package named '%s'.", k)
+		}
+		var b bool
+		if state == "installed" {
+			b = obj.Installed
+		} else if state == "uninstalled" {
+			b = !obj.Installed
+		} else if state == "newest" {
+			b = obj.Newest
+		} else {
+			// we can't filter "version" state in this function
+			pkgs = append(pkgs, k)
+			continue
+		}
+		result[k] = b // save
+	}
+	if len(pkgs) > 0 {
+		err = fmt.Errorf("Can't filter non-boolean state on: %v!", strings.Join(pkgs, ","))
+	}
+	return result, err
+}
+
+// return all packages that are in package and match the specific state
+func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, state string) (result []string, err error) {
+	result = []string{}
+	for _, k := range packages {
+		obj, ok := m[k] // lookup single package
+		// package doesn't exist, this is an error!
+		if !ok || !obj.Found {
+			return nil, fmt.Errorf("Can't find package named '%s'.", k)
+		}
+		b := false
+		if state == "installed" && obj.Installed {
+			b = true
+		} else if state == "uninstalled" && !obj.Installed {
+			b = true
+		} else if state == "newest" && obj.Newest {
+			b = true
+		} else if state == obj.Version {
+			b = true
+		}
+		if b {
+			result = append(result, k)
+		}
+	}
+	return result, err
+}
+
 // does flag exist inside data portion of packageID field?
 func FlagInData(flag, data string) bool {
 	flags := strings.Split(data, ":")

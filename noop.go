@@ -109,6 +109,18 @@ func (obj *NoopRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+func (obj *NoopRes) GroupCmp(r Res) bool {
+	_, ok := r.(*NoopRes)
+	if !ok {
+		// NOTE: technically we could group a noop into any other
+		// resource, if that resource knew how to handle it, although,
+		// since the mechanics of inter-kind resource grouping are
+		// tricky, avoid doing this until there's a good reason.
+		return false
+	}
+	return true // noop resources can always be grouped together!
+}
+
 func (obj *NoopRes) Compare(res Res) bool {
 	switch res.(type) {
 	// we can only compare NoopRes to others of the same resource

@@ -398,6 +398,17 @@ func (obj *SvcRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+func (obj *SvcRes) GroupCmp(r Res) bool {
+	_, ok := r.(*SvcRes)
+	if !ok {
+		return false
+	}
+	// TODO: depending on if the systemd service api allows batching, we
+	// might be able to build this, although not sure how useful it is...
+	// it might just eliminate parallelism be bunching up the graph
+	return false // not possible atm
+}
+
 func (obj *SvcRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *SvcRes:

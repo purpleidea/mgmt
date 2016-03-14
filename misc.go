@@ -23,6 +23,7 @@ import (
 	"encoding/gob"
 	"github.com/godbus/dbus"
 	"path"
+	"sort"
 	"strings"
 	"time"
 )
@@ -60,6 +61,18 @@ func StrFilterElementsInList(filter []string, list []string) []string {
 	return result
 }
 
+// remove any of the elements in filter, if they don't exist in list
+// this is an in order intersection of two lists
+func StrListIntersection(list1 []string, list2 []string) []string {
+	result := []string{}
+	for _, x := range list1 {
+		if StrInList(x, list2) {
+			result = append(result, x)
+		}
+	}
+	return result
+}
+
 // reverse a list of strings
 func ReverseStringList(in []string) []string {
 	var out []string // empty list
@@ -68,6 +81,48 @@ func ReverseStringList(in []string) []string {
 		out = append(out, in[l-i-1])
 	}
 	return out
+}
+
+// return the sorted list of string keys in a map with string keys
+// NOTE: i thought it would be nice for this to use: map[string]interface{} but
+// it turns out that's not allowed. I know we don't have generics, but common!
+func StrMapKeys(m map[string]string) []string {
+	result := []string{}
+	for k, _ := range m {
+		result = append(result, k)
+	}
+	sort.Strings(result) // deterministic order
+	return result
+}
+
+// return the sorted list of bool values in a map with string values
+func BoolMapValues(m map[string]bool) []bool {
+	result := []bool{}
+	for _, v := range m {
+		result = append(result, v)
+	}
+	//sort.Bools(result) // TODO: deterministic order
+	return result
+}
+
+// return the sorted list of string values in a map with string values
+func StrMapValues(m map[string]string) []string {
+	result := []string{}
+	for _, v := range m {
+		result = append(result, v)
+	}
+	sort.Strings(result) // deterministic order
+	return result
+}
+
+// return true if everyone is true
+func BoolMapTrue(l []bool) bool {
+	for _, b := range l {
+		if !b {
+			return false
+		}
+	}
+	return true
 }
 
 // Similar to the GNU dirname command

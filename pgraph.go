@@ -162,7 +162,7 @@ func (g *Graph) GetVertex(name string) chan *Vertex {
 
 func (g *Graph) GetVertexMatch(obj Res) *Vertex {
 	for k := range g.Adjacency {
-		if k.Compare(obj) { // XXX test
+		if k.Res.Compare(obj) {
 			return k
 		}
 	}

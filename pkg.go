@@ -63,10 +63,18 @@ func (obj *PkgRes) Init() {
 	}
 	defer bus.Close()
 
-	data, err := obj.PkgMappingHelper(bus)
+	result, err := obj.pkgMappingHelper(bus)
 	if err != nil {
 		// FIXME: return error?
-		log.Fatalf("The PkgMappingHelper failed with: %v.", err)
+		log.Fatalf("The pkgMappingHelper failed with: %v.", err)
+		return
+	}
+
+	data, ok := result[obj.Name] // lookup single package (init does just one)
+	// package doesn't exist, this is an error!
+	if !ok || !data.Found {
+		// FIXME: return error?
+		log.Fatalf("Can't find package named '%s'.", obj.Name)
 		return
 	}
 
@@ -80,11 +88,6 @@ func (obj *PkgRes) Init() {
 	if files, ok := filesMap[data.PackageID]; ok {
 		obj.fileList = DirifyFileList(files, false)
 	}
-}
-
-// XXX: run this when resource exits
-func (obj *PkgRes) Close() {
-	//obj.bus.Close()
 }
 
 func (obj *PkgRes) Validate() bool {
@@ -123,7 +126,7 @@ func (obj *PkgRes) Watch() {
 
 	for {
 		if DEBUG {
-			log.Printf("Pkg[%v]: Watching...", obj.GetName())
+			log.Printf("%v: Watching...", obj.fmtNames(obj.getNames()))
 		}
 
 		obj.SetState(resStateWatching) // reset
@@ -131,7 +134,7 @@ func (obj *PkgRes) Watch() {
 		case event := <-ch:
 			// FIXME: ask packagekit for info on what packages changed
 			if DEBUG {
-				log.Printf("Pkg[%v]: Event: %v", obj.GetName(), event.Name)
+				log.Printf("%v: Event: %v", obj.fmtNames(obj.getNames()), event.Name)
 			}
 
 			// since the chan is buffered, remove any supplemental
@@ -170,13 +173,48 @@ func (obj *PkgRes) Watch() {
 	}
 }
 
-func (obj *PkgRes) PkgMappingHelper(bus *Conn) (*PkPackageIDActionData, error) {
-
-	var packageMap = map[string]string{
-		obj.Name: obj.State, // key is pkg name, value is pkg state
+// get list of names when grouped or not
+func (obj *PkgRes) getNames() []string {
+	if g := obj.GetGroup(); len(g) > 0 { // grouped elements
+		names := []string{obj.GetName()}
+		for _, x := range g {
+			pkg, ok := x.(*PkgRes) // convert from Res
+			if ok {
+				names = append(names, pkg.Name)
+			}
+		}
+		return names
 	}
-	var filter uint64             // initializes at the "zero" value of 0
-	filter += PK_FILTER_ENUM_ARCH // always search in our arch (optional!)
+	return []string{obj.GetName()}
+}
+
+// pretty print for header values
+func (obj *PkgRes) fmtNames(names []string) string {
+	if len(obj.GetGroup()) > 0 { // grouped elements
+		return fmt.Sprintf("%v[autogroup:(%v)]", obj.Kind(), strings.Join(names, ","))
+	}
+	return fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName())
+}
+
+func (obj *PkgRes) groupMappingHelper() map[string]string {
+	var result = make(map[string]string)
+	if g := obj.GetGroup(); len(g) > 0 { // add any grouped elements
+		for _, x := range g {
+			pkg, ok := x.(*PkgRes) // convert from Res
+			if !ok {
+				log.Fatalf("Grouped member %v is not a %v", x, obj.Kind())
+			}
+			result[pkg.Name] = pkg.State
+		}
+	}
+	return result
+}
+
+func (obj *PkgRes) pkgMappingHelper(bus *Conn) (map[string]*PkPackageIDActionData, error) {
+	packageMap := obj.groupMappingHelper() // get the grouped values
+	packageMap[obj.Name] = obj.State       // key is pkg name, value is pkg state
+	var filter uint64                      // initializes at the "zero" value of 0
+	filter += PK_FILTER_ENUM_ARCH          // always search in our arch (optional!)
 	// we're requesting latest version, or to narrow down install choices!
 	if obj.State == "newest" || obj.State == "installed" {
 		// if we add this, we'll still see older packages if installed
@@ -194,21 +232,14 @@ func (obj *PkgRes) PkgMappingHelper(bus *Conn) (*PkPackageIDActionData, error) {
 	if e != nil {
 		return nil, fmt.Errorf("Can't run PackagesToPackageIDs: %v", e)
 	}
-
-	data, ok := result[obj.Name] // lookup single package
-	// package doesn't exist, this is an error!
-	if !ok || !data.Found {
-		return nil, fmt.Errorf("Can't find package named '%s'.", obj.Name)
-	}
-
-	return data, nil
+	return result, nil
 }
 
 func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%v: CheckApply(%t)", obj.fmtNames(obj.getNames()), apply)
 
 	if obj.State == "" { // TODO: Validate() should replace this check!
-		log.Fatalf("%v[%v]: Package state is undefined!", obj.Kind(), obj.GetName())
+		log.Fatalf("%v: Package state is undefined!", obj.fmtNames(obj.getNames()))
 	}
 
 	if obj.isStateOK { // cache the state
@@ -221,33 +252,40 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 	defer bus.Close()
 
-	data, err := obj.PkgMappingHelper(bus)
+	result, err := obj.pkgMappingHelper(bus)
 	if err != nil {
-		return false, fmt.Errorf("The PkgMappingHelper failed with: %v.", err)
+		return false, fmt.Errorf("The pkgMappingHelper failed with: %v.", err)
 	}
+
+	packageMap := obj.groupMappingHelper() // map[string]string
+	packageList := []string{obj.Name}
+	packageList = append(packageList, StrMapKeys(packageMap)...)
+	//stateList := []string{obj.State}
+	//stateList = append(stateList, StrMapValues(packageMap)...)
+
+	// TODO: at the moment, all the states are the same, but
+	// eventually we might be able to drop this constraint!
+	states, err := FilterState(result, packageList, obj.State)
+	if err != nil {
+		return false, fmt.Errorf("The FilterState method failed with: %v.", err)
+	}
+	data, _ := result[obj.Name] // if above didn't error, we won't either!
+	validState := BoolMapTrue(BoolMapValues(states))
 
 	// obj.State == "installed" || "uninstalled" || "newest" || "4.2-1.fc23"
 	switch obj.State {
 	case "installed":
-		if data.Installed {
-			return true, nil // state is correct, exit!
-		}
+		fallthrough
 	case "uninstalled":
-		if !data.Installed {
-			return true, nil
-		}
+		fallthrough
 	case "newest":
-		if data.Newest {
-			return true, nil
+		if validState {
+			return true, nil // state is correct, exit!
 		}
 	default: // version string
 		if obj.State == data.Version && data.Version != "" {
 			return true, nil
 		}
-	}
-
-	if data.PackageID == "" {
-		return false, errors.New("Can't find package id to use.")
 	}
 
 	// state is not okay, no work done, exit, but without error
@@ -256,32 +294,39 @@ func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
 	}
 
 	// apply portion
-	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
-	packageList := []string{data.PackageID}
+	log.Printf("%v: Apply", obj.fmtNames(obj.getNames()))
+	readyPackages, err := FilterPackageState(result, packageList, obj.State)
+	if err != nil {
+		return false, err // fail
+	}
+	// these are the packages that actually need their states applied!
+	applyPackages := StrFilterElementsInList(readyPackages, packageList)
+	packageIDs, _ := FilterPackageIDs(result, applyPackages) // would be same err as above
+
 	var transactionFlags uint64 // initializes at the "zero" value of 0
 	if !obj.AllowUntrusted {    // allow
 		transactionFlags += PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED
 	}
 	// apply correct state!
-	log.Printf("%v[%v]: Set: %v...", obj.Kind(), obj.GetName(), obj.State)
+	log.Printf("%v: Set: %v...", obj.fmtNames(StrListIntersection(applyPackages, obj.getNames())), obj.State)
 	switch obj.State {
 	case "uninstalled": // run remove
 		// NOTE: packageID is different than when installed, because now
 		// it has the "installed" flag added to the data portion if it!!
-		err = bus.RemovePackages(packageList, transactionFlags)
+		err = bus.RemovePackages(packageIDs, transactionFlags)
 
 	case "newest": // TODO: isn't this the same operation as install, below?
-		err = bus.UpdatePackages(packageList, transactionFlags)
+		err = bus.UpdatePackages(packageIDs, transactionFlags)
 
 	case "installed":
 		fallthrough // same method as for "set specific version", below
 	default: // version string
-		err = bus.InstallPackages(packageList, transactionFlags)
+		err = bus.InstallPackages(packageIDs, transactionFlags)
 	}
 	if err != nil {
 		return false, err // fail
 	}
-	log.Printf("%v[%v]: Set: %v success!", obj.Kind(), obj.GetName(), obj.State)
+	log.Printf("%v: Set: %v success!", obj.fmtNames(StrListIntersection(applyPackages, obj.getNames())), obj.State)
 	return false, nil // success
 }
 
@@ -425,6 +470,27 @@ func (obj *PkgRes) GetUUIDs() []ResUUID {
 	}
 	result := []ResUUID{x}
 	return result
+}
+
+// can these two resources be merged ?
+// (aka does this resource support doing so?)
+// will resource allow itself to be grouped _into_ this obj?
+func (obj *PkgRes) GroupCmp(r Res) bool {
+	res, ok := r.(*PkgRes)
+	if !ok {
+		return false
+	}
+	objStateIsVersion := (obj.State != "installed" && obj.State != "uninstalled" && obj.State != "newest") // must be a ver. string
+	resStateIsVersion := (res.State != "installed" && res.State != "uninstalled" && res.State != "newest") // must be a ver. string
+	if objStateIsVersion || resStateIsVersion {
+		// can't merge specific version checks atm
+		return false
+	}
+	// FIXME: keep it simple for now, only merge same states
+	if obj.State != res.State {
+		return false
+	}
+	return true
 }
 
 func (obj *PkgRes) Compare(res Res) bool {

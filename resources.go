@@ -108,23 +108,6 @@ type BaseRes struct {
 	isStateOK      bool // whether the state is okay based on events or not
 }
 
-type NoopRes struct {
-	BaseRes `yaml:",inline"`
-	Comment string `yaml:"comment"` // extra field for example purposes
-}
-
-func NewNoopRes(name string) *NoopRes {
-	// FIXME: we could get rid of this New constructor and use raw object creation with a required Init()
-	obj := &NoopRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		Comment: "",
-	}
-	obj.Init()
-	return obj
-}
-
 // wraps the IFF method when used with a list of UUID's
 func UUIDExistsInUUIDs(uuid ResUUID, uuids []ResUUID) bool {
 	for _, u := range uuids {
@@ -410,90 +393,4 @@ func Process(obj Res) {
 		// only poke at the pre-req's that need to run
 		go obj.BackPoke()
 	}
-}
-
-func (obj *NoopRes) Init() {
-	obj.BaseRes.kind = "Noop"
-	obj.BaseRes.Init() // call base init, b/c we're overriding
-}
-
-// validate if the params passed in are valid data
-// FIXME: where should this get called ?
-func (obj *NoopRes) Validate() bool {
-	return true
-}
-
-func (obj *NoopRes) Watch() {
-	if obj.IsWatching() {
-		return
-	}
-	obj.SetWatching(true)
-	defer obj.SetWatching(false)
-
-	//vertex := obj.vertex // stored with SetVertex
-	var send = false // send event?
-	var exit = false
-	for {
-		obj.SetState(resStateWatching) // reset
-		select {
-		case event := <-obj.events:
-			obj.SetConvergedState(resConvergedNil)
-			// we avoid sending events on unpause
-			if exit, send = obj.ReadEvent(&event); exit {
-				return // exit
-			}
-
-		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetConvergedState(resConvergedTimeout)
-			obj.converged <- true
-			continue
-		}
-
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			// only do this on certain types of events
-			//obj.isStateOK = false // something made state dirty
-			Process(obj) // XXX: rename this function
-		}
-	}
-}
-
-// CheckApply method for Noop resource. Does nothing, returns happy!
-func (obj *NoopRes) CheckApply(apply bool) (stateok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
-	return true, nil // state is always okay
-}
-
-type NoopUUID struct {
-	BaseUUID
-	name string
-}
-
-func (obj *NoopRes) AutoEdges() AutoEdge {
-	return nil
-}
-
-// include all params to make a unique identification of this object
-// most resources only return one, although some resources return multiple
-func (obj *NoopRes) GetUUIDs() []ResUUID {
-	x := &NoopUUID{
-		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-		name:     obj.Name,
-	}
-	return []ResUUID{x}
-}
-
-func (obj *NoopRes) Compare(res Res) bool {
-	switch res.(type) {
-	// we can only compare NoopRes to others of the same resource
-	case *NoopRes:
-		res := res.(*NoopRes)
-		if obj.Name != res.Name {
-			return false
-		}
-	default:
-		return false
-	}
-	return true
 }

@@ -49,6 +49,13 @@ The mgmt tool is a distributed, event driven, config management tool, that
 supports parallel execution, and librarification to be used as the management
 foundation in and for, new and existing software.
 
+For more information, you may like to read some blog posts from the author:
+
+* [Next generation config mgmt](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
+* [Automatic edges in mgmt](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
+
+There is also an [introductory video](https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1) available.
+
 ##Setup
 
 During this prototype phase, the tool can be run out of the source directory.

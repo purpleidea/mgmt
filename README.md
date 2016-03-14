@@ -67,6 +67,7 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 * Walter Heck at CfgMgmtCamp.eu 2016: [http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3](http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3)
 * Marco Marongiu on mgmt: [http://syslog.me/2016/02/15/leap-or-die/](http://syslog.me/2016/02/15/leap-or-die/)
 * Felix Frank on puppet to mgmt "transpiling" [https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/](https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/)
+* Blog post on automatic edges and the pkg resource: [https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
 
 ##
 

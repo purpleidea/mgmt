@@ -49,6 +49,8 @@ var (
 	// GOARCH's: 386, amd64, arm, arm64, mips64, mips64le, ppc64, ppc64le
 	PkArchMap = map[string]string{ // map of PackageKit arch to GOARCH
 		// TODO: add more values
+		// noarch
+		"noarch": "ANY", // special value "ANY"
 		// fedora
 		"x86_64":  "amd64",
 		"aarch64": "arm64",
@@ -833,6 +835,9 @@ func IsMyArch(arch string) bool {
 	if !ok {
 		// if you get this error, please update the PkArchMap const
 		log.Fatalf("PackageKit: Arch '%v', not found!", arch)
+	}
+	if goarch == "ANY" { // special value that corresponds to noarch
+		return true
 	}
 	return goarch == runtime.GOARCH
 }

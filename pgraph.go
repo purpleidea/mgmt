@@ -52,7 +52,6 @@ type Graph struct {
 	Adjacency map[*Vertex]map[*Vertex]*Edge // *Vertex -> *Vertex (edge)
 	state     graphState
 	mutex     sync.Mutex // used when modifying graph State variable
-	//Directed  bool
 }
 
 type Vertex struct {
@@ -75,8 +74,7 @@ func NewGraph(name string) *Graph {
 
 func NewVertex(r Res) *Vertex {
 	return &Vertex{
-		Res:  r,
-		data: make(map[string]string),
+		Res: r,
 	}
 }
 
@@ -144,22 +142,6 @@ func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	g.Adjacency[v1][v2] = e
 }
 
-// XXX: does it make sense to return a channel here?
-// GetVertex finds the vertex in the graph with a particular search name
-func (g *Graph) GetVertex(name string) chan *Vertex {
-	ch := make(chan *Vertex, 1)
-	go func(name string) {
-		for k := range g.Adjacency {
-			if k.GetName() == name {
-				ch <- k
-				break
-			}
-		}
-		close(ch)
-	}(name)
-	return ch
-}
-
 func (g *Graph) GetVertexMatch(obj Res) *Vertex {
 	for k := range g.Adjacency {
 		if k.Res.Compare(obj) {
@@ -173,11 +155,6 @@ func (g *Graph) HasVertex(v *Vertex) bool {
 	if _, exists := g.Adjacency[v]; exists {
 		return true
 	}
-	//for k := range g.Adjacency {
-	//	if k == v {
-	//		return true
-	//	}
-	//}
 	return false
 }
 
@@ -303,16 +280,6 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 	return nil
 }
 
-// google/golang hackers apparently do not think contains should be a built-in!
-func Contains(s []*Vertex, element *Vertex) bool {
-	for _, v := range s {
-		if element == v {
-			return true
-		}
-	}
-	return false
-}
-
 // return an array (slice) of all directed vertices to vertex v (??? -> v)
 // ostimestamp should use this
 func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
@@ -356,10 +323,9 @@ func (g *Graph) DFS(start *Vertex) []*Vertex {
 	v := start
 	s = append(s, v)
 	for len(s) > 0 {
-
 		v, s = s[len(s)-1], s[:len(s)-1] // s.pop()
 
-		if !Contains(d, v) { // if not discovered
+		if !VertexContains(v, d) { // if not discovered
 			d = append(d, v) // label as discovered
 
 			for _, w := range g.GraphEdges(v) {
@@ -373,17 +339,14 @@ func (g *Graph) DFS(start *Vertex) []*Vertex {
 // build a new graph containing only vertices from the list...
 func (g *Graph) FilterGraph(name string, vertices []*Vertex) *Graph {
 	newgraph := NewGraph(name)
-
 	for k1, x := range g.Adjacency {
 		for k2, e := range x {
-
 			//log.Printf("Filter: %v -> %v # %v", k1.Name, k2.Name, e.Name)
-			if Contains(vertices, k1) || Contains(vertices, k2) {
+			if VertexContains(k1, vertices) || VertexContains(k2, vertices) {
 				newgraph.AddEdge(k1, k2, e)
 			}
 		}
 	}
-
 	return newgraph
 }
 
@@ -399,7 +362,7 @@ func (g *Graph) GetDisconnectedGraphs() chan *Graph {
 
 			// get an undiscovered vertex to start from
 			for _, s := range g.GetVertices() {
-				if !Contains(d, s) {
+				if !VertexContains(s, d) {
 					start = s
 				}
 			}
@@ -457,7 +420,6 @@ func (g *Graph) OutDegree() map[*Vertex]int {
 // based on descriptions and code from wikipedia and rosetta code
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algorithm
-
 	var L []*Vertex                    // empty list that will contain the sorted elements
 	var S []*Vertex                    // set of all nodes with no incoming edges
 	remaining := make(map[*Vertex]int) // amount of edges remaining
@@ -501,31 +463,6 @@ func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algori
 	}
 
 	return L, true
-}
-
-func (v *Vertex) Value(key string) (string, bool) {
-	if value, exists := v.data[key]; exists {
-		return value, true
-	}
-	return "", false
-}
-
-func (v *Vertex) SetValue(key, value string) bool {
-	v.data[key] = value
-	return true
-}
-
-func (g *Graph) GetVerticesKeyValue(key, value string) chan *Vertex {
-	ch := make(chan *Vertex)
-	go func() {
-		for vertex := range g.GetVerticesChan() {
-			if v, exists := vertex.Value(key); exists && v == value {
-				ch <- vertex
-			}
-		}
-		close(ch)
-	}()
-	return ch
 }
 
 // return a pointer to the graph a vertex is on
@@ -610,6 +547,15 @@ func (g *Graph) SetConvergedCallback(ctimeout int, converged chan bool) {
 	for v := range g.GetVerticesChan() {
 		v.Res.SetConvergedCallback(ctimeout, converged)
 	}
+}
+
+func VertexContains(needle *Vertex, haystack []*Vertex) bool {
+	for _, v := range haystack {
+		if needle == v {
+			return true
+		}
+	}
+	return false
 }
 
 // in array function to test *vertices in a slice of *vertices

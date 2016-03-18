@@ -215,7 +215,6 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 				keep = append(keep, v)     // append
 
 			}
-
 		}
 	}
 

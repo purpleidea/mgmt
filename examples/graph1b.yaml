@@ -15,8 +15,8 @@ resources:
 edges:
 - name: e2
   from:
-    res: file
+    kind: file
     name: file2
   to:
-    res: file
+    kind: file
     name: file3

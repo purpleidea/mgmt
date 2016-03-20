@@ -20,6 +20,7 @@
 package main
 
 import (
+	"encoding/gob"
 	"errors"
 	"fmt"
 	systemd "github.com/coreos/go-systemd/dbus" // change namespace
@@ -27,6 +28,10 @@ import (
 	"github.com/godbus/dbus" // namespace collides with systemd wrapper
 	"log"
 )
+
+func init() {
+	gob.Register(&SvcRes{})
+}
 
 type SvcRes struct {
 	BaseRes `yaml:",inline"`
@@ -62,7 +67,7 @@ func (obj *SvcRes) Validate() bool {
 }
 
 // Service watcher
-func (obj *SvcRes) Watch() {
+func (obj *SvcRes) Watch(processChan chan struct{}) {
 	if obj.IsWatching() {
 		return
 	}
@@ -189,7 +194,7 @@ func (obj *SvcRes) Watch() {
 
 			case err := <-subErrors:
 				obj.SetConvergedState(resConvergedNil) // XXX ?
-				log.Println("error:", err)
+				log.Printf("error: %v", err)
 				log.Fatal(err)
 				//vertex.events <- fmt.Sprintf("svc: %v", "error") // XXX: how should we handle errors?
 
@@ -210,7 +215,7 @@ func (obj *SvcRes) Watch() {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			Process(obj) // XXX: rename this function
+			processChan <- struct{}{} // trigger process
 		}
 
 	}

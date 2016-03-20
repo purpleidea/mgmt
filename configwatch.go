@@ -138,7 +138,7 @@ func ConfigWatch(file string) chan bool {
 				}
 
 			case err := <-watcher.Errors:
-				log.Println("error:", err)
+				log.Printf("error: %v", err)
 				log.Fatal(err)
 
 			}

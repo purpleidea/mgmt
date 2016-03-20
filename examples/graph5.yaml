@@ -8,6 +8,6 @@ resources:
       i am f1
     state: exists
 collect:
-- res: file
+- kind: file
   pattern: ''
 edges:

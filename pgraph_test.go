@@ -20,7 +20,10 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -254,26 +257,26 @@ func TestPgraphT8(t *testing.T) {
 	v1 := NewVertex(NewNoopRes("v1"))
 	v2 := NewVertex(NewNoopRes("v2"))
 	v3 := NewVertex(NewNoopRes("v3"))
-	if HasVertex(v1, []*Vertex{v1, v2, v3}) != true {
+	if VertexContains(v1, []*Vertex{v1, v2, v3}) != true {
 		t.Errorf("Should be true instead of false.")
 	}
 
 	v4 := NewVertex(NewNoopRes("v4"))
 	v5 := NewVertex(NewNoopRes("v5"))
 	v6 := NewVertex(NewNoopRes("v6"))
-	if HasVertex(v4, []*Vertex{v5, v6}) != false {
+	if VertexContains(v4, []*Vertex{v5, v6}) != false {
 		t.Errorf("Should be false instead of true.")
 	}
 
 	v7 := NewVertex(NewNoopRes("v7"))
 	v8 := NewVertex(NewNoopRes("v8"))
 	v9 := NewVertex(NewNoopRes("v9"))
-	if HasVertex(v8, []*Vertex{v7, v8, v9}) != true {
+	if VertexContains(v8, []*Vertex{v7, v8, v9}) != true {
 		t.Errorf("Should be true instead of false.")
 	}
 
 	v1b := NewVertex(NewNoopRes("v1")) // same value, different objects
-	if HasVertex(v1b, []*Vertex{v1, v2, v3}) != false {
+	if VertexContains(v1b, []*Vertex{v1, v2, v3}) != false {
 		t.Errorf("Should be false instead of true.")
 	}
 }
@@ -381,6 +384,211 @@ func TestPgraphT10(t *testing.T) {
 	}
 }
 
+// empty
+func TestPgraphReachability0(t *testing.T) {
+	{
+		G := NewGraph("g")
+		result := G.Reachability(nil, nil)
+		if result != nil {
+			t.Logf("Reachability failed!")
+			str := "Got:"
+			for _, v := range result {
+				str += " " + v.Res.GetName()
+			}
+			t.Errorf(str)
+		}
+	}
+	{
+		G := NewGraph("g")
+		v1 := NewVertex(NewNoopRes("v1"))
+		v6 := NewVertex(NewNoopRes("v6"))
+
+		result := G.Reachability(v1, v6)
+		expected := []*Vertex{}
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Logf("Reachability failed!")
+			str := "Got:"
+			for _, v := range result {
+				str += " " + v.Res.GetName()
+			}
+			t.Errorf(str)
+		}
+	}
+	{
+		G := NewGraph("g")
+		v1 := NewVertex(NewNoopRes("v1"))
+		v2 := NewVertex(NewNoopRes("v2"))
+		v3 := NewVertex(NewNoopRes("v3"))
+		v4 := NewVertex(NewNoopRes("v4"))
+		v5 := NewVertex(NewNoopRes("v5"))
+		v6 := NewVertex(NewNoopRes("v6"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		e3 := NewEdge("e3")
+		e4 := NewEdge("e4")
+		e5 := NewEdge("e5")
+		G.AddEdge(v1, v2, e1)
+		G.AddEdge(v2, v3, e2)
+		G.AddEdge(v1, v4, e3)
+		G.AddEdge(v3, v4, e4)
+		G.AddEdge(v3, v5, e5)
+
+		result := G.Reachability(v1, v6)
+		expected := []*Vertex{}
+
+		if !reflect.DeepEqual(result, expected) {
+			t.Logf("Reachability failed!")
+			str := "Got:"
+			for _, v := range result {
+				str += " " + v.Res.GetName()
+			}
+			t.Errorf(str)
+		}
+	}
+}
+
+// simple linear path
+func TestPgraphReachability1(t *testing.T) {
+	G := NewGraph("g")
+	v1 := NewVertex(NewNoopRes("v1"))
+	v2 := NewVertex(NewNoopRes("v2"))
+	v3 := NewVertex(NewNoopRes("v3"))
+	v4 := NewVertex(NewNoopRes("v4"))
+	v5 := NewVertex(NewNoopRes("v5"))
+	v6 := NewVertex(NewNoopRes("v6"))
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+	e3 := NewEdge("e3")
+	e4 := NewEdge("e4")
+	e5 := NewEdge("e5")
+	//e6 := NewEdge("e6")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v2, v3, e2)
+	G.AddEdge(v3, v4, e3)
+	G.AddEdge(v4, v5, e4)
+	G.AddEdge(v5, v6, e5)
+
+	result := G.Reachability(v1, v6)
+	expected := []*Vertex{v1, v2, v3, v4, v5, v6}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Logf("Reachability failed!")
+		str := "Got:"
+		for _, v := range result {
+			str += " " + v.Res.GetName()
+		}
+		t.Errorf(str)
+	}
+}
+
+// pick one of two correct paths
+func TestPgraphReachability2(t *testing.T) {
+	G := NewGraph("g")
+	v1 := NewVertex(NewNoopRes("v1"))
+	v2 := NewVertex(NewNoopRes("v2"))
+	v3 := NewVertex(NewNoopRes("v3"))
+	v4 := NewVertex(NewNoopRes("v4"))
+	v5 := NewVertex(NewNoopRes("v5"))
+	v6 := NewVertex(NewNoopRes("v6"))
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+	e3 := NewEdge("e3")
+	e4 := NewEdge("e4")
+	e5 := NewEdge("e5")
+	e6 := NewEdge("e6")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v1, v3, e2)
+	G.AddEdge(v2, v4, e3)
+	G.AddEdge(v3, v4, e4)
+	G.AddEdge(v4, v5, e5)
+	G.AddEdge(v5, v6, e6)
+
+	result := G.Reachability(v1, v6)
+	expected1 := []*Vertex{v1, v2, v4, v5, v6}
+	expected2 := []*Vertex{v1, v3, v4, v5, v6}
+
+	// !xor test
+	if reflect.DeepEqual(result, expected1) == reflect.DeepEqual(result, expected2) {
+		t.Logf("Reachability failed!")
+		str := "Got:"
+		for _, v := range result {
+			str += " " + v.Res.GetName()
+		}
+		t.Errorf(str)
+	}
+}
+
+// pick shortest path
+func TestPgraphReachability3(t *testing.T) {
+	G := NewGraph("g")
+	v1 := NewVertex(NewNoopRes("v1"))
+	v2 := NewVertex(NewNoopRes("v2"))
+	v3 := NewVertex(NewNoopRes("v3"))
+	v4 := NewVertex(NewNoopRes("v4"))
+	v5 := NewVertex(NewNoopRes("v5"))
+	v6 := NewVertex(NewNoopRes("v6"))
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+	e3 := NewEdge("e3")
+	e4 := NewEdge("e4")
+	e5 := NewEdge("e5")
+	e6 := NewEdge("e6")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v2, v3, e2)
+	G.AddEdge(v3, v4, e3)
+	G.AddEdge(v4, v5, e4)
+	G.AddEdge(v1, v5, e5)
+	G.AddEdge(v5, v6, e6)
+
+	result := G.Reachability(v1, v6)
+	expected := []*Vertex{v1, v5, v6}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Logf("Reachability failed!")
+		str := "Got:"
+		for _, v := range result {
+			str += " " + v.Res.GetName()
+		}
+		t.Errorf(str)
+	}
+}
+
+// direct path
+func TestPgraphReachability4(t *testing.T) {
+	G := NewGraph("g")
+	v1 := NewVertex(NewNoopRes("v1"))
+	v2 := NewVertex(NewNoopRes("v2"))
+	v3 := NewVertex(NewNoopRes("v3"))
+	v4 := NewVertex(NewNoopRes("v4"))
+	v5 := NewVertex(NewNoopRes("v5"))
+	v6 := NewVertex(NewNoopRes("v6"))
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+	e3 := NewEdge("e3")
+	e4 := NewEdge("e4")
+	e5 := NewEdge("e5")
+	e6 := NewEdge("e6")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v2, v3, e2)
+	G.AddEdge(v3, v4, e3)
+	G.AddEdge(v4, v5, e4)
+	G.AddEdge(v5, v6, e5)
+	G.AddEdge(v1, v6, e6)
+
+	result := G.Reachability(v1, v6)
+	expected := []*Vertex{v1, v6}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Logf("Reachability failed!")
+		str := "Got:"
+		for _, v := range result {
+			str += " " + v.Res.GetName()
+		}
+		t.Errorf(str)
+	}
+}
+
 func TestPgraphT11(t *testing.T) {
 	v1 := NewVertex(NewNoopRes("v1"))
 	v2 := NewVertex(NewNoopRes("v2"))
@@ -404,5 +612,647 @@ func TestPgraphT11(t *testing.T) {
 	if rev := Reverse([]*Vertex{v6, v5, v4, v3, v2, v1}); !reflect.DeepEqual(rev, []*Vertex{v1, v2, v3, v4, v5, v6}) {
 		t.Errorf("Reverse of vertex slice failed.")
 	}
-
 }
+
+type NoopResTest struct {
+	NoopRes
+}
+
+func (obj *NoopResTest) GroupCmp(r Res) bool {
+	res, ok := r.(*NoopResTest)
+	if !ok {
+		return false
+	}
+
+	// TODO: implement this in vertexCmp for *testBaseGrouper instead?
+	if strings.Contains(res.Name, ",") { // HACK
+		return false // element to be grouped is already grouped!
+	}
+
+	// group if they start with the same letter! (helpful hack for testing)
+	return obj.Name[0] == res.Name[0]
+}
+
+func NewNoopResTest(name string) *NoopResTest {
+	obj := &NoopResTest{
+		NoopRes: NoopRes{
+			BaseRes: BaseRes{
+				Name: name,
+				Meta: MetaParams{
+					AutoGroup: true, // always autogroup
+				},
+			},
+		},
+	}
+	obj.Init() // optional here in this testing scenario (for now)
+	return obj
+}
+
+// ListStrCmp compares two lists of strings
+func ListStrCmp(a, b []string) bool {
+	//fmt.Printf("CMP: %v with %v\n", a, b) // debugging
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// GraphCmp compares the topology of two graphs and returns nil if they're equal
+// It also compares if grouped element groups are identical
+func GraphCmp(g1, g2 *Graph) error {
+	if n1, n2 := g1.NumVertices(), g2.NumVertices(); n1 != n2 {
+		return fmt.Errorf("Graph g1 has %d vertices, while g2 has %d.", n1, n2)
+	}
+	if e1, e2 := g1.NumEdges(), g2.NumEdges(); e1 != e2 {
+		return fmt.Errorf("Graph g1 has %d edges, while g2 has %d.", e1, e2)
+	}
+
+	var m = make(map[*Vertex]*Vertex) // g1 to g2 vertex correspondence
+Loop:
+	// check vertices
+	for v1 := range g1.Adjacency { // for each vertex in g1
+
+		l1 := strings.Split(v1.GetName(), ",") // make list of everyone's names...
+		for _, x1 := range v1.GetGroup() {
+			l1 = append(l1, x1.GetName()) // add my contents
+		}
+		l1 = StrRemoveDuplicatesInList(l1) // remove duplicates
+		sort.Strings(l1)
+
+		// inner loop
+		for v2 := range g2.Adjacency { // does it match in g2 ?
+
+			l2 := strings.Split(v2.GetName(), ",")
+			for _, x2 := range v2.GetGroup() {
+				l2 = append(l2, x2.GetName())
+			}
+			l2 = StrRemoveDuplicatesInList(l2) // remove duplicates
+			sort.Strings(l2)
+
+			// does l1 match l2 ?
+			if ListStrCmp(l1, l2) { // cmp!
+				m[v1] = v2
+				continue Loop
+			}
+		}
+		return fmt.Errorf("Graph g1, has no match in g2 for: %v", v1.GetName())
+	}
+	// vertices (and groups) match :)
+
+	// check edges
+	for v1 := range g1.Adjacency { // for each vertex in g1
+		v2 := m[v1] // lookup in map to get correspondance
+		// g1.Adjacency[v1] corresponds to g2.Adjacency[v2]
+		if e1, e2 := len(g1.Adjacency[v1]), len(g2.Adjacency[v2]); e1 != e2 {
+			return fmt.Errorf("Graph g1, vertex(%v) has %d edges, while g2, vertex(%v) has %d.", v1.GetName(), e1, v2.GetName(), e2)
+		}
+
+		for vv1, ee1 := range g1.Adjacency[v1] {
+			vv2 := m[vv1]
+			ee2 := g2.Adjacency[v2][vv2]
+
+			// these are edges from v1 -> vv1 via ee1 (graph 1)
+			// to cmp to edges from v2 -> vv2 via ee2 (graph 2)
+
+			// check: (1) vv1 == vv2 ? (we've already checked this!)
+			l1 := strings.Split(vv1.GetName(), ",") // make list of everyone's names...
+			for _, x1 := range vv1.GetGroup() {
+				l1 = append(l1, x1.GetName()) // add my contents
+			}
+			l1 = StrRemoveDuplicatesInList(l1) // remove duplicates
+			sort.Strings(l1)
+
+			l2 := strings.Split(vv2.GetName(), ",")
+			for _, x2 := range vv2.GetGroup() {
+				l2 = append(l2, x2.GetName())
+			}
+			l2 = StrRemoveDuplicatesInList(l2) // remove duplicates
+			sort.Strings(l2)
+
+			// does l1 match l2 ?
+			if !ListStrCmp(l1, l2) { // cmp!
+				return fmt.Errorf("Graph g1 and g2 don't agree on: %v and %v", vv1.GetName(), vv2.GetName())
+			}
+
+			// check: (2) ee1 == ee2
+			if ee1.Name != ee2.Name {
+				return fmt.Errorf("Graph g1 edge(%v) doesn't match g2 edge(%v)", ee1.Name, ee2.Name)
+			}
+		}
+	}
+
+	return nil // success!
+}
+
+type testBaseGrouper struct { // FIXME: update me when we've implemented the correct grouping algorithm!
+	baseGrouper // "inherit" what we want, and reimplement the rest
+}
+
+func (ag *testBaseGrouper) name() string {
+	return "testBaseGrouper"
+}
+
+func (ag *testBaseGrouper) vertexMerge(v1, v2 *Vertex) (v *Vertex, err error) {
+	if err := v1.Res.GroupRes(v2.Res); err != nil { // group them first
+		return nil, err
+	}
+	// HACK: update the name so it matches full list of self+grouped
+	obj := v1.Res
+	names := strings.Split(obj.GetName(), ",") // load in stored names
+	for _, n := range obj.GetGroup() {
+		names = append(names, n.GetName()) // add my contents
+	}
+	names = StrRemoveDuplicatesInList(names) // remove duplicates
+	sort.Strings(names)
+	obj.SetName(strings.Join(names, ","))
+	return // success or fail, and no need to merge the actual vertices!
+}
+
+func (ag *testBaseGrouper) edgeMerge(e1, e2 *Edge) *Edge {
+	// HACK: update the name so it makes a union of both names
+	n1 := strings.Split(e1.Name, ",") // load
+	n2 := strings.Split(e2.Name, ",") // load
+	names := append(n1, n2...)
+	names = StrRemoveDuplicatesInList(names) // remove duplicates
+	sort.Strings(names)
+	return NewEdge(strings.Join(names, ","))
+}
+
+func (g *Graph) fullPrint() (str string) {
+	str += "\n"
+	for v := range g.Adjacency {
+		str += fmt.Sprintf("* v: %v\n", v.GetName())
+		// TODO: add explicit grouping data?
+	}
+	for v1 := range g.Adjacency {
+		for v2, e := range g.Adjacency[v1] {
+			str += fmt.Sprintf("* e: %v -> %v # %v\n", v1.GetName(), v2.GetName(), e.Name)
+		}
+	}
+	return
+}
+
+// helper function
+func runGraphCmp(t *testing.T, g1, g2 *Graph) {
+	// FIXME: update me when we've implemented the correct grouping algorithm!
+	ch := g1.autoGroup(&testBaseGrouper{}) // edits the graph
+	for _ = range ch {                     // bleed the channel or it won't run :(
+		// pass
+	}
+	err := GraphCmp(g1, g2)
+	if err != nil {
+		t.Logf("  actual (g1): %v%v", g1, g1.fullPrint())
+		t.Logf("expected (g2): %v%v", g2, g2.fullPrint())
+		t.Logf("Cmp error:")
+		t.Errorf("%v", err)
+	}
+}
+
+// all of the following test cases are layed out with the following semantics:
+// * vertices which start with the same single letter are considered "like"
+// * "like" elements should be merged
+// * vertices can have any integer after their single letter "family" type
+// * grouped vertices should have a name with a comma separated list of names
+// * edges follow the same conventions about grouping
+
+// empty graph
+func TestPgraphGrouping1(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	g2 := NewGraph("g2") // expected result
+	runGraphCmp(t, g1, g2)
+}
+
+// single vertex
+func TestPgraphGrouping2(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{                    // grouping to limit variable scope
+		a1 := NewVertex(NewNoopResTest("a1"))
+		g1.AddVertex(a1)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		g2.AddVertex(a1)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// two vertices
+func TestPgraphGrouping3(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		g1.AddVertex(a1, b1)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		g2.AddVertex(a1, b1)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// two vertices merge
+func TestPgraphGrouping4(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		g1.AddVertex(a1, a2)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		g2.AddVertex(a)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// three vertices merge
+func TestPgraphGrouping5(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		a3 := NewVertex(NewNoopResTest("a3"))
+		g1.AddVertex(a1, a2, a3)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2,a3"))
+		g2.AddVertex(a)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// three vertices, two merge
+func TestPgraphGrouping6(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		g1.AddVertex(a1, a2, b1)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		g2.AddVertex(a, b1)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// four vertices, three merge
+func TestPgraphGrouping7(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		a3 := NewVertex(NewNoopResTest("a3"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		g1.AddVertex(a1, a2, a3, b1)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2,a3"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		g2.AddVertex(a, b1)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// four vertices, two&two merge
+func TestPgraphGrouping8(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		b2 := NewVertex(NewNoopResTest("b2"))
+		g1.AddVertex(a1, a2, b1, b2)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		b := NewVertex(NewNoopResTest("b1,b2"))
+		g2.AddVertex(a, b)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// five vertices, two&three merge
+func TestPgraphGrouping9(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		b2 := NewVertex(NewNoopResTest("b2"))
+		b3 := NewVertex(NewNoopResTest("b3"))
+		g1.AddVertex(a1, a2, b1, b2, b3)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		b := NewVertex(NewNoopResTest("b1,b2,b3"))
+		g2.AddVertex(a, b)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// three unique vertices
+func TestPgraphGrouping10(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		g1.AddVertex(a1, b1, c1)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		g2.AddVertex(a1, b1, c1)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// three unique vertices, two merge
+func TestPgraphGrouping11(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		b2 := NewVertex(NewNoopResTest("b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		g1.AddVertex(a1, b1, b2, c1)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b := NewVertex(NewNoopResTest("b1,b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		g2.AddVertex(a1, b, c1)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// simple merge 1
+// a1   a2         a1,a2
+//   \ /     >>>     |     (arrows point downwards)
+//    b              b
+func TestPgraphGrouping12(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		g1.AddEdge(a1, b1, e1)
+		g1.AddEdge(a2, b1, e2)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		e := NewEdge("e1,e2")
+		g2.AddEdge(a, b1, e)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// simple merge 2
+//    b              b
+//   / \     >>>     |     (arrows point downwards)
+// a1   a2         a1,a2
+func TestPgraphGrouping13(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		g1.AddEdge(b1, a1, e1)
+		g1.AddEdge(b1, a2, e2)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		e := NewEdge("e1,e2")
+		g2.AddEdge(b1, a, e)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// triple merge
+// a1 a2  a3         a1,a2,a3
+//   \ | /     >>>       |      (arrows point downwards)
+//     b                 b
+func TestPgraphGrouping14(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		a3 := NewVertex(NewNoopResTest("a3"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		e3 := NewEdge("e3")
+		g1.AddEdge(a1, b1, e1)
+		g1.AddEdge(a2, b1, e2)
+		g1.AddEdge(a3, b1, e3)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2,a3"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		e := NewEdge("e1,e2,e3")
+		g2.AddEdge(a, b1, e)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// chain merge
+//    a1             a1
+//   /  \             |
+// b1    b2   >>>   b1,b2   (arrows point downwards)
+//   \  /             |
+//    c1             c1
+func TestPgraphGrouping15(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		b2 := NewVertex(NewNoopResTest("b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		e3 := NewEdge("e3")
+		e4 := NewEdge("e4")
+		g1.AddEdge(a1, b1, e1)
+		g1.AddEdge(a1, b2, e2)
+		g1.AddEdge(b1, c1, e3)
+		g1.AddEdge(b2, c1, e4)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b := NewVertex(NewNoopResTest("b1,b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1,e2")
+		e2 := NewEdge("e3,e4")
+		g2.AddEdge(a1, b, e1)
+		g2.AddEdge(b, c1, e2)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+/* FIXME: uncomment me when we've implemented the correct grouping algorithm!
+// reattach 1 (outer)
+// a1    a2         a1,a2
+//  |   /             |
+// b1  /      >>>    b1     (arrows point downwards)
+//  | /               |
+// c1                c1
+func TestPgraphGrouping16(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		e3 := NewEdge("e3")
+		g1.AddEdge(a1, b1, e1)
+		g1.AddEdge(b1, c1, e2)
+		g1.AddEdge(a2, c1, e3)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1,e3")
+		e2 := NewEdge("e2") // TODO: should this be e2,e3 (eg we split e3?)
+		g2.AddEdge(a, b1, e1)
+		g2.AddEdge(b1, c1, e2)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// reattach 2 (inner)
+// a1    b2          a1
+//  |   /             |
+// b1  /      >>>   b1,b2   (arrows point downwards)
+//  | /               |
+// c1                c1
+func TestPgraphGrouping17(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		b2 := NewVertex(NewNoopResTest("b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		e3 := NewEdge("e3")
+		g1.AddEdge(a1, b1, e1)
+		g1.AddEdge(b1, c1, e2)
+		g1.AddEdge(b2, c1, e3)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b := NewVertex(NewNoopResTest("b1,b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2,e3")
+		g2.AddEdge(a1, b, e1)
+		g2.AddEdge(b, c1, e2)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// re-attach 3 (double)
+// a2   a1    b2         a1,a2
+//   \   |   /             |
+//    \ b1  /      >>>   b1,b2   (arrows point downwards)
+//     \ | /               |
+//      c1                c1
+func TestPgraphGrouping18(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		b1 := NewVertex(NewNoopResTest("b1"))
+		b2 := NewVertex(NewNoopResTest("b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		e3 := NewEdge("e3")
+		e4 := NewEdge("e4")
+		g1.AddEdge(a1, b1, e1)
+		g1.AddEdge(b1, c1, e2)
+		g1.AddEdge(a2, c1, e3)
+		g1.AddEdge(b2, c1, e4)
+	}
+	g2 := NewGraph("g2") // expected result
+	{
+		a := NewVertex(NewNoopResTest("a1,a2"))
+		b := NewVertex(NewNoopResTest("b1,b2"))
+		c1 := NewVertex(NewNoopResTest("c1"))
+		e1 := NewEdge("e1,e3")
+		e2 := NewEdge("e2,e4")
+		g2.AddEdge(a, b, e1)
+		g2.AddEdge(b, c1, e2)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// tricky merge, (no change or merge?)
+// a1            a1
+//   \     >>>     \     (arrows point downwards)
+//    a2            a2
+func TestPgraphGroupingTricky1(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		e1 := NewEdge("e1")
+		g1.AddEdge(a1, a2, e1)
+	}
+	g2 := NewGraph("g2") // expected result ?
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		e1 := NewEdge("e1")
+		g2.AddEdge(a1, a2, e1)
+	}
+	//g3 := NewGraph("g2") // expected result ?
+	//{
+	//	a := NewVertex(NewNoopResTest("a1,a2"))
+	//}
+	runGraphCmp(t, g1, g2) // TODO: i'm tempted to think this is correct
+	//runGraphCmp(t, g1, g3)
+}
+*/

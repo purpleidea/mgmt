@@ -207,20 +207,14 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 }
 
 // helper function to store our data in etcd
-func (etcdO *EtcdWObject) EtcdPut(hostname, key, res string, obj interface{}) bool {
+func (etcdO *EtcdWObject) EtcdPut(hostname, key, res string, data string) bool {
 	kapi := etcdO.GetKAPI()
-	output, ok := ObjToB64(obj)
-	if !ok {
-		log.Printf("Etcd: Could not encode %v key.", key)
-		return false
-	}
-
 	path := fmt.Sprintf("/exported/%s/resources/%s/res", hostname, key)
 	_, err := kapi.Set(etcd_context.Background(), path, res, nil)
 	// XXX validate...
 
 	path = fmt.Sprintf("/exported/%s/resources/%s/value", hostname, key)
-	resp, err := kapi.Set(etcd_context.Background(), path, output, nil)
+	resp, err := kapi.Set(etcd_context.Background(), path, data, nil)
 	if err != nil {
 		if cerr, ok := err.(*etcd.ClusterError); ok {
 			// not running or disconnected

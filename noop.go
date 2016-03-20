@@ -18,8 +18,13 @@
 package main
 
 import (
+	"encoding/gob"
 	"log"
 )
+
+func init() {
+	gob.Register(&NoopRes{})
+}
 
 type NoopRes struct {
 	BaseRes `yaml:",inline"`
@@ -48,7 +53,7 @@ func (obj *NoopRes) Validate() bool {
 	return true
 }
 
-func (obj *NoopRes) Watch() {
+func (obj *NoopRes) Watch(processChan chan struct{}) {
 	if obj.IsWatching() {
 		return
 	}
@@ -79,7 +84,7 @@ func (obj *NoopRes) Watch() {
 			send = false
 			// only do this on certain types of events
 			//obj.isStateOK = false // something made state dirty
-			Process(obj) // XXX: rename this function
+			processChan <- struct{}{} // trigger process
 		}
 	}
 }

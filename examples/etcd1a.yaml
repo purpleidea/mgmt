@@ -13,6 +13,6 @@ resources:
       i am f2, exported from host A
     state: exists
 collect:
-- res: file
+- kind: file
   pattern: "/tmp/mgmtA/"
 edges: []

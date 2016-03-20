@@ -35,11 +35,11 @@ import (
 type graphState int
 
 const (
-	graphNil graphState = iota
-	graphStarting
-	graphStarted
-	graphPausing
-	graphPaused
+	graphStateNil graphState = iota
+	graphStateStarting
+	graphStateStarted
+	graphStatePausing
+	graphStatePaused
 )
 
 // The graph abstract data type (ADT) is defined as follows:
@@ -55,9 +55,8 @@ type Graph struct {
 }
 
 type Vertex struct {
-	graph *Graph            // store a pointer to the graph it's on
-	Res                     // anonymous field
-	data  map[string]string // XXX: currently unused i think, remove?
+	Res             // anonymous field
+	timestamp int64 // last updated timestamp ?
 }
 
 type Edge struct {
@@ -68,7 +67,7 @@ func NewGraph(name string) *Graph {
 	return &Graph{
 		Name:      name,
 		Adjacency: make(map[*Vertex]map[*Vertex]*Edge),
-		state:     graphNil,
+		state:     graphStateNil,
 	}
 }
 
@@ -82,6 +81,19 @@ func NewEdge(name string) *Edge {
 	return &Edge{
 		Name: name,
 	}
+}
+
+// Copy makes a copy of the graph struct
+func (g *Graph) Copy() *Graph {
+	newGraph := &Graph{
+		Name:      g.Name,
+		Adjacency: make(map[*Vertex]map[*Vertex]*Edge, len(g.Adjacency)),
+		state:     g.state,
+	}
+	for k, v := range g.Adjacency {
+		newGraph.Adjacency[k] = v // copy
+	}
+	return newGraph
 }
 
 // returns the name of the graph
@@ -116,13 +128,12 @@ func (g *Graph) SetVertex() {
 	}
 }
 
-// add a new vertex to the graph
-func (g *Graph) AddVertex(v *Vertex) {
-	if _, exists := g.Adjacency[v]; !exists {
-		g.Adjacency[v] = make(map[*Vertex]*Edge)
-
-		// store a pointer to the graph it's on for convenience and readability
-		v.graph = g
+// AddVertex uses variadic input to add all listed vertices to the graph
+func (g *Graph) AddVertex(xv ...*Vertex) {
+	for _, v := range xv {
+		if _, exists := g.Adjacency[v]; !exists {
+			g.Adjacency[v] = make(map[*Vertex]*Edge)
+		}
 	}
 }
 
@@ -136,9 +147,9 @@ func (g *Graph) DeleteVertex(v *Vertex) {
 // adds a directed edge to the graph from v1 to v2
 func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	// NOTE: this doesn't allow more than one edge between two vertexes...
-	// TODO: is this a problem?
-	g.AddVertex(v1)
-	g.AddVertex(v2)
+	g.AddVertex(v1, v2) // supports adding N vertices now
+	// TODO: check if an edge exists to avoid overwriting it!
+	// NOTE: VertexMerge() depends on overwriting it at the moment...
 	g.Adjacency[v1][v2] = e
 }
 
@@ -196,6 +207,11 @@ func (g *Graph) GetVerticesChan() chan *Vertex {
 // make the graph pretty print
 func (g *Graph) String() string {
 	return fmt.Sprintf("Vertices(%d), Edges(%d)", g.NumVertices(), g.NumEdges())
+}
+
+// String returns the canonical form for a vertex
+func (v *Vertex) String() string {
+	return fmt.Sprintf("%s[%s]", v.Res.Kind(), v.Res.GetName())
 }
 
 // output the graph in graphviz format
@@ -281,7 +297,7 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 }
 
 // return an array (slice) of all directed vertices to vertex v (??? -> v)
-// ostimestamp should use this
+// OKTimestamp should use this
 func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
 	// TODO: we might be able to implement this differently by reversing
 	// the Adjacency graph and then looping through it again...
@@ -465,9 +481,105 @@ func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algori
 	return L, true
 }
 
-// return a pointer to the graph a vertex is on
-func (v *Vertex) GetGraph() *Graph {
-	return v.graph
+// Reachability finds the shortest path in a DAG from a to b, and returns the
+// slice of vertices that matched this particular path including both a and b.
+// It returns nil if a or b is nil, and returns empty list if no path is found.
+// Since there could be more than one possible result for this operation, we
+// arbitrarily choose one of the shortest possible. As a result, this should
+// actually return a tree if we cared about correctness.
+// This operates by a recursive algorithm; a more efficient version is likely.
+// If you don't give this function a DAG, you might cause infinite recursion!
+func (g *Graph) Reachability(a, b *Vertex) []*Vertex {
+	if a == nil || b == nil {
+		return nil
+	}
+	vertices := g.OutgoingGraphEdges(a) // what points away from a ?
+	if len(vertices) == 0 {
+		return []*Vertex{} // nope
+	}
+	if VertexContains(b, vertices) {
+		return []*Vertex{a, b} // found
+	}
+	// TODO: parallelize this with go routines?
+	var collected = make([][]*Vertex, len(vertices))
+	pick := -1
+	for i, v := range vertices {
+		collected[i] = g.Reachability(v, b) // find b by recursion
+		if l := len(collected[i]); l > 0 {
+			// pick shortest path
+			// TODO: technically i should return a tree
+			if pick < 0 || l < len(collected[pick]) {
+				pick = i
+			}
+		}
+	}
+	if pick < 0 {
+		return []*Vertex{} // nope
+	}
+	result := []*Vertex{a} // tack on a
+	result = append(result, collected[pick]...)
+	return result
+}
+
+// VertexMerge merges v2 into v1 by reattaching the edges where appropriate,
+// and then by deleting v2 from the graph. Since more than one edge between two
+// vertices is not allowed, duplicate edges are merged as well. an edge merge
+// function can be provided if you'd like to control how you merge the edges!
+func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex) (*Vertex, error), edgeMergeFn func(*Edge, *Edge) *Edge) error {
+	// methodology
+	// 1) edges between v1 and v2 are removed
+	//Loop:
+	for k1 := range g.Adjacency {
+		for k2 := range g.Adjacency[k1] {
+			// v1 -> v2 || v2 -> v1
+			if (k1 == v1 && k2 == v2) || (k1 == v2 && k2 == v1) {
+				delete(g.Adjacency[k1], k2) // delete map & edge
+				// NOTE: if we assume this is a DAG, then we can
+				// assume only v1 -> v2 OR v2 -> v1 exists, and
+				// we can break out of these loops immediately!
+				//break Loop
+				break
+			}
+		}
+	}
+
+	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
+	for _, x := range g.IncomingGraphEdges(v2) { // all to vertex v (??? -> v)
+		e := g.Adjacency[x][v2] // previous edge
+		// merge e with ex := g.Adjacency[x][v1] if it exists!
+		if ex, exists := g.Adjacency[x][v1]; exists && edgeMergeFn != nil {
+			e = edgeMergeFn(e, ex)
+		}
+		g.AddEdge(x, v1, e)        // overwrite edge
+		delete(g.Adjacency[x], v2) // delete old edge
+	}
+
+	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
+	for _, x := range g.OutgoingGraphEdges(v2) { // all from vertex v (v -> ???)
+		e := g.Adjacency[v2][x] // previous edge
+		// merge e with ex := g.Adjacency[v1][x] if it exists!
+		if ex, exists := g.Adjacency[v1][x]; exists && edgeMergeFn != nil {
+			e = edgeMergeFn(e, ex)
+		}
+		g.AddEdge(v1, x, e) // overwrite edge
+		delete(g.Adjacency[v2], x)
+	}
+
+	// 4) merge and then remove the (now merged/grouped) vertex
+	if vertexMergeFn != nil { // run vertex merge function
+		if v, err := vertexMergeFn(v1, v2); err != nil {
+			return err
+		} else if v != nil { // replace v1 with the "merged" version...
+			v1 = v // XXX: will this replace v1 the way we want?
+		}
+	}
+	g.DeleteVertex(v2) // remove grouped vertex
+
+	// 5) creation of a cyclic graph should throw an error
+	if _, dag := g.TopologicalSort(); !dag { // am i a dag or not?
+		return fmt.Errorf("Graph is not a dag!")
+	}
+	return nil // success
 }
 
 func HeisenbergCount(ch chan *Vertex) int {
@@ -479,8 +591,134 @@ func HeisenbergCount(ch chan *Vertex) int {
 	return c
 }
 
+// GetTimestamp returns the timestamp of a vertex
+func (v *Vertex) GetTimestamp() int64 {
+	return v.timestamp
+}
+
+// UpdateTimestamp updates the timestamp on a vertex and returns the new value
+func (v *Vertex) UpdateTimestamp() int64 {
+	v.timestamp = time.Now().UnixNano() // update
+	return v.timestamp
+}
+
+// can this element run right now?
+func (g *Graph) OKTimestamp(v *Vertex) bool {
+	// these are all the vertices pointing TO v, eg: ??? -> v
+	for _, n := range g.IncomingGraphEdges(v) {
+		// if the vertex has a greater timestamp than any pre-req (n)
+		// then we can't run right now...
+		// if they're equal (eg: on init of 0) then we also can't run
+		// b/c we should let our pre-req's go first...
+		x, y := v.GetTimestamp(), n.GetTimestamp()
+		if DEBUG {
+			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): !%v", v.Kind(), v.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
+		}
+		if x >= y {
+			return false
+		}
+	}
+	return true
+}
+
+// notify nodes after me in the dependency graph that they need refreshing...
+// NOTE: this assumes that this can never fail or need to be rescheduled
+func (g *Graph) Poke(v *Vertex, activity bool) {
+	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
+	for _, n := range g.OutgoingGraphEdges(v) {
+		// XXX: if we're in state event and haven't been cancelled by
+		// apply, then we can cancel a poke to a child, right? XXX
+		// XXX: if n.Res.GetState() != resStateEvent { // is this correct?
+		if true { // XXX
+			if DEBUG {
+				log.Printf("%v[%v]: Poke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+			}
+			n.SendEvent(eventPoke, false, activity) // XXX: can this be switched to sync?
+		} else {
+			if DEBUG {
+				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+			}
+		}
+	}
+}
+
+// poke the pre-requisites that are stale and need to run before I can run...
+func (g *Graph) BackPoke(v *Vertex) {
+	// these are all the vertices pointing TO v, eg: ??? -> v
+	for _, n := range g.IncomingGraphEdges(v) {
+		x, y, s := v.GetTimestamp(), n.GetTimestamp(), n.Res.GetState()
+		// if the parent timestamp needs poking AND it's not in state
+		// resStateEvent, then poke it. If the parent is in resStateEvent it
+		// means that an event is pending, so we'll be expecting a poke
+		// back soon, so we can safely discard the extra parent poke...
+		// TODO: implement a stateLT (less than) to tell if something
+		// happens earlier in the state cycle and that doesn't wrap nil
+		if x >= y && (s != resStateEvent && s != resStateCheckApply) {
+			if DEBUG {
+				log.Printf("%v[%v]: BackPoke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+			}
+			n.SendEvent(eventBackPoke, false, false) // XXX: can this be switched to sync?
+		} else {
+			if DEBUG {
+				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+			}
+		}
+	}
+}
+
+// XXX: rename this function
+func (g *Graph) Process(v *Vertex) {
+	obj := v.Res
+	if DEBUG {
+		log.Printf("%v[%v]: Process()", obj.Kind(), obj.GetName())
+	}
+	obj.SetState(resStateEvent)
+	var ok = true
+	var apply = false // did we run an apply?
+	// is it okay to run dependency wise right now?
+	// if not, that's okay because when the dependency runs, it will poke
+	// us back and we will run if needed then!
+	if g.OKTimestamp(v) {
+		if DEBUG {
+			log.Printf("%v[%v]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
+		}
+
+		obj.SetState(resStateCheckApply)
+		// if this fails, don't UpdateTimestamp()
+		stateok, err := obj.CheckApply(true)
+		if stateok && err != nil { // should never return this way
+			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), stateok, err)
+		}
+		if DEBUG {
+			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), stateok, err)
+		}
+
+		if !stateok { // if state *was* not ok, we had to have apply'ed
+			if err != nil { // error during check or apply
+				ok = false
+			} else {
+				apply = true
+			}
+		}
+
+		if ok {
+			// update this timestamp *before* we poke or the poked
+			// nodes might fail due to having a too old timestamp!
+			v.UpdateTimestamp()          // this was touched...
+			obj.SetState(resStatePoking) // can't cancel parent poke
+			g.Poke(v, apply)
+		}
+		// poke at our pre-req's instead since they need to refresh/run...
+	} else {
+		// only poke at the pre-req's that need to run
+		go g.BackPoke(v)
+	}
+}
+
 // main kick to start the graph
 func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
+	log.Printf("State: %v -> %v", g.SetState(graphStateStarting), g.GetState())
+	defer log.Printf("State: %v -> %v", g.SetState(graphStateStarted), g.GetState())
 	t, _ := g.TopologicalSort()
 	// TODO: only calculate indegree if `first` is true to save resources
 	indegree := g.InDegree() // compute all of the indegree's
@@ -492,7 +730,20 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
 			go func(vv *Vertex) {
 				defer wg.Done()
-				vv.Res.Watch()
+				// listen for chan events from Watch() and run
+				// the Process() function when they're received
+				// this avoids us having to pass the data into
+				// the Watch() function about which graph it is
+				// running on, which isolates things nicely...
+				chanProcess := make(chan struct{})
+				go func() {
+					for _ = range chanProcess {
+						// XXX: do we need to ACK so that it's synchronous?
+						g.Process(vv)
+					}
+				}()
+				vv.Res.Watch(chanProcess) // i block until i end
+				close(chanProcess)
 				log.Printf("%v[%v]: Exited", vv.Kind(), vv.GetName())
 			}(v)
 		}
@@ -511,7 +762,7 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 		// and not just selectively the subset with no indegree.
 		if (!first) || indegree[v] == 0 {
 			// ensure state is started before continuing on to next vertex
-			for !v.Res.SendEvent(eventStart, true, false) {
+			for !v.SendEvent(eventStart, true, false) {
 				if DEBUG {
 					// if SendEvent fails, we aren't up yet
 					log.Printf("%v[%v]: Retrying SendEvent(Start)", v.Kind(), v.GetName())
@@ -525,13 +776,18 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 }
 
 func (g *Graph) Pause() {
+	log.Printf("State: %v -> %v", g.SetState(graphStatePausing), g.GetState())
+	defer log.Printf("State: %v -> %v", g.SetState(graphStatePaused), g.GetState())
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
-		v.Res.SendEvent(eventPause, true, false)
+		v.SendEvent(eventPause, true, false)
 	}
 }
 
 func (g *Graph) Exit() {
+	if g == nil {
+		return
+	} // empty graph that wasn't populated yet
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
 		// turn off the taps...
@@ -539,7 +795,7 @@ func (g *Graph) Exit() {
 		// when we hit the 'default' in the select statement!
 		// XXX: we can do this to quiesce, but it's not necessary now
 
-		v.Res.SendEvent(eventExit, true, false)
+		v.SendEvent(eventExit, true, false)
 	}
 }
 
@@ -549,19 +805,10 @@ func (g *Graph) SetConvergedCallback(ctimeout int, converged chan bool) {
 	}
 }
 
+// in array function to test *Vertex in a slice of *Vertices
 func VertexContains(needle *Vertex, haystack []*Vertex) bool {
 	for _, v := range haystack {
 		if needle == v {
-			return true
-		}
-	}
-	return false
-}
-
-// in array function to test *vertices in a slice of *vertices
-func HasVertex(v *Vertex, haystack []*Vertex) bool {
-	for _, r := range haystack {
-		if v == r {
 			return true
 		}
 	}

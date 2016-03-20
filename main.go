@@ -63,7 +63,7 @@ func run(c *cli.Context) {
 	converged := make(chan bool) // converged signal
 	log.Printf("This is: %v, version: %v", program, version)
 	log.Printf("Main: Start: %v", start)
-	G := NewGraph("Graph") // give graph a default name
+	var G, fullGraph *Graph
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := c.Int("max-runtime"); i > 0 {
@@ -102,10 +102,11 @@ func run(c *cli.Context) {
 		if !c.Bool("no-watch") {
 			configchan = ConfigWatch(file)
 		}
-		log.Printf("Etcd: Starting...")
+		log.Println("Etcd: Starting...")
 		etcdchan := etcdO.EtcdWatch()
 		first := true // first loop or not
 		for {
+			log.Println("Main: Waiting...")
 			select {
 			case _ = <-startchan: // kick the loop once at start
 				// pass
@@ -134,17 +135,29 @@ func run(c *cli.Context) {
 			}
 
 			// run graph vertex LOCK...
-			if !first { // XXX: we can flatten this check out I think
-				log.Printf("State: %v -> %v", G.SetState(graphPausing), G.GetState())
+			if !first { // TODO: we can flatten this check out I think
 				G.Pause() // sync
-				log.Printf("State: %v -> %v", G.SetState(graphPaused), G.GetState())
 			}
 
-			// build the graph from a config file
-			// build the graph on events (eg: from etcd)
-			if !UpdateGraphFromConfig(config, hostname, G, etcdO) {
-				log.Fatal("Config: We borked the graph.") // XXX
+			// build graph from yaml file on events (eg: from etcd)
+			// we need the vertices to be paused to work on them
+			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, etcdO, hostname); err == nil { // keep references to all original elements
+				fullGraph = newFullgraph
+			} else {
+				log.Printf("Config: Error making new graph from config: %v", err)
+				// unpause!
+				if !first {
+					G.Start(&wg, first) // sync
+				}
+				continue
 			}
+
+			G = fullGraph.Copy() // copy to active graph
+			// XXX: do etcd transaction out here...
+			G.AutoEdges() // add autoedges; modifies the graph
+			//G.AutoGroup() // run autogroup; modifies the graph // TODO
+			// TODO: do we want to do a transitive reduction?
+
 			log.Printf("Graph: %v", G) // show graph
 			err := G.ExecGraphviz(c.String("graphviz-filter"), c.String("graphviz"))
 			if err != nil {
@@ -159,9 +172,7 @@ func run(c *cli.Context) {
 			// some are not ready yet and the EtcdWatch
 			// loops, we'll cause G.Pause(...) before we
 			// even got going, thus causing nil pointer errors
-			log.Printf("State: %v -> %v", G.SetState(graphStarting), G.GetState())
 			G.Start(&wg, first) // sync
-			log.Printf("State: %v -> %v", G.SetState(graphStarted), G.GetState())
 			first = false
 		}
 	}()

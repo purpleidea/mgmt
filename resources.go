@@ -18,9 +18,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"fmt"
 	"log"
-	"time"
 )
 
 //go:generate stringer -type=resState -output=resstate_stringer.go
@@ -73,27 +75,24 @@ type MetaParams struct {
 // everything here only needs to be implemented once, in the BaseRes
 type Base interface {
 	GetName() string // can't be named "Name()" because of struct field
+	SetName(string)
 	Kind() string
 	GetMeta() MetaParams
 	SetVertex(*Vertex)
 	SetConvergedCallback(ctimeout int, converged chan bool)
-	SendEvent(eventName, bool, bool) bool
 	IsWatching() bool
 	SetWatching(bool)
 	GetConvergedState() resConvergedState
 	SetConvergedState(resConvergedState)
 	GetState() resState
 	SetState(resState)
-	GetTimestamp() int64
-	UpdateTimestamp() int64
-	OKTimestamp() bool
-	Poke(bool)
-	BackPoke()
-	GroupCmp(Res) bool  // TODO: is there a better name for this?
-	GroupRes(Res) error // group resource (arg) into self
-	IsGrouped() bool    // am I grouped?
-	SetGrouped(bool)    // set grouped bool
-	GetGroup() []Res    // return everyone grouped inside me
+	SendEvent(eventName, bool, bool) bool
+	ReadEvent(*Event) (bool, bool) // TODO: optional here?
+	GroupCmp(Res) bool             // TODO: is there a better name for this?
+	GroupRes(Res) error            // group resource (arg) into self
+	IsGrouped() bool               // am I grouped?
+	SetGrouped(bool)               // set grouped bool
+	GetGroup() []Res               // return everyone grouped inside me
 	SetGroup([]Res)
 }
 
@@ -103,17 +102,17 @@ type Res interface {
 	Init()
 	//Validate() bool    // TODO: this might one day be added
 	GetUUIDs() []ResUUID // most resources only return one
-	Watch()
+	Watch(chan struct{}) // send on channel to signal process() events
 	CheckApply(bool) (bool, error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
+	CollectPattern(string) // XXX: temporary until Res collection is more advanced
 }
 
 type BaseRes struct {
 	Name           string     `yaml:"name"`
 	Meta           MetaParams `yaml:"meta"` // struct of all the metaparams
 	kind           string
-	timestamp      int64 // last updated timestamp ?
 	events         chan Event
 	vertex         *Vertex
 	state          resState
@@ -168,9 +167,13 @@ func (obj *BaseRes) Init() {
 	obj.events = make(chan Event) // unbuffered chan size to avoid stale events
 }
 
-// this method gets used by all the resources, if we have one of (obj NoopRes) it would get overridden in that case!
+// this method gets used by all the resources
 func (obj *BaseRes) GetName() string {
 	return obj.Name
+}
+
+func (obj *BaseRes) SetName(name string) {
+	obj.Name = name
 }
 
 // return the kind of resource this is
@@ -222,87 +225,6 @@ func (obj *BaseRes) SetState(state resState) {
 		log.Printf("%v[%v]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state
-}
-
-// GetTimestamp returns the timestamp of a vertex
-func (obj *BaseRes) GetTimestamp() int64 {
-	return obj.timestamp
-}
-
-// UpdateTimestamp updates the timestamp on a vertex and returns the new value
-func (obj *BaseRes) UpdateTimestamp() int64 {
-	obj.timestamp = time.Now().UnixNano() // update
-	return obj.timestamp
-}
-
-// can this element run right now?
-func (obj *BaseRes) OKTimestamp() bool {
-	v := obj.GetVertex()
-	g := v.GetGraph()
-	// these are all the vertices pointing TO v, eg: ??? -> v
-	for _, n := range g.IncomingGraphEdges(v) {
-		// if the vertex has a greater timestamp than any pre-req (n)
-		// then we can't run right now...
-		// if they're equal (eg: on init of 0) then we also can't run
-		// b/c we should let our pre-req's go first...
-		x, y := obj.GetTimestamp(), n.Res.GetTimestamp()
-		if DEBUG {
-			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): !%v", obj.Kind(), obj.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
-		}
-		if x >= y {
-			return false
-		}
-	}
-	return true
-}
-
-// notify nodes after me in the dependency graph that they need refreshing...
-// NOTE: this assumes that this can never fail or need to be rescheduled
-func (obj *BaseRes) Poke(activity bool) {
-	v := obj.GetVertex()
-	g := v.GetGraph()
-	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
-	for _, n := range g.OutgoingGraphEdges(v) {
-		// XXX: if we're in state event and haven't been cancelled by
-		// apply, then we can cancel a poke to a child, right? XXX
-		// XXX: if n.Res.GetState() != resStateEvent { // is this correct?
-		if true { // XXX
-			if DEBUG {
-				log.Printf("%v[%v]: Poke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
-			}
-			n.SendEvent(eventPoke, false, activity) // XXX: can this be switched to sync?
-		} else {
-			if DEBUG {
-				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
-			}
-		}
-	}
-}
-
-// poke the pre-requisites that are stale and need to run before I can run...
-func (obj *BaseRes) BackPoke() {
-	v := obj.GetVertex()
-	g := v.GetGraph()
-	// these are all the vertices pointing TO v, eg: ??? -> v
-	for _, n := range g.IncomingGraphEdges(v) {
-		x, y, s := obj.GetTimestamp(), n.Res.GetTimestamp(), n.Res.GetState()
-		// if the parent timestamp needs poking AND it's not in state
-		// resStateEvent, then poke it. If the parent is in resStateEvent it
-		// means that an event is pending, so we'll be expecting a poke
-		// back soon, so we can safely discard the extra parent poke...
-		// TODO: implement a stateLT (less than) to tell if something
-		// happens earlier in the state cycle and that doesn't wrap nil
-		if x >= y && (s != resStateEvent && s != resStateCheckApply) {
-			if DEBUG {
-				log.Printf("%v[%v]: BackPoke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
-			}
-			n.SendEvent(eventBackPoke, false, false) // XXX: can this be switched to sync?
-		} else {
-			if DEBUG {
-				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
-			}
-		}
-	}
 }
 
 // push an event into the message queue for a particular vertex
@@ -394,50 +316,38 @@ func (obj *BaseRes) SetGroup(g []Res) {
 	obj.grouped = g
 }
 
-// XXX: rename this function
-func Process(obj Res) {
-	if DEBUG {
-		log.Printf("%v[%v]: Process()", obj.Kind(), obj.GetName())
+func (obj *BaseRes) CollectPattern(pattern string) {
+	// XXX: default method is empty
+}
+
+// ResToB64 encodes a resource to a base64 encoded string (after serialization)
+func ResToB64(res Res) (string, error) {
+	b := bytes.Buffer{}
+	e := gob.NewEncoder(&b)
+	err := e.Encode(&res) // pass with &
+	if err != nil {
+		return "", fmt.Errorf("Gob failed to encode: %v", err)
 	}
-	obj.SetState(resStateEvent)
-	var ok = true
-	var apply = false // did we run an apply?
-	// is it okay to run dependency wise right now?
-	// if not, that's okay because when the dependency runs, it will poke
-	// us back and we will run if needed then!
-	if obj.OKTimestamp() {
-		if DEBUG {
-			log.Printf("%v[%v]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), obj.GetTimestamp())
-		}
+	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}
 
-		obj.SetState(resStateCheckApply)
-		// if this fails, don't UpdateTimestamp()
-		stateok, err := obj.CheckApply(true)
-		if stateok && err != nil { // should never return this way
-			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), stateok, err)
-		}
-		if DEBUG {
-			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), stateok, err)
-		}
-
-		if !stateok { // if state *was* not ok, we had to have apply'ed
-			if err != nil { // error during check or apply
-				ok = false
-			} else {
-				apply = true
-			}
-		}
-
-		if ok {
-			// update this timestamp *before* we poke or the poked
-			// nodes might fail due to having a too old timestamp!
-			obj.UpdateTimestamp()        // this was touched...
-			obj.SetState(resStatePoking) // can't cancel parent poke
-			obj.Poke(apply)
-		}
-		// poke at our pre-req's instead since they need to refresh/run...
-	} else {
-		// only poke at the pre-req's that need to run
-		go obj.BackPoke()
+// B64ToRes decodes a resource from a base64 encoded string (after deserialization)
+func B64ToRes(str string) (Res, error) {
+	var output interface{}
+	bb, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return nil, fmt.Errorf("Base64 failed to decode: %v", err)
 	}
+	b := bytes.NewBuffer(bb)
+	d := gob.NewDecoder(b)
+	err = d.Decode(&output) // pass with &
+	if err != nil {
+		return nil, fmt.Errorf("Gob failed to decode: %v", err)
+	}
+	res, ok := output.(Res)
+	if !ok {
+		return nil, fmt.Errorf("Output %v is not a Res", res)
+
+	}
+	return res, nil
 }

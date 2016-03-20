@@ -25,8 +25,8 @@ resources:
 edges:
 - name: e1
   from:
-    res: exec
+    kind: exec
     name: exec1
   to:
-    res: exec
+    kind: exec
     name: exec2

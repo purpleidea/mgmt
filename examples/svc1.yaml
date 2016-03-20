@@ -16,15 +16,15 @@ resources:
 edges:
 - name: e1
   from:
-    res: noop
+    kind: noop
     name: noop1
   to:
-    res: file
+    kind: file
     name: file1
 - name: e2
   from:
-    res: file
+    kind: file
     name: file1
   to:
-    res: svc
+    kind: svc
     name: purpleidea

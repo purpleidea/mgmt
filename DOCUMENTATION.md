@@ -32,6 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 3. [Setup - Getting started with mgmt](#setup)
 4. [Features - All things mgmt can do](#features)
 	* [Autoedges - Automatic resource relationships](#autoedges)
+	* [Autogrouping - Automatic resource grouping](#autogrouping)
 5. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
 6. [Reference - Detailed reference](#reference)
 	* [Graph definition file](#graph-definition-file)
@@ -94,8 +95,22 @@ order to handle this situation you can disable autoedges per resource and
 explicitly declare that you want `my.cnf` to be written to disk before the
 installation of the `mysql-server` package.
 
-You can disable autoedges for a resource by setting the `autoedge` key for
-the meta attributes of a resource to `false`.
+You can disable autoedges for a resource by setting the `autoedge` key on
+the meta attributes of that resource to `false`.
+
+###Autogrouping
+
+Automatic grouping or AutoGroup is the mechanism in mgmt by which it will
+automatically group multiple resource vertices into a single one. This is
+particularly useful for grouping multiple package resources into a single
+resource, since the multiple installations can happen together in a single
+transaction, which saves a lot of time because package resources typically have
+a large fixed cost to running (downloading and verifying the package repo) and
+if they are grouped they share this fixed cost. This grouping feature can be
+used for other use cases too.
+
+You can disable autogrouping for a resource by setting the `autogroup` key on
+the meta attributes of that resource to `false`.
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

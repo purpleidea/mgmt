@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"gopkg.in/fsnotify.v1"
 	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
+	"encoding/gob"
 	"io"
 	"log"
 	"math"
@@ -30,6 +31,10 @@ import (
 	"strings"
 	"syscall"
 )
+
+func init() {
+	gob.Register(&FileRes{})
+}
 
 type FileRes struct {
 	BaseRes   `yaml:",inline"`
@@ -97,7 +102,7 @@ func (obj *FileRes) Validate() bool {
 // File watcher for files and directories
 // Modify with caution, probably important to write some test cases first!
 // obj.GetPath(): file or directory
-func (obj *FileRes) Watch() {
+func (obj *FileRes) Watch(processChan chan struct{}) {
 	if obj.IsWatching() {
 		return
 	}
@@ -230,7 +235,7 @@ func (obj *FileRes) Watch() {
 
 		case err := <-watcher.Errors:
 			obj.SetConvergedState(resConvergedNil) // XXX ?
-			log.Println("error:", err)
+			log.Printf("error: %v", err)
 			log.Fatal(err)
 			//obj.events <- fmt.Sprintf("file: %v", "error") // XXX: how should we handle errors?
 
@@ -255,7 +260,7 @@ func (obj *FileRes) Watch() {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			Process(obj) // XXX: rename this function
+			processChan <- struct{}{} // trigger process
 		}
 	}
 }
@@ -487,4 +492,9 @@ func (obj *FileRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+func (obj *FileRes) CollectPattern(pattern string) {
+	// XXX: currently the pattern for files can only override the Dirname variable :P
+	obj.Dirname = pattern // XXX: simplistic for now
 }

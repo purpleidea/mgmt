@@ -20,11 +20,16 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/gob"
 	"errors"
 	"log"
 	"os/exec"
 	"strings"
 )
+
+func init() {
+	gob.Register(&ExecRes{})
+}
 
 type ExecRes struct {
 	BaseRes    `yaml:",inline"`
@@ -97,7 +102,7 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 }
 
 // Exec watcher
-func (obj *ExecRes) Watch() {
+func (obj *ExecRes) Watch(processChan chan struct{}) {
 	if obj.IsWatching() {
 		return
 	}
@@ -187,8 +192,8 @@ func (obj *ExecRes) Watch() {
 		if send {
 			send = false
 			// it is okay to invalidate the clean state on poke too
-			obj.isStateOK = false // something made state dirty
-			Process(obj)          // XXX: rename this function
+			obj.isStateOK = false     // something made state dirty
+			processChan <- struct{}{} // trigger process
 		}
 	}
 }

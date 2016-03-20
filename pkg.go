@@ -19,12 +19,17 @@ package main
 
 import (
 	//"packagekit" // TODO
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
 	"path"
 	"strings"
 )
+
+func init() {
+	gob.Register(&PkgRes{})
+}
 
 type PkgRes struct {
 	BaseRes          `yaml:",inline"`
@@ -102,7 +107,7 @@ func (obj *PkgRes) Validate() bool {
 // use UpdatesChanged signal to watch for changes
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
-func (obj *PkgRes) Watch() {
+func (obj *PkgRes) Watch(processChan chan struct{}) {
 	if obj.IsWatching() {
 		return
 	}
@@ -168,7 +173,7 @@ func (obj *PkgRes) Watch() {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			Process(obj) // XXX: rename this function
+			processChan <- struct{}{} // trigger process
 		}
 	}
 }

@@ -23,16 +23,17 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
+	"reflect"
 	"strings"
 )
 
 type collectorResConfig struct {
-	Res     string `yaml:"res"`
+	Kind    string `yaml:"kind"`
 	Pattern string `yaml:"pattern"` // XXX: Not Implemented
 }
 
 type vertexConfig struct {
-	Res  string `yaml:"res"`
+	Kind string `yaml:"kind"`
 	Name string `yaml:"name"`
 }
 
@@ -82,105 +83,79 @@ func ParseConfigFromFile(filename string) *GraphConfig {
 	return &config
 }
 
-// XXX: we need to fix this function so that it either fails without modifying
-// the graph, passes successfully and modifies it, or basically panics i guess
-// this way an invalid compilation can leave the old graph running, and we we
-// don't modify a partial graph. so we really need to validate, and then perform
-// whatever actions are necessary
-// finding some way to do this on a copy of the graph, and then do a graph diff
-// and merge the new data into the old graph would be more appropriate, in
-// particular if we can ensure the graph merge can't fail. As for the putting
-// of stuff into etcd, we should probably store the operations to complete in
-// the new graph, and keep retrying until it succeeds, thus blocking any new
-// etcd operations until that time.
-func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO *EtcdWObject) bool {
+// NewGraphFromConfig returns a new graph from existing input, such as from the
+// existing graph, and a GraphConfig struct.
+func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, hostname string) (*Graph, error) {
 
-	var NoopMap = make(map[string]*Vertex)
-	var PkgMap = make(map[string]*Vertex)
-	var FileMap = make(map[string]*Vertex)
-	var SvcMap = make(map[string]*Vertex)
-	var ExecMap = make(map[string]*Vertex)
+	var graph *Graph // new graph to return
+	if g == nil {    // FIXME: how can we check for an empty graph?
+		graph = NewGraph("Graph") // give graph a default name
+	} else {
+		graph = g.Copy() // same vertices, since they're pointers!
+	}
 
 	var lookup = make(map[string]map[string]*Vertex)
-	lookup["noop"] = NoopMap
-	lookup["pkg"] = PkgMap
-	lookup["file"] = FileMap
-	lookup["svc"] = SvcMap
-	lookup["exec"] = ExecMap
 
 	//log.Printf("%+v", config) // debug
 
-	g.SetName(config.Graph) // set graph name
+	// TODO: if defined (somehow)...
+	graph.SetName(config.Graph) // set graph name
 
 	var keep []*Vertex // list of vertex which are the same in new graph
 
-	for _, obj := range config.Resources.Noop {
-		v := g.GetVertexMatch(obj)
-		if v == nil { // no match found
-			obj.Init()
-			v = NewVertex(obj)
-			g.AddVertex(v) // call standalone in case not part of an edge
+	// use reflection to avoid duplicating code... better options welcome!
+	value := reflect.Indirect(reflect.ValueOf(config.Resources))
+	vtype := value.Type()
+	for i := 0; i < vtype.NumField(); i++ { // number of fields in struct
+		name := vtype.Field(i).Name // string of field name
+		field := value.FieldByName(name)
+		iface := field.Interface() // interface type of value
+		slice := reflect.ValueOf(iface)
+		// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
+		kind := FirstToUpper(name)
+		if DEBUG {
+			log.Printf("Config: Processing: %v...", kind)
 		}
-		NoopMap[obj.Name] = v  // used for constructing edges
-		keep = append(keep, v) // append
-	}
-
-	for _, obj := range config.Resources.Pkg {
-		v := g.GetVertexMatch(obj)
-		if v == nil { // no match found
-			obj.Init()
-			v = NewVertex(obj)
-			g.AddVertex(v) // call standalone in case not part of an edge
-		}
-		PkgMap[obj.Name] = v   // used for constructing edges
-		keep = append(keep, v) // append
-	}
-
-	for _, obj := range config.Resources.File {
-		// XXX: should we export based on a @@ prefix, or a metaparam
-		// like exported => true || exported => (host pattern)||(other pattern?)
-		if strings.HasPrefix(obj.Name, "@@") { // exported resource
-			// add to etcd storage...
-			obj.Name = obj.Name[2:] //slice off @@
-			if !etcdO.EtcdPut(hostname, obj.Name, "file", obj) {
-				log.Printf("Problem exporting file resource %v.", obj.Name)
-				continue
+		for j := 0; j < slice.Len(); j++ { // loop through resources of same kind
+			x := slice.Index(j).Interface()
+			obj, ok := x.(Res) // convert to Res type
+			if !ok {
+				return nil, fmt.Errorf("Error: Config: Can't convert: %v of type: %T to Res.", x, x)
 			}
-		} else {
-			// XXX: we don't have a way of knowing if any of the
-			// metaparams are undefined, and as a result to set the
-			// defaults that we want! I hate the go yaml parser!!!
-			v := g.GetVertexMatch(obj)
-			if v == nil { // no match found
-				obj.Init()
-				v = NewVertex(obj)
-				g.AddVertex(v) // call standalone in case not part of an edge
+
+			if _, exists := lookup[kind]; !exists {
+				lookup[kind] = make(map[string]*Vertex)
 			}
-			FileMap[obj.Name] = v  // used for constructing edges
-			keep = append(keep, v) // append
-		}
-	}
+			// XXX: should we export based on a @@ prefix, or a metaparam
+			// like exported => true || exported => (host pattern)||(other pattern?)
+			if !strings.HasPrefix(obj.GetName(), "@@") { // exported resource
+				// XXX: we don't have a way of knowing if any of the
+				// metaparams are undefined, and as a result to set the
+				// defaults that we want! I hate the go yaml parser!!!
+				v := graph.GetVertexMatch(obj)
+				if v == nil { // no match found
+					obj.Init()
+					v = NewVertex(obj)
+					graph.AddVertex(v) // call standalone in case not part of an edge
+				}
+				lookup[kind][obj.GetName()] = v // used for constructing edges
+				keep = append(keep, v)          // append
 
-	for _, obj := range config.Resources.Svc {
-		v := g.GetVertexMatch(obj)
-		if v == nil { // no match found
-			obj.Init()
-			v = NewVertex(obj)
-			g.AddVertex(v) // call standalone in case not part of an edge
-		}
-		SvcMap[obj.Name] = v   // used for constructing edges
-		keep = append(keep, v) // append
-	}
+			} else {
+				// XXX: do this in a different function...
+				// add to etcd storage...
+				obj.SetName(obj.GetName()[2:]) //slice off @@
 
-	for _, obj := range config.Resources.Exec {
-		v := g.GetVertexMatch(obj)
-		if v == nil { // no match found
-			obj.Init()
-			v = NewVertex(obj)
-			g.AddVertex(v) // call standalone in case not part of an edge
+				data, err := ResToB64(obj)
+				if err != nil {
+					return nil, fmt.Errorf("Config: Could not encode %v resource: %v, error: %v", kind, obj.GetName(), err)
+				}
+
+				if !etcdO.EtcdPut(hostname, obj.GetName(), kind, data) {
+					return nil, fmt.Errorf("Config: Could not export %v resource: %v", kind, obj.GetName())
+				}
+			}
 		}
-		ExecMap[obj.Name] = v  // used for constructing edges
-		keep = append(keep, v) // append
 	}
 
 	// lookup from etcd graph
@@ -189,100 +164,71 @@ func UpdateGraphFromConfig(config *GraphConfig, hostname string, g *Graph, etcdO
 	nodes, ok := etcdO.EtcdGet()
 	if ok {
 		for _, t := range config.Collector {
-			// XXX: use t.Res and optionally t.Pattern to collect from etcd storage
-			log.Printf("Collect: %v; Pattern: %v", t.Res, t.Pattern)
+			// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
+			kind := FirstToUpper(t.Kind)
 
-			for _, x := range etcdO.EtcdGetProcess(nodes, "file") {
-				var obj *FileRes
-				if B64ToObj(x, &obj) != true {
-					log.Printf("Collect: File: %v not collected!", x)
+			// use t.Kind and optionally t.Pattern to collect from etcd storage
+			log.Printf("Collect: %v; Pattern: %v", kind, t.Pattern)
+			for _, str := range etcdO.EtcdGetProcess(nodes, kind) {
+				obj, err := B64ToRes(str)
+				if err != nil {
+					log.Printf("B64ToRes failed to decode: %v", err)
+					log.Printf("Collect: %v: not collected!", kind)
 					continue
 				}
-				if t.Pattern != "" { // XXX: currently the pattern for files can only override the Dirname variable :P
-					obj.Dirname = t.Pattern
+
+				if t.Pattern != "" { // XXX: simplistic for now
+					obj.CollectPattern(t.Pattern) // obj.Dirname = t.Pattern
 				}
 
-				log.Printf("Collect: File: %v collected!", obj.GetName())
+				log.Printf("Collect: %v[%v]: collected!", kind, obj.GetName())
 
-				// XXX: similar to file add code:
-				v := g.GetVertexMatch(obj)
+				// XXX: similar to other resource add code:
+				if _, exists := lookup[kind]; !exists {
+					lookup[kind] = make(map[string]*Vertex)
+				}
+				v := graph.GetVertexMatch(obj)
 				if v == nil { // no match found
 					obj.Init() // initialize go channels or things won't work!!!
 					v = NewVertex(obj)
-					g.AddVertex(v) // call standalone in case not part of an edge
+					graph.AddVertex(v) // call standalone in case not part of an edge
 				}
-				FileMap[obj.GetName()] = v // used for constructing edges
-				keep = append(keep, v)     // append
-
+				lookup[kind][obj.GetName()] = v // used for constructing edges
+				keep = append(keep, v)          // append
 			}
 		}
 	}
 
 	// get rid of any vertices we shouldn't "keep" (that aren't in new graph)
-	for _, v := range g.GetVertices() {
-		if !HasVertex(v, keep) {
+	for _, v := range graph.GetVertices() {
+		if !VertexContains(v, keep) {
 			// wait for exit before starting new graph!
-			v.Res.SendEvent(eventExit, true, false)
-			g.DeleteVertex(v)
+			v.SendEvent(eventExit, true, false)
+			graph.DeleteVertex(v)
 		}
 	}
 
 	for _, e := range config.Edges {
-		if _, ok := lookup[e.From.Res]; !ok {
-			return false
+		if _, ok := lookup[FirstToUpper(e.From.Kind)]; !ok {
+			return nil, fmt.Errorf("Can't find 'from' resource!")
 		}
-		if _, ok := lookup[e.To.Res]; !ok {
-			return false
+		if _, ok := lookup[FirstToUpper(e.To.Kind)]; !ok {
+			return nil, fmt.Errorf("Can't find 'to' resource!")
 		}
-		if _, ok := lookup[e.From.Res][e.From.Name]; !ok {
-			return false
+		if _, ok := lookup[FirstToUpper(e.From.Kind)][e.From.Name]; !ok {
+			return nil, fmt.Errorf("Can't find 'from' name!")
 		}
-		if _, ok := lookup[e.To.Res][e.To.Name]; !ok {
-			return false
+		if _, ok := lookup[FirstToUpper(e.To.Kind)][e.To.Name]; !ok {
+			return nil, fmt.Errorf("Can't find 'to' name!")
 		}
-		g.AddEdge(lookup[e.From.Res][e.From.Name], lookup[e.To.Res][e.To.Name], NewEdge(e.Name))
+		graph.AddEdge(lookup[FirstToUpper(e.From.Kind)][e.From.Name], lookup[FirstToUpper(e.To.Kind)][e.To.Name], NewEdge(e.Name))
 	}
 
-	// add auto edges
-	log.Println("Compile: Adding AutoEdges...")
-	for _, v := range g.GetVertices() { // for each vertexes autoedges
-		if !v.GetMeta().AutoEdge { // is the metaparam true?
-			continue
-		}
-		autoEdgeObj := v.AutoEdges()
-		if autoEdgeObj == nil {
-			log.Printf("%v[%v]: Config: No auto edges were found!", v.Kind(), v.GetName())
-			continue // next vertex
-		}
-
-		for { // while the autoEdgeObj has more uuids to add...
-			uuids := autoEdgeObj.Next() // get some!
-			if uuids == nil {
-				log.Printf("%v[%v]: Config: The auto edge list is empty!", v.Kind(), v.GetName())
-				break // inner loop
-			}
-			if DEBUG {
-				log.Println("Compile: AutoEdge: UUIDS:")
-				for i, u := range uuids {
-					log.Printf("Compile: AutoEdge: UUID%d: %v", i, u)
-				}
-			}
-
-			// match and add edges
-			result := g.AddEdgesByMatchingUUIDS(v, uuids)
-
-			// report back, and find out if we should continue
-			if !autoEdgeObj.Test(result) {
-				break
-			}
-		}
-	}
-
-	return true
+	return graph, nil
 }
 
 // add edges to the vertex in a graph based on if it matches a uuid list
-func (g *Graph) AddEdgesByMatchingUUIDS(v *Vertex, uuids []ResUUID) []bool {
+func (g *Graph) addEdgesByMatchingUUIDS(v *Vertex, uuids []ResUUID) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
@@ -316,9 +262,251 @@ func (g *Graph) AddEdgesByMatchingUUIDS(v *Vertex, uuids []ResUUID) []bool {
 				break
 			}
 		}
-
 		result = append(result, found)
 	}
-
 	return result
+}
+
+// add auto edges to graph
+func (g *Graph) AutoEdges() {
+	log.Println("Compile: Adding AutoEdges...")
+	for _, v := range g.GetVertices() { // for each vertexes autoedges
+		if !v.GetMeta().AutoEdge { // is the metaparam true?
+			continue
+		}
+		autoEdgeObj := v.AutoEdges()
+		if autoEdgeObj == nil {
+			log.Printf("%v[%v]: Config: No auto edges were found!", v.Kind(), v.GetName())
+			continue // next vertex
+		}
+
+		for { // while the autoEdgeObj has more uuids to add...
+			uuids := autoEdgeObj.Next() // get some!
+			if uuids == nil {
+				log.Printf("%v[%v]: Config: The auto edge list is empty!", v.Kind(), v.GetName())
+				break // inner loop
+			}
+			if DEBUG {
+				log.Println("Compile: AutoEdge: UUIDS:")
+				for i, u := range uuids {
+					log.Printf("Compile: AutoEdge: UUID%d: %v", i, u)
+				}
+			}
+
+			// match and add edges
+			result := g.addEdgesByMatchingUUIDS(v, uuids)
+
+			// report back, and find out if we should continue
+			if !autoEdgeObj.Test(result) {
+				break
+			}
+		}
+	}
+}
+
+// AutoGrouper is the required interface to implement for an autogroup algorithm
+type AutoGrouper interface {
+	// listed in the order these are typically called in...
+	name() string                                  // friendly identifier
+	init(*Graph) error                             // only call once
+	vertexNext() (*Vertex, *Vertex, error)         // mostly algorithmic
+	vertexCmp(*Vertex, *Vertex) error              // can we merge these ?
+	vertexMerge(*Vertex, *Vertex) (*Vertex, error) // vertex merge fn to use
+	edgeMerge(*Edge, *Edge) *Edge                  // edge merge fn to use
+	vertexTest(bool) (bool, error)                 // call until false
+}
+
+// baseGrouper is the base type for implementing the AutoGrouper interface
+type baseGrouper struct {
+	graph    *Graph    // store a pointer to the graph
+	vertices []*Vertex // cached list of vertices
+	i        int
+	j        int
+	done     bool
+}
+
+// name provides a friendly name for the logs to see
+func (ag *baseGrouper) name() string {
+	return "baseGrouper"
+}
+
+// init is called only once and before using other AutoGrouper interface methods
+// the name method is the only exception: call it any time without side effects!
+func (ag *baseGrouper) init(g *Graph) error {
+	if ag.graph != nil {
+		return fmt.Errorf("The init method has already been called!")
+	}
+	ag.graph = g                         // pointer
+	ag.vertices = ag.graph.GetVertices() // cache
+	ag.i = 0
+	ag.j = 0
+	if len(ag.vertices) == 0 { // empty graph
+		ag.done = true
+		return nil
+	}
+	return nil
+}
+
+// vertexNext is a simple iterator that loops through vertex (pair) combinations
+// an intelligent algorithm would selectively offer only valid pairs of vertices
+// these should satisfy logical grouping requirements for the autogroup designs!
+// the desired algorithms can override, but keep this method as a base iterator!
+func (ag *baseGrouper) vertexNext() (v1, v2 *Vertex, err error) {
+	// this does a for v... { for w... { return v, w }} but stepwise!
+	l := len(ag.vertices)
+	if ag.i < l {
+		v1 = ag.vertices[ag.i]
+	}
+	if ag.j < l {
+		v2 = ag.vertices[ag.j]
+	}
+
+	// in case the vertex was deleted
+	if !ag.graph.HasVertex(v1) {
+		v1 = nil
+	}
+	if !ag.graph.HasVertex(v2) {
+		v2 = nil
+	}
+
+	// two nested loops...
+	if ag.j < l {
+		ag.j++
+	}
+	if ag.j == l {
+		ag.j = 0
+		if ag.i < l {
+			ag.i++
+		}
+		if ag.i == l {
+			ag.done = true
+		}
+	}
+
+	return
+}
+
+func (ag *baseGrouper) vertexCmp(v1, v2 *Vertex) error {
+	if v1 == nil || v2 == nil {
+		return fmt.Errorf("Vertex is nil!")
+	}
+	if v1 == v2 { // skip yourself
+		return fmt.Errorf("Vertices are the same!")
+	}
+	if v1.Kind() != v2.Kind() { // we must group similar kinds
+		// TODO: maybe future resources won't need this limitation?
+		return fmt.Errorf("The two resources aren't the same kind!")
+	}
+	// someone doesn't want to group!
+	if !v1.GetMeta().AutoGroup || !v2.GetMeta().AutoGroup {
+		return fmt.Errorf("One of the autogroup flags is false!")
+	}
+	if v1.Res.IsGrouped() { // already grouped!
+		return fmt.Errorf("Already grouped!")
+	}
+	if len(v2.Res.GetGroup()) > 0 { // already has children grouped!
+		return fmt.Errorf("Already has groups!")
+	}
+	if !v1.Res.GroupCmp(v2.Res) { // resource groupcmp failed!
+		return fmt.Errorf("The GroupCmp failed!")
+	}
+	return nil // success
+}
+
+func (ag *baseGrouper) vertexMerge(v1, v2 *Vertex) (v *Vertex, err error) {
+	// NOTE: it's important to use w.Res instead of w, b/c
+	// the w by itself is the *Vertex obj, not the *Res obj
+	// which is contained within it! They both satisfy the
+	// Res interface, which is why both will compile! :(
+	err = v1.Res.GroupRes(v2.Res) // GroupRes skips stupid groupings
+	return                        // success or fail, and no need to merge the actual vertices!
+}
+
+func (ag *baseGrouper) edgeMerge(e1, e2 *Edge) *Edge {
+	return e1 // noop
+}
+
+// vertexTest processes the results of the grouping for the algorithm to know
+// return an error if something went horribly wrong, and bool false to stop
+func (ag *baseGrouper) vertexTest(b bool) (bool, error) {
+	// NOTE: this particular baseGrouper version doesn't track what happens
+	// because since we iterate over every pair, we don't care which merge!
+	if ag.done {
+		return false, nil
+	}
+	return true, nil
+}
+
+type algorithmNameGrouper struct { // XXX rename me!
+	baseGrouper // "inherit" what we want, and reimplement the rest
+}
+
+func (ag *algorithmNameGrouper) name() string {
+	log.Fatal("Not implemented!") // XXX
+	return "algorithmNameGrouper"
+}
+
+func (ag *algorithmNameGrouper) vertexNext() (v1, v2 *Vertex, err error) {
+	log.Fatal("Not implemented!") // XXX
+	// NOTE: you can even build this like this:
+	//v1, v2, err = ag.baseGrouper.vertexNext() // get all iterable pairs
+	// ...
+	//ag.baseGrouper.vertexTest(...)
+	//return
+	return nil, nil, fmt.Errorf("Not implemented!")
+}
+
+// autoGroup is the mechanical auto group "runner" that runs the interface spec
+func (g *Graph) autoGroup(ag AutoGrouper) chan string {
+	strch := make(chan string) // output log messages here
+	go func(strch chan string) {
+		strch <- fmt.Sprintf("Compile: Grouping: Algorithm: %v...", ag.name())
+		if err := ag.init(g); err != nil {
+			log.Fatalf("Error running autoGroup(init): %v", err)
+		}
+
+		for {
+			var v, w *Vertex
+			v, w, err := ag.vertexNext() // get pair to compare
+			if err != nil {
+				log.Fatalf("Error running autoGroup(vertexNext): %v", err)
+			}
+			merged := false
+			// save names since they change during the runs
+			vStr := fmt.Sprintf("%s", v) // valid even if it is nil
+			wStr := fmt.Sprintf("%s", w)
+
+			if err := ag.vertexCmp(v, w); err != nil { // cmp ?
+				strch <- fmt.Sprintf("Compile: Grouping: !GroupCmp for: %s into %s", wStr, vStr)
+
+				// remove grouped vertex and merge edges (res is safe)
+			} else if err := g.VertexMerge(v, w, ag.vertexMerge, ag.edgeMerge); err != nil { // merge...
+				strch <- fmt.Sprintf("Compile: Grouping: !VertexMerge for: %s into %s", wStr, vStr)
+
+			} else { // success!
+				strch <- fmt.Sprintf("Compile: Grouping: Success for: %s into %s", wStr, vStr)
+				merged = true // woo
+			}
+
+			// did these get used?
+			if ok, err := ag.vertexTest(merged); err != nil {
+				log.Fatalf("Error running autoGroup(vertexTest): %v", err)
+			} else if !ok {
+				break // done!
+			}
+		}
+
+		close(strch)
+		return
+	}(strch) // call function
+	return strch
+}
+
+// AutoGroup runs the auto grouping on the graph and prints out log messages
+func (g *Graph) AutoGroup() {
+	// receive log messages from channel...
+	// this allows test cases to avoid printing them when they're unwanted!
+	for str := range g.autoGroup(&baseGrouper{}) {
+		log.Println(str)
+	}
 }

@@ -55,29 +55,29 @@ resources:
 edges:
 - name: e1
   from:
-    res: exec
+    kind: exec
     name: exec1
   to:
-    res: exec
+    kind: exec
     name: exec2
 - name: e2
   from:
-    res: exec
+    kind: exec
     name: exec1
   to:
-    res: exec
+    kind: exec
     name: exec3
 - name: e3
   from:
-    res: exec
+    kind: exec
     name: exec2
   to:
-    res: exec
+    kind: exec
     name: exec4
 - name: e4
   from:
-    res: exec
+    kind: exec
     name: exec3
   to:
-    res: exec
+    kind: exec
     name: exec4

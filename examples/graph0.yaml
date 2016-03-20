@@ -13,8 +13,8 @@ resources:
 edges:
 - name: e1
   from:
-    res: noop
+    kind: noop
     name: noop1
   to:
-    res: file
+    kind: file
     name: file1

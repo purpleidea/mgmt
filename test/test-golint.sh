@@ -1,6 +1,7 @@
 #!/bin/bash
 # check that go lint passes or doesn't get worse by some threshold
 echo running test-golint.sh
+# TODO: output a diff of what has changed in the golint output
 # FIXME: test a range of commits, since only the last patch is checked here
 PREVIOUS='HEAD^'
 CURRENT='HEAD'
@@ -9,14 +10,28 @@ XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}" >/dev/null
 
+# if this branch has more than one commit as compared to master, diff to that
+# note: this is a cheap way to avoid doing a fancy succession of golint's...
+HACK=''
+COMMITS="`git rev-list --count $CURRENT ^master`"	# commit delta to master
+if [ "$COMMITS" -gt "1" ]; then
+	PREVIOUS='master'
+	HACK="yes"
+fi
+
 LINT=`golint`	# current golint output
 COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch
+[ "$LINT" = "" ] && echo PASS && exit	# everything is "perfect"
 
 T=`mktemp --tmpdir -d tmp.XXX`
 [ "$T" = "" ] && exit 1
 cd $T || exit 1
 git clone --recursive "${ROOT}" 2>/dev/null	# make a copy
 cd "`basename ${ROOT}`" >/dev/null || exit 1
+if [ "$HACK" != "" ]; then
+	# ensure master branch really exists when cloning from a branched repo!
+	git checkout master &>/dev/null && git checkout - &>/dev/null
+fi
 
 DIFF1=0
 NUMSTAT1=`git diff "$PREVIOUS" "$CURRENT" --numstat`	# numstat diff since previous commit
@@ -29,7 +44,7 @@ while read -r line; do
 	DIFF1=`expr $DIFF1 + $sum`
 done <<< "$NUMSTAT1"	# three < is the secret to putting a variable into read
 
-git checkout "$PREVIOUS" 2>/dev/null	# previous commit
+git checkout "$PREVIOUS" &>/dev/null	# previous commit
 LINT1=`golint`
 COUNT1=`echo -e "$LINT1" | wc -l`	# number of golint problems in older branch
 
@@ -37,12 +52,11 @@ COUNT1=`echo -e "$LINT1" | wc -l`	# number of golint problems in older branch
 cd "$XPWD" >/dev/null
 rm -rf "$T"
 
-[ "$LINT1" = "" ] && echo PASS && exit	# everything is "perfect"
-DELTA=$(printf "%.0f\n" `echo - | awk "{ print (($COUNT1 - $COUNT) / $DIFF1) * 100 }"`)
+DELTA=$(printf "%.0f\n" `echo - | awk "{ print (($COUNT - $COUNT1) / $DIFF1) * 100 }"`)
 
 echo "Lines of code: $DIFF1"
-echo "Prev. # of issues: $COUNT"
-echo "Curr. # of issues: $COUNT1"
+echo "Prev. # of issues: $COUNT1"
+echo "Curr. # of issues: $COUNT"
 echo "Issue count delta is: $DELTA %"
 if [ "$DELTA" -gt "$THRESHOLD" ]; then
 	echo "Maximum threshold is: $THRESHOLD %"

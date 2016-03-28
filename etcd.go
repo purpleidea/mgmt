@@ -19,8 +19,8 @@ package main
 
 import (
 	"fmt"
-	etcd_context "github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 	etcd "github.com/coreos/etcd/client"
+	etcd_context "golang.org/x/net/context"
 	"log"
 	"math"
 	"strings"

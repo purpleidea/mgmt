@@ -25,7 +25,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	//etcd_context "github.com/coreos/etcd/Godeps/_workspace/src/golang.org/x/net/context"
 )
 
 // set at compile time

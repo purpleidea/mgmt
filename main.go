@@ -155,7 +155,7 @@ func run(c *cli.Context) {
 			G = fullGraph.Copy() // copy to active graph
 			// XXX: do etcd transaction out here...
 			G.AutoEdges() // add autoedges; modifies the graph
-			//G.AutoGroup() // run autogroup; modifies the graph // TODO
+			G.AutoGroup() // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 
 			log.Printf("Graph: %v", G) // show graph

@@ -624,7 +624,7 @@ func (obj *NoopResTest) GroupCmp(r Res) bool {
 		return false
 	}
 
-	// TODO: implement this in vertexCmp for *testBaseGrouper instead?
+	// TODO: implement this in vertexCmp for *testGrouper instead?
 	if strings.Contains(res.Name, ",") { // HACK
 		return false // element to be grouped is already grouped!
 	}
@@ -755,15 +755,16 @@ Loop:
 	return nil // success!
 }
 
-type testBaseGrouper struct { // FIXME: update me when we've implemented the correct grouping algorithm!
-	baseGrouper // "inherit" what we want, and reimplement the rest
+type testGrouper struct {
+	// TODO: this algorithm may not be correct in all cases. replace if needed!
+	nonReachabilityGrouper // "inherit" what we want, and reimplement the rest
 }
 
-func (ag *testBaseGrouper) name() string {
-	return "testBaseGrouper"
+func (ag *testGrouper) name() string {
+	return "testGrouper"
 }
 
-func (ag *testBaseGrouper) vertexMerge(v1, v2 *Vertex) (v *Vertex, err error) {
+func (ag *testGrouper) vertexMerge(v1, v2 *Vertex) (v *Vertex, err error) {
 	if err := v1.Res.GroupRes(v2.Res); err != nil { // group them first
 		return nil, err
 	}
@@ -779,7 +780,7 @@ func (ag *testBaseGrouper) vertexMerge(v1, v2 *Vertex) (v *Vertex, err error) {
 	return // success or fail, and no need to merge the actual vertices!
 }
 
-func (ag *testBaseGrouper) edgeMerge(e1, e2 *Edge) *Edge {
+func (ag *testGrouper) edgeMerge(e1, e2 *Edge) *Edge {
 	// HACK: update the name so it makes a union of both names
 	n1 := strings.Split(e1.Name, ",") // load
 	n2 := strings.Split(e2.Name, ",") // load
@@ -805,9 +806,8 @@ func (g *Graph) fullPrint() (str string) {
 
 // helper function
 func runGraphCmp(t *testing.T, g1, g2 *Graph) {
-	// FIXME: update me when we've implemented the correct grouping algorithm!
-	ch := g1.autoGroup(&testBaseGrouper{}) // edits the graph
-	for _ = range ch {                     // bleed the channel or it won't run :(
+	ch := g1.autoGroup(&testGrouper{}) // edits the graph
+	for _ = range ch {                 // bleed the channel or it won't run :(
 		// pass
 	}
 	err := GraphCmp(g1, g2)
@@ -1126,13 +1126,14 @@ func TestPgraphGrouping15(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* FIXME: uncomment me when we've implemented the correct grouping algorithm!
-// reattach 1 (outer)
-// a1    a2         a1,a2
-//  |   /             |
-// b1  /      >>>    b1     (arrows point downwards)
-//  | /               |
-// c1                c1
+// re-attach 1 (outer)
+// technically the second possibility is valid too, depending on which order we
+// merge edges in, and if we don't filter out any unnecessary edges afterwards!
+// a1    a2         a1,a2        a1,a2
+//  |   /             |            |  \
+// b1  /      >>>    b1     OR    b1  /   (arrows point downwards)
+//  | /               |            | /
+// c1                c1           c1
 func TestPgraphGrouping16(t *testing.T) {
 	g1 := NewGraph("g1") // original graph
 	{
@@ -1153,14 +1154,14 @@ func TestPgraphGrouping16(t *testing.T) {
 		b1 := NewVertex(NewNoopResTest("b1"))
 		c1 := NewVertex(NewNoopResTest("c1"))
 		e1 := NewEdge("e1,e3")
-		e2 := NewEdge("e2") // TODO: should this be e2,e3 (eg we split e3?)
+		e2 := NewEdge("e2,e3") // e3 gets "merged through" to BOTH edges!
 		g2.AddEdge(a, b1, e1)
 		g2.AddEdge(b1, c1, e2)
 	}
 	runGraphCmp(t, g1, g2)
 }
 
-// reattach 2 (inner)
+// re-attach 2 (inner)
 // a1    b2          a1
 //  |   /             |
 // b1  /      >>>   b1,b2   (arrows point downwards)
@@ -1194,6 +1195,7 @@ func TestPgraphGrouping17(t *testing.T) {
 }
 
 // re-attach 3 (double)
+// similar to "re-attach 1", technically there is a second possibility for this
 // a2   a1    b2         a1,a2
 //   \   |   /             |
 //    \ b1  /      >>>   b1,b2   (arrows point downwards)
@@ -1222,18 +1224,18 @@ func TestPgraphGrouping18(t *testing.T) {
 		b := NewVertex(NewNoopResTest("b1,b2"))
 		c1 := NewVertex(NewNoopResTest("c1"))
 		e1 := NewEdge("e1,e3")
-		e2 := NewEdge("e2,e4")
+		e2 := NewEdge("e2,e3,e4") // e3 gets "merged through" to BOTH edges!
 		g2.AddEdge(a, b, e1)
 		g2.AddEdge(b, c1, e2)
 	}
 	runGraphCmp(t, g1, g2)
 }
 
-// tricky merge, (no change or merge?)
+// connected merge 0, (no change!)
 // a1            a1
 //   \     >>>     \     (arrows point downwards)
 //    a2            a2
-func TestPgraphGroupingTricky1(t *testing.T) {
+func TestPgraphGroupingConnected0(t *testing.T) {
 	g1 := NewGraph("g1") // original graph
 	{
 		a1 := NewVertex(NewNoopResTest("a1"))
@@ -1248,11 +1250,35 @@ func TestPgraphGroupingTricky1(t *testing.T) {
 		e1 := NewEdge("e1")
 		g2.AddEdge(a1, a2, e1)
 	}
-	//g3 := NewGraph("g2") // expected result ?
-	//{
-	//	a := NewVertex(NewNoopResTest("a1,a2"))
-	//}
-	runGraphCmp(t, g1, g2) // TODO: i'm tempted to think this is correct
-	//runGraphCmp(t, g1, g3)
+	runGraphCmp(t, g1, g2)
 }
-*/
+
+// connected merge 1, (no change!)
+// a1              a1
+//   \               \
+//    b      >>>      b      (arrows point downwards)
+//     \               \
+//      a2              a2
+func TestPgraphGroupingConnected1(t *testing.T) {
+	g1 := NewGraph("g1") // original graph
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b := NewVertex(NewNoopResTest("b"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		g1.AddEdge(a1, b, e1)
+		g1.AddEdge(b, a2, e2)
+	}
+	g2 := NewGraph("g2") // expected result ?
+	{
+		a1 := NewVertex(NewNoopResTest("a1"))
+		b := NewVertex(NewNoopResTest("b"))
+		a2 := NewVertex(NewNoopResTest("a2"))
+		e1 := NewEdge("e1")
+		e2 := NewEdge("e2")
+		g2.AddEdge(a1, b, e1)
+		g2.AddEdge(b, a2, e2)
+	}
+	runGraphCmp(t, g1, g2)
+}

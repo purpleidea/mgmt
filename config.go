@@ -336,8 +336,8 @@ func (ag *baseGrouper) init(g *Graph) error {
 	if ag.graph != nil {
 		return fmt.Errorf("The init method has already been called!")
 	}
-	ag.graph = g                         // pointer
-	ag.vertices = ag.graph.GetVertices() // cache
+	ag.graph = g                               // pointer
+	ag.vertices = ag.graph.GetVerticesSorted() // cache in deterministic order!
 	ag.i = 0
 	ag.j = 0
 	if len(ag.vertices) == 0 { // empty graph
@@ -437,23 +437,43 @@ func (ag *baseGrouper) vertexTest(b bool) (bool, error) {
 	return true, nil
 }
 
-type algorithmNameGrouper struct { // XXX rename me!
+// TODO: this algorithm may not be correct in all cases. replace if needed!
+type nonReachabilityGrouper struct {
 	baseGrouper // "inherit" what we want, and reimplement the rest
 }
 
-func (ag *algorithmNameGrouper) name() string {
-	log.Fatal("Not implemented!") // XXX
-	return "algorithmNameGrouper"
+func (ag *nonReachabilityGrouper) name() string {
+	return "nonReachabilityGrouper"
 }
 
-func (ag *algorithmNameGrouper) vertexNext() (v1, v2 *Vertex, err error) {
-	log.Fatal("Not implemented!") // XXX
-	// NOTE: you can even build this like this:
-	//v1, v2, err = ag.baseGrouper.vertexNext() // get all iterable pairs
-	// ...
-	//ag.baseGrouper.vertexTest(...)
-	//return
-	return nil, nil, fmt.Errorf("Not implemented!")
+// this algorithm relies on the observation that if there's a path from a to b,
+// then they *can't* be merged (b/c of the existing dependency) so therefore we
+// merge anything that *doesn't* satisfy this condition or that of the reverse!
+func (ag *nonReachabilityGrouper) vertexNext() (v1, v2 *Vertex, err error) {
+	for {
+		v1, v2, err = ag.baseGrouper.vertexNext() // get all iterable pairs
+		if err != nil {
+			log.Fatalf("Error running autoGroup(vertexNext): %v", err)
+		}
+
+		if v1 != v2 { // ignore self cmp early (perf optimization)
+			// if NOT reachable, they're viable...
+			out1 := ag.graph.Reachability(v1, v2)
+			out2 := ag.graph.Reachability(v2, v1)
+			if len(out1) == 0 && len(out2) == 0 {
+				return // return v1 and v2, they're viable
+			}
+		}
+
+		// if we got here, it means we're skipping over this candidate!
+		if ok, err := ag.baseGrouper.vertexTest(false); err != nil {
+			log.Fatalf("Error running autoGroup(vertexTest): %v", err)
+		} else if !ok {
+			return nil, nil, nil // done!
+		}
+
+		// the vertexTest passed, so loop and try with a new pair...
+	}
 }
 
 // autoGroup is the mechanical auto group "runner" that runs the interface spec
@@ -477,7 +497,9 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 			wStr := fmt.Sprintf("%s", w)
 
 			if err := ag.vertexCmp(v, w); err != nil { // cmp ?
-				strch <- fmt.Sprintf("Compile: Grouping: !GroupCmp for: %s into %s", wStr, vStr)
+				if DEBUG {
+					strch <- fmt.Sprintf("Compile: Grouping: !GroupCmp for: %s into %s", wStr, vStr)
+				}
 
 				// remove grouped vertex and merge edges (res is safe)
 			} else if err := g.VertexMerge(v, w, ag.vertexMerge, ag.edgeMerge); err != nil { // merge...
@@ -506,7 +528,8 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 func (g *Graph) AutoGroup() {
 	// receive log messages from channel...
 	// this allows test cases to avoid printing them when they're unwanted!
-	for str := range g.autoGroup(&baseGrouper{}) {
+	// TODO: this algorithm may not be correct in all cases. replace if needed!
+	for str := range g.autoGroup(&nonReachabilityGrouper{}) {
 		log.Println(str)
 	}
 }

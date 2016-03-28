@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"sync"
 	"syscall"
@@ -183,7 +184,8 @@ func (g *Graph) NumEdges() int {
 	return count
 }
 
-// get an array (slice) of all vertices in the graph
+// GetVertices returns a randomly sorted slice of all vertices in the graph
+// The order is random, because the map implementation is intentionally so!
 func (g *Graph) GetVertices() []*Vertex {
 	var vertices []*Vertex
 	for k := range g.Adjacency {
@@ -202,6 +204,23 @@ func (g *Graph) GetVerticesChan() chan *Vertex {
 		close(ch)
 	}(ch)
 	return ch
+}
+
+type VertexSlice []*Vertex
+
+func (vs VertexSlice) Len() int           { return len(vs) }
+func (vs VertexSlice) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
+func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String() }
+
+// GetVerticesSorted returns a sorted slice of all vertices in the graph
+// The order is sorted by String() to avoid the non-determinism in the map type
+func (g *Graph) GetVerticesSorted() []*Vertex {
+	var vertices []*Vertex
+	for k := range g.Adjacency {
+		vertices = append(vertices, k)
+	}
+	sort.Sort(VertexSlice(vertices)) // add determinism
+	return vertices
 }
 
 // make the graph pretty print
@@ -546,22 +565,54 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
 	for _, x := range g.IncomingGraphEdges(v2) { // all to vertex v (??? -> v)
 		e := g.Adjacency[x][v2] // previous edge
+		r := g.Reachability(x, v1)
 		// merge e with ex := g.Adjacency[x][v1] if it exists!
-		if ex, exists := g.Adjacency[x][v1]; exists && edgeMergeFn != nil {
+		if ex, exists := g.Adjacency[x][v1]; exists && edgeMergeFn != nil && len(r) == 0 {
 			e = edgeMergeFn(e, ex)
 		}
-		g.AddEdge(x, v1, e)        // overwrite edge
+		if len(r) == 0 { // if not reachable, add it
+			g.AddEdge(x, v1, e) // overwrite edge
+		} else if edgeMergeFn != nil { // reachable, merge e through...
+			prev := x // initial condition
+			for i, next := range r {
+				if i == 0 {
+					// next == prev, therefore skip
+					continue
+				}
+				// this edge is from: prev, to: next
+				ex, _ := g.Adjacency[prev][next] // get
+				ex = edgeMergeFn(ex, e)
+				g.Adjacency[prev][next] = ex // set
+				prev = next
+			}
+		}
 		delete(g.Adjacency[x], v2) // delete old edge
 	}
 
 	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
 	for _, x := range g.OutgoingGraphEdges(v2) { // all from vertex v (v -> ???)
 		e := g.Adjacency[v2][x] // previous edge
+		r := g.Reachability(v1, x)
 		// merge e with ex := g.Adjacency[v1][x] if it exists!
-		if ex, exists := g.Adjacency[v1][x]; exists && edgeMergeFn != nil {
+		if ex, exists := g.Adjacency[v1][x]; exists && edgeMergeFn != nil && len(r) == 0 {
 			e = edgeMergeFn(e, ex)
 		}
-		g.AddEdge(v1, x, e) // overwrite edge
+		if len(r) == 0 {
+			g.AddEdge(v1, x, e) // overwrite edge
+		} else if edgeMergeFn != nil { // reachable, merge e through...
+			prev := v1 // initial condition
+			for i, next := range r {
+				if i == 0 {
+					// next == prev, therefore skip
+					continue
+				}
+				// this edge is from: prev, to: next
+				ex, _ := g.Adjacency[prev][next]
+				ex = edgeMergeFn(ex, e)
+				g.Adjacency[prev][next] = ex
+				prev = next
+			}
+		}
 		delete(g.Adjacency[v2], x)
 	}
 

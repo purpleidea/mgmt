@@ -14,7 +14,8 @@ cd "${ROOT}" >/dev/null
 # note: this is a cheap way to avoid doing a fancy succession of golint's...
 HACK=''
 COMMITS="`git rev-list --count $CURRENT ^master`"	# commit delta to master
-if [ "$COMMITS" -gt "1" ]; then
+# avoid: bad revision '^master' on travis for unknown reason :(
+if [ "$COMMITS" != "" ] && [ "$COMMITS" -gt "1" ]; then
 	PREVIOUS='master'
 	HACK="yes"
 fi

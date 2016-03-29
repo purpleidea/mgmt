@@ -102,7 +102,7 @@ func (obj *FileRes) Validate() bool {
 // File watcher for files and directories
 // Modify with caution, probably important to write some test cases first!
 // obj.GetPath(): file or directory
-func (obj *FileRes) Watch(processChan chan struct{}) {
+func (obj *FileRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
 	}
@@ -260,7 +260,9 @@ func (obj *FileRes) Watch(processChan chan struct{}) {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			processChan <- struct{}{} // trigger process
+			resp := NewResp()
+			processChan <- Event{eventNil, resp, "", true} // trigger process
+			resp.ACKWait()                                 // wait for the ACK()
 		}
 	}
 }

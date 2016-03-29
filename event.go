@@ -21,16 +21,19 @@ package main
 type eventName int
 
 const (
-	eventExit eventName = iota
+	eventNil eventName = iota
+	eventExit
 	eventStart
 	eventPause
 	eventPoke
 	eventBackPoke
 )
 
+type Resp chan bool
+
 type Event struct {
 	Name eventName
-	Resp chan bool // channel to send an ack response on, nil to skip
+	Resp Resp // channel to send an ack response on, nil to skip
 	//Wg   *sync.WaitGroup // receiver barrier to Wait() for everyone else on
 	Msg      string // some words for fun
 	Activity bool   // did something interesting happen?
@@ -46,6 +49,23 @@ func (event *Event) ACK() {
 func (event *Event) NACK() {
 	if event.Resp != nil { // if they've requested an ACK
 		event.Resp <- false // send NACK
+	}
+}
+
+// Resp is just a helper to return the right type of response channel
+func NewResp() Resp {
+	resp := make(chan bool)
+	return resp
+}
+
+// ACKWait waits for a +ive Ack from a Resp channel
+func (resp Resp) ACKWait() {
+	for {
+		value := <-resp
+		// wait until true value
+		if value {
+			return
+		}
 	}
 }
 

@@ -107,7 +107,7 @@ func (obj *PkgRes) Validate() bool {
 // use UpdatesChanged signal to watch for changes
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
-func (obj *PkgRes) Watch(processChan chan struct{}) {
+func (obj *PkgRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
 	}
@@ -173,7 +173,9 @@ func (obj *PkgRes) Watch(processChan chan struct{}) {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			processChan <- struct{}{} // trigger process
+			resp := NewResp()
+			processChan <- Event{eventNil, resp, "", true} // trigger process
+			resp.ACKWait()                                 // wait for the ACK()
 		}
 	}
 }

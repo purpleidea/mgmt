@@ -53,7 +53,7 @@ func (obj *NoopRes) Validate() bool {
 	return true
 }
 
-func (obj *NoopRes) Watch(processChan chan struct{}) {
+func (obj *NoopRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
 	}
@@ -84,7 +84,9 @@ func (obj *NoopRes) Watch(processChan chan struct{}) {
 			send = false
 			// only do this on certain types of events
 			//obj.isStateOK = false // something made state dirty
-			processChan <- struct{}{} // trigger process
+			resp := NewResp()
+			processChan <- Event{eventNil, resp, "", true} // trigger process
+			resp.ACKWait()                                 // wait for the ACK()
 		}
 	}
 }

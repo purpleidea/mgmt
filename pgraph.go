@@ -735,11 +735,16 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 				// this avoids us having to pass the data into
 				// the Watch() function about which graph it is
 				// running on, which isolates things nicely...
-				chanProcess := make(chan struct{})
+				chanProcess := make(chan Event)
 				go func() {
-					for _ = range chanProcess {
-						// XXX: do we need to ACK so that it's synchronous?
+					for event := range chanProcess {
+						// this has to be synchronous,
+						// because otherwise the Res
+						// event loop will keep running
+						// and change state, causing the
+						// converged timeout to fire!
 						g.Process(vv)
+						event.ACK() // sync
 					}
 				}()
 				vv.Res.Watch(chanProcess) // i block until i end

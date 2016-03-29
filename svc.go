@@ -67,7 +67,7 @@ func (obj *SvcRes) Validate() bool {
 }
 
 // Service watcher
-func (obj *SvcRes) Watch(processChan chan struct{}) {
+func (obj *SvcRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
 	}
@@ -215,7 +215,9 @@ func (obj *SvcRes) Watch(processChan chan struct{}) {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			processChan <- struct{}{} // trigger process
+			resp := NewResp()
+			processChan <- Event{eventNil, resp, "", true} // trigger process
+			resp.ACKWait()                                 // wait for the ACK()
 		}
 
 	}

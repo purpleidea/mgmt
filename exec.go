@@ -102,7 +102,7 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 }
 
 // Exec watcher
-func (obj *ExecRes) Watch(processChan chan struct{}) {
+func (obj *ExecRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
 	}
@@ -192,8 +192,10 @@ func (obj *ExecRes) Watch(processChan chan struct{}) {
 		if send {
 			send = false
 			// it is okay to invalidate the clean state on poke too
-			obj.isStateOK = false     // something made state dirty
-			processChan <- struct{}{} // trigger process
+			obj.isStateOK = false // something made state dirty
+			resp := NewResp()
+			processChan <- Event{eventNil, resp, "", true} // trigger process
+			resp.ACKWait()                                 // wait for the ACK()
 		}
 	}
 }

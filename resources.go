@@ -102,7 +102,7 @@ type Res interface {
 	Init()
 	//Validate() bool    // TODO: this might one day be added
 	GetUUIDs() []ResUUID // most resources only return one
-	Watch(chan struct{}) // send on channel to signal process() events
+	Watch(chan Event)    // send on channel to signal process() events
 	CheckApply(bool) (bool, error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool

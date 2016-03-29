@@ -11,6 +11,7 @@ script: 'make test'
 matrix:
   allow_failures:
     - go: tip
+    - go: 1.4.3
 notifications:
   irc:
     channels:

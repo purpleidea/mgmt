@@ -122,13 +122,6 @@ func (g *Graph) SetState(state graphState) graphState {
 	return prev
 }
 
-// store a pointer in the resource to it's parent vertex
-func (g *Graph) SetVertex() {
-	for v := range g.GetVerticesChan() {
-		v.Res.SetVertex(v)
-	}
-}
-
 // AddVertex uses variadic input to add all listed vertices to the graph
 func (g *Graph) AddVertex(xv ...*Vertex) {
 	for _, v := range xv {
@@ -855,9 +848,10 @@ func (g *Graph) Exit() {
 	}
 }
 
-func (g *Graph) SetConvergedCallback(ctimeout int, converged chan bool) {
+// AssociateData associates some data with the object in the graph in question
+func (g *Graph) AssociateData(converger Converger) {
 	for v := range g.GetVerticesChan() {
-		v.Res.SetConvergedCallback(ctimeout, converged)
+		v.Res.AssociateData(converger)
 	}
 }
 

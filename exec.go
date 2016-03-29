@@ -108,11 +108,12 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
+	cuuid := obj.converger.Register()
+	defer cuuid.Unregister()
 
 	var send = false // send event?
 	var exit = false
 	bufioch, errch := make(chan string), make(chan error)
-	//vertex := obj.GetVertex()         // stored with SetVertex
 
 	if obj.WatchCmd != "" {
 		var cmdName string
@@ -157,7 +158,7 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 		obj.SetState(resStateWatching) // reset
 		select {
 		case text := <-bufioch:
-			obj.SetConvergedState(resConvergedNil)
+			cuuid.SetConverged(false)
 			// each time we get a line of output, we loop!
 			log.Printf("%v[%v]: Watch output: %s", obj.Kind(), obj.GetName(), text)
 			if text != "" {
@@ -165,8 +166,8 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 			}
 
 		case err := <-errch:
-			obj.SetConvergedState(resConvergedNil) // XXX ?
-			if err == nil {                        // EOF
+			cuuid.SetConverged(false) // XXX ?
+			if err == nil {           // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
 				log.Printf("%v[%v]: Reached EOF", obj.Kind(), obj.GetName())
@@ -177,14 +178,13 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 			// XXX: how should we handle errors?
 
 		case event := <-obj.events:
-			obj.SetConvergedState(resConvergedNil)
+			cuuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
 
-		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetConvergedState(resConvergedTimeout)
-			obj.converged <- true
+		case _ = <-cuuid.ConvergedTimer():
+			cuuid.SetConverged(true) // converged!
 			continue
 		}
 

@@ -73,9 +73,10 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
+	cuuid := obj.converger.Register()
+	defer cuuid.Unregister()
 
 	// obj.Name: svc name
-	//vertex := obj.GetVertex()         // stored with SetVertex
 	if !systemdUtil.IsRunningSystemd() {
 		log.Fatal("Systemd is not running.")
 	}
@@ -145,12 +146,12 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 			obj.SetState(resStateWatching) // reset
 			select {
 			case _ = <-buschan: // XXX wait for new units event to unstick
-				obj.SetConvergedState(resConvergedNil)
+				cuuid.SetConverged(false)
 				// loop so that we can see the changed invalid signal
 				log.Printf("Svc[%v]->DaemonReload()", svc)
 
 			case event := <-obj.events:
-				obj.SetConvergedState(resConvergedNil)
+				cuuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(&event); exit {
 					return // exit
 				}
@@ -158,9 +159,8 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 					dirty = true
 				}
 
-			case _ = <-TimeAfterOrBlock(obj.ctimeout):
-				obj.SetConvergedState(resConvergedTimeout)
-				obj.converged <- true
+			case _ = <-cuuid.ConvergedTimer():
+				cuuid.SetConverged(true) // converged!
 				continue
 			}
 		} else {
@@ -193,19 +193,23 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 				dirty = true
 
 			case err := <-subErrors:
-				obj.SetConvergedState(resConvergedNil) // XXX ?
+				cuuid.SetConverged(false) // XXX ?
 				log.Printf("error: %v", err)
 				log.Fatal(err)
 				//vertex.events <- fmt.Sprintf("svc: %v", "error") // XXX: how should we handle errors?
 
 			case event := <-obj.events:
-				obj.SetConvergedState(resConvergedNil)
+				cuuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(&event); exit {
 					return // exit
 				}
 				if event.GetActivity() {
 					dirty = true
 				}
+
+			case _ = <-cuuid.ConvergedTimer():
+				cuuid.SetConverged(true) // converged!
+				continue
 			}
 		}
 

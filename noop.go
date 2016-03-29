@@ -59,23 +59,23 @@ func (obj *NoopRes) Watch(processChan chan Event) {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
+	cuuid := obj.converger.Register()
+	defer cuuid.Unregister()
 
-	//vertex := obj.vertex // stored with SetVertex
 	var send = false // send event?
 	var exit = false
 	for {
 		obj.SetState(resStateWatching) // reset
 		select {
 		case event := <-obj.events:
-			obj.SetConvergedState(resConvergedNil)
+			cuuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
 
-		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetConvergedState(resConvergedTimeout)
-			obj.converged <- true
+		case _ = <-cuuid.ConvergedTimer():
+			cuuid.SetConverged(true) // converged!
 			continue
 		}
 

@@ -108,11 +108,12 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
+	cuuid := obj.converger.Register()
+	defer cuuid.Unregister()
 
 	//var recursive bool = false
 	//var isdir = (obj.GetPath()[len(obj.GetPath())-1:] == "/") // dirs have trailing slashes
 	//log.Printf("IsDirectory: %v", isdir)
-	//vertex := obj.GetVertex()         // stored with SetVertex
 	var safename = path.Clean(obj.GetPath()) // no trailing slash
 
 	watcher, err := fsnotify.NewWatcher()
@@ -164,7 +165,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 			if DEBUG {
 				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event.Op)
 			}
-			obj.SetConvergedState(resConvergedNil) // XXX: technically i can detect if the event is erroneous or not first
+			cuuid.SetConverged(false) // XXX: technically i can detect if the event is erroneous or not first
 			// the deeper you go, the bigger the deltaDepth is...
 			// this is the difference between what we're watching,
 			// and the event... doesn't mean we can't watch deeper
@@ -234,21 +235,20 @@ func (obj *FileRes) Watch(processChan chan Event) {
 			}
 
 		case err := <-watcher.Errors:
-			obj.SetConvergedState(resConvergedNil) // XXX ?
+			cuuid.SetConverged(false) // XXX ?
 			log.Printf("error: %v", err)
 			log.Fatal(err)
 			//obj.events <- fmt.Sprintf("file: %v", "error") // XXX: how should we handle errors?
 
 		case event := <-obj.events:
-			obj.SetConvergedState(resConvergedNil)
+			cuuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
 			//dirty = false // these events don't invalidate state
 
-		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetConvergedState(resConvergedTimeout)
-			obj.converged <- true
+		case _ = <-cuuid.ConvergedTimer():
+			cuuid.SetConverged(true) // converged!
 			continue
 		}
 

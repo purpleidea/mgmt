@@ -59,8 +59,7 @@ func waitForSignal(exit chan bool) {
 func run(c *cli.Context) {
 	var start = time.Now().UnixNano()
 	var wg sync.WaitGroup
-	exit := make(chan bool)      // exit signal
-	converged := make(chan bool) // converged signal
+	exit := make(chan bool) // exit signal
 	log.Printf("This is: %v, version: %v", program, version)
 	log.Printf("Main: Start: %v", start)
 	var G, fullGraph *Graph
@@ -72,6 +71,16 @@ func run(c *cli.Context) {
 			exit <- true
 		}()
 	}
+
+	// setup converger
+	converger := NewConverger(
+		c.Int("converged-timeout"),
+		func() { // lambda to run when converged
+			log.Printf("Converged for %d seconds, exiting!", c.Int("converged-timeout"))
+			exit <- true // trigger an exit!
+		},
+	)
+	go converger.Loop(true) // main loop for converger, true to start paused
 
 	// initial etcd peer endpoint
 	seed := c.String("seed")
@@ -86,8 +95,7 @@ func run(c *cli.Context) {
 	// etcd
 	etcdO := &EtcdWObject{
 		seed:      seed,
-		ctimeout:  c.Int("converged-timeout"),
-		converged: converged,
+		converger: converger,
 	}
 
 	hostname := c.String("hostname")
@@ -136,7 +144,8 @@ func run(c *cli.Context) {
 
 			// run graph vertex LOCK...
 			if !first { // TODO: we can flatten this check out I think
-				G.Pause() // sync
+				converger.Pause() // FIXME: add sync wait?
+				G.Pause()         // sync
 			}
 
 			// build graph from yaml file on events (eg: from etcd)
@@ -148,6 +157,7 @@ func run(c *cli.Context) {
 				// unpause!
 				if !first {
 					G.Start(&wg, first) // sync
+					converger.Start()   // after G.Start()
 				}
 				continue
 			}
@@ -165,43 +175,17 @@ func run(c *cli.Context) {
 			} else {
 				log.Printf("Graphviz: Successfully generated graph!")
 			}
-			G.SetVertex()
-			G.SetConvergedCallback(c.Int("converged-timeout"), converged)
+			G.AssociateData(converger)
 			// G.Start(...) needs to be synchronous or wait,
 			// because if half of the nodes are started and
 			// some are not ready yet and the EtcdWatch
 			// loops, we'll cause G.Pause(...) before we
 			// even got going, thus causing nil pointer errors
 			G.Start(&wg, first) // sync
+			converger.Start()   // after G.Start()
 			first = false
 		}
 	}()
-
-	if i := c.Int("converged-timeout"); i >= 0 {
-		go func() {
-		ConvergedLoop:
-			for {
-				<-converged // when anyone says they have converged
-
-				if etcdO.GetConvergedState() != etcdConvergedTimeout {
-					continue
-				}
-				for v := range G.GetVerticesChan() {
-					if v.Res.GetConvergedState() != resConvergedTimeout {
-						continue ConvergedLoop
-					}
-				}
-
-				// if all have converged, exit
-				log.Printf("Converged for %d seconds, exiting!", i)
-				exit <- true
-				for {
-					<-converged
-				} // unblock/drain
-				//return
-			}
-		}()
-	}
 
 	log.Println("Main: Running...")
 

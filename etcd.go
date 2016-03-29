@@ -37,29 +37,10 @@ const (
 	etcdBar
 )
 
-//go:generate stringer -type=etcdConvergedState -output=etcdconvergedstate_stringer.go
-type etcdConvergedState int
-
-const (
-	etcdConvergedNil etcdConvergedState = iota
-	//etcdConverged
-	etcdConvergedTimeout
-)
-
 type EtcdWObject struct { // etcd wrapper object
-	seed           string
-	ctimeout       int
-	converged      chan bool
-	kapi           etcd.KeysAPI
-	convergedState etcdConvergedState
-}
-
-func (etcdO *EtcdWObject) GetConvergedState() etcdConvergedState {
-	return etcdO.convergedState
-}
-
-func (etcdO *EtcdWObject) SetConvergedState(state etcdConvergedState) {
-	etcdO.convergedState = state
+	seed      string
+	converger Converger // converged tracking
+	kapi      etcd.KeysAPI
 }
 
 func (etcdO *EtcdWObject) GetKAPI() etcd.KeysAPI {
@@ -114,8 +95,6 @@ func (etcdO *EtcdWObject) EtcdChannelWatch(watcher etcd.Watcher, context etcd_co
 
 func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 	kapi := etcdO.GetKAPI()
-	ctimeout := etcdO.ctimeout
-	converged := etcdO.converged
 	// XXX: i think we need this buffered so that when we're hanging on the
 	// channel, which is inside the EtcdWatch main loop, we still want the
 	// calls to Get/Set on etcd to succeed, so blocking them here would
@@ -126,6 +105,8 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 		t := tmin     // current time
 		tmult := 2    // multiplier for exponential delay
 		tmax := 16000 // max delay
+		cuuid := etcdO.converger.Register()
+		defer cuuid.Unregister()
 		watcher := kapi.Watcher("/exported/", &etcd.WatcherOptions{Recursive: true})
 		etcdch := etcdO.EtcdChannelWatch(watcher, etcd_context.Background())
 		for {
@@ -134,12 +115,11 @@ func (etcdO *EtcdWObject) EtcdWatch() chan etcdMsg {
 			var err error
 			select {
 			case out := <-etcdch:
-				etcdO.SetConvergedState(etcdConvergedNil)
+				cuuid.SetConverged(false)
 				resp, err = out.resp, out.err
 
-			case _ = <-TimeAfterOrBlock(ctimeout):
-				etcdO.SetConvergedState(etcdConvergedTimeout)
-				converged <- true
+			case _ = <-cuuid.ConvergedTimer():
+				cuuid.SetConverged(true) // converged!
 				continue
 			}
 

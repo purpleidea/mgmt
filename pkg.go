@@ -45,9 +45,7 @@ type PkgRes struct {
 func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupported bool) *PkgRes {
 	obj := &PkgRes{
 		BaseRes: BaseRes{
-			Name:   name,
-			events: make(chan Event),
-			vertex: nil,
+			Name: name,
 		},
 		State:            state,
 		AllowUntrusted:   allowuntrusted,
@@ -113,6 +111,8 @@ func (obj *PkgRes) Watch(processChan chan Event) {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
+	cuuid := obj.converger.Register()
+	defer cuuid.Unregister()
 
 	bus := NewBus()
 	if bus == nil {
@@ -148,20 +148,19 @@ func (obj *PkgRes) Watch(processChan chan Event) {
 				<-ch // discard
 			}
 
-			obj.SetConvergedState(resConvergedNil)
+			cuuid.SetConverged(false)
 			send = true
 			dirty = true
 
 		case event := <-obj.events:
-			obj.SetConvergedState(resConvergedNil)
+			cuuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
 			//dirty = false // these events don't invalidate state
 
-		case _ = <-TimeAfterOrBlock(obj.ctimeout):
-			obj.SetConvergedState(resConvergedTimeout)
-			obj.converged <- true
+		case _ = <-cuuid.ConvergedTimer():
+			cuuid.SetConverged(true) // converged!
 			continue
 		}
 

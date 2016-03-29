@@ -36,15 +36,6 @@ const (
 	resStatePoking
 )
 
-//go:generate stringer -type=resConvergedState -output=resconvergedstate_stringer.go
-type resConvergedState int
-
-const (
-	resConvergedNil resConvergedState = iota
-	//resConverged
-	resConvergedTimeout
-)
-
 // a unique identifier for a resource, namely it's name, and the kind ("type")
 type ResUUID interface {
 	GetName() string
@@ -78,12 +69,9 @@ type Base interface {
 	SetName(string)
 	Kind() string
 	GetMeta() MetaParams
-	SetVertex(*Vertex)
-	SetConvergedCallback(ctimeout int, converged chan bool)
+	AssociateData(Converger)
 	IsWatching() bool
 	SetWatching(bool)
-	GetConvergedState() resConvergedState
-	SetConvergedState(resConvergedState)
 	GetState() resState
 	SetState(resState)
 	SendEvent(eventName, bool, bool) bool
@@ -110,19 +98,16 @@ type Res interface {
 }
 
 type BaseRes struct {
-	Name           string     `yaml:"name"`
-	Meta           MetaParams `yaml:"meta"` // struct of all the metaparams
-	kind           string
-	events         chan Event
-	vertex         *Vertex
-	state          resState
-	convergedState resConvergedState
-	watching       bool // is Watch() loop running ?
-	ctimeout       int  // converged timeout
-	converged      chan bool
-	isStateOK      bool  // whether the state is okay based on events or not
-	isGrouped      bool  // am i contained within a group?
-	grouped        []Res // list of any grouped resources
+	Name      string     `yaml:"name"`
+	Meta      MetaParams `yaml:"meta"` // struct of all the metaparams
+	kind      string
+	events    chan Event
+	converger Converger // converged tracking
+	state     resState
+	watching  bool  // is Watch() loop running ?
+	isStateOK bool  // whether the state is okay based on events or not
+	isGrouped bool  // am i contained within a group?
+	grouped   []Res // list of any grouped resources
 }
 
 // wraps the IFF method when used with a list of UUID's
@@ -185,17 +170,9 @@ func (obj *BaseRes) GetMeta() MetaParams {
 	return obj.Meta
 }
 
-func (obj *BaseRes) GetVertex() *Vertex {
-	return obj.vertex
-}
-
-func (obj *BaseRes) SetVertex(v *Vertex) {
-	obj.vertex = v
-}
-
-func (obj *BaseRes) SetConvergedCallback(ctimeout int, converged chan bool) {
-	obj.ctimeout = ctimeout
-	obj.converged = converged
+// AssociateData associates some data with the object in question
+func (obj *BaseRes) AssociateData(converger Converger) {
+	obj.converger = converger
 }
 
 // is the Watch() function running?
@@ -206,14 +183,6 @@ func (obj *BaseRes) IsWatching() bool {
 // store status of if the Watch() function is running
 func (obj *BaseRes) SetWatching(b bool) {
 	obj.watching = b
-}
-
-func (obj *BaseRes) GetConvergedState() resConvergedState {
-	return obj.convergedState
-}
-
-func (obj *BaseRes) SetConvergedState(state resConvergedState) {
-	obj.convergedState = state
 }
 
 func (obj *BaseRes) GetState() resState {

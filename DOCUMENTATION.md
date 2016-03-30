@@ -98,6 +98,11 @@ installation of the `mysql-server` package.
 You can disable autoedges for a resource by setting the `autoedge` key on
 the meta attributes of that resource to `false`.
 
+####Blog post
+
+You can read the introductory blog post about this topic here:
+[https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
+
 ###Autogrouping
 
 Automatic grouping or AutoGroup is the mechanism in mgmt by which it will
@@ -111,6 +116,11 @@ used for other use cases too.
 
 You can disable autogrouping for a resource by setting the `autogroup` key on
 the meta attributes of that resource to `false`.
+
+####Blog post
+
+You can read the introductory blog post about this topic here:
+[https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

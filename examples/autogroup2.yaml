@@ -1,0 +1,17 @@
+---
+graph: mygraph
+resources:
+  pkg:
+  - name: powertop
+    meta:
+      autogroup: true
+    state: installed
+  - name: sl
+    meta:
+      autogroup: true
+    state: installed
+  - name: cowsay
+    meta:
+      autogroup: true
+    state: installed
+edges: []

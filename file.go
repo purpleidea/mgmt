@@ -20,7 +20,7 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"github.com/cf-guardian/guardian/kernel/fileutils"
+        "github.com/cf-guardian/guardian/kernel/fileutils"
 	"gopkg.in/fsnotify.v1"
 	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 	"encoding/gob"
@@ -29,6 +29,7 @@ import (
 	"math"
 	"os"
 	"path"
+        "path/filepath"
 	"strings"
 	"syscall"
 )
@@ -279,6 +280,25 @@ func (obj *FileRes) HashSHA256fromContent() string {
 	return obj.sha256sum
 }
 
+func fileHashSHA256(apath string) (string, error) {
+       if PathIsDir(apath) { // assert
+                log.Fatal("This should only be called on a File resource.")
+        }
+        // run a diff, and return true if needs changing
+        hash := sha256.New()
+        f, err := os.Open(apath)
+        if err != nil {
+                return "", err
+        }
+        defer f.Close()
+        if _, err := io.Copy(hash, f); err != nil {
+                return "", err
+        }
+        sha256sum := hex.EncodeToString(hash.Sum(nil))
+
+	return sha256sum, nil	
+}
+
 func (obj *FileRes) FileHashSHA256Check() (bool, error) {
 	if PathIsDir(obj.GetPath()) { // assert
 		log.Fatal("This should only be called on a File resource.")
@@ -354,6 +374,60 @@ func (obj *FileRes) DirApply() error {
         return nil
 }
 
+func collectPaths(srcpath string) ([]string, error) {
+ 	paths := make([]string, 1)
+        err := filepath.Walk(srcpath, func (apath string, _ os.FileInfo, err error) error {
+        	if err!= nil {
+          		return err
+         	 }
+
+		rel, _ := filepath.Rel(srcpath, apath)
+                if rel != "." && rel != "" {
+          		paths = append(paths, rel)
+		}
+          	return nil
+        })
+        return paths, err 
+}
+
+func (obj *FileRes) DirCheck() (bool, error) {
+	expected_paths, err := collectPaths(obj.Content) 
+	if err != nil {
+		return false, err
+        }
+       
+	for _, expected_path := range expected_paths {
+		if _, err := os.Stat(path.Join(obj.GetPath(), expected_path)); os.IsNotExist(err) {
+			return false, nil
+		}
+		
+                info, err := os.Stat(expected_path)
+		if err != nil {
+			return false, err
+		}
+
+                if mode := info.Mode(); mode.IsRegular() {
+                	continue
+                }
+	
+                expected_sha256, err := fileHashSHA256(path.Join(obj.Content, expected_path))	
+		if err != nil {
+			return false, err
+		}
+		
+                actual_sha256, err := fileHashSHA256(path.Join(obj.GetPath(), expected_path))
+                if err != nil {
+			return false, err
+		}
+
+		if expected_sha256 != actual_sha256 {
+			return false, nil
+		}
+        }
+
+	return true, nil
+} 
+
 func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
@@ -372,10 +446,20 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	err = nil // reset
 
 	// FIXME: add file mode check here...
-        if _, err := os.Stat(obj.GetPath()); os.IsExist(err) {
+        if _, err := os.Stat(obj.GetPath()); err == nil {
 		if PathIsDir(obj.GetPath()) && obj.Content == "" {
 			obj.isStateOK = true
 			return true, nil
+                }
+                if PathIsDir(obj.GetPath()) {
+			ok, err := obj.DirCheck()
+                        if err != nil {
+				return false, err
+			}
+			if ok {
+				obj.isStateOK = true
+				return true, nil
+			}
 		} else {
 			ok, err := obj.FileHashSHA256Check()
 			if err != nil {
@@ -401,6 +485,7 @@ func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
 	} else {
 		err = obj.FileApply()
 	}
+
 	if err != nil {
 		return false, err
 	}

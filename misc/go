@@ -3,6 +3,9 @@
 # thanks to Nilium in #go-nuts for 1/3 of the idea
 [ -z "$GOPATH" ] && echo '$GOPATH is not set!' && exit 1
 GO="$(which -a go | sed -e '2q;d')"	# TODO: pick /usr/bin/go in a better way
+if [ "$1" = "generate" ]; then
+	exec $GO "$@"	# go generate is stupid and gets confused by $GOPATH
+fi
 # the idea is to have $project/gopath/src/ be a symlink to ../vendor but you put
 # all of your vendored things in vendor/ but with this gopath can be per project
 if [ -d "$PWD/vendor/" ] && [ -d "$PWD/gopath/" ] && [ "`readlink $PWD/gopath/src`" = "../vendor" ] ; then

@@ -742,3 +742,71 @@ func TestMiscT11(t *testing.T) {
 		}
 	}
 }
+
+func TestMiscFlattenListWithSplit1(t *testing.T) {
+	{
+		in := []string{} // input
+		ex := []string{} // expected
+		out := FlattenListWithSplit(in, []string{",", ";", " "})
+		sort.Strings(out)
+		sort.Strings(ex)
+		if !reflect.DeepEqual(ex, out) {
+			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+		}
+	}
+
+	{
+		in := []string{"hey"} // input
+		ex := []string{"hey"} // expected
+		out := FlattenListWithSplit(in, []string{",", ";", " "})
+		sort.Strings(out)
+		sort.Strings(ex)
+		if !reflect.DeepEqual(ex, out) {
+			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+		}
+	}
+
+	{
+		in := []string{"a", "b", "c", "d"} // input
+		ex := []string{"a", "b", "c", "d"} // expected
+		out := FlattenListWithSplit(in, []string{",", ";", " "})
+		sort.Strings(out)
+		sort.Strings(ex)
+		if !reflect.DeepEqual(ex, out) {
+			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+		}
+	}
+
+	{
+		in := []string{"a,b,c,d"}          // input
+		ex := []string{"a", "b", "c", "d"} // expected
+		out := FlattenListWithSplit(in, []string{",", ";", " "})
+		sort.Strings(out)
+		sort.Strings(ex)
+		if !reflect.DeepEqual(ex, out) {
+			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+		}
+	}
+
+	{
+		in := []string{"a,b;c d"}          // input (mixed)
+		ex := []string{"a", "b", "c", "d"} // expected
+		out := FlattenListWithSplit(in, []string{",", ";", " "})
+		sort.Strings(out)
+		sort.Strings(ex)
+		if !reflect.DeepEqual(ex, out) {
+			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+		}
+	}
+
+	{
+		in := []string{"a,b,c,d;e,f,g,h;i,j,k,l;m,n,o,p q,r,s,t;u,v,w,x y z"}                                                                            // input (mixed)
+		ex := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"} // expected
+		out := FlattenListWithSplit(in, []string{",", ";", " "})
+		sort.Strings(out)
+		sort.Strings(ex)
+		if !reflect.DeepEqual(ex, out) {
+			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+		}
+	}
+}

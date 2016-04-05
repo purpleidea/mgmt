@@ -270,6 +270,28 @@ func DirifyFileList(fileList []string, removeDirs bool) []string {
 	return result
 }
 
+// FlattenListWithSplit flattens a list of input by splitting each element by
+// any and all of the strings listed in the split array
+func FlattenListWithSplit(input []string, split []string) []string {
+	if len(split) == 0 { // nothing to split by
+		return input
+	}
+	out := []string{}
+	for _, x := range input {
+		s := []string{}
+		if len(split) == 1 {
+			s = strings.Split(x, split[0]) // split by only string
+		} else {
+			s = []string{x} // initial
+			for i := range split {
+				s = FlattenListWithSplit(s, []string{split[i]}) // recurse
+			}
+		}
+		out = append(out, s...)
+	}
+	return out
+}
+
 // special version of time.After that blocks when given a negative integer
 // when used in a case statement, the timer restarts on each select call to it
 func TimeAfterOrBlock(t int) <-chan time.Time {

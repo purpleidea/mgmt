@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetResReturnsCorrectType(t *testing.T) {
-	v := (&FileRes{}).GetRes()
+	v := NewFileRes("", "", "", "", "", "").Kind()
 	expected := "File"
 	if v != expected {
 		t.Error("Expected '", expected, "', got: ", v)
@@ -75,9 +75,12 @@ func TestFileHashSHA256CheckContentChanged(t *testing.T) {
 }
 
 func TestFileHashSHA256CheckInvalidPath(t *testing.T) {
-	_, errors := (&FileRes{Path: "./test_resources/non_existent.txt", Content: "test content"}).FileHashSHA256Check()
-	if errors == nil {
-		t.Error("Shouldn't be able to open the file './test_resources/non_existent.txt' but got no errors")
+	ok, errors := (&FileRes{Path: "./test_resources/non_existent.txt", Content: "test content"}).FileHashSHA256Check()
+	if errors != nil {
+		t.Error("Shouldn't get an error when calling FileHashSHA256Check for a non-existing file")
+	}
+	if ok {
+		t.Error("FileHashSHA256Check should return false for a non-existing file")
 	}
 }
 
@@ -140,27 +143,27 @@ func TestCopyNonExistentSourceFile(t *testing.T) {
 	}
 }
 
-func TestCopyDirWithExistingPaths(t *testing.T) {
-	dstdirpath := "./dir_copy_test"
-	dstfilepath := "./dir_copy_test/file_content_test.txt"
-	err := (&FileRes{Path: "./test_resources/non_existent.txt"}).CopyDir("./test_resources/file_content_test.txt", dstdirpath)
-	if err != nil {
-		t.Error("Shouldn't return any errors when copying a dir")
-	}
-
-	if _, err := os.Stat(dstdirpath); err != nil {
-		t.Error("Should've created dst dir, but: ", err)
-	}
-	if _, err := os.Stat(dstfilepath); err != nil {
-		t.Error("Should've created dst file, but: ", err)
-	}
-	defer os.Remove(dstdirpath)
-
-	content, err := ioutil.ReadFile(dstfilepath)
-	if err != nil {
-		t.Error("Destination file should be readable")
-	}
-	if string(content) != "test content" {
-		t.Error("Expected copied file to contain 'test content', got: '", content, "'")
-	}
-}
+//func TestCopyDirWithExistingPaths(t *testing.T) {
+//	dstdirpath := "./dir_copy_test"
+//	dstfilepath := "./dir_copy_test/file_content_test.txt"
+//	err := (&FileRes{Path: "./test_resources/non_existent.txt"}).CopyDir("./test_resources/file_content_test.txt", dstdirpath)
+//	if err != nil {
+//		t.Error("Shouldn't return any errors when copying a dir")
+//	}
+//
+//	if _, err := os.Stat(dstdirpath); err != nil {
+//		t.Error("Should've created dst dir, but: ", err)
+//	}
+//	if _, err := os.Stat(dstfilepath); err != nil {
+//		t.Error("Should've created dst file, but: ", err)
+//	}
+//	defer os.Remove(dstdirpath)
+//
+//	content, err := ioutil.ReadFile(dstfilepath)
+//	if err != nil {
+//		t.Error("Destination file should be readable")
+//	}
+//	if string(content) != "test content" {
+//		t.Error("Expected copied file to contain 'test content', got: '", content, "'")
+//	}
+//}

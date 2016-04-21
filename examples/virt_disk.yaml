@@ -1,0 +1,21 @@
+---
+graph: mygraph
+resources:
+  virt:
+  - name: mTest
+    cpus: 1
+    ram: 512
+    state: running
+    boot: [hd, network]
+    disk:
+    - source: /var/lib/libvirt/vms/mTest.img
+      type: qcow2
+    cdrom:
+    - source: /var/lib/libvirt/data/mTest/cidata.iso
+      type: raw
+    network:
+    - name: default
+    filesystem:
+    - source: /home/nikolas/golang/src/github.com/purpleidea/mgmt
+      target: mgmt
+edges: []

@@ -5,3 +5,4 @@ For a more exhaustive list please run: git log --format='%aN' | sort -u
 This list is sorted alphabetically by first name.
 
 James Shubin
+Paul Morgan

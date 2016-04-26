@@ -1,0 +1,13 @@
+[Unit]
+Description=Run mgmt configuration management
+Documentation=https://github.com/purpleidea/mgmt/
+After=systemd-networkd.service
+Requires=systemd-networkd.service
+
+[Service]
+ExecStart=/usr/bin/mgmt run ${OPTS}
+RestartSec=5s
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

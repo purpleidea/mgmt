@@ -25,6 +25,28 @@ If you have a well phrased question that might benefit others, consider asking i
 ## Examples:
 Please look in the [examples/](examples/) folder for more examples!
 
+## Systemd:
+See [`misc/mgmt.service`](misc/mgmt.service) for a sample systemd unit file.
+This unit file is part of the RPM.
+
+To specify your custom options for `mgmt` on a systemd distro:
+
+```bash
+sudo mkdir -p /etc/systemd/system/mgmt.service.d/
+
+cat > /etc/systemd/system/mgmt.service.d/env.conf <<EOF
+# Environment variables:
+MGMT_SEED_ENDPOINT=http://127.0.0.1:2379
+MGMT_CONVERGED_TIMEOUT=-1
+MGMT_MAX_RUNTIME=0
+
+# Other CLI options if necessary.
+#OPTS="--max-runtime=0"
+EOF
+
+sudo systemctl daemon-reload
+```
+
 ## Documentation:
 Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md).
 

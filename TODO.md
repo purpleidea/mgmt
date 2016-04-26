@@ -40,7 +40,6 @@ Let us know if you're working on one of the items.
 ## Other
 - [ ] implement noop functionality [bug](https://github.com/purpleidea/mgmt/issues/21) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] better error/retry handling
-- [ ] mgmt systemd service file [bug](https://github.com/purpleidea/mgmt/issues/12) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] deb package target in Makefile
 - [ ] reproducible builds
 - [ ] add your suggestions!

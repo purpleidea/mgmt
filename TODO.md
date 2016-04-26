@@ -23,11 +23,10 @@ Let us know if you're working on one of the items.
 - [ ] increment algorithm (linear, exponential, etc...)
 
 ## Virt (libvirt) resource
-- [ ] base resource
+- [ ] base resource [bug](https://github.com/purpleidea/mgmt/issues/25)
 
 ## Etcd improvements
 - [ ] embedded etcd master
-- [ ] capnslog fixes [bug](https://github.com/coreos/etcd/issues/4115)
 
 ## Language improvements
 - [ ] language design

@@ -28,7 +28,7 @@ ifeq ($(VERSION),$(SVERSION))
 else
 	RELEASE = untagged
 endif
-ARCH = $(shell arch)
+ARCH = $(uname -i)
 SPEC = rpmbuild/SPECS/$(PROGRAM).spec
 SOURCE = rpmbuild/SOURCES/$(PROGRAM)-$(VERSION).tar.bz2
 SRPM = rpmbuild/SRPMS/$(PROGRAM)-$(VERSION)-$(RELEASE).src.rpm

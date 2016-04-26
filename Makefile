@@ -38,7 +38,7 @@ USERNAME := $(shell cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' 
 SERVER = 'dl.fedoraproject.org'
 REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
 
-all: docs
+all: docs $(PROGRAM).static
 
 # show the current version
 version:
@@ -70,6 +70,16 @@ ifneq ($(OLDGOLANG),)
 	go build -ldflags "-X main.program $(PROGRAM) -X main.version $(SVERSION)" -o $(PROGRAM);
 else
 	go build -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM);
+endif
+
+$(PROGRAM).static: main.go
+	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
+	go generate
+ifneq ($(OLDGOLANG),)
+	@# avoid equals sign in old golang versions eg in: -X foo=bar
+	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program $(PROGRAM) -X main.version $(SVERSION)' -o $(PROGRAM).static;
+else
+	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION)' -o $(PROGRAM).static;
 endif
 
 clean:

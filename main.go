@@ -225,9 +225,10 @@ func main() {
 			Action:  run,
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "file, f",
-					Value: "",
-					Usage: "graph definition to run",
+					Name:   "file, f",
+					Value:  "",
+					Usage:  "graph definition to run",
+					EnvVar: "MGMT_FILE",
 				},
 				cli.BoolFlag{
 					Name:  "no-watch",
@@ -256,19 +257,22 @@ func main() {
 				},
 				// if empty, it will startup a new server
 				cli.StringFlag{
-					Name:  "seed, s",
-					Value: "",
-					Usage: "default etc peer endpoint",
+					Name:   "seed, s",
+					Value:  "",
+					Usage:  "default etc peer endpoint",
+					EnvVar: "MGMT_SEED_ENDPOINT",
 				},
 				cli.IntFlag{
-					Name:  "converged-timeout, t",
-					Value: -1,
-					Usage: "exit after approximately this many seconds in a converged state",
+					Name:   "converged-timeout, t",
+					Value:  -1,
+					Usage:  "exit after approximately this many seconds in a converged state",
+					EnvVar: "MGMT_CONVERGED_TIMEOUT",
 				},
 				cli.IntFlag{
-					Name:  "max-runtime",
-					Value: 0,
-					Usage: "exit after a maximum of approximately this many seconds",
+					Name:   "max-runtime",
+					Value:  0,
+					Usage:  "exit after a maximum of approximately this many seconds",
+					EnvVar: "MGMT_MAX_RUNTIME",
 				},
 			},
 		},

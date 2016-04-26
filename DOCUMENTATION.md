@@ -185,6 +185,28 @@ source repository. It is available from:
 
 [https://github.com/purpleidea/mgmt/tree/master/examples](https://github.com/purpleidea/mgmt/tree/master/examples)
 
+### Systemd:
+See [`misc/mgmt.service`](misc/mgmt.service) for a sample systemd unit file.
+This unit file is part of the RPM.
+
+To specify your custom options for `mgmt` on a systemd distro:
+
+```bash
+sudo mkdir -p /etc/systemd/system/mgmt.service.d/
+
+cat > /etc/systemd/system/mgmt.service.d/env.conf <<EOF
+# Environment variables:
+MGMT_SEED_ENDPOINT=http://127.0.0.1:2379
+MGMT_CONVERGED_TIMEOUT=-1
+MGMT_MAX_RUNTIME=0
+
+# Other CLI options if necessary.
+#OPTS="--max-runtime=0"
+EOF
+
+sudo systemctl daemon-reload
+```
+
 ##Development
 
 This is a project that I started in my free time in 2013. Development is driven

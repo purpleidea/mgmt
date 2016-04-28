@@ -380,7 +380,7 @@ func (obj *ExecRes) GetUUIDs() []ResUUID {
 }
 
 func (obj *ExecRes) GroupCmp(r Res) bool {
-	_, ok := r.(*SvcRes)
+	_, ok := r.(*ExecRes)
 	if !ok {
 		return false
 	}

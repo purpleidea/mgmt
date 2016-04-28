@@ -256,6 +256,12 @@ func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
 	return true, false // required to keep the stupid go compiler happy
 }
 
+// GroupCmp compares two resources and decides if they're suitable for grouping
+// You'll probably want to override this method when implementing a resource...
+func (obj *BaseRes) GroupCmp(res Res) bool {
+	return false // base implementation assumes false, override me!
+}
+
 func (obj *BaseRes) GroupRes(res Res) error {
 	if l := len(res.GetGroup()); l > 0 {
 		return fmt.Errorf("Res: %v already contains %d grouped resources!", res, l)

@@ -1,0 +1,19 @@
+---
+graph: mygraph
+comment: hello world example
+resources:
+  noop:
+  - name: noop1
+  file:
+  - name: dir1
+    path: "/tmp/mgmt-hello-world-dir-2/"
+    content: "./examples/content_example_dir"
+    state: exists
+edges:
+- name: e1
+  from:
+    kind: noop
+    name: noop1
+  to:
+    kind: file
+    name: dir1

@@ -19,6 +19,7 @@ package main
 
 import (
 	"github.com/codegangsta/cli"
+	"github.com/coreos/pkg/capnslog"
 	"log"
 	"os"
 	"os/signal"
@@ -205,10 +206,18 @@ func run(c *cli.Context) error {
 }
 
 func main() {
-	//if DEBUG {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	//}
-	log.SetFlags(log.Flags() - log.Ldate) // remove the date for now
+	var flags int
+	if DEBUG || true { // TODO: remove || true
+		flags = log.LstdFlags | log.Lshortfile
+	}
+	flags = (flags - log.Ldate) // remove the date for now
+	log.SetFlags(flags)
+
+	// un-hijack from capnslog...
+	log.SetOutput(os.Stderr)
+	capnslog.SetFormatter(capnslog.NewLogFormatter(os.Stderr, "(etcd) ", flags))
+
+	// test for sanity
 	if program == "" || version == "" {
 		log.Fatal("Program was not compiled correctly. Please see Makefile.")
 	}

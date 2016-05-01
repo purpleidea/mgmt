@@ -103,6 +103,8 @@ func run(c *cli.Context) error {
 	if hostname == "" {
 		hostname, _ = os.Hostname() // etcd watch key // XXX: this is not the correct key name this is the set key name... WOOPS
 	}
+
+	exitchan := make(chan Event) // exit event
 	go func() {
 		startchan := make(chan struct{}) // start signal
 		go func() { startchan <- struct{}{} }()
@@ -134,7 +136,11 @@ func run(c *cli.Context) error {
 				if c.Bool("no-watch") || !msg {
 					continue // not ready to read config
 				}
-				//case compile_event: XXX
+			// XXX: case compile_event: ...
+			// ...
+			case msg := <-exitchan:
+				msg.ACK()
+				return
 			}
 
 			config := ParseConfigFromFile(file)
@@ -193,6 +199,11 @@ func run(c *cli.Context) error {
 	waitForSignal(exit) // pass in exit channel to watch
 
 	G.Exit() // tell all the children to exit
+
+	// tell inner main loop to exit
+	resp := NewResp()
+	exitchan <- Event{eventExit, resp, "", false}
+	resp.ACKWait() // let inner main loop finish cleanly just in case
 
 	if DEBUG {
 		log.Printf("Graph: %v", G)

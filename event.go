@@ -42,13 +42,13 @@ type Event struct {
 // send a single acknowledgement on the channel if one was requested
 func (event *Event) ACK() {
 	if event.Resp != nil { // if they've requested an ACK
-		event.Resp <- true // send ACK
+		event.Resp.ACK()
 	}
 }
 
 func (event *Event) NACK() {
-	if event.Resp != nil { // if they've requested an ACK
-		event.Resp <- false // send NACK
+	if event.Resp != nil { // if they've requested a NACK
+		event.Resp.NACK()
 	}
 }
 
@@ -58,12 +58,30 @@ func NewResp() Resp {
 	return resp
 }
 
+// ACK sends a true value to resp
+func (resp Resp) ACK() {
+	if resp != nil {
+		resp <- true
+	}
+}
+
+// NACK sends a false value to resp
+func (resp Resp) NACK() {
+	if resp != nil {
+		resp <- false
+	}
+}
+
+// Wait waits for any response from a Resp channel and returns it
+func (resp Resp) Wait() bool {
+	return <-resp
+}
+
 // ACKWait waits for a +ive Ack from a Resp channel
 func (resp Resp) ACKWait() {
 	for {
-		value := <-resp
 		// wait until true value
-		if value {
+		if resp.Wait() {
 			return
 		}
 	}

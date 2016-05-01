@@ -17,7 +17,6 @@ If you have a well phrased question that might benefit others, consider asking i
 ## Quick start:
 * Either get the golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
 * Run `make build` to get a freshly built `mgmt` binary.
-* Run `cd $(mktemp --tmpdir -d tmp.XXX) && etcd` to get etcd running. The `mgmt` software will do this automatically for you in the future.
 * Run `time ./mgmt run --file examples/graph0.yaml --converged-timeout=1` to try out a very simple example!
 * To run continuously in the default mode of operation, omit the `--converged-timeout` option.
 * Have fun hacking on our future technology!

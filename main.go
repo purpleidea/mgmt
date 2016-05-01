@@ -19,6 +19,7 @@ package main
 
 import (
 	"github.com/codegangsta/cli"
+	etcdtypes "github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/pkg/capnslog"
 	"log"
 	"os"
@@ -35,7 +36,9 @@ var (
 )
 
 const (
-	DEBUG = false
+	DEBUG   = false // add additional log messages
+	TRACE   = false // add execution flow log messages
+	VERBOSE = false // add extra log message output
 )
 
 // signal handler
@@ -59,16 +62,51 @@ func waitForSignal(exit chan bool) {
 
 func run(c *cli.Context) error {
 	var start = time.Now().UnixNano()
-	var wg sync.WaitGroup
-	exit := make(chan bool) // exit signal
 	log.Printf("This is: %v, version: %v", program, version)
 	log.Printf("Main: Start: %v", start)
-	var G, fullGraph *Graph
 
-	if c.IsSet("file") && c.IsSet("puppet") {
-		log.Println("the --file and --puppet parameters cannot be used together")
+	hostname := c.String("hostname")
+	if hostname == "" {
+		hostname, _ = os.Hostname()
+	}
+	noop := c.Bool("noop")
+
+	seeds, err := etcdtypes.NewURLs(
+		FlattenListWithSplit(c.StringSlice("seeds"), []string{",", ";", " "}),
+	)
+	if err != nil && len(c.StringSlice("seeds")) > 0 {
+		log.Printf("Main: Error: seeds didn't parse correctly!")
 		return cli.NewExitError("", 1)
 	}
+	clientURLs, err := etcdtypes.NewURLs(
+		FlattenListWithSplit(c.StringSlice("client-urls"), []string{",", ";", " "}),
+	)
+	if err != nil && len(c.StringSlice("client-urls")) > 0 {
+		log.Printf("Main: Error: clientURLs didn't parse correctly!")
+		return cli.NewExitError("", 1)
+	}
+	serverURLs, err := etcdtypes.NewURLs(
+		FlattenListWithSplit(c.StringSlice("server-urls"), []string{",", ";", " "}),
+	)
+	if err != nil && len(c.StringSlice("server-urls")) > 0 {
+		log.Printf("Main: Error: serverURLs didn't parse correctly!")
+		return cli.NewExitError("", 1)
+	}
+
+	idealClusterSize := uint16(c.Int("ideal-cluster-size"))
+	if idealClusterSize < 1 {
+		log.Printf("Main: Error: idealClusterSize should be at least one!")
+		return cli.NewExitError("", 1)
+	}
+
+	if c.IsSet("file") && c.IsSet("puppet") {
+		log.Println("Main: Error: the --file and --puppet parameters cannot be used together!")
+		return cli.NewExitError("", 1)
+	}
+
+	var wg sync.WaitGroup
+	exit := make(chan bool) // exit signal
+	var G, fullGraph *Graph
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := c.Int("max-runtime"); i > 0 {
@@ -88,27 +126,25 @@ func run(c *cli.Context) error {
 	)
 	go converger.Loop(true) // main loop for converger, true to start paused
 
-	// initial etcd peer endpoint
-	seed := c.String("seed")
-	if seed == "" {
-		// XXX: start up etcd server, others will join me!
-		seed = "http://127.0.0.1:2379" // thus we use the local server!
+	// embedded etcd
+	if len(seeds) == 0 {
+		log.Printf("Main: Seeds: No seeds specified!")
+	} else {
+		log.Printf("Main: Seeds(%v): %v", len(seeds), seeds)
 	}
-	// then, connect to `seed` as a client
-
-	// FIXME: validate seed, or wait for it to fail in etcd init?
-
-	// etcd
-	etcdO := &EtcdWObject{
-		seed:      seed,
-		converger: converger,
+	EmbdEtcd := NewEmbdEtcd(
+		hostname,
+		seeds,
+		clientURLs,
+		serverURLs,
+		c.Bool("no-server"),
+		idealClusterSize,
+		converger,
+	)
+	if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
+		log.Printf("Main: Etcd: Startup failed: %v", err)
+		exit <- true
 	}
-
-	hostname := c.String("hostname")
-	if hostname == "" {
-		hostname, _ = os.Hostname() // etcd watch key // XXX: this is not the correct key name this is the set key name... WOOPS
-	}
-	noop := c.Bool("noop")
 
 	exitchan := make(chan Event) // exit event
 	go func() {
@@ -124,26 +160,23 @@ func run(c *cli.Context) error {
 			puppetchan = time.Tick(time.Duration(interval) * time.Second)
 		}
 		log.Println("Etcd: Starting...")
-		etcdchan := etcdO.EtcdWatch()
+		etcdchan := EtcdWatch(EmbdEtcd)
 		first := true // first loop or not
 		for {
 			log.Println("Main: Waiting...")
 			select {
-			case _ = <-startchan: // kick the loop once at start
+			case <-startchan: // kick the loop once at start
 				// pass
-			case msg := <-etcdchan:
-				switch msg {
-				// some types of messages we ignore...
-				case etcdFoo, etcdBar:
+
+			case b := <-etcdchan:
+				if !b { // ignore the message
 					continue
-				// while others passthrough and cause a compile!
-				case etcdStart, etcdEvent:
-					// pass
-				default:
-					log.Fatal("Etcd: Unhandled message: ", msg)
 				}
-			case _ = <-puppetchan:
+				// everything else passes through to cause a compile!
+
+			case <-puppetchan:
 				// nothing, just go on
+
 			case msg := <-configchan:
 				if c.Bool("no-watch") || !msg {
 					continue // not ready to read config
@@ -174,7 +207,7 @@ func run(c *cli.Context) error {
 
 			// build graph from yaml file on events (eg: from etcd)
 			// we need the vertices to be paused to work on them
-			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, etcdO, hostname, noop); err == nil { // keep references to all original elements
+			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, EmbdEtcd, hostname, noop); err == nil { // keep references to all original elements
 				fullGraph = newFullgraph
 			} else {
 				log.Printf("Config: Error making new graph from config: %v", err)
@@ -215,11 +248,19 @@ func run(c *cli.Context) error {
 
 	waitForSignal(exit) // pass in exit channel to watch
 
+	log.Println("Destroy...")
+
 	G.Exit() // tell all the children to exit
 
 	// tell inner main loop to exit
 	resp := NewResp()
-	exitchan <- Event{eventExit, resp, "", false}
+	go func() { exitchan <- Event{eventExit, resp, "", false} }()
+
+	// cleanup etcd main loop last so it can process everything first
+	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
+		log.Printf("Etcd exited poorly with: %v", err)
+	}
+
 	resp.ACKWait() // let inner main loop finish cleanly just in case
 
 	if DEBUG {
@@ -243,7 +284,11 @@ func main() {
 
 	// un-hijack from capnslog...
 	log.SetOutput(os.Stderr)
-	capnslog.SetFormatter(capnslog.NewLogFormatter(os.Stderr, "(etcd) ", flags))
+	if VERBOSE {
+		capnslog.SetFormatter(capnslog.NewLogFormatter(os.Stderr, "(etcd) ", flags))
+	} else {
+		capnslog.SetFormatter(capnslog.NewNilFormatter())
+	}
 
 	// test for sanity
 	if program == "" || version == "" {
@@ -294,11 +339,35 @@ func main() {
 					Usage: "hostname to use",
 				},
 				// if empty, it will startup a new server
-				cli.StringFlag{
-					Name:   "seed, s",
-					Value:  "",
-					Usage:  "default etc peer endpoint",
-					EnvVar: "MGMT_SEED_ENDPOINT",
+				cli.StringSliceFlag{
+					Name:   "seeds, s",
+					Value:  &cli.StringSlice{}, // empty slice
+					Usage:  "default etc client endpoint",
+					EnvVar: "MGMT_SEEDS",
+				},
+				// port 2379 and 4001 are common
+				cli.StringSliceFlag{
+					Name:   "client-urls",
+					Value:  &cli.StringSlice{},
+					Usage:  "list of URLs to listen on for client traffic",
+					EnvVar: "MGMT_CLIENT_URLS",
+				},
+				// port 2380 and 7001 are common
+				cli.StringSliceFlag{
+					Name:   "server-urls, peer-urls",
+					Value:  &cli.StringSlice{},
+					Usage:  "list of URLs to listen on for server (peer) traffic",
+					EnvVar: "MGMT_SERVER_URLS",
+				},
+				cli.BoolFlag{
+					Name:  "no-server",
+					Usage: "do not let other servers peer with me",
+				},
+				cli.IntFlag{
+					Name:   "ideal-cluster-size",
+					Value:  defaultIdealClusterSize,
+					Usage:  "ideal number of server peers in cluster, only read by initial server",
+					EnvVar: "MGMT_IDEAL_CLUSTER_SIZE",
 				},
 				cli.IntFlag{
 					Name:   "converged-timeout, t",

@@ -68,6 +68,7 @@ type MetaParams struct {
 type Base interface {
 	GetName() string // can't be named "Name()" because of struct field
 	SetName(string)
+	setKind(string)
 	Kind() string
 	Meta() *MetaParams
 	AssociateData(Converger)
@@ -162,7 +163,12 @@ func (obj *BaseRes) SetName(name string) {
 	obj.Name = name
 }
 
-// return the kind of resource this is
+// setKind sets the kind. This is used internally for exported resources.
+func (obj *BaseRes) setKind(kind string) {
+	obj.kind = kind
+}
+
+// Kind returns the kind of resource this is
 func (obj *BaseRes) Kind() string {
 	return obj.kind
 }

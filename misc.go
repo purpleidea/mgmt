@@ -40,6 +40,15 @@ func StrInList(needle string, haystack []string) bool {
 	return false
 }
 
+func Uint64KeyFromStrInMap(needle string, haystack map[uint64]string) (uint64, bool) {
+	for k, v := range haystack {
+		if v == needle {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
 // remove any duplicate values in the list
 // possibly sub-optimal, O(n^2)? implementation
 func StrRemoveDuplicatesInList(list []string) []string {
@@ -87,8 +96,17 @@ func ReverseStringList(in []string) []string {
 
 // return the sorted list of string keys in a map with string keys
 // NOTE: i thought it would be nice for this to use: map[string]interface{} but
-// it turns out that's not allowed. I know we don't have generics, but common!
+// it turns out that's not allowed. I know we don't have generics, but come on!
 func StrMapKeys(m map[string]string) []string {
+	result := []string{}
+	for k, _ := range m {
+		result = append(result, k)
+	}
+	sort.Strings(result) // deterministic order
+	return result
+}
+
+func StrMapKeysUint64(m map[string]uint64) []string {
 	result := []string{}
 	for k, _ := range m {
 		result = append(result, k)
@@ -109,6 +127,16 @@ func BoolMapValues(m map[string]bool) []bool {
 
 // return the sorted list of string values in a map with string values
 func StrMapValues(m map[string]string) []string {
+	result := []string{}
+	for _, v := range m {
+		result = append(result, v)
+	}
+	sort.Strings(result) // deterministic order
+	return result
+}
+
+// return the sorted list of string values in a map with string values
+func StrMapValuesUint64(m map[uint64]string) []string {
 	result := []string{}
 	for _, v := range m {
 		result = append(result, v)

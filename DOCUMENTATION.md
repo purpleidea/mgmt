@@ -201,7 +201,7 @@ sudo mkdir -p /etc/systemd/system/mgmt.service.d/
 
 cat > /etc/systemd/system/mgmt.service.d/env.conf <<EOF
 # Environment variables:
-MGMT_SEED_ENDPOINT=http://127.0.0.1:2379
+MGMT_SEEDS=http://127.0.0.1:2379
 MGMT_CONVERGED_TIMEOUT=-1
 MGMT_MAX_RUNTIME=0
 

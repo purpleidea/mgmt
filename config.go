@@ -85,7 +85,7 @@ func ParseConfigFromFile(filename string) *GraphConfig {
 
 // NewGraphFromConfig returns a new graph from existing input, such as from the
 // existing graph, and a GraphConfig struct.
-func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, hostname string, noop bool) (*Graph, error) {
+func (g *Graph) NewGraphFromConfig(config *GraphConfig, embdEtcd *EmbdEtcd, hostname string, noop bool) (*Graph, error) {
 
 	var graph *Graph // new graph to return
 	if g == nil {    // FIXME: how can we check for an empty graph?
@@ -101,8 +101,8 @@ func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, host
 	// TODO: if defined (somehow)...
 	graph.SetName(config.Graph) // set graph name
 
-	var keep []*Vertex // list of vertex which are the same in new graph
-
+	var keep []*Vertex  // list of vertex which are the same in new graph
+	var resources []Res // list of resources to export
 	// use reflection to avoid duplicating code... better options welcome!
 	value := reflect.Indirect(reflect.ValueOf(config.Resources))
 	vtype := value.Type()
@@ -118,91 +118,106 @@ func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, host
 		}
 		for j := 0; j < slice.Len(); j++ { // loop through resources of same kind
 			x := slice.Index(j).Interface()
-			obj, ok := x.(Res) // convert to Res type
+			res, ok := x.(Res) // convert to Res type
 			if !ok {
 				return nil, fmt.Errorf("Error: Config: Can't convert: %v of type: %T to Res.", x, x)
 			}
 			if noop {
-				obj.Meta().Noop = noop
+				res.Meta().Noop = noop
 			}
 			if _, exists := lookup[kind]; !exists {
 				lookup[kind] = make(map[string]*Vertex)
 			}
 			// XXX: should we export based on a @@ prefix, or a metaparam
 			// like exported => true || exported => (host pattern)||(other pattern?)
-			if !strings.HasPrefix(obj.GetName(), "@@") { // exported resource
+			if !strings.HasPrefix(res.GetName(), "@@") { // not exported resource
 				// XXX: we don't have a way of knowing if any of the
 				// metaparams are undefined, and as a result to set the
 				// defaults that we want! I hate the go yaml parser!!!
-				v := graph.GetVertexMatch(obj)
+				v := graph.GetVertexMatch(res)
 				if v == nil { // no match found
-					obj.Init()
-					v = NewVertex(obj)
+					res.Init()
+					v = NewVertex(res)
 					graph.AddVertex(v) // call standalone in case not part of an edge
 				}
-				lookup[kind][obj.GetName()] = v // used for constructing edges
+				lookup[kind][res.GetName()] = v // used for constructing edges
 				keep = append(keep, v)          // append
 
 			} else if !noop { // do not export any resources if noop
-				// XXX: do this in a different function...
-				// add to etcd storage...
-				obj.SetName(obj.GetName()[2:]) //slice off @@
-
-				data, err := ResToB64(obj)
-				if err != nil {
-					return nil, fmt.Errorf("Config: Could not encode %v resource: %v, error: %v", kind, obj.GetName(), err)
-				}
-
-				if !etcdO.EtcdPut(hostname, obj.GetName(), kind, data) {
-					return nil, fmt.Errorf("Config: Could not export %v resource: %v", kind, obj.GetName())
-				}
+				// store for addition to etcd storage...
+				res.SetName(res.GetName()[2:]) //slice off @@
+				res.setKind(kind)              // cheap init
+				resources = append(resources, res)
 			}
 		}
 	}
+	// store in etcd
+	if err := EtcdSetResources(embdEtcd, hostname, resources); err != nil {
+		return nil, fmt.Errorf("Config: Could not export resources: %v", err)
+	}
 
-	// lookup from etcd graph
+	// lookup from etcd
+	var hostnameFilter []string // empty to get from everyone
+	kindFilter := []string{}
+	for _, t := range config.Collector {
+		// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
+		kind := FirstToUpper(t.Kind)
+		kindFilter = append(kindFilter, kind)
+	}
 	// do all the graph look ups in one single step, so that if the etcd
 	// database changes, we don't have a partial state of affairs...
-	nodes, ok := etcdO.EtcdGet()
-	if ok {
+	if len(kindFilter) > 0 { // if kindFilter is empty, don't need to do lookups!
+		var err error
+		resources, err = EtcdGetResources(embdEtcd, hostnameFilter, kindFilter)
+		if err != nil {
+			return nil, fmt.Errorf("Config: Could not collect resources: %v", err)
+		}
+	}
+	for _, res := range resources {
+		matched := false
+		// see if we find a collect pattern that matches
 		for _, t := range config.Collector {
 			// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
 			kind := FirstToUpper(t.Kind)
-
 			// use t.Kind and optionally t.Pattern to collect from etcd storage
 			log.Printf("Collect: %v; Pattern: %v", kind, t.Pattern)
-			for _, str := range etcdO.EtcdGetProcess(nodes, kind) {
-				obj, err := B64ToRes(str)
-				if err != nil {
-					log.Printf("B64ToRes failed to decode: %v", err)
-					log.Printf("Collect: %v: not collected!", kind)
-					continue
-				}
 
-				// collect resources but add the noop metaparam
-				if noop {
-					obj.Meta().Noop = noop
-				}
-
-				if t.Pattern != "" { // XXX: simplistic for now
-					obj.CollectPattern(t.Pattern) // obj.Dirname = t.Pattern
-				}
-
-				log.Printf("Collect: %v[%v]: collected!", kind, obj.GetName())
-
-				// XXX: similar to other resource add code:
-				if _, exists := lookup[kind]; !exists {
-					lookup[kind] = make(map[string]*Vertex)
-				}
-				v := graph.GetVertexMatch(obj)
-				if v == nil { // no match found
-					obj.Init() // initialize go channels or things won't work!!!
-					v = NewVertex(obj)
-					graph.AddVertex(v) // call standalone in case not part of an edge
-				}
-				lookup[kind][obj.GetName()] = v // used for constructing edges
-				keep = append(keep, v)          // append
+			// XXX: expand to more complex pattern matching here...
+			if res.Kind() != kind {
+				continue
 			}
+
+			if matched {
+				// we've already matched this resource, should we match again?
+				log.Printf("Config: Warning: Matching %v[%v] again!", kind, res.GetName())
+			}
+			matched = true
+
+			// collect resources but add the noop metaparam
+			if noop {
+				res.Meta().Noop = noop
+			}
+
+			if t.Pattern != "" { // XXX: simplistic for now
+				res.CollectPattern(t.Pattern) // res.Dirname = t.Pattern
+			}
+
+			log.Printf("Collect: %v[%v]: collected!", kind, res.GetName())
+
+			// XXX: similar to other resource add code:
+			if _, exists := lookup[kind]; !exists {
+				lookup[kind] = make(map[string]*Vertex)
+			}
+			v := graph.GetVertexMatch(res)
+			if v == nil { // no match found
+				res.Init() // initialize go channels or things won't work!!!
+				v = NewVertex(res)
+				graph.AddVertex(v) // call standalone in case not part of an edge
+			}
+			lookup[kind][res.GetName()] = v // used for constructing edges
+			keep = append(keep, v)          // append
+
+			//break // let's see if another resource even matches
 		}
 	}
 

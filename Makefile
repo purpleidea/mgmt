@@ -54,11 +54,11 @@ deps:
 	./misc/make-deps.sh
 
 run:
-	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
+	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
 
 # include race flag
 race:
-	find -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
+	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
 
 generate:
 	go generate
@@ -92,8 +92,8 @@ test:
 	./test.sh
 
 format:
-	find -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -exec gofmt -w {} \;
-	find -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
+	find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -exec gofmt -w {} \;
+	find . -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
 
 docs: $(PROGRAM)-documentation.pdf
 

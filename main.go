@@ -274,6 +274,10 @@ func main() {
 					Usage:  "exit after a maximum of approximately this many seconds",
 					EnvVar: "MGMT_MAX_RUNTIME",
 				},
+				cli.BoolFlag{
+					Name:  "noop",
+					Usage: "run mgmt in noop mode",
+				},
 			},
 		},
 	}

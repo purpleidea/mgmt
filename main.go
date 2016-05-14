@@ -56,7 +56,7 @@ func waitForSignal(exit chan bool) {
 	}
 }
 
-func run(c *cli.Context) {
+func run(c *cli.Context) error {
 	var start = time.Now().UnixNano()
 	var wg sync.WaitGroup
 	exit := make(chan bool) // exit signal
@@ -201,6 +201,7 @@ func run(c *cli.Context) {
 
 	// TODO: wait for each vertex to exit...
 	log.Println("Goodbye!")
+	return nil
 }
 
 func main() {

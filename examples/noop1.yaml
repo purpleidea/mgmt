@@ -1,0 +1,24 @@
+---
+graph: mygraph
+comment: noop example
+resources:
+  noop:
+  - name: noop1
+    meta:
+      noop: true
+  file:
+  - name: file1
+    path: "/tmp/mgmt-hello-noop"
+    content: |
+      hello world from @purpleidea
+    state: exists
+    meta:
+      noop: true
+edges:
+- name: e1
+  from:
+    kind: noop
+    name: noop1
+  to:
+    kind: file
+    name: file1

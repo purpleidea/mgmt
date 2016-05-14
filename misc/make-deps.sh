@@ -45,7 +45,6 @@ rm -rf etcd	# clean up to avoid failing on upstream gofmt errors
 
 go get ./...	# get all the go dependencies
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
-go get golang.org/x/tools/cmd/vet	# add in `go vet` for travis
 go get golang.org/x/tools/cmd/stringer	# for automatic stringer-ing
 go get github.com/golang/lint/golint	# for `golint`-ing
 cd "$XPWD" >/dev/null

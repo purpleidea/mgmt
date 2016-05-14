@@ -60,6 +60,7 @@ type AutoEdge interface {
 type MetaParams struct {
 	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges? // XXX should default to true
 	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group? // XXX should default to true
+	Noop      bool `yaml:"noop"`
 }
 
 // this interface is everything that is common to all resources

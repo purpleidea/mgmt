@@ -140,6 +140,17 @@ chosen, but it was also somewhat arbitrary. If there is available interest,
 good reasoning, *and* patches, then we would consider either switching or
 supporting both, but this is not a high priority at this time.
 
+###Can I use an existing etcd cluster instead of the automatic embedded servers?
+
+Yes, it's possible to use an existing etcd cluster instead of the automatic,
+elastic embedded etcd servers. To do so, simply point to the cluster with the
+`--seeds` variable, the same way you would if you were seeding a new member to
+an existing mgmt cluster.
+
+The downside to this approach is that you won't benefit from the automatic
+elastic nature of the embedded etcd servers, and that you're responsible if you
+accidentally break your etcd cluster, or if you use an unsupported version.
+
 ###You didn't answer my question, or I have a question!
 
 It's best to ask on [IRC](https://webchat.freenode.net/?channels=#mgmtconfig)

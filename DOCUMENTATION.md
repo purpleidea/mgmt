@@ -150,6 +150,11 @@ and I'll do my best to help. If you have a good question, please add it as a
 patch to this documentation. I'll merge your question, and add a patch with the
 answer!
 
+### Why is etcd packaged in?
+
+Can one choose an external instance of etcd? For example on CoreOS one have it running already.
+Don't packaging it would make the binary also lighter.
+
 ##Reference
 Please note that there are a number of undocumented options. For more
 information on these options, please view the source at:

@@ -50,7 +50,8 @@ var (
 	PkArchMap = map[string]string{ // map of PackageKit arch to GOARCH
 		// TODO: add more values
 		// noarch
-		"noarch": "ANY", // special value "ANY"
+		"noarch": "ANY", // special value "ANY" (noarch as seen in Fedora)
+		"all":    "ANY", // special value "ANY" ('all' as seen in Debian)
 		// fedora
 		"x86_64":  "amd64",
 		"aarch64": "arm64",

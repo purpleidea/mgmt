@@ -137,6 +137,8 @@ func (obj *PkgRes) Watch(processChan chan Event) {
 		obj.SetState(resStateWatching) // reset
 		select {
 		case event := <-ch:
+			cuuid.SetConverged(false)
+
 			// FIXME: ask packagekit for info on what packages changed
 			if DEBUG {
 				log.Printf("%v: Event: %v", obj.fmtNames(obj.getNames()), event.Name)
@@ -148,7 +150,6 @@ func (obj *PkgRes) Watch(processChan chan Event) {
 				<-ch // discard
 			}
 
-			cuuid.SetConverged(false)
 			send = true
 			dirty = true
 

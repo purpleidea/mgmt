@@ -157,7 +157,7 @@ func (obj *PkgRes) Watch(processChan chan Event) {
 			if exit, send = obj.ReadEvent(&event); exit {
 				return // exit
 			}
-			//dirty = false // these events don't invalidate state
+			dirty = false // these events don't invalidate state
 
 		case _ = <-cuuid.ConvergedTimer():
 			cuuid.SetConverged(true) // converged!
@@ -286,10 +286,12 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 		fallthrough
 	case "newest":
 		if validState {
-			return true, nil // state is correct, exit!
+			obj.isStateOK = true // reset
+			return true, nil     // state is correct, exit!
 		}
 	default: // version string
 		if obj.State == data.Version && data.Version != "" {
+			obj.isStateOK = true // reset
 			return true, nil
 		}
 	}
@@ -333,7 +335,8 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 		return false, err // fail
 	}
 	log.Printf("%v: Set: %v success!", obj.fmtNames(StrListIntersection(applyPackages, obj.getNames())), obj.State)
-	return false, nil // success
+	obj.isStateOK = true // reset
+	return false, nil    // success
 }
 
 type PkgUUID struct {

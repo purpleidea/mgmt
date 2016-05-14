@@ -638,7 +638,7 @@ func NewNoopResTest(name string) *NoopResTest {
 		NoopRes: NoopRes{
 			BaseRes: BaseRes{
 				Name: name,
-				Meta: MetaParams{
+				MetaParams: MetaParams{
 					AutoGroup: true, // always autogroup
 				},
 			},

@@ -391,6 +391,10 @@ func (obj *ExecRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *ExecRes:
 		res := res.(*ExecRes)
+		if !obj.BaseRes.Compare(res) { // call base Compare
+			return false
+		}
+
 		if obj.Name != res.Name {
 			return false
 		}

@@ -424,6 +424,10 @@ func (obj *SvcRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *SvcRes:
 		res := res.(*SvcRes)
+		if !obj.BaseRes.Compare(res) { // call base Compare
+			return false
+		}
+
 		if obj.Name != res.Name {
 			return false
 		}

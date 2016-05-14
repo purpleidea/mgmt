@@ -179,6 +179,11 @@ Exit if the machine has converged for approximately this many seconds.
 Exit when the agent has run for approximately this many seconds. This is not
 generally recommended, but may be useful for users who know what they're doing.
 
+####`--noop`
+Globally force all resources into no-op mode. This also disables the export to
+etcd functionality, but does not disable resource collection, however all
+resources that are collected will have their individual noop settings set.
+
 ##Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git
 source repository. It is available from:

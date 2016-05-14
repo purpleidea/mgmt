@@ -69,7 +69,7 @@ type Base interface {
 	GetName() string // can't be named "Name()" because of struct field
 	SetName(string)
 	Kind() string
-	GetMeta() MetaParams
+	Meta() *MetaParams
 	AssociateData(Converger)
 	IsWatching() bool
 	SetWatching(bool)
@@ -99,16 +99,16 @@ type Res interface {
 }
 
 type BaseRes struct {
-	Name      string     `yaml:"name"`
-	Meta      MetaParams `yaml:"meta"` // struct of all the metaparams
-	kind      string
-	events    chan Event
-	converger Converger // converged tracking
-	state     resState
-	watching  bool  // is Watch() loop running ?
-	isStateOK bool  // whether the state is okay based on events or not
-	isGrouped bool  // am i contained within a group?
-	grouped   []Res // list of any grouped resources
+	Name       string     `yaml:"name"`
+	MetaParams MetaParams `yaml:"meta"` // struct of all the metaparams
+	kind       string
+	events     chan Event
+	converger  Converger // converged tracking
+	state      resState
+	watching   bool  // is Watch() loop running ?
+	isStateOK  bool  // whether the state is okay based on events or not
+	isGrouped  bool  // am i contained within a group?
+	grouped    []Res // list of any grouped resources
 }
 
 // wraps the IFF method when used with a list of UUID's
@@ -167,8 +167,8 @@ func (obj *BaseRes) Kind() string {
 	return obj.kind
 }
 
-func (obj *BaseRes) GetMeta() MetaParams {
-	return obj.Meta
+func (obj *BaseRes) Meta() *MetaParams {
+	return &obj.MetaParams
 }
 
 // AssociateData associates some data with the object in question
@@ -290,6 +290,19 @@ func (obj *BaseRes) GetGroup() []Res { // return everyone grouped inside me
 
 func (obj *BaseRes) SetGroup(g []Res) {
 	obj.grouped = g
+}
+
+// Compare is the base compare method, which also handles the metaparams cmp
+func (obj *BaseRes) Compare(res Res) bool {
+	if obj.Meta().Noop != res.Meta().Noop {
+		// obj is the existing res, res is the *new* resource
+		// if we go from no-noop -> noop, we can re-use the obj
+		// if we go from noop -> no-noop, we need to regenerate
+		if obj.Meta().Noop { // asymmetrical
+			return false // going from noop to no-noop!
+		}
+	}
+	return true
 }
 
 func (obj *BaseRes) CollectPattern(pattern string) {

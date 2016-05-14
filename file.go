@@ -478,6 +478,10 @@ func (obj *FileRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *FileRes:
 		res := res.(*FileRes)
+		if !obj.BaseRes.Compare(res) { // call base Compare
+			return false
+		}
+
 		if obj.Name != res.Name {
 			return false
 		}

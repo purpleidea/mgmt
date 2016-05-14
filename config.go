@@ -85,7 +85,7 @@ func ParseConfigFromFile(filename string) *GraphConfig {
 
 // NewGraphFromConfig returns a new graph from existing input, such as from the
 // existing graph, and a GraphConfig struct.
-func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, hostname string) (*Graph, error) {
+func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, hostname string, noop bool) (*Graph, error) {
 
 	var graph *Graph // new graph to return
 	if g == nil {    // FIXME: how can we check for an empty graph?
@@ -122,7 +122,9 @@ func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, host
 			if !ok {
 				return nil, fmt.Errorf("Error: Config: Can't convert: %v of type: %T to Res.", x, x)
 			}
-
+			if noop {
+				obj.Meta().Noop = noop
+			}
 			if _, exists := lookup[kind]; !exists {
 				lookup[kind] = make(map[string]*Vertex)
 			}
@@ -141,7 +143,7 @@ func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, host
 				lookup[kind][obj.GetName()] = v // used for constructing edges
 				keep = append(keep, v)          // append
 
-			} else {
+			} else if !noop { // do not export any resources if noop
 				// XXX: do this in a different function...
 				// add to etcd storage...
 				obj.SetName(obj.GetName()[2:]) //slice off @@
@@ -175,6 +177,11 @@ func (g *Graph) NewGraphFromConfig(config *GraphConfig, etcdO *EtcdWObject, host
 					log.Printf("B64ToRes failed to decode: %v", err)
 					log.Printf("Collect: %v: not collected!", kind)
 					continue
+				}
+
+				// collect resources but add the noop metaparam
+				if noop {
+					obj.Meta().Noop = noop
 				}
 
 				if t.Pattern != "" { // XXX: simplistic for now
@@ -271,7 +278,7 @@ func (g *Graph) addEdgesByMatchingUUIDS(v *Vertex, uuids []ResUUID) []bool {
 func (g *Graph) AutoEdges() {
 	log.Println("Compile: Adding AutoEdges...")
 	for _, v := range g.GetVertices() { // for each vertexes autoedges
-		if !v.GetMeta().AutoEdge { // is the metaparam true?
+		if !v.Meta().AutoEdge { // is the metaparam true?
 			continue
 		}
 		autoEdgeObj := v.AutoEdges()
@@ -398,7 +405,7 @@ func (ag *baseGrouper) vertexCmp(v1, v2 *Vertex) error {
 		return fmt.Errorf("The two resources aren't the same kind!")
 	}
 	// someone doesn't want to group!
-	if !v1.GetMeta().AutoGroup || !v2.GetMeta().AutoGroup {
+	if !v1.Meta().AutoGroup || !v2.Meta().AutoGroup {
 		return fmt.Errorf("One of the autogroup flags is false!")
 	}
 	if v1.Res.IsGrouped() { // already grouped!

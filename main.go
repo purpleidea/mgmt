@@ -103,6 +103,7 @@ func run(c *cli.Context) error {
 	if hostname == "" {
 		hostname, _ = os.Hostname() // etcd watch key // XXX: this is not the correct key name this is the set key name... WOOPS
 	}
+	noop := c.Bool("noop")
 
 	exitchan := make(chan Event) // exit event
 	go func() {
@@ -157,7 +158,7 @@ func run(c *cli.Context) error {
 
 			// build graph from yaml file on events (eg: from etcd)
 			// we need the vertices to be paused to work on them
-			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, etcdO, hostname); err == nil { // keep references to all original elements
+			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, etcdO, hostname, noop); err == nil { // keep references to all original elements
 				fullGraph = newFullgraph
 			} else {
 				log.Printf("Config: Error making new graph from config: %v", err)
@@ -294,6 +295,10 @@ func main() {
 					Value:  0,
 					Usage:  "exit after a maximum of approximately this many seconds",
 					EnvVar: "MGMT_MAX_RUNTIME",
+				},
+				cli.BoolFlag{
+					Name:  "noop",
+					Usage: "globally force all resources into no-op mode",
 				},
 			},
 		},

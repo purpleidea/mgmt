@@ -507,6 +507,10 @@ func (obj *PkgRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *PkgRes:
 		res := res.(*PkgRes)
+		if !obj.BaseRes.Compare(res) { // call base Compare
+			return false
+		}
+
 		if obj.Name != res.Name {
 			return false
 		}

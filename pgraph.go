@@ -729,7 +729,7 @@ func (g *Graph) Process(v *Vertex) {
 
 		obj.SetState(resStateCheckApply)
 		// if this fails, don't UpdateTimestamp()
-		checkok, err := obj.CheckApply(!obj.GetMeta().Noop)
+		checkok, err := obj.CheckApply(!obj.Meta().Noop)
 		if checkok && err != nil { // should never return this way
 			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), checkok, err)
 		}
@@ -746,7 +746,7 @@ func (g *Graph) Process(v *Vertex) {
 		}
 
 		// when noop is true we always want to update timestamp
-		if obj.GetMeta().Noop && err == nil {
+		if obj.Meta().Noop && err == nil {
 			ok = true
 		}
 

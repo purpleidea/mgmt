@@ -133,6 +133,10 @@ func (obj *NoopRes) Compare(res Res) bool {
 	// we can only compare NoopRes to others of the same resource
 	case *NoopRes:
 		res := res.(*NoopRes)
+		// calling base Compare is unneeded for the noop res
+		//if !obj.BaseRes.Compare(res) { // call base Compare
+		//	return false
+		//}
 		if obj.Name != res.Name {
 			return false
 		}

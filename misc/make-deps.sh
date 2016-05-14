@@ -45,6 +45,12 @@ rm -rf etcd	# clean up to avoid failing on upstream gofmt errors
 
 go get ./...	# get all the go dependencies
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
+# vet is built-in in go 1.6 - we check for go vet command
+go vet 1> /dev/null 2>&1
+ret=$?
+if [[ $ret != 0 ]]; then
+	go get golang.org/x/tools/cmd/vet      # add in `go vet` for travis
+fi
 go get golang.org/x/tools/cmd/stringer	# for automatic stringer-ing
 go get github.com/golang/lint/golint	# for `golint`-ing
 cd "$XPWD" >/dev/null

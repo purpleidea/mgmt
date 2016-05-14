@@ -201,7 +201,7 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 }
 
 // TODO: expand the IfCmd to be a list of commands
-func (obj *ExecRes) CheckApply(apply bool) (stateok bool, err error) {
+func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	// if there is a watch command, but no if command, run based on state

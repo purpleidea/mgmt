@@ -328,7 +328,7 @@ func (obj *FileRes) FileApply() error {
 	return nil // success
 }
 
-func (obj *FileRes) CheckApply(apply bool) (stateok bool, err error) {
+func (obj *FileRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.isStateOK { // cache the state

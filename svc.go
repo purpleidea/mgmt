@@ -227,7 +227,7 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 	}
 }
 
-func (obj *SvcRes) CheckApply(apply bool) (stateok bool, err error) {
+func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.isStateOK { // cache the state

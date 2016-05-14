@@ -241,7 +241,7 @@ func (obj *PkgRes) pkgMappingHelper(bus *Conn) (map[string]*PkPackageIDActionDat
 	return result, nil
 }
 
-func (obj *PkgRes) CheckApply(apply bool) (stateok bool, err error) {
+func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v: CheckApply(%t)", obj.fmtNames(obj.getNames()), apply)
 
 	if obj.State == "" { // TODO: Validate() should replace this check!

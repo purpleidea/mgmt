@@ -729,15 +729,15 @@ func (g *Graph) Process(v *Vertex) {
 
 		obj.SetState(resStateCheckApply)
 		// if this fails, don't UpdateTimestamp()
-		stateok, err := obj.CheckApply(true)
-		if stateok && err != nil { // should never return this way
-			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), stateok, err)
+		checkok, err := obj.CheckApply(true)
+		if checkok && err != nil { // should never return this way
+			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), checkok, err)
 		}
 		if DEBUG {
-			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), stateok, err)
+			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), checkok, err)
 		}
 
-		if !stateok { // if state *was* not ok, we had to have apply'ed
+		if !checkok { // if state *was* not ok, we had to have apply'ed
 			if err != nil { // error during check or apply
 				ok = false
 			} else {

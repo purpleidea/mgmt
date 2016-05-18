@@ -25,7 +25,6 @@ import (
 	"encoding/gob"
 	"io"
 	"log"
-	"math"
 	"os"
 	"path"
 	"strings"
@@ -114,7 +113,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	//var recursive bool = false
 	//var isdir = (obj.GetPath()[len(obj.GetPath())-1:] == "/") // dirs have trailing slashes
 	//log.Printf("IsDirectory: %v", isdir)
-	var safename = path.Clean(obj.GetPath()) // no trailing slash
+	var cleanObjPath = path.Clean(obj.GetPath()) // no trailing slash
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -122,30 +121,32 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	}
 	defer watcher.Close()
 
-	patharray := PathSplit(safename) // tokenize the path
-	var index = len(patharray)       // starting index
-	var current string               // current "watcher" location
-	var deltaDepth int               // depth delta between watcher and event
-	var send = false                 // send event?
+	patharray := PathSplit(cleanObjPath)[1:] // tokenize the path
+	var objDepth = len(patharray)            // total elements in the path, will not change
+	var watchDepth = len(patharray)          // elements in the path to the current watch
+	var eventDepth int                       // elements in the path to what triggered the most recent event
+	var send = false                         // send event?
 	var exit = false
 	var dirty = false
+	var watchPath string
 
 	for {
-		current = strings.Join(patharray[0:index], "/")
-		if current == "" { // the empty string top is the root dir ("/")
-			current = "/"
-		}
+		watchPath = "/" + strings.Join(patharray[0:watchDepth], "/")
+
 		if DEBUG {
-			log.Printf("File[%v]: Watching: %v", obj.GetName(), current) // attempting to watch...
+			log.Printf("File[%v]: Watching: %v", obj.GetName(), watchPath) // attempting to watch...
 		}
 		// initialize in the loop so that we can reset on rm-ed handles
-		err = watcher.Add(current)
+		err = watcher.Add(watchPath)
 		if err != nil {
 			if DEBUG {
-				log.Printf("File[%v]: watcher.Add(%v): Error: %v", obj.GetName(), current, err)
+				log.Printf("File[%v]: watcher.Add(%v): Error: %v", obj.GetName(), watchPath, err)
 			}
 			if err == syscall.ENOENT {
-				index-- // usually not found, move up one dir
+				watchDepth-- // usually not found, move up one dir
+				if watchDepth < 0 {
+					log.Fatal("somehow trying to watch file above the fs root")
+				}
 			} else if err == syscall.ENOSPC {
 				// XXX: occasionally: no space left on device,
 				// XXX: probably due to lack of inotify watches
@@ -155,7 +156,6 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				log.Printf("Unknown file[%v] error:", obj.Name)
 				log.Fatal(err)
 			}
-			index = int(math.Max(1, float64(index)))
 			continue
 		}
 
@@ -163,75 +163,65 @@ func (obj *FileRes) Watch(processChan chan Event) {
 		select {
 		case event := <-watcher.Events:
 			if DEBUG {
-				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event.Op)
+				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), watchPath, event.Name, event.Op)
 			}
-			cuuid.SetConverged(false) // XXX: technically i can detect if the event is erroneous or not first
-			// the deeper you go, the bigger the deltaDepth is...
-			// this is the difference between what we're watching,
-			// and the event... doesn't mean we can't watch deeper
-			if current == event.Name {
-				deltaDepth = 0 // i was watching what i was looking for
 
-			} else if HasPathPrefix(event.Name, current) {
-				deltaDepth = len(PathSplit(current)) - len(PathSplit(event.Name)) // -1 or less
-
-			} else if HasPathPrefix(current, event.Name) {
-				deltaDepth = len(PathSplit(event.Name)) - len(PathSplit(current)) // +1 or more
-
-			} else {
+			if !HasPathPrefix(event.Name, cleanObjPath) && !HasPathPrefix(cleanObjPath, event.Name) {
 				// TODO different watchers get each others events!
 				// https://github.com/go-fsnotify/fsnotify/issues/95
 				// this happened with two values such as:
-				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
+				// event.Name: /tmp/mgmt/f3 and watchPath: /tmp/mgmt/f2
+				if DEBUG {
+					log.Printf("File[%v]: ignoring event, it's from a foreign watch", obj.GetName)
+				}
 				continue
 			}
-			//log.Printf("The delta depth is: %v", deltaDepth)
 
-			// if we have what we wanted, awesome, send an event...
-			if event.Name == safename {
-				//log.Println("Event!")
-				// FIXME: should all these below cases trigger?
+			cuuid.SetConverged(false)
+			eventDepth = len(PathSplit(event.Name)[1:])
+
+			if DEBUG {
+				log.Printf("File[%v]: event depth %v, watch depth %v", obj.GetName(), eventDepth, watchDepth)
+			}
+
+			if eventDepth == objDepth {
+				// this event was triggered by the managed file: send an event
 				send = true
 				dirty = true
 
-				// file removed, move the watch upwards
-				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					//log.Println("Removal!")
-					watcher.Remove(current)
-					index--
+				watcher.Remove(watchPath)
+				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					// object was removed, watch the parent
+					watchDepth = eventDepth - 1
+				} else {
+					// keep or start watching the object
+					watchDepth = eventDepth
 				}
+			}
 
-				// we must be a parent watcher, so descend in
-				if deltaDepth < 0 {
-					watcher.Remove(current)
-					index++
-				}
-
-				// if safename starts with event.Name, we're above, and no event should be sent
-			} else if HasPathPrefix(safename, event.Name) {
-				//log.Println("Above!")
-
-				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					log.Println("Removal!")
-					watcher.Remove(current)
-					index--
-				}
-
-				if deltaDepth < 0 {
-					log.Println("Parent!")
-					if PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
+			// were we watching an ancestor?
+			if eventDepth < objDepth {
+				watcher.Remove(watchPath)
+				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					// object was removed, watch the parent
+					watchDepth = eventDepth - 1
+				} else {
+					log.Println("Ancestor!")
+					if objDepth-eventDepth == 1 { // event from the parent of the managed file
+						log.Println("Parent!")
 						send = true
 						dirty = true
 					}
-					watcher.Remove(current)
-					index++
+					watchDepth = eventDepth
 				}
+			}
 
-				// if event.Name startswith safename, send event, we're already deeper
-			} else if HasPathPrefix(event.Name, safename) {
+			// event from within a managed directory tree?
+			if eventDepth > objDepth {
 				//log.Println("Event2!")
 				send = true
 				dirty = true
+				watcher.Remove(watchPath)
 			}
 
 		case err := <-watcher.Errors:

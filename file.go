@@ -129,6 +129,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	var exit = false
 	var dirty = false
 	var watchPath string
+	var watching = false
 
 	for {
 		watchPath = "/" + strings.Join(patharray[0:watchDepth], "/")
@@ -136,27 +137,30 @@ func (obj *FileRes) Watch(processChan chan Event) {
 		if DEBUG {
 			log.Printf("File[%v]: Watching: %v", obj.GetName(), watchPath) // attempting to watch...
 		}
-		// initialize in the loop so that we can reset on rm-ed handles
-		err = watcher.Add(watchPath)
-		if err != nil {
-			if DEBUG {
-				log.Printf("File[%v]: watcher.Add(%v): Error: %v", obj.GetName(), watchPath, err)
-			}
-			if err == syscall.ENOENT {
-				watchDepth-- // usually not found, move up one dir
-				if watchDepth < 0 {
-					log.Fatal("somehow trying to watch file above the fs root")
+
+		if !watching {
+			err = watcher.Add(watchPath)
+			if err != nil {
+				if DEBUG {
+					log.Printf("File[%v]: watcher.Add(%v): Error: %v", obj.GetName(), watchPath, err)
 				}
-			} else if err == syscall.ENOSPC {
-				// XXX: occasionally: no space left on device,
-				// XXX: probably due to lack of inotify watches
-				log.Printf("%v[%v]: Out of inotify watches!", obj.Kind(), obj.GetName())
-				log.Fatal(err)
-			} else {
-				log.Printf("Unknown file[%v] error:", obj.Name)
-				log.Fatal(err)
+				if err == syscall.ENOENT {
+					watchDepth-- // usually not found, move up one dir
+					if watchDepth < 0 {
+						log.Fatal("somehow trying to watch file above the fs root")
+					}
+				} else if err == syscall.ENOSPC {
+					// XXX: occasionally: no space left on device,
+					// XXX: probably due to lack of inotify watches
+					log.Printf("%v[%v]: Out of inotify watches!", obj.Kind(), obj.GetName())
+					log.Fatal(err)
+				} else {
+					log.Printf("Unknown file[%v] error:", obj.Name)
+					log.Fatal(err)
+				}
+				continue
 			}
-			continue
+			watching = true
 		}
 
 		obj.SetState(resStateWatching) // reset
@@ -172,7 +176,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				// this happened with two values such as:
 				// event.Name: /tmp/mgmt/f3 and watchPath: /tmp/mgmt/f2
 				if DEBUG {
-					log.Printf("File[%v]: ignoring event, it's from a foreign watch", obj.GetName)
+					log.Printf("File[%v]: ignoring event, it's not related", obj.GetName)
 				}
 				continue
 			}
@@ -189,30 +193,26 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				send = true
 				dirty = true
 
+				// reset the watch, scanning from max. depth, because
+				// the event may have been removal or creation of the managed file
 				watcher.Remove(watchPath)
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					// object was removed, watch the parent
-					watchDepth = eventDepth - 1
-				} else {
-					// keep or start watching the object
-					watchDepth = eventDepth
-				}
+				watchDepth = objDepth
+				watching = false
 			}
 
 			// were we watching an ancestor?
 			if eventDepth < objDepth {
+				// reset the watch
 				watcher.Remove(watchPath)
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					// object was removed, watch the parent
-					watchDepth = eventDepth - 1
-				} else {
-					log.Println("Ancestor!")
-					if objDepth-eventDepth == 1 { // event from the parent of the managed file
-						log.Println("Parent!")
-						send = true
-						dirty = true
-					}
-					watchDepth = eventDepth
+				watchDepth = objDepth
+				watching = false
+
+				if event.Op&fsnotify.Remove == 0 && objDepth-eventDepth == 1 {
+					// event from the parent of the managed file
+					// that is not its removal
+					log.Printf("File[%v]: Parent event!", obj.GetName())
+					send = true
+					dirty = true
 				}
 			}
 
@@ -221,7 +221,10 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				//log.Println("Event2!")
 				send = true
 				dirty = true
+				// reset the watch
 				watcher.Remove(watchPath)
+				watchDepth = objDepth
+				watching = false
 			}
 
 		case err := <-watcher.Errors:

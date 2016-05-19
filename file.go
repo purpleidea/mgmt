@@ -149,16 +149,16 @@ func (obj *FileRes) Watch(processChan chan Event) {
 					if watchDepth < 0 {
 						log.Fatal("somehow trying to watch file above the fs root")
 					}
-				} else if err == syscall.ENOSPC {
+					continue
+				}
+				if err == syscall.ENOSPC {
 					// XXX: occasionally: no space left on device,
 					// XXX: probably due to lack of inotify watches
 					log.Printf("%v[%v]: Out of inotify watches!", obj.Kind(), obj.GetName())
-					log.Fatal(err)
 				} else {
 					log.Printf("Unknown file[%v] error:", obj.Name)
-					log.Fatal(err)
 				}
-				continue
+				log.Fatal(err)
 			}
 			watching = true
 		}

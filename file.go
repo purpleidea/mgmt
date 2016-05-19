@@ -181,31 +181,25 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				continue
 			}
 
-			cuuid.SetConverged(false)
-			eventDepth = len(PathSplit(event.Name)[1:])
-
 			if DEBUG {
 				log.Printf("File[%v]: event depth %v, watch depth %v", obj.GetName(), eventDepth, watchDepth)
 			}
+
+			cuuid.SetConverged(false)
+			eventDepth = len(PathSplit(event.Name)[1:])
+			// reset the watch
+			watcher.Remove(watchPath)
+			watchDepth = objDepth
+			watching = false
 
 			if eventDepth == objDepth {
 				// this event was triggered by the managed file: send an event
 				send = true
 				dirty = true
-
-				// reset the watch, scanning from max. depth, because
-				// the event may have been removal or creation of the managed file
-				watcher.Remove(watchPath)
-				watchDepth = objDepth
-				watching = false
 			}
 
 			// were we watching an ancestor?
 			if eventDepth < objDepth {
-				// reset the watch
-				watcher.Remove(watchPath)
-				watchDepth = objDepth
-				watching = false
 
 				if event.Op&fsnotify.Remove == 0 && objDepth-eventDepth == 1 {
 					// event from the parent of the managed file
@@ -221,10 +215,6 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				//log.Println("Event2!")
 				send = true
 				dirty = true
-				// reset the watch
-				watcher.Remove(watchPath)
-				watchDepth = objDepth
-				watching = false
 			}
 
 		case err := <-watcher.Errors:

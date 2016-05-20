@@ -48,6 +48,7 @@ Feel free to read my article on [debugging golang programs](https://ttboj.wordpr
         go get github.com/codegangsta/cli
         go get github.com/coreos/go-systemd/dbus
         go get github.com/coreos/go-systemd/util
+        go get github.com/coreos/pkg/capnslog
 
 * stringer (required for building), available as a package on some platforms, otherwise via `go get`
 

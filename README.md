@@ -69,6 +69,7 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 * Felix Frank on puppet to mgmt "transpiling" [https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/](https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/)
 * Blog post on automatic edges and the pkg resource: [https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
 * Blog post on automatic grouping: [https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
+* “Puppet’s days are numbered.”: [https://twitter.com/bitfield/status/732157519142002688](https://twitter.com/bitfield/status/732157519142002688)
 
 ##
 

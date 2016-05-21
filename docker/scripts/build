@@ -1,0 +1,26 @@
+#!/bin/bash
+
+script_directory="$( cd "$( dirname "$0" )" && pwd )"
+project_directory=$script_directory/../..
+
+# Specify the Docker image name
+image_name='purpleidea/mgmt'
+
+# Build the image which contains the compiled binary
+docker build -t $image_name \
+	--file=$project_directory/docker/Dockerfile $project_directory
+
+# Remove the container if it already exists
+docker rm -f mgmt-export 2> /dev/null
+
+# Start the container in background so we can "copy out" the binary
+docker run -d --name=mgmt-export $image_name bash -c 'while true; sleep 1000; done'
+
+# Remove the current binary
+rm $project_directory/mgmt 2> /dev/null
+
+# Get the binary from the container
+docker cp mgmt-export:/go/src/mgmt/mgmt $project_directory/mgmt
+
+# Remove the container
+docker rm -f mgmt-export 2> /dev/null

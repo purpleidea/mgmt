@@ -9,6 +9,8 @@ if env | grep -q '^TRAVIS=true$'; then
 	travis=1
 fi
 
+sudo_command=$(which sudo)
+
 if [ $travis -eq 0 ]; then
 	YUM=`which yum 2>/dev/null`
 	APT=`which apt-get 2>/dev/null`
@@ -18,15 +20,15 @@ if [ $travis -eq 0 ]; then
 	fi
 	if [ ! -z "$YUM" ]; then
 		# some go dependencies are stored in mercurial
-		sudo $YUM install -y golang golang-googlecode-tools-stringer hg
+		$sudo_command $YUM install -y golang golang-googlecode-tools-stringer hg
 
 	fi
 	if [ ! -z "$APT" ]; then
-		sudo $APT update
-		sudo $APT install -y golang make gcc packagekit mercurial
+		$sudo_command $APT update
+		$sudo_command $APT install -y golang make gcc packagekit mercurial
 		# one of these two golang tools packages should work on debian
-		sudo $APT install -y golang-golang-x-tools || true
-		sudo $APT install -y golang-go.tools || true
+		$sudo_command $APT install -y golang-golang-x-tools || true
+		$sudo_command $APT install -y golang-go.tools || true
 	fi
 fi
 

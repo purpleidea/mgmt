@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Stop on any error
+set -e
+
+script_directory="$( cd "$( dirname "$0" )" && pwd )"
+project_directory=$script_directory/../..
+
+# Specify the Docker image name
+image_name='purpleidea/mgmt:development'
+
+# Build the image
+docker build -t $image_name \
+	--file=$project_directory/docker/Dockerfile.development $project_directory

@@ -15,8 +15,8 @@ ARG GROUP_ID=1000
 ARG USER_NAME=mgmt
 ARG GROUP_NAME=$USER_NAME
 RUN groupadd --gid $GROUP_ID $GROUP_NAME && \
-    useradd --create-home --home /home/$USER_NAME --uid ${USER_ID} --gid $GROUP_NAME --groups sudo $USER_NAME && \
-    echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+	useradd --create-home --home /home/$USER_NAME --uid ${USER_ID} --gid $GROUP_NAME --groups sudo $USER_NAME && \
+	echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Copy all the files to the working directory
 COPY . /home/$USER_NAME/mgmt

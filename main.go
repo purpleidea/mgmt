@@ -65,6 +65,11 @@ func run(c *cli.Context) error {
 	log.Printf("Main: Start: %v", start)
 	var G, fullGraph *Graph
 
+	if c.IsSet("file") && c.IsSet("puppet") {
+		log.Println("the --file and --puppet parameters cannot be used together")
+		return cli.NewExitError("", 1)
+	}
+
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := c.Int("max-runtime"); i > 0 {
 		go func() {
@@ -110,9 +115,13 @@ func run(c *cli.Context) error {
 		startchan := make(chan struct{}) // start signal
 		go func() { startchan <- struct{}{} }()
 		file := c.String("file")
-		configchan := make(chan bool)
-		if !c.Bool("no-watch") {
+		var configchan chan bool
+		var puppetchan <-chan time.Time
+		if !c.Bool("no-watch") && c.IsSet("file") {
 			configchan = ConfigWatch(file)
+		} else if c.IsSet("puppet") {
+			interval := PuppetInterval(c.String("puppet-conf"))
+			puppetchan = time.Tick(time.Duration(interval) * time.Second)
 		}
 		log.Println("Etcd: Starting...")
 		etcdchan := etcdO.EtcdWatch()
@@ -133,6 +142,8 @@ func run(c *cli.Context) error {
 				default:
 					log.Fatal("Etcd: Unhandled message: ", msg)
 				}
+			case _ = <-puppetchan:
+				// nothing, just go on
 			case msg := <-configchan:
 				if c.Bool("no-watch") || !msg {
 					continue // not ready to read config
@@ -144,7 +155,12 @@ func run(c *cli.Context) error {
 				return
 			}
 
-			config := ParseConfigFromFile(file)
+			var config *GraphConfig
+			if c.IsSet("file") {
+				config = ParseConfigFromFile(file)
+			} else if c.IsSet("puppet") {
+				config = ParseConfigFromPuppet(c.String("puppet"), c.String("puppet-conf"))
+			}
 			if config == nil {
 				log.Printf("Config parse failure")
 				continue
@@ -299,6 +315,16 @@ func main() {
 				cli.BoolFlag{
 					Name:  "noop",
 					Usage: "globally force all resources into no-op mode",
+				},
+				cli.StringFlag{
+					Name:  "puppet, p",
+					Value: "",
+					Usage: "load graph from puppet, optionally takes a manifest or path to manifest file",
+				},
+				cli.StringFlag{
+					Name:  "puppet-conf",
+					Value: "",
+					Usage: "supply the path to an alternate puppet.conf file to use",
 				},
 			},
 		},

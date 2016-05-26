@@ -81,7 +81,7 @@ automatically ensure that any file resource you declare that matches a
 file installed by your package resource will only be processed after the
 package is installed.
 
-####Controlling autodeges
+####Controlling autoedges
 
 Though autoedges is likely to be very helpful and avoid you having to declare
 all dependencies explicitly, there are cases where this behaviour is

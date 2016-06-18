@@ -61,16 +61,17 @@ Feel free to read my article on [debugging golang programs](https://ttboj.wordpr
 We'd love to have your patches! Please send them by email, or as a pull request.
 
 ## On the web:
-* Introductory blog post: [https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
-* Introductory recording from DevConf.cz 2016: [https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1](https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1)
-* Introductory recording from CfgMgmtCamp.eu 2016: [https://www.youtube.com/watch?v=fNeooSiIRnA&html5=1](https://www.youtube.com/watch?v=fNeooSiIRnA&html5=1)
-* Julian Dunn at CfgMgmtCamp.eu 2016: [https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1](https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1)
-* Walter Heck at CfgMgmtCamp.eu 2016: [http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3](http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3)
-* Marco Marongiu on mgmt: [http://syslog.me/2016/02/15/leap-or-die/](http://syslog.me/2016/02/15/leap-or-die/)
-* Felix Frank on puppet to mgmt "transpiling" [https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/](https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/)
-* Blog post on automatic edges and the pkg resource: [https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
-* Blog post on automatic grouping: [https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
-* “Puppet’s days are numbered.”: [https://twitter.com/bitfield/status/732157519142002688](https://twitter.com/bitfield/status/732157519142002688)
+* James Shubin; blog: [Next generation configuration mgmt](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
+* James Shubin; video: [Introductory recording from DevConf.cz 2016](https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1)
+* James Shubin; video: [Introductory recording from CfgMgmtCamp.eu 2016](https://www.youtube.com/watch?v=fNeooSiIRnA&html5=1)
+* Julian Dunn; video: [On mgmt at CfgMgmtCamp.eu 2016](https://www.youtube.com/watch?v=kfF9IATUask&t=1949&html5=1)
+* Walter Heck; slides: [On mgmt at CfgMgmtCamp.eu 2016](http://www.slideshare.net/olindata/configuration-management-time-for-a-4th-generation/3)
+* Marco Marongiu; blog: [On mgmt](http://syslog.me/2016/02/15/leap-or-die/)
+* Felix Frank; blog: [From Catalog To Mgmt (on puppet to mgmt "transpiling")](https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/)
+* James Shubin; blog: [Automatic edges in mgmt (...and the pkg resource)](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
+* James Shubin; blog: [Automatic grouping in mgmt](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
+* John Arundel; tweet: [“Puppet’s days are numbered.”](https://twitter.com/bitfield/status/732157519142002688)
+* Felix Frank; blog: [Puppet, Meet Mgmt (on puppet to mgmt internals)](https://github.com/ffrank/ffrank.github.io)
 
 ##
 

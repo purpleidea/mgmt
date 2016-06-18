@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /bin/bash
-.PHONY: all version program path deps run race generate build clean test format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
+.PHONY: all version program path deps run race generate build clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean
 
 SVERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always)
@@ -91,9 +91,13 @@ clean:
 test:
 	./test.sh
 
-format:
+gofmt:
 	find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -exec gofmt -w {} \;
+
+yamlfmt:
 	find . -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
+
+format: gofmt yamlfmt
 
 docs: $(PROGRAM)-documentation.pdf
 

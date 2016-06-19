@@ -18,9 +18,9 @@
 package main
 
 import (
-	"github.com/urfave/cli"
 	etcdtypes "github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/pkg/capnslog"
+	"github.com/urfave/cli"
 	"log"
 	"os"
 	"os/signal"

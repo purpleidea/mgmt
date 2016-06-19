@@ -18,7 +18,7 @@
 package main
 
 import (
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 	etcdtypes "github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/pkg/capnslog"
 	"log"

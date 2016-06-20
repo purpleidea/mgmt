@@ -73,6 +73,7 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 * John Arundel; tweet: [“Puppet’s days are numbered.”](https://twitter.com/bitfield/status/732157519142002688)
 * Felix Frank; blog: [Puppet, Meet Mgmt (on puppet to mgmt internals)](https://ffrank.github.io/features/2016/06/12/puppet,-meet-mgmt/)
 * Felix Frank; blog: [Puppet Powered Mgmt (puppet to mgmt tl;dr)](https://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/)
+* James Shubin; blog: [Automatic clustering in mgmt](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
 
 ##
 

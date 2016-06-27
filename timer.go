@@ -14,4 +14,124 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
- 
+package main
+
+import (
+	"encoding/gob"
+	"log"
+	"time"
+)
+
+func init() {
+	gob.Register(&TimerRes{})
+}
+
+//TimerRes is a timer resource
+type TimerRes struct {
+	BaseRes  `yaml:",inline"`
+	Interval int          `yaml:"interval"` //Interval : Interval between runs
+	Ticker   *time.Ticker //Ticker
+}
+
+type TimerUUID struct {
+	BaseUUID
+	name string
+}
+
+func NewTimerRes(name string, interval int, command string) *TimerRes {
+	obj := &TimerRes{
+		BaseRes: BaseRes{
+			Name: name,
+		},
+		Interval: interval,
+		Ticker:   time.NewTicker(time.Duration(interval) * time.Second),
+	}
+	obj.Init()
+	return obj
+}
+
+func (obj *TimerRes) Init() {
+	obj.BaseRes.kind = "Timer"
+	obj.BaseRes.Init() //call base init, b/c we're overrriding
+}
+
+//Validate the params that are passed to TimerRes
+//Currently we are getting only an interval in seconds
+// which gets validated by go compiler
+func (obj *TimerRes) Validate() bool {
+	return true
+}
+
+func (obj *TimerRes) Watch(processChan chan Event) {
+	if obj.IsWatching() {
+		return
+	}
+
+	obj.SetWatching(true)
+	defer obj.SetWatching(false)
+	cuuid := obj.converger.Register()
+	defer cuuid.Unregister()
+
+	var send = false
+
+	for {
+		obj.SetState(resStateWatching)
+		select {
+		case _ = <-obj.Ticker.C: //Recieved the timer event
+			send = true
+			log.Printf("%v[%v]: Recieved timer", obj.Kind(), obj.GetName())
+		case event := <-obj.events:
+			cuuid.SetConverged(false)
+			if exit, _ := obj.ReadEvent(&event); exit {
+				return
+			}
+		case _ = <-cuuid.ConvergedTimer():
+			cuuid.SetConverged(true)
+			continue
+		}
+		if send {
+			send = false
+			obj.isStateOK = false
+			resp := NewResp()
+			processChan <- Event{
+				eventNil,
+				resp,
+				"Timer Kicked",
+				true,
+			}
+			resp.ACKWait()
+		}
+
+	}
+
+}
+
+//Todo
+func (obj *TimerRes) GetUUIDs() []ResUUID {
+	x := &TimerUUID{
+		BaseUUID: BaseUUID{
+			name: obj.GetName(),
+			kind: obj.Kind(),
+		},
+		name: obj.Name,
+	}
+	return []ResUUID{x}
+}
+
+func (obj *TimerRes) AutoEdges() AutoEdge {
+	return nil
+}
+
+func (obj *TimerRes) Compare(Res) bool {
+	return false
+}
+
+// CheckApply method for Noop resource. Does nothing, returns happy!
+func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
+	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	return true, nil // state is always okay
+}
+
+func (obj *TimerRes) CollectPatten(pattern string) {
+	return
+}

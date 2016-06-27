@@ -1,0 +1,22 @@
+---
+graph: mygraph
+comment: timer example 
+resources:
+    timer:
+    - name: timer1
+      interval: 30
+    file:
+    - name: file1
+      path: "/tmp/mgmt-hello-noop"
+      content: |
+        hello world from @purpleidea
+      state: exists
+edges:
+- name: e1
+  from:
+    kind: timer
+    name: timer1
+  to:
+    kind: file
+    name: file1
+

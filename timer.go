@@ -103,7 +103,6 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 	}
 }
 
-// Todo
 func (obj *TimerRes) GetUUIDs() []ResUUID {
 	x := &TimerUUID{
 		BaseUUID: BaseUUID{
@@ -115,6 +114,7 @@ func (obj *TimerRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+// Todo
 func (obj *TimerRes) AutoEdges() AutoEdge {
 	return nil
 }

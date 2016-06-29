@@ -14,6 +14,7 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 package main
 
 import (
@@ -26,11 +27,10 @@ func init() {
 	gob.Register(&TimerRes{})
 }
 
-//TimerRes is a timer resource
+// TimerRes is a timer resource
 type TimerRes struct {
 	BaseRes  `yaml:",inline"`
-	Interval int          `yaml:"interval"` //Interval : Interval between runs
-	Ticker   *time.Ticker //Ticker
+	Interval int `yaml:"interval"` // Interval : Interval between runs
 }
 
 type TimerUUID struct {
@@ -38,13 +38,13 @@ type TimerUUID struct {
 	name string
 }
 
-func NewTimerRes(name string, interval int, command string) *TimerRes {
+// NewTimerRes creates a new TimerRes
+func NewTimerRes(name string, interval int) *TimerRes {
 	obj := &TimerRes{
 		BaseRes: BaseRes{
 			Name: name,
 		},
 		Interval: interval,
-		Ticker:   time.NewTicker(time.Duration(interval) * time.Second),
 	}
 	obj.Init()
 	return obj
@@ -52,11 +52,11 @@ func NewTimerRes(name string, interval int, command string) *TimerRes {
 
 func (obj *TimerRes) Init() {
 	obj.BaseRes.kind = "Timer"
-	obj.BaseRes.Init() //call base init, b/c we're overrriding
+	obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 
-//Validate the params that are passed to TimerRes
-//Currently we are getting only an interval in seconds
+// Validate the params that are passed to TimerRes
+// Currently we are getting only an interval in seconds
 // which gets validated by go compiler
 func (obj *TimerRes) Validate() bool {
 	return true
@@ -66,6 +66,10 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
 	}
+
+	// Create a time.Ticker for the given interval
+	ticker := time.NewTicker(time.Duration(obj.Interval) * time.Second)
+	defer ticker.Stop()
 
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
@@ -77,9 +81,9 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 	for {
 		obj.SetState(resStateWatching)
 		select {
-		case _ = <-obj.Ticker.C: //Recieved the timer event
+		case <-ticker.C: // received the timer event
 			send = true
-			log.Printf("%v[%v]: Recieved timer", obj.Kind(), obj.GetName())
+			log.Printf("%v[%v]: received tick", obj.Kind(), obj.GetName())
 		case event := <-obj.events:
 			cuuid.SetConverged(false)
 			if exit, _ := obj.ReadEvent(&event); exit {
@@ -93,20 +97,13 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 			send = false
 			obj.isStateOK = false
 			resp := NewResp()
-			processChan <- Event{
-				eventNil,
-				resp,
-				"Timer Kicked",
-				true,
-			}
+			processChan <- Event{eventNil, resp, "timer ticked", true}
 			resp.ACKWait()
 		}
-
 	}
-
 }
 
-//Todo
+// Todo
 func (obj *TimerRes) GetUUIDs() []ResUUID {
 	x := &TimerUUID{
 		BaseUUID: BaseUUID{

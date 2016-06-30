@@ -1,0 +1,43 @@
+---
+graph: mygraph
+comment: example of multiple timers
+resources:
+  timer:
+  - name: timer1
+    interval: 30
+  - name: timer2
+    interval: 60
+  exec:
+  - name: exec1
+    cmd: echo hello world 30
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec2
+    cmd: echo hello world 60
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges:
+- name: e1
+  from:
+    kind: timer
+    name: timer1
+  to:
+    kind: exec
+    name: exec1
+- name: e2
+  from:
+    kind: timer
+    name: timer2
+  to:
+    kind: exec
+    name: exec2

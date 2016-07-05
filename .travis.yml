@@ -9,6 +9,7 @@ before_install: 'git fetch --unshallow'
 install: 'make deps'
 script: 'make test'
 matrix:
+  fast_finish: true
   allow_failures:
     - go: tip
     - go: 1.4.3

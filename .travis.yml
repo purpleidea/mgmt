@@ -12,7 +12,6 @@ matrix:
   allow_failures:
     - go: tip
     - go: 1.4.3
-    - go: 1.6
 notifications:
   irc:
     channels:

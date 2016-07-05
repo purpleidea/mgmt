@@ -6,8 +6,6 @@ if env | grep -q -e '^TRAVIS=true$'; then
 	exit
 fi
 
-. etcd.sh	# start etcd as job # 1
-
 # setup
 mkdir -p "${MGMT_TMPDIR}"mgmt{A..C}
 
@@ -16,7 +14,7 @@ timeout --kill-after=15s 10s ./mgmt run --file t3-a.yaml --converged-timeout=5 -
 timeout --kill-after=15s 10s ./mgmt run --file t3-b.yaml --converged-timeout=5 --no-watch &
 timeout --kill-after=15s 10s ./mgmt run --file t3-c.yaml --converged-timeout=5 --no-watch &
 
-. wait.sh	# wait for everything except etcd
+. wait.sh	# wait for mgmt
 
 # A: collected
 test -e "${MGMT_TMPDIR}"mgmtA/f3b

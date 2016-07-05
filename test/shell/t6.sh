@@ -6,8 +6,6 @@ if env | grep -q -e '^TRAVIS=true$'; then
 	exit
 fi
 
-. etcd.sh	# start etcd as job # 1
-
 # run till completion
 timeout --kill-after=20s 15s ./mgmt run --file t6.yaml --no-watch &
 sleep 1s	# let it converge
@@ -30,4 +28,4 @@ test -e /tmp/mgmt/f2
 
 killall -SIGINT mgmt	# send ^C to exit mgmt
 
-. wait.sh	# wait for everything except etcd
+. wait.sh	# wait for mgmt

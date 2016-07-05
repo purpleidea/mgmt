@@ -32,7 +32,6 @@
   - iptables -F
   - cd /vagrant/mgmt/ && make path
   - cd /vagrant/mgmt/ && make deps && make build && cp mgmt ~/bin/
-  - etcd -bind-addr "`hostname --ip-address`:2379" &
   - cd && mgmt run --file /vagrant/mgmt/examples/pkg1.yaml --converged-timeout=5
 :namespace: omv
 :count: 0

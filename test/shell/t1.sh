@@ -5,7 +5,6 @@
 #	* it is recommended that you run mgmt with --no-watch
 #	* it is recommended that you run mgmt --converged-timeout=<seconds>
 #	* you can run mgmt with --max-runtime=<seconds> in special scenarios
-#	* you can get a separate etcd going by sourcing etcd.sh: . etcd.sh
 
 set -o errexit
 set -o nounset

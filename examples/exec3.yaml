@@ -1,0 +1,59 @@
+---
+graph: parallel
+resources:
+  exec:
+  - name: pkg10
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: svc10
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec10
+    cmd: sleep 10s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: pkg15
+    cmd: sleep 15s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges:
+- name: e1
+  from:
+    kind: exec
+    name: pkg10
+  to:
+    kind: exec
+    name: svc10
+- name: e2
+  from:
+    kind: exec
+    name: svc10
+  to:
+    kind: exec
+    name: exec10

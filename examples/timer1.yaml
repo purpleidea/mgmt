@@ -1,0 +1,25 @@
+---
+graph: mygraph
+comment: timer example
+resources:
+  timer:
+  - name: timer1
+    interval: 30
+  exec:
+  - name: exec1
+    cmd: echo hello world
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges:
+- name: e1
+  from:
+    kind: timer
+    name: timer1
+  to:
+    kind: exec
+    name: exec1

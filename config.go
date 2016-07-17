@@ -46,11 +46,12 @@ type edgeConfig struct {
 type GraphConfig struct {
 	Graph     string `yaml:"graph"`
 	Resources struct {
-		Noop []*NoopRes `yaml:"noop"`
-		Pkg  []*PkgRes  `yaml:"pkg"`
-		File []*FileRes `yaml:"file"`
-		Svc  []*SvcRes  `yaml:"svc"`
-		Exec []*ExecRes `yaml:"exec"`
+		Noop  []*NoopRes  `yaml:"noop"`
+		Pkg   []*PkgRes   `yaml:"pkg"`
+		File  []*FileRes  `yaml:"file"`
+		Svc   []*SvcRes   `yaml:"svc"`
+		Exec  []*ExecRes  `yaml:"exec"`
+		Timer []*TimerRes `yaml:"timer"`
 	} `yaml:"resources"`
 	Collector []collectorResConfig `yaml:"collect"`
 	Edges     []edgeConfig         `yaml:"edges"`

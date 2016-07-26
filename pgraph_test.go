@@ -807,7 +807,7 @@ func (g *Graph) fullPrint() (str string) {
 // helper function
 func runGraphCmp(t *testing.T, g1, g2 *Graph) {
 	ch := g1.autoGroup(&testGrouper{}) // edits the graph
-	for _ = range ch {                 // bleed the channel or it won't run :(
+	for range ch {                     // bleed the channel or it won't run :(
 		// pass
 	}
 	err := GraphCmp(g1, g2)

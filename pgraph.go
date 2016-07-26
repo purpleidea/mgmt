@@ -437,7 +437,7 @@ func (g *Graph) OutDegree() map[*Vertex]int {
 
 	for k := range g.Adjacency {
 		result[k] = 0 // initialize
-		for _ = range g.Adjacency[k] {
+		for range g.Adjacency[k] {
 			result[k]++
 		}
 	}

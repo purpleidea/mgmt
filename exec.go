@@ -125,7 +125,7 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 			cmdName = split[0]
 			//d, _ := os.Getwd() // TODO: how does this ever error ?
 			//cmdName = path.Join(d, cmdName)
-			cmdArgs = split[1:len(split)]
+			cmdArgs = split[1:]
 		} else {
 			cmdName = obj.Shell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.WatchCmd}
@@ -230,7 +230,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 			cmdName = split[0]
 			//d, _ := os.Getwd() // TODO: how does this ever error ?
 			//cmdName = path.Join(d, cmdName)
-			cmdArgs = split[1:len(split)]
+			cmdArgs = split[1:]
 		} else {
 			cmdName = obj.IfShell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.IfCmd}
@@ -266,7 +266,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 		cmdName = split[0]
 		//d, _ := os.Getwd() // TODO: how does this ever error ?
 		//cmdName = path.Join(d, cmdName)
-		cmdArgs = split[1:len(split)]
+		cmdArgs = split[1:]
 	} else {
 		cmdName = obj.Shell // usually bash, or sh
 		cmdArgs = []string{"-c", obj.Cmd}

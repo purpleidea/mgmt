@@ -1142,7 +1142,7 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 	}
 
 	volunteers := []string{} // get keys
-	for k, _ := range volunteersMap {
+	for k := range volunteersMap {
 		volunteers = append(volunteers, k)
 	}
 	sort.Strings(volunteers) // deterministic order

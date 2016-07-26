@@ -99,7 +99,7 @@ func ReverseStringList(in []string) []string {
 // it turns out that's not allowed. I know we don't have generics, but come on!
 func StrMapKeys(m map[string]string) []string {
 	result := []string{}
-	for k, _ := range m {
+	for k := range m {
 		result = append(result, k)
 	}
 	sort.Strings(result) // deterministic order
@@ -108,7 +108,7 @@ func StrMapKeys(m map[string]string) []string {
 
 func StrMapKeysUint64(m map[string]uint64) []string {
 	result := []string{}
-	for k, _ := range m {
+	for k := range m {
 		result = append(result, k)
 	}
 	sort.Strings(result) // deterministic order

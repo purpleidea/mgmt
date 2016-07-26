@@ -45,10 +45,18 @@ Feel free to read my article on [debugging golang programs](https://ttboj.wordpr
         go get github.com/coreos/etcd/client
         go get gopkg.in/yaml.v2
         go get gopkg.in/fsnotify.v1
+        go get github.com/cockroachdb/cmux
         go get github.com/codegangsta/cli
         go get github.com/coreos/go-systemd/dbus
         go get github.com/coreos/go-systemd/util
         go get github.com/coreos/pkg/capnslog
+        go get github.com/coreos/etcd/clientv3
+        go get github.com/coreos/etcd/etcdserver
+        go get github.com/coreos/etcd/etcdserver/api/v2http
+        go get github.com/coreos/etcd/etcdserver/api/v3rpc
+        go get github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes
+        go get github.com/coreos/etcd/pkg/cors
+        go get github.com/urfave/cli
 
 * stringer (required for building), available as a package on some platforms, otherwise via `go get`
 

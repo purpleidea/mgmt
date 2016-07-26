@@ -399,7 +399,9 @@ func (obj *EmbdEtcd) Destroy() error {
 	obj.exitchan <- struct{}{} // cause main loop to exit
 
 	obj.rLock.Lock()
-	obj.client.Close()
+	if obj.client != nil {
+		obj.client.Close()
+	}
 	obj.client = nil
 	obj.rLock.Unlock()
 

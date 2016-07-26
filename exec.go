@@ -31,6 +31,7 @@ func init() {
 	gob.Register(&ExecRes{})
 }
 
+// ExecRes is an exec resource for running commands.
 type ExecRes struct {
 	BaseRes    `yaml:",inline"`
 	State      string `yaml:"state"`      // state: exists/present?, absent, (undefined?)
@@ -320,6 +321,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	return false, nil    // success
 }
 
+// ExecUUID is the UUID struct for ExecRes.
 type ExecUUID struct {
 	BaseUUID
 	Cmd   string
@@ -362,6 +364,7 @@ func (obj *ExecUUID) IFF(uuid ResUUID) bool {
 	return true
 }
 
+// The AutoEdges method returns the AutoEdges. In this case none are used.
 func (obj *ExecRes) AutoEdges() AutoEdge {
 	// TODO: parse as many exec params to look for auto edges, for example
 	// the path of the binary in the Cmd variable might be from in a pkg

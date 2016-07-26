@@ -31,6 +31,7 @@ func init() {
 	gob.Register(&PkgRes{})
 }
 
+// PkgRes is a package resource for packagekit.
 type PkgRes struct {
 	BaseRes          `yaml:",inline"`
 	State            string `yaml:"state"`            // state: installed, uninstalled, newest, <version>
@@ -41,7 +42,7 @@ type PkgRes struct {
 	fileList []string // FIXME: update if pkg changes
 }
 
-// helper function for creating new pkg resources that calls Init()
+// NewPkgRes is a helper function for creating new resources that call Init().
 func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupported bool) *PkgRes {
 	obj := &PkgRes{
 		BaseRes: BaseRes{
@@ -340,6 +341,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	return false, nil    // success
 }
 
+// PkgUUID is the UUID struct for PkgRes.
 type PkgUUID struct {
 	BaseUUID
 	name  string // pkg name
@@ -442,7 +444,8 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	return true // continue, there are more files!
 }
 
-// produce an object which generates a minimal pkg file optimization sequence
+// AutoEdges produces an object which generates a minimal pkg file optimization
+// sequence of edges.
 func (obj *PkgRes) AutoEdges() AutoEdge {
 	// in contrast with the FileRes AutoEdges() function which contains
 	// more of the mechanics, most of the AutoEdge mechanics for the PkgRes

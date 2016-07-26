@@ -26,6 +26,7 @@ func init() {
 	gob.Register(&NoopRes{})
 }
 
+// NoopRes is a no-op resource that does nothing.
 type NoopRes struct {
 	BaseRes `yaml:",inline"`
 	Comment string `yaml:"comment"` // extra field for example purposes
@@ -97,11 +98,13 @@ func (obj *NoopRes) CheckApply(apply bool) (checkok bool, err error) {
 	return true, nil // state is always okay
 }
 
+// NoopUUID is the UUID struct for NoopRes.
 type NoopUUID struct {
 	BaseUUID
 	name string
 }
 
+// The AutoEdges method returns the AutoEdges. In this case none are used.
 func (obj *NoopRes) AutoEdges() AutoEdge {
 	return nil
 }

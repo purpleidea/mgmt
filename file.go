@@ -36,6 +36,7 @@ func init() {
 	gob.Register(&FileRes{})
 }
 
+// FileRes is a file and directory resource.
 type FileRes struct {
 	BaseRes   `yaml:",inline"`
 	Path      string `yaml:"path"` // path variable (should default to name)
@@ -381,6 +382,7 @@ func (obj *FileRes) CheckApply(apply bool) (checkok bool, err error) {
 	return false, nil // success
 }
 
+// FileUUID is the UUID struct for FileRes.
 type FileUUID struct {
 	BaseUUID
 	path string
@@ -433,7 +435,8 @@ func (obj *FileResAutoEdges) Test(input []bool) bool {
 	return true // keep going
 }
 
-// generate a simple linear sequence of each parent directory from bottom up!
+// AutoEdges generates a simple linear sequence of each parent directory from
+// the bottom up!
 func (obj *FileRes) AutoEdges() AutoEdge {
 	var data []ResUUID                             // store linear result chain here...
 	values := PathSplitFullReversed(obj.GetPath()) // build it

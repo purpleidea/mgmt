@@ -25,12 +25,12 @@ import (
 	"time"
 )
 
-// returns the string with the first character capitalized
+// FirstToUpper returns the string with the first character capitalized.
 func FirstToUpper(str string) string {
 	return strings.ToUpper(str[0:1]) + str[1:]
 }
 
-// return true if a string exists inside a list, otherwise false
+// StrInList returns true if a string exists inside a list, otherwise false.
 func StrInList(needle string, haystack []string) bool {
 	for _, x := range haystack {
 		if needle == x {
@@ -40,6 +40,8 @@ func StrInList(needle string, haystack []string) bool {
 	return false
 }
 
+// Uint64KeyFromStrInMap returns true if needle is found in haystack of keys
+// that have uint64 type.
 func Uint64KeyFromStrInMap(needle string, haystack map[uint64]string) (uint64, bool) {
 	for k, v := range haystack {
 		if v == needle {
@@ -49,8 +51,8 @@ func Uint64KeyFromStrInMap(needle string, haystack map[uint64]string) (uint64, b
 	return 0, false
 }
 
-// remove any duplicate values in the list
-// possibly sub-optimal, O(n^2)? implementation
+// StrRemoveDuplicatesInList removes any duplicate values in the list.
+// This is a possibly sub-optimal, O(n^2)? implementation.
 func StrRemoveDuplicatesInList(list []string) []string {
 	unique := []string{}
 	for _, x := range list {
@@ -61,7 +63,8 @@ func StrRemoveDuplicatesInList(list []string) []string {
 	return unique
 }
 
-// remove any of the elements in filter, if they exist in list
+// StrFilterElementsInList removes any of the elements in filter, if they exist
+// in the list.
 func StrFilterElementsInList(filter []string, list []string) []string {
 	result := []string{}
 	for _, x := range list {
@@ -72,8 +75,8 @@ func StrFilterElementsInList(filter []string, list []string) []string {
 	return result
 }
 
-// remove any of the elements in filter, if they don't exist in list
-// this is an in order intersection of two lists
+// StrListIntersection removes any of the elements in filter, if they don't
+// exist in the list. This is an in order intersection of two lists.
 func StrListIntersection(list1 []string, list2 []string) []string {
 	result := []string{}
 	for _, x := range list1 {
@@ -84,7 +87,7 @@ func StrListIntersection(list1 []string, list2 []string) []string {
 	return result
 }
 
-// reverse a list of strings
+// ReverseStringList reverses a list of strings.
 func ReverseStringList(in []string) []string {
 	var out []string // empty list
 	l := len(in)
@@ -94,7 +97,7 @@ func ReverseStringList(in []string) []string {
 	return out
 }
 
-// return the sorted list of string keys in a map with string keys
+// StrMapKeys return the sorted list of string keys in a map with string keys.
 // NOTE: i thought it would be nice for this to use: map[string]interface{} but
 // it turns out that's not allowed. I know we don't have generics, but come on!
 func StrMapKeys(m map[string]string) []string {
@@ -106,6 +109,8 @@ func StrMapKeys(m map[string]string) []string {
 	return result
 }
 
+// StrMapKeysUint64 return the sorted list of string keys in a map with string
+// keys but uint64 values.
 func StrMapKeysUint64(m map[string]uint64) []string {
 	result := []string{}
 	for k := range m {
@@ -115,7 +120,8 @@ func StrMapKeysUint64(m map[string]uint64) []string {
 	return result
 }
 
-// return the sorted list of bool values in a map with string values
+// BoolMapValues returns the sorted list of bool values in a map with string
+// values.
 func BoolMapValues(m map[string]bool) []bool {
 	result := []bool{}
 	for _, v := range m {
@@ -125,7 +131,8 @@ func BoolMapValues(m map[string]bool) []bool {
 	return result
 }
 
-// return the sorted list of string values in a map with string values
+// StrMapValues returns the sorted list of string values in a map with string
+// values.
 func StrMapValues(m map[string]string) []string {
 	result := []string{}
 	for _, v := range m {
@@ -135,7 +142,8 @@ func StrMapValues(m map[string]string) []string {
 	return result
 }
 
-// return the sorted list of string values in a map with string values
+// StrMapValuesUint64 return the sorted list of string values in a map with
+// string values.
 func StrMapValuesUint64(m map[uint64]string) []string {
 	result := []string{}
 	for _, v := range m {
@@ -145,7 +153,7 @@ func StrMapValuesUint64(m map[uint64]string) []string {
 	return result
 }
 
-// return true if everyone is true
+// BoolMapTrue returns true if everyone in the list is true.
 func BoolMapTrue(l []bool) bool {
 	for _, b := range l {
 		if !b {
@@ -155,7 +163,7 @@ func BoolMapTrue(l []bool) bool {
 	return true
 }
 
-// Similar to the GNU dirname command
+// Dirname is similar to the GNU dirname command.
 func Dirname(p string) string {
 	if p == "/" {
 		return ""
@@ -164,6 +172,7 @@ func Dirname(p string) string {
 	return d
 }
 
+// Basename is the base of a path string.
 func Basename(p string) string {
 	_, b := path.Split(path.Clean(p))
 	if p == "" {
@@ -175,7 +184,8 @@ func Basename(p string) string {
 	return b
 }
 
-// Split a path into an array of tokens excluding any trailing empty tokens
+// PathSplit splits a path into an array of tokens excluding any trailing empty
+// tokens.
 func PathSplit(p string) []string {
 	if p == "/" { // TODO: can't this all be expressed nicely in one line?
 		return []string{""}
@@ -183,7 +193,7 @@ func PathSplit(p string) []string {
 	return strings.Split(path.Clean(p), "/")
 }
 
-// Does path string contain the given path prefix in it?
+// HasPathPrefix tells us if a path string contain the given path prefix in it.
 func HasPathPrefix(p, prefix string) bool {
 
 	patharray := PathSplit(p)
@@ -202,6 +212,8 @@ func HasPathPrefix(p, prefix string) bool {
 	return true
 }
 
+// StrInPathPrefixList returns true if the needle is a PathPrefix in the
+// haystack.
 func StrInPathPrefixList(needle string, haystack []string) bool {
 	for _, x := range haystack {
 		if HasPathPrefix(x, needle) {
@@ -211,7 +223,8 @@ func StrInPathPrefixList(needle string, haystack []string) bool {
 	return false
 }
 
-// remove redundant file path prefixes that are under the tree of other files
+// RemoveCommonFilePrefixes removes redundant file path prefixes that are under
+// the tree of other files.
 func RemoveCommonFilePrefixes(paths []string) []string {
 	var result = make([]string, len(paths))
 	for i := 0; i < len(paths); i++ { // copy, b/c append can modify the args!!
@@ -242,7 +255,8 @@ loop:
 	return result
 }
 
-// Delta of path prefix, tells you how many path tokens different the prefix is
+// PathPrefixDelta returns the delta of the path prefix, which tells you how
+// many path tokens different the prefix is.
 func PathPrefixDelta(p, prefix string) int {
 
 	if !HasPathPrefix(p, prefix) {
@@ -253,11 +267,13 @@ func PathPrefixDelta(p, prefix string) int {
 	return len(patharray) - len(prefixarray)
 }
 
+// PathIsDir returns true if there is a trailing slash.
 func PathIsDir(p string) bool {
 	return p[len(p)-1:] == "/" // a dir has a trailing slash in this context
 }
 
-// return the full list of "dependency" paths for a given path in reverse order
+// PathSplitFullReversed returns the full list of "dependency" paths for a given
+// path in reverse order.
 func PathSplitFullReversed(p string) []string {
 	var result []string
 	split := PathSplit(p)
@@ -273,8 +289,8 @@ func PathSplitFullReversed(p string) []string {
 	return ReverseStringList(result)
 }
 
-// add trailing slashes to any likely dirs in a package manager fileList
-// if removeDirs is true, instead, don't keep the dirs in our output
+// DirifyFileList adds trailing slashes to any likely dirs in a package manager
+// fileList if removeDirs is true, otherwise, don't keep the dirs in our output.
 func DirifyFileList(fileList []string, removeDirs bool) []string {
 	dirs := []string{}
 	for _, file := range fileList {
@@ -320,8 +336,9 @@ func FlattenListWithSplit(input []string, split []string) []string {
 	return out
 }
 
-// special version of time.After that blocks when given a negative integer
-// when used in a case statement, the timer restarts on each select call to it
+// TimeAfterOrBlock is aspecial version of time.After that blocks when given a
+// negative integer. When used in a case statement, the timer restarts on each
+// select call to it.
 func TimeAfterOrBlock(t int) <-chan time.Time {
 	if t < 0 {
 		return make(chan time.Time) // blocks forever
@@ -329,8 +346,8 @@ func TimeAfterOrBlock(t int) <-chan time.Time {
 	return time.After(time.Duration(t) * time.Second)
 }
 
-// making using the private bus usable, should be upstream:
-// TODO: https://github.com/godbus/dbus/issues/15
+// SystemBusPrivateUsable makes using the private bus usable
+// TODO: should be upstream: https://github.com/godbus/dbus/issues/15
 func SystemBusPrivateUsable() (conn *dbus.Conn, err error) {
 	conn, err = dbus.SystemBusPrivate()
 	if err != nil {

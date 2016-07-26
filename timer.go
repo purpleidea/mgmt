@@ -27,18 +27,19 @@ func init() {
 	gob.Register(&TimerRes{})
 }
 
-// TimerRes is a timer resource
+// TimerRes is a timer resource for time based events.
 type TimerRes struct {
 	BaseRes  `yaml:",inline"`
 	Interval int `yaml:"interval"` // Interval : Interval between runs
 }
 
+// TimerUUID is the UUID struct for TimerRes.
 type TimerUUID struct {
 	BaseUUID
 	name string
 }
 
-// NewTimerRes creates a new TimerRes
+// NewTimerRes creates a new TimerRes.
 func NewTimerRes(name string, interval int) *TimerRes {
 	obj := &TimerRes{
 		BaseRes: BaseRes{
@@ -114,6 +115,7 @@ func (obj *TimerRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+// The AutoEdges method returns the AutoEdges. In this case none are used.
 func (obj *TimerRes) AutoEdges() AutoEdge {
 	return nil
 }

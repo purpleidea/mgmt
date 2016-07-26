@@ -33,6 +33,7 @@ func init() {
 	gob.Register(&SvcRes{})
 }
 
+// SvcRes is a service resource for systemd units.
 type SvcRes struct {
 	BaseRes `yaml:",inline"`
 	State   string `yaml:"state"`   // state: running, stopped, undefined
@@ -320,6 +321,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	return false, nil // success
 }
 
+// SvcUUID is the UUID struct for SvcRes.
 type SvcUUID struct {
 	// NOTE: there is also a name variable in the BaseUUID struct, this is
 	// information about where this UUID came from, and is unrelated to the
@@ -376,6 +378,7 @@ func (obj *SvcResAutoEdges) Test(input []bool) bool {
 	return true // keep going
 }
 
+// The AutoEdges method returns the AutoEdges. In this case the systemd units.
 func (obj *SvcRes) AutoEdges() AutoEdge {
 	var data []ResUUID
 	svcFiles := []string{

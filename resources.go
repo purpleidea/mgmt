@@ -36,7 +36,7 @@ const (
 	resStatePoking
 )
 
-// a unique identifier for a resource, namely it's name, and the kind ("type")
+// ResUUID is a unique identifier for a resource, namely it's name, and the kind ("type").
 type ResUUID interface {
 	GetName() string
 	Kind() string
@@ -45,6 +45,7 @@ type ResUUID interface {
 	Reversed() bool // true means this resource happens before the generator
 }
 
+// The BaseUUID struct is used to provide a unique resource identifier.
 type BaseUUID struct {
 	name string // name and kind are the values of where this is coming from
 	kind string
@@ -52,19 +53,21 @@ type BaseUUID struct {
 	reversed *bool // piggyback edge information here
 }
 
+// The AutoEdge interface is used to implement the autoedges feature.
 type AutoEdge interface {
 	Next() []ResUUID  // call to get list of edges to add
 	Test([]bool) bool // call until false
 }
 
+// MetaParams is a struct will all params that apply to every resource.
 type MetaParams struct {
 	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges? // XXX should default to true
 	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group? // XXX should default to true
 	Noop      bool `yaml:"noop"`
 }
 
-// this interface is everything that is common to all resources
-// everything here only needs to be implemented once, in the BaseRes
+// The Base interface is everything that is common to all resources.
+// Everything here only needs to be implemented once, in the BaseRes.
 type Base interface {
 	GetName() string // can't be named "Name()" because of struct field
 	SetName(string)
@@ -86,7 +89,7 @@ type Base interface {
 	SetGroup([]Res)
 }
 
-// this is the minimum interface you need to implement to make a new resource
+// Res is the minimum interface you need to implement to define a new resource.
 type Res interface {
 	Base // include everything from the Base interface
 	Init()
@@ -99,6 +102,7 @@ type Res interface {
 	CollectPattern(string) // XXX: temporary until Res collection is more advanced
 }
 
+// BaseRes is the base struct that gets used in every resource.
 type BaseRes struct {
 	Name       string     `yaml:"name"`
 	MetaParams MetaParams `yaml:"meta"` // struct of all the metaparams
@@ -112,7 +116,7 @@ type BaseRes struct {
 	grouped    []Res // list of any grouped resources
 }
 
-// wraps the IFF method when used with a list of UUID's
+// UUIDExistsInUUIDs wraps the IFF method when used with a list of UUID's.
 func UUIDExistsInUUIDs(uuid ResUUID, uuids []ResUUID) bool {
 	for _, u := range uuids {
 		if uuid.IFF(u) {
@@ -122,18 +126,20 @@ func UUIDExistsInUUIDs(uuid ResUUID, uuids []ResUUID) bool {
 	return false
 }
 
+// GetName returns the name of the resource.
 func (obj *BaseUUID) GetName() string {
 	return obj.name
 }
 
+// Kind returns the kind of resource.
 func (obj *BaseUUID) Kind() string {
 	return obj.kind
 }
 
-// if and only if they are equivalent, return true
-// if they are not equivalent, return false
-// most resource will want to override this method, since it does the important
-// work of actually discerning if two resources are identical in function
+// IFF looks at two UUID's and if and only if they are equivalent, returns true.
+// If they are not equivalent, it returns false.
+// Most resources will want to override this method, since it does the important
+// work of actually discerning if two resources are identical in function.
 func (obj *BaseUUID) IFF(uuid ResUUID) bool {
 	res, ok := uuid.(*BaseUUID)
 	if !ok {
@@ -142,6 +148,8 @@ func (obj *BaseUUID) IFF(uuid ResUUID) bool {
 	return obj.name == res.name
 }
 
+// Reversed is part of the ResUUID interface, and true means this resource
+// happens before the generator.
 func (obj *BaseUUID) Reversed() bool {
 	if obj.reversed == nil {
 		log.Fatal("Programming error!")
@@ -149,16 +157,17 @@ func (obj *BaseUUID) Reversed() bool {
 	return *obj.reversed
 }
 
-// initialize structures like channels if created without New constructor
+// Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() {
 	obj.events = make(chan Event) // unbuffered chan size to avoid stale events
 }
 
-// this method gets used by all the resources
+// GetName is used by all the resources to Get the name.
 func (obj *BaseRes) GetName() string {
 	return obj.Name
 }
 
+// SetName is used to set the name of the resource.
 func (obj *BaseRes) SetName(name string) {
 	obj.Name = name
 }
@@ -168,34 +177,37 @@ func (obj *BaseRes) setKind(kind string) {
 	obj.kind = kind
 }
 
-// Kind returns the kind of resource this is
+// Kind returns the kind of resource this is.
 func (obj *BaseRes) Kind() string {
 	return obj.kind
 }
 
+// Meta returns the MetaParams as a reference, which we can then get/set on.
 func (obj *BaseRes) Meta() *MetaParams {
 	return &obj.MetaParams
 }
 
-// AssociateData associates some data with the object in question
+// AssociateData associates some data with the object in question.
 func (obj *BaseRes) AssociateData(converger Converger) {
 	obj.converger = converger
 }
 
-// is the Watch() function running?
+// IsWatching tells us if the Watch() function is running.
 func (obj *BaseRes) IsWatching() bool {
 	return obj.watching
 }
 
-// store status of if the Watch() function is running
+// SetWatching stores the status of if the Watch() function is running.
 func (obj *BaseRes) SetWatching(b bool) {
 	obj.watching = b
 }
 
+// GetState returns the state of the resource.
 func (obj *BaseRes) GetState() resState {
 	return obj.state
 }
 
+// SetState sets the state of the resource.
 func (obj *BaseRes) SetState(state resState) {
 	if DEBUG {
 		log.Printf("%v[%v]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
@@ -203,7 +215,7 @@ func (obj *BaseRes) SetState(state resState) {
 	obj.state = state
 }
 
-// push an event into the message queue for a particular vertex
+// SendEvent pushes an event into the message queue for a particular vertex
 func (obj *BaseRes) SendEvent(event eventName, sync bool, activity bool) bool {
 	// TODO: isn't this race-y ?
 	if !obj.IsWatching() { // element has already exited
@@ -225,8 +237,8 @@ func (obj *BaseRes) SendEvent(event eventName, sync bool, activity bool) bool {
 	}
 }
 
-// process events when a select gets one, this handles the pause code too!
-// the return values specify if we should exit and poke respectively
+// ReadEvent processes events when a select gets one, and handles the pause
+// code too! The return values specify if we should exit and poke respectively.
 func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
 	event.ACK()
 	switch event.Name {
@@ -269,6 +281,7 @@ func (obj *BaseRes) GroupCmp(res Res) bool {
 	return false // base implementation assumes false, override me!
 }
 
+// GroupRes groups resource (arg) into self.
 func (obj *BaseRes) GroupRes(res Res) error {
 	if l := len(res.GetGroup()); l > 0 {
 		return fmt.Errorf("Res: %v already contains %d grouped resources!", res, l)
@@ -282,18 +295,22 @@ func (obj *BaseRes) GroupRes(res Res) error {
 	return nil
 }
 
+// IsGrouped determines if we are grouped.
 func (obj *BaseRes) IsGrouped() bool { // am I grouped?
 	return obj.isGrouped
 }
 
+// SetGrouped sets a flag to tell if we are grouped.
 func (obj *BaseRes) SetGrouped(b bool) {
 	obj.isGrouped = b
 }
 
+// GetGroup returns everyone grouped inside me.
 func (obj *BaseRes) GetGroup() []Res { // return everyone grouped inside me
 	return obj.grouped
 }
 
+// SetGroup sets the grouped resources into me.
 func (obj *BaseRes) SetGroup(g []Res) {
 	obj.grouped = g
 }
@@ -311,6 +328,7 @@ func (obj *BaseRes) Compare(res Res) bool {
 	return true
 }
 
+// CollectPattern is used for resource collection.
 func (obj *BaseRes) CollectPattern(pattern string) {
 	// XXX: default method is empty
 }

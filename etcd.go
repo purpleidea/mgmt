@@ -1589,6 +1589,9 @@ func (obj *EmbdEtcd) DestroyServer() error {
 	log.Printf("Etcd: DestroyServer: Done removing data...")
 
 	obj.memberId = 0
+	if obj.server == nil { // skip the .Done() below because we didn't .Add(1) it.
+		return err
+	}
 	obj.server = nil // important because this is used as an isRunning flag
 	log.Printf("Etcd: DestroyServer: Unlocking server...")
 	obj.serverwg.Done() // -1

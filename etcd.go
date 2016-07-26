@@ -1241,7 +1241,19 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 			if removed {
 				log.Printf("Etcd: Member Removed (forced): %v(%v)", quitter, mID)
 			}
-			return &CtxDelayErr{1 * time.Second, fmt.Sprintf("Member %s (%d) removed successfully!", quitter, mID)} // retry asap
+
+			// Remove the endpoint from our list to avoid blocking
+			// future MemberList calls which would try and connect
+			// to a missing endpoint... The endpoints should get
+			// updated from the member exiting safely if it doesn't
+			// crash, but if it did and/or since it's a race to see
+			// if the update event will get seen before we need the
+			// new data, just do it now anyways, then update the
+			// endpoint list and trigger a reconnect.
+			delete(obj.endpoints, quitter) // proactively delete it
+			obj.endpointCallback(nil)      // update!
+			log.Printf("Member %s (%d) removed successfully!", quitter, mID)
+			return &CtxReconnectErr{"a member was removed"} // retry asap and update endpoint list
 
 		} else {
 			// programming error
@@ -1852,7 +1864,10 @@ func EtcdMembers(obj *EmbdEtcd) (map[uint64]string, error) {
 			return nil, fmt.Errorf("Exiting...")
 		}
 		obj.rLock.RLock()
-		response, err = obj.client.MemberList(context.Background())
+		if TRACE {
+			log.Printf("Trace: Etcd: EtcdMembers(): Endpoints are: %v", obj.client.Endpoints())
+		}
+		response, err = obj.client.MemberList(ctx)
 		obj.rLock.RUnlock()
 		if err == nil {
 			break

@@ -151,6 +151,13 @@ The downside to this approach is that you won't benefit from the automatic
 elastic nature of the embedded etcd servers, and that you're responsible if you
 accidentally break your etcd cluster, or if you use an unsupported version.
 
+###Did you know that there is a band named `MGMT`?
+
+I didn't realize this when naming the project, and it is accidental. After much
+anguishing, I chose the name because it was short and I thought it was
+appropriately descriptive. If you need a less ambiguous search term or phrase,
+you can try using `mgmtconfig` or `mgmt config`.
+
 ###You didn't answer my question, or I have a question!
 
 It's best to ask on [IRC](https://webchat.freenode.net/?channels=#mgmtconfig)

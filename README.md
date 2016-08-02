@@ -16,7 +16,8 @@ Please join the [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig
 If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!
 
 ## Quick start:
-* Either get the golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
+* Clone the repository recursively, eg: `git clone --recursive https://github.com/purpleidea/mgmt/`.
+* Get the remaining golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
 * Run `make build` to get a freshly built `mgmt` binary.
 * Run `time ./mgmt run --file examples/graph0.yaml --converged-timeout=1` to try out a very simple example!
 * To run continuously in the default mode of operation, omit the `--converged-timeout` option.

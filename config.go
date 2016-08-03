@@ -56,6 +56,7 @@ type GraphConfig struct {
 	Collector []collectorResConfig `yaml:"collect"`
 	Edges     []edgeConfig         `yaml:"edges"`
 	Comment   string               `yaml:"comment"`
+	Remote    string               `yaml:"remote"`
 }
 
 func (c *GraphConfig) Parse(data []byte) error {

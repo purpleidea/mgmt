@@ -1,0 +1,23 @@
+---
+graph: mygraph
+comment: remote noop example
+resources:
+  noop:
+  - name: noop1
+    meta:
+      noop: true
+  file:
+  - name: file1
+    path: "/tmp/mgmt-remote-hello"
+    content: |
+      hello world from @purpleidea
+    state: exists
+edges:
+- name: e1
+  from:
+    kind: noop
+    name: noop1
+  to:
+    kind: file
+    name: file1
+remote: "ssh://root:password@hostname:22"

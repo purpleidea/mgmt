@@ -34,6 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	* [Autoedges - Automatic resource relationships](#autoedges)
 	* [Autogrouping - Automatic resource grouping](#autogrouping)
 	* [Automatic clustering - Automatic cluster management](#automatic-clustering)
+	* [Remote mode - Remote "agent-less" execution](#remote-agent-less-mode)
 5. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
 6. [Reference - Detailed reference](#reference)
 	* [Graph definition file](#graph-definition-file)
@@ -142,6 +143,27 @@ with the `--seeds` variable.
 You can read the introductory blog post about this topic here:
 [https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
 
+###Remote ("agent-less") mode
+
+Remote mode is a special mode that lets you kick off mgmt runs on one or more
+remote machines which are only accessible via SSH. In this mode the initiating
+host connects over SSH, copies over the `mgmt` binary, opens an SSH tunnel, and
+runs the remote program while simultaneously passing the etcd traffic back
+through the tunnel so that the initiators etcd cluster can be used to exchange
+resource data.
+
+The interesting benefit of this architecture is that multiple hosts which can't
+connect directly use the initiator to pass the important traffic through to each
+other. Once the cluster has converged all the remote programs can shutdown
+leaving no residual agent.
+
+This mode can also be useful for bootstrapping a new host where you'd like to
+have the service run continuously and as part of an mgmt cluster normally.
+
+####Blog post
+
+An introductory blog post about this topic will follow soon.
+
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and
 respond by commit with the answer.)
@@ -221,6 +243,11 @@ generally recommended, but may be useful for users who know what they're doing.
 Globally force all resources into no-op mode. This also disables the export to
 etcd functionality, but does not disable resource collection, however all
 resources that are collected will have their individual noop settings set.
+
+####`--remote <graph.yaml>`
+Point to a graph file to run on the remote host specified within. This parameter
+can be used multiple times if you'd like to remotely run on multiple hosts in
+parallel.
 
 ##Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git

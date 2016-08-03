@@ -77,6 +77,8 @@ const (
 	exitDelay               = 3                // number of sec of inactivity after exit to clean up
 	defaultIdealClusterSize = 5                // default ideal cluster size target for initial seed
 	tempPrefix              = "tmp-mgmt-etcd-" // XXX use some special mgmt tmp dir
+	DefaultClientURL        = "127.0.0.1:2379"
+	DefaultServerURL        = "127.0.0.1:2380"
 )
 
 var (
@@ -214,7 +216,7 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, 
 	// TODO: add some sort of auto assign method for picking these defaults
 	// add a default so that our local client can connect locally if needed
 	if len(obj.LocalhostClientURLs()) == 0 { // if we don't have any localhost URLs
-		u := url.URL{Scheme: "http", Host: "127.0.0.1:2379"}     // default
+		u := url.URL{Scheme: "http", Host: DefaultClientURL}     // default
 		obj.clientURLs = append([]url.URL{u}, obj.clientURLs...) // prepend
 	}
 
@@ -223,7 +225,7 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, 
 		if len(obj.endpoints) > 0 {
 			obj.noServer = true // we didn't have enough to be a server
 		}
-		u := url.URL{Scheme: "http", Host: "127.0.0.1:2380"} // default
+		u := url.URL{Scheme: "http", Host: DefaultServerURL} // default
 		obj.serverURLs = []url.URL{u}
 	}
 

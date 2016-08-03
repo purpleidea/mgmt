@@ -104,6 +104,21 @@ func run(c *cli.Context) error {
 		return cli.NewExitError("", 1)
 	}
 
+	if c.Bool("no-server") && len(c.StringSlice("remote")) > 0 {
+		// TODO: in this case, we won't be able to tunnel stuff back to
+		// here, so if we're okay with every remote graph running in an
+		// isolated mode, then this is okay. Improve on this if there's
+		// someone who really wants to be able to do this.
+		log.Println("Main: Error: the --no-server and --remote parameters cannot be used together!")
+		return cli.NewExitError("", 1)
+	}
+
+	cConns := uint16(c.Int("cconns"))
+	if cConns < 0 {
+		log.Printf("Main: Error: --cconns should be at least zero!")
+		return cli.NewExitError("", 1)
+	}
+
 	var wg sync.WaitGroup
 	exit := make(chan bool) // exit signal
 	var G, fullGraph *Graph
@@ -244,6 +259,21 @@ func run(c *cli.Context) error {
 		}
 	}()
 
+	// build remotes struct for remote ssh
+	remotes := NewRemotes(
+		EmbdEtcd.LocalhostClientURLs().StringSlice(),
+		[]string{DefaultClientURL},
+		noop,
+		c.StringSlice("remote"), // list of files
+		cConns,
+		c.Bool("allow-interactive"),
+		c.String("ssh-priv-id-rsa"),
+	)
+
+	// TODO: is there any benefit to running the remotes above in the loop?
+	// wait for etcd to be running before we remote in, which we do above!
+	go remotes.Run()
+
 	if !c.IsSet("file") && !c.IsSet("puppet") {
 		converger.Start() // better start this for empty graphs
 	}
@@ -252,6 +282,8 @@ func run(c *cli.Context) error {
 	waitForSignal(exit) // pass in exit channel to watch
 
 	log.Println("Destroy...")
+
+	remotes.Exit() // tell all the remote connections to shutdown; waits!
 
 	G.Exit() // tell all the children to exit
 
@@ -397,6 +429,27 @@ func main() {
 					Name:  "puppet-conf",
 					Value: "",
 					Usage: "supply the path to an alternate puppet.conf file to use",
+				},
+				cli.StringSliceFlag{
+					Name:  "remote",
+					Value: &cli.StringSlice{},
+					Usage: "list of remote graph definitions to run",
+				},
+				cli.BoolFlag{
+					Name:  "allow-interactive",
+					Usage: "allow interactive prompting, such as for remote passwords",
+				},
+				cli.StringFlag{
+					Name:   "ssh-priv-id-rsa",
+					Value:  "~/.ssh/id_rsa",
+					Usage:  "default path to ssh key file, set empty to never touch",
+					EnvVar: "MGMT_SSH_PRIV_ID_RSA",
+				},
+				cli.IntFlag{
+					Name:   "cconns",
+					Value:  0,
+					Usage:  "number of maximum concurrent remote ssh connections to run, 0 for unlimited",
+					EnvVar: "MGMT_CCONNS",
 				},
 			},
 		},

@@ -44,8 +44,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ##Overview
 
-The `mgmt` tool is a research prototype to demonstrate next generation config
-management techniques. Hopefully it will evolve into a useful, robust tool.
+The `mgmt` tool is a next generation config management prototype. It's not yet
+ready for production, but we hope to get there soon. Get involved today!
 
 ##Project Description
 
@@ -57,8 +57,11 @@ For more information, you may like to read some blog posts from the author:
 
 * [Next generation config mgmt](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
 * [Automatic edges in mgmt](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
+* [Automatic grouping in mgmt](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
+* [Automatic clustering in mgmt](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
 
-There is also an [introductory video](https://www.youtube.com/watch?v=GVhpPF0j-iE&html5=1) available.
+There is also an [introductory video](http://meetings-archive.debian.net/pub/debian-meetings/2016/debconf16/Next_Generation_Config_Mgmt.webm) available.
+Older videos and other material [is available](https://github.com/purpleidea/mgmt/#on-the-web).
 
 ##Setup
 

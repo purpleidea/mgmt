@@ -33,6 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 4. [Features - All things mgmt can do](#features)
 	* [Autoedges - Automatic resource relationships](#autoedges)
 	* [Autogrouping - Automatic resource grouping](#autogrouping)
+	* [Automatic clustering - Automatic cluster management](#automatic-clustering)
 5. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
 6. [Reference - Detailed reference](#reference)
 	* [Graph definition file](#graph-definition-file)
@@ -121,6 +122,22 @@ the meta attributes of that resource to `false`.
 
 You can read the introductory blog post about this topic here:
 [https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
+
+###Automatic clustering
+
+Automatic clustering is a feature by which mgmt automatically builds, scales,
+and manages the embedded etcd cluster which is compiled into mgmt itself. It is
+quite helpful for rapidly bootstrapping clusters and avoiding the extra work to
+setup etcd.
+
+If you prefer to avoid this feature. you can always opt to use an existing etcd
+cluster that is managed separately from mgmt by pointing your mgmt agents at it
+with the `--seeds` variable.
+
+####Blog post
+
+You can read the introductory blog post about this topic here:
+[https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

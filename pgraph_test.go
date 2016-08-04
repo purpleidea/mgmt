@@ -819,7 +819,7 @@ func runGraphCmp(t *testing.T, g1, g2 *Graph) {
 	}
 }
 
-// all of the following test cases are layed out with the following semantics:
+// all of the following test cases are laid out with the following semantics:
 // * vertices which start with the same single letter are considered "like"
 // * "like" elements should be merged
 // * vertices can have any integer after their single letter "family" type

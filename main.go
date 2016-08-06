@@ -18,6 +18,7 @@
 package main
 
 import (
+	"fmt"
 	etcdtypes "github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/pkg/capnslog"
 	"github.com/urfave/cli"
@@ -33,6 +34,7 @@ import (
 var (
 	program string
 	version string
+	prefix  = fmt.Sprintf("/var/lib/%s/", program)
 )
 
 const (
@@ -268,6 +270,8 @@ func run(c *cli.Context) error {
 		cConns,
 		c.Bool("allow-interactive"),
 		c.String("ssh-priv-id-rsa"),
+		!c.Bool("no-caching"),
+		prefix,
 	)
 
 	// TODO: is there any benefit to running the remotes above in the loop?
@@ -450,6 +454,10 @@ func main() {
 					Value:  0,
 					Usage:  "number of maximum concurrent remote ssh connections to run, 0 for unlimited",
 					EnvVar: "MGMT_CCONNS",
+				},
+				cli.BoolFlag{
+					Name:  "no-caching",
+					Usage: "don't allow remote caching of remote execution binary",
 				},
 			},
 		},

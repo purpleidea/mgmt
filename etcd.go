@@ -48,11 +48,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math"
 	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -70,13 +70,12 @@ import (
 )
 
 const (
-	NS                      = "_mgmt"          // root namespace for mgmt operations
-	seedSentinel            = "_seed"          // you must not name your hostname this
-	maxStartServerRetries   = 3                // number of times to retry starting the etcd server
-	selfRemoveTimeout       = 3                // give unnominated members a chance to self exit
-	exitDelay               = 3                // number of sec of inactivity after exit to clean up
-	defaultIdealClusterSize = 5                // default ideal cluster size target for initial seed
-	tempPrefix              = "tmp-mgmt-etcd-" // XXX use some special mgmt tmp dir
+	NS                      = "_mgmt" // root namespace for mgmt operations
+	seedSentinel            = "_seed" // you must not name your hostname this
+	maxStartServerRetries   = 3       // number of times to retry starting the etcd server
+	selfRemoveTimeout       = 3       // give unnominated members a chance to self exit
+	exitDelay               = 3       // number of sec of inactivity after exit to clean up
+	defaultIdealClusterSize = 5       // default ideal cluster size target for initial seed
 	DefaultClientURL        = "127.0.0.1:2379"
 	DefaultServerURL        = "127.0.0.1:2380"
 )
@@ -175,15 +174,16 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	txnq    chan *TN // txn queue
 
 	converger Converger // converged tracking
+	prefix    string    // folder prefix to use for misc storage
 
 	// etcd server related
 	serverwg sync.WaitGroup // wait for server to shutdown
 	server   *embed.Etcd    // technically this contains the server struct
-	dataDir  string         // XXX: incorporate into the "/var" functionality...
+	dataDir  string         // our data dir, prefix + "etcd"
 }
 
 // NewEmbdEtcd creates the top level embedded etcd struct client and server obj
-func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, converger Converger) *EmbdEtcd {
+func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, converger Converger, prefix string) *EmbdEtcd {
 	endpoints := make(etcdtypes.URLsMap)
 	if hostname == seedSentinel { // safety
 		return nil
@@ -212,6 +212,8 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, 
 
 		idealClusterSize: idealClusterSize,
 		converger:        converger,
+		prefix:           prefix,
+		dataDir:          path.Join(prefix, "etcd"),
 	}
 	// TODO: add some sort of auto assign method for picking these defaults
 	// add a default so that our local client can connect locally if needed
@@ -1535,7 +1537,7 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	var err error
 	memberName := obj.hostname
 
-	obj.dataDir, err = ioutil.TempDir("", tempPrefix)
+	err = os.MkdirAll(obj.dataDir, 0770)
 	if err != nil {
 		obj.DestroyServer()
 		return err
@@ -1593,14 +1595,6 @@ func (obj *EmbdEtcd) DestroyServer() error {
 		obj.server.Close() // this blocks until server has stopped
 	}
 	log.Printf("Etcd: DestroyServer: Done closing...")
-
-	// XXX have a more global mgmt data dir ("/var")
-	if obj.dataDir != "" {
-		if e := os.RemoveAll(obj.dataDir); e != nil {
-			err = e
-		}
-	}
-	log.Printf("Etcd: DestroyServer: Done removing data...")
 
 	obj.memberId = 0
 	if obj.server == nil { // skip the .Done() below because we didn't .Add(1) it.

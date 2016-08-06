@@ -157,6 +157,7 @@ func run(c *cli.Context) error {
 		c.Bool("no-server"),
 		idealClusterSize,
 		converger,
+		prefix,
 	)
 	if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
 		log.Printf("Main: Etcd: Startup failed: %v", err)

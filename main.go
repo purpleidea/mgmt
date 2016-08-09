@@ -22,6 +22,7 @@ import (
 	etcdtypes "github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/pkg/capnslog"
 	"github.com/urfave/cli"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -120,6 +121,22 @@ func run(c *cli.Context) error {
 		log.Printf("Main: Error: --cconns should be at least zero!")
 		return cli.NewExitError("", 1)
 	}
+
+	// make sure the working directory prefix exists
+	if err := os.MkdirAll(prefix, 0770); err != nil {
+		if c.Bool("allow-tmp-prefix") {
+			if prefix, err = ioutil.TempDir("", program); err != nil {
+				log.Printf("Main: Error: Can't create temporary prefix!")
+				return cli.NewExitError("", 1)
+			}
+			log.Println("Main: Warning: Working prefix directory is temporary!")
+
+		} else {
+			log.Printf("Main: Error: Can't create prefix!")
+			return cli.NewExitError("", 1)
+		}
+	}
+	log.Printf("Main: Working prefix is: %s", prefix)
 
 	var wg sync.WaitGroup
 	exit := make(chan bool) // exit signal
@@ -471,6 +488,10 @@ func main() {
 				cli.BoolFlag{
 					Name:  "no-caching",
 					Usage: "don't allow remote caching of remote execution binary",
+				},
+				cli.BoolFlag{
+					Name:  "allow-tmp-prefix",
+					Usage: "allow creation of a new temporary prefix if main prefix is unavailable",
 				},
 			},
 		},

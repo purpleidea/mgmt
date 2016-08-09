@@ -1539,6 +1539,8 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 
 	err = os.MkdirAll(obj.dataDir, 0770)
 	if err != nil {
+		log.Printf("Etcd: StartServer: Couldn't mkdir: %s.", obj.dataDir)
+		log.Printf("Etcd: StartServer: Mkdir error: %s.", err)
 		obj.DestroyServer()
 		return err
 	}

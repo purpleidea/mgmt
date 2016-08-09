@@ -262,12 +262,23 @@ func run(c *cli.Context) error {
 		}
 	}()
 
+	configWatcher := NewConfigWatcher()
+	events := configWatcher.Events()
+	if !c.Bool("no-watch") {
+		for _, f := range c.StringSlice("remote") { // add all the files...
+			configWatcher.Add(f)
+		}
+	} else {
+		events = nil // signal that no-watch is true
+	}
+
 	// build remotes struct for remote ssh
 	remotes := NewRemotes(
 		EmbdEtcd.LocalhostClientURLs().StringSlice(),
 		[]string{DefaultClientURL},
 		noop,
 		c.StringSlice("remote"), // list of files
+		events,                  // watch for file changes
 		cConns,
 		c.Bool("allow-interactive"),
 		c.String("ssh-priv-id-rsa"),
@@ -288,7 +299,8 @@ func run(c *cli.Context) error {
 
 	log.Println("Destroy...")
 
-	remotes.Exit() // tell all the remote connections to shutdown; waits!
+	configWatcher.Close() // stop sending file changes to remotes
+	remotes.Exit()        // tell all the remote connections to shutdown; waits!
 
 	G.Exit() // tell all the children to exit
 

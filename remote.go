@@ -87,6 +87,7 @@ type SSH struct {
 	clientURLs []string // list of urls where the local server is listening
 	remoteURLs []string // list of urls where the remote server connects to
 	noop       bool     // whether to run the remote process with --noop
+	noWatch    bool     // whether to run the remote process with --no-watch
 
 	caching bool   // whether to try and cache the copy of the binary
 	prefix  string // location we're allowed to put data on the remote server
@@ -241,13 +242,21 @@ func (obj *SSH) Sftp() error {
 	// TODO: should future versions use torrent for this copy and updates?
 	obj.filepath = path.Join(obj.remotewd, path.Base(obj.file)) // same filename
 	log.Println("Remote: Copying graph definition...")
-	_, err = obj.SftpCopy(obj.file, obj.filepath)
+	_, err = obj.SftpGraphCopy()
 	if err != nil {
 		// TODO: cleanup
 		return fmt.Errorf("Error copying graph: %s", err)
 	}
 
 	return nil
+}
+
+// SftpGraphCopy is a helper function used for re-copying the graph definition.
+func (obj *SSH) SftpGraphCopy() (int64, error) {
+	if obj.filepath == "" {
+		return -1, fmt.Errorf("Sftp session isn't ready yet!")
+	}
+	return obj.SftpCopy(obj.file, obj.filepath)
 }
 
 // SftpCopy is a simple helper function that runs a local -> remote sftp copy.
@@ -473,6 +482,9 @@ func (obj *SSH) Exec() error {
 	if obj.noop {
 		args = append(args, "--noop")
 	}
+	if obj.noWatch {
+		args = append(args, "--no-watch")
+	}
 
 	// TODO: add --converged-timeout support for group
 
@@ -648,11 +660,12 @@ type Remotes struct {
 	remoteURLs   []string // list of urls where the remote server connects to
 	noop         bool     // whether to run in noop mode
 	remotes      []string // list of remote graph definition files to run
-	cConns       uint16   // number of concurrent ssh connections, zero means unlimited
-	interactive  bool     // allow interactive prompting
-	sshPrivIdRsa string   // path to ~/.ssh/id_rsa
-	caching      bool     // whether to try and cache the copy of the binary
-	prefix       string   // folder prefix to use for misc storage
+	fileWatch    chan string
+	cConns       uint16 // number of concurrent ssh connections, zero means unlimited
+	interactive  bool   // allow interactive prompting
+	sshPrivIdRsa string // path to ~/.ssh/id_rsa
+	caching      bool   // whether to try and cache the copy of the binary
+	prefix       string // folder prefix to use for misc storage
 
 	wg        sync.WaitGroup  // keep track of each running SSH connection
 	lock      sync.Mutex      // mutex for access to sshmap
@@ -662,12 +675,13 @@ type Remotes struct {
 }
 
 // The NewRemotes function builds a Remotes struct.
-func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, prefix string) *Remotes {
+func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, prefix string) *Remotes {
 	return &Remotes{
 		clientURLs:   clientURLs,
 		remoteURLs:   remoteURLs,
 		noop:         noop,
-		remotes:      remotes,
+		remotes:      StrRemoveDuplicatesInList(remotes),
+		fileWatch:    fileWatch,
 		cConns:       cConns,
 		interactive:  interactive,
 		sshPrivIdRsa: sshPrivIdRsa,
@@ -748,6 +762,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		clientURLs: obj.clientURLs,
 		remoteURLs: obj.remoteURLs,
 		noop:       obj.noop,
+		noWatch:    obj.fileWatch == nil,
 		caching:    obj.caching,
 		prefix:     obj.prefix,
 	}, nil
@@ -827,6 +842,31 @@ func (obj *Remotes) passwordCallback(user, host string) func() (string, error) {
 // The Run method of the Remotes struct kicks it all off. It is usually run from
 // a go routine.
 func (obj *Remotes) Run() {
+	// kick off the file change notifications
+	if obj.fileWatch != nil {
+		go func() {
+			for {
+				f, more := <-obj.fileWatch // read from channel
+				if !more {
+					return
+				}
+				obj.lock.Lock()
+				sshobj, exists := obj.sshmap[f]
+				if !exists || sshobj == nil {
+					continue // skip, this hasn't happened yet
+				}
+				// NOTE: if this errors because the session isn't
+				// ready yet, it's fine, because we haven't copied
+				// the file yet, so the update notification isn't
+				// wasted, in fact, it's premature and redundant.
+				if _, err := sshobj.SftpGraphCopy(); err == nil { // push new copy
+					log.Printf("Remote: Copied over new graph definition: %s", f)
+				} // ignore errors
+				obj.lock.Unlock()
+			}
+		}()
+	}
+
 	// the semaphore provides the max simultaneous connection limit
 	for _, f := range obj.remotes {
 		if obj.cConns != 0 {

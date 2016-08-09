@@ -24,9 +24,64 @@ import (
 	"math"
 	"path"
 	"strings"
+	"sync"
 	"syscall"
 )
 
+// ConfigWatcher returns events on a channel anytime one of its files events.
+type ConfigWatcher struct {
+	ch        chan string
+	wg        sync.WaitGroup
+	closechan chan struct{}
+}
+
+// NewConfigWatcher creates a new ConfigWatcher struct.
+func NewConfigWatcher() *ConfigWatcher {
+	return &ConfigWatcher{
+		ch:        make(chan string),
+		closechan: make(chan struct{}),
+	}
+}
+
+// The Add method adds a new file path to watch for events on.
+func (obj *ConfigWatcher) Add(file string) {
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		ch := ConfigWatch(file)
+		for {
+			select {
+			case <-ch:
+				obj.ch <- file
+				continue
+			case <-obj.closechan:
+				return
+			}
+		}
+	}()
+}
+
+// Events returns a channel to listen on for file events. It closes when it is
+// emptied after the Close() method is called. You can test for closure with the
+// f, more := <-obj.Events() pattern.
+func (obj *ConfigWatcher) Events() chan string {
+	return obj.ch
+}
+
+// Close shuts down the ConfigWatcher object. It closes the Events channel after
+// all the currently pending events have been emptied.
+func (obj *ConfigWatcher) Close() {
+	if obj.ch == nil {
+		return
+	}
+	close(obj.closechan)
+	obj.wg.Wait() // wait until everyone is done sending on obj.ch
+	//obj.ch <- "" // send finished message
+	close(obj.ch)
+	obj.ch = nil
+}
+
+// ConfigWatch writes on the channel everytime an event is seen for the path.
 // XXX: it would be great if we could reuse code between this and the file resource
 // XXX: patch this to submit it as part of go-fsnotify if they're interested...
 func ConfigWatch(file string) chan bool {
@@ -51,8 +106,9 @@ func ConfigWatch(file string) chan bool {
 			if current == "" { // the empty string top is the root dir ("/")
 				current = "/"
 			}
-			log.Printf("Watching: %v", current) // attempting to watch...
-
+			if DEBUG {
+				log.Printf("Watching: %v", current) // attempting to watch...
+			}
 			// initialize in the loop so that we can reset on rm-ed handles
 			err = watcher.Add(current)
 			if err != nil {
@@ -97,7 +153,10 @@ func ConfigWatch(file string) chan bool {
 				// if we have what we wanted, awesome, send an event...
 				if event.Name == safename {
 					//log.Println("Event!")
-					send = true
+					// TODO: filter out some of the events, is Write a sufficient minimum?
+					if event.Op&fsnotify.Write == fsnotify.Write {
+						send = true
+					}
 
 					// file removed, move the watch upwards
 					if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {

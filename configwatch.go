@@ -44,15 +44,25 @@ func NewConfigWatcher() *ConfigWatcher {
 }
 
 // The Add method adds a new file path to watch for events on.
-func (obj *ConfigWatcher) Add(file string) {
+func (obj *ConfigWatcher) Add(file ...string) {
+	if len(file) == 0 {
+		return
+	}
+	if len(file) > 1 {
+		for _, f := range file { // add all the files...
+			obj.Add(f) // recurse
+		}
+		return
+	}
+	// otherwise, add the one file passed in...
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
-		ch := ConfigWatch(file)
+		ch := ConfigWatch(file[0])
 		for {
 			select {
 			case <-ch:
-				obj.ch <- file
+				obj.ch <- file[0]
 				continue
 			case <-obj.closechan:
 				return

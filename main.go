@@ -282,9 +282,7 @@ func run(c *cli.Context) error {
 	configWatcher := NewConfigWatcher()
 	events := configWatcher.Events()
 	if !c.Bool("no-watch") {
-		for _, f := range c.StringSlice("remote") { // add all the files...
-			configWatcher.Add(f)
-		}
+		configWatcher.Add(c.StringSlice("remote")...) // add all the files...
 	} else {
 		events = nil // signal that no-watch is true
 	}

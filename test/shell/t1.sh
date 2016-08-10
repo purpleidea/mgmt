@@ -11,3 +11,6 @@ set -o nounset
 set -o pipefail
 
 timeout --kill-after=3s 1s ./mgmt --help # hello world!
+pid=$!
+wait $pid	# get exit status
+exit $?

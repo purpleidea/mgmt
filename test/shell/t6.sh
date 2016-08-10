@@ -8,6 +8,7 @@ fi
 
 # run till completion
 timeout --kill-after=20s 15s ./mgmt run --file t6.yaml --no-watch &
+pid=$!
 sleep 1s	# let it converge
 test -e /tmp/mgmt/f1
 test -e /tmp/mgmt/f2
@@ -28,4 +29,5 @@ test -e /tmp/mgmt/f2
 
 killall -SIGINT mgmt	# send ^C to exit mgmt
 
-. wait.sh	# wait for mgmt
+wait $pid	# get exit status
+exit $?

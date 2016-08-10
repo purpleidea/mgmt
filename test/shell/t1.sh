@@ -7,7 +7,6 @@
 #	* you can run mgmt with --max-runtime=<seconds> in special scenarios
 
 set -o errexit
-set -o nounset
 set -o pipefail
 
 timeout --kill-after=3s 1s ./mgmt --help # hello world!

@@ -23,6 +23,6 @@ resources:
       i am f4, exported from host C
     state: exists
 collect:
-- res: file
+- kind: file
   pattern: "/tmp/mgmt/mgmtC/"
 edges: []

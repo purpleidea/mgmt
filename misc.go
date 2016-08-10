@@ -27,6 +27,9 @@ import (
 
 // FirstToUpper returns the string with the first character capitalized.
 func FirstToUpper(str string) string {
+	if str == "" {
+		return ""
+	}
 	return strings.ToUpper(str[0:1]) + str[1:]
 }
 

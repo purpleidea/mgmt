@@ -1,11 +1,11 @@
 #!/bin/bash -e
 
 # run empty graphs, we're just testing etcd clustering
-timeout --kill-after=120s 90s ./mgmt run --hostname h1 &
+timeout --kill-after=120s 90s ./mgmt run --hostname h1 --allow-tmp-prefix &
 pid1=$!
 sleep 5s	# let it startup
 
-timeout --kill-after=120s 90s ./mgmt run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 &
+timeout --kill-after=120s 90s ./mgmt run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --allow-tmp-prefix &
 pid2=$!
 sleep 5s
 

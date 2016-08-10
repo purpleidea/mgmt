@@ -244,6 +244,9 @@ func run(c *cli.Context) error {
 		}
 	}()
 
+	if !c.IsSet("file") && !c.IsSet("puppet") {
+		converger.Start() // better start this for empty graphs
+	}
 	log.Println("Main: Running...")
 
 	waitForSignal(exit) // pass in exit channel to watch

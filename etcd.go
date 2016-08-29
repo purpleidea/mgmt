@@ -72,6 +72,7 @@ import (
 const (
 	NS                      = "_mgmt" // root namespace for mgmt operations
 	seedSentinel            = "_seed" // you must not name your hostname this
+	maxStartServerTimeout   = 60      // max number of seconds to wait for server to start
 	maxStartServerRetries   = 3       // number of times to retry starting the etcd server
 	maxClientConnectRetries = 5       // number of times to retry consecutive connect failures
 	selfRemoveTimeout       = 3       // give unnominated members a chance to self exit
@@ -1629,10 +1630,20 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	//cfg.ForceNewCluster = newCluster // TODO ?
 
 	log.Printf("Etcd: StartServer: Starting server...")
-	obj.server, err = embed.StartEtcd(cfg)                 // we hang here if things are bad
-	log.Printf("Etcd: StartServer: Done starting server!") // it didn't hang!
+	obj.server, err = embed.StartEtcd(cfg)
 	if err != nil {
 		return err
+	}
+	select {
+	case <-obj.server.Server.ReadyNotify(): // we hang here if things are bad
+		log.Printf("Etcd: StartServer: Done starting server!") // it didn't hang!
+	case <-time.After(time.Duration(maxStartServerTimeout) * time.Second):
+		e := fmt.Errorf("Etcd: StartServer: Timeout of %d seconds reached!", maxStartServerTimeout)
+		log.Printf(e.Error())
+		obj.server.Server.Stop() // trigger a shutdown
+		obj.serverwg.Add(1)      // add for the DestroyServer()
+		obj.DestroyServer()
+		return e
 	}
 	//log.Fatal(<-obj.server.Err())	XXX
 	log.Printf("Etcd: StartServer: Server running...")

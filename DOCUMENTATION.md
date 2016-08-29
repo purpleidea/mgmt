@@ -193,6 +193,24 @@ The downside to this approach is that you won't benefit from the automatic
 elastic nature of the embedded etcd servers, and that you're responsible if you
 accidentally break your etcd cluster, or if you use an unsupported version.
 
+###What does the error message about an inconsistent dataDir mean?
+
+If you get an error message similar to:
+
+```
+Etcd: Connect: CtxError...
+Etcd: CtxError: Reason: CtxDelayErr(5s): No endpoints available yet!
+Etcd: Connect: Endpoints: []
+Etcd: The dataDir (/var/lib/mgmt/etcd) might be inconsistent or corrupt.
+```
+
+This happens when there are a series of fatal connect errors in a row. This can
+happen when you start `mgmt` using a dataDir that doesn't correspond to the
+current cluster view. As a result, the embedded etcd server never finishes
+starting up, and as a result, a default endpoint never gets added. The solution
+is to either reconcile the mistake, and if there is no important data saved, you
+can remove the etcd dataDir. This is typically `/var/lib/mgmt/etcd/member/`.
+
 ###Did you know that there is a band named `MGMT`?
 
 I didn't realize this when naming the project, and it is accidental. After much

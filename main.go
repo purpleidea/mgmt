@@ -122,10 +122,18 @@ func run(c *cli.Context) error {
 		return cli.NewExitError("", 1)
 	}
 
+	if c.IsSet("prefix") && c.Bool("tmp-prefix") {
+		log.Println("Main: Error: combining --prefix and the request for a tmp prefix is illogical!")
+		return cli.NewExitError("", 1)
+	}
+	if s := c.String("prefix"); c.IsSet("prefix") && s != "" {
+		prefix = s
+	}
+
 	// make sure the working directory prefix exists
-	if err := os.MkdirAll(prefix, 0770); err != nil {
-		if c.Bool("allow-tmp-prefix") {
-			if prefix, err = ioutil.TempDir("", program); err != nil {
+	if c.Bool("tmp-prefix") || os.MkdirAll(prefix, 0770) != nil {
+		if c.Bool("tmp-prefix") || c.Bool("allow-tmp-prefix") {
+			if prefix, err = ioutil.TempDir("", program+"-"); err != nil {
 				log.Printf("Main: Error: Can't create temporary prefix!")
 				return cli.NewExitError("", 1)
 			}
@@ -486,6 +494,15 @@ func main() {
 				cli.BoolFlag{
 					Name:  "no-caching",
 					Usage: "don't allow remote caching of remote execution binary",
+				},
+				cli.StringFlag{
+					Name:   "prefix",
+					Usage:  "specify a path to the working prefix directory",
+					EnvVar: "MGMT_PREFIX",
+				},
+				cli.BoolFlag{
+					Name:  "tmp-prefix",
+					Usage: "request a pseudo-random, temporary prefix to be used",
 				},
 				cli.BoolFlag{
 					Name:  "allow-tmp-prefix",

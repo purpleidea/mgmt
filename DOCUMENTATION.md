@@ -249,6 +249,24 @@ Point to a graph file to run on the remote host specified within. This parameter
 can be used multiple times if you'd like to remotely run on multiple hosts in
 parallel.
 
+####`--prefix <path>`
+Specify a path to a custom working directory prefix. This directory will get
+created if it does not exist. This usually defaults to `/var/lib/mgmt/`. This
+can't be combined with the `--tmp-prefix` option. It can be combined with the
+`--allow-tmp-prefix` option.
+
+####`--tmp-prefix`
+If this option is specified, a temporary prefix will be used instead of the
+default prefix. This can't be combined with the `--prefix` option.
+
+####`--allow-tmp-prefix`
+If this option is specified, we will attempt to fall back to a temporary prefix
+if the primary prefix couldn't be created. This is useful for avoiding failures
+in environments where the primary prefix may or may not be available, but you'd
+like to try. The canonical example is when running `mgmt` with `--remote` there
+might be a cached copy of the binary in the primary prefix, but in case there's
+no binary available continue working in a temporary directory to avoid failure.
+
 ##Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git
 source repository. It is available from:

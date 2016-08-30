@@ -19,8 +19,8 @@ SHELL = /bin/bash
 .PHONY: all version program path deps run race generate build clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean
 
-SVERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always)
-VERSION := $(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0)
+SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
+VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
 PROGRAM := $(shell echo $(notdir $(CURDIR)) | cut -f1 -d"-")
 OLDGOLANG := $(shell go version | grep -E 'go1.3|go1.4')
 ifeq ($(VERSION),$(SVERSION))

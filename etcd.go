@@ -332,8 +332,8 @@ func (obj *EmbdEtcd) Startup() error {
 		}
 	}()
 
-	go obj.CallbackLoop() // start callback loop
-	go obj.Loop()         // start main loop
+	go obj.CbLoop() // start callback loop
+	go obj.Loop()   // start main loop
 
 	// TODO: implement native etcd watcher method on member API changes
 	path := fmt.Sprintf("/%s/nominated/", NS)
@@ -675,8 +675,8 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 	return ctx, obj.ctxErr
 }
 
-// CallbackLoop is the loop where callback execution is serialized
-func (obj *EmbdEtcd) CallbackLoop() {
+// CbLoop is the loop where callback execution is serialized
+func (obj *EmbdEtcd) CbLoop() {
 	cuuid := obj.converger.Register()
 	defer cuuid.Unregister()
 	if e := obj.Connect(false); e != nil {
@@ -689,7 +689,7 @@ func (obj *EmbdEtcd) CallbackLoop() {
 		case re := <-obj.wevents:
 			cuuid.SetConverged(false) // activity!
 			if TRACE {
-				log.Printf("Trace: Etcd: Loop: Event: StartLoop")
+				log.Printf("Trace: Etcd: CbLoop: Event: StartLoop")
 			}
 			for {
 				if obj.exiting { // the exit signal has been sent!
@@ -697,11 +697,11 @@ func (obj *EmbdEtcd) CallbackLoop() {
 					break
 				}
 				if TRACE {
-					log.Printf("Trace: Etcd: Loop: rawCallback()")
+					log.Printf("Trace: Etcd: CbLoop: rawCallback()")
 				}
 				err := rawCallback(ctx, re)
 				if TRACE {
-					log.Printf("Trace: Etcd: Loop: rawCallback(): %v", err)
+					log.Printf("Trace: Etcd: CbLoop: rawCallback(): %v", err)
 				}
 				if err == nil {
 					//re.resp.ACK() // success
@@ -713,7 +713,7 @@ func (obj *EmbdEtcd) CallbackLoop() {
 				}
 			}
 			if TRACE {
-				log.Printf("Trace: Etcd: Loop: Event: FinishLoop")
+				log.Printf("Trace: Etcd: CbLoop: Event: FinishLoop")
 			}
 
 		// converged timeout

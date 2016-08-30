@@ -1849,6 +1849,65 @@ func EtcdEndpoints(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 	return endpoints, nil
 }
 
+// EtcdSetHostnameConverged sets whether a specific hostname is converged.
+func EtcdSetHostnameConverged(obj *EmbdEtcd, hostname string, isConverged bool) error {
+	if TRACE {
+		log.Printf("Trace: Etcd: EtcdSetHostnameConverged(%s): %v", hostname, isConverged)
+		defer log.Printf("Trace: Etcd: EtcdSetHostnameConverged(%v): Finished!", hostname)
+	}
+	converged := fmt.Sprintf("/%s/converged/%s", NS, hostname)
+	op := []etcd.Op{etcd.OpPut(converged, fmt.Sprintf("%t", isConverged))}
+	if _, err := obj.Txn(nil, op, nil); err != nil { // TODO: do we need a skipConv flag here too?
+		return fmt.Errorf("Etcd: Set converged failed!") // exit in progress?
+	}
+	return nil
+}
+
+// EtcdHostnameConverged returns a map of every hostname's converged state.
+func EtcdHostnameConverged(obj *EmbdEtcd) (map[string]bool, error) {
+	if TRACE {
+		log.Printf("Trace: Etcd: EtcdHostnameConverged()")
+		defer log.Printf("Trace: Etcd: EtcdHostnameConverged(): Finished!")
+	}
+	path := fmt.Sprintf("/%s/converged/", NS)
+	keyMap, err := obj.ComplexGet(path, true, etcd.WithPrefix()) // don't un-converge
+	if err != nil {
+		return nil, fmt.Errorf("Etcd: Converged values aren't available: %v", err)
+	}
+	converged := make(map[string]bool)
+	for key, val := range keyMap { // loop through directory...
+		if !strings.HasPrefix(key, path) {
+			continue
+		}
+		name := key[len(path):] // get name of key
+		if val == "" {          // skip "erased" values
+			continue
+		}
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, fmt.Errorf("Etcd: Converged: Data format error!: %v", err)
+		}
+		converged[name] = b // add to map
+	}
+	return converged, nil
+}
+
+// EtcdAddHostnameConvergedWatcher adds a watcher with a callback that runs on
+// hostname state changes.
+func EtcdAddHostnameConvergedWatcher(obj *EmbdEtcd, callbackFn func(map[string]bool) error) (func(), error) {
+	path := fmt.Sprintf("/%s/converged/", NS)
+	internalCbFn := func(re *RE) error {
+		// TODO: get the value from the response, and apply delta...
+		// for now, just run a get operation which is easier to code!
+		if m, err := EtcdHostnameConverged(obj); err == nil {
+			return callbackFn(m) // call my function
+		} else {
+			return err
+		}
+	}
+	return obj.AddWatcher(path, internalCbFn, true, true, etcd.WithPrefix()) // no block and no converger reset
+}
+
 // EtcdSetClusterSize sets the ideal target cluster size of etcd peers
 func EtcdSetClusterSize(obj *EmbdEtcd, value uint16) error {
 	if TRACE {

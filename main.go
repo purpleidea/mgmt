@@ -69,9 +69,19 @@ func run(c *cli.Context) error {
 	log.Printf("This is: %v, version: %v", program, version)
 	log.Printf("Main: Start: %v", start)
 
-	hostname := c.String("hostname")
-	if hostname == "" {
-		hostname, _ = os.Hostname()
+	hostname, _ := os.Hostname()
+	// allow passing in the hostname, instead of using --hostname
+	if c.IsSet("file") {
+		if config := ParseConfigFromFile(c.String("file")); config != nil {
+			if h := config.Hostname; h != "" {
+				hostname = h
+			}
+		}
+	}
+	if c.IsSet("hostname") { // override by cli
+		if h := c.String("hostname"); h != "" {
+			hostname = h
+		}
 	}
 	noop := c.Bool("noop")
 
@@ -123,6 +133,17 @@ func run(c *cli.Context) error {
 		return cli.NewExitError("", 1)
 	}
 
+	if c.IsSet("converged-timeout") && cConns > 0 && len(c.StringSlice("remote")) > c.Int("cconns") {
+		log.Printf("Main: Error: combining --converged-timeout with more remotes than available connections will never converge!")
+		return cli.NewExitError("", 1)
+	}
+
+	depth := uint16(c.Int("depth"))
+	if depth < 0 { // user should not be using this argument manually
+		log.Printf("Main: Error: negative values for --depth are not permitted!")
+		return cli.NewExitError("", 1)
+	}
+
 	if c.IsSet("prefix") && c.Bool("tmp-prefix") {
 		log.Println("Main: Error: combining --prefix and the request for a tmp prefix is illogical!")
 		return cli.NewExitError("", 1)
@@ -162,13 +183,7 @@ func run(c *cli.Context) error {
 	// setup converger
 	converger := NewConverger(
 		c.Int("converged-timeout"),
-		func(b bool) error { // lambda to run when converged
-			if b {
-				log.Printf("Converged for %d seconds, exiting!", c.Int("converged-timeout"))
-				exit <- true // trigger an exit!
-			}
-			return nil
-		},
+		nil, // stateFn gets added in by EmbdEtcd
 	)
 	go converger.Loop(true) // main loop for converger, true to start paused
 
@@ -195,6 +210,24 @@ func run(c *cli.Context) error {
 	} else if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
 		log.Printf("Main: Etcd: Startup failed: %v", err)
 		exit <- true
+	}
+	convergerStateFn := func(b bool) error {
+		// exit if we are using the converged-timeout and we are the
+		// root node. otherwise, if we are a child node in a remote
+		// execution hierarchy, we should only notify our converged
+		// state and wait for the parent to trigger the exit.
+		if depth == 0 && c.Int("converged-timeout") >= 0 {
+			if b {
+				log.Printf("Converged for %d seconds, exiting!", c.Int("converged-timeout"))
+				exit <- true // trigger an exit!
+			}
+			return nil
+		}
+		// send our individual state into etcd for others to see
+		return EtcdSetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
+	}
+	if EmbdEtcd != nil {
+		converger.SetStateFn(convergerStateFn)
 	}
 
 	exitchan := make(chan Event) // exit event
@@ -250,6 +283,12 @@ func run(c *cli.Context) error {
 				continue
 			}
 
+			if config.Hostname != "" && config.Hostname != hostname {
+				log.Printf("Config: Hostname changed, ignoring config!")
+				continue
+			}
+			config.Hostname = hostname // set it in case it was ""
+
 			// run graph vertex LOCK...
 			if !first { // TODO: we can flatten this check out I think
 				converger.Pause() // FIXME: add sync wait?
@@ -258,7 +297,7 @@ func run(c *cli.Context) error {
 
 			// build graph from yaml file on events (eg: from etcd)
 			// we need the vertices to be paused to work on them
-			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, EmbdEtcd, hostname, noop); err == nil { // keep references to all original elements
+			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, EmbdEtcd, noop); err == nil { // keep references to all original elements
 				fullGraph = newFullgraph
 			} else {
 				log.Printf("Config: Error making new graph from config: %v", err)
@@ -303,6 +342,11 @@ func run(c *cli.Context) error {
 		events = nil // signal that no-watch is true
 	}
 
+	// initialize the add watcher, which calls the f callback on map changes
+	convergerCb := func(f func(map[string]bool) error) (func(), error) {
+		return EtcdAddHostnameConvergedWatcher(EmbdEtcd, f)
+	}
+
 	// build remotes struct for remote ssh
 	remotes := NewRemotes(
 		EmbdEtcd.LocalhostClientURLs().StringSlice(),
@@ -314,7 +358,10 @@ func run(c *cli.Context) error {
 		c.Bool("allow-interactive"),
 		c.String("ssh-priv-id-rsa"),
 		!c.Bool("no-caching"),
+		depth,
 		prefix,
+		converger,
+		convergerCb,
 	)
 
 	// TODO: is there any benefit to running the remotes above in the loop?
@@ -502,6 +549,12 @@ func main() {
 				cli.BoolFlag{
 					Name:  "no-caching",
 					Usage: "don't allow remote caching of remote execution binary",
+				},
+				cli.IntFlag{
+					Name:   "depth",
+					Hidden: true, // internal use only
+					Value:  0,
+					Usage:  "specify depth in remote hierarchy",
 				},
 				cli.StringFlag{
 					Name:   "prefix",

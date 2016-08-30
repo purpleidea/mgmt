@@ -56,6 +56,7 @@ type GraphConfig struct {
 	Collector []collectorResConfig `yaml:"collect"`
 	Edges     []edgeConfig         `yaml:"edges"`
 	Comment   string               `yaml:"comment"`
+	Hostname  string               `yaml:"hostname"` // uuid for the host
 	Remote    string               `yaml:"remote"`
 }
 
@@ -87,7 +88,10 @@ func ParseConfigFromFile(filename string) *GraphConfig {
 
 // NewGraphFromConfig returns a new graph from existing input, such as from the
 // existing graph, and a GraphConfig struct.
-func (g *Graph) NewGraphFromConfig(config *GraphConfig, embdEtcd *EmbdEtcd, hostname string, noop bool) (*Graph, error) {
+func (g *Graph) NewGraphFromConfig(config *GraphConfig, embdEtcd *EmbdEtcd, noop bool) (*Graph, error) {
+	if config.Hostname == "" {
+		return nil, fmt.Errorf("Config: Error: Hostname can't be empty!")
+	}
 
 	var graph *Graph // new graph to return
 	if g == nil {    // FIXME: how can we check for an empty graph?
@@ -154,7 +158,7 @@ func (g *Graph) NewGraphFromConfig(config *GraphConfig, embdEtcd *EmbdEtcd, host
 		}
 	}
 	// store in etcd
-	if err := EtcdSetResources(embdEtcd, hostname, resources); err != nil {
+	if err := EtcdSetResources(embdEtcd, config.Hostname, resources); err != nil {
 		return nil, fmt.Errorf("Config: Could not export resources: %v", err)
 	}
 

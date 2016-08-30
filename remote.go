@@ -78,6 +78,8 @@ const (
 
 // The SSH struct is the unit building block for a single remote SSH connection.
 type SSH struct {
+	hostname string // uuid of the host, as used by the --hostname argument
+
 	host string           // remote host to connect to
 	port uint16           // remote port to connect to (usually 22)
 	user string           // username to connect with
@@ -89,8 +91,10 @@ type SSH struct {
 	noop       bool     // whether to run the remote process with --noop
 	noWatch    bool     // whether to run the remote process with --no-watch
 
-	caching bool   // whether to try and cache the copy of the binary
-	prefix  string // location we're allowed to put data on the remote server
+	depth     uint16 // depth of this node in the remote execution hierarchy
+	caching   bool   // whether to try and cache the copy of the binary
+	prefix    string // location we're allowed to put data on the remote server
+	converger Converger
 
 	client   *ssh.Client  // client object
 	sftp     *sftp.Client // sftp object
@@ -475,19 +479,24 @@ func (obj *SSH) Exec() error {
 	obj.session.Stdout = &b
 	obj.session.Stderr = &b
 
+	hostname := fmt.Sprintf("--hostname '%s'", obj.hostname)
 	// TODO: do something less arbitrary about which one we pick?
 	url := cleanURL(obj.remoteURLs[0])                           // arbitrarily pick the first one
 	seeds := fmt.Sprintf("--no-server --seeds 'http://%s'", url) // XXX: escape dangerous untrusted input?
 	file := fmt.Sprintf("--file '%s'", obj.filepath)             // XXX: escape dangerous untrusted input!
-	args := []string{seeds, file}
+	depth := fmt.Sprintf("--depth %d", obj.depth+1)              // child is +1 distance
+	args := []string{hostname, seeds, file, depth}
 	if obj.noop {
 		args = append(args, "--noop")
 	}
 	if obj.noWatch {
 		args = append(args, "--no-watch")
 	}
-
-	// TODO: add --converged-timeout support for group
+	if timeout := obj.converger.Timeout(); timeout >= 0 {
+		args = append(args, fmt.Sprintf("--converged-timeout=%d", timeout))
+	}
+	// TODO: we use a depth parameter instead of a simple bool, in case we
+	// want to have outwardly expanding trees of remote execution...
 
 	cmd := fmt.Sprintf("%s run %s", obj.execpath, strings.Join(args, " "))
 	log.Printf("Remote: Running: %s", cmd)
@@ -669,17 +678,26 @@ type Remotes struct {
 	interactive  bool   // allow interactive prompting
 	sshPrivIdRsa string // path to ~/.ssh/id_rsa
 	caching      bool   // whether to try and cache the copy of the binary
+	depth        uint16 // depth of this node in the remote execution hierarchy
 	prefix       string // folder prefix to use for misc storage
+	converger    Converger
+	convergerCb  func(func(map[string]bool) error) (func(), error)
 
-	wg        sync.WaitGroup  // keep track of each running SSH connection
-	lock      sync.Mutex      // mutex for access to sshmap
-	sshmap    map[string]*SSH // map to each SSH struct with the remote as the key
-	exiting   bool            // flag to let us know if we're exiting
-	semaphore Semaphore       // counting semaphore to limit concurrent connections
+	wg                 sync.WaitGroup           // keep track of each running SSH connection
+	lock               sync.Mutex               // mutex for access to sshmap
+	sshmap             map[string]*SSH          // map to each SSH struct with the remote as the key
+	exiting            bool                     // flag to let us know if we're exiting
+	exitChan           chan struct{}            // closes when we should exit
+	semaphore          Semaphore                // counting semaphore to limit concurrent connections
+	hostnames          []string                 // list of hostnames we've seen so far
+	cuuid              ConvergerUUID            // convergerUUID for the remote itself
+	cuuids             map[string]ConvergerUUID // map to each SSH struct with the remote as the key
+	callbackCancelFunc func()                   // stored callback function cancel function
+
 }
 
 // The NewRemotes function builds a Remotes struct.
-func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, prefix string) *Remotes {
+func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, depth uint16, prefix string, converger Converger, convergerCb func(func(map[string]bool) error) (func(), error)) *Remotes {
 	return &Remotes{
 		clientURLs:   clientURLs,
 		remoteURLs:   remoteURLs,
@@ -690,9 +708,15 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		interactive:  interactive,
 		sshPrivIdRsa: sshPrivIdRsa,
 		caching:      caching,
+		depth:        depth,
 		prefix:       prefix,
+		converger:    converger,
+		convergerCb:  convergerCb,
 		sshmap:       make(map[string]*SSH),
+		exitChan:     make(chan struct{}),
 		semaphore:    NewSemaphore(int(cConns)),
+		hostnames:    make([]string, len(remotes)),
+		cuuids:       make(map[string]ConvergerUUID),
 	}
 }
 
@@ -757,7 +781,17 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		return nil, fmt.Errorf("No authentication methods available!")
 	}
 
+	hostname := config.Hostname
+	if hostname == "" {
+		hostname = host // default to above
+	}
+	if StrInList(hostname, obj.hostnames) {
+		return nil, fmt.Errorf("Remote: Hostname `%s` already exists!", hostname)
+	}
+	obj.hostnames = append(obj.hostnames, hostname)
+
 	return &SSH{
+		hostname:   hostname,
 		host:       host,
 		port:       port,
 		user:       user,
@@ -767,7 +801,9 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		remoteURLs: obj.remoteURLs,
 		noop:       obj.noop,
 		noWatch:    obj.fileWatch == nil,
+		depth:      obj.depth,
 		caching:    obj.caching,
+		converger:  obj.converger,
 		prefix:     obj.prefix,
 	}, nil
 }
@@ -846,13 +882,72 @@ func (obj *Remotes) passwordCallback(user, host string) func() (string, error) {
 // The Run method of the Remotes struct kicks it all off. It is usually run from
 // a go routine.
 func (obj *Remotes) Run() {
+	// TODO: we can disable a lot of this if we're not using --converged-timeout
+	// link in all the converged timeout checking and callbacks...
+	obj.cuuid = obj.converger.Register() // one for me!
+	obj.cuuid.SetName("Remote: Run")
+	for _, f := range obj.remotes { // one for each remote...
+		obj.cuuids[f] = obj.converger.Register() // save a reference
+		obj.cuuids[f].SetName(fmt.Sprintf("Remote: %s", f))
+		//obj.cuuids[f].SetConverged(false) // everyone starts off false
+	}
+
+	// watch for converged state in the group of remotes...
+	cFunc := func(m map[string]bool) error {
+		// The hosts state has changed. Here is what it is now. Is this
+		// now converged, or not? Run SetConverged(b) to update status!
+		// The keys are hostnames, not filenames as in the sshmap keys.
+
+		// update converged status for each remote
+		for _, f := range obj.remotes {
+			// TODO: add obj.lock.Lock() ?
+			sshobj, exists := obj.sshmap[f]
+			// TODO: add obj.lock.Unlock() ?
+			if !exists || sshobj == nil {
+				continue // skip, this hasn't happened yet
+			}
+			hostname := sshobj.hostname
+			b, ok := m[hostname]
+			if !ok { // no status on hostname means unconverged!
+				continue
+			}
+			if DEBUG {
+				log.Printf("Remote: Converged: Status: %+v", obj.converger.Status())
+			}
+			// if exiting, don't update, it will be unregistered...
+			if !sshobj.exiting { // this is actually racy, but safe
+				obj.cuuids[f].SetConverged(b) // ignore errors!
+			}
+		}
+
+		return nil
+	}
+	if cancel, err := obj.convergerCb(cFunc); err != nil { // register the callback to run
+		obj.callbackCancelFunc = cancel
+	}
+
 	// kick off the file change notifications
+	// NOTE: if we ever change a config after a host has converged but has
+	// been let to exit before the group, then it won't see the changes...
 	if obj.fileWatch != nil {
+		obj.wg.Add(1)
 		go func() {
+			defer obj.wg.Done()
+			var f string
+			var more bool
 			for {
-				f, more := <-obj.fileWatch // read from channel
-				if !more {
+				select {
+				case <-obj.exitChan: // closes when we're done
 					return
+				case f, more = <-obj.fileWatch: // read from channel
+					if !more {
+						return
+					}
+					obj.cuuid.SetConverged(false) // activity!
+
+				case <-obj.cuuid.ConvergedTimer():
+					obj.cuuid.SetConverged(true) // converged!
+					continue
 				}
 				obj.lock.Lock()
 				sshobj, exists := obj.sshmap[f]
@@ -893,6 +988,8 @@ func (obj *Remotes) Run() {
 				defer obj.semaphore.V(1)
 			}
 			defer obj.wg.Done()
+			defer obj.cuuids[f].Unregister()
+
 			if err := sshobj.Go(); err != nil {
 				log.Printf("Remote: Error: %s", err)
 			}
@@ -907,6 +1004,7 @@ func (obj *Remotes) Exit() {
 	obj.lock.Lock()
 	obj.exiting = true // don't spawn new ones once this flag is set!
 	obj.lock.Unlock()
+	close(obj.exitChan)
 	for _, f := range obj.remotes {
 		sshobj, exists := obj.sshmap[f]
 		if !exists || sshobj == nil {
@@ -919,6 +1017,11 @@ func (obj *Remotes) Exit() {
 		}
 	}
 
+	if obj.callbackCancelFunc != nil {
+		obj.callbackCancelFunc() // cancel our callback
+	}
+
+	defer obj.cuuid.Unregister()
 	obj.wg.Wait() // wait for everyone to exit
 }
 

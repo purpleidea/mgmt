@@ -1618,6 +1618,7 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	cfg.APUrls = peerURLs
 	cfg.LCUrls = obj.clientURLs
 	cfg.LPUrls = peerURLs
+	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/coreos/etcd/issues/6305
 
 	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!
 	if newCluster {

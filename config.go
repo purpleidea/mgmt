@@ -72,13 +72,13 @@ func (c *GraphConfig) Parse(data []byte) error {
 func ParseConfigFromFile(filename string) *GraphConfig {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Printf("Error: Config: ParseConfigFromFile: File: %v", err)
+		log.Printf("Config: Error: ParseConfigFromFile: File: %v", err)
 		return nil
 	}
 
 	var config GraphConfig
 	if err := config.Parse(data); err != nil {
-		log.Printf("Error: Config: ParseConfigFromFile: Parse: %v", err)
+		log.Printf("Config: Error: ParseConfigFromFile: Parse: %v", err)
 		return nil
 	}
 
@@ -122,7 +122,7 @@ func (g *Graph) NewGraphFromConfig(config *GraphConfig, embdEtcd *EmbdEtcd, host
 			x := slice.Index(j).Interface()
 			res, ok := x.(Res) // convert to Res type
 			if !ok {
-				return nil, fmt.Errorf("Error: Config: Can't convert: %v of type: %T to Res.", x, x)
+				return nil, fmt.Errorf("Config: Error: Can't convert: %v of type: %T to Res.", x, x)
 			}
 			if noop {
 				res.Meta().Noop = noop

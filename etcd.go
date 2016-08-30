@@ -180,8 +180,8 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	delq    chan *DL // delete queue
 	txnq    chan *TN // txn queue
 
-	converger Converger // converged tracking
 	prefix    string    // folder prefix to use for misc storage
+	converger Converger // converged tracking
 
 	// etcd server related
 	serverwg sync.WaitGroup // wait for server to shutdown
@@ -190,7 +190,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 }
 
 // NewEmbdEtcd creates the top level embedded etcd struct client and server obj
-func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, converger Converger, prefix string) *EmbdEtcd {
+func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, prefix string, converger Converger) *EmbdEtcd {
 	endpoints := make(etcdtypes.URLsMap)
 	if hostname == seedSentinel { // safety
 		return nil
@@ -1557,8 +1557,7 @@ func (obj *EmbdEtcd) idealClusterSizeCallback(re *RE) error {
 	}
 	path := fmt.Sprintf("/%s/idealClusterSize", NS)
 	for _, event := range re.response.Events {
-		key := bytes.NewBuffer(event.Kv.Key).String()
-		if key != path {
+		if key := bytes.NewBuffer(event.Kv.Key).String(); key != path {
 			continue
 		}
 		if event.Type != etcd.EventTypePut {

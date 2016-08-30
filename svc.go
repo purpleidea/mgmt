@@ -146,7 +146,7 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 
 			obj.SetState(resStateWatching) // reset
 			select {
-			case _ = <-buschan: // XXX wait for new units event to unstick
+			case <-buschan: // XXX wait for new units event to unstick
 				cuuid.SetConverged(false)
 				// loop so that we can see the changed invalid signal
 				log.Printf("Svc[%v]->DaemonReload()", svc)
@@ -160,7 +160,7 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 					dirty = true
 				}
 
-			case _ = <-cuuid.ConvergedTimer():
+			case <-cuuid.ConvergedTimer():
 				cuuid.SetConverged(true) // converged!
 				continue
 			}
@@ -208,7 +208,7 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 					dirty = true
 				}
 
-			case _ = <-cuuid.ConvergedTimer():
+			case <-cuuid.ConvergedTimer():
 				cuuid.SetConverged(true) // converged!
 				continue
 			}

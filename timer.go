@@ -90,7 +90,7 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 			if exit, _ := obj.ReadEvent(&event); exit {
 				return
 			}
-		case _ = <-cuuid.ConvergedTimer():
+		case <-cuuid.ConvergedTimer():
 			cuuid.SetConverged(true)
 			continue
 		}

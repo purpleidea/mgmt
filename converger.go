@@ -209,7 +209,7 @@ func (obj *converger) Loop(startPaused bool) {
 				continue
 			}
 
-		case _ = <-obj.channel:
+		case <-obj.channel:
 			if !obj.isConverged() {
 				if obj.converged { // we're doing a state change
 					if obj.stateFn != nil {

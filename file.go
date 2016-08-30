@@ -248,7 +248,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 			}
 			//dirty = false // these events don't invalidate state
 
-		case _ = <-cuuid.ConvergedTimer():
+		case <-cuuid.ConvergedTimer():
 			cuuid.SetConverged(true) // converged!
 			continue
 		}

@@ -415,7 +415,7 @@ loop:
 			} else {
 				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
-		case _ = <-TimeAfterOrBlock(timeout):
+		case <-TimeAfterOrBlock(timeout):
 			if finished {
 				log.Println("PackageKit: Timeout: InstallPackages: Waiting for 'Destroy'")
 				return nil // got tired of waiting for Destroy

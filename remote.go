@@ -342,8 +342,9 @@ func (obj *SSH) SftpClean() error {
 	// TODO: fix this possible? panic if we ever end up caring about it...
 	// close any copy operations that are in progress...
 	obj.f1.Close() // TODO: we probably only need to shutdown one of them,
-	obj.f2.Close() // but which one should we shutdown? close both for now
-
+	if obj.f2 != nil {
+		obj.f2.Close() // but which one should we shutdown? close both for now
+	}
 	// clean up the graph definition in obj.remotewd
 	err := obj.sftp.Remove(obj.filepath)
 
@@ -567,6 +568,9 @@ func (obj *SSH) ExecExit() error {
 
 // Go kicks off the entire sequence of one SSH connection.
 func (obj *SSH) Go() error {
+	defer func() {
+		obj.exiting = true // bonus: set this as a bonus on exit...
+	}()
 	if obj.exitCheck() {
 		return nil
 	}
@@ -852,6 +856,7 @@ func (obj *Remotes) Run() {
 				}
 				obj.lock.Lock()
 				sshobj, exists := obj.sshmap[f]
+				obj.lock.Unlock()
 				if !exists || sshobj == nil {
 					continue // skip, this hasn't happened yet
 				}
@@ -862,7 +867,6 @@ func (obj *Remotes) Run() {
 				if _, err := sshobj.SftpGraphCopy(); err == nil { // push new copy
 					log.Printf("Remote: Copied over new graph definition: %s", f)
 				} // ignore errors
-				obj.lock.Unlock()
 			}
 		}()
 	}
@@ -884,7 +888,7 @@ func (obj *Remotes) Run() {
 		obj.sshmap[f] = sshobj // save a reference
 
 		obj.wg.Add(1)
-		go func() {
+		go func(sshobj *SSH, f string) {
 			if obj.cConns != 0 {
 				defer obj.semaphore.V(1)
 			}
@@ -892,7 +896,7 @@ func (obj *Remotes) Run() {
 			if err := sshobj.Go(); err != nil {
 				log.Printf("Remote: Error: %s", err)
 			}
-		}()
+		}(sshobj, f)
 		obj.lock.Unlock()
 	}
 }

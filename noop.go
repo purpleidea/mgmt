@@ -75,7 +75,7 @@ func (obj *NoopRes) Watch(processChan chan Event) {
 				return // exit
 			}
 
-		case _ = <-cuuid.ConvergedTimer():
+		case <-cuuid.ConvergedTimer():
 			cuuid.SetConverged(true) // converged!
 			continue
 		}

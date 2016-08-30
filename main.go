@@ -63,6 +63,7 @@ func waitForSignal(exit chan bool) {
 	}
 }
 
+// run is the main run target.
 func run(c *cli.Context) error {
 	var start = time.Now().UnixNano()
 	log.Printf("This is: %v, version: %v", program, version)
@@ -184,10 +185,14 @@ func run(c *cli.Context) error {
 		serverURLs,
 		c.Bool("no-server"),
 		idealClusterSize,
-		converger,
 		prefix,
+		converger,
 	)
-	if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
+	if EmbdEtcd == nil {
+		// TODO: verify EmbdEtcd is not nil below...
+		log.Printf("Main: Etcd: Creation failed!")
+		exit <- true
+	} else if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
 		log.Printf("Main: Etcd: Startup failed: %v", err)
 		exit <- true
 	}
@@ -241,7 +246,7 @@ func run(c *cli.Context) error {
 				config = ParseConfigFromPuppet(c.String("puppet"), c.String("puppet-conf"))
 			}
 			if config == nil {
-				log.Printf("Config parse failure")
+				log.Printf("Config: Parse failure")
 				continue
 			}
 

@@ -161,9 +161,12 @@ func run(c *cli.Context) error {
 	// setup converger
 	converger := NewConverger(
 		c.Int("converged-timeout"),
-		func() { // lambda to run when converged
-			log.Printf("Converged for %d seconds, exiting!", c.Int("converged-timeout"))
-			exit <- true // trigger an exit!
+		func(b bool) error { // lambda to run when converged
+			if b {
+				log.Printf("Converged for %d seconds, exiting!", c.Int("converged-timeout"))
+				exit <- true // trigger an exit!
+			}
+			return nil
 		},
 	)
 	go converger.Loop(true) // main loop for converger, true to start paused

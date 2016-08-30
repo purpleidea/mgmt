@@ -23,6 +23,9 @@ import (
 	"time"
 )
 
+// TODO: we could make a new function that masks out the state of certain
+// UUID's, but at the moment the new Timer code has obsoleted the need...
+
 // Converger is the general interface for implementing a convergence watcher
 type Converger interface { // TODO: need a better name
 	Register() ConvergerUUID
@@ -50,6 +53,9 @@ type ConvergerUUID interface {
 	SetConverged(bool) error
 	Unregister()
 	ConvergedTimer() <-chan time.Time
+	StartTimer() (func() error, error) // cancellable is the same as StopTimer()
+	ResetTimer() error                 // resets counter to zero
+	StopTimer() error
 }
 
 // converger is an implementation of the Converger interface
@@ -69,6 +75,9 @@ type convergerUUID struct {
 	converger Converger
 	id        uint64
 	name      string // user defined, friendly name
+	mutex     sync.Mutex
+	timer     chan struct{}
+	running   bool // is the above timer running?
 }
 
 // NewConverger builds a new converger struct
@@ -93,6 +102,8 @@ func (obj *converger) Register() ConvergerUUID {
 		converger: obj,
 		id:        obj.lastid,
 		name:      fmt.Sprintf("%d", obj.lastid), // some default
+		timer:     nil,
+		running:   false,
 	}
 }
 
@@ -147,6 +158,7 @@ func (obj *converger) Unregister(uuid ConvergerUUID) {
 		panic(fmt.Sprintf("Id of ConvergerUUID(%s) is nil!", uuid.Name()))
 	}
 	obj.mutex.Lock()
+	uuid.StopTimer() // ignore any errors
 	delete(obj.status, uuid.ID())
 	obj.mutex.Unlock()
 	uuid.InvalidateID()
@@ -307,4 +319,61 @@ func (obj *convergerUUID) Unregister() {
 // ConvergedTimer is a helper around the regular ConvergedTimer method
 func (obj *convergerUUID) ConvergedTimer() <-chan time.Time {
 	return obj.converger.ConvergedTimer(obj)
+}
+
+// StartTimer runs an invisible timer that automatically converges on timeout.
+func (obj *convergerUUID) StartTimer() (func() error, error) {
+	obj.mutex.Lock()
+	if !obj.running {
+		obj.timer = make(chan struct{})
+		obj.running = true
+	} else {
+		obj.mutex.Unlock()
+		return obj.StopTimer, fmt.Errorf("Timer already started!")
+	}
+	obj.mutex.Unlock()
+	go func() {
+		for {
+			select {
+			case _, ok := <-obj.timer: // reset signal channel
+				if !ok { // channel is closed
+					return // false to exit
+				}
+				obj.SetConverged(false)
+
+			case <-obj.ConvergedTimer():
+				obj.SetConverged(true) // converged!
+				select {
+				case _, ok := <-obj.timer: // reset signal channel
+					if !ok { // channel is closed
+						return // false to exit
+					}
+				}
+			}
+		}
+	}()
+	return obj.StopTimer, nil
+}
+
+// ResetTimer resets the counter to zero if using a StartTimer internally.
+func (obj *convergerUUID) ResetTimer() error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	if obj.running {
+		obj.timer <- struct{}{} // send the reset message
+		return nil
+	}
+	return fmt.Errorf("Timer hasn't been started!")
+}
+
+// StopTimer stops the running timer permanently until a StartTimer is run.
+func (obj *convergerUUID) StopTimer() error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	if !obj.running {
+		return fmt.Errorf("Timer isn't running!")
+	}
+	close(obj.timer)
+	obj.running = false
+	return nil
 }

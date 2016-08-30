@@ -678,6 +678,7 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 // CbLoop is the loop where callback execution is serialized
 func (obj *EmbdEtcd) CbLoop() {
 	cuuid := obj.converger.Register()
+	cuuid.SetName("Etcd: CbLoop")
 	defer cuuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal
@@ -731,6 +732,7 @@ func (obj *EmbdEtcd) CbLoop() {
 // Loop is the main loop where everything is serialized
 func (obj *EmbdEtcd) Loop() {
 	cuuid := obj.converger.Register()
+	cuuid.SetName("Etcd: Loop")
 	defer cuuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal

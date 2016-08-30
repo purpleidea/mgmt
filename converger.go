@@ -18,7 +18,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -26,8 +26,8 @@ import (
 // Converger is the general interface for implementing a convergence watcher
 type Converger interface { // TODO: need a better name
 	Register() ConvergerUUID
-	IsConverged(ConvergerUUID) bool   // is the UUID converged ?
-	SetConverged(ConvergerUUID, bool) // set the converged state of the UUID
+	IsConverged(ConvergerUUID) bool         // is the UUID converged ?
+	SetConverged(ConvergerUUID, bool) error // set the converged state of the UUID
 	Unregister(ConvergerUUID)
 	Start()
 	Pause()
@@ -38,11 +38,13 @@ type Converger interface { // TODO: need a better name
 // ConvergerUUID is the interface resources can use to notify with if converged
 // you'll need to use part of the Converger interface to Register initially too
 type ConvergerUUID interface {
-	ID() uint64    // get Id
+	ID() uint64   // get Id
+	Name() string // get a friendly name
+	SetName(string)
 	IsValid() bool // has Id been initialized ?
 	InvalidateID() // set Id to nil
 	IsConverged() bool
-	SetConverged(bool)
+	SetConverged(bool) error
 	Unregister()
 	ConvergedTimer() <-chan time.Time
 }
@@ -62,6 +64,7 @@ type converger struct {
 type convergerUUID struct {
 	converger Converger
 	id        uint64
+	name      string // user defined, friendly name
 }
 
 // NewConverger builds a new converger struct
@@ -85,31 +88,32 @@ func (obj *converger) Register() ConvergerUUID {
 	return &convergerUUID{
 		converger: obj,
 		id:        obj.lastid,
+		name:      fmt.Sprintf("%d", obj.lastid), // some default
 	}
 }
 
 // IsConverged gets the converged status of a uuid
 func (obj *converger) IsConverged(uuid ConvergerUUID) bool {
 	if !uuid.IsValid() {
-		log.Fatal("Id of ConvergerUUID is nil!")
+		panic(fmt.Sprintf("Id of ConvergerUUID(%s) is nil!", uuid.Name()))
 	}
 	obj.mutex.RLock()
 	isConverged, found := obj.status[uuid.ID()] // lookup
 	obj.mutex.RUnlock()
 	if !found {
-		log.Fatal("Id of ConvergerUUID is unregistered!")
+		panic("Id of ConvergerUUID is unregistered!")
 	}
 	return isConverged
 }
 
 // SetConverged updates the converger with the converged state of the UUID
-func (obj *converger) SetConverged(uuid ConvergerUUID, isConverged bool) {
+func (obj *converger) SetConverged(uuid ConvergerUUID, isConverged bool) error {
 	if !uuid.IsValid() {
-		log.Fatal("Id of ConvergerUUID is nil!")
+		return fmt.Errorf("Id of ConvergerUUID(%s) is nil!", uuid.Name())
 	}
 	obj.mutex.Lock()
 	if _, found := obj.status[uuid.ID()]; !found {
-		log.Fatal("Id of ConvergerUUID is unregistered!")
+		panic("Id of ConvergerUUID is unregistered!")
 	}
 	obj.status[uuid.ID()] = isConverged // set
 	obj.mutex.Unlock()                  // unlock *before* poke or deadlock!
@@ -118,6 +122,7 @@ func (obj *converger) SetConverged(uuid ConvergerUUID, isConverged bool) {
 		// this allows us to send events, even if we haven't started...
 		go func() { obj.channel <- struct{}{} }()
 	}
+	return nil
 }
 
 // isConverged returns true if *every* registered uuid has converged
@@ -135,7 +140,7 @@ func (obj *converger) isConverged() bool {
 // Unregister dissociates the ConvergedUUID from the converged checking
 func (obj *converger) Unregister(uuid ConvergerUUID) {
 	if !uuid.IsValid() {
-		log.Fatal("Id of ConvergerUUID is nil!")
+		panic(fmt.Sprintf("Id of ConvergerUUID(%s) is nil!", uuid.Name()))
 	}
 	obj.mutex.Lock()
 	delete(obj.status, uuid.ID())
@@ -160,13 +165,13 @@ func (obj *converger) Pause() { // FIXME: add a sync ACK on pause before return
 // have joined the map, then it might appears as if we converged before we did!
 func (obj *converger) Loop(startPaused bool) {
 	if obj.control == nil {
-		log.Fatal("Converger not initialized correctly")
+		panic("Converger not initialized correctly")
 	}
 	if startPaused { // start paused without racing
 		select {
 		case e := <-obj.control:
 			if !e {
-				log.Fatal("Converger expected true!")
+				panic("Converger expected true!")
 			}
 		}
 	}
@@ -174,13 +179,13 @@ func (obj *converger) Loop(startPaused bool) {
 		select {
 		case e := <-obj.control: // expecting "false" which means pause!
 			if e {
-				log.Fatal("Converger expected false!")
+				panic("Converger expected false!")
 			}
 			// now i'm paused...
 			select {
 			case e := <-obj.control:
 				if !e {
-					log.Fatal("Converger expected true!")
+					panic("Converger expected true!")
 				}
 				// restart
 				// kick once to refresh the check...
@@ -230,6 +235,16 @@ func (obj *convergerUUID) ID() uint64 {
 	return obj.id
 }
 
+// Name returns a user defined name for the specific convergerUUID.
+func (obj *convergerUUID) Name() string {
+	return obj.name
+}
+
+// SetName sets a user defined name for the specific convergerUUID.
+func (obj *convergerUUID) SetName(name string) {
+	obj.name = name
+}
+
 // IsValid tells us if the id is valid or has already been destroyed
 func (obj *convergerUUID) IsValid() bool {
 	return obj.id != 0 // an id of 0 is invalid
@@ -246,8 +261,8 @@ func (obj *convergerUUID) IsConverged() bool {
 }
 
 // SetConverged is a helper function to the regular SetConverged notification
-func (obj *convergerUUID) SetConverged(isConverged bool) {
-	obj.converger.SetConverged(obj, isConverged)
+func (obj *convergerUUID) SetConverged(isConverged bool) error {
+	return obj.converger.SetConverged(obj, isConverged)
 }
 
 // Unregister is a helper function to unregister myself

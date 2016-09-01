@@ -964,6 +964,8 @@ func (obj *Remotes) Run() {
 				} // ignore errors
 			}
 		}()
+	} else {
+		obj.cuuid.SetConverged(true) // if no watches, we're converged!
 	}
 
 	// the semaphore provides the max simultaneous connection limit
@@ -978,6 +980,10 @@ func (obj *Remotes) Run() {
 		sshobj, err := obj.NewSSH(f)
 		if err != nil {
 			log.Printf("Remote: Error: %s", err)
+			if obj.cConns != 0 {
+				obj.semaphore.V(1) // don't lock the loop
+			}
+			obj.cuuids[f].Unregister() // don't stall the converge!
 			continue
 		}
 		obj.sshmap[f] = sshobj // save a reference

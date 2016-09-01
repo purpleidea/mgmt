@@ -160,6 +160,11 @@ leaving no residual agent.
 This mode can also be useful for bootstrapping a new host where you'd like to
 have the service run continuously and as part of an mgmt cluster normally.
 
+In particular, when combined with the `--converged-timeout` parameter, the
+entire set of running mgmt agents will need to all simultaneously converge for
+the group to exit. This is particularly useful for bootstrapping new clusters
+which need to exchange information that is only available at run time.
+
 ####Blog post
 
 An introductory blog post about this topic will follow soon.
@@ -266,6 +271,23 @@ resources that are collected will have their individual noop settings set.
 Point to a graph file to run on the remote host specified within. This parameter
 can be used multiple times if you'd like to remotely run on multiple hosts in
 parallel.
+
+####`--allow-interactive`
+Allow interactive prompting for SSH passwords if there is no authentication
+method that works.
+
+####`--ssh-priv-id-rsa`
+Specify the path for finding SSH keys. This defaults to `~/.ssh/id_rsa`. To
+never use this method of authentication, set this to the empty string.
+
+####`--cconns`
+The maximum number of concurrent remote ssh connections to run. This defaults
+to `0`, which means unlimited.
+
+####`--no-caching`
+Don't allow remote caching of the remote execution binary. This will require
+the binary to be copied over for every remote execution, but it limits the
+likelihood that there is leftover information from the configuration process.
 
 ####`--prefix <path>`
 Specify a path to a custom working directory prefix. This directory will get

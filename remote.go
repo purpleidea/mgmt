@@ -35,7 +35,7 @@
 // remote mgmt transient agents are running, they can still exchange data and
 // converge together without directly connecting, since they all tunnel through
 // the etcd server running on the initiator.
-package main // TODO: make this a separate ssh package
+package main // TODO: make this a separate "remote" package
 
 // TODO: running with two identical remote endpoints over a slow connection, eg:
 // --remote file1.yaml --remote file1.yaml
@@ -482,8 +482,8 @@ func (obj *SSH) Exec() error {
 	hostname := fmt.Sprintf("--hostname '%s'", obj.hostname)
 	// TODO: do something less arbitrary about which one we pick?
 	url := cleanURL(obj.remoteURLs[0])                           // arbitrarily pick the first one
-	seeds := fmt.Sprintf("--no-server --seeds 'http://%s'", url) // XXX: escape dangerous untrusted input?
-	file := fmt.Sprintf("--file '%s'", obj.filepath)             // XXX: escape dangerous untrusted input!
+	seeds := fmt.Sprintf("--no-server --seeds 'http://%s'", url) // XXX: escape untrusted input? (or check if url is valid)
+	file := fmt.Sprintf("--file '%s'", obj.filepath)             // XXX: escape untrusted input! (or check if file path exists)
 	depth := fmt.Sprintf("--depth %d", obj.depth+1)              // child is +1 distance
 	args := []string{hostname, seeds, file, depth}
 	if obj.noop {
@@ -998,6 +998,7 @@ func (obj *Remotes) Run() {
 
 			if err := sshobj.Go(); err != nil {
 				log.Printf("Remote: Error: %s", err)
+				// FIXME: what to do here?
 			}
 		}(sshobj, f)
 		obj.lock.Unlock()

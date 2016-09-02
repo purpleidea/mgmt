@@ -43,6 +43,7 @@ type edgeConfig struct {
 	To   vertexConfig `yaml:"to"`
 }
 
+// GraphConfig is the data structure that describes a single graph to run.
 type GraphConfig struct {
 	Graph     string `yaml:"graph"`
 	Resources struct {
@@ -60,6 +61,7 @@ type GraphConfig struct {
 	Remote    string               `yaml:"remote"`
 }
 
+// Parse parses a data stream into the graph structure.
 func (c *GraphConfig) Parse(data []byte) error {
 	if err := yaml.Unmarshal(data, c); err != nil {
 		return err
@@ -70,6 +72,7 @@ func (c *GraphConfig) Parse(data []byte) error {
 	return nil
 }
 
+// ParseConfigFromFile takes a filename and returns the graph config structure.
 func ParseConfigFromFile(filename string) *GraphConfig {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -295,7 +298,7 @@ func (g *Graph) addEdgesByMatchingUUIDS(v *Vertex, uuids []ResUUID) []bool {
 	return result
 }
 
-// add auto edges to graph
+// AutoEdges adds the automatic edges to the graph.
 func (g *Graph) AutoEdges() {
 	log.Println("Compile: Adding AutoEdges...")
 	for _, v := range g.GetVertices() { // for each vertexes autoedges

@@ -38,6 +38,7 @@ var (
 	prefix  = fmt.Sprintf("/var/lib/%s/", program)
 )
 
+// variables controlling verbosity
 const (
 	DEBUG   = false // add additional log messages
 	TRACE   = false // add execution flow log messages

@@ -1060,6 +1060,7 @@ func cleanURL(s string) string {
 // Semaphore is a counting semaphore.
 type Semaphore chan struct{}
 
+// NewSemaphore creates a new semaphore.
 func NewSemaphore(size int) Semaphore {
 	return make(Semaphore, size)
 }

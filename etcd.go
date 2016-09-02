@@ -69,6 +69,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// constant parameters which may need to be tweaked or customized
 const (
 	NS                      = "_mgmt" // root namespace for mgmt operations
 	seedSentinel            = "_seed" // you must not name your hostname this
@@ -83,7 +84,7 @@ const (
 )
 
 var (
-	ErrApplyDeltaEventsInconsistent = errors.New("Etcd: ApplyDeltaEvents: Inconsistent key!")
+	errApplyDeltaEventsInconsistent = errors.New("Etcd: ApplyDeltaEvents: Inconsistent key!")
 )
 
 // AW is a struct for the AddWatcher queue
@@ -161,7 +162,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	exitTimeout <-chan time.Time
 
 	hostname   string
-	memberId   uint64            // cluster membership id of server if running
+	memberID   uint64            // cluster membership id of server if running
 	endpoints  etcdtypes.URLsMap // map of servers a client could connect to
 	clientURLs etcdtypes.URLs    // locations to listen for clients if i am a server
 	serverURLs etcdtypes.URLs    // locations to listen for servers if i am a server (peer)
@@ -283,8 +284,8 @@ func (obj *EmbdEtcd) Connect(reconnect bool) error {
 			return nil
 		}
 	}
-	var emax uint16 = 0
-	for { // loop until connect
+	var emax uint16 // = 0
+	for {           // loop until connect
 		var err error
 		cfg := obj.GetConfig()
 		if eps := obj.endpoints; len(eps) > 0 {
@@ -516,8 +517,8 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 		// tmin <= texp^iter - 1 <= tmax // TODO: check my math
 		return time.Duration(math.Min(math.Max(math.Pow(float64(texp), float64(iter))-1.0, float64(tmin)), float64(tmax))) * time.Millisecond
 	}
-	var isTimeout bool = false
-	var iter int = 0
+	var isTimeout = false
+	var iter int // = 0
 	if ctxerr, ok := ctx.Value(ctxErr).(error); ok {
 		if DEBUG {
 			log.Printf("Etcd: CtxError: err(%v), ctxerr(%v)", err, ctxerr)
@@ -1055,7 +1056,7 @@ func (obj *EmbdEtcd) rawAddWatcher(ctx context.Context, aw *AW) (func(), error) 
 		rch := obj.client.Watcher.Watch(ctx, aw.path, aw.opts...)
 		obj.rLock.RUnlock()
 		var rev int64
-		var useRev bool = false
+		var useRev = false
 		var retry, locked bool = false, false
 		for {
 			response := <-rch // read
@@ -1125,7 +1126,7 @@ func (obj *EmbdEtcd) rawAddWatcher(ctx context.Context, aw *AW) (func(), error) 
 
 // rawCallback is the companion to AddWatcher which runs the callback processing
 func rawCallback(ctx context.Context, re *RE) error {
-	var err error = re.err // the watch event itself might have had an error
+	var err = re.err // the watch event itself might have had an error
 	if err == nil {
 		if callback := re.callback; callback != nil {
 			// TODO: we could add an async option if needed
@@ -1290,47 +1291,46 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 		log.Printf("Etcd: Quitters: Shutting down %d members...", lq)
 	}
 	for _, quitter := range quitters {
-		if mID, ok := Uint64KeyFromStrInMap(quitter, membersMap); ok {
-			EtcdNominate(obj, quitter, nil) // unnominate
-			// once we issue the above unnominate, that peer will
-			// shutdown, and this might cause us to loose quorum,
-			// therefore, let that member remove itself, and then
-			// double check that it did happen in case delinquent
-			// TODO: get built-in transactional member Add/Remove
-			// functionality to avoid a separate nominate list...
-			if quitter == obj.hostname { // remove in unnominate!
-				log.Printf("Etcd: Quitters: Removing self...")
-				continue // TODO: CtxDelayErr ?
-			}
-
-			log.Printf("Etcd: Waiting %d seconds for %s to self remove...", selfRemoveTimeout, quitter)
-			time.Sleep(selfRemoveTimeout * time.Second)
-			// in case the removed member doesn't remove itself, do it!
-			removed, err := EtcdMemberRemove(obj, mID)
-			if err != nil {
-				return fmt.Errorf("Etcd: Member Remove: Error: %+v", err)
-			}
-			if removed {
-				log.Printf("Etcd: Member Removed (forced): %v(%v)", quitter, mID)
-			}
-
-			// Remove the endpoint from our list to avoid blocking
-			// future MemberList calls which would try and connect
-			// to a missing endpoint... The endpoints should get
-			// updated from the member exiting safely if it doesn't
-			// crash, but if it did and/or since it's a race to see
-			// if the update event will get seen before we need the
-			// new data, just do it now anyways, then update the
-			// endpoint list and trigger a reconnect.
-			delete(obj.endpoints, quitter) // proactively delete it
-			obj.endpointCallback(nil)      // update!
-			log.Printf("Member %s (%d) removed successfully!", quitter, mID)
-			return &CtxReconnectErr{"a member was removed"} // retry asap and update endpoint list
-
-		} else {
+		mID, ok := Uint64KeyFromStrInMap(quitter, membersMap)
+		if !ok {
 			// programming error
 			log.Fatalf("Etcd: Member Remove: Error: %v(%v) not in members list!", quitter, mID)
 		}
+		EtcdNominate(obj, quitter, nil) // unnominate
+		// once we issue the above unnominate, that peer will
+		// shutdown, and this might cause us to loose quorum,
+		// therefore, let that member remove itself, and then
+		// double check that it did happen in case delinquent
+		// TODO: get built-in transactional member Add/Remove
+		// functionality to avoid a separate nominate list...
+		if quitter == obj.hostname { // remove in unnominate!
+			log.Printf("Etcd: Quitters: Removing self...")
+			continue // TODO: CtxDelayErr ?
+		}
+
+		log.Printf("Etcd: Waiting %d seconds for %s to self remove...", selfRemoveTimeout, quitter)
+		time.Sleep(selfRemoveTimeout * time.Second)
+		// in case the removed member doesn't remove itself, do it!
+		removed, err := EtcdMemberRemove(obj, mID)
+		if err != nil {
+			return fmt.Errorf("Etcd: Member Remove: Error: %+v", err)
+		}
+		if removed {
+			log.Printf("Etcd: Member Removed (forced): %v(%v)", quitter, mID)
+		}
+
+		// Remove the endpoint from our list to avoid blocking
+		// future MemberList calls which would try and connect
+		// to a missing endpoint... The endpoints should get
+		// updated from the member exiting safely if it doesn't
+		// crash, but if it did and/or since it's a race to see
+		// if the update event will get seen before we need the
+		// new data, just do it now anyways, then update the
+		// endpoint list and trigger a reconnect.
+		delete(obj.endpoints, quitter) // proactively delete it
+		obj.endpointCallback(nil)      // update!
+		log.Printf("Member %s (%d) removed successfully!", quitter, mID)
+		return &CtxReconnectErr{"a member was removed"} // retry asap and update endpoint list
 	}
 
 	return nil
@@ -1344,7 +1344,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 		defer log.Printf("Trace: Etcd: nominateCallback(): Finished!")
 	}
 	bootstrapping := len(obj.endpoints) == 0
-	var revision int64 = 0
+	var revision int64 // = 0
 	if re != nil {
 		revision = re.response.Header.Revision
 	}
@@ -1366,7 +1366,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 		nominated := obj.nominated
 		if nominated, err := ApplyDeltaEvents(re, nominated); err == nil {
 			obj.nominated = nominated
-		} else if !re.retryHint || err != ErrApplyDeltaEventsInconsistent {
+		} else if !re.retryHint || err != errApplyDeltaEventsInconsistent {
 			log.Fatal(err)
 		}
 
@@ -1442,13 +1442,13 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 		if len(obj.nominated) != 0 { // don't call if nobody left but me!
 			// this works around: https://github.com/coreos/etcd/issues/5482,
 			// and it probably makes sense to avoid calling if we're the last
-			log.Printf("Etcd: Member Remove: Removing self: %v", obj.memberId)
-			removed, err := EtcdMemberRemove(obj, obj.memberId)
+			log.Printf("Etcd: Member Remove: Removing self: %v", obj.memberID)
+			removed, err := EtcdMemberRemove(obj, obj.memberID)
 			if err != nil {
 				return fmt.Errorf("Etcd: Member Remove: Error: %+v", err)
 			}
 			if removed {
-				log.Printf("Etcd: Member Removed (self): %v(%v)", obj.hostname, obj.memberId)
+				log.Printf("Etcd: Member Removed (self): %v(%v)", obj.hostname, obj.memberID)
 			}
 		}
 
@@ -1512,7 +1512,7 @@ func (obj *EmbdEtcd) endpointCallback(re *RE) error {
 	}
 
 	// change detection
-	var changed bool = false // do we need to update?
+	var changed = false // do we need to update?
 	if len(obj.endpoints) != len(endpoints) {
 		changed = true
 	}
@@ -1662,7 +1662,7 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	}
 	//log.Fatal(<-obj.server.Err())	XXX
 	log.Printf("Etcd: StartServer: Server running...")
-	obj.memberId = uint64(obj.server.Server.ID()) // store member id for internal use
+	obj.memberID = uint64(obj.server.Server.ID()) // store member id for internal use
 
 	obj.serverwg.Add(1)
 	return nil
@@ -1677,7 +1677,7 @@ func (obj *EmbdEtcd) DestroyServer() error {
 	}
 	log.Printf("Etcd: DestroyServer: Done closing...")
 
-	obj.memberId = 0
+	obj.memberID = 0
 	if obj.server == nil { // skip the .Done() below because we didn't .Add(1) it.
 		return err
 	}
@@ -1901,11 +1901,11 @@ func EtcdAddHostnameConvergedWatcher(obj *EmbdEtcd, callbackFn func(map[string]b
 	internalCbFn := func(re *RE) error {
 		// TODO: get the value from the response, and apply delta...
 		// for now, just run a get operation which is easier to code!
-		if m, err := EtcdHostnameConverged(obj); err == nil {
-			return callbackFn(m) // call my function
-		} else {
+		m, err := EtcdHostnameConverged(obj)
+		if err != nil {
 			return err
 		}
+		return callbackFn(m) // call my function
 	}
 	return obj.AddWatcher(path, internalCbFn, true, true, etcd.WithPrefix()) // no block and no converger reset
 }
@@ -1944,6 +1944,7 @@ func EtcdGetClusterSize(obj *EmbdEtcd) (uint16, error) {
 	return uint16(v), nil
 }
 
+// EtcdMemberAdd adds a member to the cluster.
 func EtcdMemberAdd(obj *EmbdEtcd, peerURLs etcdtypes.URLs) (*etcd.MemberAddResponse, error) {
 	//obj.Connect(false) // TODO ?
 	ctx := context.Background()
@@ -1967,7 +1968,7 @@ func EtcdMemberAdd(obj *EmbdEtcd, peerURLs etcdtypes.URLs) (*etcd.MemberAddRespo
 }
 
 // EtcdMemberRemove removes a member by mID and returns if it worked, and also
-// if there was an error. This is because It might have run without error, but
+// if there was an error. This is because it might have run without error, but
 // the member wasn't found, for example.
 func EtcdMemberRemove(obj *EmbdEtcd, mID uint64) (bool, error) {
 	//obj.Connect(false) // TODO ?
@@ -2260,7 +2261,7 @@ func ApplyDeltaEvents(re *RE, urlsmap etcdtypes.URLsMap) (etcdtypes.URLsMap, err
 				if DEBUG {
 					log.Printf("Etcd: ApplyDeltaEvents: Inconsistent key: %v", key)
 				}
-				return nil, ErrApplyDeltaEventsInconsistent
+				return nil, errApplyDeltaEventsInconsistent
 			}
 			delete(urlsmap, key)
 

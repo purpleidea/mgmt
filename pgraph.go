@@ -43,6 +43,7 @@ const (
 	graphStatePaused
 )
 
+// Graph is the graph structure in this library.
 // The graph abstract data type (ADT) is defined as follows:
 // * the directed graph arrows point from left to right ( -> )
 // * the arrows point away from their dependencies (eg: arrows mean "before")
@@ -55,15 +56,18 @@ type Graph struct {
 	mutex     sync.Mutex // used when modifying graph State variable
 }
 
+// Vertex is the primary vertex struct in this library.
 type Vertex struct {
 	Res             // anonymous field
 	timestamp int64 // last updated timestamp ?
 }
 
+// Edge is the primary edge struct in this library.
 type Edge struct {
 	Name string
 }
 
+// NewGraph builds a new graph.
 func NewGraph(name string) *Graph {
 	return &Graph{
 		Name:      name,
@@ -72,12 +76,14 @@ func NewGraph(name string) *Graph {
 	}
 }
 
+// NewVertex returns a new graph vertex struct with a contained resource.
 func NewVertex(r Res) *Vertex {
 	return &Vertex{
 		Res: r,
 	}
 }
 
+// NewEdge returns a new graph edge struct.
 func NewEdge(name string) *Edge {
 	return &Edge{
 		Name: name,
@@ -97,27 +103,30 @@ func (g *Graph) Copy() *Graph {
 	return newGraph
 }
 
-// returns the name of the graph
+// GetName returns the name of the graph.
 func (g *Graph) GetName() string {
 	return g.Name
 }
 
-// set name of the graph
+// SetName sets the name of the graph.
 func (g *Graph) SetName(name string) {
 	g.Name = name
 }
 
-func (g *Graph) GetState() graphState {
+// getState returns the state of the graph. This state is used for optimizing
+// certain algorithms by knowing what part of processing the graph is currently
+// undergoing.
+func (g *Graph) getState() graphState {
 	//g.mutex.Lock()
 	//defer g.mutex.Unlock()
 	return g.state
 }
 
-// set graph state and return previous state
-func (g *Graph) SetState(state graphState) graphState {
+// setState sets the graph state and returns the previous state.
+func (g *Graph) setState(state graphState) graphState {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	prev := g.GetState()
+	prev := g.getState()
 	g.state = state
 	return prev
 }
@@ -131,6 +140,7 @@ func (g *Graph) AddVertex(xv ...*Vertex) {
 	}
 }
 
+// DeleteVertex deletes a particular vertex from the graph.
 func (g *Graph) DeleteVertex(v *Vertex) {
 	delete(g.Adjacency, v)
 	for k := range g.Adjacency {
@@ -138,7 +148,7 @@ func (g *Graph) DeleteVertex(v *Vertex) {
 	}
 }
 
-// adds a directed edge to the graph from v1 to v2
+// AddEdge adds a directed edge to the graph from v1 to v2.
 func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	// NOTE: this doesn't allow more than one edge between two vertexes...
 	g.AddVertex(v1, v2) // supports adding N vertices now
@@ -147,6 +157,8 @@ func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	g.Adjacency[v1][v2] = e
 }
 
+// GetVertexMatch searches for an equivalent resource in the graph and returns
+// the vertex it is found in, or nil if not found.
 func (g *Graph) GetVertexMatch(obj Res) *Vertex {
 	for k := range g.Adjacency {
 		if k.Res.Compare(obj) {
@@ -156,6 +168,7 @@ func (g *Graph) GetVertexMatch(obj Res) *Vertex {
 	return nil
 }
 
+// HasVertex returns if the input vertex exists in the graph.
 func (g *Graph) HasVertex(v *Vertex) bool {
 	if _, exists := g.Adjacency[v]; exists {
 		return true
@@ -163,12 +176,12 @@ func (g *Graph) HasVertex(v *Vertex) bool {
 	return false
 }
 
-// number of vertices in the graph
+// NumVertices returns the number of vertices in the graph.
 func (g *Graph) NumVertices() int {
 	return len(g.Adjacency)
 }
 
-// number of edges in the graph
+// NumEdges returns the number of edges in the graph.
 func (g *Graph) NumEdges() int {
 	count := 0
 	for k := range g.Adjacency {
@@ -187,7 +200,7 @@ func (g *Graph) GetVertices() []*Vertex {
 	return vertices
 }
 
-// returns a channel of all vertices in the graph
+// GetVerticesChan returns a channel of all vertices in the graph.
 func (g *Graph) GetVerticesChan() chan *Vertex {
 	ch := make(chan *Vertex)
 	go func(ch chan *Vertex) {
@@ -199,6 +212,7 @@ func (g *Graph) GetVerticesChan() chan *Vertex {
 	return ch
 }
 
+// VertexSlice is a linear list of vertices. It can be sorted.
 type VertexSlice []*Vertex
 
 func (vs VertexSlice) Len() int           { return len(vs) }
@@ -216,7 +230,7 @@ func (g *Graph) GetVerticesSorted() []*Vertex {
 	return vertices
 }
 
-// make the graph pretty print
+// String makes the graph pretty print.
 func (g *Graph) String() string {
 	return fmt.Sprintf("Vertices(%d), Edges(%d)", g.NumVertices(), g.NumEdges())
 }
@@ -226,7 +240,7 @@ func (v *Vertex) String() string {
 	return fmt.Sprintf("%s[%s]", v.Res.Kind(), v.Res.GetName())
 }
 
-// output the graph in graphviz format
+// Graphviz outputs the graph in graphviz format.
 // https://en.wikipedia.org/wiki/DOT_%28graph_description_language%29
 func (g *Graph) Graphviz() (out string) {
 	//digraph g {
@@ -258,7 +272,8 @@ func (g *Graph) Graphviz() (out string) {
 	return
 }
 
-// write out the graphviz data and run the correct graphviz filter command
+// ExecGraphviz writes out the graphviz data and runs the correct graphviz
+// filter command.
 func (g *Graph) ExecGraphviz(program, filename string) error {
 
 	switch program {
@@ -308,8 +323,8 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 	return nil
 }
 
-// return an array (slice) of all directed vertices to vertex v (??? -> v)
-// OKTimestamp should use this
+// IncomingGraphEdges returns an array (slice) of all directed vertices to
+// vertex v (??? -> v). OKTimestamp should probably use this.
 func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
 	// TODO: we might be able to implement this differently by reversing
 	// the Adjacency graph and then looping through it again...
@@ -324,8 +339,8 @@ func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
 	return s
 }
 
-// return an array (slice) of all vertices that vertex v points to (v -> ???)
-// poke should use this
+// OutgoingGraphEdges returns an array (slice) of all vertices that vertex v
+// points to (v -> ???). Poke should probably use this.
 func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Vertex {
 	var s []*Vertex
 	for k := range g.Adjacency[v] { // forward paths
@@ -334,7 +349,8 @@ func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Vertex {
 	return s
 }
 
-// return an array (slice) of all vertices that connect to vertex v
+// GraphEdges returns an array (slice) of all vertices that connect to vertex v.
+// This is the union of IncomingGraphEdges and OutgoingGraphEdges.
 func (g *Graph) GraphEdges(v *Vertex) []*Vertex {
 	var s []*Vertex
 	s = append(s, g.IncomingGraphEdges(v)...)
@@ -342,6 +358,7 @@ func (g *Graph) GraphEdges(v *Vertex) []*Vertex {
 	return s
 }
 
+// DFS returns a depth first search for the graph, starting at the input vertex.
 func (g *Graph) DFS(start *Vertex) []*Vertex {
 	var d []*Vertex // discovered
 	var s []*Vertex // stack
@@ -364,7 +381,7 @@ func (g *Graph) DFS(start *Vertex) []*Vertex {
 	return d
 }
 
-// build a new graph containing only vertices from the list...
+// FilterGraph builds a new graph containing only vertices from the list.
 func (g *Graph) FilterGraph(name string, vertices []*Vertex) *Graph {
 	newgraph := NewGraph(name)
 	for k1, x := range g.Adjacency {
@@ -378,8 +395,8 @@ func (g *Graph) FilterGraph(name string, vertices []*Vertex) *Graph {
 	return newgraph
 }
 
-// return a channel containing the N disconnected graphs in our main graph
-// we can then process each of these in parallel
+// GetDisconnectedGraphs returns a channel containing the N disconnected graphs
+// in our main graph. We can then process each of these in parallel.
 func (g *Graph) GetDisconnectedGraphs() chan *Graph {
 	ch := make(chan *Graph)
 	go func() {
@@ -414,8 +431,7 @@ func (g *Graph) GetDisconnectedGraphs() chan *Graph {
 	return ch
 }
 
-// return the indegree for the graph, IOW the count of vertices that point to me
-// NOTE: this returns the values for all vertices in one big lookup table
+// InDegree returns the count of vertices that point to me in one big lookup map.
 func (g *Graph) InDegree() map[*Vertex]int {
 	result := make(map[*Vertex]int)
 	for k := range g.Adjacency {
@@ -430,8 +446,7 @@ func (g *Graph) InDegree() map[*Vertex]int {
 	return result
 }
 
-// return the outdegree for the graph, IOW the count of vertices that point away
-// NOTE: this returns the values for all vertices in one big lookup table
+// OutDegree returns the count of vertices that point away in one big lookup map.
 func (g *Graph) OutDegree() map[*Vertex]int {
 	result := make(map[*Vertex]int)
 
@@ -444,7 +459,7 @@ func (g *Graph) OutDegree() map[*Vertex]int {
 	return result
 }
 
-// returns a topological sort for the graph
+// TopologicalSort returns the sort of graph vertices in that order.
 // based on descriptions and code from wikipedia and rosetta code
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algorithm
@@ -626,15 +641,6 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 	return nil // success
 }
 
-func HeisenbergCount(ch chan *Vertex) int {
-	c := 0
-	for x := range ch {
-		_ = x
-		c++
-	}
-	return c
-}
-
 // GetTimestamp returns the timestamp of a vertex
 func (v *Vertex) GetTimestamp() int64 {
 	return v.timestamp
@@ -646,7 +652,7 @@ func (v *Vertex) UpdateTimestamp() int64 {
 	return v.timestamp
 }
 
-// can this element run right now?
+// OKTimestamp returns true if this element can run right now?
 func (g *Graph) OKTimestamp(v *Vertex) bool {
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphEdges(v) {
@@ -665,14 +671,14 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 	return true
 }
 
-// notify nodes after me in the dependency graph that they need refreshing...
+// Poke notifies nodes after me in the dependency graph that they need refreshing...
 // NOTE: this assumes that this can never fail or need to be rescheduled
 func (g *Graph) Poke(v *Vertex, activity bool) {
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
 	for _, n := range g.OutgoingGraphEdges(v) {
 		// XXX: if we're in state event and haven't been cancelled by
 		// apply, then we can cancel a poke to a child, right? XXX
-		// XXX: if n.Res.GetState() != resStateEvent { // is this correct?
+		// XXX: if n.Res.getState() != resStateEvent { // is this correct?
 		if true { // XXX
 			if DEBUG {
 				log.Printf("%v[%v]: Poke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
@@ -686,7 +692,7 @@ func (g *Graph) Poke(v *Vertex, activity bool) {
 	}
 }
 
-// poke the pre-requisites that are stale and need to run before I can run...
+// BackPoke pokes the pre-requisites that are stale and need to run before I can run.
 func (g *Graph) BackPoke(v *Vertex) {
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphEdges(v) {
@@ -710,6 +716,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 	}
 }
 
+// Process is the primary function to execute for a particular vertex in the graph.
 // XXX: rename this function
 func (g *Graph) Process(v *Vertex) {
 	obj := v.Res
@@ -764,10 +771,11 @@ func (g *Graph) Process(v *Vertex) {
 	}
 }
 
-// main kick to start the graph
+// Start is a main kick to start the graph. It goes through in reverse topological
+// sort order so that events can't hit un-started vertices.
 func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
-	log.Printf("State: %v -> %v", g.SetState(graphStateStarting), g.GetState())
-	defer log.Printf("State: %v -> %v", g.SetState(graphStateStarted), g.GetState())
+	log.Printf("State: %v -> %v", g.setState(graphStateStarting), g.getState())
+	defer log.Printf("State: %v -> %v", g.setState(graphStateStarted), g.getState())
 	t, _ := g.TopologicalSort()
 	// TODO: only calculate indegree if `first` is true to save resources
 	indegree := g.InDegree() // compute all of the indegree's
@@ -829,15 +837,17 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 	}
 }
 
+// Pause sends pause events to the graph in a topological sort order.
 func (g *Graph) Pause() {
-	log.Printf("State: %v -> %v", g.SetState(graphStatePausing), g.GetState())
-	defer log.Printf("State: %v -> %v", g.SetState(graphStatePaused), g.GetState())
+	log.Printf("State: %v -> %v", g.setState(graphStatePausing), g.getState())
+	defer log.Printf("State: %v -> %v", g.setState(graphStatePaused), g.getState())
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
 		v.SendEvent(eventPause, true, false)
 	}
 }
 
+// Exit sends exit events to the graph in a topological sort order.
 func (g *Graph) Exit() {
 	if g == nil {
 		return
@@ -860,7 +870,7 @@ func (g *Graph) AssociateData(converger Converger) {
 	}
 }
 
-// in array function to test *Vertex in a slice of *Vertices
+// VertexContains is an "in array" function to test for a vertex in a slice of vertices.
 func VertexContains(needle *Vertex, haystack []*Vertex) bool {
 	for _, v := range haystack {
 		if needle == v {
@@ -870,7 +880,7 @@ func VertexContains(needle *Vertex, haystack []*Vertex) bool {
 	return false
 }
 
-// reverse a list of vertices
+// Reverse reverses a list of vertices.
 func Reverse(vs []*Vertex) []*Vertex {
 	//var out []*Vertex       // XXX: golint suggests, but it fails testing
 	out := make([]*Vertex, 0) // empty list

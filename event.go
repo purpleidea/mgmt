@@ -29,8 +29,10 @@ const (
 	eventBackPoke
 )
 
+// Resp is a channel to be used for boolean responses.
 type Resp chan bool
 
+// Event is the main struct that stores event information and responses.
 type Event struct {
 	Name eventName
 	Resp Resp // channel to send an ack response on, nil to skip
@@ -39,45 +41,46 @@ type Event struct {
 	Activity bool   // did something interesting happen?
 }
 
-// send a single acknowledgement on the channel if one was requested
+// ACK sends a single acknowledgement on the channel if one was requested.
 func (event *Event) ACK() {
 	if event.Resp != nil { // if they've requested an ACK
 		event.Resp.ACK()
 	}
 }
 
+// NACK sends a negative acknowledgement message on the channel if one was requested.
 func (event *Event) NACK() {
 	if event.Resp != nil { // if they've requested a NACK
 		event.Resp.NACK()
 	}
 }
 
-// Resp is just a helper to return the right type of response channel
+// NewResp is just a helper to return the right type of response channel.
 func NewResp() Resp {
 	resp := make(chan bool)
 	return resp
 }
 
-// ACK sends a true value to resp
+// ACK sends a true value to resp.
 func (resp Resp) ACK() {
 	if resp != nil {
 		resp <- true
 	}
 }
 
-// NACK sends a false value to resp
+// NACK sends a false value to resp.
 func (resp Resp) NACK() {
 	if resp != nil {
 		resp <- false
 	}
 }
 
-// Wait waits for any response from a Resp channel and returns it
+// Wait waits for any response from a Resp channel and returns it.
 func (resp Resp) Wait() bool {
 	return <-resp
 }
 
-// ACKWait waits for a +ive Ack from a Resp channel
+// ACKWait waits for a +ive Ack from a Resp channel.
 func (resp Resp) ACKWait() {
 	for {
 		// wait until true value
@@ -87,7 +90,7 @@ func (resp Resp) ACKWait() {
 	}
 }
 
-// get the activity value
+// GetActivity returns the activity value.
 func (event *Event) GetActivity() bool {
 	return event.Activity
 }

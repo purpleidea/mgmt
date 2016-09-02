@@ -622,6 +622,8 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 		fallthrough
 	case err == etcdserver.ErrStopped: // TODO: does this ever happen?
 		fallthrough
+	case isGrpc(raft.ErrStopped):
+		fallthrough
 	case isGrpc(etcdserver.ErrStopped):
 		fallthrough
 	case isGrpc(grpc.ErrClientConnClosing):

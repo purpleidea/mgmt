@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	// PuppetYAMLBufferSize is the maximum buffer size for the yaml input data
 	PuppetYAMLBufferSize = 65535
 )
 
@@ -80,6 +81,8 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 	return result, nil
 }
 
+// ParseConfigFromPuppet takes a special puppet param string and config and
+// returns the graph configuration structure.
 func ParseConfigFromPuppet(puppetParam, puppetConf string) *GraphConfig {
 	var puppetConfArg string
 	if puppetConf != "" {
@@ -108,6 +111,7 @@ func ParseConfigFromPuppet(puppetParam, puppetConf string) *GraphConfig {
 	return &config
 }
 
+// PuppetInterval returns the graph refresh interval from the puppet configuration.
 func PuppetInterval(puppetConf string) int {
 	if DEBUG {
 		log.Printf("Puppet: determining graph refresh interval")

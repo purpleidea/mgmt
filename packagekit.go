@@ -28,11 +28,13 @@ import (
 	"strings"
 )
 
+// global tweaks of verbosity and code path
 const (
 	PK_DEBUG = false
 	PARANOID = false // enable if you see any ghosts
 )
 
+// constants which might need to be tweaked or which contain special dbus strings.
 const (
 	// FIXME: if PkBufferSize is too low, install seems to drop signals
 	PkBufferSize = 1000
@@ -46,6 +48,7 @@ const (
 )
 
 var (
+	// PkArchMap contains the mapping from PackageKit arch to GOARCH.
 	// GOARCH's: 386, amd64, arm, arm64, mips64, mips64le, ppc64, ppc64le
 	PkArchMap = map[string]string{ // map of PackageKit arch to GOARCH
 		// TODO: add more values
@@ -98,6 +101,7 @@ const ( //static const PkEnumMatch enum_filter[]
 	PK_FILTER_ENUM_NOT_DOWNLOADED                     // "~downloaded"
 )
 
+// constants from packagekit c library.
 const ( //static const PkEnumMatch enum_transaction_flag[]
 	PK_TRANSACTION_FLAG_ENUM_NONE            uint64 = 1 << iota // "none"
 	PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED                       // "only-trusted"
@@ -108,6 +112,7 @@ const ( //static const PkEnumMatch enum_transaction_flag[]
 	PK_TRANSACTION_FLAG_ENUM_ALLOW_DOWNGRADE                    // "allow-downgrade"
 )
 
+// constants from packagekit c library.
 const ( //typedef enum
 	PK_INFO_ENUM_UNKNOWN uint64 = 1 << iota
 	PK_INFO_ENUM_INSTALLED
@@ -138,12 +143,12 @@ const ( //typedef enum
 	PK_INFO_ENUM_LAST
 )
 
-// wrapper struct so we can pass bus connection around in the struct
+// Conn is a wrapper struct so we can pass bus connection around in the struct.
 type Conn struct {
 	conn *dbus.Conn
 }
 
-// struct that is returned by PackagesToPackageIDs in the map values
+// PkPackageIDActionData is a struct that is returned by PackagesToPackageIDs in the map values.
 type PkPackageIDActionData struct {
 	Found     bool
 	Installed bool
@@ -152,7 +157,7 @@ type PkPackageIDActionData struct {
 	Newest    bool
 }
 
-// get a new bus connection
+// NewBus returns a new bus connection.
 func NewBus() *Conn {
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := SystemBusPrivateUsable() // don't share the bus connection!
@@ -164,12 +169,12 @@ func NewBus() *Conn {
 	}
 }
 
-// get the dbus connection object
+// GetBus gets the dbus connection object.
 func (bus *Conn) GetBus() *dbus.Conn {
 	return bus.conn
 }
 
-// close the dbus connection object
+// Close closes the dbus connection object.
 func (bus *Conn) Close() error {
 	return bus.conn.Close()
 }
@@ -205,7 +210,7 @@ func (bus *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	return nil
 }
 
-// get a signal anytime an event happens
+// WatchChanges gets a signal anytime an event happens.
 func (bus *Conn) WatchChanges() (chan *dbus.Signal, error) {
 	ch := make(chan *dbus.Signal, PkBufferSize)
 	// NOTE: the TransactionListChanged signal fires much more frequently,
@@ -247,7 +252,7 @@ func (bus *Conn) WatchChanges() (chan *dbus.Signal, error) {
 	return ch, nil
 }
 
-// create and return a transaction path
+// CreateTransaction creates and returns a transaction path.
 func (bus *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 	if PK_DEBUG {
 		log.Println("PackageKit: CreateTransaction()")
@@ -264,6 +269,7 @@ func (bus *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 	return interfacePath, nil
 }
 
+// ResolvePackages runs the PackageKit Resolve method and returns the result.
 func (bus *Conn) ResolvePackages(packages []string, filter uint64) ([]string, error) {
 	packageIDs := []string{}
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
@@ -327,6 +333,7 @@ loop:
 	return packageIDs, nil
 }
 
+// IsInstalledList queries a list of packages to see if they are installed.
 func (bus *Conn) IsInstalledList(packages []string) ([]bool, error) {
 	var filter uint64             // initializes at the "zero" value of 0
 	filter += PK_FILTER_ENUM_ARCH // always search in our arch
@@ -363,7 +370,7 @@ func (bus *Conn) IsInstalledList(packages []string) ([]bool, error) {
 	return r, nil
 }
 
-// is package installed ?
+// IsInstalled returns if a package is installed.
 // TODO: this could be optimized by making the resolve call directly
 func (bus *Conn) IsInstalled(pkg string) (bool, error) {
 	p, e := bus.IsInstalledList([]string{pkg})
@@ -373,7 +380,7 @@ func (bus *Conn) IsInstalled(pkg string) (bool, error) {
 	return p[0], nil
 }
 
-// install list of packages by packageID
+// InstallPackages installs a list of packages by packageID.
 func (bus *Conn) InstallPackages(packageIDs []string, transactionFlags uint64) error {
 
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
@@ -425,7 +432,7 @@ loop:
 	}
 }
 
-// remove list of packages
+// RemovePackages removes a list of packages by packageID.
 func (bus *Conn) RemovePackages(packageIDs []string, transactionFlags uint64) error {
 
 	var allowDeps = true                          // TODO: configurable
@@ -473,7 +480,7 @@ loop:
 	return nil
 }
 
-// update list of packages to versions that are specified
+// UpdatePackages updates a list of packages to versions that are specified.
 func (bus *Conn) UpdatePackages(packageIDs []string, transactionFlags uint64) error {
 	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
 	interfacePath, err := bus.CreateTransaction()
@@ -516,7 +523,7 @@ loop:
 	return nil
 }
 
-// get the list of files that are contained inside a list of packageids
+// GetFilesByPackageID gets the list of files that are contained inside a list of packageIDs.
 func (bus *Conn) GetFilesByPackageID(packageIDs []string) (files map[string][]string, err error) {
 	// NOTE: the maximum number of files in an RPM is 52116 in Fedora 23
 	// https://gist.github.com/purpleidea/b98e60dcd449e1ac3b8a
@@ -581,7 +588,7 @@ loop:
 	return
 }
 
-// get list of packages that are installed and which can be updated, mod filter
+// GetUpdates gets a list of packages that are installed and which can be updated, mod filter.
 func (bus *Conn) GetUpdates(filter uint64) ([]string, error) {
 	if PK_DEBUG {
 		log.Println("PackageKit: GetUpdates()")
@@ -642,9 +649,10 @@ loop:
 	return packageIDs, nil
 }
 
-// this is a helper function that *might* be generally useful outside mgmtconfig
-// packageMap input has the package names as keys and requested states as values
-// these states can be installed, uninstalled, newest or a requested version str
+// PackagesToPackageIDs is a helper function that *might* be generally useful
+// outside mgmt. The packageMap input has the package names as keys and
+// requested states as values. These states can be: installed, uninstalled,
+// newest or a requested version str.
 func (bus *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint64) (map[string]*PkPackageIDActionData, error) {
 	count := 0
 	packages := make([]string, len(packageMap))
@@ -815,7 +823,7 @@ func (bus *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 	return result, nil
 }
 
-// returns a list of packageIDs which match the set of package names in packages
+// FilterPackageIDs returns a list of packageIDs which match the set of package names in packages.
 func FilterPackageIDs(m map[string]*PkPackageIDActionData, packages []string) ([]string, error) {
 	result := []string{}
 	for _, k := range packages {
@@ -829,6 +837,7 @@ func FilterPackageIDs(m map[string]*PkPackageIDActionData, packages []string) ([
 	return result, nil
 }
 
+// FilterState returns a map of whether each package queried matches the particular state.
 func FilterState(m map[string]*PkPackageIDActionData, packages []string, state string) (result map[string]bool, err error) {
 	result = make(map[string]bool)
 	pkgs := []string{} // bad pkgs that don't have a bool state
@@ -858,7 +867,7 @@ func FilterState(m map[string]*PkPackageIDActionData, packages []string, state s
 	return result, err
 }
 
-// return all packages that are in package and match the specific state
+// FilterPackageState returns all packages that are in package and match the specific state.
 func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, state string) (result []string, err error) {
 	result = []string{}
 	for _, k := range packages {
@@ -884,7 +893,7 @@ func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, 
 	return result, err
 }
 
-// does flag exist inside data portion of packageID field?
+// FlagInData asks whether a flag exists inside the data portion of a packageID field?
 func FlagInData(flag, data string) bool {
 	flags := strings.Split(data, ":")
 	for _, f := range flags {
@@ -895,11 +904,12 @@ func FlagInData(flag, data string) bool {
 	return false
 }
 
-// builds the transaction method string
+// FmtTransactionMethod builds the transaction method string properly.
 func FmtTransactionMethod(method string) string {
 	return fmt.Sprintf("%s.%s", PkIfaceTransaction, method)
 }
 
+// IsMyArch determines if a PackageKit architecture matches the current os arch.
 func IsMyArch(arch string) bool {
 	goarch, ok := PkArchMap[arch]
 	if !ok {

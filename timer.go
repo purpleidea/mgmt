@@ -39,7 +39,7 @@ type TimerUUID struct {
 	name string
 }
 
-// NewTimerRes creates a new TimerRes.
+// NewTimerRes is a constructor for this resource. It also calls Init() for you.
 func NewTimerRes(name string, interval int) *TimerRes {
 	obj := &TimerRes{
 		BaseRes: BaseRes{
@@ -51,6 +51,7 @@ func NewTimerRes(name string, interval int) *TimerRes {
 	return obj
 }
 
+// Init runs some startup code for this resource.
 func (obj *TimerRes) Init() {
 	obj.BaseRes.kind = "Timer"
 	obj.BaseRes.Init() // call base init, b/c we're overrriding
@@ -63,6 +64,7 @@ func (obj *TimerRes) Validate() bool {
 	return true
 }
 
+// Watch is the primary listener for this resource and it outputs events.
 func (obj *TimerRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
@@ -104,6 +106,8 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 	}
 }
 
+// GetUUIDs includes all params to make a unique identification of this object.
+// Most resources only return one, although some resources can return multiple.
 func (obj *TimerRes) GetUUIDs() []ResUUID {
 	x := &TimerUUID{
 		BaseUUID: BaseUUID{
@@ -120,6 +124,7 @@ func (obj *TimerRes) AutoEdges() AutoEdge {
 	return nil
 }
 
+// Compare two resources and return if they are equivalent.
 func (obj *TimerRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *TimerRes:
@@ -143,8 +148,4 @@ func (obj *TimerRes) Compare(res Res) bool {
 func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	return true, nil // state is always okay
-}
-
-func (obj *TimerRes) CollectPatten(pattern string) {
-	return
 }

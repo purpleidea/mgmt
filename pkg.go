@@ -42,7 +42,7 @@ type PkgRes struct {
 	fileList []string // FIXME: update if pkg changes
 }
 
-// NewPkgRes is a helper function for creating new resources that call Init().
+// NewPkgRes is a constructor for this resource. It also calls Init() for you.
 func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupported bool) *PkgRes {
 	obj := &PkgRes{
 		BaseRes: BaseRes{
@@ -57,6 +57,7 @@ func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupporte
 	return obj
 }
 
+// Init runs some startup code for this resource.
 func (obj *PkgRes) Init() {
 	obj.BaseRes.kind = "Pkg"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
@@ -94,8 +95,8 @@ func (obj *PkgRes) Init() {
 	}
 }
 
+// Validate checks if the resource data structure was populated correctly.
 func (obj *PkgRes) Validate() bool {
-
 	if obj.State == "" {
 		return false
 	}
@@ -103,7 +104,8 @@ func (obj *PkgRes) Validate() bool {
 	return true
 }
 
-// use UpdatesChanged signal to watch for changes
+// Watch is the primary listener for this resource and it outputs events.
+// It uses the PackageKit UpdatesChanged signal to watch for changes.
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
 func (obj *PkgRes) Watch(processChan chan Event) {
@@ -243,6 +245,8 @@ func (obj *PkgRes) pkgMappingHelper(bus *Conn) (map[string]*PkPackageIDActionDat
 	return result, nil
 }
 
+// CheckApply checks the resource state and applies the resource if the bool
+// input is true. It returns error info and if the state check passed or not.
 func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v: CheckApply(%t)", obj.fmtNames(obj.getNames()), apply)
 
@@ -359,6 +363,7 @@ func (obj *PkgUUID) IFF(uuid ResUUID) bool {
 	return obj.name == res.name
 }
 
+// PkgResAutoEdges holds the state of the auto edge generator.
 type PkgResAutoEdges struct {
 	fileList   []string
 	svcUUIDs   []ResUUID
@@ -367,6 +372,7 @@ type PkgResAutoEdges struct {
 	kind       string
 }
 
+// Next returns the next automatic edge.
 func (obj *PkgResAutoEdges) Next() []ResUUID {
 	if obj.testIsNext {
 		log.Fatal("Expecting a call to Test()")
@@ -394,6 +400,7 @@ func (obj *PkgResAutoEdges) Next() []ResUUID {
 	return result
 }
 
+// Test gets results of the earlier Next() call, & returns if we should continue!
 func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	if !obj.testIsNext {
 		log.Fatal("Expecting a call to Next()")
@@ -474,7 +481,8 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 	}
 }
 
-// include all params to make a unique identification of this object
+// GetUUIDs includes all params to make a unique identification of this object.
+// Most resources only return one, although some resources can return multiple.
 func (obj *PkgRes) GetUUIDs() []ResUUID {
 	x := &PkgUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
@@ -485,6 +493,7 @@ func (obj *PkgRes) GetUUIDs() []ResUUID {
 	return result
 }
 
+// GroupCmp returns whether two resources can be grouped together or not.
 // can these two resources be merged ?
 // (aka does this resource support doing so?)
 // will resource allow itself to be grouped _into_ this obj?
@@ -506,6 +515,7 @@ func (obj *PkgRes) GroupCmp(r Res) bool {
 	return true
 }
 
+// Compare two resources and return if they are equivalent.
 func (obj *PkgRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *PkgRes:

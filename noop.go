@@ -32,6 +32,7 @@ type NoopRes struct {
 	Comment string `yaml:"comment"` // extra field for example purposes
 }
 
+// NewNoopRes is a constructor for this resource. It also calls Init() for you.
 func NewNoopRes(name string) *NoopRes {
 	obj := &NoopRes{
 		BaseRes: BaseRes{
@@ -43,6 +44,7 @@ func NewNoopRes(name string) *NoopRes {
 	return obj
 }
 
+// Init runs some startup code for this resource.
 func (obj *NoopRes) Init() {
 	obj.BaseRes.kind = "Noop"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
@@ -54,6 +56,7 @@ func (obj *NoopRes) Validate() bool {
 	return true
 }
 
+// Watch is the primary listener for this resource and it outputs events.
 func (obj *NoopRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
@@ -109,8 +112,8 @@ func (obj *NoopRes) AutoEdges() AutoEdge {
 	return nil
 }
 
-// include all params to make a unique identification of this object
-// most resources only return one, although some resources return multiple
+// GetUUIDs includes all params to make a unique identification of this object.
+// Most resources only return one, although some resources can return multiple.
 func (obj *NoopRes) GetUUIDs() []ResUUID {
 	x := &NoopUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
@@ -119,6 +122,7 @@ func (obj *NoopRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+// GroupCmp returns whether two resources can be grouped together or not.
 func (obj *NoopRes) GroupCmp(r Res) bool {
 	_, ok := r.(*NoopRes)
 	if !ok {
@@ -131,6 +135,7 @@ func (obj *NoopRes) GroupCmp(r Res) bool {
 	return true // noop resources can always be grouped together!
 }
 
+// Compare two resources and return if they are equivalent.
 func (obj *NoopRes) Compare(res Res) bool {
 	switch res.(type) {
 	// we can only compare NoopRes to others of the same resource

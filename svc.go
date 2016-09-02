@@ -40,6 +40,7 @@ type SvcRes struct {
 	Startup string `yaml:"startup"` // enabled, disabled, undefined
 }
 
+// NewSvcRes is a constructor for this resource. It also calls Init() for you.
 func NewSvcRes(name, state, startup string) *SvcRes {
 	obj := &SvcRes{
 		BaseRes: BaseRes{
@@ -52,11 +53,13 @@ func NewSvcRes(name, state, startup string) *SvcRes {
 	return obj
 }
 
+// Init runs some startup code for this resource.
 func (obj *SvcRes) Init() {
 	obj.BaseRes.kind = "Svc"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
+// Validate checks if the resource data structure was populated correctly.
 func (obj *SvcRes) Validate() bool {
 	if obj.State != "running" && obj.State != "stopped" && obj.State != "" {
 		return false
@@ -67,7 +70,7 @@ func (obj *SvcRes) Validate() bool {
 	return true
 }
 
-// Service watcher
+// Watch is the primary listener for this resource and it outputs events.
 func (obj *SvcRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
@@ -228,6 +231,8 @@ func (obj *SvcRes) Watch(processChan chan Event) {
 	}
 }
 
+// CheckApply checks the resource state and applies the resource if the bool
+// input is true. It returns error info and if the state check passed or not.
 func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
@@ -341,12 +346,14 @@ func (obj *SvcUUID) IFF(uuid ResUUID) bool {
 	return obj.name == res.name
 }
 
+// SvcResAutoEdges holds the state of the auto edge generator.
 type SvcResAutoEdges struct {
 	data    []ResUUID
 	pointer int
 	found   bool
 }
 
+// Next returns the next automatic edge.
 func (obj *SvcResAutoEdges) Next() []ResUUID {
 	if obj.found {
 		log.Fatal("Shouldn't be called anymore!")
@@ -359,7 +366,7 @@ func (obj *SvcResAutoEdges) Next() []ResUUID {
 	return []ResUUID{value} // we return one, even though api supports N
 }
 
-// get results of the earlier Next() call, return if we should continue!
+// Test gets results of the earlier Next() call, & returns if we should continue!
 func (obj *SvcResAutoEdges) Test(input []bool) bool {
 	// if there aren't any more remaining
 	if len(obj.data) <= obj.pointer {
@@ -403,7 +410,8 @@ func (obj *SvcRes) AutoEdges() AutoEdge {
 	}
 }
 
-// include all params to make a unique identification of this object
+// GetUUIDs includes all params to make a unique identification of this object.
+// Most resources only return one, although some resources can return multiple.
 func (obj *SvcRes) GetUUIDs() []ResUUID {
 	x := &SvcUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
@@ -412,6 +420,7 @@ func (obj *SvcRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+// GroupCmp returns whether two resources can be grouped together or not.
 func (obj *SvcRes) GroupCmp(r Res) bool {
 	_, ok := r.(*SvcRes)
 	if !ok {
@@ -423,6 +432,7 @@ func (obj *SvcRes) GroupCmp(r Res) bool {
 	return false // not possible atm
 }
 
+// Compare two resources and return if they are equivalent.
 func (obj *SvcRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *SvcRes:

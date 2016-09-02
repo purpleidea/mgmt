@@ -47,6 +47,7 @@ type FileRes struct {
 	sha256sum string
 }
 
+// NewFileRes is a constructor for this resource. It also calls Init() for you.
 func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
 	// FIXME if path = nil, path = name ...
 	obj := &FileRes{
@@ -64,11 +65,14 @@ func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
 	return obj
 }
 
+// Init runs some startup code for this resource.
 func (obj *FileRes) Init() {
 	obj.BaseRes.kind = "File"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
+// GetPath returns the actual path to use for this resource. It computes this
+// after analysis of the path, dirname and basename values.
 func (obj *FileRes) GetPath() string {
 	d := Dirname(obj.Path)
 	b := Basename(obj.Path)
@@ -100,8 +104,9 @@ func (obj *FileRes) Validate() bool {
 	return true
 }
 
-// File watcher for files and directories
-// Modify with caution, probably important to write some test cases first!
+// Watch is the primary listener for this resource and it outputs events.
+// This one is a file watcher for files and directories.
+// Modify with caution, it is probably important to write some test cases first!
 // obj.GetPath(): file or directory
 func (obj *FileRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
@@ -268,6 +273,8 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	}
 }
 
+// HashSHA256fromContent computes the hash of the file contents and returns it.
+// It also caches the value if it can.
 func (obj *FileRes) HashSHA256fromContent() string {
 	if obj.sha256sum != "" { // return if already computed
 		return obj.sha256sum
@@ -279,6 +286,8 @@ func (obj *FileRes) HashSHA256fromContent() string {
 	return obj.sha256sum
 }
 
+// FileHashSHA256Check computes the hash of the actual file and compares it to
+// the computed hash of the resources file contents.
 func (obj *FileRes) FileHashSHA256Check() (bool, error) {
 	if PathIsDir(obj.GetPath()) { // assert
 		log.Fatal("This should only be called on a File resource.")
@@ -304,6 +313,8 @@ func (obj *FileRes) FileHashSHA256Check() (bool, error) {
 	return false, nil
 }
 
+// FileApply writes the resource file contents out to the correct path. This
+// implementation doesn't try to be particularly clever in any way.
 func (obj *FileRes) FileApply() error {
 	if PathIsDir(obj.GetPath()) {
 		log.Fatal("This should only be called on a File resource.")
@@ -329,6 +340,8 @@ func (obj *FileRes) FileApply() error {
 	return nil // success
 }
 
+// CheckApply checks the resource state and applies the resource if the bool
+// input is true. It returns error info and if the state check passed or not.
 func (obj *FileRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
@@ -398,12 +411,14 @@ func (obj *FileUUID) IFF(uuid ResUUID) bool {
 	return obj.path == res.path
 }
 
+// FileResAutoEdges holds the state of the auto edge generator.
 type FileResAutoEdges struct {
 	data    []ResUUID
 	pointer int
 	found   bool
 }
 
+// Next returns the next automatic edge.
 func (obj *FileResAutoEdges) Next() []ResUUID {
 	if obj.found {
 		log.Fatal("Shouldn't be called anymore!")
@@ -416,7 +431,7 @@ func (obj *FileResAutoEdges) Next() []ResUUID {
 	return []ResUUID{value} // we return one, even though api supports N
 }
 
-// get results of the earlier Next() call, return if we should continue!
+// Test gets results of the earlier Next() call, & returns if we should continue!
 func (obj *FileResAutoEdges) Test(input []bool) bool {
 	// if there aren't any more remaining
 	if len(obj.data) <= obj.pointer {
@@ -459,6 +474,8 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 	}
 }
 
+// GetUUIDs includes all params to make a unique identification of this object.
+// Most resources only return one, although some resources can return multiple.
 func (obj *FileRes) GetUUIDs() []ResUUID {
 	x := &FileUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
@@ -467,6 +484,7 @@ func (obj *FileRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+// GroupCmp returns whether two resources can be grouped together or not.
 func (obj *FileRes) GroupCmp(r Res) bool {
 	_, ok := r.(*FileRes)
 	if !ok {
@@ -477,6 +495,7 @@ func (obj *FileRes) GroupCmp(r Res) bool {
 	return false // not possible atm
 }
 
+// Compare two resources and return if they are equivalent.
 func (obj *FileRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *FileRes:
@@ -503,6 +522,7 @@ func (obj *FileRes) Compare(res Res) bool {
 	return true
 }
 
+// CollectPattern applies the pattern for collection resources.
 func (obj *FileRes) CollectPattern(pattern string) {
 	// XXX: currently the pattern for files can only override the Dirname variable :P
 	obj.Dirname = pattern // XXX: simplistic for now

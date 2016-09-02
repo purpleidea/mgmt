@@ -45,6 +45,7 @@ type ExecRes struct {
 	PollInt    int    `yaml:"pollint"`    // the poll interval for the ifcmd
 }
 
+// NewExecRes is a constructor for this resource. It also calls Init() for you.
 func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) *ExecRes {
 	obj := &ExecRes{
 		BaseRes: BaseRes{
@@ -64,6 +65,7 @@ func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcm
 	return obj
 }
 
+// Init runs some startup code for this resource.
 func (obj *ExecRes) Init() {
 	obj.BaseRes.kind = "Exec"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
@@ -102,7 +104,7 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 	return ch, errch
 }
 
-// Exec watcher
+// Watch is the primary listener for this resource and it outputs events.
 func (obj *ExecRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
@@ -201,6 +203,8 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 	}
 }
 
+// CheckApply checks the resource state and applies the resource if the bool
+// input is true. It returns error info and if the state check passed or not.
 // TODO: expand the IfCmd to be a list of commands
 func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
@@ -371,7 +375,8 @@ func (obj *ExecRes) AutoEdges() AutoEdge {
 	return nil
 }
 
-// include all params to make a unique identification of this object
+// GetUUIDs includes all params to make a unique identification of this object.
+// Most resources only return one, although some resources can return multiple.
 func (obj *ExecRes) GetUUIDs() []ResUUID {
 	x := &ExecUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
@@ -382,6 +387,7 @@ func (obj *ExecRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
+// GroupCmp returns whether two resources can be grouped together or not.
 func (obj *ExecRes) GroupCmp(r Res) bool {
 	_, ok := r.(*ExecRes)
 	if !ok {
@@ -390,6 +396,7 @@ func (obj *ExecRes) GroupCmp(r Res) bool {
 	return false // not possible atm
 }
 
+// Compare two resources and return if they are equivalent.
 func (obj *ExecRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *ExecRes:

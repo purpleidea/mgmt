@@ -103,3 +103,71 @@ func TestMiscEncodeDecode2(t *testing.T) {
 		t.Error("The input and output Res values do not match!")
 	}
 }
+
+func TestIFF(t *testing.T) {
+	uuid := &BaseUUID{name: "/tmp/unit-test"}
+	same := &BaseUUID{name: "/tmp/unit-test"}
+	diff := &BaseUUID{name: "/tmp/other-file"}
+
+	if !uuid.IFF(same) {
+		t.Error("basic resource UUIDs with the same name should satisfy each other's IFF condition.")
+	}
+
+	if uuid.IFF(diff) {
+		t.Error("basic resource UUIDs with different names should NOT satisfy each other's IFF condition.")
+	}
+}
+
+func TestReadEvent(t *testing.T) {
+	res := FileRes{}
+
+	shouldExit := map[eventName]bool{
+		eventStart:    false,
+		eventPoke:     false,
+		eventBackPoke: false,
+		eventExit:     true,
+	}
+	shouldPoke := map[eventName]bool{
+		eventStart:    true,
+		eventPoke:     true,
+		eventBackPoke: true,
+		eventExit:     false,
+	}
+
+	for event, _ := range shouldExit {
+		exit, poke := res.ReadEvent(&Event{Name: event})
+		if exit != shouldExit[event] {
+			t.Errorf("resource.ReadEvent returned wrong exit flag for a %v event (%v, should be %v)",
+				event, exit, shouldExit[event])
+		}
+		if poke != shouldPoke[event] {
+			t.Errorf("resource.ReadEvent returned wrong poke flag for a %v event (%v, should be %v)",
+				event, poke, shouldPoke[event])
+		}
+	}
+
+	res.Init()
+	res.SetWatching(true)
+
+	// test result when a pause event is followed by start
+	go res.SendEvent(eventStart, false, false)
+	exit, poke := res.ReadEvent(&Event{Name: eventPause})
+	if exit {
+		t.Error("resource.ReadEvent returned wrong exit flag for a pause+start event (true, should be false)")
+	}
+	if poke {
+		t.Error("resource.ReadEvent returned wrong poke flag for a pause+start event (true, should be false)")
+	}
+
+	// test result when a pause event is followed by exit
+	go res.SendEvent(eventExit, false, false)
+	exit, poke = res.ReadEvent(&Event{Name: eventPause})
+	if !exit {
+		t.Error("resource.ReadEvent returned wrong exit flag for a pause+start event (false, should be true)")
+	}
+	if poke {
+		t.Error("resource.ReadEvent returned wrong poke flag for a pause+start event (true, should be false)")
+	}
+
+	// TODO: create a wrapper API around log, so that Fatals can be mocked and tested
+}

@@ -216,6 +216,22 @@ starting up, and as a result, a default endpoint never gets added. The solution
 is to either reconcile the mistake, and if there is no important data saved, you
 can remove the etcd dataDir. This is typically `/var/lib/mgmt/etcd/member/`.
 
+###Why do resources have both a `Compare` method and an `IFF` (on the UUID) method?
+
+The `Compare()` methods are for determining if two resources are effectively the
+same, which is used to make graph change delta's efficient. This is when we want
+to change from the current running graph to a new graph, but preserve the common
+vertices. Since we want to make this process efficient, we only update the parts
+that are different, and leave everything else alone. This `Compare()` method can
+tell us if two resources are the same.
+
+The `IFF()` method is part of the whole UUID system, which is for discerning if
+a resource meets the requirements another expects for an automatic edge. This is
+because the automatic edge system assumes a unified UUID pattern to test for
+equality. In the future it might be helpful or sane to merge the two similar
+comparison functions although for now they are separate because they are
+actually answer different questions.
+
 ###Did you know that there is a band named `MGMT`?
 
 I didn't realize this when naming the project, and it is accidental. After much

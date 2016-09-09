@@ -18,16 +18,20 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"gopkg.in/fsnotify.v1"
 	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 	"encoding/gob"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 )
@@ -42,24 +46,32 @@ type FileRes struct {
 	Path      string `yaml:"path"` // path variable (should default to name)
 	Dirname   string `yaml:"dirname"`
 	Basename  string `yaml:"basename"`
-	Content   string `yaml:"content"`
-	State     string `yaml:"state"` // state: exists/present?, absent, (undefined?)
+	Content   string `yaml:"content"` // FIXME: how do you describe: "leave content alone" - state = "create" ?
+	Source    string `yaml:"source"`  // file path for source content
+	State     string `yaml:"state"`   // state: exists/present?, absent, (undefined?)
+	Recurse   bool   `yaml:"recurse"`
+	Force     bool   `yaml:"force"`
+	path      string // computed path
+	isDir     bool   // computed isDir
 	sha256sum string
+	watcher   *fsnotify.Watcher
+	watches   map[string]struct{}
 }
 
 // NewFileRes is a constructor for this resource. It also calls Init() for you.
-func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
-	// FIXME if path = nil, path = name ...
+func NewFileRes(name, path, dirname, basename, content, source, state string, recurse, force bool) *FileRes {
 	obj := &FileRes{
 		BaseRes: BaseRes{
 			Name: name,
 		},
-		Path:      path,
-		Dirname:   dirname,
-		Basename:  basename,
-		Content:   content,
-		State:     state,
-		sha256sum: "",
+		Path:     path,
+		Dirname:  dirname,
+		Basename: basename,
+		Content:  content,
+		Source:   source,
+		State:    state,
+		Recurse:  recurse,
+		Force:    force,
 	}
 	obj.Init()
 	return obj
@@ -67,47 +79,92 @@ func NewFileRes(name, path, dirname, basename, content, state string) *FileRes {
 
 // Init runs some startup code for this resource.
 func (obj *FileRes) Init() {
+	obj.sha256sum = ""
+	obj.watches = make(map[string]struct{})
+	if obj.Path == "" { // use the name as the path default if missing
+		obj.Path = obj.BaseRes.Name
+	}
+	obj.path = obj.GetPath()                     // compute once
+	obj.isDir = strings.HasSuffix(obj.path, "/") // dirs have trailing slashes
+
 	obj.BaseRes.kind = "File"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // GetPath returns the actual path to use for this resource. It computes this
-// after analysis of the path, dirname and basename values.
+// after analysis of the Path, Dirname and Basename values. Dirs end with slash.
 func (obj *FileRes) GetPath() string {
 	d := Dirname(obj.Path)
 	b := Basename(obj.Path)
-	if !obj.Validate() || (obj.Dirname == "" && obj.Basename == "") {
+	if obj.Dirname == "" && obj.Basename == "" {
 		return obj.Path
-	} else if obj.Dirname == "" {
-		return d + obj.Basename
-	} else if obj.Basename == "" {
-		return obj.Dirname + b
-	} else { // if obj.dirname != "" && obj.basename != "" {
-		return obj.Dirname + obj.Basename
 	}
+	if obj.Dirname == "" {
+		return d + obj.Basename
+	}
+	if obj.Basename == "" {
+		return obj.Dirname + b
+	}
+	// if obj.dirname != "" && obj.basename != ""
+	return obj.Dirname + obj.Basename
 }
 
-// validate if the params passed in are valid data
-func (obj *FileRes) Validate() bool {
-	if obj.Dirname != "" {
-		// must end with /
-		if obj.Dirname[len(obj.Dirname)-1:] != "/" {
-			return false
-		}
+// Validate reports any problems with the struct definition.
+func (obj *FileRes) Validate() error {
+	if obj.Dirname != "" && !strings.HasSuffix(obj.Dirname, "/") {
+		return fmt.Errorf("Dirname must end with a slash.")
 	}
-	if obj.Basename != "" {
-		// must not start with /
-		if obj.Basename[0:1] == "/" {
-			return false
-		}
+
+	if strings.HasPrefix(obj.Basename, "/") {
+		return fmt.Errorf("Basename must not start with a slash.")
 	}
-	return true
+
+	if obj.Content != "" && obj.Source != "" {
+		return fmt.Errorf("Can't specify both Content and Source.")
+	}
+
+	if obj.isDir && obj.Content != "" { // makes no sense
+		return fmt.Errorf("Can't specify Content when creating a Dir.")
+	}
+
+	// XXX: should this specify that we create an empty directory instead?
+	//if obj.Source == "" && obj.isDir {
+	//	return fmt.Errorf("Can't specify an empty source when creating a Dir.")
+	//}
+
+	return nil
+}
+
+// addSubFolders is a helper that is used to add recursive dirs to the watches.
+func (obj *FileRes) addSubFolders(p string) error {
+	if !obj.Recurse {
+		return nil // if we're not watching recursively, just exit early
+	}
+	// look at all subfolders...
+	walkFn := func(path string, info os.FileInfo, err error) error {
+		if DEBUG {
+			log.Printf("File[%v]: Walk: %s (%v): %v", obj.GetName(), path, info, err)
+		}
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			obj.watches[path] = struct{}{} // add key
+			err := obj.watcher.Add(path)
+			if err != nil {
+				return err // TODO: will this bubble up?
+			}
+		}
+		return nil
+	}
+	err := filepath.Walk(p, walkFn)
+	return err
 }
 
 // Watch is the primary listener for this resource and it outputs events.
 // This one is a file watcher for files and directories.
 // Modify with caution, it is probably important to write some test cases first!
-// obj.GetPath(): file or directory
+// FIXME: Also watch the source directory when using obj.Source !!!
 func (obj *FileRes) Watch(processChan chan Event) {
 	if obj.IsWatching() {
 		return
@@ -117,16 +174,14 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	cuuid := obj.converger.Register()
 	defer cuuid.Unregister()
 
-	//var recursive bool = false
-	//var isdir = (obj.GetPath()[len(obj.GetPath())-1:] == "/") // dirs have trailing slashes
-	//log.Printf("IsDirectory: %v", isdir)
-	var safename = path.Clean(obj.GetPath()) // no trailing slash
+	var safename = path.Clean(obj.path) // no trailing slash
 
-	watcher, err := fsnotify.NewWatcher()
+	var err error
+	obj.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer watcher.Close()
+	defer obj.watcher.Close()
 
 	patharray := PathSplit(safename) // tokenize the path
 	var index = len(patharray)       // starting index
@@ -136,6 +191,19 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	var exit = false
 	var dirty = false
 
+	isDir := func(p string) bool {
+		finfo, err := os.Stat(p)
+		if err != nil {
+			return false
+		}
+		return finfo.IsDir()
+	}
+
+	if obj.isDir {
+		if err := obj.addSubFolders(safename); err != nil {
+			log.Fatal(err) // TODO: temporary until we support errors
+		}
+	}
 	for {
 		current = strings.Join(patharray[0:index], "/")
 		if current == "" { // the empty string top is the root dir ("/")
@@ -145,7 +213,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 			log.Printf("File[%v]: Watching: %v", obj.GetName(), current) // attempting to watch...
 		}
 		// initialize in the loop so that we can reset on rm-ed handles
-		err = watcher.Add(current)
+		err = obj.watcher.Add(current)
 		if err != nil {
 			if DEBUG {
 				log.Printf("File[%v]: watcher.Add(%v): Error: %v", obj.GetName(), current, err)
@@ -167,7 +235,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 
 		obj.SetState(resStateWatching) // reset
 		select {
-		case event := <-watcher.Events:
+		case event := <-obj.watcher.Events:
 			if DEBUG {
 				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event.Op)
 			}
@@ -183,6 +251,22 @@ func (obj *FileRes) Watch(processChan chan Event) {
 
 			} else if HasPathPrefix(current, event.Name) {
 				deltaDepth = len(PathSplit(event.Name)) - len(PathSplit(current)) // +1 or more
+				// if below me...
+				if _, exists := obj.watches[event.Name]; exists {
+					send = true
+					dirty = true
+					if event.Op&fsnotify.Remove == fsnotify.Remove {
+						obj.watcher.Remove(event.Name)
+						delete(obj.watches, event.Name)
+					}
+					if (event.Op&fsnotify.Create == fsnotify.Create) && isDir(event.Name) {
+						obj.watcher.Add(event.Name)
+						obj.watches[event.Name] = struct{}{}
+						if err := obj.addSubFolders(event.Name); err != nil {
+							log.Fatal(err) // TODO: temporary until we support errors
+						}
+					}
+				}
 
 			} else {
 				// TODO different watchers get each others events!
@@ -200,16 +284,22 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				send = true
 				dirty = true
 
+				if obj.isDir {
+					if err := obj.addSubFolders(safename); err != nil {
+						log.Fatal(err) // TODO: temporary until we support errors
+					}
+				}
+
 				// file removed, move the watch upwards
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
 					//log.Println("Removal!")
-					watcher.Remove(current)
+					obj.watcher.Remove(current)
 					index--
 				}
 
 				// we must be a parent watcher, so descend in
 				if deltaDepth < 0 {
-					watcher.Remove(current)
+					obj.watcher.Remove(current)
 					index++
 				}
 
@@ -219,7 +309,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
 					log.Println("Removal!")
-					watcher.Remove(current)
+					obj.watcher.Remove(current)
 					index--
 				}
 
@@ -229,7 +319,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 						send = true
 						dirty = true
 					}
-					watcher.Remove(current)
+					obj.watcher.Remove(current)
 					index++
 				}
 
@@ -240,7 +330,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				dirty = true
 			}
 
-		case err := <-watcher.Errors:
+		case err := <-obj.watcher.Errors:
 			cuuid.SetConverged(false) // XXX ?
 			log.Printf("error: %v", err)
 			log.Fatal(err)
@@ -273,126 +363,454 @@ func (obj *FileRes) Watch(processChan chan Event) {
 	}
 }
 
-// HashSHA256fromContent computes the hash of the file contents and returns it.
-// It also caches the value if it can.
-func (obj *FileRes) HashSHA256fromContent() string {
-	if obj.sha256sum != "" { // return if already computed
-		return obj.sha256sum
+// smartPath adds a trailing slash to the path if it is a directory.
+func smartPath(fileInfo os.FileInfo) string {
+	smartPath := fileInfo.Name() // absolute path
+	if fileInfo.IsDir() {
+		smartPath += "/" // add a trailing slash for dirs
 	}
-
-	hash := sha256.New()
-	hash.Write([]byte(obj.Content))
-	obj.sha256sum = hex.EncodeToString(hash.Sum(nil))
-	return obj.sha256sum
+	return smartPath
 }
 
-// FileHashSHA256Check computes the hash of the actual file and compares it to
-// the computed hash of the resources file contents.
-func (obj *FileRes) FileHashSHA256Check() (bool, error) {
-	if PathIsDir(obj.GetPath()) { // assert
-		log.Fatal("This should only be called on a File resource.")
+// FileInfo is an enhanced variant of the traditional os.FileInfo struct. It can
+// store both the absolute and the relative paths (when built from our ReadDir),
+// and those two paths contain a trailing slash when they refer to a directory.
+type FileInfo struct {
+	os.FileInfo        // embed
+	AbsPath     string // smart variant
+	RelPath     string // smart variant
+}
+
+// ReadDir reads a directory path, and returns a list of enhanced FileInfo's.
+func ReadDir(path string) ([]FileInfo, error) {
+	if !strings.HasSuffix(path, "/") { // dirs have trailing slashes
+		return nil, fmt.Errorf("Path must be a directory.")
 	}
-	// run a diff, and return true if it needs changing
-	hash := sha256.New()
-	f, err := os.Open(obj.GetPath())
+	output := []FileInfo{} // my file info
+	fileInfos, err := ioutil.ReadDir(path)
+	if os.IsNotExist(err) {
+		return output, err // return empty list
+	}
 	if err != nil {
-		if e, ok := err.(*os.PathError); ok && (e.Err.(syscall.Errno) == syscall.ENOENT) {
-			return false, nil // no "error", file is just absent
+		return nil, err
+	}
+	for _, fi := range fileInfos {
+		abs := path + smartPath(fi)
+		rel, err := filepath.Rel(path, abs) // NOTE: calls Clean()
+		if err != nil {                     // shouldn't happen
+			return nil, fmt.Errorf("ReadDir: Unhandled error: %v", err)
 		}
-		return false, err
+		if fi.IsDir() {
+			rel += "/" // add a trailing slash for dirs
+		}
+		x := FileInfo{
+			FileInfo: fi,
+			AbsPath:  abs,
+			RelPath:  rel,
+		}
+		output = append(output, x)
 	}
-	defer f.Close()
-	if _, err := io.Copy(hash, f); err != nil {
-		return false, err
-	}
-	sha256sum := hex.EncodeToString(hash.Sum(nil))
-	//log.Printf("sha256sum: %v", sha256sum)
-	if obj.HashSHA256fromContent() == sha256sum {
-		return true, nil
-	}
-	return false, nil
+	return output, nil
 }
 
-// FileApply writes the resource file contents out to the correct path. This
-// implementation doesn't try to be particularly clever in any way.
-func (obj *FileRes) FileApply() error {
-	if PathIsDir(obj.GetPath()) {
-		log.Fatal("This should only be called on a File resource.")
+// smartMapPaths adds a trailing slash to every path that is a directory. It
+// returns the data as a map where the keys are the smart paths and where the
+// values are the original os.FileInfo entries.
+func mapPaths(fileInfos []FileInfo) map[string]FileInfo {
+	paths := make(map[string]FileInfo)
+	for _, fileInfo := range fileInfos {
+		paths[fileInfo.RelPath] = fileInfo
 	}
+	return paths
+}
+
+// fileCheckApply is the CheckApply operation for a source and destination file.
+// It can accept an io.Reader as the source, which can be a regular file, or it
+// can be a bytes Buffer struct. It can take an input sha256 hash to use instead
+// of computing the source data hash, and it returns the computed value if this
+// function reaches that stage. As usual, it respects the apply action variable,
+// and it symmetry with the main CheckApply function returns checkOK and error.
+func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sha256sum string) (string, bool, error) {
+	// TODO: does it make sense to switch dst to an io.Writer ?
+	// TODO: use obj.Force when dealing with symlinks and other file types!
+	if DEBUG {
+		log.Printf("fileCheckApply: %s -> %s", src, dst)
+	}
+
+	srcFile, isFile := src.(*os.File)
+	_, isBytes := src.(*bytes.Reader) // supports seeking!
+	if !isFile && !isBytes {
+		return "", false, fmt.Errorf("Can't open src as either file or buffer!")
+	}
+
+	var srcStat os.FileInfo
+	if isFile {
+		var err error
+		srcStat, err = srcFile.Stat()
+		if err != nil {
+			return "", false, err
+		}
+		// TODO: deal with symlinks
+		if !srcStat.Mode().IsRegular() { // can't copy non-regular files or dirs
+			return "", false, fmt.Errorf("Non-regular src file: %s (%q)", srcStat.Name(), srcStat.Mode())
+		}
+	}
+
+	dstFile, err := os.Open(dst)
+	if err != nil && !os.IsNotExist(err) { // ignore ErrNotExist errors
+		return "", false, err
+	}
+	dstClose := func() error {
+		return dstFile.Close() // calling this twice is safe :)
+	}
+	defer dstClose()
+	dstExists := !os.IsNotExist(err)
+
+	dstStat, err := dstFile.Stat()
+	if err != nil && dstExists {
+		return "", false, err
+	}
+
+	if dstExists && dstStat.IsDir() { // oops, dst is a dir, and we want a file...
+		if !apply {
+			return "", false, nil
+		}
+		if !obj.Force {
+			return "", false, fmt.Errorf("Can't force dir into file: %s", dst)
+		}
+
+		cleanDst := path.Clean(dst)
+		if cleanDst == "" || cleanDst == "/" {
+			return "", false, fmt.Errorf("Don't want to remove root!") // safety
+		}
+		// FIXME: respect obj.Recurse here...
+		// there is a dir here, where we want a file...
+		log.Printf("fileCheckApply: Removing (force): %s", cleanDst)
+		if err := os.RemoveAll(cleanDst); err != nil { // dangerous ;)
+			return "", false, err
+		}
+		dstExists = false // now it's gone!
+
+	} else if err == nil {
+		if !dstStat.Mode().IsRegular() {
+			return "", false, fmt.Errorf("Non-regular dst file: %s (%q)", dstStat.Name(), dstStat.Mode())
+		}
+		if isFile && os.SameFile(srcStat, dstStat) { // same inode, we're done!
+			return "", true, nil
+		}
+	}
+
+	if dstExists { // if dst doesn't exist, no need to compare hashes
+		// hash comparison (efficient because we can cache hash of content str)
+		if sha256sum == "" { // cache is invalid
+			hash := sha256.New()
+			// TODO file existence test?
+			if _, err := io.Copy(hash, src); err != nil {
+				return "", false, err
+			}
+			sha256sum = hex.EncodeToString(hash.Sum(nil))
+			// since we re-use this src handler below, it is
+			// *critical* to seek to 0, or we'll copy nothing!
+			if n, err := src.Seek(0, 0); err != nil || n != 0 {
+				return sha256sum, false, err
+			}
+		}
+
+		// dst hash
+		hash := sha256.New()
+		if _, err := io.Copy(hash, dstFile); err != nil {
+			return "", false, err
+		}
+		if h := hex.EncodeToString(hash.Sum(nil)); h == sha256sum {
+			return sha256sum, true, nil // same!
+		}
+	}
+
+	// state is not okay, no work done, exit, but without error
+	if !apply {
+		return sha256sum, false, nil
+	}
+	if DEBUG {
+		log.Printf("fileCheckApply: Apply: %s -> %s", src, dst)
+	}
+
+	dstClose() // unlock file usage so we can write to it
+	dstFile, err = os.Create(dst)
+	if err != nil {
+		return sha256sum, false, err
+	}
+	defer dstFile.Close() // TODO: is this redundant because of the earlier defered Close() ?
+
+	if isFile { // set mode because it's a new file
+		if err := dstFile.Chmod(srcStat.Mode()); err != nil {
+			return sha256sum, false, err
+		}
+	}
+
+	// TODO: attempt to reflink with Splice() and int(file.Fd()) as input...
+	// syscall.Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n int64, err error)
+
+	// TODO: should we offer a way to cancel the copy on ^C ?
+	if DEBUG {
+		log.Printf("fileCheckApply: Copy: %s -> %s", src, dst)
+	}
+	if n, err := io.Copy(dstFile, src); err != nil {
+		return sha256sum, false, err
+	} else if DEBUG {
+		log.Printf("fileCheckApply: Copied: %v", n)
+	}
+	return sha256sum, false, dstFile.Sync()
+}
+
+// syncCheckApply is the CheckApply operation for a source and destination dir.
+// It is recursive and can create directories directly, and files via the usual
+// fileCheckApply method. It returns checkOK and error as is normally expected.
+func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
+	if DEBUG {
+		log.Printf("syncCheckApply: %s -> %s", src, dst)
+	}
+	if src == "" || dst == "" {
+		return false, fmt.Errorf("The src and dst must not be empty!")
+	}
+
+	var checkOK = true
+	// TODO: handle ./ cases or ../ cases that need cleaning ?
+
+	srcIsDir := strings.HasSuffix(src, "/")
+	dstIsDir := strings.HasSuffix(dst, "/")
+
+	if srcIsDir != dstIsDir {
+		return false, fmt.Errorf("The src and dst must be both either files or directories.")
+	}
+
+	if !srcIsDir && !dstIsDir {
+		if DEBUG {
+			log.Printf("syncCheckApply: %s -> %s", src, dst)
+		}
+		fin, err := os.Open(src)
+		if err != nil {
+			if DEBUG && os.IsNotExist(err) { // if we get passed an empty src
+				log.Printf("syncCheckApply: Missing src: %s", src)
+			}
+			return false, err
+		}
+
+		_, checkOK, err := obj.fileCheckApply(apply, fin, dst, "")
+		if err != nil {
+			fin.Close()
+			return false, err
+		}
+		return checkOK, fin.Close()
+	}
+
+	// else: if srcIsDir && dstIsDir
+	srcFiles, err := ReadDir(src)          // if src does not exist...
+	if err != nil && !os.IsNotExist(err) { // an empty map comes out below!
+		return false, err
+	}
+	dstFiles, err := ReadDir(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	//log.Printf("syncCheckApply: srcFiles: %v", srcFiles)
+	//log.Printf("syncCheckApply: dstFiles: %v", dstFiles)
+	smartSrc := mapPaths(srcFiles)
+	smartDst := mapPaths(dstFiles)
+
+	for relPath, fileInfo := range smartSrc {
+		absSrc := fileInfo.AbsPath // absolute path
+		absDst := dst + relPath    // absolute dest
+
+		if _, exists := smartDst[relPath]; !exists {
+			if fileInfo.IsDir() {
+				if !apply { // only checking and not identical!
+					return false, nil
+				}
+
+				// file exists, but we want a dir: we need force
+				// we check for the file w/o the smart dir slash
+				relPathFile := strings.TrimSuffix(relPath, "/")
+				if _, ok := smartDst[relPathFile]; ok {
+					absCleanDst := path.Clean(absDst)
+					if !obj.Force {
+						return false, fmt.Errorf("Can't force file into dir: %s", absCleanDst)
+					}
+					if absCleanDst == "" || absCleanDst == "/" {
+						return false, fmt.Errorf("Don't want to remove root!") // safety
+					}
+					log.Printf("syncCheckApply: Removing (force): %s", absCleanDst)
+					if err := os.Remove(absCleanDst); err != nil {
+						return false, err
+					}
+					delete(smartDst, relPathFile) // rm from purge list
+				}
+
+				if DEBUG {
+					log.Printf("syncCheckApply: mkdir -m %s '%s'", fileInfo.Mode(), absDst)
+				}
+				if err := os.Mkdir(absDst, fileInfo.Mode()); err != nil {
+					return false, err
+				}
+				checkOK = false // we did some work
+			}
+			// if we're a regular file, the recurse will create it
+		}
+
+		if DEBUG {
+			log.Printf("syncCheckApply: Recurse: %s -> %s", absSrc, absDst)
+		}
+		if obj.Recurse {
+			if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil { // recurse
+				return false, fmt.Errorf("syncCheckApply: Recurse failed: %v", err)
+			} else if !c { // don't let subsequent passes make this true
+				checkOK = false
+			}
+		}
+		if !apply && !checkOK { // check failed, and no apply to do, so exit!
+			return false, nil
+		}
+		delete(smartDst, relPath) // rm from purge list
+	}
+
+	if !apply && len(smartDst) > 0 { // we know there are files to remove!
+		return false, nil // so just exit now
+	}
+	// any files that now remain in smartDst need to be removed...
+	for relPath, fileInfo := range smartDst {
+		absSrc := src + relPath    // absolute dest (should not exist!)
+		absDst := fileInfo.AbsPath // absolute path (should get removed)
+		absCleanDst := path.Clean(absDst)
+		if absCleanDst == "" || absCleanDst == "/" {
+			return false, fmt.Errorf("Don't want to remove root!") // safety
+		}
+
+		// FIXME: respect obj.Recurse here...
+
+		// NOTE: we could use os.RemoveAll instead of recursing, but I
+		// think the symmetry is more elegant and correct here for now
+		// Avoiding this is also useful if we had a recurse limit arg!
+		if true { // switch
+			log.Printf("syncCheckApply: Removing: %s", absCleanDst)
+			if apply {
+				if err := os.RemoveAll(absCleanDst); err != nil { // dangerous ;)
+					return false, err
+				}
+				checkOK = false
+			}
+			continue
+		}
+		_ = absSrc
+		//log.Printf("syncCheckApply: Recurse rm: %s -> %s", absSrc, absDst)
+		//if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil {
+		//	return false, fmt.Errorf("syncCheckApply: Recurse rm failed: %v", err)
+		//} else if !c { // don't let subsequent passes make this true
+		//	checkOK = false
+		//}
+		//log.Printf("syncCheckApply: Removing: %s", absCleanDst)
+		//if apply { // safety
+		//	if err := os.Remove(absCleanDst); err != nil {
+		//		return false, err
+		//	}
+		//	checkOK = false
+		//}
+	}
+
+	return checkOK, nil
+}
+
+// contentCheckApply performs a CheckApply for the file existence and content.
+func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
+	log.Printf("%v[%v]: contentCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.State == "absent" {
-		log.Printf("About to remove: %v", obj.GetPath())
-		err := os.Remove(obj.GetPath())
-		return err // either nil or not, for success or failure
+		if _, err := os.Stat(obj.path); os.IsNotExist(err) {
+			// no such file or directory, but
+			// file should be missing, phew :)
+			return true, nil
+
+		} else if err != nil { // what could this error be?
+			return false, err
+		}
+
+		// state is not okay, no work done, exit, but without error
+		if !apply {
+			return false, nil
+		}
+
+		// apply portion
+		if obj.path == "" || obj.path == "/" {
+			return false, fmt.Errorf("Don't want to remove root!") // safety
+		}
+		log.Printf("contentCheckApply: Removing: %s", obj.path)
+		// FIXME: respect obj.Recurse here...
+		// TODO: add recurse limit here
+		err := os.RemoveAll(obj.path) // dangerous ;)
+		return false, err             // either nil or not
 	}
 
-	f, err := os.Create(obj.GetPath())
+	if obj.Source == "" { // do the obj.Content checks first...
+		if obj.isDir { // TODO: should we create an empty dir this way?
+			log.Fatal("XXX: Not implemented!") // XXX
+		}
+
+		bufferSrc := bytes.NewReader([]byte(obj.Content))
+		sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.path, obj.sha256sum)
+		if sha256sum != "" { // empty values mean errored or didn't hash
+			// this can be valid even when the whole function errors
+			obj.sha256sum = sha256sum // cache value
+		}
+		if err != nil {
+			return false, err
+		}
+		// if no err, but !ok, then...
+		return checkOK, nil // success
+	}
+
+	checkOK, err := obj.syncCheckApply(apply, obj.Source, obj.path)
 	if err != nil {
-		return nil
-	}
-	defer f.Close()
-
-	_, err = io.WriteString(f, obj.Content)
-	if err != nil {
-		return err
+		log.Printf("syncCheckApply: Error: %v", err)
+		return false, err
 	}
 
-	return nil // success
+	return checkOK, nil
 }
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *FileRes) CheckApply(apply bool) (checkok bool, err error) {
+func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
 	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.isStateOK { // cache the state
 		return true, nil
 	}
 
-	if _, err = os.Stat(obj.GetPath()); os.IsNotExist(err) {
-		// no such file or directory
-		if obj.State == "absent" {
-			// missing file should be missing, phew :)
-			obj.isStateOK = true
-			return true, nil
-		}
-	}
-	err = nil // reset
+	checkOK = true
 
-	// FIXME: add file mode check here...
-
-	if PathIsDir(obj.GetPath()) {
-		log.Fatal("Not implemented!") // XXX
-	} else {
-		ok, err := obj.FileHashSHA256Check()
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			obj.isStateOK = true
-			return true, nil
-		}
-		// if no err, but !ok, then we continue on...
+	if c, err := obj.contentCheckApply(apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
 	}
 
-	// state is not okay, no work done, exit, but without error
-	if !apply {
-		return false, nil
-	}
+	// TODO
+	//if c, err := obj.chmodCheckApply(apply); err != nil {
+	//	return false, err
+	//} else if !c {
+	//	checkOK = false
+	//}
 
-	// apply portion
-	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
-	if PathIsDir(obj.GetPath()) {
-		log.Fatal("Not implemented!") // XXX
-	} else {
-		err = obj.FileApply()
-		if err != nil {
-			return false, err
-		}
-	}
+	// TODO
+	//if c, err := obj.chownCheckApply(apply); err != nil {
+	//	return false, err
+	//} else if !c {
+	//	checkOK = false
+	//}
 
-	obj.isStateOK = true
-	return false, nil // success
+	// if we did work successfully, or are in a good state, then state is ok
+	if apply || checkOK {
+		obj.isStateOK = true
+	}
+	return checkOK, nil // w00t
 }
 
 // FileUUID is the UUID struct for FileRes.
@@ -401,8 +819,7 @@ type FileUUID struct {
 	path string
 }
 
-// if and only if they are equivalent, return true
-// if they are not equivalent, return false
+// IFF aka if and only if they are equivalent, return true. If not, false.
 func (obj *FileUUID) IFF(uuid ResUUID) bool {
 	res, ok := uuid.(*FileUUID)
 	if !ok {
@@ -453,9 +870,9 @@ func (obj *FileResAutoEdges) Test(input []bool) bool {
 // AutoEdges generates a simple linear sequence of each parent directory from
 // the bottom up!
 func (obj *FileRes) AutoEdges() AutoEdge {
-	var data []ResUUID                             // store linear result chain here...
-	values := PathSplitFullReversed(obj.GetPath()) // build it
-	_, values = values[0], values[1:]              // get rid of first value which is me!
+	var data []ResUUID                        // store linear result chain here...
+	values := PathSplitFullReversed(obj.path) // build it
+	_, values = values[0], values[1:]         // get rid of first value which is me!
 	for _, x := range values {
 		var reversed = true // cheat by passing a pointer
 		data = append(data, &FileUUID{
@@ -479,7 +896,7 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 func (obj *FileRes) GetUUIDs() []ResUUID {
 	x := &FileUUID{
 		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-		path:     obj.GetPath(),
+		path:     obj.path,
 	}
 	return []ResUUID{x}
 }
@@ -507,13 +924,22 @@ func (obj *FileRes) Compare(res Res) bool {
 		if obj.Name != res.Name {
 			return false
 		}
-		if obj.GetPath() != res.Path {
+		if obj.path != res.Path {
 			return false
 		}
 		if obj.Content != res.Content {
 			return false
 		}
+		if obj.Source != res.Source {
+			return false
+		}
 		if obj.State != res.State {
+			return false
+		}
+		if obj.Recurse != res.Recurse {
+			return false
+		}
+		if obj.Force != res.Force {
 			return false
 		}
 	default:

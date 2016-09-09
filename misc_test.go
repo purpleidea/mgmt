@@ -152,25 +152,6 @@ func TestMiscT4(t *testing.T) {
 	}
 }
 
-func TestMiscT5(t *testing.T) {
-
-	if PathIsDir("/foo/bar/baz/") != true {
-		t.Errorf("Result should be false.")
-	}
-
-	if PathIsDir("/foo/bar/baz") != false {
-		t.Errorf("Result should be false.")
-	}
-
-	if PathIsDir("/foo/") != true {
-		t.Errorf("Result should be true.")
-	}
-
-	if PathIsDir("/") != true {
-		t.Errorf("Result should be true.")
-	}
-}
-
 func TestMiscT8(t *testing.T) {
 
 	r0 := []string{"/"}

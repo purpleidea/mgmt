@@ -36,13 +36,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	* [Automatic clustering - Automatic cluster management](#automatic-clustering)
 	* [Remote mode - Remote "agent-less" execution](#remote-agent-less-mode)
 	* [Puppet support - write manifest code for mgmt](#puppet-support)
-5. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
-6. [Reference - Detailed reference](#reference)
+5. [Resources - All built-in primitives](#resources)
+6. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
+7. [Reference - Detailed reference](#reference)
 	* [Graph definition file](#graph-definition-file)
 	* [Command line](#command-line)
-7. [Examples - Example configurations](#examples)
-8. [Development - Background on module development and reporting bugs](#development)
-9. [Authors - Authors and contact information](#authors)
+8. [Examples - Example configurations](#examples)
+9. [Development - Background on module development and reporting bugs](#development)
+10. [Authors - Authors and contact information](#authors)
 
 ##Overview
 
@@ -196,6 +197,80 @@ For more details and caveats see [Puppet.md](Puppet.md).
 
 An introductory post on the Puppet support is on
 [Felix's blog](http://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/).
+
+##Resources
+
+This section lists all the built-in resources and their properties. The
+resource primitives in `mgmt` are typically more powerful than resources in
+other configuration management systems because they can be event based which
+lets them respond in real-time to converge to the desired state. This property
+allows you to build more complex resources that you probably hadn't considered
+in the past.
+
+* [Exec](#Exec): Execute shell commands on the system.
+* [File](#File): Manage files and directories.
+* [Noop](#Noop): A simple resource that does nothing.
+* [Pkg](#Pkg):  Manage system packages with PackageKit.
+* [Svc](#Svc): Manage system systemd services.
+* [Timer](#Timer): Manage system systemd services.
+
+###Exec
+
+The exec resource can execute commands on your system.
+
+###File
+
+The file resource manages files and directories. In `mgmt`, directories are
+identified by a trailing slash in their path name. File have no such slash.
+
+####Path
+
+The path property specifies the file or directory that we are managing.
+
+####Content
+
+The content property is a string that specifies the desired file contents.
+
+####Source
+
+The source property points to a source file or directory path that we wish to
+copy over and use as the desired contents for our resource.
+
+####State
+
+The state property describes the action we'd like to apply for the resource. The
+possible values are: `exists` and `absent`.
+
+####Recurse
+
+The recurse property limits whether file resource operations should recurse into
+and monitor directory contents with a depth greater than one.
+
+####Force
+
+The force property is required if we want the file resource to be able to change
+a file into a directory or vice-versa. If such a change is needed, but the force
+property is not set to `true`, then this file resource will error.
+
+###Noop
+
+The noop resource does absolutely nothing. It does have some utility in testing
+`mgmt` and also as a placeholder in the resource graph.
+
+###Pkg
+
+The pkg resource is used to manage system packages. This resource works on many
+different distributions because it uses the underlying packagekit facility which
+supports different backends for different environments. This ensures that we
+have great Debian (deb/dpkg) and Fedora (rpm/dnf) support simultaneously.
+
+###Svc
+
+The service resource is still very WIP. Please help us my improving it!
+
+###Timer
+
+This resource needs better documentation. Please help us my improving it!
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

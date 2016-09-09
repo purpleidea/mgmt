@@ -9,9 +9,9 @@ Let us know if you're working on one of the items.
 - [ ] install signal blocker [bug](https://github.com/hughsie/PackageKit/issues/109)
 
 ## File resource [bug](https://github.com/purpleidea/mgmt/issues/13) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-- [ ] ability to make/delete folders
-- [ ] recursive argument (can recursively watch/modify contents)
-- [ ] force argument (can cause switch from file <-> folder)
+- [ ] chown/chmod support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+- [ ] user/group support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+- [ ] recurse limit support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] fanotify support [bug](https://github.com/go-fsnotify/fsnotify/issues/114)
 
 ## Exec resource

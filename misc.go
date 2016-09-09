@@ -270,11 +270,6 @@ func PathPrefixDelta(p, prefix string) int {
 	return len(patharray) - len(prefixarray)
 }
 
-// PathIsDir returns true if there is a trailing slash.
-func PathIsDir(p string) bool {
-	return p[len(p)-1:] == "/" // a dir has a trailing slash in this context
-}
-
 // PathSplitFullReversed returns the full list of "dependency" paths for a given
 // path in reverse order.
 func PathSplitFullReversed(p string) []string {
@@ -284,7 +279,7 @@ func PathSplitFullReversed(p string) []string {
 	var x string
 	for i := 0; i < count; i++ {
 		x = "/" + path.Join(split[0:i+1]...)
-		if i != 0 && !(i+1 == count && !PathIsDir(p)) {
+		if i != 0 && !(i+1 == count && !strings.HasSuffix(p, "/")) {
 			x += "/" // add trailing slash
 		}
 		result = append(result, x)

@@ -1,0 +1,13 @@
+---
+graph: mygraph
+resources:
+  noop:
+  - name: noop1
+  file:
+  - name: file1
+    path: "/tmp/mgmt/hello/"
+    source: "/var/lib/mgmt/files/some_dir/"
+    recurse: true
+    force: true
+    state: exists
+edges: []

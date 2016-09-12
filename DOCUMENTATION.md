@@ -35,6 +35,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	* [Autogrouping - Automatic resource grouping](#autogrouping)
 	* [Automatic clustering - Automatic cluster management](#automatic-clustering)
 	* [Remote mode - Remote "agent-less" execution](#remote-agent-less-mode)
+	* [Puppet support - write manifest code for mgmt](#puppet-support)
 5. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
 6. [Reference - Detailed reference](#reference)
 	* [Graph definition file](#graph-definition-file)
@@ -168,6 +169,33 @@ which need to exchange information that is only available at run time.
 ####Blog post
 
 An introductory blog post about this topic will follow soon.
+
+###Puppet support
+
+You can supply a Puppet manifest instead of creating the (YAML) graph manually.
+Puppet must be installed and in `mgmt`'s search path. You also need the
+[ffrank-mgmtgraph Puppet module](https://forge.puppet.com/ffrank/mgmtgraph).
+
+Invoke `mgmt` with the `--puppet` switch, which supports 3 variants:
+
+1. Request the configuration from the Puppet Master (like `puppet agent` does)
+
+        mgmt run --puppet agent
+
+2. Compile a local manifest file (like `puppet apply`)
+
+        mgmt run --puppet /path/to/my/manifest.pp
+
+3. Compile an ad hoc manifest from the commandline (like `puppet apply -e`)
+
+        mgmt run --puppet 'file { "/etc/ntp.conf": ensure => file }'
+
+For more details and caveats see [Puppet.md](Puppet.md).
+
+####Blog post
+
+An introductory post on the Puppet support is on
+[Felix's blog](http://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/).
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

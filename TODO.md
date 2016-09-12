@@ -14,19 +14,40 @@ Let us know if you're working on one of the items.
 - [ ] recurse limit support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] fanotify support [bug](https://github.com/go-fsnotify/fsnotify/issues/114)
 
+## Svc resource
+- [ ] base resource improvements
+
 ## Exec resource
 - [ ] base resource improvements
 
 ## Timer resource
-- [ ] base resource [bug](https://github.com/purpleidea/mgmt/issues/15) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] reset on recompile
-- [ ] increment algorithm (linear, exponential, etc...)
+- [ ] increment algorithm (linear, exponential, etc...) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+
+## User/Group resource
+- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+- [ ] automatic edges to file resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Virt (libvirt) resource
 - [ ] base resource [bug](https://github.com/purpleidea/mgmt/issues/25)
 
+## Net (systemd-networkd) resource
+- [ ] base resource
+
+## Nspawn (systemd-nspawn) resource
+- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+
+## Mount (systemd-mount) resource
+- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+
+## Cron (systemd-timer) resource
+- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+
+## Http resource
+- [ ] base resource
+
 ## Etcd improvements
-- [ ] embedded etcd master
+- [ ] fix embedded etcd master race
 
 ## Language improvements
 - [ ] language design

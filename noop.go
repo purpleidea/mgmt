@@ -20,6 +20,7 @@ package main
 import (
 	"encoding/gob"
 	"log"
+	"time"
 )
 
 func init() {
@@ -57,14 +58,69 @@ func (obj *NoopRes) Validate() bool {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *NoopRes) Watch(processChan chan Event) {
+func (obj *NoopRes) Watch(processChan chan Event, delay time.Duration) error {
 	if obj.IsWatching() {
-		return
+		return nil // TODO: should this be an error?
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
 	cuuid := obj.converger.Register()
 	defer cuuid.Unregister()
+
+	var doSend func() (bool, error) // lol, golang doesn't support recursive lambdas
+	doSend = func() (bool, error) {
+		resp := NewResp()
+		processChan <- Event{eventNil, resp, "", true} // trigger process
+		select {
+		case e := <-resp: // wait for the ACK()
+			if e != nil { // we got a NACK
+				return true, e // exit with error
+			}
+
+		case event := <-obj.events:
+			// NOTE: this code should match the similar code below!
+			cuuid.SetConverged(false)
+			if exit, send := obj.ReadEvent(&event); exit {
+				return true, nil // exit, without error
+			} else if send {
+				return doSend() // recurse
+			}
+		}
+		return false, nil // return, no error or exit signal
+	}
+
+	// if a retry-delay was requested, wait, but don't block our events!
+	if delay > 0 {
+		var pendingSendEvent bool
+		timer := time.NewTimer(delay)
+	Loop:
+		for {
+			select {
+			case <-timer.C: // the wait is over
+				break Loop // critical
+
+			case event := <-obj.events:
+				// NOTE: this code should match the similar code below!
+				cuuid.SetConverged(false)
+				if exit, send := obj.ReadEvent(&event); exit {
+					return nil // exit
+				} else if send {
+					// NOTE: see long comment in the file resource
+					//if exit, err := doSend(); exit || err != nil {
+					//	return err // we exit or bubble up a NACK...
+					//}
+					pendingSendEvent = true // all events are identical for now...
+				}
+			}
+		}
+		timer.Stop() // it's nice to cleanup
+		log.Printf("%s[%s]: Delay expired!", obj.Kind(), obj.GetName())
+		if pendingSendEvent { // TODO: should this become a list in the future?
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
+		}
+	}
 
 	var send = false // send event?
 	var exit = false
@@ -75,7 +131,7 @@ func (obj *NoopRes) Watch(processChan chan Event) {
 			cuuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(&event); exit {
-				return // exit
+				return nil // exit
 			}
 
 		case <-cuuid.ConvergedTimer():
@@ -88,9 +144,9 @@ func (obj *NoopRes) Watch(processChan chan Event) {
 			send = false
 			// only do this on certain types of events
 			//obj.isStateOK = false // something made state dirty
-			resp := NewResp()
-			processChan <- Event{eventNil, resp, "", true} // trigger process
-			resp.ACKWait()                                 // wait for the ACK()
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
 		}
 	}
 }

@@ -17,6 +17,10 @@
 
 package main
 
+import (
+	"fmt"
+)
+
 //go:generate stringer -type=eventName -output=eventname_stringer.go
 type eventName int
 
@@ -29,8 +33,9 @@ const (
 	eventBackPoke
 )
 
-// Resp is a channel to be used for boolean responses.
-type Resp chan bool
+// Resp is a channel to be used for boolean responses. A nil represents an ACK,
+// and a non-nil represents a NACK (false). This also lets us use custom errors.
+type Resp chan error
 
 // Event is the main struct that stores event information and responses.
 type Event struct {
@@ -55,28 +60,43 @@ func (event *Event) NACK() {
 	}
 }
 
+// ACKNACK sends a custom ACK or NACK message on the channel if one was requested.
+func (event *Event) ACKNACK(err error) {
+	if event.Resp != nil { // if they've requested a NACK
+		event.Resp.ACKNACK(err)
+	}
+}
+
 // NewResp is just a helper to return the right type of response channel.
 func NewResp() Resp {
-	resp := make(chan bool)
+	resp := make(chan error)
 	return resp
 }
 
 // ACK sends a true value to resp.
 func (resp Resp) ACK() {
 	if resp != nil {
-		resp <- true
+		resp <- nil
 	}
 }
 
 // NACK sends a false value to resp.
 func (resp Resp) NACK() {
 	if resp != nil {
-		resp <- false
+		resp <- fmt.Errorf("NACK")
+	}
+}
+
+// ACKNACK sends a custom ACK or NACK. The ACK value is always nil, the NACK can
+// be any non-nil error value.
+func (resp Resp) ACKNACK(err error) {
+	if resp != nil {
+		resp <- err
 	}
 }
 
 // Wait waits for any response from a Resp channel and returns it.
-func (resp Resp) Wait() bool {
+func (resp Resp) Wait() error {
 	return <-resp
 }
 
@@ -84,7 +104,7 @@ func (resp Resp) Wait() bool {
 func (resp Resp) ACKWait() {
 	for {
 		// wait until true value
-		if resp.Wait() {
+		if resp.Wait() == nil {
 			return
 		}
 	}

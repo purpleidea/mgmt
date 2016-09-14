@@ -34,6 +34,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func init() {
@@ -143,7 +144,7 @@ func (obj *FileRes) addSubFolders(p string) error {
 	// look at all subfolders...
 	walkFn := func(path string, info os.FileInfo, err error) error {
 		if DEBUG {
-			log.Printf("File[%v]: Walk: %s (%v): %v", obj.GetName(), path, info, err)
+			log.Printf("%s[%s]: Walk: %s (%v): %v", obj.Kind(), obj.GetName(), path, info, err)
 		}
 		if err != nil {
 			return nil
@@ -164,22 +165,94 @@ func (obj *FileRes) addSubFolders(p string) error {
 // Watch is the primary listener for this resource and it outputs events.
 // This one is a file watcher for files and directories.
 // Modify with caution, it is probably important to write some test cases first!
+// If the Watch returns an error, it means that something has gone wrong, and it
+// must be restarted. On a clean exit it returns nil. The delay parameter asks
+// it to respect this pause duration before trying to watch again.
 // FIXME: Also watch the source directory when using obj.Source !!!
-func (obj *FileRes) Watch(processChan chan Event) {
+func (obj *FileRes) Watch(processChan chan Event, delay time.Duration) error {
 	if obj.IsWatching() {
-		return
+		return nil // TODO: should this be an error?
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
 	cuuid := obj.converger.Register()
 	defer cuuid.Unregister()
 
+	var doSend func() (bool, error) // lol, golang doesn't support recursive lambdas
+	doSend = func() (bool, error) {
+		resp := NewResp()
+		processChan <- Event{eventNil, resp, "", true} // trigger process
+		select {
+		case e := <-resp: // wait for the ACK()
+			if e != nil { // we got a NACK
+				return true, e // exit with error
+			}
+
+		case event := <-obj.events:
+			// NOTE: this code should match the similar code below!
+			cuuid.SetConverged(false)
+			if exit, send := obj.ReadEvent(&event); exit {
+				return true, nil // exit, without error
+			} else if send {
+				return doSend() // recurse
+			}
+		}
+		return false, nil // return, no error or exit signal
+	}
+
+	// if a retry-delay was requested, wait, but don't block our events!
+	if delay > 0 {
+		var pendingSendEvent bool
+		timer := time.NewTimer(delay)
+	Loop:
+		for {
+			select {
+			case <-timer.C: // the wait is over
+				break Loop // critical
+
+			case event := <-obj.events:
+				// NOTE: this code should match the similar code below!
+				cuuid.SetConverged(false)
+				if exit, send := obj.ReadEvent(&event); exit {
+					return nil // exit
+				} else if send {
+					// if we dive down this rabbit hole, our
+					// timer.C won't get seen until we get out!
+					// in this situation, the Watch() is blocked
+					// from performing until CheckApply returns
+					// successfully, or errors out. This isn't
+					// so bad, but we should document it. Is it
+					// possible that some resource *needs* Watch
+					// to run to be able to execute a CheckApply?
+					// That situation shouldn't be common, and
+					// should probably not be allowed. Can we
+					// avoid it though?
+					//if exit, err := doSend(); exit || err != nil {
+					//	return err // we exit or bubble up a NACK...
+					//}
+					// Instead of doing the above, we can
+					// add events to a pending list, and
+					// when we finish the delay, we can run
+					// them.
+					pendingSendEvent = true // all events are identical for now...
+				}
+			}
+		}
+		timer.Stop() // it's nice to cleanup
+		log.Printf("%s[%s]: Delay expired!", obj.Kind(), obj.GetName())
+		if pendingSendEvent { // TODO: should this become a list in the future?
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
+		}
+	}
+
 	var safename = path.Clean(obj.path) // no trailing slash
 
 	var err error
 	obj.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer obj.watcher.Close()
 
@@ -201,7 +274,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 
 	if obj.isDir {
 		if err := obj.addSubFolders(safename); err != nil {
-			log.Fatal(err) // TODO: temporary until we support errors
+			return err
 		}
 	}
 	for {
@@ -210,24 +283,25 @@ func (obj *FileRes) Watch(processChan chan Event) {
 			current = "/"
 		}
 		if DEBUG {
-			log.Printf("File[%v]: Watching: %v", obj.GetName(), current) // attempting to watch...
+			log.Printf("%s[%s]: Watching: %v", obj.Kind(), obj.GetName(), current) // attempting to watch...
 		}
 		// initialize in the loop so that we can reset on rm-ed handles
 		err = obj.watcher.Add(current)
 		if err != nil {
 			if DEBUG {
-				log.Printf("File[%v]: watcher.Add(%v): Error: %v", obj.GetName(), current, err)
+				log.Printf("%s[%s]: watcher.Add(%v): Error: %v", obj.Kind(), obj.GetName(), current, err)
 			}
 			if err == syscall.ENOENT {
 				index-- // usually not found, move up one dir
 			} else if err == syscall.ENOSPC {
-				// XXX: occasionally: no space left on device,
-				// XXX: probably due to lack of inotify watches
-				log.Printf("%v[%v]: Out of inotify watches!", obj.Kind(), obj.GetName())
-				log.Fatal(err)
+				// no space left on device, out of inotify watches
+				// TODO: consider letting the user fall back to
+				// polling if they hit this error very often...
+				return fmt.Errorf("%s[%s]: Out of inotify watches: %v", obj.Kind(), obj.GetName(), err)
+			} else if os.IsPermission(err) {
+				return fmt.Errorf("%s[%s]: Permission denied to add a watch: %v", obj.Kind(), obj.GetName(), err)
 			} else {
-				log.Printf("Unknown file[%v] error:", obj.Name)
-				log.Fatal(err)
+				return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
 			}
 			index = int(math.Max(1, float64(index)))
 			continue
@@ -237,7 +311,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 		select {
 		case event := <-obj.watcher.Events:
 			if DEBUG {
-				log.Printf("File[%v]: Watch(%v), Event(%v): %v", obj.GetName(), current, event.Name, event.Op)
+				log.Printf("%s[%s]: Watch(%s), Event(%s): %v", obj.Kind(), obj.GetName(), current, event.Name, event.Op)
 			}
 			cuuid.SetConverged(false) // XXX: technically i can detect if the event is erroneous or not first
 			// the deeper you go, the bigger the deltaDepth is...
@@ -263,7 +337,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 						obj.watcher.Add(event.Name)
 						obj.watches[event.Name] = struct{}{}
 						if err := obj.addSubFolders(event.Name); err != nil {
-							log.Fatal(err) // TODO: temporary until we support errors
+							return err
 						}
 					}
 				}
@@ -286,7 +360,7 @@ func (obj *FileRes) Watch(processChan chan Event) {
 
 				if obj.isDir {
 					if err := obj.addSubFolders(safename); err != nil {
-						log.Fatal(err) // TODO: temporary until we support errors
+						return err
 					}
 				}
 
@@ -331,15 +405,13 @@ func (obj *FileRes) Watch(processChan chan Event) {
 			}
 
 		case err := <-obj.watcher.Errors:
-			cuuid.SetConverged(false) // XXX ?
-			log.Printf("error: %v", err)
-			log.Fatal(err)
-			//obj.events <- fmt.Sprintf("file: %v", "error") // XXX: how should we handle errors?
+			cuuid.SetConverged(false)
+			return fmt.Errorf("Unknown %s[%s] watcher error: %v", obj.Kind(), obj.GetName(), err)
 
 		case event := <-obj.events:
 			cuuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
-				return // exit
+				return nil // exit
 			}
 			//dirty = false // these events don't invalidate state
 
@@ -356,9 +428,9 @@ func (obj *FileRes) Watch(processChan chan Event) {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			resp := NewResp()
-			processChan <- Event{eventNil, resp, "", true} // trigger process
-			resp.ACKWait()                                 // wait for the ACK()
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
 		}
 	}
 }

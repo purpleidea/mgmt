@@ -919,8 +919,8 @@ func (obj *EmbdEtcd) loopProcessAW(ctx context.Context, aw *AW) {
 func (obj *EmbdEtcd) Set(key, value string, opts ...etcd.OpOption) error {
 	resp := NewResp()
 	obj.setq <- &KV{key: key, value: value, opts: opts, resp: resp}
-	if !resp.Wait() { // wait for ack/nack
-		return fmt.Errorf("Etcd: Set: Probably received an exit...")
+	if err := resp.Wait(); err != nil { // wait for ack/nack
+		return fmt.Errorf("Etcd: Set: Probably received an exit: %v", err)
 	}
 	return nil
 }
@@ -953,9 +953,9 @@ func (obj *EmbdEtcd) Get(path string, opts ...etcd.OpOption) (map[string]string,
 func (obj *EmbdEtcd) ComplexGet(path string, skipConv bool, opts ...etcd.OpOption) (map[string]string, error) {
 	resp := NewResp()
 	gq := &GQ{path: path, skipConv: skipConv, opts: opts, resp: resp, data: nil}
-	obj.getq <- gq    // send
-	if !resp.Wait() { // wait for ack/nack
-		return nil, fmt.Errorf("Etcd: Get: Probably received an exit...")
+	obj.getq <- gq                      // send
+	if err := resp.Wait(); err != nil { // wait for ack/nack
+		return nil, fmt.Errorf("Etcd: Get: Probably received an exit: %v", err)
 	}
 	return gq.data, nil
 }
@@ -987,9 +987,9 @@ func (obj *EmbdEtcd) rawGet(ctx context.Context, gq *GQ) (result map[string]stri
 func (obj *EmbdEtcd) Delete(path string, opts ...etcd.OpOption) (int64, error) {
 	resp := NewResp()
 	dl := &DL{path: path, opts: opts, resp: resp, data: -1}
-	obj.delq <- dl    // send
-	if !resp.Wait() { // wait for ack/nack
-		return -1, fmt.Errorf("Etcd: Delete: Probably received an exit...")
+	obj.delq <- dl                      // send
+	if err := resp.Wait(); err != nil { // wait for ack/nack
+		return -1, fmt.Errorf("Etcd: Delete: Probably received an exit: %v", err)
 	}
 	return dl.data, nil
 }
@@ -1015,9 +1015,9 @@ func (obj *EmbdEtcd) rawDelete(ctx context.Context, dl *DL) (count int64, err er
 func (obj *EmbdEtcd) Txn(ifcmps []etcd.Cmp, thenops, elseops []etcd.Op) (*etcd.TxnResponse, error) {
 	resp := NewResp()
 	tn := &TN{ifcmps: ifcmps, thenops: thenops, elseops: elseops, resp: resp, data: nil}
-	obj.txnq <- tn    // send
-	if !resp.Wait() { // wait for ack/nack
-		return nil, fmt.Errorf("Etcd: Txn: Probably received an exit...")
+	obj.txnq <- tn                      // send
+	if err := resp.Wait(); err != nil { // wait for ack/nack
+		return nil, fmt.Errorf("Etcd: Txn: Probably received an exit: %v", err)
 	}
 	return tn.data, nil
 }
@@ -1040,9 +1040,9 @@ func (obj *EmbdEtcd) rawTxn(ctx context.Context, tn *TN) (*etcd.TxnResponse, err
 func (obj *EmbdEtcd) AddWatcher(path string, callback func(re *RE) error, errCheck bool, skipConv bool, opts ...etcd.OpOption) (func(), error) {
 	resp := NewResp()
 	awq := &AW{path: path, opts: opts, callback: callback, errCheck: errCheck, skipConv: skipConv, cancelFunc: nil, resp: resp}
-	obj.awq <- awq    // send
-	if !resp.Wait() { // wait for ack/nack
-		return nil, fmt.Errorf("Etcd: AddWatcher: Got NACK!")
+	obj.awq <- awq                      // send
+	if err := resp.Wait(); err != nil { // wait for ack/nack
+		return nil, fmt.Errorf("Etcd: AddWatcher: Got NACK: %v", err)
 	}
 	return awq.cancelFunc, nil
 }

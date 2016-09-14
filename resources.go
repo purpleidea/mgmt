@@ -23,6 +23,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+	"time"
 )
 
 //go:generate stringer -type=resState -output=resstate_stringer.go
@@ -64,6 +65,11 @@ type MetaParams struct {
 	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges? // XXX should default to true
 	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group? // XXX should default to true
 	Noop      bool `yaml:"noop"`
+	// NOTE: there are separate Watch and CheckApply retry and delay values,
+	// but I've decided to use the same ones for both until there's a proper
+	// reason to want to do something differently for the Watch errors.
+	Retry int16  `yaml:"retry"` // metaparam, number of times to retry on error. -1 for infinite
+	Delay uint64 `yaml:"delay"` // metaparam, number of milliseconds to wait between retries
 }
 
 // The Base interface is everything that is common to all resources.
@@ -94,8 +100,8 @@ type Res interface {
 	Base // include everything from the Base interface
 	Init()
 	//Validate() bool    // TODO: this might one day be added
-	GetUUIDs() []ResUUID // most resources only return one
-	Watch(chan Event)    // send on channel to signal process() events
+	GetUUIDs() []ResUUID                   // most resources only return one
+	Watch(chan Event, time.Duration) error // send on channel to signal process() events
 	CheckApply(bool) (bool, error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
@@ -226,15 +232,10 @@ func (obj *BaseRes) SendEvent(event eventName, sync bool, activity bool) bool {
 		return true
 	}
 
-	resp := make(chan bool)
+	resp := NewResp()
 	obj.events <- Event{event, resp, "", activity}
-	for {
-		value := <-resp
-		// wait until true value
-		if value {
-			return true
-		}
-	}
+	resp.ACKWait() // waits until true (nil) value
+	return true
 }
 
 // ReadEvent processes events when a select gets one, and handles the pause

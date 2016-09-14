@@ -25,6 +25,7 @@ import (
 	"log"
 	"path"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -108,14 +109,69 @@ func (obj *PkgRes) Validate() bool {
 // It uses the PackageKit UpdatesChanged signal to watch for changes.
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
-func (obj *PkgRes) Watch(processChan chan Event) {
+func (obj *PkgRes) Watch(processChan chan Event, delay time.Duration) error {
 	if obj.IsWatching() {
-		return
+		return nil
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
 	cuuid := obj.converger.Register()
 	defer cuuid.Unregister()
+
+	var doSend func() (bool, error) // lol, golang doesn't support recursive lambdas
+	doSend = func() (bool, error) {
+		resp := NewResp()
+		processChan <- Event{eventNil, resp, "", true} // trigger process
+		select {
+		case e := <-resp: // wait for the ACK()
+			if e != nil { // we got a NACK
+				return true, e // exit with error
+			}
+
+		case event := <-obj.events:
+			// NOTE: this code should match the similar code below!
+			cuuid.SetConverged(false)
+			if exit, send := obj.ReadEvent(&event); exit {
+				return true, nil // exit, without error
+			} else if send {
+				return doSend() // recurse
+			}
+		}
+		return false, nil // return, no error or exit signal
+	}
+
+	// if a retry-delay was requested, wait, but don't block our events!
+	if delay > 0 {
+		var pendingSendEvent bool
+		timer := time.NewTimer(delay)
+	Loop:
+		for {
+			select {
+			case <-timer.C: // the wait is over
+				break Loop // critical
+
+			case event := <-obj.events:
+				// NOTE: this code should match the similar code below!
+				cuuid.SetConverged(false)
+				if exit, send := obj.ReadEvent(&event); exit {
+					return nil // exit
+				} else if send {
+					// NOTE: see long comment in the file resource
+					//if exit, err := doSend(); exit || err != nil {
+					//	return err // we exit or bubble up a NACK...
+					//}
+					pendingSendEvent = true // all events are identical for now...
+				}
+			}
+		}
+		timer.Stop() // it's nice to cleanup
+		log.Printf("%s[%s]: Delay expired!", obj.Kind(), obj.GetName())
+		if pendingSendEvent { // TODO: should this become a list in the future?
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
+		}
+	}
 
 	bus := NewBus()
 	if bus == nil {
@@ -159,7 +215,7 @@ func (obj *PkgRes) Watch(processChan chan Event) {
 		case event := <-obj.events:
 			cuuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
-				return // exit
+				return nil // exit
 			}
 			dirty = false // these events don't invalidate state
 
@@ -176,9 +232,9 @@ func (obj *PkgRes) Watch(processChan chan Event) {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			resp := NewResp()
-			processChan <- Event{eventNil, resp, "", true} // trigger process
-			resp.ACKWait()                                 // wait for the ACK()
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
 		}
 	}
 }

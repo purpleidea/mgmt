@@ -65,19 +65,73 @@ func (obj *TimerRes) Validate() bool {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *TimerRes) Watch(processChan chan Event) {
+func (obj *TimerRes) Watch(processChan chan Event, delay time.Duration) error {
 	if obj.IsWatching() {
-		return
+		return nil
+	}
+	obj.SetWatching(true)
+	defer obj.SetWatching(false)
+	cuuid := obj.converger.Register()
+	defer cuuid.Unregister()
+
+	var doSend func(string) (bool, error) // lol, golang doesn't support recursive lambdas
+	doSend = func(comment string) (bool, error) {
+		resp := NewResp()
+		processChan <- Event{eventNil, resp, comment, true} // trigger process
+		select {
+		case e := <-resp: // wait for the ACK()
+			if e != nil { // we got a NACK
+				return true, e // exit with error
+			}
+
+		case event := <-obj.events:
+			// NOTE: this code should match the similar code below!
+			cuuid.SetConverged(false)
+			if exit, send := obj.ReadEvent(&event); exit {
+				return true, nil // exit, without error
+			} else if send {
+				return doSend(comment) // recurse
+			}
+		}
+		return false, nil // return, no error or exit signal
+	}
+
+	// if a retry-delay was requested, wait, but don't block our events!
+	if delay > 0 {
+		var pendingSendEvent bool
+		timer := time.NewTimer(delay)
+	Loop:
+		for {
+			select {
+			case <-timer.C: // the wait is over
+				break Loop // critical
+
+			case event := <-obj.events:
+				// NOTE: this code should match the similar code below!
+				cuuid.SetConverged(false)
+				if exit, send := obj.ReadEvent(&event); exit {
+					return nil // exit
+				} else if send {
+					// NOTE: see long comment in the file resource
+					//if exit, err := doSend(); exit || err != nil {
+					//	return err // we exit or bubble up a NACK...
+					//}
+					pendingSendEvent = true // all events are identical for now...
+				}
+			}
+		}
+		timer.Stop() // it's nice to cleanup
+		log.Printf("%s[%s]: Delay expired!", obj.Kind(), obj.GetName())
+		if pendingSendEvent { // TODO: should this become a list in the future?
+			if exit, err := doSend("pending delayed event"); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
+		}
 	}
 
 	// Create a time.Ticker for the given interval
 	ticker := time.NewTicker(time.Duration(obj.Interval) * time.Second)
 	defer ticker.Stop()
-
-	obj.SetWatching(true)
-	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
 
 	var send = false
 
@@ -90,7 +144,7 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 		case event := <-obj.events:
 			cuuid.SetConverged(false)
 			if exit, _ := obj.ReadEvent(&event); exit {
-				return
+				return nil
 			}
 		case <-cuuid.ConvergedTimer():
 			cuuid.SetConverged(true)
@@ -99,9 +153,9 @@ func (obj *TimerRes) Watch(processChan chan Event) {
 		if send {
 			send = false
 			obj.isStateOK = false
-			resp := NewResp()
-			processChan <- Event{eventNil, resp, "timer ticked", true}
-			resp.ACKWait()
+			if exit, err := doSend("timer ticked"); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
 		}
 	}
 }

@@ -22,9 +22,11 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"log"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -105,14 +107,69 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *ExecRes) Watch(processChan chan Event) {
+func (obj *ExecRes) Watch(processChan chan Event, delay time.Duration) error {
 	if obj.IsWatching() {
-		return
+		return nil
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
 	cuuid := obj.converger.Register()
 	defer cuuid.Unregister()
+
+	var doSend func() (bool, error) // lol, golang doesn't support recursive lambdas
+	doSend = func() (bool, error) {
+		resp := NewResp()
+		processChan <- Event{eventNil, resp, "", true} // trigger process
+		select {
+		case e := <-resp: // wait for the ACK()
+			if e != nil { // we got a NACK
+				return true, e // exit with error
+			}
+
+		case event := <-obj.events:
+			// NOTE: this code should match the similar code below!
+			cuuid.SetConverged(false)
+			if exit, send := obj.ReadEvent(&event); exit {
+				return true, nil // exit, without error
+			} else if send {
+				return doSend() // recurse
+			}
+		}
+		return false, nil // return, no error or exit signal
+	}
+
+	// if a retry-delay was requested, wait, but don't block our events!
+	if delay > 0 {
+		var pendingSendEvent bool
+		timer := time.NewTimer(delay)
+	Loop:
+		for {
+			select {
+			case <-timer.C: // the wait is over
+				break Loop // critical
+
+			case event := <-obj.events:
+				// NOTE: this code should match the similar code below!
+				cuuid.SetConverged(false)
+				if exit, send := obj.ReadEvent(&event); exit {
+					return nil // exit
+				} else if send {
+					// NOTE: see long comment in the file resource
+					//if exit, err := doSend(); exit || err != nil {
+					//	return err // we exit or bubble up a NACK...
+					//}
+					pendingSendEvent = true // all events are identical for now...
+				}
+			}
+		}
+		timer.Stop() // it's nice to cleanup
+		log.Printf("%s[%s]: Delay expired!", obj.Kind(), obj.GetName())
+		if pendingSendEvent { // TODO: should this become a list in the future?
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
+		}
+	}
 
 	var send = false // send event?
 	var exit = false
@@ -138,8 +195,7 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
-			log.Printf("%v[%v]: Error creating StdoutPipe for Cmd: %v", obj.Kind(), obj.GetName(), err)
-			log.Fatal(err) // XXX: how should we handle errors?
+			return fmt.Errorf("%s[%s]: Error creating StdoutPipe for Cmd: %v", obj.Kind(), obj.GetName(), err)
 		}
 		scanner := bufio.NewScanner(cmdReader)
 
@@ -150,8 +206,7 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 			cmd.Process.Kill() // TODO: is this necessary?
 		}()
 		if err := cmd.Start(); err != nil {
-			log.Printf("%v[%v]: Error starting Cmd: %v", obj.Kind(), obj.GetName(), err)
-			log.Fatal(err) // XXX: how should we handle errors?
+			return fmt.Errorf("%s[%s]: Error starting Cmd: %v", obj.Kind(), obj.GetName(), err)
 		}
 
 		bufioch, errch = obj.BufioChanScanner(scanner)
@@ -169,21 +224,19 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 			}
 
 		case err := <-errch:
-			cuuid.SetConverged(false) // XXX ?
-			if err == nil {           // EOF
+			cuuid.SetConverged(false)
+			if err == nil { // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
-				log.Printf("%v[%v]: Reached EOF", obj.Kind(), obj.GetName())
-				return
+				return fmt.Errorf("%s[%s]: Reached EOF", obj.Kind(), obj.GetName())
 			}
-			log.Printf("%v[%v]: Error reading input?: %v", obj.Kind(), obj.GetName(), err)
-			log.Fatal(err)
-			// XXX: how should we handle errors?
+			// error reading input?
+			return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
 
 		case event := <-obj.events:
 			cuuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
-				return // exit
+				return nil // exit
 			}
 
 		case <-cuuid.ConvergedTimer():
@@ -196,9 +249,9 @@ func (obj *ExecRes) Watch(processChan chan Event) {
 			send = false
 			// it is okay to invalidate the clean state on poke too
 			obj.isStateOK = false // something made state dirty
-			resp := NewResp()
-			processChan <- Event{eventNil, resp, "", true} // trigger process
-			resp.ACKWait()                                 // wait for the ACK()
+			if exit, err := doSend(); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
 		}
 	}
 }

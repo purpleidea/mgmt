@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPgraphT1(t *testing.T) {
@@ -1281,4 +1282,14 @@ func TestPgraphGroupingConnected1(t *testing.T) {
 		g2.AddEdge(b, a2, e2)
 	}
 	runGraphCmp(t, g1, g2)
+}
+
+func TestDurationAssumptions(t *testing.T) {
+	var d time.Duration
+	if (d == 0) != true {
+		t.Errorf("Empty time.Duration is no longer equal to zero!")
+	}
+	if (d > 0) != false {
+		t.Errorf("Empty time.Duration is now greater than zero!")
+	}
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"sort"
@@ -718,7 +719,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 
 // Process is the primary function to execute for a particular vertex in the graph.
 // XXX: rename this function
-func (g *Graph) Process(v *Vertex) {
+func (g *Graph) Process(v *Vertex) error {
 	obj := v.Res
 	if DEBUG {
 		log.Printf("%v[%v]: Process()", obj.Kind(), obj.GetName())
@@ -765,10 +766,132 @@ func (g *Graph) Process(v *Vertex) {
 			g.Poke(v, apply)
 		}
 		// poke at our pre-req's instead since they need to refresh/run...
+		return err
 	} else {
 		// only poke at the pre-req's that need to run
 		go g.BackPoke(v)
 	}
+	return nil
+}
+
+// SentinelErr is a sentinal as an error type that wraps an arbitrary error.
+type SentinelErr struct {
+	err error
+}
+
+// Error is the required method to fulfill the error type.
+func (obj *SentinelErr) Error() string {
+	return obj.err.Error()
+}
+
+// Worker is the common run frontend of the vertex. It handles all of the retry
+// and retry delay common code, and ultimately returns the final status of this
+// vertex execution.
+func (g *Graph) Worker(v *Vertex) error {
+	// listen for chan events from Watch() and run
+	// the Process() function when they're received
+	// this avoids us having to pass the data into
+	// the Watch() function about which graph it is
+	// running on, which isolates things nicely...
+	chanProcess := make(chan Event)
+	go func() {
+		running := false
+		var timer = time.NewTimer(time.Duration(math.MaxInt64)) // longest duration
+		if !timer.Stop() {
+			<-timer.C // unnecessary, shouldn't happen
+		}
+		var delay = time.Duration(v.Meta().Delay) * time.Millisecond
+		var retry int16 = v.Meta().Retry // number of tries left, -1 for infinite
+		var saved Event
+	Loop:
+		for {
+			// this has to be synchronous, because otherwise the Res
+			// event loop will keep running and change state,
+			// causing the converged timeout to fire!
+			select {
+			case event, ok := <-chanProcess: // must use like this
+				if running && ok {
+					// we got an event that wasn't a close,
+					// while we were waiting for the timer!
+					// if this happens, it might be a bug:(
+					log.Fatalf("%v[%v]: Worker: Unexpected event: %+v", v.Kind(), v.GetName(), event)
+				}
+				if !ok { // chanProcess closed, let's exit
+					break Loop // no event, so no ack!
+				}
+
+				// the above mentioned synchronous part, is the
+				// running of this function, paired with an ack.
+				if e := g.Process(v); e != nil {
+					saved = event
+					log.Printf("%v[%v]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
+					if retry == 0 {
+						// wrap the error in the sentinel
+						event.ACKNACK(&SentinelErr{e}) // fail the Watch()
+						break Loop
+					}
+					if retry > 0 { // don't decrement the -1
+						retry--
+					}
+					log.Printf("%v[%v]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
+					// start the timer...
+					timer.Reset(delay)
+					running = true
+					continue
+				}
+				retry = v.Meta().Retry // reset on success
+				event.ACK()            // sync
+
+			case <-timer.C:
+				if !timer.Stop() {
+					//<-timer.C // blocks, docs are wrong!
+				}
+				running = false
+				// re-send this failed event, to trigger a CheckApply()
+				go func() { chanProcess <- saved }()
+				// TODO: should we send a fake event instead?
+				//saved = nil
+			}
+		}
+	}()
+	var err error // propagate the error up (this is a permanent BAD error!)
+	// the watch delay runs inside of the Watch resource loop, so that it
+	// can still process signals and exit if needed. It shouldn't run any
+	// resource specific code since this is supposed to be a retry delay.
+	// NOTE: we're using the same retry and delay metaparams that CheckApply
+	// uses. This is for practicality. We can separate them later if needed!
+	var watchDelay time.Duration
+	var watchRetry int16 = v.Meta().Retry // number of tries left, -1 for infinite
+	// watch blocks until it ends, & errors to retry
+	for {
+		// TODO: reset the watch retry count after some amount of success
+		e := v.Res.Watch(chanProcess, watchDelay)
+		if e == nil { // exit signal
+			err = nil // clean exit
+			break
+		}
+		if sentinelErr, ok := e.(*SentinelErr); ok { // unwrap the sentinel
+			err = sentinelErr.err
+			break // sentinel means, perma-exit
+		}
+		log.Printf("%v[%v]: Watch errored: %v", v.Kind(), v.GetName(), e)
+		if watchRetry == 0 {
+			err = fmt.Errorf("Permanent watch error: %v", e)
+			break
+		}
+		if watchRetry > 0 { // don't decrement the -1
+			watchRetry--
+		}
+		watchDelay = time.Duration(v.Meta().Delay) * time.Millisecond
+		log.Printf("%v[%v]: Watch: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), watchDelay.Seconds(), watchRetry)
+		// We trigger a CheckApply if watch restarts, so that we catch
+		// any possible events that happened while down. NOTE: this is
+		// only flood-safe if the Watch resource de-duplicates similar
+		// send event messages. It does for now, rethink this later...
+		v.SendEvent(eventPoke, false, false)
+	}
+	close(chanProcess)
+	return err
 }
 
 // Start is a main kick to start the graph. It goes through in reverse topological
@@ -787,25 +910,13 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
 			go func(vv *Vertex) {
 				defer wg.Done()
-				// listen for chan events from Watch() and run
-				// the Process() function when they're received
-				// this avoids us having to pass the data into
-				// the Watch() function about which graph it is
-				// running on, which isolates things nicely...
-				chanProcess := make(chan Event)
-				go func() {
-					for event := range chanProcess {
-						// this has to be synchronous,
-						// because otherwise the Res
-						// event loop will keep running
-						// and change state, causing the
-						// converged timeout to fire!
-						g.Process(vv)
-						event.ACK() // sync
-					}
-				}()
-				vv.Res.Watch(chanProcess) // i block until i end
-				close(chanProcess)
+				// TODO: if a sufficient number of workers error,
+				// should something be done? Will these restart
+				// after perma-failure if we have a graph change?
+				if err := g.Worker(vv); err != nil { // contains the Watch and CheckApply loops
+					log.Printf("%s[%s]: Exited with failure: %v", vv.Kind(), vv.GetName(), err)
+					return
+				}
 				log.Printf("%v[%v]: Exited", vv.Kind(), vv.GetName())
 			}(v)
 		}

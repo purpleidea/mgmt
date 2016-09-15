@@ -26,13 +26,13 @@
 
 // Smoke testing:
 // ./mgmt run --file examples/etcd1a.yaml --hostname h1
-// ./mgmt run --file examples/etcd1b.yaml --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382
-// ./mgmt run --file examples/etcd1c.yaml --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384
-// ./mgmt run --file examples/etcd1d.yaml --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386
-// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
-// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list
+// ./mgmt run --file examples/etcd1b.yaml --hostname h2 --tmp-prefix --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382
+// ./mgmt run --file examples/etcd1c.yaml --hostname h3 --tmp-prefix --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/idealClusterSize 3
+// ./mgmt run --file examples/etcd1d.yaml --hostname h4 --tmp-prefix --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386
+// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 put /_mgmt/idealClusterSize 5
+// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list
 
 // The elastic etcd algorithm works in the following way:
 // * When you start up mgmt, you can pass it a list of seeds.

@@ -1,4 +1,6 @@
-# *mgmt*: This is: mgmt!
+# *mgmt*: next generation config management!
+
+[![mgmt!](art/mgmt.png)](art/)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/purpleidea/mgmt)](https://goreportcard.com/report/github.com/purpleidea/mgmt)
 [![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png?branch=master)](http://travis-ci.org/purpleidea/mgmt)

@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /bin/bash
-.PHONY: all version program path deps run race generate build clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
+.PHONY: all art cleanart version program path deps run race generate build clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
@@ -37,6 +37,42 @@ RPM = rpmbuild/RPMS/$(PROGRAM)-$(VERSION)-$(RELEASE).$(ARCH).rpm
 USERNAME := $(shell cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' '{print $$2}' | tr -d ' ')
 SERVER = 'dl.fedoraproject.org'
 REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
+
+#
+#	art
+#
+art: art/mgmt_logo_default_symbol.png art/mgmt_logo_default_tall.png art/mgmt_logo_default_wide.png art/mgmt_logo_reversed_symbol.png art/mgmt_logo_reversed_tall.png art/mgmt_logo_reversed_wide.png art/mgmt_logo_white_symbol.png art/mgmt_logo_white_tall.png art/mgmt_logo_white_wide.png
+
+cleanart:
+	rm -f art/mgmt_logo_default_symbol.png art/mgmt_logo_default_tall.png art/mgmt_logo_default_wide.png art/mgmt_logo_reversed_symbol.png art/mgmt_logo_reversed_tall.png art/mgmt_logo_reversed_wide.png art/mgmt_logo_white_symbol.png art/mgmt_logo_white_tall.png art/mgmt_logo_white_wide.png
+
+# NOTE: the widths are arbitrary
+art/mgmt_logo_default_symbol.png: art/mgmt_logo_default_symbol.svg
+	inkscape --export-background='#ffffff' --without-gui --export-png "$@" --export-width 300 $(@:png=svg)
+
+art/mgmt_logo_default_tall.png: art/mgmt_logo_default_tall.svg
+	inkscape --export-background='#ffffff' --without-gui --export-png "$@" --export-width 400 $(@:png=svg)
+
+art/mgmt_logo_default_wide.png: art/mgmt_logo_default_wide.svg
+	inkscape --export-background='#ffffff' --without-gui --export-png "$@" --export-width 800 $(@:png=svg)
+
+art/mgmt_logo_reversed_symbol.png: art/mgmt_logo_reversed_symbol.svg
+	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 300 $(@:png=svg)
+
+art/mgmt_logo_reversed_tall.png: art/mgmt_logo_reversed_tall.svg
+	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 400 $(@:png=svg)
+
+art/mgmt_logo_reversed_wide.png: art/mgmt_logo_reversed_wide.svg
+	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 800 $(@:png=svg)
+
+art/mgmt_logo_white_symbol.png: art/mgmt_logo_white_symbol.svg
+	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 300 $(@:png=svg)
+
+art/mgmt_logo_white_tall.png: art/mgmt_logo_white_tall.svg
+	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 400 $(@:png=svg)
+
+art/mgmt_logo_white_wide.png: art/mgmt_logo_white_wide.svg
+	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 800 $(@:png=svg)
 
 all: docs $(PROGRAM).static
 

@@ -14,6 +14,12 @@
 Come join us on IRC in [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) on Freenode!
 You may like the [#mgmtconfig](https://twitter.com/hashtag/mgmtconfig) hashtag if you're on [Twitter](https://twitter.com/#!/purpleidea).
 
+## Status:
+Mgmt is a fairly new project.
+We're working towards being minimally useful for production environments.
+We aren't feature complete for what we'd consider a 1.x release yet.
+With your help you'll be able to influence our design and get us there sooner!
+
 ## Questions:
 Please join the [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) IRC community!
 If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!

@@ -29,6 +29,7 @@ if [ $travis -eq 0 ]; then
 		# one of these two golang tools packages should work on debian
 		$sudo_command $APT install -y golang-golang-x-tools || true
 		$sudo_command $APT install -y golang-go.tools || true
+		$sudo_command $APT install -y libpcap0.8-dev || true
 	fi
 fi
 

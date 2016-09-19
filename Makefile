@@ -48,31 +48,31 @@ cleanart:
 
 # NOTE: the widths are arbitrary
 art/mgmt_logo_default_symbol.png: art/mgmt_logo_default_symbol.svg
-	inkscape --export-background='#ffffff' --without-gui --export-png "$@" --export-width 300 $(@:png=svg)
+	convert -background "#ffffff" -size 300 $(@:png=svg) "$@"
 
 art/mgmt_logo_default_tall.png: art/mgmt_logo_default_tall.svg
-	inkscape --export-background='#ffffff' --without-gui --export-png "$@" --export-width 400 $(@:png=svg)
+	convert -background "#ffffff" -size 400 $(@:png=svg) "$@"
 
 art/mgmt_logo_default_wide.png: art/mgmt_logo_default_wide.svg
-	inkscape --export-background='#ffffff' --without-gui --export-png "$@" --export-width 800 $(@:png=svg)
+	convert -background "#ffffff" -size 800 $(@:png=svg) "$@"
 
 art/mgmt_logo_reversed_symbol.png: art/mgmt_logo_reversed_symbol.svg
-	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 300 $(@:png=svg)
+	convert -background "#231f20" -size 300 $(@:png=svg) "$@"
 
 art/mgmt_logo_reversed_tall.png: art/mgmt_logo_reversed_tall.svg
-	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 400 $(@:png=svg)
+	convert -background "#231f20" -size 400 $(@:png=svg) "$@"
 
 art/mgmt_logo_reversed_wide.png: art/mgmt_logo_reversed_wide.svg
-	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 800 $(@:png=svg)
+	convert -background "#231f20" -size 800 $(@:png=svg) "$@"
 
 art/mgmt_logo_white_symbol.png: art/mgmt_logo_white_symbol.svg
-	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 300 $(@:png=svg)
+	convert -background "#231f20" -size 300 $(@:png=svg) "$@"
 
 art/mgmt_logo_white_tall.png: art/mgmt_logo_white_tall.svg
-	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 400 $(@:png=svg)
+	convert -background "#231f20" -size 400 $(@:png=svg) "$@"
 
 art/mgmt_logo_white_wide.png: art/mgmt_logo_white_wide.svg
-	inkscape --export-background='#231f20' --without-gui --export-png "$@" --export-width 800 $(@:png=svg)
+	convert -background "#231f20" -size 800 $(@:png=svg) "$@"
 
 all: docs $(PROGRAM).static
 

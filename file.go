@@ -166,10 +166,9 @@ func (obj *FileRes) addSubFolders(p string) error {
 // This one is a file watcher for files and directories.
 // Modify with caution, it is probably important to write some test cases first!
 // If the Watch returns an error, it means that something has gone wrong, and it
-// must be restarted. On a clean exit it returns nil. The delay parameter asks
-// it to respect this pause duration before trying to watch again.
+// must be restarted. On a clean exit it returns nil.
 // FIXME: Also watch the source directory when using obj.Source !!!
-func (obj *FileRes) Watch(processChan chan Event, delay time.Duration) error {
+func (obj *FileRes) Watch(processChan chan Event) error {
 	if obj.IsWatching() {
 		return nil // TODO: should this be an error?
 	}
@@ -178,73 +177,13 @@ func (obj *FileRes) Watch(processChan chan Event, delay time.Duration) error {
 	cuuid := obj.converger.Register()
 	defer cuuid.Unregister()
 
-	var doSend func() (bool, error) // lol, golang doesn't support recursive lambdas
-	doSend = func() (bool, error) {
-		resp := NewResp()
-		processChan <- Event{eventNil, resp, "", true} // trigger process
-		select {
-		case e := <-resp: // wait for the ACK()
-			if e != nil { // we got a NACK
-				return true, e // exit with error
-			}
-
-		case event := <-obj.events:
-			// NOTE: this code should match the similar code below!
-			cuuid.SetConverged(false)
-			if exit, send := obj.ReadEvent(&event); exit {
-				return true, nil // exit, without error
-			} else if send {
-				return doSend() // recurse
-			}
+	var startup bool
+	Startup := func(block bool) <-chan time.Time {
+		if block {
+			return nil // blocks forever
+			//return make(chan time.Time) // blocks forever
 		}
-		return false, nil // return, no error or exit signal
-	}
-
-	// if a retry-delay was requested, wait, but don't block our events!
-	if delay > 0 {
-		var pendingSendEvent bool
-		timer := time.NewTimer(delay)
-	Loop:
-		for {
-			select {
-			case <-timer.C: // the wait is over
-				break Loop // critical
-
-			case event := <-obj.events:
-				// NOTE: this code should match the similar code below!
-				cuuid.SetConverged(false)
-				if exit, send := obj.ReadEvent(&event); exit {
-					return nil // exit
-				} else if send {
-					// if we dive down this rabbit hole, our
-					// timer.C won't get seen until we get out!
-					// in this situation, the Watch() is blocked
-					// from performing until CheckApply returns
-					// successfully, or errors out. This isn't
-					// so bad, but we should document it. Is it
-					// possible that some resource *needs* Watch
-					// to run to be able to execute a CheckApply?
-					// That situation shouldn't be common, and
-					// should probably not be allowed. Can we
-					// avoid it though?
-					//if exit, err := doSend(); exit || err != nil {
-					//	return err // we exit or bubble up a NACK...
-					//}
-					// Instead of doing the above, we can
-					// add events to a pending list, and
-					// when we finish the delay, we can run
-					// them.
-					pendingSendEvent = true // all events are identical for now...
-				}
-			}
-		}
-		timer.Stop() // it's nice to cleanup
-		log.Printf("%s[%s]: Delay expired!", obj.Kind(), obj.GetName())
-		if pendingSendEvent { // TODO: should this become a list in the future?
-			if exit, err := doSend(); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
-		}
+		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
 	}
 
 	var safename = path.Clean(obj.path) // no trailing slash
@@ -418,17 +357,23 @@ func (obj *FileRes) Watch(processChan chan Event, delay time.Duration) error {
 		case <-cuuid.ConvergedTimer():
 			cuuid.SetConverged(true) // converged!
 			continue
+
+		case <-Startup(startup):
+			cuuid.SetConverged(false)
+			send = true
+			dirty = true
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
+			startup = true // startup finished
 			send = false
 			// only invalid state on certain types of events
 			if dirty {
 				dirty = false
 				obj.isStateOK = false // something made state dirty
 			}
-			if exit, err := doSend(); exit || err != nil {
+			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
 		}

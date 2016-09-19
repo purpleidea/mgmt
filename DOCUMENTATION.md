@@ -39,6 +39,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 5. [Resources - All built-in primitives](#resources)
 6. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
 7. [Reference - Detailed reference](#reference)
+	* [Meta parameters](#meta-parameters)
 	* [Graph definition file](#graph-definition-file)
 	* [Command line](#command-line)
 8. [Examples - Example configurations](#examples)
@@ -207,6 +208,13 @@ lets them respond in real-time to converge to the desired state. This property
 allows you to build more complex resources that you probably hadn't considered
 in the past.
 
+In addition to the resource specific properties, there are resource properties
+(otherwise known as parameters) which can apply to every resource. These are
+called [meta parameters](#meta-parameters) and are listed separately. Certain
+meta parameters aren't very useful when combined with certain resources, but
+in general, it should be fairly obvious, such as when combining the `noop` meta
+parameter with the [Noop](#Noop) resource.
+
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
 * [Noop](#Noop): A simple resource that does nothing.
@@ -359,8 +367,39 @@ information on these options, please view the source at:
 If you feel that a well used option needs documenting here, please patch it!
 
 ###Overview of reference
+* [Meta parameters](#meta-parameters): List of available resource meta parameters.
 * [Graph definition file](#graph-definition-file): Main graph definition file.
 * [Command line](#command-line): Command line parameters.
+
+###Meta parameters
+These meta parameters are special parameters (or properties) which can apply to
+any resource. The usefulness of doing so will depend on the particular meta
+parameter and resource combination.
+
+####AutoEdge
+Boolean. Should we generate auto edges for this resource?
+
+####AutoGroup
+Boolean. Should we attempt to automatically group this resource with others?
+
+####Noop
+Boolean. Should the Apply portion of the CheckApply method of the resource
+make any changes? Noop is a concatenation of no-operation.
+
+####Retry
+Integer. The number of times to retry running the resource on error. Use -1 for
+infinite. This currently applies for both the Watch operation (which can fail)
+and for the CheckApply operation. While they could have separate values, I've
+decided to use the same ones for both until there's a proper reason to want to
+do something differently for the Watch errors.
+
+####Delay
+Integer. Number of milliseconds to wait between retries. The same value is
+shared between the Watch and CheckApply retries. This currently applies for both
+the Watch operation (which can fail) and for the CheckApply operation. While
+they could have separate values, I've decided to use the same ones for both
+until there's a proper reason to want to do something differently for the Watch
+errors.
 
 ###Graph definition file
 graph.yaml is the compiled graph definition file. The format is currently

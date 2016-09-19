@@ -231,7 +231,7 @@ func run(c *cli.Context) error {
 		converger.SetStateFn(convergerStateFn)
 	}
 
-	exitchan := make(chan Event) // exit event
+	exitchan := make(chan struct{}) // exit on close
 	go func() {
 		startchan := make(chan struct{}) // start signal
 		go func() { startchan <- struct{}{} }()
@@ -268,8 +268,7 @@ func run(c *cli.Context) error {
 				}
 			// XXX: case compile_event: ...
 			// ...
-			case msg := <-exitchan:
-				msg.ACK()
+			case <-exitchan:
 				return
 			}
 
@@ -384,15 +383,12 @@ func run(c *cli.Context) error {
 	G.Exit() // tell all the children to exit
 
 	// tell inner main loop to exit
-	resp := NewResp()
-	go func() { exitchan <- Event{eventExit, resp, "", false} }()
+	close(exitchan)
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
 		log.Printf("Etcd exited poorly with: %v", err)
 	}
-
-	resp.ACKWait() // let inner main loop finish cleanly just in case
 
 	if DEBUG {
 		log.Printf("Graph: %v", G)

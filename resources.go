@@ -23,7 +23,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"time"
 )
 
 //go:generate stringer -type=resState -output=resstate_stringer.go
@@ -80,11 +79,13 @@ type Base interface {
 	setKind(string)
 	Kind() string
 	Meta() *MetaParams
+	Events() chan Event
 	AssociateData(Converger)
 	IsWatching() bool
 	SetWatching(bool)
 	GetState() resState
 	SetState(resState)
+	DoSend(chan Event, string) (bool, error)
 	SendEvent(eventName, bool, bool) bool
 	ReadEvent(*Event) (bool, bool) // TODO: optional here?
 	GroupCmp(Res) bool             // TODO: is there a better name for this?
@@ -100,8 +101,8 @@ type Res interface {
 	Base // include everything from the Base interface
 	Init()
 	//Validate() bool    // TODO: this might one day be added
-	GetUUIDs() []ResUUID                   // most resources only return one
-	Watch(chan Event, time.Duration) error // send on channel to signal process() events
+	GetUUIDs() []ResUUID    // most resources only return one
+	Watch(chan Event) error // send on channel to signal process() events
 	CheckApply(bool) (bool, error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
@@ -193,6 +194,11 @@ func (obj *BaseRes) Meta() *MetaParams {
 	return &obj.MetaParams
 }
 
+// Events returns the channel of events to listen on.
+func (obj *BaseRes) Events() chan Event {
+	return obj.events
+}
+
 // AssociateData associates some data with the object in question.
 func (obj *BaseRes) AssociateData(converger Converger) {
 	obj.converger = converger
@@ -219,6 +225,30 @@ func (obj *BaseRes) SetState(state resState) {
 		log.Printf("%v[%v]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state
+}
+
+// DoSend sends off an event, but doesn't block the incoming event queue. It can
+// also recursively call itself when events need processing during the wait.
+// I'm not completely comfortable with this fn, but it will have to do for now.
+func (obj *BaseRes) DoSend(processChan chan Event, comment string) (bool, error) {
+	resp := NewResp()
+	processChan <- Event{eventNil, resp, comment, true} // trigger process
+	select {
+	case e := <-resp: // wait for the ACK()
+		if e != nil { // we got a NACK
+			return true, e // exit with error
+		}
+
+	case event := <-obj.events:
+		// NOTE: this code should match the similar code below!
+		//cuuid.SetConverged(false) // TODO ?
+		if exit, send := obj.ReadEvent(&event); exit {
+			return true, nil // exit, without error
+		} else if send {
+			return obj.DoSend(processChan, comment) // recurse
+		}
+	}
+	return false, nil // return, no error or exit signal
 }
 
 // SendEvent pushes an event into the message queue for a particular vertex

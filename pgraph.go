@@ -793,6 +793,7 @@ func (g *Graph) Worker(v *Vertex) error {
 	// this avoids us having to pass the data into
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
+	obj := v.Res
 	chanProcess := make(chan Event)
 	go func() {
 		running := false
@@ -847,6 +848,7 @@ func (g *Graph) Worker(v *Vertex) error {
 					//<-timer.C // blocks, docs are wrong!
 				}
 				running = false
+				log.Printf("%s[%s]: CheckApply delay expired!", v.Kind(), v.GetName())
 				// re-send this failed event, to trigger a CheckApply()
 				go func() { chanProcess <- saved }()
 				// TODO: should we send a fake event instead?
@@ -864,8 +866,61 @@ func (g *Graph) Worker(v *Vertex) error {
 	var watchRetry int16 = v.Meta().Retry // number of tries left, -1 for infinite
 	// watch blocks until it ends, & errors to retry
 	for {
+		// TODO: do we have to stop the converged-timeout when in this block (perhaps we're in the delay block!)
+		// TODO: should we setup/manage some of the converged timeout stuff in here anyways?
+
+		// if a retry-delay was requested, wait, but don't block our events!
+		if watchDelay > 0 {
+			//var pendingSendEvent bool
+			timer := time.NewTimer(watchDelay)
+		Loop:
+			for {
+				select {
+				case <-timer.C: // the wait is over
+					break Loop // critical
+
+				// TODO: resources could have a separate exit channel to avoid this complexity!?
+				case event := <-obj.Events():
+					// NOTE: this code should match the similar Res code!
+					//cuuid.SetConverged(false) // TODO ?
+					if exit, send := obj.ReadEvent(&event); exit {
+						return nil // exit
+					} else if send {
+						// if we dive down this rabbit hole, our
+						// timer.C won't get seen until we get out!
+						// in this situation, the Watch() is blocked
+						// from performing until CheckApply returns
+						// successfully, or errors out. This isn't
+						// so bad, but we should document it. Is it
+						// possible that some resource *needs* Watch
+						// to run to be able to execute a CheckApply?
+						// That situation shouldn't be common, and
+						// should probably not be allowed. Can we
+						// avoid it though?
+						//if exit, err := doSend(); exit || err != nil {
+						//	return err // we exit or bubble up a NACK...
+						//}
+						// Instead of doing the above, we can
+						// add events to a pending list, and
+						// when we finish the delay, we can run
+						// them.
+						//pendingSendEvent = true // all events are identical for now...
+					}
+				}
+			}
+			timer.Stop() // it's nice to cleanup
+			log.Printf("%s[%s]: Watch delay expired!", v.Kind(), v.GetName())
+			// NOTE: we can avoid the send if running Watch guarantees
+			// one CheckApply event on startup!
+			//if pendingSendEvent { // TODO: should this become a list in the future?
+			//	if exit, err := obj.DoSend(chanProcess, ""); exit || err != nil {
+			//		return err // we exit or bubble up a NACK...
+			//	}
+			//}
+		}
+
 		// TODO: reset the watch retry count after some amount of success
-		e := v.Res.Watch(chanProcess, watchDelay)
+		e := v.Res.Watch(chanProcess)
 		if e == nil { // exit signal
 			err = nil // clean exit
 			break
@@ -884,11 +939,10 @@ func (g *Graph) Worker(v *Vertex) error {
 		}
 		watchDelay = time.Duration(v.Meta().Delay) * time.Millisecond
 		log.Printf("%v[%v]: Watch: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), watchDelay.Seconds(), watchRetry)
-		// We trigger a CheckApply if watch restarts, so that we catch
-		// any possible events that happened while down. NOTE: this is
-		// only flood-safe if the Watch resource de-duplicates similar
-		// send event messages. It does for now, rethink this later...
-		v.SendEvent(eventPoke, false, false)
+		// We need to trigger a CheckApply after Watch restarts, so that
+		// we catch any lost events that happened while down. We do this
+		// by getting the Watch resource to send one event once it's up!
+		//v.SendEvent(eventPoke, false, false)
 	}
 	close(chanProcess)
 	return err
@@ -966,6 +1020,7 @@ func (g *Graph) Exit() {
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
 		// turn off the taps...
+		// XXX: consider instead doing this by closing the Res.events channel instead?
 		// XXX: do this by sending an exit signal, and then returning
 		// when we hit the 'default' in the select statement!
 		// XXX: we can do this to quiesce, but it's not necessary now

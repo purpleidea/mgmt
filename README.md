@@ -55,7 +55,7 @@ Feel free to read my article on [debugging golang programs](https://ttboj.wordpr
         go get github.com/coreos/etcd/client
         go get gopkg.in/yaml.v2
         go get gopkg.in/fsnotify.v1
-        go get github.com/codegangsta/cli
+        go get github.com/urfave/cli
         go get github.com/coreos/go-systemd/dbus
         go get github.com/coreos/go-systemd/util
         go get github.com/coreos/pkg/capnslog

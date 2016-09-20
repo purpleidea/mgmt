@@ -15,12 +15,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package resources
 
 import (
 	"encoding/gob"
 	"log"
 	"time"
+
+	"github.com/purpleidea/mgmt/event"
 )
 
 func init() {
@@ -58,7 +60,7 @@ func (obj *NoopRes) Validate() bool {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *NoopRes) Watch(processChan chan Event) error {
+func (obj *NoopRes) Watch(processChan chan event.Event) error {
 	if obj.IsWatching() {
 		return nil // TODO: should this be an error?
 	}
@@ -79,7 +81,7 @@ func (obj *NoopRes) Watch(processChan chan Event) error {
 	var send = false // send event?
 	var exit = false
 	for {
-		obj.SetState(resStateWatching) // reset
+		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-obj.events:
 			cuuid.SetConverged(false)

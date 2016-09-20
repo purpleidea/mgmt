@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package resources
 
 import (
 	"bufio"
@@ -27,6 +27,9 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/util"
 )
 
 func init() {
@@ -107,7 +110,7 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *ExecRes) Watch(processChan chan Event) error {
+func (obj *ExecRes) Watch(processChan chan event.Event) error {
 	if obj.IsWatching() {
 		return nil
 	}
@@ -167,7 +170,7 @@ func (obj *ExecRes) Watch(processChan chan Event) error {
 	}
 
 	for {
-		obj.SetState(resStateWatching) // reset
+		obj.SetState(ResStateWatching) // reset
 		select {
 		case text := <-bufioch:
 			cuuid.SetConverged(false)
@@ -312,7 +315,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 			return false, err
 		}
 
-	case <-TimeAfterOrBlock(timeout):
+	case <-util.TimeAfterOrBlock(timeout):
 		log.Printf("%v[%v]: Timeout waiting for Cmd", obj.Kind(), obj.GetName())
 		//cmd.Process.Kill() // TODO: is this necessary?
 		return false, errors.New("Timeout waiting for Cmd!")

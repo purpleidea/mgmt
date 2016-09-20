@@ -15,9 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// NOTE: this is pgraph, a pointer graph
-
-package main
+package pgraph
 
 import (
 	"fmt"

@@ -24,6 +24,17 @@
 // TODO: Auto assign ports/ip's for peers (if possible)
 // TODO: Fix godoc
 
+// Package etcd implements the distributed key value store integration.
+// This also takes care of managing and clustering the embedded etcd server.
+// The elastic etcd algorithm works in the following way:
+// * When you start up mgmt, you can pass it a list of seeds.
+// * If no seeds are given, then assume you are the first server and startup.
+// * If a seed is given, connect as a client, and optionally volunteer to be a server.
+// * All volunteering clients should listen for a message from the master for nomination.
+// * If a client has been nominated, it should startup a server.
+// * All servers should list for their nomination to be removed and shutdown if so.
+// * The elected leader should decide who to nominate/unnominate to keep the right number of servers.
+//
 // Smoke testing:
 // ./mgmt run --file examples/etcd1a.yaml --hostname h1
 // ./mgmt run --file examples/etcd1b.yaml --hostname h2 --tmp-prefix --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382
@@ -33,16 +44,7 @@
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 put /_mgmt/idealClusterSize 5
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list
-
-// The elastic etcd algorithm works in the following way:
-// * When you start up mgmt, you can pass it a list of seeds.
-// * If no seeds are given, then assume you are the first server and startup.
-// * If a seed is given, connect as a client, and optionally volunteer to be a server.
-// * All volunteering clients should listen for a message from the master for nomination.
-// * If a client has been nominated, it should startup a server.
-// * All servers should list for their nomination to be removed and shutdown if so.
-// * The elected leader should decide who to nominate/unnominate to keep the right number of servers.
-package main
+package etcd
 
 import (
 	"bytes"
@@ -58,6 +60,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/purpleidea/mgmt/converger"
+	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/global"
+	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/util"
 
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
 	"github.com/coreos/etcd/embed"
@@ -78,7 +86,7 @@ const (
 	maxClientConnectRetries = 5       // number of times to retry consecutive connect failures
 	selfRemoveTimeout       = 3       // give unnominated members a chance to self exit
 	exitDelay               = 3       // number of sec of inactivity after exit to clean up
-	defaultIdealClusterSize = 5       // default ideal cluster size target for initial seed
+	DefaultIdealClusterSize = 5       // default ideal cluster size target for initial seed
 	DefaultClientURL        = "127.0.0.1:2379"
 	DefaultServerURL        = "127.0.0.1:2380"
 )
@@ -94,7 +102,7 @@ type AW struct {
 	callback   func(*RE) error
 	errCheck   bool
 	skipConv   bool // ask event to skip converger updates
-	resp       Resp
+	resp       event.Resp
 	cancelFunc func() // data
 }
 
@@ -116,7 +124,7 @@ type KV struct {
 	key   string
 	value string
 	opts  []etcd.OpOption
-	resp  Resp
+	resp  event.Resp
 }
 
 // GQ is a struct for the get queue
@@ -124,7 +132,7 @@ type GQ struct {
 	path     string
 	skipConv bool
 	opts     []etcd.OpOption
-	resp     Resp
+	resp     event.Resp
 	data     map[string]string
 }
 
@@ -132,7 +140,7 @@ type GQ struct {
 type DL struct {
 	path string
 	opts []etcd.OpOption
-	resp Resp
+	resp event.Resp
 	data int64
 }
 
@@ -141,7 +149,7 @@ type TN struct {
 	ifcmps  []etcd.Cmp
 	thenops []etcd.Op
 	elseops []etcd.Op
-	resp    Resp
+	resp    event.Resp
 	data    *etcd.TxnResponse
 }
 
@@ -181,8 +189,8 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	delq    chan *DL // delete queue
 	txnq    chan *TN // txn queue
 
-	prefix    string    // folder prefix to use for misc storage
-	converger Converger // converged tracking
+	prefix    string              // folder prefix to use for misc storage
+	converger converger.Converger // converged tracking
 
 	// etcd server related
 	serverwg sync.WaitGroup // wait for server to shutdown
@@ -191,7 +199,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 }
 
 // NewEmbdEtcd creates the top level embedded etcd struct client and server obj
-func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, prefix string, converger Converger) *EmbdEtcd {
+func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, prefix string, converger converger.Converger) *EmbdEtcd {
 	endpoints := make(etcdtypes.URLsMap)
 	if hostname == seedSentinel { // safety
 		return nil
@@ -264,7 +272,7 @@ func (obj *EmbdEtcd) GetConfig() etcd.Config {
 // Connect connects the client to a server, and then builds the *API structs.
 // If reconnect is true, it will force a reconnect with new config endpoints.
 func (obj *EmbdEtcd) Connect(reconnect bool) error {
-	if DEBUG {
+	if global.DEBUG {
 		log.Println("Etcd: Connect...")
 	}
 	obj.cLock.Lock()
@@ -520,29 +528,29 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 	var isTimeout = false
 	var iter int // = 0
 	if ctxerr, ok := ctx.Value(ctxErr).(error); ok {
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: CtxError: err(%v), ctxerr(%v)", err, ctxerr)
 		}
 		if i, ok := ctx.Value(ctxIter).(int); ok {
 			iter = i + 1 // load and increment
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("Etcd: CtxError: Iter: %v", iter)
 			}
 		}
 		isTimeout = err == context.DeadlineExceeded
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: CtxError: isTimeout: %v", isTimeout)
 		}
 		if !isTimeout {
 			iter = 0 // reset timer
 		}
 		err = ctxerr // restore error
-	} else if DEBUG {
+	} else if global.DEBUG {
 		log.Printf("Etcd: CtxError: No value found")
 	}
 	ctxHelper := func(tmin, texp, tmax int) context.Context {
 		t := expBackoff(tmin, texp, iter, tmax)
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: CtxError: Timeout: %v", t)
 		}
 
@@ -629,13 +637,13 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 		fallthrough
 	case isGrpc(grpc.ErrClientConnClosing):
 
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: CtxError: Error(%T): %+v", err, err)
 			log.Printf("Etcd: Endpoints are: %v", obj.client.Endpoints())
 			log.Printf("Etcd: Client endpoints are: %v", obj.endpoints)
 		}
 
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: CtxError: Locking...")
 		}
 		obj.rLock.Lock()
@@ -656,7 +664,7 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 			obj.ctxErr = fmt.Errorf("Etcd: Permanent connect error: %v", err)
 			return ctx, obj.ctxErr
 		}
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: CtxError: Unlocking...")
 		}
 		obj.rLock.Unlock()
@@ -700,7 +708,7 @@ func (obj *EmbdEtcd) CbLoop() {
 			if !re.skipConv { // if we want to count it...
 				cuuid.ResetTimer() // activity!
 			}
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: CbLoop: Event: StartLoop")
 			}
 			for {
@@ -708,11 +716,11 @@ func (obj *EmbdEtcd) CbLoop() {
 					//re.resp.NACK() // nope!
 					break
 				}
-				if TRACE {
+				if global.TRACE {
 					log.Printf("Trace: Etcd: CbLoop: rawCallback()")
 				}
 				err := rawCallback(ctx, re)
-				if TRACE {
+				if global.TRACE {
 					log.Printf("Trace: Etcd: CbLoop: rawCallback(): %v", err)
 				}
 				if err == nil {
@@ -724,7 +732,7 @@ func (obj *EmbdEtcd) CbLoop() {
 					break // TODO: it's bad, break or return?
 				}
 			}
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: CbLoop: Event: FinishLoop")
 			}
 
@@ -752,11 +760,11 @@ func (obj *EmbdEtcd) Loop() {
 		select {
 		case aw := <-obj.awq:
 			cuuid.ResetTimer() // activity!
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: PriorityAW: StartLoop")
 			}
 			obj.loopProcessAW(ctx, aw)
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: PriorityAW: FinishLoop")
 			}
 			continue // loop to drain the priority channel first!
@@ -768,18 +776,18 @@ func (obj *EmbdEtcd) Loop() {
 		// add watcher
 		case aw := <-obj.awq:
 			cuuid.ResetTimer() // activity!
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: AW: StartLoop")
 			}
 			obj.loopProcessAW(ctx, aw)
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: AW: FinishLoop")
 			}
 
 		// set kv pair
 		case kv := <-obj.setq:
 			cuuid.ResetTimer() // activity!
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Set: StartLoop")
 			}
 			for {
@@ -796,7 +804,7 @@ func (obj *EmbdEtcd) Loop() {
 					break // TODO: it's bad, break or return?
 				}
 			}
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Set: FinishLoop")
 			}
 
@@ -805,7 +813,7 @@ func (obj *EmbdEtcd) Loop() {
 			if !gq.skipConv {
 				cuuid.ResetTimer() // activity!
 			}
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Get: StartLoop")
 			}
 			for {
@@ -823,14 +831,14 @@ func (obj *EmbdEtcd) Loop() {
 					break // TODO: it's bad, break or return?
 				}
 			}
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Get: FinishLoop")
 			}
 
 		// delete value
 		case dl := <-obj.delq:
 			cuuid.ResetTimer() // activity!
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Delete: StartLoop")
 			}
 			for {
@@ -848,14 +856,14 @@ func (obj *EmbdEtcd) Loop() {
 					break // TODO: it's bad, break or return?
 				}
 			}
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Delete: FinishLoop")
 			}
 
 		// run txn
 		case tn := <-obj.txnq:
 			cuuid.ResetTimer() // activity!
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Txn: StartLoop")
 			}
 			for {
@@ -873,7 +881,7 @@ func (obj *EmbdEtcd) Loop() {
 					break // TODO: it's bad, break or return?
 				}
 			}
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Txn: FinishLoop")
 			}
 
@@ -884,7 +892,7 @@ func (obj *EmbdEtcd) Loop() {
 			// seconds of inactivity in this select switch, which
 			// lets everything get bled dry to avoid blocking calls
 			// which would otherwise block us from exiting cleanly!
-			obj.exitTimeout = TimeAfterOrBlock(exitDelay)
+			obj.exitTimeout = util.TimeAfterOrBlock(exitDelay)
 
 		// exit loop commit
 		case <-obj.exitTimeout:
@@ -917,7 +925,7 @@ func (obj *EmbdEtcd) loopProcessAW(ctx context.Context, aw *AW) {
 
 // Set queues up a set operation to occur using our mainloop
 func (obj *EmbdEtcd) Set(key, value string, opts ...etcd.OpOption) error {
-	resp := NewResp()
+	resp := event.NewResp()
 	obj.setq <- &KV{key: key, value: value, opts: opts, resp: resp}
 	if err := resp.Wait(); err != nil { // wait for ack/nack
 		return fmt.Errorf("Etcd: Set: Probably received an exit: %v", err)
@@ -927,7 +935,7 @@ func (obj *EmbdEtcd) Set(key, value string, opts ...etcd.OpOption) error {
 
 // rawSet actually implements the key set operation
 func (obj *EmbdEtcd) rawSet(ctx context.Context, kv *KV) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawSet()")
 	}
 	// key is the full key path
@@ -936,7 +944,7 @@ func (obj *EmbdEtcd) rawSet(ctx context.Context, kv *KV) error {
 	response, err := obj.client.KV.Put(ctx, kv.key, kv.value, kv.opts...)
 	obj.rLock.RUnlock()
 	log.Printf("Etcd: Set(%s): %v", kv.key, response) // w00t... bonus
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawSet(): %v", err)
 	}
 	return err
@@ -951,7 +959,7 @@ func (obj *EmbdEtcd) Get(path string, opts ...etcd.OpOption) (map[string]string,
 // accept more arguments that are useful for the less common operations.
 // TODO: perhaps a get should never cause an un-converge ?
 func (obj *EmbdEtcd) ComplexGet(path string, skipConv bool, opts ...etcd.OpOption) (map[string]string, error) {
-	resp := NewResp()
+	resp := event.NewResp()
 	gq := &GQ{path: path, skipConv: skipConv, opts: opts, resp: resp, data: nil}
 	obj.getq <- gq                      // send
 	if err := resp.Wait(); err != nil { // wait for ack/nack
@@ -961,7 +969,7 @@ func (obj *EmbdEtcd) ComplexGet(path string, skipConv bool, opts ...etcd.OpOptio
 }
 
 func (obj *EmbdEtcd) rawGet(ctx context.Context, gq *GQ) (result map[string]string, err error) {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawGet()")
 	}
 	obj.rLock.RLock()
@@ -977,7 +985,7 @@ func (obj *EmbdEtcd) rawGet(ctx context.Context, gq *GQ) (result map[string]stri
 		result[bytes.NewBuffer(x.Key).String()] = bytes.NewBuffer(x.Value).String()
 	}
 
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawGet(): %v", result)
 	}
 	return
@@ -985,7 +993,7 @@ func (obj *EmbdEtcd) rawGet(ctx context.Context, gq *GQ) (result map[string]stri
 
 // Delete performs a delete operation and waits for an ACK to continue
 func (obj *EmbdEtcd) Delete(path string, opts ...etcd.OpOption) (int64, error) {
-	resp := NewResp()
+	resp := event.NewResp()
 	dl := &DL{path: path, opts: opts, resp: resp, data: -1}
 	obj.delq <- dl                      // send
 	if err := resp.Wait(); err != nil { // wait for ack/nack
@@ -995,7 +1003,7 @@ func (obj *EmbdEtcd) Delete(path string, opts ...etcd.OpOption) (int64, error) {
 }
 
 func (obj *EmbdEtcd) rawDelete(ctx context.Context, dl *DL) (count int64, err error) {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawDelete()")
 	}
 	count = -1
@@ -1005,7 +1013,7 @@ func (obj *EmbdEtcd) rawDelete(ctx context.Context, dl *DL) (count int64, err er
 	if err == nil {
 		count = response.Deleted
 	}
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawDelete(): %v", err)
 	}
 	return
@@ -1013,7 +1021,7 @@ func (obj *EmbdEtcd) rawDelete(ctx context.Context, dl *DL) (count int64, err er
 
 // Txn performs a transaction and waits for an ACK to continue
 func (obj *EmbdEtcd) Txn(ifcmps []etcd.Cmp, thenops, elseops []etcd.Op) (*etcd.TxnResponse, error) {
-	resp := NewResp()
+	resp := event.NewResp()
 	tn := &TN{ifcmps: ifcmps, thenops: thenops, elseops: elseops, resp: resp, data: nil}
 	obj.txnq <- tn                      // send
 	if err := resp.Wait(); err != nil { // wait for ack/nack
@@ -1023,13 +1031,13 @@ func (obj *EmbdEtcd) Txn(ifcmps []etcd.Cmp, thenops, elseops []etcd.Op) (*etcd.T
 }
 
 func (obj *EmbdEtcd) rawTxn(ctx context.Context, tn *TN) (*etcd.TxnResponse, error) {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawTxn()")
 	}
 	obj.rLock.RLock()
 	response, err := obj.client.KV.Txn(ctx).If(tn.ifcmps...).Then(tn.thenops...).Else(tn.elseops...).Commit()
 	obj.rLock.RUnlock()
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: rawTxn(): %v, %v", response, err)
 	}
 	return response, err
@@ -1038,7 +1046,7 @@ func (obj *EmbdEtcd) rawTxn(ctx context.Context, tn *TN) (*etcd.TxnResponse, err
 // AddWatcher queues up an add watcher request and returns a cancel function
 // Remember to add the etcd.WithPrefix() option if you want to watch recursively
 func (obj *EmbdEtcd) AddWatcher(path string, callback func(re *RE) error, errCheck bool, skipConv bool, opts ...etcd.OpOption) (func(), error) {
-	resp := NewResp()
+	resp := event.NewResp()
 	awq := &AW{path: path, opts: opts, callback: callback, errCheck: errCheck, skipConv: skipConv, cancelFunc: nil, resp: resp}
 	obj.awq <- awq                      // send
 	if err := resp.Wait(); err != nil { // wait for ack/nack
@@ -1063,7 +1071,7 @@ func (obj *EmbdEtcd) rawAddWatcher(ctx context.Context, aw *AW) (func(), error) 
 			err := response.Err()
 			isCanceled := response.Canceled || err == context.Canceled
 			if response.Header.Revision == 0 { // by inspection
-				if DEBUG {
+				if global.DEBUG {
 					log.Printf("Etcd: Watch: Received empty message!") // switched client connection
 				}
 				isCanceled = true
@@ -1084,7 +1092,7 @@ func (obj *EmbdEtcd) rawAddWatcher(ctx context.Context, aw *AW) (func(), error) 
 				}
 				locked = false
 			} else {
-				if DEBUG {
+				if global.DEBUG {
 					log.Printf("Etcd: Watch: Error: %v", err) // probably fixable
 				}
 				// this new context is the fix for a tricky set
@@ -1133,7 +1141,7 @@ func rawCallback(ctx context.Context, re *RE) error {
 			// NOTE: the callback must *not* block!
 			// FIXME: do we need to pass ctx in via *RE, or in the callback signature ?
 			err = callback(re) // run the callback
-			if TRACE {
+			if global.TRACE {
 				log.Printf("Trace: Etcd: rawCallback(): %v", err)
 			}
 			if !re.errCheck || err == nil {
@@ -1151,7 +1159,7 @@ func rawCallback(ctx context.Context, re *RE) error {
 // FIXME: we might need to respond to member change/disconnect/shutdown events,
 // see: https://github.com/coreos/etcd/issues/5277
 func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: volunteerCallback()")
 		defer log.Printf("Trace: Etcd: volunteerCallback(): Finished!")
 	}
@@ -1178,7 +1186,7 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 	if err != nil {
 		return fmt.Errorf("Etcd: Members: Error: %+v", err)
 	}
-	members := StrMapValuesUint64(membersMap) // get values
+	members := util.StrMapValuesUint64(membersMap) // get values
 	log.Printf("Etcd: Members: List: %+v", members)
 
 	// we only do *one* change operation at a time so that the cluster can
@@ -1224,7 +1232,7 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 	log.Printf("Etcd: Volunteers: %v", volunteers)
 
 	// unnominate anyone that unvolunteers, so that they can shutdown cleanly
-	quitters := StrFilterElementsInList(volunteers, members)
+	quitters := util.StrFilterElementsInList(volunteers, members)
 	log.Printf("Etcd: Quitters: %v", quitters)
 
 	// if we're the only member left, just shutdown...
@@ -1236,7 +1244,7 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 		return nil
 	}
 
-	candidates := StrFilterElementsInList(members, volunteers)
+	candidates := util.StrFilterElementsInList(members, volunteers)
 	log.Printf("Etcd: Candidates: %v", candidates)
 
 	// TODO: switch to < 0 so that we can shut the whole cluster down with 0
@@ -1291,7 +1299,7 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 		log.Printf("Etcd: Quitters: Shutting down %d members...", lq)
 	}
 	for _, quitter := range quitters {
-		mID, ok := Uint64KeyFromStrInMap(quitter, membersMap)
+		mID, ok := util.Uint64KeyFromStrInMap(quitter, membersMap)
 		if !ok {
 			// programming error
 			log.Fatalf("Etcd: Member Remove: Error: %v(%v) not in members list!", quitter, mID)
@@ -1339,7 +1347,7 @@ func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
 // nominateCallback runs to respond to the nomination list change events
 // functionally, it controls the starting and stopping of the server process
 func (obj *EmbdEtcd) nominateCallback(re *RE) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: nominateCallback()")
 		defer log.Printf("Trace: Etcd: nominateCallback(): Finished!")
 	}
@@ -1388,7 +1396,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 	_, exists := obj.nominated[obj.hostname]
 	// FIXME: can we get rid of the len(obj.nominated) == 0 ?
 	newCluster := len(obj.nominated) == 0 || (len(obj.nominated) == 1 && exists)
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("Etcd: nominateCallback(): newCluster: %v; exists: %v; obj.server == nil: %t", newCluster, exists, obj.server == nil)
 	}
 	// XXX check if i have actually volunteered first of all...
@@ -1487,7 +1495,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 
 // endpointCallback runs to respond to the endpoint list change events
 func (obj *EmbdEtcd) endpointCallback(re *RE) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: endpointCallback()")
 		defer log.Printf("Trace: Etcd: endpointCallback(): Finished!")
 	}
@@ -1553,7 +1561,7 @@ func (obj *EmbdEtcd) endpointCallback(re *RE) error {
 
 // idealClusterSizeCallback runs to respond to the ideal cluster size changes
 func (obj *EmbdEtcd) idealClusterSizeCallback(re *RE) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: idealClusterSizeCallback()")
 		defer log.Printf("Trace: Etcd: idealClusterSizeCallback(): Finished!")
 	}
@@ -1692,7 +1700,7 @@ func (obj *EmbdEtcd) DestroyServer() error {
 
 // EtcdNominate nominates a particular client to be a server (peer)
 func EtcdNominate(obj *EmbdEtcd, hostname string, urls etcdtypes.URLs) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdNominate(%v): %v", hostname, urls.String())
 		defer log.Printf("Trace: Etcd: EtcdNominate(%v): Finished!", hostname)
 	}
@@ -1734,7 +1742,7 @@ func EtcdNominated(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 			return nil, fmt.Errorf("Etcd: Nominated: Data format error!: %v", err)
 		}
 		nominated[name] = urls // add to map
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: Nominated(%v): %v", name, val)
 		}
 	}
@@ -1743,7 +1751,7 @@ func EtcdNominated(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 
 // EtcdVolunteer offers yourself up to be a server if needed
 func EtcdVolunteer(obj *EmbdEtcd, urls etcdtypes.URLs) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdVolunteer(%v): %v", obj.hostname, urls.String())
 		defer log.Printf("Trace: Etcd: EtcdVolunteer(%v): Finished!", obj.hostname)
 	}
@@ -1766,7 +1774,7 @@ func EtcdVolunteer(obj *EmbdEtcd, urls etcdtypes.URLs) error {
 
 // EtcdVolunteers returns a urls map of available etcd server volunteers
 func EtcdVolunteers(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdVolunteers()")
 		defer log.Printf("Trace: Etcd: EtcdVolunteers(): Finished!")
 	}
@@ -1789,7 +1797,7 @@ func EtcdVolunteers(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 			return nil, fmt.Errorf("Etcd: Volunteers: Data format error!: %v", err)
 		}
 		volunteers[name] = urls // add to map
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: Volunteer(%v): %v", name, val)
 		}
 	}
@@ -1798,7 +1806,7 @@ func EtcdVolunteers(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 
 // EtcdAdvertiseEndpoints advertises the list of available client endpoints
 func EtcdAdvertiseEndpoints(obj *EmbdEtcd, urls etcdtypes.URLs) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdAdvertiseEndpoints(%v): %v", obj.hostname, urls.String())
 		defer log.Printf("Trace: Etcd: EtcdAdvertiseEndpoints(%v): Finished!", obj.hostname)
 	}
@@ -1821,7 +1829,7 @@ func EtcdAdvertiseEndpoints(obj *EmbdEtcd, urls etcdtypes.URLs) error {
 
 // EtcdEndpoints returns a urls map of available etcd server endpoints
 func EtcdEndpoints(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdEndpoints()")
 		defer log.Printf("Trace: Etcd: EtcdEndpoints(): Finished!")
 	}
@@ -1844,7 +1852,7 @@ func EtcdEndpoints(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 			return nil, fmt.Errorf("Etcd: Endpoints: Data format error!: %v", err)
 		}
 		endpoints[name] = urls // add to map
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Etcd: Endpoint(%v): %v", name, val)
 		}
 	}
@@ -1853,7 +1861,7 @@ func EtcdEndpoints(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 
 // EtcdSetHostnameConverged sets whether a specific hostname is converged.
 func EtcdSetHostnameConverged(obj *EmbdEtcd, hostname string, isConverged bool) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdSetHostnameConverged(%s): %v", hostname, isConverged)
 		defer log.Printf("Trace: Etcd: EtcdSetHostnameConverged(%v): Finished!", hostname)
 	}
@@ -1867,7 +1875,7 @@ func EtcdSetHostnameConverged(obj *EmbdEtcd, hostname string, isConverged bool) 
 
 // EtcdHostnameConverged returns a map of every hostname's converged state.
 func EtcdHostnameConverged(obj *EmbdEtcd) (map[string]bool, error) {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdHostnameConverged()")
 		defer log.Printf("Trace: Etcd: EtcdHostnameConverged(): Finished!")
 	}
@@ -1912,7 +1920,7 @@ func EtcdAddHostnameConvergedWatcher(obj *EmbdEtcd, callbackFn func(map[string]b
 
 // EtcdSetClusterSize sets the ideal target cluster size of etcd peers
 func EtcdSetClusterSize(obj *EmbdEtcd, value uint16) error {
-	if TRACE {
+	if global.TRACE {
 		log.Printf("Trace: Etcd: EtcdSetClusterSize(): %v", value)
 		defer log.Printf("Trace: Etcd: EtcdSetClusterSize(): Finished!")
 	}
@@ -2006,7 +2014,7 @@ func EtcdMembers(obj *EmbdEtcd) (map[uint64]string, error) {
 			return nil, fmt.Errorf("Exiting...")
 		}
 		obj.rLock.RLock()
-		if TRACE {
+		if global.TRACE {
 			log.Printf("Trace: Etcd: EtcdMembers(): Endpoints are: %v", obj.client.Endpoints())
 		}
 		response, err = obj.client.MemberList(ctx)
@@ -2100,7 +2108,7 @@ func EtcdWatch(obj *EmbdEtcd) chan bool {
 }
 
 // EtcdSetResources exports all of the resources which we pass in to etcd
-func EtcdSetResources(obj *EmbdEtcd, hostname string, resources []Res) error {
+func EtcdSetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) error {
 	// key structure is /$NS/exported/$hostname/resources/$uuid = $data
 
 	var kindFilter []string // empty to get from everyone
@@ -2112,19 +2120,19 @@ func EtcdSetResources(obj *EmbdEtcd, hostname string, resources []Res) error {
 		return err
 	}
 
-	if len(originals) == 0 && len(resources) == 0 { // special case of no add or del
+	if len(originals) == 0 && len(resourceList) == 0 { // special case of no add or del
 		return nil
 	}
 
 	ifs := []etcd.Cmp{} // list matching the desired state
 	ops := []etcd.Op{}  // list of ops in this transaction
-	for _, res := range resources {
+	for _, res := range resourceList {
 		if res.Kind() == "" {
 			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
 		}
 		uuid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
 		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uuid)
-		if data, err := ResToB64(res); err == nil {
+		if data, err := resources.ResToB64(res); err == nil {
 			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", data)) // desired state
 			ops = append(ops, etcd.OpPut(path, data))
 		} else {
@@ -2132,8 +2140,8 @@ func EtcdSetResources(obj *EmbdEtcd, hostname string, resources []Res) error {
 		}
 	}
 
-	match := func(res Res, resources []Res) bool { // helper lambda
-		for _, x := range resources {
+	match := func(res resources.Res, resourceList []resources.Res) bool { // helper lambda
+		for _, x := range resourceList {
 			if res.Kind() == x.Kind() && res.GetName() == x.GetName() {
 				return true
 			}
@@ -2150,7 +2158,7 @@ func EtcdSetResources(obj *EmbdEtcd, hostname string, resources []Res) error {
 		uuid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
 		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uuid)
 
-		if match(res, resources) { // if we match, no need to delete!
+		if match(res, resourceList) { // if we match, no need to delete!
 			continue
 		}
 
@@ -2175,10 +2183,10 @@ func EtcdSetResources(obj *EmbdEtcd, hostname string, resources []Res) error {
 // TODO: Expand this with a more powerful filter based on what we eventually
 // support in our collect DSL. Ideally a server side filter like WithFilter()
 // We could do this if the pattern was /$NS/exported/$kind/$hostname/$uuid = $data
-func EtcdGetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]Res, error) {
+func EtcdGetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resources.Res, error) {
 	// key structure is /$NS/exported/$hostname/resources/$uuid = $data
 	path := fmt.Sprintf("/%s/exported/", NS)
-	resources := []Res{}
+	resourceList := []resources.Res{}
 	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {
 		return nil, fmt.Errorf("Etcd: GetResources: Error: Could not get resources: %v", err)
@@ -2201,24 +2209,24 @@ func EtcdGetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]Res
 		}
 
 		// FIXME: ideally this would be a server side filter instead!
-		if len(hostnameFilter) > 0 && !StrInList(hostname, hostnameFilter) {
+		if len(hostnameFilter) > 0 && !util.StrInList(hostname, hostnameFilter) {
 			continue
 		}
 
 		// FIXME: ideally this would be a server side filter instead!
-		if len(kindFilter) > 0 && !StrInList(kind, kindFilter) {
+		if len(kindFilter) > 0 && !util.StrInList(kind, kindFilter) {
 			continue
 		}
 
-		if obj, err := B64ToRes(val); err == nil {
-			obj.setKind(kind) // cheap init
+		if obj, err := resources.B64ToRes(val); err == nil {
+			obj.SetKind(kind) // cheap init
 			log.Printf("Etcd: Get: (Hostname, Kind, Name): (%s, %s, %s)", hostname, kind, name)
-			resources = append(resources, obj)
+			resourceList = append(resourceList, obj)
 		} else {
 			return nil, fmt.Errorf("Etcd: GetResources: Error: Can't convert from B64: %v", err)
 		}
 	}
-	return resources, nil
+	return resourceList, nil
 }
 
 //func UrlRemoveScheme(urls etcdtypes.URLs) []string {
@@ -2258,7 +2266,7 @@ func ApplyDeltaEvents(re *RE, urlsmap etcdtypes.URLsMap) (etcdtypes.URLsMap, err
 			if _, exists := urlsmap[key]; !exists {
 				// this can happen if we retry an operation b/w
 				// a reconnect so ignore if we are reconnecting
-				if DEBUG {
+				if global.DEBUG {
 					log.Printf("Etcd: ApplyDeltaEvents: Inconsistent key: %v", key)
 				}
 				return nil, errApplyDeltaEventsInconsistent

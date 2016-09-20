@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Pgraph (Pointer Graph)
-package main
+// Package pgraph represents the internal "pointer graph" that we use.
+package pgraph
 
 import (
 	"errors"
@@ -31,6 +31,11 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/purpleidea/mgmt/converger"
+	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/global"
+	"github.com/purpleidea/mgmt/resources"
 )
 
 //go:generate stringer -type=graphState -output=graphstate_stringer.go
@@ -59,8 +64,8 @@ type Graph struct {
 
 // Vertex is the primary vertex struct in this library.
 type Vertex struct {
-	Res             // anonymous field
-	timestamp int64 // last updated timestamp ?
+	resources.Res       // anonymous field
+	timestamp     int64 // last updated timestamp ?
 }
 
 // Edge is the primary edge struct in this library.
@@ -78,7 +83,7 @@ func NewGraph(name string) *Graph {
 }
 
 // NewVertex returns a new graph vertex struct with a contained resource.
-func NewVertex(r Res) *Vertex {
+func NewVertex(r resources.Res) *Vertex {
 	return &Vertex{
 		Res: r,
 	}
@@ -160,7 +165,7 @@ func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 
 // GetVertexMatch searches for an equivalent resource in the graph and returns
 // the vertex it is found in, or nil if not found.
-func (g *Graph) GetVertexMatch(obj Res) *Vertex {
+func (g *Graph) GetVertexMatch(obj resources.Res) *Vertex {
 	for k := range g.Adjacency {
 		if k.Res.Compare(obj) {
 			return k
@@ -549,99 +554,6 @@ func (g *Graph) Reachability(a, b *Vertex) []*Vertex {
 	return result
 }
 
-// VertexMerge merges v2 into v1 by reattaching the edges where appropriate,
-// and then by deleting v2 from the graph. Since more than one edge between two
-// vertices is not allowed, duplicate edges are merged as well. an edge merge
-// function can be provided if you'd like to control how you merge the edges!
-func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex) (*Vertex, error), edgeMergeFn func(*Edge, *Edge) *Edge) error {
-	// methodology
-	// 1) edges between v1 and v2 are removed
-	//Loop:
-	for k1 := range g.Adjacency {
-		for k2 := range g.Adjacency[k1] {
-			// v1 -> v2 || v2 -> v1
-			if (k1 == v1 && k2 == v2) || (k1 == v2 && k2 == v1) {
-				delete(g.Adjacency[k1], k2) // delete map & edge
-				// NOTE: if we assume this is a DAG, then we can
-				// assume only v1 -> v2 OR v2 -> v1 exists, and
-				// we can break out of these loops immediately!
-				//break Loop
-				break
-			}
-		}
-	}
-
-	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
-	for _, x := range g.IncomingGraphEdges(v2) { // all to vertex v (??? -> v)
-		e := g.Adjacency[x][v2] // previous edge
-		r := g.Reachability(x, v1)
-		// merge e with ex := g.Adjacency[x][v1] if it exists!
-		if ex, exists := g.Adjacency[x][v1]; exists && edgeMergeFn != nil && len(r) == 0 {
-			e = edgeMergeFn(e, ex)
-		}
-		if len(r) == 0 { // if not reachable, add it
-			g.AddEdge(x, v1, e) // overwrite edge
-		} else if edgeMergeFn != nil { // reachable, merge e through...
-			prev := x // initial condition
-			for i, next := range r {
-				if i == 0 {
-					// next == prev, therefore skip
-					continue
-				}
-				// this edge is from: prev, to: next
-				ex, _ := g.Adjacency[prev][next] // get
-				ex = edgeMergeFn(ex, e)
-				g.Adjacency[prev][next] = ex // set
-				prev = next
-			}
-		}
-		delete(g.Adjacency[x], v2) // delete old edge
-	}
-
-	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
-	for _, x := range g.OutgoingGraphEdges(v2) { // all from vertex v (v -> ???)
-		e := g.Adjacency[v2][x] // previous edge
-		r := g.Reachability(v1, x)
-		// merge e with ex := g.Adjacency[v1][x] if it exists!
-		if ex, exists := g.Adjacency[v1][x]; exists && edgeMergeFn != nil && len(r) == 0 {
-			e = edgeMergeFn(e, ex)
-		}
-		if len(r) == 0 {
-			g.AddEdge(v1, x, e) // overwrite edge
-		} else if edgeMergeFn != nil { // reachable, merge e through...
-			prev := v1 // initial condition
-			for i, next := range r {
-				if i == 0 {
-					// next == prev, therefore skip
-					continue
-				}
-				// this edge is from: prev, to: next
-				ex, _ := g.Adjacency[prev][next]
-				ex = edgeMergeFn(ex, e)
-				g.Adjacency[prev][next] = ex
-				prev = next
-			}
-		}
-		delete(g.Adjacency[v2], x)
-	}
-
-	// 4) merge and then remove the (now merged/grouped) vertex
-	if vertexMergeFn != nil { // run vertex merge function
-		if v, err := vertexMergeFn(v1, v2); err != nil {
-			return err
-		} else if v != nil { // replace v1 with the "merged" version...
-			v1 = v // XXX: will this replace v1 the way we want?
-		}
-	}
-	g.DeleteVertex(v2) // remove grouped vertex
-
-	// 5) creation of a cyclic graph should throw an error
-	if _, dag := g.TopologicalSort(); !dag { // am i a dag or not?
-		return fmt.Errorf("Graph is not a dag!")
-	}
-	return nil // success
-}
-
 // GetTimestamp returns the timestamp of a vertex
 func (v *Vertex) GetTimestamp() int64 {
 	return v.timestamp
@@ -662,7 +574,7 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 		// if they're equal (eg: on init of 0) then we also can't run
 		// b/c we should let our pre-req's go first...
 		x, y := v.GetTimestamp(), n.GetTimestamp()
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): !%v", v.Kind(), v.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
 		}
 		if x >= y {
@@ -679,14 +591,14 @@ func (g *Graph) Poke(v *Vertex, activity bool) {
 	for _, n := range g.OutgoingGraphEdges(v) {
 		// XXX: if we're in state event and haven't been cancelled by
 		// apply, then we can cancel a poke to a child, right? XXX
-		// XXX: if n.Res.getState() != resStateEvent { // is this correct?
+		// XXX: if n.Res.getState() != resources.ResStateEvent { // is this correct?
 		if true { // XXX
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("%v[%v]: Poke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
-			n.SendEvent(eventPoke, false, activity) // XXX: can this be switched to sync?
+			n.SendEvent(event.EventPoke, false, activity) // XXX: can this be switched to sync?
 		} else {
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
@@ -699,18 +611,18 @@ func (g *Graph) BackPoke(v *Vertex) {
 	for _, n := range g.IncomingGraphEdges(v) {
 		x, y, s := v.GetTimestamp(), n.GetTimestamp(), n.Res.GetState()
 		// if the parent timestamp needs poking AND it's not in state
-		// resStateEvent, then poke it. If the parent is in resStateEvent it
+		// ResStateEvent, then poke it. If the parent is in ResStateEvent it
 		// means that an event is pending, so we'll be expecting a poke
 		// back soon, so we can safely discard the extra parent poke...
 		// TODO: implement a stateLT (less than) to tell if something
 		// happens earlier in the state cycle and that doesn't wrap nil
-		if x >= y && (s != resStateEvent && s != resStateCheckApply) {
-			if DEBUG {
+		if x >= y && (s != resources.ResStateEvent && s != resources.ResStateCheckApply) {
+			if global.DEBUG {
 				log.Printf("%v[%v]: BackPoke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
-			n.SendEvent(eventBackPoke, false, false) // XXX: can this be switched to sync?
+			n.SendEvent(event.EventBackPoke, false, false) // XXX: can this be switched to sync?
 		} else {
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
@@ -721,27 +633,27 @@ func (g *Graph) BackPoke(v *Vertex) {
 // XXX: rename this function
 func (g *Graph) Process(v *Vertex) error {
 	obj := v.Res
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("%v[%v]: Process()", obj.Kind(), obj.GetName())
 	}
-	obj.SetState(resStateEvent)
+	obj.SetState(resources.ResStateEvent)
 	var ok = true
 	var apply = false // did we run an apply?
 	// is it okay to run dependency wise right now?
 	// if not, that's okay because when the dependency runs, it will poke
 	// us back and we will run if needed then!
 	if g.OKTimestamp(v) {
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("%v[%v]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
 		}
 
-		obj.SetState(resStateCheckApply)
+		obj.SetState(resources.ResStateCheckApply)
 		// if this fails, don't UpdateTimestamp()
 		checkok, err := obj.CheckApply(!obj.Meta().Noop)
 		if checkok && err != nil { // should never return this way
 			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), checkok, err)
 		}
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), checkok, err)
 		}
 
@@ -761,8 +673,8 @@ func (g *Graph) Process(v *Vertex) error {
 		if ok {
 			// update this timestamp *before* we poke or the poked
 			// nodes might fail due to having a too old timestamp!
-			v.UpdateTimestamp()          // this was touched...
-			obj.SetState(resStatePoking) // can't cancel parent poke
+			v.UpdateTimestamp()                    // this was touched...
+			obj.SetState(resources.ResStatePoking) // can't cancel parent poke
 			g.Poke(v, apply)
 		}
 		// poke at our pre-req's instead since they need to refresh/run...
@@ -794,7 +706,7 @@ func (g *Graph) Worker(v *Vertex) error {
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
 	obj := v.Res
-	chanProcess := make(chan Event)
+	chanProcess := make(chan event.Event)
 	go func() {
 		running := false
 		var timer = time.NewTimer(time.Duration(math.MaxInt64)) // longest duration
@@ -803,7 +715,7 @@ func (g *Graph) Worker(v *Vertex) error {
 		}
 		var delay = time.Duration(v.Meta().Delay) * time.Millisecond
 		var retry int16 = v.Meta().Retry // number of tries left, -1 for infinite
-		var saved Event
+		var saved event.Event
 	Loop:
 		for {
 			// this has to be synchronous, because otherwise the Res
@@ -989,8 +901,8 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 		// and not just selectively the subset with no indegree.
 		if (!first) || indegree[v] == 0 {
 			// ensure state is started before continuing on to next vertex
-			for !v.SendEvent(eventStart, true, false) {
-				if DEBUG {
+			for !v.SendEvent(event.EventStart, true, false) {
+				if global.DEBUG {
 					// if SendEvent fails, we aren't up yet
 					log.Printf("%v[%v]: Retrying SendEvent(Start)", v.Kind(), v.GetName())
 					// sleep here briefly or otherwise cause
@@ -1008,7 +920,7 @@ func (g *Graph) Pause() {
 	defer log.Printf("State: %v -> %v", g.setState(graphStatePaused), g.getState())
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
-		v.SendEvent(eventPause, true, false)
+		v.SendEvent(event.EventPause, true, false)
 	}
 }
 
@@ -1025,12 +937,12 @@ func (g *Graph) Exit() {
 		// when we hit the 'default' in the select statement!
 		// XXX: we can do this to quiesce, but it's not necessary now
 
-		v.SendEvent(eventExit, true, false)
+		v.SendEvent(event.EventExit, true, false)
 	}
 }
 
 // AssociateData associates some data with the object in the graph in question
-func (g *Graph) AssociateData(converger Converger) {
+func (g *Graph) AssociateData(converger converger.Converger) {
 	for v := range g.GetVerticesChan() {
 		v.Res.AssociateData(converger)
 	}

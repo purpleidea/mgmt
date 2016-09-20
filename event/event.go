@@ -15,22 +15,23 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+// Package event provides some primitives that are used for message passing.
+package event
 
 import (
 	"fmt"
 )
 
-//go:generate stringer -type=eventName -output=eventname_stringer.go
-type eventName int
+//go:generate stringer -type=EventName -output=eventname_stringer.go
+type EventName int
 
 const (
-	eventNil eventName = iota
-	eventExit
-	eventStart
-	eventPause
-	eventPoke
-	eventBackPoke
+	EventNil EventName = iota
+	EventExit
+	EventStart
+	EventPause
+	EventPoke
+	EventBackPoke
 )
 
 // Resp is a channel to be used for boolean responses. A nil represents an ACK,
@@ -39,7 +40,7 @@ type Resp chan error
 
 // Event is the main struct that stores event information and responses.
 type Event struct {
-	Name eventName
+	Name EventName
 	Resp Resp // channel to send an ack response on, nil to skip
 	//Wg   *sync.WaitGroup // receiver barrier to Wait() for everyone else on
 	Msg      string // some words for fun

@@ -18,14 +18,18 @@
 package main
 
 import (
-	"gopkg.in/fsnotify.v1"
-	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 	"log"
 	"math"
 	"path"
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/purpleidea/mgmt/global"
+	"github.com/purpleidea/mgmt/util"
+
+	"gopkg.in/fsnotify.v1"
+	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 )
 
 // ConfigWatcher returns events on a channel anytime one of its files events.
@@ -105,18 +109,18 @@ func ConfigWatch(file string) chan bool {
 		}
 		defer watcher.Close()
 
-		patharray := PathSplit(safename) // tokenize the path
-		var index = len(patharray)       // starting index
-		var current string               // current "watcher" location
-		var deltaDepth int               // depth delta between watcher and event
-		var send = false                 // send event?
+		patharray := util.PathSplit(safename) // tokenize the path
+		var index = len(patharray)            // starting index
+		var current string                    // current "watcher" location
+		var deltaDepth int                    // depth delta between watcher and event
+		var send = false                      // send event?
 
 		for {
 			current = strings.Join(patharray[0:index], "/")
 			if current == "" { // the empty string top is the root dir ("/")
 				current = "/"
 			}
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("Watching: %v", current) // attempting to watch...
 			}
 			// initialize in the loop so that we can reset on rm-ed handles
@@ -145,11 +149,11 @@ func ConfigWatch(file string) chan bool {
 				if current == event.Name {
 					deltaDepth = 0 // i was watching what i was looking for
 
-				} else if HasPathPrefix(event.Name, current) {
-					deltaDepth = len(PathSplit(current)) - len(PathSplit(event.Name)) // -1 or less
+				} else if util.HasPathPrefix(event.Name, current) {
+					deltaDepth = len(util.PathSplit(current)) - len(util.PathSplit(event.Name)) // -1 or less
 
-				} else if HasPathPrefix(current, event.Name) {
-					deltaDepth = len(PathSplit(event.Name)) - len(PathSplit(current)) // +1 or more
+				} else if util.HasPathPrefix(current, event.Name) {
+					deltaDepth = len(util.PathSplit(event.Name)) - len(util.PathSplit(current)) // +1 or more
 
 				} else {
 					// TODO different watchers get each others events!
@@ -182,7 +186,7 @@ func ConfigWatch(file string) chan bool {
 					}
 
 					// if safename starts with event.Name, we're above, and no event should be sent
-				} else if HasPathPrefix(safename, event.Name) {
+				} else if util.HasPathPrefix(safename, event.Name) {
 					//log.Println("Above!")
 
 					if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
@@ -193,7 +197,7 @@ func ConfigWatch(file string) chan bool {
 
 					if deltaDepth < 0 {
 						log.Println("Parent!")
-						if PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
+						if util.PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
 							//send = true
 						}
 						watcher.Remove(current)
@@ -201,7 +205,7 @@ func ConfigWatch(file string) chan bool {
 					}
 
 					// if event.Name startswith safename, send event, we're already deeper
-				} else if HasPathPrefix(event.Name, safename) {
+				} else if util.HasPathPrefix(event.Name, safename) {
 					//log.Println("Event2!")
 					//send = true
 				}

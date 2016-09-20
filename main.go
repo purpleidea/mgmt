@@ -19,9 +19,6 @@ package main
 
 import (
 	"fmt"
-	etcdtypes "github.com/coreos/etcd/pkg/types"
-	"github.com/coreos/pkg/capnslog"
-	"github.com/urfave/cli"
 	"io/ioutil"
 	"log"
 	"os"
@@ -29,6 +26,19 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/purpleidea/mgmt/converger"
+	"github.com/purpleidea/mgmt/etcd"
+	"github.com/purpleidea/mgmt/gconfig"
+	"github.com/purpleidea/mgmt/global"
+	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/puppet"
+	"github.com/purpleidea/mgmt/remote"
+	"github.com/purpleidea/mgmt/util"
+
+	etcdtypes "github.com/coreos/etcd/pkg/types"
+	"github.com/coreos/pkg/capnslog"
+	"github.com/urfave/cli"
 )
 
 // set at compile time
@@ -36,13 +46,6 @@ var (
 	program string
 	version string
 	prefix  = fmt.Sprintf("/var/lib/%s/", program)
-)
-
-// variables controlling verbosity
-const (
-	DEBUG   = false // add additional log messages
-	TRACE   = false // add execution flow log messages
-	VERBOSE = false // add extra log message output
 )
 
 // signal handler
@@ -73,7 +76,7 @@ func run(c *cli.Context) error {
 	hostname, _ := os.Hostname()
 	// allow passing in the hostname, instead of using --hostname
 	if c.IsSet("file") {
-		if config := ParseConfigFromFile(c.String("file")); config != nil {
+		if config := gconfig.ParseConfigFromFile(c.String("file")); config != nil {
 			if h := config.Hostname; h != "" {
 				hostname = h
 			}
@@ -87,21 +90,21 @@ func run(c *cli.Context) error {
 	noop := c.Bool("noop")
 
 	seeds, err := etcdtypes.NewURLs(
-		FlattenListWithSplit(c.StringSlice("seeds"), []string{",", ";", " "}),
+		util.FlattenListWithSplit(c.StringSlice("seeds"), []string{",", ";", " "}),
 	)
 	if err != nil && len(c.StringSlice("seeds")) > 0 {
 		log.Printf("Main: Error: seeds didn't parse correctly!")
 		return cli.NewExitError("", 1)
 	}
 	clientURLs, err := etcdtypes.NewURLs(
-		FlattenListWithSplit(c.StringSlice("client-urls"), []string{",", ";", " "}),
+		util.FlattenListWithSplit(c.StringSlice("client-urls"), []string{",", ";", " "}),
 	)
 	if err != nil && len(c.StringSlice("client-urls")) > 0 {
 		log.Printf("Main: Error: clientURLs didn't parse correctly!")
 		return cli.NewExitError("", 1)
 	}
 	serverURLs, err := etcdtypes.NewURLs(
-		FlattenListWithSplit(c.StringSlice("server-urls"), []string{",", ";", " "}),
+		util.FlattenListWithSplit(c.StringSlice("server-urls"), []string{",", ";", " "}),
 	)
 	if err != nil && len(c.StringSlice("server-urls")) > 0 {
 		log.Printf("Main: Error: serverURLs didn't parse correctly!")
@@ -171,7 +174,7 @@ func run(c *cli.Context) error {
 
 	var wg sync.WaitGroup
 	exit := make(chan bool) // exit signal
-	var G, fullGraph *Graph
+	var G, fullGraph *pgraph.Graph
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := c.Int("max-runtime"); i > 0 {
@@ -182,7 +185,7 @@ func run(c *cli.Context) error {
 	}
 
 	// setup converger
-	converger := NewConverger(
+	converger := converger.NewConverger(
 		c.Int("converged-timeout"),
 		nil, // stateFn gets added in by EmbdEtcd
 	)
@@ -194,7 +197,7 @@ func run(c *cli.Context) error {
 	} else {
 		log.Printf("Main: Seeds(%v): %v", len(seeds), seeds)
 	}
-	EmbdEtcd := NewEmbdEtcd(
+	EmbdEtcd := etcd.NewEmbdEtcd(
 		hostname,
 		seeds,
 		clientURLs,
@@ -225,7 +228,7 @@ func run(c *cli.Context) error {
 			return nil
 		}
 		// send our individual state into etcd for others to see
-		return EtcdSetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
+		return etcd.EtcdSetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
 	}
 	if EmbdEtcd != nil {
 		converger.SetStateFn(convergerStateFn)
@@ -241,11 +244,11 @@ func run(c *cli.Context) error {
 		if !c.Bool("no-watch") && c.IsSet("file") {
 			configchan = ConfigWatch(file)
 		} else if c.IsSet("puppet") {
-			interval := PuppetInterval(c.String("puppet-conf"))
+			interval := puppet.PuppetInterval(c.String("puppet-conf"))
 			puppetchan = time.Tick(time.Duration(interval) * time.Second)
 		}
 		log.Println("Etcd: Starting...")
-		etcdchan := EtcdWatch(EmbdEtcd)
+		etcdchan := etcd.EtcdWatch(EmbdEtcd)
 		first := true // first loop or not
 		for {
 			log.Println("Main: Waiting...")
@@ -272,11 +275,11 @@ func run(c *cli.Context) error {
 				return
 			}
 
-			var config *GraphConfig
+			var config *gconfig.GraphConfig
 			if c.IsSet("file") {
-				config = ParseConfigFromFile(file)
+				config = gconfig.ParseConfigFromFile(file)
 			} else if c.IsSet("puppet") {
-				config = ParseConfigFromPuppet(c.String("puppet"), c.String("puppet-conf"))
+				config = puppet.ParseConfigFromPuppet(c.String("puppet"), c.String("puppet-conf"))
 			}
 			if config == nil {
 				log.Printf("Config: Parse failure")
@@ -297,7 +300,7 @@ func run(c *cli.Context) error {
 
 			// build graph from yaml file on events (eg: from etcd)
 			// we need the vertices to be paused to work on them
-			if newFullgraph, err := fullGraph.NewGraphFromConfig(config, EmbdEtcd, noop); err == nil { // keep references to all original elements
+			if newFullgraph, err := config.NewGraphFromConfig(fullGraph, EmbdEtcd, noop); err == nil { // keep references to all original elements
 				fullGraph = newFullgraph
 			} else {
 				log.Printf("Config: Error making new graph from config: %v", err)
@@ -344,13 +347,13 @@ func run(c *cli.Context) error {
 
 	// initialize the add watcher, which calls the f callback on map changes
 	convergerCb := func(f func(map[string]bool) error) (func(), error) {
-		return EtcdAddHostnameConvergedWatcher(EmbdEtcd, f)
+		return etcd.EtcdAddHostnameConvergedWatcher(EmbdEtcd, f)
 	}
 
 	// build remotes struct for remote ssh
-	remotes := NewRemotes(
+	remotes := remote.NewRemotes(
 		EmbdEtcd.LocalhostClientURLs().StringSlice(),
-		[]string{DefaultClientURL},
+		[]string{etcd.DefaultClientURL},
 		noop,
 		c.StringSlice("remote"), // list of files
 		events,                  // watch for file changes
@@ -362,6 +365,7 @@ func run(c *cli.Context) error {
 		prefix,
 		converger,
 		convergerCb,
+		program,
 	)
 
 	// TODO: is there any benefit to running the remotes above in the loop?
@@ -390,7 +394,7 @@ func run(c *cli.Context) error {
 		log.Printf("Etcd exited poorly with: %v", err)
 	}
 
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("Graph: %v", G)
 	}
 
@@ -403,7 +407,7 @@ func run(c *cli.Context) error {
 
 func main() {
 	var flags int
-	if DEBUG || true { // TODO: remove || true
+	if global.DEBUG || true { // TODO: remove || true
 		flags = log.LstdFlags | log.Lshortfile
 	}
 	flags = (flags - log.Ldate) // remove the date for now
@@ -411,7 +415,7 @@ func main() {
 
 	// un-hijack from capnslog...
 	log.SetOutput(os.Stderr)
-	if VERBOSE {
+	if global.VERBOSE {
 		capnslog.SetFormatter(capnslog.NewLogFormatter(os.Stderr, "(etcd) ", flags))
 	} else {
 		capnslog.SetFormatter(capnslog.NewNilFormatter())
@@ -492,7 +496,7 @@ func main() {
 				},
 				cli.IntFlag{
 					Name:   "ideal-cluster-size",
-					Value:  defaultIdealClusterSize,
+					Value:  etcd.DefaultIdealClusterSize,
 					Usage:  "ideal number of server peers in cluster, only read by initial server",
 					EnvVar: "MGMT_IDEAL_CLUSTER_SIZE",
 				},

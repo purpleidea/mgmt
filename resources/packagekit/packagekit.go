@@ -17,15 +17,17 @@
 
 // DOCS: https://www.freedesktop.org/software/PackageKit/gtk-doc/index.html
 
-//package packagekit // TODO
-package main
+package packagekit
 
 import (
 	"fmt"
-	"github.com/godbus/dbus"
 	"log"
 	"runtime"
 	"strings"
+
+	"github.com/purpleidea/mgmt/util"
+
+	"github.com/godbus/dbus"
 )
 
 // global tweaks of verbosity and code path
@@ -160,7 +162,7 @@ type PkPackageIDActionData struct {
 // NewBus returns a new bus connection.
 func NewBus() *Conn {
 	// if we share the bus with others, we will get each others messages!!
-	bus, err := SystemBusPrivateUsable() // don't share the bus connection!
+	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
 		return nil
 	}
@@ -422,7 +424,7 @@ loop:
 			} else {
 				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
 			}
-		case <-TimeAfterOrBlock(timeout):
+		case <-util.TimeAfterOrBlock(timeout):
 			if finished {
 				log.Println("PackageKit: Timeout: InstallPackages: Waiting for 'Destroy'")
 				return nil // got tired of waiting for Destroy

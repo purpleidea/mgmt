@@ -15,7 +15,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+// Package puppet provides the integration entrypoint for the puppet language.
+package puppet
 
 import (
 	"bufio"
@@ -24,6 +25,9 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/purpleidea/mgmt/gconfig"
+	"github.com/purpleidea/mgmt/global"
 )
 
 const (
@@ -32,7 +36,7 @@ const (
 )
 
 func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("Puppet: running command: %v", cmd)
 	}
 
@@ -67,7 +71,7 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 		// will choke on an oversized slice. http://stackoverflow.com/a/33726617/3356612
 		result = append(result, data[0:count]...)
 	}
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("Puppet: read %v bytes of data from puppet", len(result))
 	}
 	for scanner := bufio.NewScanner(stderr); scanner.Scan(); {
@@ -83,7 +87,7 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 
 // ParseConfigFromPuppet takes a special puppet param string and config and
 // returns the graph configuration structure.
-func ParseConfigFromPuppet(puppetParam, puppetConf string) *GraphConfig {
+func ParseConfigFromPuppet(puppetParam, puppetConf string) *gconfig.GraphConfig {
 	var puppetConfArg string
 	if puppetConf != "" {
 		puppetConfArg = "--config=" + puppetConf
@@ -100,7 +104,7 @@ func ParseConfigFromPuppet(puppetParam, puppetConf string) *GraphConfig {
 
 	log.Println("Puppet: launching translator")
 
-	var config GraphConfig
+	var config gconfig.GraphConfig
 	if data, err := runPuppetCommand(cmd); err != nil {
 		return nil
 	} else if err := config.Parse(data); err != nil {
@@ -113,7 +117,7 @@ func ParseConfigFromPuppet(puppetParam, puppetConf string) *GraphConfig {
 
 // PuppetInterval returns the graph refresh interval from the puppet configuration.
 func PuppetInterval(puppetConf string) int {
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("Puppet: determining graph refresh interval")
 	}
 	var cmd *exec.Cmd

@@ -15,15 +15,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package resources
 
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/hex"
-	"gopkg.in/fsnotify.v1"
-	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -35,6 +33,13 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
+	"github.com/purpleidea/mgmt/util"
+
+	"gopkg.in/fsnotify.v1"
+	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 )
 
 func init() {
@@ -95,8 +100,8 @@ func (obj *FileRes) Init() {
 // GetPath returns the actual path to use for this resource. It computes this
 // after analysis of the Path, Dirname and Basename values. Dirs end with slash.
 func (obj *FileRes) GetPath() string {
-	d := Dirname(obj.Path)
-	b := Basename(obj.Path)
+	d := util.Dirname(obj.Path)
+	b := util.Basename(obj.Path)
 	if obj.Dirname == "" && obj.Basename == "" {
 		return obj.Path
 	}
@@ -143,7 +148,7 @@ func (obj *FileRes) addSubFolders(p string) error {
 	}
 	// look at all subfolders...
 	walkFn := func(path string, info os.FileInfo, err error) error {
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("%s[%s]: Walk: %s (%v): %v", obj.Kind(), obj.GetName(), path, info, err)
 		}
 		if err != nil {
@@ -168,7 +173,7 @@ func (obj *FileRes) addSubFolders(p string) error {
 // If the Watch returns an error, it means that something has gone wrong, and it
 // must be restarted. On a clean exit it returns nil.
 // FIXME: Also watch the source directory when using obj.Source !!!
-func (obj *FileRes) Watch(processChan chan Event) error {
+func (obj *FileRes) Watch(processChan chan event.Event) error {
 	if obj.IsWatching() {
 		return nil // TODO: should this be an error?
 	}
@@ -195,11 +200,11 @@ func (obj *FileRes) Watch(processChan chan Event) error {
 	}
 	defer obj.watcher.Close()
 
-	patharray := PathSplit(safename) // tokenize the path
-	var index = len(patharray)       // starting index
-	var current string               // current "watcher" location
-	var deltaDepth int               // depth delta between watcher and event
-	var send = false                 // send event?
+	patharray := util.PathSplit(safename) // tokenize the path
+	var index = len(patharray)            // starting index
+	var current string                    // current "watcher" location
+	var deltaDepth int                    // depth delta between watcher and event
+	var send = false                      // send event?
 	var exit = false
 	var dirty = false
 
@@ -221,13 +226,13 @@ func (obj *FileRes) Watch(processChan chan Event) error {
 		if current == "" { // the empty string top is the root dir ("/")
 			current = "/"
 		}
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("%s[%s]: Watching: %v", obj.Kind(), obj.GetName(), current) // attempting to watch...
 		}
 		// initialize in the loop so that we can reset on rm-ed handles
 		err = obj.watcher.Add(current)
 		if err != nil {
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("%s[%s]: watcher.Add(%v): Error: %v", obj.Kind(), obj.GetName(), current, err)
 			}
 			if err == syscall.ENOENT {
@@ -246,10 +251,10 @@ func (obj *FileRes) Watch(processChan chan Event) error {
 			continue
 		}
 
-		obj.SetState(resStateWatching) // reset
+		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-obj.watcher.Events:
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("%s[%s]: Watch(%s), Event(%s): %v", obj.Kind(), obj.GetName(), current, event.Name, event.Op)
 			}
 			cuuid.SetConverged(false) // XXX: technically i can detect if the event is erroneous or not first
@@ -259,11 +264,11 @@ func (obj *FileRes) Watch(processChan chan Event) error {
 			if current == event.Name {
 				deltaDepth = 0 // i was watching what i was looking for
 
-			} else if HasPathPrefix(event.Name, current) {
-				deltaDepth = len(PathSplit(current)) - len(PathSplit(event.Name)) // -1 or less
+			} else if util.HasPathPrefix(event.Name, current) {
+				deltaDepth = len(util.PathSplit(current)) - len(util.PathSplit(event.Name)) // -1 or less
 
-			} else if HasPathPrefix(current, event.Name) {
-				deltaDepth = len(PathSplit(event.Name)) - len(PathSplit(current)) // +1 or more
+			} else if util.HasPathPrefix(current, event.Name) {
+				deltaDepth = len(util.PathSplit(event.Name)) - len(util.PathSplit(current)) // +1 or more
 				// if below me...
 				if _, exists := obj.watches[event.Name]; exists {
 					send = true
@@ -317,7 +322,7 @@ func (obj *FileRes) Watch(processChan chan Event) error {
 				}
 
 				// if safename starts with event.Name, we're above, and no event should be sent
-			} else if HasPathPrefix(safename, event.Name) {
+			} else if util.HasPathPrefix(safename, event.Name) {
 				//log.Println("Above!")
 
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
@@ -328,7 +333,7 @@ func (obj *FileRes) Watch(processChan chan Event) error {
 
 				if deltaDepth < 0 {
 					log.Println("Parent!")
-					if PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
+					if util.PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
 						send = true
 						dirty = true
 					}
@@ -337,7 +342,7 @@ func (obj *FileRes) Watch(processChan chan Event) error {
 				}
 
 				// if event.Name startswith safename, send event, we're already deeper
-			} else if HasPathPrefix(event.Name, safename) {
+			} else if util.HasPathPrefix(event.Name, safename) {
 				//log.Println("Event2!")
 				send = true
 				dirty = true
@@ -450,7 +455,7 @@ func mapPaths(fileInfos []FileInfo) map[string]FileInfo {
 func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sha256sum string) (string, bool, error) {
 	// TODO: does it make sense to switch dst to an io.Writer ?
 	// TODO: use obj.Force when dealing with symlinks and other file types!
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("fileCheckApply: %s -> %s", src, dst)
 	}
 
@@ -547,7 +552,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	if !apply {
 		return sha256sum, false, nil
 	}
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("fileCheckApply: Apply: %s -> %s", src, dst)
 	}
 
@@ -568,12 +573,12 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	// syscall.Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n int64, err error)
 
 	// TODO: should we offer a way to cancel the copy on ^C ?
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("fileCheckApply: Copy: %s -> %s", src, dst)
 	}
 	if n, err := io.Copy(dstFile, src); err != nil {
 		return sha256sum, false, err
-	} else if DEBUG {
+	} else if global.DEBUG {
 		log.Printf("fileCheckApply: Copied: %v", n)
 	}
 	return sha256sum, false, dstFile.Sync()
@@ -583,7 +588,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 // It is recursive and can create directories directly, and files via the usual
 // fileCheckApply method. It returns checkOK and error as is normally expected.
 func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
-	if DEBUG {
+	if global.DEBUG {
 		log.Printf("syncCheckApply: %s -> %s", src, dst)
 	}
 	if src == "" || dst == "" {
@@ -601,12 +606,12 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	}
 
 	if !srcIsDir && !dstIsDir {
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("syncCheckApply: %s -> %s", src, dst)
 		}
 		fin, err := os.Open(src)
 		if err != nil {
-			if DEBUG && os.IsNotExist(err) { // if we get passed an empty src
+			if global.DEBUG && os.IsNotExist(err) { // if we get passed an empty src
 				log.Printf("syncCheckApply: Missing src: %s", src)
 			}
 			return false, err
@@ -662,7 +667,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 					delete(smartDst, relPathFile) // rm from purge list
 				}
 
-				if DEBUG {
+				if global.DEBUG {
 					log.Printf("syncCheckApply: mkdir -m %s '%s'", fileInfo.Mode(), absDst)
 				}
 				if err := os.Mkdir(absDst, fileInfo.Mode()); err != nil {
@@ -673,7 +678,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 			// if we're a regular file, the recurse will create it
 		}
 
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("syncCheckApply: Recurse: %s -> %s", absSrc, absDst)
 		}
 		if obj.Recurse {
@@ -887,9 +892,9 @@ func (obj *FileResAutoEdges) Test(input []bool) bool {
 // AutoEdges generates a simple linear sequence of each parent directory from
 // the bottom up!
 func (obj *FileRes) AutoEdges() AutoEdge {
-	var data []ResUUID                        // store linear result chain here...
-	values := PathSplitFullReversed(obj.path) // build it
-	_, values = values[0], values[1:]         // get rid of first value which is me!
+	var data []ResUUID                             // store linear result chain here...
+	values := util.PathSplitFullReversed(obj.path) // build it
+	_, values = values[0], values[1:]              // get rid of first value which is me!
 	for _, x := range values {
 		var reversed = true // cheat by passing a pointer
 		data = append(data, &FileUUID{

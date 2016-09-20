@@ -15,12 +15,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+// Package converger is a facility for reporting the converged state.
+package converger
 
 import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/purpleidea/mgmt/util"
 )
 
 // TODO: we could make a new function that masks out the state of certain
@@ -248,9 +251,9 @@ func (obj *converger) ConvergedTimer(uuid ConvergerUUID) <-chan time.Time {
 	// we have a low timeout, or in particular a timeout == 0
 	if uuid.IsConverged() {
 		// blocks the case statement in select forever!
-		return TimeAfterOrBlock(-1)
+		return util.TimeAfterOrBlock(-1)
 	}
-	return TimeAfterOrBlock(obj.timeout)
+	return util.TimeAfterOrBlock(obj.timeout)
 }
 
 // Status returns a map of the converged status of each UUID.

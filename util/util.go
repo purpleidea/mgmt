@@ -15,14 +15,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+// Package util contains a collection of miscellaneous utility functions.
+package util
 
 import (
-	"github.com/godbus/dbus"
 	"path"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/godbus/dbus"
 )
 
 // FirstToUpper returns the string with the first character capitalized.

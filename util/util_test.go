@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package util
 
 import (
 	"reflect"
@@ -23,7 +23,7 @@ import (
 	"testing"
 )
 
-func TestMiscT1(t *testing.T) {
+func TestUtilT1(t *testing.T) {
 
 	if Dirname("/foo/bar/baz") != "/foo/bar/" {
 		t.Errorf("Result is incorrect.")
@@ -62,7 +62,7 @@ func TestMiscT1(t *testing.T) {
 	}
 }
 
-func TestMiscT2(t *testing.T) {
+func TestUtilT2(t *testing.T) {
 
 	// TODO: compare the output with the actual list
 	p0 := "/"
@@ -86,7 +86,7 @@ func TestMiscT2(t *testing.T) {
 	}
 }
 
-func TestMiscT3(t *testing.T) {
+func TestUtilT3(t *testing.T) {
 
 	if HasPathPrefix("/foo/bar/baz", "/foo/ba") != false {
 		t.Errorf("Result should be false.")
@@ -117,7 +117,7 @@ func TestMiscT3(t *testing.T) {
 	}
 }
 
-func TestMiscT4(t *testing.T) {
+func TestUtilT4(t *testing.T) {
 
 	if PathPrefixDelta("/foo/bar/baz", "/foo/ba") != -1 {
 		t.Errorf("Result should be -1.")
@@ -152,7 +152,7 @@ func TestMiscT4(t *testing.T) {
 	}
 }
 
-func TestMiscT8(t *testing.T) {
+func TestUtilT8(t *testing.T) {
 
 	r0 := []string{"/"}
 	if fullList0 := PathSplitFullReversed("/"); !reflect.DeepEqual(r0, fullList0) {
@@ -171,7 +171,7 @@ func TestMiscT8(t *testing.T) {
 
 }
 
-func TestMiscT9(t *testing.T) {
+func TestUtilT9(t *testing.T) {
 	fileListIn := []string{ // list taken from drbd-utils package
 		"/etc/drbd.conf",
 		"/etc/drbd.d/global_common.conf",
@@ -315,7 +315,7 @@ func TestMiscT9(t *testing.T) {
 	}
 }
 
-func TestMiscT10(t *testing.T) {
+func TestUtilT10(t *testing.T) {
 	fileListIn := []string{ // fake package list
 		"/etc/drbd.conf",
 		"/usr/share/man/man8/drbdsetup.8.gz",
@@ -351,7 +351,7 @@ func TestMiscT10(t *testing.T) {
 	}
 }
 
-func TestMiscT11(t *testing.T) {
+func TestUtilT11(t *testing.T) {
 	in1 := []string{"/", "/usr/", "/usr/lib/", "/usr/share/"} // input
 	ex1 := []string{"/usr/lib/", "/usr/share/"}               // expected
 	sort.Strings(ex1)
@@ -724,7 +724,7 @@ func TestMiscT11(t *testing.T) {
 	}
 }
 
-func TestMiscFlattenListWithSplit1(t *testing.T) {
+func TestUtilFlattenListWithSplit1(t *testing.T) {
 	{
 		in := []string{} // input
 		ex := []string{} // expected

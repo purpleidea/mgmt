@@ -17,17 +17,21 @@
 
 // DOCS: https://godoc.org/github.com/coreos/go-systemd/dbus
 
-package main
+package resources
 
 import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
+	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/util"
+
 	systemd "github.com/coreos/go-systemd/dbus" // change namespace
 	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus" // namespace collides with systemd wrapper
-	"log"
-	"time"
 )
 
 func init() {
@@ -72,7 +76,7 @@ func (obj *SvcRes) Validate() bool {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *SvcRes) Watch(processChan chan Event) error {
+func (obj *SvcRes) Watch(processChan chan event.Event) error {
 	if obj.IsWatching() {
 		return nil
 	}
@@ -102,7 +106,7 @@ func (obj *SvcRes) Watch(processChan chan Event) error {
 	defer conn.Close()
 
 	// if we share the bus with others, we will get each others messages!!
-	bus, err := SystemBusPrivateUsable() // don't share the bus connection!
+	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
 		return fmt.Errorf("Failed to connect to bus: %s", err)
 	}
@@ -157,7 +161,7 @@ func (obj *SvcRes) Watch(processChan chan Event) error {
 				set.Remove(svc) // no return value should ever occur
 			}
 
-			obj.SetState(resStateWatching) // reset
+			obj.SetState(ResStateWatching) // reset
 			select {
 			case <-buschan: // XXX wait for new units event to unstick
 				cuuid.SetConverged(false)
@@ -189,7 +193,7 @@ func (obj *SvcRes) Watch(processChan chan Event) error {
 			}
 
 			log.Printf("Watching: %v", svc) // attempting to watch...
-			obj.SetState(resStateWatching)  // reset
+			obj.SetState(ResStateWatching)  // reset
 			select {
 			case event := <-subChannel:
 

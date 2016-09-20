@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package remote provides the remoting facilities for agentless execution.
 // This set of structs and methods are for running mgmt remotely over SSH. This
 // gives us the architectural robustness of our current design, combined with
 // the ability to run it with an "agent-less" approach for bootstrapping, and
@@ -35,7 +36,7 @@
 // remote mgmt transient agents are running, they can still exchange data and
 // converge together without directly connecting, since they all tunnel through
 // the etcd server running on the initiator.
-package main // TODO: make this a separate "remote" package
+package remote
 
 // TODO: running with two identical remote endpoints over a slow connection, eg:
 // --remote file1.yaml --remote file1.yaml
@@ -46,10 +47,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/howeyc/gopass"
-	"github.com/kardianos/osext"
-	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 	"io"
 	"io/ioutil"
 	"log"
@@ -63,9 +60,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	cv "github.com/purpleidea/mgmt/converger"
+	"github.com/purpleidea/mgmt/gconfig"
+	"github.com/purpleidea/mgmt/util"
+
+	"github.com/howeyc/gopass"
+	"github.com/kardianos/osext"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
 const (
+	DEBUG = false
 	// FIXME: should this dir be in /var/ instead?
 	formatPattern                        = "/tmp/mgmt.%s/"                        // remote format, to match `mktemp`
 	formatChars                          = "abcdefghijklmnopqrstuvwxyz0123456789" // chars for fmt string // TODO: what does mktemp use?
@@ -94,7 +101,7 @@ type SSH struct {
 	depth     uint16 // depth of this node in the remote execution hierarchy
 	caching   bool   // whether to try and cache the copy of the binary
 	prefix    string // location we're allowed to put data on the remote server
-	converger Converger
+	converger cv.Converger
 
 	client   *ssh.Client  // client object
 	sftp     *sftp.Client // sftp object
@@ -107,6 +114,7 @@ type SSH struct {
 	lock    sync.Mutex     // mutex to avoid exit races
 	exiting bool           // flag to let us know if we're exiting
 
+	program  string // name of the binary
 	remotewd string // path to remote working directory
 	execpath string // path to remote mgmt binary
 	filepath string // path to remote file config
@@ -214,7 +222,7 @@ func (obj *SSH) Sftp() error {
 		break
 	}
 
-	obj.execpath = path.Join(obj.remotewd, program) // program is a compile time string from main.go
+	obj.execpath = path.Join(obj.remotewd, obj.program) // program is a compile time string
 	log.Printf("Remote: Remote path is: %s", obj.execpath)
 
 	var same bool
@@ -553,7 +561,7 @@ func (obj *SSH) ExecExit() error {
 	}
 
 	// FIXME: workaround: force a signal!
-	if _, err := obj.simpleRun(fmt.Sprintf("killall -SIGINT %s", program)); err != nil { // FIXME: low specificity
+	if _, err := obj.simpleRun(fmt.Sprintf("killall -SIGINT %s", obj.program)); err != nil { // FIXME: low specificity
 		log.Printf("Remote: Failed to send SIGINT: %s", err.Error())
 	}
 
@@ -562,12 +570,12 @@ func (obj *SSH) ExecExit() error {
 		// try killing the process more violently
 		time.Sleep(10 * time.Second)
 		//obj.session.Signal(ssh.SIGKILL)
-		cmd := fmt.Sprintf("killall -SIGKILL %s", program) // FIXME: low specificity
+		cmd := fmt.Sprintf("killall -SIGKILL %s", obj.program) // FIXME: low specificity
 		obj.simpleRun(cmd)
 	}()
 
 	// FIXME: workaround: wait (spin lock) until process quits cleanly...
-	cmd := fmt.Sprintf("while killall -0 %s 2> /dev/null; do sleep 1s; done", program) // FIXME: low specificity
+	cmd := fmt.Sprintf("while killall -0 %s 2> /dev/null; do sleep 1s; done", obj.program) // FIXME: low specificity
 	if _, err := obj.simpleRun(cmd); err != nil {
 		return fmt.Errorf("Error waiting: %s", err)
 	}
@@ -680,29 +688,30 @@ type Remotes struct {
 	caching      bool   // whether to try and cache the copy of the binary
 	depth        uint16 // depth of this node in the remote execution hierarchy
 	prefix       string // folder prefix to use for misc storage
-	converger    Converger
+	converger    cv.Converger
 	convergerCb  func(func(map[string]bool) error) (func(), error)
 
-	wg                 sync.WaitGroup           // keep track of each running SSH connection
-	lock               sync.Mutex               // mutex for access to sshmap
-	sshmap             map[string]*SSH          // map to each SSH struct with the remote as the key
-	exiting            bool                     // flag to let us know if we're exiting
-	exitChan           chan struct{}            // closes when we should exit
-	semaphore          Semaphore                // counting semaphore to limit concurrent connections
-	hostnames          []string                 // list of hostnames we've seen so far
-	cuuid              ConvergerUUID            // convergerUUID for the remote itself
-	cuuids             map[string]ConvergerUUID // map to each SSH struct with the remote as the key
-	callbackCancelFunc func()                   // stored callback function cancel function
+	wg                 sync.WaitGroup              // keep track of each running SSH connection
+	lock               sync.Mutex                  // mutex for access to sshmap
+	sshmap             map[string]*SSH             // map to each SSH struct with the remote as the key
+	exiting            bool                        // flag to let us know if we're exiting
+	exitChan           chan struct{}               // closes when we should exit
+	semaphore          Semaphore                   // counting semaphore to limit concurrent connections
+	hostnames          []string                    // list of hostnames we've seen so far
+	cuuid              cv.ConvergerUUID            // convergerUUID for the remote itself
+	cuuids             map[string]cv.ConvergerUUID // map to each SSH struct with the remote as the key
+	callbackCancelFunc func()                      // stored callback function cancel function
 
+	program string // name of the program
 }
 
 // The NewRemotes function builds a Remotes struct.
-func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, depth uint16, prefix string, converger Converger, convergerCb func(func(map[string]bool) error) (func(), error)) *Remotes {
+func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, depth uint16, prefix string, converger cv.Converger, convergerCb func(func(map[string]bool) error) (func(), error), program string) *Remotes {
 	return &Remotes{
 		clientURLs:   clientURLs,
 		remoteURLs:   remoteURLs,
 		noop:         noop,
-		remotes:      StrRemoveDuplicatesInList(remotes),
+		remotes:      util.StrRemoveDuplicatesInList(remotes),
 		fileWatch:    fileWatch,
 		cConns:       cConns,
 		interactive:  interactive,
@@ -716,7 +725,8 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		exitChan:     make(chan struct{}),
 		semaphore:    NewSemaphore(int(cConns)),
 		hostnames:    make([]string, len(remotes)),
-		cuuids:       make(map[string]ConvergerUUID),
+		cuuids:       make(map[string]cv.ConvergerUUID),
+		program:      program,
 	}
 }
 
@@ -724,7 +734,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 // It takes as input the path to a graph definition file.
 func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 	// first do the parsing...
-	config := ParseConfigFromFile(file)
+	config := gconfig.ParseConfigFromFile(file)
 	if config == nil {
 		return nil, fmt.Errorf("Remote: Error parsing remote graph: %s", file)
 	}
@@ -785,7 +795,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 	if hostname == "" {
 		hostname = host // default to above
 	}
-	if StrInList(hostname, obj.hostnames) {
+	if util.StrInList(hostname, obj.hostnames) {
 		return nil, fmt.Errorf("Remote: Hostname `%s` already exists!", hostname)
 	}
 	obj.hostnames = append(obj.hostnames, hostname)
@@ -805,6 +815,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		caching:    obj.caching,
 		converger:  obj.converger,
 		prefix:     obj.prefix,
+		program:    obj.program,
 	}, nil
 }
 
@@ -872,7 +883,7 @@ func (obj *Remotes) passwordCallback(user, host string) func() (string, error) {
 			return p, nil
 		case e := <-failchan:
 			return "", e
-		case <-TimeAfterOrBlock(timeout):
+		case <-util.TimeAfterOrBlock(timeout):
 			return "", fmt.Errorf("Interactive timeout reached!")
 		}
 	}

@@ -15,10 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package resources
 
 import (
-	//"packagekit" // TODO
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -26,6 +25,11 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
+	"github.com/purpleidea/mgmt/resources/packagekit"
+	"github.com/purpleidea/mgmt/util"
 )
 
 func init() {
@@ -39,7 +43,7 @@ type PkgRes struct {
 	AllowUntrusted   bool   `yaml:"allowuntrusted"`   // allow untrusted packages to be installed?
 	AllowNonFree     bool   `yaml:"allownonfree"`     // allow nonfree packages to be found?
 	AllowUnsupported bool   `yaml:"allowunsupported"` // allow unsupported packages to be found?
-	//bus              *Conn    // pk bus connection
+	//bus              *packagekit.Conn    // pk bus connection
 	fileList []string // FIXME: update if pkg changes
 }
 
@@ -63,7 +67,7 @@ func (obj *PkgRes) Init() {
 	obj.BaseRes.kind = "Pkg"
 	obj.BaseRes.Init() // call base init, b/c we're overriding
 
-	bus := NewBus()
+	bus := packagekit.NewBus()
 	if bus == nil {
 		log.Fatal("Can't connect to PackageKit bus.")
 	}
@@ -92,7 +96,7 @@ func (obj *PkgRes) Init() {
 		return
 	}
 	if files, ok := filesMap[data.PackageID]; ok {
-		obj.fileList = DirifyFileList(files, false)
+		obj.fileList = util.DirifyFileList(files, false)
 	}
 }
 
@@ -109,7 +113,7 @@ func (obj *PkgRes) Validate() bool {
 // It uses the PackageKit UpdatesChanged signal to watch for changes.
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
-func (obj *PkgRes) Watch(processChan chan Event) error {
+func (obj *PkgRes) Watch(processChan chan event.Event) error {
 	if obj.IsWatching() {
 		return nil
 	}
@@ -127,7 +131,7 @@ func (obj *PkgRes) Watch(processChan chan Event) error {
 		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
 	}
 
-	bus := NewBus()
+	bus := packagekit.NewBus()
 	if bus == nil {
 		log.Fatal("Can't connect to PackageKit bus.")
 	}
@@ -143,17 +147,17 @@ func (obj *PkgRes) Watch(processChan chan Event) error {
 	var dirty = false
 
 	for {
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("%v: Watching...", obj.fmtNames(obj.getNames()))
 		}
 
-		obj.SetState(resStateWatching) // reset
+		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-ch:
 			cuuid.SetConverged(false)
 
 			// FIXME: ask packagekit for info on what packages changed
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("%v: Event: %v", obj.fmtNames(obj.getNames()), event.Name)
 			}
 
@@ -236,23 +240,23 @@ func (obj *PkgRes) groupMappingHelper() map[string]string {
 	return result
 }
 
-func (obj *PkgRes) pkgMappingHelper(bus *Conn) (map[string]*PkPackageIDActionData, error) {
-	packageMap := obj.groupMappingHelper() // get the grouped values
-	packageMap[obj.Name] = obj.State       // key is pkg name, value is pkg state
-	var filter uint64                      // initializes at the "zero" value of 0
-	filter += PK_FILTER_ENUM_ARCH          // always search in our arch (optional!)
+func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packagekit.PkPackageIDActionData, error) {
+	packageMap := obj.groupMappingHelper()   // get the grouped values
+	packageMap[obj.Name] = obj.State         // key is pkg name, value is pkg state
+	var filter uint64                        // initializes at the "zero" value of 0
+	filter += packagekit.PK_FILTER_ENUM_ARCH // always search in our arch (optional!)
 	// we're requesting latest version, or to narrow down install choices!
 	if obj.State == "newest" || obj.State == "installed" {
 		// if we add this, we'll still see older packages if installed
 		// this is an optimization, and is *optional*, this logic is
 		// handled inside of PackagesToPackageIDs now automatically!
-		filter += PK_FILTER_ENUM_NEWEST // only search for newest packages
+		filter += packagekit.PK_FILTER_ENUM_NEWEST // only search for newest packages
 	}
 	if !obj.AllowNonFree {
-		filter += PK_FILTER_ENUM_FREE
+		filter += packagekit.PK_FILTER_ENUM_FREE
 	}
 	if !obj.AllowUnsupported {
-		filter += PK_FILTER_ENUM_SUPPORTED
+		filter += packagekit.PK_FILTER_ENUM_SUPPORTED
 	}
 	result, e := bus.PackagesToPackageIDs(packageMap, filter)
 	if e != nil {
@@ -274,7 +278,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 		return true, nil
 	}
 
-	bus := NewBus()
+	bus := packagekit.NewBus()
 	if bus == nil {
 		return false, errors.New("Can't connect to PackageKit bus.")
 	}
@@ -287,18 +291,18 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 
 	packageMap := obj.groupMappingHelper() // map[string]string
 	packageList := []string{obj.Name}
-	packageList = append(packageList, StrMapKeys(packageMap)...)
+	packageList = append(packageList, util.StrMapKeys(packageMap)...)
 	//stateList := []string{obj.State}
-	//stateList = append(stateList, StrMapValues(packageMap)...)
+	//stateList = append(stateList, util.StrMapValues(packageMap)...)
 
 	// TODO: at the moment, all the states are the same, but
 	// eventually we might be able to drop this constraint!
-	states, err := FilterState(result, packageList, obj.State)
+	states, err := packagekit.FilterState(result, packageList, obj.State)
 	if err != nil {
 		return false, fmt.Errorf("The FilterState method failed with: %v.", err)
 	}
 	data, _ := result[obj.Name] // if above didn't error, we won't either!
-	validState := BoolMapTrue(BoolMapValues(states))
+	validState := util.BoolMapTrue(util.BoolMapValues(states))
 
 	// obj.State == "installed" || "uninstalled" || "newest" || "4.2-1.fc23"
 	switch obj.State {
@@ -325,20 +329,20 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 
 	// apply portion
 	log.Printf("%v: Apply", obj.fmtNames(obj.getNames()))
-	readyPackages, err := FilterPackageState(result, packageList, obj.State)
+	readyPackages, err := packagekit.FilterPackageState(result, packageList, obj.State)
 	if err != nil {
 		return false, err // fail
 	}
 	// these are the packages that actually need their states applied!
-	applyPackages := StrFilterElementsInList(readyPackages, packageList)
-	packageIDs, _ := FilterPackageIDs(result, applyPackages) // would be same err as above
+	applyPackages := util.StrFilterElementsInList(readyPackages, packageList)
+	packageIDs, _ := packagekit.FilterPackageIDs(result, applyPackages) // would be same err as above
 
 	var transactionFlags uint64 // initializes at the "zero" value of 0
 	if !obj.AllowUntrusted {    // allow
-		transactionFlags += PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED
+		transactionFlags += packagekit.PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED
 	}
 	// apply correct state!
-	log.Printf("%v: Set: %v...", obj.fmtNames(StrListIntersection(applyPackages, obj.getNames())), obj.State)
+	log.Printf("%v: Set: %v...", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)
 	switch obj.State {
 	case "uninstalled": // run remove
 		// NOTE: packageID is different than when installed, because now
@@ -356,7 +360,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	if err != nil {
 		return false, err // fail
 	}
-	log.Printf("%v: Set: %v success!", obj.fmtNames(StrListIntersection(applyPackages, obj.getNames())), obj.State)
+	log.Printf("%v: Set: %v success!", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)
 	obj.isStateOK = true // reset
 	return false, nil    // success
 }
@@ -450,16 +454,16 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	var dirs = make([]string, count)
 	done := []string{}
 	for i := 0; i < count; i++ {
-		dir := Dirname(obj.fileList[i]) // dirname of /foo/ should be /
+		dir := util.Dirname(obj.fileList[i]) // dirname of /foo/ should be /
 		dirs[i] = dir
 		if input[i] {
 			done = append(done, dir)
 		}
 	}
-	nodupes := StrRemoveDuplicatesInList(dirs)                // remove duplicates
-	nodones := StrFilterElementsInList(done, nodupes)         // filter out done
-	noempty := StrFilterElementsInList([]string{""}, nodones) // remove the "" from /
-	obj.fileList = RemoveCommonFilePrefixes(noempty)          // magic
+	nodupes := util.StrRemoveDuplicatesInList(dirs)                // remove duplicates
+	nodones := util.StrFilterElementsInList(done, nodupes)         // filter out done
+	noempty := util.StrFilterElementsInList([]string{""}, nodones) // remove the "" from /
+	obj.fileList = util.RemoveCommonFilePrefixes(noempty)          // magic
 
 	if len(obj.fileList) == 0 { // nothing more, don't continue
 		return false
@@ -489,7 +493,7 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 	}
 
 	return &PkgResAutoEdges{
-		fileList:   RemoveCommonFilePrefixes(obj.fileList), // clean start!
+		fileList:   util.RemoveCommonFilePrefixes(obj.fileList), // clean start!
 		svcUUIDs:   svcUUIDs,
 		testIsNext: false,         // start with Next() call
 		name:       obj.GetName(), // save data for PkgResAutoEdges obj
@@ -573,7 +577,7 @@ func ReturnSvcInFileList(fileList []string) []string {
 		if !strings.HasSuffix(basename, ".service") {
 			continue
 		}
-		if s := strings.TrimSuffix(basename, ".service"); !StrInList(s, result) {
+		if s := strings.TrimSuffix(basename, ".service"); !util.StrInList(s, result) {
 			result = append(result, s)
 		}
 	}

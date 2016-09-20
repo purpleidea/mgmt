@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package main
+package resources
 
 import (
 	"bytes"
@@ -23,17 +23,22 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+
+	// TODO: should each resource be a sub-package?
+	"github.com/purpleidea/mgmt/converger"
+	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/global"
 )
 
-//go:generate stringer -type=resState -output=resstate_stringer.go
-type resState int
+//go:generate stringer -type=ResState -output=resstate_stringer.go
+type ResState int
 
 const (
-	resStateNil resState = iota
-	resStateWatching
-	resStateEvent // an event has happened, but we haven't poked yet
-	resStateCheckApply
-	resStatePoking
+	ResStateNil ResState = iota
+	ResStateWatching
+	ResStateEvent // an event has happened, but we haven't poked yet
+	ResStateCheckApply
+	ResStatePoking
 )
 
 // ResUUID is a unique identifier for a resource, namely it's name, and the kind ("type").
@@ -76,23 +81,23 @@ type MetaParams struct {
 type Base interface {
 	GetName() string // can't be named "Name()" because of struct field
 	SetName(string)
-	setKind(string)
+	SetKind(string)
 	Kind() string
 	Meta() *MetaParams
-	Events() chan Event
-	AssociateData(Converger)
+	Events() chan event.Event
+	AssociateData(converger.Converger)
 	IsWatching() bool
 	SetWatching(bool)
-	GetState() resState
-	SetState(resState)
-	DoSend(chan Event, string) (bool, error)
-	SendEvent(eventName, bool, bool) bool
-	ReadEvent(*Event) (bool, bool) // TODO: optional here?
-	GroupCmp(Res) bool             // TODO: is there a better name for this?
-	GroupRes(Res) error            // group resource (arg) into self
-	IsGrouped() bool               // am I grouped?
-	SetGrouped(bool)               // set grouped bool
-	GetGroup() []Res               // return everyone grouped inside me
+	GetState() ResState
+	SetState(ResState)
+	DoSend(chan event.Event, string) (bool, error)
+	SendEvent(event.EventName, bool, bool) bool
+	ReadEvent(*event.Event) (bool, bool) // TODO: optional here?
+	GroupCmp(Res) bool                   // TODO: is there a better name for this?
+	GroupRes(Res) error                  // group resource (arg) into self
+	IsGrouped() bool                     // am I grouped?
+	SetGrouped(bool)                     // set grouped bool
+	GetGroup() []Res                     // return everyone grouped inside me
 	SetGroup([]Res)
 }
 
@@ -101,8 +106,8 @@ type Res interface {
 	Base // include everything from the Base interface
 	Init()
 	//Validate() bool    // TODO: this might one day be added
-	GetUUIDs() []ResUUID    // most resources only return one
-	Watch(chan Event) error // send on channel to signal process() events
+	GetUUIDs() []ResUUID          // most resources only return one
+	Watch(chan event.Event) error // send on channel to signal process() events
 	CheckApply(bool) (bool, error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
@@ -114,9 +119,9 @@ type BaseRes struct {
 	Name       string     `yaml:"name"`
 	MetaParams MetaParams `yaml:"meta"` // struct of all the metaparams
 	kind       string
-	events     chan Event
-	converger  Converger // converged tracking
-	state      resState
+	events     chan event.Event
+	converger  converger.Converger // converged tracking
+	state      ResState
 	watching   bool  // is Watch() loop running ?
 	isStateOK  bool  // whether the state is okay based on events or not
 	isGrouped  bool  // am i contained within a group?
@@ -166,7 +171,7 @@ func (obj *BaseUUID) Reversed() bool {
 
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() {
-	obj.events = make(chan Event) // unbuffered chan size to avoid stale events
+	obj.events = make(chan event.Event) // unbuffered chan size to avoid stale events
 }
 
 // GetName is used by all the resources to Get the name.
@@ -179,8 +184,8 @@ func (obj *BaseRes) SetName(name string) {
 	obj.Name = name
 }
 
-// setKind sets the kind. This is used internally for exported resources.
-func (obj *BaseRes) setKind(kind string) {
+// SetKind sets the kind. This is used internally for exported resources.
+func (obj *BaseRes) SetKind(kind string) {
 	obj.kind = kind
 }
 
@@ -195,12 +200,12 @@ func (obj *BaseRes) Meta() *MetaParams {
 }
 
 // Events returns the channel of events to listen on.
-func (obj *BaseRes) Events() chan Event {
+func (obj *BaseRes) Events() chan event.Event {
 	return obj.events
 }
 
 // AssociateData associates some data with the object in question.
-func (obj *BaseRes) AssociateData(converger Converger) {
+func (obj *BaseRes) AssociateData(converger converger.Converger) {
 	obj.converger = converger
 }
 
@@ -215,13 +220,13 @@ func (obj *BaseRes) SetWatching(b bool) {
 }
 
 // GetState returns the state of the resource.
-func (obj *BaseRes) GetState() resState {
+func (obj *BaseRes) GetState() ResState {
 	return obj.state
 }
 
 // SetState sets the state of the resource.
-func (obj *BaseRes) SetState(state resState) {
-	if DEBUG {
+func (obj *BaseRes) SetState(state ResState) {
+	if global.DEBUG {
 		log.Printf("%v[%v]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state
@@ -230,9 +235,9 @@ func (obj *BaseRes) SetState(state resState) {
 // DoSend sends off an event, but doesn't block the incoming event queue. It can
 // also recursively call itself when events need processing during the wait.
 // I'm not completely comfortable with this fn, but it will have to do for now.
-func (obj *BaseRes) DoSend(processChan chan Event, comment string) (bool, error) {
-	resp := NewResp()
-	processChan <- Event{eventNil, resp, comment, true} // trigger process
+func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (bool, error) {
+	resp := event.NewResp()
+	processChan <- event.Event{event.EventNil, resp, comment, true} // trigger process
 	select {
 	case e := <-resp: // wait for the ACK()
 		if e != nil { // we got a NACK
@@ -252,47 +257,47 @@ func (obj *BaseRes) DoSend(processChan chan Event, comment string) (bool, error)
 }
 
 // SendEvent pushes an event into the message queue for a particular vertex
-func (obj *BaseRes) SendEvent(event eventName, sync bool, activity bool) bool {
+func (obj *BaseRes) SendEvent(ev event.EventName, sync bool, activity bool) bool {
 	// TODO: isn't this race-y ?
 	if !obj.IsWatching() { // element has already exited
 		return false // if we don't return, we'll block on the send
 	}
 	if !sync {
-		obj.events <- Event{event, nil, "", activity}
+		obj.events <- event.Event{ev, nil, "", activity}
 		return true
 	}
 
-	resp := NewResp()
-	obj.events <- Event{event, resp, "", activity}
+	resp := event.NewResp()
+	obj.events <- event.Event{ev, resp, "", activity}
 	resp.ACKWait() // waits until true (nil) value
 	return true
 }
 
 // ReadEvent processes events when a select gets one, and handles the pause
 // code too! The return values specify if we should exit and poke respectively.
-func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
-	event.ACK()
-	switch event.Name {
-	case eventStart:
+func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, poke bool) {
+	ev.ACK()
+	switch ev.Name {
+	case event.EventStart:
 		return false, true
 
-	case eventPoke:
+	case event.EventPoke:
 		return false, true
 
-	case eventBackPoke:
+	case event.EventBackPoke:
 		return false, true // forward poking in response to a back poke!
 
-	case eventExit:
+	case event.EventExit:
 		return true, false
 
-	case eventPause:
+	case event.EventPause:
 		// wait for next event to continue
 		select {
 		case e := <-obj.events:
 			e.ACK()
-			if e.Name == eventExit {
+			if e.Name == event.EventExit {
 				return true, false
-			} else if e.Name == eventStart { // eventContinue
+			} else if e.Name == event.EventStart { // eventContinue
 				return false, false // don't poke on unpause!
 			} else {
 				// if we get a poke event here, it's a bug!
@@ -301,7 +306,7 @@ func (obj *BaseRes) ReadEvent(event *Event) (exit, poke bool) {
 		}
 
 	default:
-		log.Fatal("Unknown event: ", event)
+		log.Fatal("Unknown event: ", ev)
 	}
 	return true, false // required to keep the stupid go compiler happy
 }

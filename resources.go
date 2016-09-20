@@ -348,6 +348,13 @@ func (obj *BaseRes) SetGroup(g []Res) {
 
 // Compare is the base compare method, which also handles the metaparams cmp
 func (obj *BaseRes) Compare(res Res) bool {
+	// TODO: should the AutoEdge values be compared?
+	if obj.Meta().AutoEdge != res.Meta().AutoEdge {
+		return false
+	}
+	if obj.Meta().AutoGroup != res.Meta().AutoGroup {
+		return false
+	}
 	if obj.Meta().Noop != res.Meta().Noop {
 		// obj is the existing res, res is the *new* resource
 		// if we go from no-noop -> noop, we can re-use the obj
@@ -355,6 +362,12 @@ func (obj *BaseRes) Compare(res Res) bool {
 		if obj.Meta().Noop { // asymmetrical
 			return false // going from noop to no-noop!
 		}
+	}
+	if obj.Meta().Retry != res.Meta().Retry {
+		return false
+	}
+	if obj.Meta().Delay != res.Meta().Delay {
+		return false
 	}
 	return true
 }

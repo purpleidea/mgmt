@@ -1,0 +1,18 @@
+---
+graph: mygraph
+comment: timer example
+resources:
+  timer:
+  - name: timer1
+    interval: 30
+  msg:
+  - name: msg1
+    body: mgmt logged this message
+edges:
+- name: e1
+  from:
+    kind: timer
+    name: timer1
+  to:
+    kind: msg
+    name: msg1

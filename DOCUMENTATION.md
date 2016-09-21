@@ -217,6 +217,7 @@ parameter with the [Noop](#Noop) resource.
 
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
+* [Msg](#Msg): Send log messages.
 * [Noop](#Noop): A simple resource that does nothing.
 * [Pkg](#Pkg):  Manage system packages with PackageKit.
 * [Svc](#Svc): Manage system systemd services.
@@ -259,6 +260,11 @@ and monitor directory contents with a depth greater than one.
 The force property is required if we want the file resource to be able to change
 a file into a directory or vice-versa. If such a change is needed, but the force
 property is not set to `true`, then this file resource will error.
+
+###Msg
+
+The msg resource sends messages to the main log, or an external service such
+as systemd's journal.
 
 ###Noop
 

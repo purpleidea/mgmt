@@ -25,6 +25,7 @@ Please join the [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig
 If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!
 
 ## Quick start:
+* Make sure you have golang version 1.6 or greater installed.
 * Clone the repository recursively, eg: `git clone --recursive https://github.com/purpleidea/mgmt/`.
 * Get the remaining golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
 * Run `make build` to get a freshly built `mgmt` binary.
@@ -49,7 +50,7 @@ Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/ma
 Feel free to read my article on [debugging golang programs](https://ttboj.wordpress.com/2016/02/15/debugging-golang-programs/).
 
 ## Dependencies:
-* golang 1.4 or higher (required, available in most distros)
+* golang 1.6 or higher (required, available in most distros)
 * golang libraries (required, available with `go get`)
 
         go get github.com/coreos/etcd/client

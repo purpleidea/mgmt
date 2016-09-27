@@ -201,11 +201,15 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 				// NOTE: the value returned is a map for some reason...
 				if event[svc] != nil {
 					// event[svc].ActiveState is not nil
-					if event[svc].ActiveState == "active" {
-						log.Printf("Svc[%v]->Started()", svc)
-					} else if event[svc].ActiveState == "inactive" {
-						log.Printf("Svc[%v]->Stopped!()", svc)
-					} else {
+
+					switch event[svc].ActiveState {
+					case "active":
+						log.Printf("Svc[%v]->Started", svc)
+					case "inactive":
+						log.Printf("Svc[%v]->Stopped", svc)
+					case "reloading":
+						log.Printf("Svc[%v]->Reloading", svc)
+					default:
 						log.Fatalf("Unknown svc state: %s", event[svc].ActiveState)
 					}
 				} else {

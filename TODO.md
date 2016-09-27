@@ -49,6 +49,9 @@ Let us know if you're working on one of the items.
 ## Etcd improvements
 - [ ] fix embedded etcd master race
 
+## Torrent/dht file transfer
+- [ ] base plumbing
+
 ## Language improvements
 - [ ] language design
 - [ ] lexer/parser

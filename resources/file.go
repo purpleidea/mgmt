@@ -84,7 +84,7 @@ func NewFileRes(name, path, dirname, basename, content, source, state string, re
 }
 
 // Init runs some startup code for this resource.
-func (obj *FileRes) Init() {
+func (obj *FileRes) Init() error {
 	obj.sha256sum = ""
 	obj.watches = make(map[string]struct{})
 	if obj.Path == "" { // use the name as the path default if missing
@@ -94,7 +94,7 @@ func (obj *FileRes) Init() {
 	obj.isDir = strings.HasSuffix(obj.path, "/") // dirs have trailing slashes
 
 	obj.BaseRes.kind = "File"
-	obj.BaseRes.Init() // call base init, b/c we're overriding
+	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // GetPath returns the actual path to use for this resource. It computes this

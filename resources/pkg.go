@@ -58,55 +58,52 @@ func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupporte
 		AllowNonFree:     allownonfree,
 		AllowUnsupported: allowunsupported,
 	}
-	obj.Init()
+	obj.Init() // XXX: on error return nil, or separate error return?
 	return obj
 }
 
 // Init runs some startup code for this resource.
-func (obj *PkgRes) Init() {
+func (obj *PkgRes) Init() error {
 	obj.BaseRes.kind = "Pkg"
-	obj.BaseRes.Init() // call base init, b/c we're overriding
+	if err := obj.BaseRes.Init(); err != nil { // call base init, b/c we're overriding
+		return err
+	}
 
 	bus := packagekit.NewBus()
 	if bus == nil {
-		log.Fatal("Can't connect to PackageKit bus.")
+		return fmt.Errorf("Can't connect to PackageKit bus.")
 	}
 	defer bus.Close()
 
 	result, err := obj.pkgMappingHelper(bus)
 	if err != nil {
-		// FIXME: return error?
-		log.Fatalf("The pkgMappingHelper failed with: %v.", err)
-		return
+		return fmt.Errorf("The pkgMappingHelper failed with: %v.", err)
 	}
 
 	data, ok := result[obj.Name] // lookup single package (init does just one)
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
-		// FIXME: return error?
-		log.Fatalf("Can't find package named '%s'.", obj.Name)
-		return
+		return fmt.Errorf("Can't find package named '%s'.", obj.Name)
 	}
 
 	packageIDs := []string{data.PackageID} // just one for now
 	filesMap, err := bus.GetFilesByPackageID(packageIDs)
 	if err != nil {
-		// FIXME: return error?
-		log.Fatalf("Can't run GetFilesByPackageID: %v", err)
-		return
+		return fmt.Errorf("Can't run GetFilesByPackageID: %v", err)
 	}
 	if files, ok := filesMap[data.PackageID]; ok {
 		obj.fileList = util.DirifyFileList(files, false)
 	}
+	return nil
 }
 
 // Validate checks if the resource data structure was populated correctly.
-func (obj *PkgRes) Validate() bool {
+func (obj *PkgRes) Validate() error {
 	if obj.State == "" {
-		return false
+		return fmt.Errorf("State cannot be empty!")
 	}
 
-	return true
+	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.

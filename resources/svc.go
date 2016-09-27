@@ -59,20 +59,20 @@ func NewSvcRes(name, state, startup string) *SvcRes {
 }
 
 // Init runs some startup code for this resource.
-func (obj *SvcRes) Init() {
+func (obj *SvcRes) Init() error {
 	obj.BaseRes.kind = "Svc"
-	obj.BaseRes.Init() // call base init, b/c we're overriding
+	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // Validate checks if the resource data structure was populated correctly.
-func (obj *SvcRes) Validate() bool {
+func (obj *SvcRes) Validate() error {
 	if obj.State != "running" && obj.State != "stopped" && obj.State != "" {
-		return false
+		return fmt.Errorf("State must be either `running` or `stopped` or undefined.")
 	}
 	if obj.Startup != "enabled" && obj.Startup != "disabled" && obj.Startup != "" {
-		return false
+		return fmt.Errorf("Startup must be either `enabled` or `disabled` or undefined.")
 	}
-	return true
+	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.

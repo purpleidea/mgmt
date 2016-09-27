@@ -48,15 +48,15 @@ func NewNoopRes(name string) *NoopRes {
 }
 
 // Init runs some startup code for this resource.
-func (obj *NoopRes) Init() {
+func (obj *NoopRes) Init() error {
 	obj.BaseRes.kind = "Noop"
-	obj.BaseRes.Init() // call base init, b/c we're overriding
+	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // validate if the params passed in are valid data
 // FIXME: where should this get called ?
-func (obj *NoopRes) Validate() bool {
-	return true
+func (obj *NoopRes) Validate() error {
+	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.

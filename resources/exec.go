@@ -71,24 +71,24 @@ func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcm
 }
 
 // Init runs some startup code for this resource.
-func (obj *ExecRes) Init() {
+func (obj *ExecRes) Init() error {
 	obj.BaseRes.kind = "Exec"
-	obj.BaseRes.Init() // call base init, b/c we're overriding
+	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
-// validate if the params passed in are valid data
+// Validate if the params passed in are valid data.
 // FIXME: where should this get called ?
-func (obj *ExecRes) Validate() bool {
+func (obj *ExecRes) Validate() error {
 	if obj.Cmd == "" { // this is the only thing that is really required
-		return false
+		return fmt.Errorf("Command can't be empty!")
 	}
 
 	// if we have a watch command, then we don't poll with the if command!
 	if obj.WatchCmd != "" && obj.PollInt > 0 {
-		return false
+		return fmt.Errorf("Don't poll when we have a watch command.")
 	}
 
-	return true
+	return nil
 }
 
 // wraps the scanner output in a channel

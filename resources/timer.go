@@ -54,16 +54,16 @@ func NewTimerRes(name string, interval int) *TimerRes {
 }
 
 // Init runs some startup code for this resource.
-func (obj *TimerRes) Init() {
+func (obj *TimerRes) Init() error {
 	obj.BaseRes.kind = "Timer"
-	obj.BaseRes.Init() // call base init, b/c we're overrriding
+	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 
 // Validate the params that are passed to TimerRes
 // Currently we are getting only an interval in seconds
 // which gets validated by go compiler
-func (obj *TimerRes) Validate() bool {
-	return true
+func (obj *TimerRes) Validate() error {
+	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.

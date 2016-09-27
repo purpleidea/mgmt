@@ -53,7 +53,7 @@ func (obj *NoopRes) Init() error {
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
-// validate if the params passed in are valid data
+// Validate if the params passed in are valid data.
 // FIXME: where should this get called ?
 func (obj *NoopRes) Validate() error {
 	return nil
@@ -124,7 +124,7 @@ type NoopUUID struct {
 	name string
 }
 
-// The AutoEdges method returns the AutoEdges. In this case none are used.
+// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
 func (obj *NoopRes) AutoEdges() AutoEdge {
 	return nil
 }

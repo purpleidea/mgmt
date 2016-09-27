@@ -369,8 +369,7 @@ type PkgUUID struct {
 	state string // pkg state or "version"
 }
 
-// if and only if they are equivalent, return true
-// if they are not equivalent, return false
+// IFF aka if and only if they are equivalent, return true. If not, false.
 func (obj *PkgUUID) IFF(uuid ResUUID) bool {
 	res, ok := uuid.(*PkgUUID)
 	if !ok {
@@ -562,7 +561,7 @@ func (obj *PkgRes) Compare(res Res) bool {
 	return true
 }
 
-// return a list of svc names for matches like /usr/lib/systemd/system/*.service
+// ReturnSvcInFileList returns a list of svc names for matches like: `/usr/lib/systemd/system/*.service`.
 func ReturnSvcInFileList(fileList []string) []string {
 	result := []string{}
 	for _, x := range fileList {

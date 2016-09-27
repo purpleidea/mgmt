@@ -63,6 +63,7 @@ import (
 
 	cv "github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/gconfig"
+	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/howeyc/gopass"
@@ -72,7 +73,6 @@ import (
 )
 
 const (
-	DEBUG = false
 	// FIXME: should this dir be in /var/ instead?
 	formatPattern                        = "/tmp/mgmt.%s/"                        // remote format, to match `mktemp`
 	formatChars                          = "abcdefghijklmnopqrstuvwxyz0123456789" // chars for fmt string // TODO: what does mktemp use?
@@ -143,7 +143,7 @@ func (obj *SSH) Close() error {
 	return obj.client.Close()
 }
 
-// The Sftp function uses the sftp protocol to create a remote dir and copy over
+// Sftp is a function for the sftp protocol to create a remote dir and copy over
 // the binary to run. On error the string represents the path to the remote dir.
 func (obj *SSH) Sftp() error {
 	var err error
@@ -446,7 +446,7 @@ func (obj *SSH) forward(remoteConn net.Conn) net.Conn {
 			log.Printf("Remote: io.Copy error: %s", err)
 			// FIXME: what should we do here???
 		}
-		if DEBUG {
+		if global.DEBUG {
 			log.Printf("Remote: io.Copy finished: %d", n)
 		}
 	}
@@ -705,7 +705,7 @@ type Remotes struct {
 	program string // name of the program
 }
 
-// The NewRemotes function builds a Remotes struct.
+// NewRemotes builds a Remotes struct.
 func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, depth uint16, prefix string, converger cv.Converger, convergerCb func(func(map[string]bool) error) (func(), error), program string) *Remotes {
 	return &Remotes{
 		clientURLs:   clientURLs,
@@ -890,8 +890,7 @@ func (obj *Remotes) passwordCallback(user, host string) func() (string, error) {
 	return cb
 }
 
-// The Run method of the Remotes struct kicks it all off. It is usually run from
-// a go routine.
+// Run kicks it all off. It is usually run from a go routine.
 func (obj *Remotes) Run() {
 	// TODO: we can disable a lot of this if we're not using --converged-timeout
 	// link in all the converged timeout checking and callbacks...
@@ -922,7 +921,7 @@ func (obj *Remotes) Run() {
 			if !ok { // no status on hostname means unconverged!
 				continue
 			}
-			if DEBUG {
+			if global.DEBUG {
 				log.Printf("Remote: Converged: Status: %+v", obj.converger.Status())
 			}
 			// if exiting, don't update, it will be unregistered...
@@ -1016,8 +1015,8 @@ func (obj *Remotes) Run() {
 	}
 }
 
-// The Exit method causes as much of the Remotes struct to shutdown as quickly
-// and as cleanly as possible. It only returns once everything is shutdown.
+// Exit causes as much of the Remotes struct to shutdown as quickly and as
+// cleanly as possible. It only returns once everything is shutdown.
 func (obj *Remotes) Exit() {
 	obj.lock.Lock()
 	obj.exiting = true // don't spawn new ones once this flag is set!

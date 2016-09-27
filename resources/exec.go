@@ -91,7 +91,7 @@ func (obj *ExecRes) Validate() error {
 	return nil
 }
 
-// wraps the scanner output in a channel
+// BufioChanScanner wraps the scanner output in a channel.
 func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan error) {
 	ch, errch := make(chan string), make(chan error)
 	go func() {
@@ -348,8 +348,7 @@ type ExecUUID struct {
 	// TODO: add more elements here
 }
 
-// if and only if they are equivalent, return true
-// if they are not equivalent, return false
+// IFF aka if and only if they are equivalent, return true. If not, false.
 func (obj *ExecUUID) IFF(uuid ResUUID) bool {
 	res, ok := uuid.(*ExecUUID)
 	if !ok {
@@ -383,7 +382,7 @@ func (obj *ExecUUID) IFF(uuid ResUUID) bool {
 	return true
 }
 
-// The AutoEdges method returns the AutoEdges. In this case none are used.
+// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
 func (obj *ExecRes) AutoEdges() AutoEdge {
 	// TODO: parse as many exec params to look for auto edges, for example
 	// the path of the binary in the Cmd variable might be from in a pkg

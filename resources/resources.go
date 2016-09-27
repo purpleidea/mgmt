@@ -31,8 +31,11 @@ import (
 )
 
 //go:generate stringer -type=ResState -output=resstate_stringer.go
+
+// The ResState type represents the current activity state of each resource.
 type ResState int
 
+// Each ResState should be set properly in the relevant part of the resource.
 const (
 	ResStateNil ResState = iota
 	ResStateWatching

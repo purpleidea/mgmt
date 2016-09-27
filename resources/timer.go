@@ -134,7 +134,7 @@ func (obj *TimerRes) GetUUIDs() []ResUUID {
 	return []ResUUID{x}
 }
 
-// The AutoEdges method returns the AutoEdges. In this case none are used.
+// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
 func (obj *TimerRes) AutoEdges() AutoEdge {
 	return nil
 }

@@ -18,6 +18,7 @@
 // Package global holds some global variables that are used throughout the code.
 package global
 
+// These constants are used throughout the program.
 const (
 	DEBUG   = false // add additional log messages
 	TRACE   = false // add execution flow log messages

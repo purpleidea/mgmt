@@ -23,8 +23,11 @@ import (
 )
 
 //go:generate stringer -type=EventName -output=eventname_stringer.go
+
+// EventName represents the type of event being passed.
 type EventName int
 
+// The different event names are used in different contexts.
 const (
 	EventNil EventName = iota
 	EventExit

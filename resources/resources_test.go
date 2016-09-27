@@ -134,7 +134,7 @@ func TestReadEvent(t *testing.T) {
 		eventExit:     false,
 	}
 
-	for event, _ := range shouldExit {
+	for event := range shouldExit {
 		exit, poke := res.ReadEvent(&Event{Name: event})
 		if exit != shouldExit[event] {
 			t.Errorf("resource.ReadEvent returned wrong exit flag for a %v event (%v, should be %v)",

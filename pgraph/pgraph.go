@@ -714,7 +714,7 @@ func (g *Graph) Worker(v *Vertex) error {
 			<-timer.C // unnecessary, shouldn't happen
 		}
 		var delay = time.Duration(v.Meta().Delay) * time.Millisecond
-		var retry int16 = v.Meta().Retry // number of tries left, -1 for infinite
+		var retry = v.Meta().Retry // number of tries left, -1 for infinite
 		var saved event.Event
 	Loop:
 		for {
@@ -775,7 +775,7 @@ func (g *Graph) Worker(v *Vertex) error {
 	// NOTE: we're using the same retry and delay metaparams that CheckApply
 	// uses. This is for practicality. We can separate them later if needed!
 	var watchDelay time.Duration
-	var watchRetry int16 = v.Meta().Retry // number of tries left, -1 for infinite
+	var watchRetry = v.Meta().Retry // number of tries left, -1 for infinite
 	// watch blocks until it ends, & errors to retry
 	for {
 		// TODO: do we have to stop the converged-timeout when in this block (perhaps we're in the delay block!)

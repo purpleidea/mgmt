@@ -47,7 +47,7 @@ func NewConfigWatcher() *ConfigWatcher {
 	}
 }
 
-// The Add method adds a new file path to watch for events on.
+// Add new file paths to watch for events on.
 func (obj *ConfigWatcher) Add(file ...string) {
 	if len(file) == 0 {
 		return

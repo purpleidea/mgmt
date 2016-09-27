@@ -362,8 +362,7 @@ type SvcUUID struct {
 	name string // the svc name
 }
 
-// if and only if they are equivalent, return true
-// if they are not equivalent, return false
+// IFF aka if and only if they are equivalent, return true. If not, false.
 func (obj *SvcUUID) IFF(uuid ResUUID) bool {
 	res, ok := uuid.(*SvcUUID)
 	if !ok {
@@ -411,7 +410,7 @@ func (obj *SvcResAutoEdges) Test(input []bool) bool {
 	return true // keep going
 }
 
-// The AutoEdges method returns the AutoEdges. In this case the systemd units.
+// AutoEdges returns the AutoEdge interface. In this case the systemd units.
 func (obj *SvcRes) AutoEdges() AutoEdge {
 	var data []ResUUID
 	svcFiles := []string{

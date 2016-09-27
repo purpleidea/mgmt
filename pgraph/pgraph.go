@@ -630,7 +630,6 @@ func (g *Graph) BackPoke(v *Vertex) {
 }
 
 // Process is the primary function to execute for a particular vertex in the graph.
-// XXX: rename this function
 func (g *Graph) Process(v *Vertex) error {
 	obj := v.Res
 	if global.DEBUG {
@@ -679,10 +678,9 @@ func (g *Graph) Process(v *Vertex) error {
 		}
 		// poke at our pre-req's instead since they need to refresh/run...
 		return err
-	} else {
-		// only poke at the pre-req's that need to run
-		go g.BackPoke(v)
 	}
+	// else... only poke at the pre-req's that need to run
+	go g.BackPoke(v)
 	return nil
 }
 

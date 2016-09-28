@@ -7,3 +7,6 @@
 [submodule "vendor/github.com/grpc-ecosystem/grpc-gateway"]
 	path = vendor/github.com/grpc-ecosystem/grpc-gateway
 	url = https://github.com/grpc-ecosystem/grpc-gateway
+[submodule "vendor/gopkg.in/fsnotify.v1"]
+	path = vendor/gopkg.in/fsnotify.v1
+	url = https://gopkg.in/fsnotify.v1

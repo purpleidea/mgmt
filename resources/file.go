@@ -317,6 +317,7 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 
 				// we must be a parent watcher, so descend in
 				if deltaDepth < 0 {
+					// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123
 					obj.watcher.Remove(current)
 					index++
 				}

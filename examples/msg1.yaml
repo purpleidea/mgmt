@@ -8,6 +8,7 @@ resources:
   msg:
   - name: msg1
     body: mgmt logged this message
+    journal: true
 edges:
 - name: e1
   from:

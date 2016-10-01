@@ -1,0 +1,47 @@
+<html>
+<head>
+    <title>mgmt config</title>
+    <meta charset="utf-8">
+    <link href="../base1/cockpit.css" type="text/css" rel="stylesheet">
+    <script src="../base1/jquery.js"></script>
+    <script src="../base1/cockpit.js"></script>
+    <script src="./dist/bundlemgmt.js"></script>
+    <link href="storage.css" type="text/css" rel="stylesheet">
+</head>
+<body>
+    <h1 align=center>mgmt config</h1>
+    <div align=center><img width=400px src="mgmt_logo_default_wide.png" /></div>
+    <div class="page-ct container-fluid" style='max-width: 400px'>
+        <table class="form-table-ct">
+            <tr>
+                <td><input class="form-control" type="text" id="comment" size=100 value="loading..." /></td>
+            </tr>
+            <tr>
+                <td>
+                <div id="myslider" class="slider">
+                    <div class="slider-bar">
+                        <div class="slider-thumb"></div>
+                    </div>
+                    <div id="myslidervalue" class="slider-bar">
+                    <!-- optional left overs -->
+                    </div>
+                </div>
+            </tr>
+            <tr>
+                <td><input class="form-control" type="text" id="myslidertext" value="loading..." /></td>
+            </tr>
+            <tr>
+                <td><input class="form-control" type="text" id="mysliderint" value="loading..." /></td>
+            </tr>
+            <tr>
+                <td><span id="info">info goes here...</span></td>
+            </tr>
+            <tr>
+                <td>live:&nbsp;<input type="checkbox" id="live" value="truex">&nbsp;<button class="btn btn-default btn-primary" id="save">Save</button></td>
+            </tr>
+        </table>
+    </div>
+    <script>
+    </script>
+</body>
+</html>

@@ -1,0 +1,488 @@
+/*
+ * This file is part of Cockpit.
+ *
+ * Copyright (C) 2015 Red Hat, Inc.
+ *
+ * Cockpit is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation; either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Cockpit is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Cockpit; If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ * XXX: copied and modified from cockpit/pkg/storaged/storage.css
+ */
+
+#storage {
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+#storage .empty-panel-text {
+    text-align: center;
+    margin: 5px;
+    color: #545454;
+}
+
+#storage .storage-mounts .table {
+    table-layout: fixed;
+}
+
+#storage .storage-mounts .table th,
+#storage .storage-mounts .table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (min-width: 992px) {
+    .storage-mounts .mount-name {
+        width: 25%;
+    }
+    .storage-mounts .mount-point {
+        width: 25%;
+    }
+    .storage-mounts .mount-size-graph {
+        width: 25%;
+    }
+    .storage-mounts .mount-size-number {
+        width: 25%;
+    }
+}
+
+@media (min-width: 1200px) {
+    .storage-mounts .mount-name {
+        width: 20%;
+    }
+    .storage-mounts .mount-point {
+        width: 20%;
+    }
+    .storage-mounts .mount-size-graph {
+        width: 45%;
+    }
+    .storage-mounts .mount-size-number {
+        width: 15%;
+    }
+}
+
+@media (max-width: 1814px) {
+    #storage .storage-disk-size {
+        width: 100%;
+    }
+}
+
+#storage .create-storage {
+    margin-bottom: 10px;
+}
+
+@media (max-width: 1560px) {
+    #storage .create-storage .col-lg-6 {
+        width: 100%;
+    }
+}
+
+#storage .create-storage button {
+    margin-bottom: 5px;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#storage .storage-sidebar .table {
+    table-layout:fixed;
+}
+
+#storage .storage-sidebar .table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#storage .storage-sidebar .table td img {
+    margin-top: 8px;
+}
+
+#storage_raids .row span,
+#storage_vgs .row span,
+#storage_drives .row span {
+    padding: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#storage_raids .row span.raid-size,
+#storage_vgs .row span.vg-size {
+    text-align: right;
+}
+
+#storage .storage-sidebar .storage-disk-size {
+    padding-right: 5px;
+}
+
+#storage .storage-sidebar .storage-disk-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.available-disks-group {
+    margin-bottom: 0px;
+}
+
+.available-disks-group input[type='checkbox'] {
+    margin: 4px 4px 4px -20px;
+}
+
+
+/* Make the whole row a hit target */
+.available-disks-group .list-group-item {
+    padding: 0;
+}
+
+.available-disks-group .list-group-item label {
+    padding: 3px 10px;
+}
+
+.available-disks-group .checkbox label {
+    width: 100%;
+}
+
+.available-disks-group .checkbox label span {
+    display: block;
+    margin-left: 20px;
+    margin-top: 6px;
+    line-height: 20px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 450px;
+}
+
+.available-disks-group .checkbox label input[type="checkbox"] {
+    margin-left: auto;
+    margin-top: 8px;
+}
+
+@media (min-width: 768px) {
+    .storage-reading-graph-container {
+        padding-right: 5px;
+    }
+    .storage-writing-graph-container {
+        padding-left: 5px;
+    }
+}
+
+.dialog-select-row-table {
+    width: 100%;
+
+}
+
+.dialog-select-row-table td,
+.dialog-select-row-table td:first-child {
+    text-align: left;
+    padding-top: 0.75em;
+    padding-bottom: 0.75em;
+    padding-left: 0px;
+    padding-right: 0px;
+    vertical-align: top;
+    white-space: default;
+    color: black;
+    width: auto;
+    height: auto;
+    border-top: 1px solid #D1D1D1;
+    border-bottom: 1px solid #D1D1D1;
+}
+
+.dialog-select-row-table td:first-child {
+    padding-left: 0.75em;
+    border-left: 1px solid #D1D1D1;
+}
+
+.dialog-select-row-table td:last-child {
+    padding-right: 0.75em;
+    border-right: 1px solid #D1D1D1;
+}
+
+.dialog-select-row-table th {
+    font-weight: bold;
+    text-align: left;
+    color: #4D5258;
+    padding: 0px;
+    padding-top: 0.75em;
+    padding-bottom: 0.75em;
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+.dialog-select-row-table th:first-child {
+    padding-left: 0.75em;
+}
+
+.dialog-select-row-table th:last-child {
+    padding-right: 0.75em;
+}
+
+.arming-zone .needs-arming {
+    display: none;
+}
+
+.arming-zone.armed .needs-arming {
+    display: block;
+}
+
+/* Slider
+ */
+
+.slider {
+    margin: 10px 10px;
+    height: 5px;
+    white-space: nowrap;
+    font-size: 0px;
+    background-color: #ededed;
+    box-shadow: inset 0 0 1px rgba(0,0,0,0.5);
+    cursor: pointer;
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+}
+
+.slider-warning {
+    background-color: #d4a096;
+}
+
+.slider-bar {
+    position: relative;
+    height: 5px;
+}
+
+.slider > .slider-bar > .slider-bar {
+    border-right: 3px solid white;
+    height: 5px;
+    position: relative;
+}
+
+.slider > .slider-bar > .slider-bar {
+    display: inline-block;
+}
+
+.slider > div:first-child {
+    float: left;
+    background-color: #00a8e1;
+}
+
+.slider-disabled > div:first-child {
+    cursor: auto;
+    background-color: #e7e7e7;
+}
+
+.slider-thumb {
+    position: absolute;
+    border-radius: 9px;
+    background-color: #0085cf;
+    width: 18px;
+    height: 18px;
+    top: -6px;
+    right: -9px;
+    content: '.';
+    cursor: pointer;
+    border: 1px solid #006e9c;
+    background-image: linear-gradient(to bottom,#00a8e1 0%,#0085cf 100%);
+    z-index: 1;
+}
+
+.slider-disabled .slider-thumb {
+    background-color: #e7e7e7;
+    border: 1px solid #d7d7d7;
+    cursor: auto;
+}
+
+.size-slider td:nth-child(1) {
+    width: 100%;
+    padding: 0px;
+}
+
+.size-slider td {
+    padding: 0px;
+}
+
+.size-slider .size-text {
+    display: inline;
+    width: 6em;
+    text-align: right;
+    margin: 2px;
+}
+
+.size-slider .size-unit {
+    width: 5em !important;
+}
+
+td.storage-icon {
+    width: 48px;
+}
+
+td.storage-icon .spinner {
+    visibility: hidden;
+    margin-top: 5px;
+}
+
+span.rate-gap {
+    display: inline-block;
+    width: 1em;
+}
+
+div.progress {
+    width: 100%;
+}
+
+td.usage-text {
+    text-align: right;
+}
+
+td.job-description {
+    width: 50%;
+}
+
+td.job-status {
+    width: 15%;
+    text-align: right;
+}
+
+td.job-action {
+    text-align: right;
+}
+
+#storage-graph-toolbar .dropdown {
+    display: inline-block;
+}
+
+#storage-graph-toolbar button span {
+    width: 6em;
+    text-align: left;
+    padding-left: 5px;
+    display: inline-block;
+}
+
+#storage-reading-graph,
+#storage-writing-graph {
+    height: 120px;
+}
+
+.action-dropdown-menu {
+    right: 0px;
+    left: auto;
+    min-width: 0;
+    text-align: left;
+}
+
+.content-item {
+    width: 100%;
+}
+
+.content-item table {
+    width: 100%;
+}
+
+td.content-name {
+    text-align: left;
+}
+
+td.content-action {
+    text-align: right;
+}
+
+td.content-action > div {
+    display: inline-block;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+td.content-action .spinner {
+    visibility: hidden;
+}
+
+table.mdraid-item {
+    width: 100%;
+}
+
+td.mdraid-slot {
+    width: 20px;
+    text-align: center;
+}
+
+td.mdraid-states {
+    width: 100px;
+    text-align: right;
+}
+
+td.mdraid-states .state-danger {
+    color: red;
+}
+
+td.mdraid-action {
+    text-align: right;
+    width: 10em;
+}
+
+table.vgroup-item {
+    width: 100%;
+}
+
+td.vgroup-action {
+    text-align: right;
+}
+
+.available-disks-group .checkbox {
+    margin: 0px;
+}
+
+.dialog-arrow {
+    color: black;
+    cursor: pointer;
+}
+
+.dialog-arrow .fa {
+    width: 1em;
+}
+
+.modal-footer-danger {
+    margin-bottom: 10px;
+}
+
+.content-level-1 {
+    padding-left: 30px;
+}
+.content-level-2 {
+    padding-left: 60px;
+}
+.content-level-3 {
+    padding-left: 90px;
+}
+.content-level-4 {
+    padding-left: 120px;
+}
+.content-level-5 {
+    padding-left: 150px;
+}
+.content-level-6 {
+    padding-left: 180px;
+}
+.content-level-7 {
+    padding-left: 210px;
+}
+.content-level-8 {
+    padding-left: 240px;
+}
+.content-level-9 {
+    padding-left: 270px;
+}
+.content-level-10 {
+    padding-left: 300px;
+}

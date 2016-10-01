@@ -1,0 +1,7 @@
+0) slider controls with integral spaced movement
+1) better importing of graphical javascript controls, instead of copy+paste
+	can't do this yet :(
+2) better cockpit as a standalone webui for some module
+	maybe: http://cockpit-project.org/guide/latest/embedding.html ?
+3) cross compilation from golang to js
+	maybe: https://github.com/gopherjs/gopherjs ?

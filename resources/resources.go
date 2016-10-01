@@ -242,22 +242,24 @@ func (obj *BaseRes) SetState(state ResState) {
 func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (bool, error) {
 	resp := event.NewResp()
 	processChan <- event.Event{event.EventNil, resp, comment, true} // trigger process
-	select {
-	case e := <-resp: // wait for the ACK()
-		if e != nil { // we got a NACK
-			return true, e // exit with error
-		}
-
-	case event := <-obj.events:
-		// NOTE: this code should match the similar code below!
-		//cuuid.SetConverged(false) // TODO ?
-		if exit, send := obj.ReadEvent(&event); exit {
-			return true, nil // exit, without error
-		} else if send {
-			return obj.DoSend(processChan, comment) // recurse
-		}
-	}
-	return false, nil // return, no error or exit signal
+	e := resp.Wait()
+	return false, e // XXX: at the moment, we don't use the exit bool.
+	// XXX: this can cause a deadlock. do we need to recursively send? fix event stuff!
+	//select {
+	//case e := <-resp: // wait for the ACK()
+	//	if e != nil { // we got a NACK
+	//		return true, e // exit with error
+	//	}
+	//case event := <-obj.events:
+	//	// NOTE: this code should match the similar code below!
+	//	//cuuid.SetConverged(false) // TODO ?
+	//	if exit, send := obj.ReadEvent(&event); exit {
+	//		return true, nil // exit, without error
+	//	} else if send {
+	//		return obj.DoSend(processChan, comment) // recurse
+	//	}
+	//}
+	//return false, nil // return, no error or exit signal
 }
 
 // SendEvent pushes an event into the message queue for a particular vertex

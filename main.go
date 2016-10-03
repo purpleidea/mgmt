@@ -61,10 +61,9 @@ func waitForSignal(exit chan error) error {
 		if sig == os.Interrupt {
 			log.Println("Interrupted by ^C")
 			return nil
-		} else {
-			log.Println("Interrupted by signal")
-			return fmt.Errorf("Killed by %v", sig)
 		}
+		log.Println("Interrupted by signal")
+		return fmt.Errorf("Killed by %v", sig)
 	case err := <-exit: // or a manual signal
 		log.Println("Interrupted by exit signal")
 		return err

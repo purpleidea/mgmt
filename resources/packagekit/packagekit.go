@@ -15,8 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// DOCS: https://www.freedesktop.org/software/PackageKit/gtk-doc/index.html
-
+// Package packagekit provides an interface to interact with packagekit.
+// See: https://www.freedesktop.org/software/PackageKit/gtk-doc/index.html for
+// more information.
 package packagekit
 
 import (

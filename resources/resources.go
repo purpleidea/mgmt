@@ -241,7 +241,7 @@ func (obj *BaseRes) SetState(state ResState) {
 // I'm not completely comfortable with this fn, but it will have to do for now.
 func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (bool, error) {
 	resp := event.NewResp()
-	processChan <- event.Event{event.EventNil, resp, comment, true} // trigger process
+	processChan <- event.Event{Name: event.EventNil, Resp: resp, Msg: comment, Activity: true} // trigger process
 	e := resp.Wait()
 	return false, e // XXX: at the moment, we don't use the exit bool.
 	// XXX: this can cause a deadlock. do we need to recursively send? fix event stuff!
@@ -269,12 +269,12 @@ func (obj *BaseRes) SendEvent(ev event.EventName, sync bool, activity bool) bool
 		return false // if we don't return, we'll block on the send
 	}
 	if !sync {
-		obj.events <- event.Event{ev, nil, "", activity}
+		obj.events <- event.Event{Name: ev, Resp: nil, Msg: "", Activity: activity}
 		return true
 	}
 
 	resp := event.NewResp()
-	obj.events <- event.Event{ev, resp, "", activity}
+	obj.events <- event.Event{Name: ev, Resp: resp, Msg: "", Activity: activity}
 	resp.ACKWait() // waits until true (nil) value
 	return true
 }

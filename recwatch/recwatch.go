@@ -158,20 +158,22 @@ func (obj *RecWatcher) Watch() error {
 			if global.DEBUG {
 				log.Printf("watcher.Add(%s): Error: %v", current, err)
 			}
+
 			if err == syscall.ENOENT {
 				index-- // usually not found, move up one dir
-			} else if err == syscall.ENOSPC {
+				index = int(math.Max(1, float64(index)))
+				continue
+			}
+
+			if err == syscall.ENOSPC {
 				// no space left on device, out of inotify watches
 				// TODO: consider letting the user fall back to
 				// polling if they hit this error very often...
 				return fmt.Errorf("Out of inotify watches: %v", err)
 			} else if os.IsPermission(err) {
 				return fmt.Errorf("Permission denied adding a watch: %v", err)
-			} else {
-				return fmt.Errorf("Unknown error: %v", err)
 			}
-			index = int(math.Max(1, float64(index)))
-			continue
+			return fmt.Errorf("Unknown error: %v", err)
 		}
 
 		select {

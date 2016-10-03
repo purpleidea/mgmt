@@ -33,6 +33,7 @@ import (
 	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/puppet"
+	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/remote"
 	"github.com/purpleidea/mgmt/util"
 
@@ -49,21 +50,24 @@ var (
 )
 
 // signal handler
-func waitForSignal(exit chan bool) {
+func waitForSignal(exit chan error) error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt) // catch ^C
 	//signal.Notify(signals, os.Kill) // catch signals
 	signal.Notify(signals, syscall.SIGTERM)
 
 	select {
-	case e := <-signals: // any signal will do
-		if e == os.Interrupt {
+	case sig := <-signals: // any signal will do
+		if sig == os.Interrupt {
 			log.Println("Interrupted by ^C")
+			return nil
 		} else {
 			log.Println("Interrupted by signal")
+			return fmt.Errorf("Killed by %v", sig)
 		}
-	case <-exit: // or a manual signal
+	case err := <-exit: // or a manual signal
 		log.Println("Interrupted by exit signal")
+		return err
 	}
 }
 
@@ -173,14 +177,14 @@ func run(c *cli.Context) error {
 	log.Printf("Main: Working prefix is: %s", prefix)
 
 	var wg sync.WaitGroup
-	exit := make(chan bool) // exit signal
+	exit := make(chan error) // exit signal
 	var G, fullGraph *pgraph.Graph
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := c.Int("max-runtime"); i > 0 {
 		go func() {
 			time.Sleep(time.Duration(i) * time.Second)
-			exit <- true
+			exit <- nil
 		}()
 	}
 
@@ -209,11 +213,9 @@ func run(c *cli.Context) error {
 	)
 	if EmbdEtcd == nil {
 		// TODO: verify EmbdEtcd is not nil below...
-		log.Printf("Main: Etcd: Creation failed!")
-		exit <- true
+		exit <- fmt.Errorf("Main: Etcd: Creation failed!")
 	} else if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
-		log.Printf("Main: Etcd: Startup failed: %v", err)
-		exit <- true
+		exit <- fmt.Errorf("Main: Etcd: Startup failed: %v", err)
 	}
 	convergerStateFn := func(b bool) error {
 		// exit if we are using the converged-timeout and we are the
@@ -223,7 +225,7 @@ func run(c *cli.Context) error {
 		if depth == 0 && c.Int("converged-timeout") >= 0 {
 			if b {
 				log.Printf("Converged for %d seconds, exiting!", c.Int("converged-timeout"))
-				exit <- true // trigger an exit!
+				exit <- nil // trigger an exit!
 			}
 			return nil
 		}
@@ -239,10 +241,10 @@ func run(c *cli.Context) error {
 		startchan := make(chan struct{}) // start signal
 		go func() { startchan <- struct{}{} }()
 		file := c.String("file")
-		var configchan chan bool
+		var configchan chan error
 		var puppetchan <-chan time.Time
 		if !c.Bool("no-watch") && c.IsSet("file") {
-			configchan = ConfigWatch(file)
+			configchan = recwatch.ConfigWatch(file)
 		} else if c.IsSet("puppet") {
 			interval := puppet.PuppetInterval(c.String("puppet-conf"))
 			puppetchan = time.Tick(time.Duration(interval) * time.Second)
@@ -265,9 +267,14 @@ func run(c *cli.Context) error {
 			case <-puppetchan:
 				// nothing, just go on
 
-			case msg := <-configchan:
-				if c.Bool("no-watch") || !msg {
+			case e := <-configchan:
+				if c.Bool("no-watch") {
 					continue // not ready to read config
+				}
+				if e != nil {
+					exit <- e // trigger exit
+					continue
+					//return // TODO: return or wait for exitchan?
 				}
 			// XXX: case compile_event: ...
 			// ...
@@ -337,13 +344,22 @@ func run(c *cli.Context) error {
 		}
 	}()
 
-	configWatcher := NewConfigWatcher()
+	configWatcher := recwatch.NewConfigWatcher()
 	events := configWatcher.Events()
 	if !c.Bool("no-watch") {
 		configWatcher.Add(c.StringSlice("remote")...) // add all the files...
 	} else {
 		events = nil // signal that no-watch is true
 	}
+	go func() {
+		select {
+		case err := <-configWatcher.Error():
+			exit <- err // trigger an exit!
+
+		case <-exitchan:
+			return
+		}
+	}()
 
 	// initialize the add watcher, which calls the f callback on map changes
 	convergerCb := func(f func(map[string]bool) error) (func(), error) {
@@ -377,7 +393,7 @@ func run(c *cli.Context) error {
 	}
 	log.Println("Main: Running...")
 
-	waitForSignal(exit) // pass in exit channel to watch
+	err = waitForSignal(exit) // pass in exit channel to watch
 
 	log.Println("Destroy...")
 
@@ -402,7 +418,7 @@ func run(c *cli.Context) error {
 
 	// TODO: wait for each vertex to exit...
 	log.Println("Goodbye!")
-	return nil
+	return err
 }
 
 func main() {

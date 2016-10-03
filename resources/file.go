@@ -26,20 +26,16 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
+	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
-
-	"gopkg.in/fsnotify.v1"
-	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 )
 
 func init() {
@@ -48,20 +44,19 @@ func init() {
 
 // FileRes is a file and directory resource.
 type FileRes struct {
-	BaseRes   `yaml:",inline"`
-	Path      string `yaml:"path"` // path variable (should default to name)
-	Dirname   string `yaml:"dirname"`
-	Basename  string `yaml:"basename"`
-	Content   string `yaml:"content"` // FIXME: how do you describe: "leave content alone" - state = "create" ?
-	Source    string `yaml:"source"`  // file path for source content
-	State     string `yaml:"state"`   // state: exists/present?, absent, (undefined?)
-	Recurse   bool   `yaml:"recurse"`
-	Force     bool   `yaml:"force"`
-	path      string // computed path
-	isDir     bool   // computed isDir
-	sha256sum string
-	watcher   *fsnotify.Watcher
-	watches   map[string]struct{}
+	BaseRes    `yaml:",inline"`
+	Path       string `yaml:"path"` // path variable (should default to name)
+	Dirname    string `yaml:"dirname"`
+	Basename   string `yaml:"basename"`
+	Content    string `yaml:"content"` // FIXME: how do you describe: "leave content alone" - state = "create" ?
+	Source     string `yaml:"source"`  // file path for source content
+	State      string `yaml:"state"`   // state: exists/present?, absent, (undefined?)
+	Recurse    bool   `yaml:"recurse"`
+	Force      bool   `yaml:"force"`
+	path       string // computed path
+	isDir      bool   // computed isDir
+	sha256sum  string
+	recWatcher *recwatch.RecWatcher
 }
 
 // NewFileRes is a constructor for this resource. It also calls Init() for you.
@@ -86,7 +81,6 @@ func NewFileRes(name, path, dirname, basename, content, source, state string, re
 // Init runs some startup code for this resource.
 func (obj *FileRes) Init() error {
 	obj.sha256sum = ""
-	obj.watches = make(map[string]struct{})
 	if obj.Path == "" { // use the name as the path default if missing
 		obj.Path = obj.BaseRes.Name
 	}
@@ -141,32 +135,6 @@ func (obj *FileRes) Validate() error {
 	return nil
 }
 
-// addSubFolders is a helper that is used to add recursive dirs to the watches.
-func (obj *FileRes) addSubFolders(p string) error {
-	if !obj.Recurse {
-		return nil // if we're not watching recursively, just exit early
-	}
-	// look at all subfolders...
-	walkFn := func(path string, info os.FileInfo, err error) error {
-		if global.DEBUG {
-			log.Printf("%s[%s]: Walk: %s (%v): %v", obj.Kind(), obj.GetName(), path, info, err)
-		}
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() {
-			obj.watches[path] = struct{}{} // add key
-			err := obj.watcher.Add(path)
-			if err != nil {
-				return err // TODO: will this bubble up?
-			}
-		}
-		return nil
-	}
-	err := filepath.Walk(p, walkFn)
-	return err
-}
-
 // Watch is the primary listener for this resource and it outputs events.
 // This one is a file watcher for files and directories.
 // Modify with caution, it is probably important to write some test cases first!
@@ -191,167 +159,37 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
 	}
 
-	var safename = path.Clean(obj.path) // no trailing slash
-
 	var err error
-	obj.watcher, err = fsnotify.NewWatcher()
+	obj.recWatcher, err = recwatch.NewRecWatcher(obj.Path, obj.Recurse)
 	if err != nil {
 		return err
 	}
-	defer obj.watcher.Close()
+	defer obj.recWatcher.Close()
 
-	patharray := util.PathSplit(safename) // tokenize the path
-	var index = len(patharray)            // starting index
-	var current string                    // current "watcher" location
-	var deltaDepth int                    // depth delta between watcher and event
-	var send = false                      // send event?
+	var send = false // send event?
 	var exit = false
 	var dirty = false
 
-	isDir := func(p string) bool {
-		finfo, err := os.Stat(p)
-		if err != nil {
-			return false
-		}
-		return finfo.IsDir()
-	}
-
-	if obj.isDir {
-		if err := obj.addSubFolders(safename); err != nil {
-			return err
-		}
-	}
 	for {
-		current = strings.Join(patharray[0:index], "/")
-		if current == "" { // the empty string top is the root dir ("/")
-			current = "/"
-		}
 		if global.DEBUG {
-			log.Printf("%s[%s]: Watching: %v", obj.Kind(), obj.GetName(), current) // attempting to watch...
-		}
-		// initialize in the loop so that we can reset on rm-ed handles
-		err = obj.watcher.Add(current)
-		if err != nil {
-			if global.DEBUG {
-				log.Printf("%s[%s]: watcher.Add(%v): Error: %v", obj.Kind(), obj.GetName(), current, err)
-			}
-			if err == syscall.ENOENT {
-				index-- // usually not found, move up one dir
-			} else if err == syscall.ENOSPC {
-				// no space left on device, out of inotify watches
-				// TODO: consider letting the user fall back to
-				// polling if they hit this error very often...
-				return fmt.Errorf("%s[%s]: Out of inotify watches: %v", obj.Kind(), obj.GetName(), err)
-			} else if os.IsPermission(err) {
-				return fmt.Errorf("%s[%s]: Permission denied to add a watch: %v", obj.Kind(), obj.GetName(), err)
-			} else {
-				return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
-			}
-			index = int(math.Max(1, float64(index)))
-			continue
+			log.Printf("%s[%s]: Watching: %s", obj.Kind(), obj.GetName(), obj.Path) // attempting to watch...
 		}
 
 		obj.SetState(ResStateWatching) // reset
 		select {
-		case event := <-obj.watcher.Events:
-			if global.DEBUG {
-				log.Printf("%s[%s]: Watch(%s), Event(%s): %v", obj.Kind(), obj.GetName(), current, event.Name, event.Op)
+		case event, ok := <-obj.recWatcher.Events():
+			if !ok { // channel shutdown
+				return nil
 			}
-			cuuid.SetConverged(false) // XXX: technically i can detect if the event is erroneous or not first
-			// the deeper you go, the bigger the deltaDepth is...
-			// this is the difference between what we're watching,
-			// and the event... doesn't mean we can't watch deeper
-			if current == event.Name {
-				deltaDepth = 0 // i was watching what i was looking for
-
-			} else if util.HasPathPrefix(event.Name, current) {
-				deltaDepth = len(util.PathSplit(current)) - len(util.PathSplit(event.Name)) // -1 or less
-
-			} else if util.HasPathPrefix(current, event.Name) {
-				deltaDepth = len(util.PathSplit(event.Name)) - len(util.PathSplit(current)) // +1 or more
-				// if below me...
-				if _, exists := obj.watches[event.Name]; exists {
-					send = true
-					dirty = true
-					if event.Op&fsnotify.Remove == fsnotify.Remove {
-						obj.watcher.Remove(event.Name)
-						delete(obj.watches, event.Name)
-					}
-					if (event.Op&fsnotify.Create == fsnotify.Create) && isDir(event.Name) {
-						obj.watcher.Add(event.Name)
-						obj.watches[event.Name] = struct{}{}
-						if err := obj.addSubFolders(event.Name); err != nil {
-							return err
-						}
-					}
-				}
-
-			} else {
-				// TODO different watchers get each others events!
-				// https://github.com/go-fsnotify/fsnotify/issues/95
-				// this happened with two values such as:
-				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
-				continue
-			}
-			//log.Printf("The delta depth is: %v", deltaDepth)
-
-			// if we have what we wanted, awesome, send an event...
-			if event.Name == safename {
-				//log.Println("Event!")
-				// FIXME: should all these below cases trigger?
-				send = true
-				dirty = true
-
-				if obj.isDir {
-					if err := obj.addSubFolders(safename); err != nil {
-						return err
-					}
-				}
-
-				// file removed, move the watch upwards
-				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					//log.Println("Removal!")
-					obj.watcher.Remove(current)
-					index--
-				}
-
-				// we must be a parent watcher, so descend in
-				if deltaDepth < 0 {
-					// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123
-					obj.watcher.Remove(current)
-					index++
-				}
-
-				// if safename starts with event.Name, we're above, and no event should be sent
-			} else if util.HasPathPrefix(safename, event.Name) {
-				//log.Println("Above!")
-
-				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					log.Println("Removal!")
-					obj.watcher.Remove(current)
-					index--
-				}
-
-				if deltaDepth < 0 {
-					log.Println("Parent!")
-					if util.PathPrefixDelta(safename, event.Name) == 1 { // we're the parent dir
-						send = true
-						dirty = true
-					}
-					obj.watcher.Remove(current)
-					index++
-				}
-
-				// if event.Name startswith safename, send event, we're already deeper
-			} else if util.HasPathPrefix(event.Name, safename) {
-				//log.Println("Event2!")
-				send = true
-				dirty = true
-			}
-
-		case err := <-obj.watcher.Errors:
 			cuuid.SetConverged(false)
-			return fmt.Errorf("Unknown %s[%s] watcher error: %v", obj.Kind(), obj.GetName(), err)
+			if err := event.Error; err != nil {
+				return fmt.Errorf("Unknown %s[%s] watcher error: %v", obj.Kind(), obj.GetName(), err)
+			}
+			if global.DEBUG { // don't access event.Body if event.Error isn't nil
+				log.Printf("%s[%s]: Event(%s): %v", obj.Kind(), obj.GetName(), event.Body.Name, event.Body.Op)
+			}
+			send = true
+			dirty = true
 
 		case event := <-obj.events:
 			cuuid.SetConverged(false)

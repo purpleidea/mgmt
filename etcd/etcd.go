@@ -1409,7 +1409,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 			obj.nominated, // other peer members and urls or empty map
 		)
 		if err != nil {
-			retries := 0
+			var retries uint
 			if re != nil {
 				retries = re.retries
 			}

@@ -170,7 +170,8 @@ which need to exchange information that is only available at run time.
 
 ####Blog post
 
-An introductory blog post about this topic will follow soon.
+You can read the introductory blog post about this topic here:
+[https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/](https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/)
 
 ###Puppet support
 

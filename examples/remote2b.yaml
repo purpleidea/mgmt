@@ -1,0 +1,20 @@
+---
+graph: mygraph
+comment: remote noop example
+resources:
+  file:
+  - name: file1b
+    path: "/tmp/file1b"
+    content: |
+      i am file1b
+    state: exists
+  - name: "@@file2b"
+    path: "/tmp/file2b"
+    content: |
+      i am file2b, exported from host b
+    state: exists
+collect:
+- kind: file
+  pattern: "/tmp/"
+edges: []
+remote: ssh://root:vagrant@192.168.121.202:22

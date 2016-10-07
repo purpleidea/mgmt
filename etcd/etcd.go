@@ -36,7 +36,8 @@
 // * The elected leader should decide who to nominate/unnominate to keep the right number of servers.
 //
 // Smoke testing:
-// ./mgmt run --file examples/etcd1a.yaml --hostname h1
+// mkdir /tmp/mgmt{A..E}
+// ./mgmt run --file examples/etcd1a.yaml --hostname h1 --tmp-prefix
 // ./mgmt run --file examples/etcd1b.yaml --hostname h2 --tmp-prefix --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382
 // ./mgmt run --file examples/etcd1c.yaml --hostname h3 --tmp-prefix --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/idealClusterSize 3

@@ -1409,8 +1409,12 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 			obj.nominated, // other peer members and urls or empty map
 		)
 		if err != nil {
+			retries := 0
+			if re != nil {
+				retries = re.retries
+			}
 			// retry maxStartServerRetries times, then permanently fail
-			return &CtxRetriesErr{maxStartServerRetries - re.retries, fmt.Sprintf("Etcd: StartServer: Error: %+v", err)}
+			return &CtxRetriesErr{maxStartServerRetries - retries, fmt.Sprintf("Etcd: StartServer: Error: %+v", err)}
 		}
 
 		if len(obj.endpoints) == 0 {

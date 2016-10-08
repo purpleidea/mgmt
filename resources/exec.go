@@ -236,8 +236,8 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 		//} else if obj.IfCmd != "" && obj.WatchCmd != "" {
 
 		if obj.PollInt > 0 { // && obj.WatchCmd == ""
-			// XXX have the Watch() command output onlyif poll events...
-			// XXX we can optimize by saving those results for returning here
+			// XXX: have the Watch() command output onlyif poll events...
+			// XXX: we can optimize by saving those results for returning here
 			// return XXX
 		}
 

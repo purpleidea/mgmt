@@ -218,7 +218,7 @@ func (obj *MsgRes) isAllStateOK() bool {
 }
 
 // JournalPriority converts a string description to a numeric priority.
-// XXX Have Validate() make sure it actually is one of these.
+// XXX: Have Validate() make sure it actually is one of these.
 func (obj *MsgRes) journalPriority() journal.Priority {
 	switch obj.Priority {
 	case "Emerg":

@@ -70,8 +70,8 @@ type AutoEdge interface {
 
 // MetaParams is a struct will all params that apply to every resource.
 type MetaParams struct {
-	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges? // XXX should default to true
-	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group? // XXX should default to true
+	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges? // XXX: should default to true
+	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group? // XXX: should default to true
 	Noop      bool `yaml:"noop"`
 	// NOTE: there are separate Watch and CheckApply retry and delay values,
 	// but I've decided to use the same ones for both until there's a proper

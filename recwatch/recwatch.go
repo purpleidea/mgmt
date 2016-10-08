@@ -96,11 +96,11 @@ func (obj *RecWatcher) Init() error {
 	return nil
 }
 
-//func (obj *RecWatcher) Add(path string) error { // XXX implement me or not?
+//func (obj *RecWatcher) Add(path string) error { // XXX: implement me or not?
 //
 //}
 //
-//func (obj *RecWatcher) Remove(path string) error { // XXX implement me or not?
+//func (obj *RecWatcher) Remove(path string) error { // XXX: implement me or not?
 //
 //}
 

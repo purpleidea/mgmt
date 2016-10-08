@@ -1400,7 +1400,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 	if global.DEBUG {
 		log.Printf("Etcd: nominateCallback(): newCluster: %v; exists: %v; obj.server == nil: %t", newCluster, exists, obj.server == nil)
 	}
-	// XXX check if i have actually volunteered first of all...
+	// XXX: check if i have actually volunteered first of all...
 	if obj.server == nil && (newCluster || exists) {
 
 		log.Printf("Etcd: StartServer(newCluster: %t): %+v", newCluster, obj.nominated)
@@ -1431,7 +1431,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 			// XXX: just put this wherever for now so we don't block
 			// nominate self so "member" list is correct for peers to see
 			EtcdNominate(obj, obj.hostname, obj.serverURLs)
-			// XXX if this fails, where will we retry this part ?
+			// XXX: if this fails, where will we retry this part ?
 		}
 
 		// advertise client urls
@@ -1439,7 +1439,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 			// XXX: don't advertise local addresses! 127.0.0.1:2381 doesn't really help remote hosts
 			// XXX: but sometimes this is what we want... hmmm how do we decide? filter on callback?
 			EtcdAdvertiseEndpoints(obj, curls)
-			// XXX if this fails, where will we retry this part ?
+			// XXX: if this fails, where will we retry this part ?
 
 			// force this to remove sentinel before we reconnect...
 			obj.endpointCallback(nil)

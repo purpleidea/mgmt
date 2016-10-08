@@ -163,7 +163,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 			obj.SetState(ResStateWatching) // reset
 			select {
-			case <-buschan: // XXX wait for new units event to unstick
+			case <-buschan: // XXX: wait for new units event to unstick
 				cuuid.SetConverged(false)
 				// loop so that we can see the changed invalid signal
 				log.Printf("Svc[%v]->DaemonReload()", svc)
@@ -299,7 +299,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
 	var stateOK = ((obj.State == "") || (obj.State == "running" && running) || (obj.State == "stopped" && !running))
-	var startupOK = true // XXX DETECT AND SET
+	var startupOK = true // XXX: DETECT AND SET
 
 	if stateOK && startupOK {
 		return true, nil // we are in the correct state

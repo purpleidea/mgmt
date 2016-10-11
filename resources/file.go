@@ -365,7 +365,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 		// hash comparison (efficient because we can cache hash of content str)
 		if sha256sum == "" { // cache is invalid
 			hash := sha256.New()
-			// TODO file existence test?
+			// TODO: file existence test?
 			if _, err := io.Copy(hash, src); err != nil {
 				return "", false, err
 			}

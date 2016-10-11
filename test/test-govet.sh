@@ -8,4 +8,5 @@ for file in `find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -
 	go vet "$file" && echo PASS || exit 1	# since it doesn't output an ok message on pass
 	grep 'log.' "$file" | grep '\\n"' && echo 'no \n needed in log.Printf()' && exit 1 || echo PASS	# no \n needed in log.Printf()
 	grep 'case _ = <-' "$file" && echo 'case _ = <- can be simplified to: case <-' && exit 1 || echo PASS	# this can be simplified
+	grep -Ei "[\/]+[\/]+[ ]*+(FIXME[^:]|TODO[^:]|XXX[^:])" "$file" && echo 'Token is missing a colon' && exit 1 || echo PASS	# tokens must end with a colon
 done

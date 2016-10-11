@@ -1086,7 +1086,7 @@ func (obj *EmbdEtcd) rawAddWatcher(ctx context.Context, aw *AW) (func(), error) 
 			}
 
 			if err == nil { // watch from latest good revision
-				rev = response.Header.Revision // TODO +1 ?
+				rev = response.Header.Revision // TODO: +1 ?
 				useRev = true
 				if !locked {
 					retry = false
@@ -1400,7 +1400,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 	if global.DEBUG {
 		log.Printf("Etcd: nominateCallback(): newCluster: %v; exists: %v; obj.server == nil: %t", newCluster, exists, obj.server == nil)
 	}
-	// XXX check if i have actually volunteered first of all...
+	// XXX: check if i have actually volunteered first of all...
 	if obj.server == nil && (newCluster || exists) {
 
 		log.Printf("Etcd: StartServer(newCluster: %t): %+v", newCluster, obj.nominated)
@@ -1431,7 +1431,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 			// XXX: just put this wherever for now so we don't block
 			// nominate self so "member" list is correct for peers to see
 			EtcdNominate(obj, obj.hostname, obj.serverURLs)
-			// XXX if this fails, where will we retry this part ?
+			// XXX: if this fails, where will we retry this part ?
 		}
 
 		// advertise client urls
@@ -1439,7 +1439,7 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 			// XXX: don't advertise local addresses! 127.0.0.1:2381 doesn't really help remote hosts
 			// XXX: but sometimes this is what we want... hmmm how do we decide? filter on callback?
 			EtcdAdvertiseEndpoints(obj, curls)
-			// XXX if this fails, where will we retry this part ?
+			// XXX: if this fails, where will we retry this part ?
 
 			// force this to remove sentinel before we reconnect...
 			obj.endpointCallback(nil)
@@ -1655,7 +1655,7 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	} else {
 		cfg.ClusterState = embed.ClusterStateFlagExisting
 	}
-	//cfg.ForceNewCluster = newCluster // TODO ?
+	//cfg.ForceNewCluster = newCluster // TODO: ?
 
 	log.Printf("Etcd: StartServer: Starting server...")
 	obj.server, err = embed.StartEtcd(cfg)
@@ -1959,7 +1959,7 @@ func EtcdGetClusterSize(obj *EmbdEtcd) (uint16, error) {
 
 // EtcdMemberAdd adds a member to the cluster.
 func EtcdMemberAdd(obj *EmbdEtcd, peerURLs etcdtypes.URLs) (*etcd.MemberAddResponse, error) {
-	//obj.Connect(false) // TODO ?
+	//obj.Connect(false) // TODO: ?
 	ctx := context.Background()
 	var response *etcd.MemberAddResponse
 	var err error
@@ -1984,7 +1984,7 @@ func EtcdMemberAdd(obj *EmbdEtcd, peerURLs etcdtypes.URLs) (*etcd.MemberAddRespo
 // if there was an error. This is because it might have run without error, but
 // the member wasn't found, for example.
 func EtcdMemberRemove(obj *EmbdEtcd, mID uint64) (bool, error) {
-	//obj.Connect(false) // TODO ?
+	//obj.Connect(false) // TODO: ?
 	ctx := context.Background()
 	for {
 		if obj.exiting { // the exit signal has been sent!
@@ -2010,7 +2010,7 @@ func EtcdMemberRemove(obj *EmbdEtcd, mID uint64) (bool, error) {
 // The member ID's are the keys, because an empty names means unstarted!
 // TODO: consider queueing this through the main loop with CtxError(ctx, err)
 func EtcdMembers(obj *EmbdEtcd) (map[uint64]string, error) {
-	//obj.Connect(false) // TODO ?
+	//obj.Connect(false) // TODO: ?
 	ctx := context.Background()
 	var response *etcd.MemberListResponse
 	var err error
@@ -2041,7 +2041,7 @@ func EtcdMembers(obj *EmbdEtcd) (map[uint64]string, error) {
 
 // EtcdLeader returns the current leader of the etcd server cluster
 func EtcdLeader(obj *EmbdEtcd) (string, error) {
-	//obj.Connect(false) // TODO ?
+	//obj.Connect(false) // TODO: ?
 	var err error
 	membersMap := make(map[uint64]string)
 	if membersMap, err = EtcdMembers(obj); err != nil {

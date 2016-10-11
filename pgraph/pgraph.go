@@ -792,7 +792,7 @@ func (g *Graph) Worker(v *Vertex) error {
 				// TODO: resources could have a separate exit channel to avoid this complexity!?
 				case event := <-obj.Events():
 					// NOTE: this code should match the similar Res code!
-					//cuuid.SetConverged(false) // TODO ?
+					//cuuid.SetConverged(false) // TODO: ?
 					if exit, send := obj.ReadEvent(&event); exit {
 						return nil // exit
 					} else if send {

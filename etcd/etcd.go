@@ -1086,7 +1086,7 @@ func (obj *EmbdEtcd) rawAddWatcher(ctx context.Context, aw *AW) (func(), error) 
 			}
 
 			if err == nil { // watch from latest good revision
-				rev = response.Header.Revision // TODO +1 ?
+				rev = response.Header.Revision // TODO: +1 ?
 				useRev = true
 				if !locked {
 					retry = false

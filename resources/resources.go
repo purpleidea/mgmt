@@ -253,7 +253,7 @@ func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (bool, 
 	//	}
 	//case event := <-obj.events:
 	//	// NOTE: this code should match the similar code below!
-	//	//cuuid.SetConverged(false) // TODO ?
+	//	//cuuid.SetConverged(false) // TODO: ?
 	//	if exit, send := obj.ReadEvent(&event); exit {
 	//		return true, nil // exit, without error
 	//	} else if send {

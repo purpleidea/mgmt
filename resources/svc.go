@@ -145,7 +145,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 			var notFound = (loadstate.Value == dbus.MakeVariant("not-found"))
 			if notFound { // XXX: in the loop we'll handle changes better...
 				log.Printf("Failed to find svc: %v", svc)
-				invalid = true // XXX ?
+				invalid = true // XXX: ?
 			}
 		}
 

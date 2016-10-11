@@ -99,7 +99,7 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 			ch <- scanner.Text() // blocks here ?
 			if e := scanner.Err(); e != nil {
 				errch <- e // send any misc errors we encounter
-				//break // TODO ?
+				//break // TODO: ?
 			}
 		}
 		close(ch)

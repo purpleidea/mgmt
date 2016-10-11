@@ -209,7 +209,7 @@ func (obj *RecWatcher) Watch() error {
 				}
 
 			} else {
-				// TODO different watchers get each others events!
+				// TODO: different watchers get each others events!
 				// https://github.com/go-fsnotify/fsnotify/issues/95
 				// this happened with two values such as:
 				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2

@@ -184,7 +184,7 @@ $(SRPM): $(SPEC) $(SOURCE)
 $(SPEC): rpmbuild/ spec.in
 	@echo Running templater...
 	#cat spec.in > $(SPEC)
-	sed -e s/__PROGRAM__/$(PROGRAM)/ -e s/__VERSION__/$(VERSION)/ -e s/__RELEASE__/$(RELEASE)/ < spec.in > $(SPEC)
+	sed -e s/__PROGRAM__/$(PROGRAM)/g -e s/__VERSION__/$(VERSION)/g -e s/__RELEASE__/$(RELEASE)/g < spec.in > $(SPEC)
 	# append a changelog to the .spec file
 	git log --format="* %cd %aN <%aE>%n- (%h) %s%d%n" --date=local | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' >> $(SPEC)
 

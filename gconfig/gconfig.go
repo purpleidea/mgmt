@@ -63,6 +63,7 @@ type GraphConfig struct {
 		Exec  []*resources.ExecRes  `yaml:"exec"`
 		Timer []*resources.TimerRes `yaml:"timer"`
 		Msg   []*resources.MsgRes   `yaml:"msg"`
+		Virt  []*resources.VirtRes  `yaml:"virt"`
 	} `yaml:"resources"`
 	Collector []collectorResConfig `yaml:"collect"`
 	Edges     []edgeConfig         `yaml:"edges"`

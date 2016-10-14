@@ -1,0 +1,9 @@
+---
+graph: mygraph
+resources:
+  virt:
+  - name: myDomain3
+    cpus: 1
+    ram: 512
+    state: shutoff
+edges: []

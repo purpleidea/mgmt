@@ -1,0 +1,147 @@
+---
+graph: virtTest
+resources:
+  pkg:
+  - name: qemu-kvm
+    state: installed
+  - name: libvirt-bin
+    state: installed
+  file:
+  - name: vms_dir
+    path: "/var/lib/libvirt/vms/"
+    state: exists
+  - name: data_dir
+    path: "/var/lib/libvirt/data/"
+    state: exists
+  - name: mgmtDom_data
+    path: "/var/lib/libvirt/data/mgmtDom/"
+    state: exists
+  - name: mgmtDom_meta-data
+    path: "/var/lib/libvirt/data/mgmtDom/meta-data"
+    content: |
+      instance-id: iid-mgmtDom
+      local-hostname: mgmtDom
+    state: exists
+  - name: mgmtDom_user-data
+    path: "/var/lib/libvirt/data/mgmtDom/user-data"
+    content: |
+      #cloud-config
+      password: passw0rd
+      chpasswd: { expire: False }
+      ssh_pwauth: True
+      mounts:
+       - [ mgmt, /mnt, 9p, "defaults,noexec" ]
+    state: exists
+  exec:
+  - name: download_xenial
+    cmd: wget -qO /var/lib/libvirt/images/ubuntu.xenial.img https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-disk1.img
+    ifcmd: "test ! -f /var/lib/libvirt/images/ubuntu.xenial.img -o \
+                 $(wget -qO - https://cloud-images.ubuntu.com/xenial/current/MD5SUMS | grep xenial-server-cloudimg-amd64-disk1.img | awk '{print $1}') != \
+                 $(md5sum /var/lib/libvirt/images/ubuntu.xenial.img | awk '{print $1}')"
+    ifshell: '/bin/bash'
+    state: present
+  - name: mgmtDom_image
+    cmd: qemu-img create -f qcow2 -b /var/lib/libvirt/images/ubuntu.xenial.img /var/lib/libvirt/vms/mgmtDom.img
+    ifcmd: "test ! -f /var/lib/libvirt/images/ubuntu.xenial.img"
+  - name: mgmtDom_cidata
+    cmd: >
+      genisoimage -output /var/lib/libvirt/data/mgmtDom/cidata.iso -volid cidata -joliet -rock
+      /var/lib/libvirt/data/mgmtDom/user-data /var/lib/libvirt/data/mgmtDom/meta-data
+    ifcmd: 'test ! -f /var/lib/libvirt/data/mgmtDom/cidata.iso'
+    state: present
+  virt:
+  - name: mgmtDom
+    cpus: 1
+    ram: 512
+    state: running
+    transient: true
+    boot: [hd, network]
+    disk:
+    - source: /var/lib/libvirt/vms/mgmtDom.img
+      type: qcow2
+    cdrom:
+    - source: /var/lib/libvirt/data/mgmtDom/cidata.iso
+      type: raw
+    network:
+    - name: default
+    filesystem:
+    - source: /home/nikolas/golang/src/github.com/purpleidea/mgmt
+      target: mgmt
+edges:
+- name: e1
+  from:
+    kind: pkg
+    name: libvirt-bin
+  to:
+    kind: file
+    name: vms_dir
+- name: e2
+  from:
+    kind: pkg
+    name: libvirt-bin
+  to:
+    kind: file
+    name: data_dir
+- name: e3
+  from:
+    kind: exec
+    name: download_xenial
+  to:
+    kind: exec
+    name: mgmtDom_image
+- name: e4
+  from:
+    kind: file
+    name: vms_dir
+  to:
+    kind: exec
+    name: mgmtDom_image
+- name: e5
+  from:
+    kind: file
+    name: data_dir
+  to:
+    kind: file
+    name: mgmtDom_data
+- name: e6
+  from:
+    kind: file
+    name: mgmtDom_data
+  to:
+    kind: file
+    name: mgmtDom_meta-data
+- name: e7
+  from:
+    kind: file
+    name: mgmtDom_data
+  to:
+    kind: file
+    name: mgmtDom_user-data
+- name: e8
+  from:
+    kind: file
+    name: mgmtDom_meta-data
+  to:
+    kind: exec
+    name: mgmtDom_cidata
+- name: e9
+  from:
+    kind: file
+    name: mgmtDom_user-data
+  to:
+    kind: exec
+    name: mgmtDom_cidata
+- name: e10
+  from:
+    kind: exec
+    name: mgmtDom_cidata
+  to:
+    kind: virt
+    name: mgmtDom
+- name: e11
+  from:
+    kind: exec
+    name: mgmtDom_image
+  to:
+    kind: virt
+    name: mgmtDom

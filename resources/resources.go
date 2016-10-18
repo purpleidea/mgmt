@@ -112,7 +112,7 @@ type Res interface {
 	//Validate() error    // TODO: this might one day be added
 	GetUUIDs() []ResUUID          // most resources only return one
 	Watch(chan event.Event) error // send on channel to signal process() events
-	CheckApply(bool) (bool, error)
+	CheckApply(apply bool) (checkOK bool, err error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
 	CollectPattern(string) // XXX: temporary until Res collection is more advanced

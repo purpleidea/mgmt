@@ -175,6 +175,9 @@ func (obj *BaseUUID) Reversed() bool {
 
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
+	if obj.kind == "" {
+		return fmt.Errorf("Resource did not set kind!")
+	}
 	obj.events = make(chan event.Event) // unbuffered chan size to avoid stale events
 	return nil
 }

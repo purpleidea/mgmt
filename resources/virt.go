@@ -78,9 +78,8 @@ func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memor
 // Init runs some startup code for this resource.
 func (obj *VirtRes) Init() error {
 	if !libvirtInitialized {
-		// TODO: update if https://github.com/rgbkrk/libvirt-go/pull/115 gets merged.
-		if i := libvirt.EventRegisterDefaultImpl(); i != 0 {
-			return fmt.Errorf("EventRegisterDefaultImpl failed with: %d", i)
+		if err := libvirt.EventRegisterDefaultImpl(); err != nil {
+			return errors.Wrapf(err, "EventRegisterDefaultImpl failed")
 		}
 		libvirtInitialized = true
 	}
@@ -140,9 +139,8 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 			default:
 			}
 			//log.Printf("EventRunDefaultImpl started!")
-			// TODO: update if https://github.com/rgbkrk/libvirt-go/pull/115 gets merged.
-			if i := libvirt.EventRunDefaultImpl(); i != 0 {
-				errorChan <- fmt.Errorf("EventRunDefaultImpl failed with: %d", i)
+			if err := libvirt.EventRunDefaultImpl(); err != nil {
+				errorChan <- errors.Wrapf(err, "EventRunDefaultImpl failed")
 				return
 			}
 			//log.Printf("EventRunDefaultImpl looped!")

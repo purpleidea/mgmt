@@ -116,8 +116,8 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	defer cuid.Unregister()
 
 	var startup bool
 	Startup := func(block bool) <-chan time.Time {
@@ -151,7 +151,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-ch:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 
 			// FIXME: ask packagekit for info on what packages changed
 			if global.DEBUG {
@@ -168,18 +168,18 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 			dirty = true
 
 		case event := <-obj.events:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit
 			}
 			dirty = false // these events don't invalidate state
 
-		case <-cuuid.ConvergedTimer():
-			cuuid.SetConverged(true) // converged!
+		case <-cuid.ConvergedTimer():
+			cuid.SetConverged(true) // converged!
 			continue
 
 		case <-Startup(startup):
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			send = true
 			dirty = true
 		}
@@ -362,16 +362,16 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	return false, nil    // success
 }
 
-// PkgUUID is the UUID struct for PkgRes.
-type PkgUUID struct {
-	BaseUUID
+// PkgUID is the UID struct for PkgRes.
+type PkgUID struct {
+	BaseUID
 	name  string // pkg name
 	state string // pkg state or "version"
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.
-func (obj *PkgUUID) IFF(uuid ResUUID) bool {
-	res, ok := uuid.(*PkgUUID)
+func (obj *PkgUID) IFF(uid ResUID) bool {
+	res, ok := uid.(*PkgUID)
 	if !ok {
 		return false
 	}
@@ -382,30 +382,30 @@ func (obj *PkgUUID) IFF(uuid ResUUID) bool {
 // PkgResAutoEdges holds the state of the auto edge generator.
 type PkgResAutoEdges struct {
 	fileList   []string
-	svcUUIDs   []ResUUID
+	svcUIDs    []ResUID
 	testIsNext bool   // safety
 	name       string // saved data from PkgRes obj
 	kind       string
 }
 
 // Next returns the next automatic edge.
-func (obj *PkgResAutoEdges) Next() []ResUUID {
+func (obj *PkgResAutoEdges) Next() []ResUID {
 	if obj.testIsNext {
 		log.Fatal("Expecting a call to Test()")
 	}
 	obj.testIsNext = true // set after all the errors paths are past
 
-	// first return any matching svcUUIDs
-	if x := obj.svcUUIDs; len(x) > 0 {
+	// first return any matching svcUIDs
+	if x := obj.svcUIDs; len(x) > 0 {
 		return x
 	}
 
-	var result []ResUUID
-	// return UUID's for whatever is in obj.fileList
+	var result []ResUID
+	// return UID's for whatever is in obj.fileList
 	for _, x := range obj.fileList {
 		var reversed = false // cheat by passing a pointer
-		result = append(result, &FileUUID{
-			BaseUUID: BaseUUID{
+		result = append(result, &FileUID{
+			BaseUID: BaseUID{
 				name:     obj.name,
 				kind:     obj.kind,
 				reversed: &reversed,
@@ -422,12 +422,12 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 		log.Fatal("Expecting a call to Next()")
 	}
 
-	// ack the svcUUID's...
-	if x := obj.svcUUIDs; len(x) > 0 {
+	// ack the svcUID's...
+	if x := obj.svcUIDs; len(x) > 0 {
 		if y := len(x); y != len(input) {
 			log.Fatalf("Expecting %d value(s)!", y)
 		}
-		obj.svcUUIDs = []ResUUID{} // empty
+		obj.svcUIDs = []ResUID{} // empty
 		obj.testIsNext = false
 		return true
 	}
@@ -475,37 +475,37 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 	// is contained in the Test() method! This design is completely okay!
 
 	// add matches for any svc resources found in pkg definition!
-	var svcUUIDs []ResUUID
+	var svcUIDs []ResUID
 	for _, x := range ReturnSvcInFileList(obj.fileList) {
 		var reversed = false
-		svcUUIDs = append(svcUUIDs, &SvcUUID{
-			BaseUUID: BaseUUID{
+		svcUIDs = append(svcUIDs, &SvcUID{
+			BaseUID: BaseUID{
 				name:     obj.GetName(),
 				kind:     obj.Kind(),
 				reversed: &reversed,
 			},
-			name: x, // the svc name itself in the SvcUUID object!
+			name: x, // the svc name itself in the SvcUID object!
 		}) // build list
 	}
 
 	return &PkgResAutoEdges{
 		fileList:   util.RemoveCommonFilePrefixes(obj.fileList), // clean start!
-		svcUUIDs:   svcUUIDs,
+		svcUIDs:    svcUIDs,
 		testIsNext: false,         // start with Next() call
 		name:       obj.GetName(), // save data for PkgResAutoEdges obj
 		kind:       obj.Kind(),
 	}
 }
 
-// GetUUIDs includes all params to make a unique identification of this object.
+// GetUIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *PkgRes) GetUUIDs() []ResUUID {
-	x := &PkgUUID{
-		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-		name:     obj.Name,
-		state:    obj.State,
+func (obj *PkgRes) GetUIDs() []ResUID {
+	x := &PkgUID{
+		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		name:    obj.Name,
+		state:   obj.State,
 	}
-	result := []ResUUID{x}
+	result := []ResUID{x}
 	return result
 }
 

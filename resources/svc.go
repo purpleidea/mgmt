@@ -82,8 +82,8 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	defer cuid.Unregister()
 
 	var startup bool
 	Startup := func(block bool) <-chan time.Time {
@@ -164,12 +164,12 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 			obj.SetState(ResStateWatching) // reset
 			select {
 			case <-buschan: // XXX: wait for new units event to unstick
-				cuuid.SetConverged(false)
+				cuid.SetConverged(false)
 				// loop so that we can see the changed invalid signal
 				log.Printf("Svc[%v]->DaemonReload()", svc)
 
 			case event := <-obj.events:
-				cuuid.SetConverged(false)
+				cuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(&event); exit {
 					return nil // exit
 				}
@@ -177,12 +177,12 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 					dirty = true
 				}
 
-			case <-cuuid.ConvergedTimer():
-				cuuid.SetConverged(true) // converged!
+			case <-cuid.ConvergedTimer():
+				cuid.SetConverged(true) // converged!
 				continue
 
 			case <-Startup(startup):
-				cuuid.SetConverged(false)
+				cuid.SetConverged(false)
 				send = true
 				dirty = true
 			}
@@ -220,11 +220,11 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 				dirty = true
 
 			case err := <-subErrors:
-				cuuid.SetConverged(false)
+				cuid.SetConverged(false)
 				return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
 
 			case event := <-obj.events:
-				cuuid.SetConverged(false)
+				cuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(&event); exit {
 					return nil // exit
 				}
@@ -232,12 +232,12 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 					dirty = true
 				}
 
-			case <-cuuid.ConvergedTimer():
-				cuuid.SetConverged(true) // converged!
+			case <-cuid.ConvergedTimer():
+				cuid.SetConverged(true) // converged!
 				continue
 
 			case <-Startup(startup):
-				cuuid.SetConverged(false)
+				cuid.SetConverged(false)
 				send = true
 				dirty = true
 			}
@@ -352,19 +352,19 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	return false, nil // success
 }
 
-// SvcUUID is the UUID struct for SvcRes.
-type SvcUUID struct {
-	// NOTE: there is also a name variable in the BaseUUID struct, this is
-	// information about where this UUID came from, and is unrelated to the
+// SvcUID is the UID struct for SvcRes.
+type SvcUID struct {
+	// NOTE: there is also a name variable in the BaseUID struct, this is
+	// information about where this UID came from, and is unrelated to the
 	// information about the resource we're matching. That data which is
 	// used in the IFF function, is what you see in the struct fields here.
-	BaseUUID
+	BaseUID
 	name string // the svc name
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.
-func (obj *SvcUUID) IFF(uuid ResUUID) bool {
-	res, ok := uuid.(*SvcUUID)
+func (obj *SvcUID) IFF(uid ResUID) bool {
+	res, ok := uid.(*SvcUID)
 	if !ok {
 		return false
 	}
@@ -373,13 +373,13 @@ func (obj *SvcUUID) IFF(uuid ResUUID) bool {
 
 // SvcResAutoEdges holds the state of the auto edge generator.
 type SvcResAutoEdges struct {
-	data    []ResUUID
+	data    []ResUID
 	pointer int
 	found   bool
 }
 
 // Next returns the next automatic edge.
-func (obj *SvcResAutoEdges) Next() []ResUUID {
+func (obj *SvcResAutoEdges) Next() []ResUID {
 	if obj.found {
 		log.Fatal("Shouldn't be called anymore!")
 	}
@@ -388,7 +388,7 @@ func (obj *SvcResAutoEdges) Next() []ResUUID {
 	}
 	value := obj.data[obj.pointer]
 	obj.pointer++
-	return []ResUUID{value} // we return one, even though api supports N
+	return []ResUID{value} // we return one, even though api supports N
 }
 
 // Test gets results of the earlier Next() call, & returns if we should continue!
@@ -412,15 +412,15 @@ func (obj *SvcResAutoEdges) Test(input []bool) bool {
 
 // AutoEdges returns the AutoEdge interface. In this case the systemd units.
 func (obj *SvcRes) AutoEdges() AutoEdge {
-	var data []ResUUID
+	var data []ResUID
 	svcFiles := []string{
 		fmt.Sprintf("/etc/systemd/system/%s.service", obj.Name),     // takes precedence
 		fmt.Sprintf("/usr/lib/systemd/system/%s.service", obj.Name), // pkg default
 	}
 	for _, x := range svcFiles {
 		var reversed = true
-		data = append(data, &FileUUID{
-			BaseUUID: BaseUUID{
+		data = append(data, &FileUID{
+			BaseUID: BaseUID{
 				name:     obj.GetName(),
 				kind:     obj.Kind(),
 				reversed: &reversed,
@@ -435,14 +435,14 @@ func (obj *SvcRes) AutoEdges() AutoEdge {
 	}
 }
 
-// GetUUIDs includes all params to make a unique identification of this object.
+// GetUIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *SvcRes) GetUUIDs() []ResUUID {
-	x := &SvcUUID{
-		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-		name:     obj.Name, // svc name
+func (obj *SvcRes) GetUIDs() []ResUID {
+	x := &SvcUID{
+		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		name:    obj.Name, // svc name
 	}
-	return []ResUUID{x}
+	return []ResUID{x}
 }
 
 // GroupCmp returns whether two resources can be grouped together or not.

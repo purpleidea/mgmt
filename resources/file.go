@@ -147,8 +147,8 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	defer cuid.Unregister()
 
 	var startup bool
 	Startup := func(block bool) <-chan time.Time {
@@ -181,7 +181,7 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 			if !ok { // channel shutdown
 				return nil
 			}
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			if err := event.Error; err != nil {
 				return fmt.Errorf("Unknown %s[%s] watcher error: %v", obj.Kind(), obj.GetName(), err)
 			}
@@ -192,18 +192,18 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 			dirty = true
 
 		case event := <-obj.events:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit
 			}
 			//dirty = false // these events don't invalidate state
 
-		case <-cuuid.ConvergedTimer():
-			cuuid.SetConverged(true) // converged!
+		case <-cuid.ConvergedTimer():
+			cuid.SetConverged(true) // converged!
 			continue
 
 		case <-Startup(startup):
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			send = true
 			dirty = true
 		}
@@ -674,15 +674,15 @@ func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
 	return checkOK, nil // w00t
 }
 
-// FileUUID is the UUID struct for FileRes.
-type FileUUID struct {
-	BaseUUID
+// FileUID is the UID struct for FileRes.
+type FileUID struct {
+	BaseUID
 	path string
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.
-func (obj *FileUUID) IFF(uuid ResUUID) bool {
-	res, ok := uuid.(*FileUUID)
+func (obj *FileUID) IFF(uid ResUID) bool {
+	res, ok := uid.(*FileUID)
 	if !ok {
 		return false
 	}
@@ -691,13 +691,13 @@ func (obj *FileUUID) IFF(uuid ResUUID) bool {
 
 // FileResAutoEdges holds the state of the auto edge generator.
 type FileResAutoEdges struct {
-	data    []ResUUID
+	data    []ResUID
 	pointer int
 	found   bool
 }
 
 // Next returns the next automatic edge.
-func (obj *FileResAutoEdges) Next() []ResUUID {
+func (obj *FileResAutoEdges) Next() []ResUID {
 	if obj.found {
 		log.Fatal("Shouldn't be called anymore!")
 	}
@@ -706,7 +706,7 @@ func (obj *FileResAutoEdges) Next() []ResUUID {
 	}
 	value := obj.data[obj.pointer]
 	obj.pointer++
-	return []ResUUID{value} // we return one, even though api supports N
+	return []ResUID{value} // we return one, even though api supports N
 }
 
 // Test gets results of the earlier Next() call, & returns if we should continue!
@@ -731,13 +731,13 @@ func (obj *FileResAutoEdges) Test(input []bool) bool {
 // AutoEdges generates a simple linear sequence of each parent directory from
 // the bottom up!
 func (obj *FileRes) AutoEdges() AutoEdge {
-	var data []ResUUID                             // store linear result chain here...
+	var data []ResUID                              // store linear result chain here...
 	values := util.PathSplitFullReversed(obj.path) // build it
 	_, values = values[0], values[1:]              // get rid of first value which is me!
 	for _, x := range values {
 		var reversed = true // cheat by passing a pointer
-		data = append(data, &FileUUID{
-			BaseUUID: BaseUUID{
+		data = append(data, &FileUID{
+			BaseUID: BaseUID{
 				name:     obj.GetName(),
 				kind:     obj.Kind(),
 				reversed: &reversed,
@@ -752,14 +752,14 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 	}
 }
 
-// GetUUIDs includes all params to make a unique identification of this object.
+// GetUIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *FileRes) GetUUIDs() []ResUUID {
-	x := &FileUUID{
-		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-		path:     obj.path,
+func (obj *FileRes) GetUIDs() []ResUID {
+	x := &FileUID{
+		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		path:    obj.path,
 	}
-	return []ResUUID{x}
+	return []ResUID{x}
 }
 
 // GroupCmp returns whether two resources can be grouped together or not.

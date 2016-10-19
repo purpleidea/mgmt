@@ -26,29 +26,29 @@ import (
 	"github.com/purpleidea/mgmt/resources"
 )
 
-// add edges to the vertex in a graph based on if it matches a uuid list
-func (g *Graph) addEdgesByMatchingUUIDS(v *Vertex, uuids []resources.ResUUID) []bool {
+// add edges to the vertex in a graph based on if it matches a uid list
+func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
-	// loop through each uuid, and see if it matches any vertex
-	for _, uuid := range uuids {
+	// loop through each uid, and see if it matches any vertex
+	for _, uid := range uids {
 		var found = false
-		// uuid is a ResUUID object
+		// uid is a ResUID object
 		for _, vv := range g.GetVertices() { // search
 			if v == vv { // skip self
 				continue
 			}
 			if global.DEBUG {
-				log.Printf("Compile: AutoEdge: Match: %v[%v] with UUID: %v[%v]", vv.Kind(), vv.GetName(), uuid.Kind(), uuid.GetName())
+				log.Printf("Compile: AutoEdge: Match: %v[%v] with UID: %v[%v]", vv.Kind(), vv.GetName(), uid.Kind(), uid.GetName())
 			}
-			// we must match to an effective UUID for the resource,
+			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful
 			// handle, but it is not necessarily a unique identity!
-			// remember, resources can return multiple UUID's each!
-			if resources.UUIDExistsInUUIDs(uuid, vv.GetUUIDs()) {
+			// remember, resources can return multiple UID's each!
+			if resources.UIDExistsInUIDs(uid, vv.GetUIDs()) {
 				// add edge from: vv -> v
-				if uuid.Reversed() {
+				if uid.Reversed() {
 					txt := fmt.Sprintf("AutoEdge: %v[%v] -> %v[%v]", vv.Kind(), vv.GetName(), v.Kind(), v.GetName())
 					log.Printf("Compile: Adding %v", txt)
 					g.AddEdge(vv, v, NewEdge(txt))
@@ -79,21 +79,21 @@ func (g *Graph) AutoEdges() {
 			continue // next vertex
 		}
 
-		for { // while the autoEdgeObj has more uuids to add...
-			uuids := autoEdgeObj.Next() // get some!
-			if uuids == nil {
+		for { // while the autoEdgeObj has more uids to add...
+			uids := autoEdgeObj.Next() // get some!
+			if uids == nil {
 				log.Printf("%v[%v]: Config: The auto edge list is empty!", v.Kind(), v.GetName())
 				break // inner loop
 			}
 			if global.DEBUG {
-				log.Println("Compile: AutoEdge: UUIDS:")
-				for i, u := range uuids {
-					log.Printf("Compile: AutoEdge: UUID%d: %v", i, u)
+				log.Println("Compile: AutoEdge: UIDS:")
+				for i, u := range uids {
+					log.Printf("Compile: AutoEdge: UID%d: %v", i, u)
 				}
 			}
 
 			// match and add edges
-			result := g.addEdgesByMatchingUUIDS(v, uuids)
+			result := g.addEdgesByMatchingUIDS(v, uids)
 
 			// report back, and find out if we should continue
 			if !autoEdgeObj.Test(result) {

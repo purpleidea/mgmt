@@ -66,8 +66,8 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	defer cuid.Unregister()
 
 	var startup bool
 	Startup := func(block bool) <-chan time.Time {
@@ -84,18 +84,18 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-obj.events:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit
 			}
 
-		case <-cuuid.ConvergedTimer():
-			cuuid.SetConverged(true) // converged!
+		case <-cuid.ConvergedTimer():
+			cuid.SetConverged(true) // converged!
 			continue
 
 		case <-Startup(startup):
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			send = true
 		}
 
@@ -118,9 +118,9 @@ func (obj *NoopRes) CheckApply(apply bool) (checkok bool, err error) {
 	return true, nil // state is always okay
 }
 
-// NoopUUID is the UUID struct for NoopRes.
-type NoopUUID struct {
-	BaseUUID
+// NoopUID is the UID struct for NoopRes.
+type NoopUID struct {
+	BaseUID
 	name string
 }
 
@@ -129,14 +129,14 @@ func (obj *NoopRes) AutoEdges() AutoEdge {
 	return nil
 }
 
-// GetUUIDs includes all params to make a unique identification of this object.
+// GetUIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *NoopRes) GetUUIDs() []ResUUID {
-	x := &NoopUUID{
-		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-		name:     obj.Name,
+func (obj *NoopRes) GetUIDs() []ResUID {
+	x := &NoopUID{
+		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		name:    obj.Name,
 	}
-	return []ResUUID{x}
+	return []ResUID{x}
 }
 
 // GroupCmp returns whether two resources can be grouped together or not.

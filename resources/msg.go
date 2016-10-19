@@ -47,9 +47,9 @@ type MsgRes struct {
 	syslogStateOK  bool
 }
 
-// MsgUUID is a unique representation for a MsgRes object.
-type MsgUUID struct {
-	BaseUUID
+// MsgUID is a unique representation for a MsgRes object.
+type MsgUID struct {
+	BaseUID
 	body string
 }
 
@@ -102,8 +102,8 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	defer cuid.Unregister()
 
 	var startup bool
 	Startup := func(block bool) <-chan time.Time {
@@ -120,7 +120,7 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-obj.events:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit
@@ -138,12 +138,12 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 			*/
 			send = true
 
-		case <-cuuid.ConvergedTimer():
-			cuuid.SetConverged(true) // converged!
+		case <-cuid.ConvergedTimer():
+			cuid.SetConverged(true) // converged!
 			continue
 
 		case <-Startup(startup):
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			send = true
 		}
 
@@ -160,17 +160,17 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 	}
 }
 
-// GetUUIDs includes all params to make a unique identification of this object.
+// GetUIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *MsgRes) GetUUIDs() []ResUUID {
-	x := &MsgUUID{
-		BaseUUID: BaseUUID{
+func (obj *MsgRes) GetUIDs() []ResUID {
+	x := &MsgUID{
+		BaseUID: BaseUID{
 			name: obj.GetName(),
 			kind: obj.Kind(),
 		},
 		body: obj.Body,
 	}
-	return []ResUUID{x}
+	return []ResUID{x}
 }
 
 // AutoEdges returns the AutoEdges. In this case none are used.

@@ -171,7 +171,7 @@ func (obj *SSH) Sftp() error {
 
 	// TODO: make the path configurable to deal with /tmp/ mounted noexec?
 	tmpdir := func() string {
-		return fmt.Sprintf(formatPattern, fmtUUID(10)) // eg: /tmp/mgmt.abcdefghij/
+		return fmt.Sprintf(formatPattern, fmtUID(10)) // eg: /tmp/mgmt.abcdefghij/
 	}
 	var ready bool
 	obj.remotewd = ""
@@ -189,7 +189,7 @@ func (obj *SSH) Sftp() error {
 	}
 
 	for i := 0; true; {
-		// NOTE: since fmtUUID is deterministic, if we don't clean up
+		// NOTE: since fmtUID is deterministic, if we don't clean up
 		// previous runs, we may get the same paths generated, and here
 		// they will conflict.
 		if err := obj.sftp.Mkdir(obj.remotewd); err != nil {
@@ -691,16 +691,16 @@ type Remotes struct {
 	converger    cv.Converger
 	convergerCb  func(func(map[string]bool) error) (func(), error)
 
-	wg                 sync.WaitGroup              // keep track of each running SSH connection
-	lock               sync.Mutex                  // mutex for access to sshmap
-	sshmap             map[string]*SSH             // map to each SSH struct with the remote as the key
-	exiting            bool                        // flag to let us know if we're exiting
-	exitChan           chan struct{}               // closes when we should exit
-	semaphore          Semaphore                   // counting semaphore to limit concurrent connections
-	hostnames          []string                    // list of hostnames we've seen so far
-	cuuid              cv.ConvergerUUID            // convergerUUID for the remote itself
-	cuuids             map[string]cv.ConvergerUUID // map to each SSH struct with the remote as the key
-	callbackCancelFunc func()                      // stored callback function cancel function
+	wg                 sync.WaitGroup             // keep track of each running SSH connection
+	lock               sync.Mutex                 // mutex for access to sshmap
+	sshmap             map[string]*SSH            // map to each SSH struct with the remote as the key
+	exiting            bool                       // flag to let us know if we're exiting
+	exitChan           chan struct{}              // closes when we should exit
+	semaphore          Semaphore                  // counting semaphore to limit concurrent connections
+	hostnames          []string                   // list of hostnames we've seen so far
+	cuid               cv.ConvergerUID            // convergerUID for the remote itself
+	cuids              map[string]cv.ConvergerUID // map to each SSH struct with the remote as the key
+	callbackCancelFunc func()                     // stored callback function cancel function
 
 	program string // name of the program
 }
@@ -725,7 +725,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		exitChan:     make(chan struct{}),
 		semaphore:    NewSemaphore(int(cConns)),
 		hostnames:    make([]string, len(remotes)),
-		cuuids:       make(map[string]cv.ConvergerUUID),
+		cuids:        make(map[string]cv.ConvergerUID),
 		program:      program,
 	}
 }
@@ -894,12 +894,12 @@ func (obj *Remotes) passwordCallback(user, host string) func() (string, error) {
 func (obj *Remotes) Run() {
 	// TODO: we can disable a lot of this if we're not using --converged-timeout
 	// link in all the converged timeout checking and callbacks...
-	obj.cuuid = obj.converger.Register() // one for me!
-	obj.cuuid.SetName("Remote: Run")
+	obj.cuid = obj.converger.Register() // one for me!
+	obj.cuid.SetName("Remote: Run")
 	for _, f := range obj.remotes { // one for each remote...
-		obj.cuuids[f] = obj.converger.Register() // save a reference
-		obj.cuuids[f].SetName(fmt.Sprintf("Remote: %s", f))
-		//obj.cuuids[f].SetConverged(false) // everyone starts off false
+		obj.cuids[f] = obj.converger.Register() // save a reference
+		obj.cuids[f].SetName(fmt.Sprintf("Remote: %s", f))
+		//obj.cuids[f].SetConverged(false) // everyone starts off false
 	}
 
 	// watch for converged state in the group of remotes...
@@ -926,7 +926,7 @@ func (obj *Remotes) Run() {
 			}
 			// if exiting, don't update, it will be unregistered...
 			if !sshobj.exiting { // this is actually racy, but safe
-				obj.cuuids[f].SetConverged(b) // ignore errors!
+				obj.cuids[f].SetConverged(b) // ignore errors!
 			}
 		}
 
@@ -953,10 +953,10 @@ func (obj *Remotes) Run() {
 					if !more {
 						return
 					}
-					obj.cuuid.SetConverged(false) // activity!
+					obj.cuid.SetConverged(false) // activity!
 
-				case <-obj.cuuid.ConvergedTimer():
-					obj.cuuid.SetConverged(true) // converged!
+				case <-obj.cuid.ConvergedTimer():
+					obj.cuid.SetConverged(true) // converged!
 					continue
 				}
 				obj.lock.Lock()
@@ -975,7 +975,7 @@ func (obj *Remotes) Run() {
 			}
 		}()
 	} else {
-		obj.cuuid.SetConverged(true) // if no watches, we're converged!
+		obj.cuid.SetConverged(true) // if no watches, we're converged!
 	}
 
 	// the semaphore provides the max simultaneous connection limit
@@ -993,7 +993,7 @@ func (obj *Remotes) Run() {
 			if obj.cConns != 0 {
 				obj.semaphore.V(1) // don't lock the loop
 			}
-			obj.cuuids[f].Unregister() // don't stall the converge!
+			obj.cuids[f].Unregister() // don't stall the converge!
 			continue
 		}
 		obj.sshmap[f] = sshobj // save a reference
@@ -1004,7 +1004,7 @@ func (obj *Remotes) Run() {
 				defer obj.semaphore.V(1)
 			}
 			defer obj.wg.Done()
-			defer obj.cuuids[f].Unregister()
+			defer obj.cuids[f].Unregister()
 
 			if err := sshobj.Go(); err != nil {
 				log.Printf("Remote: Error: %s", err)
@@ -1038,14 +1038,14 @@ func (obj *Remotes) Exit() {
 		obj.callbackCancelFunc() // cancel our callback
 	}
 
-	defer obj.cuuid.Unregister()
+	defer obj.cuid.Unregister()
 	obj.wg.Wait() // wait for everyone to exit
 }
 
-// fmtUUID makes a random string of length n, it is not cryptographically safe.
+// fmtUID makes a random string of length n, it is not cryptographically safe.
 // This function actually usually generates the same sequence of random strings
 // each time the program is run, which makes repeatability of this code easier.
-func fmtUUID(n int) string {
+func fmtUID(n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = formatChars[rand.Intn(len(formatChars))]

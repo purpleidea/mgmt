@@ -116,8 +116,8 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	defer cuid.Unregister()
 
 	var startup bool
 	Startup := func(block bool) <-chan time.Time {
@@ -173,7 +173,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 		obj.SetState(ResStateWatching) // reset
 		select {
 		case text := <-bufioch:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			// each time we get a line of output, we loop!
 			log.Printf("%v[%v]: Watch output: %s", obj.Kind(), obj.GetName(), text)
 			if text != "" {
@@ -181,7 +181,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 			}
 
 		case err := <-errch:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			if err == nil { // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
@@ -191,17 +191,17 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 			return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
 
 		case event := <-obj.events:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit
 			}
 
-		case <-cuuid.ConvergedTimer():
-			cuuid.SetConverged(true) // converged!
+		case <-cuid.ConvergedTimer():
+			cuid.SetConverged(true) // converged!
 			continue
 
 		case <-Startup(startup):
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			send = true
 		}
 
@@ -340,17 +340,17 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	return false, nil    // success
 }
 
-// ExecUUID is the UUID struct for ExecRes.
-type ExecUUID struct {
-	BaseUUID
+// ExecUID is the UID struct for ExecRes.
+type ExecUID struct {
+	BaseUID
 	Cmd   string
 	IfCmd string
 	// TODO: add more elements here
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.
-func (obj *ExecUUID) IFF(uuid ResUUID) bool {
-	res, ok := uuid.(*ExecUUID)
+func (obj *ExecUID) IFF(uid ResUID) bool {
+	res, ok := uid.(*ExecUID)
 	if !ok {
 		return false
 	}
@@ -389,16 +389,16 @@ func (obj *ExecRes) AutoEdges() AutoEdge {
 	return nil
 }
 
-// GetUUIDs includes all params to make a unique identification of this object.
+// GetUIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *ExecRes) GetUUIDs() []ResUUID {
-	x := &ExecUUID{
-		BaseUUID: BaseUUID{name: obj.GetName(), kind: obj.Kind()},
-		Cmd:      obj.Cmd,
-		IfCmd:    obj.IfCmd,
+func (obj *ExecRes) GetUIDs() []ResUID {
+	x := &ExecUID{
+		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		Cmd:     obj.Cmd,
+		IfCmd:   obj.IfCmd,
 		// TODO: add more params here
 	}
-	return []ResUUID{x}
+	return []ResUID{x}
 }
 
 // GroupCmp returns whether two resources can be grouped together or not.

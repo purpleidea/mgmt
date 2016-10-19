@@ -692,22 +692,22 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 
 // CbLoop is the loop where callback execution is serialized
 func (obj *EmbdEtcd) CbLoop() {
-	cuuid := obj.converger.Register()
-	cuuid.SetName("Etcd: CbLoop")
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	cuid.SetName("Etcd: CbLoop")
+	defer cuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal
 	}
 	// we use this timer because when we ignore un-converge events and loop,
 	// we reset the ConvergedTimer case statement, ruining the timeout math!
-	cuuid.StartTimer()
+	cuid.StartTimer()
 	for {
 		ctx := context.Background() // TODO: inherit as input argument?
 		select {
 		// etcd watcher event
 		case re := <-obj.wevents:
 			if !re.skipConv { // if we want to count it...
-				cuuid.ResetTimer() // activity!
+				cuid.ResetTimer() // activity!
 			}
 			if global.TRACE {
 				log.Printf("Trace: Etcd: CbLoop: Event: StartLoop")
@@ -740,7 +740,7 @@ func (obj *EmbdEtcd) CbLoop() {
 		// exit loop commit
 		case <-obj.exitTimeout:
 			log.Println("Etcd: Exiting callback loop!")
-			cuuid.StopTimer() // clean up nicely
+			cuid.StopTimer() // clean up nicely
 			return
 		}
 	}
@@ -748,19 +748,19 @@ func (obj *EmbdEtcd) CbLoop() {
 
 // Loop is the main loop where everything is serialized
 func (obj *EmbdEtcd) Loop() {
-	cuuid := obj.converger.Register()
-	cuuid.SetName("Etcd: Loop")
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	cuid.SetName("Etcd: Loop")
+	defer cuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal
 	}
-	cuuid.StartTimer()
+	cuid.StartTimer()
 	for {
 		ctx := context.Background() // TODO: inherit as input argument?
 		// priority channel...
 		select {
 		case aw := <-obj.awq:
-			cuuid.ResetTimer() // activity!
+			cuid.ResetTimer() // activity!
 			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: PriorityAW: StartLoop")
 			}
@@ -776,7 +776,7 @@ func (obj *EmbdEtcd) Loop() {
 		select {
 		// add watcher
 		case aw := <-obj.awq:
-			cuuid.ResetTimer() // activity!
+			cuid.ResetTimer() // activity!
 			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: AW: StartLoop")
 			}
@@ -787,7 +787,7 @@ func (obj *EmbdEtcd) Loop() {
 
 		// set kv pair
 		case kv := <-obj.setq:
-			cuuid.ResetTimer() // activity!
+			cuid.ResetTimer() // activity!
 			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Set: StartLoop")
 			}
@@ -812,7 +812,7 @@ func (obj *EmbdEtcd) Loop() {
 		// get value
 		case gq := <-obj.getq:
 			if !gq.skipConv {
-				cuuid.ResetTimer() // activity!
+				cuid.ResetTimer() // activity!
 			}
 			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Get: StartLoop")
@@ -838,7 +838,7 @@ func (obj *EmbdEtcd) Loop() {
 
 		// delete value
 		case dl := <-obj.delq:
-			cuuid.ResetTimer() // activity!
+			cuid.ResetTimer() // activity!
 			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Delete: StartLoop")
 			}
@@ -863,7 +863,7 @@ func (obj *EmbdEtcd) Loop() {
 
 		// run txn
 		case tn := <-obj.txnq:
-			cuuid.ResetTimer() // activity!
+			cuid.ResetTimer() // activity!
 			if global.TRACE {
 				log.Printf("Trace: Etcd: Loop: Txn: StartLoop")
 			}
@@ -898,7 +898,7 @@ func (obj *EmbdEtcd) Loop() {
 		// exit loop commit
 		case <-obj.exitTimeout:
 			log.Println("Etcd: Exiting loop!")
-			cuuid.StopTimer() // clean up nicely
+			cuid.StopTimer() // clean up nicely
 			return
 		}
 	}
@@ -2114,7 +2114,7 @@ func EtcdWatch(obj *EmbdEtcd) chan bool {
 
 // EtcdSetResources exports all of the resources which we pass in to etcd
 func EtcdSetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) error {
-	// key structure is /$NS/exported/$hostname/resources/$uuid = $data
+	// key structure is /$NS/exported/$hostname/resources/$uid = $data
 
 	var kindFilter []string // empty to get from everyone
 	hostnameFilter := []string{hostname}
@@ -2135,8 +2135,8 @@ func EtcdSetResources(obj *EmbdEtcd, hostname string, resourceList []resources.R
 		if res.Kind() == "" {
 			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
 		}
-		uuid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
-		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uuid)
+		uid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
+		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uid)
 		if data, err := resources.ResToB64(res); err == nil {
 			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", data)) // desired state
 			ops = append(ops, etcd.OpPut(path, data))
@@ -2160,8 +2160,8 @@ func EtcdSetResources(obj *EmbdEtcd, hostname string, resourceList []resources.R
 		if res.Kind() == "" {
 			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
 		}
-		uuid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
-		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uuid)
+		uid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
+		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uid)
 
 		if match(res, resourceList) { // if we match, no need to delete!
 			continue
@@ -2187,9 +2187,9 @@ func EtcdSetResources(obj *EmbdEtcd, hostname string, resourceList []resources.R
 // If the kindfilter or hostnameFilter is empty, then it assumes no filtering...
 // TODO: Expand this with a more powerful filter based on what we eventually
 // support in our collect DSL. Ideally a server side filter like WithFilter()
-// We could do this if the pattern was /$NS/exported/$kind/$hostname/$uuid = $data
+// We could do this if the pattern was /$NS/exported/$kind/$hostname/$uid = $data
 func EtcdGetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resources.Res, error) {
-	// key structure is /$NS/exported/$hostname/resources/$uuid = $data
+	// key structure is /$NS/exported/$hostname/resources/$uid = $data
 	path := fmt.Sprintf("/%s/exported/", NS)
 	resourceList := []resources.Res{}
 	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))

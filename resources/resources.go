@@ -45,17 +45,17 @@ const (
 	ResStatePoking
 )
 
-// ResUUID is a unique identifier for a resource, namely it's name, and the kind ("type").
-type ResUUID interface {
+// ResUID is a unique identifier for a resource, namely it's name, and the kind ("type").
+type ResUID interface {
 	GetName() string
 	Kind() string
-	IFF(ResUUID) bool
+	IFF(ResUID) bool
 
 	Reversed() bool // true means this resource happens before the generator
 }
 
-// The BaseUUID struct is used to provide a unique resource identifier.
-type BaseUUID struct {
+// The BaseUID struct is used to provide a unique resource identifier.
+type BaseUID struct {
 	name string // name and kind are the values of where this is coming from
 	kind string
 
@@ -64,7 +64,7 @@ type BaseUUID struct {
 
 // The AutoEdge interface is used to implement the autoedges feature.
 type AutoEdge interface {
-	Next() []ResUUID  // call to get list of edges to add
+	Next() []ResUID   // call to get list of edges to add
 	Test([]bool) bool // call until false
 }
 
@@ -110,7 +110,7 @@ type Res interface {
 	Base // include everything from the Base interface
 	Init() error
 	//Validate() error    // TODO: this might one day be added
-	GetUUIDs() []ResUUID          // most resources only return one
+	GetUIDs() []ResUID            // most resources only return one
 	Watch(chan event.Event) error // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)
 	AutoEdges() AutoEdge
@@ -132,10 +132,10 @@ type BaseRes struct {
 	grouped    []Res // list of any grouped resources
 }
 
-// UUIDExistsInUUIDs wraps the IFF method when used with a list of UUID's.
-func UUIDExistsInUUIDs(uuid ResUUID, uuids []ResUUID) bool {
-	for _, u := range uuids {
-		if uuid.IFF(u) {
+// UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
+func UIDExistsInUIDs(uid ResUID, uids []ResUID) bool {
+	for _, u := range uids {
+		if uid.IFF(u) {
 			return true
 		}
 	}
@@ -143,30 +143,30 @@ func UUIDExistsInUUIDs(uuid ResUUID, uuids []ResUUID) bool {
 }
 
 // GetName returns the name of the resource.
-func (obj *BaseUUID) GetName() string {
+func (obj *BaseUID) GetName() string {
 	return obj.name
 }
 
 // Kind returns the kind of resource.
-func (obj *BaseUUID) Kind() string {
+func (obj *BaseUID) Kind() string {
 	return obj.kind
 }
 
-// IFF looks at two UUID's and if and only if they are equivalent, returns true.
+// IFF looks at two UID's and if and only if they are equivalent, returns true.
 // If they are not equivalent, it returns false.
 // Most resources will want to override this method, since it does the important
 // work of actually discerning if two resources are identical in function.
-func (obj *BaseUUID) IFF(uuid ResUUID) bool {
-	res, ok := uuid.(*BaseUUID)
+func (obj *BaseUID) IFF(uid ResUID) bool {
+	res, ok := uid.(*BaseUID)
 	if !ok {
 		return false
 	}
 	return obj.name == res.name
 }
 
-// Reversed is part of the ResUUID interface, and true means this resource
+// Reversed is part of the ResUID interface, and true means this resource
 // happens before the generator.
-func (obj *BaseUUID) Reversed() bool {
+func (obj *BaseUID) Reversed() bool {
 	if obj.reversed == nil {
 		log.Fatal("Programming error!")
 	}
@@ -256,7 +256,7 @@ func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (bool, 
 	//	}
 	//case event := <-obj.events:
 	//	// NOTE: this code should match the similar code below!
-	//	//cuuid.SetConverged(false) // TODO: ?
+	//	//cuid.SetConverged(false) // TODO: ?
 	//	if exit, send := obj.ReadEvent(&event); exit {
 	//		return true, nil // exit, without error
 	//	} else if send {

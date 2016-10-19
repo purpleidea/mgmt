@@ -35,9 +35,9 @@ type TimerRes struct {
 	Interval int `yaml:"interval"` // Interval : Interval between runs
 }
 
-// TimerUUID is the UUID struct for TimerRes.
-type TimerUUID struct {
-	BaseUUID
+// TimerUID is the UID struct for TimerRes.
+type TimerUID struct {
+	BaseUID
 	name string
 }
 
@@ -73,8 +73,8 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuuid := obj.converger.Register()
-	defer cuuid.Unregister()
+	cuid := obj.converger.Register()
+	defer cuid.Unregister()
 
 	var startup bool
 	Startup := func(block bool) <-chan time.Time {
@@ -98,16 +98,16 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 			send = true
 			log.Printf("%v[%v]: received tick", obj.Kind(), obj.GetName())
 		case event := <-obj.events:
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			if exit, _ := obj.ReadEvent(&event); exit {
 				return nil
 			}
-		case <-cuuid.ConvergedTimer():
-			cuuid.SetConverged(true)
+		case <-cuid.ConvergedTimer():
+			cuid.SetConverged(true)
 			continue
 
 		case <-Startup(startup):
-			cuuid.SetConverged(false)
+			cuid.SetConverged(false)
 			send = true
 		}
 		if send {
@@ -121,17 +121,17 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 	}
 }
 
-// GetUUIDs includes all params to make a unique identification of this object.
+// GetUIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *TimerRes) GetUUIDs() []ResUUID {
-	x := &TimerUUID{
-		BaseUUID: BaseUUID{
+func (obj *TimerRes) GetUIDs() []ResUID {
+	x := &TimerUID{
+		BaseUID: BaseUID{
 			name: obj.GetName(),
 			kind: obj.Kind(),
 		},
 		name: obj.Name,
 	}
-	return []ResUUID{x}
+	return []ResUID{x}
 }
 
 // AutoEdges returns the AutoEdge interface. In this case no autoedges are used.

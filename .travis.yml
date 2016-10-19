@@ -3,7 +3,8 @@ go:
   - 1.6
   - 1.7
   - tip
-sudo: false
+sudo: true
+dist: trusty
 before_install: 'git fetch --unshallow'
 install: 'make deps'
 script: 'make test'

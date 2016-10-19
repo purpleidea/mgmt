@@ -223,6 +223,7 @@ parameter with the [Noop](#Noop) resource.
 * [Pkg](#Pkg):  Manage system packages with PackageKit.
 * [Svc](#Svc): Manage system systemd services.
 * [Timer](#Timer): Manage system systemd services.
+* [Virt](#Virt): Manage virtual machines with libvirt.
 
 ###Exec
 
@@ -286,6 +287,10 @@ The service resource is still very WIP. Please help us my improving it!
 ###Timer
 
 This resource needs better documentation. Please help us my improving it!
+
+###Virt
+
+The virt resource can manage virtual machines via libvirt.
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

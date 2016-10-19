@@ -1,0 +1,11 @@
+---
+graph: mygraph
+resources:
+  virt:
+  - name: mgmt1
+    uri: 'qemu:///session'
+    cpus: 1
+    memory: 524288
+    state: shutoff
+    transient: true
+edges: []

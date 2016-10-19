@@ -48,7 +48,7 @@ if go version | grep 'go1\.[0123]\.'; then
 	exit 1
 fi
 
-go get ./...	# get all the go dependencies
+go get -d ./...	# get all the go dependencies
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
 # vet is built-in in go 1.6 - we check for go vet command
 go vet 1> /dev/null 2>&1

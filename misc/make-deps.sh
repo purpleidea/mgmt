@@ -11,13 +11,22 @@ fi
 
 sudo_command=$(which sudo)
 
+YUM=`which yum 2>/dev/null`
+APT=`which apt-get 2>/dev/null`
+if [ -z "$YUM" -a -z "$APT" ]; then
+	echo "The package managers can't be found."
+	exit 1
+fi
+
+if [ ! -z "$YUM" ]; then
+	$sudo_command $YUM install -y libvirt-devel
+
+fi
+if [ ! -z "$APT" ]; then
+	$sudo_command $APT install -y libvirt-dev
+fi
+
 if [ $travis -eq 0 ]; then
-	YUM=`which yum 2>/dev/null`
-	APT=`which apt-get 2>/dev/null`
-	if [ -z "$YUM" -a -z "$APT" ]; then
-		echo "The package managers can't be found."
-		exit 1
-	fi
 	if [ ! -z "$YUM" ]; then
 		# some go dependencies are stored in mercurial
 		$sudo_command $YUM install -y golang golang-googlecode-tools-stringer hg

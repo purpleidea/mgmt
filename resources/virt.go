@@ -217,7 +217,7 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 			cuid.SetConverged(false)
 			return fmt.Errorf("Unknown %s[%s] libvirt error: %s", obj.Kind(), obj.GetName(), err)
 
-		case event := <-obj.events:
+		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit

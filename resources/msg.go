@@ -119,7 +119,7 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 	for {
 		obj.SetState(ResStateWatching) // reset
 		select {
-		case event := <-obj.events:
+		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(&event); exit {

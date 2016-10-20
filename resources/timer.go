@@ -97,7 +97,8 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 		case <-ticker.C: // received the timer event
 			send = true
 			log.Printf("%v[%v]: received tick", obj.Kind(), obj.GetName())
-		case event := <-obj.events:
+
+		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			if exit, _ := obj.ReadEvent(&event); exit {
 				return nil

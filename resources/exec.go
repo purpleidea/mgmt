@@ -190,7 +190,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 			// error reading input?
 			return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
 
-		case event := <-obj.events:
+		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit

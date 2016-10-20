@@ -167,7 +167,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 			send = true
 			dirty = true
 
-		case event := <-obj.events:
+		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit

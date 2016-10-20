@@ -303,7 +303,7 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, poke bool) {
 	case event.EventPause:
 		// wait for next event to continue
 		select {
-		case e := <-obj.events:
+		case e := <-obj.Events():
 			e.ACK()
 			if e.Name == event.EventExit {
 				return true, false

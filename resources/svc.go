@@ -168,7 +168,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 				// loop so that we can see the changed invalid signal
 				log.Printf("Svc[%v]->DaemonReload()", svc)
 
-			case event := <-obj.events:
+			case event := <-obj.Events():
 				cuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(&event); exit {
 					return nil // exit
@@ -223,7 +223,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 				cuid.SetConverged(false)
 				return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
 
-			case event := <-obj.events:
+			case event := <-obj.Events():
 				cuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(&event); exit {
 					return nil // exit

@@ -48,7 +48,7 @@ type PkgRes struct {
 }
 
 // NewPkgRes is a constructor for this resource. It also calls Init() for you.
-func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupported bool) *PkgRes {
+func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupported bool) (*PkgRes, error) {
 	obj := &PkgRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -58,8 +58,7 @@ func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupporte
 		AllowNonFree:     allownonfree,
 		AllowUnsupported: allowunsupported,
 	}
-	obj.Init() // XXX: on error return nil, or separate error return?
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

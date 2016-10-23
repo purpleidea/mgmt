@@ -54,7 +54,7 @@ type MsgUID struct {
 }
 
 // NewMsgRes is a constructor for this resource.
-func NewMsgRes(name, body, priority string, journal, syslog bool, fields map[string]string) *MsgRes {
+func NewMsgRes(name, body, priority string, journal, syslog bool, fields map[string]string) (*MsgRes, error) {
 	message := name
 	if body != "" {
 		message = body
@@ -71,8 +71,7 @@ func NewMsgRes(name, body, priority string, journal, syslog bool, fields map[str
 		Syslog:   syslog,
 	}
 
-	obj.Init()
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

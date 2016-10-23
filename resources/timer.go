@@ -42,15 +42,14 @@ type TimerUID struct {
 }
 
 // NewTimerRes is a constructor for this resource. It also calls Init() for you.
-func NewTimerRes(name string, interval int) *TimerRes {
+func NewTimerRes(name string, interval int) (*TimerRes, error) {
 	obj := &TimerRes{
 		BaseRes: BaseRes{
 			Name: name,
 		},
 		Interval: interval,
 	}
-	obj.Init()
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

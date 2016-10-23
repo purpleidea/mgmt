@@ -26,6 +26,15 @@ import (
 	"time"
 )
 
+// NV is a helper function to make testing easier. It creates a new noop vertex.
+func NV(s string) *Vertex {
+	obj, err := NewNoopRes(s)
+	if err != nil {
+		panic(err) // unlikely test failure!
+	}
+	return NewVertex(obj)
+}
+
 func TestPgraphT1(t *testing.T) {
 
 	G := NewGraph("g1")
@@ -38,8 +47,8 @@ func TestPgraphT1(t *testing.T) {
 		t.Errorf("Should have 0 edges instead of: %d.", i)
 	}
 
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
+	v1 := NV("v1")
+	v2 := NV("v2")
 	e1 := NewEdge("e1")
 	G.AddEdge(v1, v2, e1)
 
@@ -55,12 +64,12 @@ func TestPgraphT1(t *testing.T) {
 func TestPgraphT2(t *testing.T) {
 
 	G := NewGraph("g2")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -82,12 +91,12 @@ func TestPgraphT2(t *testing.T) {
 func TestPgraphT3(t *testing.T) {
 
 	G := NewGraph("g3")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -123,9 +132,9 @@ func TestPgraphT3(t *testing.T) {
 func TestPgraphT4(t *testing.T) {
 
 	G := NewGraph("g4")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -145,12 +154,12 @@ func TestPgraphT4(t *testing.T) {
 
 func TestPgraphT5(t *testing.T) {
 	G := NewGraph("g5")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -174,12 +183,12 @@ func TestPgraphT5(t *testing.T) {
 
 func TestPgraphT6(t *testing.T) {
 	G := NewGraph("g6")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -212,9 +221,9 @@ func TestPgraphT6(t *testing.T) {
 func TestPgraphT7(t *testing.T) {
 
 	G := NewGraph("g7")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -253,28 +262,28 @@ func TestPgraphT7(t *testing.T) {
 
 func TestPgraphT8(t *testing.T) {
 
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
 	if VertexContains(v1, []*Vertex{v1, v2, v3}) != true {
 		t.Errorf("Should be true instead of false.")
 	}
 
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	if VertexContains(v4, []*Vertex{v5, v6}) != false {
 		t.Errorf("Should be false instead of true.")
 	}
 
-	v7 := NewVertex(NewNoopRes("v7"))
-	v8 := NewVertex(NewNoopRes("v8"))
-	v9 := NewVertex(NewNoopRes("v9"))
+	v7 := NV("v7")
+	v8 := NV("v8")
+	v9 := NV("v9")
 	if VertexContains(v8, []*Vertex{v7, v8, v9}) != true {
 		t.Errorf("Should be true instead of false.")
 	}
 
-	v1b := NewVertex(NewNoopRes("v1")) // same value, different objects
+	v1b := NV("v1") // same value, different objects
 	if VertexContains(v1b, []*Vertex{v1, v2, v3}) != false {
 		t.Errorf("Should be false instead of true.")
 	}
@@ -283,12 +292,12 @@ func TestPgraphT8(t *testing.T) {
 func TestPgraphT9(t *testing.T) {
 
 	G := NewGraph("g9")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -359,12 +368,12 @@ func TestPgraphT9(t *testing.T) {
 func TestPgraphT10(t *testing.T) {
 
 	G := NewGraph("g10")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -399,8 +408,8 @@ func TestPgraphReachability0(t *testing.T) {
 	}
 	{
 		G := NewGraph("g")
-		v1 := NewVertex(NewNoopRes("v1"))
-		v6 := NewVertex(NewNoopRes("v6"))
+		v1 := NV("v1")
+		v6 := NV("v6")
 
 		result := G.Reachability(v1, v6)
 		expected := []*Vertex{}
@@ -416,12 +425,12 @@ func TestPgraphReachability0(t *testing.T) {
 	}
 	{
 		G := NewGraph("g")
-		v1 := NewVertex(NewNoopRes("v1"))
-		v2 := NewVertex(NewNoopRes("v2"))
-		v3 := NewVertex(NewNoopRes("v3"))
-		v4 := NewVertex(NewNoopRes("v4"))
-		v5 := NewVertex(NewNoopRes("v5"))
-		v6 := NewVertex(NewNoopRes("v6"))
+		v1 := NV("v1")
+		v2 := NV("v2")
+		v3 := NV("v3")
+		v4 := NV("v4")
+		v5 := NV("v5")
+		v6 := NV("v6")
 		e1 := NewEdge("e1")
 		e2 := NewEdge("e2")
 		e3 := NewEdge("e3")
@@ -450,12 +459,12 @@ func TestPgraphReachability0(t *testing.T) {
 // simple linear path
 func TestPgraphReachability1(t *testing.T) {
 	G := NewGraph("g")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -484,12 +493,12 @@ func TestPgraphReachability1(t *testing.T) {
 // pick one of two correct paths
 func TestPgraphReachability2(t *testing.T) {
 	G := NewGraph("g")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -521,12 +530,12 @@ func TestPgraphReachability2(t *testing.T) {
 // pick shortest path
 func TestPgraphReachability3(t *testing.T) {
 	G := NewGraph("g")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -556,12 +565,12 @@ func TestPgraphReachability3(t *testing.T) {
 // direct path
 func TestPgraphReachability4(t *testing.T) {
 	G := NewGraph("g")
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 	e1 := NewEdge("e1")
 	e2 := NewEdge("e2")
 	e3 := NewEdge("e3")
@@ -589,12 +598,12 @@ func TestPgraphReachability4(t *testing.T) {
 }
 
 func TestPgraphT11(t *testing.T) {
-	v1 := NewVertex(NewNoopRes("v1"))
-	v2 := NewVertex(NewNoopRes("v2"))
-	v3 := NewVertex(NewNoopRes("v3"))
-	v4 := NewVertex(NewNoopRes("v4"))
-	v5 := NewVertex(NewNoopRes("v5"))
-	v6 := NewVertex(NewNoopRes("v6"))
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
 
 	if rev := Reverse([]*Vertex{}); !reflect.DeepEqual(rev, []*Vertex{}) {
 		t.Errorf("Reverse of vertex slice failed.")

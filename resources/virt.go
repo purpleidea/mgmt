@@ -60,7 +60,7 @@ type VirtRes struct {
 }
 
 // NewVirtRes is a constructor for this resource. It also calls Init() for you.
-func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memory uint64) *VirtRes {
+func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memory uint64) (*VirtRes, error) {
 	obj := &VirtRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -71,8 +71,7 @@ func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memor
 		CPUs:      cpus,
 		Memory:    memory,
 	}
-	obj.Init()
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

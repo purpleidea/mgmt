@@ -51,7 +51,7 @@ type ExecRes struct {
 }
 
 // NewExecRes is a constructor for this resource. It also calls Init() for you.
-func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) *ExecRes {
+func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) (*ExecRes, error) {
 	obj := &ExecRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -66,8 +66,7 @@ func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcm
 		PollInt:    pollint,
 		State:      state,
 	}
-	obj.Init()
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

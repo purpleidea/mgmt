@@ -60,7 +60,7 @@ type FileRes struct {
 }
 
 // NewFileRes is a constructor for this resource. It also calls Init() for you.
-func NewFileRes(name, path, dirname, basename, content, source, state string, recurse, force bool) *FileRes {
+func NewFileRes(name, path, dirname, basename, content, source, state string, recurse, force bool) (*FileRes, error) {
 	obj := &FileRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -74,8 +74,7 @@ func NewFileRes(name, path, dirname, basename, content, source, state string, re
 		Recurse:  recurse,
 		Force:    force,
 	}
-	obj.Init()
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

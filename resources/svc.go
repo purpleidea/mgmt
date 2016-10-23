@@ -46,7 +46,7 @@ type SvcRes struct {
 }
 
 // NewSvcRes is a constructor for this resource. It also calls Init() for you.
-func NewSvcRes(name, state, startup string) *SvcRes {
+func NewSvcRes(name, state, startup string) (*SvcRes, error) {
 	obj := &SvcRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -54,8 +54,7 @@ func NewSvcRes(name, state, startup string) *SvcRes {
 		State:   state,
 		Startup: startup,
 	}
-	obj.Init()
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

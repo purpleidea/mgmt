@@ -36,15 +36,14 @@ type NoopRes struct {
 }
 
 // NewNoopRes is a constructor for this resource. It also calls Init() for you.
-func NewNoopRes(name string) *NoopRes {
+func NewNoopRes(name string) (*NoopRes, error) {
 	obj := &NoopRes{
 		BaseRes: BaseRes{
 			Name: name,
 		},
 		Comment: "",
 	}
-	obj.Init()
-	return obj
+	return obj, obj.Init()
 }
 
 // Init runs some startup code for this resource.

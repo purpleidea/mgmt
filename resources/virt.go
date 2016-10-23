@@ -47,7 +47,7 @@ type VirtRes struct {
 	URI        string             `yaml:"uri"`       // connection uri, eg: qemu:///session
 	State      string             `yaml:"state"`     // running, paused, shutoff
 	Transient  bool               `yaml:"transient"` // defined (false) or undefined (true)
-	CPUs       uint               `yaml:"cpus"`
+	CPUs       uint16             `yaml:"cpus"`
 	Memory     uint64             `yaml:"memory"` // in KBytes
 	Boot       []string           `yaml:"boot"`   // boot order. values: fd, hd, cdrom, network
 	Disk       []diskDevice       `yaml:"disk"`
@@ -60,7 +60,7 @@ type VirtRes struct {
 }
 
 // NewVirtRes is a constructor for this resource. It also calls Init() for you.
-func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memory uint64) (*VirtRes, error) {
+func NewVirtRes(name string, uri, state string, transient bool, cpus uint16, memory uint64) (*VirtRes, error) {
 	obj := &VirtRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -276,7 +276,7 @@ func (obj *VirtRes) attrCheckApply(apply bool) (bool, error) {
 	}
 
 	// check cpus
-	if domInfo.GetNrVirtCpu() != uint16(obj.CPUs) { // TODO: should CPU's be uint or uint16 ?
+	if domInfo.GetNrVirtCpu() != obj.CPUs {
 		checkOK = false
 		if !apply {
 			return false, nil

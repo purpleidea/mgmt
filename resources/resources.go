@@ -70,14 +70,37 @@ type AutoEdge interface {
 
 // MetaParams is a struct will all params that apply to every resource.
 type MetaParams struct {
-	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges? // XXX: should default to true
-	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group? // XXX: should default to true
+	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges?
+	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group?
 	Noop      bool `yaml:"noop"`
 	// NOTE: there are separate Watch and CheckApply retry and delay values,
 	// but I've decided to use the same ones for both until there's a proper
 	// reason to want to do something differently for the Watch errors.
 	Retry int16  `yaml:"retry"` // metaparam, number of times to retry on error. -1 for infinite
 	Delay uint64 `yaml:"delay"` // metaparam, number of milliseconds to wait between retries
+}
+
+// UnmarshalYAML is the custom unmarshal handler for the MetaParams struct. It
+// is primarily useful for setting the defaults.
+func (obj *MetaParams) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawMetaParams MetaParams           // indirection to avoid infinite recursion
+	raw := rawMetaParams(DefaultMetaParams) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = MetaParams(raw) // restore from indirection with type conversion!
+	return nil
+}
+
+// DefaultMetaParams are the defaults to be used for undefined metaparams.
+var DefaultMetaParams = MetaParams{
+	AutoEdge:  true,
+	AutoGroup: true,
+	Noop:      false,
+	Retry:     0, // TODO: is this a good default?
+	Delay:     0, // TODO: is this a good default?
 }
 
 // The Base interface is everything that is common to all resources.

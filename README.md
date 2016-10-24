@@ -27,8 +27,19 @@ If you have a well phrased question that might benefit others, consider asking i
 
 ## Quick start:
 * Make sure you have golang version 1.6 or greater installed.
-* Clone the repository recursively, eg: `git clone --recursive https://github.com/purpleidea/mgmt/`.
-* Get the remaining golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
+* If you do not have a GOPATH yet, create one and export it:
+```
+mkdir $HOME/gopath
+export GOPATH=$HOME/gopath
+```
+* You might also want to add the GOPATH to your `~/.bashrc` or `~/.profile`.
+* For more information you can read the [GOPATH documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable).
+* Next download the mgmt code base, and switch to that directory:
+```
+go get -u https://github.com/purpleidea/mgmt
+cd $GOPATH/src/github.com/purpleidea/mgmt
+```
+* Get the remaining golang deps with `go get ./...`, or run `make deps` if you're comfortable with how we install them.
 * Run `make build` to get a freshly built `mgmt` binary.
 * Run `time ./mgmt run --file examples/graph0.yaml --converged-timeout=5 --tmp-prefix` to try out a very simple example!
 * To run continuously in the default mode of operation, omit the `--converged-timeout` option.
@@ -38,7 +49,7 @@ If you have a well phrased question that might benefit others, consider asking i
 Please look in the [examples/](examples/) folder for more examples!
 
 ## Documentation:
-Please see: [DOCUMENTATION.md](DOCUMENTATION.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md).
+Please see: the manually created [DOCUMENTATION.md](DOCUMENTATION.md) (also available as [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md)) and the automatically generated [GoDoc documentation](https://godoc.org/github.com/purpleidea/mgmt).
 
 ## Roadmap:
 Please see: [TODO.md](TODO.md) for a list of upcoming work and TODO items.
@@ -53,19 +64,19 @@ Feel free to read my article on [debugging golang programs](https://ttboj.wordpr
 ## Dependencies:
 * golang 1.6 or higher (required, available in most distros)
 * golang libraries (required, available with `go get`)
-
-        go get github.com/coreos/etcd/client
-        go get gopkg.in/yaml.v2
-        go get gopkg.in/fsnotify.v1
-        go get github.com/urfave/cli
-        go get github.com/coreos/go-systemd/dbus
-        go get github.com/coreos/go-systemd/util
-        go get github.com/coreos/pkg/capnslog
-
-* stringer (required for building), available as a package on some platforms, otherwise via `go get`
-
-        go get golang.org/x/tools/cmd/stringer
-
+```
+go get github.com/coreos/etcd/client
+go get gopkg.in/yaml.v2
+go get gopkg.in/fsnotify.v1
+go get github.com/urfave/cli
+go get github.com/coreos/go-systemd/dbus
+go get github.com/coreos/go-systemd/util
+go get github.com/coreos/pkg/capnslog
+```
+* stringer (optional for building), available as a package on some platforms, otherwise via `go get`
+```
+go get golang.org/x/tools/cmd/stringer
+```
 * pandoc (optional, for building a pdf of the documentation)
 * graphviz (optional, for building a visual representation of the graph)
 

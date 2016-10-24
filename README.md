@@ -27,7 +27,28 @@ If you have a well phrased question that might benefit others, consider asking i
 
 ## Quick start:
 * Make sure you have golang version 1.6 or greater installed.
+* If you do not have it yet create your GOPATH and export it
+		
+		$ mkdir $HOME/work
+		$ export GOPATH=$HOME/work
+
+For more information you can check [GOPATH Documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable).
+
+As a long term solution please add /usr/local/go/bin to the PATH environment variable. You can do this by adding this line to your /etc/profile (for a system-wide installation) or $HOME/.profile:
+
+                export PATH=$PATH:/usr/local/go/bin
+                export GOPATH=$HOME/work
+
+* Change your working directory to $GOPATH folder `cd $GOPATH`.
+
+		`$ mkdir $HOME/work`
+		`$ export GOPATH=$HOME/work`
+		`$ export PATH=$PATH:$GOPATH/bin`
+                
+For more information you can check [GOPATH Documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable)
+* Change your working directory to mgmt folder `cd $GOPATH`
 * Clone the repository recursively, eg: `git clone --recursive https://github.com/purpleidea/mgmt/`.
+* Go to mgmt working directory `cd $GOPATH/src/github.com/purpleidea/mgmt`
 * Get the remaining golang dependencies on your own, or run `make deps` if you're comfortable with how we install them.
 * Run `make build` to get a freshly built `mgmt` binary.
 * Run `time ./mgmt run --file examples/graph0.yaml --converged-timeout=5 --tmp-prefix` to try out a very simple example!

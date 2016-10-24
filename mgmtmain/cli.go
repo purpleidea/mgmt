@@ -32,6 +32,9 @@ func run(c *cli.Context) error {
 
 	obj := &Main{}
 
+	obj.Program = c.App.Name
+	obj.Version = c.App.Version
+
 	if s := c.String("prefix"); c.IsSet("prefix") && s != "" {
 		obj.Prefix = &s
 	}
@@ -114,9 +117,9 @@ func CLI(program, version string) error {
 		return fmt.Errorf("Program was not compiled correctly. Please see Makefile.")
 	}
 	app := cli.NewApp()
-	app.Name = program
-	app.Usage = "next generation config management"
+	app.Name = program // App.name and App.version pass these values through
 	app.Version = version
+	app.Usage = "next generation config management"
 	//app.Action = ... // without a default action, help runs
 
 	app.Commands = []cli.Command{

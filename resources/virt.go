@@ -359,7 +359,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	dom, err := obj.conn.LookupDomainByName(obj.GetName())
 	if err == nil {
 		// pass
-	} else if virErr, ok := err.(libvirt.VirError); ok && virErr.Domain == libvirt.VIR_FROM_QEMU && virErr.Code == libvirt.VIR_ERR_NO_DOMAIN {
+	} else if virErr, ok := err.(libvirt.VirError); ok && virErr.Code == libvirt.VIR_ERR_NO_DOMAIN {
 		// domain not found
 		if obj.absent {
 			obj.isStateOK = true

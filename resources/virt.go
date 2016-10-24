@@ -525,9 +525,6 @@ func (obj *VirtRes) getDomainXML() string {
 	b += fmt.Sprintf("</os>")
 
 	b += fmt.Sprintf("<devices>") // start devices
-	// TODO: use capabilities to determine emulator
-	//b += "<emulator>/usr/bin/kvm-spice</emulator>" // TODO: ?
-	b += "<emulator>/usr/bin/qemu-kvm</emulator>"
 
 	if obj.Disk != nil {
 		for i, disk := range obj.Disk {

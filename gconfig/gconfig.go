@@ -41,33 +41,38 @@ type collectorResConfig struct {
 	Pattern string `yaml:"pattern"` // XXX: Not Implemented
 }
 
-type vertexConfig struct {
+// Vertex is the data structure of a vertex.
+type Vertex struct {
 	Kind string `yaml:"kind"`
 	Name string `yaml:"name"`
 }
 
-type edgeConfig struct {
-	Name string       `yaml:"name"`
-	From vertexConfig `yaml:"from"`
-	To   vertexConfig `yaml:"to"`
+// Edge is the data structure of an edge.
+type Edge struct {
+	Name string `yaml:"name"`
+	From Vertex `yaml:"from"`
+	To   Vertex `yaml:"to"`
+}
+
+// Resources is the data structure of the set of resources.
+type Resources struct {
+	// in alphabetical order
+	Exec  []*resources.ExecRes  `yaml:"exec"`
+	File  []*resources.FileRes  `yaml:"file"`
+	Msg   []*resources.MsgRes   `yaml:"msg"`
+	Noop  []*resources.NoopRes  `yaml:"noop"`
+	Pkg   []*resources.PkgRes   `yaml:"pkg"`
+	Svc   []*resources.SvcRes   `yaml:"svc"`
+	Timer []*resources.TimerRes `yaml:"timer"`
+	Virt  []*resources.VirtRes  `yaml:"virt"`
 }
 
 // GraphConfig is the data structure that describes a single graph to run.
 type GraphConfig struct {
-	Graph     string `yaml:"graph"`
-	Resources struct {
-		// in alphabetical order
-		Exec  []*resources.ExecRes  `yaml:"exec"`
-		File  []*resources.FileRes  `yaml:"file"`
-		Msg   []*resources.MsgRes   `yaml:"msg"`
-		Noop  []*resources.NoopRes  `yaml:"noop"`
-		Pkg   []*resources.PkgRes   `yaml:"pkg"`
-		Svc   []*resources.SvcRes   `yaml:"svc"`
-		Timer []*resources.TimerRes `yaml:"timer"`
-		Virt  []*resources.VirtRes  `yaml:"virt"`
-	} `yaml:"resources"`
+	Graph     string               `yaml:"graph"`
+	Resources Resources            `yaml:"resources"`
 	Collector []collectorResConfig `yaml:"collect"`
-	Edges     []edgeConfig         `yaml:"edges"`
+	Edges     []Edge               `yaml:"edges"`
 	Comment   string               `yaml:"comment"`
 	Hostname  string               `yaml:"hostname"` // uuid for the host
 	Remote    string               `yaml:"remote"`
@@ -152,9 +157,6 @@ func (c *GraphConfig) NewGraphFromConfig(g *pgraph.Graph, embdEtcd *etcd.EmbdEtc
 			// XXX: should we export based on a @@ prefix, or a metaparam
 			// like exported => true || exported => (host pattern)||(other pattern?)
 			if !strings.HasPrefix(res.GetName(), "@@") { // not exported resource
-				// XXX: we don't have a way of knowing if any of the
-				// metaparams are undefined, and as a result to set the
-				// defaults that we want! I hate the go yaml parser!!!
 				v := graph.GetVertexMatch(res)
 				if v == nil { // no match found
 					res.Init()

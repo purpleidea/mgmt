@@ -11,7 +11,7 @@ done < "$FILE"
 cd "${ROOT}"
 
 find_files() {
-	git ls-files | grep '\.go$'
+	git ls-files | grep '\.go$' | grep -v '^examples/'
 }
 
 bad_files=$(

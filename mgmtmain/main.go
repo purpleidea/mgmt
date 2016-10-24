@@ -49,10 +49,11 @@ type Main struct {
 
 	Hostname *string // hostname to use; nil if undefined
 
-	File       *string  // graph file to run; nil if undefined
-	Puppet     *string  // puppet mode to run; nil if undefined
-	PuppetConf string   // the path to an alternate puppet.conf file
-	Remotes    []string // list of remote graph definitions to run
+	File       *string                     // graph file to run; nil if undefined
+	Puppet     *string                     // puppet mode to run; nil if undefined
+	PuppetConf string                      // the path to an alternate puppet.conf file
+	GAPI       func() *gconfig.GraphConfig // graph API; nil if undefined
+	Remotes    []string                    // list of remote graph definitions to run
 
 	NoWatch          bool   // do not update graph on watched graph definition file changes
 	Noop             bool   // globally force all resources into no-op mode
@@ -80,11 +81,17 @@ type Main struct {
 	clientURLs       etcdtypes.URLs // processed client urls value
 	serverURLs       etcdtypes.URLs // processed server urls value
 	idealClusterSize uint16         // processed ideal cluster size value
-	exit             chan error     // exit signal
+
+	exit       chan error                       // exit signal
+	switchChan chan func() *gconfig.GraphConfig // graph switches
 }
 
 // Init initializes the main struct after it performs some validation.
 func (obj *Main) Init() error {
+
+	if obj.Program == "" || obj.Version == "" {
+		return fmt.Errorf("You must set the Program and Version strings!")
+	}
 
 	if obj.Prefix != nil && obj.TmpPrefix {
 		return fmt.Errorf("Choosing a prefix and the request for a tmp prefix is illogical!")
@@ -145,12 +152,21 @@ func (obj *Main) Init() error {
 	}
 
 	obj.exit = make(chan error)
+	obj.switchChan = make(chan func() *gconfig.GraphConfig)
 	return nil
 }
 
 // Exit causes a safe shutdown. This is often attached to the ^C signal handler.
 func (obj *Main) Exit(err error) {
 	obj.exit <- err // trigger an exit!
+}
+
+// Switch causes mgmt try to switch the currently running graph to a new one.
+// The function passed in will usually be called immediately, but it can also
+// happen after a delay, and more often than this Switch function is called!
+func (obj *Main) Switch(f func() *gconfig.GraphConfig) {
+	obj.switchChan <- f
+	// TODO: should we get an ACK() and pass back a return value ?
 }
 
 // Run is the main execution entrypoint to run mgmt.
@@ -273,13 +289,14 @@ func (obj *Main) Run() error {
 	go func() {
 		startchan := make(chan struct{}) // start signal
 		go func() { startchan <- struct{}{} }()
-		var configchan chan error
-		var puppetchan <-chan time.Time
+		var configChan chan error
+		var puppetChan <-chan time.Time
+		var customFunc = obj.GAPI // default
 		if !obj.NoWatch && obj.File != nil {
-			configchan = recwatch.ConfigWatch(*obj.File)
+			configChan = recwatch.ConfigWatch(*obj.File)
 		} else if obj.Puppet != nil {
 			interval := puppet.PuppetInterval(obj.PuppetConf)
-			puppetchan = time.Tick(time.Duration(interval) * time.Second)
+			puppetChan = time.Tick(time.Duration(interval) * time.Second)
 		}
 		log.Println("Etcd: Starting...")
 		etcdchan := etcd.EtcdWatch(EmbdEtcd)
@@ -296,10 +313,14 @@ func (obj *Main) Run() error {
 				}
 				// everything else passes through to cause a compile!
 
-			case <-puppetchan:
+			case customFunc = <-obj.switchChan:
+				// handle a graph switch with a new custom function
+				obj.GAPI = customFunc
+
+			case <-puppetChan:
 				// nothing, just go on
 
-			case e := <-configchan:
+			case e := <-configChan:
 				if obj.NoWatch {
 					continue // not ready to read config
 				}
@@ -319,7 +340,10 @@ func (obj *Main) Run() error {
 				config = gconfig.ParseConfigFromFile(*obj.File)
 			} else if obj.Puppet != nil {
 				config = puppet.ParseConfigFromPuppet(*obj.Puppet, obj.PuppetConf)
+			} else if obj.GAPI != nil {
+				config = obj.GAPI()
 			}
+
 			if config == nil {
 				log.Printf("Config: Parse failure")
 				continue
@@ -337,7 +361,7 @@ func (obj *Main) Run() error {
 				G.Pause()         // sync
 			}
 
-			// build graph from yaml file on events (eg: from etcd)
+			// build graph from config struct on events, eg: etcd...
 			// we need the vertices to be paused to work on them
 			if newFullgraph, err := config.NewGraphFromConfig(fullGraph, EmbdEtcd, obj.Noop); err == nil { // keep references to all original elements
 				fullGraph = newFullgraph
@@ -420,7 +444,7 @@ func (obj *Main) Run() error {
 	// wait for etcd to be running before we remote in, which we do above!
 	go remotes.Run()
 
-	if obj.File == nil && obj.Puppet == nil {
+	if obj.File == nil && obj.Puppet == nil && obj.GAPI == nil {
 		converger.Start() // better start this for empty graphs
 	}
 	log.Println("Main: Running...")

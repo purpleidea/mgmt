@@ -72,6 +72,7 @@ go get github.com/urfave/cli
 go get github.com/coreos/go-systemd/dbus
 go get github.com/coreos/go-systemd/util
 go get github.com/coreos/pkg/capnslog
+go get github.com/rgbkrk/libvirt-go
 ```
 * stringer (optional for building), available as a package on some platforms, otherwise via `go get`
 ```

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/url"
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
@@ -49,6 +50,7 @@ type VirtRes struct {
 	Transient  bool               `yaml:"transient"` // defined (false) or undefined (true)
 	CPUs       uint16             `yaml:"cpus"`
 	Memory     uint64             `yaml:"memory"` // in KBytes
+	OSInit     string             `yaml:"osinit"`    // init used by lxc
 	Boot       []string           `yaml:"boot"`   // boot order. values: fd, hd, cdrom, network
 	Disk       []diskDevice       `yaml:"disk"`
 	CDRom      []cdRomDevice      `yaml:"cdrom"`
@@ -60,7 +62,7 @@ type VirtRes struct {
 }
 
 // NewVirtRes is a constructor for this resource. It also calls Init() for you.
-func NewVirtRes(name string, uri, state string, transient bool, cpus uint16, memory uint64) (*VirtRes, error) {
+func NewVirtRes(name string, uri, state string, transient bool, cpus uint16, memory uint64, osinit string) (*VirtRes, error) {
 	obj := &VirtRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -70,6 +72,7 @@ func NewVirtRes(name string, uri, state string, transient bool, cpus uint16, mem
 		Transient: transient,
 		CPUs:      cpus,
 		Memory:    memory,
+		OSInit:    osinit,
 	}
 	return obj, obj.Init()
 }
@@ -507,16 +510,61 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	return checkOK, nil // w00t
 }
 
+// Return the correct domain type based on the uri
+func (obj *VirtRes) getDomainType() string {
+	u, err := url.Parse(obj.URI)
+	if err != nil {
+		log.Printf("%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(),
+		obj.URI)
+	}
+	switch u.Scheme {
+	case "lxc":
+		return "<domain type='lxc'>"
+	default:
+		return "<domain type='kvm'>"
+	}
+}
+
+// Return the correct os type based on the uri
+func (obj *VirtRes) getOSType() string {
+	u, err := url.Parse(obj.URI)
+	if err != nil {
+		log.Printf("%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(),
+		obj.URI)
+	}
+	switch u.Scheme {
+	case "lxc":
+		return "<type>exe</type>"
+	default:
+		return "<type>hvm</type>"
+	}
+}
+
+func (obj *VirtRes) getOSInit() string {
+	u, err := url.Parse(obj.URI)
+	if err != nil {
+		log.Printf("%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(),
+		obj.URI)
+	}
+	switch u.Scheme {
+	case "lxc":
+		return fmt.Sprintf("<init>%s</init>", obj.OSInit)
+	default:
+		return ""
+	}
+}
+
 func (obj *VirtRes) getDomainXML() string {
 	var b string
-	b += "<domain type='kvm'>" // start domain
+	b += obj.getDomainType() // start domain
 
 	b += fmt.Sprintf("<name>%s</name>", obj.GetName())
 	b += fmt.Sprintf("<memory unit='KiB'>%d</memory>", obj.Memory)
 	b += fmt.Sprintf("<vcpu>%d</vcpu>", obj.CPUs)
 
 	b += "<os>"
-	b += "<type>hvm</type>"
+	b += obj.getOSType()
+	b += obj.getOSInit()
 	if obj.Boot != nil {
 		for _, boot := range obj.Boot {
 			b += fmt.Sprintf("<boot dev='%s'/>", boot)

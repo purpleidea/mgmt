@@ -1,3 +1,4 @@
+.idea/
 .omv/
 .ssh/
 .vagrant/
@@ -7,4 +8,5 @@ tmp/
 *_stringer.go
 mgmt
 mgmt.static
+mgmt.iml
 rpmbuild/

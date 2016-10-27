@@ -36,7 +36,7 @@ export GOPATH=$HOME/gopath
 * For more information you can read the [GOPATH documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable).
 * Next download the mgmt code base, and switch to that directory:
 ```
-go get -u https://github.com/purpleidea/mgmt
+go get -u github.com/purpleidea/mgmt
 cd $GOPATH/src/github.com/purpleidea/mgmt
 ```
 * Get the remaining golang deps with `go get ./...`, or run `make deps` if you're comfortable with how we install them.

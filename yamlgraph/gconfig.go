@@ -61,6 +61,7 @@ type Resources struct {
 	Hostname []*resources.HostnameRes `yaml:"hostname"`
 	Msg      []*resources.MsgRes      `yaml:"msg"`
 	Noop     []*resources.NoopRes     `yaml:"noop"`
+	Nspawn   []*resources.NspawnRes   `yaml:"nspawn"`
 	Pkg      []*resources.PkgRes      `yaml:"pkg"`
 	Svc      []*resources.SvcRes      `yaml:"svc"`
 	Timer    []*resources.TimerRes    `yaml:"timer"`

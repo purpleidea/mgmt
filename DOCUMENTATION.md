@@ -221,6 +221,7 @@ parameter with the [Noop](#Noop) resource.
 * [Hostname](#Hostname): Manages the hostname on the system.
 * [Msg](#Msg): Send log messages.
 * [Noop](#Noop): A simple resource that does nothing.
+* [Nspawn](#Nspwan): Manage systemd-machined nspawn containers.
 * [Pkg](#Pkg):  Manage system packages with PackageKit.
 * [Svc](#Svc): Manage system systemd services.
 * [Timer](#Timer): Manage system systemd services.

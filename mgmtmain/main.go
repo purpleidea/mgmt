@@ -28,6 +28,7 @@ import (
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/gconfig"
+	"github.com/purpleidea/mgmt/gpg"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/recwatch"
@@ -73,6 +74,8 @@ type Main struct {
 	SSHPrivIDRsa     string // default path to ssh key file, set empty to never touch
 	NoCaching        bool   // don't allow remote caching of remote execution binary
 	Depth            uint16 // depth in remote hierarchy; for internal use only
+
+	Gpg bool // allow to create a GPG entity
 
 	DEBUG   bool
 	VERBOSE bool
@@ -420,6 +423,15 @@ func (obj *Main) Run() error {
 	// initialize the add watcher, which calls the f callback on map changes
 	convergerCb := func(f func(map[string]bool) error) (func(), error) {
 		return etcd.EtcdAddHostnameConvergedWatcher(EmbdEtcd, f)
+	}
+
+	if obj.Gpg {
+		log.Println("Creating gpg Entity")
+		gpg := gpg.NewGpgRes("name", "test@test.ing")
+
+		encMsg := gpg.Crypt("noop")
+		msg := gpg.Decrypt(encMsg)
+		log.Println("Decrypted msg : ", msg)
 	}
 
 	// build remotes struct for remote ssh

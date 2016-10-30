@@ -427,10 +427,17 @@ func (obj *Main) Run() error {
 
 	if obj.Gpg {
 		log.Println("Creating gpg Entity")
-		gpg := gpg.NewGpgRes("name", "test@test.ing")
+		gpg1 := gpg.NewGpgRes("name1", "test@test.ing")
+		gpg2 := gpg.NewGpgRes("name2", "test@test.ing")
+		// gpg1.SavePubKey()
 
-		encMsg := gpg.Crypt("noop")
-		msg := gpg.Decrypt(encMsg)
+		// 1 send msg to 2
+		encMsg := gpg1.Crypt(gpg2.Entity, "noop")
+
+		// 2 receive encMsg and Decrypt
+		msg := gpg2.Decrypt(encMsg)
+		// encMsg := gpg.Crypt("noop")
+		// msg := gpg.Decrypt(encMsg)
 		log.Println("Decrypted msg : ", msg)
 	}
 

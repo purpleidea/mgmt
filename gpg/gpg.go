@@ -18,6 +18,7 @@
 package gpg
 
 import (
+	"bufio"
 	"bytes"
 	"crypto"
 	"encoding/base64"
@@ -65,35 +66,62 @@ func (obj *GpgRes) Init() {
 		log.Println(err)
 		return
 	}
+	// obj.savePubKey()
+}
+
+func WriteKeyRing() {
+
+}
+
+func (obj *GpgRes) SavePubKey() {
+	log.Println("Save Public key")
+
+	var b bytes.Buffer
+	w := bufio.NewWriter(&b)
+	e := obj.Entity
+
+	err := e.Serialize(w)
+	if err != nil {
+		log.Println(err)
+	}
+
+}
+
+// TODO Get all present PubKey and add to SubKey
+// addSubKey
+func (obj *GpgRes) AddSubKey(pubKey packet.PublicKey) {
+	// sub := &obj.Entity.Subkeys
+	// var key openpgp.Key
+	var subKeys []openpgp.Subkey
+	// subKeys
+	obj.Entity.Subkeys = subKeys
+}
+
+// TODO Remove any save file for the current entity (ex : PubKey)
+func (obj *GpgRes) cleanAll() {
+
 }
 
 // Crypt a msg then return the encString
-func (obj *GpgRes) Crypt(msg string) string {
-	ents := []*openpgp.Entity{obj.Entity}
+func (obj *GpgRes) Crypt(to *openpgp.Entity, msg string) string {
+	ents := []*openpgp.Entity{to}
+	// ents := obj.Entity.Subkeys
+
 	log.Println("Crypting the test file")
 
 	buf := new(bytes.Buffer)
 	w, err := openpgp.Encrypt(buf, ents, obj.Entity, nil, nil)
-
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err)
 
 	_, err = w.Write([]byte(msg))
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err)
 
 	err = w.Close()
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err)
 
 	// Encode to base64
 	bytes, err := ioutil.ReadAll(buf)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err)
 	encString := base64.StdEncoding.EncodeToString(bytes)
 	// Output encrypted/encoded string
 	log.Println("Encrypted Secret:", encString)
@@ -108,19 +136,20 @@ func (obj *GpgRes) Decrypt(encString string) string {
 
 	// Decode the base64 string
 	dec, err := base64.StdEncoding.DecodeString(encString)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err)
 
 	// Decrypt it with the contents of the private key
 	md, err := openpgp.ReadMessage(bytes.NewBuffer(dec), entityList, nil, nil)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err)
+
 	bytes, err := ioutil.ReadAll(md.UnverifiedBody)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err)
 
 	return string(bytes)
+}
+
+func checkError(err error) {
+	if err != nil {
+		log.Println(err)
+	}
 }

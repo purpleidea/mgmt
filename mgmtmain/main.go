@@ -439,6 +439,7 @@ func (obj *Main) Run() error {
 		// encMsg := gpg.Crypt("noop")
 		// msg := gpg.Decrypt(encMsg)
 		log.Println("Decrypted msg : ", msg)
+		
 	}
 
 	// build remotes struct for remote ssh

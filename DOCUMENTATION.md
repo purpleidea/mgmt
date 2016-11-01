@@ -224,6 +224,7 @@ parameter with the [Noop](#Noop) resource.
 * [Svc](#Svc): Manage system systemd services.
 * [Timer](#Timer): Manage system systemd services.
 * [Virt](#Virt): Manage virtual machines with libvirt.
+* [GPG](#GPG): Encryption
 
 ###Exec
 
@@ -291,6 +292,10 @@ This resource needs better documentation. Please help us my improving it!
 ###Virt
 
 The virt resource can manage virtual machines via libvirt.
+
+###GPG
+
+The GPG ressource allow to encrypt and decrypt message for and from others.
 
 ##Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and

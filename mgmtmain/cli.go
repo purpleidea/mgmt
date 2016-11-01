@@ -72,6 +72,7 @@ func run(c *cli.Context) error {
 	obj.SSHPrivIDRsa = c.String("ssh-priv-id-rsa")
 	obj.NoCaching = c.Bool("no-caching")
 	obj.Depth = uint16(c.Int("depth"))
+	obj.Gpg = c.Bool("gpg")
 
 	if err := obj.Init(); err != nil {
 		return err
@@ -265,6 +266,10 @@ func CLI(program, version string) error {
 					Hidden: true, // internal use only
 					Value:  0,
 					Usage:  "specify depth in remote hierarchy",
+				},
+				cli.BoolFlag{
+					Name:  "gpg",
+					Usage: "allow to create GPG entity",
 				},
 			},
 		},

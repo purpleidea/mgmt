@@ -19,7 +19,6 @@
 package pgraph
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -36,6 +35,8 @@ import (
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/resources"
+
+	errwrap "github.com/pkg/errors"
 )
 
 //go:generate stringer -type=graphState -output=graphstate_stringer.go
@@ -163,6 +164,18 @@ func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	g.Adjacency[v1][v2] = e
 }
 
+// DeleteEdge deletes a particular edge from the graph.
+// FIXME: add test cases
+func (g *Graph) DeleteEdge(e *Edge) {
+	for v1 := range g.Adjacency {
+		for v2, edge := range g.Adjacency[v1] {
+			if e == edge {
+				delete(g.Adjacency[v1], v2)
+			}
+		}
+	}
+}
+
 // GetVertexMatch searches for an equivalent resource in the graph and returns
 // the vertex it is found in, or nil if not found.
 func (g *Graph) GetVertexMatch(obj resources.Res) *Vertex {
@@ -285,11 +298,11 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 	switch program {
 	case "dot", "neato", "twopi", "circo", "fdp":
 	default:
-		return errors.New("Invalid graphviz program selected!")
+		return fmt.Errorf("Invalid graphviz program selected!")
 	}
 
 	if filename == "" {
-		return errors.New("No filename given!")
+		return fmt.Errorf("No filename given!")
 	}
 
 	// run as a normal user if possible when run with sudo
@@ -298,18 +311,18 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 
 	err := ioutil.WriteFile(filename, []byte(g.Graphviz()), 0644)
 	if err != nil {
-		return errors.New("Error writing to filename!")
+		return fmt.Errorf("Error writing to filename!")
 	}
 
 	if err1 == nil && err2 == nil {
 		if err := os.Chown(filename, uid, gid); err != nil {
-			return errors.New("Error changing file owner!")
+			return fmt.Errorf("Error changing file owner!")
 		}
 	}
 
 	path, err := exec.LookPath(program)
 	if err != nil {
-		return errors.New("Graphviz is missing!")
+		return fmt.Errorf("Graphviz is missing!")
 	}
 
 	out := fmt.Sprintf("%v.png", filename)
@@ -324,7 +337,7 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 	}
 	_, err = cmd.Output()
 	if err != nil {
-		return errors.New("Error writing to image!")
+		return fmt.Errorf("Error writing to image!")
 	}
 	return nil
 }
@@ -468,7 +481,7 @@ func (g *Graph) OutDegree() map[*Vertex]int {
 // TopologicalSort returns the sort of graph vertices in that order.
 // based on descriptions and code from wikipedia and rosetta code
 // TODO: add memoization, and cache invalidation to speed this up :)
-func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algorithm
+func (g *Graph) TopologicalSort() ([]*Vertex, error) { // kahn's algorithm
 	var L []*Vertex                    // empty list that will contain the sorted elements
 	var S []*Vertex                    // set of all nodes with no incoming edges
 	remaining := make(map[*Vertex]int) // amount of edges remaining
@@ -505,13 +518,13 @@ func (g *Graph) TopologicalSort() (result []*Vertex, ok bool) { // kahn's algori
 		if in > 0 {
 			for n := range g.Adjacency[c] {
 				if remaining[n] > 0 {
-					return nil, false // not a dag!
+					return nil, fmt.Errorf("Not a dag!")
 				}
 			}
 		}
 	}
 
-	return L, true
+	return L, nil
 }
 
 // Reachability finds the shortest path in a DAG from a to b, and returns the
@@ -939,6 +952,94 @@ func (g *Graph) Exit() {
 	}
 }
 
+// GraphSync updates the oldGraph so that it matches the newGraph receiver. It
+// leaves identical elements alone so that they don't need to be refreshed.
+// FIXME: add test cases
+func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
+
+	if oldGraph == nil {
+		oldGraph = NewGraph(g.GetName()) // copy over the name
+	}
+	oldGraph.SetName(g.GetName()) // overwrite the name
+
+	var lookup = make(map[*Vertex]*Vertex)
+	var vertexKeep []*Vertex // list of vertices which are the same in new graph
+	var edgeKeep []*Edge     // list of vertices which are the same in new graph
+
+	for v := range g.Adjacency { // loop through the vertices (resources)
+		res := v.Res // resource
+
+		vertex := oldGraph.GetVertexMatch(res)
+		if vertex == nil { // no match found
+			if err := res.Init(); err != nil {
+				return nil, errwrap.Wrapf(err, "could not Init() resource")
+			}
+			vertex = NewVertex(res)
+			oldGraph.AddVertex(vertex) // call standalone in case not part of an edge
+		}
+		lookup[v] = vertex                      // used for constructing edges
+		vertexKeep = append(vertexKeep, vertex) // append
+	}
+
+	// get rid of any vertices we shouldn't keep (that aren't in new graph)
+	for v := range oldGraph.Adjacency {
+		if !VertexContains(v, vertexKeep) {
+			// wait for exit before starting new graph!
+			v.SendEvent(event.EventExit, true, false)
+			oldGraph.DeleteVertex(v)
+		}
+	}
+
+	// compare edges
+	for v1 := range g.Adjacency { // loop through the vertices (resources)
+		for v2, e := range g.Adjacency[v1] {
+			// we have an edge!
+
+			// lookup vertices (these should exist now)
+			//res1 := v1.Res // resource
+			//res2 := v2.Res
+			//vertex1 := oldGraph.GetVertexMatch(res1)
+			//vertex2 := oldGraph.GetVertexMatch(res2)
+			vertex1, exists1 := lookup[v1]
+			vertex2, exists2 := lookup[v2]
+			if !exists1 || !exists2 { // no match found, bug?
+				//if vertex1 == nil || vertex2 == nil { // no match found
+				return nil, fmt.Errorf("New vertices weren't found!") // programming error
+			}
+
+			edge, exists := oldGraph.Adjacency[vertex1][vertex2]
+			if !exists || edge.Name != e.Name { // TODO: edgeCmp
+				edge = e // use or overwrite edge
+			}
+			oldGraph.Adjacency[vertex1][vertex2] = edge // store it (AddEdge)
+			edgeKeep = append(edgeKeep, edge)           // mark as saved
+		}
+	}
+
+	// delete unused edges
+	for v1 := range oldGraph.Adjacency {
+		for _, e := range oldGraph.Adjacency[v1] {
+			// we have an edge!
+			if !EdgeContains(e, edgeKeep) {
+				oldGraph.DeleteEdge(e)
+			}
+		}
+	}
+
+	return oldGraph, nil
+}
+
+// GraphMetas returns a list of pointers to each of the resource MetaParams.
+func (g *Graph) GraphMetas() []*resources.MetaParams {
+	metas := []*resources.MetaParams{}
+	for v := range g.Adjacency { // loop through the vertices (resources))
+		res := v.Res // resource
+		meta := res.Meta()
+		metas = append(metas, meta)
+	}
+	return metas
+}
+
 // AssociateData associates some data with the object in the graph in question
 func (g *Graph) AssociateData(converger converger.Converger) {
 	for v := range g.GetVerticesChan() {
@@ -948,6 +1049,16 @@ func (g *Graph) AssociateData(converger converger.Converger) {
 
 // VertexContains is an "in array" function to test for a vertex in a slice of vertices.
 func VertexContains(needle *Vertex, haystack []*Vertex) bool {
+	for _, v := range haystack {
+		if needle == v {
+			return true
+		}
+	}
+	return false
+}
+
+// EdgeContains is an "in array" function to test for an edge in a slice of edges.
+func EdgeContains(needle *Edge, haystack []*Edge) bool {
 	for _, v := range haystack {
 		if needle == v {
 			return true

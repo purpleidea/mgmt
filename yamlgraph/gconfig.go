@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package gconfig provides the facilities for loading a graph from a yaml file.
-package gconfig
+// Package yamlgraph provides the facilities for loading a graph from a yaml file.
+package yamlgraph
 
 import (
 	"errors"
@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/etcd"
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
@@ -74,7 +73,6 @@ type GraphConfig struct {
 	Collector []collectorResConfig `yaml:"collect"`
 	Edges     []Edge               `yaml:"edges"`
 	Comment   string               `yaml:"comment"`
-	Hostname  string               `yaml:"hostname"` // uuid for the host
 	Remote    string               `yaml:"remote"`
 }
 
@@ -89,36 +87,13 @@ func (c *GraphConfig) Parse(data []byte) error {
 	return nil
 }
 
-// ParseConfigFromFile takes a filename and returns the graph config structure.
-func ParseConfigFromFile(filename string) *GraphConfig {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Printf("Config: Error: ParseConfigFromFile: File: %v", err)
-		return nil
-	}
+// NewGraphFromConfig transforms a GraphConfig struct into a new graph.
+// FIXME: remove any possibly left over, now obsolete graph diff code from here!
+func (c *GraphConfig) NewGraphFromConfig(hostname string, embdEtcd *etcd.EmbdEtcd, noop bool) (*pgraph.Graph, error) {
+	// hostname is the uuid for the host
 
-	var config GraphConfig
-	if err := config.Parse(data); err != nil {
-		log.Printf("Config: Error: ParseConfigFromFile: Parse: %v", err)
-		return nil
-	}
-
-	return &config
-}
-
-// NewGraphFromConfig returns a new graph from existing input, such as from the
-// existing graph, and a GraphConfig struct.
-func (c *GraphConfig) NewGraphFromConfig(g *pgraph.Graph, embdEtcd *etcd.EmbdEtcd, noop bool) (*pgraph.Graph, error) {
-	if c.Hostname == "" {
-		return nil, fmt.Errorf("Config: Error: Hostname can't be empty!")
-	}
-
-	var graph *pgraph.Graph // new graph to return
-	if g == nil {           // FIXME: how can we check for an empty graph?
-		graph = pgraph.NewGraph("Graph") // give graph a default name
-	} else {
-		graph = g.Copy() // same vertices, since they're pointers!
-	}
+	var graph *pgraph.Graph          // new graph to return
+	graph = pgraph.NewGraph("Graph") // give graph a default name
 
 	var lookup = make(map[string]map[string]*pgraph.Vertex)
 
@@ -148,9 +123,9 @@ func (c *GraphConfig) NewGraphFromConfig(g *pgraph.Graph, embdEtcd *etcd.EmbdEtc
 			if !ok {
 				return nil, fmt.Errorf("Config: Error: Can't convert: %v of type: %T to Res.", x, x)
 			}
-			if noop {
-				res.Meta().Noop = noop
-			}
+			//if noop { // now done in mgmtmain
+			//	res.Meta().Noop = noop
+			//}
 			if _, exists := lookup[kind]; !exists {
 				lookup[kind] = make(map[string]*pgraph.Vertex)
 			}
@@ -175,7 +150,7 @@ func (c *GraphConfig) NewGraphFromConfig(g *pgraph.Graph, embdEtcd *etcd.EmbdEtc
 		}
 	}
 	// store in etcd
-	if err := etcd.EtcdSetResources(embdEtcd, c.Hostname, resourceList); err != nil {
+	if err := etcd.EtcdSetResources(embdEtcd, hostname, resourceList); err != nil {
 		return nil, fmt.Errorf("Config: Could not export resources: %v", err)
 	}
 
@@ -217,9 +192,9 @@ func (c *GraphConfig) NewGraphFromConfig(g *pgraph.Graph, embdEtcd *etcd.EmbdEtc
 			matched = true
 
 			// collect resources but add the noop metaparam
-			if noop {
-				res.Meta().Noop = noop
-			}
+			//if noop { // now done in mgmtmain
+			//	res.Meta().Noop = noop
+			//}
 
 			if t.Pattern != "" { // XXX: simplistic for now
 				res.CollectPattern(t.Pattern) // res.Dirname = t.Pattern
@@ -244,15 +219,6 @@ func (c *GraphConfig) NewGraphFromConfig(g *pgraph.Graph, embdEtcd *etcd.EmbdEtc
 		}
 	}
 
-	// get rid of any vertices we shouldn't "keep" (that aren't in new graph)
-	for _, v := range graph.GetVertices() {
-		if !pgraph.VertexContains(v, keep) {
-			// wait for exit before starting new graph!
-			v.SendEvent(event.EventExit, true, false)
-			graph.DeleteVertex(v)
-		}
-	}
-
 	for _, e := range c.Edges {
 		if _, ok := lookup[util.FirstToUpper(e.From.Kind)]; !ok {
 			return nil, fmt.Errorf("Can't find 'from' resource!")
@@ -270,4 +236,21 @@ func (c *GraphConfig) NewGraphFromConfig(g *pgraph.Graph, embdEtcd *etcd.EmbdEtc
 	}
 
 	return graph, nil
+}
+
+// ParseConfigFromFile takes a filename and returns the graph config structure.
+func ParseConfigFromFile(filename string) *GraphConfig {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		log.Printf("Config: Error: ParseConfigFromFile: File: %v", err)
+		return nil
+	}
+
+	var config GraphConfig
+	if err := config.Parse(data); err != nil {
+		log.Printf("Config: Error: ParseConfigFromFile: Parse: %v", err)
+		return nil
+	}
+
+	return &config
 }

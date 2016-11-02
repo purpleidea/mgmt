@@ -27,7 +27,7 @@ import (
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/global"
 
-	"github.com/pkg/errors"
+	errwrap "github.com/pkg/errors"
 	"github.com/rgbkrk/libvirt-go"
 )
 
@@ -78,7 +78,7 @@ func NewVirtRes(name string, uri, state string, transient bool, cpus uint16, mem
 func (obj *VirtRes) Init() error {
 	if !libvirtInitialized {
 		if err := libvirt.EventRegisterDefaultImpl(); err != nil {
-			return errors.Wrapf(err, "EventRegisterDefaultImpl failed")
+			return errwrap.Wrapf(err, "EventRegisterDefaultImpl failed")
 		}
 		libvirtInitialized = true
 	}
@@ -139,7 +139,7 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 			}
 			//log.Printf("EventRunDefaultImpl started!")
 			if err := libvirt.EventRunDefaultImpl(); err != nil {
-				errorChan <- errors.Wrapf(err, "EventRunDefaultImpl failed")
+				errorChan <- errwrap.Wrapf(err, "EventRunDefaultImpl failed")
 				return
 			}
 			//log.Printf("EventRunDefaultImpl looped!")
@@ -254,13 +254,13 @@ func (obj *VirtRes) attrCheckApply(apply bool) (bool, error) {
 
 	dom, err := obj.conn.LookupDomainByName(obj.GetName())
 	if err != nil {
-		return false, errors.Wrapf(err, "conn.LookupDomainByName failed")
+		return false, errwrap.Wrapf(err, "conn.LookupDomainByName failed")
 	}
 
 	domInfo, err := dom.GetInfo()
 	if err != nil {
 		// we don't know if the state is ok
-		return false, errors.Wrapf(err, "domain.GetInfo failed")
+		return false, errwrap.Wrapf(err, "domain.GetInfo failed")
 	}
 
 	// check memory
@@ -270,7 +270,7 @@ func (obj *VirtRes) attrCheckApply(apply bool) (bool, error) {
 			return false, nil
 		}
 		if err := dom.SetMemory(obj.Memory); err != nil {
-			return false, errors.Wrapf(err, "domain.SetMemory failed")
+			return false, errwrap.Wrapf(err, "domain.SetMemory failed")
 		}
 		log.Printf("%s[%s]: Memory changed", obj.Kind(), obj.GetName())
 	}
@@ -282,7 +282,7 @@ func (obj *VirtRes) attrCheckApply(apply bool) (bool, error) {
 			return false, nil
 		}
 		if err := dom.SetVcpus(obj.CPUs); err != nil {
-			return false, errors.Wrapf(err, "domain.SetVcpus failed")
+			return false, errwrap.Wrapf(err, "domain.SetVcpus failed")
 		}
 		log.Printf("%s[%s]: CPUs changed", obj.Kind(), obj.GetName())
 	}
@@ -373,13 +373,13 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 		var c = true
 		dom, c, err = obj.domainCreate() // create the domain
 		if err != nil {
-			return false, errors.Wrapf(err, "domainCreate failed")
+			return false, errwrap.Wrapf(err, "domainCreate failed")
 		} else if !c {
 			checkOK = false
 		}
 
 	} else {
-		return false, errors.Wrapf(err, "LookupDomainByName failed")
+		return false, errwrap.Wrapf(err, "LookupDomainByName failed")
 	}
 	defer dom.Free()
 	// domain exists
@@ -387,17 +387,17 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	domInfo, err := dom.GetInfo()
 	if err != nil {
 		// we don't know if the state is ok
-		return false, errors.Wrapf(err, "domain.GetInfo failed")
+		return false, errwrap.Wrapf(err, "domain.GetInfo failed")
 	}
 	isPersistent, err := dom.IsPersistent()
 	if err != nil {
 		// we don't know if the state is ok
-		return false, errors.Wrapf(err, "domain.IsPersistent failed")
+		return false, errwrap.Wrapf(err, "domain.IsPersistent failed")
 	}
 	isActive, err := dom.IsActive()
 	if err != nil {
 		// we don't know if the state is ok
-		return false, errors.Wrapf(err, "domain.IsActive failed")
+		return false, errwrap.Wrapf(err, "domain.IsActive failed")
 	}
 
 	// check for persistence
@@ -407,16 +407,16 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 		}
 		if isPersistent {
 			if err := dom.Undefine(); err != nil {
-				return false, errors.Wrapf(err, "domain.Undefine failed")
+				return false, errwrap.Wrapf(err, "domain.Undefine failed")
 			}
 			log.Printf("%s[%s]: Domain undefined", obj.Kind(), obj.GetName())
 		} else {
 			domXML, err := dom.GetXMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE)
 			if err != nil {
-				return false, errors.Wrapf(err, "domain.GetXMLDesc failed")
+				return false, errwrap.Wrapf(err, "domain.GetXMLDesc failed")
 			}
 			if _, err = obj.conn.DomainDefineXML(domXML); err != nil {
-				return false, errors.Wrapf(err, "conn.DomainDefineXML failed")
+				return false, errwrap.Wrapf(err, "conn.DomainDefineXML failed")
 			}
 			log.Printf("%s[%s]: Domain defined", obj.Kind(), obj.GetName())
 		}
@@ -439,14 +439,14 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 		}
 		if isActive { // domain must be paused ?
 			if err := dom.Resume(); err != nil {
-				return false, errors.Wrapf(err, "domain.Resume failed")
+				return false, errwrap.Wrapf(err, "domain.Resume failed")
 			}
 			checkOK = false
 			log.Printf("%s[%s]: Domain resumed", obj.Kind(), obj.GetName())
 			break
 		}
 		if err := dom.Create(); err != nil {
-			return false, errors.Wrapf(err, "domain.Create failed")
+			return false, errwrap.Wrapf(err, "domain.Create failed")
 		}
 		checkOK = false
 		log.Printf("%s[%s]: Domain created", obj.Kind(), obj.GetName())
@@ -460,14 +460,14 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 		}
 		if isActive { // domain must be running ?
 			if err := dom.Suspend(); err != nil {
-				return false, errors.Wrapf(err, "domain.Suspend failed")
+				return false, errwrap.Wrapf(err, "domain.Suspend failed")
 			}
 			checkOK = false
 			log.Printf("%s[%s]: Domain paused", obj.Kind(), obj.GetName())
 			break
 		}
 		if err := dom.CreateWithFlags(libvirt.VIR_DOMAIN_START_PAUSED); err != nil {
-			return false, errors.Wrapf(err, "domain.CreateWithFlags failed")
+			return false, errwrap.Wrapf(err, "domain.CreateWithFlags failed")
 		}
 		checkOK = false
 		log.Printf("%s[%s]: Domain created paused", obj.Kind(), obj.GetName())
@@ -481,7 +481,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 		}
 
 		if err := dom.Destroy(); err != nil {
-			return false, errors.Wrapf(err, "domain.Destroy failed")
+			return false, errwrap.Wrapf(err, "domain.Destroy failed")
 		}
 		checkOK = false
 		log.Printf("%s[%s]: Domain destroyed", obj.Kind(), obj.GetName())
@@ -495,7 +495,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	// mem & cpu checks...
 	if !obj.absent {
 		if c, err := obj.attrCheckApply(apply); err != nil {
-			return false, errors.Wrapf(err, "attrCheckApply failed")
+			return false, errwrap.Wrapf(err, "attrCheckApply failed")
 		} else if !c {
 			checkOK = false
 		}

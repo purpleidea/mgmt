@@ -24,6 +24,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/purpleidea/mgmt/puppet"
+	"github.com/purpleidea/mgmt/yamlgraph"
+
 	"github.com/urfave/cli"
 )
 
@@ -35,24 +38,44 @@ func run(c *cli.Context) error {
 	obj.Program = c.App.Name
 	obj.Version = c.App.Version
 
+	if h := c.String("hostname"); c.IsSet("hostname") && h != "" {
+		obj.Hostname = &h
+	}
+
 	if s := c.String("prefix"); c.IsSet("prefix") && s != "" {
 		obj.Prefix = &s
 	}
 	obj.TmpPrefix = c.Bool("tmp-prefix")
 	obj.AllowTmpPrefix = c.Bool("allow-tmp-prefix")
 
-	if h := c.String("hostname"); c.IsSet("hostname") && h != "" {
-		obj.Hostname = &h
+	if _ = c.String("code"); c.IsSet("code") {
+		if obj.GAPI != nil {
+			return fmt.Errorf("Can't combine code GAPI with existing GAPI.")
+		}
+		// TODO: implement DSL GAPI
+		//obj.GAPI = &dsl.GAPI{
+		//	Code: &s,
+		//}
+		return fmt.Errorf("The Code GAPI is not implemented yet!") // TODO: DSL
 	}
-
-	if f := c.String("file"); c.IsSet("file") {
-		obj.File = &f
+	if y := c.String("yaml"); c.IsSet("yaml") {
+		if obj.GAPI != nil {
+			return fmt.Errorf("Can't combine YAML GAPI with existing GAPI.")
+		}
+		obj.GAPI = &yamlgraph.GAPI{
+			File: &y,
+		}
 	}
 	if p := c.String("puppet"); c.IsSet("puppet") {
-		obj.Puppet = &p
+		if obj.GAPI != nil {
+			return fmt.Errorf("Can't combine puppet GAPI with existing GAPI.")
+		}
+		obj.GAPI = &puppet.GAPI{
+			PuppetParam: &p,
+			PuppetConf:  c.String("puppet-conf"),
+		}
 	}
-	obj.PuppetConf = c.String("puppet-conf")
-	obj.Remotes = c.StringSlice("remote")
+	obj.Remotes = c.StringSlice("remote") // FIXME: GAPI-ify somehow?
 
 	obj.NoWatch = c.Bool("no-watch")
 	obj.Noop = c.Bool("noop")
@@ -129,6 +152,13 @@ func CLI(program, version string) error {
 			Usage:   "run",
 			Action:  run,
 			Flags: []cli.Flag{
+				// useful for testing multiple instances on same machine
+				cli.StringFlag{
+					Name:  "hostname",
+					Value: "",
+					Usage: "hostname to use",
+				},
+
 				cli.StringFlag{
 					Name:   "prefix",
 					Usage:  "specify a path to the working prefix directory",
@@ -143,23 +173,15 @@ func CLI(program, version string) error {
 					Usage: "allow creation of a new temporary prefix if main prefix is unavailable",
 				},
 
-				// useful for testing multiple instances on same machine
-				cli.StringFlag{
-					Name:  "hostname",
-					Value: "",
-					Usage: "hostname to use",
-				},
-
 				cli.StringFlag{
 					Name:  "code, c",
 					Value: "",
 					Usage: "code definition to run",
 				},
 				cli.StringFlag{
-					Name:   "file, f",
-					Value:  "",
-					Usage:  "graph definition to run",
-					EnvVar: "MGMT_FILE",
+					Name:  "yaml",
+					Value: "",
+					Usage: "yaml graph definition to run",
 				},
 				cli.StringFlag{
 					Name:  "puppet, p",
@@ -179,7 +201,7 @@ func CLI(program, version string) error {
 
 				cli.BoolFlag{
 					Name:  "no-watch",
-					Usage: "do not update graph on watched graph definition file changes",
+					Usage: "do not update graph on stream switch events",
 				},
 				cli.BoolFlag{
 					Name:  "noop",

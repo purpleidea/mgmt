@@ -22,6 +22,8 @@ import (
 	"log"
 
 	"github.com/purpleidea/mgmt/global"
+
+	errwrap "github.com/pkg/errors"
 )
 
 // AutoGrouper is the required interface to implement for an autogroup algorithm
@@ -283,8 +285,8 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 	g.DeleteVertex(v2) // remove grouped vertex
 
 	// 5) creation of a cyclic graph should throw an error
-	if _, dag := g.TopologicalSort(); !dag { // am i a dag or not?
-		return fmt.Errorf("Graph is not a dag!")
+	if _, err := g.TopologicalSort(); err != nil { // am i a dag or not?
+		return errwrap.Wrapf(err, "TopologicalSort failed") // not a dag
 	}
 	return nil // success
 }

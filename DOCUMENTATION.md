@@ -70,7 +70,7 @@ Older videos and other material [is available](https://github.com/purpleidea/mgm
 ##Setup
 
 During this prototype phase, the tool can be run out of the source directory.
-You'll probably want to use ```./run.sh run --file examples/graph1.yaml``` to
+You'll probably want to use ```./run.sh run --yaml examples/graph1.yaml``` to
 get started. Beware that this _can_ cause data loss. Understand what you're
 doing first, or perform these actions in a virtual environment such as the one
 provided by [Oh-My-Vagrant](https://github.com/purpleidea/oh-my-vagrant).
@@ -422,7 +422,7 @@ you can probably figure out most of it, as it's fairly intuitive.
 The main interface to the `mgmt` tool is the command line. For the most recent
 documentation, please run `mgmt --help`.
 
-####`--file <graph.yaml>`
+####`--yaml <graph.yaml>`
 Point to a graph file to run.
 
 ####`--converged-timeout <seconds>`

@@ -27,15 +27,16 @@ import (
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/etcd"
-	"github.com/purpleidea/mgmt/gconfig"
+	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/remote"
 	"github.com/purpleidea/mgmt/util"
 
 	etcdtypes "github.com/coreos/etcd/pkg/types"
 	"github.com/coreos/pkg/capnslog"
+	multierr "github.com/hashicorp/go-multierror"
+	errwrap "github.com/pkg/errors"
 )
 
 // Main is the main struct for running the mgmt logic.
@@ -43,17 +44,14 @@ type Main struct {
 	Program string // the name of this program, usually set at compile time
 	Version string // the version of this program, usually set at compile time
 
+	Hostname *string // hostname to use; nil if undefined
+
 	Prefix         *string // prefix passed in; nil if undefined
 	TmpPrefix      bool    // request a pseudo-random, temporary prefix to be used
 	AllowTmpPrefix bool    // allow creation of a new temporary prefix if main prefix is unavailable
 
-	Hostname *string // hostname to use; nil if undefined
-
-	File       *string                     // graph file to run; nil if undefined
-	Puppet     *string                     // puppet mode to run; nil if undefined
-	PuppetConf string                      // the path to an alternate puppet.conf file
-	GAPI       func() *gconfig.GraphConfig // graph API; nil if undefined
-	Remotes    []string                    // list of remote graph definitions to run
+	GAPI    gapi.GAPI // graph API interface struct
+	Remotes []string  // list of remote graph definitions to run
 
 	NoWatch          bool   // do not update graph on watched graph definition file changes
 	Noop             bool   // globally force all resources into no-op mode
@@ -82,8 +80,7 @@ type Main struct {
 	serverURLs       etcdtypes.URLs // processed server urls value
 	idealClusterSize uint16         // processed ideal cluster size value
 
-	exit       chan error                       // exit signal
-	switchChan chan func() *gconfig.GraphConfig // graph switches
+	exit chan error // exit signal
 }
 
 // Init initializes the main struct after it performs some validation.
@@ -95,10 +92,6 @@ func (obj *Main) Init() error {
 
 	if obj.Prefix != nil && obj.TmpPrefix {
 		return fmt.Errorf("Choosing a prefix and the request for a tmp prefix is illogical!")
-	}
-
-	if obj.File != nil && obj.Puppet != nil {
-		return fmt.Errorf("The File and Puppet parameters cannot be used together!")
 	}
 
 	obj.idealClusterSize = uint16(obj.IdealClusterSize)
@@ -152,21 +145,12 @@ func (obj *Main) Init() error {
 	}
 
 	obj.exit = make(chan error)
-	obj.switchChan = make(chan func() *gconfig.GraphConfig)
 	return nil
 }
 
 // Exit causes a safe shutdown. This is often attached to the ^C signal handler.
 func (obj *Main) Exit(err error) {
 	obj.exit <- err // trigger an exit!
-}
-
-// Switch causes mgmt try to switch the currently running graph to a new one.
-// The function passed in will usually be called immediately, but it can also
-// happen after a delay, and more often than this Switch function is called!
-func (obj *Main) Switch(f func() *gconfig.GraphConfig) {
-	obj.switchChan <- f
-	// TODO: should we get an ACK() and pass back a return value ?
 }
 
 // Run is the main execution entrypoint to run mgmt.
@@ -192,19 +176,15 @@ func (obj *Main) Run() error {
 	log.Printf("This is: %s, version: %s", obj.Program, obj.Version)
 	log.Printf("Main: Start: %v", start)
 
-	var hostname, _ = os.Hostname()
-	// allow passing in the hostname, instead of using --hostname
-	if obj.File != nil {
-		if config := gconfig.ParseConfigFromFile(*obj.File); config != nil {
-			if h := config.Hostname; h != "" {
-				hostname = h
-			}
-		}
+	hostname, err := os.Hostname() // a sensible default
+	// allow passing in the hostname, instead of using the system setting
+	if h := obj.Hostname; h != nil && *h != "" { // override by cli
+		hostname = *h
+	} else if err != nil {
+		return errwrap.Wrapf(err, "Can't get default hostname!")
 	}
-	if obj.Hostname != nil { // override by cli
-		if h := obj.Hostname; *h != "" {
-			hostname = *h
-		}
+	if hostname == "" { // safety check
+		return fmt.Errorf("Hostname cannot be empty!")
 	}
 
 	var prefix = fmt.Sprintf("/var/lib/%s/", obj.Program) // default prefix
@@ -215,7 +195,7 @@ func (obj *Main) Run() error {
 	if obj.TmpPrefix || os.MkdirAll(prefix, 0770) != nil {
 		if obj.TmpPrefix || obj.AllowTmpPrefix {
 			var err error
-			if prefix, err = ioutil.TempDir("", obj.Program+"-"); err != nil {
+			if prefix, err = ioutil.TempDir("", obj.Program+"-"+hostname+"-"); err != nil {
 				return fmt.Errorf("Main: Error: Can't create temporary prefix!")
 			}
 			log.Println("Main: Warning: Working prefix directory is temporary!")
@@ -227,7 +207,7 @@ func (obj *Main) Run() error {
 	log.Printf("Main: Working prefix is: %s", prefix)
 
 	var wg sync.WaitGroup
-	var G, fullGraph *pgraph.Graph
+	var G, oldGraph *pgraph.Graph
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := obj.MaxRuntime; i > 0 {
@@ -285,19 +265,26 @@ func (obj *Main) Run() error {
 		converger.SetStateFn(convergerStateFn)
 	}
 
+	var gapiChan chan error // stream events are nil errors
+	if obj.GAPI != nil {
+		data := gapi.Data{
+			Hostname: hostname,
+			EmbdEtcd: EmbdEtcd,
+			Noop:     obj.Noop,
+			NoWatch:  obj.NoWatch,
+		}
+		if err := obj.GAPI.Init(data); err != nil {
+			obj.Exit(fmt.Errorf("Main: GAPI: Init failed: %v", err))
+		} else if !obj.NoWatch {
+			gapiChan = obj.GAPI.SwitchStream() // stream of graph switch events!
+		}
+	}
+
 	exitchan := make(chan struct{}) // exit on close
 	go func() {
 		startchan := make(chan struct{}) // start signal
 		go func() { startchan <- struct{}{} }()
-		var configChan chan error
-		var puppetChan <-chan time.Time
-		var customFunc = obj.GAPI // default
-		if !obj.NoWatch && obj.File != nil {
-			configChan = recwatch.ConfigWatch(*obj.File)
-		} else if obj.Puppet != nil {
-			interval := puppet.PuppetInterval(obj.PuppetConf)
-			puppetChan = time.Tick(time.Duration(interval) * time.Second)
-		}
+
 		log.Println("Etcd: Starting...")
 		etcdchan := etcd.EtcdWatch(EmbdEtcd)
 		first := true // first loop or not
@@ -313,60 +300,42 @@ func (obj *Main) Run() error {
 				}
 				// everything else passes through to cause a compile!
 
-			case customFunc = <-obj.switchChan:
-				// handle a graph switch with a new custom function
-				obj.GAPI = customFunc
-
-			case <-puppetChan:
-				// nothing, just go on
-
-			case e := <-configChan:
-				if obj.NoWatch {
-					continue // not ready to read config
+			case err, ok := <-gapiChan:
+				if !ok { // channel closed
+					continue
 				}
-				if e != nil {
-					obj.Exit(e) // trigger exit
+				if err != nil {
+					obj.Exit(err) // trigger exit
 					continue
 					//return // TODO: return or wait for exitchan?
 				}
-			// XXX: case compile_event: ...
-			// ...
+				if obj.NoWatch { // extra safety for bad GAPI's
+					log.Printf("Main: GAPI stream should be quiet with NoWatch!") // fix the GAPI!
+					continue                                                      // no stream events should be sent
+				}
+
 			case <-exitchan:
 				return
 			}
 
-			var config *gconfig.GraphConfig
-			if obj.File != nil {
-				config = gconfig.ParseConfigFromFile(*obj.File)
-			} else if obj.Puppet != nil {
-				config = puppet.ParseConfigFromPuppet(*obj.Puppet, obj.PuppetConf)
-			} else if obj.GAPI != nil {
-				config = obj.GAPI()
-			}
-
-			if config == nil {
-				log.Printf("Config: Parse failure")
+			if obj.GAPI == nil {
+				log.Printf("Config: GAPI is empty!")
 				continue
 			}
 
-			if config.Hostname != "" && config.Hostname != hostname {
-				log.Printf("Config: Hostname changed, ignoring config!")
-				continue
-			}
-			config.Hostname = hostname // set it in case it was ""
-
+			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
 			if !first { // TODO: we can flatten this check out I think
 				converger.Pause() // FIXME: add sync wait?
 				G.Pause()         // sync
+
+				//G.UnGroup() // FIXME: implement me if needed!
 			}
 
-			// build graph from config struct on events, eg: etcd...
-			// we need the vertices to be paused to work on them
-			if newFullgraph, err := config.NewGraphFromConfig(fullGraph, EmbdEtcd, obj.Noop); err == nil { // keep references to all original elements
-				fullGraph = newFullgraph
-			} else {
-				log.Printf("Config: Error making new graph from config: %v", err)
+			// make the graph from yaml, lib, puppet->yaml, or dsl!
+			newGraph, err := obj.GAPI.Graph() // generate graph!
+			if err != nil {
+				log.Printf("Config: Error creating new graph: %v", err)
 				// unpause!
 				if !first {
 					G.Start(&wg, first) // sync
@@ -375,18 +344,40 @@ func (obj *Main) Run() error {
 				continue
 			}
 
-			G = fullGraph.Copy() // copy to active graph
-			// XXX: do etcd transaction out here...
+			// apply the global noop parameter if requested
+			if obj.Noop {
+				for _, m := range newGraph.GraphMetas() {
+					m.Noop = obj.Noop
+				}
+			}
+
+			// FIXME: make sure we "UnGroup()" any semi-destructive
+			// changes to the resources so our efficient GraphSync
+			// will be able to re-use and cmp to the old graph.
+			newFullGraph, err := newGraph.GraphSync(oldGraph)
+			if err != nil {
+				log.Printf("Config: Error running graph sync: %v", err)
+				// unpause!
+				if !first {
+					G.Start(&wg, first) // sync
+					converger.Start()   // after G.Start()
+				}
+				continue
+			}
+			oldGraph = newFullGraph // save old graph
+			G = oldGraph.Copy()     // copy to active graph
+
 			G.AutoEdges() // add autoedges; modifies the graph
 			G.AutoGroup() // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 
 			log.Printf("Graph: %v", G) // show graph
-			err := G.ExecGraphviz(obj.GraphvizFilter, obj.Graphviz)
-			if err != nil {
-				log.Printf("Graphviz: %v", err)
-			} else {
-				log.Printf("Graphviz: Successfully generated graph!")
+			if obj.GraphvizFilter != "" {
+				if err := G.ExecGraphviz(obj.GraphvizFilter, obj.Graphviz); err != nil {
+					log.Printf("Graphviz: %v", err)
+				} else {
+					log.Printf("Graphviz: Successfully generated graph!")
+				}
 			}
 			G.AssociateData(converger)
 			// G.Start(...) needs to be synchronous or wait,
@@ -444,17 +435,27 @@ func (obj *Main) Run() error {
 	// wait for etcd to be running before we remote in, which we do above!
 	go remotes.Run()
 
-	if obj.File == nil && obj.Puppet == nil && obj.GAPI == nil {
+	if obj.GAPI == nil {
 		converger.Start() // better start this for empty graphs
 	}
 	log.Println("Main: Running...")
 
-	err := <-obj.exit // wait for exit signal
+	reterr := <-obj.exit // wait for exit signal
 
 	log.Println("Destroy...")
 
-	configWatcher.Close() // stop sending file changes to remotes
-	remotes.Exit()        // tell all the remote connections to shutdown; waits!
+	if obj.GAPI != nil {
+		if err := obj.GAPI.Close(); err != nil {
+			err = errwrap.Wrapf(err, "GAPI closed poorly!")
+			reterr = multierr.Append(reterr, err) // list of errors
+		}
+	}
+
+	configWatcher.Close()                  // stop sending file changes to remotes
+	if err := remotes.Exit(); err != nil { // tell all the remote connections to shutdown; waits!
+		err = errwrap.Wrapf(err, "Remote exited poorly!")
+		reterr = multierr.Append(reterr, err) // list of errors
+	}
 
 	G.Exit() // tell all the children to exit
 
@@ -463,7 +464,8 @@ func (obj *Main) Run() error {
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
-		log.Printf("Etcd exited poorly with: %v", err)
+		err = errwrap.Wrapf(err, "Etcd exited poorly!")
+		reterr = multierr.Append(reterr, err) // list of errors
 	}
 
 	if obj.DEBUG {
@@ -474,5 +476,5 @@ func (obj *Main) Run() error {
 
 	// TODO: wait for each vertex to exit...
 	log.Println("Goodbye!")
-	return err
+	return reterr
 }

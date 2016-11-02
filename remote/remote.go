@@ -62,12 +62,14 @@ import (
 	"time"
 
 	cv "github.com/purpleidea/mgmt/converger"
-	"github.com/purpleidea/mgmt/gconfig"
 	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/yamlgraph"
 
+	multierr "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/gopass"
 	"github.com/kardianos/osext"
+	errwrap "github.com/pkg/errors"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
@@ -491,7 +493,7 @@ func (obj *SSH) Exec() error {
 	// TODO: do something less arbitrary about which one we pick?
 	url := cleanURL(obj.remoteURLs[0])                           // arbitrarily pick the first one
 	seeds := fmt.Sprintf("--no-server --seeds 'http://%s'", url) // XXX: escape untrusted input? (or check if url is valid)
-	file := fmt.Sprintf("--file '%s'", obj.filepath)             // XXX: escape untrusted input! (or check if file path exists)
+	file := fmt.Sprintf("--yaml '%s'", obj.filepath)             // XXX: escape untrusted input! (or check if file path exists)
 	depth := fmt.Sprintf("--depth %d", obj.depth+1)              // child is +1 distance
 	args := []string{hostname, seeds, file, depth}
 	if obj.noop {
@@ -734,7 +736,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 // It takes as input the path to a graph definition file.
 func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 	// first do the parsing...
-	config := gconfig.ParseConfigFromFile(file)
+	config := yamlgraph.ParseConfigFromFile(file) // FIXME: GAPI-ify somehow?
 	if config == nil {
 		return nil, fmt.Errorf("Remote: Error parsing remote graph: %s", file)
 	}
@@ -791,7 +793,8 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		return nil, fmt.Errorf("No authentication methods available!")
 	}
 
-	hostname := config.Hostname
+	//hostname := config.Hostname // TODO: optionally specify local hostname somehow
+	hostname := ""
 	if hostname == "" {
 		hostname = host // default to above
 	}
@@ -1017,11 +1020,12 @@ func (obj *Remotes) Run() {
 
 // Exit causes as much of the Remotes struct to shutdown as quickly and as
 // cleanly as possible. It only returns once everything is shutdown.
-func (obj *Remotes) Exit() {
+func (obj *Remotes) Exit() error {
 	obj.lock.Lock()
 	obj.exiting = true // don't spawn new ones once this flag is set!
 	obj.lock.Unlock()
 	close(obj.exitChan)
+	var reterr error
 	for _, f := range obj.remotes {
 		sshobj, exists := obj.sshmap[f]
 		if !exists || sshobj == nil {
@@ -1030,7 +1034,8 @@ func (obj *Remotes) Exit() {
 
 		// TODO: should we run these as go routines?
 		if err := sshobj.Stop(); err != nil {
-			log.Printf("Remote: Error stopping: %s", err)
+			err = errwrap.Wrapf(err, "Remote: Error stopping!")
+			reterr = multierr.Append(reterr, err) // list of errors
 		}
 	}
 
@@ -1040,6 +1045,7 @@ func (obj *Remotes) Exit() {
 
 	defer obj.cuid.Unregister()
 	obj.wg.Wait() // wait for everyone to exit
+	return reterr
 }
 
 // fmtUID makes a random string of length n, it is not cryptographically safe.

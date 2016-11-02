@@ -352,11 +352,11 @@ func TestPgraphT9(t *testing.T) {
 		t.Errorf("Outdegree of v6 should be 0 instead of: %d.", i)
 	}
 
-	s, ok := G.TopologicalSort()
+	s, err := G.TopologicalSort()
 	// either possibility is a valid toposort
 	match := reflect.DeepEqual(s, []*Vertex{v1, v2, v3, v4, v5, v6}) || reflect.DeepEqual(s, []*Vertex{v1, v3, v2, v4, v5, v6})
-	if !ok || !match {
-		t.Errorf("Topological sort failed, status: %v.", ok)
+	if err != nil || !match {
+		t.Errorf("Topological sort failed, error: %v.", err)
 		str := "Found:"
 		for _, v := range s {
 			str += " " + v.Res.GetName()
@@ -387,8 +387,8 @@ func TestPgraphT10(t *testing.T) {
 	G.AddEdge(v5, v6, e5)
 	G.AddEdge(v4, v2, e6) // cycle
 
-	if _, ok := G.TopologicalSort(); ok {
-		t.Errorf("Topological sort passed, but graph is cyclic.")
+	if _, err := G.TopologicalSort(); err == nil {
+		t.Errorf("Topological sort passed, but graph is cyclic!")
 	}
 }
 

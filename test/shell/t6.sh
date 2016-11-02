@@ -7,7 +7,7 @@ if env | grep -q -e '^TRAVIS=true$'; then
 fi
 
 # run till completion
-timeout --kill-after=20s 15s ./mgmt run --file t6.yaml --no-watch --tmp-prefix &
+timeout --kill-after=20s 15s ./mgmt run --yaml t6.yaml --no-watch --tmp-prefix &
 pid=$!
 sleep 1s	# let it converge
 test -e /tmp/mgmt/f1

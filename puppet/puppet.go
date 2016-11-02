@@ -26,8 +26,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/purpleidea/mgmt/gconfig"
 	"github.com/purpleidea/mgmt/global"
+	"github.com/purpleidea/mgmt/yamlgraph"
 )
 
 const (
@@ -87,7 +87,7 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 
 // ParseConfigFromPuppet takes a special puppet param string and config and
 // returns the graph configuration structure.
-func ParseConfigFromPuppet(puppetParam, puppetConf string) *gconfig.GraphConfig {
+func ParseConfigFromPuppet(puppetParam, puppetConf string) *yamlgraph.GraphConfig {
 	var puppetConfArg string
 	if puppetConf != "" {
 		puppetConfArg = "--config=" + puppetConf
@@ -104,7 +104,7 @@ func ParseConfigFromPuppet(puppetParam, puppetConf string) *gconfig.GraphConfig 
 
 	log.Println("Puppet: launching translator")
 
-	var config gconfig.GraphConfig
+	var config yamlgraph.GraphConfig
 	if data, err := runPuppetCommand(cmd); err != nil {
 		return nil
 	} else if err := config.Parse(data); err != nil {

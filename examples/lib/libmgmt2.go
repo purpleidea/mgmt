@@ -14,12 +14,12 @@ import (
 	mgmt "github.com/purpleidea/mgmt/mgmtmain"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
-	"github.com/purpleidea/mgmt/yamlgraph"
 )
 
 // MyGAPI implements the main GAPI interface.
 type MyGAPI struct {
 	Name     string // graph name
+	Count    uint   // number of resources to create
 	Interval uint   // refresh interval, 0 to never refresh
 
 	data        gapi.Data
@@ -29,9 +29,10 @@ type MyGAPI struct {
 }
 
 // NewMyGAPI creates a new MyGAPI struct and calls Init().
-func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
+func NewMyGAPI(data gapi.Data, name string, interval uint, count uint) (*MyGAPI, error) {
 	obj := &MyGAPI{
 		Name:     name,
+		Count:    count,
 		Interval: interval,
 	}
 	return obj, obj.Init(data)
@@ -57,32 +58,23 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("libmgmt: MyGAPI is not initialized")
 	}
 
-	n1, err := resources.NewNoopRes("noop1")
-	if err != nil {
-		return nil, fmt.Errorf("Can't create resource: %v", err)
+	g := pgraph.NewGraph(obj.Name)
+	var vertex *pgraph.Vertex
+	for i := uint(0); i < obj.Count; i++ {
+		n, err := resources.NewNoopRes(fmt.Sprintf("noop%d", i))
+		if err != nil {
+			return nil, fmt.Errorf("Can't create resource: %v", err)
+		}
+		v := pgraph.NewVertex(n)
+		g.AddVertex(v)
+		if i > 0 {
+			g.AddEdge(vertex, v, pgraph.NewEdge(fmt.Sprintf("e%d", i)))
+		}
+		vertex = v // save
 	}
 
-	// we can still build a graph via the yaml method
-	gc := &yamlgraph.GraphConfig{
-		Graph: obj.Name,
-		Resources: yamlgraph.Resources{ // must redefine anonymous struct :(
-			// in alphabetical order
-			Exec:  []*resources.ExecRes{},
-			File:  []*resources.FileRes{},
-			Msg:   []*resources.MsgRes{},
-			Noop:  []*resources.NoopRes{n1},
-			Pkg:   []*resources.PkgRes{},
-			Svc:   []*resources.SvcRes{},
-			Timer: []*resources.TimerRes{},
-			Virt:  []*resources.VirtRes{},
-		},
-		//Collector: []collectorResConfig{},
-		//Edges:     []Edge{},
-		Comment: "comment!",
-	}
-
-	g, err := gc.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
-	return g, err
+	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
+	return g, nil
 }
 
 // SwitchStream returns nil errors every time there could be a new graph.
@@ -140,6 +132,7 @@ func Run() error {
 
 	obj.GAPI = &MyGAPI{ // graph API
 		Name:     "libmgmt", // TODO: set on compilation
+		Count:    60,        // number of vertices to add
 		Interval: 15,        // arbitrarily change graph every 15 seconds
 	}
 

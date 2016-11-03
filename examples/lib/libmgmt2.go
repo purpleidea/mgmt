@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -120,7 +121,7 @@ func (obj *MyGAPI) Close() error {
 }
 
 // Run runs an embedded mgmt server.
-func Run() error {
+func Run(count uint) error {
 
 	obj := &mgmt.Main{}
 	obj.Program = "libmgmt" // TODO: set on compilation
@@ -132,7 +133,7 @@ func Run() error {
 
 	obj.GAPI = &MyGAPI{ // graph API
 		Name:     "libmgmt", // TODO: set on compilation
-		Count:    60,        // number of vertices to add
+		Count:    count,     // number of vertices to add
 		Interval: 15,        // arbitrarily change graph every 15 seconds
 	}
 
@@ -172,7 +173,13 @@ func Run() error {
 
 func main() {
 	log.Printf("Hello!")
-	if err := Run(); err != nil {
+	var count uint = 1 // default
+	if len(os.Args) == 2 {
+		if i, err := strconv.Atoi(os.Args[1]); err == nil && i > 0 {
+			count = uint(i)
+		}
+	}
+	if err := Run(count); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return

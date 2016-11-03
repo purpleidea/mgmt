@@ -40,6 +40,13 @@ var (
 	libvirtInitialized = false
 )
 
+type virtURISchemeType int
+
+const (
+	defaultURI virtURISchemeType = iota
+	lxcURI
+)
+
 // VirtRes is a libvirt resource. A transient virt resource, which has its state
 // set to `shutoff` is one which does not exist. The parallel equivalent is a
 // file resource which removes a particular path.
@@ -50,15 +57,16 @@ type VirtRes struct {
 	Transient  bool               `yaml:"transient"` // defined (false) or undefined (true)
 	CPUs       uint16             `yaml:"cpus"`
 	Memory     uint64             `yaml:"memory"` // in KBytes
-	OSInit     string             `yaml:"osinit"`    // init used by lxc
+	OSInit     string             `yaml:"osinit"` // init used by lxc
 	Boot       []string           `yaml:"boot"`   // boot order. values: fd, hd, cdrom, network
 	Disk       []diskDevice       `yaml:"disk"`
 	CDRom      []cdRomDevice      `yaml:"cdrom"`
 	Network    []networkDevice    `yaml:"network"`
 	Filesystem []filesystemDevice `yaml:"filesystem"`
 
-	conn   libvirt.VirConnection
-	absent bool // cached state
+	conn      libvirt.VirConnection
+	absent    bool // cached state
+	uriScheme virtURISchemeType
 }
 
 // NewVirtRes is a constructor for this resource. It also calls Init() for you.
@@ -84,6 +92,14 @@ func (obj *VirtRes) Init() error {
 			return errwrap.Wrapf(err, "EventRegisterDefaultImpl failed")
 		}
 		libvirtInitialized = true
+	}
+	if u, err := url.Parse(obj.URI); err != nil {
+		return fmt.Errorf("%s[%s]: Parsing URI failed: %s Error: %s", obj.Kind(), obj.GetName(), obj.URI, err.Error())
+	} else {
+		switch u.Scheme {
+		case "lxc":
+			obj.uriScheme = lxcURI
+		}
 	}
 
 	obj.absent = (obj.Transient && obj.State == "shutoff") // machine shouldn't exist
@@ -511,14 +527,9 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 }
 
 // Return the correct domain type based on the uri
-func (obj *VirtRes) getDomainType() string {
-	u, err := url.Parse(obj.URI)
-	if err != nil {
-		log.Printf("%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(),
-		obj.URI)
-	}
-	switch u.Scheme {
-	case "lxc":
+func (obj VirtRes) getDomainType() string {
+	switch obj.uriScheme {
+	case lxcURI:
 		return "<domain type='lxc'>"
 	default:
 		return "<domain type='kvm'>"
@@ -526,28 +537,18 @@ func (obj *VirtRes) getDomainType() string {
 }
 
 // Return the correct os type based on the uri
-func (obj *VirtRes) getOSType() string {
-	u, err := url.Parse(obj.URI)
-	if err != nil {
-		log.Printf("%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(),
-		obj.URI)
-	}
-	switch u.Scheme {
-	case "lxc":
+func (obj VirtRes) getOSType() string {
+	switch obj.uriScheme {
+	case lxcURI:
 		return "<type>exe</type>"
 	default:
 		return "<type>hvm</type>"
 	}
 }
 
-func (obj *VirtRes) getOSInit() string {
-	u, err := url.Parse(obj.URI)
-	if err != nil {
-		log.Printf("%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(),
-		obj.URI)
-	}
-	switch u.Scheme {
-	case "lxc":
+func (obj VirtRes) getOSInit() string {
+	switch obj.uriScheme {
+	case lxcURI:
 		return fmt.Sprintf("<init>%s</init>", obj.OSInit)
 	default:
 		return ""

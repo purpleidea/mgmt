@@ -279,7 +279,7 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 		if v, err := vertexMergeFn(v1, v2); err != nil {
 			return err
 		} else if v != nil { // replace v1 with the "merged" version...
-			v1 = v // XXX: will this replace v1 the way we want?
+			*v1 = *v // TODO: is this safe? (replacing mutexes is undefined!)
 		}
 	}
 	g.DeleteVertex(v2) // remove grouped vertex

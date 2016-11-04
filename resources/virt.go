@@ -47,6 +47,12 @@ const (
 	lxcURI
 )
 
+// VirtAuth is used to pass credentials to libvirt.
+type VirtAuth struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
 // VirtRes is a libvirt resource. A transient virt resource, which has its state
 // set to `shutoff` is one which does not exist. The parallel equivalent is a
 // file resource which removes a particular path.
@@ -63,6 +69,7 @@ type VirtRes struct {
 	CDRom      []cdRomDevice      `yaml:"cdrom"`
 	Network    []networkDevice    `yaml:"network"`
 	Filesystem []filesystemDevice `yaml:"filesystem"`
+	Auth       *VirtAuth          `yaml:"auth"`
 
 	conn      libvirt.VirConnection
 	absent    bool // cached state
@@ -93,13 +100,14 @@ func (obj *VirtRes) Init() error {
 		}
 		libvirtInitialized = true
 	}
-	if u, err := url.Parse(obj.URI); err != nil {
-		return fmt.Errorf("%s[%s]: Parsing URI failed: %s Error: %s", obj.Kind(), obj.GetName(), obj.URI, err.Error())
-	} else {
-		switch u.Scheme {
-		case "lxc":
-			obj.uriScheme = lxcURI
-		}
+	var u *url.URL
+	var err error
+	if u, err = url.Parse(obj.URI); err != nil {
+		return errwrap.Wrapf(err, "%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(), obj.URI)
+	}
+	switch u.Scheme {
+	case "lxc":
+		obj.uriScheme = lxcURI
 	}
 
 	obj.absent = (obj.Transient && obj.State == "shutoff") // machine shouldn't exist
@@ -111,6 +119,16 @@ func (obj *VirtRes) Init() error {
 // Validate if the params passed in are valid data.
 func (obj *VirtRes) Validate() error {
 	return nil
+}
+
+func (obj *VirtRes) connect() (conn libvirt.VirConnection, err error) {
+	if obj.Auth != nil {
+		conn, err = libvirt.NewVirConnectionWithAuth(obj.URI, obj.Auth.Username, obj.Auth.Password)
+	}
+	if obj.Auth == nil || err != nil {
+		conn, err = libvirt.NewVirConnection(obj.URI)
+	}
+	return
 }
 
 // Watch is the primary listener for this resource and it outputs events.
@@ -132,7 +150,7 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
 	}
 
-	conn, err := libvirt.NewVirConnection(obj.URI)
+	conn, err := obj.connect()
 	if err != nil {
 		return fmt.Errorf("Connection to libvirt failed with: %s", err)
 	}
@@ -368,7 +386,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	var err error
-	obj.conn, err = libvirt.NewVirConnection(obj.URI)
+	obj.conn, err = obj.connect()
 	if err != nil {
 		return false, fmt.Errorf("Connection to libvirt failed with: %s", err)
 	}

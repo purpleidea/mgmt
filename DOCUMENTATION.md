@@ -218,6 +218,7 @@ parameter with the [Noop](#Noop) resource.
 
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
+* [Hostname](#Hostname): Manages the hostname on the system.
 * [Msg](#Msg): Send log messages.
 * [Noop](#Noop): A simple resource that does nothing.
 * [Pkg](#Pkg):  Manage system packages with PackageKit.
@@ -262,6 +263,30 @@ and monitor directory contents with a depth greater than one.
 The force property is required if we want the file resource to be able to change
 a file into a directory or vice-versa. If such a change is needed, but the force
 property is not set to `true`, then this file resource will error.
+
+###Hostname
+
+The hostname resource manages static, transient/dynamic and pretty hostnames
+on the system and watches them for changes.
+
+#### static_hostname
+The static hostname is the one configured in /etc/hostname or a similar
+file.
+It is chosen by the local user. It is not always in sync with the current
+host name as returned by the gethostname() system call.
+
+#### transient_hostname
+The transient / dynamic hostname is the one configured via the kernel's
+sethostbyname().
+It can be different from the static hostname in case DHCP or mDNS have been
+configured to change the name based on network information.
+
+#### pretty_hostname
+The pretty hostname is a free-form UTF8 host name for presentation to the user.
+
+#### hostname
+Hostname is the fallback value for all 3 fields above, if only `hostname` is
+specified, it will set all 3 fields to this value.
 
 ###Msg
 

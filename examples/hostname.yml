@@ -1,0 +1,7 @@
+---
+graph: mygraph
+resources:
+  hostname:
+    - name: Hostname Watcher @ TestHost
+      hostname: test.hostname.example.com
+edges: []

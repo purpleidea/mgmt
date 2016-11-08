@@ -56,14 +56,15 @@ type Edge struct {
 // Resources is the data structure of the set of resources.
 type Resources struct {
 	// in alphabetical order
-	Exec  []*resources.ExecRes  `yaml:"exec"`
-	File  []*resources.FileRes  `yaml:"file"`
-	Msg   []*resources.MsgRes   `yaml:"msg"`
-	Noop  []*resources.NoopRes  `yaml:"noop"`
-	Pkg   []*resources.PkgRes   `yaml:"pkg"`
-	Svc   []*resources.SvcRes   `yaml:"svc"`
-	Timer []*resources.TimerRes `yaml:"timer"`
-	Virt  []*resources.VirtRes  `yaml:"virt"`
+	Exec     []*resources.ExecRes     `yaml:"exec"`
+	File     []*resources.FileRes     `yaml:"file"`
+	Hostname []*resources.HostnameRes `yaml:"hostname"`
+	Msg      []*resources.MsgRes      `yaml:"msg"`
+	Noop     []*resources.NoopRes     `yaml:"noop"`
+	Pkg      []*resources.PkgRes      `yaml:"pkg"`
+	Svc      []*resources.SvcRes      `yaml:"svc"`
+	Timer    []*resources.TimerRes    `yaml:"timer"`
+	Virt     []*resources.VirtRes     `yaml:"virt"`
 }
 
 // GraphConfig is the data structure that describes a single graph to run.

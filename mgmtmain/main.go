@@ -282,19 +282,19 @@ func (obj *Main) Run() error {
 
 	exitchan := make(chan struct{}) // exit on close
 	go func() {
-		startchan := make(chan struct{}) // start signal
-		go func() { startchan <- struct{}{} }()
+		startChan := make(chan struct{}) // start signal
+		go func() { startChan <- struct{}{} }()
 
 		log.Println("Etcd: Starting...")
-		etcdchan := etcd.EtcdWatch(EmbdEtcd)
+		etcdChan := etcd.EtcdWatch(EmbdEtcd)
 		first := true // first loop or not
 		for {
 			log.Println("Main: Waiting...")
 			select {
-			case <-startchan: // kick the loop once at start
+			case <-startChan: // kick the loop once at start
 				// pass
 
-			case b := <-etcdchan:
+			case b := <-etcdChan:
 				if !b { // ignore the message
 					continue
 				}
@@ -302,6 +302,10 @@ func (obj *Main) Run() error {
 
 			case err, ok := <-gapiChan:
 				if !ok { // channel closed
+					if obj.DEBUG {
+						log.Printf("Main: GAPI exited")
+					}
+					gapiChan = nil // disable it
 					continue
 				}
 				if err != nil {
@@ -469,7 +473,7 @@ func (obj *Main) Run() error {
 	}
 
 	if obj.DEBUG {
-		log.Printf("Graph: %v", G)
+		log.Printf("Main: Graph: %v", G)
 	}
 
 	wg.Wait() // wait for primary go routines to exit

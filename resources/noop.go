@@ -113,7 +113,7 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 
 // CheckApply method for Noop resource. Does nothing, returns happy!
 func (obj *NoopRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	return true, nil // state is always okay
 }
 

@@ -19,7 +19,6 @@ package resources
 
 import (
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"log"
 	"path"
@@ -30,6 +29,8 @@ import (
 	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
 	"github.com/purpleidea/mgmt/resources/packagekit"
 	"github.com/purpleidea/mgmt/util"
+
+	errwrap "github.com/pkg/errors"
 )
 
 func init() {
@@ -76,7 +77,7 @@ func (obj *PkgRes) Init() error {
 
 	result, err := obj.pkgMappingHelper(bus)
 	if err != nil {
-		return fmt.Errorf("The pkgMappingHelper failed with: %v.", err)
+		return errwrap.Wrapf(err, "The pkgMappingHelper failed")
 	}
 
 	data, ok := result[obj.Name] // lookup single package (init does just one)
@@ -88,7 +89,7 @@ func (obj *PkgRes) Init() error {
 	packageIDs := []string{data.PackageID} // just one for now
 	filesMap, err := bus.GetFilesByPackageID(packageIDs)
 	if err != nil {
-		return fmt.Errorf("Can't run GetFilesByPackageID: %v", err)
+		return errwrap.Wrapf(err, "Can't run GetFilesByPackageID")
 	}
 	if files, ok := filesMap[data.PackageID]; ok {
 		obj.fileList = util.DirifyFileList(files, false)
@@ -129,13 +130,13 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 
 	bus := packagekit.NewBus()
 	if bus == nil {
-		log.Fatal("Can't connect to PackageKit bus.")
+		return fmt.Errorf("Can't connect to PackageKit bus.")
 	}
 	defer bus.Close()
 
 	ch, err := bus.WatchChanges()
 	if err != nil {
-		log.Fatalf("Error adding signal match: %v", err)
+		return errwrap.Wrapf(err, "Error adding signal match")
 	}
 
 	var send = false // send event?
@@ -144,7 +145,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 
 	for {
 		if global.DEBUG {
-			log.Printf("%v: Watching...", obj.fmtNames(obj.getNames()))
+			log.Printf("%s: Watching...", obj.fmtNames(obj.getNames()))
 		}
 
 		obj.SetState(ResStateWatching) // reset
@@ -154,7 +155,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 
 			// FIXME: ask packagekit for info on what packages changed
 			if global.DEBUG {
-				log.Printf("%v: Event: %v", obj.fmtNames(obj.getNames()), event.Name)
+				log.Printf("%s: Event: %v", obj.fmtNames(obj.getNames()), event.Name)
 			}
 
 			// since the chan is buffered, remove any supplemental
@@ -217,9 +218,9 @@ func (obj *PkgRes) getNames() []string {
 // pretty print for header values
 func (obj *PkgRes) fmtNames(names []string) string {
 	if len(obj.GetGroup()) > 0 { // grouped elements
-		return fmt.Sprintf("%v[autogroup:(%v)]", obj.Kind(), strings.Join(names, ","))
+		return fmt.Sprintf("%s[autogroup:(%v)]", obj.Kind(), strings.Join(names, ","))
 	}
-	return fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName())
+	return fmt.Sprintf("%s[%s]", obj.Kind(), obj.GetName())
 }
 
 func (obj *PkgRes) groupMappingHelper() map[string]string {
@@ -228,7 +229,7 @@ func (obj *PkgRes) groupMappingHelper() map[string]string {
 		for _, x := range g {
 			pkg, ok := x.(*PkgRes) // convert from Res
 			if !ok {
-				log.Fatalf("Grouped member %v is not a %v", x, obj.Kind())
+				log.Fatalf("Grouped member %v is not a %s", x, obj.Kind())
 			}
 			result[pkg.Name] = pkg.State
 		}
@@ -254,9 +255,9 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 	if !obj.AllowUnsupported {
 		filter += packagekit.PK_FILTER_ENUM_SUPPORTED
 	}
-	result, e := bus.PackagesToPackageIDs(packageMap, filter)
-	if e != nil {
-		return nil, fmt.Errorf("Can't run PackagesToPackageIDs: %v", e)
+	result, err := bus.PackagesToPackageIDs(packageMap, filter)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "Can't run PackagesToPackageIDs")
 	}
 	return result, nil
 }
@@ -264,10 +265,10 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%v: CheckApply(%t)", obj.fmtNames(obj.getNames()), apply)
+	log.Printf("%s: CheckApply(%t)", obj.fmtNames(obj.getNames()), apply)
 
 	if obj.State == "" { // TODO: Validate() should replace this check!
-		log.Fatalf("%v: Package state is undefined!", obj.fmtNames(obj.getNames()))
+		log.Fatalf("%s: Package state is undefined!", obj.fmtNames(obj.getNames()))
 	}
 
 	if obj.isStateOK { // cache the state
@@ -276,13 +277,13 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 
 	bus := packagekit.NewBus()
 	if bus == nil {
-		return false, errors.New("Can't connect to PackageKit bus.")
+		return false, fmt.Errorf("Can't connect to PackageKit bus.")
 	}
 	defer bus.Close()
 
 	result, err := obj.pkgMappingHelper(bus)
 	if err != nil {
-		return false, fmt.Errorf("The pkgMappingHelper failed with: %v.", err)
+		return false, errwrap.Wrapf(err, "The pkgMappingHelper failed")
 	}
 
 	packageMap := obj.groupMappingHelper() // map[string]string
@@ -295,7 +296,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	// eventually we might be able to drop this constraint!
 	states, err := packagekit.FilterState(result, packageList, obj.State)
 	if err != nil {
-		return false, fmt.Errorf("The FilterState method failed with: %v.", err)
+		return false, errwrap.Wrapf(err, "The FilterState method failed")
 	}
 	data, _ := result[obj.Name] // if above didn't error, we won't either!
 	validState := util.BoolMapTrue(util.BoolMapValues(states))
@@ -324,7 +325,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	}
 
 	// apply portion
-	log.Printf("%v: Apply", obj.fmtNames(obj.getNames()))
+	log.Printf("%s: Apply", obj.fmtNames(obj.getNames()))
 	readyPackages, err := packagekit.FilterPackageState(result, packageList, obj.State)
 	if err != nil {
 		return false, err // fail
@@ -338,7 +339,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 		transactionFlags += packagekit.PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED
 	}
 	// apply correct state!
-	log.Printf("%v: Set: %v...", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)
+	log.Printf("%s: Set: %v...", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)
 	switch obj.State {
 	case "uninstalled": // run remove
 		// NOTE: packageID is different than when installed, because now
@@ -356,7 +357,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 	if err != nil {
 		return false, err // fail
 	}
-	log.Printf("%v: Set: %v success!", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)
+	log.Printf("%s: Set: %v success!", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)
 	obj.isStateOK = true // reset
 	return false, nil    // success
 }

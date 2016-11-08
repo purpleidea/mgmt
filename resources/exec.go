@@ -21,7 +21,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -30,6 +29,8 @@ import (
 
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/util"
+
+	errwrap "github.com/pkg/errors"
 )
 
 func init() {
@@ -151,7 +152,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
-			return fmt.Errorf("%s[%s]: Error creating StdoutPipe for Cmd: %v", obj.Kind(), obj.GetName(), err)
+			return errwrap.Wrapf(err, "Error creating StdoutPipe for Cmd")
 		}
 		scanner := bufio.NewScanner(cmdReader)
 
@@ -162,7 +163,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 			cmd.Process.Kill() // TODO: is this necessary?
 		}()
 		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("%s[%s]: Error starting Cmd: %v", obj.Kind(), obj.GetName(), err)
+			return errwrap.Wrapf(err, "Error starting Cmd")
 		}
 
 		bufioch, errch = obj.BufioChanScanner(scanner)
@@ -174,7 +175,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 		case text := <-bufioch:
 			cuid.SetConverged(false)
 			// each time we get a line of output, we loop!
-			log.Printf("%v[%v]: Watch output: %s", obj.Kind(), obj.GetName(), text)
+			log.Printf("%s[%s]: Watch output: %s", obj.Kind(), obj.GetName(), text)
 			if text != "" {
 				send = true
 			}
@@ -184,10 +185,10 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 			if err == nil { // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
-				return fmt.Errorf("%s[%s]: Reached EOF", obj.Kind(), obj.GetName())
+				return fmt.Errorf("Reached EOF")
 			}
 			// error reading input?
-			return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
+			return errwrap.Wrapf(err, "Unknown error")
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
@@ -221,7 +222,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 // input is true. It returns error info and if the state check passed or not.
 // TODO: expand the IfCmd to be a list of commands
 func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	// if there is a watch command, but no if command, run based on state
 	if obj.WatchCmd != "" && obj.IfCmd == "" {
@@ -274,7 +275,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	}
 
 	// apply portion
-	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
+	log.Printf("%s[%s]: Apply", obj.Kind(), obj.GetName())
 	var cmdName string
 	var cmdArgs []string
 	if obj.Shell == "" {
@@ -295,9 +296,8 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
-	if err = cmd.Start(); err != nil {
-		log.Printf("%v[%v]: Error starting Cmd: %v", obj.Kind(), obj.GetName(), err)
-		return false, err
+	if err := cmd.Start(); err != nil {
+		return false, errwrap.Wrapf(err, "Error starting Cmd")
 	}
 
 	timeout := obj.Timeout
@@ -308,25 +308,25 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	go func() { done <- cmd.Wait() }()
 
 	select {
-	case err = <-done:
+	case err := <-done:
 		if err != nil {
-			log.Printf("%v[%v]: Error waiting for Cmd: %v", obj.Kind(), obj.GetName(), err)
-			return false, err
+			e := errwrap.Wrapf(err, "Error waiting for Cmd")
+			return false, e
 		}
 
 	case <-util.TimeAfterOrBlock(timeout):
-		log.Printf("%v[%v]: Timeout waiting for Cmd", obj.Kind(), obj.GetName())
 		//cmd.Process.Kill() // TODO: is this necessary?
-		return false, errors.New("Timeout waiting for Cmd!")
+		return false, fmt.Errorf("Timeout waiting for Cmd!")
 	}
 
 	// TODO: if we printed the stdout while the command is running, this
 	// would be nice, but it would require terminal log output that doesn't
 	// interleave all the parallel parts which would mix it all up...
 	if s := out.String(); s == "" {
-		log.Printf("Exec[%v]: Command output is empty!", obj.Name)
+		log.Printf("%s[%s]: Command output is empty!", obj.Kind(), obj.GetName())
+
 	} else {
-		log.Printf("Exec[%v]: Command output is:", obj.Name)
+		log.Printf("%s[%s]: Command output is:", obj.Kind(), obj.GetName())
 		log.Printf(out.String())
 	}
 	// XXX: return based on exit value!!

@@ -95,7 +95,7 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 		select {
 		case <-ticker.C: // received the timer event
 			send = true
-			log.Printf("%v[%v]: received tick", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: received tick", obj.Kind(), obj.GetName())
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
@@ -161,6 +161,6 @@ func (obj *TimerRes) Compare(res Res) bool {
 
 // CheckApply method for Timer resource. Does nothing, returns happy!
 func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	return true, nil // state is always okay
 }

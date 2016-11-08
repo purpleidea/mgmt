@@ -21,7 +21,6 @@ package resources
 
 import (
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -32,6 +31,7 @@ import (
 	systemd "github.com/coreos/go-systemd/dbus" // change namespace
 	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus" // namespace collides with systemd wrapper
+	errwrap "github.com/pkg/errors"
 )
 
 func init() {
@@ -100,14 +100,14 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 	conn, err := systemd.NewSystemdConnection() // needs root access
 	if err != nil {
-		return fmt.Errorf("Failed to connect to systemd: %s", err)
+		return errwrap.Wrapf(err, "Failed to connect to systemd")
 	}
 	defer conn.Close()
 
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
-		return fmt.Errorf("Failed to connect to bus: %s", err)
+		return errwrap.Wrapf(err, "Failed to connect to bus")
 	}
 
 	// XXX: will this detect new units?
@@ -116,7 +116,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 	buschan := make(chan *dbus.Signal, 10)
 	bus.Signal(buschan)
 
-	var svc = fmt.Sprintf("%v.service", obj.Name) // systemd name
+	var svc = fmt.Sprintf("%s.service", obj.Name) // systemd name
 	var send = false                              // send event?
 	var exit = false
 	var dirty = false
@@ -143,7 +143,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 		if !invalid {
 			var notFound = (loadstate.Value == dbus.MakeVariant("not-found"))
 			if notFound { // XXX: in the loop we'll handle changes better...
-				log.Printf("Failed to find svc: %v", svc)
+				log.Printf("Failed to find svc: %s", svc)
 				invalid = true // XXX: ?
 			}
 		}
@@ -154,7 +154,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 		}
 
 		if invalid {
-			log.Printf("Waiting for: %v", svc) // waiting for svc to appear...
+			log.Printf("Waiting for: %s", svc) // waiting for svc to appear...
 			if activeSet {
 				activeSet = false
 				set.Remove(svc) // no return value should ever occur
@@ -165,7 +165,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 			case <-buschan: // XXX: wait for new units event to unstick
 				cuid.SetConverged(false)
 				// loop so that we can see the changed invalid signal
-				log.Printf("Svc[%v]->DaemonReload()", svc)
+				log.Printf("Svc[%s]->DaemonReload()", svc)
 
 			case event := <-obj.Events():
 				cuid.SetConverged(false)
@@ -191,7 +191,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 				set.Add(svc) // no return value should ever occur
 			}
 
-			log.Printf("Watching: %v", svc) // attempting to watch...
+			log.Printf("Watching: %s", svc) // attempting to watch...
 			obj.SetState(ResStateWatching)  // reset
 			select {
 			case event := <-subChannel:
@@ -203,24 +203,24 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 					switch event[svc].ActiveState {
 					case "active":
-						log.Printf("Svc[%v]->Started", svc)
+						log.Printf("Svc[%s]->Started", svc)
 					case "inactive":
-						log.Printf("Svc[%v]->Stopped", svc)
+						log.Printf("Svc[%s]->Stopped", svc)
 					case "reloading":
-						log.Printf("Svc[%v]->Reloading", svc)
+						log.Printf("Svc[%s]->Reloading", svc)
 					default:
 						log.Fatalf("Unknown svc state: %s", event[svc].ActiveState)
 					}
 				} else {
 					// svc stopped (and ActiveState is nil...)
-					log.Printf("Svc[%v]->Stopped", svc)
+					log.Printf("Svc[%s]->Stopped", svc)
 				}
 				send = true
 				dirty = true
 
 			case err := <-subErrors:
 				cuid.SetConverged(false)
-				return fmt.Errorf("Unknown %s[%s] error: %v", obj.Kind(), obj.GetName(), err)
+				return errwrap.Wrapf(err, "Unknown %s[%s] error", obj.Kind(), obj.GetName())
 
 			case event := <-obj.Events():
 				cuid.SetConverged(false)
@@ -259,33 +259,33 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.isStateOK { // cache the state
 		return true, nil
 	}
 
 	if !systemdUtil.IsRunningSystemd() {
-		return false, errors.New("Systemd is not running.")
+		return false, fmt.Errorf("Systemd is not running.")
 	}
 
 	conn, err := systemd.NewSystemdConnection() // needs root access
 	if err != nil {
-		return false, fmt.Errorf("Failed to connect to systemd: %v", err)
+		return false, errwrap.Wrapf(err, "Failed to connect to systemd")
 	}
 	defer conn.Close()
 
-	var svc = fmt.Sprintf("%v.service", obj.Name) // systemd name
+	var svc = fmt.Sprintf("%s.service", obj.Name) // systemd name
 
 	loadstate, err := conn.GetUnitProperty(svc, "LoadState")
 	if err != nil {
-		return false, fmt.Errorf("Failed to get load state: %v", err)
+		return false, errwrap.Wrapf(err, "Failed to get load state")
 	}
 
 	// NOTE: we have to compare variants with other variants, they are really strings...
 	var notFound = (loadstate.Value == dbus.MakeVariant("not-found"))
 	if notFound {
-		return false, fmt.Errorf("Failed to find svc: %v", svc)
+		return false, errwrap.Wrapf(err, "Failed to find svc: %s", svc)
 	}
 
 	// XXX: check svc "enabled at boot" or not status...
@@ -293,7 +293,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	//conn.GetUnitProperties(svc)
 	activestate, err := conn.GetUnitProperty(svc, "ActiveState")
 	if err != nil {
-		return false, fmt.Errorf("Failed to get active state: %v", err)
+		return false, errwrap.Wrapf(err, "Failed to get active state")
 	}
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
@@ -310,7 +310,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	}
 
 	// apply portion
-	log.Printf("%v[%v]: Apply", obj.Kind(), obj.GetName())
+	log.Printf("%s[%s]: Apply", obj.Kind(), obj.GetName())
 	var files = []string{svc} // the svc represented in a list
 	if obj.Startup == "enabled" {
 		_, _, err = conn.EnableUnitFiles(files, false, true)
@@ -320,7 +320,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	}
 
 	if err != nil {
-		return false, fmt.Errorf("Unable to change startup status: %v", err)
+		return false, errwrap.Wrapf(err, "Unable to change startup status")
 	}
 
 	// XXX: do we need to use a buffered channel here?
@@ -329,18 +329,18 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	if obj.State == "running" {
 		_, err = conn.StartUnit(svc, "fail", result)
 		if err != nil {
-			return false, fmt.Errorf("Failed to start unit: %v", err)
+			return false, errwrap.Wrapf(err, "Failed to start unit")
 		}
 	} else if obj.State == "stopped" {
 		_, err = conn.StopUnit(svc, "fail", result)
 		if err != nil {
-			return false, fmt.Errorf("Failed to stop unit: %v", err)
+			return false, errwrap.Wrapf(err, "Failed to stop unit")
 		}
 	}
 
 	status := <-result
 	if &status == nil {
-		return false, errors.New("Systemd service action result is nil")
+		return false, fmt.Errorf("Systemd service action result is nil")
 	}
 	if status != "done" {
 		return false, fmt.Errorf("Unknown systemd return string: %v", status)

@@ -36,6 +36,8 @@ import (
 	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
+
+	errwrap "github.com/pkg/errors"
 )
 
 func init() {
@@ -182,7 +184,7 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 			}
 			cuid.SetConverged(false)
 			if err := event.Error; err != nil {
-				return fmt.Errorf("Unknown %s[%s] watcher error: %v", obj.Kind(), obj.GetName(), err)
+				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
 			}
 			if global.DEBUG { // don't access event.Body if event.Error isn't nil
 				log.Printf("%s[%s]: Event(%s): %v", obj.Kind(), obj.GetName(), event.Body.Name, event.Body.Op)
@@ -258,7 +260,7 @@ func ReadDir(path string) ([]FileInfo, error) {
 		abs := path + smartPath(fi)
 		rel, err := filepath.Rel(path, abs) // NOTE: calls Clean()
 		if err != nil {                     // shouldn't happen
-			return nil, fmt.Errorf("ReadDir: Unhandled error: %v", err)
+			return nil, errwrap.Wrapf(err, "ReadDir: Unhandled error")
 		}
 		if fi.IsDir() {
 			rel += "/" // add a trailing slash for dirs
@@ -521,7 +523,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		}
 		if obj.Recurse {
 			if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil { // recurse
-				return false, fmt.Errorf("syncCheckApply: Recurse failed: %v", err)
+				return false, errwrap.Wrapf(err, "syncCheckApply: Recurse failed")
 			} else if !c { // don't let subsequent passes make this true
 				checkOK = false
 			}
@@ -562,7 +564,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		_ = absSrc
 		//log.Printf("syncCheckApply: Recurse rm: %s -> %s", absSrc, absDst)
 		//if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil {
-		//	return false, fmt.Errorf("syncCheckApply: Recurse rm failed: %v", err)
+		//	return false, errwrap.Wrapf(err, "syncCheckApply: Recurse rm failed")
 		//} else if !c { // don't let subsequent passes make this true
 		//	checkOK = false
 		//}
@@ -580,7 +582,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 
 // contentCheckApply performs a CheckApply for the file existence and content.
 func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
-	log.Printf("%v[%v]: contentCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: contentCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.State == "absent" {
 		if _, err := os.Stat(obj.path); os.IsNotExist(err) {
@@ -638,7 +640,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
 	if obj.isStateOK { // cache the state
 		return true, nil

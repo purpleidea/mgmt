@@ -47,22 +47,22 @@ func init() {
 // FileRes is a file and directory resource.
 type FileRes struct {
 	BaseRes    `yaml:",inline"`
-	Path       string `yaml:"path"` // path variable (should default to name)
-	Dirname    string `yaml:"dirname"`
-	Basename   string `yaml:"basename"`
-	Content    string `yaml:"content"` // FIXME: how do you describe: "leave content alone" - state = "create" ?
-	Source     string `yaml:"source"`  // file path for source content
-	State      string `yaml:"state"`   // state: exists/present?, absent, (undefined?)
-	Recurse    bool   `yaml:"recurse"`
-	Force      bool   `yaml:"force"`
-	path       string // computed path
-	isDir      bool   // computed isDir
+	Path       string  `yaml:"path"` // path variable (should default to name)
+	Dirname    string  `yaml:"dirname"`
+	Basename   string  `yaml:"basename"`
+	Content    *string `yaml:"content"` // nil to mark as undefined
+	Source     string  `yaml:"source"`  // file path for source content
+	State      string  `yaml:"state"`   // state: exists/present?, absent, (undefined?)
+	Recurse    bool    `yaml:"recurse"`
+	Force      bool    `yaml:"force"`
+	path       string  // computed path
+	isDir      bool    // computed isDir
 	sha256sum  string
 	recWatcher *recwatch.RecWatcher
 }
 
 // NewFileRes is a constructor for this resource. It also calls Init() for you.
-func NewFileRes(name, path, dirname, basename, content, source, state string, recurse, force bool) (*FileRes, error) {
+func NewFileRes(name, path, dirname, basename string, content *string, source, state string, recurse, force bool) (*FileRes, error) {
 	obj := &FileRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -120,11 +120,11 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("Basename must not start with a slash.")
 	}
 
-	if obj.Content != "" && obj.Source != "" {
+	if obj.Content != nil && obj.Source != "" {
 		return fmt.Errorf("Can't specify both Content and Source.")
 	}
 
-	if obj.isDir && obj.Content != "" { // makes no sense
+	if obj.isDir && obj.Content != nil { // makes no sense
 		return fmt.Errorf("Can't specify Content when creating a Dir.")
 	}
 
@@ -610,12 +610,17 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 		return false, err             // either nil or not
 	}
 
+	// content is not defined, leave it alone...
+	if obj.Content == nil {
+		return true, nil
+	}
+
 	if obj.Source == "" { // do the obj.Content checks first...
 		if obj.isDir { // TODO: should we create an empty dir this way?
 			log.Fatal("XXX: Not implemented!") // XXX
 		}
 
-		bufferSrc := bytes.NewReader([]byte(obj.Content))
+		bufferSrc := bytes.NewReader([]byte(*obj.Content))
 		sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.path, obj.sha256sum)
 		if sha256sum != "" { // empty values mean errored or didn't hash
 			// this can be valid even when the whole function errors
@@ -789,8 +794,13 @@ func (obj *FileRes) Compare(res Res) bool {
 		if obj.path != res.Path {
 			return false
 		}
-		if obj.Content != res.Content {
+		if (obj.Content == nil) != (res.Content == nil) { // xor
 			return false
+		}
+		if obj.Content != nil && res.Content != nil {
+			if *obj.Content != *res.Content { // compare the strings
+				return false
+			}
 		}
 		if obj.Source != res.Source {
 			return false

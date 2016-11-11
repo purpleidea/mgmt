@@ -1672,6 +1672,14 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 		obj.serverwg.Add(1)      // add for the DestroyServer()
 		obj.DestroyServer()
 		return e
+	// TODO: should we wait for this notification elsewhere?
+	case <-obj.server.Server.StopNotify(): // it's going down now...
+		e := fmt.Errorf("Etcd: StartServer: Received stop notification.")
+		log.Printf(e.Error())
+		obj.server.Server.Stop() // trigger a shutdown
+		obj.serverwg.Add(1)      // add for the DestroyServer()
+		obj.DestroyServer()
+		return e
 	}
 	//log.Fatal(<-obj.server.Err())	XXX
 	log.Printf("Etcd: StartServer: Server running...")

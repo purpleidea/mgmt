@@ -1,0 +1,7 @@
+---
+graph: mygraph
+resources:
+  nspawn:
+  - name: mgmt-nspawn1
+    state: running
+edges: []

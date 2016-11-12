@@ -56,14 +56,15 @@ type NspawnRes struct {
 	// would have two watches potentially racing each other and producing
 	// potentially unexpected results. We get everything we need to
 	// monitor the machine state changes from the org.freedesktop.machine1 object.
-	svc     SvcRes
+	svc *SvcRes
 }
 
 // Init runs some startup code for this resource
 func (obj *NspawnRes) Init() error {
 	var serviceName = fmt.Sprintf(nspawnServiceTmpl, obj.GetName())
+	obj.svc = &SvcRes{}
 	obj.svc.Name = serviceName
-	obj.svc.State = running
+	obj.svc.State = obj.State
 	if err := obj.svc.Init(); err != nil {
 		return err
 	}
@@ -88,7 +89,7 @@ func (obj *NspawnRes) Validate() error {
 		stopped: {},
 		running: {},
 	}
-	if _, exists := validStates[obj.State]; exists {
+	if _, exists := validStates[obj.State]; !exists {
 		return fmt.Errorf("Invalid State: %s", obj.State)
 	}
 	return obj.svc.Validate()
@@ -137,51 +138,53 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 
 	var send = false
 	var exit = false
+	var dirty = false
 
 	for {
 		obj.SetState(ResStateWatching)
 		select {
-		// if this resource has been idle for long enough, set converged
-		// to allow the main loop to act on a converged status
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
+		case event := <-buschan:
+			// process org.freedesktop.machine1 events for this resource's name
+			if event.Body[0] == obj.GetName() {
+				log.Printf("%s[%s]: Event received: %v", obj.Kind(), obj.GetName(), event.Name)
+				if event.Name == machineNew {
+					log.Printf("%s[%s]: Machine started", obj.Kind(), obj.GetName())
+				} else if event.Name == machineRemoved {
+					log.Printf("%s[%s]: Machine stopped", obj.Kind(), obj.GetName())
+				} else {
+					return fmt.Errorf("Unknown event: %s", event.Name)
+				}
+				send = true
+				dirty = true
+			}
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
-			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit
 			}
 
+		case <-cuid.ConvergedTimer():
+			cuid.SetConverged(true) // converged!
+			continue
+
 		case <-Startup(startup):
 			cuid.SetConverged(false)
 			send = true
-			obj.isStateOK = false
-
-		// process org.freedesktop.machine1 events for this resource's name
-		case event := <-buschan:
-			if event.Body[0] == obj.GetName() {
-				log.Printf("%v[%v]: event received: %#v", obj.Kind(), obj.GetName(), event.Name)
-				if event.Name == machineNew {
-					log.Printf("%v[%v]: Machine started", obj.Kind(), obj.GetName())
-					send = true
-				}
-				if event.Name == machineRemoved {
-					log.Printf("%v[%v]: Machine stopped", obj.Kind(), obj.GetName())
-					send = true
-				}
-			}
+			dirty = true
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send || !obj.isStateOK {
-			// TODO: remove this printf
-			log.Printf("%v[%v]: object: %#v", obj.Kind(), obj.GetName(), obj)
 			startup = true // startup finished
 			send = false
+			// only invalid state on certain types of events
+			if dirty {
+				dirty = false
+				obj.isStateOK = false // something made state dirty
+			}
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK
+				return err // we exit or bubble up a NACK...
 			}
 		}
 	}
@@ -192,9 +195,8 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 // again if watch finds a change occurring to the state
 func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 	if global.DEBUG {
-		log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+		log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	}
-
 
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
@@ -204,7 +206,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 	// connect to org.freedesktop.machine1.Manager
 	conn, err := machined.New()
 	if err != nil {
-		return false, fmt.Errorf("Failed to connect to dbus: %s", err)
+		return false, errwrap.Wrapf(err, "Failed to connect to dbus")
 	}
 
 	// compare the current state with the desired state and perform the
@@ -222,49 +224,51 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 		// error if we need the image ignore if we don't
 		if _, err = conn.GetImage(obj.GetName()); err != nil && obj.State != stopped {
 			return false, fmt.Errorf(
-				"No machine nor image named '%s'",
+				"No machine or image named '%s'",
 				obj.GetName())
 		}
 	}
-	log.Printf("%v[%v]: properties: %#v", obj.Kind(), obj.GetName(), properties)
-
+	if global.DEBUG {
+		log.Printf("%s[%s]: properties: %v", obj.Kind(), obj.GetName(), properties)
+	}
 	// if the machine doesn't exist and is supposed to
 	// be stopped or the state matches we're done
 	if !exists && obj.State == stopped || properties["State"] == obj.State {
 		if global.DEBUG {
-			log.Printf("%v[%v]: CheckApply() in valid state", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: CheckApply() in valid state", obj.Kind(), obj.GetName())
 		}
-		obj.isStateOK = true // state is validated
+		obj.isStateOK = true // state is ok
 		return true, nil
 	}
 
 	// end of state checking. if we're here, checkok is false
 	if !apply {
-		obj.isStateOK = true
 		return false, nil
 	}
 
-	obj.isStateOK = false // state is dirty
-
 	if global.DEBUG {
-		log.Printf("%v[%v]: CheckApply() applying '%s' state", obj.Kind(), obj.GetName(), obj.State)
+		log.Printf("%s[%s]: CheckApply() applying '%s' state", obj.Kind(), obj.GetName(), obj.State)
 	}
 
 	if obj.State == running {
 		// start the machine using svc resource
-		log.Printf("%v[%v]: Starting machine", obj.Kind(), obj.GetName())
-		return obj.svc.CheckApply(apply)
+		log.Printf("%s[%s]: Starting machine", obj.Kind(), obj.GetName())
+		// assume state had to be changed at this point, ignore checkOK
+		if _, err := obj.svc.CheckApply(apply); err != nil {
+			return false, errwrap.Wrapf(err, "Nested svc failed")
+		}
 	}
 	if obj.State == stopped {
 		// terminate the machine with
 		// org.freedesktop.machine1.Manager.KillMachine
-		log.Printf("%v[%v]: Stopping machine", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Stopping machine", obj.Kind(), obj.GetName())
 		if err := conn.KillMachine(obj.GetName()); err != nil {
-			errwrap.Wrap(err, "Failed to stop machine")
-			return false, err
+			return false, errwrap.Wrapf(err, "Failed to stop machine")
 		}
 	}
-	return false,nil
+
+	obj.isStateOK = true // state is now good
+	return false, nil
 }
 
 // NspawnUID is a unique resource identifier
@@ -302,10 +306,8 @@ func (obj *NspawnRes) GroupCmp(r Res) bool {
 	if !ok {
 		return false
 	}
-	// TODO: depending on if the systemd service api allows batching we
-	// might be able to build this, although not sure how useful it is
-	// it might just eliminate parallelism be bunching up the graph
-	return false // not possible atm
+	// TODO: this would be quite useful for this resource!
+	return false
 }
 
 // Compare two resources and return if they are equivalent
@@ -319,7 +321,7 @@ func (obj *NspawnRes) Compare(res Res) bool {
 		if obj.Name != res.Name {
 			return false
 		}
-		if !obj.svc.Compare(&res.svc) {
+		if !obj.svc.Compare(res.svc) {
 			return false
 		}
 	default:

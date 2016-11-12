@@ -221,7 +221,7 @@ parameter with the [Noop](#Noop) resource.
 * [Hostname](#Hostname): Manages the hostname on the system.
 * [Msg](#Msg): Send log messages.
 * [Noop](#Noop): A simple resource that does nothing.
-* [Nspawn](#Nspwan): Manage systemd-machined nspawn containers.
+* [Nspawn](#Nspawn): Manage systemd-machined nspawn containers.
 * [Pkg](#Pkg):  Manage system packages with PackageKit.
 * [Svc](#Svc): Manage system systemd services.
 * [Timer](#Timer): Manage system systemd services.
@@ -298,6 +298,10 @@ as systemd's journal.
 
 The noop resource does absolutely nothing. It does have some utility in testing
 `mgmt` and also as a placeholder in the resource graph.
+
+###Nspawn
+
+The nspawn resource is used to manage systemd-machined style containers.
 
 ###Pkg
 

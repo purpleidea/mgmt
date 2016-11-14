@@ -136,6 +136,10 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 	buschan := make(chan *dbus.Signal, 10)
 	bus.Signal(buschan)
 
+	// testing shows that if a machine fails to terminate the first
+	// time it will never succeed until 90 seconds has passed.
+	tickChan := time.NewTicker(time.Second * 91).C
+
 	var send = false
 	var exit = false
 
@@ -170,12 +174,9 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 			cuid.SetConverged(false)
 			send = true
 
-		// If no signals are waiting, continue on to see if we
-		// need to send because isStateOK is false
-		default:
-			if !obj.isStateOK {
-				time.Sleep(time.Second * 3)
-			}
+		// Check to see if isStateOK is false on a schedule
+		case <-tickChan:
+			break
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

@@ -136,9 +136,12 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 	buschan := make(chan *dbus.Signal, 10)
 	bus.Signal(buschan)
 
+	// testing shows that if a machine fails to terminate the first
+	// time it will never succeed until 90 seconds has passed.
+	tickChan := time.NewTicker(time.Second * 91).C
+
 	var send = false
 	var exit = false
-	var dirty = false
 
 	for {
 		obj.SetState(ResStateWatching)
@@ -146,16 +149,15 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 		case event := <-buschan:
 			// process org.freedesktop.machine1 events for this resource's name
 			if event.Body[0] == obj.GetName() {
-				log.Printf("%s[%s]: Event received: %v", obj.Kind(), obj.GetName(), event.Name)
 				if event.Name == machineNew {
 					log.Printf("%s[%s]: Machine started", obj.Kind(), obj.GetName())
 				} else if event.Name == machineRemoved {
 					log.Printf("%s[%s]: Machine stopped", obj.Kind(), obj.GetName())
 				} else {
-					return fmt.Errorf("Unknown event: %s", event.Name)
+					// ignore unknown events
+					break
 				}
 				send = true
-				dirty = true
 			}
 
 		case event := <-obj.Events():
@@ -171,7 +173,10 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 		case <-Startup(startup):
 			cuid.SetConverged(false)
 			send = true
-			dirty = true
+
+		// Check to see if isStateOK is false on a schedule
+		case <-tickChan:
+			break
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
@@ -179,10 +184,6 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 			startup = true // startup finished
 			send = false
 			// only invalid state on certain types of events
-			if dirty {
-				dirty = false
-				obj.isStateOK = false // something made state dirty
-			}
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -194,6 +195,8 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 // necessary changes to reach the desired state. this is run before Watch and
 // again if watch finds a change occurring to the state
 func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
+	obj.isStateOK = false
+
 	if global.DEBUG {
 		log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	}
@@ -208,6 +211,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 	if err != nil {
 		return false, errwrap.Wrapf(err, "Failed to connect to dbus")
 	}
+	defer conn.Close()
 
 	// compare the current state with the desired state and perform the
 	// appropriate action
@@ -224,7 +228,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 		// error if we need the image ignore if we don't
 		if _, err = conn.GetImage(obj.GetName()); err != nil && obj.State != stopped {
 			return false, fmt.Errorf(
-				"No machine or image named '%s'",
+				"No machine nor image named '%s'",
 				obj.GetName())
 		}
 	}
@@ -243,6 +247,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 
 	// end of state checking. if we're here, checkok is false
 	if !apply {
+		obj.isStateOK = true
 		return false, nil
 	}
 
@@ -261,13 +266,18 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 	if obj.State == stopped {
 		// terminate the machine with
 		// org.freedesktop.machine1.Manager.KillMachine
-		log.Printf("%s[%s]: Stopping machine", obj.Kind(), obj.GetName())
-		if err := conn.KillMachine(obj.GetName()); err != nil {
-			return false, errwrap.Wrapf(err, "Failed to stop machine")
+		log.Printf("%s[%s]: Terminating machine", obj.Kind(), obj.GetName())
+		if err := conn.TerminateMachine(obj.GetName()); err != nil {
+			// systemd will return an EDEADLK if the
+			// termination occurs before the container is
+			// fully started. We will try again since
+			// isStateOK is false.
+			if err.Error() != "Resource deadlock avoided" {
+				return false, errwrap.Wrap(err, "Failed to terminate machine")
+			}
 		}
 	}
 
-	obj.isStateOK = true // state is now good
 	return false, nil
 }
 

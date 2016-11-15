@@ -29,8 +29,8 @@ import (
 
 	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus"
-	machined "github.com/joejulian/go-systemd/machine1"
 	errwrap "github.com/pkg/errors"
+	machined "github.com/purpleidea/go-systemd/machine1"
 	"github.com/purpleidea/mgmt/global"
 )
 

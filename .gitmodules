@@ -10,6 +10,6 @@
 [submodule "vendor/gopkg.in/fsnotify.v1"]
 	path = vendor/gopkg.in/fsnotify.v1
 	url = https://gopkg.in/fsnotify.v1
-[submodule "vendor/github.com/joejulian/go-systemd"]
-	path = vendor/github.com/joejulian/go-systemd
-	url = https://github.com/joejulian/go-systemd.git
+[submodule "vendor/github.com/purpleidea/go-systemd"]
+	path = vendor/github.com/purpleidea/go-systemd
+	url = https://github.com/purpleidea/go-systemd

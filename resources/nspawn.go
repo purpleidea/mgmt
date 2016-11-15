@@ -262,7 +262,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 		// terminate the machine with
 		// org.freedesktop.machine1.Manager.KillMachine
 		log.Printf("%s[%s]: Stopping machine", obj.Kind(), obj.GetName())
-		if err := conn.KillMachine(obj.GetName()); err != nil {
+		if err := conn.TerminateMachine(obj.GetName()); err != nil {
 			return false, errwrap.Wrapf(err, "Failed to stop machine")
 		}
 	}

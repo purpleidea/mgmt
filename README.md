@@ -104,6 +104,7 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 * Felix Frank; blog: [Translating All The Things (puppet to mgmt translation warnings)](https://ffrank.github.io/features/2016/08/19/translating-all-the-things/)
 * James Shubin; video: [Recording from systemd.conf 2016](https://www.youtube.com/watch?v=jB992Zb3nH0&html5=1)
 * James Shubin; blog: [Remote execution in mgmt](https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/)
+* James Shubin; video: [Recording from High Load Strategy 2016](https://vimeo.com/191493409)
 
 ##
 

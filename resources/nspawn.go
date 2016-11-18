@@ -224,7 +224,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 		// error if we need the image ignore if we don't
 		if _, err = conn.GetImage(obj.GetName()); err != nil && obj.State != stopped {
 			return false, fmt.Errorf(
-				"No machine or image named '%s'",
+				"No machine nor image named '%s'",
 				obj.GetName())
 		}
 	}

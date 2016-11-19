@@ -29,6 +29,7 @@ import (
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/gapi"
+	"github.com/purpleidea/mgmt/pgp"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/remote"
@@ -81,6 +82,17 @@ type Main struct {
 	clientURLs       etcdtypes.URLs // processed client urls value
 	serverURLs       etcdtypes.URLs // processed server urls value
 	idealClusterSize uint16         // processed ideal cluster size value
+
+	NoPgp    bool     // allow pgp encryption
+	AdminKey string   // import admin key path, for sending and receiving encrypted msg
+	KeyPath  string   // import a pre-made key pair
+	PgpArgs  []string // custom configuration like name, comment and email for key pair generation
+
+	pgpPrefix string   // pgp workspace
+	name      string   // used name for key pair
+	comment   string   // used comment for key pair
+	mail      string   // used mail for key pair
+	keys      *pgp.PGP // processed pgp action
 
 	exit chan error // exit signal
 }
@@ -146,6 +158,32 @@ func (obj *Main) Init() error {
 		return fmt.Errorf("ServerURLs didn't parse correctly!")
 	}
 
+	defaultName := "mgmt"
+	defaultComment := "mgmt"
+	defaultMail := "mgmt@localhost"
+
+	if len(obj.PgpArgs) != 3 {
+		obj.name = defaultName
+		obj.comment = defaultComment
+		obj.mail = defaultMail
+
+	} else {
+		obj.name = obj.PgpArgs[0]
+		if obj.name == "" {
+			obj.name = defaultName
+		}
+
+		obj.comment = obj.PgpArgs[1]
+		if obj.comment == "" {
+			obj.comment = defaultComment
+		}
+
+		obj.mail = obj.PgpArgs[2]
+		if obj.mail == "" {
+			obj.mail = defaultMail
+		}
+	}
+
 	obj.exit = make(chan error)
 	return nil
 }
@@ -206,6 +244,11 @@ func (obj *Main) Run() error {
 			return fmt.Errorf("Main: Error: Can't create prefix!")
 		}
 	}
+
+	if os.Mkdir(prefix+"/pgp", 0770) != nil {
+		return fmt.Errorf("Main: Error: Can't create PGP folder!")
+	}
+
 	log.Printf("Main: Working prefix is: %s", prefix)
 	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
 	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
@@ -427,6 +470,25 @@ func (obj *Main) Run() error {
 	// initialize the add watcher, which calls the f callback on map changes
 	convergerCb := func(f func(map[string]bool) error) (func(), error) {
 		return etcd.EtcdAddHostnameConvergedWatcher(EmbdEtcd, f)
+	}
+
+	if !obj.NoPgp {
+		var err error
+
+		if obj.KeyPath != "" {
+			obj.keys, err = pgp.Import(obj.KeyPath)
+			if err != nil {
+				errwrap.Wrapf(err, "error while importing pgp key")
+			}
+
+		} else {
+			// TODO: Make hash configurable
+			obj.keys, err = pgp.Generate(obj.name, obj.comment, obj.mail, nil)
+			if err != nil {
+				errwrap.Wrapf(err, "error while creating pgp key")
+			}
+		}
+		// TODO: Import admin key
 	}
 
 	// build remotes struct for remote ssh

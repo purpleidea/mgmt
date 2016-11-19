@@ -96,6 +96,11 @@ func run(c *cli.Context) error {
 	obj.NoCaching = c.Bool("no-caching")
 	obj.Depth = uint16(c.Int("depth"))
 
+	obj.NoPgp = c.Bool("no-pgp")
+	obj.AdminKey = c.String("admin-key")
+	obj.KeyPath = c.String("import-key")
+	obj.PgpArgs = c.StringSlice("pgp-args")
+
 	if err := obj.Init(); err != nil {
 		return err
 	}
@@ -287,6 +292,25 @@ func CLI(program, version string) error {
 					Hidden: true, // internal use only
 					Value:  0,
 					Usage:  "specify depth in remote hierarchy",
+				},
+				cli.BoolFlag{
+					Name:  "no-pgp",
+					Usage: "don't create pgp keys",
+				},
+				cli.StringFlag{
+					Name:  "admin-key",
+					Value: "", // directed graph default
+					Usage: "import admin key",
+				},
+				cli.StringFlag{
+					Name:  "import-key",
+					Value: "", // directed graph default
+					Usage: "import default instance key pair",
+				},
+				cli.StringSliceFlag{
+					Name:  "pgp-args",
+					Value: &cli.StringSlice{},
+					Usage: "list of pgp settings {name, comment, email}",
 				},
 			},
 		},

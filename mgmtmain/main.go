@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/remote"
+	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
 
 	etcdtypes "github.com/coreos/etcd/pkg/types"
@@ -205,6 +207,10 @@ func (obj *Main) Run() error {
 		}
 	}
 	log.Printf("Main: Working prefix is: %s", prefix)
+	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
+	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
+		return errwrap.Wrapf(err, "Can't create pgraph prefix")
+	}
 
 	var wg sync.WaitGroup
 	var G, oldGraph *pgraph.Graph
@@ -348,6 +354,12 @@ func (obj *Main) Run() error {
 				continue
 			}
 
+			// pass in the information we need
+			newGraph.AssociateData(&resources.Data{
+				Converger: converger,
+				Prefix:    pgraphPrefix,
+			})
+
 			// apply the global noop parameter if requested
 			if obj.Noop {
 				for _, m := range newGraph.GraphMetas() {
@@ -383,7 +395,6 @@ func (obj *Main) Run() error {
 					log.Printf("Graphviz: Successfully generated graph!")
 				}
 			}
-			G.AssociateData(converger)
 			// G.Start(...) needs to be synchronous or wait,
 			// because if half of the nodes are started and
 			// some are not ready yet and the EtcdWatch

@@ -31,7 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/resources"
@@ -1040,10 +1039,10 @@ func (g *Graph) GraphMetas() []*resources.MetaParams {
 	return metas
 }
 
-// AssociateData associates some data with the object in the graph in question
-func (g *Graph) AssociateData(converger converger.Converger) {
-	for v := range g.GetVerticesChan() {
-		v.Res.AssociateData(converger)
+// AssociateData associates some data with the object in the graph in question.
+func (g *Graph) AssociateData(data *resources.Data) {
+	for k := range g.Adjacency {
+		k.Res.AssociateData(data)
 	}
 }
 

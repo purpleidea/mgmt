@@ -24,11 +24,15 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+	"os"
+	"path"
 
 	// TODO: should each resource be a sub-package?
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/global"
+
+	errwrap "github.com/pkg/errors"
 )
 
 //go:generate stringer -type=ResState -output=resstate_stringer.go
@@ -44,6 +48,15 @@ const (
 	ResStateCheckApply
 	ResStatePoking
 )
+
+// Data is the set of input values passed into the pgraph for the resources.
+type Data struct {
+	//Hostname string         // uuid for the host
+	//Noop     bool
+	Converger converger.Converger
+	Prefix    string // the prefix to be used for the pgraph namespace
+	// NOTE: we can add more fields here if needed for the resources.
+}
 
 // ResUID is a unique identifier for a resource, namely it's name, and the kind ("type").
 type ResUID interface {
@@ -112,7 +125,7 @@ type Base interface {
 	Kind() string
 	Meta() *MetaParams
 	Events() chan event.Event
-	AssociateData(converger.Converger)
+	AssociateData(*Data)
 	IsWatching() bool
 	SetWatching(bool)
 	GetState() ResState
@@ -126,6 +139,7 @@ type Base interface {
 	SetGrouped(bool)                     // set grouped bool
 	GetGroup() []Res                     // return everyone grouped inside me
 	SetGroup([]Res)
+	VarDir(string) (string, error)
 }
 
 // Res is the minimum interface you need to implement to define a new resource.
@@ -236,8 +250,9 @@ func (obj *BaseRes) Events() chan event.Event {
 }
 
 // AssociateData associates some data with the object in question.
-func (obj *BaseRes) AssociateData(converger converger.Converger) {
-	obj.converger = converger
+func (obj *BaseRes) AssociateData(data *Data) {
+	obj.converger = data.Converger
+	obj.prefix = data.Prefix
 }
 
 // IsWatching tells us if the Watch() function is running.
@@ -413,6 +428,30 @@ func (obj *BaseRes) Compare(res Res) bool {
 // CollectPattern is used for resource collection.
 func (obj *BaseRes) CollectPattern(pattern string) {
 	// XXX: default method is empty
+}
+
+// VarDir returns the path to a working directory for the resource. It will try
+// and create the directory first, and return an error if this failed.
+func (obj *BaseRes) VarDir(extra string) (string, error) {
+	// Using extra adds additional dirs onto our namespace. An empty extra
+	// adds no additional directories.
+	if obj.prefix == "" {
+		return "", fmt.Errorf("VarDir prefix is empty!")
+	}
+	if obj.Kind() == "" {
+		return "", fmt.Errorf("VarDir kind is empty!")
+	}
+	if obj.GetName() == "" {
+		return "", fmt.Errorf("VarDir name is empty!")
+	}
+
+	// FIXME: is obj.GetName() sufficiently unique to use as a UID here?
+	uid := obj.GetName()
+	p := fmt.Sprintf("%s/", path.Join(obj.prefix, obj.Kind(), uid, extra))
+	if err := os.MkdirAll(p, 0770); err != nil {
+		return "", errwrap.Wrapf(err, "Can't create prefix for %s[%s]", obj.Kind(), obj.GetName())
+	}
+	return p, nil
 }
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization)

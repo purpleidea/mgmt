@@ -102,6 +102,7 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 			if exit, _ := obj.ReadEvent(&event); exit {
 				return nil
 			}
+
 		case <-cuid.ConvergedTimer():
 			cuid.SetConverged(true)
 			continue

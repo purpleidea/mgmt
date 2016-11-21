@@ -273,7 +273,7 @@ func (obj *BaseRes) GetState() ResState {
 // SetState sets the state of the resource.
 func (obj *BaseRes) SetState(state ResState) {
 	if global.DEBUG {
-		log.Printf("%v[%v]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
+		log.Printf("%s[%s]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state
 }
@@ -349,7 +349,7 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, poke bool) {
 				return false, false // don't poke on unpause!
 			} else {
 				// if we get a poke event here, it's a bug!
-				log.Fatalf("%v[%v]: Unknown event: %v, while paused!", obj.Kind(), obj.GetName(), e)
+				log.Fatalf("%s[%s]: Unknown event: %v, while paused!", obj.Kind(), obj.GetName(), e)
 			}
 		}
 
@@ -399,7 +399,7 @@ func (obj *BaseRes) SetGroup(g []Res) {
 	obj.grouped = g
 }
 
-// Compare is the base compare method, which also handles the metaparams cmp
+// Compare is the base compare method, which also handles the metaparams cmp.
 func (obj *BaseRes) Compare(res Res) bool {
 	// TODO: should the AutoEdge values be compared?
 	if obj.Meta().AutoEdge != res.Meta().AutoEdge {

@@ -273,16 +273,16 @@ func (g *Graph) Graphviz() (out string) {
 	//	B -> C [label=g];
 	//	D -> E [label=h];
 	//}
-	out += fmt.Sprintf("digraph %v {\n", g.GetName())
-	out += fmt.Sprintf("\tlabel=\"%v\";\n", g.GetName())
+	out += fmt.Sprintf("digraph %s {\n", g.GetName())
+	out += fmt.Sprintf("\tlabel=\"%s\";\n", g.GetName())
 	//out += "\tnode [shape=box];\n"
 	str := ""
 	for i := range g.Adjacency { // reverse paths
-		out += fmt.Sprintf("\t%v [label=\"%v[%v]\"];\n", i.GetName(), i.Kind(), i.GetName())
+		out += fmt.Sprintf("\t%s [label=\"%s[%s]\"];\n", i.GetName(), i.Kind(), i.GetName())
 		for j := range g.Adjacency[i] {
 			k := g.Adjacency[i][j]
 			// use str for clearer output ordering
-			str += fmt.Sprintf("\t%v -> %v [label=%v];\n", i.GetName(), j.GetName(), k.Name)
+			str += fmt.Sprintf("\t%s -> %s [label=%s];\n", i.GetName(), j.GetName(), k.Name)
 		}
 	}
 	out += str
@@ -324,8 +324,8 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 		return fmt.Errorf("Graphviz is missing!")
 	}
 
-	out := fmt.Sprintf("%v.png", filename)
-	cmd := exec.Command(path, "-Tpng", fmt.Sprintf("-o%v", out), filename)
+	out := fmt.Sprintf("%s.png", filename)
+	cmd := exec.Command(path, "-Tpng", fmt.Sprintf("-o%s", out), filename)
 
 	if err1 == nil && err2 == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
@@ -404,7 +404,7 @@ func (g *Graph) FilterGraph(name string, vertices []*Vertex) *Graph {
 	newgraph := NewGraph(name)
 	for k1, x := range g.Adjacency {
 		for k2, e := range x {
-			//log.Printf("Filter: %v -> %v # %v", k1.Name, k2.Name, e.Name)
+			//log.Printf("Filter: %s -> %s # %s", k1.Name, k2.Name, e.Name)
 			if VertexContains(k1, vertices) || VertexContains(k2, vertices) {
 				newgraph.AddEdge(k1, k2, e)
 			}
@@ -587,7 +587,7 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 		// b/c we should let our pre-req's go first...
 		x, y := v.GetTimestamp(), n.GetTimestamp()
 		if global.DEBUG {
-			log.Printf("%v[%v]: OKTimestamp: (%v) >= %v[%v](%v): !%v", v.Kind(), v.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
+			log.Printf("%s[%s]: OKTimestamp: (%v) >= %s[%s](%v): !%v", v.Kind(), v.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
 		}
 		if x >= y {
 			return false
@@ -606,12 +606,12 @@ func (g *Graph) Poke(v *Vertex, activity bool) {
 		// XXX: if n.Res.getState() != resources.ResStateEvent { // is this correct?
 		if true { // XXX
 			if global.DEBUG {
-				log.Printf("%v[%v]: Poke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: Poke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 			n.SendEvent(event.EventPoke, false, activity) // XXX: can this be switched to sync?
 		} else {
 			if global.DEBUG {
-				log.Printf("%v[%v]: Poke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: Poke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
 	}
@@ -630,12 +630,12 @@ func (g *Graph) BackPoke(v *Vertex) {
 		// happens earlier in the state cycle and that doesn't wrap nil
 		if x >= y && (s != resources.ResStateEvent && s != resources.ResStateCheckApply) {
 			if global.DEBUG {
-				log.Printf("%v[%v]: BackPoke: %v[%v]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: BackPoke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 			n.SendEvent(event.EventBackPoke, false, false) // XXX: can this be switched to sync?
 		} else {
 			if global.DEBUG {
-				log.Printf("%v[%v]: BackPoke: %v[%v]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
 	}
@@ -645,7 +645,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 func (g *Graph) Process(v *Vertex) error {
 	obj := v.Res
 	if global.DEBUG {
-		log.Printf("%v[%v]: Process()", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Process()", obj.Kind(), obj.GetName())
 	}
 	obj.SetState(resources.ResStateEvent)
 	var ok = true
@@ -655,17 +655,17 @@ func (g *Graph) Process(v *Vertex) error {
 	// us back and we will run if needed then!
 	if g.OKTimestamp(v) {
 		if global.DEBUG {
-			log.Printf("%v[%v]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
+			log.Printf("%s[%s]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
 		}
 
 		obj.SetState(resources.ResStateCheckApply)
 		// if this fails, don't UpdateTimestamp()
 		checkok, err := obj.CheckApply(!obj.Meta().Noop)
 		if checkok && err != nil { // should never return this way
-			log.Fatalf("%v[%v]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), checkok, err)
+			log.Fatalf("%s[%s]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), checkok, err)
 		}
 		if global.DEBUG {
-			log.Printf("%v[%v]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), checkok, err)
+			log.Printf("%s[%s]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), checkok, err)
 		}
 
 		if !checkok { // if state *was* not ok, we had to have apply'ed
@@ -737,7 +737,7 @@ func (g *Graph) Worker(v *Vertex) error {
 					// we got an event that wasn't a close,
 					// while we were waiting for the timer!
 					// if this happens, it might be a bug:(
-					log.Fatalf("%v[%v]: Worker: Unexpected event: %+v", v.Kind(), v.GetName(), event)
+					log.Fatalf("%s[%s]: Worker: Unexpected event: %+v", v.Kind(), v.GetName(), event)
 				}
 				if !ok { // chanProcess closed, let's exit
 					break Loop // no event, so no ack!
@@ -747,7 +747,7 @@ func (g *Graph) Worker(v *Vertex) error {
 				// running of this function, paired with an ack.
 				if e := g.Process(v); e != nil {
 					saved = event
-					log.Printf("%v[%v]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
+					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
 					if retry == 0 {
 						// wrap the error in the sentinel
 						event.ACKNACK(&SentinelErr{e}) // fail the Watch()
@@ -756,7 +756,7 @@ func (g *Graph) Worker(v *Vertex) error {
 					if retry > 0 { // don't decrement the -1
 						retry--
 					}
-					log.Printf("%v[%v]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
+					log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
 					// start the timer...
 					timer.Reset(delay)
 					running = true
@@ -851,7 +851,7 @@ func (g *Graph) Worker(v *Vertex) error {
 			err = sentinelErr.err
 			break // sentinel means, perma-exit
 		}
-		log.Printf("%v[%v]: Watch errored: %v", v.Kind(), v.GetName(), e)
+		log.Printf("%s[%s]: Watch errored: %v", v.Kind(), v.GetName(), e)
 		if watchRetry == 0 {
 			err = fmt.Errorf("Permanent watch error: %v", e)
 			break
@@ -860,7 +860,7 @@ func (g *Graph) Worker(v *Vertex) error {
 			watchRetry--
 		}
 		watchDelay = time.Duration(v.Meta().Delay) * time.Millisecond
-		log.Printf("%v[%v]: Watch: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), watchDelay.Seconds(), watchRetry)
+		log.Printf("%s[%s]: Watch: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), watchDelay.Seconds(), watchRetry)
 		// We need to trigger a CheckApply after Watch restarts, so that
 		// we catch any lost events that happened while down. We do this
 		// by getting the Watch resource to send one event once it's up!
@@ -893,7 +893,7 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 					log.Printf("%s[%s]: Exited with failure: %v", vv.Kind(), vv.GetName(), err)
 					return
 				}
-				log.Printf("%v[%v]: Exited", vv.Kind(), vv.GetName())
+				log.Printf("%s[%s]: Exited", vv.Kind(), vv.GetName())
 			}(v)
 		}
 
@@ -914,7 +914,7 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 			for !v.SendEvent(event.EventStart, true, false) {
 				if global.DEBUG {
 					// if SendEvent fails, we aren't up yet
-					log.Printf("%v[%v]: Retrying SendEvent(Start)", v.Kind(), v.GetName())
+					log.Printf("%s[%s]: Retrying SendEvent(Start)", v.Kind(), v.GetName())
 					// sleep here briefly or otherwise cause
 					// a different goroutine to be scheduled
 					time.Sleep(1 * time.Millisecond)

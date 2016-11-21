@@ -1,2 +1,3 @@
 --ignore-dir=old/
 --ignore-dir=tmp/
+--ignore-dir=vendor/

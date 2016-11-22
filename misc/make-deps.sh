@@ -12,7 +12,14 @@ fi
 sudo_command=$(which sudo)
 
 YUM=`which yum 2>/dev/null`
+DNF=`which dnf 2>/dev/null`
 APT=`which apt-get 2>/dev/null`
+
+# if DNF is available use it
+if [ -x "$DNF" ]; then
+	YUM=$DNF
+fi
+
 if [ -z "$YUM" -a -z "$APT" ]; then
 	echo "The package managers can't be found."
 	exit 1

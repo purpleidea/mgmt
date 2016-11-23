@@ -222,6 +222,7 @@ parameter with the [Noop](#Noop) resource.
 * [Msg](#Msg): Send log messages.
 * [Noop](#Noop): A simple resource that does nothing.
 * [Nspawn](#Nspawn): Manage systemd-machined nspawn containers.
+* [Password](#Password): Create random password strings.
 * [Pkg](#Pkg):  Manage system packages with PackageKit.
 * [Svc](#Svc): Manage system systemd services.
 * [Timer](#Timer): Manage system systemd services.
@@ -302,6 +303,10 @@ The noop resource does absolutely nothing. It does have some utility in testing
 ###Nspawn
 
 The nspawn resource is used to manage systemd-machined style containers.
+
+###Password
+
+The password resource can generate a random string to be used as a password.
 
 ###Pkg
 

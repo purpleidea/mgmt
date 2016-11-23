@@ -301,6 +301,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	var startupOK = true // XXX: DETECT AND SET
 
 	if stateOK && startupOK {
+		obj.isStateOK = true
 		return true, nil // we are in the correct state
 	}
 
@@ -348,6 +349,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 
 	// XXX: also set enabled on boot
 
+	obj.isStateOK = true
 	return false, nil // success
 }
 

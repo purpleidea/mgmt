@@ -133,11 +133,14 @@ type Base interface {
 	DoSend(chan event.Event, string) (bool, error)
 	SendEvent(event.EventName, bool, bool) bool
 	ReadEvent(*event.Event) (bool, bool) // TODO: optional here?
-	GroupCmp(Res) bool                   // TODO: is there a better name for this?
-	GroupRes(Res) error                  // group resource (arg) into self
-	IsGrouped() bool                     // am I grouped?
-	SetGrouped(bool)                     // set grouped bool
-	GetGroup() []Res                     // return everyone grouped inside me
+	SendRecv(Res) (bool, error)          // send->recv data passing function
+	IsStateOK() bool
+	StateOK(b bool)
+	GroupCmp(Res) bool  // TODO: is there a better name for this?
+	GroupRes(Res) error // group resource (arg) into self
+	IsGrouped() bool    // am I grouped?
+	SetGrouped(bool)    // set grouped bool
+	GetGroup() []Res    // return everyone grouped inside me
 	SetGroup([]Res)
 	VarDir(string) (string, error)
 }
@@ -157,16 +160,19 @@ type Res interface {
 
 // BaseRes is the base struct that gets used in every resource.
 type BaseRes struct {
-	Name       string     `yaml:"name"`
-	MetaParams MetaParams `yaml:"meta"` // struct of all the metaparams
-	kind       string
-	events     chan event.Event
-	converger  converger.Converger // converged tracking
-	state      ResState
-	watching   bool  // is Watch() loop running ?
-	isStateOK  bool  // whether the state is okay based on events or not
-	isGrouped  bool  // am i contained within a group?
-	grouped    []Res // list of any grouped resources
+	Name       string          `yaml:"name"`
+	MetaParams MetaParams      `yaml:"meta"` // struct of all the metaparams
+	Recv       map[string]Send // mapping of key to receive on from value
+
+	kind      string
+	events    chan event.Event
+	converger converger.Converger // converged tracking
+	prefix    string              // base prefix for this resource
+	state     ResState
+	watching  bool  // is Watch() loop running ?
+	isStateOK bool  // whether the state is okay based on events or not
+	isGrouped bool  // am i contained within a group?
+	grouped   []Res // list of any grouped resources
 }
 
 // UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
@@ -357,6 +363,16 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, poke bool) {
 		log.Fatal("Unknown event: ", ev)
 	}
 	return true, false // required to keep the stupid go compiler happy
+}
+
+// IsStateOK returns the cached state value.
+func (obj *BaseRes) IsStateOK() bool {
+	return obj.isStateOK
+}
+
+// StateOK sets the cached state value.
+func (obj *BaseRes) StateOK(b bool) {
+	obj.isStateOK = b
 }
 
 // GroupCmp compares two resources and decides if they're suitable for grouping

@@ -386,6 +386,7 @@ func (obj *Main) Run() error {
 			G.AutoEdges() // add autoedges; modifies the graph
 			G.AutoGroup() // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
+			// FIXME: run a type checker that verifies all the send->recv relationships
 
 			log.Printf("Graph: %v", G) // show graph
 			if obj.GraphvizFilter != "" {

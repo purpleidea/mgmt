@@ -198,6 +198,10 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 		log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	}
 
+	if obj.isStateOK { // cache the state
+		return true, nil
+	}
+
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return false, errors.New("Systemd is not running.")

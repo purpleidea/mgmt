@@ -659,6 +659,14 @@ func (g *Graph) Process(v *Vertex) error {
 		}
 
 		obj.SetState(resources.ResStateCheckApply)
+
+		// connect any senders to receivers and detect if values changed
+		if changed, err := obj.SendRecv(obj); err != nil {
+			return errwrap.Wrapf(err, "could not SendRecv in Process")
+		} else if changed {
+			obj.StateOK(false) // invalidate cache
+		}
+
 		// if this fails, don't UpdateTimestamp()
 		checkok, err := obj.CheckApply(!obj.Meta().Noop)
 		if checkok && err != nil { // should never return this way

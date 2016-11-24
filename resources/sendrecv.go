@@ -22,11 +22,93 @@ import (
 	"log"
 	"reflect"
 
+	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/global"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
 )
+
+// DoSend sends off an event, but doesn't block the incoming event queue. It can
+// also recursively call itself when events need processing during the wait.
+// I'm not completely comfortable with this fn, but it will have to do for now.
+func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (bool, error) {
+	resp := event.NewResp()
+	processChan <- event.Event{Name: event.EventNil, Resp: resp, Msg: comment, Activity: true} // trigger process
+	e := resp.Wait()
+	return false, e // XXX: at the moment, we don't use the exit bool.
+	// XXX: this can cause a deadlock. do we need to recursively send? fix event stuff!
+	//select {
+	//case e := <-resp: // wait for the ACK()
+	//	if e != nil { // we got a NACK
+	//		return true, e // exit with error
+	//	}
+	//case event := <-obj.events:
+	//	// NOTE: this code should match the similar code below!
+	//	//cuid.SetConverged(false) // TODO: ?
+	//	if exit, send := obj.ReadEvent(&event); exit {
+	//		return true, nil // exit, without error
+	//	} else if send {
+	//		return obj.DoSend(processChan, comment) // recurse
+	//	}
+	//}
+	//return false, nil // return, no error or exit signal
+}
+
+// SendEvent pushes an event into the message queue for a particular vertex
+func (obj *BaseRes) SendEvent(ev event.EventName, sync bool, activity bool) bool {
+	// TODO: isn't this race-y ?
+	if !obj.IsWatching() { // element has already exited
+		return false // if we don't return, we'll block on the send
+	}
+	if !sync {
+		obj.events <- event.Event{Name: ev, Resp: nil, Msg: "", Activity: activity}
+		return true
+	}
+
+	resp := event.NewResp()
+	obj.events <- event.Event{Name: ev, Resp: resp, Msg: "", Activity: activity}
+	resp.ACKWait() // waits until true (nil) value
+	return true
+}
+
+// ReadEvent processes events when a select gets one, and handles the pause
+// code too! The return values specify if we should exit and poke respectively.
+func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, poke bool) {
+	ev.ACK()
+	switch ev.Name {
+	case event.EventStart:
+		return false, true
+
+	case event.EventPoke:
+		return false, true
+
+	case event.EventBackPoke:
+		return false, true // forward poking in response to a back poke!
+
+	case event.EventExit:
+		return true, false
+
+	case event.EventPause:
+		// wait for next event to continue
+		select {
+		case e := <-obj.Events():
+			e.ACK()
+			if e.Name == event.EventExit {
+				return true, false
+			} else if e.Name == event.EventStart { // eventContinue
+				return false, false // don't poke on unpause!
+			} else {
+				// if we get a poke event here, it's a bug!
+				log.Fatalf("%s[%s]: Unknown event: %v, while paused!", obj.Kind(), obj.GetName(), e)
+			}
+		}
+
+	default:
+		log.Fatal("Unknown event: ", ev)
+	}
+	return true, false // required to keep the stupid go compiler happy
+}
 
 // Send points to a value that a resource will send.
 type Send struct {

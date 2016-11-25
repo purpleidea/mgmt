@@ -206,7 +206,6 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 
 	var send = false
 	var exit = false
-	var dirty = false
 
 	for {
 		select {
@@ -215,37 +214,37 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 			switch event {
 			case libvirt.VIR_DOMAIN_EVENT_DEFINED:
 				if obj.Transient {
-					dirty = true
+					obj.StateOK(false) // dirty
 					send = true
 				}
 			case libvirt.VIR_DOMAIN_EVENT_UNDEFINED:
 				if !obj.Transient {
-					dirty = true
+					obj.StateOK(false) // dirty
 					send = true
 				}
 			case libvirt.VIR_DOMAIN_EVENT_STARTED:
 				fallthrough
 			case libvirt.VIR_DOMAIN_EVENT_RESUMED:
 				if obj.State != "running" {
-					dirty = true
+					obj.StateOK(false) // dirty
 					send = true
 				}
 			case libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
 				if obj.State != "paused" {
-					dirty = true
+					obj.StateOK(false) // dirty
 					send = true
 				}
 			case libvirt.VIR_DOMAIN_EVENT_STOPPED:
 				fallthrough
 			case libvirt.VIR_DOMAIN_EVENT_SHUTDOWN:
 				if obj.State != "shutoff" {
-					dirty = true
+					obj.StateOK(false) // dirty
 					send = true
 				}
 			case libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED:
 				fallthrough
 			case libvirt.VIR_DOMAIN_EVENT_CRASHED:
-				dirty = true
+				obj.StateOK(false) // dirty
 				send = true
 			}
 
@@ -266,17 +265,12 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 		case <-Startup(startup):
 			cuid.SetConverged(false)
 			send = true
-			dirty = true
+			obj.StateOK(false) // dirty
 		}
 
 		if send {
 			startup = true // startup finished
 			send = false
-			// only invalid state on certain types of events
-			if dirty {
-				dirty = false
-				obj.isStateOK = false // something made state dirty
-			}
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -379,12 +373,6 @@ func (obj *VirtRes) domainCreate() (libvirt.VirDomain, bool, error) {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
-
-	if obj.isStateOK { // cache the state
-		return true, nil
-	}
-
 	var err error
 	obj.conn, err = obj.connect()
 	if err != nil {
@@ -399,7 +387,6 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	} else if virErr, ok := err.(libvirt.VirError); ok && virErr.Code == libvirt.VIR_ERR_NO_DOMAIN {
 		// domain not found
 		if obj.absent {
-			obj.isStateOK = true
 			return true, nil
 		}
 
@@ -538,9 +525,6 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 		}
 	}
 
-	if apply || checkOK {
-		obj.isStateOK = true
-	}
 	return checkOK, nil // w00t
 }
 

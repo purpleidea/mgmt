@@ -119,7 +119,6 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 	var svc = fmt.Sprintf("%s.service", obj.Name) // systemd name
 	var send = false                              // send event?
 	var exit = false
-	var dirty = false
 	var invalid = false              // does the svc exist or not?
 	var previous bool                // previous invalid value
 	set := conn.NewSubscriptionSet() // no error should be returned
@@ -150,7 +149,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 		if previous != invalid { // if invalid changed, send signal
 			send = true
-			dirty = true
+			obj.StateOK(false) // dirty
 		}
 
 		if invalid {
@@ -173,7 +172,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 					return nil // exit
 				}
 				if event.GetActivity() {
-					dirty = true
+					obj.StateOK(false) // dirty
 				}
 
 			case <-cuid.ConvergedTimer():
@@ -183,7 +182,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 			case <-Startup(startup):
 				cuid.SetConverged(false)
 				send = true
-				dirty = true
+				obj.StateOK(false) // dirty
 			}
 		} else {
 			if !activeSet {
@@ -216,7 +215,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 					log.Printf("Svc[%s]->Stopped", svc)
 				}
 				send = true
-				dirty = true
+				obj.StateOK(false) // dirty
 
 			case err := <-subErrors:
 				cuid.SetConverged(false)
@@ -228,7 +227,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 					return nil // exit
 				}
 				if event.GetActivity() {
-					dirty = true
+					obj.StateOK(false) // dirty
 				}
 
 			case <-cuid.ConvergedTimer():
@@ -238,17 +237,13 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 			case <-Startup(startup):
 				cuid.SetConverged(false)
 				send = true
-				dirty = true
+				obj.StateOK(false) // dirty
 			}
 		}
 
 		if send {
 			startup = true // startup finished
 			send = false
-			if dirty {
-				dirty = false
-				obj.isStateOK = false // something made state dirty
-			}
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -258,13 +253,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
-
-	if obj.isStateOK { // cache the state
-		return true, nil
-	}
-
+func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 	if !systemdUtil.IsRunningSystemd() {
 		return false, fmt.Errorf("Systemd is not running.")
 	}
@@ -301,7 +290,6 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 	var startupOK = true // XXX: DETECT AND SET
 
 	if stateOK && startupOK {
-		obj.isStateOK = true
 		return true, nil // we are in the correct state
 	}
 
@@ -349,7 +337,6 @@ func (obj *SvcRes) CheckApply(apply bool) (checkok bool, err error) {
 
 	// XXX: also set enabled on boot
 
-	obj.isStateOK = true
 	return false, nil // success
 }
 

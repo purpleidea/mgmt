@@ -19,7 +19,6 @@ package resources
 
 import (
 	"encoding/gob"
-	"log"
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
@@ -102,8 +101,6 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 		if send {
 			startup = true // startup finished
 			send = false
-			// only do this on certain types of events
-			//obj.isStateOK = false // something made state dirty
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -112,8 +109,7 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 }
 
 // CheckApply method for Noop resource. Does nothing, returns happy!
-func (obj *NoopRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+func (obj *NoopRes) CheckApply(apply bool) (checkOK bool, err error) {
 	return true, nil // state is always okay
 }
 

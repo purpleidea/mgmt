@@ -138,7 +138,6 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 
 	var send = false
 	var exit = false
-	var dirty = false
 
 	for {
 		obj.SetState(ResStateWatching)
@@ -155,7 +154,7 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 					return fmt.Errorf("Unknown event: %s", event.Name)
 				}
 				send = true
-				dirty = true
+				obj.StateOK(false) // dirty
 			}
 
 		case event := <-obj.Events():
@@ -171,18 +170,13 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 		case <-Startup(startup):
 			cuid.SetConverged(false)
 			send = true
-			dirty = true
+			obj.StateOK(false) // dirty
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
-		if send || !obj.isStateOK {
+		if send {
 			startup = true // startup finished
 			send = false
-			// only invalid state on certain types of events
-			if dirty {
-				dirty = false
-				obj.isStateOK = false // something made state dirty
-			}
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -193,15 +187,7 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. this is run before Watch and
 // again if watch finds a change occurring to the state
-func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
-	if global.DEBUG {
-		log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
-	}
-
-	if obj.isStateOK { // cache the state
-		return true, nil
-	}
-
+func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return false, errors.New("Systemd is not running.")
@@ -241,11 +227,10 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 		if global.DEBUG {
 			log.Printf("%s[%s]: CheckApply() in valid state", obj.Kind(), obj.GetName())
 		}
-		obj.isStateOK = true // state is ok
 		return true, nil
 	}
 
-	// end of state checking. if we're here, checkok is false
+	// end of state checking. if we're here, checkOK is false
 	if !apply {
 		return false, nil
 	}
@@ -271,7 +256,6 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkok bool, err error) {
 		}
 	}
 
-	obj.isStateOK = true // state is now good
 	return false, nil
 }
 

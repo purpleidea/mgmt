@@ -210,7 +210,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 			startup = true // startup finished
 			send = false
 			// it is okay to invalidate the clean state on poke too
-			obj.isStateOK = false // something made state dirty
+			obj.StateOK(false) // something made state dirty
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -221,12 +221,11 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 // TODO: expand the IfCmd to be a list of commands
-func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 	// if there is a watch command, but no if command, run based on state
 	if obj.WatchCmd != "" && obj.IfCmd == "" {
-		if obj.isStateOK {
+		if obj.IsStateOK() { // FIXME: this is done by engine now...
 			return true, nil
 		}
 
@@ -264,7 +263,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 		// if there is no watcher and no onlyif check, assume we should run
 	} else { // if obj.WatchCmd == "" && obj.IfCmd == "" {
 		// just run if state is dirty
-		if obj.isStateOK {
+		if obj.IsStateOK() { // FIXME: this is done by engine now...
 			return true, nil
 		}
 	}
@@ -331,12 +330,12 @@ func (obj *ExecRes) CheckApply(apply bool) (checkok bool, err error) {
 	}
 	// XXX: return based on exit value!!
 
-	// the state tracking is for exec resources that can't "detect" their
+	// The state tracking is for exec resources that can't "detect" their
 	// state, and assume it's invalid when the Watch() function triggers.
-	// if we apply state successfully, we should reset it here so that we
+	// If we apply state successfully, we should reset it here so that we
 	// know that we have applied since the state was set not ok by event!
-	obj.isStateOK = true // reset
-	return false, nil    // success
+	// This now happens automatically after the engine runs CheckApply().
+	return false, nil // success
 }
 
 // ExecUID is the UID struct for ExecRes.

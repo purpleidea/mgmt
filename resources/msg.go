@@ -125,16 +125,15 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 				return nil // exit
 			}
 
-			/*
-				// TODO: invalidate cached state on poke events
-				obj.logStateOK = false
-				if obj.Journal {
-					obj.journalStateOK = false
-				}
-				if obj.Syslog {
-					obj.syslogStateOK = false
-				}
-			*/
+			// TODO: invalidate cached state on poke events
+			//obj.logStateOK = false
+			//if obj.Journal {
+			//	obj.journalStateOK = false
+			//}
+			//if obj.Syslog {
+			//	obj.syslogStateOK = false
+			//}
+			//obj.updateStateOK()
 			send = true
 
 		case <-cuid.ConvergedTimer():
@@ -205,7 +204,7 @@ func (obj *MsgRes) Compare(res Res) bool {
 	return true
 }
 
-// IsAllStateOK derives a compound state from all internal cache flags that apply to this resource.
+// isAllStateOK derives a compound state from all internal cache flags that apply to this resource.
 func (obj *MsgRes) isAllStateOK() bool {
 	if obj.Journal && !obj.journalStateOK {
 		return false
@@ -214,6 +213,11 @@ func (obj *MsgRes) isAllStateOK() bool {
 		return false
 	}
 	return obj.logStateOK
+}
+
+// updateStateOK sets the global state so it can be read by the engine.
+func (obj *MsgRes) updateStateOK() {
+	obj.StateOK(obj.isAllStateOK())
 }
 
 // JournalPriority converts a string description to a numeric priority.
@@ -243,15 +247,16 @@ func (obj *MsgRes) journalPriority() journal.Priority {
 // CheckApply method for Msg resource.
 // Every check leads to an apply, meaning that the message is flushed to the journal.
 func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 
-	if obj.isAllStateOK() {
-		return true, nil
-	}
+	// isStateOK() done by engine, so we updateStateOK() to pass in value
+	//if obj.isAllStateOK() {
+	//	return true, nil
+	//}
 
 	if !obj.logStateOK {
 		log.Printf("%s[%s]: Body: %s", obj.Kind(), obj.GetName(), obj.Body)
 		obj.logStateOK = true
+		obj.updateStateOK()
 	}
 
 	if !apply {
@@ -262,10 +267,12 @@ func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
 			return false, err
 		}
 		obj.journalStateOK = true
+		obj.updateStateOK()
 	}
 	if obj.Syslog && !obj.syslogStateOK {
 		// TODO: implement syslog client
 		obj.syslogStateOK = true
+		obj.updateStateOK()
 	}
 	return false, nil
 }

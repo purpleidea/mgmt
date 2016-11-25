@@ -143,7 +143,6 @@ func (obj *HostnameRes) Watch(processChan chan event.Event) error {
 	bus.Signal(signals)
 
 	var send = false // send event?
-	var dirty = false
 
 	for {
 		obj.SetState(ResStateWatching) // reset
@@ -151,7 +150,7 @@ func (obj *HostnameRes) Watch(processChan chan event.Event) error {
 		case <-signals:
 			cuid.SetConverged(false)
 			send = true
-			dirty = true
+			obj.StateOK(false) // dirty
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
@@ -160,7 +159,7 @@ func (obj *HostnameRes) Watch(processChan chan event.Event) error {
 				return nil // exit
 			}
 			send = true
-			dirty = true
+			obj.StateOK(false) // dirty
 
 		case <-cuid.ConvergedTimer():
 			cuid.SetConverged(true) // converged!
@@ -175,11 +174,7 @@ func (obj *HostnameRes) Watch(processChan chan event.Event) error {
 		if send {
 			startup = true // startup finished
 			send = false
-			if dirty {
-				dirty = false
-				obj.isStateOK = false // something made state dirty
-			}
-			// only do this on certain types of events
+
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -223,12 +218,6 @@ func updateHostnameProperty(object dbus.BusObject, expectedValue, property, sett
 
 // CheckApply method for Hostname resource.
 func (obj *HostnameRes) CheckApply(apply bool) (checkOK bool, err error) {
-	log.Printf("%v[%v]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
-
-	if obj.isStateOK { // cached state
-		return true, nil
-	}
-
 	conn, err := util.SystemBusPrivateUsable()
 	if err != nil {
 		return false, errwrap.Wrap(err, "Failed to connect to the private system bus")
@@ -258,10 +247,6 @@ func (obj *HostnameRes) CheckApply(apply bool) (checkOK bool, err error) {
 			return false, err
 		}
 		checkOK = checkOK && propertyCheckOK
-	}
-
-	if apply || checkOK {
-		obj.isStateOK = true
 	}
 
 	return checkOK, nil

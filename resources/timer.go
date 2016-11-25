@@ -114,7 +114,6 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 		if send {
 			startup = true // startup finished
 			send = false
-			//obj.isStateOK = false
 			if exit, err := obj.DoSend(processChan, "timer ticked"); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -162,6 +161,5 @@ func (obj *TimerRes) Compare(res Res) bool {
 
 // CheckApply method for Timer resource. Does nothing, returns happy!
 func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
 	return true, nil // state is always okay
 }

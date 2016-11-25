@@ -141,7 +141,6 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 
 	var send = false // send event?
 	var exit = false
-	var dirty = false
 
 	for {
 		if global.DEBUG {
@@ -165,14 +164,14 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 			}
 
 			send = true
-			dirty = true
+			obj.StateOK(false) // dirty
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(&event); exit {
 				return nil // exit
 			}
-			dirty = false // these events don't invalidate state
+			//obj.StateOK(false) // these events don't invalidate state
 
 		case <-cuid.ConvergedTimer():
 			cuid.SetConverged(true) // converged!
@@ -181,18 +180,13 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 		case <-Startup(startup):
 			cuid.SetConverged(false)
 			send = true
-			dirty = true
+			obj.StateOK(false) // dirty
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			startup = true // startup finished
 			send = false
-			// only invalid state on certain types of events
-			if dirty {
-				dirty = false
-				obj.isStateOK = false // something made state dirty
-			}
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}
@@ -264,16 +258,8 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
-	log.Printf("%s: CheckApply(%t)", obj.fmtNames(obj.getNames()), apply)
-
-	if obj.State == "" { // TODO: Validate() should replace this check!
-		log.Fatalf("%s: Package state is undefined!", obj.fmtNames(obj.getNames()))
-	}
-
-	if obj.isStateOK { // cache the state
-		return true, nil
-	}
+func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
+	log.Printf("%s: Check", obj.fmtNames(obj.getNames()))
 
 	bus := packagekit.NewBus()
 	if bus == nil {
@@ -309,12 +295,10 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 		fallthrough
 	case "newest":
 		if validState {
-			obj.isStateOK = true // reset
-			return true, nil     // state is correct, exit!
+			return true, nil // state is correct, exit!
 		}
 	default: // version string
 		if obj.State == data.Version && data.Version != "" {
-			obj.isStateOK = true // reset
 			return true, nil
 		}
 	}
@@ -358,8 +342,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkok bool, err error) {
 		return false, err // fail
 	}
 	log.Printf("%s: Set: %v success!", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)
-	obj.isStateOK = true // reset
-	return false, nil    // success
+	return false, nil // success
 }
 
 // PkgUID is the UID struct for PkgRes.

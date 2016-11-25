@@ -221,7 +221,7 @@ func (obj *BaseRes) Init() error {
 	if obj.kind == "" {
 		return fmt.Errorf("Resource did not set kind!")
 	}
-	obj.events = make(chan event.Event) // unbuffered chan size to avoid stale events
+	obj.events = make(chan event.Event) // unbuffered chan to avoid stale events
 	return nil
 }
 

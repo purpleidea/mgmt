@@ -29,32 +29,6 @@ import (
 	errwrap "github.com/pkg/errors"
 )
 
-// DoSend sends off an event, but doesn't block the incoming event queue. It can
-// also recursively call itself when events need processing during the wait.
-// I'm not completely comfortable with this fn, but it will have to do for now.
-func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (bool, error) {
-	resp := event.NewResp()
-	processChan <- event.Event{Name: event.EventNil, Resp: resp, Msg: comment, Activity: true} // trigger process
-	e := resp.Wait()
-	return false, e // XXX: at the moment, we don't use the exit bool.
-	// XXX: this can cause a deadlock. do we need to recursively send? fix event stuff!
-	//select {
-	//case e := <-resp: // wait for the ACK()
-	//	if e != nil { // we got a NACK
-	//		return true, e // exit with error
-	//	}
-	//case event := <-obj.events:
-	//	// NOTE: this code should match the similar code below!
-	//	//cuid.SetConverged(false) // TODO: ?
-	//	if exit, send := obj.ReadEvent(&event); exit {
-	//		return true, nil // exit, without error
-	//	} else if send {
-	//		return obj.DoSend(processChan, comment) // recurse
-	//	}
-	//}
-	//return false, nil // return, no error or exit signal
-}
-
 // SendEvent pushes an event into the message queue for a particular vertex
 func (obj *BaseRes) SendEvent(ev event.EventName, sync bool, activity bool) bool {
 	// TODO: isn't this race-y ?
@@ -72,27 +46,52 @@ func (obj *BaseRes) SendEvent(ev event.EventName, sync bool, activity bool) bool
 	return true
 }
 
+// DoSend sends off an event, but doesn't block the incoming event queue.
+func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (exit bool, err error) {
+	resp := event.NewResp()
+	processChan <- event.Event{Name: event.EventNil, Resp: resp, Activity: false, Msg: comment} // trigger process
+	e := resp.Wait()
+	return false, e // XXX: at the moment, we don't use the exit bool.
+}
+
 // ReadEvent processes events when a select gets one, and handles the pause
 // code too! The return values specify if we should exit and poke respectively.
-func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, poke bool) {
+func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 	ev.ACK()
+	var poke bool
+	// ensure that a CheckApply runs by sending with a dirty state...
+	if ev.GetActivity() { // if previous node did work, and we were notified...
+		obj.StateOK(false) // dirty
+		poke = true        // poke!
+		// XXX: this should be elsewhere in case Watch isn't used (eg: Polling instead...)
+		// XXX: unless this is used in our "fallback" polling implementation???
+		obj.SetRefresh(true)
+	}
+
 	switch ev.Name {
 	case event.EventStart:
-		return false, true
+		send = true || poke
+		return
 
 	case event.EventPoke:
-		return false, true
+		send = true || poke
+		return
 
 	case event.EventBackPoke:
-		return false, true // forward poking in response to a back poke!
+		send = true || poke
+		return // forward poking in response to a back poke!
 
 	case event.EventExit:
+		// FIXME: what do we do if we have a pending refresh (poke) and an exit?
 		return true, false
 
 	case event.EventPause:
 		// wait for next event to continue
 		select {
-		case e := <-obj.Events():
+		case e, ok := <-obj.Events():
+			if !ok { // shutdown
+				return true, false
+			}
 			e.ACK()
 			if e.Name == event.EventExit {
 				return true, false

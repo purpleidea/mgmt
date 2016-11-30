@@ -33,6 +33,8 @@ func init() {
 type TimerRes struct {
 	BaseRes  `yaml:",inline"`
 	Interval int `yaml:"interval"` // Interval : Interval between runs
+
+	ticker *time.Ticker
 }
 
 // TimerUID is the UID struct for TimerRes.
@@ -65,6 +67,11 @@ func (obj *TimerRes) Validate() error {
 	return nil
 }
 
+// newTicker creates a new ticker
+func (obj *TimerRes) newTicker() *time.Ticker {
+	return time.NewTicker(time.Duration(obj.Interval) * time.Second)
+}
+
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *TimerRes) Watch(processChan chan event.Event) error {
 	if obj.IsWatching() {
@@ -84,16 +91,16 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
 	}
 
-	// Create a time.Ticker for the given interval
-	ticker := time.NewTicker(time.Duration(obj.Interval) * time.Second)
-	defer ticker.Stop()
+	// create a time.Ticker for the given interval
+	obj.ticker = obj.newTicker()
+	defer obj.ticker.Stop()
 
 	var send = false
 
 	for {
 		obj.SetState(ResStateWatching)
 		select {
-		case <-ticker.C: // received the timer event
+		case <-obj.ticker.C: // received the timer event
 			send = true
 			log.Printf("%s[%s]: received tick", obj.Kind(), obj.GetName())
 
@@ -119,6 +126,22 @@ func (obj *TimerRes) Watch(processChan chan event.Event) error {
 			}
 		}
 	}
+}
+
+// CheckApply method for Timer resource. Triggers a timer reset on notify.
+func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
+	// because there are no checks to run, this resource has a less
+	// traditional pattern than what is seen in most resources...
+	if !obj.Refresh() { // this works for apply || !apply
+		return true, nil // state is always okay if no refresh to do
+	} else if !apply { // we had a refresh to do
+		return false, nil // therefore state is wrong
+	}
+
+	// reset the timer since apply && refresh
+	obj.ticker.Stop()
+	obj.ticker = obj.newTicker()
+	return false, nil
 }
 
 // GetUIDs includes all params to make a unique identification of this object.
@@ -157,9 +180,4 @@ func (obj *TimerRes) Compare(res Res) bool {
 		return false
 	}
 	return true
-}
-
-// CheckApply method for Timer resource. Does nothing, returns happy!
-func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
-	return true, nil // state is always okay
 }

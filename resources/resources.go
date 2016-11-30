@@ -49,6 +49,8 @@ const (
 	ResStatePoking
 )
 
+const refreshPathToken = "refresh"
+
 // Data is the set of input values passed into the pgraph for the resources.
 type Data struct {
 	//Hostname string         // uuid for the host
@@ -133,6 +135,8 @@ type Base interface {
 	DoSend(chan event.Event, string) (bool, error)
 	SendEvent(event.EventName, bool, bool) bool
 	ReadEvent(*event.Event) (bool, bool) // TODO: optional here?
+	Refresh() bool                       // is there a pending refresh to run?
+	SetRefresh(bool)                     // set the refresh state of this resource
 	SendRecv(Res) (bool, error)          // send->recv data passing function
 	IsStateOK() bool
 	StateOK(b bool)
@@ -173,6 +177,8 @@ type BaseRes struct {
 	isStateOK bool  // whether the state is okay based on events or not
 	isGrouped bool  // am i contained within a group?
 	grouped   []Res // list of any grouped resources
+	refresh   bool  // does this resource have a refresh to run?
+	//refreshState StatefulBool // TODO: future stateful bool
 }
 
 // UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
@@ -222,6 +228,12 @@ func (obj *BaseRes) Init() error {
 		return fmt.Errorf("Resource did not set kind!")
 	}
 	obj.events = make(chan event.Event) // unbuffered chan to avoid stale events
+	//dir, err := obj.VarDir("")
+	//if err != nil {
+	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
+	//}
+	// TODO: this StatefulBool implementation could be eventually swappable
+	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
 	return nil
 }
 

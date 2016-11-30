@@ -171,9 +171,6 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 				if exit, send = obj.ReadEvent(&event); exit {
 					return nil // exit
 				}
-				if event.GetActivity() {
-					obj.StateOK(false) // dirty
-				}
 
 			case <-cuid.ConvergedTimer():
 				cuid.SetConverged(true) // converged!
@@ -225,9 +222,6 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 				cuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(&event); exit {
 					return nil // exit
-				}
-				if event.GetActivity() {
-					obj.StateOK(false) // dirty
 				}
 
 			case <-cuid.ConvergedTimer():
@@ -287,9 +281,10 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
 	var stateOK = ((obj.State == "") || (obj.State == "running" && running) || (obj.State == "stopped" && !running))
-	var startupOK = true // XXX: DETECT AND SET
+	var startupOK = true        // XXX: DETECT AND SET
+	var refresh = obj.Refresh() // do we have a pending reload to apply?
 
-	if stateOK && startupOK {
+	if stateOK && startupOK && !refresh {
 		return true, nil // we are in the correct state
 	}
 
@@ -320,11 +315,19 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 		if err != nil {
 			return false, errwrap.Wrapf(err, "Failed to start unit")
 		}
+		if refresh {
+			log.Printf("%s[%s]: Skipping reload, due to pending start", obj.Kind(), obj.GetName())
+		}
+		refresh = false // we did a start, so a reload is not needed
 	} else if obj.State == "stopped" {
 		_, err = conn.StopUnit(svc, "fail", result)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "Failed to stop unit")
 		}
+		if refresh {
+			log.Printf("%s[%s]: Skipping reload, due to pending stop", obj.Kind(), obj.GetName())
+		}
+		refresh = false // we did a stop, so a reload is not needed
 	}
 
 	status := <-result
@@ -333,6 +336,11 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 	}
 	if status != "done" {
 		return false, fmt.Errorf("Unknown systemd return string: %v", status)
+	}
+
+	if refresh { // we need to reload the service
+		// XXX: run a svc reload here!
+		log.Printf("%s[%s]: Reloading...", obj.Kind(), obj.GetName())
 	}
 
 	// XXX: also set enabled on boot

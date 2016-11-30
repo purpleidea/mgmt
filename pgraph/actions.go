@@ -29,6 +29,7 @@ import (
 	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 // GetTimestamp returns the timestamp of a vertex
@@ -45,7 +46,7 @@ func (v *Vertex) UpdateTimestamp() int64 {
 // OKTimestamp returns true if this element can run right now?
 func (g *Graph) OKTimestamp(v *Vertex) bool {
 	// these are all the vertices pointing TO v, eg: ??? -> v
-	for _, n := range g.IncomingGraphEdges(v) {
+	for _, n := range g.IncomingGraphVertices(v) {
 		// if the vertex has a greater timestamp than any pre-req (n)
 		// then we can't run right now...
 		// if they're equal (eg: on init of 0) then we also can't run
@@ -63,29 +64,42 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 
 // Poke notifies nodes after me in the dependency graph that they need refreshing...
 // NOTE: this assumes that this can never fail or need to be rescheduled
-func (g *Graph) Poke(v *Vertex, activity bool) {
+func (g *Graph) Poke(v *Vertex, activity bool) error {
+	var eg errgroup.Group
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
-	for _, n := range g.OutgoingGraphEdges(v) {
+	for _, n := range g.OutgoingGraphVertices(v) {
 		// XXX: if we're in state event and haven't been cancelled by
 		// apply, then we can cancel a poke to a child, right? XXX
-		// XXX: if n.Res.getState() != resources.ResStateEvent { // is this correct?
-		if true { // XXX
+		// XXX: if n.Res.getState() != resources.ResStateEvent || activity { // is this correct?
+		if true || activity { // XXX: ???
 			if global.DEBUG {
 				log.Printf("%s[%s]: Poke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
-			n.SendEvent(event.EventPoke, false, activity) // XXX: can this be switched to sync?
+			//wg.Add(1)
+			eg.Go(func() error {
+				//defer wg.Done()
+				edge := g.Adjacency[v][n] // lookup
+				notify := edge.Notify && edge.Refresh()
+
+				// FIXME: is it okay that this is sync?
+				n.SendEvent(event.EventPoke, true, notify)
+				// TODO: check return value?
+				return nil // never error for now...
+			})
+
 		} else {
 			if global.DEBUG {
 				log.Printf("%s[%s]: Poke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
 	}
+	return eg.Wait() // wait for all the pokes to complete
 }
 
 // BackPoke pokes the pre-requisites that are stale and need to run before I can run.
 func (g *Graph) BackPoke(v *Vertex) {
 	// these are all the vertices pointing TO v, eg: ??? -> v
-	for _, n := range g.IncomingGraphEdges(v) {
+	for _, n := range g.IncomingGraphVertices(v) {
 		x, y, s := v.GetTimestamp(), n.GetTimestamp(), n.Res.GetState()
 		// if the parent timestamp needs poking AND it's not in state
 		// ResStateEvent, then poke it. If the parent is in ResStateEvent it
@@ -97,11 +111,45 @@ func (g *Graph) BackPoke(v *Vertex) {
 			if global.DEBUG {
 				log.Printf("%s[%s]: BackPoke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
-			n.SendEvent(event.EventBackPoke, false, false) // XXX: can this be switched to sync?
+			// FIXME: is it okay that this is sync?
+			n.SendEvent(event.EventBackPoke, true, false)
 		} else {
 			if global.DEBUG {
 				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
+		}
+	}
+}
+
+// RefreshPending determines if any previous nodes have a refresh pending here.
+// If this is true, it means I am expected to apply a refresh when I next run.
+func (g *Graph) RefreshPending(v *Vertex) bool {
+	var refresh bool
+	for _, edge := range g.IncomingGraphEdges(v) {
+		// if we asked for a notify *and* if one is pending!
+		if edge.Notify && edge.Refresh() {
+			refresh = true
+			break
+		}
+	}
+	return refresh
+}
+
+// SetUpstreamRefresh sets the refresh value to any upstream vertices.
+func (g *Graph) SetUpstreamRefresh(v *Vertex, b bool) {
+	for _, edge := range g.IncomingGraphEdges(v) {
+		if edge.Notify {
+			edge.SetRefresh(b)
+		}
+	}
+}
+
+// SetDownstreamRefresh sets the refresh value to any downstream vertices.
+func (g *Graph) SetDownstreamRefresh(v *Vertex, b bool) {
+	for _, edge := range g.OutgoingGraphEdges(v) {
+		// if we asked for a notify *and* if one is pending!
+		if edge.Notify {
+			edge.SetRefresh(b)
 		}
 	}
 }
@@ -114,7 +162,7 @@ func (g *Graph) Process(v *Vertex) error {
 	}
 	obj.SetState(resources.ResStateEvent)
 	var ok = true
-	var apply = false // did we run an apply?
+	var applied = false // did we run an apply?
 	// is it okay to run dependency wise right now?
 	// if not, that's okay because when the dependency runs, it will poke
 	// us back and we will run if needed then!
@@ -132,17 +180,33 @@ func (g *Graph) Process(v *Vertex) error {
 			obj.StateOK(false) // invalidate cache, mark as dirty
 		}
 
-		if global.DEBUG {
-			log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), !obj.Meta().Noop)
-		}
-
+		var noop = obj.Meta().Noop // lookup the noop value
+		var refresh bool
 		var checkOK bool
 		var err error
-		if obj.IsStateOK() { // check cached state, to skip CheckApply
+
+		if global.DEBUG {
+			log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), !noop)
+		}
+
+		// lookup the refresh (notification) variable
+		refresh = g.RefreshPending(v) // do i need to perform a refresh?
+		obj.SetRefresh(refresh)       // tell the resource
+
+		// check cached state, to skip CheckApply; can't skip if refreshing
+		if !refresh && obj.IsStateOK() {
 			checkOK, err = true, nil
+
+			// NOTE: technically this block is wrong because we don't know
+			// if the resource implements refresh! If it doesn't, we could
+			// skip this, but it doesn't make a big difference under noop!
+		} else if noop && refresh { // had a refresh to do w/ noop!
+			checkOK, err = false, nil // therefore the state is wrong
+
+			// run the CheckApply!
 		} else {
 			// if this fails, don't UpdateTimestamp()
-			checkOK, err = obj.CheckApply(!obj.Meta().Noop)
+			checkOK, err = obj.CheckApply(!noop)
 		}
 
 		if checkOK && err != nil { // should never return this way
@@ -153,32 +217,45 @@ func (g *Graph) Process(v *Vertex) error {
 		}
 
 		// if CheckApply ran without noop and without error, state should be good
-		if !obj.Meta().Noop && err == nil { // aka !obj.Meta().Noop || checkOK
-			obj.StateOK(true) // reset
+		if !noop && err == nil { // aka !noop || checkOK
+			obj.StateOK(true)              // reset
+			g.SetUpstreamRefresh(v, false) // refresh happened, clear the request
 		}
 
 		if !checkOK { // if state *was* not ok, we had to have apply'ed
 			if err != nil { // error during check or apply
 				ok = false
 			} else {
-				apply = true
+				applied = true
 			}
 		}
 
 		// when noop is true we always want to update timestamp
-		if obj.Meta().Noop && err == nil {
+		if noop && err == nil {
 			ok = true
 		}
 
 		if ok {
+			// did we actually do work?
+			activity := applied
+			if noop {
+				activity = false // no we didn't do work...
+			}
+
+			if activity { // add refresh flag to downstream edges...
+				g.SetDownstreamRefresh(v, true)
+			}
+
 			// update this timestamp *before* we poke or the poked
 			// nodes might fail due to having a too old timestamp!
 			v.UpdateTimestamp()                    // this was touched...
 			obj.SetState(resources.ResStatePoking) // can't cancel parent poke
-			g.Poke(v, apply)
+			if err := g.Poke(v, activity); err != nil {
+				return errwrap.Wrapf(err, "the Poke() failed")
+			}
 		}
 		// poke at our pre-req's instead since they need to refresh/run...
-		return err
+		return errwrap.Wrapf(err, "could not Process() successfully")
 	}
 	// else... only poke at the pre-req's that need to run
 	go g.BackPoke(v)

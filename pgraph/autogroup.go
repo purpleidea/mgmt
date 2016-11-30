@@ -221,7 +221,7 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 	}
 
 	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
-	for _, x := range g.IncomingGraphEdges(v2) { // all to vertex v (??? -> v)
+	for _, x := range g.IncomingGraphVertices(v2) { // all to vertex v (??? -> v)
 		e := g.Adjacency[x][v2] // previous edge
 		r := g.Reachability(x, v1)
 		// merge e with ex := g.Adjacency[x][v1] if it exists!
@@ -248,7 +248,7 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 	}
 
 	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
-	for _, x := range g.OutgoingGraphEdges(v2) { // all from vertex v (v -> ???)
+	for _, x := range g.OutgoingGraphVertices(v2) { // all from vertex v (v -> ???)
 		e := g.Adjacency[v2][x] // previous edge
 		r := g.Reachability(v1, x)
 		// merge e with ex := g.Adjacency[v1][x] if it exists!

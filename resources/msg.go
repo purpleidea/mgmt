@@ -94,6 +94,46 @@ func (obj *MsgRes) Validate() error {
 	return nil
 }
 
+// isAllStateOK derives a compound state from all internal cache flags that apply to this resource.
+func (obj *MsgRes) isAllStateOK() bool {
+	if obj.Journal && !obj.journalStateOK {
+		return false
+	}
+	if obj.Syslog && !obj.syslogStateOK {
+		return false
+	}
+	return obj.logStateOK
+}
+
+// updateStateOK sets the global state so it can be read by the engine.
+func (obj *MsgRes) updateStateOK() {
+	obj.StateOK(obj.isAllStateOK())
+}
+
+// JournalPriority converts a string description to a numeric priority.
+// XXX: Have Validate() make sure it actually is one of these.
+func (obj *MsgRes) journalPriority() journal.Priority {
+	switch obj.Priority {
+	case "Emerg":
+		return journal.PriEmerg
+	case "Alert":
+		return journal.PriAlert
+	case "Crit":
+		return journal.PriCrit
+	case "Err":
+		return journal.PriErr
+	case "Warning":
+		return journal.PriWarning
+	case "Notice":
+		return journal.PriNotice
+	case "Info":
+		return journal.PriInfo
+	case "Debug":
+		return journal.PriDebug
+	}
+	return journal.PriNotice
+}
+
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *MsgRes) Watch(processChan chan event.Event) error {
 	if obj.IsWatching() {
@@ -125,17 +165,6 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 				return nil // exit
 			}
 
-			// TODO: invalidate cached state on poke events
-			//obj.logStateOK = false
-			//if obj.Journal {
-			//	obj.journalStateOK = false
-			//}
-			//if obj.Syslog {
-			//	obj.syslogStateOK = false
-			//}
-			//obj.updateStateOK()
-			send = true
-
 		case <-cuid.ConvergedTimer():
 			cuid.SetConverged(true) // converged!
 			continue
@@ -156,6 +185,51 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 			}
 		}
 	}
+}
+
+// CheckApply method for Msg resource.
+// Every check leads to an apply, meaning that the message is flushed to the journal.
+func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
+
+	// isStateOK() done by engine, so we updateStateOK() to pass in value
+	//if obj.isAllStateOK() {
+	//	return true, nil
+	//}
+
+	if obj.Refresh() { // if we were notified...
+		// invalidate cached state...
+		obj.logStateOK = false
+		if obj.Journal {
+			obj.journalStateOK = false
+		}
+		if obj.Syslog {
+			obj.syslogStateOK = false
+		}
+		obj.updateStateOK()
+	}
+
+	if !obj.logStateOK {
+		log.Printf("%s[%s]: Body: %s", obj.Kind(), obj.GetName(), obj.Body)
+		obj.logStateOK = true
+		obj.updateStateOK()
+	}
+
+	if !apply {
+		return false, nil
+	}
+	if obj.Journal && !obj.journalStateOK {
+		if err := journal.Send(obj.Body, obj.journalPriority(), obj.Fields); err != nil {
+			return false, err
+		}
+		obj.journalStateOK = true
+		obj.updateStateOK()
+	}
+	if obj.Syslog && !obj.syslogStateOK {
+		// TODO: implement syslog client
+		obj.syslogStateOK = true
+		obj.updateStateOK()
+	}
+	return false, nil
 }
 
 // GetUIDs includes all params to make a unique identification of this object.
@@ -202,77 +276,4 @@ func (obj *MsgRes) Compare(res Res) bool {
 		return false
 	}
 	return true
-}
-
-// isAllStateOK derives a compound state from all internal cache flags that apply to this resource.
-func (obj *MsgRes) isAllStateOK() bool {
-	if obj.Journal && !obj.journalStateOK {
-		return false
-	}
-	if obj.Syslog && !obj.syslogStateOK {
-		return false
-	}
-	return obj.logStateOK
-}
-
-// updateStateOK sets the global state so it can be read by the engine.
-func (obj *MsgRes) updateStateOK() {
-	obj.StateOK(obj.isAllStateOK())
-}
-
-// JournalPriority converts a string description to a numeric priority.
-// XXX: Have Validate() make sure it actually is one of these.
-func (obj *MsgRes) journalPriority() journal.Priority {
-	switch obj.Priority {
-	case "Emerg":
-		return journal.PriEmerg
-	case "Alert":
-		return journal.PriAlert
-	case "Crit":
-		return journal.PriCrit
-	case "Err":
-		return journal.PriErr
-	case "Warning":
-		return journal.PriWarning
-	case "Notice":
-		return journal.PriNotice
-	case "Info":
-		return journal.PriInfo
-	case "Debug":
-		return journal.PriDebug
-	}
-	return journal.PriNotice
-}
-
-// CheckApply method for Msg resource.
-// Every check leads to an apply, meaning that the message is flushed to the journal.
-func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
-
-	// isStateOK() done by engine, so we updateStateOK() to pass in value
-	//if obj.isAllStateOK() {
-	//	return true, nil
-	//}
-
-	if !obj.logStateOK {
-		log.Printf("%s[%s]: Body: %s", obj.Kind(), obj.GetName(), obj.Body)
-		obj.logStateOK = true
-		obj.updateStateOK()
-	}
-
-	if !apply {
-		return false, nil
-	}
-	if obj.Journal && !obj.journalStateOK {
-		if err := journal.Send(obj.Body, obj.journalPriority(), obj.Fields); err != nil {
-			return false, err
-		}
-		obj.journalStateOK = true
-		obj.updateStateOK()
-	}
-	if obj.Syslog && !obj.syslogStateOK {
-		// TODO: implement syslog client
-		obj.syslogStateOK = true
-		obj.updateStateOK()
-	}
-	return false, nil
 }

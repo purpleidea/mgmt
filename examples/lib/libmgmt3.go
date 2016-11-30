@@ -83,7 +83,20 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	v2 := pgraph.NewVertex(f1)
 	g.AddVertex(v2)
 
+	s1 := &resources.SvcRes{
+		BaseRes: resources.BaseRes{
+			Name: "purpleidea",
+		},
+		State: "stopped",
+	}
+
+	v3 := pgraph.NewVertex(s1)
+	g.AddVertex(v3)
+
 	g.AddEdge(v1, v2, pgraph.NewEdge("e1"))
+	e2 := pgraph.NewEdge("e2")
+	e2.Notify = true // send a notification from v2 to v3
+	g.AddEdge(v2, v3, e2)
 
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
 	return g, nil

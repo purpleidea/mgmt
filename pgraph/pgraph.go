@@ -61,7 +61,10 @@ type Vertex struct {
 
 // Edge is the primary edge struct in this library.
 type Edge struct {
-	Name string
+	Name   string
+	Notify bool // should we send a refresh notification along this edge?
+
+	refresh bool // is there a notify pending for the dest vertex ?
 }
 
 // NewGraph builds a new graph.
@@ -85,6 +88,16 @@ func NewEdge(name string) *Edge {
 	return &Edge{
 		Name: name,
 	}
+}
+
+// Refresh returns the pending refresh status of this edge.
+func (obj *Edge) Refresh() bool {
+	return obj.refresh
+}
+
+// SetRefresh sets the pending refresh status of this edge.
+func (obj *Edge) SetRefresh(b bool) {
+	obj.refresh = b
 }
 
 // Copy makes a copy of the graph struct
@@ -249,9 +262,9 @@ func (v *Vertex) String() string {
 	return fmt.Sprintf("%s[%s]", v.Res.Kind(), v.Res.GetName())
 }
 
-// IncomingGraphEdges returns an array (slice) of all directed vertices to
+// IncomingGraphVertices returns an array (slice) of all directed vertices to
 // vertex v (??? -> v). OKTimestamp should probably use this.
-func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
+func (g *Graph) IncomingGraphVertices(v *Vertex) []*Vertex {
 	// TODO: we might be able to implement this differently by reversing
 	// the Adjacency graph and then looping through it again...
 	var s []*Vertex
@@ -265,9 +278,9 @@ func (g *Graph) IncomingGraphEdges(v *Vertex) []*Vertex {
 	return s
 }
 
-// OutgoingGraphEdges returns an array (slice) of all vertices that vertex v
+// OutgoingGraphVertices returns an array (slice) of all vertices that vertex v
 // points to (v -> ???). Poke should probably use this.
-func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Vertex {
+func (g *Graph) OutgoingGraphVertices(v *Vertex) []*Vertex {
 	var s []*Vertex
 	for k := range g.Adjacency[v] { // forward paths
 		s = append(s, k)
@@ -275,13 +288,44 @@ func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Vertex {
 	return s
 }
 
-// GraphEdges returns an array (slice) of all vertices that connect to vertex v.
-// This is the union of IncomingGraphEdges and OutgoingGraphEdges.
-func (g *Graph) GraphEdges(v *Vertex) []*Vertex {
+// GraphVertices returns an array (slice) of all vertices that connect to vertex v.
+// This is the union of IncomingGraphVertices and OutgoingGraphVertices.
+func (g *Graph) GraphVertices(v *Vertex) []*Vertex {
 	var s []*Vertex
-	s = append(s, g.IncomingGraphEdges(v)...)
-	s = append(s, g.OutgoingGraphEdges(v)...)
+	s = append(s, g.IncomingGraphVertices(v)...)
+	s = append(s, g.OutgoingGraphVertices(v)...)
 	return s
+}
+
+// IncomingGraphEdges returns all of the edges that point to vertex v (??? -> v).
+func (g *Graph) IncomingGraphEdges(v *Vertex) []*Edge {
+	var edges []*Edge
+	for v1 := range g.Adjacency { // reverse paths
+		for v2, e := range g.Adjacency[v1] {
+			if v2 == v {
+				edges = append(edges, e)
+			}
+		}
+	}
+	return edges
+}
+
+// OutgoingGraphEdges returns all of the edges that point from vertex v (v -> ???).
+func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Edge {
+	var edges []*Edge
+	for _, e := range g.Adjacency[v] { // forward paths
+		edges = append(edges, e)
+	}
+	return edges
+}
+
+// GraphEdges returns an array (slice) of all edges that connect to vertex v.
+// This is the union of IncomingGraphEdges and OutgoingGraphEdges.
+func (g *Graph) GraphEdges(v *Vertex) []*Edge {
+	var edges []*Edge
+	edges = append(edges, g.IncomingGraphEdges(v)...)
+	edges = append(edges, g.OutgoingGraphEdges(v)...)
+	return edges
 }
 
 // DFS returns a depth first search for the graph, starting at the input vertex.
@@ -299,7 +343,7 @@ func (g *Graph) DFS(start *Vertex) []*Vertex {
 		if !VertexContains(v, d) { // if not discovered
 			d = append(d, v) // label as discovered
 
-			for _, w := range g.GraphEdges(v) {
+			for _, w := range g.GraphVertices(v) {
 				s = append(s, w)
 			}
 		}
@@ -446,7 +490,7 @@ func (g *Graph) Reachability(a, b *Vertex) []*Vertex {
 	if a == nil || b == nil {
 		return nil
 	}
-	vertices := g.OutgoingGraphEdges(a) // what points away from a ?
+	vertices := g.OutgoingGraphVertices(a) // what points away from a ?
 	if len(vertices) == 0 {
 		return []*Vertex{} // nope
 	}

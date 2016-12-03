@@ -118,9 +118,9 @@ type Send struct {
 // SendRecv pulls in the sent values into the receive slots. It is called by the
 // receiver and must be given as input the full resource struct to receive on.
 func (obj *BaseRes) SendRecv(res Res) (bool, error) {
-	log.Printf("%s[%s]: SendRecv...", obj.Kind(), obj.GetName())
 	if global.DEBUG {
-		log.Printf("%s[%s]: SendRecv: Debug: %+v", obj.Kind(), obj.GetName(), obj.Recv)
+		// NOTE: this could expose private resource data like passwords
+		log.Printf("%s[%s]: SendRecv: %+v", obj.Kind(), obj.GetName(), obj.Recv)
 	}
 	var changed bool // did we update a value?
 	var err error

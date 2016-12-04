@@ -96,6 +96,16 @@ func run(c *cli.Context) error {
 	obj.NoCaching = c.Bool("no-caching")
 	obj.Depth = uint16(c.Int("depth"))
 
+	obj.NoPgp = c.Bool("no-pgp")
+
+	if kp := c.String("pgp-key-path"); c.IsSet("pgp-key-path") {
+		obj.PgpKeyPath = &kp
+	}
+
+	if us := c.String("pgp-identity"); c.IsSet("pgp-identity") {
+		obj.PgpIdentity = &us
+	}
+
 	if err := obj.Init(); err != nil {
 		return err
 	}
@@ -287,6 +297,20 @@ func CLI(program, version string) error {
 					Hidden: true, // internal use only
 					Value:  0,
 					Usage:  "specify depth in remote hierarchy",
+				},
+				cli.BoolFlag{
+					Name:  "no-pgp",
+					Usage: "don't create pgp keys",
+				},
+				cli.StringFlag{
+					Name:  "pgp-key-path",
+					Value: "",
+					Usage: "path for instance key pair",
+				},
+				cli.StringFlag{
+					Name:  "pgp-identity",
+					Value: "",
+					Usage: "default identity used for generation",
 				},
 			},
 		},

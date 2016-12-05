@@ -65,7 +65,7 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 		poke = true        // poke!
 		// XXX: this should be elsewhere in case Watch isn't used (eg: Polling instead...)
 		// XXX: unless this is used in our "fallback" polling implementation???
-		obj.SetRefresh(true)
+		//obj.SetRefresh(true) // TODO: is this redundant?
 	}
 
 	switch ev.Name {

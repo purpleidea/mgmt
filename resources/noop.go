@@ -19,6 +19,7 @@ package resources
 
 import (
 	"encoding/gob"
+	"log"
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
@@ -110,6 +111,9 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 
 // CheckApply method for Noop resource. Does nothing, returns happy!
 func (obj *NoopRes) CheckApply(apply bool) (checkOK bool, err error) {
+	if obj.Refresh() {
+		log.Printf("%s[%s]: Received a notification!", obj.Kind(), obj.GetName())
+	}
 	return true, nil // state is always okay
 }
 

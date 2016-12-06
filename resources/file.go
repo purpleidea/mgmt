@@ -640,6 +640,18 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 // input is true. It returns error info and if the state check passed or not.
 func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
 
+	// NOTE: all send/recv change notifications *must* be processed before
+	// there is a possibility of failure in CheckApply. This is because if
+	// we fail (and possibly run again) the subsequent send->recv transfer
+	// might not have a new value to copy, and therefore we won't see this
+	// notification of change. Therefore, it is important to process these
+	// promptly, if they must not be lost, such as for cache invalidation.
+	if val, exists := obj.Recv["Content"]; exists && val.Changed {
+		// if we received on Content, and it changed, invalidate the cache!
+		log.Printf("contentCheckApply: Invalidating sha256sum of `Content`")
+		obj.sha256sum = "" // invalidate!!
+	}
+
 	checkOK = true
 
 	if c, err := obj.contentCheckApply(apply); err != nil {

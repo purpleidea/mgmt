@@ -174,9 +174,9 @@ func (g *Graph) Process(v *Vertex) error {
 		obj.SetState(resources.ResStateCheckApply)
 
 		// connect any senders to receivers and detect if values changed
-		if changed, err := obj.SendRecv(obj); err != nil {
+		if updated, err := obj.SendRecv(obj); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv in Process")
-		} else if changed {
+		} else if len(updated) > 0 {
 			obj.StateOK(false) // invalidate cache, mark as dirty
 		}
 

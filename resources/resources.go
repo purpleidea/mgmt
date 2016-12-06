@@ -134,10 +134,10 @@ type Base interface {
 	SetState(ResState)
 	DoSend(chan event.Event, string) (bool, error)
 	SendEvent(event.EventName, bool, bool) bool
-	ReadEvent(*event.Event) (bool, bool) // TODO: optional here?
-	Refresh() bool                       // is there a pending refresh to run?
-	SetRefresh(bool)                     // set the refresh state of this resource
-	SendRecv(Res) (bool, error)          // send->recv data passing function
+	ReadEvent(*event.Event) (bool, bool)   // TODO: optional here?
+	Refresh() bool                         // is there a pending refresh to run?
+	SetRefresh(bool)                       // set the refresh state of this resource
+	SendRecv(Res) (map[string]bool, error) // send->recv data passing function
 	IsStateOK() bool
 	StateOK(b bool)
 	GroupCmp(Res) bool  // TODO: is there a better name for this?
@@ -164,9 +164,9 @@ type Res interface {
 
 // BaseRes is the base struct that gets used in every resource.
 type BaseRes struct {
-	Name       string          `yaml:"name"`
-	MetaParams MetaParams      `yaml:"meta"` // struct of all the metaparams
-	Recv       map[string]Send // mapping of key to receive on from value
+	Name       string           `yaml:"name"`
+	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
+	Recv       map[string]*Send // mapping of key to receive on from value
 
 	kind      string
 	events    chan event.Event

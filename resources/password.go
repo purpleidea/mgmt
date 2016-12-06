@@ -21,6 +21,8 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math/big"
 	"os"
 	"path"
@@ -28,6 +30,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/recwatch"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -45,10 +48,13 @@ const (
 type PasswordRes struct {
 	BaseRes `yaml:",inline"`
 	// FIXME: is uint16 too big?
-	Length   uint16  `yaml:"length"` // number of characters to return
-	Password *string // the generated password
+	Length        uint16  `yaml:"length"` // number of characters to return
+	Saved         bool    // this caches the password in the clear locally
+	CheckRecovery bool    // recovery from integrity checks by re-generating
+	Password      *string // the generated password, read only, do not set!
 
-	path string // the path to local storage
+	path       string // the path to local storage
+	recWatcher *recwatch.RecWatcher
 }
 
 // NewPasswordRes is a constructor for this resource. It also calls Init() for you.
@@ -62,14 +68,34 @@ func NewPasswordRes(name string, length uint16) (*PasswordRes, error) {
 	return obj, obj.Init()
 }
 
+// Init generates a new password for this resource if one was not provided. It
+// will save this into a local file. It will load it back in from previous runs.
+func (obj *PasswordRes) Init() error {
+	obj.BaseRes.kind = "Password" // must be set before using VarDir
+
+	dir, err := obj.VarDir("")
+	if err != nil {
+		return errwrap.Wrapf(err, "could not get VarDir in Init()")
+	}
+	obj.path = path.Join(dir, "password") // return a unique file
+
+	return obj.BaseRes.Init() // call base init, b/c we're overriding
+}
+
+// Validate if the params passed in are valid data.
+// FIXME: where should this get called ?
+func (obj *PasswordRes) Validate() error {
+	return nil
+}
+
 func (obj *PasswordRes) read() (string, error) {
 	file, err := os.Open(obj.path) // open a handle to read the file
 	if err != nil {
-		return "", errwrap.Wrapf(err, "could not read password")
+		return "", err
 	}
 	defer file.Close()
-	data := make([]byte, obj.Length+uint16(len(newline))) // data + newline
-	if _, err := file.Read(data); err != nil {
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
 		return "", errwrap.Wrapf(err, "could not read from file")
 	}
 	return strings.TrimSpace(string(data)), nil
@@ -81,7 +107,11 @@ func (obj *PasswordRes) write(password string) (int, error) {
 		return -1, errwrap.Wrapf(err, "can't create file")
 	}
 	defer file.Close()
-	return file.Write([]byte(password + newline))
+	var c int
+	if c, err = file.Write([]byte(password + newline)); err != nil {
+		return c, errwrap.Wrapf(err, "can't write file")
+	}
+	return c, file.Sync()
 }
 
 // generate generates a new password.
@@ -113,6 +143,14 @@ func (obj *PasswordRes) generate() (string, error) {
 // check validates a stored password string
 func (obj *PasswordRes) check(value string) error {
 	length := uint16(len(value))
+
+	if !obj.Saved && length == 0 { // expecting an empty string
+		return nil
+	}
+	if !obj.Saved && length != 0 { // should have no stored password
+		return fmt.Errorf("Expected empty token only!")
+	}
+
 	if length != obj.Length {
 		return fmt.Errorf("String length is not %d", obj.Length)
 	}
@@ -126,71 +164,6 @@ Loop:
 		// we couldn't find that character, so error!
 		return fmt.Errorf("Invalid character `%s`", string(value[i]))
 	}
-	return nil
-}
-
-// Init generates a new password for this resource if one was not provided. It
-// will save this into a local file. It will load it back in from previous runs.
-func (obj *PasswordRes) Init() error {
-	// XXX: eventually store a hash instead of the plain text! we might want
-	// to generate a new value on fresh run if the downstream resource needs
-	// an update (triggers a backpoke?) this is a POC for send/recv for now.
-	obj.BaseRes.kind = "Password" // must be set before using VarDir
-
-	dir, err := obj.VarDir("")
-	if err != nil {
-		return errwrap.Wrapf(err, "could not get VarDir in Init()")
-	}
-
-	obj.path = path.Join(dir, "password") // return a unique file
-	password := ""
-	if _, err := os.Stat(obj.path); err != nil { // probably doesn't exist
-		if !os.IsNotExist(err) {
-			return errwrap.Wrapf(err, "unknown stat error")
-		}
-
-		// generate password and store it in the file
-		if obj.Password != nil {
-			password = *obj.Password // reuse what we've got
-		} else {
-			var err error
-			if password, err = obj.generate(); err != nil { // generate one!
-				return errwrap.Wrapf(err, "could not init password")
-			}
-		}
-
-		// store it to disk
-		if _, err := obj.write(password); err != nil {
-			return errwrap.Wrapf(err, "can't write to file")
-		}
-
-	} else { // must exist already!
-
-		password, err := obj.read()
-		if err != nil {
-			return errwrap.Wrapf(err, "could not read password")
-		}
-		if err := obj.check(password); err != nil {
-			return errwrap.Wrapf(err, "check failed")
-		}
-
-		if p := obj.Password; p != nil && *p != password {
-			// stored password isn't consistent with memory
-			if _, err := obj.write(*p); err != nil {
-				return errwrap.Wrapf(err, "consistency overwrite failed")
-			}
-			password = *p // use the copy from the resource
-		}
-	}
-
-	obj.Password = &password // save in memory
-
-	return obj.BaseRes.Init() // call base init, b/c we're overriding
-}
-
-// Validate if the params passed in are valid data.
-// FIXME: where should this get called ?
-func (obj *PasswordRes) Validate() error {
 	return nil
 }
 
@@ -213,11 +186,30 @@ func (obj *PasswordRes) Watch(processChan chan event.Event) error {
 		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
 	}
 
+	var err error
+	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, false)
+	if err != nil {
+		return err
+	}
+	defer obj.recWatcher.Close()
+
 	var send = false // send event?
 	var exit = false
 	for {
 		obj.SetState(ResStateWatching) // reset
 		select {
+		// NOTE: this part is very similar to the file resource code
+		case event, ok := <-obj.recWatcher.Events():
+			if !ok { // channel shutdown
+				return nil
+			}
+			cuid.SetConverged(false)
+			if err := event.Error; err != nil {
+				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+			}
+			send = true
+			obj.StateOK(false) // dirty
+
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			// we avoid sending events on unpause
@@ -247,7 +239,83 @@ func (obj *PasswordRes) Watch(processChan chan event.Event) error {
 
 // CheckApply method for Password resource. Does nothing, returns happy!
 func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
-	return true, nil
+
+	var refresh = obj.Refresh() // do we have a pending reload to apply?
+	var exists = true           // does the file (aka the token) exist?
+	var generate bool           // do we need to generate a new password?
+	var write bool              // do we need to write out to disk?
+
+	password, err := obj.read() // password might be empty if just a token
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, errwrap.Wrapf(err, "unknown read error")
+		}
+		exists = false
+	}
+
+	if exists {
+		if err := obj.check(password); err != nil {
+			if !obj.CheckRecovery {
+				return false, errwrap.Wrapf(err, "check failed")
+			}
+			log.Printf("%s[%s]: Integrity check failed", obj.Kind(), obj.GetName())
+			generate = true // okay to build a new one
+			write = true    // make sure to write over the old one
+		}
+	} else { // doesn't exist, write one
+		write = true
+	}
+
+	// if we previously had !obj.Saved, and now we want it, we re-generate!
+	if refresh || !exists || (obj.Saved && password == "") {
+		generate = true
+	}
+
+	// stored password isn't consistent with memory
+	if p := obj.Password; obj.Saved && (p != nil && *p != password) {
+		write = true
+	}
+
+	if !refresh && exists && !generate && !write { // nothing to do, done!
+		return true, nil
+	}
+	// a refresh was requested, the token doesn't exist, or the check failed
+
+	if !apply {
+		return false, nil
+	}
+
+	if generate {
+		// we'll need to write this out...
+		if obj.Saved || (!obj.Saved && password != "") {
+			write = true
+		}
+		// generate the actual password
+		var err error
+		log.Printf("%s[%s]: Generating new password...", obj.Kind(), obj.GetName())
+		if password, err = obj.generate(); err != nil { // generate one!
+			return false, errwrap.Wrapf(err, "could not generate password")
+		}
+	}
+
+	obj.Password = &password // save in memory
+
+	var output string // the string to write out
+
+	// if memory value != value on disk, save it
+	if write {
+		if obj.Saved { // save password as clear text
+			// TODO: would it make sense to encrypt this password?
+			output = password
+		}
+		// write either an empty token, or the password
+		log.Printf("%s[%s]: Writing password token...", obj.Kind(), obj.GetName())
+		if _, err := obj.write(output); err != nil {
+			return false, errwrap.Wrapf(err, "can't write to file")
+		}
+	}
+
+	return false, nil
 }
 
 // PasswordUID is the UID struct for PasswordRes.
@@ -275,13 +343,11 @@ func (obj *PasswordRes) GetUIDs() []ResUID {
 func (obj *PasswordRes) GroupCmp(r Res) bool {
 	_, ok := r.(*PasswordRes)
 	if !ok {
-		// NOTE: technically we could group a noop into any other
-		// resource, if that resource knew how to handle it, although,
-		// since the mechanics of inter-kind resource grouping are
-		// tricky, avoid doing this until there's a good reason.
 		return false
 	}
-	return true // noop resources can always be grouped together!
+	return false // TODO: this is doable, but probably not very useful
+	// TODO: it could be useful to group our tokens into a single write, and
+	// as a result, we save inotify watches too!
 }
 
 // Compare two resources and return if they are equivalent.
@@ -295,6 +361,17 @@ func (obj *PasswordRes) Compare(res Res) bool {
 		}
 
 		if obj.Name != res.Name {
+			return false
+		}
+		if obj.Length != res.Length {
+			return false
+		}
+		// TODO: we *could* optimize by allowing CheckApply to move from
+		// saved->!saved, by removing the file, but not likely worth it!
+		if obj.Saved != res.Saved {
+			return false
+		}
+		if obj.CheckRecovery != res.CheckRecovery {
 			return false
 		}
 	default:

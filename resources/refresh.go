@@ -19,6 +19,7 @@ package resources
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -68,12 +69,11 @@ func (obj *DiskBool) Get() (bool, error) {
 		return false, errwrap.Wrapf(err, "could not read token")
 	}
 	defer file.Close()
-	str := obj.str()
-	data := make([]byte, len(str)) // data + newline
-	if _, err := file.Read(data); err != nil {
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
 		return false, errwrap.Wrapf(err, "could not read from file")
 	}
-	return strings.TrimSpace(string(data)) == strings.TrimSpace(str), nil
+	return strings.TrimSpace(string(data)) == strings.TrimSpace(obj.str()), nil
 }
 
 // Set stores the true boolean value, if no error setting the value occurs.

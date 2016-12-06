@@ -306,7 +306,8 @@ The nspawn resource is used to manage systemd-machined style containers.
 
 ###Password
 
-The password resource can generate a random string to be used as a password.
+The password resource can generate a random string to be used as a password. It
+will re-generate the password if it receives a refresh notification.
 
 ###Pkg
 

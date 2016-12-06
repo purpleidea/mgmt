@@ -113,20 +113,22 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 type Send struct {
 	Res Res    // a handle to the resource which is sending a value
 	Key string // the key in the resource that we're sending
+
+	Changed bool // set to true if this key was updated, read only!
 }
 
 // SendRecv pulls in the sent values into the receive slots. It is called by the
 // receiver and must be given as input the full resource struct to receive on.
-func (obj *BaseRes) SendRecv(res Res) (bool, error) {
+func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 	if global.DEBUG {
 		// NOTE: this could expose private resource data like passwords
 		log.Printf("%s[%s]: SendRecv: %+v", obj.Kind(), obj.GetName(), obj.Recv)
 	}
-	var changed bool // did we update a value?
+	var updated = make(map[string]bool) // list of updated keys
 	var err error
 	for k, v := range obj.Recv {
-		log.Printf("SendRecv: %s[%s].%s <- %s[%s].%s", obj.Kind(), obj.GetName(), k, v.Res.Kind(), v.Res.GetName(), v.Key)
-
+		updated[k] = false // default
+		v.Changed = false  // reset to the default
 		// send
 		obj1 := reflect.Indirect(reflect.ValueOf(v.Res))
 		type1 := obj1.Type()
@@ -177,10 +179,12 @@ func (obj *BaseRes) SendRecv(res Res) (bool, error) {
 		if !reflect.DeepEqual(value1.Interface(), value2.Interface()) {
 			// TODO: can we catch the panics here in case they happen?
 			value2.Set(value1) // do it for all types that match
-			changed = true
+			updated[k] = true  // we updated this key!
+			v.Changed = true   // tag this key as updated!
+			log.Printf("SendRecv: %s[%s].%s <- %s[%s].%s", obj.Kind(), obj.GetName(), k, v.Res.Kind(), v.Res.GetName(), v.Key)
 		}
 	}
-	return changed, err
+	return updated, err
 }
 
 // TypeCmp compares two reflect values to see if they are the same Kind. It can

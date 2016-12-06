@@ -58,11 +58,25 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	g := pgraph.NewGraph(obj.Name)
 
+	content := "Delete me to trigger a notification!\n"
+	f0 := &resources.FileRes{
+		BaseRes: resources.BaseRes{
+			Name: "README",
+		},
+		Path:    "/tmp/mgmt/README",
+		Content: &content,
+		State:   "present",
+	}
+
+	v0 := pgraph.NewVertex(f0)
+	g.AddVertex(v0)
+
 	p1 := &resources.PasswordRes{
 		BaseRes: resources.BaseRes{
 			Name: "password1",
 		},
-		Length: 8, // generated string will have this many characters
+		Length: 8,    // generated string will have this many characters
+		Saved:  true, // this causes passwords to be stored in plain text!
 	}
 	v1 := pgraph.NewVertex(p1)
 	g.AddVertex(v1)
@@ -71,11 +85,11 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		BaseRes: resources.BaseRes{
 			Name: "file1",
 			// send->recv!
-			Recv: map[string]resources.Send{
-				"Content": resources.Send{Res: p1, Key: "Password"},
+			Recv: map[string]*resources.Send{
+				"Content": &resources.Send{Res: p1, Key: "Password"},
 			},
 		},
-		Path: "/tmp/mgmt/f1",
+		Path: "/tmp/mgmt/secret",
 		//Content:  p1.Password, // won't work
 		State: "present",
 	}
@@ -83,17 +97,21 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	v2 := pgraph.NewVertex(f1)
 	g.AddVertex(v2)
 
-	s1 := &resources.SvcRes{
+	n1 := &resources.NoopRes{
 		BaseRes: resources.BaseRes{
-			Name: "purpleidea",
+			Name: "noop1",
 		},
-		State: "stopped",
 	}
 
-	v3 := pgraph.NewVertex(s1)
+	v3 := pgraph.NewVertex(n1)
 	g.AddVertex(v3)
 
+	e0 := pgraph.NewEdge("e0")
+	e0.Notify = true // send a notification from v0 to v1
+	g.AddEdge(v0, v1, e0)
+
 	g.AddEdge(v1, v2, pgraph.NewEdge("e1"))
+
 	e2 := pgraph.NewEdge("e2")
 	e2.Notify = true // send a notification from v2 to v3
 	g.AddEdge(v2, v3, e2)
@@ -150,7 +168,9 @@ func Run() error {
 	obj := &mgmt.Main{}
 	obj.Program = "libmgmt" // TODO: set on compilation
 	obj.Version = "0.0.1"   // TODO: set on compilation
-	obj.TmpPrefix = true
+	obj.TmpPrefix = true    // disable for easy debugging
+	//prefix := "/tmp/testprefix/"
+	//obj.Prefix = &p // enable for easy debugging
 	obj.IdealClusterSize = -1
 	obj.ConvergedTimeout = -1
 	obj.Noop = false // FIXME: careful!

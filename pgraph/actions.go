@@ -177,7 +177,12 @@ func (g *Graph) Process(v *Vertex) error {
 		if updated, err := obj.SendRecv(obj); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv in Process")
 		} else if len(updated) > 0 {
-			obj.StateOK(false) // invalidate cache, mark as dirty
+			for _, changed := range updated {
+				if changed { // at least one was updated
+					obj.StateOK(false) // invalidate cache, mark as dirty
+					break
+				}
+			}
 		}
 
 		var noop = obj.Meta().Noop // lookup the noop value

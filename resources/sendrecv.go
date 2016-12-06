@@ -148,7 +148,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 
 		// i think we probably want the same kind, at least for now...
 		if kind1 != kind2 {
-			e := fmt.Errorf("Kind mismatch between %s[%s]: %s and %s[%s]: %s", obj.Kind(), obj.GetName(), kind2, v.Res.Kind(), v.Res.GetName(), kind1)
+			e := fmt.Errorf("Kind mismatch between %s[%s]: %s and %s[%s]: %s", v.Res.Kind(), v.Res.GetName(), kind1, obj.Kind(), obj.GetName(), kind2)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
@@ -156,7 +156,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 		// if the types don't match, we can't use send->recv
 		// TODO: do we want to relax this for string -> *string ?
 		if e := TypeCmp(value1, value2); e != nil {
-			e := errwrap.Wrapf(e, "Type mismatch between %s[%s] and %s[%s]", obj.Kind(), obj.GetName(), v.Res.Kind(), v.Res.GetName())
+			e := errwrap.Wrapf(e, "Type mismatch between %s[%s] and %s[%s]", v.Res.Kind(), v.Res.GetName(), obj.Kind(), obj.GetName())
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
@@ -181,7 +181,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 			value2.Set(value1) // do it for all types that match
 			updated[k] = true  // we updated this key!
 			v.Changed = true   // tag this key as updated!
-			log.Printf("SendRecv: %s[%s].%s <- %s[%s].%s", obj.Kind(), obj.GetName(), k, v.Res.Kind(), v.Res.GetName(), v.Key)
+			log.Printf("SendRecv: %s[%s].%s -> %s[%s].%s", v.Res.Kind(), v.Res.GetName(), v.Key, obj.Kind(), obj.GetName(), k)
 		}
 	}
 	return updated, err

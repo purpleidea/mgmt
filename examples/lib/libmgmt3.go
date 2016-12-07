@@ -116,7 +116,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	e2.Notify = true // send a notification from v2 to v3
 	g.AddEdge(v2, v3, e2)
 
-	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
+	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, nil
 }
 

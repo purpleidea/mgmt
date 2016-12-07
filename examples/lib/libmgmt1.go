@@ -81,7 +81,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		Comment: "comment!",
 	}
 
-	g, err := gc.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
+	g, err := gc.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, err
 }
 

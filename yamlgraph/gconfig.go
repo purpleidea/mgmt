@@ -26,7 +26,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/purpleidea/mgmt/etcd"
+	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
@@ -92,7 +92,7 @@ func (c *GraphConfig) Parse(data []byte) error {
 
 // NewGraphFromConfig transforms a GraphConfig struct into a new graph.
 // FIXME: remove any possibly left over, now obsolete graph diff code from here!
-func (c *GraphConfig) NewGraphFromConfig(hostname string, embdEtcd *etcd.EmbdEtcd, noop bool) (*pgraph.Graph, error) {
+func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop bool) (*pgraph.Graph, error) {
 	// hostname is the uuid for the host
 
 	var graph *pgraph.Graph          // new graph to return
@@ -145,19 +145,19 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, embdEtcd *etcd.EmbdEtc
 				keep = append(keep, v)          // append
 
 			} else if !noop { // do not export any resources if noop
-				// store for addition to etcd storage...
+				// store for addition to backend storage...
 				res.SetName(res.GetName()[2:]) //slice off @@
 				res.SetKind(kind)              // cheap init
 				resourceList = append(resourceList, res)
 			}
 		}
 	}
-	// store in etcd
-	if err := etcd.EtcdSetResources(embdEtcd, hostname, resourceList); err != nil {
+	// store in backend (usually etcd)
+	if err := world.ResExport(resourceList); err != nil {
 		return nil, fmt.Errorf("Config: Could not export resources: %v", err)
 	}
 
-	// lookup from etcd
+	// lookup from backend (usually etcd)
 	var hostnameFilter []string // empty to get from everyone
 	kindFilter := []string{}
 	for _, t := range c.Collector {
@@ -165,11 +165,11 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, embdEtcd *etcd.EmbdEtc
 		kind := util.FirstToUpper(t.Kind)
 		kindFilter = append(kindFilter, kind)
 	}
-	// do all the graph look ups in one single step, so that if the etcd
+	// do all the graph look ups in one single step, so that if the backend
 	// database changes, we don't have a partial state of affairs...
 	if len(kindFilter) > 0 { // if kindFilter is empty, don't need to do lookups!
 		var err error
-		resourceList, err = etcd.EtcdGetResources(embdEtcd, hostnameFilter, kindFilter)
+		resourceList, err = world.ResCollect(hostnameFilter, kindFilter)
 		if err != nil {
 			return nil, fmt.Errorf("Config: Could not collect resources: %v", err)
 		}
@@ -180,7 +180,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, embdEtcd *etcd.EmbdEtc
 		for _, t := range c.Collector {
 			// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
 			kind := util.FirstToUpper(t.Kind)
-			// use t.Kind and optionally t.Pattern to collect from etcd storage
+			// use t.Kind and optionally t.Pattern to collect from storage
 			log.Printf("Collect: %v; Pattern: %v", kind, t.Pattern)
 
 			// XXX: expand to more complex pattern matching here...

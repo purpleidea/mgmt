@@ -74,7 +74,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		vertex = v // save
 	}
 
-	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
+	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, nil
 }
 

@@ -19,14 +19,23 @@
 package gapi
 
 import (
-	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/resources"
 )
+
+// World is an interface to the rest of the different graph state. It allows
+// the GAPI to store state and exchange information throughout the cluster. It
+// is the interface each machine uses to communicate with the rest of the world.
+type World interface { // TODO: is there a better name for this interface?
+	ResExport([]resources.Res) error
+	// FIXME: should this method take a "filter" data struct instead of many args?
+	ResCollect(hostnameFilter, kindFilter []string) ([]resources.Res, error)
+}
 
 // Data is the set of input values passed into the GAPI structs via Init.
 type Data struct {
 	Hostname string // uuid for the host, required for GAPI
-	EmbdEtcd *etcd.EmbdEtcd
+	World    World
 	Noop     bool
 	NoWatch  bool
 	// NOTE: we can add more fields here if needed by GAPI endpoints

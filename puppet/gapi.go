@@ -70,7 +70,7 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 	if config == nil {
 		return nil, fmt.Errorf("Puppet: ParseConfigFromPuppet returned nil!")
 	}
-	g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
+	g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, err
 }
 

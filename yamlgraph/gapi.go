@@ -70,7 +70,7 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("yamlgraph: ParseConfigFromFile returned nil")
 	}
 
-	g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.EmbdEtcd, obj.data.Noop)
+	g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, err
 }
 

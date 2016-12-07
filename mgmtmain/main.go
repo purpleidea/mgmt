@@ -324,9 +324,13 @@ func (obj *Main) Run() error {
 	if obj.GAPI != nil {
 		data := gapi.Data{
 			Hostname: hostname,
-			EmbdEtcd: EmbdEtcd,
-			Noop:     obj.Noop,
-			NoWatch:  obj.NoWatch,
+			// NOTE: alternate implementations can be substituted in
+			World: &etcd.World{
+				Hostname: hostname,
+				EmbdEtcd: EmbdEtcd,
+			},
+			Noop:    obj.Noop,
+			NoWatch: obj.NoWatch,
 		}
 		if err := obj.GAPI.Init(data); err != nil {
 			obj.Exit(fmt.Errorf("Main: GAPI: Init failed: %v", err))

@@ -4,7 +4,7 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/purpleidea/mgmt)](https://goreportcard.com/report/github.com/purpleidea/mgmt)
 [![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png?branch=master)](http://travis-ci.org/purpleidea/mgmt)
-[![Documentation](https://img.shields.io/docs/markdown.png)](DOCUMENTATION.md)
+[![Documentation](https://img.shields.io/docs/markdown.png)](docs/documentation.md)
 [![GoDoc](https://godoc.org/github.com/purpleidea/mgmt?status.svg)](https://godoc.org/github.com/purpleidea/mgmt)
 [![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
 [![Jenkins](https://img.shields.io/jenkins/status.png)](https://ci.centos.org/job/purpleidea-mgmt/)
@@ -23,7 +23,7 @@ With your help you'll be able to influence our design and get us there sooner!
 
 ## Questions:
 Please join the [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) IRC community!
-If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!
+If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!
 
 ## Quick start:
 * Make sure you have golang version 1.6 or greater installed.
@@ -49,7 +49,7 @@ cd $GOPATH/src/github.com/purpleidea/mgmt
 Please look in the [examples/](examples/) folder for more examples!
 
 ## Documentation:
-Please see: the manually created [DOCUMENTATION.md](DOCUMENTATION.md) (also available as [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md)) and the automatically generated [GoDoc documentation](https://godoc.org/github.com/purpleidea/mgmt).
+Please see: the manually created [documentation.md](docs/documentation.md) (also available as [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md)) and the automatically generated [GoDoc documentation](https://godoc.org/github.com/purpleidea/mgmt).
 
 ## Roadmap:
 Please see: [TODO.md](TODO.md) for a list of upcoming work and TODO items.

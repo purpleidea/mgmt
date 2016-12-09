@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ####Available from:
 ####[https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
 
-####This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md) format.
+####This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) format.
 
 ####Table of Contents
 

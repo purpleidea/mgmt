@@ -14,7 +14,7 @@ This document goes into detail on how this works, and lists
 some pitfalls and limitations.
 
 For basic instructions on how to use the Puppet support, see
-the [main documentation](DOCUMENTATION.md#puppet-support).
+the [main documentation](documentation.md#puppet-support).
 
 ##Prerequisites
 

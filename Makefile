@@ -138,8 +138,8 @@ format: gofmt yamlfmt
 
 docs: $(PROGRAM)-documentation.pdf
 
-$(PROGRAM)-documentation.pdf: DOCUMENTATION.md
-	pandoc DOCUMENTATION.md -o '$(PROGRAM)-documentation.pdf'
+$(PROGRAM)-documentation.pdf: docs/documentation.md
+	pandoc docs/documentation.md -o docs/'$(PROGRAM)-documentation.pdf'
 
 #
 #	build aliases

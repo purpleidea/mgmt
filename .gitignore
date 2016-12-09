@@ -2,7 +2,6 @@
 .omv/
 .ssh/
 .vagrant/
-mgmt-documentation.pdf
 old/
 tmp/
 *_stringer.go

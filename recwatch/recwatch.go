@@ -29,7 +29,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
 	"github.com/purpleidea/mgmt/util"
 
 	"gopkg.in/fsnotify.v1"
@@ -46,6 +45,7 @@ type Event struct {
 type RecWatcher struct {
 	Path     string // computed path
 	Recurse  bool   // should we watch recursively?
+	Flags    Flags
 	isDir    bool   // computed isDir
 	safename string // safe path
 	watcher  *fsnotify.Watcher
@@ -150,12 +150,12 @@ func (obj *RecWatcher) Watch() error {
 		if current == "" { // the empty string top is the root dir ("/")
 			current = "/"
 		}
-		if global.DEBUG {
+		if obj.Flags.Debug {
 			log.Printf("Watching: %s", current) // attempting to watch...
 		}
 		// initialize in the loop so that we can reset on rm-ed handles
 		if err := obj.watcher.Add(current); err != nil {
-			if global.DEBUG {
+			if obj.Flags.Debug {
 				log.Printf("watcher.Add(%s): Error: %v", current, err)
 			}
 
@@ -178,7 +178,7 @@ func (obj *RecWatcher) Watch() error {
 
 		select {
 		case event := <-obj.watcher.Events:
-			if global.DEBUG {
+			if obj.Flags.Debug {
 				log.Printf("Watch(%s), Event(%s): %v", current, event.Name, event.Op)
 			}
 			// the deeper you go, the bigger the deltaDepth is...
@@ -291,7 +291,7 @@ func (obj *RecWatcher) addSubFolders(p string) error {
 	}
 	// look at all subfolders...
 	walkFn := func(path string, info os.FileInfo, err error) error {
-		if global.DEBUG {
+		if obj.Flags.Debug {
 			log.Printf("Walk: %s (%v): %v", path, info, err)
 		}
 		if err != nil {

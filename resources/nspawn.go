@@ -31,7 +31,6 @@ import (
 	"github.com/godbus/dbus"
 	errwrap "github.com/pkg/errors"
 	machined "github.com/purpleidea/go-systemd/machine1"
-	"github.com/purpleidea/mgmt/global"
 )
 
 const (
@@ -218,13 +217,13 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 				obj.GetName())
 		}
 	}
-	if global.DEBUG {
+	if obj.debug {
 		log.Printf("%s[%s]: properties: %v", obj.Kind(), obj.GetName(), properties)
 	}
 	// if the machine doesn't exist and is supposed to
 	// be stopped or the state matches we're done
 	if !exists && obj.State == stopped || properties["State"] == obj.State {
-		if global.DEBUG {
+		if obj.debug {
 			log.Printf("%s[%s]: CheckApply() in valid state", obj.Kind(), obj.GetName())
 		}
 		return true, nil
@@ -235,7 +234,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return false, nil
 	}
 
-	if global.DEBUG {
+	if obj.debug {
 		log.Printf("%s[%s]: CheckApply() applying '%s' state", obj.Kind(), obj.GetName(), obj.State)
 	}
 

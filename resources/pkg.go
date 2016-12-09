@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
-	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
 	"github.com/purpleidea/mgmt/resources/packagekit"
 	"github.com/purpleidea/mgmt/util"
 
@@ -143,7 +142,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 	var exit = false
 
 	for {
-		if global.DEBUG {
+		if obj.debug {
 			log.Printf("%s: Watching...", obj.fmtNames(obj.getNames()))
 		}
 
@@ -153,7 +152,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 			cuid.SetConverged(false)
 
 			// FIXME: ask packagekit for info on what packages changed
-			if global.DEBUG {
+			if obj.debug {
 				log.Printf("%s: Event: %v", obj.fmtNames(obj.getNames()), event.Name)
 			}
 

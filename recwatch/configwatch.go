@@ -20,12 +20,12 @@ package recwatch
 import (
 	"log"
 	"sync"
-
-	"github.com/purpleidea/mgmt/global"
 )
 
 // ConfigWatcher returns events on a channel anytime one of its files events.
 type ConfigWatcher struct {
+	Flags Flags
+
 	ch        chan string
 	wg        sync.WaitGroup
 	closechan chan struct{}
@@ -56,7 +56,7 @@ func (obj *ConfigWatcher) Add(file ...string) {
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
-		ch := ConfigWatch(file[0])
+		ch := obj.ConfigWatch(file[0])
 		for {
 			select {
 			case e := <-ch:
@@ -100,7 +100,7 @@ func (obj *ConfigWatcher) Close() {
 }
 
 // ConfigWatch writes on the channel every time an event is seen for the path.
-func ConfigWatch(file string) chan error {
+func (obj *ConfigWatcher) ConfigWatch(file string) chan error {
 	ch := make(chan error)
 	go func() {
 		recWatcher, err := NewRecWatcher(file, false)
@@ -109,9 +109,10 @@ func ConfigWatch(file string) chan error {
 			close(ch)
 			return
 		}
+		recWatcher.Flags = obj.Flags
 		defer recWatcher.Close()
 		for {
-			if global.DEBUG {
+			if obj.Flags.Debug {
 				log.Printf("Watching: %v", file)
 			}
 			select {

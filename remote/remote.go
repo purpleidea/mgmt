@@ -62,7 +62,6 @@ import (
 	"time"
 
 	cv "github.com/purpleidea/mgmt/converger"
-	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/yamlgraph"
 
@@ -84,6 +83,12 @@ const (
 	maxPasswordTries                     = 3                                      // max number of interactive password tries
 	nonInteractivePasswordTimeout        = 5 * 2                                  // five minutes
 )
+
+// Flags are constants required by the remote lib.
+type Flags struct {
+	Program string
+	Debug   bool
+}
 
 // The SSH struct is the unit building block for a single remote SSH connection.
 type SSH struct {
@@ -116,7 +121,7 @@ type SSH struct {
 	lock    sync.Mutex     // mutex to avoid exit races
 	exiting bool           // flag to let us know if we're exiting
 
-	program  string // name of the binary
+	flags    Flags  // constant runtime values
 	remotewd string // path to remote working directory
 	execpath string // path to remote mgmt binary
 	filepath string // path to remote file config
@@ -224,7 +229,7 @@ func (obj *SSH) Sftp() error {
 		break
 	}
 
-	obj.execpath = path.Join(obj.remotewd, obj.program) // program is a compile time string
+	obj.execpath = path.Join(obj.remotewd, obj.flags.Program) // program is a compile time string
 	log.Printf("Remote: Remote path is: %s", obj.execpath)
 
 	var same bool
@@ -448,7 +453,7 @@ func (obj *SSH) forward(remoteConn net.Conn) net.Conn {
 			log.Printf("Remote: io.Copy error: %s", err)
 			// FIXME: what should we do here???
 		}
-		if global.DEBUG {
+		if obj.flags.Debug {
 			log.Printf("Remote: io.Copy finished: %d", n)
 		}
 	}
@@ -563,7 +568,7 @@ func (obj *SSH) ExecExit() error {
 	}
 
 	// FIXME: workaround: force a signal!
-	if _, err := obj.simpleRun(fmt.Sprintf("killall -SIGINT %s", obj.program)); err != nil { // FIXME: low specificity
+	if _, err := obj.simpleRun(fmt.Sprintf("killall -SIGINT %s", obj.flags.Program)); err != nil { // FIXME: low specificity
 		log.Printf("Remote: Failed to send SIGINT: %s", err.Error())
 	}
 
@@ -572,12 +577,12 @@ func (obj *SSH) ExecExit() error {
 		// try killing the process more violently
 		time.Sleep(10 * time.Second)
 		//obj.session.Signal(ssh.SIGKILL)
-		cmd := fmt.Sprintf("killall -SIGKILL %s", obj.program) // FIXME: low specificity
+		cmd := fmt.Sprintf("killall -SIGKILL %s", obj.flags.Program) // FIXME: low specificity
 		obj.simpleRun(cmd)
 	}()
 
 	// FIXME: workaround: wait (spin lock) until process quits cleanly...
-	cmd := fmt.Sprintf("while killall -0 %s 2> /dev/null; do sleep 1s; done", obj.program) // FIXME: low specificity
+	cmd := fmt.Sprintf("while killall -0 %s 2> /dev/null; do sleep 1s; done", obj.flags.Program) // FIXME: low specificity
 	if _, err := obj.simpleRun(cmd); err != nil {
 		return fmt.Errorf("Error waiting: %s", err)
 	}
@@ -704,11 +709,11 @@ type Remotes struct {
 	cuids              map[string]cv.ConvergerUID // map to each SSH struct with the remote as the key
 	callbackCancelFunc func()                     // stored callback function cancel function
 
-	program string // name of the program
+	flags Flags // constant runtime values
 }
 
 // NewRemotes builds a Remotes struct.
-func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, depth uint16, prefix string, converger cv.Converger, convergerCb func(func(map[string]bool) error) (func(), error), program string) *Remotes {
+func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, depth uint16, prefix string, converger cv.Converger, convergerCb func(func(map[string]bool) error) (func(), error), flags Flags) *Remotes {
 	return &Remotes{
 		clientURLs:   clientURLs,
 		remoteURLs:   remoteURLs,
@@ -728,7 +733,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		semaphore:    NewSemaphore(int(cConns)),
 		hostnames:    make([]string, len(remotes)),
 		cuids:        make(map[string]cv.ConvergerUID),
-		program:      program,
+		flags:        flags,
 	}
 }
 
@@ -818,7 +823,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		caching:    obj.caching,
 		converger:  obj.converger,
 		prefix:     obj.prefix,
-		program:    obj.program,
+		flags:      obj.flags,
 	}, nil
 }
 
@@ -924,7 +929,7 @@ func (obj *Remotes) Run() {
 			if !ok { // no status on hostname means unconverged!
 				continue
 			}
-			if global.DEBUG {
+			if obj.flags.Debug {
 				log.Printf("Remote: Converged: Status: %+v", obj.converger.Status())
 			}
 			// if exiting, don't update, it will be unregistered...

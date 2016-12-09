@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package mgmtmain
+package lib
 
 import (
 	"fmt"
@@ -42,10 +42,19 @@ import (
 	errwrap "github.com/pkg/errors"
 )
 
+// Flags are some constant flags which are used throughout the program.
+type Flags struct {
+	Debug   bool // add additional log messages
+	Trace   bool // add execution flow log messages
+	Verbose bool // add extra log message output
+}
+
 // Main is the main struct for running the mgmt logic.
 type Main struct {
 	Program string // the name of this program, usually set at compile time
 	Version string // the version of this program, usually set at compile time
+
+	Flags Flags // static global flags that are set at compile time
 
 	Hostname *string // hostname to use; nil if undefined
 
@@ -74,9 +83,6 @@ type Main struct {
 	SSHPrivIDRsa     string // default path to ssh key file, set empty to never touch
 	NoCaching        bool   // don't allow remote caching of remote execution binary
 	Depth            uint16 // depth in remote hierarchy; for internal use only
-
-	DEBUG   bool
-	VERBOSE bool
 
 	seeds            etcdtypes.URLs // processed seeds value
 	clientURLs       etcdtypes.URLs // processed client urls value
@@ -167,7 +173,7 @@ func (obj *Main) Run() error {
 	var start = time.Now().UnixNano()
 
 	var flags int
-	if obj.DEBUG || true { // TODO: remove || true
+	if obj.Flags.Debug || true { // TODO: remove || true
 		flags = log.LstdFlags | log.Lshortfile
 	}
 	flags = (flags - log.Ldate) // remove the date for now
@@ -175,7 +181,7 @@ func (obj *Main) Run() error {
 
 	// un-hijack from capnslog...
 	log.SetOutput(os.Stderr)
-	if obj.VERBOSE {
+	if obj.Flags.Verbose {
 		capnslog.SetFormatter(capnslog.NewLogFormatter(os.Stderr, "(etcd) ", flags))
 	} else {
 		capnslog.SetFormatter(capnslog.NewNilFormatter())
@@ -292,6 +298,11 @@ func (obj *Main) Run() error {
 		obj.serverURLs,
 		obj.NoServer,
 		obj.idealClusterSize,
+		etcd.Flags{
+			Debug:   obj.Flags.Debug,
+			Trace:   obj.Flags.Trace,
+			Verbose: obj.Flags.Verbose,
+		},
 		prefix,
 		converger,
 	)
@@ -361,7 +372,7 @@ func (obj *Main) Run() error {
 
 			case err, ok := <-gapiChan:
 				if !ok { // channel closed
-					if obj.DEBUG {
+					if obj.Flags.Debug {
 						log.Printf("Main: GAPI exited")
 					}
 					gapiChan = nil // disable it
@@ -406,11 +417,12 @@ func (obj *Main) Run() error {
 				}
 				continue
 			}
-
+			newGraph.Flags = pgraph.Flags{Debug: obj.Flags.Debug}
 			// pass in the information we need
 			newGraph.AssociateData(&resources.Data{
 				Converger: converger,
 				Prefix:    pgraphPrefix,
+				Debug:     obj.Flags.Debug,
 			})
 
 			// apply the global noop parameter if requested
@@ -461,6 +473,7 @@ func (obj *Main) Run() error {
 	}()
 
 	configWatcher := recwatch.NewConfigWatcher()
+	configWatcher.Flags = recwatch.Flags{Debug: obj.Flags.Debug}
 	events := configWatcher.Events()
 	if !obj.NoWatch {
 		configWatcher.Add(obj.Remotes...) // add all the files...
@@ -497,7 +510,10 @@ func (obj *Main) Run() error {
 		prefix,
 		converger,
 		convergerCb,
-		obj.Program,
+		remote.Flags{
+			Program: obj.Program,
+			Debug:   obj.Flags.Debug,
+		},
 	)
 
 	// TODO: is there any benefit to running the remotes above in the loop?
@@ -537,7 +553,7 @@ func (obj *Main) Run() error {
 		reterr = multierr.Append(reterr, err) // list of errors
 	}
 
-	if obj.DEBUG {
+	if obj.Flags.Debug {
 		log.Printf("Main: Graph: %v", G)
 	}
 

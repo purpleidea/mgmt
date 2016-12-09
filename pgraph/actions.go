@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
-	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
@@ -51,7 +50,7 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 		// if they're equal (eg: on init of 0) then we also can't run
 		// b/c we should let our pre-req's go first...
 		x, y := v.GetTimestamp(), n.GetTimestamp()
-		if global.DEBUG {
+		if g.Flags.Debug {
 			log.Printf("%s[%s]: OKTimestamp: (%v) >= %s[%s](%v): !%v", v.Kind(), v.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
 		}
 		if x >= y {
@@ -71,7 +70,7 @@ func (g *Graph) Poke(v *Vertex, activity bool) error {
 		// apply, then we can cancel a poke to a child, right? XXX
 		// XXX: if n.Res.getState() != resources.ResStateEvent || activity { // is this correct?
 		if true || activity { // XXX: ???
-			if global.DEBUG {
+			if g.Flags.Debug {
 				log.Printf("%s[%s]: Poke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 			wg.Add(1)
@@ -87,7 +86,7 @@ func (g *Graph) Poke(v *Vertex, activity bool) error {
 			}(n)
 
 		} else {
-			if global.DEBUG {
+			if g.Flags.Debug {
 				log.Printf("%s[%s]: Poke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
@@ -108,13 +107,13 @@ func (g *Graph) BackPoke(v *Vertex) {
 		// TODO: implement a stateLT (less than) to tell if something
 		// happens earlier in the state cycle and that doesn't wrap nil
 		if x >= y && (s != resources.ResStateEvent && s != resources.ResStateCheckApply) {
-			if global.DEBUG {
+			if g.Flags.Debug {
 				log.Printf("%s[%s]: BackPoke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 			// FIXME: is it okay that this is sync?
 			n.SendEvent(event.EventBackPoke, true, false)
 		} else {
-			if global.DEBUG {
+			if g.Flags.Debug {
 				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
@@ -157,7 +156,7 @@ func (g *Graph) SetDownstreamRefresh(v *Vertex, b bool) {
 // Process is the primary function to execute for a particular vertex in the graph.
 func (g *Graph) Process(v *Vertex) error {
 	obj := v.Res
-	if global.DEBUG {
+	if g.Flags.Debug {
 		log.Printf("%s[%s]: Process()", obj.Kind(), obj.GetName())
 	}
 	obj.SetState(resources.ResStateEvent)
@@ -167,7 +166,7 @@ func (g *Graph) Process(v *Vertex) error {
 	// if not, that's okay because when the dependency runs, it will poke
 	// us back and we will run if needed then!
 	if g.OKTimestamp(v) {
-		if global.DEBUG {
+		if g.Flags.Debug {
 			log.Printf("%s[%s]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
 		}
 
@@ -190,7 +189,7 @@ func (g *Graph) Process(v *Vertex) error {
 		var checkOK bool
 		var err error
 
-		if global.DEBUG {
+		if g.Flags.Debug {
 			log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), !noop)
 		}
 
@@ -217,7 +216,7 @@ func (g *Graph) Process(v *Vertex) error {
 		if checkOK && err != nil { // should never return this way
 			log.Fatalf("%s[%s]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), checkOK, err)
 		}
-		if global.DEBUG {
+		if g.Flags.Debug {
 			log.Printf("%s[%s]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), checkOK, err)
 		}
 
@@ -486,7 +485,7 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 		if (!first) || indegree[v] == 0 {
 			// ensure state is started before continuing on to next vertex
 			for !v.SendEvent(event.EventStart, true, false) {
-				if global.DEBUG {
+				if g.Flags.Debug {
 					// if SendEvent fails, we aren't up yet
 					log.Printf("%s[%s]: Retrying SendEvent(Start)", v.Kind(), v.GetName())
 					// sleep here briefly or otherwise cause

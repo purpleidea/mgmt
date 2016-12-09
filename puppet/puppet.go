@@ -26,17 +26,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/yamlgraph"
 )
 
 const (
 	// PuppetYAMLBufferSize is the maximum buffer size for the yaml input data
 	PuppetYAMLBufferSize = 65535
+	Debug                = false // FIXME: integrate with global debug flag
 )
 
 func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
-	if global.DEBUG {
+	if Debug {
 		log.Printf("Puppet: running command: %v", cmd)
 	}
 
@@ -71,7 +71,7 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 		// will choke on an oversized slice. http://stackoverflow.com/a/33726617/3356612
 		result = append(result, data[0:count]...)
 	}
-	if global.DEBUG {
+	if Debug {
 		log.Printf("Puppet: read %v bytes of data from puppet", len(result))
 	}
 	for scanner := bufio.NewScanner(stderr); scanner.Scan(); {
@@ -117,7 +117,7 @@ func ParseConfigFromPuppet(puppetParam, puppetConf string) *yamlgraph.GraphConfi
 
 // PuppetInterval returns the graph refresh interval from the puppet configuration.
 func PuppetInterval(puppetConf string) int {
-	if global.DEBUG {
+	if Debug {
 		log.Printf("Puppet: determining graph refresh interval")
 	}
 	var cmd *exec.Cmd

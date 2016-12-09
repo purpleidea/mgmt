@@ -30,7 +30,6 @@ import (
 	// TODO: should each resource be a sub-package?
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
-	"github.com/purpleidea/mgmt/global"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -57,6 +56,7 @@ type Data struct {
 	//Noop     bool
 	Converger converger.Converger
 	Prefix    string // the prefix to be used for the pgraph namespace
+	Debug     bool
 	// NOTE: we can add more fields here if needed for the resources.
 }
 
@@ -172,6 +172,7 @@ type BaseRes struct {
 	events    chan event.Event
 	converger converger.Converger // converged tracking
 	prefix    string              // base prefix for this resource
+	debug     bool
 	state     ResState
 	watching  bool  // is Watch() loop running ?
 	isStateOK bool  // whether the state is okay based on events or not
@@ -271,6 +272,7 @@ func (obj *BaseRes) Events() chan event.Event {
 func (obj *BaseRes) AssociateData(data *Data) {
 	obj.converger = data.Converger
 	obj.prefix = data.Prefix
+	obj.debug = data.Debug
 }
 
 // IsWatching tells us if the Watch() function is running.
@@ -290,7 +292,7 @@ func (obj *BaseRes) GetState() ResState {
 
 // SetState sets the state of the resource.
 func (obj *BaseRes) SetState(state ResState) {
-	if global.DEBUG {
+	if obj.debug {
 		log.Printf("%s[%s]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state

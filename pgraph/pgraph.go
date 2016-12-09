@@ -40,6 +40,10 @@ const (
 	graphStatePaused
 )
 
+type Flags struct {
+	Debug bool
+}
+
 // Graph is the graph structure in this library.
 // The graph abstract data type (ADT) is defined as follows:
 // * the directed graph arrows point from left to right ( -> )
@@ -49,6 +53,7 @@ const (
 type Graph struct {
 	Name      string
 	Adjacency map[*Vertex]map[*Vertex]*Edge // *Vertex -> *Vertex (edge)
+	Flags     Flags
 	state     graphState
 	mutex     sync.Mutex // used when modifying graph State variable
 }
@@ -105,6 +110,7 @@ func (g *Graph) Copy() *Graph {
 	newGraph := &Graph{
 		Name:      g.Name,
 		Adjacency: make(map[*Vertex]map[*Vertex]*Edge, len(g.Adjacency)),
+		Flags:     g.Flags,
 		state:     g.state,
 	}
 	for k, v := range g.Adjacency {

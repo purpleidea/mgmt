@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/resources"
 )
 
@@ -39,7 +38,7 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 			if v == vv { // skip self
 				continue
 			}
-			if global.DEBUG {
+			if g.Flags.Debug {
 				log.Printf("Compile: AutoEdge: Match: %v[%v] with UID: %v[%v]", vv.Kind(), vv.GetName(), uid.Kind(), uid.GetName())
 			}
 			// we must match to an effective UID for the resource,
@@ -85,7 +84,7 @@ func (g *Graph) AutoEdges() {
 				log.Printf("%v[%v]: Config: The auto edge list is empty!", v.Kind(), v.GetName())
 				break // inner loop
 			}
-			if global.DEBUG {
+			if g.Flags.Debug {
 				log.Println("Compile: AutoEdge: UIDS:")
 				for i, u := range uids {
 					log.Printf("Compile: AutoEdge: UID%d: %v", i, u)

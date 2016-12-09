@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/purpleidea/mgmt/global"
-
 	errwrap "github.com/pkg/errors"
 )
 
@@ -312,7 +310,7 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 			wStr := fmt.Sprintf("%s", w)
 
 			if err := ag.vertexCmp(v, w); err != nil { // cmp ?
-				if global.DEBUG {
+				if g.Flags.Debug {
 					strch <- fmt.Sprintf("Compile: Grouping: !GroupCmp for: %s into %s", wStr, vStr)
 				}
 

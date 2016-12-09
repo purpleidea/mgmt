@@ -27,12 +27,15 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/gapi"
-	"github.com/purpleidea/mgmt/global"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
 
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	Debug = false // FIXME: integrate with global debug flag
 )
 
 type collectorResConfig struct {
@@ -117,7 +120,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 		slice := reflect.ValueOf(iface)
 		// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
 		kind := util.FirstToUpper(name)
-		if global.DEBUG {
+		if Debug {
 			log.Printf("Config: Processing: %v...", kind)
 		}
 		for j := 0; j < slice.Len(); j++ { // loop through resources of same kind

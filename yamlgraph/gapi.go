@@ -88,7 +88,8 @@ func (obj *GAPI) SwitchStream() chan error {
 			ch <- fmt.Errorf("yamlgraph: GAPI is not initialized")
 			return
 		}
-		configChan := recwatch.ConfigWatch(*obj.File)
+		configWatcher := recwatch.NewConfigWatcher()
+		configChan := configWatcher.ConfigWatch(*obj.File) // simple
 		for {
 			select {
 			case err, ok := <-configChan: // returns nil events on ok!

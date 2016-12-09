@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
-	"github.com/purpleidea/mgmt/global"
 
 	errwrap "github.com/pkg/errors"
 	"github.com/rgbkrk/libvirt-go"
@@ -190,7 +189,7 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 				if domName == obj.GetName() {
 					eventChan <- lifecycleEvent.Event
 				}
-			} else if global.DEBUG {
+			} else if obj.debug {
 				log.Printf("%s[%s]: Event details isn't DomainLifecycleEvent", obj.Kind(), obj.GetName())
 			}
 			return 0

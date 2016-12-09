@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/gapi"
-	mgmt "github.com/purpleidea/mgmt/mgmtmain"
+	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
 )

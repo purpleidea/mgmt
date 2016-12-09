@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package mgmtmain
+package lib
 
 import (
 	"fmt"
@@ -37,6 +37,11 @@ func run(c *cli.Context) error {
 
 	obj.Program = c.App.Name
 	obj.Version = c.App.Version
+	if val, exists := c.App.Metadata["flags"]; exists {
+		if flags, ok := val.(Flags); ok {
+			obj.Flags = flags
+		}
+	}
 
 	if h := c.String("hostname"); c.IsSet("hostname") && h != "" {
 		obj.Hostname = &h
@@ -143,7 +148,7 @@ func run(c *cli.Context) error {
 }
 
 // CLI is the entry point for using mgmt normally from the CLI.
-func CLI(program, version string) error {
+func CLI(program, version string, flags Flags) error {
 
 	// test for sanity
 	if program == "" || version == "" {
@@ -153,6 +158,9 @@ func CLI(program, version string) error {
 	app.Name = program // App.name and App.version pass these values through
 	app.Version = version
 	app.Usage = "next generation config management"
+	app.Metadata = map[string]interface{}{ // additional flags
+		"flags": flags,
+	}
 	//app.Action = ... // without a default action, help runs
 
 	app.Commands = []cli.Command{

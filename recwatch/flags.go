@@ -15,12 +15,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package global holds some global variables that are used throughout the code.
-package global
+package recwatch
 
-// These constants are used throughout the program.
-const (
-	DEBUG   = false // add additional log messages
-	TRACE   = false // add execution flow log messages
-	VERBOSE = false // add extra log message output
-)
+// Flags contains all the constant flags that recwatch needs.
+type Flags struct {
+	Debug bool
+}

@@ -23,7 +23,6 @@ import (
 	"reflect"
 
 	"github.com/purpleidea/mgmt/event"
-	"github.com/purpleidea/mgmt/global"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -120,7 +119,7 @@ type Send struct {
 // SendRecv pulls in the sent values into the receive slots. It is called by the
 // receiver and must be given as input the full resource struct to receive on.
 func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
-	if global.DEBUG {
+	if obj.debug {
 		// NOTE: this could expose private resource data like passwords
 		log.Printf("%s[%s]: SendRecv: %+v", obj.Kind(), obj.GetName(), obj.Recv)
 	}
@@ -141,7 +140,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 		value2 := obj2.FieldByName(k)
 		kind2 := value2.Kind()
 
-		if global.DEBUG {
+		if obj.debug {
 			log.Printf("Send(%s) has %v: %v", type1, kind1, value1)
 			log.Printf("Recv(%s) has %v: %v", type2, kind2, value2)
 		}

@@ -33,7 +33,6 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
-	"github.com/purpleidea/mgmt/global" // XXX: package mgmtmain instead?
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 
@@ -171,7 +170,7 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 	var exit = false
 
 	for {
-		if global.DEBUG {
+		if obj.debug {
 			log.Printf("%s[%s]: Watching: %s", obj.Kind(), obj.GetName(), obj.Path) // attempting to watch...
 		}
 
@@ -185,7 +184,7 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
 			}
-			if global.DEBUG { // don't access event.Body if event.Error isn't nil
+			if obj.debug { // don't access event.Body if event.Error isn't nil
 				log.Printf("%s[%s]: Event(%s): %v", obj.Kind(), obj.GetName(), event.Body.Name, event.Body.Op)
 			}
 			send = true
@@ -289,7 +288,7 @@ func mapPaths(fileInfos []FileInfo) map[string]FileInfo {
 func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sha256sum string) (string, bool, error) {
 	// TODO: does it make sense to switch dst to an io.Writer ?
 	// TODO: use obj.Force when dealing with symlinks and other file types!
-	if global.DEBUG {
+	if obj.debug {
 		log.Printf("fileCheckApply: %s -> %s", src, dst)
 	}
 
@@ -386,7 +385,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	if !apply {
 		return sha256sum, false, nil
 	}
-	if global.DEBUG {
+	if obj.debug {
 		log.Printf("fileCheckApply: Apply: %s -> %s", src, dst)
 	}
 
@@ -407,12 +406,12 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	// syscall.Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n int64, err error)
 
 	// TODO: should we offer a way to cancel the copy on ^C ?
-	if global.DEBUG {
+	if obj.debug {
 		log.Printf("fileCheckApply: Copy: %s -> %s", src, dst)
 	}
 	if n, err := io.Copy(dstFile, src); err != nil {
 		return sha256sum, false, err
-	} else if global.DEBUG {
+	} else if obj.debug {
 		log.Printf("fileCheckApply: Copied: %v", n)
 	}
 	return sha256sum, false, dstFile.Sync()
@@ -422,7 +421,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 // It is recursive and can create directories directly, and files via the usual
 // fileCheckApply method. It returns checkOK and error as is normally expected.
 func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
-	if global.DEBUG {
+	if obj.debug {
 		log.Printf("syncCheckApply: %s -> %s", src, dst)
 	}
 	if src == "" || dst == "" {
@@ -440,12 +439,12 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	}
 
 	if !srcIsDir && !dstIsDir {
-		if global.DEBUG {
+		if obj.debug {
 			log.Printf("syncCheckApply: %s -> %s", src, dst)
 		}
 		fin, err := os.Open(src)
 		if err != nil {
-			if global.DEBUG && os.IsNotExist(err) { // if we get passed an empty src
+			if obj.debug && os.IsNotExist(err) { // if we get passed an empty src
 				log.Printf("syncCheckApply: Missing src: %s", src)
 			}
 			return false, err
@@ -501,7 +500,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 					delete(smartDst, relPathFile) // rm from purge list
 				}
 
-				if global.DEBUG {
+				if obj.debug {
 					log.Printf("syncCheckApply: mkdir -m %s '%s'", fileInfo.Mode(), absDst)
 				}
 				if err := os.Mkdir(absDst, fileInfo.Mode()); err != nil {
@@ -512,7 +511,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 			// if we're a regular file, the recurse will create it
 		}
 
-		if global.DEBUG {
+		if obj.debug {
 			log.Printf("syncCheckApply: Recurse: %s -> %s", absSrc, absDst)
 		}
 		if obj.Recurse {

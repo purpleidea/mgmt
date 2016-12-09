@@ -21,7 +21,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/purpleidea/mgmt/mgmtmain"
+	mgmt "github.com/purpleidea/mgmt/lib"
+)
+
+// These constants are some global variables that are used throughout the code.
+const (
+	DEBUG   = false // add additional log messages
+	TRACE   = false // add execution flow log messages
+	VERBOSE = false // add extra log message output
 )
 
 // set at compile time
@@ -31,7 +38,12 @@ var (
 )
 
 func main() {
-	if err := mgmtmain.CLI(program, version); err != nil {
+	flags := mgmt.Flags{
+		Debug:   DEBUG,
+		Trace:   TRACE,
+		Verbose: VERBOSE,
+	}
+	if err := mgmt.CLI(program, version, flags); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return

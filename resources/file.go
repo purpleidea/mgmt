@@ -770,7 +770,7 @@ func (obj *FileRes) Compare(res Res) bool {
 		if obj.Name != res.Name {
 			return false
 		}
-		if obj.path != res.Path {
+		if obj.path != res.path {
 			return false
 		}
 		if (obj.Content == nil) != (res.Content == nil) { // xor

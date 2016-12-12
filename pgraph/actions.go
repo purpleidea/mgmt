@@ -289,6 +289,9 @@ func (g *Graph) Worker(v *Vertex) error {
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
 	obj := v.Res
+	// TODO: is there a better system for the `Watching` flag?
+	obj.SetWatching(true)
+	defer obj.SetWatching(false)
 	processChan := make(chan event.Event)
 	go func() {
 		running := false

@@ -280,12 +280,12 @@ func (obj *BaseRes) AssociateData(data *Data) {
 	obj.debug = data.Debug
 }
 
-// IsWatching tells us if the Watch() function is running.
+// IsWatching tells us if the Worker() function is running.
 func (obj *BaseRes) IsWatching() bool {
 	return obj.watching
 }
 
-// SetWatching stores the status of if the Watch() function is running.
+// SetWatching stores the status of if the Worker() function is running.
 func (obj *BaseRes) SetWatching(b bool) {
 	obj.watching = b
 }

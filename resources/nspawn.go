@@ -95,11 +95,6 @@ func (obj *NspawnRes) Validate() error {
 
 // Watch for state changes and sends a message to the bus if there is a change
 func (obj *NspawnRes) Watch(processChan chan event.Event) error {
-	if obj.IsWatching() {
-		return nil
-	}
-	obj.SetWatching(true)
-	defer obj.SetWatching(false)
 	cuid := obj.Converger() // get the converger uid used to report status
 
 	// this resource depends on systemd ensure that it's running

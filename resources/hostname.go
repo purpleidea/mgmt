@@ -108,11 +108,6 @@ func (obj *HostnameRes) Validate() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *HostnameRes) Watch(processChan chan event.Event) error {
-	if obj.IsWatching() {
-		return nil // TODO: should this be an error?
-	}
-	obj.SetWatching(true)
-	defer obj.SetWatching(false)
 	cuid := obj.Converger() // get the converger uid used to report status
 
 	// if we share the bus with others, we will get each others messages!!

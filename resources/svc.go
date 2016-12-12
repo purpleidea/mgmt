@@ -75,11 +75,6 @@ func (obj *SvcRes) Validate() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *SvcRes) Watch(processChan chan event.Event) error {
-	if obj.IsWatching() {
-		return nil
-	}
-	obj.SetWatching(true)
-	defer obj.SetWatching(false)
 	cuid := obj.Converger() // get the converger uid used to report status
 
 	// obj.Name: svc name

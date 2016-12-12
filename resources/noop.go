@@ -59,11 +59,6 @@ func (obj *NoopRes) Validate() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *NoopRes) Watch(processChan chan event.Event) error {
-	if obj.IsWatching() {
-		return nil // TODO: should this be an error?
-	}
-	obj.SetWatching(true)
-	defer obj.SetWatching(false)
 	cuid := obj.Converger() // get the converger uid used to report status
 
 	// notify engine that we're running

@@ -162,8 +162,6 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			// only do this on certain types of events
-			//obj.isStateOK = false // something made state dirty
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...
 			}

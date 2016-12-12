@@ -60,8 +60,8 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 	var poke bool
 	// ensure that a CheckApply runs by sending with a dirty state...
 	if ev.GetActivity() { // if previous node did work, and we were notified...
-		obj.StateOK(false) // dirty
-		poke = true        // poke!
+		//obj.StateOK(false) // not necessarily
+		poke = true // poke!
 		// XXX: this should be elsewhere in case Watch isn't used (eg: Polling instead...)
 		// XXX: unless this is used in our "fallback" polling implementation???
 		//obj.SetRefresh(true) // TODO: is this redundant?

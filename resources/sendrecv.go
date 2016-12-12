@@ -108,6 +108,19 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 	return true, false // required to keep the stupid go compiler happy
 }
 
+// Running is called by the Watch method of the resource once it has started up.
+// This signals to the engine to kick off the initial CheckApply resource check.
+func (obj *BaseRes) Running(processChan chan event.Event) error {
+	obj.StateOK(false)       // assume we're initially dirty
+	cuid := obj.Converger()  // get the converger uid used to report status
+	cuid.SetConverged(false) // a reasonable initial assumption
+
+	// FIXME: exit return value is unused atm, so ignore it for now...
+	//if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
+	_, err := obj.DoSend(processChan, "")
+	return err // bubble up any possible error (or nil)
+}
+
 // Send points to a value that a resource will send.
 type Send struct {
 	Res Res    // a handle to the resource which is sending a value

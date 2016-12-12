@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/util"
@@ -101,17 +100,7 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuid := obj.converger.Register()
-	defer cuid.Unregister()
-
-	var startup bool
-	Startup := func(block bool) <-chan time.Time {
-		if block {
-			return nil // blocks forever
-		}
-		// 1/2 the resolution of converged timeout
-		return time.After(time.Duration(500) * time.Millisecond)
-	}
+	cuid := obj.Converger() // get the converger uid used to report status
 
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
@@ -134,6 +123,11 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 	}
 	buschan := make(chan *dbus.Signal, 10)
 	bus.Signal(buschan)
+
+	// notify engine that we're running
+	if err := obj.Running(processChan); err != nil {
+		return err // bubble up a NACK...
+	}
 
 	var send = false
 	var exit = false
@@ -165,16 +159,10 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 		case <-cuid.ConvergedTimer():
 			cuid.SetConverged(true) // converged!
 			continue
-
-		case <-Startup(startup):
-			cuid.SetConverged(false)
-			send = true
-			obj.StateOK(false) // dirty
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
-			startup = true // startup finished
 			send = false
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 				return err // we exit or bubble up a NACK...

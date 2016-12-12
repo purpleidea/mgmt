@@ -23,7 +23,6 @@ import (
 	"log"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/purpleidea/mgmt/event"
 
@@ -141,16 +140,11 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuid := obj.converger.Register()
-	defer cuid.Unregister()
+	cuid := obj.Converger() // get the converger uid used to report status
 
-	var startup bool
-	Startup := func(block bool) <-chan time.Time {
-		if block {
-			return nil // blocks forever
-			//return make(chan time.Time) // blocks forever
-		}
-		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
+	// notify engine that we're running
+	if err := obj.Running(processChan); err != nil {
+		return err // bubble up a NACK...
 	}
 
 	var send = false // send event?
@@ -168,15 +162,10 @@ func (obj *MsgRes) Watch(processChan chan event.Event) error {
 		case <-cuid.ConvergedTimer():
 			cuid.SetConverged(true) // converged!
 			continue
-
-		case <-Startup(startup):
-			cuid.SetConverged(false)
-			send = true
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
-			startup = true // startup finished
 			send = false
 			// only do this on certain types of events
 			//obj.isStateOK = false // something made state dirty

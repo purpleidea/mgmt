@@ -415,7 +415,9 @@ func (g *Graph) Worker(v *Vertex) error {
 		}
 
 		// TODO: reset the watch retry count after some amount of success
+		v.Res.RegisterConverger()
 		e := v.Res.Watch(processChan)
+		v.Res.UnregisterConverger()
 		if e == nil { // exit signal
 			err = nil // clean exit
 			break

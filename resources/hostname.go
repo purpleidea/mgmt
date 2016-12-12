@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/util"
@@ -114,17 +113,7 @@ func (obj *HostnameRes) Watch(processChan chan event.Event) error {
 	}
 	obj.SetWatching(true)
 	defer obj.SetWatching(false)
-	cuid := obj.converger.Register()
-	defer cuid.Unregister()
-
-	var startup bool
-	Startup := func(block bool) <-chan time.Time {
-		if block {
-			return nil // blocks forever
-			//return make(chan time.Time) // blocks forever
-		}
-		return time.After(time.Duration(500) * time.Millisecond) // 1/2 the resolution of converged timeout
-	}
+	cuid := obj.Converger() // get the converger uid used to report status
 
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
@@ -141,6 +130,11 @@ func (obj *HostnameRes) Watch(processChan chan event.Event) error {
 
 	signals := make(chan *dbus.Signal, 10) // closed by dbus package
 	bus.Signal(signals)
+
+	// notify engine that we're running
+	if err := obj.Running(processChan); err != nil {
+		return err // bubble up a NACK...
+	}
 
 	var send = false // send event?
 
@@ -164,15 +158,10 @@ func (obj *HostnameRes) Watch(processChan chan event.Event) error {
 		case <-cuid.ConvergedTimer():
 			cuid.SetConverged(true) // converged!
 			continue
-
-		case <-Startup(startup):
-			cuid.SetConverged(false)
-			send = true
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
-			startup = true // startup finished
 			send = false
 
 			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {

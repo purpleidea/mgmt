@@ -130,6 +130,9 @@ type Base interface {
 	AssociateData(*Data)
 	IsWatching() bool
 	SetWatching(bool)
+	RegisterConverger()
+	UnregisterConverger()
+	Converger() converger.ConvergerUID
 	GetState() ResState
 	SetState(ResState)
 	DoSend(chan event.Event, string) (bool, error)
@@ -147,6 +150,7 @@ type Base interface {
 	GetGroup() []Res    // return everyone grouped inside me
 	SetGroup([]Res)
 	VarDir(string) (string, error)
+	Running(chan event.Event) error // notify the engine that Watch started
 }
 
 // Res is the minimum interface you need to implement to define a new resource.
@@ -171,7 +175,8 @@ type BaseRes struct {
 	kind      string
 	events    chan event.Event
 	converger converger.Converger // converged tracking
-	prefix    string              // base prefix for this resource
+	cuid      converger.ConvergerUID
+	prefix    string // base prefix for this resource
 	debug     bool
 	state     ResState
 	watching  bool  // is Watch() loop running ?
@@ -283,6 +288,24 @@ func (obj *BaseRes) IsWatching() bool {
 // SetWatching stores the status of if the Watch() function is running.
 func (obj *BaseRes) SetWatching(b bool) {
 	obj.watching = b
+}
+
+// RegisterConverger sets up the cuid for the resource. This is a helper
+// function for the engine, and shouldn't be called by the resources directly.
+func (obj *BaseRes) RegisterConverger() {
+	obj.cuid = obj.converger.Register()
+}
+
+// UnregisterConverger tears down the cuid for the resource. This is a helper
+// function for the engine, and shouldn't be called by the resources directly.
+func (obj *BaseRes) UnregisterConverger() {
+	obj.cuid.Unregister()
+}
+
+// Converger returns the ConvergerUID for the resource. This should be called
+// by the Watch method of the resource to set the converged state.
+func (obj *BaseRes) Converger() converger.ConvergerUID {
+	return obj.cuid
 }
 
 // GetState returns the state of the resource.

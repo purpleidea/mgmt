@@ -151,6 +151,8 @@ type Base interface {
 	SetGroup([]Res)
 	VarDir(string) (string, error)
 	Running(chan event.Event) error // notify the engine that Watch started
+	Started() <-chan struct{}       // returns when the resource has started
+	Starter(bool)
 }
 
 // Res is the minimum interface you need to implement to define a new resource.
@@ -179,11 +181,13 @@ type BaseRes struct {
 	prefix    string // base prefix for this resource
 	debug     bool
 	state     ResState
-	watching  bool  // is Watch() loop running ?
-	isStateOK bool  // whether the state is okay based on events or not
-	isGrouped bool  // am i contained within a group?
-	grouped   []Res // list of any grouped resources
-	refresh   bool  // does this resource have a refresh to run?
+	watching  bool          // is Watch() loop running ?
+	started   chan struct{} // closed when worker is started/running
+	starter   bool          // does this have indegree == 0 ? XXX: usually?
+	isStateOK bool          // whether the state is okay based on events or not
+	isGrouped bool          // am i contained within a group?
+	grouped   []Res         // list of any grouped resources
+	refresh   bool          // does this resource have a refresh to run?
 	//refreshState StatefulBool // TODO: future stateful bool
 }
 
@@ -234,6 +238,7 @@ func (obj *BaseRes) Init() error {
 		return fmt.Errorf("Resource did not set kind!")
 	}
 	obj.events = make(chan event.Event) // unbuffered chan to avoid stale events
+	obj.started = make(chan struct{})   // closes when started
 	//dir, err := obj.VarDir("")
 	//if err != nil {
 	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
@@ -425,6 +430,13 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 	}
 	return p, nil
 }
+
+// Started returns a channel that closes when the resource has started up.
+func (obj *BaseRes) Started() <-chan struct{} { return obj.started }
+
+// Starter sets the starter bool. This defines if a vertex has an indegree of 0.
+// If we have an indegree of 0, we'll need to be a poke initiator in the graph.
+func (obj *BaseRes) Starter(b bool) { obj.starter = b }
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization)
 func ResToB64(res Res) (string, error) {

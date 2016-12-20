@@ -453,10 +453,26 @@ func (g *Graph) Worker(v *Vertex) error {
 func (g *Graph) Start(first bool) { // start or continue
 	log.Printf("State: %v -> %v", g.setState(graphStateStarting), g.getState())
 	defer log.Printf("State: %v -> %v", g.setState(graphStateStarted), g.getState())
+	var wg sync.WaitGroup
 	t, _ := g.TopologicalSort()
 	// TODO: only calculate indegree if `first` is true to save resources
 	indegree := g.InDegree() // compute all of the indegree's
 	for _, v := range Reverse(t) {
+		// selective poke: here we reduce the number of initial pokes
+		// to the minimum required to activate every vertex in the
+		// graph, either by direct action, or by getting poked by a
+		// vertex that was previously activated. if we poke each vertex
+		// that has no incoming edges, then we can be sure to reach the
+		// whole graph. Please note: this may mask certain optimization
+		// failures, such as any poke limiting code in Poke() or
+		// BackPoke(). You might want to disable this selective start
+		// when experimenting with and testing those elements.
+		// if we are unpausing (since it's not the first run of this
+		// function) we need to poke to *unpause* every graph vertex,
+		// and not just selectively the subset with no indegree.
+		if (!first) || indegree[v] == 0 {
+			v.Res.Starter(true) // let the startup code know to poke
+		}
 
 		if !v.Res.IsWatching() { // if Watch() is not running...
 			g.wg.Add(1)
@@ -475,31 +491,15 @@ func (g *Graph) Start(first bool) { // start or continue
 			}(v)
 		}
 
-		// selective poke: here we reduce the number of initial pokes
-		// to the minimum required to activate every vertex in the
-		// graph, either by direct action, or by getting poked by a
-		// vertex that was previously activated. if we poke each vertex
-		// that has no incoming edges, then we can be sure to reach the
-		// whole graph. Please note: this may mask certain optimization
-		// failures, such as any poke limiting code in Poke() or
-		// BackPoke(). You might want to disable this selective start
-		// when experimenting with and testing those elements.
-		// if we are unpausing (since it's not the first run of this
-		// function) we need to poke to *unpause* every graph vertex,
-		// and not just selectively the subset with no indegree.
-		if (!first) || indegree[v] == 0 {
-			// ensure state is started before continuing on to next vertex
-			for !v.SendEvent(event.EventStart, true, false) {
-				if g.Flags.Debug {
-					// if SendEvent fails, we aren't up yet
-					log.Printf("%s[%s]: Retrying SendEvent(Start)", v.Kind(), v.GetName())
-					// sleep here briefly or otherwise cause
-					// a different goroutine to be scheduled
-					time.Sleep(1 * time.Millisecond)
-				}
-			}
-		}
+		// let the vertices run their startup code in parallel
+		wg.Add(1)
+		go func(vv *Vertex) {
+			defer wg.Done()
+			vv.Res.Started() // block until started
+		}(v)
 	}
+
+	wg.Wait() // wait for everyone
 }
 
 // Wait waits for all the graph vertex workers to exit.

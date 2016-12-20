@@ -114,10 +114,14 @@ func (obj *BaseRes) Running(processChan chan event.Event) error {
 	obj.StateOK(false)       // assume we're initially dirty
 	cuid := obj.Converger()  // get the converger uid used to report status
 	cuid.SetConverged(false) // a reasonable initial assumption
+	close(obj.started)       // send started signal
 
 	// FIXME: exit return value is unused atm, so ignore it for now...
 	//if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-	_, err := obj.DoSend(processChan, "")
+	var err error
+	if obj.starter { // vertices of indegree == 0 should send initial pokes
+		_, err = obj.DoSend(processChan, "") // trigger a CheckApply
+	}
 	return err // bubble up any possible error (or nil)
 }
 

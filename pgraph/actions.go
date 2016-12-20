@@ -502,11 +502,6 @@ func (g *Graph) Start(first bool) { // start or continue
 	wg.Wait() // wait for everyone
 }
 
-// Wait waits for all the graph vertex workers to exit.
-func (g *Graph) Wait() {
-	g.wg.Wait()
-}
-
 // Pause sends pause events to the graph in a topological sort order.
 func (g *Graph) Pause() {
 	log.Printf("State: %v -> %v", g.setState(graphStatePausing), g.getState())
@@ -532,4 +527,5 @@ func (g *Graph) Exit() {
 
 		v.SendEvent(event.EventExit, true, false)
 	}
+	g.wg.Wait() // for now, this doesn't need to be a separate Wait() method
 }

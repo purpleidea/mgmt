@@ -540,10 +540,10 @@ func (obj *Main) Run() error {
 		reterr = multierr.Append(reterr, err) // list of errors
 	}
 
-	G.Exit() // tell all the children to exit
-
 	// tell inner main loop to exit
 	close(exitchan)
+
+	G.Exit() // tell all the children to exit, and waits for them to do so
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
@@ -554,8 +554,6 @@ func (obj *Main) Run() error {
 	if obj.Flags.Debug {
 		log.Printf("Main: Graph: %v", G)
 	}
-
-	G.Wait() // wait for the graph vertex worker goroutines to exit
 
 	// TODO: wait for each vertex to exit...
 	log.Println("Goodbye!")

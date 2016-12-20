@@ -79,8 +79,9 @@ func NewGraph(name string) *Graph {
 		Name:      name,
 		Adjacency: make(map[*Vertex]map[*Vertex]*Edge),
 		state:     graphStateNil,
-		// ptr b/c: "A WaitGroup must not be copied after first use."
-		wg: &sync.WaitGroup{},
+		// ptr b/c: Mutex/WaitGroup must not be copied after first use
+		mutex: &sync.Mutex{},
+		wg:    &sync.WaitGroup{},
 	}
 }
 

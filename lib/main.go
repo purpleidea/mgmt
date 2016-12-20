@@ -346,7 +346,7 @@ func (obj *Main) Run() error {
 		if err := obj.GAPI.Init(data); err != nil {
 			obj.Exit(fmt.Errorf("Main: GAPI: Init failed: %v", err))
 		} else if !obj.NoWatch {
-			gapiChan = obj.GAPI.SwitchStream() // stream of graph switch events!
+			gapiChan = obj.GAPI.Next() // stream of graph switch events!
 		}
 	}
 

@@ -45,6 +45,6 @@ type Data struct {
 type GAPI interface {
 	Init(Data) error               // initializes the GAPI and passes in useful data
 	Graph() (*pgraph.Graph, error) // returns the most recent pgraph
-	SwitchStream() chan error      // returns a stream of switch events
+	Next() chan error              // returns a stream of switch events
 	Close() error                  // shutdown the GAPI
 }

@@ -74,8 +74,8 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 	return g, err
 }
 
-// SwitchStream returns nil errors every time there could be a new graph.
-func (obj *GAPI) SwitchStream() chan error {
+// Next returns nil errors every time there could be a new graph.
+func (obj *GAPI) Next() chan error {
 	if obj.data.NoWatch {
 		return nil
 	}

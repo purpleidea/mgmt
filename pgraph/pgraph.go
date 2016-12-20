@@ -55,7 +55,8 @@ type Graph struct {
 	Adjacency map[*Vertex]map[*Vertex]*Edge // *Vertex -> *Vertex (edge)
 	Flags     Flags
 	state     graphState
-	mutex     sync.Mutex // used when modifying graph State variable
+	mutex     *sync.Mutex // used when modifying graph State variable
+	wg        *sync.WaitGroup
 }
 
 // Vertex is the primary vertex struct in this library.
@@ -78,6 +79,8 @@ func NewGraph(name string) *Graph {
 		Name:      name,
 		Adjacency: make(map[*Vertex]map[*Vertex]*Edge),
 		state:     graphStateNil,
+		// ptr b/c: "A WaitGroup must not be copied after first use."
+		wg: &sync.WaitGroup{},
 	}
 }
 
@@ -112,6 +115,8 @@ func (g *Graph) Copy() *Graph {
 		Adjacency: make(map[*Vertex]map[*Vertex]*Edge, len(g.Adjacency)),
 		Flags:     g.Flags,
 		state:     g.state,
+		mutex:     g.mutex,
+		wg:        g.wg,
 	}
 	for k, v := range g.Adjacency {
 		newGraph.Adjacency[k] = v // copy

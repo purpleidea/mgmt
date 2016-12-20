@@ -450,7 +450,7 @@ func (g *Graph) Worker(v *Vertex) error {
 
 // Start is a main kick to start the graph. It goes through in reverse topological
 // sort order so that events can't hit un-started vertices.
-func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
+func (g *Graph) Start(first bool) { // start or continue
 	log.Printf("State: %v -> %v", g.setState(graphStateStarting), g.getState())
 	defer log.Printf("State: %v -> %v", g.setState(graphStateStarted), g.getState())
 	t, _ := g.TopologicalSort()
@@ -459,11 +459,11 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 	for _, v := range Reverse(t) {
 
 		if !v.Res.IsWatching() { // if Watch() is not running...
-			wg.Add(1)
+			g.wg.Add(1)
 			// must pass in value to avoid races...
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
 			go func(vv *Vertex) {
-				defer wg.Done()
+				defer g.wg.Done()
 				// TODO: if a sufficient number of workers error,
 				// should something be done? Will these restart
 				// after perma-failure if we have a graph change?
@@ -500,6 +500,11 @@ func (g *Graph) Start(wg *sync.WaitGroup, first bool) { // start or continue
 			}
 		}
 	}
+}
+
+// Wait waits for all the graph vertex workers to exit.
+func (g *Graph) Wait() {
+	g.wg.Wait()
 }
 
 // Pause sends pause events to the graph in a topological sort order.

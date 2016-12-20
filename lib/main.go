@@ -23,7 +23,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/converger"
@@ -267,7 +266,6 @@ func (obj *Main) Run() error {
 		// TODO: Import admin key
 	}
 
-	var wg sync.WaitGroup
 	var G, oldGraph *pgraph.Graph
 
 	// exit after `max-runtime` seconds for no reason at all...
@@ -412,8 +410,8 @@ func (obj *Main) Run() error {
 				log.Printf("Config: Error creating new graph: %v", err)
 				// unpause!
 				if !first {
-					G.Start(&wg, first) // sync
-					converger.Start()   // after G.Start()
+					G.Start(first)    // sync
+					converger.Start() // after G.Start()
 				}
 				continue
 			}
@@ -440,8 +438,8 @@ func (obj *Main) Run() error {
 				log.Printf("Config: Error running graph sync: %v", err)
 				// unpause!
 				if !first {
-					G.Start(&wg, first) // sync
-					converger.Start()   // after G.Start()
+					G.Start(first)    // sync
+					converger.Start() // after G.Start()
 				}
 				continue
 			}
@@ -466,8 +464,8 @@ func (obj *Main) Run() error {
 			// some are not ready yet and the EtcdWatch
 			// loops, we'll cause G.Pause(...) before we
 			// even got going, thus causing nil pointer errors
-			G.Start(&wg, first) // sync
-			converger.Start()   // after G.Start()
+			G.Start(first)    // sync
+			converger.Start() // after G.Start()
 			first = false
 		}
 	}()
@@ -557,7 +555,7 @@ func (obj *Main) Run() error {
 		log.Printf("Main: Graph: %v", G)
 	}
 
-	wg.Wait() // wait for primary go routines to exit
+	G.Wait() // wait for the graph vertex worker goroutines to exit
 
 	// TODO: wait for each vertex to exit...
 	log.Println("Goodbye!")

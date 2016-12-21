@@ -156,11 +156,11 @@ func (obj *SSH) Sftp() error {
 	var err error
 
 	if obj.client == nil {
-		return fmt.Errorf("Not dialed!")
+		return fmt.Errorf("not dialed")
 	}
 	// this check is needed because the golang path.Base function is weird!
 	if strings.HasSuffix(obj.file, "/") {
-		return fmt.Errorf("File must not be a directory.")
+		return fmt.Errorf("file must not be a directory")
 	}
 
 	// we run local operations first so that remote clean up is easier...
@@ -254,7 +254,7 @@ func (obj *SSH) Sftp() error {
 	// make file executable; don't cache this in case it didn't ever happen
 	// TODO: do we want the group or other bits set?
 	if err := obj.sftp.Chmod(obj.execpath, 0770); err != nil {
-		return fmt.Errorf("Can't set file mode bits!")
+		return fmt.Errorf("can't set file mode bits")
 	}
 
 	// copy graph file
@@ -273,7 +273,7 @@ func (obj *SSH) Sftp() error {
 // SftpGraphCopy is a helper function used for re-copying the graph definition.
 func (obj *SSH) SftpGraphCopy() (int64, error) {
 	if obj.filepath == "" {
-		return -1, fmt.Errorf("Sftp session isn't ready yet!")
+		return -1, fmt.Errorf("sftp session isn't ready yet")
 	}
 	return obj.SftpCopy(obj.file, obj.filepath)
 }
@@ -281,7 +281,7 @@ func (obj *SSH) SftpGraphCopy() (int64, error) {
 // SftpCopy is a simple helper function that runs a local -> remote sftp copy.
 func (obj *SSH) SftpCopy(src, dst string) (int64, error) {
 	if obj.sftp == nil {
-		return -1, fmt.Errorf("Sftp session is not active!")
+		return -1, fmt.Errorf("sftp session is not active")
 	}
 	var err error
 	// TODO: add a check to make sure we don't run two copies of this
@@ -313,7 +313,7 @@ func (obj *SSH) SftpCopy(src, dst string) (int64, error) {
 		return n, fmt.Errorf("Can't copy to remote path: %v", err)
 	}
 	if n <= 0 {
-		return n, fmt.Errorf("Zero bytes copied!")
+		return n, fmt.Errorf("zero bytes copied")
 	}
 	return n, nil
 }
@@ -391,10 +391,10 @@ func (obj *SSH) Tunnel() error {
 	var err error
 
 	if len(obj.clientURLs) < 1 {
-		return fmt.Errorf("Need at least one client URL to tunnel!")
+		return fmt.Errorf("need at least one client URL to tunnel")
 	}
 	if len(obj.remoteURLs) < 1 {
-		return fmt.Errorf("Need at least one remote URL to tunnel!")
+		return fmt.Errorf("need at least one remote URL to tunnel")
 	}
 
 	// TODO: do something less arbitrary about which one we pick?
@@ -477,10 +477,10 @@ func (obj *SSH) TunnelClose() error {
 // Exec runs the binary on the remote server.
 func (obj *SSH) Exec() error {
 	if obj.execpath == "" {
-		return fmt.Errorf("Must have a binary path to execute!")
+		return fmt.Errorf("must have a binary path to execute")
 	}
 	if obj.filepath == "" {
-		return fmt.Errorf("Must have a graph definition to run!")
+		return fmt.Errorf("must have a graph definition to run")
 	}
 
 	var err error
@@ -772,7 +772,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 	}
 	host = x[0]
 	if host == "" {
-		return nil, fmt.Errorf("Empty hostname!")
+		return nil, fmt.Errorf("empty hostname")
 	}
 
 	user := defaultUser // default
@@ -795,7 +795,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 	}
 
 	if len(auth) == 0 {
-		return nil, fmt.Errorf("No authentication methods available!")
+		return nil, fmt.Errorf("no authentication methods available")
 	}
 
 	//hostname := config.Hostname // TODO: optionally specify local hostname somehow
@@ -804,7 +804,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		hostname = host // default to above
 	}
 	if util.StrInList(hostname, obj.hostnames) {
-		return nil, fmt.Errorf("Remote: Hostname `%s` already exists!", hostname)
+		return nil, fmt.Errorf("Remote: Hostname `%s` already exists", hostname)
 	}
 	obj.hostnames = append(obj.hostnames, hostname)
 
@@ -830,7 +830,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 // sshKeyAuth is a helper function to get the ssh key auth struct needed
 func (obj *Remotes) sshKeyAuth() (ssh.AuthMethod, error) {
 	if obj.sshPrivIdRsa == "" {
-		return nil, fmt.Errorf("Empty path specified!")
+		return nil, fmt.Errorf("empty path specified")
 	}
 	p := ""
 	// TODO: this doesn't match strings of the form: ~james/.ssh/id_rsa
@@ -843,7 +843,7 @@ func (obj *Remotes) sshKeyAuth() (ssh.AuthMethod, error) {
 		p = path.Join(usr.HomeDir, obj.sshPrivIdRsa[len("~/"):])
 	}
 	if p == "" {
-		return nil, fmt.Errorf("Empty path specified!")
+		return nil, fmt.Errorf("empty path specified")
 	}
 	// A public key may be used to authenticate against the server by using
 	// an unencrypted PEM-encoded private key file. If you have an encrypted
@@ -892,7 +892,7 @@ func (obj *Remotes) passwordCallback(user, host string) func() (string, error) {
 		case e := <-failchan:
 			return "", e
 		case <-util.TimeAfterOrBlock(timeout):
-			return "", fmt.Errorf("Interactive timeout reached!")
+			return "", fmt.Errorf("interactive timeout reached")
 		}
 	}
 	return cb

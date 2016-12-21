@@ -40,6 +40,7 @@ const (
 	graphStatePaused
 )
 
+// Flags contains specific constants used by the graph.
 type Flags struct {
 	Debug bool
 }

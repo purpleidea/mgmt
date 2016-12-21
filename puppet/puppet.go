@@ -32,7 +32,8 @@ import (
 const (
 	// PuppetYAMLBufferSize is the maximum buffer size for the yaml input data
 	PuppetYAMLBufferSize = 65535
-	Debug                = false // FIXME: integrate with global debug flag
+	// Debug is a local debug constant used in this module
+	Debug = false // FIXME: integrate with global debug flag
 )
 
 func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {

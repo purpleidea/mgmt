@@ -86,7 +86,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 			Name: "file1",
 			// send->recv!
 			Recv: map[string]*resources.Send{
-				"Content": &resources.Send{Res: p1, Key: "Password"},
+				"Content": {Res: p1, Key: "Password"},
 			},
 		},
 		Path: "/tmp/mgmt/secret",

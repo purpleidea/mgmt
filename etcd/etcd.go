@@ -316,7 +316,7 @@ func (obj *EmbdEtcd) Connect(reconnect bool) error {
 			if emax > maxClientConnectRetries {
 				log.Printf("Etcd: The dataDir (%s) might be inconsistent or corrupt.", obj.dataDir)
 				log.Printf("Etcd: Please see: %s", "https://github.com/purpleidea/mgmt/blob/master/DOCUMENTATION.md#what-does-the-error-message-about-an-inconsistent-datadir-mean")
-				obj.cError = fmt.Errorf("Can't find an available endpoint.")
+				obj.cError = fmt.Errorf("can't find an available endpoint")
 				return obj.cError
 			}
 			err = &CtxDelayErr{time.Duration(emax) * time.Second, "No endpoints available yet!"} // retry with backoff...

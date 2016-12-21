@@ -21,7 +21,6 @@ Let us know if you're working on one of the items.
 - [ ] base resource improvements
 
 ## Timer resource
-- [ ] reset on recompile
 - [ ] increment algorithm (linear, exponential, etc...) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## User/Group resource
@@ -29,7 +28,8 @@ Let us know if you're working on one of the items.
 - [ ] automatic edges to file resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Virt (libvirt) resource
-- [ ] base resource [bug](https://github.com/purpleidea/mgmt/issues/25)
+- [ ] base resource improvements [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+- [ ] port to upstream https://github.com/libvirt/libvirt-go [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Net (systemd-networkd) resource
 - [ ] base resource
@@ -44,7 +44,7 @@ Let us know if you're working on one of the items.
 - [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Http resource
-- [ ] base resource
+- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Etcd improvements
 - [ ] fix embedded etcd master race

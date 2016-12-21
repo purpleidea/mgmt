@@ -497,6 +497,10 @@ func (g *Graph) Start(first bool) { // start or continue
 			defer wg.Done()
 			vv.Res.Started() // block until started
 		}(v)
+
+		if !first { // unpause!
+			v.Res.SendEvent(event.EventStart, true, false) // sync!
+		}
 	}
 
 	wg.Wait() // wait for everyone

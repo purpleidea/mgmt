@@ -27,8 +27,8 @@ import (
 
 	"github.com/purpleidea/mgmt/event"
 
+	"github.com/libvirt/libvirt-go"
 	errwrap "github.com/pkg/errors"
-	"github.com/rgbkrk/libvirt-go"
 )
 
 func init() {
@@ -60,7 +60,7 @@ type VirtRes struct {
 	URI        string             `yaml:"uri"`       // connection uri, eg: qemu:///session
 	State      string             `yaml:"state"`     // running, paused, shutoff
 	Transient  bool               `yaml:"transient"` // defined (false) or undefined (true)
-	CPUs       uint16             `yaml:"cpus"`
+	CPUs       uint               `yaml:"cpus"`
 	Memory     uint64             `yaml:"memory"` // in KBytes
 	OSInit     string             `yaml:"osinit"` // init used by lxc
 	Boot       []string           `yaml:"boot"`   // boot order. values: fd, hd, cdrom, network
@@ -70,13 +70,13 @@ type VirtRes struct {
 	Filesystem []filesystemDevice `yaml:"filesystem"`
 	Auth       *VirtAuth          `yaml:"auth"`
 
-	conn      libvirt.VirConnection
+	conn      *libvirt.Connect
 	absent    bool // cached state
 	uriScheme virtURISchemeType
 }
 
 // NewVirtRes is a constructor for this resource. It also calls Init() for you.
-func NewVirtRes(name string, uri, state string, transient bool, cpus uint16, memory uint64, osinit string) (*VirtRes, error) {
+func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memory uint64, osinit string) (*VirtRes, error) {
 	obj := &VirtRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -120,12 +120,31 @@ func (obj *VirtRes) Validate() error {
 	return nil
 }
 
-func (obj *VirtRes) connect() (conn libvirt.VirConnection, err error) {
+func (obj *VirtRes) connect() (conn *libvirt.Connect, err error) {
 	if obj.Auth != nil {
-		conn, err = libvirt.NewVirConnectionWithAuth(obj.URI, obj.Auth.Username, obj.Auth.Password)
+		callback := func(creds []*libvirt.ConnectCredential) {
+			// Populate credential structs with the
+			// prepared username/password values
+			for _, cred := range creds {
+				if cred.Type == libvirt.CRED_AUTHNAME {
+					cred.Result = obj.Auth.Username
+					cred.ResultLen = len(cred.Result)
+				} else if cred.Type == libvirt.CRED_PASSPHRASE {
+					cred.Result = obj.Auth.Password
+					cred.ResultLen = len(cred.Result)
+				}
+			}
+		}
+		auth := &libvirt.ConnectAuth{
+			CredType: []libvirt.ConnectCredentialType{
+				libvirt.CRED_AUTHNAME, libvirt.CRED_PASSPHRASE,
+			},
+			Callback: callback,
+		}
+		conn, err = libvirt.NewConnectWithAuth(obj.URI, auth, 0)
 	}
 	if obj.Auth == nil || err != nil {
-		conn, err = libvirt.NewVirConnection(obj.URI)
+		conn, err = libvirt.NewConnect(obj.URI)
 	}
 	return
 }
@@ -139,7 +158,7 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 		return fmt.Errorf("Connection to libvirt failed with: %s", err)
 	}
 
-	eventChan := make(chan int) // TODO: do we need to buffer this?
+	eventChan := make(chan libvirt.DomainEventType) // TODO: do we need to buffer this?
 	errorChan := make(chan error)
 	exitChan := make(chan struct{})
 	defer close(exitChan)
@@ -167,25 +186,16 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 		}
 	}()
 
-	callback := libvirt.DomainEventCallback(
-		func(c *libvirt.VirConnection, d *libvirt.VirDomain, eventDetails interface{}, f func()) int {
-			if lifecycleEvent, ok := eventDetails.(libvirt.DomainLifecycleEvent); ok {
-				domName, _ := d.GetName()
-				if domName == obj.GetName() {
-					eventChan <- lifecycleEvent.Event
-				}
-			} else if obj.debug {
-				log.Printf("%s[%s]: Event details isn't DomainLifecycleEvent", obj.Kind(), obj.GetName())
-			}
-			return 0
-		},
-	)
-	callbackID := conn.DomainEventRegister(
-		libvirt.VirDomain{},
-		libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE,
-		&callback,
-		nil,
-	)
+	callback := func(c *libvirt.Connect, d *libvirt.Domain, ev *libvirt.DomainEventLifecycle) {
+		domName, _ := d.GetName()
+		if domName == obj.GetName() {
+			eventChan <- ev.Event
+		}
+	}
+	callbackID, err := conn.DomainEventLifecycleRegister(nil, callback)
+	if err != nil {
+		return err
+	}
 	defer conn.DomainEventDeregister(callbackID)
 
 	// notify engine that we're running
@@ -201,38 +211,38 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 		case event := <-eventChan:
 			// TODO: shouldn't we do these checks in CheckApply ?
 			switch event {
-			case libvirt.VIR_DOMAIN_EVENT_DEFINED:
+			case libvirt.DOMAIN_EVENT_DEFINED:
 				if obj.Transient {
 					obj.StateOK(false) // dirty
 					send = true
 				}
-			case libvirt.VIR_DOMAIN_EVENT_UNDEFINED:
+			case libvirt.DOMAIN_EVENT_UNDEFINED:
 				if !obj.Transient {
 					obj.StateOK(false) // dirty
 					send = true
 				}
-			case libvirt.VIR_DOMAIN_EVENT_STARTED:
+			case libvirt.DOMAIN_EVENT_STARTED:
 				fallthrough
-			case libvirt.VIR_DOMAIN_EVENT_RESUMED:
+			case libvirt.DOMAIN_EVENT_RESUMED:
 				if obj.State != "running" {
 					obj.StateOK(false) // dirty
 					send = true
 				}
-			case libvirt.VIR_DOMAIN_EVENT_SUSPENDED:
+			case libvirt.DOMAIN_EVENT_SUSPENDED:
 				if obj.State != "paused" {
 					obj.StateOK(false) // dirty
 					send = true
 				}
-			case libvirt.VIR_DOMAIN_EVENT_STOPPED:
+			case libvirt.DOMAIN_EVENT_STOPPED:
 				fallthrough
-			case libvirt.VIR_DOMAIN_EVENT_SHUTDOWN:
+			case libvirt.DOMAIN_EVENT_SHUTDOWN:
 				if obj.State != "shutoff" {
 					obj.StateOK(false) // dirty
 					send = true
 				}
-			case libvirt.VIR_DOMAIN_EVENT_PMSUSPENDED:
+			case libvirt.DOMAIN_EVENT_PMSUSPENDED:
 				fallthrough
-			case libvirt.VIR_DOMAIN_EVENT_CRASHED:
+			case libvirt.DOMAIN_EVENT_CRASHED:
 				obj.StateOK(false) // dirty
 				send = true
 			}
@@ -281,7 +291,7 @@ func (obj *VirtRes) attrCheckApply(apply bool) (bool, error) {
 	}
 
 	// check memory
-	if domInfo.GetMemory() != obj.Memory {
+	if domInfo.Memory != obj.Memory {
 		checkOK = false
 		if !apply {
 			return false, nil
@@ -293,7 +303,7 @@ func (obj *VirtRes) attrCheckApply(apply bool) (bool, error) {
 	}
 
 	// check cpus
-	if domInfo.GetNrVirtCpu() != obj.CPUs {
+	if domInfo.NrVirtCpu != obj.CPUs {
 		checkOK = false
 		if !apply {
 			return false, nil
@@ -309,21 +319,21 @@ func (obj *VirtRes) attrCheckApply(apply bool) (bool, error) {
 
 // domainCreate creates a transient or persistent domain in the correct state. It
 // doesn't check the state before hand, as it is a simple helper function.
-func (obj *VirtRes) domainCreate() (libvirt.VirDomain, bool, error) {
+func (obj *VirtRes) domainCreate() (*libvirt.Domain, bool, error) {
 
 	if obj.Transient {
-		var flag uint32
+		var flag libvirt.DomainCreateFlags
 		var state string
 		switch obj.State {
 		case "running":
-			flag = libvirt.VIR_DOMAIN_NONE
+			flag = libvirt.DOMAIN_NONE
 			state = "started"
 		case "paused":
-			flag = libvirt.VIR_DOMAIN_START_PAUSED
+			flag = libvirt.DOMAIN_START_PAUSED
 			state = "paused"
 		case "shutoff":
 			// a transient, shutoff machine, means machine is absent
-			return libvirt.VirDomain{}, true, nil // returned dom is invalid
+			return nil, true, nil // returned dom is invalid
 		}
 		dom, err := obj.conn.DomainCreateXML(obj.getDomainXML(), flag)
 		if err != nil {
@@ -347,7 +357,7 @@ func (obj *VirtRes) domainCreate() (libvirt.VirDomain, bool, error) {
 	}
 
 	if obj.State == "paused" {
-		if err := dom.CreateWithFlags(libvirt.VIR_DOMAIN_START_PAUSED); err != nil {
+		if err := dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED); err != nil {
 			return dom, false, err
 		}
 		log.Printf("%s[%s]: Domain created paused", obj.Kind(), obj.GetName())
@@ -370,7 +380,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	dom, err := obj.conn.LookupDomainByName(obj.GetName())
 	if err == nil {
 		// pass
-	} else if virErr, ok := err.(libvirt.VirError); ok && virErr.Code == libvirt.VIR_ERR_NO_DOMAIN {
+	} else if virErr, ok := err.(libvirt.Error); ok && virErr.Code == libvirt.ERR_NO_DOMAIN {
 		// domain not found
 		if obj.absent {
 			return true, nil
@@ -421,7 +431,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 			}
 			log.Printf("%s[%s]: Domain undefined", obj.Kind(), obj.GetName())
 		} else {
-			domXML, err := dom.GetXMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE)
+			domXML, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE)
 			if err != nil {
 				return false, errwrap.Wrapf(err, "domain.GetXMLDesc failed")
 			}
@@ -434,13 +444,12 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	// check for valid state
-	domState := domInfo.GetState()
 	switch obj.State {
 	case "running":
-		if domState == libvirt.VIR_DOMAIN_RUNNING {
+		if domInfo.State == libvirt.DOMAIN_RUNNING {
 			break
 		}
-		if domState == libvirt.VIR_DOMAIN_BLOCKED {
+		if domInfo.State == libvirt.DOMAIN_BLOCKED {
 			// TODO: what should happen?
 			return false, fmt.Errorf("Domain %s is blocked!", obj.GetName())
 		}
@@ -462,7 +471,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 		log.Printf("%s[%s]: Domain created", obj.Kind(), obj.GetName())
 
 	case "paused":
-		if domState == libvirt.VIR_DOMAIN_PAUSED {
+		if domInfo.State == libvirt.DOMAIN_PAUSED {
 			break
 		}
 		if !apply {
@@ -476,14 +485,14 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 			log.Printf("%s[%s]: Domain paused", obj.Kind(), obj.GetName())
 			break
 		}
-		if err := dom.CreateWithFlags(libvirt.VIR_DOMAIN_START_PAUSED); err != nil {
+		if err := dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED); err != nil {
 			return false, errwrap.Wrapf(err, "domain.CreateWithFlags failed")
 		}
 		checkOK = false
 		log.Printf("%s[%s]: Domain created paused", obj.Kind(), obj.GetName())
 
 	case "shutoff":
-		if domState == libvirt.VIR_DOMAIN_SHUTOFF || domState == libvirt.VIR_DOMAIN_SHUTDOWN {
+		if domInfo.State == libvirt.DOMAIN_SHUTOFF || domInfo.State == libvirt.DOMAIN_SHUTDOWN {
 			break
 		}
 		if !apply {

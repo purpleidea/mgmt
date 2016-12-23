@@ -39,7 +39,7 @@ export GOPATH=$HOME/gopath
 go get -u github.com/purpleidea/mgmt
 cd $GOPATH/src/github.com/purpleidea/mgmt
 ```
-* Get the remaining golang deps with `go get ./...`, or run `make deps` if you're comfortable with how we install them.
+* Run `make deps` to install system and golang dependencies. Take a look at `misc/make-deps.sh` for details.
 * Run `make build` to get a freshly built `mgmt` binary.
 * Run `time ./mgmt run --yaml examples/graph0.yaml --converged-timeout=5 --tmp-prefix` to try out a very simple example!
 * To run continuously in the default mode of operation, omit the `--converged-timeout` option.

@@ -236,6 +236,9 @@ func (obj *VirtRes) Watch(processChan chan event.Event) error {
 				obj.StateOK(false) // dirty
 				send = true
 			}
+			if send {
+				cuid.SetConverged(false)
+			}
 
 		case err := <-errorChan:
 			cuid.SetConverged(false)

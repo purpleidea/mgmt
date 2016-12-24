@@ -141,7 +141,7 @@ func (obj *FileRes) Validate() error {
 // must be restarted. On a clean exit it returns nil.
 // FIXME: Also watch the source directory when using obj.Source !!!
 func (obj *FileRes) Watch(processChan chan event.Event) error {
-	cuid := obj.Converger() // get the converger uid used to report status
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.Path, obj.Recurse)

@@ -74,7 +74,7 @@ func (obj *TimerRes) newTicker() *time.Ticker {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *TimerRes) Watch(processChan chan event.Event) error {
-	cuid := obj.Converger() // get the converger uid used to report status
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	// create a time.Ticker for the given interval
 	obj.ticker = obj.newTicker()

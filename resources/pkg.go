@@ -109,7 +109,7 @@ func (obj *PkgRes) Validate() error {
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
 func (obj *PkgRes) Watch(processChan chan event.Event) error {
-	cuid := obj.Converger() // get the converger uid used to report status
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	bus := packagekit.NewBus()
 	if bus == nil {

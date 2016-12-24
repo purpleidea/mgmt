@@ -168,7 +168,7 @@ Loop:
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *PasswordRes) Watch(processChan chan event.Event) error {
-	cuid := obj.Converger() // get the converger uid used to report status
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, false)

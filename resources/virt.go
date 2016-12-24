@@ -132,7 +132,7 @@ func (obj *VirtRes) connect() (conn libvirt.VirConnection, err error) {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *VirtRes) Watch(processChan chan event.Event) error {
-	cuid := obj.Converger() // get the converger uid used to report status
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	conn, err := obj.connect()
 	if err != nil {

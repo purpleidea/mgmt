@@ -132,7 +132,7 @@ type Base interface {
 	SetWatching(bool)
 	RegisterConverger()
 	UnregisterConverger()
-	Converger() converger.ConvergerUID
+	ConvergerUID() converger.ConvergerUID
 	GetState() ResState
 	SetState(ResState)
 	DoSend(chan event.Event, string) (bool, error)
@@ -307,9 +307,9 @@ func (obj *BaseRes) UnregisterConverger() {
 	obj.cuid.Unregister()
 }
 
-// Converger returns the ConvergerUID for the resource. This should be called
+// ConvergerUID returns the ConvergerUID for the resource. This should be called
 // by the Watch method of the resource to set the converged state.
-func (obj *BaseRes) Converger() converger.ConvergerUID {
+func (obj *BaseRes) ConvergerUID() converger.ConvergerUID {
 	return obj.cuid
 }
 

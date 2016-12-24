@@ -224,7 +224,7 @@ The engine might be asked to shutdown when the entire state of the system has
 not seen any changes for some duration of time. In order for the engine to be
 able to make this determination, each resource must report its converged state.
 To do this, the `Watch` method should get the `ConvergedUID` handle that has
-been prepared for it by the engine. This is done by calling the `Converger`
+been prepared for it by the engine. This is done by calling the `ConvergerUID`
 method on the resource object. The result can be used to set the converged
 status with `SetConverged`, and to notify when the particular timeout has been
 reached by waiting on `ConvergedTimer`.
@@ -237,7 +237,7 @@ thing, but provide a `select`-free interface for different coding situations.
 ```golang
 // Watch is the listener and main loop for this resource.
 func (obj *FooRes) Watch(processChan chan event.Event) error {
-	cuid := obj.Converger() // get the converger uid used to report status
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	// setup the Foo resource
 	var err error

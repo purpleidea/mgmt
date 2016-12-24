@@ -112,7 +112,7 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 // This signals to the engine to kick off the initial CheckApply resource check.
 func (obj *BaseRes) Running(processChan chan event.Event) error {
 	obj.StateOK(false)       // assume we're initially dirty
-	cuid := obj.Converger()  // get the converger uid used to report status
+	cuid := obj.ConvergerUID()  // get the converger uid used to report status
 	cuid.SetConverged(false) // a reasonable initial assumption
 	close(obj.started)       // send started signal
 

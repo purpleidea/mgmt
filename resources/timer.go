@@ -32,7 +32,7 @@ func init() {
 // TimerRes is a timer resource for time based events.
 type TimerRes struct {
 	BaseRes  `yaml:",inline"`
-	Interval int `yaml:"interval"` // Interval : Interval between runs
+	Interval uint32 `yaml:"interval"` // Interval : Interval between runs
 
 	ticker *time.Ticker
 }
@@ -44,7 +44,7 @@ type TimerUID struct {
 }
 
 // NewTimerRes is a constructor for this resource. It also calls Init() for you.
-func NewTimerRes(name string, interval int) (*TimerRes, error) {
+func NewTimerRes(name string, interval uint32) (*TimerRes, error) {
 	obj := &TimerRes{
 		BaseRes: BaseRes{
 			Name: name,
@@ -60,9 +60,7 @@ func (obj *TimerRes) Init() error {
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 
-// Validate the params that are passed to TimerRes
-// Currently we are getting only an interval in seconds
-// which gets validated by go compiler
+// Validate the params that are passed to TimerRes.
 func (obj *TimerRes) Validate() error {
 	return nil
 }

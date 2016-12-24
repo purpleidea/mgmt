@@ -209,8 +209,30 @@ func (g *Graph) Process(v *Vertex) error {
 
 			// run the CheckApply!
 		} else {
+			// if the CheckApply run takes longer than the converged
+			// timeout, we could inappropriately converge mid-apply!
+			// avoid this by blocking convergence with a fake report
+			block := obj.Converger().Register() // get an extra cuid
+			block.SetConverged(false)           // block while CheckApply runs!
+
 			// if this fails, don't UpdateTimestamp()
 			checkOK, err = obj.CheckApply(!noop)
+
+			block.SetConverged(true) // unblock
+			block.Unregister()
+
+			// TODO: Can the `Poll` converged timeout tracking be a
+			// more general method for all converged timeouts? this
+			// would simplify the resources by removing boilerplate
+			if v.Meta().Poll > 0 {
+				if !checkOK { // something changed, restart timer
+					cuid := v.Res.ConvergerUID() // get the converger uid used to report status
+					cuid.ResetTimer()            // activity!
+					if g.Flags.Debug {
+						log.Printf("%s[%s]: Converger: ResetTimer", obj.Kind(), obj.GetName())
+					}
+				}
+			}
 		}
 
 		if checkOK && err != nil { // should never return this way
@@ -419,7 +441,15 @@ func (g *Graph) Worker(v *Vertex) error {
 
 		// TODO: reset the watch retry count after some amount of success
 		v.Res.RegisterConverger()
-		e := v.Res.Watch(processChan)
+		var e error
+		if v.Meta().Poll > 0 { // poll instead of watching :(
+			cuid := v.Res.ConvergerUID() // get the converger uid used to report status
+			cuid.StartTimer()
+			e = v.Res.Poll(processChan)
+			cuid.StopTimer() // clean up nicely
+		} else {
+			e = v.Res.Watch(processChan) // run the watch normally
+		}
 		v.Res.UnregisterConverger()
 		if e == nil { // exit signal
 			err = nil // clean exit

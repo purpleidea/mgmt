@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"time"
 
 	// TODO: should each resource be a sub-package?
 	"github.com/purpleidea/mgmt/converger"
@@ -93,6 +94,7 @@ type MetaParams struct {
 	// reason to want to do something differently for the Watch errors.
 	Retry int16  `yaml:"retry"` // metaparam, number of times to retry on error. -1 for infinite
 	Delay uint64 `yaml:"delay"` // metaparam, number of milliseconds to wait between retries
+	Poll  uint32 `yaml:"poll"`  // metaparam, number of seconds between poll interval, 0 to watch.
 }
 
 // UnmarshalYAML is the custom unmarshal handler for the MetaParams struct. It
@@ -116,6 +118,7 @@ var DefaultMetaParams = MetaParams{
 	Noop:      false,
 	Retry:     0, // TODO: is this a good default?
 	Delay:     0, // TODO: is this a good default?
+	Poll:      0, // defaults to watching for events
 }
 
 // The Base interface is everything that is common to all resources.
@@ -130,6 +133,7 @@ type Base interface {
 	AssociateData(*Data)
 	IsWatching() bool
 	SetWatching(bool)
+	Converger() converger.Converger
 	RegisterConverger()
 	UnregisterConverger()
 	ConvergerUID() converger.ConvergerUID
@@ -153,6 +157,7 @@ type Base interface {
 	Running(chan event.Event) error // notify the engine that Watch started
 	Started() <-chan struct{}       // returns when the resource has started
 	Starter(bool)
+	Poll(chan event.Event) error // poll alternative to watching :(
 }
 
 // Res is the minimum interface you need to implement to define a new resource.
@@ -295,6 +300,12 @@ func (obj *BaseRes) SetWatching(b bool) {
 	obj.watching = b
 }
 
+// Converger returns the converger object used by the system. It can be used to
+// register new convergers if needed.
+func (obj *BaseRes) Converger() converger.Converger {
+	return obj.converger
+}
+
 // RegisterConverger sets up the cuid for the resource. This is a helper
 // function for the engine, and shouldn't be called by the resources directly.
 func (obj *BaseRes) RegisterConverger() {
@@ -399,6 +410,9 @@ func (obj *BaseRes) Compare(res Res) bool {
 	if obj.Meta().Delay != res.Meta().Delay {
 		return false
 	}
+	if obj.Meta().Poll != res.Meta().Poll {
+		return false
+	}
 	return true
 }
 
@@ -437,6 +451,45 @@ func (obj *BaseRes) Started() <-chan struct{} { return obj.started }
 // Starter sets the starter bool. This defines if a vertex has an indegree of 0.
 // If we have an indegree of 0, we'll need to be a poke initiator in the graph.
 func (obj *BaseRes) Starter(b bool) { obj.starter = b }
+
+// Poll is the watch replacement for when we want to poll, which outputs events.
+func (obj *BaseRes) Poll(processChan chan event.Event) error {
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
+
+	// create a time.Ticker for the given interval
+	ticker := time.NewTicker(time.Duration(obj.Meta().Poll) * time.Second)
+	defer ticker.Stop()
+
+	// notify engine that we're running
+	if err := obj.Running(processChan); err != nil {
+		return err // bubble up a NACK...
+	}
+
+	var send = false
+	var exit = false
+	for {
+		obj.SetState(ResStateWatching)
+		select {
+		case <-ticker.C: // received the timer event
+			log.Printf("%s[%s]: polling...", obj.Kind(), obj.GetName())
+			send = true
+			obj.StateOK(false) // dirty
+
+		case event := <-obj.Events():
+			cuid.ResetTimer() // important
+			if exit, send = obj.ReadEvent(&event); exit {
+				return nil
+			}
+		}
+
+		if send {
+			send = false
+			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
+				return err // we exit or bubble up a NACK...
+			}
+		}
+	}
+}
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization)
 func ResToB64(res Res) (string, error) {

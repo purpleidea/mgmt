@@ -62,8 +62,6 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 	if ev.GetActivity() { // if previous node did work, and we were notified...
 		//obj.StateOK(false) // not necessarily
 		poke = true // poke!
-		// XXX: this should be elsewhere in case Watch isn't used (eg: Polling instead...)
-		// XXX: unless this is used in our "fallback" polling implementation???
 		//obj.SetRefresh(true) // TODO: is this redundant?
 	}
 
@@ -111,10 +109,10 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
 // Running is called by the Watch method of the resource once it has started up.
 // This signals to the engine to kick off the initial CheckApply resource check.
 func (obj *BaseRes) Running(processChan chan event.Event) error {
-	obj.StateOK(false)       // assume we're initially dirty
-	cuid := obj.ConvergerUID()  // get the converger uid used to report status
-	cuid.SetConverged(false) // a reasonable initial assumption
-	close(obj.started)       // send started signal
+	obj.StateOK(false)         // assume we're initially dirty
+	cuid := obj.ConvergerUID() // get the converger uid used to report status
+	cuid.SetConverged(false)   // a reasonable initial assumption
+	close(obj.started)         // send started signal
 
 	// FIXME: exit return value is unused atm, so ignore it for now...
 	//if exit, err := obj.DoSend(processChan, ""); exit || err != nil {

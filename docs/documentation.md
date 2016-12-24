@@ -449,6 +449,23 @@ they could have separate values, I've decided to use the same ones for both
 until there's a proper reason to want to do something differently for the Watch
 errors.
 
+####Poll
+Integer. Number of seconds to wait between `CheckApply` checks. If this is
+greater than zero, then the standard event based `Watch` mechanism for this
+resource is replaced with a simple polling mechanism. In general, this is not
+recommended, unless you have a very good reason for doing so.
+
+Please keep in mind that if you have a resource which changes every `I` seconds,
+and you poll it every `J` seconds, and you've asked for a converged timeout of
+`K` seconds, and `I <= J <= K`, then your graph will likely never converge.
+
+When polling, the system detects that a resource is not converged if its
+`CheckApply` method returns false. This allows a resource which changes every
+`I` seconds, and which is polled every `J` seconds, and with a converged timeout
+of `K` seconds to still converge when `J <= K`, as long as `I > J || I > K`,
+which is another way of saying that if the resource finally settles down to give
+the graph enough time, it can probably converge.
+
 ###Graph definition file
 graph.yaml is the compiled graph definition file. The format is currently
 undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)

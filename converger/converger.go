@@ -81,6 +81,7 @@ type convergerUID struct {
 	mutex     sync.Mutex
 	timer     chan struct{}
 	running   bool // is the above timer running?
+	wg        sync.WaitGroup
 }
 
 // NewConverger builds a new converger struct
@@ -335,7 +336,9 @@ func (obj *convergerUID) StartTimer() (func() error, error) {
 		return obj.StopTimer, fmt.Errorf("Timer already started!")
 	}
 	obj.mutex.Unlock()
+	obj.wg.Add(1)
 	go func() {
+		defer obj.wg.Done()
 		for {
 			select {
 			case _, ok := <-obj.timer: // reset signal channel
@@ -377,6 +380,7 @@ func (obj *convergerUID) StopTimer() error {
 		return fmt.Errorf("Timer isn't running!")
 	}
 	close(obj.timer)
+	obj.wg.Wait()
 	obj.running = false
 	return nil
 }

@@ -33,6 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	* [Default - Get an empty resource with defaults](#default)
 	* [Validate - Validate the values of a resource struct](#validate)
 	* [Init - Initialize the resource](#init)
+	* [Close - Cleanup the resource](#close)
 	* [CheckApply - Check and apply resource state](#checkapply)
 	* [Watch - Detect resource changes](#watch)
 	* [Compare - Compare resource with another](#compare)
@@ -133,6 +134,31 @@ this. In other words, you should expect `Validate` to have run first, but you
 shouldn't allow `Init` to dangerously `rm -rf /$the_world` if your code only
 checks `$the_world` in `Validate`. Remember to always program safely!
 
+### Close
+```golang
+Close() error
+```
+
+This is called to cleanup after the resource. It is usually not necessary, but
+can be useful if you'd like to properly close a persistent connection that you
+opened in the `Init` method and were using throughout the resource.
+
+#### Example
+```golang
+// Close runs some cleanup code for this resource.
+func (obj *FooRes) Close() error {
+
+	obj.Conn.Close() // ignore error in this case
+
+	return obj.BaseRes.Close() // call base close, b/c we're overriding
+}
+```
+
+You should probably check the return errors of your internal methods, and pass
+on an error if something went wrong. Remember to always call the base `Close`
+method! If you plan to return early if you hit an internal error, then at least
+call it with a defer!
+
 ### CheckApply
 ```golang
 CheckApply(apply bool) (checkOK bool, err error)
@@ -210,12 +236,12 @@ will likely find the state to now be correct.
 
 ### Watch
 ```golang
-Watch(chan Event) error
+Watch(chan *Event) error
 ```
 
 `Watch` is a main loop that runs and sends messages when it detects that the
 state of the resource might have changed. To send a message you should write to
-the input `Event` channel using the `DoSend` helper method. The Watch function
+the input event channel using the `Event` helper method. The Watch function
 should run continuously until a shutdown message is received. If at any time
 something goes wrong, you should return an error, and the `mgmt` engine will
 handle possibly restarting the main loop based on the `retry` meta parameters.
@@ -250,7 +276,7 @@ itself!
 If we receive an internal event from the `<-obj.Events()` method, we can read it
 with the ReadEvent helper function. This function tells us if we should shutdown
 our resource, and if we should generate an event. When we want to send an event,
-we use the `DoSend` helper function. It is also important to mark the resource
+we use the `Event` helper function. It is also important to mark the resource
 state as `dirty` if we believe it might have changed. We do this with the
 `StateOK(false)` function.
 
@@ -278,7 +304,7 @@ thing, but provide a `select`-free interface for different coding situations.
 #### Example
 ```golang
 // Watch is the listener and main loop for this resource.
-func (obj *FooRes) Watch(processChan chan event.Event) error {
+func (obj *FooRes) Watch(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	// setup the Foo resource
@@ -294,15 +320,15 @@ func (obj *FooRes) Watch(processChan chan event.Event) error {
 	}
 
 	var send = false // send event?
-	var exit = false
+	var exit *error
 	for {
 		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			// we avoid sending events on unpause
-			if exit, send = obj.ReadEvent(&event); exit {
-				return nil // exit
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				return *exit // exit
 			}
 
 		// the actual events!
@@ -326,9 +352,7 @@ func (obj *FooRes) Watch(processChan chan event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

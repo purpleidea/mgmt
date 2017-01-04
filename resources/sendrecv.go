@@ -28,97 +28,84 @@ import (
 	errwrap "github.com/pkg/errors"
 )
 
-// SendEvent pushes an event into the message queue for a particular vertex
-func (obj *BaseRes) SendEvent(ev event.EventName, sync bool, activity bool) bool {
-	// TODO: isn't this race-y ?
-	if !obj.IsWatching() { // element has already exited
-		return false // if we don't return, we'll block on the send
-	}
-	if !sync {
-		obj.events <- event.Event{Name: ev, Resp: nil, Msg: "", Activity: activity}
-		return true
-	}
-
+// Event sends off an event, but doesn't block the incoming event queue.
+func (obj *BaseRes) Event(processChan chan *event.Event) error {
 	resp := event.NewResp()
-	obj.events <- event.Event{Name: ev, Resp: resp, Msg: "", Activity: activity}
-	resp.ACKWait() // waits until true (nil) value
-	return true
+	processChan <- &event.Event{Name: event.EventNil, Resp: resp} // trigger process
+	return resp.Wait()
 }
 
-// DoSend sends off an event, but doesn't block the incoming event queue.
-func (obj *BaseRes) DoSend(processChan chan event.Event, comment string) (exit bool, err error) {
+// SendEvent pushes an event into the message queue for a particular vertex.
+func (obj *BaseRes) SendEvent(ev event.EventName, err error) error {
 	resp := event.NewResp()
-	processChan <- event.Event{Name: event.EventNil, Resp: resp, Activity: false, Msg: comment} // trigger process
-	e := resp.Wait()
-	return false, e // XXX: at the moment, we don't use the exit bool.
+	obj.mutex.Lock()
+	if !obj.working {
+		obj.mutex.Unlock()
+		return fmt.Errorf("resource worker is not running")
+	}
+	obj.events <- &event.Event{Name: ev, Resp: resp, Err: err}
+	obj.mutex.Unlock()
+	resp.ACKWait() // waits until true (nil) value
+	return nil
 }
 
 // ReadEvent processes events when a select gets one, and handles the pause
 // code too! The return values specify if we should exit and poke respectively.
-func (obj *BaseRes) ReadEvent(ev *event.Event) (exit, send bool) {
+func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 	ev.ACK()
-	var poke bool
-	// ensure that a CheckApply runs by sending with a dirty state...
-	if ev.GetActivity() { // if previous node did work, and we were notified...
-		//obj.StateOK(false) // not necessarily
-		poke = true // poke!
-		//obj.SetRefresh(true) // TODO: is this redundant?
-	}
+	err := ev.Error()
 
 	switch ev.Name {
 	case event.EventStart:
-		send = true || poke
-		return
+		return nil, true
 
 	case event.EventPoke:
-		send = true || poke
-		return
+		return nil, true
 
 	case event.EventBackPoke:
-		send = true || poke
-		return // forward poking in response to a back poke!
+		return nil, true // forward poking in response to a back poke!
 
 	case event.EventExit:
 		// FIXME: what do we do if we have a pending refresh (poke) and an exit?
-		return true, false
+		return &err, false
 
 	case event.EventPause:
 		// wait for next event to continue
 		select {
 		case e, ok := <-obj.Events():
 			if !ok { // shutdown
-				return true, false
+				err := error(nil)
+				return &err, false
 			}
 			e.ACK()
+			err := e.Error()
 			if e.Name == event.EventExit {
-				return true, false
+				return &err, false
 			} else if e.Name == event.EventStart { // eventContinue
-				return false, false // don't poke on unpause!
-			} else {
-				// if we get a poke event here, it's a bug!
-				log.Fatalf("%s[%s]: Unknown event: %v, while paused!", obj.Kind(), obj.GetName(), e)
+				return nil, false // don't poke on unpause!
 			}
+			// if we get a poke event here, it's a bug!
+			err = fmt.Errorf("%s[%s]: Unknown event: %v, while paused!", obj.Kind(), obj.GetName(), e)
+			panic(err) // TODO: return a special sentinel instead?
+			//return &err, false
 		}
-
-	default:
-		log.Fatal("Unknown event: ", ev)
 	}
-	return true, false // required to keep the stupid go compiler happy
+	err = fmt.Errorf("Unknown event: %v", ev)
+	panic(err) // TODO: return a special sentinel instead?
+	//return &err, false
 }
 
 // Running is called by the Watch method of the resource once it has started up.
 // This signals to the engine to kick off the initial CheckApply resource check.
-func (obj *BaseRes) Running(processChan chan event.Event) error {
+func (obj *BaseRes) Running(processChan chan *event.Event) error {
 	obj.StateOK(false)         // assume we're initially dirty
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 	cuid.SetConverged(false)   // a reasonable initial assumption
 	close(obj.started)         // send started signal
 
-	// FIXME: exit return value is unused atm, so ignore it for now...
-	//if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
 	var err error
 	if obj.starter { // vertices of indegree == 0 should send initial pokes
-		_, err = obj.DoSend(processChan, "") // trigger a CheckApply
+		err = obj.Event(processChan) // trigger a CheckApply
 	}
 	return err // bubble up any possible error (or nil)
 }

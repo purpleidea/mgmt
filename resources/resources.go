@@ -26,6 +26,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sync"
 	"time"
 
 	// TODO: should each resource be a sub-package?
@@ -129,19 +130,19 @@ type Base interface {
 	SetKind(string)
 	Kind() string
 	Meta() *MetaParams
-	Events() chan event.Event
+	Events() chan *event.Event
 	AssociateData(*Data)
-	IsWatching() bool
-	SetWatching(bool)
+	IsWorking() bool
+	SetWorking(bool)
 	Converger() converger.Converger
 	RegisterConverger()
 	UnregisterConverger()
 	ConvergerUID() converger.ConvergerUID
 	GetState() ResState
 	SetState(ResState)
-	DoSend(chan event.Event, string) (bool, error)
-	SendEvent(event.EventName, bool, bool) bool
-	ReadEvent(*event.Event) (bool, bool)   // TODO: optional here?
+	Event(chan *event.Event) error
+	SendEvent(event.EventName, error) error
+	ReadEvent(*event.Event) (*error, bool)
 	Refresh() bool                         // is there a pending refresh to run?
 	SetRefresh(bool)                       // set the refresh state of this resource
 	SendRecv(Res) (map[string]bool, error) // send->recv data passing function
@@ -154,10 +155,10 @@ type Base interface {
 	GetGroup() []Res    // return everyone grouped inside me
 	SetGroup([]Res)
 	VarDir(string) (string, error)
-	Running(chan event.Event) error // notify the engine that Watch started
-	Started() <-chan struct{}       // returns when the resource has started
+	Running(chan *event.Event) error // notify the engine that Watch started
+	Started() <-chan struct{}        // returns when the resource has started
 	Starter(bool)
-	Poll(chan event.Event) error // poll alternative to watching :(
+	Poll(chan *event.Event) error // poll alternative to watching :(
 }
 
 // Res is the minimum interface you need to implement to define a new resource.
@@ -166,8 +167,9 @@ type Res interface {
 	Default() Res // return a struct with sane defaults as a Res
 	Validate() error
 	Init() error
-	GetUIDs() []ResUID            // most resources only return one
-	Watch(chan event.Event) error // send on channel to signal process() events
+	Close() error
+	GetUIDs() []ResUID             // most resources only return one
+	Watch(chan *event.Event) error // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
@@ -182,13 +184,14 @@ type BaseRes struct {
 	Recv       map[string]*Send // mapping of key to receive on from value
 
 	kind      string
-	events    chan event.Event
+	mutex     *sync.Mutex // locks around sending and closing of events channel
+	events    chan *event.Event
 	converger converger.Converger // converged tracking
 	cuid      converger.ConvergerUID
 	prefix    string // base prefix for this resource
 	debug     bool
 	state     ResState
-	watching  bool          // is Watch() loop running ?
+	working   bool          // is the Worker() loop running ?
 	started   chan struct{} // closed when worker is started/running
 	starter   bool          // does this have indegree == 0 ? XXX: usually?
 	isStateOK bool          // whether the state is okay based on events or not
@@ -244,14 +247,24 @@ func (obj *BaseRes) Init() error {
 	if obj.kind == "" {
 		return fmt.Errorf("Resource did not set kind!")
 	}
-	obj.events = make(chan event.Event) // unbuffered chan to avoid stale events
-	obj.started = make(chan struct{})   // closes when started
+	obj.mutex = &sync.Mutex{}
+	obj.events = make(chan *event.Event) // unbuffered chan to avoid stale events
+	obj.started = make(chan struct{})    // closes when started
 	//dir, err := obj.VarDir("")
 	//if err != nil {
 	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
 	//}
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
+	return nil
+}
+
+// Close shuts down and performs any cleanup.
+func (obj *BaseRes) Close() error {
+	obj.mutex.Lock()
+	obj.working = false // obj.SetWorking(false)
+	close(obj.events)   // this is where we properly close this channel!
+	obj.mutex.Unlock()
 	return nil
 }
 
@@ -281,7 +294,7 @@ func (obj *BaseRes) Meta() *MetaParams {
 }
 
 // Events returns the channel of events to listen on.
-func (obj *BaseRes) Events() chan event.Event {
+func (obj *BaseRes) Events() chan *event.Event {
 	return obj.events
 }
 
@@ -292,14 +305,18 @@ func (obj *BaseRes) AssociateData(data *Data) {
 	obj.debug = data.Debug
 }
 
-// IsWatching tells us if the Worker() function is running.
-func (obj *BaseRes) IsWatching() bool {
-	return obj.watching
+// IsWorking tells us if the Worker() function is running.
+func (obj *BaseRes) IsWorking() bool {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	return obj.working
 }
 
-// SetWatching stores the status of if the Worker() function is running.
-func (obj *BaseRes) SetWatching(b bool) {
-	obj.watching = b
+// SetWorking tracks the state of if Worker() function is running.
+func (obj *BaseRes) SetWorking(b bool) {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	obj.working = b
 }
 
 // Converger returns the converger object used by the system. It can be used to
@@ -455,7 +472,7 @@ func (obj *BaseRes) Started() <-chan struct{} { return obj.started }
 func (obj *BaseRes) Starter(b bool) { obj.starter = b }
 
 // Poll is the watch replacement for when we want to poll, which outputs events.
-func (obj *BaseRes) Poll(processChan chan event.Event) error {
+func (obj *BaseRes) Poll(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	// create a time.Ticker for the given interval
@@ -468,7 +485,7 @@ func (obj *BaseRes) Poll(processChan chan event.Event) error {
 	}
 
 	var send = false
-	var exit = false
+	var exit *error
 	for {
 		obj.SetState(ResStateWatching)
 		select {
@@ -479,16 +496,14 @@ func (obj *BaseRes) Poll(processChan chan event.Event) error {
 
 		case event := <-obj.Events():
 			cuid.ResetTimer() // important
-			if exit, send = obj.ReadEvent(&event); exit {
-				return nil
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				return *exit // exit
 			}
 		}
 
 		if send {
 			send = false
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

@@ -63,7 +63,7 @@ func (obj *NoopRes) Init() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *NoopRes) Watch(processChan chan event.Event) error {
+func (obj *NoopRes) Watch(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	// notify engine that we're running
@@ -72,15 +72,15 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 	}
 
 	var send = false // send event?
-	var exit = false
+	var exit *error
 	for {
 		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
 			// we avoid sending events on unpause
-			if exit, send = obj.ReadEvent(&event); exit {
-				return nil // exit
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				return *exit // exit
 			}
 
 		case <-cuid.ConvergedTimer():
@@ -91,9 +91,7 @@ func (obj *NoopRes) Watch(processChan chan event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

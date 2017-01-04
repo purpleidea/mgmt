@@ -27,6 +27,7 @@ import (
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/resources"
 
+	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
 )
 
@@ -76,11 +77,9 @@ func (g *Graph) Poke(v *Vertex, activity bool) error {
 			wg.Add(1)
 			go func(nn *Vertex) error {
 				defer wg.Done()
-				edge := g.Adjacency[v][nn] // lookup
-				notify := edge.Notify && edge.Refresh()
-
-				// FIXME: is it okay that this is sync?
-				nn.SendEvent(event.EventPoke, true, notify)
+				//edge := g.Adjacency[v][nn] // lookup
+				//notify := edge.Notify && edge.Refresh()
+				nn.SendEvent(event.EventPoke, nil)
 				// TODO: check return value?
 				return nil // never error for now...
 			}(n)
@@ -110,8 +109,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 			if g.Flags.Debug {
 				log.Printf("%s[%s]: BackPoke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
-			// FIXME: is it okay that this is sync?
-			n.SendEvent(event.EventBackPoke, true, false)
+			n.SendEvent(event.EventBackPoke, nil)
 		} else {
 			if g.Flags.Debug {
 				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
@@ -311,68 +309,98 @@ func (g *Graph) Worker(v *Vertex) error {
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
 	obj := v.Res
-	// TODO: is there a better system for the `Watching` flag?
-	obj.SetWatching(true)
-	defer obj.SetWatching(false)
-	processChan := make(chan event.Event)
+	obj.SetWorking(true) // gets set to false in Res.Close() method at end...
+
+	lock := &sync.Mutex{} // lock around processChan closing and sending
+	finished := false     // did we close processChan ?
+	processChan := make(chan *event.Event)
 	go func() {
 		running := false
+		done := make(chan struct{})
+		playback := false // do we need to run another one?
+
+		waiting := false
 		var timer = time.NewTimer(time.Duration(math.MaxInt64)) // longest duration
 		if !timer.Stop() {
 			<-timer.C // unnecessary, shouldn't happen
 		}
+
 		var delay = time.Duration(v.Meta().Delay) * time.Millisecond
 		var retry = v.Meta().Retry // number of tries left, -1 for infinite
-		var saved event.Event
+
 	Loop:
 		for {
 			// this has to be synchronous, because otherwise the Res
 			// event loop will keep running and change state,
 			// causing the converged timeout to fire!
 			select {
-			case event, ok := <-processChan: // must use like this
-				if running && ok {
-					// we got an event that wasn't a close,
-					// while we were waiting for the timer!
-					// if this happens, it might be a bug:(
-					log.Fatalf("%s[%s]: Worker: Unexpected event: %+v", v.Kind(), v.GetName(), event)
-				}
+			case ev, ok := <-processChan: // must use like this
 				if !ok { // processChan closed, let's exit
 					break Loop // no event, so no ack!
 				}
 
-				// the above mentioned synchronous part, is the
-				// running of this function, paired with an ack.
-				if e := g.Process(v); e != nil {
-					saved = event
-					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
-					if retry == 0 {
-						// wrap the error in the sentinel
-						event.ACKNACK(&SentinelErr{e}) // fail the Watch()
-						break Loop
-					}
-					if retry > 0 { // don't decrement the -1
-						retry--
-					}
-					log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
-					// start the timer...
-					timer.Reset(delay)
-					running = true
+				// if running, we skip running a new execution!
+				// if waiting, we skip running a new execution!
+				if running || waiting {
+					playback = true
+					ev.ACK() // ready for next message
 					continue
 				}
-				retry = v.Meta().Retry // reset on success
-				event.ACK()            // sync
+
+				running = true
+				go func(ev *event.Event) {
+					if e := g.Process(v); e != nil {
+						playback = true
+						log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
+						if retry == 0 {
+							// wrap the error in the sentinel
+							v.SendEvent(event.EventExit, &SentinelErr{e})
+							return
+						}
+						if retry > 0 { // don't decrement the -1
+							retry--
+						}
+						log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
+						// start the timer...
+						timer.Reset(delay)
+						waiting = true // waiting for retry timer
+						return
+					}
+					retry = v.Meta().Retry // reset on success
+					close(done)            // trigger
+				}(ev)
+				ev.ACK() // sync (now mostly useless)
 
 			case <-timer.C:
+				waiting = false
 				if !timer.Stop() {
 					//<-timer.C // blocks, docs are wrong!
 				}
-				running = false
 				log.Printf("%s[%s]: CheckApply delay expired!", v.Kind(), v.GetName())
-				// re-send this failed event, to trigger a CheckApply()
-				go func() { processChan <- saved }()
-				// TODO: should we send a fake event instead?
-				//saved = nil
+				close(done)
+
+			// a CheckApply run (with possibly retry pause) finished
+			case <-done:
+				if g.Flags.Debug {
+					log.Printf("%s[%s]: CheckApply finished!", v.Kind(), v.GetName())
+				}
+				done = make(chan struct{}) // reset
+				// re-send this event, to trigger a CheckApply()
+				if playback {
+					playback = false
+					// this lock avoids us sending to
+					// channel after we've closed it!
+					lock.Lock()
+					go func() {
+						if !finished {
+							// TODO: can this experience indefinite postponement ?
+							// see: https://github.com/golang/go/issues/11506
+							obj.Event(processChan) // replay a new event
+						}
+						lock.Unlock()
+					}()
+				}
+				running = false
 			}
 		}
 	}()
@@ -403,8 +431,14 @@ func (g *Graph) Worker(v *Vertex) error {
 				case event := <-obj.Events():
 					// NOTE: this code should match the similar Res code!
 					//cuid.SetConverged(false) // TODO: ?
-					if exit, send := obj.ReadEvent(&event); exit {
-						return nil // exit
+					if exit, send := obj.ReadEvent(event); exit != nil {
+						err := *exit // exit err
+						if e := obj.Close(); err == nil {
+							err = e
+						} else if e != nil {
+							err = multierr.Append(err, e) // list of errors
+						}
+						return err // exit
 					} else if send {
 						// if we dive down this rabbit hole, our
 						// timer.C won't get seen until we get out!
@@ -442,7 +476,7 @@ func (g *Graph) Worker(v *Vertex) error {
 		// TODO: reset the watch retry count after some amount of success
 		v.Res.RegisterConverger()
 		var e error
-		if v.Meta().Poll > 0 { // poll instead of watching :(
+		if v.Res.Meta().Poll > 0 { // poll instead of watching :(
 			cuid := v.Res.ConvergerUID() // get the converger uid used to report status
 			cuid.StartTimer()
 			e = v.Res.Poll(processChan)
@@ -474,7 +508,17 @@ func (g *Graph) Worker(v *Vertex) error {
 		// by getting the Watch resource to send one event once it's up!
 		//v.SendEvent(eventPoke, false, false)
 	}
+	lock.Lock() // lock to avoid a send when closed!
+	finished = true
 	close(processChan)
+	lock.Unlock()
+
+	// close resource and return possible errors if any
+	if e := obj.Close(); err == nil {
+		err = e
+	} else if e != nil {
+		err = multierr.Append(err, e) // list of errors
+	}
 	return err
 }
 
@@ -504,7 +548,7 @@ func (g *Graph) Start(first bool) { // start or continue
 			v.Res.Starter(true) // let the startup code know to poke
 		}
 
-		if !v.Res.IsWatching() { // if Watch() is not running...
+		if !v.Res.IsWorking() { // if Worker() is not running...
 			g.wg.Add(1)
 			// must pass in value to avoid races...
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
@@ -529,7 +573,7 @@ func (g *Graph) Start(first bool) { // start or continue
 		}(v)
 
 		if !first { // unpause!
-			v.Res.SendEvent(event.EventStart, true, false) // sync!
+			v.Res.SendEvent(event.EventStart, nil) // sync!
 		}
 	}
 
@@ -542,7 +586,7 @@ func (g *Graph) Pause() {
 	defer log.Printf("State: %v -> %v", g.setState(graphStatePaused), g.getState())
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
-		v.SendEvent(event.EventPause, true, false)
+		v.SendEvent(event.EventPause, nil)
 	}
 }
 
@@ -559,7 +603,7 @@ func (g *Graph) Exit() {
 		// when we hit the 'default' in the select statement!
 		// XXX: we can do this to quiesce, but it's not necessary now
 
-		v.SendEvent(event.EventExit, true, false)
+		v.SendEvent(event.EventExit, nil)
 	}
 	g.wg.Wait() // for now, this doesn't need to be a separate Wait() method
 }

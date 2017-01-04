@@ -147,7 +147,7 @@ func (obj *FileRes) GetPath() string {
 // If the Watch returns an error, it means that something has gone wrong, and it
 // must be restarted. On a clean exit it returns nil.
 // FIXME: Also watch the source directory when using obj.Source !!!
-func (obj *FileRes) Watch(processChan chan event.Event) error {
+func (obj *FileRes) Watch(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	var err error
@@ -163,7 +163,7 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 	}
 
 	var send = false // send event?
-	var exit = false
+	var exit *error
 
 	for {
 		if obj.debug {
@@ -188,8 +188,8 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
-			if exit, send = obj.ReadEvent(&event); exit {
-				return nil // exit
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				return *exit // exit
 			}
 			//obj.StateOK(false) // dirty // these events don't invalidate state
 
@@ -201,9 +201,7 @@ func (obj *FileRes) Watch(processChan chan event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

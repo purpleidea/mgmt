@@ -115,7 +115,7 @@ func (obj *PkgRes) Init() error {
 // It uses the PackageKit UpdatesChanged signal to watch for changes.
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
-func (obj *PkgRes) Watch(processChan chan event.Event) error {
+func (obj *PkgRes) Watch(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	bus := packagekit.NewBus()
@@ -135,7 +135,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 	}
 
 	var send = false // send event?
-	var exit = false
+	var exit *error
 
 	for {
 		if obj.debug {
@@ -163,8 +163,8 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
-			if exit, send = obj.ReadEvent(&event); exit {
-				return nil // exit
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				return *exit // exit
 			}
 			//obj.StateOK(false) // these events don't invalidate state
 
@@ -176,9 +176,7 @@ func (obj *PkgRes) Watch(processChan chan event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

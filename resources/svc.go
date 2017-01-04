@@ -79,7 +79,7 @@ func (obj *SvcRes) Init() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *SvcRes) Watch(processChan chan event.Event) error {
+func (obj *SvcRes) Watch(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	// obj.Name: svc name
@@ -112,7 +112,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 	var svc = fmt.Sprintf("%s.service", obj.Name) // systemd name
 	var send = false                              // send event?
-	var exit = false
+	var exit *error
 	var invalid = false              // does the svc exist or not?
 	var previous bool                // previous invalid value
 	set := conn.NewSubscriptionSet() // no error should be returned
@@ -162,8 +162,8 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 			case event := <-obj.Events():
 				cuid.SetConverged(false)
-				if exit, send = obj.ReadEvent(&event); exit {
-					return nil // exit
+				if exit, send = obj.ReadEvent(event); exit != nil {
+					return *exit // exit
 				}
 
 			case <-cuid.ConvergedTimer():
@@ -209,8 +209,8 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 			case event := <-obj.Events():
 				cuid.SetConverged(false)
-				if exit, send = obj.ReadEvent(&event); exit {
-					return nil // exit
+				if exit, send = obj.ReadEvent(event); exit != nil {
+					return *exit // exit
 				}
 
 			case <-cuid.ConvergedTimer():
@@ -221,9 +221,7 @@ func (obj *SvcRes) Watch(processChan chan event.Event) error {
 
 		if send {
 			send = false
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

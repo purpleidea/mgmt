@@ -113,11 +113,11 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *ExecRes) Watch(processChan chan event.Event) error {
+func (obj *ExecRes) Watch(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	var send = false // send event?
-	var exit = false
+	var exit *error
 	bufioch, errch := make(chan string), make(chan error)
 
 	if obj.WatchCmd != "" {
@@ -185,8 +185,8 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
-			if exit, send = obj.ReadEvent(&event); exit {
-				return nil // exit
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				return *exit // exit
 			}
 
 		case <-cuid.ConvergedTimer():
@@ -199,9 +199,7 @@ func (obj *ExecRes) Watch(processChan chan event.Event) error {
 			send = false
 			// it is okay to invalidate the clean state on poke too
 			obj.StateOK(false) // something made state dirty
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

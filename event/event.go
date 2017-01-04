@@ -46,8 +46,7 @@ type Event struct {
 	Name EventName
 	Resp Resp // channel to send an ack response on, nil to skip
 	//Wg   *sync.WaitGroup // receiver barrier to Wait() for everyone else on
-	Msg      string // some words for fun
-	Activity bool   // did something interesting happen?
+	Err error // store an error in our event
 }
 
 // ACK sends a single acknowledgement on the channel if one was requested.
@@ -80,7 +79,7 @@ func NewResp() Resp {
 // ACK sends a true value to resp.
 func (resp Resp) ACK() {
 	if resp != nil {
-		resp <- nil
+		resp <- nil // TODO: close instead?
 	}
 }
 
@@ -114,7 +113,7 @@ func (resp Resp) ACKWait() {
 	}
 }
 
-// GetActivity returns the activity value.
-func (event *Event) GetActivity() bool {
-	return event.Activity
+// Error returns the stored error value.
+func (event *Event) Error() error {
+	return event.Err
 }

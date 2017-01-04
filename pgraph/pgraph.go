@@ -567,7 +567,7 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 	for v := range oldGraph.Adjacency {
 		if !VertexContains(v, vertexKeep) {
 			// wait for exit before starting new graph!
-			v.SendEvent(event.EventExit, true, false)
+			v.SendEvent(event.EventExit, nil) // sync
 			oldGraph.DeleteVertex(v)
 		}
 	}

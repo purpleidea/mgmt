@@ -102,7 +102,7 @@ func (obj *NspawnRes) Init() error {
 }
 
 // Watch for state changes and sends a message to the bus if there is a change
-func (obj *NspawnRes) Watch(processChan chan event.Event) error {
+func (obj *NspawnRes) Watch(processChan chan *event.Event) error {
 	cuid := obj.ConvergerUID() // get the converger uid used to report status
 
 	// this resource depends on systemd ensure that it's running
@@ -133,7 +133,7 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 	}
 
 	var send = false
-	var exit = false
+	var exit *error
 
 	for {
 		obj.SetState(ResStateWatching)
@@ -155,8 +155,8 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 
 		case event := <-obj.Events():
 			cuid.SetConverged(false)
-			if exit, send = obj.ReadEvent(&event); exit {
-				return nil // exit
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				return *exit // exit
 			}
 
 		case <-cuid.ConvergedTimer():
@@ -167,9 +167,7 @@ func (obj *NspawnRes) Watch(processChan chan event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
-				return err // we exit or bubble up a NACK...
-			}
+			obj.Event(processChan)
 		}
 	}
 }

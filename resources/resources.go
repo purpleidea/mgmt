@@ -164,8 +164,8 @@ type Base interface {
 type Res interface {
 	Base          // include everything from the Base interface
 	Default() Res // return a struct with sane defaults as a Res
+	Validate() error
 	Init() error
-	//Validate() error    // TODO: this might one day be added
 	GetUIDs() []ResUID            // most resources only return one
 	Watch(chan event.Event) error // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)

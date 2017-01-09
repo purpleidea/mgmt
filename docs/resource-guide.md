@@ -31,11 +31,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 2. [Theory - Resource theory in mgmt](#theory)
 3. [Resource API - Getting started with mgmt](#resource-api)
 	* [Default - Get an empty resource with defaults](#default)
+	* [Validate - Validate the values of a resource struct](#validate)
 	* [Init - Initialize the resource](#init)
 	* [CheckApply - Check and apply resource state](#checkapply)
 	* [Watch - Detect resource changes](#watch)
 	* [Compare - Compare resource with another](#compare)
-	* [Validate - Validate the values of a resource struct](#validate)
 	* [GetUIDs - Returns the list of resource UID's](#getuids)
 	* [AutoEdges - Returns the autoedge interface matcher](#autoedges)
 	* [CollectPattern - Currently a stub, API will change](#collectpattern)
@@ -94,6 +94,17 @@ func (obj *FooRes) Default() Res {
 }
 ```
 
+###Validate
+```golang
+Validate() error
+```
+
+This method is used to validate if the populated resource struct is a valid
+representation of the resource kind. If it does not conform to the resource
+specifications, it should generate an error. If you notice that this method is
+quite large, it might be an indication that you should reconsider the parameter
+list and interface to this resource. This method is called _before_ `Init`.
+
 ###Init
 ```golang
 Init() error
@@ -115,6 +126,12 @@ func (obj *FooRes) Init() error {
 	return obj.BaseRes.Init() // call the base resource init
 }
 ```
+
+This method is always called after `Validate` has run successfully, with the
+exception that we can't prevent a malicious or buggy `libmgmt` user to not run
+this. In other words, you should expect `Validate` to have run first, but you
+shouldn't allow `Init` to dangerously `rm -rf /$the_world` if your code only
+checks `$the_world` in `Validate`. Remember to always program safely!
 
 ###CheckApply
 ```golang
@@ -366,17 +383,6 @@ func (obj *FooRes) Compare(res Res) bool {
 	return true // they must match!
 }
 ```
-
-###Validate
-```golang
-Validate() error
-```
-
-This method is used to validate if the populated resource struct is a valid
-representation of the resource kind. If it does not conform to the resource
-specifications, it should generate an error. If you notice that this method is
-quite large, it might be an indication that you might want to reconsider the
-parameter list and interface to this resource.
 
 ###GetUIDs
 ```golang

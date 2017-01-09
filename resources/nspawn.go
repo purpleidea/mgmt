@@ -57,26 +57,6 @@ type NspawnRes struct {
 	svc *SvcRes
 }
 
-// Default returns some sensible defaults for this resource.
-func (obj *NspawnRes) Default() Res {
-	return &NspawnRes{
-		State: running,
-	}
-}
-
-// Init runs some startup code for this resource
-func (obj *NspawnRes) Init() error {
-	var serviceName = fmt.Sprintf(nspawnServiceTmpl, obj.GetName())
-	obj.svc = &SvcRes{}
-	obj.svc.Name = serviceName
-	obj.svc.State = obj.State
-	if err := obj.svc.Init(); err != nil {
-		return err
-	}
-	obj.BaseRes.kind = "Nspawn"
-	return obj.BaseRes.Init()
-}
-
 // NewNspawnRes is the constructor for this resource
 func NewNspawnRes(name string, state string) (*NspawnRes, error) {
 	obj := &NspawnRes{
@@ -88,7 +68,14 @@ func NewNspawnRes(name string, state string) (*NspawnRes, error) {
 	return obj, obj.Init()
 }
 
-// Validate params
+// Default returns some sensible defaults for this resource.
+func (obj *NspawnRes) Default() Res {
+	return &NspawnRes{
+		State: running,
+	}
+}
+
+// Validate if the params passed in are valid data.
 func (obj *NspawnRes) Validate() error {
 	// TODO: validStates should be an enum!
 	validStates := map[string]struct{}{
@@ -99,6 +86,19 @@ func (obj *NspawnRes) Validate() error {
 		return fmt.Errorf("Invalid State: %s", obj.State)
 	}
 	return obj.svc.Validate()
+}
+
+// Init runs some startup code for this resource.
+func (obj *NspawnRes) Init() error {
+	var serviceName = fmt.Sprintf(nspawnServiceTmpl, obj.GetName())
+	obj.svc = &SvcRes{}
+	obj.svc.Name = serviceName
+	obj.svc.State = obj.State
+	if err := obj.svc.Init(); err != nil {
+		return err
+	}
+	obj.BaseRes.kind = "Nspawn"
+	return obj.BaseRes.Init()
 }
 
 // Watch for state changes and sends a message to the bus if there is a change

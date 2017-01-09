@@ -67,6 +67,15 @@ func (obj *PkgRes) Default() Res {
 	}
 }
 
+// Validate checks if the resource data structure was populated correctly.
+func (obj *PkgRes) Validate() error {
+	if obj.State == "" {
+		return fmt.Errorf("State cannot be empty!")
+	}
+
+	return nil
+}
+
 // Init runs some startup code for this resource.
 func (obj *PkgRes) Init() error {
 	obj.BaseRes.kind = "Pkg"
@@ -99,15 +108,6 @@ func (obj *PkgRes) Init() error {
 	if files, ok := filesMap[data.PackageID]; ok {
 		obj.fileList = util.DirifyFileList(files, false)
 	}
-	return nil
-}
-
-// Validate checks if the resource data structure was populated correctly.
-func (obj *PkgRes) Validate() error {
-	if obj.State == "" {
-		return fmt.Errorf("State cannot be empty!")
-	}
-
 	return nil
 }
 

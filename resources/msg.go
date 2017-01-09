@@ -78,13 +78,7 @@ func (obj *MsgRes) Default() Res {
 	return &MsgRes{}
 }
 
-// Init runs some startup code for this resource.
-func (obj *MsgRes) Init() error {
-	obj.BaseRes.kind = "Msg"
-	return obj.BaseRes.Init() // call base init, b/c we're overrriding
-}
-
-// Validate the params that are passed to MsgRes
+// Validate the params that are passed to MsgRes.
 func (obj *MsgRes) Validate() error {
 	invalidCharacters := regexp.MustCompile("[^a-zA-Z0-9_]")
 	for field := range obj.Fields {
@@ -96,6 +90,12 @@ func (obj *MsgRes) Validate() error {
 		}
 	}
 	return nil
+}
+
+// Init runs some startup code for this resource.
+func (obj *MsgRes) Init() error {
+	obj.BaseRes.kind = "Msg"
+	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 
 // isAllStateOK derives a compound state from all internal cache flags that apply to this resource.

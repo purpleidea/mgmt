@@ -60,15 +60,15 @@ func (obj *TimerRes) Default() Res {
 	return &TimerRes{}
 }
 
+// Validate the params that are passed to TimerRes.
+func (obj *TimerRes) Validate() error {
+	return nil
+}
+
 // Init runs some startup code for this resource.
 func (obj *TimerRes) Init() error {
 	obj.BaseRes.kind = "Timer"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
-}
-
-// Validate the params that are passed to TimerRes.
-func (obj *TimerRes) Validate() error {
-	return nil
 }
 
 // newTicker creates a new ticker

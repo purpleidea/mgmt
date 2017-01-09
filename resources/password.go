@@ -74,6 +74,11 @@ func (obj *PasswordRes) Default() Res {
 	}
 }
 
+// Validate if the params passed in are valid data.
+func (obj *PasswordRes) Validate() error {
+	return nil
+}
+
 // Init generates a new password for this resource if one was not provided. It
 // will save this into a local file. It will load it back in from previous runs.
 func (obj *PasswordRes) Init() error {
@@ -86,12 +91,6 @@ func (obj *PasswordRes) Init() error {
 	obj.path = path.Join(dir, "password") // return a unique file
 
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
-}
-
-// Validate if the params passed in are valid data.
-// FIXME: where should this get called ?
-func (obj *PasswordRes) Validate() error {
-	return nil
 }
 
 func (obj *PasswordRes) read() (string, error) {

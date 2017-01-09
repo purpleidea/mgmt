@@ -550,6 +550,9 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 
 		vertex := oldGraph.GetVertexMatch(res)
 		if vertex == nil { // no match found
+			if err := res.Validate(); err != nil {
+				return nil, errwrap.Wrapf(err, "could not Validate() resource")
+			}
 			if err := res.Init(); err != nil {
 				return nil, errwrap.Wrapf(err, "could not Init() resource")
 			}

@@ -74,14 +74,7 @@ func (obj *ExecRes) Default() Res {
 	return &ExecRes{}
 }
 
-// Init runs some startup code for this resource.
-func (obj *ExecRes) Init() error {
-	obj.BaseRes.kind = "Exec"
-	return obj.BaseRes.Init() // call base init, b/c we're overriding
-}
-
 // Validate if the params passed in are valid data.
-// FIXME: where should this get called ?
 func (obj *ExecRes) Validate() error {
 	if obj.Cmd == "" { // this is the only thing that is really required
 		return fmt.Errorf("Command can't be empty!")
@@ -93,6 +86,12 @@ func (obj *ExecRes) Validate() error {
 	}
 
 	return nil
+}
+
+// Init runs some startup code for this resource.
+func (obj *ExecRes) Init() error {
+	obj.BaseRes.kind = "Exec"
+	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // BufioChanScanner wraps the scanner output in a channel.

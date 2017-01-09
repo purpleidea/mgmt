@@ -84,6 +84,32 @@ func (obj *FileRes) Default() Res {
 	}
 }
 
+// Validate reports any problems with the struct definition.
+func (obj *FileRes) Validate() error {
+	if obj.Dirname != "" && !strings.HasSuffix(obj.Dirname, "/") {
+		return fmt.Errorf("Dirname must end with a slash.")
+	}
+
+	if strings.HasPrefix(obj.Basename, "/") {
+		return fmt.Errorf("Basename must not start with a slash.")
+	}
+
+	if obj.Content != nil && obj.Source != "" {
+		return fmt.Errorf("Can't specify both Content and Source.")
+	}
+
+	if obj.isDir && obj.Content != nil { // makes no sense
+		return fmt.Errorf("Can't specify Content when creating a Dir.")
+	}
+
+	// XXX: should this specify that we create an empty directory instead?
+	//if obj.Source == "" && obj.isDir {
+	//	return fmt.Errorf("Can't specify an empty source when creating a Dir.")
+	//}
+
+	return nil
+}
+
 // Init runs some startup code for this resource.
 func (obj *FileRes) Init() error {
 	obj.sha256sum = ""
@@ -113,32 +139,6 @@ func (obj *FileRes) GetPath() string {
 	}
 	// if obj.dirname != "" && obj.basename != ""
 	return obj.Dirname + obj.Basename
-}
-
-// Validate reports any problems with the struct definition.
-func (obj *FileRes) Validate() error {
-	if obj.Dirname != "" && !strings.HasSuffix(obj.Dirname, "/") {
-		return fmt.Errorf("Dirname must end with a slash.")
-	}
-
-	if strings.HasPrefix(obj.Basename, "/") {
-		return fmt.Errorf("Basename must not start with a slash.")
-	}
-
-	if obj.Content != nil && obj.Source != "" {
-		return fmt.Errorf("Can't specify both Content and Source.")
-	}
-
-	if obj.isDir && obj.Content != nil { // makes no sense
-		return fmt.Errorf("Can't specify Content when creating a Dir.")
-	}
-
-	// XXX: should this specify that we create an empty directory instead?
-	//if obj.Source == "" && obj.isDir {
-	//	return fmt.Errorf("Can't specify an empty source when creating a Dir.")
-	//}
-
-	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.

@@ -73,6 +73,11 @@ func NewMsgRes(name, body, priority string, journal, syslog bool, fields map[str
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *MsgRes) Default() Res {
+	return &MsgRes{}
+}
+
 // Init runs some startup code for this resource.
 func (obj *MsgRes) Init() error {
 	obj.BaseRes.kind = "Msg"
@@ -258,4 +263,24 @@ func (obj *MsgRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *MsgRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes MsgRes // indirection to avoid infinite recursion
+
+	def := obj.Default()     // get the default
+	res, ok := def.(*MsgRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to MsgRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = MsgRes(raw) // restore from indirection with type conversion!
+	return nil
 }

@@ -77,6 +77,13 @@ func NewFileRes(name, path, dirname, basename string, content *string, source, s
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *FileRes) Default() Res {
+	return &FileRes{
+		State: "exists",
+	}
+}
+
 // Init runs some startup code for this resource.
 func (obj *FileRes) Init() error {
 	obj.sha256sum = ""
@@ -803,4 +810,24 @@ func (obj *FileRes) Compare(res Res) bool {
 func (obj *FileRes) CollectPattern(pattern string) {
 	// XXX: currently the pattern for files can only override the Dirname variable :P
 	obj.Dirname = pattern // XXX: simplistic for now
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *FileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes FileRes // indirection to avoid infinite recursion
+
+	def := obj.Default()      // get the default
+	res, ok := def.(*FileRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to FileRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = FileRes(raw) // restore from indirection with type conversion!
+	return nil
 }

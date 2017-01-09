@@ -82,6 +82,11 @@ func NewHostnameRes(name, staticHostname, transientHostname, prettyHostname stri
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *HostnameRes) Default() Res {
+	return &HostnameRes{}
+}
+
 // Init runs some startup code for this resource.
 func (obj *HostnameRes) Init() error {
 	obj.BaseRes.kind = "Hostname"
@@ -292,4 +297,24 @@ func (obj *HostnameRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *HostnameRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes HostnameRes // indirection to avoid infinite recursion
+
+	def := obj.Default()          // get the default
+	res, ok := def.(*HostnameRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to HostnameRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = HostnameRes(raw) // restore from indirection with type conversion!
+	return nil
 }

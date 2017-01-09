@@ -91,6 +91,11 @@ func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memor
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *VirtRes) Default() Res {
+	return &VirtRes{}
+}
+
 // Init runs some startup code for this resource.
 func (obj *VirtRes) Init() error {
 	if !libvirtInitialized {
@@ -763,6 +768,26 @@ func (obj *VirtRes) Compare(res Res) bool {
 
 // CollectPattern applies the pattern for collection resources.
 func (obj *VirtRes) CollectPattern(string) {
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *VirtRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes VirtRes // indirection to avoid infinite recursion
+
+	def := obj.Default()      // get the default
+	res, ok := def.(*VirtRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to VirtRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = VirtRes(raw) // restore from indirection with type conversion!
+	return nil
 }
 
 // randMAC returns a random mac address in the libvirt range.

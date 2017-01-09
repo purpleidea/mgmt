@@ -69,6 +69,11 @@ func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcm
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *ExecRes) Default() Res {
+	return &ExecRes{}
+}
+
 // Init runs some startup code for this resource.
 func (obj *ExecRes) Init() error {
 	obj.BaseRes.kind = "Exec"
@@ -432,4 +437,24 @@ func (obj *ExecRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *ExecRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes ExecRes // indirection to avoid infinite recursion
+
+	def := obj.Default()      // get the default
+	res, ok := def.(*ExecRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to ExecRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = ExecRes(raw) // restore from indirection with type conversion!
+	return nil
 }

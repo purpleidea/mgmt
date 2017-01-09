@@ -67,6 +67,13 @@ func NewPasswordRes(name string, length uint16) (*PasswordRes, error) {
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *PasswordRes) Default() Res {
+	return &PasswordRes{
+		Length: 64, // safe default
+	}
+}
+
 // Init generates a new password for this resource if one was not provided. It
 // will save this into a local file. It will load it back in from previous runs.
 func (obj *PasswordRes) Init() error {
@@ -362,4 +369,24 @@ func (obj *PasswordRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *PasswordRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes PasswordRes // indirection to avoid infinite recursion
+
+	def := obj.Default()          // get the default
+	res, ok := def.(*PasswordRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to PasswordRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = PasswordRes(raw) // restore from indirection with type conversion!
+	return nil
 }

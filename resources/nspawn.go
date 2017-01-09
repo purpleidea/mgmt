@@ -57,6 +57,13 @@ type NspawnRes struct {
 	svc *SvcRes
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *NspawnRes) Default() Res {
+	return &NspawnRes{
+		State: running,
+	}
+}
+
 // Init runs some startup code for this resource
 func (obj *NspawnRes) Init() error {
 	var serviceName = fmt.Sprintf(nspawnServiceTmpl, obj.GetName())
@@ -83,6 +90,7 @@ func NewNspawnRes(name string, state string) (*NspawnRes, error) {
 
 // Validate params
 func (obj *NspawnRes) Validate() error {
+	// TODO: validStates should be an enum!
 	validStates := map[string]struct{}{
 		stopped: {},
 		running: {},
@@ -302,5 +310,25 @@ func (obj *NspawnRes) Compare(res Res) bool {
 
 // AutoEdges returns the AutoEdge interface in this case no autoedges are used
 func (obj *NspawnRes) AutoEdges() AutoEdge {
+	return nil
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *NspawnRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes NspawnRes // indirection to avoid infinite recursion
+
+	def := obj.Default()        // get the default
+	res, ok := def.(*NspawnRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to NspawnRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = NspawnRes(raw) // restore from indirection with type conversion!
 	return nil
 }

@@ -56,6 +56,11 @@ func NewSvcRes(name, state, startup string) (*SvcRes, error) {
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *SvcRes) Default() Res {
+	return &SvcRes{}
+}
+
 // Init runs some startup code for this resource.
 func (obj *SvcRes) Init() error {
 	obj.BaseRes.kind = "Svc"
@@ -453,4 +458,24 @@ func (obj *SvcRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *SvcRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes SvcRes // indirection to avoid infinite recursion
+
+	def := obj.Default()     // get the default
+	res, ok := def.(*SvcRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to SvcRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = SvcRes(raw) // restore from indirection with type conversion!
+	return nil
 }

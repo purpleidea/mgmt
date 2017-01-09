@@ -162,7 +162,8 @@ type Base interface {
 
 // Res is the minimum interface you need to implement to define a new resource.
 type Res interface {
-	Base // include everything from the Base interface
+	Base          // include everything from the Base interface
+	Default() Res // return a struct with sane defaults as a Res
 	Init() error
 	//Validate() error    // TODO: this might one day be added
 	GetUIDs() []ResUID            // most resources only return one
@@ -171,6 +172,7 @@ type Res interface {
 	AutoEdges() AutoEdge
 	Compare(Res) bool
 	CollectPattern(string) // XXX: temporary until Res collection is more advanced
+	//UnmarshalYAML(unmarshal func(interface{}) error) error // optional
 }
 
 // BaseRes is the base struct that gets used in every resource.

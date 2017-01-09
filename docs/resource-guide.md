@@ -30,10 +30,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1. [Overview](#overview)
 2. [Theory - Resource theory in mgmt](#theory)
 3. [Resource API - Getting started with mgmt](#resource-api)
+	* [Default - Get an empty resource with defaults](#default)
 	* [Init - Initialize the resource](#init)
 	* [CheckApply - Check and apply resource state](#checkapply)
 	* [Watch - Detect resource changes](#watch)
 	* [Compare - Compare resource with another](#compare)
+	* [(UnmarshalYAML) - Optional, sets the YAML defaults](#unmarshalyaml)
 4. [Further considerations - More information about resource writing](#further-considerations)
 5. [Automatic edges - Adding automatic resources dependencies](#automatic-edges)
 6. [Automatic grouping - Grouping multiple resources into one](#automatic-grouping)
@@ -68,6 +70,25 @@ To implement a resource in `mgmt` it must satisfy the
 [`Res`](https://github.com/purpleidea/mgmt/blob/master/resources/resources.go)
 interface. What follows are each of the method signatures and a description of
 each.
+
+###Default
+```golang
+Default() Res
+```
+
+This returns a populated resource struct as a `Res`. It shouldn't populate any
+values which already have the correct default as the golang zero value. In
+general it is preferable if the zero values make for the correct defaults.
+
+####Example
+```golang
+// Default returns some sensible defaults for this resource.
+func (obj *FooRes) Default() Res {
+	return &FooRes{
+		Answer: 42, // sometimes, defaults shouldn't be the zero value
+	}
+}
+```
 
 ###Init
 ```golang
@@ -378,6 +399,42 @@ CollectPattern() string
 
 This is currently a stub and will be updated once the DSL is further along.
 
+###UnmarshalYAML
+```golang
+UnmarshalYAML(unmarshal func(interface{}) error) error // optional
+```
+
+This is optional, but recommended for any resource that will have a YAML
+accessible struct, and an entry in the `GraphConfig` struct. It is not required
+because to do so would mean that third-party or custom resources (such as those
+someone writes to use with `libmgmt`) would have to implement this needlessly.
+
+The signature intentionally matches what is required to satisfy the `go-yaml`
+[Unmarshaler](https://godoc.org/gopkg.in/yaml.v2#Unmarshaler) interface.
+
+####Example
+```golang
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *FooRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes FooRes // indirection to avoid infinite recursion
+
+	def := obj.Default()     // get the default
+	res, ok := def.(*FooRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to FooRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = FooRes(raw) // restore from indirection with type conversion!
+	return nil
+}
+```
+
 ##Further considerations
 There is some additional information that any resource writer will need to know.
 Each issue is listed separately below!
@@ -418,6 +475,9 @@ type GraphConfig struct {
 	}
 }
 ```
+
+It's also recommended that you add the [UnmarshalYAML](#unmarshalyaml) method to
+your resources so that unspecified values are given sane defaults.
 
 ###Gob registration
 All resources must be registered with the `golang` _gob_ module so that they can

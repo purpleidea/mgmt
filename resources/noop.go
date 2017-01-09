@@ -19,6 +19,7 @@ package resources
 
 import (
 	"encoding/gob"
+	"fmt"
 	"log"
 
 	"github.com/purpleidea/mgmt/event"
@@ -43,6 +44,11 @@ func NewNoopRes(name string) (*NoopRes, error) {
 		Comment: "",
 	}
 	return obj, obj.Init()
+}
+
+// Default returns some sensible defaults for this resource.
+func (obj *NoopRes) Default() Res {
+	return &NoopRes{}
 }
 
 // Init runs some startup code for this resource.
@@ -152,4 +158,24 @@ func (obj *NoopRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *NoopRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes NoopRes // indirection to avoid infinite recursion
+
+	def := obj.Default()      // get the default
+	res, ok := def.(*NoopRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to NoopRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = NoopRes(raw) // restore from indirection with type conversion!
+	return nil
 }

@@ -60,6 +60,13 @@ func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupporte
 	return obj, obj.Init()
 }
 
+// Default returns some sensible defaults for this resource.
+func (obj *PkgRes) Default() Res {
+	return &PkgRes{
+		State: "installed", // i think this is preferable to "latest"
+	}
+}
+
 // Init runs some startup code for this resource.
 func (obj *PkgRes) Init() error {
 	obj.BaseRes.kind = "Pkg"
@@ -543,4 +550,24 @@ func ReturnSvcInFileList(fileList []string) []string {
 		}
 	}
 	return result
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *PkgRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes PkgRes // indirection to avoid infinite recursion
+
+	def := obj.Default()     // get the default
+	res, ok := def.(*PkgRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to PkgRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = PkgRes(raw) // restore from indirection with type conversion!
+	return nil
 }

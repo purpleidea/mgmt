@@ -19,6 +19,7 @@ package resources
 
 import (
 	"encoding/gob"
+	"fmt"
 	"log"
 	"time"
 
@@ -52,6 +53,11 @@ func NewTimerRes(name string, interval uint32) (*TimerRes, error) {
 		Interval: interval,
 	}
 	return obj, obj.Init()
+}
+
+// Default returns some sensible defaults for this resource.
+func (obj *TimerRes) Default() Res {
+	return &TimerRes{}
 }
 
 // Init runs some startup code for this resource.
@@ -164,4 +170,24 @@ func (obj *TimerRes) Compare(res Res) bool {
 		return false
 	}
 	return true
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct.
+// It is primarily useful for setting the defaults.
+func (obj *TimerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes TimerRes // indirection to avoid infinite recursion
+
+	def := obj.Default()       // get the default
+	res, ok := def.(*TimerRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to TimerRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = TimerRes(raw) // restore from indirection with type conversion!
+	return nil
 }

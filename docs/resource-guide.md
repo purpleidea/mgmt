@@ -108,10 +108,15 @@ opened in the `Init` method and were using throughout the resource.
 ```golang
 // Close runs some cleanup code for this resource.
 func (obj *FooRes) Close() error {
+	err := obj.conn.Close() // close some internal connection
 
-	obj.Conn.Close() // ignore error in this case
-
-	return obj.BaseRes.Close() // call base close, b/c we're overriding
+	// call base close, b/c we're overriding
+	if e := obj.BaseRes.Close(); err == nil {
+		err = e
+	} else if e != nil {
+		err = multierr.Append(err, e) // list of errors
+	}
+	return err
 }
 ```
 

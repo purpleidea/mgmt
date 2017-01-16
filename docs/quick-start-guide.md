@@ -114,6 +114,7 @@ Installation of `mgmt` from distribution packages currently needs improvement.
 At the moment we have:
 * [COPR](https://copr.fedoraproject.org/coprs/purpleidea/mgmt/)
 * [Arch](https://aur.archlinux.org/packages/mgmt/)
+
 Please contribute more! We'd especially like to see a Debian package!
 
 ##Authors

@@ -468,6 +468,19 @@ of `K` seconds to still converge when `J <= K`, as long as `I > J || I > K`,
 which is another way of saying that if the resource finally settles down to give
 the graph enough time, it can probably converge.
 
+#### Limit
+Float. Maximum rate of `CheckApply` runs started per second. Useful to limit
+an especially _eventful_ process from causing excessive checks to run. This
+defaults to `+Infinity` which adds no limiting. If you change this value, you
+will also need to change the `Burst` value to a non-zero value. Please see the
+[rate](https://godoc.org/golang.org/x/time/rate) package for more information.
+
+#### Burst
+Integer. Burst is the maximum number of runs which can happen without invoking
+the rate limiter as designated by the `Limit` value. If the `Limit` is not set
+to `+Infinity`, this must be a non-zero value. Please see the
+[rate](https://godoc.org/golang.org/x/time/rate) package for more information.
+
 ### Graph definition file
 graph.yaml is the compiled graph definition file. The format is currently
 undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)

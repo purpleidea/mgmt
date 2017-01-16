@@ -34,6 +34,7 @@ import (
 	"github.com/purpleidea/mgmt/event"
 
 	errwrap "github.com/pkg/errors"
+	"golang.org/x/time/rate"
 )
 
 //go:generate stringer -type=ResState -output=resstate_stringer.go
@@ -93,9 +94,11 @@ type MetaParams struct {
 	// NOTE: there are separate Watch and CheckApply retry and delay values,
 	// but I've decided to use the same ones for both until there's a proper
 	// reason to want to do something differently for the Watch errors.
-	Retry int16  `yaml:"retry"` // metaparam, number of times to retry on error. -1 for infinite
-	Delay uint64 `yaml:"delay"` // metaparam, number of milliseconds to wait between retries
-	Poll  uint32 `yaml:"poll"`  // metaparam, number of seconds between poll interval, 0 to watch.
+	Retry int16      `yaml:"retry"` // metaparam, number of times to retry on error. -1 for infinite
+	Delay uint64     `yaml:"delay"` // metaparam, number of milliseconds to wait between retries
+	Poll  uint32     `yaml:"poll"`  // metaparam, number of seconds between poll intervals, 0 to watch
+	Limit rate.Limit `yaml:"limit"` // metaparam, number of events per second to allow through
+	Burst int        `yaml:"burst"` // metaparam, number of events to allow in a burst
 }
 
 // UnmarshalYAML is the custom unmarshal handler for the MetaParams struct. It
@@ -117,9 +120,11 @@ var DefaultMetaParams = MetaParams{
 	AutoEdge:  true,
 	AutoGroup: true,
 	Noop:      false,
-	Retry:     0, // TODO: is this a good default?
-	Delay:     0, // TODO: is this a good default?
-	Poll:      0, // defaults to watching for events
+	Retry:     0,        // TODO: is this a good default?
+	Delay:     0,        // TODO: is this a good default?
+	Poll:      0,        // defaults to watching for events
+	Limit:     rate.Inf, // defaults to no limit
+	Burst:     0,        // no burst needed on an infinite rate // TODO: is this a good default?
 }
 
 // The Base interface is everything that is common to all resources.
@@ -244,6 +249,9 @@ func (obj *BaseUID) Reversed() bool {
 
 // Validate reports any problems with the struct definition.
 func (obj *BaseRes) Validate() error {
+	if obj.Meta().Burst == 0 && !(obj.Meta().Limit == rate.Inf) { // blocked
+		return fmt.Errorf("Permanently limited (rate != Inf, burst: 0)")
+	}
 	return nil
 }
 
@@ -435,6 +443,12 @@ func (obj *BaseRes) Compare(res Res) bool {
 		return false
 	}
 	if obj.Meta().Poll != res.Meta().Poll {
+		return false
+	}
+	if obj.Meta().Limit != res.Meta().Limit {
+		return false
+	}
+	if obj.Meta().Burst != res.Meta().Burst {
 		return false
 	}
 	return true

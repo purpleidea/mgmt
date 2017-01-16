@@ -29,6 +29,7 @@ import (
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
+	"golang.org/x/time/rate"
 )
 
 // GetTimestamp returns the timestamp of a vertex
@@ -327,6 +328,8 @@ func (g *Graph) Worker(v *Vertex) error {
 
 		var delay = time.Duration(v.Meta().Delay) * time.Millisecond
 		var retry = v.Meta().Retry // number of tries left, -1 for infinite
+		var limiter = rate.NewLimiter(v.Meta().Limit, v.Meta().Burst)
+		limited := false
 
 	Loop:
 		for {
@@ -346,6 +349,35 @@ func (g *Graph) Worker(v *Vertex) error {
 					ev.ACK() // ready for next message
 					continue
 				}
+
+				// catch invalid rates
+				if v.Meta().Burst == 0 && !(v.Meta().Limit == rate.Inf) { // blocked
+					e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.Kind(), v.GetName())
+					v.SendEvent(event.EventExit, &SentinelErr{e})
+					ev.ACK() // ready for next message
+					continue
+				}
+
+				// rate limit
+				// FIXME: consider skipping rate limit check if
+				// the event is a poke instead of a watch event
+				if !limited && !(v.Meta().Limit == rate.Inf) { // skip over the playback event...
+					now := time.Now()
+					r := limiter.ReserveN(now, 1) // one event
+					// r.OK() seems to always be true here!
+					d := r.DelayFrom(now)
+					if d > 0 { // delay
+						limited = true
+						playback = true
+						log.Printf("%s[%s]: Limited (rate: %v/sec, burst: %d, next: %v)", v.Kind(), v.GetName(), v.Meta().Limit, v.Meta().Burst, d)
+						// start the timer...
+						timer.Reset(d)
+						waiting = true // waiting for retry timer
+						ev.ACK()
+						continue
+					} // otherwise, we run directly!
+				}
+				limited = false // let one through
 
 				running = true
 				go func(ev *event.Event) {

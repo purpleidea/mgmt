@@ -1,11 +1,38 @@
-#mgmt Puppet support
+#mgmt
+
+<!--
+Mgmt
+Copyright (C) 2013-2016+ James Shubin and the project contributors
+Written by James Shubin <james@shubin.ca> and the project contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-->
+
+##mgmt Puppet guide
+####Available from:
+####[https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
+
+####This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) format.
+
+####Table of Contents
 
 1. [Prerequisites](#prerequisites)
-    * [Testing the Puppet side](#testing-the-puppet-side)
+	* [Testing the Puppet side](#testing-the-puppet-side)
 2. [Writing a suitable manifest](#writing-a-suitable-manifest)
-    * [Unsupported attributes](#unsupported-attributes)
-    * [Unsupported resources](#unsupported-resources)
-    * [Avoiding common warnings](#avoiding-common-warnings)
+	* [Unsupported attributes](#unsupported-attributes)
+	* [Unsupported resources](#unsupported-resources)
+	* [Avoiding common warnings](#avoiding-common-warnings)
 3. [Configuring Puppet](#configuring-puppet)
 4. [Caveats](#caveats)
 
@@ -29,7 +56,9 @@ Any release of Puppet's 3.x and 4.x series should be suitable for use with
 `mgmt`. Most importantly, make sure to install the `ffrank-mgmtgraph` Puppet
 module (referred to below as "the translator module").
 
-    puppet module install ffrank-mgmtgraph
+```
+puppet module install ffrank-mgmtgraph
+```
 
 Please note that the module is not required on your Puppet master (if you
 use a master/agent setup). It's needed on the machine that runs `mgmt`.
@@ -62,8 +91,10 @@ For example, at the time of writing this, the `file` type in `mgmt` had no
 notion of permissions (the file `mode`) yet. This lead to the following
 warning (among others that will be discussed below):
 
-    $ puppet mgmtgraph print --code 'file { "/tmp/foo": mode => "0600" }'
-    Warning: cannot translate: File[/tmp/foo] { mode => "600" } (attribute is ignored)
+```
+$ puppet mgmtgraph print --code 'file { "/tmp/foo": mode => "0600" }'
+Warning: cannot translate: File[/tmp/foo] { mode => "600" } (attribute is ignored)
+```
 
 This is a heads-up for the user, because the resulting `mgmt` graph will
 in fact not pass this information to the `/tmp/foo` file resource, and
@@ -98,21 +129,25 @@ the translator module just ignores them. However, there are cases in which
 Puppet will default to convenient behavior that `mgmt` cannot quite replicate.
 For example, translating a plain `file` resource will lead to a warning message:
 
-    $ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": }'
-    Warning: File[/tmp/mgmt-test] uses the 'puppet' file bucket, which mgmt cannot do. There will be no backup copies!
+```
+$ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": }'
+Warning: File[/tmp/mgmt-test] uses the 'puppet' file bucket, which mgmt cannot do. There will be no backup copies!
+```
 
 The reason is that per default, Puppet assumes the following parameter value
 (among others)
 
 ```puppet
 file { "/tmp/mgmt-test":
-  backup => 'puppet',
+	backup => 'puppet',
 }
 ```
 
 To avoid this, specify the parameter explicitly:
 
-    $ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": backup => false }'
+```
+$ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": backup => false }'
+```
 
 This is tedious in a more complex manifest. A good simplification is the
 following [resource default](https://docs.puppet.com/puppet/latest/reference/lang_defaults.html)
@@ -143,14 +178,18 @@ control all of them, through its `--puppet-conf` option. It allows
 you to specify which `puppet.conf` file should be used during
 translation.
 
-    mgmt run --puppet /opt/my-manifest.pp --puppet-conf /etc/mgmt/puppet.conf
+```
+mgmt run --puppet /opt/my-manifest.pp --puppet-conf /etc/mgmt/puppet.conf
+```
 
 Within this file, you can just specify any needed options in the
 `[main]` section:
 
-    [main]
-    server=mgmt-master.example.net
-    vardir=/var/lib/mgmt/puppet
+```
+[main]
+server=mgmt-master.example.net
+vardir=/var/lib/mgmt/puppet
+```
 
 ##Caveats
 

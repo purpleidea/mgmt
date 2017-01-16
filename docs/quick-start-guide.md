@@ -27,11 +27,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ####Table of Contents
 
+0. [Introduction](#introduction)
 1. [Dependencies](#dependencies)
 2. [Quick start](#quick-start)
 3. [Examples](#examples)
 4. [Installation](#installation)
 5. [Authors - Authors and contact information](#authors)
+
+## Introduction:
+This guide is intended for developers. Once `mgmt` is minimally viable, we'll
+publish a quick start guide for users too. In the meantime, please contribute!
+If you're brand new to `mgmt`, it's probably a good idea to start by reading the
+[introductory article](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
+or to watch an [introductory video](https://github.com/purpleidea/mgmt/#on-the-web).
+Once you're familiar with the general idea, please start hacking...
 
 ## Dependencies:
 Software projects have a few different kinds of dependencies. There are _build_

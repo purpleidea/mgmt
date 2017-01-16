@@ -28,8 +28,8 @@ Please read, enjoy and help improve our documentation!
 
 | documentation | additional notes |
 |---|---|
-| [quick start guide](docs/quick-start-guide.md) | for mgmt newcomers |
 | [general documentation](docs/documentation.md) | for everyone |
+| [quick start guide](docs/quick-start-guide.md) | for mgmt developers |
 | [resource guide](docs/resource-guide.md) | for mgmt developers |
 | [godoc API reference](https://godoc.org/github.com/purpleidea/mgmt) | for mgmt developers |
 | [puppet guide](docs/puppet.md) | for puppet sysadmins |

@@ -25,29 +25,6 @@ With your help you'll be able to influence our design and get us there sooner!
 Please join the [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) IRC community!
 If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!
 
-## Quick start:
-* Make sure you have golang version 1.6 or greater installed.
-* If you do not have a GOPATH yet, create one and export it:
-```
-mkdir $HOME/gopath
-export GOPATH=$HOME/gopath
-```
-* You might also want to add the GOPATH to your `~/.bashrc` or `~/.profile`.
-* For more information you can read the [GOPATH documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable).
-* Next download the mgmt code base, and switch to that directory:
-```
-go get -u github.com/purpleidea/mgmt
-cd $GOPATH/src/github.com/purpleidea/mgmt
-```
-* Run `make deps` to install system and golang dependencies. Take a look at `misc/make-deps.sh` for details.
-* Run `make build` to get a freshly built `mgmt` binary.
-* Run `time ./mgmt run --yaml examples/graph0.yaml --converged-timeout=5 --tmp-prefix` to try out a very simple example!
-* To run continuously in the default mode of operation, omit the `--converged-timeout` option.
-* Have fun hacking on our future technology!
-
-## Examples:
-Please look in the [examples/](examples/) folder for more examples!
-
 ## Documentation:
 Please see: the manually created [documentation.md](docs/documentation.md) (also available as [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md)) and the automatically generated [GoDoc documentation](https://godoc.org/github.com/purpleidea/mgmt).
 
@@ -60,26 +37,6 @@ Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purp
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
 Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell) or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
 Feel free to read my article on [debugging golang programs](https://ttboj.wordpress.com/2016/02/15/debugging-golang-programs/).
-
-## Dependencies:
-* golang 1.6 or higher (required, available in most distros)
-* golang libraries (required, available with `go get`)
-```
-go get github.com/coreos/etcd/client
-go get gopkg.in/yaml.v2
-go get gopkg.in/fsnotify.v1
-go get github.com/urfave/cli
-go get github.com/coreos/go-systemd/dbus
-go get github.com/coreos/go-systemd/util
-go get github.com/coreos/pkg/capnslog
-go get github.com/libvirt/libvirt-go
-```
-* stringer (optional for building), available as a package on some platforms, otherwise via `go get`
-```
-go get golang.org/x/tools/cmd/stringer
-```
-* pandoc (optional, for building a pdf of the documentation)
-* graphviz (optional, for building a visual representation of the graph)
 
 ## Patches:
 We'd love to have your patches! Please send them by email, or as a pull request.

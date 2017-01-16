@@ -30,7 +30,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 1. [Dependencies](#dependencies)
 2. [Quick start](#quick-start)
 3. [Examples](#examples)
-4. [Authors - Authors and contact information](#authors)
+4. [Installation](#installation)
+5. [Authors - Authors and contact information](#authors)
 
 ## Dependencies:
 Software projects have a few different kinds of dependencies. There are _build_
@@ -98,6 +99,13 @@ cd $GOPATH/src/github.com/purpleidea/mgmt
 
 ## Examples:
 Please look in the [examples/](../examples/) folder for some examples!
+
+## Installation:
+Installation of `mgmt` from distribution packages currently needs improvement.
+At the moment we have:
+* [COPR](https://copr.fedoraproject.org/coprs/purpleidea/mgmt/)
+* [Arch](https://aur.archlinux.org/packages/mgmt/)
+Please contribute more! We'd especially like to see a Debian package!
 
 ##Authors
 Copyright (C) 2013-2016+ James Shubin and the project contributors

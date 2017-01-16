@@ -63,6 +63,8 @@ For more information, you may like to read some blog posts from the author:
 * [Automatic edges in mgmt](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
 * [Automatic grouping in mgmt](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
 * [Automatic clustering in mgmt](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
+* [Remote execution in mgmt](https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/)
+* [Send/Recv in mgmt](https://ttboj.wordpress.com/2016/12/07/sendrecv-in-mgmt/)
 
 There is also an [introductory video](http://meetings-archive.debian.net/pub/debian-meetings/2016/debconf16/Next_Generation_Config_Mgmt.webm) available.
 Older videos and other material [is available](https://github.com/purpleidea/mgmt/#on-the-web).

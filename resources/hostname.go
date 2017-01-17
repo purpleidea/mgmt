@@ -92,7 +92,7 @@ func (obj *HostnameRes) Validate() error {
 	if obj.PrettyHostname == "" && obj.StaticHostname == "" && obj.TransientHostname == "" {
 		return ErrResourceInsufficientParameters
 	}
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

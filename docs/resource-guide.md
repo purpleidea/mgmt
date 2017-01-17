@@ -106,6 +106,17 @@ specifications, it should generate an error. If you notice that this method is
 quite large, it might be an indication that you should reconsider the parameter
 list and interface to this resource. This method is called _before_ `Init`.
 
+#### Example
+```golang
+// Validate reports any problems with the struct definition.
+func (obj *FooRes) Validate() error {
+	if obj.Answer != 42 { // validate whatever you want
+		return fmt.Errorf("expected an answer of 42")
+	}
+	return obj.BaseRes.Validate() // remember to call the base method!
+}
+```
+
 ### Init
 ```golang
 Init() error

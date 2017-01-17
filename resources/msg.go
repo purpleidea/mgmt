@@ -89,7 +89,7 @@ func (obj *MsgRes) Validate() error {
 			return fmt.Errorf("Fields cannot begin with _.")
 		}
 	}
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

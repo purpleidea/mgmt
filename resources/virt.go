@@ -122,7 +122,7 @@ func (obj *VirtRes) Init() error {
 
 // Validate if the params passed in are valid data.
 func (obj *VirtRes) Validate() error {
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 func (obj *VirtRes) connect() (conn *libvirt.Connect, err error) {

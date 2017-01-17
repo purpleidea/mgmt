@@ -53,7 +53,7 @@ func (obj *NoopRes) Default() Res {
 
 // Validate if the params passed in are valid data.
 func (obj *NoopRes) Validate() error {
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

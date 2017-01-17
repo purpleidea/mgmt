@@ -85,7 +85,11 @@ func (obj *NspawnRes) Validate() error {
 	if _, exists := validStates[obj.State]; !exists {
 		return fmt.Errorf("Invalid State: %s", obj.State)
 	}
-	return obj.svc.Validate()
+
+	if err := obj.svc.Validate(); err != nil { // composite resource
+		return errwrap.Wrapf(err, "validate failed for embedded svc")
+	}
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

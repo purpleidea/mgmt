@@ -62,7 +62,7 @@ func (obj *TimerRes) Default() Res {
 
 // Validate the params that are passed to TimerRes.
 func (obj *TimerRes) Validate() error {
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

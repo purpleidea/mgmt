@@ -107,7 +107,7 @@ func (obj *FileRes) Validate() error {
 	//	return fmt.Errorf("Can't specify an empty source when creating a Dir.")
 	//}
 
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

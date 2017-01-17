@@ -242,6 +242,11 @@ func (obj *BaseUID) Reversed() bool {
 	return *obj.reversed
 }
 
+// Validate reports any problems with the struct definition.
+func (obj *BaseRes) Validate() error {
+	return nil
+}
+
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
 	if obj.kind == "" {

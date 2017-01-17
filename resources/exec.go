@@ -85,7 +85,7 @@ func (obj *ExecRes) Validate() error {
 		return fmt.Errorf("Don't poll when we have a watch command.")
 	}
 
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

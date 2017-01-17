@@ -73,7 +73,7 @@ func (obj *PkgRes) Validate() error {
 		return fmt.Errorf("State cannot be empty!")
 	}
 
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

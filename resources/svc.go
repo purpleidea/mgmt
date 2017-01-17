@@ -69,7 +69,7 @@ func (obj *SvcRes) Validate() error {
 	if obj.Startup != "enabled" && obj.Startup != "disabled" && obj.Startup != "" {
 		return fmt.Errorf("Startup must be either `enabled` or `disabled` or undefined.")
 	}
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.

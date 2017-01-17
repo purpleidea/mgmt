@@ -76,7 +76,7 @@ func (obj *PasswordRes) Default() Res {
 
 // Validate if the params passed in are valid data.
 func (obj *PasswordRes) Validate() error {
-	return nil
+	return obj.BaseRes.Validate()
 }
 
 // Init generates a new password for this resource if one was not provided. It

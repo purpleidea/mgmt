@@ -1,4 +1,4 @@
-#mgmt
+# mgmt
 
 <!--
 Mgmt
@@ -19,13 +19,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-##mgmt quick start guide
-####Available from:
-####[https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
+## mgmt quick start guide
+#### Available from:
+#### [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
 
-####This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/quick-start-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/quick-start-guide.md) format.
+#### This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/quick-start-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/quick-start-guide.md) format.
 
-####Table of Contents
+#### Table of Contents
 
 0. [Introduction](#introduction)
 1. [Dependencies](#dependencies)
@@ -65,7 +65,7 @@ golang.org/x/tools/cmd/stringer
 ```
 * `pandoc` (optional), for building a pdf of the documentation
 
-###Runtime
+### Runtime
 A relatively modern GNU/Linux system should be able to run `mgmt` without any
 problems. Since `mgmt` runs as a single statically compiled binary, all of the
 library dependencies are included. It is expected, that certain advanced
@@ -83,7 +83,7 @@ listed below:
 
 For building a visual representation of the graph, `graphviz` is required.
 
-###Testing
+### Testing
 * golint `github.com/golang/lint/golint`
 
 ## Quick start:
@@ -117,7 +117,7 @@ At the moment we have:
 
 Please contribute more! We'd especially like to see a Debian package!
 
-##Authors
+## Authors
 Copyright (C) 2013-2016+ James Shubin and the project contributors
 
 Please see the

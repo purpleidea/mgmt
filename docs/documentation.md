@@ -1,4 +1,4 @@
-#mgmt
+# mgmt
 
 <!--
 Mgmt
@@ -19,13 +19,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-##mgmt by [James](https://ttboj.wordpress.com/)
-####Available from:
-####[https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
+## mgmt by [James](https://ttboj.wordpress.com/)
+#### Available from:
+#### [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
 
-####This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) format.
+#### This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) format.
 
-####Table of Contents
+#### Table of Contents
 
 1. [Overview](#overview)
 2. [Project description - What the project does](#project-description)
@@ -46,12 +46,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 9. [Development - Background on module development and reporting bugs](#development)
 10. [Authors - Authors and contact information](#authors)
 
-##Overview
+## Overview
 
 The `mgmt` tool is a next generation config management prototype. It's not yet
 ready for production, but we hope to get there soon. Get involved today!
 
-##Project Description
+## Project Description
 
 The mgmt tool is a distributed, event driven, config management tool, that
 supports parallel execution, and librarification to be used as the management
@@ -69,7 +69,7 @@ For more information, you may like to read some blog posts from the author:
 There is also an [introductory video](http://meetings-archive.debian.net/pub/debian-meetings/2016/debconf16/Next_Generation_Config_Mgmt.webm) available.
 Older videos and other material [is available](https://github.com/purpleidea/mgmt/#on-the-web).
 
-##Setup
+## Setup
 
 During this prototype phase, the tool can be run out of the source directory.
 You'll probably want to use ```./run.sh run --yaml examples/graph1.yaml``` to
@@ -77,12 +77,12 @@ get started. Beware that this _can_ cause data loss. Understand what you're
 doing first, or perform these actions in a virtual environment such as the one
 provided by [Oh-My-Vagrant](https://github.com/purpleidea/oh-my-vagrant).
 
-##Features
+## Features
 
 This section details the numerous features of mgmt and some caveats you might
 need to be aware of.
 
-###Autoedges
+### Autoedges
 
 Automatic edges, or AutoEdges, is the mechanism in mgmt by which it will
 automatically create dependencies for you between resources. For example,
@@ -91,7 +91,7 @@ automatically ensure that any file resource you declare that matches a
 file installed by your package resource will only be processed after the
 package is installed.
 
-####Controlling autoedges
+#### Controlling autoedges
 
 Though autoedges is likely to be very helpful and avoid you having to declare
 all dependencies explicitly, there are cases where this behaviour is
@@ -108,12 +108,12 @@ installation of the `mysql-server` package.
 You can disable autoedges for a resource by setting the `autoedge` key on
 the meta attributes of that resource to `false`.
 
-####Blog post
+#### Blog post
 
 You can read the introductory blog post about this topic here:
 [https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
 
-###Autogrouping
+### Autogrouping
 
 Automatic grouping or AutoGroup is the mechanism in mgmt by which it will
 automatically group multiple resource vertices into a single one. This is
@@ -127,12 +127,12 @@ used for other use cases too.
 You can disable autogrouping for a resource by setting the `autogroup` key on
 the meta attributes of that resource to `false`.
 
-####Blog post
+#### Blog post
 
 You can read the introductory blog post about this topic here:
 [https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
 
-###Automatic clustering
+### Automatic clustering
 
 Automatic clustering is a feature by which mgmt automatically builds, scales,
 and manages the embedded etcd cluster which is compiled into mgmt itself. It is
@@ -143,12 +143,12 @@ If you prefer to avoid this feature. you can always opt to use an existing etcd
 cluster that is managed separately from mgmt by pointing your mgmt agents at it
 with the `--seeds` variable.
 
-####Blog post
+#### Blog post
 
 You can read the introductory blog post about this topic here:
 [https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
 
-###Remote ("agent-less") mode
+### Remote ("agent-less") mode
 
 Remote mode is a special mode that lets you kick off mgmt runs on one or more
 remote machines which are only accessible via SSH. In this mode the initiating
@@ -170,12 +170,12 @@ entire set of running mgmt agents will need to all simultaneously converge for
 the group to exit. This is particularly useful for bootstrapping new clusters
 which need to exchange information that is only available at run time.
 
-####Blog post
+#### Blog post
 
 You can read the introductory blog post about this topic here:
 [https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/](https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/)
 
-###Puppet support
+### Puppet support
 
 You can supply a Puppet manifest instead of creating the (YAML) graph manually.
 Puppet must be installed and in `mgmt`'s search path. You also need the
@@ -197,12 +197,12 @@ Invoke `mgmt` with the `--puppet` switch, which supports 3 variants:
 
 For more details and caveats see [Puppet.md](Puppet.md).
 
-####Blog post
+#### Blog post
 
 An introductory post on the Puppet support is on
 [Felix's blog](http://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/).
 
-##Resources
+## Resources
 
 This section lists all the built-in resources and their properties. The
 resource primitives in `mgmt` are typically more powerful than resources in
@@ -230,45 +230,45 @@ parameter with the [Noop](#Noop) resource.
 * [Timer](#Timer): Manage system systemd services.
 * [Virt](#Virt): Manage virtual machines with libvirt.
 
-###Exec
+### Exec
 
 The exec resource can execute commands on your system.
 
-###File
+### File
 
 The file resource manages files and directories. In `mgmt`, directories are
 identified by a trailing slash in their path name. File have no such slash.
 
-####Path
+#### Path
 
 The path property specifies the file or directory that we are managing.
 
-####Content
+#### Content
 
 The content property is a string that specifies the desired file contents.
 
-####Source
+#### Source
 
 The source property points to a source file or directory path that we wish to
 copy over and use as the desired contents for our resource.
 
-####State
+#### State
 
 The state property describes the action we'd like to apply for the resource. The
 possible values are: `exists` and `absent`.
 
-####Recurse
+#### Recurse
 
 The recurse property limits whether file resource operations should recurse into
 and monitor directory contents with a depth greater than one.
 
-####Force
+#### Force
 
 The force property is required if we want the file resource to be able to change
 a file into a directory or vice-versa. If such a change is needed, but the force
 property is not set to `true`, then this file resource will error.
 
-###Hostname
+### Hostname
 
 The hostname resource manages static, transient/dynamic and pretty hostnames
 on the system and watches them for changes.
@@ -292,55 +292,55 @@ The pretty hostname is a free-form UTF8 host name for presentation to the user.
 Hostname is the fallback value for all 3 fields above, if only `hostname` is
 specified, it will set all 3 fields to this value.
 
-###Msg
+### Msg
 
 The msg resource sends messages to the main log, or an external service such
 as systemd's journal.
 
-###Noop
+### Noop
 
 The noop resource does absolutely nothing. It does have some utility in testing
 `mgmt` and also as a placeholder in the resource graph.
 
-###Nspawn
+### Nspawn
 
 The nspawn resource is used to manage systemd-machined style containers.
 
-###Password
+### Password
 
 The password resource can generate a random string to be used as a password. It
 will re-generate the password if it receives a refresh notification.
 
-###Pkg
+### Pkg
 
 The pkg resource is used to manage system packages. This resource works on many
 different distributions because it uses the underlying packagekit facility which
 supports different backends for different environments. This ensures that we
 have great Debian (deb/dpkg) and Fedora (rpm/dnf) support simultaneously.
 
-###Svc
+### Svc
 
 The service resource is still very WIP. Please help us my improving it!
 
-###Timer
+### Timer
 
 This resource needs better documentation. Please help us my improving it!
 
-###Virt
+### Virt
 
 The virt resource can manage virtual machines via libvirt.
 
-##Usage and frequently asked questions
+## Usage and frequently asked questions
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and
 respond by commit with the answer.)
 
-###Why did you start this project?
+### Why did you start this project?
 
 I wanted a next generation config management solution that didn't have all of
 the design flaws or limitations that the current generation of tools do, and no
 tool existed!
 
-###Why did you use etcd? What about consul?
+### Why did you use etcd? What about consul?
 
 Etcd and consul are both written in golang, which made them the top two
 contenders for my prototype. Ultimately a choice had to be made, and etcd was
@@ -348,7 +348,7 @@ chosen, but it was also somewhat arbitrary. If there is available interest,
 good reasoning, *and* patches, then we would consider either switching or
 supporting both, but this is not a high priority at this time.
 
-###Can I use an existing etcd cluster instead of the automatic embedded servers?
+### Can I use an existing etcd cluster instead of the automatic embedded servers?
 
 Yes, it's possible to use an existing etcd cluster instead of the automatic,
 elastic embedded etcd servers. To do so, simply point to the cluster with the
@@ -359,7 +359,7 @@ The downside to this approach is that you won't benefit from the automatic
 elastic nature of the embedded etcd servers, and that you're responsible if you
 accidentally break your etcd cluster, or if you use an unsupported version.
 
-###What does the error message about an inconsistent dataDir mean?
+### What does the error message about an inconsistent dataDir mean?
 
 If you get an error message similar to:
 
@@ -377,7 +377,7 @@ starting up, and as a result, a default endpoint never gets added. The solution
 is to either reconcile the mistake, and if there is no important data saved, you
 can remove the etcd dataDir. This is typically `/var/lib/mgmt/etcd/member/`.
 
-###Why do resources have both a `Compare` method and an `IFF` (on the UID) method?
+### Why do resources have both a `Compare` method and an `IFF` (on the UID) method?
 
 The `Compare()` methods are for determining if two resources are effectively the
 same, which is used to make graph change delta's efficient. This is when we want
@@ -393,14 +393,14 @@ equality. In the future it might be helpful or sane to merge the two similar
 comparison functions although for now they are separate because they are
 actually answer different questions.
 
-###Did you know that there is a band named `MGMT`?
+### Did you know that there is a band named `MGMT`?
 
 I didn't realize this when naming the project, and it is accidental. After much
 anguishing, I chose the name because it was short and I thought it was
 appropriately descriptive. If you need a less ambiguous search term or phrase,
 you can try using `mgmtconfig` or `mgmt config`.
 
-###You didn't answer my question, or I have a question!
+### You didn't answer my question, or I have a question!
 
 It's best to ask on [IRC](https://webchat.freenode.net/?channels=#mgmtconfig)
 to see if someone can help you. Once we get a big enough community going, we'll
@@ -410,40 +410,40 @@ and I'll do my best to help. If you have a good question, please add it as a
 patch to this documentation. I'll merge your question, and add a patch with the
 answer!
 
-##Reference
+## Reference
 Please note that there are a number of undocumented options. For more
 information on these options, please view the source at:
 [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/).
 If you feel that a well used option needs documenting here, please patch it!
 
-###Overview of reference
+### Overview of reference
 * [Meta parameters](#meta-parameters): List of available resource meta parameters.
 * [Graph definition file](#graph-definition-file): Main graph definition file.
 * [Command line](#command-line): Command line parameters.
 
-###Meta parameters
+### Meta parameters
 These meta parameters are special parameters (or properties) which can apply to
 any resource. The usefulness of doing so will depend on the particular meta
 parameter and resource combination.
 
-####AutoEdge
+#### AutoEdge
 Boolean. Should we generate auto edges for this resource?
 
-####AutoGroup
+#### AutoGroup
 Boolean. Should we attempt to automatically group this resource with others?
 
-####Noop
+#### Noop
 Boolean. Should the Apply portion of the CheckApply method of the resource
 make any changes? Noop is a concatenation of no-operation.
 
-####Retry
+#### Retry
 Integer. The number of times to retry running the resource on error. Use -1 for
 infinite. This currently applies for both the Watch operation (which can fail)
 and for the CheckApply operation. While they could have separate values, I've
 decided to use the same ones for both until there's a proper reason to want to
 do something differently for the Watch errors.
 
-####Delay
+#### Delay
 Integer. Number of milliseconds to wait between retries. The same value is
 shared between the Watch and CheckApply retries. This currently applies for both
 the Watch operation (which can fail) and for the CheckApply operation. While
@@ -451,7 +451,7 @@ they could have separate values, I've decided to use the same ones for both
 until there's a proper reason to want to do something differently for the Watch
 errors.
 
-####Poll
+#### Poll
 Integer. Number of seconds to wait between `CheckApply` checks. If this is
 greater than zero, then the standard event based `Watch` mechanism for this
 resource is replaced with a simple polling mechanism. In general, this is not
@@ -468,63 +468,63 @@ of `K` seconds to still converge when `J <= K`, as long as `I > J || I > K`,
 which is another way of saying that if the resource finally settles down to give
 the graph enough time, it can probably converge.
 
-###Graph definition file
+### Graph definition file
 graph.yaml is the compiled graph definition file. The format is currently
 undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)
 you can probably figure out most of it, as it's fairly intuitive.
 
-###Command line
+### Command line
 The main interface to the `mgmt` tool is the command line. For the most recent
 documentation, please run `mgmt --help`.
 
-####`--yaml <graph.yaml>`
+#### `--yaml <graph.yaml>`
 Point to a graph file to run.
 
-####`--converged-timeout <seconds>`
+#### `--converged-timeout <seconds>`
 Exit if the machine has converged for approximately this many seconds.
 
-####`--max-runtime <seconds>`
+#### `--max-runtime <seconds>`
 Exit when the agent has run for approximately this many seconds. This is not
 generally recommended, but may be useful for users who know what they're doing.
 
-####`--noop`
+#### `--noop`
 Globally force all resources into no-op mode. This also disables the export to
 etcd functionality, but does not disable resource collection, however all
 resources that are collected will have their individual noop settings set.
 
-####`--remote <graph.yaml>`
+#### `--remote <graph.yaml>`
 Point to a graph file to run on the remote host specified within. This parameter
 can be used multiple times if you'd like to remotely run on multiple hosts in
 parallel.
 
-####`--allow-interactive`
+#### `--allow-interactive`
 Allow interactive prompting for SSH passwords if there is no authentication
 method that works.
 
-####`--ssh-priv-id-rsa`
+#### `--ssh-priv-id-rsa`
 Specify the path for finding SSH keys. This defaults to `~/.ssh/id_rsa`. To
 never use this method of authentication, set this to the empty string.
 
-####`--cconns`
+#### `--cconns`
 The maximum number of concurrent remote ssh connections to run. This defaults
 to `0`, which means unlimited.
 
-####`--no-caching`
+#### `--no-caching`
 Don't allow remote caching of the remote execution binary. This will require
 the binary to be copied over for every remote execution, but it limits the
 likelihood that there is leftover information from the configuration process.
 
-####`--prefix <path>`
+#### `--prefix <path>`
 Specify a path to a custom working directory prefix. This directory will get
 created if it does not exist. This usually defaults to `/var/lib/mgmt/`. This
 can't be combined with the `--tmp-prefix` option. It can be combined with the
 `--allow-tmp-prefix` option.
 
-####`--tmp-prefix`
+#### `--tmp-prefix`
 If this option is specified, a temporary prefix will be used instead of the
 default prefix. This can't be combined with the `--prefix` option.
 
-####`--allow-tmp-prefix`
+#### `--allow-tmp-prefix`
 If this option is specified, we will attempt to fall back to a temporary prefix
 if the primary prefix couldn't be created. This is useful for avoiding failures
 in environments where the primary prefix may or may not be available, but you'd
@@ -532,7 +532,7 @@ like to try. The canonical example is when running `mgmt` with `--remote` there
 might be a cached copy of the binary in the primary prefix, but in case there's
 no binary available continue working in a temporary directory to avoid failure.
 
-##Examples
+## Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git
 source repository. It is available from:
 
@@ -560,7 +560,7 @@ EOF
 sudo systemctl daemon-reload
 ```
 
-##Development
+## Development
 
 This is a project that I started in my free time in 2013. Development is driven
 by all of our collective patches! Dive right in, and start hacking!
@@ -570,7 +570,7 @@ You can follow along [on my technical blog](https://ttboj.wordpress.com/).
 
 To report any bugs, please file a ticket at: [https://github.com/purpleidea/mgmt/issues](https://github.com/purpleidea/mgmt/issues).
 
-##Authors
+## Authors
 
 Copyright (C) 2013-2016+ James Shubin and the project contributors
 

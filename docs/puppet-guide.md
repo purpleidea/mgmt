@@ -1,4 +1,4 @@
-#mgmt
+# mgmt
 
 <!--
 Mgmt
@@ -19,13 +19,13 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-##mgmt Puppet guide
-####Available from:
-####[https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
+## mgmt Puppet guide
+#### Available from:
+#### [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
 
-####This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) format.
+#### This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) format.
 
-####Table of Contents
+#### Table of Contents
 
 1. [Prerequisites](#prerequisites)
 	* [Testing the Puppet side](#testing-the-puppet-side)
@@ -43,7 +43,7 @@ some pitfalls and limitations.
 For basic instructions on how to use the Puppet support, see
 the [main documentation](documentation.md#puppet-support).
 
-##Prerequisites
+## Prerequisites
 
 You need Puppet installed in your system. It is not important how you
 get it. On the most common Linux distributions, you can use packages
@@ -65,7 +65,7 @@ use a master/agent setup). It's needed on the machine that runs `mgmt`.
 You can install the module on the master anyway, so that it gets distributed
 to your agents through Puppet's `pluginsync` mechanism.
 
-###Testing the Puppet side
+### Testing the Puppet side
 
 The following command should run successfully and print a YAML hash on your
 terminal:
@@ -77,9 +77,9 @@ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": ensure => present }'
 You can use this CLI to test any manifests before handing them straight
 to `mgmt`.
 
-##Writing a suitable manifest
+## Writing a suitable manifest
 
-###Unsupported attributes
+### Unsupported attributes
 
 `mgmt` inherited its resource module from Puppet, so by and large, it's quite
 possible to express `mgmt` graphs in terms of Puppet manifests. However,
@@ -102,7 +102,7 @@ in fact not pass this information to the `/tmp/foo` file resource, and
 manifests that are written expressly for `mgmt` is not sensible and should
 be avoided.
 
-###Unsupported resources
+### Unsupported resources
 
 Puppet has a fairly large number of
 [built-in types](https://docs.puppet.com/puppet/latest/reference/type.html),
@@ -122,7 +122,7 @@ this overhead can amount to several orders of magnitude.
 
 Avoid Puppet types that `mgmt` does not implement (yet).
 
-###Avoiding common warnings
+### Avoiding common warnings
 
 Many resource parameters in Puppet take default values. For the most part,
 the translator module just ignores them. However, there are cases in which
@@ -160,7 +160,7 @@ File { backup => false }
 If you encounter similar warnings from other types and/or parameters,
 use the same approach to silence them if possible.
 
-##Configuring Puppet
+## Configuring Puppet
 
 Since `mgmt` uses an actual Puppet CLI behind the scenes, you might
 need to tweak some of Puppet's runtime options in order to make it
@@ -191,7 +191,7 @@ server=mgmt-master.example.net
 vardir=/var/lib/mgmt/puppet
 ```
 
-##Caveats
+## Caveats
 
 Please see the [README](https://github.com/ffrank/puppet-mgmtgraph/blob/master/README.md)
 of the translator module for the current state of supported and unsupported

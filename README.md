@@ -2,11 +2,11 @@
 
 [![mgmt!](art/mgmt.png)](art/)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/purpleidea/mgmt)](https://goreportcard.com/report/github.com/purpleidea/mgmt)
-[![Build Status](https://secure.travis-ci.org/purpleidea/mgmt.png?branch=master)](http://travis-ci.org/purpleidea/mgmt)
-[![GoDoc](https://godoc.org/github.com/purpleidea/mgmt?status.svg)](https://godoc.org/github.com/purpleidea/mgmt)
-[![IRC](https://img.shields.io/irc/%23mgmtconfig.png)](https://webchat.freenode.net/?channels=#mgmtconfig)
-[![Jenkins](https://img.shields.io/jenkins/status.png)](https://ci.centos.org/job/purpleidea-mgmt/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/purpleidea/mgmt?style=flat-square)](https://goreportcard.com/report/github.com/purpleidea/mgmt)
+[![Build Status](https://img.shields.io/travis/purpleidea/mgmt/master.svg?style=flat-square)](http://travis-ci.org/purpleidea/mgmt)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/purpleidea/mgmt)
+[![IRC](https://img.shields.io/badge/irc-%23mgmtconfig-brightgreen.svg?style=flat-square)](https://webchat.freenode.net/?channels=#mgmtconfig)
+[![Jenkins](https://img.shields.io/badge/jenkins-status-brightgreen.svg?style=flat-square)](https://ci.centos.org/job/purpleidea-mgmt/)
 
 ## Community:
 Come join us in the `mgmt` community!
@@ -26,7 +26,7 @@ With your help you'll be able to influence our design and get us there sooner!
 ## Documentation:
 Please read, enjoy and help improve our documentation!
 
-| documentation | additional notes |
+| Documentation | Additional Notes |
 |---|---|
 | [general documentation](docs/documentation.md) | for everyone |
 | [quick start guide](docs/quick-start-guide.md) | for mgmt developers |

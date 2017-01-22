@@ -572,7 +572,7 @@ To report any bugs, please file a ticket at: [https://github.com/purpleidea/mgmt
 
 ## Authors
 
-Copyright © 2013-2016+ James Shubin and the project contributors
+Copyright (C) 2013-2016+ James Shubin and the project contributors
 
 Please see the
 [AUTHORS](https://github.com/purpleidea/mgmt/tree/master/AUTHORS) file

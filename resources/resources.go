@@ -206,6 +206,29 @@ type BaseRes struct {
 	//refreshState StatefulBool // TODO: future stateful bool
 }
 
+// UnmarshalYAML is the custom unmarshal handler for the BaseRes struct. It is
+// primarily useful for setting the defaults, in particular if meta is absent!
+// FIXME: uncommenting this seems to block the graph from exiting, how come???
+//func (obj *BaseRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+//	DefaultBaseRes := BaseRes{
+//		// without specifying a default here, if we don't specify *any*
+//		// meta parameters in the yaml file, then the UnmarshalYAML for
+//		// the MetaParams struct won't run, and we won't get defaults!
+//		MetaParams: DefaultMetaParams, // force a default
+//	}
+
+//	type rawBaseRes BaseRes // indirection to avoid infinite recursion
+//	raw := rawBaseRes(DefaultBaseRes) // convert; the defaults go here
+//	//raw := rawBaseRes{}
+
+//	if err := unmarshal(&raw); err != nil {
+//		return err
+//	}
+
+//	*obj = BaseRes(raw) // restore from indirection with type conversion!
+//	return nil
+//}
+
 // UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
 func UIDExistsInUIDs(uid ResUID, uids []ResUID) bool {
 	for _, u := range uids {
@@ -263,6 +286,12 @@ func (obj *BaseRes) Init() error {
 	obj.mutex = &sync.Mutex{}
 	obj.events = make(chan *event.Event) // unbuffered chan to avoid stale events
 	obj.started = make(chan struct{})    // closes when started
+
+	// FIXME: force a sane default until UnmarshalYAML on *BaseRes works...
+	if obj.Meta().Burst == 0 && obj.Meta().Limit == 0 { // blocked
+		obj.Meta().Limit = rate.Inf
+	}
+
 	//dir, err := obj.VarDir("")
 	//if err != nil {
 	//	return errwrap.Wrapf(err, "VarDir failed in Init()")

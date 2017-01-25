@@ -95,6 +95,7 @@ func (g *Graph) Poke(v *Vertex) error {
 
 // BackPoke pokes the pre-requisites that are stale and need to run before I can run.
 func (g *Graph) BackPoke(v *Vertex) {
+	var wg sync.WaitGroup
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphVertices(v) {
 		x, y, s := v.GetTimestamp(), n.GetTimestamp(), n.Res.GetState()
@@ -108,13 +109,20 @@ func (g *Graph) BackPoke(v *Vertex) {
 			if g.Flags.Debug {
 				log.Printf("%s[%s]: BackPoke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
-			n.SendEvent(event.EventBackPoke, nil)
+			wg.Add(1)
+			go func(nn *Vertex) error {
+				defer wg.Done()
+				return nn.SendEvent(event.EventBackPoke, nil)
+			}(n)
+
 		} else {
 			if g.Flags.Debug {
 				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
 		}
 	}
+	// TODO: do something with return values?
+	wg.Wait() // wait for all the pokes to complete
 }
 
 // RefreshPending determines if any previous nodes have a refresh pending here.

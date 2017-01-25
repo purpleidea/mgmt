@@ -191,7 +191,6 @@ func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
 	var send = false // send event?
 	var exit *error
 	for {
-		obj.SetState(ResStateWatching) // reset
 		select {
 		// NOTE: this part is very similar to the file resource code
 		case event, ok := <-obj.recWatcher.Events():

@@ -170,7 +170,6 @@ func (obj *FileRes) Watch(processChan chan *event.Event) error {
 			log.Printf("%s[%s]: Watching: %s", obj.Kind(), obj.GetName(), obj.Path) // attempting to watch...
 		}
 
-		obj.SetState(ResStateWatching) // reset
 		select {
 		case event, ok := <-obj.recWatcher.Events():
 			if !ok { // channel shutdown

@@ -62,16 +62,15 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 	return true
 }
 
-// Poke notifies nodes after me in the dependency graph that they need refreshing...
-// NOTE: this assumes that this can never fail or need to be rescheduled
-func (g *Graph) Poke(v *Vertex, activity bool) error {
+// Poke tells nodes after me in the dependency graph that they need to refresh.
+func (g *Graph) Poke(v *Vertex) error {
 	var wg sync.WaitGroup
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
 	for _, n := range g.OutgoingGraphVertices(v) {
-		// XXX: if we're in state event and haven't been cancelled by
-		// apply, then we can cancel a poke to a child, right? XXX
-		// XXX: if n.Res.getState() != resources.ResStateEvent || activity { // is this correct?
-		if true || activity { // XXX: ???
+		// we can skip this poke if resource hasn't done work yet... it
+		// needs to be poked if already running, or not running though!
+		// TODO: does this need an || activity flag?
+		if n.Res.GetState() != resources.ResStateProcess {
 			if g.Flags.Debug {
 				log.Printf("%s[%s]: Poke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
@@ -80,9 +79,7 @@ func (g *Graph) Poke(v *Vertex, activity bool) error {
 				defer wg.Done()
 				//edge := g.Adjacency[v][nn] // lookup
 				//notify := edge.Notify && edge.Refresh()
-				nn.SendEvent(event.EventPoke, nil)
-				// TODO: check return value?
-				return nil // never error for now...
+				return nn.SendEvent(event.EventPoke, nil)
 			}(n)
 
 		} else {
@@ -91,6 +88,7 @@ func (g *Graph) Poke(v *Vertex, activity bool) error {
 			}
 		}
 	}
+	// TODO: do something with return values?
 	wg.Wait() // wait for all the pokes to complete
 	return nil
 }
@@ -100,13 +98,13 @@ func (g *Graph) BackPoke(v *Vertex) {
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphVertices(v) {
 		x, y, s := v.GetTimestamp(), n.GetTimestamp(), n.Res.GetState()
-		// if the parent timestamp needs poking AND it's not in state
-		// ResStateEvent, then poke it. If the parent is in ResStateEvent it
+		// If the parent timestamp needs poking AND it's not running
+		// Process, then poke it. If the parent is in ResStateProcess it
 		// means that an event is pending, so we'll be expecting a poke
 		// back soon, so we can safely discard the extra parent poke...
 		// TODO: implement a stateLT (less than) to tell if something
 		// happens earlier in the state cycle and that doesn't wrap nil
-		if x >= y && (s != resources.ResStateEvent && s != resources.ResStateCheckApply) {
+		if x >= y && (s != resources.ResStateProcess && s != resources.ResStateCheckApply) {
 			if g.Flags.Debug {
 				log.Printf("%s[%s]: BackPoke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
 			}
@@ -158,7 +156,8 @@ func (g *Graph) Process(v *Vertex) error {
 	if g.Flags.Debug {
 		log.Printf("%s[%s]: Process()", obj.Kind(), obj.GetName())
 	}
-	obj.SetState(resources.ResStateEvent)
+	defer obj.SetState(resources.ResStateNil) // reset state when finished
+	obj.SetState(resources.ResStateProcess)
 	var ok = true
 	var applied = false // did we run an apply?
 	// is it okay to run dependency wise right now?
@@ -173,8 +172,6 @@ func (g *Graph) Process(v *Vertex) error {
 	if g.Flags.Debug {
 		log.Printf("%s[%s]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
 	}
-
-	obj.SetState(resources.ResStateCheckApply)
 
 	// connect any senders to receivers and detect if values changed
 	if updated, err := obj.SendRecv(obj); err != nil {
@@ -200,6 +197,9 @@ func (g *Graph) Process(v *Vertex) error {
 	// lookup the refresh (notification) variable
 	refresh = g.RefreshPending(v) // do i need to perform a refresh?
 	obj.SetRefresh(refresh)       // tell the resource
+
+	// changes can occur after this...
+	obj.SetState(resources.ResStateCheckApply)
 
 	// check cached state, to skip CheckApply; can't skip if refreshing
 	if !refresh && obj.IsStateOK() {
@@ -283,7 +283,7 @@ func (g *Graph) Process(v *Vertex) error {
 		// nodes might fail due to having a too old timestamp!
 		v.UpdateTimestamp()                    // this was touched...
 		obj.SetState(resources.ResStatePoking) // can't cancel parent poke
-		if err := g.Poke(v, activity); err != nil {
+		if err := g.Poke(v); err != nil {
 			return errwrap.Wrapf(err, "the Poke() failed")
 		}
 	}
@@ -341,6 +341,12 @@ func (g *Graph) Worker(v *Vertex) error {
 			case ev, ok := <-processChan: // must use like this
 				if !ok { // processChan closed, let's exit
 					break Loop // no event, so no ack!
+				}
+
+				// if process started, but no action yet, skip!
+				if v.Res.GetState() == resources.ResStateProcess {
+					ev.ACK() // ready for next message
+					continue
 				}
 
 				// if running, we skip running a new execution!

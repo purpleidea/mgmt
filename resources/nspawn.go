@@ -140,7 +140,6 @@ func (obj *NspawnRes) Watch(processChan chan *event.Event) error {
 	var exit *error
 
 	for {
-		obj.SetState(ResStateWatching)
 		select {
 		case event := <-buschan:
 			// process org.freedesktop.machine1 events for this resource's name

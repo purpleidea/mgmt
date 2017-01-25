@@ -153,7 +153,6 @@ func (obj *SvcRes) Watch(processChan chan *event.Event) error {
 				set.Remove(svc) // no return value should ever occur
 			}
 
-			obj.SetState(ResStateWatching) // reset
 			select {
 			case <-buschan: // XXX: wait for new units event to unstick
 				cuid.SetConverged(false)
@@ -177,7 +176,6 @@ func (obj *SvcRes) Watch(processChan chan *event.Event) error {
 			}
 
 			log.Printf("Watching: %s", svc) // attempting to watch...
-			obj.SetState(ResStateWatching)  // reset
 			select {
 			case event := <-subChannel:
 

@@ -92,7 +92,6 @@ func (obj *TimerRes) Watch(processChan chan *event.Event) error {
 	var send = false
 
 	for {
-		obj.SetState(ResStateWatching)
 		select {
 		case <-obj.ticker.C: // received the timer event
 			send = true

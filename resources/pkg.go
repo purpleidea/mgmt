@@ -142,7 +142,6 @@ func (obj *PkgRes) Watch(processChan chan *event.Event) error {
 			log.Printf("%s: Watching...", obj.fmtNames(obj.getNames()))
 		}
 
-		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-ch:
 			cuid.SetConverged(false)

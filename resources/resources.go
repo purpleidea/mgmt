@@ -44,11 +44,10 @@ type ResState int
 
 // Each ResState should be set properly in the relevant part of the resource.
 const (
-	ResStateNil ResState = iota
-	ResStateWatching
-	ResStateEvent // an event has happened, but we haven't poked yet
-	ResStateCheckApply
-	ResStatePoking
+	ResStateNil        ResState = iota
+	ResStateProcess             // we're in process, but we haven't done much yet
+	ResStateCheckApply          // we're about to run CheckApply
+	ResStatePoking              // we're done CheckApply, and we're about to poke
 )
 
 const refreshPathToken = "refresh"
@@ -535,7 +534,6 @@ func (obj *BaseRes) Poll(processChan chan *event.Event) error {
 	var send = false
 	var exit *error
 	for {
-		obj.SetState(ResStateWatching)
 		select {
 		case <-ticker.C: // received the timer event
 			log.Printf("%s[%s]: polling...", obj.Kind(), obj.GetName())

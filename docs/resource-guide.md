@@ -333,7 +333,6 @@ func (obj *FooRes) Watch(processChan chan *event.Event) error {
 	var send = false // send event?
 	var exit *error
 	for {
-		obj.SetState(ResStateWatching) // reset
 		select {
 		case event := <-obj.Events():
 			cuid.SetConverged(false)

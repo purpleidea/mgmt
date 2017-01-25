@@ -138,7 +138,6 @@ func (obj *HostnameRes) Watch(processChan chan *event.Event) error {
 	var send = false // send event?
 
 	for {
-		obj.SetState(ResStateWatching) // reset
 		select {
 		case <-signals:
 			cuid.SetConverged(false)

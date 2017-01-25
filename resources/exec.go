@@ -163,7 +163,6 @@ func (obj *ExecRes) Watch(processChan chan *event.Event) error {
 	}
 
 	for {
-		obj.SetState(ResStateWatching) // reset
 		select {
 		case text := <-bufioch:
 			cuid.SetConverged(false)

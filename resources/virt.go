@@ -23,6 +23,9 @@ import (
 	"log"
 	"math/rand"
 	"net/url"
+	"os/user"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
@@ -622,20 +625,22 @@ type filesystemDevice struct {
 }
 
 func (d *diskDevice) GetXML(idx int) string {
+	source, _ := expandHome(d.Source) // TODO: should we handle errors?
 	var b string
 	b += "<disk type='file' device='disk'>"
 	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", d.Type)
-	b += fmt.Sprintf("<source file='%s'/>", d.Source)
+	b += fmt.Sprintf("<source file='%s'/>", source)
 	b += fmt.Sprintf("<target dev='vd%s' bus='virtio'/>", (string)(idx+97)) // TODO: 26, 27... should be 'aa', 'ab'...
 	b += "</disk>"
 	return b
 }
 
 func (d *cdRomDevice) GetXML(idx int) string {
+	source, _ := expandHome(d.Source) // TODO: should we handle errors?
 	var b string
 	b += "<disk type='file' device='cdrom'>"
 	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", d.Type)
-	b += fmt.Sprintf("<source file='%s'/>", d.Source)
+	b += fmt.Sprintf("<source file='%s'/>", source)
 	b += fmt.Sprintf("<target dev='hd%s' bus='ide'/>", (string)(idx+97)) // TODO: 26, 27... should be 'aa', 'ab'...
 	b += "<readonly/>"
 	b += "</disk>"
@@ -655,13 +660,14 @@ func (d *networkDevice) GetXML(idx int) string {
 }
 
 func (d *filesystemDevice) GetXML(idx int) string {
+	source, _ := expandHome(d.Source) // TODO: should we handle errors?
 	var b string
 	b += "<filesystem" // open
 	if d.Access != "" {
 		b += fmt.Sprintf(" accessmode='%s'", d.Access)
 	}
 	b += ">" // close
-	b += fmt.Sprintf("<source dir='%s'/>", d.Source)
+	b += fmt.Sprintf("<source dir='%s'/>", source)
 	b += fmt.Sprintf("<target dir='%s'/>", d.Target)
 	if d.ReadOnly {
 		b += "<readonly/>"
@@ -784,4 +790,17 @@ func randMAC() string {
 		fmt.Sprintf(":%x", rand.Intn(255)) +
 		fmt.Sprintf(":%x", rand.Intn(255)) +
 		fmt.Sprintf(":%x", rand.Intn(255))
+}
+
+// expandHome does a simple expansion of the tilde into your $HOME value.
+func expandHome(p string) (string, error) {
+	// TODO: this doesn't match strings of the form: ~james/...
+	if !strings.HasPrefix(p, "~/") {
+		return p, nil
+	}
+	usr, err := user.Current()
+	if err != nil {
+		return p, fmt.Errorf("can't expand ~ into home directory")
+	}
+	return path.Join(usr.HomeDir, p[len("~/"):]), nil
 }

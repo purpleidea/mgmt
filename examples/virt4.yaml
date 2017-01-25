@@ -1,0 +1,15 @@
+---
+graph: mygraph
+resources:
+  virt:
+  - name: mgmt4
+    uri: 'qemu:///session'
+    boot:
+    - hd
+    disk:
+    - type: qcow2
+      source: "~/.local/share/libvirt/images/fedora-23-scratch.qcow2"
+    state: running
+    transient: false
+edges: []
+comment: "qemu-img create -b fedora-23.qcow2 -f qcow2 fedora-23-scratch.qcow2"

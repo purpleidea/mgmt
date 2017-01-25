@@ -45,7 +45,7 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 			// that is to say, the name value of a res is a helpful
 			// handle, but it is not necessarily a unique identity!
 			// remember, resources can return multiple UID's each!
-			if resources.UIDExistsInUIDs(uid, vv.GetUIDs()) {
+			if resources.UIDExistsInUIDs(uid, vv.UIDs()) {
 				// add edge from: vv -> v
 				if uid.Reversed() {
 					txt := fmt.Sprintf("AutoEdge: %v[%v] -> %v[%v]", vv.Kind(), vv.GetName(), v.Kind(), v.GetName())

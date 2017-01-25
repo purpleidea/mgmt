@@ -308,9 +308,9 @@ func (obj *PasswordRes) AutoEdges() AutoEdge {
 	return nil
 }
 
-// GetUIDs includes all params to make a unique identification of this object.
+// UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *PasswordRes) GetUIDs() []ResUID {
+func (obj *PasswordRes) UIDs() []ResUID {
 	x := &PasswordUID{
 		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
 		name:    obj.Name,

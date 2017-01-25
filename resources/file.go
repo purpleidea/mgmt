@@ -733,9 +733,9 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 	}
 }
 
-// GetUIDs includes all params to make a unique identification of this object.
+// UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *FileRes) GetUIDs() []ResUID {
+func (obj *FileRes) UIDs() []ResUID {
 	x := &FileUID{
 		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
 		path:    obj.path,

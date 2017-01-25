@@ -209,9 +209,9 @@ func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
 	return false, nil
 }
 
-// GetUIDs includes all params to make a unique identification of this object.
+// UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *MsgRes) GetUIDs() []ResUID {
+func (obj *MsgRes) UIDs() []ResUID {
 	x := &MsgUID{
 		BaseUID: BaseUID{
 			name: obj.GetName(),

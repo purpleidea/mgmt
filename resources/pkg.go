@@ -458,9 +458,9 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 	}
 }
 
-// GetUIDs includes all params to make a unique identification of this object.
+// UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *PkgRes) GetUIDs() []ResUID {
+func (obj *PkgRes) UIDs() []ResUID {
 	x := &PkgUID{
 		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
 		name:    obj.Name,

@@ -363,9 +363,9 @@ func (obj *ExecRes) AutoEdges() AutoEdge {
 	return nil
 }
 
-// GetUIDs includes all params to make a unique identification of this object.
+// UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *ExecRes) GetUIDs() []ResUID {
+func (obj *ExecRes) UIDs() []ResUID {
 	x := &ExecUID{
 		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
 		Cmd:     obj.Cmd,

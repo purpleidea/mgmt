@@ -172,7 +172,7 @@ type Res interface {
 	Validate() error
 	Init() error
 	Close() error
-	GetUIDs() []ResUID             // most resources only return one
+	UIDs() []ResUID                // most resources only return one
 	Watch(chan *event.Event) error // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)
 	AutoEdges() AutoEdge

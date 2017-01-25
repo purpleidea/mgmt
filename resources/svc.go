@@ -396,9 +396,9 @@ func (obj *SvcRes) AutoEdges() AutoEdge {
 	}
 }
 
-// GetUIDs includes all params to make a unique identification of this object.
+// UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
-func (obj *SvcRes) GetUIDs() []ResUID {
+func (obj *SvcRes) UIDs() []ResUID {
 	x := &SvcUID{
 		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
 		name:    obj.Name, // svc name

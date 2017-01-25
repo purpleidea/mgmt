@@ -37,7 +37,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	* [CheckApply - Check and apply resource state](#checkapply)
 	* [Watch - Detect resource changes](#watch)
 	* [Compare - Compare resource with another](#compare)
-	* [GetUIDs - Returns the list of resource UID's](#getuids)
+	* [UIDs - Returns the list of resource UID's](#uids)
 	* [AutoEdges - Returns the autoedge interface matcher](#autoedges)
 	* [CollectPattern - Currently a stub, API will change](#collectpattern)
 	* [(UnmarshalYAML) - Optional, sets the YAML defaults](#unmarshalyaml)
@@ -412,12 +412,12 @@ func (obj *FooRes) Compare(res Res) bool {
 }
 ```
 
-### GetUIDs
+### UIDs
 ```golang
-GetUIDs() []ResUID
+UIDs() []ResUID
 ```
 
-The `GetUIDs` method returns a list of `ResUID` interfaces that represent the
+The `UIDs` method returns a list of `ResUID` interfaces that represent the
 particular resource uniquely. This is used with the AutoEdges API to determine
 if another resource can match a dependency to this one.
 

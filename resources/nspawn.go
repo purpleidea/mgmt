@@ -262,14 +262,14 @@ func (obj *NspawnUID) IFF(uid ResUID) bool {
 	return obj.name == res.name
 }
 
-// GetUIDs includes all params to make a unique identification of this object
+// UIDs includes all params to make a unique identification of this object
 // most resources only return one although some resources can return multiple
-func (obj *NspawnRes) GetUIDs() []ResUID {
+func (obj *NspawnRes) UIDs() []ResUID {
 	x := &NspawnUID{
 		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
 		name:    obj.Name, // svc name
 	}
-	return append([]ResUID{x}, obj.svc.GetUIDs()...)
+	return append([]ResUID{x}, obj.svc.UIDs()...)
 }
 
 // GroupCmp returns whether two resources can be grouped together or not

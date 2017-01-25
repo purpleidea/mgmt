@@ -353,6 +353,9 @@ func (g *Graph) Worker(v *Vertex) error {
 
 				// if process started, but no action yet, skip!
 				if v.Res.GetState() == resources.ResStateProcess {
+					if g.Flags.Debug {
+						log.Printf("%s[%s]: Skipped event!", v.Kind(), v.GetName())
+					}
 					ev.ACK() // ready for next message
 					continue
 				}
@@ -360,6 +363,9 @@ func (g *Graph) Worker(v *Vertex) error {
 				// if running, we skip running a new execution!
 				// if waiting, we skip running a new execution!
 				if running || waiting {
+					if g.Flags.Debug {
+						log.Printf("%s[%s]: Playback added!", v.Kind(), v.GetName())
+					}
 					playback = true
 					ev.ACK() // ready for next message
 					continue

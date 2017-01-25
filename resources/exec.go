@@ -114,8 +114,6 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *ExecRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	var send = false // send event?
 	var exit *error
 	bufioch, errch := make(chan string), make(chan error)
@@ -165,7 +163,6 @@ func (obj *ExecRes) Watch(processChan chan *event.Event) error {
 	for {
 		select {
 		case text := <-bufioch:
-			cuid.SetConverged(false)
 			// each time we get a line of output, we loop!
 			log.Printf("%s[%s]: Watch output: %s", obj.Kind(), obj.GetName(), text)
 			if text != "" {
@@ -173,7 +170,6 @@ func (obj *ExecRes) Watch(processChan chan *event.Event) error {
 			}
 
 		case err := <-errch:
-			cuid.SetConverged(false)
 			if err == nil { // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
@@ -183,14 +179,9 @@ func (obj *ExecRes) Watch(processChan chan *event.Event) error {
 			return errwrap.Wrapf(err, "Unknown error")
 
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
-
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

@@ -530,6 +530,7 @@ func (obj *BaseRes) Poll(processChan chan *event.Event) error {
 	if err := obj.Running(processChan); err != nil {
 		return err // bubble up a NACK...
 	}
+	cuid.SetConverged(false) // quickly stop any converge due to Running()
 
 	var send = false
 	var exit *error

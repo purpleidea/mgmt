@@ -279,9 +279,8 @@ The lifetime of most resources `Watch` method should be spent in an infinite
 loop that is bounded by a `select` call. The `select` call is the point where
 our method hands back control to the engine (and the kernel) so that we can
 sleep until something of interest wakes us up. In this loop we must process
-events from the engine via the `<-obj.Events()` call, wait for the converged
-timeout with `<-cuid.ConvergedTimer()`, and receive events for our resource
-itself!
+events from the engine via the `<-obj.Events()` call, and receive events for our
+resource itself!
 
 #### Events
 If we receive an internal event from the `<-obj.Events()` method, we can read it
@@ -300,8 +299,8 @@ or from before `mgmt` was running. It does this by calling the `Running` method.
 
 #### Converged
 The engine might be asked to shutdown when the entire state of the system has
-not seen any changes for some duration of time. In order for the engine to be
-able to make this determination, each resource must report its converged state.
+not seen any changes for some duration of time. The engine can determine this
+automatically, but each resource can block this if it is absolutely necessary.
 To do this, the `Watch` method should get the `ConvergedUID` handle that has
 been prepared for it by the engine. This is done by calling the `ConvergerUID`
 method on the resource object. The result can be used to set the converged
@@ -312,12 +311,14 @@ Instead of interacting with the `ConvergedUID` with these two methods, we can
 instead use the `StartTimer` and `ResetTimer` methods which accomplish the same
 thing, but provide a `select`-free interface for different coding situations.
 
+This particular facility is most likely not required for most resources. It may
+prove to be useful if a resource wants to start off a long operation, but avoid
+sending out erroneous `Event` messages to keep things alive until it finishes.
+
 #### Example
 ```golang
 // Watch is the listener and main loop for this resource.
 func (obj *FooRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	// setup the Foo resource
 	var err error
 	if err, obj.foo = OpenFoo(); err != nil {
@@ -335,7 +336,6 @@ func (obj *FooRes) Watch(processChan chan *event.Event) error {
 	for {
 		select {
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(event); exit != nil {
 				return *exit // exit
@@ -345,18 +345,12 @@ func (obj *FooRes) Watch(processChan chan *event.Event) error {
 		case event := <-obj.foo.Events:
 			if is_an_event {
 				send = true // used below
-				cuid.SetConverged(false)
 				obj.StateOK(false) // dirty
 			}
 
 		// event errors
 		case err := <-obj.foo.Errors:
-			cuuid.SetConverged(false)
 			return err // will cause a retry or permanent failure
-
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

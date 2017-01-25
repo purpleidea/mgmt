@@ -116,8 +116,6 @@ func (obj *PkgRes) Init() error {
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
 func (obj *PkgRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	bus := packagekit.NewBus()
 	if bus == nil {
 		return fmt.Errorf("Can't connect to PackageKit bus.")
@@ -144,8 +142,6 @@ func (obj *PkgRes) Watch(processChan chan *event.Event) error {
 
 		select {
 		case event := <-ch:
-			cuid.SetConverged(false)
-
 			// FIXME: ask packagekit for info on what packages changed
 			if obj.debug {
 				log.Printf("%s: Event: %v", obj.fmtNames(obj.getNames()), event.Name)
@@ -161,15 +157,11 @@ func (obj *PkgRes) Watch(processChan chan *event.Event) error {
 			obj.StateOK(false) // dirty
 
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
 			//obj.StateOK(false) // these events don't invalidate state
 
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

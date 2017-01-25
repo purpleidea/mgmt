@@ -80,8 +80,6 @@ func (obj *SvcRes) Init() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *SvcRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	// obj.Name: svc name
 	if !systemdUtil.IsRunningSystemd() {
 		return fmt.Errorf("Systemd is not running.")
@@ -155,19 +153,13 @@ func (obj *SvcRes) Watch(processChan chan *event.Event) error {
 
 			select {
 			case <-buschan: // XXX: wait for new units event to unstick
-				cuid.SetConverged(false)
 				// loop so that we can see the changed invalid signal
 				log.Printf("Svc[%s]->DaemonReload()", svc)
 
 			case event := <-obj.Events():
-				cuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(event); exit != nil {
 					return *exit // exit
 				}
-
-			case <-cuid.ConvergedTimer():
-				cuid.SetConverged(true) // converged!
-				continue
 			}
 		} else {
 			if !activeSet {
@@ -202,18 +194,12 @@ func (obj *SvcRes) Watch(processChan chan *event.Event) error {
 				obj.StateOK(false) // dirty
 
 			case err := <-subErrors:
-				cuid.SetConverged(false)
 				return errwrap.Wrapf(err, "Unknown %s[%s] error", obj.Kind(), obj.GetName())
 
 			case event := <-obj.Events():
-				cuid.SetConverged(false)
 				if exit, send = obj.ReadEvent(event); exit != nil {
 					return *exit // exit
 				}
-
-			case <-cuid.ConvergedTimer():
-				cuid.SetConverged(true) // converged!
-				continue
 			}
 		}
 

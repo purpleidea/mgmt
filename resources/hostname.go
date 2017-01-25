@@ -112,8 +112,6 @@ func (obj *HostnameRes) Init() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *HostnameRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
@@ -140,22 +138,16 @@ func (obj *HostnameRes) Watch(processChan chan *event.Event) error {
 	for {
 		select {
 		case <-signals:
-			cuid.SetConverged(false)
 			send = true
 			obj.StateOK(false) // dirty
 
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, _ := obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
 			send = true
 			obj.StateOK(false) // dirty
-
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

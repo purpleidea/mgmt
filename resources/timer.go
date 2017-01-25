@@ -78,8 +78,6 @@ func (obj *TimerRes) newTicker() *time.Ticker {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *TimerRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	// create a time.Ticker for the given interval
 	obj.ticker = obj.newTicker()
 	defer obj.ticker.Stop()
@@ -98,14 +96,9 @@ func (obj *TimerRes) Watch(processChan chan *event.Event) error {
 			log.Printf("%s[%s]: received tick", obj.Kind(), obj.GetName())
 
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			if exit, _ := obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
-
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true)
-			continue
 		}
 
 		if send {

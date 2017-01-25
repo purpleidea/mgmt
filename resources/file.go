@@ -148,8 +148,6 @@ func (obj *FileRes) GetPath() string {
 // must be restarted. On a clean exit it returns nil.
 // FIXME: Also watch the source directory when using obj.Source !!!
 func (obj *FileRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.Path, obj.Recurse)
 	if err != nil {
@@ -175,7 +173,6 @@ func (obj *FileRes) Watch(processChan chan *event.Event) error {
 			if !ok { // channel shutdown
 				return nil
 			}
-			cuid.SetConverged(false)
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
 			}
@@ -186,15 +183,10 @@ func (obj *FileRes) Watch(processChan chan *event.Event) error {
 			obj.StateOK(false) // dirty
 
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
 			//obj.StateOK(false) // dirty // these events don't invalidate state
-
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

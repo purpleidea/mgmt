@@ -174,8 +174,6 @@ Loop:
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, false)
 	if err != nil {
@@ -197,7 +195,6 @@ func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
 			if !ok { // channel shutdown
 				return nil
 			}
-			cuid.SetConverged(false)
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
 			}
@@ -205,15 +202,10 @@ func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
 			obj.StateOK(false) // dirty
 
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			// we avoid sending events on unpause
 			if exit, send = obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
-
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
 		}
 
 		// do all our event sending all together to avoid duplicate msgs

@@ -98,10 +98,18 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 // Running is called by the Watch method of the resource once it has started up.
 // This signals to the engine to kick off the initial CheckApply resource check.
 func (obj *BaseRes) Running(processChan chan *event.Event) error {
-	obj.StateOK(false)         // assume we're initially dirty
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-	cuid.SetConverged(false)   // a reasonable initial assumption
-	close(obj.started)         // send started signal
+	// TODO: If a non-polling resource wants to use the converger, then it
+	// should probably tell Running (via an arg) to not do this. Currently
+	// it is a very unlikey race that could cause an early converge if the
+	// converge timeout is very short ( ~ 1s) and the Watch method doesn't
+	// immediately SetConverged(false) to stop possible early termination.
+	if obj.Meta().Poll == 0 { // if not polling, unblock this...
+		cuid := obj.ConvergerUID()
+		cuid.SetConverged(true) // a reasonable initial assumption
+	}
+
+	obj.StateOK(false) // assume we're initially dirty
+	close(obj.started) // send started signal
 
 	var err error
 	if obj.starter { // vertices of indegree == 0 should send initial pokes

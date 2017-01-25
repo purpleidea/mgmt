@@ -156,8 +156,6 @@ func (obj *VirtRes) connect() (conn *libvirt.Connect, err error) {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *VirtRes) Watch(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
-
 	conn, err := obj.connect()
 	if err != nil {
 		return fmt.Errorf("Connection to libvirt failed with: %s", err)
@@ -251,23 +249,14 @@ func (obj *VirtRes) Watch(processChan chan *event.Event) error {
 				obj.StateOK(false) // dirty
 				send = true
 			}
-			if send {
-				cuid.SetConverged(false)
-			}
 
 		case err := <-errorChan:
-			cuid.SetConverged(false)
 			return fmt.Errorf("Unknown %s[%s] libvirt error: %s", obj.Kind(), obj.GetName(), err)
 
 		case event := <-obj.Events():
-			cuid.SetConverged(false)
 			if exit, send = obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
-
-		case <-cuid.ConvergedTimer():
-			cuid.SetConverged(true) // converged!
-			continue
 		}
 
 		if send {

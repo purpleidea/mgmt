@@ -612,9 +612,9 @@ func (g *Graph) Start(first bool) { // start or continue
 		// if we are unpausing (since it's not the first run of this
 		// function) we need to poke to *unpause* every graph vertex,
 		// and not just selectively the subset with no indegree.
-		if (!first) || indegree[v] == 0 {
-			v.Res.Starter(true) // let the startup code know to poke
-		}
+
+		// let the startup code know to poke or not
+		v.Res.Starter((!first) || indegree[v] == 0)
 
 		if !v.Res.IsWorking() { // if Worker() is not running...
 			g.wg.Add(1)

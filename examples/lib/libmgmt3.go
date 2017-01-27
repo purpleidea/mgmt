@@ -14,6 +14,8 @@ import (
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
+
+	"golang.org/x/time/rate"
 )
 
 // MyGAPI implements the main GAPI interface.
@@ -58,10 +60,17 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	g := pgraph.NewGraph(obj.Name)
 
+	// FIXME: these are being specified temporarily until it's the default!
+	metaparams := resources.MetaParams{
+		Limit: rate.Inf,
+		Burst: 0,
+	}
+
 	content := "Delete me to trigger a notification!\n"
 	f0 := &resources.FileRes{
 		BaseRes: resources.BaseRes{
-			Name: "README",
+			Name:       "README",
+			MetaParams: metaparams,
 		},
 		Path:    "/tmp/mgmt/README",
 		Content: &content,
@@ -73,7 +82,8 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	p1 := &resources.PasswordRes{
 		BaseRes: resources.BaseRes{
-			Name: "password1",
+			Name:       "password1",
+			MetaParams: metaparams,
 		},
 		Length: 8,    // generated string will have this many characters
 		Saved:  true, // this causes passwords to be stored in plain text!
@@ -83,7 +93,8 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	f1 := &resources.FileRes{
 		BaseRes: resources.BaseRes{
-			Name: "file1",
+			Name:       "file1",
+			MetaParams: metaparams,
 			// send->recv!
 			Recv: map[string]*resources.Send{
 				"Content": {Res: p1, Key: "Password"},
@@ -99,7 +110,8 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	n1 := &resources.NoopRes{
 		BaseRes: resources.BaseRes{
-			Name: "noop1",
+			Name:       "noop1",
+			MetaParams: metaparams,
 		},
 	}
 

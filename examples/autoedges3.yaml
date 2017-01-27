@@ -5,11 +5,13 @@ resources:
   - name: drbd-utils
     meta:
       autoedge: true
+      noop: true
     state: installed
   file:
   - name: file1
     meta:
       autoedge: true
+      noop: true
     path: "/etc/drbd.conf"
     content: |
       # this is an mgmt test
@@ -17,13 +19,14 @@ resources:
   - name: file2
     meta:
       autoedge: true
+      noop: true
     path: "/etc/drbd.d/"
-    content: |
-      i am a directory
+    source: /dev/null
     state: exists
   svc:
   - name: drbd
     meta:
       autoedge: true
+      noop: true
     state: stopped
 edges: []

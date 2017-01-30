@@ -13,18 +13,18 @@ Source0:	https://dl.fedoraproject.org/pub/alt/purpleidea/__PROGRAM__/SOURCES/__P
 Requires: graphviz
 
 # If go_compiler is not set to 1, there is no virtual provide. Use golang instead.
-BuildRequires:  %{?go_compiler:compiler(go-compiler)}%{!?go_compiler:golang}
+BuildRequires:	%{?go_compiler:compiler(go-compiler)}%{!?go_compiler:golang}
 BuildRequires:	golang-googlecode-tools-stringer
 BuildRequires:	git-core
 BuildRequires:	mercurial
 
-ExclusiveArch:  %{go_arches}
+ExclusiveArch:	%{go_arches}
 
 %description
 A next generation config management prototype!
 
 %prep
-%setup
+%setup -q
 
 %build
 # FIXME: in the future, these could be vendor-ed in

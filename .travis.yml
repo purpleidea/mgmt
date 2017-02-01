@@ -25,4 +25,7 @@ notifications:
     use_notice: false
     skip_join: false
   email:
-    - travis-ci@shubin.ca
+    recipients:
+      - travis-ci@shubin.ca
+    on_failure: change
+    on_success: change

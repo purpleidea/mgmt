@@ -24,6 +24,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path"
 	"sync"
@@ -272,7 +273,8 @@ func (obj *BaseUID) Reversed() bool {
 
 // Validate reports any problems with the struct definition.
 func (obj *BaseRes) Validate() error {
-	if obj.Meta().Burst == 0 && !(obj.Meta().Limit == rate.Inf) { // blocked
+	isInf := obj.Meta().Limit == rate.Inf || math.IsInf(float64(obj.Meta().Limit), 1)
+	if obj.Meta().Burst == 0 && !isInf { // blocked
 		return fmt.Errorf("Permanently limited (rate != Inf, burst: 0)")
 	}
 	return nil
@@ -289,6 +291,9 @@ func (obj *BaseRes) Init() error {
 
 	// FIXME: force a sane default until UnmarshalYAML on *BaseRes works...
 	if obj.Meta().Burst == 0 && obj.Meta().Limit == 0 { // blocked
+		obj.Meta().Limit = rate.Inf
+	}
+	if math.IsInf(float64(obj.Meta().Limit), 1) { // yaml `.inf` -> rate.Inf
 		obj.Meta().Limit = rate.Inf
 	}
 

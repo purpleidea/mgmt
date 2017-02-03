@@ -138,7 +138,6 @@ type Base interface {
 	Events() chan *event.Event
 	AssociateData(*Data)
 	IsWorking() bool
-	SetWorking(bool)
 	Converger() converger.Converger
 	RegisterConverger()
 	UnregisterConverger()
@@ -282,6 +281,9 @@ func (obj *BaseRes) Validate() error {
 
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
+	if obj.debug {
+		log.Printf("%s[%s]: Init()", obj.Kind(), obj.GetName())
+	}
 	if obj.kind == "" {
 		return fmt.Errorf("Resource did not set kind!")
 	}
@@ -303,13 +305,18 @@ func (obj *BaseRes) Init() error {
 	//}
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
+
+	obj.working = true // Worker method should now be running...
 	return nil
 }
 
 // Close shuts down and performs any cleanup.
 func (obj *BaseRes) Close() error {
+	if obj.debug {
+		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
+	}
 	obj.mutex.Lock()
-	obj.working = false // obj.SetWorking(false)
+	obj.working = false // Worker method should now be closing...
 	close(obj.events)   // this is where we properly close this channel!
 	obj.mutex.Unlock()
 	return nil
@@ -352,18 +359,9 @@ func (obj *BaseRes) AssociateData(data *Data) {
 	obj.debug = data.Debug
 }
 
-// IsWorking tells us if the Worker() function is running.
+// IsWorking tells us if the Worker() function is running. Not thread safe.
 func (obj *BaseRes) IsWorking() bool {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
 	return obj.working
-}
-
-// SetWorking tracks the state of if Worker() function is running.
-func (obj *BaseRes) SetWorking(b bool) {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
-	obj.working = b
 }
 
 // Converger returns the converger object used by the system. It can be used to

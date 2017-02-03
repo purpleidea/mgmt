@@ -132,9 +132,8 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 			// XXX: should we export based on a @@ prefix, or a metaparam
 			// like exported => true || exported => (host pattern)||(other pattern?)
 			if !strings.HasPrefix(res.GetName(), "@@") { // not exported resource
-				v := graph.GetVertexMatch(res)
+				v := graph.CompareMatch(res)
 				if v == nil { // no match found
-					res.Init()
 					v = pgraph.NewVertex(res)
 					graph.AddVertex(v) // call standalone in case not part of an edge
 				}
@@ -206,9 +205,8 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 			if _, exists := lookup[kind]; !exists {
 				lookup[kind] = make(map[string]*pgraph.Vertex)
 			}
-			v := graph.GetVertexMatch(res)
+			v := graph.CompareMatch(res)
 			if v == nil { // no match found
-				res.Init() // initialize go channels or things won't work!!!
 				v = pgraph.NewVertex(res)
 				graph.AddVertex(v) // call standalone in case not part of an edge
 			}

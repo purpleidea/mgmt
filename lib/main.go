@@ -563,7 +563,7 @@ func (obj *Main) Run() error {
 	// tell inner main loop to exit
 	close(exitchan)
 
-	G.Exit() // tell all the children to exit, and waits for them to do so
+	G.Exit() // tells all the children to exit, and waits for them to do so
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd

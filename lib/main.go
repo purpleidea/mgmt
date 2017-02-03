@@ -351,7 +351,7 @@ func (obj *Main) Run() error {
 	exitchan := make(chan struct{}) // exit on close
 	go func() {
 		startChan := make(chan struct{}) // start signal
-		go func() { startChan <- struct{}{} }()
+		close(startChan)                 // kick it off!
 
 		log.Println("Etcd: Starting...")
 		etcdChan := etcd.EtcdWatch(EmbdEtcd)
@@ -360,6 +360,7 @@ func (obj *Main) Run() error {
 			log.Println("Main: Waiting...")
 			select {
 			case <-startChan: // kick the loop once at start
+				startChan = nil // disable
 				// pass
 
 			case b := <-etcdChan:

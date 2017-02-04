@@ -1,0 +1,13 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: "@@filee"
+    path: "/tmp/mgmtE/fE"
+    content: |
+      i am fE, exported from host E
+    state: exists
+collect:
+- kind: file
+  pattern: "/tmp/mgmtE/"
+edges: []

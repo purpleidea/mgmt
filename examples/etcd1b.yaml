@@ -2,15 +2,10 @@
 graph: mygraph
 resources:
   file:
-  - name: file1b
-    path: "/tmp/mgmtB/f1b"
+  - name: "@@fileb"
+    path: "/tmp/mgmtB/fB"
     content: |
-      i am f1
-    state: exists
-  - name: "@@file2b"
-    path: "/tmp/mgmtB/f2b"
-    content: |
-      i am f2, exported from host B
+      i am fB, exported from host B
     state: exists
 collect:
 - kind: file

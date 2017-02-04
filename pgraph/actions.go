@@ -316,7 +316,10 @@ func (g *Graph) Worker(v *Vertex) error {
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
 	obj := v.Res
-
+	if g.Flags.Debug {
+		log.Printf("%s[%s]: Worker: Running", v.Kind(), v.GetName())
+		defer log.Printf("%s[%s]: Worker: Stopped", v.Kind(), v.GetName())
+	}
 	// run the init (should match 1-1 with Close function if this succeeds)
 	if err := obj.Init(); err != nil {
 		return errwrap.Wrapf(err, "could not Init() resource")
@@ -626,7 +629,7 @@ func (g *Graph) Start(first bool) { // start or continue
 		// let the startup code know to poke or not
 		v.Res.Starter((!first) || indegree[v] == 0)
 
-		if !v.Res.IsWorking() { // if Worker() is not running...
+		if v.Res.Setup() { // if Worker() is not running...
 			g.wg.Add(1)
 			// must pass in value to avoid races...
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/

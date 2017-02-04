@@ -139,7 +139,7 @@ type Base interface {
 	Meta() *MetaParams
 	Events() chan *event.Event
 	AssociateData(*Data)
-	IsWorking() bool
+	Setup() bool
 	Converger() converger.Converger
 	RegisterConverger()
 	UnregisterConverger()
@@ -162,6 +162,7 @@ type Base interface {
 	SetGroup([]Res)
 	VarDir(string) (string, error)
 	Running(chan *event.Event) error // notify the engine that Watch started
+	Stopped() <-chan struct{}        // returns when the resource has stopped
 	Started() <-chan struct{}        // returns when the resource has started
 	Starter(bool)
 	Poll(chan *event.Event) error // poll alternative to watching :(
@@ -190,23 +191,24 @@ type BaseRes struct {
 	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
 	Recv       map[string]*Send // mapping of key to receive on from value
 
-	kind       string
-	mutex      *sync.Mutex // locks around sending and closing of events channel
-	events     chan *event.Event
-	converger  converger.Converger // converged tracking
-	cuid       converger.ConvergerUID
+	kind      string
+	mutex     *sync.Mutex // locks around sending and closing of events channel
+	events    chan *event.Event
+	converger converger.Converger // converged tracking
+	cuid      converger.ConvergerUID
 	prometheus *prometheus.Prometheus
-	prefix     string // base prefix for this resource
-	debug      bool
-	state      ResState
-	working    bool          // is the Worker() loop running ?
-	started    chan struct{} // closed when worker is started/running
-	isStarted  bool          // did the started chan already close?
-	starter    bool          // does this have indegree == 0 ? XXX: usually?
-	isStateOK  bool          // whether the state is okay based on events or not
-	isGrouped  bool          // am i contained within a group?
-	grouped    []Res         // list of any grouped resources
-	refresh    bool          // does this resource have a refresh to run?
+	prefix    string // base prefix for this resource
+	debug     bool
+	state     ResState
+	working   bool          // is the Worker() loop running ?
+	stopped   chan struct{} // closed when worker is stopped/exited
+	started   chan struct{} // closed when worker is started/running
+	isStarted bool          // did the started chan already close?
+	starter   bool          // does this have indegree == 0 ? XXX: usually?
+	isStateOK bool          // whether the state is okay based on events or not
+	isGrouped bool          // am i contained within a group?
+	grouped   []Res         // list of any grouped resources
+	refresh   bool          // does this resource have a refresh to run?
 	//refreshState StatefulBool // TODO: future stateful bool
 }
 
@@ -293,7 +295,8 @@ func (obj *BaseRes) Init() error {
 	}
 	obj.mutex = &sync.Mutex{}
 	obj.events = make(chan *event.Event) // unbuffered chan to avoid stale events
-	obj.started = make(chan struct{})    // closes when started
+	//obj.started = make(chan struct{})    // closes when started
+	obj.stopped = make(chan struct{}) // closes when stopped
 
 	// FIXME: force a sane default until UnmarshalYAML on *BaseRes works...
 	if obj.Meta().Burst == 0 && obj.Meta().Limit == 0 { // blocked
@@ -322,6 +325,7 @@ func (obj *BaseRes) Close() error {
 	obj.mutex.Lock()
 	obj.working = false // Worker method should now be closing...
 	close(obj.events)   // this is where we properly close this channel!
+	close(obj.stopped)  // signal that we're done, after setting obj.working
 	obj.mutex.Unlock()
 	return nil
 }
@@ -364,9 +368,13 @@ func (obj *BaseRes) AssociateData(data *Data) {
 	obj.debug = data.Debug
 }
 
-// IsWorking tells us if the Worker() function is running. Not thread safe.
-func (obj *BaseRes) IsWorking() bool {
-	return obj.working
+// Setup tells us if we need to run the Worker() function. Not thread safe. It
+// also initializes the event channel that we'll need for notifications.
+func (obj *BaseRes) Setup() bool {
+	if obj.started == nil {
+		obj.started = make(chan struct{}) // closes when started
+	}
+	return !obj.working
 }
 
 // Converger returns the converger object used by the system. It can be used to
@@ -519,6 +527,9 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 	}
 	return p, nil
 }
+
+// Stopped returns a channel that closes when the worker has finished running.
+func (obj *BaseRes) Stopped() <-chan struct{} { return obj.stopped }
 
 // Started returns a channel that closes when the resource has started up.
 func (obj *BaseRes) Started() <-chan struct{} { return obj.started }

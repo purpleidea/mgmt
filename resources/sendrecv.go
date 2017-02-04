@@ -37,6 +37,13 @@ func (obj *BaseRes) Event(processChan chan *event.Event) error {
 
 // SendEvent pushes an event into the message queue for a particular vertex.
 func (obj *BaseRes) SendEvent(ev event.EventName, err error) error {
+	if obj.debug {
+		if err == nil {
+			log.Printf("%s[%s]: SendEvent(%+v)", obj.Kind(), obj.GetName(), ev)
+		} else {
+			log.Printf("%s[%s]: SendEvent(%+v): %v", obj.Kind(), obj.GetName(), ev, err)
+		}
+	}
 	resp := event.NewResp()
 	obj.mutex.Lock()
 	if !obj.working {

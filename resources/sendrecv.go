@@ -108,8 +108,11 @@ func (obj *BaseRes) Running(processChan chan *event.Event) error {
 		cuid.SetConverged(true) // a reasonable initial assumption
 	}
 
-	obj.StateOK(false) // assume we're initially dirty
-	close(obj.started) // send started signal
+	obj.StateOK(false)  // assume we're initially dirty
+	if !obj.isStarted { // this avoids a double close when/if watch retries
+		obj.isStarted = true
+		close(obj.started) // send started signal
+	}
 
 	var err error
 	if obj.starter { // vertices of indegree == 0 should send initial pokes

@@ -197,6 +197,7 @@ type BaseRes struct {
 	state     ResState
 	working   bool          // is the Worker() loop running ?
 	started   chan struct{} // closed when worker is started/running
+	isStarted bool          // did the started chan already close?
 	starter   bool          // does this have indegree == 0 ? XXX: usually?
 	isStateOK bool          // whether the state is okay based on events or not
 	isGrouped bool          // am i contained within a group?

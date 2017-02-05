@@ -51,6 +51,8 @@ type RecWatcher struct {
 	watcher  *fsnotify.Watcher
 	watches  map[string]struct{}
 	events   chan Event // one channel for events and err...
+	closed   bool       // is the events channel closed?
+	mutex    sync.Mutex // lock guarding the channel closing
 	once     sync.Once
 	wg       sync.WaitGroup
 	exit     chan struct{}
@@ -89,7 +91,13 @@ func (obj *RecWatcher) Init() error {
 
 	go func() {
 		if err := obj.Watch(); err != nil {
-			obj.events <- Event{Error: err}
+			// we need this mutex, because if we Init and then Close
+			// immediately, this can send after closed which panics!
+			obj.mutex.Lock()
+			if !obj.closed {
+				obj.events <- Event{Error: err}
+			}
+			obj.mutex.Unlock()
 		}
 		obj.Close()
 	}()
@@ -124,7 +132,10 @@ func (obj *RecWatcher) close() {
 		//	obj.events <- Event{Error: err}
 		//}
 	}
+	obj.mutex.Lock()
+	obj.closed = true
 	close(obj.events)
+	obj.mutex.Unlock()
 	obj.closeErr = err // set the error
 }
 

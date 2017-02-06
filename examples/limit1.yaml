@@ -3,11 +3,11 @@ graph: mygraph
 resources:
   file:
   - name: file1
-    path: "/tmp/mgmt/f1"
     meta:
-      limit: 0.5
-      burst: 3
+      limit: 0.2
+      burst: 5
+    path: "/tmp/mgmt/limit"
     content: |
-      i am f1
+      i am a normal file
     state: exists
 edges: []

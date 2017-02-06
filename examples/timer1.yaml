@@ -4,7 +4,7 @@ comment: timer example
 resources:
   timer:
   - name: timer1
-    interval: 30
+    interval: 3
   exec:
   - name: exec1
     cmd: echo hello world

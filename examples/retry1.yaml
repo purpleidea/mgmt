@@ -1,0 +1,57 @@
+---
+graph: mygraph
+comment: You can test Watch and CheckApply failures with chmod ugo-r and chmod ugo-w.
+resources:
+  exec:
+  - name: exec1
+    cmd: 'touch /tmp/mgmt/no-read && chmod ugo-r /tmp/mgmt/no-read'
+    shell: '/bin/bash'
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  - name: exec2
+    cmd: 'touch /tmp/mgmt/no-write && chmod ugo-w /tmp/mgmt/no-write'
+    shell: '/bin/bash'
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+  file:
+  - name: noread
+    path: "/tmp/mgmt/no-read"
+    meta:
+      retry: 3
+      delay: 5000
+    content: |
+      i am f1
+    state: exists
+  - name: nowrite
+    path: "/tmp/mgmt/no-write"
+    meta:
+      retry: 3
+      delay: 5000
+    content: |
+      i am f1
+    state: exists
+edges:
+- name: e1
+  from:
+    kind: exec
+    name: exec1
+  to:
+    kind: file
+    name: noread
+- name: e2
+  from:
+    kind: exec
+    name: exec2
+  to:
+    kind: file
+    name: nowrite

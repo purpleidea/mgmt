@@ -7,18 +7,18 @@ resources:
       poll: 5
     path: "/tmp/mgmt/f1"
     content: |
-      i am f1
+      i poll every 5 seconds
     state: exists
   - name: file2
     path: "/tmp/mgmt/f2"
     content: |
-      i am f2
+      i use the event based watcher
     state: exists
   - name: file3
     meta:
       poll: 1
     path: "/tmp/mgmt/f3"
     content: |
-      i am f3
+      i poll every second
     state: exists
 edges: []

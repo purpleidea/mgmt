@@ -1,14 +1,13 @@
 ---
 graph: mygraph
-comment: You can test Watch and CheckApply failures with chmod ugo-r and chmod ugo-w.
 resources:
   file:
   - name: file1
-    path: "/tmp/mgmt/f1"
     meta:
-      retry: 3
-      delay: 5000
+      limit: .inf
+      burst: 0
+    path: "/tmp/mgmt/hello"
     content: |
-      i am f1
+      i am a file
     state: exists
 edges: []

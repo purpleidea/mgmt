@@ -1,0 +1,30 @@
+---
+graph: mygraph
+comment: dangerous noop example
+resources:
+  noop:
+  - name: noop1
+    meta:
+      noop: true
+  file:
+  - name: file1
+    path: "/tmp/mgmt/hello-noop"
+    content: |
+      hello world from @purpleidea
+    state: exists
+    meta:
+      noop: true
+  exec:
+  - name: exec1
+    meta:
+      noop: true
+    cmd: 'rm -rf /'
+    shell: '/bin/bash'
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges: []

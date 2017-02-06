@@ -8,7 +8,7 @@ Let us know if you're working on one of the items.
 - [ ] dnf blocker [bug](https://github.com/hughsie/PackageKit/issues/110)
 - [ ] install signal blocker [bug](https://github.com/hughsie/PackageKit/issues/109)
 
-## File resource [bug](https://github.com/purpleidea/mgmt/issues/13) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+## File resource [bug](https://github.com/purpleidea/mgmt/issues/64) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] chown/chmod support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] user/group support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] recurse limit support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)

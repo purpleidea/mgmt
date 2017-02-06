@@ -47,9 +47,10 @@ type Vertex struct {
 
 // Edge is the data structure of an edge.
 type Edge struct {
-	Name string `yaml:"name"`
-	From Vertex `yaml:"from"`
-	To   Vertex `yaml:"to"`
+	Name   string `yaml:"name"`
+	From   Vertex `yaml:"from"`
+	To     Vertex `yaml:"to"`
+	Notify bool   `yaml:"notify"`
 }
 
 // Resources is the data structure of the set of resources.
@@ -231,7 +232,11 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 		if _, ok := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]; !ok {
 			return nil, fmt.Errorf("Can't find 'to' name!")
 		}
-		graph.AddEdge(lookup[util.FirstToUpper(e.From.Kind)][e.From.Name], lookup[util.FirstToUpper(e.To.Kind)][e.To.Name], pgraph.NewEdge(e.Name))
+		from := lookup[util.FirstToUpper(e.From.Kind)][e.From.Name]
+		to := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]
+		edge := pgraph.NewEdge(e.Name)
+		edge.Notify = e.Notify
+		graph.AddEdge(from, to, edge)
 	}
 
 	return graph, nil

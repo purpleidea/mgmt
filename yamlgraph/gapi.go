@@ -97,8 +97,13 @@ func (obj *GAPI) Next() chan error {
 					return
 				}
 				log.Printf("yamlgraph: Generating new graph...")
-				ch <- err // trigger a run
-				if err != nil {
+				select {
+				case ch <- err: // trigger a run (send a msg)
+					if err != nil {
+						return
+					}
+				// unblock if we exit while waiting to send!
+				case <-obj.closeChan:
 					return
 				}
 			case <-obj.closeChan:

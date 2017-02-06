@@ -100,7 +100,12 @@ func (obj *GAPI) Next() chan error {
 				}
 				log.Printf("Puppet: Generating new graph...")
 				pChan = puppetChan() // TODO: okay to update interval in case it changed?
-				ch <- nil            // trigger a run
+				select {
+				case ch <- nil: // trigger a run (send a msg)
+				// unblock if we exit while waiting to send!
+				case <-obj.closeChan:
+					return
+				}
 			case <-obj.closeChan:
 				return
 			}

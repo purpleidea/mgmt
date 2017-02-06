@@ -154,7 +154,11 @@ func (obj *MyGAPI) Next() chan error {
 			select {
 			case <-ticker.C:
 				log.Printf("libmgmt: Generating new graph...")
-				ch <- nil // trigger a run
+				select {
+				case ch <- nil: // trigger a run
+				case <-obj.closeChan:
+					return
+				}
 			case <-obj.closeChan:
 				return
 			}

@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # run empty graph, with prometheus support
-timeout --kill-after=20s 15s ./mgmt run --tmp-prefix --prometheus &
+$timeout --kill-after=20s 15s ./mgmt run --tmp-prefix --prometheus &
 pid=$!
 sleep 5s	# let it converge
 

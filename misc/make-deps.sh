@@ -14,13 +14,14 @@ sudo_command=$(which sudo)
 YUM=`which yum 2>/dev/null`
 DNF=`which dnf 2>/dev/null`
 APT=`which apt-get 2>/dev/null`
+BREW=`which brew 2>/dev/null`
 
 # if DNF is available use it
 if [ -x "$DNF" ]; then
 	YUM=$DNF
 fi
 
-if [ -z "$YUM" -a -z "$APT" ]; then
+if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" ]; then
 	echo "The package managers can't be found."
 	exit 1
 fi
@@ -34,6 +35,10 @@ if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
+fi
+
+if [ ! -z "$BREW" ]; then
+	$BREW install libvirt || true
 fi
 
 if [ $travis -eq 0 ]; then

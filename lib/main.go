@@ -30,6 +30,7 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgp"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/remote"
 	"github.com/purpleidea/mgmt/resources"
@@ -92,6 +93,9 @@ type Main struct {
 	PgpKeyPath  *string // import a pre-made key pair
 	PgpIdentity *string
 	pgpKeys     *pgp.PGP // agent key pair
+
+	Prometheus       bool   // enable prometheus metrics
+	PrometheusListen string // prometheus instance bind specification
 
 	exit chan error // exit signal
 }
@@ -221,6 +225,21 @@ func (obj *Main) Run() error {
 	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
 	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
 		return errwrap.Wrapf(err, "Can't create pgraph prefix")
+	}
+
+	var prom *prometheus.Prometheus
+	if obj.Prometheus {
+		prom = &prometheus.Prometheus{
+			Listen: obj.PrometheusListen,
+		}
+		if err := prom.Init(); err != nil {
+			return errwrap.Wrapf(err, "Can't create initiate Prometheus instance")
+		}
+
+		log.Printf("Main: Prometheus: Starting instance on %s", prom.Listen)
+		if err := prom.Start(); err != nil {
+			return errwrap.Wrapf(err, "Can't start initiate Prometheus instance")
+		}
 	}
 
 	if !obj.NoPgp {
@@ -550,6 +569,14 @@ func (obj *Main) Run() error {
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
 		err = errwrap.Wrapf(err, "Etcd exited poorly!")
 		reterr = multierr.Append(reterr, err) // list of errors
+	}
+
+	if obj.Prometheus {
+		log.Printf("Main: Prometheus: Stopping instance")
+		if err := prom.Stop(); err != nil {
+			err = errwrap.Wrapf(err, "Prometheus instance exited poorly!")
+			reterr = multierr.Append(reterr, err)
+		}
 	}
 
 	if obj.Flags.Debug {

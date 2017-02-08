@@ -1,6 +1,9 @@
 #!/bin/bash
 # simple test harness for testing mgmt
 # NOTE: this will rm -rf /tmp/mgmt/
+
+. test/util.sh
+
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
 	echo -e "usage: ./"`basename $0`" [[--help] | <test>]"
 	echo -e "where: <test> is empty to run all tests, or <file>.sh from shell/ dir"
@@ -65,9 +68,7 @@ rm -f "$MGMT"
 make clean
 
 if [ "$count" = '0' ]; then
-	echo 'FAIL'
-	echo 'No tests were run!'
-	exit 1
+	fail_test 'No tests were run!'
 fi
 
 # display errors

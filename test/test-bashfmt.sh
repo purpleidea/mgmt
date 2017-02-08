@@ -1,6 +1,9 @@
 #!/bin/bash
 # check for any bash files that aren't properly formatted
 # TODO: this is hardly exhaustive
+
+. test/util.sh
+
 echo running test-bashfmt.sh
 set -o errexit
 set -o nounset
@@ -24,8 +27,5 @@ bad_files=$(
 )
 
 if [[ -n "${bad_files}" ]]; then
-	echo 'FAIL'
-	echo 'The following bash files are not properly formatted:'
-	echo "${bad_files}"
-	exit 1
+	fail_test "The following bash files are not properly formatted: ${bad_files}"
 fi

@@ -1,5 +1,8 @@
 #!/bin/bash
 # check for any yaml files that aren't properly formatted
+
+. test/util.sh
+
 echo running test-yamlfmt.sh
 set -o errexit
 set -o nounset
@@ -14,14 +17,15 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 
 RUBY=`which ruby 2>/dev/null`
 if [ -z $RUBY ]; then
-	echo "The 'ruby' utility can't be found."
-	exit 1
+	fail_test "The 'ruby' utility can't be found."
 fi
 
-$RUBY -e "require 'yaml'" 2>/dev/null || (
-	echo "The ruby 'yaml' library can't be found."
-	exit 1
-)
+$RUBY -e "require 'yaml'" 2>/dev/null || fail_test "The ruby 'yaml' library can't be found."
+
+if $RUBY -e "puts RUBY_VERSION" | grep -q ^1 ; then
+	echo "SKIPPING - cannot test YAML formatting with Ruby 1.x"
+	exit 0
+fi
 
 cd "${ROOT}"
 
@@ -38,8 +42,5 @@ bad_files=$(
 )
 
 if [[ -n "${bad_files}" ]]; then
-	echo 'FAIL'
-	echo 'The following yaml files are not properly formatted:'
-	echo "${bad_files}"
-	exit 1
+	fail_test "The following yaml files are not properly formatted: ${bad_files}"
 fi

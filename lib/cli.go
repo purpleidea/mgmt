@@ -115,6 +115,9 @@ func run(c *cli.Context) error {
 		return err
 	}
 
+	obj.Prometheus = c.Bool("prometheus")
+	obj.PrometheusListen = c.String("prometheus-listen")
+
 	// install the exit signal handler
 	exit := make(chan struct{})
 	defer close(exit)
@@ -319,6 +322,15 @@ func CLI(program, version string, flags Flags) error {
 					Name:  "pgp-identity",
 					Value: "",
 					Usage: "default identity used for generation",
+				},
+				cli.BoolFlag{
+					Name:  "prometheus",
+					Usage: "start a prometheus instance",
+				},
+				cli.StringFlag{
+					Name:  "prometheus-listen",
+					Value: "",
+					Usage: "specify prometheus instance binding",
 				},
 			},
 		},

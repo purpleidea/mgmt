@@ -31,17 +31,25 @@ import (
 // https://github.com/prometheus/prometheus/wiki/Default-port-allocations
 const DefaultPrometheusListen = "127.0.0.1:9233"
 
-var (
+type ResState int
+
+const (
+	ResStateOK	ResState = iota
+	ResStateSoftFail
+	ResStateHardFail
 )
 
 // Prometheus is the struct that contains information about the
 // prometheus instance. Run Init() on it.
 type Prometheus struct {
 	Listen string // the listen specification for the net/http server
+
 	managedResources *prometheus.GaugeVec
 	checkApplyCounter prometheus.Collector
 	failedResourcesTotal prometheus.Collector
 	failedResources prometheus.Collector
+
+	resourcesState map[string]ResState
 }
 
 // Init some parameters - currently the Listen address.
@@ -49,6 +57,8 @@ func (obj *Prometheus) Init() error {
 	if len(obj.Listen) == 0 {
 		obj.Listen = DefaultPrometheusListen
 	}
+
+	obj.resourcesState = make(map[string]ResState)
 
 	obj.managedResources = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -105,10 +115,27 @@ func (obj *Prometheus) Stop() error {
 	return nil
 }
 
-func (obj *Prometheus) AddManagedResource(rtype string) error {
-	log.Printf("XXXXXX1 %v", obj)
-	log.Printf("XXXXXX2 %v", obj.managedResources)
+func (obj *Prometheus) AddManagedResource(resUuid string, rtype string) error {
 	obj.managedResources.With(prometheus.Labels{"type": rtype}).Inc()
+	obj.UpdateState(resUuid, ResStateOK)
+	return nil
+}
+
+func (obj *Prometheus) RemoveManagedResource(resUuid string, rtype string) error {
+	obj.managedResources.With(prometheus.Labels{"type": rtype}).Dec()
+	if err := obj.deleteState(resUuid); err != nil {
+	
+	}
+	return nil
+}
+
+func (obj *Prometheus) deleteState(resUuid string) error {
+	delete obj.resourcesState[resUuid]
+	return nil
+}
+
+func (obj *Prometheus) UpdateState(resUuid string, newState string) error {
+	obj.resourcesState[resUuid] = newState
 	return nil
 }
 

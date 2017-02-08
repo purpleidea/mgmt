@@ -302,7 +302,12 @@ func (obj *BaseRes) Init() error {
 		obj.Meta().Limit = rate.Inf
 	}
 
-	obj.prometheus.AddManagedResource(obj.kind)
+	
+	if obj.prometheus != nil {
+		if err := obj.prometheus.AddManagedResource(obj.kind); err != nil {
+			return errwrap.Wrapf(err, "Could not increase Prometheus counter!")
+		}
+	}
 
 	//dir, err := obj.VarDir("")
 	//if err != nil {
@@ -319,6 +324,11 @@ func (obj *BaseRes) Init() error {
 func (obj *BaseRes) Close() error {
 	if obj.debug {
 		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
+	}
+	if obj.prometheus != nil {
+		if err := obj.prometheus.RemoveManagedResource(obj.kind); err != nil {
+			return errwrap.Wrapf(err, "Could not increase Prometheus counter!")
+		}
 	}
 	obj.mutex.Lock()
 	obj.working = false // Worker method should now be closing...

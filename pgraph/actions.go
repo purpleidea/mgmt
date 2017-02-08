@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -414,10 +415,24 @@ func (g *Graph) Worker(v *Vertex) error {
 						playback = true
 						log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
 						if retry == 0 {
+							if obj.Prometheus() != nil {
+								if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateHardFail); err != nil {
+									// TODO: error correctly
+									log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+								}
+							}
 							// wrap the error in the sentinel
 							v.SendEvent(event.EventExit, &SentinelErr{e})
 							return
 						}
+
+						// update the state to soft here so it is not called when it fails hard
+						if obj.Prometheus() != nil {
+							if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateSoftFail); err != nil {
+								log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+							}
+						}
+
 						if retry > 0 { // don't decrement the -1
 							retry--
 						}
@@ -426,6 +441,12 @@ func (g *Graph) Worker(v *Vertex) error {
 						timer.Reset(delay)
 						waiting = true // waiting for retry timer
 						return
+					}
+					if obj.Prometheus() != nil {
+						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateOK); err != nil {
+							// TODO: error correctly
+							log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+						}
 					}
 					retry = v.Meta().Retry // reset on success
 					close(done)            // trigger

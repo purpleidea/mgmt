@@ -33,6 +33,7 @@ import (
 	// TODO: should each resource be a sub-package?
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/prometheus"
 
 	errwrap "github.com/pkg/errors"
 	"golang.org/x/time/rate"
@@ -57,9 +58,10 @@ const refreshPathToken = "refresh"
 type Data struct {
 	//Hostname string         // uuid for the host
 	//Noop     bool
-	Converger converger.Converger
-	Prefix    string // the prefix to be used for the pgraph namespace
-	Debug     bool
+	Converger  converger.Converger
+	Prometheus *prometheus.Prometheus
+	Prefix     string // the prefix to be used for the pgraph namespace
+	Debug      bool
 	// NOTE: we can add more fields here if needed for the resources.
 }
 
@@ -163,6 +165,7 @@ type Base interface {
 	Started() <-chan struct{}        // returns when the resource has started
 	Starter(bool)
 	Poll(chan *event.Event) error // poll alternative to watching :(
+	Prometheus() *prometheus.Prometheus
 }
 
 // Res is the minimum interface you need to implement to define a new resource.
@@ -187,22 +190,23 @@ type BaseRes struct {
 	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
 	Recv       map[string]*Send // mapping of key to receive on from value
 
-	kind      string
-	mutex     *sync.Mutex // locks around sending and closing of events channel
-	events    chan *event.Event
-	converger converger.Converger // converged tracking
-	cuid      converger.ConvergerUID
-	prefix    string // base prefix for this resource
-	debug     bool
-	state     ResState
-	working   bool          // is the Worker() loop running ?
-	started   chan struct{} // closed when worker is started/running
-	isStarted bool          // did the started chan already close?
-	starter   bool          // does this have indegree == 0 ? XXX: usually?
-	isStateOK bool          // whether the state is okay based on events or not
-	isGrouped bool          // am i contained within a group?
-	grouped   []Res         // list of any grouped resources
-	refresh   bool          // does this resource have a refresh to run?
+	kind       string
+	mutex      *sync.Mutex // locks around sending and closing of events channel
+	events     chan *event.Event
+	converger  converger.Converger // converged tracking
+	cuid       converger.ConvergerUID
+	prometheus *prometheus.Prometheus
+	prefix     string // base prefix for this resource
+	debug      bool
+	state      ResState
+	working    bool          // is the Worker() loop running ?
+	started    chan struct{} // closed when worker is started/running
+	isStarted  bool          // did the started chan already close?
+	starter    bool          // does this have indegree == 0 ? XXX: usually?
+	isStateOK  bool          // whether the state is okay based on events or not
+	isGrouped  bool          // am i contained within a group?
+	grouped    []Res         // list of any grouped resources
+	refresh    bool          // does this resource have a refresh to run?
 	//refreshState StatefulBool // TODO: future stateful bool
 }
 
@@ -299,6 +303,12 @@ func (obj *BaseRes) Init() error {
 		obj.Meta().Limit = rate.Inf
 	}
 
+	if obj.prometheus != nil {
+		if err := obj.prometheus.AddManagedResource(fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName()), obj.Kind()); err != nil {
+			return errwrap.Wrapf(err, "Could not increase Prometheus counter!")
+		}
+	}
+
 	//dir, err := obj.VarDir("")
 	//if err != nil {
 	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
@@ -314,6 +324,11 @@ func (obj *BaseRes) Init() error {
 func (obj *BaseRes) Close() error {
 	if obj.debug {
 		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
+	}
+	if obj.prometheus != nil {
+		if err := obj.prometheus.RemoveManagedResource(fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName()), obj.kind); err != nil {
+			return errwrap.Wrapf(err, "Could not increase Prometheus counter!")
+		}
 	}
 	obj.mutex.Lock()
 	obj.working = false // Worker method should now be closing...
@@ -355,6 +370,7 @@ func (obj *BaseRes) Events() chan *event.Event {
 // AssociateData associates some data with the object in question.
 func (obj *BaseRes) AssociateData(data *Data) {
 	obj.converger = data.Converger
+	obj.prometheus = data.Prometheus
 	obj.prefix = data.Prefix
 	obj.debug = data.Debug
 }
@@ -557,6 +573,11 @@ func (obj *BaseRes) Poll(processChan chan *event.Event) error {
 			obj.Event(processChan)
 		}
 	}
+}
+
+// Prometheus returns the prometheus instance.
+func (obj *BaseRes) Prometheus() *prometheus.Prometheus { // am I grouped?
+	return obj.prometheus
 }
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization)

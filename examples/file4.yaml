@@ -1,0 +1,14 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: file1
+    meta:
+      limit: 1
+      burst: 1
+      retry: 15
+    path: "/tmp/mgmt/hello"
+    content: |
+      i am a file
+    state: exists
+edges: []

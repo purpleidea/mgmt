@@ -1,5 +1,8 @@
 #!/bin/bash
 # check that go lint passes or doesn't get worse by some threshold
+
+. test/util.sh
+
 echo running test-golint.sh
 # TODO: output a diff of what has changed in the golint output
 # FIXME: test a range of commits, since only the last patch is checked here
@@ -26,10 +29,10 @@ COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch
 echo "$LINT"	# display the issues
 
 T=`mktemp --tmpdir -d tmp.XXX`
-[ "$T" = "" ] && exit 1
-cd $T || exit 1
+[ "$T" = "" ] && fail_test "Could not create tmpdir"
+cd $T || fail_test "Could not change into tmpdir $T"
 git clone --recursive "${ROOT}" 2>/dev/null	# make a copy
-cd "`basename ${ROOT}`" >/dev/null || exit 1
+cd "`basename ${ROOT}`" >/dev/null || fail_test "Could not determine basename for the repo root '$ROOT'"
 if [ "$HACK" != "" ]; then
 	# ensure master branch really exists when cloning from a branched repo!
 	git checkout master &>/dev/null && git checkout - &>/dev/null
@@ -62,7 +65,6 @@ echo "Curr. # of issues: $COUNT"
 echo "Issue count delta is: $DELTA %"
 if [ "$DELTA" -gt "$THRESHOLD" ]; then
 	echo "Maximum threshold is: $THRESHOLD %"
-	echo '`golint` FAIL'
-	exit 1
+	fail_test "`golint` - FAILED"
 fi
 echo PASS

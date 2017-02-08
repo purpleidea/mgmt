@@ -1,5 +1,8 @@
 #!/bin/bash
 # check that headers are properly formatted
+
+. test/util.sh
+
 echo running test-headerfmt.sh
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 FILE="${ROOT}/main.go"	# file headers should match main.go
@@ -23,8 +26,5 @@ bad_files=$(
 )
 
 if [[ -n "${bad_files}" ]]; then
-	echo 'FAIL'
-	echo 'The following file headers are not properly formatted:'
-	echo "${bad_files}"
-	exit 1
+	fail_test "The following file headers are not properly formatted: ${bad_files}"
 fi

@@ -439,6 +439,7 @@ func (obj *Main) Run() error {
 			// pass in the information we need
 			newGraph.AssociateData(&resources.Data{
 				Converger: converger,
+				Prometheus: prom,
 				Prefix:    pgraphPrefix,
 				Debug:     obj.Flags.Debug,
 			})

@@ -31,6 +31,7 @@ import (
 	"time"
 
 	// TODO: should each resource be a sub-package?
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
 
@@ -57,9 +58,10 @@ const refreshPathToken = "refresh"
 type Data struct {
 	//Hostname string         // uuid for the host
 	//Noop     bool
-	Converger converger.Converger
-	Prefix    string // the prefix to be used for the pgraph namespace
-	Debug     bool
+	Converger  converger.Converger
+	Prometheus *prometheus.Prometheus
+	Prefix     string // the prefix to be used for the pgraph namespace
+	Debug      bool
 	// NOTE: we can add more fields here if needed for the resources.
 }
 
@@ -192,6 +194,7 @@ type BaseRes struct {
 	events    chan *event.Event
 	converger converger.Converger // converged tracking
 	cuid      converger.ConvergerUID
+	prometheus *prometheus.Prometheus
 	prefix    string // base prefix for this resource
 	debug     bool
 	state     ResState
@@ -299,6 +302,8 @@ func (obj *BaseRes) Init() error {
 		obj.Meta().Limit = rate.Inf
 	}
 
+	obj.prometheus.AddManagedResource(obj.kind)
+
 	//dir, err := obj.VarDir("")
 	//if err != nil {
 	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
@@ -355,6 +360,7 @@ func (obj *BaseRes) Events() chan *event.Event {
 // AssociateData associates some data with the object in question.
 func (obj *BaseRes) AssociateData(data *Data) {
 	obj.converger = data.Converger
+	obj.prometheus = data.Prometheus
 	obj.prefix = data.Prefix
 	obj.debug = data.Debug
 }

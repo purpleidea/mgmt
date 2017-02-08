@@ -21,7 +21,9 @@ package prometheus
 
 import (
 	"net/http"
+	"log"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -29,10 +31,17 @@ import (
 // https://github.com/prometheus/prometheus/wiki/Default-port-allocations
 const DefaultPrometheusListen = "127.0.0.1:9233"
 
+var (
+)
+
 // Prometheus is the struct that contains information about the
 // prometheus instance. Run Init() on it.
 type Prometheus struct {
 	Listen string // the listen specification for the net/http server
+	managedResources *prometheus.GaugeVec
+	checkApplyCounter prometheus.Collector
+	failedResourcesTotal prometheus.Collector
+	failedResources prometheus.Collector
 }
 
 // Init some parameters - currently the Listen address.
@@ -40,6 +49,44 @@ func (obj *Prometheus) Init() error {
 	if len(obj.Listen) == 0 {
 		obj.Listen = DefaultPrometheusListen
 	}
+
+	obj.managedResources = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "mgmt_resources",
+			Help: "Number of managed resources.",
+		},
+		[]string{"type"}, // File, Svc, ...
+	)
+	log.Printf("xxxc %v", obj.managedResources)
+	prometheus.MustRegister(obj.managedResources)
+
+	obj.checkApplyCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mgmt_checkapply_total",
+			Help: "Number of CheckApply that have run.",
+		},
+		[]string{"type"}, // File, Svc, ...
+	)
+	prometheus.MustRegister(obj.checkApplyCounter)
+
+	obj.failedResourcesTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mgmt_failures_total",
+			Help: "Total of failed resources.",
+		},
+		[]string{"type", "kind"}, // File, Svc, ... |  soft, hard
+	)
+	prometheus.MustRegister(obj.failedResourcesTotal)
+
+	obj.failedResources = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "mgmt_failures",
+			Help: "Number of failing resources.",
+		},
+		[]string{"type", "kind"}, // File, Svc, ... | soft, hard
+	)
+	prometheus.MustRegister(obj.failedResources)
+
 	return nil
 }
 
@@ -57,3 +104,11 @@ func (obj *Prometheus) Stop() error {
 	// https://stackoverflow.com/questions/39320025/go-how-to-stop-http-listenandserve/41433555#41433555
 	return nil
 }
+
+func (obj *Prometheus) AddManagedResource(rtype string) error {
+	log.Printf("XXXXXX1 %v", obj)
+	log.Printf("XXXXXX2 %v", obj.managedResources)
+	obj.managedResources.With(prometheus.Labels{"type": rtype}).Inc()
+	return nil
+}
+

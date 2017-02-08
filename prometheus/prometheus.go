@@ -26,7 +26,7 @@ import (
 )
 
 // DefaultPrometheusListen is registered in
-// https://github.com/prometheus/prometheus/wiki/Default-port-allocation
+// https://github.com/prometheus/prometheus/wiki/Default-port-allocations
 const DefaultPrometheusListen = "127.0.0.1:9233"
 
 // Prometheus is the struct that contains information about the

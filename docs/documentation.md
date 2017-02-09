@@ -219,6 +219,7 @@ meta parameters aren't very useful when combined with certain resources, but
 in general, it should be fairly obvious, such as when combining the `noop` meta
 parameter with the [Noop](#Noop) resource.
 
+* [Augeas](#Augeas): Manipulate files using augeas.
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
 * [Hostname](#Hostname): Manages the hostname on the system.
@@ -230,6 +231,12 @@ parameter with the [Noop](#Noop) resource.
 * [Svc](#Svc): Manage system systemd services.
 * [Timer](#Timer): Manage system systemd services.
 * [Virt](#Virt): Manage virtual machines with libvirt.
+
+
+### Augeas
+
+The augeas resource uses [augeas](http://augeas.net/) commands to manipulate
+files.
 
 ### Exec
 

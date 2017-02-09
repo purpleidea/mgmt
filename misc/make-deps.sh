@@ -27,10 +27,12 @@ fi
 
 if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
+	$sudo_command $YUM install -y augeas-devel
 
 fi
 if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
+	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
 fi
 

@@ -40,11 +40,11 @@ test_commit_message() {
 	echo Testing commit message $1
 	if ! git log --format=%s $1 | head -n 1 | grep -q "$travis_regex"
 	then
-		echo "Commit message should follow the following regex: '$travis_regex'"
+		echo "FAIL: Commit message should match the following regex: '$travis_regex'"
 		echo
-		echo "e.g:"
-		echo "prometheus: implement rest api"
-		echo "resources: svc: fix a race condition with reloads"
+		echo "eg:"
+		echo "prometheus: Implement rest api"
+		echo "resources: svc: Fix a race condition with reloads"
 		exit 1
 	fi
 }

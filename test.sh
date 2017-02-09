@@ -21,6 +21,7 @@ run-test ./test/test-gofmt.sh
 run-test ./test/test-yamlfmt.sh
 run-test ./test/test-bashfmt.sh
 run-test ./test/test-headerfmt.sh
+run-test ./test/test-commit-message.sh
 run-test go test
 run-test ./test/test-govet.sh
 

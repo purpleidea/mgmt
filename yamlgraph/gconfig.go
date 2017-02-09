@@ -56,6 +56,7 @@ type Edge struct {
 // Resources is the data structure of the set of resources.
 type Resources struct {
 	// in alphabetical order
+	Augeas   []*resources.AugeasRes   `yaml:"augeas"`
 	Exec     []*resources.ExecRes     `yaml:"exec"`
 	File     []*resources.FileRes     `yaml:"file"`
 	Hostname []*resources.HostnameRes `yaml:"hostname"`

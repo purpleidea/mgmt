@@ -13,3 +13,6 @@
 [submodule "vendor/github.com/purpleidea/go-systemd"]
 	path = vendor/github.com/purpleidea/go-systemd
 	url = https://github.com/purpleidea/go-systemd
+[submodule "vendor/honnef.co/go/augeas"]
+	path = vendor/honnef.co/go/augeas
+	url = https://github.com/dominikh/go-augeas/

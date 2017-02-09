@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-travis_regex='^[a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: '
+travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[^:]\+$'
 
 # Testing the regex itself.
 
@@ -9,6 +9,8 @@ travis_regex='^[a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: '
 [[ $(echo "foo: bar" | grep -c "$travis_regex") -eq 1 ]]
 [[ $(echo "f1oo, b2ar: bar" | grep -c "$travis_regex") -eq 1 ]]
 [[ $(echo "2foo: bar" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "foo: bar: barfoo" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "foo: bar, foo: barfoo" | grep -c "$travis_regex") -eq 1 ]]
 
 # Space required after :
 [[ $(echo "foo:bar" | grep -c "$travis_regex") -eq 0 ]]
@@ -27,6 +29,12 @@ travis_regex='^[a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: '
 
 # More than one char is required before :
 [[ $(echo "a: bar" | grep -c "$travis_regex") -eq 0 ]]
+
+# Run checks agains multiple :.
+[[ $(echo "a: bar:" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(echo "a: bar, fooX: barfoo" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(echo "a: bar, foo: barfoo foo: nope" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(echo "nope a: bar, foo: barfoofoo: nope" | grep -c "$travis_regex") -eq 0 ]]
 
 test_commit_message() {
 	echo Testing commit message $1

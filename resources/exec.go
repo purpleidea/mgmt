@@ -26,7 +26,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
@@ -98,7 +97,7 @@ func (obj *ExecRes) BufioChanScanner(scanner *bufio.Scanner) (chan string, chan 
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *ExecRes) Watch(processChan chan *event.Event) error {
+func (obj *ExecRes) Watch() error {
 	var send = false // send event?
 	var exit *error
 	bufioch, errch := make(chan string), make(chan error)
@@ -141,7 +140,7 @@ func (obj *ExecRes) Watch(processChan chan *event.Event) error {
 	}
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -174,7 +173,7 @@ func (obj *ExecRes) Watch(processChan chan *event.Event) error {
 			send = false
 			// it is okay to invalidate the clean state on poke too
 			obj.StateOK(false) // something made state dirty
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

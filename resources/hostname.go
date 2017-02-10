@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/godbus/dbus"
@@ -102,7 +101,7 @@ func (obj *HostnameRes) Init() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *HostnameRes) Watch(processChan chan *event.Event) error {
+func (obj *HostnameRes) Watch() error {
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
@@ -120,7 +119,7 @@ func (obj *HostnameRes) Watch(processChan chan *event.Event) error {
 	bus.Signal(signals)
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -144,7 +143,7 @@ func (obj *HostnameRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

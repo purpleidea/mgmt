@@ -25,7 +25,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/recwatch"
 
 	errwrap "github.com/pkg/errors"
@@ -101,7 +100,7 @@ func (obj *AugeasRes) Init() error {
 // Watch is the primary listener for this resource and it outputs events.
 // Taken from the File resource.
 // FIXME: DRY - This is taken from the file resource
-func (obj *AugeasRes) Watch(processChan chan *event.Event) error {
+func (obj *AugeasRes) Watch() error {
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.File, false)
 	if err != nil {
@@ -110,7 +109,7 @@ func (obj *AugeasRes) Watch(processChan chan *event.Event) error {
 	defer obj.recWatcher.Close()
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -146,7 +145,7 @@ func (obj *AugeasRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

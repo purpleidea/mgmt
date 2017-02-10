@@ -1,0 +1,14 @@
+Welcome to the mgmt hacking VM.
+
+Please make sure that your authorized key for GitHub is added to the SSH agent
+on the host machine (see `ssh-add -l`).
+
+You can jump into the mgmt repo with the alias `cdmgmt`.
+
+To get started, try:
+
+$ cdmgmt
+$ make clean build
+$ ./mgmt run --tmp-prefix --yaml examples/exec1.yaml --converged-timeout 5
+
+Enjoy!

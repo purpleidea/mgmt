@@ -24,7 +24,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/resources/packagekit"
 	"github.com/purpleidea/mgmt/util"
 
@@ -104,7 +103,7 @@ func (obj *PkgRes) Init() error {
 // It uses the PackageKit UpdatesChanged signal to watch for changes.
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
-func (obj *PkgRes) Watch(processChan chan *event.Event) error {
+func (obj *PkgRes) Watch() error {
 	bus := packagekit.NewBus()
 	if bus == nil {
 		return fmt.Errorf("Can't connect to PackageKit bus.")
@@ -117,7 +116,7 @@ func (obj *PkgRes) Watch(processChan chan *event.Event) error {
 	}
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -156,7 +155,7 @@ func (obj *PkgRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

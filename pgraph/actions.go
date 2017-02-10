@@ -235,8 +235,8 @@ func (g *Graph) Process(v *Vertex) error {
 		// would simplify the resources by removing boilerplate
 		if v.Meta().Poll > 0 {
 			if !checkOK { // something changed, restart timer
-				cuid := v.Res.ConvergerUID() // get the converger uid used to report status
-				cuid.ResetTimer()            // activity!
+				cuid, _, _ := v.Res.ConvergerUIDs() // get the converger uid used to report status
+				cuid.ResetTimer()                   // activity!
 				if g.Flags.Debug {
 					log.Printf("%s[%s]: Converger: ResetTimer", obj.Kind(), obj.GetName())
 				}
@@ -306,6 +306,149 @@ func (obj *SentinelErr) Error() string {
 	return obj.err.Error()
 }
 
+// innerWorker is the CheckApply runner that reads from processChan.
+func (g *Graph) innerWorker(v *Vertex) {
+	obj := v.Res
+	running := false
+	done := make(chan struct{})
+	playback := false                      // do we need to run another one?
+	_, wcuid, pcuid := obj.ConvergerUIDs() // get extra cuids (worker, process)
+
+	waiting := false
+	var timer = time.NewTimer(time.Duration(math.MaxInt64)) // longest duration
+	if !timer.Stop() {
+		<-timer.C // unnecessary, shouldn't happen
+	}
+
+	var delay = time.Duration(v.Meta().Delay) * time.Millisecond
+	var retry = v.Meta().Retry // number of tries left, -1 for infinite
+	var limiter = rate.NewLimiter(v.Meta().Limit, v.Meta().Burst)
+	limited := false
+
+Loop:
+	for {
+		select {
+		case ev, ok := <-obj.ProcessChan(): // must use like this
+			if !ok { // processChan closed, let's exit
+				break Loop // no event, so no ack!
+			}
+			if v.Res.Meta().Poll == 0 { // skip for polling
+				wcuid.SetConverged(false)
+			}
+
+			// if process started, but no action yet, skip!
+			if v.Res.GetState() == resources.ResStateProcess {
+				if g.Flags.Debug {
+					log.Printf("%s[%s]: Skipped event!", v.Kind(), v.GetName())
+				}
+				ev.ACK() // ready for next message
+				continue
+			}
+
+			// if running, we skip running a new execution!
+			// if waiting, we skip running a new execution!
+			if running || waiting {
+				if g.Flags.Debug {
+					log.Printf("%s[%s]: Playback added!", v.Kind(), v.GetName())
+				}
+				playback = true
+				ev.ACK() // ready for next message
+				continue
+			}
+
+			// catch invalid rates
+			if v.Meta().Burst == 0 && !(v.Meta().Limit == rate.Inf) { // blocked
+				e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.Kind(), v.GetName())
+				v.SendEvent(event.EventExit, &SentinelErr{e})
+				ev.ACK() // ready for next message
+				continue
+			}
+
+			// rate limit
+			// FIXME: consider skipping rate limit check if
+			// the event is a poke instead of a watch event
+			if !limited && !(v.Meta().Limit == rate.Inf) { // skip over the playback event...
+				now := time.Now()
+				r := limiter.ReserveN(now, 1) // one event
+				// r.OK() seems to always be true here!
+				d := r.DelayFrom(now)
+				if d > 0 { // delay
+					limited = true
+					playback = true
+					log.Printf("%s[%s]: Limited (rate: %v/sec, burst: %d, next: %v)", v.Kind(), v.GetName(), v.Meta().Limit, v.Meta().Burst, d)
+					// start the timer...
+					timer.Reset(d)
+					waiting = true // waiting for retry timer
+					ev.ACK()
+					continue
+				} // otherwise, we run directly!
+			}
+			limited = false // let one through
+
+			running = true
+			go func(ev *event.Event) {
+				pcuid.SetConverged(false) // "block" Process
+				if e := g.Process(v); e != nil {
+					playback = true
+					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
+					if retry == 0 {
+						// wrap the error in the sentinel
+						v.SendEvent(event.EventExit, &SentinelErr{e})
+						return
+					}
+					if retry > 0 { // don't decrement the -1
+						retry--
+					}
+					log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
+					// start the timer...
+					timer.Reset(delay)
+					waiting = true // waiting for retry timer
+					return
+				}
+				retry = v.Meta().Retry // reset on success
+				close(done)            // trigger
+			}(ev)
+			ev.ACK() // sync (now mostly useless)
+
+		case <-timer.C:
+			if v.Res.Meta().Poll == 0 { // skip for polling
+				wcuid.SetConverged(false)
+			}
+			waiting = false
+			if !timer.Stop() {
+				//<-timer.C // blocks, docs are wrong!
+			}
+			log.Printf("%s[%s]: CheckApply delay expired!", v.Kind(), v.GetName())
+			close(done)
+
+		// a CheckApply run (with possibly retry pause) finished
+		case <-done:
+			if v.Res.Meta().Poll == 0 { // skip for polling
+				wcuid.SetConverged(false)
+			}
+			if g.Flags.Debug {
+				log.Printf("%s[%s]: CheckApply finished!", v.Kind(), v.GetName())
+			}
+			done = make(chan struct{}) // reset
+			// re-send this event, to trigger a CheckApply()
+			if playback {
+				playback = false
+				// this lock avoids us sending to
+				// channel after we've closed it!
+				// TODO: can this experience indefinite postponement ?
+				// see: https://github.com/golang/go/issues/11506
+				go obj.Event() // replay a new event
+			}
+			running = false
+			pcuid.SetConverged(true) // "unblock" Process
+
+		case <-wcuid.ConvergedTimer():
+			wcuid.SetConverged(true) // converged!
+			continue
+		}
+	}
+}
+
 // Worker is the common run frontend of the vertex. It handles all of the retry
 // and retry delay common code, and ultimately returns the final status of this
 // vertex execution.
@@ -320,171 +463,26 @@ func (g *Graph) Worker(v *Vertex) error {
 		log.Printf("%s[%s]: Worker: Running", v.Kind(), v.GetName())
 		defer log.Printf("%s[%s]: Worker: Stopped", v.Kind(), v.GetName())
 	}
-	// run the init (should match 1-1 with Close function if this succeeds)
+	// run the init (should match 1-1 with Close function)
 	if err := obj.Init(); err != nil {
+		// always exit the worker function by finishing with Close()
+		if e := obj.Close(); e != nil {
+			err = multierr.Append(err, e) // list of errors
+		}
 		return errwrap.Wrapf(err, "could not Init() resource")
 	}
-
-	lock := &sync.Mutex{} // lock around processChan closing and sending
-	finished := false     // did we close processChan ?
-	processChan := make(chan *event.Event)
 
 	// if the CheckApply run takes longer than the converged
 	// timeout, we could inappropriately converge mid-apply!
 	// avoid this by blocking convergence with a fake report
 	// we also add a similar blocker around the worker loop!
-	wcuid := obj.Converger().Register() // get an extra cuid for the worker!
-	defer wcuid.Unregister()
-	wcuid.SetConverged(true)            // starts off false, and waits for loop timeout
-	pcuid := obj.Converger().Register() // get an extra cuid for the process
-	defer pcuid.Unregister()
+	_, wcuid, pcuid := obj.ConvergerUIDs() // get extra cuids (worker, process)
+	// XXX: put these in Init() ?
+	wcuid.SetConverged(true) // starts off false, and waits for loop timeout
 	pcuid.SetConverged(true) // starts off true, because it's not running...
 
-	go func() {
-		running := false
-		done := make(chan struct{})
-		playback := false // do we need to run another one?
+	go g.innerWorker(v)
 
-		waiting := false
-		var timer = time.NewTimer(time.Duration(math.MaxInt64)) // longest duration
-		if !timer.Stop() {
-			<-timer.C // unnecessary, shouldn't happen
-		}
-
-		var delay = time.Duration(v.Meta().Delay) * time.Millisecond
-		var retry = v.Meta().Retry // number of tries left, -1 for infinite
-		var limiter = rate.NewLimiter(v.Meta().Limit, v.Meta().Burst)
-		limited := false
-
-	Loop:
-		for {
-			select {
-			case ev, ok := <-processChan: // must use like this
-				if !ok { // processChan closed, let's exit
-					break Loop // no event, so no ack!
-				}
-				if v.Res.Meta().Poll == 0 { // skip for polling
-					wcuid.SetConverged(false)
-				}
-
-				// if process started, but no action yet, skip!
-				if v.Res.GetState() == resources.ResStateProcess {
-					if g.Flags.Debug {
-						log.Printf("%s[%s]: Skipped event!", v.Kind(), v.GetName())
-					}
-					ev.ACK() // ready for next message
-					continue
-				}
-
-				// if running, we skip running a new execution!
-				// if waiting, we skip running a new execution!
-				if running || waiting {
-					if g.Flags.Debug {
-						log.Printf("%s[%s]: Playback added!", v.Kind(), v.GetName())
-					}
-					playback = true
-					ev.ACK() // ready for next message
-					continue
-				}
-
-				// catch invalid rates
-				if v.Meta().Burst == 0 && !(v.Meta().Limit == rate.Inf) { // blocked
-					e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.Kind(), v.GetName())
-					v.SendEvent(event.EventExit, &SentinelErr{e})
-					ev.ACK() // ready for next message
-					continue
-				}
-
-				// rate limit
-				// FIXME: consider skipping rate limit check if
-				// the event is a poke instead of a watch event
-				if !limited && !(v.Meta().Limit == rate.Inf) { // skip over the playback event...
-					now := time.Now()
-					r := limiter.ReserveN(now, 1) // one event
-					// r.OK() seems to always be true here!
-					d := r.DelayFrom(now)
-					if d > 0 { // delay
-						limited = true
-						playback = true
-						log.Printf("%s[%s]: Limited (rate: %v/sec, burst: %d, next: %v)", v.Kind(), v.GetName(), v.Meta().Limit, v.Meta().Burst, d)
-						// start the timer...
-						timer.Reset(d)
-						waiting = true // waiting for retry timer
-						ev.ACK()
-						continue
-					} // otherwise, we run directly!
-				}
-				limited = false // let one through
-
-				running = true
-				go func(ev *event.Event) {
-					pcuid.SetConverged(false) // "block" Process
-					if e := g.Process(v); e != nil {
-						playback = true
-						log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
-						if retry == 0 {
-							// wrap the error in the sentinel
-							v.SendEvent(event.EventExit, &SentinelErr{e})
-							return
-						}
-						if retry > 0 { // don't decrement the -1
-							retry--
-						}
-						log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
-						// start the timer...
-						timer.Reset(delay)
-						waiting = true // waiting for retry timer
-						return
-					}
-					retry = v.Meta().Retry // reset on success
-					close(done)            // trigger
-				}(ev)
-				ev.ACK() // sync (now mostly useless)
-
-			case <-timer.C:
-				if v.Res.Meta().Poll == 0 { // skip for polling
-					wcuid.SetConverged(false)
-				}
-				waiting = false
-				if !timer.Stop() {
-					//<-timer.C // blocks, docs are wrong!
-				}
-				log.Printf("%s[%s]: CheckApply delay expired!", v.Kind(), v.GetName())
-				close(done)
-
-			// a CheckApply run (with possibly retry pause) finished
-			case <-done:
-				if v.Res.Meta().Poll == 0 { // skip for polling
-					wcuid.SetConverged(false)
-				}
-				if g.Flags.Debug {
-					log.Printf("%s[%s]: CheckApply finished!", v.Kind(), v.GetName())
-				}
-				done = make(chan struct{}) // reset
-				// re-send this event, to trigger a CheckApply()
-				if playback {
-					playback = false
-					// this lock avoids us sending to
-					// channel after we've closed it!
-					lock.Lock()
-					go func() {
-						if !finished {
-							// TODO: can this experience indefinite postponement ?
-							// see: https://github.com/golang/go/issues/11506
-							obj.Event(processChan) // replay a new event
-						}
-						lock.Unlock()
-					}()
-				}
-				running = false
-				pcuid.SetConverged(true) // "unblock" Process
-
-			case <-wcuid.ConvergedTimer():
-				wcuid.SetConverged(true) // converged!
-				continue
-			}
-		}
-	}()
 	var err error // propagate the error up (this is a permanent BAD error!)
 	// the watch delay runs inside of the Watch resource loop, so that it
 	// can still process signals and exit if needed. It shouldn't run any
@@ -548,24 +546,22 @@ func (g *Graph) Worker(v *Vertex) error {
 			// NOTE: we can avoid the send if running Watch guarantees
 			// one CheckApply event on startup!
 			//if pendingSendEvent { // TODO: should this become a list in the future?
-			//	if exit, err := obj.DoSend(processChan, ""); exit || err != nil {
+			//	if err := obj.Event() err != nil {
 			//		return err // we exit or bubble up a NACK...
 			//	}
 			//}
 		}
 
 		// TODO: reset the watch retry count after some amount of success
-		v.Res.RegisterConverger()
 		var e error
 		if v.Res.Meta().Poll > 0 { // poll instead of watching :(
-			cuid := v.Res.ConvergerUID() // get the converger uid used to report status
+			cuid, _, _ := v.Res.ConvergerUIDs() // get the converger uid used to report status
 			cuid.StartTimer()
-			e = v.Res.Poll(processChan)
+			e = v.Res.Poll()
 			cuid.StopTimer() // clean up nicely
 		} else {
-			e = v.Res.Watch(processChan) // run the watch normally
+			e = v.Res.Watch() // run the watch normally
 		}
-		v.Res.UnregisterConverger()
 		if e == nil { // exit signal
 			err = nil // clean exit
 			break
@@ -589,10 +585,6 @@ func (g *Graph) Worker(v *Vertex) error {
 		// by getting the Watch resource to send one event once it's up!
 		//v.SendEvent(eventPoke, false, false)
 	}
-	lock.Lock() // lock to avoid a send when closed!
-	finished = true
-	close(processChan)
-	lock.Unlock()
 
 	// close resource and return possible errors if any
 	if e := obj.Close(); err == nil {
@@ -638,6 +630,7 @@ func (g *Graph) Start(first bool) { // start or continue
 				// TODO: if a sufficient number of workers error,
 				// should something be done? Should these restart
 				// after perma-failure if we have a graph change?
+				log.Printf("%s[%s]: Started", vv.Kind(), vv.GetName())
 				if err := g.Worker(vv); err != nil { // contains the Watch and CheckApply loops
 					log.Printf("%s[%s]: Exited with failure: %v", vv.Kind(), vv.GetName(), err)
 					return

@@ -1,16 +1,18 @@
 #!/bin/bash -e
 
-travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[^:]\+$'
+travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
 
 # Testing the regex itself.
 
 # Correct patterns.
-[[ $(echo "foo, bar: bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "foo: bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "f1oo, b2ar: bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "2foo: bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "foo: bar: barfoo" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "foo: bar, foo: barfoo" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "foo, bar: Bar" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "foo: Bar" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "f1oo, b2ar: Bar" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "2foo: Bar" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "foo: bar: Barfoo" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "foo: bar, foo: Barfoo" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "foo: bar, foo: Barfoo" | grep -c "$travis_regex") -eq 1 ]]
+[[ $(echo "resources: augeas: New resource" | grep -c "$travis_regex") -eq 1 ]]
 
 # Space required after :
 [[ $(echo "foo:bar" | grep -c "$travis_regex") -eq 0 ]]
@@ -27,14 +29,20 @@ travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[^:]\+$'
 # No caps
 [[ $(echo "Foo: bar" | grep -c "$travis_regex") -eq 0 ]]
 
+# No dot at the end of the message.
+[[ $(echo "foo: bar." | grep -c "$travis_regex") -eq 0 ]]
+
+# Capitalize the first word after :
+[[ $(echo "foo: bar" | grep -c "$travis_regex") -eq 0 ]]
+
 # More than one char is required before :
 [[ $(echo "a: bar" | grep -c "$travis_regex") -eq 0 ]]
 
 # Run checks agains multiple :.
 [[ $(echo "a: bar:" | grep -c "$travis_regex") -eq 0 ]]
-[[ $(echo "a: bar, fooX: barfoo" | grep -c "$travis_regex") -eq 0 ]]
-[[ $(echo "a: bar, foo: barfoo foo: nope" | grep -c "$travis_regex") -eq 0 ]]
-[[ $(echo "nope a: bar, foo: barfoofoo: nope" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(echo "a: bar, fooX: Barfoo" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(echo "a: bar, foo: barfoo foo: Nope" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(echo "nope a: bar, foo: barfoofoo: Nope" | grep -c "$travis_regex") -eq 0 ]]
 
 test_commit_message() {
 	echo Testing commit message $1

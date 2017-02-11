@@ -37,6 +37,9 @@ RPM = rpmbuild/RPMS/$(PROGRAM)-$(VERSION)-$(RELEASE).$(ARCH).rpm
 USERNAME := $(shell cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' '{print $$2}' | tr -d ' ')
 SERVER = 'dl.fedoraproject.org'
 REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
+ifneq ($(GOTAGS),)
+    BUILD_FLAGS = -tags $(GOTAGS)
+endif
 
 #
 #	art
@@ -105,9 +108,9 @@ $(PROGRAM): main.go
 	@echo "Building: $(PROGRAM), version: $(SVERSION)..."
 ifneq ($(OLDGOLANG),)
 	@# avoid equals sign in old golang versions eg in: -X foo=bar
-	time go build -ldflags "-X main.program $(PROGRAM) -X main.version $(SVERSION)" -o $(PROGRAM);
+	time go build -ldflags "-X main.program $(PROGRAM) -X main.version $(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
 else
-	time go build -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM);
+	time go build -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
 endif
 
 $(PROGRAM).static: main.go

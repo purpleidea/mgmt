@@ -42,6 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	* [Meta parameters](#meta-parameters)
 	* [Graph definition file](#graph-definition-file)
 	* [Command line](#command-line)
+	* [Compilation options](#compilation-options)
 8. [Examples - Example configurations](#examples)
 9. [Development - Background on module development and reporting bugs](#development)
 10. [Authors - Authors and contact information](#authors)
@@ -420,6 +421,7 @@ If you feel that a well used option needs documenting here, please patch it!
 * [Meta parameters](#meta-parameters): List of available resource meta parameters.
 * [Graph definition file](#graph-definition-file): Main graph definition file.
 * [Command line](#command-line): Command line parameters.
+* [Compilation options](#compilation-options): Compilation options.
 
 ### Meta parameters
 These meta parameters are special parameters (or properties) which can apply to
@@ -544,6 +546,18 @@ in environments where the primary prefix may or may not be available, but you'd
 like to try. The canonical example is when running `mgmt` with `--remote` there
 might be a cached copy of the binary in the primary prefix, but in case there's
 no binary available continue working in a temporary directory to avoid failure.
+
+### Compilation options
+
+You can control some compilation variables by using environment variables.
+
+#### Disable livirt support
+
+If you wish to compile mgmt without libvirt, you can use the following command:
+
+```
+GOTAGS=novirt make build
+```
 
 ## Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git

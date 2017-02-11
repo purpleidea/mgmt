@@ -1,0 +1,10 @@
+---
+graph: mygraph
+resources:
+  augeas:
+  - name: sshd_test
+    lens: Sshd.lns
+    file: "/tmp/mgmt/sshd_config"
+    sets:
+      - [ "X11Forwarding", "no" ]
+edges:

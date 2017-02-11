@@ -1,0 +1,10 @@
+---
+graph: mygraph
+resources:
+  augeas:
+  - name: sshd_config
+    lens: Sshd.lns
+    file: "/etc/ssh/sshd_config"
+    sets:
+      - [ "X11Forwarding", "no" ]
+edges:

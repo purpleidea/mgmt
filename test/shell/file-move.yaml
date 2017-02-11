@@ -1,0 +1,9 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: file1
+    path: "/tmp/mgmt/f1"
+    content: |
+      i am f1
+    state: exists

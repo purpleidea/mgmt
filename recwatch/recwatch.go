@@ -247,6 +247,13 @@ func (obj *RecWatcher) Watch() error {
 					index--
 				}
 
+				// when the file is moved, remove the watcher and add a new one,
+				// so we stop tracking the old inode.
+				if deltaDepth >= 0 && (event.Op&fsnotify.Rename == fsnotify.Rename) {
+					obj.watcher.Remove(current)
+					obj.watcher.Add(current)
+				}
+
 				// we must be a parent watcher, so descend in
 				if deltaDepth < 0 {
 					// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123

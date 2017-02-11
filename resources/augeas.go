@@ -20,9 +20,6 @@ package resources
 import (
 	"encoding/gob"
 	"fmt"
-	// FIXME: we vendor go/augeas because master requires augeas 1.6.0
-	// and libaugeas-dev-1.6.0 is not yet available in a PPA.
-	"honnef.co/go/augeas"
 	"log"
 	"strings"
 
@@ -30,6 +27,9 @@ import (
 	"github.com/purpleidea/mgmt/recwatch"
 
 	errwrap "github.com/pkg/errors"
+	// FIXME: we vendor go/augeas because master requires augeas 1.6.0
+	// and libaugeas-dev-1.6.0 is not yet available in a PPA.
+	"honnef.co/go/augeas"
 )
 
 func init() {
@@ -52,6 +52,8 @@ type AugeasRes struct {
 	// Sets is a list of changes that will be applied to the file, in the form of
 	// ["path", "value"]. mgmt will run augeas.Get() before augeas.Set(), to
 	// prevent changing the file when it is not needed.
+	// XXX: this should be a []AugeasSet or something similar where an
+	// AugeasSet is struct AugeasSet { "Path" string "Value" string (with the YAML annotations}
 	Sets [][]string `yaml:"sets"`
 
 	recWatcher *recwatch.RecWatcher // used to watch the changed files
@@ -65,12 +67,6 @@ func NewAugeasRes(name string) (*AugeasRes, error) {
 		},
 	}
 	return obj, obj.Init()
-}
-
-// Init initiates the resource.
-func (obj *AugeasRes) Init() error {
-	obj.BaseRes.kind = "Augeas"
-	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // Default returns some sensible defaults for this resource.
@@ -90,6 +86,12 @@ func (obj *AugeasRes) Validate() error {
 		return fmt.Errorf("File and Lens must be specified together.")
 	}
 	return obj.BaseRes.Validate()
+}
+
+// Init initiates the resource.
+func (obj *AugeasRes) Init() error {
+	obj.BaseRes.kind = "Augeas"
+	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // Watch is the primary listener for this resource and it outputs events.
@@ -153,17 +155,21 @@ func (obj *AugeasRes) checkApplySet(apply bool, ag *augeas.Augeas, set []string)
 
 	if getValue, err := ag.Get(fullpath); err != nil || value != getValue {
 		// note: augeas.Get throws an error if the path does not exist.
-		// Thus we need to change the value of there is an error or
+		// Thus we need to change the value if there is an error or if
 		// the values do not match.
 		if !apply {
-			// If noop, we can return here directly.
-			// We return with nil even if err is not nil because it does not
-			// mean there is an error.
+			// If noop, we can return here directly. We return with
+			// nil even if err is not nil because it does not mean
+			// there is an error.
 			return false, nil
 		}
 		checkOK = false
 	}
 
+	// XXX wat? -- reverse this so that we return early if this is the case...
+	// XXX: eg if ag.Get ... == nil {
+	//	return true, nil // be explicit, the named return values aren't as clear.
+	//}
 	if checkOK {
 		return
 	}
@@ -171,7 +177,8 @@ func (obj *AugeasRes) checkApplySet(apply bool, ag *augeas.Augeas, set []string)
 	if err = ag.Set(fullpath, value); err != nil {
 		return false, errwrap.Wrapf(err, "augeas: error while setting value")
 	}
-	return
+
+	return false, nil
 }
 
 // CheckApply method for Augeas resource.
@@ -180,9 +187,9 @@ func (obj *AugeasRes) CheckApply(apply bool) (checkOK bool, err error) {
 	// By default we do not set any option to augeas, we use the defaults.
 	opts := augeas.None
 	if obj.Lens != "" {
-		// if the lens is specified, we can speed up augeas by not loading everything.
-		// Without this option, augeas will try to read all the files it knows in the
-		// complete filesystem.
+		// if the lens is specified, we can speed up augeas by not
+		// loading everything. Without this option, augeas will try to
+		// read all the files it knows in the complete filesystem.
 		// e.g. to change /etc/ssh/sshd_config, it would load /etc/hosts, /etc/ntpd.conf, etc...
 		opts = augeas.NoModlAutoload
 	}
@@ -192,15 +199,14 @@ func (obj *AugeasRes) CheckApply(apply bool) (checkOK bool, err error) {
 	if err != nil {
 		return false, errwrap.Wrapf(err, "augeas: error while initializing")
 	}
-
 	defer ag.Close()
 
 	checkOK = true
 
 	if obj.Lens != "" {
 		// If the lens is set, load the lens for the file we want to edit.
-		// We pick Xmgmt as this name will not collide with any other lens name.
-		// We do not pick Mgmt as in the future there might be a Mgmt lens.
+		// We pick Xmgmt, as this name will not collide with any other lens name.
+		// We do not pick Mgmt as in the future there might be an Mgmt lens.
 		// https://github.com/hercules-team/augeas/wiki/Loading-specific-files
 		if err = ag.Set("/augeas/load/Xmgmt/lens", obj.Lens); err != nil {
 			return false, errwrap.Wrapf(err, "augeas: error while initializing lens")
@@ -230,6 +236,7 @@ func (obj *AugeasRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return false, errwrap.Wrapf(err, "augeas: error while saving augeas values")
 	}
 
+	// XXX: recurse? not a good idea. Instead test for file existence manually.
 	// FIXME: Workaround for https://github.com/dominikh/go-augeas/issues/13
 	// To be fixed upstream.
 	var newCheckOK bool

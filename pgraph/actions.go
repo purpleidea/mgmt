@@ -224,6 +224,12 @@ func (g *Graph) Process(v *Vertex) error {
 		// if this fails, don't UpdateTimestamp()
 		checkOK, err = obj.CheckApply(!noop)
 
+		if obj.Prometheus() != nil {
+			if promErr := obj.Prometheus().UpdateCheckApplyTotal(obj.Kind(), !noop, !checkOK, err != nil); promErr != nil {
+				// TODO: how to error correctly
+				log.Printf("%s[%s]: Prometheus.UpdateCheckApplyTotal() errored: %v", v.Kind(), v.GetName(), err)
+			}
+		}
 		// TODO: Can the `Poll` converged timeout tracking be a
 		// more general method for all converged timeouts? this
 		// would simplify the resources by removing boilerplate

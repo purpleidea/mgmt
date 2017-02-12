@@ -21,7 +21,9 @@ package prometheus
 
 import (
 	"net/http"
+	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -33,6 +35,9 @@ const DefaultPrometheusListen = "127.0.0.1:9233"
 // prometheus instance. Run Init() on it.
 type Prometheus struct {
 	Listen string // the listen specification for the net/http server
+
+	checkApplyTotal *prometheus.CounterVec // total of CheckApplies that have been triggered
+
 }
 
 // Init some parameters - currently the Listen address.
@@ -40,6 +45,20 @@ func (obj *Prometheus) Init() error {
 	if len(obj.Listen) == 0 {
 		obj.Listen = DefaultPrometheusListen
 	}
+	obj.checkApplyTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "mgmt_checkapply_total",
+			Help: "Number of CheckApply that have run.",
+		},
+		// Labels for this metric.
+		// kind: resource type: Svc, File, ...
+		// apply: if the CheckApply happened in "apply" mode
+		// eventful: did the CheckApply generate an event
+		// errorful: did the CheckApply generate an error
+		[]string{"kind", "apply", "eventful", "errorful"},
+	)
+	prometheus.MustRegister(obj.checkApplyTotal)
+
 	return nil
 }
 
@@ -55,5 +74,14 @@ func (obj *Prometheus) Start() error {
 func (obj *Prometheus) Stop() error {
 	// TODO: There is no way in go < 1.8 to stop a http server.
 	// https://stackoverflow.com/questions/39320025/go-how-to-stop-http-listenandserve/41433555#41433555
+	return nil
+}
+
+// UpdateCheckApplyTotal refreshes the failing gauge by parsing the internal
+// state map.
+func (obj *Prometheus) UpdateCheckApplyTotal(kind string, apply, eventful, errorful bool) error {
+	labels := prometheus.Labels{"kind": kind, "apply": strconv.FormatBool(apply), "eventful": strconv.FormatBool(eventful), "errorful": strconv.FormatBool(errorful)}
+	metric := obj.checkApplyTotal.With(labels)
+	metric.Inc()
 	return nil
 }

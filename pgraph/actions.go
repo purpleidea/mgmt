@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -310,7 +311,11 @@ func (g *Graph) Worker(v *Vertex) error {
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
 	obj := v.Res
-	obj.SetWorking(true) // gets set to false in Res.Close() method at end...
+
+	// run the init (should match 1-1 with Close function if this succeeds)
+	if err := obj.Init(); err != nil {
+		return errwrap.Wrapf(err, "could not Init() resource")
+	}
 
 	lock := &sync.Mutex{} // lock around processChan closing and sending
 	finished := false     // did we close processChan ?
@@ -410,10 +415,24 @@ func (g *Graph) Worker(v *Vertex) error {
 						playback = true
 						log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
 						if retry == 0 {
+							if obj.Prometheus() != nil {
+								if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateHardFail); err != nil {
+									// TODO: error correctly
+									log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+								}
+							}
 							// wrap the error in the sentinel
 							v.SendEvent(event.EventExit, &SentinelErr{e})
 							return
 						}
+
+						// update the state to soft here so it is not called when it fails hard
+						if obj.Prometheus() != nil {
+							if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateSoftFail); err != nil {
+								log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+							}
+						}
+
 						if retry > 0 { // don't decrement the -1
 							retry--
 						}
@@ -422,6 +441,12 @@ func (g *Graph) Worker(v *Vertex) error {
 						timer.Reset(delay)
 						waiting = true // waiting for retry timer
 						return
+					}
+					if obj.Prometheus() != nil {
+						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateOK); err != nil {
+							// TODO: error correctly
+							log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+						}
 					}
 					retry = v.Meta().Retry // reset on success
 					close(done)            // trigger
@@ -623,7 +648,7 @@ func (g *Graph) Start(first bool) { // start or continue
 			go func(vv *Vertex) {
 				defer g.wg.Done()
 				// TODO: if a sufficient number of workers error,
-				// should something be done? Will these restart
+				// should something be done? Should these restart
 				// after perma-failure if we have a graph change?
 				if err := g.Worker(vv); err != nil { // contains the Watch and CheckApply loops
 					log.Printf("%s[%s]: Exited with failure: %v", vv.Kind(), vv.GetName(), err)

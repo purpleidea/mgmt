@@ -31,6 +31,7 @@ import (
 	"time"
 
 	// TODO: should each resource be a sub-package?
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
 
@@ -57,9 +58,10 @@ const refreshPathToken = "refresh"
 type Data struct {
 	//Hostname string         // uuid for the host
 	//Noop     bool
-	Converger converger.Converger
-	Prefix    string // the prefix to be used for the pgraph namespace
-	Debug     bool
+	Converger  converger.Converger
+	Prometheus *prometheus.Prometheus
+	Prefix     string // the prefix to be used for the pgraph namespace
+	Debug      bool
 	// NOTE: we can add more fields here if needed for the resources.
 }
 
@@ -138,7 +140,6 @@ type Base interface {
 	Events() chan *event.Event
 	AssociateData(*Data)
 	IsWorking() bool
-	SetWorking(bool)
 	Converger() converger.Converger
 	RegisterConverger()
 	UnregisterConverger()
@@ -193,6 +194,7 @@ type BaseRes struct {
 	events    chan *event.Event
 	converger converger.Converger // converged tracking
 	cuid      converger.ConvergerUID
+	prometheus *prometheus.Prometheus
 	prefix    string // base prefix for this resource
 	debug     bool
 	state     ResState
@@ -282,6 +284,9 @@ func (obj *BaseRes) Validate() error {
 
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
+	if obj.debug {
+		log.Printf("%s[%s]: Init()", obj.Kind(), obj.GetName())
+	}
 	if obj.kind == "" {
 		return fmt.Errorf("Resource did not set kind!")
 	}
@@ -297,19 +302,36 @@ func (obj *BaseRes) Init() error {
 		obj.Meta().Limit = rate.Inf
 	}
 
+	
+	if obj.prometheus != nil {
+		if err := obj.prometheus.AddManagedResource(obj.kind); err != nil {
+			return errwrap.Wrapf(err, "Could not increase Prometheus counter!")
+		}
+	}
+
 	//dir, err := obj.VarDir("")
 	//if err != nil {
 	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
 	//}
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
+
+	obj.working = true // Worker method should now be running...
 	return nil
 }
 
 // Close shuts down and performs any cleanup.
 func (obj *BaseRes) Close() error {
+	if obj.debug {
+		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
+	}
+	if obj.prometheus != nil {
+		if err := obj.prometheus.RemoveManagedResource(obj.kind); err != nil {
+			return errwrap.Wrapf(err, "Could not increase Prometheus counter!")
+		}
+	}
 	obj.mutex.Lock()
-	obj.working = false // obj.SetWorking(false)
+	obj.working = false // Worker method should now be closing...
 	close(obj.events)   // this is where we properly close this channel!
 	obj.mutex.Unlock()
 	return nil
@@ -348,22 +370,14 @@ func (obj *BaseRes) Events() chan *event.Event {
 // AssociateData associates some data with the object in question.
 func (obj *BaseRes) AssociateData(data *Data) {
 	obj.converger = data.Converger
+	obj.prometheus = data.Prometheus
 	obj.prefix = data.Prefix
 	obj.debug = data.Debug
 }
 
-// IsWorking tells us if the Worker() function is running.
+// IsWorking tells us if the Worker() function is running. Not thread safe.
 func (obj *BaseRes) IsWorking() bool {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
 	return obj.working
-}
-
-// SetWorking tracks the state of if Worker() function is running.
-func (obj *BaseRes) SetWorking(b bool) {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
-	obj.working = b
 }
 
 // Converger returns the converger object used by the system. It can be used to

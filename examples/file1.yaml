@@ -1,41 +1,21 @@
 ---
 graph: mygraph
 resources:
-  noop:
-  - name: noop1
   file:
   - name: file1
+    meta:
+      limit: .inf
+      burst: 0
     path: "/tmp/mgmt/f1"
     content: |
       i am f1
     state: exists
   - name: file2
+    meta:
+      limit: .inf
+      burst: 0
     path: "/tmp/mgmt/f2"
     content: |
       i am f2
     state: exists
-  - name: file3
-    path: "/tmp/mgmt/f3"
-    content: |
-      i am f3
-    state: exists
-  - name: file4
-    path: "/tmp/mgmt/f4"
-    content: |
-      i am f4 and i should not be here
-    state: absent
-edges:
-- name: e1
-  from:
-    kind: file
-    name: file1
-  to:
-    kind: file
-    name: file2
-- name: e2
-  from:
-    kind: file
-    name: file2
-  to:
-    kind: file
-    name: file3
+edges: []

@@ -558,13 +558,27 @@ no binary available continue working in a temporary directory to avoid failure.
 
 You can control some compilation variables by using environment variables.
 
-#### Disable livirt support
+#### Disable libvirt support
 
 If you wish to compile mgmt without libvirt, you can use the following command:
 
 ```
 GOTAGS=novirt make build
 ```
+
+#### Disable augeas support
+
+If you wish to compile mgmt without augeas support, you can use the following command:
+
+```
+GOTAGS=noaugeas make build
+```
+
+#### Combining compile-time flags
+
+You can combine multiple tags by using a space-separated list:
+
+GOTAGS="noaugeas novirt" make build
 
 ## Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git

@@ -38,7 +38,7 @@ USERNAME := $(shell cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' 
 SERVER = 'dl.fedoraproject.org'
 REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
 ifneq ($(GOTAGS),)
-    BUILD_FLAGS = -tags $(GOTAGS)
+    BUILD_FLAGS = -tags '$(GOTAGS)'
 endif
 
 #

@@ -69,16 +69,6 @@ type AugeasSet struct {
 	Value string `yaml:"value"` // The value to be set on the given Path.
 }
 
-// NewAugeasRes is a constructor for this resource. It also calls Init() for you.
-func NewAugeasRes(name string) (*AugeasRes, error) {
-	obj := &AugeasRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *AugeasRes) Default() Res {
 	return &AugeasRes{}

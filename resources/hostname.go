@@ -69,19 +69,6 @@ type HostnameRes struct {
 	conn *dbus.Conn
 }
 
-// NewHostnameRes is a constructor for this resource. It also calls Init() for you.
-func NewHostnameRes(name, staticHostname, transientHostname, prettyHostname string) (*HostnameRes, error) {
-	obj := &HostnameRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		PrettyHostname:    prettyHostname,
-		StaticHostname:    staticHostname,
-		TransientHostname: transientHostname,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *HostnameRes) Default() Res {
 	return &HostnameRes{}

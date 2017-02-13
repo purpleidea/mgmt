@@ -52,27 +52,6 @@ type MsgUID struct {
 	body string
 }
 
-// NewMsgRes is a constructor for this resource.
-func NewMsgRes(name, body, priority string, journal, syslog bool, fields map[string]string) (*MsgRes, error) {
-	message := name
-	if body != "" {
-		message = body
-	}
-
-	obj := &MsgRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		Body:     message,
-		Priority: priority,
-		Fields:   fields,
-		Journal:  journal,
-		Syslog:   syslog,
-	}
-
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *MsgRes) Default() Res {
 	return &MsgRes{}

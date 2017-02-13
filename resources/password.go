@@ -56,17 +56,6 @@ type PasswordRes struct {
 	recWatcher *recwatch.RecWatcher
 }
 
-// NewPasswordRes is a constructor for this resource. It also calls Init() for you.
-func NewPasswordRes(name string, length uint16) (*PasswordRes, error) {
-	obj := &PasswordRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		Length: length,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *PasswordRes) Default() Res {
 	return &PasswordRes{

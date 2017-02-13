@@ -46,20 +46,6 @@ type PkgRes struct {
 	fileList []string // FIXME: update if pkg changes
 }
 
-// NewPkgRes is a constructor for this resource. It also calls Init() for you.
-func NewPkgRes(name, state string, allowuntrusted, allownonfree, allowunsupported bool) (*PkgRes, error) {
-	obj := &PkgRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		State:            state,
-		AllowUntrusted:   allowuntrusted,
-		AllowNonFree:     allownonfree,
-		AllowUnsupported: allowunsupported,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *PkgRes) Default() Res {
 	return &PkgRes{

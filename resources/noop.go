@@ -35,17 +35,6 @@ type NoopRes struct {
 	Comment string `yaml:"comment"` // extra field for example purposes
 }
 
-// NewNoopRes is a constructor for this resource. It also calls Init() for you.
-func NewNoopRes(name string) (*NoopRes, error) {
-	obj := &NoopRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		Comment: "",
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *NoopRes) Default() Res {
 	return &NoopRes{}

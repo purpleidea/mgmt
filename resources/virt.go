@@ -79,22 +79,6 @@ type VirtRes struct {
 	uriScheme virtURISchemeType
 }
 
-// NewVirtRes is a constructor for this resource. It also calls Init() for you.
-func NewVirtRes(name string, uri, state string, transient bool, cpus uint, memory uint64, osinit string) (*VirtRes, error) {
-	obj := &VirtRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		URI:       uri,
-		State:     state,
-		Transient: transient,
-		CPUs:      cpus,
-		Memory:    memory,
-		OSInit:    osinit,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *VirtRes) Default() Res {
 	return &VirtRes{}

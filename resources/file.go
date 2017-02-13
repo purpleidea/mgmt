@@ -65,24 +65,6 @@ type FileRes struct {
 	recWatcher *recwatch.RecWatcher
 }
 
-// NewFileRes is a constructor for this resource. It also calls Init() for you.
-func NewFileRes(name, path, dirname, basename string, content *string, source, state string, recurse, force bool) (*FileRes, error) {
-	obj := &FileRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		Path:     path,
-		Dirname:  dirname,
-		Basename: basename,
-		Content:  content,
-		Source:   source,
-		State:    state,
-		Recurse:  recurse,
-		Force:    force,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *FileRes) Default() Res {
 	return &FileRes{

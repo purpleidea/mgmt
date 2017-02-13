@@ -57,17 +57,6 @@ type NspawnRes struct {
 	svc *SvcRes
 }
 
-// NewNspawnRes is the constructor for this resource
-func NewNspawnRes(name string, state string) (*NspawnRes, error) {
-	obj := &NspawnRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		State: state,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *NspawnRes) Default() Res {
 	return &NspawnRes{

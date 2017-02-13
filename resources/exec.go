@@ -50,25 +50,6 @@ type ExecRes struct {
 	PollInt    int    `yaml:"pollint"`    // the poll interval for the ifcmd
 }
 
-// NewExecRes is a constructor for this resource. It also calls Init() for you.
-func NewExecRes(name, cmd, shell string, timeout int, watchcmd, watchshell, ifcmd, ifshell string, pollint int, state string) (*ExecRes, error) {
-	obj := &ExecRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		Cmd:        cmd,
-		Shell:      shell,
-		Timeout:    timeout,
-		WatchCmd:   watchcmd,
-		WatchShell: watchshell,
-		IfCmd:      ifcmd,
-		IfShell:    ifshell,
-		PollInt:    pollint,
-		State:      state,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *ExecRes) Default() Res {
 	return &ExecRes{}

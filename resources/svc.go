@@ -44,18 +44,6 @@ type SvcRes struct {
 	Startup string `yaml:"startup"` // enabled, disabled, undefined
 }
 
-// NewSvcRes is a constructor for this resource. It also calls Init() for you.
-func NewSvcRes(name, state, startup string) (*SvcRes, error) {
-	obj := &SvcRes{
-		BaseRes: BaseRes{
-			Name: name,
-		},
-		State:   state,
-		Startup: startup,
-	}
-	return obj, obj.Init()
-}
-
 // Default returns some sensible defaults for this resource.
 func (obj *SvcRes) Default() Res {
 	return &SvcRes{}

@@ -247,6 +247,15 @@ The exec resource can execute commands on your system.
 The file resource manages files and directories. In `mgmt`, directories are
 identified by a trailing slash in their path name. File have no such slash.
 
+It has the following properties:
+
+- `path`: file path (directories have a trailing slash here)
+- `content`: raw file content
+- `state`: either `exists` (the default value) or `absent`
+- `mode`: octal unix file permissions
+- `owner`: username or uid for the file owner
+- `group`: group name or gid for the file group
+
 #### Path
 
 The path property specifies the file or directory that we are managing.

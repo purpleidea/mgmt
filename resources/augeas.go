@@ -33,6 +33,11 @@ import (
 	"honnef.co/go/augeas"
 )
 
+const (
+	// NS is a namespace for augeas operations
+	NS = "Xmgmt"
+)
+
 func init() {
 	gob.Register(&AugeasRes{})
 }
@@ -202,10 +207,10 @@ func (obj *AugeasRes) CheckApply(apply bool) (bool, error) {
 		// We pick Xmgmt, as this name will not collide with any other lens name.
 		// We do not pick Mgmt as in the future there might be an Mgmt lens.
 		// https://github.com/hercules-team/augeas/wiki/Loading-specific-files
-		if err = ag.Set("/augeas/load/Xmgmt/lens", obj.Lens); err != nil {
+		if err = ag.Set(fmt.Sprintf("/augeas/load/%s/lens", NS), obj.Lens); err != nil {
 			return false, errwrap.Wrapf(err, "augeas: error while initializing lens")
 		}
-		if err = ag.Set("/augeas/load/Xmgmt/incl", obj.File); err != nil {
+		if err = ag.Set(fmt.Sprintf("/augeas/load/%s/incl", NS), obj.File); err != nil {
 			return false, errwrap.Wrapf(err, "augeas: error while initializing incl")
 		}
 		if err = ag.Load(); err != nil {

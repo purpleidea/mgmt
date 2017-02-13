@@ -31,10 +31,11 @@ import (
 type GAPI struct {
 	File *string // yaml graph definition to use; nil if undefined
 
-	data        gapi.Data
-	initialized bool
-	closeChan   chan struct{}
-	wg          sync.WaitGroup // sync group for tunnel go routines
+	data          gapi.Data
+	initialized   bool
+	closeChan     chan struct{}
+	wg            sync.WaitGroup // sync group for tunnel go routines
+	configWatcher *recwatch.ConfigWatcher
 }
 
 // NewGAPI creates a new yamlgraph GAPI struct and calls Init().
@@ -56,6 +57,7 @@ func (obj *GAPI) Init(data gapi.Data) error {
 	obj.data = data // store for later
 	obj.closeChan = make(chan struct{})
 	obj.initialized = true
+	obj.configWatcher = recwatch.NewConfigWatcher()
 	return nil
 }
 
@@ -88,8 +90,7 @@ func (obj *GAPI) Next() chan error {
 			ch <- fmt.Errorf("yamlgraph: GAPI is not initialized")
 			return
 		}
-		configWatcher := recwatch.NewConfigWatcher()
-		configChan := configWatcher.ConfigWatch(*obj.File) // simple
+		configChan := obj.configWatcher.ConfigWatch(*obj.File) // simple
 		for {
 			select {
 			case err, ok := <-configChan: // returns nil events on ok!
@@ -119,6 +120,7 @@ func (obj *GAPI) Close() error {
 	if !obj.initialized {
 		return fmt.Errorf("yamlgraph: GAPI is not initialized")
 	}
+	obj.configWatcher.Close()
 	close(obj.closeChan)
 	obj.wg.Wait()
 	obj.initialized = false // closed = true

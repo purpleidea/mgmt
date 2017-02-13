@@ -1,0 +1,21 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: file1
+    path: "/tmp/mgmt/f1"
+    content: |
+      i am f1
+    state: exists
+  - name: file2
+    path: "/tmp/mgmt/f2"
+    content: |
+      i am f2
+    state: exists
+    mode: 0741
+  - name: file3
+    path: "/tmp/mgmt/f3"
+    content: |
+      i am f3
+    state: exists
+    mode: '0614'

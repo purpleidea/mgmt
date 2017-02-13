@@ -27,9 +27,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/recwatch"
@@ -51,6 +54,9 @@ type FileRes struct {
 	Content    *string `yaml:"content"` // nil to mark as undefined
 	Source     string  `yaml:"source"`  // file path for source content
 	State      string  `yaml:"state"`   // state: exists/present?, absent, (undefined?)
+	Owner      string  `yaml:"owner"`
+	Group      string  `yaml:"group"`
+	Mode       string  `yaml:"mode"`
 	Recurse    bool    `yaml:"recurse"`
 	Force      bool    `yaml:"force"`
 	path       string  // computed path
@@ -102,12 +108,53 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("Can't specify Content when creating a Dir.")
 	}
 
+	if obj.Mode != "" {
+		if _, err := obj.mode(); err != nil {
+			return err
+		}
+	}
+
+	if _, err := obj.uid(); obj.Owner != "" && err != nil {
+		return err
+	}
+
+	if _, err := obj.gid(); obj.Group != "" && err != nil {
+		return err
+	}
+
 	// XXX: should this specify that we create an empty directory instead?
 	//if obj.Source == "" && obj.isDir {
 	//	return fmt.Errorf("Can't specify an empty source when creating a Dir.")
 	//}
 
 	return obj.BaseRes.Validate()
+}
+
+// mode returns the file permission specified on the graph. It doesn't handle
+// the case where the mode is not specified. The caller should check obj.Mode is
+// not empty.
+func (obj *FileRes) mode() (os.FileMode, error) {
+	m, err := strconv.ParseInt(obj.Mode, 8, 32)
+	if err != nil {
+		return os.FileMode(0), errwrap.Wrapf(err, "Mode should be an octal number (%s)", obj.Mode)
+	}
+	return os.FileMode(m), nil
+}
+
+// uid returns the user id for the owner specified in the yaml file graph.
+// Caller should first check obj.Owner is not empty
+func (obj *FileRes) uid() (int, error) {
+	u2, err2 := user.LookupId(obj.Owner)
+	if err2 == nil {
+		return strconv.Atoi(u2.Uid)
+	}
+
+	u, err := user.Lookup(obj.Owner)
+	if err == nil {
+		return strconv.Atoi(u.Uid)
+	}
+
+	return -1, errwrap.Wrapf(err, "Owner lookup error (%s)", obj.Owner)
 }
 
 // Init runs some startup code for this resource.
@@ -614,6 +661,99 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 	return checkOK, nil
 }
 
+// chmodCheckApply performs a CheckApply for the file permissions.
+func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
+	log.Printf("%s[%s]: chmodCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+
+	if obj.State == "absent" {
+		// File is absent
+		return true, nil
+	}
+
+	if obj.Mode == "" {
+		// No mode specified, everything is ok
+		return true, nil
+	}
+
+	mode, err := obj.mode()
+	if err != nil {
+		return false, err
+	}
+
+	st, err := os.Stat(obj.Path)
+	if err != nil {
+		return false, err
+	}
+
+	// Nothing to do
+	if st.Mode() == mode {
+		return true, nil
+	}
+
+	// Not clean but don't apply
+	if !apply {
+		return false, nil
+	}
+
+	err = os.Chmod(obj.Path, mode)
+	return false, err
+}
+
+// chownCheckApply performs a CheckApply for the file ownership.
+func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
+	var expectedUID, expectedGID int
+	log.Printf("%s[%s]: chownCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+
+	if obj.State == "absent" {
+		// File is absent or no owner specified
+		return true, nil
+	}
+
+	st, err := os.Stat(obj.Path)
+	if err != nil {
+		return false, err
+	}
+
+	stUnix, ok := st.Sys().(*syscall.Stat_t)
+	if !ok {
+		// Not unix
+		panic("No support for your platform")
+	}
+
+	if obj.Owner != "" {
+		expectedUID, err = obj.uid()
+		if err != nil {
+			return false, err
+		}
+	} else {
+		// Nothing specified, no changes to be made, expect same as actual
+		expectedUID = int(stUnix.Uid)
+	}
+
+	if obj.Group != "" {
+		expectedGID, err = obj.gid()
+		if err != nil {
+			return false, err
+		}
+	} else {
+		// Nothing specified, no changes to be made, expect same as actual
+		expectedGID = int(stUnix.Gid)
+	}
+
+	// Nothing to do
+	if int(stUnix.Uid) == expectedUID && int(stUnix.Gid) == expectedGID {
+		return true, nil
+	}
+
+	// Not clean, but don't apply
+	if !apply {
+		return false, nil
+	}
+
+	err = os.Chown(obj.Path, expectedUID, expectedGID)
+	return false, err
+}
+
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
@@ -638,19 +778,17 @@ func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
 		checkOK = false
 	}
 
-	// TODO
-	//if c, err := obj.chmodCheckApply(apply); err != nil {
-	//	return false, err
-	//} else if !c {
-	//	checkOK = false
-	//}
+	if c, err := obj.chmodCheckApply(apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
+	}
 
-	// TODO
-	//if c, err := obj.chownCheckApply(apply); err != nil {
-	//	return false, err
-	//} else if !c {
-	//	checkOK = false
-	//}
+	if c, err := obj.chownCheckApply(apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
+	}
 
 	return checkOK, nil // w00t
 }

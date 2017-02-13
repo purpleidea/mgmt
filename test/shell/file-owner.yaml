@@ -1,0 +1,18 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: file1
+    path: "/tmp/mgmt/f1"
+    content: |
+      i am f1
+    state: exists
+    owner: root
+    group: root
+  - name: file2
+    path: "/tmp/mgmt/f2"
+    content: |
+      i am f2
+    state: exists
+    owner: 1
+    group: 2

@@ -638,14 +638,12 @@ func (g *Graph) Start(first bool) { // start or continue
 				log.Printf("%s[%s]: Exited", vv.Kind(), vv.GetName())
 			}(v)
 		}
-
-		// let the vertices run their startup code in parallel
-		wg.Add(1)
-		go func(vv *Vertex) {
-			defer wg.Done()
-			vv.Res.Started() // block until started
-		}(v)
-
+		// TODO: let the vertices run their startup code in parallel...
+		select {
+		case <-v.Res.Started(): // block until started
+		case <-v.Res.Stopped(): // we failed on init
+			// if the resource Init() fails, we don't hang!
+		}
 		if !first { // unpause!
 			v.Res.SendEvent(event.EventStart, nil) // sync!
 		}

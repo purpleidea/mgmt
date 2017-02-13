@@ -342,7 +342,7 @@ func (obj *Main) Run() error {
 			return nil
 		}
 		// send our individual state into etcd for others to see
-		return etcd.EtcdSetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
+		return etcd.SetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
 	}
 	if EmbdEtcd != nil {
 		converger.SetStateFn(convergerStateFn)
@@ -373,7 +373,7 @@ func (obj *Main) Run() error {
 		close(startChan)                 // kick it off!
 
 		log.Println("Etcd: Starting...")
-		etcdChan := etcd.EtcdWatch(EmbdEtcd)
+		etcdChan := etcd.WatchAll(EmbdEtcd)
 		first := true // first loop or not
 		for {
 			log.Println("Main: Waiting...")
@@ -511,7 +511,7 @@ func (obj *Main) Run() error {
 
 	// initialize the add watcher, which calls the f callback on map changes
 	convergerCb := func(f func(map[string]bool) error) (func(), error) {
-		return etcd.EtcdAddHostnameConvergedWatcher(EmbdEtcd, f)
+		return etcd.AddHostnameConvergedWatcher(EmbdEtcd, f)
 	}
 
 	// build remotes struct for remote ssh

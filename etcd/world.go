@@ -30,7 +30,7 @@ type World struct {
 // ResExport exports a list of resources under our hostname namespace.
 // Subsequent calls replace the previously set collection atomically.
 func (obj *World) ResExport(resourceList []resources.Res) error {
-	return EtcdSetResources(obj.EmbdEtcd, obj.Hostname, resourceList)
+	return SetResources(obj.EmbdEtcd, obj.Hostname, resourceList)
 }
 
 // ResCollect gets the collection of exported resources which match the filter.
@@ -39,5 +39,5 @@ func (obj *World) ResCollect(hostnameFilter, kindFilter []string) ([]resources.R
 	// XXX: should we be restricted to retrieving resources that were
 	// exported with a tag that allows or restricts our hostname? We could
 	// enforce that here if the underlying API supported it... Add this?
-	return EtcdGetResources(obj.EmbdEtcd, hostnameFilter, kindFilter)
+	return GetResources(obj.EmbdEtcd, hostnameFilter, kindFilter)
 }

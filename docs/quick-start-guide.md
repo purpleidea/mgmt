@@ -28,11 +28,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #### Table of Contents
 
 0. [Introduction](#introduction)
-1. [Dependencies](#dependencies)
-2. [Quick start](#quick-start)
-3. [Examples](#examples)
-4. [Installation](#installation)
-5. [Authors - Authors and contact information](#authors)
+1. [Vagrant](#vagrant)
+2. [Dependencies](#dependencies)
+3. [Quick start](#quick-start)
+4. [Examples](#examples)
+5. [Installation](#installation)
+6. [Authors - Authors and contact information](#authors)
 
 ## Introduction:
 This guide is intended for developers. Once `mgmt` is minimally viable, we'll
@@ -41,6 +42,13 @@ If you're brand new to `mgmt`, it's probably a good idea to start by reading the
 [introductory article](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
 or to watch an [introductory video](https://github.com/purpleidea/mgmt/#on-the-web).
 Once you're familiar with the general idea, please start hacking...
+
+## Vagrant:
+If you would like to avoid doing the following steps manually, we have prepared
+a [Vagrant](https://www.vagrantup.com/) environment for your convenience. From
+the project directory, run a `vagrant up`, and then a `vagrant status`. From
+there, you can `vagrant ssh` into the `mgmt` machine. The MOTD will explain the
+rest.
 
 ## Dependencies:
 Software projects have a few different kinds of dependencies. There are _build_
@@ -97,7 +105,9 @@ export GOPATH=$HOME/gopath
 * For more information you can read the [GOPATH documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable).
 * Next download the mgmt code base, and switch to that directory:
 ```
-go get -u github.com/purpleidea/mgmt
+mkdir -p $GOPATH/src/github.com/purpleidea/
+cd $GOPATH/src/github.com/purpleidea/
+git clone --recursive https://github.com/purpleidea/mgmt/
 cd $GOPATH/src/github.com/purpleidea/mgmt
 ```
 * Run `make deps` to install system and golang dependencies. Take a look at `misc/make-deps.sh` for details.

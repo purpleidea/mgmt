@@ -676,6 +676,13 @@ func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
 	}
 
 	mode, err := obj.mode()
+
+	// If the file does not exist and we are in
+	// noop mode, do not throw an error.
+	if os.IsNotExist(err) && !apply {
+		return false, nil
+	}
+
 	if err != nil {
 		return false, err
 	}
@@ -710,6 +717,13 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 	}
 
 	st, err := os.Stat(obj.Path)
+
+	// If the file does not exist and we are in
+	// noop mode, do not throw an error.
+	if os.IsNotExist(err) && !apply {
+		return false, nil
+	}
+
 	if err != nil {
 		return false, err
 	}

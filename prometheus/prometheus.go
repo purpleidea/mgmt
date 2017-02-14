@@ -36,7 +36,8 @@ const DefaultPrometheusListen = "127.0.0.1:9233"
 type Prometheus struct {
 	Listen string // the listen specification for the net/http server
 
-	checkApplyTotal *prometheus.CounterVec // total of CheckApplies that have been triggered
+	checkApplyTotal         *prometheus.CounterVec // total of CheckApplies that have been triggered
+	processStartTimeSeconds prometheus.Gauge       // process start time in seconds since unix epoch
 
 }
 
@@ -58,6 +59,16 @@ func (obj *Prometheus) Init() error {
 		[]string{"kind", "apply", "eventful", "errorful"},
 	)
 	prometheus.MustRegister(obj.checkApplyTotal)
+
+	obj.processStartTimeSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "mgmt_process_start_time_seconds",
+			Help: "Start time of the process since unix epoch in seconds.",
+		},
+	)
+	prometheus.MustRegister(obj.processStartTimeSeconds)
+	// directly set the processStartTimeSeconds
+	obj.processStartTimeSeconds.SetToCurrentTime()
 
 	return nil
 }

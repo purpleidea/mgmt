@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
-# run empty graph, with prometheus support
-timeout --kill-after=20s 15s ./mgmt run --tmp-prefix --prometheus --yaml prometheus-3.yaml &
+# run a graph, with prometheus support
+timeout --kill-after=30s 25s ./mgmt run --tmp-prefix --no-pgp --prometheus --yaml prometheus-3.yaml &
 pid=$!
 sleep 10s	# let it converge
 
@@ -13,7 +13,6 @@ curl 127.0.0.1:9233/metrics | grep '^mgmt_checkapply_total{apply="true",errorful
 
 # One CheckApply for a File ; in noop mode.
 curl 127.0.0.1:9233/metrics | grep '^mgmt_checkapply_total{apply="false",errorful="false",eventful="true",kind="File"} 1$'
-
 
 killall -SIGINT mgmt	# send ^C to exit mgmt
 wait $pid	# get exit status

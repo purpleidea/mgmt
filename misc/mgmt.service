@@ -5,7 +5,7 @@ After=systemd-networkd.service
 Requires=systemd-networkd.service
 
 [Service]
-ExecStart=/usr/bin/mgmt run ${OPTS}
+ExecStart=/usr/bin/mgmt run $OPTS
 RestartSec=5s
 Restart=always
 

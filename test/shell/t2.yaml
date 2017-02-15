@@ -24,6 +24,12 @@ resources:
     content: |
       i am f4 and i should not be here
     state: absent
+  - name: file5
+    path: "/tmp/mgmt/a/long/long/path/f5"
+    parents: true
+    content: |
+      i am f5
+    state: exists
 edges:
 - name: e1
   from:

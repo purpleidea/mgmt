@@ -587,7 +587,9 @@ GOTAGS=noaugeas make build
 
 You can combine multiple tags by using a space-separated list:
 
+```
 GOTAGS="noaugeas novirt" make build
+```
 
 ## Examples
 For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git

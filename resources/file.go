@@ -196,7 +196,7 @@ func (obj *FileRes) GetPath() string {
 // FIXME: Also watch the source directory when using obj.Source !!!
 func (obj *FileRes) Watch(processChan chan *event.Event) error {
 	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(obj.Path, obj.Recurse)
+	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, obj.Recurse)
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (obj *FileRes) Watch(processChan chan *event.Event) error {
 
 	for {
 		if obj.debug {
-			log.Printf("%s[%s]: Watching: %s", obj.Kind(), obj.GetName(), obj.Path) // attempting to watch...
+			log.Printf("%s[%s]: Watching: %s", obj.Kind(), obj.GetName(), obj.path) // attempting to watch...
 		}
 
 		select {
@@ -687,7 +687,7 @@ func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
 		return false, err
 	}
 
-	st, err := os.Stat(obj.Path)
+	st, err := os.Stat(obj.path)
 	if err != nil {
 		return false, err
 	}
@@ -702,7 +702,7 @@ func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
 		return false, nil
 	}
 
-	err = os.Chmod(obj.Path, mode)
+	err = os.Chmod(obj.path, mode)
 	return false, err
 }
 
@@ -716,7 +716,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 		return true, nil
 	}
 
-	st, err := os.Stat(obj.Path)
+	st, err := os.Stat(obj.path)
 
 	// If the file does not exist and we are in
 	// noop mode, do not throw an error.
@@ -764,7 +764,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 		return false, nil
 	}
 
-	err = os.Chown(obj.Path, expectedUID, expectedGID)
+	err = os.Chown(obj.path, expectedUID, expectedGID)
 	return false, err
 }
 

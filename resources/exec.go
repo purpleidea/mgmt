@@ -34,6 +34,7 @@ import (
 
 func init() {
 	gob.Register(&ExecRes{})
+	RegisterResource("exec", func() Res { return &ExecRes{} })
 }
 
 // ExecRes is an exec resource for running commands.

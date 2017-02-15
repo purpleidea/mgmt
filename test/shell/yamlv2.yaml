@@ -1,0 +1,40 @@
+---
+version: 2
+graph: mygraph
+comment: check yamlv2 format with sequence
+resources:
+  - name: before
+    kind: exec
+    params:
+      cmd: mkdir -p /tmp/mgmt
+      state: present
+    before:
+      - exec exec0
+  - name: exec0
+    kind: exec
+    params:
+      cmd: touch /tmp/mgmt/d0; sleep 1
+      shell: /bin/sh
+      state: present
+  - name: exec1
+    kind: exec
+    params:
+      cmd: touch /tmp/mgmt/d1; sleep 1
+      shell: /bin/sh
+      state: present
+    after:
+      - exec exec0
+  - name: exec2
+    kind: exec
+    params:
+      cmd: touch /tmp/mgmt/d2
+      shell: /bin/sh
+      state: present
+edges:
+- name: e1
+  from:
+    kind: exec
+    name: exec1
+  to:
+    kind: exec
+    name: exec2

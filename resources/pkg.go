@@ -32,6 +32,7 @@ import (
 )
 
 func init() {
+	RegisterResource("pkg", func() Res { return &PkgRes{} })
 	gob.Register(&PkgRes{})
 }
 

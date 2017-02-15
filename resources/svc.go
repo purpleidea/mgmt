@@ -34,6 +34,7 @@ import (
 )
 
 func init() {
+	RegisterResource("svc", func() Res { return &SvcRes{} })
 	gob.Register(&SvcRes{})
 }
 

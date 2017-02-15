@@ -42,6 +42,7 @@ const (
 )
 
 func init() {
+	RegisterResource("nspawn", func() Res { return &NspawnRes{} })
 	gob.Register(&NspawnRes{})
 }
 

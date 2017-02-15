@@ -36,6 +36,7 @@ var ErrResourceInsufficientParameters = errors.New(
 	"Insufficient parameters for this resource")
 
 func init() {
+	RegisterResource("hostname", func() Res { return &HostnameRes{} })
 	gob.Register(&HostnameRes{})
 }
 

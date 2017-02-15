@@ -27,6 +27,7 @@ import (
 )
 
 func init() {
+	RegisterResource("timer", func() Res { return &TimerRes{} })
 	gob.Register(&TimerRes{})
 }
 

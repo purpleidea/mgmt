@@ -49,11 +49,10 @@ type AugeasRes struct {
 	BaseRes `yaml:",inline"`
 
 	// File is the path to the file targetted by this resource.
-	// If specified, mgmt will watch that file.
 	File string `yaml:"file"`
 
-	// Lens is the lens  used by this resource. If specified, mgmt
-	// will lower the augeas overhead by only loeading that lens.
+	// Lens is the lens used by this resource. If specified, mgmt
+	// will lower the augeas overhead by only loading that lens.
 	Lens string `yaml:"lens"`
 
 	// Sets is a list of changes that will be applied to the file, in the form of

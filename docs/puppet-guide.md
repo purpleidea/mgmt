@@ -1,40 +1,4 @@
-# mgmt
-
-<!--
-Mgmt
-Copyright (C) 2013-2016+ James Shubin and the project contributors
-Written by James Shubin <james@shubin.ca> and the project contributors
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
--->
-
-## mgmt Puppet guide
-#### Available from:
-#### [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
-
-#### This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/puppet-guide.md) format.
-
-#### Table of Contents
-
-1. [Prerequisites](#prerequisites)
-	* [Testing the Puppet side](#testing-the-puppet-side)
-2. [Writing a suitable manifest](#writing-a-suitable-manifest)
-	* [Unsupported attributes](#unsupported-attributes)
-	* [Unsupported resources](#unsupported-resources)
-	* [Avoiding common warnings](#avoiding-common-warnings)
-3. [Configuring Puppet](#configuring-puppet)
-4. [Caveats](#caveats)
+# Puppet guide
 
 `mgmt` can use Puppet as its source for the configuration graph.
 This document goes into detail on how this works, and lists

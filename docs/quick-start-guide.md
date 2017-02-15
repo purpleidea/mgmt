@@ -1,41 +1,6 @@
-# mgmt
+# Quick start guide
 
-<!--
-Mgmt
-Copyright (C) 2013-2016+ James Shubin and the project contributors
-Written by James Shubin <james@shubin.ca> and the project contributors
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
--->
-
-## mgmt quick start guide
-#### Available from:
-#### [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
-
-#### This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/quick-start-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/quick-start-guide.md) format.
-
-#### Table of Contents
-
-0. [Introduction](#introduction)
-1. [Vagrant](#vagrant)
-2. [Dependencies](#dependencies)
-3. [Quick start](#quick-start)
-4. [Examples](#examples)
-5. [Installation](#installation)
-6. [Authors - Authors and contact information](#authors)
-
-## Introduction:
+## Introduction
 This guide is intended for developers. Once `mgmt` is minimally viable, we'll
 publish a quick start guide for users too. In the meantime, please contribute!
 If you're brand new to `mgmt`, it's probably a good idea to start by reading the
@@ -43,14 +8,14 @@ If you're brand new to `mgmt`, it's probably a good idea to start by reading the
 or to watch an [introductory video](https://github.com/purpleidea/mgmt/#on-the-web).
 Once you're familiar with the general idea, please start hacking...
 
-## Vagrant:
+## Vagrant
 If you would like to avoid doing the following steps manually, we have prepared
 a [Vagrant](https://www.vagrantup.com/) environment for your convenience. From
 the project directory, run a `vagrant up`, and then a `vagrant status`. From
 there, you can `vagrant ssh` into the `mgmt` machine. The MOTD will explain the
 rest.
 
-## Dependencies:
+## Dependencies
 Software projects have a few different kinds of dependencies. There are _build_
 dependencies, _runtime_ dependencies, and additionally, a few extra dependencies
 required for running the _test_ suite.
@@ -94,7 +59,7 @@ For building a visual representation of the graph, `graphviz` is required.
 ### Testing
 * golint `github.com/golang/lint/golint`
 
-## Quick start:
+## Quick start
 * Make sure you have golang version 1.6 or greater installed.
 * If you do not have a GOPATH yet, create one and export it:
 ```
@@ -116,24 +81,13 @@ cd $GOPATH/src/github.com/purpleidea/mgmt
 * To run continuously in the default mode of operation, omit the `--converged-timeout` option.
 * Have fun hacking on our future technology!
 
-## Examples:
+## Examples
 Please look in the [examples/](../examples/) folder for some examples!
 
-## Installation:
+## Installation
 Installation of `mgmt` from distribution packages currently needs improvement.
 At the moment we have:
 * [COPR](https://copr.fedoraproject.org/coprs/purpleidea/mgmt/)
 * [Arch](https://aur.archlinux.org/packages/mgmt/)
 
 Please contribute more! We'd especially like to see a Debian package!
-
-## Authors
-Copyright (C) 2013-2016+ James Shubin and the project contributors
-
-Please see the
-[AUTHORS](https://github.com/purpleidea/mgmt/tree/master/AUTHORS) file
-for more information.
-
-* [github](https://github.com/purpleidea/)
-* [&#64;purpleidea](https://twitter.com/#!/purpleidea)
-* [https://ttboj.wordpress.com/](https://ttboj.wordpress.com/)

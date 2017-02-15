@@ -1,51 +1,9 @@
 # mgmt
 
-<!--
-Mgmt
-Copyright (C) 2013-2016+ James Shubin and the project contributors
-Written by James Shubin <james@shubin.ca> and the project contributors
+Available from:
+[https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
--->
-
-## mgmt by [James](https://ttboj.wordpress.com/)
-#### Available from:
-#### [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
-
-#### This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) format.
-
-#### Table of Contents
-
-1. [Overview](#overview)
-2. [Project description - What the project does](#project-description)
-3. [Setup - Getting started with mgmt](#setup)
-4. [Features - All things mgmt can do](#features)
-	* [Autoedges - Automatic resource relationships](#autoedges)
-	* [Autogrouping - Automatic resource grouping](#autogrouping)
-	* [Automatic clustering - Automatic cluster management](#automatic-clustering)
-	* [Remote mode - Remote "agent-less" execution](#remote-agent-less-mode)
-	* [Puppet support - write manifest code for mgmt](#puppet-support)
-5. [Resources - All built-in primitives](#resources)
-6. [Usage/FAQ - Notes on usage and frequently asked questions](#usage-and-frequently-asked-questions)
-7. [Reference - Detailed reference](#reference)
-	* [Meta parameters](#meta-parameters)
-	* [Graph definition file](#graph-definition-file)
-	* [Command line](#command-line)
-	* [Compilation options](#compilation-options)
-8. [Examples - Example configurations](#examples)
-9. [Development - Background on module development and reporting bugs](#development)
-10. [Authors - Authors and contact information](#authors)
+This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md) format.
 
 ## Overview
 

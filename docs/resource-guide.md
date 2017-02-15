@@ -1,54 +1,4 @@
-# mgmt
-
-<!--
-Mgmt
-Copyright (C) 2013-2016+ James Shubin and the project contributors
-Written by James Shubin <james@shubin.ca> and the project contributors
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
--->
-
-## mgmt resource guide by [James](https://ttboj.wordpress.com/)
-#### Available from:
-#### [https://github.com/purpleidea/mgmt/](https://github.com/purpleidea/mgmt/)
-
-#### This documentation is available in: [Markdown](https://github.com/purpleidea/mgmt/blob/master/docs/resource-guide.md) or [PDF](https://pdfdoc-purpleidea.rhcloud.com/pdf/https://github.com/purpleidea/mgmt/blob/master/docs/resource-guide.md) format.
-
-#### Table of Contents
-
-1. [Overview](#overview)
-2. [Theory - Resource theory in mgmt](#theory)
-3. [Resource API - Getting started with mgmt](#resource-api)
-	* [Default - Get an empty resource with defaults](#default)
-	* [Validate - Validate the values of a resource struct](#validate)
-	* [Init - Initialize the resource](#init)
-	* [Close - Cleanup the resource](#close)
-	* [CheckApply - Check and apply resource state](#checkapply)
-	* [Watch - Detect resource changes](#watch)
-	* [Compare - Compare resource with another](#compare)
-	* [UIDs - Returns the list of resource UID's](#uids)
-	* [AutoEdges - Returns the autoedge interface matcher](#autoedges)
-	* [CollectPattern - Currently a stub, API will change](#collectpattern)
-	* [(UnmarshalYAML) - Optional, sets the YAML defaults](#unmarshalyaml)
-4. [Further considerations - More information about resource writing](#further-considerations)
-5. [Automatic edges - Adding automatic resources dependencies](#automatic-edges)
-6. [Automatic grouping - Grouping multiple resources into one](#automatic-grouping)
-7. [Send/Recv - Communication between resources](#send-recv)
-8. [Composite resources - Importing code from one resource into another](#composite-resources)
-9. [FAQ - Frequently asked questions](#frequently-asked-questions)
-10. [Suggestions - API change suggestions](#suggestions)
-11. [Authors - Authors and contact information](#authors)
+# Resource guide
 
 ## Overview
 
@@ -618,15 +568,3 @@ Additional blog posts, videos and other material [is available!](https://github.
 If you have any ideas for API changes or other improvements to resource writing,
 please let us know! We're still pre 1.0 and pre 0.1 and happy to break API in
 order to get it right!
-
-## Authors
-
-Copyright (C) 2013-2016+ James Shubin and the project contributors
-
-Please see the
-[AUTHORS](https://github.com/purpleidea/mgmt/tree/master/AUTHORS) file
-for more information.
-
-* [github](https://github.com/purpleidea/)
-* [&#64;purpleidea](https://twitter.com/#!/purpleidea)
-* [https://ttboj.wordpress.com/](https://ttboj.wordpress.com/)

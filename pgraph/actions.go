@@ -394,6 +394,8 @@ Loop:
 					if retry == 0 {
 						// wrap the error in the sentinel
 						v.SendEvent(event.EventExit, &SentinelErr{e})
+						<-v.Res.Stopped() // block until stopped ?
+						v.Res.Reset()
 						return
 					}
 					if retry > 0 { // don't decrement the -1
@@ -681,6 +683,8 @@ func (g *Graph) Exit() {
 		// XXX: we can do this to quiesce, but it's not necessary now
 
 		v.SendEvent(event.EventExit, nil)
+		<-v.Res.Stopped() // block until stopped
+		v.Res.Reset()
 	}
 	g.wg.Wait() // for now, this doesn't need to be a separate Wait() method
 }

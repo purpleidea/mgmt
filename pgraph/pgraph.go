@@ -589,6 +589,7 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 			// wait for exit before starting new graph!
 			v.SendEvent(event.EventExit, nil) // sync
 			<-v.Res.Stopped()                 // block until stopped
+			v.Res.Reset()
 			oldGraph.DeleteVertex(v)
 		}
 	}

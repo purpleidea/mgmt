@@ -140,6 +140,7 @@ type Base interface {
 	Events() chan *event.Event
 	AssociateData(*Data)
 	Setup() bool
+	Reset()
 	Converger() converger.Converger
 	ConvergerUIDs() (converger.ConvergerUID, converger.ConvergerUID, converger.ConvergerUID)
 	WaitGroup() *sync.WaitGroup
@@ -405,6 +406,11 @@ func (obj *BaseRes) Setup() bool {
 		obj.stopped = make(chan struct{}) // closes when stopped
 	}
 	return !obj.working
+}
+
+// Reset from Setup.
+func (obj *BaseRes) Reset() {
+	obj.stopped = nil
 }
 
 // Converger returns the converger object used by the system. It can be used to

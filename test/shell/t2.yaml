@@ -24,6 +24,9 @@ resources:
     content: |
       i am f4 and i should not be here
     state: absent
+  - name: dir1
+    path: "/tmp/mgmt/dir1/"
+    state: exists
 edges:
 - name: e1
   from:

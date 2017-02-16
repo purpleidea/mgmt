@@ -58,6 +58,7 @@ type FileRes struct {
 	Group      string  `yaml:"group"`
 	Mode       string  `yaml:"mode"`
 	Recurse    bool    `yaml:"recurse"`
+	Parents    bool    `yaml:"parents"` // create parent directories?
 	Force      bool    `yaml:"force"`
 	path       string  // computed path
 	isDir      bool    // computed isDir
@@ -413,6 +414,13 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	}
 	if obj.debug {
 		log.Printf("fileCheckApply: Apply: %s -> %s", src, dst)
+	}
+
+	if obj.Parents {
+		err = os.MkdirAll(filepath.Dir(dst), os.ModePerm)
+		if err != nil {
+			return sha256sum, false, err
+		}
 	}
 
 	dstClose() // unlock file usage so we can write to it

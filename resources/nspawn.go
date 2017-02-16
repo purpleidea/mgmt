@@ -60,6 +60,9 @@ type NspawnRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *NspawnRes) Default() Res {
 	return &NspawnRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
 		State: running,
 	}
 }

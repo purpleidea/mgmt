@@ -49,6 +49,9 @@ type PkgRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *PkgRes) Default() Res {
 	return &PkgRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
 		State: "installed", // i think this is preferable to "latest"
 	}
 }

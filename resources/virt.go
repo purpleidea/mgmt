@@ -81,7 +81,11 @@ type VirtRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *VirtRes) Default() Res {
-	return &VirtRes{}
+	return &VirtRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
+	}
 }
 
 // Init runs some startup code for this resource.

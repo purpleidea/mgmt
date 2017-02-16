@@ -59,6 +59,9 @@ type PasswordRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *PasswordRes) Default() Res {
 	return &PasswordRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
 		Length: 64, // safe default
 	}
 }

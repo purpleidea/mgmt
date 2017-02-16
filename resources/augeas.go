@@ -71,7 +71,11 @@ type AugeasSet struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *AugeasRes) Default() Res {
-	return &AugeasRes{}
+	return &AugeasRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
+	}
 }
 
 // Validate if the params passed in are valid data.

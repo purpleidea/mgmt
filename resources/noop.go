@@ -37,7 +37,11 @@ type NoopRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *NoopRes) Default() Res {
-	return &NoopRes{}
+	return &NoopRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
+	}
 }
 
 // Validate if the params passed in are valid data.

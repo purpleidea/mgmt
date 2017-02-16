@@ -46,7 +46,11 @@ type SvcRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *SvcRes) Default() Res {
-	return &SvcRes{}
+	return &SvcRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
+	}
 }
 
 // Validate checks if the resource data structure was populated correctly.

@@ -71,7 +71,11 @@ type HostnameRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *HostnameRes) Default() Res {
-	return &HostnameRes{}
+	return &HostnameRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
+	}
 }
 
 // Validate if the params passed in are valid data.

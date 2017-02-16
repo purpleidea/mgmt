@@ -213,7 +213,7 @@ type BaseRes struct {
 
 // UnmarshalYAML is the custom unmarshal handler for the BaseRes struct. It is
 // primarily useful for setting the defaults, in particular if meta is absent!
-// FIXME: uncommenting this seems to block the graph from exiting, how come???
+// FIXME: how come we can't get this to work properly without dropping fields?
 //func (obj *BaseRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 //	DefaultBaseRes := BaseRes{
 //		// without specifying a default here, if we don't specify *any*
@@ -222,7 +222,7 @@ type BaseRes struct {
 //		MetaParams: DefaultMetaParams, // force a default
 //	}
 
-//	type rawBaseRes BaseRes // indirection to avoid infinite recursion
+//	type rawBaseRes BaseRes           // indirection to avoid infinite recursion
 //	raw := rawBaseRes(DefaultBaseRes) // convert; the defaults go here
 //	//raw := rawBaseRes{}
 

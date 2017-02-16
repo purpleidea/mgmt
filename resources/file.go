@@ -68,6 +68,9 @@ type FileRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *FileRes) Default() Res {
 	return &FileRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
 		State: "exists",
 	}
 }

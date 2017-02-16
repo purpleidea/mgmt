@@ -52,7 +52,11 @@ type ExecRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *ExecRes) Default() Res {
-	return &ExecRes{}
+	return &ExecRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
+	}
 }
 
 // Validate if the params passed in are valid data.

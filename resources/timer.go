@@ -46,7 +46,11 @@ type TimerUID struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *TimerRes) Default() Res {
-	return &TimerRes{}
+	return &TimerRes{
+		BaseRes: BaseRes{
+			MetaParams: DefaultMetaParams, // force a default
+		},
+	}
 }
 
 // Validate the params that are passed to TimerRes.

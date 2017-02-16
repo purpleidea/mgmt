@@ -54,7 +54,12 @@ func (obj *BaseRes) SendEvent(ev event.EventName, err error) error {
 		obj.mutex.Unlock()
 		return fmt.Errorf("resource worker is not running")
 	}
-	obj.events <- &event.Event{Name: ev, Resp: resp, Err: err}
+	select {
+	case obj.events <- &event.Event{Name: ev, Resp: resp, Err: err}: // send
+	case <-obj.Stopped(): // we finally shutdown
+		obj.mutex.Unlock()
+		return fmt.Errorf("resource stopped")
+	}
 	obj.mutex.Unlock()
 	resp.ACKWait() // waits until true (nil) value
 	return nil

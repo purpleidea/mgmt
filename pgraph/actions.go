@@ -575,6 +575,21 @@ func (g *Graph) Worker(v *Vertex) error {
 		}
 		if sentinelErr, ok := e.(*SentinelErr); ok { // unwrap the sentinel
 			err = sentinelErr.err
+			// XXX: hack idea
+			//go func() { // bleed out any stuck messages on resource error
+			//	for {
+			//		select {
+			//		case event, ok := <-obj.Events():
+			//			if !ok {
+			//				break
+			//			}
+			//			event.NACK() // hmmm???
+			//			// XXX: skip new messages (eg: start/pause-- bad!)
+			//		case <-v.Res.Stopped(): // we finally shutdown
+			//			break
+			//		}
+			//	}
+			//}()
 			break // sentinel means, perma-exit
 		}
 		log.Printf("%s[%s]: Watch errored: %v", v.Kind(), v.GetName(), e)

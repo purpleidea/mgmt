@@ -142,9 +142,6 @@ func (obj *FileRes) uid() (int, error) {
 // Init runs some startup code for this resource.
 func (obj *FileRes) Init() error {
 	obj.sha256sum = ""
-	if obj.Path == "" { // use the name as the path default if missing
-		obj.Path = obj.BaseRes.Name
-	}
 	obj.path = obj.GetPath()                     // compute once
 	obj.isDir = strings.HasSuffix(obj.path, "/") // dirs have trailing slashes
 
@@ -155,10 +152,15 @@ func (obj *FileRes) Init() error {
 // GetPath returns the actual path to use for this resource. It computes this
 // after analysis of the Path, Dirname and Basename values. Dirs end with slash.
 func (obj *FileRes) GetPath() string {
-	d := util.Dirname(obj.Path)
-	b := util.Basename(obj.Path)
+	p := obj.Path
+	if obj.Path == "" { // use the name as the path default if missing
+		p = obj.BaseRes.Name
+	}
+
+	d := util.Dirname(p)
+	b := util.Basename(p)
 	if obj.Dirname == "" && obj.Basename == "" {
-		return obj.Path
+		return p
 	}
 	if obj.Dirname == "" {
 		return d + obj.Basename

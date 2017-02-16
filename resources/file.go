@@ -443,6 +443,49 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	return sha256sum, false, dstFile.Sync()
 }
 
+// dirCheckApply is the CheckApply operation for an empty directory
+func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
+	// Check if the path exists and is a directory
+	st, err := os.Stat(obj.path)
+	if err != nil && !os.IsNotExist(err) {
+		return false, errwrap.Wrapf(err, "Error checking file resource existence")
+	}
+
+	if err == nil && st.IsDir() {
+		return true, nil // Already a directory, nothing to do
+	}
+	if err == nil && !st.IsDir() && !obj.Force {
+		return false, fmt.Errorf("Can't force file into dir: %s", obj.path)
+	}
+
+	if !apply {
+		return false, nil
+	}
+
+	// The path exists and is not a directory
+	// Delete the file if force is given
+	if err == nil && !st.IsDir() {
+		log.Printf("dirCheckApply: Removing (force): %s", obj.path)
+		if err := os.Remove(obj.path); err != nil {
+			return false, err
+		}
+	}
+
+	// Create the empty directory
+	var mode os.FileMode
+	if obj.Mode != "" {
+		mode, err = obj.mode()
+		if err != nil {
+			return false, err
+		}
+	} else {
+		mode = os.ModePerm
+	}
+
+	err = os.Mkdir(obj.path, mode)
+	return false, err
+}
+
 // syncCheckApply is the CheckApply operation for a source and destination dir.
 // It is recursive and can create directories directly, and files via the usual
 // fileCheckApply method. It returns checkOK and error as is normally expected.
@@ -629,16 +672,16 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 		return false, err             // either nil or not
 	}
 
+	if obj.isDir && obj.Source == "" {
+		return obj.dirCheckApply(apply)
+	}
+
 	// content is not defined, leave it alone...
 	if obj.Content == nil {
 		return true, nil
 	}
 
 	if obj.Source == "" { // do the obj.Content checks first...
-		if obj.isDir { // TODO: should we create an empty dir this way?
-			log.Fatal("XXX: Not implemented!") // XXX
-		}
-
 		bufferSrc := bytes.NewReader([]byte(*obj.Content))
 		sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.path, obj.sha256sum)
 		if sha256sum != "" { // empty values mean errored or didn't hash

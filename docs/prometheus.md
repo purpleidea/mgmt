@@ -1,6 +1,5 @@
 # Prometheus support
 
-
 Mgmt comes with a built-in prometheus support. It is disabled by default, and
 can be enabled with the `--prometheus` command line switch.
 

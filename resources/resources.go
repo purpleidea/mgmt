@@ -142,6 +142,7 @@ type Base interface {
 	Setup() bool
 	Converger() converger.Converger
 	ConvergerUIDs() (converger.ConvergerUID, converger.ConvergerUID, converger.ConvergerUID)
+	WaitGroup() *sync.WaitGroup
 	GetState() ResState
 	SetState(ResState)
 	Event() error
@@ -201,6 +202,7 @@ type BaseRes struct {
 	prefix      string // base prefix for this resource
 	debug       bool
 	state       ResState
+	waitGroup   *sync.WaitGroup
 	working     bool          // is the Worker() loop running ?
 	stopped     chan struct{} // closed when worker is stopped/exited
 	started     chan struct{} // closed when worker is started/running
@@ -303,6 +305,7 @@ func (obj *BaseRes) Init() error {
 	obj.pcuid = obj.converger.Register() // get a cuid for the process
 
 	obj.mutex = &sync.Mutex{}
+	obj.waitGroup = &sync.WaitGroup{}    // wait for (inner)Worker method...
 	obj.working = true                   // Worker method should now be running...
 	obj.events = make(chan *event.Event) // unbuffered chan to avoid stale events
 
@@ -338,6 +341,8 @@ func (obj *BaseRes) Close() error {
 	obj.processDone = true
 	close(obj.processChan)
 	obj.processLock.Unlock()
+
+	obj.waitGroup.Wait() // wait for inner worker
 
 	obj.mutex.Lock()
 	obj.working = false // Worker method should now be closing...
@@ -413,6 +418,11 @@ func (obj *BaseRes) Converger() converger.Converger {
 // by the Init method and unregistered on the resource Close.
 func (obj *BaseRes) ConvergerUIDs() (cuid converger.ConvergerUID, wcuid converger.ConvergerUID, pcuid converger.ConvergerUID) {
 	return obj.cuid, obj.wcuid, obj.pcuid
+}
+
+// WaitGroup returns a WaitGroup to be used during the inner worker process.
+func (obj *BaseRes) WaitGroup() *sync.WaitGroup {
+	return obj.waitGroup
 }
 
 // GetState returns the state of the resource.

@@ -481,7 +481,12 @@ func (g *Graph) Worker(v *Vertex) error {
 	wcuid.SetConverged(true) // starts off false, and waits for loop timeout
 	pcuid.SetConverged(true) // starts off true, because it's not running...
 
-	go g.innerWorker(v)
+	wg := obj.WaitGroup()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		g.innerWorker(v)
+	}()
 
 	var err error // propagate the error up (this is a permanent BAD error!)
 	// the watch delay runs inside of the Watch resource loop, so that it

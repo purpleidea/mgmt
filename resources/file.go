@@ -443,27 +443,27 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	return sha256sum, false, dstFile.Sync()
 }
 
-// dirCheckApply is the CheckApply operation for an empty directory
+// dirCheckApply is the CheckApply operation for an empty directory.
 func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
-	// Check if the path exists and is a directory
+	// check if the path exists and is a directory
 	st, err := os.Stat(obj.path)
 	if err != nil && !os.IsNotExist(err) {
-		return false, errwrap.Wrapf(err, "Error checking file resource existence")
+		return false, errwrap.Wrapf(err, "error checking file resource existence")
 	}
 
 	if err == nil && st.IsDir() {
-		return true, nil // Already a directory, nothing to do
+		return true, nil // already a directory, nothing to do
 	}
 	if err == nil && !st.IsDir() && !obj.Force {
-		return false, fmt.Errorf("Can't force file into dir: %s", obj.path)
+		return false, fmt.Errorf("can't force file into dir: %s", obj.path)
 	}
 
 	if !apply {
 		return false, nil
 	}
 
-	// The path exists and is not a directory
-	// Delete the file if force is given
+	// the path exists and is not a directory
+	// delete the file if force is given
 	if err == nil && !st.IsDir() {
 		log.Printf("dirCheckApply: Removing (force): %s", obj.path)
 		if err := os.Remove(obj.path); err != nil {
@@ -471,7 +471,7 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 		}
 	}
 
-	// Create the empty directory
+	// create the empty directory
 	var mode os.FileMode
 	if obj.Mode != "" {
 		mode, err = obj.mode()
@@ -482,8 +482,13 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 		mode = os.ModePerm
 	}
 
-	err = os.Mkdir(obj.path, mode)
-	return false, err
+	if obj.Force {
+		// FIXME: respect obj.Recurse here...
+		// TODO: add recurse limit here
+		return false, os.MkdirAll(obj.path, mode)
+	}
+
+	return false, os.Mkdir(obj.path, mode)
 }
 
 // syncCheckApply is the CheckApply operation for a source and destination dir.

@@ -5,7 +5,9 @@ go:
   - tip
 sudo: true
 dist: trusty
-before_install: 'git fetch --unshallow'
+before_install:
+  - sudo apt update
+  - git fetch --unshallow
 install: 'make deps'
 script: 'make test'
 matrix:

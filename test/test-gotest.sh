@@ -11,7 +11,6 @@ function run-test()
 }
 
 ROOT=$(dirname "${BASH_SOURCE}")/..
-
 cd "${ROOT}"
 
 for pkg in `go list ./... | grep -v 'vendor/' | grep -v 'examples/' | grep -v 'old/' | grep -v 'tmp/'`; do

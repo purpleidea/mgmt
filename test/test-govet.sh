@@ -15,11 +15,17 @@ ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}"
 
 function simplify-gocase() {
-	grep 'case _ = <-' "$1" && fail_test 'case _ = <- can be simplified to: case <-'	# this can be simplified
+	if grep 'case _ = <-' "$1"; then
+		return 1	# 'case _ = <- can be simplified to: case <-'
+	fi
+	return 0
 }
 
 function token-coloncheck() {
-	grep -Ei "[\/]+[\/]+[ ]*+(FIXME[^:]|TODO[^:]|XXX[^:])" "$1" && fail_test 'Token is missing a colon'	# tokens must end with a colon
+	if grep -Ei "[\/]+[\/]+[ ]*+(FIXME[^:]|TODO[^:]|XXX[^:])" "$1"; then
+		return 1	# tokens must end with a colon
+	fi
+	return 0
 }
 
 for file in `find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*'`; do

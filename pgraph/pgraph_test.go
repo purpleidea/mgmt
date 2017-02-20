@@ -24,13 +24,18 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/util"
 )
 
 // NV is a helper function to make testing easier. It creates a new noop vertex.
 func NV(s string) *Vertex {
-	obj, err := NewNoopRes(s)
-	if err != nil {
-		panic(err) // unlikely test failure!
+	obj := &resources.NoopRes{
+		BaseRes: resources.BaseRes{
+			Name: s,
+		},
+		Comment: "Testing!",
 	}
 	return NewVertex(obj)
 }
@@ -623,10 +628,10 @@ func TestPgraphT11(t *testing.T) {
 }
 
 type NoopResTest struct {
-	NoopRes
+	resources.NoopRes
 }
 
-func (obj *NoopResTest) GroupCmp(r Res) bool {
+func (obj *NoopResTest) GroupCmp(r resources.Res) bool {
 	res, ok := r.(*NoopResTest)
 	if !ok {
 		return false
@@ -643,10 +648,10 @@ func (obj *NoopResTest) GroupCmp(r Res) bool {
 
 func NewNoopResTest(name string) *NoopResTest {
 	obj := &NoopResTest{
-		NoopRes: NoopRes{
-			BaseRes: BaseRes{
+		NoopRes: resources.NoopRes{
+			BaseRes: resources.BaseRes{
 				Name: name,
-				MetaParams: MetaParams{
+				MetaParams: resources.MetaParams{
 					AutoGroup: true, // always autogroup
 				},
 			},
@@ -695,7 +700,7 @@ Loop:
 		for _, x1 := range v1.GetGroup() {
 			l1 = append(l1, x1.GetName()) // add my contents
 		}
-		l1 = StrRemoveDuplicatesInList(l1) // remove duplicates
+		l1 = util.StrRemoveDuplicatesInList(l1) // remove duplicates
 		sort.Strings(l1)
 
 		// inner loop
@@ -705,7 +710,7 @@ Loop:
 			for _, x2 := range v2.GetGroup() {
 				l2 = append(l2, x2.GetName())
 			}
-			l2 = StrRemoveDuplicatesInList(l2) // remove duplicates
+			l2 = util.StrRemoveDuplicatesInList(l2) // remove duplicates
 			sort.Strings(l2)
 
 			// does l1 match l2 ?
@@ -738,14 +743,14 @@ Loop:
 			for _, x1 := range vv1.GetGroup() {
 				l1 = append(l1, x1.GetName()) // add my contents
 			}
-			l1 = StrRemoveDuplicatesInList(l1) // remove duplicates
+			l1 = util.StrRemoveDuplicatesInList(l1) // remove duplicates
 			sort.Strings(l1)
 
 			l2 := strings.Split(vv2.GetName(), ",")
 			for _, x2 := range vv2.GetGroup() {
 				l2 = append(l2, x2.GetName())
 			}
-			l2 = StrRemoveDuplicatesInList(l2) // remove duplicates
+			l2 = util.StrRemoveDuplicatesInList(l2) // remove duplicates
 			sort.Strings(l2)
 
 			// does l1 match l2 ?
@@ -782,7 +787,7 @@ func (ag *testGrouper) vertexMerge(v1, v2 *Vertex) (v *Vertex, err error) {
 	for _, n := range obj.GetGroup() {
 		names = append(names, n.GetName()) // add my contents
 	}
-	names = StrRemoveDuplicatesInList(names) // remove duplicates
+	names = util.StrRemoveDuplicatesInList(names) // remove duplicates
 	sort.Strings(names)
 	obj.SetName(strings.Join(names, ","))
 	return // success or fail, and no need to merge the actual vertices!
@@ -793,7 +798,7 @@ func (ag *testGrouper) edgeMerge(e1, e2 *Edge) *Edge {
 	n1 := strings.Split(e1.Name, ",") // load
 	n2 := strings.Split(e2.Name, ",") // load
 	names := append(n1, n2...)
-	names = StrRemoveDuplicatesInList(names) // remove duplicates
+	names = util.StrRemoveDuplicatesInList(names) // remove duplicates
 	sort.Strings(names)
 	return NewEdge(strings.Join(names, ","))
 }

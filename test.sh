@@ -22,12 +22,12 @@ run-test ./test/test-yamlfmt.sh
 run-test ./test/test-bashfmt.sh
 run-test ./test/test-headerfmt.sh
 run-test ./test/test-commit-message.sh
-run-test go test
 run-test ./test/test-govet.sh
+run-test ./test/test-gotest.sh
 
 # do these longer tests only when running on ci
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
-	run-test go test -race
+	run-test ./test/test-gotest.sh --race
 	run-test ./test/test-shell.sh
 fi
 

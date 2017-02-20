@@ -480,6 +480,12 @@ func (obj *Main) Run() error {
 					log.Printf("Graphviz: Successfully generated graph!")
 				}
 			}
+
+			// Call this here because at this point the graph does not
+			// know anything about the prometheus instance.
+			if err := prom.UpdatePgraphStartTime(); err != nil {
+				log.Printf("Main: Prometheus.UpdatePgraphStartTime() errored: %v", err)
+			}
 			// G.Start(...) needs to be synchronous or wait,
 			// because if half of the nodes are started and
 			// some are not ready yet and the EtcdWatch

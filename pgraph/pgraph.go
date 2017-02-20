@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
@@ -58,6 +59,8 @@ type Graph struct {
 	state     graphState
 	mutex     *sync.Mutex // used when modifying graph State variable
 	wg        *sync.WaitGroup
+
+	prometheus *prometheus.Prometheus // the prometheus instance
 }
 
 // Vertex is the primary vertex struct in this library.
@@ -119,6 +122,8 @@ func (g *Graph) Copy() *Graph {
 		state:     g.state,
 		mutex:     g.mutex,
 		wg:        g.wg,
+
+		prometheus: g.prometheus,
 	}
 	for k, v := range g.Adjacency {
 		newGraph.Adjacency[k] = v // copy
@@ -645,6 +650,9 @@ func (g *Graph) GraphMetas() []*resources.MetaParams {
 
 // AssociateData associates some data with the object in the graph in question.
 func (g *Graph) AssociateData(data *resources.Data) {
+	// prometheus needs to be associated to this graph as well
+	g.prometheus = data.Prometheus
+
 	for k := range g.Adjacency {
 		k.Res.AssociateData(data)
 	}

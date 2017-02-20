@@ -14,6 +14,9 @@ curl 127.0.0.1:9233/metrics | grep '^mgmt_checkapply_total{apply="true",errorful
 # One CheckApply for a File ; in noop mode.
 curl 127.0.0.1:9233/metrics | grep '^mgmt_checkapply_total{apply="false",errorful="false",eventful="true",kind="File"} 1$'
 
+# Check mgmt_graph_start_time_seconds
+curl 127.0.0.1:9233/metrics | grep "^mgmt_graph_start_time_seconds [1-9]\+"
+
 killall -SIGINT mgmt	# send ^C to exit mgmt
 wait $pid	# get exit status
 exit $?

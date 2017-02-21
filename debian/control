@@ -1,0 +1,16 @@
+Source: mgmt
+Maintainer: Johan Bloemberg (aequitas) <mgmt@ijohan.nl>
+Build-Depends:
+               debhelper,
+               devscripts,
+               dh-golang,
+               dh-systemd,
+               golang-go,
+
+Package: mgmt
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: mgmt: next generation config management!
+ The mgmt tool is a next generation config management prototype. It's
+ not yet ready for production, but we hope to get there soon. Get
+ involved today!

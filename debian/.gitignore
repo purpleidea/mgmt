@@ -1,0 +1,7 @@
+*.debhelper.log
+*debhelper
+changelog
+debhelper-build-stamp
+files
+mgmt.substvars
+mgmt/*

@@ -36,6 +36,8 @@ if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
+	# dependencies for building debian packages with `make deb`
+	$sudo_command $APT install -y dpkg-dev devscripts debhelper dh-golang dh-systemd
 fi
 
 if [ ! -z "$BREW" ]; then

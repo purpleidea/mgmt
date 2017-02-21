@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+echo running test-commit-message.sh
+
 travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
 
 # Testing the regex itself.
@@ -45,7 +47,7 @@ travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]
 [[ $(echo "nope a: bar, foo: barfoofoo: Nope" | grep -c "$travis_regex") -eq 0 ]]
 
 test_commit_message() {
-	echo Testing commit message $1
+	echo "Testing commit message $1"
 	if ! git log --format=%s $1 | head -n 1 | grep -q "$travis_regex"
 	then
 		echo "FAIL: Commit message should match the following regex: '$travis_regex'"
@@ -67,3 +69,4 @@ then
 		test_commit_message $commit
 	done
 fi
+echo 'PASS'

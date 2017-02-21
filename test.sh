@@ -27,8 +27,8 @@ run-test ./test/test-gotest.sh
 
 # do these longer tests only when running on ci
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
-	run-test ./test/test-gotest.sh --race
 	run-test ./test/test-shell.sh
+	run-test ./test/test-gotest.sh --race
 fi
 
 # FIXME: this now fails everywhere :(

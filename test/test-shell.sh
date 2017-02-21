@@ -78,4 +78,4 @@ if [[ -n "${failures}" ]]; then
 	echo "${failures}"
 	exit 1
 fi
-echo PASS
+echo 'PASS'

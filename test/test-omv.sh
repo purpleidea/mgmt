@@ -18,4 +18,8 @@ done
 
 # return to original dir
 cd "$CWD" >/dev/null
-exit $RET
+if [ ! $RET -eq 0 ]; then
+	echo 'FAIL'
+	exit $RET
+fi
+echo 'PASS'

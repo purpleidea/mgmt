@@ -27,3 +27,4 @@ bad_files=$(find_files | xargs $GOFMT -l)
 if [[ -n "${bad_files}" ]]; then
 	fail_test "The following golang files are not properly formatted: ${bad_files}"
 fi
+echo 'PASS'

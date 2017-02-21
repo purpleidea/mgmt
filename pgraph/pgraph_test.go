@@ -657,7 +657,6 @@ func NewNoopResTest(name string) *NoopResTest {
 			},
 		},
 	}
-	obj.Init() // optional here in this testing scenario (for now)
 	return obj
 }
 

@@ -275,4 +275,11 @@ upload-rpms: rpmbuild/RPMS/ rpmbuild/RPMS/SHA256SUMS rpmbuild/RPMS/SHA256SUMS.as
 copr: upload-srpms
 	./misc/copr-build.py https://$(SERVER)/$(REMOTE_PATH)/SRPMS/$(SRPM_BASE)
 
+#
+#	deb build
+#
+
+deb:
+	dpkg-buildpackage
+
 # vim: ts=8

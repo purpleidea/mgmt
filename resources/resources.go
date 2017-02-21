@@ -140,6 +140,8 @@ type Base interface {
 	Events() chan *event.Event
 	AssociateData(*Data)
 	IsWorking() bool
+	Setup()
+	Reset()
 	Converger() converger.Converger
 	ConvergerUIDs() (converger.ConvergerUID, converger.ConvergerUID, converger.ConvergerUID)
 	GetState() ResState
@@ -161,6 +163,7 @@ type Base interface {
 	VarDir(string) (string, error)
 	Running() error           // notify the engine that Watch started
 	Started() <-chan struct{} // returns when the resource has started
+	Stopped() <-chan struct{} // returns when the resource has stopped
 	Starter(bool)
 	Poll() error // poll alternative to watching :(
 	ProcessChan() chan *event.Event
@@ -202,6 +205,7 @@ type BaseRes struct {
 	state       ResState
 	working     bool          // is the Worker() loop running ?
 	started     chan struct{} // closed when worker is started/running
+	stopped     chan struct{} // closed when worker is stopped/exited
 	isStarted   bool          // did the started chan already close?
 	starter     bool          // does this have indegree == 0 ? XXX: usually?
 	isStateOK   bool          // whether the state is okay based on events or not
@@ -303,7 +307,6 @@ func (obj *BaseRes) Init() error {
 	obj.mutex = &sync.Mutex{}
 	obj.working = true                   // Worker method should now be running...
 	obj.events = make(chan *event.Event) // unbuffered chan to avoid stale events
-	obj.started = make(chan struct{})    // closes when started
 
 	// FIXME: force a sane default until UnmarshalYAML on *BaseRes works...
 	if obj.Meta().Burst == 0 && obj.Meta().Limit == 0 { // blocked
@@ -346,6 +349,8 @@ func (obj *BaseRes) Close() error {
 	obj.pcuid.Unregister()
 	obj.wcuid.Unregister()
 	obj.cuid.Unregister()
+
+	close(obj.stopped)
 
 	return nil
 }
@@ -391,6 +396,19 @@ func (obj *BaseRes) AssociateData(data *Data) {
 // IsWorking tells us if the Worker() function is running. Not thread safe.
 func (obj *BaseRes) IsWorking() bool {
 	return obj.working
+}
+
+// Setup does some work which must happen before the Worker starts. It happens
+// once per Worker startup.
+func (obj *BaseRes) Setup() {
+	obj.started = make(chan struct{}) // closes when started
+	obj.stopped = make(chan struct{}) // closes when stopped
+	return
+}
+
+// Reset from Setup.
+func (obj *BaseRes) Reset() {
+	return
 }
 
 // Converger returns the converger object used by the system. It can be used to
@@ -540,6 +558,9 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 
 // Started returns a channel that closes when the resource has started up.
 func (obj *BaseRes) Started() <-chan struct{} { return obj.started }
+
+// Stopped returns a channel that closes when the worker has finished running.
+func (obj *BaseRes) Stopped() <-chan struct{} { return obj.stopped }
 
 // Starter sets the starter bool. This defines if a vertex has an indegree of 0.
 // If we have an indegree of 0, we'll need to be a poke initiator in the graph.

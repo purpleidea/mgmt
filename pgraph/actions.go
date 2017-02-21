@@ -600,7 +600,6 @@ func (g *Graph) Worker(v *Vertex) error {
 func (g *Graph) Start(first bool) { // start or continue
 	log.Printf("State: %v -> %v", g.setState(graphStateStarting), g.getState())
 	defer log.Printf("State: %v -> %v", g.setState(graphStateStarted), g.getState())
-	var wg sync.WaitGroup
 	t, _ := g.TopologicalSort()
 	// TODO: only calculate indegree if `first` is true to save resources
 	indegree := g.InDegree() // compute all of the indegree's
@@ -622,11 +621,13 @@ func (g *Graph) Start(first bool) { // start or continue
 		v.Res.Starter((!first) || indegree[v] == 0)
 
 		if !v.Res.IsWorking() { // if Worker() is not running...
+			v.Res.Setup()
 			g.wg.Add(1)
 			// must pass in value to avoid races...
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
 			go func(vv *Vertex) {
 				defer g.wg.Done()
+				defer v.Res.Reset()
 				// TODO: if a sufficient number of workers error,
 				// should something be done? Should these restart
 				// after perma-failure if we have a graph change?
@@ -639,19 +640,17 @@ func (g *Graph) Start(first bool) { // start or continue
 			}(v)
 		}
 
-		// let the vertices run their startup code in parallel
-		wg.Add(1)
-		go func(vv *Vertex) {
-			defer wg.Done()
-			vv.Res.Started() // block until started
-		}(v)
+		select {
+		case <-v.Res.Started(): // block until started
+		case <-v.Res.Stopped(): // we failed on init
+			// if the resource Init() fails, we don't hang!
+		}
 
 		if !first { // unpause!
 			v.Res.SendEvent(event.EventStart, nil) // sync!
 		}
 	}
-
-	wg.Wait() // wait for everyone
+	// we wait for everyone to start before exiting!
 }
 
 // Pause sends pause events to the graph in a topological sort order.
@@ -660,7 +659,7 @@ func (g *Graph) Pause() {
 	defer log.Printf("State: %v -> %v", g.setState(graphStatePaused), g.getState())
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
-		v.SendEvent(event.EventPause, nil)
+		v.SendEvent(event.EventPause, nil) // sync
 	}
 }
 

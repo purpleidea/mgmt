@@ -290,4 +290,16 @@ upload-rpms: rpmbuild/RPMS/ rpmbuild/RPMS/SHA256SUMS rpmbuild/RPMS/SHA256SUMS.as
 copr: upload-srpms
 	./misc/copr-build.py https://$(SERVER)/$(REMOTE_PATH)/SRPMS/$(SRPM_BASE)
 
+#
+#	deb build
+#
+
+deb:
+	./misc/gen-deb-changelog-from-git.sh
+	dpkg-buildpackage
+	# especially when building in Docker container, pull build artifact in project directory.
+	cp ../mgmt_*_amd64.deb ./
+	# cleanup
+	rm -rf debian/mgmt/
+
 # vim: ts=8

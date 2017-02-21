@@ -12,3 +12,4 @@ mgmt.static
 mgmt-*
 mgmt.iml
 rpmbuild/
+*.deb

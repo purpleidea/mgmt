@@ -677,6 +677,7 @@ func (g *Graph) Exit() {
 		// XXX: we can do this to quiesce, but it's not necessary now
 
 		v.SendEvent(event.EventExit, nil)
+		v.Res.WaitGroup().Wait()
 	}
 	g.wg.Wait() // for now, this doesn't need to be a separate Wait() method
 }

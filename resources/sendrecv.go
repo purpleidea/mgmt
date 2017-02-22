@@ -32,9 +32,11 @@ import (
 func (obj *BaseRes) Event() error {
 	resp := event.NewResp()
 	obj.processLock.Lock()
-	if !obj.processDone {
-		obj.processChan <- &event.Event{Name: event.EventNil, Resp: resp} // trigger process
+	if obj.processDone {
+		obj.processLock.Unlock()
+		return fmt.Errorf("processChan is already closed")
 	}
+	obj.processChan <- &event.Event{Name: event.EventNil, Resp: resp} // trigger process
 	obj.processLock.Unlock()
 	return resp.Wait()
 }
@@ -49,13 +51,17 @@ func (obj *BaseRes) SendEvent(ev event.EventName, err error) error {
 		}
 	}
 	resp := event.NewResp()
-	obj.mutex.Lock()
-	if !obj.working {
-		obj.mutex.Unlock()
-		return fmt.Errorf("resource worker is not running")
+	obj.eventsLock.Lock()
+	if obj.eventsDone {
+		obj.eventsLock.Unlock()
+		return fmt.Errorf("eventsChan is already closed")
 	}
-	obj.events <- &event.Event{Name: ev, Resp: resp, Err: err}
-	obj.mutex.Unlock()
+	obj.eventsChan <- &event.Event{Name: ev, Resp: resp, Err: err}
+	if ev == event.EventExit {
+		obj.eventsDone = true
+		close(obj.eventsChan) // this is where we properly close this channel!
+	}
+	obj.eventsLock.Unlock()
 	resp.ACKWait() // waits until true (nil) value
 	return nil
 }

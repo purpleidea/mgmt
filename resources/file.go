@@ -34,7 +34,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 
@@ -181,7 +180,7 @@ func (obj *FileRes) GetPath() string {
 // If the Watch returns an error, it means that something has gone wrong, and it
 // must be restarted. On a clean exit it returns nil.
 // FIXME: Also watch the source directory when using obj.Source !!!
-func (obj *FileRes) Watch(processChan chan *event.Event) error {
+func (obj *FileRes) Watch() error {
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, obj.Recurse)
 	if err != nil {
@@ -190,7 +189,7 @@ func (obj *FileRes) Watch(processChan chan *event.Event) error {
 	defer obj.recWatcher.Close()
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -226,7 +225,7 @@ func (obj *FileRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

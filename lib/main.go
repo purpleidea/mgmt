@@ -454,6 +454,7 @@ func (obj *Main) Run() error {
 			// FIXME: make sure we "UnGroup()" any semi-destructive
 			// changes to the resources so our efficient GraphSync
 			// will be able to re-use and cmp to the old graph.
+			log.Printf("Main: GraphSync...")
 			newFullGraph, err := newGraph.GraphSync(oldGraph)
 			if err != nil {
 				log.Printf("Config: Error running graph sync: %v", err)
@@ -564,7 +565,7 @@ func (obj *Main) Run() error {
 	// tell inner main loop to exit
 	close(exitchan)
 
-	G.Exit() // tell all the children to exit, and waits for them to do so
+	G.Exit() // tells all the children to exit, and waits for them to do so
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd

@@ -14,7 +14,7 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 
 find_files() {
-	git ls-files | grep -e '\.sh$' -e '\.bash$'
+	git ls-files | grep -e '\.sh$' -e '\.bash$' | grep -v 'misc/delta-cpu.sh'
 }
 
 bad_files=$(

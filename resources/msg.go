@@ -24,8 +24,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/purpleidea/mgmt/event"
-
 	"github.com/coreos/go-systemd/journal"
 )
 
@@ -122,9 +120,9 @@ func (obj *MsgRes) journalPriority() journal.Priority {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *MsgRes) Watch(processChan chan *event.Event) error {
+func (obj *MsgRes) Watch() error {
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -142,7 +140,7 @@ func (obj *MsgRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

@@ -139,15 +139,14 @@ type Base interface {
 	Meta() *MetaParams
 	Events() chan *event.Event
 	AssociateData(*Data)
-	IsWorking() bool
-	SetWorking(bool)
+	Setup() bool
+	Reset()
 	Converger() converger.Converger
-	RegisterConverger()
-	UnregisterConverger()
-	ConvergerUID() converger.ConvergerUID
+	ConvergerUIDs() (converger.ConvergerUID, converger.ConvergerUID, converger.ConvergerUID)
+	WaitGroup() *sync.WaitGroup
 	GetState() ResState
 	SetState(ResState)
-	Event(chan *event.Event) error
+	Event() error
 	SendEvent(event.EventName, error) error
 	ReadEvent(*event.Event) (*error, bool)
 	Refresh() bool                         // is there a pending refresh to run?
@@ -162,10 +161,12 @@ type Base interface {
 	GetGroup() []Res    // return everyone grouped inside me
 	SetGroup([]Res)
 	VarDir(string) (string, error)
-	Running(chan *event.Event) error // notify the engine that Watch started
-	Started() <-chan struct{}        // returns when the resource has started
+	Running() error           // notify the engine that Watch started
+	Stopped() <-chan struct{} // returns when the resource has stopped
+	Started() <-chan struct{} // returns when the resource has started
 	Starter(bool)
-	Poll(chan *event.Event) error // poll alternative to watching :(
+	Poll() error // poll alternative to watching :(
+	ProcessChan() chan *event.Event
 	Prometheus() *prometheus.Prometheus
 }
 
@@ -176,8 +177,8 @@ type Res interface {
 	Validate() error
 	Init() error
 	Close() error
-	UIDs() []ResUID                // most resources only return one
-	Watch(chan *event.Event) error // send on channel to signal process() events
+	UIDs() []ResUID // most resources only return one
+	Watch() error   // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
@@ -191,23 +192,30 @@ type BaseRes struct {
 	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
 	Recv       map[string]*Send // mapping of key to receive on from value
 
-	kind       string
-	mutex      *sync.Mutex // locks around sending and closing of events channel
-	events     chan *event.Event
-	converger  converger.Converger // converged tracking
-	cuid       converger.ConvergerUID
-	prometheus *prometheus.Prometheus
-	prefix     string // base prefix for this resource
-	debug      bool
-	state      ResState
-	working    bool          // is the Worker() loop running ?
-	started    chan struct{} // closed when worker is started/running
-	isStarted  bool          // did the started chan already close?
-	starter    bool          // does this have indegree == 0 ? XXX: usually?
-	isStateOK  bool          // whether the state is okay based on events or not
-	isGrouped  bool          // am i contained within a group?
-	grouped    []Res         // list of any grouped resources
-	refresh    bool          // does this resource have a refresh to run?
+	kind        string
+	mutex       *sync.Mutex // locks around sending and closing of events channel
+	events      chan *event.Event
+	converger   converger.Converger // converged tracking
+	cuid        converger.ConvergerUID
+	wcuid       converger.ConvergerUID
+	pcuid       converger.ConvergerUID
+	prometheus  *prometheus.Prometheus
+	prefix      string // base prefix for this resource
+	debug       bool
+	state       ResState
+	waitGroup   *sync.WaitGroup
+	working     bool          // is the Worker() loop running ?
+	stopped     chan struct{} // closed when worker is stopped/exited
+	started     chan struct{} // closed when worker is started/running
+	isStarted   bool          // did the started chan already close?
+	starter     bool          // does this have indegree == 0 ? XXX: usually?
+	isStateOK   bool          // whether the state is okay based on events or not
+	isGrouped   bool          // am i contained within a group?
+	grouped     []Res         // list of any grouped resources
+	processLock *sync.Mutex
+	processDone bool
+	processChan chan *event.Event
+	refresh     bool // does this resource have a refresh to run?
 	//refreshState StatefulBool // TODO: future stateful bool
 }
 
@@ -286,12 +294,21 @@ func (obj *BaseRes) Validate() error {
 
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
+	if obj.debug {
+		log.Printf("%s[%s]: Init()", obj.Kind(), obj.GetName())
+	}
 	if obj.kind == "" {
 		return fmt.Errorf("Resource did not set kind!")
 	}
+
+	obj.cuid = obj.converger.Register()
+	obj.wcuid = obj.converger.Register() // get a cuid for the worker!
+	obj.pcuid = obj.converger.Register() // get a cuid for the process
+
 	obj.mutex = &sync.Mutex{}
+	obj.waitGroup = &sync.WaitGroup{}    // wait for (inner)Worker method...
+	obj.working = true                   // Worker method should now be running...
 	obj.events = make(chan *event.Event) // unbuffered chan to avoid stale events
-	obj.started = make(chan struct{})    // closes when started
 
 	// FIXME: force a sane default until UnmarshalYAML on *BaseRes works...
 	if obj.Meta().Burst == 0 && obj.Meta().Limit == 0 { // blocked
@@ -301,21 +318,43 @@ func (obj *BaseRes) Init() error {
 		obj.Meta().Limit = rate.Inf
 	}
 
+	obj.processLock = &sync.Mutex{} // lock around processChan closing and sending
+	obj.processDone = false         // did we close processChan ?
+	obj.processChan = make(chan *event.Event)
+
 	//dir, err := obj.VarDir("")
 	//if err != nil {
 	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
 	//}
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
+
 	return nil
 }
 
 // Close shuts down and performs any cleanup.
 func (obj *BaseRes) Close() error {
+	if obj.debug {
+		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
+	}
+
+	obj.processLock.Lock() // lock to avoid a send when closed!
+	obj.processDone = true
+	close(obj.processChan)
+	obj.processLock.Unlock()
+
+	obj.waitGroup.Wait() // wait for inner worker
+
 	obj.mutex.Lock()
-	obj.working = false // obj.SetWorking(false)
+	obj.working = false // Worker method should now be closing...
 	close(obj.events)   // this is where we properly close this channel!
 	obj.mutex.Unlock()
+
+	obj.pcuid.Unregister()
+	obj.wcuid.Unregister()
+	obj.cuid.Unregister()
+
+	close(obj.stopped) // signal that we're done, after setting obj.working
 	return nil
 }
 
@@ -357,18 +396,21 @@ func (obj *BaseRes) AssociateData(data *Data) {
 	obj.debug = data.Debug
 }
 
-// IsWorking tells us if the Worker() function is running.
-func (obj *BaseRes) IsWorking() bool {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
-	return obj.working
+// Setup tells us if we need to run the Worker() function. Not thread safe. It
+// also initializes the event channel that we'll need for notifications.
+func (obj *BaseRes) Setup() bool {
+	if obj.started == nil {
+		obj.started = make(chan struct{}) // closes when started
+	}
+	if obj.stopped == nil {
+		obj.stopped = make(chan struct{}) // closes when stopped
+	}
+	return !obj.working
 }
 
-// SetWorking tracks the state of if Worker() function is running.
-func (obj *BaseRes) SetWorking(b bool) {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
-	obj.working = b
+// Reset from Setup.
+func (obj *BaseRes) Reset() {
+	obj.stopped = nil
 }
 
 // Converger returns the converger object used by the system. It can be used to
@@ -377,22 +419,16 @@ func (obj *BaseRes) Converger() converger.Converger {
 	return obj.converger
 }
 
-// RegisterConverger sets up the cuid for the resource. This is a helper
-// function for the engine, and shouldn't be called by the resources directly.
-func (obj *BaseRes) RegisterConverger() {
-	obj.cuid = obj.converger.Register()
+// ConvergerUIDs returns the ConvergerUIDs for the resource. This is called by
+// the various methods that need one of these ConvergerUIDs. They are registered
+// by the Init method and unregistered on the resource Close.
+func (obj *BaseRes) ConvergerUIDs() (cuid converger.ConvergerUID, wcuid converger.ConvergerUID, pcuid converger.ConvergerUID) {
+	return obj.cuid, obj.wcuid, obj.pcuid
 }
 
-// UnregisterConverger tears down the cuid for the resource. This is a helper
-// function for the engine, and shouldn't be called by the resources directly.
-func (obj *BaseRes) UnregisterConverger() {
-	obj.cuid.Unregister()
-}
-
-// ConvergerUID returns the ConvergerUID for the resource. This should be called
-// by the Watch method of the resource to set the converged state.
-func (obj *BaseRes) ConvergerUID() converger.ConvergerUID {
-	return obj.cuid
+// WaitGroup returns a WaitGroup to be used during the inner worker process.
+func (obj *BaseRes) WaitGroup() *sync.WaitGroup {
+	return obj.waitGroup
 }
 
 // GetState returns the state of the resource.
@@ -416,6 +452,11 @@ func (obj *BaseRes) IsStateOK() bool {
 // StateOK sets the cached state value.
 func (obj *BaseRes) StateOK(b bool) {
 	obj.isStateOK = b
+}
+
+// ProcessChan returns the chan that resources send events to. Internal API!
+func (obj *BaseRes) ProcessChan() chan *event.Event {
+	return obj.processChan
 }
 
 // GroupCmp compares two resources and decides if they're suitable for grouping
@@ -522,6 +563,9 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 	return p, nil
 }
 
+// Stopped returns a channel that closes when the worker has finished running.
+func (obj *BaseRes) Stopped() <-chan struct{} { return obj.stopped }
+
 // Started returns a channel that closes when the resource has started up.
 func (obj *BaseRes) Started() <-chan struct{} { return obj.started }
 
@@ -530,15 +574,15 @@ func (obj *BaseRes) Started() <-chan struct{} { return obj.started }
 func (obj *BaseRes) Starter(b bool) { obj.starter = b }
 
 // Poll is the watch replacement for when we want to poll, which outputs events.
-func (obj *BaseRes) Poll(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
+func (obj *BaseRes) Poll() error {
+	cuid, _, _ := obj.ConvergerUIDs() // get the converger uid used to report status
 
 	// create a time.Ticker for the given interval
 	ticker := time.NewTicker(time.Duration(obj.Meta().Poll) * time.Second)
 	defer ticker.Stop()
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 	cuid.SetConverged(false) // quickly stop any converge due to Running()
@@ -561,7 +605,7 @@ func (obj *BaseRes) Poll(processChan chan *event.Event) error {
 
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

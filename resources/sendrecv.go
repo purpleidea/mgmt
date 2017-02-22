@@ -29,21 +29,37 @@ import (
 )
 
 // Event sends off an event, but doesn't block the incoming event queue.
-func (obj *BaseRes) Event(processChan chan *event.Event) error {
+func (obj *BaseRes) Event() error {
 	resp := event.NewResp()
-	processChan <- &event.Event{Name: event.EventNil, Resp: resp} // trigger process
+	obj.processLock.Lock()
+	if !obj.processDone {
+		obj.processChan <- &event.Event{Name: event.EventNil, Resp: resp} // trigger process
+	}
+	obj.processLock.Unlock()
 	return resp.Wait()
 }
 
 // SendEvent pushes an event into the message queue for a particular vertex.
 func (obj *BaseRes) SendEvent(ev event.EventName, err error) error {
+	if obj.debug {
+		if err == nil {
+			log.Printf("%s[%s]: SendEvent(%+v)", obj.Kind(), obj.GetName(), ev)
+		} else {
+			log.Printf("%s[%s]: SendEvent(%+v): %v", obj.Kind(), obj.GetName(), ev, err)
+		}
+	}
 	resp := event.NewResp()
 	obj.mutex.Lock()
 	if !obj.working {
 		obj.mutex.Unlock()
 		return fmt.Errorf("resource worker is not running")
 	}
-	obj.events <- &event.Event{Name: ev, Resp: resp, Err: err}
+	select {
+	case obj.events <- &event.Event{Name: ev, Resp: resp, Err: err}: // send
+	case <-obj.Stopped(): // we finally shutdown
+		obj.mutex.Unlock()
+		return fmt.Errorf("resource stopped")
+	}
 	obj.mutex.Unlock()
 	resp.ACKWait() // waits until true (nil) value
 	return nil
@@ -97,14 +113,14 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 
 // Running is called by the Watch method of the resource once it has started up.
 // This signals to the engine to kick off the initial CheckApply resource check.
-func (obj *BaseRes) Running(processChan chan *event.Event) error {
+func (obj *BaseRes) Running() error {
 	// TODO: If a non-polling resource wants to use the converger, then it
 	// should probably tell Running (via an arg) to not do this. Currently
 	// it is a very unlikey race that could cause an early converge if the
 	// converge timeout is very short ( ~ 1s) and the Watch method doesn't
 	// immediately SetConverged(false) to stop possible early termination.
 	if obj.Meta().Poll == 0 { // if not polling, unblock this...
-		cuid := obj.ConvergerUID()
+		cuid, _, _ := obj.ConvergerUIDs()
 		cuid.SetConverged(true) // a reasonable initial assumption
 	}
 
@@ -116,7 +132,7 @@ func (obj *BaseRes) Running(processChan chan *event.Event) error {
 
 	var err error
 	if obj.starter { // vertices of indegree == 0 should send initial pokes
-		err = obj.Event(processChan) // trigger a CheckApply
+		err = obj.Event() // trigger a CheckApply
 	}
 	return err // bubble up any possible error (or nil)
 }

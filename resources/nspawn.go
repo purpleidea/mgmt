@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/util"
 
 	systemdUtil "github.com/coreos/go-systemd/util"
@@ -98,7 +97,7 @@ func (obj *NspawnRes) Init() error {
 }
 
 // Watch for state changes and sends a message to the bus if there is a change
-func (obj *NspawnRes) Watch(processChan chan *event.Event) error {
+func (obj *NspawnRes) Watch() error {
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return fmt.Errorf("Systemd is not running.")
@@ -122,7 +121,7 @@ func (obj *NspawnRes) Watch(processChan chan *event.Event) error {
 	bus.Signal(buschan)
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -155,7 +154,7 @@ func (obj *NspawnRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

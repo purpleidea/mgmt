@@ -53,10 +53,8 @@ type RecWatcher struct {
 	events   chan Event // one channel for events and err...
 	closed   bool       // is the events channel closed?
 	mutex    sync.Mutex // lock guarding the channel closing
-	once     sync.Once
 	wg       sync.WaitGroup
 	exit     chan struct{}
-	closeErr error
 }
 
 // NewRecWatcher creates an initializes a new recursive watcher.
@@ -89,7 +87,9 @@ func (obj *RecWatcher) Init() error {
 		}
 	}
 
+	obj.wg.Add(1)
 	go func() {
+		defer obj.wg.Done()
 		if err := obj.Watch(); err != nil {
 			// we need this mutex, because if we Init and then Close
 			// immediately, this can send after closed which panics!
@@ -99,7 +99,6 @@ func (obj *RecWatcher) Init() error {
 			}
 			obj.mutex.Unlock()
 		}
-		obj.Close()
 	}()
 	return nil
 }
@@ -114,13 +113,6 @@ func (obj *RecWatcher) Init() error {
 
 // Close shuts down the watcher.
 func (obj *RecWatcher) Close() error {
-	obj.once.Do(obj.close) // don't cause the channel to close twice
-	return obj.closeErr
-}
-
-// This close function is the function that actually does the close work. Don't
-// call it more than once!
-func (obj *RecWatcher) close() {
 	var err error
 	close(obj.exit) // send exit signal
 	obj.wg.Wait()
@@ -132,11 +124,11 @@ func (obj *RecWatcher) close() {
 		//	obj.events <- Event{Error: err}
 		//}
 	}
-	obj.mutex.Lock()
+	obj.mutex.Lock() // FIXME: I don't think this mutex is needed anymore...
 	obj.closed = true
 	close(obj.events)
 	obj.mutex.Unlock()
-	obj.closeErr = err // set the error
+	return err
 }
 
 // Events returns a channel of events. These include events for errors.
@@ -147,8 +139,6 @@ func (obj *RecWatcher) Watch() error {
 	if obj.watcher == nil {
 		return fmt.Errorf("Watcher is not initialized!")
 	}
-	obj.wg.Add(1)
-	defer obj.wg.Done()
 
 	patharray := util.PathSplit(obj.safename) // tokenize the path
 	var index = len(patharray)                // starting index

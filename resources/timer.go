@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	"github.com/purpleidea/mgmt/event"
 )
 
 func init() {
@@ -70,13 +68,13 @@ func (obj *TimerRes) newTicker() *time.Ticker {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *TimerRes) Watch(processChan chan *event.Event) error {
+func (obj *TimerRes) Watch() error {
 	// create a time.Ticker for the given interval
 	obj.ticker = obj.newTicker()
 	defer obj.ticker.Stop()
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -96,7 +94,7 @@ func (obj *TimerRes) Watch(processChan chan *event.Event) error {
 
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

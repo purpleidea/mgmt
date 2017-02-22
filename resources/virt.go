@@ -27,6 +27,7 @@ import (
 	"os/user"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -91,6 +92,7 @@ type VirtRes struct {
 	RestartOnDiverge string `yaml:"restartondiverge"` // restart policy: "ignore", "ifneeded", "error"
 	RestartOnRefresh bool   `yaml:"restartonrefresh"` // restart on refresh?
 
+	wg                  *sync.WaitGroup
 	conn                *libvirt.Connect
 	version             uint32 // major * 1000000 + minor * 1000 + release
 	absent              bool   // cached state
@@ -188,15 +190,21 @@ func (obj *VirtRes) Init() error {
 			}
 		}
 	}
-
+	obj.wg = &sync.WaitGroup{}
 	obj.BaseRes.kind = "Virt"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // Close runs some cleanup code for this resource.
 func (obj *VirtRes) Close() error {
+
+	// By the time that this Close method is called, the engine promises
+	// that the Watch loop has previously shutdown! (Assuming no bugs!)
+	obj.wg.Wait()
+
 	// TODO: what is the first int Close return value useful for (if at all)?
 	_, err := obj.conn.Close() // close libvirt conn that was opened in Init
+	obj.conn = nil             // set to nil to help catch any nil ptr bugs!
 
 	// call base close, b/c we're overriding
 	if e := obj.BaseRes.Close(); err == nil {
@@ -249,11 +257,13 @@ func (obj *VirtRes) connect() (conn *libvirt.Connect, err error) {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *VirtRes) Watch() error {
+	// FIXME: how will this working if we're polling?
 	domChan := make(chan libvirt.DomainEventType) // TODO: do we need to buffer this?
 	gaChan := make(chan *libvirt.DomainEventAgentLifecycle)
 	errorChan := make(chan error)
 	exitChan := make(chan struct{})
 	defer close(exitChan)
+	obj.wg.Add(1) // don't exit without waiting for EventRunDefaultImpl
 
 	// run libvirt event loop
 	// TODO: *trigger* EventRunDefaultImpl to unblock so it can shut down...
@@ -261,17 +271,22 @@ func (obj *VirtRes) Watch() error {
 	// bursts every 5 seconds! we can do this by writing to an event handler
 	// in the meantime, terminating the program causes it to exit anyways...
 	go func() {
+		defer obj.wg.Done()
+		defer log.Printf("EventRunDefaultImpl exited!")
 		for {
 			// TODO: can we merge this into our main for loop below?
 			select {
 			case <-exitChan:
-				log.Printf("EventRunDefaultImpl exited!")
 				return
 			default:
 			}
 			//log.Printf("EventRunDefaultImpl started!")
 			if err := libvirt.EventRunDefaultImpl(); err != nil {
-				errorChan <- errwrap.Wrapf(err, "EventRunDefaultImpl failed")
+				select {
+				case errorChan <- errwrap.Wrapf(err, "EventRunDefaultImpl failed"):
+				case <-exitChan:
+					// pass
+				}
 				return
 			}
 			//log.Printf("EventRunDefaultImpl looped!")

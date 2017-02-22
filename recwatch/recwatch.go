@@ -95,7 +95,11 @@ func (obj *RecWatcher) Init() error {
 			// immediately, this can send after closed which panics!
 			obj.mutex.Lock()
 			if !obj.closed {
-				obj.events <- Event{Error: err}
+				select {
+				case obj.events <- Event{Error: err}:
+				case <-obj.exit:
+					// pass
+				}
 			}
 			obj.mutex.Unlock()
 		}
@@ -119,10 +123,6 @@ func (obj *RecWatcher) Close() error {
 	if obj.watcher != nil {
 		err = obj.watcher.Close()
 		obj.watcher = nil
-		// TODO: should we send the close error?
-		//if err != nil {
-		//	obj.events <- Event{Error: err}
-		//}
 	}
 	obj.mutex.Lock() // FIXME: I don't think this mutex is needed anymore...
 	obj.closed = true
@@ -280,7 +280,12 @@ func (obj *RecWatcher) Watch() error {
 			if send {
 				send = false
 				// only invalid state on certain types of events
-				obj.events <- Event{Error: nil, Body: &event}
+				select {
+				// exit even when we're blocked on event sending
+				case obj.events <- Event{Error: nil, Body: &event}:
+				case <-obj.exit:
+					return fmt.Errorf("pending event not sent")
+				}
 			}
 
 		case err := <-obj.watcher.Errors:

@@ -67,4 +67,4 @@ if [ "$DELTA" -gt "$THRESHOLD" ]; then
 	echo "Maximum threshold is: $THRESHOLD %"
 	fail_test "`golint` - FAILED"
 fi
-echo PASS
+echo 'PASS'

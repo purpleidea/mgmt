@@ -465,6 +465,7 @@ func (g *Graph) Worker(v *Vertex) error {
 	}
 	// run the init (should match 1-1 with Close function)
 	if err := obj.Init(); err != nil {
+		obj.ProcessExit()
 		// always exit the worker function by finishing with Close()
 		if e := obj.Close(); e != nil {
 			err = multierr.Append(err, e) // list of errors
@@ -481,7 +482,12 @@ func (g *Graph) Worker(v *Vertex) error {
 	wcuid.SetConverged(true) // starts off false, and waits for loop timeout
 	pcuid.SetConverged(true) // starts off true, because it's not running...
 
-	go g.innerWorker(v)
+	wg := obj.ProcessSync()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		g.innerWorker(v)
+	}()
 
 	var err error // propagate the error up (this is a permanent BAD error!)
 	// the watch delay runs inside of the Watch resource loop, so that it
@@ -511,6 +517,7 @@ func (g *Graph) Worker(v *Vertex) error {
 					// NOTE: this code should match the similar Res code!
 					//cuid.SetConverged(false) // TODO: ?
 					if exit, send := obj.ReadEvent(event); exit != nil {
+						obj.ProcessExit()
 						err := *exit // exit err
 						if e := obj.Close(); err == nil {
 							err = e
@@ -586,6 +593,7 @@ func (g *Graph) Worker(v *Vertex) error {
 		//v.SendEvent(eventPoke, false, false)
 	}
 
+	obj.ProcessExit()
 	// close resource and return possible errors if any
 	if e := obj.Close(); err == nil {
 		err = e

@@ -168,6 +168,8 @@ type Base interface {
 	Starter(bool)
 	Poll() error // poll alternative to watching :(
 	ProcessChan() chan *event.Event
+	ProcessSync() *sync.WaitGroup
+	ProcessExit()
 	Prometheus() *prometheus.Prometheus
 }
 
@@ -204,6 +206,7 @@ type BaseRes struct {
 	processLock *sync.Mutex
 	processDone bool
 	processChan chan *event.Event
+	processSync *sync.WaitGroup
 
 	converger converger.Converger // converged tracking
 	cuid      converger.UID
@@ -322,6 +325,7 @@ func (obj *BaseRes) Init() error {
 	obj.processLock = &sync.Mutex{} // lock around processChan closing and sending
 	obj.processDone = false         // did we close processChan ?
 	obj.processChan = make(chan *event.Event)
+	obj.processSync = &sync.WaitGroup{}
 
 	obj.waitGroup = &sync.WaitGroup{} // Init and Close must be 1-1 matched!
 	obj.waitGroup.Add(1)
@@ -350,12 +354,6 @@ func (obj *BaseRes) Close() error {
 	if obj.debug {
 		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
 	}
-
-	obj.processLock.Lock() // lock to avoid a send when closed!
-	obj.processDone = true
-	close(obj.processChan)
-	obj.processLock.Unlock()
-	// a Wait() for processChan to close is unnecessary I think...
 
 	obj.pcuid.Unregister()
 	obj.wcuid.Unregister()
@@ -466,8 +464,18 @@ func (obj *BaseRes) StateOK(b bool) {
 }
 
 // ProcessChan returns the chan that resources send events to. Internal API!
-func (obj *BaseRes) ProcessChan() chan *event.Event {
-	return obj.processChan
+func (obj *BaseRes) ProcessChan() chan *event.Event { return obj.processChan }
+
+// ProcessSync returns the WaitGroup that blocks until the innerWorker closes.
+func (obj *BaseRes) ProcessSync() *sync.WaitGroup { return obj.processSync }
+
+// ProcessExit causes the innerWorker to close and waits until it does so.
+func (obj *BaseRes) ProcessExit() {
+	obj.processLock.Lock() // lock to avoid a send when closed!
+	obj.processDone = true
+	close(obj.processChan)
+	obj.processLock.Unlock()
+	obj.processSync.Wait()
 }
 
 // GroupCmp compares two resources and decides if they're suitable for grouping

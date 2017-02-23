@@ -69,11 +69,11 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 	switch program {
 	case "dot", "neato", "twopi", "circo", "fdp":
 	default:
-		return fmt.Errorf("Invalid graphviz program selected!")
+		return fmt.Errorf("invalid graphviz program selected")
 	}
 
 	if filename == "" {
-		return fmt.Errorf("No filename given!")
+		return fmt.Errorf("no filename given")
 	}
 
 	// run as a normal user if possible when run with sudo
@@ -82,18 +82,18 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 
 	err := ioutil.WriteFile(filename, []byte(g.Graphviz()), 0644)
 	if err != nil {
-		return fmt.Errorf("Error writing to filename!")
+		return fmt.Errorf("error writing to filename")
 	}
 
 	if err1 == nil && err2 == nil {
 		if err := os.Chown(filename, uid, gid); err != nil {
-			return fmt.Errorf("Error changing file owner!")
+			return fmt.Errorf("error changing file owner")
 		}
 	}
 
 	path, err := exec.LookPath(program)
 	if err != nil {
-		return fmt.Errorf("Graphviz is missing!")
+		return fmt.Errorf("the Graphviz program is missing")
 	}
 
 	out := fmt.Sprintf("%s.png", filename)
@@ -108,7 +108,7 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 	}
 	_, err = cmd.Output()
 	if err != nil {
-		return fmt.Errorf("Error writing to image!")
+		return fmt.Errorf("error writing to image")
 	}
 	return nil
 }

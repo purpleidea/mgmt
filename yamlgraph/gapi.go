@@ -49,10 +49,10 @@ func NewGAPI(data gapi.Data, file *string) (*GAPI, error) {
 // Init initializes the yamlgraph GAPI struct.
 func (obj *GAPI) Init(data gapi.Data) error {
 	if obj.initialized {
-		return fmt.Errorf("Already initialized!")
+		return fmt.Errorf("already initialized")
 	}
 	if obj.File == nil {
-		return fmt.Errorf("The File param must be specified!")
+		return fmt.Errorf("the File param must be specified")
 	}
 	obj.data = data // store for later
 	obj.closeChan = make(chan struct{})

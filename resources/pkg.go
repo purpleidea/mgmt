@@ -58,7 +58,7 @@ func (obj *PkgRes) Default() Res {
 // Validate checks if the resource data structure was populated correctly.
 func (obj *PkgRes) Validate() error {
 	if obj.State == "" {
-		return fmt.Errorf("State cannot be empty!")
+		return fmt.Errorf("state cannot be empty")
 	}
 
 	return obj.BaseRes.Validate()
@@ -73,25 +73,25 @@ func (obj *PkgRes) Init() error {
 
 	bus := packagekit.NewBus()
 	if bus == nil {
-		return fmt.Errorf("Can't connect to PackageKit bus.")
+		return fmt.Errorf("can't connect to PackageKit bus")
 	}
 	defer bus.Close()
 
 	result, err := obj.pkgMappingHelper(bus)
 	if err != nil {
-		return errwrap.Wrapf(err, "The pkgMappingHelper failed")
+		return errwrap.Wrapf(err, "the pkgMappingHelper failed")
 	}
 
 	data, ok := result[obj.Name] // lookup single package (init does just one)
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
-		return fmt.Errorf("Can't find package named '%s'.", obj.Name)
+		return fmt.Errorf("can't find package named '%s'", obj.Name)
 	}
 
 	packageIDs := []string{data.PackageID} // just one for now
 	filesMap, err := bus.GetFilesByPackageID(packageIDs)
 	if err != nil {
-		return errwrap.Wrapf(err, "Can't run GetFilesByPackageID")
+		return errwrap.Wrapf(err, "can't run GetFilesByPackageID")
 	}
 	if files, ok := filesMap[data.PackageID]; ok {
 		obj.fileList = util.DirifyFileList(files, false)
@@ -106,13 +106,13 @@ func (obj *PkgRes) Init() error {
 func (obj *PkgRes) Watch() error {
 	bus := packagekit.NewBus()
 	if bus == nil {
-		return fmt.Errorf("Can't connect to PackageKit bus.")
+		return fmt.Errorf("can't connect to PackageKit bus")
 	}
 	defer bus.Close()
 
 	ch, err := bus.WatchChanges()
 	if err != nil {
-		return errwrap.Wrapf(err, "Error adding signal match")
+		return errwrap.Wrapf(err, "error adding signal match")
 	}
 
 	// notify engine that we're running
@@ -189,7 +189,7 @@ func (obj *PkgRes) groupMappingHelper() map[string]string {
 		for _, x := range g {
 			pkg, ok := x.(*PkgRes) // convert from Res
 			if !ok {
-				log.Fatalf("Grouped member %v is not a %s", x, obj.Kind())
+				log.Fatalf("grouped member %v is not a %s", x, obj.Kind())
 			}
 			result[pkg.Name] = pkg.State
 		}
@@ -229,13 +229,13 @@ func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 	bus := packagekit.NewBus()
 	if bus == nil {
-		return false, fmt.Errorf("Can't connect to PackageKit bus.")
+		return false, fmt.Errorf("can't connect to PackageKit bus")
 	}
 	defer bus.Close()
 
 	result, err := obj.pkgMappingHelper(bus)
 	if err != nil {
-		return false, errwrap.Wrapf(err, "The pkgMappingHelper failed")
+		return false, errwrap.Wrapf(err, "the pkgMappingHelper failed")
 	}
 
 	packageMap := obj.groupMappingHelper() // map[string]string
@@ -248,7 +248,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
 	// eventually we might be able to drop this constraint!
 	states, err := packagekit.FilterState(result, packageList, obj.State)
 	if err != nil {
-		return false, errwrap.Wrapf(err, "The FilterState method failed")
+		return false, errwrap.Wrapf(err, "the FilterState method failed")
 	}
 	data, _ := result[obj.Name] // if above didn't error, we won't either!
 	validState := util.BoolMapTrue(util.BoolMapValues(states))
@@ -340,7 +340,7 @@ type PkgResAutoEdges struct {
 // Next returns the next automatic edge.
 func (obj *PkgResAutoEdges) Next() []ResUID {
 	if obj.testIsNext {
-		log.Fatal("Expecting a call to Test()")
+		log.Fatal("expecting a call to Test()")
 	}
 	obj.testIsNext = true // set after all the errors paths are past
 
@@ -368,13 +368,13 @@ func (obj *PkgResAutoEdges) Next() []ResUID {
 // Test gets results of the earlier Next() call, & returns if we should continue!
 func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	if !obj.testIsNext {
-		log.Fatal("Expecting a call to Next()")
+		log.Fatal("expecting a call to Next()")
 	}
 
 	// ack the svcUID's...
 	if x := obj.svcUIDs; len(x) > 0 {
 		if y := len(x); y != len(input) {
-			log.Fatalf("Expecting %d value(s)!", y)
+			log.Fatalf("expecting %d value(s)", y)
 		}
 		obj.svcUIDs = []ResUID{} // empty
 		obj.testIsNext = false
@@ -383,7 +383,7 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 
 	count := len(obj.fileList)
 	if count != len(input) {
-		log.Fatalf("Expecting %d value(s)!", count)
+		log.Fatalf("expecting %d value(s)", count)
 	}
 	obj.testIsNext = false // set after all the errors paths are past
 

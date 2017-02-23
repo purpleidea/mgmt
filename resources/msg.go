@@ -64,10 +64,10 @@ func (obj *MsgRes) Validate() error {
 	invalidCharacters := regexp.MustCompile("[^a-zA-Z0-9_]")
 	for field := range obj.Fields {
 		if invalidCharacters.FindString(field) != "" {
-			return fmt.Errorf("Invalid character in field %s.", field)
+			return fmt.Errorf("invalid character in field %s", field)
 		}
 		if strings.HasPrefix(field, "_") {
-			return fmt.Errorf("Fields cannot begin with _.")
+			return fmt.Errorf("fields cannot begin with _")
 		}
 	}
 	return obj.BaseRes.Validate()

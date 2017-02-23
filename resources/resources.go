@@ -144,11 +144,11 @@ type Base interface {
 	Setup()
 	Reset()
 	Converger() converger.Converger
-	ConvergerUIDs() (converger.ConvergerUID, converger.ConvergerUID, converger.ConvergerUID)
+	ConvergerUIDs() (converger.UID, converger.UID, converger.UID)
 	GetState() ResState
 	SetState(ResState)
 	Event() error
-	SendEvent(event.EventName, error) error
+	SendEvent(event.Kind, error) error
 	ReadEvent(*event.Event) (*error, bool)
 	Refresh() bool                         // is there a pending refresh to run?
 	SetRefresh(bool)                       // set the refresh state of this resource
@@ -206,9 +206,9 @@ type BaseRes struct {
 	processChan chan *event.Event
 
 	converger converger.Converger // converged tracking
-	cuid      converger.ConvergerUID
-	wcuid     converger.ConvergerUID
-	pcuid     converger.ConvergerUID
+	cuid      converger.UID
+	wcuid     converger.UID
+	pcuid     converger.UID
 
 	started   chan struct{} // closed when worker is started/running
 	stopped   chan struct{} // closed when worker is stopped/exited
@@ -308,7 +308,7 @@ func (obj *BaseRes) Init() error {
 		log.Printf("%s[%s]: Init()", obj.Kind(), obj.GetName())
 	}
 	if obj.kind == "" {
-		return fmt.Errorf("Resource did not set kind!")
+		return fmt.Errorf("resource did not set kind")
 	}
 
 	obj.cuid = obj.converger.Register()
@@ -337,7 +337,7 @@ func (obj *BaseRes) Init() error {
 
 	//dir, err := obj.VarDir("")
 	//if err != nil {
-	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
+	//	return errwrap.Wrapf(err, "the VarDir failed in Init()")
 	//}
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
@@ -438,7 +438,7 @@ func (obj *BaseRes) Converger() converger.Converger {
 // ConvergerUIDs returns the ConvergerUIDs for the resource. This is called by
 // the various methods that need one of these ConvergerUIDs. They are registered
 // by the Init method and unregistered on the resource Close.
-func (obj *BaseRes) ConvergerUIDs() (cuid converger.ConvergerUID, wcuid converger.ConvergerUID, pcuid converger.ConvergerUID) {
+func (obj *BaseRes) ConvergerUIDs() (cuid, wcuid, pcuid converger.UID) {
 	return obj.cuid, obj.wcuid, obj.pcuid
 }
 
@@ -479,10 +479,10 @@ func (obj *BaseRes) GroupCmp(res Res) bool {
 // GroupRes groups resource (arg) into self.
 func (obj *BaseRes) GroupRes(res Res) error {
 	if l := len(res.GetGroup()); l > 0 {
-		return fmt.Errorf("Res: %v already contains %d grouped resources!", res, l)
+		return fmt.Errorf("the %v resource already contains %d grouped resources", res, l)
 	}
 	if res.IsGrouped() {
-		return fmt.Errorf("Res: %v is already grouped!", res)
+		return fmt.Errorf("the %v resource is already grouped", res)
 	}
 
 	obj.grouped = append(obj.grouped, res)
@@ -556,20 +556,20 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 	// Using extra adds additional dirs onto our namespace. An empty extra
 	// adds no additional directories.
 	if obj.prefix == "" {
-		return "", fmt.Errorf("VarDir prefix is empty!")
+		return "", fmt.Errorf("the VarDir prefix is empty")
 	}
 	if obj.Kind() == "" {
-		return "", fmt.Errorf("VarDir kind is empty!")
+		return "", fmt.Errorf("the VarDir kind is empty")
 	}
 	if obj.GetName() == "" {
-		return "", fmt.Errorf("VarDir name is empty!")
+		return "", fmt.Errorf("the VarDir name is empty")
 	}
 
 	// FIXME: is obj.GetName() sufficiently unique to use as a UID here?
 	uid := obj.GetName()
 	p := fmt.Sprintf("%s/", path.Join(obj.prefix, obj.Kind(), uid, extra))
 	if err := os.MkdirAll(p, 0770); err != nil {
-		return "", errwrap.Wrapf(err, "Can't create prefix for %s[%s]", obj.Kind(), obj.GetName())
+		return "", errwrap.Wrapf(err, "can't create prefix for %s[%s]", obj.Kind(), obj.GetName())
 	}
 	return p, nil
 }

@@ -77,19 +77,19 @@ func (obj *FileRes) Default() Res {
 // Validate reports any problems with the struct definition.
 func (obj *FileRes) Validate() error {
 	if obj.Dirname != "" && !strings.HasSuffix(obj.Dirname, "/") {
-		return fmt.Errorf("Dirname must end with a slash.")
+		return fmt.Errorf("dirname must end with a slash")
 	}
 
 	if strings.HasPrefix(obj.Basename, "/") {
-		return fmt.Errorf("Basename must not start with a slash.")
+		return fmt.Errorf("basename must not start with a slash")
 	}
 
 	if obj.Content != nil && obj.Source != "" {
-		return fmt.Errorf("Can't specify both Content and Source.")
+		return fmt.Errorf("can't specify both Content and Source")
 	}
 
 	if obj.isDir && obj.Content != nil { // makes no sense
-		return fmt.Errorf("Can't specify Content when creating a Dir.")
+		return fmt.Errorf("can't specify Content when creating a Dir")
 	}
 
 	if obj.Mode != "" {
@@ -138,7 +138,7 @@ func (obj *FileRes) uid() (int, error) {
 		return strconv.Atoi(u.Uid)
 	}
 
-	return -1, errwrap.Wrapf(err, "Owner lookup error (%s)", obj.Owner)
+	return -1, errwrap.Wrapf(err, "owner lookup error (%s)", obj.Owner)
 }
 
 // Init runs some startup code for this resource.
@@ -207,7 +207,7 @@ func (obj *FileRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
 			}
 			if obj.debug { // don't access event.Body if event.Error isn't nil
 				log.Printf("%s[%s]: Event(%s): %v", obj.Kind(), obj.GetName(), event.Body.Name, event.Body.Op)
@@ -251,7 +251,7 @@ type FileInfo struct {
 // ReadDir reads a directory path, and returns a list of enhanced FileInfo's.
 func ReadDir(path string) ([]FileInfo, error) {
 	if !strings.HasSuffix(path, "/") { // dirs have trailing slashes
-		return nil, fmt.Errorf("Path must be a directory.")
+		return nil, fmt.Errorf("path must be a directory")
 	}
 	output := []FileInfo{} // my file info
 	fileInfos, err := ioutil.ReadDir(path)
@@ -265,7 +265,7 @@ func ReadDir(path string) ([]FileInfo, error) {
 		abs := path + smartPath(fi)
 		rel, err := filepath.Rel(path, abs) // NOTE: calls Clean()
 		if err != nil {                     // shouldn't happen
-			return nil, errwrap.Wrapf(err, "ReadDir: Unhandled error")
+			return nil, errwrap.Wrapf(err, "unhandled error in ReadDir")
 		}
 		if fi.IsDir() {
 			rel += "/" // add a trailing slash for dirs
@@ -307,7 +307,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	srcFile, isFile := src.(*os.File)
 	_, isBytes := src.(*bytes.Reader) // supports seeking!
 	if !isFile && !isBytes {
-		return "", false, fmt.Errorf("Can't open src as either file or buffer!")
+		return "", false, fmt.Errorf("can't open src as either file or buffer")
 	}
 
 	var srcStat os.FileInfo
@@ -319,7 +319,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 		}
 		// TODO: deal with symlinks
 		if !srcStat.Mode().IsRegular() { // can't copy non-regular files or dirs
-			return "", false, fmt.Errorf("Non-regular src file: %s (%q)", srcStat.Name(), srcStat.Mode())
+			return "", false, fmt.Errorf("non-regular src file: %s (%q)", srcStat.Name(), srcStat.Mode())
 		}
 	}
 
@@ -343,12 +343,12 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 			return "", false, nil
 		}
 		if !obj.Force {
-			return "", false, fmt.Errorf("Can't force dir into file: %s", dst)
+			return "", false, fmt.Errorf("can't force dir into file: %s", dst)
 		}
 
 		cleanDst := path.Clean(dst)
 		if cleanDst == "" || cleanDst == "/" {
-			return "", false, fmt.Errorf("Don't want to remove root!") // safety
+			return "", false, fmt.Errorf("don't want to remove root") // safety
 		}
 		// FIXME: respect obj.Recurse here...
 		// there is a dir here, where we want a file...
@@ -360,7 +360,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 
 	} else if err == nil {
 		if !dstStat.Mode().IsRegular() {
-			return "", false, fmt.Errorf("Non-regular dst file: %s (%q)", dstStat.Name(), dstStat.Mode())
+			return "", false, fmt.Errorf("non-regular dst file: %s (%q)", dstStat.Name(), dstStat.Mode())
 		}
 		if isFile && os.SameFile(srcStat, dstStat) { // same inode, we're done!
 			return "", true, nil
@@ -485,7 +485,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		log.Printf("syncCheckApply: %s -> %s", src, dst)
 	}
 	if src == "" || dst == "" {
-		return false, fmt.Errorf("The src and dst must not be empty!")
+		return false, fmt.Errorf("the src and dst must not be empty")
 	}
 
 	var checkOK = true
@@ -495,7 +495,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	dstIsDir := strings.HasSuffix(dst, "/")
 
 	if srcIsDir != dstIsDir {
-		return false, fmt.Errorf("The src and dst must be both either files or directories.")
+		return false, fmt.Errorf("the src and dst must be both either files or directories")
 	}
 
 	if !srcIsDir && !dstIsDir {
@@ -548,10 +548,10 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 				if _, ok := smartDst[relPathFile]; ok {
 					absCleanDst := path.Clean(absDst)
 					if !obj.Force {
-						return false, fmt.Errorf("Can't force file into dir: %s", absCleanDst)
+						return false, fmt.Errorf("can't force file into dir: %s", absCleanDst)
 					}
 					if absCleanDst == "" || absCleanDst == "/" {
-						return false, fmt.Errorf("Don't want to remove root!") // safety
+						return false, fmt.Errorf("don't want to remove root") // safety
 					}
 					log.Printf("syncCheckApply: Removing (force): %s", absCleanDst)
 					if err := os.Remove(absCleanDst); err != nil {
@@ -596,7 +596,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		absDst := fileInfo.AbsPath // absolute path (should get removed)
 		absCleanDst := path.Clean(absDst)
 		if absCleanDst == "" || absCleanDst == "/" {
-			return false, fmt.Errorf("Don't want to remove root!") // safety
+			return false, fmt.Errorf("don't want to remove root") // safety
 		}
 
 		// FIXME: respect obj.Recurse here...
@@ -654,7 +654,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 
 		// apply portion
 		if obj.path == "" || obj.path == "/" {
-			return false, fmt.Errorf("Don't want to remove root!") // safety
+			return false, fmt.Errorf("don't want to remove root") // safety
 		}
 		log.Printf("contentCheckApply: Removing: %s", obj.path)
 		// FIXME: respect obj.Recurse here...

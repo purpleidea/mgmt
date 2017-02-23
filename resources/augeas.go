@@ -80,13 +80,13 @@ func (obj *AugeasRes) Default() Res {
 // Validate if the params passed in are valid data.
 func (obj *AugeasRes) Validate() error {
 	if !strings.HasPrefix(obj.File, "/") {
-		return fmt.Errorf("File should start with a slash.")
+		return fmt.Errorf("the File param should start with a slash")
 	}
 	if obj.Lens != "" && !strings.HasSuffix(obj.Lens, ".lns") {
-		return fmt.Errorf("Lens should have a .lns suffix.")
+		return fmt.Errorf("the Lens param should have a .lns suffix")
 	}
 	if (obj.Lens == "") != (obj.File == "") {
-		return fmt.Errorf("File and Lens must be specified together.")
+		return fmt.Errorf("the File and Lens params must be specified together")
 	}
 	return obj.BaseRes.Validate()
 }

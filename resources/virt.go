@@ -129,7 +129,7 @@ func (obj *VirtRes) Validate() error {
 func (obj *VirtRes) Init() error {
 	if !libvirtInitialized {
 		if err := libvirt.EventRegisterDefaultImpl(); err != nil {
-			return errwrap.Wrapf(err, "EventRegisterDefaultImpl failed")
+			return errwrap.Wrapf(err, "method EventRegisterDefaultImpl failed")
 		}
 		libvirtInitialized = true
 	}
@@ -399,11 +399,11 @@ func (obj *VirtRes) Watch() error {
 				}
 
 			} else {
-				return fmt.Errorf("Unknown %s[%s] guest agent state: %v", obj.Kind(), obj.GetName(), state)
+				return fmt.Errorf("unknown %s[%s] guest agent state: %v", obj.Kind(), obj.GetName(), state)
 			}
 
 		case err := <-errorChan:
-			return fmt.Errorf("Unknown %s[%s] libvirt error: %s", obj.Kind(), obj.GetName(), err)
+			return fmt.Errorf("unknown %s[%s] libvirt error: %s", obj.Kind(), obj.GetName(), err)
 
 		case event := <-obj.Events():
 			if exit, send = obj.ReadEvent(event); exit != nil {
@@ -490,7 +490,7 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 		}
 		if domInfo.State == libvirt.DOMAIN_BLOCKED {
 			// TODO: what should happen?
-			return false, fmt.Errorf("Domain %s is blocked!", obj.GetName())
+			return false, fmt.Errorf("domain %s is blocked", obj.GetName())
 		}
 		if !apply {
 			return false, nil

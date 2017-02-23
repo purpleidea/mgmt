@@ -833,7 +833,7 @@ func FilterPackageIDs(m map[string]*PkPackageIDActionData, packages []string) ([
 		obj, ok := m[k] // lookup single package
 		// package doesn't exist, this is an error!
 		if !ok || !obj.Found || obj.PackageID == "" {
-			return nil, fmt.Errorf("Can't find package named '%s'.", k)
+			return nil, fmt.Errorf("can't find package named '%s'", k)
 		}
 		result = append(result, obj.PackageID)
 	}
@@ -848,7 +848,7 @@ func FilterState(m map[string]*PkPackageIDActionData, packages []string, state s
 		obj, ok := m[k] // lookup single package
 		// package doesn't exist, this is an error!
 		if !ok || !obj.Found {
-			return nil, fmt.Errorf("Can't find package named '%s'.", k)
+			return nil, fmt.Errorf("can't find package named '%s'", k)
 		}
 		var b bool
 		if state == "installed" {
@@ -865,7 +865,7 @@ func FilterState(m map[string]*PkPackageIDActionData, packages []string, state s
 		result[k] = b // save
 	}
 	if len(pkgs) > 0 {
-		err = fmt.Errorf("Can't filter non-boolean state on: %v!", strings.Join(pkgs, ","))
+		err = fmt.Errorf("can't filter non-boolean state on: %v", strings.Join(pkgs, ","))
 	}
 	return result, err
 }
@@ -877,7 +877,7 @@ func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, 
 		obj, ok := m[k] // lookup single package
 		// package doesn't exist, this is an error!
 		if !ok || !obj.Found {
-			return nil, fmt.Errorf("Can't find package named '%s'.", k)
+			return nil, fmt.Errorf("can't find package named '%s'", k)
 		}
 		b := false
 		if state == "installed" && obj.Installed {

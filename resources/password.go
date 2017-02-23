@@ -144,11 +144,11 @@ func (obj *PasswordRes) check(value string) error {
 		return nil
 	}
 	if !obj.Saved && length != 0 { // should have no stored password
-		return fmt.Errorf("Expected empty token only!")
+		return fmt.Errorf("expected empty token only")
 	}
 
 	if length != obj.Length {
-		return fmt.Errorf("String length is not %d", obj.Length)
+		return fmt.Errorf("string length is not %d", obj.Length)
 	}
 Loop:
 	for i := uint16(0); i < length; i++ {
@@ -158,7 +158,7 @@ Loop:
 			}
 		}
 		// we couldn't find that character, so error!
-		return fmt.Errorf("Invalid character `%s`", string(value[i]))
+		return fmt.Errorf("invalid character `%s`", string(value[i]))
 	}
 	return nil
 }
@@ -187,7 +187,7 @@ func (obj *PasswordRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
 			}
 			send = true
 			obj.StateOK(false) // dirty

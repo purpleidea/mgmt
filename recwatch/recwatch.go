@@ -137,7 +137,7 @@ func (obj *RecWatcher) Events() chan Event { return obj.events }
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *RecWatcher) Watch() error {
 	if obj.watcher == nil {
-		return fmt.Errorf("Watcher is not initialized!")
+		return fmt.Errorf("the watcher is not initialized")
 	}
 
 	patharray := util.PathSplit(obj.safename) // tokenize the path
@@ -170,11 +170,11 @@ func (obj *RecWatcher) Watch() error {
 				// no space left on device, out of inotify watches
 				// TODO: consider letting the user fall back to
 				// polling if they hit this error very often...
-				return fmt.Errorf("Out of inotify watches: %v", err)
+				return fmt.Errorf("out of inotify watches: %v", err)
 			} else if os.IsPermission(err) {
-				return fmt.Errorf("Permission denied adding a watch: %v", err)
+				return fmt.Errorf("permission denied adding a watch: %v", err)
 			}
-			return fmt.Errorf("Unknown error: %v", err)
+			return fmt.Errorf("unknown error: %v", err)
 		}
 
 		select {
@@ -289,7 +289,7 @@ func (obj *RecWatcher) Watch() error {
 			}
 
 		case err := <-obj.watcher.Errors:
-			return fmt.Errorf("Unknown watcher error: %v", err)
+			return fmt.Errorf("unknown watcher error: %v", err)
 
 		case <-obj.exit:
 			return nil

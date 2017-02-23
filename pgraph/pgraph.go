@@ -493,7 +493,7 @@ func (g *Graph) TopologicalSort() ([]*Vertex, error) { // kahn's algorithm
 		if in > 0 {
 			for n := range g.Adjacency[c] {
 				if remaining[n] > 0 {
-					return nil, fmt.Errorf("Not a dag!")
+					return nil, fmt.Errorf("not a dag")
 				}
 			}
 		}
@@ -607,7 +607,7 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 			vertex2, exists2 := lookup[v2]
 			if !exists1 || !exists2 { // no match found, bug?
 				//if vertex1 == nil || vertex2 == nil { // no match found
-				return nil, fmt.Errorf("New vertices weren't found!") // programming error
+				return nil, fmt.Errorf("new vertices weren't found") // programming error
 			}
 
 			edge, exists := oldGraph.Adjacency[vertex1][vertex2]

@@ -61,12 +61,12 @@ func (obj *ExecRes) Default() Res {
 // Validate if the params passed in are valid data.
 func (obj *ExecRes) Validate() error {
 	if obj.Cmd == "" { // this is the only thing that is really required
-		return fmt.Errorf("Command can't be empty!")
+		return fmt.Errorf("command can't be empty")
 	}
 
 	// if we have a watch command, then we don't poll with the if command!
 	if obj.WatchCmd != "" && obj.PollInt > 0 {
-		return fmt.Errorf("Don't poll when we have a watch command.")
+		return fmt.Errorf("don't poll when we have a watch command")
 	}
 
 	return obj.BaseRes.Validate()
@@ -122,7 +122,7 @@ func (obj *ExecRes) Watch() error {
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
-			return errwrap.Wrapf(err, "Error creating StdoutPipe for Cmd")
+			return errwrap.Wrapf(err, "error creating StdoutPipe for Cmd")
 		}
 		scanner := bufio.NewScanner(cmdReader)
 
@@ -133,7 +133,7 @@ func (obj *ExecRes) Watch() error {
 			cmd.Process.Kill() // TODO: is this necessary?
 		}()
 		if err := cmd.Start(); err != nil {
-			return errwrap.Wrapf(err, "Error starting Cmd")
+			return errwrap.Wrapf(err, "error starting Cmd")
 		}
 
 		bufioch, errch = obj.BufioChanScanner(scanner)
@@ -157,10 +157,10 @@ func (obj *ExecRes) Watch() error {
 			if err == nil { // EOF
 				// FIXME: add an "if watch command ends/crashes"
 				// restart or generate error option
-				return fmt.Errorf("Reached EOF")
+				return fmt.Errorf("reached EOF")
 			}
 			// error reading input?
-			return errwrap.Wrapf(err, "Unknown error")
+			return errwrap.Wrapf(err, "unknown error")
 
 		case event := <-obj.Events():
 			if exit, send = obj.ReadEvent(event); exit != nil {
@@ -256,7 +256,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 	cmd.Stdout = &out
 
 	if err := cmd.Start(); err != nil {
-		return false, errwrap.Wrapf(err, "Error starting Cmd")
+		return false, errwrap.Wrapf(err, "error starting Cmd")
 	}
 
 	timeout := obj.Timeout
@@ -269,13 +269,13 @@ func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 	select {
 	case err := <-done:
 		if err != nil {
-			e := errwrap.Wrapf(err, "Error waiting for Cmd")
+			e := errwrap.Wrapf(err, "error waiting for Cmd")
 			return false, e
 		}
 
 	case <-util.TimeAfterOrBlock(timeout):
 		//cmd.Process.Kill() // TODO: is this necessary?
-		return false, fmt.Errorf("Timeout waiting for Cmd!")
+		return false, fmt.Errorf("timeout waiting for Cmd")
 	}
 
 	// TODO: if we printed the stdout while the command is running, this

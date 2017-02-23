@@ -104,11 +104,11 @@ type Main struct {
 func (obj *Main) Init() error {
 
 	if obj.Program == "" || obj.Version == "" {
-		return fmt.Errorf("You must set the Program and Version strings!")
+		return fmt.Errorf("you must set the Program and Version strings")
 	}
 
 	if obj.Prefix != nil && obj.TmpPrefix {
-		return fmt.Errorf("Choosing a prefix and the request for a tmp prefix is illogical!")
+		return fmt.Errorf("choosing a prefix and the request for a tmp prefix is illogical")
 	}
 
 	obj.idealClusterSize = uint16(obj.IdealClusterSize)
@@ -117,7 +117,7 @@ func (obj *Main) Init() error {
 	}
 
 	if obj.idealClusterSize < 1 {
-		return fmt.Errorf("IdealClusterSize should be at least one!")
+		return fmt.Errorf("the IdealClusterSize should be at least one")
 	}
 
 	if obj.NoServer && len(obj.Remotes) > 0 {
@@ -125,19 +125,19 @@ func (obj *Main) Init() error {
 		// here, so if we're okay with every remote graph running in an
 		// isolated mode, then this is okay. Improve on this if there's
 		// someone who really wants to be able to do this.
-		return fmt.Errorf("The Server is required when using Remotes!")
+		return fmt.Errorf("the Server is required when using Remotes")
 	}
 
 	if obj.CConns < 0 {
-		return fmt.Errorf("The CConns value should be at least zero!")
+		return fmt.Errorf("the CConns value should be at least zero")
 	}
 
 	if obj.ConvergedTimeout >= 0 && obj.CConns > 0 && len(obj.Remotes) > int(obj.CConns) {
-		return fmt.Errorf("You can't converge if you have more remotes than available connections!")
+		return fmt.Errorf("you can't converge if you have more remotes than available connections")
 	}
 
 	if obj.Depth < 0 { // user should not be using this argument manually
-		return fmt.Errorf("Negative values for Depth are not permitted!")
+		return fmt.Errorf("negative values for Depth are not permitted")
 	}
 
 	// transform the url list inputs into etcd typed lists
@@ -146,19 +146,19 @@ func (obj *Main) Init() error {
 		util.FlattenListWithSplit(obj.Seeds, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.Seeds) > 0 {
-		return fmt.Errorf("Seeds didn't parse correctly!")
+		return fmt.Errorf("the Seeds didn't parse correctly")
 	}
 	obj.clientURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.ClientURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.ClientURLs) > 0 {
-		return fmt.Errorf("ClientURLs didn't parse correctly!")
+		return fmt.Errorf("the ClientURLs didn't parse correctly")
 	}
 	obj.serverURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.ServerURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.ServerURLs) > 0 {
-		return fmt.Errorf("ServerURLs didn't parse correctly!")
+		return fmt.Errorf("the ServerURLs didn't parse correctly")
 	}
 
 	obj.exit = make(chan error)
@@ -198,10 +198,10 @@ func (obj *Main) Run() error {
 	if h := obj.Hostname; h != nil && *h != "" { // override by cli
 		hostname = *h
 	} else if err != nil {
-		return errwrap.Wrapf(err, "Can't get default hostname!")
+		return errwrap.Wrapf(err, "can't get default hostname")
 	}
 	if hostname == "" { // safety check
-		return fmt.Errorf("Hostname cannot be empty!")
+		return fmt.Errorf("hostname cannot be empty")
 	}
 
 	var prefix = fmt.Sprintf("/var/lib/%s/", obj.Program) // default prefix
@@ -213,18 +213,18 @@ func (obj *Main) Run() error {
 		if obj.TmpPrefix || obj.AllowTmpPrefix {
 			var err error
 			if prefix, err = ioutil.TempDir("", obj.Program+"-"+hostname+"-"); err != nil {
-				return fmt.Errorf("Main: Error: Can't create temporary prefix!")
+				return fmt.Errorf("can't create temporary prefix")
 			}
 			log.Println("Main: Warning: Working prefix directory is temporary!")
 
 		} else {
-			return fmt.Errorf("Main: Error: Can't create prefix!")
+			return fmt.Errorf("can't create prefix")
 		}
 	}
 	log.Printf("Main: Working prefix is: %s", prefix)
 	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
 	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
-		return errwrap.Wrapf(err, "Can't create pgraph prefix")
+		return errwrap.Wrapf(err, "can't create pgraph prefix")
 	}
 
 	var prom *prometheus.Prometheus
@@ -233,19 +233,19 @@ func (obj *Main) Run() error {
 			Listen: obj.PrometheusListen,
 		}
 		if err := prom.Init(); err != nil {
-			return errwrap.Wrapf(err, "Can't create initiate Prometheus instance")
+			return errwrap.Wrapf(err, "can't create initiate Prometheus instance")
 		}
 
 		log.Printf("Main: Prometheus: Starting instance on %s", prom.Listen)
 		if err := prom.Start(); err != nil {
-			return errwrap.Wrapf(err, "Can't start initiate Prometheus instance")
+			return errwrap.Wrapf(err, "can't start initiate Prometheus instance")
 		}
 	}
 
 	if !obj.NoPgp {
 		pgpPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgp"))
 		if err := os.MkdirAll(pgpPrefix, 0770); err != nil {
-			return errwrap.Wrapf(err, "Can't create pgp prefix")
+			return errwrap.Wrapf(err, "can't create pgp prefix")
 		}
 
 		pgpKeyringPath := path.Join(pgpPrefix, pgp.DefaultKeyringFile) // default path
@@ -256,7 +256,7 @@ func (obj *Main) Run() error {
 
 		var err error
 		if obj.pgpKeys, err = pgp.Import(pgpKeyringPath); err != nil && !os.IsNotExist(err) {
-			return errwrap.Wrapf(err, "Can't import pgp key")
+			return errwrap.Wrapf(err, "can't import pgp key")
 		}
 
 		if obj.pgpKeys == nil {
@@ -268,17 +268,17 @@ func (obj *Main) Run() error {
 
 			name, comment, email, err := pgp.ParseIdentity(identity)
 			if err != nil {
-				return errwrap.Wrapf(err, "Can't parse user string")
+				return errwrap.Wrapf(err, "can't parse user string")
 
 			}
 
 			// TODO: Make hash configurable
 			if obj.pgpKeys, err = pgp.Generate(name, comment, email, nil); err != nil {
-				return errwrap.Wrapf(err, "Can't creating pgp key")
+				return errwrap.Wrapf(err, "can't create pgp key")
 			}
 
 			if err := obj.pgpKeys.SaveKey(pgpKeyringPath); err != nil {
-				return errwrap.Wrapf(err, "Can't save pgp key")
+				return errwrap.Wrapf(err, "can't save pgp key")
 			}
 		}
 
@@ -325,7 +325,7 @@ func (obj *Main) Run() error {
 	)
 	if EmbdEtcd == nil {
 		// TODO: verify EmbdEtcd is not nil below...
-		obj.Exit(fmt.Errorf("Main: Etcd: Creation failed!"))
+		obj.Exit(fmt.Errorf("Main: Etcd: Creation failed"))
 	} else if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
 		obj.Exit(fmt.Errorf("Main: Etcd: Startup failed: %v", err))
 	}
@@ -550,14 +550,14 @@ func (obj *Main) Run() error {
 
 	if obj.GAPI != nil {
 		if err := obj.GAPI.Close(); err != nil {
-			err = errwrap.Wrapf(err, "GAPI closed poorly!")
+			err = errwrap.Wrapf(err, "the GAPI closed poorly")
 			reterr = multierr.Append(reterr, err) // list of errors
 		}
 	}
 
 	configWatcher.Close()                  // stop sending file changes to remotes
 	if err := remotes.Exit(); err != nil { // tell all the remote connections to shutdown; waits!
-		err = errwrap.Wrapf(err, "Remote exited poorly!")
+		err = errwrap.Wrapf(err, "the Remote exited poorly")
 		reterr = multierr.Append(reterr, err) // list of errors
 	}
 
@@ -568,14 +568,14 @@ func (obj *Main) Run() error {
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
-		err = errwrap.Wrapf(err, "Etcd exited poorly!")
+		err = errwrap.Wrapf(err, "embedded Etcd exited poorly")
 		reterr = multierr.Append(reterr, err) // list of errors
 	}
 
 	if obj.Prometheus {
 		log.Printf("Main: Prometheus: Stopping instance")
 		if err := prom.Stop(); err != nil {
-			err = errwrap.Wrapf(err, "Prometheus instance exited poorly!")
+			err = errwrap.Wrapf(err, "the Prometheus instance exited poorly")
 			reterr = multierr.Append(reterr, err)
 		}
 	}

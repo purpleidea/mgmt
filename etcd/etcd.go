@@ -93,7 +93,7 @@ const (
 )
 
 var (
-	errApplyDeltaEventsInconsistent = errors.New("Etcd: ApplyDeltaEvents: Inconsistent key!")
+	errApplyDeltaEventsInconsistent = errors.New("inconsistent key in ApplyDeltaEvents")
 )
 
 // AW is a struct for the AddWatcher queue
@@ -579,7 +579,7 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 		log.Fatal("Etcd: CtxError: Error: Unexpected lack of error!")
 	}
 	if obj.exiting {
-		obj.ctxErr = fmt.Errorf("Etcd: CtxError: Exit in progress!")
+		obj.ctxErr = fmt.Errorf("exit in progress")
 		return ctx, obj.ctxErr
 	}
 
@@ -600,14 +600,14 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 	if retriesErr, ok := err.(*CtxRetriesErr); ok { // custom retry error
 		log.Printf("Etcd: CtxError: Reason: %s", retriesErr.Error())
 		if retriesErr.Retries == 0 {
-			obj.ctxErr = fmt.Errorf("Etcd: CtxError: CtxRetriesErr: No more retries!")
+			obj.ctxErr = fmt.Errorf("no more retries due to CtxRetriesErr")
 			return ctx, obj.ctxErr
 		}
 		return ctx, nil
 	}
 
 	if permanentErr, ok := err.(*CtxPermanentErr); ok { // custom permanent error
-		obj.ctxErr = fmt.Errorf("Etcd: CtxError: Reason: %s", permanentErr.Error())
+		obj.ctxErr = fmt.Errorf("error due to CtxPermanentErr: %s", permanentErr.Error())
 		return ctx, obj.ctxErr // quit
 	}
 
@@ -627,7 +627,7 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 	}
 
 	if err == grpc.ErrClientConnTimeout { // sometimes caused by "too many colons" misconfiguration
-		return ctx, fmt.Errorf("Etcd: Error: Misconfiguration: %v", err) // permanent failure?
+		return ctx, fmt.Errorf("misconfiguration: %v", err) // permanent failure?
 	}
 
 	// this can happen if my client connection shuts down, but without any
@@ -671,7 +671,7 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 		log.Printf("Etcd: CtxError: Reconnecting...")
 		if err := obj.Connect(true); err != nil {
 			defer obj.rLock.Unlock()
-			obj.ctxErr = fmt.Errorf("Etcd: Permanent connect error: %v", err)
+			obj.ctxErr = fmt.Errorf("permanent connect error: %v", err)
 			return ctx, obj.ctxErr
 		}
 		if obj.flags.Debug {
@@ -695,7 +695,7 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 	// if you hit this code path here, please report the unmatched error!
 	log.Printf("Etcd: CtxError: Unknown error(%T): %+v", err, err)
 	time.Sleep(1 * time.Second)
-	obj.ctxErr = fmt.Errorf("Etcd: CtxError: Unknown error!")
+	obj.ctxErr = fmt.Errorf("unknown CtxError")
 	return ctx, obj.ctxErr
 }
 
@@ -1672,16 +1672,16 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	case <-obj.server.Server.ReadyNotify(): // we hang here if things are bad
 		log.Printf("Etcd: StartServer: Done starting server!") // it didn't hang!
 	case <-time.After(time.Duration(maxStartServerTimeout) * time.Second):
-		e := fmt.Errorf("Etcd: StartServer: Timeout of %d seconds reached!", maxStartServerTimeout)
-		log.Printf(e.Error())
+		e := fmt.Errorf("timeout of %d seconds reached", maxStartServerTimeout)
+		log.Printf("Etcd: StartServer: %s", e.Error())
 		obj.server.Server.Stop() // trigger a shutdown
 		obj.serverwg.Add(1)      // add for the DestroyServer()
 		obj.DestroyServer()
 		return e
 	// TODO: should we wait for this notification elsewhere?
 	case <-obj.server.Server.StopNotify(): // it's going down now...
-		e := fmt.Errorf("Etcd: StartServer: Received stop notification.")
-		log.Printf(e.Error())
+		e := fmt.Errorf("received stop notification")
+		log.Printf("Etcd: StartServer: %s", e.Error())
 		obj.server.Server.Stop() // trigger a shutdown
 		obj.serverwg.Add(1)      // add for the DestroyServer()
 		obj.DestroyServer()
@@ -1734,7 +1734,7 @@ func Nominate(obj *EmbdEtcd, hostname string, urls etcdtypes.URLs) error {
 	}
 
 	if _, err := obj.Txn(nil, ops, nil); err != nil {
-		return fmt.Errorf("Etcd: Nominate failed!") // exit in progress?
+		return fmt.Errorf("nominate failed") // exit in progress?
 	}
 	return nil
 }
@@ -1745,7 +1745,7 @@ func Nominated(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 	path := fmt.Sprintf("/%s/nominated/", NS)
 	keyMap, err := obj.Get(path, etcd.WithPrefix()) // map[string]string, bool
 	if err != nil {
-		return nil, fmt.Errorf("Etcd: Nominated isn't available: %v", err)
+		return nil, fmt.Errorf("nominated isn't available: %v", err)
 	}
 	nominated := make(etcdtypes.URLsMap)
 	for key, val := range keyMap { // loop through directory of nominated
@@ -1758,7 +1758,7 @@ func Nominated(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 		}
 		urls, err := etcdtypes.NewURLs(strings.Split(val, ","))
 		if err != nil {
-			return nil, fmt.Errorf("Etcd: Nominated: Data format error!: %v", err)
+			return nil, fmt.Errorf("nominated data format error: %v", err)
 		}
 		nominated[name] = urls // add to map
 		if obj.flags.Debug {
@@ -1786,7 +1786,7 @@ func Volunteer(obj *EmbdEtcd, urls etcdtypes.URLs) error {
 	}
 
 	if _, err := obj.Txn(nil, ops, nil); err != nil {
-		return fmt.Errorf("Etcd: Volunteering failed!") // exit in progress?
+		return fmt.Errorf("volunteering failed") // exit in progress?
 	}
 	return nil
 }
@@ -1800,7 +1800,7 @@ func Volunteers(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 	path := fmt.Sprintf("/%s/volunteers/", NS)
 	keyMap, err := obj.Get(path, etcd.WithPrefix())
 	if err != nil {
-		return nil, fmt.Errorf("Etcd: Volunteers aren't available: %v", err)
+		return nil, fmt.Errorf("volunteers aren't available: %v", err)
 	}
 	volunteers := make(etcdtypes.URLsMap)
 	for key, val := range keyMap { // loop through directory of volunteers
@@ -1813,7 +1813,7 @@ func Volunteers(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 		}
 		urls, err := etcdtypes.NewURLs(strings.Split(val, ","))
 		if err != nil {
-			return nil, fmt.Errorf("Etcd: Volunteers: Data format error!: %v", err)
+			return nil, fmt.Errorf("volunteers data format error: %v", err)
 		}
 		volunteers[name] = urls // add to map
 		if obj.flags.Debug {
@@ -1841,7 +1841,7 @@ func AdvertiseEndpoints(obj *EmbdEtcd, urls etcdtypes.URLs) error {
 	}
 
 	if _, err := obj.Txn(nil, ops, nil); err != nil {
-		return fmt.Errorf("Etcd: Endpoint advertising failed!") // exit in progress?
+		return fmt.Errorf("endpoint advertising failed") // exit in progress?
 	}
 	return nil
 }
@@ -1855,7 +1855,7 @@ func Endpoints(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 	path := fmt.Sprintf("/%s/endpoints/", NS)
 	keyMap, err := obj.Get(path, etcd.WithPrefix())
 	if err != nil {
-		return nil, fmt.Errorf("Etcd: Endpoints aren't available: %v", err)
+		return nil, fmt.Errorf("endpoints aren't available: %v", err)
 	}
 	endpoints := make(etcdtypes.URLsMap)
 	for key, val := range keyMap { // loop through directory of endpoints
@@ -1868,7 +1868,7 @@ func Endpoints(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 		}
 		urls, err := etcdtypes.NewURLs(strings.Split(val, ","))
 		if err != nil {
-			return nil, fmt.Errorf("Etcd: Endpoints: Data format error!: %v", err)
+			return nil, fmt.Errorf("endpoints data format error: %v", err)
 		}
 		endpoints[name] = urls // add to map
 		if obj.flags.Debug {
@@ -1887,7 +1887,7 @@ func SetHostnameConverged(obj *EmbdEtcd, hostname string, isConverged bool) erro
 	converged := fmt.Sprintf("/%s/converged/%s", NS, hostname)
 	op := []etcd.Op{etcd.OpPut(converged, fmt.Sprintf("%t", isConverged))}
 	if _, err := obj.Txn(nil, op, nil); err != nil { // TODO: do we need a skipConv flag here too?
-		return fmt.Errorf("Etcd: Set converged failed!") // exit in progress?
+		return fmt.Errorf("set converged failed") // exit in progress?
 	}
 	return nil
 }
@@ -1901,7 +1901,7 @@ func HostnameConverged(obj *EmbdEtcd) (map[string]bool, error) {
 	path := fmt.Sprintf("/%s/converged/", NS)
 	keyMap, err := obj.ComplexGet(path, true, etcd.WithPrefix()) // don't un-converge
 	if err != nil {
-		return nil, fmt.Errorf("Etcd: Converged values aren't available: %v", err)
+		return nil, fmt.Errorf("converged values aren't available: %v", err)
 	}
 	converged := make(map[string]bool)
 	for key, val := range keyMap { // loop through directory...
@@ -1914,7 +1914,7 @@ func HostnameConverged(obj *EmbdEtcd) (map[string]bool, error) {
 		}
 		b, err := strconv.ParseBool(val)
 		if err != nil {
-			return nil, fmt.Errorf("Etcd: Converged: Data format error!: %v", err)
+			return nil, fmt.Errorf("converged data format error: %v", err)
 		}
 		converged[name] = b // add to map
 	}
@@ -1946,7 +1946,7 @@ func SetClusterSize(obj *EmbdEtcd, value uint16) error {
 	key := fmt.Sprintf("/%s/idealClusterSize", NS)
 
 	if err := obj.Set(key, strconv.FormatUint(uint64(value), 10)); err != nil {
-		return fmt.Errorf("Etcd: SetClusterSize failed!") // exit in progress?
+		return fmt.Errorf("function SetClusterSize failed: %v", err) // exit in progress?
 	}
 	return nil
 }
@@ -1956,17 +1956,17 @@ func GetClusterSize(obj *EmbdEtcd) (uint16, error) {
 	key := fmt.Sprintf("/%s/idealClusterSize", NS)
 	keyMap, err := obj.Get(key)
 	if err != nil {
-		return 0, fmt.Errorf("Etcd: GetClusterSize failed: %v", err)
+		return 0, fmt.Errorf("function GetClusterSize failed: %v", err)
 	}
 
 	val, exists := keyMap[key]
 	if !exists || val == "" {
-		return 0, fmt.Errorf("Etcd: GetClusterSize failed: %v", err)
+		return 0, fmt.Errorf("function GetClusterSize failed: %v", err)
 	}
 
 	v, err := strconv.ParseUint(val, 10, 16)
 	if err != nil {
-		return 0, fmt.Errorf("Etcd: GetClusterSize failed: %v", err)
+		return 0, fmt.Errorf("function GetClusterSize failed: %v", err)
 	}
 	return uint16(v), nil
 }
@@ -1979,7 +1979,7 @@ func MemberAdd(obj *EmbdEtcd, peerURLs etcdtypes.URLs) (*etcd.MemberAddResponse,
 	var err error
 	for {
 		if obj.exiting { // the exit signal has been sent!
-			return nil, fmt.Errorf("Exiting...")
+			return nil, fmt.Errorf("exiting etcd")
 		}
 		obj.rLock.RLock()
 		response, err = obj.client.MemberAdd(ctx, peerURLs.StringSlice())
@@ -2002,7 +2002,7 @@ func MemberRemove(obj *EmbdEtcd, mID uint64) (bool, error) {
 	ctx := context.Background()
 	for {
 		if obj.exiting { // the exit signal has been sent!
-			return false, fmt.Errorf("Exiting...")
+			return false, fmt.Errorf("exiting etcd")
 		}
 		obj.rLock.RLock()
 		_, err := obj.client.MemberRemove(ctx, mID)
@@ -2030,7 +2030,7 @@ func Members(obj *EmbdEtcd) (map[uint64]string, error) {
 	var err error
 	for {
 		if obj.exiting { // the exit signal has been sent!
-			return nil, fmt.Errorf("Exiting...")
+			return nil, fmt.Errorf("exiting etcd")
 		}
 		obj.rLock.RLock()
 		if obj.flags.Trace {
@@ -2064,7 +2064,7 @@ func Leader(obj *EmbdEtcd) (string, error) {
 	addresses := obj.LocalhostClientURLs() // heuristic, but probably correct
 	if len(addresses) == 0 {
 		// probably a programming error...
-		return "", fmt.Errorf("Etcd: Leader: Programming error!")
+		return "", fmt.Errorf("programming error")
 	}
 	endpoint := addresses[0].Host // FIXME: arbitrarily picked the first one
 
@@ -2073,7 +2073,7 @@ func Leader(obj *EmbdEtcd) (string, error) {
 	var response *etcd.StatusResponse
 	for {
 		if obj.exiting { // the exit signal has been sent!
-			return "", fmt.Errorf("Exiting...")
+			return "", fmt.Errorf("exiting etcd")
 		}
 
 		obj.rLock.RLock()
@@ -2093,7 +2093,7 @@ func Leader(obj *EmbdEtcd) (string, error) {
 			return name, nil
 		}
 	}
-	return "", fmt.Errorf("Etcd: Members map is not current!") // not found
+	return "", fmt.Errorf("members map is not current") // not found
 }
 
 // WatchAll returns a channel that outputs a true bool when activity occurs
@@ -2106,7 +2106,7 @@ func WatchAll(obj *EmbdEtcd) chan bool {
 		// TODO: is this even needed? it used to happen on conn errors
 		log.Printf("Etcd: Watch: Path: %v", path) // event
 		if re == nil || re.response.Canceled {
-			return fmt.Errorf("Etcd: Watch is empty!") // will cause a CtxError+retry
+			return fmt.Errorf("watch is empty") // will cause a CtxError+retry
 		}
 		// we normally need to check if anything changed since the last
 		// event, since a set (export) with no changes still causes the
@@ -2155,7 +2155,7 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", data)) // desired state
 			ops = append(ops, etcd.OpPut(path, data))
 		} else {
-			return fmt.Errorf("Etcd: SetResources: Error: Can't convert to B64: %v", err)
+			return fmt.Errorf("can't convert to B64: %v", err)
 		}
 	}
 
@@ -2208,7 +2208,7 @@ func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resourc
 	resourceList := []resources.Res{}
 	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {
-		return nil, fmt.Errorf("Etcd: GetResources: Error: Could not get resources: %v", err)
+		return nil, fmt.Errorf("could not get resources: %v", err)
 	}
 	for key, val := range keyMap {
 		if !strings.HasPrefix(key, path) { // sanity check
@@ -2217,14 +2217,14 @@ func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resourc
 
 		str := strings.Split(key[len(path):], "/")
 		if len(str) != 4 {
-			return nil, fmt.Errorf("Etcd: GetResources: Error: Unexpected chunk count!")
+			return nil, fmt.Errorf("unexpected chunk count")
 		}
 		hostname, r, kind, name := str[0], str[1], str[2], str[3]
 		if r != "resources" {
-			return nil, fmt.Errorf("Etcd: GetResources: Error: Unexpected chunk pattern!")
+			return nil, fmt.Errorf("unexpected chunk pattern")
 		}
 		if kind == "" {
-			return nil, fmt.Errorf("Etcd: GetResources: Error: Unexpected kind chunk!")
+			return nil, fmt.Errorf("unexpected kind chunk")
 		}
 
 		// FIXME: ideally this would be a server side filter instead!
@@ -2242,7 +2242,7 @@ func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resourc
 			log.Printf("Etcd: Get: (Hostname, Kind, Name): (%s, %s, %s)", hostname, kind, name)
 			resourceList = append(resourceList, obj)
 		} else {
-			return nil, fmt.Errorf("Etcd: GetResources: Error: Can't convert from B64: %v", err)
+			return nil, fmt.Errorf("can't convert from B64: %v", err)
 		}
 	}
 	return resourceList, nil
@@ -2270,11 +2270,11 @@ func ApplyDeltaEvents(re *RE, urlsmap etcdtypes.URLsMap) (etcdtypes.URLsMap, err
 		case etcd.EventTypePut:
 			val := bytes.NewBuffer(event.Kv.Value).String()
 			if val == "" {
-				return nil, fmt.Errorf("Etcd: ApplyDeltaEvents: Value is empty!")
+				return nil, fmt.Errorf("value in ApplyDeltaEvents is empty")
 			}
 			urls, err := etcdtypes.NewURLs(strings.Split(val, ","))
 			if err != nil {
-				return nil, fmt.Errorf("Etcd: ApplyDeltaEvents: Format error: %v", err)
+				return nil, fmt.Errorf("format error in ApplyDeltaEvents: %v", err)
 			}
 			urlsmap[key] = urls // add to map
 
@@ -2291,7 +2291,7 @@ func ApplyDeltaEvents(re *RE, urlsmap etcdtypes.URLsMap) (etcdtypes.URLsMap, err
 			delete(urlsmap, key)
 
 		default:
-			return nil, fmt.Errorf("Etcd: ApplyDeltaEvents: Error: Unknown event: %+v", event.Type)
+			return nil, fmt.Errorf("unknown event in ApplyDeltaEvents: %+v", event.Type)
 		}
 	}
 	return urlsmap, nil

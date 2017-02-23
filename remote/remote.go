@@ -698,16 +698,16 @@ type Remotes struct {
 	converger    cv.Converger
 	convergerCb  func(func(map[string]bool) error) (func(), error)
 
-	wg                 sync.WaitGroup             // keep track of each running SSH connection
-	lock               sync.Mutex                 // mutex for access to sshmap
-	sshmap             map[string]*SSH            // map to each SSH struct with the remote as the key
-	exiting            bool                       // flag to let us know if we're exiting
-	exitChan           chan struct{}              // closes when we should exit
-	semaphore          Semaphore                  // counting semaphore to limit concurrent connections
-	hostnames          []string                   // list of hostnames we've seen so far
-	cuid               cv.ConvergerUID            // convergerUID for the remote itself
-	cuids              map[string]cv.ConvergerUID // map to each SSH struct with the remote as the key
-	callbackCancelFunc func()                     // stored callback function cancel function
+	wg                 sync.WaitGroup    // keep track of each running SSH connection
+	lock               sync.Mutex        // mutex for access to sshmap
+	sshmap             map[string]*SSH   // map to each SSH struct with the remote as the key
+	exiting            bool              // flag to let us know if we're exiting
+	exitChan           chan struct{}     // closes when we should exit
+	semaphore          Semaphore         // counting semaphore to limit concurrent connections
+	hostnames          []string          // list of hostnames we've seen so far
+	cuid               cv.UID            // convergerUID for the remote itself
+	cuids              map[string]cv.UID // map to each SSH struct with the remote as the key
+	callbackCancelFunc func()            // stored callback function cancel function
 
 	flags Flags // constant runtime values
 }
@@ -732,7 +732,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		exitChan:     make(chan struct{}),
 		semaphore:    NewSemaphore(int(cConns)),
 		hostnames:    make([]string, len(remotes)),
-		cuids:        make(map[string]cv.ConvergerUID),
+		cuids:        make(map[string]cv.UID),
 		flags:        flags,
 	}
 }

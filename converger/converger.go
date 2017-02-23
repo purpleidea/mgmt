@@ -29,24 +29,24 @@ import (
 // TODO: we could make a new function that masks out the state of certain
 // UID's, but at the moment the new Timer code has obsoleted the need...
 
-// Converger is the general interface for implementing a convergence watcher
+// Converger is the general interface for implementing a convergence watcher.
 type Converger interface { // TODO: need a better name
-	Register() ConvergerUID
-	IsConverged(ConvergerUID) bool         // is the UID converged ?
-	SetConverged(ConvergerUID, bool) error // set the converged state of the UID
-	Unregister(ConvergerUID)
+	Register() UID
+	IsConverged(UID) bool         // is the UID converged ?
+	SetConverged(UID, bool) error // set the converged state of the UID
+	Unregister(UID)
 	Start()
 	Pause()
 	Loop(bool)
-	ConvergedTimer(ConvergerUID) <-chan time.Time
+	ConvergedTimer(UID) <-chan time.Time
 	Status() map[uint64]bool
 	Timeout() int                // returns the timeout that this was created with
 	SetStateFn(func(bool) error) // sets the stateFn
 }
 
-// ConvergerUID is the interface resources can use to notify with if converged
-// you'll need to use part of the Converger interface to Register initially too
-type ConvergerUID interface {
+// UID is the interface resources can use to notify with if converged. You'll
+// need to use part of the Converger interface to Register initially too.
+type UID interface {
 	ID() uint64   // get Id
 	Name() string // get a friendly name
 	SetName(string)
@@ -61,7 +61,7 @@ type ConvergerUID interface {
 	StopTimer() error
 }
 
-// converger is an implementation of the Converger interface
+// converger is an implementation of the Converger interface.
 type converger struct {
 	timeout   int              // must be zero (instant) or greater seconds to run
 	stateFn   func(bool) error // run on converged state changes with state bool
@@ -73,8 +73,8 @@ type converger struct {
 	status    map[uint64]bool
 }
 
-// convergerUID is an implementation of the ConvergerUID interface
-type convergerUID struct {
+// cuid is an implementation of the UID interface.
+type cuid struct {
 	converger Converger
 	id        uint64
 	name      string // user defined, friendly name
@@ -84,7 +84,7 @@ type convergerUID struct {
 	wg        sync.WaitGroup
 }
 
-// NewConverger builds a new converger struct
+// NewConverger builds a new converger struct.
 func NewConverger(timeout int, stateFn func(bool) error) *converger {
 	return &converger{
 		timeout: timeout,
@@ -96,13 +96,13 @@ func NewConverger(timeout int, stateFn func(bool) error) *converger {
 	}
 }
 
-// Register assigns a ConvergerUID to the caller
-func (obj *converger) Register() ConvergerUID {
+// Register assigns a UID to the caller.
+func (obj *converger) Register() UID {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 	obj.lastid++
 	obj.status[obj.lastid] = false // initialize as not converged
-	return &convergerUID{
+	return &cuid{
 		converger: obj,
 		id:        obj.lastid,
 		name:      fmt.Sprintf("%d", obj.lastid), // some default
@@ -111,28 +111,28 @@ func (obj *converger) Register() ConvergerUID {
 	}
 }
 
-// IsConverged gets the converged status of a uid
-func (obj *converger) IsConverged(uid ConvergerUID) bool {
+// IsConverged gets the converged status of a uid.
+func (obj *converger) IsConverged(uid UID) bool {
 	if !uid.IsValid() {
-		panic(fmt.Sprintf("Id of ConvergerUID(%s) is nil!", uid.Name()))
+		panic(fmt.Sprintf("the ID of UID(%s) is nil", uid.Name()))
 	}
 	obj.mutex.RLock()
 	isConverged, found := obj.status[uid.ID()] // lookup
 	obj.mutex.RUnlock()
 	if !found {
-		panic("Id of ConvergerUID is unregistered!")
+		panic("the ID of UID is unregistered")
 	}
 	return isConverged
 }
 
-// SetConverged updates the converger with the converged state of the UID
-func (obj *converger) SetConverged(uid ConvergerUID, isConverged bool) error {
+// SetConverged updates the converger with the converged state of the UID.
+func (obj *converger) SetConverged(uid UID, isConverged bool) error {
 	if !uid.IsValid() {
-		return fmt.Errorf("Id of ConvergerUID(%s) is nil!", uid.Name())
+		return fmt.Errorf("the ID of UID(%s) is nil", uid.Name())
 	}
 	obj.mutex.Lock()
 	if _, found := obj.status[uid.ID()]; !found {
-		panic("Id of ConvergerUID is unregistered!")
+		panic("the ID of UID is unregistered")
 	}
 	obj.status[uid.ID()] = isConverged // set
 	obj.mutex.Unlock()                 // unlock *before* poke or deadlock!
@@ -144,7 +144,7 @@ func (obj *converger) SetConverged(uid ConvergerUID, isConverged bool) error {
 	return nil
 }
 
-// isConverged returns true if *every* registered uid has converged
+// isConverged returns true if *every* registered uid has converged.
 func (obj *converger) isConverged() bool {
 	obj.mutex.RLock() // take a read lock
 	defer obj.mutex.RUnlock()
@@ -156,10 +156,10 @@ func (obj *converger) isConverged() bool {
 	return true
 }
 
-// Unregister dissociates the ConvergedUID from the converged checking
-func (obj *converger) Unregister(uid ConvergerUID) {
+// Unregister dissociates the ConvergedUID from the converged checking.
+func (obj *converger) Unregister(uid UID) {
 	if !uid.IsValid() {
-		panic(fmt.Sprintf("Id of ConvergerUID(%s) is nil!", uid.Name()))
+		panic(fmt.Sprintf("the ID of UID(%s) is nil", uid.Name()))
 	}
 	obj.mutex.Lock()
 	uid.StopTimer() // ignore any errors
@@ -168,30 +168,30 @@ func (obj *converger) Unregister(uid ConvergerUID) {
 	uid.InvalidateID()
 }
 
-// Start causes a Converger object to start or resume running
+// Start causes a Converger object to start or resume running.
 func (obj *converger) Start() {
 	obj.control <- true
 }
 
-// Pause causes a Converger object to stop running temporarily
+// Pause causes a Converger object to stop running temporarily.
 func (obj *converger) Pause() { // FIXME: add a sync ACK on pause before return
 	obj.control <- false
 }
 
-// Loop is the main loop for a Converger object; it usually runs in a goroutine
-// TODO: we could eventually have each resource tell us as soon as it converges
-// and then keep track of the time delays here, to avoid callers needing select
+// Loop is the main loop for a Converger object. It usually runs in a goroutine.
+// TODO: we could eventually have each resource tell us as soon as it converges,
+// and then keep track of the time delays here, to avoid callers needing select.
 // NOTE: when we have very short timeouts, if we start before all the resources
-// have joined the map, then it might appears as if we converged before we did!
+// have joined the map, then it might appear as if we converged before we did!
 func (obj *converger) Loop(startPaused bool) {
 	if obj.control == nil {
-		panic("Converger not initialized correctly")
+		panic("converger not initialized correctly")
 	}
 	if startPaused { // start paused without racing
 		select {
 		case e := <-obj.control:
 			if !e {
-				panic("Converger expected true!")
+				panic("converger expected true")
 			}
 		}
 	}
@@ -199,13 +199,13 @@ func (obj *converger) Loop(startPaused bool) {
 		select {
 		case e := <-obj.control: // expecting "false" which means pause!
 			if e {
-				panic("Converger expected false!")
+				panic("converger expected false")
 			}
 			// now i'm paused...
 			select {
 			case e := <-obj.control:
 				if !e {
-					panic("Converger expected true!")
+					panic("converger expected true")
 				}
 				// restart
 				// kick once to refresh the check...
@@ -244,9 +244,9 @@ func (obj *converger) Loop(startPaused bool) {
 	}
 }
 
-// ConvergedTimer adds a timeout to a select call and blocks until then
+// ConvergedTimer adds a timeout to a select call and blocks until then.
 // TODO: this means we could eventually have per resource converged timeouts
-func (obj *converger) ConvergedTimer(uid ConvergerUID) <-chan time.Time {
+func (obj *converger) ConvergedTimer(uid UID) <-chan time.Time {
 	// be clever: if i'm already converged, this timeout should block which
 	// avoids unnecessary new signals being sent! this avoids fast loops if
 	// we have a low timeout, or in particular a timeout == 0
@@ -280,60 +280,60 @@ func (obj *converger) SetStateFn(stateFn func(bool) error) {
 	obj.stateFn = stateFn
 }
 
-// Id returns the unique id of this UID object
-func (obj *convergerUID) ID() uint64 {
+// ID returns the unique id of this UID object.
+func (obj *cuid) ID() uint64 {
 	return obj.id
 }
 
-// Name returns a user defined name for the specific convergerUID.
-func (obj *convergerUID) Name() string {
+// Name returns a user defined name for the specific cuid.
+func (obj *cuid) Name() string {
 	return obj.name
 }
 
-// SetName sets a user defined name for the specific convergerUID.
-func (obj *convergerUID) SetName(name string) {
+// SetName sets a user defined name for the specific cuid.
+func (obj *cuid) SetName(name string) {
 	obj.name = name
 }
 
-// IsValid tells us if the id is valid or has already been destroyed
-func (obj *convergerUID) IsValid() bool {
+// IsValid tells us if the id is valid or has already been destroyed.
+func (obj *cuid) IsValid() bool {
 	return obj.id != 0 // an id of 0 is invalid
 }
 
-// InvalidateID marks the id as no longer valid
-func (obj *convergerUID) InvalidateID() {
+// InvalidateID marks the id as no longer valid.
+func (obj *cuid) InvalidateID() {
 	obj.id = 0 // an id of 0 is invalid
 }
 
-// IsConverged is a helper function to the regular IsConverged method
-func (obj *convergerUID) IsConverged() bool {
+// IsConverged is a helper function to the regular IsConverged method.
+func (obj *cuid) IsConverged() bool {
 	return obj.converger.IsConverged(obj)
 }
 
-// SetConverged is a helper function to the regular SetConverged notification
-func (obj *convergerUID) SetConverged(isConverged bool) error {
+// SetConverged is a helper function to the regular SetConverged notification.
+func (obj *cuid) SetConverged(isConverged bool) error {
 	return obj.converger.SetConverged(obj, isConverged)
 }
 
-// Unregister is a helper function to unregister myself
-func (obj *convergerUID) Unregister() {
+// Unregister is a helper function to unregister myself.
+func (obj *cuid) Unregister() {
 	obj.converger.Unregister(obj)
 }
 
-// ConvergedTimer is a helper around the regular ConvergedTimer method
-func (obj *convergerUID) ConvergedTimer() <-chan time.Time {
+// ConvergedTimer is a helper around the regular ConvergedTimer method.
+func (obj *cuid) ConvergedTimer() <-chan time.Time {
 	return obj.converger.ConvergedTimer(obj)
 }
 
 // StartTimer runs an invisible timer that automatically converges on timeout.
-func (obj *convergerUID) StartTimer() (func() error, error) {
+func (obj *cuid) StartTimer() (func() error, error) {
 	obj.mutex.Lock()
 	if !obj.running {
 		obj.timer = make(chan struct{})
 		obj.running = true
 	} else {
 		obj.mutex.Unlock()
-		return obj.StopTimer, fmt.Errorf("Timer already started!")
+		return obj.StopTimer, fmt.Errorf("timer already started")
 	}
 	obj.mutex.Unlock()
 	obj.wg.Add(1)
@@ -362,22 +362,22 @@ func (obj *convergerUID) StartTimer() (func() error, error) {
 }
 
 // ResetTimer resets the counter to zero if using a StartTimer internally.
-func (obj *convergerUID) ResetTimer() error {
+func (obj *cuid) ResetTimer() error {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 	if obj.running {
 		obj.timer <- struct{}{} // send the reset message
 		return nil
 	}
-	return fmt.Errorf("Timer hasn't been started!")
+	return fmt.Errorf("timer hasn't been started")
 }
 
 // StopTimer stops the running timer permanently until a StartTimer is run.
-func (obj *convergerUID) StopTimer() error {
+func (obj *cuid) StopTimer() error {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 	if !obj.running {
-		return fmt.Errorf("Timer isn't running!")
+		return fmt.Errorf("timer isn't running")
 	}
 	close(obj.timer)
 	obj.wg.Wait()

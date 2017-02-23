@@ -36,13 +36,13 @@ func (obj *BaseRes) Event() error {
 		obj.processLock.Unlock()
 		return fmt.Errorf("processChan is already closed")
 	}
-	obj.processChan <- &event.Event{Name: event.EventNil, Resp: resp} // trigger process
+	obj.processChan <- &event.Event{Kind: event.EventNil, Resp: resp} // trigger process
 	obj.processLock.Unlock()
 	return resp.Wait()
 }
 
 // SendEvent pushes an event into the message queue for a particular vertex.
-func (obj *BaseRes) SendEvent(ev event.EventName, err error) error {
+func (obj *BaseRes) SendEvent(ev event.Kind, err error) error {
 	if obj.debug {
 		if err == nil {
 			log.Printf("%s[%s]: SendEvent(%+v)", obj.Kind(), obj.GetName(), ev)
@@ -56,7 +56,7 @@ func (obj *BaseRes) SendEvent(ev event.EventName, err error) error {
 		obj.eventsLock.Unlock()
 		return fmt.Errorf("eventsChan is already closed")
 	}
-	obj.eventsChan <- &event.Event{Name: ev, Resp: resp, Err: err}
+	obj.eventsChan <- &event.Event{Kind: ev, Resp: resp, Err: err}
 	if ev == event.EventExit {
 		obj.eventsDone = true
 		close(obj.eventsChan) // this is where we properly close this channel!
@@ -72,7 +72,7 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 	ev.ACK()
 	err := ev.Error()
 
-	switch ev.Name {
+	switch ev.Kind {
 	case event.EventStart:
 		return nil, true
 
@@ -96,18 +96,18 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 			}
 			e.ACK()
 			err := e.Error()
-			if e.Name == event.EventExit {
+			if e.Kind == event.EventExit {
 				return &err, false
-			} else if e.Name == event.EventStart { // eventContinue
+			} else if e.Kind == event.EventStart { // eventContinue
 				return nil, false // don't poke on unpause!
 			}
 			// if we get a poke event here, it's a bug!
-			err = fmt.Errorf("%s[%s]: Unknown event: %v, while paused!", obj.Kind(), obj.GetName(), e)
+			err = fmt.Errorf("%s[%s]: unknown event: %v, while paused", obj.Kind(), obj.GetName(), e)
 			panic(err) // TODO: return a special sentinel instead?
 			//return &err, false
 		}
 	}
-	err = fmt.Errorf("Unknown event: %v", ev)
+	err = fmt.Errorf("unknown event: %v", ev)
 	panic(err) // TODO: return a special sentinel instead?
 	//return &err, false
 }
@@ -177,7 +177,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 
 		// i think we probably want the same kind, at least for now...
 		if kind1 != kind2 {
-			e := fmt.Errorf("Kind mismatch between %s[%s]: %s and %s[%s]: %s", v.Res.Kind(), v.Res.GetName(), kind1, obj.Kind(), obj.GetName(), kind2)
+			e := fmt.Errorf("kind mismatch between %s[%s]: %s and %s[%s]: %s", v.Res.Kind(), v.Res.GetName(), kind1, obj.Kind(), obj.GetName(), kind2)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
@@ -185,21 +185,21 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 		// if the types don't match, we can't use send->recv
 		// TODO: do we want to relax this for string -> *string ?
 		if e := TypeCmp(value1, value2); e != nil {
-			e := errwrap.Wrapf(e, "Type mismatch between %s[%s] and %s[%s]", v.Res.Kind(), v.Res.GetName(), obj.Kind(), obj.GetName())
+			e := errwrap.Wrapf(e, "type mismatch between %s[%s] and %s[%s]", v.Res.Kind(), v.Res.GetName(), obj.Kind(), obj.GetName())
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
 
 		// if we can't set, then well this is pointless!
 		if !value2.CanSet() {
-			e := fmt.Errorf("Can't set %s[%s].%s", obj.Kind(), obj.GetName(), k)
+			e := fmt.Errorf("can't set %s[%s].%s", obj.Kind(), obj.GetName(), k)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
 
 		// if we can't interface, we can't compare...
 		if !value1.CanInterface() || !value2.CanInterface() {
-			e := fmt.Errorf("Can't interface %s[%s].%s", obj.Kind(), obj.GetName(), k)
+			e := fmt.Errorf("can't interface %s[%s].%s", obj.Kind(), obj.GetName(), k)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
@@ -221,7 +221,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 func TypeCmp(a, b reflect.Value) error {
 	ta, tb := a.Type(), b.Type()
 	if ta != tb {
-		return fmt.Errorf("Type mismatch: %s != %s", ta, tb)
+		return fmt.Errorf("type mismatch: %s != %s", ta, tb)
 	}
 	// NOTE: it seems we don't need to recurse into pointers to sub check!
 

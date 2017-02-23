@@ -50,10 +50,10 @@ func NewGAPI(data gapi.Data, puppetParam *string, puppetConf string) (*GAPI, err
 // Init initializes the puppet GAPI struct.
 func (obj *GAPI) Init(data gapi.Data) error {
 	if obj.initialized {
-		return fmt.Errorf("Already initialized!")
+		return fmt.Errorf("already initialized")
 	}
 	if obj.PuppetParam == nil {
-		return fmt.Errorf("The PuppetParam param must be specified!")
+		return fmt.Errorf("the PuppetParam param must be specified")
 	}
 	obj.data = data // store for later
 	obj.closeChan = make(chan struct{})
@@ -64,11 +64,11 @@ func (obj *GAPI) Init(data gapi.Data) error {
 // Graph returns a current Graph.
 func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 	if !obj.initialized {
-		return nil, fmt.Errorf("Puppet: GAPI is not initialized!")
+		return nil, fmt.Errorf("the puppet GAPI is not initialized")
 	}
 	config := ParseConfigFromPuppet(*obj.PuppetParam, obj.PuppetConf)
 	if config == nil {
-		return nil, fmt.Errorf("Puppet: ParseConfigFromPuppet returned nil!")
+		return nil, fmt.Errorf("function ParseConfigFromPuppet returned nil")
 	}
 	g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, err
@@ -80,7 +80,7 @@ func (obj *GAPI) Next() chan error {
 		return nil
 	}
 	puppetChan := func() <-chan time.Time { // helper function
-		return time.Tick(time.Duration(PuppetInterval(obj.PuppetConf)) * time.Second)
+		return time.Tick(time.Duration(RefreshInterval(obj.PuppetConf)) * time.Second)
 	}
 	ch := make(chan error)
 	obj.wg.Add(1)
@@ -88,7 +88,7 @@ func (obj *GAPI) Next() chan error {
 		defer obj.wg.Done()
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
-			ch <- fmt.Errorf("Puppet: GAPI is not initialized!")
+			ch <- fmt.Errorf("the puppet GAPI is not initialized")
 			return
 		}
 		pChan := puppetChan()
@@ -117,7 +117,7 @@ func (obj *GAPI) Next() chan error {
 // Close shuts down the Puppet GAPI.
 func (obj *GAPI) Close() error {
 	if !obj.initialized {
-		return fmt.Errorf("Puppet: GAPI is not initialized!")
+		return fmt.Errorf("the puppet GAPI is not initialized")
 	}
 	close(obj.closeChan)
 	obj.wg.Wait()

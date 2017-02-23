@@ -86,7 +86,7 @@ func (c *GraphConfig) Parse(data []byte) error {
 		return err
 	}
 	if c.Graph == "" {
-		return errors.New("Graph config: invalid `graph`")
+		return errors.New("graph config: invalid graph")
 	}
 	return nil
 }
@@ -122,7 +122,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 			x := slice.Index(j).Interface()
 			res, ok := x.(resources.Res) // convert to Res type
 			if !ok {
-				return nil, fmt.Errorf("Config: Error: Can't convert: %v of type: %T to Res.", x, x)
+				return nil, fmt.Errorf("Config: Error: Can't convert: %v of type: %T to Res", x, x)
 			}
 			//if noop { // now done in mgmtmain
 			//	res.Meta().Noop = noop
@@ -220,16 +220,16 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 
 	for _, e := range c.Edges {
 		if _, ok := lookup[util.FirstToUpper(e.From.Kind)]; !ok {
-			return nil, fmt.Errorf("Can't find 'from' resource!")
+			return nil, fmt.Errorf("can't find 'from' resource")
 		}
 		if _, ok := lookup[util.FirstToUpper(e.To.Kind)]; !ok {
-			return nil, fmt.Errorf("Can't find 'to' resource!")
+			return nil, fmt.Errorf("can't find 'to' resource")
 		}
 		if _, ok := lookup[util.FirstToUpper(e.From.Kind)][e.From.Name]; !ok {
-			return nil, fmt.Errorf("Can't find 'from' name!")
+			return nil, fmt.Errorf("can't find 'from' name")
 		}
 		if _, ok := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]; !ok {
-			return nil, fmt.Errorf("Can't find 'to' name!")
+			return nil, fmt.Errorf("can't find 'to' name")
 		}
 		from := lookup[util.FirstToUpper(e.From.Kind)][e.From.Name]
 		to := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]

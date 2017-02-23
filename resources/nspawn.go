@@ -100,13 +100,13 @@ func (obj *NspawnRes) Init() error {
 func (obj *NspawnRes) Watch() error {
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
-		return fmt.Errorf("Systemd is not running.")
+		return fmt.Errorf("systemd is not running")
 	}
 
 	// create a private message bus
 	bus, err := util.SystemBusPrivateUsable()
 	if err != nil {
-		return errwrap.Wrapf(err, "Failed to connect to bus")
+		return errwrap.Wrapf(err, "failed to connect to bus")
 	}
 
 	// add a match rule to match messages going through the message bus
@@ -139,7 +139,7 @@ func (obj *NspawnRes) Watch() error {
 				} else if event.Name == machineRemoved {
 					log.Printf("%s[%s]: Machine stopped", obj.Kind(), obj.GetName())
 				} else {
-					return fmt.Errorf("Unknown event: %s", event.Name)
+					return fmt.Errorf("unknown event: %s", event.Name)
 				}
 				send = true
 				obj.StateOK(false) // dirty
@@ -165,13 +165,13 @@ func (obj *NspawnRes) Watch() error {
 func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
-		return false, errors.New("Systemd is not running.")
+		return false, errors.New("systemd is not running")
 	}
 
 	// connect to org.freedesktop.machine1.Manager
 	conn, err := machined.New()
 	if err != nil {
-		return false, errwrap.Wrapf(err, "Failed to connect to dbus")
+		return false, errwrap.Wrapf(err, "failed to connect to dbus")
 	}
 
 	// compare the current state with the desired state and perform the
@@ -189,7 +189,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 		// error if we need the image ignore if we don't
 		if _, err = conn.GetImage(obj.GetName()); err != nil && obj.State != stopped {
 			return false, fmt.Errorf(
-				"No machine nor image named '%s'",
+				"no machine nor image named '%s'",
 				obj.GetName())
 		}
 	}
@@ -219,7 +219,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 		log.Printf("%s[%s]: Starting machine", obj.Kind(), obj.GetName())
 		// assume state had to be changed at this point, ignore checkOK
 		if _, err := obj.svc.CheckApply(apply); err != nil {
-			return false, errwrap.Wrapf(err, "Nested svc failed")
+			return false, errwrap.Wrapf(err, "nested svc failed")
 		}
 	}
 	if obj.State == stopped {
@@ -227,7 +227,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 		// org.freedesktop.machine1.Manager.KillMachine
 		log.Printf("%s[%s]: Stopping machine", obj.Kind(), obj.GetName())
 		if err := conn.TerminateMachine(obj.GetName()); err != nil {
-			return false, errwrap.Wrapf(err, "Failed to stop machine")
+			return false, errwrap.Wrapf(err, "failed to stop machine")
 		}
 	}
 

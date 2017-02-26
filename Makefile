@@ -41,6 +41,8 @@ ifneq ($(GOTAGS),)
     BUILD_FLAGS = -tags '$(GOTAGS)'
 endif
 
+default: build
+
 #
 #	art
 #

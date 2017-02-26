@@ -80,6 +80,9 @@ func (obj *Prometheus) Stop() error {
 // UpdateCheckApplyTotal refreshes the failing gauge by parsing the internal
 // state map.
 func (obj *Prometheus) UpdateCheckApplyTotal(kind string, apply, eventful, errorful bool) error {
+	if obj == nil {
+		return nil // happens when mgmt is launched without --prometheus
+	}
 	labels := prometheus.Labels{"kind": kind, "apply": strconv.FormatBool(apply), "eventful": strconv.FormatBool(eventful), "errorful": strconv.FormatBool(errorful)}
 	metric := obj.checkApplyTotal.With(labels)
 	metric.Inc()

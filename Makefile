@@ -112,7 +112,7 @@ ifneq ($(OLDGOLANG),)
 	@# avoid equals sign in old golang versions eg in: -X foo=bar
 	time go build -ldflags "-X main.program $(PROGRAM) -X main.version $(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
 else
-	time go build -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
+	time go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
 endif
 
 $(PROGRAM).static: main.go

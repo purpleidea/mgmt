@@ -197,9 +197,10 @@ func (obj *VirtRes) Init() error {
 
 // Close runs some cleanup code for this resource.
 func (obj *VirtRes) Close() error {
-
 	// By the time that this Close method is called, the engine promises
 	// that the Watch loop has previously shutdown! (Assuming no bugs!)
+	// TODO: As a result, this is an extra check which shouldn't be needed,
+	// but which might mask possible engine bugs. Consider removing it!
 	obj.wg.Wait()
 
 	// TODO: what is the first int Close return value useful for (if at all)?
@@ -257,13 +258,16 @@ func (obj *VirtRes) connect() (conn *libvirt.Connect, err error) {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *VirtRes) Watch() error {
-	// FIXME: how will this working if we're polling?
+	// FIXME: how will this work if we're polling?
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()                               // wait until everyone has exited before we exit!
 	domChan := make(chan libvirt.DomainEventType) // TODO: do we need to buffer this?
 	gaChan := make(chan *libvirt.DomainEventAgentLifecycle)
 	errorChan := make(chan error)
 	exitChan := make(chan struct{})
 	defer close(exitChan)
 	obj.wg.Add(1) // don't exit without waiting for EventRunDefaultImpl
+	wg.Add(1)
 
 	// run libvirt event loop
 	// TODO: *trigger* EventRunDefaultImpl to unblock so it can shut down...
@@ -272,6 +276,7 @@ func (obj *VirtRes) Watch() error {
 	// in the meantime, terminating the program causes it to exit anyways...
 	go func() {
 		defer obj.wg.Done()
+		defer wg.Done()
 		defer log.Printf("EventRunDefaultImpl exited!")
 		for {
 			// TODO: can we merge this into our main for loop below?
@@ -297,7 +302,10 @@ func (obj *VirtRes) Watch() error {
 	domCallback := func(c *libvirt.Connect, d *libvirt.Domain, ev *libvirt.DomainEventLifecycle) {
 		domName, _ := d.GetName()
 		if domName == obj.GetName() {
-			domChan <- ev.Event
+			select {
+			case domChan <- ev.Event: // send
+			case <-exitChan:
+			}
 		}
 	}
 	// if dom is nil, we get events for *all* domains!
@@ -311,7 +319,10 @@ func (obj *VirtRes) Watch() error {
 	gaCallback := func(c *libvirt.Connect, d *libvirt.Domain, eva *libvirt.DomainEventAgentLifecycle) {
 		domName, _ := d.GetName()
 		if domName == obj.GetName() {
-			gaChan <- eva
+			select {
+			case gaChan <- eva: // send
+			case <-exitChan:
+			}
 		}
 	}
 	gaCallbackID, err := obj.conn.DomainEventAgentLifecycleRegister(nil, gaCallback)

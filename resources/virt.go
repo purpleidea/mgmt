@@ -836,11 +836,6 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	// FIXME: should we wait to ensure machine is booted before continuing?
 	// it may be useful to wait for guest agent to hotplug some ram or cpu!
 
-	if !apply {
-		return false, nil
-	}
-	// remaining apply portion
-
 	// mem & cpu checks...
 	if !obj.absent {
 		if c, err := obj.attrCheckApply(apply, dom); err != nil {

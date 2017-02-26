@@ -325,6 +325,8 @@ func (g *Graph) innerWorker(v *Vertex) {
 	var limiter = rate.NewLimiter(v.Meta().Limit, v.Meta().Burst)
 	limited := false
 
+	wg := &sync.WaitGroup{} // wait for Process routine to exit
+
 Loop:
 	for {
 		select {
@@ -385,9 +387,11 @@ Loop:
 			}
 			limited = false // let one through
 
+			wg.Add(1)
 			running = true
 			go func(ev *event.Event) {
 				pcuid.SetConverged(false) // "block" Process
+				defer wg.Done()
 				if e := g.Process(v); e != nil {
 					playback = true
 					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
@@ -447,6 +451,8 @@ Loop:
 			continue
 		}
 	}
+	wg.Wait()
+	return
 }
 
 // Worker is the common run frontend of the vertex. It handles all of the retry

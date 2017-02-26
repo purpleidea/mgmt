@@ -728,6 +728,9 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
+	if obj.conn == nil {
+		panic("virt: CheckApply is being called with nil connection")
+	}
 	// if we do the restart, we must flip the flag back to false as evidence
 	var restart bool                           // do we need to do a restart?
 	if obj.RestartOnRefresh && obj.Refresh() { // a refresh is a restart ask

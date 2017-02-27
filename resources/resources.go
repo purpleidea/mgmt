@@ -27,6 +27,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"sort"
 	"sync"
 	"time"
 
@@ -101,6 +102,7 @@ type MetaParams struct {
 	Poll  uint32     `yaml:"poll"`  // metaparam, number of seconds between poll intervals, 0 to watch
 	Limit rate.Limit `yaml:"limit"` // metaparam, number of events per second to allow through
 	Burst int        `yaml:"burst"` // metaparam, number of events to allow in a burst
+	Sema  []string   `yaml:"sema"`  // metaparam, list of semaphore ids (id | id:count)
 }
 
 // UnmarshalYAML is the custom unmarshal handler for the MetaParams struct. It
@@ -127,6 +129,7 @@ var DefaultMetaParams = MetaParams{
 	Poll:      0,        // defaults to watching for events
 	Limit:     rate.Inf, // defaults to no limit
 	Burst:     0,        // no burst needed on an infinite rate // TODO: is this a good default?
+	//Sema:      []string{},
 }
 
 // The Base interface is everything that is common to all resources.
@@ -548,6 +551,24 @@ func (obj *BaseRes) Compare(res Res) bool {
 		return false
 	}
 	if obj.Meta().Burst != res.Meta().Burst {
+		return false
+	}
+
+	// are the two slices the same?
+	cmpSlices := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		sort.Strings(a)
+		sort.Strings(b)
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+	if !cmpSlices(obj.Meta().Sema, res.Meta().Sema) {
 		return false
 	}
 	return true

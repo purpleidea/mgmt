@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -164,8 +165,30 @@ func (g *Graph) Process(v *Vertex) error {
 	if g.Flags.Debug {
 		log.Printf("%s[%s]: Process()", obj.Kind(), obj.GetName())
 	}
+	// FIXME: should these SetState methods be here or after the sema code?
 	defer obj.SetState(resources.ResStateNil) // reset state when finished
 	obj.SetState(resources.ResStateProcess)
+
+	// semaphores!
+	// These shouldn't ever block an exit, since the graph should eventually
+	// converge causing their them to unlock. More interestingly, since they
+	// run in a DAG alphabetically, there is no way to permanently deadlock,
+	// assuming that resources individually don't ever block from finishing!
+	// The exception is that semaphores with a zero count will always block!
+	// TODO: Add a close mechanism to close/unblock zero count semaphores...
+	semas := obj.Meta().Sema
+	if g.Flags.Debug && len(semas) > 0 {
+		log.Printf("%s[%s]: Sema: P(%s)", obj.Kind(), obj.GetName(), strings.Join(semas, ", "))
+	}
+	if err := g.SemaLock(semas); err != nil { // lock
+		// NOTE: in practice, this might not ever be truly necessary...
+		return fmt.Errorf("shutdown of semaphores")
+	}
+	defer g.SemaUnlock(semas) // unlock
+	if g.Flags.Debug && len(semas) > 0 {
+		defer log.Printf("%s[%s]: Sema: V(%s)", obj.Kind(), obj.GetName(), strings.Join(semas, ", "))
+	}
+
 	var ok = true
 	var applied = false // did we run an apply?
 	// is it okay to run dependency wise right now?

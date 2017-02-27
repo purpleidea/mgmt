@@ -67,6 +67,7 @@ type Main struct {
 
 	NoWatch          bool   // do not update graph on watched graph definition file changes
 	Noop             bool   // globally force all resources into no-op mode
+	Sema             int    // add a semaphore with this lock count to each resource
 	Graphviz         string // output file for graphviz data
 	GraphvizFilter   string // graphviz filter to use
 	ConvergedTimeout int    // exit after approximately this many seconds in a converged state; -1 to disable
@@ -443,10 +444,16 @@ func (obj *Main) Run() error {
 				Debug:      obj.Flags.Debug,
 			})
 
-			// apply the global noop parameter if requested
-			if obj.Noop {
-				for _, m := range newGraph.GraphMetas() {
+			for _, m := range newGraph.GraphMetas() {
+				// apply the global noop parameter if requested
+				if obj.Noop {
 					m.Noop = obj.Noop
+				}
+
+				// append the semaphore to each resource
+				if obj.Sema > 0 { // NOTE: size == 0 would block
+					// a semaphore with an empty id is valid
+					m.Sema = append(m.Sema, fmt.Sprintf(":%d", obj.Sema))
 				}
 			}
 

@@ -84,6 +84,7 @@ func run(c *cli.Context) error {
 
 	obj.NoWatch = c.Bool("no-watch")
 	obj.Noop = c.Bool("noop")
+	obj.Sema = c.Int("sema")
 	obj.Graphviz = c.String("graphviz")
 	obj.GraphvizFilter = c.String("graphviz-filter")
 	obj.ConvergedTimeout = c.Int("converged-timeout")
@@ -227,6 +228,11 @@ func CLI(program, version string, flags Flags) error {
 				cli.BoolFlag{
 					Name:  "noop",
 					Usage: "globally force all resources into no-op mode",
+				},
+				cli.IntFlag{
+					Name:  "sema",
+					Value: -1,
+					Usage: "globally add a semaphore to all resources with this lock count",
 				},
 				cli.StringFlag{
 					Name:  "graphviz, g",

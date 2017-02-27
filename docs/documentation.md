@@ -457,6 +457,17 @@ the rate limiter as designated by the `Limit` value. If the `Limit` is not set
 to `+Infinity`, this must be a non-zero value. Please see the
 [rate](https://godoc.org/golang.org/x/time/rate) package for more information.
 
+#### Sema
+List of string ids. Sema is a P/V style counting semaphore which can be used to
+limit parallelism during the CheckApply phase of resource execution. Each
+resource can have `N` different semaphores which share a graph global namespace.
+Each semaphore has a maximum count associated with it. The default value of the
+size is 1 (one) if size is unspecified. Each string id is the unique id of the
+semaphore. If the id contains a trailing colon (:) followed by a positive
+integer, then that value is the max size for that semaphore. Valid semaphore
+id's include: `some_id`, `hello:42`, `not:smart:4` and `:13`. It is expected
+that the last bare example be only used by the engine to add a global semaphore.
+
 ### Graph definition file
 graph.yaml is the compiled graph definition file. The format is currently
 undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)
@@ -480,6 +491,15 @@ generally recommended, but may be useful for users who know what they're doing.
 Globally force all resources into no-op mode. This also disables the export to
 etcd functionality, but does not disable resource collection, however all
 resources that are collected will have their individual noop settings set.
+
+#### `--sema <size>`
+Globally add a counting semaphore of this size to each resource in the graph.
+The semaphore will get given an id of `:size`. In other words if you specify a
+size of 42, you can expect a semaphore if named: `:42`. It is expected that
+consumers of the semaphore metaparameter always include a prefix to avoid a
+collision with this globally defined semaphore. The size value must be greater
+than zero at this time. The traditional non-parallel execution found in config
+management tools such as `Puppet` can be obtained with `--sema 1`.
 
 #### `--remote <graph.yaml>`
 Point to a graph file to run on the remote host specified within. This parameter

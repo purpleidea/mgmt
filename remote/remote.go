@@ -63,6 +63,7 @@ import (
 
 	cv "github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/semaphore"
 	"github.com/purpleidea/mgmt/yamlgraph"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -698,16 +699,16 @@ type Remotes struct {
 	converger    cv.Converger
 	convergerCb  func(func(map[string]bool) error) (func(), error)
 
-	wg                 sync.WaitGroup    // keep track of each running SSH connection
-	lock               sync.Mutex        // mutex for access to sshmap
-	sshmap             map[string]*SSH   // map to each SSH struct with the remote as the key
-	exiting            bool              // flag to let us know if we're exiting
-	exitChan           chan struct{}     // closes when we should exit
-	semaphore          Semaphore         // counting semaphore to limit concurrent connections
-	hostnames          []string          // list of hostnames we've seen so far
-	cuid               cv.UID            // convergerUID for the remote itself
-	cuids              map[string]cv.UID // map to each SSH struct with the remote as the key
-	callbackCancelFunc func()            // stored callback function cancel function
+	wg                 sync.WaitGroup       // keep track of each running SSH connection
+	lock               sync.Mutex           // mutex for access to sshmap
+	sshmap             map[string]*SSH      // map to each SSH struct with the remote as the key
+	exiting            bool                 // flag to let us know if we're exiting
+	exitChan           chan struct{}        // closes when we should exit
+	semaphore          *semaphore.Semaphore // counting semaphore to limit concurrent connections
+	hostnames          []string             // list of hostnames we've seen so far
+	cuid               cv.UID               // convergerUID for the remote itself
+	cuids              map[string]cv.UID    // map to each SSH struct with the remote as the key
+	callbackCancelFunc func()               // stored callback function cancel function
 
 	flags Flags // constant runtime values
 }
@@ -730,7 +731,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		convergerCb:  convergerCb,
 		sshmap:       make(map[string]*SSH),
 		exitChan:     make(chan struct{}),
-		semaphore:    NewSemaphore(int(cConns)),
+		semaphore:    semaphore.NewSemaphore(int(cConns)),
 		hostnames:    make([]string, len(remotes)),
 		cuids:        make(map[string]cv.UID),
 		flags:        flags,
@@ -1076,29 +1077,6 @@ func cleanURL(s string) string {
 		return ""
 	}
 	return u.Host
-}
-
-// Semaphore is a counting semaphore.
-type Semaphore chan struct{}
-
-// NewSemaphore creates a new semaphore.
-func NewSemaphore(size int) Semaphore {
-	return make(Semaphore, size)
-}
-
-// P acquires n resources.
-func (s Semaphore) P(n int) {
-	e := struct{}{}
-	for i := 0; i < n; i++ {
-		s <- e // acquire one
-	}
-}
-
-// V releases n resources.
-func (s Semaphore) V(n int) {
-	for i := 0; i < n; i++ {
-		<-s // release one
-	}
 }
 
 // combinedWriter mimics what the ssh.CombinedOutput command does.

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -430,6 +431,11 @@ Loop:
 					playback = true
 					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
 					if retry == 0 {
+						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateHardFail); err != nil {
+							// TODO: how to error this?
+							log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+						}
+
 						// wrap the error in the sentinel
 						v.Res.QuiesceGroup().Done() // before the Wait that happens in SendEvent!
 						v.SendEvent(event.EventExit, &SentinelErr{e})
@@ -437,6 +443,10 @@ Loop:
 					}
 					if retry > 0 { // don't decrement the -1
 						retry--
+					}
+					if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateSoftFail); err != nil {
+						// TODO: how to error this?
+						log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
 					}
 					log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
 					// start the timer...

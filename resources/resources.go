@@ -249,8 +249,6 @@ type BaseRes struct {
 
 	refresh bool // does this resource have a refresh to run?
 	//refreshState StatefulBool // TODO: future stateful bool
-
-	prometheus *prometheus.Prometheus
 }
 
 // UnmarshalYAML is the custom unmarshal handler for the BaseRes struct. It is
@@ -366,6 +364,10 @@ func (obj *BaseRes) Init() error {
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
 
+	if err := obj.Prometheus().AddManagedResource(fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName()), obj.Kind()); err != nil {
+		return errwrap.Wrapf(err, "could not increase prometheus counter!")
+	}
+
 	return nil
 }
 
@@ -382,6 +384,10 @@ func (obj *BaseRes) Close() error {
 	obj.working = false // Worker method should now be closing...
 	close(obj.stopped)
 	obj.waitGroup.Done()
+
+	if err := obj.Prometheus().RemoveManagedResource(fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName()), obj.kind); err != nil {
+		return errwrap.Wrapf(err, "could not decrease prometheus counter!")
+	}
 
 	return nil
 }
@@ -684,5 +690,5 @@ func (obj *BaseRes) Poll() error {
 
 // Prometheus returns the prometheus instance.
 func (obj *BaseRes) Prometheus() *prometheus.Prometheus {
-	return obj.prometheus
+	return obj.Data().Prometheus
 }

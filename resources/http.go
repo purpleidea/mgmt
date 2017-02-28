@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/r3labs/sse"
 )
 
 func init() {
@@ -46,6 +47,9 @@ type HttpRes struct {
 
 	// Payload is the data that is pushed in case of the "push" Method.
 	Payload string `yaml:"payload"`
+
+	// SSE Stream to subscribe to.
+	Stream string `yaml:"stream"`
 
 	// CheckSSL defines if we should check SSL certificate validity.
 	CheckSSL bool `yaml:"check_ssl"`
@@ -72,6 +76,7 @@ func (obj *HttpRes) Default() Res {
 	return &HttpRes{
 		Method:   "fetch",
 		CheckSSL: true,
+		Stream:   "mgmt",
 	}
 }
 
@@ -89,9 +94,12 @@ func (obj *HttpRes) Init() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 // Taken from the File resource.
-// FIXME: DRY - This is taken from the file resource
-func (obj *HttpRes) Watch(processChan chan *event.Event) error {
-	return fmt.Errorf("http: watch: not Implemented")
+func (obj *HttpRes) Watch() error {
+	client := sse.NewClient(obj.URL)
+	client.Subscribe(obj.SseStream, func(msg *sse.Event) {
+		obj.Event()
+	}
+	return nil
 }
 
 // CheckApply method for Http resource.

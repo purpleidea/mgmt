@@ -57,7 +57,7 @@ func Uint64KeyFromStrInMap(needle string, haystack map[uint64]string) (uint64, b
 }
 
 // StrRemoveDuplicatesInList removes any duplicate values in the list.
-// This is a possibly sub-optimal, O(n^2)? implementation.
+// This implementation is possibly sub-optimal (O(n^2)?) but preserves ordering.
 func StrRemoveDuplicatesInList(list []string) []string {
 	unique := []string{}
 	for _, x := range list {

@@ -35,6 +35,7 @@ import (
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/prometheus"
+	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
 	"golang.org/x/time/rate"
@@ -494,6 +495,12 @@ func (obj *BaseRes) GroupRes(res Res) error {
 	}
 	if res.IsGrouped() {
 		return fmt.Errorf("the %v resource is already grouped", res)
+	}
+
+	// merging two resources into one should yield the sum of their semas
+	if semas := res.Meta().Sema; len(semas) > 0 {
+		obj.Meta().Sema = append(obj.Meta().Sema, semas...)
+		obj.Meta().Sema = util.StrRemoveDuplicatesInList(obj.Meta().Sema)
 	}
 
 	obj.grouped = append(obj.grouped, res)

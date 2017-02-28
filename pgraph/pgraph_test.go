@@ -764,6 +764,18 @@ Loop:
 		}
 	}
 
+	// check meta parameters
+	for v1 := range g1.Adjacency { // for each vertex in g1
+		for v2 := range g2.Adjacency { // does it match in g2 ?
+			s1, s2 := v1.Meta().Sema, v2.Meta().Sema
+			sort.Strings(s1)
+			sort.Strings(s2)
+			if !reflect.DeepEqual(s1, s2) {
+				return fmt.Errorf("vertex %s and vertex %s have different semaphores", v1.GetName(), v2.GetName())
+			}
+		}
+	}
+
 	return nil // success!
 }
 
@@ -805,7 +817,11 @@ func (ag *testGrouper) edgeMerge(e1, e2 *Edge) *Edge {
 func (g *Graph) fullPrint() (str string) {
 	str += "\n"
 	for v := range g.Adjacency {
-		str += fmt.Sprintf("* v: %v\n", v.GetName())
+		if semas := v.Meta().Sema; len(semas) > 0 {
+			str += fmt.Sprintf("* v: %v; sema: %v\n", v.GetName(), semas)
+		} else {
+			str += fmt.Sprintf("* v: %v\n", v.GetName())
+		}
 		// TODO: add explicit grouping data?
 	}
 	for v1 := range g.Adjacency {

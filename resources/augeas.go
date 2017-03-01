@@ -47,7 +47,7 @@ func init() {
 type AugeasRes struct {
 	BaseRes `yaml:",inline"`
 
-	// File is the path to the file targetted by this resource.
+	// File is the path to the file targeted by this resource.
 	File string `yaml:"file"`
 
 	// Lens is the lens used by this resource. If specified, mgmt

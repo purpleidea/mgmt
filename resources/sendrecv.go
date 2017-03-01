@@ -117,7 +117,7 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 func (obj *BaseRes) Running() error {
 	// TODO: If a non-polling resource wants to use the converger, then it
 	// should probably tell Running (via an arg) to not do this. Currently
-	// it is a very unlikey race that could cause an early converge if the
+	// it's a very unlikely race that could cause an early converge if the
 	// converge timeout is very short ( ~ 1s) and the Watch method doesn't
 	// immediately SetConverged(false) to stop possible early termination.
 	if obj.Meta().Poll == 0 { // if not polling, unblock this...

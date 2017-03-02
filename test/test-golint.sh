@@ -28,7 +28,7 @@ COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch
 [ "$LINT" = "" ] && echo PASS && exit	# everything is "perfect"
 echo "$LINT"	# display the issues
 
-T=`mktemp --tmpdir -d tmp.XXX`
+T=`mktemp --tmpdir -d tmp.X'X'X`	# add quotes to avoid matching three X's
 [ "$T" = "" ] && fail_test "Could not create tmpdir"
 cd $T || fail_test "Could not change into tmpdir $T"
 git clone --recursive "${ROOT}" 2>/dev/null	# make a copy

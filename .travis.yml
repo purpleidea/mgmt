@@ -1,8 +1,8 @@
 language: go
 go:
-  - 1.6
-  - 1.7
-  - 1.8
+  - 1.6.x
+  - 1.7.x
+  - 1.8.x
   - tip
 sudo: true
 dist: trusty
@@ -15,7 +15,7 @@ matrix:
   fast_finish: true
   allow_failures:
     - go: tip
-    - go: 1.8
+    - go: 1.8.x
 notifications:
   irc:
     channels:

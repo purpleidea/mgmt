@@ -349,17 +349,19 @@ func (obj *Main) Run() error {
 		converger.SetStateFn(convergerStateFn)
 	}
 
+	// implementation of the World API (alternates can be substituted in)
+	world := &etcd.World{
+		Hostname: hostname,
+		EmbdEtcd: EmbdEtcd,
+	}
+
 	var gapiChan chan error // stream events are nil errors
 	if obj.GAPI != nil {
 		data := gapi.Data{
 			Hostname: hostname,
-			// NOTE: alternate implementations can be substituted in
-			World: &etcd.World{
-				Hostname: hostname,
-				EmbdEtcd: EmbdEtcd,
-			},
-			Noop:    obj.Noop,
-			NoWatch: obj.NoWatch,
+			World:    world,
+			Noop:     obj.Noop,
+			NoWatch:  obj.NoWatch,
 		}
 		if err := obj.GAPI.Init(data); err != nil {
 			obj.Exit(fmt.Errorf("Main: GAPI: Init failed: %v", err))

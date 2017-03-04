@@ -15,13 +15,14 @@ YUM=`which yum 2>/dev/null`
 DNF=`which dnf 2>/dev/null`
 APT=`which apt-get 2>/dev/null`
 BREW=`which brew 2>/dev/null`
+PACMAN=`which pacman 2>/dev/null`
 
 # if DNF is available use it
 if [ -x "$DNF" ]; then
 	YUM=$DNF
 fi
 
-if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" ]; then
+if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then
 	echo "The package managers can't be found."
 	exit 1
 fi
@@ -41,6 +42,10 @@ if [ ! -z "$BREW" ]; then
 	$BREW install libvirt || true
 fi
 
+if [ ! -z "$PACMAN" ]; then
+	$sudo_command $PACMAN -S --noconfirm libvirt augeas libpcap
+fi
+
 if [ $travis -eq 0 ]; then
 	if [ ! -z "$YUM" ]; then
 		# some go dependencies are stored in mercurial
@@ -53,6 +58,9 @@ if [ $travis -eq 0 ]; then
 		# one of these two golang tools packages should work on debian
 		$sudo_command $APT install -y golang-golang-x-tools || true
 		$sudo_command $APT install -y golang-go.tools || true
+	fi
+	if [ ! -z "$PACMAN" ]; then
+		$sudo_command $PACMAN -S --noconfirm go
 	fi
 fi
 

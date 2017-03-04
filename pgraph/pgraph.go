@@ -658,7 +658,7 @@ func (g *Graph) AssociateData(data *resources.Data) {
 	g.prometheus = data.Prometheus
 
 	for k := range g.Adjacency {
-		k.Res.AssociateData(data)
+		*k.Res.Data() = *data
 	}
 }
 

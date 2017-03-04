@@ -440,6 +440,7 @@ func (obj *Main) Run() error {
 			newGraph.Flags = pgraph.Flags{Debug: obj.Flags.Debug}
 			// pass in the information we need
 			newGraph.AssociateData(&resources.Data{
+				Hostname:   hostname,
 				Converger:  converger,
 				Prometheus: prom,
 				Prefix:     pgraphPrefix,

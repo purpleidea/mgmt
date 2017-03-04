@@ -58,7 +58,7 @@ const refreshPathToken = "refresh"
 
 // Data is the set of input values passed into the pgraph for the resources.
 type Data struct {
-	//Hostname string         // uuid for the host
+	Hostname string // uuid for the host
 	//Noop     bool
 	Converger  converger.Converger
 	Prometheus *prometheus.Prometheus
@@ -142,7 +142,7 @@ type Base interface {
 	Kind() string
 	Meta() *MetaParams
 	Events() chan *event.Event
-	AssociateData(*Data)
+	Data() *Data
 	IsWorking() bool
 	WaitGroup() *sync.WaitGroup
 	Setup()
@@ -200,6 +200,7 @@ type BaseRes struct {
 	Recv       map[string]*Send // mapping of key to receive on from value
 
 	kind   string
+	data   Data
 	state  ResState
 	prefix string // base prefix for this resource
 
@@ -318,9 +319,9 @@ func (obj *BaseRes) Init() error {
 		return fmt.Errorf("resource did not set kind")
 	}
 
-	obj.cuid = obj.converger.Register()
-	obj.wcuid = obj.converger.Register() // get a cuid for the worker!
-	obj.pcuid = obj.converger.Register() // get a cuid for the process
+	obj.cuid = obj.Converger().Register()
+	obj.wcuid = obj.Converger().Register() // get a cuid for the worker!
+	obj.pcuid = obj.Converger().Register() // get a cuid for the process
 
 	obj.eventsLock = &sync.Mutex{}
 	obj.eventsDone = false
@@ -400,12 +401,9 @@ func (obj *BaseRes) Events() chan *event.Event {
 	return obj.eventsChan
 }
 
-// AssociateData associates some data with the object in question.
-func (obj *BaseRes) AssociateData(data *Data) {
-	obj.converger = data.Converger
-	obj.prometheus = data.Prometheus
-	obj.prefix = data.Prefix
-	obj.debug = data.Debug
+// Data returns an associable handle to some data passed in to the resource.
+func (obj *BaseRes) Data() *Data {
+	return &obj.data
 }
 
 // IsWorking tells us if the Worker() function is running. Not thread safe.
@@ -434,7 +432,7 @@ func (obj *BaseRes) Reset() {
 // Converger returns the converger object used by the system. It can be used to
 // register new convergers if needed.
 func (obj *BaseRes) Converger() converger.Converger {
-	return obj.converger
+	return obj.data.Converger
 }
 
 // ConvergerUIDs returns the ConvergerUIDs for the resource. This is called by

@@ -1,0 +1,8 @@
+---
+graph: mygraph
+resources:
+  svc:
+  - name: purpleidea
+    state: running
+    session: true
+edges: []

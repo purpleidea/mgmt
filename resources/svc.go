@@ -41,6 +41,7 @@ type SvcRes struct {
 	BaseRes `yaml:",inline"`
 	State   string `yaml:"state"`   // state: running, stopped, undefined
 	Startup string `yaml:"startup"` // enabled, disabled, undefined
+	Session bool   `yaml:"session"` // user session (true) or system?
 }
 
 // Default returns some sensible defaults for this resource.
@@ -76,7 +77,14 @@ func (obj *SvcRes) Watch() error {
 		return fmt.Errorf("systemd is not running")
 	}
 
-	conn, err := systemd.NewSystemdConnection() // needs root access
+	var conn *systemd.Conn
+	var err error
+	if obj.Session {
+		conn, err = systemd.NewUserConnection() // user session
+	} else {
+		// we want NewSystemConnection but New falls back to this
+		conn, err = systemd.New() // needs root access
+	}
 	if err != nil {
 		return errwrap.Wrapf(err, "failed to connect to systemd")
 	}
@@ -210,7 +218,13 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return false, fmt.Errorf("systemd is not running")
 	}
 
-	conn, err := systemd.NewSystemdConnection() // needs root access
+	var conn *systemd.Conn
+	if obj.Session {
+		conn, err = systemd.NewUserConnection() // user session
+	} else {
+		// we want NewSystemConnection but New falls back to this
+		conn, err = systemd.New() // needs root access
+	}
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to connect to systemd")
 	}
@@ -427,6 +441,9 @@ func (obj *SvcRes) Compare(res Res) bool {
 			return false
 		}
 		if obj.Startup != res.Startup {
+			return false
+		}
+		if obj.Session != res.Session {
 			return false
 		}
 	default:

@@ -443,6 +443,7 @@ func (obj *Main) Run() error {
 				Hostname:   hostname,
 				Converger:  converger,
 				Prometheus: prom,
+				World:      world,
 				Prefix:     pgraphPrefix,
 				Debug:      obj.Flags.Debug,
 			})

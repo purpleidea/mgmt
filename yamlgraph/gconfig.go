@@ -26,7 +26,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
@@ -93,7 +92,7 @@ func (c *GraphConfig) Parse(data []byte) error {
 
 // NewGraphFromConfig transforms a GraphConfig struct into a new graph.
 // FIXME: remove any possibly left over, now obsolete graph diff code from here!
-func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop bool) (*pgraph.Graph, error) {
+func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World, noop bool) (*pgraph.Graph, error) {
 	// hostname is the uuid for the host
 
 	var graph *pgraph.Graph          // new graph to return

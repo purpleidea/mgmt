@@ -56,12 +56,27 @@ const (
 
 const refreshPathToken = "refresh"
 
+// World is an interface to the rest of the different graph state. It allows
+// the GAPI to store state and exchange information throughout the cluster. It
+// is the interface each machine uses to communicate with the rest of the world.
+type World interface { // TODO: is there a better name for this interface?
+	ResExport([]Res) error
+	// FIXME: should this method take a "filter" data struct instead of many args?
+	ResCollect(hostnameFilter, kindFilter []string) ([]Res, error)
+
+	StrWatch(namespace string) chan error
+	StrGet(namespace string) (map[string]string, error)
+	StrSet(namespace, value string) error
+	StrDel(namespace string) error
+}
+
 // Data is the set of input values passed into the pgraph for the resources.
 type Data struct {
 	Hostname string // uuid for the host
 	//Noop     bool
 	Converger  converger.Converger
 	Prometheus *prometheus.Prometheus
+	World      World
 	Prefix     string // the prefix to be used for the pgraph namespace
 	Debug      bool
 	// NOTE: we can add more fields here if needed for the resources.

@@ -59,6 +59,7 @@ type Resources struct {
 	Exec     []*resources.ExecRes     `yaml:"exec"`
 	File     []*resources.FileRes     `yaml:"file"`
 	Hostname []*resources.HostnameRes `yaml:"hostname"`
+	KV       []*resources.KVRes       `yaml:"kv"`
 	Msg      []*resources.MsgRes      `yaml:"msg"`
 	Noop     []*resources.NoopRes     `yaml:"noop"`
 	Nspawn   []*resources.NspawnRes   `yaml:"nspawn"`

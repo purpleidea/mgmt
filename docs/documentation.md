@@ -182,6 +182,7 @@ parameter with the [Noop](#Noop) resource.
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
 * [Hostname](#Hostname): Manages the hostname on the system.
+* [KV](#KV): Set a key value pair in our shared world database.
 * [Msg](#Msg): Send log messages.
 * [Noop](#Noop): A simple resource that does nothing.
 * [Nspawn](#Nspawn): Manage systemd-machined nspawn containers.
@@ -267,6 +268,30 @@ The pretty hostname is a free-form UTF8 host name for presentation to the user.
 #### hostname
 Hostname is the fallback value for all 3 fields above, if only `hostname` is
 specified, it will set all 3 fields to this value.
+
+### KV
+
+The KV resource sets a key and value pair in the global world database. This is
+quite useful for setting a flag after a number of resources have run. It will
+ignore database updates to the value that are greater in compare order than the
+requested key if the `SkipLessThan` parameter is set to true. If we receive a
+refresh, then the stored value will be reset to the requested value even if the
+stored value is greater.
+
+#### Key
+The string key used to store the key.
+
+#### Value
+The string value to set. This can also be set via Send/Recv.
+
+#### SkipLessThan
+If this parameter is set to `true`, then it will ignore updating the value as
+long as the database versions are greater than the requested value. The compare
+operation used is based on the `SkipCmpStyle` parameter.
+
+#### SkipCmpStyle
+By default this converts the string values to integers and compares them as you
+would expect.
 
 ### Msg
 

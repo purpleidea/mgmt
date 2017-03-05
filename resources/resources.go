@@ -19,9 +19,6 @@
 package resources
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/gob"
 	"fmt"
 	"log"
 	"math"
@@ -673,36 +670,4 @@ func (obj *BaseRes) Poll() error {
 // Prometheus returns the prometheus instance.
 func (obj *BaseRes) Prometheus() *prometheus.Prometheus {
 	return obj.prometheus
-}
-
-// ResToB64 encodes a resource to a base64 encoded string (after serialization)
-func ResToB64(res Res) (string, error) {
-	b := bytes.Buffer{}
-	e := gob.NewEncoder(&b)
-	err := e.Encode(&res) // pass with &
-	if err != nil {
-		return "", fmt.Errorf("Gob failed to encode: %v", err)
-	}
-	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
-}
-
-// B64ToRes decodes a resource from a base64 encoded string (after deserialization)
-func B64ToRes(str string) (Res, error) {
-	var output interface{}
-	bb, err := base64.StdEncoding.DecodeString(str)
-	if err != nil {
-		return nil, fmt.Errorf("Base64 failed to decode: %v", err)
-	}
-	b := bytes.NewBuffer(bb)
-	d := gob.NewDecoder(b)
-	err = d.Decode(&output) // pass with &
-	if err != nil {
-		return nil, fmt.Errorf("Gob failed to decode: %v", err)
-	}
-	res, ok := output.(Res)
-	if !ok {
-		return nil, fmt.Errorf("Output %v is not a Res", res)
-
-	}
-	return res, nil
 }

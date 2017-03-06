@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package pgraph
+package pgraph // TODO: this should be a subpackage
 
 import (
 	"fmt"
@@ -46,14 +46,14 @@ func (g *Graph) Graphviz() (out string) {
 	//out += "\tnode [shape=box];\n"
 	str := ""
 	for i := range g.Adjacency { // reverse paths
-		out += fmt.Sprintf("\t%s [label=\"%s[%s]\"];\n", i.GetName(), i.Kind(), i.GetName())
+		out += fmt.Sprintf("\t\"%s\" [label=\"%s[%s]\"];\n", i.GetName(), i.Kind(), i.GetName())
 		for j := range g.Adjacency[i] {
 			k := g.Adjacency[i][j]
 			// use str for clearer output ordering
 			if k.Notify {
-				str += fmt.Sprintf("\t%s -> %s [label=%s,style=bold];\n", i.GetName(), j.GetName(), k.Name)
+				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i.GetName(), j.GetName(), k.Name)
 			} else {
-				str += fmt.Sprintf("\t%s -> %s [label=%s];\n", i.GetName(), j.GetName(), k.Name)
+				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\"];\n", i.GetName(), j.GetName(), k.Name)
 			}
 		}
 	}
@@ -64,7 +64,7 @@ func (g *Graph) Graphviz() (out string) {
 
 // ExecGraphviz writes out the graphviz data and runs the correct graphviz
 // filter command.
-func (g *Graph) ExecGraphviz(program, filename string) error {
+func (g *Graph) ExecGraphviz(program, filename, hostname string) error {
 
 	switch program {
 	case "dot", "neato", "twopi", "circo", "fdp":
@@ -74,6 +74,10 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 
 	if filename == "" {
 		return fmt.Errorf("no filename given")
+	}
+
+	if hostname != "" {
+		filename = fmt.Sprintf("%s@%s", filename, hostname)
 	}
 
 	// run as a normal user if possible when run with sudo

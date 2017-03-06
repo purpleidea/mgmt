@@ -483,15 +483,6 @@ func (obj *Main) Run() error {
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships
 
-			log.Printf("Graph: %v", G) // show graph
-			if obj.GraphvizFilter != "" {
-				if err := G.ExecGraphviz(obj.GraphvizFilter, obj.Graphviz); err != nil {
-					log.Printf("Graphviz: %v", err)
-				} else {
-					log.Printf("Graphviz: Successfully generated graph!")
-				}
-			}
-
 			// Call this here because at this point the graph does not
 			// know anything about the prometheus instance.
 			if err := prom.UpdatePgraphStartTime(); err != nil {
@@ -504,6 +495,19 @@ func (obj *Main) Run() error {
 			// even got going, thus causing nil pointer errors
 			G.Start(first)    // sync
 			converger.Start() // after G.Start()
+
+			log.Printf("Graph: %v", G) // show graph
+			if obj.Graphviz != "" {
+				filter := obj.GraphvizFilter
+				if filter == "" {
+					filter = "dot" // directed graph default
+				}
+				if err := G.ExecGraphviz(filter, obj.Graphviz, hostname); err != nil {
+					log.Printf("Graphviz: %v", err)
+				} else {
+					log.Printf("Graphviz: Successfully generated graph!")
+				}
+			}
 			first = false
 		}
 	}()

@@ -241,7 +241,7 @@ func CLI(program, version string, flags Flags) error {
 				},
 				cli.StringFlag{
 					Name:  "graphviz-filter, gf",
-					Value: "dot", // directed graph default
+					Value: "",
 					Usage: "graphviz filter to use",
 				},
 				cli.IntFlag{

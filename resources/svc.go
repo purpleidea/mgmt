@@ -174,6 +174,8 @@ func (obj *SvcRes) Watch() error {
 						log.Printf("Svc[%s]->Stopped", svc)
 					case "reloading":
 						log.Printf("Svc[%s]->Reloading", svc)
+					case "failed":
+						log.Printf("Svc[%s]->Failed", svc)
 					default:
 						log.Fatalf("Unknown svc state: %s", event[svc].ActiveState)
 					}

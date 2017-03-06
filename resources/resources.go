@@ -156,6 +156,8 @@ type Base interface {
 	Events() chan *event.Event
 	Data() *Data
 	IsWorking() bool
+	IsQuiescing() bool
+	QuiesceGroup() *sync.WaitGroup
 	WaitGroup() *sync.WaitGroup
 	Setup()
 	Reset()
@@ -235,10 +237,12 @@ type BaseRes struct {
 	isStarted bool          // did the started chan already close?
 	starter   bool          // does this have indegree == 0 ? XXX: usually?
 
-	waitGroup *sync.WaitGroup
-	working   bool // is the Worker() loop running ?
-	debug     bool
-	isStateOK bool // whether the state is okay based on events or not
+	quiescing    bool // are we quiescing (pause or exit)
+	quiesceGroup *sync.WaitGroup
+	waitGroup    *sync.WaitGroup
+	working      bool // is the Worker() loop running ?
+	debug        bool
+	isStateOK    bool // whether the state is okay based on events or not
 
 	isGrouped bool  // am i contained within a group?
 	grouped   []Res // list of any grouped resources
@@ -344,6 +348,9 @@ func (obj *BaseRes) Init() error {
 	obj.processChan = make(chan *event.Event)
 	obj.processSync = &sync.WaitGroup{}
 
+	obj.quiescing = false // no quiesce operation is happening at the moment
+	obj.quiesceGroup = &sync.WaitGroup{}
+
 	obj.waitGroup = &sync.WaitGroup{} // Init and Close must be 1-1 matched!
 	obj.waitGroup.Add(1)
 	obj.working = true // Worker method should now be running...
@@ -422,6 +429,14 @@ func (obj *BaseRes) Data() *Data {
 func (obj *BaseRes) IsWorking() bool {
 	return obj.working
 }
+
+// IsQuiescing returns if there is a quiesce operation in progress. Pause and
+// exit both meet this criteria, and this tells some systems to wind down, such
+// as the event replay mechanism.
+func (obj *BaseRes) IsQuiescing() bool { return obj.quiescing }
+
+// QuiesceGroup returns the sync group associated with the quiesce operations.
+func (obj *BaseRes) QuiesceGroup() *sync.WaitGroup { return obj.quiesceGroup }
 
 // WaitGroup returns a sync.WaitGroup which is open when the resource is done.
 // This is more useful than a closed channel signal, since it can be re-used

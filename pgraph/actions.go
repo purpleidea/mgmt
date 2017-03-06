@@ -328,6 +328,7 @@ func (obj *SentinelErr) Error() string {
 }
 
 // innerWorker is the CheckApply runner that reads from processChan.
+// TODO: would it be better if this was a method on BaseRes that took in *Graph?
 func (g *Graph) innerWorker(v *Vertex) {
 	obj := v.Res
 	running := false
@@ -365,6 +366,7 @@ Loop:
 					log.Printf("%s[%s]: Skipped event!", v.Kind(), v.GetName())
 				}
 				ev.ACK() // ready for next message
+				v.Res.QuiesceGroup().Done()
 				continue
 			}
 
@@ -376,6 +378,7 @@ Loop:
 				}
 				playback = true
 				ev.ACK() // ready for next message
+				v.Res.QuiesceGroup().Done()
 				continue
 			}
 
@@ -384,6 +387,7 @@ Loop:
 				e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.Kind(), v.GetName())
 				v.SendEvent(event.EventExit, &SentinelErr{e})
 				ev.ACK() // ready for next message
+				v.Res.QuiesceGroup().Done()
 				continue
 			}
 
@@ -403,6 +407,7 @@ Loop:
 					timer.Reset(d)
 					waiting = true // waiting for retry timer
 					ev.ACK()
+					v.Res.QuiesceGroup().Done()
 					continue
 				} // otherwise, we run directly!
 			}
@@ -419,6 +424,7 @@ Loop:
 					if retry == 0 {
 						// wrap the error in the sentinel
 						v.SendEvent(event.EventExit, &SentinelErr{e})
+						v.Res.QuiesceGroup().Done()
 						return
 					}
 					if retry > 0 { // don't decrement the -1
@@ -428,6 +434,8 @@ Loop:
 					// start the timer...
 					timer.Reset(delay)
 					waiting = true // waiting for retry timer
+					// don't v.Res.QuiesceGroup().Done() b/c
+					// the timer is running and it can exit!
 					return
 				}
 				retry = v.Meta().Retry // reset on success
@@ -457,15 +465,23 @@ Loop:
 			done = make(chan struct{}) // reset
 			// re-send this event, to trigger a CheckApply()
 			if playback {
-				playback = false
 				// this lock avoids us sending to
 				// channel after we've closed it!
 				// TODO: can this experience indefinite postponement ?
 				// see: https://github.com/golang/go/issues/11506
-				go obj.Event() // replay a new event
+				// pause or exit is in process if not quiescing!
+				if !v.Res.IsQuiescing() {
+					playback = false
+					v.Res.QuiesceGroup().Add(1) // lock around it, b/c still running...
+					go func() {
+						obj.Event() // replay a new event
+						v.Res.QuiesceGroup().Done()
+					}()
+				}
 			}
 			running = false
 			pcuid.SetConverged(true) // "unblock" Process
+			v.Res.QuiesceGroup().Done()
 
 		case <-wcuid.ConvergedTimer():
 			wcuid.SetConverged(true) // converged!

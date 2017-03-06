@@ -36,6 +36,7 @@ func (obj *BaseRes) Event() error {
 		obj.processLock.Unlock()
 		return fmt.Errorf("processChan is already closed")
 	}
+	obj.quiesceGroup.Add(1)                                           // add to processChan queue count
 	obj.processChan <- &event.Event{Kind: event.EventNil, Resp: resp} // trigger process
 	obj.processLock.Unlock()
 	return resp.Wait()
@@ -69,24 +70,36 @@ func (obj *BaseRes) SendEvent(ev event.Kind, err error) error {
 // ReadEvent processes events when a select gets one, and handles the pause
 // code too! The return values specify if we should exit and poke respectively.
 func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
-	ev.ACK()
+	//ev.ACK()
 	err := ev.Error()
 
 	switch ev.Kind {
 	case event.EventStart:
+		ev.ACK()
 		return nil, true
 
 	case event.EventPoke:
+		ev.ACK()
 		return nil, true
 
 	case event.EventBackPoke:
+		ev.ACK()
 		return nil, true // forward poking in response to a back poke!
 
 	case event.EventExit:
+		obj.quiescing = true
+		obj.quiesceGroup.Wait()
+		obj.quiescing = false // for symmetry
+		ev.ACK()
 		// FIXME: what do we do if we have a pending refresh (poke) and an exit?
 		return &err, false
 
 	case event.EventPause:
+		obj.quiescing = true // set the quiesce flag to avoid event replays
+		obj.quiesceGroup.Wait()
+		obj.quiescing = false // reset
+		ev.ACK()
+
 		// wait for next event to continue
 		select {
 		case e, ok := <-obj.Events():
@@ -94,6 +107,9 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 				err := error(nil)
 				return &err, false
 			}
+			//obj.quiescing = true
+			//obj.quiesceGroup.Wait() // unnecessary, but symmetrically correct
+			//obj.quiescing = false
 			e.ACK()
 			err := e.Error()
 			if e.Kind == event.EventExit {

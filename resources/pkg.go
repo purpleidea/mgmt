@@ -66,7 +66,7 @@ func (obj *PkgRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *PkgRes) Init() error {
-	obj.BaseRes.kind = "Pkg"
+	obj.BaseRes.kind = "pkg"
 	if err := obj.BaseRes.Init(); err != nil { // call base init, b/c we're overriding
 		return err
 	}

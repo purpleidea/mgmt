@@ -58,7 +58,7 @@ func (obj *TimerRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *TimerRes) Init() error {
-	obj.BaseRes.kind = "Timer"
+	obj.BaseRes.kind = "timer"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 

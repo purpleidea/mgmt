@@ -73,7 +73,7 @@ func (obj *PasswordRes) Validate() error {
 // Init generates a new password for this resource if one was not provided. It
 // will save this into a local file. It will load it back in from previous runs.
 func (obj *PasswordRes) Init() error {
-	obj.BaseRes.kind = "Password" // must be set before using VarDir
+	obj.BaseRes.kind = "password" // must be set before using VarDir
 
 	dir, err := obj.VarDir("")
 	if err != nil {

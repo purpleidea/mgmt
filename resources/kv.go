@@ -88,7 +88,7 @@ func (obj *KVRes) Validate() error {
 
 // Init initializes the resource.
 func (obj *KVRes) Init() error {
-	obj.BaseRes.kind = "KV"
+	obj.BaseRes.kind = "kv"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

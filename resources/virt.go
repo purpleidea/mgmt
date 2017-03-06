@@ -191,7 +191,7 @@ func (obj *VirtRes) Init() error {
 		}
 	}
 	obj.wg = &sync.WaitGroup{}
-	obj.BaseRes.kind = "Virt"
+	obj.BaseRes.kind = "virt"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

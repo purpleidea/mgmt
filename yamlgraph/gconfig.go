@@ -28,7 +28,6 @@ import (
 
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
-	"github.com/purpleidea/mgmt/util"
 
 	"gopkg.in/yaml.v2"
 )
@@ -116,8 +115,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 		field := value.FieldByName(name)
 		iface := field.Interface() // interface type of value
 		slice := reflect.ValueOf(iface)
-		// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
-		kind := util.FirstToUpper(name)
+		kind := strings.ToLower(name)
 		for j := 0; j < slice.Len(); j++ { // loop through resources of same kind
 			x := slice.Index(j).Interface()
 			res, ok := x.(resources.Res) // convert to Res type
@@ -158,8 +156,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 	var hostnameFilter []string // empty to get from everyone
 	kindFilter := []string{}
 	for _, t := range c.Collector {
-		// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
-		kind := util.FirstToUpper(t.Kind)
+		kind := strings.ToLower(t.Kind)
 		kindFilter = append(kindFilter, kind)
 	}
 	// do all the graph look ups in one single step, so that if the backend
@@ -175,8 +172,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 		matched := false
 		// see if we find a collect pattern that matches
 		for _, t := range c.Collector {
-			// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
-			kind := util.FirstToUpper(t.Kind)
+			kind := strings.ToLower(t.Kind)
 			// use t.Kind and optionally t.Pattern to collect from storage
 			log.Printf("Collect: %v; Pattern: %v", kind, t.Pattern)
 
@@ -219,20 +215,20 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 	}
 
 	for _, e := range c.Edges {
-		if _, ok := lookup[util.FirstToUpper(e.From.Kind)]; !ok {
+		if _, ok := lookup[strings.ToLower(e.From.Kind)]; !ok {
 			return nil, fmt.Errorf("can't find 'from' resource")
 		}
-		if _, ok := lookup[util.FirstToUpper(e.To.Kind)]; !ok {
+		if _, ok := lookup[strings.ToLower(e.To.Kind)]; !ok {
 			return nil, fmt.Errorf("can't find 'to' resource")
 		}
-		if _, ok := lookup[util.FirstToUpper(e.From.Kind)][e.From.Name]; !ok {
+		if _, ok := lookup[strings.ToLower(e.From.Kind)][e.From.Name]; !ok {
 			return nil, fmt.Errorf("can't find 'from' name")
 		}
-		if _, ok := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]; !ok {
+		if _, ok := lookup[strings.ToLower(e.To.Kind)][e.To.Name]; !ok {
 			return nil, fmt.Errorf("can't find 'to' name")
 		}
-		from := lookup[util.FirstToUpper(e.From.Kind)][e.From.Name]
-		to := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]
+		from := lookup[strings.ToLower(e.From.Kind)][e.From.Name]
+		to := lookup[strings.ToLower(e.To.Kind)][e.To.Name]
 		edge := pgraph.NewEdge(e.Name)
 		edge.Notify = e.Notify
 		graph.AddEdge(from, to, edge)

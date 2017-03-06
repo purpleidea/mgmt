@@ -92,7 +92,7 @@ func (obj *NspawnRes) Init() error {
 	if err := obj.svc.Init(); err != nil {
 		return err
 	}
-	obj.BaseRes.kind = "Nspawn"
+	obj.BaseRes.kind = "nspawn"
 	return obj.BaseRes.Init()
 }
 

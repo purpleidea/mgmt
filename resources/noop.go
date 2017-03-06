@@ -49,7 +49,7 @@ func (obj *NoopRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *NoopRes) Init() error {
-	obj.BaseRes.kind = "Noop"
+	obj.BaseRes.kind = "noop"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

@@ -147,7 +147,7 @@ func (obj *FileRes) Init() error {
 	obj.path = obj.GetPath()                     // compute once
 	obj.isDir = strings.HasSuffix(obj.path, "/") // dirs have trailing slashes
 
-	obj.BaseRes.kind = "File"
+	obj.BaseRes.kind = "file"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

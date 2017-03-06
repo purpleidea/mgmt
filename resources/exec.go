@@ -74,7 +74,7 @@ func (obj *ExecRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *ExecRes) Init() error {
-	obj.BaseRes.kind = "Exec"
+	obj.BaseRes.kind = "exec"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

@@ -80,7 +80,7 @@ work, and finish by calling the `Init` method of the base resource.
 ```golang
 // Init initializes the Foo resource.
 func (obj *FooRes) Init() error {
-	obj.BaseRes.kind = "Foo" // must set capitalized resource kind
+	obj.BaseRes.kind = "foo" // must lower case resource kind
 	// run the resource specific initialization, and error if anything fails
 	if some_error {
 		return err // something went wrong!

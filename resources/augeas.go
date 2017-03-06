@@ -93,7 +93,7 @@ func (obj *AugeasRes) Validate() error {
 
 // Init initiates the resource.
 func (obj *AugeasRes) Init() error {
-	obj.BaseRes.kind = "Augeas"
+	obj.BaseRes.kind = "augeas"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

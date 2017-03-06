@@ -65,7 +65,7 @@ func (obj *SvcRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *SvcRes) Init() error {
-	obj.BaseRes.kind = "Svc"
+	obj.BaseRes.kind = "svc"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

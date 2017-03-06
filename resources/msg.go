@@ -75,7 +75,7 @@ func (obj *MsgRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *MsgRes) Init() error {
-	obj.BaseRes.kind = "Msg"
+	obj.BaseRes.kind = "msg"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 

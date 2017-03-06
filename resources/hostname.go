@@ -87,7 +87,7 @@ func (obj *HostnameRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *HostnameRes) Init() error {
-	obj.BaseRes.kind = "Hostname"
+	obj.BaseRes.kind = "hostname"
 	if obj.PrettyHostname == "" {
 		obj.PrettyHostname = obj.Hostname
 	}

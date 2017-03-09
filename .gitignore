@@ -9,11 +9,3 @@ mgmt
 mgmt.static
 mgmt.iml
 rpmbuild/
-
-# Build stuff
-debian/*.debhelper.log
-debian/*debhelper
-debian/debhelper-build-stamp
-debian/files
-debian/mgmt.substvars
-debian/mgmt/*

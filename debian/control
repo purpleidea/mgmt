@@ -6,7 +6,7 @@ Build-Depends:
                dh-golang,
                dh-systemd,
                golang-go,
-               
+
 Package: mgmt
 Architecture: any
 Depends: ${shlibs:Depends} ${misc:Depends}

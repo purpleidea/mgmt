@@ -122,13 +122,13 @@ func TestIFF(t *testing.T) {
 func TestReadEvent(t *testing.T) {
 	//res := FileRes{}
 
-	//shouldExit := map[event.EventName]bool{
+	//shouldExit := map[event.Kind]bool{
 	//	event.EventStart:    false,
 	//	event.EventPoke:     false,
 	//	event.EventBackPoke: false,
 	//	event.EventExit:     true,
 	//}
-	//shouldPoke := map[event.EventName]bool{
+	//shouldPoke := map[event.Kind]bool{
 	//	event.EventStart:    true,
 	//	event.EventPoke:     true,
 	//	event.EventBackPoke: true,
@@ -136,7 +136,7 @@ func TestReadEvent(t *testing.T) {
 	//}
 
 	//for ev := range shouldExit {
-	//	exit, poke := res.ReadEvent(&event.Event{Name: ev})
+	//	exit, poke := res.ReadEvent(&event.Event{Kind: ev})
 	//	if exit != shouldExit[ev] {
 	//		t.Errorf("resource.ReadEvent returned wrong exit flag for a %v event (%v, should be %v)",
 	//			ev, exit, shouldExit[ev])
@@ -152,7 +152,7 @@ func TestReadEvent(t *testing.T) {
 
 	// test result when a pause event is followed by start
 	//go res.SendEvent(event.EventStart, nil)
-	//exit, poke := res.ReadEvent(&event.Event{Name: event.EventPause})
+	//exit, poke := res.ReadEvent(&event.Event{Kind: event.EventPause})
 	//if exit {
 	//	t.Error("resource.ReadEvent returned wrong exit flag for a pause+start event (true, should be false)")
 	//}
@@ -162,7 +162,7 @@ func TestReadEvent(t *testing.T) {
 
 	// test result when a pause event is followed by exit
 	//go res.SendEvent(event.EventExit, nil)
-	//exit, poke = res.ReadEvent(&event.Event{Name: event.EventPause})
+	//exit, poke = res.ReadEvent(&event.Event{Kind: event.EventPause})
 	//if !exit {
 	//	t.Error("resource.ReadEvent returned wrong exit flag for a pause+start event (false, should be true)")
 	//}

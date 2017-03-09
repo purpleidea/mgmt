@@ -24,7 +24,9 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/util/semaphore"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -58,6 +60,9 @@ type Graph struct {
 	state     graphState
 	mutex     *sync.Mutex // used when modifying graph State variable
 	wg        *sync.WaitGroup
+	semas     map[string]*semaphore.Semaphore
+
+	prometheus *prometheus.Prometheus // the prometheus instance
 }
 
 // Vertex is the primary vertex struct in this library.
@@ -83,6 +88,7 @@ func NewGraph(name string) *Graph {
 		// ptr b/c: Mutex/WaitGroup must not be copied after first use
 		mutex: &sync.Mutex{},
 		wg:    &sync.WaitGroup{},
+		semas: make(map[string]*semaphore.Semaphore),
 	}
 }
 
@@ -119,6 +125,9 @@ func (g *Graph) Copy() *Graph {
 		state:     g.state,
 		mutex:     g.mutex,
 		wg:        g.wg,
+		semas:     g.semas,
+
+		prometheus: g.prometheus,
 	}
 	for k, v := range g.Adjacency {
 		newGraph.Adjacency[k] = v // copy
@@ -192,16 +201,27 @@ func (g *Graph) DeleteEdge(e *Edge) {
 	}
 }
 
-// GetVertexMatch searches for an equivalent resource in the graph and returns
-// the vertex it is found in, or nil if not found.
-func (g *Graph) GetVertexMatch(obj resources.Res) *Vertex {
-	for k := range g.Adjacency {
-		if k.Res.Compare(obj) {
-			return k
+// CompareMatch searches for an equivalent resource in the graph and returns the
+// vertex it is found in, or nil if not found.
+func (g *Graph) CompareMatch(obj resources.Res) *Vertex {
+	for v := range g.Adjacency {
+		if v.Res.Compare(obj) {
+			return v
 		}
 	}
 	return nil
 }
+
+// TODO: consider adding a mutate API.
+//func (g *Graph) MutateMatch(obj resources.Res) *Vertex {
+//	for v := range g.Adjacency {
+//		if err := v.Res.Mutate(obj); err == nil {
+//			// transmogrified!
+//			return v
+//		}
+//	}
+//	return nil
+//}
 
 // HasVertex returns if the input vertex exists in the graph.
 func (g *Graph) HasVertex(v *Vertex) bool {
@@ -482,7 +502,7 @@ func (g *Graph) TopologicalSort() ([]*Vertex, error) { // kahn's algorithm
 		if in > 0 {
 			for n := range g.Adjacency[c] {
 				if remaining[n] > 0 {
-					return nil, fmt.Errorf("Not a dag!")
+					return nil, fmt.Errorf("not a dag")
 				}
 			}
 		}
@@ -532,7 +552,8 @@ func (g *Graph) Reachability(a, b *Vertex) []*Vertex {
 }
 
 // GraphSync updates the oldGraph so that it matches the newGraph receiver. It
-// leaves identical elements alone so that they don't need to be refreshed.
+// leaves identical elements alone so that they don't need to be refreshed. It
+// tries to mutate existing elements into new ones, if they support this.
 // FIXME: add test cases
 func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 
@@ -547,16 +568,24 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 
 	for v := range g.Adjacency { // loop through the vertices (resources)
 		res := v.Res // resource
+		var vertex *Vertex
 
-		vertex := oldGraph.GetVertexMatch(res)
-		if vertex == nil { // no match found
+		// step one, direct compare with res.Compare
+		if vertex == nil { // redundant guard for consistency
+			vertex = oldGraph.CompareMatch(res)
+		}
+
+		// TODO: consider adding a mutate API.
+		// step two, try and mutate with res.Mutate
+		//if vertex == nil { // not found yet...
+		//	vertex = oldGraph.MutateMatch(res)
+		//}
+
+		if vertex == nil { // no match found yet
 			if err := res.Validate(); err != nil {
 				return nil, errwrap.Wrapf(err, "could not Validate() resource")
 			}
-			if err := res.Init(); err != nil {
-				return nil, errwrap.Wrapf(err, "could not Init() resource")
-			}
-			vertex = NewVertex(res)
+			vertex = v
 			oldGraph.AddVertex(vertex) // call standalone in case not part of an edge
 		}
 		lookup[v] = vertex                      // used for constructing edges
@@ -568,6 +597,7 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 		if !VertexContains(v, vertexKeep) {
 			// wait for exit before starting new graph!
 			v.SendEvent(event.EventExit, nil) // sync
+			v.Res.WaitGroup().Wait()
 			oldGraph.DeleteVertex(v)
 		}
 	}
@@ -580,13 +610,13 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 			// lookup vertices (these should exist now)
 			//res1 := v1.Res // resource
 			//res2 := v2.Res
-			//vertex1 := oldGraph.GetVertexMatch(res1)
-			//vertex2 := oldGraph.GetVertexMatch(res2)
+			//vertex1 := oldGraph.CompareMatch(res1)
+			//vertex2 := oldGraph.CompareMatch(res2)
 			vertex1, exists1 := lookup[v1]
 			vertex2, exists2 := lookup[v2]
 			if !exists1 || !exists2 { // no match found, bug?
 				//if vertex1 == nil || vertex2 == nil { // no match found
-				return nil, fmt.Errorf("New vertices weren't found!") // programming error
+				return nil, fmt.Errorf("new vertices weren't found") // programming error
 			}
 
 			edge, exists := oldGraph.Adjacency[vertex1][vertex2]
@@ -624,8 +654,11 @@ func (g *Graph) GraphMetas() []*resources.MetaParams {
 
 // AssociateData associates some data with the object in the graph in question.
 func (g *Graph) AssociateData(data *resources.Data) {
+	// prometheus needs to be associated to this graph as well
+	g.prometheus = data.Prometheus
+
 	for k := range g.Adjacency {
-		k.Res.AssociateData(data)
+		*k.Res.Data() = *data
 	}
 }
 

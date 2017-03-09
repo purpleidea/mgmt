@@ -19,14 +19,12 @@
 package resources
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/gob"
 	"fmt"
 	"log"
 	"math"
 	"os"
 	"path"
+	"sort"
 	"sync"
 	"time"
 
@@ -34,6 +32,7 @@ import (
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/prometheus"
+	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
 	"golang.org/x/time/rate"
@@ -54,12 +53,27 @@ const (
 
 const refreshPathToken = "refresh"
 
+// World is an interface to the rest of the different graph state. It allows
+// the GAPI to store state and exchange information throughout the cluster. It
+// is the interface each machine uses to communicate with the rest of the world.
+type World interface { // TODO: is there a better name for this interface?
+	ResExport([]Res) error
+	// FIXME: should this method take a "filter" data struct instead of many args?
+	ResCollect(hostnameFilter, kindFilter []string) ([]Res, error)
+
+	StrWatch(namespace string) chan error
+	StrGet(namespace string) (map[string]string, error)
+	StrSet(namespace, value string) error
+	StrDel(namespace string) error
+}
+
 // Data is the set of input values passed into the pgraph for the resources.
 type Data struct {
-	//Hostname string         // uuid for the host
+	Hostname string // uuid for the host
 	//Noop     bool
 	Converger  converger.Converger
 	Prometheus *prometheus.Prometheus
+	World      World
 	Prefix     string // the prefix to be used for the pgraph namespace
 	Debug      bool
 	// NOTE: we can add more fields here if needed for the resources.
@@ -101,6 +115,7 @@ type MetaParams struct {
 	Poll  uint32     `yaml:"poll"`  // metaparam, number of seconds between poll intervals, 0 to watch
 	Limit rate.Limit `yaml:"limit"` // metaparam, number of events per second to allow through
 	Burst int        `yaml:"burst"` // metaparam, number of events to allow in a burst
+	Sema  []string   `yaml:"sema"`  // metaparam, list of semaphore ids (id | id:count)
 }
 
 // UnmarshalYAML is the custom unmarshal handler for the MetaParams struct. It
@@ -127,6 +142,7 @@ var DefaultMetaParams = MetaParams{
 	Poll:      0,        // defaults to watching for events
 	Limit:     rate.Inf, // defaults to no limit
 	Burst:     0,        // no burst needed on an infinite rate // TODO: is this a good default?
+	//Sema:      []string{},
 }
 
 // The Base interface is everything that is common to all resources.
@@ -138,17 +154,19 @@ type Base interface {
 	Kind() string
 	Meta() *MetaParams
 	Events() chan *event.Event
-	AssociateData(*Data)
+	Data() *Data
 	IsWorking() bool
-	SetWorking(bool)
+	IsQuiescing() bool
+	QuiesceGroup() *sync.WaitGroup
+	WaitGroup() *sync.WaitGroup
+	Setup()
+	Reset()
 	Converger() converger.Converger
-	RegisterConverger()
-	UnregisterConverger()
-	ConvergerUID() converger.ConvergerUID
+	ConvergerUIDs() (converger.UID, converger.UID, converger.UID)
 	GetState() ResState
 	SetState(ResState)
-	Event(chan *event.Event) error
-	SendEvent(event.EventName, error) error
+	Event() error
+	SendEvent(event.Kind, error) error
 	ReadEvent(*event.Event) (*error, bool)
 	Refresh() bool                         // is there a pending refresh to run?
 	SetRefresh(bool)                       // set the refresh state of this resource
@@ -162,10 +180,14 @@ type Base interface {
 	GetGroup() []Res    // return everyone grouped inside me
 	SetGroup([]Res)
 	VarDir(string) (string, error)
-	Running(chan *event.Event) error // notify the engine that Watch started
-	Started() <-chan struct{}        // returns when the resource has started
+	Running() error           // notify the engine that Watch started
+	Started() <-chan struct{} // returns when the resource has started
+	Stopped() <-chan struct{} // returns when the resource has stopped
 	Starter(bool)
-	Poll(chan *event.Event) error // poll alternative to watching :(
+	Poll() error // poll alternative to watching :(
+	ProcessChan() chan *event.Event
+	ProcessSync() *sync.WaitGroup
+	ProcessExit()
 	Prometheus() *prometheus.Prometheus
 }
 
@@ -176,8 +198,8 @@ type Res interface {
 	Validate() error
 	Init() error
 	Close() error
-	UIDs() []ResUID                // most resources only return one
-	Watch(chan *event.Event) error // send on channel to signal process() events
+	UIDs() []ResUID // most resources only return one
+	Watch() error   // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)
 	AutoEdges() AutoEdge
 	Compare(Res) bool
@@ -191,24 +213,44 @@ type BaseRes struct {
 	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
 	Recv       map[string]*Send // mapping of key to receive on from value
 
-	kind       string
-	mutex      *sync.Mutex // locks around sending and closing of events channel
-	events     chan *event.Event
-	converger  converger.Converger // converged tracking
-	cuid       converger.ConvergerUID
-	prometheus *prometheus.Prometheus
-	prefix     string // base prefix for this resource
-	debug      bool
-	state      ResState
-	working    bool          // is the Worker() loop running ?
-	started    chan struct{} // closed when worker is started/running
-	isStarted  bool          // did the started chan already close?
-	starter    bool          // does this have indegree == 0 ? XXX: usually?
-	isStateOK  bool          // whether the state is okay based on events or not
-	isGrouped  bool          // am i contained within a group?
-	grouped    []Res         // list of any grouped resources
-	refresh    bool          // does this resource have a refresh to run?
+	kind   string
+	data   Data
+	state  ResState
+	prefix string // base prefix for this resource
+
+	eventsLock *sync.Mutex // locks around sending and closing of events channel
+	eventsDone bool
+	eventsChan chan *event.Event
+
+	processLock *sync.Mutex
+	processDone bool
+	processChan chan *event.Event
+	processSync *sync.WaitGroup
+
+	converger converger.Converger // converged tracking
+	cuid      converger.UID
+	wcuid     converger.UID
+	pcuid     converger.UID
+
+	started   chan struct{} // closed when worker is started/running
+	stopped   chan struct{} // closed when worker is stopped/exited
+	isStarted bool          // did the started chan already close?
+	starter   bool          // does this have indegree == 0 ? XXX: usually?
+
+	quiescing    bool // are we quiescing (pause or exit)
+	quiesceGroup *sync.WaitGroup
+	waitGroup    *sync.WaitGroup
+	working      bool // is the Worker() loop running ?
+	debug        bool
+	isStateOK    bool // whether the state is okay based on events or not
+
+	isGrouped bool  // am i contained within a group?
+	grouped   []Res // list of any grouped resources
+
+	refresh bool // does this resource have a refresh to run?
 	//refreshState StatefulBool // TODO: future stateful bool
+
+	prometheus *prometheus.Prometheus
 }
 
 // UnmarshalYAML is the custom unmarshal handler for the BaseRes struct. It is
@@ -286,12 +328,28 @@ func (obj *BaseRes) Validate() error {
 
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
-	if obj.kind == "" {
-		return fmt.Errorf("Resource did not set kind!")
+	if obj.debug {
+		log.Printf("%s[%s]: Init()", obj.Kind(), obj.GetName())
 	}
-	obj.mutex = &sync.Mutex{}
-	obj.events = make(chan *event.Event) // unbuffered chan to avoid stale events
-	obj.started = make(chan struct{})    // closes when started
+	if obj.kind == "" {
+		return fmt.Errorf("resource did not set kind")
+	}
+
+	obj.cuid = obj.Converger().Register()
+	obj.wcuid = obj.Converger().Register() // get a cuid for the worker!
+	obj.pcuid = obj.Converger().Register() // get a cuid for the process
+
+	obj.processLock = &sync.Mutex{} // lock around processChan closing and sending
+	obj.processDone = false         // did we close processChan ?
+	obj.processChan = make(chan *event.Event)
+	obj.processSync = &sync.WaitGroup{}
+
+	obj.quiescing = false // no quiesce operation is happening at the moment
+	obj.quiesceGroup = &sync.WaitGroup{}
+
+	obj.waitGroup = &sync.WaitGroup{} // Init and Close must be 1-1 matched!
+	obj.waitGroup.Add(1)
+	obj.working = true // Worker method should now be running...
 
 	// FIXME: force a sane default until UnmarshalYAML on *BaseRes works...
 	if obj.Meta().Burst == 0 && obj.Meta().Limit == 0 { // blocked
@@ -303,19 +361,28 @@ func (obj *BaseRes) Init() error {
 
 	//dir, err := obj.VarDir("")
 	//if err != nil {
-	//	return errwrap.Wrapf(err, "VarDir failed in Init()")
+	//	return errwrap.Wrapf(err, "the VarDir failed in Init()")
 	//}
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
+
 	return nil
 }
 
 // Close shuts down and performs any cleanup.
 func (obj *BaseRes) Close() error {
-	obj.mutex.Lock()
-	obj.working = false // obj.SetWorking(false)
-	close(obj.events)   // this is where we properly close this channel!
-	obj.mutex.Unlock()
+	if obj.debug {
+		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
+	}
+
+	obj.pcuid.Unregister()
+	obj.wcuid.Unregister()
+	obj.cuid.Unregister()
+
+	obj.working = false // Worker method should now be closing...
+	close(obj.stopped)
+	obj.waitGroup.Done()
+
 	return nil
 }
 
@@ -346,53 +413,59 @@ func (obj *BaseRes) Meta() *MetaParams {
 
 // Events returns the channel of events to listen on.
 func (obj *BaseRes) Events() chan *event.Event {
-	return obj.events
+	return obj.eventsChan
 }
 
-// AssociateData associates some data with the object in question.
-func (obj *BaseRes) AssociateData(data *Data) {
-	obj.converger = data.Converger
-	obj.prometheus = data.Prometheus
-	obj.prefix = data.Prefix
-	obj.debug = data.Debug
+// Data returns an associable handle to some data passed in to the resource.
+func (obj *BaseRes) Data() *Data {
+	return &obj.data
 }
 
-// IsWorking tells us if the Worker() function is running.
+// IsWorking tells us if the Worker() function is running. Not thread safe.
 func (obj *BaseRes) IsWorking() bool {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
 	return obj.working
 }
 
-// SetWorking tracks the state of if Worker() function is running.
-func (obj *BaseRes) SetWorking(b bool) {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
-	obj.working = b
+// IsQuiescing returns if there is a quiesce operation in progress. Pause and
+// exit both meet this criteria, and this tells some systems to wind down, such
+// as the event replay mechanism.
+func (obj *BaseRes) IsQuiescing() bool { return obj.quiescing }
+
+// QuiesceGroup returns the sync group associated with the quiesce operations.
+func (obj *BaseRes) QuiesceGroup() *sync.WaitGroup { return obj.quiesceGroup }
+
+// WaitGroup returns a sync.WaitGroup which is open when the resource is done.
+// This is more useful than a closed channel signal, since it can be re-used
+// safely without having to recreate it and worry about stale channel handles.
+func (obj *BaseRes) WaitGroup() *sync.WaitGroup { return obj.waitGroup }
+
+// Setup does some work which must happen before the Worker starts. It happens
+// once per Worker startup.
+func (obj *BaseRes) Setup() {
+	obj.started = make(chan struct{}) // closes when started
+	obj.stopped = make(chan struct{}) // closes when stopped
+
+	obj.eventsLock = &sync.Mutex{}
+	obj.eventsDone = false
+	obj.eventsChan = make(chan *event.Event) // unbuffered chan to avoid stale events
+}
+
+// Reset from Setup.
+func (obj *BaseRes) Reset() {
+	return
 }
 
 // Converger returns the converger object used by the system. It can be used to
 // register new convergers if needed.
 func (obj *BaseRes) Converger() converger.Converger {
-	return obj.converger
+	return obj.data.Converger
 }
 
-// RegisterConverger sets up the cuid for the resource. This is a helper
-// function for the engine, and shouldn't be called by the resources directly.
-func (obj *BaseRes) RegisterConverger() {
-	obj.cuid = obj.converger.Register()
-}
-
-// UnregisterConverger tears down the cuid for the resource. This is a helper
-// function for the engine, and shouldn't be called by the resources directly.
-func (obj *BaseRes) UnregisterConverger() {
-	obj.cuid.Unregister()
-}
-
-// ConvergerUID returns the ConvergerUID for the resource. This should be called
-// by the Watch method of the resource to set the converged state.
-func (obj *BaseRes) ConvergerUID() converger.ConvergerUID {
-	return obj.cuid
+// ConvergerUIDs returns the ConvergerUIDs for the resource. This is called by
+// the various methods that need one of these ConvergerUIDs. They are registered
+// by the Init method and unregistered on the resource Close.
+func (obj *BaseRes) ConvergerUIDs() (cuid, wcuid, pcuid converger.UID) {
+	return obj.cuid, obj.wcuid, obj.pcuid
 }
 
 // GetState returns the state of the resource.
@@ -418,6 +491,21 @@ func (obj *BaseRes) StateOK(b bool) {
 	obj.isStateOK = b
 }
 
+// ProcessChan returns the chan that resources send events to. Internal API!
+func (obj *BaseRes) ProcessChan() chan *event.Event { return obj.processChan }
+
+// ProcessSync returns the WaitGroup that blocks until the innerWorker closes.
+func (obj *BaseRes) ProcessSync() *sync.WaitGroup { return obj.processSync }
+
+// ProcessExit causes the innerWorker to close and waits until it does so.
+func (obj *BaseRes) ProcessExit() {
+	obj.processLock.Lock() // lock to avoid a send when closed!
+	obj.processDone = true
+	close(obj.processChan)
+	obj.processLock.Unlock()
+	obj.processSync.Wait()
+}
+
 // GroupCmp compares two resources and decides if they're suitable for grouping
 // You'll probably want to override this method when implementing a resource...
 func (obj *BaseRes) GroupCmp(res Res) bool {
@@ -427,10 +515,16 @@ func (obj *BaseRes) GroupCmp(res Res) bool {
 // GroupRes groups resource (arg) into self.
 func (obj *BaseRes) GroupRes(res Res) error {
 	if l := len(res.GetGroup()); l > 0 {
-		return fmt.Errorf("Res: %v already contains %d grouped resources!", res, l)
+		return fmt.Errorf("the %v resource already contains %d grouped resources", res, l)
 	}
 	if res.IsGrouped() {
-		return fmt.Errorf("Res: %v is already grouped!", res)
+		return fmt.Errorf("the %v resource is already grouped", res)
+	}
+
+	// merging two resources into one should yield the sum of their semas
+	if semas := res.Meta().Sema; len(semas) > 0 {
+		obj.Meta().Sema = append(obj.Meta().Sema, semas...)
+		obj.Meta().Sema = util.StrRemoveDuplicatesInList(obj.Meta().Sema)
 	}
 
 	obj.grouped = append(obj.grouped, res)
@@ -490,6 +584,24 @@ func (obj *BaseRes) Compare(res Res) bool {
 	if obj.Meta().Burst != res.Meta().Burst {
 		return false
 	}
+
+	// are the two slices the same?
+	cmpSlices := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		sort.Strings(a)
+		sort.Strings(b)
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+	if !cmpSlices(obj.Meta().Sema, res.Meta().Sema) {
+		return false
+	}
 	return true
 }
 
@@ -504,20 +616,20 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 	// Using extra adds additional dirs onto our namespace. An empty extra
 	// adds no additional directories.
 	if obj.prefix == "" {
-		return "", fmt.Errorf("VarDir prefix is empty!")
+		return "", fmt.Errorf("the VarDir prefix is empty")
 	}
 	if obj.Kind() == "" {
-		return "", fmt.Errorf("VarDir kind is empty!")
+		return "", fmt.Errorf("the VarDir kind is empty")
 	}
 	if obj.GetName() == "" {
-		return "", fmt.Errorf("VarDir name is empty!")
+		return "", fmt.Errorf("the VarDir name is empty")
 	}
 
 	// FIXME: is obj.GetName() sufficiently unique to use as a UID here?
 	uid := obj.GetName()
 	p := fmt.Sprintf("%s/", path.Join(obj.prefix, obj.Kind(), uid, extra))
 	if err := os.MkdirAll(p, 0770); err != nil {
-		return "", errwrap.Wrapf(err, "Can't create prefix for %s[%s]", obj.Kind(), obj.GetName())
+		return "", errwrap.Wrapf(err, "can't create prefix for %s[%s]", obj.Kind(), obj.GetName())
 	}
 	return p, nil
 }
@@ -525,20 +637,23 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 // Started returns a channel that closes when the resource has started up.
 func (obj *BaseRes) Started() <-chan struct{} { return obj.started }
 
+// Stopped returns a channel that closes when the worker has finished running.
+func (obj *BaseRes) Stopped() <-chan struct{} { return obj.stopped }
+
 // Starter sets the starter bool. This defines if a vertex has an indegree of 0.
 // If we have an indegree of 0, we'll need to be a poke initiator in the graph.
 func (obj *BaseRes) Starter(b bool) { obj.starter = b }
 
 // Poll is the watch replacement for when we want to poll, which outputs events.
-func (obj *BaseRes) Poll(processChan chan *event.Event) error {
-	cuid := obj.ConvergerUID() // get the converger uid used to report status
+func (obj *BaseRes) Poll() error {
+	cuid, _, _ := obj.ConvergerUIDs() // get the converger uid used to report status
 
 	// create a time.Ticker for the given interval
 	ticker := time.NewTicker(time.Duration(obj.Meta().Poll) * time.Second)
 	defer ticker.Stop()
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 	cuid.SetConverged(false) // quickly stop any converge due to Running()
@@ -561,7 +676,7 @@ func (obj *BaseRes) Poll(processChan chan *event.Event) error {
 
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }
@@ -569,36 +684,4 @@ func (obj *BaseRes) Poll(processChan chan *event.Event) error {
 // Prometheus returns the prometheus instance.
 func (obj *BaseRes) Prometheus() *prometheus.Prometheus {
 	return obj.prometheus
-}
-
-// ResToB64 encodes a resource to a base64 encoded string (after serialization)
-func ResToB64(res Res) (string, error) {
-	b := bytes.Buffer{}
-	e := gob.NewEncoder(&b)
-	err := e.Encode(&res) // pass with &
-	if err != nil {
-		return "", fmt.Errorf("Gob failed to encode: %v", err)
-	}
-	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
-}
-
-// B64ToRes decodes a resource from a base64 encoded string (after deserialization)
-func B64ToRes(str string) (Res, error) {
-	var output interface{}
-	bb, err := base64.StdEncoding.DecodeString(str)
-	if err != nil {
-		return nil, fmt.Errorf("Base64 failed to decode: %v", err)
-	}
-	b := bytes.NewBuffer(bb)
-	d := gob.NewDecoder(b)
-	err = d.Decode(&output) // pass with &
-	if err != nil {
-		return nil, fmt.Errorf("Gob failed to decode: %v", err)
-	}
-	res, ok := output.(Res)
-	if !ok {
-		return nil, fmt.Errorf("Output %v is not a Res", res)
-
-	}
-	return res, nil
 }

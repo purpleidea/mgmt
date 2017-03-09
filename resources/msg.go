@@ -24,8 +24,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/purpleidea/mgmt/event"
-
 	"github.com/coreos/go-systemd/journal"
 )
 
@@ -66,10 +64,10 @@ func (obj *MsgRes) Validate() error {
 	invalidCharacters := regexp.MustCompile("[^a-zA-Z0-9_]")
 	for field := range obj.Fields {
 		if invalidCharacters.FindString(field) != "" {
-			return fmt.Errorf("Invalid character in field %s.", field)
+			return fmt.Errorf("invalid character in field %s", field)
 		}
 		if strings.HasPrefix(field, "_") {
-			return fmt.Errorf("Fields cannot begin with _.")
+			return fmt.Errorf("fields cannot begin with _")
 		}
 	}
 	return obj.BaseRes.Validate()
@@ -77,7 +75,7 @@ func (obj *MsgRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *MsgRes) Init() error {
-	obj.BaseRes.kind = "Msg"
+	obj.BaseRes.kind = "msg"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 
@@ -122,9 +120,9 @@ func (obj *MsgRes) journalPriority() journal.Priority {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *MsgRes) Watch(processChan chan *event.Event) error {
+func (obj *MsgRes) Watch() error {
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -142,7 +140,7 @@ func (obj *MsgRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

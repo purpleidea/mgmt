@@ -26,10 +26,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
-	"github.com/purpleidea/mgmt/util"
 
 	"gopkg.in/yaml.v2"
 )
@@ -60,6 +58,7 @@ type Resources struct {
 	Exec     []*resources.ExecRes     `yaml:"exec"`
 	File     []*resources.FileRes     `yaml:"file"`
 	Hostname []*resources.HostnameRes `yaml:"hostname"`
+	KV       []*resources.KVRes       `yaml:"kv"`
 	Msg      []*resources.MsgRes      `yaml:"msg"`
 	Noop     []*resources.NoopRes     `yaml:"noop"`
 	Nspawn   []*resources.NspawnRes   `yaml:"nspawn"`
@@ -86,14 +85,14 @@ func (c *GraphConfig) Parse(data []byte) error {
 		return err
 	}
 	if c.Graph == "" {
-		return errors.New("Graph config: invalid `graph`")
+		return errors.New("graph config: invalid graph")
 	}
 	return nil
 }
 
 // NewGraphFromConfig transforms a GraphConfig struct into a new graph.
 // FIXME: remove any possibly left over, now obsolete graph diff code from here!
-func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop bool) (*pgraph.Graph, error) {
+func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World, noop bool) (*pgraph.Graph, error) {
 	// hostname is the uuid for the host
 
 	var graph *pgraph.Graph          // new graph to return
@@ -116,13 +115,12 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 		field := value.FieldByName(name)
 		iface := field.Interface() // interface type of value
 		slice := reflect.ValueOf(iface)
-		// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
-		kind := util.FirstToUpper(name)
+		kind := strings.ToLower(name)
 		for j := 0; j < slice.Len(); j++ { // loop through resources of same kind
 			x := slice.Index(j).Interface()
 			res, ok := x.(resources.Res) // convert to Res type
 			if !ok {
-				return nil, fmt.Errorf("Config: Error: Can't convert: %v of type: %T to Res.", x, x)
+				return nil, fmt.Errorf("Config: Error: Can't convert: %v of type: %T to Res", x, x)
 			}
 			//if noop { // now done in mgmtmain
 			//	res.Meta().Noop = noop
@@ -133,9 +131,8 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 			// XXX: should we export based on a @@ prefix, or a metaparam
 			// like exported => true || exported => (host pattern)||(other pattern?)
 			if !strings.HasPrefix(res.GetName(), "@@") { // not exported resource
-				v := graph.GetVertexMatch(res)
+				v := graph.CompareMatch(res)
 				if v == nil { // no match found
-					res.Init()
 					v = pgraph.NewVertex(res)
 					graph.AddVertex(v) // call standalone in case not part of an edge
 				}
@@ -159,8 +156,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 	var hostnameFilter []string // empty to get from everyone
 	kindFilter := []string{}
 	for _, t := range c.Collector {
-		// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
-		kind := util.FirstToUpper(t.Kind)
+		kind := strings.ToLower(t.Kind)
 		kindFilter = append(kindFilter, kind)
 	}
 	// do all the graph look ups in one single step, so that if the backend
@@ -176,8 +172,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 		matched := false
 		// see if we find a collect pattern that matches
 		for _, t := range c.Collector {
-			// XXX: should we just drop these everywhere and have the kind strings be all lowercase?
-			kind := util.FirstToUpper(t.Kind)
+			kind := strings.ToLower(t.Kind)
 			// use t.Kind and optionally t.Pattern to collect from storage
 			log.Printf("Collect: %v; Pattern: %v", kind, t.Pattern)
 
@@ -207,9 +202,8 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 			if _, exists := lookup[kind]; !exists {
 				lookup[kind] = make(map[string]*pgraph.Vertex)
 			}
-			v := graph.GetVertexMatch(res)
+			v := graph.CompareMatch(res)
 			if v == nil { // no match found
-				res.Init() // initialize go channels or things won't work!!!
 				v = pgraph.NewVertex(res)
 				graph.AddVertex(v) // call standalone in case not part of an edge
 			}
@@ -221,20 +215,20 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world gapi.World, noop
 	}
 
 	for _, e := range c.Edges {
-		if _, ok := lookup[util.FirstToUpper(e.From.Kind)]; !ok {
-			return nil, fmt.Errorf("Can't find 'from' resource!")
+		if _, ok := lookup[strings.ToLower(e.From.Kind)]; !ok {
+			return nil, fmt.Errorf("can't find 'from' resource")
 		}
-		if _, ok := lookup[util.FirstToUpper(e.To.Kind)]; !ok {
-			return nil, fmt.Errorf("Can't find 'to' resource!")
+		if _, ok := lookup[strings.ToLower(e.To.Kind)]; !ok {
+			return nil, fmt.Errorf("can't find 'to' resource")
 		}
-		if _, ok := lookup[util.FirstToUpper(e.From.Kind)][e.From.Name]; !ok {
-			return nil, fmt.Errorf("Can't find 'from' name!")
+		if _, ok := lookup[strings.ToLower(e.From.Kind)][e.From.Name]; !ok {
+			return nil, fmt.Errorf("can't find 'from' name")
 		}
-		if _, ok := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]; !ok {
-			return nil, fmt.Errorf("Can't find 'to' name!")
+		if _, ok := lookup[strings.ToLower(e.To.Kind)][e.To.Name]; !ok {
+			return nil, fmt.Errorf("can't find 'to' name")
 		}
-		from := lookup[util.FirstToUpper(e.From.Kind)][e.From.Name]
-		to := lookup[util.FirstToUpper(e.To.Kind)][e.To.Name]
+		from := lookup[strings.ToLower(e.From.Kind)][e.From.Name]
+		to := lookup[strings.ToLower(e.To.Kind)][e.To.Name]
 		edge := pgraph.NewEdge(e.Name)
 		edge.Notify = e.Notify
 		graph.AddEdge(from, to, edge)

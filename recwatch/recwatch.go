@@ -53,10 +53,8 @@ type RecWatcher struct {
 	events   chan Event // one channel for events and err...
 	closed   bool       // is the events channel closed?
 	mutex    sync.Mutex // lock guarding the channel closing
-	once     sync.Once
 	wg       sync.WaitGroup
 	exit     chan struct{}
-	closeErr error
 }
 
 // NewRecWatcher creates an initializes a new recursive watcher.
@@ -89,17 +87,22 @@ func (obj *RecWatcher) Init() error {
 		}
 	}
 
+	obj.wg.Add(1)
 	go func() {
+		defer obj.wg.Done()
 		if err := obj.Watch(); err != nil {
 			// we need this mutex, because if we Init and then Close
 			// immediately, this can send after closed which panics!
 			obj.mutex.Lock()
 			if !obj.closed {
-				obj.events <- Event{Error: err}
+				select {
+				case obj.events <- Event{Error: err}:
+				case <-obj.exit:
+					// pass
+				}
 			}
 			obj.mutex.Unlock()
 		}
-		obj.Close()
 	}()
 	return nil
 }
@@ -114,29 +117,18 @@ func (obj *RecWatcher) Init() error {
 
 // Close shuts down the watcher.
 func (obj *RecWatcher) Close() error {
-	obj.once.Do(obj.close) // don't cause the channel to close twice
-	return obj.closeErr
-}
-
-// This close function is the function that actually does the close work. Don't
-// call it more than once!
-func (obj *RecWatcher) close() {
 	var err error
 	close(obj.exit) // send exit signal
 	obj.wg.Wait()
 	if obj.watcher != nil {
 		err = obj.watcher.Close()
 		obj.watcher = nil
-		// TODO: should we send the close error?
-		//if err != nil {
-		//	obj.events <- Event{Error: err}
-		//}
 	}
-	obj.mutex.Lock()
+	obj.mutex.Lock() // FIXME: I don't think this mutex is needed anymore...
 	obj.closed = true
 	close(obj.events)
 	obj.mutex.Unlock()
-	obj.closeErr = err // set the error
+	return err
 }
 
 // Events returns a channel of events. These include events for errors.
@@ -145,10 +137,8 @@ func (obj *RecWatcher) Events() chan Event { return obj.events }
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *RecWatcher) Watch() error {
 	if obj.watcher == nil {
-		return fmt.Errorf("Watcher is not initialized!")
+		return fmt.Errorf("the watcher is not initialized")
 	}
-	obj.wg.Add(1)
-	defer obj.wg.Done()
 
 	patharray := util.PathSplit(obj.safename) // tokenize the path
 	var index = len(patharray)                // starting index
@@ -180,11 +170,11 @@ func (obj *RecWatcher) Watch() error {
 				// no space left on device, out of inotify watches
 				// TODO: consider letting the user fall back to
 				// polling if they hit this error very often...
-				return fmt.Errorf("Out of inotify watches: %v", err)
+				return fmt.Errorf("out of inotify watches: %v", err)
 			} else if os.IsPermission(err) {
-				return fmt.Errorf("Permission denied adding a watch: %v", err)
+				return fmt.Errorf("permission denied adding a watch: %v", err)
 			}
-			return fmt.Errorf("Unknown error: %v", err)
+			return fmt.Errorf("unknown error: %v", err)
 		}
 
 		select {
@@ -290,11 +280,16 @@ func (obj *RecWatcher) Watch() error {
 			if send {
 				send = false
 				// only invalid state on certain types of events
-				obj.events <- Event{Error: nil, Body: &event}
+				select {
+				// exit even when we're blocked on event sending
+				case obj.events <- Event{Error: nil, Body: &event}:
+				case <-obj.exit:
+					return fmt.Errorf("pending event not sent")
+				}
 			}
 
 		case err := <-obj.watcher.Errors:
-			return fmt.Errorf("Unknown watcher error: %v", err)
+			return fmt.Errorf("unknown watcher error: %v", err)
 
 		case <-obj.exit:
 			return nil

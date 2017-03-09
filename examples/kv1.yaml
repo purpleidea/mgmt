@@ -1,0 +1,8 @@
+---
+graph: mygraph
+resources:
+  kv:
+  - name: kv1
+    key: "hello"
+    value: "world"
+edges: []

@@ -8,19 +8,19 @@ timeout --kill-after=20s 15s ./mgmt run --tmp-prefix --yaml=file-move.yaml 2>&1 
 pid=$!
 sleep 5s	# let it converge
 
-initial=$(grep -c 'File\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
+initial=$(grep -c 'file\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
 
 mv /tmp/mgmt/f1 /tmp/mgmt/f2
 
 sleep 3
 
-after_move_count=$(grep -c 'File\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
+after_move_count=$(grep -c 'file\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
 
 sleep 3
 
 echo f2 > /tmp/mgmt/f2
 
-after_moved_file_count=$(grep -c 'File\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
+after_moved_file_count=$(grep -c 'file\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
 
 
 if [[ ${after_move_count} -le ${initial} ]]

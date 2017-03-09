@@ -1,6 +1,6 @@
 ---
 graph: mygraph
-comment: simple exec fan in example to demonstrate optimization)
+comment: simple exec fan in example to demonstrate optimization
 resources:
   exec:
   - name: exec1

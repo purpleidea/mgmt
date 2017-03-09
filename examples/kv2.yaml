@@ -1,0 +1,7 @@
+---
+graph: mygraph
+resources:
+  kv:
+  - name: kv1
+    key: "iamdeleted"
+edges: []

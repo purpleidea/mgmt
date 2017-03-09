@@ -21,8 +21,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-
-	"github.com/purpleidea/mgmt/event"
 )
 
 func init() {
@@ -51,14 +49,14 @@ func (obj *NoopRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *NoopRes) Init() error {
-	obj.BaseRes.kind = "Noop"
+	obj.BaseRes.kind = "noop"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *NoopRes) Watch(processChan chan *event.Event) error {
+func (obj *NoopRes) Watch() error {
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -76,7 +74,7 @@ func (obj *NoopRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

@@ -80,7 +80,7 @@ work, and finish by calling the `Init` method of the base resource.
 ```golang
 // Init initializes the Foo resource.
 func (obj *FooRes) Init() error {
-	obj.BaseRes.kind = "Foo" // must set capitalized resource kind
+	obj.BaseRes.kind = "foo" // must lower case resource kind
 	// run the resource specific initialization, and error if anything fails
 	if some_error {
 		return err // something went wrong!
@@ -108,10 +108,15 @@ opened in the `Init` method and were using throughout the resource.
 ```golang
 // Close runs some cleanup code for this resource.
 func (obj *FooRes) Close() error {
+	err := obj.conn.Close() // close some internal connection
 
-	obj.Conn.Close() // ignore error in this case
-
-	return obj.BaseRes.Close() // call base close, b/c we're overriding
+	// call base close, b/c we're overriding
+	if e := obj.BaseRes.Close(); err == nil {
+		err = e
+	} else if e != nil {
+		err = multierr.Append(err, e) // list of errors
+	}
+	return err
 }
 ```
 
@@ -268,7 +273,7 @@ sending out erroneous `Event` messages to keep things alive until it finishes.
 #### Example
 ```golang
 // Watch is the listener and main loop for this resource.
-func (obj *FooRes) Watch(processChan chan *event.Event) error {
+func (obj *FooRes) Watch() error {
 	// setup the Foo resource
 	var err error
 	if err, obj.foo = OpenFoo(); err != nil {
@@ -277,7 +282,7 @@ func (obj *FooRes) Watch(processChan chan *event.Event) error {
 	defer obj.whatever.CloseFoo() // shutdown our
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -306,7 +311,7 @@ func (obj *FooRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event() // send the event!
 		}
 	}
 }

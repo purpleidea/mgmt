@@ -25,7 +25,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/recwatch"
 
 	errwrap "github.com/pkg/errors"
@@ -48,7 +47,7 @@ func init() {
 type AugeasRes struct {
 	BaseRes `yaml:",inline"`
 
-	// File is the path to the file targetted by this resource.
+	// File is the path to the file targeted by this resource.
 	File string `yaml:"file"`
 
 	// Lens is the lens used by this resource. If specified, mgmt
@@ -81,27 +80,27 @@ func (obj *AugeasRes) Default() Res {
 // Validate if the params passed in are valid data.
 func (obj *AugeasRes) Validate() error {
 	if !strings.HasPrefix(obj.File, "/") {
-		return fmt.Errorf("File should start with a slash.")
+		return fmt.Errorf("the File param should start with a slash")
 	}
 	if obj.Lens != "" && !strings.HasSuffix(obj.Lens, ".lns") {
-		return fmt.Errorf("Lens should have a .lns suffix.")
+		return fmt.Errorf("the Lens param should have a .lns suffix")
 	}
 	if (obj.Lens == "") != (obj.File == "") {
-		return fmt.Errorf("File and Lens must be specified together.")
+		return fmt.Errorf("the File and Lens params must be specified together")
 	}
 	return obj.BaseRes.Validate()
 }
 
 // Init initiates the resource.
 func (obj *AugeasRes) Init() error {
-	obj.BaseRes.kind = "Augeas"
+	obj.BaseRes.kind = "augeas"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
 // Watch is the primary listener for this resource and it outputs events.
 // Taken from the File resource.
 // FIXME: DRY - This is taken from the file resource
-func (obj *AugeasRes) Watch(processChan chan *event.Event) error {
+func (obj *AugeasRes) Watch() error {
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.File, false)
 	if err != nil {
@@ -110,7 +109,7 @@ func (obj *AugeasRes) Watch(processChan chan *event.Event) error {
 	defer obj.recWatcher.Close()
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -146,7 +145,7 @@ func (obj *AugeasRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

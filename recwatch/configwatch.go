@@ -59,15 +59,23 @@ func (obj *ConfigWatcher) Add(file ...string) {
 		ch := obj.ConfigWatch(file[0])
 		for {
 			select {
-			case e := <-ch:
+			case e, ok := <-ch:
+				if !ok { // channel closed
+					return
+				}
 				if e != nil {
 					obj.errorchan <- e
 					return
 				}
-				obj.ch <- file[0]
+				select {
+				case obj.ch <- file[0]: // send on channel
+				case <-obj.closechan:
+					return // never mind, close early!
+				}
 				continue
-			case <-obj.closechan:
-				return
+				// not needed, closes via ConfigWatch() chan close
+				//case <-obj.closechan:
+				//	return
 			}
 		}
 	}()
@@ -126,7 +134,12 @@ func (obj *ConfigWatcher) ConfigWatch(file string) chan error {
 					close(ch)
 					return
 				}
-				ch <- nil // send event!
+				select {
+				case ch <- nil: // send event!
+				case <-obj.closechan:
+					close(ch)
+					return
+				}
 			}
 		}
 		//close(ch)

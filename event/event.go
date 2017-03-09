@@ -22,14 +22,14 @@ import (
 	"fmt"
 )
 
-//go:generate stringer -type=EventName -output=eventname_stringer.go
+//go:generate stringer -type=Kind -output=kind_stringer.go
 
-// EventName represents the type of event being passed.
-type EventName int
+// Kind represents the type of event being passed.
+type Kind int
 
-// The different event names are used in different contexts.
+// The different event kinds are used in different contexts.
 const (
-	EventNil EventName = iota
+	EventNil Kind = iota
 	EventExit
 	EventStart
 	EventPause
@@ -43,7 +43,7 @@ type Resp chan error
 
 // Event is the main struct that stores event information and responses.
 type Event struct {
-	Name EventName
+	Kind Kind
 	Resp Resp // channel to send an ack response on, nil to skip
 	//Wg   *sync.WaitGroup // receiver barrier to Wait() for everyone else on
 	Err error // store an error in our event

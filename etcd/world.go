@@ -41,3 +41,24 @@ func (obj *World) ResCollect(hostnameFilter, kindFilter []string) ([]resources.R
 	// enforce that here if the underlying API supported it... Add this?
 	return GetResources(obj.EmbdEtcd, hostnameFilter, kindFilter)
 }
+
+// SetWatch returns a channel which spits out events on possible string changes.
+func (obj *World) StrWatch(namespace string) chan error {
+	return WatchStr(obj.EmbdEtcd, namespace)
+}
+
+// StrGet returns a map of hostnames to values in the given namespace.
+func (obj *World) StrGet(namespace string) (map[string]string, error) {
+	return GetStr(obj.EmbdEtcd, []string{}, namespace)
+}
+
+// StrSet sets the namespace value to a particular string under the identity of
+// its own hostname.
+func (obj *World) StrSet(namespace, value string) error {
+	return SetStr(obj.EmbdEtcd, obj.Hostname, namespace, &value)
+}
+
+// StrDel deletes the value in a particular namespace.
+func (obj *World) StrDel(namespace string) error {
+	return SetStr(obj.EmbdEtcd, obj.Hostname, namespace, nil)
+}

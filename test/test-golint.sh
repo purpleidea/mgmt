@@ -8,7 +8,7 @@ echo running test-golint.sh
 # FIXME: test a range of commits, since only the last patch is checked here
 PREVIOUS='HEAD^'
 CURRENT='HEAD'
-THRESHOLD=15	# percent problems per new LOC
+THRESHOLD=5	# percent problems per new LOC
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}" >/dev/null
@@ -28,7 +28,7 @@ COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch
 [ "$LINT" = "" ] && echo PASS && exit	# everything is "perfect"
 echo "$LINT"	# display the issues
 
-T=`mktemp --tmpdir -d tmp.XXX`
+T=`mktemp --tmpdir -d tmp.X'X'X`	# add quotes to avoid matching three X's
 [ "$T" = "" ] && fail_test "Could not create tmpdir"
 cd $T || fail_test "Could not change into tmpdir $T"
 git clone --recursive "${ROOT}" 2>/dev/null	# make a copy

@@ -1,0 +1,31 @@
+---
+graph: mygraph
+resources:
+  kv:
+  - name: kv1
+    key: "stage"
+    value: "1"
+    skiplessthan: true
+  - name: kv2
+    key: "stage"
+    value: "2"
+    skiplessthan: true
+  - name: kv3
+    key: "stage"
+    value: "3"
+    skiplessthan: true
+edges:
+- name: e1
+  from:
+    kind: kv
+    name: kv1
+  to:
+    kind: kv
+    name: kv2
+- name: e2
+  from:
+    kind: kv
+    name: kv2
+  to:
+    kind: kv
+    name: kv3

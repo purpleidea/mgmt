@@ -24,6 +24,7 @@ For more information, you may like to read some blog posts from the author:
 * [Automatic clustering in mgmt](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
 * [Remote execution in mgmt](https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/)
 * [Send/Recv in mgmt](https://ttboj.wordpress.com/2016/12/07/sendrecv-in-mgmt/)
+* [Metaparameters in mgmt](https://ttboj.wordpress.com/2017/03/01/metaparameters-in-mgmt/)
 
 There is also an [introductory video](http://meetings-archive.debian.net/pub/debian-meetings/2016/debconf16/Next_Generation_Config_Mgmt.webm) available.
 Older videos and other material [is available](https://github.com/purpleidea/mgmt/#on-the-web).
@@ -181,6 +182,7 @@ parameter with the [Noop](#Noop) resource.
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
 * [Hostname](#Hostname): Manages the hostname on the system.
+* [KV](#KV): Set a key value pair in our shared world database.
 * [Msg](#Msg): Send log messages.
 * [Noop](#Noop): A simple resource that does nothing.
 * [Nspawn](#Nspawn): Manage systemd-machined nspawn containers.
@@ -266,6 +268,30 @@ The pretty hostname is a free-form UTF8 host name for presentation to the user.
 #### hostname
 Hostname is the fallback value for all 3 fields above, if only `hostname` is
 specified, it will set all 3 fields to this value.
+
+### KV
+
+The KV resource sets a key and value pair in the global world database. This is
+quite useful for setting a flag after a number of resources have run. It will
+ignore database updates to the value that are greater in compare order than the
+requested key if the `SkipLessThan` parameter is set to true. If we receive a
+refresh, then the stored value will be reset to the requested value even if the
+stored value is greater.
+
+#### Key
+The string key used to store the key.
+
+#### Value
+The string value to set. This can also be set via Send/Recv.
+
+#### SkipLessThan
+If this parameter is set to `true`, then it will ignore updating the value as
+long as the database versions are greater than the requested value. The compare
+operation used is based on the `SkipCmpStyle` parameter.
+
+#### SkipCmpStyle
+By default this converts the string values to integers and compares them as you
+would expect.
 
 ### Msg
 
@@ -457,6 +483,17 @@ the rate limiter as designated by the `Limit` value. If the `Limit` is not set
 to `+Infinity`, this must be a non-zero value. Please see the
 [rate](https://godoc.org/golang.org/x/time/rate) package for more information.
 
+#### Sema
+List of string ids. Sema is a P/V style counting semaphore which can be used to
+limit parallelism during the CheckApply phase of resource execution. Each
+resource can have `N` different semaphores which share a graph global namespace.
+Each semaphore has a maximum count associated with it. The default value of the
+size is 1 (one) if size is unspecified. Each string id is the unique id of the
+semaphore. If the id contains a trailing colon (:) followed by a positive
+integer, then that value is the max size for that semaphore. Valid semaphore
+id's include: `some_id`, `hello:42`, `not:smart:4` and `:13`. It is expected
+that the last bare example be only used by the engine to add a global semaphore.
+
 ### Graph definition file
 graph.yaml is the compiled graph definition file. The format is currently
 undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)
@@ -480,6 +517,15 @@ generally recommended, but may be useful for users who know what they're doing.
 Globally force all resources into no-op mode. This also disables the export to
 etcd functionality, but does not disable resource collection, however all
 resources that are collected will have their individual noop settings set.
+
+#### `--sema <size>`
+Globally add a counting semaphore of this size to each resource in the graph.
+The semaphore will get given an id of `:size`. In other words if you specify a
+size of 42, you can expect a semaphore if named: `:42`. It is expected that
+consumers of the semaphore metaparameter always include a prefix to avoid a
+collision with this globally defined semaphore. The size value must be greater
+than zero at this time. The traditional non-parallel execution found in config
+management tools such as `Puppet` can be obtained with `--sema 1`.
 
 #### `--remote <graph.yaml>`
 Point to a graph file to run on the remote host specified within. This parameter

@@ -7,7 +7,7 @@ set -o pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "$DIR" >/dev/null	# work from main mgmt directory
 make build
-T=`mktemp --tmpdir -d tmp.XXX`
+T=`mktemp --tmpdir -d tmp.X'X'X`	# add quotes to avoid matching three X's
 cp -a ./mgmt "$T"/mgmt.1
 make clean
 make build

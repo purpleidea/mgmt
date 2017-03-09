@@ -1,0 +1,9 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: file1
+    path: "/tmp/mgmt/change1"
+    content: 'hello world'
+    state: exists
+edges: []

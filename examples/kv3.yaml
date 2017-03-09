@@ -1,0 +1,9 @@
+---
+graph: mygraph
+resources:
+  kv:
+  - name: kv1
+    key: "stage"
+    value: "3"
+    skiplessthan: true
+edges: []

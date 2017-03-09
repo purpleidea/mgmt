@@ -36,7 +36,8 @@ const DefaultPrometheusListen = "127.0.0.1:9233"
 type Prometheus struct {
 	Listen string // the listen specification for the net/http server
 
-	checkApplyTotal *prometheus.CounterVec // total of CheckApplies that have been triggered
+	checkApplyTotal        *prometheus.CounterVec // total of CheckApplies that have been triggered
+	pgraphStartTimeSeconds prometheus.Gauge       // process start time in seconds since unix epoch
 
 }
 
@@ -59,6 +60,14 @@ func (obj *Prometheus) Init() error {
 	)
 	prometheus.MustRegister(obj.checkApplyTotal)
 
+	obj.pgraphStartTimeSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "mgmt_graph_start_time_seconds",
+			Help: "Start time of the current graph since unix epoch in seconds.",
+		},
+	)
+	prometheus.MustRegister(obj.pgraphStartTimeSeconds)
+
 	return nil
 }
 
@@ -80,8 +89,21 @@ func (obj *Prometheus) Stop() error {
 // UpdateCheckApplyTotal refreshes the failing gauge by parsing the internal
 // state map.
 func (obj *Prometheus) UpdateCheckApplyTotal(kind string, apply, eventful, errorful bool) error {
+	if obj == nil {
+		return nil // happens when mgmt is launched without --prometheus
+	}
 	labels := prometheus.Labels{"kind": kind, "apply": strconv.FormatBool(apply), "eventful": strconv.FormatBool(eventful), "errorful": strconv.FormatBool(errorful)}
 	metric := obj.checkApplyTotal.With(labels)
 	metric.Inc()
+	return nil
+}
+
+// UpdatePgraphStartTime updates the mgmt_graph_start_time_seconds metric
+// to the current timestamp.
+func (obj *Prometheus) UpdatePgraphStartTime() error {
+	if obj == nil {
+		return nil // happens when mgmt is launched without --prometheus
+	}
+	obj.pgraphStartTimeSeconds.SetToCurrentTime()
 	return nil
 }

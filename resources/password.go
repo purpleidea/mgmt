@@ -28,7 +28,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/recwatch"
 
 	errwrap "github.com/pkg/errors"
@@ -74,7 +73,7 @@ func (obj *PasswordRes) Validate() error {
 // Init generates a new password for this resource if one was not provided. It
 // will save this into a local file. It will load it back in from previous runs.
 func (obj *PasswordRes) Init() error {
-	obj.BaseRes.kind = "Password" // must be set before using VarDir
+	obj.BaseRes.kind = "password" // must be set before using VarDir
 
 	dir, err := obj.VarDir("")
 	if err != nil {
@@ -145,11 +144,11 @@ func (obj *PasswordRes) check(value string) error {
 		return nil
 	}
 	if !obj.Saved && length != 0 { // should have no stored password
-		return fmt.Errorf("Expected empty token only!")
+		return fmt.Errorf("expected empty token only")
 	}
 
 	if length != obj.Length {
-		return fmt.Errorf("String length is not %d", obj.Length)
+		return fmt.Errorf("string length is not %d", obj.Length)
 	}
 Loop:
 	for i := uint16(0); i < length; i++ {
@@ -159,13 +158,13 @@ Loop:
 			}
 		}
 		// we couldn't find that character, so error!
-		return fmt.Errorf("Invalid character `%s`", string(value[i]))
+		return fmt.Errorf("invalid character `%s`", string(value[i]))
 	}
 	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
+func (obj *PasswordRes) Watch() error {
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, false)
 	if err != nil {
@@ -174,7 +173,7 @@ func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
 	defer obj.recWatcher.Close()
 
 	// notify engine that we're running
-	if err := obj.Running(processChan); err != nil {
+	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
 
@@ -188,7 +187,7 @@ func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -203,7 +202,7 @@ func (obj *PasswordRes) Watch(processChan chan *event.Event) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event(processChan)
+			obj.Event()
 		}
 	}
 }

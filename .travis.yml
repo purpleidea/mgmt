@@ -1,8 +1,10 @@
 language: go
 go:
-  - 1.6
-  - 1.7
+  - 1.6.x
+  - 1.7.x
+  - 1.8.x
   - tip
+go_import_path: github.com/purpleidea/mgmt
 sudo: true
 dist: trusty
 before_install:
@@ -14,7 +16,7 @@ matrix:
   fast_finish: true
   allow_failures:
     - go: tip
-    - go: 1.7
+    - go: 1.8.x
 notifications:
   irc:
     channels:

@@ -116,8 +116,8 @@ func ParseConfigFromPuppet(puppetParam, puppetConf string) *yamlgraph.GraphConfi
 	return &config
 }
 
-// PuppetInterval returns the graph refresh interval from the puppet configuration.
-func PuppetInterval(puppetConf string) int {
+// RefreshInterval returns the graph refresh interval from the puppet configuration.
+func RefreshInterval(puppetConf string) int {
 	if Debug {
 		log.Printf("Puppet: determining graph refresh interval")
 	}

@@ -55,17 +55,17 @@ func run(c *cli.Context) error {
 
 	if _ = c.String("code"); c.IsSet("code") {
 		if obj.GAPI != nil {
-			return fmt.Errorf("Can't combine code GAPI with existing GAPI.")
+			return fmt.Errorf("can't combine code GAPI with existing GAPI")
 		}
 		// TODO: implement DSL GAPI
 		//obj.GAPI = &dsl.GAPI{
 		//	Code: &s,
 		//}
-		return fmt.Errorf("The Code GAPI is not implemented yet!") // TODO: DSL
+		return fmt.Errorf("the Code GAPI is not implemented yet") // TODO: DSL
 	}
 	if y := c.String("yaml"); c.IsSet("yaml") {
 		if obj.GAPI != nil {
-			return fmt.Errorf("Can't combine YAML GAPI with existing GAPI.")
+			return fmt.Errorf("can't combine YAML GAPI with existing GAPI")
 		}
 		obj.GAPI = &yamlgraph.GAPI{
 			File: &y,
@@ -73,7 +73,7 @@ func run(c *cli.Context) error {
 	}
 	if p := c.String("puppet"); c.IsSet("puppet") {
 		if obj.GAPI != nil {
-			return fmt.Errorf("Can't combine puppet GAPI with existing GAPI.")
+			return fmt.Errorf("can't combine puppet GAPI with existing GAPI")
 		}
 		obj.GAPI = &puppet.GAPI{
 			PuppetParam: &p,
@@ -84,6 +84,7 @@ func run(c *cli.Context) error {
 
 	obj.NoWatch = c.Bool("no-watch")
 	obj.Noop = c.Bool("noop")
+	obj.Sema = c.Int("sema")
 	obj.Graphviz = c.String("graphviz")
 	obj.GraphvizFilter = c.String("graphviz-filter")
 	obj.ConvergedTimeout = c.Int("converged-timeout")
@@ -135,7 +136,7 @@ func run(c *cli.Context) error {
 				return
 			}
 			log.Println("Interrupted by signal")
-			obj.Exit(fmt.Errorf("Killed by %v", sig))
+			obj.Exit(fmt.Errorf("killed by %v", sig))
 			return
 		case <-exit:
 			return
@@ -155,7 +156,7 @@ func CLI(program, version string, flags Flags) error {
 
 	// test for sanity
 	if program == "" || version == "" {
-		return fmt.Errorf("Program was not compiled correctly. Please see Makefile.")
+		return fmt.Errorf("program was not compiled correctly, see Makefile")
 	}
 	app := cli.NewApp()
 	app.Name = program // App.name and App.version pass these values through
@@ -228,6 +229,11 @@ func CLI(program, version string, flags Flags) error {
 					Name:  "noop",
 					Usage: "globally force all resources into no-op mode",
 				},
+				cli.IntFlag{
+					Name:  "sema",
+					Value: -1,
+					Usage: "globally add a semaphore to all resources with this lock count",
+				},
 				cli.StringFlag{
 					Name:  "graphviz, g",
 					Value: "",
@@ -235,7 +241,7 @@ func CLI(program, version string, flags Flags) error {
 				},
 				cli.StringFlag{
 					Name:  "graphviz-filter, gf",
-					Value: "dot", // directed graph default
+					Value: "",
 					Usage: "graphviz filter to use",
 				},
 				cli.IntFlag{

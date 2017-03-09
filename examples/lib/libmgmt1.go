@@ -40,10 +40,10 @@ func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
 // Init initializes the MyGAPI struct.
 func (obj *MyGAPI) Init(data gapi.Data) error {
 	if obj.initialized {
-		return fmt.Errorf("Already initialized!")
+		return fmt.Errorf("already initialized")
 	}
 	if obj.Name == "" {
-		return fmt.Errorf("The graph name must be specified!")
+		return fmt.Errorf("the graph name must be specified")
 	}
 	obj.data = data // store for later
 	obj.closeChan = make(chan struct{})
@@ -59,7 +59,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	n1, err := resources.NewNoopRes("noop1")
 	if err != nil {
-		return nil, fmt.Errorf("Can't create resource: %v", err)
+		return nil, fmt.Errorf("can't create resource: %v", err)
 	}
 
 	// we can still build a graph via the yaml method
@@ -168,7 +168,7 @@ func Run() error {
 				return
 			}
 			log.Println("Interrupted by signal")
-			obj.Exit(fmt.Errorf("Killed by %v", sig))
+			obj.Exit(fmt.Errorf("killed by %v", sig))
 			return
 		case <-exit:
 			return

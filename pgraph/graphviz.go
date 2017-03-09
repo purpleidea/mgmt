@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package pgraph
+package pgraph // TODO: this should be a subpackage
 
 import (
 	"fmt"
@@ -46,14 +46,14 @@ func (g *Graph) Graphviz() (out string) {
 	//out += "\tnode [shape=box];\n"
 	str := ""
 	for i := range g.Adjacency { // reverse paths
-		out += fmt.Sprintf("\t%s [label=\"%s[%s]\"];\n", i.GetName(), i.Kind(), i.GetName())
+		out += fmt.Sprintf("\t\"%s\" [label=\"%s[%s]\"];\n", i.GetName(), i.Kind(), i.GetName())
 		for j := range g.Adjacency[i] {
 			k := g.Adjacency[i][j]
 			// use str for clearer output ordering
 			if k.Notify {
-				str += fmt.Sprintf("\t%s -> %s [label=%s,style=bold];\n", i.GetName(), j.GetName(), k.Name)
+				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i.GetName(), j.GetName(), k.Name)
 			} else {
-				str += fmt.Sprintf("\t%s -> %s [label=%s];\n", i.GetName(), j.GetName(), k.Name)
+				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\"];\n", i.GetName(), j.GetName(), k.Name)
 			}
 		}
 	}
@@ -64,16 +64,20 @@ func (g *Graph) Graphviz() (out string) {
 
 // ExecGraphviz writes out the graphviz data and runs the correct graphviz
 // filter command.
-func (g *Graph) ExecGraphviz(program, filename string) error {
+func (g *Graph) ExecGraphviz(program, filename, hostname string) error {
 
 	switch program {
 	case "dot", "neato", "twopi", "circo", "fdp":
 	default:
-		return fmt.Errorf("Invalid graphviz program selected!")
+		return fmt.Errorf("invalid graphviz program selected")
 	}
 
 	if filename == "" {
-		return fmt.Errorf("No filename given!")
+		return fmt.Errorf("no filename given")
+	}
+
+	if hostname != "" {
+		filename = fmt.Sprintf("%s@%s", filename, hostname)
 	}
 
 	// run as a normal user if possible when run with sudo
@@ -82,18 +86,18 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 
 	err := ioutil.WriteFile(filename, []byte(g.Graphviz()), 0644)
 	if err != nil {
-		return fmt.Errorf("Error writing to filename!")
+		return fmt.Errorf("error writing to filename")
 	}
 
 	if err1 == nil && err2 == nil {
 		if err := os.Chown(filename, uid, gid); err != nil {
-			return fmt.Errorf("Error changing file owner!")
+			return fmt.Errorf("error changing file owner")
 		}
 	}
 
 	path, err := exec.LookPath(program)
 	if err != nil {
-		return fmt.Errorf("Graphviz is missing!")
+		return fmt.Errorf("the Graphviz program is missing")
 	}
 
 	out := fmt.Sprintf("%s.png", filename)
@@ -108,7 +112,7 @@ func (g *Graph) ExecGraphviz(program, filename string) error {
 	}
 	_, err = cmd.Output()
 	if err != nil {
-		return fmt.Errorf("Error writing to image!")
+		return fmt.Errorf("error writing to image")
 	}
 	return nil
 }

@@ -54,7 +54,7 @@ func (ag *baseGrouper) name() string {
 // the name method is the only exception: call it any time without side effects!
 func (ag *baseGrouper) init(g *Graph) error {
 	if ag.graph != nil {
-		return fmt.Errorf("The init method has already been called!")
+		return fmt.Errorf("the init method has already been called")
 	}
 	ag.graph = g                               // pointer
 	ag.vertices = ag.graph.GetVerticesSorted() // cache in deterministic order!
@@ -108,27 +108,27 @@ func (ag *baseGrouper) vertexNext() (v1, v2 *Vertex, err error) {
 
 func (ag *baseGrouper) vertexCmp(v1, v2 *Vertex) error {
 	if v1 == nil || v2 == nil {
-		return fmt.Errorf("Vertex is nil!")
+		return fmt.Errorf("the vertex is nil")
 	}
 	if v1 == v2 { // skip yourself
-		return fmt.Errorf("Vertices are the same!")
+		return fmt.Errorf("the vertices are the same")
 	}
 	if v1.Kind() != v2.Kind() { // we must group similar kinds
 		// TODO: maybe future resources won't need this limitation?
-		return fmt.Errorf("The two resources aren't the same kind!")
+		return fmt.Errorf("the two resources aren't the same kind")
 	}
 	// someone doesn't want to group!
 	if !v1.Meta().AutoGroup || !v2.Meta().AutoGroup {
-		return fmt.Errorf("One of the autogroup flags is false!")
+		return fmt.Errorf("one of the autogroup flags is false")
 	}
 	if v1.Res.IsGrouped() { // already grouped!
-		return fmt.Errorf("Already grouped!")
+		return fmt.Errorf("already grouped")
 	}
 	if len(v2.Res.GetGroup()) > 0 { // already has children grouped!
-		return fmt.Errorf("Already has groups!")
+		return fmt.Errorf("already has groups")
 	}
 	if !v1.Res.GroupCmp(v2.Res) { // resource groupcmp failed!
-		return fmt.Errorf("The GroupCmp failed!")
+		return fmt.Errorf("the GroupCmp failed")
 	}
 	return nil // success
 }
@@ -173,7 +173,7 @@ func (ag *nonReachabilityGrouper) vertexNext() (v1, v2 *Vertex, err error) {
 	for {
 		v1, v2, err = ag.baseGrouper.vertexNext() // get all iterable pairs
 		if err != nil {
-			log.Fatalf("Error running autoGroup(vertexNext): %v", err)
+			log.Fatalf("error running autoGroup(vertexNext): %v", err)
 		}
 
 		if v1 != v2 { // ignore self cmp early (perf optimization)
@@ -187,7 +187,7 @@ func (ag *nonReachabilityGrouper) vertexNext() (v1, v2 *Vertex, err error) {
 
 		// if we got here, it means we're skipping over this candidate!
 		if ok, err := ag.baseGrouper.vertexTest(false); err != nil {
-			log.Fatalf("Error running autoGroup(vertexTest): %v", err)
+			log.Fatalf("error running autoGroup(vertexTest): %v", err)
 		} else if !ok {
 			return nil, nil, nil // done!
 		}
@@ -284,7 +284,7 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 
 	// 5) creation of a cyclic graph should throw an error
 	if _, err := g.TopologicalSort(); err != nil { // am i a dag or not?
-		return errwrap.Wrapf(err, "TopologicalSort failed") // not a dag
+		return errwrap.Wrapf(err, "the TopologicalSort failed") // not a dag
 	}
 	return nil // success
 }
@@ -295,14 +295,14 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 	go func(strch chan string) {
 		strch <- fmt.Sprintf("Compile: Grouping: Algorithm: %v...", ag.name())
 		if err := ag.init(g); err != nil {
-			log.Fatalf("Error running autoGroup(init): %v", err)
+			log.Fatalf("error running autoGroup(init): %v", err)
 		}
 
 		for {
 			var v, w *Vertex
 			v, w, err := ag.vertexNext() // get pair to compare
 			if err != nil {
-				log.Fatalf("Error running autoGroup(vertexNext): %v", err)
+				log.Fatalf("error running autoGroup(vertexNext): %v", err)
 			}
 			merged := false
 			// save names since they change during the runs
@@ -325,7 +325,7 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 
 			// did these get used?
 			if ok, err := ag.vertexTest(merged); err != nil {
-				log.Fatalf("Error running autoGroup(vertexTest): %v", err)
+				log.Fatalf("error running autoGroup(vertexTest): %v", err)
 			} else if !ok {
 				break // done!
 			}

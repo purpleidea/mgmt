@@ -100,27 +100,39 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 		obj.quiescing = false // reset
 		ev.ACK()
 
-		// wait for next event to continue
-		select {
-		case e, ok := <-obj.Events():
-			if !ok { // shutdown
-				err := error(nil)
-				return &err, false
+		// wait for next event to continue, but discard any backpoking!
+		for {
+			// Consider a graph (V2->V3). If while paused, we add a
+			// new resource (V1->V2), when we unpause, V3 will run,
+			// and then V2 followed by V1 (reverse topo sort) which
+			// can cause V2 to BackPoke to V1 (since V1 needs to go
+			// first) which can panic if V1 is not running yet! The
+			// solution is to ignore the BackPoke because once that
+			// V1 vertex gets running, it will then send off a poke
+			// to V2 that it did without the need for the BackPoke!
+			select {
+			case e, ok := <-obj.Events():
+				if !ok { // shutdown
+					err := error(nil)
+					return &err, false
+				}
+				//obj.quiescing = true
+				//obj.quiesceGroup.Wait() // unnecessary, but symmetrically correct
+				//obj.quiescing = false
+				e.ACK()
+				err := e.Error()
+				if e.Kind == event.EventExit {
+					return &err, false
+				} else if e.Kind == event.EventStart { // eventContinue
+					return nil, false // don't poke on unpause!
+				} else if e.Kind == event.EventBackPoke {
+					continue // silently discard this event while paused
+				}
+				// if we get a poke event here, it's a bug!
+				err = fmt.Errorf("%s[%s]: unknown event: %v, while paused", obj.Kind(), obj.GetName(), e)
+				panic(err) // TODO: return a special sentinel instead?
+				//return &err, false
 			}
-			//obj.quiescing = true
-			//obj.quiesceGroup.Wait() // unnecessary, but symmetrically correct
-			//obj.quiescing = false
-			e.ACK()
-			err := e.Error()
-			if e.Kind == event.EventExit {
-				return &err, false
-			} else if e.Kind == event.EventStart { // eventContinue
-				return nil, false // don't poke on unpause!
-			}
-			// if we get a poke event here, it's a bug!
-			err = fmt.Errorf("%s[%s]: unknown event: %v, while paused", obj.Kind(), obj.GetName(), e)
-			panic(err) // TODO: return a special sentinel instead?
-			//return &err, false
 		}
 	}
 	err = fmt.Errorf("unknown event: %v", ev)

@@ -339,10 +339,6 @@ func (obj *BaseRes) Init() error {
 	obj.wcuid = obj.Converger().Register() // get a cuid for the worker!
 	obj.pcuid = obj.Converger().Register() // get a cuid for the process
 
-	obj.eventsLock = &sync.Mutex{}
-	obj.eventsDone = false
-	obj.eventsChan = make(chan *event.Event) // unbuffered chan to avoid stale events
-
 	obj.processLock = &sync.Mutex{} // lock around processChan closing and sending
 	obj.processDone = false         // did we close processChan ?
 	obj.processChan = make(chan *event.Event)
@@ -448,7 +444,10 @@ func (obj *BaseRes) WaitGroup() *sync.WaitGroup { return obj.waitGroup }
 func (obj *BaseRes) Setup() {
 	obj.started = make(chan struct{}) // closes when started
 	obj.stopped = make(chan struct{}) // closes when stopped
-	return
+
+	obj.eventsLock = &sync.Mutex{}
+	obj.eventsDone = false
+	obj.eventsChan = make(chan *event.Event) // unbuffered chan to avoid stale events
 }
 
 // Reset from Setup.

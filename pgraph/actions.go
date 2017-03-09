@@ -652,9 +652,16 @@ func (g *Graph) Start(first bool) { // start or continue
 	log.Printf("State: %v -> %v", g.setState(graphStateStarting), g.getState())
 	defer log.Printf("State: %v -> %v", g.setState(graphStateStarted), g.getState())
 	t, _ := g.TopologicalSort()
-	// TODO: only calculate indegree if `first` is true to save resources
 	indegree := g.InDegree() // compute all of the indegree's
-	for _, v := range Reverse(t) {
+	reversed := Reverse(t)
+	for _, v := range reversed { // run the Setup() for everyone first
+		if !v.Res.IsWorking() { // if Worker() is not running...
+			v.Res.Setup() // initialize some vars in the resource
+		}
+	}
+
+	// run through the topological reverse, and start or unpause each vertex
+	for _, v := range reversed {
 		// selective poke: here we reduce the number of initial pokes
 		// to the minimum required to activate every vertex in the
 		// graph, either by direct action, or by getting poked by a
@@ -669,10 +676,17 @@ func (g *Graph) Start(first bool) { // start or continue
 		// and not just selectively the subset with no indegree.
 
 		// let the startup code know to poke or not
-		v.Res.Starter((!first) || indegree[v] == 0)
+		// this triggers a CheckApply AFTER Watch is Running()
+		// We *don't* need to also do this to new nodes or nodes that
+		// are about to get unpaused, because they'll get poked by one
+		// of the indegree == 0 vertices, and an important aspect of the
+		// Process() function is that even if the state is correct, it
+		// will pass through the Poke so that it flows through the DAG.
+		v.Res.Starter(indegree[v] == 0)
 
+		var unpause = true
 		if !v.Res.IsWorking() { // if Worker() is not running...
-			v.Res.Setup()
+			unpause = false // doesn't need unpausing on first start
 			g.wg.Add(1)
 			// must pass in value to avoid races...
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
@@ -697,7 +711,7 @@ func (g *Graph) Start(first bool) { // start or continue
 			// if the resource Init() fails, we don't hang!
 		}
 
-		if !first { // unpause!
+		if unpause { // unpause (if needed)
 			v.Res.SendEvent(event.EventStart, nil) // sync!
 		}
 	}

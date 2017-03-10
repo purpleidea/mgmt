@@ -17,6 +17,7 @@ getCommits() {
     tag="${2}"
     local -a authors
     local ver="${tag}-1"
+    local h
 
     echo "»»» Processing ${prevtag}..${tag}"
     numCommits=$(git --no-pager rev-list --count "${prevtag}".."${tag}")
@@ -24,21 +25,23 @@ getCommits() {
         echo "	${numCommits} commits found"
 
         if [ "${tag}" == "HEAD" ]; then
-            local h=$(git rev-list --max-count=1 --abbrev-commit HEAD)
+            h=$(git rev-list --max-count=1 --abbrev-commit HEAD)
             ver="${prevtag}~1.${h}"
         fi
 
         echo "${pkgname} (${ver}) UNRELEASED; urgency=low" >> "${tmpfile}"
 
         authors=($(git log --format='%aN' "${prevtag}".."${tag}" | sort | uniq))
-        for author in ${authors[@]}; do
+        for author in "${authors[@]}"; do
             echo "	Gathering commits from ${author}"
-            echo "  [ ${author} ]" >> "${tmpfile}"
-            git --no-pager log --author="${author}" --pretty=format:'  * %s' "${prevtag}".."${tag}" >> "${tmpfile}"
-            echo "" >> "${tmpfile}"
+            {
+                echo "  [ ${author} ]"
+                git --no-pager log --author="${author}" --pretty=format:'  * %s' "${prevtag}".."${tag}"
+                echo ""
+            } >> "${tmpfile}"
         done
 
-        echo "$(git --no-pager log -n 1 --pretty='format:%n -- %aN <%aE>  %aD%n%n' $tag)" >> "${tmpfile}"
+        git --no-pager log -n 1 --pretty='format:%n -- %aN <%aE>  %aD%n%n' "${tag}" >> "${tmpfile}"
     else
         echo "	0 commits found, skipping"
     fi
@@ -50,8 +53,8 @@ if [ ! -d "debian" ]; then
 fi
 
 tmpfile=$(mktemp)
-firtHash=$(git rev-list --max-parents=0 HEAD) # This should yeild the very first commit hash
-pkgname=$(cat debian/control | grep '^Package: ' | sed 's/^Package: //')
+firstHash=$(git rev-list --max-parents=0 HEAD) # This should yeild the very first commit hash
+pkgname=$(grep '^Package: ' debian/control | sed 's/^Package: //')
 tags=($(git tag | sort -r -V))
 
 echo "»»» Gathering untagged commits"
@@ -67,5 +70,7 @@ for ((i=1; i<${#tags[@]}; i++)); do
     nexttag="${tags[$((i-1))]}"
     getCommits "${tag}" "${nexttag}"
 done
+
+getCommits "${firstHash}" "${tags[-1]}"
 
 mv "${tmpfile}" debian/changelog

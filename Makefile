@@ -282,6 +282,7 @@ copr: upload-srpms
 #
 
 deb:
+	./misc/gen-deb-changelog-from-git.sh
 	dpkg-buildpackage
 
 # vim: ts=8

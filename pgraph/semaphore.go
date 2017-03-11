@@ -46,11 +46,13 @@ func (g *Graph) SemaLock(semas []string) error {
 			}
 		}
 
+		g.slock.Lock()          // semaphore creation lock
 		sema, ok := g.semas[id] // lookup
 		if !ok {
 			g.semas[id] = semaphore.NewSemaphore(size)
 			sema = g.semas[id]
 		}
+		g.slock.Unlock()
 
 		if err := sema.P(1); err != nil { // lock!
 			reterr = multierr.Append(reterr, err) // list of errors

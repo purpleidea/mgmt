@@ -61,6 +61,7 @@ type Graph struct {
 	mutex     *sync.Mutex // used when modifying graph State variable
 	wg        *sync.WaitGroup
 	semas     map[string]*semaphore.Semaphore
+	slock     *sync.Mutex // semaphore mutex
 
 	prometheus *prometheus.Prometheus // the prometheus instance
 }
@@ -89,6 +90,7 @@ func NewGraph(name string) *Graph {
 		mutex: &sync.Mutex{},
 		wg:    &sync.WaitGroup{},
 		semas: make(map[string]*semaphore.Semaphore),
+		slock: &sync.Mutex{},
 	}
 }
 
@@ -126,6 +128,7 @@ func (g *Graph) Copy() *Graph {
 		mutex:     g.mutex,
 		wg:        g.wg,
 		semas:     g.semas,
+		slock:     g.slock,
 
 		prometheus: g.prometheus,
 	}

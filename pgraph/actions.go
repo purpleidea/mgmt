@@ -169,6 +169,18 @@ func (g *Graph) Process(v *Vertex) error {
 	defer obj.SetState(resources.ResStateNil) // reset state when finished
 	obj.SetState(resources.ResStateProcess)
 
+	// is it okay to run dependency wise right now?
+	// if not, that's okay because when the dependency runs, it will poke
+	// us back and we will run if needed then!
+	if !g.OKTimestamp(v) {
+		go g.BackPoke(v)
+		return nil
+	}
+	// timestamp must be okay...
+	if g.Flags.Debug {
+		log.Printf("%s[%s]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
+	}
+
 	// semaphores!
 	// These shouldn't ever block an exit, since the graph should eventually
 	// converge causing their them to unlock. More interestingly, since they
@@ -191,18 +203,6 @@ func (g *Graph) Process(v *Vertex) error {
 
 	var ok = true
 	var applied = false // did we run an apply?
-	// is it okay to run dependency wise right now?
-	// if not, that's okay because when the dependency runs, it will poke
-	// us back and we will run if needed then!
-	if !g.OKTimestamp(v) {
-		go g.BackPoke(v)
-		return nil
-	}
-	// timestamp must be okay...
-
-	if g.Flags.Debug {
-		log.Printf("%s[%s]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
-	}
 
 	// connect any senders to receivers and detect if values changed
 	if updated, err := obj.SendRecv(obj); err != nil {

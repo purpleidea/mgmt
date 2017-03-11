@@ -7,5 +7,5 @@ echo "Version $t is now tagged!"
 echo "Pushing $t to origin..."
 echo "Press ^C within 3s to abort."
 sleep 3s
-git tag $t
+echo "release: tag $t" | git tag --file=- --sign $t
 git push origin $t

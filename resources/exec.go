@@ -114,6 +114,11 @@ func (obj *ExecRes) Watch() error {
 		}
 		cmd := exec.Command(cmdName, cmdArgs...)
 		//cmd.Dir = "" // look for program in pwd ?
+		// ignore signals sent to parent process (we're in our own group)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+			Pgid:    0,
+		}
 
 		cmdReader, err := cmd.StdoutPipe()
 		if err != nil {
@@ -197,6 +202,11 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 			cmdArgs = []string{"-c", obj.IfCmd}
 		}
 		cmd := exec.Command(cmdName, cmdArgs...)
+		// ignore signals sent to parent process (we're in our own group)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+			Pgid:    0,
+		}
 		if err := cmd.Run(); err != nil {
 			// TODO: check exit value
 			return true, nil // don't run
@@ -228,6 +238,12 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	}
 	cmd := exec.Command(cmdName, cmdArgs...)
 	//cmd.Dir = "" // look for program in pwd ?
+	// ignore signals sent to parent process (we're in our own group)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
 	var out bytes.Buffer
 	cmd.Stdout = &out
 

@@ -175,17 +175,11 @@ func (obj *ExecRes) Watch() error {
 // input is true. It returns error info and if the state check passed or not.
 // TODO: expand the IfCmd to be a list of commands
 func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
+	// If we receive a refresh signal, then the engine skips the IsStateOK()
+	// check and this will run. It is still guarded by the IfCmd, but it can
+	// have a chance to execute, and all without the check of obj.Refresh()!
 
-	// if there is a watch command, but no if command, run based on state
-	if obj.WatchCmd != "" && obj.IfCmd == "" {
-		if obj.IsStateOK() { // FIXME: this is done by engine now...
-			return true, nil
-		}
-
-		// if there is no watcher, but there is an onlyif check, run it to see
-	} else if obj.IfCmd != "" { // && obj.WatchCmd == ""
-		// there is a watcher, but there is also an if command
-		//} else if obj.IfCmd != "" && obj.WatchCmd != "" {
+	if obj.IfCmd != "" { // if there is no onlyif check, we should just run
 
 		var cmdName string
 		var cmdArgs []string
@@ -201,18 +195,12 @@ func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 			cmdName = obj.IfShell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.IfCmd}
 		}
-		err = exec.Command(cmdName, cmdArgs...).Run()
-		if err != nil {
+		cmd := exec.Command(cmdName, cmdArgs...)
+		if err := cmd.Run(); err != nil {
 			// TODO: check exit value
 			return true, nil // don't run
 		}
 
-		// if there is no watcher and no onlyif check, assume we should run
-	} else { // if obj.WatchCmd == "" && obj.IfCmd == "" {
-		// just run if state is dirty
-		if obj.IsStateOK() { // FIXME: this is done by engine now...
-			return true, nil
-		}
 	}
 
 	// state is not okay, no work done, exit, but without error

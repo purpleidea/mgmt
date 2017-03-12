@@ -385,9 +385,9 @@ Loop:
 			// catch invalid rates
 			if v.Meta().Burst == 0 && !(v.Meta().Limit == rate.Inf) { // blocked
 				e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.Kind(), v.GetName())
-				v.SendEvent(event.EventExit, &SentinelErr{e})
 				ev.ACK() // ready for next message
 				v.Res.QuiesceGroup().Done()
+				v.SendEvent(event.EventExit, &SentinelErr{e})
 				continue
 			}
 
@@ -423,8 +423,8 @@ Loop:
 					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
 					if retry == 0 {
 						// wrap the error in the sentinel
+						v.Res.QuiesceGroup().Done() // before the Wait that happens in SendEvent!
 						v.SendEvent(event.EventExit, &SentinelErr{e})
-						v.Res.QuiesceGroup().Done()
 						return
 					}
 					if retry > 0 { // don't decrement the -1

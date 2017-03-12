@@ -1,0 +1,15 @@
+---
+graph: mygraph
+resources:
+  exec:
+  - name: exec1
+    cmd: false this should fail but not hang
+    shell: ''
+    timeout: 0
+    watchcmd: sleep 5s
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges: []

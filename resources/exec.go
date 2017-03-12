@@ -25,6 +25,7 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/purpleidea/mgmt/util"
 
@@ -174,7 +175,7 @@ func (obj *ExecRes) Watch() error {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 // TODO: expand the IfCmd to be a list of commands
-func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	// If we receive a refresh signal, then the engine skips the IsStateOK()
 	// check and this will run. It is still guarded by the IfCmd, but it can
 	// have a chance to execute, and all without the check of obj.Refresh()!
@@ -231,7 +232,7 @@ func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 	cmd.Stdout = &out
 
 	if err := cmd.Start(); err != nil {
-		return false, errwrap.Wrapf(err, "error starting Cmd")
+		return false, errwrap.Wrapf(err, "error starting cmd")
 	}
 
 	timeout := obj.Timeout
@@ -241,16 +242,30 @@ func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 	done := make(chan error)
 	go func() { done <- cmd.Wait() }()
 
+	var err error // error returned by cmd
 	select {
-	case err := <-done:
-		if err != nil {
-			e := errwrap.Wrapf(err, "error waiting for Cmd")
-			return false, e
-		}
+	case e := <-done:
+		err = e // store
 
 	case <-util.TimeAfterOrBlock(timeout):
-		//cmd.Process.Kill() // TODO: is this necessary?
-		return false, fmt.Errorf("timeout waiting for Cmd")
+		cmd.Process.Kill() // TODO: check error?
+		return false, fmt.Errorf("timeout for cmd")
+	}
+
+	// process the err result from cmd, we process non-zero exits here too!
+	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+	if err != nil && ok {
+		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
+		wStatus, ok := pStateSys.(syscall.WaitStatus)
+		if !ok {
+			e := errwrap.Wrapf(err, "error running cmd")
+			return false, e
+		}
+		return false, fmt.Errorf("cmd error, exit status: %d", wStatus.ExitStatus())
+
+	} else if err != nil {
+		e := errwrap.Wrapf(err, "general cmd error")
+		return false, e
 	}
 
 	// TODO: if we printed the stdout while the command is running, this
@@ -263,7 +278,6 @@ func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 		log.Printf("%s[%s]: Command output is:", obj.Kind(), obj.GetName())
 		log.Printf(out.String())
 	}
-	// XXX: return based on exit value!!
 
 	// The state tracking is for exec resources that can't "detect" their
 	// state, and assume it's invalid when the Watch() function triggers.

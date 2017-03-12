@@ -46,7 +46,6 @@ type ExecRes struct {
 	WatchShell string `yaml:"watchshell"` // the (optional) shell to use to run the watch cmd
 	IfCmd      string `yaml:"ifcmd"`      // the if command to run
 	IfShell    string `yaml:"ifshell"`    // the (optional) shell to use to run the if cmd
-	PollInt    int    `yaml:"pollint"`    // the poll interval for the ifcmd
 }
 
 // Default returns some sensible defaults for this resource.
@@ -62,11 +61,6 @@ func (obj *ExecRes) Default() Res {
 func (obj *ExecRes) Validate() error {
 	if obj.Cmd == "" { // this is the only thing that is really required
 		return fmt.Errorf("command can't be empty")
-	}
-
-	// if we have a watch command, then we don't poll with the if command!
-	if obj.WatchCmd != "" && obj.PollInt > 0 {
-		return fmt.Errorf("don't poll when we have a watch command")
 	}
 
 	return obj.BaseRes.Validate()
@@ -193,12 +187,6 @@ func (obj *ExecRes) CheckApply(apply bool) (checkOK bool, err error) {
 	} else if obj.IfCmd != "" { // && obj.WatchCmd == ""
 		// there is a watcher, but there is also an if command
 		//} else if obj.IfCmd != "" && obj.WatchCmd != "" {
-
-		if obj.PollInt > 0 { // && obj.WatchCmd == ""
-			// XXX: have the Watch() command output onlyif poll events...
-			// XXX: we can optimize by saving those results for returning here
-			// return XXX
-		}
 
 		var cmdName string
 		var cmdArgs []string
@@ -331,9 +319,6 @@ func (obj *ExecUID) IFF(uid ResUID) bool {
 	if obj.IfCmd != res.IfCmd {
 		return false
 	}
-	//if obj.PollInt != res.PollInt {
-	//	return false
-	//}
 	//if obj.State != res.State {
 	//	return false
 	//}
@@ -396,9 +381,6 @@ func (obj *ExecRes) Compare(res Res) bool {
 			return false
 		}
 		if obj.IfCmd != res.IfCmd {
-			return false
-		}
-		if obj.PollInt != res.PollInt {
 			return false
 		}
 		if obj.State != res.State {

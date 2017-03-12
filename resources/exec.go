@@ -145,6 +145,7 @@ func (obj *ExecRes) Watch() error {
 			log.Printf("%s[%s]: Watch output: %s", obj.Kind(), obj.GetName(), text)
 			if text != "" {
 				send = true
+				obj.StateOK(false) // something made state dirty
 			}
 
 		case err := <-errch:
@@ -165,8 +166,6 @@ func (obj *ExecRes) Watch() error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			// it is okay to invalidate the clean state on poke too
-			obj.StateOK(false) // something made state dirty
 			obj.Event()
 		}
 	}

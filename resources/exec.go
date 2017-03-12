@@ -39,7 +39,6 @@ func init() {
 // ExecRes is an exec resource for running commands.
 type ExecRes struct {
 	BaseRes    `yaml:",inline"`
-	State      string `yaml:"state"`      // state: exists/present?, absent, (undefined?)
 	Cmd        string `yaml:"cmd"`        // the command to run
 	Shell      string `yaml:"shell"`      // the (optional) shell to use to run the cmd
 	Timeout    int    `yaml:"timeout"`    // the cmd timeout in seconds
@@ -126,11 +125,11 @@ func (obj *ExecRes) Watch() error {
 		}
 		scanner := bufio.NewScanner(cmdReader)
 
-		defer cmd.Wait() // XXX: is this necessary?
+		defer cmd.Wait() // wait for the command to exit before return!
 		defer func() {
 			// FIXME: without wrapping this in this func it panic's
-			// when running examples/graph8d.yaml
-			cmd.Process.Kill() // TODO: is this necessary?
+			// when running certain graphs... why?
+			cmd.Process.Kill() // shutdown the Watch command on exit
 		}()
 		if err := cmd.Start(); err != nil {
 			return errwrap.Wrapf(err, "error starting Cmd")
@@ -311,37 +310,6 @@ type ExecUID struct {
 	// TODO: add more elements here
 }
 
-// IFF aka if and only if they are equivalent, return true. If not, false.
-func (obj *ExecUID) IFF(uid ResUID) bool {
-	res, ok := uid.(*ExecUID)
-	if !ok {
-		return false
-	}
-	if obj.Cmd != res.Cmd {
-		return false
-	}
-	// TODO: add more checks here
-	//if obj.Shell != res.Shell {
-	//	return false
-	//}
-	//if obj.Timeout != res.Timeout {
-	//	return false
-	//}
-	//if obj.WatchCmd != res.WatchCmd {
-	//	return false
-	//}
-	//if obj.WatchShell != res.WatchShell {
-	//	return false
-	//}
-	if obj.IfCmd != res.IfCmd {
-		return false
-	}
-	//if obj.State != res.State {
-	//	return false
-	//}
-	return true
-}
-
 // AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
 func (obj *ExecRes) AutoEdges() AutoEdge {
 	// TODO: parse as many exec params to look for auto edges, for example
@@ -400,7 +368,7 @@ func (obj *ExecRes) Compare(res Res) bool {
 		if obj.IfCmd != res.IfCmd {
 			return false
 		}
-		if obj.State != res.State {
+		if obj.IfShell != res.IfShell {
 			return false
 		}
 	default:

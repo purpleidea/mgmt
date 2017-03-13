@@ -36,19 +36,10 @@ func (g *Graph) SemaLock(semas []string) error {
 	var reterr error
 	sort.Strings(semas) // very important to avoid deadlock in the dag!
 	for _, id := range semas {
-
-		size := 1 // default semaphore size
-		// valid id's include "some_id", "hello:42" and ":13"
-		if index := strings.LastIndex(id, SemaSep); index > -1 && (len(id)-index+len(SemaSep)) >= 1 {
-			// NOTE: we only allow size > 0 here!
-			if i, err := strconv.Atoi(id[index+len(SemaSep):]); err == nil && i > 0 {
-				size = i
-			}
-		}
-
 		g.slock.Lock()          // semaphore creation lock
 		sema, ok := g.semas[id] // lookup
 		if !ok {
+			size := SemaSize(id) // defaults to 1
 			g.semas[id] = semaphore.NewSemaphore(size)
 			sema = g.semas[id]
 		}
@@ -77,4 +68,18 @@ func (g *Graph) SemaUnlock(semas []string) error {
 		}
 	}
 	return reterr
+}
+
+// SemaSize returns the size integer associated with the semaphore id. It
+// defaults to 1 if not found.
+func SemaSize(id string) int {
+	size := 1 // default semaphore size
+	// valid id's include "some_id", "hello:42" and ":13"
+	if index := strings.LastIndex(id, SemaSep); index > -1 && (len(id)-index+len(SemaSep)) >= 1 {
+		// NOTE: we only allow size > 0 here!
+		if i, err := strconv.Atoi(id[index+len(SemaSep):]); err == nil && i > 0 {
+			size = i
+		}
+	}
+	return size
 }

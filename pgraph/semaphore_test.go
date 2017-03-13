@@ -23,6 +23,19 @@ import (
 	"github.com/purpleidea/mgmt/resources"
 )
 
+func TestSemaSize(t *testing.T) {
+	pairs := map[string]int{
+		"id:42":   42,
+		":13":     13,
+		"some_id": 1,
+	}
+	for id, size := range pairs {
+		if i := SemaSize(id); i != size {
+			t.Errorf("sema id `%s`, expected: `%d`, got: `%d`", id, size, i)
+		}
+	}
+}
+
 func NewNoopResTestSema(name string, semas []string) *NoopResTest {
 	obj := &NoopResTest{
 		NoopRes: resources.NoopRes{

@@ -1,0 +1,74 @@
+---
+graph: parallel
+resources:
+  exec:
+  - name: exec1
+    meta:
+      retry: 10
+      delay: 1000
+    cmd: 'sleep 5s && exit 13'
+    shell: '/bin/bash'
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    state: present
+  - name: exec2
+    cmd: sleep 15s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    state: present
+  - name: exec3
+    cmd: sleep 15s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    state: present
+  - name: exec4
+    cmd: sleep 15s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    state: present
+  - name: exec0
+    cmd: sleep 15s
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    state: present
+edges:
+- name: e1
+  from:
+    kind: exec
+    name: exec1
+  to:
+    kind: exec
+    name: exec2
+- name: e2
+  from:
+    kind: exec
+    name: exec2
+  to:
+    kind: exec
+    name: exec3
+- name: e3
+  from:
+    kind: exec
+    name: exec3
+  to:
+    kind: exec
+    name: exec4

@@ -65,6 +65,14 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 
 // Poke tells nodes after me in the dependency graph that they need to refresh.
 func (g *Graph) Poke(v *Vertex) error {
+
+	// if we're pausing (or exiting) then we should suspend poke's so that
+	// the graph doesn't go on running forever until it's completely done!
+	// this is an optional feature which we can do by default on user exit
+	if g.fastPause {
+		return nil // TODO: should this be an error instead?
+	}
+
 	var wg sync.WaitGroup
 	// these are all the vertices pointing AWAY FROM v, eg: v -> ???
 	for _, n := range g.OutgoingGraphVertices(v) {
@@ -725,14 +733,20 @@ func (g *Graph) Start(first bool) { // start or continue
 	// we wait for everyone to start before exiting!
 }
 
-// Pause sends pause events to the graph in a topological sort order.
-func (g *Graph) Pause() {
+// Pause sends pause events to the graph in a topological sort order. If you set
+// the fastPause argument to true, then it will ask future propagation waves to
+// not run through the graph before exiting, and instead will exit much quicker.
+func (g *Graph) Pause(fastPause bool) {
 	log.Printf("State: %v -> %v", g.setState(graphStatePausing), g.getState())
 	defer log.Printf("State: %v -> %v", g.setState(graphStatePaused), g.getState())
+	if fastPause {
+		g.fastPause = true // set flag
+	}
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
 		v.SendEvent(event.EventPause, nil) // sync
 	}
+	g.fastPause = false // reset flag
 }
 
 // Exit sends exit events to the graph in a topological sort order.
@@ -740,6 +754,10 @@ func (g *Graph) Exit() {
 	if g == nil { // empty graph that wasn't populated yet
 		return
 	}
+
+	// FIXME: a second ^C could put this into fast pause, but do it for now!
+	g.Pause(true) // implement this with pause to avoid duplicating the code
+
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
 		// turn off the taps...

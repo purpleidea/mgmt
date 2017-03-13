@@ -58,6 +58,7 @@ type Graph struct {
 	Adjacency map[*Vertex]map[*Vertex]*Edge // *Vertex -> *Vertex (edge)
 	Flags     Flags
 	state     graphState
+	fastPause bool        // used to disable pokes for a fast pause
 	mutex     *sync.Mutex // used when modifying graph State variable
 	wg        *sync.WaitGroup
 	semas     map[string]*semaphore.Semaphore
@@ -129,6 +130,7 @@ func (g *Graph) Copy() *Graph {
 		wg:        g.wg,
 		semas:     g.semas,
 		slock:     g.slock,
+		fastPause: g.fastPause,
 
 		prometheus: g.prometheus,
 	}

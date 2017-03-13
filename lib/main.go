@@ -421,7 +421,7 @@ func (obj *Main) Run() error {
 			// run graph vertex LOCK...
 			if !first { // TODO: we can flatten this check out I think
 				converger.Pause() // FIXME: add sync wait?
-				G.Pause()         // sync
+				G.Pause(false)    // sync
 
 				//G.UnGroup() // FIXME: implement me if needed!
 			}

@@ -654,11 +654,18 @@ func (g *Graph) Start(first bool) { // start or continue
 	t, _ := g.TopologicalSort()
 	indegree := g.InDegree() // compute all of the indegree's
 	reversed := Reverse(t)
+	wg := &sync.WaitGroup{}
 	for _, v := range reversed { // run the Setup() for everyone first
-		if !v.Res.IsWorking() { // if Worker() is not running...
-			v.Res.Setup() // initialize some vars in the resource
-		}
+		// run these in parallel, as long as we wait before continuing
+		wg.Add(1)
+		go func(vv *Vertex) {
+			defer wg.Done()
+			if !vv.Res.IsWorking() { // if Worker() is not running...
+				vv.Res.Setup() // initialize some vars in the resource
+			}
+		}(v)
 	}
+	wg.Wait()
 
 	// run through the topological reverse, and start or unpause each vertex
 	for _, v := range reversed {
@@ -730,9 +737,9 @@ func (g *Graph) Pause() {
 
 // Exit sends exit events to the graph in a topological sort order.
 func (g *Graph) Exit() {
-	if g == nil {
+	if g == nil { // empty graph that wasn't populated yet
 		return
-	} // empty graph that wasn't populated yet
+	}
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
 		// turn off the taps...

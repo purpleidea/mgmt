@@ -440,7 +440,8 @@ func (obj *BaseRes) QuiesceGroup() *sync.WaitGroup { return obj.quiesceGroup }
 func (obj *BaseRes) WaitGroup() *sync.WaitGroup { return obj.waitGroup }
 
 // Setup does some work which must happen before the Worker starts. It happens
-// once per Worker startup.
+// once per Worker startup. It can happen in parallel with other Setup calls, so
+// add locks around any operation that's not thread-safe.
 func (obj *BaseRes) Setup() {
 	obj.started = make(chan struct{}) // closes when started
 	obj.stopped = make(chan struct{}) // closes when stopped
@@ -450,7 +451,7 @@ func (obj *BaseRes) Setup() {
 	obj.eventsChan = make(chan *event.Event) // unbuffered chan to avoid stale events
 }
 
-// Reset from Setup.
+// Reset from Setup. These can get called for different vertices in parallel.
 func (obj *BaseRes) Reset() {
 	return
 }

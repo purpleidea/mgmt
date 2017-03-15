@@ -1,16 +1,16 @@
 # TODO
 If you're looking for something to do, look here!
 Let us know if you're working on one of the items.
+If you'd like something to work on, ping @purpleidea and I'll create an issue
+tailored especially for you! Just let me know your approximate golang skill
+level and how many hours you'd like to spend on the patch.
 
 ## Package resource
 - [ ] getfiles support on debian [bug](https://github.com/hughsie/PackageKit/issues/118)
 - [ ] directory info on fedora [bug](https://github.com/hughsie/PackageKit/issues/117)
 - [ ] dnf blocker [bug](https://github.com/hughsie/PackageKit/issues/110)
-- [ ] install signal blocker [bug](https://github.com/hughsie/PackageKit/issues/109)
 
 ## File resource [bug](https://github.com/purpleidea/mgmt/issues/64) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-- [ ] chown/chmod support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-- [ ] user/group support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] recurse limit support [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] fanotify support [bug](https://github.com/go-fsnotify/fsnotify/issues/114)
 
@@ -29,7 +29,6 @@ Let us know if you're working on one of the items.
 
 ## Virt (libvirt) resource
 - [ ] base resource improvements [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-- [ ] port to upstream https://github.com/libvirt/libvirt-go [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Net (systemd-networkd) resource
 - [ ] base resource
@@ -50,6 +49,9 @@ Let us know if you're working on one of the items.
 - [ ] fix embedded etcd master race
 
 ## Torrent/dht file transfer
+- [ ] base plumbing
+
+## GPG/Auth improvements
 - [ ] base plumbing
 
 ## Language improvements

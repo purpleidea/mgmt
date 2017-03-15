@@ -195,7 +195,6 @@ func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 }
 
 // DeleteEdge deletes a particular edge from the graph.
-// FIXME: add test cases
 func (g *Graph) DeleteEdge(e *Edge) {
 	for v1 := range g.Adjacency {
 		for v2, edge := range g.Adjacency[v1] {

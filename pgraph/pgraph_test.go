@@ -627,6 +627,56 @@ func TestPgraphT11(t *testing.T) {
 	}
 }
 
+func TestPgraphDeleteEdge1(t *testing.T) {
+	g1 := NewGraph("g1")
+	g2 := NewGraph("g2")
+	v1 := NV("v1")
+	v2 := NV("v2")
+	e1 := NewEdge("e1")
+
+	g1.AddEdge(v1, v2, e1)
+	g1.DeleteEdge(e1)
+
+	g2.AddVertex(v1, v2)
+
+	runGraphCmp(t, g1, g2)
+}
+
+func TestPgraphDeleteEdge2(t *testing.T) {
+	g1 := NewGraph("g1")
+	g2 := NewGraph("g2")
+	v1 := NV("v1")
+	v2 := NV("v2")
+	e1 := NewEdge("e1")
+
+	g1.AddEdge(v1, v2, e1)
+	g1.DeleteEdge(e1)
+	g1.AddEdge(v1, v2, e1)
+
+	g2.AddEdge(v1, v2, e1)
+
+	runGraphCmp(t, g1, g2)
+}
+
+func TestPgraphDeleteEdge3(t *testing.T) {
+	g1 := NewGraph("g1")
+	g2 := NewGraph("g2")
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	e1 := NewEdge("e1")
+	e2 := NewEdge("e2")
+
+	g1.AddEdge(v1, v2, e1)
+	g1.AddEdge(v2, v3, e2)
+	g1.DeleteEdge(e1)
+
+	g2.AddVertex(v1, v2)
+	g2.AddEdge(v2, v3, e2)
+
+	runGraphCmp(t, g1, g2)
+}
+
 type NoopResTest struct {
 	resources.NoopRes
 }

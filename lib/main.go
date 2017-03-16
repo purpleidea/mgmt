@@ -337,7 +337,7 @@ func (obj *Main) Run() error {
 		// state and wait for the parent to trigger the exit.
 		if t := obj.ConvergedTimeout; obj.Depth == 0 && t >= 0 {
 			if b {
-				log.Printf("Converged for %d seconds, exiting!", t)
+				log.Printf("Main: Converged for %d seconds, exiting!", t)
 				obj.Exit(nil) // trigger an exit!
 			}
 			return nil
@@ -375,7 +375,7 @@ func (obj *Main) Run() error {
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
 
-		log.Println("Etcd: Starting...")
+		log.Println("Main: Etcd: Starting...")
 		etcdChan := etcd.WatchAll(EmbdEtcd)
 		first := true // first loop or not
 		for {
@@ -413,7 +413,7 @@ func (obj *Main) Run() error {
 			}
 
 			if obj.GAPI == nil {
-				log.Printf("Config: GAPI is empty!")
+				log.Printf("Main: GAPI is empty!")
 				continue
 			}
 
@@ -429,7 +429,7 @@ func (obj *Main) Run() error {
 			// make the graph from yaml, lib, puppet->yaml, or dsl!
 			newGraph, err := obj.GAPI.Graph() // generate graph!
 			if err != nil {
-				log.Printf("Config: Error creating new graph: %v", err)
+				log.Printf("Main: Error creating new graph: %v", err)
 				// unpause!
 				if !first {
 					G.Start(first)    // sync
@@ -467,7 +467,7 @@ func (obj *Main) Run() error {
 			log.Printf("Main: GraphSync...")
 			newFullGraph, err := newGraph.GraphSync(oldGraph)
 			if err != nil {
-				log.Printf("Config: Error running graph sync: %v", err)
+				log.Printf("Main: Error running graph sync: %v", err)
 				// unpause!
 				if !first {
 					G.Start(first)    // sync
@@ -496,16 +496,16 @@ func (obj *Main) Run() error {
 			G.Start(first)    // sync
 			converger.Start() // after G.Start()
 
-			log.Printf("Graph: %v", G) // show graph
+			log.Printf("Main: Graph: %v", G) // show graph
 			if obj.Graphviz != "" {
 				filter := obj.GraphvizFilter
 				if filter == "" {
 					filter = "dot" // directed graph default
 				}
 				if err := G.ExecGraphviz(filter, obj.Graphviz, hostname); err != nil {
-					log.Printf("Graphviz: %v", err)
+					log.Printf("Main: Graphviz: %v", err)
 				} else {
-					log.Printf("Graphviz: Successfully generated graph!")
+					log.Printf("Main: Graphviz: Successfully generated graph!")
 				}
 			}
 			first = false
@@ -567,7 +567,7 @@ func (obj *Main) Run() error {
 
 	reterr := <-obj.exit // wait for exit signal
 
-	log.Println("Destroy...")
+	log.Println("Main: Destroy...")
 
 	if obj.GAPI != nil {
 		if err := obj.GAPI.Close(); err != nil {

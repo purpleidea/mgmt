@@ -18,7 +18,10 @@
 package etcd
 
 import (
+	"fmt"
+	"log"
 	"github.com/purpleidea/mgmt/resources"
+	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
 )
 
 // World is an etcd backed implementation of the World interface.
@@ -31,6 +34,37 @@ type World struct {
 // Subsequent calls replace the previously set collection atomically.
 func (obj *World) ResExport(resourceList []resources.Res) error {
 	return SetResources(obj.EmbdEtcd, obj.Hostname, resourceList)
+}
+
+
+// ResWatch returns a channel that outputs a true bool when activity occurs
+// TODO: Filter our watch (on the server side if possible) based on the
+// collection prefixes and filters that we care about...
+func (obj *World) ResWatch() chan bool {
+  ch := make(chan bool, 1) // buffer it so we can measure it
+  path := fmt.Sprintf("/%s/exported/", NS)
+  callback := func(re *RE) error {
+    // TODO: is this even needed? it used to happen on conn errors
+    log.Printf("Etcd: Watch: Path: %v", path) // event
+    if re == nil || re.response.Canceled {
+      return fmt.Errorf("watch is empty") // will cause a CtxError+retry
+    }
+    // we normally need to check if anything changed since the last
+    // event, since a set (export) with no changes still causes the
+    // watcher to trigger and this would cause an infinite loop. we
+    // don't need to do this check anymore because we do the export
+    // transactionally, and only if a change is needed. since it is
+    // atomic, all the changes arrive together which avoids dupes!!
+    if len(ch) == 0 { // send event only if one isn't pending
+      // this check avoids multiple events all queueing up and then
+      // being released continuously long after the changes stopped
+      // do not block!
+      ch <- true // event
+    }
+    return nil
+  }
+  _, _ = obj.EmbdEtcd.AddWatcher(path, callback, true, false, etcd.WithPrefix()) // no need to check errors
+  return ch
 }
 
 // ResCollect gets the collection of exported resources which match the filter.

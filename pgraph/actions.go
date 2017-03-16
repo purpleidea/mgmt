@@ -431,7 +431,7 @@ Loop:
 					playback = true
 					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
 					if retry == 0 {
-						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateHardFail); err != nil {
+						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateHardFail); err != nil {
 							// TODO: how to error this?
 							log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
 						}
@@ -444,7 +444,7 @@ Loop:
 					if retry > 0 { // don't decrement the -1
 						retry--
 					}
-					if err := obj.Prometheus().UpdateState(fmt.Sprintf("%v[%v]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateSoftFail); err != nil {
+					if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateSoftFail); err != nil {
 						// TODO: how to error this?
 						log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
 					}

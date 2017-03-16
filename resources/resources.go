@@ -364,7 +364,7 @@ func (obj *BaseRes) Init() error {
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
 
-	if err := obj.Prometheus().AddManagedResource(fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName()), obj.Kind()); err != nil {
+	if err := obj.Prometheus().AddManagedResource(fmt.Sprintf("%s[%s]", obj.Kind(), obj.GetName()), obj.Kind()); err != nil {
 		return errwrap.Wrapf(err, "could not increase prometheus counter!")
 	}
 
@@ -385,7 +385,7 @@ func (obj *BaseRes) Close() error {
 	close(obj.stopped)
 	obj.waitGroup.Done()
 
-	if err := obj.Prometheus().RemoveManagedResource(fmt.Sprintf("%v[%v]", obj.Kind(), obj.GetName()), obj.kind); err != nil {
+	if err := obj.Prometheus().RemoveManagedResource(fmt.Sprintf("%s[%s]", obj.Kind(), obj.GetName()), obj.kind); err != nil {
 		return errwrap.Wrapf(err, "could not decrease prometheus counter!")
 	}
 

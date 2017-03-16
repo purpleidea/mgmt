@@ -28,6 +28,7 @@ import (
 // is the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
 	ResExport([]resources.Res) error
+	ResWatch([]resources.Res) chan bool
 	// FIXME: should this method take a "filter" data struct instead of many args?
 	ResCollect(hostnameFilter, kindFilter []string) ([]resources.Res, error)
 }

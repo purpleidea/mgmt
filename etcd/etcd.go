@@ -2096,36 +2096,6 @@ func Leader(obj *EmbdEtcd) (string, error) {
 	return "", fmt.Errorf("members map is not current") // not found
 }
 
-// WatchAll returns a channel that outputs a true bool when activity occurs
-// TODO: Filter our watch (on the server side if possible) based on the
-// collection prefixes and filters that we care about...
-func WatchAll(obj *EmbdEtcd) chan bool {
-	ch := make(chan bool, 1) // buffer it so we can measure it
-	path := fmt.Sprintf("/%s/exported/", NS)
-	callback := func(re *RE) error {
-		// TODO: is this even needed? it used to happen on conn errors
-		log.Printf("Etcd: Watch: Path: %v", path) // event
-		if re == nil || re.response.Canceled {
-			return fmt.Errorf("watch is empty") // will cause a CtxError+retry
-		}
-		// we normally need to check if anything changed since the last
-		// event, since a set (export) with no changes still causes the
-		// watcher to trigger and this would cause an infinite loop. we
-		// don't need to do this check anymore because we do the export
-		// transactionally, and only if a change is needed. since it is
-		// atomic, all the changes arrive together which avoids dupes!!
-		if len(ch) == 0 { // send event only if one isn't pending
-			// this check avoids multiple events all queueing up and then
-			// being released continuously long after the changes stopped
-			// do not block!
-			ch <- true // event
-		}
-		return nil
-	}
-	_, _ = obj.AddWatcher(path, callback, true, false, etcd.WithPrefix()) // no need to check errors
-	return ch
-}
-
 // SetResources exports all of the resources which we pass in to etcd
 func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) error {
 	// key structure is /$NS/exported/$hostname/resources/$uid = $data

@@ -350,14 +350,15 @@ func (obj *Main) Run() error {
 	}
 
 	var gapiChan chan error // stream events are nil errors
+	world = &etcd.World{
+						Hostname: hostname,
+						EmbdEtcd: EmbdEtcd,
+					}
 	if obj.GAPI != nil {
 		data := gapi.Data{
 			Hostname: hostname,
 			// NOTE: alternate implementations can be substituted in
-			World: &etcd.World{
-				Hostname: hostname,
-				EmbdEtcd: EmbdEtcd,
-			},
+			World: world,
 			Noop:    obj.Noop,
 			NoWatch: obj.NoWatch,
 		}
@@ -374,7 +375,7 @@ func (obj *Main) Run() error {
 		close(startChan)                 // kick it off!
 
 		log.Println("Etcd: Starting...")
-		etcdChan := etcd.WatchAll(EmbdEtcd)
+		etcdChan := world.ResWatch()
 		first := true // first loop or not
 		for {
 			log.Println("Main: Waiting...")

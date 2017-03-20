@@ -12,7 +12,7 @@
 Come join us in the `mgmt` community!
 
 | Medium | Link |
-|---|---|---|
+|---|---|
 | IRC | [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) on Freenode |
 | Twitter | [@mgmtconfig](https://twitter.com/mgmtconfig) & [#mgmtconfig](https://twitter.com/hashtag/mgmtconfig) |
 | Mailing list | [mgmtconfig-list@redhat.com](https://www.redhat.com/mailman/listinfo/mgmtconfig-list) |

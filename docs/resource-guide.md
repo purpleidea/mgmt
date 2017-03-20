@@ -202,7 +202,7 @@ will likely find the state to now be correct.
 
 ### Watch
 ```golang
-Watch(chan *Event) error
+Watch() error
 ```
 
 `Watch` is a main loop that runs and sends messages when it detects that the

@@ -372,25 +372,12 @@ func (obj *Main) Run() error {
 
 	exitchan := make(chan struct{}) // exit on close
 	go func() {
-		startChan := make(chan struct{}) // start signal
-		close(startChan)                 // kick it off!
-
-		log.Println("Main: Etcd: Starting...")
-		etcdChan := etcd.WatchAll(EmbdEtcd)
 		first := true // first loop or not
 		for {
 			log.Println("Main: Waiting...")
+			// The GAPI should always kick off an event on Next() at
+			// startup when (and if) it indeed has a graph to share!
 			select {
-			case <-startChan: // kick the loop once at start
-				startChan = nil // disable
-				// pass
-
-			case b := <-etcdChan:
-				if !b { // ignore the message
-					continue
-				}
-				// everything else passes through to cause a compile!
-
 			case err, ok := <-gapiChan:
 				if !ok { // channel closed
 					if obj.Flags.Debug {
@@ -399,14 +386,21 @@ func (obj *Main) Run() error {
 					gapiChan = nil // disable it
 					continue
 				}
+
+				// the gapi lets us send an error to the channel
+				// this means there was a failure, but not fatal
 				if err != nil {
-					obj.Exit(err) // trigger exit
-					continue      // wait for exitchan
+					log.Printf("Main: Error with graph stream: %v", err)
+					// TODO: consider adding an option to
+					// exit on stream errors...
+					//obj.Exit(err) // trigger exit
+					continue // wait for exitchan or another event
 				}
 				if obj.NoWatch { // extra safety for bad GAPI's
 					log.Printf("Main: GAPI stream should be quiet with NoWatch!") // fix the GAPI!
 					continue                                                      // no stream events should be sent
 				}
+				// everything else passes through to cause a compile!
 
 			case <-exitchan:
 				return

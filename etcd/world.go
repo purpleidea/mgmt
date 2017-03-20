@@ -27,6 +27,12 @@ type World struct {
 	EmbdEtcd *EmbdEtcd
 }
 
+// ResWatch returns a channel which spits out events on possible exported
+// resource changes.
+func (obj *World) ResWatch() chan error {
+	return WatchResources(obj.EmbdEtcd)
+}
+
 // ResExport exports a list of resources under our hostname namespace.
 // Subsequent calls replace the previously set collection atomically.
 func (obj *World) ResExport(resourceList []resources.Res) error {

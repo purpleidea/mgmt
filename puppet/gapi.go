@@ -91,21 +91,27 @@ func (obj *GAPI) Next() chan error {
 			ch <- fmt.Errorf("the puppet GAPI is not initialized")
 			return
 		}
+		startChan := make(chan struct{}) // start signal
+		close(startChan)                 // kick it off!
 		pChan := puppetChan()
 		for {
 			select {
+			case <-startChan: // kick the loop once at start
+				startChan = nil // disable
+				// pass
 			case _, ok := <-pChan:
 				if !ok { // the channel closed!
 					return
 				}
-				log.Printf("Puppet: Generating new graph...")
-				pChan = puppetChan() // TODO: okay to update interval in case it changed?
-				select {
-				case ch <- nil: // trigger a run (send a msg)
-				// unblock if we exit while waiting to send!
-				case <-obj.closeChan:
-					return
-				}
+			case <-obj.closeChan:
+				return
+			}
+
+			log.Printf("Puppet: Generating new graph...")
+			pChan = puppetChan() // TODO: okay to update interval in case it changed?
+			select {
+			case ch <- nil: // trigger a run (send a msg)
+			// unblock if we exit while waiting to send!
 			case <-obj.closeChan:
 				return
 			}

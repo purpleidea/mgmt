@@ -2096,11 +2096,12 @@ func Leader(obj *EmbdEtcd) (string, error) {
 	return "", fmt.Errorf("members map is not current") // not found
 }
 
-// WatchAll returns a channel that outputs a true bool when activity occurs
+// WatchResources returns a channel that outputs events when exported resources
+// change.
 // TODO: Filter our watch (on the server side if possible) based on the
 // collection prefixes and filters that we care about...
-func WatchAll(obj *EmbdEtcd) chan bool {
-	ch := make(chan bool, 1) // buffer it so we can measure it
+func WatchResources(obj *EmbdEtcd) chan error {
+	ch := make(chan error, 1) // buffer it so we can measure it
 	path := fmt.Sprintf("/%s/exported/", NS)
 	callback := func(re *RE) error {
 		// TODO: is this even needed? it used to happen on conn errors
@@ -2118,7 +2119,7 @@ func WatchAll(obj *EmbdEtcd) chan bool {
 			// this check avoids multiple events all queueing up and then
 			// being released continuously long after the changes stopped
 			// do not block!
-			ch <- true // event
+			ch <- nil // event
 		}
 		return nil
 	}

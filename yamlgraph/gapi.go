@@ -90,23 +90,37 @@ func (obj *GAPI) Next() chan error {
 			ch <- fmt.Errorf("yamlgraph: GAPI is not initialized")
 			return
 		}
+		startChan := make(chan struct{}) // start signal
+		close(startChan)                 // kick it off!
+		watchChan := obj.data.World.ResWatch()
 		configChan := obj.configWatcher.ConfigWatch(*obj.File) // simple
 		for {
+			var err error
+			var ok bool
 			select {
-			case err, ok := <-configChan: // returns nil events on ok!
+			case <-startChan: // kick the loop once at start
+				startChan = nil // disable
+				// pass
+			case err, ok = <-watchChan:
+				if !ok {
+					return
+				}
+			case err, ok = <-configChan: // returns nil events on ok!
 				if !ok { // the channel closed!
 					return
 				}
-				log.Printf("yamlgraph: Generating new graph...")
-				select {
-				case ch <- err: // trigger a run (send a msg)
-					if err != nil {
-						return
-					}
-				// unblock if we exit while waiting to send!
-				case <-obj.closeChan:
-					return
-				}
+			case <-obj.closeChan:
+				return
+			}
+
+			log.Printf("yamlgraph: Generating new graph...")
+			select {
+			case ch <- err: // trigger a run (send a msg)
+				// TODO: if the error is really bad, we could:
+				//if err != nil {
+				//	return
+				//}
+			// unblock if we exit while waiting to send!
 			case <-obj.closeChan:
 				return
 			}

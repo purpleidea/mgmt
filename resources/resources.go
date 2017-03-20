@@ -75,6 +75,7 @@ const refreshPathToken = "refresh"
 // the GAPI to store state and exchange information throughout the cluster. It
 // is the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
+	ResWatch() chan error
 	ResExport([]Res) error
 	// FIXME: should this method take a "filter" data struct instead of many args?
 	ResCollect(hostnameFilter, kindFilter []string) ([]Res, error)

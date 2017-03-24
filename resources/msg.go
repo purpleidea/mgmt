@@ -28,6 +28,7 @@ import (
 )
 
 func init() {
+	RegisterResource("msg", func() Res { return &MsgRes{} })
 	gob.Register(&MsgRes{})
 }
 

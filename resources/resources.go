@@ -38,6 +38,24 @@ import (
 	"golang.org/x/time/rate"
 )
 
+var registeredResources = map[string]func() Res{}
+
+// RegisterResource registers a new resource by providing a constructor
+// function that returns a resource object ready to be unmarshalled from YAML.
+func RegisterResource(name string, creator func() Res) {
+	registeredResources[name] = creator
+}
+
+// NewEmptyNamedResource returns an empty resource object from a registered
+// type, ready to be unmarshalled.
+func NewEmptyNamedResource(name string) (Res, error) {
+	fn, ok := registeredResources[name]
+	if !ok {
+		return nil, fmt.Errorf("no resource named %s available", name)
+	}
+	return fn(), nil
+}
+
 //go:generate stringer -type=ResState -output=resstate_stringer.go
 
 // The ResState type represents the current activity state of each resource.

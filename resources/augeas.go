@@ -40,6 +40,7 @@ const (
 
 func init() {
 	gob.Register(&AugeasRes{})
+	RegisterResource("augeas", func() Res { return &AugeasRes{} })
 }
 
 // AugeasRes is a resource that enables you to use the augeas resource.

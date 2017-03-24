@@ -42,6 +42,7 @@ import (
 
 func init() {
 	gob.Register(&FileRes{})
+	RegisterResource("file", func() Res { return &FileRes{} })
 }
 
 // FileRes is a file and directory resource.

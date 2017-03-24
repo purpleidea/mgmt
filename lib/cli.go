@@ -26,6 +26,7 @@ import (
 
 	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/yamlgraph"
+	"github.com/purpleidea/mgmt/yamlgraph2"
 
 	"github.com/urfave/cli"
 )
@@ -68,6 +69,14 @@ func run(c *cli.Context) error {
 			return fmt.Errorf("can't combine YAML GAPI with existing GAPI")
 		}
 		obj.GAPI = &yamlgraph.GAPI{
+			File: &y,
+		}
+	}
+	if y := c.String("yaml2"); c.IsSet("yaml2") {
+		if obj.GAPI != nil {
+			return fmt.Errorf("can't combine YAMLv2 GAPI with existing GAPI")
+		}
+		obj.GAPI = &yamlgraph2.GAPI{
 			File: &y,
 		}
 	}
@@ -204,6 +213,11 @@ func CLI(program, version string, flags Flags) error {
 					Name:  "yaml",
 					Value: "",
 					Usage: "yaml graph definition to run",
+				},
+				cli.StringFlag{
+					Name:  "yaml2",
+					Value: "",
+					Usage: "yaml graph definition to run (parser v2)",
 				},
 				cli.StringFlag{
 					Name:  "puppet, p",

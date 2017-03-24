@@ -37,6 +37,7 @@ import (
 )
 
 func init() {
+	RegisterResource("virt", func() Res { return &VirtRes{} })
 	gob.Register(&VirtRes{})
 }
 

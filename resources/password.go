@@ -34,6 +34,7 @@ import (
 )
 
 func init() {
+	RegisterResource("password", func() Res { return &PasswordRes{} })
 	gob.Register(&PasswordRes{})
 }
 

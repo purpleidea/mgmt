@@ -24,6 +24,7 @@ import (
 )
 
 func init() {
+	RegisterResource("noop", func() Res { return &NoopRes{} })
 	gob.Register(&NoopRes{})
 }
 

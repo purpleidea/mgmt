@@ -27,6 +27,7 @@ import (
 )
 
 func init() {
+	RegisterResource("kv", func() Res { return &KVRes{} })
 	gob.Register(&KVRes{})
 }
 

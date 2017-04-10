@@ -62,9 +62,11 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	g := pgraph.NewGraph(obj.Name)
 	var vertex *pgraph.Vertex
 	for i := uint(0); i < obj.Count; i++ {
-		n, err := resources.NewNoopRes(fmt.Sprintf("noop%d", i))
-		if err != nil {
-			return nil, fmt.Errorf("can't create resource: %v", err)
+		n := &resources.NoopRes{
+			BaseRes: resources.BaseRes{
+				Name:       fmt.Sprintf("noop%d", i),
+				MetaParams: resources.DefaultMetaParams,
+			},
 		}
 		v := pgraph.NewVertex(n)
 		g.AddVertex(v)

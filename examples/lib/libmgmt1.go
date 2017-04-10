@@ -57,9 +57,11 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("libmgmt: MyGAPI is not initialized")
 	}
 
-	n1, err := resources.NewNoopRes("noop1")
-	if err != nil {
-		return nil, fmt.Errorf("can't create resource: %v", err)
+	n1 := &resources.NoopRes{
+		BaseRes: resources.BaseRes{
+			Name:       "noop1",
+			MetaParams: resources.DefaultMetaParams,
+		},
 	}
 
 	// we can still build a graph via the yaml method

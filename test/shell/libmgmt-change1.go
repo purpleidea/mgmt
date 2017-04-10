@@ -13,8 +13,6 @@ import (
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
-
-	"golang.org/x/time/rate"
 )
 
 // MyGAPI implements the main GAPI interface.
@@ -58,10 +56,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("%s: MyGAPI is not initialized", obj.Name)
 	}
 	// FIXME: these are being specified temporarily until it's the default!
-	metaparams := resources.MetaParams{
-		Limit: rate.Inf,
-		Burst: 0,
-	}
+	metaparams := resources.DefaultMetaParams
 	g := pgraph.NewGraph(obj.Name)
 
 	n0 := &resources.NoopRes{

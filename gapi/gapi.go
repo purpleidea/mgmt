@@ -25,10 +25,11 @@ import (
 
 // Data is the set of input values passed into the GAPI structs via Init.
 type Data struct {
-	Hostname string // uuid for the host, required for GAPI
-	World    resources.World
-	Noop     bool
-	NoWatch  bool
+	Hostname      string // uuid for the host, required for GAPI
+	World         resources.World
+	Noop          bool
+	NoConfigWatch bool
+	NoStreamWatch bool
 	// NOTE: we can add more fields here if needed by GAPI endpoints
 }
 

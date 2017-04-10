@@ -78,9 +78,6 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 
 // Next returns nil errors every time there could be a new graph.
 func (obj *GAPI) Next() chan error {
-	if obj.data.NoWatch {
-		return nil
-	}
 	ch := make(chan error)
 	obj.wg.Add(1)
 	go func() {
@@ -92,8 +89,19 @@ func (obj *GAPI) Next() chan error {
 		}
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
-		watchChan := obj.data.World.ResWatch()
-		configChan := obj.configWatcher.ConfigWatch(*obj.File) // simple
+
+		watchChan, configChan := make(chan error), make(chan error)
+		if obj.data.NoConfigWatch {
+			configChan = nil
+		} else {
+			configChan = obj.configWatcher.ConfigWatch(*obj.File) // simple
+		}
+		if obj.data.NoStreamWatch {
+			watchChan = nil
+		} else {
+			watchChan = obj.data.World.ResWatch()
+		}
+
 		for {
 			var err error
 			var ok bool

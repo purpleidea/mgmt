@@ -76,9 +76,6 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 
 // Next returns nil errors every time there could be a new graph.
 func (obj *GAPI) Next() chan error {
-	if obj.data.NoWatch {
-		return nil
-	}
 	puppetChan := func() <-chan time.Time { // helper function
 		return time.Tick(time.Duration(RefreshInterval(obj.PuppetConf)) * time.Second)
 	}
@@ -93,7 +90,16 @@ func (obj *GAPI) Next() chan error {
 		}
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
-		pChan := puppetChan()
+
+		pChan := make(<-chan time.Time)
+		// NOTE: we don't look at obj.data.NoConfigWatch since emulating
+		// puppet means we do not switch graphs on code changes anyways.
+		if obj.data.NoStreamWatch {
+			pChan = nil
+		} else {
+			pChan = puppetChan()
+		}
+
 		for {
 			select {
 			case <-startChan: // kick the loop once at start
@@ -108,7 +114,11 @@ func (obj *GAPI) Next() chan error {
 			}
 
 			log.Printf("Puppet: Generating new graph...")
-			pChan = puppetChan() // TODO: okay to update interval in case it changed?
+			if obj.data.NoStreamWatch {
+				pChan = nil
+			} else {
+				pChan = puppetChan() // TODO: okay to update interval in case it changed?
+			}
 			select {
 			case ch <- nil: // trigger a run (send a msg)
 			// unblock if we exit while waiting to send!

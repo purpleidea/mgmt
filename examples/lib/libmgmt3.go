@@ -129,9 +129,6 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 // Next returns nil errors every time there could be a new graph.
 func (obj *MyGAPI) Next() chan error {
-	if obj.data.NoWatch || obj.Interval <= 0 {
-		return nil
-	}
 	ch := make(chan error)
 	obj.wg.Add(1)
 	go func() {
@@ -141,19 +138,32 @@ func (obj *MyGAPI) Next() chan error {
 			ch <- fmt.Errorf("libmgmt: MyGAPI is not initialized")
 			return
 		}
+		startChan := make(chan struct{}) // start signal
+		close(startChan)                 // kick it off!
 
-		// arbitrarily change graph every interval seconds
-		ticker := time.NewTicker(time.Duration(obj.Interval) * time.Second)
-		defer ticker.Stop()
+		ticker := make(<-chan time.Time)
+		if obj.data.NoStreamWatch || obj.Interval <= 0 {
+			ticker = nil
+		} else {
+			// arbitrarily change graph every interval seconds
+			t := time.NewTicker(time.Duration(obj.Interval) * time.Second)
+			defer t.Stop()
+			ticker = t.C
+		}
 		for {
 			select {
-			case <-ticker.C:
-				log.Printf("libmgmt: Generating new graph...")
-				select {
-				case ch <- nil: // trigger a run
-				case <-obj.closeChan:
-					return
-				}
+			case <-startChan: // kick the loop once at start
+				startChan = nil // disable
+				// pass
+			case <-ticker:
+				// pass
+			case <-obj.closeChan:
+				return
+			}
+
+			log.Printf("libmgmt: Generating new graph...")
+			select {
+			case ch <- nil: // trigger a run
 			case <-obj.closeChan:
 				return
 			}

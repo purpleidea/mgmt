@@ -74,9 +74,6 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 // Next returns nil errors every time there could be a new graph.
 func (obj *MyGAPI) Next() chan error {
-	if obj.data.NoWatch || obj.Interval <= 0 {
-		return nil
-	}
 	ch := make(chan error)
 	obj.wg.Add(1)
 	go func() {

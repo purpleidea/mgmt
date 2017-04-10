@@ -92,6 +92,9 @@ func run(c *cli.Context) error {
 	obj.Remotes = c.StringSlice("remote") // FIXME: GAPI-ify somehow?
 
 	obj.NoWatch = c.Bool("no-watch")
+	obj.NoConfigWatch = c.Bool("no-config-watch")
+	obj.NoStreamWatch = c.Bool("no-stream-watch")
+
 	obj.Noop = c.Bool("noop")
 	obj.Sema = c.Int("sema")
 	obj.Graphviz = c.String("graphviz")
@@ -237,8 +240,17 @@ func CLI(program, version string, flags Flags) error {
 
 				cli.BoolFlag{
 					Name:  "no-watch",
+					Usage: "do not update graph under any switch events",
+				},
+				cli.BoolFlag{
+					Name:  "no-config-watch",
+					Usage: "do not update graph on config switch events",
+				},
+				cli.BoolFlag{
+					Name:  "no-stream-watch",
 					Usage: "do not update graph on stream switch events",
 				},
+
 				cli.BoolFlag{
 					Name:  "noop",
 					Usage: "globally force all resources into no-op mode",

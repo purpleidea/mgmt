@@ -65,7 +65,10 @@ type Main struct {
 	GAPI    gapi.GAPI // graph API interface struct
 	Remotes []string  // list of remote graph definitions to run
 
-	NoWatch          bool   // do not update graph on watched graph definition file changes
+	NoWatch       bool // do not change graph under any circumstances
+	NoConfigWatch bool // do not update graph due to config changes
+	NoStreamWatch bool // do not update graph due to stream changes
+
 	Noop             bool   // globally force all resources into no-op mode
 	Sema             int    // add a semaphore with this lock count to each resource
 	Graphviz         string // output file for graphviz data
@@ -110,6 +113,15 @@ func (obj *Main) Init() error {
 
 	if obj.Prefix != nil && obj.TmpPrefix {
 		return fmt.Errorf("choosing a prefix and the request for a tmp prefix is illogical")
+	}
+
+	// if we've turned off watching, then be explicit and disable them all!
+	// if all the watches are disabled, then it's equivalent to no watching
+	if obj.NoWatch {
+		obj.NoConfigWatch = true
+		obj.NoStreamWatch = true
+	} else if obj.NoConfigWatch && obj.NoStreamWatch {
+		obj.NoWatch = true
 	}
 
 	obj.idealClusterSize = uint16(obj.IdealClusterSize)
@@ -361,11 +373,14 @@ func (obj *Main) Run() error {
 			Hostname: hostname,
 			World:    world,
 			Noop:     obj.Noop,
-			NoWatch:  obj.NoWatch,
+			//NoWatch:  obj.NoWatch,
+			NoConfigWatch: obj.NoConfigWatch,
+			NoStreamWatch: obj.NoStreamWatch,
 		}
 		if err := obj.GAPI.Init(data); err != nil {
 			obj.Exit(fmt.Errorf("Main: GAPI: Init failed: %v", err))
-		} else if !obj.NoWatch {
+		} else {
+			// this must generate at least one event for it to work
 			gapiChan = obj.GAPI.Next() // stream of graph switch events!
 		}
 	}
@@ -395,10 +410,6 @@ func (obj *Main) Run() error {
 					// exit on stream errors...
 					//obj.Exit(err) // trigger exit
 					continue // wait for exitchan or another event
-				}
-				if obj.NoWatch { // extra safety for bad GAPI's
-					log.Printf("Main: GAPI stream should be quiet with NoWatch!") // fix the GAPI!
-					continue                                                      // no stream events should be sent
 				}
 				// everything else passes through to cause a compile!
 
@@ -509,7 +520,7 @@ func (obj *Main) Run() error {
 	configWatcher := recwatch.NewConfigWatcher()
 	configWatcher.Flags = recwatch.Flags{Debug: obj.Flags.Debug}
 	events := configWatcher.Events()
-	if !obj.NoWatch {
+	if !obj.NoWatch { // FIXME: fit this into a clean GAPI?
 		configWatcher.Add(obj.Remotes...) // add all the files...
 	} else {
 		events = nil // signal that no-watch is true

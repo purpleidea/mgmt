@@ -148,7 +148,7 @@ func (obj *FileRes) Init() error {
 	obj.path = obj.GetPath()                     // compute once
 	obj.isDir = strings.HasSuffix(obj.path, "/") // dirs have trailing slashes
 
-	obj.BaseRes.kind = "file"
+	obj.BaseRes.Kind = "file"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
@@ -199,7 +199,7 @@ func (obj *FileRes) Watch() error {
 
 	for {
 		if obj.debug {
-			log.Printf("%s[%s]: Watching: %s", obj.Kind(), obj.GetName(), obj.path) // attempting to watch...
+			log.Printf("%s[%s]: Watching: %s", obj.GetKind(), obj.GetName(), obj.path) // attempting to watch...
 		}
 
 		select {
@@ -208,10 +208,10 @@ func (obj *FileRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
 			}
 			if obj.debug { // don't access event.Body if event.Error isn't nil
-				log.Printf("%s[%s]: Event(%s): %v", obj.Kind(), obj.GetName(), event.Body.Name, event.Body.Op)
+				log.Printf("%s[%s]: Event(%s): %v", obj.GetKind(), obj.GetName(), event.Body.Name, event.Body.Op)
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -636,7 +636,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 
 // contentCheckApply performs a CheckApply for the file existence and content.
 func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
-	log.Printf("%s[%s]: contentCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: contentCheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
 
 	if obj.State == "absent" {
 		if _, err := os.Stat(obj.path); os.IsNotExist(err) {
@@ -698,7 +698,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 
 // chmodCheckApply performs a CheckApply for the file permissions.
 func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
-	log.Printf("%s[%s]: chmodCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: chmodCheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
 
 	if obj.State == "absent" {
 		// File is absent
@@ -744,7 +744,7 @@ func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
 // chownCheckApply performs a CheckApply for the file ownership.
 func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 	var expectedUID, expectedGID int
-	log.Printf("%s[%s]: chownCheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: chownCheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
 
 	if obj.State == "absent" {
 		// File is absent or no owner specified
@@ -906,9 +906,9 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 		var reversed = true // cheat by passing a pointer
 		data = append(data, &FileUID{
 			BaseUID: BaseUID{
-				name:     obj.GetName(),
-				kind:     obj.Kind(),
-				reversed: &reversed,
+				Name:     obj.GetName(),
+				Kind:     obj.GetKind(),
+				Reversed: &reversed,
 			},
 			path: x, // what matters
 		}) // build list
@@ -924,7 +924,7 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 // Most resources only return one, although some resources can return multiple.
 func (obj *FileRes) UIDs() []ResUID {
 	x := &FileUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		path:    obj.path,
 	}
 	return []ResUID{x}

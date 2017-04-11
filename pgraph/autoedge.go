@@ -39,7 +39,7 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 				continue
 			}
 			if g.Flags.Debug {
-				log.Printf("Compile: AutoEdge: Match: %s[%s] with UID: %s[%s]", vv.Kind(), vv.GetName(), uid.Kind(), uid.GetName())
+				log.Printf("Compile: AutoEdge: Match: %s[%s] with UID: %s[%s]", vv.GetKind(), vv.GetName(), uid.GetKind(), uid.GetName())
 			}
 			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful
@@ -47,12 +47,12 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 			// remember, resources can return multiple UID's each!
 			if resources.UIDExistsInUIDs(uid, vv.UIDs()) {
 				// add edge from: vv -> v
-				if uid.Reversed() {
-					txt := fmt.Sprintf("AutoEdge: %s[%s] -> %s[%s]", vv.Kind(), vv.GetName(), v.Kind(), v.GetName())
+				if uid.IsReversed() {
+					txt := fmt.Sprintf("AutoEdge: %s[%s] -> %s[%s]", vv.GetKind(), vv.GetName(), v.GetKind(), v.GetName())
 					log.Printf("Compile: Adding %s", txt)
 					g.AddEdge(vv, v, NewEdge(txt))
 				} else { // edges go the "normal" way, eg: pkg resource
-					txt := fmt.Sprintf("AutoEdge: %s[%s] -> %s[%s]", v.Kind(), v.GetName(), vv.Kind(), vv.GetName())
+					txt := fmt.Sprintf("AutoEdge: %s[%s] -> %s[%s]", v.GetKind(), v.GetName(), vv.GetKind(), vv.GetName())
 					log.Printf("Compile: Adding %s", txt)
 					g.AddEdge(v, vv, NewEdge(txt))
 				}
@@ -74,14 +74,14 @@ func (g *Graph) AutoEdges() {
 		}
 		autoEdgeObj := v.AutoEdges()
 		if autoEdgeObj == nil {
-			log.Printf("%s[%s]: Config: No auto edges were found!", v.Kind(), v.GetName())
+			log.Printf("%s[%s]: Config: No auto edges were found!", v.GetKind(), v.GetName())
 			continue // next vertex
 		}
 
 		for { // while the autoEdgeObj has more uids to add...
 			uids := autoEdgeObj.Next() // get some!
 			if uids == nil {
-				log.Printf("%s[%s]: Config: The auto edge list is empty!", v.Kind(), v.GetName())
+				log.Printf("%s[%s]: Config: The auto edge list is empty!", v.GetKind(), v.GetName())
 				break // inner loop
 			}
 			if g.Flags.Debug {

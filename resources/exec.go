@@ -69,7 +69,7 @@ func (obj *ExecRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *ExecRes) Init() error {
-	obj.BaseRes.kind = "exec"
+	obj.BaseRes.Kind = "exec"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
@@ -148,7 +148,7 @@ func (obj *ExecRes) Watch() error {
 		select {
 		case text := <-bufioch:
 			// each time we get a line of output, we loop!
-			log.Printf("%s[%s]: Watch output: %s", obj.Kind(), obj.GetName(), text)
+			log.Printf("%s[%s]: Watch output: %s", obj.GetKind(), obj.GetName(), text)
 			if text != "" {
 				send = true
 				obj.StateOK(false) // something made state dirty
@@ -220,7 +220,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	// apply portion
-	log.Printf("%s[%s]: Apply", obj.Kind(), obj.GetName())
+	log.Printf("%s[%s]: Apply", obj.GetKind(), obj.GetName())
 	var cmdName string
 	var cmdArgs []string
 	if obj.Shell == "" {
@@ -288,10 +288,10 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	// would be nice, but it would require terminal log output that doesn't
 	// interleave all the parallel parts which would mix it all up...
 	if s := out.String(); s == "" {
-		log.Printf("%s[%s]: Command output is empty!", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Command output is empty!", obj.GetKind(), obj.GetName())
 
 	} else {
-		log.Printf("%s[%s]: Command output is:", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Command output is:", obj.GetKind(), obj.GetName())
 		log.Printf(out.String())
 	}
 
@@ -322,7 +322,7 @@ func (obj *ExecRes) AutoEdges() AutoEdge {
 // Most resources only return one, although some resources can return multiple.
 func (obj *ExecRes) UIDs() []ResUID {
 	x := &ExecUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		Cmd:     obj.Cmd,
 		IfCmd:   obj.IfCmd,
 		// TODO: add more params here

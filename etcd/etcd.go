@@ -2147,10 +2147,10 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 	ifs := []etcd.Cmp{} // list matching the desired state
 	ops := []etcd.Op{}  // list of ops in this transaction
 	for _, res := range resourceList {
-		if res.Kind() == "" {
+		if res.GetKind() == "" {
 			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
 		}
-		uid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
+		uid := fmt.Sprintf("%s/%s", res.GetKind(), res.GetName())
 		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uid)
 		if data, err := resources.ResToB64(res); err == nil {
 			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", data)) // desired state
@@ -2162,7 +2162,7 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 
 	match := func(res resources.Res, resourceList []resources.Res) bool { // helper lambda
 		for _, x := range resourceList {
-			if res.Kind() == x.Kind() && res.GetName() == x.GetName() {
+			if res.GetKind() == x.GetKind() && res.GetName() == x.GetName() {
 				return true
 			}
 		}
@@ -2172,10 +2172,10 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 	hasDeletes := false
 	// delete old, now unused resources here...
 	for _, res := range originals {
-		if res.Kind() == "" {
+		if res.GetKind() == "" {
 			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
 		}
-		uid := fmt.Sprintf("%s/%s", res.Kind(), res.GetName())
+		uid := fmt.Sprintf("%s/%s", res.GetKind(), res.GetName())
 		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uid)
 
 		if match(res, resourceList) { // if we match, no need to delete!

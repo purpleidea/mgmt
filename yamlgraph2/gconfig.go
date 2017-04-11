@@ -170,7 +170,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 
 	// Resources
 	for _, res := range c.ResList {
-		kind := res.Kind()
+		kind := res.GetKind()
 		if _, exists := lookup[kind]; !exists {
 			lookup[kind] = make(map[string]*pgraph.Vertex)
 		}
@@ -223,7 +223,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 			log.Printf("Collect: %v; Pattern: %v", kind, t.Pattern)
 
 			// XXX: expand to more complex pattern matching here...
-			if res.Kind() != kind {
+			if res.GetKind() != kind {
 				continue
 			}
 

@@ -80,7 +80,7 @@ work, and finish by calling the `Init` method of the base resource.
 ```golang
 // Init initializes the Foo resource.
 func (obj *FooRes) Init() error {
-	obj.BaseRes.kind = "foo" // must lower case resource kind
+	obj.BaseRes.Kind = "foo" // must lower case resource kind
 	// run the resource specific initialization, and error if anything fails
 	if some_error {
 		return err // something went wrong!
@@ -516,7 +516,7 @@ This can _only_ be done inside of the `CheckApply` function!
 ```golang
 // inside CheckApply, probably near the top
 if val, exists := obj.Recv["SomeKey"]; exists {
-	log.Printf("SomeKey was sent to us from: %s[%s].%s", val.Res.Kind(), val.Res.GetName(), val.Key)
+	log.Printf("SomeKey was sent to us from: %s[%s].%s", val.Res.GetKind(), val.Res.GetName(), val.Key)
 	if val.Changed {
 		log.Printf("SomeKey was just updated!")
 		// you may want to invalidate some local cache

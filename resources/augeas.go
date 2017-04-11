@@ -94,7 +94,7 @@ func (obj *AugeasRes) Validate() error {
 
 // Init initiates the resource.
 func (obj *AugeasRes) Init() error {
-	obj.BaseRes.kind = "augeas"
+	obj.BaseRes.Kind = "augeas"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
@@ -119,7 +119,7 @@ func (obj *AugeasRes) Watch() error {
 
 	for {
 		if obj.debug {
-			log.Printf("%s[%s]: Watching: %s", obj.Kind(), obj.GetName(), obj.File) // attempting to watch...
+			log.Printf("%s[%s]: Watching: %s", obj.GetKind(), obj.GetName(), obj.File) // attempting to watch...
 		}
 
 		select {
@@ -128,10 +128,10 @@ func (obj *AugeasRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
 			}
 			if obj.debug { // don't access event.Body if event.Error isn't nil
-				log.Printf("%s[%s]: Event(%s): %v", obj.Kind(), obj.GetName(), event.Body.Name, event.Body.Op)
+				log.Printf("%s[%s]: Event(%s): %v", obj.GetKind(), obj.GetName(), event.Body.Name, event.Body.Op)
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -178,7 +178,7 @@ func (obj *AugeasRes) checkApplySet(apply bool, ag *augeas.Augeas, set AugeasSet
 
 // CheckApply method for Augeas resource.
 func (obj *AugeasRes) CheckApply(apply bool) (bool, error) {
-	log.Printf("%s[%s]: CheckApply: %s", obj.Kind(), obj.GetName(), obj.File)
+	log.Printf("%s[%s]: CheckApply: %s", obj.GetKind(), obj.GetName(), obj.File)
 	// By default we do not set any option to augeas, we use the defaults.
 	opts := augeas.None
 	if obj.Lens != "" {
@@ -226,7 +226,7 @@ func (obj *AugeasRes) CheckApply(apply bool) (bool, error) {
 		return checkOK, nil
 	}
 
-	log.Printf("%s[%s]: changes needed, saving", obj.Kind(), obj.GetName())
+	log.Printf("%s[%s]: changes needed, saving", obj.GetKind(), obj.GetName())
 	if err = ag.Save(); err != nil {
 		return false, errwrap.Wrapf(err, "augeas: error while saving augeas values")
 	}
@@ -256,7 +256,7 @@ func (obj *AugeasRes) AutoEdges() AutoEdge {
 // UIDs includes all params to make a unique identification of this object.
 func (obj *AugeasRes) UIDs() []ResUID {
 	x := &AugeasUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		name:    obj.Name,
 	}
 	return []ResUID{x}

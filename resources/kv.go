@@ -89,7 +89,7 @@ func (obj *KVRes) Validate() error {
 
 // Init initializes the resource.
 func (obj *KVRes) Init() error {
-	obj.BaseRes.kind = "kv"
+	obj.BaseRes.Kind = "kv"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
@@ -113,10 +113,10 @@ func (obj *KVRes) Watch() error {
 				return nil
 			}
 			if err != nil {
-				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
 			}
 			if obj.Data().Debug {
-				log.Printf("%s[%s]: Event!", obj.Kind(), obj.GetName())
+				log.Printf("%s[%s]: Event!", obj.GetKind(), obj.GetName())
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -177,7 +177,7 @@ func (obj *KVRes) lessThanCheck(value string) (checkOK bool, err error) {
 
 // CheckApply method for Password resource. Does nothing, returns happy!
 func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), apply)
+	log.Printf("%s[%s]: CheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
 
 	if val, exists := obj.Recv["Value"]; exists && val.Changed {
 		// if we received on Value, and it changed, wooo, nothing to do.
@@ -235,7 +235,7 @@ func (obj *KVRes) AutoEdges() AutoEdge {
 // Most resources only return one, although some resources can return multiple.
 func (obj *KVRes) UIDs() []ResUID {
 	x := &KVUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		name:    obj.Name,
 	}
 	return []ResUID{x}

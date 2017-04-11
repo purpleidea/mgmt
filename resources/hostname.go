@@ -88,7 +88,7 @@ func (obj *HostnameRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *HostnameRes) Init() error {
-	obj.BaseRes.kind = "hostname"
+	obj.BaseRes.Kind = "hostname"
 	if obj.PrettyHostname == "" {
 		obj.PrettyHostname = obj.Hostname
 	}
@@ -237,7 +237,7 @@ func (obj *HostnameRes) AutoEdges() AutoEdge {
 // Most resources only return one, although some resources can return multiple.
 func (obj *HostnameRes) UIDs() []ResUID {
 	x := &HostnameUID{
-		BaseUID:           BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID:           BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		name:              obj.Name,
 		prettyHostname:    obj.PrettyHostname,
 		staticHostname:    obj.StaticHostname,

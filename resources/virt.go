@@ -137,7 +137,7 @@ func (obj *VirtRes) Init() error {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(obj.URI); err != nil {
-		return errwrap.Wrapf(err, "%s[%s]: Parsing URI failed: %s", obj.Kind(), obj.GetName(), obj.URI)
+		return errwrap.Wrapf(err, "%s[%s]: Parsing URI failed: %s", obj.GetKind(), obj.GetName(), obj.URI)
 	}
 	switch u.Scheme {
 	case "lxc":
@@ -148,7 +148,7 @@ func (obj *VirtRes) Init() error {
 
 	obj.conn, err = obj.connect() // gets closed in Close method of Res API
 	if err != nil {
-		return errwrap.Wrapf(err, "%s[%s]: Connection to libvirt failed in init", obj.Kind(), obj.GetName())
+		return errwrap.Wrapf(err, "%s[%s]: Connection to libvirt failed in init", obj.GetKind(), obj.GetName())
 	}
 
 	// check for hard to change properties
@@ -156,14 +156,14 @@ func (obj *VirtRes) Init() error {
 	if err == nil {
 		defer dom.Free()
 	} else if !isNotFound(err) {
-		return errwrap.Wrapf(err, "%s[%s]: Could not lookup on init", obj.Kind(), obj.GetName())
+		return errwrap.Wrapf(err, "%s[%s]: Could not lookup on init", obj.GetKind(), obj.GetName())
 	}
 
 	if err == nil {
 		// maxCPUs, err := dom.GetMaxVcpus()
 		i, err := dom.GetVcpusFlags(libvirt.DOMAIN_VCPU_MAXIMUM)
 		if err != nil {
-			return errwrap.Wrapf(err, "%s[%s]: Could not lookup MaxCPUs on init", obj.Kind(), obj.GetName())
+			return errwrap.Wrapf(err, "%s[%s]: Could not lookup MaxCPUs on init", obj.GetKind(), obj.GetName())
 		}
 		maxCPUs := uint(i)
 		if obj.MaxCPUs != maxCPUs { // max cpu slots is hard to change
@@ -176,11 +176,11 @@ func (obj *VirtRes) Init() error {
 		// event handlers so that we don't miss any events via race?
 		xmlDesc, err := dom.GetXMLDesc(0) // 0 means no flags
 		if err != nil {
-			return errwrap.Wrapf(err, "%s[%s]: Could not GetXMLDesc on init", obj.Kind(), obj.GetName())
+			return errwrap.Wrapf(err, "%s[%s]: Could not GetXMLDesc on init", obj.GetKind(), obj.GetName())
 		}
 		domXML := &libvirtxml.Domain{}
 		if err := domXML.Unmarshal(xmlDesc); err != nil {
-			return errwrap.Wrapf(err, "%s[%s]: Could not unmarshal XML on init", obj.Kind(), obj.GetName())
+			return errwrap.Wrapf(err, "%s[%s]: Could not unmarshal XML on init", obj.GetKind(), obj.GetName())
 		}
 
 		// guest agent: domain->devices->channel->target->state == connected?
@@ -192,7 +192,7 @@ func (obj *VirtRes) Init() error {
 		}
 	}
 	obj.wg = &sync.WaitGroup{}
-	obj.BaseRes.kind = "virt"
+	obj.BaseRes.Kind = "virt"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
@@ -400,22 +400,22 @@ func (obj *VirtRes) Watch() error {
 				obj.guestAgentConnected = true
 				obj.StateOK(false) // dirty
 				send = true
-				log.Printf("%s[%s]: Guest agent connected", obj.Kind(), obj.GetName())
+				log.Printf("%s[%s]: Guest agent connected", obj.GetKind(), obj.GetName())
 
 			} else if state == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
 				obj.guestAgentConnected = false
 				// ignore CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_DOMAIN_STARTED
 				// events because they just tell you that guest agent channel was added
 				if reason == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL {
-					log.Printf("%s[%s]: Guest agent disconnected", obj.Kind(), obj.GetName())
+					log.Printf("%s[%s]: Guest agent disconnected", obj.GetKind(), obj.GetName())
 				}
 
 			} else {
-				return fmt.Errorf("unknown %s[%s] guest agent state: %v", obj.Kind(), obj.GetName(), state)
+				return fmt.Errorf("unknown %s[%s] guest agent state: %v", obj.GetKind(), obj.GetName(), state)
 			}
 
 		case err := <-errorChan:
-			return fmt.Errorf("unknown %s[%s] libvirt error: %s", obj.Kind(), obj.GetName(), err)
+			return fmt.Errorf("unknown %s[%s] libvirt error: %s", obj.GetKind(), obj.GetName(), err)
 
 		case event := <-obj.Events():
 			if exit, send = obj.ReadEvent(event); exit != nil {
@@ -453,7 +453,7 @@ func (obj *VirtRes) domainCreate() (*libvirt.Domain, bool, error) {
 		if err != nil {
 			return dom, false, err // returned dom is invalid
 		}
-		log.Printf("%s[%s]: Domain transient %s", state, obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Domain transient %s", state, obj.GetKind(), obj.GetName())
 		return dom, false, nil
 	}
 
@@ -461,20 +461,20 @@ func (obj *VirtRes) domainCreate() (*libvirt.Domain, bool, error) {
 	if err != nil {
 		return dom, false, err // returned dom is invalid
 	}
-	log.Printf("%s[%s]: Domain defined", obj.Kind(), obj.GetName())
+	log.Printf("%s[%s]: Domain defined", obj.GetKind(), obj.GetName())
 
 	if obj.State == "running" {
 		if err := dom.Create(); err != nil {
 			return dom, false, err
 		}
-		log.Printf("%s[%s]: Domain started", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Domain started", obj.GetKind(), obj.GetName())
 	}
 
 	if obj.State == "paused" {
 		if err := dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED); err != nil {
 			return dom, false, err
 		}
-		log.Printf("%s[%s]: Domain created paused", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Domain created paused", obj.GetKind(), obj.GetName())
 	}
 
 	return dom, false, nil
@@ -512,14 +512,14 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 				return false, errwrap.Wrapf(err, "domain.Resume failed")
 			}
 			checkOK = false
-			log.Printf("%s[%s]: Domain resumed", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: Domain resumed", obj.GetKind(), obj.GetName())
 			break
 		}
 		if err := dom.Create(); err != nil {
 			return false, errwrap.Wrapf(err, "domain.Create failed")
 		}
 		checkOK = false
-		log.Printf("%s[%s]: Domain created", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Domain created", obj.GetKind(), obj.GetName())
 
 	case "paused":
 		if domInfo.State == libvirt.DOMAIN_PAUSED {
@@ -533,14 +533,14 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 				return false, errwrap.Wrapf(err, "domain.Suspend failed")
 			}
 			checkOK = false
-			log.Printf("%s[%s]: Domain paused", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: Domain paused", obj.GetKind(), obj.GetName())
 			break
 		}
 		if err := dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED); err != nil {
 			return false, errwrap.Wrapf(err, "domain.CreateWithFlags failed")
 		}
 		checkOK = false
-		log.Printf("%s[%s]: Domain created paused", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Domain created paused", obj.GetKind(), obj.GetName())
 
 	case "shutoff":
 		if domInfo.State == libvirt.DOMAIN_SHUTOFF || domInfo.State == libvirt.DOMAIN_SHUTDOWN {
@@ -554,7 +554,7 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 			return false, errwrap.Wrapf(err, "domain.Destroy failed")
 		}
 		checkOK = false
-		log.Printf("%s[%s]: Domain destroyed", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Domain destroyed", obj.GetKind(), obj.GetName())
 	}
 
 	return checkOK, nil
@@ -580,7 +580,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 		if err := dom.SetMemory(obj.Memory); err != nil {
 			return false, errwrap.Wrapf(err, "domain.SetMemory failed")
 		}
-		log.Printf("%s[%s]: Memory changed to %d", obj.Kind(), obj.GetName(), obj.Memory)
+		log.Printf("%s[%s]: Memory changed to %d", obj.GetKind(), obj.GetName(), obj.Memory)
 	}
 
 	// check cpus
@@ -619,7 +619,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 				return false, errwrap.Wrapf(err, "domain.SetVcpus failed")
 			}
 			checkOK = false
-			log.Printf("%s[%s]: CPUs (hot) changed to %d", obj.Kind(), obj.GetName(), obj.CPUs)
+			log.Printf("%s[%s]: CPUs (hot) changed to %d", obj.GetKind(), obj.GetName(), obj.CPUs)
 
 		case libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_SHUTDOWN:
 			if !obj.Transient {
@@ -631,7 +631,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 					return false, errwrap.Wrapf(err, "domain.SetVcpus failed")
 				}
 				checkOK = false
-				log.Printf("%s[%s]: CPUs (cold) changed to %d", obj.Kind(), obj.GetName(), obj.CPUs)
+				log.Printf("%s[%s]: CPUs (cold) changed to %d", obj.GetKind(), obj.GetName(), obj.CPUs)
 			}
 
 		default:
@@ -662,7 +662,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 				return false, errwrap.Wrapf(err, "domain.SetVcpus failed")
 			}
 			checkOK = false
-			log.Printf("%s[%s]: CPUs (guest) changed to %d", obj.Kind(), obj.GetName(), obj.CPUs)
+			log.Printf("%s[%s]: CPUs (guest) changed to %d", obj.GetKind(), obj.GetName(), obj.CPUs)
 		}
 	}
 
@@ -686,7 +686,7 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 			return false, errwrap.Wrapf(err, "domain.GetInfo failed")
 		}
 		if domInfo.State == libvirt.DOMAIN_SHUTOFF || domInfo.State == libvirt.DOMAIN_SHUTDOWN {
-			log.Printf("%s[%s]: Shutdown", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: Shutdown", obj.GetKind(), obj.GetName())
 			break
 		}
 
@@ -698,7 +698,7 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 			obj.processExitChan = make(chan struct{})
 			// if machine shuts down before we call this, we error;
 			// this isn't ideal, but it happened due to user error!
-			log.Printf("%s[%s]: Running shutdown", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: Running shutdown", obj.GetKind(), obj.GetName())
 			if err := dom.Shutdown(); err != nil {
 				// FIXME: if machine is already shutdown completely, return early
 				return false, errwrap.Wrapf(err, "domain.Shutdown failed")
@@ -719,7 +719,7 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 			// https://libvirt.org/formatdomain.html#elementsEvents
 			continue
 		case <-timeout:
-			return false, fmt.Errorf("%s[%s]: didn't shutdown after %d seconds", obj.Kind(), obj.GetName(), MaxShutdownDelayTimeout)
+			return false, fmt.Errorf("%s[%s]: didn't shutdown after %d seconds", obj.GetKind(), obj.GetName(), MaxShutdownDelayTimeout)
 		}
 	}
 
@@ -791,7 +791,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 			if err := dom.Undefine(); err != nil {
 				return false, errwrap.Wrapf(err, "domain.Undefine failed")
 			}
-			log.Printf("%s[%s]: Domain undefined", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: Domain undefined", obj.GetKind(), obj.GetName())
 		} else {
 			domXML, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE)
 			if err != nil {
@@ -800,7 +800,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 			if _, err = obj.conn.DomainDefineXML(domXML); err != nil {
 				return false, errwrap.Wrapf(err, "conn.DomainDefineXML failed")
 			}
-			log.Printf("%s[%s]: Domain defined", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: Domain defined", obj.GetKind(), obj.GetName())
 		}
 		checkOK = false
 	}
@@ -848,7 +848,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 
 	// we had to do a restart, we didn't, and we should error if it was needed
 	if obj.restartScheduled && restart == true && obj.RestartOnDiverge == "error" {
-		return false, fmt.Errorf("%s[%s]: needed restart but didn't! (RestartOnDiverge: %v)", obj.Kind(), obj.GetName(), obj.RestartOnDiverge)
+		return false, fmt.Errorf("%s[%s]: needed restart but didn't! (RestartOnDiverge: %v)", obj.GetKind(), obj.GetName(), obj.RestartOnDiverge)
 	}
 
 	return checkOK, nil // w00t
@@ -1055,7 +1055,7 @@ type VirtUID struct {
 // Most resources only return one, although some resources can return multiple.
 func (obj *VirtRes) UIDs() []ResUID {
 	x := &VirtUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		// TODO: add more properties here so we can link to vm dependencies
 	}
 	return []ResUID{x}

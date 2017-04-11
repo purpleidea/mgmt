@@ -101,18 +101,18 @@ type Data struct {
 // ResUID is a unique identifier for a resource, namely it's name, and the kind ("type").
 type ResUID interface {
 	GetName() string
-	Kind() string
+	GetKind() string
 	IFF(ResUID) bool
 
-	Reversed() bool // true means this resource happens before the generator
+	IsReversed() bool // true means this resource happens before the generator
 }
 
 // The BaseUID struct is used to provide a unique resource identifier.
 type BaseUID struct {
-	name string // name and kind are the values of where this is coming from
-	kind string
+	Name string // name and kind are the values of where this is coming from
+	Kind string
 
-	reversed *bool // piggyback edge information here
+	Reversed *bool // piggyback edge information here
 }
 
 // The AutoEdge interface is used to implement the autoedges feature.
@@ -170,7 +170,7 @@ type Base interface {
 	GetName() string // can't be named "Name()" because of struct field
 	SetName(string)
 	SetKind(string)
-	Kind() string
+	GetKind() string
 	Meta() *MetaParams
 	Events() chan *event.Event
 	Data() *Data
@@ -232,7 +232,7 @@ type BaseRes struct {
 	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
 	Recv       map[string]*Send // mapping of key to receive on from value
 
-	kind   string
+	Kind   string
 	data   Data
 	state  ResState
 	prefix string // base prefix for this resource
@@ -305,12 +305,12 @@ func UIDExistsInUIDs(uid ResUID, uids []ResUID) bool {
 
 // GetName returns the name of the resource.
 func (obj *BaseUID) GetName() string {
-	return obj.name
+	return obj.Name
 }
 
-// Kind returns the kind of resource.
-func (obj *BaseUID) Kind() string {
-	return obj.kind
+// GetKind returns the kind of the resource.
+func (obj *BaseUID) GetKind() string {
+	return obj.Kind
 }
 
 // IFF looks at two UID's and if and only if they are equivalent, returns true.
@@ -322,16 +322,16 @@ func (obj *BaseUID) IFF(uid ResUID) bool {
 	if !ok {
 		return false
 	}
-	return obj.name == res.name
+	return obj.Name == res.Name
 }
 
-// Reversed is part of the ResUID interface, and true means this resource
+// IsReversed is part of the ResUID interface, and true means this resource
 // happens before the generator.
-func (obj *BaseUID) Reversed() bool {
-	if obj.reversed == nil {
+func (obj *BaseUID) IsReversed() bool {
+	if obj.Reversed == nil {
 		log.Fatal("Programming error!")
 	}
-	return *obj.reversed
+	return *obj.Reversed
 }
 
 // Validate reports any problems with the struct definition.
@@ -346,9 +346,9 @@ func (obj *BaseRes) Validate() error {
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
 	if obj.debug {
-		log.Printf("%s[%s]: Init()", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Init()", obj.GetKind(), obj.GetName())
 	}
-	if obj.kind == "" {
+	if obj.Kind == "" {
 		return fmt.Errorf("resource did not set kind")
 	}
 
@@ -383,7 +383,7 @@ func (obj *BaseRes) Init() error {
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
 
-	if err := obj.Prometheus().AddManagedResource(fmt.Sprintf("%s[%s]", obj.Kind(), obj.GetName()), obj.Kind()); err != nil {
+	if err := obj.Prometheus().AddManagedResource(fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName()), obj.GetKind()); err != nil {
 		return errwrap.Wrapf(err, "could not increase prometheus counter!")
 	}
 
@@ -393,7 +393,7 @@ func (obj *BaseRes) Init() error {
 // Close shuts down and performs any cleanup.
 func (obj *BaseRes) Close() error {
 	if obj.debug {
-		log.Printf("%s[%s]: Close()", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Close()", obj.GetKind(), obj.GetName())
 	}
 
 	obj.pcuid.Unregister()
@@ -404,7 +404,7 @@ func (obj *BaseRes) Close() error {
 	close(obj.stopped)
 	obj.waitGroup.Done()
 
-	if err := obj.Prometheus().RemoveManagedResource(fmt.Sprintf("%s[%s]", obj.Kind(), obj.GetName()), obj.kind); err != nil {
+	if err := obj.Prometheus().RemoveManagedResource(fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName()), obj.GetKind()); err != nil {
 		return errwrap.Wrapf(err, "could not decrease prometheus counter!")
 	}
 
@@ -423,12 +423,12 @@ func (obj *BaseRes) SetName(name string) {
 
 // SetKind sets the kind. This is used internally for exported resources.
 func (obj *BaseRes) SetKind(kind string) {
-	obj.kind = kind
+	obj.Kind = kind
 }
 
-// Kind returns the kind of resource this is.
-func (obj *BaseRes) Kind() string {
-	return obj.kind
+// GetKind returns the kind of resource this is.
+func (obj *BaseRes) GetKind() string {
+	return obj.Kind
 }
 
 // Meta returns the MetaParams as a reference, which we can then get/set on.
@@ -502,7 +502,7 @@ func (obj *BaseRes) GetState() ResState {
 // SetState sets the state of the resource.
 func (obj *BaseRes) SetState(state ResState) {
 	if obj.debug {
-		log.Printf("%s[%s]: State: %v -> %v", obj.Kind(), obj.GetName(), obj.GetState(), state)
+		log.Printf("%s[%s]: State: %v -> %v", obj.GetKind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state
 }
@@ -644,7 +644,7 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 	if obj.prefix == "" {
 		return "", fmt.Errorf("the VarDir prefix is empty")
 	}
-	if obj.Kind() == "" {
+	if obj.GetKind() == "" {
 		return "", fmt.Errorf("the VarDir kind is empty")
 	}
 	if obj.GetName() == "" {
@@ -653,9 +653,9 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 
 	// FIXME: is obj.GetName() sufficiently unique to use as a UID here?
 	uid := obj.GetName()
-	p := fmt.Sprintf("%s/", path.Join(obj.prefix, obj.Kind(), uid, extra))
+	p := fmt.Sprintf("%s/", path.Join(obj.prefix, obj.GetKind(), uid, extra))
 	if err := os.MkdirAll(p, 0770); err != nil {
-		return "", errwrap.Wrapf(err, "can't create prefix for %s[%s]", obj.Kind(), obj.GetName())
+		return "", errwrap.Wrapf(err, "can't create prefix for %s[%s]", obj.GetKind(), obj.GetName())
 	}
 	return p, nil
 }
@@ -689,7 +689,7 @@ func (obj *BaseRes) Poll() error {
 	for {
 		select {
 		case <-ticker.C: // received the timer event
-			log.Printf("%s[%s]: polling...", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: polling...", obj.GetKind(), obj.GetName())
 			send = true
 			obj.StateOK(false) // dirty
 

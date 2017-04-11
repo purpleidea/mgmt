@@ -59,7 +59,7 @@ func (obj *TimerRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *TimerRes) Init() error {
-	obj.BaseRes.kind = "timer"
+	obj.BaseRes.Kind = "timer"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 
@@ -85,7 +85,7 @@ func (obj *TimerRes) Watch() error {
 		select {
 		case <-obj.ticker.C: // received the timer event
 			send = true
-			log.Printf("%s[%s]: received tick", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: received tick", obj.GetKind(), obj.GetName())
 
 		case event := <-obj.Events():
 			if exit, _ := obj.ReadEvent(event); exit != nil {
@@ -121,8 +121,8 @@ func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
 func (obj *TimerRes) UIDs() []ResUID {
 	x := &TimerUID{
 		BaseUID: BaseUID{
-			name: obj.GetName(),
-			kind: obj.Kind(),
+			Name: obj.GetName(),
+			Kind: obj.GetKind(),
 		},
 		name: obj.Name,
 	}

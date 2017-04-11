@@ -55,7 +55,7 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 		// b/c we should let our pre-req's go first...
 		x, y := v.GetTimestamp(), n.GetTimestamp()
 		if g.Flags.Debug {
-			log.Printf("%s[%s]: OKTimestamp: (%v) >= %s[%s](%v): !%v", v.Kind(), v.GetName(), x, n.Kind(), n.GetName(), y, x >= y)
+			log.Printf("%s[%s]: OKTimestamp: (%v) >= %s[%s](%v): !%v", v.GetKind(), v.GetName(), x, n.GetKind(), n.GetName(), y, x >= y)
 		}
 		if x >= y {
 			return false
@@ -82,7 +82,7 @@ func (g *Graph) Poke(v *Vertex) error {
 		// TODO: does this need an || activity flag?
 		if n.Res.GetState() != resources.ResStateProcess {
 			if g.Flags.Debug {
-				log.Printf("%s[%s]: Poke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: Poke: %s[%s]", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 			wg.Add(1)
 			go func(nn *Vertex) error {
@@ -94,7 +94,7 @@ func (g *Graph) Poke(v *Vertex) error {
 
 		} else {
 			if g.Flags.Debug {
-				log.Printf("%s[%s]: Poke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: Poke: %s[%s]: Skipped!", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 		// happens earlier in the state cycle and that doesn't wrap nil
 		if x >= y && (s != resources.ResStateProcess && s != resources.ResStateCheckApply) {
 			if g.Flags.Debug {
-				log.Printf("%s[%s]: BackPoke: %s[%s]", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: BackPoke: %s[%s]", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 			wg.Add(1)
 			go func(nn *Vertex) error {
@@ -127,7 +127,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 
 		} else {
 			if g.Flags.Debug {
-				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.Kind(), v.GetName(), n.Kind(), n.GetName())
+				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 		}
 	}
@@ -172,7 +172,7 @@ func (g *Graph) SetDownstreamRefresh(v *Vertex, b bool) {
 func (g *Graph) Process(v *Vertex) error {
 	obj := v.Res
 	if g.Flags.Debug {
-		log.Printf("%s[%s]: Process()", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Process()", obj.GetKind(), obj.GetName())
 	}
 	// FIXME: should these SetState methods be here or after the sema code?
 	defer obj.SetState(resources.ResStateNil) // reset state when finished
@@ -187,7 +187,7 @@ func (g *Graph) Process(v *Vertex) error {
 	}
 	// timestamp must be okay...
 	if g.Flags.Debug {
-		log.Printf("%s[%s]: OKTimestamp(%v)", obj.Kind(), obj.GetName(), v.GetTimestamp())
+		log.Printf("%s[%s]: OKTimestamp(%v)", obj.GetKind(), obj.GetName(), v.GetTimestamp())
 	}
 
 	// semaphores!
@@ -199,7 +199,7 @@ func (g *Graph) Process(v *Vertex) error {
 	// TODO: Add a close mechanism to close/unblock zero count semaphores...
 	semas := obj.Meta().Sema
 	if g.Flags.Debug && len(semas) > 0 {
-		log.Printf("%s[%s]: Sema: P(%s)", obj.Kind(), obj.GetName(), strings.Join(semas, ", "))
+		log.Printf("%s[%s]: Sema: P(%s)", obj.GetKind(), obj.GetName(), strings.Join(semas, ", "))
 	}
 	if err := g.SemaLock(semas); err != nil { // lock
 		// NOTE: in practice, this might not ever be truly necessary...
@@ -207,7 +207,7 @@ func (g *Graph) Process(v *Vertex) error {
 	}
 	defer g.SemaUnlock(semas) // unlock
 	if g.Flags.Debug && len(semas) > 0 {
-		defer log.Printf("%s[%s]: Sema: V(%s)", obj.Kind(), obj.GetName(), strings.Join(semas, ", "))
+		defer log.Printf("%s[%s]: Sema: V(%s)", obj.GetKind(), obj.GetName(), strings.Join(semas, ", "))
 	}
 
 	var ok = true
@@ -231,7 +231,7 @@ func (g *Graph) Process(v *Vertex) error {
 	var err error
 
 	if g.Flags.Debug {
-		log.Printf("%s[%s]: CheckApply(%t)", obj.Kind(), obj.GetName(), !noop)
+		log.Printf("%s[%s]: CheckApply(%t)", obj.GetKind(), obj.GetName(), !noop)
 	}
 
 	// lookup the refresh (notification) variable
@@ -256,9 +256,9 @@ func (g *Graph) Process(v *Vertex) error {
 		// if this fails, don't UpdateTimestamp()
 		checkOK, err = obj.CheckApply(!noop)
 
-		if promErr := obj.Prometheus().UpdateCheckApplyTotal(obj.Kind(), !noop, !checkOK, err != nil); promErr != nil {
+		if promErr := obj.Prometheus().UpdateCheckApplyTotal(obj.GetKind(), !noop, !checkOK, err != nil); promErr != nil {
 			// TODO: how to error correctly
-			log.Printf("%s[%s]: Prometheus.UpdateCheckApplyTotal() errored: %v", v.Kind(), v.GetName(), err)
+			log.Printf("%s[%s]: Prometheus.UpdateCheckApplyTotal() errored: %v", v.GetKind(), v.GetName(), err)
 		}
 		// TODO: Can the `Poll` converged timeout tracking be a
 		// more general method for all converged timeouts? this
@@ -268,17 +268,17 @@ func (g *Graph) Process(v *Vertex) error {
 				cuid, _, _ := v.Res.ConvergerUIDs() // get the converger uid used to report status
 				cuid.ResetTimer()                   // activity!
 				if g.Flags.Debug {
-					log.Printf("%s[%s]: Converger: ResetTimer", obj.Kind(), obj.GetName())
+					log.Printf("%s[%s]: Converger: ResetTimer", obj.GetKind(), obj.GetName())
 				}
 			}
 		}
 	}
 
 	if checkOK && err != nil { // should never return this way
-		log.Fatalf("%s[%s]: CheckApply(): %t, %+v", obj.Kind(), obj.GetName(), checkOK, err)
+		log.Fatalf("%s[%s]: CheckApply(): %t, %+v", obj.GetKind(), obj.GetName(), checkOK, err)
 	}
 	if g.Flags.Debug {
-		log.Printf("%s[%s]: CheckApply(): %t, %v", obj.Kind(), obj.GetName(), checkOK, err)
+		log.Printf("%s[%s]: CheckApply(): %t, %v", obj.GetKind(), obj.GetName(), checkOK, err)
 	}
 
 	// if CheckApply ran without noop and without error, state should be good
@@ -372,7 +372,7 @@ Loop:
 			// if process started, but no action yet, skip!
 			if v.Res.GetState() == resources.ResStateProcess {
 				if g.Flags.Debug {
-					log.Printf("%s[%s]: Skipped event!", v.Kind(), v.GetName())
+					log.Printf("%s[%s]: Skipped event!", v.GetKind(), v.GetName())
 				}
 				ev.ACK() // ready for next message
 				v.Res.QuiesceGroup().Done()
@@ -383,7 +383,7 @@ Loop:
 			// if waiting, we skip running a new execution!
 			if running || waiting {
 				if g.Flags.Debug {
-					log.Printf("%s[%s]: Playback added!", v.Kind(), v.GetName())
+					log.Printf("%s[%s]: Playback added!", v.GetKind(), v.GetName())
 				}
 				playback = true
 				ev.ACK() // ready for next message
@@ -393,7 +393,7 @@ Loop:
 
 			// catch invalid rates
 			if v.Meta().Burst == 0 && !(v.Meta().Limit == rate.Inf) { // blocked
-				e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.Kind(), v.GetName())
+				e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.GetKind(), v.GetName())
 				ev.ACK() // ready for next message
 				v.Res.QuiesceGroup().Done()
 				v.SendEvent(event.EventExit, &SentinelErr{e})
@@ -411,7 +411,7 @@ Loop:
 				if d > 0 { // delay
 					limited = true
 					playback = true
-					log.Printf("%s[%s]: Limited (rate: %v/sec, burst: %d, next: %v)", v.Kind(), v.GetName(), v.Meta().Limit, v.Meta().Burst, d)
+					log.Printf("%s[%s]: Limited (rate: %v/sec, burst: %d, next: %v)", v.GetKind(), v.GetName(), v.Meta().Limit, v.Meta().Burst, d)
 					// start the timer...
 					timer.Reset(d)
 					waiting = true // waiting for retry timer
@@ -429,11 +429,11 @@ Loop:
 				defer wg.Done()
 				if e := g.Process(v); e != nil {
 					playback = true
-					log.Printf("%s[%s]: CheckApply errored: %v", v.Kind(), v.GetName(), e)
+					log.Printf("%s[%s]: CheckApply errored: %v", v.GetKind(), v.GetName(), e)
 					if retry == 0 {
-						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateHardFail); err != nil {
+						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.GetKind(), v.GetName()), v.GetKind(), prometheus.ResStateHardFail); err != nil {
 							// TODO: how to error this?
-							log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+							log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.GetKind(), v.GetName(), err)
 						}
 
 						// wrap the error in the sentinel
@@ -444,11 +444,11 @@ Loop:
 					if retry > 0 { // don't decrement the -1
 						retry--
 					}
-					if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.Kind(), v.GetName()), v.Kind(), prometheus.ResStateSoftFail); err != nil {
+					if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.GetKind(), v.GetName()), v.GetKind(), prometheus.ResStateSoftFail); err != nil {
 						// TODO: how to error this?
-						log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.Kind(), v.GetName(), err)
+						log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.GetKind(), v.GetName(), err)
 					}
-					log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), delay.Seconds(), retry)
+					log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.GetKind(), v.GetName(), delay.Seconds(), retry)
 					// start the timer...
 					timer.Reset(delay)
 					waiting = true // waiting for retry timer
@@ -469,7 +469,7 @@ Loop:
 			if !timer.Stop() {
 				//<-timer.C // blocks, docs are wrong!
 			}
-			log.Printf("%s[%s]: CheckApply delay expired!", v.Kind(), v.GetName())
+			log.Printf("%s[%s]: CheckApply delay expired!", v.GetKind(), v.GetName())
 			close(done)
 
 		// a CheckApply run (with possibly retry pause) finished
@@ -478,7 +478,7 @@ Loop:
 				wcuid.SetConverged(false)
 			}
 			if g.Flags.Debug {
-				log.Printf("%s[%s]: CheckApply finished!", v.Kind(), v.GetName())
+				log.Printf("%s[%s]: CheckApply finished!", v.GetKind(), v.GetName())
 			}
 			done = make(chan struct{}) // reset
 			// re-send this event, to trigger a CheckApply()
@@ -521,8 +521,8 @@ func (g *Graph) Worker(v *Vertex) error {
 	// running on, which isolates things nicely...
 	obj := v.Res
 	if g.Flags.Debug {
-		log.Printf("%s[%s]: Worker: Running", v.Kind(), v.GetName())
-		defer log.Printf("%s[%s]: Worker: Stopped", v.Kind(), v.GetName())
+		log.Printf("%s[%s]: Worker: Running", v.GetKind(), v.GetName())
+		defer log.Printf("%s[%s]: Worker: Stopped", v.GetKind(), v.GetName())
 	}
 	// run the init (should match 1-1 with Close function)
 	if err := obj.Init(); err != nil {
@@ -610,7 +610,7 @@ func (g *Graph) Worker(v *Vertex) error {
 				}
 			}
 			timer.Stop() // it's nice to cleanup
-			log.Printf("%s[%s]: Watch delay expired!", v.Kind(), v.GetName())
+			log.Printf("%s[%s]: Watch delay expired!", v.GetKind(), v.GetName())
 			// NOTE: we can avoid the send if running Watch guarantees
 			// one CheckApply event on startup!
 			//if pendingSendEvent { // TODO: should this become a list in the future?
@@ -638,7 +638,7 @@ func (g *Graph) Worker(v *Vertex) error {
 			err = sentinelErr.err
 			break // sentinel means, perma-exit
 		}
-		log.Printf("%s[%s]: Watch errored: %v", v.Kind(), v.GetName(), e)
+		log.Printf("%s[%s]: Watch errored: %v", v.GetKind(), v.GetName(), e)
 		if watchRetry == 0 {
 			err = fmt.Errorf("Permanent watch error: %v", e)
 			break
@@ -647,7 +647,7 @@ func (g *Graph) Worker(v *Vertex) error {
 			watchRetry--
 		}
 		watchDelay = time.Duration(v.Meta().Delay) * time.Millisecond
-		log.Printf("%s[%s]: Watch: Retrying after %.4f seconds (%d left)", v.Kind(), v.GetName(), watchDelay.Seconds(), watchRetry)
+		log.Printf("%s[%s]: Watch: Retrying after %.4f seconds (%d left)", v.GetKind(), v.GetName(), watchDelay.Seconds(), watchRetry)
 		// We need to trigger a CheckApply after Watch restarts, so that
 		// we catch any lost events that happened while down. We do this
 		// by getting the Watch resource to send one event once it's up!
@@ -721,12 +721,12 @@ func (g *Graph) Start(first bool) { // start or continue
 				// TODO: if a sufficient number of workers error,
 				// should something be done? Should these restart
 				// after perma-failure if we have a graph change?
-				log.Printf("%s[%s]: Started", vv.Kind(), vv.GetName())
+				log.Printf("%s[%s]: Started", vv.GetKind(), vv.GetName())
 				if err := g.Worker(vv); err != nil { // contains the Watch and CheckApply loops
-					log.Printf("%s[%s]: Exited with failure: %v", vv.Kind(), vv.GetName(), err)
+					log.Printf("%s[%s]: Exited with failure: %v", vv.GetKind(), vv.GetName(), err)
 					return
 				}
-				log.Printf("%s[%s]: Exited", vv.Kind(), vv.GetName())
+				log.Printf("%s[%s]: Exited", vv.GetKind(), vv.GetName())
 			}(v)
 		}
 

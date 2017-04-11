@@ -297,7 +297,7 @@ func (g *Graph) String() string {
 
 // String returns the canonical form for a vertex
 func (v *Vertex) String() string {
-	return fmt.Sprintf("%s[%s]", v.Res.Kind(), v.Res.GetName())
+	return fmt.Sprintf("%s[%s]", v.Res.GetKind(), v.Res.GetName())
 }
 
 // IncomingGraphVertices returns an array (slice) of all directed vertices to

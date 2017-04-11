@@ -113,7 +113,7 @@ func (ag *baseGrouper) vertexCmp(v1, v2 *Vertex) error {
 	if v1 == v2 { // skip yourself
 		return fmt.Errorf("the vertices are the same")
 	}
-	if v1.Kind() != v2.Kind() { // we must group similar kinds
+	if v1.GetKind() != v2.GetKind() { // we must group similar kinds
 		// TODO: maybe future resources won't need this limitation?
 		return fmt.Errorf("the two resources aren't the same kind")
 	}

@@ -76,7 +76,7 @@ func (obj *MsgRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *MsgRes) Init() error {
-	obj.BaseRes.kind = "msg"
+	obj.BaseRes.Kind = "msg"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 
@@ -168,7 +168,7 @@ func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	if !obj.logStateOK {
-		log.Printf("%s[%s]: Body: %s", obj.Kind(), obj.GetName(), obj.Body)
+		log.Printf("%s[%s]: Body: %s", obj.GetKind(), obj.GetName(), obj.Body)
 		obj.logStateOK = true
 		obj.updateStateOK()
 	}
@@ -196,8 +196,8 @@ func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
 func (obj *MsgRes) UIDs() []ResUID {
 	x := &MsgUID{
 		BaseUID: BaseUID{
-			name: obj.GetName(),
-			kind: obj.Kind(),
+			Name: obj.GetName(),
+			Kind: obj.GetKind(),
 		},
 		body: obj.Body,
 	}

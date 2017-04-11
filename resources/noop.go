@@ -50,7 +50,7 @@ func (obj *NoopRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *NoopRes) Init() error {
-	obj.BaseRes.kind = "noop"
+	obj.BaseRes.Kind = "noop"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 
@@ -83,7 +83,7 @@ func (obj *NoopRes) Watch() error {
 // CheckApply method for Noop resource. Does nothing, returns happy!
 func (obj *NoopRes) CheckApply(apply bool) (checkOK bool, err error) {
 	if obj.Refresh() {
-		log.Printf("%s[%s]: Received a notification!", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Received a notification!", obj.GetKind(), obj.GetName())
 	}
 	return true, nil // state is always okay
 }
@@ -103,7 +103,7 @@ func (obj *NoopRes) AutoEdges() AutoEdge {
 // Most resources only return one, although some resources can return multiple.
 func (obj *NoopRes) UIDs() []ResUID {
 	x := &NoopUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		name:    obj.Name,
 	}
 	return []ResUID{x}

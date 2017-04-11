@@ -46,7 +46,7 @@ func (g *Graph) Graphviz() (out string) {
 	//out += "\tnode [shape=box];\n"
 	str := ""
 	for i := range g.Adjacency { // reverse paths
-		out += fmt.Sprintf("\t\"%s\" [label=\"%s[%s]\"];\n", i.GetName(), i.Kind(), i.GetName())
+		out += fmt.Sprintf("\t\"%s\" [label=\"%s[%s]\"];\n", i.GetName(), i.GetKind(), i.GetName())
 		for j := range g.Adjacency[i] {
 			k := g.Adjacency[i][j]
 			// use str for clearer output ordering

@@ -74,7 +74,7 @@ func (obj *PasswordRes) Validate() error {
 // Init generates a new password for this resource if one was not provided. It
 // will save this into a local file. It will load it back in from previous runs.
 func (obj *PasswordRes) Init() error {
-	obj.BaseRes.kind = "password" // must be set before using VarDir
+	obj.BaseRes.Kind = "password" // must be set before using VarDir
 
 	dir, err := obj.VarDir("")
 	if err != nil {
@@ -188,7 +188,7 @@ func (obj *PasswordRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.Kind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -229,7 +229,7 @@ func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
 			if !obj.CheckRecovery {
 				return false, errwrap.Wrapf(err, "check failed")
 			}
-			log.Printf("%s[%s]: Integrity check failed", obj.Kind(), obj.GetName())
+			log.Printf("%s[%s]: Integrity check failed", obj.GetKind(), obj.GetName())
 			generate = true // okay to build a new one
 			write = true    // make sure to write over the old one
 		}
@@ -263,7 +263,7 @@ func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
 		}
 		// generate the actual password
 		var err error
-		log.Printf("%s[%s]: Generating new password...", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Generating new password...", obj.GetKind(), obj.GetName())
 		if password, err = obj.generate(); err != nil { // generate one!
 			return false, errwrap.Wrapf(err, "could not generate password")
 		}
@@ -280,7 +280,7 @@ func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
 			output = password
 		}
 		// write either an empty token, or the password
-		log.Printf("%s[%s]: Writing password token...", obj.Kind(), obj.GetName())
+		log.Printf("%s[%s]: Writing password token...", obj.GetKind(), obj.GetName())
 		if _, err := obj.write(output); err != nil {
 			return false, errwrap.Wrapf(err, "can't write to file")
 		}
@@ -304,7 +304,7 @@ func (obj *PasswordRes) AutoEdges() AutoEdge {
 // Most resources only return one, although some resources can return multiple.
 func (obj *PasswordRes) UIDs() []ResUID {
 	x := &PasswordUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		name:    obj.Name,
 	}
 	return []ResUID{x}

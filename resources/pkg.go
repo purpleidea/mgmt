@@ -67,7 +67,7 @@ func (obj *PkgRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *PkgRes) Init() error {
-	obj.BaseRes.kind = "pkg"
+	obj.BaseRes.Kind = "pkg"
 	if err := obj.BaseRes.Init(); err != nil { // call base init, b/c we're overriding
 		return err
 	}
@@ -179,9 +179,9 @@ func (obj *PkgRes) getNames() []string {
 // pretty print for header values
 func (obj *PkgRes) fmtNames(names []string) string {
 	if len(obj.GetGroup()) > 0 { // grouped elements
-		return fmt.Sprintf("%s[autogroup:(%v)]", obj.Kind(), strings.Join(names, ","))
+		return fmt.Sprintf("%s[autogroup:(%v)]", obj.GetKind(), strings.Join(names, ","))
 	}
-	return fmt.Sprintf("%s[%s]", obj.Kind(), obj.GetName())
+	return fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName())
 }
 
 func (obj *PkgRes) groupMappingHelper() map[string]string {
@@ -190,7 +190,7 @@ func (obj *PkgRes) groupMappingHelper() map[string]string {
 		for _, x := range g {
 			pkg, ok := x.(*PkgRes) // convert from Res
 			if !ok {
-				log.Fatalf("grouped member %v is not a %s", x, obj.Kind())
+				log.Fatalf("grouped member %v is not a %s", x, obj.GetKind())
 			}
 			result[pkg.Name] = pkg.State
 		}
@@ -356,9 +356,9 @@ func (obj *PkgResAutoEdges) Next() []ResUID {
 		var reversed = false // cheat by passing a pointer
 		result = append(result, &FileUID{
 			BaseUID: BaseUID{
-				name:     obj.name,
-				kind:     obj.kind,
-				reversed: &reversed,
+				Name:     obj.name,
+				Kind:     obj.kind,
+				Reversed: &reversed,
 			},
 			path: x, // what matters
 		}) // build list
@@ -430,9 +430,9 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 		var reversed = false
 		svcUIDs = append(svcUIDs, &SvcUID{
 			BaseUID: BaseUID{
-				name:     obj.GetName(),
-				kind:     obj.Kind(),
-				reversed: &reversed,
+				Name:     obj.GetName(),
+				Kind:     obj.GetKind(),
+				Reversed: &reversed,
 			},
 			name: x, // the svc name itself in the SvcUID object!
 		}) // build list
@@ -443,7 +443,7 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 		svcUIDs:    svcUIDs,
 		testIsNext: false,         // start with Next() call
 		name:       obj.GetName(), // save data for PkgResAutoEdges obj
-		kind:       obj.Kind(),
+		kind:       obj.GetKind(),
 	}
 }
 
@@ -451,7 +451,7 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 // Most resources only return one, although some resources can return multiple.
 func (obj *PkgRes) UIDs() []ResUID {
 	x := &PkgUID{
-		BaseUID: BaseUID{name: obj.GetName(), kind: obj.Kind()},
+		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		name:    obj.Name,
 		state:   obj.State,
 	}

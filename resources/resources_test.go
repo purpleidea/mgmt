@@ -106,9 +106,9 @@ func TestMiscEncodeDecode2(t *testing.T) {
 }
 
 func TestIFF(t *testing.T) {
-	uid := &BaseUID{name: "/tmp/unit-test"}
-	same := &BaseUID{name: "/tmp/unit-test"}
-	diff := &BaseUID{name: "/tmp/other-file"}
+	uid := &BaseUID{Name: "/tmp/unit-test"}
+	same := &BaseUID{Name: "/tmp/unit-test"}
+	diff := &BaseUID{Name: "/tmp/other-file"}
 
 	if !uid.IFF(same) {
 		t.Error("basic resource UIDs with the same name should satisfy each other's IFF condition.")

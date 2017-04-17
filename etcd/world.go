@@ -48,23 +48,48 @@ func (obj *World) ResCollect(hostnameFilter, kindFilter []string) ([]resources.R
 	return GetResources(obj.EmbdEtcd, hostnameFilter, kindFilter)
 }
 
-// SetWatch returns a channel which spits out events on possible string changes.
+// StrWatch returns a channel which spits out events on possible string changes.
 func (obj *World) StrWatch(namespace string) chan error {
 	return WatchStr(obj.EmbdEtcd, namespace)
 }
 
-// StrGet returns a map of hostnames to values in the given namespace.
-func (obj *World) StrGet(namespace string) (map[string]string, error) {
-	return GetStr(obj.EmbdEtcd, []string{}, namespace)
+// StrIsNotExist returns whether the error from StrGet is a key missing error.
+func (obj *World) StrIsNotExist(err error) bool {
+	return err == ErrNotExist
 }
 
-// StrSet sets the namespace value to a particular string under the identity of
-// its own hostname.
+// StrGet returns the value for the the given namespace.
+func (obj *World) StrGet(namespace string) (string, error) {
+	return GetStr(obj.EmbdEtcd, namespace)
+}
+
+// StrSet sets the namespace value to a particular string.
 func (obj *World) StrSet(namespace, value string) error {
-	return SetStr(obj.EmbdEtcd, obj.Hostname, namespace, &value)
+	return SetStr(obj.EmbdEtcd, namespace, &value)
 }
 
 // StrDel deletes the value in a particular namespace.
 func (obj *World) StrDel(namespace string) error {
-	return SetStr(obj.EmbdEtcd, obj.Hostname, namespace, nil)
+	return SetStr(obj.EmbdEtcd, namespace, nil)
+}
+
+// StrMapWatch returns a channel which spits out events on possible string changes.
+func (obj *World) StrMapWatch(namespace string) chan error {
+	return WatchStrMap(obj.EmbdEtcd, namespace)
+}
+
+// StrMapGet returns a map of hostnames to values in the given namespace.
+func (obj *World) StrMapGet(namespace string) (map[string]string, error) {
+	return GetStrMap(obj.EmbdEtcd, []string{}, namespace)
+}
+
+// StrMapSet sets the namespace value to a particular string under the identity
+// of its own hostname.
+func (obj *World) StrMapSet(namespace, value string) error {
+	return SetStrMap(obj.EmbdEtcd, obj.Hostname, namespace, &value)
+}
+
+// StrMapDel deletes the value in a particular namespace.
+func (obj *World) StrMapDel(namespace string) error {
+	return SetStrMap(obj.EmbdEtcd, obj.Hostname, namespace, nil)
 }

@@ -81,9 +81,15 @@ type World interface { // TODO: is there a better name for this interface?
 	ResCollect(hostnameFilter, kindFilter []string) ([]Res, error)
 
 	StrWatch(namespace string) chan error
-	StrGet(namespace string) (map[string]string, error)
+	StrIsNotExist(error) bool
+	StrGet(namespace string) (string, error)
 	StrSet(namespace, value string) error
 	StrDel(namespace string) error
+
+	StrMapWatch(namespace string) chan error
+	StrMapGet(namespace string) (map[string]string, error)
+	StrMapSet(namespace, value string) error
+	StrMapDel(namespace string) error
 }
 
 // Data is the set of input values passed into the pgraph for the resources.

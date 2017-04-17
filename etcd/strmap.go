@@ -18,22 +18,20 @@
 package etcd
 
 import (
-	"errors"
 	"fmt"
+	"strings"
+
+	"github.com/purpleidea/mgmt/util"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	errwrap "github.com/pkg/errors"
 )
 
-// ErrNotExist is returned when GetStr can not find the requested key.
-// TODO: https://dave.cheney.net/2016/04/07/constant-errors
-var ErrNotExist = errors.New("errNotExist")
-
-// WatchStr returns a channel which spits out events on key activity.
+// WatchStrMap returns a channel which spits out events on key activity.
 // FIXME: It should close the channel when it's done, and spit out errors when
 // something goes wrong.
-func WatchStr(obj *EmbdEtcd, key string) chan error {
-	// new key structure is /$NS/strings/$key = $data
+func WatchStrMap(obj *EmbdEtcd, key string) chan error {
+	// new key structure is /$NS/strings/$key/$hostname = $data
 	path := fmt.Sprintf("/%s/strings/%s", NS, key)
 	ch := make(chan error, 1)
 	// FIXME: fix our API so that we get a close event on shutdown.
@@ -52,38 +50,50 @@ func WatchStr(obj *EmbdEtcd, key string) chan error {
 	return ch
 }
 
-// GetStr collects the string which matches a gloabl namespace in etcd.
-func GetStr(obj *EmbdEtcd, key string) (string, error) {
-	// new key structure is /$NS/strings/$key = $data
+// GetStrMap collects all of the strings which match a namespace in etcd.
+func GetStrMap(obj *EmbdEtcd, hostnameFilter []string, key string) (map[string]string, error) {
+	// old key structure is /$NS/strings/$hostname/$key = $data
+	// new key structure is /$NS/strings/$key/$hostname = $data
+	// FIXME: if we have the $key as the last token (old key structure), we
+	// can allow the key to contain the slash char, otherwise we need to
+	// verify that one isn't present in the input string.
 	path := fmt.Sprintf("/%s/strings/%s", NS, key)
-	keyMap, err := obj.Get(path, etcd.WithPrefix())
+	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {
-		return "", errwrap.Wrapf(err, "could not get strings in: %s", key)
+		return nil, errwrap.Wrapf(err, "could not get strings in: %s", key)
 	}
+	result := make(map[string]string)
+	for key, val := range keyMap {
+		if !strings.HasPrefix(key, path) { // sanity check
+			continue
+		}
 
-	if len(keyMap) == 0 {
-		return "", ErrNotExist
+		str := strings.Split(key[len(path):], "/")
+		if len(str) != 2 {
+			return nil, fmt.Errorf("unexpected chunk count of %d", len(str))
+		}
+		_, hostname := str[0], str[1]
+
+		if hostname == "" {
+			return nil, fmt.Errorf("unexpected chunk length of %d", len(hostname))
+		}
+
+		// FIXME: ideally this would be a server side filter instead!
+		if len(hostnameFilter) > 0 && !util.StrInList(hostname, hostnameFilter) {
+			continue
+		}
+		//log.Printf("Etcd: GetStr(%s): (Hostname, Data): (%s, %s)", key, hostname, val)
+		result[hostname] = val
 	}
-
-	if count := len(keyMap); count != 1 {
-		return "", fmt.Errorf("returned %d entries", count)
-	}
-
-	val, exists := keyMap[path]
-	if !exists {
-		return "", fmt.Errorf("path `%s` is missing", path)
-	}
-
-	//log.Printf("Etcd: GetStr(%s): %s", key, val)
-	return val, nil
+	return result, nil
 }
 
-// SetStr sets a key and hostname pair to a certain value. If the value is
+// SetStrMap sets a key and hostname pair to a certain value. If the value is
 // nil, then it deletes the key. Otherwise the value should point to a string.
 // TODO: TTL or delete disconnect?
-func SetStr(obj *EmbdEtcd, key string, data *string) error {
-	// key structure is /$NS/strings/$key = $data
-	path := fmt.Sprintf("/%s/strings/%s", NS, key)
+func SetStrMap(obj *EmbdEtcd, hostname, key string, data *string) error {
+	// key structure is /$NS/strings/$key/$hostname = $data
+	path := fmt.Sprintf("/%s/strings/%s/%s", NS, key, hostname)
 	ifs := []etcd.Cmp{} // list matching the desired state
 	ops := []etcd.Op{}  // list of ops in this transaction (then)
 	els := []etcd.Op{}  // list of ops in this transaction (else)

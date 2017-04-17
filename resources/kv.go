@@ -101,7 +101,7 @@ func (obj *KVRes) Watch() error {
 		return err // bubble up a NACK...
 	}
 
-	ch := obj.Data().World.StrWatch(obj.Key) // get possible events!
+	ch := obj.Data().World.StrMapWatch(obj.Key) // get possible events!
 
 	var send = false // send event?
 	var exit *error
@@ -185,7 +185,7 @@ func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
 	}
 
 	hostname := obj.Data().Hostname // me
-	keyMap, err := obj.Data().World.StrGet(obj.Key)
+	keyMap, err := obj.Data().World.StrMapGet(obj.Key)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "check error during StrGet")
 	}
@@ -205,7 +205,7 @@ func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return true, nil // nothing to delete, we're good!
 
 	} else if ok && obj.Value == nil { // delete
-		err := obj.Data().World.StrDel(obj.Key)
+		err := obj.Data().World.StrMapDel(obj.Key)
 		return false, errwrap.Wrapf(err, "apply error during StrDel")
 	}
 
@@ -213,7 +213,7 @@ func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return false, nil
 	}
 
-	if err := obj.Data().World.StrSet(obj.Key, *obj.Value); err != nil {
+	if err := obj.Data().World.StrMapSet(obj.Key, *obj.Value); err != nil {
 		return false, errwrap.Wrapf(err, "apply error during StrSet")
 	}
 

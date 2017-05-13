@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/purpleidea/mgmt/util/semaphore"
 
@@ -35,15 +36,18 @@ const SemaSep = ":"
 func (g *Graph) SemaLock(semas []string) error {
 	var reterr error
 	sort.Strings(semas) // very important to avoid deadlock in the dag!
+	slock := SemaLockFromGraph(g)
+	smap := *SemaMapFromGraph(g) // returns a *map, but can't use directly
+
 	for _, id := range semas {
-		g.slock.Lock()          // semaphore creation lock
-		sema, ok := g.semas[id] // lookup
+		slock.Lock()         // semaphore creation lock
+		sema, ok := smap[id] // lookup
 		if !ok {
 			size := SemaSize(id) // defaults to 1
-			g.semas[id] = semaphore.NewSemaphore(size)
-			sema = g.semas[id]
+			smap[id] = semaphore.NewSemaphore(size)
+			sema = smap[id]
 		}
-		g.slock.Unlock()
+		slock.Unlock()
 
 		if err := sema.P(1); err != nil { // lock!
 			reterr = multierr.Append(reterr, err) // list of errors
@@ -56,8 +60,10 @@ func (g *Graph) SemaLock(semas []string) error {
 func (g *Graph) SemaUnlock(semas []string) error {
 	var reterr error
 	sort.Strings(semas) // unlock in the same order to remove partial locks
+	smap := *SemaMapFromGraph(g)
+
 	for _, id := range semas {
-		sema, ok := g.semas[id] // lookup
+		sema, ok := smap[id] // lookup
 		if !ok {
 			// programming error!
 			panic(fmt.Sprintf("graph: sema: %s does not exist", id))
@@ -82,4 +88,37 @@ func SemaSize(id string) int {
 		}
 	}
 	return size
+}
+
+// SemaLockFromGraph returns a pointer to the semaphore lock stored with the
+// graph, otherwise it panics. If one does not exist, it will create it.
+func SemaLockFromGraph(g *Graph) *sync.Mutex {
+	x, exists := g.Value("slock")
+	if !exists {
+		g.SetValue("slock", &sync.Mutex{})
+		x, _ = g.Value("slock")
+	}
+
+	slock, ok := x.(*sync.Mutex)
+	if !ok {
+		panic("not a *sync.Mutex")
+	}
+	return slock
+}
+
+// SemaMapFromGraph returns a pointer to the map of semaphores stored with the
+// graph, otherwise it panics. If one does not exist, it will create it.
+func SemaMapFromGraph(g *Graph) *map[string]*semaphore.Semaphore {
+	x, exists := g.Value("semas")
+	if !exists {
+		semas := make(map[string]*semaphore.Semaphore)
+		g.SetValue("semas", &semas)
+		x, _ = g.Value("semas")
+	}
+
+	semas, ok := x.(*map[string]*semaphore.Semaphore)
+	if !ok {
+		panic("not a *map[string]*semaphore.Semaphore")
+	}
+	return semas
 }

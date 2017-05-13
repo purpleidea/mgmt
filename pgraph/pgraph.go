@@ -26,7 +26,6 @@ import (
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
-	"github.com/purpleidea/mgmt/util/semaphore"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -59,8 +58,6 @@ type Graph struct {
 	fastPause bool        // used to disable pokes for a fast pause
 	mutex     *sync.Mutex // used when modifying graph State variable
 	wg        *sync.WaitGroup
-	semas     map[string]*semaphore.Semaphore
-	slock     *sync.Mutex // semaphore mutex
 
 	prometheus *prometheus.Prometheus // the prometheus instance
 }
@@ -93,8 +90,6 @@ func (g *Graph) Init() error {
 	// ptr b/c: Mutex/WaitGroup must not be copied after first use
 	g.mutex = &sync.Mutex{}
 	g.wg = &sync.WaitGroup{}
-	g.semas = make(map[string]*semaphore.Semaphore)
-	g.slock = &sync.Mutex{}
 	return nil
 }
 
@@ -155,8 +150,6 @@ func (g *Graph) Copy() *Graph {
 		state:     g.state,
 		mutex:     g.mutex,
 		wg:        g.wg,
-		semas:     g.semas,
-		slock:     g.slock,
 		fastPause: g.fastPause,
 
 		prometheus: g.prometheus,

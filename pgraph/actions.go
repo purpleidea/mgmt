@@ -717,7 +717,7 @@ func (g *Graph) Start(first bool) { // start or continue
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
 			go func(vv *Vertex) {
 				defer g.wg.Done()
-				defer v.Res.Reset()
+				defer vv.Res.Reset()
 				// TODO: if a sufficient number of workers error,
 				// should something be done? Should these restart
 				// after perma-failure if we have a graph change?

@@ -226,15 +226,18 @@ func (g *Graph) DeleteEdge(e *Edge) {
 	}
 }
 
-// CompareMatch searches for an equivalent resource in the graph and returns the
-// vertex it is found in, or nil if not found.
-func (g *Graph) CompareMatch(obj resources.Res) *Vertex {
+// VertexMatchFn searches for a vertex in the graph and returns the vertex if
+// one matches. It uses a user defined function to match. That function must
+// return true on match, and an error if anything goes wrong.
+func (g *Graph) VertexMatchFn(fn func(*Vertex) (bool, error)) (*Vertex, error) {
 	for v := range g.adjacency {
-		if v.Res.Compare(obj) {
-			return v
+		if b, err := fn(v); err != nil {
+			return nil, errwrap.Wrapf(err, "fn in VertexMatchFn() errored")
+		} else if b {
+			return v, nil
 		}
 	}
-	return nil
+	return nil, nil // nothing found
 }
 
 // TODO: consider adding a mutate API.
@@ -602,7 +605,14 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 
 		// step one, direct compare with res.Compare
 		if vertex == nil { // redundant guard for consistency
-			vertex = oldGraph.CompareMatch(res)
+			fn := func(v *Vertex) (bool, error) {
+				return v.Res.Compare(res), nil
+			}
+			var err error
+			vertex, err = oldGraph.VertexMatchFn(fn)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not VertexMatchFn() resource")
+			}
 		}
 
 		// TODO: consider adding a mutate API.
@@ -640,8 +650,8 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 			// lookup vertices (these should exist now)
 			//res1 := v1.Res // resource
 			//res2 := v2.Res
-			//vertex1 := oldGraph.CompareMatch(res1)
-			//vertex2 := oldGraph.CompareMatch(res2)
+			//vertex1 := oldGraph.CompareMatch(res1) // now: VertexMatchFn
+			//vertex2 := oldGraph.CompareMatch(res2) // now: VertexMatchFn
 			vertex1, exists1 := lookup[v1]
 			vertex2, exists2 := lookup[v2]
 			if !exists1 || !exists2 { // no match found, bug?

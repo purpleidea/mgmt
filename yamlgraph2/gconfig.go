@@ -182,7 +182,13 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 		// XXX: should we export based on a @@ prefix, or a metaparam
 		// like exported => true || exported => (host pattern)||(other pattern?)
 		if !strings.HasPrefix(res.GetName(), "@@") { // not exported resource
-			v := graph.CompareMatch(res)
+			fn := func(v *pgraph.Vertex) (bool, error) {
+				return v.Res.Compare(res), nil
+			}
+			v, err := graph.VertexMatchFn(fn)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not VertexMatchFn() resource")
+			}
 			if v == nil { // no match found
 				v = pgraph.NewVertex(res)
 				graph.AddVertex(v) // call standalone in case not part of an edge
@@ -253,7 +259,14 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 			if _, exists := lookup[kind]; !exists {
 				lookup[kind] = make(map[string]*pgraph.Vertex)
 			}
-			v := graph.CompareMatch(res)
+
+			fn := func(v *pgraph.Vertex) (bool, error) {
+				return v.Res.Compare(res), nil
+			}
+			v, err := graph.VertexMatchFn(fn)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not VertexMatchFn() resource")
+			}
 			if v == nil { // no match found
 				v = pgraph.NewVertex(res)
 				graph.AddVertex(v) // call standalone in case not part of an edge

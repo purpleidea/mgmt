@@ -28,6 +28,7 @@ import (
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/util"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -54,7 +55,7 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 		// if they're equal (eg: on init of 0) then we also can't run
 		// b/c we should let our pre-req's go first...
 		x, y := v.GetTimestamp(), n.GetTimestamp()
-		if g.Flags.Debug {
+		if b, ok := g.Value("debug"); ok && util.Bool(b) {
 			log.Printf("%s[%s]: OKTimestamp: (%v) >= %s[%s](%v): !%v", v.GetKind(), v.GetName(), x, n.GetKind(), n.GetName(), y, x >= y)
 		}
 		if x >= y {
@@ -81,7 +82,7 @@ func (g *Graph) Poke(v *Vertex) error {
 		// needs to be poked if already running, or not running though!
 		// TODO: does this need an || activity flag?
 		if n.Res.GetState() != resources.ResStateProcess {
-			if g.Flags.Debug {
+			if b, ok := g.Value("debug"); ok && util.Bool(b) {
 				log.Printf("%s[%s]: Poke: %s[%s]", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 			wg.Add(1)
@@ -93,7 +94,7 @@ func (g *Graph) Poke(v *Vertex) error {
 			}(n)
 
 		} else {
-			if g.Flags.Debug {
+			if b, ok := g.Value("debug"); ok && util.Bool(b) {
 				log.Printf("%s[%s]: Poke: %s[%s]: Skipped!", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 		}
@@ -116,7 +117,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 		// TODO: implement a stateLT (less than) to tell if something
 		// happens earlier in the state cycle and that doesn't wrap nil
 		if x >= y && (s != resources.ResStateProcess && s != resources.ResStateCheckApply) {
-			if g.Flags.Debug {
+			if b, ok := g.Value("debug"); ok && util.Bool(b) {
 				log.Printf("%s[%s]: BackPoke: %s[%s]", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 			wg.Add(1)
@@ -126,7 +127,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 			}(n)
 
 		} else {
-			if g.Flags.Debug {
+			if b, ok := g.Value("debug"); ok && util.Bool(b) {
 				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
 			}
 		}
@@ -171,7 +172,7 @@ func (g *Graph) SetDownstreamRefresh(v *Vertex, b bool) {
 // Process is the primary function to execute for a particular vertex in the graph.
 func (g *Graph) Process(v *Vertex) error {
 	obj := v.Res
-	if g.Flags.Debug {
+	if b, ok := g.Value("debug"); ok && util.Bool(b) {
 		log.Printf("%s[%s]: Process()", obj.GetKind(), obj.GetName())
 	}
 	// FIXME: should these SetState methods be here or after the sema code?
@@ -186,7 +187,7 @@ func (g *Graph) Process(v *Vertex) error {
 		return nil
 	}
 	// timestamp must be okay...
-	if g.Flags.Debug {
+	if b, ok := g.Value("debug"); ok && util.Bool(b) {
 		log.Printf("%s[%s]: OKTimestamp(%v)", obj.GetKind(), obj.GetName(), v.GetTimestamp())
 	}
 
@@ -198,7 +199,7 @@ func (g *Graph) Process(v *Vertex) error {
 	// The exception is that semaphores with a zero count will always block!
 	// TODO: Add a close mechanism to close/unblock zero count semaphores...
 	semas := obj.Meta().Sema
-	if g.Flags.Debug && len(semas) > 0 {
+	if b, ok := g.Value("debug"); ok && util.Bool(b) && len(semas) > 0 {
 		log.Printf("%s[%s]: Sema: P(%s)", obj.GetKind(), obj.GetName(), strings.Join(semas, ", "))
 	}
 	if err := g.SemaLock(semas); err != nil { // lock
@@ -206,7 +207,7 @@ func (g *Graph) Process(v *Vertex) error {
 		return fmt.Errorf("shutdown of semaphores")
 	}
 	defer g.SemaUnlock(semas) // unlock
-	if g.Flags.Debug && len(semas) > 0 {
+	if b, ok := g.Value("debug"); ok && util.Bool(b) && len(semas) > 0 {
 		defer log.Printf("%s[%s]: Sema: V(%s)", obj.GetKind(), obj.GetName(), strings.Join(semas, ", "))
 	}
 
@@ -230,7 +231,7 @@ func (g *Graph) Process(v *Vertex) error {
 	var checkOK bool
 	var err error
 
-	if g.Flags.Debug {
+	if b, ok := g.Value("debug"); ok && util.Bool(b) {
 		log.Printf("%s[%s]: CheckApply(%t)", obj.GetKind(), obj.GetName(), !noop)
 	}
 
@@ -267,7 +268,7 @@ func (g *Graph) Process(v *Vertex) error {
 			if !checkOK { // something changed, restart timer
 				cuid, _, _ := v.Res.ConvergerUIDs() // get the converger uid used to report status
 				cuid.ResetTimer()                   // activity!
-				if g.Flags.Debug {
+				if b, ok := g.Value("debug"); ok && util.Bool(b) {
 					log.Printf("%s[%s]: Converger: ResetTimer", obj.GetKind(), obj.GetName())
 				}
 			}
@@ -277,7 +278,7 @@ func (g *Graph) Process(v *Vertex) error {
 	if checkOK && err != nil { // should never return this way
 		log.Fatalf("%s[%s]: CheckApply(): %t, %+v", obj.GetKind(), obj.GetName(), checkOK, err)
 	}
-	if g.Flags.Debug {
+	if b, ok := g.Value("debug"); ok && util.Bool(b) {
 		log.Printf("%s[%s]: CheckApply(): %t, %v", obj.GetKind(), obj.GetName(), checkOK, err)
 	}
 
@@ -371,7 +372,7 @@ Loop:
 
 			// if process started, but no action yet, skip!
 			if v.Res.GetState() == resources.ResStateProcess {
-				if g.Flags.Debug {
+				if b, ok := g.Value("debug"); ok && util.Bool(b) {
 					log.Printf("%s[%s]: Skipped event!", v.GetKind(), v.GetName())
 				}
 				ev.ACK() // ready for next message
@@ -382,7 +383,7 @@ Loop:
 			// if running, we skip running a new execution!
 			// if waiting, we skip running a new execution!
 			if running || waiting {
-				if g.Flags.Debug {
+				if b, ok := g.Value("debug"); ok && util.Bool(b) {
 					log.Printf("%s[%s]: Playback added!", v.GetKind(), v.GetName())
 				}
 				playback = true
@@ -477,7 +478,7 @@ Loop:
 			if v.Res.Meta().Poll == 0 { // skip for polling
 				wcuid.SetConverged(false)
 			}
-			if g.Flags.Debug {
+			if b, ok := g.Value("debug"); ok && util.Bool(b) {
 				log.Printf("%s[%s]: CheckApply finished!", v.GetKind(), v.GetName())
 			}
 			done = make(chan struct{}) // reset
@@ -520,7 +521,7 @@ func (g *Graph) Worker(v *Vertex) error {
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
 	obj := v.Res
-	if g.Flags.Debug {
+	if b, ok := g.Value("debug"); ok && util.Bool(b) {
 		log.Printf("%s[%s]: Worker: Running", v.GetKind(), v.GetName())
 		defer log.Printf("%s[%s]: Worker: Stopped", v.GetKind(), v.GetName())
 	}

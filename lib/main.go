@@ -442,7 +442,7 @@ func (obj *Main) Run() error {
 				}
 				continue
 			}
-			newGraph.Flags = pgraph.Flags{Debug: obj.Flags.Debug}
+			newGraph.SetValue("debug", obj.Flags.Debug)
 			// pass in the information we need
 			newGraph.AssociateData(&resources.Data{
 				Hostname:   hostname,

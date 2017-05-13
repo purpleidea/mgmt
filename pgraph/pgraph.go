@@ -42,11 +42,6 @@ const (
 	graphStatePaused
 )
 
-// Flags contains specific constants used by the graph.
-type Flags struct {
-	Debug bool
-}
-
 // Graph is the graph structure in this library.
 // The graph abstract data type (ADT) is defined as follows:
 // * the directed graph arrows point from left to right ( -> )
@@ -60,7 +55,6 @@ type Graph struct {
 	kv        map[string]interface{}        // some values associated with the graph
 
 	// legacy
-	Flags     Flags
 	state     graphState
 	fastPause bool        // used to disable pokes for a fast pause
 	mutex     *sync.Mutex // used when modifying graph State variable
@@ -158,7 +152,6 @@ func (g *Graph) Copy() *Graph {
 		kv:        g.kv,
 
 		// legacy
-		Flags:     g.Flags,
 		state:     g.state,
 		mutex:     g.mutex,
 		wg:        g.wg,

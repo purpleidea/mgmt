@@ -56,7 +56,10 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("libmgmt: MyGAPI is not initialized")
 	}
 
-	g := pgraph.NewGraph(obj.Name)
+	g, err := pgraph.NewGraph(obj.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	// FIXME: these are being specified temporarily until it's the default!
 	metaparams := resources.DefaultMetaParams

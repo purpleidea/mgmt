@@ -29,6 +29,7 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
 
+	errwrap "github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
@@ -95,8 +96,12 @@ func (c *GraphConfig) Parse(data []byte) error {
 func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World, noop bool) (*pgraph.Graph, error) {
 	// hostname is the uuid for the host
 
-	var graph *pgraph.Graph          // new graph to return
-	graph = pgraph.NewGraph("Graph") // give graph a default name
+	var graph *pgraph.Graph // new graph to return
+	var err error
+	graph, err = pgraph.NewGraph("Graph") // give graph a default name
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not run NewGraphFromConfig() properly")
+	}
 
 	var lookup = make(map[string]map[string]*pgraph.Vertex)
 

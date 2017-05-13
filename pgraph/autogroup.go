@@ -204,11 +204,11 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 	// methodology
 	// 1) edges between v1 and v2 are removed
 	//Loop:
-	for k1 := range g.Adjacency {
-		for k2 := range g.Adjacency[k1] {
+	for k1 := range g.adjacency {
+		for k2 := range g.adjacency[k1] {
 			// v1 -> v2 || v2 -> v1
 			if (k1 == v1 && k2 == v2) || (k1 == v2 && k2 == v1) {
-				delete(g.Adjacency[k1], k2) // delete map & edge
+				delete(g.adjacency[k1], k2) // delete map & edge
 				// NOTE: if we assume this is a DAG, then we can
 				// assume only v1 -> v2 OR v2 -> v1 exists, and
 				// we can break out of these loops immediately!
@@ -220,10 +220,10 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 
 	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
 	for _, x := range g.IncomingGraphVertices(v2) { // all to vertex v (??? -> v)
-		e := g.Adjacency[x][v2] // previous edge
+		e := g.adjacency[x][v2] // previous edge
 		r := g.Reachability(x, v1)
-		// merge e with ex := g.Adjacency[x][v1] if it exists!
-		if ex, exists := g.Adjacency[x][v1]; exists && edgeMergeFn != nil && len(r) == 0 {
+		// merge e with ex := g.adjacency[x][v1] if it exists!
+		if ex, exists := g.adjacency[x][v1]; exists && edgeMergeFn != nil && len(r) == 0 {
 			e = edgeMergeFn(e, ex)
 		}
 		if len(r) == 0 { // if not reachable, add it
@@ -236,21 +236,21 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 					continue
 				}
 				// this edge is from: prev, to: next
-				ex, _ := g.Adjacency[prev][next] // get
+				ex, _ := g.adjacency[prev][next] // get
 				ex = edgeMergeFn(ex, e)
-				g.Adjacency[prev][next] = ex // set
+				g.adjacency[prev][next] = ex // set
 				prev = next
 			}
 		}
-		delete(g.Adjacency[x], v2) // delete old edge
+		delete(g.adjacency[x], v2) // delete old edge
 	}
 
 	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
 	for _, x := range g.OutgoingGraphVertices(v2) { // all from vertex v (v -> ???)
-		e := g.Adjacency[v2][x] // previous edge
+		e := g.adjacency[v2][x] // previous edge
 		r := g.Reachability(v1, x)
-		// merge e with ex := g.Adjacency[v1][x] if it exists!
-		if ex, exists := g.Adjacency[v1][x]; exists && edgeMergeFn != nil && len(r) == 0 {
+		// merge e with ex := g.adjacency[v1][x] if it exists!
+		if ex, exists := g.adjacency[v1][x]; exists && edgeMergeFn != nil && len(r) == 0 {
 			e = edgeMergeFn(e, ex)
 		}
 		if len(r) == 0 {
@@ -263,13 +263,13 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 					continue
 				}
 				// this edge is from: prev, to: next
-				ex, _ := g.Adjacency[prev][next]
+				ex, _ := g.adjacency[prev][next]
 				ex = edgeMergeFn(ex, e)
-				g.Adjacency[prev][next] = ex
+				g.adjacency[prev][next] = ex
 				prev = next
 			}
 		}
-		delete(g.Adjacency[v2], x)
+		delete(g.adjacency[v2], x)
 	}
 
 	// 4) merge and then remove the (now merged/grouped) vertex

@@ -87,7 +87,7 @@ func (g *Graph) Poke(v *Vertex) error {
 			wg.Add(1)
 			go func(nn *Vertex) error {
 				defer wg.Done()
-				//edge := g.Adjacency[v][nn] // lookup
+				//edge := g.adjacency[v][nn] // lookup
 				//notify := edge.Notify && edge.Refresh()
 				return nn.SendEvent(event.EventPoke, nil)
 			}(n)

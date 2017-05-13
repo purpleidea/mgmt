@@ -54,8 +54,12 @@ type Flags struct {
 // * IOW, you might see package -> file -> service (where package runs first)
 // * This is also the direction that the notify should happen in...
 type Graph struct {
-	Name      string
-	Adjacency map[*Vertex]map[*Vertex]*Edge // *Vertex -> *Vertex (edge)
+	Name string
+
+	adjacency map[*Vertex]map[*Vertex]*Edge // *Vertex -> *Vertex (edge)
+	kv        map[string]interface{}        // some values associated with the graph
+
+	// legacy
 	Flags     Flags
 	state     graphState
 	fastPause bool        // used to disable pokes for a fast pause
@@ -81,18 +85,34 @@ type Edge struct {
 	refresh bool // is there a notify pending for the dest vertex ?
 }
 
-// NewGraph builds a new graph.
-func NewGraph(name string) *Graph {
-	return &Graph{
-		Name:      name,
-		Adjacency: make(map[*Vertex]map[*Vertex]*Edge),
-		state:     graphStateNil,
-		// ptr b/c: Mutex/WaitGroup must not be copied after first use
-		mutex: &sync.Mutex{},
-		wg:    &sync.WaitGroup{},
-		semas: make(map[string]*semaphore.Semaphore),
-		slock: &sync.Mutex{},
+// Init initializes the graph which populates all the internal structures.
+func (g *Graph) Init() error {
+	if g.Name == "" {
+		return fmt.Errorf("can't initialize graph with empty name")
 	}
+
+	g.adjacency = make(map[*Vertex]map[*Vertex]*Edge)
+	g.kv = make(map[string]interface{})
+
+	// legacy
+	g.state = graphStateNil
+	// ptr b/c: Mutex/WaitGroup must not be copied after first use
+	g.mutex = &sync.Mutex{}
+	g.wg = &sync.WaitGroup{}
+	g.semas = make(map[string]*semaphore.Semaphore)
+	g.slock = &sync.Mutex{}
+	return nil
+}
+
+// NewGraph builds a new graph.
+func NewGraph(name string) (*Graph, error) {
+	g := &Graph{
+		Name: name,
+	}
+	if err := g.Init(); err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 // NewVertex returns a new graph vertex struct with a contained resource.
@@ -119,11 +139,25 @@ func (obj *Edge) SetRefresh(b bool) {
 	obj.refresh = b
 }
 
+// Value returns a value stored alongside the graph in a particular key.
+func (g *Graph) Value(key string) (interface{}, bool) {
+	val, exists := g.kv[key]
+	return val, exists
+}
+
+// SetValue sets a value to be stored alongside the graph in a particular key.
+func (g *Graph) SetValue(key string, val interface{}) {
+	g.kv[key] = val
+}
+
 // Copy makes a copy of the graph struct
 func (g *Graph) Copy() *Graph {
 	newGraph := &Graph{
 		Name:      g.Name,
-		Adjacency: make(map[*Vertex]map[*Vertex]*Edge, len(g.Adjacency)),
+		adjacency: make(map[*Vertex]map[*Vertex]*Edge, len(g.adjacency)),
+		kv:        g.kv,
+
+		// legacy
 		Flags:     g.Flags,
 		state:     g.state,
 		mutex:     g.mutex,
@@ -134,8 +168,8 @@ func (g *Graph) Copy() *Graph {
 
 		prometheus: g.prometheus,
 	}
-	for k, v := range g.Adjacency {
-		newGraph.Adjacency[k] = v // copy
+	for k, v := range g.adjacency {
+		newGraph.adjacency[k] = v // copy
 	}
 	return newGraph
 }
@@ -171,17 +205,17 @@ func (g *Graph) setState(state graphState) graphState {
 // AddVertex uses variadic input to add all listed vertices to the graph
 func (g *Graph) AddVertex(xv ...*Vertex) {
 	for _, v := range xv {
-		if _, exists := g.Adjacency[v]; !exists {
-			g.Adjacency[v] = make(map[*Vertex]*Edge)
+		if _, exists := g.adjacency[v]; !exists {
+			g.adjacency[v] = make(map[*Vertex]*Edge)
 		}
 	}
 }
 
 // DeleteVertex deletes a particular vertex from the graph.
 func (g *Graph) DeleteVertex(v *Vertex) {
-	delete(g.Adjacency, v)
-	for k := range g.Adjacency {
-		delete(g.Adjacency[k], v)
+	delete(g.adjacency, v)
+	for k := range g.adjacency {
+		delete(g.adjacency[k], v)
 	}
 }
 
@@ -191,16 +225,16 @@ func (g *Graph) AddEdge(v1, v2 *Vertex, e *Edge) {
 	g.AddVertex(v1, v2) // supports adding N vertices now
 	// TODO: check if an edge exists to avoid overwriting it!
 	// NOTE: VertexMerge() depends on overwriting it at the moment...
-	g.Adjacency[v1][v2] = e
+	g.adjacency[v1][v2] = e
 }
 
 // DeleteEdge deletes a particular edge from the graph.
 // FIXME: add test cases
 func (g *Graph) DeleteEdge(e *Edge) {
-	for v1 := range g.Adjacency {
-		for v2, edge := range g.Adjacency[v1] {
+	for v1 := range g.adjacency {
+		for v2, edge := range g.adjacency[v1] {
 			if e == edge {
-				delete(g.Adjacency[v1], v2)
+				delete(g.adjacency[v1], v2)
 			}
 		}
 	}
@@ -209,7 +243,7 @@ func (g *Graph) DeleteEdge(e *Edge) {
 // CompareMatch searches for an equivalent resource in the graph and returns the
 // vertex it is found in, or nil if not found.
 func (g *Graph) CompareMatch(obj resources.Res) *Vertex {
-	for v := range g.Adjacency {
+	for v := range g.adjacency {
 		if v.Res.Compare(obj) {
 			return v
 		}
@@ -219,7 +253,7 @@ func (g *Graph) CompareMatch(obj resources.Res) *Vertex {
 
 // TODO: consider adding a mutate API.
 //func (g *Graph) MutateMatch(obj resources.Res) *Vertex {
-//	for v := range g.Adjacency {
+//	for v := range g.adjacency {
 //		if err := v.Res.Mutate(obj); err == nil {
 //			// transmogrified!
 //			return v
@@ -230,7 +264,7 @@ func (g *Graph) CompareMatch(obj resources.Res) *Vertex {
 
 // HasVertex returns if the input vertex exists in the graph.
 func (g *Graph) HasVertex(v *Vertex) bool {
-	if _, exists := g.Adjacency[v]; exists {
+	if _, exists := g.adjacency[v]; exists {
 		return true
 	}
 	return false
@@ -238,14 +272,14 @@ func (g *Graph) HasVertex(v *Vertex) bool {
 
 // NumVertices returns the number of vertices in the graph.
 func (g *Graph) NumVertices() int {
-	return len(g.Adjacency)
+	return len(g.adjacency)
 }
 
 // NumEdges returns the number of edges in the graph.
 func (g *Graph) NumEdges() int {
 	count := 0
-	for k := range g.Adjacency {
-		count += len(g.Adjacency[k])
+	for k := range g.adjacency {
+		count += len(g.adjacency[k])
 	}
 	return count
 }
@@ -254,7 +288,7 @@ func (g *Graph) NumEdges() int {
 // The order is random, because the map implementation is intentionally so!
 func (g *Graph) GetVertices() []*Vertex {
 	var vertices []*Vertex
-	for k := range g.Adjacency {
+	for k := range g.adjacency {
 		vertices = append(vertices, k)
 	}
 	return vertices
@@ -264,7 +298,7 @@ func (g *Graph) GetVertices() []*Vertex {
 func (g *Graph) GetVerticesChan() chan *Vertex {
 	ch := make(chan *Vertex)
 	go func(ch chan *Vertex) {
-		for k := range g.Adjacency {
+		for k := range g.adjacency {
 			ch <- k
 		}
 		close(ch)
@@ -283,7 +317,7 @@ func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String
 // The order is sorted by String() to avoid the non-determinism in the map type
 func (g *Graph) GetVerticesSorted() []*Vertex {
 	var vertices []*Vertex
-	for k := range g.Adjacency {
+	for k := range g.adjacency {
 		vertices = append(vertices, k)
 	}
 	sort.Sort(VertexSlice(vertices)) // add determinism
@@ -306,8 +340,8 @@ func (g *Graph) IncomingGraphVertices(v *Vertex) []*Vertex {
 	// TODO: we might be able to implement this differently by reversing
 	// the Adjacency graph and then looping through it again...
 	var s []*Vertex
-	for k := range g.Adjacency { // reverse paths
-		for w := range g.Adjacency[k] {
+	for k := range g.adjacency { // reverse paths
+		for w := range g.adjacency[k] {
 			if w == v {
 				s = append(s, k)
 			}
@@ -320,7 +354,7 @@ func (g *Graph) IncomingGraphVertices(v *Vertex) []*Vertex {
 // points to (v -> ???). Poke should probably use this.
 func (g *Graph) OutgoingGraphVertices(v *Vertex) []*Vertex {
 	var s []*Vertex
-	for k := range g.Adjacency[v] { // forward paths
+	for k := range g.adjacency[v] { // forward paths
 		s = append(s, k)
 	}
 	return s
@@ -338,8 +372,8 @@ func (g *Graph) GraphVertices(v *Vertex) []*Vertex {
 // IncomingGraphEdges returns all of the edges that point to vertex v (??? -> v).
 func (g *Graph) IncomingGraphEdges(v *Vertex) []*Edge {
 	var edges []*Edge
-	for v1 := range g.Adjacency { // reverse paths
-		for v2, e := range g.Adjacency[v1] {
+	for v1 := range g.adjacency { // reverse paths
+		for v2, e := range g.adjacency[v1] {
 			if v2 == v {
 				edges = append(edges, e)
 			}
@@ -351,7 +385,7 @@ func (g *Graph) IncomingGraphEdges(v *Vertex) []*Edge {
 // OutgoingGraphEdges returns all of the edges that point from vertex v (v -> ???).
 func (g *Graph) OutgoingGraphEdges(v *Vertex) []*Edge {
 	var edges []*Edge
-	for _, e := range g.Adjacency[v] { // forward paths
+	for _, e := range g.adjacency[v] { // forward paths
 		edges = append(edges, e)
 	}
 	return edges
@@ -370,7 +404,7 @@ func (g *Graph) GraphEdges(v *Vertex) []*Edge {
 func (g *Graph) DFS(start *Vertex) []*Vertex {
 	var d []*Vertex // discovered
 	var s []*Vertex // stack
-	if _, exists := g.Adjacency[start]; !exists {
+	if _, exists := g.adjacency[start]; !exists {
 		return nil // TODO: error
 	}
 	v := start
@@ -390,64 +424,65 @@ func (g *Graph) DFS(start *Vertex) []*Vertex {
 }
 
 // FilterGraph builds a new graph containing only vertices from the list.
-func (g *Graph) FilterGraph(name string, vertices []*Vertex) *Graph {
-	newgraph := NewGraph(name)
-	for k1, x := range g.Adjacency {
+func (g *Graph) FilterGraph(name string, vertices []*Vertex) (*Graph, error) {
+	newGraph := &Graph{Name: name}
+	if err := newGraph.Init(); err != nil {
+		return nil, errwrap.Wrapf(err, "could not run FilterGraph() properly")
+	}
+	for k1, x := range g.adjacency {
 		for k2, e := range x {
 			//log.Printf("Filter: %s -> %s # %s", k1.Name, k2.Name, e.Name)
 			if VertexContains(k1, vertices) || VertexContains(k2, vertices) {
-				newgraph.AddEdge(k1, k2, e)
+				newGraph.AddEdge(k1, k2, e)
 			}
 		}
 	}
-	return newgraph
+	return newGraph, nil
 }
 
-// GetDisconnectedGraphs returns a channel containing the N disconnected graphs
-// in our main graph. We can then process each of these in parallel.
-func (g *Graph) GetDisconnectedGraphs() chan *Graph {
-	ch := make(chan *Graph)
-	go func() {
-		var start *Vertex
-		var d []*Vertex // discovered
-		c := g.NumVertices()
-		for len(d) < c {
+// GetDisconnectedGraphs returns a list containing the N disconnected graphs.
+func (g *Graph) GetDisconnectedGraphs() ([]*Graph, error) {
+	graphs := []*Graph{}
+	var start *Vertex
+	var d []*Vertex // discovered
+	c := g.NumVertices()
+	for len(d) < c {
 
-			// get an undiscovered vertex to start from
-			for _, s := range g.GetVertices() {
-				if !VertexContains(s, d) {
-					start = s
-				}
+		// get an undiscovered vertex to start from
+		for _, s := range g.GetVertices() {
+			if !VertexContains(s, d) {
+				start = s
 			}
-
-			// dfs through the graph
-			dfs := g.DFS(start)
-			// filter all the collected elements into a new graph
-			newgraph := g.FilterGraph(g.Name, dfs)
-
-			// add number of elements found to found variable
-			d = append(d, dfs...) // extend
-
-			// return this new graph to the channel
-			ch <- newgraph
-
-			// if we've found all the elements, then we're done
-			// otherwise loop through to continue...
 		}
-		close(ch)
-	}()
-	return ch
+
+		// dfs through the graph
+		dfs := g.DFS(start)
+		// filter all the collected elements into a new graph
+		newgraph, err := g.FilterGraph(g.Name, dfs)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not run GetDisconnectedGraphs() properly")
+		}
+		// add number of elements found to found variable
+		d = append(d, dfs...) // extend
+
+		// append this new graph to the list
+		graphs = append(graphs, newgraph)
+
+		// if we've found all the elements, then we're done
+		// otherwise loop through to continue...
+	}
+	return graphs, nil
 }
 
 // InDegree returns the count of vertices that point to me in one big lookup map.
 func (g *Graph) InDegree() map[*Vertex]int {
 	result := make(map[*Vertex]int)
-	for k := range g.Adjacency {
+	for k := range g.adjacency {
 		result[k] = 0 // initialize
 	}
 
-	for k := range g.Adjacency {
-		for z := range g.Adjacency[k] {
+	for k := range g.adjacency {
+		for z := range g.adjacency[k] {
 			result[z]++
 		}
 	}
@@ -458,9 +493,9 @@ func (g *Graph) InDegree() map[*Vertex]int {
 func (g *Graph) OutDegree() map[*Vertex]int {
 	result := make(map[*Vertex]int)
 
-	for k := range g.Adjacency {
+	for k := range g.adjacency {
 		result[k] = 0 // initialize
-		for range g.Adjacency[k] {
+		for range g.adjacency[k] {
 			result[k]++
 		}
 	}
@@ -490,7 +525,7 @@ func (g *Graph) TopologicalSort() ([]*Vertex, error) { // kahn's algorithm
 		v := S[last]
 		S = S[:last]
 		L = append(L, v) // add v to tail of L
-		for n := range g.Adjacency[v] {
+		for n := range g.adjacency[v] {
 			// for each node n remaining in the graph, consume from
 			// remaining, so for remaining[n] > 0
 			if remaining[n] > 0 {
@@ -505,7 +540,7 @@ func (g *Graph) TopologicalSort() ([]*Vertex, error) { // kahn's algorithm
 	// if graph has edges, eg if any value in rem is > 0
 	for c, in := range remaining {
 		if in > 0 {
-			for n := range g.Adjacency[c] {
+			for n := range g.adjacency[c] {
 				if remaining[n] > 0 {
 					return nil, fmt.Errorf("not a dag")
 				}
@@ -563,7 +598,11 @@ func (g *Graph) Reachability(a, b *Vertex) []*Vertex {
 func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 
 	if oldGraph == nil {
-		oldGraph = NewGraph(g.GetName()) // copy over the name
+		var err error
+		oldGraph, err = NewGraph(g.GetName()) // copy over the name
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not run GraphSync() properly")
+		}
 	}
 	oldGraph.SetName(g.GetName()) // overwrite the name
 
@@ -571,7 +610,7 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 	var vertexKeep []*Vertex // list of vertices which are the same in new graph
 	var edgeKeep []*Edge     // list of vertices which are the same in new graph
 
-	for v := range g.Adjacency { // loop through the vertices (resources)
+	for v := range g.adjacency { // loop through the vertices (resources)
 		res := v.Res // resource
 		var vertex *Vertex
 
@@ -598,7 +637,7 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 	}
 
 	// get rid of any vertices we shouldn't keep (that aren't in new graph)
-	for v := range oldGraph.Adjacency {
+	for v := range oldGraph.adjacency {
 		if !VertexContains(v, vertexKeep) {
 			// wait for exit before starting new graph!
 			v.SendEvent(event.EventExit, nil) // sync
@@ -608,8 +647,8 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 	}
 
 	// compare edges
-	for v1 := range g.Adjacency { // loop through the vertices (resources)
-		for v2, e := range g.Adjacency[v1] {
+	for v1 := range g.adjacency { // loop through the vertices (resources)
+		for v2, e := range g.adjacency[v1] {
 			// we have an edge!
 
 			// lookup vertices (these should exist now)
@@ -624,18 +663,18 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 				return nil, fmt.Errorf("new vertices weren't found") // programming error
 			}
 
-			edge, exists := oldGraph.Adjacency[vertex1][vertex2]
+			edge, exists := oldGraph.adjacency[vertex1][vertex2]
 			if !exists || edge.Name != e.Name { // TODO: edgeCmp
 				edge = e // use or overwrite edge
 			}
-			oldGraph.Adjacency[vertex1][vertex2] = edge // store it (AddEdge)
+			oldGraph.adjacency[vertex1][vertex2] = edge // store it (AddEdge)
 			edgeKeep = append(edgeKeep, edge)           // mark as saved
 		}
 	}
 
 	// delete unused edges
-	for v1 := range oldGraph.Adjacency {
-		for _, e := range oldGraph.Adjacency[v1] {
+	for v1 := range oldGraph.adjacency {
+		for _, e := range oldGraph.adjacency[v1] {
 			// we have an edge!
 			if !EdgeContains(e, edgeKeep) {
 				oldGraph.DeleteEdge(e)
@@ -649,7 +688,7 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 // GraphMetas returns a list of pointers to each of the resource MetaParams.
 func (g *Graph) GraphMetas() []*resources.MetaParams {
 	metas := []*resources.MetaParams{}
-	for v := range g.Adjacency { // loop through the vertices (resources))
+	for v := range g.adjacency { // loop through the vertices (resources))
 		res := v.Res // resource
 		meta := res.Meta()
 		metas = append(metas, meta)
@@ -662,7 +701,7 @@ func (g *Graph) AssociateData(data *resources.Data) {
 	// prometheus needs to be associated to this graph as well
 	g.prometheus = data.Prometheus
 
-	for k := range g.Adjacency {
+	for k := range g.adjacency {
 		*k.Res.Data() = *data
 	}
 }

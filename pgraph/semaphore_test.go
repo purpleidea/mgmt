@@ -52,7 +52,7 @@ func NewNoopResTestSema(name string, semas []string) *NoopResTest {
 }
 
 func TestPgraphSemaphoreGrouping1(t *testing.T) {
-	g1 := NewGraph("g1") // original graph
+	g1, _ := NewGraph("g1") // original graph
 	{
 		a1 := NewVertex(NewNoopResTestSema("a1", []string{"s:1"}))
 		a2 := NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
@@ -61,7 +61,7 @@ func TestPgraphSemaphoreGrouping1(t *testing.T) {
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
-	g2 := NewGraph("g2") // expected result
+	g2, _ := NewGraph("g2") // expected result
 	{
 		a123 := NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
 		g2.AddVertex(a123)
@@ -70,7 +70,7 @@ func TestPgraphSemaphoreGrouping1(t *testing.T) {
 }
 
 func TestPgraphSemaphoreGrouping2(t *testing.T) {
-	g1 := NewGraph("g1") // original graph
+	g1, _ := NewGraph("g1") // original graph
 	{
 		a1 := NewVertex(NewNoopResTestSema("a1", []string{"s:10", "s:11"}))
 		a2 := NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
@@ -79,7 +79,7 @@ func TestPgraphSemaphoreGrouping2(t *testing.T) {
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
-	g2 := NewGraph("g2") // expected result
+	g2, _ := NewGraph("g2") // expected result
 	{
 		a123 := NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:10", "s:11", "s:2", "s:3"}))
 		g2.AddVertex(a123)
@@ -88,7 +88,7 @@ func TestPgraphSemaphoreGrouping2(t *testing.T) {
 }
 
 func TestPgraphSemaphoreGrouping3(t *testing.T) {
-	g1 := NewGraph("g1") // original graph
+	g1, _ := NewGraph("g1") // original graph
 	{
 		a1 := NewVertex(NewNoopResTestSema("a1", []string{"s:1", "s:2"}))
 		a2 := NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
@@ -97,7 +97,7 @@ func TestPgraphSemaphoreGrouping3(t *testing.T) {
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
-	g2 := NewGraph("g2") // expected result
+	g2, _ := NewGraph("g2") // expected result
 	{
 		a123 := NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
 		g2.AddVertex(a123)

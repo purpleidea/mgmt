@@ -57,7 +57,10 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	}
 	// FIXME: these are being specified temporarily until it's the default!
 	metaparams := resources.DefaultMetaParams
-	g := pgraph.NewGraph(obj.Name)
+	g, err := pgraph.NewGraph(obj.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	n0 := &resources.NoopRes{
 		BaseRes: resources.BaseRes{

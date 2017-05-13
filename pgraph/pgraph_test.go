@@ -42,7 +42,7 @@ func NV(s string) *Vertex {
 
 func TestPgraphT1(t *testing.T) {
 
-	G := NewGraph("g1")
+	G, _ := NewGraph("g1")
 
 	if i := G.NumVertices(); i != 0 {
 		t.Errorf("should have 0 vertices instead of: %d", i)
@@ -68,7 +68,7 @@ func TestPgraphT1(t *testing.T) {
 
 func TestPgraphT2(t *testing.T) {
 
-	G := NewGraph("g2")
+	G, _ := NewGraph("g2")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -95,7 +95,7 @@ func TestPgraphT2(t *testing.T) {
 
 func TestPgraphT3(t *testing.T) {
 
-	G := NewGraph("g3")
+	G, _ := NewGraph("g3")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -136,7 +136,7 @@ func TestPgraphT3(t *testing.T) {
 
 func TestPgraphT4(t *testing.T) {
 
-	G := NewGraph("g4")
+	G, _ := NewGraph("g4")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -158,7 +158,7 @@ func TestPgraphT4(t *testing.T) {
 }
 
 func TestPgraphT5(t *testing.T) {
-	G := NewGraph("g5")
+	G, _ := NewGraph("g5")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -180,14 +180,18 @@ func TestPgraphT5(t *testing.T) {
 	//G.AddEdge(v6, v4, e6)
 
 	save := []*Vertex{v1, v2, v3}
-	out := G.FilterGraph("new g5", save)
+	out, err := G.FilterGraph("new g5", save)
+	if err != nil {
+		t.Errorf("failed with: %v", err)
+	}
+
 	if i := out.NumVertices(); i != 3 {
 		t.Errorf("should have 3 vertices instead of: %d", i)
 	}
 }
 
 func TestPgraphT6(t *testing.T) {
-	G := NewGraph("g6")
+	G, _ := NewGraph("g6")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -208,24 +212,19 @@ func TestPgraphT6(t *testing.T) {
 	G.AddEdge(v5, v6, e5)
 	//G.AddEdge(v6, v4, e6)
 
-	graphs := G.GetDisconnectedGraphs()
-	HeisenbergGraphCount := func(ch chan *Graph) int {
-		c := 0
-		for x := range ch {
-			_ = x
-			c++
-		}
-		return c
+	graphs, err := G.GetDisconnectedGraphs()
+	if err != nil {
+		t.Errorf("failed with: %v", err)
 	}
 
-	if i := HeisenbergGraphCount(graphs); i != 2 {
+	if i := len(graphs); i != 2 {
 		t.Errorf("should have 2 graphs instead of: %d", i)
 	}
 }
 
 func TestPgraphT7(t *testing.T) {
 
-	G := NewGraph("g7")
+	G, _ := NewGraph("g7")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -296,7 +295,7 @@ func TestPgraphT8(t *testing.T) {
 
 func TestPgraphT9(t *testing.T) {
 
-	G := NewGraph("g9")
+	G, _ := NewGraph("g9")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -372,7 +371,7 @@ func TestPgraphT9(t *testing.T) {
 
 func TestPgraphT10(t *testing.T) {
 
-	G := NewGraph("g10")
+	G, _ := NewGraph("g10")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -400,7 +399,7 @@ func TestPgraphT10(t *testing.T) {
 // empty
 func TestPgraphReachability0(t *testing.T) {
 	{
-		G := NewGraph("g")
+		G, _ := NewGraph("g")
 		result := G.Reachability(nil, nil)
 		if result != nil {
 			t.Logf("reachability failed")
@@ -412,7 +411,7 @@ func TestPgraphReachability0(t *testing.T) {
 		}
 	}
 	{
-		G := NewGraph("g")
+		G, _ := NewGraph("g")
 		v1 := NV("v1")
 		v6 := NV("v6")
 
@@ -429,7 +428,7 @@ func TestPgraphReachability0(t *testing.T) {
 		}
 	}
 	{
-		G := NewGraph("g")
+		G, _ := NewGraph("g")
 		v1 := NV("v1")
 		v2 := NV("v2")
 		v3 := NV("v3")
@@ -463,7 +462,7 @@ func TestPgraphReachability0(t *testing.T) {
 
 // simple linear path
 func TestPgraphReachability1(t *testing.T) {
-	G := NewGraph("g")
+	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -497,7 +496,7 @@ func TestPgraphReachability1(t *testing.T) {
 
 // pick one of two correct paths
 func TestPgraphReachability2(t *testing.T) {
-	G := NewGraph("g")
+	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -534,7 +533,7 @@ func TestPgraphReachability2(t *testing.T) {
 
 // pick shortest path
 func TestPgraphReachability3(t *testing.T) {
-	G := NewGraph("g")
+	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -569,7 +568,7 @@ func TestPgraphReachability3(t *testing.T) {
 
 // direct path
 func TestPgraphReachability4(t *testing.T) {
-	G := NewGraph("g")
+	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -693,7 +692,7 @@ func GraphCmp(g1, g2 *Graph) error {
 	var m = make(map[*Vertex]*Vertex) // g1 to g2 vertex correspondence
 Loop:
 	// check vertices
-	for v1 := range g1.Adjacency { // for each vertex in g1
+	for v1 := range g1.adjacency { // for each vertex in g1
 
 		l1 := strings.Split(v1.GetName(), ",") // make list of everyone's names...
 		for _, x1 := range v1.GetGroup() {
@@ -703,7 +702,7 @@ Loop:
 		sort.Strings(l1)
 
 		// inner loop
-		for v2 := range g2.Adjacency { // does it match in g2 ?
+		for v2 := range g2.adjacency { // does it match in g2 ?
 
 			l2 := strings.Split(v2.GetName(), ",")
 			for _, x2 := range v2.GetGroup() {
@@ -723,16 +722,16 @@ Loop:
 	// vertices (and groups) match :)
 
 	// check edges
-	for v1 := range g1.Adjacency { // for each vertex in g1
+	for v1 := range g1.adjacency { // for each vertex in g1
 		v2 := m[v1] // lookup in map to get correspondance
-		// g1.Adjacency[v1] corresponds to g2.Adjacency[v2]
-		if e1, e2 := len(g1.Adjacency[v1]), len(g2.Adjacency[v2]); e1 != e2 {
+		// g1.adjacency[v1] corresponds to g2.adjacency[v2]
+		if e1, e2 := len(g1.adjacency[v1]), len(g2.adjacency[v2]); e1 != e2 {
 			return fmt.Errorf("graph g1, vertex(%v) has %d edges, while g2, vertex(%v) has %d", v1.GetName(), e1, v2.GetName(), e2)
 		}
 
-		for vv1, ee1 := range g1.Adjacency[v1] {
+		for vv1, ee1 := range g1.adjacency[v1] {
 			vv2 := m[vv1]
-			ee2 := g2.Adjacency[v2][vv2]
+			ee2 := g2.adjacency[v2][vv2]
 
 			// these are edges from v1 -> vv1 via ee1 (graph 1)
 			// to cmp to edges from v2 -> vv2 via ee2 (graph 2)
@@ -765,8 +764,8 @@ Loop:
 	}
 
 	// check meta parameters
-	for v1 := range g1.Adjacency { // for each vertex in g1
-		for v2 := range g2.Adjacency { // does it match in g2 ?
+	for v1 := range g1.adjacency { // for each vertex in g1
+		for v2 := range g2.adjacency { // does it match in g2 ?
 			s1, s2 := v1.Meta().Sema, v2.Meta().Sema
 			sort.Strings(s1)
 			sort.Strings(s2)
@@ -816,7 +815,7 @@ func (ag *testGrouper) edgeMerge(e1, e2 *Edge) *Edge {
 
 func (g *Graph) fullPrint() (str string) {
 	str += "\n"
-	for v := range g.Adjacency {
+	for v := range g.adjacency {
 		if semas := v.Meta().Sema; len(semas) > 0 {
 			str += fmt.Sprintf("* v: %v; sema: %v\n", v.GetName(), semas)
 		} else {
@@ -824,8 +823,8 @@ func (g *Graph) fullPrint() (str string) {
 		}
 		// TODO: add explicit grouping data?
 	}
-	for v1 := range g.Adjacency {
-		for v2, e := range g.Adjacency[v1] {
+	for v1 := range g.adjacency {
+		for v2, e := range g.adjacency[v1] {
 			str += fmt.Sprintf("* e: %v -> %v # %v\n", v1.GetName(), v2.GetName(), e.Name)
 		}
 	}

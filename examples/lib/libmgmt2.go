@@ -59,7 +59,10 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("libmgmt: MyGAPI is not initialized")
 	}
 
-	g := pgraph.NewGraph(obj.Name)
+	g, err := pgraph.NewGraph(obj.Name)
+	if err != nil {
+		return nil, err
+	}
 	var vertex *pgraph.Vertex
 	for i := uint(0); i < obj.Count; i++ {
 		n := &resources.NoopRes{

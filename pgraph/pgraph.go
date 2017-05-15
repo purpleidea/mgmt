@@ -687,17 +687,6 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 	return oldGraph, nil
 }
 
-// GraphMetas returns a list of pointers to each of the resource MetaParams.
-func (g *Graph) GraphMetas() []*resources.MetaParams {
-	metas := []*resources.MetaParams{}
-	for v := range g.adjacency { // loop through the vertices (resources))
-		res := v.Res // resource
-		meta := res.Meta()
-		metas = append(metas, meta)
-	}
-	return metas
-}
-
 // AssociateData associates some data with the object in the graph in question.
 func (g *Graph) AssociateData(data *resources.Data) {
 	// prometheus needs to be associated to this graph as well

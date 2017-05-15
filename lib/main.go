@@ -453,7 +453,7 @@ func (obj *Main) Run() error {
 				Debug:      obj.Flags.Debug,
 			})
 
-			for _, m := range newGraph.GraphMetas() {
+			for _, m := range graphMetas(newGraph) {
 				// apply the global noop parameter if requested
 				if obj.Noop {
 					m.Noop = obj.Noop
@@ -613,4 +613,15 @@ func (obj *Main) Run() error {
 	// TODO: wait for each vertex to exit...
 	log.Println("Goodbye!")
 	return reterr
+}
+
+// graphMetas returns a list of pointers to each of the resource MetaParams.
+func graphMetas(g *pgraph.Graph) []*resources.MetaParams {
+	metas := []*resources.MetaParams{}
+	for _, v := range g.Vertices() { // loop through the vertices (resources)
+		res := v.Res // resource
+		meta := res.Meta()
+		metas = append(metas, meta)
+	}
+	return metas
 }

@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/event"
-	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
@@ -58,8 +57,6 @@ type Graph struct {
 	fastPause bool        // used to disable pokes for a fast pause
 	mutex     *sync.Mutex // used when modifying graph State variable
 	wg        *sync.WaitGroup
-
-	prometheus *prometheus.Prometheus // the prometheus instance
 }
 
 // Vertex is the primary vertex struct in this library.
@@ -151,8 +148,6 @@ func (g *Graph) Copy() *Graph {
 		mutex:     g.mutex,
 		wg:        g.wg,
 		fastPause: g.fastPause,
-
-		prometheus: g.prometheus,
 	}
 	for k, v := range g.adjacency {
 		newGraph.adjacency[k] = v // copy
@@ -685,16 +680,6 @@ func (g *Graph) GraphSync(oldGraph *Graph) (*Graph, error) {
 	}
 
 	return oldGraph, nil
-}
-
-// AssociateData associates some data with the object in the graph in question.
-func (g *Graph) AssociateData(data *resources.Data) {
-	// prometheus needs to be associated to this graph as well
-	g.prometheus = data.Prometheus
-
-	for k := range g.adjacency {
-		*k.Res.Data() = *data
-	}
 }
 
 // VertexContains is an "in array" function to test for a vertex in a slice of vertices.

@@ -444,7 +444,7 @@ func (obj *Main) Run() error {
 			}
 			newGraph.SetValue("debug", obj.Flags.Debug)
 			// pass in the information we need
-			newGraph.AssociateData(&resources.Data{
+			associateData(newGraph, &resources.Data{
 				Hostname:   hostname,
 				Converger:  converger,
 				Prometheus: prom,
@@ -624,4 +624,14 @@ func graphMetas(g *pgraph.Graph) []*resources.MetaParams {
 		metas = append(metas, meta)
 	}
 	return metas
+}
+
+// associateData associates some data with the object in the graph in question.
+func associateData(g *pgraph.Graph, data *resources.Data) {
+	// prometheus needs to be associated to this graph as well
+	g.SetValue("prometheus", data.Prometheus)
+
+	for _, v := range g.Vertices() {
+		*v.Res.Data() = *data
+	}
 }

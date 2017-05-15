@@ -299,16 +299,6 @@ type BaseRes struct {
 //	return nil
 //}
 
-// UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
-func UIDExistsInUIDs(uid ResUID, uids []ResUID) bool {
-	for _, u := range uids {
-		if uid.IFF(u) {
-			return true
-		}
-	}
-	return false
-}
-
 // GetName returns the name of the resource.
 func (obj *BaseUID) GetName() string {
 	return obj.Name

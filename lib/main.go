@@ -483,8 +483,8 @@ func (obj *Main) Run() error {
 			oldGraph = newFullGraph // save old graph
 			G = oldGraph.Copy()     // copy to active graph
 
-			G.AutoEdges() // add autoedges; modifies the graph
-			G.AutoGroup() // run autogroup; modifies the graph
+			resources.AutoEdges(G) // add autoedges; modifies the graph
+			G.AutoGroup()          // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships
 

@@ -15,19 +15,29 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package pgraph represents the internal "pointer graph" that we use.
-package pgraph
+package resources
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 )
 
-// add edges to the vertex in a graph based on if it matches a uid list
-func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []bool {
+// UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
+func UIDExistsInUIDs(uid ResUID, uids []ResUID) bool {
+	for _, u := range uids {
+		if uid.IFF(u) {
+			return true
+		}
+	}
+	return false
+}
+
+// addEdgesByMatchingUIDS adds edges to the vertex in a graph based on if it
+// matches a uid list.
+func addEdgesByMatchingUIDS(g *pgraph.Graph, v *pgraph.Vertex, uids []ResUID) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
@@ -46,7 +56,7 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 			// that is to say, the name value of a res is a helpful
 			// handle, but it is not necessarily a unique identity!
 			// remember, resources can return multiple UID's each!
-			if resources.UIDExistsInUIDs(uid, vv.UIDs()) {
+			if UIDExistsInUIDs(uid, vv.UIDs()) {
 				// add edge from: vv -> v
 				if uid.IsReversed() {
 					txt := fmt.Sprintf("AutoEdge: %s[%s] -> %s[%s]", vv.GetKind(), vv.GetName(), v.GetKind(), v.GetName())
@@ -67,7 +77,7 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 }
 
 // AutoEdges adds the automatic edges to the graph.
-func (g *Graph) AutoEdges() {
+func AutoEdges(g *pgraph.Graph) {
 	log.Println("Compile: Adding AutoEdges...")
 	for _, v := range g.Vertices() { // for each vertexes autoedges
 		if !v.Meta().AutoEdge { // is the metaparam true?
@@ -93,7 +103,7 @@ func (g *Graph) AutoEdges() {
 			}
 
 			// match and add edges
-			result := g.addEdgesByMatchingUIDS(v, uids)
+			result := addEdgesByMatchingUIDS(g, v, uids)
 
 			// report back, and find out if we should continue
 			if !autoEdgeObj.Test(result) {

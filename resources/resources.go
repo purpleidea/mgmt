@@ -190,6 +190,8 @@ type Base interface {
 	ConvergerUIDs() (converger.UID, converger.UID, converger.UID)
 	GetState() ResState
 	SetState(ResState)
+	Timestamp() int64
+	UpdateTimestamp() int64
 	Event() error
 	SendEvent(event.Kind, error) error
 	ReadEvent(*event.Event) (*error, bool)
@@ -238,10 +240,11 @@ type BaseRes struct {
 	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
 	Recv       map[string]*Send // mapping of key to receive on from value
 
-	Kind   string
-	data   Data
-	state  ResState
-	prefix string // base prefix for this resource
+	Kind      string
+	data      Data
+	timestamp int64 // last updated timestamp
+	state     ResState
+	prefix    string // base prefix for this resource
 
 	eventsLock *sync.Mutex // locks around sending and closing of events channel
 	eventsDone bool
@@ -501,6 +504,17 @@ func (obj *BaseRes) SetState(state ResState) {
 		log.Printf("%s[%s]: State: %v -> %v", obj.GetKind(), obj.GetName(), obj.GetState(), state)
 	}
 	obj.state = state
+}
+
+// Timestamp returns the timestamp of a resource.
+func (obj *BaseRes) Timestamp() int64 {
+	return obj.timestamp
+}
+
+// UpdateTimestamp updates the timestamp and returns the new value.
+func (obj *BaseRes) UpdateTimestamp() int64 {
+	obj.timestamp = time.Now().UnixNano() // update
+	return obj.timestamp
 }
 
 // IsStateOK returns the cached state value.

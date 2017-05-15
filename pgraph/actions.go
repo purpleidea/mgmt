@@ -35,17 +35,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// GetTimestamp returns the timestamp of a vertex
-func (v *Vertex) GetTimestamp() int64 {
-	return v.timestamp
-}
-
-// UpdateTimestamp updates the timestamp on a vertex and returns the new value
-func (v *Vertex) UpdateTimestamp() int64 {
-	v.timestamp = time.Now().UnixNano() // update
-	return v.timestamp
-}
-
 // OKTimestamp returns true if this element can run right now?
 func (g *Graph) OKTimestamp(v *Vertex) bool {
 	// these are all the vertices pointing TO v, eg: ??? -> v
@@ -54,7 +43,7 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 		// then we can't run right now...
 		// if they're equal (eg: on init of 0) then we also can't run
 		// b/c we should let our pre-req's go first...
-		x, y := v.GetTimestamp(), n.GetTimestamp()
+		x, y := v.Res.Timestamp(), n.Res.Timestamp()
 		if b, ok := g.Value("debug"); ok && util.Bool(b) {
 			log.Printf("%s[%s]: OKTimestamp: (%v) >= %s[%s](%v): !%v", v.GetKind(), v.GetName(), x, n.GetKind(), n.GetName(), y, x >= y)
 		}
@@ -109,7 +98,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 	var wg sync.WaitGroup
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphVertices(v) {
-		x, y, s := v.GetTimestamp(), n.GetTimestamp(), n.Res.GetState()
+		x, y, s := v.Res.Timestamp(), n.Res.Timestamp(), n.Res.GetState()
 		// If the parent timestamp needs poking AND it's not running
 		// Process, then poke it. If the parent is in ResStateProcess it
 		// means that an event is pending, so we'll be expecting a poke
@@ -188,7 +177,7 @@ func (g *Graph) Process(v *Vertex) error {
 	}
 	// timestamp must be okay...
 	if b, ok := g.Value("debug"); ok && util.Bool(b) {
-		log.Printf("%s[%s]: OKTimestamp(%v)", obj.GetKind(), obj.GetName(), v.GetTimestamp())
+		log.Printf("%s[%s]: OKTimestamp(%v)", obj.GetKind(), obj.GetName(), v.Res.Timestamp())
 	}
 
 	// semaphores!
@@ -317,7 +306,7 @@ func (g *Graph) Process(v *Vertex) error {
 
 		// update this timestamp *before* we poke or the poked
 		// nodes might fail due to having a too old timestamp!
-		v.UpdateTimestamp()                    // this was touched...
+		v.Res.UpdateTimestamp()                // this was touched...
 		obj.SetState(resources.ResStatePoking) // can't cancel parent poke
 		if err := g.Poke(v); err != nil {
 			return errwrap.Wrapf(err, "the Poke() failed")

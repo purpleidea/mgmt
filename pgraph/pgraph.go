@@ -48,8 +48,7 @@ type Graph struct {
 
 // Vertex is the primary vertex struct in this library.
 type Vertex struct {
-	resources.Res       // anonymous field
-	timestamp     int64 // last updated timestamp ?
+	resources.Res // anonymous field
 }
 
 // Edge is the primary edge struct in this library.

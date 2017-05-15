@@ -29,17 +29,6 @@ import (
 	errwrap "github.com/pkg/errors"
 )
 
-//go:generate stringer -type=graphState -output=graphstate_stringer.go
-type graphState int
-
-const (
-	graphStateNil graphState = iota
-	graphStateStarting
-	graphStateStarted
-	graphStatePausing
-	graphStatePaused
-)
-
 // Graph is the graph structure in this library.
 // The graph abstract data type (ADT) is defined as follows:
 // * the directed graph arrows point from left to right ( -> )
@@ -53,9 +42,7 @@ type Graph struct {
 	kv        map[string]interface{}        // some values associated with the graph
 
 	// legacy
-	state     graphState
-	fastPause bool        // used to disable pokes for a fast pause
-	mutex     *sync.Mutex // used when modifying graph State variable
+	fastPause bool // used to disable pokes for a fast pause
 	wg        *sync.WaitGroup
 }
 
@@ -83,9 +70,7 @@ func (g *Graph) Init() error {
 	g.kv = make(map[string]interface{})
 
 	// legacy
-	g.state = graphStateNil
 	// ptr b/c: Mutex/WaitGroup must not be copied after first use
-	g.mutex = &sync.Mutex{}
 	g.wg = &sync.WaitGroup{}
 	return nil
 }
@@ -144,8 +129,6 @@ func (g *Graph) Copy() *Graph {
 		kv:        g.kv,
 
 		// legacy
-		state:     g.state,
-		mutex:     g.mutex,
 		wg:        g.wg,
 		fastPause: g.fastPause,
 	}
@@ -163,24 +146,6 @@ func (g *Graph) GetName() string {
 // SetName sets the name of the graph.
 func (g *Graph) SetName(name string) {
 	g.Name = name
-}
-
-// getState returns the state of the graph. This state is used for optimizing
-// certain algorithms by knowing what part of processing the graph is currently
-// undergoing.
-func (g *Graph) getState() graphState {
-	//g.mutex.Lock()
-	//defer g.mutex.Unlock()
-	return g.state
-}
-
-// setState sets the graph state and returns the previous state.
-func (g *Graph) setState(state graphState) graphState {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	prev := g.getState()
-	g.state = state
-	return prev
 }
 
 // AddVertex uses variadic input to add all listed vertices to the graph

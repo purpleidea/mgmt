@@ -25,3 +25,12 @@ func Bool(x interface{}) bool {
 	}
 	return b
 }
+
+// Uint returns the interface value if it is a uint, and otherwise it panics.
+func Uint(x interface{}) uint {
+	u, ok := x.(uint)
+	if !ok {
+		panic("not a uint")
+	}
+	return u
+}

@@ -212,7 +212,7 @@ func TestPgraphT6(t *testing.T) {
 	G.AddEdge(v5, v6, e5)
 	//G.AddEdge(v6, v4, e6)
 
-	graphs, err := G.GetDisconnectedGraphs()
+	graphs, err := G.DisconnectedGraphs()
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}

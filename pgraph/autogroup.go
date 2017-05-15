@@ -58,8 +58,8 @@ func (ag *baseGrouper) init(g *Graph) error {
 	if ag.graph != nil {
 		return fmt.Errorf("the init method has already been called")
 	}
-	ag.graph = g                               // pointer
-	ag.vertices = ag.graph.GetVerticesSorted() // cache in deterministic order!
+	ag.graph = g                            // pointer
+	ag.vertices = ag.graph.VerticesSorted() // cache in deterministic order!
 	ag.i = 0
 	ag.j = 0
 	if len(ag.vertices) == 0 { // empty graph

@@ -35,7 +35,7 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 	for _, uid := range uids {
 		var found = false
 		// uid is a ResUID object
-		for _, vv := range g.GetVertices() { // search
+		for _, vv := range g.Vertices() { // search
 			if v == vv { // skip self
 				continue
 			}
@@ -69,7 +69,7 @@ func (g *Graph) addEdgesByMatchingUIDS(v *Vertex, uids []resources.ResUID) []boo
 // AutoEdges adds the automatic edges to the graph.
 func (g *Graph) AutoEdges() {
 	log.Println("Compile: Adding AutoEdges...")
-	for _, v := range g.GetVertices() { // for each vertexes autoedges
+	for _, v := range g.Vertices() { // for each vertexes autoedges
 		if !v.Meta().AutoEdge { // is the metaparam true?
 			continue
 		}

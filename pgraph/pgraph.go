@@ -273,9 +273,15 @@ func (g *Graph) NumEdges() int {
 	return count
 }
 
-// GetVertices returns a randomly sorted slice of all vertices in the graph
+// Adjacency returns the adjacency map representing this graph. This is useful
+// for users who which to operate on the raw data structure more efficiently.
+func (g *Graph) Adjacency() map[*Vertex]map[*Vertex]*Edge {
+	return g.adjacency
+}
+
+// Vertices returns a randomly sorted slice of all vertices in the graph.
 // The order is random, because the map implementation is intentionally so!
-func (g *Graph) GetVertices() []*Vertex {
+func (g *Graph) Vertices() []*Vertex {
 	var vertices []*Vertex
 	for k := range g.adjacency {
 		vertices = append(vertices, k)
@@ -283,8 +289,8 @@ func (g *Graph) GetVertices() []*Vertex {
 	return vertices
 }
 
-// GetVerticesChan returns a channel of all vertices in the graph.
-func (g *Graph) GetVerticesChan() chan *Vertex {
+// VerticesChan returns a channel of all vertices in the graph.
+func (g *Graph) VerticesChan() chan *Vertex {
 	ch := make(chan *Vertex)
 	go func(ch chan *Vertex) {
 		for k := range g.adjacency {
@@ -302,9 +308,9 @@ func (vs VertexSlice) Len() int           { return len(vs) }
 func (vs VertexSlice) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
 func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String() }
 
-// GetVerticesSorted returns a sorted slice of all vertices in the graph
+// VerticesSorted returns a sorted slice of all vertices in the graph
 // The order is sorted by String() to avoid the non-determinism in the map type
-func (g *Graph) GetVerticesSorted() []*Vertex {
+func (g *Graph) VerticesSorted() []*Vertex {
 	var vertices []*Vertex
 	for k := range g.adjacency {
 		vertices = append(vertices, k)
@@ -429,8 +435,8 @@ func (g *Graph) FilterGraph(name string, vertices []*Vertex) (*Graph, error) {
 	return newGraph, nil
 }
 
-// GetDisconnectedGraphs returns a list containing the N disconnected graphs.
-func (g *Graph) GetDisconnectedGraphs() ([]*Graph, error) {
+// DisconnectedGraphs returns a list containing the N disconnected graphs.
+func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 	graphs := []*Graph{}
 	var start *Vertex
 	var d []*Vertex // discovered
@@ -438,7 +444,7 @@ func (g *Graph) GetDisconnectedGraphs() ([]*Graph, error) {
 	for len(d) < c {
 
 		// get an undiscovered vertex to start from
-		for _, s := range g.GetVertices() {
+		for _, s := range g.Vertices() {
 			if !VertexContains(s, d) {
 				start = s
 			}
@@ -449,7 +455,7 @@ func (g *Graph) GetDisconnectedGraphs() ([]*Graph, error) {
 		// filter all the collected elements into a new graph
 		newgraph, err := g.FilterGraph(g.Name, dfs)
 		if err != nil {
-			return nil, errwrap.Wrapf(err, "could not run GetDisconnectedGraphs() properly")
+			return nil, errwrap.Wrapf(err, "could not run DisconnectedGraphs() properly")
 		}
 		// add number of elements found to found variable
 		d = append(d, dfs...) // extend

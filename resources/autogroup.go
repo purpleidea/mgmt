@@ -15,12 +15,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package pgraph
+package resources
 
 import (
 	"fmt"
 	"log"
 
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
@@ -29,19 +30,19 @@ import (
 // AutoGrouper is the required interface to implement for an autogroup algorithm
 type AutoGrouper interface {
 	// listed in the order these are typically called in...
-	name() string                                  // friendly identifier
-	init(*Graph) error                             // only call once
-	vertexNext() (*Vertex, *Vertex, error)         // mostly algorithmic
-	vertexCmp(*Vertex, *Vertex) error              // can we merge these ?
-	vertexMerge(*Vertex, *Vertex) (*Vertex, error) // vertex merge fn to use
-	edgeMerge(*Edge, *Edge) *Edge                  // edge merge fn to use
-	vertexTest(bool) (bool, error)                 // call until false
+	name() string                                                    // friendly identifier
+	init(*pgraph.Graph) error                                        // only call once
+	vertexNext() (pgraph.Vertex, pgraph.Vertex, error)               // mostly algorithmic
+	vertexCmp(pgraph.Vertex, pgraph.Vertex) error                    // can we merge these ?
+	vertexMerge(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error) // vertex merge fn to use
+	edgeMerge(*pgraph.Edge, *pgraph.Edge) *pgraph.Edge               // edge merge fn to use
+	vertexTest(bool) (bool, error)                                   // call until false
 }
 
 // baseGrouper is the base type for implementing the AutoGrouper interface
 type baseGrouper struct {
-	graph    *Graph    // store a pointer to the graph
-	vertices []*Vertex // cached list of vertices
+	graph    *pgraph.Graph   // store a pointer to the graph
+	vertices []pgraph.Vertex // cached list of vertices
 	i        int
 	j        int
 	done     bool
@@ -54,7 +55,7 @@ func (ag *baseGrouper) name() string {
 
 // init is called only once and before using other AutoGrouper interface methods
 // the name method is the only exception: call it any time without side effects!
-func (ag *baseGrouper) init(g *Graph) error {
+func (ag *baseGrouper) init(g *pgraph.Graph) error {
 	if ag.graph != nil {
 		return fmt.Errorf("the init method has already been called")
 	}
@@ -73,7 +74,7 @@ func (ag *baseGrouper) init(g *Graph) error {
 // an intelligent algorithm would selectively offer only valid pairs of vertices
 // these should satisfy logical grouping requirements for the autogroup designs!
 // the desired algorithms can override, but keep this method as a base iterator!
-func (ag *baseGrouper) vertexNext() (v1, v2 *Vertex, err error) {
+func (ag *baseGrouper) vertexNext() (v1, v2 pgraph.Vertex, err error) {
 	// this does a for v... { for w... { return v, w }} but stepwise!
 	l := len(ag.vertices)
 	if ag.i < l {
@@ -108,43 +109,43 @@ func (ag *baseGrouper) vertexNext() (v1, v2 *Vertex, err error) {
 	return
 }
 
-func (ag *baseGrouper) vertexCmp(v1, v2 *Vertex) error {
+func (ag *baseGrouper) vertexCmp(v1, v2 pgraph.Vertex) error {
 	if v1 == nil || v2 == nil {
 		return fmt.Errorf("the vertex is nil")
 	}
 	if v1 == v2 { // skip yourself
 		return fmt.Errorf("the vertices are the same")
 	}
-	if v1.GetKind() != v2.GetKind() { // we must group similar kinds
+	if VtoR(v1).GetKind() != VtoR(v2).GetKind() { // we must group similar kinds
 		// TODO: maybe future resources won't need this limitation?
 		return fmt.Errorf("the two resources aren't the same kind")
 	}
 	// someone doesn't want to group!
-	if !v1.Meta().AutoGroup || !v2.Meta().AutoGroup {
+	if !VtoR(v1).Meta().AutoGroup || !VtoR(v2).Meta().AutoGroup {
 		return fmt.Errorf("one of the autogroup flags is false")
 	}
-	if v1.Res.IsGrouped() { // already grouped!
+	if VtoR(v1).IsGrouped() { // already grouped!
 		return fmt.Errorf("already grouped")
 	}
-	if len(v2.Res.GetGroup()) > 0 { // already has children grouped!
+	if len(VtoR(v2).GetGroup()) > 0 { // already has children grouped!
 		return fmt.Errorf("already has groups")
 	}
-	if !v1.Res.GroupCmp(v2.Res) { // resource groupcmp failed!
+	if !VtoR(v1).GroupCmp(VtoR(v2)) { // resource groupcmp failed!
 		return fmt.Errorf("the GroupCmp failed")
 	}
 	return nil // success
 }
 
-func (ag *baseGrouper) vertexMerge(v1, v2 *Vertex) (v *Vertex, err error) {
+func (ag *baseGrouper) vertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err error) {
 	// NOTE: it's important to use w.Res instead of w, b/c
 	// the w by itself is the *Vertex obj, not the *Res obj
 	// which is contained within it! They both satisfy the
 	// Res interface, which is why both will compile! :(
-	err = v1.Res.GroupRes(v2.Res) // GroupRes skips stupid groupings
-	return                        // success or fail, and no need to merge the actual vertices!
+	err = VtoR(v1).GroupRes(VtoR(v2)) // GroupRes skips stupid groupings
+	return                            // success or fail, and no need to merge the actual vertices!
 }
 
-func (ag *baseGrouper) edgeMerge(e1, e2 *Edge) *Edge {
+func (ag *baseGrouper) edgeMerge(e1, e2 *pgraph.Edge) *pgraph.Edge {
 	return e1 // noop
 }
 
@@ -160,18 +161,18 @@ func (ag *baseGrouper) vertexTest(b bool) (bool, error) {
 }
 
 // TODO: this algorithm may not be correct in all cases. replace if needed!
-type nonReachabilityGrouper struct {
+type NonReachabilityGrouper struct {
 	baseGrouper // "inherit" what we want, and reimplement the rest
 }
 
-func (ag *nonReachabilityGrouper) name() string {
-	return "nonReachabilityGrouper"
+func (ag *NonReachabilityGrouper) name() string {
+	return "NonReachabilityGrouper"
 }
 
 // this algorithm relies on the observation that if there's a path from a to b,
 // then they *can't* be merged (b/c of the existing dependency) so therefore we
 // merge anything that *doesn't* satisfy this condition or that of the reverse!
-func (ag *nonReachabilityGrouper) vertexNext() (v1, v2 *Vertex, err error) {
+func (ag *NonReachabilityGrouper) vertexNext() (v1, v2 pgraph.Vertex, err error) {
 	for {
 		v1, v2, err = ag.baseGrouper.vertexNext() // get all iterable pairs
 		if err != nil {
@@ -202,15 +203,15 @@ func (ag *nonReachabilityGrouper) vertexNext() (v1, v2 *Vertex, err error) {
 // and then by deleting v2 from the graph. Since more than one edge between two
 // vertices is not allowed, duplicate edges are merged as well. an edge merge
 // function can be provided if you'd like to control how you merge the edges!
-func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex) (*Vertex, error), edgeMergeFn func(*Edge, *Edge) *Edge) error {
+func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error), edgeMergeFn func(*pgraph.Edge, *pgraph.Edge) *pgraph.Edge) error {
 	// methodology
 	// 1) edges between v1 and v2 are removed
 	//Loop:
-	for k1 := range g.adjacency {
-		for k2 := range g.adjacency[k1] {
+	for k1 := range g.Adjacency() {
+		for k2 := range g.Adjacency()[k1] {
 			// v1 -> v2 || v2 -> v1
 			if (k1 == v1 && k2 == v2) || (k1 == v2 && k2 == v1) {
-				delete(g.adjacency[k1], k2) // delete map & edge
+				delete(g.Adjacency()[k1], k2) // delete map & edge
 				// NOTE: if we assume this is a DAG, then we can
 				// assume only v1 -> v2 OR v2 -> v1 exists, and
 				// we can break out of these loops immediately!
@@ -222,10 +223,10 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 
 	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
 	for _, x := range g.IncomingGraphVertices(v2) { // all to vertex v (??? -> v)
-		e := g.adjacency[x][v2] // previous edge
+		e := g.Adjacency()[x][v2] // previous edge
 		r := g.Reachability(x, v1)
-		// merge e with ex := g.adjacency[x][v1] if it exists!
-		if ex, exists := g.adjacency[x][v1]; exists && edgeMergeFn != nil && len(r) == 0 {
+		// merge e with ex := g.Adjacency()[x][v1] if it exists!
+		if ex, exists := g.Adjacency()[x][v1]; exists && edgeMergeFn != nil && len(r) == 0 {
 			e = edgeMergeFn(e, ex)
 		}
 		if len(r) == 0 { // if not reachable, add it
@@ -238,21 +239,21 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 					continue
 				}
 				// this edge is from: prev, to: next
-				ex, _ := g.adjacency[prev][next] // get
+				ex, _ := g.Adjacency()[prev][next] // get
 				ex = edgeMergeFn(ex, e)
-				g.adjacency[prev][next] = ex // set
+				g.Adjacency()[prev][next] = ex // set
 				prev = next
 			}
 		}
-		delete(g.adjacency[x], v2) // delete old edge
+		delete(g.Adjacency()[x], v2) // delete old edge
 	}
 
 	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
 	for _, x := range g.OutgoingGraphVertices(v2) { // all from vertex v (v -> ???)
-		e := g.adjacency[v2][x] // previous edge
+		e := g.Adjacency()[v2][x] // previous edge
 		r := g.Reachability(v1, x)
-		// merge e with ex := g.adjacency[v1][x] if it exists!
-		if ex, exists := g.adjacency[v1][x]; exists && edgeMergeFn != nil && len(r) == 0 {
+		// merge e with ex := g.Adjacency()[v1][x] if it exists!
+		if ex, exists := g.Adjacency()[v1][x]; exists && edgeMergeFn != nil && len(r) == 0 {
 			e = edgeMergeFn(e, ex)
 		}
 		if len(r) == 0 {
@@ -265,13 +266,13 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 					continue
 				}
 				// this edge is from: prev, to: next
-				ex, _ := g.adjacency[prev][next]
+				ex, _ := g.Adjacency()[prev][next]
 				ex = edgeMergeFn(ex, e)
-				g.adjacency[prev][next] = ex
+				g.Adjacency()[prev][next] = ex
 				prev = next
 			}
 		}
-		delete(g.adjacency[v2], x)
+		delete(g.Adjacency()[v2], x)
 	}
 
 	// 4) merge and then remove the (now merged/grouped) vertex
@@ -279,7 +280,8 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 		if v, err := vertexMergeFn(v1, v2); err != nil {
 			return err
 		} else if v != nil { // replace v1 with the "merged" version...
-			*v1 = *v // TODO: is this safe? (replacing mutexes is undefined!)
+			//*v1 = *v // TODO: is this safe? (replacing mutexes is undefined!)
+			v1 = v
 		}
 	}
 	g.DeleteVertex(v2) // remove grouped vertex
@@ -292,7 +294,7 @@ func (g *Graph) VertexMerge(v1, v2 *Vertex, vertexMergeFn func(*Vertex, *Vertex)
 }
 
 // autoGroup is the mechanical auto group "runner" that runs the interface spec
-func (g *Graph) autoGroup(ag AutoGrouper) chan string {
+func autoGroup(g *pgraph.Graph, ag AutoGrouper) chan string {
 	strch := make(chan string) // output log messages here
 	go func(strch chan string) {
 		strch <- fmt.Sprintf("Compile: Grouping: Algorithm: %v...", ag.name())
@@ -301,7 +303,7 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 		}
 
 		for {
-			var v, w *Vertex
+			var v, w pgraph.Vertex
 			v, w, err := ag.vertexNext() // get pair to compare
 			if err != nil {
 				log.Fatalf("error running autoGroup(vertexNext): %v", err)
@@ -317,7 +319,7 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 				}
 
 				// remove grouped vertex and merge edges (res is safe)
-			} else if err := g.VertexMerge(v, w, ag.vertexMerge, ag.edgeMerge); err != nil { // merge...
+			} else if err := VertexMerge(g, v, w, ag.vertexMerge, ag.edgeMerge); err != nil { // merge...
 				strch <- fmt.Sprintf("Compile: Grouping: !VertexMerge for: %s into %s", wStr, vStr)
 
 			} else { // success!
@@ -340,11 +342,11 @@ func (g *Graph) autoGroup(ag AutoGrouper) chan string {
 }
 
 // AutoGroup runs the auto grouping on the graph and prints out log messages
-func (g *Graph) AutoGroup() {
+func AutoGroup(g *pgraph.Graph, ag AutoGrouper) {
 	// receive log messages from channel...
 	// this allows test cases to avoid printing them when they're unwanted!
 	// TODO: this algorithm may not be correct in all cases. replace if needed!
-	for str := range g.autoGroup(&nonReachabilityGrouper{}) {
+	for str := range autoGroup(g, ag) {
 		log.Println(str)
 	}
 }

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package pgraph
+package resources
 
 import (
 	"fmt"
@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/semaphore"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -33,11 +34,11 @@ import (
 const SemaSep = ":"
 
 // SemaLock acquires the list of semaphores in the graph.
-func (g *Graph) SemaLock(semas []string) error {
+func SemaLock(g *pgraph.Graph, semas []string) error {
 	var reterr error
 	sort.Strings(semas) // very important to avoid deadlock in the dag!
 	slock := SemaLockFromGraph(g)
-	smap := *SemaMapFromGraph(g) // returns a *map, but can't use directly
+	smap := SemaMapFromGraph(g) // returns a map, which can be modified by ref
 
 	for _, id := range semas {
 		slock.Lock()         // semaphore creation lock
@@ -57,10 +58,10 @@ func (g *Graph) SemaLock(semas []string) error {
 }
 
 // SemaUnlock releases the list of semaphores in the graph.
-func (g *Graph) SemaUnlock(semas []string) error {
+func SemaUnlock(g *pgraph.Graph, semas []string) error {
 	var reterr error
 	sort.Strings(semas) // unlock in the same order to remove partial locks
-	smap := *SemaMapFromGraph(g)
+	smap := SemaMapFromGraph(g)
 
 	for _, id := range semas {
 		sema, ok := smap[id] // lookup
@@ -92,7 +93,7 @@ func SemaSize(id string) int {
 
 // SemaLockFromGraph returns a pointer to the semaphore lock stored with the
 // graph, otherwise it panics. If one does not exist, it will create it.
-func SemaLockFromGraph(g *Graph) *sync.Mutex {
+func SemaLockFromGraph(g *pgraph.Graph) *sync.Mutex {
 	x, exists := g.Value("slock")
 	if !exists {
 		g.SetValue("slock", &sync.Mutex{})

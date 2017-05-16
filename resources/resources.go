@@ -177,6 +177,7 @@ type Base interface {
 	SetName(string)
 	SetKind(string)
 	GetKind() string
+	String() string
 	Meta() *MetaParams
 	Events() chan *event.Event
 	Data() *Data
@@ -428,6 +429,11 @@ func (obj *BaseRes) SetKind(kind string) {
 // GetKind returns the kind of resource this is.
 func (obj *BaseRes) GetKind() string {
 	return obj.Kind
+}
+
+// String returns the canonical string representation for a resource.
+func (obj *BaseRes) String() string {
+	return fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName())
 }
 
 // Meta returns the MetaParams as a reference, which we can then get/set on.
@@ -721,3 +727,14 @@ func (obj *BaseRes) Poll() error {
 func (obj *BaseRes) Prometheus() *prometheus.Prometheus {
 	return obj.Data().Prometheus
 }
+
+// TODO: consider adding a mutate API.
+//func (g *Graph) MutateMatch(obj resources.Res) Vertex {
+//	for v := range g.adjacency {
+//		if err := v.Res.Mutate(obj); err == nil {
+//			// transmogrified!
+//			return v
+//		}
+//	}
+//	return nil
+//}

@@ -425,8 +425,8 @@ func (obj *Main) Run() error {
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
 			if !first { // TODO: we can flatten this check out I think
-				converger.Pause() // FIXME: add sync wait?
-				G.Pause(false)    // sync
+				converger.Pause()         // FIXME: add sync wait?
+				resources.Pause(G, false) // sync
 
 				//G.UnGroup() // FIXME: implement me if needed!
 			}
@@ -437,8 +437,8 @@ func (obj *Main) Run() error {
 				log.Printf("Main: Error creating new graph: %v", err)
 				// unpause!
 				if !first {
-					G.Start(first)    // sync
-					converger.Start() // after G.Start()
+					resources.Start(G, first) // sync
+					converger.Start()         // after G.Start()
 				}
 				continue
 			}
@@ -470,21 +470,21 @@ func (obj *Main) Run() error {
 			// changes to the resources so our efficient GraphSync
 			// will be able to re-use and cmp to the old graph.
 			log.Printf("Main: GraphSync...")
-			newFullGraph, err := newGraph.GraphSync(oldGraph)
+			newFullGraph, err := resources.GraphSync(newGraph, oldGraph)
 			if err != nil {
 				log.Printf("Main: Error running graph sync: %v", err)
 				// unpause!
 				if !first {
-					G.Start(first)    // sync
-					converger.Start() // after G.Start()
+					resources.Start(G, first) // sync
+					converger.Start()         // after Start(G)
 				}
 				continue
 			}
 			oldGraph = newFullGraph // save old graph
 			G = oldGraph.Copy()     // copy to active graph
 
-			resources.AutoEdges(G) // add autoedges; modifies the graph
-			G.AutoGroup()          // run autogroup; modifies the graph
+			resources.AutoEdges(G)                                      // add autoedges; modifies the graph
+			resources.AutoGroup(G, &resources.NonReachabilityGrouper{}) // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships
 
@@ -493,13 +493,13 @@ func (obj *Main) Run() error {
 			if err := prom.UpdatePgraphStartTime(); err != nil {
 				log.Printf("Main: Prometheus.UpdatePgraphStartTime() errored: %v", err)
 			}
-			// G.Start(...) needs to be synchronous or wait,
+			// Start(G) needs to be synchronous or wait,
 			// because if half of the nodes are started and
 			// some are not ready yet and the EtcdWatch
-			// loops, we'll cause G.Pause(...) before we
+			// loops, we'll cause Pause(G) before we
 			// even got going, thus causing nil pointer errors
-			G.Start(first)    // sync
-			converger.Start() // after G.Start()
+			resources.Start(G, first) // sync
+			converger.Start()         // after Start(G)
 
 			log.Printf("Main: Graph: %v", G) // show graph
 			if obj.Graphviz != "" {
@@ -590,7 +590,7 @@ func (obj *Main) Run() error {
 	// tell inner main loop to exit
 	close(exitchan)
 
-	G.Exit() // tells all the children to exit, and waits for them to do so
+	resources.Exit(G) // tells all the children to exit, and waits for them to do so
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
@@ -619,7 +619,7 @@ func (obj *Main) Run() error {
 func graphMetas(g *pgraph.Graph) []*resources.MetaParams {
 	metas := []*resources.MetaParams{}
 	for _, v := range g.Vertices() { // loop through the vertices (resources)
-		res := v.Res // resource
+		res := resources.VtoR(v) // resource
 		meta := res.Meta()
 		metas = append(metas, meta)
 	}
@@ -632,6 +632,6 @@ func associateData(g *pgraph.Graph, data *resources.Data) {
 	g.SetValue("prometheus", data.Prometheus)
 
 	for _, v := range g.Vertices() {
-		*v.Res.Data() = *data
+		*resources.VtoR(v).Data() = *data
 	}
 }

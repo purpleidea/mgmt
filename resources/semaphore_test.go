@@ -15,12 +15,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package pgraph
+package resources
 
 import (
 	"testing"
 
-	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/pgraph"
 )
 
 func TestSemaSize(t *testing.T) {
@@ -38,10 +38,10 @@ func TestSemaSize(t *testing.T) {
 
 func NewNoopResTestSema(name string, semas []string) *NoopResTest {
 	obj := &NoopResTest{
-		NoopRes: resources.NoopRes{
-			BaseRes: resources.BaseRes{
+		NoopRes: NoopRes{
+			BaseRes: BaseRes{
 				Name: name,
-				MetaParams: resources.MetaParams{
+				MetaParams: MetaParams{
 					AutoGroup: true, // always autogroup
 					Sema:      semas,
 				},
@@ -52,54 +52,54 @@ func NewNoopResTestSema(name string, semas []string) *NoopResTest {
 }
 
 func TestPgraphSemaphoreGrouping1(t *testing.T) {
-	g1, _ := NewGraph("g1") // original graph
+	g1, _ := pgraph.NewGraph("g1") // original graph
 	{
-		a1 := NewVertex(NewNoopResTestSema("a1", []string{"s:1"}))
-		a2 := NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
-		a3 := NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
+		a1 := pgraph.NewVertex(NewNoopResTestSema("a1", []string{"s:1"}))
+		a2 := pgraph.NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
+		a3 := pgraph.NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
 		g1.AddVertex(a1)
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
-	g2, _ := NewGraph("g2") // expected result
+	g2, _ := pgraph.NewGraph("g2") // expected result
 	{
-		a123 := NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
+		a123 := pgraph.NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
 		g2.AddVertex(a123)
 	}
 	runGraphCmp(t, g1, g2)
 }
 
 func TestPgraphSemaphoreGrouping2(t *testing.T) {
-	g1, _ := NewGraph("g1") // original graph
+	g1, _ := pgraph.NewGraph("g1") // original graph
 	{
-		a1 := NewVertex(NewNoopResTestSema("a1", []string{"s:10", "s:11"}))
-		a2 := NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
-		a3 := NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
+		a1 := pgraph.NewVertex(NewNoopResTestSema("a1", []string{"s:10", "s:11"}))
+		a2 := pgraph.NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
+		a3 := pgraph.NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
 		g1.AddVertex(a1)
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
-	g2, _ := NewGraph("g2") // expected result
+	g2, _ := pgraph.NewGraph("g2") // expected result
 	{
-		a123 := NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:10", "s:11", "s:2", "s:3"}))
+		a123 := pgraph.NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:10", "s:11", "s:2", "s:3"}))
 		g2.AddVertex(a123)
 	}
 	runGraphCmp(t, g1, g2)
 }
 
 func TestPgraphSemaphoreGrouping3(t *testing.T) {
-	g1, _ := NewGraph("g1") // original graph
+	g1, _ := pgraph.NewGraph("g1") // original graph
 	{
-		a1 := NewVertex(NewNoopResTestSema("a1", []string{"s:1", "s:2"}))
-		a2 := NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
-		a3 := NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
+		a1 := pgraph.NewVertex(NewNoopResTestSema("a1", []string{"s:1", "s:2"}))
+		a2 := pgraph.NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
+		a3 := pgraph.NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
 		g1.AddVertex(a1)
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
-	g2, _ := NewGraph("g2") // expected result
+	g2, _ := pgraph.NewGraph("g2") // expected result
 	{
-		a123 := NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
+		a123 := pgraph.NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
 		g2.AddVertex(a123)
 	}
 	runGraphCmp(t, g1, g2)

@@ -37,7 +37,7 @@ func UIDExistsInUIDs(uid ResUID, uids []ResUID) bool {
 
 // addEdgesByMatchingUIDS adds edges to the vertex in a graph based on if it
 // matches a uid list.
-func addEdgesByMatchingUIDS(g *pgraph.Graph, v *pgraph.Vertex, uids []ResUID) []bool {
+func addEdgesByMatchingUIDS(g *pgraph.Graph, v pgraph.Vertex, uids []ResUID) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
@@ -50,22 +50,22 @@ func addEdgesByMatchingUIDS(g *pgraph.Graph, v *pgraph.Vertex, uids []ResUID) []
 				continue
 			}
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("Compile: AutoEdge: Match: %s[%s] with UID: %s[%s]", vv.GetKind(), vv.GetName(), uid.GetKind(), uid.GetName())
+				log.Printf("Compile: AutoEdge: Match: %s with UID: %s[%s]", VtoR(vv).String(), uid.GetKind(), uid.GetName())
 			}
 			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful
 			// handle, but it is not necessarily a unique identity!
 			// remember, resources can return multiple UID's each!
-			if UIDExistsInUIDs(uid, vv.UIDs()) {
+			if UIDExistsInUIDs(uid, VtoR(vv).UIDs()) {
 				// add edge from: vv -> v
 				if uid.IsReversed() {
-					txt := fmt.Sprintf("AutoEdge: %s[%s] -> %s[%s]", vv.GetKind(), vv.GetName(), v.GetKind(), v.GetName())
+					txt := fmt.Sprintf("AutoEdge: %s -> %s", VtoR(vv).String(), VtoR(v).String())
 					log.Printf("Compile: Adding %s", txt)
-					g.AddEdge(vv, v, NewEdge(txt))
+					g.AddEdge(vv, v, pgraph.NewEdge(txt))
 				} else { // edges go the "normal" way, eg: pkg resource
-					txt := fmt.Sprintf("AutoEdge: %s[%s] -> %s[%s]", v.GetKind(), v.GetName(), vv.GetKind(), vv.GetName())
+					txt := fmt.Sprintf("AutoEdge: %s -> %s", VtoR(v).String(), VtoR(vv).String())
 					log.Printf("Compile: Adding %s", txt)
-					g.AddEdge(v, vv, NewEdge(txt))
+					g.AddEdge(v, vv, pgraph.NewEdge(txt))
 				}
 				found = true
 				break
@@ -80,19 +80,19 @@ func addEdgesByMatchingUIDS(g *pgraph.Graph, v *pgraph.Vertex, uids []ResUID) []
 func AutoEdges(g *pgraph.Graph) {
 	log.Println("Compile: Adding AutoEdges...")
 	for _, v := range g.Vertices() { // for each vertexes autoedges
-		if !v.Meta().AutoEdge { // is the metaparam true?
+		if !VtoR(v).Meta().AutoEdge { // is the metaparam true?
 			continue
 		}
-		autoEdgeObj := v.AutoEdges()
+		autoEdgeObj := VtoR(v).AutoEdges()
 		if autoEdgeObj == nil {
-			log.Printf("%s[%s]: Config: No auto edges were found!", v.GetKind(), v.GetName())
+			log.Printf("%s: Config: No auto edges were found!", VtoR(v).String())
 			continue // next vertex
 		}
 
 		for { // while the autoEdgeObj has more uids to add...
 			uids := autoEdgeObj.Next() // get some!
 			if uids == nil {
-				log.Printf("%s[%s]: Config: The auto edge list is empty!", v.GetKind(), v.GetName())
+				log.Printf("%s: Config: The auto edge list is empty!", VtoR(v).String())
 				break // inner loop
 			}
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {

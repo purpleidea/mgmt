@@ -103,14 +103,14 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 		return nil, errwrap.Wrapf(err, "could not run NewGraphFromConfig() properly")
 	}
 
-	var lookup = make(map[string]map[string]*pgraph.Vertex)
+	var lookup = make(map[string]map[string]pgraph.Vertex)
 
 	//log.Printf("%+v", config) // debug
 
 	// TODO: if defined (somehow)...
 	graph.SetName(c.Graph) // set graph name
 
-	var keep []*pgraph.Vertex        // list of vertex which are the same in new graph
+	var keep []pgraph.Vertex         // list of vertex which are the same in new graph
 	var resourceList []resources.Res // list of resources to export
 	// use reflection to avoid duplicating code... better options welcome!
 	value := reflect.Indirect(reflect.ValueOf(c.Resources))
@@ -131,13 +131,13 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 			//	res.Meta().Noop = noop
 			//}
 			if _, exists := lookup[kind]; !exists {
-				lookup[kind] = make(map[string]*pgraph.Vertex)
+				lookup[kind] = make(map[string]pgraph.Vertex)
 			}
 			// XXX: should we export based on a @@ prefix, or a metaparam
 			// like exported => true || exported => (host pattern)||(other pattern?)
 			if !strings.HasPrefix(res.GetName(), "@@") { // not exported resource
-				fn := func(v *pgraph.Vertex) (bool, error) {
-					return v.Res.Compare(res), nil
+				fn := func(v pgraph.Vertex) (bool, error) {
+					return resources.VtoR(v).Compare(res), nil
 				}
 				v, err := graph.VertexMatchFn(fn)
 				if err != nil {
@@ -211,11 +211,11 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 
 			// XXX: similar to other resource add code:
 			if _, exists := lookup[kind]; !exists {
-				lookup[kind] = make(map[string]*pgraph.Vertex)
+				lookup[kind] = make(map[string]pgraph.Vertex)
 			}
 
-			fn := func(v *pgraph.Vertex) (bool, error) {
-				return v.Res.Compare(res), nil
+			fn := func(v pgraph.Vertex) (bool, error) {
+				return resources.VtoR(v).Compare(res), nil
 			}
 			v, err := graph.VertexMatchFn(fn)
 			if err != nil {

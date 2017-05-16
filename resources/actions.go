@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package pgraph
+package resources
 
 import (
 	"fmt"
@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/prometheus"
-	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -36,16 +36,16 @@ import (
 )
 
 // OKTimestamp returns true if this element can run right now?
-func (g *Graph) OKTimestamp(v *Vertex) bool {
+func OKTimestamp(g *pgraph.Graph, v pgraph.Vertex) bool {
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphVertices(v) {
 		// if the vertex has a greater timestamp than any pre-req (n)
 		// then we can't run right now...
 		// if they're equal (eg: on init of 0) then we also can't run
 		// b/c we should let our pre-req's go first...
-		x, y := v.Res.Timestamp(), n.Res.Timestamp()
+		x, y := VtoR(v).Timestamp(), VtoR(n).Timestamp()
 		if b, ok := g.Value("debug"); ok && util.Bool(b) {
-			log.Printf("%s[%s]: OKTimestamp: (%v) >= %s[%s](%v): !%v", v.GetKind(), v.GetName(), x, n.GetKind(), n.GetName(), y, x >= y)
+			log.Printf("%s: OKTimestamp: (%v) >= %s(%v): !%v", VtoR(v).String(), x, VtoR(n).String(), y, x >= y)
 		}
 		if x >= y {
 			return false
@@ -55,12 +55,12 @@ func (g *Graph) OKTimestamp(v *Vertex) bool {
 }
 
 // Poke tells nodes after me in the dependency graph that they need to refresh.
-func (g *Graph) Poke(v *Vertex) error {
+func Poke(g *pgraph.Graph, v pgraph.Vertex) error {
 
 	// if we're pausing (or exiting) then we should suspend poke's so that
 	// the graph doesn't go on running forever until it's completely done!
 	// this is an optional feature which we can do by default on user exit
-	if g.fastPause {
+	if b, ok := g.Value("fastpause"); ok && util.Bool(b) {
 		return nil // TODO: should this be an error instead?
 	}
 
@@ -70,21 +70,21 @@ func (g *Graph) Poke(v *Vertex) error {
 		// we can skip this poke if resource hasn't done work yet... it
 		// needs to be poked if already running, or not running though!
 		// TODO: does this need an || activity flag?
-		if n.Res.GetState() != resources.ResStateProcess {
+		if VtoR(n).GetState() != ResStateProcess {
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("%s[%s]: Poke: %s[%s]", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
+				log.Printf("%s: Poke: %s", VtoR(v).String(), VtoR(n).String())
 			}
 			wg.Add(1)
-			go func(nn *Vertex) error {
+			go func(nn pgraph.Vertex) error {
 				defer wg.Done()
 				//edge := g.adjacency[v][nn] // lookup
 				//notify := edge.Notify && edge.Refresh()
-				return nn.SendEvent(event.EventPoke, nil)
+				return VtoR(nn).SendEvent(event.EventPoke, nil)
 			}(n)
 
 		} else {
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("%s[%s]: Poke: %s[%s]: Skipped!", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
+				log.Printf("%s: Poke: %s: Skipped!", VtoR(v).String(), VtoR(n).String())
 			}
 		}
 	}
@@ -94,30 +94,30 @@ func (g *Graph) Poke(v *Vertex) error {
 }
 
 // BackPoke pokes the pre-requisites that are stale and need to run before I can run.
-func (g *Graph) BackPoke(v *Vertex) {
+func BackPoke(g *pgraph.Graph, v pgraph.Vertex) {
 	var wg sync.WaitGroup
 	// these are all the vertices pointing TO v, eg: ??? -> v
 	for _, n := range g.IncomingGraphVertices(v) {
-		x, y, s := v.Res.Timestamp(), n.Res.Timestamp(), n.Res.GetState()
+		x, y, s := VtoR(v).Timestamp(), VtoR(n).Timestamp(), VtoR(n).GetState()
 		// If the parent timestamp needs poking AND it's not running
 		// Process, then poke it. If the parent is in ResStateProcess it
 		// means that an event is pending, so we'll be expecting a poke
 		// back soon, so we can safely discard the extra parent poke...
 		// TODO: implement a stateLT (less than) to tell if something
 		// happens earlier in the state cycle and that doesn't wrap nil
-		if x >= y && (s != resources.ResStateProcess && s != resources.ResStateCheckApply) {
+		if x >= y && (s != ResStateProcess && s != ResStateCheckApply) {
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("%s[%s]: BackPoke: %s[%s]", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
+				log.Printf("%s: BackPoke: %s", VtoR(v).String(), VtoR(n).String())
 			}
 			wg.Add(1)
-			go func(nn *Vertex) error {
+			go func(nn pgraph.Vertex) error {
 				defer wg.Done()
-				return nn.SendEvent(event.EventBackPoke, nil)
+				return VtoR(nn).SendEvent(event.EventBackPoke, nil)
 			}(n)
 
 		} else {
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("%s[%s]: BackPoke: %s[%s]: Skipped!", v.GetKind(), v.GetName(), n.GetKind(), n.GetName())
+				log.Printf("%s: BackPoke: %s: Skipped!", VtoR(v).String(), VtoR(n).String())
 			}
 		}
 	}
@@ -127,7 +127,7 @@ func (g *Graph) BackPoke(v *Vertex) {
 
 // RefreshPending determines if any previous nodes have a refresh pending here.
 // If this is true, it means I am expected to apply a refresh when I next run.
-func (g *Graph) RefreshPending(v *Vertex) bool {
+func RefreshPending(g *pgraph.Graph, v pgraph.Vertex) bool {
 	var refresh bool
 	for _, edge := range g.IncomingGraphEdges(v) {
 		// if we asked for a notify *and* if one is pending!
@@ -140,7 +140,7 @@ func (g *Graph) RefreshPending(v *Vertex) bool {
 }
 
 // SetUpstreamRefresh sets the refresh value to any upstream vertices.
-func (g *Graph) SetUpstreamRefresh(v *Vertex, b bool) {
+func SetUpstreamRefresh(g *pgraph.Graph, v pgraph.Vertex, b bool) {
 	for _, edge := range g.IncomingGraphEdges(v) {
 		if edge.Notify {
 			edge.SetRefresh(b)
@@ -149,7 +149,7 @@ func (g *Graph) SetUpstreamRefresh(v *Vertex, b bool) {
 }
 
 // SetDownstreamRefresh sets the refresh value to any downstream vertices.
-func (g *Graph) SetDownstreamRefresh(v *Vertex, b bool) {
+func SetDownstreamRefresh(g *pgraph.Graph, v pgraph.Vertex, b bool) {
 	for _, edge := range g.OutgoingGraphEdges(v) {
 		// if we asked for a notify *and* if one is pending!
 		if edge.Notify {
@@ -159,25 +159,25 @@ func (g *Graph) SetDownstreamRefresh(v *Vertex, b bool) {
 }
 
 // Process is the primary function to execute for a particular vertex in the graph.
-func (g *Graph) Process(v *Vertex) error {
-	obj := v.Res
+func Process(g *pgraph.Graph, v pgraph.Vertex) error {
+	obj := VtoR(v)
 	if b, ok := g.Value("debug"); ok && util.Bool(b) {
 		log.Printf("%s[%s]: Process()", obj.GetKind(), obj.GetName())
 	}
 	// FIXME: should these SetState methods be here or after the sema code?
-	defer obj.SetState(resources.ResStateNil) // reset state when finished
-	obj.SetState(resources.ResStateProcess)
+	defer obj.SetState(ResStateNil) // reset state when finished
+	obj.SetState(ResStateProcess)
 
 	// is it okay to run dependency wise right now?
 	// if not, that's okay because when the dependency runs, it will poke
 	// us back and we will run if needed then!
-	if !g.OKTimestamp(v) {
-		go g.BackPoke(v)
+	if !OKTimestamp(g, v) {
+		go BackPoke(g, v)
 		return nil
 	}
 	// timestamp must be okay...
 	if b, ok := g.Value("debug"); ok && util.Bool(b) {
-		log.Printf("%s[%s]: OKTimestamp(%v)", obj.GetKind(), obj.GetName(), v.Res.Timestamp())
+		log.Printf("%s[%s]: OKTimestamp(%v)", obj.GetKind(), obj.GetName(), VtoR(v).Timestamp())
 	}
 
 	// semaphores!
@@ -191,11 +191,11 @@ func (g *Graph) Process(v *Vertex) error {
 	if b, ok := g.Value("debug"); ok && util.Bool(b) && len(semas) > 0 {
 		log.Printf("%s[%s]: Sema: P(%s)", obj.GetKind(), obj.GetName(), strings.Join(semas, ", "))
 	}
-	if err := g.SemaLock(semas); err != nil { // lock
+	if err := SemaLock(g, semas); err != nil { // lock
 		// NOTE: in practice, this might not ever be truly necessary...
 		return fmt.Errorf("shutdown of semaphores")
 	}
-	defer g.SemaUnlock(semas) // unlock
+	defer SemaUnlock(g, semas) // unlock
 	if b, ok := g.Value("debug"); ok && util.Bool(b) && len(semas) > 0 {
 		defer log.Printf("%s[%s]: Sema: V(%s)", obj.GetKind(), obj.GetName(), strings.Join(semas, ", "))
 	}
@@ -225,11 +225,11 @@ func (g *Graph) Process(v *Vertex) error {
 	}
 
 	// lookup the refresh (notification) variable
-	refresh = g.RefreshPending(v) // do i need to perform a refresh?
-	obj.SetRefresh(refresh)       // tell the resource
+	refresh = RefreshPending(g, v) // do i need to perform a refresh?
+	obj.SetRefresh(refresh)        // tell the resource
 
 	// changes can occur after this...
-	obj.SetState(resources.ResStateCheckApply)
+	obj.SetState(ResStateCheckApply)
 
 	// check cached state, to skip CheckApply; can't skip if refreshing
 	if !refresh && obj.IsStateOK() {
@@ -248,15 +248,15 @@ func (g *Graph) Process(v *Vertex) error {
 
 		if promErr := obj.Prometheus().UpdateCheckApplyTotal(obj.GetKind(), !noop, !checkOK, err != nil); promErr != nil {
 			// TODO: how to error correctly
-			log.Printf("%s[%s]: Prometheus.UpdateCheckApplyTotal() errored: %v", v.GetKind(), v.GetName(), err)
+			log.Printf("%s: Prometheus.UpdateCheckApplyTotal() errored: %v", VtoR(v).String(), err)
 		}
 		// TODO: Can the `Poll` converged timeout tracking be a
 		// more general method for all converged timeouts? this
 		// would simplify the resources by removing boilerplate
-		if v.Meta().Poll > 0 {
+		if VtoR(v).Meta().Poll > 0 {
 			if !checkOK { // something changed, restart timer
-				cuid, _, _ := v.Res.ConvergerUIDs() // get the converger uid used to report status
-				cuid.ResetTimer()                   // activity!
+				cuid, _, _ := VtoR(v).ConvergerUIDs() // get the converger uid used to report status
+				cuid.ResetTimer()                     // activity!
 				if b, ok := g.Value("debug"); ok && util.Bool(b) {
 					log.Printf("%s[%s]: Converger: ResetTimer", obj.GetKind(), obj.GetName())
 				}
@@ -275,7 +275,7 @@ func (g *Graph) Process(v *Vertex) error {
 	if !noop && err == nil { // aka !noop || checkOK
 		obj.StateOK(true) // reset
 		if refresh {
-			g.SetUpstreamRefresh(v, false) // refresh happened, clear the request
+			SetUpstreamRefresh(g, v, false) // refresh happened, clear the request
 			obj.SetRefresh(false)
 		}
 	}
@@ -301,14 +301,14 @@ func (g *Graph) Process(v *Vertex) error {
 		}
 
 		if activity { // add refresh flag to downstream edges...
-			g.SetDownstreamRefresh(v, true)
+			SetDownstreamRefresh(g, v, true)
 		}
 
 		// update this timestamp *before* we poke or the poked
 		// nodes might fail due to having a too old timestamp!
-		v.Res.UpdateTimestamp()                // this was touched...
-		obj.SetState(resources.ResStatePoking) // can't cancel parent poke
-		if err := g.Poke(v); err != nil {
+		VtoR(v).UpdateTimestamp()    // this was touched...
+		obj.SetState(ResStatePoking) // can't cancel parent poke
+		if err := Poke(g, v); err != nil {
 			return errwrap.Wrapf(err, "the Poke() failed")
 		}
 	}
@@ -327,9 +327,9 @@ func (obj *SentinelErr) Error() string {
 }
 
 // innerWorker is the CheckApply runner that reads from processChan.
-// TODO: would it be better if this was a method on BaseRes that took in *Graph?
-func (g *Graph) innerWorker(v *Vertex) {
-	obj := v.Res
+// TODO: would it be better if this was a method on BaseRes that took in *pgraph.Graph?
+func innerWorker(g *pgraph.Graph, v pgraph.Vertex) {
+	obj := VtoR(v)
 	running := false
 	done := make(chan struct{})
 	playback := false                      // do we need to run another one?
@@ -341,9 +341,9 @@ func (g *Graph) innerWorker(v *Vertex) {
 		<-timer.C // unnecessary, shouldn't happen
 	}
 
-	var delay = time.Duration(v.Meta().Delay) * time.Millisecond
-	var retry = v.Meta().Retry // number of tries left, -1 for infinite
-	var limiter = rate.NewLimiter(v.Meta().Limit, v.Meta().Burst)
+	var delay = time.Duration(VtoR(v).Meta().Delay) * time.Millisecond
+	var retry = VtoR(v).Meta().Retry // number of tries left, -1 for infinite
+	var limiter = rate.NewLimiter(VtoR(v).Meta().Limit, VtoR(v).Meta().Burst)
 	limited := false
 
 	wg := &sync.WaitGroup{} // wait for Process routine to exit
@@ -355,17 +355,17 @@ Loop:
 			if !ok { // processChan closed, let's exit
 				break Loop // no event, so no ack!
 			}
-			if v.Res.Meta().Poll == 0 { // skip for polling
+			if VtoR(v).Meta().Poll == 0 { // skip for polling
 				wcuid.SetConverged(false)
 			}
 
 			// if process started, but no action yet, skip!
-			if v.Res.GetState() == resources.ResStateProcess {
+			if VtoR(v).GetState() == ResStateProcess {
 				if b, ok := g.Value("debug"); ok && util.Bool(b) {
-					log.Printf("%s[%s]: Skipped event!", v.GetKind(), v.GetName())
+					log.Printf("%s: Skipped event!", VtoR(v).String())
 				}
 				ev.ACK() // ready for next message
-				v.Res.QuiesceGroup().Done()
+				VtoR(v).QuiesceGroup().Done()
 				continue
 			}
 
@@ -373,27 +373,27 @@ Loop:
 			// if waiting, we skip running a new execution!
 			if running || waiting {
 				if b, ok := g.Value("debug"); ok && util.Bool(b) {
-					log.Printf("%s[%s]: Playback added!", v.GetKind(), v.GetName())
+					log.Printf("%s: Playback added!", VtoR(v).String())
 				}
 				playback = true
 				ev.ACK() // ready for next message
-				v.Res.QuiesceGroup().Done()
+				VtoR(v).QuiesceGroup().Done()
 				continue
 			}
 
 			// catch invalid rates
-			if v.Meta().Burst == 0 && !(v.Meta().Limit == rate.Inf) { // blocked
-				e := fmt.Errorf("%s[%s]: Permanently limited (rate != Inf, burst: 0)", v.GetKind(), v.GetName())
+			if VtoR(v).Meta().Burst == 0 && !(VtoR(v).Meta().Limit == rate.Inf) { // blocked
+				e := fmt.Errorf("%s: Permanently limited (rate != Inf, burst: 0)", VtoR(v).String())
 				ev.ACK() // ready for next message
-				v.Res.QuiesceGroup().Done()
-				v.SendEvent(event.EventExit, &SentinelErr{e})
+				VtoR(v).QuiesceGroup().Done()
+				VtoR(v).SendEvent(event.EventExit, &SentinelErr{e})
 				continue
 			}
 
 			// rate limit
 			// FIXME: consider skipping rate limit check if
 			// the event is a poke instead of a watch event
-			if !limited && !(v.Meta().Limit == rate.Inf) { // skip over the playback event...
+			if !limited && !(VtoR(v).Meta().Limit == rate.Inf) { // skip over the playback event...
 				now := time.Now()
 				r := limiter.ReserveN(now, 1) // one event
 				// r.OK() seems to always be true here!
@@ -401,12 +401,12 @@ Loop:
 				if d > 0 { // delay
 					limited = true
 					playback = true
-					log.Printf("%s[%s]: Limited (rate: %v/sec, burst: %d, next: %v)", v.GetKind(), v.GetName(), v.Meta().Limit, v.Meta().Burst, d)
+					log.Printf("%s: Limited (rate: %v/sec, burst: %d, next: %v)", VtoR(v).String(), VtoR(v).Meta().Limit, VtoR(v).Meta().Burst, d)
 					// start the timer...
 					timer.Reset(d)
 					waiting = true // waiting for retry timer
 					ev.ACK()
-					v.Res.QuiesceGroup().Done()
+					VtoR(v).QuiesceGroup().Done()
 					continue
 				} // otherwise, we run directly!
 			}
@@ -417,58 +417,58 @@ Loop:
 			go func(ev *event.Event) {
 				pcuid.SetConverged(false) // "block" Process
 				defer wg.Done()
-				if e := g.Process(v); e != nil {
+				if e := Process(g, v); e != nil {
 					playback = true
-					log.Printf("%s[%s]: CheckApply errored: %v", v.GetKind(), v.GetName(), e)
+					log.Printf("%s: CheckApply errored: %v", VtoR(v).String(), e)
 					if retry == 0 {
-						if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.GetKind(), v.GetName()), v.GetKind(), prometheus.ResStateHardFail); err != nil {
+						if err := obj.Prometheus().UpdateState(VtoR(v).String(), VtoR(v).GetKind(), prometheus.ResStateHardFail); err != nil {
 							// TODO: how to error this?
-							log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.GetKind(), v.GetName(), err)
+							log.Printf("%s: Prometheus.UpdateState() errored: %v", VtoR(v).String(), err)
 						}
 
 						// wrap the error in the sentinel
-						v.Res.QuiesceGroup().Done() // before the Wait that happens in SendEvent!
-						v.SendEvent(event.EventExit, &SentinelErr{e})
+						VtoR(v).QuiesceGroup().Done() // before the Wait that happens in SendEvent!
+						VtoR(v).SendEvent(event.EventExit, &SentinelErr{e})
 						return
 					}
 					if retry > 0 { // don't decrement the -1
 						retry--
 					}
-					if err := obj.Prometheus().UpdateState(fmt.Sprintf("%s[%s]", v.GetKind(), v.GetName()), v.GetKind(), prometheus.ResStateSoftFail); err != nil {
+					if err := obj.Prometheus().UpdateState(VtoR(v).String(), VtoR(v).GetKind(), prometheus.ResStateSoftFail); err != nil {
 						// TODO: how to error this?
-						log.Printf("%s[%s]: Prometheus.UpdateState() errored: %v", v.GetKind(), v.GetName(), err)
+						log.Printf("%s: Prometheus.UpdateState() errored: %v", VtoR(v).String(), err)
 					}
-					log.Printf("%s[%s]: CheckApply: Retrying after %.4f seconds (%d left)", v.GetKind(), v.GetName(), delay.Seconds(), retry)
+					log.Printf("%s: CheckApply: Retrying after %.4f seconds (%d left)", VtoR(v).String(), delay.Seconds(), retry)
 					// start the timer...
 					timer.Reset(delay)
 					waiting = true // waiting for retry timer
-					// don't v.Res.QuiesceGroup().Done() b/c
+					// don't VtoR(v).QuiesceGroup().Done() b/c
 					// the timer is running and it can exit!
 					return
 				}
-				retry = v.Meta().Retry // reset on success
-				close(done)            // trigger
+				retry = VtoR(v).Meta().Retry // reset on success
+				close(done)                  // trigger
 			}(ev)
 			ev.ACK() // sync (now mostly useless)
 
 		case <-timer.C:
-			if v.Res.Meta().Poll == 0 { // skip for polling
+			if VtoR(v).Meta().Poll == 0 { // skip for polling
 				wcuid.SetConverged(false)
 			}
 			waiting = false
 			if !timer.Stop() {
 				//<-timer.C // blocks, docs are wrong!
 			}
-			log.Printf("%s[%s]: CheckApply delay expired!", v.GetKind(), v.GetName())
+			log.Printf("%s: CheckApply delay expired!", VtoR(v).String())
 			close(done)
 
 		// a CheckApply run (with possibly retry pause) finished
 		case <-done:
-			if v.Res.Meta().Poll == 0 { // skip for polling
+			if VtoR(v).Meta().Poll == 0 { // skip for polling
 				wcuid.SetConverged(false)
 			}
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("%s[%s]: CheckApply finished!", v.GetKind(), v.GetName())
+				log.Printf("%s: CheckApply finished!", VtoR(v).String())
 			}
 			done = make(chan struct{}) // reset
 			// re-send this event, to trigger a CheckApply()
@@ -478,18 +478,18 @@ Loop:
 				// TODO: can this experience indefinite postponement ?
 				// see: https://github.com/golang/go/issues/11506
 				// pause or exit is in process if not quiescing!
-				if !v.Res.IsQuiescing() {
+				if !VtoR(v).IsQuiescing() {
 					playback = false
-					v.Res.QuiesceGroup().Add(1) // lock around it, b/c still running...
+					VtoR(v).QuiesceGroup().Add(1) // lock around it, b/c still running...
 					go func() {
 						obj.Event() // replay a new event
-						v.Res.QuiesceGroup().Done()
+						VtoR(v).QuiesceGroup().Done()
 					}()
 				}
 			}
 			running = false
 			pcuid.SetConverged(true) // "unblock" Process
-			v.Res.QuiesceGroup().Done()
+			VtoR(v).QuiesceGroup().Done()
 
 		case <-wcuid.ConvergedTimer():
 			wcuid.SetConverged(true) // converged!
@@ -503,16 +503,16 @@ Loop:
 // Worker is the common run frontend of the vertex. It handles all of the retry
 // and retry delay common code, and ultimately returns the final status of this
 // vertex execution.
-func (g *Graph) Worker(v *Vertex) error {
+func Worker(g *pgraph.Graph, v pgraph.Vertex) error {
 	// listen for chan events from Watch() and run
 	// the Process() function when they're received
 	// this avoids us having to pass the data into
 	// the Watch() function about which graph it is
 	// running on, which isolates things nicely...
-	obj := v.Res
+	obj := VtoR(v)
 	if b, ok := g.Value("debug"); ok && util.Bool(b) {
-		log.Printf("%s[%s]: Worker: Running", v.GetKind(), v.GetName())
-		defer log.Printf("%s[%s]: Worker: Stopped", v.GetKind(), v.GetName())
+		log.Printf("%s: Worker: Running", VtoR(v).String())
+		defer log.Printf("%s: Worker: Stopped", VtoR(v).String())
 	}
 	// run the init (should match 1-1 with Close function)
 	if err := obj.Init(); err != nil {
@@ -537,7 +537,7 @@ func (g *Graph) Worker(v *Vertex) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		g.innerWorker(v)
+		innerWorker(g, v)
 	}()
 
 	var err error // propagate the error up (this is a permanent BAD error!)
@@ -547,7 +547,7 @@ func (g *Graph) Worker(v *Vertex) error {
 	// NOTE: we're using the same retry and delay metaparams that CheckApply
 	// uses. This is for practicality. We can separate them later if needed!
 	var watchDelay time.Duration
-	var watchRetry = v.Meta().Retry // number of tries left, -1 for infinite
+	var watchRetry = VtoR(v).Meta().Retry // number of tries left, -1 for infinite
 	// watch blocks until it ends, & errors to retry
 	for {
 		// TODO: do we have to stop the converged-timeout when in this block (perhaps we're in the delay block!)
@@ -600,7 +600,7 @@ func (g *Graph) Worker(v *Vertex) error {
 				}
 			}
 			timer.Stop() // it's nice to cleanup
-			log.Printf("%s[%s]: Watch delay expired!", v.GetKind(), v.GetName())
+			log.Printf("%s: Watch delay expired!", VtoR(v).String())
 			// NOTE: we can avoid the send if running Watch guarantees
 			// one CheckApply event on startup!
 			//if pendingSendEvent { // TODO: should this become a list in the future?
@@ -612,13 +612,13 @@ func (g *Graph) Worker(v *Vertex) error {
 
 		// TODO: reset the watch retry count after some amount of success
 		var e error
-		if v.Res.Meta().Poll > 0 { // poll instead of watching :(
-			cuid, _, _ := v.Res.ConvergerUIDs() // get the converger uid used to report status
+		if VtoR(v).Meta().Poll > 0 { // poll instead of watching :(
+			cuid, _, _ := VtoR(v).ConvergerUIDs() // get the converger uid used to report status
 			cuid.StartTimer()
-			e = v.Res.Poll()
+			e = VtoR(v).Poll()
 			cuid.StopTimer() // clean up nicely
 		} else {
-			e = v.Res.Watch() // run the watch normally
+			e = VtoR(v).Watch() // run the watch normally
 		}
 		if e == nil { // exit signal
 			err = nil // clean exit
@@ -628,7 +628,7 @@ func (g *Graph) Worker(v *Vertex) error {
 			err = sentinelErr.err
 			break // sentinel means, perma-exit
 		}
-		log.Printf("%s[%s]: Watch errored: %v", v.GetKind(), v.GetName(), e)
+		log.Printf("%s: Watch errored: %v", VtoR(v).String(), e)
 		if watchRetry == 0 {
 			err = fmt.Errorf("Permanent watch error: %v", e)
 			break
@@ -636,8 +636,8 @@ func (g *Graph) Worker(v *Vertex) error {
 		if watchRetry > 0 { // don't decrement the -1
 			watchRetry--
 		}
-		watchDelay = time.Duration(v.Meta().Delay) * time.Millisecond
-		log.Printf("%s[%s]: Watch: Retrying after %.4f seconds (%d left)", v.GetKind(), v.GetName(), watchDelay.Seconds(), watchRetry)
+		watchDelay = time.Duration(VtoR(v).Meta().Delay) * time.Millisecond
+		log.Printf("%s: Watch: Retrying after %.4f seconds (%d left)", VtoR(v).String(), watchDelay.Seconds(), watchRetry)
 		// We need to trigger a CheckApply after Watch restarts, so that
 		// we catch any lost events that happened while down. We do this
 		// by getting the Watch resource to send one event once it's up!
@@ -656,24 +656,27 @@ func (g *Graph) Worker(v *Vertex) error {
 
 // Start is a main kick to start the graph. It goes through in reverse topological
 // sort order so that events can't hit un-started vertices.
-func (g *Graph) Start(first bool) { // start or continue
-	log.Printf("State: %v -> %v", g.setState(graphStateStarting), g.getState())
-	defer log.Printf("State: %v -> %v", g.setState(graphStateStarted), g.getState())
+func Start(g *pgraph.Graph, first bool) { // start or continue
+	log.Printf("State: %v -> %v", setState(g, graphStateStarting), getState(g))
+	defer log.Printf("State: %v -> %v", setState(g, graphStateStarted), getState(g))
 	t, _ := g.TopologicalSort()
 	indegree := g.InDegree() // compute all of the indegree's
-	reversed := Reverse(t)
+	reversed := pgraph.Reverse(t)
 	wg := &sync.WaitGroup{}
 	for _, v := range reversed { // run the Setup() for everyone first
 		// run these in parallel, as long as we wait before continuing
 		wg.Add(1)
-		go func(vv *Vertex) {
+		go func(vv pgraph.Vertex) {
 			defer wg.Done()
-			if !vv.Res.IsWorking() { // if Worker() is not running...
-				vv.Res.Setup() // initialize some vars in the resource
+			if !VtoR(vv).IsWorking() { // if Worker() is not running...
+				VtoR(vv).Setup() // initialize some vars in the resource
 			}
 		}(v)
 	}
 	wg.Wait()
+
+	// ptr b/c: Mutex/WaitGroup must not be copied after first use
+	gwg := WgFromGraph(g)
 
 	// run through the topological reverse, and start or unpause each vertex
 	for _, v := range reversed {
@@ -697,37 +700,37 @@ func (g *Graph) Start(first bool) { // start or continue
 		// of the indegree == 0 vertices, and an important aspect of the
 		// Process() function is that even if the state is correct, it
 		// will pass through the Poke so that it flows through the DAG.
-		v.Res.Starter(indegree[v] == 0)
+		VtoR(v).Starter(indegree[v] == 0)
 
 		var unpause = true
-		if !v.Res.IsWorking() { // if Worker() is not running...
+		if !VtoR(v).IsWorking() { // if Worker() is not running...
 			unpause = false // doesn't need unpausing on first start
-			g.wg.Add(1)
+			gwg.Add(1)
 			// must pass in value to avoid races...
 			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
-			go func(vv *Vertex) {
-				defer g.wg.Done()
-				defer vv.Res.Reset()
+			go func(vv pgraph.Vertex) {
+				defer gwg.Done()
+				defer VtoR(vv).Reset()
 				// TODO: if a sufficient number of workers error,
 				// should something be done? Should these restart
 				// after perma-failure if we have a graph change?
-				log.Printf("%s[%s]: Started", vv.GetKind(), vv.GetName())
-				if err := g.Worker(vv); err != nil { // contains the Watch and CheckApply loops
-					log.Printf("%s[%s]: Exited with failure: %v", vv.GetKind(), vv.GetName(), err)
+				log.Printf("%s: Started", VtoR(vv).String())
+				if err := Worker(g, vv); err != nil { // contains the Watch and CheckApply loops
+					log.Printf("%s: Exited with failure: %v", VtoR(vv).String(), err)
 					return
 				}
-				log.Printf("%s[%s]: Exited", vv.GetKind(), vv.GetName())
+				log.Printf("%s: Exited", VtoR(vv).String())
 			}(v)
 		}
 
 		select {
-		case <-v.Res.Started(): // block until started
-		case <-v.Res.Stopped(): // we failed on init
+		case <-VtoR(v).Started(): // block until started
+		case <-VtoR(v).Stopped(): // we failed on init
 			// if the resource Init() fails, we don't hang!
 		}
 
 		if unpause { // unpause (if needed)
-			v.Res.SendEvent(event.EventStart, nil) // sync!
+			VtoR(v).SendEvent(event.EventStart, nil) // sync!
 		}
 	}
 	// we wait for everyone to start before exiting!
@@ -736,27 +739,27 @@ func (g *Graph) Start(first bool) { // start or continue
 // Pause sends pause events to the graph in a topological sort order. If you set
 // the fastPause argument to true, then it will ask future propagation waves to
 // not run through the graph before exiting, and instead will exit much quicker.
-func (g *Graph) Pause(fastPause bool) {
-	log.Printf("State: %v -> %v", g.setState(graphStatePausing), g.getState())
-	defer log.Printf("State: %v -> %v", g.setState(graphStatePaused), g.getState())
+func Pause(g *pgraph.Graph, fastPause bool) {
+	log.Printf("State: %v -> %v", setState(g, graphStatePausing), getState(g))
+	defer log.Printf("State: %v -> %v", setState(g, graphStatePaused), getState(g))
 	if fastPause {
-		g.fastPause = true // set flag
+		g.SetValue("fastpause", true) // set flag
 	}
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
-		v.SendEvent(event.EventPause, nil) // sync
+		VtoR(v).SendEvent(event.EventPause, nil) // sync
 	}
-	g.fastPause = false // reset flag
+	g.SetValue("fastpause", false) // reset flag
 }
 
 // Exit sends exit events to the graph in a topological sort order.
-func (g *Graph) Exit() {
+func Exit(g *pgraph.Graph) {
 	if g == nil { // empty graph that wasn't populated yet
 		return
 	}
 
 	// FIXME: a second ^C could put this into fast pause, but do it for now!
-	g.Pause(true) // implement this with pause to avoid duplicating the code
+	Pause(g, true) // implement this with pause to avoid duplicating the code
 
 	t, _ := g.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
@@ -766,8 +769,25 @@ func (g *Graph) Exit() {
 		// when we hit the 'default' in the select statement!
 		// XXX: we can do this to quiesce, but it's not necessary now
 
-		v.SendEvent(event.EventExit, nil)
-		v.Res.WaitGroup().Wait()
+		VtoR(v).SendEvent(event.EventExit, nil)
+		VtoR(v).WaitGroup().Wait()
 	}
-	g.wg.Wait() // for now, this doesn't need to be a separate Wait() method
+	gwg := WgFromGraph(g)
+	gwg.Wait() // for now, this doesn't need to be a separate Wait() method
+}
+
+// WgFromGraph returns a pointer to the waitgroup stored with the graph,
+// otherwise it panics. If one does not exist, it will create it.
+func WgFromGraph(g *pgraph.Graph) *sync.WaitGroup {
+	x, exists := g.Value("waitgroup")
+	if !exists {
+		g.SetValue("waitgroup", &sync.WaitGroup{})
+		x, _ = g.Value("waitgroup")
+	}
+
+	wg, ok := x.(*sync.WaitGroup)
+	if !ok {
+		panic("not a *sync.WaitGroup")
+	}
+	return wg
 }

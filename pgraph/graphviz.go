@@ -45,15 +45,15 @@ func (g *Graph) Graphviz() (out string) {
 	out += fmt.Sprintf("\tlabel=\"%s\";\n", g.GetName())
 	//out += "\tnode [shape=box];\n"
 	str := ""
-	for i := range g.adjacency { // reverse paths
-		out += fmt.Sprintf("\t\"%s\" [label=\"%s[%s]\"];\n", i.GetName(), i.GetKind(), i.GetName())
-		for j := range g.adjacency[i] {
-			k := g.adjacency[i][j]
+	for i := range g.Adjacency() { // reverse paths
+		out += fmt.Sprintf("\t\"%s\" [label=\"%s\"];\n", i, i)
+		for j := range g.Adjacency()[i] {
+			k := g.Adjacency()[i][j]
 			// use str for clearer output ordering
 			if k.Notify {
-				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i.GetName(), j.GetName(), k.Name)
+				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i, j, k.Name)
 			} else {
-				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\"];\n", i.GetName(), j.GetName(), k.Name)
+				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\"];\n", i, j, k.Name)
 			}
 		}
 	}

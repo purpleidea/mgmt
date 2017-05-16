@@ -331,11 +331,39 @@ type ExecUID struct {
 	// TODO: add more elements here
 }
 
-// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
+// ExecResAutoEdges holds the state of the auto edge generator.
+type ExecResAutoEdges struct {
+	edges []ResUID
+}
+
+// Next returns the next automatic edge.
+func (obj *ExecResAutoEdges) Next() []ResUID {
+	return obj.edges
+}
+
+// Test gets results of the earlier Next() call, & returns if we should continue!
+func (obj *ExecResAutoEdges) Test(input []bool) bool {
+	return false // Never keep going
+	// TODO: We could return false if we find as many edges as the number of different path in cmdFiles()
+}
+
+// AutoEdges returns the AutoEdge interface. In this case the systemd units.
 func (obj *ExecRes) AutoEdges() (AutoEdge, error) {
-	// TODO: parse as many exec params to look for auto edges, for example
-	// the path of the binary in the Cmd variable might be from in a pkg
-	return nil, nil
+	var data []ResUID
+	for _, x := range obj.cmdFiles() {
+		var reversed = true
+		data = append(data, &PkgFileUID{
+			BaseUID: BaseUID{
+				Name:     obj.GetName(),
+				Kind:     obj.GetKind(),
+				Reversed: &reversed,
+			},
+			path: x, // what matters
+		})
+	}
+	return &ExecResAutoEdges{
+		edges: data,
+	}, nil
 }
 
 // UIDs includes all params to make a unique identification of this object.
@@ -484,4 +512,25 @@ func (w *wrapWriter) Write(p []byte) (int, error) {
 // String returns the contents of the unshared buffer.
 func (w *wrapWriter) String() string {
 	return w.Buffer.String()
+}
+
+// cmdFiles returns all the potential files/commands this command might need.
+func (obj *ExecRes) cmdFiles() []string {
+	var paths []string
+	if obj.Shell != "" {
+		paths = append(paths, obj.Shell)
+	} else if cmdSplit := strings.Fields(obj.Cmd); len(cmdSplit) > 0 {
+		paths = append(paths, cmdSplit[0])
+	}
+	if obj.WatchShell != "" {
+		paths = append(paths, obj.WatchShell)
+	} else if watchSplit := strings.Fields(obj.WatchCmd); len(watchSplit) > 0 {
+		paths = append(paths, watchSplit[0])
+	}
+	if obj.IfShell != "" {
+		paths = append(paths, obj.IfShell)
+	} else if ifSplit := strings.Fields(obj.IfCmd); len(ifSplit) > 0 {
+		paths = append(paths, ifSplit[0])
+	}
+	return paths
 }

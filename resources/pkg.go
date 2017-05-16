@@ -323,11 +323,17 @@ func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
 	return false, nil // success
 }
 
-// PkgUID is the UID struct for PkgRes.
+// PkgUID is the main UID struct for PkgRes.
 type PkgUID struct {
 	BaseUID
 	name  string // pkg name
 	state string // pkg state or "version"
+}
+
+// PkgFileUID is the UID struct for PkgRes files.
+type PkgFileUID struct {
+	BaseUID
+	path string // path of the file
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.
@@ -473,6 +479,14 @@ func (obj *PkgRes) UIDs() []ResUID {
 		state:   obj.State,
 	}
 	result := []ResUID{x}
+
+	for _, y := range obj.fileList {
+		y := &PkgFileUID{
+			BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
+			path:    y,
+		}
+		result = append(result, y)
+	}
 	return result
 }
 

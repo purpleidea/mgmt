@@ -1,0 +1,21 @@
+---
+graph: mygraph
+resources:
+  pkg:
+  - name: httpd
+    meta:
+      autoedge: true
+      noop: true
+    state: installed
+  exec:
+  - name: pkg10
+    cmd: /usr/bin/apachectl status
+    shell: ''
+    timeout: 0
+    watchcmd: ''
+    watchshell: ''
+    ifcmd: ''
+    ifshell: ''
+    pollint: 0
+    state: present
+edges: []

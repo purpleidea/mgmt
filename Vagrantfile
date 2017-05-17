@@ -23,6 +23,15 @@ Vagrant.configure(2) do |config|
 	# copied from make-deps.sh (with added git)
 	config.vm.provision "shell", inline: "dnf install -y libvirt-devel golang golang-googlecode-tools-stringer hg git make"
 
+	# set up packagekit
+	config.vm.provision "shell" do |shell|
+		shell.inline = <<-SCRIPT
+			dnf install -y PackageKit
+			systemctl enable packagekit
+			systemctl start packagekit
+		SCRIPT
+	end
+
 	# set up vagrant home
 	script = <<-SCRIPT
 		grep -q 'mgmt\.bashrc' ~/.bashrc || echo '. ~/.mgmt.bashrc' >>~/.bashrc

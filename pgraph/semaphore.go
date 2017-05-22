@@ -108,17 +108,17 @@ func SemaLockFromGraph(g *Graph) *sync.Mutex {
 
 // SemaMapFromGraph returns a pointer to the map of semaphores stored with the
 // graph, otherwise it panics. If one does not exist, it will create it.
-func SemaMapFromGraph(g *Graph) *map[string]*semaphore.Semaphore {
+func SemaMapFromGraph(g *pgraph.Graph) map[string]*semaphore.Semaphore {
 	x, exists := g.Value("semas")
 	if !exists {
 		semas := make(map[string]*semaphore.Semaphore)
-		g.SetValue("semas", &semas)
+		g.SetValue("semas", semas)
 		x, _ = g.Value("semas")
 	}
 
-	semas, ok := x.(*map[string]*semaphore.Semaphore)
+	semas, ok := x.(map[string]*semaphore.Semaphore)
 	if !ok {
-		panic("not a *map[string]*semaphore.Semaphore")
+		panic("not a map[string]*semaphore.Semaphore")
 	}
 	return semas
 }

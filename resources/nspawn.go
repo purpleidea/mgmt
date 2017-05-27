@@ -134,11 +134,11 @@ func (obj *NspawnRes) Watch() error {
 		case event := <-buschan:
 			// process org.freedesktop.machine1 events for this resource's name
 			if event.Body[0] == obj.GetName() {
-				log.Printf("%s[%s]: Event received: %v", obj.GetKind(), obj.GetName(), event.Name)
+				log.Printf("%s: Event received: %v", obj, event.Name)
 				if event.Name == machineNew {
-					log.Printf("%s[%s]: Machine started", obj.GetKind(), obj.GetName())
+					log.Printf("%s: Machine started", obj)
 				} else if event.Name == machineRemoved {
-					log.Printf("%s[%s]: Machine stopped", obj.GetKind(), obj.GetName())
+					log.Printf("%s: Machine stopped", obj)
 				} else {
 					return fmt.Errorf("unknown event: %s", event.Name)
 				}
@@ -195,13 +195,13 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 		}
 	}
 	if obj.debug {
-		log.Printf("%s[%s]: properties: %v", obj.GetKind(), obj.GetName(), properties)
+		log.Printf("%s: properties: %v", obj, properties)
 	}
 	// if the machine doesn't exist and is supposed to
 	// be stopped or the state matches we're done
 	if !exists && obj.State == stopped || properties["State"] == obj.State {
 		if obj.debug {
-			log.Printf("%s[%s]: CheckApply() in valid state", obj.GetKind(), obj.GetName())
+			log.Printf("%s: CheckApply() in valid state", obj)
 		}
 		return true, nil
 	}
@@ -212,12 +212,12 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 	}
 
 	if obj.debug {
-		log.Printf("%s[%s]: CheckApply() applying '%s' state", obj.GetKind(), obj.GetName(), obj.State)
+		log.Printf("%s: CheckApply() applying '%s' state", obj, obj.State)
 	}
 
 	if obj.State == running {
 		// start the machine using svc resource
-		log.Printf("%s[%s]: Starting machine", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Starting machine", obj)
 		// assume state had to be changed at this point, ignore checkOK
 		if _, err := obj.svc.CheckApply(apply); err != nil {
 			return false, errwrap.Wrapf(err, "nested svc failed")
@@ -226,7 +226,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 	if obj.State == stopped {
 		// terminate the machine with
 		// org.freedesktop.machine1.Manager.KillMachine
-		log.Printf("%s[%s]: Stopping machine", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Stopping machine", obj)
 		if err := conn.TerminateMachine(obj.GetName()); err != nil {
 			return false, errwrap.Wrapf(err, "failed to stop machine")
 		}

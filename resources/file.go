@@ -199,7 +199,7 @@ func (obj *FileRes) Watch() error {
 
 	for {
 		if obj.debug {
-			log.Printf("%s[%s]: Watching: %s", obj.GetKind(), obj.GetName(), obj.path) // attempting to watch...
+			log.Printf("%s: Watching: %s", obj, obj.path) // attempting to watch...
 		}
 
 		select {
@@ -208,10 +208,10 @@ func (obj *FileRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			if obj.debug { // don't access event.Body if event.Error isn't nil
-				log.Printf("%s[%s]: Event(%s): %v", obj.GetKind(), obj.GetName(), event.Body.Name, event.Body.Op)
+				log.Printf("%s: Event(%s): %v", obj, event.Body.Name, event.Body.Op)
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -636,7 +636,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 
 // contentCheckApply performs a CheckApply for the file existence and content.
 func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
-	log.Printf("%s[%s]: contentCheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
+	log.Printf("%s: contentCheckApply(%t)", obj, apply)
 
 	if obj.State == "absent" {
 		if _, err := os.Stat(obj.path); os.IsNotExist(err) {
@@ -698,7 +698,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 
 // chmodCheckApply performs a CheckApply for the file permissions.
 func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
-	log.Printf("%s[%s]: chmodCheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
+	log.Printf("%s: chmodCheckApply(%t)", obj, apply)
 
 	if obj.State == "absent" {
 		// File is absent
@@ -744,7 +744,7 @@ func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
 // chownCheckApply performs a CheckApply for the file ownership.
 func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 	var expectedUID, expectedGID int
-	log.Printf("%s[%s]: chownCheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
+	log.Printf("%s: chownCheckApply(%t)", obj, apply)
 
 	if obj.State == "absent" {
 		// File is absent or no owner specified

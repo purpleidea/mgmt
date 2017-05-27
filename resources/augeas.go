@@ -119,7 +119,7 @@ func (obj *AugeasRes) Watch() error {
 
 	for {
 		if obj.debug {
-			log.Printf("%s[%s]: Watching: %s", obj.GetKind(), obj.GetName(), obj.File) // attempting to watch...
+			log.Printf("%s: Watching: %s", obj, obj.File) // attempting to watch...
 		}
 
 		select {
@@ -128,10 +128,10 @@ func (obj *AugeasRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
+				return errwrap.Wrapf(err, "Unknown %s watcher error", obj)
 			}
 			if obj.debug { // don't access event.Body if event.Error isn't nil
-				log.Printf("%s[%s]: Event(%s): %v", obj.GetKind(), obj.GetName(), event.Body.Name, event.Body.Op)
+				log.Printf("%s: Event(%s): %v", obj, event.Body.Name, event.Body.Op)
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -178,7 +178,7 @@ func (obj *AugeasRes) checkApplySet(apply bool, ag *augeas.Augeas, set AugeasSet
 
 // CheckApply method for Augeas resource.
 func (obj *AugeasRes) CheckApply(apply bool) (bool, error) {
-	log.Printf("%s[%s]: CheckApply: %s", obj.GetKind(), obj.GetName(), obj.File)
+	log.Printf("%s: CheckApply: %s", obj, obj.File)
 	// By default we do not set any option to augeas, we use the defaults.
 	opts := augeas.None
 	if obj.Lens != "" {
@@ -226,7 +226,7 @@ func (obj *AugeasRes) CheckApply(apply bool) (bool, error) {
 		return checkOK, nil
 	}
 
-	log.Printf("%s[%s]: changes needed, saving", obj.GetKind(), obj.GetName())
+	log.Printf("%s: changes needed, saving", obj)
 	if err = ag.Save(); err != nil {
 		return false, errwrap.Wrapf(err, "augeas: error while saving augeas values")
 	}

@@ -50,7 +50,7 @@ func addEdgesByMatchingUIDS(g *pgraph.Graph, v pgraph.Vertex, uids []ResUID) []b
 				continue
 			}
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("Compile: AutoEdge: Match: %s with UID: %s[%s]", VtoR(vv).String(), uid.GetKind(), uid.GetName())
+				log.Printf("Compile: AutoEdge: Match: %s with UID: %s", VtoR(vv).String(), uid)
 			}
 			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful

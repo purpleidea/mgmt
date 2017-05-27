@@ -196,7 +196,7 @@ func (obj *SvcRes) Watch() error {
 				obj.StateOK(false) // dirty
 
 			case err := <-subErrors:
-				return errwrap.Wrapf(err, "unknown %s[%s] error", obj.GetKind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s error", obj)
 
 			case event := <-obj.Events():
 				if exit, send = obj.ReadEvent(event); exit != nil {
@@ -267,7 +267,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 	}
 
 	// apply portion
-	log.Printf("%s[%s]: Apply", obj.GetKind(), obj.GetName())
+	log.Printf("%s: Apply", obj)
 	var files = []string{svc} // the svc represented in a list
 	if obj.Startup == "enabled" {
 		_, _, err = conn.EnableUnitFiles(files, false, true)
@@ -289,7 +289,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 			return false, errwrap.Wrapf(err, "failed to start unit")
 		}
 		if refresh {
-			log.Printf("%s[%s]: Skipping reload, due to pending start", obj.GetKind(), obj.GetName())
+			log.Printf("%s: Skipping reload, due to pending start", obj)
 		}
 		refresh = false // we did a start, so a reload is not needed
 	} else if obj.State == "stopped" {
@@ -298,7 +298,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 			return false, errwrap.Wrapf(err, "failed to stop unit")
 		}
 		if refresh {
-			log.Printf("%s[%s]: Skipping reload, due to pending stop", obj.GetKind(), obj.GetName())
+			log.Printf("%s: Skipping reload, due to pending stop", obj)
 		}
 		refresh = false // we did a stop, so a reload is not needed
 	}
@@ -313,7 +313,7 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 	if refresh { // we need to reload the service
 		// XXX: run a svc reload here!
-		log.Printf("%s[%s]: Reloading...", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Reloading...", obj)
 	}
 
 	// XXX: also set enabled on boot

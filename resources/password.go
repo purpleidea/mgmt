@@ -188,7 +188,7 @@ func (obj *PasswordRes) Watch() error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -229,7 +229,7 @@ func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
 			if !obj.CheckRecovery {
 				return false, errwrap.Wrapf(err, "check failed")
 			}
-			log.Printf("%s[%s]: Integrity check failed", obj.GetKind(), obj.GetName())
+			log.Printf("%s: Integrity check failed", obj)
 			generate = true // okay to build a new one
 			write = true    // make sure to write over the old one
 		}
@@ -263,7 +263,7 @@ func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
 		}
 		// generate the actual password
 		var err error
-		log.Printf("%s[%s]: Generating new password...", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Generating new password...", obj)
 		if password, err = obj.generate(); err != nil { // generate one!
 			return false, errwrap.Wrapf(err, "could not generate password")
 		}
@@ -280,7 +280,7 @@ func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
 			output = password
 		}
 		// write either an empty token, or the password
-		log.Printf("%s[%s]: Writing password token...", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Writing password token...", obj)
 		if _, err := obj.write(output); err != nil {
 			return false, errwrap.Wrapf(err, "can't write to file")
 		}

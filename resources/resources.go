@@ -31,6 +31,7 @@ import (
 	// TODO: should each resource be a sub-package?
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/util"
 
@@ -108,6 +109,8 @@ type Data struct {
 type ResUID interface {
 	GetName() string
 	GetKind() string
+	fmt.Stringer // String() string
+
 	IFF(ResUID) bool
 
 	IsReversed() bool // true means this resource happens before the generator
@@ -181,14 +184,12 @@ type Base interface {
 	Meta() *MetaParams
 	Events() chan *event.Event
 	Data() *Data
-	IsWorking() bool
-	IsQuiescing() bool
-	QuiesceGroup() *sync.WaitGroup
-	WaitGroup() *sync.WaitGroup
-	Setup()
+	Working() *bool
+	Setup(*pgraph.Graph, pgraph.Vertex, Res)
+	Update(*pgraph.Graph)
 	Reset()
+	Exit()
 	Converger() converger.Converger
-	ConvergerUIDs() (converger.UID, converger.UID, converger.UID)
 	GetState() ResState
 	SetState(ResState)
 	Timestamp() int64
@@ -213,10 +214,7 @@ type Base interface {
 	Stopped() <-chan struct{} // returns when the resource has stopped
 	Starter(bool)
 	Poll() error // poll alternative to watching :(
-	ProcessChan() chan *event.Event
-	ProcessSync() *sync.WaitGroup
-	ProcessExit()
-	Prometheus() *prometheus.Prometheus
+	Worker() error
 }
 
 // Res is the minimum interface you need to implement to define a new resource.
@@ -237,11 +235,15 @@ type Res interface {
 
 // BaseRes is the base struct that gets used in every resource.
 type BaseRes struct {
-	Name       string           `yaml:"name"`
-	MetaParams MetaParams       `yaml:"meta"` // struct of all the metaparams
-	Recv       map[string]*Send // mapping of key to receive on from value
+	Res    Res           // pointer to full res
+	Graph  *pgraph.Graph // pointer to graph I'm currently in
+	Vertex pgraph.Vertex // pointer to vertex I currently am
 
-	Kind      string
+	Recv       map[string]*Send // mapping of key to receive on from value
+	Kind       string
+	Name       string     `yaml:"name"`
+	MetaParams MetaParams `yaml:"meta"` // struct of all the metaparams
+
 	data      Data
 	timestamp int64 // last updated timestamp
 	state     ResState
@@ -253,8 +255,8 @@ type BaseRes struct {
 
 	processLock *sync.Mutex
 	processDone bool
-	processChan chan *event.Event
-	processSync *sync.WaitGroup
+	processChan chan *event.Event // chan that resources send events to
+	processSync *sync.WaitGroup   // blocks until the innerWorker closes
 
 	converger converger.Converger // converged tracking
 	cuid      converger.UID
@@ -266,11 +268,10 @@ type BaseRes struct {
 	isStarted bool          // did the started chan already close?
 	starter   bool          // does this have indegree == 0 ? XXX: usually?
 
-	quiescing    bool // are we quiescing (pause or exit)
+	quiescing    bool // are we quiescing (pause or exit), tell event replay
 	quiesceGroup *sync.WaitGroup
 	waitGroup    *sync.WaitGroup
 	working      bool // is the Worker() loop running ?
-	debug        bool
 	isStateOK    bool // whether the state is okay based on events or not
 
 	isGrouped bool  // am i contained within a group?
@@ -278,6 +279,8 @@ type BaseRes struct {
 
 	refresh bool // does this resource have a refresh to run?
 	//refreshState StatefulBool // TODO: future stateful bool
+
+	debug bool
 }
 
 // UnmarshalYAML is the custom unmarshal handler for the BaseRes struct. It is
@@ -303,14 +306,19 @@ type BaseRes struct {
 //	return nil
 //}
 
-// GetName returns the name of the resource.
+// GetName returns the name of the resource UID.
 func (obj *BaseUID) GetName() string {
 	return obj.Name
 }
 
-// GetKind returns the kind of the resource.
+// GetKind returns the kind of the resource UID.
 func (obj *BaseUID) GetKind() string {
 	return obj.Kind
+}
+
+// String returns the canonical string representation for a resource UID.
+func (obj *BaseUID) String() string {
+	return fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName())
 }
 
 // IFF looks at two UID's and if and only if they are equivalent, returns true.
@@ -346,7 +354,7 @@ func (obj *BaseRes) Validate() error {
 // Init initializes structures like channels if created without New constructor.
 func (obj *BaseRes) Init() error {
 	if obj.debug {
-		log.Printf("%s[%s]: Init()", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Init()", obj)
 	}
 	if obj.Kind == "" {
 		return fmt.Errorf("resource did not set kind")
@@ -364,9 +372,11 @@ func (obj *BaseRes) Init() error {
 	obj.quiescing = false // no quiesce operation is happening at the moment
 	obj.quiesceGroup = &sync.WaitGroup{}
 
+	// more useful than a closed channel signal, since it can be re-used
+	// safely without having to recreate it and worry about stale handles
 	obj.waitGroup = &sync.WaitGroup{} // Init and Close must be 1-1 matched!
 	obj.waitGroup.Add(1)
-	obj.working = true // Worker method should now be running...
+	//obj.working = true // Worker method should now be running...
 
 	// FIXME: force a sane default until UnmarshalYAML on *BaseRes works...
 	if obj.Meta().Burst == 0 && obj.Meta().Limit == 0 { // blocked
@@ -383,7 +393,7 @@ func (obj *BaseRes) Init() error {
 	// TODO: this StatefulBool implementation could be eventually swappable
 	//obj.refreshState = &DiskBool{Path: path.Join(dir, refreshPathToken)}
 
-	if err := obj.Prometheus().AddManagedResource(fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName()), obj.GetKind()); err != nil {
+	if err := obj.Data().Prometheus.AddManagedResource(obj.String(), obj.GetKind()); err != nil {
 		return errwrap.Wrapf(err, "could not increase prometheus counter!")
 	}
 
@@ -393,18 +403,18 @@ func (obj *BaseRes) Init() error {
 // Close shuts down and performs any cleanup.
 func (obj *BaseRes) Close() error {
 	if obj.debug {
-		log.Printf("%s[%s]: Close()", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Close()", obj)
 	}
 
 	obj.pcuid.Unregister()
 	obj.wcuid.Unregister()
 	obj.cuid.Unregister()
 
-	obj.working = false // Worker method should now be closing...
+	//obj.working = false // Worker method should now be closing...
 	close(obj.stopped)
 	obj.waitGroup.Done()
 
-	if err := obj.Prometheus().RemoveManagedResource(fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName()), obj.GetKind()); err != nil {
+	if err := obj.Data().Prometheus.RemoveManagedResource(obj.String(), obj.GetKind()); err != nil {
 		return errwrap.Wrapf(err, "could not decrease prometheus counter!")
 	}
 
@@ -451,52 +461,54 @@ func (obj *BaseRes) Data() *Data {
 	return &obj.data
 }
 
-// IsWorking tells us if the Worker() function is running. Not thread safe.
-func (obj *BaseRes) IsWorking() bool {
-	return obj.working
+// Working returns a pointer to the bool which should track Worker run state.
+func (obj *BaseRes) Working() *bool {
+	return &obj.working
 }
-
-// IsQuiescing returns if there is a quiesce operation in progress. Pause and
-// exit both meet this criteria, and this tells some systems to wind down, such
-// as the event replay mechanism.
-func (obj *BaseRes) IsQuiescing() bool { return obj.quiescing }
-
-// QuiesceGroup returns the sync group associated with the quiesce operations.
-func (obj *BaseRes) QuiesceGroup() *sync.WaitGroup { return obj.quiesceGroup }
-
-// WaitGroup returns a sync.WaitGroup which is open when the resource is done.
-// This is more useful than a closed channel signal, since it can be re-used
-// safely without having to recreate it and worry about stale channel handles.
-func (obj *BaseRes) WaitGroup() *sync.WaitGroup { return obj.waitGroup }
 
 // Setup does some work which must happen before the Worker starts. It happens
 // once per Worker startup. It can happen in parallel with other Setup calls, so
 // add locks around any operation that's not thread-safe.
-func (obj *BaseRes) Setup() {
+func (obj *BaseRes) Setup(graph *pgraph.Graph, vertex pgraph.Vertex, res Res) {
 	obj.started = make(chan struct{}) // closes when started
 	obj.stopped = make(chan struct{}) // closes when stopped
 
 	obj.eventsLock = &sync.Mutex{}
 	obj.eventsDone = false
 	obj.eventsChan = make(chan *event.Event) // unbuffered chan to avoid stale events
+
+	obj.Res = res       // store a pointer to the full object
+	obj.Vertex = vertex // store a pointer to the vertex i'm
+	obj.Graph = graph   // store a pointer to the graph we're in
+}
+
+// Update refreshes the internal graph pointer that we're primarily used in.
+func (obj *BaseRes) Update(graph *pgraph.Graph) {
+	obj.Graph = graph // store a pointer to the graph i'm in
 }
 
 // Reset from Setup. These can get called for different vertices in parallel.
 func (obj *BaseRes) Reset() {
+	obj.Res = nil
+	obj.Vertex = nil
+	obj.Graph = nil
 	return
+}
+
+// Exit the resource. Wrapper function to keep the logic in one place for now.
+func (obj *BaseRes) Exit() {
+	// XXX: consider instead doing this by closing the Res.events channel instead?
+	// XXX: do this by sending an exit signal, and then returning
+	// when we hit the 'default' in the select statement!
+	// XXX: we can do this to quiesce, but it's not necessary now
+	obj.SendEvent(event.EventExit, nil) // sync
+	obj.waitGroup.Wait()
 }
 
 // Converger returns the converger object used by the system. It can be used to
 // register new convergers if needed.
 func (obj *BaseRes) Converger() converger.Converger {
 	return obj.data.Converger
-}
-
-// ConvergerUIDs returns the ConvergerUIDs for the resource. This is called by
-// the various methods that need one of these ConvergerUIDs. They are registered
-// by the Init method and unregistered on the resource Close.
-func (obj *BaseRes) ConvergerUIDs() (cuid, wcuid, pcuid converger.UID) {
-	return obj.cuid, obj.wcuid, obj.pcuid
 }
 
 // GetState returns the state of the resource.
@@ -507,7 +519,7 @@ func (obj *BaseRes) GetState() ResState {
 // SetState sets the state of the resource.
 func (obj *BaseRes) SetState(state ResState) {
 	if obj.debug {
-		log.Printf("%s[%s]: State: %v -> %v", obj.GetKind(), obj.GetName(), obj.GetState(), state)
+		log.Printf("%s: State: %v -> %v", obj, obj.GetState(), state)
 	}
 	obj.state = state
 }
@@ -532,12 +544,6 @@ func (obj *BaseRes) IsStateOK() bool {
 func (obj *BaseRes) StateOK(b bool) {
 	obj.isStateOK = b
 }
-
-// ProcessChan returns the chan that resources send events to. Internal API!
-func (obj *BaseRes) ProcessChan() chan *event.Event { return obj.processChan }
-
-// ProcessSync returns the WaitGroup that blocks until the innerWorker closes.
-func (obj *BaseRes) ProcessSync() *sync.WaitGroup { return obj.processSync }
 
 // ProcessExit causes the innerWorker to close and waits until it does so.
 func (obj *BaseRes) ProcessExit() {
@@ -671,7 +677,7 @@ func (obj *BaseRes) VarDir(extra string) (string, error) {
 	uid := obj.GetName()
 	p := fmt.Sprintf("%s/", path.Join(obj.prefix, obj.GetKind(), uid, extra))
 	if err := os.MkdirAll(p, 0770); err != nil {
-		return "", errwrap.Wrapf(err, "can't create prefix for %s[%s]", obj.GetKind(), obj.GetName())
+		return "", errwrap.Wrapf(err, "can't create prefix for %s", obj)
 	}
 	return p, nil
 }
@@ -688,8 +694,6 @@ func (obj *BaseRes) Starter(b bool) { obj.starter = b }
 
 // Poll is the watch replacement for when we want to poll, which outputs events.
 func (obj *BaseRes) Poll() error {
-	cuid, _, _ := obj.ConvergerUIDs() // get the converger uid used to report status
-
 	// create a time.Ticker for the given interval
 	ticker := time.NewTicker(time.Duration(obj.Meta().Poll) * time.Second)
 	defer ticker.Stop()
@@ -698,19 +702,19 @@ func (obj *BaseRes) Poll() error {
 	if err := obj.Running(); err != nil {
 		return err // bubble up a NACK...
 	}
-	cuid.SetConverged(false) // quickly stop any converge due to Running()
+	obj.cuid.SetConverged(false) // quickly stop any converge due to Running()
 
 	var send = false
 	var exit *error
 	for {
 		select {
 		case <-ticker.C: // received the timer event
-			log.Printf("%s[%s]: polling...", obj.GetKind(), obj.GetName())
+			log.Printf("%s: polling...", obj)
 			send = true
 			obj.StateOK(false) // dirty
 
 		case event := <-obj.Events():
-			cuid.ResetTimer() // important
+			obj.cuid.ResetTimer() // important
 			if exit, send = obj.ReadEvent(event); exit != nil {
 				return *exit // exit
 			}
@@ -723,9 +727,13 @@ func (obj *BaseRes) Poll() error {
 	}
 }
 
-// Prometheus returns the prometheus instance.
-func (obj *BaseRes) Prometheus() *prometheus.Prometheus {
-	return obj.Data().Prometheus
+// VtoR casts the Vertex into a Res for use. It panics if it can't convert.
+func VtoR(v pgraph.Vertex) Res {
+	res, ok := v.(Res)
+	if !ok {
+		panic("not a Res")
+	}
+	return res
 }
 
 // TODO: consider adding a mutate API.

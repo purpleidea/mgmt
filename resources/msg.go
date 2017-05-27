@@ -168,7 +168,7 @@ func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	if !obj.logStateOK {
-		log.Printf("%s[%s]: Body: %s", obj.GetKind(), obj.GetName(), obj.Body)
+		log.Printf("%s: Body: %s", obj, obj.Body)
 		obj.logStateOK = true
 		obj.updateStateOK()
 	}

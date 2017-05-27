@@ -240,7 +240,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 
 			if matched {
 				// we've already matched this resource, should we match again?
-				log.Printf("Config: Warning: Matching %s[%s] again!", kind, res.GetName())
+				log.Printf("Config: Warning: Matching %s again!", res)
 			}
 			matched = true
 
@@ -253,7 +253,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 				res.CollectPattern(t.Pattern) // res.Dirname = t.Pattern
 			}
 
-			log.Printf("Collect: %s[%s]: collected!", kind, res.GetName())
+			log.Printf("Collect: %s: collected!", res)
 
 			// XXX: similar to other resource add code:
 			if _, exists := lookup[kind]; !exists {

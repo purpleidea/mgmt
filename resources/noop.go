@@ -83,7 +83,7 @@ func (obj *NoopRes) Watch() error {
 // CheckApply method for Noop resource. Does nothing, returns happy!
 func (obj *NoopRes) CheckApply(apply bool) (checkOK bool, err error) {
 	if obj.Refresh() {
-		log.Printf("%s[%s]: Received a notification!", obj.GetKind(), obj.GetName())
+		log.Printf("%s: Received a notification!", obj)
 	}
 	return true, nil // state is always okay
 }

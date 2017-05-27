@@ -298,7 +298,11 @@ func (obj *Main) Run() error {
 		// TODO: Import admin key
 	}
 
-	var G, oldGraph *pgraph.Graph
+	oldGraph := &pgraph.Graph{}
+	graph := &resources.MGraph{}
+	// pass in the information we need
+	graph.Debug = obj.Flags.Debug
+	graph.Init()
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := obj.MaxRuntime; i > 0 {
@@ -367,6 +371,15 @@ func (obj *Main) Run() error {
 		EmbdEtcd: EmbdEtcd,
 	}
 
+	graph.Data = &resources.Data{
+		Hostname:   hostname,
+		Converger:  converger,
+		Prometheus: prom,
+		World:      world,
+		Prefix:     pgraphPrefix,
+		Debug:      obj.Flags.Debug,
+	}
+
 	var gapiChan chan error // stream events are nil errors
 	if obj.GAPI != nil {
 		data := gapi.Data{
@@ -425,10 +438,10 @@ func (obj *Main) Run() error {
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
 			if !first { // TODO: we can flatten this check out I think
-				converger.Pause()         // FIXME: add sync wait?
-				resources.Pause(G, false) // sync
+				converger.Pause()  // FIXME: add sync wait?
+				graph.Pause(false) // sync
 
-				//G.UnGroup() // FIXME: implement me if needed!
+				//graph.UnGroup() // FIXME: implement me if needed!
 			}
 
 			// make the graph from yaml, lib, puppet->yaml, or dsl!
@@ -437,23 +450,20 @@ func (obj *Main) Run() error {
 				log.Printf("Main: Error creating new graph: %v", err)
 				// unpause!
 				if !first {
-					resources.Start(G, first) // sync
-					converger.Start()         // after G.Start()
+					graph.Start(first) // sync
+					converger.Start()  // after Start()
 				}
 				continue
 			}
-			newGraph.SetValue("debug", obj.Flags.Debug)
-			// pass in the information we need
-			associateData(newGraph, &resources.Data{
-				Hostname:   hostname,
-				Converger:  converger,
-				Prometheus: prom,
-				World:      world,
-				Prefix:     pgraphPrefix,
-				Debug:      obj.Flags.Debug,
-			})
+			if obj.Flags.Debug {
+				log.Printf("Main: New Graph: %v", newGraph)
+			}
 
-			for _, m := range graphMetas(newGraph) {
+			// this edits the paused vertices, but it is safe to do
+			// so even if we don't use this new graph, since those
+			// value should be the same for existing vertices...
+			for _, v := range newGraph.Vertices() {
+				m := resources.VtoR(v).Meta()
 				// apply the global noop parameter if requested
 				if obj.Noop {
 					m.Noop = obj.Noop
@@ -466,48 +476,59 @@ func (obj *Main) Run() error {
 				}
 			}
 
-			// FIXME: make sure we "UnGroup()" any semi-destructive
-			// changes to the resources so our efficient GraphSync
-			// will be able to re-use and cmp to the old graph.
+			// We don't have to "UnGroup()" to compare, since we
+			// save the old graph to use when we compare.
+			// TODO: Does this hurt performance or graph changes ?
 			log.Printf("Main: GraphSync...")
-			newFullGraph, err := resources.GraphSync(newGraph, oldGraph)
-			if err != nil {
+			vertexCmpFn := func(v1, v2 pgraph.Vertex) (bool, error) {
+				return resources.VtoR(v1).Compare(resources.VtoR(v2)), nil
+			}
+			vertexAddFn := func(v pgraph.Vertex) error {
+				err := resources.VtoR(v).Validate()
+				return errwrap.Wrapf(err, "could not Validate() resource")
+			}
+			vertexRemoveFn := func(v pgraph.Vertex) error {
+				// wait for exit before starting new graph!
+				resources.VtoR(v).Exit() // sync
+				return nil
+			}
+			// on success, this updates the receiver graph...
+			if err := oldGraph.GraphSync(newGraph, vertexCmpFn, vertexAddFn, vertexRemoveFn); err != nil {
 				log.Printf("Main: Error running graph sync: %v", err)
 				// unpause!
 				if !first {
-					resources.Start(G, first) // sync
-					converger.Start()         // after Start(G)
+					graph.Start(first) // sync
+					converger.Start()  // after Start()
 				}
 				continue
 			}
-			oldGraph = newFullGraph // save old graph
-			G = oldGraph.Copy()     // copy to active graph
+			graph.Update(oldGraph) // copy in structure of new graph
 
-			resources.AutoEdges(G)                                      // add autoedges; modifies the graph
-			resources.AutoGroup(G, &resources.NonReachabilityGrouper{}) // run autogroup; modifies the graph
+			resources.AutoEdges(graph.Graph)                                      // add autoedges; modifies the graph
+			resources.AutoGroup(graph.Graph, &resources.NonReachabilityGrouper{}) // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships
 
-			// Call this here because at this point the graph does not
-			// know anything about the prometheus instance.
+			// Call this here because at this point the graph does
+			// not know anything about the prometheus instance.
 			if err := prom.UpdatePgraphStartTime(); err != nil {
 				log.Printf("Main: Prometheus.UpdatePgraphStartTime() errored: %v", err)
 			}
-			// Start(G) needs to be synchronous or wait,
+			// Start() needs to be synchronous or wait,
 			// because if half of the nodes are started and
 			// some are not ready yet and the EtcdWatch
-			// loops, we'll cause Pause(G) before we
+			// loops, we'll cause Pause() before we
 			// even got going, thus causing nil pointer errors
-			resources.Start(G, first) // sync
-			converger.Start()         // after Start(G)
+			graph.Start(first) // sync
+			converger.Start()  // after Start()
 
-			log.Printf("Main: Graph: %v", G) // show graph
+			log.Printf("Main: Graph: %v", graph) // show graph
 			if obj.Graphviz != "" {
 				filter := obj.GraphvizFilter
 				if filter == "" {
 					filter = "dot" // directed graph default
 				}
-				if err := G.ExecGraphviz(filter, obj.Graphviz, hostname); err != nil {
+				if err := graph.ExecGraphviz(filter, obj.Graphviz, hostname); err != nil {
 					log.Printf("Main: Graphviz: %v", err)
 				} else {
 					log.Printf("Main: Graphviz: Successfully generated graph!")
@@ -590,7 +611,7 @@ func (obj *Main) Run() error {
 	// tell inner main loop to exit
 	close(exitchan)
 
-	resources.Exit(G) // tells all the children to exit, and waits for them to do so
+	graph.Exit() // tells all the children to exit, and waits for them to do so
 
 	// cleanup etcd main loop last so it can process everything first
 	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
@@ -607,31 +628,10 @@ func (obj *Main) Run() error {
 	}
 
 	if obj.Flags.Debug {
-		log.Printf("Main: Graph: %v", G)
+		log.Printf("Main: Graph: %v", graph)
 	}
 
 	// TODO: wait for each vertex to exit...
 	log.Println("Goodbye!")
 	return reterr
-}
-
-// graphMetas returns a list of pointers to each of the resource MetaParams.
-func graphMetas(g *pgraph.Graph) []*resources.MetaParams {
-	metas := []*resources.MetaParams{}
-	for _, v := range g.Vertices() { // loop through the vertices (resources)
-		res := resources.VtoR(v) // resource
-		meta := res.Meta()
-		metas = append(metas, meta)
-	}
-	return metas
-}
-
-// associateData associates some data with the object in the graph in question.
-func associateData(g *pgraph.Graph, data *resources.Data) {
-	// prometheus needs to be associated to this graph as well
-	g.SetValue("prometheus", data.Prometheus)
-
-	for _, v := range g.Vertices() {
-		*resources.VtoR(v).Data() = *data
-	}
 }

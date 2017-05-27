@@ -516,7 +516,7 @@ This can _only_ be done inside of the `CheckApply` function!
 ```golang
 // inside CheckApply, probably near the top
 if val, exists := obj.Recv["SomeKey"]; exists {
-	log.Printf("SomeKey was sent to us from: %s[%s].%s", val.Res.GetKind(), val.Res.GetName(), val.Key)
+	log.Printf("SomeKey was sent to us from: %s.%s", val.Res, val.Key)
 	if val.Changed {
 		log.Printf("SomeKey was just updated!")
 		// you may want to invalidate some local cache

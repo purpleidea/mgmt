@@ -27,7 +27,7 @@ import (
 	errwrap "github.com/pkg/errors"
 )
 
-// AutoGrouper is the required interface to implement for an autogroup algorithm
+// AutoGrouper is the required interface to implement for an autogroup algorithm.
 type AutoGrouper interface {
 	// listed in the order these are typically called in...
 	name() string                                                    // friendly identifier
@@ -39,7 +39,7 @@ type AutoGrouper interface {
 	vertexTest(bool) (bool, error)                                   // call until false
 }
 
-// baseGrouper is the base type for implementing the AutoGrouper interface
+// baseGrouper is the base type for implementing the AutoGrouper interface.
 type baseGrouper struct {
 	graph    *pgraph.Graph   // store a pointer to the graph
 	vertices []pgraph.Vertex // cached list of vertices
@@ -48,7 +48,7 @@ type baseGrouper struct {
 	done     bool
 }
 
-// name provides a friendly name for the logs to see
+// name provides a friendly name for the logs to see.
 func (ag *baseGrouper) name() string {
 	return "baseGrouper"
 }
@@ -150,7 +150,7 @@ func (ag *baseGrouper) edgeMerge(e1, e2 *pgraph.Edge) *pgraph.Edge {
 }
 
 // vertexTest processes the results of the grouping for the algorithm to know
-// return an error if something went horribly wrong, and bool false to stop
+// return an error if something went horribly wrong, and bool false to stop.
 func (ag *baseGrouper) vertexTest(b bool) (bool, error) {
 	// NOTE: this particular baseGrouper version doesn't track what happens
 	// because since we iterate over every pair, we don't care which merge!
@@ -160,6 +160,7 @@ func (ag *baseGrouper) vertexTest(b bool) (bool, error) {
 	return true, nil
 }
 
+// NonReachabilityGrouper is the most straight-forward algorithm for grouping.
 // TODO: this algorithm may not be correct in all cases. replace if needed!
 type NonReachabilityGrouper struct {
 	baseGrouper // "inherit" what we want, and reimplement the rest
@@ -169,7 +170,7 @@ func (ag *NonReachabilityGrouper) name() string {
 	return "NonReachabilityGrouper"
 }
 
-// this algorithm relies on the observation that if there's a path from a to b,
+// This algorithm relies on the observation that if there's a path from a to b,
 // then they *can't* be merged (b/c of the existing dependency) so therefore we
 // merge anything that *doesn't* satisfy this condition or that of the reverse!
 func (ag *NonReachabilityGrouper) vertexNext() (v1, v2 pgraph.Vertex, err error) {
@@ -293,7 +294,7 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 	return nil // success
 }
 
-// autoGroup is the mechanical auto group "runner" that runs the interface spec
+// autoGroup is the mechanical auto group "runner" that runs the interface spec.
 func autoGroup(g *pgraph.Graph, ag AutoGrouper) chan string {
 	strch := make(chan string) // output log messages here
 	go func(strch chan string) {
@@ -341,7 +342,7 @@ func autoGroup(g *pgraph.Graph, ag AutoGrouper) chan string {
 	return strch
 }
 
-// AutoGroup runs the auto grouping on the graph and prints out log messages
+// AutoGroup runs the auto grouping on the graph and prints out log messages.
 func AutoGroup(g *pgraph.Graph, ag AutoGrouper) {
 	// receive log messages from channel...
 	// this allows test cases to avoid printing them when they're unwanted!

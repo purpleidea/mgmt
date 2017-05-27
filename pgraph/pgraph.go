@@ -54,12 +54,12 @@ type Edge struct {
 
 // Init initializes the graph which populates all the internal structures.
 func (g *Graph) Init() error {
-	if g.Name == "" {
+	if g.Name == "" { // FIXME: is this really a good requirement?
 		return fmt.Errorf("can't initialize graph with empty name")
 	}
 
-	g.adjacency = make(map[Vertex]map[Vertex]*Edge)
-	g.kv = make(map[string]interface{})
+	//g.adjacency = make(map[Vertex]map[Vertex]*Edge) // not required
+	//g.kv = make(map[string]interface{}) // not required
 	return nil
 }
 
@@ -106,11 +106,17 @@ func (g *Graph) Value(key string) (interface{}, bool) {
 
 // SetValue sets a value to be stored alongside the graph in a particular key.
 func (g *Graph) SetValue(key string, val interface{}) {
+	if g.kv == nil { // initialize on first use
+		g.kv = make(map[string]interface{})
+	}
 	g.kv[key] = val
 }
 
 // Copy makes a copy of the graph struct.
 func (g *Graph) Copy() *Graph {
+	if g == nil { // allow nil graphs through
+		return g
+	}
 	newGraph := &Graph{
 		Name:      g.Name,
 		adjacency: make(map[Vertex]map[Vertex]*Edge, len(g.adjacency)),
@@ -134,6 +140,9 @@ func (g *Graph) SetName(name string) {
 
 // AddVertex uses variadic input to add all listed vertices to the graph.
 func (g *Graph) AddVertex(xv ...Vertex) {
+	if g.adjacency == nil { // initialize on first use
+		g.adjacency = make(map[Vertex]map[Vertex]*Edge)
+	}
 	for _, v := range xv {
 		if _, exists := g.adjacency[v]; !exists {
 			g.adjacency[v] = make(map[Vertex]*Edge)

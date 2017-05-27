@@ -1,0 +1,7 @@
+---
+graph: mygraph
+comment: simple noop example
+resources:
+  noop:
+  - name: noop0
+edges: []

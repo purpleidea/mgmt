@@ -179,9 +179,9 @@ func (obj *PkgRes) getNames() []string {
 // pretty print for header values
 func (obj *PkgRes) fmtNames(names []string) string {
 	if len(obj.GetGroup()) > 0 { // grouped elements
-		return fmt.Sprintf("%s[autogroup:(%v)]", obj.GetKind(), strings.Join(names, ","))
+		return fmt.Sprintf("%s[autogroup:(%s)]", obj.GetKind(), strings.Join(names, ","))
 	}
-	return fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName())
+	return obj.String()
 }
 
 func (obj *PkgRes) groupMappingHelper() map[string]string {

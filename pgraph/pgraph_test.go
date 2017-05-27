@@ -40,7 +40,7 @@ func NV(s string) Vertex {
 
 func TestPgraphT1(t *testing.T) {
 
-	G, _ := NewGraph("g1")
+	G := &Graph{}
 
 	if i := G.NumVertices(); i != 0 {
 		t.Errorf("should have 0 vertices instead of: %d", i)
@@ -66,7 +66,7 @@ func TestPgraphT1(t *testing.T) {
 
 func TestPgraphT2(t *testing.T) {
 
-	G, _ := NewGraph("g2")
+	G := &Graph{Name: "g2"}
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -621,5 +621,23 @@ func TestPgraphT11(t *testing.T) {
 
 	if rev := Reverse([]Vertex{v6, v5, v4, v3, v2, v1}); !reflect.DeepEqual(rev, []Vertex{v1, v2, v3, v4, v5, v6}) {
 		t.Errorf("reverse of vertex slice failed (6..1)")
+	}
+}
+
+func TestPgraphCopy1(t *testing.T) {
+	g1 := &Graph{}
+	g2 := g1.Copy() // check this doesn't panic
+	if !reflect.DeepEqual(g1.String(), g2.String()) {
+		t.Errorf("graph copy failed")
+	}
+}
+
+func TestPgraphDelete1(t *testing.T) {
+	G := &Graph{}
+	v1 := NV("v1")
+	G.DeleteVertex(v1) // check this doesn't panic
+
+	if i := G.NumVertices(); i != 0 {
+		t.Errorf("should have 0 vertices instead of: %d", i)
 	}
 }

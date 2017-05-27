@@ -46,9 +46,9 @@ func (obj *BaseRes) Event() error {
 func (obj *BaseRes) SendEvent(ev event.Kind, err error) error {
 	if obj.debug {
 		if err == nil {
-			log.Printf("%s[%s]: SendEvent(%+v)", obj.GetKind(), obj.GetName(), ev)
+			log.Printf("%s: SendEvent(%+v)", obj, ev)
 		} else {
-			log.Printf("%s[%s]: SendEvent(%+v): %v", obj.GetKind(), obj.GetName(), ev, err)
+			log.Printf("%s: SendEvent(%+v): %v", obj, ev, err)
 		}
 	}
 	resp := event.NewResp()
@@ -129,7 +129,7 @@ func (obj *BaseRes) ReadEvent(ev *event.Event) (exit *error, send bool) {
 					continue // silently discard this event while paused
 				}
 				// if we get a poke event here, it's a bug!
-				err = fmt.Errorf("%s[%s]: unknown event: %v, while paused", obj.GetKind(), obj.GetName(), e)
+				err = fmt.Errorf("%s: unknown event: %v, while paused", obj, e)
 				panic(err) // TODO: return a special sentinel instead?
 				//return &err, false
 			}
@@ -149,8 +149,7 @@ func (obj *BaseRes) Running() error {
 	// converge timeout is very short ( ~ 1s) and the Watch method doesn't
 	// immediately SetConverged(false) to stop possible early termination.
 	if obj.Meta().Poll == 0 { // if not polling, unblock this...
-		cuid, _, _ := obj.ConvergerUIDs()
-		cuid.SetConverged(true) // a reasonable initial assumption
+		obj.cuid.SetConverged(true) // a reasonable initial assumption
 	}
 
 	obj.StateOK(false)  // assume we're initially dirty
@@ -179,7 +178,7 @@ type Send struct {
 func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 	if obj.debug {
 		// NOTE: this could expose private resource data like passwords
-		log.Printf("%s[%s]: SendRecv: %+v", obj.GetKind(), obj.GetName(), obj.Recv)
+		log.Printf("%s: SendRecv: %+v", obj, obj.Recv)
 	}
 	var updated = make(map[string]bool) // list of updated keys
 	var err error
@@ -205,7 +204,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 
 		// i think we probably want the same kind, at least for now...
 		if kind1 != kind2 {
-			e := fmt.Errorf("kind mismatch between %s[%s]: %s and %s[%s]: %s", v.Res.GetKind(), v.Res.GetName(), kind1, obj.GetKind(), obj.GetName(), kind2)
+			e := fmt.Errorf("kind mismatch between %s: %s and %s: %s", v.Res, kind1, obj, kind2)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
@@ -213,21 +212,21 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 		// if the types don't match, we can't use send->recv
 		// TODO: do we want to relax this for string -> *string ?
 		if e := TypeCmp(value1, value2); e != nil {
-			e := errwrap.Wrapf(e, "type mismatch between %s[%s] and %s[%s]", v.Res.GetKind(), v.Res.GetName(), obj.GetKind(), obj.GetName())
+			e := errwrap.Wrapf(e, "type mismatch between %s and %s", v.Res, obj)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
 
 		// if we can't set, then well this is pointless!
 		if !value2.CanSet() {
-			e := fmt.Errorf("can't set %s[%s].%s", obj.GetKind(), obj.GetName(), k)
+			e := fmt.Errorf("can't set %s.%s", obj, k)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
 
 		// if we can't interface, we can't compare...
 		if !value1.CanInterface() || !value2.CanInterface() {
-			e := fmt.Errorf("can't interface %s[%s].%s", obj.GetKind(), obj.GetName(), k)
+			e := fmt.Errorf("can't interface %s.%s", obj, k)
 			err = multierr.Append(err, e) // list of errors
 			continue
 		}
@@ -238,7 +237,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 			value2.Set(value1) // do it for all types that match
 			updated[k] = true  // we updated this key!
 			v.Changed = true   // tag this key as updated!
-			log.Printf("SendRecv: %s[%s].%s -> %s[%s].%s", v.Res.GetKind(), v.Res.GetName(), v.Key, obj.GetKind(), obj.GetName(), k)
+			log.Printf("SendRecv: %s.%s -> %s.%s", v.Res, v.Key, obj, k)
 		}
 	}
 	return updated, err

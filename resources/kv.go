@@ -113,10 +113,10 @@ func (obj *KVRes) Watch() error {
 				return nil
 			}
 			if err != nil {
-				return errwrap.Wrapf(err, "unknown %s[%s] watcher error", obj.GetKind(), obj.GetName())
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			if obj.Data().Debug {
-				log.Printf("%s[%s]: Event!", obj.GetKind(), obj.GetName())
+				log.Printf("%s: Event!", obj)
 			}
 			send = true
 			obj.StateOK(false) // dirty
@@ -177,7 +177,7 @@ func (obj *KVRes) lessThanCheck(value string) (checkOK bool, err error) {
 
 // CheckApply method for Password resource. Does nothing, returns happy!
 func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
-	log.Printf("%s[%s]: CheckApply(%t)", obj.GetKind(), obj.GetName(), apply)
+	log.Printf("%s: CheckApply(%t)", obj, apply)
 
 	if val, exists := obj.Recv["Value"]; exists && val.Changed {
 		// if we received on Value, and it changed, wooo, nothing to do.

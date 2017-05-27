@@ -85,7 +85,7 @@ func (obj *TimerRes) Watch() error {
 		select {
 		case <-obj.ticker.C: // received the timer event
 			send = true
-			log.Printf("%s[%s]: received tick", obj.GetKind(), obj.GetName())
+			log.Printf("%s: received tick", obj)
 
 		case event := <-obj.Events():
 			if exit, _ := obj.ReadEvent(event); exit != nil {

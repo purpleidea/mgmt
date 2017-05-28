@@ -35,7 +35,7 @@ type AutoGrouper interface {
 	vertexNext() (pgraph.Vertex, pgraph.Vertex, error)               // mostly algorithmic
 	vertexCmp(pgraph.Vertex, pgraph.Vertex) error                    // can we merge these ?
 	vertexMerge(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error) // vertex merge fn to use
-	edgeMerge(*pgraph.Edge, *pgraph.Edge) *pgraph.Edge               // edge merge fn to use
+	edgeMerge(pgraph.Edge, pgraph.Edge) pgraph.Edge                  // edge merge fn to use
 	vertexTest(bool) (bool, error)                                   // call until false
 }
 
@@ -145,7 +145,7 @@ func (ag *baseGrouper) vertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err e
 	return                            // success or fail, and no need to merge the actual vertices!
 }
 
-func (ag *baseGrouper) edgeMerge(e1, e2 *pgraph.Edge) *pgraph.Edge {
+func (ag *baseGrouper) edgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
 	return e1 // noop
 }
 
@@ -204,7 +204,7 @@ func (ag *NonReachabilityGrouper) vertexNext() (v1, v2 pgraph.Vertex, err error)
 // and then by deleting v2 from the graph. Since more than one edge between two
 // vertices is not allowed, duplicate edges are merged as well. an edge merge
 // function can be provided if you'd like to control how you merge the edges!
-func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error), edgeMergeFn func(*pgraph.Edge, *pgraph.Edge) *pgraph.Edge) error {
+func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error), edgeMergeFn func(pgraph.Edge, pgraph.Edge) pgraph.Edge) error {
 	// methodology
 	// 1) edges between v1 and v2 are removed
 	//Loop:

@@ -492,8 +492,13 @@ func (obj *Main) Run() error {
 				resources.VtoR(v).Exit() // sync
 				return nil
 			}
+			edgeCmpFn := func(e1, e2 pgraph.Edge) (bool, error) {
+				edge1 := e1.(*resources.Edge)                                        // panic if wrong
+				edge2 := e2.(*resources.Edge)                                        // panic if wrong
+				return edge1.Name == edge2.Name && edge1.Notify == edge2.Notify, nil // simple cmp
+			}
 			// on success, this updates the receiver graph...
-			if err := oldGraph.GraphSync(newGraph, vertexCmpFn, vertexAddFn, vertexRemoveFn); err != nil {
+			if err := oldGraph.GraphSync(newGraph, vertexCmpFn, vertexAddFn, vertexRemoveFn, edgeCmpFn); err != nil {
 				log.Printf("Main: Error running graph sync: %v", err)
 				// unpause!
 				if !first {

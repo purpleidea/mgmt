@@ -50,11 +50,11 @@ func (g *Graph) Graphviz() (out string) {
 		for j := range g.Adjacency()[i] {
 			k := g.Adjacency()[i][j]
 			// use str for clearer output ordering
-			if k.Notify {
-				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i, j, k.Name)
-			} else {
-				str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\"];\n", i, j, k.Name)
-			}
+			//if fmtBoldFn(k) { // TODO: add this sort of formatting
+			//	str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i, j, k)
+			//} else {
+			str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\"];\n", i, j, k)
+			//}
 		}
 	}
 	out += str

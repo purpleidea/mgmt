@@ -34,8 +34,8 @@ import (
 type Graph struct {
 	Name string
 
-	adjacency map[Vertex]map[Vertex]*Edge // Vertex -> Vertex (edge)
-	kv        map[string]interface{}      // some values associated with the graph
+	adjacency map[Vertex]map[Vertex]Edge // Vertex -> Vertex (edge)
+	kv        map[string]interface{}     // some values associated with the graph
 }
 
 // Vertex is the primary vertex struct in this library. It can be anything that
@@ -44,12 +44,10 @@ type Vertex interface {
 	fmt.Stringer // String() string
 }
 
-// Edge is the primary edge struct in this library.
-type Edge struct {
-	Name   string
-	Notify bool // should we send a refresh notification along this edge?
-
-	refresh bool // is there a notify pending for the dest vertex ?
+// Edge is the primary edge struct in this library. It can be anything that
+// implements Stringer. The string output must be stable and unique in a graph.
+type Edge interface {
+	fmt.Stringer // String() string
 }
 
 // Init initializes the graph which populates all the internal structures.
@@ -58,7 +56,7 @@ func (g *Graph) Init() error {
 		return fmt.Errorf("can't initialize graph with empty name")
 	}
 
-	//g.adjacency = make(map[Vertex]map[Vertex]*Edge) // not required
+	//g.adjacency = make(map[Vertex]map[Vertex]Edge) // not required
 	//g.kv = make(map[string]interface{}) // not required
 	return nil
 }
@@ -81,21 +79,11 @@ func NewVertex(x Vertex) Vertex {
 	return x
 }
 
-// NewEdge returns a new graph edge struct.
-func NewEdge(name string) *Edge {
-	return &Edge{
-		Name: name,
-	}
-}
-
-// Refresh returns the pending refresh status of this edge.
-func (obj *Edge) Refresh() bool {
-	return obj.refresh
-}
-
-// SetRefresh sets the pending refresh status of this edge.
-func (obj *Edge) SetRefresh(b bool) {
-	obj.refresh = b
+// NewEdge returns whatever was passed in. This is for compatibility with the
+// usage of the old NewEdge method. This is considered deprecated.
+// FIXME: remove me
+func NewEdge(x Edge) Edge {
+	return x
 }
 
 // Value returns a value stored alongside the graph in a particular key.
@@ -119,7 +107,7 @@ func (g *Graph) Copy() *Graph {
 	}
 	newGraph := &Graph{
 		Name:      g.Name,
-		adjacency: make(map[Vertex]map[Vertex]*Edge, len(g.adjacency)),
+		adjacency: make(map[Vertex]map[Vertex]Edge, len(g.adjacency)),
 		kv:        g.kv,
 	}
 	for k, v := range g.adjacency {
@@ -141,11 +129,11 @@ func (g *Graph) SetName(name string) {
 // AddVertex uses variadic input to add all listed vertices to the graph.
 func (g *Graph) AddVertex(xv ...Vertex) {
 	if g.adjacency == nil { // initialize on first use
-		g.adjacency = make(map[Vertex]map[Vertex]*Edge)
+		g.adjacency = make(map[Vertex]map[Vertex]Edge)
 	}
 	for _, v := range xv {
 		if _, exists := g.adjacency[v]; !exists {
-			g.adjacency[v] = make(map[Vertex]*Edge)
+			g.adjacency[v] = make(map[Vertex]Edge)
 		}
 	}
 }
@@ -159,7 +147,7 @@ func (g *Graph) DeleteVertex(v Vertex) {
 }
 
 // AddEdge adds a directed edge to the graph from v1 to v2.
-func (g *Graph) AddEdge(v1, v2 Vertex, e *Edge) {
+func (g *Graph) AddEdge(v1, v2 Vertex, e Edge) {
 	// NOTE: this doesn't allow more than one edge between two vertexes...
 	g.AddVertex(v1, v2) // supports adding N vertices now
 	// TODO: check if an edge exists to avoid overwriting it!
@@ -169,7 +157,7 @@ func (g *Graph) AddEdge(v1, v2 Vertex, e *Edge) {
 
 // DeleteEdge deletes a particular edge from the graph.
 // FIXME: add test cases
-func (g *Graph) DeleteEdge(e *Edge) {
+func (g *Graph) DeleteEdge(e Edge) {
 	for v1 := range g.adjacency {
 		for v2, edge := range g.adjacency[v1] {
 			if e == edge {
@@ -218,7 +206,7 @@ func (g *Graph) NumEdges() int {
 // Adjacency returns the adjacency map representing this graph. This is useful
 // for users who which to operate on the raw data structure more efficiently.
 // This works because maps are reference types so we can edit this at will.
-func (g *Graph) Adjacency() map[Vertex]map[Vertex]*Edge {
+func (g *Graph) Adjacency() map[Vertex]map[Vertex]Edge {
 	return g.adjacency
 }
 
@@ -303,8 +291,8 @@ func (g *Graph) GraphVertices(v Vertex) []Vertex {
 }
 
 // IncomingGraphEdges returns all of the edges that point to vertex v (??? -> v).
-func (g *Graph) IncomingGraphEdges(v Vertex) []*Edge {
-	var edges []*Edge
+func (g *Graph) IncomingGraphEdges(v Vertex) []Edge {
+	var edges []Edge
 	for v1 := range g.adjacency { // reverse paths
 		for v2, e := range g.adjacency[v1] {
 			if v2 == v {
@@ -316,8 +304,8 @@ func (g *Graph) IncomingGraphEdges(v Vertex) []*Edge {
 }
 
 // OutgoingGraphEdges returns all of the edges that point from vertex v (v -> ???).
-func (g *Graph) OutgoingGraphEdges(v Vertex) []*Edge {
-	var edges []*Edge
+func (g *Graph) OutgoingGraphEdges(v Vertex) []Edge {
+	var edges []Edge
 	for _, e := range g.adjacency[v] { // forward paths
 		edges = append(edges, e)
 	}
@@ -326,8 +314,8 @@ func (g *Graph) OutgoingGraphEdges(v Vertex) []*Edge {
 
 // GraphEdges returns an array (slice) of all edges that connect to vertex v.
 // This is the union of IncomingGraphEdges and OutgoingGraphEdges.
-func (g *Graph) GraphEdges(v Vertex) []*Edge {
-	var edges []*Edge
+func (g *Graph) GraphEdges(v Vertex) []Edge {
+	var edges []Edge
 	edges = append(edges, g.IncomingGraphEdges(v)...)
 	edges = append(edges, g.OutgoingGraphEdges(v)...)
 	return edges
@@ -535,7 +523,7 @@ func VertexContains(needle Vertex, haystack []Vertex) bool {
 }
 
 // EdgeContains is an "in array" function to test for an edge in a slice of edges.
-func EdgeContains(needle *Edge, haystack []*Edge) bool {
+func EdgeContains(needle Edge, haystack []Edge) bool {
 	for _, v := range haystack {
 		if needle == v {
 			return true

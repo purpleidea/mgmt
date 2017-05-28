@@ -140,6 +140,7 @@ func (obj *BaseRes) RefreshPending() bool {
 	var refresh bool
 	for _, edge := range obj.Graph.IncomingGraphEdges(obj.Vertex) {
 		// if we asked for a notify *and* if one is pending!
+		edge := edge.(*Edge) // panic if wrong
 		if edge.Notify && edge.Refresh() {
 			refresh = true
 			break
@@ -151,6 +152,7 @@ func (obj *BaseRes) RefreshPending() bool {
 // SetUpstreamRefresh sets the refresh value to any upstream vertices.
 func (obj *BaseRes) SetUpstreamRefresh(b bool) {
 	for _, edge := range obj.Graph.IncomingGraphEdges(obj.Vertex) {
+		edge := edge.(*Edge) // panic if wrong
 		if edge.Notify {
 			edge.SetRefresh(b)
 		}
@@ -160,6 +162,7 @@ func (obj *BaseRes) SetUpstreamRefresh(b bool) {
 // SetDownstreamRefresh sets the refresh value to any downstream vertices.
 func (obj *BaseRes) SetDownstreamRefresh(b bool) {
 	for _, edge := range obj.Graph.OutgoingGraphEdges(obj.Vertex) {
+		edge := edge.(*Edge) // panic if wrong
 		// if we asked for a notify *and* if one is pending!
 		if edge.Notify {
 			edge.SetRefresh(b)

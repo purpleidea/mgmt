@@ -293,8 +293,10 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 		}
 		from := lookup[strings.ToLower(e.From.Kind)][e.From.Name]
 		to := lookup[strings.ToLower(e.To.Kind)][e.To.Name]
-		edge := pgraph.NewEdge(e.Name)
-		edge.Notify = e.Notify
+		edge := &resources.Edge{
+			Name:   e.Name,
+			Notify: e.Notify,
+		}
 		graph.AddEdge(from, to, edge)
 	}
 

@@ -61,11 +61,13 @@ func addEdgesByMatchingUIDS(g *pgraph.Graph, v pgraph.Vertex, uids []ResUID) []b
 				if uid.IsReversed() {
 					txt := fmt.Sprintf("AutoEdge: %s -> %s", VtoR(vv).String(), VtoR(v).String())
 					log.Printf("Compile: Adding %s", txt)
-					g.AddEdge(vv, v, pgraph.NewEdge(txt))
+					edge := &Edge{Name: txt}
+					g.AddEdge(vv, v, edge)
 				} else { // edges go the "normal" way, eg: pkg resource
 					txt := fmt.Sprintf("AutoEdge: %s -> %s", VtoR(v).String(), VtoR(vv).String())
 					log.Printf("Compile: Adding %s", txt)
-					g.AddEdge(v, vv, pgraph.NewEdge(txt))
+					edge := &Edge{Name: txt}
+					g.AddEdge(v, vv, edge)
 				}
 				found = true
 				break

@@ -29,6 +29,12 @@ import (
 	"github.com/purpleidea/mgmt/util"
 )
 
+// NE is a helper function to make testing easier. It creates a new noop edge.
+func NE(s string) pgraph.Edge {
+	obj := &Edge{Name: s}
+	return obj
+}
+
 type testGrouper struct {
 	// TODO: this algorithm may not be correct in all cases. replace if needed!
 	NonReachabilityGrouper // "inherit" what we want, and reimplement the rest
@@ -54,14 +60,16 @@ func (ag *testGrouper) vertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err e
 	return // success or fail, and no need to merge the actual vertices!
 }
 
-func (ag *testGrouper) edgeMerge(e1, e2 *pgraph.Edge) *pgraph.Edge {
+func (ag *testGrouper) edgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
+	edge1 := e1.(*Edge) // panic if wrong
+	edge2 := e2.(*Edge) // panic if wrong
 	// HACK: update the name so it makes a union of both names
-	n1 := strings.Split(e1.Name, ",") // load
-	n2 := strings.Split(e2.Name, ",") // load
+	n1 := strings.Split(edge1.Name, ",") // load
+	n2 := strings.Split(edge2.Name, ",") // load
 	names := append(n1, n2...)
 	names = util.StrRemoveDuplicatesInList(names) // remove duplicates
 	sort.Strings(names)
-	return pgraph.NewEdge(strings.Join(names, ","))
+	return &Edge{Name: strings.Join(names, ",")}
 }
 
 // helper function
@@ -161,7 +169,8 @@ Loop:
 
 		for vv1, ee1 := range g1.Adjacency()[v1] {
 			vv2 := m[vv1]
-			ee2 := g2.Adjacency()[v2][vv2]
+			ee1 := ee1.(*Edge)
+			ee2 := g2.Adjacency()[v2][vv2].(*Edge)
 
 			// these are edges from v1 -> vv1 via ee1 (graph 1)
 			// to cmp to edges from v2 -> vv2 via ee2 (graph 2)
@@ -240,7 +249,8 @@ func fullPrint(g *pgraph.Graph) (str string) {
 	}
 	for v1 := range g.Adjacency() {
 		for v2, e := range g.Adjacency()[v1] {
-			str += fmt.Sprintf("* e: %v -> %v # %v\n", VtoR(v1).GetName(), VtoR(v2).GetName(), e.Name)
+			edge := e.(*Edge)
+			str += fmt.Sprintf("* e: %v -> %v # %v\n", VtoR(v1).GetName(), VtoR(v2).GetName(), edge.Name)
 		}
 	}
 	return
@@ -460,8 +470,8 @@ func TestPgraphGrouping12(t *testing.T) {
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
+		e1 := NE("e1")
+		e2 := NE("e2")
 		g1.AddEdge(a1, b1, e1)
 		g1.AddEdge(a2, b1, e2)
 	}
@@ -469,7 +479,7 @@ func TestPgraphGrouping12(t *testing.T) {
 	{
 		a := pgraph.NewVertex(NewNoopResTest("a1,a2"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
-		e := pgraph.NewEdge("e1,e2")
+		e := NE("e1,e2")
 		g2.AddEdge(a, b1, e)
 	}
 	runGraphCmp(t, g1, g2)
@@ -485,8 +495,8 @@ func TestPgraphGrouping13(t *testing.T) {
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
+		e1 := NE("e1")
+		e2 := NE("e2")
 		g1.AddEdge(b1, a1, e1)
 		g1.AddEdge(b1, a2, e2)
 	}
@@ -494,7 +504,7 @@ func TestPgraphGrouping13(t *testing.T) {
 	{
 		a := pgraph.NewVertex(NewNoopResTest("a1,a2"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
-		e := pgraph.NewEdge("e1,e2")
+		e := NE("e1,e2")
 		g2.AddEdge(b1, a, e)
 	}
 	runGraphCmp(t, g1, g2)
@@ -511,9 +521,9 @@ func TestPgraphGrouping14(t *testing.T) {
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
 		a3 := pgraph.NewVertex(NewNoopResTest("a3"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
-		e3 := pgraph.NewEdge("e3")
+		e1 := NE("e1")
+		e2 := NE("e2")
+		e3 := NE("e3")
 		g1.AddEdge(a1, b1, e1)
 		g1.AddEdge(a2, b1, e2)
 		g1.AddEdge(a3, b1, e3)
@@ -522,7 +532,7 @@ func TestPgraphGrouping14(t *testing.T) {
 	{
 		a := pgraph.NewVertex(NewNoopResTest("a1,a2,a3"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
-		e := pgraph.NewEdge("e1,e2,e3")
+		e := NE("e1,e2,e3")
 		g2.AddEdge(a, b1, e)
 	}
 	runGraphCmp(t, g1, g2)
@@ -541,10 +551,10 @@ func TestPgraphGrouping15(t *testing.T) {
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
 		b2 := pgraph.NewVertex(NewNoopResTest("b2"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
-		e3 := pgraph.NewEdge("e3")
-		e4 := pgraph.NewEdge("e4")
+		e1 := NE("e1")
+		e2 := NE("e2")
+		e3 := NE("e3")
+		e4 := NE("e4")
 		g1.AddEdge(a1, b1, e1)
 		g1.AddEdge(a1, b2, e2)
 		g1.AddEdge(b1, c1, e3)
@@ -555,8 +565,8 @@ func TestPgraphGrouping15(t *testing.T) {
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		b := pgraph.NewVertex(NewNoopResTest("b1,b2"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1,e2")
-		e2 := pgraph.NewEdge("e3,e4")
+		e1 := NE("e1,e2")
+		e2 := NE("e3,e4")
 		g2.AddEdge(a1, b, e1)
 		g2.AddEdge(b, c1, e2)
 	}
@@ -578,9 +588,9 @@ func TestPgraphGrouping16(t *testing.T) {
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
-		e3 := pgraph.NewEdge("e3")
+		e1 := NE("e1")
+		e2 := NE("e2")
+		e3 := NE("e3")
 		g1.AddEdge(a1, b1, e1)
 		g1.AddEdge(b1, c1, e2)
 		g1.AddEdge(a2, c1, e3)
@@ -590,8 +600,8 @@ func TestPgraphGrouping16(t *testing.T) {
 		a := pgraph.NewVertex(NewNoopResTest("a1,a2"))
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1,e3")
-		e2 := pgraph.NewEdge("e2,e3") // e3 gets "merged through" to BOTH edges!
+		e1 := NE("e1,e3")
+		e2 := NE("e2,e3") // e3 gets "merged through" to BOTH edges!
 		g2.AddEdge(a, b1, e1)
 		g2.AddEdge(b1, c1, e2)
 	}
@@ -611,9 +621,9 @@ func TestPgraphGrouping17(t *testing.T) {
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
 		b2 := pgraph.NewVertex(NewNoopResTest("b2"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
-		e3 := pgraph.NewEdge("e3")
+		e1 := NE("e1")
+		e2 := NE("e2")
+		e3 := NE("e3")
 		g1.AddEdge(a1, b1, e1)
 		g1.AddEdge(b1, c1, e2)
 		g1.AddEdge(b2, c1, e3)
@@ -623,8 +633,8 @@ func TestPgraphGrouping17(t *testing.T) {
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		b := pgraph.NewVertex(NewNoopResTest("b1,b2"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2,e3")
+		e1 := NE("e1")
+		e2 := NE("e2,e3")
 		g2.AddEdge(a1, b, e1)
 		g2.AddEdge(b, c1, e2)
 	}
@@ -646,10 +656,10 @@ func TestPgraphGrouping18(t *testing.T) {
 		b1 := pgraph.NewVertex(NewNoopResTest("b1"))
 		b2 := pgraph.NewVertex(NewNoopResTest("b2"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
-		e3 := pgraph.NewEdge("e3")
-		e4 := pgraph.NewEdge("e4")
+		e1 := NE("e1")
+		e2 := NE("e2")
+		e3 := NE("e3")
+		e4 := NE("e4")
 		g1.AddEdge(a1, b1, e1)
 		g1.AddEdge(b1, c1, e2)
 		g1.AddEdge(a2, c1, e3)
@@ -660,8 +670,8 @@ func TestPgraphGrouping18(t *testing.T) {
 		a := pgraph.NewVertex(NewNoopResTest("a1,a2"))
 		b := pgraph.NewVertex(NewNoopResTest("b1,b2"))
 		c1 := pgraph.NewVertex(NewNoopResTest("c1"))
-		e1 := pgraph.NewEdge("e1,e3")
-		e2 := pgraph.NewEdge("e2,e3,e4") // e3 gets "merged through" to BOTH edges!
+		e1 := NE("e1,e3")
+		e2 := NE("e2,e3,e4") // e3 gets "merged through" to BOTH edges!
 		g2.AddEdge(a, b, e1)
 		g2.AddEdge(b, c1, e2)
 	}
@@ -677,14 +687,14 @@ func TestPgraphGroupingConnected0(t *testing.T) {
 	{
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
-		e1 := pgraph.NewEdge("e1")
+		e1 := NE("e1")
 		g1.AddEdge(a1, a2, e1)
 	}
 	g2, _ := pgraph.NewGraph("g2") // expected result ?
 	{
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
-		e1 := pgraph.NewEdge("e1")
+		e1 := NE("e1")
 		g2.AddEdge(a1, a2, e1)
 	}
 	runGraphCmp(t, g1, g2)
@@ -702,8 +712,8 @@ func TestPgraphGroupingConnected1(t *testing.T) {
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		b := pgraph.NewVertex(NewNoopResTest("b"))
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
+		e1 := NE("e1")
+		e2 := NE("e2")
 		g1.AddEdge(a1, b, e1)
 		g1.AddEdge(b, a2, e2)
 	}
@@ -712,8 +722,8 @@ func TestPgraphGroupingConnected1(t *testing.T) {
 		a1 := pgraph.NewVertex(NewNoopResTest("a1"))
 		b := pgraph.NewVertex(NewNoopResTest("b"))
 		a2 := pgraph.NewVertex(NewNoopResTest("a2"))
-		e1 := pgraph.NewEdge("e1")
-		e2 := pgraph.NewEdge("e2")
+		e1 := NE("e1")
+		e2 := NE("e2")
 		g2.AddEdge(a1, b, e1)
 		g2.AddEdge(b, a2, e2)
 	}

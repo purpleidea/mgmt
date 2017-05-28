@@ -29,7 +29,7 @@ import (
 // This updates the Graph on success only.
 // FIXME: should we do this with copies of the vertex resources?
 // FIXME: add test cases
-func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), vertexAddFn func(Vertex) error, vertexRemoveFn func(Vertex) error) error {
+func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), vertexAddFn func(Vertex) error, vertexRemoveFn func(Vertex) error, edgeCmpFn func(Edge, Edge) (bool, error)) error {
 
 	oldGraph := obj.Copy() // work on a copy of the old graph
 	if oldGraph == nil {
@@ -43,7 +43,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 
 	var lookup = make(map[Vertex]Vertex)
 	var vertexKeep []Vertex // list of vertices which are the same in new graph
-	var edgeKeep []*Edge    // list of vertices which are the same in new graph
+	var edgeKeep []Edge     // list of vertices which are the same in new graph
 
 	for v := range newGraph.Adjacency() { // loop through the vertices (resources)
 		var vertex Vertex
@@ -100,9 +100,14 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 			}
 
 			edge, exists := oldGraph.Adjacency()[vertex1][vertex2]
-			if !exists || edge.Name != e.Name { // TODO: edgeCmp
-				edge = e // use or overwrite edge
+			if !exists {
+				edge = e // use edge
+			} else if b, err := edgeCmpFn(edge, e); err != nil {
+				return errwrap.Wrapf(err, "edgeCmpFn failed")
+			} else if !b {
+				edge = e // overwrite edge
 			}
+
 			oldGraph.Adjacency()[vertex1][vertex2] = edge // store it (AddEdge)
 			edgeKeep = append(edgeKeep, edge)             // mark as saved
 		}

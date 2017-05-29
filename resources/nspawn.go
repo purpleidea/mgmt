@@ -45,15 +45,15 @@ func init() {
 	gob.Register(&NspawnRes{})
 }
 
-// NspawnRes is an nspawn container resource
+// NspawnRes is an nspawn container resource.
 type NspawnRes struct {
 	BaseRes `yaml:",inline"`
 	State   string `yaml:"state"`
-	// we're using the svc resource to start the machine because that's
+	// We're using the svc resource to start the machine because that's
 	// what machinectl does. We're not using svc.Watch because then we
 	// would have two watches potentially racing each other and producing
-	// potentially unexpected results. We get everything we need to
-	// monitor the machine state changes from the org.freedesktop.machine1 object.
+	// potentially unexpected results. We get everything we need to monitor
+	// the machine state changes from the org.freedesktop.machine1 object.
 	svc *SvcRes
 }
 
@@ -75,7 +75,7 @@ func (obj *NspawnRes) Validate() error {
 		running: {},
 	}
 	if _, exists := validStates[obj.State]; !exists {
-		return fmt.Errorf("Invalid State: %s", obj.State)
+		return fmt.Errorf("invalid state: %s", obj.State)
 	}
 
 	if err := obj.svc.Validate(); err != nil { // composite resource
@@ -97,7 +97,7 @@ func (obj *NspawnRes) Init() error {
 	return obj.BaseRes.Init()
 }
 
-// Watch for state changes and sends a message to the bus if there is a change
+// Watch for state changes and sends a message to the bus if there is a change.
 func (obj *NspawnRes) Watch() error {
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
@@ -161,8 +161,8 @@ func (obj *NspawnRes) Watch() error {
 }
 
 // CheckApply is run to check the state and, if apply is true, to apply the
-// necessary changes to reach the desired state. this is run before Watch and
-// again if watch finds a change occurring to the state
+// necessary changes to reach the desired state. This is run before Watch and
+// again if Watch finds a change occurring to the state.
 func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 	// this resource depends on systemd ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
@@ -235,17 +235,17 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 	return false, nil
 }
 
-// NspawnUID is a unique resource identifier
+// NspawnUID is a unique resource identifier.
 type NspawnUID struct {
-	// NOTE: there is also a name variable in the BaseUID struct, this is
+	// NOTE: There is also a name variable in the BaseUID struct, this is
 	// information about where this UID came from, and is unrelated to the
 	// information about the resource we're matching. That data which is
-	// used in the IFF function, is what you see in the struct fields here
+	// used in the IFF function, is what you see in the struct fields here.
 	BaseUID
 	name string // the machine name
 }
 
-// IFF aka if and only if they are equivalent, return true. If not, false
+// IFF aka if and only if they are equivalent, return true. If not, false.
 func (obj *NspawnUID) IFF(uid ResUID) bool {
 	res, ok := uid.(*NspawnUID)
 	if !ok {
@@ -254,8 +254,8 @@ func (obj *NspawnUID) IFF(uid ResUID) bool {
 	return obj.name == res.name
 }
 
-// UIDs includes all params to make a unique identification of this object
-// most resources only return one although some resources can return multiple
+// UIDs includes all params to make a unique identification of this object.
+// Most resources only return one although some resources can return multiple.
 func (obj *NspawnRes) UIDs() []ResUID {
 	x := &NspawnUID{
 		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
@@ -264,7 +264,7 @@ func (obj *NspawnRes) UIDs() []ResUID {
 	return append([]ResUID{x}, obj.svc.UIDs()...)
 }
 
-// GroupCmp returns whether two resources can be grouped together or not
+// GroupCmp returns whether two resources can be grouped together or not.
 func (obj *NspawnRes) GroupCmp(r Res) bool {
 	_, ok := r.(*NspawnRes)
 	if !ok {
@@ -274,7 +274,7 @@ func (obj *NspawnRes) GroupCmp(r Res) bool {
 	return false
 }
 
-// Compare two resources and return if they are equivalent
+// Compare two resources and return if they are equivalent.
 func (obj *NspawnRes) Compare(res Res) bool {
 	switch res.(type) {
 	case *NspawnRes:
@@ -294,7 +294,7 @@ func (obj *NspawnRes) Compare(res Res) bool {
 	return true
 }
 
-// AutoEdges returns the AutoEdge interface in this case no autoedges are used
+// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
 func (obj *NspawnRes) AutoEdges() AutoEdge {
 	return nil
 }

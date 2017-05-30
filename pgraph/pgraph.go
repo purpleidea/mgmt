@@ -167,20 +167,6 @@ func (g *Graph) DeleteEdge(e Edge) {
 	}
 }
 
-// VertexMatchFn searches for a vertex in the graph and returns the vertex if
-// one matches. It uses a user defined function to match. That function must
-// return true on match, and an error if anything goes wrong.
-func (g *Graph) VertexMatchFn(fn func(Vertex) (bool, error)) (Vertex, error) {
-	for v := range g.adjacency {
-		if b, err := fn(v); err != nil {
-			return nil, errwrap.Wrapf(err, "fn in VertexMatchFn() errored")
-		} else if b {
-			return v, nil
-		}
-	}
-	return nil, nil // nothing found
-}
-
 // HasVertex returns if the input vertex exists in the graph.
 func (g *Graph) HasVertex(v Vertex) bool {
 	if _, exists := g.adjacency[v]; exists {
@@ -239,8 +225,8 @@ func (vs VertexSlice) Len() int           { return len(vs) }
 func (vs VertexSlice) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
 func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String() }
 
-// VerticesSorted returns a sorted slice of all vertices in the graph
-// The order is sorted by String() to avoid the non-determinism in the map type
+// VerticesSorted returns a sorted slice of all vertices in the graph.
+// The order is sorted by String() to avoid the non-determinism in the map type.
 func (g *Graph) VerticesSorted() []Vertex {
 	var vertices []Vertex
 	for k := range g.adjacency {
@@ -510,6 +496,102 @@ func (g *Graph) Reachability(a, b Vertex) []Vertex {
 	result := []Vertex{a} // tack on a
 	result = append(result, collected[pick]...)
 	return result
+}
+
+// VertexMatchFn searches for a vertex in the graph and returns the vertex if
+// one matches. It uses a user defined function to match. That function must
+// return true on match, and an error if anything goes wrong.
+func (g *Graph) VertexMatchFn(fn func(Vertex) (bool, error)) (Vertex, error) {
+	for v := range g.adjacency {
+		if b, err := fn(v); err != nil {
+			return nil, errwrap.Wrapf(err, "fn in VertexMatchFn() errored")
+		} else if b {
+			return v, nil
+		}
+	}
+	return nil, nil // nothing found
+}
+
+// GraphCmp compares the topology of this graph to another and returns nil if
+// they're equal. It uses a user defined function to compare topologically
+// equivalent vertices, and edges.
+// FIXME: add more test cases
+func (g *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), edgeCmpFn func(Edge, Edge) (bool, error)) error {
+	n1, n2 := g.NumVertices(), graph.NumVertices()
+	if n1 != n2 {
+		return fmt.Errorf("base graph has %d vertices, while input graph has %d", n1, n2)
+	}
+	if e1, e2 := g.NumEdges(), graph.NumEdges(); e1 != e2 {
+		return fmt.Errorf("base graph has %d edges, while input graph has %d", e1, e2)
+	}
+
+	var m = make(map[Vertex]Vertex) // g to graph vertex correspondence
+Loop:
+	// check vertices
+	for v1 := range g.Adjacency() { // for each vertex in g
+		for v2 := range graph.Adjacency() { // does it match in graph ?
+			b, err := vertexCmpFn(v1, v2)
+			if err != nil {
+				return errwrap.Wrapf(err, "could not run vertexCmpFn() properly")
+			}
+			// does it match ?
+			if b {
+				m[v1] = v2 // store the mapping
+				continue Loop
+			}
+		}
+		return fmt.Errorf("base graph, has no match in input graph for: %s", v1)
+	}
+	// vertices match :)
+
+	// is the mapping the right length?
+	if n1 := len(m); n1 != n2 {
+		return fmt.Errorf("mapping only has correspondence of %d, when it should have %d", n1, n2)
+	}
+
+	// check if mapping is unique (are there duplicates?)
+	m1 := []Vertex{}
+	m2 := []Vertex{}
+	for k, v := range m {
+		if VertexContains(k, m1) {
+			return fmt.Errorf("mapping from %s is used more than once to: %s", k, m1)
+		}
+		if VertexContains(v, m2) {
+			return fmt.Errorf("mapping to %s is used more than once from: %s", v, m2)
+		}
+		m1 = append(m1, k)
+		m2 = append(m2, v)
+	}
+
+	// check edges
+	for v1 := range g.Adjacency() { // for each vertex in g
+		v2 := m[v1] // lookup in map to get correspondance
+		// g.Adjacency()[v1] corresponds to graph.Adjacency()[v2]
+		if e1, e2 := len(g.Adjacency()[v1]), len(graph.Adjacency()[v2]); e1 != e2 {
+			return fmt.Errorf("base graph, vertex(%s) has %d edges, while input graph, vertex(%s) has %d", v1, e1, v2, e2)
+		}
+
+		for vv1, ee1 := range g.Adjacency()[v1] {
+			vv2 := m[vv1]
+			ee2 := graph.Adjacency()[v2][vv2]
+
+			// these are edges from v1 -> vv1 via ee1 (graph 1)
+			// to cmp to edges from v2 -> vv2 via ee2 (graph 2)
+
+			// check: (1) vv1 == vv2 ? (we've already checked this!)
+
+			// check: (2) ee1 == ee2
+			b, err := edgeCmpFn(ee1, ee2)
+			if err != nil {
+				return errwrap.Wrapf(err, "could not run edgeCmpFn() properly")
+			}
+			if !b {
+				return fmt.Errorf("base graph edge(%s) doesn't match input graph edge(%s)", ee1, ee2)
+			}
+		}
+	}
+
+	return nil // success!
 }
 
 // VertexContains is an "in array" function to test for a vertex in a slice of vertices.

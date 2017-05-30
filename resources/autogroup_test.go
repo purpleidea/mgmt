@@ -117,8 +117,9 @@ func NewNoopResTest(name string) *NoopResTest {
 	return obj
 }
 
-// GraphCmp compares the topology of two graphs and returns nil if they're equal
-// It also compares if grouped element groups are identical
+// GraphCmp compares the topology of two graphs and returns nil if they're
+// equal. It also compares if grouped element groups are identical.
+// TODO: port this to use the pgraph.GraphCmp function instead.
 func GraphCmp(g1, g2 *pgraph.Graph) error {
 	if n1, n2 := g1.NumVertices(), g2.NumVertices(); n1 != n2 {
 		return fmt.Errorf("graph g1 has %d vertices, while g2 has %d", n1, n2)

@@ -18,6 +18,7 @@
 package pgraph
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -655,5 +656,40 @@ func TestPgraphDelete1(t *testing.T) {
 
 	if i := G.NumVertices(); i != 0 {
 		t.Errorf("should have 0 vertices instead of: %d", i)
+	}
+}
+
+func vertexCmpFn(v1, v2 Vertex) (bool, error) {
+	if v1.String() == "" || v2.String() == "" {
+		return false, fmt.Errorf("oops, empty vertex")
+	}
+	return v1.String() == v2.String(), nil
+}
+
+func edgeCmpFn(e1, e2 Edge) (bool, error) {
+	if e1.String() == "" || e2.String() == "" {
+		return false, fmt.Errorf("oops, empty edge")
+	}
+	return e1.String() == e2.String(), nil
+}
+
+func TestPgraphGraphCmp1(t *testing.T) {
+	g1 := &Graph{}
+	g2 := &Graph{}
+	g3 := &Graph{}
+	g3.AddVertex(NV("v1"))
+	g4 := &Graph{}
+	g4.AddVertex(NV("v2"))
+
+	if err := g1.GraphCmp(g2, vertexCmpFn, edgeCmpFn); err != nil {
+		t.Errorf("should have no error during GraphCmp, but got: %v", err)
+	}
+
+	if err := g1.GraphCmp(g3, vertexCmpFn, edgeCmpFn); err == nil {
+		t.Errorf("should have error during GraphCmp, but got nil")
+	}
+
+	if err := g3.GraphCmp(g4, vertexCmpFn, edgeCmpFn); err == nil {
+		t.Errorf("should have error during GraphCmp, but got nil")
 	}
 }

@@ -30,6 +30,21 @@ func (obj *Edge) String() string {
 	return obj.Name
 }
 
+// Compare returns true if two edges are equivalent. Otherwise it returns false.
+func (obj *Edge) Compare(edge *Edge) bool {
+	if obj.Name != edge.Name {
+		return false
+	}
+	if obj.Notify != edge.Notify {
+		return false
+	}
+	// FIXME: should we compare this as well?
+	//if obj.refresh != edge.refresh {
+	//	return false
+	//}
+	return true
+}
+
 // Refresh returns the pending refresh status of this edge.
 func (obj *Edge) Refresh() bool {
 	return obj.refresh

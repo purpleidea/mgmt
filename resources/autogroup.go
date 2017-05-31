@@ -146,6 +146,7 @@ func (ag *baseGrouper) vertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err e
 }
 
 func (ag *baseGrouper) edgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
+	// FIXME: should we merge the edge.Notify or edge.refresh values?
 	return e1 // noop
 }
 

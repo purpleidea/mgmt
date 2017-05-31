@@ -75,8 +75,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		State:   "present",
 	}
 
-	v0 := pgraph.NewVertex(f0)
-	g.AddVertex(v0)
+	g.AddVertex(f0)
 
 	p1 := &resources.PasswordRes{
 		BaseRes: resources.BaseRes{
@@ -86,8 +85,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		Length: 8,    // generated string will have this many characters
 		Saved:  true, // this causes passwords to be stored in plain text!
 	}
-	v1 := pgraph.NewVertex(p1)
-	g.AddVertex(v1)
+	g.AddVertex(p1)
 
 	f1 := &resources.FileRes{
 		BaseRes: resources.BaseRes{
@@ -103,8 +101,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		State: "present",
 	}
 
-	v2 := pgraph.NewVertex(f1)
-	g.AddVertex(v2)
+	g.AddVertex(f1)
 
 	n1 := &resources.NoopRes{
 		BaseRes: resources.BaseRes{
@@ -113,18 +110,17 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		},
 	}
 
-	v3 := pgraph.NewVertex(n1)
-	g.AddVertex(v3)
+	g.AddVertex(n1)
 
-	e0 := pgraph.NewEdge("e0")
-	e0.Notify = true // send a notification from v0 to v1
-	g.AddEdge(v0, v1, e0)
+	e0 := &resources.Edge{Name: "e0"}
+	e0.Notify = true // send a notification from f0 to p1
+	g.AddEdge(f0, p1, e0)
 
-	g.AddEdge(v1, v2, pgraph.NewEdge("e1"))
+	g.AddEdge(p1, f1, &resources.Edge{Name: "e1"})
 
-	e2 := pgraph.NewEdge("e2")
-	e2.Notify = true // send a notification from v2 to v3
-	g.AddEdge(v2, v3, e2)
+	e2 := &resources.Edge{Name: "e2"}
+	e2.Notify = true // send a notification from f1 to n1
+	g.AddEdge(f1, n1, e2)
 
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, nil

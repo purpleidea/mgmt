@@ -145,7 +145,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 					return nil, errwrap.Wrapf(err, "could not VertexMatchFn() resource")
 				}
 				if v == nil { // no match found
-					v = pgraph.NewVertex(res)
+					v = res            // a standalone res can be a vertex
 					graph.AddVertex(v) // call standalone in case not part of an edge
 				}
 				lookup[kind][res.GetName()] = v // used for constructing edges
@@ -223,7 +223,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 				return nil, errwrap.Wrapf(err, "could not VertexMatchFn() resource")
 			}
 			if v == nil { // no match found
-				v = pgraph.NewVertex(res)
+				v = res            // a standalone res can be a vertex
 				graph.AddVertex(v) // call standalone in case not part of an edge
 			}
 			lookup[kind][res.GetName()] = v // used for constructing edges

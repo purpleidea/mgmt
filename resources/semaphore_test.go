@@ -54,16 +54,16 @@ func NewNoopResTestSema(name string, semas []string) *NoopResTest {
 func TestPgraphSemaphoreGrouping1(t *testing.T) {
 	g1, _ := pgraph.NewGraph("g1") // original graph
 	{
-		a1 := pgraph.NewVertex(NewNoopResTestSema("a1", []string{"s:1"}))
-		a2 := pgraph.NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
-		a3 := pgraph.NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
+		a1 := NewNoopResTestSema("a1", []string{"s:1"})
+		a2 := NewNoopResTestSema("a2", []string{"s:2"})
+		a3 := NewNoopResTestSema("a3", []string{"s:3"})
 		g1.AddVertex(a1)
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
 	g2, _ := pgraph.NewGraph("g2") // expected result
 	{
-		a123 := pgraph.NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
+		a123 := NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"})
 		g2.AddVertex(a123)
 	}
 	runGraphCmp(t, g1, g2)
@@ -72,16 +72,16 @@ func TestPgraphSemaphoreGrouping1(t *testing.T) {
 func TestPgraphSemaphoreGrouping2(t *testing.T) {
 	g1, _ := pgraph.NewGraph("g1") // original graph
 	{
-		a1 := pgraph.NewVertex(NewNoopResTestSema("a1", []string{"s:10", "s:11"}))
-		a2 := pgraph.NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
-		a3 := pgraph.NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
+		a1 := NewNoopResTestSema("a1", []string{"s:10", "s:11"})
+		a2 := NewNoopResTestSema("a2", []string{"s:2"})
+		a3 := NewNoopResTestSema("a3", []string{"s:3"})
 		g1.AddVertex(a1)
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
 	g2, _ := pgraph.NewGraph("g2") // expected result
 	{
-		a123 := pgraph.NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:10", "s:11", "s:2", "s:3"}))
+		a123 := NewNoopResTestSema("a1,a2,a3", []string{"s:10", "s:11", "s:2", "s:3"})
 		g2.AddVertex(a123)
 	}
 	runGraphCmp(t, g1, g2)
@@ -90,16 +90,16 @@ func TestPgraphSemaphoreGrouping2(t *testing.T) {
 func TestPgraphSemaphoreGrouping3(t *testing.T) {
 	g1, _ := pgraph.NewGraph("g1") // original graph
 	{
-		a1 := pgraph.NewVertex(NewNoopResTestSema("a1", []string{"s:1", "s:2"}))
-		a2 := pgraph.NewVertex(NewNoopResTestSema("a2", []string{"s:2"}))
-		a3 := pgraph.NewVertex(NewNoopResTestSema("a3", []string{"s:3"}))
+		a1 := NewNoopResTestSema("a1", []string{"s:1", "s:2"})
+		a2 := NewNoopResTestSema("a2", []string{"s:2"})
+		a3 := NewNoopResTestSema("a3", []string{"s:3"})
 		g1.AddVertex(a1)
 		g1.AddVertex(a2)
 		g1.AddVertex(a3)
 	}
 	g2, _ := pgraph.NewGraph("g2") // expected result
 	{
-		a123 := pgraph.NewVertex(NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"}))
+		a123 := NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"})
 		g2.AddVertex(a123)
 	}
 	runGraphCmp(t, g1, g2)

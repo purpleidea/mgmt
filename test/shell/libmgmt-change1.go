@@ -68,9 +68,8 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 			MetaParams: metaparams,
 		},
 	}
-	v := pgraph.NewVertex(n0)
+	g.AddVertex(n0)
 
-	g.AddVertex(v)
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, nil
 }

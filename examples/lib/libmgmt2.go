@@ -63,7 +63,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	var vertex *pgraph.Vertex
+	var vertex pgraph.Vertex
 	for i := uint(0); i < obj.Count; i++ {
 		n := &resources.NoopRes{
 			BaseRes: resources.BaseRes{
@@ -71,12 +71,11 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 				MetaParams: resources.DefaultMetaParams,
 			},
 		}
-		v := pgraph.NewVertex(n)
-		g.AddVertex(v)
+		g.AddVertex(n)
 		if i > 0 {
-			g.AddEdge(vertex, v, pgraph.NewEdge(fmt.Sprintf("e%d", i)))
+			g.AddEdge(vertex, n, &resources.Edge{Name: fmt.Sprintf("e%d", i)})
 		}
-		vertex = v // save
+		vertex = n // save
 	}
 
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)

@@ -72,20 +72,6 @@ func NewGraph(name string) (*Graph, error) {
 	return g, nil
 }
 
-// NewVertex returns whatever was passed in. This is for compatibility with the
-// usage of the old NewVertex method. This is considered deprecated.
-// FIXME: remove me
-func NewVertex(x Vertex) Vertex {
-	return x
-}
-
-// NewEdge returns whatever was passed in. This is for compatibility with the
-// usage of the old NewEdge method. This is considered deprecated.
-// FIXME: remove me
-func NewEdge(x Edge) Edge {
-	return x
-}
-
 // Value returns a value stored alongside the graph in a particular key.
 func (g *Graph) Value(key string) (interface{}, bool) {
 	val, exists := g.kv[key]

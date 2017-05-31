@@ -35,8 +35,7 @@ func (v *vertex) String() string {
 
 // NV is a helper function to make testing easier. It creates a new noop vertex.
 func NV(s string) Vertex {
-	obj := &vertex{s}
-	return NewVertex(obj)
+	return &vertex{s}
 }
 
 // edge is a test struct to test the library.
@@ -51,8 +50,7 @@ func (e *edge) String() string {
 
 // NE is a helper function to make testing easier. It creates a new noop edge.
 func NE(s string) Edge {
-	obj := &edge{s}
-	return NewEdge(obj)
+	return &edge{s}
 }
 
 func TestPgraphT1(t *testing.T) {

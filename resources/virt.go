@@ -1076,62 +1076,62 @@ func (obj *VirtRes) AutoEdges() AutoEdge {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *VirtRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *VirtRes:
-		res := res.(*VirtRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.URI != res.URI {
-			return false
-		}
-		if obj.State != res.State {
-			return false
-		}
-		if obj.Transient != res.Transient {
-			return false
-		}
-		if obj.CPUs != res.CPUs {
-			return false
-		}
-		// we can't change this property while machine is running!
-		// we do need to return false, so that a new struct gets built,
-		// which will cause at least one Init() & CheckApply() to run.
-		if obj.MaxCPUs != res.MaxCPUs {
-			return false
-		}
-		// TODO: can we skip the compare of certain properties such as
-		// Memory because this object (but with different memory) can be
-		// *converted* into the new version that has more/less memory?
-		// We would need to run some sort of "old struct update", to get
-		// the new values, but that's easy to add.
-		if obj.Memory != res.Memory {
-			return false
-		}
-		// TODO:
-		//if obj.Boot != res.Boot {
-		//	return false
-		//}
-		//if obj.Disk != res.Disk {
-		//	return false
-		//}
-		//if obj.CDRom != res.CDRom {
-		//	return false
-		//}
-		//if obj.Network != res.Network {
-		//	return false
-		//}
-		//if obj.Filesystem != res.Filesystem {
-		//	return false
-		//}
-	default:
+func (obj *VirtRes) Compare(r Res) bool {
+	// we can only compare VirtRes to others of the same resource kind
+	res, ok := r.(*VirtRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.URI != res.URI {
+		return false
+	}
+	if obj.State != res.State {
+		return false
+	}
+	if obj.Transient != res.Transient {
+		return false
+	}
+	if obj.CPUs != res.CPUs {
+		return false
+	}
+	// we can't change this property while machine is running!
+	// we do need to return false, so that a new struct gets built,
+	// which will cause at least one Init() & CheckApply() to run.
+	if obj.MaxCPUs != res.MaxCPUs {
+		return false
+	}
+	// TODO: can we skip the compare of certain properties such as
+	// Memory because this object (but with different memory) can be
+	// *converted* into the new version that has more/less memory?
+	// We would need to run some sort of "old struct update", to get
+	// the new values, but that's easy to add.
+	if obj.Memory != res.Memory {
+		return false
+	}
+	// TODO:
+	//if obj.Boot != res.Boot {
+	//	return false
+	//}
+	//if obj.Disk != res.Disk {
+	//	return false
+	//}
+	//if obj.CDRom != res.CDRom {
+	//	return false
+	//}
+	//if obj.Network != res.Network {
+	//	return false
+	//}
+	//if obj.Filesystem != res.Filesystem {
+	//	return false
+	//}
+
 	return true
 }
 

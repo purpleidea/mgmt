@@ -135,22 +135,23 @@ func (obj *TimerRes) AutoEdges() AutoEdge {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *TimerRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *TimerRes:
-		res := res.(*TimerRes)
-		if !obj.BaseRes.Compare(res) {
-			return false
-		}
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.Interval != res.Interval {
-			return false
-		}
-	default:
+func (obj *TimerRes) Compare(r Res) bool {
+	// we can only compare TimerRes to others of the same resource kind
+	res, ok := r.(*TimerRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) {
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.Interval != res.Interval {
+		return false
+	}
+
 	return true
 }
 

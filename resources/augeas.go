@@ -268,20 +268,19 @@ func (obj *AugeasRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *AugeasRes) Compare(res Res) bool {
-	switch res.(type) {
-	// we can only compare AugeasRes to others of the same resource
-	case *AugeasRes:
-		res := res.(*AugeasRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-		if obj.Name != res.Name {
-			return false
-		}
-	default:
+func (obj *AugeasRes) Compare(r Res) bool {
+	// we can only compare AugeasRes to others of the same resource kind
+	res, ok := r.(*AugeasRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
 	return true
 }
 

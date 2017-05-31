@@ -252,35 +252,34 @@ func (obj *KVRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *KVRes) Compare(res Res) bool {
-	switch res.(type) {
-	// we can only compare KVRes to others of the same resource
-	case *KVRes:
-		res := res.(*KVRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-
-		if obj.Key != res.Key {
-			return false
-		}
-		if (obj.Value == nil) != (res.Value == nil) { // xor
-			return false
-		}
-		if obj.Value != nil && res.Value != nil {
-			if *obj.Value != *res.Value { // compare the strings
-				return false
-			}
-		}
-		if obj.SkipLessThan != res.SkipLessThan {
-			return false
-		}
-		if obj.SkipCmpStyle != res.SkipCmpStyle {
-			return false
-		}
-	default:
+func (obj *KVRes) Compare(r Res) bool {
+	// we can only compare KVRes to others of the same resource kind
+	res, ok := r.(*KVRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+
+	if obj.Key != res.Key {
+		return false
+	}
+	if (obj.Value == nil) != (res.Value == nil) { // xor
+		return false
+	}
+	if obj.Value != nil && res.Value != nil {
+		if *obj.Value != *res.Value { // compare the strings
+			return false
+		}
+	}
+	if obj.SkipLessThan != res.SkipLessThan {
+		return false
+	}
+	if obj.SkipCmpStyle != res.SkipCmpStyle {
+		return false
+	}
+
 	return true
 }
 

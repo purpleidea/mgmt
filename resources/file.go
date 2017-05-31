@@ -942,43 +942,43 @@ func (obj *FileRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *FileRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *FileRes:
-		res := res.(*FileRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.path != res.path {
-			return false
-		}
-		if (obj.Content == nil) != (res.Content == nil) { // xor
-			return false
-		}
-		if obj.Content != nil && res.Content != nil {
-			if *obj.Content != *res.Content { // compare the strings
-				return false
-			}
-		}
-		if obj.Source != res.Source {
-			return false
-		}
-		if obj.State != res.State {
-			return false
-		}
-		if obj.Recurse != res.Recurse {
-			return false
-		}
-		if obj.Force != res.Force {
-			return false
-		}
-	default:
+func (obj *FileRes) Compare(r Res) bool {
+	// we can only compare FileRes to others of the same resource kind
+	res, ok := r.(*FileRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.path != res.path {
+		return false
+	}
+	if (obj.Content == nil) != (res.Content == nil) { // xor
+		return false
+	}
+	if obj.Content != nil && res.Content != nil {
+		if *obj.Content != *res.Content { // compare the strings
+			return false
+		}
+	}
+	if obj.Source != res.Source {
+		return false
+	}
+	if obj.State != res.State {
+		return false
+	}
+	if obj.Recurse != res.Recurse {
+		return false
+	}
+	if obj.Force != res.Force {
+		return false
+	}
+
 	return true
 }
 

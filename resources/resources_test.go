@@ -22,8 +22,48 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"testing"
-	//"github.com/purpleidea/mgmt/event"
 )
+
+func TestCompare1(t *testing.T) {
+	r1 := &NoopRes{}
+	r2 := &NoopRes{}
+	r3 := &FileRes{}
+
+	if !r1.Compare(r2) || !r2.Compare(r1) {
+		t.Error("The two resources do not match!")
+	}
+
+	if r1.Compare(r3) || r3.Compare(r1) {
+		t.Error("The two resources should not match!")
+	}
+}
+
+func TestCompare2(t *testing.T) {
+	r1 := &NoopRes{
+		BaseRes: BaseRes{
+			Name: "noop1",
+			MetaParams: MetaParams{
+				Noop: true,
+			},
+		},
+	}
+	r2 := &NoopRes{
+		BaseRes: BaseRes{
+			Name: "noop1", // same nampe
+			MetaParams: MetaParams{
+				Noop: false, // different noop
+			},
+		},
+	}
+
+	if !r2.Compare(r1) { // going from noop(false) -> noop(true) is okay!
+		t.Error("The two resources do not match!")
+	}
+
+	if r1.Compare(r2) { // going from noop(true) -> noop(false) is not okay!
+		t.Error("The two resources should not match!")
+	}
+}
 
 func TestMiscEncodeDecode1(t *testing.T) {
 	var err error

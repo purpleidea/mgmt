@@ -210,30 +210,31 @@ func (obj *MsgRes) AutoEdges() AutoEdge {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *MsgRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *MsgRes:
-		res := res.(*MsgRes)
-		if !obj.BaseRes.Compare(res) {
-			return false
-		}
-		if obj.Body != res.Body {
-			return false
-		}
-		if obj.Priority != res.Priority {
-			return false
-		}
-		if len(obj.Fields) != len(res.Fields) {
-			return false
-		}
-		for field, value := range obj.Fields {
-			if res.Fields[field] != value {
-				return false
-			}
-		}
-	default:
+func (obj *MsgRes) Compare(r Res) bool {
+	// we can only compare MsgRes to others of the same resource kind
+	res, ok := r.(*MsgRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) {
+		return false
+	}
+
+	if obj.Body != res.Body {
+		return false
+	}
+	if obj.Priority != res.Priority {
+		return false
+	}
+	if len(obj.Fields) != len(res.Fields) {
+		return false
+	}
+	for field, value := range obj.Fields {
+		if res.Fields[field] != value {
+			return false
+		}
+	}
+
 	return true
 }
 

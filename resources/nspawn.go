@@ -275,22 +275,23 @@ func (obj *NspawnRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *NspawnRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *NspawnRes:
-		res := res.(*NspawnRes)
-		if !obj.BaseRes.Compare(res) {
-			return false
-		}
-		if obj.Name != res.Name {
-			return false
-		}
-		if !obj.svc.Compare(res.svc) {
-			return false
-		}
-	default:
+func (obj *NspawnRes) Compare(r Res) bool {
+	// we can only compare NspawnRes to others of the same resource kind
+	res, ok := r.(*NspawnRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) {
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if !obj.svc.Compare(res.svc) {
+		return false
+	}
+
 	return true
 }
 

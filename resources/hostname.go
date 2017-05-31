@@ -252,28 +252,29 @@ func (obj *HostnameRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *HostnameRes) Compare(res Res) bool {
-	switch res := res.(type) {
-	// we can only compare HostnameRes to others of the same resource
-	case *HostnameRes:
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.PrettyHostname != res.PrettyHostname {
-			return false
-		}
-		if obj.StaticHostname != res.StaticHostname {
-			return false
-		}
-		if obj.TransientHostname != res.TransientHostname {
-			return false
-		}
-	default:
+func (obj *HostnameRes) Compare(r Res) bool {
+	// we can only compare HostnameRes to others of the same resource kind
+	res, ok := r.(*HostnameRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.PrettyHostname != res.PrettyHostname {
+		return false
+	}
+	if obj.StaticHostname != res.StaticHostname {
+		return false
+	}
+	if obj.TransientHostname != res.TransientHostname {
+		return false
+	}
+
 	return true
 }
 

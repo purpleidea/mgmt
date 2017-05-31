@@ -340,41 +340,41 @@ func (obj *ExecRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *ExecRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *ExecRes:
-		res := res.(*ExecRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.Cmd != res.Cmd {
-			return false
-		}
-		if obj.Shell != res.Shell {
-			return false
-		}
-		if obj.Timeout != res.Timeout {
-			return false
-		}
-		if obj.WatchCmd != res.WatchCmd {
-			return false
-		}
-		if obj.WatchShell != res.WatchShell {
-			return false
-		}
-		if obj.IfCmd != res.IfCmd {
-			return false
-		}
-		if obj.IfShell != res.IfShell {
-			return false
-		}
-	default:
+func (obj *ExecRes) Compare(r Res) bool {
+	// we can only compare ExecRes to others of the same resource kind
+	res, ok := r.(*ExecRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.Cmd != res.Cmd {
+		return false
+	}
+	if obj.Shell != res.Shell {
+		return false
+	}
+	if obj.Timeout != res.Timeout {
+		return false
+	}
+	if obj.WatchCmd != res.WatchCmd {
+		return false
+	}
+	if obj.WatchShell != res.WatchShell {
+		return false
+	}
+	if obj.IfCmd != res.IfCmd {
+		return false
+	}
+	if obj.IfShell != res.IfShell {
+		return false
+	}
+
 	return true
 }
 

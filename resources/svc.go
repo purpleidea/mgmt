@@ -427,29 +427,29 @@ func (obj *SvcRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *SvcRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *SvcRes:
-		res := res.(*SvcRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.State != res.State {
-			return false
-		}
-		if obj.Startup != res.Startup {
-			return false
-		}
-		if obj.Session != res.Session {
-			return false
-		}
-	default:
+func (obj *SvcRes) Compare(r Res) bool {
+	// we can only compare SvcRes to others of the same resource kind
+	res, ok := r.(*SvcRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.State != res.State {
+		return false
+	}
+	if obj.Startup != res.Startup {
+		return false
+	}
+	if obj.Session != res.Session {
+		return false
+	}
+
 	return true
 }
 

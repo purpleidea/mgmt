@@ -344,25 +344,26 @@ some way.
 #### Example
 ```golang
 // Compare two resources and return if they are equivalent.
-func (obj *FooRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *FooRes: // only compare to other resources of the Foo kind!
-		res := res.(*FileRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.whatever != res.whatever {
-			return false
-		}
-		if obj.Flag != res.Flag {
-			return false
-		}
-	default:
-		return false // different kind of resource
+func (obj *FooRes) Compare(r Res) bool {
+	// we can only compare FooRes to others of the same resource kind
+	res, ok := r.(*FooRes)
+	if !ok {
+		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.whatever != res.whatever {
+		return false
+	}
+	if obj.Flag != res.Flag {
+		return false
+	}
+
 	return true // they must match!
 }
 ```

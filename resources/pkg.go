@@ -482,32 +482,32 @@ func (obj *PkgRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *PkgRes) Compare(res Res) bool {
-	switch res.(type) {
-	case *PkgRes:
-		res := res.(*PkgRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.State != res.State {
-			return false
-		}
-		if obj.AllowUntrusted != res.AllowUntrusted {
-			return false
-		}
-		if obj.AllowNonFree != res.AllowNonFree {
-			return false
-		}
-		if obj.AllowUnsupported != res.AllowUnsupported {
-			return false
-		}
-	default:
+func (obj *PkgRes) Compare(r Res) bool {
+	// we can only compare PkgRes to others of the same resource kind
+	res, ok := r.(*PkgRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.State != res.State {
+		return false
+	}
+	if obj.AllowUntrusted != res.AllowUntrusted {
+		return false
+	}
+	if obj.AllowNonFree != res.AllowNonFree {
+		return false
+	}
+	if obj.AllowUnsupported != res.AllowUnsupported {
+		return false
+	}
+
 	return true
 }
 

@@ -322,32 +322,31 @@ func (obj *PasswordRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *PasswordRes) Compare(res Res) bool {
-	switch res.(type) {
-	// we can only compare PasswordRes to others of the same resource
-	case *PasswordRes:
-		res := res.(*PasswordRes)
-		if !obj.BaseRes.Compare(res) { // call base Compare
-			return false
-		}
-
-		if obj.Name != res.Name {
-			return false
-		}
-		if obj.Length != res.Length {
-			return false
-		}
-		// TODO: we *could* optimize by allowing CheckApply to move from
-		// saved->!saved, by removing the file, but not likely worth it!
-		if obj.Saved != res.Saved {
-			return false
-		}
-		if obj.CheckRecovery != res.CheckRecovery {
-			return false
-		}
-	default:
+func (obj *PasswordRes) Compare(r Res) bool {
+	// we can only compare PasswordRes to others of the same resource kind
+	res, ok := r.(*PasswordRes)
+	if !ok {
 		return false
 	}
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
+	if obj.Length != res.Length {
+		return false
+	}
+	// TODO: we *could* optimize by allowing CheckApply to move from
+	// saved->!saved, by removing the file, but not likely worth it!
+	if obj.Saved != res.Saved {
+		return false
+	}
+	if obj.CheckRecovery != res.CheckRecovery {
+		return false
+	}
+
 	return true
 }
 

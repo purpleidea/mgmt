@@ -123,21 +123,20 @@ func (obj *NoopRes) GroupCmp(r Res) bool {
 }
 
 // Compare two resources and return if they are equivalent.
-func (obj *NoopRes) Compare(res Res) bool {
-	switch res.(type) {
-	// we can only compare NoopRes to others of the same resource
-	case *NoopRes:
-		res := res.(*NoopRes)
-		// calling base Compare is unneeded for the noop res
-		//if !obj.BaseRes.Compare(res) { // call base Compare
-		//	return false
-		//}
-		if obj.Name != res.Name {
-			return false
-		}
-	default:
+func (obj *NoopRes) Compare(r Res) bool {
+	// we can only compare NoopRes to others of the same resource kind
+	res, ok := r.(*NoopRes)
+	if !ok {
 		return false
 	}
+	// calling base Compare is probably unneeded for the noop res, but do it
+	if !obj.BaseRes.Compare(res) { // call base Compare
+		return false
+	}
+	if obj.Name != res.Name {
+		return false
+	}
+
 	return true
 }
 

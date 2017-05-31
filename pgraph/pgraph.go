@@ -623,3 +623,15 @@ func Reverse(vs []Vertex) []Vertex {
 	}
 	return out
 }
+
+// Sort the list of vertices and return a copy without modifying the input.
+func Sort(vs []Vertex) []Vertex {
+	vertices := []Vertex{}
+	for _, v := range vs { // copy
+		vertices = append(vertices, v)
+	}
+	sort.Sort(VertexSlice(vertices))
+	return vertices
+	// sort.Sort(VertexSlice(vs)) // this is wrong, it would modify input!
+	//return vs
+}

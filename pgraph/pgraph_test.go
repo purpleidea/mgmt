@@ -693,3 +693,51 @@ func TestPgraphGraphCmp1(t *testing.T) {
 		t.Errorf("should have error during GraphCmp, but got nil")
 	}
 }
+
+func TestPgraphSort0(t *testing.T) {
+	vs := []Vertex{}
+	s := Sort(vs)
+
+	if !reflect.DeepEqual(s, []Vertex{}) {
+		t.Errorf("sort failed!")
+		if s == nil {
+			t.Logf("output is nil!")
+		} else {
+			str := "Got:"
+			for _, v := range s {
+				str += " " + v.String()
+			}
+			t.Errorf(str)
+		}
+	}
+}
+
+func TestPgraphSort1(t *testing.T) {
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
+
+	vs := []Vertex{v3, v2, v6, v1, v5, v4}
+	s := Sort(vs)
+
+	if !reflect.DeepEqual(s, []Vertex{v1, v2, v3, v4, v5, v6}) {
+		t.Errorf("sort failed!")
+		str := "Got:"
+		for _, v := range s {
+			str += " " + v.String()
+		}
+		t.Errorf(str)
+	}
+
+	if !reflect.DeepEqual(vs, []Vertex{v3, v2, v6, v1, v5, v4}) {
+		t.Errorf("sort modified input!")
+		str := "Got:"
+		for _, v := range vs {
+			str += " " + v.String()
+		}
+		t.Errorf(str)
+	}
+}

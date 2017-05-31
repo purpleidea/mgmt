@@ -58,6 +58,7 @@ type Resources struct {
 	Augeas   []*resources.AugeasRes   `yaml:"augeas"`
 	Exec     []*resources.ExecRes     `yaml:"exec"`
 	File     []*resources.FileRes     `yaml:"file"`
+	Graph    []*resources.GraphRes    `yaml:"graph"`
 	Hostname []*resources.HostnameRes `yaml:"hostname"`
 	KV       []*resources.KVRes       `yaml:"kv"`
 	Msg      []*resources.MsgRes      `yaml:"msg"`

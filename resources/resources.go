@@ -93,8 +93,8 @@ type World interface { // TODO: is there a better name for this interface?
 	StrMapDel(namespace string) error
 }
 
-// Data is the set of input values passed into the pgraph for the resources.
-type Data struct {
+// ResData is the set of input values passed into the pgraph for the resources.
+type ResData struct {
 	Hostname string // uuid for the host
 	//Noop     bool
 	Converger  converger.Converger
@@ -183,7 +183,7 @@ type Base interface {
 	String() string
 	Meta() *MetaParams
 	Events() chan *event.Event
-	Data() *Data
+	Data() *ResData
 	Working() *bool
 	Setup(*pgraph.Graph, pgraph.Vertex, Res)
 	Update(*pgraph.Graph)
@@ -243,7 +243,7 @@ type BaseRes struct {
 	Name       string     `yaml:"name"`
 	MetaParams MetaParams `yaml:"meta"` // struct of all the metaparams
 
-	data      Data
+	data      ResData
 	timestamp int64 // last updated timestamp
 	state     ResState
 	prefix    string // base prefix for this resource
@@ -459,7 +459,7 @@ func (obj *BaseRes) Events() chan *event.Event {
 }
 
 // Data returns an associable handle to some data passed in to the resource.
-func (obj *BaseRes) Data() *Data {
+func (obj *BaseRes) Data() *ResData {
 	return &obj.data
 }
 

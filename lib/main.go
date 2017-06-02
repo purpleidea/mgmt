@@ -371,7 +371,7 @@ func (obj *Main) Run() error {
 		EmbdEtcd: EmbdEtcd,
 	}
 
-	graph.Data = &resources.Data{
+	graph.Data = &resources.ResData{
 		Hostname:   hostname,
 		Converger:  converger,
 		Prometheus: prom,

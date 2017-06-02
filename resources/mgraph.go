@@ -42,7 +42,7 @@ type MGraph struct {
 	//Graph *pgraph.Graph
 	*pgraph.Graph // wrap a graph, and use its methods directly
 
-	Data  *Data
+	Data  *ResData
 	Debug bool
 
 	state graphState

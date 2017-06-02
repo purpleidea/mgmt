@@ -22,9 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
-	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/semaphore"
 
 	multierr "github.com/hashicorp/go-multierror"
@@ -34,21 +32,19 @@ import (
 const SemaSep = ":"
 
 // SemaLock acquires the list of semaphores in the graph.
-func SemaLock(g *pgraph.Graph, semas []string) error {
+func (obj *MGraph) SemaLock(semas []string) error {
 	var reterr error
 	sort.Strings(semas) // very important to avoid deadlock in the dag!
-	slock := SemaLockFromGraph(g)
-	smap := SemaMapFromGraph(g) // returns a map, which can be modified by ref
 
 	for _, id := range semas {
-		slock.Lock()         // semaphore creation lock
-		sema, ok := smap[id] // lookup
+		obj.slock.Lock()          // semaphore creation lock
+		sema, ok := obj.semas[id] // lookup
 		if !ok {
 			size := SemaSize(id) // defaults to 1
-			smap[id] = semaphore.NewSemaphore(size)
-			sema = smap[id]
+			obj.semas[id] = semaphore.NewSemaphore(size)
+			sema = obj.semas[id]
 		}
-		slock.Unlock()
+		obj.slock.Unlock()
 
 		if err := sema.P(1); err != nil { // lock!
 			reterr = multierr.Append(reterr, err) // list of errors
@@ -58,13 +54,12 @@ func SemaLock(g *pgraph.Graph, semas []string) error {
 }
 
 // SemaUnlock releases the list of semaphores in the graph.
-func SemaUnlock(g *pgraph.Graph, semas []string) error {
+func (obj *MGraph) SemaUnlock(semas []string) error {
 	var reterr error
 	sort.Strings(semas) // unlock in the same order to remove partial locks
-	smap := SemaMapFromGraph(g)
 
 	for _, id := range semas {
-		sema, ok := smap[id] // lookup
+		sema, ok := obj.semas[id] // lookup
 		if !ok {
 			// programming error!
 			panic(fmt.Sprintf("graph: sema: %s does not exist", id))
@@ -89,37 +84,4 @@ func SemaSize(id string) int {
 		}
 	}
 	return size
-}
-
-// SemaLockFromGraph returns a pointer to the semaphore lock stored with the
-// graph, otherwise it panics. If one does not exist, it will create it.
-func SemaLockFromGraph(g *pgraph.Graph) *sync.Mutex {
-	x, exists := g.Value("slock")
-	if !exists {
-		g.SetValue("slock", &sync.Mutex{})
-		x, _ = g.Value("slock")
-	}
-
-	slock, ok := x.(*sync.Mutex)
-	if !ok {
-		panic("not a *sync.Mutex")
-	}
-	return slock
-}
-
-// SemaMapFromGraph returns a pointer to the map of semaphores stored with the
-// graph, otherwise it panics. If one does not exist, it will create it.
-func SemaMapFromGraph(g *pgraph.Graph) map[string]*semaphore.Semaphore {
-	x, exists := g.Value("semas")
-	if !exists {
-		semas := make(map[string]*semaphore.Semaphore)
-		g.SetValue("semas", semas)
-		x, _ = g.Value("semas")
-	}
-
-	semas, ok := x.(map[string]*semaphore.Semaphore)
-	if !ok {
-		panic("not a map[string]*semaphore.Semaphore")
-	}
-	return semas
 }

@@ -69,7 +69,7 @@ func (obj *BaseRes) Poke() error {
 	// if we're pausing (or exiting) then we should suspend poke's so that
 	// the graph doesn't go on running forever until it's completely done!
 	// this is an optional feature which we can do by default on user exit
-	if b, ok := obj.Graph.Value("fastpause"); ok && util.Bool(b) {
+	if obj.Graph.FastPause {
 		return nil // TODO: should this be an error instead?
 	}
 
@@ -199,15 +199,15 @@ func (obj *BaseRes) Process() error {
 	// The exception is that semaphores with a zero count will always block!
 	// TODO: Add a close mechanism to close/unblock zero count semaphores...
 	semas := obj.Meta().Sema
-	if b, ok := obj.Graph.Value("debug"); ok && util.Bool(b) && len(semas) > 0 {
+	if obj.debug && len(semas) > 0 {
 		log.Printf("%s: Sema: P(%s)", obj, strings.Join(semas, ", "))
 	}
-	if err := SemaLock(obj.Graph, semas); err != nil { // lock
+	if err := obj.Graph.SemaLock(semas); err != nil { // lock
 		// NOTE: in practice, this might not ever be truly necessary...
 		return fmt.Errorf("shutdown of semaphores")
 	}
-	defer SemaUnlock(obj.Graph, semas) // unlock
-	if b, ok := obj.Graph.Value("debug"); ok && util.Bool(b) && len(semas) > 0 {
+	defer obj.Graph.SemaUnlock(semas) // unlock
+	if obj.debug && len(semas) > 0 {
 		defer log.Printf("%s: Sema: V(%s)", obj, strings.Join(semas, ", "))
 	}
 

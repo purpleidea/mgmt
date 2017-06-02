@@ -117,8 +117,7 @@ type Base interface {
 	Events() chan *event.Event
 	Data() *ResData
 	Working() *bool
-	Setup(*pgraph.Graph, pgraph.Vertex, Res)
-	Update(*pgraph.Graph)
+	Setup(*MGraph, pgraph.Vertex, Res)
 	Reset()
 	Exit()
 	GetState() ResState
@@ -167,7 +166,7 @@ type Res interface {
 // BaseRes is the base struct that gets used in every resource.
 type BaseRes struct {
 	Res    Res           // pointer to full res
-	Graph  *pgraph.Graph // pointer to graph I'm currently in
+	Graph  *MGraph       // pointer to graph I'm currently in
 	Vertex pgraph.Vertex // pointer to vertex I currently am
 
 	Recv       map[string]*Send // mapping of key to receive on from value
@@ -344,7 +343,7 @@ func (obj *BaseRes) Working() *bool {
 // Setup does some work which must happen before the Worker starts. It happens
 // once per Worker startup. It can happen in parallel with other Setup calls, so
 // add locks around any operation that's not thread-safe.
-func (obj *BaseRes) Setup(graph *pgraph.Graph, vertex pgraph.Vertex, res Res) {
+func (obj *BaseRes) Setup(mgraph *MGraph, vertex pgraph.Vertex, res Res) {
 	obj.started = make(chan struct{}) // closes when started
 	obj.stopped = make(chan struct{}) // closes when stopped
 
@@ -354,12 +353,7 @@ func (obj *BaseRes) Setup(graph *pgraph.Graph, vertex pgraph.Vertex, res Res) {
 
 	obj.Res = res       // store a pointer to the full object
 	obj.Vertex = vertex // store a pointer to the vertex i'm
-	obj.Graph = graph   // store a pointer to the graph we're in
-}
-
-// Update refreshes the internal graph pointer that we're primarily used in.
-func (obj *BaseRes) Update(graph *pgraph.Graph) {
-	obj.Graph = graph // store a pointer to the graph i'm in
+	obj.Graph = mgraph  // store a pointer to the graph we're in
 }
 
 // Reset from Setup. These can get called for different vertices in parallel.

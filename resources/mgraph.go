@@ -23,6 +23,7 @@ import (
 
 	"github.com/purpleidea/mgmt/event"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util/semaphore"
 )
 
 //go:generate stringer -type=graphState -output=graphstate_stringer.go
@@ -42,19 +43,24 @@ type MGraph struct {
 	//Graph *pgraph.Graph
 	*pgraph.Graph // wrap a graph, and use its methods directly
 
-	Data  *ResData
-	Debug bool
+	Data      *ResData
+	FastPause bool
+	Debug     bool
 
 	state graphState
 	// ptr b/c: Mutex/WaitGroup must not be copied after first use
 	mutex *sync.Mutex
 	wg    *sync.WaitGroup
+	slock *sync.Mutex
+	semas map[string]*semaphore.Semaphore
 }
 
 // Init initializes the internal structures.
 func (obj *MGraph) Init() {
 	obj.mutex = &sync.Mutex{}
 	obj.wg = &sync.WaitGroup{}
+	obj.slock = &sync.Mutex{} // semaphore lock
+	obj.semas = make(map[string]*semaphore.Semaphore)
 }
 
 // getState returns the state of the graph. This state is used for optimizing
@@ -84,7 +90,6 @@ func (obj *MGraph) Update(newGraph *pgraph.Graph) {
 	for _, v := range obj.Graph.Vertices() {
 		res := VtoR(v)          // resource
 		*res.Data() = *obj.Data // push the data around
-		res.Update(obj.Graph)   // update graph pointer
 	}
 }
 
@@ -107,7 +112,7 @@ func (obj *MGraph) Start(first bool) { // start or continue
 				// NOTE: vertex == res here, but pass in both in
 				// case we ever wrap the res in something before
 				// we store it as the vertex in the graph struct
-				res.Setup(obj.Graph, vertex, res) // initialize some vars in the resource
+				res.Setup(obj, vertex, res) // initialize some vars in the resource
 			}
 		}(v, VtoR(v))
 	}
@@ -183,13 +188,13 @@ func (obj *MGraph) Pause(fastPause bool) {
 	log.Printf("State: %v -> %v", obj.setState(graphStatePausing), obj.getState())
 	defer log.Printf("State: %v -> %v", obj.setState(graphStatePaused), obj.getState())
 	if fastPause {
-		obj.Graph.SetValue("fastpause", true) // set flag
+		obj.FastPause = true // set flag
 	}
 	t, _ := obj.Graph.TopologicalSort()
 	for _, v := range t { // squeeze out the events...
 		VtoR(v).SendEvent(event.EventPause, nil) // sync
 	}
-	obj.Graph.SetValue("fastpause", false) // reset flag
+	obj.FastPause = false // reset flag
 }
 
 // Exit sends exit events to the graph in a topological sort order.

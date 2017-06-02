@@ -189,7 +189,6 @@ type Base interface {
 	Update(*pgraph.Graph)
 	Reset()
 	Exit()
-	Converger() converger.Converger
 	GetState() ResState
 	SetState(ResState)
 	Timestamp() int64
@@ -258,10 +257,9 @@ type BaseRes struct {
 	processChan chan *event.Event // chan that resources send events to
 	processSync *sync.WaitGroup   // blocks until the innerWorker closes
 
-	converger converger.Converger // converged tracking
-	cuid      converger.UID
-	wcuid     converger.UID
-	pcuid     converger.UID
+	cuid  converger.UID
+	wcuid converger.UID
+	pcuid converger.UID
 
 	started   chan struct{} // closed when worker is started/running
 	stopped   chan struct{} // closed when worker is stopped/exited
@@ -360,9 +358,11 @@ func (obj *BaseRes) Init() error {
 		return fmt.Errorf("resource did not set kind")
 	}
 
-	obj.cuid = obj.Converger().Register()
-	obj.wcuid = obj.Converger().Register() // get a cuid for the worker!
-	obj.pcuid = obj.Converger().Register() // get a cuid for the process
+	if converger := obj.Data().Converger; converger != nil {
+		obj.cuid = converger.Register()
+		obj.wcuid = converger.Register() // get a cuid for the worker!
+		obj.pcuid = converger.Register() // get a cuid for the process
+	}
 
 	obj.processLock = &sync.Mutex{} // lock around processChan closing and sending
 	obj.processDone = false         // did we close processChan ?
@@ -406,9 +406,11 @@ func (obj *BaseRes) Close() error {
 		log.Printf("%s: Close()", obj)
 	}
 
-	obj.pcuid.Unregister()
-	obj.wcuid.Unregister()
-	obj.cuid.Unregister()
+	if converger := obj.Data().Converger; converger != nil {
+		obj.pcuid.Unregister()
+		obj.wcuid.Unregister()
+		obj.cuid.Unregister()
+	}
 
 	//obj.working = false // Worker method should now be closing...
 	close(obj.stopped)
@@ -503,12 +505,6 @@ func (obj *BaseRes) Exit() {
 	// XXX: we can do this to quiesce, but it's not necessary now
 	obj.SendEvent(event.EventExit, nil) // sync
 	obj.waitGroup.Wait()
-}
-
-// Converger returns the converger object used by the system. It can be used to
-// register new convergers if needed.
-func (obj *BaseRes) Converger() converger.Converger {
-	return obj.data.Converger
 }
 
 // GetState returns the state of the resource.

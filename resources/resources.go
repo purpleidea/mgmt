@@ -105,74 +105,6 @@ type ResData struct {
 	// NOTE: we can add more fields here if needed for the resources.
 }
 
-// ResUID is a unique identifier for a resource, namely it's name, and the kind ("type").
-type ResUID interface {
-	GetName() string
-	GetKind() string
-	fmt.Stringer // String() string
-
-	IFF(ResUID) bool
-
-	IsReversed() bool // true means this resource happens before the generator
-}
-
-// The BaseUID struct is used to provide a unique resource identifier.
-type BaseUID struct {
-	Name string // name and kind are the values of where this is coming from
-	Kind string
-
-	Reversed *bool // piggyback edge information here
-}
-
-// The AutoEdge interface is used to implement the autoedges feature.
-type AutoEdge interface {
-	Next() []ResUID   // call to get list of edges to add
-	Test([]bool) bool // call until false
-}
-
-// MetaParams is a struct will all params that apply to every resource.
-type MetaParams struct {
-	AutoEdge  bool `yaml:"autoedge"`  // metaparam, should we generate auto edges?
-	AutoGroup bool `yaml:"autogroup"` // metaparam, should we auto group?
-	Noop      bool `yaml:"noop"`
-	// NOTE: there are separate Watch and CheckApply retry and delay values,
-	// but I've decided to use the same ones for both until there's a proper
-	// reason to want to do something differently for the Watch errors.
-	Retry int16      `yaml:"retry"` // metaparam, number of times to retry on error. -1 for infinite
-	Delay uint64     `yaml:"delay"` // metaparam, number of milliseconds to wait between retries
-	Poll  uint32     `yaml:"poll"`  // metaparam, number of seconds between poll intervals, 0 to watch
-	Limit rate.Limit `yaml:"limit"` // metaparam, number of events per second to allow through
-	Burst int        `yaml:"burst"` // metaparam, number of events to allow in a burst
-	Sema  []string   `yaml:"sema"`  // metaparam, list of semaphore ids (id | id:count)
-}
-
-// UnmarshalYAML is the custom unmarshal handler for the MetaParams struct. It
-// is primarily useful for setting the defaults.
-func (obj *MetaParams) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawMetaParams MetaParams           // indirection to avoid infinite recursion
-	raw := rawMetaParams(DefaultMetaParams) // convert; the defaults go here
-
-	if err := unmarshal(&raw); err != nil {
-		return err
-	}
-
-	*obj = MetaParams(raw) // restore from indirection with type conversion!
-	return nil
-}
-
-// DefaultMetaParams are the defaults to be used for undefined metaparams.
-var DefaultMetaParams = MetaParams{
-	AutoEdge:  true,
-	AutoGroup: true,
-	Noop:      false,
-	Retry:     0,        // TODO: is this a good default?
-	Delay:     0,        // TODO: is this a good default?
-	Poll:      0,        // defaults to watching for events
-	Limit:     rate.Inf, // defaults to no limit
-	Burst:     0,        // no burst needed on an infinite rate // TODO: is this a good default?
-	//Sema:      []string{},
-}
-
 // The Base interface is everything that is common to all resources.
 // Everything here only needs to be implemented once, in the BaseRes.
 type Base interface {
@@ -243,10 +175,11 @@ type BaseRes struct {
 	Name       string     `yaml:"name"`
 	MetaParams MetaParams `yaml:"meta"` // struct of all the metaparams
 
-	data      ResData
 	timestamp int64 // last updated timestamp
 	state     ResState
+	isStateOK bool   // whether the state is okay based on events or not
 	prefix    string // base prefix for this resource
+	data      ResData
 
 	eventsLock *sync.Mutex // locks around sending and closing of events channel
 	eventsDone bool
@@ -270,7 +203,6 @@ type BaseRes struct {
 	quiesceGroup *sync.WaitGroup
 	waitGroup    *sync.WaitGroup
 	working      bool // is the Worker() loop running ?
-	isStateOK    bool // whether the state is okay based on events or not
 
 	isGrouped bool  // am i contained within a group?
 	grouped   []Res // list of any grouped resources
@@ -279,65 +211,6 @@ type BaseRes struct {
 	//refreshState StatefulBool // TODO: future stateful bool
 
 	debug bool
-}
-
-// UnmarshalYAML is the custom unmarshal handler for the BaseRes struct. It is
-// primarily useful for setting the defaults, in particular if meta is absent!
-// FIXME: how come we can't get this to work properly without dropping fields?
-//func (obj *BaseRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-//	DefaultBaseRes := BaseRes{
-//		// without specifying a default here, if we don't specify *any*
-//		// meta parameters in the yaml file, then the UnmarshalYAML for
-//		// the MetaParams struct won't run, and we won't get defaults!
-//		MetaParams: DefaultMetaParams, // force a default
-//	}
-
-//	type rawBaseRes BaseRes           // indirection to avoid infinite recursion
-//	raw := rawBaseRes(DefaultBaseRes) // convert; the defaults go here
-//	//raw := rawBaseRes{}
-
-//	if err := unmarshal(&raw); err != nil {
-//		return err
-//	}
-
-//	*obj = BaseRes(raw) // restore from indirection with type conversion!
-//	return nil
-//}
-
-// GetName returns the name of the resource UID.
-func (obj *BaseUID) GetName() string {
-	return obj.Name
-}
-
-// GetKind returns the kind of the resource UID.
-func (obj *BaseUID) GetKind() string {
-	return obj.Kind
-}
-
-// String returns the canonical string representation for a resource UID.
-func (obj *BaseUID) String() string {
-	return fmt.Sprintf("%s[%s]", obj.GetKind(), obj.GetName())
-}
-
-// IFF looks at two UID's and if and only if they are equivalent, returns true.
-// If they are not equivalent, it returns false.
-// Most resources will want to override this method, since it does the important
-// work of actually discerning if two resources are identical in function.
-func (obj *BaseUID) IFF(uid ResUID) bool {
-	res, ok := uid.(*BaseUID)
-	if !ok {
-		return false
-	}
-	return obj.Name == res.Name
-}
-
-// IsReversed is part of the ResUID interface, and true means this resource
-// happens before the generator.
-func (obj *BaseUID) IsReversed() bool {
-	if obj.Reversed == nil {
-		log.Fatal("Programming error!")
-	}
-	return *obj.Reversed
 }
 
 // Validate reports any problems with the struct definition.
@@ -722,6 +595,29 @@ func (obj *BaseRes) Poll() error {
 		}
 	}
 }
+
+// UnmarshalYAML is the custom unmarshal handler for the BaseRes struct. It is
+// primarily useful for setting the defaults, in particular if meta is absent!
+// FIXME: how come we can't get this to work properly without dropping fields?
+//func (obj *BaseRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+//	DefaultBaseRes := BaseRes{
+//		// without specifying a default here, if we don't specify *any*
+//		// meta parameters in the yaml file, then the UnmarshalYAML for
+//		// the MetaParams struct won't run, and we won't get defaults!
+//		MetaParams: DefaultMetaParams, // force a default
+//	}
+
+//	type rawBaseRes BaseRes           // indirection to avoid infinite recursion
+//	raw := rawBaseRes(DefaultBaseRes) // convert; the defaults go here
+//	//raw := rawBaseRes{}
+
+//	if err := unmarshal(&raw); err != nil {
+//		return err
+//	}
+
+//	*obj = BaseRes(raw) // restore from indirection with type conversion!
+//	return nil
+//}
 
 // VtoR casts the Vertex into a Res for use. It panics if it can't convert.
 func VtoR(v pgraph.Vertex) Res {

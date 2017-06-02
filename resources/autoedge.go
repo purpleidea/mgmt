@@ -25,6 +25,12 @@ import (
 	"github.com/purpleidea/mgmt/util"
 )
 
+// The AutoEdge interface is used to implement the autoedges feature.
+type AutoEdge interface {
+	Next() []ResUID   // call to get list of edges to add
+	Test([]bool) bool // call until false
+}
+
 // UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
 func UIDExistsInUIDs(uid ResUID, uids []ResUID) bool {
 	for _, u := range uids {

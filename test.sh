@@ -23,6 +23,7 @@ run-test ./test/test-bashfmt.sh
 run-test ./test/test-headerfmt.sh
 run-test ./test/test-commit-message.sh
 run-test ./test/test-govet.sh
+run-test ./test/test-examples.sh
 run-test ./test/test-gotest.sh
 
 # do these longer tests only when running on ci

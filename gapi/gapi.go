@@ -33,10 +33,23 @@ type Data struct {
 	// NOTE: we can add more fields here if needed by GAPI endpoints
 }
 
+// Next describes the particular response the GAPI implementer wishes to emit.
+type Next struct {
+	// FIXME: the Fast pause parameter should eventually get replaced with a
+	// "SwitchMethod" parameter or similar that instead lets the implementer
+	// choose between fast pause, slow pause, and interrupt. Interrupt could
+	// be a future extension to the Resource API that lets an Interrupt() be
+	// called if we want to exit immediately from the CheckApply part of the
+	// resource for some reason. For now we'll keep this simple with a bool.
+	Fast bool  // run a fast pause to switch?
+	Exit bool  // should we cause the program to exit? (specify err or not)
+	Err  error // if something goes wrong (use with or without exit!)
+}
+
 // GAPI is a Graph API that represents incoming graphs and change streams.
 type GAPI interface {
 	Init(Data) error               // initializes the GAPI and passes in useful data
 	Graph() (*pgraph.Graph, error) // returns the most recent pgraph
-	Next() chan error              // returns a stream of switch events
+	Next() chan Next               // returns a stream of switch events
 	Close() error                  // shutdown the GAPI
 }

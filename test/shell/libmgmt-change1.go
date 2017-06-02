@@ -75,35 +75,39 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 }
 
 // Next returns nil errors every time there could be a new graph.
-func (obj *MyGAPI) Next() chan error {
-	ch := make(chan error)
+func (obj *MyGAPI) Next() chan gapi.Next {
+	ch := make(chan gapi.Next)
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
-			ch <- fmt.Errorf("%s: MyGAPI is not initialized", obj.Name)
+			next := gapi.Next{
+				Err:  fmt.Errorf("%s: MyGAPI is not initialized", obj.Name),
+				Exit: true, // exit, b/c programming error?
+			}
+			ch <- next
 			return
 		}
 
 		log.Printf("%s: Generating a bunch of new graphs...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		log.Printf("%s: New graph...", obj.Name)
-		ch <- nil
+		ch <- gapi.Next{}
 		time.Sleep(1 * time.Second)
 		log.Printf("%s: Done generating graphs!", obj.Name)
 	}()

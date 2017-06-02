@@ -380,7 +380,7 @@ func (obj *Main) Run() error {
 		Debug:      obj.Flags.Debug,
 	}
 
-	var gapiChan chan error // stream events are nil errors
+	var gapiChan chan gapi.Next // stream events contain some instructions!
 	if obj.GAPI != nil {
 		data := gapi.Data{
 			Hostname: hostname,
@@ -405,8 +405,9 @@ func (obj *Main) Run() error {
 			log.Println("Main: Waiting...")
 			// The GAPI should always kick off an event on Next() at
 			// startup when (and if) it indeed has a graph to share!
+			fastPause := false
 			select {
-			case err, ok := <-gapiChan:
+			case next, ok := <-gapiChan:
 				if !ok { // channel closed
 					if obj.Flags.Debug {
 						log.Printf("Main: GAPI exited")
@@ -415,16 +416,21 @@ func (obj *Main) Run() error {
 					continue
 				}
 
+				// if we've been asked to exit...
+				if next.Exit {
+					obj.Exit(next.Err) // trigger exit
+					continue           // wait for exitchan
+				}
+
 				// the gapi lets us send an error to the channel
 				// this means there was a failure, but not fatal
-				if err != nil {
+				if err := next.Err; err != nil {
 					log.Printf("Main: Error with graph stream: %v", err)
-					// TODO: consider adding an option to
-					// exit on stream errors...
-					//obj.Exit(err) // trigger exit
-					continue // wait for exitchan or another event
+					continue // wait for another event
 				}
 				// everything else passes through to cause a compile!
+
+				fastPause = next.Fast // should we pause fast?
 
 			case <-exitchan:
 				return
@@ -438,8 +444,8 @@ func (obj *Main) Run() error {
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
 			if !first { // TODO: we can flatten this check out I think
-				converger.Pause()  // FIXME: add sync wait?
-				graph.Pause(false) // sync
+				converger.Pause()      // FIXME: add sync wait?
+				graph.Pause(fastPause) // sync
 
 				//graph.UnGroup() // FIXME: implement me if needed!
 			}

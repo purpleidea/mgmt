@@ -77,14 +77,18 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 }
 
 // Next returns nil errors every time there could be a new graph.
-func (obj *GAPI) Next() chan error {
-	ch := make(chan error)
+func (obj *GAPI) Next() chan gapi.Next {
+	ch := make(chan gapi.Next)
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
-			ch <- fmt.Errorf("yamlgraph: GAPI is not initialized")
+			next := gapi.Next{
+				Err:  fmt.Errorf("yamlgraph: GAPI is not initialized"),
+				Exit: true, // exit, b/c programming error?
+			}
+			ch <- next
 			return
 		}
 		startChan := make(chan struct{}) // start signal
@@ -122,8 +126,12 @@ func (obj *GAPI) Next() chan error {
 			}
 
 			log.Printf("yamlgraph: Generating new graph...")
+			next := gapi.Next{
+				//Exit: true, // TODO: for permanent shutdown!
+				Err: err,
+			}
 			select {
-			case ch <- err: // trigger a run (send a msg)
+			case ch <- next: // trigger a run (send a msg)
 				// TODO: if the error is really bad, we could:
 				//if err != nil {
 				//	return

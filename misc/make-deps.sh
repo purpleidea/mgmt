@@ -80,4 +80,5 @@ if [[ $ret != 0 ]]; then
 fi
 go get golang.org/x/tools/cmd/stringer	# for automatic stringer-ing
 go get github.com/golang/lint/golint	# for `golint`-ing
+go get github.com/alecthomas/gometalinter && gometalinter --install	# bonus
 cd "$XPWD" >/dev/null

@@ -32,6 +32,7 @@ if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; 
 	run-test ./test/test-gotest.sh --race
 fi
 
+run-test ./test/test-gometalinter.sh
 # FIXME: this now fails everywhere :(
 #run-test ./test/test-reproducible.sh
 

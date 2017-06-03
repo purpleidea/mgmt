@@ -23,6 +23,9 @@ import (
 
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
+
+	multierr "github.com/hashicorp/go-multierror"
+	errwrap "github.com/pkg/errors"
 )
 
 // The AutoEdge interface is used to implement the autoedges feature.
@@ -56,7 +59,7 @@ func addEdgesByMatchingUIDS(g *pgraph.Graph, v pgraph.Vertex, uids []ResUID) []b
 				continue
 			}
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
-				log.Printf("Compile: AutoEdge: Match: %s with UID: %s", VtoR(vv).String(), uid)
+				log.Printf("Compile: AutoEdge: Match: %s with UID: %s", vv, uid)
 			}
 			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful
@@ -65,12 +68,12 @@ func addEdgesByMatchingUIDS(g *pgraph.Graph, v pgraph.Vertex, uids []ResUID) []b
 			if UIDExistsInUIDs(uid, VtoR(vv).UIDs()) {
 				// add edge from: vv -> v
 				if uid.IsReversed() {
-					txt := fmt.Sprintf("AutoEdge: %s -> %s", VtoR(vv).String(), VtoR(v).String())
+					txt := fmt.Sprintf("AutoEdge: %s -> %s", vv, v)
 					log.Printf("Compile: Adding %s", txt)
 					edge := &Edge{Name: txt}
 					g.AddEdge(vv, v, edge)
 				} else { // edges go the "normal" way, eg: pkg resource
-					txt := fmt.Sprintf("AutoEdge: %s -> %s", VtoR(v).String(), VtoR(vv).String())
+					txt := fmt.Sprintf("AutoEdge: %s -> %s", v, vv)
 					log.Printf("Compile: Adding %s", txt)
 					edge := &Edge{Name: txt}
 					g.AddEdge(v, vv, edge)
@@ -85,22 +88,39 @@ func addEdgesByMatchingUIDS(g *pgraph.Graph, v pgraph.Vertex, uids []ResUID) []b
 }
 
 // AutoEdges adds the automatic edges to the graph.
-func AutoEdges(g *pgraph.Graph) {
+func AutoEdges(g *pgraph.Graph) error {
 	log.Println("Compile: Adding AutoEdges...")
-	for _, v := range g.Vertices() { // for each vertexes autoedges
+
+	// initially get all of the autoedges to seek out all possible errors
+	var err error
+	autoEdgeObjVertexMap := make(map[pgraph.Vertex]AutoEdge)
+
+	for _, v := range g.VerticesSorted() { // for each vertexes autoedges
 		if !VtoR(v).Meta().AutoEdge { // is the metaparam true?
 			continue
 		}
-		autoEdgeObj := VtoR(v).AutoEdges()
+		autoEdgeObj, e := VtoR(v).AutoEdges()
+		if e != nil {
+			err = multierr.Append(err, e) // collect all errors
+			continue
+		}
 		if autoEdgeObj == nil {
-			log.Printf("%s: Config: No auto edges were found!", VtoR(v).String())
+			log.Printf("%s: No auto edges were found!", v)
 			continue // next vertex
 		}
+		autoEdgeObjVertexMap[v] = autoEdgeObj // save for next loop
+	}
+	if err != nil {
+		return errwrap.Wrapf(err, "the auto edges had errors")
+	}
 
+	// now that we're guaranteed error free, we can modify the graph safely
+	// TODO: loop through this in a sorted order for stable log output...
+	for v, autoEdgeObj := range autoEdgeObjVertexMap {
 		for { // while the autoEdgeObj has more uids to add...
 			uids := autoEdgeObj.Next() // get some!
 			if uids == nil {
-				log.Printf("%s: Config: The auto edge list is empty!", VtoR(v).String())
+				log.Printf("%s: The auto edge list is empty!", v)
 				break // inner loop
 			}
 			if b, ok := g.Value("debug"); ok && util.Bool(b) {
@@ -119,4 +139,5 @@ func AutoEdges(g *pgraph.Graph) {
 			}
 		}
 	}
+	return nil
 }

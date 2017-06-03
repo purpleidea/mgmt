@@ -228,11 +228,6 @@ type HostnameUID struct {
 	transientHostname string
 }
 
-// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
-func (obj *HostnameRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
 func (obj *HostnameRes) UIDs() []ResUID {

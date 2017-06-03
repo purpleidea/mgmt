@@ -513,9 +513,22 @@ func (obj *Main) Run() error {
 				}
 				continue
 			}
+
+			// TODO: should we call each Res.Setup() here instead?
+
+			// add autoedges; modifies the graph only if no error
+			if err := resources.AutoEdges(oldGraph); err != nil {
+				log.Printf("Main: Error running auto edges: %v", err)
+				// unpause!
+				if !first {
+					graph.Start(first) // sync
+					converger.Start()  // after Start()
+				}
+				continue
+			}
+
 			graph.Update(oldGraph) // copy in structure of new graph
 
-			resources.AutoEdges(graph.Graph)                                      // add autoedges; modifies the graph
 			resources.AutoGroup(graph.Graph, &resources.NonReachabilityGrouper{}) // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships

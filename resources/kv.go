@@ -226,11 +226,6 @@ type KVUID struct {
 	name string
 }
 
-// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
-func (obj *KVRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
 func (obj *KVRes) UIDs() []ResUID {

@@ -165,11 +165,6 @@ func (obj *GraphRes) UIDs() []ResUID {
 
 // XXX: hook up the autogrouping magic!
 
-// AutoEdges returns the AutoEdges. In this case none are used.
-func (obj *GraphRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // Compare two resources and return if they are equivalent.
 func (obj *GraphRes) Compare(r Res) bool {
 	// we can only compare GraphRes to others of the same resource kind

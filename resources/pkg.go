@@ -72,31 +72,12 @@ func (obj *PkgRes) Init() error {
 		return err
 	}
 
-	bus := packagekit.NewBus()
-	if bus == nil {
-		return fmt.Errorf("can't connect to PackageKit bus")
-	}
-	defer bus.Close()
-
-	result, err := obj.pkgMappingHelper(bus)
-	if err != nil {
-		return errwrap.Wrapf(err, "the pkgMappingHelper failed")
+	if obj.fileList == nil {
+		if err := obj.populateFileList(); err != nil {
+			return errwrap.Wrapf(err, "error populating file list in init")
+		}
 	}
 
-	data, ok := result[obj.Name] // lookup single package (init does just one)
-	// package doesn't exist, this is an error!
-	if !ok || !data.Found {
-		return fmt.Errorf("can't find package named '%s'", obj.Name)
-	}
-
-	packageIDs := []string{data.PackageID} // just one for now
-	filesMap, err := bus.GetFilesByPackageID(packageIDs)
-	if err != nil {
-		return errwrap.Wrapf(err, "can't run GetFilesByPackageID")
-	}
-	if files, ok := filesMap[data.PackageID]; ok {
-		obj.fileList = util.DirifyFileList(files, false)
-	}
 	return nil
 }
 
@@ -221,6 +202,39 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 		return nil, errwrap.Wrapf(err, "Can't run PackagesToPackageIDs")
 	}
 	return result, nil
+}
+
+// populateFileList fills in the fileList structure with what is in the package.
+// TODO: should this work properly if pkg has been autogrouped ?
+func (obj *PkgRes) populateFileList() error {
+
+	bus := packagekit.NewBus()
+	if bus == nil {
+		return fmt.Errorf("can't connect to PackageKit bus")
+	}
+	defer bus.Close()
+
+	result, err := obj.pkgMappingHelper(bus)
+	if err != nil {
+		return errwrap.Wrapf(err, "the pkgMappingHelper failed")
+	}
+
+	data, ok := result[obj.Name] // lookup single package (init does just one)
+	// package doesn't exist, this is an error!
+	if !ok || !data.Found {
+		return fmt.Errorf("can't find package named '%s'", obj.Name)
+	}
+
+	packageIDs := []string{data.PackageID} // just one for now
+	filesMap, err := bus.GetFilesByPackageID(packageIDs)
+	if err != nil {
+		return errwrap.Wrapf(err, "can't run GetFilesByPackageID")
+	}
+	if files, ok := filesMap[data.PackageID]; ok {
+		obj.fileList = util.DirifyFileList(files, false)
+	}
+
+	return nil
 }
 
 // CheckApply checks the resource state and applies the resource if the bool
@@ -419,10 +433,16 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 
 // AutoEdges produces an object which generates a minimal pkg file optimization
 // sequence of edges.
-func (obj *PkgRes) AutoEdges() AutoEdge {
+func (obj *PkgRes) AutoEdges() (AutoEdge, error) {
 	// in contrast with the FileRes AutoEdges() function which contains
 	// more of the mechanics, most of the AutoEdge mechanics for the PkgRes
-	// is contained in the Test() method! This design is completely okay!
+	// are contained in the Test() method! This design is completely okay!
+
+	if obj.fileList == nil {
+		if err := obj.populateFileList(); err != nil {
+			return nil, errwrap.Wrapf(err, "error populating file list for automatic edges")
+		}
+	}
 
 	// add matches for any svc resources found in pkg definition!
 	var svcUIDs []ResUID
@@ -444,7 +464,7 @@ func (obj *PkgRes) AutoEdges() AutoEdge {
 		testIsNext: false,         // start with Next() call
 		name:       obj.GetName(), // save data for PkgResAutoEdges obj
 		kind:       obj.GetKind(),
-	}
+	}, nil
 }
 
 // UIDs includes all params to make a unique identification of this object.
@@ -511,25 +531,6 @@ func (obj *PkgRes) Compare(r Res) bool {
 	return true
 }
 
-// ReturnSvcInFileList returns a list of svc names for matches like: `/usr/lib/systemd/system/*.service`.
-func ReturnSvcInFileList(fileList []string) []string {
-	result := []string{}
-	for _, x := range fileList {
-		dirname, basename := path.Split(path.Clean(x))
-		// TODO: do we also want to look for /etc/systemd/system/ ?
-		if dirname != "/usr/lib/systemd/system/" {
-			continue
-		}
-		if !strings.HasSuffix(basename, ".service") {
-			continue
-		}
-		if s := strings.TrimSuffix(basename, ".service"); !util.StrInList(s, result) {
-			result = append(result, s)
-		}
-	}
-	return result
-}
-
 // UnmarshalYAML is the custom unmarshal handler for this struct.
 // It is primarily useful for setting the defaults.
 func (obj *PkgRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -548,4 +549,23 @@ func (obj *PkgRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = PkgRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// ReturnSvcInFileList returns a list of svc names for matches like: `/usr/lib/systemd/system/*.service`.
+func ReturnSvcInFileList(fileList []string) []string {
+	result := []string{}
+	for _, x := range fileList {
+		dirname, basename := path.Split(path.Clean(x))
+		// TODO: do we also want to look for /etc/systemd/system/ ?
+		if dirname != "/usr/lib/systemd/system/" {
+			continue
+		}
+		if !strings.HasSuffix(basename, ".service") {
+			continue
+		}
+		if s := strings.TrimSuffix(basename, ".service"); !util.StrInList(s, result) {
+			result = append(result, s)
+		}
+	}
+	return result
 }

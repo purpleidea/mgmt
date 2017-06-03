@@ -128,6 +128,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 			if !ok {
 				return nil, fmt.Errorf("Config: Error: Can't convert: %v of type: %T to Res", x, x)
 			}
+			res.SetKind(kind) // cheap init
 			//if noop { // now done in mgmtmain
 			//	res.Meta().Noop = noop
 			//}
@@ -154,7 +155,6 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 			} else if !noop { // do not export any resources if noop
 				// store for addition to backend storage...
 				res.SetName(res.GetName()[2:]) //slice off @@
-				res.SetKind(kind)              // cheap init
 				resourceList = append(resourceList, res)
 			}
 		}

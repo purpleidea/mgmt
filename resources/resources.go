@@ -157,7 +157,7 @@ type Res interface {
 	UIDs() []ResUID // most resources only return one
 	Watch() error   // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)
-	AutoEdges() AutoEdge
+	AutoEdges() (AutoEdge, error)
 	Compare(Res) bool
 	CollectPattern(string) // XXX: temporary until Res collection is more advanced
 	//UnmarshalYAML(unmarshal func(interface{}) error) error // optional
@@ -461,6 +461,13 @@ func (obj *BaseRes) GetGroup() []Res { // return everyone grouped inside me
 // SetGroup sets the grouped resources into me.
 func (obj *BaseRes) SetGroup(g []Res) {
 	obj.grouped = g
+}
+
+// AutoEdges returns the AutoEdge interface. By default, none are created. This
+// should be implemented by the specific resource to be used. This base method
+// does not need to be called by the resource specific implementing method.
+func (obj *BaseRes) AutoEdges() (AutoEdge, error) {
+	return nil, nil
 }
 
 // Compare is the base compare method, which also handles the metaparams cmp.

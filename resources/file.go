@@ -898,10 +898,11 @@ func (obj *FileResAutoEdges) Test(input []bool) bool {
 
 // AutoEdges generates a simple linear sequence of each parent directory from
 // the bottom up!
-func (obj *FileRes) AutoEdges() AutoEdge {
-	var data []ResUID                              // store linear result chain here...
-	values := util.PathSplitFullReversed(obj.path) // build it
-	_, values = values[0], values[1:]              // get rid of first value which is me!
+func (obj *FileRes) AutoEdges() (AutoEdge, error) {
+	var data []ResUID // store linear result chain here...
+	// build it, but don't use obj.path because this gets called before Init
+	values := util.PathSplitFullReversed(obj.GetPath())
+	_, values = values[0], values[1:] // get rid of first value which is me!
 	for _, x := range values {
 		var reversed = true // cheat by passing a pointer
 		data = append(data, &FileUID{
@@ -917,7 +918,7 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 		data:    data,
 		pointer: 0,
 		found:   false,
-	}
+	}, nil
 }
 
 // UIDs includes all params to make a unique identification of this object.
@@ -925,7 +926,7 @@ func (obj *FileRes) AutoEdges() AutoEdge {
 func (obj *FileRes) UIDs() []ResUID {
 	x := &FileUID{
 		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
-		path:    obj.path,
+		path:    obj.GetPath(), // not obj.path b/c we didn't init yet!
 	}
 	return []ResUID{x}
 }

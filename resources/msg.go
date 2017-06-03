@@ -204,11 +204,6 @@ func (obj *MsgRes) UIDs() []ResUID {
 	return []ResUID{x}
 }
 
-// AutoEdges returns the AutoEdges. In this case none are used.
-func (obj *MsgRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // Compare two resources and return if they are equivalent.
 func (obj *MsgRes) Compare(r Res) bool {
 	// we can only compare MsgRes to others of the same resource kind

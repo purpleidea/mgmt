@@ -248,11 +248,6 @@ type AugeasUID struct {
 	name string
 }
 
-// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
-func (obj *AugeasRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // UIDs includes all params to make a unique identification of this object.
 func (obj *AugeasRes) UIDs() []ResUID {
 	x := &AugeasUID{

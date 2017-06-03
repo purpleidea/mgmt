@@ -335,10 +335,10 @@ type ExecUID struct {
 }
 
 // AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
-func (obj *ExecRes) AutoEdges() AutoEdge {
+func (obj *ExecRes) AutoEdges() (AutoEdge, error) {
 	// TODO: parse as many exec params to look for auto edges, for example
 	// the path of the binary in the Cmd variable might be from in a pkg
-	return nil
+	return nil, nil
 }
 
 // UIDs includes all params to make a unique identification of this object.

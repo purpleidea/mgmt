@@ -129,11 +129,6 @@ func (obj *TimerRes) UIDs() []ResUID {
 	return []ResUID{x}
 }
 
-// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
-func (obj *TimerRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // Compare two resources and return if they are equivalent.
 func (obj *TimerRes) Compare(r Res) bool {
 	// we can only compare TimerRes to others of the same resource kind

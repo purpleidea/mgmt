@@ -380,7 +380,7 @@ func (obj *SvcResAutoEdges) Test(input []bool) bool {
 }
 
 // AutoEdges returns the AutoEdge interface. In this case the systemd units.
-func (obj *SvcRes) AutoEdges() AutoEdge {
+func (obj *SvcRes) AutoEdges() (AutoEdge, error) {
 	var data []ResUID
 	svcFiles := []string{
 		fmt.Sprintf("/etc/systemd/system/%s.service", obj.Name),     // takes precedence
@@ -401,7 +401,7 @@ func (obj *SvcRes) AutoEdges() AutoEdge {
 		data:    data,
 		pointer: 0,
 		found:   false,
-	}
+	}, nil
 }
 
 // UIDs includes all params to make a unique identification of this object.

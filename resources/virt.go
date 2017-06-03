@@ -1070,11 +1070,6 @@ func (obj *VirtRes) GroupCmp(r Res) bool {
 	return false // not possible atm
 }
 
-// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
-func (obj *VirtRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // Compare two resources and return if they are equivalent.
 func (obj *VirtRes) Compare(r Res) bool {
 	// we can only compare VirtRes to others of the same resource kind

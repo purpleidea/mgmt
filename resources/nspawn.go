@@ -295,11 +295,6 @@ func (obj *NspawnRes) Compare(r Res) bool {
 	return true
 }
 
-// AutoEdges returns the AutoEdge interface. In this case no autoedges are used.
-func (obj *NspawnRes) AutoEdges() AutoEdge {
-	return nil
-}
-
 // UnmarshalYAML is the custom unmarshal handler for this struct.
 // It is primarily useful for setting the defaults.
 func (obj *NspawnRes) UnmarshalYAML(unmarshal func(interface{}) error) error {

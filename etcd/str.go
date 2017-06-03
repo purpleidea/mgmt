@@ -52,7 +52,7 @@ func WatchStr(obj *EmbdEtcd, key string) chan error {
 	return ch
 }
 
-// GetStr collects the string which matches a gloabl namespace in etcd.
+// GetStr collects the string which matches a global namespace in etcd.
 func GetStr(obj *EmbdEtcd, key string) (string, error) {
 	// new key structure is /$NS/strings/$key = $data
 	path := fmt.Sprintf("/%s/strings/%s", NS, key)

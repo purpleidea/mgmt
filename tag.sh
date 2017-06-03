@@ -9,5 +9,6 @@ echo "Press ^C within 3s to abort."
 sleep 3s
 echo "release: tag $t" | git tag --file=- --sign $t
 git push origin $t
-git diff --stat "$v" "$t"
+GIT_PAGER=cat git diff --stat "$v" "$t"
 if which contrib.sh 2>/dev/null; then contrib.sh "$v"; fi
+echo -e "run 'git log $v..$t' to see what has changed since $v"

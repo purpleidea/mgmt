@@ -94,8 +94,9 @@ func AutoEdges(g *pgraph.Graph) error {
 	// initially get all of the autoedges to seek out all possible errors
 	var err error
 	autoEdgeObjVertexMap := make(map[pgraph.Vertex]AutoEdge)
+	sorted := g.VerticesSorted()
 
-	for _, v := range g.VerticesSorted() { // for each vertexes autoedges
+	for _, v := range sorted { // for each vertexes autoedges
 		if !VtoR(v).Meta().AutoEdge { // is the metaparam true?
 			continue
 		}
@@ -115,8 +116,12 @@ func AutoEdges(g *pgraph.Graph) error {
 	}
 
 	// now that we're guaranteed error free, we can modify the graph safely
-	// TODO: loop through this in a sorted order for stable log output...
-	for v, autoEdgeObj := range autoEdgeObjVertexMap {
+	for _, v := range sorted { // stable sort order for determinism in logs
+		autoEdgeObj, exists := autoEdgeObjVertexMap[v]
+		if !exists {
+			continue
+		}
+
 		for { // while the autoEdgeObj has more uids to add...
 			uids := autoEdgeObj.Next() // get some!
 			if uids == nil {

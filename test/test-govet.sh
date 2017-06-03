@@ -42,9 +42,9 @@ for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -
 	#echo "matching: $match"
 	if [[ -z $(echo "${GO_VERSION[2]}" | grep -E 'go1.2|go1.3|go1.4|go1.5|go1.6|go1.7|go1.8') ]]; then
 		# workaround go vet issues by adding the new -source flag (go1.9+)
-		echo run-test go vet -source "$match" || fail_test "go vet -source did not pass pkg"
+		run-test go vet -source "$match" || fail_test "go vet -source did not pass pkg"
 	else
-		echo run-test go vet "$match" || fail_test "go vet did not pass pkg"	# since it doesn't output an ok message on pass
+		run-test go vet "$match" || fail_test "go vet did not pass pkg"	# since it doesn't output an ok message on pass
 	fi
 done
 

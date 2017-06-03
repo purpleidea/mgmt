@@ -346,6 +346,16 @@ func (obj *Main) Run() error {
 	} else if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
 		obj.Exit(fmt.Errorf("Main: Etcd: Startup failed: %v", err))
 	}
+
+	// wait for etcd server to be ready before continuing...
+	select {
+	case <-EmbdEtcd.ServerReady():
+		log.Printf("Main: Etcd: Server: Ready!")
+		// pass
+	case <-time.After(((etcd.MaxStartServerTimeout * etcd.MaxStartServerRetries) + 1) * time.Second):
+		obj.Exit(fmt.Errorf("Main: Etcd: Startup timeout"))
+	}
+
 	convergerStateFn := func(b bool) error {
 		// exit if we are using the converged timeout and we are the
 		// root node. otherwise, if we are a child node in a remote

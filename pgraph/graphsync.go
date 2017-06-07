@@ -23,12 +23,25 @@ import (
 	errwrap "github.com/pkg/errors"
 )
 
+func strVertexCmpFn(v1, v2 Vertex) (bool, error) {
+	if v1.String() == "" || v2.String() == "" {
+		return false, fmt.Errorf("empty vertex")
+	}
+	return v1.String() == v2.String(), nil
+}
+
+func strEdgeCmpFn(e1, e2 Edge) (bool, error) {
+	if e1.String() == "" || e2.String() == "" {
+		return false, fmt.Errorf("empty edge")
+	}
+	return e1.String() == e2.String(), nil
+}
+
 // GraphSync updates the Graph so that it matches the newGraph. It leaves
 // identical elements alone so that they don't need to be refreshed.
 // It tries to mutate existing elements into new ones, if they support this.
 // This updates the Graph on success only.
 // FIXME: should we do this with copies of the vertex resources?
-// FIXME: add test cases
 func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), vertexAddFn func(Vertex) error, vertexRemoveFn func(Vertex) error, edgeCmpFn func(Edge, Edge) (bool, error)) error {
 
 	oldGraph := obj.Copy() // work on a copy of the old graph
@@ -40,6 +53,19 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 		}
 	}
 	oldGraph.SetName(newGraph.GetName()) // overwrite the name
+
+	if vertexCmpFn == nil {
+		vertexCmpFn = strVertexCmpFn // use simple string cmp version
+	}
+	if vertexAddFn == nil {
+		vertexAddFn = func(Vertex) error { return nil } // noop
+	}
+	if vertexRemoveFn == nil {
+		vertexRemoveFn = func(Vertex) error { return nil } // noop
+	}
+	if edgeCmpFn == nil {
+		edgeCmpFn = strEdgeCmpFn // use simple string cmp version
+	}
 
 	var lookup = make(map[Vertex]Vertex)
 	var vertexKeep []Vertex // list of vertices which are the same in new graph

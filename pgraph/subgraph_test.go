@@ -18,43 +18,10 @@
 package pgraph
 
 import (
-	"fmt"
 	"testing"
 )
 
-// TODO: unify with the other function like this...
-// TODO: where should we put our test helpers?
-func runGraphCmp(t *testing.T, g1, g2 *Graph) {
-	err := g1.GraphCmp(g2, vertexCmpFn, edgeCmpFn)
-	if err != nil {
-		t.Logf("  actual (g1): %v%v", g1, fullPrint(g1))
-		t.Logf("expected (g2): %v%v", g2, fullPrint(g2))
-		t.Logf("Cmp error:")
-		t.Errorf("%v", err)
-	}
-}
-
-// TODO: unify with the other function like this...
-func fullPrint(g *Graph) (str string) {
-	str += "\n"
-	for v := range g.Adjacency() {
-		str += fmt.Sprintf("* v: %s\n", v)
-	}
-	for v1 := range g.Adjacency() {
-		for v2, e := range g.Adjacency()[v1] {
-			str += fmt.Sprintf("* e: %s -> %s # %s\n", v1, v2, e)
-		}
-	}
-	return
-}
-
-// edgeGenFn generates unique edges for each vertex pair, assuming unique
-// vertices.
-func edgeGenFn(v1, v2 Vertex) Edge {
-	return NE(fmt.Sprintf("%s,%s", v1, v2))
-}
-
-func TestPgraphAddEdgeGraph1(t *testing.T) {
+func TestAddEdgeGraph1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -82,10 +49,12 @@ func TestPgraphAddEdgeGraph1(t *testing.T) {
 	//expected.AddEdge(v3, v4, NE("v3,v4"))
 	//expected.AddEdge(v3, v5, NE("v3,v5"))
 
-	runGraphCmp(t, g, expected)
+	if s := runGraphCmp(t, g, expected); s != "" {
+		t.Errorf("%s", s)
+	}
 }
 
-func TestPgraphAddEdgeVertexGraph1(t *testing.T) {
+func TestAddEdgeVertexGraph1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -113,10 +82,12 @@ func TestPgraphAddEdgeVertexGraph1(t *testing.T) {
 	expected.AddEdge(v3, v4, NE("v3,v4"))
 	expected.AddEdge(v3, v5, NE("v3,v5"))
 
-	runGraphCmp(t, g, expected)
+	if s := runGraphCmp(t, g, expected); s != "" {
+		t.Errorf("%s", s)
+	}
 }
 
-func TestPgraphAddEdgeGraphVertex1(t *testing.T) {
+func TestAddEdgeGraphVertex1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -144,10 +115,12 @@ func TestPgraphAddEdgeGraphVertex1(t *testing.T) {
 	expected.AddEdge(v4, v3, NE("v4,v3"))
 	expected.AddEdge(v5, v3, NE("v5,v3"))
 
-	runGraphCmp(t, g, expected)
+	if s := runGraphCmp(t, g, expected); s != "" {
+		t.Errorf("%s", s)
+	}
 }
 
-func TestPgraphAddEdgeVertexGraphLight1(t *testing.T) {
+func TestAddEdgeVertexGraphLight1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -175,10 +148,12 @@ func TestPgraphAddEdgeVertexGraphLight1(t *testing.T) {
 	expected.AddEdge(v3, v4, NE("v3,v4"))
 	//expected.AddEdge(v3, v5, NE("v3,v5")) // not needed with light
 
-	runGraphCmp(t, g, expected)
+	if s := runGraphCmp(t, g, expected); s != "" {
+		t.Errorf("%s", s)
+	}
 }
 
-func TestPgraphAddEdgeGraphVertexLight1(t *testing.T) {
+func TestAddEdgeGraphVertexLight1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -206,5 +181,7 @@ func TestPgraphAddEdgeGraphVertexLight1(t *testing.T) {
 	//expected.AddEdge(v4, v3, NE("v4,v3")) // not needed with light
 	expected.AddEdge(v5, v3, NE("v5,v3"))
 
-	runGraphCmp(t, g, expected)
+	if s := runGraphCmp(t, g, expected); s != "" {
+		t.Errorf("%s", s)
+	}
 }

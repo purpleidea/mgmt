@@ -18,43 +18,11 @@
 package pgraph
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
 
-// vertex is a test struct to test the library.
-type vertex struct {
-	name string
-}
-
-// String is a required method of the Vertex interface that we must fulfill.
-func (v *vertex) String() string {
-	return v.name
-}
-
-// NV is a helper function to make testing easier. It creates a new noop vertex.
-func NV(s string) Vertex {
-	return &vertex{s}
-}
-
-// edge is a test struct to test the library.
-type edge struct {
-	name string
-}
-
-// String is a required method of the Edge interface that we must fulfill.
-func (e *edge) String() string {
-	return e.name
-}
-
-// NE is a helper function to make testing easier. It creates a new noop edge.
-func NE(s string) Edge {
-	return &edge{s}
-}
-
-func TestPgraphT1(t *testing.T) {
-
+func TestCount1(t *testing.T) {
 	G := &Graph{}
 
 	if i := G.NumVertices(); i != 0 {
@@ -79,8 +47,7 @@ func TestPgraphT1(t *testing.T) {
 	}
 }
 
-func TestPgraphT2(t *testing.T) {
-
+func TestAddVertex1(t *testing.T) {
 	G := &Graph{Name: "g2"}
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -106,8 +73,7 @@ func TestPgraphT2(t *testing.T) {
 	}
 }
 
-func TestPgraphT3(t *testing.T) {
-
+func TestDFS1(t *testing.T) {
 	G, _ := NewGraph("g3")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -147,8 +113,7 @@ func TestPgraphT3(t *testing.T) {
 	}
 }
 
-func TestPgraphT4(t *testing.T) {
-
+func TestDFS2(t *testing.T) {
 	G, _ := NewGraph("g4")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -170,7 +135,7 @@ func TestPgraphT4(t *testing.T) {
 	}
 }
 
-func TestPgraphT5(t *testing.T) {
+func TestFilterGraph1(t *testing.T) {
 	G, _ := NewGraph("g5")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -203,7 +168,7 @@ func TestPgraphT5(t *testing.T) {
 	}
 }
 
-func TestPgraphT6(t *testing.T) {
+func TestDisconnectedGraphs1(t *testing.T) {
 	G, _ := NewGraph("g6")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -235,8 +200,7 @@ func TestPgraphT6(t *testing.T) {
 	}
 }
 
-func TestPgraphT7(t *testing.T) {
-
+func TestDeleteVertex1(t *testing.T) {
 	G, _ := NewGraph("g7")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -277,8 +241,17 @@ func TestPgraphT7(t *testing.T) {
 	}
 }
 
-func TestPgraphT8(t *testing.T) {
+func TestDeleteVertex2(t *testing.T) {
+	G := &Graph{}
+	v1 := NV("v1")
+	G.DeleteVertex(v1) // check this doesn't panic
 
+	if i := G.NumVertices(); i != 0 {
+		t.Errorf("should have 0 vertices instead of: %d", i)
+	}
+}
+
+func TestVertexContains1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -306,8 +279,7 @@ func TestPgraphT8(t *testing.T) {
 	}
 }
 
-func TestPgraphT9(t *testing.T) {
-
+func TestTopoSort1(t *testing.T) {
 	G, _ := NewGraph("g9")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -382,8 +354,7 @@ func TestPgraphT9(t *testing.T) {
 	}
 }
 
-func TestPgraphT10(t *testing.T) {
-
+func TestTopoSort2(t *testing.T) {
 	G, _ := NewGraph("g10")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -410,7 +381,7 @@ func TestPgraphT10(t *testing.T) {
 }
 
 // empty
-func TestPgraphReachability0(t *testing.T) {
+func TestReachability0(t *testing.T) {
 	{
 		G, _ := NewGraph("g")
 		result := G.Reachability(nil, nil)
@@ -474,7 +445,7 @@ func TestPgraphReachability0(t *testing.T) {
 }
 
 // simple linear path
-func TestPgraphReachability1(t *testing.T) {
+func TestReachability1(t *testing.T) {
 	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -508,7 +479,7 @@ func TestPgraphReachability1(t *testing.T) {
 }
 
 // pick one of two correct paths
-func TestPgraphReachability2(t *testing.T) {
+func TestReachability2(t *testing.T) {
 	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -545,7 +516,7 @@ func TestPgraphReachability2(t *testing.T) {
 }
 
 // pick shortest path
-func TestPgraphReachability3(t *testing.T) {
+func TestReachability3(t *testing.T) {
 	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -580,7 +551,7 @@ func TestPgraphReachability3(t *testing.T) {
 }
 
 // direct path
-func TestPgraphReachability4(t *testing.T) {
+func TestReachability4(t *testing.T) {
 	G, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
@@ -614,7 +585,7 @@ func TestPgraphReachability4(t *testing.T) {
 	}
 }
 
-func TestPgraphT11(t *testing.T) {
+func TestReverse1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -639,7 +610,7 @@ func TestPgraphT11(t *testing.T) {
 	}
 }
 
-func TestPgraphCopy1(t *testing.T) {
+func TestCopy1(t *testing.T) {
 	g1 := &Graph{}
 	g2 := g1.Copy() // check this doesn't panic
 	if !reflect.DeepEqual(g1.String(), g2.String()) {
@@ -647,31 +618,7 @@ func TestPgraphCopy1(t *testing.T) {
 	}
 }
 
-func TestPgraphDelete1(t *testing.T) {
-	G := &Graph{}
-	v1 := NV("v1")
-	G.DeleteVertex(v1) // check this doesn't panic
-
-	if i := G.NumVertices(); i != 0 {
-		t.Errorf("should have 0 vertices instead of: %d", i)
-	}
-}
-
-func vertexCmpFn(v1, v2 Vertex) (bool, error) {
-	if v1.String() == "" || v2.String() == "" {
-		return false, fmt.Errorf("oops, empty vertex")
-	}
-	return v1.String() == v2.String(), nil
-}
-
-func edgeCmpFn(e1, e2 Edge) (bool, error) {
-	if e1.String() == "" || e2.String() == "" {
-		return false, fmt.Errorf("oops, empty edge")
-	}
-	return e1.String() == e2.String(), nil
-}
-
-func TestPgraphGraphCmp1(t *testing.T) {
+func TestGraphCmp1(t *testing.T) {
 	g1 := &Graph{}
 	g2 := &Graph{}
 	g3 := &Graph{}
@@ -679,20 +626,20 @@ func TestPgraphGraphCmp1(t *testing.T) {
 	g4 := &Graph{}
 	g4.AddVertex(NV("v2"))
 
-	if err := g1.GraphCmp(g2, vertexCmpFn, edgeCmpFn); err != nil {
+	if err := g1.GraphCmp(g2, strVertexCmpFn, strEdgeCmpFn); err != nil {
 		t.Errorf("should have no error during GraphCmp, but got: %v", err)
 	}
 
-	if err := g1.GraphCmp(g3, vertexCmpFn, edgeCmpFn); err == nil {
+	if err := g1.GraphCmp(g3, strVertexCmpFn, strEdgeCmpFn); err == nil {
 		t.Errorf("should have error during GraphCmp, but got nil")
 	}
 
-	if err := g3.GraphCmp(g4, vertexCmpFn, edgeCmpFn); err == nil {
+	if err := g3.GraphCmp(g4, strVertexCmpFn, strEdgeCmpFn); err == nil {
 		t.Errorf("should have error during GraphCmp, but got nil")
 	}
 }
 
-func TestPgraphSort0(t *testing.T) {
+func TestSort0(t *testing.T) {
 	vs := []Vertex{}
 	s := Sort(vs)
 
@@ -710,7 +657,7 @@ func TestPgraphSort0(t *testing.T) {
 	}
 }
 
-func TestPgraphSort1(t *testing.T) {
+func TestSort1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")

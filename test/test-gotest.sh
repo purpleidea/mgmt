@@ -13,7 +13,8 @@ function run-test()
 ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 
-for pkg in `go list ./... | grep -v 'vendor/' | grep -v 'examples/' | grep -v 'old/' | grep -v 'tmp/'`; do
+base=$(go list .)
+for pkg in `go list ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/"`; do
 	echo "Testing: $pkg"
 	# FIXME: can we capture and output the stderr from these tests too?
 	run-test go test "$pkg"

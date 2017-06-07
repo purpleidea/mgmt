@@ -524,6 +524,8 @@ func (obj *Main) Run() error {
 				continue
 			}
 
+			//savedGraph := oldGraph.Copy() // save a copy for errors
+
 			// TODO: should we call each Res.Setup() here instead?
 
 			// add autoedges; modifies the graph only if no error
@@ -537,11 +539,19 @@ func (obj *Main) Run() error {
 				continue
 			}
 
-			graph.Update(oldGraph) // copy in structure of new graph
+			// at this point, any time we error after a destructive
+			// modification of the graph we need to restore the old
+			// graph that was previously running, eg:
+			//
+			//	oldGraph = savedGraph.Copy()
+			//
+			// which we are (luckily) able to avoid testing for now
 
-			resources.AutoGroup(graph.Graph, &resources.NonReachabilityGrouper{}) // run autogroup; modifies the graph
+			resources.AutoGroup(oldGraph, &resources.NonReachabilityGrouper{}) // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships
+
+			graph.Update(oldGraph) // copy in structure of new graph
 
 			// Call this here because at this point the graph does
 			// not know anything about the prometheus instance.

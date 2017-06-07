@@ -25,6 +25,7 @@ func TestExecSendRecv1(t *testing.T) {
 	r1 := &ExecRes{
 		BaseRes: BaseRes{
 			Name: "exec1",
+			Kind: "exec",
 			//MetaParams: MetaParams,
 		},
 		Cmd:   "echo hello world",
@@ -71,6 +72,7 @@ func TestExecSendRecv2(t *testing.T) {
 	r1 := &ExecRes{
 		BaseRes: BaseRes{
 			Name: "exec1",
+			Kind: "exec",
 			//MetaParams: MetaParams,
 		},
 		Cmd:   "echo hello world 1>&2", // to stderr
@@ -117,6 +119,7 @@ func TestExecSendRecv3(t *testing.T) {
 	r1 := &ExecRes{
 		BaseRes: BaseRes{
 			Name: "exec1",
+			Kind: "exec",
 			//MetaParams: MetaParams,
 		},
 		Cmd:   "echo hello world && echo goodbye world 1>&2", // to stdout && stderr

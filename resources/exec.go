@@ -20,7 +20,6 @@ package resources
 import (
 	"bufio"
 	"bytes"
-	"encoding/gob"
 	"fmt"
 	"log"
 	"os/exec"
@@ -34,7 +33,6 @@ import (
 )
 
 func init() {
-	gob.Register(&ExecRes{})
 	RegisterResource("exec", func() Res { return &ExecRes{} })
 }
 
@@ -73,7 +71,6 @@ func (obj *ExecRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *ExecRes) Init() error {
-	obj.BaseRes.Kind = "exec"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

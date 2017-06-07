@@ -61,13 +61,13 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	// FIXME: these are being specified temporarily until it's the default!
 	metaparams := resources.DefaultMetaParams
 
 	content := "Delete me to trigger a notification!\n"
 	f0 := &resources.FileRes{
 		BaseRes: resources.BaseRes{
 			Name:       "README",
+			Kind:       "file",
 			MetaParams: metaparams,
 		},
 		Path:    "/tmp/mgmt/README",
@@ -80,6 +80,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	p1 := &resources.PasswordRes{
 		BaseRes: resources.BaseRes{
 			Name:       "password1",
+			Kind:       "password",
 			MetaParams: metaparams,
 		},
 		Length: 8,    // generated string will have this many characters
@@ -90,6 +91,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	f1 := &resources.FileRes{
 		BaseRes: resources.BaseRes{
 			Name:       "file1",
+			Kind:       "file",
 			MetaParams: metaparams,
 			// send->recv!
 			Recv: map[string]*resources.Send{
@@ -106,6 +108,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	n1 := &resources.NoopRes{
 		BaseRes: resources.BaseRes{
 			Name:       "noop1",
+			Kind:       "noop",
 			MetaParams: metaparams,
 		},
 	}

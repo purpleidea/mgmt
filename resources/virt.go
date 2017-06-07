@@ -19,7 +19,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 	"math/rand"
@@ -38,7 +37,6 @@ import (
 
 func init() {
 	RegisterResource("virt", func() Res { return &VirtRes{} })
-	gob.Register(&VirtRes{})
 }
 
 const (
@@ -192,7 +190,6 @@ func (obj *VirtRes) Init() error {
 		}
 	}
 	obj.wg = &sync.WaitGroup{}
-	obj.BaseRes.Kind = "virt"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

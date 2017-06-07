@@ -171,7 +171,6 @@ func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resourc
 		}
 
 		if obj, err := resources.B64ToRes(val); err == nil {
-			obj.SetKind(kind) // cheap init
 			log.Printf("Etcd: Get: (Hostname, Kind, Name): (%s, %s, %s)", hostname, kind, name)
 			resourceList = append(resourceList, obj)
 		} else {

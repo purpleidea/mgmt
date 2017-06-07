@@ -42,6 +42,7 @@ func TestCompare2(t *testing.T) {
 	r1 := &NoopRes{
 		BaseRes: BaseRes{
 			Name: "noop1",
+			Kind: "noop",
 			MetaParams: MetaParams{
 				Noop: true,
 			},
@@ -49,7 +50,8 @@ func TestCompare2(t *testing.T) {
 	}
 	r2 := &NoopRes{
 		BaseRes: BaseRes{
-			Name: "noop1", // same nampe
+			Name: "noop1", // same name
+			Kind: "noop",
 			MetaParams: MetaParams{
 				Noop: false, // different noop
 			},
@@ -111,12 +113,9 @@ func TestMiscEncodeDecode1(t *testing.T) {
 
 func TestMiscEncodeDecode2(t *testing.T) {
 	var err error
-	//gob.Register( &NoopRes{} ) // happens in noop.go : init()
-	//gob.Register( &FileRes{} ) // happens in file.go : init()
-	// ...
 
 	// encode
-	var input Res = &FileRes{}
+	input, _ := NewResource("file")
 
 	b64, err := ResToB64(input)
 	if err != nil {

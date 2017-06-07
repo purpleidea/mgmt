@@ -18,7 +18,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
@@ -42,7 +41,6 @@ const (
 
 func init() {
 	RegisterResource("nspawn", func() Res { return &NspawnRes{} })
-	gob.Register(&NspawnRes{})
 }
 
 // NspawnRes is an nspawn container resource.
@@ -93,7 +91,6 @@ func (obj *NspawnRes) Init() error {
 	if err := obj.svc.Init(); err != nil {
 		return err
 	}
-	obj.BaseRes.Kind = "nspawn"
 	return obj.BaseRes.Init()
 }
 

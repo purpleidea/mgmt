@@ -19,7 +19,6 @@ package resources
 
 import (
 	"crypto/rand"
-	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -35,7 +34,6 @@ import (
 
 func init() {
 	RegisterResource("password", func() Res { return &PasswordRes{} })
-	gob.Register(&PasswordRes{})
 }
 
 const (
@@ -74,7 +72,6 @@ func (obj *PasswordRes) Validate() error {
 // Init generates a new password for this resource if one was not provided. It
 // will save this into a local file. It will load it back in from previous runs.
 func (obj *PasswordRes) Init() error {
-	obj.BaseRes.Kind = "password" // must be set before using VarDir
 
 	dir, err := obj.VarDir("")
 	if err != nil {

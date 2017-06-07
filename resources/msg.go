@@ -18,7 +18,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 	"regexp"
@@ -29,7 +28,6 @@ import (
 
 func init() {
 	RegisterResource("msg", func() Res { return &MsgRes{} })
-	gob.Register(&MsgRes{})
 }
 
 // MsgRes is a resource that writes messages to logs.
@@ -76,7 +74,6 @@ func (obj *MsgRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *MsgRes) Init() error {
-	obj.BaseRes.Kind = "msg"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 

@@ -18,7 +18,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/pgraph"
@@ -29,7 +28,6 @@ import (
 
 func init() {
 	RegisterResource("graph", func() Res { return &GraphRes{} })
-	gob.Register(&GraphRes{})
 }
 
 // GraphRes is a resource that recursively runs a sub graph of resources.
@@ -89,7 +87,6 @@ func (obj *GraphRes) Init() error {
 		}
 	}
 
-	obj.BaseRes.Kind = "graph"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 

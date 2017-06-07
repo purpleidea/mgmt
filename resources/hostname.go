@@ -18,7 +18,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"log"
@@ -36,7 +35,6 @@ var ErrResourceInsufficientParameters = errors.New(
 
 func init() {
 	RegisterResource("hostname", func() Res { return &HostnameRes{} })
-	gob.Register(&HostnameRes{})
 }
 
 const (
@@ -88,7 +86,6 @@ func (obj *HostnameRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *HostnameRes) Init() error {
-	obj.BaseRes.Kind = "hostname"
 	if obj.PrettyHostname == "" {
 		obj.PrettyHostname = obj.Hostname
 	}

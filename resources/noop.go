@@ -18,14 +18,12 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 )
 
 func init() {
 	RegisterResource("noop", func() Res { return &NoopRes{} })
-	gob.Register(&NoopRes{})
 }
 
 // NoopRes is a no-op resource that does nothing.
@@ -50,7 +48,6 @@ func (obj *NoopRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *NoopRes) Init() error {
-	obj.BaseRes.Kind = "noop"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

@@ -20,7 +20,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 
@@ -34,7 +33,6 @@ import (
 
 func init() {
 	RegisterResource("svc", func() Res { return &SvcRes{} })
-	gob.Register(&SvcRes{})
 }
 
 // SvcRes is a service resource for systemd units.
@@ -67,7 +65,6 @@ func (obj *SvcRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *SvcRes) Init() error {
-	obj.BaseRes.Kind = "svc"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

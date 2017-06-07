@@ -52,7 +52,7 @@ func B64ToRes(str string) (Res, error) {
 	}
 	res, ok := output.(Res)
 	if !ok {
-		return nil, fmt.Errorf("Output %v is not a Res", res)
+		return nil, fmt.Errorf("output `%v` is not a Res", output)
 
 	}
 	return res, nil

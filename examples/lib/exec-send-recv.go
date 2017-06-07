@@ -61,12 +61,12 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	// FIXME: these are being specified temporarily until it's the default!
 	metaparams := resources.DefaultMetaParams
 
 	exec1 := &resources.ExecRes{
 		BaseRes: resources.BaseRes{
 			Name:       "exec1",
+			Kind:       "exec",
 			MetaParams: metaparams,
 		},
 		Cmd:   "echo hello world && echo goodbye world 1>&2", // to stdout && stderr
@@ -77,6 +77,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	output := &resources.FileRes{
 		BaseRes: resources.BaseRes{
 			Name:       "output",
+			Kind:       "file",
 			MetaParams: metaparams,
 			// send->recv!
 			Recv: map[string]*resources.Send{
@@ -92,6 +93,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	stdout := &resources.FileRes{
 		BaseRes: resources.BaseRes{
 			Name:       "stdout",
+			Kind:       "file",
 			MetaParams: metaparams,
 			// send->recv!
 			Recv: map[string]*resources.Send{
@@ -107,6 +109,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	stderr := &resources.FileRes{
 		BaseRes: resources.BaseRes{
 			Name:       "stderr",
+			Kind:       "file",
 			MetaParams: metaparams,
 			// send->recv!
 			Recv: map[string]*resources.Send{

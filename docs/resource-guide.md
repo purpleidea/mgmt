@@ -73,14 +73,13 @@ Init() error
 ```
 
 This is called to initialize the resource. If something goes wrong, it should
-return an error. It should set the resource `kind`, do any resource specific
-work, and finish by calling the `Init` method of the base resource.
+return an error. It should do any resource specific work, and finish by calling
+the `Init` method of the base resource.
 
 #### Example
 ```golang
 // Init initializes the Foo resource.
 func (obj *FooRes) Init() error {
-	obj.BaseRes.Kind = "foo" // must lower case resource kind
 	// run the resource specific initialization, and error if anything fails
 	if some_error {
 		return err // something went wrong!
@@ -399,9 +398,9 @@ UnmarshalYAML(unmarshal func(interface{}) error) error // optional
 ```
 
 This is optional, but recommended for any resource that will have a YAML
-accessible struct, and an entry in the `GraphConfig` struct. It is not required
-because to do so would mean that third-party or custom resources (such as those
-someone writes to use with `libmgmt`) would have to implement this needlessly.
+accessible struct. It is not required because to do so would mean that
+third-party or custom resources (such as those someone writes to use with
+`libmgmt`) would have to implement this needlessly.
 
 The signature intentionally matches what is required to satisfy the `go-yaml`
 [Unmarshaler](https://godoc.org/gopkg.in/yaml.v2#Unmarshaler) interface.
@@ -453,35 +452,15 @@ type FooRes struct {
 }
 ```
 
-### YAML
-In addition to labelling your resource struct with YAML fields, you must also
-add an entry to the internal `GraphConfig` struct. It is a fairly straight
-forward one line patch.
+### Resource registration
+All resources must be registered with the engine so that they can be found. This
+also ensures they can be encoded and decoded. Make sure to include the following
+code snippet for this to work.
 
 ```golang
-type GraphConfig struct {
-// [snip...]
-	Resources struct {
-		Noop []*resources.NoopRes `yaml:"noop"`
-		File []*resources.FileRes `yaml:"file"`
-		// [snip...]
-		Foo []*resources.FooRes `yaml:"foo"` // tada :)
-	}
-}
-```
-
-It's also recommended that you add the [UnmarshalYAML](#unmarshalyaml) method to
-your resources so that unspecified values are given sane defaults.
-
-### Gob registration
-All resources must be registered with the `golang` _gob_ module so that they can
-be encoded and decoded. Make sure to include the following code snippet for this
-to work.
-
-```golang
-import "encoding/gob"
 func init() { // special golang method that runs once
-	gob.Register(&FooRes{}) // substitude your resource here
+	// set your resource kind and struct here (the kind must be lower case)
+	RegisterResource("foo", func() Res { return &FooRes{} })
 }
 ```
 

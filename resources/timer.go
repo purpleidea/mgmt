@@ -18,7 +18,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 	"time"
@@ -26,7 +25,6 @@ import (
 
 func init() {
 	RegisterResource("timer", func() Res { return &TimerRes{} })
-	gob.Register(&TimerRes{})
 }
 
 // TimerRes is a timer resource for time based events.
@@ -59,7 +57,6 @@ func (obj *TimerRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *TimerRes) Init() error {
-	obj.BaseRes.Kind = "timer"
 	return obj.BaseRes.Init() // call base init, b/c we're overrriding
 }
 

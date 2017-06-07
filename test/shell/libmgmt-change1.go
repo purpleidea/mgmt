@@ -55,19 +55,18 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	if !obj.initialized {
 		return nil, fmt.Errorf("%s: MyGAPI is not initialized", obj.Name)
 	}
-	// FIXME: these are being specified temporarily until it's the default!
-	metaparams := resources.DefaultMetaParams
+
+	var err error
 	g, err := pgraph.NewGraph(obj.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	n0 := &resources.NoopRes{
-		BaseRes: resources.BaseRes{
-			Name:       "noop1",
-			MetaParams: metaparams,
-		},
+	n0, err := resources.NewResource("noop")
+	if err != nil {
+		return nil, err
 	}
+	n0.SetName("noop1")
 	g.AddVertex(n0)
 
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)

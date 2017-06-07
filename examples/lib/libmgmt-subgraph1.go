@@ -61,13 +61,13 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	// FIXME: these are being specified temporarily until it's the default!
 	metaparams := resources.DefaultMetaParams
 
 	content := "I created a subgraph!\n"
 	f0 := &resources.FileRes{
 		BaseRes: resources.BaseRes{
 			Name:       "README",
+			Kind:       "file",
 			MetaParams: metaparams,
 		},
 		Path:    "/tmp/mgmt/README",
@@ -86,6 +86,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	f1 := &resources.FileRes{
 		BaseRes: resources.BaseRes{
 			Name:       "file1",
+			Kind:       "file",
 			MetaParams: metaparams,
 		},
 		Path: "/tmp/mgmt/sub1",
@@ -97,6 +98,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	n1 := &resources.NoopRes{
 		BaseRes: resources.BaseRes{
 			Name:       "noop1",
+			Kind:       "noop",
 			MetaParams: metaparams,
 		},
 	}
@@ -110,6 +112,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	subGraphRes0 := &resources.GraphRes{ // TODO: should we name this SubGraphRes ?
 		BaseRes: resources.BaseRes{
 			Name:       "subgraph1",
+			Kind:       "graph",
 			MetaParams: metaparams,
 		},
 		Graph: subGraph,

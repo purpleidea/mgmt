@@ -122,7 +122,7 @@ func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // Decode is the second stage for unmarshaling of resources (knowing their
 // kind).
 func (r *Resource) Decode(kind string) (err error) {
-	r.resource, err = resources.NewEmptyNamedResource(kind)
+	r.resource, err = resources.NewResource(kind)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,6 @@ func (r *Resource) Decode(kind string) (err error) {
 
 	// Set resource name, meta and kind
 	r.resource.SetName(r.Name)
-	r.resource.SetKind(strings.ToLower(kind))
 	meta := r.resource.Meta()
 	*meta = r.Meta
 	return
@@ -199,7 +198,6 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 		} else if !noop { // do not export any resources if noop
 			// store for addition to backend storage...
 			res.SetName(res.GetName()[2:]) // slice off @@
-			res.SetKind(kind)              // cheap init
 			resourceList = append(resourceList, res)
 		}
 	}

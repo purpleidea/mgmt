@@ -19,6 +19,7 @@
 package resources
 
 import (
+	"encoding/gob"
 	"fmt"
 	"log"
 	"math"
@@ -43,18 +44,21 @@ var registeredResources = map[string]func() Res{}
 
 // RegisterResource registers a new resource by providing a constructor
 // function that returns a resource object ready to be unmarshalled from YAML.
-func RegisterResource(name string, creator func() Res) {
-	registeredResources[name] = creator
+func RegisterResource(kind string, fn func() Res) {
+	gob.Register(fn())
+	registeredResources[kind] = fn
 }
 
-// NewEmptyNamedResource returns an empty resource object from a registered
-// type, ready to be unmarshalled.
-func NewEmptyNamedResource(name string) (Res, error) {
-	fn, ok := registeredResources[name]
+// NewResource returns an empty resource object from a registered kind.
+func NewResource(kind string) (Res, error) {
+	fn, ok := registeredResources[kind]
 	if !ok {
-		return nil, fmt.Errorf("no resource named %s available", name)
+		return nil, fmt.Errorf("no resource kind `%s` available", kind)
 	}
-	return fn(), nil
+	res := fn().Default()
+	res.SetKind(kind)
+	//*res.Meta() = DefaultMetaParams // TODO: centralize this here?
+	return res, nil
 }
 
 //go:generate stringer -type=ResState -output=resstate_stringer.go

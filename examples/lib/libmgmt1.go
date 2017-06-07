@@ -57,9 +57,11 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("libmgmt: MyGAPI is not initialized")
 	}
 
+	// TODO: this method of instantiation is deprecated, use: NewResource
 	n1 := &resources.NoopRes{
 		BaseRes: resources.BaseRes{
 			Name:       "noop1",
+			Kind:       "noop",
 			MetaParams: resources.DefaultMetaParams,
 		},
 	}

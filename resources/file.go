@@ -20,7 +20,6 @@ package resources
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -41,7 +40,6 @@ import (
 )
 
 func init() {
-	gob.Register(&FileRes{})
 	RegisterResource("file", func() Res { return &FileRes{} })
 }
 
@@ -148,7 +146,6 @@ func (obj *FileRes) Init() error {
 	obj.path = obj.GetPath()                     // compute once
 	obj.isDir = strings.HasSuffix(obj.path, "/") // dirs have trailing slashes
 
-	obj.BaseRes.Kind = "file"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

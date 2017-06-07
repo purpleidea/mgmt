@@ -19,7 +19,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 	"os"
@@ -39,7 +38,6 @@ const (
 )
 
 func init() {
-	gob.Register(&AugeasRes{})
 	RegisterResource("augeas", func() Res { return &AugeasRes{} })
 }
 
@@ -94,7 +92,6 @@ func (obj *AugeasRes) Validate() error {
 
 // Init initiates the resource.
 func (obj *AugeasRes) Init() error {
-	obj.BaseRes.Kind = "augeas"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

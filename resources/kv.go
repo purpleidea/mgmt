@@ -18,7 +18,6 @@
 package resources
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 	"strconv"
@@ -28,7 +27,6 @@ import (
 
 func init() {
 	RegisterResource("kv", func() Res { return &KVRes{} })
-	gob.Register(&KVRes{})
 }
 
 // KVResSkipCmpStyle represents the different styles of comparison when using SkipLessThan.
@@ -89,7 +87,6 @@ func (obj *KVRes) Validate() error {
 
 // Init initializes the resource.
 func (obj *KVRes) Init() error {
-	obj.BaseRes.Kind = "kv"
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
 

@@ -41,6 +41,7 @@ func NewNoopResTestSema(name string, semas []string) *NoopResTest {
 		NoopRes: NoopRes{
 			BaseRes: BaseRes{
 				Name: name,
+				Kind: "noop",
 				MetaParams: MetaParams{
 					AutoGroup: true, // always autogroup
 					Sema:      semas,

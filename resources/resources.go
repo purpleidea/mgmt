@@ -45,6 +45,9 @@ var registeredResources = map[string]func() Res{}
 // RegisterResource registers a new resource by providing a constructor
 // function that returns a resource object ready to be unmarshalled from YAML.
 func RegisterResource(kind string, fn func() Res) {
+	if _, ok := registeredResources[kind]; ok {
+		panic(fmt.Sprintf("a resource kind of %s is already registered", kind))
+	}
 	gob.Register(fn())
 	registeredResources[kind] = fn
 }

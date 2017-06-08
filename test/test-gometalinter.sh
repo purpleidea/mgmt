@@ -25,7 +25,7 @@ gml='gometalinter --disable-all'
 #gml="$gml --enable=goconst"
 #gml="$gml --enable=gocyclo"
 gml="$gml --enable=goimports"
-#gml="$gml --enable=golint"			# TODO: only a few fixes needed
+gml="$gml --enable=golint"
 #gml="$gml --enable=gosimple"			# TODO: only a few fixes needed
 gml="$gml --enable=gotype"
 #gml="$gml --enable=ineffassign"		# TODO: only a few fixes needed

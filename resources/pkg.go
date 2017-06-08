@@ -177,22 +177,22 @@ func (obj *PkgRes) groupMappingHelper() map[string]string {
 }
 
 func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packagekit.PkPackageIDActionData, error) {
-	packageMap := obj.groupMappingHelper()   // get the grouped values
-	packageMap[obj.Name] = obj.State         // key is pkg name, value is pkg state
-	var filter uint64                        // initializes at the "zero" value of 0
-	filter += packagekit.PK_FILTER_ENUM_ARCH // always search in our arch (optional!)
+	packageMap := obj.groupMappingHelper() // get the grouped values
+	packageMap[obj.Name] = obj.State       // key is pkg name, value is pkg state
+	var filter uint64                      // initializes at the "zero" value of 0
+	filter += packagekit.PkFilterEnumArch  // always search in our arch (optional!)
 	// we're requesting latest version, or to narrow down install choices!
 	if obj.State == "newest" || obj.State == "installed" {
 		// if we add this, we'll still see older packages if installed
 		// this is an optimization, and is *optional*, this logic is
 		// handled inside of PackagesToPackageIDs now automatically!
-		filter += packagekit.PK_FILTER_ENUM_NEWEST // only search for newest packages
+		filter += packagekit.PkFilterEnumNewest // only search for newest packages
 	}
 	if !obj.AllowNonFree {
-		filter += packagekit.PK_FILTER_ENUM_FREE
+		filter += packagekit.PkFilterEnumFree
 	}
 	if !obj.AllowUnsupported {
-		filter += packagekit.PK_FILTER_ENUM_SUPPORTED
+		filter += packagekit.PkFilterEnumSupported
 	}
 	result, err := bus.PackagesToPackageIDs(packageMap, filter)
 	if err != nil {
@@ -298,7 +298,7 @@ func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 	var transactionFlags uint64 // initializes at the "zero" value of 0
 	if !obj.AllowUntrusted {    // allow
-		transactionFlags += packagekit.PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED
+		transactionFlags += packagekit.PkTransactionFlagEnumOnlyTrusted
 	}
 	// apply correct state!
 	log.Printf("%s: Set: %v...", obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())), obj.State)

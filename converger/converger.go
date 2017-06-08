@@ -85,7 +85,7 @@ type cuid struct {
 }
 
 // NewConverger builds a new converger struct.
-func NewConverger(timeout int, stateFn func(bool) error) *converger {
+func NewConverger(timeout int, stateFn func(bool) error) Converger {
 	return &converger{
 		timeout: timeout,
 		stateFn: stateFn,

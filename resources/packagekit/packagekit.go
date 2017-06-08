@@ -33,8 +33,8 @@ import (
 
 // global tweaks of verbosity and code path
 const (
-	PK_DEBUG = false
-	PARANOID = false // enable if you see any ghosts
+	Debug    = false
+	Paranoid = false // enable if you see any ghosts
 )
 
 // constants which might need to be tweaked or which contain special dbus strings.
@@ -74,76 +74,76 @@ var (
 //type enum_filter uint64
 // https://github.com/hughsie/PackageKit/blob/master/lib/packagekit-glib2/pk-enum.c
 const ( //static const PkEnumMatch enum_filter[]
-	PK_FILTER_ENUM_UNKNOWN         uint64 = 1 << iota // "unknown"
-	PK_FILTER_ENUM_NONE                               // "none"
-	PK_FILTER_ENUM_INSTALLED                          // "installed"
-	PK_FILTER_ENUM_NOT_INSTALLED                      // "~installed"
-	PK_FILTER_ENUM_DEVELOPMENT                        // "devel"
-	PK_FILTER_ENUM_NOT_DEVELOPMENT                    // "~devel"
-	PK_FILTER_ENUM_GUI                                // "gui"
-	PK_FILTER_ENUM_NOT_GUI                            // "~gui"
-	PK_FILTER_ENUM_FREE                               // "free"
-	PK_FILTER_ENUM_NOT_FREE                           // "~free"
-	PK_FILTER_ENUM_VISIBLE                            // "visible"
-	PK_FILTER_ENUM_NOT_VISIBLE                        // "~visible"
-	PK_FILTER_ENUM_SUPPORTED                          // "supported"
-	PK_FILTER_ENUM_NOT_SUPPORTED                      // "~supported"
-	PK_FILTER_ENUM_BASENAME                           // "basename"
-	PK_FILTER_ENUM_NOT_BASENAME                       // "~basename"
-	PK_FILTER_ENUM_NEWEST                             // "newest"
-	PK_FILTER_ENUM_NOT_NEWEST                         // "~newest"
-	PK_FILTER_ENUM_ARCH                               // "arch"
-	PK_FILTER_ENUM_NOT_ARCH                           // "~arch"
-	PK_FILTER_ENUM_SOURCE                             // "source"
-	PK_FILTER_ENUM_NOT_SOURCE                         // "~source"
-	PK_FILTER_ENUM_COLLECTIONS                        // "collections"
-	PK_FILTER_ENUM_NOT_COLLECTIONS                    // "~collections"
-	PK_FILTER_ENUM_APPLICATION                        // "application"
-	PK_FILTER_ENUM_NOT_APPLICATION                    // "~application"
-	PK_FILTER_ENUM_DOWNLOADED                         // "downloaded"
-	PK_FILTER_ENUM_NOT_DOWNLOADED                     // "~downloaded"
+	PkFilterEnumUnknown        uint64 = 1 << iota // "unknown"
+	PkFilterEnumNone                              // "none"
+	PkFilterEnumInstalled                         // "installed"
+	PkFilterEnumNotInstalled                      // "~installed"
+	PkFilterEnumDevelopment                       // "devel"
+	PkFilterEnumNotDevelopment                    // "~devel"
+	PkFilterEnumGui                               // "gui"
+	PkFilterEnumNotGui                            // "~gui"
+	PkFilterEnumFree                              // "free"
+	PkFilterEnumNotFree                           // "~free"
+	PkFilterEnumVisible                           // "visible"
+	PkFilterEnumNotVisible                        // "~visible"
+	PkFilterEnumSupported                         // "supported"
+	PkFilterEnumNotSupported                      // "~supported"
+	PkFilterEnumBasename                          // "basename"
+	PkFilterEnumNotBasename                       // "~basename"
+	PkFilterEnumNewest                            // "newest"
+	PkFilterEnumNotNewest                         // "~newest"
+	PkFilterEnumArch                              // "arch"
+	PkFilterEnumNotArch                           // "~arch"
+	PkFilterEnumSource                            // "source"
+	PkFilterEnumNotSource                         // "~source"
+	PkFilterEnumCollections                       // "collections"
+	PkFilterEnumNotCollections                    // "~collections"
+	PkFilterEnumApplication                       // "application"
+	PkFilterEnumNotApplication                    // "~application"
+	PkFilterEnumDownloaded                        // "downloaded"
+	PkFilterEnumNotDownloaded                     // "~downloaded"
 )
 
 // constants from packagekit c library.
 const ( //static const PkEnumMatch enum_transaction_flag[]
-	PK_TRANSACTION_FLAG_ENUM_NONE            uint64 = 1 << iota // "none"
-	PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED                       // "only-trusted"
-	PK_TRANSACTION_FLAG_ENUM_SIMULATE                           // "simulate"
-	PK_TRANSACTION_FLAG_ENUM_ONLY_DOWNLOAD                      // "only-download"
-	PK_TRANSACTION_FLAG_ENUM_ALLOW_REINSTALL                    // "allow-reinstall"
-	PK_TRANSACTION_FLAG_ENUM_JUST_REINSTALL                     // "just-reinstall"
-	PK_TRANSACTION_FLAG_ENUM_ALLOW_DOWNGRADE                    // "allow-downgrade"
+	PkTransactionFlagEnumNone           uint64 = 1 << iota // "none"
+	PkTransactionFlagEnumOnlyTrusted                       // "only-trusted"
+	PkTransactionFlagEnumSimulate                          // "simulate"
+	PkTransactionFlagEnumOnlyDownload                      // "only-download"
+	PkTransactionFlagEnumAllowReinstall                    // "allow-reinstall"
+	PkTransactionFlagEnumJustReinstall                     // "just-reinstall"
+	PkTransactionFlagEnumAllowDowngrade                    // "allow-downgrade"
 )
 
 // constants from packagekit c library.
 const ( //typedef enum
-	PK_INFO_ENUM_UNKNOWN uint64 = 1 << iota
-	PK_INFO_ENUM_INSTALLED
-	PK_INFO_ENUM_AVAILABLE
-	PK_INFO_ENUM_LOW
-	PK_INFO_ENUM_ENHANCEMENT
-	PK_INFO_ENUM_NORMAL
-	PK_INFO_ENUM_BUGFIX
-	PK_INFO_ENUM_IMPORTANT
-	PK_INFO_ENUM_SECURITY
-	PK_INFO_ENUM_BLOCKED
-	PK_INFO_ENUM_DOWNLOADING
-	PK_INFO_ENUM_UPDATING
-	PK_INFO_ENUM_INSTALLING
-	PK_INFO_ENUM_REMOVING
-	PK_INFO_ENUM_CLEANUP
-	PK_INFO_ENUM_OBSOLETING
-	PK_INFO_ENUM_COLLECTION_INSTALLED
-	PK_INFO_ENUM_COLLECTION_AVAILABLE
-	PK_INFO_ENUM_FINISHED
-	PK_INFO_ENUM_REINSTALLING
-	PK_INFO_ENUM_DOWNGRADING
-	PK_INFO_ENUM_PREPARING
-	PK_INFO_ENUM_DECOMPRESSING
-	PK_INFO_ENUM_UNTRUSTED
-	PK_INFO_ENUM_TRUSTED
-	PK_INFO_ENUM_UNAVAILABLE
-	PK_INFO_ENUM_LAST
+	PkInfoEnumUnknown uint64 = 1 << iota
+	PkInfoEnumInstalled
+	PkInfoEnumAvailable
+	PkInfoEnumLow
+	PkInfoEnumEnhancement
+	PkInfoEnumNormal
+	PkInfoEnumBugfix
+	PkInfoEnumImportant
+	PkInfoEnumSecurity
+	PkInfoEnumBlocked
+	PkInfoEnumDownloading
+	PkInfoEnumUpdating
+	PkInfoEnumInstalling
+	PkInfoEnumRemoving
+	PkInfoEnumCleanup
+	PkInfoEnumObsoleting
+	PkInfoEnumCollectionInstalled
+	PkInfoEnumCollectionAvailable
+	PkInfoEnumFinished
+	PkInfoEnumReinstalling
+	PkInfoEnumDowngrading
+	PkInfoEnumPreparing
+	PkInfoEnumDecompressing
+	PkInfoEnumUntrusted
+	PkInfoEnumTrusted
+	PkInfoEnumUnavailable
+	PkInfoEnumLast
 )
 
 // Conn is a wrapper struct so we can pass bus connection around in the struct.
@@ -184,7 +184,7 @@ func (bus *Conn) Close() error {
 
 // internal helper to add signal matches to the bus, should only be called once
 func (bus *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface string, signals []string) error {
-	if PK_DEBUG {
+	if Debug {
 		log.Printf("PackageKit: matchSignal(%v, %v, %v, %v)", ch, path, iface, signals)
 	}
 	// eg: gdbus monitor --system --dest org.freedesktop.PackageKit --object-path /org/freedesktop/PackageKit | grep <signal>
@@ -224,7 +224,7 @@ func (bus *Conn) WatchChanges() (chan *dbus.Signal, error) {
 	if err != nil {
 		return nil, err
 	}
-	if PARANOID { // TODO: this filtering might not be necessary anymore...
+	if Paranoid { // TODO: this filtering might not be necessary anymore...
 		// try to handle the filtering inside this function!
 		rch := make(chan *dbus.Signal)
 		go func() {
@@ -257,7 +257,7 @@ func (bus *Conn) WatchChanges() (chan *dbus.Signal, error) {
 
 // CreateTransaction creates and returns a transaction path.
 func (bus *Conn) CreateTransaction() (dbus.ObjectPath, error) {
-	if PK_DEBUG {
+	if Debug {
 		log.Println("PackageKit: CreateTransaction()")
 	}
 	var interfacePath dbus.ObjectPath
@@ -266,7 +266,7 @@ func (bus *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 	if call != nil {
 		return "", call
 	}
-	if PK_DEBUG {
+	if Debug {
 		log.Printf("PackageKit: CreateTransaction(): %v", interfacePath)
 	}
 	return interfacePath, nil
@@ -284,12 +284,12 @@ func (bus *Conn) ResolvePackages(packages []string, filter uint64) ([]string, er
 	// add signal matches for Package and Finished which will always be last
 	var signals = []string{"Package", "Finished", "Error", "Destroy"}
 	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
-	if PK_DEBUG {
+	if Debug {
 		log.Printf("PackageKit: ResolvePackages(): Object(%v, %v)", PkIface, interfacePath)
 	}
 	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
 	call := obj.Call(FmtTransactionMethod("Resolve"), 0, filter, packages)
-	if PK_DEBUG {
+	if Debug {
 		log.Println("PackageKit: ResolvePackages(): Call: Success!")
 	}
 	if call.Err != nil {
@@ -300,7 +300,7 @@ loop:
 		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
 		case signal := <-ch:
-			if PK_DEBUG {
+			if Debug {
 				log.Printf("PackageKit: ResolvePackages(): Signal: %+v", signal)
 			}
 			if signal.Path != interfacePath {
@@ -338,8 +338,8 @@ loop:
 
 // IsInstalledList queries a list of packages to see if they are installed.
 func (bus *Conn) IsInstalledList(packages []string) ([]bool, error) {
-	var filter uint64             // initializes at the "zero" value of 0
-	filter += PK_FILTER_ENUM_ARCH // always search in our arch
+	var filter uint64          // initializes at the "zero" value of 0
+	filter += PkFilterEnumArch // always search in our arch
 	packageIDs, e := bus.ResolvePackages(packages, filter)
 	if e != nil {
 		return nil, fmt.Errorf("ResolvePackages error: %v", e)
@@ -593,7 +593,7 @@ loop:
 
 // GetUpdates gets a list of packages that are installed and which can be updated, mod filter.
 func (bus *Conn) GetUpdates(filter uint64) ([]string, error) {
-	if PK_DEBUG {
+	if Debug {
 		log.Println("PackageKit: GetUpdates()")
 	}
 	packageIDs := []string{}
@@ -664,11 +664,11 @@ func (bus *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 		count++
 	}
 
-	if !(filter&PK_FILTER_ENUM_ARCH == PK_FILTER_ENUM_ARCH) {
-		filter += PK_FILTER_ENUM_ARCH // always search in our arch
+	if !(filter&PkFilterEnumArch == PkFilterEnumArch) {
+		filter += PkFilterEnumArch // always search in our arch
 	}
 
-	if PK_DEBUG {
+	if Debug {
 		log.Printf("PackageKit: PackagesToPackageIDs(): %v", strings.Join(packages, ", "))
 	}
 	resolved, e := bus.ResolvePackages(packages, filter)
@@ -771,7 +771,7 @@ func (bus *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 	// this check is for packages that need to verify their "newest" status
 	// we need to know this so we can install the correct newest packageID!
 	recursion := make(map[string]*PkPackageIDActionData)
-	if !(filter&PK_FILTER_ENUM_NEWEST == PK_FILTER_ENUM_NEWEST) {
+	if !(filter&PkFilterEnumNewest == PkFilterEnumNewest) {
 		checkPackages := []string{}
 		filteredPackageMap := make(map[string]string)
 		for index, pkg := range packages {
@@ -788,13 +788,13 @@ func (bus *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 		}
 
 		// we _could_ do a second resolve and then parse like this...
-		//resolved, e := bus.ResolvePackages(..., filter+PK_FILTER_ENUM_NEWEST)
+		//resolved, e := bus.ResolvePackages(..., filter+PkFilterEnumNewest)
 		// but that's basically what recursion here could do too!
 		if len(checkPackages) > 0 {
-			if PK_DEBUG {
+			if Debug {
 				log.Printf("PackageKit: PackagesToPackageIDs(): Recurse: %v", strings.Join(checkPackages, ", "))
 			}
-			recursion, e = bus.PackagesToPackageIDs(filteredPackageMap, filter+PK_FILTER_ENUM_NEWEST)
+			recursion, e = bus.PackagesToPackageIDs(filteredPackageMap, filter+PkFilterEnumNewest)
 			if e != nil {
 				return nil, fmt.Errorf("Recursion error: %v", e)
 			}

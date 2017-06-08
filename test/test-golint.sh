@@ -9,7 +9,7 @@ echo running test-golint.sh
 # FIXME: test a range of commits, since only the last patch is checked here
 PREVIOUS='HEAD^'
 CURRENT='HEAD'
-THRESHOLD=5	# percent problems per new LOC
+THRESHOLD=1	# percent problems per new LOC
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}" >/dev/null

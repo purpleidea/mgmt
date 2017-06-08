@@ -533,7 +533,7 @@ func (obj *BaseRes) Compare(res Res) bool {
 	// if resources are grouped, are the groups the same?
 	if i, j := obj.GetGroup(), res.GetGroup(); len(i) != len(j) {
 		return false
-	} else {
+	} else if len(i) > 0 { // trick the golinter
 		ix, jx := Sort(i), Sort(j)
 		for k := range ix {
 			if !ix[k].Compare(jx[k]) { // compare sub resources

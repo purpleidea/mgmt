@@ -529,8 +529,9 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 	if obj.ctxErr != nil { // stop on permanent error
 		return ctx, obj.ctxErr
 	}
-	const ctxErr = "ctxErr"
-	const ctxIter = "ctxIter"
+	type ctxKey string // use a non-basic type as ctx key (str can conflict)
+	const ctxErr ctxKey = "ctxErr"
+	const ctxIter ctxKey = "ctxIter"
 	expBackoff := func(tmin, texp, iter, tmax int) time.Duration {
 		// https://en.wikipedia.org/wiki/Exponential_backoff
 		// tmin <= texp^iter - 1 <= tmax // TODO: check my math

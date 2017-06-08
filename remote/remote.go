@@ -692,7 +692,7 @@ type Remotes struct {
 	fileWatch    chan string
 	cConns       uint16 // number of concurrent ssh connections, zero means unlimited
 	interactive  bool   // allow interactive prompting
-	sshPrivIdRsa string // path to ~/.ssh/id_rsa
+	sshPrivIDRsa string // path to ~/.ssh/id_rsa
 	caching      bool   // whether to try and cache the copy of the binary
 	depth        uint16 // depth of this node in the remote execution hierarchy
 	prefix       string // folder prefix to use for misc storage
@@ -715,7 +715,7 @@ type Remotes struct {
 }
 
 // NewRemotes builds a Remotes struct.
-func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIdRsa string, caching bool, depth uint16, prefix string, converger cv.Converger, convergerCb func(func(map[string]bool) error) (func(), error), flags Flags) *Remotes {
+func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fileWatch chan string, cConns uint16, interactive bool, sshPrivIDRsa string, caching bool, depth uint16, prefix string, converger cv.Converger, convergerCb func(func(map[string]bool) error) (func(), error), flags Flags) *Remotes {
 	return &Remotes{
 		clientURLs:   clientURLs,
 		remoteURLs:   remoteURLs,
@@ -724,7 +724,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		fileWatch:    fileWatch,
 		cConns:       cConns,
 		interactive:  interactive,
-		sshPrivIdRsa: sshPrivIdRsa,
+		sshPrivIDRsa: sshPrivIDRsa,
 		caching:      caching,
 		depth:        depth,
 		prefix:       prefix,
@@ -832,18 +832,18 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 
 // sshKeyAuth is a helper function to get the ssh key auth struct needed
 func (obj *Remotes) sshKeyAuth() (ssh.AuthMethod, error) {
-	if obj.sshPrivIdRsa == "" {
+	if obj.sshPrivIDRsa == "" {
 		return nil, fmt.Errorf("empty path specified")
 	}
 	p := ""
 	// TODO: this doesn't match strings of the form: ~james/.ssh/id_rsa
-	if strings.HasPrefix(obj.sshPrivIdRsa, "~/") {
+	if strings.HasPrefix(obj.sshPrivIDRsa, "~/") {
 		usr, err := user.Current()
 		if err != nil {
 			log.Printf("Remote: Can't find home directory automatically.")
 			return nil, err
 		}
-		p = path.Join(usr.HomeDir, obj.sshPrivIdRsa[len("~/"):])
+		p = path.Join(usr.HomeDir, obj.sshPrivIDRsa[len("~/"):])
 	}
 	if p == "" {
 		return nil, fmt.Errorf("empty path specified")

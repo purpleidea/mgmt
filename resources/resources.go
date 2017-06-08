@@ -115,11 +115,13 @@ type ResData struct {
 // The Base interface is everything that is common to all resources.
 // Everything here only needs to be implemented once, in the BaseRes.
 type Base interface {
+	fmt.Stringer // String() string
+
 	GetName() string // can't be named "Name()" because of struct field
 	SetName(string)
 	SetKind(string)
 	GetKind() string
-	String() string
+
 	Meta() *MetaParams
 	Events() chan *event.Event
 	Data() *ResData

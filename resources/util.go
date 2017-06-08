@@ -22,9 +22,29 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"sort"
 
 	errwrap "github.com/pkg/errors"
 )
+
+// ResourceSlice is a linear list of resources. It can be sorted.
+type ResourceSlice []Res
+
+func (rs ResourceSlice) Len() int           { return len(rs) }
+func (rs ResourceSlice) Swap(i, j int)      { rs[i], rs[j] = rs[j], rs[i] }
+func (rs ResourceSlice) Less(i, j int) bool { return rs[i].String() < rs[j].String() }
+
+// Sort the list of resources and return a copy without modifying the input.
+func Sort(rs []Res) []Res {
+	resources := []Res{}
+	for _, r := range rs { // copy
+		resources = append(resources, r)
+	}
+	sort.Sort(ResourceSlice(resources))
+	return resources
+	// sort.Sort(ResourceSlice(rs)) // this is wrong, it would modify input!
+	//return rs
+}
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization).
 func ResToB64(res Res) (string, error) {

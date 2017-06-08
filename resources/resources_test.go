@@ -18,9 +18,6 @@
 package resources
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/gob"
 	"testing"
 )
 
@@ -64,83 +61,6 @@ func TestCompare2(t *testing.T) {
 
 	if r1.Compare(r2) { // going from noop(true) -> noop(false) is not okay!
 		t.Error("The two resources should not match!")
-	}
-}
-
-func TestMiscEncodeDecode1(t *testing.T) {
-	var err error
-	//gob.Register( &NoopRes{} ) // happens in noop.go : init()
-	//gob.Register( &FileRes{} ) // happens in file.go : init()
-	// ...
-
-	// encode
-	var input interface{} = &FileRes{}
-	b1 := bytes.Buffer{}
-	e := gob.NewEncoder(&b1)
-	err = e.Encode(&input) // pass with &
-	if err != nil {
-		t.Errorf("Gob failed to Encode: %v", err)
-	}
-	str := base64.StdEncoding.EncodeToString(b1.Bytes())
-
-	// decode
-	var output interface{}
-	bb, err := base64.StdEncoding.DecodeString(str)
-	if err != nil {
-		t.Errorf("Base64 failed to Decode: %v", err)
-	}
-	b2 := bytes.NewBuffer(bb)
-	d := gob.NewDecoder(b2)
-	err = d.Decode(&output) // pass with &
-	if err != nil {
-		t.Errorf("Gob failed to Decode: %v", err)
-	}
-
-	res1, ok := input.(Res)
-	if !ok {
-		t.Errorf("Input %v is not a Res", res1)
-		return
-	}
-	res2, ok := output.(Res)
-	if !ok {
-		t.Errorf("Output %v is not a Res", res2)
-		return
-	}
-	if !res1.Compare(res2) {
-		t.Error("The input and output Res values do not match!")
-	}
-}
-
-func TestMiscEncodeDecode2(t *testing.T) {
-	var err error
-
-	// encode
-	input, _ := NewResource("file")
-
-	b64, err := ResToB64(input)
-	if err != nil {
-		t.Errorf("Can't encode: %v", err)
-		return
-	}
-
-	output, err := B64ToRes(b64)
-	if err != nil {
-		t.Errorf("Can't decode: %v", err)
-		return
-	}
-
-	res1, ok := input.(Res)
-	if !ok {
-		t.Errorf("Input %v is not a Res", res1)
-		return
-	}
-	res2, ok := output.(Res)
-	if !ok {
-		t.Errorf("Output %v is not a Res", res2)
-		return
-	}
-	if !res1.Compare(res2) {
-		t.Error("The input and output Res values do not match!")
 	}
 }
 

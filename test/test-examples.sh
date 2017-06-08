@@ -29,7 +29,7 @@ for file in `find . -maxdepth 3 -type f -name '*.go'`; do
 done
 rm "$buildout" || true	# clean up build mess
 
-cd -	# back to tmp dir
+cd - >/dev/null	# back to tmp dir
 rm `basename "$linkto"`
 cd ..
 rmdir "$tmpdir"	# cleanup

@@ -702,6 +702,7 @@ type Remotes struct {
 	wg                 sync.WaitGroup       // keep track of each running SSH connection
 	lock               sync.Mutex           // mutex for access to sshmap
 	sshmap             map[string]*SSH      // map to each SSH struct with the remote as the key
+	running            chan struct{}        // closes when main loop is running
 	exiting            bool                 // flag to let us know if we're exiting
 	exitChan           chan struct{}        // closes when we should exit
 	semaphore          *semaphore.Semaphore // counting semaphore to limit concurrent connections
@@ -730,6 +731,7 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 		converger:    converger,
 		convergerCb:  convergerCb,
 		sshmap:       make(map[string]*SSH),
+		running:      make(chan struct{}),
 		exitChan:     make(chan struct{}),
 		semaphore:    semaphore.NewSemaphore(int(cConns)),
 		hostnames:    make([]string, len(remotes)),
@@ -1022,11 +1024,17 @@ func (obj *Remotes) Run() {
 		}(sshobj, f)
 		obj.lock.Unlock()
 	}
+	close(obj.running) // notify
 }
+
+// Ready closes its returned channel when the Run method is up and ready. It is
+// useful to know when ready, since we often execute Run in a go routine.
+func (obj *Remotes) Ready() <-chan struct{} { return obj.running }
 
 // Exit causes as much of the Remotes struct to shutdown as quickly and as
 // cleanly as possible. It only returns once everything is shutdown.
 func (obj *Remotes) Exit() error {
+	<-obj.running // wait for Run to be finished before we exit!
 	obj.lock.Lock()
 	obj.exiting = true // don't spawn new ones once this flag is set!
 	obj.lock.Unlock()

@@ -629,6 +629,14 @@ func (obj *Main) Run() error {
 	// TODO: is there any benefit to running the remotes above in the loop?
 	// wait for etcd to be running before we remote in, which we do above!
 	go remotes.Run()
+	// wait for remotes to be ready before continuing...
+	select {
+	case <-remotes.Ready():
+		log.Printf("Main: Remotes: Run: Ready!")
+		// pass
+		//case <-time.After( ? * time.Second):
+		//	obj.Exit(fmt.Errorf("Main: Remotes: Run timeout"))
+	}
 
 	if obj.GAPI == nil {
 		converger.Start() // better start this for empty graphs

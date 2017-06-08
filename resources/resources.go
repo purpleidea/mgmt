@@ -529,6 +529,19 @@ func (obj *BaseRes) Compare(res Res) bool {
 	if !cmpSlices(obj.Meta().Sema, res.Meta().Sema) {
 		return false
 	}
+
+	// if resources are grouped, are the groups the same?
+	if i, j := obj.GetGroup(), res.GetGroup(); len(i) != len(j) {
+		return false
+	} else {
+		ix, jx := Sort(i), Sort(j)
+		for k := range ix {
+			if !ix[k].Compare(jx[k]) { // compare sub resources
+				return false
+			}
+		}
+	}
+
 	return true
 }
 

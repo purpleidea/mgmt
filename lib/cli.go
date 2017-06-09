@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/purpleidea/mgmt/hcl"
 	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/yamlgraph"
 	"github.com/purpleidea/mgmt/yamlgraph2"
@@ -87,6 +88,14 @@ func run(c *cli.Context) error {
 		obj.GAPI = &puppet.GAPI{
 			PuppetParam: &p,
 			PuppetConf:  c.String("puppet-conf"),
+		}
+	}
+	if h := c.String("hcl"); c.IsSet("hcl") {
+		if obj.GAPI != nil {
+			return fmt.Errorf("can't combine hcl GAPI with existing GAPI")
+		}
+		obj.GAPI = &hcl.GAPI{
+			File: &h,
 		}
 	}
 	obj.Remotes = c.StringSlice("remote") // FIXME: GAPI-ify somehow?
@@ -221,6 +230,11 @@ func CLI(program, version string, flags Flags) error {
 					Name:  "yaml2",
 					Value: "",
 					Usage: "yaml graph definition to run (parser v2)",
+				},
+				cli.StringFlag{
+					Name:  "hcl",
+					Value: "",
+					Usage: "hcl graph definition to run",
 				},
 				cli.StringFlag{
 					Name:  "puppet, p",

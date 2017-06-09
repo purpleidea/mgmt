@@ -2,19 +2,13 @@ resource "file" "file1" {
   path = "/tmp/mgmt-hello-world"
   content = "hello, world"
   state = "exists"
+  depends_on = ["noop.noop1", "exec.sleep"]
 }
 
 resource "noop" "noop1" {
   test = "nil"
 }
 
-edge "e1" {
-  from = {
-    kind = "noop"
-    name = "noop1"
-  }
-  to = {
-    kind = "file"
-    name = "file1"
-  }
+resource "exec" "sleep" {
+ cmd = "sleep 10s"
 }

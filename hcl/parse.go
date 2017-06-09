@@ -67,6 +67,7 @@ type Resource struct {
 	Kind     string
 	resource resources.Res
 	Meta     resources.MetaParams
+	deps     []*Edge
 }
 
 type key struct {
@@ -188,20 +189,22 @@ func graphFromConfig(c *Config, data gapi.Data) (*pgraph.Graph, error) {
 		}
 	}
 
-	for _, e := range c.Edges {
-		if _, ok := lookup[key{strings.ToLower(e.From.Kind), e.From.Name}]; !ok {
-			return nil, fmt.Errorf("can't find 'from' name")
+	for _, r := range c.Resources {
+		for _, e := range r.deps {
+			if _, ok := lookup[key{strings.ToLower(e.From.Kind), e.From.Name}]; !ok {
+				return nil, fmt.Errorf("can't find 'from' name")
+			}
+			if _, ok := lookup[key{strings.ToLower(e.To.Kind), e.To.Name}]; !ok {
+				return nil, fmt.Errorf("can't find 'to' name")
+			}
+			from := lookup[key{strings.ToLower(e.From.Kind), e.From.Name}]
+			to := lookup[key{strings.ToLower(e.To.Kind), e.To.Name}]
+			edge := &resources.Edge{
+				Name:   e.Name,
+				Notify: e.Notify,
+			}
+			graph.AddEdge(from, to, edge)
 		}
-		if _, ok := lookup[key{strings.ToLower(e.To.Kind), e.To.Name}]; !ok {
-			return nil, fmt.Errorf("can't find 'to' name")
-		}
-		from := lookup[key{strings.ToLower(e.From.Kind), e.From.Name}]
-		to := lookup[key{strings.ToLower(e.To.Kind), e.To.Name}]
-		edge := &resources.Edge{
-			Name:   e.Name,
-			Notify: e.Notify,
-		}
-		graph.AddEdge(from, to, edge)
 	}
 
 	return graph, nil
@@ -212,13 +215,11 @@ func loadHcl(f *string) (*Config, error) {
 		return nil, fmt.Errorf("empty file given")
 	}
 
-	log.Printf("loading file %s", *f)
 	data, err := ioutil.ReadFile(*f)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read file: %v", err)
 	}
 
-	log.Printf("parsing contents: %s", data)
 	file, err := hcl.ParseBytes(data)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse file: %s", err)
@@ -239,41 +240,7 @@ func loadHcl(f *string) (*Config, error) {
 		}
 	}
 
-	if edges := list.Filter("edge"); len(edges.Items) > 0 {
-		var err error
-		config.Edges, err = loadEdgesHcl(edges)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse: %s", err)
-		}
-	}
-
 	return config, nil
-}
-
-func loadEdgesHcl(list *ast.ObjectList) ([]*Edge, error) {
-	list = list.Children()
-	if len(list.Items) == 0 {
-		return nil, nil
-	}
-
-	var result []*Edge
-
-	for _, item := range list.Items {
-		name := item.Keys[0].Token.Value().(string)
-
-		var config Edge
-		if err := hcl.DecodeObject(&config, item.Val); err != nil {
-			return nil, fmt.Errorf(
-				"Error reading config for %s: %s",
-				name,
-				err)
-		}
-
-		config.Name = name
-
-		result = append(result, &config)
-	}
-	return result, nil
 }
 
 func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
@@ -284,7 +251,6 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 
 	var result []*Resource
 
-	log.Printf("HCLParse: parsing %d items", len(list.Items))
 	for _, item := range list.Items {
 		kind := item.Keys[0].Token.Value().(string)
 		name := item.Keys[1].Token.Value().(string)
@@ -294,6 +260,40 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 			listVal = ot.List
 		} else {
 			return nil, fmt.Errorf("module '%s': should be an object", name)
+		}
+
+		var params = resources.DefaultMetaParams
+		if o := listVal.Filter("meta"); len(o.Items) > 0 {
+			err := hcl.DecodeObject(&params, o)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"Error parsing meta for %s: %s",
+					name,
+					err)
+			}
+		}
+
+		var deps []string
+		if edges := listVal.Filter("depends_on"); len(edges.Items) > 0 {
+			err := hcl.DecodeObject(&deps, edges.Items[0].Val)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse: %s", err)
+			}
+		}
+
+		var edges []*Edge
+		for _, dep := range deps {
+			vertices := strings.Split(dep, ".")
+			edges = append(edges, &Edge{
+				To: vertex{
+					Kind: kind,
+					Name: name,
+				},
+				From: vertex{
+					Kind: vertices[0],
+					Name: vertices[1],
+				},
+			})
 		}
 
 		res, err := resources.NewResource(kind)
@@ -312,17 +312,6 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 				err)
 		}
 
-		var params = resources.DefaultMetaParams
-		if o := listVal.Filter("meta"); len(o.Items) > 0 {
-			err := hcl.DecodeObject(&params, o)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"Error parsing meta for %s: %s",
-					name,
-					err)
-			}
-		}
-
 		meta := res.Meta()
 		*meta = params
 
@@ -330,6 +319,7 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 			Name:     name,
 			Kind:     kind,
 			resource: res,
+			deps:     edges,
 		})
 	}
 

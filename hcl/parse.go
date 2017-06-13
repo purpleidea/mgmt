@@ -25,7 +25,9 @@ import (
 
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
+	"github.com/hashicorp/hil"
 	"github.com/purpleidea/mgmt/gapi"
+	hv "github.com/purpleidea/mgmt/hil"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
 )
@@ -68,6 +70,7 @@ type Resource struct {
 	resource resources.Res
 	Meta     resources.MetaParams
 	deps     []*Edge
+	rcv      map[string]*hv.ResourceVariable
 }
 
 type key struct {
@@ -205,6 +208,29 @@ func graphFromConfig(c *Config, data gapi.Data) (*pgraph.Graph, error) {
 			}
 			graph.AddEdge(from, to, edge)
 		}
+
+		recv := make(map[string]*resources.Send)
+		// build Rcv's from resource variables
+		for k, v := range r.rcv {
+			send, ok := lookup[key{strings.ToLower(v.Kind), v.Name}]
+			if !ok {
+				return nil, fmt.Errorf("resource not found")
+			}
+
+			recv[strings.ToUpper(string(k[0]))+k[1:]] = &resources.Send{
+				Res: resources.VtoR(send),
+				Key: v.Field,
+			}
+
+			to := lookup[key{strings.ToLower(r.Kind), r.Name}]
+			edge := &resources.Edge{
+				Name:   v.Name,
+				Notify: true,
+			}
+			graph.AddEdge(send, to, edge)
+		}
+
+		r.resource.SetRecv(recv)
 	}
 
 	return graph, nil
@@ -296,6 +322,41 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 			})
 		}
 
+		var config map[string]interface{}
+		if err := hcl.DecodeObject(&config, item.Val); err != nil {
+			log.Printf("HCL: unable to decode body: %v", err)
+			return nil, fmt.Errorf(
+				"Error reading config for %s: %s",
+				name,
+				err)
+		}
+
+		delete(config, "meta")
+		delete(config, "depends_on")
+
+		rcv := make(map[string]*hv.ResourceVariable)
+		// parse strings for hil
+		for k, v := range config {
+			n, err := hil.Parse(v.(string))
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse fields: %v", err)
+			}
+
+			variables, err := hv.ParseVariables(n)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse variables: %v", err)
+			}
+
+			for _, v := range variables {
+				val, ok := v.(*hv.ResourceVariable)
+				if !ok {
+					continue
+				}
+
+				rcv[k] = val
+			}
+		}
+
 		res, err := resources.NewResource(kind)
 		if err != nil {
 			log.Printf("HCLParse: unable to parse resource: %v", err)
@@ -320,6 +381,7 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 			Kind:     kind,
 			resource: res,
 			deps:     edges,
+			rcv:      rcv,
 		})
 	}
 

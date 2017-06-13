@@ -139,6 +139,7 @@ type Base interface {
 	Refresh() bool                         // is there a pending refresh to run?
 	SetRefresh(bool)                       // set the refresh state of this resource
 	SendRecv(Res) (map[string]bool, error) // send->recv data passing function
+	SetRecv(map[string]*Send)
 	IsStateOK() bool
 	StateOK(b bool)
 	GroupCmp(Res) bool  // TODO: is there a better name for this?

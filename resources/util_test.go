@@ -152,3 +152,89 @@ func TestMiscEncodeDecode2(t *testing.T) {
 		t.Error("The input and output Res values do not match!")
 	}
 }
+
+func TestStructTagToFieldName0(t *testing.T) {
+	type TestStruct struct {
+		// TODO: switch this to TestRes when it is in git master
+		NoopRes        // so that this struct implements `Res`
+		Alpha   bool   `lang:"alpha" yaml:"nope"`
+		Beta    string `yaml:"beta"`
+		Gamma   string
+		Delta   int `lang:"surprise"`
+	}
+
+	mapping, err := StructTagToFieldName(&TestStruct{})
+	if err != nil {
+		t.Errorf("failed: %+v", err)
+		return
+	}
+
+	expected := map[string]string{
+		"alpha":    "Alpha",
+		"surprise": "Delta",
+	}
+
+	if !reflect.DeepEqual(mapping, expected) {
+		t.Errorf("expected: %+v", expected)
+		t.Errorf("received: %+v", mapping)
+	}
+}
+
+func TestLowerStructFieldNameToFieldName0(t *testing.T) {
+	type TestStruct struct {
+		// TODO: switch this to TestRes when it is in git master
+		NoopRes   // so that this struct implements `Res`
+		Alpha     bool
+		skipMe    bool
+		Beta      string
+		IAmACamel uint
+		pass      *string
+		Gamma     string
+		Delta     int
+	}
+
+	mapping, err := LowerStructFieldNameToFieldName(&TestStruct{})
+	if err != nil {
+		t.Errorf("failed: %+v", err)
+		return
+	}
+
+	expected := map[string]string{
+		"noopres": "NoopRes", // TODO: switch this to TestRes when it is in git master
+		"alpha":   "Alpha",
+		//"skipme": "skipMe",
+		"beta":      "Beta",
+		"iamacamel": "IAmACamel",
+		//"pass": "pass",
+		"gamma": "Gamma",
+		"delta": "Delta",
+	}
+
+	if !reflect.DeepEqual(mapping, expected) {
+		t.Errorf("expected: %+v", expected)
+		t.Errorf("received: %+v", mapping)
+	}
+}
+
+func TestLowerStructFieldNameToFieldName1(t *testing.T) {
+	type TestStruct struct {
+		// TODO: switch this to TestRes when it is in git master
+		NoopRes // so that this struct implements `Res`
+		Alpha   bool
+		skipMe  bool
+		Beta    string
+		// these two should collide
+		DoubleWord bool
+		Doubleword string
+		IAmACamel  uint
+		pass       *string
+		Gamma      string
+		Delta      int
+	}
+
+	mapping, err := LowerStructFieldNameToFieldName(&TestStruct{})
+	if err == nil {
+		t.Errorf("expected failure, but passed with: %+v", mapping)
+		return
+	}
+}

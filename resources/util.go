@@ -22,9 +22,16 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"reflect"
 	"sort"
+	"strings"
 
 	errwrap "github.com/pkg/errors"
+)
+
+const (
+	// StructTag is the key we use in struct field names for key mapping.
+	StructTag = "lang"
 )
 
 // ResourceSlice is a linear list of resources. It can be sorted.
@@ -76,4 +83,53 @@ func B64ToRes(str string) (Res, error) {
 
 	}
 	return res, nil
+}
+
+// StructTagToFieldName returns a mapping from recommended alias to actual field
+// name. It returns an error if it finds a collision. It uses the `lang` tags.
+func StructTagToFieldName(res Res) (map[string]string, error) {
+	// TODO: fallback to looking up yaml tags, although harder to parse
+	result := make(map[string]string) // `lang` field tag -> field name
+	st := reflect.TypeOf(res).Elem()  // elem for ptr to res
+	for i := 0; i < st.NumField(); i++ {
+		field := st.Field(i)
+		name := field.Name
+		// TODO: golang 1.7+
+		// if !ok, then nothing is found
+		//if alias, ok := field.Tag.Lookup(StructTag); ok { // golang 1.7+
+		if alias := field.Tag.Get(StructTag); alias != "" { // golang 1.6
+			if val, exists := result[alias]; exists {
+				return nil, fmt.Errorf("field `%s` uses the same key `%s` as field `%s`", name, alias, val)
+			}
+			// empty string ("") is a valid value
+			if alias != "" {
+				result[alias] = name
+			}
+		}
+	}
+	return result, nil
+}
+
+// LowerStructFieldNameToFieldName returns a mapping from the lower case version
+// of each field name to the actual field name. It only returns public fields.
+// It returns an error if it finds a collision.
+func LowerStructFieldNameToFieldName(res Res) (map[string]string, error) {
+	result := make(map[string]string) // lower field name -> field name
+	st := reflect.TypeOf(res).Elem()  // elem for ptr to res
+	for i := 0; i < st.NumField(); i++ {
+		field := st.Field(i)
+		name := field.Name
+
+		if strings.Title(name) != name { // must have been a priv field
+			continue
+		}
+
+		if alias := strings.ToLower(name); alias != "" {
+			if val, exists := result[alias]; exists {
+				return nil, fmt.Errorf("field `%s` uses the same key `%s` as field `%s`", name, alias, val)
+			}
+			result[alias] = name
+		}
+	}
+	return result, nil
 }

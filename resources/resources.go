@@ -52,7 +52,8 @@ func RegisterResource(kind string, fn func() Res) {
 	registeredResources[kind] = fn
 }
 
-// NewResource returns an empty resource object from a registered kind.
+// NewResource returns an empty resource object from a registered kind. It
+// errors if the resource kind doesn't exist.
 func NewResource(kind string) (Res, error) {
 	fn, ok := registeredResources[kind]
 	if !ok {
@@ -61,6 +62,21 @@ func NewResource(kind string) (Res, error) {
 	res := fn().Default()
 	res.SetKind(kind)
 	//*res.Meta() = DefaultMetaParams // TODO: centralize this here?
+	return res, nil
+}
+
+// NewNamedResource returns an empty resource object from a registered kind. It
+// also sets the name. It is a wrapper around NewResource. It also errors if the
+// name is empty.
+func NewNamedResource(kind, name string) (Res, error) {
+	if name == "" {
+		return nil, fmt.Errorf("resource name is empty")
+	}
+	res, err := NewResource(kind)
+	if err != nil {
+		return nil, err
+	}
+	res.SetName(name)
 	return res, nil
 }
 

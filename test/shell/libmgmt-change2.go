@@ -69,28 +69,25 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	}
 
 	if !obj.flipflop {
-		n0, err := resources.NewResource("noop")
+		n0, err := resources.NewNamedResource("noop", "noop0")
 		if err != nil {
 			return nil, err
 		}
-		n0.SetName("noop0")
 		g.AddVertex(n0)
 
 	} else {
 		// NOTE: these will get autogrouped
-		n1, err := resources.NewResource("noop")
+		n1, err := resources.NewNamedResource("noop", "noop1")
 		if err != nil {
 			return nil, err
 		}
-		n1.SetName("noop1")
 		n1.Meta().AutoGroup = obj.autoGroup // enable or disable it
 		g.AddVertex(n1)
 
-		n2, err := resources.NewResource("noop")
+		n2, err := resources.NewNamedResource("noop", "noop2")
 		if err != nil {
 			return nil, err
 		}
-		n2.SetName("noop2")
 		n2.Meta().AutoGroup = obj.autoGroup // enable or disable it
 		g.AddVertex(n2)
 	}

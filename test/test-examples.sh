@@ -36,7 +36,7 @@ rmdir "$tmpdir"	# cleanup
 
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'
-	echo 'The following tests have failed:'
+	echo "The following tests (in: ${linkto}) have failed:"
 	echo -e "$failures"
 	exit 1
 fi

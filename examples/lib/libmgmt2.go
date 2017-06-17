@@ -65,11 +65,10 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	}
 	var vertex pgraph.Vertex
 	for i := uint(0); i < obj.Count; i++ {
-		n, err := resources.NewResource("noop")
+		n, err := resources.NewNamedResource("noop", fmt.Sprintf("noop%d", i))
 		if err != nil {
 			return nil, err
 		}
-		n.SetName(fmt.Sprintf("noop%d", i))
 		g.AddVertex(n)
 		if i > 0 {
 			g.AddEdge(vertex, n, &resources.Edge{Name: fmt.Sprintf("e%d", i)})

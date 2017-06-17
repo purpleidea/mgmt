@@ -44,18 +44,12 @@ func TestSort0(t *testing.T) {
 }
 
 func TestSort1(t *testing.T) {
-	r1, _ := NewResource("noop")
-	r1.SetName("noop1")
-	r2, _ := NewResource("noop")
-	r2.SetName("noop2")
-	r3, _ := NewResource("noop")
-	r3.SetName("noop3")
-	r4, _ := NewResource("noop")
-	r4.SetName("noop4")
-	r5, _ := NewResource("noop")
-	r5.SetName("noop5")
-	r6, _ := NewResource("noop")
-	r6.SetName("noop6")
+	r1, _ := NewNamedResource("noop", "noop1")
+	r2, _ := NewNamedResource("noop", "noop2")
+	r3, _ := NewNamedResource("noop", "noop3")
+	r4, _ := NewNamedResource("noop", "noop4")
+	r5, _ := NewNamedResource("noop", "noop5")
+	r6, _ := NewNamedResource("noop", "noop6")
 
 	rs := []Res{r3, r2, r6, r1, r5, r4}
 	s := Sort(rs)
@@ -124,7 +118,11 @@ func TestMiscEncodeDecode2(t *testing.T) {
 	var err error
 
 	// encode
-	input, _ := NewResource("file")
+	input, err := NewNamedResource("file", "file1")
+	if err != nil {
+		t.Errorf("Can't create: %v", err)
+		return
+	}
 
 	b64, err := ResToB64(input)
 	if err != nil {

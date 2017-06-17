@@ -62,11 +62,10 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	n0, err := resources.NewResource("noop")
+	n0, err := resources.NewNamedResource("noop", "noop1")
 	if err != nil {
 		return nil, err
 	}
-	n0.SetName("noop1")
 	g.AddVertex(n0)
 
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)

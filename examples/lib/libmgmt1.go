@@ -57,15 +57,13 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("libmgmt: MyGAPI is not initialized")
 	}
 
-	// TODO: this method of instantiation is deprecated, use: NewResource
-	n1 := &resources.NoopRes{
-		BaseRes: resources.BaseRes{
-			Name:       "noop1",
-			Kind:       "noop",
-			MetaParams: resources.DefaultMetaParams,
-		},
+	n1, err := resources.NewNamedResource("noop", "noop1")
+	if err != nil {
+		return nil, err
 	}
 
+	// NOTE: This is considered the legacy method to build graphs. Avoid
+	// importing the legacy `yamlgraph` lib if possible for custom graphs.
 	// we can still build a graph via the yaml method
 	gc := &yamlgraph.GraphConfig{
 		Graph: obj.Name,
@@ -74,7 +72,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 			Exec:  []*resources.ExecRes{},
 			File:  []*resources.FileRes{},
 			Msg:   []*resources.MsgRes{},
-			Noop:  []*resources.NoopRes{n1},
+			Noop:  []*resources.NoopRes{n1.(*resources.NoopRes)},
 			Pkg:   []*resources.PkgRes{},
 			Svc:   []*resources.SvcRes{},
 			Timer: []*resources.TimerRes{},

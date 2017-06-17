@@ -357,13 +357,11 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 			}
 		}
 
-		res, err := resources.NewResource(kind)
+		res, err := resources.NewNamedResource(kind, name)
 		if err != nil {
 			log.Printf("hcl: unable to parse resource: %v", err)
 			return nil, err
 		}
-
-		res.SetName(name)
 
 		if err := hcl.DecodeObject(res, item.Val); err != nil {
 			log.Printf("hcl: unable to decode body: %v", err)

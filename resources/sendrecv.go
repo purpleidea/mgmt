@@ -173,7 +173,7 @@ type Send struct {
 	Changed bool // set to true if this key was updated, read only!
 }
 
-// SetRecv sets the Res Recv field to given map of Send structs
+// SetRecv sets the Res Recv field to given map of Send structs.
 func (obj *BaseRes) SetRecv(recv map[string]*Send) {
 	obj.Recv = recv
 }

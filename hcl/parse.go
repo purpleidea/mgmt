@@ -91,12 +91,12 @@ func graphFromConfig(c *Config, data gapi.Data) (*pgraph.Graph, error) {
 	var keep []pgraph.Vertex
 	var resourceList []resources.Res
 
-	log.Printf("HCL: parsing %d resources", len(c.Resources))
+	log.Printf("hcl: parsing %d resources", len(c.Resources))
 	for _, r := range c.Resources {
 		res := r.resource
 		kind := r.resource.GetKind()
 
-		log.Printf("HCL: resource \"%s\" \"%s\"", kind, r.Name)
+		log.Printf("hcl: resource \"%s\" \"%s\"", kind, r.Name)
 		if !strings.HasPrefix(res.GetName(), "@@") {
 			fn := func(v pgraph.Vertex) (bool, error) {
 				return resources.VtoR(v).Compare(res), nil
@@ -324,7 +324,7 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 
 		var config map[string]interface{}
 		if err := hcl.DecodeObject(&config, item.Val); err != nil {
-			log.Printf("HCL: unable to decode body: %v", err)
+			log.Printf("hcl: unable to decode body: %v", err)
 			return nil, fmt.Errorf(
 				"Error reading config for %s: %s",
 				name,
@@ -359,14 +359,14 @@ func loadResourcesHcl(list *ast.ObjectList) ([]*Resource, error) {
 
 		res, err := resources.NewResource(kind)
 		if err != nil {
-			log.Printf("HCLParse: unable to parse resource: %v", err)
+			log.Printf("hcl: unable to parse resource: %v", err)
 			return nil, err
 		}
 
 		res.SetName(name)
 
 		if err := hcl.DecodeObject(res, item.Val); err != nil {
-			log.Printf("HCLParse: unable to decode body: %v", err)
+			log.Printf("hcl: unable to decode body: %v", err)
 			return nil, fmt.Errorf(
 				"Error reading config for %s: %s",
 				name,

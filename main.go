@@ -22,6 +22,8 @@ import (
 	"os"
 
 	mgmt "github.com/purpleidea/mgmt/lib"
+
+	_ "github.com/purpleidea/mgmt/resources/http"
 )
 
 // These constants are some global variables that are used throughout the code.

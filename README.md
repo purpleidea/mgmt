@@ -80,6 +80,7 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 | James Shubin | blog | [Metaparameters in mgmt](https://ttboj.wordpress.com/2017/03/01/metaparameters-in-mgmt/) |
 | James Shubin | video | [Recording from Incontro DevOps 2017](https://vimeo.com/212241877) |
 | Yves Brissaud | blog | [mgmt aux HumanTalks Grenoble (french)](http://log.winsos.net/2017/04/12/mgmt-aux-human-talks-grenoble.html) |
+| James Shubin | video | [Recording from OSDC Berlin 2017](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1) |
 
 ##
 

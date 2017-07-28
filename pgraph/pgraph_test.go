@@ -686,3 +686,84 @@ func TestSort1(t *testing.T) {
 		t.Errorf(str)
 	}
 }
+
+func TestDeleteEdge1(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+	e5 := NE("e5")
+	e6 := NE("e6")
+
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v1, v3, e3)
+	g.AddEdge(v2, v1, e4)
+	g.AddEdge(v3, v2, e5)
+	g.AddEdge(v3, v1, e6)
+
+	g.DeleteEdge(e1)
+	g.DeleteEdge(e2)
+	g.DeleteEdge(e3)
+	g.DeleteEdge(e3)
+
+	if g.NumEdges() != 3 {
+		t.Errorf("expected number of edges: 3, instead of: %d", g.NumEdges())
+	}
+}
+
+func TestDeleteEdge2(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+	e5 := NE("e5")
+	e6 := NE("e6")
+	e7 := NE("e7")
+
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v1, v2, e2)
+	g.AddEdge(v1, v3, e3)
+	g.AddEdge(v1, v4, e4)
+	g.AddEdge(v2, v1, e5)
+	g.AddEdge(v3, v1, e6)
+	g.AddEdge(v4, v1, e7)
+
+	g.DeleteEdge(e1)
+	g.DeleteEdge(e2)
+	g.DeleteEdge(e3)
+	g.DeleteEdge(e5)
+	g.DeleteEdge(e6)
+
+	ie := g.IncomingGraphEdges(v1)
+	oe := g.OutgoingGraphEdges(v1)
+
+	if !reflect.DeepEqual(ie, []Edge{e7}) {
+		res := ""
+		for _, e := range ie {
+			res += e.String() + " "
+		}
+		t.Errorf("expected incoming graph edges for vertex v1: e7, instead of: %s", res)
+	}
+
+	if !reflect.DeepEqual(oe, []Edge{e4}) {
+		res := ""
+		for _, e := range oe {
+			res += e.String() + " "
+		}
+		t.Errorf("expected outgoing graph edges for vertex v1: e4, instead of: %s", res)
+	}
+}

@@ -13,6 +13,9 @@ Vagrant.configure(2) do |config|
 		v.memory = 1536
 		v.cpus = 2
 	end
+	config.vm.provider "libvirt" do |v|
+		v.memory = 2048
+	end
 
 	config.vm.provision "file", source: "vagrant/motd", destination: ".motd"
 	config.vm.provision "shell", inline: "cp ~vagrant/.motd /etc/motd"

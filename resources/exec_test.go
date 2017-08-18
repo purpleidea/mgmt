@@ -24,15 +24,18 @@ import (
 func TestExecSendRecv1(t *testing.T) {
 	r1 := &ExecRes{
 		BaseRes: BaseRes{
-			Name: "exec1",
-			Kind: "exec",
-			//MetaParams: MetaParams,
+			Name:       "exec1",
+			Kind:       "exec",
+			MetaParams: DefaultMetaParams,
 		},
 		Cmd:   "echo hello world",
 		Shell: "/bin/bash",
 	}
 
 	r1.Setup(nil, r1, r1)
+	if err := r1.Validate(); err != nil {
+		t.Errorf("validate failed with: %v", err)
+	}
 	defer func() {
 		if err := r1.Close(); err != nil {
 			t.Errorf("close failed with: %v", err)
@@ -71,15 +74,18 @@ func TestExecSendRecv1(t *testing.T) {
 func TestExecSendRecv2(t *testing.T) {
 	r1 := &ExecRes{
 		BaseRes: BaseRes{
-			Name: "exec1",
-			Kind: "exec",
-			//MetaParams: MetaParams,
+			Name:       "exec1",
+			Kind:       "exec",
+			MetaParams: DefaultMetaParams,
 		},
 		Cmd:   "echo hello world 1>&2", // to stderr
 		Shell: "/bin/bash",
 	}
 
 	r1.Setup(nil, r1, r1)
+	if err := r1.Validate(); err != nil {
+		t.Errorf("validate failed with: %v", err)
+	}
 	defer func() {
 		if err := r1.Close(); err != nil {
 			t.Errorf("close failed with: %v", err)
@@ -118,15 +124,18 @@ func TestExecSendRecv2(t *testing.T) {
 func TestExecSendRecv3(t *testing.T) {
 	r1 := &ExecRes{
 		BaseRes: BaseRes{
-			Name: "exec1",
-			Kind: "exec",
-			//MetaParams: MetaParams,
+			Name:       "exec1",
+			Kind:       "exec",
+			MetaParams: DefaultMetaParams,
 		},
 		Cmd:   "echo hello world && echo goodbye world 1>&2", // to stdout && stderr
 		Shell: "/bin/bash",
 	}
 
 	r1.Setup(nil, r1, r1)
+	if err := r1.Validate(); err != nil {
+		t.Errorf("validate failed with: %v", err)
+	}
 	defer func() {
 		if err := r1.Close(); err != nil {
 			t.Errorf("close failed with: %v", err)

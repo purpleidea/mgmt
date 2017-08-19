@@ -69,6 +69,18 @@ func (obj *MsgRes) Validate() error {
 			return fmt.Errorf("fields cannot begin with _")
 		}
 	}
+	switch obj.Priority {
+	case "Emerg":
+	case "Alert":
+	case "Crit":
+	case "Err":
+	case "Warning":
+	case "Notice":
+	case "Info":
+	case "Debug":
+	default:
+		return fmt.Errorf("invalid Priority '%s'", obj.Priority)
+	}
 	return obj.BaseRes.Validate()
 }
 
@@ -94,7 +106,6 @@ func (obj *MsgRes) updateStateOK() {
 }
 
 // JournalPriority converts a string description to a numeric priority.
-// XXX: Have Validate() make sure it actually is one of these.
 func (obj *MsgRes) journalPriority() journal.Priority {
 	switch obj.Priority {
 	case "Emerg":

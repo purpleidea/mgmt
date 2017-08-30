@@ -16,3 +16,6 @@
 [submodule "vendor/honnef.co/go/augeas"]
 	path = vendor/honnef.co/go/augeas
 	url = https://github.com/dominikh/go-augeas/
+[submodule "vendor/github.com/grpc-ecosystem/go-grpc-prometheus"]
+	path = vendor/github.com/grpc-ecosystem/go-grpc-prometheus
+	url = https://github.com/grpc-ecosystem/go-grpc-prometheus

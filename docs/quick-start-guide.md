@@ -21,7 +21,8 @@ dependencies, _runtime_ dependencies, and additionally, a few extra dependencies
 required for running the _test_ suite.
 
 ### Build
-* `golang` 1.6 or higher (required, available in most distros)
+* `golang` 1.8 or higher (required, available in some distros and distributed
+  as a binary officially by [golang.org](https://golang.org/dl/))
 * golang libraries (required, available with `go get ./...`) a partial list includes:
 ```
 github.com/coreos/etcd/client
@@ -60,7 +61,7 @@ For building a visual representation of the graph, `graphviz` is required.
 * golint `github.com/golang/lint/golint`
 
 ## Quick start
-* Make sure you have golang version 1.6 or greater installed.
+* Make sure you have golang version 1.8 or greater installed.
 * If you do not have a GOPATH yet, create one and export it:
 ```
 mkdir $HOME/gopath

@@ -70,6 +70,7 @@ type Resources struct {
 	Timer    []*resources.TimerRes    `yaml:"timer"`
 	User     []*resources.UserRes     `yaml:"user"`
 	Virt     []*resources.VirtRes     `yaml:"virt"`
+	HTTP     []*resources.HTTPRes     `yaml:"http"`
 }
 
 // GraphConfig is the data structure that describes a single graph to run.

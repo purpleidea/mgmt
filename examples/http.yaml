@@ -1,0 +1,11 @@
+---
+graph: mygraph
+comment: httpp example
+resources:
+  http:
+  - name: http1
+    url: "http://localhost:12345/hello"
+    meta:
+      retry: -1
+      delay: 5000
+edges: []

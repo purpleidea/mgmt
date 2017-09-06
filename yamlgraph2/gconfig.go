@@ -53,8 +53,7 @@ type Edge struct {
 
 // ResourceData are the parameters for resource format.
 type ResourceData struct {
-	Name string               `yaml:"name"`
-	Meta resources.MetaParams `yaml:"meta"`
+	Name string `yaml:"name"`
 }
 
 // Resource is the object that unmarshalls resources.
@@ -132,10 +131,10 @@ func (r *Resource) Decode(kind string) (err error) {
 		return err
 	}
 
-	// Set resource name, meta and kind
+	// set resource name and kind
 	r.resource.SetName(r.Name)
-	meta := r.resource.Meta()
-	*meta = r.Meta
+	r.resource.SetKind(strings.ToLower(kind)) // gets overwritten, so set it
+	// meta already gets unmarshalled properly with the correct defaults
 	return
 }
 

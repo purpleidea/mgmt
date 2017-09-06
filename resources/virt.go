@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os/user"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -1168,15 +1169,29 @@ func isNotFound(err error) bool {
 	return false // some other error
 }
 
-// expandHome does a simple expansion of the tilde into your $HOME value.
+// expandHome does an expansion of ~/ or ~james/ into user's home dir value.
 func expandHome(p string) (string, error) {
-	// TODO: this doesn't match strings of the form: ~james/...
-	if !strings.HasPrefix(p, "~/") {
-		return p, nil
+	if strings.HasPrefix(p, "~/") {
+		usr, err := user.Current()
+		if err != nil {
+			return p, fmt.Errorf("can't expand ~ into home directory")
+		}
+		return path.Join(usr.HomeDir, p[len("~/"):]), nil
 	}
-	usr, err := user.Current()
+
+	// check if provided path is in format ~username and keep track of provided username
+	r, err := regexp.Compile("~([^/]+)/")
 	if err != nil {
-		return p, fmt.Errorf("can't expand ~ into home directory")
+		return p, errwrap.Wrapf(err, "can't compile regexp")
 	}
-	return path.Join(usr.HomeDir, p[len("~/"):]), nil
+	if match := r.FindStringSubmatch(p); match != nil {
+		username := match[len(match)-1]
+		usr, err := user.Lookup(username)
+		if err != nil {
+			return p, fmt.Errorf("can't expand %s into home directory", match[0])
+		}
+		return path.Join(usr.HomeDir, p[len(match[0]):]), nil
+	}
+
+	return p, nil
 }

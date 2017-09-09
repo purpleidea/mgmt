@@ -1,0 +1,9 @@
+---
+graph: mygraph
+resources:
+  user:
+  - name: testuser
+    uid: 1002
+    gid: 100
+    state: exists
+edges: []

@@ -68,6 +68,7 @@ type Resources struct {
 	Pkg      []*resources.PkgRes      `yaml:"pkg"`
 	Svc      []*resources.SvcRes      `yaml:"svc"`
 	Timer    []*resources.TimerRes    `yaml:"timer"`
+	User     []*resources.UserRes     `yaml:"user"`
 	Virt     []*resources.VirtRes     `yaml:"virt"`
 }
 

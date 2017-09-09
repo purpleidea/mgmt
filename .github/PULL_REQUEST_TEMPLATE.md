@@ -5,6 +5,15 @@
 or:
 ```topic, topic2: Capitalized message with no trailing period```
 
+* golang code must be formatted according to the standard, please run:
+```
+make gofmt		# formats the entire project correctly
+```
+or format a single golang file correctly:
+```
+gofmt -w yourcode.go
+```
+
 * please rebase your patch against current git master:
 ```
 git checkout master

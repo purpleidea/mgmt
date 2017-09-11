@@ -5,7 +5,7 @@ Name:		__PROGRAM__
 Version:	__VERSION__
 Release:	__RELEASE__
 Summary:	A next generation config management prototype!
-License:	AGPLv3+
+License:	GPLv3+
 URL:		https://github.com/purpleidea/mgmt
 Source0:	https://dl.fedoraproject.org/pub/alt/purpleidea/__PROGRAM__/SOURCES/__PROGRAM__-%{project_version}.tar.bz2
 

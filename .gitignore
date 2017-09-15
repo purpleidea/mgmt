@@ -2,6 +2,7 @@
 .omv/
 .ssh/
 .vagrant/
+.envrc
 old/
 tmp/
 *_stringer.go

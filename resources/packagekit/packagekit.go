@@ -396,7 +396,11 @@ func (bus *Conn) InstallPackages(packageIDs []string, transactionFlags uint64) e
 	bus.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
 
 	obj := bus.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
-	call := obj.Call(FmtTransactionMethod("InstallPackages"), 0, transactionFlags, packageIDs)
+	call := obj.Call(FmtTransactionMethod("RefreshCache"), 0, false)
+	if call.Err != nil {
+		return call.Err
+	}
+	call = obj.Call(FmtTransactionMethod("InstallPackages"), 0, transactionFlags, packageIDs)
 	if call.Err != nil {
 		return call.Err
 	}

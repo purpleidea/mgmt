@@ -89,6 +89,13 @@ const (
 	DefaultIdealClusterSize = 5        // default ideal cluster size target for initial seed
 	DefaultClientURL        = "127.0.0.1:2379"
 	DefaultServerURL        = "127.0.0.1:2380"
+	// DefaultMaxTxnOps is the maximum number of operations to run in a
+	// single etcd transaction. If you exceed this limit, it is possible
+	// that you have either an extremely large code base, or that you have
+	// some code which is possibly not as efficient as it could be. Let us
+	// know so that we can analyze the situation, and increase this if
+	// necessary.
+	DefaultMaxTxnOps = 512
 )
 
 var (
@@ -1710,6 +1717,7 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	cfg.ACUrls = aCUrls
 	cfg.APUrls = aPUrls
 	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/coreos/etcd/issues/6305
+	cfg.MaxTxnOps = DefaultMaxTxnOps
 
 	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!
 	if newCluster {

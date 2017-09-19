@@ -19,3 +19,6 @@
 [submodule "vendor/github.com/grpc-ecosystem/go-grpc-prometheus"]
 	path = vendor/github.com/grpc-ecosystem/go-grpc-prometheus
 	url = https://github.com/grpc-ecosystem/go-grpc-prometheus
+[submodule "vendor/github.com/ugorji/go"]
+	path = vendor/github.com/ugorji/go
+	url = https://github.com/ugorji/go

@@ -27,8 +27,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/purpleidea/mgmt/recwatch"
-
 	errwrap "github.com/pkg/errors"
 )
 
@@ -50,8 +48,7 @@ type PasswordRes struct {
 	CheckRecovery bool    // recovery from integrity checks by re-generating
 	Password      *string // the generated password, read only, do not set!
 
-	path       string // the path to local storage
-	recWatcher *recwatch.RecWatcher
+	path string // the path to local storage
 }
 
 // Default returns some sensible defaults for this resource.
@@ -163,46 +160,7 @@ Loop:
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *PasswordRes) Watch() error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, false)
-	if err != nil {
-		return err
-	}
-	defer obj.recWatcher.Close()
-
-	// notify engine that we're running
-	if err := obj.Running(); err != nil {
-		return err // bubble up a NACK...
-	}
-
-	var send = false // send event?
-	var exit *error
-	for {
-		select {
-		// NOTE: this part is very similar to the file resource code
-		case event, ok := <-obj.recWatcher.Events():
-			if !ok { // channel shutdown
-				return nil
-			}
-			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
-			}
-			send = true
-			obj.StateOK(false) // dirty
-
-		case event := <-obj.Events():
-			// we avoid sending events on unpause
-			if exit, send = obj.ReadEvent(event); exit != nil {
-				return *exit // exit
-			}
-		}
-
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.Event()
-		}
-	}
+	return PathWatch(obj, obj.path, false)
 }
 
 // CheckApply method for Password resource. Does nothing, returns happy!

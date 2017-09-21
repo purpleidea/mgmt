@@ -26,6 +26,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/purpleidea/mgmt/recwatch"
+
 	errwrap "github.com/pkg/errors"
 )
 
@@ -132,4 +134,50 @@ func LowerStructFieldNameToFieldName(res Res) (map[string]string, error) {
 		}
 	}
 	return result, nil
+}
+
+// PathWatch is used to watch a path or file. The function sends an event
+// in the case that the path or file changes. The recurse bool allows the user
+// to choose whether or not to watch the specified path recursively.
+func PathWatch(res Res, pathToWatch string, recurse bool) error {
+	var err error
+	recWatcher, err := recwatch.NewRecWatcher(pathToWatch, recurse)
+	if err != nil {
+		return err
+	}
+	defer recWatcher.Close()
+
+	// notify engine that we're running
+	if err := res.Running(); err != nil {
+		return err // bubble up a NACK...
+	}
+
+	var send = false // send event?
+	var exit *error
+
+	for {
+		select {
+		case event, ok := <-recWatcher.Events():
+			if !ok { // channel shutdown
+				return nil
+			}
+			if err := event.Error; err != nil {
+				return errwrap.Wrapf(err, "Unknown %s watcher error", res)
+			}
+			send = true
+			res.StateOK(false) // dirty
+
+		case event := <-res.Events():
+			if exit, send = res.ReadEvent(event); exit != nil {
+				return *exit // exit
+			}
+			//res.StateOK(false) // dirty // these events don't invalidate state
+		}
+
+		// do all our event sending all together to avoid duplicate msgs
+		if send {
+			send = false
+			res.Event()
+		}
+	}
 }

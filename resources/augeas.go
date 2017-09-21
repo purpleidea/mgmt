@@ -25,8 +25,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/purpleidea/mgmt/recwatch"
-
 	errwrap "github.com/pkg/errors"
 	// FIXME: we vendor go/augeas because master requires augeas 1.6.0
 	// and libaugeas-dev-1.6.0 is not yet available in a PPA.
@@ -58,8 +56,6 @@ type AugeasRes struct {
 	// ["path", "value"]. mgmt will run augeas.Get() before augeas.Set(), to
 	// prevent changing the file when it is not needed.
 	Sets []AugeasSet `yaml:"sets"`
-
-	recWatcher *recwatch.RecWatcher // used to watch the changed files
 }
 
 // AugeasSet represents a key/value pair of settings to be applied.
@@ -97,56 +93,8 @@ func (obj *AugeasRes) Init() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-// Taken from the File resource.
-// FIXME: DRY - This is taken from the file resource
 func (obj *AugeasRes) Watch() error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(obj.File, false)
-	if err != nil {
-		return err
-	}
-	defer obj.recWatcher.Close()
-
-	// notify engine that we're running
-	if err := obj.Running(); err != nil {
-		return err // bubble up a NACK...
-	}
-
-	var send = false // send event?
-	var exit *error
-
-	for {
-		if obj.debug {
-			log.Printf("%s: Watching: %s", obj, obj.File) // attempting to watch...
-		}
-
-		select {
-		case event, ok := <-obj.recWatcher.Events():
-			if !ok { // channel shutdown
-				return nil
-			}
-			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s watcher error", obj)
-			}
-			if obj.debug { // don't access event.Body if event.Error isn't nil
-				log.Printf("%s: Event(%s): %v", obj, event.Body.Name, event.Body.Op)
-			}
-			send = true
-			obj.StateOK(false) // dirty
-
-		case event := <-obj.Events():
-			if exit, send = obj.ReadEvent(event); exit != nil {
-				return *exit // exit
-			}
-			//obj.StateOK(false) // dirty // these events don't invalidate state
-		}
-
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.Event()
-		}
-	}
+	return PathWatch(obj, obj.File, false)
 }
 
 // checkApplySet runs CheckApply for one element of the AugeasRes.Set

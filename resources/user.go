@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/purpleidea/mgmt/recwatch"
-
 	errwrap "github.com/pkg/errors"
 )
 
@@ -44,8 +42,6 @@ type UserRes struct {
 	GID               *uint32 `yaml:"gid"`
 	HomeDir           *string `yaml:"homedir"`
 	AllowDuplicateUID bool    `yaml:"allowduplicateuid"`
-
-	recWatcher *recwatch.RecWatcher
 }
 
 // Default returns some sensible defaults for this resource.
@@ -72,53 +68,7 @@ func (obj *UserRes) Init() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *UserRes) Watch() error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(passwdFile, false)
-	if err != nil {
-		return err
-	}
-	defer obj.recWatcher.Close()
-
-	// notify engine that we're running
-	if err := obj.Running(); err != nil {
-		return err // bubble up a NACK...
-	}
-
-	var send = false // send event?
-	var exit *error
-
-	for {
-		if obj.debug {
-			log.Printf("Watching: %s", passwdFile) // attempting to watch...
-		}
-
-		select {
-		case event, ok := <-obj.recWatcher.Events():
-			if !ok { // channel shutdown
-				return nil
-			}
-			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s watcher error", obj)
-			}
-			if obj.debug { // don't access event.Body if event.Error isn't nil
-				log.Printf("%s: Event(%s): %v", obj, event.Body.Name, event.Body.Op)
-			}
-			send = true
-			obj.StateOK(false) // dirty
-
-		case event := <-obj.Events():
-			if exit, send = obj.ReadEvent(event); exit != nil {
-				return *exit // exit
-			}
-			//obj.StateOK(false) // dirty // these events don't invalidate state
-		}
-
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.Event()
-		}
-	}
+	return PathWatch(obj, passwdFile, false)
 }
 
 // CheckApply method for User resource.

@@ -33,7 +33,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
@@ -45,22 +44,21 @@ func init() {
 
 // FileRes is a file and directory resource.
 type FileRes struct {
-	BaseRes    `yaml:",inline"`
-	Path       string  `yaml:"path"` // path variable (should default to name)
-	Dirname    string  `yaml:"dirname"`
-	Basename   string  `yaml:"basename"`
-	Content    *string `yaml:"content"` // nil to mark as undefined
-	Source     string  `yaml:"source"`  // file path for source content
-	State      string  `yaml:"state"`   // state: exists/present?, absent, (undefined?)
-	Owner      string  `yaml:"owner"`
-	Group      string  `yaml:"group"`
-	Mode       string  `yaml:"mode"`
-	Recurse    bool    `yaml:"recurse"`
-	Force      bool    `yaml:"force"`
-	path       string  // computed path
-	isDir      bool    // computed isDir
-	sha256sum  string
-	recWatcher *recwatch.RecWatcher
+	BaseRes   `yaml:",inline"`
+	Path      string  `yaml:"path"` // path variable (should default to name)
+	Dirname   string  `yaml:"dirname"`
+	Basename  string  `yaml:"basename"`
+	Content   *string `yaml:"content"` // nil to mark as undefined
+	Source    string  `yaml:"source"`  // file path for source content
+	State     string  `yaml:"state"`   // state: exists/present?, absent, (undefined?)
+	Owner     string  `yaml:"owner"`
+	Group     string  `yaml:"group"`
+	Mode      string  `yaml:"mode"`
+	Recurse   bool    `yaml:"recurse"`
+	Force     bool    `yaml:"force"`
+	path      string  // computed path
+	isDir     bool    // computed isDir
+	sha256sum string
 }
 
 // Default returns some sensible defaults for this resource.
@@ -179,53 +177,7 @@ func (obj *FileRes) GetPath() string {
 // must be restarted. On a clean exit it returns nil.
 // FIXME: Also watch the source directory when using obj.Source !!!
 func (obj *FileRes) Watch() error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, obj.Recurse)
-	if err != nil {
-		return err
-	}
-	defer obj.recWatcher.Close()
-
-	// notify engine that we're running
-	if err := obj.Running(); err != nil {
-		return err // bubble up a NACK...
-	}
-
-	var send = false // send event?
-	var exit *error
-
-	for {
-		if obj.debug {
-			log.Printf("%s: Watching: %s", obj, obj.path) // attempting to watch...
-		}
-
-		select {
-		case event, ok := <-obj.recWatcher.Events():
-			if !ok { // channel shutdown
-				return nil
-			}
-			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
-			}
-			if obj.debug { // don't access event.Body if event.Error isn't nil
-				log.Printf("%s: Event(%s): %v", obj, event.Body.Name, event.Body.Op)
-			}
-			send = true
-			obj.StateOK(false) // dirty
-
-		case event := <-obj.Events():
-			if exit, send = obj.ReadEvent(event); exit != nil {
-				return *exit // exit
-			}
-			//obj.StateOK(false) // dirty // these events don't invalidate state
-		}
-
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.Event()
-		}
-	}
+	return PathWatch(obj, obj.Path, obj.Recurse)
 }
 
 // smartPath adds a trailing slash to the path if it is a directory.

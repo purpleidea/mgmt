@@ -232,10 +232,7 @@ func Run() error {
 		}
 	}()
 
-	if err := obj.Run(); err != nil {
-		return err
-	}
-	return nil
+	return obj.Run()
 }
 
 func main() {

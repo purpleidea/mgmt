@@ -1,0 +1,10 @@
+---
+graph: mygraph
+resources:
+  aws:ec2:
+  - name: ec2example
+    region: ca-central-1
+    type: t2.micro
+    imageid: ami-5ac17f3e
+    state: running
+edges: []

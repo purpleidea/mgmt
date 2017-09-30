@@ -56,6 +56,7 @@ type Edge struct {
 type Resources struct {
 	// in alphabetical order
 	Augeas   []*resources.AugeasRes   `yaml:"augeas"`
+	AwsEc2   []*resources.AwsEc2Res   `yaml:"aws:ec2"`
 	Exec     []*resources.ExecRes     `yaml:"exec"`
 	File     []*resources.FileRes     `yaml:"file"`
 	Graph    []*resources.GraphRes    `yaml:"graph"`

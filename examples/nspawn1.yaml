@@ -2,6 +2,6 @@
 graph: mygraph
 resources:
   nspawn:
-  - name: mgmt-nspawn1
+  - name: nspawn1
     state: running
 edges: []

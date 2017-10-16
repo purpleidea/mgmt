@@ -1,7 +1,0 @@
----
-graph: mygraph
-resources:
-  nspawn:
-  - name: mgmt-nspawn2
-    state: stopped
-edges: []

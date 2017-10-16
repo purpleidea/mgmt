@@ -21,13 +21,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
+	"unicode"
 
 	"github.com/purpleidea/mgmt/util"
 
+	systemdDbus "github.com/coreos/go-systemd/dbus"
+	machined "github.com/coreos/go-systemd/machine1"
 	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus"
 	errwrap "github.com/pkg/errors"
-	machined "github.com/purpleidea/go-systemd/machine1"
 )
 
 const (
@@ -47,8 +50,8 @@ func init() {
 type NspawnRes struct {
 	BaseRes `yaml:",inline"`
 	State   string `yaml:"state"`
-	// We're using the svc resource to start the machine because that's
-	// what machinectl does. We're not using svc.Watch because then we
+	// We're using the svc resource to start and stop the machine because
+	// that's what machinectl does. We're not using svc.Watch because then we
 	// would have two watches potentially racing each other and producing
 	// potentially unexpected results. We get everything we need to monitor
 	// the machine state changes from the org.freedesktop.machine1 object.
@@ -65,29 +68,87 @@ func (obj *NspawnRes) Default() Res {
 	}
 }
 
+// makeComposite creates a pointer to a SvcRes. The pointer is used to
+// validate and initialize the nested svc.
+func (obj *NspawnRes) makeComposite() (*SvcRes, error) {
+	res, err := NewNamedResource("svc", fmt.Sprintf(nspawnServiceTmpl, obj.GetName()))
+	if err != nil {
+		return nil, err
+	}
+	svc := res.(*SvcRes)
+	svc.State = obj.State
+	return svc, nil
+}
+
+// systemdVersion uses dbus to check which version of systemd is installed.
+func systemdVersion() (uint16, error) {
+	// check if systemd is running
+	if !systemdUtil.IsRunningSystemd() {
+		return 0, fmt.Errorf("systemd is not running")
+	}
+	bus, err := systemdDbus.NewSystemdConnection()
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "failed to connect to bus")
+	}
+	defer bus.Close()
+	// get the systemd version
+	verString, err := bus.GetManagerProperty("Version")
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "could not get version property")
+	}
+	// lose the surrounding quotes
+	verNum, err := strconv.Unquote(verString)
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "error unquoting version number")
+	}
+	// cast to uint16
+	ver, err := strconv.ParseUint(verNum, 10, 16)
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "error casting systemd version number")
+	}
+	return uint16(ver), nil
+}
+
 // Validate if the params passed in are valid data.
 func (obj *NspawnRes) Validate() error {
-	// TODO: validStates should be an enum!
-	validStates := map[string]struct{}{
-		stopped: {},
-		running: {},
+	if len(obj.GetName()) > 64 {
+		return fmt.Errorf("name must be 64 characters or less")
 	}
-	if _, exists := validStates[obj.State]; !exists {
+	// check if systemd version is higher than 231 to allow non-alphanumeric
+	// machine names, as previous versions would error in such cases
+	ver, err := systemdVersion()
+	if err != nil {
+		return err
+	}
+	if ver < 231 {
+		for _, char := range obj.GetName() {
+			if !unicode.IsLetter(char) && !unicode.IsNumber(char) {
+				return fmt.Errorf("name must only contain alphanumeric characters for systemd versions < 231")
+			}
+		}
+	}
+
+	if obj.State != running && obj.State != stopped {
 		return fmt.Errorf("invalid state: %s", obj.State)
 	}
 
-	if err := obj.svc.Validate(); err != nil { // composite resource
-		return errwrap.Wrapf(err, "validate failed for embedded svc")
+	svc, err := obj.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in validate")
+	}
+	if err := svc.Validate(); err != nil { // composite resource
+		return errwrap.Wrapf(err, "validate failed for embedded svc: %s", obj.svc)
 	}
 	return obj.BaseRes.Validate()
 }
 
 // Init runs some startup code for this resource.
 func (obj *NspawnRes) Init() error {
-	var serviceName = fmt.Sprintf(nspawnServiceTmpl, obj.GetName())
-	obj.svc = &SvcRes{}
-	obj.svc.Name = serviceName
-	obj.svc.State = obj.State
+	svc, err := obj.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in init")
+	}
+	obj.svc = svc
 	if err := obj.svc.Init(); err != nil {
 		return err
 	}
@@ -115,8 +176,10 @@ func (obj *NspawnRes) Watch() error {
 	if err := call.Err; err != nil {
 		return err
 	}
-	buschan := make(chan *dbus.Signal, 10)
-	bus.Signal(buschan)
+	// TODO: verify that implementation doesn't deadlock if there are unread
+	// messages left in the channel
+	busChan := make(chan *dbus.Signal, 10)
+	bus.Signal(busChan)
 
 	// notify engine that we're running
 	if err := obj.Running(); err != nil {
@@ -126,9 +189,12 @@ func (obj *NspawnRes) Watch() error {
 	var send = false
 	var exit *error
 
+	defer close(busChan)
+	defer bus.Close()
+	defer bus.RemoveSignal(busChan)
 	for {
 		select {
-		case event := <-buschan:
+		case event := <-busChan:
 			// process org.freedesktop.machine1 events for this resource's name
 			if event.Body[0] == obj.GetName() {
 				log.Printf("%s: Event received: %v", obj, event.Name)
@@ -175,7 +241,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 	// compare the current state with the desired state and perform the
 	// appropriate action
 	var exists = true
-	properties, err := conn.GetProperties(obj.GetName())
+	properties, err := conn.DescribeMachine(obj.GetName())
 	if err != nil {
 		if err, ok := err.(dbus.Error); ok && err.Name !=
 			"org.freedesktop.machine1.NoSuchMachine" {
@@ -208,25 +274,10 @@ func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return false, nil
 	}
 
-	if obj.debug {
-		log.Printf("%s: CheckApply() applying '%s' state", obj, obj.State)
-	}
-
-	if obj.State == running {
-		// start the machine using svc resource
-		log.Printf("%s: Starting machine", obj)
-		// assume state had to be changed at this point, ignore checkOK
-		if _, err := obj.svc.CheckApply(apply); err != nil {
-			return false, errwrap.Wrapf(err, "nested svc failed")
-		}
-	}
-	if obj.State == stopped {
-		// terminate the machine with
-		// org.freedesktop.machine1.Manager.KillMachine
-		log.Printf("%s: Stopping machine", obj)
-		if err := conn.TerminateMachine(obj.GetName()); err != nil {
-			return false, errwrap.Wrapf(err, "failed to stop machine")
-		}
+	log.Printf("%s: CheckApply() applying '%s' state", obj, obj.State)
+	// use the embedded svc to apply the correct state
+	if _, err := obj.svc.CheckApply(apply); err != nil {
+		return false, errwrap.Wrapf(err, "nested svc failed")
 	}
 
 	return false, nil
@@ -282,6 +333,9 @@ func (obj *NspawnRes) Compare(r Res) bool {
 		return false
 	}
 	if obj.Name != res.Name {
+		return false
+	}
+	if obj.State != res.State {
 		return false
 	}
 

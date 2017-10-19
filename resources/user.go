@@ -271,7 +271,7 @@ func (obj *UserRes) Compare(r Res) bool {
 		return false
 	}
 	if obj.GID != nil && res.GID != nil {
-		if *obj.GID != *res.UID {
+		if *obj.GID != *res.GID {
 			return false
 		}
 	}

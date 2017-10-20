@@ -60,6 +60,7 @@ type Resources struct {
 	Exec     []*resources.ExecRes     `yaml:"exec"`
 	File     []*resources.FileRes     `yaml:"file"`
 	Graph    []*resources.GraphRes    `yaml:"graph"`
+	Group    []*resources.GroupRes    `yaml:"group"`
 	Hostname []*resources.HostnameRes `yaml:"hostname"`
 	KV       []*resources.KVRes       `yaml:"kv"`
 	Msg      []*resources.MsgRes      `yaml:"msg"`

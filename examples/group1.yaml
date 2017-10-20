@@ -1,0 +1,8 @@
+---
+graph: mygraph
+resources:
+  group:
+  - name: testgroup
+    state: exists
+    gid: 10000
+edges: []

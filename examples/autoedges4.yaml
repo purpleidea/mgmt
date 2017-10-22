@@ -1,0 +1,19 @@
+---
+graph: mygraph
+resources:
+  user:
+  - name: edgeuser
+    state: absent
+    gid: 10000
+  - name: edgeuser2
+    state: exists
+    group: edgegroup
+    groups: [edgegroup2, edgegroup3]
+  group:
+  - name: edgegroup
+    state: exists
+    gid: 10000
+  - name: edgegroup2
+    state: exists
+  - name: edgegroup3
+    state: exists

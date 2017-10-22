@@ -41,7 +41,7 @@ const groupFile = "/etc/group"
 type GroupRes struct {
 	BaseRes `yaml:",inline"`
 	State   string  `yaml:"state"` // state: exists, absent
-	GID     *uint32 `yaml:"gid"`
+	GID     *uint32 `yaml:"gid"`   // the group's gid
 
 	recWatcher *recwatch.RecWatcher
 }
@@ -130,7 +130,6 @@ func (obj *GroupRes) CheckApply(apply bool) (checkOK bool, err error) {
 		if _, ok := err.(user.UnknownGroupError); !ok {
 			return false, errwrap.Wrapf(err, "error looking up group")
 		}
-		log.Printf("%s: Group not found: %s", obj, obj.GetName())
 		exists = false
 	}
 	// if the group doesn't exist and should be absent, we are done
@@ -225,6 +224,26 @@ func (obj *GroupRes) CheckApply(apply bool) (checkOK bool, err error) {
 type GroupUID struct {
 	BaseUID
 	name string
+	gid  *uint32
+}
+
+// IFF aka if and only if they are equivalent, return true. If not, false.
+func (obj *GroupUID) IFF(uid ResUID) bool {
+	res, ok := uid.(*GroupUID)
+	if !ok {
+		return false
+	}
+	if obj.gid != nil && res.gid != nil {
+		if *obj.gid != *res.gid {
+			return false
+		}
+	}
+	if obj.name != "" && res.name != "" {
+		if obj.name != res.name {
+			return false
+		}
+	}
+	return true
 }
 
 // UIDs includes all params to make a unique identification of this object.
@@ -233,6 +252,7 @@ func (obj *GroupRes) UIDs() []ResUID {
 	x := &GroupUID{
 		BaseUID: BaseUID{Name: obj.GetName(), Kind: obj.GetKind()},
 		name:    obj.Name,
+		gid:     obj.GID,
 	}
 	return []ResUID{x}
 }

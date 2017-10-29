@@ -19,6 +19,7 @@ package resources
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"sync"
@@ -66,10 +67,14 @@ var AwsRegions = []string{
 // http://docs.aws.amazon.com/cli/latest/userguide/cli-config-files.html
 type AwsEc2Res struct {
 	BaseRes `yaml:",inline"`
-	State   string `yaml:"state"` // state: running, stopped, terminated
-	Region  string `yaml:"region"`
-	Type    string `yaml:"type"` // the ec2 instance type, ie. t2.micro
-	ImageID string `yaml:"imageid"`
+	State   string `yaml:"state"`   // state: running, stopped, terminated
+	Region  string `yaml:"region"`  // region must match an element of AwsRegions
+	Type    string `yaml:"type"`    // type of ec2 instance, ie. t2.micro
+	ImageID string `yaml:"imageid"` // imageid must be available on the chosen region
+	// UserData is used to run bash and cloud-init commands on first launch.
+	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
+	// for documantation and examples.
+	UserData string `yaml:"userdata"`
 
 	client *ec2.EC2 // client session for AWS API calls
 }
@@ -541,6 +546,10 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 		}
 		runParams.SetMinCount(1)
 		runParams.SetMaxCount(1)
+		if obj.UserData != "" {
+			userData := base64.StdEncoding.EncodeToString([]byte(obj.UserData))
+			runParams.SetUserData(userData)
+		}
 		runResult, err := obj.client.RunInstances(runParams)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "could not create instance")
@@ -623,6 +632,9 @@ func (obj *AwsEc2Res) Compare(r Res) bool {
 		return false
 	}
 	if obj.ImageID != res.ImageID {
+		return false
+	}
+	if obj.UserData != res.UserData {
 		return false
 	}
 	return true

@@ -400,9 +400,13 @@ func (obj *EmbdEtcd) Startup() error {
 	// if i am alone and will have to be a server...
 	if !obj.noServer && bootstrapping {
 		log.Printf("Etcd: Bootstrapping...")
+		surls := obj.serverURLs
+		if len(obj.advertiseServerURLs) > 0 {
+			surls = obj.advertiseServerURLs
+		}
 		// give an initial value to the obj.nominate map we keep in sync
 		// this emulates Nominate(obj, obj.hostname, obj.serverURLs)
-		obj.nominated[obj.hostname] = obj.serverURLs // initial value
+		obj.nominated[obj.hostname] = surls // initial value
 		// NOTE: when we are stuck waiting for the server to start up,
 		// it is probably happening on this call right here...
 		obj.nominateCallback(nil) // kick this off once
@@ -411,8 +415,12 @@ func (obj *EmbdEtcd) Startup() error {
 	// self volunteer
 	if !obj.noServer && len(obj.serverURLs) > 0 {
 		// we run this in a go routine because it blocks waiting for server
+		surls := obj.serverURLs
+		if len(obj.advertiseServerURLs) > 0 {
+			surls = obj.advertiseServerURLs
+		}
 		log.Printf("Etcd: Startup: Volunteering...")
-		go Volunteer(obj, obj.serverURLs)
+		go Volunteer(obj, surls)
 	}
 
 	if bootstrapping {
@@ -1440,14 +1448,21 @@ func (obj *EmbdEtcd) nominateCallback(re *RE) error {
 			// client connects to one of the obj.endpoints servers...
 			log.Printf("Etcd: Addresses are: %s", addresses)
 
+			surls := obj.serverURLs
+			if len(obj.advertiseServerURLs) > 0 {
+				surls = obj.advertiseServerURLs
+			}
 			// XXX: just put this wherever for now so we don't block
 			// nominate self so "member" list is correct for peers to see
-			Nominate(obj, obj.hostname, obj.serverURLs)
+			Nominate(obj, obj.hostname, surls)
 			// XXX: if this fails, where will we retry this part ?
 		}
 
 		// advertise client urls
 		if curls := obj.clientURLs; len(curls) > 0 {
+			if len(obj.advertiseClientURLs) > 0 {
+				curls = obj.advertiseClientURLs
+			}
 			// XXX: don't advertise local addresses! 127.0.0.1:2381 doesn't really help remote hosts
 			// XXX: but sometimes this is what we want... hmmm how do we decide? filter on callback?
 			AdvertiseEndpoints(obj, curls)

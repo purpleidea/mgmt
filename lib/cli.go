@@ -114,6 +114,8 @@ func run(c *cli.Context) error {
 	obj.Seeds = c.StringSlice("seeds")
 	obj.ClientURLs = c.StringSlice("client-urls")
 	obj.ServerURLs = c.StringSlice("server-urls")
+	obj.AdvertiseClientURLs = c.StringSlice("advertise-client-urls")
+	obj.AdvertiseServerURLs = c.StringSlice("advertise-server-urls")
 	obj.IdealClusterSize = c.Int("ideal-cluster-size")
 	obj.NoServer = c.Bool("no-server")
 
@@ -317,6 +319,20 @@ func CLI(program, version string, flags Flags) error {
 					Value:  &cli.StringSlice{},
 					Usage:  "list of URLs to listen on for server (peer) traffic",
 					EnvVar: "MGMT_SERVER_URLS",
+				},
+				// port 2379 and 4001 are common
+				cli.StringSliceFlag{
+					Name:   "advertise-client-urls",
+					Value:  &cli.StringSlice{},
+					Usage:  "list of URLs to listen on for client traffic",
+					EnvVar: "MGMT_ADVERTISE_CLIENT_URLS",
+				},
+				// port 2380 and 7001 are common
+				cli.StringSliceFlag{
+					Name:   "advertise-server-urls, advertise-peer-urls",
+					Value:  &cli.StringSlice{},
+					Usage:  "list of URLs to listen on for server (peer) traffic",
+					EnvVar: "MGMT_ADVERTISE_SERVER_URLS",
 				},
 				cli.IntFlag{
 					Name:   "ideal-cluster-size",

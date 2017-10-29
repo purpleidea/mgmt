@@ -176,12 +176,14 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	exitchan    chan struct{}
 	exitTimeout <-chan time.Time
 
-	hostname   string
-	memberID   uint64            // cluster membership id of server if running
-	endpoints  etcdtypes.URLsMap // map of servers a client could connect to
-	clientURLs etcdtypes.URLs    // locations to listen for clients if i am a server
-	serverURLs etcdtypes.URLs    // locations to listen for servers if i am a server (peer)
-	noServer   bool              // disable all server peering if true
+	hostname            string
+	memberID            uint64            // cluster membership id of server if running
+	endpoints           etcdtypes.URLsMap // map of servers a client could connect to
+	clientURLs          etcdtypes.URLs    // locations to listen for clients if i am a server
+	serverURLs          etcdtypes.URLs    // locations to listen for servers if i am a server (peer)
+	advertiseClientURLs etcdtypes.URLs    // client urls to advertise
+	advertiseServerURLs etcdtypes.URLs    // server urls to advertise
+	noServer            bool              // disable all server peering if true
 
 	// local tracked state
 	nominated        etcdtypes.URLsMap // copy of who's nominated to locally track state
@@ -208,7 +210,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 }
 
 // NewEmbdEtcd creates the top level embedded etcd struct client and server obj.
-func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, flags Flags, prefix string, converger converger.Converger) *EmbdEtcd {
+func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClientURLs, advertiseServerURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, flags Flags, prefix string, converger converger.Converger) *EmbdEtcd {
 	endpoints := make(etcdtypes.URLsMap)
 	if hostname == seedSentinel { // safety
 		return nil
@@ -229,11 +231,13 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs etcdtypes.URLs, 
 
 		nominated: make(etcdtypes.URLsMap),
 
-		hostname:   hostname,
-		endpoints:  endpoints,
-		clientURLs: clientURLs,
-		serverURLs: serverURLs,
-		noServer:   noServer,
+		hostname:            hostname,
+		endpoints:           endpoints,
+		clientURLs:          clientURLs,
+		serverURLs:          serverURLs,
+		advertiseClientURLs: advertiseClientURLs,
+		advertiseServerURLs: advertiseServerURLs,
+		noServer:            noServer,
 
 		idealClusterSize: idealClusterSize,
 		converger:        converger,
@@ -1647,14 +1651,23 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 		initialPeerURLsMap[memberName] = peerURLs
 	}
 
+	aCUrls := obj.clientURLs
+	if len(obj.advertiseClientURLs) > 0 {
+		aCUrls = obj.advertiseClientURLs
+	}
+	aPUrls := peerURLs
+	if len(obj.advertiseServerURLs) > 0 {
+		aPUrls = obj.advertiseServerURLs
+	}
+
 	// embed etcd
 	cfg := embed.NewConfig()
 	cfg.Name = memberName // hostname
 	cfg.Dir = obj.dataDir
-	cfg.ACUrls = obj.clientURLs
-	cfg.APUrls = peerURLs
 	cfg.LCUrls = obj.clientURLs
 	cfg.LPUrls = peerURLs
+	cfg.ACUrls = aCUrls
+	cfg.APUrls = aPUrls
 	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/coreos/etcd/issues/6305
 
 	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!

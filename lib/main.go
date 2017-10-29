@@ -76,11 +76,13 @@ type Main struct {
 	ConvergedTimeout int    // exit after approximately this many seconds in a converged state; -1 to disable
 	MaxRuntime       uint   // exit after a maximum of approximately this many seconds
 
-	Seeds            []string // default etc client endpoint
-	ClientURLs       []string // list of URLs to listen on for client traffic
-	ServerURLs       []string // list of URLs to listen on for server (peer) traffic
-	IdealClusterSize int      // ideal number of server peers in cluster; only read by initial server
-	NoServer         bool     // do not let other servers peer with me
+	Seeds               []string // default etc client endpoint
+	ClientURLs          []string // list of URLs to listen on for client traffic
+	ServerURLs          []string // list of URLs to listen on for server (peer) traffic
+	AdvertiseClientURLs []string // list of URLs to advertise for client traffic
+	AdvertiseServerURLs []string // list of URLs to advertise for server (peer) traffic
+	IdealClusterSize    int      // ideal number of server peers in cluster; only read by initial server
+	NoServer            bool     // do not let other servers peer with me
 
 	CConns           uint16 // number of maximum concurrent remote ssh connections to run, 0 for unlimited
 	AllowInteractive bool   // allow interactive prompting, such as for remote passwords
@@ -88,10 +90,12 @@ type Main struct {
 	NoCaching        bool   // don't allow remote caching of remote execution binary
 	Depth            uint16 // depth in remote hierarchy; for internal use only
 
-	seeds            etcdtypes.URLs // processed seeds value
-	clientURLs       etcdtypes.URLs // processed client urls value
-	serverURLs       etcdtypes.URLs // processed server urls value
-	idealClusterSize uint16         // processed ideal cluster size value
+	seeds               etcdtypes.URLs // processed seeds value
+	clientURLs          etcdtypes.URLs // processed client urls value
+	serverURLs          etcdtypes.URLs // processed server urls value
+	advertiseClientURLs etcdtypes.URLs // processed advertise client urls value
+	advertiseServerURLs etcdtypes.URLs // processed advertise server urls value
+	idealClusterSize    uint16         // processed ideal cluster size value
 
 	NoPgp       bool    // disallow pgp functionality
 	PgpKeyPath  *string // import a pre-made key pair
@@ -172,6 +176,18 @@ func (obj *Main) Init() error {
 	)
 	if err != nil && len(obj.ServerURLs) > 0 {
 		return fmt.Errorf("the ServerURLs didn't parse correctly")
+	}
+	obj.advertiseClientURLs, err = etcdtypes.NewURLs(
+		util.FlattenListWithSplit(obj.AdvertiseClientURLs, []string{",", ";", " "}),
+	)
+	if err != nil && len(obj.AdvertiseClientURLs) > 0 {
+		return fmt.Errorf("the AdvertiseClientURLs didn't parse correctly")
+	}
+	obj.advertiseServerURLs, err = etcdtypes.NewURLs(
+		util.FlattenListWithSplit(obj.AdvertiseServerURLs, []string{",", ";", " "}),
+	)
+	if err != nil && len(obj.AdvertiseServerURLs) > 0 {
+		return fmt.Errorf("the AdvertiseServerURLs didn't parse correctly")
 	}
 
 	obj.exit = make(chan error)
@@ -330,6 +346,8 @@ func (obj *Main) Run() error {
 		obj.seeds,
 		obj.clientURLs,
 		obj.serverURLs,
+		obj.advertiseClientURLs,
+		obj.advertiseServerURLs,
 		obj.NoServer,
 		obj.idealClusterSize,
 		etcd.Flags{

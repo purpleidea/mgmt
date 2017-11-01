@@ -46,12 +46,14 @@ repository:
   # rebase-merging.
   allow_rebase_merge: true
 
-# Labels: define labels for Issues and Pull Requests
+# Labels: define labels for Issues and Pull Requests (in alphabetical order)
 labels:
   - name: bug
     color: fc2929
   - name: confirmed
     color: d93f0b
+  - name: design
+    color: 5319e7
   - name: duplicate
     color: cccccc
   - name: enhancement

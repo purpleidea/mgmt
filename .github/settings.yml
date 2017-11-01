@@ -60,8 +60,6 @@ labels:
     color: 84b6eb
   - name: good first issue
     color: 7057ff
-  - name: hacktoberfest
-    color: ffa500
   - name: help wanted
     color: 159818
   - name: invalid

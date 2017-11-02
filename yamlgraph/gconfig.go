@@ -238,16 +238,16 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 
 	for _, e := range c.Edges {
 		if _, ok := lookup[strings.ToLower(e.From.Kind)]; !ok {
-			return nil, fmt.Errorf("can't find 'from' resource")
+			return nil, fmt.Errorf("can't find 'from' kind: %s", e.From.Kind)
 		}
 		if _, ok := lookup[strings.ToLower(e.To.Kind)]; !ok {
-			return nil, fmt.Errorf("can't find 'to' resource")
+			return nil, fmt.Errorf("can't find 'to' kind: %s", e.To.Kind)
 		}
 		if _, ok := lookup[strings.ToLower(e.From.Kind)][e.From.Name]; !ok {
-			return nil, fmt.Errorf("can't find 'from' name")
+			return nil, fmt.Errorf("can't find 'from' name: %s", e.From.Name)
 		}
 		if _, ok := lookup[strings.ToLower(e.To.Kind)][e.To.Name]; !ok {
-			return nil, fmt.Errorf("can't find 'to' name")
+			return nil, fmt.Errorf("can't find 'to' name: %s", e.To.Name)
 		}
 		from := lookup[strings.ToLower(e.From.Kind)][e.From.Name]
 		to := lookup[strings.ToLower(e.To.Kind)][e.To.Name]

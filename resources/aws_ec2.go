@@ -91,9 +91,11 @@ const (
 type awsEc2Event uint8
 
 const (
-	awsEc2EventWatchReady awsEc2Event = iota
+	awsEc2EventNone awsEc2Event = iota
+	awsEc2EventWatchReady
 	awsEc2EventInstanceStopped
 	awsEc2EventInstanceRunning
+	awsEc2EventInstanceTerminated
 	awsEc2EventInstanceExists
 )
 
@@ -200,6 +202,12 @@ type postData struct {
 	Type    string `json:"Type"`
 	Token   string `json:"Token"`
 	Message string `json:"Message"`
+}
+
+// postMsg is used to unmarshal the postData message if it's an event notification.
+type postMsg struct {
+	InstanceID string `json:"instance-id"`
+	State      string `json:"state"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -960,6 +968,7 @@ func (obj *AwsEc2Res) snsListener(addr string) (net.Listener, error) {
 }
 
 // snsPostHandler listens for posts on the SNS Endpoint.
+// TODO: download pem and check message against signature
 func (obj *AwsEc2Res) snsPostHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -1000,6 +1009,28 @@ func (obj *AwsEc2Res) snsPostHandler(w http.ResponseWriter, req *http.Request) {
 			event: awsEc2EventWatchReady,
 		}:
 		case <-obj.closeChan:
+		}
+	}
+	// process cloudwatch event notifications.
+	if post.Type == "Notification" {
+		event, err := obj.snsProcessEvent(post.Message, obj.prependName())
+		if err != nil {
+			select {
+			case obj.awsChan <- &chanStruct{
+				err: errwrap.Wrapf(err, "error confirming subscription"),
+			}:
+			case <-obj.closeChan:
+			}
+			return
+
+		}
+		if event != awsEc2EventNone {
+			select {
+			case obj.awsChan <- &chanStruct{
+				event: event,
+			}:
+			case <-obj.closeChan:
+			}
 		}
 	}
 }

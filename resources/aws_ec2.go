@@ -59,6 +59,16 @@ const (
 	SnsSubscriptionProto = "http"
 	// SnsServerShutdownTimeout is the maximum number of seconds to wait for the http server to shutdown gracefully.
 	SnsServerShutdownTimeout = 30
+	// SnsPolicy is the topic attribute that defines the security policy for the topic.
+	SnsPolicy = "Policy"
+	// SnsPolicySid is the friendly name of the policy statement.
+	SnsPolicySid = CwePrefix + "publish"
+	// SnsPolicyEffect allows the action(s) defined in the policy statement.
+	SnsPolicyEffect = "Allow"
+	// SnsPolicyService is the cloudwatch events security principal that we are granting the permission to.
+	SnsPolicyService = "events.amazonaws.com"
+	// SnsPolicyAction is the specific permission we are granting in the policy.
+	SnsPolicyAction = "SNS:Publish"
 	// CwePrefix gets prepended onto the cloudwatch rule name.
 	CwePrefix = Ec2Prefix + "cw-"
 	// CweRuleName is the name of the rule created by makeCloudWatchRule.
@@ -144,6 +154,33 @@ type AwsEc2Res struct {
 type chanStruct struct {
 	event awsEc2Event
 	err   error
+}
+
+// snsPolicy denotes the structure of sns security policies.
+type snsPolicy struct {
+	Version   string         `json:"Version"`
+	ID        string         `json:"Id"`
+	Statement []snsStatement `json:"Statement"`
+}
+
+// snsStatement denotes the structure of sns security policy statements.
+type snsStatement struct {
+	Sid       string       `json:"Sid"`
+	Effect    string       `json:"Effect"`
+	Principal snsPrincipal `json:"Principal"`
+	Action    interface{}  `json:"Action"`
+	Resource  string       `json:"Resource"`
+	Condition *struct {
+		StringEquals *struct {
+			AWSSourceOwner *string `json:"AWS:SourceOwner,omitempty"`
+		} `json:"StringEquals,omitempty"`
+	} `json:"Condition,omitempty"`
+}
+
+// snsPrincipal describes the aws or service account principal.
+type snsPrincipal struct {
+	AWS     string `json:"AWS,omitempty"`
+	Service string `json:"Service,omitempty"`
 }
 
 // cloudWatchRule denotes the structure of cloudwatch rules.
@@ -288,6 +325,11 @@ func (obj *AwsEc2Res) Init() error {
 		// target cloudwatch rule to sns topic
 		if err := obj.cweTargetRule(obj.snsTopicArn, CweTargetID, CweTargetJSON, CweRuleName); err != nil {
 			return errwrap.Wrapf(err, "error targeting cloudwatch rule")
+		}
+		// authorize cloudwatch to publish on sns
+		// This gets cleaned up in Close(), when the topic is deleted.
+		if err := obj.snsAuthorizeCloudWatch(obj.snsTopicArn); err != nil {
+			return errwrap.Wrapf(err, "error authorizing cloudwatch for sns")
 		}
 	}
 
@@ -1025,6 +1067,63 @@ func (obj *AwsEc2Res) snsConfirmSubscription(topicArn string, token string) erro
 		return err
 	}
 	log.Printf("%s: Subscription Confirmed", obj)
+	return nil
+}
+
+// snsAuthorize adds the necessary permission for cloudwatch to publish to the SNS topic.
+func (obj *AwsEc2Res) snsAuthorizeCloudWatch(topicArn string) error {
+	// get the topic attributes, including the security policy
+	gaInput := &sns.GetTopicAttributesInput{
+		TopicArn: aws.String(topicArn),
+	}
+	attrs, err := obj.snsClient.GetTopicAttributes(gaInput)
+	if err != nil {
+		return err
+	}
+	// get the existing security policy
+	pol := attrs.Attributes[SnsPolicy]
+	// unmarshal the current sns security policy
+	var policy snsPolicy
+	if err := json.Unmarshal([]byte(*pol), &policy); err != nil {
+		return err
+	}
+	// construct a policy statement
+	permission := snsStatement{
+		Sid:    SnsPolicySid,
+		Effect: SnsPolicyEffect,
+		Principal: snsPrincipal{
+			Service: SnsPolicyService,
+		},
+		Action:   SnsPolicyAction,
+		Resource: topicArn,
+	}
+	// check if permissions have already been added
+	for _, statement := range policy.Statement {
+		if statement == permission {
+			// if it's already there, we're done
+			log.Printf("%s: Target Already Authorized", obj)
+			return nil
+		}
+	}
+	// add the new policy statement to the existing one(s)
+	policy.Statement = append(policy.Statement, permission)
+	// marshal the updated policy
+	newPolicyBytes, err := json.Marshal(policy)
+	if err != nil {
+		return err
+	}
+	// update topic attributes with the new policy
+	newPolicy := string(newPolicyBytes)
+	saInput := &sns.SetTopicAttributesInput{
+		AttributeName:  aws.String(SnsPolicy),
+		AttributeValue: aws.String(newPolicy),
+		TopicArn:       aws.String(topicArn),
+	}
+	_, err = obj.snsClient.SetTopicAttributes(saInput)
+	if err != nil {
+		return err
+	}
+	log.Printf("%s: Authorized Target", obj)
 	return nil
 }
 

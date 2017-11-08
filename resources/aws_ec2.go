@@ -37,8 +37,13 @@ func init() {
 	RegisterResource("aws:ec2", func() Res { return &AwsEc2Res{} })
 }
 
-// AwsPrefix is a const which gets prepended onto the instance name.
-const AwsPrefix = "mgmt:"
+const (
+	// AwsPrefix is a const which gets prepended onto object names. We can only use
+	// alphanumeric chars, underscores and hyphens for sns topics and cloud watch rules.
+	AwsPrefix = "_mgmt-"
+	// waitTimeout is the duration in seconds of the timeout context in CheckApply.
+	waitTimeout = 400
+)
 
 // AwsRegions is a list of all AWS regions generated using ec2.DescribeRegions.
 // cn-north-1 and us-gov-west-1 are not returned, probably due to security.
@@ -440,8 +445,6 @@ func (obj *AwsEc2Res) longpollWatch() error {
 // CheckApply method for AwsEc2 resource.
 func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 	log.Printf("%s: CheckApply(%t)", obj, apply)
-
-	const waitTimeout = 400
 
 	diInput := ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{

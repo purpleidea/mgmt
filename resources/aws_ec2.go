@@ -156,6 +156,11 @@ func (obj *AwsEc2Res) Init() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *AwsEc2Res) Watch() error {
+	return obj.longpollWatch()
+}
+
+// longpollWatch uses the ec2 api's built in methods to watch ec2 resource state.
+func (obj *AwsEc2Res) longpollWatch() error {
 	send := false
 	var exit *error
 	if err := obj.Running(); err != nil {

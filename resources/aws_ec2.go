@@ -84,6 +84,12 @@ type AwsEc2Res struct {
 	client *ec2.EC2 // client session for AWS API calls
 }
 
+// chanStruct defines the type for a channel used to pass events and errors to watch.
+type chanStruct struct {
+	str string
+	err error
+}
+
 // Default returns some sensible defaults for this resource.
 func (obj *AwsEc2Res) Default() Res {
 	return &AwsEc2Res{
@@ -170,10 +176,6 @@ func (obj *AwsEc2Res) longpollWatch() error {
 	var exit *error
 	if err := obj.Running(); err != nil {
 		return err
-	}
-	type chanStruct struct {
-		str string
-		err error
 	}
 	awsChan := make(chan *chanStruct)
 	closeChan := make(chan struct{})

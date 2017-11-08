@@ -21,7 +21,10 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -74,8 +77,10 @@ type AwsEc2Res struct {
 	BaseRes `yaml:",inline"`
 	State   string `yaml:"state"`   // state: running, stopped, terminated
 	Region  string `yaml:"region"`  // region must match an element of AwsRegions
-	Type    string `yaml:"type"`    // type of ec2 instance, ie. t2.micro
+	Type    string `yaml:"type"`    // type of ec2 instance, eg: t2.micro
 	ImageID string `yaml:"imageid"` // imageid must be available on the chosen region
+
+	WatchListenAddr string `yaml:"watchlistenaddr"` // the local address or port that the sns listens on, eg: 10.0.0.0:23456 or 23456
 	// UserData is used to run bash and cloud-init commands on first launch.
 	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	// for documantation and examples.
@@ -676,4 +681,30 @@ func (obj *AwsEc2Res) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 func (obj *AwsEc2Res) prependName() string {
 	return AwsPrefix + obj.GetName()
+}
+
+// snsServer returns an http server used to listen for sns messages.
+func (obj *AwsEc2Res) snsServer() *http.Server {
+	addr := obj.WatchListenAddr
+	// if addr is a port
+	if _, err := strconv.Atoi(obj.WatchListenAddr); err == nil {
+		addr = fmt.Sprintf(":%s", obj.WatchListenAddr)
+	}
+	handler := http.HandlerFunc(obj.snsPostHandler)
+	return &http.Server{
+		Addr:    addr,
+		Handler: handler,
+	}
+}
+
+// snsPostHandler listens for posts on the SNS Endpoint.
+func (obj *AwsEc2Res) snsPostHandler(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "POST" {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+	post, _ := ioutil.ReadAll(req.Body)
+	if obj.debug {
+		log.Printf("%s: Post: %s", obj, string(post))
+	}
 }

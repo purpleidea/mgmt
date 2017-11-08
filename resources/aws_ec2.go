@@ -85,6 +85,7 @@ type AwsEc2Res struct {
 
 	awsChan   chan *chanStruct // channel used to send events and errors to Watch()
 	closeChan chan struct{}    // channel used to cancel context when it's time to shut down
+	wg        *sync.WaitGroup  // waitgroup for goroutines in Watch()
 }
 
 // chanStruct defines the type for a channel used to pass events and errors to watch.
@@ -167,6 +168,7 @@ func (obj *AwsEc2Res) Init() error {
 
 	obj.awsChan = make(chan *chanStruct)
 	obj.closeChan = make(chan struct{})
+	obj.wg = &sync.WaitGroup{}
 
 	return obj.BaseRes.Init() // call base init, b/c we're overriding
 }
@@ -184,19 +186,18 @@ func (obj *AwsEc2Res) longpollWatch() error {
 		return err
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	obj.wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer obj.wg.Done()
 		select {
 		case <-obj.closeChan:
 			cancel()
 		}
 	}()
-	wg.Add(1)
-	defer wg.Wait()
+	obj.wg.Add(1)
+	defer obj.wg.Wait()
 	go func() {
-		defer wg.Done()
+		defer obj.wg.Done()
 		defer close(obj.awsChan)
 		for {
 			diInput := &ec2.DescribeInstancesInput{

@@ -369,7 +369,6 @@ func (obj *AwsEc2Res) longpollWatch() error {
 				}
 			}
 			if obj.State == "terminated" {
-				obj.client.WaitUntilInstanceExistsWithContext(ctx, diInput)
 				if err := obj.client.WaitUntilInstanceExistsWithContext(ctx, diInput); err != nil {
 					if aerr, ok := err.(awserr.Error); ok {
 						if aerr.Code() == request.CanceledErrorCode {

@@ -20,8 +20,8 @@ package resources
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -111,6 +111,13 @@ type AwsEc2Res struct {
 type chanStruct struct {
 	str string
 	err error
+}
+
+// postData is the format of the messages received and decoded by postHandler().
+type postData struct {
+	Type    string `json:"Type"`
+	Token   string `json:"Token"`
+	Message string `json:"Message"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -811,9 +818,46 @@ func (obj *AwsEc2Res) snsPostHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
-	post, _ := ioutil.ReadAll(req.Body)
-	if obj.debug {
-		log.Printf("%s: Post: %s", obj, string(post))
+	// decode json
+	decoder := json.NewDecoder(req.Body)
+	var p postData
+	err := decoder.Decode(&p)
+	if err != nil {
+		select {
+		case obj.awsChan <- &chanStruct{
+			err: errwrap.Wrapf(err, "error decoding post"),
+		}:
+		case <-obj.closeChan:
+		}
+		return
+	}
+	if p.Type == "SubscriptionConfirmation" {
+		// we need a sns client to confirm the subscription
+		snsClient, err := obj.snsClient()
+		if err != nil {
+			select {
+			case obj.awsChan <- &chanStruct{
+				err: errwrap.Wrapf(err, "error making sns client"),
+			}:
+			case <-obj.closeChan:
+			}
+		}
+		// confirm the subscription
+		csInput := &sns.ConfirmSubscriptionInput{
+			Token:    aws.String(p.Token),
+			TopicArn: aws.String(obj.snsTopicArn),
+		}
+		_, err = snsClient.ConfirmSubscription(csInput)
+		if err != nil {
+			select {
+			case obj.awsChan <- &chanStruct{
+				err: errwrap.Wrapf(err, "error confirming subscription"),
+			}:
+			case <-obj.closeChan:
+			}
+			return
+		}
+		log.Printf("%s: Subscription Confirmed", obj)
 	}
 }
 

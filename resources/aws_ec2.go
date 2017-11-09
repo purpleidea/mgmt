@@ -52,6 +52,8 @@ const (
 	SnsPrefix = Ec2Prefix + "sns-"
 	// SnsTopicName is the name of the sns topic created by snsMakeTopic.
 	SnsTopicName = SnsPrefix + "events"
+	// httpProto is used to tell sns that the subscriber uses the http protocol.
+	httpProto = "http"
 	// waitTimeout is the duration in seconds of the timeout context in CheckApply.
 	waitTimeout = 400
 )
@@ -88,6 +90,7 @@ type AwsEc2Res struct {
 	Type    string `yaml:"type"`    // type of ec2 instance, eg: t2.micro
 	ImageID string `yaml:"imageid"` // imageid must be available on the chosen region
 
+	WatchEndpoint   string `yaml:"watchendpoint"`   // the public url of the sns endpoint, eg: http://server:12345/
 	WatchListenAddr string `yaml:"watchlistenaddr"` // the local address or port that the sns listens on, eg: 10.0.0.0:23456 or 23456
 	// UserData is used to run bash and cloud-init commands on first launch.
 	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
@@ -166,6 +169,13 @@ func (obj *AwsEc2Res) Validate() error {
 	}
 	if !validImage {
 		return fmt.Errorf("imageid must be a valid ami available in the specified region")
+	}
+
+	if obj.WatchEndpoint == "" && obj.WatchListenAddr != "" {
+		return fmt.Errorf("you must set watchendpoint with watchlistenaddr to use http watch")
+	}
+	if obj.WatchEndpoint != "" && obj.WatchListenAddr == "" {
+		return fmt.Errorf("you must set watchendpoint with watchlistenaddr to use http watch")
 	}
 
 	return obj.BaseRes.Validate()
@@ -491,6 +501,12 @@ func (obj *AwsEc2Res) longpollWatch() error {
 func (obj *AwsEc2Res) snsWatch() error {
 	send := false
 	var exit *error
+	var err error
+	// make sns client
+	snsClient, err := obj.snsClient()
+	if err != nil {
+		return errwrap.Wrapf(err, "error making sns client")
+	}
 	// start the endpoint
 	obj.wg.Add(1)
 	go func() {
@@ -505,6 +521,10 @@ func (obj *AwsEc2Res) snsWatch() error {
 			}
 		}
 	}()
+	// subscribe endpoint to the topic
+	if err = obj.snsSubscribe(snsClient); err != nil {
+		return errwrap.Wrapf(err, "error subscribing to sns topic")
+	}
 	for {
 		select {
 		case event := <-obj.Events():
@@ -832,6 +852,45 @@ func (obj *AwsEc2Res) snsDeleteTopic(snsClient *sns.SNS) error {
 	return nil
 }
 
+// snsSubscribe subscribes the endpoint to the sns topic.
+func (obj *AwsEc2Res) snsSubscribe(snsClient *sns.SNS) error {
+	// subscribe to the topic
+	subInput := &sns.SubscribeInput{
+		Endpoint: aws.String(obj.WatchEndpoint),
+		Protocol: aws.String(httpProto),
+		TopicArn: aws.String(obj.snsTopicArn),
+	}
+	_, err := snsClient.Subscribe(subInput)
+	if err != nil {
+		return err
+	}
+	log.Printf("%s: Created Subscription", obj)
+	return nil
+}
+
+// snsUnsubscribe unsubscribes the endpoint from the sns topic.
+func (obj *AwsEc2Res) snsUnsubscribe(snsClient *sns.SNS) error {
+	// get the subscriptionArn
+	lsInput := &sns.ListSubscriptionsByTopicInput{
+		TopicArn: aws.String(obj.snsTopicArn),
+	}
+	lsOutput, err := snsClient.ListSubscriptionsByTopic(lsInput)
+	if err != nil {
+		return errwrap.Wrapf(err, "error listing subscriptions")
+	}
+	// unsubscribe the endpoint before we delete the topic
+	if len(lsOutput.Subscriptions) > 0 {
+		usInput := &sns.UnsubscribeInput{
+			SubscriptionArn: lsOutput.Subscriptions[0].SubscriptionArn,
+		}
+		log.Printf("%s: Unsubscribing Endpoint", obj)
+		if _, err := snsClient.Unsubscribe(usInput); err != nil {
+			return errwrap.Wrapf(err, "error unsubscribing endpoint")
+		}
+	}
+	return nil
+}
+
 // Close cleans up when we're done. This is needed to delete some of the AWS
 // objects created for the SNS endpoint.
 func (obj *AwsEc2Res) Close() error {
@@ -842,6 +901,11 @@ func (obj *AwsEc2Res) Close() error {
 		if err != nil {
 			errList = multierr.Append(errList, err)
 		}
+		// unsubscribe the endpoint
+		if err := obj.snsUnsubscribe(snsClient); err != nil {
+			errList = multierr.Append(errList, err)
+		}
+		// delete the topic
 		if err := obj.snsDeleteTopic(snsClient); err != nil {
 			errList = multierr.Append(errList, err)
 		}

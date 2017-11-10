@@ -190,6 +190,8 @@ func (obj *AwsEc2Res) longpollWatch() error {
 	if err := obj.Running(); err != nil {
 		return err
 	}
+	defer obj.wg.Wait()
+	defer close(obj.closeChan)
 	ctx, cancel := context.WithCancel(context.TODO())
 	obj.wg.Add(1)
 	go func() {
@@ -200,7 +202,6 @@ func (obj *AwsEc2Res) longpollWatch() error {
 		}
 	}()
 	obj.wg.Add(1)
-	defer obj.wg.Wait()
 	go func() {
 		defer obj.wg.Done()
 		defer close(obj.awsChan)
@@ -433,7 +434,6 @@ func (obj *AwsEc2Res) longpollWatch() error {
 		select {
 		case event := <-obj.Events():
 			if exit, send = obj.ReadEvent(event); exit != nil {
-				close(obj.closeChan)
 				return *exit
 			}
 		case msg, ok := <-obj.awsChan:

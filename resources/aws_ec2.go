@@ -96,7 +96,8 @@ type AwsEc2Res struct {
 
 	client *ec2.EC2 // client session for AWS API calls
 
-	snsTopicArn string // the unique id of the SNS topic
+	snsEndpoint *http.Server // http server for SNS endpoint
+	snsTopicArn string       // the unique id of the SNS topic
 
 	awsChan   chan *chanStruct // channel used to send events and errors to Watch()
 	closeChan chan struct{}    // channel used to cancel context when it's time to shut down
@@ -186,6 +187,8 @@ func (obj *AwsEc2Res) Init() error {
 	obj.wg = &sync.WaitGroup{}
 
 	if obj.WatchListenAddr != "" {
+		// set up the endpoint server
+		obj.snsEndpoint = obj.snsServer()
 		// make sns client
 		snsClient, err := obj.snsClient()
 		if err != nil {
@@ -206,6 +209,9 @@ func (obj *AwsEc2Res) Init() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *AwsEc2Res) Watch() error {
+	if obj.WatchListenAddr != "" {
+		return obj.snsWatch()
+	}
 	return obj.longpollWatch()
 }
 
@@ -452,6 +458,50 @@ func (obj *AwsEc2Res) longpollWatch() error {
 			case <-obj.closeChan:
 				return
 			default:
+			}
+		}
+	}()
+	for {
+		select {
+		case event := <-obj.Events():
+			if exit, send = obj.ReadEvent(event); exit != nil {
+				close(obj.closeChan)
+				return *exit
+			}
+		case msg, ok := <-obj.awsChan:
+			if !ok {
+				return *exit
+			}
+			if err := msg.err; err != nil {
+				return err
+			}
+			log.Printf("%s: State: %s", obj, msg.str)
+			obj.StateOK(false)
+			send = true
+		}
+		if send {
+			send = false
+			obj.Event()
+		}
+	}
+}
+
+// snsWatch uses amazon cloudwatch events and simple notification service to
+// detect ec2 instance state changes.
+func (obj *AwsEc2Res) snsWatch() error {
+	send := false
+	var exit *error
+	// start the endpoint
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		log.Printf("%s: Starting SNS Endpoint", obj)
+		if err := obj.snsEndpoint.ListenAndServe(); err != nil {
+			select {
+			case obj.awsChan <- &chanStruct{
+				err: errwrap.Wrapf(err, "sns server error"),
+			}:
+			case <-obj.closeChan:
 			}
 		}
 	}()
@@ -793,6 +843,11 @@ func (obj *AwsEc2Res) Close() error {
 			errList = multierr.Append(errList, err)
 		}
 		if err := obj.snsDeleteTopic(snsClient); err != nil {
+			errList = multierr.Append(errList, err)
+		}
+		// stop the http endpoint
+		if err := obj.snsEndpoint.Shutdown(nil); err != nil {
+			log.Printf("%s: Shutting Down Endpoint", obj)
 			errList = multierr.Append(errList, err)
 		}
 	}

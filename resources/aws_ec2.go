@@ -58,6 +58,18 @@ const (
 	waitTimeout = 400
 )
 
+//go:generate stringer -type=awsEc2Event -output=awsec2event_stringer.go
+
+// awsEc2Event represents the contents of event messages sent via awsChan.
+type awsEc2Event uint8
+
+const (
+	awsEc2EventServerReady awsEc2Event = iota
+	awsEc2EventInstanceStopped
+	awsEc2EventInstanceRunning
+	awsEc2EventInstanceExists
+)
+
 // AwsRegions is a list of all AWS regions generated using ec2.DescribeRegions.
 // cn-north-1 and us-gov-west-1 are not returned, probably due to security.
 // List available at http://docs.aws.amazon.com/general/latest/gr/rande.html
@@ -110,8 +122,8 @@ type AwsEc2Res struct {
 
 // chanStruct defines the type for a channel used to pass events and errors to watch.
 type chanStruct struct {
-	str string
-	err error
+	event awsEc2Event
+	err   error
 }
 
 // Default returns some sensible defaults for this resource.
@@ -340,7 +352,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 					if len(stateOutput.Reservations) == 0 || (len(stateOutput.Reservations) == 1 && stateName != "running") {
 						select {
 						case obj.awsChan <- &chanStruct{
-							str: "stopped",
+							event: awsEc2EventInstanceStopped,
 						}:
 						case <-obj.closeChan:
 							return
@@ -415,7 +427,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 					if len(stateOutput.Reservations) == 0 || (len(stateOutput.Reservations) == 1 && stateName != "stopped") {
 						select {
 						case obj.awsChan <- &chanStruct{
-							str: "running",
+							event: awsEc2EventInstanceRunning,
 						}:
 						case <-obj.closeChan:
 							return
@@ -452,7 +464,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 					{
 						select {
 						case obj.awsChan <- &chanStruct{
-							str: "exists",
+							event: awsEc2EventInstanceExists,
 						}:
 						case <-obj.closeChan:
 							return
@@ -480,7 +492,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 			if err := msg.err; err != nil {
 				return err
 			}
-			log.Printf("%s: State: %s", obj, msg.str)
+			log.Printf("%s: State: %v", obj, msg.event)
 			obj.StateOK(false)
 			send = true
 		}
@@ -547,7 +559,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 			if err := msg.err; err != nil {
 				return err
 			}
-			log.Printf("%s: State: %s", obj, msg.str)
+			log.Printf("%s: State: %v", obj, msg.event)
 			obj.StateOK(false)
 			send = true
 		}

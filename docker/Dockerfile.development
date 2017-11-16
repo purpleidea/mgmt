@@ -1,10 +1,10 @@
-FROM golang:1.6.2
+FROM golang:1.8
 
 MAINTAINER Michał Czeraszkiewicz <contact@czerasz.com>
 
 # Set the reset cache variable
 # Read more here: http://czerasz.com/2014/11/13/docker-tip-and-tricks/#use-refreshedat-variable-for-better-cache-control
-ENV REFRESHED_AT 2016-05-14
+ENV REFRESHED_AT 2017-11-16
 
 RUN apt-get update
 
@@ -26,6 +26,9 @@ WORKDIR /home/$USER_NAME/mgmt
 
 # Install dependencies
 RUN make deps
+
+# Chown $GOPATH
+RUN chown -R ${USER_ID}:${GROUP_ID} /go
 
 # Change user
 USER ${USER_NAME}

@@ -59,6 +59,16 @@ const (
 	SnsSubscriptionProto = "http"
 	// SnsServerShutdownTimeout is the maximum number of seconds to wait for the http server to shutdown gracefully.
 	SnsServerShutdownTimeout = 30
+	// SnsPolicy is the topic atribute that defines the security policy for the topic.
+	SnsPolicy = "Policy"
+	// SnsPolicySid is the friendly name of the policy statement.
+	SnsPolicySid = CwePrefix + "publish"
+	// SnsPolicyEffect allows the action(s) defined in the policy statement.
+	SnsPolicyEffect = "Allow"
+	// SnsPolicyService is the cloudwatch events security principal that we are granting the permission to.
+	SnsPolicyService = "events.amazonaws.com"
+	// SnsPolicyAction is the specific permission we are granting in the policy.
+	SnsPolicyAction = "SNS:Publish"
 	// CwePrefix gets prepended onto the cloudwatch rule name.
 	CwePrefix = Ec2Prefix + "cw-"
 	// CweRuleName is the name of the rule created by makeCloudWatchRule.
@@ -81,9 +91,11 @@ const (
 type awsEc2Event uint8
 
 const (
-	awsEc2EventWatchReady awsEc2Event = iota
+	awsEc2EventNone awsEc2Event = iota
+	awsEc2EventWatchReady
 	awsEc2EventInstanceStopped
 	awsEc2EventInstanceRunning
+	awsEc2EventInstanceTerminated
 	awsEc2EventInstanceExists
 )
 
@@ -146,6 +158,33 @@ type chanStruct struct {
 	err   error
 }
 
+// snsPolicy denotes the structure of sns security policies.
+type snsPolicy struct {
+	Version   string      `json:"Version"`
+	ID        string      `json:"Id"`
+	Statement []statement `json:"Statement"`
+}
+
+// statement denotes the structure of sns security policy statements.
+type statement struct {
+	Sid       string      `json:"Sid"`
+	Effect    string      `json:"Effect"`
+	Principal principal   `json:"Principal"`
+	Action    interface{} `json:"Action"`
+	Resource  string      `json:"Resource"`
+	Condition *struct {
+		StringEquals *struct {
+			AWSSourceOwner *string `json:"AWS:SourceOwner,omitempty"`
+		} `json:"StringEquals,omitempty"`
+	} `json:"Condition,omitempty"`
+}
+
+// principal describes the aws or service account principal.
+type principal struct {
+	AWS     string `json:"AWS,omitempty"`
+	Service string `json:"Service,omitempty"`
+}
+
 // cloudWatchRule denotes the structure of cloudwatch rules.
 type cloudWatchRule struct {
 	Source     []string   `json:"source"`
@@ -163,6 +202,12 @@ type postData struct {
 	Type    string `json:"Type"`
 	Token   string `json:"Token"`
 	Message string `json:"Message"`
+}
+
+// postMsg is used to unmarshal the postData message if it's an event notification.
+type postMsg struct {
+	InstanceID string `json:"instance-id"`
+	State      string `json:"state"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -288,6 +333,10 @@ func (obj *AwsEc2Res) Init() error {
 		// target cloudwatch rule to sns topic
 		if err := obj.cweTargetRule(obj.snsTopicArn, CweTargetID, CweTargetJSON, CweRuleName); err != nil {
 			return errwrap.Wrapf(err, "error targeting cloudwatch rule")
+		}
+		// authorize cloudwatch to publish on sns
+		if err := obj.snsAuthorizeCloudWatch(obj.snsTopicArn); err != nil {
+			return errwrap.Wrapf(err, "error authorizing cloudwatch for sns")
 		}
 	}
 
@@ -919,6 +968,7 @@ func (obj *AwsEc2Res) snsListener(addr string) (net.Listener, error) {
 }
 
 // snsPostHandler listens for posts on the SNS Endpoint.
+// TODO: download pem and check message against signature
 func (obj *AwsEc2Res) snsPostHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -959,6 +1009,28 @@ func (obj *AwsEc2Res) snsPostHandler(w http.ResponseWriter, req *http.Request) {
 			event: awsEc2EventWatchReady,
 		}:
 		case <-obj.closeChan:
+		}
+	}
+	// process cloudwatch event notifications.
+	if post.Type == "Notification" {
+		event, err := obj.snsProcessEvent(post.Message, obj.prependName())
+		if err != nil {
+			select {
+			case obj.awsChan <- &chanStruct{
+				err: errwrap.Wrapf(err, "error confirming subscription"),
+			}:
+			case <-obj.closeChan:
+			}
+			return
+
+		}
+		if event != awsEc2EventNone {
+			select {
+			case obj.awsChan <- &chanStruct{
+				event: event,
+			}:
+			case <-obj.closeChan:
+			}
 		}
 	}
 }
@@ -1023,6 +1095,94 @@ func (obj *AwsEc2Res) snsConfirmSubscription(topicArn string, token string) erro
 		return err
 	}
 	log.Printf("%s: Subscription Confirmed", obj)
+	return nil
+}
+
+// snsProcessEvents unmarshals instance state-change notifications and, if the
+// event matches the instance we are watching, returns an awsEc2Event.
+func (obj *AwsEc2Res) snsProcessEvent(message, instanceName string) (awsEc2Event, error) {
+	// unmarshal the message
+	var msg postMsg
+	err := json.Unmarshal([]byte(message), &msg)
+	if err != nil {
+		return awsEc2EventNone, err
+	}
+	// Check if the instance id in the message matches the name of the
+	// instance we're watching.
+	diInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(msg.InstanceID)},
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: []*string{aws.String(instanceName)},
+			},
+		},
+	}
+	diOutput, err := obj.client.DescribeInstances(diInput)
+	if err != nil {
+		return awsEc2EventNone, err
+	}
+	// if diOutput returns any reservations, return an awsEc2Event.
+	if len(diOutput.Reservations) != 0 {
+		switch msg.State {
+		case "running":
+			return awsEc2EventInstanceRunning, nil
+		case "stopped":
+			return awsEc2EventInstanceStopped, nil
+		case "terminated":
+			return awsEc2EventInstanceTerminated, nil
+		}
+	}
+	return awsEc2EventNone, nil
+}
+
+// snsAuthorize adds the necessary permission for cloudwatch to publish to the SNS topic.
+func (obj *AwsEc2Res) snsAuthorizeCloudWatch(topicArn string) error {
+	// get the topic attributes, including the security policy
+	gaInput := &sns.GetTopicAttributesInput{
+		TopicArn: aws.String(topicArn),
+	}
+	attrs, err := obj.snsClient.GetTopicAttributes(gaInput)
+	if err != nil {
+		return err
+	}
+	// get the existing security policy
+	pol := attrs.Attributes[SnsPolicy]
+	// unmarshal the current sns security policy
+	var policy snsPolicy
+	err = json.Unmarshal([]byte(*pol), &policy)
+	if err != nil {
+		return err
+	}
+	// construct a policy statement
+	permission := statement{
+		Sid:    SnsPolicySid,
+		Effect: SnsPolicyEffect,
+		Principal: principal{
+			Service: SnsPolicyService,
+		},
+		Action:   SnsPolicyAction,
+		Resource: topicArn,
+	}
+	// add the new policy statement to the existing one(s)
+	policy.Statement = append(policy.Statement, permission)
+	// marshal the updated policy
+	newPolicyBytes, err := json.Marshal(policy)
+	if err != nil {
+		return err
+	}
+	// update topic attributes with the new policy
+	newPolicy := string(newPolicyBytes)
+	saInput := &sns.SetTopicAttributesInput{
+		AttributeName:  aws.String(SnsPolicy),
+		AttributeValue: aws.String(newPolicy),
+		TopicArn:       aws.String(topicArn),
+	}
+	_, err = obj.snsClient.SetTopicAttributes(saInput)
+	if err != nil {
+		return err
+	}
+	log.Printf("%s: Authorized Target", obj)
 	return nil
 }
 

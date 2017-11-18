@@ -8,6 +8,7 @@ sudo: true
 dist: trusty
 before_install:
   - sudo apt update
+  - git config remote.origin.fetch +refs/heads/${TRAVIS_BRANCH}:refs/remotes/origin/${TRAVIS_BRANCH}
   - git fetch --unshallow
 install: 'make deps'
 script: 'make test'

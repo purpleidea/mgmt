@@ -61,6 +61,8 @@ test_commit_message() {
 
 if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]
 then
+	git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+	git fetch
 	commits=$(git log --format=%H origin/${TRAVIS_BRANCH}..${TRAVIS_PULL_REQUEST_SHA})
 	[[ -n "$commits" ]]
 

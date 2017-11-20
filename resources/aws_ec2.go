@@ -584,7 +584,6 @@ func (obj *AwsEc2Res) snsWatch() error {
 	defer obj.wg.Wait()
 	defer close(obj.closeChan)
 	// create the sns listener
-	// closing is handled by http.Server.Shutdown in the defer func below
 	listener, err := obj.snsListener(obj.WatchListenAddr)
 	if err != nil {
 		return errwrap.Wrapf(err, "error creating listener")
@@ -593,7 +592,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 	snsServer := &http.Server{
 		Handler: http.HandlerFunc(obj.snsPostHandler),
 	}
-	// close the listener and shutdown the sns server when we're done
+	// shutdown the sns server when we're done
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.TODO(), SnsServerShutdownTimeout*time.Second)
 		defer cancel()
@@ -610,6 +609,12 @@ func (obj *AwsEc2Res) snsWatch() error {
 	go func() {
 		defer obj.wg.Done()
 		defer close(obj.awsChan)
+		defer func() {
+			// close the listener when we return
+			if err := listener.Close(); err != nil {
+				log.Printf("%s: error closing listener: %s", obj, err)
+			}
+		}()
 		if err := snsServer.Serve(listener); err != nil {
 			// when we shut down
 			if err == http.ErrServerClosed {

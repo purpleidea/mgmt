@@ -22,8 +22,10 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"os/user"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	errwrap "github.com/pkg/errors"
@@ -132,4 +134,38 @@ func LowerStructFieldNameToFieldName(res Res) (map[string]string, error) {
 		}
 	}
 	return result, nil
+}
+
+// GetUID returns the UID of an user. It supports an UID or an username. Caller
+// should first check user is not empty. It will return an error if it can't
+// lookup the UID or username.
+func GetUID(username string) (int, error) {
+	userObj, err := user.LookupId(username)
+	if err == nil {
+		return strconv.Atoi(userObj.Uid)
+	}
+
+	userObj, err = user.Lookup(username)
+	if err == nil {
+		return strconv.Atoi(userObj.Gid)
+	}
+
+	return -1, errwrap.Wrapf(err, "user lookup error (%s)", username)
+}
+
+// GetGID returns the GID of a group. It supports a GID or a group name. Caller
+// should first check group is not empty. It will return an error if it can't
+// lookup the GID or group name.
+func GetGID(group string) (int, error) {
+	groupObj, err := user.LookupGroupId(group)
+	if err == nil {
+		return strconv.Atoi(groupObj.Gid)
+	}
+
+	groupObj, err = user.LookupGroup(group)
+	if err == nil {
+		return strconv.Atoi(groupObj.Gid)
+	}
+
+	return -1, errwrap.Wrapf(err, "group lookup error (%s)", group)
 }

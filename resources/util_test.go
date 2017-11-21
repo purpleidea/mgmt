@@ -21,7 +21,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
+	"os/user"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -234,5 +236,81 @@ func TestLowerStructFieldNameToFieldName1(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected failure, but passed with: %+v", mapping)
 		return
+	}
+}
+
+func TestUnknownGroup(t *testing.T) {
+	gid, err := GetGID("unknowngroup")
+	if err == nil {
+		t.Errorf("expected failure, but passed with: %d", gid)
+	}
+}
+
+func TestUnknownUser(t *testing.T) {
+	uid, err := GetUID("unknownuser")
+	if err == nil {
+		t.Errorf("expected failure, but passed with: %d", uid)
+	}
+}
+
+func TestCurrentUserGroupByName(t *testing.T) {
+	// get current user
+	userObj, err := user.Current()
+	if err != nil {
+		t.Errorf("error trying to lookup current user: %s", err.Error())
+	}
+
+	currentUID := userObj.Uid
+	currentGID := userObj.Gid
+
+	var uid int
+	var gid int
+
+	// now try to get the uid/gid via our API (via username and group name)
+	if uid, err = GetUID(userObj.Username); err != nil {
+		t.Errorf("error trying to lookup current user UID: %s", err.Error())
+	}
+
+	if strconv.Itoa(uid) != currentUID {
+		t.Errorf("uid didn't match current user's: %s vs %s", strconv.Itoa(uid), currentUID)
+	}
+
+	if gid, err = GetGID(userObj.Username); err != nil {
+		t.Errorf("error trying to lookup current user UID: %s", err.Error())
+	}
+
+	if strconv.Itoa(gid) != currentGID {
+		t.Errorf("gid didn't match current user's: %s vs %s", strconv.Itoa(gid), currentGID)
+	}
+}
+
+func TestCurrentUserGroupById(t *testing.T) {
+	// get current user
+	userObj, err := user.Current()
+	if err != nil {
+		t.Errorf("error trying to lookup current user: %s", err.Error())
+	}
+
+	currentUID := userObj.Uid
+	currentGID := userObj.Gid
+
+	var uid int
+	var gid int
+
+	// now try to get the uid/gid via our API (via uid and gid)
+	if uid, err = GetUID(currentUID); err != nil {
+		t.Errorf("error trying to lookup current user UID: %s", err.Error())
+	}
+
+	if strconv.Itoa(uid) != currentUID {
+		t.Errorf("uid didn't match current user's: %s vs %s", strconv.Itoa(uid), currentUID)
+	}
+
+	if gid, err = GetGID(currentGID); err != nil {
+		t.Errorf("error trying to lookup current user UID: %s", err.Error())
+	}
+
+	if strconv.Itoa(gid) != currentGID {
+		t.Errorf("gid didn't match current user's: %s vs %s", strconv.Itoa(gid), currentGID)
 	}
 }

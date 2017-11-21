@@ -26,7 +26,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/user"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -97,11 +96,11 @@ func (obj *FileRes) Validate() error {
 		}
 	}
 
-	if _, err := obj.uid(); obj.Owner != "" && err != nil {
+	if _, err := GetUID(obj.Owner); obj.Owner != "" && err != nil {
 		return err
 	}
 
-	if _, err := obj.gid(); obj.Group != "" && err != nil {
+	if _, err := GetGID(obj.Group); obj.Group != "" && err != nil {
 		return err
 	}
 
@@ -122,22 +121,6 @@ func (obj *FileRes) mode() (os.FileMode, error) {
 		return os.FileMode(0), errwrap.Wrapf(err, "Mode should be an octal number (%s)", obj.Mode)
 	}
 	return os.FileMode(m), nil
-}
-
-// uid returns the user id for the owner specified in the yaml file graph.
-// Caller should first check obj.Owner is not empty
-func (obj *FileRes) uid() (int, error) {
-	u2, err2 := user.LookupId(obj.Owner)
-	if err2 == nil {
-		return strconv.Atoi(u2.Uid)
-	}
-
-	u, err := user.Lookup(obj.Owner)
-	if err == nil {
-		return strconv.Atoi(u.Uid)
-	}
-
-	return -1, errwrap.Wrapf(err, "owner lookup error (%s)", obj.Owner)
 }
 
 // Init runs some startup code for this resource.
@@ -767,7 +750,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 	}
 
 	if obj.Owner != "" {
-		expectedUID, err = obj.uid()
+		expectedUID, err = GetUID(obj.Owner)
 		if err != nil {
 			return false, err
 		}
@@ -777,7 +760,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 	}
 
 	if obj.Group != "" {
-		expectedGID, err = obj.gid()
+		expectedGID, err = GetGID(obj.Group)
 		if err != nil {
 			return false, err
 		}

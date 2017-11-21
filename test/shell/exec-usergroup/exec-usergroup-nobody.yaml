@@ -1,0 +1,30 @@
+---
+graph: mygraph
+resources:
+  exec:
+  - name: test.sh
+    cmd: /tmp/mgmt/test-exec-usergroup/test-exec-usergroup.sh
+    shell: /bin/bash
+    user: nobody
+    group: nobody
+    meta:
+      autoedge: true
+  file:
+  - name: file1
+    meta:
+      autoedge: true
+    path: "/tmp/mgmt/test-exec-usergroup/test-exec-usergroup.sh"
+    content: |
+      # this is an mgmt test
+      id
+      echo "this is a test" > /tmp/mgmt/test-exec-usergroup/result-exec-usergroup
+    state: exists
+    mode: "0777"
+edges:
+- name: e1
+  from:
+    kind: file
+    name: file1
+  to:
+    kind: exec
+    name: test.sh

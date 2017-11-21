@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"os/user"
 	"strings"
 	"sync"
 	"syscall"
@@ -46,6 +47,8 @@ type ExecRes struct {
 	WatchShell string  `yaml:"watchshell"` // the (optional) shell to use to run the watch cmd
 	IfCmd      string  `yaml:"ifcmd"`      // the if command to run
 	IfShell    string  `yaml:"ifshell"`    // the (optional) shell to use to run the if cmd
+	User       string  `yaml:"user"`       // the (optional) user to use to execute the command
+	Group      string  `yaml:"group"`      // the (optional) group to use to execute the command
 	Output     *string // all cmd output, read only, do not set!
 	Stdout     *string // the cmd stdout, read only, do not set!
 	Stderr     *string // the cmd stderr, read only, do not set!
@@ -64,6 +67,17 @@ func (obj *ExecRes) Default() Res {
 func (obj *ExecRes) Validate() error {
 	if obj.Cmd == "" { // this is the only thing that is really required
 		return fmt.Errorf("command can't be empty")
+	}
+
+	// check that, if an user or a group is set, we're running as root
+	if obj.User != "" || obj.Group != "" {
+		currentUser, err := user.Current()
+		if err != nil {
+			return errwrap.Wrapf(err, "error looking up current user")
+		}
+		if currentUser.Uid != "0" {
+			return errwrap.Errorf("running as root is required if you want to use exec with a different user/group")
+		}
 	}
 
 	return obj.BaseRes.Validate()
@@ -119,6 +133,12 @@ func (obj *ExecRes) Watch() error {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
 			Pgid:    0,
+		}
+
+		// if we have a user and group, use them
+		var err error
+		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
+			return errwrap.Wrapf(err, "error while setting credential")
 		}
 
 		cmdReader, err := cmd.StdoutPipe()
@@ -208,6 +228,13 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 			Setpgid: true,
 			Pgid:    0,
 		}
+
+		// if we have an user and group, use them
+		var err error
+		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
+			return false, errwrap.Wrapf(err, "error while setting credential")
+		}
+
 		if err := cmd.Run(); err != nil {
 			// TODO: check exit value
 			return true, nil // don't run
@@ -245,6 +272,12 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 		Pgid:    0,
 	}
 
+	// if we have a user and group, use them
+	var err error
+	if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
+		return false, errwrap.Wrapf(err, "error while setting credential")
+	}
+
 	var out splitWriter
 	out.Init()
 	// from the docs: "If Stdout and Stderr are the same writer, at most one
@@ -263,7 +296,6 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	done := make(chan error)
 	go func() { done <- cmd.Wait() }()
 
-	var err error // error returned by cmd
 	select {
 	case e := <-done:
 		err = e // store
@@ -422,6 +454,12 @@ func (obj *ExecRes) Compare(r Res) bool {
 	if obj.IfShell != res.IfShell {
 		return false
 	}
+	if obj.User != res.User {
+		return false
+	}
+	if obj.Group != res.Group {
+		return false
+	}
 
 	return true
 }
@@ -444,6 +482,37 @@ func (obj *ExecRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = ExecRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// getCredential returns the correct *syscall.Credential if an User and Group
+// are set.
+func (obj *ExecRes) getCredential() (*syscall.Credential, error) {
+	var uid, gid int
+	var err error
+	var currentUser *user.User
+	if currentUser, err = user.Current(); err != nil {
+		return nil, errwrap.Wrapf(err, "error looking up current user")
+	}
+	if currentUser.Uid != "0" {
+		// since we're not root, we've got nothing to do
+		return nil, nil
+	}
+
+	if obj.Group != "" {
+		gid, err = GetGID(obj.Group)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error looking up gid for %s", obj.Group)
+		}
+	}
+
+	if obj.User != "" {
+		uid, err = GetUID(obj.User)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error looking up uid for %s", obj.User)
+		}
+	}
+
+	return &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}, nil
 }
 
 // splitWriter mimics what the ssh.CombinedOutput command does, but stores the

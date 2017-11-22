@@ -632,7 +632,6 @@ func (obj *AwsEc2Res) snsWatch() error {
 	send := false
 	var exit *error
 	defer obj.wg.Wait()
-	defer close(obj.closeChan)
 	// create the sns listener
 	// closing is handled by http.Server.Shutdown in the defer func below
 	listener, err := obj.snsListener(obj.WatchListenAddr)
@@ -655,6 +654,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 			log.Printf("%s: sns server shutdown cancelled", obj)
 		}
 	}()
+	defer close(obj.closeChan)
 	obj.wg.Add(1)
 	// start the sns server
 	go func() {

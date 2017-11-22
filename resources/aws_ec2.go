@@ -582,7 +582,6 @@ func (obj *AwsEc2Res) snsWatch() error {
 	send := false
 	var exit *error
 	defer obj.wg.Wait()
-	defer close(obj.closeChan)
 	// create the sns listener
 	listener, err := obj.snsListener(obj.WatchListenAddr)
 	if err != nil {
@@ -604,6 +603,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 			log.Printf("%s: sns server shutdown cancelled", obj)
 		}
 	}()
+	defer close(obj.closeChan)
 	obj.wg.Add(1)
 	// start the sns server
 	go func() {
@@ -912,9 +912,11 @@ func (obj *AwsEc2Res) prependName() string {
 }
 
 // snsListener returns a listener bound to watchlistenaddr.
-func (obj *AwsEc2Res) snsListener(addr string) (net.Listener, error) {
-	if _, err := strconv.Atoi(obj.WatchListenAddr); err == nil {
-		addr = fmt.Sprintf(":%s", obj.WatchListenAddr)
+func (obj *AwsEc2Res) snsListener(listenAddr string) (net.Listener, error) {
+	addr := listenAddr
+	// if listenAddr is a port
+	if _, err := strconv.Atoi(listenAddr); err == nil {
+		addr = fmt.Sprintf(":%s", listenAddr)
 	}
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {

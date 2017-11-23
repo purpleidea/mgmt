@@ -19,6 +19,7 @@ SHELL = /usr/bin/env bash
 .PHONY: all art cleanart version program path deps run race generate build clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean
 
+GO_FILES := $(shell find . -name '*.go')
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
 PROGRAM := $(shell echo $(notdir $(CURDIR)) | cut -f1 -d"-")
@@ -106,7 +107,7 @@ generate:
 
 build: $(PROGRAM)
 
-$(PROGRAM): main.go
+$(PROGRAM): $(GO_FILES)
 	@echo "Building: $(PROGRAM), version: $(SVERSION)..."
 ifneq ($(OLDGOLANG),)
 	@# avoid equals sign in old golang versions eg in: -X foo=bar
@@ -115,7 +116,7 @@ else
 	time go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
 endif
 
-$(PROGRAM).static: main.go
+$(PROGRAM).static: $(GO_FILES)
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 ifneq ($(OLDGOLANG),)

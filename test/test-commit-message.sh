@@ -71,6 +71,11 @@ test_commit_message_common_bugs() {
 		echo 'FAIL: Commit message starts with `tests:`, did you mean `test:` ?'
 		exit 1
 	fi
+	if git log --format=%s $1 | head -n 1 | grep -q "^doc:"
+	then
+		echo 'FAIL: Commit message starts with `doc:`, did you mean `docs:` ?'
+		exit 1
+	fi
 }
 
 if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]

@@ -149,6 +149,31 @@ func (obj *Prometheus) Stop() error {
 	return nil
 }
 
+// InitKindMetrics initialized prometheus counters. For each kind of
+// resource checkApply counters are initialized with all the possible value.
+func (obj *Prometheus) InitKindMetrics(kinds []string) error {
+	if obj == nil {
+		return nil // happens when mgmt is launched without --prometheus
+	}
+	bools := []bool{true, false}
+	for _, kind := range kinds {
+		for _, apply := range bools {
+			for _, eventful := range bools {
+				for _, errorful := range bools {
+					labels := prometheus.Labels{
+						"kind":     kind,
+						"apply":    strconv.FormatBool(apply),
+						"eventful": strconv.FormatBool(eventful),
+						"errorful": strconv.FormatBool(errorful),
+					}
+					obj.checkApplyTotal.With(labels)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // UpdateCheckApplyTotal refreshes the failing gauge by parsing the internal
 // state map.
 func (obj *Prometheus) UpdateCheckApplyTotal(kind string, apply, eventful, errorful bool) error {

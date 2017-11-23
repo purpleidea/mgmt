@@ -78,6 +78,18 @@ func TestIFF(t *testing.T) {
 	}
 }
 
+func TestRegisteredResourcesNames(t *testing.T) {
+	kinds := RegisteredResourcesNames()
+	for _, kind := range kinds {
+		if kind == "" {
+			t.Error("Empty kind found")
+		}
+	}
+	if len(kinds) == 0 {
+		t.Error("No registered resources")
+	}
+}
+
 func TestReadEvent(t *testing.T) {
 	//res := FileRes{}
 

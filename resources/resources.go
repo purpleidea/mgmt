@@ -52,6 +52,15 @@ func RegisterResource(kind string, fn func() Res) {
 	registeredResources[kind] = fn
 }
 
+// RegisteredResourcesNames returns the kind of the registered resources.
+func RegisteredResourcesNames() []string {
+	kinds := []string{}
+	for k := range registeredResources {
+		kinds = append(kinds, k)
+	}
+	return kinds
+}
+
 // NewResource returns an empty resource object from a registered kind. It
 // errors if the resource kind doesn't exist.
 func NewResource(kind string) (Res, error) {

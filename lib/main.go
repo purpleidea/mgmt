@@ -269,6 +269,10 @@ func (obj *Main) Run() error {
 		if err := prom.Start(); err != nil {
 			return errwrap.Wrapf(err, "can't start initiate Prometheus instance")
 		}
+
+		if err := prom.InitKindMetrics(resources.RegisteredResourcesNames()); err != nil {
+			return errwrap.Wrapf(err, "can't initialize kind-specific prometheus metrics")
+		}
 	}
 
 	if !obj.NoPgp {

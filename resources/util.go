@@ -96,10 +96,8 @@ func StructTagToFieldName(res Res) (map[string]string, error) {
 	for i := 0; i < st.NumField(); i++ {
 		field := st.Field(i)
 		name := field.Name
-		// TODO: golang 1.7+
 		// if !ok, then nothing is found
-		//if alias, ok := field.Tag.Lookup(StructTag); ok { // golang 1.7+
-		if alias := field.Tag.Get(StructTag); alias != "" { // golang 1.6
+		if alias, ok := field.Tag.Lookup(StructTag); ok { // golang 1.7+
 			if val, exists := result[alias]; exists {
 				return nil, fmt.Errorf("field `%s` uses the same key `%s` as field `%s`", name, alias, val)
 			}

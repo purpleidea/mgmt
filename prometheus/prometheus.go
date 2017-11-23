@@ -16,7 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Package prometheus provides functions that are useful to control and manage
-// the build-in prometheus instance.
+// the built-in prometheus instance.
 package prometheus
 
 import (
@@ -169,6 +169,15 @@ func (obj *Prometheus) InitKindMetrics(kinds []string) error {
 					obj.checkApplyTotal.With(labels)
 				}
 			}
+		}
+
+		obj.managedResources.With(prometheus.Labels{"kind": kind})
+
+		failures := []string{"soft", "hard"}
+		for _, f := range failures {
+			failLabels := prometheus.Labels{"kind": kind, "failure": f}
+			obj.failedResourcesTotal.With(failLabels)
+			obj.failedResources.With(failLabels)
 		}
 	}
 	return nil

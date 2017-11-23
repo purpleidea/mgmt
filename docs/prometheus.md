@@ -63,4 +63,4 @@ We do not have grafana dashboards yet. Patches welcome!
 
 [pgc]: https://github.com/prometheus/client_golang/blob/master/prometheus/go_collector.go
 [etcdm]: https://coreos.com/etcd/docs/latest/metrics.html
-[pd]: https://github.com/prometheus/prometheus/wiki/Default-port-allocation
+[pd]: https://github.com/prometheus/prometheus/wiki/Default-port-allocations

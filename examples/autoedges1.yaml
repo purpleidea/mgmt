@@ -13,7 +13,5 @@ resources:
     meta:
       autoedge: true
     path: "/tmp/foo/"
-    content: |
-      i am f2
     state: exists
 edges: []

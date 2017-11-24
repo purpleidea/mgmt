@@ -22,3 +22,6 @@
 [submodule "vendor/github.com/ugorji/go"]
 	path = vendor/github.com/ugorji/go
 	url = https://github.com/ugorji/go
+[submodule "grafana/grafonnet-lib"]
+	path = grafana/grafonnet-lib
+	url = https://github.com/grafana/grafonnet-lib

@@ -692,7 +692,7 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 		_, err = obj.client.CreateTags(&ec2.CreateTagsInput{
 			Resources: []*string{runResult.Instances[0].InstanceId},
 			Tags: []*ec2.Tag{
-				&ec2.Tag{
+				{
 					Key:   aws.String("Name"),
 					Value: aws.String(obj.prependName()),
 				},

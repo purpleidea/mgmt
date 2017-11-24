@@ -22,9 +22,16 @@ find_files() {
 	git ls-files | grep '\.go$'
 }
 
-GOFMT="gofmt"	# we prefer to not use the -s flag, which is pretty annoying...
+# gofmt -s -l
+GOFMT="gofmt"
+bad_files=$(find_files | xargs $GOFMT -s -l)
+if [[ -n "${bad_files}" ]]; then
+	fail_test "The following golang files are not properly formatted (gofmt -s -l): ${bad_files}"
+fi
+#goimports -l
+GOFMT="goimports"
 bad_files=$(find_files | xargs $GOFMT -l)
 if [[ -n "${bad_files}" ]]; then
-	fail_test "The following golang files are not properly formatted: ${bad_files}"
+	fail_test "The following golang files are not properly formatted (goimports -l): ${bad_files}"
 fi
 echo 'PASS'

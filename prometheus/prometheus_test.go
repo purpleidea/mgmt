@@ -44,16 +44,16 @@ func TestInitKindMetrics(t *testing.T) {
 	// values are expected and actual count of metrics with
 	// that name.
 	expectedMetrics := map[string][2]int{
-		"mgmt_checkapply_total": [2]int{
+		"mgmt_checkapply_total": {
 			16, 0,
 		},
-		"mgmt_failures_total": [2]int{
+		"mgmt_failures_total": {
 			4, 0,
 		},
-		"mgmt_failures": [2]int{
+		"mgmt_failures": {
 			4, 0,
 		},
-		"mgmt_resources": [2]int{
+		"mgmt_resources": {
 			2, 0,
 		},
 	}

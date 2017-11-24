@@ -1155,6 +1155,10 @@ func (obj *AwsEc2Res) snsAuthorizeCloudWatch(topicArn string) error {
 	if err := json.Unmarshal([]byte(*pol), &policy); err != nil {
 		return err
 	}
+	// make sure the existing policy statement(s) are returned
+	if policy.Statement == nil {
+		return fmt.Errorf("sns policy statement is nil")
+	}
 	// construct a policy statement
 	permission := snsStatement{
 		Sid:    SnsPolicySid,

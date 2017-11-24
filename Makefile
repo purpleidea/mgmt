@@ -23,7 +23,6 @@ GO_FILES := $(shell find . -name '*.go')
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
 PROGRAM := $(shell echo $(notdir $(CURDIR)) | cut -f1 -d"-")
-OLDGOLANG := $(shell go version | grep -E 'go1.3|go1.4')
 ifeq ($(VERSION),$(SVERSION))
 	RELEASE = 1
 else
@@ -109,22 +108,12 @@ build: $(PROGRAM)
 
 $(PROGRAM): $(GO_FILES)
 	@echo "Building: $(PROGRAM), version: $(SVERSION)..."
-ifneq ($(OLDGOLANG),)
-	@# avoid equals sign in old golang versions eg in: -X foo=bar
-	time go build -ldflags "-X main.program $(PROGRAM) -X main.version $(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
-else
 	time go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
-endif
 
 $(PROGRAM).static: $(GO_FILES)
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
-ifneq ($(OLDGOLANG),)
-	@# avoid equals sign in old golang versions eg in: -X foo=bar
-	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program $(PROGRAM) -X main.version $(SVERSION)' -o $(PROGRAM).static $(BUILD_FLAGS);
-else
 	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION)' -o $(PROGRAM).static $(BUILD_FLAGS);
-endif
 
 clean:
 	[ ! -e $(PROGRAM) ] || rm $(PROGRAM)

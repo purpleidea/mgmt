@@ -113,7 +113,7 @@ $(PROGRAM): $(GO_FILES)
 $(PROGRAM).static: $(GO_FILES)
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
-	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION)' -o $(PROGRAM).static $(BUILD_FLAGS);
+	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
 
 clean:
 	[ ! -e $(PROGRAM) ] || rm $(PROGRAM)

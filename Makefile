@@ -121,9 +121,9 @@ $(PROGRAM).static: $(GO_FILES)
 	go generate
 ifneq ($(OLDGOLANG),)
 	@# avoid equals sign in old golang versions eg in: -X foo=bar
-	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program $(PROGRAM) -X main.version $(SVERSION)' -o $(PROGRAM).static $(BUILD_FLAGS);
+	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program $(PROGRAM) -X main.version $(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
 else
-	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION)' -o $(PROGRAM).static $(BUILD_FLAGS);
+	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
 endif
 
 clean:

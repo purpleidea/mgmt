@@ -24,6 +24,7 @@ import (
 	"log"
 	"os/exec"
 	"os/user"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -391,6 +392,46 @@ func (obj *ExecRes) AutoEdges() (AutoEdge, error) {
 				Reversed: &reversed,
 			},
 			path: x, // what matters
+		})
+		data = append(data, &FileUID{
+			BaseUID: BaseUID{
+				Name:     obj.GetName(),
+				Kind:     obj.GetKind(),
+				Reversed: &reversed,
+			},
+			path: x, // TODO: check that we handle relative paths in FileRes
+		})
+	}
+	if obj.User != "" {
+		var reversed = true
+		data = append(data, &UserUID{
+			BaseUID: BaseUID{
+				Name:     obj.GetName(),
+				Kind:     obj.GetKind(),
+				Reversed: &reversed,
+			},
+			name: obj.User,
+		})
+	}
+	if obj.Group != "" {
+		var reversed = true
+		group, err := user.LookupGroup(obj.Group)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error while looking for %s group id", obj.Group)
+		}
+		gid, err := strconv.Atoi(group.Gid)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error while converting %s's gid to int", obj.Group)
+		}
+		gid32 := uint32(gid)
+		data = append(data, &GroupUID{
+			BaseUID: BaseUID{
+				Name:     obj.GetName(),
+				Kind:     obj.GetKind(),
+				Reversed: &reversed,
+			},
+			name: obj.Group,
+			gid:  &gid32,
 		})
 	}
 	return &ExecResAutoEdges{

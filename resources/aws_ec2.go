@@ -92,6 +92,9 @@ const (
 	CweTargetJSON = "$.detail"
 	// waitTimeout is the duration in seconds of the timeout context in CheckApply.
 	waitTimeout = 400
+	// AwsErrIncorrectInstanceState is the error returned when an action
+	// cannot be completed due to the current instance state.
+	AwsErrIncorrectInstanceState = "IncorrectInstanceState"
 )
 
 //go:generate stringer -type=awsEc2Event -output=awsec2event_stringer.go
@@ -798,6 +801,13 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 			}
 			_, err := obj.client.StartInstances(startInput)
 			if err != nil {
+				// If the instance is not in a state where it
+				// can be started, we can't do anything.
+				if aerr, ok := err.(awserr.Error); ok {
+					if aerr.Code() == AwsErrIncorrectInstanceState {
+						return false, nil
+					}
+				}
 				return false, errwrap.Wrapf(err, "error starting instance")
 			}
 			if err := obj.client.WaitUntilInstanceRunningWithContext(ctx, describeInput); err != nil {
@@ -816,6 +826,13 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 			}
 			_, err := obj.client.StopInstances(stopInput)
 			if err != nil {
+				// If the instance is not in a state where it
+				// can be stopped, we can't do anything.
+				if aerr, ok := err.(awserr.Error); ok {
+					if aerr.Code() == AwsErrIncorrectInstanceState {
+						return false, nil
+					}
+				}
 				return false, errwrap.Wrapf(err, "error stopping instance")
 			}
 			if err := obj.client.WaitUntilInstanceStoppedWithContext(ctx, describeInput); err != nil {
@@ -834,6 +851,13 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 			}
 			_, err := obj.client.TerminateInstances(terminateInput)
 			if err != nil {
+				// If the instance is not in a state where it
+				// can be terminated, we can't do anything.
+				if aerr, ok := err.(awserr.Error); ok {
+					if aerr.Code() == "IncorrectInstanceState" {
+						return false, nil
+					}
+				}
 				return false, errwrap.Wrapf(err, "error terminating instance")
 			}
 			if err := obj.client.WaitUntilInstanceTerminatedWithContext(ctx, describeInput); err != nil {

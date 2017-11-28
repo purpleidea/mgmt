@@ -471,6 +471,9 @@ func (obj *AwsEc2Res) longpollWatch() error {
 							if aerr.Code() == request.CanceledErrorCode {
 								log.Printf("%s: Request cancelled", obj)
 							}
+							if aerr.Code() == request.WaiterResourceNotReadyErrorCode {
+								continue
+							}
 						}
 						select {
 						case obj.awsChan <- &chanStruct{
@@ -546,6 +549,9 @@ func (obj *AwsEc2Res) longpollWatch() error {
 							if aerr.Code() == request.CanceledErrorCode {
 								log.Printf("%s: Request cancelled", obj)
 							}
+							if aerr.Code() == request.WaiterResourceNotReadyErrorCode {
+								continue
+							}
 						}
 						select {
 						case obj.awsChan <- &chanStruct{
@@ -585,6 +591,9 @@ func (obj *AwsEc2Res) longpollWatch() error {
 					if aerr, ok := err.(awserr.Error); ok {
 						if aerr.Code() == request.CanceledErrorCode {
 							log.Printf("%s: Request cancelled", obj)
+						}
+						if aerr.Code() == request.WaiterResourceNotReadyErrorCode {
+							continue
 						}
 					}
 					select {

@@ -185,9 +185,9 @@ func (obj *VirtRes) Init() error {
 
 		// guest agent: domain->devices->channel->target->state == connected?
 		for _, x := range domXML.Devices.Channels {
-			if x.Target.Type == "virtio" && strings.HasPrefix(x.Target.Name, "org.qemu.guest_agent.") {
+			if x.Target.VirtIO != nil && strings.HasPrefix(x.Target.VirtIO.Name, "org.qemu.guest_agent.") {
 				// last connection found wins (usually 1 anyways)
-				obj.guestAgentConnected = (x.Target.State == "connected")
+				obj.guestAgentConnected = (x.Target.VirtIO.State == "connected")
 			}
 		}
 	}

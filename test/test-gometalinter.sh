@@ -31,7 +31,7 @@ gml="$gml --enable=golint"
 #gml="$gml --enable=ineffassign"		# TODO: only a few fixes needed
 #gml="$gml --enable=interfacer"			# TODO: only a few fixes needed
 #gml="$gml --enable=lll --line-length=200"	# TODO: only a few fixes needed
-gml="$gml --enable=misspell"
+gml="$gml --enable=misspell --misspell-locale=UK"	# TODO: needs CA support
 #gml="$gml --enable=safesql"			# FIXME: made my machine slow
 #gml="$gml --enable=staticcheck"		# TODO: only a few fixes needed
 #gml="$gml --enable=structcheck"		# TODO: only a few fixes needed

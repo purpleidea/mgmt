@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/base64"
@@ -31,7 +32,10 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"text/template"
 	"time"
+
+	"github.com/purpleidea/mgmt/bindata"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -95,6 +99,10 @@ const (
 	// AwsErrIncorrectInstanceState is the error returned when an action
 	// cannot be completed due to the current instance state.
 	AwsErrIncorrectInstanceState = "IncorrectInstanceState"
+	// EtcdClientPort is the default client port for etcd connections.
+	EtcdClientPort = 2379
+	// EtcdServerPort is the default server port for etcd connections.
+	EtcdServerPort = 2380
 )
 
 //go:generate stringer -type=awsEc2Event -output=awsec2event_stringer.go
@@ -154,7 +162,11 @@ type AwsEc2Res struct {
 	// UserData is used to run bash and cloud-init commands on first launch.
 	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	// for documantation and examples.
-	UserData string `yaml:"userdata"`
+	UserData    string `yaml:"userdata"`
+	Bootstrap   bool   `yaml:"bootstrap"`   // install mgmt on the aws instance and phone home
+	Seed        string `yaml:"seed"`        // url to use as mgmt seed, ie. http://server:2379
+	Binary      string `yaml:"binary"`      // url to publicly accessible mgmt binary, eg: ftp://server/mgmt
+	RemoteGraph string `yaml:"remotegraph"` // url to publicly accessible yaml graph, eg: http://server/graph0.yaml
 
 	client *ec2.EC2 // client session for AWS API calls
 
@@ -174,6 +186,15 @@ type AwsEc2Res struct {
 type chanStruct struct {
 	event awsEc2Event
 	err   error
+}
+
+// bootstrapTemplateData defines data for insertion into the bootstrap template.
+type bootstrapTemplateData struct {
+	Binary      string
+	RemoteGraph string
+	Seed        string
+	CPort       uint16
+	SPort       uint16
 }
 
 // snsPolicy denotes the structure of sns security policies.
@@ -298,6 +319,21 @@ func (obj *AwsEc2Res) Validate() error {
 	}
 	if obj.WatchEndpoint != "" && obj.WatchListenAddr == "" {
 		return fmt.Errorf("you must set watchendpoint with watchlistenaddr to use http watch")
+	}
+
+	if obj.Bootstrap {
+		if obj.UserData != "" {
+			return fmt.Errorf("cannot use userdata and bootstrap together")
+		}
+		if obj.Seed == "" {
+			return fmt.Errorf("you must specify a seed url for instance to call back")
+		}
+		if obj.Binary == "" {
+			return fmt.Errorf("you must specify the location of the mgmt binary to bootstrap")
+		}
+		if obj.RemoteGraph == "" {
+			return fmt.Errorf("you must specify the location of the yaml file to run on the instance")
+		}
 	}
 
 	return obj.BaseRes.Validate()
@@ -873,6 +909,15 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 			userData := base64.StdEncoding.EncodeToString([]byte(obj.UserData))
 			runParams.SetUserData(userData)
 		}
+		if obj.Bootstrap {
+			// TODO: Firewall rules (security groups)
+			// create the necessary userdata script
+			userData, err := obj.bootstrapUserData(obj.Binary, obj.RemoteGraph, obj.Seed)
+			if err != nil {
+				return false, errwrap.Wrapf(err, "error creating userdata")
+			}
+			runParams.SetUserData(userData)
+		}
 		runResult, err := obj.client.RunInstances(runParams)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "could not create instance")
@@ -967,6 +1012,18 @@ func (obj *AwsEc2Res) Compare(r Res) bool {
 		return false
 	}
 	if obj.UserData != res.UserData {
+		return false
+	}
+	if obj.Bootstrap != res.Bootstrap {
+		return false
+	}
+	if obj.Seed != res.Seed {
+		return false
+	}
+	if obj.Binary != res.Binary {
+		return false
+	}
+	if obj.RemoteGraph != res.RemoteGraph {
 		return false
 	}
 	return true
@@ -1089,6 +1146,36 @@ func waitUntilInstanceStoppedOrTerminatedWithContext(ctx context.Context, waitIn
 		// TODO: should we instead use the aws context copy and request.CanceledErrorCode ?
 		return ctx.Err()
 	}
+}
+
+// bootstrapUserData creates a startup script which installs mgmt on the
+// instance, and connects to the specified seed URL.
+func (*AwsEc2Res) bootstrapUserData(binary, graph, seed string) (string, error) {
+	buf := new(bytes.Buffer)
+	// load the template script from bindata
+	script, err := bindata.Asset("../resources/aws/ec2_bootstrap.sh")
+	if err != nil {
+		return "", errwrap.Wrapf(err, "error loading template")
+	}
+	// create a template from the file
+	tmpl, err := template.New("Bootstrap Template").Parse(string(script))
+	if err != nil {
+		return "", errwrap.Wrapf(err, "error parsing bootstrap script")
+	}
+	// fill in the data
+	bootstrapData := bootstrapTemplateData{
+		Binary:      binary,
+		RemoteGraph: graph,
+		Seed:        seed,
+		CPort:       EtcdClientPort,
+		SPort:       EtcdServerPort,
+	}
+	// add the data to the template
+	if err := tmpl.Execute(buf, bootstrapData); err != nil {
+		return "", errwrap.Wrapf(err, "error adding data to template")
+	}
+	// encode the string and add it to params
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), nil
 }
 
 // snsListener returns a listener bound to listenAddr.

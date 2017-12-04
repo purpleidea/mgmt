@@ -26,7 +26,7 @@ default: build
 build: bindata.go
 
 # add more input files as dependencies at the end here...
-bindata.go: ../COPYING
+bindata.go: ../COPYING ../resources/aws/ec2_bootstrap.sh
 	# go-bindata --pkg bindata -o {OUTPUT} {INPUT}
 	go-bindata --pkg bindata -o ./$@ $^
 	# gofmt the output file

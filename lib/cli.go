@@ -24,6 +24,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/purpleidea/mgmt/bindata"
 	"github.com/purpleidea/mgmt/hcl"
 	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/yamlgraph"
@@ -188,7 +189,32 @@ func CLI(program, version string, flags Flags) error {
 	app.Metadata = map[string]interface{}{ // additional flags
 		"flags": flags,
 	}
-	//app.Action = ... // without a default action, help runs
+
+	// if no app.Command is specified
+	app.Action = func(c *cli.Context) error {
+		// print the license
+		if c.Bool("license") {
+			license, err := bindata.Asset("../COPYING") // use go-bindata to get the bytes
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("%s", license)
+			return nil
+		}
+
+		// print help if no flags are set
+		cli.ShowAppHelp(c)
+		return nil
+	}
+
+	// global flags
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "license",
+			Usage: "prints the software license",
+		},
+	}
 
 	app.Commands = []cli.Command{
 		{

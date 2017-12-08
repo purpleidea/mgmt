@@ -6,6 +6,7 @@
 old/
 tmp/
 *_stringer.go
+bindata/*.go
 mgmt
 mgmt.static
 mgmt.iml

@@ -78,7 +78,8 @@ ret=$?
 if [[ $ret != 0 ]]; then
 	go get golang.org/x/tools/cmd/vet      # add in `go vet` for travis
 fi
-go get golang.org/x/tools/cmd/stringer	# for automatic stringer-ing
-go get github.com/golang/lint/golint	# for `golint`-ing
+go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
+go get github.com/jteeuwen/go-bindata/go-bindata	# for compiling in non golang files
+go get github.com/golang/lint/golint			# for `golint`-ing
 go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(which gometalinter.v1))/gometalinter.v1" "$(dirname $(which gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
 cd "$XPWD" >/dev/null

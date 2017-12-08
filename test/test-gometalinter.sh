@@ -43,7 +43,7 @@ gometalinter="$gml"
 
 # loop through directories in an attempt to scan each go package
 # TODO: lint the *.go examples as individual files and not as a single *.go
-for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -not -path './tmp/*' -not -path './tmp' -not -path './.*' -not -path './vendor/*' -not -path './examples/*' -not -path './test/*'`; do
+for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -not -path './tmp/*' -not -path './tmp' -not -path './.*' -not -path './vendor/*' -not -path './bindata/*'-not -path ' ./examples/*' -not -path './test/*'`; do
 	match="$dir/*.go"
 	#echo "match is: $match"
 	if ! ls $match &>/dev/null; then

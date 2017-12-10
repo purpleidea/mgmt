@@ -156,6 +156,15 @@ type AwsEc2Res struct {
 	// for documantation and examples.
 	UserData string `yaml:"userdata"`
 
+	// PublicIPv4 is reserved for the instance's public IPv4 address and is
+	// updated by CheckApply() whenever it is run. This is a read-only
+	// parameter.
+	PublicIPv4 string
+	// PrivateIPv4 is reserved for the instance's private IPv4 address and
+	// is updated by CheckApply() whenever it is run. This is a read-only
+	// parameter.
+	PrivateIPv4 string
+
 	client *ec2.EC2 // client session for AWS API calls
 
 	snsClient *sns.SNS // client for AWS SNS API calls
@@ -657,6 +666,12 @@ func (obj *AwsEc2Res) snsWatch() error {
 func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 	log.Printf("%s: CheckApply(%t)", obj, apply)
 
+	var instanceID *string
+
+	// clear any IP addresses we've stored for send/recv.
+	obj.PublicIPv4 = ""
+	obj.PrivateIPv4 = ""
+
 	diInput := ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			{
@@ -678,24 +693,36 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error describing instances")
 	}
+	if len(diOutput.Reservations) > 1 {
+		return false, fmt.Errorf("too many reservations")
+	}
 
 	if len(diOutput.Reservations) < 1 && obj.State == "terminated" {
 		return true, nil
 	}
-	if len(diOutput.Reservations) == 1 && *diOutput.Reservations[0].Instances[0].State.Name == obj.State {
-		return true, nil
+	if len(diOutput.Reservations) == 1 {
+		// save the public ip to the struct for resources to receive.
+		if diOutput.Reservations[0].Instances[0].PublicIpAddress != nil {
+			obj.PublicIPv4 = *diOutput.Reservations[0].Instances[0].PublicIpAddress
+		}
+		// save the private ip to the struct for resources to receive.
+		if diOutput.Reservations[0].Instances[0].PrivateIpAddress != nil {
+			obj.PrivateIPv4 = *diOutput.Reservations[0].Instances[0].PrivateIpAddress
+		}
+
+		// if the instance state is correct, we're done.
+		if *diOutput.Reservations[0].Instances[0].State.Name == obj.State {
+			return true, nil
+		}
 	}
 	if !apply {
 		return false, nil
 	}
 
-	if len(diOutput.Reservations) > 1 {
-		return false, fmt.Errorf("too many reservations")
-	}
 	ctx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
 	defer cancel()
 	if len(diOutput.Reservations) == 1 {
-		instanceID := diOutput.Reservations[0].Instances[0].InstanceId
+		instanceID = diOutput.Reservations[0].Instances[0].InstanceId
 		describeInput := &ec2.DescribeInstancesInput{
 			InstanceIds: []*string{instanceID},
 		}
@@ -793,8 +820,11 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 		if err != nil {
 			return false, errwrap.Wrapf(err, "could not create instance")
 		}
+		if len(runResult.Instances) == 1 {
+			instanceID = runResult.Instances[0].InstanceId
+		}
 		_, err = obj.client.CreateTags(&ec2.CreateTagsInput{
-			Resources: []*string{runResult.Instances[0].InstanceId},
+			Resources: []*string{instanceID},
 			Tags: []*ec2.Tag{
 				{
 					Key:   aws.String("Name"),
@@ -807,7 +837,7 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 		}
 
 		describeInput := &ec2.DescribeInstancesInput{
-			InstanceIds: []*string{runResult.Instances[0].InstanceId},
+			InstanceIds: []*string{instanceID},
 		}
 		err = obj.client.WaitUntilInstanceRunningWithContext(ctx, describeInput)
 		if err != nil {
@@ -820,6 +850,29 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 		}
 		log.Printf("%s: instance running", obj)
 	}
+
+	// clear any IP addresses we've stored for send/recv.
+	obj.PublicIPv4 = ""
+	obj.PrivateIPv4 = ""
+
+	// get the latest instance info.
+	ipInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	ipOutput, err := obj.client.DescribeInstances(ipInput)
+	if err != nil {
+		return false, errwrap.Wrapf(err, "error describing instances")
+	}
+
+	// save the public ip to the struct for resources to receive.
+	if len(ipOutput.Reservations) == 1 && ipOutput.Reservations[0].Instances[0].PublicIpAddress != nil {
+		obj.PublicIPv4 = *ipOutput.Reservations[0].Instances[0].PublicIpAddress
+	}
+	// save the private ip to the struct for resources to receive.
+	if len(ipOutput.Reservations) == 1 && ipOutput.Reservations[0].Instances[0].PrivateIpAddress != nil {
+		obj.PrivateIPv4 = *ipOutput.Reservations[0].Instances[0].PrivateIpAddress
+	}
+
 	return false, nil
 }
 

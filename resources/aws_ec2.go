@@ -656,170 +656,66 @@ func (obj *AwsEc2Res) snsWatch() error {
 // CheckApply method for AwsEc2 resource.
 func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 	log.Printf("%s: CheckApply(%t)", obj, apply)
+	defer func() {
+		log.Printf("%s: CheckApply Done", obj)
+	}()
 
-	diInput := ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("tag:Name"),
-				Values: []*string{aws.String(obj.prependName())},
-			},
-			{
-				Name: aws.String("instance-state-name"),
-				Values: []*string{
-					aws.String("running"),
-					aws.String("pending"),
-					aws.String("stopped"),
-					aws.String("stopping"),
-				},
-			},
-		},
-	}
-	diOutput, err := obj.client.DescribeInstances(&diInput)
+	// find the instance we need to check.
+	instance, err := describeInstanceByName(obj.client, obj.prependName())
 	if err != nil {
-		return false, errwrap.Wrapf(err, "error describing instances")
+		return false, errwrap.Wrapf(err, "error describing instance")
 	}
 
-	if len(diOutput.Reservations) < 1 && obj.State == "terminated" {
+	// If instance is nil, that means it's in a transitional state (pending,
+	// stopping, shutting-down), because an action was performed externally.
+	// We need to wait until the instance converges into a running, stopped,
+	// or terminated state, at which point we will receive an event.
+	if instance == nil {
+		log.Printf("%s: Could not apply, waiting for state to converge.", obj)
+		return false, nil
+	}
+
+	// if the instance is in the correct state, we're done.
+	if aws.StringValue(instance.State.Name) == obj.State {
 		return true, nil
 	}
-	if len(diOutput.Reservations) == 1 && *diOutput.Reservations[0].Instances[0].State.Name == obj.State {
-		return true, nil
-	}
+
 	if !apply {
 		return false, nil
 	}
 
-	if len(diOutput.Reservations) > 1 {
-		return false, fmt.Errorf("too many reservations")
+	// begin apply
+	if aws.StringValue(instance.State.Name) == ec2.InstanceStateNameTerminated {
+		// if the instance is terminated and should be running, create it.
+		if obj.State == ec2.InstanceStateNameRunning {
+			instance, err = launchInstance(obj)
+			if err != nil {
+				return false, errwrap.Wrapf(err, "error launching instance")
+			}
+		}
+		// if we've launched it, or it should not be running, we're done.
+		return false, nil
 	}
-	ctx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
-	defer cancel()
-	if len(diOutput.Reservations) == 1 {
-		instanceID := diOutput.Reservations[0].Instances[0].InstanceId
-		describeInput := &ec2.DescribeInstancesInput{
-			InstanceIds: []*string{instanceID},
-		}
-		if len(diOutput.Reservations[0].Instances) > 1 {
-			return false, fmt.Errorf("more than one instance was returned")
-		}
-		if obj.State == "running" {
-			startInput := &ec2.StartInstancesInput{
-				InstanceIds: []*string{instanceID},
-			}
-			_, err := obj.client.StartInstances(startInput)
-			if err != nil {
-				// If the instance is not in a state where it
-				// can be started, we can't do anything.
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == AwsErrIncorrectInstanceState {
-						return false, nil
-					}
-				}
-				return false, errwrap.Wrapf(err, "error starting instance")
-			}
-			if err := obj.client.WaitUntilInstanceRunningWithContext(ctx, describeInput); err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == request.CanceledErrorCode {
-						return false, errwrap.Wrapf(err, "timeout while waiting for instance to start")
-					}
-				}
-				return false, errwrap.Wrapf(err, "unknown error waiting for instance to start")
-			}
-			log.Printf("%s: instance running", obj)
-		}
-		if obj.State == "stopped" {
-			stopInput := &ec2.StopInstancesInput{
-				InstanceIds: []*string{instanceID},
-			}
-			_, err := obj.client.StopInstances(stopInput)
-			if err != nil {
-				// If the instance is not in a state where it
-				// can be stopped, we can't do anything.
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == AwsErrIncorrectInstanceState {
-						return false, nil
-					}
-				}
-				return false, errwrap.Wrapf(err, "error stopping instance")
-			}
-			if err := obj.client.WaitUntilInstanceStoppedWithContext(ctx, describeInput); err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == request.CanceledErrorCode {
-						return false, errwrap.Wrapf(err, "timeout while waiting for instance to stop")
-					}
-				}
-				return false, errwrap.Wrapf(err, "unknown error waiting for instance to stop")
-			}
-			log.Printf("%s: instance stopped", obj)
-		}
-		if obj.State == "terminated" {
-			terminateInput := &ec2.TerminateInstancesInput{
-				InstanceIds: []*string{instanceID},
-			}
-			_, err := obj.client.TerminateInstances(terminateInput)
-			if err != nil {
-				// If the instance is not in a state where it
-				// can be terminated, we can't do anything.
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == "IncorrectInstanceState" {
-						return false, nil
-					}
-				}
-				return false, errwrap.Wrapf(err, "error terminating instance")
-			}
-			if err := obj.client.WaitUntilInstanceTerminatedWithContext(ctx, describeInput); err != nil {
-				if aerr, ok := err.(awserr.Error); ok {
-					if aerr.Code() == request.CanceledErrorCode {
-						return false, errwrap.Wrapf(err, "timeout while waiting for instance to terminate")
-					}
-				}
-				return false, errwrap.Wrapf(err, "unknown error waiting for instance to terminate")
-			}
-			log.Printf("%s: instance terminated", obj)
-		}
-	}
-	if len(diOutput.Reservations) < 1 && obj.State == "running" {
-		runParams := &ec2.RunInstancesInput{
-			ImageId:      aws.String(obj.ImageID),
-			InstanceType: aws.String(obj.Type),
-		}
-		runParams.SetMinCount(1)
-		runParams.SetMaxCount(1)
-		if obj.UserData != "" {
-			userData := base64.StdEncoding.EncodeToString([]byte(obj.UserData))
-			runParams.SetUserData(userData)
-		}
-		runResult, err := obj.client.RunInstances(runParams)
-		if err != nil {
-			return false, errwrap.Wrapf(err, "could not create instance")
-		}
-		_, err = obj.client.CreateTags(&ec2.CreateTagsInput{
-			Resources: []*string{runResult.Instances[0].InstanceId},
-			Tags: []*ec2.Tag{
-				{
-					Key:   aws.String("Name"),
-					Value: aws.String(obj.prependName()),
-				},
-			},
-		})
-		if err != nil {
-			return false, errwrap.Wrapf(err, "could not create tags for instance")
-		}
 
-		describeInput := &ec2.DescribeInstancesInput{
-			InstanceIds: []*string{runResult.Instances[0].InstanceId},
-		}
-		err = obj.client.WaitUntilInstanceRunningWithContext(ctx, describeInput)
+	// if we haven't returned yet, perform the appropriate action.
+	switch obj.State {
+	case ec2.InstanceStateNameRunning:
+		instance, err = startInstance(obj.client, instance.InstanceId)
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				if aerr.Code() == request.CanceledErrorCode {
-					return false, errwrap.Wrapf(err, "timeout while waiting for instance to start")
-				}
-			}
-			return false, errwrap.Wrapf(err, "unknown error waiting for instance to start")
+			return false, errwrap.Wrapf(err, "error starting instance")
 		}
-		log.Printf("%s: instance running", obj)
+	case ec2.InstanceStateNameStopped:
+		instance, err = stopInstance(obj.client, instance.InstanceId)
+		if err != nil {
+			return false, errwrap.Wrapf(err, "error stopping instance")
+		}
+	case ec2.InstanceStateNameTerminated:
+		instance, err = terminateInstance(obj.client, instance.InstanceId)
+		if err != nil {
+			return false, errwrap.Wrapf(err, "error terminating instance")
+		}
 	}
+
 	return false, nil
 }
 
@@ -910,6 +806,78 @@ func (obj *AwsEc2Res) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 func (obj *AwsEc2Res) prependName() string {
 	return AwsPrefix + obj.GetName()
+}
+
+// describeInstanceByName takes an ec2 client session and an instance name, and
+// returns a *ec2.Instance or an error.
+func describeInstanceByName(c *ec2.EC2, name string) (*ec2.Instance, error) {
+	// get any instance with the specified name, that isn't terminated.
+	diInput := &ec2.DescribeInstancesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: []*string{aws.String(name)},
+			},
+			{
+				Name: aws.String("instance-state-name"),
+				Values: []*string{
+					aws.String(ec2.InstanceStateNameRunning),
+					aws.String(ec2.InstanceStateNamePending),
+					aws.String(ec2.InstanceStateNameStopped),
+					aws.String(ec2.InstanceStateNameStopping),
+				},
+			},
+		},
+	}
+	diOutput, err := c.DescribeInstances(diInput)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error describing instances")
+	}
+
+	// error if we get more than one reservation.
+	if len(diOutput.Reservations) > 1 {
+		return nil, fmt.Errorf("too many reservations")
+	}
+	// error if we got a reservation without exactly one instance.
+	if len(diOutput.Reservations) != 0 && len(diOutput.Reservations[0].Instances) != 1 {
+		return nil, fmt.Errorf("wrong number of instances")
+	}
+
+	// if we didn't find an instance, we consider it 'terminated'.
+	if len(diOutput.Reservations) == 0 {
+		return &ec2.Instance{
+			State: &ec2.InstanceState{
+				Name: aws.String(ec2.InstanceStateNameTerminated),
+			},
+		}, nil
+	}
+
+	// if we got one, return it.
+	return diOutput.Reservations[0].Instances[0], nil
+}
+
+// describeInstanceByID takes an ec2 client session and a pointer to an
+// instanceID, and returns an *ec2.Instance or an error.
+func describeInstanceByID(c *ec2.EC2, instanceID *string) (*ec2.Instance, error) {
+	// get any instance with the specified name, that isn't terminated.
+	diInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	diOutput, err := c.DescribeInstances(diInput)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error describing instances")
+	}
+
+	// error if we didn't find exactly one reservation with one instance.
+	if len(diOutput.Reservations) != 1 {
+		return nil, fmt.Errorf("wrong number of reservations")
+	}
+	if len(diOutput.Reservations[0].Instances) != 1 {
+		return nil, fmt.Errorf("wrong number of instances")
+	}
+
+	// if we got one, return it.
+	return diOutput.Reservations[0].Instances[0], nil
 }
 
 // longpollRunningWaiter waits for the instance to stop and waits for it to
@@ -1492,4 +1460,174 @@ func (obj *AwsEc2Res) Close() error {
 		errList = multierr.Append(errList, err) // list of errors
 	}
 	return errList
+}
+
+// launchInstance creates and starts an ec2 instance with the specified input.
+func launchInstance(obj *AwsEc2Res) (*ec2.Instance, error) {
+	// create a context to cancel the waiter if it takes too long.
+	ctx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
+	defer cancel()
+
+	// launch the instance
+	runInput := &ec2.RunInstancesInput{
+		ImageId:      aws.String(obj.ImageID),
+		InstanceType: aws.String(obj.Type),
+		MinCount:     aws.Int64(1),
+		MaxCount:     aws.Int64(1),
+		UserData:     aws.String(obj.UserData),
+	}
+	runOutput, err := obj.client.RunInstances(runInput)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create instance")
+	}
+
+	// error if runInstances doesn't return exactly one instance.
+	if len(runOutput.Instances) != 1 {
+		return nil, fmt.Errorf("incorrect number of instances")
+	}
+
+	// add the name tag
+	ctInput := &ec2.CreateTagsInput{
+		Resources: []*string{runOutput.Instances[0].InstanceId},
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: aws.String(obj.prependName()),
+			},
+		},
+	}
+	_, err = obj.client.CreateTags(ctInput)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create name tag")
+	}
+
+	// wait until it's running before we return.
+	waitInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{runOutput.Instances[0].InstanceId},
+	}
+	err = obj.client.WaitUntilInstanceRunningWithContext(ctx, waitInput)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == request.CanceledErrorCode {
+				return nil, errwrap.Wrapf(err, "timeout while waiting for instance to start")
+			}
+		}
+		return nil, errwrap.Wrapf(err, "error waiting for instance to start")
+	}
+
+	return describeInstanceByID(obj.client, runOutput.Instances[0].InstanceId)
+}
+
+// startInstance starts the instance whose instanceID matches the input.
+func startInstance(c *ec2.EC2, instanceID *string) (*ec2.Instance, error) {
+	// create a context to cancel the waiter if it takes too long.
+	ctx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
+	defer cancel()
+
+	// start the instance
+	startInput := &ec2.StartInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	_, err := c.StartInstances(startInput)
+	if err != nil {
+		// If the instance is not in a state where it can be started,
+		// there's nothing we can do until its state converges.
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == AwsErrIncorrectInstanceState {
+				return nil, nil
+			}
+		}
+		return nil, errwrap.Wrapf(err, "error starting instance")
+	}
+
+	// wait until it's running before we return.
+	diInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	if err := c.WaitUntilInstanceRunningWithContext(ctx, diInput); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == request.CanceledErrorCode {
+				return nil, errwrap.Wrapf(err, "timeout while waiting for instance to start")
+			}
+		}
+		return nil, errwrap.Wrapf(err, "error waiting for instance to start")
+	}
+
+	return describeInstanceByID(c, instanceID)
+}
+
+// stopInstance stops the instance whose instanceID matches the input.
+func stopInstance(c *ec2.EC2, instanceID *string) (*ec2.Instance, error) {
+	// create a context to cancel the waiter if it takes too long.
+	ctx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
+	defer cancel()
+
+	// stop the instance
+	stopInput := &ec2.StopInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	_, err := c.StopInstances(stopInput)
+	if err != nil {
+		// If the instance is not in a state where it can be stopped,
+		// there's nothing we can do until its state converges.
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == AwsErrIncorrectInstanceState {
+				return nil, nil
+			}
+		}
+		return nil, errwrap.Wrapf(err, "error stopping instance")
+	}
+
+	// wait until it's stopped before we return.
+	diInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	if err := c.WaitUntilInstanceStoppedWithContext(ctx, diInput); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == request.CanceledErrorCode {
+				return nil, errwrap.Wrapf(err, "timeout while waiting for instance to stop")
+			}
+		}
+		return nil, errwrap.Wrapf(err, "error waiting for instance to stop")
+	}
+
+	return describeInstanceByID(c, instanceID)
+}
+
+// terminateInstance terminates the instance whose instanceID matches the input.
+func terminateInstance(c *ec2.EC2, instanceID *string) (*ec2.Instance, error) {
+	// create a context to cancel the waiter if it takes too long.
+	ctx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
+	defer cancel()
+
+	// terminate the instance
+	terminateInput := &ec2.TerminateInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	_, err := c.TerminateInstances(terminateInput)
+	if err != nil {
+		// If the instance is not in a state where it can be terminated,
+		// there's nothing we can do until its state converges.
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == AwsErrIncorrectInstanceState {
+				return nil, nil
+			}
+		}
+		return nil, errwrap.Wrapf(err, "error terminating instance")
+	}
+
+	// wait until it's terminated before we return.
+	diInput := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{instanceID},
+	}
+	if err := c.WaitUntilInstanceTerminatedWithContext(ctx, diInput); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == request.CanceledErrorCode {
+				return nil, errwrap.Wrapf(err, "timeout while waiting for instance to terminate")
+			}
+		}
+		return nil, errwrap.Wrapf(err, "error waiting for instance to terminate")
+	}
+
+	return describeInstanceByID(c, instanceID)
 }

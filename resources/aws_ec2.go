@@ -176,6 +176,11 @@ type AwsEc2Res struct {
 	awsChan   chan *chanStruct // channel used to send events and errors to Watch()
 	closeChan chan struct{}    // channel used to cancel context when it's time to shut down
 	wg        *sync.WaitGroup  // waitgroup for goroutines in Watch()
+
+	// store read-only values for send/recv.
+	PublicIPv4  string
+	PrivateIPv4 string
+	InstanceID  string
 }
 
 // chanStruct defines the type for a channel used to pass events and errors to watch.
@@ -683,6 +688,14 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
 	if instance == nil {
 		return false, fmt.Errorf("instance is nil")
 	}
+
+	// store useful send/recv values when we return
+	defer func() {
+		// safely dereference the pointers (nil becomes "")
+		obj.PublicIPv4 = aws.StringValue(instance.PublicIpAddress)
+		obj.PrivateIPv4 = aws.StringValue(instance.PrivateIpAddress)
+		obj.InstanceID = aws.StringValue(instance.InstanceId)
+	}()
 
 	// If the instance is in a transitional state, Watch will send a new event
 	// when the instance finishes its transition. Since we can't apply the

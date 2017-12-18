@@ -378,3 +378,45 @@ func TestCurrentUserGroupById(t *testing.T) {
 		t.Errorf("gid didn't match current user's: %s vs %s", strconv.Itoa(gid), currentGID)
 	}
 }
+
+func TestStrSortedSliceCompare0(t *testing.T) {
+	slice1 := []string{"foo", "bar", "baz"}
+	slice2 := []string{"bar", "foo", "baz"}
+
+	if err := StrSortedSliceCompare(slice1, slice2); err != nil {
+		t.Errorf("slices were not evaluated as equivalent: %v, %v", slice1, slice2)
+	}
+}
+
+func TestStrSortedSliceCompare1(t *testing.T) {
+	slice1 := []string{"foo", "bar", "baz"}
+	slice2 := []string{"fi", "fi", "fo"}
+
+	if err := StrSortedSliceCompare(slice1, slice2); err == nil {
+		t.Errorf("slices were evaluated as equivalent: %v, %v", slice1, slice2)
+	}
+}
+
+func TestStrSortedSliceCompare2(t *testing.T) {
+	slice1 := []string{"foo", "bar", "baz"}
+	slice2 := []string{"foo", "bar"}
+
+	if err := StrSortedSliceCompare(slice1, slice2); err == nil {
+		t.Errorf("slices were evaluated as equivalent: %v, %v", slice1, slice2)
+	}
+}
+
+func TestStrSortedSliceCompare3(t *testing.T) {
+	slice0 := []string{"foo", "bar", "baz"}
+	slice1 := []string{"zip", "zap", "zop"}
+
+	_ = StrSortedSliceCompare(slice0, slice1)
+
+	if slice0[0] != "foo" || slice0[1] != "bar" || slice0[2] != "baz" {
+		t.Errorf("input slice reordered to: %v", slice0)
+	}
+
+	if slice1[0] != "zip" || slice1[1] != "zap" || slice1[2] != "zop" {
+		t.Errorf("input slice reordered to: %v", slice1)
+	}
+}

@@ -1,0 +1,4 @@
+net "eth0" {
+	state => "up",
+	dhcp => true,
+}

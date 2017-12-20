@@ -12,6 +12,9 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
+[*.sh]
+indent_style = tab
+
 [*.go]
 indent_style = tab
 

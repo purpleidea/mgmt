@@ -89,19 +89,20 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 // ParseConfigFromPuppet takes a special puppet param string and config and
 // returns the graph configuration structure.
 func ParseConfigFromPuppet(puppetParam, puppetConf string) *yamlgraph.GraphConfig {
-	var puppetConfArg string
-	if puppetConf != "" {
-		puppetConfArg = "--config=" + puppetConf
+	var args []string
+	if puppetParam == "agent" {
+		args = []string{"mgmtgraph", "print"}
+	} else if strings.HasSuffix(puppetParam, ".pp") {
+		args = []string{"mgmtgraph", "print", "--manifest", puppetParam}
+	} else {
+		args = []string{"mgmtgraph", "print", "--code", puppetParam}
 	}
 
-	var cmd *exec.Cmd
-	if puppetParam == "agent" {
-		cmd = exec.Command("puppet", "mgmtgraph", "print", puppetConfArg)
-	} else if strings.HasSuffix(puppetParam, ".pp") {
-		cmd = exec.Command("puppet", "mgmtgraph", "print", puppetConfArg, "--manifest", puppetParam)
-	} else {
-		cmd = exec.Command("puppet", "mgmtgraph", "print", puppetConfArg, "--code", puppetParam)
+	if puppetConf != "" {
+		args = append(args, "--config="+puppetConf)
 	}
+
+	cmd := exec.Command("puppet", args...)
 
 	log.Println("Puppet: launching translator")
 

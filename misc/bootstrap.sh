@@ -18,6 +18,24 @@ echo "Press ^C within 3s to abort."
 sleep 3s
 smitty git clean -ffd
 
+# Add an "upstream" git remote.
+UPSTREAM_URI="https://github.com/purpleidea/mgmt.git"
+if git remote show upstream 2> /dev/null | grep "${UPSTREAM_URI}" &> /dev/null; then
+	info upstream git remote is OK
+else
+	git remote rm upstream &> /dev/null || :
+	warn "Setting upstream remote."
+	smitty git remote add upstream "${UPSTREAM_URI}"
+fi
+
+# Allow to easily checkout Pull Requests (PRs) locally.
+if [[ "$(git config --list)" =~ remote.upstream.fetch=\+refs/pull/\*/head:refs/remotes/upstream/pr/\* ]]; then
+	info config to fetch upstream PR is OK
+else
+	warn "Configuring git to fetch pull requests. See \"misc/checkout-pr.sh\" for info."
+	smitty git config --add remote.upstream.fetch '+refs/pull/*/head:refs/remotes/upstream/pr/*'
+fi
+
 # Install a specific version of gometalinter.
 smitty go get -u gopkg.in/alecthomas/gometalinter.v1
 dir="$(dirname $(which gometalinter.v1))"

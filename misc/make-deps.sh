@@ -69,22 +69,10 @@ if [ $travis -eq 0 ]; then
 	fi
 fi
 
-# if golang is too old, we don't want to fail with an obscure error later
-if go version | grep 'go1\.[012345]\.'; then
-	echo "mgmt requires go1.6 or higher."
-	exit 1
-fi
+# Install dependencies that do not require sudo.
+misc/bootstrap.sh
 
-go get -d ./...	# get all the go dependencies
-[ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
-# vet is built-in in go 1.6 - we check for go vet command
-go vet 1> /dev/null 2>&1
-ret=$?
-if [[ $ret != 0 ]]; then
-	go get golang.org/x/tools/cmd/vet      # add in `go vet` for travis
-fi
-go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
-go get github.com/jteeuwen/go-bindata/go-bindata	# for compiling in non golang files
-go get github.com/golang/lint/golint			# for `golint`-ing
-go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(which gometalinter.v1))/gometalinter.v1" "$(dirname $(which gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
+# Fail if any dependencies are missing.
+misc/validate-dependencies.sh
+
 cd "$XPWD" >/dev/null

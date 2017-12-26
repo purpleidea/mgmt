@@ -11,6 +11,12 @@ set -o pipefail
 info "Environment variables:"
 indent "$(env)"
 
+# Install dependencies that do not need root.
+misc/bootstrap.sh
+
+# Fail if any dependencies are missing.
+misc/validate-dependencies.sh
+
 # ensure there is no trailing whitespace or other whitespace errors
 run-test git diff-tree --check $(git hash-object -t tree /dev/null) HEAD
 

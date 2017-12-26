@@ -31,39 +31,40 @@ if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then
 	exit 1
 fi
 
-if [ ! -z "$YUM" ]; then
+if [[ -n "$YUM" ]]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
-
 fi
-if [ ! -z "$APT" ]; then
+
+if [[ -n "$APT" ]]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
 fi
 
-if [ ! -z "$BREW" ]; then
+if [[ -n "$BREW" ]]; then
 	$BREW install libvirt || true
 fi
 
-if [ ! -z "$PACMAN" ]; then
+if [[ -n "$PACMAN" ]]; then
 	$sudo_command $PACMAN -S --noconfirm libvirt augeas libpcap
 fi
 
 if [ $travis -eq 0 ]; then
-	if [ ! -z "$YUM" ]; then
+	if [[ -n "$YUM" ]]; then
 		# some go dependencies are stored in mercurial
 		$sudo_command $YUM install -y golang golang-googlecode-tools-stringer hg
-
 	fi
-	if [ ! -z "$APT" ]; then
+
+	if [[ -n "$APT" ]]; then
 		$sudo_command $APT update
 		$sudo_command $APT install -y golang make gcc packagekit mercurial
 		# one of these two golang tools packages should work on debian
 		$sudo_command $APT install -y golang-golang-x-tools || true
 		$sudo_command $APT install -y golang-go.tools || true
 	fi
-	if [ ! -z "$PACMAN" ]; then
+
+	if [[ -n "$PACMAN" ]]; then
 		$sudo_command $PACMAN -S --noconfirm go
 	fi
 fi

@@ -61,5 +61,21 @@ while IFS='' read -r -d '' file; do
 		err "$file needs \". test/util.sh\""
 		RC=1
 	fi
+
+	output="$(git grep '[i]f .*\! -n' || :)"
+	if [[ -n "${output}" ]]; then
+		# Avoid double-negatives.
+		err "Use '-z' instead of '! -n'"
+		indent "${output}"
+		RC=1
+	fi
+
+	output="$(git grep '[i]f .*\! -z' || :)"
+	if [[ -n "${output}" ]]; then
+		# Avoid double-negatives.
+		err "Use '-n' instead of '! -z'"
+		indent "${output}"
+		RC=1
+	fi
 done < <(git ls-files -z)
 exit $RC

@@ -110,6 +110,9 @@ commits=""
 if [[ -n "${TRAVIS_PULL_REQUEST_SHA:-""}" ]]; then
 	commits="$(git log --format=%H origin/"${TRAVIS_BRANCH}".."${TRAVIS_PULL_REQUEST_SHA}")"
 	[[ -n "$commits" ]]
+elif [[ -n "$(git show --pretty=%h --no-patch upstream/master)" ]]; then
+	# If the user has run "misc/bootstrap.sh", upstream/master is a valid treeish.
+	commits="$(git log --format=%H upstream/master..)"
 else
 	warn "Unable to find commit range; skipping commit messages."
 fi

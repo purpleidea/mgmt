@@ -1,4 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
 if env | grep -q -e '^TRAVIS=true$'; then
 	# inotify doesn't seem to work properly on travis
@@ -7,7 +10,7 @@ if env | grep -q -e '^TRAVIS=true$'; then
 fi
 
 # run till completion
-$timeout --kill-after=15s 10s ./mgmt run --yaml t2.yaml --converged-timeout=5 --no-watch --tmp-prefix &
+$timeout --kill-after=15s 10s ./mgmt run --yaml test/shell/t2.yaml --converged-timeout=5 --no-watch --tmp-prefix &
 pid=$!
 wait $pid	# get exit status
 e=$?

@@ -1,4 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
 # FIXME: test for #124 --- Disabled for now
 
@@ -7,7 +10,7 @@ exit 0
 mkdir -p /tmp/mgmt/a/b/c/
 
 # run empty graph, with prometheus support
-$timeout --kill-after=40s 35s ./mgmt run --tmp-prefix --yaml=examples/deep-dirs.yaml &
+$timeout --kill-after=40s 35s ./mgmt run --tmp-prefix --yaml=test/shell/examples/deep-dirs.yaml &
 pid=$!
 sleep 5s	# let it converge
 
@@ -28,4 +31,3 @@ grep f1 /tmp/mgmt/a/b/c/f1
 
 killall -SIGINT mgmt	# send ^C to exit mgmt
 wait $pid	# get exit status
-exit $?

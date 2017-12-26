@@ -1,97 +1,130 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
-echo running test-commit-message.sh
+################################################################################
+# Test each commit message.
+################################################################################
 
-travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
+readonly travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
+
+count() {
+	echo "$@" | grep -c "$travis_regex" || :
+}
 
 # Testing the regex itself.
 
+#-------------------------------------------------------------------------------
 # Correct patterns.
-[[ $(echo "foo, bar: Bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "foo: Bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "f1oo, b2ar: Bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "2foo: Bar" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "foo: bar: Barfoo" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "foo: bar, foo: Barfoo" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "foo: bar, foo: Barfoo" | grep -c "$travis_regex") -eq 1 ]]
-[[ $(echo "resources: augeas: New resource" | grep -c "$travis_regex") -eq 1 ]]
+
+[[ $(count "foo, bar: Bar") -eq 1 ]]
+[[ $(count "foo: Bar") -eq 1 ]]
+[[ $(count "f1oo, b2ar: Bar") -eq 1 ]]
+[[ $(count "2foo: Bar") -eq 1 ]]
+[[ $(count "foo: bar: Barfoo") -eq 1 ]]
+[[ $(count "foo: bar, foo: Barfoo") -eq 1 ]]
+[[ $(count "foo: bar, foo: Barfoo") -eq 1 ]]
+[[ $(count "resources: augeas: New resource") -eq 1 ]]
+#===============================================================================
+
+#-------------------------------------------------------------------------------
+# Incorrect patterns.
 
 # Space required after :
-[[ $(echo "foo:bar" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "foo:bar") -eq 0 ]]
 
 # First char must be a a-z0-9
-[[ $(echo ", bar: bar" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count ", bar: bar") -eq 0 ]]
 
 # Last chat before : must be a a-z0-9
-[[ $(echo "foo, : bar" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "foo, : bar") -eq 0 ]]
 
 # Last chat before : must be a a-z0-9
-[[ $(echo "foo,: bar" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "foo,: bar") -eq 0 ]]
 
 # No caps
-[[ $(echo "Foo: bar" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "Foo: bar") -eq 0 ]]
 
 # No dot at the end of the message.
-[[ $(echo "foo: bar." | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "foo: bar.") -eq 0 ]]
 
 # Capitalize the first word after :
-[[ $(echo "foo: bar" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "foo: bar") -eq 0 ]]
 
 # More than one char is required before :
-[[ $(echo "a: bar" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "a: bar") -eq 0 ]]
 
 # Run checks agains multiple :.
-[[ $(echo "a: bar:" | grep -c "$travis_regex") -eq 0 ]]
-[[ $(echo "a: bar, fooX: Barfoo" | grep -c "$travis_regex") -eq 0 ]]
-[[ $(echo "a: bar, foo: barfoo foo: Nope" | grep -c "$travis_regex") -eq 0 ]]
-[[ $(echo "nope a: bar, foo: barfoofoo: Nope" | grep -c "$travis_regex") -eq 0 ]]
+[[ $(count "a: bar:") -eq 0 ]]
+[[ $(count "a: bar, fooX: Barfoo") -eq 0 ]]
+[[ $(count "a: bar, foo: barfoo foo: Nope") -eq 0 ]]
+[[ $(count "nope a: bar, foo: barfoofoo: Nope") -eq 0 ]]
+#===============================================================================
+
+declare -i RC=0
 
 test_commit_message() {
-	echo "Testing commit message $1"
-	if ! git log --format=%s $1 | head -n 1 | grep -q "$travis_regex"
-	then
-		echo "FAIL: Commit message should match the following regex: '$travis_regex'"
-		echo
-		echo "eg:"
-		echo "prometheus: Implement rest api"
-		echo "resources: svc: Fix a race condition with reloads"
-		exit 1
+	declare -r long_hash="$1"
+
+	declare short_hash="$(git show --pretty=%h --no-patch ${long_hash})"
+	readonly short_hash
+
+	declare summary="$(git show --pretty=%s --no-patch ${long_hash})"
+	readonly summary
+
+	info "Testing commit message ${long_hash}"
+
+	if [[ $(count "${summary}") -eq 0 ]]; then
+		err "Commit ${short_hash} does not conform to regex"
+		indent "${summary}"
+		RC=$(( RC | 1 ))
+	fi
+
+	if echo "${summary}" | grep "^resource:" &> /dev/null; then
+		err "Commit ${short_hash} starts with \"resource:\"; did you mean \"resources:\"?"
+		indent "${summary}"
+		RC=$(( RC | 1 ))
+	fi
+
+	if echo "${summary}" | grep -q "^tests:"; then
+		err "Commit ${short_hash} starts with \"tests:\", did you mean \"test:\"?"
+		indent "${summary}"
+		RC=$(( RC | 1 ))
+	fi
+
+	if echo "${summary}" | grep -q "^doc:"; then
+		err "Commit ${short_hash} starts with \"doc:\", did you mean \"docs:\"?"
+		indent "${summary}"
+		RC=$(( RC | 1 ))
+	fi
+
+	if echo "${summary}" | grep -q "^example:"; then
+		err "Commit ${short_hash} starts with \"example:\", did you mean \"examples:\"?"
+		indent "${summary}"
+		RC=$(( RC | 1 ))
 	fi
 }
 
-test_commit_message_common_bugs() {
-	echo "Testing commit message for common bugs $1"
-	if git log --format=%s $1 | head -n 1 | grep -q "^resource:"
-	then
-		echo 'FAIL: Commit message starts with `resource:`, did you mean `resources:` ?'
-		exit 1
-	fi
-	if git log --format=%s $1 | head -n 1 | grep -q "^tests:"
-	then
-		echo 'FAIL: Commit message starts with `tests:`, did you mean `test:` ?'
-		exit 1
-	fi
-	if git log --format=%s $1 | head -n 1 | grep -q "^doc:"
-	then
-		echo 'FAIL: Commit message starts with `doc:`, did you mean `docs:` ?'
-		exit 1
-	fi
-	if git log --format=%s $1 | head -n 1 | grep -q "^example:"
-	then
-		echo 'FAIL: Commit message starts with `example:`, did you mean `examples:` ?'
-		exit 1
-	fi
-}
-
-if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]
-then
-	commits=$(git log --format=%H origin/${TRAVIS_BRANCH}..${TRAVIS_PULL_REQUEST_SHA})
+commits=""
+if [[ -n "${TRAVIS_PULL_REQUEST_SHA:-""}" ]]; then
+	commits="$(git log --format=%H origin/"${TRAVIS_BRANCH}".."${TRAVIS_PULL_REQUEST_SHA}")"
 	[[ -n "$commits" ]]
-
-	for commit in $commits
-	do
-		test_commit_message $commit
-		test_commit_message_common_bugs $commit
-	done
+else
+	warn "Unable to find commit range; skipping commit messages."
 fi
-echo 'PASS'
+
+for commit in $commits; do
+	test_commit_message $commit
+done
+
+if [[ ${RC} -ne 0 ]]; then
+	err "Commit messages should match the following regex:"
+	indent "${travis_regex}"
+	echo
+	indent "Examples:"
+	indent "prometheus: Implement rest api"
+	indent "resources: svc: Fix a race condition with reloads"
+fi
+
+exit ${RC}

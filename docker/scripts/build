@@ -1,4 +1,6 @@
 #!/bin/bash
+set -eEu
+set -o pipefail
 
 script_directory="$( cd "$( dirname "$0" )" && pwd )"
 project_directory=$script_directory/../..

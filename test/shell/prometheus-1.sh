@@ -1,4 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
 # run empty graph, with prometheus support
 $timeout --kill-after=40s 35s ./mgmt run --tmp-prefix --prometheus &
@@ -13,4 +16,3 @@ curl 127.0.0.1:9233/metrics | grep "^go_goroutines [0-9]\+"
 
 killall -SIGINT mgmt	# send ^C to exit mgmt
 wait $pid	# get exit status
-exit $?

@@ -1,4 +1,6 @@
 #!/bin/bash
+set -eEu
+set -o pipefail
 
 _cli_bash_autocomplete_mgmt() {
 	local cur prev opts base

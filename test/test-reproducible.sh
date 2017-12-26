@@ -1,8 +1,11 @@
 #!/bin/bash
-# simple test for reproducibility, probably needs major improvements
-echo running test-reproducible.sh
-set -o errexit
+set -eEu
 set -o pipefail
+. test/util.sh
+
+################################################################################
+# simple test for reproducibility, probably needs major improvements
+################################################################################
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "$DIR" >/dev/null	# work from main mgmt directory
@@ -31,9 +34,7 @@ make clean
 
 # display errors
 if [[ -n "${failures}" ]]; then
-	echo 'FAIL'
-	echo 'The following tests failed:'
-	echo "${failures}"
+	err 'The following tests failed:'
+	indent "${failures}"
 	exit 1
 fi
-echo 'PASS'

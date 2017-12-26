@@ -1,9 +1,12 @@
 #!/bin/bash
-# check that headers are properly formatted
-
+set -eEu
+set -o pipefail
 . test/util.sh
 
-echo running test-headerfmt.sh
+################################################################################
+# check that headers are properly formatted
+################################################################################
+
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 FILE="${ROOT}/main.go"	# file headers should match main.go
 COUNT=0
@@ -28,4 +31,3 @@ bad_files=$(
 if [[ -n "${bad_files}" ]]; then
 	fail_test "The following file headers are not properly formatted: ${bad_files}"
 fi
-echo 'PASS'

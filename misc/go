@@ -1,4 +1,7 @@
 #!/bin/bash
+set -eEu
+set -o pipefail
+
 # hack around stupid $GOPATH semantics, with ~/bin/go helper
 # thanks to Nilium in #go-nuts for 1/3 of the idea
 [ -z "$GOPATH" ] && echo '$GOPATH is not set!' && exit 1

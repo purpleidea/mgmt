@@ -1,4 +1,8 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
+
 # setup a simple go environment
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
@@ -9,13 +13,13 @@ if env | grep -q '^TRAVIS=true$'; then
 	travis=1
 fi
 
-sudo_command=$(which sudo)
+sudo_command="$(command -v sudo || :)"
 
-YUM=`which yum 2>/dev/null`
-DNF=`which dnf 2>/dev/null`
-APT=`which apt-get 2>/dev/null`
-BREW=`which brew 2>/dev/null`
-PACMAN=`which pacman 2>/dev/null`
+YUM="$(command -v yum || :)"
+DNF="$(command -v dnf || :)"
+APT="$(command -v apt-get || :)"
+BREW="$(command -v brew || :)"
+PACMAN="$(command -v pacman || :)"
 
 # if DNF is available use it
 if [ -x "$DNF" ]; then
@@ -23,7 +27,7 @@ if [ -x "$DNF" ]; then
 fi
 
 if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then
-	echo "The package managers can't be found."
+	err "The package managers can't be found."
 	exit 1
 fi
 

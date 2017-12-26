@@ -1,15 +1,11 @@
 #!/bin/bash
-# check that our examples still build, even if we don't run them here
-
+set -eEu
+set -o pipefail
 . test/util.sh
 
-echo running test-examples.sh
-
-failures=''
-function run-test()
-{
-	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
-}
+################################################################################
+# check that our examples still build, even if we don't run them here
+################################################################################
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}"
@@ -35,9 +31,7 @@ cd ..
 rmdir "$tmpdir"	# cleanup
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
-	echo "The following tests (in: ${linkto}) have failed:"
-	echo -e "$failures"
+	err "The following tests (in: ${linkto}) have failed:"
+	indent "$failures"
 	exit 1
 fi
-echo 'PASS'

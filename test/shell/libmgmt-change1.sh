@@ -1,6 +1,9 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
-go build -i -o libmgmt libmgmt-change1.go
+go build -i -o libmgmt test/shell/libmgmt-change1.go
 # this example should change graphs frequently, and then shutdown...
 $timeout --kill-after=30s 20s ./libmgmt &
 pid=$!

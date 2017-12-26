@@ -1,16 +1,12 @@
 #!/bin/bash
-# check a bunch of linters with the gometalinter
-# TODO: run this from the test-golint.sh file instead to check for deltas
-
+set -eEu
+set -o pipefail
 . test/util.sh
 
-echo running test-gometalinter.sh
-
-failures=''
-function run-test()
-{
-	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
-}
+################################################################################
+# check a bunch of linters with the gometalinter
+# TODO: run this from the test-golint.sh file instead to check for deltas
+################################################################################
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}"
@@ -55,9 +51,7 @@ for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -
 done
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
-	echo 'The following tests have failed:'
-	echo -e "$failures"
+	err 'The following tests have failed:'
+	indent "$failures"
 	exit 1
 fi
-echo 'PASS'

@@ -1,15 +1,11 @@
 #!/bin/bash
-# check that go vet passes
-
+set -eEu
+set -o pipefail
 . test/util.sh
 
-echo running test-govet.sh
-
-failures=''
-function run-test()
-{
-	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
-}
+################################################################################
+# check that go vet passes
+################################################################################
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}"
@@ -56,9 +52,7 @@ for file in `find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -
 done
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
-	echo 'The following tests have failed:'
-	echo -e "$failures"
+	err 'The following tests have failed:'
+	indent "$failures"
 	exit 1
 fi
-echo 'PASS'

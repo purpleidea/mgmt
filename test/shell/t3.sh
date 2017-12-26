@@ -1,4 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
 if env | grep -q -e '^TRAVIS=true$'; then
 	# inotify doesn't seem to work properly on travis
@@ -10,11 +13,11 @@ fi
 mkdir -p "${MGMT_TMPDIR}"mgmt{A..C}
 
 # run till completion
-$timeout --kill-after=15s 10s ./mgmt run --yaml t3-a.yaml --converged-timeout=5 --no-watch --tmp-prefix &
+$timeout --kill-after=15s 10s ./mgmt run --yaml test/shell/t3-a.yaml --converged-timeout=5 --no-watch --tmp-prefix &
 pid1=$!
-$timeout --kill-after=15s 10s ./mgmt run --yaml t3-b.yaml --converged-timeout=5 --no-watch --tmp-prefix &
+$timeout --kill-after=15s 10s ./mgmt run --yaml test/shell/t3-b.yaml --converged-timeout=5 --no-watch --tmp-prefix &
 pid2=$!
-$timeout --kill-after=15s 10s ./mgmt run --yaml t3-c.yaml --converged-timeout=5 --no-watch --tmp-prefix &
+$timeout --kill-after=15s 10s ./mgmt run --yaml test/shell/t3-c.yaml --converged-timeout=5 --no-watch --tmp-prefix &
 pid3=$!
 
 wait $pid1	# get exit status
@@ -78,4 +81,4 @@ test ! -e "${MGMT_TMPDIR}"mgmtC/f2a
 test ! -e "${MGMT_TMPDIR}"mgmtC/f1b
 test ! -e "${MGMT_TMPDIR}"mgmtC/f2b
 
-exit $(($e1+$e2+$e3))
+exit $(($e1|$e2|$e3))

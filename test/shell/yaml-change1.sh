@@ -1,4 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
 #if env | grep -q -e '^TRAVIS=true$'; then
 #	# inotify doesn't seem to work properly on travis
@@ -11,20 +14,19 @@ if [ -z $timeout ]; then
 fi
 
 # set the config file
-cp -a yaml-change1a.yaml /tmp/mgmt/yaml-change.yaml
+cp -a test/shell/yaml-change1a.yaml /tmp/mgmt/yaml-change.yaml
 $timeout --kill-after=30s 20s ./mgmt run --yaml /tmp/mgmt/yaml-change.yaml --tmp-prefix &
 pid=$!
 sleep 5s	# let it converge
 grep -q 'hello world' /tmp/mgmt/change1	# check contents are correct
 
-cp -a yaml-change1b.yaml /tmp/mgmt/yaml-change.yaml	# change the config file
+cp -a test/shell/yaml-change1b.yaml /tmp/mgmt/yaml-change.yaml	# change the config file
 sleep 2s	# let it converge
 grep -q 'goodbye world' /tmp/mgmt/change1	# check new contents are correct
 
-cp -a yaml-change1a.yaml /tmp/mgmt/yaml-change.yaml	# change the config file
+cp -a test/shell/yaml-change1a.yaml /tmp/mgmt/yaml-change.yaml	# change the config file
 sleep 2s	# let it converge
 grep -q 'hello world' /tmp/mgmt/change1	# check contents are correct again
 
 killall -SIGINT mgmt	# send ^C to exit mgmt
 wait $pid	# get exit status
-exit $?

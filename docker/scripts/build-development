@@ -1,7 +1,6 @@
 #!/bin/bash
-
-# Stop on any error
-set -e
+set -eEu
+set -o pipefail
 
 script_directory="$( cd "$( dirname "$0" )" && pwd )"
 project_directory=$script_directory/../..

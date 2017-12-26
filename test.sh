@@ -1,14 +1,15 @@
-#!/bin/bash -e
-# test suite...
-echo running test.sh
-echo "ENV:"
-env
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
-failures=''
-function run-test()
-{
-	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
-}
+################################################################################
+# test suite...
+# Invoke as "./test.sh" from the root of the git repo.
+################################################################################
+
+info "Environment variables:"
+indent "$(env)"
 
 # ensure there is no trailing whitespace or other whitespace errors
 run-test git diff-tree --check $(git hash-object -t tree /dev/null) HEAD
@@ -43,9 +44,7 @@ fi
 run-test ./test/test-golint.sh	# test last, because this test is somewhat arbitrary
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
-	echo 'The following tests have failed:'
-	echo -e "$failures"
+	err 'The following tests have failed:'
+	indent "$failures"
 	exit 1
 fi
-echo 'ALL PASSED'

@@ -1,9 +1,12 @@
 #!/bin/bash
-# check that go lint passes or doesn't get worse by some threshold
-
+set -eEu
+set -o pipefail
 . test/util.sh
 
-echo running test-golint.sh
+################################################################################
+# check that go lint passes or doesn't get worse by some threshold
+################################################################################
+
 # TODO: replace with gometalinter instead of plain golint
 # TODO: output a diff of what has changed in the golint output
 # FIXME: test a range of commits, since only the last patch is checked here
@@ -26,8 +29,11 @@ fi
 
 LINT=`find . -maxdepth 3 -iname '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './bindata/*' -exec golint {} \;`	# current golint output
 COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch
-[ "$LINT" = "" ] && echo PASS && exit	# everything is "perfect"
-echo "$LINT"	# display the issues
+if [[ -z "$LINT" ]]; then
+	exit
+else
+	echo "$LINT"
+fi
 
 T=`mktemp --tmpdir -d tmp.X'X'X`	# add quotes to avoid matching three X's
 [ "$T" = "" ] && fail_test "Could not create tmpdir"
@@ -68,4 +74,3 @@ if [ "$DELTA" -gt "$THRESHOLD" ]; then
 	echo "Maximum threshold is: $THRESHOLD %"
 	fail_test "`golint` - FAILED"
 fi
-echo 'PASS'

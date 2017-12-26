@@ -1,5 +1,7 @@
-#!/bin/bash -e
-# vim: noet:ts=8:sts=8:sw=8
+#!/bin/bash
+set -eEu
+set -o pipefail
+. test/util.sh
 
 set -x
 
@@ -9,7 +11,7 @@ if ! timeout 1s sudo -A true; then
 fi
 
 # run till completion
-timeout --kill-after=30s 25s sudo -A ./mgmt run --yaml file-owner.yaml --converged-timeout=5 --no-watch --tmp-prefix &
+$timeout --kill-after=30s 25s sudo -A ./mgmt run --yaml test/shell/file-owner.yaml --converged-timeout=5 --no-watch --tmp-prefix &
 pid=$!
 wait $pid	# get exit status
 e=$?

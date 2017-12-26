@@ -26,7 +26,7 @@ if [ -x "$DNF" ]; then
 	YUM=$DNF
 fi
 
-if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then
+if [[ -z "$YUM" ]] && [[ -z "$APT" ]] && [[ -z "$BREW" ]] && [[ -z "$PACMAN" ]]; then
 	err "The package managers can't be found."
 	exit 1
 fi

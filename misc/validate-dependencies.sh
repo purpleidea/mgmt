@@ -14,6 +14,7 @@ if go version | grep 'go1\.[012345]\.'; then
 fi
 
 declare -r commands="
+	awk
 	file
 	go
 	goimports

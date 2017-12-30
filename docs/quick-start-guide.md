@@ -8,6 +8,14 @@ probably a good idea to start by reading the
 or to watch an [introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1).
 Once you're familiar with the general idea, please start hacking...
 
+## Prereqs
+
+:warning: Your development environment must meet these requirements.
+
+* `/tmp` is mounted with the `exec` option
+* `/tmp` must have at least 512 MiB of space
+* You must have at least 1 GiB of memory (RAM)
+
 ## Quick start
 
 ### Installing golang

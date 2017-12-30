@@ -3,6 +3,13 @@ set -eEu
 set -o pipefail
 . test/util.sh
 
+# FIXME: execute "go test" outside of /tmp
+# so the test harness works in environments where /tmp is mounted noexec.
+if [[ -n "$(awk '$2 ~ /^\/tmp$/ && $4 ~ /noexec/ {print $0}' /proc/mounts)" ]]; then
+	err "/tmp is mounted noexec; $0 is guaranteed to fail."
+	exit 1
+fi
+
 ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 

@@ -3,8 +3,6 @@ set -eEu
 set -o pipefail
 . test/util.sh
 
-set -x
-
 if ! timeout 1s sudo -A true; then
 	echo "sudo disabled: not checking file owner and group"
 	exit

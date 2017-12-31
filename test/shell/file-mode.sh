@@ -3,8 +3,6 @@ set -eEu
 set -o pipefail
 . test/util.sh
 
-set -x
-
 # run till completion
 $timeout --kill-after=40s 35s ./mgmt run --yaml test/shell/file-mode.yaml --converged-timeout=5 --no-watch --tmp-prefix &
 pid=$!

@@ -22,3 +22,6 @@
 [submodule "vendor/github.com/ugorji/go"]
 	path = vendor/github.com/ugorji/go
 	url = https://github.com/ugorji/go
+[submodule "vendor/ansi"]
+	path = vendor/ansi
+	url = https://github.com/fidian/ansi.git

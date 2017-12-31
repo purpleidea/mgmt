@@ -1,5 +1,7 @@
 # common settings and functions for test scripts
 
+. vendor/ansi/ansi
+
 if [[ $(uname) == "Darwin" ]] ; then
 	export timeout="gtimeout"
 else
@@ -23,19 +25,19 @@ indent() {
 }
 
 err() {
-	echo -e "[ERROR] $*"
+	ansi --red --bold --newline "[ERROR] $*"
 }
 
 fail() {
-	echo -e "[FAIL] $*"
+	ansi --red --bold --newline "[FAIL] $*"
 }
 
 info() {
-	echo -e "[INFO] $*"
+	ansi --white --faint --newline "[INFO] $*"
 }
 
 pass() {
-	echo -e "[PASS] $*"
+	ansi --green --bold --newline "[PASS] $*"
 }
 
 smitty() {
@@ -44,7 +46,7 @@ smitty() {
 }
 
 warn() {
-	echo -e "[WARN] $*"
+	ansi --yellow --bold --newline "[WARN] $*"
 }
 
 is_git_dirty() {

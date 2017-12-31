@@ -11,6 +11,11 @@ set -o pipefail
 info "Environment variables:"
 indent "$(env)"
 
+smitty go version
+
+info "Go environment:"
+indent "$(go env)"
+
 # Install dependencies that do not need root.
 misc/bootstrap.sh
 

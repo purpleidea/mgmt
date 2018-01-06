@@ -469,7 +469,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 			}
 		case msg, ok := <-obj.awsChan:
 			if !ok {
-				return fmt.Errorf("channel closed unexpectedly")
+				return nil
 			}
 			if err := msg.err; err != nil {
 				return err
@@ -650,7 +650,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 			}
 		case msg, ok := <-obj.awsChan:
 			if !ok {
-				return *exit
+				return nil
 			}
 			if err := msg.err; err != nil {
 				return err

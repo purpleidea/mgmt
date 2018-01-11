@@ -46,5 +46,5 @@ git push origin $t
 
 # Be informative.
 GIT_PAGER=cat git diff --stat "$v" "$t"
-if which contrib.sh 2>/dev/null; then contrib.sh "$v"; fi
+if which contrib.sh &>/dev/null; then contrib.sh "$v"; fi
 echo -e "run 'git log $v..$t' to see what has changed since $v"

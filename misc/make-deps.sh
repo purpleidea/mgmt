@@ -9,13 +9,13 @@ if env | grep -q '^TRAVIS=true$'; then
 	travis=1
 fi
 
-sudo_command=$(which sudo)
+sudo_command=$(command -v sudo)
 
-YUM=`which yum 2>/dev/null`
-DNF=`which dnf 2>/dev/null`
-APT=`which apt-get 2>/dev/null`
-BREW=`which brew 2>/dev/null`
-PACMAN=`which pacman 2>/dev/null`
+YUM=`command -v yum 2>/dev/null`
+DNF=`command -v dnf 2>/dev/null`
+APT=`command -v apt-get 2>/dev/null`
+BREW=`command -v brew 2>/dev/null`
+PACMAN=`command -v pacman 2>/dev/null`
 
 # if DNF is available use it
 if [ -x "$DNF" ]; then
@@ -81,5 +81,5 @@ fi
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
 go get github.com/jteeuwen/go-bindata/go-bindata	# for compiling in non golang files
 go get github.com/golang/lint/golint			# for `golint`-ing
-go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(which gometalinter.v1))/gometalinter.v1" "$(dirname $(which gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
+go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
 cd "$XPWD" >/dev/null

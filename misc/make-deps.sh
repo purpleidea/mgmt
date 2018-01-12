@@ -43,7 +43,7 @@ if [ ! -z "$BREW" ]; then
 fi
 
 if [ ! -z "$PACMAN" ]; then
-	$sudo_command $PACMAN -S --noconfirm libvirt augeas libpcap
+	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas libpcap
 fi
 
 if [ $travis -eq 0 ]; then
@@ -60,7 +60,7 @@ if [ $travis -eq 0 ]; then
 		$sudo_command $APT install -y golang-go.tools || true
 	fi
 	if [ ! -z "$PACMAN" ]; then
-		$sudo_command $PACMAN -S --noconfirm go
+		$sudo_command $PACMAN -S --noconfirm --asdeps --needed go
 	fi
 fi
 

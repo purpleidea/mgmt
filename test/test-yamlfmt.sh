@@ -17,7 +17,7 @@ set -o pipefail
 
 ROOT=$(dirname "${BASH_SOURCE}")/..
 
-RUBY=`which ruby 2>/dev/null`
+RUBY=`command -v ruby 2>/dev/null`
 if [ -z $RUBY ]; then
 	fail_test "The 'ruby' utility can't be found."
 fi

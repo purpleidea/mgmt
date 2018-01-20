@@ -2,17 +2,21 @@
 # simple test harness for testing mgmt
 # NOTE: this will rm -rf /tmp/mgmt/
 
+echo running test-shell.sh
+set -o errexit
+set -o pipefail
+
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
 . test/util.sh
+cd - >/dev/null
 
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
 	echo -e "usage: ./"`basename $0`" [[--help] | <test>]"
 	echo -e "where: <test> is empty to run all tests, or <file>.sh from shell/ dir"
 	exit 1
 fi
-
-echo running test-shell.sh
-set -o errexit
-set -o pipefail
 
 LINE=$(printf '=%.0s' `seq -s ' ' $(tput cols)`)	# a terminal width string
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!

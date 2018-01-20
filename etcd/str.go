@@ -32,9 +32,13 @@ var ErrNotExist = errors.New("errNotExist")
 // WatchStr returns a channel which spits out events on key activity.
 // FIXME: It should close the channel when it's done, and spit out errors when
 // something goes wrong.
+// XXX: since the caller of this (via the World API) has no way to tell it it's
+// done, does that mean we leak go-routines since it might still be running, but
+// perhaps even blocked??? Could this cause a dead-lock? Should we instead return
+// some sort of struct which has a close method with it to ask for a shutdown?
 func WatchStr(obj *EmbdEtcd, key string) chan error {
-	// new key structure is /$NS/strings/$key = $data
-	path := fmt.Sprintf("/%s/strings/%s", NS, key)
+	// new key structure is $NS/strings/$key = $data
+	path := fmt.Sprintf("%s/strings/%s", NS, key)
 	ch := make(chan error, 1)
 	// FIXME: fix our API so that we get a close event on shutdown.
 	callback := func(re *RE) error {
@@ -54,8 +58,8 @@ func WatchStr(obj *EmbdEtcd, key string) chan error {
 
 // GetStr collects the string which matches a global namespace in etcd.
 func GetStr(obj *EmbdEtcd, key string) (string, error) {
-	// new key structure is /$NS/strings/$key = $data
-	path := fmt.Sprintf("/%s/strings/%s", NS, key)
+	// new key structure is $NS/strings/$key = $data
+	path := fmt.Sprintf("%s/strings/%s", NS, key)
 	keyMap, err := obj.Get(path, etcd.WithPrefix())
 	if err != nil {
 		return "", errwrap.Wrapf(err, "could not get strings in: %s", key)
@@ -82,8 +86,8 @@ func GetStr(obj *EmbdEtcd, key string) (string, error) {
 // nil, then it deletes the key. Otherwise the value should point to a string.
 // TODO: TTL or delete disconnect?
 func SetStr(obj *EmbdEtcd, key string, data *string) error {
-	// key structure is /$NS/strings/$key = $data
-	path := fmt.Sprintf("/%s/strings/%s", NS, key)
+	// key structure is $NS/strings/$key = $data
+	path := fmt.Sprintf("%s/strings/%s", NS, key)
 	ifs := []etcd.Cmp{} // list matching the desired state
 	ops := []etcd.Op{}  // list of ops in this transaction (then)
 	els := []etcd.Op{}  // list of ops in this transaction (else)

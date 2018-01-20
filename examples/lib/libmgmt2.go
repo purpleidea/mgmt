@@ -15,6 +15,15 @@ import (
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
+
+	"github.com/urfave/cli"
+)
+
+// XXX: this has not been updated to latest GAPI/Deploy API. Patches welcome!
+
+const (
+	// Name is the name of this frontend.
+	Name = "libmgmt"
 )
 
 // MyGAPI implements the main GAPI interface.
@@ -39,6 +48,39 @@ func NewMyGAPI(data gapi.Data, name string, interval uint, count uint) (*MyGAPI,
 	return obj, obj.Init(data)
 }
 
+// Cli takes a cli.Context, and returns our GAPI if activated. All arguments
+// should take the prefix of the registered name. On activation, if there are
+// any validation problems, you should return an error. If this was not
+// activated, then you should return a nil GAPI and a nil error.
+func (obj *MyGAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+	if s := c.String(obj.Name); c.IsSet(obj.Name) {
+		if s != "" {
+			return nil, fmt.Errorf("input is not empty")
+		}
+
+		return &gapi.Deploy{
+			Name: obj.Name,
+			Noop: c.GlobalBool("noop"),
+			Sema: c.GlobalInt("sema"),
+			GAPI: &MyGAPI{
+			// TODO: add properties here...
+			},
+		}, nil
+	}
+	return nil, nil // we weren't activated!
+}
+
+// CliFlags returns a list of flags used by this deploy subcommand.
+func (obj *MyGAPI) CliFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:  obj.Name,
+			Value: "",
+			Usage: "run",
+		},
+	}
+}
+
 // Init initializes the MyGAPI struct.
 func (obj *MyGAPI) Init(data gapi.Data) error {
 	if obj.initialized {
@@ -56,7 +98,7 @@ func (obj *MyGAPI) Init(data gapi.Data) error {
 // Graph returns a current Graph.
 func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	if !obj.initialized {
-		return nil, fmt.Errorf("libmgmt: MyGAPI is not initialized")
+		return nil, fmt.Errorf("%s: MyGAPI is not initialized", Name)
 	}
 
 	g, err := pgraph.NewGraph(obj.Name)
@@ -89,7 +131,7 @@ func (obj *MyGAPI) Next() chan gapi.Next {
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
 			next := gapi.Next{
-				Err:  fmt.Errorf("libmgmt: MyGAPI is not initialized"),
+				Err:  fmt.Errorf("%s: MyGAPI is not initialized", Name),
 				Exit: true, // exit, b/c programming error?
 			}
 			ch <- next
@@ -117,7 +159,7 @@ func (obj *MyGAPI) Next() chan gapi.Next {
 				return
 			}
 
-			log.Printf("libmgmt: Generating new graph...")
+			log.Printf("%s: Generating new graph...", Name)
 			select {
 			case ch <- gapi.Next{}: // trigger a run
 			case <-obj.closeChan:
@@ -131,7 +173,7 @@ func (obj *MyGAPI) Next() chan gapi.Next {
 // Close shuts down the MyGAPI.
 func (obj *MyGAPI) Close() error {
 	if !obj.initialized {
-		return fmt.Errorf("libmgmt: MyGAPI is not initialized")
+		return fmt.Errorf("%s: MyGAPI is not initialized", Name)
 	}
 	close(obj.closeChan)
 	obj.wg.Wait()
@@ -150,11 +192,11 @@ func Run(count uint) error {
 	obj.ConvergedTimeout = -1
 	obj.Noop = true
 
-	obj.GAPI = &MyGAPI{ // graph API
-		Name:     "libmgmt", // TODO: set on compilation
-		Count:    count,     // number of vertices to add
-		Interval: 15,        // arbitrarily change graph every 15 seconds
-	}
+	//obj.GAPI = &MyGAPI{ // graph API
+	//	Name:     "libmgmt", // TODO: set on compilation
+	//	Count:    count,     // number of vertices to add
+	//	Interval: 15,        // arbitrarily change graph every 15 seconds
+	//}
 
 	if err := obj.Init(); err != nil {
 		return err

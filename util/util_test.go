@@ -23,6 +23,28 @@ import (
 	"testing"
 )
 
+func TestNumToAlpha(t *testing.T) {
+	var numToAlphaTests = []struct {
+		number int
+		result string
+	}{
+		{0, "a"},
+		{25, "z"},
+		{26, "aa"},
+		{27, "ab"},
+		{702, "aaa"},
+		{703, "aab"},
+		{63269, "cool"},
+	}
+
+	for _, test := range numToAlphaTests {
+		actual := NumToAlpha(test.number)
+		if actual != test.result {
+			t.Errorf("NumToAlpha(%d): expected %s, actual %s", test.number, test.result, actual)
+		}
+	}
+}
+
 func TestUtilT1(t *testing.T) {
 
 	if Dirname("/foo/bar/baz") != "/foo/bar/" {

@@ -22,16 +22,25 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 
 	"github.com/purpleidea/mgmt/bindata"
-	"github.com/purpleidea/mgmt/hcl"
-	"github.com/purpleidea/mgmt/puppet"
-	"github.com/purpleidea/mgmt/yamlgraph"
-	"github.com/purpleidea/mgmt/yamlgraph2"
+	"github.com/purpleidea/mgmt/gapi"
 
+	"github.com/spf13/afero"
 	"github.com/urfave/cli"
 )
+
+// Fs is a simple wrapper to a memory backed file system to be used for
+// standalone deploys. This is basically a pass-through so that we fulfill the
+// same interface that the deploy mechanism uses.
+type Fs struct {
+	*afero.Afero
+}
+
+// URI returns the unique URI of this filesystem. It returns the root path.
+func (obj *Fs) URI() string { return fmt.Sprintf("%s://"+"/", obj.Name()) }
 
 // run is the main run target.
 func run(c *cli.Context) error {
@@ -56,49 +65,36 @@ func run(c *cli.Context) error {
 	obj.TmpPrefix = c.Bool("tmp-prefix")
 	obj.AllowTmpPrefix = c.Bool("allow-tmp-prefix")
 
-	if _ = c.String("code"); c.IsSet("code") {
-		if obj.GAPI != nil {
-			return fmt.Errorf("can't combine code GAPI with existing GAPI")
-		}
-		// TODO: implement DSL GAPI
-		//obj.GAPI = &dsl.GAPI{
-		//	Code: &s,
-		//}
-		return fmt.Errorf("the Code GAPI is not implemented yet") // TODO: DSL
+	// add the versions GAPIs
+	names := []string{}
+	for name := range gapi.RegisteredGAPIs {
+		names = append(names, name)
 	}
-	if y := c.String("yaml"); c.IsSet("yaml") {
-		if obj.GAPI != nil {
-			return fmt.Errorf("can't combine YAML GAPI with existing GAPI")
+	sort.Strings(names) // ensure deterministic order when parsing
+
+	// create a memory backed temporary filesystem for storing runtime data
+	mmFs := afero.NewMemMapFs()
+	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+	standaloneFs := &Fs{afs}
+	obj.DeployFs = standaloneFs
+
+	for _, name := range names {
+		fn := gapi.RegisteredGAPIs[name]
+		deployObj, err := fn().Cli(c, standaloneFs)
+		if err != nil {
+			log.Printf("GAPI cli parse error: %v", err)
+			//return cli.NewExitError(err.Error(), 1) // TODO: ?
+			return cli.NewExitError("", 1)
 		}
-		obj.GAPI = &yamlgraph.GAPI{
-			File: &y,
+		if deployObj == nil { // not used
+			continue
 		}
+		if obj.Deploy != nil { // already set one
+			return fmt.Errorf("can't combine `%s` GAPI with existing GAPI", name)
+		}
+		obj.Deploy = deployObj
 	}
-	if y := c.String("yaml2"); c.IsSet("yaml2") {
-		if obj.GAPI != nil {
-			return fmt.Errorf("can't combine YAMLv2 GAPI with existing GAPI")
-		}
-		obj.GAPI = &yamlgraph2.GAPI{
-			File: &y,
-		}
-	}
-	if p := c.String("puppet"); c.IsSet("puppet") {
-		if obj.GAPI != nil {
-			return fmt.Errorf("can't combine puppet GAPI with existing GAPI")
-		}
-		obj.GAPI = &puppet.GAPI{
-			PuppetParam: &p,
-			PuppetConf:  c.String("puppet-conf"),
-		}
-	}
-	if h := c.String("hcl"); c.IsSet("hcl") {
-		if obj.GAPI != nil {
-			return fmt.Errorf("can't combine hcl GAPI with existing GAPI")
-		}
-		obj.GAPI = &hcl.GAPI{
-			File: &h,
-		}
-	}
+
 	obj.Remotes = c.StringSlice("remote") // FIXME: GAPI-ify somehow?
 
 	obj.NoWatch = c.Bool("no-watch")
@@ -168,9 +164,8 @@ func run(c *cli.Context) error {
 	}()
 
 	if err := obj.Run(); err != nil {
-		return err
 		//return cli.NewExitError(err.Error(), 1) // TODO: ?
-		//return cli.NewExitError("", 1) // TODO: ?
+		return cli.NewExitError("", 1)
 	}
 	return nil
 }
@@ -182,6 +177,208 @@ func CLI(program, version string, flags Flags) error {
 	if program == "" || version == "" {
 		return fmt.Errorf("program was not compiled correctly, see Makefile")
 	}
+
+	runFlags := []cli.Flag{
+		// useful for testing multiple instances on same machine
+		cli.StringFlag{
+			Name:  "hostname",
+			Value: "",
+			Usage: "hostname to use",
+		},
+
+		cli.StringFlag{
+			Name:   "prefix",
+			Usage:  "specify a path to the working prefix directory",
+			EnvVar: "MGMT_PREFIX",
+		},
+		cli.BoolFlag{
+			Name:  "tmp-prefix",
+			Usage: "request a pseudo-random, temporary prefix to be used",
+		},
+		cli.BoolFlag{
+			Name:  "allow-tmp-prefix",
+			Usage: "allow creation of a new temporary prefix if main prefix is unavailable",
+		},
+
+		cli.StringSliceFlag{
+			Name:  "remote",
+			Value: &cli.StringSlice{},
+			Usage: "list of remote graph definitions to run",
+		},
+
+		cli.BoolFlag{
+			Name:  "no-watch",
+			Usage: "do not update graph under any switch events",
+		},
+		cli.BoolFlag{
+			Name:  "no-config-watch",
+			Usage: "do not update graph on config switch events",
+		},
+		cli.BoolFlag{
+			Name:  "no-stream-watch",
+			Usage: "do not update graph on stream switch events",
+		},
+
+		cli.BoolFlag{
+			Name:  "noop",
+			Usage: "globally force all resources into no-op mode",
+		},
+		cli.IntFlag{
+			Name:  "sema",
+			Value: -1,
+			Usage: "globally add a semaphore to all resources with this lock count",
+		},
+		cli.StringFlag{
+			Name:  "graphviz, g",
+			Value: "",
+			Usage: "output file for graphviz data",
+		},
+		cli.StringFlag{
+			Name:  "graphviz-filter, gf",
+			Value: "",
+			Usage: "graphviz filter to use",
+		},
+		cli.IntFlag{
+			Name:   "converged-timeout, t",
+			Value:  -1,
+			Usage:  "exit after approximately this many seconds in a converged state",
+			EnvVar: "MGMT_CONVERGED_TIMEOUT",
+		},
+		cli.IntFlag{
+			Name:   "max-runtime",
+			Value:  0,
+			Usage:  "exit after a maximum of approximately this many seconds",
+			EnvVar: "MGMT_MAX_RUNTIME",
+		},
+
+		// if empty, it will startup a new server
+		cli.StringSliceFlag{
+			Name:   "seeds, s",
+			Value:  &cli.StringSlice{}, // empty slice
+			Usage:  "default etc client endpoint",
+			EnvVar: "MGMT_SEEDS",
+		},
+		// port 2379 and 4001 are common
+		cli.StringSliceFlag{
+			Name:   "client-urls",
+			Value:  &cli.StringSlice{},
+			Usage:  "list of URLs to listen on for client traffic",
+			EnvVar: "MGMT_CLIENT_URLS",
+		},
+		// port 2380 and 7001 are common
+		cli.StringSliceFlag{
+			Name:   "server-urls, peer-urls",
+			Value:  &cli.StringSlice{},
+			Usage:  "list of URLs to listen on for server (peer) traffic",
+			EnvVar: "MGMT_SERVER_URLS",
+		},
+		// port 2379 and 4001 are common
+		cli.StringSliceFlag{
+			Name:   "advertise-client-urls",
+			Value:  &cli.StringSlice{},
+			Usage:  "list of URLs to listen on for client traffic",
+			EnvVar: "MGMT_ADVERTISE_CLIENT_URLS",
+		},
+		// port 2380 and 7001 are common
+		cli.StringSliceFlag{
+			Name:   "advertise-server-urls, advertise-peer-urls",
+			Value:  &cli.StringSlice{},
+			Usage:  "list of URLs to listen on for server (peer) traffic",
+			EnvVar: "MGMT_ADVERTISE_SERVER_URLS",
+		},
+		cli.IntFlag{
+			Name:   "ideal-cluster-size",
+			Value:  -1,
+			Usage:  "ideal number of server peers in cluster; only read by initial server",
+			EnvVar: "MGMT_IDEAL_CLUSTER_SIZE",
+		},
+		cli.BoolFlag{
+			Name:  "no-server",
+			Usage: "do not let other servers peer with me",
+		},
+
+		cli.IntFlag{
+			Name:   "cconns",
+			Value:  0,
+			Usage:  "number of maximum concurrent remote ssh connections to run; 0 for unlimited",
+			EnvVar: "MGMT_CCONNS",
+		},
+		cli.BoolFlag{
+			Name:  "allow-interactive",
+			Usage: "allow interactive prompting, such as for remote passwords",
+		},
+		cli.StringFlag{
+			Name:   "ssh-priv-id-rsa",
+			Value:  "~/.ssh/id_rsa",
+			Usage:  "default path to ssh key file, set empty to never touch",
+			EnvVar: "MGMT_SSH_PRIV_ID_RSA",
+		},
+		cli.BoolFlag{
+			Name:  "no-caching",
+			Usage: "don't allow remote caching of remote execution binary",
+		},
+		cli.IntFlag{
+			Name:   "depth",
+			Hidden: true, // internal use only
+			Value:  0,
+			Usage:  "specify depth in remote hierarchy",
+		},
+		cli.BoolFlag{
+			Name:  "no-pgp",
+			Usage: "don't create pgp keys",
+		},
+		cli.StringFlag{
+			Name:  "pgp-key-path",
+			Value: "",
+			Usage: "path for instance key pair",
+		},
+		cli.StringFlag{
+			Name:  "pgp-identity",
+			Value: "",
+			Usage: "default identity used for generation",
+		},
+		cli.BoolFlag{
+			Name:  "prometheus",
+			Usage: "start a prometheus instance",
+		},
+		cli.StringFlag{
+			Name:  "prometheus-listen",
+			Value: "",
+			Usage: "specify prometheus instance binding",
+		},
+	}
+
+	subCommands := []cli.Command{} // build deploy sub commands
+
+	names := []string{}
+	for name := range gapi.RegisteredGAPIs {
+		names = append(names, name)
+	}
+	sort.Strings(names) // ensure deterministic order when parsing
+	for _, x := range names {
+		name := x // create a copy in this scope
+		fn := gapi.RegisteredGAPIs[name]
+		gapiObj := fn()
+		flags := gapiObj.CliFlags() // []cli.Flag
+
+		runFlags = append(runFlags, flags...)
+
+		command := cli.Command{
+			Name:  name,
+			Usage: fmt.Sprintf("deploy using the `%s` frontend", name),
+			Action: func(c *cli.Context) error {
+				if err := deploy(c, name, gapiObj); err != nil {
+					log.Printf("Deploy: Error: %v", err)
+					//return cli.NewExitError(err.Error(), 1) // TODO: ?
+					return cli.NewExitError("", 1)
+				}
+				return nil
+			},
+			Flags: flags,
+		}
+		subCommands = append(subCommands, command)
+	}
+
 	app := cli.NewApp()
 	app.Name = program // App.name and App.version pass these values through
 	app.Version = version
@@ -222,77 +419,22 @@ func CLI(program, version string, flags Flags) error {
 			Aliases: []string{"r"},
 			Usage:   "run",
 			Action:  run,
+			Flags:   runFlags,
+		},
+		{
+			Name:        "deploy",
+			Aliases:     []string{"d"},
+			Usage:       "deploy",
+			Subcommands: subCommands,
 			Flags: []cli.Flag{
-				// useful for testing multiple instances on same machine
-				cli.StringFlag{
-					Name:  "hostname",
-					Value: "",
-					Usage: "hostname to use",
-				},
-
-				cli.StringFlag{
-					Name:   "prefix",
-					Usage:  "specify a path to the working prefix directory",
-					EnvVar: "MGMT_PREFIX",
-				},
-				cli.BoolFlag{
-					Name:  "tmp-prefix",
-					Usage: "request a pseudo-random, temporary prefix to be used",
-				},
-				cli.BoolFlag{
-					Name:  "allow-tmp-prefix",
-					Usage: "allow creation of a new temporary prefix if main prefix is unavailable",
-				},
-
-				cli.StringFlag{
-					Name:  "code, c",
-					Value: "",
-					Usage: "code definition to run",
-				},
-				cli.StringFlag{
-					Name:  "yaml",
-					Value: "",
-					Usage: "yaml graph definition to run",
-				},
-				cli.StringFlag{
-					Name:  "yaml2",
-					Value: "",
-					Usage: "yaml graph definition to run (parser v2)",
-				},
-				cli.StringFlag{
-					Name:  "hcl",
-					Value: "",
-					Usage: "hcl graph definition to run",
-				},
-				cli.StringFlag{
-					Name:  "puppet, p",
-					Value: "",
-					Usage: "load graph from puppet, optionally takes a manifest or path to manifest file",
-				},
-				cli.StringFlag{
-					Name:  "puppet-conf",
-					Value: "",
-					Usage: "the path to an alternate puppet.conf file",
-				},
 				cli.StringSliceFlag{
-					Name:  "remote",
-					Value: &cli.StringSlice{},
-					Usage: "list of remote graph definitions to run",
+					Name:   "seeds, s",
+					Value:  &cli.StringSlice{}, // empty slice
+					Usage:  "default etc client endpoint",
+					EnvVar: "MGMT_SEEDS",
 				},
 
-				cli.BoolFlag{
-					Name:  "no-watch",
-					Usage: "do not update graph under any switch events",
-				},
-				cli.BoolFlag{
-					Name:  "no-config-watch",
-					Usage: "do not update graph on config switch events",
-				},
-				cli.BoolFlag{
-					Name:  "no-stream-watch",
-					Usage: "do not update graph on stream switch events",
-				},
-
+				// common flags which all can use
 				cli.BoolFlag{
 					Name:  "noop",
 					Usage: "globally force all resources into no-op mode",
@@ -302,123 +444,14 @@ func CLI(program, version string, flags Flags) error {
 					Value: -1,
 					Usage: "globally add a semaphore to all resources with this lock count",
 				},
-				cli.StringFlag{
-					Name:  "graphviz, g",
-					Value: "",
-					Usage: "output file for graphviz data",
-				},
-				cli.StringFlag{
-					Name:  "graphviz-filter, gf",
-					Value: "",
-					Usage: "graphviz filter to use",
-				},
-				cli.IntFlag{
-					Name:   "converged-timeout, t",
-					Value:  -1,
-					Usage:  "exit after approximately this many seconds in a converged state",
-					EnvVar: "MGMT_CONVERGED_TIMEOUT",
-				},
-				cli.IntFlag{
-					Name:   "max-runtime",
-					Value:  0,
-					Usage:  "exit after a maximum of approximately this many seconds",
-					EnvVar: "MGMT_MAX_RUNTIME",
-				},
 
-				// if empty, it will startup a new server
-				cli.StringSliceFlag{
-					Name:   "seeds, s",
-					Value:  &cli.StringSlice{}, // empty slice
-					Usage:  "default etc client endpoint",
-					EnvVar: "MGMT_SEEDS",
-				},
-				// port 2379 and 4001 are common
-				cli.StringSliceFlag{
-					Name:   "client-urls",
-					Value:  &cli.StringSlice{},
-					Usage:  "list of URLs to listen on for client traffic",
-					EnvVar: "MGMT_CLIENT_URLS",
-				},
-				// port 2380 and 7001 are common
-				cli.StringSliceFlag{
-					Name:   "server-urls, peer-urls",
-					Value:  &cli.StringSlice{},
-					Usage:  "list of URLs to listen on for server (peer) traffic",
-					EnvVar: "MGMT_SERVER_URLS",
-				},
-				// port 2379 and 4001 are common
-				cli.StringSliceFlag{
-					Name:   "advertise-client-urls",
-					Value:  &cli.StringSlice{},
-					Usage:  "list of URLs to listen on for client traffic",
-					EnvVar: "MGMT_ADVERTISE_CLIENT_URLS",
-				},
-				// port 2380 and 7001 are common
-				cli.StringSliceFlag{
-					Name:   "advertise-server-urls, advertise-peer-urls",
-					Value:  &cli.StringSlice{},
-					Usage:  "list of URLs to listen on for server (peer) traffic",
-					EnvVar: "MGMT_ADVERTISE_SERVER_URLS",
-				},
-				cli.IntFlag{
-					Name:   "ideal-cluster-size",
-					Value:  -1,
-					Usage:  "ideal number of server peers in cluster; only read by initial server",
-					EnvVar: "MGMT_IDEAL_CLUSTER_SIZE",
+				cli.BoolFlag{
+					Name:  "no-git",
+					Usage: "don't look at git commit id for safe deploys",
 				},
 				cli.BoolFlag{
-					Name:  "no-server",
-					Usage: "do not let other servers peer with me",
-				},
-
-				cli.IntFlag{
-					Name:   "cconns",
-					Value:  0,
-					Usage:  "number of maximum concurrent remote ssh connections to run; 0 for unlimited",
-					EnvVar: "MGMT_CCONNS",
-				},
-				cli.BoolFlag{
-					Name:  "allow-interactive",
-					Usage: "allow interactive prompting, such as for remote passwords",
-				},
-				cli.StringFlag{
-					Name:   "ssh-priv-id-rsa",
-					Value:  "~/.ssh/id_rsa",
-					Usage:  "default path to ssh key file, set empty to never touch",
-					EnvVar: "MGMT_SSH_PRIV_ID_RSA",
-				},
-				cli.BoolFlag{
-					Name:  "no-caching",
-					Usage: "don't allow remote caching of remote execution binary",
-				},
-				cli.IntFlag{
-					Name:   "depth",
-					Hidden: true, // internal use only
-					Value:  0,
-					Usage:  "specify depth in remote hierarchy",
-				},
-				cli.BoolFlag{
-					Name:  "no-pgp",
-					Usage: "don't create pgp keys",
-				},
-				cli.StringFlag{
-					Name:  "pgp-key-path",
-					Value: "",
-					Usage: "path for instance key pair",
-				},
-				cli.StringFlag{
-					Name:  "pgp-identity",
-					Value: "",
-					Usage: "default identity used for generation",
-				},
-				cli.BoolFlag{
-					Name:  "prometheus",
-					Usage: "start a prometheus instance",
-				},
-				cli.StringFlag{
-					Name:  "prometheus-listen",
-					Value: "",
-					Usage: "specify prometheus instance binding",
+					Name:  "force",
+					Usage: "force a new deploy, even if the safety chain would break",
 				},
 			},
 		},

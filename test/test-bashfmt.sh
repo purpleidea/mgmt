@@ -2,16 +2,15 @@
 # check for any bash files that aren't properly formatted
 # TODO: this is hardly exhaustive
 
-. test/util.sh
-
 echo running test-bashfmt.sh
 set -o errexit
 set -o nounset
 set -o pipefail
 
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 ROOT=$(dirname "${BASH_SOURCE}")/..
-
 cd "${ROOT}"
+. test/util.sh
 
 find_files() {
 	git ls-files | grep -e '\.sh$' -e '\.bash$' | grep -v 'misc/delta-cpu.sh'

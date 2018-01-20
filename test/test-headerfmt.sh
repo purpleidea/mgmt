@@ -1,20 +1,22 @@
 #!/bin/bash
 # check that headers are properly formatted
 
+echo running test-headerfmt.sh
+
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
 . test/util.sh
 
-echo running test-headerfmt.sh
-ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
-FILE="${ROOT}/main.go"	# file headers should match main.go
+FILE="main.go"	# file headers should match main.go
 COUNT=0
 while IFS='' read -r line; do	# find what header should look like
 	echo "$line" | grep -q '^//' || break
 	COUNT=`expr $COUNT + 1`
 done < "$FILE"
-cd "${ROOT}"
 
 find_files() {
-	git ls-files | grep '\.go$' | grep -v '^bindata/' | grep -v '^examples/' | grep -v '^test/'
+	git ls-files | grep '\.go$' | grep -v '^examples/' | grep -v '^test/'
 }
 
 bad_files=$(

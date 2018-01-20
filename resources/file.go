@@ -44,20 +44,21 @@ func init() {
 
 // FileRes is a file and directory resource.
 type FileRes struct {
-	BaseRes    `yaml:",inline"`
-	Path       string  `yaml:"path"` // path variable (should default to name)
-	Dirname    string  `yaml:"dirname"`
-	Basename   string  `yaml:"basename"`
-	Content    *string `yaml:"content"` // nil to mark as undefined
-	Source     string  `yaml:"source"`  // file path for source content
-	State      string  `yaml:"state"`   // state: exists/present?, absent, (undefined?)
-	Owner      string  `yaml:"owner"`
-	Group      string  `yaml:"group"`
-	Mode       string  `yaml:"mode"`
-	Recurse    bool    `yaml:"recurse"`
-	Force      bool    `yaml:"force"`
-	path       string  // computed path
-	isDir      bool    // computed isDir
+	BaseRes  `yaml:",inline"`
+	Path     string  `yaml:"path"` // path variable (should default to name)
+	Dirname  string  `yaml:"dirname"`
+	Basename string  `yaml:"basename"`
+	Content  *string `yaml:"content"` // nil to mark as undefined
+	Source   string  `yaml:"source"`  // file path for source content
+	State    string  `yaml:"state"`   // state: exists/present?, absent, (undefined?)
+	Owner    string  `yaml:"owner"`
+	Group    string  `yaml:"group"`
+	Mode     string  `yaml:"mode"`
+	Recurse  bool    `yaml:"recurse"`
+	Force    bool    `yaml:"force"`
+
+	path       string // computed path
+	isDir      bool   // computed isDir
 	sha256sum  string
 	recWatcher *recwatch.RecWatcher
 }

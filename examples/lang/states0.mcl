@@ -1,0 +1,35 @@
+$ns = "estate"
+$exchanged = kvlookup($ns)
+
+$state = maplookup($exchanged, $hostname, "default")
+
+if $state == "one" || $state == "default" {
+
+	file "/tmp/mgmt/state" {
+		content => "state: one\n",
+	}
+	kv "${ns}" {
+		key => $ns,
+		value => "two",
+	}
+}
+if $state == "two" {
+
+	file "/tmp/mgmt/state" {
+		content => "state: two\n",
+	}
+	kv "${ns}" {
+		key => $ns,
+		value => "three",
+	}
+}
+if $state == "three" {
+
+	file "/tmp/mgmt/state" {
+		content => "state: three\n",
+	}
+	kv "${ns}" {
+		key => $ns,
+		value => "one",
+	}
+}

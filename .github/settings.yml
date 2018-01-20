@@ -10,10 +10,10 @@ repository:
   description: Next generation distributed, event-driven, parallel config management!
 
   # A URL with more information about the repository
-  homepage: https://ttboj.wordpress.com/?s=mgmtconfig
+  homepage: https://purpleidea.com/tags/mgmtconfig/
 
   # A comma-separated list of topics to set on the repository
-  topics: golang, go, configuration-management, config-management, devops, etcd, distributed-systems, graph-theory
+  topics: golang, go, configuration-management, config-management, devops, etcd, distributed-systems, graph-theory, choreography
 
   # Either `true` to make the repository private, or `false` to make it public.
   private: false

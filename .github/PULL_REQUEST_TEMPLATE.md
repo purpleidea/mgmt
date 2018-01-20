@@ -1,5 +1,8 @@
 ## Tips:
 
+* please read the style guide before submitting your patch:
+[docs/style-guide.md](docs/style-guide.md)
+
 * commit message titles must be in the form:
 ```topic: Capitalized message with no trailing period```
 or:

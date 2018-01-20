@@ -1,0 +1,14 @@
+$secplusone = datetime() + $ayear
+
+# note the order of the assignment (year can come later in the code)
+$ayear = 60 * 60 * 24 * 365	# is a year in seconds (31536000)
+
+$tmplvalues = struct{year => $secplusone, load => $theload,}
+
+$theload = structlookup(load(), "x1")
+
+if 5 > 3 {
+	file "/tmp/mgmt/datetime" {
+		content => template("Now + 1 year is: {{ .year }} seconds, aka: {{ datetimeprint .year }}\n\nload average: {{ .load }}\n", $tmplvalues),
+	}
+}

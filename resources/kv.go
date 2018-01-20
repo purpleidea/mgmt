@@ -47,7 +47,8 @@ const (
 // The one exception is that when this resource receives a refresh signal, then
 // it will set the value to be the exact one if they are not identical already.
 type KVRes struct {
-	BaseRes      `yaml:",inline"`
+	BaseRes `yaml:",inline"`
+	// XXX: shouldn't the name be the key?
 	Key          string            `yaml:"key"`          // key to set
 	Value        *string           `yaml:"value"`        // value to set (nil to delete)
 	SkipLessThan bool              `yaml:"skiplessthan"` // skip updates as long as stored value is greater

@@ -79,14 +79,14 @@ import (
 
 // constant parameters which may need to be tweaked or customized
 const (
-	NS                      = "_mgmt" // root namespace for mgmt operations
-	seedSentinel            = "_seed" // you must not name your hostname this
-	MaxStartServerTimeout   = 60      // max number of seconds to wait for server to start
-	MaxStartServerRetries   = 3       // number of times to retry starting the etcd server
-	maxClientConnectRetries = 5       // number of times to retry consecutive connect failures
-	selfRemoveTimeout       = 3       // give unnominated members a chance to self exit
-	exitDelay               = 3       // number of sec of inactivity after exit to clean up
-	DefaultIdealClusterSize = 5       // default ideal cluster size target for initial seed
+	NS                      = "/_mgmt" // root namespace for mgmt operations
+	seedSentinel            = "_seed"  // you must not name your hostname this
+	MaxStartServerTimeout   = 60       // max number of seconds to wait for server to start
+	MaxStartServerRetries   = 3        // number of times to retry starting the etcd server
+	maxClientConnectRetries = 5        // number of times to retry consecutive connect failures
+	selfRemoveTimeout       = 3        // give unnominated members a chance to self exit
+	exitDelay               = 3        // number of sec of inactivity after exit to clean up
+	DefaultIdealClusterSize = 5        // default ideal cluster size target for initial seed
 	DefaultClientURL        = "127.0.0.1:2379"
 	DefaultServerURL        = "127.0.0.1:2380"
 )
@@ -170,11 +170,12 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	ctxErr error // permanent ctx error
 
 	// exit and cleanup related
-	cancelLock  sync.Mutex // lock for the cancels list
-	cancels     []func()   // array of every cancel function for watches
-	exiting     bool
-	exitchan    chan struct{}
-	exitTimeout <-chan time.Time
+	cancelLock sync.Mutex // lock for the cancels list
+	cancels    []func()   // array of every cancel function for watches
+	exiting    bool
+	exitchan   chan struct{}
+	exitchanCb chan struct{}
+	exitwg     *sync.WaitGroup // wait for main loops to shutdown
 
 	hostname            string
 	memberID            uint64            // cluster membership id of server if running
@@ -220,14 +221,15 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 		idealClusterSize = 0 // unset, get from running cluster
 	}
 	obj := &EmbdEtcd{
-		exitchan:    make(chan struct{}), // exit signal for main loop
-		exitTimeout: nil,
-		awq:         make(chan *AW),
-		wevents:     make(chan *RE),
-		setq:        make(chan *KV),
-		getq:        make(chan *GQ),
-		delq:        make(chan *DL),
-		txnq:        make(chan *TN),
+		exitchan:   make(chan struct{}), // exit signal for main loop
+		exitchanCb: make(chan struct{}),
+		exitwg:     &sync.WaitGroup{},
+		awq:        make(chan *AW),
+		wevents:    make(chan *RE),
+		setq:       make(chan *KV),
+		getq:       make(chan *GQ),
+		delq:       make(chan *DL),
+		txnq:       make(chan *TN),
 
 		nominated: make(etcdtypes.URLsMap),
 
@@ -263,6 +265,11 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 	}
 
 	return obj
+}
+
+// GetClient returns a handle to the raw etcd client object for those scenarios.
+func (obj *EmbdEtcd) GetClient() *etcd.Client {
+	return obj.client
 }
 
 // GetConfig returns the config struct to be used for the etcd client connect.
@@ -363,11 +370,11 @@ func (obj *EmbdEtcd) Startup() error {
 	go obj.Loop()   // start main loop
 
 	// TODO: implement native etcd watcher method on member API changes
-	path := fmt.Sprintf("/%s/nominated/", NS)
+	path := fmt.Sprintf("%s/nominated/", NS)
 	go obj.AddWatcher(path, obj.nominateCallback, true, false, etcd.WithPrefix()) // no block
 
 	// setup ideal cluster size watcher
-	key := fmt.Sprintf("/%s/idealClusterSize", NS)
+	key := fmt.Sprintf("%s/idealClusterSize", NS)
 	go obj.AddWatcher(key, obj.idealClusterSizeCallback, true, false) // no block
 
 	// if we have no endpoints, it means we are bootstrapping...
@@ -393,7 +400,7 @@ func (obj *EmbdEtcd) Startup() error {
 	}
 
 	if !obj.noServer {
-		path := fmt.Sprintf("/%s/volunteers/", NS)
+		path := fmt.Sprintf("%s/volunteers/", NS)
 		go obj.AddWatcher(path, obj.volunteerCallback, true, false, etcd.WithPrefix()) // no block
 	}
 
@@ -431,7 +438,7 @@ func (obj *EmbdEtcd) Startup() error {
 		}
 	}
 
-	go obj.AddWatcher(fmt.Sprintf("/%s/endpoints/", NS), obj.endpointCallback, true, false, etcd.WithPrefix())
+	go obj.AddWatcher(fmt.Sprintf("%s/endpoints/", NS), obj.endpointCallback, true, false, etcd.WithPrefix())
 
 	if err := obj.Connect(false); err != nil { // don't exit from this Startup function until connected!
 		return err
@@ -461,7 +468,8 @@ func (obj *EmbdEtcd) Destroy() error {
 	}
 	obj.cancelLock.Unlock()
 
-	obj.exitchan <- struct{}{} // cause main loop to exit
+	close(obj.exitchan) // cause main loop to exit
+	close(obj.exitchanCb)
 
 	obj.rLock.Lock()
 	if obj.client != nil {
@@ -474,6 +482,7 @@ func (obj *EmbdEtcd) Destroy() error {
 	//if obj.server != nil {
 	//	return obj.DestroyServer()
 	//}
+	obj.exitwg.Wait()
 	return nil
 }
 
@@ -715,12 +724,15 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 
 // CbLoop is the loop where callback execution is serialized.
 func (obj *EmbdEtcd) CbLoop() {
+	obj.exitwg.Add(1)
+	defer obj.exitwg.Done()
 	cuid := obj.converger.Register()
 	cuid.SetName("Etcd: CbLoop")
 	defer cuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal
 	}
+	var exitTimeout <-chan time.Time // = nil is implied
 	// we use this timer because when we ignore un-converge events and loop,
 	// we reset the ConvergedTimer case statement, ruining the timeout math!
 	cuid.StartTimer()
@@ -760,8 +772,18 @@ func (obj *EmbdEtcd) CbLoop() {
 				log.Printf("Trace: Etcd: CbLoop: Event: FinishLoop")
 			}
 
+		// exit loop signal
+		case <-obj.exitchanCb:
+			obj.exitchanCb = nil
+			log.Println("Etcd: Exiting loop shortly...")
+			// activate exitTimeout switch which only opens after N
+			// seconds of inactivity in this select switch, which
+			// lets everything get bled dry to avoid blocking calls
+			// which would otherwise block us from exiting cleanly!
+			exitTimeout = util.TimeAfterOrBlock(exitDelay)
+
 		// exit loop commit
-		case <-obj.exitTimeout:
+		case <-exitTimeout:
 			log.Println("Etcd: Exiting callback loop!")
 			cuid.StopTimer() // clean up nicely
 			return
@@ -771,12 +793,15 @@ func (obj *EmbdEtcd) CbLoop() {
 
 // Loop is the main loop where everything is serialized.
 func (obj *EmbdEtcd) Loop() {
+	obj.exitwg.Add(1) // TODO: add these to other go routines?
+	defer obj.exitwg.Done()
 	cuid := obj.converger.Register()
 	cuid.SetName("Etcd: Loop")
 	defer cuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal
 	}
+	var exitTimeout <-chan time.Time // = nil is implied
 	cuid.StartTimer()
 	for {
 		ctx := context.Background() // TODO: inherit as input argument?
@@ -911,15 +936,16 @@ func (obj *EmbdEtcd) Loop() {
 
 		// exit loop signal
 		case <-obj.exitchan:
+			obj.exitchan = nil
 			log.Println("Etcd: Exiting loop shortly...")
 			// activate exitTimeout switch which only opens after N
 			// seconds of inactivity in this select switch, which
 			// lets everything get bled dry to avoid blocking calls
 			// which would otherwise block us from exiting cleanly!
-			obj.exitTimeout = util.TimeAfterOrBlock(exitDelay)
+			exitTimeout = util.TimeAfterOrBlock(exitDelay)
 
 		// exit loop commit
-		case <-obj.exitTimeout:
+		case <-exitTimeout:
 			log.Println("Etcd: Exiting loop!")
 			cuid.StopTimer() // clean up nicely
 			return
@@ -1597,7 +1623,7 @@ func (obj *EmbdEtcd) idealClusterSizeCallback(re *RE) error {
 		log.Printf("Trace: Etcd: idealClusterSizeCallback()")
 		defer log.Printf("Trace: Etcd: idealClusterSizeCallback(): Finished!")
 	}
-	path := fmt.Sprintf("/%s/idealClusterSize", NS)
+	path := fmt.Sprintf("%s/idealClusterSize", NS)
 	for _, event := range re.response.Events {
 		if key := bytes.NewBuffer(event.Kv.Key).String(); key != path {
 			continue

@@ -31,8 +31,8 @@ import (
 // FIXME: It should close the channel when it's done, and spit out errors when
 // something goes wrong.
 func WatchStrMap(obj *EmbdEtcd, key string) chan error {
-	// new key structure is /$NS/strings/$key/$hostname = $data
-	path := fmt.Sprintf("/%s/strings/%s", NS, key)
+	// new key structure is $NS/strings/$key/$hostname = $data
+	path := fmt.Sprintf("%s/strings/%s", NS, key)
 	ch := make(chan error, 1)
 	// FIXME: fix our API so that we get a close event on shutdown.
 	callback := func(re *RE) error {
@@ -52,12 +52,12 @@ func WatchStrMap(obj *EmbdEtcd, key string) chan error {
 
 // GetStrMap collects all of the strings which match a namespace in etcd.
 func GetStrMap(obj *EmbdEtcd, hostnameFilter []string, key string) (map[string]string, error) {
-	// old key structure is /$NS/strings/$hostname/$key = $data
-	// new key structure is /$NS/strings/$key/$hostname = $data
+	// old key structure is $NS/strings/$hostname/$key = $data
+	// new key structure is $NS/strings/$key/$hostname = $data
 	// FIXME: if we have the $key as the last token (old key structure), we
 	// can allow the key to contain the slash char, otherwise we need to
 	// verify that one isn't present in the input string.
-	path := fmt.Sprintf("/%s/strings/%s", NS, key)
+	path := fmt.Sprintf("%s/strings/%s", NS, key)
 	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not get strings in: %s", key)
@@ -92,8 +92,8 @@ func GetStrMap(obj *EmbdEtcd, hostnameFilter []string, key string) (map[string]s
 // nil, then it deletes the key. Otherwise the value should point to a string.
 // TODO: TTL or delete disconnect?
 func SetStrMap(obj *EmbdEtcd, hostname, key string, data *string) error {
-	// key structure is /$NS/strings/$key/$hostname = $data
-	path := fmt.Sprintf("/%s/strings/%s/%s", NS, key, hostname)
+	// key structure is $NS/strings/$key/$hostname = $data
+	path := fmt.Sprintf("%s/strings/%s/%s", NS, key, hostname)
 	ifs := []etcd.Cmp{} // list matching the desired state
 	ops := []etcd.Op{}  // list of ops in this transaction (then)
 	els := []etcd.Op{}  // list of ops in this transaction (else)

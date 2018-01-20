@@ -1,0 +1,13 @@
+# run this example with these commands
+# watch -n 0.1 'tail *'	# run this in /tmp/mgmt/
+# time ./mgmt run --lang examples/lang/exchange0.mcl --hostname h1 --ideal-cluster-size 1 --tmp-prefix --no-pgp
+# time ./mgmt run --lang examples/lang/exchange0.mcl --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --tmp-prefix --no-pgp
+# time ./mgmt run --lang examples/lang/exchange0.mcl --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 --tmp-prefix --no-pgp
+# time ./mgmt run --lang examples/lang/exchange0.mcl --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 --tmp-prefix --no-pgp
+
+$rand = random1(8)
+$exchanged = exchange("keyns", $rand)
+
+file "/tmp/mgmt/exchange-${hostname()}" {
+	content => template("Found: {{ . }}\n", $exchanged),
+}

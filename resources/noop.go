@@ -29,7 +29,7 @@ func init() {
 // NoopRes is a no-op resource that does nothing.
 type NoopRes struct {
 	BaseRes `yaml:",inline"`
-	Comment string `yaml:"comment"` // extra field for example purposes
+	Comment string `lang:"comment" yaml:"comment"` // extra field for example purposes
 }
 
 // Default returns some sensible defaults for this resource.

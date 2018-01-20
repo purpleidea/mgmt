@@ -21,7 +21,6 @@ package yamlgraph2
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"strings"
 
@@ -34,7 +33,7 @@ import (
 
 type collectorResConfig struct {
 	Kind    string `yaml:"kind"`
-	Pattern string `yaml:"pattern"` // XXX: Not Implemented
+	Pattern string `yaml:"pattern"` // XXX: not implemented
 }
 
 // Vertex is the data structure of a vertex.
@@ -301,13 +300,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 }
 
 // ParseConfigFromFile takes a filename and returns the graph config structure.
-func ParseConfigFromFile(filename string) *GraphConfig {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Printf("Config: Error: ParseConfigFromFile: File: %v", err)
-		return nil
-	}
-
+func ParseConfigFromFile(data []byte) *GraphConfig {
 	var config GraphConfig
 	if err := config.Parse(data); err != nil {
 		log.Printf("Config: Error: ParseConfigFromFile: Parse: %v", err)

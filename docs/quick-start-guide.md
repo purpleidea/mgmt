@@ -4,7 +4,7 @@
 This guide is intended for developers. Once `mgmt` is minimally viable, we'll
 publish a quick start guide for users too. If you're brand new to `mgmt`, it's
 probably a good idea to start by reading the
-[introductory article](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
+[introductory article](https://purpleidea.com/blog/2016/01/18/next-generation-configuration-mgmt/)
 or to watch an [introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1).
 Once you're familiar with the general idea, please start hacking...
 
@@ -38,14 +38,12 @@ cd $GOPATH/src/github.com/purpleidea/mgmt
 * Run `make build` to get a freshly built `mgmt` binary.
 
 ### Running mgmt
-* Run `time ./mgmt run --yaml examples/graph0.yaml --converged-timeout=5 --tmp-prefix` to try out a very simple example!
-* To run continuously in the default mode of operation, omit the `--converged-timeout` option.
+* Run `time ./mgmt run --lang examples/lang/hello0.mcl --tmp-prefix` to try out a very simple example!
 * Look in that example file that you ran to see if you can figure out what it did!
-* The yaml frontend is provided as a developer tool to test the engine until the language is ready.
 * Have fun hacking on our future technology and get involved to shape the project!
 
 ## Examples
-Please look in the [examples/](../examples/) folder for some more examples!
+Please look in the [examples/lang/](../examples/lang/) folder for some more examples!
 
 ## Vagrant
 If you would like to avoid doing the above steps manually, we have prepared a

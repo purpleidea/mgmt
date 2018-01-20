@@ -39,7 +39,7 @@ func Nominate(obj *EmbdEtcd, hostname string, urls etcdtypes.URLs) error {
 		defer log.Printf("Trace: Etcd: Nominate(%v): Finished!", hostname)
 	}
 	// nominate someone to be a server
-	nominate := fmt.Sprintf("/%s/nominated/%s", NS, hostname)
+	nominate := fmt.Sprintf("%s/nominated/%s", NS, hostname)
 	ops := []etcd.Op{} // list of ops in this txn
 	if urls != nil {
 		ops = append(ops, etcd.OpPut(nominate, urls.String())) // TODO: add a TTL? (etcd.WithLease)
@@ -57,7 +57,7 @@ func Nominate(obj *EmbdEtcd, hostname string, urls etcdtypes.URLs) error {
 // Nominated returns a urls map of nominated etcd server volunteers.
 // NOTE: I know 'nominees' might be more correct, but is less consistent here
 func Nominated(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
-	path := fmt.Sprintf("/%s/nominated/", NS)
+	path := fmt.Sprintf("%s/nominated/", NS)
 	keyMap, err := obj.Get(path, etcd.WithPrefix()) // map[string]string, bool
 	if err != nil {
 		return nil, fmt.Errorf("nominated isn't available: %v", err)
@@ -90,7 +90,7 @@ func Volunteer(obj *EmbdEtcd, urls etcdtypes.URLs) error {
 		defer log.Printf("Trace: Etcd: Volunteer(%v): Finished!", obj.hostname)
 	}
 	// volunteer to be a server
-	volunteer := fmt.Sprintf("/%s/volunteers/%s", NS, obj.hostname)
+	volunteer := fmt.Sprintf("%s/volunteers/%s", NS, obj.hostname)
 	ops := []etcd.Op{} // list of ops in this txn
 	if urls != nil {
 		// XXX: adding a TTL is crucial! (i think)
@@ -112,7 +112,7 @@ func Volunteers(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 		log.Printf("Trace: Etcd: Volunteers()")
 		defer log.Printf("Trace: Etcd: Volunteers(): Finished!")
 	}
-	path := fmt.Sprintf("/%s/volunteers/", NS)
+	path := fmt.Sprintf("%s/volunteers/", NS)
 	keyMap, err := obj.Get(path, etcd.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("volunteers aren't available: %v", err)
@@ -145,7 +145,7 @@ func AdvertiseEndpoints(obj *EmbdEtcd, urls etcdtypes.URLs) error {
 		defer log.Printf("Trace: Etcd: AdvertiseEndpoints(%v): Finished!", obj.hostname)
 	}
 	// advertise endpoints
-	endpoints := fmt.Sprintf("/%s/endpoints/%s", NS, obj.hostname)
+	endpoints := fmt.Sprintf("%s/endpoints/%s", NS, obj.hostname)
 	ops := []etcd.Op{} // list of ops in this txn
 	if urls != nil {
 		// TODO: add a TTL? (etcd.WithLease)
@@ -167,7 +167,7 @@ func Endpoints(obj *EmbdEtcd) (etcdtypes.URLsMap, error) {
 		log.Printf("Trace: Etcd: Endpoints()")
 		defer log.Printf("Trace: Etcd: Endpoints(): Finished!")
 	}
-	path := fmt.Sprintf("/%s/endpoints/", NS)
+	path := fmt.Sprintf("%s/endpoints/", NS)
 	keyMap, err := obj.Get(path, etcd.WithPrefix())
 	if err != nil {
 		return nil, fmt.Errorf("endpoints aren't available: %v", err)
@@ -199,7 +199,7 @@ func SetHostnameConverged(obj *EmbdEtcd, hostname string, isConverged bool) erro
 		log.Printf("Trace: Etcd: SetHostnameConverged(%s): %v", hostname, isConverged)
 		defer log.Printf("Trace: Etcd: SetHostnameConverged(%v): Finished!", hostname)
 	}
-	converged := fmt.Sprintf("/%s/converged/%s", NS, hostname)
+	converged := fmt.Sprintf("%s/converged/%s", NS, hostname)
 	op := []etcd.Op{etcd.OpPut(converged, fmt.Sprintf("%t", isConverged))}
 	if _, err := obj.Txn(nil, op, nil); err != nil { // TODO: do we need a skipConv flag here too?
 		return fmt.Errorf("set converged failed") // exit in progress?
@@ -213,7 +213,7 @@ func HostnameConverged(obj *EmbdEtcd) (map[string]bool, error) {
 		log.Printf("Trace: Etcd: HostnameConverged()")
 		defer log.Printf("Trace: Etcd: HostnameConverged(): Finished!")
 	}
-	path := fmt.Sprintf("/%s/converged/", NS)
+	path := fmt.Sprintf("%s/converged/", NS)
 	keyMap, err := obj.ComplexGet(path, true, etcd.WithPrefix()) // don't un-converge
 	if err != nil {
 		return nil, fmt.Errorf("converged values aren't available: %v", err)
@@ -239,7 +239,7 @@ func HostnameConverged(obj *EmbdEtcd) (map[string]bool, error) {
 // AddHostnameConvergedWatcher adds a watcher with a callback that runs on
 // hostname state changes.
 func AddHostnameConvergedWatcher(obj *EmbdEtcd, callbackFn func(map[string]bool) error) (func(), error) {
-	path := fmt.Sprintf("/%s/converged/", NS)
+	path := fmt.Sprintf("%s/converged/", NS)
 	internalCbFn := func(re *RE) error {
 		// TODO: get the value from the response, and apply delta...
 		// for now, just run a get operation which is easier to code!
@@ -258,7 +258,7 @@ func SetClusterSize(obj *EmbdEtcd, value uint16) error {
 		log.Printf("Trace: Etcd: SetClusterSize(): %v", value)
 		defer log.Printf("Trace: Etcd: SetClusterSize(): Finished!")
 	}
-	key := fmt.Sprintf("/%s/idealClusterSize", NS)
+	key := fmt.Sprintf("%s/idealClusterSize", NS)
 
 	if err := obj.Set(key, strconv.FormatUint(uint64(value), 10)); err != nil {
 		return fmt.Errorf("function SetClusterSize failed: %v", err) // exit in progress?
@@ -268,7 +268,7 @@ func SetClusterSize(obj *EmbdEtcd, value uint16) error {
 
 // GetClusterSize gets the ideal target cluster size of etcd peers.
 func GetClusterSize(obj *EmbdEtcd) (uint16, error) {
-	key := fmt.Sprintf("/%s/idealClusterSize", NS)
+	key := fmt.Sprintf("%s/idealClusterSize", NS)
 	keyMap, err := obj.Get(key)
 	if err != nil {
 		return 0, fmt.Errorf("function GetClusterSize failed: %v", err)

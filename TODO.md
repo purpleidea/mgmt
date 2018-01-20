@@ -24,7 +24,6 @@ level and how many hours you'd like to spend on the patch.
 - [ ] increment algorithm (linear, exponential, etc...) [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## User/Group resource
-- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 - [ ] automatic edges to file resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Virt (libvirt) resource
@@ -55,8 +54,7 @@ level and how many hours you'd like to spend on the patch.
 - [ ] base plumbing
 
 ## Language improvements
-- [ ] language design
-- [ ] lexer/parser
+- [ ] more core functions
 - [ ] automatic language formatter, ala `gofmt`
 - [ ] gedit/gnome-builder/gtksourceview syntax highlighting
 - [ ] vim syntax highlighting

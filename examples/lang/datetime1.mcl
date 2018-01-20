@@ -1,0 +1,4 @@
+$d = datetime()
+file "/tmp/mgmt/datetime" {
+	content => template("Hello! It is now: {{ datetimeprint . }}\n", $d),
+}

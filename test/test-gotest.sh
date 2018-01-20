@@ -1,8 +1,11 @@
 #!/bin/bash
 
-. test/util.sh
-
 echo "running test-gotest.sh $1"
+
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
+. test/util.sh
 
 failures=''
 function run-test()
@@ -10,8 +13,7 @@ function run-test()
 	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 }
 
-ROOT=$(dirname "${BASH_SOURCE}")/..
-cd "${ROOT}"
+make build
 
 base=$(go list .)
 for pkg in `go list ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/"`; do
@@ -23,6 +25,7 @@ for pkg in `go list ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examp
 	fi
 done
 
+make clean
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'
 	echo 'The following `go test` runs have failed:'

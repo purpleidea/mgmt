@@ -1,0 +1,31 @@
+file "/tmp/mgmt/systemload" {
+	content => template("load average: {{ .load }} threshold: {{ .threshold }}\n", $tmplvalues),
+}
+
+$tmplvalues = struct{load => $theload, threshold => $threshold,}
+
+$theload = structlookup(load(), "x1")
+$threshold = 1.5	# change me if you like
+
+# simple hysteresis implementation
+$h1 = $theload > $threshold
+$h2 = $theload{1} > $threshold
+$h3 = $theload{2} > $threshold
+$unload = $h1 || $h2 || $h3
+
+virt "mgmt1" {
+	uri => "qemu:///session",
+	cpus => 1,
+	memory => 524288,
+	state => "running",
+	transient => true,
+}
+
+# this vm shuts down under load...
+virt "mgmt2" {
+	uri => "qemu:///session",
+	cpus => 1,
+	memory => 524288,
+	state => if $unload { "shutoff" } else { "running" },
+	transient => true,
+}

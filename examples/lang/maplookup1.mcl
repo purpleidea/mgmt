@@ -1,0 +1,13 @@
+$m = {"k1" => 42, "k2" => 13,}
+
+$found = maplookup($m, "k1", 99)
+
+print "print1" {
+	msg => printf("found value of: %d", $found),
+}
+
+$notfound = maplookup($m, "k3", 99)
+
+print "print2" {
+	msg => printf("notfound value of: %d", $notfound),
+}

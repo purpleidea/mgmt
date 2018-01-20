@@ -34,7 +34,7 @@ import (
 // collection prefixes and filters that we care about...
 func WatchResources(obj *EmbdEtcd) chan error {
 	ch := make(chan error, 1) // buffer it so we can measure it
-	path := fmt.Sprintf("/%s/exported/", NS)
+	path := fmt.Sprintf("%s/exported/", NS)
 	callback := func(re *RE) error {
 		// TODO: is this even needed? it used to happen on conn errors
 		log.Printf("Etcd: Watch: Path: %v", path) // event
@@ -61,7 +61,7 @@ func WatchResources(obj *EmbdEtcd) chan error {
 
 // SetResources exports all of the resources which we pass in to etcd.
 func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) error {
-	// key structure is /$NS/exported/$hostname/resources/$uid = $data
+	// key structure is $NS/exported/$hostname/resources/$uid = $data
 
 	var kindFilter []string // empty to get from everyone
 	hostnameFilter := []string{hostname}
@@ -83,7 +83,7 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
 		}
 		uid := fmt.Sprintf("%s/%s", res.GetKind(), res.GetName())
-		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uid)
+		path := fmt.Sprintf("%s/exported/%s/resources/%s", NS, hostname, uid)
 		if data, err := resources.ResToB64(res); err == nil {
 			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", data)) // desired state
 			ops = append(ops, etcd.OpPut(path, data))
@@ -108,7 +108,7 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
 		}
 		uid := fmt.Sprintf("%s/%s", res.GetKind(), res.GetName())
-		path := fmt.Sprintf("/%s/exported/%s/resources/%s", NS, hostname, uid)
+		path := fmt.Sprintf("%s/exported/%s/resources/%s", NS, hostname, uid)
 
 		if match(res, resourceList) { // if we match, no need to delete!
 			continue
@@ -134,10 +134,10 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 // If the kindfilter or hostnameFilter is empty, then it assumes no filtering...
 // TODO: Expand this with a more powerful filter based on what we eventually
 // support in our collect DSL. Ideally a server side filter like WithFilter()
-// We could do this if the pattern was /$NS/exported/$kind/$hostname/$uid = $data.
+// We could do this if the pattern was $NS/exported/$kind/$hostname/$uid = $data.
 func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resources.Res, error) {
-	// key structure is /$NS/exported/$hostname/resources/$uid = $data
-	path := fmt.Sprintf("/%s/exported/", NS)
+	// key structure is $NS/exported/$hostname/resources/$uid = $data
+	path := fmt.Sprintf("%s/exported/", NS)
 	resourceList := []resources.Res{}
 	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {

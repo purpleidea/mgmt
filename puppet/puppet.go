@@ -20,6 +20,7 @@ package puppet
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"log"
 	"os/exec"
@@ -38,22 +39,22 @@ const (
 
 func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 	if Debug {
-		log.Printf("Puppet: running command: %v", cmd)
+		log.Printf("%s: running command: %v", Name, cmd)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Printf("Puppet: Error opening pipe to puppet command: %v", err)
+		log.Printf("%s: Error opening pipe to puppet command: %v", Name, err)
 		return nil, err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		log.Printf("Puppet: Error opening error pipe to puppet command: %v", err)
+		log.Printf("%s: Error opening error pipe to puppet command: %v", Name, err)
 		return nil, err
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("Puppet: Error starting puppet command: %v", err)
+		log.Printf("%s: Error starting puppet command: %v", Name, err)
 		return nil, err
 	}
 
@@ -65,7 +66,7 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 		var count int
 		count, err = stdout.Read(data)
 		if err != nil && err != io.EOF {
-			log.Printf("Puppet: Error reading YAML data from puppet: %v", err)
+			log.Printf("%s: Error reading YAML data from puppet: %v", Name, err)
 			return nil, err
 		}
 		// Slicing down to the number of actual bytes is important, the YAML parser
@@ -73,44 +74,50 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 		result = append(result, data[0:count]...)
 	}
 	if Debug {
-		log.Printf("Puppet: read %v bytes of data from puppet", len(result))
+		log.Printf("%s: read %d bytes of data from puppet", Name, len(result))
 	}
 	for scanner := bufio.NewScanner(stderr); scanner.Scan(); {
-		log.Printf("Puppet: (output) %v", scanner.Text())
+		log.Printf("%s: (output) %v", Name, scanner.Text())
 	}
 	if err := cmd.Wait(); err != nil {
-		log.Printf("Puppet: Error: puppet command did not complete: %v", err)
+		log.Printf("%s: Error: puppet command did not complete: %v", Name, err)
 		return nil, err
 	}
 
 	return result, nil
 }
 
-// ParseConfigFromPuppet takes a special puppet param string and config and
-// returns the graph configuration structure.
-func ParseConfigFromPuppet(puppetParam, puppetConf string) *yamlgraph.GraphConfig {
+// ParseConfigFromPuppet returns the graph configuration structure from the mode
+// and input values, including possibly some file and directory paths.
+func (obj *GAPI) ParseConfigFromPuppet() *yamlgraph.GraphConfig {
 	var args []string
-	if puppetParam == "agent" {
+	switch obj.Mode {
+	case "agent":
 		args = []string{"mgmtgraph", "print"}
-	} else if strings.HasSuffix(puppetParam, ".pp") {
-		args = []string{"mgmtgraph", "print", "--manifest", puppetParam}
-	} else {
-		args = []string{"mgmtgraph", "print", "--code", puppetParam}
+	case "file":
+		args = []string{"mgmtgraph", "print", "--manifest", obj.puppetFile}
+	case "string":
+		args = []string{"mgmtgraph", "print", "--code", obj.puppetString}
+	case "dir":
+		// TODO: run the code from the obj.puppetDir directory path
+		return nil // XXX: not implemented
+	default:
+		panic(fmt.Sprintf("%s: unhandled case: %s", Name, obj.Mode))
 	}
 
-	if puppetConf != "" {
-		args = append(args, "--config="+puppetConf)
+	if obj.puppetConf != "" {
+		args = append(args, "--config="+obj.puppetConf)
 	}
 
 	cmd := exec.Command("puppet", args...)
 
-	log.Println("Puppet: launching translator")
+	log.Printf("%s: launching translator", Name)
 
 	var config yamlgraph.GraphConfig
 	if data, err := runPuppetCommand(cmd); err != nil {
 		return nil
 	} else if err := config.Parse(data); err != nil {
-		log.Printf("Puppet: Error: Could not parse YAML output with Parse: %v", err)
+		log.Printf("%s: Error: Could not parse YAML output with Parse: %v", Name, err)
 		return nil
 	}
 
@@ -118,28 +125,28 @@ func ParseConfigFromPuppet(puppetParam, puppetConf string) *yamlgraph.GraphConfi
 }
 
 // RefreshInterval returns the graph refresh interval from the puppet configuration.
-func RefreshInterval(puppetConf string) int {
+func (obj *GAPI) refreshInterval() int {
 	if Debug {
-		log.Printf("Puppet: determining graph refresh interval")
+		log.Printf("%s: determining graph refresh interval", Name)
 	}
 	var cmd *exec.Cmd
-	if puppetConf != "" {
-		cmd = exec.Command("puppet", "config", "print", "runinterval", "--config", puppetConf)
+	if obj.puppetConf != "" {
+		cmd = exec.Command("puppet", "config", "print", "runinterval", "--config", obj.puppetConf)
 	} else {
 		cmd = exec.Command("puppet", "config", "print", "runinterval")
 	}
 
-	log.Println("Puppet: inspecting runinterval configuration")
+	log.Printf("%s: inspecting runinterval configuration", Name)
 
 	interval := 1800
 	data, err := runPuppetCommand(cmd)
 	if err != nil {
-		log.Printf("Puppet: could not determine configured run interval (%v), using default of %v", err, interval)
+		log.Printf("%s: could not determine configured run interval (%v), using default of %v", Name, err, interval)
 		return interval
 	}
 	result, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 0)
 	if err != nil {
-		log.Printf("Puppet: error reading numeric runinterval value (%v), using default of %v", err, interval)
+		log.Printf("%s: error reading numeric runinterval value (%v), using default of %v", Name, err, interval)
 		return interval
 	}
 

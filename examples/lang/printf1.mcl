@@ -1,0 +1,8 @@
+test "printf-a" {
+	anotherstr => printf("the %s is: %d", "answer", 42),
+}
+
+$format = "a %s is: %f"
+test "printf-b" {
+	anotherstr => printf($format, "cool number", 3.14159),
+}

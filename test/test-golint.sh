@@ -1,18 +1,20 @@
 #!/bin/bash
 # check that go lint passes or doesn't get worse by some threshold
 
+echo running test-golint.sh
+
+ORIGPWD=`pwd`
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
 . test/util.sh
 
-echo running test-golint.sh
 # TODO: replace with gometalinter instead of plain golint
 # TODO: output a diff of what has changed in the golint output
 # FIXME: test a range of commits, since only the last patch is checked here
 PREVIOUS='HEAD^'
 CURRENT='HEAD'
 THRESHOLD=1	# percent problems per new LOC
-XPWD=`pwd`
-ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
-cd "${ROOT}" >/dev/null
 
 # if this branch has more than one commit as compared to master, diff to that
 # note: this is a cheap way to avoid doing a fancy succession of golint's...
@@ -55,7 +57,7 @@ LINT1=`find . -maxdepth 3 -iname '*.go' -not -path './old/*' -not -path './tmp/*
 COUNT1=`echo -e "$LINT1" | wc -l`	# number of golint problems in older branch
 
 # clean up
-cd "$XPWD" >/dev/null
+cd "$ORIGPWD" >/dev/null
 rm -rf "$T"
 
 DELTA=$(printf "%.0f\n" `echo - | awk "{ print (($COUNT - $COUNT1) / $DIFF1) * 100 }"`)

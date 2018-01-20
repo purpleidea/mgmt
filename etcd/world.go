@@ -18,13 +18,24 @@
 package etcd
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
+
+	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
+	"github.com/purpleidea/mgmt/etcd/scheduler"
 	"github.com/purpleidea/mgmt/resources"
 )
 
 // World is an etcd backed implementation of the World interface.
 type World struct {
-	Hostname string // uuid for the consumer of these
-	EmbdEtcd *EmbdEtcd
+	Hostname       string // uuid for the consumer of these
+	EmbdEtcd       *EmbdEtcd
+	MetadataPrefix string       // expected metadata prefix
+	StoragePrefix  string       // storage prefix for etcdfs storage
+	StandaloneFs   resources.Fs // store an fs here for local usage
+	Debug          bool
+	Logf           func(format string, v ...interface{})
 }
 
 // ResWatch returns a channel which spits out events on possible exported
@@ -92,4 +103,50 @@ func (obj *World) StrMapSet(namespace, value string) error {
 // StrMapDel deletes the value in a particular namespace.
 func (obj *World) StrMapDel(namespace string) error {
 	return SetStrMap(obj.EmbdEtcd, obj.Hostname, namespace, nil)
+}
+
+// Scheduler returns a scheduling result of hosts in a particular namespace.
+func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error) {
+	modifiedOpts := []scheduler.Option{}
+	for _, o := range opts {
+		modifiedOpts = append(modifiedOpts, o) // copy in
+	}
+
+	modifiedOpts = append(modifiedOpts, scheduler.Debug(obj.Debug))
+	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.Logf))
+
+	return scheduler.Schedule(obj.EmbdEtcd.GetClient(), fmt.Sprintf("%s/scheduler/%s", NS, namespace), obj.Hostname, modifiedOpts...)
+}
+
+// Fs returns a distributed file system from a unique URI. For single host
+// execution that doesn't span more than a single host, this file system might
+// actually be a local or memory backed file system, so actually only
+// distributed within the boredom that is a single host cluster.
+func (obj *World) Fs(uri string) (resources.Fs, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	// we're in standalone mode
+	if u.Scheme == "memmapfs" && u.Path == "/" {
+		return obj.StandaloneFs, nil
+	}
+
+	if u.Scheme != "etcdfs" {
+		return nil, fmt.Errorf("unknown scheme: `%s`", u.Scheme)
+	}
+	if u.Path == "" {
+		return nil, fmt.Errorf("empty path: %s", u.Path)
+	}
+	if !strings.HasPrefix(u.Path, obj.MetadataPrefix) {
+		return nil, fmt.Errorf("wrong path prefix: %s", u.Path)
+	}
+
+	etcdFs := &etcdfs.Fs{
+		Client:     obj.EmbdEtcd.GetClient(),
+		Metadata:   u.Path,
+		DataPrefix: obj.StoragePrefix,
+	}
+	return etcdFs, nil
 }

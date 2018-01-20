@@ -19,7 +19,6 @@ package hcl
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"strings"
 
@@ -27,7 +26,7 @@ import (
 	"github.com/hashicorp/hcl/hcl/ast"
 	"github.com/hashicorp/hil"
 	"github.com/purpleidea/mgmt/gapi"
-	hv "github.com/purpleidea/mgmt/hil"
+	hv "github.com/purpleidea/mgmt/hcl/hil"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
 )
@@ -236,14 +235,9 @@ func graphFromConfig(c *Config, data gapi.Data) (*pgraph.Graph, error) {
 	return graph, nil
 }
 
-func loadHcl(f *string) (*Config, error) {
-	if f == nil {
-		return nil, fmt.Errorf("empty file given")
-	}
-
-	data, err := ioutil.ReadFile(*f)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read file: %v", err)
+func loadHcl(data []byte) (*Config, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty data given")
 	}
 
 	file, err := hcl.ParseBytes(data)

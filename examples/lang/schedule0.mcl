@@ -1,0 +1,18 @@
+# here are all the possible options:
+#$opts = struct{strategy => "rr", max => 3, reuse => false, ttl => 10,}
+
+# although an empty struct is valid too:
+#$opts = struct{}
+
+# we'll just use a smaller subset today:
+$opts = struct{strategy => "rr", max => 2, ttl => 10,}
+
+# schedule in a particular namespace with options:
+$set = schedule("xsched", $opts)
+
+# and if you want, you can omit the options entirely:
+#$set = schedule("xsched")
+
+file "/tmp/mgmt/scheduled-${hostname()}" {
+	content => template("set: {{ . }}\n", $set),
+}

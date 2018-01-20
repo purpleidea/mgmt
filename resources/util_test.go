@@ -155,8 +155,7 @@ func TestMiscEncodeDecode2(t *testing.T) {
 
 func TestStructTagToFieldName0(t *testing.T) {
 	type TestStruct struct {
-		// TODO: switch this to TestRes when it is in git master
-		NoopRes        // so that this struct implements `Res`
+		TestRes        // so that this struct implements `Res`
 		Alpha   bool   `lang:"alpha" yaml:"nope"`
 		Beta    string `yaml:"beta"`
 		Gamma   string
@@ -182,8 +181,7 @@ func TestStructTagToFieldName0(t *testing.T) {
 
 func TestLowerStructFieldNameToFieldName0(t *testing.T) {
 	type TestStruct struct {
-		// TODO: switch this to TestRes when it is in git master
-		NoopRes   // so that this struct implements `Res`
+		TestRes   // so that this struct implements `Res`
 		Alpha     bool
 		skipMe    bool
 		Beta      string
@@ -200,7 +198,7 @@ func TestLowerStructFieldNameToFieldName0(t *testing.T) {
 	}
 
 	expected := map[string]string{
-		"noopres": "NoopRes", // TODO: switch this to TestRes when it is in git master
+		"testres": "TestRes", // hide by specifying `lang:""` on it
 		"alpha":   "Alpha",
 		//"skipme": "skipMe",
 		"beta":      "Beta",
@@ -218,8 +216,7 @@ func TestLowerStructFieldNameToFieldName0(t *testing.T) {
 
 func TestLowerStructFieldNameToFieldName1(t *testing.T) {
 	type TestStruct struct {
-		// TODO: switch this to TestRes when it is in git master
-		NoopRes // so that this struct implements `Res`
+		TestRes // so that this struct implements `Res`
 		Alpha   bool
 		skipMe  bool
 		Beta    string
@@ -236,6 +233,68 @@ func TestLowerStructFieldNameToFieldName1(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected failure, but passed with: %+v", mapping)
 		return
+	}
+}
+
+func TestLowerStructFieldNameToFieldName2(t *testing.T) {
+	mapping, err := LowerStructFieldNameToFieldName(&TestRes{})
+	if err != nil {
+		t.Errorf("failed: %+v", err)
+		return
+	}
+
+	expected := map[string]string{
+		"baseres": "BaseRes",
+
+		"bool": "Bool",
+		"str":  "Str",
+
+		"int":   "Int",
+		"int8":  "Int8",
+		"int16": "Int16",
+		"int32": "Int32",
+		"int64": "Int64",
+
+		"uint":   "Uint",
+		"uint8":  "Uint8",
+		"uint16": "Uint16",
+		"uint32": "Uint32",
+		"uint64": "Uint64",
+
+		"byte": "Byte",
+		"rune": "Rune",
+
+		"float32":    "Float32",
+		"float64":    "Float64",
+		"complex64":  "Complex64",
+		"complex128": "Complex128",
+
+		"boolptr":   "BoolPtr",
+		"stringptr": "StringPtr",
+		"int64ptr":  "Int64Ptr",
+		"int8ptr":   "Int8Ptr",
+		"uint8ptr":  "Uint8Ptr",
+
+		"int8ptrptrptr": "Int8PtrPtrPtr",
+
+		"slicestring": "SliceString",
+		"mapintfloat": "MapIntFloat",
+		"mixedstruct": "MixedStruct",
+		"interface":   "Interface",
+
+		"anotherstr": "AnotherStr",
+
+		"validatebool":  "ValidateBool",
+		"validateerror": "ValidateError",
+		"alwaysgroup":   "AlwaysGroup",
+		"comparefail":   "CompareFail",
+
+		"comment": "Comment",
+	}
+
+	if !reflect.DeepEqual(mapping, expected) {
+		t.Errorf("expected: %+v", expected)
+		t.Errorf("received: %+v", mapping)
 	}
 }
 

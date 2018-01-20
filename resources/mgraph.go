@@ -150,7 +150,7 @@ func (obj *MGraph) Start(first bool) { // start or continue
 			unpause = false // doesn't need unpausing on first start
 			obj.wg.Add(1)
 			// must pass in value to avoid races...
-			// see: https://ttboj.wordpress.com/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
+			// see: https://purpleidea.com/blog/2015/07/27/golang-parallelism-issues-causing-too-many-open-files-error/
 			go func(vv pgraph.Vertex) {
 				defer obj.wg.Done()
 				// unset Worker() running flag just before exit

@@ -16,7 +16,7 @@ Resources in `mgmt` are similar to resources in other systems in that they are
 uniquely different in that they can detect when their state has changed, and as
 a result can run to revert or repair this change instantly. For some background
 on this design, please read the
-[original article](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
+[original article](https://purpleidea.com/blog/2016/01/18/next-generation-configuration-mgmt/)
 on the subject.
 
 ## Resource API
@@ -465,14 +465,14 @@ func init() { // special golang method that runs once
 ```
 
 ## Automatic edges
-Automatic edges in `mgmt` are well described in [this article](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/).
+Automatic edges in `mgmt` are well described in [this article](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/).
 The best example of this technique can be seen in the `svc` resource.
 Unfortunately no further documentation about this subject has been written. To
 expand this section, please send a patch! Please contact us if you'd like to
 work on a resource that uses this feature, or to add it to an existing one!
 
 ## Automatic grouping
-Automatic grouping in `mgmt` is well described in [this article](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/).
+Automatic grouping in `mgmt` is well described in [this article](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/).
 The best example of this technique can be seen in the `pkg` resource.
 Unfortunately no further documentation about this subject has been written. To
 expand this section, please send a patch! Please contact us if you'd like to
@@ -481,7 +481,7 @@ work on a resource that uses this feature, or to add it to an existing one!
 
 ## Send/Recv
 In `mgmt` there is a novel concept called _Send/Recv_. For some background,
-please [read the introductory article](https://ttboj.wordpress.com/2016/12/07/sendrecv-in-mgmt/).
+please [read the introductory article](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/).
 When using this feature, the engine will automatically send the user specified
 value to the intended destination without requiring any resource specific code.
 Any time that one of the destination values is changed, the engine automatically
@@ -547,7 +547,7 @@ There are still many ideas for new resources that haven't been written yet. If
 you'd like to contribute one, please contact us and tell us about your idea!
 
 ### Where can I find more information about mgmt?
-Additional blog posts, videos and other material [is available!](https://github.com/purpleidea/mgmt/#on-the-web).
+Additional blog posts, videos and other material [is available!](https://github.com/purpleidea/mgmt/blob/master/docs/on-the-web.md).
 
 ## Suggestions
 If you have any ideas for API changes or other improvements to resource writing,

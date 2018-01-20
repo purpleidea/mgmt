@@ -1,0 +1,10 @@
+$x = "hello"
+if true {
+	$x = "i am shadowed"	# this is allowed, but not a good practice to intentionally shadow
+	print "inner-scope" {
+		msg => $x,	# contents are: i am shadowed
+	}
+}
+print "top-scope" {
+	msg => $x,	# contents are: hello
+}

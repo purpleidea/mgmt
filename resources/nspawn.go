@@ -157,7 +157,7 @@ func (obj *NspawnRes) Init() error {
 
 // Watch for state changes and sends a message to the bus if there is a change.
 func (obj *NspawnRes) Watch() error {
-	// this resource depends on systemd ensure that it's running
+	// this resource depends on systemd to ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return fmt.Errorf("systemd is not running")
 	}
@@ -227,7 +227,7 @@ func (obj *NspawnRes) Watch() error {
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
 func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
-	// this resource depends on systemd ensure that it's running
+	// this resource depends on systemd to ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return false, errors.New("systemd is not running")
 	}

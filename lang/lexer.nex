@@ -1,0 +1,351 @@
+/[ \t\n]/	{ /* skip over whitespace */ }
+/{/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return OPEN_CURLY
+		}
+/}/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return CLOSE_CURLY
+		}
+/\(/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return OPEN_PAREN
+		}
+/\)/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return CLOSE_PAREN
+		}
+/\[/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return OPEN_BRACK
+		}
+/\]/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return CLOSE_BRACK
+		}
+/if/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return IF
+		}
+/else/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return ELSE
+		}
+/=>/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return ROCKET
+		}
+/,/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return COMMA
+		}
+/:/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return COLON
+		}
+/;/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return SEMICOLON
+		}
+/=/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return EQUALS
+		}
+/\+/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return PLUS
+		}
+/\-/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return MINUS
+		}
+/\*/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return MULTIPLY
+		}
+/\//		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return DIVIDE
+		}
+/==/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return EQ
+		}
+/!=/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return NEQ
+		}
+/</		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return LT
+		}
+/>/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return GT
+		}
+/<=/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return LTE
+		}
+/>=/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return GTE
+		}
+/&&/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return AND
+		}
+/\|\|/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return OR
+		}
+/!/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return NOT
+		}
+/in/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return IN
+		}
+/bool/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return BOOL_IDENTIFIER
+		}
+/str/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return STR_IDENTIFIER
+		}
+/int/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return INT_IDENTIFIER
+		}
+/float/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return FLOAT_IDENTIFIER
+		}
+/struct/	{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return STRUCT_IDENTIFIER
+		}
+/variant/	{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return VARIANT_IDENTIFIER
+		}
+/true|false/	{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			if s == "true" {
+				lval.bool = true
+			} else if s == "false" {
+				lval.bool = false
+			} else {
+				// the lexer was wrong
+				panic(fmt.Sprintf("error lexing BOOL, got: %s", s))
+			}
+			return BOOL
+		}
+/"(\\.|[^"])*"/
+		{	// This matches any number of the bracketed patterns
+			// that are surrounded by the two quotes on each side.
+			// The bracket pattern is any escaped char or something
+			// that is not a single quote char. See this reference:
+			// https://www.lysator.liu.se/c/ANSI-C-grammar-l.html#STRING-LITERAL
+			// old: /"[\a\b\t\n\v\f\r !#$%&'()*+,-.\/0-9:;<=>?@A-Z\[\\\]^_a-z{|}~]*"/
+
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+
+			x, err := strconv.Unquote(s) // expects quote wrapping!
+			if err == nil {
+				lval.str = x // it comes out all cleanly escaped
+			} else if err == strconv.ErrSyntax {
+				// this catches improper escape codes or lone \
+				lp := yylex.cast()
+				lp.lexerErr = &LexParseErr{
+					Err: ErrLexerStringBadEscaping,
+					Str: s,
+					Row: yylex.Line(),
+					Col: yylex.Column(),
+				}
+				return ERROR
+			} else if err != nil {
+				// unhandled error
+				panic(fmt.Sprintf("error lexing STRING, got: %v", err))
+			} else { // no chars to escape found
+				lval.str = s[1:len(s)-1] // remove the two quotes
+			}
+
+			return STRING
+		}
+/\-?[0-9]+/
+		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			var err error
+			lval.int, err = strconv.ParseInt(s, 10, 64) // int64
+			if err == nil {
+				return INTEGER
+			} else if e := err.(*strconv.NumError); e.Err == strconv.ErrRange {
+				// this catches range errors for very large ints
+				lp := yylex.cast()
+				lp.lexerErr = &LexParseErr{
+					Err: ErrLexerIntegerOverflow,
+					Str: s,
+					Row: yylex.Line(),
+					Col: yylex.Column(),
+				}
+				return ERROR
+			} else {
+				panic(fmt.Sprintf("error lexing INTEGER, got: %v", err))
+			}
+		}
+/\-?[0-9]+\.[0-9]+/
+		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			var err error
+			lval.float, err = strconv.ParseFloat(s, 64) // float64
+			if err == nil {
+				return FLOAT
+			} else if e := err.(*strconv.NumError); e.Err == strconv.ErrRange {
+				// this catches range errors for very large floats
+				lp := yylex.cast()
+				lp.lexerErr = &LexParseErr{
+					Err: ErrLexerFloatOverflow,
+					Str: s,
+					Row: yylex.Line(),
+					Col: yylex.Column(),
+				}
+				return ERROR
+			} else {
+				panic(fmt.Sprintf("error lexing FLOAT, got: %v", err))
+			}
+		}
+/\$[a-z][a-z0-9]*{[0-9]+}/
+		{
+			// we have this as a single token, because otherwise the
+			// parser can get confused by the curly brackets :/
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			s = s[1:len(s)] // remove the leading $
+			s = s[0:len(s)-1] // remove the trailing close curly
+			// XXX: nex has a bug that it gets confused by the
+			// following single curly brace. Please see:
+			// https://github.com/blynn/nex/issues/48
+			a := strings.Split(s, "{") // XXX: close match here: }
+			if len(a) != 2 {
+				panic(fmt.Sprintf("error lexing VAR_IDENTIFIER_HX: %v", a))
+			}
+			lval.str = a[0]
+			var err error
+			lval.int, err = strconv.ParseInt(a[1], 10, 64) // int64
+			if err == nil {
+				return VAR_IDENTIFIER_HX
+			} else if e := err.(*strconv.NumError); e.Err == strconv.ErrRange {
+				// this catches range errors for very large ints
+				lp := yylex.cast()
+				lp.lexerErr = &LexParseErr{
+					Err: ErrLexerIntegerOverflow,
+					Str: a[1],
+					Row: yylex.Line(),
+					Col: yylex.Column(),
+				}
+				return ERROR
+			} else {
+				panic(fmt.Sprintf("error lexing VAR_IDENTIFIER_HX, got: %v", err))
+			}
+		}
+/\$[a-z][a-z0-9]*/
+		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			lval.str = s[1:len(s)] // remove the leading $
+			return VAR_IDENTIFIER
+		}
+/[a-z][a-z0-9]*/
+		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return IDENTIFIER
+		}
+/#[^\n]*/
+		{	// this matches a (#) pound char followed by any
+			// number of chars that aren't the (\n) newline!
+
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+
+			lval.str = s[1:len(s)] // remove the leading #
+			//log.Printf("lang: lexer: comment: `%s`", lval.str)
+			//return COMMENT // skip return to avoid parsing
+		}
+/./		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			lp := yylex.cast()
+			lp.lexerErr = &LexParseErr{
+				Err: ErrLexerUnrecognized,
+				Str: s,
+				Row: yylex.Line(),
+				Col: yylex.Column(),
+			}
+			return ERROR
+		}
+//
+
+// Mgmt
+// Copyright (C) 2013-2018+ James Shubin and the project contributors
+// Written by James Shubin <james@shubin.ca> and the project contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+package lang
+
+import (
+	"fmt"
+	"strconv"
+)

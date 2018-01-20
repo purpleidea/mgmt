@@ -215,7 +215,7 @@ func (obj *BaseRes) SendRecv(res Res) (map[string]bool, error) {
 		}
 
 		// if the types don't match, we can't use send->recv
-		// TODO: do we want to relax this for string -> *string ?
+		// FIXME: do we want to relax this for string -> *string ?
 		if e := TypeCmp(value1, value2); e != nil {
 			e := errwrap.Wrapf(e, "type mismatch between %s and %s", v.Res, obj)
 			err = multierr.Append(err, e) // list of errors

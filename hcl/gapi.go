@@ -25,11 +25,26 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/recwatch"
+	"github.com/purpleidea/mgmt/resources"
+
+	errwrap "github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
+
+const (
+	// Name is the name of this frontend.
+	Name = "hcl"
+	// Start is the entry point filename that we use. It is arbitrary.
+	Start = "/start.hcl"
+)
+
+func init() {
+	gapi.Register(Name, func() gapi.GAPI { return &GAPI{} }) // register
+}
 
 // GAPI ...
 type GAPI struct {
-	File *string
+	InputURI string
 
 	initialized   bool
 	data          gapi.Data
@@ -38,16 +53,43 @@ type GAPI struct {
 	configWatcher *recwatch.ConfigWatcher
 }
 
-// NewGAPI ...
-func NewGAPI(data gapi.Data, file *string) (*GAPI, error) {
-	if file == nil {
-		return nil, fmt.Errorf("empty file given")
-	}
+// Cli takes a cli.Context, and returns our GAPI if activated. All arguments
+// should take the prefix of the registered name. On activation, if there are
+// any validation problems, you should return an error. If this was not
+// activated, then you should return a nil GAPI and a nil error.
+func (obj *GAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+	if s := c.String(Name); c.IsSet(Name) {
+		if s == "" {
+			return nil, fmt.Errorf("%s input is empty", Name)
+		}
 
-	obj := &GAPI{
-		File: file,
+		// TODO: single file input for now
+		if err := gapi.CopyFileToFs(fs, s, Start); err != nil {
+			return nil, errwrap.Wrapf(err, "can't copy code from `%s` to `%s`", s, Start)
+		}
+
+		return &gapi.Deploy{
+			Name: Name,
+			Noop: c.GlobalBool("noop"),
+			Sema: c.GlobalInt("sema"),
+			GAPI: &GAPI{
+				InputURI: fs.URI(),
+				// TODO: add properties here...
+			},
+		}, nil
 	}
-	return obj, obj.Init(data)
+	return nil, nil // we weren't activated!
+}
+
+// CliFlags returns a list of flags used by this deploy subcommand.
+func (obj *GAPI) CliFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:  fmt.Sprintf("%s", Name),
+			Value: "",
+			Usage: "hcl graph definition to run",
+		},
+	}
 }
 
 // Init ...
@@ -55,11 +97,9 @@ func (obj *GAPI) Init(d gapi.Data) error {
 	if obj.initialized {
 		return fmt.Errorf("already initialized")
 	}
-
-	if obj.File == nil {
-		return fmt.Errorf("file cannot be nil")
+	if obj.InputURI == "" {
+		return fmt.Errorf("the InputURI param must be specified")
 	}
-
 	obj.data = d
 	obj.closeChan = make(chan struct{})
 	obj.initialized = true
@@ -70,7 +110,21 @@ func (obj *GAPI) Init(d gapi.Data) error {
 
 // Graph ...
 func (obj *GAPI) Graph() (*pgraph.Graph, error) {
-	config, err := loadHcl(obj.File)
+	if !obj.initialized {
+		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
+	}
+
+	fs, err := obj.data.World.Fs(obj.InputURI) // open the remote file system
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't load code from file system `%s`", obj.InputURI)
+	}
+
+	b, err := fs.ReadFile(Start) // read the single file out of it
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't read code from file `%s`", Start)
+	}
+
+	config, err := loadHcl(b)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse graph: %s", err)
 	}
@@ -88,7 +142,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 		defer close(ch)
 		if !obj.initialized {
 			next := gapi.Next{
-				Err:  fmt.Errorf("hcl: GAPI is not initialized"),
+				Err:  fmt.Errorf("%s: GAPI is not initialized", Name),
 				Exit: true,
 			}
 			ch <- next
@@ -97,12 +151,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
 
-		watchChan, configChan := make(chan error), make(chan error)
-		if obj.data.NoConfigWatch {
-			configChan = nil
-		} else {
-			configChan = obj.configWatcher.ConfigWatch(*obj.File) // simple
-		}
+		watchChan := make(chan error)
 		if obj.data.NoStreamWatch {
 			watchChan = nil
 		} else {
@@ -117,7 +166,6 @@ func (obj *GAPI) Next() chan gapi.Next {
 			case <-startChan:
 				startChan = nil
 			case err, ok = <-watchChan:
-			case err, ok = <-configChan:
 				if !ok {
 					return
 				}
@@ -125,7 +173,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 				return
 			}
 
-			log.Printf("hcl: generating new graph")
+			log.Printf("%s: generating new graph", Name)
 			next := gapi.Next{
 				Err: err,
 			}
@@ -144,7 +192,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 // Close ...
 func (obj *GAPI) Close() error {
 	if !obj.initialized {
-		return fmt.Errorf("hcl: GAPI is not initialized")
+		return fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
 
 	obj.configWatcher.Close()

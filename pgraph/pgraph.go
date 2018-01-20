@@ -20,7 +20,9 @@ package pgraph
 
 import (
 	"fmt"
+	"log"
 	"sort"
+	"strings"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -181,6 +183,19 @@ func (g *Graph) Adjacency() map[Vertex]map[Vertex]Edge {
 	return g.adjacency
 }
 
+// FindEdge returns the edge from v1 -> v2 if it exists. Otherwise nil.
+func (g *Graph) FindEdge(v1, v2 Vertex) Edge {
+	x, exists := g.adjacency[v1]
+	if !exists {
+		return nil // not found
+	}
+	edge, exists := x[v2]
+	if !exists {
+		return nil
+	}
+	return edge
+}
+
 // Vertices returns a randomly sorted slice of all vertices in the graph.
 // The order is random, because the map implementation is intentionally so!
 func (g *Graph) Vertices() []Vertex {
@@ -189,6 +204,18 @@ func (g *Graph) Vertices() []Vertex {
 		vertices = append(vertices, k)
 	}
 	return vertices
+}
+
+// Edges returns a randomly sorted slice of all edges in the graph.
+// The order is random, because the map implementation is intentionally so!
+func (g *Graph) Edges() []Edge {
+	var edges []Edge
+	for vertex := range g.adjacency {
+		for _, edge := range g.adjacency[vertex] {
+			edges = append(edges, edge)
+		}
+	}
+	return edges
 }
 
 // VerticesChan returns a channel of all vertices in the graph.
@@ -223,7 +250,38 @@ func (g *Graph) VerticesSorted() []Vertex {
 
 // String makes the graph pretty print.
 func (g *Graph) String() string {
+	if g == nil { // don't panic if we're printing a nil graph
+		return fmt.Sprintf("%v", nil) // prints a <nil>
+	}
 	return fmt.Sprintf("Vertices(%d), Edges(%d)", g.NumVertices(), g.NumEdges())
+}
+
+// Sprint prints a full graph in textual form out to a string. To log this you
+// might want to use Logf, which will keep everything aligned with whatever your
+// logging prefix is.
+func (g *Graph) Sprint() string {
+	var str string
+	for v := range g.Adjacency() {
+		str += fmt.Sprintf("Vertex: %s\n", v)
+	}
+	for v1 := range g.Adjacency() {
+		for v2, e := range g.Adjacency()[v1] {
+			str += fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e)
+		}
+	}
+	return strings.TrimSuffix(str, "\n") // trim off trailing \n if it exists
+}
+
+// Logf logs a printed representation of the graph with the printf-format string
+// prefix of your choice. This is helpful to ensure each line of logged output
+// has the prefix you asked for.
+func (g *Graph) Logf(format string, v ...interface{}) {
+	w := []interface{}{}
+	w = append(w, v...)
+	for _, x := range strings.Split(g.Sprint(), "\n") {
+		a := append(w, x) // x must be the last arg
+		log.Printf(format+"%s", a...)
+	}
 }
 
 // IncomingGraphVertices returns an array (slice) of all directed vertices to
@@ -502,6 +560,12 @@ func (g *Graph) VertexMatchFn(fn func(Vertex) (bool, error)) (Vertex, error) {
 // equivalent vertices, and edges.
 // FIXME: add more test cases
 func (g *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), edgeCmpFn func(Edge, Edge) (bool, error)) error {
+	if graph == nil || g == nil {
+		if graph != g {
+			return fmt.Errorf("one graph is nil")
+		}
+		return nil
+	}
 	n1, n2 := g.NumVertices(), graph.NumVertices()
 	if n1 != n2 {
 		return fmt.Errorf("base graph has %d vertices, while input graph has %d", n1, n2)

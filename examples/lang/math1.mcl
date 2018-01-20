@@ -1,0 +1,4 @@
+test "t1" {
+	int64 => (4 + 32) * 15 - 8,
+	anotherstr => printf("the answer is: %d", 42),
+}

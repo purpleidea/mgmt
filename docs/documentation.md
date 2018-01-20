@@ -13,13 +13,13 @@ foundation in and for, new and existing software.
 
 For more information, you may like to read some blog posts from the author:
 
-* [Next generation config mgmt](https://ttboj.wordpress.com/2016/01/18/next-generation-configuration-mgmt/)
-* [Automatic edges in mgmt](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
-* [Automatic grouping in mgmt](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
-* [Automatic clustering in mgmt](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
-* [Remote execution in mgmt](https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/)
-* [Send/Recv in mgmt](https://ttboj.wordpress.com/2016/12/07/sendrecv-in-mgmt/)
-* [Metaparameters in mgmt](https://ttboj.wordpress.com/2017/03/01/metaparameters-in-mgmt/)
+* [Next generation config mgmt](https://purpleidea.com/blog/2016/01/18/next-generation-configuration-mgmt/)
+* [Automatic edges in mgmt](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/)
+* [Automatic grouping in mgmt](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/)
+* [Automatic clustering in mgmt](https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/)
+* [Remote execution in mgmt](https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/)
+* [Send/Recv in mgmt](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/)
+* [Metaparameters in mgmt](https://purpleidea.com/blog/2017/03/01/metaparameters-in-mgmt/)
 
 There is also an [introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1) available.
 Older videos and other material [is available](on-the-web.md).
@@ -62,7 +62,7 @@ the meta attributes of that resource to `false`.
 #### Blog post
 
 You can read the introductory blog post about this topic here:
-[https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/](https://ttboj.wordpress.com/2016/03/14/automatic-edges-in-mgmt/)
+[https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/)
 
 ### Autogrouping
 
@@ -81,7 +81,7 @@ the meta attributes of that resource to `false`.
 #### Blog post
 
 You can read the introductory blog post about this topic here:
-[https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/](https://ttboj.wordpress.com/2016/03/30/automatic-grouping-in-mgmt/)
+[https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/)
 
 ### Automatic clustering
 
@@ -97,7 +97,7 @@ with the `--seeds` variable.
 #### Blog post
 
 You can read the introductory blog post about this topic here:
-[https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/](https://ttboj.wordpress.com/2016/06/20/automatic-clustering-in-mgmt/)
+[https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/](https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/)
 
 ### Remote ("agent-less") mode
 
@@ -124,7 +124,7 @@ which need to exchange information that is only available at run time.
 #### Blog post
 
 You can read the introductory blog post about this topic here:
-[https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/](https://ttboj.wordpress.com/2016/10/07/remote-execution-in-mgmt/)
+[https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/](https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/)
 
 ### Puppet support
 
@@ -371,7 +371,7 @@ This is a project that I started in my free time in 2013. Development is driven
 by all of our collective patches! Dive right in, and start hacking!
 Please contact me if you'd like to invite me to speak about this at your event.
 
-You can follow along [on my technical blog](https://ttboj.wordpress.com/).
+You can follow along [on my technical blog](https://purpleidea.com/blog/).
 
 To report any bugs, please file a ticket at: [https://github.com/purpleidea/mgmt/issues](https://github.com/purpleidea/mgmt/issues).
 
@@ -385,4 +385,4 @@ for more information.
 
 * [github](https://github.com/purpleidea/)
 * [&#64;purpleidea](https://twitter.com/#!/purpleidea)
-* [https://ttboj.wordpress.com/](https://ttboj.wordpress.com/)
+* [https://purpleidea.com/](https://purpleidea.com/)

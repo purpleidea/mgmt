@@ -639,6 +639,19 @@ func TestGraphCmp1(t *testing.T) {
 	}
 }
 
+// FIXME: i think we should allow equivalent elements in the graph to compare...
+// FIXME: currently this fails :(
+//func TestGraphCmp2(t *testing.T) {
+//	g1 := &Graph{}
+//	g2 := &Graph{}
+//	g1.AddVertex(NV("v1"), NV("v1"))
+//	g2.AddVertex(NV("v1"), NV("v1"))
+//
+//	if err := g1.GraphCmp(g2, strVertexCmpFn, strEdgeCmpFn); err != nil {
+//		t.Errorf("should have no error during GraphCmp, but got: %v", err)
+//	}
+//}
+
 func TestSort0(t *testing.T) {
 	vs := []Vertex{}
 	s := Sort(vs)

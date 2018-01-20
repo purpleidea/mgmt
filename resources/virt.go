@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/purpleidea/mgmt/util"
+
 	multierr "github.com/hashicorp/go-multierror"
 	"github.com/libvirt/libvirt-go"
 	libvirtxml "github.com/libvirt/libvirt-go-xml"
@@ -999,7 +1001,7 @@ func (d *diskDevice) GetXML(idx int) string {
 	b += "<disk type='file' device='disk'>"
 	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", d.Type)
 	b += fmt.Sprintf("<source file='%s'/>", source)
-	b += fmt.Sprintf("<target dev='vd%s' bus='virtio'/>", numToAlpha(idx))
+	b += fmt.Sprintf("<target dev='vd%s' bus='virtio'/>", util.NumToAlpha(idx))
 	b += "</disk>"
 	return b
 }
@@ -1010,7 +1012,7 @@ func (d *cdRomDevice) GetXML(idx int) string {
 	b += "<disk type='file' device='cdrom'>"
 	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", d.Type)
 	b += fmt.Sprintf("<source file='%s'/>", source)
-	b += fmt.Sprintf("<target dev='hd%s' bus='ide'/>", numToAlpha(idx))
+	b += fmt.Sprintf("<target dev='hd%s' bus='ide'/>", util.NumToAlpha(idx))
 	b += "<readonly/>"
 	b += "</disk>"
 	return b
@@ -1195,13 +1197,4 @@ func expandHome(p string) (string, error) {
 	}
 
 	return p, nil
-}
-
-func numToAlpha(idx int) string {
-	var mod = idx % 26
-	var div = idx / 26
-	if div > 0 {
-		return numToAlpha(div-1) + string(rune(mod+int('a')))
-	}
-	return string(rune(mod + int('a')))
 }

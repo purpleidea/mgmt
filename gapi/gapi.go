@@ -19,17 +19,39 @@
 package gapi
 
 import (
+	"encoding/gob"
+	"fmt"
+
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/resources"
+
+	"github.com/urfave/cli"
 )
+
+// RegisteredGAPIs is a global map of all possible GAPIs which can be used. You
+// should never touch this map directly. Use methods like Register instead.
+var RegisteredGAPIs = make(map[string]func() GAPI) // must initialize this map
+
+// Register takes a GAPI and its name and makes it available for use. There is
+// no matching Unregister function.
+func Register(name string, fn func() GAPI) {
+	if _, ok := RegisteredGAPIs[name]; ok {
+		panic(fmt.Sprintf("a GAPI named %s is already registered", name))
+	}
+	gob.Register(fn())
+	RegisteredGAPIs[name] = fn
+}
 
 // Data is the set of input values passed into the GAPI structs via Init.
 type Data struct {
+	Program       string // name of the originating program
 	Hostname      string // uuid for the host, required for GAPI
 	World         resources.World
 	Noop          bool
 	NoConfigWatch bool
 	NoStreamWatch bool
+	Debug         bool
+	Logf          func(format string, v ...interface{})
 	// NOTE: we can add more fields here if needed by GAPI endpoints
 }
 
@@ -48,6 +70,9 @@ type Next struct {
 
 // GAPI is a Graph API that represents incoming graphs and change streams.
 type GAPI interface {
+	Cli(c *cli.Context, fs resources.Fs) (*Deploy, error)
+	CliFlags() []cli.Flag
+
 	Init(Data) error               // initializes the GAPI and passes in useful data
 	Graph() (*pgraph.Graph, error) // returns the most recent pgraph
 	Next() chan Next               // returns a stream of switch events

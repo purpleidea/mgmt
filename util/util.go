@@ -27,6 +27,18 @@ import (
 	"github.com/godbus/dbus"
 )
 
+// NumToAlpha returns a lower case string of letters representing a number. If
+// you specify 0, you'll get `a`, 25 gives you `z`, and 26 gives you `aa` and so
+// on...
+func NumToAlpha(idx int) string {
+	var mod = idx % 26
+	var div = idx / 26
+	if div > 0 {
+		return NumToAlpha(div-1) + string(rune(mod+int('a')))
+	}
+	return string(rune(mod + int('a')))
+}
+
 // FirstToUpper returns the string with the first character capitalized.
 func FirstToUpper(str string) string {
 	if str == "" {

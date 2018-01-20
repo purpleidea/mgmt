@@ -18,10 +18,13 @@ Come join us in the `mgmt` community!
 | Mailing list | [mgmtconfig-list@redhat.com](https://www.redhat.com/mailman/listinfo/mgmtconfig-list) |
 
 ## Status:
-Mgmt is a fairly new project.
-We're working towards being minimally useful for production environments.
-We aren't feature complete for what we'd consider a 1.x release yet.
-With your help you'll be able to influence our design and get us there sooner!
+Mgmt is a next generation automation tool. It has similarities to other tools in
+the configuration management space, but has a fast, modern, distributed systems
+approach. The project contains an engine and a language.
+[Please have a look at an introductory video or blog post.](docs/on-the-web.md)
+
+Mgmt is a fairly new project. It is usable today, but not yet feature complete.
+With your help you'll be able to influence our design and get us to 1.0 sooner!
 Interested developers should read the [quick start guide](docs/quick-start-guide.md).
 
 ## Documentation:
@@ -33,6 +36,8 @@ Please read, enjoy and help improve our documentation!
 | [quick start guide](docs/quick-start-guide.md) | for mgmt developers |
 | [frequently asked questions](docs/faq.md) | for everyone |
 | [resource guide](docs/resource-guide.md) | for mgmt developers |
+| [language guide](docs/language-guide.md) | for everyone |
+| [style guide](docs/style-guide.md) | for mgmt developers |
 | [godoc API reference](https://godoc.org/github.com/purpleidea/mgmt) | for mgmt developers |
 | [prometheus guide](docs/prometheus.md) | for everyone |
 | [puppet guide](docs/puppet-guide.md) | for puppet sysadmins |
@@ -49,7 +54,7 @@ Please get involved by working on one of these items or by suggesting something 
 ## Bugs:
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
 Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell) or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
-Feel free to read my article on [debugging golang programs](https://ttboj.wordpress.com/2016/02/15/debugging-golang-programs/).
+Feel free to read my article on [debugging golang programs](https://purpleidea.com/blog/2016/02/15/debugging-golang-programs/).
 
 ## Patches:
 We'd love to have your patches! Please send them by email, or as a pull request.

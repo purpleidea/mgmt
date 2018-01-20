@@ -21,7 +21,6 @@ package yamlgraph
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"reflect"
 	"strings"
@@ -35,7 +34,7 @@ import (
 
 type collectorResConfig struct {
 	Kind    string `yaml:"kind"`
-	Pattern string `yaml:"pattern"` // XXX: Not Implemented
+	Pattern string `yaml:"pattern"` // XXX: not implemented
 }
 
 // Vertex is the data structure of a vertex.
@@ -68,7 +67,9 @@ type Resources struct {
 	Nspawn   []*resources.NspawnRes   `yaml:"nspawn"`
 	Password []*resources.PasswordRes `yaml:"password"`
 	Pkg      []*resources.PkgRes      `yaml:"pkg"`
+	Print    []*resources.PrintRes    `yaml:"print"`
 	Svc      []*resources.SvcRes      `yaml:"svc"`
+	Test     []*resources.TestRes     `yaml:"test"`
 	Timer    []*resources.TimerRes    `yaml:"timer"`
 	User     []*resources.UserRes     `yaml:"user"`
 	Virt     []*resources.VirtRes     `yaml:"virt"`
@@ -262,13 +263,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 }
 
 // ParseConfigFromFile takes a filename and returns the graph config structure.
-func ParseConfigFromFile(filename string) *GraphConfig {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Printf("Config: Error: ParseConfigFromFile: File: %v", err)
-		return nil
-	}
-
+func ParseConfigFromFile(data []byte) *GraphConfig {
 	var config GraphConfig
 	if err := config.Parse(data); err != nil {
 		log.Printf("Config: Error: ParseConfigFromFile: Parse: %v", err)

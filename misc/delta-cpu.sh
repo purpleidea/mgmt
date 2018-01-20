@@ -7,7 +7,7 @@ count=1		# initial count
 factor=3
 function output() {
 count=$1	# arg!
-cat << EOF > ~/code/mgmt/examples/virt4.yaml
+cat << EOF > ~/code/mgmt/examples/yaml/virt4.yaml
 ---
 graph: mygraph
 resources:

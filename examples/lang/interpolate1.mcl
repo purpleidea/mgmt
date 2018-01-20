@@ -1,0 +1,5 @@
+$audience = "WORLD!"
+file "/tmp/mgmt/hello" {
+	content => "hello ${audience}!\n",
+	state => "exists",
+}

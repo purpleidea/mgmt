@@ -104,27 +104,6 @@ const (
 
 const refreshPathToken = "refresh"
 
-// World is an interface to the rest of the different graph state. It allows
-// the GAPI to store state and exchange information throughout the cluster. It
-// is the interface each machine uses to communicate with the rest of the world.
-type World interface { // TODO: is there a better name for this interface?
-	ResWatch() chan error
-	ResExport([]Res) error
-	// FIXME: should this method take a "filter" data struct instead of many args?
-	ResCollect(hostnameFilter, kindFilter []string) ([]Res, error)
-
-	StrWatch(namespace string) chan error
-	StrIsNotExist(error) bool
-	StrGet(namespace string) (string, error)
-	StrSet(namespace, value string) error
-	StrDel(namespace string) error
-
-	StrMapWatch(namespace string) chan error
-	StrMapGet(namespace string) (map[string]string, error)
-	StrMapSet(namespace, value string) error
-	StrMapDel(namespace string) error
-}
-
 // ResData is the set of input values passed into the pgraph for the resources.
 type ResData struct {
 	Hostname string // uuid for the host
@@ -134,6 +113,7 @@ type ResData struct {
 	World      World
 	Prefix     string // the prefix to be used for the pgraph namespace
 	Debug      bool
+	Logf       func(format string, v ...interface{})
 	// NOTE: we can add more fields here if needed for the resources.
 }
 
@@ -193,7 +173,7 @@ type Res interface {
 	Watch() error   // send on channel to signal process() events
 	CheckApply(apply bool) (checkOK bool, err error)
 	AutoEdges() (AutoEdge, error)
-	Compare(Res) bool
+	Compare(Res) bool      // FIXME: rename to: `Cmp(Res) error`
 	CollectPattern(string) // XXX: temporary until Res collection is more advanced
 	//UnmarshalYAML(unmarshal func(interface{}) error) error // optional
 }
@@ -507,6 +487,12 @@ func (obj *BaseRes) AutoEdges() (AutoEdge, error) {
 
 // Compare is the base compare method, which also handles the metaparams cmp.
 func (obj *BaseRes) Compare(res Res) bool {
+
+	// FIXME: shouldn't we compare each property to default if one is nil?
+	if (obj.Meta() == nil) != (res.Meta() == nil) { // xor
+		return false
+	}
+
 	// TODO: should the AutoEdge values be compared?
 	if obj.Meta().AutoEdge != res.Meta().AutoEdge {
 		return false

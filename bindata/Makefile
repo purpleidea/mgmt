@@ -20,14 +20,19 @@
 # `bytes, err := bindata.Asset("FILEPATH")`
 # where FILEPATH is the path of the original input file relative to `bindata/`.
 
-.PHONY: build
+.PHONY: build clean
 default: build
 
 build: bindata.go
 
 # add more input files as dependencies at the end here...
 bindata.go: ../COPYING
-	# go-bindata --pkg bindata -o {OUTPUT} {INPUT}
+	# go-bindata --pkg bindata -o <OUTPUT> <INPUT>
 	go-bindata --pkg bindata -o ./$@ $^
 	# gofmt the output file
 	gofmt -s -w $@
+	@ROOT=$$(dirname "$${BASH_SOURCE}")/.. && $$ROOT/misc/header.sh '$@'
+
+clean:
+	# remove generated bindata/*.go
+	@ROOT=$$(dirname "$${BASH_SOURCE}")/.. && rm *.go

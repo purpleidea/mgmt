@@ -3,19 +3,20 @@
 
 exit 0	# i give up, we're skipping this entirely, help wanted to fix this
 
-. test/util.sh
-
 echo running test-yamlfmt.sh
 set -o errexit
 set -o nounset
 set -o pipefail
 
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
+. test/util.sh
+
 #if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 #	echo "Travis and Jenkins give wonky results here, skipping test!"
 #	exit 0
 #fi
-
-ROOT=$(dirname "${BASH_SOURCE}")/..
 
 RUBY=`command -v ruby 2>/dev/null`
 if [ -z $RUBY ]; then
@@ -45,8 +46,6 @@ if [ "$major" -eq 2 ] && [ "$minor" -lt 1 ] ; then
 	echo "Skipping yamlfmt - cannot test YAML formatting with Ruby < 2.1"
 	exit 0
 fi
-
-cd "${ROOT}"
 
 find_files() {
 	git ls-files | grep '\.yaml$'

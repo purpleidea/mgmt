@@ -1,18 +1,18 @@
 #!/bin/bash
 # check that go vet passes
 
-. test/util.sh
-
 echo running test-govet.sh
+
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
+. test/util.sh
 
 failures=''
 function run-test()
 {
 	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 }
-
-ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
-cd "${ROOT}"
 
 GO_VERSION=($(go version))
 

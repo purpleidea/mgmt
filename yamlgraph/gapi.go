@@ -25,11 +25,26 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/recwatch"
+	"github.com/purpleidea/mgmt/resources"
+
+	errwrap "github.com/pkg/errors"
+	"github.com/urfave/cli"
 )
+
+const (
+	// Name is the name of this frontend.
+	Name = "yaml"
+	// Start is the entry point filename that we use. It is arbitrary.
+	Start = "/start.yaml"
+)
+
+func init() {
+	gapi.Register(Name, func() gapi.GAPI { return &GAPI{} }) // register
+}
 
 // GAPI implements the main yamlgraph GAPI interface.
 type GAPI struct {
-	File *string // yaml graph definition to use; nil if undefined
+	InputURI string // input URI of file system containing yaml graph to use
 
 	data          gapi.Data
 	initialized   bool
@@ -38,12 +53,43 @@ type GAPI struct {
 	configWatcher *recwatch.ConfigWatcher
 }
 
-// NewGAPI creates a new yamlgraph GAPI struct and calls Init().
-func NewGAPI(data gapi.Data, file *string) (*GAPI, error) {
-	obj := &GAPI{
-		File: file,
+// Cli takes a cli.Context, and returns our GAPI if activated. All arguments
+// should take the prefix of the registered name. On activation, if there are
+// any validation problems, you should return an error. If this was not
+// activated, then you should return a nil GAPI and a nil error.
+func (obj *GAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+	if s := c.String(Name); c.IsSet(Name) {
+		if s == "" {
+			return nil, fmt.Errorf("input yaml is empty")
+		}
+
+		// single file input only
+		if err := gapi.CopyFileToFs(fs, s, Start); err != nil {
+			return nil, errwrap.Wrapf(err, "can't copy yaml from `%s` to `%s`", s, Start)
+		}
+
+		return &gapi.Deploy{
+			Name: Name,
+			Noop: c.GlobalBool("noop"),
+			Sema: c.GlobalInt("sema"),
+			GAPI: &GAPI{
+				InputURI: fs.URI(),
+				// TODO: add properties here...
+			},
+		}, nil
 	}
-	return obj, obj.Init(data)
+	return nil, nil // we weren't activated!
+}
+
+// CliFlags returns a list of flags used by this deploy subcommand.
+func (obj *GAPI) CliFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:  Name,
+			Value: "",
+			Usage: "yaml graph definition to run",
+		},
+	}
 }
 
 // Init initializes the yamlgraph GAPI struct.
@@ -51,8 +97,8 @@ func (obj *GAPI) Init(data gapi.Data) error {
 	if obj.initialized {
 		return fmt.Errorf("already initialized")
 	}
-	if obj.File == nil {
-		return fmt.Errorf("the File param must be specified")
+	if obj.InputURI == "" {
+		return fmt.Errorf("the InputURI param must be specified")
 	}
 	obj.data = data // store for later
 	obj.closeChan = make(chan struct{})
@@ -64,12 +110,22 @@ func (obj *GAPI) Init(data gapi.Data) error {
 // Graph returns a current Graph.
 func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 	if !obj.initialized {
-		return nil, fmt.Errorf("yamlgraph: GAPI is not initialized")
+		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
 
-	config := ParseConfigFromFile(*obj.File)
+	fs, err := obj.data.World.Fs(obj.InputURI) // open the remote file system
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't load yaml from file system `%s`", obj.InputURI)
+	}
+
+	b, err := fs.ReadFile(Start) // read the single file out of it
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't read yaml from file `%s`", Start)
+	}
+
+	config := ParseConfigFromFile(b)
 	if config == nil {
-		return nil, fmt.Errorf("yamlgraph: ParseConfigFromFile returned nil")
+		return nil, fmt.Errorf("%s: ParseConfigFromFile returned nil", Name)
 	}
 
 	g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
@@ -85,7 +141,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
 			next := gapi.Next{
-				Err:  fmt.Errorf("yamlgraph: GAPI is not initialized"),
+				Err:  fmt.Errorf("%s: GAPI is not initialized", Name),
 				Exit: true, // exit, b/c programming error?
 			}
 			ch <- next
@@ -94,12 +150,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
 
-		watchChan, configChan := make(chan error), make(chan error)
-		if obj.data.NoConfigWatch {
-			configChan = nil
-		} else {
-			configChan = obj.configWatcher.ConfigWatch(*obj.File) // simple
-		}
+		watchChan := make(chan error)
 		if obj.data.NoStreamWatch {
 			watchChan = nil
 		} else {
@@ -117,15 +168,11 @@ func (obj *GAPI) Next() chan gapi.Next {
 				if !ok {
 					return
 				}
-			case err, ok = <-configChan: // returns nil events on ok!
-				if !ok { // the channel closed!
-					return
-				}
 			case <-obj.closeChan:
 				return
 			}
 
-			log.Printf("yamlgraph: Generating new graph...")
+			log.Printf("%s: Generating new graph...", Name)
 			next := gapi.Next{
 				//Exit: true, // TODO: for permanent shutdown!
 				Err: err,
@@ -148,7 +195,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 // Close shuts down the yamlgraph GAPI.
 func (obj *GAPI) Close() error {
 	if !obj.initialized {
-		return fmt.Errorf("yamlgraph: GAPI is not initialized")
+		return fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
 	obj.configWatcher.Close()
 	close(obj.closeChan)

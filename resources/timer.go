@@ -27,10 +27,11 @@ func init() {
 	RegisterResource("timer", func() Res { return &TimerRes{} })
 }
 
-// TimerRes is a timer resource for time based events.
+// TimerRes is a timer resource for time based events. It outputs an event every
+// interval seconds.
 type TimerRes struct {
 	BaseRes  `yaml:",inline"`
-	Interval uint32 `yaml:"interval"` // Interval : Interval between runs
+	Interval uint32 `yaml:"interval"` // interval between runs in seconds
 
 	ticker *time.Ticker
 }

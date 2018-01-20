@@ -76,12 +76,16 @@ anguishing, I chose the name because it was short and I thought it was
 appropriately descriptive. If you need a less ambiguous search term or phrase,
 you can try using `mgmtconfig` or `mgmt config`.
 
+It also doesn't stand for
+[Methyl Guanine Methyl Transferase](https://en.wikipedia.org/wiki/O-6-methylguanine-DNA_methyltransferase)
+which definitely existed before the band did.
+
 ### You didn't answer my question, or I have a question!
 
 It's best to ask on [IRC](https://webchat.freenode.net/?channels=#mgmtconfig)
 to see if someone can help you. Once we get a big enough community going, we'll
 add a mailing list. If you don't get any response from the above, you can
-contact me through my [technical blog](https://ttboj.wordpress.com/contact/)
+contact me through my [technical blog](https://purpleidea.com/contact/)
 and I'll do my best to help. If you have a good question, please add it as a
 patch to this documentation. I'll merge your question, and add a patch with the
 answer!

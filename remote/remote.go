@@ -743,8 +743,13 @@ func NewRemotes(clientURLs, remoteURLs []string, noop bool, remotes []string, fi
 // NewSSH is a helper function that does the initial parsing into an SSH obj.
 // It takes as input the path to a graph definition file.
 func (obj *Remotes) NewSSH(file string) (*SSH, error) {
-	// first do the parsing...
-	config := yamlgraph.ParseConfigFromFile(file) // FIXME: GAPI-ify somehow?
+	// first read in the file and do the parsing...
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "Remote: Error reading file: %s", file)
+	}
+
+	config := yamlgraph.ParseConfigFromFile(data) // FIXME: GAPI-ify somehow?
 	if config == nil {
 		return nil, fmt.Errorf("Remote: Error parsing remote graph: %s", file)
 	}

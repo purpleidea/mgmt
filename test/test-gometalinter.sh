@@ -2,18 +2,18 @@
 # check a bunch of linters with the gometalinter
 # TODO: run this from the test-golint.sh file instead to check for deltas
 
-. test/util.sh
-
 echo running test-gometalinter.sh
+
+#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
+. test/util.sh
 
 failures=''
 function run-test()
 {
 	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 }
-
-ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
-cd "${ROOT}"
 
 # TODO: run more linters here if we're brave...
 gml='gometalinter --disable-all'

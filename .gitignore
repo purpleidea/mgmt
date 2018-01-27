@@ -9,5 +9,6 @@ tmp/
 bindata/*.go
 mgmt
 mgmt.static
+mgmt-*
 mgmt.iml
 rpmbuild/

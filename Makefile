@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program path deps run race bindata generate build clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
+.PHONY: all art cleanart version program path deps run race bindata generate build crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean bindata
 
 GO_FILES := $(shell find . -name '*.go')
@@ -40,6 +40,7 @@ REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
 ifneq ($(GOTAGS),)
     BUILD_FLAGS = -tags '$(GOTAGS)'
 endif
+GOOSARCHES = linux/amd64 linux/ppc64 linux/ppc64le linux/arm64
 
 default: build
 
@@ -113,6 +114,14 @@ build: bindata $(PROGRAM)
 $(PROGRAM): $(GO_FILES)
 	@echo "Building: $(PROGRAM), version: $(SVERSION)..."
 	time go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)" -o $(PROGRAM) $(BUILD_FLAGS);
+
+define buildrelease
+GOOS=$(1) GOARCH=$(2) go build -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w" -o $(PROGRAM)-$(1)-$(2) $(BUILD_FLAGS);
+endef
+
+crossbuild:
+	@echo "Building: $(PROGRAM), version: $(SVERSION), arches: $(GOOSARCHES) ..."
+	$(foreach GOOSARCH,$(GOOSARCHES), $(call buildrelease,$(subst /,,$(dir $(GOOSARCH))),$(notdir $(GOOSARCH))))
 
 $(PROGRAM).static: $(GO_FILES)
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."

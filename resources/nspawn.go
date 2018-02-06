@@ -339,8 +339,14 @@ func (obj *NspawnRes) Compare(r Res) bool {
 		return false
 	}
 
-	if !obj.svc.Compare(res.svc) {
+	// TODO: why is res.svc ever nil?
+	if (obj.svc == nil) != (res.svc == nil) { // xor
 		return false
+	}
+	if obj.svc != nil && res.svc != nil {
+		if !obj.svc.Compare(res.svc) {
+			return false
+		}
 	}
 
 	return true

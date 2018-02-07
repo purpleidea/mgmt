@@ -42,15 +42,16 @@ func init() {
 	RegisterResource("file", func() Res { return &FileRes{} })
 }
 
-// FileRes is a file and directory resource.
+// FileRes is a file and directory resource. Dirs are defined by names ending
+// in a slash.
 type FileRes struct {
 	BaseRes  `yaml:",inline"`
-	Path     string  `yaml:"path"` // path variable (should default to name)
-	Dirname  string  `yaml:"dirname"`
-	Basename string  `yaml:"basename"`
-	Content  *string `yaml:"content"` // nil to mark as undefined
-	Source   string  `yaml:"source"`  // file path for source content
-	State    string  `yaml:"state"`   // state: exists/present?, absent, (undefined?)
+	Path     string  `yaml:"path"`     // path variable (usually defaults to name)
+	Dirname  string  `yaml:"dirname"`  // override the path dirname
+	Basename string  `yaml:"basename"` // override the path basename
+	Content  *string `yaml:"content"`  // nil to mark as undefined
+	Source   string  `yaml:"source"`   // file path for source content
+	State    string  `yaml:"state"`    // state: exists/present?, absent, (undefined?)
 	Owner    string  `yaml:"owner"`
 	Group    string  `yaml:"group"`
 	Mode     string  `yaml:"mode"`

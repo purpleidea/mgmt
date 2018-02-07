@@ -20,6 +20,7 @@ package funcs // this is here, in case we allow others to register operators...
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -376,9 +377,13 @@ func LookupOperator(operator string, size int) ([]*types.Type, error) {
 	results := []*types.Type{}
 
 	if operator == "" {
-		// FIXME: loop this in sorted order...
-		for _, a := range OperatorFuncs {
-			fns = append(fns, a...)
+		var keys []string
+		for k := range OperatorFuncs {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, a := range keys {
+			fns = append(fns, OperatorFuncs[a]...)
 		}
 	}
 

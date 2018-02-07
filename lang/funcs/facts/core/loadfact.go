@@ -18,7 +18,6 @@
 package core // TODO: should this be in its own individual package?
 
 import (
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -28,10 +27,6 @@ import (
 )
 
 const (
-	// LoadScale factor scales the output from sysinfo to the correct float
-	// value.
-	LoadScale = 65536 // XXX: is this correct or should it be 65535?
-
 	loadSignature = "struct{x1 float; x5 float; x15 float}"
 )
 
@@ -113,19 +108,4 @@ func (obj *LoadFact) Stream() error {
 func (obj *LoadFact) Close() error {
 	close(obj.closeChan)
 	return nil
-}
-
-// load returns the system load averages for the last minute, five minutes and
-// fifteen minutes. Calling this more often than once every five seconds seems
-// to be unnecessary, since the kernel only updates these values that often.
-// TODO: is the kernel update interval configurable?
-func load() (one, five, fifteen float64, err error) {
-	var sysinfo syscall.Sysinfo_t
-	if err = syscall.Sysinfo(&sysinfo); err != nil {
-		return
-	}
-	one = float64(sysinfo.Loads[0]) / LoadScale
-	five = float64(sysinfo.Loads[1]) / LoadScale
-	fifteen = float64(sysinfo.Loads[2]) / LoadScale
-	return
 }

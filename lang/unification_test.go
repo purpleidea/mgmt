@@ -475,93 +475,82 @@ func TestUnification1(t *testing.T) {
 	}
 
 	for index, test := range values { // run all the tests
-		name, ast, fail, expect := test.name, test.ast, test.fail, test.expect
+		t.Run(fmt.Sprintf("test #%d (%s)", index, test.name), func(t *testing.T) {
+			ast, fail, expect := test.ast, test.fail, test.expect
 
-		if name == "" {
-			name = "<sub test not named>"
-		}
+			//str := strings.NewReader(code)
+			//ast, err := LexParse(str)
+			//if err != nil {
+			//	t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
+			//	return
+			//}
+			// TODO: print out the AST's so that we can see the types
+			t.Logf("\n\ntest #%d: AST (before): %+v\n", index, ast)
 
-		//if index != 3 { // hack to run a subset (useful for debugging)
-		//if test.name != "nil" {
-		//	continue
-		//}
+			// skip interpolation in this test so that the node pointers
+			// aren't changed and so we can compare directly to expected
+			//astInterpolated, err := ast.Interpolate() // interpolate strings in ast
+			//if err != nil {
+			//	t.Errorf("test #%d: interpolate failed with: %+v", index, err)
+			//	return
+			//}
+			//t.Logf("test #%d: astInterpolated: %+v", index, astInterpolated)
 
-		t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
-
-		//str := strings.NewReader(code)
-		//ast, err := LexParse(str)
-		//if err != nil {
-		//	t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
-		//	continue
-		//}
-		// TODO: print out the AST's so that we can see the types
-		t.Logf("\n\ntest #%d: AST (before): %+v\n", index, ast)
-
-		// skip interpolation in this test so that the node pointers
-		// aren't changed and so we can compare directly to expected
-		//astInterpolated, err := ast.Interpolate() // interpolate strings in ast
-		//if err != nil {
-		//	t.Errorf("test #%d: interpolate failed with: %+v", index, err)
-		//	continue
-		//}
-		//t.Logf("test #%d: astInterpolated: %+v", index, astInterpolated)
-
-		// top-level, built-in, initial global scope
-		scope := &interfaces.Scope{
-			Variables: map[string]interfaces.Expr{
-				"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-			},
-		}
-		// propagate the scope down through the AST...
-		if err := ast.SetScope(scope); err != nil {
-			t.Errorf("test #%d: set scope failed with: %+v", index, err)
-			continue
-		}
-
-		// apply type unification
-		logf := func(format string, v ...interface{}) {
-			t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
-		}
-		err := unification.Unify(ast, unification.SimpleInvariantSolverLogger(logf))
-
-		// TODO: print out the AST's so that we can see the types
-		t.Logf("\n\ntest #%d: AST (after): %+v\n", index, ast)
-
-		if !fail && err != nil {
-			t.Errorf("test #%d: unification failed with: %+v", index, err)
-			continue
-		}
-		if fail && err == nil {
-			t.Errorf("test #%d: unification passed, expected fail", index)
-			continue
-		}
-		if fail {
-			continue
-		}
-		// continue the test
-
-		if expect == nil {
-			continue
-		}
-		// TODO: do this in sorted order
-		var failed bool
-		for expr, exptyp := range expect {
-			typ, err := expr.Type() // lookup type
-			if err != nil {
-				t.Errorf("test #%d: type lookup of %+v failed with: %+v", index, expr, err)
-				failed = true
-				break
+			// top-level, built-in, initial global scope
+			scope := &interfaces.Scope{
+				Variables: map[string]interfaces.Expr{
+					"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+				},
+			}
+			// propagate the scope down through the AST...
+			if err := ast.SetScope(scope); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: set scope failed with: %+v", index, err)
+				return
 			}
 
-			if err := typ.Cmp(exptyp); err != nil {
-				t.Errorf("test #%d: type cmp failed with: %+v", index, err)
-				failed = true
-				break
+			// apply type unification
+			logf := func(format string, v ...interface{}) {
+				t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
 			}
-		}
-		if failed {
-			continue
-		}
+			err := unification.Unify(ast, unification.SimpleInvariantSolverLogger(logf))
 
+			// TODO: print out the AST's so that we can see the types
+			t.Logf("\n\ntest #%d: AST (after): %+v\n", index, ast)
+
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unification failed with: %+v", index, err)
+				return
+			}
+			if fail && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unification passed, expected fail", index)
+				return
+			}
+
+			if expect == nil { // test done early
+				return
+			}
+			// TODO: do this in sorted order
+			var failed bool
+			for expr, exptyp := range expect {
+				typ, err := expr.Type() // lookup type
+				if err != nil {
+					t.Errorf("test #%d: type lookup of %+v failed with: %+v", index, expr, err)
+					failed = true
+					break
+				}
+
+				if err := typ.Cmp(exptyp); err != nil {
+					t.Errorf("test #%d: type cmp failed with: %+v", index, err)
+					failed = true
+					break
+				}
+			}
+			if failed {
+				return
+			}
+		})
 	}
 }

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# runs command provided as argument inside a development (Linux) Docker container
+
+# Stop on any error
+set -e
+
+script_directory="$( cd "$( dirname "$0" )" && pwd )"
+project_directory=$script_directory/../..
+
+# Specify the Docker image name
+image_name='purpleidea/mgmt:development'
+
+# Run container in development mode
+docker run --rm --name=mgm_development --user=mgmt \
+	-v "$project_directory:/go/src/github.com/purpleidea/mgmt/" \
+	-w /go/src/github.com/purpleidea/mgmt/ \
+	-it "$image_name" /bin/bash -c "$*"

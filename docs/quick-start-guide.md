@@ -14,6 +14,7 @@ Once you're familiar with the general idea, please start hacking...
 * You need golang version 1.8 or greater installed.
 ** To install on rpm style systems: `sudo dnf install golang`
 ** To install on apt style systems: `sudo apt install golang`
+** To install on macOS systems install [Homebrew](https://brew.sh) and run: `brew install go`
 * You can run `go version` to check the golang version.
 * If your distro is tool old, you may need to [download](https://golang.org/dl/) a newer golang version.
 
@@ -97,3 +98,43 @@ At the moment we have:
 * [Arch](https://aur.archlinux.org/packages/mgmt/)
 
 Please contribute more! We'd especially like to see a Debian package!
+
+## OSX/macOS/Darwin development
+Developing and running `mgmt` on macOS is currently not supported (but not discouraged either). Meaning it might work but in the case it doesn't you would have to provide your own patches to fix problems (the project maintainer and community are glad to assist where needed).
+
+There are currently some issues that make `mgmt` less suitable to run for provisioning macOS (eg: https://github.com/purpleidea/mgmt/issues/33). But as a client to provision remote servers it should run fine.
+
+Since the primary supported systems are Linux and these are the environments tested for it is wise to run these suites during macOS development as well. To ease this Docker can be levaraged ((Docker for Mac)[https://docs.docker.com/docker-for-mac/]).
+
+Before running any of the commands below create the development Docker image:
+
+```
+docker/scripts/build-development
+```
+
+This image requires updating every time dependencies (`make-deps.sh`) change.
+
+Then to run the test suite:
+
+```
+docker run --rm -ti \
+  -v $PWD:/go/src/github.com/purpleidea/mgmt/ \
+  -w /go/src/github.com/purpleidea/mgmt/ \
+  purpleidea/mgmt:development \
+  make test
+```
+
+For convenience this command is wrapped in `docker/scripts/exec-development`.
+
+Basically any command can be executed this way. Because the repository source is mounted into the Docker container invocation will be quick and allow rapid testing, example:
+
+```
+docker/scripts/exec-development test/test-shell.sh load0.sh
+```
+
+Other examples:
+
+```
+docker/scripts/exec-development make build
+docker/scripts/exec-development ./mgmt run --tmp-prefix --lang examples/lang/load0.mcl
+```

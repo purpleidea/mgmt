@@ -19,7 +19,7 @@ make build
 buildout='test-examples.out'
 # make symlink to outside of package
 linkto="`pwd`/examples/lib/"
-tmpdir="`mktemp --tmpdir -d tmp.XXX`"	# get a dir outside of the main package
+tmpdir="`$mktemp --tmpdir -d tmp.XXX`"	# get a dir outside of the main package
 cd "$tmpdir"
 ln -s "$linkto"	# symlink outside of dir
 cd `basename "$linkto"`

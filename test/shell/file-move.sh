@@ -1,10 +1,16 @@
 #!/bin/bash -e
 
+if [[ $(uname) == "Darwin" ]] ; then
+	# https://github.com/purpleidea/mgmt/issues/33
+	echo "This test is broken on macOS, skipping!"
+	exit
+fi
+
 mkdir -p /tmp/mgmt/
 rm /tmp/mgmt/f1 || true
 
 # run empty graph, with prometheus support
-timeout --kill-after=40s 35s ./mgmt run --tmp-prefix --yaml=file-move.yaml 2>&1 | tee /tmp/mgmt/file-move.log &
+$timeout --kill-after=40s 35s ./mgmt run --tmp-prefix --yaml=file-move.yaml 2>&1 | tee /tmp/mgmt/file-move.log &
 pid=$!
 sleep 5s	# let it converge
 

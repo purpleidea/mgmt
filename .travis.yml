@@ -1,4 +1,7 @@
 language: go
+os:
+  - linux
+  - osx
 go:
   - 1.8.x
   - 1.9.x
@@ -7,7 +10,7 @@ go_import_path: github.com/purpleidea/mgmt
 sudo: true
 dist: trusty
 before_install:
-  - sudo apt update
+  - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then sudo apt update; fi
   - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
   - git fetch --unshallow
 install: 'make deps'
@@ -17,6 +20,7 @@ matrix:
   allow_failures:
     - go: tip
     - go: 1.9.x
+    - os: osx
 notifications:
   irc:
     channels:

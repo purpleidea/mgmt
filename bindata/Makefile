@@ -35,4 +35,4 @@ bindata.go: ../COPYING
 
 clean:
 	# remove generated bindata/*.go
-	@ROOT=$$(dirname "$${BASH_SOURCE}")/.. && rm *.go
+	@ROOT=$$(dirname "$${BASH_SOURCE}")/.. && rm -f *.go

@@ -25,7 +25,7 @@ function simplify-gocase() {
 
 function token-coloncheck() {
 	# add quotes to avoid matching three X's
-	if grep -Ei "[\/]+[\/]+[ ]*+(FIXME[^:]|TODO[^:]|X"'X'"X[^:])" "$1"; then
+	if grep -Ei "[\/]+[\/]+[ ]*(FIXME[^:]|TODO[^:]|X"'X'"X[^:])" "$1"; then
 		return 1	# tokens must end with a colon
 	fi
 	return 0

@@ -39,7 +39,8 @@ if [ ! -z "$APT" ]; then
 fi
 
 if [ ! -z "$BREW" ]; then
-	$BREW install libvirt || true
+	# coreutils contains gtimeout
+	$BREW install libvirt augeas coreutils || true
 fi
 
 if [ ! -z "$PACMAN" ]; then

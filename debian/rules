@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+export DH_OPTIONS
+export DH_GOPKG := mgmt
+export DH_GOLANG_INSTALL_ALL := 1
+unexport GOROOT
+
+override_dh_auto_build:
+	make build
+
+override_dh_auto_test:
+	@echo "Tests are disabled for now"
+
+%:
+	dh $@ --with=systemd

@@ -1,0 +1,16 @@
+Source: mgmt
+Maintainer: Egor M. (dsx) <dsx@droidnest.org>
+Build-Depends:
+               debhelper (>= 10.0.0),
+               devscripts,
+               dh-golang,
+               dh-systemd,
+               golang-go,
+
+Package: mgmt
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: mgmt: next generation config management!
+ The mgmt tool is a next generation config management prototype. It's
+ not yet ready for production, but we hope to get there soon. Get
+ involved today!

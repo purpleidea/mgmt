@@ -248,7 +248,7 @@ func GetUID(username string) (int, error) {
 
 	userObj, err = user.Lookup(username)
 	if err == nil {
-		return strconv.Atoi(userObj.Gid)
+		return strconv.Atoi(userObj.Uid)
 	}
 
 	return -1, errwrap.Wrapf(err, "user lookup error (%s)", username)

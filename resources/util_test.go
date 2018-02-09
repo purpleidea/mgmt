@@ -334,7 +334,12 @@ func TestCurrentUserGroupByName(t *testing.T) {
 		t.Errorf("uid didn't match current user's: %s vs %s", strconv.Itoa(uid), currentUID)
 	}
 
-	if gid, err = GetGID(userObj.Username); err != nil {
+	// macOS users do not have a group with their name on it, so not assuming this here
+	group, err := user.LookupGroupId(currentGID)
+	if err != nil {
+		t.Errorf("failed to lookup group by id: %s", currentGID)
+	}
+	if gid, err = GetGID(group.Name); err != nil {
 		t.Errorf("error trying to lookup current user UID: %s", err.Error())
 	}
 

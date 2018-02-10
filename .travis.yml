@@ -16,7 +16,7 @@ before_install:
 install: 'make deps'
 script: 'make test'
 matrix:
-  fast_finish: true
+  fast_finish: false
   allow_failures:
     - go: tip
     - go: 1.9.x

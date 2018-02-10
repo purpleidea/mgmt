@@ -1,0 +1,9 @@
+exec "exec0" {
+	cmd => "echo hello world && echo goodbye world 1>&2", # to stdout && stderr
+	shell => "/bin/bash",
+}
+
+print "print0" {
+}
+
+Exec["exec0"].output -> Print["print0"].msg

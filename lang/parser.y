@@ -65,6 +65,9 @@ func init() {
 
 	resFields []*StmtResField
 	resField  *StmtResField
+
+	edgeHalfList []*StmtEdgeHalf
+	edgeHalf     *StmtEdgeHalf
 }
 
 %token OPEN_CURLY CLOSE_CURLY
@@ -74,10 +77,10 @@ func init() {
 %token STRING BOOL INTEGER FLOAT
 %token EQUALS
 %token COMMA COLON SEMICOLON
-%token ROCKET
+%token ROCKET ARROW DOT
 %token STR_IDENTIFIER BOOL_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER IDENTIFIER
-%token VAR_IDENTIFIER_HX
+%token VAR_IDENTIFIER_HX CAPITALIZED_IDENTIFIER
 %token COMMENT ERROR
 
 // precedence table
@@ -154,6 +157,11 @@ stmt:
 		$$.stmt = $1.stmt
 	}
 |	resource
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = $1.stmt
+	}
+|	edge
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = $1.stmt
@@ -682,6 +690,67 @@ resource_field:
 		$$.resField = &StmtResField{
 			Field: $1.str,
 			Value: $3.expr,
+		}
+	}
+;
+edge:
+	// TODO: we could technically prevent single edge_half pieces from being
+	// parsed, but it's probably more work than is necessary...
+	// Test["t1"] -> Test["t2"] -> Test["t3"] # chain or pair
+	edge_half_list
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtEdge{
+			EdgeHalfList: $1.edgeHalfList,
+			//Notify: false, // unused here
+		}
+	}
+	// Test["t1"].foo_send -> Test["t2"].blah_recv # send/recv
+|	edge_half_sendrecv ARROW edge_half_sendrecv
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtEdge{
+			EdgeHalfList: []*StmtEdgeHalf{
+				$1.edgeHalf,
+				$3.edgeHalf,
+			},
+			//Notify: false, // unused here, it is implied (i think)
+		}
+	}
+;
+edge_half_list:
+	edge_half
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.edgeHalfList = []*StmtEdgeHalf{$1.edgeHalf}
+	}
+|	edge_half_list ARROW edge_half
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.edgeHalfList = append($1.edgeHalfList, $3.edgeHalf)
+	}
+;
+edge_half:
+	// eg: Test["t1"]
+	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.edgeHalf = &StmtEdgeHalf{
+			Kind: $1.str,
+			Name: $3.expr,
+			//SendRecv: "", // unused
+		}
+	}
+;
+edge_half_sendrecv:
+	// eg: Test["t1"].foo_send
+	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.edgeHalf = &StmtEdgeHalf{
+			Kind: $1.str,
+			Name: $3.expr,
+			SendRecv: $6.str,
 		}
 	}
 ;

@@ -836,6 +836,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtProg) Output() (*interfaces.Output, error) {
 	resources := []resources.Res{}
+	edges := []*interfaces.Edge{}
 
 	for _, stmt := range obj.Prog {
 		output, err := stmt.Output()
@@ -844,13 +845,13 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 		}
 		if output != nil {
 			resources = append(resources, output.Resources...)
-			//edges = append(edges, output.Edges)
+			edges = append(edges, output.Edges...)
 		}
 	}
 
 	return &interfaces.Output{
 		Resources: resources,
-		//Edges: edges,
+		Edges:     edges,
 	}, nil
 }
 

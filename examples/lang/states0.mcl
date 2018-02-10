@@ -8,28 +8,43 @@ if $state == "one" || $state == "default" {
 	file "/tmp/mgmt/state" {
 		content => "state: one\n",
 	}
+
+	exec "timer" {
+		cmd => "/usr/bin/sleep 1s",
+	}
 	kv "${ns}" {
 		key => $ns,
 		value => "two",
 	}
+	Exec["timer"] -> Kv["${ns}"]
 }
 if $state == "two" {
 
 	file "/tmp/mgmt/state" {
 		content => "state: two\n",
 	}
+
+	exec "timer" {
+		cmd => "/usr/bin/sleep 1s",
+	}
 	kv "${ns}" {
 		key => $ns,
 		value => "three",
 	}
+	Exec["timer"] -> Kv["${ns}"]
 }
 if $state == "three" {
 
 	file "/tmp/mgmt/state" {
 		content => "state: three\n",
 	}
+
+	exec "timer" {
+		cmd => "/usr/bin/sleep 1s",
+	}
 	kv "${ns}" {
 		key => $ns,
 		value => "one",
 	}
+	Exec["timer"] -> Kv["${ns}"]
 }

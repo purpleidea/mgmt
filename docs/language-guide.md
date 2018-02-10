@@ -11,7 +11,7 @@ frontend. This guide describes some of the internals of the language.
 
 The mgmt language is a declarative (immutable) functional, reactive programming
 language. It is implemented in `golang`. A longer introduction to the language
-is coming soon!
+is [available as a blog post here](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/)!
 
 ### Types
 
@@ -83,10 +83,68 @@ These docs will be expanded on when things are more certain to be stable.
 
 ### Statements
 
-Statements, and the `Stmt` interface need to be better documented. For now
-please consume
-[lang/interfaces/ast.go](https://github.com/purpleidea/mgmt/tree/master/lang/interfaces/ast.go).
-These docs will be expanded on when things are more certain to be stable.
+There are a very small number of statements in our language. They include:
+
+- **bind**: bind's an expression to a variable within that scope
+	- eg: `$x = 42`
+- **if**: produces up to one branch of statements based on a conditional
+expression
+
+	```
+	if <conditional> {
+		<statements>
+	} else {
+		# the else branch is optional for if statements
+		<statements>
+	}
+	```
+
+- **resource**: produces a resource
+
+	```
+	file "/tmp/hello" {
+		content => "world",
+		mode => "o=rwx",
+	}
+	```
+
+- **edge**: produces an edge
+
+	```
+	File["/tmp/hello"] -> Print["alert4"]
+	```
+
+All statements produce _output_. Output consists of between zero and more
+`edges` and `resources`. A resource statement can produce a resource, whereas an
+`if` statement produces whatever the chosen branch produces. Ultimately the goal
+of executing our programs is to produce a list of `resources`, which along with
+the produced `edges`, is built into a resource graph. This graph is then passed
+to the engine for desired state application.
+
+#### Bind
+
+This section needs better documentation.
+
+#### If
+
+This section needs better documentation.
+
+#### Resource
+
+This section needs better documentation.
+
+#### Edge
+
+Edges express dependencies in the graph of resources which are output. They can
+be chained as a pair, or in any greater number. For example, you may write:
+
+```
+Pkg["drbd"] -> File["/etc/drbd.conf"] -> Svc["drbd"]
+```
+
+to express a relationship between three resources. The first character in the
+resource kind must be capitalized so that the parser can't ascertain
+unambiguously that we are referring to a dependency relationship.
 
 ### Stages
 

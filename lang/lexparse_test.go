@@ -752,6 +752,73 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t1",
+					},
+					Fields: []*StmtResField{
+						{
+							Field: "int64ptr",
+							Value: &ExprInt{
+								V: 42,
+							},
+						},
+					},
+				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t2",
+					},
+					Fields: []*StmtResField{
+						{
+							Field: "int64ptr",
+							Value: &ExprInt{
+								V: 13,
+							},
+						},
+					},
+				},
+				&StmtEdge{
+					EdgeHalfList: []*StmtEdgeHalf{
+						{
+							Kind: "test",
+							Name: &ExprStr{
+								V: "t1",
+							},
+							SendRecv: "foosend",
+						},
+						{
+							Kind: "test",
+							Name: &ExprStr{
+								V: "t2",
+							},
+							SendRecv: "barrecv",
+						},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "edge stmt",
+			code: `
+			test "t1" {
+				int64ptr => 42,
+			}
+			test "t2" {
+				int64ptr => 13,
+			}
+
+			Test["t1"].foosend -> Test["t2"].barrecv # send/recv
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
 
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.exp
@@ -789,8 +856,8 @@ func TestLexParse0(t *testing.T) {
 			if !reflect.DeepEqual(ast, exp) {
 				t.Errorf("test #%d: AST did not match expected", index)
 				// TODO: consider making our own recursive print function
-				t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(ast))
-				t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
+				t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
+				t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
 				continue
 			}
 		}

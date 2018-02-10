@@ -537,6 +537,43 @@ func TestAstInterpret0(t *testing.T) {
 			graph: graph,
 		})
 	}
+	{
+		// FIXME: add a better vertexCmpFn so we can compare send/recv!
+		graph, _ := pgraph.NewGraph("g")
+		t1, _ := resources.NewNamedResource("test", "t1")
+		{
+			x := t1.(*resources.TestRes)
+			int64Ptr := int64(42)
+			x.Int64Ptr = &int64Ptr
+			graph.AddVertex(t1)
+		}
+		t2, _ := resources.NewNamedResource("test", "t2")
+		{
+			x := t2.(*resources.TestRes)
+			int64Ptr := int64(13)
+			x.Int64Ptr = &int64Ptr
+			graph.AddVertex(t2)
+		}
+		edge := &resources.Edge{
+			Name:   fmt.Sprintf("%s -> %s", t1, t2),
+			Notify: false,
+		}
+		graph.AddEdge(t1, t2, edge)
+		values = append(values, test{
+			name: "two resources and send/recv edge",
+			code: `
+			test "t1" {
+				int64ptr => 42,
+			}
+			test "t2" {
+				int64ptr => 13,
+			}
+
+			Test["t1"].foosend -> Test["t2"].barrecv # send/recv
+			`,
+			graph: graph,
+		})
+	}
 
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.graph

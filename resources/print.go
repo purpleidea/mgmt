@@ -83,6 +83,11 @@ func (obj *PrintRes) Watch() error {
 // CheckApply method for Print resource. Does nothing, returns happy!
 func (obj *PrintRes) CheckApply(apply bool) (checkOK bool, err error) {
 	log.Printf("%s: CheckApply: %t", obj, apply)
+	if val, exists := obj.Recv["Msg"]; exists && val.Changed {
+		// if we received on Msg, and it changed, log message
+		log.Printf("CheckApply: Received `Msg` of: %s", obj.Msg)
+	}
+
 	if obj.Refresh() {
 		log.Printf("%s: Received a notification!", obj)
 	}

@@ -1,0 +1,14 @@
+file "/tmp/mgmt/foo" {
+	content => "hello from foo\n",
+}
+
+print "print0" {
+}
+
+File["/tmp/mgmt/foo"].content -> Print["print0"].msg
+
+print "print1" {
+	msg => "hello",
+}
+
+Print["print0"] -> Print["print1"]

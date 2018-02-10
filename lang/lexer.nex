@@ -134,6 +134,16 @@
 			lval.str = yylex.Text()
 			return IN
 		}
+/\->/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return ARROW
+		}
+/\./		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return DOT
+		}
 /bool/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
@@ -294,6 +304,13 @@
 			s := yylex.Text()
 			lval.str = s[1:len(s)] // remove the leading $
 			return VAR_IDENTIFIER
+		}
+/[A-Z][a-z0-9]*/
+		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			lval.str = strings.ToLower(s) // uncapitalize it
+			return CAPITALIZED_IDENTIFIER
 		}
 /[a-z][a-z0-9]*/
 		{

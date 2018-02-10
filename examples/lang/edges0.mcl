@@ -1,0 +1,14 @@
+exec "exec0" {
+	cmd => "sleep 10s",
+	shell => "/bin/bash",
+}
+exec "exec1" {
+	cmd => "sleep 10s",
+	shell => "/bin/bash",
+}
+exec "exec2" {
+	cmd => "sleep 10s",
+	shell => "/bin/bash",
+}
+
+Exec["exec0"] -> Exec["exec1"] -> Exec["exec2"]

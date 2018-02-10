@@ -41,7 +41,7 @@ func (g *Graph) Graphviz() (out string) {
 	//	B -> C [label=g];
 	//	D -> E [label=h];
 	//}
-	out += fmt.Sprintf("digraph %s {\n", g.GetName())
+	out += fmt.Sprintf("digraph \"%s\" {\n", g.GetName())
 	out += fmt.Sprintf("\tlabel=\"%s\";\n", g.GetName())
 	//out += "\tnode [shape=box];\n"
 	str := ""

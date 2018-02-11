@@ -9,7 +9,8 @@ tmp/
 bindata/*.go
 mgmt
 mgmt.static
-mgmt-*
+# crossbuild artifacts
+build/mgmt-*
 mgmt.iml
 rpmbuild/
 *.deb

@@ -9,7 +9,8 @@ Build-Depends:
 
 Package: mgmt
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, packagekit
+Suggests:      graphviz
 Description: mgmt: next generation config management!
  The mgmt tool is a next generation config management prototype. It's
  not yet ready for production, but we hope to get there soon. Get

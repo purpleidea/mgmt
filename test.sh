@@ -26,6 +26,9 @@ run-test ./test/test-govet.sh
 run-test ./test/test-examples.sh
 run-test ./test/test-gotest.sh
 
+# skipping: https://github.com/purpleidea/mgmt/issues/327
+# run-test ./test/test-crossbuild.sh
+
 # do these longer tests only when running on ci
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	run-test ./test/test-shell.sh

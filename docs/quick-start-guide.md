@@ -35,6 +35,12 @@ cd $GOPATH/src/github.com/purpleidea/
 git clone --recursive https://github.com/purpleidea/mgmt/
 cd $GOPATH/src/github.com/purpleidea/mgmt
 ```
+
+* Add $GOPATH/bin to $PATH
+```
+export PATH=$PATH:$GOPATH/bin
+```
+
 * Run `make deps` to install system and golang dependencies. Take a look at `misc/make-deps.sh` for details.
 * Run `make build` to get a freshly built `mgmt` binary.
 

@@ -76,6 +76,11 @@ If you would like to avoid doing the above steps manually, we have prepared a
 project directory, run a `vagrant up`, and then a `vagrant status`. From there,
 you can `vagrant ssh` into the `mgmt` machine. The MOTD will explain the rest.
 
+## Using Docker
+
+Alternatively, you can check [docker-guide](docs/docker-guide.md) in order to
+develop or deploy using docker
+
 ## Information about dependencies
 
 Software projects have a few different kinds of dependencies. There are _build_

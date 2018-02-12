@@ -329,4 +329,15 @@ deb:
 	# cleanup
 	rm -rf debian/mgmt/
 
+build_container:
+	docker build -t purpleidea/mgmt-build -f docker/Dockerfile.build .
+	docker run -td --name mgmt-build purpleidea/mgmt-build
+	docker cp mgmt-build:/root/gopath/src/github.com/purpleidea/mgmt/mgmt .
+	docker build -t purpleidea/mgmt -f docker/Dockerfile.static .
+	docker rm mgmt-build || true
+
+clean_container:
+	docker rmi purpleidea/mgmt-build
+	docker rmi purpleidea/mgmt
+
 # vim: ts=8

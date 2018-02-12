@@ -19,7 +19,7 @@ done
 # return to original dir
 cd "$CWD" >/dev/null
 if [ ! $RET -eq 0 ]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	exit $RET
 fi
-echo 'PASS'
+greenb 'PASS'

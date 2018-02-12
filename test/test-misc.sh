@@ -20,10 +20,10 @@ start=$(($(grep -n '^[[:space:]]*$' AUTHORS | awk -F ':' '{print $1}' | head -1)
 run-test diff <(tail -n +$start AUTHORS | sort) <(tail -n +$start AUTHORS)
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	echo "The following tests have failed:"
 	echo -e "$failures"
 	echo
 	exit 1
 fi
-echo 'PASS'
+greenb 'PASS'

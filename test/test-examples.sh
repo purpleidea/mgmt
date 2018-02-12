@@ -32,10 +32,10 @@ cd ..
 rmdir "$tmpdir"	# cleanup
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	echo "The following tests (in: ${linkto}) have failed:"
 	echo -e "$failures"
 	echo
 	exit 1
 fi
-echo 'PASS'
+greenb 'PASS'

@@ -27,11 +27,11 @@ for pkg in `go list ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examp
 done
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	cat "$log"
 	echo 'The following `go test` runs have failed:'
 	echo -e "$failures"
 	echo
 	exit 1
 fi
-echo 'PASS'
+greenb 'PASS'

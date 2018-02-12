@@ -7,9 +7,9 @@ if [[ $(uname) == "Darwin" ]] ; then
 fi
 
 # run a graph, with prometheus support
-$timeout --kill-after=30s 25s ./mgmt run --tmp-prefix --no-pgp --prometheus --yaml prometheus-4.yaml &
+$timeout --kill-after=60s 55s ./mgmt run --tmp-prefix --no-pgp --prometheus --yaml prometheus-4.yaml &
 pid=$!
-sleep 10s	# let it converge
+sleep 15s	# let it converge
 
 # For test debugging purpose
 curl 127.0.0.1:9233/metrics

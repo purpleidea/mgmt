@@ -7,24 +7,24 @@ if env | grep -q -e '^TRAVIS=true$'; then
 fi
 
 # run till completion
-$timeout --kill-after=40s 35s ./mgmt run --yaml t6.yaml --no-watch --tmp-prefix &
+$timeout --kill-after=60s 55s ./mgmt run --yaml t6.yaml --no-watch --tmp-prefix &
 pid=$!
-sleep 1s	# let it converge
+sleep 10s	# let it converge
 test -e /tmp/mgmt/f1
 test -e /tmp/mgmt/f2
 test -e /tmp/mgmt/f3
 test ! -e /tmp/mgmt/f4
 rm -f /tmp/mgmt/f2
-sleep 0.1s	# let it converge or tests will fail
+sleep 1s	# let it converge or tests will fail
 test -e /tmp/mgmt/f2
 rm -f /tmp/mgmt/f2
-sleep 0.1s
+sleep 1s
 test -e /tmp/mgmt/f2
 echo foo > /tmp/mgmt/f2
-sleep 0.1s
+sleep 1s
 test "`cat /tmp/mgmt/f2`" = "i am f2"
 rm -f /tmp/mgmt/f2
-sleep 0.1s
+sleep 1s
 test -e /tmp/mgmt/f2
 
 killall -SIGINT mgmt	# send ^C to exit mgmt

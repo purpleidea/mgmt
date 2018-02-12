@@ -9,7 +9,7 @@ fi
 set -x
 
 # run till completion
-$timeout --kill-after=40s 35s ./mgmt run --yaml file-mode.yaml --converged-timeout=5 --no-watch --tmp-prefix &
+$timeout --kill-after=60s 55s ./mgmt run --yaml file-mode.yaml --converged-timeout=5 --no-watch --tmp-prefix &
 pid=$!
 wait $pid	# get exit status
 e=$?

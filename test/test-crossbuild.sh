@@ -16,10 +16,10 @@ make crossbuild &> "$log"
 
 RET=$?
 if [ ! $RET -eq 0 ]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	cat "$log"
 else
-	echo 'PASS'
+	greenb 'PASS'
 fi
 rm -rf "$tmpdir"
 exit $RET

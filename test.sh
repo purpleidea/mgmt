@@ -31,7 +31,7 @@ function skip-testsuite()
 	# show skip message only when running full suite
 	if test -z "$testsuite";then
 		echo skipping "$@" "($REASON)"
-		echo 'SKIP'
+		blue 'SKIP'
 	else
 		# if a skipped suite is explicity called, run it anyway
 		if test "test-$testsuite" == "$testname";then
@@ -82,7 +82,7 @@ REASON="https://github.com/purpleidea/mgmt/issues/327" skip-testsuite ./test/tes
 run-testsuite ./test/test-golint.sh	# test last, because this test is somewhat arbitrary
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
+	red 'FAIL'
 	echo 'The following tests have failed:'
 	echo -e "$failures"
 	echo
@@ -91,4 +91,4 @@ if [[ -n "$failures" ]]; then
 	echo 'make test-gofmt'
 	exit 1
 fi
-echo 'ALL PASSED'
+green 'ALL PASSED'

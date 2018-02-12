@@ -107,4 +107,4 @@ then
 		test_commit_message_common_bugs $commit
 	done
 fi
-echo 'PASS'
+greenb 'PASS'

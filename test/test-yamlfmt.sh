@@ -62,4 +62,4 @@ bad_files=$(
 if [[ -n "${bad_files}" ]]; then
 	fail_test "The following yaml files are not properly formatted: ${bad_files}"
 fi
-echo 'PASS'
+greenb 'PASS'

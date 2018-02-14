@@ -19,7 +19,9 @@ SHELL = /usr/bin/env bash
 .PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean bindata
 
-GO_FILES := $(shell find . -name '*.go')
+# a large amount of output from this `find`, can cause `make` to be much slower!
+GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
+
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
 PROGRAM := $(shell echo $(notdir $(CURDIR)) | cut -f1 -d"-")

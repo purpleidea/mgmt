@@ -203,7 +203,7 @@ func TestFs3(t *testing.T) {
 	}
 	t.Logf("tree: \n%s", tree)
 
-	var memFs afero.Fs = afero.NewMemMapFs()
+	var memFs = afero.NewMemMapFs()
 
 	if err := util.CopyFs(etcdFs, memFs, "/", "/", false); err != nil {
 		t.Errorf("CopyFs error: %+v", err)

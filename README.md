@@ -44,7 +44,7 @@ Please read, enjoy and help improve our documentation!
 
 ## Questions:
 Please ask in the [community](#community)!
-If you have a well phrased question that might benefit others, consider asking it by sending a patch to the documentation [FAQ](https://github.com/purpleidea/mgmt/blob/master/docs/documentation.md#usage-and-frequently-asked-questions) section. I'll merge your question, and a patch with the answer!
+If you have a well phrased question that might benefit others, consider asking it by sending a patch to the [FAQ](docs/faq.md) section. I'll merge your question, and a patch with the answer!
 
 ## Roadmap:
 Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove) issues if you're a first time contributor to the project or if you're unsure about what to hack on!

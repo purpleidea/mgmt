@@ -85,7 +85,7 @@ func (obj *StmtBind) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular bind statement adds its linked expression to
 // the graph. It is not logically done in the ExprVar since that could exist
-// mulitple times for the single binding operation done here.
+// multiple times for the single binding operation done here.
 func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
 	return obj.Value.Graph()
 }
@@ -134,7 +134,7 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
 	if err := obj.Name.SetScope(scope); err != nil {
 		return err
@@ -419,7 +419,7 @@ func (obj *StmtEdge) Interpolate() (interfaces.Stmt, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *StmtEdge) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.EdgeHalfList {
 		if err := x.Name.SetScope(scope); err != nil {
@@ -592,7 +592,7 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *StmtIf) SetScope(scope *interfaces.Scope) error {
 	if err := obj.Condition.SetScope(scope); err != nil {
 		return err
@@ -1280,7 +1280,7 @@ func (obj *ExprList) Interpolate() (interfaces.Expr, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *ExprList) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.Elements {
 		if err := x.SetScope(scope); err != nil {
@@ -1533,7 +1533,7 @@ func (obj *ExprMap) Interpolate() (interfaces.Expr, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *ExprMap) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.KVs {
 		if err := x.Key.SetScope(scope); err != nil {
@@ -1869,7 +1869,7 @@ func (obj *ExprStruct) Interpolate() (interfaces.Expr, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *ExprStruct) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.Fields {
 		if err := x.Value.SetScope(scope); err != nil {
@@ -2164,10 +2164,7 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 // ever receive any incoming values (no incoming edges) so this should never be
 // called. It has been implemented for uniformity.
 func (obj *ExprFunc) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	return nil
+	return obj.typ.Cmp(value.Type())
 }
 
 // Value returns the value of this expression in our type system. This will
@@ -2283,7 +2280,7 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.Args {
 		if err := x.SetScope(scope); err != nil {
@@ -2876,18 +2873,15 @@ func (obj *ExprIf) Interpolate() (interfaces.Expr, error) {
 }
 
 // SetScope stores the scope for later use in this resource and it's children,
-// which it propogates this downwards to.
+// which it propagates this downwards to.
 func (obj *ExprIf) SetScope(scope *interfaces.Scope) error {
-	if err := obj.Condition.SetScope(scope); err != nil {
-		return err
-	}
 	if err := obj.ThenBranch.SetScope(scope); err != nil {
 		return err
 	}
 	if err := obj.ElseBranch.SetScope(scope); err != nil {
 		return err
 	}
-	return nil
+	return obj.Condition.SetScope(scope)
 }
 
 // SetType is used to set the type of this expression once it is known. This

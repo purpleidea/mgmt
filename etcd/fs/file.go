@@ -322,10 +322,7 @@ func (obj *File) Truncate(size int64) error {
 	obj.ModTime = time.Now()
 
 	// this pushes the new data and metadata up to etcd
-	if err := obj.Sync(); err != nil {
-		return err
-	}
-	return nil
+	return obj.Sync()
 }
 
 // Read reads up to len(b) bytes from the File. It returns the number of bytes

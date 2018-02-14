@@ -27,7 +27,7 @@ gml='gometalinter --disable-all'
 gml="$gml --enable=goimports"
 gml="$gml --enable=golint"
 #gml="$gml --enable=gosimple"			# TODO: only a few fixes needed
-gml="$gml --enable=gotype"
+#gml="$gml --enable=gotype"
 #gml="$gml --enable=ineffassign"		# TODO: only a few fixes needed
 #gml="$gml --enable=interfacer"			# TODO: only a few fixes needed
 #gml="$gml --enable=lll --line-length=200"	# TODO: only a few fixes needed
@@ -35,15 +35,18 @@ gml="$gml --enable=misspell"
 #gml="$gml --enable=safesql"			# FIXME: made my machine slow
 #gml="$gml --enable=staticcheck"		# TODO: only a few fixes needed
 #gml="$gml --enable=structcheck"		# TODO: only a few fixes needed
-gml="$gml --enable=unconvert"
+#gml="$gml --enable=unconvert"
 #gml="$gml --enable=unparam"			# TODO: only a few fixes needed
 #gml="$gml --enable=unused"			# TODO: only a few fixes needed
 #gml="$gml --enable=varcheck"			# TODO: only a few fixes needed
 gometalinter="$gml"
 
+echo "Using: $gometalinter"
 # loop through directories in an attempt to scan each go package
 # TODO: lint the *.go examples as individual files and not as a single *.go
-for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -not -path './tmp/*' -not -path './tmp' -not -path './.*' -not -path './vendor/*' -not -path './bindata/*'-not -path ' ./examples/*' -not -path './test/*'`; do
+for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -not -path './tmp/*' -not -path './tmp' -not -path './.*' -not -path './vendor/*' -not -path './bindata/*' -not -path ' ./examples/*' -not -path './test/*'`; do
+	#echo "Running in: $dir"
+
 	match="$dir/*.go"
 	#echo "match is: $match"
 	if ! ls $match &>/dev/null; then
@@ -51,6 +54,7 @@ for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -
 		continue	# no *.go files found
 	fi
 
+	#echo "Running: $gometalinter '$dir'"
 	run-test $gometalinter "$dir" || fail_test "gometalinter did not pass"
 done
 

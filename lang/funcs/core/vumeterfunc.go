@@ -37,7 +37,7 @@ func init() {
 	funcs.Register("vumeter", func() interfaces.Func { return &VUMeterFunc{} }) // must register the func and name
 }
 
-// VUMeter is a gimmic function to display a vu meter from the microphone.
+// VUMeterFunc is a gimmic function to display a vu meter from the microphone.
 type VUMeterFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff

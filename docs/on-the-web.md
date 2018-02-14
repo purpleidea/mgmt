@@ -34,3 +34,11 @@ if we missed something that you think is relevant!
 | Yves Brissaud | blog | [mgmt aux HumanTalks Grenoble (french)](http://log.winsos.net/2017/04/12/mgmt-aux-human-talks-grenoble.html) |
 | James Shubin | video | [Recording from OSDC Berlin 2017](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1) |
 | Jonathan Gold | blog | [AWS:EC2 in mgmt](http://jonathangold.ca/awsec2-in-mgmt/) |
+| James Shubin | video | [Recording from OSMC Nuremberg 2017](https://www.youtube.com/watch?v=hSVadQLeplU&html5=1) |
+| James Shubin | video | [Recording from LCA 2018, Developers Miniconf](https://www.youtube.com/watch?v=OvgGfW0ilbE) |
+| James Shubin | video | [Recording from LCA 2018, Sysadmin Miniconf](https://www.youtube.com/watch?v=ELq1XOJMIPY) |
+| James Shubin | video | [Recording from LCA 2018, Main Conference](https://www.youtube.com/watch?v=_9PG64AOQ3w) |
+| James Shubin | video | [Recording from DevConf.cz 2017](https://www.youtube.com/watch?v=-FPEK08l1Zk) |
+| James Shubin | video | [Recording from FOSDEM 2018, Config Management Devroom](https://video.fosdem.org/2018/UA2.114/mgmt.webm) |
+| James Shubin | blog | [Mgmt Configuration Language](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/) |
+| James Shubin | video | [Recording from CfgMgmtCamp.eu 2018](https://www.youtube.com/watch?v=NxObmwZDyrI) |

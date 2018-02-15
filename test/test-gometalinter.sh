@@ -39,12 +39,19 @@ gml="$gml --enable=misspell"
 #gml="$gml --enable=unparam"			# TODO: only a few fixes needed
 #gml="$gml --enable=unused"			# TODO: only a few fixes needed
 #gml="$gml --enable=varcheck"			# TODO: only a few fixes needed
-gometalinter="$gml"
 
+# exclude generated files:
+# TODO: at least until https://github.com/alecthomas/gometalinter/issues/270
+gml="$gml --exclude=lang/lexer.nn.go"
+gml="$gml --exclude=lang/y.go"
+gml="$gml --exclude=bindata/bindata.go"
+
+gometalinter="$gml"	# final
 echo "Using: $gometalinter"
+
 # loop through directories in an attempt to scan each go package
 # TODO: lint the *.go examples as individual files and not as a single *.go
-for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -not -path './tmp/*' -not -path './tmp' -not -path './.*' -not -path './vendor/*' -not -path './bindata/*' -not -path ' ./examples/*' -not -path './test/*'`; do
+for dir in `find * -maxdepth 5 -type d -not -path 'old/*' -not -path 'old' -not -path 'tmp/*' -not -path 'tmp' -not -path 'vendor/*' -not -path 'examples/*' -not -path 'test/*'`; do
 	#echo "Running in: $dir"
 
 	match="$dir/*.go"

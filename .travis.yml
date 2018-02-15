@@ -3,7 +3,6 @@ os:
   - linux
   - osx
 go:
-  - 1.8.x
   - 1.9.x
   - tip
 go_import_path: github.com/purpleidea/mgmt
@@ -19,7 +18,6 @@ matrix:
   fast_finish: false
   allow_failures:
     - go: tip
-    - go: 1.9.x
     - os: osx
 notifications:
   irc:

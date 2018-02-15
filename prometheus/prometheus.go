@@ -144,7 +144,7 @@ func (obj *Prometheus) Start() error {
 
 // Stop the http server.
 func (obj *Prometheus) Stop() error {
-	// TODO: There is no way in go < 1.8 to stop a http server.
+	// FIXME: There is no way in go < 1.8 to stop a http server. Add this!
 	// https://stackoverflow.com/questions/39320025/go-how-to-stop-http-listenandserve/41433555#41433555
 	return nil
 }

@@ -38,6 +38,10 @@ if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libpcap0.8-dev || true
 	# dependencies for building debian packages with `make deb`
 	$sudo_command $APT install -y dpkg-dev devscripts debhelper dh-golang dh-systemd
+	# `realpath` is a more universal alternative to `readlink -f` for absolute path resolution
+	# (-f is missing on BSD/macOS), but older Debian/Ubuntu's don't include it in coreutils yet.
+	# https://unix.stackexchange.com/a/136527
+	$sudo_command $APT install -y realpath || true
 fi
 
 if [ ! -z "$BREW" ]; then

@@ -10,7 +10,7 @@ mkdir -p "${MGMT_TMPDIR}"
 > "${MGMT_TMPDIR}"sshd_config
 
 # run empty graph, with prometheus support
-$timeout --kill-after=60s 55s ./mgmt run --tmp-prefix --yaml=augeas-1.yaml &
+$timeout --kill-after=60s 55s "$MGMT" run --tmp-prefix --yaml=augeas-1.yaml &
 pid=$!
 sleep 10s	# let it converge
 

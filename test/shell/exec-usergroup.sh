@@ -38,7 +38,7 @@ function run_usergroup_test() {
 	setup
 
 	# run till completion
-	sudo -A timeout --kill-after=30s 25s ./mgmt run --yaml ./exec-usergroup/${graph} --converged-timeout=5 --no-watch --tmp-prefix &
+	sudo -A timeout --kill-after=30s 25s "$MGMT" run --yaml ./exec-usergroup/${graph} --converged-timeout=5 --no-watch --tmp-prefix &
 	pid=$!
 	wait $pid	# get exit status
 	e=$?

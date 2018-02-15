@@ -164,31 +164,31 @@ func (obj *Main) Init() error {
 		util.FlattenListWithSplit(obj.Seeds, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.Seeds) > 0 {
-		return fmt.Errorf("the Seeds didn't parse correctly")
+		return errwrap.Wrapf(err, "the Seeds didn't parse correctly")
 	}
 	obj.clientURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.ClientURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.ClientURLs) > 0 {
-		return fmt.Errorf("the ClientURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the ClientURLs didn't parse correctly")
 	}
 	obj.serverURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.ServerURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.ServerURLs) > 0 {
-		return fmt.Errorf("the ServerURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the ServerURLs didn't parse correctly")
 	}
 	obj.advertiseClientURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.AdvertiseClientURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.AdvertiseClientURLs) > 0 {
-		return fmt.Errorf("the AdvertiseClientURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the AdvertiseClientURLs didn't parse correctly")
 	}
 	obj.advertiseServerURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.AdvertiseServerURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.AdvertiseServerURLs) > 0 {
-		return fmt.Errorf("the AdvertiseServerURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the AdvertiseServerURLs didn't parse correctly")
 	}
 
 	obj.exit = make(chan error)

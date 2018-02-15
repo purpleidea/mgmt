@@ -296,7 +296,7 @@ func CLI(program, version string, flags Flags) error {
 		},
 		cli.BoolFlag{
 			Name:  "no-server",
-			Usage: "do not let other servers peer with me",
+			Usage: "do not start embedded etcd server (do not promote from client to peer)",
 		},
 
 		cli.IntFlag{

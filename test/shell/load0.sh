@@ -34,7 +34,7 @@ file "${tmpdir}/loadavg" {
 }
 EOF
 
-$timeout --kill-after=60s 55s ./mgmt run --tmp-prefix --converged-timeout=1 --lang "$tmpdir/load0.mcl"  &
+$timeout --kill-after=60s 55s "$MGMT" run --tmp-prefix --converged-timeout=1 --lang "$tmpdir/load0.mcl"  &
 pid=$!
 wait $pid	# get exit status
 e=$?

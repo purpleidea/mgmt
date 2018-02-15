@@ -21,8 +21,6 @@ fi
 LINE=$(printf '=%.0s' `seq -s ' ' $(tput cols)`)	# a terminal width string
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "$DIR" >/dev/null	# work from main mgmt directory
-MGMT="$DIR/test/shell/mgmt"
-cp -a "$DIR/mgmt" "$MGMT"	# put a copy there
 failures=""
 count=0
 

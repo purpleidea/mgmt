@@ -200,6 +200,38 @@ func (obj *Main) Exit(err error) {
 	obj.exit <- err // trigger an exit!
 }
 
+// createPrefix handles logic to create (tmp) prefix directory.
+func (obj *Main) createPrefix(hostname string) (string, error) {
+	if obj.TmpPrefix {
+		// create temporary prefix
+		prefix, err := ioutil.TempDir("", fmt.Sprintf("%s-%s-", obj.Program, hostname))
+		if err != nil {
+			return prefix, fmt.Errorf("can't create tmp-prefix: %s", err)
+		}
+		return prefix, nil
+	}
+
+	// create/use default prefix
+	prefix := fmt.Sprintf("/var/lib/%s/", obj.Program) // default prefix
+	if p := obj.Prefix; p != nil {
+		prefix = *p
+	}
+	err := os.MkdirAll(prefix, 0770)
+	if err != nil && obj.AllowTmpPrefix {
+		// fallback to temporary prefix
+		prefix, err = ioutil.TempDir("", fmt.Sprintf("%s-%s-", obj.Program, hostname))
+		if err != nil {
+			return prefix, fmt.Errorf("can't create tmp-prefix: %s", err)
+		}
+		return prefix, nil
+	}
+	if err != nil {
+		return prefix, fmt.Errorf("can't create prefix: %s", err)
+	}
+
+	return prefix, nil
+}
+
 // Run is the main execution entrypoint to run mgmt.
 func (obj *Main) Run() error {
 
@@ -216,24 +248,12 @@ func (obj *Main) Run() error {
 		return fmt.Errorf("hostname cannot be empty")
 	}
 
-	var prefix = fmt.Sprintf("/var/lib/%s/", obj.Program) // default prefix
-	if p := obj.Prefix; p != nil {
-		prefix = *p
-	}
-	// make sure the working directory prefix exists
-	if obj.TmpPrefix || os.MkdirAll(prefix, 0770) != nil {
-		if obj.TmpPrefix || obj.AllowTmpPrefix {
-			var err error
-			if prefix, err = ioutil.TempDir("", obj.Program+"-"+hostname+"-"); err != nil {
-				return fmt.Errorf("can't create temporary prefix")
-			}
-			log.Println("Main: Warning: Working prefix directory is temporary!")
-
-		} else {
-			return fmt.Errorf("can't create prefix")
-		}
+	prefix, err := obj.createPrefix(hostname)
+	if err != nil {
+		return errwrap.Wrapf(err, "can't create prefix")
 	}
 	log.Printf("Main: Working prefix is: %s", prefix)
+
 	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
 	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
 		return errwrap.Wrapf(err, "can't create pgraph prefix")

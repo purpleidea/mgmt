@@ -1,7 +1,7 @@
 #!/bin/bash
 # check that headers are properly formatted
 
-echo running test-headerfmt.sh
+echo running "$0"
 
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 ROOT=$(dirname "${BASH_SOURCE}")/..

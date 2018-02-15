@@ -1,7 +1,7 @@
 #!/bin/bash
 # check that go lint passes or doesn't get worse by some threshold
 
-echo running test-golint.sh
+echo running "$0"
 
 ORIGPWD=`pwd`
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!

@@ -2,7 +2,7 @@
 # simple test harness for testing mgmt
 # NOTE: this will rm -rf /tmp/mgmt/
 
-echo running test-shell.sh
+echo running "$0"
 set -o errexit
 set -o pipefail
 
@@ -21,7 +21,6 @@ fi
 LINE=$(printf '=%.0s' `seq -s ' ' $(tput cols)`)	# a terminal width string
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "$DIR" >/dev/null	# work from main mgmt directory
-make build
 MGMT="$DIR/test/shell/mgmt"
 cp -a "$DIR/mgmt" "$MGMT"	# put a copy there
 failures=""
@@ -66,10 +65,6 @@ for i in $DIR/test/shell/*.sh; do
 		echo -e "ok\t$ii"	# pass
 	fi
 done
-
-# clean up
-rm -f "$MGMT"
-make clean
 
 if [ "$count" = '0' ]; then
 	fail_test 'No tests were run!'

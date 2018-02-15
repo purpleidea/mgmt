@@ -2,7 +2,7 @@
 # check for any bash files that aren't properly formatted
 # TODO: this is hardly exhaustive
 
-echo running test-bashfmt.sh
+echo running "$0"
 set -o errexit
 set -o nounset
 set -o pipefail

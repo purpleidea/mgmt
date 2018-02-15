@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # common settings and functions for test scripts
 
 if [[ $(uname) == "Darwin" ]] ; then
@@ -12,4 +14,9 @@ fail_test()
 {
 	echo "FAIL: $@"
 	exit 1
+}
+
+function run-test()
+{
+	"$@" || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 }

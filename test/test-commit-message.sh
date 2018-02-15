@@ -1,6 +1,14 @@
 #!/bin/bash -e
+# tests if commit message conforms to convention
 
-echo running test-commit-message.sh
+# library of utility functions
+# shellcheck disable=SC1091
+. test/util.sh
+
+echo running "$0"
+
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}" || exit 1
 
 travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
 

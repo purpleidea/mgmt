@@ -1,20 +1,15 @@
 #!/bin/bash
 # check that our examples still build, even if we don't run them here
 
-echo running test-examples.sh
-
-#ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
-ROOT=$(dirname "${BASH_SOURCE}")/..
-cd "${ROOT}"
+# shellcheck disable=SC1091
 . test/util.sh
 
-failures=''
-function run-test()
-{
-	$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
-}
+echo running "$0"
 
-make build
+ROOT=$(dirname "${BASH_SOURCE}")/..
+cd "${ROOT}"
+
+failures=''
 
 buildout='test-examples.out'
 # make symlink to outside of package
@@ -36,11 +31,11 @@ rm `basename "$linkto"`
 cd ..
 rmdir "$tmpdir"	# cleanup
 
-make clean
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'
 	echo "The following tests (in: ${linkto}) have failed:"
 	echo -e "$failures"
+	echo
 	exit 1
 fi
 echo 'PASS'

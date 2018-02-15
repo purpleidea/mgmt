@@ -2,7 +2,7 @@
 # check a bunch of linters with the gometalinter
 # TODO: run this from the test-golint.sh file instead to check for deltas
 
-echo running test-gometalinter.sh
+echo running "$0"
 
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 ROOT=$(dirname "${BASH_SOURCE}")/..
@@ -62,6 +62,7 @@ if [[ -n "$failures" ]]; then
 	echo 'FAIL'
 	echo 'The following tests have failed:'
 	echo -e "$failures"
+	echo
 	exit 1
 fi
 echo 'PASS'

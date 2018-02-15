@@ -157,8 +157,19 @@ clean:
 	# crossbuild artifacts
 	rm -f build/mgmt-*
 
-test: bindata
+test: build
 	./test.sh
+
+# create all test targets for make tab completion (eg: make test-gofmt)
+test_suites=$(shell find test/ -maxdepth 1 -name test-* -exec basename {} .sh \;)
+# allow to run only one test suite at a time
+${test_suites}: test-%: build
+	./test.sh $*
+
+# targets to run individual shell tests (eg: make test-shell-load0)
+test_shell=$(shell find test/shell/ -maxdepth 1 -name "*.sh" -exec basename {} .sh \;)
+$(addprefix test-shell-,${test_shell}): test-shell-%: build
+	./test/test-shell.sh "$*.sh"
 
 gofmt:
 	# TODO: remove gofmt once goimports has a -s option

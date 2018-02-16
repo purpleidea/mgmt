@@ -7,6 +7,7 @@
 [![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/purpleidea/mgmt)
 [![IRC](https://img.shields.io/badge/irc-%23mgmtconfig-brightgreen.svg?style=flat-square)](https://webchat.freenode.net/?channels=#mgmtconfig)
 [![Jenkins](https://img.shields.io/badge/jenkins-status-brightgreen.svg?style=flat-square)](https://ci.centos.org/job/purpleidea-mgmt/)
+[![Open Source Helpers](https://www.codetriage.com/purpleidea/mgmt/badges/users.svg)](https://www.codetriage.com/purpleidea/mgmt)
 
 ## Community:
 Come join us in the `mgmt` community!

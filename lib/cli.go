@@ -22,6 +22,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"reflect"
 	"sort"
 	"syscall"
 
@@ -164,7 +165,7 @@ func run(c *cli.Context) error {
 	}()
 
 	if err := obj.Run(); err != nil {
-		//return cli.NewExitError(err.Error(), 1) // TODO: ?
+		log.Printf("%s: %s", reflect.TypeOf(obj).Elem().String(), err.Error())
 		return cli.NewExitError("", 1)
 	}
 	return nil

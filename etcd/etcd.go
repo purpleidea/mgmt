@@ -89,6 +89,7 @@ const (
 	DefaultIdealClusterSize = 5        // default ideal cluster size target for initial seed
 	DefaultClientURL        = "127.0.0.1:2379"
 	DefaultServerURL        = "127.0.0.1:2380"
+	DefaultEtcdMaxTxnOps    = uint(512) //set the etcd max transaction limit higher than the default configuration
 )
 
 var (
@@ -1710,6 +1711,7 @@ func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap)
 	cfg.ACUrls = aCUrls
 	cfg.APUrls = aPUrls
 	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/coreos/etcd/issues/6305
+	cfg.MaxTxnOps = DefaultEtcdMaxTxnOps
 
 	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!
 	if newCluster {

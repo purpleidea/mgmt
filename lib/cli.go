@@ -164,6 +164,8 @@ func run(c *cli.Context) error {
 	}()
 
 	if err := obj.Run(); err != nil {
+		// log the error message returned
+		log.Printf("Main: Error: %v", err)
 		//return cli.NewExitError(err.Error(), 1) // TODO: ?
 		return cli.NewExitError("", 1)
 	}

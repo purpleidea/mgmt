@@ -26,7 +26,9 @@ if [ "$COMMITS" != "" ] && [ "$COMMITS" -gt "1" ]; then
 	HACK="yes"
 fi
 
-LINT=`find . -maxdepth 3 -iname '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './bindata/*' -exec golint {} \;`	# current golint output
+# find all go files, exluding temporary directories and generated files
+LINT=$(find * -maxdepth 5 -iname '*.go' -not -path 'old/*' -not -path 'tmp/*' -not -path 'bindata/*' -not -path 'lang/y.go' -not -path 'lang/lexer.nn.go' -not -path 'vendor/*' -exec golint {} \;)	# current golint output
+
 COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch
 [ "$LINT" = "" ] && echo PASS && exit	# everything is "perfect"
 echo "$LINT"	# display the issues
@@ -53,7 +55,7 @@ while read -r line; do
 done <<< "$NUMSTAT1"	# three < is the secret to putting a variable into read
 
 git checkout "$PREVIOUS" &>/dev/null	# previous commit
-LINT1=`find . -maxdepth 3 -iname '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './bindata/*' -exec golint {} \;`
+LINT1=$(find * -maxdepth 5 -iname '*.go' -not -path 'old/*' -not -path 'tmp/*' -not -path 'bindata/*' -not -path 'lang/y.go' -not -path 'lang/lexer.nn.go' -not -path 'vendor/*' -exec golint {} \;)
 COUNT1=`echo -e "$LINT1" | wc -l`	# number of golint problems in older branch
 
 # clean up

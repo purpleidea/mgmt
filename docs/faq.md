@@ -9,6 +9,55 @@ I wanted a next generation config management solution that didn't have all of
 the design flaws or limitations that the current generation of tools do, and no
 tool existed!
 
+### Is this project ready for production?
+
+Compared to some existing automation tools out there, mgmt is a relatively new
+project. It is probably not as feature complete as some other software, but it
+also offers a number of features which are not currently available elsewhere.
+
+Because we have not released a `1.0` release yet, we are not guaranteeing
+stability of the internal or external API's. We only change them if it's really
+necessary, and we don't expect anything particularly drastic to occur. We would
+expect it to be relatively easy to adapt your code if such changes happened.
+
+As with all software, bugs can occur, and while we make no guarantees of being
+bug-free, there are a number of things we've done to reduce the chances of one
+causing you trouble:
+
+1. Our software is written in golang, which is a memory-safe language, and which
+is known to reduce or eliminate entire classes of bugs.
+2. We have a test suite which we run on every commit, and every 24 hours. If you
+have a particular case that you'd like to test, you are welcome to add it in!
+3. The mgmt language itself offers a number of safety features. You can
+[read about them in the introductory blog post](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/).
+
+Having said all this, as with all software, there are still missing features
+which some users might want in their production environments. We're working hard
+to get all of those implemented, but we hope that you'll get involved and help
+us finish off the ones that are most important to you. We are happy to mentor
+new contributors, and have even [tagged](https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove)
+a number of issues if you need help getting started.
+
+Some of the current limitations include:
+
+* Auth hasn't been implemented yet, so you should only use it in trusted
+environments (not on publicly accessible networks) for now.
+* The number of built-in core functions is still small. You may encounter
+scenarios where you're missing a function. The good news is that it's relatively
+easy to add this missing functionality yourself. In time, with your help, the
+list will grow!
+* Large file distribution is not yet implemented. You might want a scenario
+where mgmt is used to distribute large files (such as `.iso` images) throughout
+your cluster. While this isn't a common use-case, it won't be possible until
+someone wants to write the patch. (Mentoring available!) You can workaround this
+easily by storing those files on a separate fileserver for the interim.
+* There isn't an ecosystem of community `modules` yet. We've got this on our
+roadmap, so please stay tuned!
+
+We hope you'll participate as an early adopter. Every additional pair of helping
+hands gets us all there faster! It's quite possible to use this to build useful
+automation today, and we hope you'll start getting familiar with the software.
+
 ### Why did you use etcd? What about consul?
 
 Etcd and consul are both written in golang, which made them the top two

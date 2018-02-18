@@ -7,9 +7,6 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 . test/util.sh
 
-tmpdir="`$mktemp --tmpdir -d tmp.XXX`"	# get a dir outside of the main package
-log="$tmpdir/$(basename $0 .sh).log"
-
 failures=''
 function run-test()
 {
@@ -17,18 +14,16 @@ function run-test()
 }
 
 base=$(go list .)
-for pkg in `go list ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/"`; do
+for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/"`; do
 	echo -e "\ttesting: $pkg"
-	# FIXME: can we capture and output the stderr from these tests too?
-	run-test go test "$pkg" > "$log"
+	run-test go test "$pkg"
 	if [ "$1" = "--race" ]; then
-		run-test go test -race "$pkg" > "$log"
+		run-test go test -race "$pkg"
 	fi
 done
 
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'
-	cat "$log"
 	echo 'The following `go test` runs have failed:'
 	echo -e "$failures"
 	echo

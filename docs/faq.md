@@ -77,6 +77,31 @@ The downside to this approach is that you won't benefit from the automatic
 elastic nature of the embedded etcd servers, and that you're responsible if you
 accidentally break your etcd cluster, or if you use an unsupported version.
 
+### How can I run `mgmt` on-demand, or in `cron`, instead of continuously?
+
+By default, `mgmt` will run continuously in an attempt to keep your machine in a
+converged state, even as external forces change the current state, or as your
+time-varying desired state changes over time. (You can write code in the mgmt
+language which will let you describe a desired state which might change over
+time.)
+
+Some users might prefer to only run `mgmt` on-demand manually, or at a set
+interval via a tool like `cron`. In order to do so, `mgmt` must have a way to
+shut itself down after a single "run". This feature is possible with the
+`--converged-timeout` flag. You may specify this flag, along with a number of
+seconds as the argument, and when there has been no activity for that many
+seconds, the program will shutdown.
+
+Alternatively, while it is not recommended, if you'd like to ensure the program
+never runs for longer that a specific number of seconds, you can ask it to
+shutdown after that time interval using the `--max-runtime` flag. This also
+requires a number of seconds as an argument.
+
+#### Example:
+```
+./mgmt run --lang examples/lang/hello0.mcl --converged-timeout=5
+```
+
 ### What does the error message about an inconsistent dataDir mean?
 
 If you get an error message similar to:

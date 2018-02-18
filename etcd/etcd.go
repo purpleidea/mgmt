@@ -289,7 +289,7 @@ func (obj *EmbdEtcd) GetConfig() etcd.Config {
 	// XXX: filter out any urls which wouldn't resolve here ?
 	for _, eps := range obj.endpoints { // flatten map
 		for _, u := range eps {
-			endpoints = append(endpoints, u.Host) // remove http:// prefix
+			endpoints = append(endpoints, u.String()) // use full url including scheme
 		}
 	}
 	sort.Strings(endpoints) // sort for determinism
@@ -1668,8 +1668,12 @@ func (obj *EmbdEtcd) LocalhostClientURLs() etcdtypes.URLs {
 	// look through obj.clientURLs and return the localhost ones
 	urls := etcdtypes.URLs{}
 	for _, x := range obj.clientURLs {
-		// "localhost" or anything in 127.0.0.0/8 is valid!
-		if s := x.Host; strings.HasPrefix(s, "localhost") || strings.HasPrefix(s, "127.") {
+		// "localhost", ::1 or anything in 127.0.0.0/8 is valid!
+		if s := x.Host; strings.HasPrefix(s, "localhost") || strings.HasPrefix(s, "127.") || strings.HasPrefix(s, "[::1]") {
+			urls = append(urls, x)
+		}
+		// or local unix domain socket
+		if x.Scheme == "unix" {
 			urls = append(urls, x)
 		}
 	}

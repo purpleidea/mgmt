@@ -68,6 +68,7 @@ type Instance struct {
 	Stderr       bytes.Buffer
 	Err          error
 	Seeds        string
+	UnixSockets  bool
 
 	command string
 	env     string
@@ -123,6 +124,9 @@ func (m *Instance) start(t *testing.T, mgmtargs ...string) error {
 	if m.Name != "" {
 		cmdargs = append(cmdargs, fmt.Sprintf("--hostname=%s", m.Name))
 	}
+	if m.UnixSockets {
+		cmdargs = append(cmdargs, "--no-network-standalone")
+	}
 	cmdargs = append(cmdargs, mgmtargs...)
 	m.command = fmt.Sprintf("%s %s", mgmt, strings.Join(cmdargs, " "))
 
@@ -139,6 +143,9 @@ func (m *Instance) start(t *testing.T, mgmtargs ...string) error {
 	m.env = strings.Join(m.cmd.Env, " ")
 
 	m.Seeds = fmt.Sprintf("http://127.0.0.1:2379")
+	if m.UnixSockets {
+		m.Seeds = fmt.Sprintf("unix://clients.sock:0")
+	}
 
 	if err := m.cmd.Start(); err != nil {
 		if t != nil {
@@ -276,7 +283,11 @@ func (m *Instance) DeployLangFile(t *testing.T, langfilerelpath string) (string,
 
 	cmd := exec.Command(mgmt, "deploy", "--no-git", "lang", "--lang", langfilepath)
 	// TODO: environment should be shared by instance and deploy
-	cmd.Env = []string{fmt.Sprintf("MGMT_SEEDS=%s", m.Seeds)}
+	cmd.Env = []string{
+		fmt.Sprintf("MGMT_SEEDS=%s", m.Seeds),
+		// deploy needs to know the prefix when using unix domain sockets
+		fmt.Sprintf("MGMT_PREFIX=%s", m.Prefix),
+	}
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {

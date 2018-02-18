@@ -234,6 +234,12 @@ func (obj *Main) Run() error {
 		}
 	}
 	log.Printf("Main: Working prefix is: %s", prefix)
+	// change to prefix directory to have a deterministic path where unix:// socket files are created
+	// domain socket url path is relative (and does not support directories, and requires a 'port')
+	// so unix://file.sock:0 creates `file.sock:0` file in the current directory
+	if err := os.Chdir(prefix); err != nil {
+		return errwrap.Wrapf(err, "failed to change to prefix directory")
+	}
 	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
 	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
 		return errwrap.Wrapf(err, "can't create pgraph prefix")

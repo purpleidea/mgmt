@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/purpleidea/mgmt/etcd"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
@@ -97,6 +98,28 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		if hash == "" {
 			return errwrap.Wrapf(err, "could not get git deploy hash")
 		}
+	}
+
+	// be helpful when using unix domain socket urls
+	// unix:// url path is relative (and does not support directories), so mgmt creates the
+	// socket files in the prefix directory, switch to default or user provided prefix directory
+	var unixsockets bool
+	for _, v := range c.GlobalStringSlice("seeds") {
+		if strings.HasPrefix(v, "unix://") {
+			unixsockets = true
+		}
+	}
+	if unixsockets {
+		wd, err := os.Getwd()
+		if err != nil {
+			return errwrap.Wrapf(err, "could not get current working directory")
+		}
+		prefix := c.GlobalString("prefix")
+		log.Printf("Deploy: changing to directory %s", prefix)
+		if err := os.Chdir(prefix); err != nil {
+			return errwrap.Wrapf(err, "failed to change to prefix directory")
+		}
+		defer os.Chdir(wd)
 	}
 
 	uniqueid := uuid.New() // panic's if it can't generate one :P

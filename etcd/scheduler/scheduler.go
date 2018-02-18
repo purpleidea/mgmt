@@ -28,7 +28,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
-	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
 	errwrap "github.com/pkg/errors"
 )
 
@@ -86,11 +85,6 @@ func (obj *Result) Next(ctx context.Context) ([]string, error) {
 func (obj *Result) Shutdown() {
 	obj.closeFunc()
 	// XXX: should we have a waitgroup to wait for it all to close?
-}
-
-// TODO: use: https://github.com/coreos/etcd/pull/8488 when available
-func leaseValue(key string) etcd.Cmp {
-	return etcd.Cmp{Key: []byte(key), Target: pb.Compare_LEASE}
 }
 
 // Schedule returns a scheduler result which can be queried with it's available
@@ -181,7 +175,7 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 	data := "TODO" // XXX: no data to exchange alongside hostnames yet
 	ifops := []etcd.Cmp{
 		etcd.Compare(etcd.Value(exchangePathHost), "=", data),
-		etcd.Compare(leaseValue(exchangePathHost), "=", int64(leaseID)), // XXX: remove int64() after 3.3.0
+		etcd.Compare(etcd.LeaseValue(exchangePathHost), "=", leaseID),
 	}
 	elsop := etcd.OpPut(exchangePathHost, data, etcd.WithLease(leaseID))
 

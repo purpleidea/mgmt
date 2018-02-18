@@ -4,6 +4,7 @@ os:
   - osx
 go:
   - 1.9.x
+  - 1.10.x
   - tip
 go_import_path: github.com/purpleidea/mgmt
 sudo: true
@@ -17,6 +18,7 @@ script: 'make test'
 matrix:
   fast_finish: false
   allow_failures:
+    - go: 1.10.x
     - go: tip
     - os: osx
 notifications:

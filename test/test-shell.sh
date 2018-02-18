@@ -70,9 +70,9 @@ fi
 
 # display errors
 if [[ -n "${failures}" ]]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	echo 'The following tests failed:'
 	echo "${failures}"
 	exit 1
 fi
-echo 'PASS'
+greenb 'PASS'

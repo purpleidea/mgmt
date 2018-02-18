@@ -66,10 +66,10 @@ for dir in `find * -maxdepth 5 -type d -not -path 'old/*' -not -path 'old' -not 
 done
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	echo 'The following tests have failed:'
 	echo -e "$failures"
 	echo
 	exit 1
 fi
-echo 'PASS'
+greenb 'PASS'

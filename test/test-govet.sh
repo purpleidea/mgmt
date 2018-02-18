@@ -56,10 +56,10 @@ for file in `find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -
 done
 
 if [[ -n "$failures" ]]; then
-	echo 'FAIL'
+	redb 'FAIL'
 	echo 'The following tests have failed:'
 	echo -e "$failures"
 	echo
 	exit 1
 fi
-echo 'PASS'
+greenb 'PASS'

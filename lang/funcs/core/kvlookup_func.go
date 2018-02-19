@@ -63,7 +63,7 @@ func (obj *KVLookupFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this function.
 func (obj *KVLookupFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.watchChan = make(chan error) // XXX: sender should close this, but did I implement that part yet???
@@ -160,7 +160,7 @@ func (obj *KVLookupFunc) Stream() error {
 	}
 }
 
-// Close runs some shutdown code for this fact and turns off the stream.
+// Close runs some shutdown code for this function and turns off the stream.
 func (obj *KVLookupFunc) Close() error {
 	close(obj.closeChan)
 	return nil

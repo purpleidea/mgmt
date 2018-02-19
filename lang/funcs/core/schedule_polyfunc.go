@@ -248,7 +248,7 @@ func (obj *SchedulePolyFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this function.
 func (obj *SchedulePolyFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.watchChan = make(chan *schedulerResult)
@@ -435,7 +435,7 @@ func (obj *SchedulePolyFunc) Stream() error {
 	}
 }
 
-// Close runs some shutdown code for this fact and turns off the stream.
+// Close runs some shutdown code for this function and turns off the stream.
 func (obj *SchedulePolyFunc) Close() error {
 	close(obj.closeChan)
 	return nil

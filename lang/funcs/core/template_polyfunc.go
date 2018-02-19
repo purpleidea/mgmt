@@ -150,7 +150,7 @@ func (obj *TemplateFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this function.
 func (obj *TemplateFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.closeChan = make(chan struct{})
@@ -283,7 +283,7 @@ func (obj *TemplateFunc) Stream() error {
 	}
 }
 
-// Close runs some shutdown code for this fact and turns off the stream.
+// Close runs some shutdown code for this function and turns off the stream.
 func (obj *TemplateFunc) Close() error {
 	close(obj.closeChan)
 	return nil

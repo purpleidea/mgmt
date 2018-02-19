@@ -66,12 +66,12 @@ func (obj *FactFunc) Init(init *interfaces.Init) error {
 	)
 }
 
-// Stream returns the changing values that this fact has over time.
+// Stream returns the changing values that this function has over time.
 func (obj *FactFunc) Stream() error {
 	return obj.Fact.Stream()
 }
 
-// Close runs some shutdown code for this fact and turns off the stream.
+// Close runs some shutdown code for this function and turns off the stream.
 func (obj *FactFunc) Close() error {
 	return obj.Fact.Close()
 }

@@ -171,7 +171,7 @@ func (obj *PrintfFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this function.
 func (obj *PrintfFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.closeChan = make(chan struct{})
@@ -230,7 +230,7 @@ func (obj *PrintfFunc) Stream() error {
 	}
 }
 
-// Close runs some shutdown code for this fact and turns off the stream.
+// Close runs some shutdown code for this function and turns off the stream.
 func (obj *PrintfFunc) Close() error {
 	close(obj.closeChan)
 	return nil

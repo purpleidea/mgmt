@@ -550,7 +550,7 @@ func (obj *OperatorPolyFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this function.
 func (obj *OperatorPolyFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.closeChan = make(chan struct{})
@@ -630,7 +630,7 @@ func (obj *OperatorPolyFunc) Stream() error {
 	}
 }
 
-// Close runs some shutdown code for this fact and turns off the stream.
+// Close runs some shutdown code for this function and turns off the stream.
 func (obj *OperatorPolyFunc) Close() error {
 	close(obj.closeChan)
 	return nil

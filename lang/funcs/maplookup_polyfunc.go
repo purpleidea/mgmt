@@ -221,7 +221,7 @@ func (obj *MapLookupPolyFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this function.
 func (obj *MapLookupPolyFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.closeChan = make(chan struct{})
@@ -278,7 +278,7 @@ func (obj *MapLookupPolyFunc) Stream() error {
 	}
 }
 
-// Close runs some shutdown code for this fact and turns off the stream.
+// Close runs some shutdown code for this function and turns off the stream.
 func (obj *MapLookupPolyFunc) Close() error {
 	close(obj.closeChan)
 	return nil

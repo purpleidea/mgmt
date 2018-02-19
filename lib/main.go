@@ -164,31 +164,31 @@ func (obj *Main) Init() error {
 		util.FlattenListWithSplit(obj.Seeds, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.Seeds) > 0 {
-		return fmt.Errorf("the Seeds didn't parse correctly")
+		return errwrap.Wrapf(err, "the Seeds didn't parse correctly")
 	}
 	obj.clientURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.ClientURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.ClientURLs) > 0 {
-		return fmt.Errorf("the ClientURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the ClientURLs didn't parse correctly")
 	}
 	obj.serverURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.ServerURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.ServerURLs) > 0 {
-		return fmt.Errorf("the ServerURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the ServerURLs didn't parse correctly")
 	}
 	obj.advertiseClientURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.AdvertiseClientURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.AdvertiseClientURLs) > 0 {
-		return fmt.Errorf("the AdvertiseClientURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the AdvertiseClientURLs didn't parse correctly")
 	}
 	obj.advertiseServerURLs, err = etcdtypes.NewURLs(
 		util.FlattenListWithSplit(obj.AdvertiseServerURLs, []string{",", ";", " "}),
 	)
 	if err != nil && len(obj.AdvertiseServerURLs) > 0 {
-		return fmt.Errorf("the AdvertiseServerURLs didn't parse correctly")
+		return errwrap.Wrapf(err, "the AdvertiseServerURLs didn't parse correctly")
 	}
 
 	obj.exit = make(chan error)
@@ -198,6 +198,16 @@ func (obj *Main) Init() error {
 // Exit causes a safe shutdown. This is often attached to the ^C signal handler.
 func (obj *Main) Exit(err error) {
 	obj.exit <- err // trigger an exit!
+}
+
+func (obj *Main) createTmpPrefix(prefix *string, hostname string) error {
+	var err error
+	if *prefix, err = ioutil.TempDir("", obj.Program+"-"+hostname+"-"); err != nil {
+		return err
+	}
+	log.Println("Main: Warning: Working prefix directory is temporary!")
+
+	return err
 }
 
 // Run is the main execution entrypoint to run mgmt.
@@ -216,24 +226,34 @@ func (obj *Main) Run() error {
 		return fmt.Errorf("hostname cannot be empty")
 	}
 
-	var prefix = fmt.Sprintf("/var/lib/%s/", obj.Program) // default prefix
-	if p := obj.Prefix; p != nil {
-		prefix = *p
-	}
-	// make sure the working directory prefix exists
-	if obj.TmpPrefix || os.MkdirAll(prefix, 0770) != nil {
-		if obj.TmpPrefix || obj.AllowTmpPrefix {
-			var err error
-			if prefix, err = ioutil.TempDir("", obj.Program+"-"+hostname+"-"); err != nil {
-				return fmt.Errorf("can't create temporary prefix")
+	var prefix string
+	if obj.TmpPrefix {
+		// create temporary prefix
+		err := obj.createTmpPrefix(&prefix, hostname)
+		if err != nil {
+			return fmt.Errorf("can't create tmp-prefix: %s", err)
+		}
+	} else {
+		// create/use default prefix
+		prefix = fmt.Sprintf("/var/lib/%s/", obj.Program) // default prefix
+		if p := obj.Prefix; p != nil {
+			prefix = *p
+		}
+		err := os.MkdirAll(prefix, 0770)
+		if err != nil {
+			if obj.AllowTmpPrefix {
+				// fallback to temporary prefix
+				err := obj.createTmpPrefix(&prefix, hostname)
+				if err != nil {
+					return fmt.Errorf("can't create tmp-prefix: %s", err)
+				}
+			} else {
+				return fmt.Errorf("can't create prefix: %s", err)
 			}
-			log.Println("Main: Warning: Working prefix directory is temporary!")
-
-		} else {
-			return fmt.Errorf("can't create prefix")
 		}
 	}
 	log.Printf("Main: Working prefix is: %s", prefix)
+
 	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
 	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
 		return errwrap.Wrapf(err, "can't create pgraph prefix")

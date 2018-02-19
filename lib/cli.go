@@ -164,6 +164,8 @@ func run(c *cli.Context) error {
 	}()
 
 	if err := obj.Run(); err != nil {
+		// log the error message returned
+		log.Printf("Main: Error: %v", err)
 		//return cli.NewExitError(err.Error(), 1) // TODO: ?
 		return cli.NewExitError("", 1)
 	}
@@ -294,7 +296,7 @@ func CLI(program, version string, flags Flags) error {
 		},
 		cli.BoolFlag{
 			Name:  "no-server",
-			Usage: "do not let other servers peer with me",
+			Usage: "do not start embedded etcd server (do not promote from client to peer)",
 		},
 
 		cli.IntFlag{

@@ -223,6 +223,10 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 	if hostname == seedSentinel { // safety
 		return nil
 	}
+	if noServer && len(seeds) == 0 {
+		log.Printf("Etcd: need at least one seed if running with --no-server!")
+		return nil
+	}
 	if len(seeds) > 0 {
 		endpoints[seedSentinel] = seeds
 		idealClusterSize = 0 // unset, get from running cluster

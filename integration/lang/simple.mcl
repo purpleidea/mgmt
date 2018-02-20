@@ -1,0 +1,6 @@
+# minimal example to make integrationtest pass
+$root = getenv("MGMT_TEST_ROOT")
+
+file "${root}/pass" {
+	content => "not empty",
+}

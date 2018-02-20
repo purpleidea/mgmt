@@ -21,10 +21,13 @@ matrix:
     - go: 1.10.x
     - go: tip
     - os: osx
+
+# the "secure" channel value is the result of running: ./misc/travis-encrypt.sh
+# with a value of: irc.freenode.net#mgmtconfig to eliminate noise from forks...
 notifications:
   irc:
     channels:
-      - "irc.freenode.net#mgmtconfig"
+      - secure: htcuWAczm3C1zKC9vUfdRzhIXM1vtF+q0cLlQFXK1IQQlk693/pM30Mmf2L/9V2DVDeps+GyLdip0ARXD1DZEJV0lK+Ca1qbHdFP1r4Xv6l5+jaDb5Y88YU5LI8K758QShiZJojuQ1aO2j8xmmt9V0/5y5QwlpPeHbKYBOFPBX3HvlT9DhvwZNKGhBb4qJOEaPVOwq9IkN3DyQ456MHcJ3q3vF9Lb440uTuLsJNof2AbYZH8ZIHCSG2N8tBj2qhJOpWQboYtQJzE2pRaGkGBL4kYcHZSZMXX8sl4cBM1vx/IRUkvBxJUpLJz2gn/eRI+/gr59juZE2K0+FOLlx9dLnX626Y9xSViopBI6JsIoHJDqNC7aGaF2qaYulGYN65VNKVqmghjgt6JLmmiKeH10hYrJMMvt2rms8l4+5iwmCwXvhH/WU9edzk2p5wqERMnostJFEJib0zI3yzLoF0sdJs+veKtagzfayY2d2l7hlmt951IpqqVWldVgWUcQKVvi8gmRarbwFlK+5D7BEnkUDcLNly/cqf7BgEeX6YfF+FiR4pgfOhYvGCD+2q91NgWQXHBCxbyN0be1TVdkXD94f0Lkn94VyEJJ+PkPlG+rPgFwGcjqN4oEGkJeJmES2If05q2Ms1dJLwYQDL3+Py4lNMSdSWj24TzlFVhtwHepuw=
     template:
       - "%{repository} (%{commit}: %{author}): %{message}"
       - "More info : %{build_url}"
@@ -34,6 +37,6 @@ notifications:
     skip_join: false
   email:
     recipients:
-      - travis-ci@shubin.ca
+      - secure: qNkgP6QLl6VXpFQIxas2wggxvIiOmm1/hGRXm4BXsSFzHsJPvMamA3E1HEC7H+luiWTny1jtGSGgTJPV9CX1LtQV0g0S4ThaAvWuKvk3rXO8IVd++iA/Lh1s1H6JdKM0dJtLqFICawjeci4tOQzSvrM2eCBWqT0UYsrQsGHB6AF31GNAH0Acqd5cYeL+ZpbCN+hQEznAZQ7546N25TwqieI8Lg7nisA+lwYYwsaC2+f5RIeyvvKjQv3wzEdBAQ9CI9WQiTOUBnUnyYxMrdomQ/XGF66QnZy9vq5nEP83IFtuhPvSamL7ceT+yJW0jDyBi8sYEV7On7eXzjyHbiYpF4YHcJrFnf5RyV4kQGd6/SC8iZwK4Is4eyeAjDFTC+JafLajw9R9x9bK43BwlRAWOZxjFKe0cU/BVAjmlz87vHgUho2P41+0a5XfajfU6VhA5QFPK6rNH7W1CnA7D/0LmS0yaqJM1OCrm6LfoZEMhe0DxTJ9uWJbr0x1sYao6q8H4xYk+fyRgoBAr2TxYU7kXx8ThiRdzuQ8izdbojlzTYLe8liZMIsjL0axLsLK7YBWrjJUcDFDjR/DqmVxPrvbVFbCi9ChmBw0WmbJvDY0FV8T8dO8wCjg9JEmprAmWPyq0g/F87LFK4tAZqQFJGjP1qwsR9jdwdNTKeCdY656f/Y=
     on_failure: change
     on_success: change

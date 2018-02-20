@@ -1,7 +1,6 @@
 language: go
 os:
   - linux
-  - osx
 go:
   - 1.9.x
   - 1.10.x
@@ -21,6 +20,10 @@ matrix:
     - go: 1.10.x
     - go: tip
     - os: osx
+  # include only one build for osx for a quicker build as the nr. of these runners are sparse
+  include:
+    - os: osx
+      go: 1.9.x
 
 # the "secure" channel value is the result of running: ./misc/travis-encrypt.sh
 # with a value of: irc.freenode.net#mgmtconfig to eliminate noise from forks...

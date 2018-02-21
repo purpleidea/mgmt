@@ -58,7 +58,7 @@ level and how many hours you'd like to spend on the patch.
 - [ ] automatic language formatter, ala `gofmt`
 - [ ] gedit/gnome-builder/gtksourceview syntax highlighting
 - [ ] vim syntax highlighting
-- [ ] emacs syntax highlighting
+- [x] emacs syntax highlighting: see `misc/emacs/`
 
 ## Other
 - [ ] better error/retry handling

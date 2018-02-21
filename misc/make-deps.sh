@@ -1,8 +1,5 @@
 #!/bin/bash
 # setup a simple go environment
-if [[ -z "${GOBIN}" ]]; then
-   GOBIN=${GOPATH}/bin
-fi
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}" >/dev/null
@@ -59,22 +56,21 @@ fi
 
 if [ $travis -eq 0 ]; then
 	if [ ! -z "$YUM" ]; then
-
-	    if [ -z "$GO" ]; then
-		$sudo_command $YUM install -y golang golang-googlecode-tools-stringer
-            fi
+		if [ -z "$GO" ]; then
+			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer
+		fi
 		# some go dependencies are stored in mercurial
 		$sudo_command $YUM install -y hg
 
 	fi
 	if [ ! -z "$APT" ]; then
 		$sudo_command $APT update
-	        if [ -z "$GO" ]; then
-		    $sudo_command $APT install -y golang make gcc packagekit mercurial
-		    # one of these two golang tools packages should work on debian
-		    $sudo_command $APT install -y golang-golang-x-tools || true
-		    $sudo_command $APT install -y golang-go.tools || true
-                fi
+		if [ -z "$GO" ]; then
+			$sudo_command $APT install -y golang make gcc packagekit mercurial
+			# one of these two golang tools packages should work on debian
+			$sudo_command $APT install -y golang-golang-x-tools || true
+			$sudo_command $APT install -y golang-go.tools || true
+		fi
 		$sudo_command $APT install -y build-essential packagekit mercurial
 	fi
 	if [ ! -z "$PACMAN" ]; then

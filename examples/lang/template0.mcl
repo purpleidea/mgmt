@@ -1,0 +1,10 @@
+$answer = 42
+$s = int2str($answer)
+
+print "print1" {
+	msg => printf("an str is: %s", $s),
+}
+
+print "print2" {
+	msg => template("an str is: {{ int2str . }}", $answer),
+}

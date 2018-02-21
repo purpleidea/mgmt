@@ -212,6 +212,8 @@ Your function must have a specific type. For example, a simple math function
 might have a signature of `func(x int, x int) int`. As you can see, all the
 types are known _before_ compile time.
 
+A separate discussion on this matter can be found in the [function guide](function-guide.md).
+
 What follows are each of the method signatures and a description of each.
 Failure to implement the API correctly can cause the function graph engine to
 block, or the program to panic.
@@ -279,7 +281,7 @@ one value must be produced.
 #### Example
 ```golang
 Please see the example functions in
-[lang/funcs/public/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/public/).
+[lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 ```
 
 ### Stream
@@ -298,7 +300,7 @@ whether or not you close the `Output` channel.
 #### Example
 ```golang
 Please see the example functions in
-[lang/funcs/public/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/public/).
+[lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 ```
 
 ### Close
@@ -312,7 +314,7 @@ return.
 #### Example
 ```golang
 Please see the example functions in
-[lang/funcs/public/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/public/).
+[lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 ```
 
 ### Polymorphic Function API

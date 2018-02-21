@@ -20,14 +20,21 @@ package core // TODO: should this be in its own individual package?
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"text/template"
-	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 
 	errwrap "github.com/pkg/errors"
+)
+
+var (
+	// errorType represents a reflection type of error as seen in:
+	// https://github.com/golang/go/blob/ec62ee7f6d3839fe69aeae538dadc1c9dc3bf020/src/text/template/exec.go#L612
+	errorType = reflect.TypeOf((*error)(nil)).Elem()
 )
 
 func init() {
@@ -42,7 +49,8 @@ const TemplateName = "template"
 // to it. It examines the type of the second argument (the input data vars) at
 // compile time and then determines the static functions signature by including
 // that in the overall signature.
-// XXX: do we need to add events if any of the internal functions change over time?
+// TODO: We *might* need to add events for internal function changes over time,
+// but only if they are not pure. We currently only use simple, pure functions.
 type TemplateFunc struct {
 	Type *types.Type // type of vars
 
@@ -159,13 +167,40 @@ func (obj *TemplateFunc) Init(init *interfaces.Init) error {
 
 // run runs a template and returns the result.
 func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, error) {
+	// see: https://golang.org/pkg/text/template/#FuncMap for more info
+	// note: we can override any other functions by adding them here...
 	funcMap := map[string]interface{}{
-		// XXX: can these functions come from normal funcValue things
-		// that we build for the interfaces.Func part?
-		// TODO: add a bunch of stdlib-like stuff here...
-		"datetimeprint": func(epochDelta int64) string { // TODO: rename
-			return time.Unix(epochDelta, 0).String()
-		},
+	//"test1": func(in interface{}) (interface{}, error) { // ok
+	//	return fmt.Sprintf("got(%T): %+v", in, in), nil
+	//},
+	//"test2": func(in interface{}) interface{} { // NOT ok
+	//	panic("panic") // a panic here brings down everything!
+	//},
+	//"test3": func(foo int64) (string, error) { // ok, but errors
+	//	return "", fmt.Errorf("i am an error")
+	//},
+	//"test4": func(in1, in2 reflect.Value) (reflect.Value, error) { // ok
+	//	s := fmt.Sprintf("got: %+v and: %+v", in1, in2)
+	//	return reflect.ValueOf(s), nil
+	//},
+	}
+
+	// FIXME: should we do this once in init() instead, or in the Register
+	// function in the simple package?
+	// TODO: loop through this map in a sorted, deterministic order
+	for name, fn := range simple.RegisteredFuncs {
+		if _, exists := funcMap[name]; exists {
+			obj.init.Logf("warning, existing function named: `%s` exists", name)
+			continue
+		}
+
+		// When template execution invokes a function with an argument
+		// list, that list must be assignable to the function's
+		// parameter types. Functions meant to apply to arguments of
+		// arbitrary type can use parameters of type interface{} or of
+		// type reflect.Value.
+		f := wrap(name, fn) // wrap it so that it meets API expectations
+		funcMap[name] = f   // add it
 	}
 
 	var err error
@@ -287,4 +322,71 @@ func (obj *TemplateFunc) Stream() error {
 func (obj *TemplateFunc) Close() error {
 	close(obj.closeChan)
 	return nil
+}
+
+// wrap builds a function in the format expected by the template engine, and
+// returns it as an interface{}. It does so by wrapping our type system and
+// function API with what is expected from the reflection API. It returns a
+// version that includes the optional second error return value so that our
+// functions can return errors without causing a panic.
+func wrap(name string, fn *types.FuncValue) interface{} {
+	if fn.T.Map == nil {
+		panic("malformed func type")
+	}
+	if len(fn.T.Map) != len(fn.T.Ord) {
+		panic("malformed func length")
+	}
+	in := []reflect.Type{}
+	for _, k := range fn.T.Ord {
+		t, ok := fn.T.Map[k]
+		if !ok {
+			panic("malformed func order")
+		}
+		if t == nil {
+			panic("malformed func arg")
+		}
+
+		in = append(in, t.Reflect())
+	}
+	out := []reflect.Type{fn.T.Out.Reflect(), errorType}
+	var variadic = false // currently not supported in our function value
+	typ := reflect.FuncOf(in, out, variadic)
+
+	// wrap our function with the translation that is necessary
+	f := func(args []reflect.Value) (results []reflect.Value) { // build
+		innerArgs := []types.Value{}
+		zeroValue := reflect.Zero(fn.T.Out.Reflect()) // zero value of return type
+		for _, x := range args {
+			v, err := types.ValueOf(x) // reflect.Value -> Value
+			if err != nil {
+				r := reflect.ValueOf(errwrap.Wrapf(err, "function `%s` errored", name))
+				if !r.Type().ConvertibleTo(errorType) { // for fun!
+					r = reflect.ValueOf(fmt.Errorf("function `%s` errored: %+v", name, err))
+				}
+				e := r.Convert(errorType) // must be seen as an `error`
+				return []reflect.Value{zeroValue, e}
+			}
+			innerArgs = append(innerArgs, v)
+		}
+
+		result, err := fn.Call(innerArgs) // call it
+		if err != nil {                   // function errored :(
+			// errwrap is a better way to report errors, if allowed!
+			r := reflect.ValueOf(errwrap.Wrapf(err, "function `%s` errored", name))
+			if !r.Type().ConvertibleTo(errorType) { // for fun!
+				r = reflect.ValueOf(fmt.Errorf("function `%s` errored: %+v", name, err))
+			}
+			e := r.Convert(errorType) // must be seen as an `error`
+			return []reflect.Value{zeroValue, e}
+		} else if result == nil { // someone wrote a bad function
+			r := reflect.ValueOf(fmt.Errorf("function `%s` returned nil", name))
+			e := r.Convert(errorType) // must be seen as an `error`
+			return []reflect.Value{zeroValue, e}
+		}
+
+		nilError := reflect.Zero(errorType)
+		return []reflect.Value{reflect.ValueOf(result.Value()), nilError}
+	}
+	val := reflect.MakeFunc(typ, f)
+	return val.Interface()
 }

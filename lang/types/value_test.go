@@ -586,3 +586,7 @@ func TestStruct2(t *testing.T) {
 		//t.Errorf("val2: %s", val2)
 	}
 }
+
+func TestValueOf0(t *testing.T) {
+	// TODO: implement testing of the ValueOf function
+}

@@ -47,8 +47,154 @@ type Value interface {
 }
 
 // ValueOf takes a reflect.Value and returns an equivalent Value.
-func ValueOf(value reflect.Value) Value {
-	panic("not implemented") // XXX: not implemented
+func ValueOf(v reflect.Value) (Value, error) {
+	value := v
+	typ := value.Type()
+	kind := typ.Kind()
+	for kind == reflect.Ptr {
+		typ = typ.Elem() // un-nest one pointer
+		kind = typ.Kind()
+
+		// un-nest value from pointer
+		value = value.Elem() // XXX: is this correct?
+	}
+
+	switch kind { // match on destination field kind
+	case reflect.Bool:
+		return &BoolValue{V: value.Bool()}, nil
+
+	case reflect.String:
+		return &StrValue{V: value.String()}, nil
+
+	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
+		return &IntValue{V: value.Int()}, nil
+
+	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
+		return &IntValue{V: int64(value.Uint())}, nil
+
+	case reflect.Float64, reflect.Float32:
+		return &FloatValue{V: value.Float()}, nil
+
+	case reflect.Array, reflect.Slice:
+		values := []Value{}
+		for i := 0; i < value.Len(); i++ {
+			x := value.Index(i)
+			v, err := ValueOf(x) // recurse
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, v)
+		}
+
+		t, err := TypeOf(value.Type().Elem()) // type of contents
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
+		}
+
+		return &ListValue{
+			T: NewType(fmt.Sprintf("[]%s", t.String())),
+			V: values,
+		}, nil
+
+	case reflect.Map:
+		m := make(map[Value]Value)
+
+		// loop through the list of map keys in undefined order
+		for _, mk := range value.MapKeys() {
+			mv := value.MapIndex(mk)
+
+			k, err := ValueOf(mk) // recurse
+			if err != nil {
+				return nil, err
+			}
+			v, err := ValueOf(mv) // recurse
+			if err != nil {
+				return nil, err
+			}
+
+			m[k] = v
+		}
+
+		kt, err := TypeOf(value.Type().Key()) // type of key
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine key type of %+v", value)
+		}
+		vt, err := TypeOf(value.Type().Elem()) // type of value
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine value type of %+v", value)
+		}
+
+		return &MapValue{
+			T: NewType(fmt.Sprintf("{%s: %s}", kt.String(), vt.String())),
+			V: m,
+		}, nil
+
+	case reflect.Struct:
+		// TODO: we could take this simpler "get the full type" approach
+		// for all the values, but I think that building them up when
+		// possible for the other cases is a more robust approach!
+		t, err := TypeOf(value.Type())
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
+		}
+		l := value.Len() // number of struct fields according to value
+
+		if l != len(t.Ord) {
+			// programming error?
+			return nil, fmt.Errorf("incompatible number of fields")
+		}
+
+		values := make(map[string]Value)
+		for i := 0; i < l; i++ {
+			x := value.Field(i)
+			v, err := ValueOf(x) // recurse
+			if err != nil {
+				return nil, err
+			}
+			name := t.Ord[i] // how else can we get the field name?
+			values[name] = v
+		}
+
+		return &StructValue{
+			T: t,
+			V: values,
+		}, nil
+
+	case reflect.Func:
+		t, err := TypeOf(value.Type())
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
+		}
+		if t.Out == nil {
+			return nil, fmt.Errorf("cannot only represent functions with one output value")
+		}
+
+		f := func(args []Value) (Value, error) {
+			in := []reflect.Value{}
+			for _, x := range args {
+				// TODO: should we build this method instead?
+				//v := x.Reflect() // types.Value -> reflect.Value
+				v := reflect.ValueOf(x.Value())
+				in = append(in, v)
+			}
+
+			// FIXME: can we trap panic's ?
+			out := value.Call(in) // []reflect.Value
+			if len(out) != 1 {    // TODO: panic, b/c already checked in TypeOf?
+				return nil, fmt.Errorf("cannot only represent functions with one output value")
+			}
+
+			return ValueOf(out[0]) // recurse
+		}
+
+		return &FuncValue{
+			T: t,
+			V: f,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unable to represent value of %+v", v)
+	}
 }
 
 // ValueSlice is a linear list of values. It is used for sorting purposes.
@@ -800,7 +946,10 @@ func (obj *FuncValue) Value() interface{} {
 	fn := func(args []reflect.Value) (results []reflect.Value) { // build
 		innerArgs := []Value{}
 		for _, x := range args {
-			v := ValueOf(x) // reflect.Value -> Value
+			v, err := ValueOf(x) // reflect.Value -> Value
+			if err != nil {
+				panic(fmt.Sprintf("can't determine value of %+v", x))
+			}
 			innerArgs = append(innerArgs, v)
 		}
 		result, err := obj.V(innerArgs) // call it
@@ -836,18 +985,23 @@ func (obj *FuncValue) Call(args []Value) (Value, error) {
 	// cmp input args type to obj.T
 	length := len(obj.T.Ord)
 	if length != len(args) {
-		panic(fmt.Sprintf("arg length of %d does not match expected of %d", len(args), length))
+		return nil, fmt.Errorf("arg length of %d does not match expected of %d", len(args), length)
 	}
 	for i := 0; i < length; i++ {
 		if err := args[i].Type().Cmp(obj.T.Map[obj.T.Ord[i]]); err != nil {
-			panic(fmt.Sprintf("cannot cmp input types: %+v", err))
+			return nil, errwrap.Wrapf(err, "cannot cmp input types")
 		}
 	}
 
 	result, err := obj.V(args) // call it
-
+	if result == nil {
+		if err == nil {
+			return nil, fmt.Errorf("function returned nil result")
+		}
+		return nil, errwrap.Wrapf(err, "function returned nil result during error")
+	}
 	if err := result.Type().Cmp(obj.T.Out); err != nil {
-		panic(fmt.Sprintf("cannot cmp return types: %+v", err))
+		return nil, errwrap.Wrapf(err, "cannot cmp return types")
 	}
 
 	return result, err

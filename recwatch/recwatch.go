@@ -159,8 +159,8 @@ func (obj *RecWatcher) Watch() error {
 			if obj.Flags.Debug {
 				log.Printf("watcher.Add(%s): Error: %v", current, err)
 			}
-
-			if err == syscall.ENOENT {
+			// ENOENT for linux, etc and IsNotExist for macOS
+			if err == syscall.ENOENT || os.IsNotExist(err) {
 				index-- // usually not found, move up one dir
 				index = int(math.Max(1, float64(index)))
 				continue

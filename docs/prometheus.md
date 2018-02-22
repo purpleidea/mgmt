@@ -31,7 +31,8 @@ Here is a list of the metrics we provide:
 - `mgmt_checkapply_total`: The number of CheckApply's that mgmt has run
 - `mgmt_failures_total`: The number of resources that have failed
 - `mgmt_failures`: The number of resources that have failed
-- `mgmt_graph_start_time_seconds`: Start time of the current graph since unix epoch in seconds
+- `mgmt_graph_start_time_seconds`: Start time of the current graph since unix
+epoch in seconds
 
 For each metric, you will get some extra labels:
 

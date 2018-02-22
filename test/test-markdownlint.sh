@@ -22,7 +22,6 @@ cat << 'EOF' > $STYLE
 all
 exclude_rule 'MD010'	# Hard tabs
 exclude_rule 'MD032'	# Lists should be surrounded by blank lines
-exclude_rule 'MD013'	# Line length
 exclude_rule 'MD040'	# Fenced code blocks should have a language specified
 exclude_rule 'MD026'	# Trailing punctuation in header
 exclude_rule 'MD024'	# Multiple headers with the same content
@@ -35,6 +34,9 @@ exclude_rule 'MD029'	# Ordered list item prefix
 
 # FIXME: bug: https://github.com/markdownlint/markdownlint/issues/182
 exclude_rule 'MD039'	# Spaces inside link text
+
+# Line length
+rule 'MD013', :line_length => 80, :code_blocks => false, :tables => false
 EOF
 
 #STYLE="test/mdl.style"	# style file

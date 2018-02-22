@@ -49,18 +49,26 @@ Please read, enjoy and help improve our documentation!
 ## Questions:
 
 Please ask in the [community](#community)!
-If you have a well phrased question that might benefit others, consider asking it by sending a patch to the [FAQ](docs/faq.md) section. I'll merge your question, and a patch with the answer!
+If you have a well phrased question that might benefit others, consider asking
+it by sending a patch to the [FAQ](docs/faq.md) section. I'll merge your
+question, and a patch with the answer!
 
 ## Roadmap:
 
-Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove) issues if you're a first time contributor to the project or if you're unsure about what to hack on!
+Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove)
+issues if you're a first time contributor to the project or if you're unsure
+about what to hack on!
 Please see: [TODO.md](TODO.md) for a list of upcoming work and TODO items.
-Please get involved by working on one of these items or by suggesting something else!
+Please get involved by working on one of these items or by suggesting something
+else!
 
 ## Bugs:
 
-Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
-Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell) or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
+Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go)
+to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
+Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell)
+or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible
+test case.
 Feel free to read my article on [debugging golang programs](https://purpleidea.com/blog/2016/02/15/debugging-golang-programs/).
 
 ## Patches:

@@ -21,12 +21,13 @@ For more information, you may like to read some blog posts from the author:
 * [Send/Recv in mgmt](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/)
 * [Metaparameters in mgmt](https://purpleidea.com/blog/2017/03/01/metaparameters-in-mgmt/)
 
-There is also an [introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1) available.
-Older videos and other material [is available](on-the-web.md).
+There is also an [introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1)
+available. Older videos and other material [is available](on-the-web.md).
 
 ## Setup
 
-You'll probably want to read the [quick start guide](quick-start-guide.md) to get going.
+You'll probably want to read the [quick start guide](quick-start-guide.md) to
+get going.
 
 ## Features
 
@@ -366,8 +367,8 @@ GOTAGS="noaugeas novirt" make build
 
 ## Examples
 
-For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory in the git
-source repository. It is available from:
+For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)
+directory in the git source repository. It is available from:
 
 [https://github.com/purpleidea/mgmt/tree/master/examples](https://github.com/purpleidea/mgmt/tree/master/examples)
 

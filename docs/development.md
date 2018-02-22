@@ -40,3 +40,10 @@ make test-shell-load0
 
 Tip: you can use TAB completion with `make` to quickly get a list of possible
 individual tests to run.
+
+## Tools, integrations, IDE's etc
+
+### IDE/Editor support
+
+- Emacs: see `misc/emacs/`
+- [Textmate](https://github.com/aequitas/mgmt.tmbundle)

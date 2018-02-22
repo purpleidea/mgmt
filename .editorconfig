@@ -20,3 +20,6 @@ indent_style = tab
 
 [Makefile]
 indent_style = tab
+
+[*.mcl]
+indent_style = tab

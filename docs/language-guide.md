@@ -429,6 +429,46 @@ if $b {
 }
 ```
 
+### What is the difference `types.Value.Str()` and `types.Value.String()`?
+
+In the `lang/types` library, there is a `types.Value` interface. Every value in
+our type system must implement this interface. One of the methods in this
+interface is the `String() string` method. This lets you print a representation
+of the value. You will probably never need to use this method.
+
+In addition, the `types.Value` interface implements a number of helper functions
+which return the value as an equivalent golang type. If you know that the value
+is a `bool`, you can call `x.Bool()` on it. If it's a `string` you can call
+`x.Str()`. Make sure not to call one of those type methods unless you know the
+value is of that type, or you will trigger a panic!
+
+### I created a `&ListValue{}` but it's not working!
+
+If you create a base type like `bool`, `str`, `int`, or `float`, all you need to
+do is build the `&BoolValue` and set the `V` field. Eg:
+
+```golang
+someBool := &types.BoolValue{V: true}
+```
+
+If you are building a container type like `list`, `map`, `struct`, or `func`,
+then you *also* need to specify the type of the contained values. This is
+because a list has a type of `[]str`, or `[]int`, or even `[][]foo`. Eg:
+
+```golang
+someListOfStrings := &types.ListValue{
+	T: types.NewType("[]str"),	# must match the contents!
+	V: []types.Value{
+		&types.StrValue{V: "a"},
+		&types.StrValue{V: "bb"},
+		&types.StrValue{V: "ccc"},
+	},
+}
+```
+
+If you don't build these properly, then you will cause a panic! Even empty lists
+have a type.
+
 ### I don't like the mgmt language, is there an alternative?
 
 Yes, the language is just one of the available "frontends" that passes a stream

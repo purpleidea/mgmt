@@ -764,7 +764,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 			return false, nil
 		}
 
-		var c = true
+		var c bool                       // = true
 		dom, c, err = obj.domainCreate() // create the domain
 		if err != nil {
 			return false, errwrap.Wrapf(err, "domainCreate failed")

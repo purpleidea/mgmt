@@ -275,7 +275,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
 
-		pChan := make(<-chan time.Time)
+		var pChan <-chan time.Time
 		// NOTE: we don't look at obj.data.NoConfigWatch since emulating
 		// puppet means we do not switch graphs on code changes anyways.
 		if obj.data.NoStreamWatch {

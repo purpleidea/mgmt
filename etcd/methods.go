@@ -371,9 +371,8 @@ func Members(obj *EmbdEtcd) (map[uint64]string, error) {
 // Leader returns the current leader of the etcd server cluster.
 func Leader(obj *EmbdEtcd) (string, error) {
 	//obj.Connect(false) // TODO: ?
-	var err error
-	membersMap := make(map[uint64]string)
-	if membersMap, err = Members(obj); err != nil {
+	membersMap, err := Members(obj)
+	if err != nil {
 		return "", err
 	}
 	addresses := obj.LocalhostClientURLs() // heuristic, but probably correct

@@ -165,7 +165,7 @@ func (obj *SSH) Sftp() error {
 	}
 
 	// we run local operations first so that remote clean up is easier...
-	selfpath := ""
+	var selfpath string
 	if selfpath, err = osext.Executable(); err != nil {
 		return fmt.Errorf("Can't get executable path: %v", err)
 	}
@@ -766,7 +766,6 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		return nil, fmt.Errorf("Unknown remote scheme: %s", u.Scheme)
 	}
 
-	host := ""
 	port := defaultPort // default
 	x := strings.Split(u.Host, ":")
 	if c := len(x); c == 0 || c > 2 { // need one or two chunks
@@ -778,7 +777,7 @@ func (obj *Remotes) NewSSH(file string) (*SSH, error) {
 		}
 		port = uint16(v)
 	}
-	host = x[0]
+	host := x[0]
 	if host == "" {
 		return nil, fmt.Errorf("empty hostname")
 	}

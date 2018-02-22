@@ -334,7 +334,7 @@ func FlattenListWithSplit(input []string, split []string) []string {
 	}
 	out := []string{}
 	for _, x := range input {
-		s := []string{}
+		var s []string
 		if len(split) == 1 {
 			s = strings.Split(x, split[0]) // split by only string
 		} else {

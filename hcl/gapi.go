@@ -151,7 +151,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
 
-		watchChan := make(chan error)
+		var watchChan chan error
 		if obj.data.NoStreamWatch {
 			watchChan = nil
 		} else {

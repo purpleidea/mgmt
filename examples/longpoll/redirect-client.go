@@ -49,4 +49,5 @@ func main() {
 	s, err := ioutil.ReadAll(result.Body) // TODO: apparently we can stream
 	result.Body.Close()
 	log.Printf("Response: %+v", string(s))
+	log.Printf("Error: %+v", err)
 }

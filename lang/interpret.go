@@ -72,7 +72,7 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 
 	for _, e := range output.Edges {
 		var v1, v2 resources.Res
-		var exists = true
+		var exists bool // = true
 		var m map[string]resources.Res
 		var notify = e.Notify
 

@@ -569,7 +569,7 @@ func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, 
 		// tmin <= texp^iter - 1 <= tmax // TODO: check my math
 		return time.Duration(math.Min(math.Max(math.Pow(float64(texp), float64(iter))-1.0, float64(tmin)), float64(tmax))) * time.Millisecond
 	}
-	var isTimeout = false
+	var isTimeout bool
 	var iter int // = 0
 	if ctxerr, ok := ctx.Value(ctxErr).(error); ok {
 		if obj.flags.Debug {

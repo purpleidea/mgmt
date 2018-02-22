@@ -30,7 +30,7 @@ fi
 if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
-
+	$sudo_command $YUM install -y time
 fi
 if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
@@ -42,6 +42,7 @@ if [ ! -z "$APT" ]; then
 	# (-f is missing on BSD/macOS), but older Debian/Ubuntu's don't include it in coreutils yet.
 	# https://unix.stackexchange.com/a/136527
 	$sudo_command $APT install -y realpath || true
+	$sudo_command $APT install -y time || true
 fi
 
 if [ ! -z "$BREW" ]; then

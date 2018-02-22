@@ -46,14 +46,14 @@ func (obj *HostnameFact) Info() *facts.Info {
 	}
 }
 
-// Init runs some startup code for this const.
+// Init runs some startup code for this fact.
 func (obj *HostnameFact) Init(init *facts.Init) error {
 	obj.init = init
 	obj.closeChan = make(chan struct{})
 	return nil
 }
 
-// Stream returns the single value that this const has, and then closes.
+// Stream returns the single value that this fact has, and then closes.
 func (obj *HostnameFact) Stream() error {
 	select {
 	case obj.init.Output <- &types.StrValue{
@@ -67,7 +67,7 @@ func (obj *HostnameFact) Stream() error {
 	return nil
 }
 
-// Close runs some shutdown code for this const and turns off the stream.
+// Close runs some shutdown code for this fact and turns off the stream.
 func (obj *HostnameFact) Close() error {
 	close(obj.closeChan)
 	return nil

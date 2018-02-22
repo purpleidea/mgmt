@@ -11,6 +11,7 @@ fi
 
 sudo_command=$(command -v sudo)
 
+GO=`command -v go 2>/dev/null`
 YUM=`command -v yum 2>/dev/null`
 DNF=`command -v dnf 2>/dev/null`
 APT=`command -v apt-get 2>/dev/null`
@@ -56,16 +57,21 @@ fi
 
 if [ $travis -eq 0 ]; then
 	if [ ! -z "$YUM" ]; then
+		if [ -z "$GO" ]; then
+			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer
+		fi
 		# some go dependencies are stored in mercurial
-		$sudo_command $YUM install -y golang golang-googlecode-tools-stringer hg
-
+		$sudo_command $YUM install -y hg
 	fi
 	if [ ! -z "$APT" ]; then
 		$sudo_command $APT update
-		$sudo_command $APT install -y golang make gcc packagekit mercurial
-		# one of these two golang tools packages should work on debian
-		$sudo_command $APT install -y golang-golang-x-tools || true
-		$sudo_command $APT install -y golang-go.tools || true
+		if [ -z "$GO" ]; then
+			$sudo_command $APT install -y golang
+			# one of these two golang tools packages should work on debian
+			$sudo_command $APT install -y golang-golang-x-tools || true
+			$sudo_command $APT install -y golang-go.tools || true
+		fi
+		$sudo_command $APT install -y build-essential packagekit mercurial
 	fi
 	if [ ! -z "$PACMAN" ]; then
 		$sudo_command $PACMAN -S --noconfirm --asdeps --needed go gcc pkg-config
@@ -85,8 +91,7 @@ echo "done running 'go get -v -t -d ./...'"
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
 # vet is built-in in go 1.6 - we check for go vet command
 go vet 1> /dev/null 2>&1
-ret=$?
-if [[ $ret != 0 ]]; then
+if [[ $? != 0 ]]; then
 	go get golang.org/x/tools/cmd/vet      # add in `go vet` for travis
 fi
 go get github.com/blynn/nex				# for lexing

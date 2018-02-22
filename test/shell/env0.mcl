@@ -1,0 +1,19 @@
+$tmpdir = defaultenv("TMPDIR", "/tmp")
+
+$x = getenv("TEST")
+$y = getenv("DOESNOTEXIST")
+$z = getenv("EMPTY")
+
+$a = defaultenv("TEST", "321")
+$b = defaultenv("DOESNOTEXIST", "321")
+$c = defaultenv("EMPTY", "456")
+
+$t = hasenv("TEST")
+$f = hasenv("DOESNOTEXIST")
+
+$env = env()
+$m = maplookup($env, "TEST", "321")
+
+file "${tmpdir}/environ" {
+	content => printf("%s,%s,%s:%s,%s,%s:%t,%t:%s", $x, $y, $z, $a, $b, $c, $t, $f, $m),
+}

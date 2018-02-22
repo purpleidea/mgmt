@@ -1,0 +1,20 @@
+# read and print environment variable
+# env TEST=123 EMPTY= ./mgmt run --tmp-prefix --lang=examples/lang/env0.mcl --converged-timeout=5
+
+$x = getenv("TEST", "321")
+
+print "print1" {
+	msg => printf("the value of the environment variable TEST is: %s", $x),
+}
+
+$y = getenv("DOESNOTEXIT", "321")
+
+print "print2" {
+	msg => printf("environment variable DOESNOTEXIT does not exist, defaulting to: %s", $y),
+}
+
+$z = getenv("EMPTY", "456")
+
+print "print3" {
+	msg => printf("same goes for epmty variables like EMPTY: %s", $z),
+}

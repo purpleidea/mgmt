@@ -27,6 +27,7 @@ interface. What follows are each of the method signatures and a description of
 each.
 
 ### Default
+
 ```golang
 Default() Res
 ```
@@ -36,6 +37,7 @@ values which already have the correct default as the golang zero value. In
 general it is preferable if the zero values make for the correct defaults.
 
 #### Example
+
 ```golang
 // Default returns some sensible defaults for this resource.
 func (obj *FooRes) Default() Res {
@@ -46,6 +48,7 @@ func (obj *FooRes) Default() Res {
 ```
 
 ### Validate
+
 ```golang
 Validate() error
 ```
@@ -57,6 +60,7 @@ quite large, it might be an indication that you should reconsider the parameter
 list and interface to this resource. This method is called _before_ `Init`.
 
 #### Example
+
 ```golang
 // Validate reports any problems with the struct definition.
 func (obj *FooRes) Validate() error {
@@ -68,6 +72,7 @@ func (obj *FooRes) Validate() error {
 ```
 
 ### Init
+
 ```golang
 Init() error
 ```
@@ -77,6 +82,7 @@ return an error. It should do any resource specific work, and finish by calling
 the `Init` method of the base resource.
 
 #### Example
+
 ```golang
 // Init initializes the Foo resource.
 func (obj *FooRes) Init() error {
@@ -95,6 +101,7 @@ shouldn't allow `Init` to dangerously `rm -rf /$the_world` if your code only
 checks `$the_world` in `Validate`. Remember to always program safely!
 
 ### Close
+
 ```golang
 Close() error
 ```
@@ -104,6 +111,7 @@ can be useful if you'd like to properly close a persistent connection that you
 opened in the `Init` method and were using throughout the resource.
 
 #### Example
+
 ```golang
 // Close runs some cleanup code for this resource.
 func (obj *FooRes) Close() error {
@@ -125,6 +133,7 @@ method! If you plan to return early if you hit an internal error, then at least
 call it with a defer!
 
 ### CheckApply
+
 ```golang
 CheckApply(apply bool) (checkOK bool, err error)
 ```
@@ -150,6 +159,7 @@ facility will detect the change, ultimately resulting in a subsequent call to
 `CheckApply`.
 
 #### Example
+
 ```golang
 // CheckApply does the idempotent work of checking and applying resource state.
 func (obj *FooRes) CheckApply(apply bool) (bool, error) {
@@ -171,6 +181,7 @@ the documentation in case you are confused as to why a debug message you've
 added to the code isn't always printed.
 
 #### Refresh notifications
+
 Some resources may choose to support receiving refresh notifications. In general
 these should be avoided if possible, but nevertheless, they do make sense in
 certain situations. Resources that support these need to verify if one was sent
@@ -184,6 +195,7 @@ have enabled their propagation. Resources that currently perform some refresh
 action include `svc`, `timer`, and `password`.
 
 #### Paired execution
+
 For many resources it is not uncommon to see `CheckApply` run twice in rapid
 succession. This is usually not a pathological occurrence, but rather a healthy
 pattern which is a consequence of the event system. When the state of the
@@ -193,6 +205,7 @@ trigger the `Watch` code! In response, a second `CheckApply` is triggered, which
 will likely find the state to now be correct.
 
 #### Summary
+
 * Anytime an error occurs during `CheckApply`, you should return `(false, err)`.
 * If the state is correct and no changes are needed, return `(true, nil)`.
 * You should only make changes to the system if `apply` is set to `true`.
@@ -200,6 +213,7 @@ will likely find the state to now be correct.
 * Returning `(true, err)` is a programming error and will cause a `Fatal`.
 
 ### Watch
+
 ```golang
 Watch() error
 ```
@@ -229,6 +243,7 @@ executed. As a result, the resource must still work even if the main loop is not
 running.
 
 #### Select
+
 The lifetime of most resources `Watch` method should be spent in an infinite
 loop that is bounded by a `select` call. The `select` call is the point where
 our method hands back control to the engine (and the kernel) so that we can
@@ -237,6 +252,7 @@ events from the engine via the `<-obj.Events()` call, and receive events for our
 resource itself!
 
 #### Events
+
 If we receive an internal event from the `<-obj.Events()` method, we can read it
 with the ReadEvent helper function. This function tells us if we should shutdown
 our resource, and if we should generate an event. When we want to send an event,
@@ -245,6 +261,7 @@ state as `dirty` if we believe it might have changed. We do this with the
 `StateOK(false)` function.
 
 #### Startup
+
 Once the `Watch` function has finished starting up successfully, it is important
 to generate one event to notify the `mgmt` engine that we're now listening
 successfully, so that it can run an initial `CheckApply` to ensure we're safely
@@ -252,6 +269,7 @@ tracking a healthy state and that we didn't miss anything when `Watch` was down
 or from before `mgmt` was running. It does this by calling the `Running` method.
 
 #### Converged
+
 The engine might be asked to shutdown when the entire state of the system has
 not seen any changes for some duration of time. The engine can determine this
 automatically, but each resource can block this if it is absolutely necessary.
@@ -270,6 +288,7 @@ prove to be useful if a resource wants to start off a long operation, but avoid
 sending out erroneous `Event` messages to keep things alive until it finishes.
 
 #### Example
+
 ```golang
 // Watch is the listener and main loop for this resource.
 func (obj *FooRes) Watch() error {
@@ -317,6 +336,7 @@ func (obj *FooRes) Watch() error {
 ```
 
 #### Summary
+
 * Remember to call the appropriate `converger` methods throughout the resource.
 * Remember to call `Startup` when the `Watch` is running successfully.
 * Remember to process internal events and shutdown promptly if asked to.
@@ -324,6 +344,7 @@ func (obj *FooRes) Watch() error {
 * Have a look at the existing resources for a rough idea of how this all works.
 
 ### Compare
+
 ```golang
 Compare(Res) bool
 ```
@@ -341,6 +362,7 @@ particular if they store some generated state, or if they aren't significant in
 some way.
 
 #### Example
+
 ```golang
 // Compare two resources and return if they are equivalent.
 func (obj *FooRes) Compare(r Res) bool {
@@ -368,6 +390,7 @@ func (obj *FooRes) Compare(r Res) bool {
 ```
 
 ### UIDs
+
 ```golang
 UIDs() []ResUID
 ```
@@ -377,6 +400,7 @@ particular resource uniquely. This is used with the AutoEdges API to determine
 if another resource can match a dependency to this one.
 
 ### AutoEdges
+
 ```golang
 AutoEdges() (AutoEdge, error)
 ```
@@ -386,6 +410,7 @@ is used to match other resources that might be relevant dependencies for this
 resource.
 
 ### CollectPattern
+
 ```golang
 CollectPattern() string
 ```
@@ -393,6 +418,7 @@ CollectPattern() string
 This is currently a stub and will be updated once the DSL is further along.
 
 ### UnmarshalYAML
+
 ```golang
 UnmarshalYAML(unmarshal func(interface{}) error) error // optional
 ```
@@ -406,6 +432,7 @@ The signature intentionally matches what is required to satisfy the `go-yaml`
 [Unmarshaler](https://godoc.org/gopkg.in/yaml.v2#Unmarshaler) interface.
 
 #### Example
+
 ```golang
 // UnmarshalYAML is the custom unmarshal handler for this struct.
 // It is primarily useful for setting the defaults.
@@ -429,10 +456,12 @@ func (obj *FooRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 ```
 
 ## Further considerations
+
 There is some additional information that any resource writer will need to know.
 Each issue is listed separately below!
 
 ### Resource struct
+
 Each resource will implement methods as pointer receivers on a resource struct.
 The resource struct must include an anonymous reference to the `BaseRes` struct.
 The naming convention for resources is that they end with a `Res` suffix. If
@@ -440,6 +469,7 @@ you'd like your resource to be accessible by the `YAML` graph API (GAPI), then
 you'll need to include the appropriate YAML fields as shown below.
 
 #### Example
+
 ```golang
 type FooRes struct {
 	BaseRes `yaml:",inline"` // base properties
@@ -453,6 +483,7 @@ type FooRes struct {
 ```
 
 ### Resource registration
+
 All resources must be registered with the engine so that they can be found. This
 also ensures they can be encoded and decoded. Make sure to include the following
 code snippet for this to work.
@@ -465,6 +496,7 @@ func init() { // special golang method that runs once
 ```
 
 ## Automatic edges
+
 Automatic edges in `mgmt` are well described in [this article](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/).
 The best example of this technique can be seen in the `svc` resource.
 Unfortunately no further documentation about this subject has been written. To
@@ -472,14 +504,15 @@ expand this section, please send a patch! Please contact us if you'd like to
 work on a resource that uses this feature, or to add it to an existing one!
 
 ## Automatic grouping
+
 Automatic grouping in `mgmt` is well described in [this article](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/).
 The best example of this technique can be seen in the `pkg` resource.
 Unfortunately no further documentation about this subject has been written. To
 expand this section, please send a patch! Please contact us if you'd like to
 work on a resource that uses this feature, or to add it to an existing one!
 
-
 ## Send/Recv
+
 In `mgmt` there is a novel concept called _Send/Recv_. For some background,
 please [read the introductory article](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/).
 When using this feature, the engine will automatically send the user specified
@@ -523,6 +556,7 @@ such as for cache invalidation.
 Remember, `Send/Recv` only changes your resource code if you cache state.
 
 ## Composite resources
+
 Composite resources are resources which embed one or more existing resources.
 This is useful to prevent code duplication in higher level resource scenarios.
 The best example of this technique can be seen in the `nspawn` resource which
@@ -532,10 +566,12 @@ expand this section, please send a patch! Please contact us if you'd like to
 work on a resource that uses this feature, or to add it to an existing one!
 
 ## Frequently asked questions
+
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and
 respond by commit with the answer.)
 
 ### Can I write resources in a different language?
+
 Currently `golang` is the only supported language for built-in resources. We
 might consider allowing external resources to be imported in the future. This
 will likely require a language that can expose a C-like API, such as `python` or
@@ -543,13 +579,16 @@ will likely require a language that can expose a C-like API, such as `python` or
 Higher level resource collections will be possible once the `mgmt` DSL is ready.
 
 ### What new resource primitives need writing?
+
 There are still many ideas for new resources that haven't been written yet. If
 you'd like to contribute one, please contact us and tell us about your idea!
 
 ### Where can I find more information about mgmt?
+
 Additional blog posts, videos and other material [is available!](https://github.com/purpleidea/mgmt/blob/master/docs/on-the-web.md).
 
 ## Suggestions
+
 If you have any ideas for API changes or other improvements to resource writing,
 please let us know! We're still pre 1.0 and pre 0.1 and happy to break API in
 order to get it right!

@@ -57,8 +57,7 @@ We do not have grafana dashboards yet. Patches welcome!
 
 - [prometheus website](https://prometheus.io/)
 - [prometheus documentation](https://prometheus.io/docs/introduction/overview/)
-- [prometheus best practices regarding metrics
-  naming](https://prometheus.io/docs/practices/naming/)
+- [prometheus best practices regarding metrics naming](https://prometheus.io/docs/practices/naming/)
 - [grafana website](http://grafana.org/)
 
 [pgc]: https://github.com/prometheus/client_golang/blob/master/prometheus/go_collector.go

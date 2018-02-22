@@ -9,6 +9,7 @@
 [![Jenkins](https://img.shields.io/badge/jenkins-status-brightgreen.svg?style=flat-square)](https://ci.centos.org/job/purpleidea-mgmt/)
 
 ## Community:
+
 Come join us in the `mgmt` community!
 
 | Medium | Link |
@@ -18,6 +19,7 @@ Come join us in the `mgmt` community!
 | Mailing list | [mgmtconfig-list@redhat.com](https://www.redhat.com/mailman/listinfo/mgmtconfig-list) |
 
 ## Status:
+
 Mgmt is a next generation automation tool. It has similarities to other tools in
 the configuration management space, but has a fast, modern, distributed systems
 approach. The project contains an engine and a language.
@@ -28,6 +30,7 @@ With your help you'll be able to influence our design and get us to 1.0 sooner!
 Interested developers should read the [quick start guide](docs/quick-start-guide.md).
 
 ## Documentation:
+
 Please read, enjoy and help improve our documentation!
 
 | Documentation | Additional Notes |
@@ -44,25 +47,28 @@ Please read, enjoy and help improve our documentation!
 | [development](docs/development.md) | for mgmt developers |
 
 ## Questions:
+
 Please ask in the [community](#community)!
 If you have a well phrased question that might benefit others, consider asking it by sending a patch to the [FAQ](docs/faq.md) section. I'll merge your question, and a patch with the answer!
 
 ## Roadmap:
+
 Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove) issues if you're a first time contributor to the project or if you're unsure about what to hack on!
 Please see: [TODO.md](TODO.md) for a list of upcoming work and TODO items.
 Please get involved by working on one of these items or by suggesting something else!
 
 ## Bugs:
+
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
 Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell) or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible test case.
 Feel free to read my article on [debugging golang programs](https://purpleidea.com/blog/2016/02/15/debugging-golang-programs/).
 
 ## Patches:
+
 We'd love to have your patches! Please send them by email, or as a pull request.
 
 ## On the web:
-[Read what people are saying and publishing about mgmt!](docs/on-the-web.md)
 
-##
+[Read what people are saying and publishing about mgmt!](docs/on-the-web.md)
 
 Happy hacking!

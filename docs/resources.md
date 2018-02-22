@@ -46,12 +46,12 @@ identified by a trailing slash in their path name. File have no such slash.
 
 It has the following properties:
 
-- `path`: file path (directories have a trailing slash here)
-- `content`: raw file content
-- `state`: either `exists` (the default value) or `absent`
-- `mode`: octal unix file permissions
-- `owner`: username or uid for the file owner
-- `group`: group name or gid for the file group
+* `path`: file path (directories have a trailing slash here)
+* `content`: raw file content
+* `state`: either `exists` (the default value) or `absent`
+* `mode`: octal unix file permissions
+* `owner`: username or uid for the file owner
+* `group`: group name or gid for the file group
 
 ### Path
 
@@ -88,21 +88,25 @@ The hostname resource manages static, transient/dynamic and pretty hostnames
 on the system and watches them for changes.
 
 ### static_hostname
+
 The static hostname is the one configured in /etc/hostname or a similar
 file.
 It is chosen by the local user. It is not always in sync with the current
 host name as returned by the gethostname() system call.
 
 ### transient_hostname
+
 The transient / dynamic hostname is the one configured via the kernel's
 sethostbyname().
 It can be different from the static hostname in case DHCP or mDNS have been
 configured to change the name based on network information.
 
 ### pretty_hostname
+
 The pretty hostname is a free-form UTF8 host name for presentation to the user.
 
 ### hostname
+
 Hostname is the fallback value for all 3 fields above, if only `hostname` is
 specified, it will set all 3 fields to this value.
 
@@ -116,17 +120,21 @@ refresh, then the stored value will be reset to the requested value even if the
 stored value is greater.
 
 ### Key
+
 The string key used to store the key.
 
 ### Value
+
 The string value to set. This can also be set via Send/Recv.
 
 ### SkipLessThan
+
 If this parameter is set to `true`, then it will ignore updating the value as
 long as the database versions are greater than the requested value. The compare
 operation used is based on the `SkipCmpStyle` parameter.
 
 ### SkipCmpStyle
+
 By default this converts the string values to integers and compares them as you
 would expect.
 

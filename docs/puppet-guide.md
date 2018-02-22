@@ -109,8 +109,8 @@ file { "/tmp/mgmt-test":
 
 To avoid this, specify the parameter explicitly:
 
-```
-$ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": backup => false }'
+```bash
+puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": backup => false }'
 ```
 
 This is tedious in a more complex manifest. A good simplification is the

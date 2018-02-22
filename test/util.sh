@@ -18,7 +18,7 @@ fi
 
 fail_test()
 {
-	echo "FAIL: $@"
+	echo -e "FAIL: $@"
 	exit 1
 }
 

@@ -48,6 +48,7 @@ run-testsuite ./test/test-gofmt.sh
 run-testsuite ./test/test-yamlfmt.sh
 run-testsuite ./test/test-bashfmt.sh
 run-testsuite ./test/test-headerfmt.sh
+run-testsuite ./test/test-markdownlint.sh
 run-testsuite ./test/test-commit-message.sh
 run-testsuite ./test/test-govet.sh
 run-testsuite ./test/test-examples.sh

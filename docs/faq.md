@@ -1,4 +1,4 @@
-# Frequently asked questions
+## Frequently asked questions
 
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and
 respond by commit with the answer.)
@@ -98,6 +98,7 @@ shutdown after that time interval using the `--max-runtime` flag. This also
 requires a number of seconds as an argument.
 
 #### Example:
+
 ```
 ./mgmt run --lang examples/lang/hello0.mcl --converged-timeout=5
 ```

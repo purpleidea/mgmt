@@ -1,17 +1,20 @@
 # Language guide
 
 ## Overview
+
 The `mgmt` tool has various frontends, each of which may produce a stream of
 between zero or more graphs that are passed to the engine for desired state
 application. In almost all scenarios, you're going to want to use the language
 frontend. This guide describes some of the internals of the language.
 
 ## Theory
+
 The mgmt language is a declarative (immutable) functional, reactive programming
 language. It is implemented in `golang`. A longer introduction to the language
 is coming soon!
 
 ### Types
+
 All expressions must have a type. A composite type such as a list of strings
 (`[]str`) is different from a list of integers (`[]int`).
 
@@ -24,25 +27,31 @@ The implementation of the internal types can be found in
 [lang/types/](https://github.com/purpleidea/mgmt/tree/master/lang/types/).
 
 #### bool
+
 A `true` or `false` value.
 
 #### str
+
 Any `"string!"` enclosed in quotes.
 
 #### int
+
 A number like `42` or `-13`. Integers are represented internally as golang's
 `int64`.
 
 #### float
+
 A floating point number like: `3.1415926`. Float's are represented internally as
 golang's `float64`.
 
 #### list
+
 An ordered collection of values of the same type, eg: `[6, 7, 8, 9,]`. It is
 worth mentioning that empty lists have a type, although without type hints it
 can be impossible to infer the item's type.
 
 #### map
+
 An unordered set of unique keys of the same type and corresponding value pairs
 of another type, eg: `{"boiling" => 100, "freezing" => 0, "room" => "25", "house" => 22, "canada" => -30,}`.
 That is to say, all of the keys must have the same type, and all of the values
@@ -50,6 +59,7 @@ must have the same type. You can use any type for either, although it is
 probably advisable to avoid using very complex types as map keys.
 
 #### struct
+
 An ordered set of field names and corresponding values, each of their own type,
 eg: `struct{answer => "42", james => "awesome", is_mgmt_awesome => true,}`.
 These are useful for combining more than one type into the same value. Note the
@@ -58,23 +68,27 @@ and as a result, string keys are enclosed in quotes, whereas struct _fields_ are
 not string values, and as such are bare and specified without quotes.
 
 #### func
+
 An ordered set of optionally named, differently typed input arguments, and a
 return type, eg: `func(s str) int` or:
 `func(bool, []str, {str: float}) struct{foo str; bar int}`.
 
 ### Expressions
+
 Expressions, and the `Expr` interface need to be better documented. For now
 please consume
 [lang/interfaces/ast.go](https://github.com/purpleidea/mgmt/tree/master/lang/interfaces/ast.go).
 These docs will be expanded on when things are more certain to be stable.
 
 ### Statements
+
 Statements, and the `Stmt` interface need to be better documented. For now
 please consume
 [lang/interfaces/ast.go](https://github.com/purpleidea/mgmt/tree/master/lang/interfaces/ast.go).
 These docs will be expanded on when things are more certain to be stable.
 
 ### Stages
+
 The mgmt compiler runs in a number of stages. In order of execution they are:
 * [Lexing](#lexing)
 * [Parsing](#parsing)
@@ -93,6 +107,7 @@ to the engine as they are produced.
 What follows are some notes about each step.
 
 #### Lexing
+
 Lexing is done using [nex](https://github.com/blynn/nex). It is a pure-golang
 implementation which is similar to _Lex_ or _Flex_, but which produces golang
 code instead of C. It integrates reasonably well with golang's _yacc_ which is
@@ -101,6 +116,7 @@ used for parsing. The token definitions are in:
 Lexing and parsing run together by calling the `LexParse` method.
 
 #### Parsing
+
 The parser used is golang's implementation of
 [yacc](https://godoc.org/golang.org/x/tools/cmd/goyacc). The documentation is
 quite abysmal, so it's helpful to rely on the documentation from standard yacc
@@ -112,6 +128,7 @@ The yacc file exists at:
 Lexing and parsing run together by calling the `LexParse` method.
 
 #### Interpolation
+
 Interpolation is used to transform the AST (which was produced from lexing and
 parsing) into one which is either identical or different. It expands strings
 which might contain expressions to be interpolated (eg: `"the answer is: ${foo}"`)
@@ -120,6 +137,7 @@ be better represented by a larger AST. Most nodes in the AST simply return their
 own node address, and do not modify the AST.
 
 #### Scope propagation
+
 Scope propagation passes the parent scope (starting with the top-level, built-in
 scope) down through the AST. This is necessary so that children nodes can access
 variables in the scope if needed. Most AST node's simply pass on the scope
@@ -128,6 +146,7 @@ the `StmtProg` node cleverly passes the scope through in the order expected for
 the out-of-order bind logic to work.
 
 #### Type unification
+
 Each expression must have a known type. The unpleasant option is to force the
 programmer to specify by annotation every type throughout their whole program
 so that each `Expr` node in the AST knows what to expect. Type annotation is
@@ -174,6 +193,7 @@ alternate implementation if someone more skilled in the art of solver design
 would like to propose a more logical or performant variant.
 
 #### Function graph generation
+
 At this point we have a fully type AST. The AST must now be transformed into a
 directed, acyclic graph (DAG) data structure that represents the flow of data as
 necessary for everything to be reactive. Note that this graph is *different*
@@ -191,6 +211,7 @@ calling that expression's `Func` method. These are usually called by the
 function engine during function creation and validation.
 
 #### Function engine creation and validation
+
 Finally we have a graph of the data flows. The function engine must first
 initialize which creates references to each of the necessary function
 implementations, and gets information about each one. It then needs to be type
@@ -199,12 +220,14 @@ you were to pass an `int` to a function expecting a `bool`, this would be a
 problem. If all goes well, the program should get run shortly.
 
 #### Function engine running and interpret
+
 At this point the function engine runs. It produces a stream of events which
 cause the `Output()` method of the top-level program to run, which produces the
 list of resources and edges. These are then transformed into the resource graph
 which is passed to the engine.
 
 ### Function API
+
 If you'd like to create a built-in, core function, you'll need to implement the
 function API interface named `Func`. It can be found in
 [lang/interfaces/func.go](https://github.com/purpleidea/mgmt/tree/master/lang/interfaces/func.go).
@@ -219,6 +242,7 @@ Failure to implement the API correctly can cause the function graph engine to
 block, or the program to panic.
 
 ### Info
+
 ```golang
 Info() *Info
 ```
@@ -238,6 +262,7 @@ not depend on any other method being called first. Other methods must not depend
 on this method being called first.
 
 #### Example
+
 ```golang
 func (obj *FooFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
@@ -247,6 +272,7 @@ func (obj *FooFunc) Info() *interfaces.Info {
 ```
 
 ### Init
+
 ```golang
 Init(*Init) error
 ```
@@ -279,12 +305,14 @@ or all of these info fields that you wish to use in the struct implementing this
 one value must be produced.
 
 #### Example
+
 ```golang
 Please see the example functions in
 [lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 ```
 
 ### Stream
+
 ```golang
 Stream() error
 ```
@@ -298,12 +326,14 @@ channel when it has no more values to send. This may or may not influence
 whether or not you close the `Output` channel.
 
 #### Example
+
 ```golang
 Please see the example functions in
 [lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 ```
 
 ### Close
+
 ```golang
 Close() error
 ```
@@ -312,12 +342,14 @@ Close asks the particular function to shutdown its `Stream()` function and
 return.
 
 #### Example
+
 ```golang
 Please see the example functions in
 [lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 ```
 
 ### Polymorphic Function API
+
 For some functions, it might be helpful to be able to implement a function once,
 but to have multiple polymorphic variants that can be chosen at compile time.
 For this more advanced topic, you will need to use the
@@ -347,12 +379,15 @@ What follows are a few examples that might help you understand some of the
 language details.
 
 ##### Example Foo
+
 TODO: please add an example here!
 
 ##### Example Bar
+
 TODO: please add an example here!
 
 ## Frequently asked questions
+
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and
 respond by commit with the answer.)
 
@@ -365,7 +400,8 @@ branches (a `then` and an `else` branch) which each contain one expression. The
 conditional.
 
 #### Example:
-```
+
+```mcl
 # this is an if expression, and both branches must exist
 $b = true
 $x = if $b {
@@ -381,7 +417,8 @@ statement does not return any value, but it does produce output when it is
 evaluated. The output consists primarily of resources (vertices) and edges.
 
 #### Example:
-```
+
+```mcl
 # this is an if statement, and in this scenario the else branch was omitted
 $b = true
 if $b {

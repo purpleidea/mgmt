@@ -4,6 +4,7 @@ Here is a list of places mgmt has appeared on the web. Feel free to send a patch
 if we missed something that you think is relevant!
 
 ## Links
+
 | Author | Format | Subject |
 |---|---|---|
 | James Shubin | blog | [Next generation configuration mgmt](https://purpleidea.com/blog/2016/01/18/next-generation-configuration-mgmt/) |

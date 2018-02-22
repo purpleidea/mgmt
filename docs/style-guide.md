@@ -91,5 +91,6 @@ When implementing code for the various types in the language, please follow this
 order: `bool`, `str`, `int`, `float`, `list`, `map`, `struct`, `func`.
 
 ## Suggestions
+
 If you have any ideas for suggestions or other improvements to this guide,
 please let us know!

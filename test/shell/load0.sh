@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-if env | grep -q -e '^TRAVIS=true$' && [[ $(uname) == "Darwin" ]]; then
+if env | grep -q -e '^TRAVIS=true$'; then
 	# loadavg glibc calls don't seem to work properly on osx OS in travis
 	echo "Travis and Jenkins give wonky results here, skipping test!"
 	exit
@@ -17,9 +17,6 @@ set -o pipefail
 regex="load average: [0-9]\,[0-9]{3,}, [0-9]\,[0-9]{3,}, [0-9]\,[0-9]{3,}"
 
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
-
-# macOS workaround https://github.com/purpleidea/mgmt/issues/33
-touch "$tmpdir/loadavg"
 
 cat > "$tmpdir/load0.mcl" <<EOF
 \$theload = load()

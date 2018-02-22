@@ -134,9 +134,8 @@ discouraged either). Meaning it might work but in the case it doesn't you would
 have to provide your own patches to fix problems (the project maintainer and
 community are glad to assist where needed).
 
-There are currently some issues that make `mgmt` less suitable to run for
-provisioning macOS (eg: [https://github.com/purpleidea/mgmt/issues/33](https://github.com/purpleidea/mgmt/issues/33)).
-But as a client to provision remote servers it should run fine.
+There are currently some issues that make `mgmt` less suitable to run for provisioning
+macOS. But as a client to provision remote servers it should run fine.
 
 Since the primary supported systems are Linux and these are the environments
 tested for it is wise to run these suites during macOS development as well. To

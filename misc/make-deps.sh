@@ -46,7 +46,7 @@ if [ ! -z "$APT" ]; then
 fi
 
 if [ ! -z "$BREW" ]; then
-	# coreutils contains gtimeout
+	# coreutils contains gtimeout, gstat, etc
 	$BREW install libvirt augeas coreutils || true
 fi
 

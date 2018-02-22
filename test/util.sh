@@ -11,9 +11,11 @@ export MGMT="$ROOT/mgmt"
 if [[ $(uname) == "Darwin" ]] ; then
 	export timeout="gtimeout"
 	export mktemp="gmktemp"
+	export STAT="gstat"
 else
 	export timeout="timeout"
 	export mktemp="mktemp"
+	export STAT="stat"
 fi
 
 fail_test()

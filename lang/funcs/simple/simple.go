@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simple // TODO: should this be in its own individual package?
+package simple
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ import (
 // RegisteredFuncs maps a function name to the corresponding static, pure func.
 var RegisteredFuncs = make(map[string]*types.FuncValue) // must initialize
 
-// Register registers a simple, static, pure function. It is easier to use that
+// Register registers a simple, static, pure function. It is easier to use than
 // the raw function API, but also limits you to simple, static, pure functions.
 func Register(name string, fn *types.FuncValue) {
 	if _, exists := RegisteredFuncs[name]; exists {
@@ -88,16 +88,21 @@ func (obj *simpleFunc) Stream() error {
 		select {
 		case input, ok := <-obj.init.Input:
 			if !ok {
-				return nil // can't output any more
+				if len(obj.Fn.Type().Ord) > 0 {
+					return nil // can't output any more
+				}
+				// no inputs were expected, pass through once
 			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
+			if ok {
+				//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
+				//	return errwrap.Wrapf(err, "wrong function input")
+				//}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
+				if obj.last != nil && input.Cmp(obj.last) == nil {
+					continue // value didn't change, skip it
+				}
+				obj.last = input // store for next
 			}
-			obj.last = input // store for next
 
 			values := []types.Value{}
 			for _, name := range obj.Fn.Type().Ord {
@@ -121,7 +126,9 @@ func (obj *simpleFunc) Stream() error {
 
 		select {
 		case obj.init.Output <- obj.result: // send
-			// pass
+			if len(obj.Fn.Type().Ord) == 0 {
+				return nil // no more values, we're a pure func
+			}
 		case <-obj.closeChan:
 			return nil
 		}

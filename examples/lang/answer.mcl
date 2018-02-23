@@ -1,0 +1,4 @@
+# it was a lovely surprise to me, when i realized that mgmt had the answer!
+print "answer" {
+	msg => printf("the answer to life, the universe, and everything is: %d", answer()),
+}

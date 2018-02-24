@@ -371,10 +371,21 @@ func NewType(s string) *Type {
 			var key string
 
 			// arg naming code, which allows for optional arg names
-			sep := strings.Index(s, " ")
-			if sep > 0 && !strings.HasSuffix(s[:sep], ",") {
-				key = s[:sep] // FIXME: check there are no special chars in key
-				s = s[sep+1:] // what's next
+			for i, c := range s { // looking for an arg name
+				if c == ',' { // there was no arg name
+					break
+				}
+				if c == '{' || c == '(' { // not an arg name
+					break
+				}
+				if c == '}' || c == ')' { // unexpected format?
+					return nil
+				}
+				if c == ' ' { // done
+					key = s[:i] // found a key?
+					s = s[i+1:] // what's next
+					break
+				}
 			}
 
 			// just name the keys 0, 1, 2, N...
@@ -882,4 +893,329 @@ func (obj *Type) HasVariant() bool {
 	}
 
 	panic("malformed type")
+}
+
+// ComplexCmp tells us if the input type is compatible with the concrete one. It
+// can match against types containing variants, or against partial types. If the
+// two types are equivalent, it will return nil. If the input type is identical,
+// and concrete, the return status will be the empty string. If this match finds
+// a possibility against a partial type, the status will be set to the "partial"
+// string, and if it is compatible with the variant type it will be "variant"...
+// Comparing to a partial can only match "impossible" (error) or possible (nil).
+func (obj *Type) ComplexCmp(typ *Type) (string, error) {
+	// match simple "placeholder" variants... skip variants w/ sub types
+	isVariant := func(t *Type) bool { return t.Kind == KindVariant && t.Var == nil }
+
+	if obj == nil {
+		return "", fmt.Errorf("can't cmp from a nil type")
+	}
+	// XXX: can we relax this to allow variants matching against partials?
+	if obj.HasVariant() {
+		return "", fmt.Errorf("only input can contain variants")
+	}
+
+	if typ == nil { // match
+		return "partial", nil // compatible :)
+	}
+	if isVariant(typ) { // match
+		return "variant", nil // compatible :)
+	}
+
+	if obj.Kind != typ.Kind {
+		return "", fmt.Errorf("base kind does not match (%+v != %+v)", obj.Kind, typ.Kind)
+	}
+
+	// only container types are left to match...
+	switch obj.Kind {
+	case KindBool:
+		return "", nil // regular cmp
+	case KindStr:
+		return "", nil
+	case KindInt:
+		return "", nil
+	case KindFloat:
+		return "", nil
+
+	case KindList:
+		if obj.Val == nil {
+			panic("malformed list type")
+		}
+		if typ.Val == nil {
+			return "partial", nil
+		}
+
+		return obj.Val.ComplexCmp(typ.Val)
+
+	case KindMap:
+		if obj.Key == nil || obj.Val == nil {
+			panic("malformed map type")
+		}
+
+		if typ.Key == nil && typ.Val == nil {
+			return "partial", nil
+		}
+		if typ.Key == nil {
+			return obj.Val.ComplexCmp(typ.Val)
+		}
+		if typ.Val == nil {
+			return obj.Key.ComplexCmp(typ.Key)
+		}
+
+		kstatus, kerr := obj.Key.ComplexCmp(typ.Key)
+		vstatus, verr := obj.Val.ComplexCmp(typ.Val)
+		if kerr != nil && verr != nil {
+			return "", multierr.Append(kerr, verr) // two errors
+		}
+		if kerr != nil {
+			return "", kerr
+		}
+		if verr != nil {
+			return "", verr
+		}
+
+		if kstatus == "" && vstatus == "" {
+			return "", nil
+		} else if kstatus != "" && vstatus == "" {
+			return kstatus, nil
+		} else if vstatus != "" && kstatus == "" {
+			return vstatus, nil
+		}
+
+		// optimization, redundant
+		//if kstatus == vstatus { // both partial or both variant...
+		//	return kstatus, nil
+		//}
+
+		var isVariant, isPartial bool
+		if kstatus == "variant" || vstatus == "variant" {
+			isVariant = true
+		}
+		if kstatus == "partial" || vstatus == "partial" {
+			isPartial = true
+		}
+		if kstatus == "both" || vstatus == "both" {
+			isVariant = true
+			isPartial = true
+		}
+
+		if !isVariant && !isPartial {
+			return "", nil
+		}
+		if isVariant {
+			return "variant", nil
+		}
+		if isPartial {
+			return "partial", nil
+		}
+
+		//return "", fmt.Errorf("matches as both partial and variant")
+		return "both", nil
+
+	case KindStruct: // {a bool; b int}
+		if obj.Map == nil {
+			panic("malformed struct type")
+		}
+		if typ.Map == nil {
+			return "partial", nil
+		}
+
+		if len(obj.Ord) != len(typ.Ord) {
+			return "", fmt.Errorf("struct field count differs")
+		}
+		for i, k := range obj.Ord {
+			if k != typ.Ord[i] {
+				return "", fmt.Errorf("struct fields differ")
+			}
+		}
+		var isVariant, isPartial bool
+		for _, k := range obj.Ord { // loop map in deterministic order
+			t1, ok := obj.Map[k]
+			if !ok {
+				panic("malformed struct order")
+			}
+			t2, ok := typ.Map[k]
+			if !ok {
+				panic("malformed struct order")
+			}
+			if t1 == nil {
+				panic("malformed struct field")
+			}
+			if t2 == nil {
+				isPartial = true
+				continue
+			}
+
+			status, err := t1.ComplexCmp(t2)
+			if err != nil {
+				return "", err
+			}
+			if status == "variant" {
+				isVariant = true
+			}
+			if status == "partial" {
+				isPartial = true
+			}
+			if status == "both" {
+				isVariant = true
+				isPartial = true
+			}
+		}
+
+		if !isVariant && !isPartial {
+			return "", nil
+		}
+		if isVariant {
+			return "variant", nil
+		}
+		if isPartial {
+			return "partial", nil
+		}
+
+		//return "", fmt.Errorf("matches as both partial and variant")
+		return "both", nil
+
+	case KindFunc:
+		if obj.Map == nil {
+			panic("malformed func type")
+		}
+		if typ.Map == nil {
+			return "partial", nil
+		}
+
+		if len(obj.Ord) != len(typ.Ord) {
+			return "", fmt.Errorf("func arg count differs")
+		}
+
+		// needed for strict cmp only...
+		//for i, k := range obj.Ord {
+		//	if k != typ.Ord[i] {
+		//		return "", fmt.Errorf("func arg differs")
+		//	}
+		//}
+		//var isVariant, isPartial bool
+		//for _, k := range obj.Ord { // loop map in deterministic order
+		//	t1, ok := obj.Map[k]
+		//	if !ok {
+		//		panic("malformed func order")
+		//	}
+		//	t2, ok := typ.Map[k]
+		//	if !ok {
+		//		panic("malformed func order")
+		//	}
+		//	if t1 == nil {
+		//		panic("malformed func arg")
+		//	}
+		//	if t2 == nil {
+		//		isPartial = true
+		//		continue
+		//	}
+		//
+		//	status, err := t1.ComplexCmp(t2)
+		//	if err != nil {
+		//		return "", err
+		//	}
+		//	if status == "variant" {
+		//		isVariant = true
+		//	}
+		//	if status == "partial" {
+		//		isPartial = true
+		//	}
+		//	if status == "both" {
+		//		isVariant = true
+		//		isPartial = true
+		//	}
+		//}
+		//
+		//if !isVariant && !isPartial {
+		//	return "", nil
+		//}
+		//if isVariant {
+		//	return "variant", nil
+		//}
+		//if isPartial {
+		//	return "partial", nil
+		//}
+		//
+		////return "", fmt.Errorf("matches as both partial and variant")
+		//return "both", nil
+
+		// if we're not comparing arg names, get the two lists of types
+		var isVariant, isPartial bool
+		for i := 0; i < len(obj.Ord); i++ {
+			t1, ok := obj.Map[obj.Ord[i]]
+			if !ok {
+				panic("malformed func order")
+			}
+			if t1 == nil {
+				panic("malformed func arg")
+			}
+
+			t2, ok := typ.Map[typ.Ord[i]]
+			if !ok {
+				panic("malformed func order")
+			}
+			if t2 == nil {
+				isPartial = true
+				continue
+			}
+
+			status, err := t1.ComplexCmp(t2)
+			if err != nil {
+				return "", err
+			}
+			if status == "variant" {
+				isVariant = true
+			}
+			if status == "partial" {
+				isPartial = true
+			}
+			if status == "both" {
+				isVariant = true
+				isPartial = true
+			}
+		}
+
+		//if obj.Out != nil && typ.Out != nil { // let a nil obj.Out in
+		if typ.Out != nil { // let a nil obj.Out in
+			status, err := obj.Out.ComplexCmp(typ.Out)
+			if err != nil {
+				return "", err
+			}
+			if status == "variant" {
+				isVariant = true
+			}
+			if status == "partial" {
+				isPartial = true
+			}
+			if status == "both" {
+				isVariant = true
+				isPartial = true
+			}
+
+		} else if obj.Out != nil {
+			// TODO: technically, typ.Out could be unspecified, then
+			// this is a Cmp fail, not an isPartial = true, but then
+			// we'd have to support functions without a return value
+			// since we are functional, it is not a major problem...
+			isPartial = true
+		}
+		//} else if typ.Out != nil { // solve this in the above ComplexCmp instead!
+		//	return "", fmt.Errorf("can't cmp from a nil type")
+		//}
+
+		if !isVariant && !isPartial {
+			return "", nil
+		}
+		if isVariant {
+			return "variant", nil
+		}
+		if isPartial {
+			return "partial", nil
+		}
+
+		//return "", fmt.Errorf("matches as both partial and variant")
+		return "both", nil
+	}
+
+	return "", fmt.Errorf("unknown kind: %+v", obj.Kind)
 }

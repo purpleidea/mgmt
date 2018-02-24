@@ -488,7 +488,7 @@ func (obj *OperatorPolyFunc) Polymorphisms(partialType *types.Type, partialValue
 		}
 	}
 
-	// since built-in functions have their functions explicitly defined, we
+	// since built-in functions have their signatures explicitly defined, we
 	// can add easy invariants between in/out args and their expected types.
 	results, err := LookupOperator(op, size)
 	if err != nil {

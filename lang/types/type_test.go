@@ -139,6 +139,33 @@ func TestType1(t *testing.T) {
 				Kind: KindInt,
 			},
 		},
+		"{str: variant}": {
+			Kind: KindMap,
+			Key: &Type{
+				Kind: KindStr,
+			},
+			Val: &Type{
+				Kind: KindVariant,
+			},
+		},
+		"{variant: int}": {
+			Kind: KindMap,
+			Key: &Type{
+				Kind: KindVariant,
+			},
+			Val: &Type{
+				Kind: KindInt,
+			},
+		},
+		"{variant: variant}": {
+			Kind: KindMap,
+			Key: &Type{
+				Kind: KindVariant,
+			},
+			Val: &Type{
+				Kind: KindVariant,
+			},
+		},
 
 		// nested maps
 		"{str: {int: bool}}": {
@@ -524,6 +551,110 @@ func TestType1(t *testing.T) {
 				"a0",
 				"a1",
 				"a2",
+			},
+			Out: &Type{
+				Kind: KindBool,
+			},
+		},
+		"func({str: int}) bool": {
+			Kind: KindFunc,
+			// key names are arbitrary...
+			Map: map[string]*Type{
+				"answer": {
+					Kind: KindMap,
+					Key: &Type{
+						Kind: KindStr,
+					},
+					Val: &Type{
+						Kind: KindInt,
+					},
+				},
+			},
+			Ord: []string{
+				"answer",
+			},
+			Out: &Type{
+				Kind: KindBool,
+			},
+		},
+		"func(bool, {str: int}) bool": {
+			Kind: KindFunc,
+			// key names are arbitrary...
+			Map: map[string]*Type{
+				"hello": {
+					Kind: KindBool,
+				},
+				"answer": {
+					Kind: KindMap,
+					Key: &Type{
+						Kind: KindStr,
+					},
+					Val: &Type{
+						Kind: KindInt,
+					},
+				},
+			},
+			Ord: []string{
+				"hello",
+				"answer",
+			},
+			Out: &Type{
+				Kind: KindBool,
+			},
+		},
+		"func(struct{a str; bb int}) bool": {
+			Kind: KindFunc,
+			// key names are arbitrary...
+			Map: map[string]*Type{
+				"answer": {
+					Kind: KindStruct,
+					Ord: []string{
+						"a",
+						"bb",
+					},
+					Map: map[string]*Type{
+						"a": {
+							Kind: KindStr,
+						},
+						"bb": {
+							Kind: KindInt,
+						},
+					},
+				},
+			},
+			Ord: []string{
+				"answer",
+			},
+			Out: &Type{
+				Kind: KindBool,
+			},
+		},
+		"func(bool, struct{a str; bb int}) bool": {
+			Kind: KindFunc,
+			// key names are arbitrary...
+			Map: map[string]*Type{
+				"hello": {
+					Kind: KindBool,
+				},
+				"answer": {
+					Kind: KindStruct,
+					Ord: []string{
+						"a",
+						"bb",
+					},
+					Map: map[string]*Type{
+						"a": {
+							Kind: KindStr,
+						},
+						"bb": {
+							Kind: KindInt,
+						},
+					},
+				},
+			},
+			Ord: []string{
+				"hello",
+				"answer",
 			},
 			Out: &Type{
 				Kind: KindBool,
@@ -1076,6 +1207,21 @@ func TestType3(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
+		"func(a str) bool": {
+			Kind: KindFunc,
+			// key names are arbitrary...
+			Map: map[string]*Type{
+				"a": {
+					Kind: KindStr,
+				},
+			},
+			Ord: []string{
+				"a", // must match
+			},
+			Out: &Type{
+				Kind: KindBool,
+			},
+		},
 		"func(aaa str, bb int) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
@@ -1090,6 +1236,27 @@ func TestType3(t *testing.T) {
 			Ord: []string{
 				"aaa",
 				"bb",
+			},
+			Out: &Type{
+				Kind: KindBool,
+			},
+		},
+		"func(aaa {str: int}) bool": {
+			Kind: KindFunc,
+			// key names are arbitrary...
+			Map: map[string]*Type{
+				"aaa": {
+					Kind: KindMap,
+					Key: &Type{
+						Kind: KindStr,
+					},
+					Val: &Type{
+						Kind: KindInt,
+					},
+				},
+			},
+			Ord: []string{
+				"aaa",
 			},
 			Out: &Type{
 				Kind: KindBool,

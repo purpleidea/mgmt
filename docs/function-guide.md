@@ -84,6 +84,104 @@ mgmt engine to shutdown. It should be seen as the equivalent to calling a
 Ideally, your functions should never need to error. You should never cause a
 real `panic()`, since this could have negative consequences to the system.
 
+## Simple Polymorphic Function API
+
+Most functions should be implemented using the simple function API. If they need
+to have multiple polymorphic forms under the same name, then you can use this
+API. This is useful for situations when it would be unhelpful to name the
+functions differently, or when the number of possible signatures for the
+function would be infinite.
+
+The canonical example of this is the `len` function which returns the number of
+elements in either a `list` or a `map`. Since lists and maps are two different
+types, you can see that polymorphism is more convenient than requiring a
+`listlen` and `maplen` function. Nevertheless, it is also required because a
+`list of int` is a different type than a `list of str`, which is a different
+type than a `list of list of str` and so on. As you can see the number of
+possible input types for such a `len` function is infinite.
+
+Another downside to implementing your functions with this API is that they will
+*not* be made available for use inside templates. This is a limitation of the
+`golang` template library. In the future if this limitation proves to be
+significantly annoying, we might consider writing our own template library.
+
+As with the simple, non-polymorphic API, you can only implement [pure](https://en.wikipedia.org/wiki/Pure_function)
+functions, without writing too much boilerplate code. They will be automatically
+re-evaluated as needed when their input values change.
+
+To implement a function, you'll need to create a file in
+[`lang/funcs/simplepoly/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simplepoly/).
+The function should be implemented as a list of `FuncValue`'s in our type
+system. It is then registered with the engine during `init()`. You may also use
+the `variant` type in your type definitions. This special type will never be
+seen inside a running program, and will get converted to a concrete type if a
+suitable match to this signature can be found. Be warned that signatures which
+contain too many variants, or which are very general, might be hard for the
+compiler to match, and ambiguous type graphs make for user compiler errors.
+
+An example explains it best:
+
+### Example
+
+```golang
+package simplepoly
+
+import (
+	"fmt"
+
+	"github.com/purpleidea/mgmt/lang/types"
+)
+
+func init() {
+	Register("len", []*types.FuncValue{
+		{
+			T: types.NewType("func([]variant) int"),
+			V: Len,
+		},
+		{
+			T: types.NewType("func({variant: variant}) int"),
+			V: Len,
+		},
+	})
+}
+
+// Len returns the number of elements in a list or the number of key pairs in a
+// map. It can operate on either of these types.
+func Len(input []types.Value) (types.Value, error) {
+	var length int
+	switch k := input[0].Type().Kind; k {
+	case types.KindList:
+		length = len(input[0].List())
+	case types.KindMap:
+		length = len(input[0].Map())
+
+	default:
+		return nil, fmt.Errorf("unsupported kind: %+v", k)
+	}
+
+	return &types.IntValue{
+		V: int64(length),
+	}, nil
+}
+```
+
+This simple polymorphic function can accept an infinite number of signatures, of
+which there are two basic forms. Both forms return an `int` as is seen above.
+The first form takes a `[]variant` which means a `list` of `variant`'s, which
+means that it can be a list of any type, since `variant` itself is not a
+concrete type. The second form accepts a `{variant: variant}`, which means that
+it accepts any form of `map` as input.
+
+The implementation for both of these forms is the same: it is handled by the
+same `Len` function which is clever enough to be able to deal with any of the
+type signatures possible from those two patterns.
+
+At compile time, if your `mcl` code type checks correctly, a concrete type will
+be known for each and every usage of the `len` function, and specific values
+will be passed in for this code to compute the length of. As usual, make sure to
+only write safe code that will not panic! A panic is a bug. If you really cannot
+continue, then you must return an error.
+
 ## Function API
 
 To implement a reactive function in `mgmt` it must satisfy the
@@ -306,6 +404,27 @@ will likely require a language that can expose a C-like API, such as `python` or
 
 There are still many ideas for new functions that haven't been written yet. If
 you'd like to contribute one, please contact us and tell us about your idea!
+
+### Can I generate many different `FuncValue` implementations from one function?
+
+Yes, you can use a function generator in `golang` to build multiple different
+implementations from the same function generator. You just need to implement a
+function which *returns* a `golang` type of `func([]types.Value) (types.Value, error)`
+which is what `FuncValue` expects. The generator function can use any input it
+wants to build the individual functions, thus helping with code re-use.
+
+### How do I determine the signature of my simple, polymorphic function?
+
+The determination of the input portion of the function signature can be
+determined by inspecting the length of the input, and the specific type each
+value has. Length is done in the standard `golang` way, and the type of each
+element can be ascertained with the `Type()` method available on every value.
+
+Knowing the output type is trickier. If it can not be inferred in some manner,
+then the only way is to keep track of this yourself. You can use a function
+generator to build your `FuncValue` implementations, and pass in the unique
+signature to each one as you are building them. Using a generator is a common
+technique which was mentioned previously.
 
 ### Where can I find more information about mgmt?
 

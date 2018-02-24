@@ -38,8 +38,9 @@ Please read, enjoy and help improve our documentation!
 | [quick start guide](docs/quick-start-guide.md) | for mgmt developers |
 | [frequently asked questions](docs/faq.md) | for everyone |
 | [general documentation](docs/documentation.md) | for everyone |
-| [resource guide](docs/resource-guide.md) | for mgmt developers |
 | [language guide](docs/language-guide.md) | for everyone |
+| [function guide](docs/function-guide.md) | for mgmt developers |
+| [resource guide](docs/resource-guide.md) | for mgmt developers |
 | [style guide](docs/style-guide.md) | for mgmt developers |
 | [godoc API reference](https://godoc.org/github.com/purpleidea/mgmt) | for mgmt developers |
 | [prometheus guide](docs/prometheus.md) | for everyone |

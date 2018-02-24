@@ -27,6 +27,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/funcs/core"       // import so the funcs register
 	_ "github.com/purpleidea/mgmt/lang/funcs/facts/core" // import so the facts register
 	_ "github.com/purpleidea/mgmt/lang/funcs/simple"     // import so the funcs register
+	_ "github.com/purpleidea/mgmt/lang/funcs/simplepoly" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"

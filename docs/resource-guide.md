@@ -578,6 +578,47 @@ will likely require a language that can expose a C-like API, such as `python` or
 `ruby`. Custom `golang` resources are already possible when using mgmt as a lib.
 Higher level resource collections will be possible once the `mgmt` DSL is ready.
 
+### Why does the resource API have `CheckApply` instead of two separate methods?
+
+In an early version we actually had both "parts" as separate methods, namely:
+`StateOK` (Check) and `Apply`, but the [decision](58f41eddd9c06b183f889f15d7c97af81b0331cc)
+was made to merge the two into a single method. There are two reasons for this:
+
+1. Many situations would involve the engine running both `Check` and `Apply`. If
+the resource needed to share some state (for efficiency purposes) between the
+two calls, this is much more difficult. A common example is that a resource
+might want to open a connection to `dbus` or `http` to do resource state testing
+and applying. If the methods are combined, there's no need to open and close
+them twice. A counter argument might be that you could open the connection in
+`Init`, and close it in `Close`, however you might not want that open for the
+full lifetime of the resource if you only change state occasionally.
+2. Suppose you came up with a really good reason why you wanted the two methods
+to be separate. It turns out that the current `CheckApply` can wrap this easily.
+It would look approximately like this:
+
+```golang
+func (obj *FooRes) CheckApply(apply bool) (bool, error) {
+	// my private split implementation of check and apply
+	if c, err := obj.check(); err != nil {
+		return false, err // we errored
+	} else if c {
+		return true, nil // state was good!
+	}
+
+	if !apply {
+		return false, nil // state needs fixing, but apply is false
+	}
+
+	err := obj.apply() // errors if failure or unable to apply
+
+	return false, err // always return false, with an optional error
+}
+```
+
+Feel free to use this pattern if you're convinced it's necessary. Alternatively,
+if you think I got the `Res` API wrong and you have an improvement, please let
+us know!
+
 ### What new resource primitives need writing?
 
 There are still many ideas for new resources that haven't been written yet. If

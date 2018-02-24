@@ -9,6 +9,52 @@ I wanted a next generation config management solution that didn't have all of
 the design flaws or limitations that the current generation of tools do, and no
 tool existed!
 
+### How do I contribute to the project if I don't know `golang`?
+
+There are many different ways you can contribute to the project. They can be
+broadly divided into two main categories:
+
+1. With contributions written in `golang`
+2. With contributions _not_ written in `golang`
+
+If you do not know `golang`, and have no desire to learn, you can still
+contribute to mgmt by using it, testing it, writing docs, or even just by
+telling your friends about it. If you don't mind some coding, learning about the
+[mgmt language](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/)
+might be an enjoyable experience for you. It is a small [DSL](https://en.wikipedia.org/wiki/Domain-specific_language)
+and not a general purpose programming language, and you might find it more fun
+than what you're typically used to. One of the reasons the mgmt author got into
+writing automation modules, was because he found it much more fun to build with
+a higher level DSL, than in a general purpose programming language.
+
+If you do not know `golang`, and would like to learn, are a beginner and want to
+improve your skills, or want to gain some great interdisciplinary systems
+engineering knowledge around a cool automation project, we're happy to mentor
+you. Here are some pre-requisites steps which we recommend:
+
+1. Make sure you have a somewhat recent GNU/Linux environment to hack on. A
+recent [Fedora](https://getfedora.org/) or [Debian](https://www.debian.org/)
+environment is recommended. Developing, testing, and contributing on `macOS` or
+`Windows` will be either more difficult or impossible.
+2. Ensure that you're mildly comfortable with the basics of using `git`. You can
+find a number of tutorials online.
+3. Spend between four to six hours with the [golang tour](https://tour.golang.org/).
+Skip over the longer problems, but try and get a solid overview of everything.
+If you forget something, you can always go back and repeat those parts.
+4. Connect to our [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig)
+IRC channel on the [Freenode](https://freenode.net/) network. You can use any
+IRC client that you'd like, but the [hosted web portal](https://webchat.freenode.net/?channels=#mgmtconfig)
+will suffice if you don't know what else to use.
+5. Now it's time to try and starting writing a patch! We have tagged a bunch of
+[open issues as #mgmtlove](https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove)
+for new users to have somewhere to get involved. Look through them to see if
+something interests you. If you find one, let us know you're working on it by
+leaving a comment in the ticket. We'll be around to answer questions in the IRC
+channel, and to create new issues if there wasn't something that fit your
+interests. When you submit a patch, we'll review it and give you some feedback.
+Over time, we hope you'll learn a lot while supporting the project! Now get
+hacking!
+
 ### Is this project ready for production?
 
 Compared to some existing automation tools out there, mgmt is a relatively new

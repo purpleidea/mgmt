@@ -40,7 +40,7 @@ USERNAME := $(shell cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' 
 SERVER = 'dl.fedoraproject.org'
 REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
 ifneq ($(GOTAGS),)
-    BUILD_FLAGS = -tags '$(GOTAGS)'
+	BUILD_FLAGS = -tags '$(GOTAGS)'
 endif
 GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
 

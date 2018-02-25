@@ -78,8 +78,8 @@ you can `vagrant ssh` into the `mgmt` machine. The MOTD will explain the rest.
 
 ## Using Docker
 
-Alternatively, you can check [docker-guide](docs/docker-guide.md) in order to
-develop or deploy using docker
+Alternatively, you can check out the [docker-guide](docs/docker-guide.md) in
+order to develop or deploy using docker.
 
 ## Information about dependencies
 

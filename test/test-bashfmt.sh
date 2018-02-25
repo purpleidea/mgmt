@@ -12,11 +12,15 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 . test/util.sh
 
+M="Makefile"
 find_files() {
 	git ls-files | grep -e '\.sh$' -e '\.bash$' | grep -v 'misc/delta-cpu.sh'
 }
 
 bad_files=$(
+	if grep -q '^  ' "$M"; then
+		echo "$M"
+	fi
 	for i in $(find_files); do
 		# search for more than one leading space, to ensure we use tabs
 		if grep -q '^  ' "$i"; then

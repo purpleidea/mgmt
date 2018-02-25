@@ -35,9 +35,9 @@ Please read, enjoy and help improve our documentation!
 
 | Documentation | Additional Notes |
 |---|---|
-| [general documentation](docs/documentation.md) | for everyone |
 | [quick start guide](docs/quick-start-guide.md) | for mgmt developers |
 | [frequently asked questions](docs/faq.md) | for everyone |
+| [general documentation](docs/documentation.md) | for everyone |
 | [resource guide](docs/resource-guide.md) | for mgmt developers |
 | [language guide](docs/language-guide.md) | for everyone |
 | [style guide](docs/style-guide.md) | for mgmt developers |

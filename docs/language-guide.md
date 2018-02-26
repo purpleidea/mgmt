@@ -291,7 +291,7 @@ If you'd like to create a built-in, core function, you'll need to implement the
 function API interface named `Func`. It can be found in
 [lang/interfaces/func.go](https://github.com/purpleidea/mgmt/tree/master/lang/interfaces/func.go).
 Your function must have a specific type. For example, a simple math function
-might have a signature of `func(x int, x int) int`. As you can see, all the
+might have a signature of `func(x int, y int) int`. As you can see, all the
 types are known _before_ compile time.
 
 A separate discussion on this matter can be found in the [function guide](function-guide.md).

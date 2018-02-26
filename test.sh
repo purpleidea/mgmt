@@ -89,7 +89,7 @@ if [[ -n "$failures" ]]; then
 	echo
 	echo 'You can rerun a single suite like so:'
 	echo
-	echo 'make test-gofmt'
+	echo '`make test-gofmt` or `make test-shell-<testname>`'
 	exit 1
 fi
 echo 'ALL PASSED'

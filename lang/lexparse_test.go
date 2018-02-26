@@ -80,7 +80,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "bad escaping",
 			code: `
-			test "n1" {
+			test "t1" {
 				str => "he\ llo", # incorrect escaping
 			}
 			`,
@@ -91,7 +91,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "int overflow",
 			code: `
-			test "n1" {
+			test "t1" {
 				int => 888888888888888888888888, # overflows
 			}
 			`,
@@ -102,7 +102,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "overflow after lexer",
 			code: `
-			test "n1" {
+			test "t1" {
 				uint8 => 128, # does not overflow at lexer stage
 			}
 			`,
@@ -114,7 +114,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "one res",
 			code: `
-			test "n1" {
+			test "t1" {
 				int16 => 01134, # some comment
 			}
 			`,
@@ -262,7 +262,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "res with floats",
 			code: `
-			test "n1" {
+			test "t1" {
 				float32 => -25.38789, # some float
 				float64 => 53.393908945, # some float
 			}
@@ -279,7 +279,7 @@ func TestLexParse0(t *testing.T) {
 	//	values = append(values, test{
 	//		name: "overflowing float",
 	//		code: `
-	//		test "n1" {
+	//		test "t1" {
 	//			float32 => -457643875645764387564578645457864525457643875645764387564578645457864525.457643875645764387564578645457864525387899898753459879587574928798759863965, # overflow
 	//		}
 	//		`,
@@ -290,7 +290,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "res and addition",
 			code: `
-			test "n1" {
+			test "t1" {
 				float32 => -25.38789 + 32.6,
 			}
 			`,
@@ -304,7 +304,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -331,7 +331,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "addition",
 			code: `
-			test "n1" {
+			test "t1" {
 				int64ptr => 13 + 42,
 			}
 			`,
@@ -345,7 +345,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -383,7 +383,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "multiple float addition",
 			code: `
-			test "n1" {
+			test "t1" {
 				float32 => -25.38789 + 32.6 + 13.7,
 			}
 			`,
@@ -397,7 +397,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -435,7 +435,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "order of operations lucky",
 			code: `
-			test "n1" {
+			test "t1" {
 				int64ptr => 4 + 3 * 12, # 40, not 84
 			}
 			`,
@@ -449,7 +449,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -487,7 +487,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "order of operations needs left precedence",
 			code: `
-			test "n1" {
+			test "t1" {
 				int64ptr => 3 * 12 + 4, # 40, not 48
 			}
 			`,
@@ -501,7 +501,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -539,7 +539,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "order of operations parens",
 			code: `
-			test "n1" {
+			test "t1" {
 				int64ptr => 3 * (12 + 4), # 48, not 40
 			}
 			`,
@@ -553,7 +553,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -591,7 +591,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "order of operations bools",
 			code: `
-			test "n1" {
+			test "t1" {
 				boolptr => 3 + 4 > 5, # should be true
 			}
 			`,
@@ -605,7 +605,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -643,7 +643,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "order of operations bools reversed",
 			code: `
-			test "n1" {
+			test "t1" {
 				boolptr => 3 > 4 + 5, # should be false
 			}
 			`,
@@ -657,7 +657,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -692,7 +692,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "order of operations with not",
 			code: `
-			test "n1" {
+			test "t1" {
 				boolptr => ! 3 > 4, # should parse, but not compile
 			}
 			`,
@@ -706,7 +706,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
-						V: "n1",
+						V: "t1",
 					},
 					Fields: []*StmtResField{
 						{
@@ -744,7 +744,7 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "order of operations logical",
 			code: `
-			test "n1" {
+			test "t1" {
 				boolptr => 7 < 4 && true, # should be false
 			}
 			`,
@@ -879,7 +879,7 @@ func TestLexParse1(t *testing.T) {
 	}
 	# hello
 	# world
-	test "n1" {}
+	test "t1" {}
 	` // error
 	str := strings.NewReader(code)
 	_, err := LexParse(str)

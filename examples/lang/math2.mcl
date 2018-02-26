@@ -1,0 +1,3 @@
+print "print0" {
+	msg => printf("13.0 ^ 4.2 is: %f", pow(13.0, 4.2)),
+}

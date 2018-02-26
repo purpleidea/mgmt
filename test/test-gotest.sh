@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "running test-gotest.sh $1"
+echo running "$0" "$@"
 
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 ROOT=$(dirname "${BASH_SOURCE}")/..

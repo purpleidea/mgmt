@@ -1,0 +1,10 @@
+$env = env()
+$m = maplookup($env, "GOPATH", "")
+
+print "print0" {
+	msg => if hasenv("GOPATH") {
+		printf("GOPATH is: %s", $m)
+	} else {
+		"GOPATH is missing!"
+	},
+}

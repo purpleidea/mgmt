@@ -19,6 +19,7 @@ SHELL = /usr/bin/env bash
 .PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
 .SILENT: clean bindata
 
+# list of all .go files used to determine when the binary needs rebuilding
 # a large amount of output from this `find`, can cause `make` to be much slower!
 GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
 
@@ -124,7 +125,18 @@ lang:
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH}
 	cp $< $@
 
-$(PROGRAM).static: $(GO_FILES)
+# keep a list of all go files so we can rebuild if one gets deleted
+.Makefile.gofiles: $(GO_FILES) FORCE
+	@# make temporary file with current state of .go file list
+	@echo "$^" > $@.tmp
+	@# compare current state with recorded state and 'update' this prerequisite if the state differs
+	@diff $@.tmp $@ &>/dev/null || mv $@.tmp $@
+	@rm -f $@.tmp
+# this is an empty target forcing the recipe above to be evaluated every time
+# https://www.gnu.org/software/make/manual/html_node/Force-Targets.html
+FORCE: ;
+
+$(PROGRAM).static: $(GO_FILES) .Makefile.gofiles
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
@@ -139,7 +151,7 @@ build-debug: $(PROGRAM)
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) | bindata lang
+build/mgmt-%: $(GO_FILES) .Makefile.gofiles | bindata lang
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
 	@# reassigning GOOS and GOARCH to make build command copy/pastable
 	time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS);

@@ -39,6 +39,11 @@
 			lval.str = yylex.Text()
 			return ELSE
 		}
+/\?:/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return ELVIS
+		}
 /=>/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

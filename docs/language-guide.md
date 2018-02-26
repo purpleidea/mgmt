@@ -90,7 +90,7 @@ There are a very small number of statements in our language. They include:
 - **if**: produces up to one branch of statements based on a conditional
 expression
 
-	```
+	```mcl
 	if <conditional> {
 		<statements>
 	} else {
@@ -101,7 +101,7 @@ expression
 
 - **resource**: produces a resource
 
-	```
+	```mcl
 	file "/tmp/hello" {
 		content => "world",
 		mode => "o=rwx",
@@ -110,7 +110,7 @@ expression
 
 - **edge**: produces an edge
 
-	```
+	```mcl
 	File["/tmp/hello"] -> Print["alert4"]
 	```
 
@@ -131,14 +131,44 @@ This section needs better documentation.
 
 #### Resource
 
-This section needs better documentation.
+Resources express the idempotent workloads that we want to have apply on our
+system. They correspond to vertices in a [graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph)
+which represent the order in which their declared state is applied. You will
+usually want to pass in a number of parameters and associated values to the
+resource to control how it behaves. For example, setting the `content` parameter
+of a `file` resource to the string `hello`, will cause the contents of that file
+to contain the string `hello` after it has run.
+
+For some parameters, there is a distinction between an unspecified parameter,
+and a parameter with a `zero` value. For example, for the file resource, you
+might choose to set the `content` parameter to be the empty string, which would
+ensure that the file has a length of zero. Alternatively you might wish to not
+specify the file contents at all, which would leave that property undefined. If
+you omit listing a property, then it will be undefined. To control this property
+programmatically, you need to specify an `is-defined` value, as well as the
+value to use if that boolean is true. You can do this with the resource-specific
+`elvis` operator.
+
+```mcl
+$b = true # change me to false and then try editing the file manually
+file "/tmp/mgmt-elvis" {
+	content => $b ?: "hello world\n",
+	state => "exists",
+}
+```
+
+This example is static, however you can imagine that the `$b` value might be
+chosen in a programmatic way, even one in which that value varies over time. If
+it evaluates to `true`, then the parameter will be used. If no `elvis` operator
+is specified, then the parameter value will also be used. If the parameter is
+not specified, then it will obviously not be used.
 
 #### Edge
 
 Edges express dependencies in the graph of resources which are output. They can
 be chained as a pair, or in any greater number. For example, you may write:
 
-```
+```mcl
 Pkg["drbd"] -> File["/etc/drbd.conf"] -> Svc["drbd"]
 ```
 

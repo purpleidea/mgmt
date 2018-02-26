@@ -77,7 +77,7 @@ func init() {
 %token STRING BOOL INTEGER FLOAT
 %token EQUALS
 %token COMMA COLON SEMICOLON
-%token ROCKET ARROW DOT
+%token ELVIS ROCKET ARROW DOT
 %token STR_IDENTIFIER BOOL_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER IDENTIFIER
 %token VAR_IDENTIFIER_HX CAPITALIZED_IDENTIFIER
@@ -682,6 +682,11 @@ resource_body:
 		posLast(yylex, yyDollar) // our pos
 		$$.resFields = append($1.resFields, $2.resField)
 	}
+|	resource_body conditional_resource_field
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resFields = append($1.resFields, $2.resField)
+	}
 ;
 resource_field:
 	IDENTIFIER ROCKET expr COMMA
@@ -690,6 +695,18 @@ resource_field:
 		$$.resField = &StmtResField{
 			Field: $1.str,
 			Value: $3.expr,
+		}
+	}
+;
+conditional_resource_field:
+	// content => $present ?: "hello",
+	IDENTIFIER ROCKET expr ELVIS expr COMMA
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resField = &StmtResField{
+			Field: $1.str,
+			Value: $5.expr,
+			Condition: $3.expr,
 		}
 	}
 ;

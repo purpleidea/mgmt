@@ -120,9 +120,17 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 		if err != nil {
 			return nil, err
 		}
+		var condition interfaces.Expr
+		if x.Condition != nil {
+			condition, err = x.Condition.Interpolate()
+			if err != nil {
+				return nil, err
+			}
+		}
 		field := &StmtResField{
-			Field: x.Field,
-			Value: interpolated,
+			Field:     x.Field,
+			Value:     interpolated,
+			Condition: condition,
 		}
 		fields = append(fields, field)
 	}
@@ -142,6 +150,11 @@ func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.Fields {
 		if err := x.Value.SetScope(scope); err != nil {
 			return err
+		}
+		if x.Condition != nil {
+			if err := x.Condition.SetScope(scope); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -173,6 +186,22 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 			return nil, err
 		}
 		invariants = append(invariants, invars...)
+
+		// conditional expression might have some children invariants to share
+		if x.Condition != nil {
+			condition, err := x.Condition.Unify()
+			if err != nil {
+				return nil, err
+			}
+			invariants = append(invariants, condition...)
+
+			// the condition must ultimately be a boolean
+			conditionInvar := &unification.EqualsInvariant{
+				Expr: x.Condition,
+				Type: types.TypeBool,
+			}
+			invariants = append(invariants, conditionInvar)
+		}
 	}
 
 	typMap, err := resources.LangFieldNameToStructType(obj.Kind)
@@ -230,6 +259,14 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 			return nil, err
 		}
 		graph.AddGraph(g)
+
+		if x.Condition != nil {
+			g, err := x.Condition.Graph()
+			if err != nil {
+				return nil, err
+			}
+			graph.AddGraph(g)
+		}
 	}
 
 	return graph, nil
@@ -266,6 +303,17 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 
 	// FIXME: we could probably simplify this code...
 	for _, x := range obj.Fields {
+		if x.Condition != nil {
+			b, err := x.Condition.Value()
+			if err != nil {
+				return nil, err
+			}
+
+			if !b.Bool() { // if value exists, and is false, skip it
+				continue
+			}
+		}
+
 		typ, err := x.Value.Type()
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "resource field `%s` did not return a type", x.Field)
@@ -370,8 +418,9 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 // StmtResField represents a single field in the parsed resource representation.
 // This does not satisfy the Stmt interface.
 type StmtResField struct {
-	Field string
-	Value interfaces.Expr
+	Field     string
+	Value     interfaces.Expr
+	Condition interfaces.Expr // the value will be used if nil or true
 }
 
 // StmtEdge is a representation of a dependency. It also supports send/recv.

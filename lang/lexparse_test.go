@@ -123,6 +123,20 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
+		values = append(values, test{
+			name: "one res with elvis",
+			code: `
+			test "t1" {
+				int16 => true ?: 42, # elvis operator
+				int32 => 42,
+				stringptr => false ?: "", # missing is not ""
+			}
+			`,
+			fail: false,
+			//exp: ???, // FIXME: add the expected AST
+		})
+	}
+	{
 		// TODO: skip trailing comma requirement on one-liners
 		values = append(values, test{
 			name: "two lists",

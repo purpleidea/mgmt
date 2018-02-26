@@ -367,9 +367,7 @@ func (m *Instance) Cleanup(t *testing.T) error {
 	if t.Failed() {
 		t.Logf("\nName: %s\nRan command:\nenv %s %s\nStdout:\n%s\nStderr:\n%s",
 			m.Name, m.env, m.command, m.Stdout.String(), m.Stderr.String())
-		if m.DeployOutput != "" {
-			t.Logf("Deploy output:\n%s", m.DeployOutput)
-		}
+		t.Logf("Deploy output:\n%s", m.DeployOutput)
 		return nil
 	}
 

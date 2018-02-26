@@ -19,6 +19,7 @@ package lang
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 	"sync"
@@ -65,6 +66,23 @@ func (obj *GAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
 	if s := c.String(Name); c.IsSet(Name) {
 		if s == "" {
 			return nil, fmt.Errorf("input code is empty")
+		}
+
+		// validate syntax before deploying
+		fileContent, err := ioutil.ReadFile(s)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't read code from file `%s`", s)
+		}
+		code := strings.NewReader(string(fileContent))
+		obj := &Lang{
+			Input: code,
+			Logf: func(format string, v ...interface{}) {
+				log.Printf(Name+"%s: "+format, v...)
+			},
+		}
+		err = obj.Validate()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, s)
 		}
 
 		// read through this local path, and store it in our file system
@@ -138,6 +156,9 @@ func (obj *GAPI) LangInit() error {
 		Hostname: obj.data.Hostname,
 		World:    obj.data.World,
 		Debug:    obj.data.Debug,
+		Logf: func(format string, v ...interface{}) {
+			log.Printf(Name+": "+format, v...)
+		},
 	}
 	if err := obj.lang.Init(); err != nil {
 		return errwrap.Wrapf(err, "can't init the lang")

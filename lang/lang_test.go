@@ -19,6 +19,7 @@ package lang
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"testing"
 
@@ -85,6 +86,9 @@ func runInterpret(code string) (*pgraph.Graph, error) {
 	lang := &Lang{
 		Input: str, // string as an interface that satisfies io.Reader
 		Debug: true,
+		Logf: func(format string, v ...interface{}) {
+			log.Printf(Name+"%s: "+format, v...)
+		},
 	}
 	if err := lang.Init(); err != nil {
 		return nil, errwrap.Wrapf(err, "init failed")

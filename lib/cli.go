@@ -424,6 +424,18 @@ func CLI(program, version string, flags Flags) error {
 			Flags:   runFlags,
 		},
 		{
+			Name:    "validate",
+			Aliases: []string{"v"},
+			Usage:   "validate",
+			Action:  validate,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "lang, l",
+					Usage: "lang file to validate",
+				},
+			},
+		},
+		{
 			Name:        "deploy",
 			Aliases:     []string{"d"},
 			Usage:       "deploy",

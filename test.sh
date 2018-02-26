@@ -52,6 +52,7 @@ run-testsuite ./test/test-markdownlint.sh
 run-testsuite ./test/test-commit-message.sh
 run-testsuite ./test/test-govet.sh
 run-testsuite ./test/test-examples.sh
+run-testsuite ./test/test-examples-validate.sh
 run-testsuite ./test/test-gotest.sh
 run-testsuite ./test/test-integration.sh
 

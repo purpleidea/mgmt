@@ -63,6 +63,8 @@ type Lang struct {
 
 	closeChan chan struct{} // close signal
 	wg        *sync.WaitGroup
+
+	Logf func(format string, v ...interface{})
 }
 
 // Init initializes the lang struct, and starts up the initial data sources.
@@ -78,67 +80,9 @@ func (obj *Lang) Init() error {
 	once := &sync.Once{}
 	loadedSignal := func() { close(obj.loadedChan) } // only run once!
 
-	// run the lexer/parser and build an AST
-	log.Printf("%s: Lexing/Parsing...", Name)
-	ast, err := LexParse(obj.Input)
+	graph, err := obj.Compile()
 	if err != nil {
-		return errwrap.Wrapf(err, "could not generate AST")
-	}
-	if obj.Debug {
-		log.Printf("%s: behold, the AST: %+v", Name, ast)
-	}
-
-	// TODO: should we validate the structure of the AST?
-	// TODO: should we do this *after* interpolate, or trust it to behave?
-	//if err := ast.Validate(); err != nil {
-	//	return errwrap.Wrapf(err, "could not validate AST")
-	//}
-
-	log.Printf("%s: Interpolating...", Name)
-	// interpolate strings and other expansionable nodes in AST
-	interpolated, err := ast.Interpolate()
-	if err != nil {
-		return errwrap.Wrapf(err, "could not interpolate AST")
-	}
-	obj.ast = interpolated
-
-	// top-level, built-in, initial global scope
-	scope := &interfaces.Scope{
-		Variables: map[string]interfaces.Expr{
-			"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-			// TODO: change to a func when we can change hostname dynamically!
-			"hostname": &ExprStr{V: obj.Hostname},
-		},
-	}
-
-	log.Printf("%s: Building Scope...", Name)
-	// propagate the scope down through the AST...
-	if err := obj.ast.SetScope(scope); err != nil {
-		return errwrap.Wrapf(err, "could not set scope")
-	}
-
-	// apply type unification
-	logf := func(format string, v ...interface{}) {
-		if obj.Debug { // unification only has debug messages...
-			log.Printf(Name+": unification: "+format, v...)
-		}
-	}
-	log.Printf("%s: Running Type Unification...", Name)
-	if err := unification.Unify(obj.ast, unification.SimpleInvariantSolverLogger(logf)); err != nil {
-		return errwrap.Wrapf(err, "could not unify types")
-	}
-
-	log.Printf("%s: Building Function Graph...", Name)
-	// we assume that for some given code, the list of funcs doesn't change
-	// iow, we don't support variable, variables or absurd things like that
-	graph, err := obj.ast.Graph() // build the graph of functions
-	if err != nil {
-		return errwrap.Wrapf(err, "could not generate function graph")
-	}
-
-	if obj.Debug {
-		log.Printf("%s: function graph: %+v", Name, graph)
-		graph.Logf("%s: ", Name) // log graph with this printf prefix...
+		return err
 	}
 
 	if graph.NumVertices() == 0 { // no funcs to load!
@@ -165,7 +109,7 @@ func (obj *Lang) Init() error {
 		World:    obj.World,
 		Debug:    obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf(Name+": funcs: "+format, v...)
+			log.Printf(Name+"%s: "+format, v...)
 		},
 		Glitch: false, // FIXME: verify this functionality is perfect!
 	}
@@ -265,5 +209,83 @@ func (obj *Lang) Close() error {
 	}
 	close(obj.closeChan)
 	obj.wg.Wait()
+	return err
+}
+
+// Compile takes the lang input code and turns it into a the graph™
+func (obj *Lang) Compile() (*pgraph.Graph, error) {
+	// run the lexer/parser and build an AST
+	obj.Logf("Lexing/Parsing...")
+	ast, err := LexParse(obj.Input)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not generate AST")
+	}
+	if obj.Debug {
+		obj.Logf("behold, the AST: %+v", ast)
+	}
+
+	// TODO: should we validate the structure of the AST?
+	// TODO: should we do this *after* interpolate, or trust it to behave?
+	//if err := ast.Validate(); err != nil {
+	//	return nil, errwrap.Wrapf(err, "could not validate AST")
+	//}
+
+	obj.Logf("Interpolating...")
+	// interpolate strings and other expansionable nodes in AST
+	interpolated, err := ast.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate AST")
+	}
+	obj.ast = interpolated
+
+	// top-level, built-in, initial global scope
+	scope := &interfaces.Scope{
+		Variables: map[string]interfaces.Expr{
+			"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+			// TODO: change to a func when we can change hostname dynamically!
+			"hostname": &ExprStr{V: obj.Hostname},
+		},
+	}
+
+	obj.Logf("Building Scope...")
+	// propagate the scope down through the AST...
+	if err := obj.ast.SetScope(scope); err != nil {
+		return nil, errwrap.Wrapf(err, "could not set scope")
+	}
+
+	// apply type unification
+	logf := func(format string, v ...interface{}) {
+		if obj.Debug { // unification only has debug messages...
+			obj.Logf(Name+": unification: "+format, v...)
+		}
+	}
+	obj.Logf("Running Type Unification...")
+	if err := unification.Unify(obj.ast, unification.SimpleInvariantSolverLogger(logf)); err != nil {
+		return nil, errwrap.Wrapf(err, "could not unify types")
+	}
+
+	obj.Logf("Building Function Graph...")
+	// we assume that for some given code, the list of funcs doesn't change
+	// iow, we don't support variable, variables or absurd things like that
+	graph, err := obj.ast.Graph() // build the graph of functions
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not generate function graph")
+	}
+
+	if obj.Debug {
+		obj.Logf("function graph: %+v", graph)
+		graph.Logf("%s: ", Name) // log graph with this printf prefix...
+	}
+
+	return graph, nil
+}
+
+// Validate performs as much validation of the Input as it can without starting the func engine
+func (obj *Lang) Validate() error {
+	_, err := obj.Compile()
+	if err != nil {
+		return err
+	}
+
 	return err
 }

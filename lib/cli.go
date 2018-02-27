@@ -457,6 +457,39 @@ func CLI(program, version string, flags Flags) error {
 				},
 			},
 		},
+		{
+			Name:    "info",
+			Aliases: []string{"i"},
+			Usage:   "info",
+			Action:  info,
+			// Flags:   ,
+			Subcommands: []cli.Command{
+				{
+					Name:    "resources",
+					Aliases: []string{"res", "r"},
+					Usage:   "list available resources",
+					Action:  info,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "type, t",
+							Usage: "also show type info",
+						},
+					},
+				},
+				{
+					Name:    "functions",
+					Aliases: []string{"funcs", "f"},
+					Usage:   "list available functions",
+					Action:  info,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "type, t",
+							Usage: "also show type info",
+						},
+					},
+				},
+			},
+		},
 	}
 	app.EnableBashCompletion = true
 	return app.Run(os.Args)

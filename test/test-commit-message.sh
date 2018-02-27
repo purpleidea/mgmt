@@ -56,9 +56,10 @@ travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]
 
 test_commit_message() {
 	echo "Testing commit message $1"
-	if ! git log --format=%s $1 | head -n 1 | grep -q "$travis_regex"
+	msg="$(git log --format=%s "$1" | head -n 1)"
+	if ! echo "$msg" | grep -q "$travis_regex"
 	then
-		echo "FAIL: Commit message should match the following regex: '$travis_regex'"
+		echo "FAIL: Commit message '$msg' should match the following regex: '$travis_regex'"
 		echo
 		echo "eg:"
 		echo "prometheus: Implement rest api"
@@ -69,42 +70,43 @@ test_commit_message() {
 
 test_commit_message_common_bugs() {
 	echo "Testing commit message for common bugs $1"
-	if git log --format=%s $1 | head -n 1 | grep -q "^resource:"
+	if git log --format=%s "$1" | head -n 1 | grep -q "^resource:"
 	then
 		echo 'FAIL: Commit message starts with `resource:`, did you mean `resources:` ?'
 		exit 1
 	fi
-	if git log --format=%s $1 | head -n 1 | grep -q "^tests:"
+	if git log --format=%s "$1" | head -n 1 | grep -q "^tests:"
 	then
 		echo 'FAIL: Commit message starts with `tests:`, did you mean `test:` ?'
 		exit 1
 	fi
-	if git log --format=%s $1 | head -n 1 | grep -q "^doc:"
+	if git log --format=%s "$1" | head -n 1 | grep -q "^doc:"
 	then
 		echo 'FAIL: Commit message starts with `doc:`, did you mean `docs:` ?'
 		exit 1
 	fi
-	if git log --format=%s $1 | head -n 1 | grep -q "^example:"
+	if git log --format=%s "$1" | head -n 1 | grep -q "^example:"
 	then
 		echo 'FAIL: Commit message starts with `example:`, did you mean `examples:` ?'
 		exit 1
 	fi
-	if git log --format=%s $1 | head -n 1 | grep -q "^language:"
+	if git log --format=%s "$1" | head -n 1 | grep -q "^language:"
 	then
 		echo 'FAIL: Commit message starts with `language:`, did you mean `lang:` ?'
 		exit 1
 	fi
 }
 
-if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]
-then
-	commits=$(git log --format=%H origin/${TRAVIS_BRANCH}..${TRAVIS_PULL_REQUEST_SHA})
-	[[ -n "$commits" ]]
-
-	for commit in $commits
-	do
-		test_commit_message $commit
-		test_commit_message_common_bugs $commit
-	done
+# use information from Travis to determine commits to test, fallback to optimistic values when not runnning on travis
+commits=$(git log --format=%H origin/${TRAVIS_BRANCH:-master}..${TRAVIS_PULL_REQUEST_SHA:-HEAD})
+if [[ -z "$commits" ]]; then
+	echo "FAIL: No commits between origin/${TRAVIS_BRANCH:-master} and ${TRAVIS_PULL_REQUEST_SHA:-HEAD}"
+	exit 1
 fi
+
+for commit in $commits
+do
+	test_commit_message "$commit"
+	test_commit_message_common_bugs "$commit"
+done
 echo 'PASS'

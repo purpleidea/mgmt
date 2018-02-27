@@ -281,6 +281,10 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 
 				if typ, exists := solved[eq.Expr1]; exists {
 					// wow, now known, so tell the partials!
+					if len(eq.Expr2Ord) != len(typ.Ord) {
+						// TODO: a little more clear than a panic, but still offers no help in debugging mcl
+						return nil, fmt.Errorf("func arg count differs")
+					}
 					for i, name := range eq.Expr2Ord {
 						expr := eq.Expr2Map[name]                            // assume key exists
 						structPartials[eq.Expr1][expr] = typ.Map[typ.Ord[i]] // assume key exists
@@ -351,6 +355,10 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 
 				if typ, exists := solved[eq.Expr1]; exists {
 					// wow, now known, so tell the partials!
+					if len(eq.Expr2Ord) != len(typ.Ord) {
+						// TODO: a little more clear than a panic, but still offers no help in debugging mcl
+						return nil, fmt.Errorf("func arg count differs")
+					}
 					for i, name := range eq.Expr2Ord {
 						expr := eq.Expr2Map[name]                          // assume key exists
 						funcPartials[eq.Expr1][expr] = typ.Map[typ.Ord[i]] // assume key exists

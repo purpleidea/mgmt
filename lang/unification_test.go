@@ -473,6 +473,41 @@ func TestUnification1(t *testing.T) {
 			fail: true,
 		})
 	}
+	{
+		//test "t1" {
+		//	stringptr => getenv("GOPATH", "bug"),	# bad (two args vs. one)
+		//}
+		expr := &ExprCall{
+			Name: "getenv",
+			Args: []interfaces.Expr{
+				&ExprStr{
+					V: "GOPATH",
+				},
+				&ExprStr{
+					V: "bug",
+				},
+			},
+		}
+		stmt := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{V: "t1"},
+					Fields: []*StmtResField{
+						{
+							Field: "stringptr",
+							Value: expr,
+						},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "function, wrong arg count",
+			ast:  stmt,
+			fail: true,
+		})
+	}
 
 	for index, test := range values { // run all the tests
 		t.Run(fmt.Sprintf("test #%d (%s)", index, test.name), func(t *testing.T) {

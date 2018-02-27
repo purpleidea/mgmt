@@ -154,6 +154,7 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 
 				if typ, exists := solved[eq.Expr1]; exists {
 					// wow, now known, so tell the partials!
+					// TODO: this assumes typ is a list, is that guaranteed?
 					listPartials[eq.Expr1][eq.Expr2Val] = typ.Val
 				}
 
@@ -211,6 +212,7 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 
 				if typ, exists := solved[eq.Expr1]; exists {
 					// wow, now known, so tell the partials!
+					// TODO: this assumes typ is a map, is that guaranteed?
 					mapPartials[eq.Expr1][eq.Expr2Key] = typ.Key
 					mapPartials[eq.Expr1][eq.Expr2Val] = typ.Val
 				}
@@ -281,6 +283,10 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 
 				if typ, exists := solved[eq.Expr1]; exists {
 					// wow, now known, so tell the partials!
+					// TODO: this assumes typ is a struct, is that guaranteed?
+					if len(typ.Ord) != len(eq.Expr2Ord) {
+						return nil, fmt.Errorf("struct field count differs")
+					}
 					for i, name := range eq.Expr2Ord {
 						expr := eq.Expr2Map[name]                            // assume key exists
 						structPartials[eq.Expr1][expr] = typ.Map[typ.Ord[i]] // assume key exists
@@ -351,6 +357,10 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 
 				if typ, exists := solved[eq.Expr1]; exists {
 					// wow, now known, so tell the partials!
+					// TODO: this assumes typ is a func, is that guaranteed?
+					if len(typ.Ord) != len(eq.Expr2Ord) {
+						return nil, fmt.Errorf("func arg count differs")
+					}
 					for i, name := range eq.Expr2Ord {
 						expr := eq.Expr2Map[name]                          // assume key exists
 						funcPartials[eq.Expr1][expr] = typ.Map[typ.Ord[i]] // assume key exists

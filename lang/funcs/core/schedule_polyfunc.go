@@ -163,8 +163,8 @@ func (obj *SchedulePolyFunc) Polymorphisms(partialType *types.Type, partialValue
 	return []*types.Type{typFunc}, nil // solved!
 }
 
-// Build is run to turn the polymorphic, undeterminted function, into the
-// specific statically type version. It is usually run after Unify completes,
+// Build is run to turn the polymorphic, undetermined function, into the
+// specific statically typed version. It is usually run after Unify completes,
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.

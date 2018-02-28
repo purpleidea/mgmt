@@ -299,7 +299,7 @@ list_element:
 	}
 ;
 map:
-	// `{"hello" => "there", "world" => "big", }`
+	// `{"hello" => "there", "world" => "big",}`
 	OPEN_CURLY map_kvs CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos

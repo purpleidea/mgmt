@@ -101,8 +101,8 @@ func (obj *simplePolyFunc) Polymorphisms(partialType *types.Type, partialValues 
 	return typs, nil
 }
 
-// Build is run to turn the polymorphic, undeterminted function, into the
-// specific statically type version. It is usually run after Unify completes,
+// Build is run to turn the polymorphic, undetermined function, into the
+// specific statically typed version. It is usually run after Unify completes,
 // and must be run before Info() and any of the other Func interface methods are
 // used.
 func (obj *simplePolyFunc) Build(typ *types.Type) error {

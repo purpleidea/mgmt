@@ -59,8 +59,8 @@ func TestInterpolate0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: &ExprStr{
 								V: "foo",
@@ -103,8 +103,8 @@ func TestInterpolate0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: fieldName,
 						},
@@ -190,8 +190,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: &ExprStr{
 								V: "foo",
@@ -208,8 +208,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: &ExprStr{
 								V: "foo",
@@ -234,8 +234,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 					Name: &ExprStr{
 						V: "t${blah}",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: &ExprStr{
 								V: "foo",
@@ -264,8 +264,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: resName,
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: &ExprStr{
 								V: "foo",
@@ -290,8 +290,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 					Name: &ExprStr{
 						V: "t${42}", // incorrect type
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: &ExprStr{
 								V: "foo",
@@ -321,8 +321,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: resName,
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: &ExprStr{
 								V: "foo",

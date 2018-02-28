@@ -1,0 +1,18 @@
+$b = true
+if $b {
+	exec "exec0" {
+		cmd => "sleep 10s",
+		shell => "/bin/bash",
+	}
+}
+exec "exec1" {
+	cmd => "sleep 10s",
+	shell => "/bin/bash",
+
+	Depend => $b ?: Exec["exec0"],
+	Before => Exec["exec2"],
+}
+exec "exec2" {
+	cmd => "sleep 10s",
+	shell => "/bin/bash",
+}

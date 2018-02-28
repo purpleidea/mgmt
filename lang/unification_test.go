@@ -51,8 +51,8 @@ func TestUnification1(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "t1"},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "str",
 							Value: expr,
 						},
@@ -85,8 +85,8 @@ func TestUnification1(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "test"},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "slicestring",
 							Value: expr,
 						},
@@ -125,8 +125,8 @@ func TestUnification1(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "test"},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "mapintfloat",
 							Value: expr,
 						},
@@ -167,8 +167,8 @@ func TestUnification1(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "test"},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "mixedstruct",
 							Value: expr,
 						},
@@ -215,8 +215,8 @@ func TestUnification1(t *testing.T) {
 					Name: &ExprStr{
 						V: "n1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: expr, // func
 						},
@@ -270,8 +270,8 @@ func TestUnification1(t *testing.T) {
 					Name: &ExprStr{
 						V: "n1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: expr,
 						},
@@ -326,8 +326,8 @@ func TestUnification1(t *testing.T) {
 					Name: &ExprStr{
 						V: "n1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "float32",
 							Value: expr,
 						},
@@ -458,8 +458,8 @@ func TestUnification1(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "t1"},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: expr,
 						},
@@ -493,8 +493,8 @@ func TestUnification1(t *testing.T) {
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "t1"},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "stringptr",
 							Value: expr,
 						},

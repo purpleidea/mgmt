@@ -63,8 +63,9 @@ func init() {
 	structFields []*ExprStructField
 	structField  *ExprStructField
 
-	resFields []*StmtResField
-	resField  *StmtResField
+	resContents []StmtResContents // interface
+	resField    *StmtResField
+	resEdge     *StmtResEdge
 
 	edgeHalfList []*StmtEdgeHalf
 	edgeHalf     *StmtEdgeHalf
@@ -665,9 +666,9 @@ resource:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &StmtRes{
-			Kind:   $1.str,
-			Name:   $2.expr,
-			Fields: $4.resFields,
+			Kind:     $1.str,
+			Name:     $2.expr,
+			Contents: $4.resContents,
 		}
 	}
 ;
@@ -675,17 +676,27 @@ resource_body:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resFields = []*StmtResField{}
+		$$.resContents = []StmtResContents{}
 	}
 |	resource_body resource_field
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resFields = append($1.resFields, $2.resField)
+		$$.resContents = append($1.resContents, $2.resField)
 	}
 |	resource_body conditional_resource_field
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resFields = append($1.resFields, $2.resField)
+		$$.resContents = append($1.resContents, $2.resField)
+	}
+|	resource_body resource_edge
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resContents = append($1.resContents, $2.resEdge)
+	}
+|	resource_body conditional_resource_edge
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resContents = append($1.resContents, $2.resEdge)
 	}
 ;
 resource_field:
@@ -704,8 +715,31 @@ conditional_resource_field:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.resField = &StmtResField{
-			Field: $1.str,
-			Value: $5.expr,
+			Field:     $1.str,
+			Value:     $5.expr,
+			Condition: $3.expr,
+		}
+	}
+;
+resource_edge:
+	// Before => Test["t1"],
+	CAPITALIZED_IDENTIFIER ROCKET edge_half COMMA
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resEdge = &StmtResEdge{
+			Property: $1.str,
+			EdgeHalf: $3.edgeHalf,
+		}
+	}
+;
+conditional_resource_edge:
+	// Before => $present ?: Test["t1"],
+	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS edge_half COMMA
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resEdge = &StmtResEdge{
+			Property:  $1.str,
+			EdgeHalf:  $5.edgeHalf,
 			Condition: $3.expr,
 		}
 	}

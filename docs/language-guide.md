@@ -163,6 +163,45 @@ it evaluates to `true`, then the parameter will be used. If no `elvis` operator
 is specified, then the parameter value will also be used. If the parameter is
 not specified, then it will obviously not be used.
 
+Resources may also declare edges internally. The edges may point to or from
+another resource, and may optionally include a notification. The four properties
+are: `Before`, `Depend`, `Notify` and `Listen`. The first two represent normal
+edge dependencies, and the second two are normal edge dependencies that also
+send notifications. You may have multiples of these per resource, including
+multiple `Depend` lines if necessary. Each of these properties also supports the
+conditional inclusion `elvis` operator as well.
+
+For example, you may write is:
+
+```mcl
+$b = true # for example purposes
+if $b {
+	pkg "drbd" {
+		state => "installed",
+
+		# multiple properties may be used in the same resource
+		Before => File["/etc/drbd.conf"],
+		Before => Svc["drbd"],
+	}
+}
+file "/etc/drbd.conf" {
+	content => "some config",
+
+	Depend => $b ?: Pkg["drbd"],
+	Notify => Svc["drbd"],
+}
+svc "drbd" {
+	state => "running",
+}
+```
+
+There are two unique properties about these edges that is different from what
+you might expect from other automation software:
+
+1. The ability to specify multiples of these properties allows you to avoid
+having to manage arrays and conditional trees of these different dependencies.
+2. The keywords all have the same length, which means your code lines up nicely.
+
 #### Edge
 
 Edges express dependencies in the graph of resources which are output. They can

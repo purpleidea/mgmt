@@ -320,8 +320,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -361,8 +361,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "float32",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -413,8 +413,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -465,8 +465,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -517,8 +517,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -569,8 +569,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "boolptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -621,8 +621,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "boolptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -673,8 +673,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "boolptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -722,8 +722,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "boolptr",
 							Value: &ExprCall{
 								Name: operatorFuncName,
@@ -774,8 +774,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t1",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: &ExprInt{
 								V: 42,
@@ -788,8 +788,8 @@ func TestLexParse0(t *testing.T) {
 					Name: &ExprStr{
 						V: "t2",
 					},
-					Fields: []*StmtResField{
-						{
+					Contents: []StmtResContents{
+						&StmtResField{
 							Field: "int64ptr",
 							Value: &ExprInt{
 								V: 13,

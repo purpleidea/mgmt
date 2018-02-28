@@ -35,6 +35,24 @@ import (
 	errwrap "github.com/pkg/errors"
 )
 
+const (
+	// EdgeNotify declares an edge a -> b, such that a notification occurs.
+	// This is most similar to "notify" in Puppet.
+	EdgeNotify = "notify"
+
+	// EdgeBefore declares an edge a -> b, such that no notification occurs.
+	// This is most similar to "before" in Puppet.
+	EdgeBefore = "before"
+
+	// EdgeListen declares an edge a <- b, such that a notification occurs.
+	// This is most similar to "subscribe" in Puppet.
+	EdgeListen = "listen"
+
+	// EdgeDepend declares an edge a <- b, such that no notification occurs.
+	// This is most similar to "require" in Puppet.
+	EdgeDepend = "depend"
+)
+
 // StmtBind is a representation of an assignment, which binds a variable to an
 // expression.
 type StmtBind struct {
@@ -96,48 +114,38 @@ func (obj *StmtBind) Output() (*interfaces.Output, error) {
 	return (&interfaces.Output{}).Empty(), nil
 }
 
-// StmtRes is a representation of a resource.
+// StmtRes is a representation of a resource and possibly some edges.
+// TODO: consider expanding Name (if it's a list) to have this return a list of
+// Res's in the Output function. Alternatively, it could be a map[name]struct{},
+// or even a map[[]name]struct{}.
 type StmtRes struct {
-	Kind   string          // kind of resource, eg: pkg, file, svc, etc...
-	Name   interfaces.Expr // unique name for the res of this kind
-	Fields []*StmtResField // list of fields in parsed order
+	Kind     string            // kind of resource, eg: pkg, file, svc, etc...
+	Name     interfaces.Expr   // unique name for the res of this kind
+	Contents []StmtResContents // list of fields/edges in parsed order
 }
 
 // Interpolate returns a new node (or itself) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
-// TODO: could we expand Name (if it's a list) to have this return a list of
-// Res's ? We'd have to return a StmtProg containing those in its place...
 func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 	name, err := obj.Name.Interpolate()
 	if err != nil {
 		return nil, err
 	}
 
-	fields := []*StmtResField{}
-	for _, x := range obj.Fields {
-		interpolated, err := x.Value.Interpolate()
+	contents := []StmtResContents{}
+	for _, x := range obj.Contents { // make sure we preserve ordering...
+		interpolated, err := x.Interpolate()
 		if err != nil {
 			return nil, err
 		}
-		var condition interfaces.Expr
-		if x.Condition != nil {
-			condition, err = x.Condition.Interpolate()
-			if err != nil {
-				return nil, err
-			}
-		}
-		field := &StmtResField{
-			Field:     x.Field,
-			Value:     interpolated,
-			Condition: condition,
-		}
-		fields = append(fields, field)
+		contents = append(contents, interpolated)
 	}
+
 	return &StmtRes{
-		Kind:   obj.Kind,
-		Name:   name,
-		Fields: fields,
+		Kind:     obj.Kind,
+		Name:     name,
+		Contents: contents,
 	}, nil
 }
 
@@ -147,14 +155,9 @@ func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
 	if err := obj.Name.SetScope(scope); err != nil {
 		return err
 	}
-	for _, x := range obj.Fields {
-		if err := x.Value.SetScope(scope); err != nil {
+	for _, x := range obj.Contents {
+		if err := x.SetScope(scope); err != nil {
 			return err
-		}
-		if x.Condition != nil {
-			if err := x.Condition.SetScope(scope); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -179,54 +182,13 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, invar)
 
-	// collect all the invariants of each field
-	for _, x := range obj.Fields {
-		invars, err := x.Value.Unify()
+	// collect all the invariants of each field and edge
+	for _, x := range obj.Contents {
+		invars, err := x.Unify(obj.Kind) // pass in the resource kind
 		if err != nil {
 			return nil, err
 		}
 		invariants = append(invariants, invars...)
-
-		// conditional expression might have some children invariants to share
-		if x.Condition != nil {
-			condition, err := x.Condition.Unify()
-			if err != nil {
-				return nil, err
-			}
-			invariants = append(invariants, condition...)
-
-			// the condition must ultimately be a boolean
-			conditionInvar := &unification.EqualsInvariant{
-				Expr: x.Condition,
-				Type: types.TypeBool,
-			}
-			invariants = append(invariants, conditionInvar)
-		}
-	}
-
-	typMap, err := resources.LangFieldNameToStructType(obj.Kind)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, x := range obj.Fields {
-		field := strings.TrimSpace(x.Field)
-		if len(field) != len(x.Field) {
-			return nil, fmt.Errorf("field was wrapped in whitespace")
-		}
-		if len(strings.Fields(field)) != 1 {
-			return nil, fmt.Errorf("field was empty or contained spaces")
-		}
-
-		typ, exists := typMap[x.Field]
-		if !exists {
-			return nil, fmt.Errorf("could not determine type for `%s` field of `%s`", x.Field, obj.Kind)
-		}
-		invar := &unification.EqualsInvariant{
-			Expr: x.Value,
-			Type: typ,
-		}
-		invariants = append(invariants, invar)
 	}
 
 	return invariants, nil
@@ -253,20 +215,12 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 	}
 	graph.AddGraph(g)
 
-	for _, x := range obj.Fields {
-		g, err := x.Value.Graph()
+	for _, x := range obj.Contents {
+		g, err := x.Graph()
 		if err != nil {
 			return nil, err
 		}
 		graph.AddGraph(g)
-
-		if x.Condition != nil {
-			g, err := x.Condition.Graph()
-			if err != nil {
-				return nil, err
-			}
-			graph.AddGraph(g)
-		}
 	}
 
 	return graph, nil
@@ -277,12 +231,13 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output. In
 // the case of this resource statement, this is definitely the case.
-// XXX: Add MetaParams...
+// XXX: Add MetaParams as a simple meta field with a struct of the right type...
 func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	nameValue, err := obj.Name.Value()
 	if err != nil {
 		return nil, err
 	}
+	// TODO: test for []str instead, and loop
 	name := nameValue.Str() // must not panic
 
 	res, err := resources.NewNamedResource(obj.Kind, name)
@@ -302,7 +257,12 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	ts := reflect.TypeOf(res).Elem() // pointer to struct, then struct
 
 	// FIXME: we could probably simplify this code...
-	for _, x := range obj.Fields {
+	for _, line := range obj.Contents {
+		x, ok := line.(*StmtResField)
+		if !ok {
+			continue
+		}
+
 		if x.Condition != nil {
 			b, err := x.Condition.Value()
 			if err != nil {
@@ -408,11 +368,139 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 			value.Elem().Set(valof)
 		}
 		f.Set(value) // set it !
+
+	}
+
+	edges, err := obj.edges()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error building edges")
 	}
 
 	return &interfaces.Output{
 		Resources: []resources.Res{res},
+		Edges:     edges,
 	}, nil
+}
+
+// edges is a helper function to generate the edges that come from the resource.
+func (obj *StmtRes) edges() ([]*interfaces.Edge, error) {
+	edges := []*interfaces.Edge{}
+
+	// to and from self, map of kind, name, notify
+	var to = make(map[string]map[string]bool)   // to this from self
+	var from = make(map[string]map[string]bool) // from this to self
+
+	for _, line := range obj.Contents {
+		x, ok := line.(*StmtResEdge)
+		if !ok {
+			continue
+		}
+
+		if x.Condition != nil {
+			b, err := x.Condition.Value()
+			if err != nil {
+				return nil, err
+			}
+
+			if !b.Bool() { // if value exists, and is false, skip it
+				continue
+			}
+		}
+
+		v, err := x.EdgeHalf.Name.Value()
+		if err != nil {
+			return nil, err
+		}
+		name := v.Str() // must not panic
+		kind := x.EdgeHalf.Kind
+		var notify bool
+
+		switch p := x.Property; p {
+		// a -> b
+		// a notify b
+		// a before b
+		case EdgeNotify:
+			notify = true
+			fallthrough
+		case EdgeBefore:
+			if m, exists := to[kind]; !exists {
+				to[kind] = make(map[string]bool)
+			} else if n, exists := m[name]; exists {
+				notify = notify || n // collate
+			}
+			to[kind][name] = notify // to this from self
+
+		// b -> a
+		// b listen a
+		// b depend a
+		case EdgeListen:
+			notify = true
+			fallthrough
+		case EdgeDepend:
+			if m, exists := from[kind]; !exists {
+				from[kind] = make(map[string]bool)
+			} else if n, exists := m[name]; exists {
+				notify = notify || n // collate
+			}
+			from[kind][name] = notify // from this to self
+
+		default:
+			return nil, fmt.Errorf("unknown property: %s", p)
+		}
+	}
+
+	// TODO: we could detect simple loops here (if `from` and `to` have the
+	// same entry) but we can leave this to the proper dag checker later on
+
+	v, err := obj.Name.Value()
+	if err != nil {
+		return nil, err
+	}
+	self := v.Str() // must not panic
+
+	for kind, x := range to { // to this from self
+		for name, notify := range x {
+			edge := &interfaces.Edge{
+				Kind1: obj.Kind,
+				Name1: self,
+				//Send: "",
+
+				Kind2: kind,
+				Name2: name,
+				//Recv: "",
+
+				Notify: notify,
+			}
+			edges = append(edges, edge)
+		}
+	}
+	for kind, x := range from { // from this to self
+		for name, notify := range x {
+			edge := &interfaces.Edge{
+				Kind1: kind,
+				Name1: name,
+				//Send: "",
+
+				Kind2: obj.Kind,
+				Name2: self,
+				//Recv: "",
+
+				Notify: notify,
+			}
+			edges = append(edges, edge)
+		}
+	}
+
+	return edges, nil
+}
+
+// StmtResContents is the interface that is met by the resource contents. Look
+// closely for while it is similar to the Stmt interface, it is quite different.
+type StmtResContents interface {
+	Interpolate() (StmtResContents, error) // different!
+	SetScope(*interfaces.Scope) error
+	Unify(kind string) ([]interfaces.Invariant, error) // different!
+	Graph() (*pgraph.Graph, error)
 }
 
 // StmtResField represents a single field in the parsed resource representation.
@@ -421,6 +509,243 @@ type StmtResField struct {
 	Field     string
 	Value     interfaces.Expr
 	Condition interfaces.Expr // the value will be used if nil or true
+}
+
+// Interpolate returns a new node (or itself) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This interpolate is different It is different from the interpolate found in
+// the Expr and Stmt interfaces because it returns a different type as output.
+func (obj *StmtResField) Interpolate() (StmtResContents, error) {
+	interpolated, err := obj.Value.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+	var condition interfaces.Expr
+	if obj.Condition != nil {
+		condition, err = obj.Condition.Interpolate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &StmtResField{
+		Field:     obj.Field,
+		Value:     interpolated,
+		Condition: condition,
+	}, nil
+}
+
+// SetScope stores the scope for later use in this resource and it's children,
+// which it propagates this downwards to.
+func (obj *StmtResField) SetScope(scope *interfaces.Scope) error {
+	if err := obj.Value.SetScope(scope); err != nil {
+		return err
+	}
+	if obj.Condition != nil {
+		if err := obj.Condition.SetScope(scope); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller. It is different from the Unify found in the Expr
+// and Stmt interfaces because it adds an input parameter.
+func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+
+	invars, err := obj.Value.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, invars...)
+
+	// conditional expression might have some children invariants to share
+	if obj.Condition != nil {
+		condition, err := obj.Condition.Unify()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, condition...)
+
+		// the condition must ultimately be a boolean
+		conditionInvar := &unification.EqualsInvariant{
+			Expr: obj.Condition,
+			Type: types.TypeBool,
+		}
+		invariants = append(invariants, conditionInvar)
+	}
+
+	// TODO: unfortunately this gets called separately for each field... if
+	// we could cache this, it might be worth looking into for performance!
+	typMap, err := resources.LangFieldNameToStructType(kind)
+	if err != nil {
+		return nil, err
+	}
+
+	field := strings.TrimSpace(obj.Field)
+	if len(field) != len(obj.Field) {
+		return nil, fmt.Errorf("field was wrapped in whitespace")
+	}
+	if len(strings.Fields(field)) != 1 {
+		return nil, fmt.Errorf("field was empty or contained spaces")
+	}
+
+	typ, exists := typMap[obj.Field]
+	if !exists {
+		return nil, fmt.Errorf("could not determine type for `%s` field of `%s`", obj.Field, kind)
+	}
+	invar := &unification.EqualsInvariant{
+		Expr: obj.Value,
+		Type: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. It is interesting to note that nothing directly adds an edge
+// to the resources created, but rather, once all the values (expressions) with
+// no outgoing edges have produced at least a single value, then the resources
+// know they're able to be built.
+func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resfield")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.Value.Graph()
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, err := obj.Condition.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// StmtResEdge represents a single edge property in the parsed resource
+// representation. This does not satisfy the Stmt interface.
+type StmtResEdge struct {
+	Property  string // TODO: iota constant instead?
+	EdgeHalf  *StmtEdgeHalf
+	Condition interfaces.Expr // the value will be used if nil or true
+}
+
+// Interpolate returns a new node (or itself) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This interpolate is different It is different from the interpolate found in
+// the Expr and Stmt interfaces because it returns a different type as output.
+func (obj *StmtResEdge) Interpolate() (StmtResContents, error) {
+	interpolated, err := obj.EdgeHalf.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+	var condition interfaces.Expr
+	if obj.Condition != nil {
+		condition, err = obj.Condition.Interpolate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &StmtResEdge{
+		Property:  obj.Property,
+		EdgeHalf:  interpolated,
+		Condition: condition,
+	}, nil
+}
+
+// SetScope stores the scope for later use in this resource and it's children,
+// which it propagates this downwards to.
+func (obj *StmtResEdge) SetScope(scope *interfaces.Scope) error {
+	if err := obj.EdgeHalf.SetScope(scope); err != nil {
+		return err
+	}
+	if obj.Condition != nil {
+		if err := obj.Condition.SetScope(scope); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller. It is different from the Unify found in the Expr
+// and Stmt interfaces because it adds an input parameter.
+func (obj *StmtResEdge) Unify(kind string) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+
+	invars, err := obj.EdgeHalf.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, invars...)
+
+	// conditional expression might have some children invariants to share
+	if obj.Condition != nil {
+		condition, err := obj.Condition.Unify()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, condition...)
+
+		// the condition must ultimately be a boolean
+		conditionInvar := &unification.EqualsInvariant{
+			Expr: obj.Condition,
+			Type: types.TypeBool,
+		}
+		invariants = append(invariants, conditionInvar)
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. It is interesting to note that nothing directly adds an edge
+// to the resources created, but rather, once all the values (expressions) with
+// no outgoing edges have produced at least a single value, then the resources
+// know they're able to be built.
+func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resedge")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.EdgeHalf.Graph()
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, err := obj.Condition.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
 }
 
 // StmtEdge is a representation of a dependency. It also supports send/recv.
@@ -448,15 +773,9 @@ type StmtEdge struct {
 func (obj *StmtEdge) Interpolate() (interfaces.Stmt, error) {
 	edgeHalfList := []*StmtEdgeHalf{}
 	for _, x := range obj.EdgeHalfList {
-		name, err := x.Name.Interpolate()
+		edgeHalf, err := x.Interpolate()
 		if err != nil {
 			return nil, err
-		}
-
-		edgeHalf := &StmtEdgeHalf{
-			Kind:     x.Kind,
-			Name:     name,
-			SendRecv: x.SendRecv,
 		}
 		edgeHalfList = append(edgeHalfList, edgeHalf)
 	}
@@ -471,7 +790,7 @@ func (obj *StmtEdge) Interpolate() (interfaces.Stmt, error) {
 // which it propagates this downwards to.
 func (obj *StmtEdge) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.EdgeHalfList {
-		if err := x.Name.SetScope(scope); err != nil {
+		if err := x.SetScope(scope); err != nil {
 			return err
 		}
 	}
@@ -499,26 +818,15 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 	}
 
 	for _, x := range obj.EdgeHalfList {
-		if x.Kind == "" {
-			return nil, fmt.Errorf("missing resource kind in edge")
-		}
-
 		if x.SendRecv != "" && len(obj.EdgeHalfList) != 2 {
 			return nil, fmt.Errorf("send/recv edges must come in pairs")
 		}
 
-		invars, err := x.Name.Unify()
+		invars, err := x.Unify()
 		if err != nil {
 			return nil, err
 		}
 		invariants = append(invariants, invars...)
-
-		// name must be a string
-		invar := &unification.EqualsInvariant{
-			Expr: x.Name,
-			Type: types.TypeStr,
-		}
-		invariants = append(invariants, invar)
 	}
 
 	return invariants, nil
@@ -540,7 +848,7 @@ func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
 	}
 
 	for _, x := range obj.EdgeHalfList {
-		g, err := x.Name.Graph()
+		g, err := x.Graph()
 		if err != nil {
 			return nil, err
 		}
@@ -597,6 +905,81 @@ type StmtEdgeHalf struct {
 	Kind     string          // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr // unique name for the res of this kind
 	SendRecv string          // name of field to send/recv from, empty to ignore
+}
+
+// Interpolate returns a new node (or itself) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This interpolate is different It is different from the interpolate found in
+// the Expr and Stmt interfaces because it returns a different type as output.
+func (obj *StmtEdgeHalf) Interpolate() (*StmtEdgeHalf, error) {
+	name, err := obj.Name.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+
+	edgeHalf := &StmtEdgeHalf{
+		Kind:     obj.Kind,
+		Name:     name,
+		SendRecv: obj.SendRecv,
+	}
+	return edgeHalf, nil
+}
+
+// SetScope stores the scope for later use in this resource and it's children,
+// which it propagates this downwards to.
+func (obj *StmtEdgeHalf) SetScope(scope *interfaces.Scope) error {
+	return obj.Name.SetScope(scope)
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+
+	if obj.Kind == "" {
+		return nil, fmt.Errorf("missing resource kind in edge")
+	}
+
+	invars, err := obj.Name.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, invars...)
+
+	// name must be a string
+	invar := &unification.EqualsInvariant{
+		Expr: obj.Name,
+		Type: types.TypeStr,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. It is interesting to note that nothing directly adds an edge
+// to the resources created, but rather, once all the values (expressions) with
+// no outgoing edges have produced at least a single value, then the resources
+// know they're able to be built.
+func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("edgehalf")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.Name.Graph()
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	return graph, nil
 }
 
 // StmtIf represents an if condition that contains between one and two branches

@@ -32,8 +32,6 @@ import (
 	"github.com/purpleidea/mgmt/pgp"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/prometheus"
-	"github.com/purpleidea/mgmt/recwatch"
-	"github.com/purpleidea/mgmt/remote"
 	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
 
@@ -64,7 +62,6 @@ type Main struct {
 
 	Deploy   *gapi.Deploy // deploy object including GAPI for static deploys
 	DeployFs resources.Fs // used for static deploys
-	Remotes  []string     // list of remote graph definitions to run
 
 	NoWatch       bool // do not change graph under any circumstances
 	NoConfigWatch bool // do not update graph due to config changes
@@ -84,12 +81,6 @@ type Main struct {
 	AdvertiseServerURLs []string // list of URLs to advertise for server (peer) traffic
 	IdealClusterSize    int      // ideal number of server peers in cluster; only read by initial server
 	NoServer            bool     // do not let other servers peer with me
-
-	CConns           uint16 // number of maximum concurrent remote ssh connections to run, 0 for unlimited
-	AllowInteractive bool   // allow interactive prompting, such as for remote passwords
-	SSHPrivIDRsa     string // default path to ssh key file, set empty to never touch
-	NoCaching        bool   // don't allow remote caching of remote execution binary
-	Depth            uint16 // depth in remote hierarchy; for internal use only
 
 	seeds               etcdtypes.URLs // processed seeds value
 	clientURLs          etcdtypes.URLs // processed client urls value
@@ -136,26 +127,6 @@ func (obj *Main) Init() error {
 
 	if obj.idealClusterSize < 1 {
 		return fmt.Errorf("the IdealClusterSize should be at least one")
-	}
-
-	if obj.NoServer && len(obj.Remotes) > 0 {
-		// TODO: in this case, we won't be able to tunnel stuff back to
-		// here, so if we're okay with every remote graph running in an
-		// isolated mode, then this is okay. Improve on this if there's
-		// someone who really wants to be able to do this.
-		return fmt.Errorf("the Server is required when using Remotes")
-	}
-
-	if obj.CConns < 0 {
-		return fmt.Errorf("the CConns value should be at least zero")
-	}
-
-	if obj.ConvergedTimeout >= 0 && obj.CConns > 0 && len(obj.Remotes) > int(obj.CConns) {
-		return fmt.Errorf("you can't converge if you have more remotes than available connections")
-	}
-
-	if obj.Depth < 0 { // user should not be using this argument manually
-		return fmt.Errorf("negative values for Depth are not permitted")
 	}
 
 	// transform the url list inputs into etcd typed lists
@@ -371,7 +342,7 @@ func (obj *Main) Run() error {
 		// root node. otherwise, if we are a child node in a remote
 		// execution hierarchy, we should only notify our converged
 		// state and wait for the parent to trigger the exit.
-		if t := obj.ConvergedTimeout; obj.Depth == 0 && t >= 0 {
+		if t := obj.ConvergedTimeout; t >= 0 {
 			if b {
 				log.Printf("Main: Converged for %d seconds, exiting!", t)
 				obj.Exit(nil) // trigger an exit!
@@ -665,62 +636,6 @@ func (obj *Main) Run() error {
 		}
 	}()
 
-	configWatcher := recwatch.NewConfigWatcher()
-	configWatcher.Flags = recwatch.Flags{Debug: obj.Flags.Debug}
-	events := configWatcher.Events()
-	if !obj.NoWatch { // FIXME: fit this into a clean GAPI?
-		configWatcher.Add(obj.Remotes...) // add all the files...
-	} else {
-		events = nil // signal that no-watch is true
-	}
-	go func() {
-		select {
-		case err := <-configWatcher.Error():
-			obj.Exit(err) // trigger an exit!
-
-		case <-exitchan:
-			return
-		}
-	}()
-
-	// initialize the add watcher, which calls the f callback on map changes
-	convergerCb := func(f func(map[string]bool) error) (func(), error) {
-		return etcd.AddHostnameConvergedWatcher(EmbdEtcd, f)
-	}
-
-	// build remotes struct for remote ssh
-	remotes := remote.NewRemotes(
-		EmbdEtcd.LocalhostClientURLs().StringSlice(),
-		[]string{etcd.DefaultClientURL},
-		obj.Noop,
-		obj.Remotes, // list of files
-		events,      // watch for file changes
-		obj.CConns,
-		obj.AllowInteractive,
-		obj.SSHPrivIDRsa,
-		!obj.NoCaching,
-		obj.Depth,
-		prefix,
-		converger,
-		convergerCb,
-		remote.Flags{
-			Program: obj.Program,
-			Debug:   obj.Flags.Debug,
-		},
-	)
-
-	// TODO: is there any benefit to running the remotes above in the loop?
-	// wait for etcd to be running before we remote in, which we do above!
-	go remotes.Run()
-	// wait for remotes to be ready before continuing...
-	select {
-	case <-remotes.Ready():
-		log.Printf("Main: Remotes: Run: Ready!")
-		// pass
-		//case <-time.After( ? * time.Second):
-		//	obj.Exit(fmt.Errorf("Main: Remotes: Run timeout"))
-	}
-
 	if obj.Deploy != nil {
 		deploy := obj.Deploy
 		// redundant
@@ -807,12 +722,6 @@ func (obj *Main) Run() error {
 	reterr := <-obj.exit // wait for exit signal
 
 	log.Println("Main: Destroy...")
-
-	configWatcher.Close()                  // stop sending file changes to remotes
-	if err := remotes.Exit(); err != nil { // tell all the remote connections to shutdown; waits!
-		err = errwrap.Wrapf(err, "the Remote exited poorly")
-		reterr = multierr.Append(reterr, err) // list of errors
-	}
 
 	// tell inner main loop to exit
 	close(exitchan)

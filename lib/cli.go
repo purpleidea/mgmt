@@ -95,8 +95,6 @@ func run(c *cli.Context) error {
 		obj.Deploy = deployObj
 	}
 
-	obj.Remotes = c.StringSlice("remote") // FIXME: GAPI-ify somehow?
-
 	obj.NoWatch = c.Bool("no-watch")
 	obj.NoConfigWatch = c.Bool("no-config-watch")
 	obj.NoStreamWatch = c.Bool("no-stream-watch")
@@ -115,12 +113,6 @@ func run(c *cli.Context) error {
 	obj.AdvertiseServerURLs = c.StringSlice("advertise-server-urls")
 	obj.IdealClusterSize = c.Int("ideal-cluster-size")
 	obj.NoServer = c.Bool("no-server")
-
-	obj.CConns = uint16(c.Int("cconns"))
-	obj.AllowInteractive = c.Bool("allow-interactive")
-	obj.SSHPrivIDRsa = c.String("ssh-priv-id-rsa")
-	obj.NoCaching = c.Bool("no-caching")
-	obj.Depth = uint16(c.Int("depth"))
 
 	obj.NoPgp = c.Bool("no-pgp")
 
@@ -200,12 +192,6 @@ func CLI(program, version string, flags Flags) error {
 		cli.BoolFlag{
 			Name:  "allow-tmp-prefix",
 			Usage: "allow creation of a new temporary prefix if main prefix is unavailable",
-		},
-
-		cli.StringSliceFlag{
-			Name:  "remote",
-			Value: &cli.StringSlice{},
-			Usage: "list of remote graph definitions to run",
 		},
 
 		cli.BoolFlag{
@@ -299,32 +285,6 @@ func CLI(program, version string, flags Flags) error {
 			Usage: "do not start embedded etcd server (do not promote from client to peer)",
 		},
 
-		cli.IntFlag{
-			Name:   "cconns",
-			Value:  0,
-			Usage:  "number of maximum concurrent remote ssh connections to run; 0 for unlimited",
-			EnvVar: "MGMT_CCONNS",
-		},
-		cli.BoolFlag{
-			Name:  "allow-interactive",
-			Usage: "allow interactive prompting, such as for remote passwords",
-		},
-		cli.StringFlag{
-			Name:   "ssh-priv-id-rsa",
-			Value:  "~/.ssh/id_rsa",
-			Usage:  "default path to ssh key file, set empty to never touch",
-			EnvVar: "MGMT_SSH_PRIV_ID_RSA",
-		},
-		cli.BoolFlag{
-			Name:  "no-caching",
-			Usage: "don't allow remote caching of remote execution binary",
-		},
-		cli.IntFlag{
-			Name:   "depth",
-			Hidden: true, // internal use only
-			Value:  0,
-			Usage:  "specify depth in remote hierarchy",
-		},
 		cli.BoolFlag{
 			Name:  "no-pgp",
 			Usage: "don't create pgp keys",

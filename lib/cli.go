@@ -132,6 +132,14 @@ func run(c *cli.Context) error {
 		obj.PgpIdentity = &us
 	}
 
+	if c.Bool("no-network-standalone") {
+		if len(obj.ClientURLs) != 0 || len(obj.ServerURLs) != 0 || len(obj.Seeds) != 0 {
+			return fmt.Errorf("--no-network-standalone is mutual exclusive with --seeds, --client-urls and --server-urls")
+		}
+		obj.ClientURLs = []string{"unix://clients.sock:0"}
+		obj.ServerURLs = []string{"unix://servers.sock:0"}
+	}
+
 	if err := obj.Init(); err != nil {
 		return err
 	}
@@ -298,7 +306,11 @@ func CLI(program, version string, flags Flags) error {
 			Name:  "no-server",
 			Usage: "do not start embedded etcd server (do not promote from client to peer)",
 		},
-
+		cli.BoolFlag{
+			Name:   "no-network-standalone",
+			Usage:  "run single node instance without clustering or opening tcp ports to the outside",
+			EnvVar: "MGMT_NO_NETWORK_STANDALONE",
+		},
 		cli.IntFlag{
 			Name:   "cconns",
 			Value:  0,
@@ -454,6 +466,12 @@ func CLI(program, version string, flags Flags) error {
 				cli.BoolFlag{
 					Name:  "force",
 					Usage: "force a new deploy, even if the safety chain would break",
+				},
+				cli.StringFlag{
+					Name:   "prefix",
+					Usage:  "prefix directory to chdir into before deploying using unix:// seeds",
+					Value:  "/var/lib/mgmt/",
+					EnvVar: "MGMT_PREFIX",
 				},
 			},
 		},

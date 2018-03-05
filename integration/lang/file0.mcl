@@ -1,0 +1,5 @@
+$root = getenv("MGMT_TEST_ROOT")
+$values = struct{somevalue => "somevalue",}
+file "${root}/file0.txt" {
+	content => template(file("${root}/file0.txt.tmpl"), $values),
+}

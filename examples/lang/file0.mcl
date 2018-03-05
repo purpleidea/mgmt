@@ -1,0 +1,8 @@
+$confdir = defaultenv("CONFDIR", ".")
+$tmpdir = defaultenv("TMPDIR", "/tmp")
+
+$values = struct{somevalue => "somevalue",}
+
+file "${tmpdir}/file0.txt" {
+	content => template(file("${confdir}/examples/lang/file0.txt.tmpl"), $values),
+}

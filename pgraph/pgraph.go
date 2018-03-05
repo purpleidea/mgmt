@@ -58,7 +58,9 @@ func (g *Graph) Init() error {
 		return fmt.Errorf("can't initialize graph with empty name")
 	}
 
-	//g.adjacency = make(map[Vertex]map[Vertex]Edge) // not required
+	if g.adjacency == nil {
+		g.adjacency = make(map[Vertex]map[Vertex]Edge)
+	}
 	//g.kv = make(map[string]interface{}) // not required
 	return nil
 }
@@ -427,6 +429,9 @@ func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 // InDegree returns the count of vertices that point to me in one big lookup map.
 func (g *Graph) InDegree() map[Vertex]int {
 	result := make(map[Vertex]int)
+	if g == nil || g.adjacency == nil {
+		return result
+	}
 	for k := range g.adjacency {
 		result[k] = 0 // initialize
 	}
@@ -442,7 +447,9 @@ func (g *Graph) InDegree() map[Vertex]int {
 // OutDegree returns the count of vertices that point away in one big lookup map.
 func (g *Graph) OutDegree() map[Vertex]int {
 	result := make(map[Vertex]int)
-
+	if g == nil || g.adjacency == nil {
+		return result
+	}
 	for k := range g.adjacency {
 		result[k] = 0 // initialize
 		for range g.adjacency[k] {

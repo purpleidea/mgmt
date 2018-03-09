@@ -14,13 +14,22 @@ function run-test()
 }
 
 base=$(go list .)
-for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/"`; do
-	echo -e "\ttesting: $pkg"
-	run-test go test "$pkg"
-	if [ "$1" = "--race" ]; then
-		run-test go test -race "$pkg"
+if [[ "$@" = *"--integration"* ]]; then
+	if [[ "$@" = *"--race"* ]]; then
+		run-test go test -race "${base}/integration/"
+	else
+		run-test go test "${base}/integration/"
 	fi
-done
+else
+	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
+		echo -e "\ttesting: $pkg"
+		if [[ "$@" = *"--race"* ]]; then
+			run-test go test -race "$pkg"
+		else
+			run-test go test "$pkg"
+		fi
+	done
+fi
 
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'

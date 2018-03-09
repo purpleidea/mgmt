@@ -104,6 +104,8 @@ func run(c *cli.Context) error {
 	obj.Graphviz = c.String("graphviz")
 	obj.GraphvizFilter = c.String("graphviz-filter")
 	obj.ConvergedTimeout = c.Int("converged-timeout")
+	obj.ConvergedTimeoutNoExit = c.Bool("converged-timeout-no-exit")
+	obj.ConvergedStatusFile = c.String("converged-status-file")
 	obj.MaxRuntime = uint(c.Int("max-runtime"))
 
 	obj.Seeds = c.StringSlice("seeds")
@@ -229,8 +231,17 @@ func CLI(program, version string, flags Flags) error {
 		cli.IntFlag{
 			Name:   "converged-timeout, t",
 			Value:  -1,
-			Usage:  "exit after approximately this many seconds in a converged state",
+			Usage:  "after approximately this many seconds without activity, we're considered to be in a converged state",
 			EnvVar: "MGMT_CONVERGED_TIMEOUT",
+		},
+		cli.BoolFlag{
+			Name:  "converged-timeout-no-exit",
+			Usage: "don't exit on converged-timeout",
+		},
+		cli.StringFlag{
+			Name:  "converged-status-file",
+			Value: "",
+			Usage: "file to append the current converged state to, mostly used for testing",
 		},
 		cli.IntFlag{
 			Name:   "max-runtime",

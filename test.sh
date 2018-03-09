@@ -18,7 +18,7 @@ test -z "$testsuite" && (echo "ENV:"; env; echo; )
 function run-testsuite()
 {
 	testname="$(basename "$1" .sh)"
-	# if not running all test or this test is not explicitly selected, skip it
+	# if not running all tests or if this test is not explicitly selected, skip it
 	if test -z "$testsuite" || test "test-$testsuite" = "$testname";then
 		$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 	fi
@@ -61,9 +61,13 @@ run-testsuite ./test/test-gotest.sh
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	run-testsuite ./test/test-shell.sh
 	skip-testsuite ./test/test-gotest.sh --race	# XXX: temporarily disabled...
+	run-testsuite ./test/test-integration.sh
+	skip-testsuite ./test/test-integration.sh --race	# XXX: temporarily disabled...
 else
 	REASON="CI server only test" skip-testsuite ./test/test-shell.sh
 	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --race	# XXX: temporarily disabled...
+	REASON="CI server only test" skip-testsuite ./test/test-integration.sh
+	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --race	# XXX: temporarily disabled...
 fi
 
 run-testsuite ./test/test-gometalinter.sh

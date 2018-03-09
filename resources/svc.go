@@ -182,8 +182,10 @@ func (obj *SvcRes) Watch() error {
 						log.Printf("Svc[%s]->Reloading", svc)
 					case "failed":
 						log.Printf("Svc[%s]->Failed", svc)
+					case "deactivating":
+						log.Printf("Svc[%s]->Deactivating", svc)
 					default:
-						log.Fatalf("Unknown svc state: %s", event[svc].ActiveState)
+						return fmt.Errorf("Unknown svc state: %s", event[svc].ActiveState)
 					}
 				} else {
 					// svc stopped (and ActiveState is nil...)

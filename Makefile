@@ -49,6 +49,9 @@ GOHOSTARCH = $(shell go env GOHOSTARCH)
 
 default: build
 
+¯\_(ツ)_/¯:
+	@echo "¯\_(ツ)_/¯"
+
 #
 #	art
 #

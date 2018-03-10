@@ -77,3 +77,59 @@ func (obj *Instance) SimpleDeployLang(code string) error {
 
 	return nil
 }
+
+// SimpleDeployLang is a helper method that takes a struct representing a
+// cluster and runs a sequence of methods on it. This particular helper starts
+// up a series of instances linearly, deploys some code, and then shuts down.
+// Both after initially starting up, after peering each instance, and after
+// deploy, it waits for the instance to converge before running the next step.
+func (obj *Cluster) SimpleDeployLang(code string) error {
+	if err := obj.Init(); err != nil {
+		return errwrap.Wrapf(err, "could not init instance")
+	}
+	defer obj.Close() // clean up working directories
+
+	// start the cluster
+	if err := obj.RunLinear(); err != nil {
+		return errwrap.Wrapf(err, "mgmt could not start")
+	}
+	defer obj.Kill() // do a kill -9
+
+	// wait for an internal converge signal as a baseline
+	// FIXME: add this wait if we remove it from RunLinear
+	//{
+	//	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(longTimeout*len(obj.Hostnames))*time.Second)
+	//	defer cancel()
+	//	if err := obj.Wait(ctx); err != nil { // wait to get a converged signal
+	//		return errwrap.Wrapf(err, "mgmt initial wait failed") // timeout expired
+	//	}
+	//}
+
+	// push a deploy
+	if err := obj.DeployLang(code); err != nil {
+		return errwrap.Wrapf(err, "mgmt could not deploy")
+	}
+
+	// wait for an internal converge signal
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(longTimeout*len(obj.Hostnames))*time.Second)
+		defer cancel()
+		if err := obj.Wait(ctx); err != nil { // wait to get a converged signal
+			return errwrap.Wrapf(err, "mgmt post-deploy wait failed") // timeout expired
+		}
+	}
+
+	// press ^C
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(longTimeout*len(obj.Hostnames))*time.Second)
+		defer cancel()
+		if err := obj.Quit(ctx); err != nil {
+			if err == context.DeadlineExceeded {
+				return errwrap.Wrapf(err, "mgmt blocked on exit")
+			}
+			return errwrap.Wrapf(err, "mgmt exited with error")
+		}
+	}
+
+	return nil
+}

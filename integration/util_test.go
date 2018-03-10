@@ -63,3 +63,21 @@ file "${root}/mgmt-hello-world" {
 		t.Errorf("code samples differ")
 	}
 }
+
+func TestParsePort(t *testing.T) {
+	if port, err := ParsePort("http://127.0.0.1:2379"); err != nil {
+		t.Errorf("could not determine port: %+v", err)
+	} else if port != 2379 {
+		t.Errorf("unexpected port: %d", port)
+	}
+
+	if port, err := ParsePort("http://127.0.0.1:2381"); err != nil {
+		t.Errorf("could not determine port: %+v", err)
+	} else if port != 2381 {
+		t.Errorf("unexpected port: %d", port)
+	}
+
+	if port, err := ParsePort("http://127.0.0.1"); err == nil {
+		t.Errorf("expected error, got: %d", port)
+	}
+}

@@ -19,10 +19,15 @@ package integration
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+
+	errwrap "github.com/pkg/errors"
 )
 
 const (
@@ -72,4 +77,21 @@ func Code(code string) string {
 	}
 
 	return strings.Join(output, "\n")
+}
+
+// ParsePort parses a URL and returns the port that was found.
+func ParsePort(input string) (int, error) {
+	u, err := url.Parse(input)
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "could not parse URL")
+	}
+	_, sport, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "could not get port")
+	}
+	port, err := strconv.Atoi(sport)
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "could not parse port")
+	}
+	return port, nil
 }

@@ -128,3 +128,125 @@ func TestInstance1(t *testing.T) {
 		})
 	}
 }
+
+func TestCluster0(t *testing.T) {
+	// TODO: implement a simple test for documentation purposes
+}
+
+func TestCluster1(t *testing.T) {
+	type test struct { // an individual test
+		name   string
+		code   string // mcl code
+		fail   bool
+		hosts  []string
+		expect map[string]map[string]string // hostname, file, contents
+	}
+	values := []test{}
+
+	{
+		code := Code(`
+		$root = getenv("MGMT_TEST_ROOT")
+
+		file "${root}/mgmt-hostname" {
+			content => "i am ${hostname()}\n",
+			state => "exists",
+		}
+		`)
+		values = append(values, test{
+			name:  "simple pair",
+			code:  code,
+			fail:  false,
+			hosts: []string{"h1", "h2"},
+			expect: map[string]map[string]string{
+				"h1": {
+					"mgmt-hostname": "i am h1\n",
+				},
+				"h2": {
+					"mgmt-hostname": "i am h2\n",
+				},
+			},
+		})
+	}
+	{
+		code := Code(`
+		$root = getenv("MGMT_TEST_ROOT")
+
+		file "${root}/mgmt-hostname" {
+			content => "i am ${hostname()}\n",
+			state => "exists",
+		}
+		`)
+		values = append(values, test{
+			name:  "hello world",
+			code:  code,
+			fail:  false,
+			hosts: []string{"h1", "h2", "h3"},
+			expect: map[string]map[string]string{
+				"h1": {
+					"mgmt-hostname": "i am h1\n",
+				},
+				"h2": {
+					"mgmt-hostname": "i am h2\n",
+				},
+				"h3": {
+					"mgmt-hostname": "i am h3\n",
+				},
+			},
+		})
+	}
+
+	for index, test := range values { // run all the tests
+		t.Run(fmt.Sprintf("test #%d (%s)", index, test.name), func(t *testing.T) {
+			code, fail, hosts, expect := test.code, test.fail, test.hosts, test.expect
+
+			c := Cluster{
+				Hostnames: hosts,
+				Preserve:  true,
+			}
+			err := c.SimpleDeployLang(code)
+			if d := c.Dir(); d != "" {
+				t.Logf("test ran in:\n%s", d)
+			}
+
+			if !fail && err != nil {
+				t.Errorf("failed with: %+v", err)
+				return
+			}
+			if fail && err == nil {
+				t.Errorf("passed, expected fail")
+				return
+			}
+
+			if expect == nil { // test done early
+				return
+			}
+
+			instances := c.Instances()
+			for _, h := range hosts {
+				instance := instances[h]
+				d := instance.Dir()
+				hexpect, exists := expect[h]
+				if !exists {
+					continue
+				}
+
+				files := []string{}
+				for x := range hexpect {
+					files = append(files, x)
+				}
+				sort.Strings(files) // loop in a deterministic order
+				for _, f := range files {
+					filename := path.Join(d, RootDirectory, f)
+					b, err := ioutil.ReadFile(filename)
+					if err != nil {
+						t.Errorf("could not read file: `%s`", filename)
+						continue
+					}
+					if hexpect[f] != string(b) {
+						t.Errorf("file: `%s` did not match expected", f)
+					}
+				}
+			}
+		})
+	}
+}

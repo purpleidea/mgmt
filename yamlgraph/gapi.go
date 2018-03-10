@@ -24,7 +24,6 @@ import (
 
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
@@ -46,11 +45,10 @@ func init() {
 type GAPI struct {
 	InputURI string // input URI of file system containing yaml graph to use
 
-	data          gapi.Data
-	initialized   bool
-	closeChan     chan struct{}
-	wg            sync.WaitGroup // sync group for tunnel go routines
-	configWatcher *recwatch.ConfigWatcher
+	data        gapi.Data
+	initialized bool
+	closeChan   chan struct{}
+	wg          sync.WaitGroup // sync group for tunnel go routines
 }
 
 // Cli takes a cli.Context, and returns our GAPI if activated. All arguments
@@ -103,7 +101,6 @@ func (obj *GAPI) Init(data gapi.Data) error {
 	obj.data = data // store for later
 	obj.closeChan = make(chan struct{})
 	obj.initialized = true
-	obj.configWatcher = recwatch.NewConfigWatcher()
 	return nil
 }
 
@@ -197,7 +194,6 @@ func (obj *GAPI) Close() error {
 	if !obj.initialized {
 		return fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
-	obj.configWatcher.Close()
 	close(obj.closeChan)
 	obj.wg.Wait()
 	obj.initialized = false // closed = true

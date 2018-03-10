@@ -182,6 +182,8 @@ func (obj *SvcRes) Watch() error {
 						log.Printf("Svc[%s]->Reloading", svc)
 					case "failed":
 						log.Printf("Svc[%s]->Failed", svc)
+					case "activating":
+						log.Printf("Svc[%s]->Activating", svc)
 					case "deactivating":
 						log.Printf("Svc[%s]->Deactivating", svc)
 					default:

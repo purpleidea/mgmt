@@ -673,3 +673,12 @@ func VtoR(v pgraph.Vertex) Res {
 //	}
 //	return nil
 //}
+
+// Lookup returns a pointer to the resource's struct.
+func Lookup(name string) (Res, error) {
+	r, exists := registeredResources[name]
+	if !exists {
+		return nil, fmt.Errorf("not found")
+	}
+	return r(), nil
+}

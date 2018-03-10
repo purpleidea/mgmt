@@ -41,6 +41,9 @@ func TestInstance0(t *testing.T) {
 	}
 	if err := m.SimpleDeployLang(code); err != nil {
 		t.Errorf("failed with: %+v", err)
+		if output, err := m.CombinedOutput(); err == nil {
+			t.Errorf("logs from instance:\n\n%s", output)
+		}
 		return
 	}
 	d := m.Dir()
@@ -98,6 +101,9 @@ func TestInstance1(t *testing.T) {
 
 			if !fail && err != nil {
 				t.Errorf("failed with: %+v", err)
+				if output, err := m.CombinedOutput(); err == nil {
+					t.Errorf("logs from instance:\n\n%s", output)
+				}
 				return
 			}
 			if fail && err == nil {
@@ -207,9 +213,15 @@ func TestCluster1(t *testing.T) {
 			if d := c.Dir(); d != "" {
 				t.Logf("test ran in:\n%s", d)
 			}
+			instances := c.Instances()
 
 			if !fail && err != nil {
 				t.Errorf("failed with: %+v", err)
+				for _, h := range hosts {
+					if output, err := instances[h].CombinedOutput(); err == nil {
+						t.Errorf("logs from instance `%s`:\n\n%s", h, output)
+					}
+				}
 				return
 			}
 			if fail && err == nil {
@@ -221,7 +233,6 @@ func TestCluster1(t *testing.T) {
 				return
 			}
 
-			instances := c.Instances()
 			for _, h := range hosts {
 				instance := instances[h]
 				d := instance.Dir()

@@ -46,6 +46,10 @@ const (
 	// converged status tracking.
 	ConvergedStatusFile = "csf.txt"
 
+	// StdoutStderrFile is the name of the file which is used for the
+	// command output.
+	StdoutStderrFile = "stdoutstderr.txt"
+
 	// longTimeout is a high bound of time we're willing to wait for events.
 	// If we exceed this timeout, then it's likely we are blocked somewhere.
 	longTimeout = 30 // seconds
@@ -205,6 +209,15 @@ func (obj *Instance) Run(seeds []*Instance) error {
 	obj.cmd.Env = []string{
 		fmt.Sprintf("MGMT_TEST_ROOT=%s", obj.testRootDirectory),
 	}
+
+	// output file for storing logs
+	file, err := os.Create(path.Join(obj.dir, StdoutStderrFile))
+	if err != nil {
+		return errwrap.Wrapf(err, "error creating log file")
+	}
+	defer file.Close()
+	obj.cmd.Stdout = file
+	obj.cmd.Stderr = file
 
 	if err := obj.cmd.Start(); err != nil {
 		return errwrap.Wrapf(err, "error starting mgmt")
@@ -367,4 +380,13 @@ func (obj *Instance) DeployLang(code string) error {
 // after Init has been called, or it won't have been created and determined yet.
 func (obj *Instance) Dir() string {
 	return obj.dir
+}
+
+// CombinedOutput returns the logged output from the instance.
+func (obj *Instance) CombinedOutput() (string, error) {
+	contents, err := ioutil.ReadFile(path.Join(obj.dir, StdoutStderrFile))
+	if err != nil {
+		return "", err
+	}
+	return string(contents), nil
 }

@@ -14,13 +14,18 @@ function run-test()
 }
 
 base=$(go list .)
-for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/"`; do
+for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
 	echo -e "\ttesting: $pkg"
 	run-test go test "$pkg"
 	if [ "$1" = "--race" ]; then
+		shift
 		run-test go test -race "$pkg"
 	fi
 done
+
+if [[ "$@" = *"--integration"* ]]; then
+	run-test go test github.com/purpleidea/mgmt/integration/
+fi
 
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'

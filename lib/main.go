@@ -67,12 +67,14 @@ type Main struct {
 	NoConfigWatch bool // do not update graph due to config changes
 	NoStreamWatch bool // do not update graph due to stream changes
 
-	Noop             bool   // globally force all resources into no-op mode
-	Sema             int    // add a semaphore with this lock count to each resource
-	Graphviz         string // output file for graphviz data
-	GraphvizFilter   string // graphviz filter to use
-	ConvergedTimeout int    // exit after approximately this many seconds in a converged state; -1 to disable
-	MaxRuntime       uint   // exit after a maximum of approximately this many seconds
+	Noop                   bool   // globally force all resources into no-op mode
+	Sema                   int    // add a semaphore with this lock count to each resource
+	Graphviz               string // output file for graphviz data
+	GraphvizFilter         string // graphviz filter to use
+	ConvergedTimeout       int    // approximately this many seconds of inactivity means we're in a converged state; -1 to disable
+	ConvergedTimeoutNoExit bool   // don't exit on converged timeout
+	ConvergedStatusFile    string // file to append converged status to
+	MaxRuntime             uint   // exit after a maximum of approximately this many seconds
 
 	Seeds               []string // default etc client endpoint
 	ClientURLs          []string // list of URLs to listen on for client traffic
@@ -338,19 +340,33 @@ func (obj *Main) Run() error {
 	time.Sleep(1 * time.Second) // XXX: temporary workaround
 
 	convergerStateFn := func(b bool) error {
+		var err error
+		if obj.ConvergedStatusFile != "" {
+			if obj.Flags.Debug {
+				log.Printf("Main: Converged status is: %t", b)
+			}
+			err = appendConvergedStatus(obj.ConvergedStatusFile, b)
+		}
+
 		// exit if we are using the converged timeout and we are the
 		// root node. otherwise, if we are a child node in a remote
 		// execution hierarchy, we should only notify our converged
 		// state and wait for the parent to trigger the exit.
 		if t := obj.ConvergedTimeout; t >= 0 {
-			if b {
+			if b && !obj.ConvergedTimeoutNoExit {
 				log.Printf("Main: Converged for %d seconds, exiting!", t)
 				obj.Exit(nil) // trigger an exit!
 			}
-			return nil
+			return err
 		}
 		// send our individual state into etcd for others to see
-		return etcd.SetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
+		e := etcd.SetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
+		if err == nil {
+			return e
+		} else if e != nil {
+			err = multierr.Append(err, e) // list of errors
+		}
+		return err
 	}
 	if EmbdEtcd != nil {
 		converger.SetStateFn(convergerStateFn)

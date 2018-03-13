@@ -27,7 +27,6 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 
 	// these imports are so that GAPIs register themselves in init()
-	_ "github.com/purpleidea/mgmt/hcl"
 	_ "github.com/purpleidea/mgmt/lang"
 	_ "github.com/purpleidea/mgmt/puppet"
 	_ "github.com/purpleidea/mgmt/yamlgraph"

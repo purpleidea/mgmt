@@ -30,7 +30,6 @@ import (
 	_ "github.com/purpleidea/mgmt/lang"
 	_ "github.com/purpleidea/mgmt/puppet"
 	_ "github.com/purpleidea/mgmt/yamlgraph"
-	_ "github.com/purpleidea/mgmt/yamlgraph2"
 
 	"github.com/google/uuid"
 	errwrap "github.com/pkg/errors"

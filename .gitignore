@@ -14,3 +14,5 @@ build/mgmt-*
 mgmt.iml
 rpmbuild/
 *.deb
+# statefiles used in the Makefile
+.Makefile.*

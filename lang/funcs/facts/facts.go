@@ -21,10 +21,10 @@ package facts
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/resources"
 )
 
 // RegisteredFacts is a global map of all possible facts which can be used. You
@@ -61,7 +61,7 @@ type Init struct {
 	Hostname string // uuid for the host
 	//Noop bool
 	Output chan types.Value // Stream must close `output` chan
-	World  resources.World
+	World  engine.World
 }
 
 // Fact is the interface that any valid fact must fulfill. It is very simple,

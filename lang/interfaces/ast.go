@@ -18,9 +18,9 @@
 package interfaces
 
 import (
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 )
 
 const (
@@ -111,7 +111,7 @@ type Edge struct {
 
 // Output is a collection of data returned by a Stmt.
 type Output struct { // returned by Stmt
-	Resources []resources.Res
+	Resources []engine.Res
 	Edges     []*Edge
 	//Exported []*Exports // TODO: add exported resources
 }
@@ -120,7 +120,7 @@ type Output struct { // returned by Stmt
 // lists initialized appropriately.
 func (obj *Output) Empty() *Output {
 	return &Output{
-		Resources: []resources.Res{},
+		Resources: []engine.Res{},
 		Edges:     []*Edge{},
 	}
 }

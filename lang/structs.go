@@ -23,13 +23,14 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
@@ -240,7 +241,7 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	// TODO: test for []str instead, and loop
 	name := nameValue.Str() // must not panic
 
-	res, err := resources.NewNamedResource(obj.Kind, name)
+	res, err := engine.NewNamedResource(obj.Kind, name)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, name)
 	}
@@ -250,7 +251,7 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 		panic(fmt.Sprintf("expected struct, got: %s", k))
 	}
 
-	mapping, err := resources.LangFieldNameToStructFieldName(obj.Kind)
+	mapping, err := engineUtil.LangFieldNameToStructFieldName(obj.Kind)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +378,7 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	}
 
 	return &interfaces.Output{
-		Resources: []resources.Res{res},
+		Resources: []engine.Res{res},
 		Edges:     edges,
 	}, nil
 }
@@ -580,7 +581,7 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 
 	// TODO: unfortunately this gets called separately for each field... if
 	// we could cache this, it might be worth looking into for performance!
-	typMap, err := resources.LangFieldNameToStructType(kind)
+	typMap, err := engineUtil.LangFieldNameToStructType(kind)
 	if err != nil {
 		return nil, err
 	}
@@ -1142,7 +1143,7 @@ func (obj *StmtIf) Output() (*interfaces.Output, error) {
 		return nil, err
 	}
 
-	resources := []resources.Res{}
+	resources := []engine.Res{}
 	if output != nil {
 		resources = append(resources, output.Resources...)
 		//edges = output.Edges
@@ -1267,7 +1268,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtProg) Output() (*interfaces.Output, error) {
-	resources := []resources.Res{}
+	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
 
 	for _, stmt := range obj.Prog {

@@ -1,5 +1,7 @@
 #!/bin/bash -xe
 
+exit 0	# XXX: temporarily disabled until prometheus is added back post refactor
+
 # run a graph, with prometheus support
 $timeout --kill-after=60s 55s "$MGMT" run --tmp-prefix --no-pgp --prometheus --yaml prometheus-4.yaml &
 pid=$!

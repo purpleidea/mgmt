@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -103,7 +103,7 @@ func (obj *Edge) String() string {
 type Engine struct {
 	Graph    *pgraph.Graph
 	Hostname string
-	World    resources.World
+	World    engine.World
 	Debug    bool
 	Logf     func(format string, v ...interface{})
 
@@ -161,14 +161,14 @@ func (obj *Engine) Init() error {
 			return fmt.Errorf("vertex (%+v) was not an expr", vertex)
 		}
 
+		if obj.Debug {
+			obj.Logf("Loading func `%s`", vertex)
+		}
+
 		obj.state[vertex] = &State{Expr: expr} // store some state!
 
 		if e := obj.state[vertex].Init(); e != nil {
 			err = multierr.Append(err, e) // list of errors
-		}
-
-		if obj.Debug {
-			obj.Logf("Loading func `%s`", vertex)
 		}
 	}
 	if err != nil { // usually due to `not found` errors

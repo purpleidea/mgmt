@@ -73,7 +73,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 
 	for v := range newGraph.Adjacency() { // loop through the vertices (resources)
 		var vertex Vertex
-		// step one, direct compare with res.Compare
+		// step one, direct compare with res.Cmp
 		if vertex == nil { // redundant guard for consistency
 			fn := func(vv Vertex) (bool, error) {
 				b, err := vertexCmpFn(vv, v)

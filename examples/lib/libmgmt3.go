@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	"github.com/urfave/cli"
 )
@@ -49,7 +50,7 @@ func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *MyGAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *MyGAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(obj.Name); c.IsSet(obj.Name) {
 		if s != "" {
 			return nil, fmt.Errorf("input is not empty")
@@ -103,15 +104,8 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	metaparams := resources.DefaultMetaParams
-
 	content := "Delete me to trigger a notification!\n"
 	f0 := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "README",
-			Kind:       "file",
-			MetaParams: metaparams,
-		},
 		Path:    "/tmp/mgmt/README",
 		Content: &content,
 		State:   "present",
@@ -120,50 +114,34 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	g.AddVertex(f0)
 
 	p1 := &resources.PasswordRes{
-		BaseRes: resources.BaseRes{
-			Name:       "password1",
-			Kind:       "password",
-			MetaParams: metaparams,
-		},
 		Length: 8,    // generated string will have this many characters
 		Saved:  true, // this causes passwords to be stored in plain text!
 	}
 	g.AddVertex(p1)
 
 	f1 := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "file1",
-			Kind:       "file",
-			MetaParams: metaparams,
-			// send->recv!
-			Recv: map[string]*resources.Send{
-				"Content": {Res: p1, Key: "Password"},
-			},
-		},
 		Path: "/tmp/mgmt/secret",
 		//Content:  p1.Password, // won't work
 		State: "present",
 	}
+	// XXX: add send->recv!
+	//Recv: map[string]*engine.Send{
+	//	"Content": {Res: p1, Key: "Password"},
+	//},
 
 	g.AddVertex(f1)
 
-	n1 := &resources.NoopRes{
-		BaseRes: resources.BaseRes{
-			Name:       "noop1",
-			Kind:       "noop",
-			MetaParams: metaparams,
-		},
-	}
+	n1 := &resources.NoopRes{}
 
 	g.AddVertex(n1)
 
-	e0 := &resources.Edge{Name: "e0"}
+	e0 := &engine.Edge{Name: "e0"}
 	e0.Notify = true // send a notification from f0 to p1
 	g.AddEdge(f0, p1, e0)
 
-	g.AddEdge(p1, f1, &resources.Edge{Name: "e1"})
+	g.AddEdge(p1, f1, &engine.Edge{Name: "e1"})
 
-	e2 := &resources.Edge{Name: "e2"}
+	e2 := &engine.Edge{Name: "e2"}
 	e2.Notify = true // send a notification from f1 to n1
 	g.AddEdge(f1, n1, e2)
 

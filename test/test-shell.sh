@@ -42,6 +42,9 @@ for i in $DIR/test/shell/*.sh; do
 	e=$?	# save exit code
 	set -o errexit	# re-enable killing on script failure
 	cd - >/dev/null
+	if [ -L '/tmp/mgmt/' ]; then	# this was once a symlink :(
+		fail_test "Can't remove symlink in /tmp/mgmt/"
+	fi
 	rm -rf '/tmp/mgmt/'	# clean up after test
 	if [ $e -ne 0 ]; then
 		echo -e "FAIL\t$ii"	# fail

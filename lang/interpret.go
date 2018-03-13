@@ -20,9 +20,9 @@ package lang // TODO: move this into a sub package of lang/$name?
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -42,26 +42,26 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 		return nil, errwrap.Wrapf(err, "could not create new graph")
 	}
 
-	var lookup = make(map[string]map[string]resources.Res) // map[kind]map[name]Res
+	var lookup = make(map[string]map[string]engine.Res) // map[kind]map[name]Res
 	// build the send/recv mapping; format: map[kind]map[name]map[field]*Send
-	var receive = make(map[string]map[string]map[string]*resources.Send)
+	var receive = make(map[string]map[string]map[string]*engine.Send)
 
 	for _, res := range output.Resources {
 		graph.AddVertex(res)
-		kind := res.GetKind()
-		name := res.GetName()
+		kind := res.Kind()
+		name := res.Name()
 		if _, exists := lookup[kind]; !exists {
-			lookup[kind] = make(map[string]resources.Res)
-			receive[kind] = make(map[string]map[string]*resources.Send)
+			lookup[kind] = make(map[string]engine.Res)
+			receive[kind] = make(map[string]map[string]*engine.Send)
 		}
 		if _, exists := receive[kind][name]; !exists {
-			receive[kind][name] = make(map[string]*resources.Send)
+			receive[kind][name] = make(map[string]*engine.Send)
 		}
 
 		if r, exists := lookup[kind][name]; exists { // found same name
-			if !r.Compare(res) {
+			if err := engine.ResCmp(r, res); err != nil {
 				// TODO: print a diff of the two resources
-				return nil, fmt.Errorf("incompatible duplicate resource `%s` found", res)
+				return nil, errwrap.Wrapf(err, "incompatible duplicate resource `%s` found", res)
 			}
 			// more than one compatible resource exists... we allow
 			// duplicates, if they're going to not conflict...
@@ -71,9 +71,9 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 	}
 
 	for _, e := range output.Edges {
-		var v1, v2 resources.Res
+		var v1, v2 engine.Res
 		var exists bool // = true
-		var m map[string]resources.Res
+		var m map[string]engine.Res
 		var notify = e.Notify
 
 		if m, exists = lookup[e.Kind1]; exists {
@@ -91,10 +91,10 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 
 		if existingEdge := graph.FindEdge(v1, v2); existingEdge != nil {
 			// collate previous Notify signals to this edge with OR
-			notify = notify || (existingEdge.(*resources.Edge)).Notify
+			notify = notify || (existingEdge.(*engine.Edge)).Notify
 		}
 
-		edge := &resources.Edge{
+		edge := &engine.Edge{
 			Name:   fmt.Sprintf("%s -> %s", v1, v2),
 			Notify: notify,
 		}
@@ -117,8 +117,14 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 			}
 		}
 
+		res, ok := v1.(engine.SendableRes)
+		if !ok {
+			return nil, fmt.Errorf("cannot send from resource: %s", engine.Stringer(v1))
+		}
+		// XXX: type check the send/recv relationship somewhere
+
 		// store mapping for later
-		receive[e.Kind2][e.Name2][e.Recv] = &resources.Send{Res: v1, Key: e.Send}
+		receive[e.Kind2][e.Name2][e.Recv] = &engine.Send{Res: res, Key: e.Send}
 	}
 
 	// we need to first build up a map of all the resources handles, because
@@ -130,7 +136,15 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 	// TODO: do this in a deterministic order
 	for kind, x := range receive {
 		for name, recv := range x {
-			lookup[kind][name].SetRecv(recv) // set it!
+			if len(recv) == 0 { // skip empty maps from allocation!
+				continue
+			}
+			r := lookup[kind][name]
+			res, ok := r.(engine.RecvableRes)
+			if !ok {
+				return nil, fmt.Errorf("cannot recv to resource: %s", engine.Repr(kind, name))
+			}
+			res.SetRecv(recv) // set it!
 		}
 	}
 

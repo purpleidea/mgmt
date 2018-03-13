@@ -122,7 +122,7 @@ lang: ## generates the lexer/parser for the language frontend
 
 # build a `mgmt` binary for current host os/arch
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
-	cp $< $@
+	cp -a $< $@
 
 $(PROGRAM).static: $(GO_FILES)
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."

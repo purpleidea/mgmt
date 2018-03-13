@@ -25,7 +25,6 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
-
 	// these imports are so that GAPIs register themselves in init()
 	_ "github.com/purpleidea/mgmt/lang"
 	_ "github.com/purpleidea/mgmt/puppet"

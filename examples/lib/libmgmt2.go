@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	"github.com/urfave/cli"
 )
@@ -52,7 +52,7 @@ func NewMyGAPI(data gapi.Data, name string, interval uint, count uint) (*MyGAPI,
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *MyGAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *MyGAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(obj.Name); c.IsSet(obj.Name) {
 		if s != "" {
 			return nil, fmt.Errorf("input is not empty")
@@ -107,13 +107,13 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	}
 	var vertex pgraph.Vertex
 	for i := uint(0); i < obj.Count; i++ {
-		n, err := resources.NewNamedResource("noop", fmt.Sprintf("noop%d", i))
+		n, err := engine.NewNamedResource("noop", fmt.Sprintf("noop%d", i))
 		if err != nil {
 			return nil, err
 		}
 		g.AddVertex(n)
 		if i > 0 {
-			g.AddEdge(vertex, n, &resources.Edge{Name: fmt.Sprintf("e%d", i)})
+			g.AddEdge(vertex, n, &engine.Edge{Name: fmt.Sprintf("e%d", i)})
 		}
 		vertex = n // save
 	}

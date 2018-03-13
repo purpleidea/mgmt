@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	"github.com/urfave/cli"
 )
@@ -49,7 +50,7 @@ func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *MyGAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *MyGAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(obj.Name); c.IsSet(obj.Name) {
 		if s != "" {
 			return nil, fmt.Errorf("input is not empty")
@@ -103,66 +104,46 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	metaparams := resources.DefaultMetaParams
-
 	exec1 := &resources.ExecRes{
-		BaseRes: resources.BaseRes{
-			Name:       "exec1",
-			Kind:       "exec",
-			MetaParams: metaparams,
-		},
 		Cmd:   "echo hello world && echo goodbye world 1>&2", // to stdout && stderr
 		Shell: "/bin/bash",
 	}
 	g.AddVertex(exec1)
 
 	output := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "output",
-			Kind:       "file",
-			MetaParams: metaparams,
-			// send->recv!
-			Recv: map[string]*resources.Send{
-				"Content": {Res: exec1, Key: "Output"},
-			},
-		},
 		Path:  "/tmp/mgmt/output",
 		State: "present",
 	}
+	// XXX: add send->recv!
+	//Recv: map[string]*engine.Send{
+	//	"Content": {Res: exec1, Key: "Output"},
+	//},
+
 	g.AddVertex(output)
-	g.AddEdge(exec1, output, &resources.Edge{Name: "e0"})
+	g.AddEdge(exec1, output, &engine.Edge{Name: "e0"})
 
 	stdout := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "stdout",
-			Kind:       "file",
-			MetaParams: metaparams,
-			// send->recv!
-			Recv: map[string]*resources.Send{
-				"Content": {Res: exec1, Key: "Stdout"},
-			},
-		},
 		Path:  "/tmp/mgmt/stdout",
 		State: "present",
 	}
+	// XXX: add send->recv!
+	//Recv: map[string]*engine.Send{
+	//	"Content": {Res: exec1, Key: "Stdout"},
+	//},
 	g.AddVertex(stdout)
-	g.AddEdge(exec1, stdout, &resources.Edge{Name: "e1"})
+	g.AddEdge(exec1, stdout, &engine.Edge{Name: "e1"})
 
 	stderr := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "stderr",
-			Kind:       "file",
-			MetaParams: metaparams,
-			// send->recv!
-			Recv: map[string]*resources.Send{
-				"Content": {Res: exec1, Key: "Stderr"},
-			},
-		},
 		Path:  "/tmp/mgmt/stderr",
 		State: "present",
 	}
+	// XXX: add send->recv!
+	//Recv: map[string]*engine.Send{
+	//	"Content": {Res: exec1, Key: "Stderr"},
+	//},
+
 	g.AddVertex(stderr)
-	g.AddEdge(exec1, stderr, &resources.Edge{Name: "e2"})
+	g.AddEdge(exec1, stderr, &engine.Edge{Name: "e2"})
 
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, nil

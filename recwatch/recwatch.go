@@ -152,7 +152,7 @@ func (obj *RecWatcher) Watch() error {
 			current = "/"
 		}
 		if obj.Flags.Debug {
-			log.Printf("Watching: %s", current) // attempting to watch...
+			log.Printf("watching: %s", current) // attempting to watch...
 		}
 		// initialize in the loop so that we can reset on rm-ed handles
 		if err := obj.watcher.Add(current); err != nil {
@@ -180,7 +180,7 @@ func (obj *RecWatcher) Watch() error {
 		select {
 		case event := <-obj.watcher.Events:
 			if obj.Flags.Debug {
-				log.Printf("Watch(%s), Event(%s): %v", current, event.Name, event.Op)
+				log.Printf("watch(%s), event(%s): %v", current, event.Name, event.Op)
 			}
 			// the deeper you go, the bigger the deltaDepth is...
 			// this is the difference between what we're watching,
@@ -216,11 +216,11 @@ func (obj *RecWatcher) Watch() error {
 				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
 				continue
 			}
-			//log.Printf("The delta depth is: %v", deltaDepth)
+			//log.Printf("the delta depth is: %v", deltaDepth)
 
 			// if we have what we wanted, awesome, send an event...
 			if event.Name == obj.safename {
-				//log.Println("Event!")
+				//log.Printf("event!")
 				// FIXME: should all these below cases trigger?
 				send = true
 
@@ -232,7 +232,7 @@ func (obj *RecWatcher) Watch() error {
 
 				// file removed, move the watch upwards
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					//log.Println("Removal!")
+					//log.Printf("removal!")
 					obj.watcher.Remove(current)
 					index--
 				}
@@ -253,16 +253,16 @@ func (obj *RecWatcher) Watch() error {
 
 				// if safename starts with event.Name, we're above, and no event should be sent
 			} else if util.HasPathPrefix(obj.safename, event.Name) {
-				//log.Println("Above!")
+				//log.Printf("above!")
 
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					log.Println("Removal!")
+					log.Printf("removal!")
 					obj.watcher.Remove(current)
 					index--
 				}
 
 				if deltaDepth < 0 {
-					log.Println("Parent!")
+					log.Printf("parent!")
 					if util.PathPrefixDelta(obj.safename, event.Name) == 1 { // we're the parent dir
 						send = true
 					}
@@ -272,7 +272,7 @@ func (obj *RecWatcher) Watch() error {
 
 				// if event.Name startswith safename, send event, we're already deeper
 			} else if util.HasPathPrefix(event.Name, obj.safename) {
-				//log.Println("Event2!")
+				//log.Printf("event2!")
 				send = true
 			}
 
@@ -305,7 +305,7 @@ func (obj *RecWatcher) addSubFolders(p string) error {
 	// look at all subfolders...
 	walkFn := func(path string, info os.FileInfo, err error) error {
 		if obj.Flags.Debug {
-			log.Printf("Walk: %s (%v): %v", path, info, err)
+			log.Printf("walk: %s (%v): %v", path, info, err)
 		}
 		if err != nil {
 			return nil

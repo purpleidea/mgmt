@@ -22,8 +22,8 @@ import (
 	"encoding/gob"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	"github.com/urfave/cli"
 )
@@ -46,7 +46,7 @@ func Register(name string, fn func() GAPI) {
 type Data struct {
 	Program       string // name of the originating program
 	Hostname      string // uuid for the host, required for GAPI
-	World         resources.World
+	World         engine.World
 	Noop          bool
 	NoConfigWatch bool
 	NoStreamWatch bool
@@ -70,7 +70,7 @@ type Next struct {
 
 // GAPI is a Graph API that represents incoming graphs and change streams.
 type GAPI interface {
-	Cli(c *cli.Context, fs resources.Fs) (*Deploy, error)
+	Cli(c *cli.Context, fs engine.Fs) (*Deploy, error)
 	CliFlags() []cli.Flag
 
 	Init(Data) error               // initializes the GAPI and passes in useful data

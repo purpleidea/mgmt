@@ -19,13 +19,12 @@ package lang
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -59,7 +58,7 @@ type GAPI struct {
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *GAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(Name); c.IsSet(Name) {
 		if s == "" {
 			return nil, fmt.Errorf("input code is empty")
@@ -135,6 +134,10 @@ func (obj *GAPI) LangInit() error {
 		Hostname: obj.data.Hostname,
 		World:    obj.data.World,
 		Debug:    obj.data.Debug,
+		Logf: func(format string, v ...interface{}) {
+			// TODO: add the Name prefix in parent logger
+			obj.data.Logf(Name+": "+format, v...)
+		},
 	}
 	if err := obj.lang.Init(); err != nil {
 		return errwrap.Wrapf(err, "can't init the lang")
@@ -209,11 +212,11 @@ func (obj *GAPI) Next() chan gapi.Next {
 			case <-obj.closeChan:
 				return
 			}
-			log.Printf("%s: Generating new graph...", Name)
+			obj.data.Logf("generating new graph...")
 
 			// skip this to pass through the err if present
 			if langSwap && err == nil {
-				log.Printf("%s: Swap!", Name)
+				obj.data.Logf("swap!")
 				// run up to these three but fail on err
 				if e := obj.LangClose(); e != nil { // close any old lang
 					err = e // pass through the err
@@ -230,7 +233,29 @@ func (obj *GAPI) Next() chan gapi.Next {
 				} else {
 
 					if obj.data.NoStreamWatch { // TODO: do we want to allow this for the lang?
-						streamChan = nil
+						obj.data.Logf("warning: language will not stream")
+						// send only one event
+						limitChan := make(chan error)
+						obj.wg.Add(1)
+						go func() {
+							defer obj.wg.Done()
+							defer close(limitChan)
+							select {
+							// only one
+							case err, ok := <-obj.lang.Stream():
+								if !ok {
+									return
+								}
+								select {
+								case limitChan <- err:
+								case <-obj.closeChan:
+									return
+								}
+							case <-obj.closeChan:
+								return
+							}
+						}()
+						streamChan = limitChan
 					} else {
 						// stream for lang events
 						streamChan = obj.lang.Stream() // update stream

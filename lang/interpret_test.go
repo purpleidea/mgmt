@@ -22,10 +22,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 )
 
 func vertexAstCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
@@ -496,7 +497,7 @@ func TestAstInterpret0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		t1, _ := resources.NewNamedResource("test", "t1")
+		t1, _ := engine.NewNamedResource("test", "t1")
 		x := t1.(*resources.TestRes)
 		int64ptr := int64(42)
 		x.Int64Ptr = &int64ptr
@@ -522,7 +523,7 @@ func TestAstInterpret0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		t1, _ := resources.NewNamedResource("test", "t1")
+		t1, _ := engine.NewNamedResource("test", "t1")
 		x := t1.(*resources.TestRes)
 		stringptr := "wow"
 		x.StringPtr = &stringptr
@@ -540,21 +541,21 @@ func TestAstInterpret0(t *testing.T) {
 	{
 		// FIXME: add a better vertexCmpFn so we can compare send/recv!
 		graph, _ := pgraph.NewGraph("g")
-		t1, _ := resources.NewNamedResource("test", "t1")
+		t1, _ := engine.NewNamedResource("test", "t1")
 		{
 			x := t1.(*resources.TestRes)
 			int64Ptr := int64(42)
 			x.Int64Ptr = &int64Ptr
 			graph.AddVertex(t1)
 		}
-		t2, _ := resources.NewNamedResource("test", "t2")
+		t2, _ := engine.NewNamedResource("test", "t2")
 		{
 			x := t2.(*resources.TestRes)
 			int64Ptr := int64(13)
 			x.Int64Ptr = &int64Ptr
 			graph.AddVertex(t2)
 		}
-		edge := &resources.Edge{
+		edge := &engine.Edge{
 			Name:   fmt.Sprintf("%s -> %s", t1, t2),
 			Notify: false,
 		}

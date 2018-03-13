@@ -19,12 +19,11 @@ package yamlgraph
 
 import (
 	"fmt"
-	"log"
 	"sync"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -55,7 +54,7 @@ type GAPI struct {
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *GAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(Name); c.IsSet(Name) {
 		if s == "" {
 			return nil, fmt.Errorf("input yaml is empty")
@@ -120,9 +119,17 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 		return nil, errwrap.Wrapf(err, "can't read yaml from file `%s`", Start)
 	}
 
-	config := ParseConfigFromFile(b)
+	debug := obj.data.Debug
+	logf := func(format string, v ...interface{}) {
+		// TODO: add the Name prefix in parent logger
+		obj.data.Logf(Name+": "+format, v...)
+	}
+	config, err := NewGraphConfigFromFile(b, debug, logf)
+	if err != nil {
+		return nil, err
+	}
 	if config == nil {
-		return nil, fmt.Errorf("%s: ParseConfigFromFile returned nil", Name)
+		return nil, fmt.Errorf("%s: NewGraphConfigFromFile returned nil", Name)
 	}
 
 	g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
@@ -169,7 +176,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 				return
 			}
 
-			log.Printf("%s: Generating new graph...", Name)
+			obj.data.Logf("generating new graph...")
 			next := gapi.Next{
 				//Exit: true, // TODO: for permanent shutdown!
 				Err: err,

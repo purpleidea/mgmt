@@ -18,8 +18,8 @@
 package interfaces
 
 import (
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/resources"
 )
 
 // Info is a static representation of some information about the function. It is
@@ -39,7 +39,7 @@ type Init struct {
 	//Noop bool
 	Input  chan types.Value // Engine will close `input` chan
 	Output chan types.Value // Stream must close `output` chan
-	World  resources.World
+	World  engine.World
 	Debug  bool
 	Logf   func(format string, v ...interface{})
 }

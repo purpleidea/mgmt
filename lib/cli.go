@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"sort"
+	"sync"
 	"syscall"
 
 	"github.com/purpleidea/mgmt/bindata"
@@ -126,44 +127,72 @@ func run(c *cli.Context) error {
 		obj.PgpIdentity = &us
 	}
 
+	obj.Prometheus = c.Bool("prometheus")
+	obj.PrometheusListen = c.String("prometheus-listen")
+
+	if err := obj.Validate(); err != nil {
+		return err
+	}
+
 	if err := obj.Init(); err != nil {
 		return err
 	}
 
-	obj.Prometheus = c.Bool("prometheus")
-	obj.PrometheusListen = c.String("prometheus-listen")
-
 	// install the exit signal handler
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
 	exit := make(chan struct{})
 	defer close(exit)
+	wg.Add(1)
 	go func() {
-		signals := make(chan os.Signal, 1)
+		defer wg.Done()
+		// must have buffer for max number of signals
+		signals := make(chan os.Signal, 3+1) // 3 * ^C + 1 * SIGTERM
 		signal.Notify(signals, os.Interrupt) // catch ^C
 		//signal.Notify(signals, os.Kill) // catch signals
 		signal.Notify(signals, syscall.SIGTERM)
+		var count uint8
+		for {
+			select {
+			case sig := <-signals: // any signal will do
+				if sig != os.Interrupt {
+					log.Printf("Interrupted by signal")
+					obj.Interrupt(fmt.Errorf("killed by %v", sig))
+					return
+				}
 
-		select {
-		case sig := <-signals: // any signal will do
-			if sig == os.Interrupt {
-				log.Println("Interrupted by ^C")
-				obj.Exit(nil)
+				switch count {
+				case 0:
+					log.Printf("Interrupted by ^C")
+					obj.Exit(nil)
+				case 1:
+					log.Printf("Interrupted by ^C (fast pause)")
+					obj.FastExit(nil)
+				case 2:
+					log.Printf("Interrupted by ^C (hard interrupt)")
+					obj.Interrupt(nil)
+				}
+				count++
+
+			case <-exit:
 				return
 			}
-			log.Println("Interrupted by signal")
-			obj.Exit(fmt.Errorf("killed by %v", sig))
-			return
-		case <-exit:
-			return
 		}
 	}()
 
-	if err := obj.Run(); err != nil {
+	reterr := obj.Run()
+	if reterr != nil {
 		// log the error message returned
-		log.Printf("Main: Error: %v", err)
+		log.Printf("Main: Error: %v", reterr)
+	}
+
+	if err := obj.Close(); err != nil {
+		log.Printf("Main: Close: %v", err)
 		//return cli.NewExitError(err.Error(), 1) // TODO: ?
 		return cli.NewExitError("", 1)
 	}
-	return nil
+
+	return reterr
 }
 
 // CLI is the entry point for using mgmt normally from the CLI.

@@ -22,7 +22,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -60,7 +61,7 @@ func WatchResources(obj *EmbdEtcd) chan error {
 }
 
 // SetResources exports all of the resources which we pass in to etcd.
-func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) error {
+func SetResources(obj *EmbdEtcd, hostname string, resourceList []engine.Res) error {
 	// key structure is $NS/exported/$hostname/resources/$uid = $data
 
 	var kindFilter []string // empty to get from everyone
@@ -79,12 +80,12 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 	ifs := []etcd.Cmp{} // list matching the desired state
 	ops := []etcd.Op{}  // list of ops in this transaction
 	for _, res := range resourceList {
-		if res.GetKind() == "" {
-			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
+		if res.Kind() == "" {
+			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.Name())
 		}
-		uid := fmt.Sprintf("%s/%s", res.GetKind(), res.GetName())
+		uid := fmt.Sprintf("%s/%s", res.Kind(), res.Name())
 		path := fmt.Sprintf("%s/exported/%s/resources/%s", NS, hostname, uid)
-		if data, err := resources.ResToB64(res); err == nil {
+		if data, err := engineUtil.ResToB64(res); err == nil {
 			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", data)) // desired state
 			ops = append(ops, etcd.OpPut(path, data))
 		} else {
@@ -92,9 +93,9 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 		}
 	}
 
-	match := func(res resources.Res, resourceList []resources.Res) bool { // helper lambda
+	match := func(res engine.Res, resourceList []engine.Res) bool { // helper lambda
 		for _, x := range resourceList {
-			if res.GetKind() == x.GetKind() && res.GetName() == x.GetName() {
+			if res.Kind() == x.Kind() && res.Name() == x.Name() {
 				return true
 			}
 		}
@@ -104,10 +105,10 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 	hasDeletes := false
 	// delete old, now unused resources here...
 	for _, res := range originals {
-		if res.GetKind() == "" {
-			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.GetName())
+		if res.Kind() == "" {
+			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.Name())
 		}
-		uid := fmt.Sprintf("%s/%s", res.GetKind(), res.GetName())
+		uid := fmt.Sprintf("%s/%s", res.Kind(), res.Name())
 		path := fmt.Sprintf("%s/exported/%s/resources/%s", NS, hostname, uid)
 
 		if match(res, resourceList) { // if we match, no need to delete!
@@ -135,10 +136,10 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []resources.Res) 
 // TODO: Expand this with a more powerful filter based on what we eventually
 // support in our collect DSL. Ideally a server side filter like WithFilter()
 // We could do this if the pattern was $NS/exported/$kind/$hostname/$uid = $data.
-func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resources.Res, error) {
+func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]engine.Res, error) {
 	// key structure is $NS/exported/$hostname/resources/$uid = $data
 	path := fmt.Sprintf("%s/exported/", NS)
-	resourceList := []resources.Res{}
+	resourceList := []engine.Res{}
 	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {
 		return nil, fmt.Errorf("could not get resources: %v", err)
@@ -170,7 +171,7 @@ func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]resourc
 			continue
 		}
 
-		if obj, err := resources.B64ToRes(val); err == nil {
+		if obj, err := engineUtil.B64ToRes(val); err == nil {
 			log.Printf("Etcd: Get: (Hostname, Kind, Name): (%s, %s, %s)", hostname, kind, name)
 			resourceList = append(resourceList, obj)
 		} else {

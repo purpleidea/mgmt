@@ -328,7 +328,7 @@ func TestUtilT9(t *testing.T) {
 	if a, b := len(fileListOut), len(dirify); a != b {
 		t.Errorf("DirifyFileList counts didn't match: %d != %d", a, b)
 	} else if !equals {
-		t.Error("DirifyFileList did not match expected!")
+		t.Errorf("DirifyFileList did not match expected!")
 		for i := 0; i < len(dirify); i++ {
 			if fileListOut[i] != dirify[i] {
 				t.Errorf("# %d: %v <> %v", i, fileListOut[i], dirify[i])
@@ -364,7 +364,7 @@ func TestUtilT10(t *testing.T) {
 	if a, b := len(fileListOut), len(dirify); a != b {
 		t.Errorf("DirifyFileList counts didn't match: %d != %d", a, b)
 	} else if !equals {
-		t.Error("DirifyFileList did not match expected!")
+		t.Errorf("DirifyFileList did not match expected!")
 		for i := 0; i < len(dirify); i++ {
 			if fileListOut[i] != dirify[i] {
 				t.Errorf("# %d: %v <> %v", i, fileListOut[i], dirify[i])

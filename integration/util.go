@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -46,37 +45,6 @@ func BinaryPath() (string, error) {
 	root := filepath.Dir(dir) // we're in the parent dir to that
 
 	return path.Join(root, binaryName), nil
-}
-
-// Code takes a code block as a backtick enclosed `heredoc` and removes any
-// common indentation from each line. This helps inline code as strings to be
-// formatted nicely without unnecessary indentation. It also drops the very
-// first line of code if it has zero length.
-func Code(code string) string {
-	output := []string{}
-	lines := strings.Split(code, "\n")
-	var found bool
-	var strip string // prefix to remove
-	for i, x := range lines {
-		if !found && len(x) > 0 {
-			for j := 0; j < len(x); j++ {
-				if x[j] != '\t' {
-					break
-				}
-				strip += "\t"
-			}
-			// otherwise, there's no indentation
-			found = true
-		}
-		if i == 0 && len(x) == 0 { // drop first line if it's empty
-			continue
-		}
-
-		s := strings.TrimPrefix(x, strip)
-		output = append(output, s)
-	}
-
-	return strings.Join(output, "\n")
 }
 
 // ParsePort parses a URL and returns the port that was found.

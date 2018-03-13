@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	"github.com/urfave/cli"
 )
@@ -49,7 +50,7 @@ func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *MyGAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *MyGAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(obj.Name); c.IsSet(obj.Name) {
 		if s != "" {
 			return nil, fmt.Errorf("input is not empty")
@@ -103,15 +104,8 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	metaparams := resources.DefaultMetaParams
-
 	content := "I created a subgraph!\n"
 	f0 := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "README",
-			Kind:       "file",
-			MetaParams: metaparams,
-		},
 		Path:    "/tmp/mgmt/README",
 		Content: &content,
 		State:   "present",
@@ -126,40 +120,24 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	// add elements into the sub graph
 	f1 := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "file1",
-			Kind:       "file",
-			MetaParams: metaparams,
-		},
 		Path: "/tmp/mgmt/sub1",
 
 		State: "present",
 	}
 	subGraph.AddVertex(f1)
 
-	n1 := &resources.NoopRes{
-		BaseRes: resources.BaseRes{
-			Name:       "noop1",
-			Kind:       "noop",
-			MetaParams: metaparams,
-		},
-	}
+	n1 := &resources.NoopRes{}
 	subGraph.AddVertex(n1)
 
-	e0 := &resources.Edge{Name: "e0"}
+	e0 := &engine.Edge{Name: "e0"}
 	e0.Notify = true // send a notification from v0 to v1
 	subGraph.AddEdge(f1, n1, e0)
 
 	// create the actual resource to hold the sub graph
-	subGraphRes0 := &resources.GraphRes{ // TODO: should we name this SubGraphRes ?
-		BaseRes: resources.BaseRes{
-			Name:       "subgraph1",
-			Kind:       "graph",
-			MetaParams: metaparams,
-		},
-		Graph: subGraph,
-	}
-	g.AddVertex(subGraphRes0) // add it to the main graph
+	//subGraphRes0 := &resources.GraphRes{ // TODO: should we name this SubGraphRes ?
+	//	Graph: subGraph,
+	//}
+	//g.AddVertex(subGraphRes0) // add it to the main graph
 
 	//g, err := config.NewGraphFromConfig(obj.data.Hostname, obj.data.World, obj.data.Noop)
 	return g, nil

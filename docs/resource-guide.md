@@ -19,17 +19,80 @@ on this design, please read the
 [original article](https://purpleidea.com/blog/2016/01/18/next-generation-configuration-mgmt/)
 on the subject.
 
+## Resource Prerequisites
+
+### Imports
+
+You'll need to import a few packages to make writing your resource easier. Here
+is the list:
+
+```
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/traits"
+```
+
+The `engine` package contains most of the interfaces and helper functions that
+you'll need to use. The `traits` package contains some base functionality which
+you can use to easily add functionality to your resource without needing to
+implement it from scratch.
+
+### Resource struct
+
+Each resource will implement methods as pointer receivers on a resource struct.
+The naming convention for resources is that they end with a `Res` suffix.
+
+The resource struct should include an anonymous reference to the `Base` trait.
+Other `traits` can be added to the resource to add additional functionality.
+They are discussed below.
+
+You'll most likely want to store a reference to the `*Init` struct type as
+defined by the engine. This is data that the engine will provide to your
+resource on Init.
+
+Lastly you should define the public fields that make up your resource API, as
+well as any private fields that you might want to use throughout your resource.
+Do _not_ depend on global variables, since multiple copies of your resource
+could get instantiated.
+
+You'll want to add struct tags based on the different frontends that you want
+your resources to be able to use. Some frontends can infer this information if
+it is not specified, but others cannot, and some might poorly infer if the
+struct name is ambiguous.
+
+If you'd like your resource to be accessible by the `YAML` graph API (GAPI),
+then you'll need to include the appropriate YAML fields as shown below. This is
+used by the `Puppet` compiler as well, so make sure you include these struct
+tags if you want existing `Puppet` code to be able to run using the `mgmt`
+engine.
+
+#### Example
+
+```golang
+type FooRes struct {
+	traits.Base // add the base methods without re-implementation
+	traits.Groupable
+	traits.Refreshable
+
+	init *engine.Init
+
+	Whatever string `lang:"whatever" yaml:"whatever"` // you pick!
+	Baz      bool   `lang:"baz" yaml:"baz"`           // something else
+
+	something string // some private field
+}
+```
+
 ## Resource API
 
 To implement a resource in `mgmt` it must satisfy the
-[`Res`](https://github.com/purpleidea/mgmt/blob/master/resources/resources.go)
+[`Res`](https://github.com/purpleidea/mgmt/blob/master/engine/resources.go)
 interface. What follows are each of the method signatures and a description of
 each.
 
 ### Default
 
 ```golang
-Default() Res
+Default() engine.Res
 ```
 
 This returns a populated resource struct as a `Res`. It shouldn't populate any
@@ -55,9 +118,12 @@ Validate() error
 
 This method is used to validate if the populated resource struct is a valid
 representation of the resource kind. If it does not conform to the resource
-specifications, it should generate an error. If you notice that this method is
+specifications, it should return an error. If you notice that this method is
 quite large, it might be an indication that you should reconsider the parameter
-list and interface to this resource. This method is called _before_ `Init`.
+list and interface to this resource. This method is called by the engine
+_before_ `Init`. It can also be called occasionally after a Send/Recv operation
+to verify that the newly populated parameters are valid. Remember not to expect
+access to the outside world when using this.
 
 #### Example
 
@@ -67,7 +133,7 @@ func (obj *FooRes) Validate() error {
 	if obj.Answer != 42 { // validate whatever you want
 		return fmt.Errorf("expected an answer of 42")
 	}
-	return obj.BaseRes.Validate() // remember to call the base method!
+	return nil
 }
 ```
 
@@ -78,19 +144,28 @@ Init() error
 ```
 
 This is called to initialize the resource. If something goes wrong, it should
-return an error. It should do any resource specific work, and finish by calling
-the `Init` method of the base resource.
+return an error. It should do any resource specific work such as initializing
+channels, sync primitives, or anything else that is relevant to your resource.
+If it is not need throughout, it might be preferable to do some initialization
+and tear down locally in either the Watch method or CheckApply method. The
+choice depends on your particular resource and making the best decision requires
+some experience with mgmt. If you are unsure, feel free to ask an existing
+`mgmt` contributor. During `Init`, the engine will pass your resource a struct
+containing some useful data and pointers. You should save a copy of this pointer
+since you will need to use it in other parts of your resource.
 
 #### Example
 
 ```golang
 // Init initializes the Foo resource.
-func (obj *FooRes) Init() error {
+func (obj *FooRes) Init(init *engine.Init) error
+	obj.init = init // save for later
+
 	// run the resource specific initialization, and error if anything fails
 	if some_error {
 		return err // something went wrong!
 	}
-	return obj.BaseRes.Init() // call the base resource init
+	return nil
 }
 ```
 
@@ -108,7 +183,9 @@ Close() error
 
 This is called to cleanup after the resource. It is usually not necessary, but
 can be useful if you'd like to properly close a persistent connection that you
-opened in the `Init` method and were using throughout the resource.
+opened in the `Init` method and were using throughout the resource. It is *not*
+the shutdown signal that tells the resource to exit. That happens in the Watch
+loop.
 
 #### Example
 
@@ -116,21 +193,13 @@ opened in the `Init` method and were using throughout the resource.
 // Close runs some cleanup code for this resource.
 func (obj *FooRes) Close() error {
 	err := obj.conn.Close() // close some internal connection
-
-	// call base close, b/c we're overriding
-	if e := obj.BaseRes.Close(); err == nil {
-		err = e
-	} else if e != nil {
-		err = multierr.Append(err, e) // list of errors
-	}
+	obj.someMap = nil       // free up some large data structure from memory
 	return err
 }
 ```
 
 You should probably check the return errors of your internal methods, and pass
-on an error if something went wrong. Remember to always call the base `Close`
-method! If you plan to return early if you hit an internal error, then at least
-call it with a defer!
+on an error if something went wrong.
 
 ### CheckApply
 
@@ -143,7 +212,8 @@ function should check if the state of this resource is correct, and if so, it
 should return: `(true, nil)`. If the `apply` variable is set to `true`, then
 this means that we should then proceed to run the changes required to bring the
 resource into the correct state. If the `apply` variable is set to `false`, then
-the resource is operating in _noop_ mode and _no operations_ should be executed!
+the resource is operating in _noop_ mode and _no operational changes_ should be
+made!
 
 After having executed the necessary operations to bring the resource back into
 the desired state, or after having detected that the state was incorrect, but
@@ -155,8 +225,8 @@ function. If you cannot, then you must return an error! The exception to this
 rule is that if an external force changes the state of the resource while it is
 being remedied, it is possible to return from this function even though the
 resource isn't now converged. This is not a bug, as the resources `Watch`
-facility will detect the change, ultimately resulting in a subsequent call to
-`CheckApply`.
+facility will detect the new change, ultimately resulting in a subsequent call
+to `CheckApply`.
 
 #### Example
 
@@ -165,11 +235,15 @@ facility will detect the change, ultimately resulting in a subsequent call to
 func (obj *FooRes) CheckApply(apply bool) (bool, error) {
 	// check the state
 	if state_is_okay { return true, nil } // done early! :)
+
 	// state was bad
-	if !apply { return false, nil } // don't apply; !stateok, nil
+
+	if !apply { return false, nil } // don't apply, we're in noop mode
+
+	if any_error { return false, err } // anytime there's an err!
+
 	// do the apply!
 	return false, nil // after success applying
-	if any_error { return false, err } // anytime there's an err!
 }
 ```
 
@@ -179,20 +253,6 @@ the state of the resource, and no refresh call was sent, its execution might be
 skipped. This is an engine optimization, and not a bug. It is mentioned here in
 the documentation in case you are confused as to why a debug message you've
 added to the code isn't always printed.
-
-#### Refresh notifications
-
-Some resources may choose to support receiving refresh notifications. In general
-these should be avoided if possible, but nevertheless, they do make sense in
-certain situations. Resources that support these need to verify if one was sent
-during the CheckApply phase of execution. This is accomplished by calling the
-`Refresh() bool` method of the resource, and inspecting the return value. This
-is only necessary if you plan to perform a refresh action. Refresh actions
-should still respect the `apply` variable, and no system changes should be made
-if it is `false`. Refresh notifications are generated by any resource when an
-action is applied by that resource and are transmitted through graph edges which
-have enabled their propagation. Resources that currently perform some refresh
-action include `svc`, `timer`, and `password`.
 
 #### Paired execution
 
@@ -210,7 +270,7 @@ will likely find the state to now be correct.
 * If the state is correct and no changes are needed, return `(true, nil)`.
 * You should only make changes to the system if `apply` is set to `true`.
 * After checking the state and possibly applying the fix, return `(false, nil)`.
-* Returning `(true, err)` is a programming error and will cause a `Fatal`.
+* Returning `(true, err)` is a programming error and can have a negative effect.
 
 ### Watch
 
@@ -223,7 +283,7 @@ state of the resource might have changed. To send a message you should write to
 the input event channel using the `Event` helper method. The Watch function
 should run continuously until a shutdown message is received. If at any time
 something goes wrong, you should return an error, and the `mgmt` engine will
-handle possibly restarting the main loop based on the `retry` meta parameters.
+handle possibly restarting the main loop based on the `retry` meta parameter.
 
 It is better to send an event notification which turns out to be spurious, than
 to miss a possible event. Resources which can miss events are incorrect and need
@@ -248,17 +308,20 @@ The lifetime of most resources `Watch` method should be spent in an infinite
 loop that is bounded by a `select` call. The `select` call is the point where
 our method hands back control to the engine (and the kernel) so that we can
 sleep until something of interest wakes us up. In this loop we must process
-events from the engine via the `<-obj.Events()` call, and receive events for our
-resource itself!
+events from the engine via the `<-obj.init.Events` channel, and receive events
+for our resource itself!
 
 #### Events
 
-If we receive an internal event from the `<-obj.Events()` method, we can read it
-with the ReadEvent helper function. This function tells us if we should shutdown
-our resource, and if we should generate an event. When we want to send an event,
-we use the `Event` helper function. It is also important to mark the resource
-state as `dirty` if we believe it might have changed. We do this with the
-`StateOK(false)` function.
+If we receive an internal event from the `<-obj.init.Events` channel, we should
+read it with the `obj.init.Read` helper function. This function tells us if we
+should shutdown our resource. It also handles pause functionality which blocks
+our resource temporarily in this method. If this channel shuts down, then we
+should treat that as an exit signal.
+
+When we want to send an event, we use the `Event` helper function. It is also
+important to mark the resource state as `dirty` if we believe it might have
+changed. We do this by calling the `obj.init.Dirty` function.
 
 #### Startup
 
@@ -266,22 +329,17 @@ Once the `Watch` function has finished starting up successfully, it is important
 to generate one event to notify the `mgmt` engine that we're now listening
 successfully, so that it can run an initial `CheckApply` to ensure we're safely
 tracking a healthy state and that we didn't miss anything when `Watch` was down
-or from before `mgmt` was running. It does this by calling the `Running` method.
+or from before `mgmt` was running. You must do this by calling the
+`obj.init.Running` method. If it returns an error, you must exit and return that
+error.
 
 #### Converged
 
 The engine might be asked to shutdown when the entire state of the system has
 not seen any changes for some duration of time. The engine can determine this
 automatically, but each resource can block this if it is absolutely necessary.
-To do this, the `Watch` method should get the `ConvergedUID` handle that has
-been prepared for it by the engine. This is done by calling the `ConvergerUID`
-method on the resource object. The result can be used to set the converged
-status with `SetConverged`, and to notify when the particular timeout has been
-reached by waiting on `ConvergedTimer`.
-
-Instead of interacting with the `ConvergedUID` with these two methods, we can
-instead use the `StartTimer` and `ResetTimer` methods which accomplish the same
-thing, but provide a `select`-free interface for different coding situations.
+If you need this functionality, please contact one of the maintainers and ask
+about adding this feature and improving these docs right here.
 
 This particular facility is most likely not required for most resources. It may
 prove to be useful if a resource wants to start off a long operation, but avoid
@@ -297,28 +355,31 @@ func (obj *FooRes) Watch() error {
 	if err, obj.foo = OpenFoo(); err != nil {
 		return err // we couldn't startup
 	}
-	defer obj.whatever.CloseFoo() // shutdown our
+	defer obj.whatever.CloseFoo() // shutdown our Foo
 
 	// notify engine that we're running
-	if err := obj.Running(); err != nil {
-		return err // bubble up a NACK...
+	if err := obj.init.Running(); err != nil {
+		return err // exit if requested
 	}
 
 	var send = false // send event?
-	var exit *error
 	for {
 		select {
-		case event := <-obj.Events():
-			// we avoid sending events on unpause
-			if exit, send = obj.ReadEvent(event); exit != nil {
-				return *exit // exit
+		case event, ok := <-obj.init.Events:
+			if !ok {
+				// shutdown engine
+				// (it is okay if some `defer` code runs first)
+				return nil
+			}
+			if err := obj.init.Read(event); err != nil {
+				return err
 			}
 
 		// the actual events!
 		case event := <-obj.foo.Events:
 			if is_an_event {
-				send = true // used below
-				obj.StateOK(false) // dirty
+				send = true
+				obj.init.Dirty() // dirty
 			}
 
 		// event errors
@@ -329,7 +390,9 @@ func (obj *FooRes) Watch() error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.Event() // send the event!
+			if err := obj.init.Event(); err != nil {
+				return err // exit if requested
+			}
 		}
 	}
 }
@@ -337,87 +400,259 @@ func (obj *FooRes) Watch() error {
 
 #### Summary
 
-* Remember to call the appropriate `converger` methods throughout the resource.
-* Remember to call `Startup` when the `Watch` is running successfully.
+* Remember to call `Running` when the `Watch` is running successfully.
 * Remember to process internal events and shutdown promptly if asked to.
 * Ensure the design of your resource is well thought out.
 * Have a look at the existing resources for a rough idea of how this all works.
 
-### Compare
+### Cmp
 
 ```golang
-Compare(Res) bool
+Cmp(engine.Res) error
 ```
 
-Each resource must have a `Compare` method. This takes as input another resource
-and must return whether they are identical or not. This is used for identifying
-if an existing resource can be used in place of a new one with a similar set of
-parameters. In particular, when switching from one graph to a new (possibly
-identical) graph, this avoids recomputing the state for resources which don't
-change or that are sufficiently similar that they don't need to be swapped out.
+Each resource must have a `Cmp` method. It is an abbreviation for `Compare`. It
+takes as input another resource and must return whether they are identical or
+not. This is used for identifying if an existing resource can be used in place
+of a new one with a similar set of parameters. In particular, when switching
+from one graph to a new (possibly identical) graph, this avoids recomputing the
+state for resources which don't change or that are sufficiently similar that
+they don't need to be swapped out.
 
 In general if all the resource properties are identical, then they usually don't
 need to be changed. On occasion, not all of them need to be compared, in
 particular if they store some generated state, or if they aren't significant in
 some way.
 
+If the resource is identical, then you should return `nil`. If it is not, then
+you should return a short error message which gives the reason it differs.
+
 #### Example
 
 ```golang
-// Compare two resources and return if they are equivalent.
-func (obj *FooRes) Compare(r Res) bool {
+// Cmp compares two resources and returns if they are equivalent.
+func (obj *FooRes) Cmp(r engine.Res) error {
 	// we can only compare FooRes to others of the same resource kind
 	res, ok := r.(*FooRes)
 	if !ok {
-		return false
-	}
-	if !obj.BaseRes.Compare(res) { // call base Compare
-		return false
-	}
-	if obj.Name != res.Name {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
-	if obj.whatever != res.whatever {
-		return false
+	if obj.Whatever != res.Whatever {
+		return fmt.Errorf("the Whatever param differs")
 	}
 	if obj.Flag != res.Flag {
-		return false
+		return fmt.Errorf("the Flag param differs")
 	}
 
-	return true // they must match!
+	return nil // they must match!
 }
 ```
 
-### UIDs
+## Traits
+
+Resources can have different `traits`, which means they can be extended to have
+additional functionality or special properties. Those special properties are
+usually added by extending your resource so that it is compatible with
+additional interface that contain the `Res` interface. Each of these interfaces
+represents the additional functionality. Since in most cases this requires some
+common boilerplate, you can usually get some or most of the functionality by
+embedding the correct trait struct anonymously in your struct. This is shown in
+the struct example above. You'll always want to include the `Base` trait in all
+resources. This provides some basics which you'll always need.
+
+What follows are a list of available traits.
+
+### Refreshable
+
+Some resources may choose to support receiving refresh notifications. In general
+these should be avoided if possible, but nevertheless, they do make sense in
+certain situations. Resources that support these need to verify if one was sent
+during the CheckApply phase of execution. This is accomplished by calling the
+`obj.init.Refresh() bool` method, and inspecting the return value. This is only
+necessary if you plan to perform a refresh action. Refresh actions should still
+respect the `apply` variable, and no system changes should be made if it is
+`false`. Refresh notifications are generated by any resource when an action is
+applied by that resource and are transmitted through graph edges which have
+enabled their propagation. Resources that currently perform some refresh action
+include `svc`, `timer`, and `password`.
+
+It is very important that you include the `traits.Refreshable` struct in your
+resource. If you do not include this, then calling `obj.init.Refresh` may
+trigger a panic. This is programmer error.
+
+### Edgeable
+
+Edgeable is a trait that allows your resource to automatically connect itself to
+other resources that use this trait to add edge dependencies between the two. An
+older blog post on this topic is
+[available](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/).
+
+After you've included this trait, you'll need to implement two methods on your
+resource.
+
+#### UIDs
 
 ```golang
-UIDs() []ResUID
+UIDs() []engine.ResUID
 ```
 
 The `UIDs` method returns a list of `ResUID` interfaces that represent the
 particular resource uniquely. This is used with the AutoEdges API to determine
 if another resource can match a dependency to this one.
 
-### AutoEdges
+#### AutoEdges
 
 ```golang
-AutoEdges() (AutoEdge, error)
+AutoEdges() (engine.AutoEdge, error)
 ```
 
 This returns a struct that implements the `AutoEdge` interface. This struct
 is used to match other resources that might be relevant dependencies for this
 resource.
 
-### CollectPattern
+### Groupable
 
-```golang
-CollectPattern() string
-```
+Groupable is a trait that can allow your resource automatically group itself to
+other resources. Doing so can reduce the resource or runtime burden on the
+engine, and improve performance in some scenarios. An older blog post on this
+topic is
+[available](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/).
+
+### Sendable
+
+Sendable is a trait that allows your resource to send values through the graph
+edges to another resource. These values are produced during `CheckApply`. They
+can be sent to any resource that has an appropriate parameter and that has the
+`Recvable` trait. You can read more about this in the Send/Recv section below.
+
+### Recvable
+
+Recvable is a trait that allows your resource to receive values through the
+graph edges from another resource. These values are consumed during the
+`CheckApply` phase, and can be detected there as well. They can be received from
+any resource that has an appropriate value and that has the `Sendable` trait.
+You can read more about this in the Send/Recv section below.
+
+### Collectable
 
 This is currently a stub and will be updated once the DSL is further along.
 
-### UnmarshalYAML
+## Resource Initialization
+
+During the resource initialization in `Init`, the engine will pass in a struct
+containing a bunch of data and methods. What follows is a description of each
+one and how it is used.
+
+### Program
+
+Program is a string containing the name of the program. Very few resources need
+this.
+
+### Hostname
+
+Hostname is the uuid for the host. It will be occasionally useful in some
+resources. It is preferable if you can avoid depending on this. It is possible
+that in the future this will be a channel which changes if the local hostname
+changes.
+
+### Running
+
+Running must be called after your watches are all started and ready. It is only
+called from within `Watch`. It is used to notify the engine that you're now
+ready to detect changes.
+
+### Event
+
+Event sends an event notifying the engine of a possible state change. It is
+only called from within `Watch`.
+
+### Events
+
+Events is a channel that we must watch for messages from the engine. When it
+closes, this is a signal to shutdown. It is
+only called from within `Watch`.
+
+### Read
+
+Read processes messages that come in from the `Events` channel. It is a helper
+method that knows how to handle the pause mechanism correctly. It is
+only called from within `Watch`.
+
+### Dirty
+
+Dirty marks the resource state as dirty. This signals to the engine that
+CheckApply will have some work to do in order to converge it. It is
+only called from within `Watch`.
+
+### Refresh
+
+Refresh returns whether the resource received a notification. This flag can be
+used to tell a `svc` to reload, or to perform some state change that wouldn't
+otherwise be noticed by inspection alone. You must implement the `Refreshable`
+trait for this to work. It is only called from within `CheckApply`.
+
+### Send
+
+Send exposes some variables you wish to send via the `Send/Recv` mechanism. You
+must implement the `Sendable` trait for this to work. It is only called from
+within `CheckApply`.
+
+### Recv
+
+Recv provides a map of variables which were sent to this resource via the
+`Send/Recv` mechanism. You must implement the `Recvable` trait for this to work.
+It is only called from within `CheckApply`.
+
+### World
+
+World provides a connection to the outside world. This is most often used for
+communicating with the distributed database. It can be used in `Init`,
+`CheckApply` and `Watch`. Use with discretion and understanding of the internals
+if needed in `Close`.
+
+### VarDir
+
+VarDir is a facility for local storage. It is used to return a path to a
+directory which may be used for temporary storage. It should be cleaned up on
+resource `Close` if the resource would like to delete the contents. The resource
+should not assume that the initial directory is empty, and it should be cleaned
+on `Init` if that is a requirement.
+
+### Debug
+
+Debug signals whether we are running in debugging mode. In this case, we might
+want to log additional messages.
+
+### Logf
+
+Logf is a logging facility which will correctly namespace any messages which you
+wish to pass on. You should use this instead of the log package directly for
+production quality resources.
+
+## Further considerations
+
+There is some additional information that any resource writer will need to know.
+Each issue is listed separately below!
+
+### Resource registration
+
+All resources must be registered with the engine so that they can be found. This
+also ensures they can be encoded and decoded. Make sure to include the following
+code snippet for this to work.
+
+```golang
+func init() { // special golang method that runs once
+	// set your resource kind and struct here (the kind must be lower case)
+	engine.RegisterResource("foo", func() engine.Res { return &FooRes{} })
+}
+```
+
+### YAML Unmarshalling
+
+To support YAML unmarshalling for your resource, you must implement an
+additional method. It is recommended if you want to use your resource with the
+`Puppet` compiler.
 
 ```golang
 UnmarshalYAML(unmarshal func(interface{}) error) error // optional
@@ -455,105 +690,34 @@ func (obj *FooRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 ```
 
-## Further considerations
-
-There is some additional information that any resource writer will need to know.
-Each issue is listed separately below!
-
-### Resource struct
-
-Each resource will implement methods as pointer receivers on a resource struct.
-The resource struct must include an anonymous reference to the `BaseRes` struct.
-The naming convention for resources is that they end with a `Res` suffix. If
-you'd like your resource to be accessible by the `YAML` graph API (GAPI), then
-you'll need to include the appropriate YAML fields as shown below.
-
-#### Example
-
-```golang
-type FooRes struct {
-	BaseRes `yaml:",inline"` // base properties
-
-	Whatever string `yaml:"whatever"` // you pick!
-	Bar int // no yaml, used as public output value for send/recv
-	Baz bool `yaml:"baz"` // something else
-
-	something string // some private field
-}
-```
-
-### Resource registration
-
-All resources must be registered with the engine so that they can be found. This
-also ensures they can be encoded and decoded. Make sure to include the following
-code snippet for this to work.
-
-```golang
-func init() { // special golang method that runs once
-	// set your resource kind and struct here (the kind must be lower case)
-	RegisterResource("foo", func() Res { return &FooRes{} })
-}
-```
-
-## Automatic edges
-
-Automatic edges in `mgmt` are well described in [this article](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/).
-The best example of this technique can be seen in the `svc` resource.
-Unfortunately no further documentation about this subject has been written. To
-expand this section, please send a patch! Please contact us if you'd like to
-work on a resource that uses this feature, or to add it to an existing one!
-
-## Automatic grouping
-
-Automatic grouping in `mgmt` is well described in [this article](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/).
-The best example of this technique can be seen in the `pkg` resource.
-Unfortunately no further documentation about this subject has been written. To
-expand this section, please send a patch! Please contact us if you'd like to
-work on a resource that uses this feature, or to add it to an existing one!
-
 ## Send/Recv
 
 In `mgmt` there is a novel concept called _Send/Recv_. For some background,
-please [read the introductory article](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/).
+please read the [introductory article](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/).
 When using this feature, the engine will automatically send the user specified
-value to the intended destination without requiring any resource specific code.
+value to the intended destination without requiring much resource specific code.
 Any time that one of the destination values is changed, the engine automatically
 marks the resource state as `dirty`. To detect if a particular value was
-received, and if it changed (during this invocation of CheckApply) from the
-previous value, you can query the Recv parameter. It will contain a `map` of all
-the keys which can be received on, and the value has a `Changed` property which
-will indicate whether the value was updated on this particular `CheckApply`
-invocation. The type of the sending key must match that of the receiving one.
-This can _only_ be done inside of the `CheckApply` function!
+received, and if it changed (during this invocation of `CheckApply`) from the
+previous value, you can query the `obj.init.Recv()` method. It will contain a
+`map` of all the keys which can be received on, and the value has a `Changed`
+property which will indicate whether the value was updated on this particular
+`CheckApply` invocation. The type of the sending key must match that of the
+receiving one. This can _only_ be done inside of the `CheckApply` function!
 
 ```golang
 // inside CheckApply, probably near the top
-if val, exists := obj.Recv["SomeKey"]; exists {
-	log.Printf("SomeKey was sent to us from: %s.%s", val.Res, val.Key)
+if val, exists := obj.init.Recv()["SomeKey"]; exists {
+	obj.init.Logf("the SomeKey param was sent to us from: %s.%s", val.Res, val.Key)
 	if val.Changed {
-		log.Printf("SomeKey was just updated!")
+		obj.init.Logf("the SomeKey param was just updated!")
 		// you may want to invalidate some local cache
 	}
 }
 ```
 
-Astute readers will note that there isn't anything that prevents a user from
-sending an identically typed value to some arbitrary (public) key that the
-resource author hadn't considered! While this is true, resources should probably
-work within this problem space anyways. The rule of thumb is that any public
-parameter which is normally used in a resource can be used safely.
-
-One subtle scenario is that if a resource creates a local cache or stores a
-computation that depends on the value of a public parameter and will require
-invalidation should that public parameter change, then you must detect that
-scenario and invalidate the cache when it occurs. This *must* be processed
-before there is a possibility of failure in CheckApply, because if we fail (and
-possibly run again) the subsequent send->recv transfer might not have a new
-value to copy, and therefore we won't see this notification of change.
-Therefore, it is important to process these promptly, if they must not be lost,
-such as for cache invalidation.
-
-Remember, `Send/Recv` only changes your resource code if you cache state.
+The specifics of resource sending are not currently documented. Please send a
+patch here!
 
 ## Composite resources
 
@@ -623,6 +787,15 @@ us know!
 
 There are still many ideas for new resources that haven't been written yet. If
 you'd like to contribute one, please contact us and tell us about your idea!
+
+### Is the resource API stable? Does it ever change?
+
+Since we are pre 1.0, the resource API is not guaranteed to be stable, however
+it is not expected to change significantly. The last major change kept the
+core functionality nearly identical, simplified the implementation of all the
+resources, and took about five to ten minutes to port each resource to the new
+API. The fundamental logic and behaviour behind the resource API has not changed
+since it was initially introduced.
 
 ### Where can I find more information about mgmt?
 

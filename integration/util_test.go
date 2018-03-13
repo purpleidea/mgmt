@@ -41,29 +41,6 @@ func TestBinaryPath(t *testing.T) {
 	_ = fi
 }
 
-func TestCodeIndent(t *testing.T) {
-	c1 := Code(
-		`
-	$root = getenv("MGMT_TEST_ROOT")
-
-	file "${root}/mgmt-hello-world" {
-		content => "hello world from @purpleidea\n",
-		state => "exists",
-	}
-	`)
-	c2 :=
-		`$root = getenv("MGMT_TEST_ROOT")
-
-file "${root}/mgmt-hello-world" {
-	content => "hello world from @purpleidea\n",
-	state => "exists",
-}
-`
-	if c1 != c2 {
-		t.Errorf("code samples differ")
-	}
-}
-
 func TestParsePort(t *testing.T) {
 	if port, err := ParsePort("http://127.0.0.1:2379"); err != nil {
 		t.Errorf("could not determine port: %+v", err)

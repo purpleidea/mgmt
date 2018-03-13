@@ -19,13 +19,11 @@
 package yamlgraph
 
 import (
-	"errors"
 	"fmt"
-	"log"
 	"strings"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -50,18 +48,6 @@ type Edge struct {
 	Notify bool   `yaml:"notify"`
 }
 
-// ResourceData are the parameters for resource format.
-type ResourceData struct {
-	Name string `yaml:"name"`
-}
-
-// Resource is the object that unmarshalls resources.
-type Resource struct {
-	ResourceData
-	unmarshal func(interface{}) error
-	resource  resources.Res
-}
-
 // Resources is the object that unmarshalls list of resources.
 type Resources struct {
 	Resources map[string][]Resource `yaml:"resources"`
@@ -73,42 +59,19 @@ type GraphConfigData struct {
 	Collector []collectorResConfig `yaml:"collect"`
 	Edges     []Edge               `yaml:"edges"`
 	Comment   string               `yaml:"comment"`
-	Remote    string               `yaml:"remote"`
 }
 
-// GraphConfig is the data structure that describes a single graph to run.
-type GraphConfig struct {
-	GraphConfigData
-	ResList []resources.Res
+// ResourceData are the parameters for resource format.
+type ResourceData struct {
+	Name string `yaml:"name"`
 }
 
-// UnmarshalYAML unmarshalls the complete graph.
-func (c *GraphConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	// Unmarshal the graph data, except the resources
-	if err := unmarshal(&c.GraphConfigData); err != nil {
-		return err
-	}
+// Resource is the object that unmarshalls resources.
+type Resource struct {
+	ResourceData
 
-	// Unmarshal resources
-	var list Resources
-	list.Resources = map[string][]Resource{}
-	if err := unmarshal(&list); err != nil {
-		return err
-	}
-
-	// Finish unmarshalling by giving to each resource its kind
-	// and store each resource in the graph
-	for kind, resList := range list.Resources {
-		for _, res := range resList {
-			err := res.Decode(kind)
-			if err != nil {
-				return err
-			}
-			c.ResList = append(c.ResList, res.resource)
-		}
-	}
-
-	return nil
+	resource  engine.Res
+	unmarshal func(interface{}) error
 }
 
 // UnmarshalYAML is the first stage for unmarshaling of resources.
@@ -120,11 +83,16 @@ func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // Decode is the second stage for unmarshaling of resources (knowing their
 // kind).
 func (r *Resource) Decode(kind string) (err error) {
-	r.resource, err = resources.NewResource(kind)
+	if kind == "" {
+		return fmt.Errorf("can't set empty kind") // bug?
+	}
+	r.resource, err = engine.NewResource(kind)
 	if err != nil {
 		return err
 	}
 
+	// i think this erases the `SetKind` that happens with the NewResource
+	// so as a result, we need to do it again below... this is a hack...
 	err = r.unmarshal(r.resource)
 	if err != nil {
 		return err
@@ -132,25 +100,75 @@ func (r *Resource) Decode(kind string) (err error) {
 
 	// set resource name and kind
 	r.resource.SetName(r.Name)
-	r.resource.SetKind(strings.ToLower(kind)) // gets overwritten, so set it
-	// meta already gets unmarshalled properly with the correct defaults
+	r.resource.SetKind(kind)
+	// TODO: I don't think meta is getting unmarshalled properly anymore
 	return
 }
 
-// Parse parses a data stream into the graph structure.
-func (c *GraphConfig) Parse(data []byte) error {
-	if err := yaml.Unmarshal(data, c); err != nil {
+// GraphConfig is the data structure that describes a single graph to run.
+type GraphConfig struct {
+	GraphConfigData
+	ResList []engine.Res
+
+	Debug bool
+	Logf  func(format string, v ...interface{})
+}
+
+// NewGraphConfigFromFile takes data and returns the graph config structure.
+func NewGraphConfigFromFile(data []byte, debug bool, logf func(format string, v ...interface{})) (*GraphConfig, error) {
+	var config GraphConfig
+	config.Debug = debug
+	config.Logf = logf
+	if err := config.Parse(data); err != nil {
+		return nil, errwrap.Wrapf(err, "parse error")
+	}
+
+	return &config, nil
+}
+
+// UnmarshalYAML unmarshalls the complete graph.
+func (obj *GraphConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Unmarshal the graph data, except the resources
+	if err := unmarshal(&obj.GraphConfigData); err != nil {
 		return err
 	}
-	if c.Graph == "" {
-		return errors.New("graph config: invalid graph")
+
+	// unmarshal resources
+	var list Resources
+	list.Resources = map[string][]Resource{}
+	if err := unmarshal(&list); err != nil {
+		return err
+	}
+
+	// finish unmarshalling by giving to each resource its kind
+	// and store each resource in the graph
+	for kind, resList := range list.Resources {
+		for _, res := range resList {
+			err := res.Decode(kind)
+			if err != nil {
+				return err
+			}
+			obj.ResList = append(obj.ResList, res.resource)
+		}
+	}
+
+	return nil
+}
+
+// Parse parses a data stream into the graph structure.
+func (obj *GraphConfig) Parse(data []byte) error {
+	if err := yaml.Unmarshal(data, obj); err != nil {
+		return err
+	}
+	if obj.Graph == "" {
+		return fmt.Errorf("invalid graph")
 	}
 	return nil
 }
 
 // NewGraphFromConfig transforms a GraphConfig struct into a new graph.
 // FIXME: remove any possibly left over, now obsolete graph diff code from here!
-func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World, noop bool) (*pgraph.Graph, error) {
+func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, noop bool) (*pgraph.Graph, error) {
 	// hostname is the uuid for the host
 
 	var graph *pgraph.Graph // new graph to return
@@ -162,25 +180,30 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 
 	var lookup = make(map[string]map[string]pgraph.Vertex)
 
-	//log.Printf("%+v", config) // debug
-
 	// TODO: if defined (somehow)...
-	graph.SetName(c.Graph) // set graph name
+	graph.SetName(obj.Graph) // set graph name
 
-	var keep []pgraph.Vertex         // list of vertex which are the same in new graph
-	var resourceList []resources.Res // list of resources to export
+	var keep []pgraph.Vertex      // list of vertex which are the same in new graph
+	var resourceList []engine.Res // list of resources to export
 
 	// Resources
-	for _, res := range c.ResList {
-		kind := res.GetKind()
+	for _, res := range obj.ResList {
+		kind := res.Kind()
+		if kind == "" {
+			return nil, fmt.Errorf("resource has an empty kind") // bug?
+		}
 		if _, exists := lookup[kind]; !exists {
 			lookup[kind] = make(map[string]pgraph.Vertex)
 		}
 		// XXX: should we export based on a @@ prefix, or a metaparam
 		// like exported => true || exported => (host pattern)||(other pattern?)
-		if !strings.HasPrefix(res.GetName(), "@@") { // not exported resource
+		if !strings.HasPrefix(res.Name(), "@@") { // not exported resource
 			fn := func(v pgraph.Vertex) (bool, error) {
-				return resources.VtoR(v).Compare(res), nil
+				r, ok := v.(engine.Res)
+				if !ok {
+					return false, fmt.Errorf("not a Res")
+				}
+				return engine.ResCmp(r, res) == nil, nil
 			}
 			v, err := graph.VertexMatchFn(fn)
 			if err != nil {
@@ -190,12 +213,12 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 				v = res            // a standalone res can be a vertex
 				graph.AddVertex(v) // call standalone in case not part of an edge
 			}
-			lookup[kind][res.GetName()] = v // used for constructing edges
-			keep = append(keep, v)          // append
+			lookup[kind][res.Name()] = v // used for constructing edges
+			keep = append(keep, v)       // append
 
 		} else if !noop { // do not export any resources if noop
 			// store for addition to backend storage...
-			res.SetName(res.GetName()[2:]) // slice off @@
+			res.SetName(res.Name()[2:]) // slice off @@
 			resourceList = append(resourceList, res)
 		}
 	}
@@ -208,7 +231,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 	// lookup from backend (usually etcd)
 	var hostnameFilter []string // empty to get from everyone
 	kindFilter := []string{}
-	for _, t := range c.Collector {
+	for _, t := range obj.Collector {
 		kind := strings.ToLower(t.Kind)
 		kindFilter = append(kindFilter, kind)
 	}
@@ -224,40 +247,48 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 	for _, res := range resourceList {
 		matched := false
 		// see if we find a collect pattern that matches
-		for _, t := range c.Collector {
+		for _, t := range obj.Collector {
 			kind := strings.ToLower(t.Kind)
 			// use t.Kind and optionally t.Pattern to collect from storage
-			log.Printf("Collect: %v; Pattern: %v", kind, t.Pattern)
+			obj.Logf("collect: %s; pattern: %v", kind, t.Pattern)
 
 			// XXX: expand to more complex pattern matching here...
-			if res.GetKind() != kind {
+			if res.Kind() != kind {
 				continue
 			}
 
 			if matched {
 				// we've already matched this resource, should we match again?
-				log.Printf("Config: Warning: Matching %s again!", res)
+				obj.Logf("warning: matching %s again!", res)
 			}
 			matched = true
 
 			// collect resources but add the noop metaparam
-			//if noop { // now done in mgmtmain
-			//	res.Meta().Noop = noop
+			//if noop { // now done in main lib
+			//	res.MetaParams().Noop = noop
 			//}
 
 			if t.Pattern != "" { // XXX: simplistic for now
-				res.CollectPattern(t.Pattern) // res.Dirname = t.Pattern
+				if xres, ok := res.(engine.CollectableRes); ok {
+					xres.CollectPattern(t.Pattern) // res.Dirname = t.Pattern
+				}
 			}
 
-			log.Printf("Collect: %s: collected!", res)
+			obj.Logf("collected: %s", res)
 
 			// XXX: similar to other resource add code:
 			if _, exists := lookup[kind]; !exists {
 				lookup[kind] = make(map[string]pgraph.Vertex)
 			}
 
+			// FIXME: do we need to expand this match function with
+			// the additional Cmp properties found in Meta, etc...?
 			fn := func(v pgraph.Vertex) (bool, error) {
-				return resources.VtoR(v).Compare(res), nil
+				r, ok := v.(engine.Res)
+				if !ok {
+					return false, fmt.Errorf("not a Res")
+				}
+				return engine.ResCmp(r, res) == nil, nil
 			}
 			v, err := graph.VertexMatchFn(fn)
 			if err != nil {
@@ -267,14 +298,14 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 				v = res            // a standalone res can be a vertex
 				graph.AddVertex(v) // call standalone in case not part of an edge
 			}
-			lookup[kind][res.GetName()] = v // used for constructing edges
-			keep = append(keep, v)          // append
+			lookup[kind][res.Name()] = v // used for constructing edges
+			keep = append(keep, v)       // append
 
 			//break // let's see if another resource even matches
 		}
 	}
 
-	for _, e := range c.Edges {
+	for _, e := range obj.Edges {
 		if _, ok := lookup[strings.ToLower(e.From.Kind)]; !ok {
 			return nil, fmt.Errorf("can't find 'from' resource")
 		}
@@ -289,7 +320,7 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 		}
 		from := lookup[strings.ToLower(e.From.Kind)][e.From.Name]
 		to := lookup[strings.ToLower(e.To.Kind)][e.To.Name]
-		edge := &resources.Edge{
+		edge := &engine.Edge{
 			Name:   e.Name,
 			Notify: e.Notify,
 		}
@@ -297,15 +328,4 @@ func (c *GraphConfig) NewGraphFromConfig(hostname string, world resources.World,
 	}
 
 	return graph, nil
-}
-
-// ParseConfigFromFile takes a filename and returns the graph config structure.
-func ParseConfigFromFile(data []byte) *GraphConfig {
-	var config GraphConfig
-	if err := config.Parse(data); err != nil {
-		log.Printf("Config: Error: ParseConfigFromFile: Parse: %v", err)
-		return nil
-	}
-
-	return &config
 }

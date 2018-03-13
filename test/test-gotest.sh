@@ -16,12 +16,12 @@ function run-test()
 base=$(go list .)
 if [[ "$@" = *"--integration"* ]]; then
 	if [[ "$@" = *"--race"* ]]; then
-		run-test go test -race "${base}/integration/"
+		run-test go test -race "${base}/integration" -v
 	else
-		run-test go test "${base}/integration/"
+		run-test go test "${base}/integration" -v
 	fi
 else
-	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old/" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
+	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
 		echo -e "\ttesting: $pkg"
 		if [[ "$@" = *"--race"* ]]; then
 			run-test go test -race "$pkg"

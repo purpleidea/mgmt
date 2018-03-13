@@ -9,6 +9,8 @@ fi
 set -o errexit
 set -o pipefail
 
+. ../util.sh
+
 # Expected load average values eg: load average: 1.64306640625, 1.8076171875, 1.82958984375
 # High precision results are preferred (more than the 2 digits in /proc/loadavg at least).
 # Precision varies (eg: 4, 9 or 11 digits). Hence no strict check for precision but
@@ -17,6 +19,10 @@ set -o pipefail
 regex="load average: [0-9]\,[0-9]{3,}, [0-9]\,[0-9]{3,}, [0-9]\,[0-9]{3,}"
 
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
+if [[ ! "$tmpdir" =~ "/tmp" ]]; then
+	echo "unexpected tmpdir in: ${tmpdir}"
+	exit 99
+fi
 
 cat > "$tmpdir/load0.mcl" <<EOF
 \$theload = load()
@@ -39,6 +45,10 @@ e=$?
 set +e
 egrep "$regex" "$tmpdir/loadavg" || fail_test "Could not match $tmpdir/loadavg to '$regex'."
 
+if [ "$tmpdir" = "" ]; then
+	echo "BUG, tried to delete empty string path"
+	exit 99
+fi
 # cleanup if everything went well
 rm -r "$tmpdir"
 

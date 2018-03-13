@@ -20,7 +20,6 @@ package pgraph
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
@@ -274,15 +273,11 @@ func (g *Graph) Sprint() string {
 	return strings.TrimSuffix(str, "\n") // trim off trailing \n if it exists
 }
 
-// Logf logs a printed representation of the graph with the printf-format string
-// prefix of your choice. This is helpful to ensure each line of logged output
-// has the prefix you asked for.
-func (g *Graph) Logf(format string, v ...interface{}) {
-	w := []interface{}{}
-	w = append(w, v...)
+// Logf logs a printed representation of the graph with the logf of your choice.
+// This is helpful to ensure each line of logged output has the prefix you want.
+func (g *Graph) Logf(logf func(format string, v ...interface{})) {
 	for _, x := range strings.Split(g.Sprint(), "\n") {
-		a := append(w, x) // x must be the last arg
-		log.Printf(format+"%s", a...)
+		logf("%s", x)
 	}
 }
 
@@ -516,22 +511,30 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 // actually return a tree if we cared about correctness.
 // This operates by a recursive algorithm; a more efficient version is likely.
 // If you don't give this function a DAG, you might cause infinite recursion!
-func (g *Graph) Reachability(a, b Vertex) []Vertex {
+func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 	if a == nil || b == nil {
-		return nil
+		return nil, fmt.Errorf("empty vertex")
 	}
+	if _, err := g.TopologicalSort(); err != nil {
+		return nil, err // not a dag?
+	}
+
 	vertices := g.OutgoingGraphVertices(a) // what points away from a ?
 	if len(vertices) == 0 {
-		return []Vertex{} // nope
+		return []Vertex{}, nil // nope
 	}
 	if VertexContains(b, vertices) {
-		return []Vertex{a, b} // found
+		return []Vertex{a, b}, nil // found
 	}
 	// TODO: parallelize this with go routines?
 	var collected = make([][]Vertex, len(vertices))
+	var err error
 	pick := -1
 	for i, v := range vertices {
-		collected[i] = g.Reachability(v, b) // find b by recursion
+		collected[i], err = g.Reachability(v, b) // find b by recursion
+		if err != nil {
+			return nil, err
+		}
 		if l := len(collected[i]); l > 0 {
 			// pick shortest path
 			// TODO: technically i should return a tree
@@ -541,11 +544,11 @@ func (g *Graph) Reachability(a, b Vertex) []Vertex {
 		}
 	}
 	if pick < 0 {
-		return []Vertex{} // nope
+		return []Vertex{}, nil // nope
 	}
 	result := []Vertex{a} // tack on a
 	result = append(result, collected[pick]...)
-	return result
+	return result, nil
 }
 
 // VertexMatchFn searches for a vertex in the graph and returns the vertex if

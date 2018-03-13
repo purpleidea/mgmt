@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
 	"github.com/urfave/cli"
@@ -54,7 +55,7 @@ func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *MyGAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *MyGAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(obj.Name); c.IsSet(obj.Name) {
 		if s != "" {
 			return nil, fmt.Errorf("input is not empty")
@@ -103,27 +104,13 @@ func (obj *MyGAPI) subGraph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	metaparams := resources.DefaultMetaParams
-
 	f1 := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "file1",
-			Kind:       "file",
-			MetaParams: metaparams,
-		},
-		Path: "/tmp/mgmt/sub1",
-
+		Path:  "/tmp/mgmt/sub1",
 		State: "present",
 	}
 	g.AddVertex(f1)
 
-	n1 := &resources.NoopRes{
-		BaseRes: resources.BaseRes{
-			Name:       "noop1",
-			Kind:       "noop",
-			MetaParams: metaparams,
-		},
-	}
+	n1 := &resources.NoopRes{}
 	g.AddVertex(n1)
 
 	return g, nil
@@ -140,14 +127,8 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	metaparams := resources.DefaultMetaParams
-
 	content := "I created a subgraph!\n"
 	f0 := &resources.FileRes{
-		BaseRes: resources.BaseRes{
-			Name:       "README",
-			MetaParams: metaparams,
-		},
 		Path:    "/tmp/mgmt/README",
 		Content: &content,
 		State:   "present",
@@ -160,7 +141,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	}
 
 	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-		edge := &resources.Edge{
+		edge := &engine.Edge{
 			Name: fmt.Sprintf("edge: %s->%s", v1, v2),
 		}
 

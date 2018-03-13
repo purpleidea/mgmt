@@ -20,9 +20,9 @@ package lang // TODO: move this into a sub package of lang/$name?
 import (
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core"       // import so the funcs register
 	_ "github.com/purpleidea/mgmt/lang/funcs/facts/core" // import so the facts register
@@ -31,7 +31,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	errwrap "github.com/pkg/errors"
 )
@@ -50,8 +49,9 @@ const (
 type Lang struct {
 	Input    io.Reader // os.Stdin or anything that satisfies this interface
 	Hostname string
-	World    resources.World
+	World    engine.World
 	Debug    bool
+	Logf     func(format string, v ...interface{})
 
 	ast   interfaces.Stmt // store main prog AST here
 	funcs *funcs.Engine   // function event engine
@@ -79,13 +79,13 @@ func (obj *Lang) Init() error {
 	loadedSignal := func() { close(obj.loadedChan) } // only run once!
 
 	// run the lexer/parser and build an AST
-	log.Printf("%s: Lexing/Parsing...", Name)
+	obj.Logf("lexing/parsing...")
 	ast, err := LexParse(obj.Input)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate AST")
 	}
 	if obj.Debug {
-		log.Printf("%s: behold, the AST: %+v", Name, ast)
+		obj.Logf("behold, the AST: %+v", ast)
 	}
 
 	// TODO: should we validate the structure of the AST?
@@ -94,7 +94,7 @@ func (obj *Lang) Init() error {
 	//	return errwrap.Wrapf(err, "could not validate AST")
 	//}
 
-	log.Printf("%s: Interpolating...", Name)
+	obj.Logf("interpolating...")
 	// interpolate strings and other expansionable nodes in AST
 	interpolated, err := ast.Interpolate()
 	if err != nil {
@@ -111,7 +111,7 @@ func (obj *Lang) Init() error {
 		},
 	}
 
-	log.Printf("%s: Building Scope...", Name)
+	obj.Logf("building scope...")
 	// propagate the scope down through the AST...
 	if err := obj.ast.SetScope(scope); err != nil {
 		return errwrap.Wrapf(err, "could not set scope")
@@ -120,15 +120,15 @@ func (obj *Lang) Init() error {
 	// apply type unification
 	logf := func(format string, v ...interface{}) {
 		if obj.Debug { // unification only has debug messages...
-			log.Printf(Name+": unification: "+format, v...)
+			obj.Logf("unification: "+format, v...)
 		}
 	}
-	log.Printf("%s: Running Type Unification...", Name)
+	obj.Logf("running type unification...")
 	if err := unification.Unify(obj.ast, unification.SimpleInvariantSolverLogger(logf)); err != nil {
 		return errwrap.Wrapf(err, "could not unify types")
 	}
 
-	log.Printf("%s: Building Function Graph...", Name)
+	obj.Logf("building function graph...")
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
 	graph, err := obj.ast.Graph() // build the graph of functions
@@ -137,24 +137,24 @@ func (obj *Lang) Init() error {
 	}
 
 	if obj.Debug {
-		log.Printf("%s: function graph: %+v", Name, graph)
-		graph.Logf("%s: ", Name) // log graph with this printf prefix...
+		obj.Logf("function graph: %+v", graph)
+		graph.Logf(obj.Logf) // log graph output with this logger...
 	}
 
 	if graph.NumVertices() == 0 { // no funcs to load!
 		// send only one signal since we won't ever send after this!
-		log.Printf("%s: Static graph found", Name)
+		obj.Logf("static graph found")
 		obj.wg.Add(1)
 		go func() {
 			defer obj.wg.Done()
 			defer close(obj.streamChan) // no more events are coming!
+			close(obj.loadedChan)       // signal
 			select {
 			case obj.streamChan <- nil: // send one signal
 				// pass
 			case <-obj.closeChan:
 				return
 			}
-			close(obj.loadedChan) // signal
 		}()
 		return nil // exit early, no funcs to load!
 	}
@@ -165,22 +165,22 @@ func (obj *Lang) Init() error {
 		World:    obj.World,
 		Debug:    obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf(Name+": funcs: "+format, v...)
+			obj.Logf("funcs: "+format, v...)
 		},
 		Glitch: false, // FIXME: verify this functionality is perfect!
 	}
 
-	log.Printf("%s: Function Engine Initializing...", Name)
+	obj.Logf("function engine initializing...")
 	if err := obj.funcs.Init(); err != nil {
 		return errwrap.Wrapf(err, "init error with func engine")
 	}
 
-	log.Printf("%s: Function Engine Validating...", Name)
+	obj.Logf("function engine validating...")
 	if err := obj.funcs.Validate(); err != nil {
 		return errwrap.Wrapf(err, "validate error with func engine")
 	}
 
-	log.Printf("%s: Function Engine Starting...", Name)
+	obj.Logf("function engine starting...")
 	// On failure, we expect the caller to run Close() to shutdown all of
 	// the currently initialized (and running) funcs... This is needed if
 	// we successfully ran `Run` but isn't needed only for Init/Validate.
@@ -189,11 +189,11 @@ func (obj *Lang) Init() error {
 	}
 
 	// wait for some activity
-	log.Printf("%s: Stream...", Name)
+	obj.Logf("stream...")
 	stream := obj.funcs.Stream()
 	obj.wg.Add(1)
 	go func() {
-		log.Printf("%s: Loop...", Name)
+		obj.Logf("loop...")
 		defer obj.wg.Done()
 		defer close(obj.streamChan) // no more events are coming!
 		for {
@@ -202,7 +202,7 @@ func (obj *Lang) Init() error {
 			select {
 			case err, ok = <-stream:
 				if !ok {
-					log.Printf("%s: Stream closed", Name)
+					obj.Logf("stream closed")
 					return
 				}
 				if err == nil {
@@ -217,7 +217,7 @@ func (obj *Lang) Init() error {
 			select {
 			case obj.streamChan <- err: // send
 				if err != nil {
-					log.Printf("%s: Stream error: %+v", Name, err)
+					obj.Logf("Stream error: %+v", err)
 					return
 				}
 
@@ -246,7 +246,7 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("funcs aren't loaded yet")
 	}
 
-	log.Printf("%s: Running interpret...", Name)
+	obj.Logf("running interpret...")
 	if obj.funcs != nil { // no need to rlock if we have a static graph
 		obj.funcs.RLock()
 	}

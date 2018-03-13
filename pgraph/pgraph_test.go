@@ -384,14 +384,16 @@ func TestTopoSort2(t *testing.T) {
 func TestReachability0(t *testing.T) {
 	{
 		G, _ := NewGraph("g")
-		result := G.Reachability(nil, nil)
-		if result != nil {
-			t.Logf("reachability failed")
-			str := "Got:"
-			for _, v := range result {
-				str += " " + v.String()
+		result, err := G.Reachability(nil, nil)
+		if err != nil {
+			t.Logf("reachability failed: %+v", err)
+			if result != nil {
+				str := "Got:"
+				for _, v := range result {
+					str += " " + v.String()
+				}
+				t.Errorf(str)
 			}
-			t.Errorf(str)
 		}
 	}
 	{
@@ -399,7 +401,11 @@ func TestReachability0(t *testing.T) {
 		v1 := NV("v1")
 		v6 := NV("v6")
 
-		result := G.Reachability(v1, v6)
+		result, err := G.Reachability(v1, v6)
+		if err != nil {
+			t.Logf("reachability failed: %+v", err)
+			return
+		}
 		expected := []Vertex{}
 
 		if !reflect.DeepEqual(result, expected) {
@@ -430,7 +436,11 @@ func TestReachability0(t *testing.T) {
 		G.AddEdge(v3, v4, e4)
 		G.AddEdge(v3, v5, e5)
 
-		result := G.Reachability(v1, v6)
+		result, err := G.Reachability(v1, v6)
+		if err != nil {
+			t.Logf("reachability failed: %+v", err)
+			return
+		}
 		expected := []Vertex{}
 
 		if !reflect.DeepEqual(result, expected) {
@@ -465,7 +475,11 @@ func TestReachability1(t *testing.T) {
 	G.AddEdge(v4, v5, e4)
 	G.AddEdge(v5, v6, e5)
 
-	result := G.Reachability(v1, v6)
+	result, err := G.Reachability(v1, v6)
+	if err != nil {
+		t.Logf("reachability failed: %+v", err)
+		return
+	}
 	expected := []Vertex{v1, v2, v3, v4, v5, v6}
 
 	if !reflect.DeepEqual(result, expected) {
@@ -500,7 +514,11 @@ func TestReachability2(t *testing.T) {
 	G.AddEdge(v4, v5, e5)
 	G.AddEdge(v5, v6, e6)
 
-	result := G.Reachability(v1, v6)
+	result, err := G.Reachability(v1, v6)
+	if err != nil {
+		t.Logf("reachability failed: %+v", err)
+		return
+	}
 	expected1 := []Vertex{v1, v2, v4, v5, v6}
 	expected2 := []Vertex{v1, v3, v4, v5, v6}
 
@@ -537,7 +555,11 @@ func TestReachability3(t *testing.T) {
 	G.AddEdge(v1, v5, e5)
 	G.AddEdge(v5, v6, e6)
 
-	result := G.Reachability(v1, v6)
+	result, err := G.Reachability(v1, v6)
+	if err != nil {
+		t.Logf("reachability failed: %+v", err)
+		return
+	}
 	expected := []Vertex{v1, v5, v6}
 
 	if !reflect.DeepEqual(result, expected) {
@@ -572,7 +594,11 @@ func TestReachability4(t *testing.T) {
 	G.AddEdge(v5, v6, e5)
 	G.AddEdge(v1, v6, e6)
 
-	result := G.Reachability(v1, v6)
+	result, err := G.Reachability(v1, v6)
+	if err != nil {
+		t.Logf("reachability failed: %+v", err)
+		return
+	}
 	expected := []Vertex{v1, v6}
 
 	if !reflect.DeepEqual(result, expected) {

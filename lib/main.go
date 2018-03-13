@@ -27,12 +27,16 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/converger"
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/graph"
+	"github.com/purpleidea/mgmt/engine/graph/autogroup"
+	_ "github.com/purpleidea/mgmt/engine/resources" // let register's run
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/gapi"
+	"github.com/purpleidea/mgmt/gapi/empty"
 	"github.com/purpleidea/mgmt/pgp"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/prometheus"
-	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
 
 	etcdtypes "github.com/coreos/etcd/pkg/types"
@@ -61,7 +65,7 @@ type Main struct {
 	AllowTmpPrefix bool    // allow creation of a new temporary prefix if main prefix is unavailable
 
 	Deploy   *gapi.Deploy // deploy object including GAPI for static deploys
-	DeployFs resources.Fs // used for static deploys
+	DeployFs engine.Fs    // used for static deploys
 
 	NoWatch       bool // do not change graph under any circumstances
 	NoConfigWatch bool // do not update graph due to config changes
@@ -99,12 +103,14 @@ type Main struct {
 	Prometheus       bool   // enable prometheus metrics
 	PrometheusListen string // prometheus instance bind specification
 
-	exit chan error // exit signal
+	ge *graph.Engine
+
+	exit    *util.EasyExit // exit signal
+	cleanup []func() error // list of functions to run on close
 }
 
-// Init initializes the main struct after it performs some validation.
-func (obj *Main) Init() error {
-
+// Validate validates the main structure without making any modifications to it.
+func (obj *Main) Validate() error {
 	if obj.Program == "" || obj.Version == "" {
 		return fmt.Errorf("you must set the Program and Version strings")
 	}
@@ -113,6 +119,11 @@ func (obj *Main) Init() error {
 		return fmt.Errorf("choosing a prefix and the request for a tmp prefix is illogical")
 	}
 
+	return nil
+}
+
+// Init initializes the main struct after it performs some validation.
+func (obj *Main) Init() error {
 	// if we've turned off watching, then be explicit and disable them all!
 	// if all the watches are disabled, then it's equivalent to no watching
 	if obj.NoWatch {
@@ -164,19 +175,21 @@ func (obj *Main) Init() error {
 		return errwrap.Wrapf(err, "the AdvertiseServerURLs didn't parse correctly")
 	}
 
-	obj.exit = make(chan error)
+	obj.exit = util.NewEasyExit()
+	obj.cleanup = []func() error{}
 	return nil
-}
-
-// Exit causes a safe shutdown. This is often attached to the ^C signal handler.
-func (obj *Main) Exit(err error) {
-	obj.exit <- err // trigger an exit!
 }
 
 // Run is the main execution entrypoint to run mgmt.
 func (obj *Main) Run() error {
+	Logf := func(format string, v ...interface{}) {
+		log.Printf("main: "+format, v...)
+	}
 
 	hello(obj.Program, obj.Version, obj.Flags) // say hello!
+	defer Logf("Goodbye!")
+
+	defer obj.exit.Done(nil) // ensure this gets called even if Exit doesn't
 
 	hostname, err := os.Hostname() // a sensible default
 	// allow passing in the hostname, instead of using the system setting
@@ -200,17 +213,13 @@ func (obj *Main) Run() error {
 			if prefix, err = ioutil.TempDir("", obj.Program+"-"+hostname+"-"); err != nil {
 				return fmt.Errorf("can't create temporary prefix")
 			}
-			log.Println("Main: Warning: Working prefix directory is temporary!")
+			Logf("warning: working prefix directory is temporary!")
 
 		} else {
 			return fmt.Errorf("can't create prefix")
 		}
 	}
-	log.Printf("Main: Working prefix is: %s", prefix)
-	pgraphPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgraph")) // pgraph namespace
-	if err := os.MkdirAll(pgraphPrefix, 0770); err != nil {
-		return errwrap.Wrapf(err, "can't create pgraph prefix")
-	}
+	Logf("working prefix is: %s", prefix)
 
 	var prom *prometheus.Prometheus
 	if obj.Prometheus {
@@ -218,17 +227,24 @@ func (obj *Main) Run() error {
 			Listen: obj.PrometheusListen,
 		}
 		if err := prom.Init(); err != nil {
-			return errwrap.Wrapf(err, "can't create initiate Prometheus instance")
+			return errwrap.Wrapf(err, "can't initialize prometheus instance")
 		}
 
-		log.Printf("Main: Prometheus: Starting instance on %s", prom.Listen)
+		Logf("prometheus: starting instance on: %s", prom.Listen)
 		if err := prom.Start(); err != nil {
-			return errwrap.Wrapf(err, "can't start initiate Prometheus instance")
+			return errwrap.Wrapf(err, "can't start prometheus instance")
 		}
 
-		if err := prom.InitKindMetrics(resources.RegisteredResourcesNames()); err != nil {
+		if err := prom.InitKindMetrics(engine.RegisteredResourcesNames()); err != nil {
 			return errwrap.Wrapf(err, "can't initialize kind-specific prometheus metrics")
 		}
+		obj.cleanup = append(obj.cleanup, func() error {
+			Logf("prometheus: stopping instance")
+			if err := prom.Stop(); err != nil {
+				return errwrap.Wrapf(err, "the prometheus instance exited poorly")
+			}
+			return nil
+		})
 	}
 
 	if !obj.NoPgp {
@@ -249,7 +265,6 @@ func (obj *Main) Run() error {
 		}
 
 		if obj.pgpKeys == nil {
-
 			identity := fmt.Sprintf("%s <%s> %s", obj.Program, "root@"+hostname, "generated by "+obj.Program)
 			if p := obj.PgpIdentity; p != nil {
 				identity = *p
@@ -274,36 +289,59 @@ func (obj *Main) Run() error {
 		// TODO: Import admin key
 	}
 
-	oldGraph := &pgraph.Graph{}
-	graph := &resources.MGraph{}
-	// pass in the information we need
-	graph.Debug = obj.Flags.Debug
-	graph.Init()
+	exitchan := make(chan struct{}) // exit on close
+	wg := &sync.WaitGroup{}         // waitgroup for inner loop & goroutines
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := obj.MaxRuntime; i > 0 {
+		wg.Add(1)
 		go func() {
-			time.Sleep(time.Duration(i) * time.Second)
-			obj.Exit(nil)
+			defer wg.Done()
+			select {
+			case <-time.After(time.Duration(i) * time.Second):
+				obj.exit.Done(fmt.Errorf("max runtime reached")) // trigger exit signal
+			case <-obj.exit.Signal(): // exit early on exit signal
+				return
+			}
 		}()
 	}
 
 	// setup converger
 	converger := converger.NewConverger(
 		obj.ConvergedTimeout,
-		nil, // stateFn gets added in by EmbdEtcd
 	)
+	if obj.ConvergedStatusFile != "" {
+		converger.AddStateFn("status-file", func(converged bool) error {
+			Logf("converged status is: %t", converged)
+			return appendConvergedStatus(obj.ConvergedStatusFile, converged)
+		})
+	}
+
+	if obj.ConvergedTimeout >= 0 && !obj.ConvergedTimeoutNoExit {
+		converger.AddStateFn("converged-exit", func(converged bool) error {
+			if converged {
+				Logf("converged for %d seconds, exiting!", obj.ConvergedTimeout)
+				obj.exit.Done(nil) // trigger an exit!
+			}
+			return nil
+		})
+	}
+
+	// XXX: should this be moved to later in the code?
 	go converger.Loop(true) // main loop for converger, true to start paused
-	// TODO: will this shut things down prematurely?
-	converger.Start() // better start this anyways...
+	obj.cleanup = append(obj.cleanup, func() error {
+		// TODO: shutdown converger, but make sure that using it in a
+		// still running embdEtcd struct doesn't block waiting on it...
+		return nil
+	})
 
 	// embedded etcd
 	if len(obj.seeds) == 0 {
-		log.Printf("Main: Seeds: No seeds specified!")
+		Logf("etcd: seeds: no seeds specified!")
 	} else {
-		log.Printf("Main: Seeds(%d): %v", len(obj.seeds), obj.seeds)
+		Logf("etcd: seeds(%d): %+v", len(obj.seeds), obj.seeds)
 	}
-	EmbdEtcd := etcd.NewEmbdEtcd(
+	embdEtcd := etcd.NewEmbdEtcd(
 		hostname,
 		obj.seeds,
 		obj.clientURLs,
@@ -320,62 +358,32 @@ func (obj *Main) Run() error {
 		prefix,
 		converger,
 	)
-	if EmbdEtcd == nil {
-		// TODO: verify EmbdEtcd is not nil below...
-		obj.Exit(fmt.Errorf("Main: Etcd: Creation failed"))
-	} else if err := EmbdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
-		obj.Exit(fmt.Errorf("Main: Etcd: Startup failed: %v", err))
+	if embdEtcd == nil {
+		return fmt.Errorf("etcd: creation failed")
+	} else if err := embdEtcd.Startup(); err != nil { // startup (returns when etcd main loop is running)
+		return errwrap.Wrapf(err, "etcd: startup failed")
 	}
+	obj.cleanup = append(obj.cleanup, func() error {
+		// cleanup etcd main loop last so it can process everything first
+		err := embdEtcd.Destroy() // shutdown and cleanup etcd
+		return errwrap.Wrapf(err, "etcd: exited poorly")
+	})
 
 	// wait for etcd server to be ready before continuing...
 	// XXX: this is wrong if we're not going to be a server! we'll block!!!
 	//	select {
-	//	case <-EmbdEtcd.ServerReady():
-	//		log.Printf("Main: Etcd: Server: Ready!")
+	//	case <-embdEtcd.ServerReady():
+	//		Logf("etcd: server: ready!")
 	//		// pass
 	//	case <-time.After(((etcd.MaxStartServerTimeout * etcd.MaxStartServerRetries) + 1) * time.Second):
-	//		obj.Exit(fmt.Errorf("Main: Etcd: Startup timeout"))
+	//		return fmt.Errorf("etcd: startup timeout")
 	//	}
-
 	time.Sleep(1 * time.Second) // XXX: temporary workaround
 
-	convergerStateFn := func(b bool) error {
-		var err error
-		if obj.ConvergedStatusFile != "" {
-			if obj.Flags.Debug {
-				log.Printf("Main: Converged status is: %t", b)
-			}
-			err = appendConvergedStatus(obj.ConvergedStatusFile, b)
-		}
-
-		// exit if we are using the converged timeout and we are the
-		// root node. otherwise, if we are a child node in a remote
-		// execution hierarchy, we should only notify our converged
-		// state and wait for the parent to trigger the exit.
-		if t := obj.ConvergedTimeout; t >= 0 {
-			if b && !obj.ConvergedTimeoutNoExit {
-				log.Printf("Main: Converged for %d seconds, exiting!", t)
-				obj.Exit(nil) // trigger an exit!
-			}
-			return err
-		}
-		// send our individual state into etcd for others to see
-		e := etcd.SetHostnameConverged(EmbdEtcd, hostname, b) // TODO: what should happen on error?
-		if err == nil {
-			return e
-		} else if e != nil {
-			err = multierr.Append(err, e) // list of errors
-		}
-		return err
-	}
-	if EmbdEtcd != nil {
-		converger.SetStateFn(convergerStateFn)
-	}
-
-	// implementation of the World API (alternates can be substituted in)
+	// implementation of the World API (alternatives can be substituted in)
 	world := &etcd.World{
 		Hostname:       hostname,
-		EmbdEtcd:       EmbdEtcd,
+		EmbdEtcd:       embdEtcd,
 		MetadataPrefix: MetadataPrefix,
 		StoragePrefix:  StoragePrefix,
 		StandaloneFs:   obj.DeployFs, // used for static deploys
@@ -385,21 +393,26 @@ func (obj *Main) Run() error {
 		},
 	}
 
-	graph.Data = &resources.ResData{
-		Hostname:   hostname,
-		Converger:  converger,
-		Prometheus: prom,
-		World:      world,
-		Prefix:     pgraphPrefix,
-		Debug:      obj.Flags.Debug,
+	obj.ge = &graph.Engine{
+		Program:   obj.Program,
+		Hostname:  hostname,
+		World:     world,
+		Prefix:    fmt.Sprintf("%s/", path.Join(prefix, "engine")),
+		Converger: converger,
+		//Prometheus: prom, // TODO: implement this via a general Status API
+		Debug: obj.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf("resources: "+format, v...)
+			log.Printf("engine: "+format, v...)
 		},
 	}
 
-	exitchan := make(chan struct{}) // exit on close
-	wg := &sync.WaitGroup{}         // waitgroup for inner loop (go routine)
+	if err := obj.ge.Init(); err != nil {
+		return errwrap.Wrapf(err, "engine: creation failed")
+	}
+	// After this point, the inner "main loop" must run, so that the engine
+	// can get closed with the deploy close via the deploy chan shutdown...
 
+	// main loop logic starts here
 	deployChan := make(chan *gapi.Deploy)
 	var gapiImpl gapi.GAPI // active GAPI implementation
 	gapiImpl = nil         // starts off missing
@@ -408,47 +421,53 @@ func (obj *Main) Run() error {
 	gapiChan = nil              // starts off blocked
 	wg.Add(1)
 	go func() {
+		defer Logf("loop: exited")
 		defer wg.Done()
-		first := true // first loop or not
+		started := false // track engine started state
 		var mainDeploy *gapi.Deploy
 		for {
-			log.Println("Main: Waiting...")
+			Logf("waiting...")
 			// The GAPI should always kick off an event on Next() at
 			// startup when (and if) it indeed has a graph to share!
 			fastPause := false
 			select {
 			case deploy, ok := <-deployChan:
 				if !ok { // channel closed
-					if obj.Flags.Debug {
-						log.Printf("Main: Deploy: exited")
-					}
+					Logf("deploy: exited")
 					deployChan = nil // disable it
 
 					if gapiImpl != nil { // currently running...
 						gapiChan = nil
 						if err := gapiImpl.Close(); err != nil {
-							err = errwrap.Wrapf(err, "the GAPI closed poorly")
-							log.Printf("Main: Deploy: GAPI: Final close failed: %+v", err)
+							err = errwrap.Wrapf(err, "the gapi closed poorly")
+							Logf("deploy: gapi: final close failed: %+v", err)
 						}
 					}
+
+					if started {
+						obj.ge.Pause(false)
+					}
+					// must be paused before this is run
+					obj.ge.Close()
+
 					return // this is the only place we exit
 				}
 				if deploy == nil {
-					log.Printf("Main: Deploy: Received empty deploy")
+					Logf("deploy: received empty deploy")
 					continue
 				}
 				mainDeploy = deploy // save this one
 				gapiObj := mainDeploy.GAPI
 				if gapiObj == nil {
-					log.Printf("Main: Deploy: Received empty GAPI")
+					Logf("deploy: received empty gapi")
 					continue
 				}
 
 				if gapiImpl != nil { // currently running...
 					gapiChan = nil
 					if err := gapiImpl.Close(); err != nil {
-						err = errwrap.Wrapf(err, "the GAPI closed poorly")
-						log.Printf("Main: Deploy: GAPI: Close failed: %+v", err)
+						err = errwrap.Wrapf(err, "the gapi closed poorly")
+						Logf("deploy: gapi: close failed: %+v", err)
 					}
 				}
 				gapiImpl = gapiObj // copy it to active
@@ -468,14 +487,14 @@ func (obj *Main) Run() error {
 					},
 				}
 				if obj.Flags.Debug {
-					log.Printf("Main: GAPI: Init...")
+					Logf("gapi: init...")
 				}
 				if err := gapiImpl.Init(data); err != nil {
-					log.Printf("Main: GAPI: Init failed: %+v", err)
+					Logf("gapi: init failed: %+v", err)
 					// TODO: consider running previous GAPI?
 				} else {
 					if obj.Flags.Debug {
-						log.Printf("Main: GAPI: Next...")
+						Logf("gapi: next...")
 					}
 					// this must generate at least one event for it to work
 					gapiChan = gapiImpl.Next() // stream of graph switch events!
@@ -485,7 +504,7 @@ func (obj *Main) Run() error {
 			case next, ok := <-gapiChan:
 				if !ok { // channel closed
 					if obj.Flags.Debug {
-						log.Printf("Main: GAPI exited")
+						Logf("gapi exited")
 					}
 					gapiChan = nil // disable it
 					continue
@@ -495,14 +514,14 @@ func (obj *Main) Run() error {
 				// TODO: do we want to block exits and wait?
 				// TODO: we might want to wait for the next GAPI
 				if next.Exit {
-					obj.Exit(next.Err) // trigger exit
-					continue           // wait for exitchan
+					obj.exit.Done(next.Err) // trigger exit
+					continue                // wait for exitchan
 				}
 
 				// the gapi lets us send an error to the channel
 				// this means there was a failure, but not fatal
 				if err := next.Err; err != nil {
-					log.Printf("Main: Error with graph stream: %v", err)
+					Logf("error with graph stream: %+v", err)
 					continue // wait for another event
 				}
 				// everything else passes through to cause a compile!
@@ -514,141 +533,135 @@ func (obj *Main) Run() error {
 			}
 
 			if gapiImpl == nil { // TODO: can this ever happen anymore?
-				log.Printf("Main: GAPI is empty!")
+				Logf("gapi is empty!")
 				continue
-			}
-
-			if first {
-				converger.Pause() // it's already started!
-			}
-			// we need the vertices to be paused to work on them, so
-			// run graph vertex LOCK...
-			if !first { // TODO: we can flatten this check out I think
-				converger.Pause()      // FIXME: add sync wait?
-				graph.Pause(fastPause) // sync
-
-				//graph.UnGroup() // FIXME: implement me if needed!
 			}
 
 			// make the graph from yaml, lib, puppet->yaml, or dsl!
 			newGraph, err := gapiImpl.Graph() // generate graph!
 			if err != nil {
-				log.Printf("Main: Error creating new graph: %v", err)
-				// unpause!
-				if !first {
-					graph.Start(first) // sync
-					converger.Start()  // after Start()
-				}
+				Logf("error creating new graph: %+v", err)
 				continue
 			}
 			if obj.Flags.Debug {
-				log.Printf("Main: New Graph: %v", newGraph)
+				Logf("new graph: %+v", newGraph)
 			}
 
-			// this edits the paused vertices, but it is safe to do
-			// so even if we don't use this new graph, since those
-			// value should be the same for existing vertices...
-			for _, v := range newGraph.Vertices() {
-				m := resources.VtoR(v).Meta()
-				// apply the global noop parameter if requested
-				if mainDeploy.Noop {
-					m.Noop = mainDeploy.Noop
-				}
-
-				// append the semaphore to each resource
-				if mainDeploy.Sema > 0 { // NOTE: size == 0 would block
-					// a semaphore with an empty id is valid
-					m.Sema = append(m.Sema, fmt.Sprintf(":%d", mainDeploy.Sema))
-				}
-			}
-
-			// We don't have to "UnGroup()" to compare, since we
-			// save the old graph to use when we compare.
-			// TODO: Does this hurt performance or graph changes ?
-			log.Printf("Main: GraphSync...")
-			vertexCmpFn := func(v1, v2 pgraph.Vertex) (bool, error) {
-				return resources.VtoR(v1).Compare(resources.VtoR(v2)), nil
-			}
-			vertexAddFn := func(v pgraph.Vertex) error {
-				err := resources.VtoR(v).Validate()
-				return errwrap.Wrapf(err, "could not Validate() resource")
-			}
-			vertexRemoveFn := func(v pgraph.Vertex) error {
-				// wait for exit before starting new graph!
-				resources.VtoR(v).Exit() // sync
-				return nil
-			}
-			edgeCmpFn := func(e1, e2 pgraph.Edge) (bool, error) {
-				edge1 := e1.(*resources.Edge) // panic if wrong
-				edge2 := e2.(*resources.Edge) // panic if wrong
-				return edge1.Compare(edge2), nil
-			}
-			// on success, this updates the receiver graph...
-			if err := oldGraph.GraphSync(newGraph, vertexCmpFn, vertexAddFn, vertexRemoveFn, edgeCmpFn); err != nil {
-				log.Printf("Main: Error running graph sync: %v", err)
-				// unpause!
-				if !first {
-					graph.Start(first) // sync
-					converger.Start()  // after Start()
-				}
+			if err := obj.ge.Load(newGraph); err != nil { // copy in new graph
+				Logf("error copying in new graph: %+v", err)
 				continue
 			}
 
-			//savedGraph := oldGraph.Copy() // save a copy for errors
+			if err := obj.ge.Validate(); err != nil { // validate the new graph
+				obj.ge.Abort() // delete graph
+				Logf("error validating the new graph: %+v", err)
+				continue
+			}
 
-			// TODO: should we call each Res.Setup() here instead?
+			// apply the global metaparams to the graph
+			if err := obj.ge.Apply(func(graph *pgraph.Graph) error {
+				var err error
+				for _, v := range graph.Vertices() {
+					res, ok := v.(engine.Res)
+					if !ok {
+						e := fmt.Errorf("vertex `%s` is not a Res", v)
+						err = multierr.Append(err, e)
+						continue // we'll catch the error later!
+					}
 
+					m := res.MetaParams()
+					// apply the global noop parameter if requested
+					if mainDeploy.Noop {
+						m.Noop = mainDeploy.Noop
+					}
+
+					// append the semaphore to each resource
+					if mainDeploy.Sema > 0 { // NOTE: size == 0 would block
+						// a semaphore with an empty id is valid
+						m.Sema = append(m.Sema, fmt.Sprintf(":%d", mainDeploy.Sema))
+					}
+				}
+				return err
+			}); err != nil { // apply an operation to the new graph
+				obj.ge.Abort() // delete graph
+				Logf("error applying operation to the new graph: %+v", err)
+				continue
+			}
+
+			// XXX: can we change this into a ge.Apply operation?
 			// add autoedges; modifies the graph only if no error
-			if err := resources.AutoEdges(oldGraph); err != nil {
-				log.Printf("Main: Error running auto edges: %v", err)
-				// unpause!
-				if !first {
-					graph.Start(first) // sync
-					converger.Start()  // after Start()
-				}
+			if err := obj.ge.AutoEdge(); err != nil {
+				obj.ge.Abort() // delete graph
+				Logf("error running auto edges: %+v", err)
 				continue
 			}
 
-			// at this point, any time we error after a destructive
-			// modification of the graph we need to restore the old
-			// graph that was previously running, eg:
-			//
-			//	oldGraph = savedGraph.Copy()
-			//
-			// which we are (luckily) able to avoid testing for now
+			// XXX: can we change this into a ge.Apply operation?
+			// run autogroup; modifies the graph
+			if err := obj.ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
+				obj.ge.Abort() // delete graph
+				Logf("error running auto grouping: %+v", err)
+				continue
+			}
 
-			resources.AutoGroup(oldGraph, &resources.NonReachabilityGrouper{}) // run autogroup; modifies the graph
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships
 
-			graph.Update(oldGraph) // copy in structure of new graph
-
-			// Call this here because at this point the graph does
-			// not know anything about the prometheus instance.
-			if err := prom.UpdatePgraphStartTime(); err != nil {
-				log.Printf("Main: Prometheus.UpdatePgraphStartTime() errored: %v", err)
+			// we need the vertices to be paused to work on them, so
+			// run graph vertex LOCK...
+			if started { // TODO: we can flatten this check out I think
+				converger.Pause()       // FIXME: add sync wait?
+				obj.ge.Pause(fastPause) // sync
+				started = false
 			}
-			// Start() needs to be synchronous or wait,
-			// because if half of the nodes are started and
-			// some are not ready yet and the EtcdWatch
-			// loops, we'll cause Pause() before we
-			// even got going, thus causing nil pointer errors
-			graph.Start(first) // sync
-			converger.Start()  // after Start()
 
-			log.Printf("Main: Graph: %v", graph) // show graph
+			Logf("commit...")
+			if err := obj.ge.Commit(); err != nil {
+				// If we fail on commit, we have destructively
+				// destroyed the graph, so we must not run it.
+				// This graph isn't necessarily destroyed, but
+				// since an error is not expected here, we can
+				// either shutdown or wait for the next deploy.
+				obj.ge.Abort() // delete graph
+				Logf("error running commit: %+v", err)
+				// block gapi until a newDeploy comes in...
+				if gapiImpl != nil { // currently running...
+					gapiChan = nil
+					if err := gapiImpl.Close(); err != nil {
+						err = errwrap.Wrapf(err, "the gapi closed poorly")
+						Logf("deploy: gapi: close failed: %+v", err)
+					}
+				}
+				continue // stay paused
+			}
+
+			// Start needs to be synchronous because we don't want
+			// to loop around and cause a pause before we unpaused.
+			if err := obj.ge.Start(); err != nil { // sync
+				Logf("error starting graph: %+v", err)
+				continue
+			}
+			converger.Start() // after Start()
+			started = true
+
+			Logf("graph: %+v", obj.ge.Graph()) // show graph
 			if obj.Graphviz != "" {
 				filter := obj.GraphvizFilter
 				if filter == "" {
 					filter = "dot" // directed graph default
 				}
-				if err := graph.ExecGraphviz(filter, obj.Graphviz, hostname); err != nil {
-					log.Printf("Main: Graphviz: %v", err)
+				if err := obj.ge.Graph().ExecGraphviz(filter, obj.Graphviz, hostname); err != nil {
+					Logf("graphviz: %+v", err)
 				} else {
-					log.Printf("Main: Graphviz: Successfully generated graph!")
+					Logf("graphviz: successfully generated graph!")
 				}
 			}
-			first = false
+
+			// Call this here because at this point the graph does
+			// not know anything about the prometheus instance.
+			if err := prom.UpdatePgraphStartTime(); err != nil {
+				Logf("prometheus: UpdatePgraphStartTime() errored: %+v", err)
+			}
 		}
 	}()
 
@@ -667,7 +680,9 @@ func (obj *Main) Run() error {
 
 		// don't inline this, because when we close the deployChan it's
 		// the signal to tell the engine to actually shutdown...
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			defer close(deployChan) // no more are coming ever!
 			select {                // wait until we're ready to shutdown
 			case <-exitchan:
@@ -676,7 +691,9 @@ func (obj *Main) Run() error {
 		}()
 	} else {
 		// etcd based deploy
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			defer close(deployChan)
 			startChan := make(chan struct{}) // start signal
 			close(startChan)                 // kick it off!
@@ -685,37 +702,56 @@ func (obj *Main) Run() error {
 				case <-startChan: // kick the loop once at start
 					startChan = nil // disable
 
-				case err, ok := <-etcd.WatchDeploy(EmbdEtcd):
+				case err, ok := <-etcd.WatchDeploy(embdEtcd):
 					if !ok {
-						obj.Exit(nil) // regular shutdown
+						obj.exit.Done(nil) // regular shutdown
 						return
 					}
 					if err != nil {
 						// TODO: it broke, can we restart?
-						obj.Exit(fmt.Errorf("Main: Deploy: Watch error"))
+						obj.exit.Done(fmt.Errorf("deploy: watch error"))
 						return
 					}
+					startChan = nil // disable it early...
 
 				case <-exitchan:
 					return
 				}
 
 				if obj.Flags.Debug {
-					log.Printf("Main: Deploy: Got activity")
+					Logf("deploy: got activity")
 				}
-				str, err := etcd.GetDeploy(EmbdEtcd, 0) // 0 means get the latest one
+				str, err := etcd.GetDeploy(embdEtcd, 0) // 0 means get the latest one
 				if err != nil {
-					log.Printf("Main: Deploy: Error getting deploy %+v", err)
+					Logf("deploy: error getting deploy: %+v", err)
 					continue
 				}
 				if str == "" { // no available deploys exist yet
+					// send an empty deploy... this is done
+					// to start up the engine so it can run
+					// an empty graph and be ready to swap!
+					Logf("deploy: empty")
+					deploy := &gapi.Deploy{
+						Name: empty.Name,
+						GAPI: &empty.GAPI{},
+					}
+					select {
+					case deployChan <- deploy:
+						// send
+						if obj.Flags.Debug {
+							Logf("deploy: sending empty deploy")
+						}
+
+					case <-exitchan:
+						return
+					}
 					continue
 				}
 
 				// decode the deploy (incl. GAPI) and send it!
 				deploy, err := gapi.NewDeployFromB64(str)
 				if err != nil {
-					log.Printf("Main: Deploy: Error decoding deploy %+v", err)
+					Logf("deploy: error decoding deploy: %+v", err)
 					continue
 				}
 
@@ -723,7 +759,7 @@ func (obj *Main) Run() error {
 				case deployChan <- deploy:
 					// send
 					if obj.Flags.Debug {
-						log.Printf("Main: Deploy: Sending new GAPI")
+						Logf("deploy: sending new gapi")
 					}
 
 				case <-exitchan:
@@ -733,38 +769,56 @@ func (obj *Main) Run() error {
 		}()
 	}
 
-	log.Println("Main: Running...")
+	Logf("running...")
 
-	reterr := <-obj.exit // wait for exit signal
+	reterr := obj.exit.Error() // wait for exit signal (block until arrival)
 
-	log.Println("Main: Destroy...")
+	Logf("destroy...")
 
 	// tell inner main loop to exit
 	close(exitchan)
 	wg.Wait()
 
-	graph.Exit() // tells all the children to exit, and waits for them to do so
-
-	// cleanup etcd main loop last so it can process everything first
-	if err := EmbdEtcd.Destroy(); err != nil { // shutdown and cleanup etcd
-		err = errwrap.Wrapf(err, "embedded Etcd exited poorly")
-		reterr = multierr.Append(reterr, err) // list of errors
+	if reterr != nil {
+		Logf("error: %+v", reterr)
 	}
+	return reterr
+}
 
-	if obj.Prometheus {
-		log.Printf("Main: Prometheus: Stopping instance")
-		if err := prom.Stop(); err != nil {
-			err = errwrap.Wrapf(err, "the Prometheus instance exited poorly")
-			reterr = multierr.Append(reterr, err)
+// Close contains a number of methods which must be run after the Run method.
+// You must run them to properly clean up after the main program execution.
+func (obj *Main) Close() error {
+	var err error
+
+	// run cleanup functions in reverse (defer) order
+	for i := len(obj.cleanup) - 1; i >= 0; i-- {
+		fn := obj.cleanup[i]
+		if e := fn(); e != nil {
+			err = multierr.Append(err, e) // list of errors
 		}
 	}
 
-	if obj.Flags.Debug {
-		log.Printf("Main: Graph: %v", graph)
+	return err
+}
+
+// Exit causes a safe shutdown. This is often attached to the ^C signal handler.
+func (obj *Main) Exit(err error) {
+	obj.exit.Done(err) // trigger an exit!
+}
+
+// FastExit causes a faster shutdown. This is often activated on the second ^C.
+func (obj *Main) FastExit(err error) {
+	if obj.ge != nil {
+		obj.ge.SetFastPause()
 	}
-	if reterr != nil {
-		log.Printf("Main: Error: %v", reterr)
-	}
-	log.Println("Goodbye!")
-	return reterr
+	obj.Exit(err)
+}
+
+// Interrupt causes the fastest shutdown. The only faster method is a kill -9
+// which could cause corruption. This is often activated on the third ^C. This
+// might leave some of your resources in a partial or unknown state.
+func (obj *Main) Interrupt(err error) {
+	// XXX: implement and run Interrupt API for supported resources
+
+	obj.FastExit(err)
 }

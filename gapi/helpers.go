@@ -20,7 +20,7 @@ package gapi
 import (
 	"io/ioutil"
 
-	"github.com/purpleidea/mgmt/resources"
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
@@ -31,7 +31,7 @@ import (
 const Umask = 0666
 
 // CopyFileToFs copies a file from src path on the local fs to a dst path on fs.
-func CopyFileToFs(fs resources.Fs, src, dst string) error {
+func CopyFileToFs(fs engine.Fs, src, dst string) error {
 	data, err := ioutil.ReadFile(src)
 	if err != nil {
 		return errwrap.Wrapf(err, "can't read from file `%s`", src)
@@ -44,7 +44,7 @@ func CopyFileToFs(fs resources.Fs, src, dst string) error {
 
 // CopyStringToFs copies a file from src path on the local fs to a dst path on
 // fs.
-func CopyStringToFs(fs resources.Fs, str, dst string) error {
+func CopyStringToFs(fs engine.Fs, str, dst string) error {
 	if err := fs.WriteFile(dst, []byte(str), Umask); err != nil {
 		return errwrap.Wrapf(err, "can't write to file `%s`", dst)
 	}
@@ -52,6 +52,6 @@ func CopyStringToFs(fs resources.Fs, str, dst string) error {
 }
 
 // CopyDirToFs copies a dir from src path on the local fs to a dst path on fs.
-func CopyDirToFs(fs resources.Fs, src, dst string) error {
+func CopyDirToFs(fs engine.Fs, src, dst string) error {
 	return util.CopyDiskToFs(fs, src, dst, false)
 }

@@ -32,7 +32,7 @@
 // * If a seed is given, connect as a client, and optionally volunteer to be a server.
 // * All volunteering clients should listen for a message from the master for nomination.
 // * If a client has been nominated, it should startup a server.
-// * All servers should list for their nomination to be removed and shutdown if so.
+// * All servers should listen for their nomination to be removed and shutdown if so.
 // * The elected leader should decide who to nominate/unnominate to keep the right number of servers.
 //
 // Smoke testing:
@@ -64,7 +64,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/converger"
-	"github.com/purpleidea/mgmt/event"
+	"github.com/purpleidea/mgmt/etcd/event"
 	"github.com/purpleidea/mgmt/util"
 
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
@@ -281,6 +281,13 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 			return nil // TODO: change interface to return an error
 		}
 		obj.serverURLs = []url.URL{*u}
+	}
+
+	if converger != nil {
+		converger.AddStateFn("etcd-hostname", func(converged bool) error {
+			// send our individual state into etcd for others to see
+			return SetHostnameConverged(obj, hostname, converged) // TODO: what should happen on error?
+		})
 	}
 
 	return obj

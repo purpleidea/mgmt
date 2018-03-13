@@ -44,5 +44,5 @@ func hello(program, version string, flags Flags) {
 	}
 
 	log.Printf("This is: %s, version: %s", program, version)
-	log.Printf("Main: Start: %v", start)
+	log.Printf("main: Start: %v", start)
 }

@@ -20,10 +20,13 @@ package converger
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/util"
+
+	multierr "github.com/hashicorp/go-multierror"
 )
 
 // TODO: we could make a new function that masks out the state of certain
@@ -40,8 +43,9 @@ type Converger interface { // TODO: need a better name
 	Loop(bool)
 	ConvergedTimer(UID) <-chan time.Time
 	Status() map[uint64]bool
-	Timeout() int                // returns the timeout that this was created with
-	SetStateFn(func(bool) error) // sets the stateFn
+	Timeout() int                              // returns the timeout that this was created with
+	AddStateFn(string, func(bool) error) error // adds a stateFn with a name
+	RemoveStateFn(string) error                // remove a stateFn with a given name
 }
 
 // UID is the interface resources can use to notify with if converged. You'll
@@ -63,14 +67,15 @@ type UID interface {
 
 // converger is an implementation of the Converger interface.
 type converger struct {
-	timeout   int              // must be zero (instant) or greater seconds to run
-	stateFn   func(bool) error // run on converged state changes with state bool
-	converged bool             // did we converge (state changes of this run Fn)
-	channel   chan struct{}    // signal here to run an isConverged check
-	control   chan bool        // control channel for start/pause
-	mutex     sync.RWMutex     // used for controlling access to status and lastid
+	timeout   int           // must be zero (instant) or greater seconds to run
+	converged bool          // did we converge (state changes of this run Fn)
+	channel   chan struct{} // signal here to run an isConverged check
+	control   chan bool     // control channel for start/pause
+	mutex     *sync.RWMutex // used for controlling access to status and lastid
 	lastid    uint64
 	status    map[uint64]bool
+	stateFns  map[string]func(bool) error // run on converged state changes with state bool
+	smutex    *sync.RWMutex               // used for controlling access to stateFns
 }
 
 // cuid is an implementation of the UID interface.
@@ -78,21 +83,23 @@ type cuid struct {
 	converger Converger
 	id        uint64
 	name      string // user defined, friendly name
-	mutex     sync.Mutex
+	mutex     *sync.Mutex
 	timer     chan struct{}
 	running   bool // is the above timer running?
-	wg        sync.WaitGroup
+	wg        *sync.WaitGroup
 }
 
 // NewConverger builds a new converger struct.
-func NewConverger(timeout int, stateFn func(bool) error) Converger {
+func NewConverger(timeout int) Converger {
 	return &converger{
-		timeout: timeout,
-		stateFn: stateFn,
-		channel: make(chan struct{}),
-		control: make(chan bool),
-		lastid:  0,
-		status:  make(map[uint64]bool),
+		timeout:  timeout,
+		channel:  make(chan struct{}),
+		control:  make(chan bool),
+		mutex:    &sync.RWMutex{},
+		lastid:   0,
+		status:   make(map[uint64]bool),
+		stateFns: make(map[string]func(bool) error),
+		smutex:   &sync.RWMutex{},
 	}
 }
 
@@ -106,8 +113,10 @@ func (obj *converger) Register() UID {
 		converger: obj,
 		id:        obj.lastid,
 		name:      fmt.Sprintf("%d", obj.lastid), // some default
+		mutex:     &sync.Mutex{},
 		timer:     nil,
 		running:   false,
+		wg:        &sync.WaitGroup{},
 	}
 }
 
@@ -216,11 +225,9 @@ func (obj *converger) Loop(startPaused bool) {
 		case <-obj.channel:
 			if !obj.isConverged() {
 				if obj.converged { // we're doing a state change
-					if obj.stateFn != nil {
-						// call an arbitrary function
-						if err := obj.stateFn(false); err != nil {
-							// FIXME: what to do on error ?
-						}
+					// call the arbitrary functions (takes a read lock!)
+					if err := obj.runStateFns(false); err != nil {
+						// FIXME: what to do on error ?
 					}
 				}
 				obj.converged = false
@@ -230,11 +237,9 @@ func (obj *converger) Loop(startPaused bool) {
 			// we have converged!
 			if obj.timeout >= 0 { // only run if timeout is valid
 				if !obj.converged { // we're doing a state change
-					if obj.stateFn != nil {
-						// call an arbitrary function
-						if err := obj.stateFn(true); err != nil {
-							// FIXME: what to do on error ?
-						}
+					// call the arbitrary functions (takes a read lock!)
+					if err := obj.runStateFns(true); err != nil {
+						// FIXME: what to do on error ?
 					}
 				}
 			}
@@ -275,9 +280,46 @@ func (obj *converger) Timeout() int {
 	return obj.timeout
 }
 
-// SetStateFn sets the state function to be run on change of converged state.
-func (obj *converger) SetStateFn(stateFn func(bool) error) {
-	obj.stateFn = stateFn
+// AddStateFn adds a state function to be run on change of converged state.
+func (obj *converger) AddStateFn(name string, stateFn func(bool) error) error {
+	obj.smutex.Lock()
+	defer obj.smutex.Unlock()
+	if _, exists := obj.stateFns[name]; exists {
+		return fmt.Errorf("a stateFn with that name already exists")
+	}
+	obj.stateFns[name] = stateFn
+	return nil
+}
+
+// RemoveStateFn adds a state function to be run on change of converged state.
+func (obj *converger) RemoveStateFn(name string) error {
+	obj.smutex.Lock()
+	defer obj.smutex.Unlock()
+	if _, exists := obj.stateFns[name]; !exists {
+		return fmt.Errorf("a stateFn with that name doesn't exist")
+	}
+	delete(obj.stateFns, name)
+	return nil
+}
+
+// runStateFns runs the listed of stored state functions.
+func (obj *converger) runStateFns(converged bool) error {
+	obj.smutex.RLock()
+	defer obj.smutex.RUnlock()
+	var keys []string
+	for k := range obj.stateFns {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var err error
+	for _, name := range keys { // run in deterministic order
+		fn := obj.stateFns[name]
+		// call an arbitrary function
+		if e := fn(converged); e != nil {
+			err = multierr.Append(err, e) // list of errors
+		}
+	}
+	return err
 }
 
 // ID returns the unique id of this UID object.

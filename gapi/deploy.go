@@ -34,7 +34,7 @@ func init() {
 // TODO: add staged rollout functionality to this struct
 // TODO: add proper authentication with gpg key signing
 type Deploy struct {
-	Name string // lang, hcl, puppet, yaml, yaml2, etc...
+	Name string // lang, puppet, yaml, etc...
 	//Sync bool // wait for everyone to close previous GAPI before switching
 	Noop bool
 	Sema int // sema override

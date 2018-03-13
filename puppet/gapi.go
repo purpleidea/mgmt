@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
@@ -69,7 +69,7 @@ type GAPI struct {
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *GAPI) Cli(c *cli.Context, fs resources.Fs) (*gapi.Deploy, error) {
+func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	if s := c.String(Name); c.IsSet(Name) {
 		if s == "" {
 			return nil, fmt.Errorf("%s input is empty", Name)

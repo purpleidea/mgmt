@@ -26,9 +26,9 @@ import (
 
 // These constants are some global variables that are used throughout the code.
 const (
-	DEBUG   = false // add additional log messages
-	TRACE   = false // add execution flow log messages
-	VERBOSE = false // add extra log message output
+	Debug   = false // add additional log messages
+	Trace   = false // add execution flow log messages
+	Verbose = false // add extra log message output
 )
 
 // set at compile time
@@ -39,9 +39,9 @@ var (
 
 func main() {
 	flags := mgmt.Flags{
-		Debug:   DEBUG,
-		Trace:   TRACE,
-		Verbose: VERBOSE,
+		Debug:   Debug,
+		Trace:   Trace,
+		Verbose: Verbose,
 	}
 	if err := mgmt.CLI(program, version, flags); err != nil {
 		fmt.Println(err)

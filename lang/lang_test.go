@@ -22,9 +22,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources"
 	_ "github.com/purpleidea/mgmt/lang/funcs/facts/core" // load facts
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -63,8 +64,8 @@ func vertexCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
 		return false, fmt.Errorf("oops, empty vertex")
 	}
 
-	r1, r2 := v1.(resources.Res), v2.(resources.Res)
-	if !r1.Compare(r2) {
+	r1, r2 := v1.(engine.Res), v2.(engine.Res)
+	if err := r1.Cmp(r2); err != nil {
 		//fmt.Printf("r1: %+v\n", *(r1.(*resources.TestRes).Int64Ptr))
 		//fmt.Printf("r2: %+v\n", *(r2.(*resources.TestRes).Int64Ptr))
 		return false, nil
@@ -80,11 +81,15 @@ func edgeCmpFn(e1, e2 pgraph.Edge) (bool, error) {
 	return e1.String() == e2.String(), nil
 }
 
-func runInterpret(code string) (*pgraph.Graph, error) {
+func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
 	str := strings.NewReader(code)
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: lang: "+format, v...)
+	}
 	lang := &Lang{
 		Input: str, // string as an interface that satisfies io.Reader
 		Debug: true,
+		Logf:  logf,
 	}
 	if err := lang.Init(); err != nil {
 		return nil, errwrap.Wrapf(err, "init failed")
@@ -119,7 +124,7 @@ func runInterpret(code string) (*pgraph.Graph, error) {
 
 func TestInterpret0(t *testing.T) {
 	code := ``
-	graph, err := runInterpret(code)
+	graph, err := runInterpret(t, code)
 	if err != nil {
 		t.Errorf("runInterpret failed: %+v", err)
 		return
@@ -132,13 +137,13 @@ func TestInterpret0(t *testing.T) {
 
 func TestInterpret1(t *testing.T) {
 	code := `noop "n1" {}`
-	graph, err := runInterpret(code)
+	graph, err := runInterpret(t, code)
 	if err != nil {
 		t.Errorf("runInterpret failed: %+v", err)
 		return
 	}
 
-	n1, _ := resources.NewNamedResource("noop", "n1")
+	n1, _ := engine.NewNamedResource("noop", "n1")
 
 	expected := &pgraph.Graph{}
 	expected.AddVertex(n1)
@@ -151,14 +156,14 @@ func TestInterpret2(t *testing.T) {
 		noop "n1" {}
 		noop "n2" {}
 	`
-	graph, err := runInterpret(code)
+	graph, err := runInterpret(t, code)
 	if err != nil {
 		t.Errorf("runInterpret failed: %+v", err)
 		return
 	}
 
-	n1, _ := resources.NewNamedResource("noop", "n1")
-	n2, _ := resources.NewNamedResource("noop", "n2")
+	n1, _ := engine.NewNamedResource("noop", "n1")
+	n2, _ := engine.NewNamedResource("noop", "n2")
 
 	expected := &pgraph.Graph{}
 	expected.AddVertex(n1)
@@ -174,7 +179,7 @@ func TestInterpret3(t *testing.T) {
 			int8 => 88888888,
 		}
 	`
-	_, err := runInterpret(code)
+	_, err := runInterpret(t, code)
 	if err == nil {
 		t.Errorf("expected overflow failure, but it passed")
 	}
@@ -194,13 +199,13 @@ func TestInterpret4(t *testing.T) {
 			comment => "☺\thello\u263a\nwo\"rld\\2\u263a", # must escape these
 		}
 	`
-	graph, err := runInterpret(code)
+	graph, err := runInterpret(t, code)
 	if err != nil {
 		t.Errorf("runInterpret failed: %+v", err)
 		return
 	}
 
-	t1, _ := resources.NewNamedResource("test", "t1")
+	t1, _ := engine.NewNamedResource("test", "t1")
 	x := t1.(*resources.TestRes)
 	str := " !\"#$%&'()*+,-./0123456790:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_abcdefghijklmnopqrstuvwxyz{|}~"
 	x.StringPtr = &str
@@ -228,13 +233,13 @@ func TestInterpret5(t *testing.T) {
 			}
 		}
 	`
-	graph, err := runInterpret(code)
+	graph, err := runInterpret(t, code)
 	if err != nil {
 		t.Errorf("runInterpret failed: %+v", err)
 		return
 	}
 
-	t1, _ := resources.NewNamedResource("test", "t1")
+	t1, _ := engine.NewNamedResource("test", "t1")
 	x := t1.(*resources.TestRes)
 	x.Int64 = 42
 	str := "hello!"
@@ -262,7 +267,7 @@ func TestInterpret6(t *testing.T) {
 			}
 		}
 	`
-	graph, err := runInterpret(code)
+	graph, err := runInterpret(t, code)
 	if err != nil {
 		t.Errorf("runInterpret failed: %+v", err)
 		return
@@ -271,7 +276,7 @@ func TestInterpret6(t *testing.T) {
 	expected := &pgraph.Graph{}
 
 	{
-		r, _ := resources.NewNamedResource("test", "t1")
+		r, _ := engine.NewNamedResource("test", "t1")
 		x := r.(*resources.TestRes)
 		x.Int64 = 42
 		str := "hello"
@@ -279,7 +284,7 @@ func TestInterpret6(t *testing.T) {
 		expected.AddVertex(x)
 	}
 	{
-		r, _ := resources.NewNamedResource("test", "t2")
+		r, _ := engine.NewNamedResource("test", "t2")
 		x := r.(*resources.TestRes)
 		x.Int64 = 13
 		str := "world"
@@ -319,7 +324,7 @@ func TestInterpretMany(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		r, _ := resources.NewNamedResource("test", "t")
+		r, _ := engine.NewNamedResource("test", "t")
 		x := r.(*resources.TestRes)
 		i := int64(42 + 13)
 		x.Int64Ptr = &i
@@ -337,7 +342,7 @@ func TestInterpretMany(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		r, _ := resources.NewNamedResource("test", "t")
+		r, _ := engine.NewNamedResource("test", "t")
 		x := r.(*resources.TestRes)
 		i := int64(42 + 13 + 99)
 		x.Int64Ptr = &i
@@ -355,7 +360,7 @@ func TestInterpretMany(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		r, _ := resources.NewNamedResource("test", "t")
+		r, _ := engine.NewNamedResource("test", "t")
 		x := r.(*resources.TestRes)
 		i := int64(42 + 13 - 99)
 		x.Int64Ptr = &i
@@ -386,7 +391,7 @@ func TestInterpretMany(t *testing.T) {
 
 		t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
 
-		graph, err := runInterpret(code)
+		graph, err := runInterpret(t, code)
 		if !fail && err != nil {
 			t.Errorf("test #%d: FAIL", index)
 			t.Errorf("test #%d: runInterpret failed with: %+v", index, err)

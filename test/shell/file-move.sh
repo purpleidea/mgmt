@@ -8,30 +8,29 @@ $timeout --kill-after=60s 55s "$MGMT" run --tmp-prefix --yaml=file-move.yaml 2>&
 pid=$!
 sleep 5s	# let it converge
 
-initial=$(grep -c 'file\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
+initial=$(grep -c 'file\[file1\]: resource: contentCheckApply(true)' /tmp/mgmt/file-move.log)
 
 mv /tmp/mgmt/f1 /tmp/mgmt/f2
 
-sleep 3
+sleep 3s
 
-after_move_count=$(grep -c 'file\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
+after_move_count=$(grep -c 'file\[file1\]: resource: contentCheckApply(true)' /tmp/mgmt/file-move.log)
 
-sleep 3
+sleep 3s
 
 echo f2 > /tmp/mgmt/f2
 
-after_moved_file_count=$(grep -c 'file\[file1\]: contentCheckApply(true)' /tmp/mgmt/file-move.log)
-
+after_moved_file_count=$(grep -c 'file\[file1\]: resource: contentCheckApply(true)' /tmp/mgmt/file-move.log)
 
 if [[ ${after_move_count} -le ${initial} ]]
 then
-	echo File move did not trigger a CheckApply
+	echo 'File move did not trigger a CheckApply'
 	exit 1
 fi
 
 if [[ ${after_moved_file_count} -gt ${after_move_count} ]]
 then
-	echo Changing the moved file did trigger a CheckApply
+	echo 'Changing the moved file did trigger a CheckApply'
 	exit 1
 fi
 

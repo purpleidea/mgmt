@@ -52,11 +52,11 @@ const (
 
 	// longTimeout is a high bound of time we're willing to wait for events.
 	// If we exceed this timeout, then it's likely we are blocked somewhere.
-	longTimeout = 30 // seconds
+	longTimeout = 60 // seconds
 
 	// convergedTimeout is the number of seconds we wait for our instance to
 	// remain unchanged to be considered as converged.
-	convergedTimeout = 5 // seconds
+	convergedTimeout = 15 // seconds
 
 	// dirMode is the the mode used when making directories.
 	dirMode = 0755
@@ -297,7 +297,7 @@ func (obj *Instance) Wait(ctx context.Context) error {
 	for {
 		select {
 		// FIXME: instead of sending one event here, the recwatch
-		// library should sent one initial event at startup...
+		// library should send one initial event at startup...
 		case <-startup:
 			startup = nil
 			// send an initial event

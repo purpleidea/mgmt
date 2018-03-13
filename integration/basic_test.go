@@ -24,6 +24,8 @@ import (
 	"path"
 	"sort"
 	"testing"
+
+	"github.com/purpleidea/mgmt/util"
 )
 
 func TestInstance0(t *testing.T) {
@@ -67,7 +69,7 @@ func TestInstance1(t *testing.T) {
 	values := []test{}
 
 	{
-		code := Code(`
+		code := util.Code(`
 		$root = getenv("MGMT_TEST_ROOT")
 
 		file "${root}/mgmt-hello-world" {
@@ -150,7 +152,7 @@ func TestCluster1(t *testing.T) {
 	values := []test{}
 
 	{
-		code := Code(`
+		code := util.Code(`
 		$root = getenv("MGMT_TEST_ROOT")
 
 		file "${root}/mgmt-hostname" {
@@ -174,7 +176,7 @@ func TestCluster1(t *testing.T) {
 		})
 	}
 	{
-		code := Code(`
+		code := util.Code(`
 		$root = getenv("MGMT_TEST_ROOT")
 
 		file "${root}/mgmt-hostname" {

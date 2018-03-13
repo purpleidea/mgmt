@@ -22,18 +22,18 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/purpleidea/mgmt/engine"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/etcd/scheduler"
-	"github.com/purpleidea/mgmt/resources"
 )
 
 // World is an etcd backed implementation of the World interface.
 type World struct {
 	Hostname       string // uuid for the consumer of these
 	EmbdEtcd       *EmbdEtcd
-	MetadataPrefix string       // expected metadata prefix
-	StoragePrefix  string       // storage prefix for etcdfs storage
-	StandaloneFs   resources.Fs // store an fs here for local usage
+	MetadataPrefix string    // expected metadata prefix
+	StoragePrefix  string    // storage prefix for etcdfs storage
+	StandaloneFs   engine.Fs // store an fs here for local usage
 	Debug          bool
 	Logf           func(format string, v ...interface{})
 }
@@ -46,13 +46,13 @@ func (obj *World) ResWatch() chan error {
 
 // ResExport exports a list of resources under our hostname namespace.
 // Subsequent calls replace the previously set collection atomically.
-func (obj *World) ResExport(resourceList []resources.Res) error {
+func (obj *World) ResExport(resourceList []engine.Res) error {
 	return SetResources(obj.EmbdEtcd, obj.Hostname, resourceList)
 }
 
 // ResCollect gets the collection of exported resources which match the filter.
 // It does this atomically so that a call always returns a complete collection.
-func (obj *World) ResCollect(hostnameFilter, kindFilter []string) ([]resources.Res, error) {
+func (obj *World) ResCollect(hostnameFilter, kindFilter []string) ([]engine.Res, error) {
 	// XXX: should we be restricted to retrieving resources that were
 	// exported with a tag that allows or restricts our hostname? We could
 	// enforce that here if the underlying API supported it... Add this?
@@ -122,7 +122,7 @@ func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*schedu
 // execution that doesn't span more than a single host, this file system might
 // actually be a local or memory backed file system, so actually only
 // distributed within the boredom that is a single host cluster.
-func (obj *World) Fs(uri string) (resources.Fs, error) {
+func (obj *World) Fs(uri string) (engine.Fs, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err

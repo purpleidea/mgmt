@@ -12,9 +12,12 @@ set -o pipefail
 # v: the old tag version, such as 0.0.13
 # t: the new tag version, such as 0.0.14
 # h: the head version, such as 0.0.13-40-g62ca126-dirty
-v=`git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0`
-t=`echo "${v%.*}.$((${v##*.}+1))"`	# increment version
+v=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0)
+t=$(echo "${v%.*}.$((${v##*.}+1))")	# increment version
 h="$(git describe --tags --dirty --always)"
+
+# git remote to push the tag to ()
+remote=${MGMT_TAG_REMOTE:-origin}
 
 if [[ $# -gt 0 ]]; then
 	echo "ERR: $0 does not take arguments." >&2
@@ -38,13 +41,21 @@ echo "WARN: About to tag \"${h}\" as \"${t}\" and push."
 echo "Press ^C within 3s to abort."
 sleep 3s
 
+# Make releasenotes
+releasenotes=$(mktemp)
+echo "release: tag $t" > "$releasenotes"
+# create temporary tag in order for changelog to render last release properly
+git tag "$t"
+misc/changelog-from-git.sh >> "$releasenotes"
+
 # Tag and push.
-echo "release: tag $t" | git tag --file=- --sign $t
+# annotate tag and force to overwrite previous temporary tag
+git tag -a -f --file=- --sign "$t" < "$releasenotes"
 echo "INFO: Version $t is now tagged."
 echo "INFO: Pushing $t to origin."
-git push origin $t
+git push "$remote" "$t"
 
 # Be informative.
-GIT_PAGER=cat git diff --stat "$v" "$t"
+env GIT_PAGER=cat git diff --stat "$v" "$t"
 if command -v contrib.sh &>/dev/null; then contrib.sh "$v"; fi
 echo -e "run 'git log $v..$t' to see what has changed since $v"

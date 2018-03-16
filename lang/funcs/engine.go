@@ -435,7 +435,8 @@ func (obj *Engine) Run() error {
 				cached, exists := obj.table[vertex]
 				obj.mutex.RUnlock()
 				if !exists { // first value received
-					node.loaded = true
+					// RACE: do this AFTER value is present!
+					//node.loaded = true // not yet please
 					obj.Logf("func `%s` started", node)
 				} else if value.Cmp(cached) == nil {
 					// skip if new value is same as previous
@@ -452,6 +453,7 @@ func (obj *Engine) Run() error {
 				if err := node.Expr.SetValue(value); err != nil {
 					panic(fmt.Sprintf("could not set value for `%s`: %+v", node, err))
 				}
+				node.loaded = true // set *after* value is in :)
 				obj.mutex.Unlock()
 				obj.Logf("func `%s` changed", node)
 

@@ -93,6 +93,7 @@ func runInterpret(code string) (*pgraph.Graph, error) {
 		return errwrap.Wrapf(lang.Close(), "close failed")
 	}
 
+	// we only wait for the first event, instead of the continuous stream
 	select {
 	case err, ok := <-lang.Stream():
 		if !ok {
@@ -103,7 +104,7 @@ func runInterpret(code string) (*pgraph.Graph, error) {
 		}
 	}
 
-	// run artificially without the entire engine
+	// run artificially without the entire GAPI loop
 	graph, err := lang.Interpret()
 	if err != nil {
 		err := errwrap.Wrapf(err, "interpret failed")

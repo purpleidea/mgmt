@@ -247,8 +247,14 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	}
 
 	log.Printf("%s: Running interpret...", Name)
+	if obj.funcs != nil { // no need to rlock if we have a static graph
+		obj.funcs.RLock()
+	}
 	// this call returns the graph
 	graph, err := interpret(obj.ast)
+	if obj.funcs != nil {
+		obj.funcs.RUnlock()
+	}
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpret")
 	}

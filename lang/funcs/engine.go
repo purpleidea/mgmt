@@ -47,6 +47,8 @@ type State struct {
 
 	input  chan types.Value // the top level type must be a struct
 	output chan types.Value
+
+	mutex *sync.RWMutex // concurrency guard for modifying Expr with String/SetValue
 }
 
 // Init creates the function state if it can be found in the registered list.
@@ -72,11 +74,17 @@ func (obj *State) Init() error {
 	obj.input = make(chan types.Value)  // we close this when we're done
 	obj.output = make(chan types.Value) // we create it, func closes it
 
+	obj.mutex = &sync.RWMutex{}
+
 	return nil
 }
 
 // String satisfies fmt.Stringer so that these print nicely.
 func (obj *State) String() string {
+	// TODO: use global mutex since it's harder to add state specific mutex
+	//obj.mutex.RLock() // prevent race detector issues against SetValue
+	//defer obj.mutex.RUnlock()
+	// FIXME: also add read locks on any of the children Expr in obj.Expr
 	return obj.Expr.String()
 }
 
@@ -323,7 +331,7 @@ func (obj *Engine) Run() error {
 	for _, vertex := range obj.topologicalSort {
 		node := obj.state[vertex]
 		if obj.Debug {
-			obj.Logf("Startup func `%s`", node)
+			obj.SafeLogf("Startup func `%s`", node)
 		}
 
 		incoming := obj.Graph.IncomingGraphVertices(vertex) // []Vertex
@@ -406,11 +414,11 @@ func (obj *Engine) Run() error {
 			node := obj.state[vertex]
 			defer obj.wg.Done()
 			if obj.Debug {
-				obj.Logf("Running func `%s`", node)
+				obj.SafeLogf("Running func `%s`", node)
 			}
 			err := node.handle.Stream()
 			if obj.Debug {
-				obj.Logf("Exiting func `%s`", node)
+				obj.SafeLogf("Exiting func `%s`", node)
 			}
 			if err != nil {
 				// we closed with an error...
@@ -450,12 +458,15 @@ func (obj *Engine) Run() error {
 				obj.mutex.Lock()
 				// XXX: maybe we can get rid of the table...
 				obj.table[vertex] = value // save the latest
+				node.mutex.Lock()
 				if err := node.Expr.SetValue(value); err != nil {
+					node.mutex.Unlock() // don't block node.String()
 					panic(fmt.Sprintf("could not set value for `%s`: %+v", node, err))
 				}
 				node.loaded = true // set *after* value is in :)
-				obj.mutex.Unlock()
 				obj.Logf("func `%s` changed", node)
+				node.mutex.Unlock()
+				obj.mutex.Unlock()
 
 				// FIXME: will this actually prevent glitching?
 				// if we only notify the aggregate channel when
@@ -507,7 +518,10 @@ func (obj *Engine) Run() error {
 					var loaded = true // initially assume true
 					for _, vertex := range obj.topologicalSort {
 						node := obj.state[vertex]
-						if !node.loaded {
+						node.mutex.RLock()
+						nodeLoaded := node.loaded
+						node.mutex.RUnlock()
+						if !nodeLoaded {
 							loaded = false // we were wrong
 							break
 						}
@@ -582,6 +596,32 @@ func (obj *Engine) agDone(vertex pgraph.Vertex) {
 
 	if obj.agCount == 0 {
 		close(obj.ag)
+	}
+}
+
+// RLock takes a read lock on the data that gets written to the AST, so that
+// interpret can be run without anything changing part way through.
+func (obj *Engine) RLock() {
+	obj.mutex.RLock()
+}
+
+// RUnlock frees a read lock on the data that gets written to the AST, so that
+// interpret can be run without anything changing part way through.
+func (obj *Engine) RUnlock() {
+	obj.mutex.RUnlock()
+}
+
+// SafeLogf logs a message, although it adds a read lock around the logging in
+// case a `node` argument is passed in which would set off the race detector.
+func (obj *Engine) SafeLogf(format string, v ...interface{}) {
+	// We're adding a global mutex, because it's harder to only isolate the
+	// individual node specific mutexes needed since it may contain others!
+	if len(v) > 0 {
+		obj.mutex.RLock()
+	}
+	obj.Logf(format, v...)
+	if len(v) > 0 {
+		obj.mutex.RUnlock()
 	}
 }
 

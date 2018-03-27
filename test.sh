@@ -60,14 +60,14 @@ run-testsuite ./test/test-gotest.sh
 # do these longer tests only when running on ci
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	run-testsuite ./test/test-shell.sh
-	skip-testsuite ./test/test-gotest.sh --race	# XXX: temporarily disabled...
+	run-testsuite ./test/test-gotest.sh --race
 	run-testsuite ./test/test-integration.sh
-	skip-testsuite ./test/test-integration.sh --race	# XXX: temporarily disabled...
+	run-testsuite ./test/test-integration.sh --race
 else
 	REASON="CI server only test" skip-testsuite ./test/test-shell.sh
-	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --race	# XXX: temporarily disabled...
+	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --race
 	REASON="CI server only test" skip-testsuite ./test/test-integration.sh
-	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --race	# XXX: temporarily disabled...
+	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --race
 fi
 
 run-testsuite ./test/test-gometalinter.sh

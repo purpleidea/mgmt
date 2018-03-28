@@ -63,6 +63,7 @@ type Resources struct {
 	Hostname []*resources.HostnameRes `yaml:"hostname"`
 	KV       []*resources.KVRes       `yaml:"kv"`
 	Msg      []*resources.MsgRes      `yaml:"msg"`
+	Net      []*resources.NetRes      `yaml:"net"`
 	Noop     []*resources.NoopRes     `yaml:"noop"`
 	Nspawn   []*resources.NspawnRes   `yaml:"nspawn"`
 	Password []*resources.PasswordRes `yaml:"password"`

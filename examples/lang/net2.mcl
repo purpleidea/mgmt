@@ -1,0 +1,3 @@
+net "eth0" {
+	state => "up",
+}

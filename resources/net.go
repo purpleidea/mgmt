@@ -32,6 +32,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/purpleidea/mgmt/recwatch"
+	"github.com/purpleidea/mgmt/util"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -331,7 +332,7 @@ func (obj *NetRes) addrCheckApply(apply bool) (bool, error) {
 	}
 
 	// if the kernel routes are intact and the addrs match, we're done
-	err = StrSortedSliceCompare(obj.Addrs, ifaceAddrs)
+	err = util.SortedStrSliceCompare(obj.Addrs, ifaceAddrs)
 	if err == nil && kernelOK {
 		return true, nil
 	}
@@ -561,7 +562,7 @@ func (obj *NetRes) Compare(r Res) bool {
 	if (obj.Addrs == nil) != (res.Addrs == nil) {
 		return false
 	}
-	if err := StrSortedSliceCompare(obj.Addrs, res.Addrs); err != nil {
+	if err := util.SortedStrSliceCompare(obj.Addrs, res.Addrs); err != nil {
 		return false
 	}
 	if obj.Gateway != res.Gateway {

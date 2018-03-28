@@ -813,3 +813,45 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 		}
 	}
 }
+
+func TestSortedStrSliceCompare0(t *testing.T) {
+	slice0 := []string{"foo", "bar", "baz"}
+	slice1 := []string{"bar", "foo", "baz"}
+
+	if err := SortedStrSliceCompare(slice0, slice1); err != nil {
+		t.Errorf("slices were not evaluated as equivalent: %v, %v", slice0, slice1)
+	}
+}
+
+func TestSortedStrSliceCompare1(t *testing.T) {
+	slice0 := []string{"foo", "bar", "baz"}
+	slice1 := []string{"fi", "fi", "fo"}
+
+	if err := SortedStrSliceCompare(slice0, slice1); err == nil {
+		t.Errorf("slices were evaluated as equivalent: %v, %v", slice0, slice1)
+	}
+}
+
+func TestSortedStrSliceCompare2(t *testing.T) {
+	slice0 := []string{"foo", "bar", "baz"}
+	slice1 := []string{"foo", "bar"}
+
+	if err := SortedStrSliceCompare(slice0, slice1); err == nil {
+		t.Errorf("slices were evaluated as equivalent: %v, %v", slice0, slice1)
+	}
+}
+
+func TestSortedStrSliceCompare3(t *testing.T) {
+	slice0 := []string{"foo", "bar", "baz"}
+	slice1 := []string{"zip", "zap", "zop"}
+
+	_ = SortedStrSliceCompare(slice0, slice1)
+
+	if slice0[0] != "foo" || slice0[1] != "bar" || slice0[2] != "baz" {
+		t.Errorf("input slice reordered to: %v", slice0)
+	}
+
+	if slice1[0] != "zip" || slice1[1] != "zap" || slice1[2] != "zop" {
+		t.Errorf("input slice reordered to: %v", slice1)
+	}
+}

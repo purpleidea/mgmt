@@ -19,6 +19,7 @@
 package util
 
 import (
+	"fmt"
 	"path"
 	"sort"
 	"strings"
@@ -375,4 +376,28 @@ func SystemBusPrivateUsable() (conn *dbus.Conn, err error) {
 		conn = nil
 	}
 	return conn, nil // success
+}
+
+// SortedStrSliceCompare takes two lists of strings and returns whether or not
+// they are equivalent. It will return nil if both sets contain the same
+// elements, regardless of order, and an error if they do not.
+func SortedStrSliceCompare(a, b []string) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("slices have different lengths: %d vs %d", len(a), len(b))
+	}
+
+	// make a copy of each to sort, so we don't reorder the inputs
+	x := make([]string, len(a))
+	y := make([]string, len(b))
+	copy(x, a)
+	copy(y, b)
+
+	sort.Strings(x)
+	sort.Strings(y)
+	for i := range x {
+		if x[i] != y[i] {
+			return fmt.Errorf("values do not match: %s vs %s", x[i], y[i])
+		}
+	}
+	return nil
 }

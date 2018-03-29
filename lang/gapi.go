@@ -228,7 +228,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 
 					if obj.data.NoStreamWatch { // TODO: do we want to allow this for the lang?
 						streamChan = nil
-					} else {
+					} else if obj.lang != nil {
 						// stream for lang events
 						streamChan = obj.lang.Stream() // update stream
 					}

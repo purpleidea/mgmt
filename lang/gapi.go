@@ -178,7 +178,10 @@ func (obj *GAPI) Next() chan gapi.Next {
 				Err:  fmt.Errorf("%s: GAPI is not initialized", Name),
 				Exit: true, // exit, b/c programming error?
 			}
-			ch <- next
+			select {
+			case ch <- next:
+			case <-obj.closeChan:
+			}
 			return
 		}
 		startChan := make(chan struct{}) // start signal
@@ -259,9 +262,9 @@ func (obj *GAPI) Close() error {
 	if !obj.initialized {
 		return fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
-	obj.LangClose() // close lang, esp. if blocked in Stream() wait
 	close(obj.closeChan)
 	obj.wg.Wait()
+	obj.LangClose()         // close lang, esp. if blocked in Stream() wait
 	obj.initialized = false // closed = true
 	return nil
 }

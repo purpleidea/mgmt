@@ -880,6 +880,6 @@ func (obj *socketSet) nfd() int {
 func (obj *socketSet) fdSet() *unix.FdSet {
 	fdSet := &unix.FdSet{}
 	fdSet.Bits[obj.fdEvents/64] |= 1 << uint(obj.fdEvents)
-	fdSet.Bits[obj.fdPipe/64] |= 1 << uint(obj.fdPipe) // fd = 3 becomes 100 if we add 5, we get 10100
+	fdSet.Bits[obj.fdPipe/64] |= 1 << uint(obj.fdPipe) // fd = 3 becomes 1000 if we add 5, we get 101000
 	return fdSet
 }

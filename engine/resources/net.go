@@ -882,7 +882,11 @@ func (obj *socketSet) nfd() int {
 // and fdPipe. See man select for more info.
 func (obj *socketSet) fdSet() *unix.FdSet {
 	fdSet := &unix.FdSet{}
+	// Generate the bitmask representing the file descriptors in the socketSet.
+	// The rightmost bit corresponds to file descriptor zero, and each bit to
+	// the left represents the next file descriptor number in the sequence of
+	// all real numbers. E.g. the FdSet containing containing 0 and 4 is 10001.
 	fdSet.Bits[obj.fdEvents/64] |= 1 << uint(obj.fdEvents)
-	fdSet.Bits[obj.fdPipe/64] |= 1 << uint(obj.fdPipe) // fd = 3 becomes 100 if we add 5, we get 10100
+	fdSet.Bits[obj.fdPipe/64] |= 1 << uint(obj.fdPipe)
 	return fdSet
 }

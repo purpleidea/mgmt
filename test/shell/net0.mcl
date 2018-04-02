@@ -1,0 +1,4 @@
+net "mgmtnet0" {
+	state => "up",
+	addrs => ["192.168.42.13/24",],
+}

@@ -119,9 +119,6 @@ func (obj *NetRes) Validate() error {
 	}
 
 	// validate network address input
-	if (obj.Addrs == nil) != (obj.Gateway == "") {
-		return fmt.Errorf("addrs and gateway must both be set or both be empty")
-	}
 	if obj.Addrs != nil {
 		for _, addr := range obj.Addrs {
 			if _, _, err := net.ParseCIDR(addr); err != nil {

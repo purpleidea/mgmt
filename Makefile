@@ -52,7 +52,7 @@ default: build
 #
 #	art
 #
-art: art/mgmt_logo_default_symbol.png art/mgmt_logo_default_tall.png art/mgmt_logo_default_wide.png art/mgmt_logo_reversed_symbol.png art/mgmt_logo_reversed_tall.png art/mgmt_logo_reversed_wide.png art/mgmt_logo_white_symbol.png art/mgmt_logo_white_tall.png art/mgmt_logo_white_wide.png
+art: art/mgmt_logo_default_symbol.png art/mgmt_logo_default_tall.png art/mgmt_logo_default_wide.png art/mgmt_logo_reversed_symbol.png art/mgmt_logo_reversed_tall.png art/mgmt_logo_reversed_wide.png art/mgmt_logo_white_symbol.png art/mgmt_logo_white_tall.png art/mgmt_logo_white_wide.png ## generate artwork
 
 cleanart:
 	rm -f art/mgmt_logo_default_symbol.png art/mgmt_logo_default_tall.png art/mgmt_logo_default_wide.png art/mgmt_logo_reversed_symbol.png art/mgmt_logo_reversed_tall.png art/mgmt_logo_reversed_wide.png art/mgmt_logo_white_symbol.png art/mgmt_logo_white_tall.png art/mgmt_logo_white_wide.png
@@ -88,19 +88,19 @@ art/mgmt_logo_white_wide.png: art/mgmt_logo_white_wide.svg
 all: docs $(PROGRAM).static
 
 # show the current version
-version:
+version: ## show the current version
 	@echo $(VERSION)
 
-program:
+program: ## show the program name
 	@echo $(PROGRAM)
 
-path:
+path: ## create working paths
 	./misc/make-path.sh
 
-deps:
+deps: ## install system and golang dependencies
 	./misc/make-deps.sh
 
-run:
+run: ## run mgmt
 	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
 
 # include race flag
@@ -108,20 +108,20 @@ race:
 	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
 
 # generate go files from non-go source
-bindata:
+bindata: ## generate go files from non-go sources
 	@echo "Generating: bindata..."
 	$(MAKE) --quiet -C bindata
 
 generate:
 	go generate
 
-lang:
+lang: ## generates the lexer/parser for the language frontend
 	@# recursively run make in child dir named lang
 	@echo "Generating: lang..."
 	$(MAKE) --quiet -C lang
 
 # build a `mgmt` binary for current host os/arch
-$(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH}
+$(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
 	cp $< $@
 
 $(PROGRAM).static: $(GO_FILES)
@@ -129,7 +129,7 @@ $(PROGRAM).static: $(GO_FILES)
 	go generate
 	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
 
-build: LDFLAGS=-s -w
+build: LDFLAGS=-s -w ## build a fresh mgmt binary
 build: $(PROGRAM)
 
 build-debug: LDFLAGS=
@@ -148,7 +148,7 @@ build/mgmt-%: $(GO_FILES) | bindata lang
 crossbuild_targets = $(addprefix build/mgmt-,$(subst /,-,${GOOSARCHES}))
 crossbuild: ${crossbuild_targets}
 
-clean:
+clean: ## clean things up
 	$(MAKE) --quiet -C bindata clean
 	$(MAKE) --quiet -C lang clean
 	[ ! -e $(PROGRAM) ] || rm $(PROGRAM)
@@ -157,7 +157,7 @@ clean:
 	# crossbuild artifacts
 	rm -f build/mgmt-*
 
-test: build
+test: build ## run tests
 	./test.sh
 
 # create all test targets for make tab completion (eg: make test-gofmt)
@@ -179,9 +179,9 @@ gofmt:
 yamlfmt:
 	find . -maxdepth 3 -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
 
-format: gofmt yamlfmt
+format: gofmt yamlfmt ## format yaml and golang code
 
-docs: $(PROGRAM)-documentation.pdf
+docs: $(PROGRAM)-documentation.pdf ## generate docs
 
 $(PROGRAM)-documentation.pdf: docs/documentation.md
 	pandoc docs/documentation.md -o docs/'$(PROGRAM)-documentation.pdf'
@@ -206,7 +206,7 @@ rpmbuild/SOURCES/: tar
 rpmbuild/SRPMS/: srpm
 rpmbuild/RPMS/: rpm
 
-upload: upload-sources upload-srpms upload-rpms
+upload: upload-sources upload-srpms upload-rpms ## upload sources
 	# do nothing
 
 #
@@ -314,14 +314,14 @@ upload-rpms: rpmbuild/RPMS/ rpmbuild/RPMS/SHA256SUMS rpmbuild/RPMS/SHA256SUMS.as
 #
 #	copr build
 #
-copr: upload-srpms
+copr: upload-srpms ## build in copr
 	./misc/copr-build.py https://$(SERVER)/$(REMOTE_PATH)/SRPMS/$(SRPM_BASE)
 
 #
 #	deb build
 #
 
-deb:
+deb: ## build debian package
 	./misc/gen-deb-changelog-from-git.sh
 	dpkg-buildpackage
 	# especially when building in Docker container, pull build artifact in project directory.
@@ -329,15 +329,24 @@ deb:
 	# cleanup
 	rm -rf debian/mgmt/
 
-build_container:
+build_container: ## builds the container
 	docker build -t purpleidea/mgmt-build -f docker/Dockerfile.build .
 	docker run -td --name mgmt-build purpleidea/mgmt-build
 	docker cp mgmt-build:/root/gopath/src/github.com/purpleidea/mgmt/mgmt .
 	docker build -t purpleidea/mgmt -f docker/Dockerfile.static .
 	docker rm mgmt-build || true
 
-clean_container:
+clean_container: ## removes the container
 	docker rmi purpleidea/mgmt-build
 	docker rmi purpleidea/mgmt
+
+help: ## show this help screen
+	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
+	@echo ''
+	@echo 'Available targets are:'
+	@echo ''
+	@grep -E '^[ a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ''
 
 # vim: ts=8

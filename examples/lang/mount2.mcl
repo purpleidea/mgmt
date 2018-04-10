@@ -1,0 +1,13 @@
+mount "/media/cdrom" {
+	state => "exists",
+	device => "/dev/cdrom",
+	type => "iso9660",
+	options => {
+		"ro"=>"",
+		"relatime"=>"",
+		"nojoliet"=>"",
+		"check"=>"s",
+		"map"=>"n",
+		"blocksize"=>"2048",
+	},
+}

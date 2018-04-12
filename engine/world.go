@@ -20,6 +20,7 @@ package engine
 import (
 	"context"
 
+	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/etcd/scheduler"
 )
 
@@ -51,4 +52,7 @@ type World interface { // TODO: is there a better name for this interface?
 	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
 
 	Fs(uri string) (Fs, error)
+
+	// WatchMembers returns a channel of changing members in the cluster.
+	WatchMembers(context.Context) (<-chan *interfaces.MembersResult, error)
 }

@@ -211,3 +211,8 @@ func (obj *World) Fs(uri string) (engine.Fs, error) {
 	}
 	return etcdFs, nil
 }
+
+// WatchMembers returns a channel of changing members in the cluster.
+func (obj *World) WatchMembers(ctx context.Context) (<-chan *interfaces.MembersResult, error) {
+	return obj.Client.WatchMembers(ctx)
+}

@@ -82,6 +82,21 @@ func cmpURLs(u1, u2 etcdtypes.URLs) error {
 	return nil
 }
 
+// FromStringListToURLs takes a list of string urls and converts them into the
+// native type.
+func FromStringListToURLs(surls []string) (etcdtypes.URLs, error) {
+	result := []url.URL{}
+	for _, s := range surls { // flatten map
+		u, err := url.Parse(s)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *u)
+	}
+
+	return result, nil
+}
+
 // CmpURLsMap compares two URLsMap's, and returns nil if they are the same.
 func CmpURLsMap(m1, m2 etcdtypes.URLsMap) error {
 	if (m1 == nil) != (m2 == nil) { // xor

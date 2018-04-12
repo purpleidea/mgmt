@@ -60,4 +60,7 @@ type Client interface {
 	Txn(ctx context.Context, ifCmps []etcd.Cmp, thenOps, elseOps []etcd.Op) (*etcd.TxnResponse, error)
 	Watcher(ctx context.Context, path string, opts ...etcd.OpOption) (chan error, error)
 	ComplexWatcher(ctx context.Context, path string, opts ...etcd.OpOption) (*WatcherInfo, error)
+
+	// WatchMembers returns a channel of changing members in the cluster.
+	WatchMembers(context.Context) (<-chan *MembersResult, error)
 }

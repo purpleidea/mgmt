@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
+	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "go.etcd.io/etcd/client/v3"
@@ -479,4 +480,81 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 		Cancel: cancel,
 		Events: eventsChan,
 	}, err
+}
+
+// WatchMembers returns a changing list of cluster membership. This is about the
+// server peers, not the connected clients.
+func (obj *Simple) WatchMembers(ctx context.Context) (<-chan *interfaces.MembersResult, error) {
+	if obj.client == nil { // etcd
+		return nil, fmt.Errorf("client is nil") // extra safety!
+	}
+
+	ch := make(chan *interfaces.MembersResult)
+	obj.wg.Add(1) // hook in to global wait group
+	go func() {
+		defer obj.wg.Done()
+		defer close(ch)
+		for {
+
+			members := []*interfaces.Member{}
+			result := &interfaces.MembersResult{}
+			resp, err := obj.client.MemberList(ctx)
+			if err != nil {
+				result.Err = err
+				goto Send
+			}
+			if resp == nil {
+				result.Err = fmt.Errorf("empty response")
+				goto Send
+			}
+
+			for _, m := range resp.Members {
+				if m == nil { // skip nil members
+					continue
+				}
+				// member: https://godocs.io/github.com/coreos/etcd/etcdserver/etcdserverpb#Member
+
+				purls, err := etcdUtil.FromStringListToURLs(m.PeerURLs)
+				if err != nil {
+					result.Err = errwrap.Wrapf(err, "invalid member peer URLs")
+					goto Send
+				}
+				curls, err := etcdUtil.FromStringListToURLs(m.ClientURLs)
+				if err != nil {
+					result.Err = errwrap.Wrapf(err, "invalid member client URLs")
+					goto Send
+				}
+
+				member := &interfaces.Member{
+					ID:   m.ID,
+					Name: m.Name,
+					//IsLeader: m.IsLeader, // XXX: add when new version of etcd supports this
+					PeerURLs:   purls,
+					ClientURLs: curls,
+				}
+				members = append(members, member)
+			}
+			result.Members = members
+
+		Send:
+			select {
+			case ch <- result: // send data
+			case <-ctx.Done():
+				return
+			}
+			if result.Err != nil {
+				return
+			}
+
+			// XXX: poll https://github.com/etcd-io/etcd/issues/5277
+			select {
+			case <-time.After(interfaces.MemberChangePollingInterval): // sleep before retry
+				// pass
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch, nil
 }

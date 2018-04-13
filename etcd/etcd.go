@@ -87,8 +87,10 @@ const (
 	selfRemoveTimeout       = 3        // give unnominated members a chance to self exit
 	exitDelay               = 3        // number of sec of inactivity after exit to clean up
 	DefaultIdealClusterSize = 5        // default ideal cluster size target for initial seed
-	DefaultClientURL        = "127.0.0.1:2379"
-	DefaultServerURL        = "127.0.0.1:2380"
+
+	DefaultClientURL = embed.DefaultListenClientURLs // 127.0.0.1:2379
+	DefaultServerURL = embed.DefaultListenPeerURLs   // 127.0.0.1:2380
+
 	// DefaultMaxTxnOps is the maximum number of operations to run in a
 	// single etcd transaction. If you exceed this limit, it is possible
 	// that you have either an extremely large code base, or that you have
@@ -262,8 +264,11 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 	// TODO: add some sort of auto assign method for picking these defaults
 	// add a default so that our local client can connect locally if needed
 	if len(obj.LocalhostClientURLs()) == 0 { // if we don't have any localhost URLs
-		u := url.URL{Scheme: "http", Host: DefaultClientURL}     // default
-		obj.clientURLs = append([]url.URL{u}, obj.clientURLs...) // prepend
+		u, err := url.Parse(DefaultClientURL)
+		if err != nil {
+			return nil // TODO: change interface to return an error
+		}
+		obj.clientURLs = append([]url.URL{*u}, obj.clientURLs...) // prepend
 	}
 
 	// add a default for local use and testing, harmless and useful!
@@ -271,8 +276,11 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 		if len(obj.endpoints) > 0 {
 			obj.noServer = true // we didn't have enough to be a server
 		}
-		u := url.URL{Scheme: "http", Host: DefaultServerURL} // default
-		obj.serverURLs = []url.URL{u}
+		u, err := url.Parse(DefaultServerURL) // default
+		if err != nil {
+			return nil // TODO: change interface to return an error
+		}
+		obj.serverURLs = []url.URL{*u}
 	}
 
 	return obj

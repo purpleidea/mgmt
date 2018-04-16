@@ -5,8 +5,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/purpleidea/mgmt?style=flat-square)](https://goreportcard.com/report/github.com/purpleidea/mgmt)
 [![Build Status](https://img.shields.io/travis/purpleidea/mgmt/master.svg?style=flat-square)](http://travis-ci.org/purpleidea/mgmt)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/purpleidea/mgmt)
-[![IRC](https://img.shields.io/badge/irc-%23mgmtconfig-brightgreen.svg?style=flat-square)](https://webchat.freenode.net/?channels=#mgmtconfig)
-[![Jenkins](https://img.shields.io/badge/jenkins-status-brightgreen.svg?style=flat-square)](https://ci.centos.org/job/purpleidea-mgmt/)
+[![IRC](https://img.shields.io/badge/irc-%23mgmtconfig-orange.svg?style=flat-square)](https://webchat.freenode.net/?channels=#mgmtconfig)
+[![Patreon](https://img.shields.io/badge/patreon-donate-yellow.svg?style=flat-square)](https://www.patreon.com/purpleidea)
 
 ## Community:
 
@@ -17,6 +17,7 @@ Come join us in the `mgmt` community!
 | IRC | [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig) on Freenode |
 | Twitter | [@mgmtconfig](https://twitter.com/mgmtconfig) & [#mgmtconfig](https://twitter.com/hashtag/mgmtconfig) |
 | Mailing list | [mgmtconfig-list@redhat.com](https://www.redhat.com/mailman/listinfo/mgmtconfig-list) |
+| Patreon | [purpleidea](https://www.patreon.com/purpleidea) on Patreon |
 
 ## Status:
 

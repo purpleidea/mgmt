@@ -22,12 +22,13 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os/exec"
 	"strconv"
 	"strings"
 
 	"github.com/purpleidea/mgmt/yamlgraph"
+
+	errwrap "github.com/pkg/errors"
 )
 
 const (
@@ -37,25 +38,22 @@ const (
 	Debug = false // FIXME: integrate with global debug flag
 )
 
-func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
-	if Debug {
-		log.Printf("%s: running command: %v", Name, cmd)
+func (obj *GAPI) runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
+	if obj.data.Debug {
+		obj.data.Logf("running command: %v", cmd)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Printf("%s: Error opening pipe to puppet command: %v", Name, err)
-		return nil, err
+		return nil, errwrap.Wrapf(err, "error opening pipe to puppet command")
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		log.Printf("%s: Error opening error pipe to puppet command: %v", Name, err)
-		return nil, err
+		return nil, errwrap.Wrapf(err, "error opening error pipe to puppet command")
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("%s: Error starting puppet command: %v", Name, err)
-		return nil, err
+		return nil, errwrap.Wrapf(err, "error starting puppet command")
 	}
 
 	// XXX: the current implementation is likely prone to fail
@@ -66,22 +64,21 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 		var count int
 		count, err = stdout.Read(data)
 		if err != nil && err != io.EOF {
-			log.Printf("%s: Error reading YAML data from puppet: %v", Name, err)
+			obj.data.Logf("error reading YAML data from puppet: %v", err)
 			return nil, err
 		}
 		// Slicing down to the number of actual bytes is important, the YAML parser
 		// will choke on an oversized slice. http://stackoverflow.com/a/33726617/3356612
 		result = append(result, data[0:count]...)
 	}
-	if Debug {
-		log.Printf("%s: read %d bytes of data from puppet", Name, len(result))
+	if obj.data.Debug {
+		obj.data.Logf("read %d bytes of data from puppet", len(result))
 	}
 	for scanner := bufio.NewScanner(stderr); scanner.Scan(); {
-		log.Printf("%s: (output) %v", Name, scanner.Text())
+		obj.data.Logf("(output) %v", scanner.Text())
 	}
 	if err := cmd.Wait(); err != nil {
-		log.Printf("%s: Error: puppet command did not complete: %v", Name, err)
-		return nil, err
+		return nil, errwrap.Wrapf(err, "error waiting for puppet command to complete")
 	}
 
 	return result, nil
@@ -89,7 +86,7 @@ func runPuppetCommand(cmd *exec.Cmd) ([]byte, error) {
 
 // ParseConfigFromPuppet returns the graph configuration structure from the mode
 // and input values, including possibly some file and directory paths.
-func (obj *GAPI) ParseConfigFromPuppet() *yamlgraph.GraphConfig {
+func (obj *GAPI) ParseConfigFromPuppet() (*yamlgraph.GraphConfig, error) {
 	var args []string
 	switch obj.Mode {
 	case "agent":
@@ -100,7 +97,7 @@ func (obj *GAPI) ParseConfigFromPuppet() *yamlgraph.GraphConfig {
 		args = []string{"mgmtgraph", "print", "--code", obj.puppetString}
 	case "dir":
 		// TODO: run the code from the obj.puppetDir directory path
-		return nil // XXX: not implemented
+		return nil, fmt.Errorf("not implemented") // XXX: not implemented
 	default:
 		panic(fmt.Sprintf("%s: unhandled case: %s", Name, obj.Mode))
 	}
@@ -111,23 +108,22 @@ func (obj *GAPI) ParseConfigFromPuppet() *yamlgraph.GraphConfig {
 
 	cmd := exec.Command("puppet", args...)
 
-	log.Printf("%s: launching translator", Name)
+	obj.data.Logf("launching translator")
 
 	var config yamlgraph.GraphConfig
-	if data, err := runPuppetCommand(cmd); err != nil {
-		return nil
+	if data, err := obj.runPuppetCommand(cmd); err != nil {
+		return nil, errwrap.Wrapf(err, "could not run puppet command")
 	} else if err := config.Parse(data); err != nil {
-		log.Printf("%s: Error: Could not parse YAML output with Parse: %v", Name, err)
-		return nil
+		return nil, errwrap.Wrapf(err, "could not parse YAML output")
 	}
 
-	return &config
+	return &config, nil
 }
 
 // RefreshInterval returns the graph refresh interval from the puppet configuration.
 func (obj *GAPI) refreshInterval() int {
-	if Debug {
-		log.Printf("%s: determining graph refresh interval", Name)
+	if obj.data.Debug {
+		obj.data.Logf("determining graph refresh interval")
 	}
 	var cmd *exec.Cmd
 	if obj.puppetConf != "" {
@@ -136,17 +132,17 @@ func (obj *GAPI) refreshInterval() int {
 		cmd = exec.Command("puppet", "config", "print", "runinterval")
 	}
 
-	log.Printf("%s: inspecting runinterval configuration", Name)
+	obj.data.Logf("inspecting runinterval configuration")
 
 	interval := 1800
-	data, err := runPuppetCommand(cmd)
+	data, err := obj.runPuppetCommand(cmd)
 	if err != nil {
-		log.Printf("%s: could not determine configured run interval (%v), using default of %v", Name, err, interval)
+		obj.data.Logf("could not determine configured run interval (%v), using default of %v", err, interval)
 		return interval
 	}
 	result, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 0)
 	if err != nil {
-		log.Printf("%s: error reading numeric runinterval value (%v), using default of %v", Name, err, interval)
+		obj.data.Logf("error reading numeric runinterval value (%v), using default of %v", err, interval)
 		return interval
 	}
 

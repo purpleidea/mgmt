@@ -20,7 +20,6 @@ package puppet
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strings"
 	"sync"
@@ -246,7 +245,10 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 	if !obj.initialized {
 		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
-	config := obj.ParseConfigFromPuppet()
+	config, err := obj.ParseConfigFromPuppet()
+	if err != nil {
+		return nil, err
+	}
 	if config == nil {
 		return nil, fmt.Errorf("function ParseConfigFromPuppet returned nil")
 	}
@@ -297,7 +299,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 				return
 			}
 
-			log.Printf("%s: Generating new graph...", Name)
+			obj.data.Logf("generating new graph...")
 			if obj.data.NoStreamWatch {
 				pChan = nil
 			} else {

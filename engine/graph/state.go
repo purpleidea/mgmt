@@ -69,11 +69,11 @@ type State struct {
 	eventsLock *sync.Mutex     // lock around sending and closing of events channel
 	eventsDone bool            // is channel closed?
 
-	// output is the channel that the engine listens on for events from the
-	// Watch loop for that resource. The event is nil normally, except when
-	// events are sent on this channel from the engine. This only happens
-	// as a signaling mechanism when Watch has shutdown and we want to
-	// notify the Process loop which reads from this.
+	// outputChan is the channel that the engine listens on for events from
+	// the Watch loop for that resource. The event is nil normally, except
+	// when events are sent on this channel from the engine. This only
+	// happens as a signaling mechanism when Watch has shutdown and we want
+	// to notify the Process loop which reads from this.
 	outputChan chan error // outgoing from resource
 
 	wg   *sync.WaitGroup
@@ -336,6 +336,7 @@ func (obj *State) event() error {
 			case event.EventPoke:
 				// we're trying to send an event, so swallow the
 				// poke: it's what we wanted to have happen here
+				continue
 			case event.EventStart:
 				return fmt.Errorf("unexpected start")
 			case event.EventPause:

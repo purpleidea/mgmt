@@ -71,7 +71,12 @@ test_commit_message_common_bugs() {
 	echo "Testing commit message for common bugs $1"
 	if git log --format=%s $1 | head -n 1 | grep -q "^resource:"
 	then
-		echo 'FAIL: Commit message starts with `resource:`, did you mean `resources:` ?'
+		echo 'FAIL: Commit message starts with `resource:`, did you mean `engine: resources:` ?'
+		exit 1
+	fi
+	if git log --format=%s $1 | head -n 1 | grep -q "^resources:"
+	then
+		echo 'FAIL: Commit message starts with `resources:`, did you mean `engine: resources` ?'
 		exit 1
 	fi
 	if git log --format=%s $1 | head -n 1 | grep -q "^tests:"

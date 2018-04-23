@@ -71,6 +71,7 @@ else
 fi
 
 run-testsuite ./test/test-gometalinter.sh
+run-testsuite ./test/test-goastscanner.sh
 
 # FIXME: this now fails everywhere :(
 skip-testsuite ./test/test-reproducible.sh

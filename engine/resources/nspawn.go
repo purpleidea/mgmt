@@ -151,6 +151,7 @@ func (obj *NspawnRes) Watch() error {
 	if err != nil {
 		return errwrap.Wrapf(err, "failed to connect to bus")
 	}
+	defer bus.Close()
 
 	// add a match rule to match messages going through the message bus
 	call := bus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0,
@@ -160,10 +161,10 @@ func (obj *NspawnRes) Watch() error {
 	if err := call.Err; err != nil {
 		return err
 	}
-	// TODO: verify that implementation doesn't deadlock if there are unread
-	// messages left in the channel
-	busChan := make(chan *dbus.Signal, 10)
+	busChan := make(chan *dbus.Signal)
+	defer close(busChan)
 	bus.Signal(busChan)
+	defer bus.RemoveSignal(busChan) // not needed here, but nice for symmetry
 
 	// notify engine that we're running
 	if err := obj.init.Running(); err != nil {
@@ -171,10 +172,6 @@ func (obj *NspawnRes) Watch() error {
 	}
 
 	var send = false // send event?
-
-	defer close(busChan)
-	defer bus.Close()
-	defer bus.RemoveSignal(busChan)
 	for {
 		select {
 		case event := <-busChan:

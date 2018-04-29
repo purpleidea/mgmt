@@ -56,6 +56,7 @@ var (
 		// TODO: add more values
 		// noarch
 		"noarch": "ANY", // special value "ANY" (noarch as seen in Fedora)
+		"any":    "ANY", // special value "ANY" ('any' as seen in ArchLinux)
 		"all":    "ANY", // special value "ANY" ('all' as seen in Debian)
 		// fedora
 		"x86_64":  "amd64",

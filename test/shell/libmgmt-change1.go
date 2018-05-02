@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 )
 
 // MyGAPI implements the main GAPI interface.
@@ -62,7 +62,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	n0, err := resources.NewNamedResource("noop", "noop1")
+	n0, err := engine.NewNamedResource("noop", "noop1")
 	if err != nil {
 		return nil, err
 	}

@@ -13,21 +13,26 @@ separately. Certain meta parameters aren't very useful when combined with
 certain resources, but in general, it should be fairly obvious, such as when
 combining the `noop` meta parameter with the [Noop](#Noop) resource.
 
-You might want to look at the [generated documentation](https://godoc.org/github.com/purpleidea/mgmt/resources)
+You might want to look at the [generated documentation](https://godoc.org/github.com/purpleidea/mgmt/engine/resources)
 for more up-to-date information about these resources.
 
 * [Augeas](#Augeas): Manipulate files using augeas.
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
+* [Group](#Group): Manage system groups.
 * [Hostname](#Hostname): Manages the hostname on the system.
 * [KV](#KV): Set a key value pair in our shared world database.
 * [Msg](#Msg): Send log messages.
+* [Net](#Net): Manage a local network interface.
 * [Noop](#Noop): A simple resource that does nothing.
 * [Nspawn](#Nspawn): Manage systemd-machined nspawn containers.
 * [Password](#Password): Create random password strings.
 * [Pkg](#Pkg):  Manage system packages with PackageKit.
+* [Print](#Print): Print messages to the console.
 * [Svc](#Svc): Manage system systemd services.
+* [Test](#Test): A mostly harmless resource that is used for internal testing.
 * [Timer](#Timer): Manage system systemd services.
+* [User](#User): Manage system users.
 * [Virt](#Virt): Manage virtual machines with libvirt.
 
 ## Augeas
@@ -81,6 +86,10 @@ and monitor directory contents with a depth greater than one.
 The force property is required if we want the file resource to be able to change
 a file into a directory or vice-versa. If such a change is needed, but the force
 property is not set to `true`, then this file resource will error.
+
+## Group
+
+The group resource manages the system groups from `/etc/group`.
 
 ## Hostname
 
@@ -143,6 +152,10 @@ would expect.
 The msg resource sends messages to the main log, or an external service such
 as systemd's journal.
 
+## Net
+
+The net resource manages a local network interface using netlink.
+
 ## Noop
 
 The noop resource does absolutely nothing. It does have some utility in testing
@@ -164,13 +177,25 @@ different distributions because it uses the underlying packagekit facility which
 supports different backends for different environments. This ensures that we
 have great Debian (deb/dpkg) and Fedora (rpm/dnf) support simultaneously.
 
+## Print
+
+The print resource prints messages to the console.
+
 ## Svc
 
-The service resource is still very WIP. Please help us my improving it!
+The service resource is still very WIP. Please help us by improving it!
+
+## Test
+
+The test resource is mostly harmless and is used for internal tests.
 
 ## Timer
 
-This resource needs better documentation. Please help us my improving it!
+This resource needs better documentation. Please help us by improving it!
+
+## User
+
+The user resource manages the system users from `/etc/passwd`.
 
 ## Virt
 

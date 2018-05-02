@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/resources"
 )
 
 // MyGAPI implements the main GAPI interface.
@@ -69,7 +69,7 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 	}
 
 	if !obj.flipflop {
-		n0, err := resources.NewNamedResource("noop", "noop0")
+		n0, err := engine.NewNamedResource("noop", "noop0")
 		if err != nil {
 			return nil, err
 		}
@@ -77,14 +77,14 @@ func (obj *MyGAPI) Graph() (*pgraph.Graph, error) {
 
 	} else {
 		// NOTE: these will get autogrouped
-		n1, err := resources.NewNamedResource("noop", "noop1")
+		n1, err := engine.NewNamedResource("noop", "noop1")
 		if err != nil {
 			return nil, err
 		}
 		n1.Meta().AutoGroup = obj.autoGroup // enable or disable it
 		g.AddVertex(n1)
 
-		n2, err := resources.NewNamedResource("noop", "noop2")
+		n2, err := engine.NewNamedResource("noop", "noop2")
 		if err != nil {
 			return nil, err
 		}

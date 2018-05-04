@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"strings"
 
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/godbus/dbus"
@@ -46,7 +47,6 @@ const (
 	PkPath                 = "/org/freedesktop/PackageKit"
 	PkIface                = "org.freedesktop.PackageKit"
 	PkIfaceTransaction     = PkIface + ".Transaction"
-	dbusAddMatch           = "org.freedesktop.DBus.AddMatch"
 )
 
 var (
@@ -197,10 +197,10 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	bus := obj.GetBus().BusObject()
 	pathStr := fmt.Sprintf("%s", path)
 	if len(signals) == 0 {
-		call = bus.Call(dbusAddMatch, 0, "type='signal',path='"+pathStr+"',interface='"+iface+"'")
+		call = bus.Call(engineUtil.DBusAddMatch, 0, "type='signal',path='"+pathStr+"',interface='"+iface+"'")
 	} else {
 		for _, signal := range signals {
-			call = bus.Call(dbusAddMatch, 0, "type='signal',path='"+pathStr+"',interface='"+iface+"',member='"+signal+"'")
+			call = bus.Call(engineUtil.DBusAddMatch, 0, "type='signal',path='"+pathStr+"',interface='"+iface+"',member='"+signal+"'")
 			if call.Err != nil {
 				break
 			}

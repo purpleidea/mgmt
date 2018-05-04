@@ -36,6 +36,14 @@ import (
 const (
 	// StructTag is the key we use in struct field names for key mapping.
 	StructTag = "lang"
+	// DBusInterface is the dbus interface that contains genereal methods.
+	DBusInterface = "org.freedesktop.DBus"
+	// DBusAddMatch is the dbus method to receive a subset of dbus broadcast
+	// signals.
+	DBusAddMatch = DBusInterface + ".AddMatch"
+	// DBusRemoveMatch is the dbus method to remove a previously defined
+	// AddMatch rule.
+	DBusRemoveMatch = DBusInterface + ".RemoveMatch"
 )
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization).

@@ -25,6 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 
 	systemdDbus "github.com/coreos/go-systemd/dbus"
@@ -154,7 +155,7 @@ func (obj *NspawnRes) Watch() error {
 	defer bus.Close()
 
 	// add a match rule to match messages going through the message bus
-	call := bus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0,
+	call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0,
 		fmt.Sprintf("type='signal',interface='%s',eavesdrop='true'",
 			dbusInterface))
 	// <-call.Done

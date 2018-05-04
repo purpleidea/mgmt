@@ -23,6 +23,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/godbus/dbus"
@@ -36,7 +37,6 @@ func init() {
 const (
 	hostname1Path  = "/org/freedesktop/hostname1"
 	hostname1Iface = "org.freedesktop.hostname1"
-	dbusAddMatch   = "org.freedesktop.DBus.AddMatch"
 )
 
 // ErrResourceInsufficientParameters is returned when the configuration of the
@@ -113,7 +113,7 @@ func (obj *HostnameRes) Watch() error {
 	}
 	defer bus.Close()
 	callResult := bus.BusObject().Call(
-		"org.freedesktop.DBus.AddMatch", 0,
+		engineUtil.DBusAddMatch, 0,
 		fmt.Sprintf("type='signal',path='%s',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged'", hostname1Path))
 	if callResult.Err != nil {
 		return errwrap.Wrap(callResult.Err, "Failed to subscribe to DBus events for hostname1")

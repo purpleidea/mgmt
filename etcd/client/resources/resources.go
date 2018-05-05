@@ -15,60 +15,43 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package etcd
+package resources
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/util"
 
 	etcd "github.com/coreos/etcd/clientv3"
+)
+
+const (
+	ns = "" // in case we want to add one back in
 )
 
 // WatchResources returns a channel that outputs events when exported resources
 // change.
 // TODO: Filter our watch (on the server side if possible) based on the
 // collection prefixes and filters that we care about...
-func WatchResources(obj *EmbdEtcd) chan error {
-	ch := make(chan error, 1) // buffer it so we can measure it
-	path := fmt.Sprintf("%s/exported/", NS)
-	callback := func(re *RE) error {
-		// TODO: is this even needed? it used to happen on conn errors
-		log.Printf("Etcd: Watch: Path: %v", path) // event
-		if re == nil || re.response.Canceled {
-			return fmt.Errorf("watch is empty") // will cause a CtxError+retry
-		}
-		// we normally need to check if anything changed since the last
-		// event, since a set (export) with no changes still causes the
-		// watcher to trigger and this would cause an infinite loop. we
-		// don't need to do this check anymore because we do the export
-		// transactionally, and only if a change is needed. since it is
-		// atomic, all the changes arrive together which avoids dupes!!
-		if len(ch) == 0 { // send event only if one isn't pending
-			// this check avoids multiple events all queueing up and then
-			// being released continuously long after the changes stopped
-			// do not block!
-			ch <- nil // event
-		}
-		return nil
-	}
-	_, _ = obj.AddWatcher(path, callback, true, false, etcd.WithPrefix()) // no need to check errors
-	return ch
+func WatchResources(ctx context.Context, client interfaces.Client) (chan error, error) {
+	path := fmt.Sprintf("%s/exported/", ns)
+	return client.Watcher(ctx, path, etcd.WithPrefix())
 }
 
 // SetResources exports all of the resources which we pass in to etcd.
-func SetResources(obj *EmbdEtcd, hostname string, resourceList []engine.Res) error {
+func SetResources(ctx context.Context, client interfaces.Client, hostname string, resourceList []engine.Res) error {
 	// key structure is $NS/exported/$hostname/resources/$uid = $data
 
 	var kindFilter []string // empty to get from everyone
 	hostnameFilter := []string{hostname}
 	// this is not a race because we should only be reading keys which we
 	// set, and there should not be any contention with other hosts here!
-	originals, err := GetResources(obj, hostnameFilter, kindFilter)
+	originals, err := GetResources(ctx, client, hostnameFilter, kindFilter)
 	if err != nil {
 		return err
 	}
@@ -81,10 +64,10 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []engine.Res) err
 	ops := []etcd.Op{}  // list of ops in this transaction
 	for _, res := range resourceList {
 		if res.Kind() == "" {
-			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.Name())
+			return fmt.Errorf("empty kind: %s", res.Name())
 		}
 		uid := fmt.Sprintf("%s/%s", res.Kind(), res.Name())
-		path := fmt.Sprintf("%s/exported/%s/resources/%s", NS, hostname, uid)
+		path := fmt.Sprintf("%s/exported/%s/resources/%s", ns, hostname, uid)
 		if data, err := engineUtil.ResToB64(res); err == nil {
 			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", data)) // desired state
 			ops = append(ops, etcd.OpPut(path, data))
@@ -106,10 +89,10 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []engine.Res) err
 	// delete old, now unused resources here...
 	for _, res := range originals {
 		if res.Kind() == "" {
-			log.Fatalf("Etcd: SetResources: Error: Empty kind: %v", res.Name())
+			return fmt.Errorf("empty kind: %s", res.Name())
 		}
 		uid := fmt.Sprintf("%s/%s", res.Kind(), res.Name())
-		path := fmt.Sprintf("%s/exported/%s/resources/%s", NS, hostname, uid)
+		path := fmt.Sprintf("%s/exported/%s/resources/%s", ns, hostname, uid)
 
 		if match(res, resourceList) { // if we match, no need to delete!
 			continue
@@ -124,9 +107,9 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []engine.Res) err
 	// it's important to do this in one transaction, and atomically, because
 	// this way, we only generate one watch event, and only when it's needed
 	if hasDeletes { // always run, ifs don't matter
-		_, err = obj.Txn(nil, ops, nil) // TODO: does this run? it should!
+		_, err = client.Txn(ctx, nil, ops, nil) // TODO: does this run? it should!
 	} else {
-		_, err = obj.Txn(ifs, nil, ops) // TODO: do we need to look at response?
+		_, err = client.Txn(ctx, ifs, nil, ops) // TODO: do we need to look at response?
 	}
 	return err
 }
@@ -136,11 +119,11 @@ func SetResources(obj *EmbdEtcd, hostname string, resourceList []engine.Res) err
 // TODO: Expand this with a more powerful filter based on what we eventually
 // support in our collect DSL. Ideally a server side filter like WithFilter()
 // We could do this if the pattern was $NS/exported/$kind/$hostname/$uid = $data.
-func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]engine.Res, error) {
+func GetResources(ctx context.Context, client interfaces.Client, hostnameFilter, kindFilter []string) ([]engine.Res, error) {
 	// key structure is $NS/exported/$hostname/resources/$uid = $data
-	path := fmt.Sprintf("%s/exported/", NS)
+	path := fmt.Sprintf("%s/exported/", ns)
 	resourceList := []engine.Res{}
-	keyMap, err := obj.Get(path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
+	keyMap, err := client.Get(ctx, path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {
 		return nil, fmt.Errorf("could not get resources: %v", err)
 	}
@@ -160,7 +143,9 @@ func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]engine.
 		if kind == "" {
 			return nil, fmt.Errorf("unexpected kind chunk")
 		}
-
+		if name == "" { // TODO: should I check this?
+			return nil, fmt.Errorf("unexpected empty name")
+		}
 		// FIXME: ideally this would be a server side filter instead!
 		if len(hostnameFilter) > 0 && !util.StrInList(hostname, hostnameFilter) {
 			continue
@@ -171,9 +156,9 @@ func GetResources(obj *EmbdEtcd, hostnameFilter, kindFilter []string) ([]engine.
 			continue
 		}
 
-		if obj, err := engineUtil.B64ToRes(val); err == nil {
-			log.Printf("Etcd: Get: (Hostname, Kind, Name): (%s, %s, %s)", hostname, kind, name)
-			resourceList = append(resourceList, obj)
+		if res, err := engineUtil.B64ToRes(val); err == nil {
+			//obj.Logf("Get: (Hostname, Kind, Name): (%s, %s, %s)", hostname, kind, name)
+			resourceList = append(resourceList, res)
 		} else {
 			return nil, fmt.Errorf("can't convert from B64: %v", err)
 		}

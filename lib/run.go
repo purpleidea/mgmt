@@ -175,14 +175,19 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	reterr := obj.Run()
 	if reterr != nil {
 		// log the error message returned
-		log.Printf("main: Error: %v", reterr)
+		if obj.Flags.Debug {
+			log.Printf("main: %+v", reterr)
+		}
 	}
 
 	if err := obj.Close(); err != nil {
-		log.Printf("main: Close: %v", err)
+		if obj.Flags.Debug {
+			log.Printf("main: Close: %+v", err)
+		}
 		if reterr == nil {
 			return err
 		}
+		reterr = errwrap.Append(reterr, err)
 	}
 
 	return reterr

@@ -15,25 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// +build !root
-
 package etcd
 
 import (
-	"testing"
+	"github.com/purpleidea/mgmt/etcd/interfaces"
 )
 
-func TestValidation1(t *testing.T) {
-	// running --no-server with no --seeds should not validate at the moment
-	embdEtcd := &EmbdEtcd{
-		//Seeds: etcdtypes.URLs{},
-		NoServer: true,
-	}
-	if err := embdEtcd.Validate(); err == nil {
-		t.Errorf("expected validation err, got nil")
-	}
-	if err := embdEtcd.Init(); err == nil {
-		t.Errorf("expected init err, got nil")
-		defer embdEtcd.Close()
-	}
-}
+const (
+	// errInconsistentApply means applyDeltaEvents wasn't consistent.
+	errInconsistentApply = interfaces.Error("inconsistent apply")
+)

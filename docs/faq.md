@@ -215,23 +215,25 @@ requires a number of seconds as an argument.
 ./mgmt run lang --lang examples/lang/hello0.mcl --converged-timeout=5
 ```
 
-### What does the error message about an inconsistent dataDir mean?
+### On startup `mgmt` hangs after: `etcd: server: starting...`.
 
 If you get an error message similar to:
 
 ```
-Etcd: Connect: CtxError...
-Etcd: CtxError: Reason: CtxDelayErr(5s): No endpoints available yet!
-Etcd: Connect: Endpoints: []
-Etcd: The dataDir (/var/lib/mgmt/etcd) might be inconsistent or corrupt.
+etcd: server: starting...
+etcd: server: start timeout of 1m0s reached
+etcd: server: close timeout of 15s reached
 ```
 
-This happens when there are a series of fatal connect errors in a row. This can
-happen when you start `mgmt` using a dataDir that doesn't correspond to the
-current cluster view. As a result, the embedded etcd server never finishes
-starting up, and as a result, a default endpoint never gets added. The solution
-is to either reconcile the mistake, and if there is no important data saved, you
-can remove the etcd dataDir. This is typically `/var/lib/mgmt/etcd/member/`.
+But nothing happens afterwards, this can be due to a corrupt etcd storage
+directory. Each etcd server embedded in mgmt must have a special directory where
+it stores local state. It must not be shared by more than one individual member.
+This dir is typically `/var/lib/mgmt/etcd/member/`. If you accidentally use it
+(for example during testing) with a different cluster view, then you can corrupt
+it. This can happen if you use it with more than one different hostname.
+
+The solution is to avoid making this mistake, and if there is no important data
+saved, you can remove the etcd member dir and start over.
 
 ### On running `make` to build a new version, it errors with: `Text file busy`.
 

@@ -15,20 +15,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package etcd
+package str
 
 import (
-	"errors"
+	"context"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	etcdutil "github.com/coreos/etcd/clientv3/clientv3util"
 )
 
-// ErrNotExist is returned when GetStr can not find the requested key.
-// TODO: https://dave.cheney.net/2016/04/07/constant-errors
-var ErrNotExist = errors.New("errNotExist")
+const (
+	ns = "" // in case we want to add one back in
+)
 
 // WatchStr returns a channel which spits out events on key activity.
 // FIXME: It should close the channel when it's done, and spit out errors when
@@ -37,37 +39,23 @@ var ErrNotExist = errors.New("errNotExist")
 // done, does that mean we leak go-routines since it might still be running, but
 // perhaps even blocked??? Could this cause a dead-lock? Should we instead return
 // some sort of struct which has a close method with it to ask for a shutdown?
-func WatchStr(obj *EmbdEtcd, key string) chan error {
+func WatchStr(ctx context.Context, client interfaces.Client, key string) (chan error, error) {
 	// new key structure is $NS/strings/$key = $data
-	path := fmt.Sprintf("%s/strings/%s", NS, key)
-	ch := make(chan error, 1)
-	// FIXME: fix our API so that we get a close event on shutdown.
-	callback := func(re *RE) error {
-		// TODO: is this even needed? it used to happen on conn errors
-		//log.Printf("Etcd: Watch: Path: %v", path) // event
-		if re == nil || re.response.Canceled {
-			return fmt.Errorf("watch is empty") // will cause a CtxError+retry
-		}
-		if len(ch) == 0 { // send event only if one isn't pending
-			ch <- nil // event
-		}
-		return nil
-	}
-	_, _ = obj.AddWatcher(path, callback, true, false, etcd.WithPrefix()) // no need to check errors
-	return ch
+	path := fmt.Sprintf("%s/strings/%s", ns, key)
+	return client.Watcher(ctx, path)
 }
 
 // GetStr collects the string which matches a global namespace in etcd.
-func GetStr(obj *EmbdEtcd, key string) (string, error) {
+func GetStr(ctx context.Context, client interfaces.Client, key string) (string, error) {
 	// new key structure is $NS/strings/$key = $data
-	path := fmt.Sprintf("%s/strings/%s", NS, key)
-	keyMap, err := obj.Get(path, etcd.WithPrefix())
+	path := fmt.Sprintf("%s/strings/%s", ns, key)
+	keyMap, err := client.Get(ctx, path, etcd.WithPrefix())
 	if err != nil {
 		return "", errwrap.Wrapf(err, "could not get strings in: %s", key)
 	}
 
 	if len(keyMap) == 0 {
-		return "", ErrNotExist
+		return "", interfaces.ErrNotExist
 	}
 
 	if count := len(keyMap); count != 1 {
@@ -79,23 +67,21 @@ func GetStr(obj *EmbdEtcd, key string) (string, error) {
 		return "", fmt.Errorf("path `%s` is missing", path)
 	}
 
-	//log.Printf("Etcd: GetStr(%s): %s", key, val)
 	return val, nil
 }
 
 // SetStr sets a key and hostname pair to a certain value. If the value is
 // nil, then it deletes the key. Otherwise the value should point to a string.
 // TODO: TTL or delete disconnect?
-func SetStr(obj *EmbdEtcd, key string, data *string) error {
+func SetStr(ctx context.Context, client interfaces.Client, key string, data *string) error {
 	// key structure is $NS/strings/$key = $data
-	path := fmt.Sprintf("%s/strings/%s", NS, key)
+	path := fmt.Sprintf("%s/strings/%s", ns, key)
 	ifs := []etcd.Cmp{} // list matching the desired state
 	ops := []etcd.Op{}  // list of ops in this transaction (then)
 	els := []etcd.Op{}  // list of ops in this transaction (else)
 	if data == nil {    // perform a delete
-		// TODO: use https://github.com/coreos/etcd/pull/7417 if merged
-		//ifs = append(ifs, etcd.KeyExists(path))
-		ifs = append(ifs, etcd.Compare(etcd.Version(path), ">", 0))
+		ifs = append(ifs, etcdutil.KeyExists(path))
+		//ifs = append(ifs, etcd.Compare(etcd.Version(path), ">", 0))
 		ops = append(ops, etcd.OpDelete(path))
 	} else {
 		data := *data                                                // get the real value
@@ -105,6 +91,6 @@ func SetStr(obj *EmbdEtcd, key string, data *string) error {
 
 	// it's important to do this in one transaction, and atomically, because
 	// this way, we only generate one watch event, and only when it's needed
-	_, err := obj.Txn(ifs, ops, els) // TODO: do we need to look at response?
+	_, err := client.Txn(ctx, ifs, ops, els) // TODO: do we need to look at response?
 	return errwrap.Wrapf(err, "could not set strings in: %s", key)
 }

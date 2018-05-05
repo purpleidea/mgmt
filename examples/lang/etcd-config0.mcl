@@ -1,0 +1,4 @@
+# sets a cluster parameter, safe to be called identically from multiple machines
+config:etcd "whatever" {
+	idealclustersize => 7,
+}

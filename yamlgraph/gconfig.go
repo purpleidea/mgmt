@@ -19,6 +19,7 @@
 package yamlgraph
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -168,6 +169,7 @@ func (obj *GraphConfig) Parse(data []byte) error {
 
 // NewGraphFromConfig transforms a GraphConfig struct into a new graph.
 // FIXME: remove any possibly left over, now obsolete graph diff code from here!
+// TODO: add a timeout to replace context.TODO()
 func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, noop bool) (*pgraph.Graph, error) {
 	// hostname is the uuid for the host
 
@@ -224,7 +226,7 @@ func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, 
 	}
 
 	// store in backend (usually etcd)
-	if err := world.ResExport(resourceList); err != nil {
+	if err := world.ResExport(context.TODO(), resourceList); err != nil {
 		return nil, fmt.Errorf("Config: Could not export resources: %v", err)
 	}
 
@@ -239,7 +241,7 @@ func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, 
 	// database changes, we don't have a partial state of affairs...
 	if len(kindFilter) > 0 { // if kindFilter is empty, don't need to do lookups!
 		var err error
-		resourceList, err = world.ResCollect(hostnameFilter, kindFilter)
+		resourceList, err = world.ResCollect(context.TODO(), hostnameFilter, kindFilter)
 		if err != nil {
 			return nil, fmt.Errorf("Config: Could not collect resources: %v", err)
 		}

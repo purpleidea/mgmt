@@ -18,11 +18,13 @@
 package lib
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/purpleidea/mgmt/etcd"
+	"github.com/purpleidea/mgmt/etcd/client"
+	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -34,12 +36,13 @@ import (
 
 const (
 	// MetadataPrefix is the etcd prefix where all our fs superblocks live.
-	MetadataPrefix = etcd.NS + "/fs"
+	MetadataPrefix = "/fs"
 	// StoragePrefix is the etcd prefix where all our fs data lives.
-	StoragePrefix = etcd.NS + "/storage"
+	StoragePrefix = "/storage"
 )
 
 // deploy is the cli target to manage deploys to our cluster.
+// TODO: add a timeout and/or cancel signal to replace context.TODO()
 func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	cliContext := c.Parent()
 	if cliContext == nil {
@@ -55,7 +58,12 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 			debug = flags.Debug
 		}
 	}
+	Logf := func(format string, v ...interface{}) {
+		log.Printf("deploy: "+format, v...)
+	}
+
 	hello(program, version, flags) // say hello!
+	defer Logf("goodbye!")
 
 	var hash, pHash string
 	if !cliContext.Bool("no-git") {
@@ -74,7 +82,7 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		}
 
 		hash = head.Hash().String() // current commit id
-		log.Printf("deploy: hash: %s", hash)
+		Logf("hash: %s", hash)
 
 		lo := &git.LogOptions{
 			From: head.Hash(),
@@ -90,7 +98,7 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		if err == nil { // errors are okay, we might be empty
 			pHash = commit.Hash.String() // previous commit id
 		}
-		log.Printf("deploy: previous deploy hash: %s", pHash)
+		Logf("previous deploy hash: %s", pHash)
 		if cliContext.Bool("force") {
 			pHash = "" // don't check this :(
 		}
@@ -101,28 +109,58 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 
 	uniqueid := uuid.New() // panic's if it can't generate one :P
 
-	etcdClient := &etcd.ClientEtcd{
-		Seeds: cliContext.StringSlice("seeds"), // endpoints
+	etcdClient := client.NewClientFromSeedsNamespace(
+		cliContext.StringSlice("seeds"), // endpoints
+		NS,
+	)
+	if err := etcdClient.Init(); err != nil {
+		return errwrap.Wrapf(err, "client Init failed")
 	}
-	if err := etcdClient.Connect(); err != nil {
-		return errwrap.Wrapf(err, "client connection error")
+	defer func() {
+		err := errwrap.Wrapf(etcdClient.Close(), "client Close failed")
+		if err != nil {
+			// TODO: cause the final exit code to be non-zero
+			Logf("client cleanup error: %+v", err)
+		}
+	}()
+
+	simpleDeploy := &deployer.SimpleDeploy{
+		Client: etcdClient,
+		Debug:  debug,
+		Logf: func(format string, v ...interface{}) {
+			Logf("deploy: "+format, v...)
+		},
 	}
-	defer etcdClient.Destroy()
+	if err := simpleDeploy.Init(); err != nil {
+		return errwrap.Wrapf(err, "deploy Init failed")
+	}
+	defer func() {
+		err := errwrap.Wrapf(simpleDeploy.Close(), "deploy Close failed")
+		if err != nil {
+			// TODO: cause the final exit code to be non-zero
+			Logf("deploy cleanup error: %+v", err)
+		}
+	}()
 
 	// get max id (from all the previous deploys)
-	max, err := etcd.GetMaxDeployID(etcdClient)
+	max, err := simpleDeploy.GetMaxDeployID(context.TODO())
 	if err != nil {
 		return errwrap.Wrapf(err, "error getting max deploy id")
 	}
 	// find the latest id
 	var id = max + 1 // next id
-	log.Printf("deploy: max deploy id: %d", max)
+	Logf("previous max deploy id: %d", max)
 
 	etcdFs := &etcdfs.Fs{
-		Client: etcdClient.GetClient(),
+		Client: etcdClient,
 		// TODO: using a uuid is meant as a temporary measure, i hate them
 		Metadata:   MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid),
 		DataPrefix: StoragePrefix,
+
+		Debug: debug,
+		Logf: func(format string, v ...interface{}) {
+			Logf("fs: "+format, v...)
+		},
 	}
 
 	cliInfo := &gapi.CliInfo{
@@ -154,9 +192,9 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	}
 
 	// this nominally checks the previous git hash matches our expectation
-	if err := etcd.AddDeploy(etcdClient, id, hash, pHash, &str); err != nil {
+	if err := simpleDeploy.AddDeploy(context.TODO(), id, hash, pHash, &str); err != nil {
 		return errwrap.Wrapf(err, "could not create deploy id `%d`", id)
 	}
-	log.Printf("deploy: success, id: %d", id)
+	Logf("success, id: %d", id)
 	return nil
 }

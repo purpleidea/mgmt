@@ -18,6 +18,8 @@
 package engine
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/etcd/scheduler"
 )
 
@@ -25,22 +27,26 @@ import (
 // the GAPI to store state and exchange information throughout the cluster. It
 // is the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
-	ResWatch() chan error
-	ResExport([]Res) error
+	ResWatch(context.Context) (chan error, error)
+	ResExport(context.Context, []Res) error
 	// FIXME: should this method take a "filter" data struct instead of many args?
-	ResCollect(hostnameFilter, kindFilter []string) ([]Res, error)
+	ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]Res, error)
 
-	StrWatch(namespace string) chan error
+	IdealClusterSizeWatch(context.Context) (chan error, error)
+	IdealClusterSizeGet(context.Context) (uint16, error)
+	IdealClusterSizeSet(context.Context, uint16) (bool, error)
+
+	StrWatch(ctx context.Context, namespace string) (chan error, error)
 	StrIsNotExist(error) bool
-	StrGet(namespace string) (string, error)
-	StrSet(namespace, value string) error
-	StrDel(namespace string) error
+	StrGet(ctx context.Context, namespace string) (string, error)
+	StrSet(ctx context.Context, namespace, value string) error
+	StrDel(ctx context.Context, namespace string) error
 
 	// XXX: add the exchange primitives in here directly?
-	StrMapWatch(namespace string) chan error
-	StrMapGet(namespace string) (map[string]string, error)
-	StrMapSet(namespace, value string) error
-	StrMapDel(namespace string) error
+	StrMapWatch(ctx context.Context, namespace string) (chan error, error)
+	StrMapGet(ctx context.Context, namespace string) (map[string]string, error)
+	StrMapSet(ctx context.Context, namespace, value string) error
+	StrMapDel(ctx context.Context, namespace string) error
 
 	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
 

@@ -15,16 +15,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package etcd
+package interfaces
 
-import (
-	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
+// Error is a constant error type that implements error.
+type Error string
+
+// Error fulfills the error interface of this type.
+func (e Error) Error() string { return string(e) }
+
+const (
+	// ErrNotExist is returned when GetStr or friends can not find the
+	// requested key.
+	ErrNotExist = Error("ErrNotExist")
+
+	// ErrShutdown is returned when we're exiting during a shutdown.
+	ErrShutdown = Error("ErrShutdown")
 )
-
-// Client provides a simple interface specification for client requests. Both
-// EmbdEtcd and ClientEtcd implement this.
-type Client interface {
-	// TODO: add more method signatures
-	Get(path string, opts ...etcd.OpOption) (map[string]string, error)
-	Txn(ifcmps []etcd.Cmp, thenops, elseops []etcd.Op) (*etcd.TxnResponse, error)
-}

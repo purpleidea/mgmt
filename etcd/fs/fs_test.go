@@ -26,7 +26,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/purpleidea/mgmt/etcd"
+	"github.com/purpleidea/mgmt/etcd/client"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/integration"
 	"github.com/purpleidea/mgmt/util"
@@ -41,6 +41,7 @@ import (
 const (
 	umask      = 0666
 	superblock = "/some/superblock" // TODO: generate randomly per test?
+	ns         = "/_mgmt/test"      // must not end with a slash!
 )
 
 // Ensure that etcdfs.Fs implements afero.Fs.
@@ -79,20 +80,26 @@ func TestFs1(t *testing.T) {
 	}
 	defer stopEtcd() // ignore the error
 
-	etcdClient := &etcd.ClientEtcd{
-		Seeds: []string{"localhost:2379"}, // endpoints
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: etcd: fs: "+format, v...)
 	}
+	etcdClient := client.NewClientFromSeedsNamespace(
+		[]string{"localhost:2379"}, // endpoints
+		ns,
+	)
 
-	if err := etcdClient.Connect(); err != nil {
+	if err := etcdClient.Init(); err != nil {
 		t.Errorf("client connection error: %+v", err)
 		return
 	}
-	defer etcdClient.Destroy()
+	defer etcdClient.Close()
 
 	etcdFs := &etcdfs.Fs{
-		Client:     etcdClient.GetClient(),
+		Client:     etcdClient,
 		Metadata:   superblock,
 		DataPrefix: etcdfs.DefaultDataPrefix,
+
+		Logf: logf,
 	}
 	//var etcdFs afero.Fs = NewEtcdFs()
 
@@ -193,20 +200,26 @@ func TestFs2(t *testing.T) {
 	}
 	defer stopEtcd() // ignore the error
 
-	etcdClient := &etcd.ClientEtcd{
-		Seeds: []string{"localhost:2379"}, // endpoints
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: etcd: fs: "+format, v...)
 	}
+	etcdClient := client.NewClientFromSeedsNamespace(
+		[]string{"localhost:2379"}, // endpoints
+		ns,
+	)
 
-	if err := etcdClient.Connect(); err != nil {
+	if err := etcdClient.Init(); err != nil {
 		t.Errorf("client connection error: %+v", err)
 		return
 	}
-	defer etcdClient.Destroy()
+	defer etcdClient.Close()
 
 	etcdFs := &etcdfs.Fs{
-		Client:     etcdClient.GetClient(),
+		Client:     etcdClient,
 		Metadata:   superblock,
 		DataPrefix: etcdfs.DefaultDataPrefix,
+
+		Logf: logf,
 	}
 
 	tree, err := util.FsTree(etcdFs, "/")
@@ -246,20 +259,26 @@ func TestFs3(t *testing.T) {
 	}
 	defer stopEtcd() // ignore the error
 
-	etcdClient := &etcd.ClientEtcd{
-		Seeds: []string{"localhost:2379"}, // endpoints
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: etcd: fs: "+format, v...)
 	}
+	etcdClient := client.NewClientFromSeedsNamespace(
+		[]string{"localhost:2379"}, // endpoints
+		ns,
+	)
 
-	if err := etcdClient.Connect(); err != nil {
+	if err := etcdClient.Init(); err != nil {
 		t.Errorf("client connection error: %+v", err)
 		return
 	}
-	defer etcdClient.Destroy()
+	defer etcdClient.Close()
 
 	etcdFs := &etcdfs.Fs{
-		Client:     etcdClient.GetClient(),
+		Client:     etcdClient,
 		Metadata:   superblock,
 		DataPrefix: etcdfs.DefaultDataPrefix,
+
+		Logf: logf,
 	}
 
 	if err := etcdFs.Mkdir("/tmp", umask); err != nil {
@@ -371,18 +390,19 @@ func TestEtcdCopyFs0(t *testing.T) {
 		}
 		defer stopEtcd() // ignore the error
 
-		etcdClient := &etcd.ClientEtcd{
-			Seeds: []string{"localhost:2379"}, // endpoints
-		}
+		etcdClient := client.NewClientFromSeedsNamespace(
+			[]string{"localhost:2379"}, // endpoints
+			ns,
+		)
 
-		if err := etcdClient.Connect(); err != nil {
+		if err := etcdClient.Init(); err != nil {
 			t.Errorf("client connection error: %+v", err)
 			return
 		}
-		defer etcdClient.Destroy()
+		defer etcdClient.Close()
 
 		etcdFs := &etcdfs.Fs{
-			Client:     etcdClient.GetClient(),
+			Client:     etcdClient,
 			Metadata:   superblock,
 			DataPrefix: etcdfs.DefaultDataPrefix,
 		}

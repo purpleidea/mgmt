@@ -23,16 +23,24 @@
 
 import sys
 
-lines = sys.stdin.readlines()
+if len(sys.argv) == 2 and sys.argv[1] != "-":
+	lines = open(sys.argv[1], "r").readlines()
+else:
+	lines = sys.stdin.readlines()
 
 print("read: %d lines" % len(lines))
 
 # find program start
+start = -1
 for i in range(len(lines)):
 	line = lines[i]
 	if line.startswith("PC="):
 		start=i
 		break
+
+if start == -1:
+	print("could not find program start, looking for PC=???", file=sys.stderr)
+	sys.exit(1)
 
 print("starts at line: %d" % (start+1)) # +1 because we're zero based
 
@@ -58,6 +66,18 @@ def filter_chunk(chunk):
 
 	package_line = lines[1]
 	if package_line.startswith("github.com/purpleidea/mgmt/vendor/"):
+		return False
+	if package_line.startswith("github.com/") and not package_line.startswith("github.com/purpleidea/mgmt/"):
+		return False
+	if package_line.startswith("internal/poll"):
+		return False
+	if package_line.startswith("context.propagateCancel"):
+		return False
+	if package_line.startswith("runtime.gopark"):
+		return False
+	if package_line.startswith("runtime.futex"):
+		return False
+	if package_line.startswith("os/signal.signal_recv"):
 		return False
 
 	return True

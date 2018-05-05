@@ -86,7 +86,7 @@ func TestEasyAckOnce2(t *testing.T) {
 	}
 }
 
-func ExampleSubscribeSync() {
+func ExampleSubscribedSignal() {
 	fmt.Println("hello")
 
 	x := &SubscribedSignal{}

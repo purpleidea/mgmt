@@ -37,6 +37,7 @@ func hello(program, version string, flags Flags) {
 	log.SetFlags(logFlags)
 
 	// un-hijack from capnslog...
+	// XXX: move this to the etcd package when new version deprecates capnslog
 	log.SetOutput(os.Stderr)
 	if flags.Verbose {
 		capnslog.SetFormatter(capnslog.NewLogFormatter(os.Stderr, "(etcd) ", logFlags))

@@ -62,6 +62,13 @@ type Engine struct {
 // If the struct does not validate, or it cannot initialize, then this errors.
 // Initially it will contain an empty graph.
 func (obj *Engine) Init() error {
+	if obj.Program == "" {
+		return fmt.Errorf("the Program is empty")
+	}
+	if obj.Hostname == "" {
+		return fmt.Errorf("the Hostname is empty")
+	}
+
 	var err error
 	if obj.graph, err = pgraph.NewGraph("graph"); err != nil {
 		return err

@@ -20,6 +20,7 @@ package fs
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
@@ -27,19 +28,18 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"log"
 	"os"
 	"path"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
 	rpctypes "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/spf13/afero"
-	context "golang.org/x/net/context"
 )
 
 func init() {
@@ -91,7 +91,7 @@ var (
 // XXX: this is harder because we need to list of *all* metadata paths, if we
 // want them to be able to share storage backends. (we do)
 type Fs struct {
-	Client *etcd.Client
+	Client interfaces.Client
 
 	Metadata string // location of "superblock" for this filesystem
 
@@ -99,6 +99,7 @@ type Fs struct {
 	Hash       string // eg: sha256
 
 	Debug bool
+	Logf  func(format string, v ...interface{})
 
 	sb      *superBlock
 	mounted bool
@@ -115,7 +116,7 @@ type superBlock struct {
 
 // NewEtcdFs creates a new filesystem handle on an etcd client connection. You
 // must specify the metadata string that you wish to use.
-func NewEtcdFs(client *etcd.Client, metadata string) afero.Fs {
+func NewEtcdFs(client interfaces.Client, metadata string) afero.Fs {
 	return &Fs{
 		Client:   client,
 		Metadata: metadata,
@@ -127,23 +128,26 @@ func (obj *Fs) get(path string, opts ...etcd.OpOption) (map[string][]byte, error
 	ctx, cancel := context.WithTimeout(context.Background(), EtcdTimeout)
 	resp, err := obj.Client.Get(ctx, path, opts...)
 	cancel()
-	if err != nil || resp == nil {
+	if err != nil {
 		return nil, err
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("empty response")
+	}
 
-	// TODO: write a resp.ToMap() function on https://godoc.org/github.com/coreos/etcd/etcdserver/etcdserverpb#RangeResponse
-	result := make(map[string][]byte) // formerly: map[string][]byte
-	for _, x := range resp.Kvs {
-		result[string(x.Key)] = x.Value // formerly: bytes.NewBuffer(x.Value).String()
+	// FIXME: just return resp instead if it was map[string]string?
+	result := make(map[string][]byte)
+	for key, val := range resp {
+		result[key] = []byte(val) // wasteful transform
 	}
 
 	return result, nil
 }
 
 // put a value into etcd.
-func (obj *Fs) put(path string, data []byte, opts ...etcd.OpOption) error {
+func (obj *Fs) set(path string, data []byte, opts ...etcd.OpOption) error {
 	ctx, cancel := context.WithTimeout(context.Background(), EtcdTimeout)
-	_, err := obj.Client.Put(ctx, path, string(data), opts...) // TODO: obj.Client.KV ?
+	err := obj.Client.Set(ctx, path, string(data), opts...)
 	cancel()
 	if err != nil {
 		switch err {
@@ -163,7 +167,7 @@ func (obj *Fs) put(path string, data []byte, opts ...etcd.OpOption) error {
 // txn runs a txn in etcd.
 func (obj *Fs) txn(ifcmps []etcd.Cmp, thenops, elseops []etcd.Op) (*etcd.TxnResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), EtcdTimeout)
-	resp, err := obj.Client.Txn(ctx).If(ifcmps...).Then(thenops...).Else(elseops...).Commit()
+	resp, err := obj.Client.Txn(ctx, ifcmps, thenops, elseops)
 	cancel()
 	return resp, err
 }
@@ -194,7 +198,7 @@ func (obj *Fs) sync() error {
 		return errwrap.Wrapf(err, "gob failed to encode")
 	}
 	//base64.StdEncoding.EncodeToString(b.Bytes())
-	return obj.put(obj.Metadata, b.Bytes())
+	return obj.set(obj.Metadata, b.Bytes())
 }
 
 // mount downloads the initial cache of metadata, including the *file tree.
@@ -213,7 +217,7 @@ func (obj *Fs) mount() error {
 	}
 	if result == nil || len(result) == 0 { // nothing found, create the fs
 		if obj.Debug {
-			log.Printf("debug: mount: creating new fs at: %s", obj.Metadata)
+			obj.Logf("mount: creating new fs at: %s", obj.Metadata)
 		}
 		// trim any trailing slashes from DataPrefix
 		for strings.HasSuffix(obj.DataPrefix, "/") {
@@ -248,7 +252,7 @@ func (obj *Fs) mount() error {
 	}
 
 	if obj.Debug {
-		log.Printf("debug: mount: opening old fs at: %s", obj.Metadata)
+		obj.Logf("mount: opening old fs at: %s", obj.Metadata)
 	}
 	sb, exists := result[obj.Metadata]
 	if !exists {

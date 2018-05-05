@@ -18,6 +18,7 @@
 package coreworld
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -73,6 +74,8 @@ func (obj *KVLookupFunc) Init(init *interfaces.Init) error {
 // Stream returns the changing values that this func has over time.
 func (obj *KVLookupFunc) Stream() error {
 	defer close(obj.init.Output) // the sender closes
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for {
 		select {
 		// TODO: should this first chan be run as a priority channel to
@@ -103,10 +106,14 @@ func (obj *KVLookupFunc) Stream() error {
 			// TODO: support changing the namespace over time...
 			// TODO: possibly removing our stored value there first!
 			if obj.namespace == "" {
-				obj.namespace = namespace                                 // store it
-				obj.watchChan = obj.init.World.StrMapWatch(obj.namespace) // watch for var changes
+				obj.namespace = namespace // store it
+				var err error
+				obj.watchChan, err = obj.init.World.StrMapWatch(ctx, obj.namespace) // watch for var changes
+				if err != nil {
+					return err
+				}
 
-				result, err := obj.buildMap() // build the map...
+				result, err := obj.buildMap(ctx) // build the map...
 				if err != nil {
 					return err
 				}
@@ -135,7 +142,7 @@ func (obj *KVLookupFunc) Stream() error {
 				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.namespace)
 			}
 
-			result, err := obj.buildMap() // build the map...
+			result, err := obj.buildMap(ctx) // build the map...
 			if err != nil {
 				return err
 			}
@@ -166,8 +173,8 @@ func (obj *KVLookupFunc) Close() error {
 }
 
 // buildMap builds the result map which we'll need. It uses struct variables.
-func (obj *KVLookupFunc) buildMap() (types.Value, error) {
-	keyMap, err := obj.init.World.StrMapGet(obj.namespace)
+func (obj *KVLookupFunc) buildMap(ctx context.Context) (types.Value, error) {
+	keyMap, err := obj.init.World.StrMapGet(ctx, obj.namespace)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", obj.namespace)
 	}

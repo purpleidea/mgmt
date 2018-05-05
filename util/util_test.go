@@ -22,6 +22,7 @@ package util
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -1011,6 +1012,76 @@ func TestRemovePathPrefix0(t *testing.T) {
 			t.Errorf("failed: %s -> %s", test.in, out)
 			continue
 		}
+	}
+}
+
+func TestPriorityStrSliceSort0(t *testing.T) {
+	in := []string{"foo", "bar", "baz"}
+	ex := []string{"bar", "baz", "foo"}
+
+	fn := func(x string) bool {
+		return x == "foo"
+	}
+	out := PriorityStrSliceSort(in, fn)
+
+	if !reflect.DeepEqual(ex, out) {
+		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+	}
+}
+
+func TestPriorityStrSliceSort1(t *testing.T) {
+	in := []string{"foo", "bar", "baz"}
+	ex := []string{"bar", "foo", "baz"}
+
+	fn := func(x string) bool {
+		return x != "bar" // != brings this key to the front
+	}
+	out := PriorityStrSliceSort(in, fn)
+
+	if !reflect.DeepEqual(ex, out) {
+		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+	}
+}
+
+func TestPriorityStrSliceSort2(t *testing.T) {
+	in := []string{"bar", "foo", "bar", "bar", "baz"}
+	ex := []string{"foo", "baz", "bar", "bar", "bar"}
+
+	fn := func(x string) bool {
+		return x == "bar"
+	}
+	out := PriorityStrSliceSort(in, fn)
+
+	if !reflect.DeepEqual(ex, out) {
+		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+	}
+}
+
+func TestPriorityStrSliceSort3(t *testing.T) {
+	in := []string{"foo", "bar1", "bar2", "bar3", "baz"}
+	ex := []string{"bar1", "bar2", "bar3", "foo", "baz"}
+
+	fn := func(x string) bool {
+		return !strings.HasPrefix(x, "bar")
+	}
+	out := PriorityStrSliceSort(in, fn)
+
+	if !reflect.DeepEqual(ex, out) {
+		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+	}
+}
+
+func TestPriorityStrSliceSort4(t *testing.T) {
+	in := []string{"foo", "bar1", "bar2", "bar3", "baz"}
+	ex := []string{"foo", "baz", "bar1", "bar2", "bar3"}
+
+	fn := func(x string) bool {
+		return strings.HasPrefix(x, "bar")
+	}
+	out := PriorityStrSliceSort(in, fn)
+
+	if !reflect.DeepEqual(ex, out) {
+		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
 	}
 }
 

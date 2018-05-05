@@ -15,81 +15,165 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// TODO: Add TTL's (eg: volunteering)
-// TODO: Remove race around leader operations
-// TODO: Fix server reuse issue (bind: address already in use)
-// TODO: Fix unstarted member
-// TODO: Fix excessive StartLoop/FinishLoop
-// TODO: Add VIP for servers (incorporate with net resource)
-// TODO: Auto assign ports/ip's for peers (if possible)
-// TODO: Fix godoc
+// TODO: remove race around leader operations
+// TODO: fix unstarted member
+// TODO: add VIP for servers (incorporate with net resource)
+// TODO: auto assign ports/ip's for peers (if possible)
+// TODO: check the shutdown ordering, so everything unrolls to a shutdown
+// TODO: add the converger Register/Unregister stuff and timers if needed
 
-// Package etcd implements the distributed key value store integration.
-// This also takes care of managing and clustering the embedded etcd server.
-// The elastic etcd algorithm works in the following way:
-// * When you start up mgmt, you can pass it a list of seeds.
-// * If no seeds are given, then assume you are the first server and startup.
-// * If a seed is given, connect as a client, and optionally volunteer to be a server.
-// * All volunteering clients should listen for a message from the master for nomination.
-// * If a client has been nominated, it should startup a server.
-// * All servers should listen for their nomination to be removed and shutdown if so.
-// * The elected leader should decide who to nominate/unnominate to keep the right number of servers.
+// Package etcd implements the distributed key value store and fs integration.
+// This also takes care of managing and clustering of the embedded etcd server.
+// The automatic clustering is considered experimental. If you require a more
+// robust, battle-test etcd cluster, then manage your own, and point each mgmt
+// agent at it with --seeds and --no-server.
 //
-// Smoke testing:
-// mkdir /tmp/mgmt{A..E}
-// ./mgmt run --hostname h1 --tmp-prefix --no-pgp yaml --yaml examples/yaml/etcd1a.yaml
-// ./mgmt run --hostname h2 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 yaml --yaml examples/yaml/etcd1b.yaml
-// ./mgmt run --hostname h3 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 yaml --yaml examples/yaml/etcd1c.yaml
-// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/idealClusterSize 3
-// ./mgmt run --hostname h4 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 yaml --yaml examples/yaml/etcd1d.yaml
-// ./mgmt run --hostname h5 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2387 --server-urls http://127.0.0.1:2388 yaml --yaml examples/yaml/etcd1e.yaml
-// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
-// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 put /_mgmt/idealClusterSize 5
-// ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list
+// Algorithm
+//
+// The elastic etcd algorithm works in the following way:
+//
+// * When you start up mgmt, you can pass it a list of seeds.
+//
+// * If no seeds are given, then assume you are the first server and startup.
+//
+// * If a seed is given, connect as a client, and volunteer to be a server.
+//
+// * All volunteering clients should listen for a message for nomination.
+//
+// * If a client has been nominated, it should startup a server.
+//
+// * A server should shutdown if its nomination is removed.
+//
+// * The elected leader should decide who to nominate/unnominate as needed.
+//
+// Notes
+//
+// If you attempt to add a new member to the cluster with a duplicate hostname,
+// then the behaviour is undefined, and you could bork your cluster. This is not
+// recommended or supported. Please ensure that your hostnames are unique.
+//
+// A single ^C requests an orderly shutdown, however a third ^C will ask etcd to
+// shutdown forcefully. It is not recommended that you use this option, it
+// exists as a way to make exit easier if something deadlocked the cluster. If
+// this was due to user error (eg: duplicate hostnames) then it was your fault,
+// but if the member did not shutdown from a single ^C under normal
+// circumstances, then please file a bug.
+//
+// There are currently some races in this implementation. In practice, this
+// should not cause any adverse effects unless you simultaneously add or remove
+// members at a high rate. Fixing these races will probably require some
+// internal changes to etcd. Help is welcome if you're interested in working on
+// this.
+//
+// Smoke testing
+//
+// Here is a simple way to test etcd clustering basics...
+//
+//  ./mgmt run --tmp-prefix --no-pgp --hostname h1 empty
+//  ./mgmt run --tmp-prefix --no-pgp --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 empty
+//  ./mgmt run --tmp-prefix --no-pgp --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 empty
+//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/chooser/dynamicsize/idealclustersize 3
+//  ./mgmt run --tmp-prefix --no-pgp --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 empty
+//  ./mgmt run --tmp-prefix --no-pgp --hostname h5 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2387 --server-urls http://127.0.0.1:2388 empty
+//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
+//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 put /_mgmt/chooser/dynamicsize/idealclustersize 5
+//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list
+//
+// Bugs
+//
+// A member might occasionally think that an endpoint still exists after it has
+// already shutdown. This isn't a major issue, since if that endpoint doesn't
+// respond, then it will automatically choose the next available one. To see
+// this issue, turn on debugging and start: H1, H2, H3, then stop H2, and you
+// might see that H3 still knows about H2.
+//
+// Shutting down a cluster by setting the idealclustersize to zero is currently
+// buggy and not supported. Try this at your own risk.
+//
+// If a member is nominated, and it doesn't respond to the nominate event and
+// startup, and we lost quorum to add it, then we could be in a blocked state.
+// This can be improved upon if we can call memberRemove after a timeout.
+//
+// Adding new cluster members very quickly, might trigger a:
+// `runtime error: error validating peerURLs ... member count is unequal` error.
+// See: https://github.com/etcd-io/etcd/issues/10626 for more information.
+//
+// If you use the dynamic size feature to start and stop the server process,
+// once it has already started and then stopped, it can't be re-started because
+// of a bug in etcd that doesn't free the port. Instead you'll get a:
+// `bind: address already in use` error. See:
+// https://github.com/etcd-io/etcd/issues/6042 for more information.
 package etcd
 
 import (
-	"bytes"
-	"errors"
+	"context"
 	"fmt"
-	"log"
-	"math"
 	"net/url"
 	"os"
-	"path"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/converger"
-	"github.com/purpleidea/mgmt/etcd/event"
+	"github.com/purpleidea/mgmt/etcd/chooser"
+	"github.com/purpleidea/mgmt/etcd/client"
+	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
+	"github.com/coreos/etcd/clientv3/namespace"
 	"github.com/coreos/etcd/embed"
-	"github.com/coreos/etcd/etcdserver"
-	rpctypes "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	etcdtypes "github.com/coreos/etcd/pkg/types"
-	raft "github.com/coreos/etcd/raft"
-	context "golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
-// constant parameters which may need to be tweaked or customized
 const (
-	NS                      = "/_mgmt" // root namespace for mgmt operations
-	seedSentinel            = "_seed"  // you must not name your hostname this
-	MaxStartServerTimeout   = 60       // max number of seconds to wait for server to start
-	MaxStartServerRetries   = 3        // number of times to retry starting the etcd server
-	maxClientConnectRetries = 5        // number of times to retry consecutive connect failures
-	selfRemoveTimeout       = 3        // give unnominated members a chance to self exit
-	exitDelay               = 3        // number of sec of inactivity after exit to clean up
-	DefaultIdealClusterSize = 5        // default ideal cluster size target for initial seed
+	// TODO: figure out a trailing slash convention...
 
+	// NominatedPath is the unprefixed path under which nominated hosts are
+	// stored. This is public so that other consumers can know to avoid this
+	// key prefix.
+	NominatedPath    = "/nominated/"
+	nominatedPathFmt = NominatedPath + "%s" // takes a hostname on the end
+
+	// VolunteerPath is the unprefixed path under which volunteering hosts
+	// are stored. This is public so that other consumers can know to avoid
+	// this key prefix.
+	VolunteerPath    = "/volunteer/"
+	volunteerPathFmt = VolunteerPath + "%s" // takes a hostname on the end
+
+	// EndpointsPath is the unprefixed path under which the advertised host
+	// endpoints are stored. This is public so that other consumers can know
+	// to avoid this key prefix.
+	EndpointsPath    = "/endpoints/"
+	endpointsPathFmt = EndpointsPath + "%s" // takes a hostname on the end
+
+	// ChooserPath is the unprefixed path under which the chooser algorithm
+	// may store data. This is public so that other consumers can know to
+	// avoid this key prefix.
+	ChooserPath = "/chooser" // all hosts share the same namespace
+
+	// ConvergedPath is the unprefixed path under which the converger
+	// may store data. This is public so that other consumers can know to
+	// avoid this key prefix.
+	ConvergedPath    = "/converged/"
+	convergedPathFmt = ConvergedPath + "%s" // takes a hostname on the end
+
+	// SchedulerPath is the unprefixed path under which the scheduler
+	// may store data. This is public so that other consumers can know to
+	// avoid this key prefix.
+	SchedulerPath    = "/scheduler/"
+	schedulerPathFmt = SchedulerPath + "%s" // takes a namespace on the end
+
+	// DefaultClientURL is the default value that is used for client URLs.
+	// It is pulled from the upstream etcd package.
 	DefaultClientURL = embed.DefaultListenClientURLs // 127.0.0.1:2379
-	DefaultServerURL = embed.DefaultListenPeerURLs   // 127.0.0.1:2380
+
+	// DefaultServerURL is the default value that is used for server URLs.
+	// It is pulled from the upstream etcd package.
+	DefaultServerURL = embed.DefaultListenPeerURLs // 127.0.0.1:2380
 
 	// DefaultMaxTxnOps is the maximum number of operations to run in a
 	// single etcd transaction. If you exceed this limit, it is possible
@@ -98,1777 +182,1247 @@ const (
 	// know so that we can analyze the situation, and increase this if
 	// necessary.
 	DefaultMaxTxnOps = 512
+
+	// RunStartupTimeout is the amount of time we will wait for regular run
+	// startup before cancelling it all.
+	RunStartupTimeout = 30 * time.Second
+
+	// ClientDialTimeout is the DialTimeout option in the client config.
+	ClientDialTimeout = 5 * time.Second
+
+	// ClientDialKeepAliveTime is the DialKeepAliveTime config value for the
+	// etcd client. It is recommended that you use this so that dead
+	// endpoints don't block any cluster operations.
+	ClientDialKeepAliveTime = 2 * time.Second // from etcdctl
+	// ClientDialKeepAliveTimeout is the DialKeepAliveTimeout config value
+	// for the etcd client. It is recommended that you use this so that dead
+	// endpoints don't block any cluster operations.
+	ClientDialKeepAliveTimeout = 6 * time.Second // from etcdctl
+
+	// MemberChangeInterval is the polling interval to use when watching for
+	// member changes during add or remove.
+	MemberChangeInterval = 500 * time.Millisecond
+
+	// SelfRemoveTimeout gives unnominated members a chance to self exit.
+	SelfRemoveTimeout = 10 * time.Second
+
+	// ForceExitTimeout is the amount of time we will wait for a force exit
+	// to occur before cancelling it all.
+	ForceExitTimeout = 15 * time.Second
+
+	// SessionTTL is the number of seconds to wait before a dead or
+	// unresponsive host has their volunteer keys removed from the cluster.
+	// This should be an integer multiple of seconds, since one second is
+	// the TTL precision used in etcd.
+	SessionTTL = 10 * time.Second // seconds
+
+	// RequireLeaderCtx specifies whether the volunteer loop should use the
+	// WithRequireLeader ctx wrapper. It is unknown at this time if this
+	// would cause occasional events to be lost, more extensive testing is
+	// needed.
+	RequireLeaderCtx = false
+
+	// ConvergerHostnameNamespace is a unique key used in the converger.
+	ConvergerHostnameNamespace = "etcd-hostname"
 )
-
-var (
-	errApplyDeltaEventsInconsistent = errors.New("inconsistent key in ApplyDeltaEvents")
-)
-
-// AW is a struct for the AddWatcher queue.
-type AW struct {
-	path       string
-	opts       []etcd.OpOption
-	callback   func(*RE) error
-	errCheck   bool
-	skipConv   bool // ask event to skip converger updates
-	resp       event.Resp
-	cancelFunc func() // data
-}
-
-// RE is a response + error struct since these two values often occur together.
-// This is now called an event with the move to the etcd v3 API.
-type RE struct {
-	response  etcd.WatchResponse
-	path      string
-	err       error
-	callback  func(*RE) error
-	errCheck  bool // should we check the error of the callback?
-	skipConv  bool // event skips converger updates
-	retryHint bool // set to true for one event after a watcher failure
-	retries   uint // number of times we've retried on error
-}
-
-// KV is a key + value struct to hold the two items together.
-type KV struct {
-	key   string
-	value string
-	opts  []etcd.OpOption
-	resp  event.Resp
-}
-
-// GQ is a struct for the get queue.
-type GQ struct {
-	path     string
-	skipConv bool
-	opts     []etcd.OpOption
-	resp     event.Resp
-	data     map[string]string
-}
-
-// DL is a struct for the delete queue.
-type DL struct {
-	path string
-	opts []etcd.OpOption
-	resp event.Resp
-	data int64
-}
-
-// TN is a struct for the txn queue.
-type TN struct {
-	ifcmps  []etcd.Cmp
-	thenops []etcd.Op
-	elseops []etcd.Op
-	resp    event.Resp
-	data    *etcd.TxnResponse
-}
-
-// Flags are some constant flags which are used throughout the program.
-type Flags struct {
-	Debug   bool // add additional log messages
-	Trace   bool // add execution flow log messages
-	Verbose bool // add extra log message output
-}
 
 // EmbdEtcd provides the embedded server and client etcd functionality.
 type EmbdEtcd struct { // EMBeddeD etcd
-	// etcd client connection related
-	cLock  sync.Mutex   // client connect lock
-	rLock  sync.RWMutex // client reconnect lock
-	client *etcd.Client
-	cError error // permanent client error
-	ctxErr error // permanent ctx error
+	Hostname string
 
-	// exit and cleanup related
-	cancelLock sync.Mutex // lock for the cancels list
-	cancels    []func()   // array of every cancel function for watches
-	exiting    bool
-	exitchan   chan struct{}
-	exitchanCb chan struct{}
-	exitwg     *sync.WaitGroup // wait for main loops to shutdown
+	// Seeds is the list of servers that this client could connect to.
+	Seeds etcdtypes.URLs
 
-	hostname            string
-	memberID            uint64            // cluster membership id of server if running
-	endpoints           etcdtypes.URLsMap // map of servers a client could connect to
-	clientURLs          etcdtypes.URLs    // locations to listen for clients if i am a server
-	serverURLs          etcdtypes.URLs    // locations to listen for servers if i am a server (peer)
-	advertiseClientURLs etcdtypes.URLs    // client urls to advertise
-	advertiseServerURLs etcdtypes.URLs    // server urls to advertise
-	noServer            bool              // disable all server peering if true
-	noNetwork           bool              // use unix:// sockets instead of TCP for clients/servers
+	// ClientURLs are the locations to listen for clients if i am a server.
+	ClientURLs etcdtypes.URLs
+	// ServerURLs are the locations to listen for servers (peers) if i am a
+	// server (peer).
+	ServerURLs etcdtypes.URLs
+	// AClientURLs are the client urls to advertise.
+	AClientURLs etcdtypes.URLs
+	// AServerURLscare the server (peer) urls to advertise.
+	AServerURLs etcdtypes.URLs
 
-	// local tracked state
-	nominated        etcdtypes.URLsMap // copy of who's nominated to locally track state
-	lastRevision     int64             // the revision id of message being processed
-	idealClusterSize uint16            // ideal cluster size
+	// NoServer disables all server peering for this host.
+	// TODO: allow changing this at runtime with some function call?
+	NoServer bool
+	// NoNetwork causes this to use unix:// sockets instead of TCP for
+	// connections.
+	NoNetwork bool
 
-	// etcd channels
-	awq     chan *AW // add watch queue
-	wevents chan *RE // response+error
-	setq    chan *KV // set queue
-	getq    chan *GQ // get queue
-	delq    chan *DL // delete queue
-	txnq    chan *TN // txn queue
+	// Chooser is the implementation of the algorithm that decides which
+	// hosts to add or remove to grow and shrink the cluster.
+	Chooser chooser.Chooser
 
-	flags     Flags
-	prefix    string                 // folder prefix to use for misc storage
-	converger *converger.Coordinator // converged tracking
+	// Converger is a converged coordinator object that can be used to
+	// track the converged state.
+	Converger *converger.Coordinator
 
-	// etcd server related
-	serverwg    sync.WaitGroup // wait for server to shutdown
-	server      *embed.Etcd    // technically this contains the server struct
-	dataDir     string         // our data dir, prefix + "etcd"
-	serverReady chan struct{}  // closes when ready
+	// NS is a string namespace that we prefix to every key operation.
+	NS string
+
+	// Prefix is the directory where any etcd related state is stored. It
+	// must be an absolute directory path.
+	Prefix string
+
+	Debug bool
+	Logf  func(format string, v ...interface{})
+
+	wg       *sync.WaitGroup
+	exit     *util.EasyExit // exit signal
+	closing  bool           // are we closing ?
+	hardexit *util.EasyExit // hard exit signal (to unblock borked things)
+
+	errChan chan error // global error chan, closes when Run is done
+
+	// errExit1 ... errExitN all must get closed for errChan to close.
+	errExit1 chan struct{} // connect
+	errExit2 chan struct{} // chooser
+	errExit3 chan struct{} // nominate
+	errExit4 chan struct{} // volunteer
+	errExit5 chan struct{} // endpoints
+	errExitN chan struct{} // special signal for server closing (starts/stops)
+
+	// coordinate an organized exit so we wait for everyone without blocking
+	activeExit1   bool
+	activeExit2   bool
+	activeExit3   bool
+	activeExit4   bool
+	activeExit5   bool
+	activateExit1 *util.EasyAckOnce
+	activateExit2 *util.EasyAckOnce
+	activateExit3 *util.EasyAckOnce
+	activateExit4 *util.EasyAckOnce
+	activateExit5 *util.EasyAckOnce
+
+	readySignal chan struct{} // closes when we're up and running
+	exitsSignal chan struct{} // closes when run exits
+
+	// locally tracked state
+
+	// nominated is a local cache of who's been nominated. This contains
+	// values for where a *server* would connect to. It gets updated
+	// primarily in the nominateCb watcher loop.
+	// TODO: maybe this should just be a list?
+	// TODO: is there a difference here between ServerURLs and AServerURLs ?
+	nominated etcdtypes.URLsMap // map[hostname]URLs
+
+	// volunteers is a local cache of who's volunteered. This contains
+	// values for where a *server* would connect to. It gets updated
+	// primarily in the volunteerCb watcher loop.
+	// TODO: maybe this should just be a list?
+	// TODO: is there a difference here between ServerURLs and AServerURLs ?
+	volunteers etcdtypes.URLsMap // map[hostname]URLs
+
+	// membermap is a local cache of server endpoints. This contains values
+	// for where a *server* (peer) would connect to. It gets updated in the
+	// membership state functions.
+	membermap etcdtypes.URLsMap // map[hostname]URLs
+
+	// endpoints is a local cache of server endpoints. It differs from the
+	// config value which is a flattened representation of the same. That
+	// value can be seen via client.Endpoints() and client.SetEndpoints().
+	// This contains values for where a *client* would connect to. It gets
+	// updated in the membership state functions.
+	endpoints etcdtypes.URLsMap // map[hostname]URLs
+
+	// memberIDs is a local cache of which cluster servers (peers) are
+	// associated with each memberID. It gets updated in the membership
+	// state functions. Note that unstarted members have an ID, but no name
+	// yet, so they aren't included here, since that key would be the empty
+	// string.
+	memberIDs map[string]uint64 // map[hostname]memberID
+
+	// behaviour mutexes
+	stateMutex     *sync.RWMutex // lock around all locally tracked state
+	orderingMutex  *sync.Mutex   // lock around non-concurrent changes
+	nominatedMutex *sync.Mutex   // lock around nominatedCb
+	volunteerMutex *sync.Mutex   // lock around volunteerCb
+
+	// client related
+	etcd          *etcd.Client
+	connectSignal chan struct{}        // TODO: use a SubscribedSignal instead?
+	client        *client.Simple       // provides useful helper methods
+	clients       []*client.Simple     // list of registered clients
+	session       *concurrency.Session // session that expires on disconnect
+	leaseID       etcd.LeaseID         // the leaseID used by this session
+
+	// server related
+	server            *embed.Etcd            // contains the server struct
+	serverID          uint64                 // uint64 because memberRemove uses that
+	serverwg          *sync.WaitGroup        // wait for server to shutdown
+	servermu          *sync.Mutex            // lock around destroy server
+	serverExit        *util.EasyExit         // exit signal
+	serverReadySignal *util.SubscribedSignal // signals when server is up and running
+	serverExitsSignal *util.SubscribedSignal // signals when runServer exits
+
+	// task queue state
+	taskQueue        []*task
+	taskQueueWg      *sync.WaitGroup
+	taskQueueLock    *sync.Mutex
+	taskQueueRunning bool
+	taskQueueID      int
 }
 
-// NewEmbdEtcd creates the top level embedded etcd struct client and server obj.
-func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClientURLs, advertiseServerURLs etcdtypes.URLs, noServer bool, noNetwork bool, idealClusterSize uint16, flags Flags, prefix string, converger *converger.Coordinator) *EmbdEtcd {
-	endpoints := make(etcdtypes.URLsMap)
-	if hostname == seedSentinel { // safety
-		return nil
-	}
-	if noServer && len(seeds) == 0 {
-		log.Printf("Etcd: need at least one seed if running with --no-server!")
-		return nil
-	}
-	if noNetwork {
-		if len(clientURLs) != 0 || len(serverURLs) != 0 || len(seeds) != 0 {
-			log.Printf("--no-network is mutual exclusive with --seeds, --client-urls and --server-urls")
-			return nil
-		}
-		clientURLs, _ = etcdtypes.NewURLs([]string{"unix://clients.sock:0"})
-		serverURLs, _ = etcdtypes.NewURLs([]string{"unix://servers.sock:0"})
-	}
-
-	if len(seeds) > 0 {
-		endpoints[seedSentinel] = seeds
-		idealClusterSize = 0 // unset, get from running cluster
-	}
-	obj := &EmbdEtcd{
-		exitchan:   make(chan struct{}), // exit signal for main loop
-		exitchanCb: make(chan struct{}),
-		exitwg:     &sync.WaitGroup{},
-		awq:        make(chan *AW),
-		wevents:    make(chan *RE),
-		setq:       make(chan *KV),
-		getq:       make(chan *GQ),
-		delq:       make(chan *DL),
-		txnq:       make(chan *TN),
-
-		nominated: make(etcdtypes.URLsMap),
-
-		hostname:            hostname,
-		endpoints:           endpoints,
-		clientURLs:          clientURLs,
-		serverURLs:          serverURLs,
-		advertiseClientURLs: advertiseClientURLs,
-		advertiseServerURLs: advertiseServerURLs,
-		noServer:            noServer,
-		noNetwork:           noNetwork,
-
-		idealClusterSize: idealClusterSize,
-		converger:        converger,
-		flags:            flags,
-		prefix:           prefix,
-		dataDir:          path.Join(prefix, "etcd"),
-		serverReady:      make(chan struct{}),
-	}
-	// TODO: add some sort of auto assign method for picking these defaults
-	// add a default so that our local client can connect locally if needed
-	if len(obj.LocalhostClientURLs()) == 0 { // if we don't have any localhost URLs
-		u, err := url.Parse(DefaultClientURL)
-		if err != nil {
-			return nil // TODO: change interface to return an error
-		}
-		obj.clientURLs = append([]url.URL{*u}, obj.clientURLs...) // prepend
-	}
-
-	// add a default for local use and testing, harmless and useful!
-	if !obj.noServer && len(obj.serverURLs) == 0 {
-		if len(obj.endpoints) > 0 {
-			obj.noServer = true // we didn't have enough to be a server
-		}
-		u, err := url.Parse(DefaultServerURL) // default
-		if err != nil {
-			return nil // TODO: change interface to return an error
-		}
-		obj.serverURLs = []url.URL{*u}
-	}
-
-	if converger != nil {
-		converger.AddStateFn("etcd-hostname", func(converged bool) error {
-			// send our individual state into etcd for others to see
-			return SetHostnameConverged(obj, hostname, converged) // TODO: what should happen on error?
-		})
-	}
-
-	return obj
+// sessionTTLSec transforms the time representation into the nearest number of
+// seconds, which is needed by the etcd API.
+func sessionTTLSec(d time.Duration) int {
+	return int(d.Seconds())
 }
 
-// GetClient returns a handle to the raw etcd client object for those scenarios.
-func (obj *EmbdEtcd) GetClient() *etcd.Client {
-	return obj.client
-}
+// Validate the initial struct. This is called from Init, but can be used if you
+// would like to check your configuration is correct.
+func (obj *EmbdEtcd) Validate() error {
+	s := sessionTTLSec(SessionTTL)
+	if s <= 0 {
+		return fmt.Errorf("the SessionTTL const of %s (%d sec) must be greater than zero", SessionTTL.String(), s)
+	}
+	if s > etcd.MaxLeaseTTL {
+		return fmt.Errorf("the SessionTTL const of %s (%d sec) must be less than %d sec", SessionTTL.String(), s, etcd.MaxLeaseTTL)
+	}
 
-// GetConfig returns the config struct to be used for the etcd client connect.
-func (obj *EmbdEtcd) GetConfig() etcd.Config {
-	endpoints := []string{}
-	// XXX: filter out any urls which wouldn't resolve here ?
-	for _, eps := range obj.endpoints { // flatten map
-		for _, u := range eps {
-			endpoints = append(endpoints, u.String()) // use full url including scheme
-		}
+	if obj.Hostname == "" {
+		return fmt.Errorf("the Hostname was not specified")
 	}
-	sort.Strings(endpoints) // sort for determinism
-	cfg := etcd.Config{
-		Endpoints: endpoints,
-		// RetryDialer chooses the next endpoint to use
-		// it comes with a default dialer if unspecified
-		DialTimeout: 5 * time.Second,
-	}
-	return cfg
-}
 
-// Connect connects the client to a server, and then builds the *API structs.
-// If reconnect is true, it will force a reconnect with new config endpoints.
-func (obj *EmbdEtcd) Connect(reconnect bool) error {
-	if obj.flags.Debug {
-		log.Println("Etcd: Connect...")
+	if obj.NoServer && len(obj.Seeds) == 0 {
+		return fmt.Errorf("need at least one seed if NoServer is true")
 	}
-	obj.cLock.Lock()
-	defer obj.cLock.Unlock()
-	if obj.cError != nil { // stop on permanent error
-		return obj.cError
-	}
-	if obj.client != nil { // memoize
-		if reconnect {
-			// i think this requires the rLock when using it concurrently
-			err := obj.client.Close()
-			if err != nil {
-				log.Printf("Etcd: (Re)Connect: Close: Error: %+v", err)
-			}
-			obj.client = nil // for kicks
-		} else {
-			return nil
+
+	if !obj.NoServer { // you don't need a Chooser if there's no server...
+		if obj.Chooser == nil {
+			return fmt.Errorf("need to specify a Chooser implementation")
+		}
+		if err := obj.Chooser.Validate(); err != nil {
+			return errwrap.Wrapf(err, "the Chooser did not validate")
 		}
 	}
-	var emax uint16 // = 0
-	for {           // loop until connect
-		var err error
-		cfg := obj.GetConfig()
-		if eps := obj.endpoints; len(eps) > 0 {
-			log.Printf("Etcd: Connect: Endpoints: %v", eps)
-		} else {
-			log.Printf("Etcd: Connect: Endpoints: []")
+
+	if obj.NoNetwork {
+		if len(obj.Seeds) != 0 || len(obj.ClientURLs) != 0 || len(obj.ServerURLs) != 0 {
+			return fmt.Errorf("NoNetwork is mutually exclusive with Seeds, ClientURLs and ServerURLs")
 		}
-		obj.client, err = etcd.New(cfg) // connect!
-		if err == etcd.ErrNoAvailableEndpoints {
-			emax++
-			if emax > maxClientConnectRetries {
-				log.Printf("Etcd: The dataDir (%s) might be inconsistent or corrupt.", obj.dataDir)
-				log.Printf("Etcd: Please see: %s", "https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#what-does-the-error-message-about-an-inconsistent-datadir-mean")
-				obj.cError = fmt.Errorf("can't find an available endpoint")
-				return obj.cError
-			}
-			err = &CtxDelayErr{time.Duration(emax) * time.Second, "No endpoints available yet!"} // retry with backoff...
-		}
-		if err != nil {
-			log.Printf("Etcd: Connect: CtxError...")
-			if _, e := obj.CtxError(context.TODO(), err); e != nil {
-				log.Printf("Etcd: Connect: CtxError: Fatal: %v", e)
-				obj.cError = e
-				return e // fatal error
-			}
-			continue
-		}
-		// check if we're actually connected here, because this must
-		// block if we're not connected
-		if obj.client == nil {
-			log.Printf("Etcd: Connect: Is nil!")
-			continue
-		}
-		break
 	}
+
+	if _, err := copyURLs(obj.Seeds); err != nil { // this will validate
+		return errwrap.Wrapf(err, "the Seeds are not valid")
+	}
+
+	if obj.NS == "/" {
+		return fmt.Errorf("the namespace should be empty instead of /")
+	}
+	if strings.HasSuffix(obj.NS, "/") {
+		return fmt.Errorf("the namespace should not end in /")
+	}
+
+	if obj.Prefix == "" || obj.Prefix == "/" {
+		return fmt.Errorf("the prefix of `%s` is invalid", obj.Prefix)
+	}
+
+	if obj.Logf == nil {
+		return fmt.Errorf("no Logf function was specified")
+	}
+
 	return nil
 }
 
-// Startup is the main entry point to kick off the embedded etcd client & server.
-func (obj *EmbdEtcd) Startup() error {
-	bootstrapping := len(obj.endpoints) == 0 // because value changes after start
+// Init initializes the struct after it has been populated as desired. You must
+// not use the struct if this returns an error.
+func (obj *EmbdEtcd) Init() error {
+	if err := obj.Validate(); err != nil {
+		return errwrap.Wrapf(err, "validate error")
+	}
 
-	// connect but don't block here, because servers might not be up yet...
+	if obj.ClientURLs == nil {
+		obj.ClientURLs = []url.URL{} // initialize
+	}
+	if obj.ServerURLs == nil {
+		obj.ServerURLs = []url.URL{}
+	}
+	if obj.AClientURLs == nil {
+		obj.AClientURLs = []url.URL{}
+	}
+	if obj.AServerURLs == nil {
+		obj.AServerURLs = []url.URL{}
+	}
+
+	curls, err := obj.curls()
+	if err != nil {
+		return err
+	}
+	surls, err := obj.surls()
+	if err != nil {
+		return err
+	}
+	if !obj.NoServer {
+		// add a default
+		if len(curls) == 0 {
+			u, err := url.Parse(DefaultClientURL)
+			if err != nil {
+				return err
+			}
+			obj.ClientURLs = []url.URL{*u}
+		}
+		// add a default for local use and testing, harmless and useful!
+		if len(surls) == 0 {
+			u, err := url.Parse(DefaultServerURL) // default
+			if err != nil {
+				return err
+			}
+			obj.ServerURLs = []url.URL{*u}
+		}
+
+		// TODO: if we don't have any localhost URLs, should we warn so
+		// that our local client can be able to connect more easily?
+		if len(localhostURLs(obj.ClientURLs)) == 0 {
+			u, err := url.Parse(DefaultClientURL)
+			if err != nil {
+				return err
+			}
+			obj.ClientURLs = append([]url.URL{*u}, obj.ClientURLs...) // prepend
+		}
+	}
+
+	if obj.NoNetwork {
+		var err error
+		// FIXME: convince etcd to store these files in our obj.Prefix!
+		obj.ClientURLs, err = etcdtypes.NewURLs([]string{"unix://clients.sock:0"})
+		if err != nil {
+			return err
+		}
+		obj.ServerURLs, err = etcdtypes.NewURLs([]string{"unix://servers.sock:0"})
+		if err != nil {
+			return err
+		}
+	}
+
+	if obj.Chooser != nil {
+		data := &chooser.Data{
+			Hostname: obj.Hostname,
+			Debug:    obj.Debug,
+			Logf: func(format string, v ...interface{}) {
+				obj.Logf("chooser: "+format, v...)
+			},
+		}
+		if err := obj.Chooser.Init(data); err != nil {
+			return errwrap.Wrapf(err, "error initializing chooser")
+		}
+	}
+
+	if err := os.MkdirAll(obj.Prefix, 0770); err != nil {
+		return errwrap.Wrapf(err, "couldn't mkdir: %s", obj.Prefix)
+	}
+
+	obj.wg = &sync.WaitGroup{}
+	obj.exit = util.NewEasyExit()
+	obj.hardexit = util.NewEasyExit()
+
+	obj.errChan = make(chan error)
+
+	obj.errExit1 = make(chan struct{})
+	obj.errExit2 = make(chan struct{})
+	obj.errExit3 = make(chan struct{})
+	obj.errExit4 = make(chan struct{})
+	obj.errExit5 = make(chan struct{})
+	obj.errExitN = make(chan struct{}) // done before call to runServer!
+	close(obj.errExitN)                // starts closed
+
+	//obj.activeExit1 = false
+	//obj.activeExit2 = false
+	//obj.activeExit3 = false
+	//obj.activeExit4 = false
+	//obj.activeExit5 = false
+	obj.activateExit1 = util.NewEasyAckOnce()
+	obj.activateExit2 = util.NewEasyAckOnce()
+	obj.activateExit3 = util.NewEasyAckOnce()
+	obj.activateExit4 = util.NewEasyAckOnce()
+	obj.activateExit5 = util.NewEasyAckOnce()
+
+	obj.readySignal = make(chan struct{})
+	obj.exitsSignal = make(chan struct{})
+
+	// locally tracked state
+	obj.nominated = make(etcdtypes.URLsMap)
+	obj.volunteers = make(etcdtypes.URLsMap)
+	obj.membermap = make(etcdtypes.URLsMap)
+	obj.endpoints = make(etcdtypes.URLsMap)
+	obj.memberIDs = make(map[string]uint64)
+
+	// behaviour mutexes
+	obj.stateMutex = &sync.RWMutex{}
+	// TODO: I'm not sure if orderingMutex is actually required or not...
+	obj.orderingMutex = &sync.Mutex{}
+	obj.nominatedMutex = &sync.Mutex{}
+	obj.volunteerMutex = &sync.Mutex{}
+
+	// client related
+	obj.connectSignal = make(chan struct{})
+	obj.clients = []*client.Simple{}
+
+	// server related
+	obj.serverwg = &sync.WaitGroup{}
+	obj.servermu = &sync.Mutex{}
+	obj.serverExit = util.NewEasyExit() // is reset after destroyServer exit
+	obj.serverReadySignal = &util.SubscribedSignal{}
+	obj.serverExitsSignal = &util.SubscribedSignal{}
+
+	// task queue state
+	obj.taskQueue = []*task{}
+	obj.taskQueueWg = &sync.WaitGroup{}
+	obj.taskQueueLock = &sync.Mutex{}
+
+	return nil
+}
+
+// Close cleans up after you are done using the struct.
+func (obj *EmbdEtcd) Close() error {
+	var reterr error
+
+	if obj.Chooser != nil {
+		reterr = errwrap.Append(reterr, obj.Chooser.Close())
+	}
+
+	return reterr
+}
+
+// curls returns the client urls that we should use everywhere except for
+// locally, where we prefer to use the non-advertised perspective.
+func (obj *EmbdEtcd) curls() (etcdtypes.URLs, error) {
+	// TODO: do we need the copy?
+	if len(obj.AClientURLs) > 0 {
+		return copyURLs(obj.AClientURLs)
+	}
+	return copyURLs(obj.ClientURLs)
+}
+
+// surls returns the server (peer) urls that we should use everywhere except for
+// locally, where we prefer to use the non-advertised perspective.
+func (obj *EmbdEtcd) surls() (etcdtypes.URLs, error) {
+	// TODO: do we need the copy?
+	if len(obj.AServerURLs) > 0 {
+		return copyURLs(obj.AServerURLs)
+	}
+	return copyURLs(obj.ServerURLs)
+}
+
+// err is an error helper that sends to the errChan.
+func (obj *EmbdEtcd) err(err error) {
+	select {
+	case obj.errChan <- err:
+	}
+}
+
+// Run is the main entry point to kick off the embedded etcd client and server.
+// It blocks until we've exited for shutdown. The shutdown can be triggered by
+// calling Destroy.
+func (obj *EmbdEtcd) Run() error {
+	curls, err := obj.curls()
+	if err != nil {
+		return err
+	}
+	surls, err := obj.surls()
+	if err != nil {
+		return err
+	}
+
+	exitCtx := obj.exit.Context() // local exit signal
+	obj.Logf("running...")
+	defer obj.Logf("exited!")
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+	defer close(obj.exitsSignal)
+	defer obj.wg.Wait()
+	defer obj.exit.Done(nil) // unblock anything waiting for exit...
+	startupCtx, cancel := context.WithTimeout(exitCtx, RunStartupTimeout)
+	defer cancel()
+	defer obj.Logf("waiting for exit cleanup...") // TODO: is this useful?
+
+	// After we trigger a hardexit, wait for the ForceExitTimeout and then
+	// cancel any remaining stuck context's. This helps prevent angry users.
+	unblockCtx, runTimeout := context.WithCancel(context.Background())
+	defer runTimeout()
+	wg.Add(1)
 	go func() {
-		if err := obj.Connect(false); err != nil {
-			log.Printf("Etcd: Startup: Error: %v", err)
-			// XXX: Now cause Startup() to exit with error somehow!
+		defer wg.Done()
+		defer runTimeout()
+		select {
+		case <-obj.hardexit.Signal(): // bork unblocker
+		case <-obj.exitsSignal:
+		}
+
+		select {
+		case <-time.After(ForceExitTimeout):
+		case <-obj.exitsSignal:
 		}
 	}()
 
-	go obj.CbLoop() // start callback loop
-	go obj.Loop()   // start main loop
+	// main loop exit signal
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		// when all the senders on errChan have exited, we can exit too
+		defer close(obj.errChan)
+		// these signals guard around the errChan close operation
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// We wait here until we're notified to know whether or
+			// not this particular exit signal will be relevant...
+			// This is because during some runs, we might not use
+			// all of the signals, therefore we don't want to wait
+			// for them!
+			select {
+			case <-obj.activateExit1.Wait():
+			case <-exitCtx.Done():
+			}
+			if !obj.activeExit1 {
+				return
+			}
+			select {
+			case <-obj.errExit1:
+				if obj.Debug {
+					obj.Logf("exited connect loop (1)")
+				}
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-obj.activateExit2.Wait():
+			case <-exitCtx.Done():
+			}
+			if !obj.activeExit2 {
+				return
+			}
+			select {
+			case <-obj.errExit2:
+				if obj.Debug {
+					obj.Logf("exited chooser loop (2)")
+				}
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-obj.activateExit3.Wait():
+			case <-exitCtx.Done():
+			}
+			if !obj.activeExit3 {
+				return
+			}
+			select {
+			case <-obj.errExit3:
+				if obj.Debug {
+					obj.Logf("exited nominate loop (3)")
 
-	// TODO: implement native etcd watcher method on member API changes
-	path := fmt.Sprintf("%s/nominated/", NS)
-	go obj.AddWatcher(path, obj.nominateCallback, true, false, etcd.WithPrefix()) // no block
+				}
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-obj.activateExit4.Wait():
+			case <-exitCtx.Done():
+			}
+			if !obj.activeExit4 {
+				return
+			}
+			select {
+			case <-obj.errExit4:
+				if obj.Debug {
+					obj.Logf("exited volunteer loop (4)")
+				}
+			}
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-obj.activateExit5.Wait():
+			case <-exitCtx.Done():
+			}
+			if !obj.activeExit5 {
+				return
+			}
+			select {
+			case <-obj.errExit5:
+				if obj.Debug {
+					obj.Logf("exited endpoints loop (5)")
+				}
+			}
+		}()
+		wg.Wait() // wait for all the other exit signals before this one
+		select {
+		case <-obj.errExitN: // last one is for server (it can start/stop)
+			if obj.Debug {
+				obj.Logf("exited server loop (0)")
+			}
+		}
+	}()
 
-	// setup ideal cluster size watcher
-	key := fmt.Sprintf("%s/idealClusterSize", NS)
-	go obj.AddWatcher(key, obj.idealClusterSizeCallback, true, false) // no block
+	// main loop
+	var reterr error
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+	Loop:
+		for {
+			select {
+			case err, ok := <-obj.errChan:
+				if !ok { // when this closes, we can shutdown
+					break Loop
+				}
+				if err == nil {
+					err = fmt.Errorf("unexpected nil error")
+				}
+				obj.Logf("runtime error: %+v", err)
+				if reterr == nil { // happens only once
+					obj.exit.Done(err) // trigger an exit in Run!
+				}
+				reterr = errwrap.Append(reterr, err)
+			}
+		}
+	}()
 
-	// if we have no endpoints, it means we are bootstrapping...
-	if !bootstrapping {
-		log.Println("Etcd: Startup: Getting initial values...")
-		if nominated, err := Nominated(obj); err == nil {
-			obj.nominated = nominated // store a local copy
-		} else {
-			log.Printf("Etcd: Startup: Nominate lookup error.")
-			obj.Destroy()
-			return fmt.Errorf("Etcd: Startup: Error: %v", err)
+	bootstrapping := len(obj.Seeds) == 0 // we're the first, start a server!
+	canServer := !obj.NoServer
+
+	// Opportunistic "connect events" system, so that we can connect
+	// promiscuously when it's needed, instead of needing to linearize code.
+	obj.activeExit1 = true // activate errExit1
+	obj.activateExit1.Ack()
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		defer close(obj.errExit1) // multi-signal for errChan close op
+		if bootstrapping {
+			serverReady, ackReady := obj.ServerReady()    // must call ack!
+			serverExited, ackExited := obj.ServerExited() // must call ack!
+			select {
+			case <-serverReady:
+				ackReady()  // must be called
+				ackExited() // must be called
+
+			case <-serverExited:
+				ackExited() // must be called
+				ackReady()  // must be called
+				// send an error in case server doesn't
+				// TODO: do we want this error to be sent?
+				obj.err(fmt.Errorf("server exited early"))
+				return
+
+			case <-obj.exit.Signal(): // exit early on exit signal
+				ackReady()  // must be called
+				ackExited() // must be called
+				return
+			}
 		}
 
-		// get initial ideal cluster size
-		if idealClusterSize, err := GetClusterSize(obj); err == nil {
-			obj.idealClusterSize = idealClusterSize
-			log.Printf("Etcd: Startup: Ideal cluster size is: %d", idealClusterSize)
-		} else {
-			// perhaps the first server didn't set it yet. it's ok,
-			// we can get it from the watcher if it ever gets set!
-			log.Printf("Etcd: Startup: Ideal cluster size lookup error.")
+		// Connect here. If we're bootstrapping, the server came up
+		// right above us. No need to add to our endpoints manually,
+		// that is done for us in the server start method.
+		if err := obj.connect(); err != nil {
+			obj.err(errwrap.Wrapf(err, "error during client connect"))
+			return
 		}
-	}
-
-	if !obj.noServer {
-		path := fmt.Sprintf("%s/volunteers/", NS)
-		go obj.AddWatcher(path, obj.volunteerCallback, true, false, etcd.WithPrefix()) // no block
-	}
-
-	// if i am alone and will have to be a server...
-	if !obj.noServer && bootstrapping {
-		log.Printf("Etcd: Bootstrapping...")
-		surls := obj.serverURLs
-		if len(obj.advertiseServerURLs) > 0 {
-			surls = obj.advertiseServerURLs
+		obj.client = client.NewClientFromClient(obj.etcd)
+		obj.client.Debug = obj.Debug
+		obj.client.Logf = func(format string, v ...interface{}) {
+			obj.Logf("client: "+format, v...)
 		}
-		// give an initial value to the obj.nominate map we keep in sync
-		// this emulates Nominate(obj, obj.hostname, obj.serverURLs)
-		obj.nominated[obj.hostname] = surls // initial value
-		// NOTE: when we are stuck waiting for the server to start up,
-		// it is probably happening on this call right here...
-		obj.nominateCallback(nil) // kick this off once
-	}
-
-	// self volunteer
-	if !obj.noServer && len(obj.serverURLs) > 0 {
-		// we run this in a go routine because it blocks waiting for server
-		surls := obj.serverURLs
-		if len(obj.advertiseServerURLs) > 0 {
-			surls = obj.advertiseServerURLs
+		if err := obj.client.Init(); err != nil {
+			obj.err(errwrap.Wrapf(err, "error during client init"))
+			return
 		}
-		log.Printf("Etcd: Startup: Volunteering...")
-		go Volunteer(obj, surls)
-	}
 
+		// Build a session for making leases that expire on disconnect!
+		options := []concurrency.SessionOption{
+			concurrency.WithTTL(sessionTTLSec(SessionTTL)),
+		}
+		if obj.leaseID > 0 { // in the odd chance we ever do reconnects
+			options = append(options, concurrency.WithLease(obj.leaseID))
+		}
+		obj.session, err = concurrency.NewSession(obj.etcd, options...)
+		if err != nil {
+			obj.err(errwrap.Wrapf(err, "could not create session"))
+			return
+		}
+		obj.leaseID = obj.session.Lease()
+
+		obj.Logf("connected!")
+		if !bootstrapping { // new clients need an initial state sync...
+			if err := obj.memberStateFromList(startupCtx); err != nil {
+				obj.err(errwrap.Wrapf(err, "error during initial state sync"))
+				return
+			}
+		}
+		close(obj.connectSignal)
+	}()
+	defer func() {
+		if obj.session != nil {
+			obj.session.Close() // this revokes the lease...
+		}
+
+		// run cleanup functions in reverse order
+		for i := len(obj.clients) - 1; i >= 0; i-- {
+			obj.clients[i].Close() // ignore errs
+		}
+		if obj.client != nil { // in case we bailed out early
+			obj.client.Close() // ignore err, but contains wg.Wait()
+		}
+		if obj.etcd == nil { // in case we bailed out early
+			return
+		}
+		obj.disconnect()
+		obj.Logf("disconnected!")
+		//close(obj.disconnectSignal)
+	}()
+
+	obj.Logf("watching chooser...")
+	chooserChan := make(chan error)
+	obj.activeExit2 = true // activate errExit2
+	obj.activateExit2.Ack()
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		defer close(obj.errExit2) // multi-signal for errChan close op
+		if obj.Chooser == nil {
+			return
+		}
+
+		// wait till we're connected
+		select {
+		case <-obj.connectSignal:
+		case <-exitCtx.Done():
+			return // run exited early
+		}
+
+		p := obj.NS + ChooserPath
+		c, err := obj.MakeClientFromNamespace(p)
+		if err != nil {
+			obj.err(errwrap.Wrapf(err, "error during chooser init"))
+			return
+		}
+		if err := obj.Chooser.Connect(exitCtx, c); err != nil {
+			obj.err(errwrap.Wrapf(err, "error during chooser connect"))
+			return
+		}
+
+		ch, err := obj.Chooser.Watch()
+		if err != nil {
+			obj.err(errwrap.Wrapf(err, "error running chooser watch"))
+			return
+		}
+		chooserChan = ch // watch it
+	}()
+	defer func() {
+		if obj.Chooser == nil {
+			return
+		}
+		obj.Chooser.Disconnect() // ignore error if any
+	}()
+
+	// call this once to start the server so we'll be able to connect
 	if bootstrapping {
-		if err := SetClusterSize(obj, obj.idealClusterSize); err != nil {
-			log.Printf("Etcd: Startup: Ideal cluster size storage error.")
-			obj.Destroy()
-			return fmt.Errorf("Etcd: Startup: Error: %v", err)
+		obj.Logf("bootstrapping...")
+		obj.volunteers[obj.Hostname] = surls // bootstrap this!
+		obj.nominated[obj.Hostname] = surls
+		// alternatively we can bootstrap like this if we add more stuff...
+		//data := bootstrapWatcherData(obj.Hostname, surls) // server urls
+		//if err := obj.nominateApply(data); err != nil { // fake apply
+		//	return err
+		//}
+		// server starts inside here if bootstrapping!
+		if err := obj.nominateCb(startupCtx); err != nil {
+			// If while bootstrapping a new server, an existing one
+			// is running on the same port, then we error this here.
+			return err
+		}
+
+		// wait till we're connected
+		select {
+		case <-obj.connectSignal:
+		case <-exitCtx.Done():
+			// TODO: should this return an error?
+			return nil // run exited early
+		}
+
+		// advertise our new endpoint (comes paired after nominateCb)
+		if err := obj.advertise(startupCtx, obj.Hostname, curls); err != nil { // endpoints
+			return errwrap.Wrapf(err, "error with endpoints advertise")
+		}
+
+		// run to add entry into our public nominated datastructure
+		// FIXME: this might be redundant, but probably not harmful in
+		// our bootstrapping process... it will get done in volunteerCb
+		if err := obj.nominate(startupCtx, obj.Hostname, surls); err != nil {
+			return errwrap.Wrapf(err, "error nominating self")
 		}
 	}
 
-	go obj.AddWatcher(fmt.Sprintf("%s/endpoints/", NS), obj.endpointCallback, true, false, etcd.WithPrefix())
+	// If obj.NoServer, then we don't need to start up the nominate watcher,
+	// unless we're the first server... But we check that both are not true!
+	if bootstrapping || canServer {
+		if !bootstrapping && canServer { // wait for client!
+			select {
+			case <-obj.connectSignal:
+			case <-exitCtx.Done():
+				return nil // just exit
+			}
+		}
 
-	if err := obj.Connect(false); err != nil { // don't exit from this Startup function until connected!
+		ctx, cancel := context.WithCancel(unblockCtx)
+		defer cancel()
+		info, err := obj.client.ComplexWatcher(ctx, obj.NS+NominatedPath, etcd.WithPrefix())
+		if err != nil {
+			obj.activateExit3.Ack()
+			return errwrap.Wrapf(err, "error adding nominated watcher")
+		}
+		obj.Logf("watching nominees...")
+		obj.activeExit3 = true // activate errExit3
+		obj.activateExit3.Ack()
+		obj.wg.Add(1)
+		go func() {
+			defer obj.wg.Done()
+			defer close(obj.errExit3) // multi-signal for errChan close op
+			defer cancel()
+			for {
+				var event *interfaces.WatcherData
+				var ok bool
+				select {
+				case event, ok = <-info.Events:
+					if !ok {
+						return
+					}
+				}
+
+				if err := event.Err; err != nil {
+					obj.err(errwrap.Wrapf(err, "nominated watcher errored"))
+					continue
+				}
+
+				// on the initial created event, we populate...
+				if !bootstrapping && event.Created && len(event.Events) == 0 {
+					obj.Logf("populating nominated list...")
+					nominated, err := obj.getNominated(ctx)
+					if err != nil {
+						obj.err(errwrap.Wrapf(err, "get nominated errored"))
+						continue
+					}
+					obj.nominated = nominated
+
+				} else if err := obj.nominateApply(event); err != nil {
+					obj.err(errwrap.Wrapf(err, "nominate apply errored"))
+					continue
+				}
+
+				// decide the desired state before we change it
+				doStop := obj.serverAction(serverActionStop)
+				doStart := obj.serverAction(serverActionStart)
+
+				// server is running, but it should not be
+				if doStop { // stop?
+					// first, un advertise client urls
+					// TODO: should this cause destroy server instead? does it already?
+					if err := obj.advertise(ctx, obj.Hostname, nil); err != nil { // remove me
+						obj.err(errwrap.Wrapf(err, "error with endpoints unadvertise"))
+						continue
+					}
+				}
+
+				// runServer gets started in a goroutine here...
+				err := obj.nominateCb(ctx)
+				if obj.Debug {
+					obj.Logf("nominateCb: %+v", err)
+				}
+
+				if doStart { // start?
+					if err := obj.advertise(ctx, obj.Hostname, curls); err != nil { // add one
+						obj.err(errwrap.Wrapf(err, "error with endpoints advertise"))
+						continue
+					}
+				}
+
+				if err == interfaces.ErrShutdown {
+					if obj.Debug {
+						obj.Logf("nominated watcher shutdown")
+					}
+					return
+				}
+				if err == nil {
+					continue
+				}
+				obj.err(errwrap.Wrapf(err, "nominated watcher callback errored"))
+				continue
+			}
+		}()
+		defer func() {
+			// wait for unnominate of self to be seen...
+			select {
+			case <-obj.errExit3:
+			case <-obj.hardexit.Signal(): // bork unblocker
+				obj.Logf("unblocked unnominate signal")
+				// now unblock the server in case it's running!
+				if err := obj.destroyServer(); err != nil { // sync until exited
+					obj.err(errwrap.Wrapf(err, "destroyServer errored"))
+					return
+				}
+			}
+		}()
+		defer func() {
+			// wait for volunteer loop to exit
+			select {
+			case <-obj.errExit4:
+			}
+		}()
+	}
+	obj.activateExit3.Ack()
+
+	// volunteering code (volunteer callback and initial volunteering)
+	if !obj.NoServer && len(obj.ServerURLs) > 0 {
+		ctx, cancel := context.WithCancel(unblockCtx)
+		defer cancel() // cleanup on close...
+		info, err := obj.client.ComplexWatcher(ctx, obj.NS+VolunteerPath, etcd.WithPrefix())
+		if err != nil {
+			obj.activateExit4.Ack()
+			return errwrap.Wrapf(err, "error adding volunteer watcher")
+		}
+		unvolunteered := make(chan struct{})
+		obj.Logf("watching volunteers...")
+		obj.wg.Add(1)
+		obj.activeExit4 = true // activate errExit4
+		obj.activateExit4.Ack()
+		go func() {
+			defer obj.wg.Done()
+			defer close(obj.errExit4) // multi-signal for errChan close op
+			for {
+				var event *interfaces.WatcherData
+				var ok bool
+				select {
+				case event, ok = <-info.Events:
+					if !ok {
+						return
+					}
+					if err := event.Err; err != nil {
+						obj.err(errwrap.Wrapf(err, "volunteer watcher errored"))
+						continue
+					}
+
+				case chooserEvent, ok := <-chooserChan:
+					if !ok {
+						obj.Logf("got chooser shutdown...")
+						chooserChan = nil // done here!
+						continue
+					}
+					if chooserEvent != nil {
+						obj.err(errwrap.Wrapf(err, "chooser watcher errored"))
+						continue
+					}
+					obj.Logf("got chooser event...")
+					event = nil // pass through the apply...
+					// chooser events should poke volunteerCb
+				}
+
+				_, exists1 := obj.volunteers[obj.Hostname] // before
+
+				// on the initial created event, we populate...
+				if !bootstrapping && event != nil && event.Created && len(event.Events) == 0 {
+					obj.Logf("populating volunteers list...")
+					volunteers, err := obj.getVolunteers(ctx)
+					if err != nil {
+						obj.err(errwrap.Wrapf(err, "get volunteers errored"))
+						continue
+					}
+					// TODO: do we need to add ourself?
+					//_, exists := volunteers[obj.Hostname]
+					//if !exists {
+					//	volunteers[obj.Hostname] = surls
+					//}
+					obj.volunteers = volunteers
+
+				} else if err := obj.volunteerApply(event); event != nil && err != nil {
+					obj.err(errwrap.Wrapf(err, "volunteer apply errored"))
+					continue
+				}
+				_, exists2 := obj.volunteers[obj.Hostname] // after
+
+				err := obj.volunteerCb(ctx)
+				if err == nil {
+					// it was there, and it got removed
+					if exists1 && !exists2 {
+						close(unvolunteered)
+					}
+					continue
+				}
+				obj.err(errwrap.Wrapf(err, "volunteer watcher callback errored"))
+				continue
+			}
+		}()
+		defer func() {
+			// wait for unvolunteer of self to be seen...
+			select {
+			case <-unvolunteered:
+			case <-obj.hardexit.Signal(): // bork unblocker
+				obj.Logf("unblocked unvolunteer signal")
+			}
+		}()
+
+		// self volunteer
+		obj.Logf("volunteering...")
+		surls, err := obj.surls()
+		if err != nil {
+			return err
+		}
+		if err := obj.volunteer(ctx, surls); err != nil {
+			return err
+		}
+		defer obj.volunteer(ctx, nil) // unvolunteer
+		defer obj.Logf("unvolunteering...")
+		defer func() {
+			// Move the leader if I'm it, so that the member remove
+			// chooser operation happens on a different member than
+			// myself. A leaving member should not decide its fate.
+			member, err := obj.moveLeaderSomewhere(ctx)
+			if err != nil {
+				// TODO: use obj.err ?
+				obj.Logf("move leader failed with: %+v", err)
+				return
+			}
+			if member != "" {
+				obj.Logf("moved leader to: %s", member)
+			}
+		}()
+	}
+	obj.activateExit4.Ack()
+
+	// startup endpoints watcher (to learn about other servers)
+	ctx, cancel := context.WithCancel(unblockCtx)
+	defer cancel() // cleanup on close...
+	if err := obj.runEndpoints(ctx); err != nil {
+		obj.activateExit5.Ack()
 		return err
 	}
+	obj.activateExit5.Ack()
+	// We don't set state, we only watch others, so nothing to defer close!
+
+	if obj.Converger != nil {
+		obj.Converger.AddStateFn(ConvergerHostnameNamespace, func(converged bool) error {
+			// send our individual state into etcd for others to see
+			// TODO: what should happen on error?
+			return obj.setHostnameConverged(exitCtx, obj.Hostname, converged)
+		})
+		defer obj.Converger.RemoveStateFn(ConvergerHostnameNamespace)
+	}
+
+	// NOTE: Add anything else we want to start up here...
+
+	// If we get all the way down here, *and* we're connected, we're ready!
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		select {
+		case <-obj.connectSignal:
+			close(obj.readySignal) // we're ready to be used now...
+		case <-exitCtx.Done():
+		}
+	}()
+
+	select {
+	case <-exitCtx.Done():
+	}
+	obj.closing = true // flag to let nominateCb know we're shutting down...
+	// kick off all the defer()'s....
+	return reterr
+}
+
+// runEndpoints is a helper function to move all of this code into a new block.
+func (obj *EmbdEtcd) runEndpoints(ctx context.Context) error {
+	bootstrapping := len(obj.Seeds) == 0
+	select {
+	case <-obj.connectSignal:
+	case <-ctx.Done():
+		return nil // TODO: just exit ?
+	}
+	info, err := obj.client.ComplexWatcher(ctx, obj.NS+EndpointsPath, etcd.WithPrefix())
+	if err != nil {
+		obj.activateExit5.Ack()
+		return errwrap.Wrapf(err, "error adding endpoints watcher")
+	}
+	obj.Logf("watching endpoints...")
+	obj.wg.Add(1)
+	obj.activeExit5 = true // activate errExit5
+	obj.activateExit5.Ack()
+	go func() {
+		defer obj.wg.Done()
+		defer close(obj.errExit5) // multi-signal for errChan close op
+		for {
+			var event *interfaces.WatcherData
+			var ok bool
+			select {
+			case event, ok = <-info.Events:
+				if !ok {
+					return
+				}
+				if err := event.Err; err != nil {
+					obj.err(errwrap.Wrapf(err, "endpoints watcher errored"))
+					continue
+				}
+			}
+
+			// on the initial created event, we populate...
+			if !bootstrapping && event.Created && len(event.Events) == 0 {
+				obj.Logf("populating endpoints list...")
+				endpoints, err := obj.getEndpoints(ctx)
+				if err != nil {
+					obj.err(errwrap.Wrapf(err, "get endpoints errored"))
+					continue
+				}
+				obj.endpoints = endpoints
+				obj.setEndpoints()
+
+			} else if err := obj.endpointApply(event); err != nil {
+				obj.err(errwrap.Wrapf(err, "endpoint apply errored"))
+				continue
+			}
+
+			// there is no endpoint callback necessary
+
+			// TODO: do we need this member state sync?
+			if err := obj.memberStateFromList(ctx); err != nil {
+				obj.err(errwrap.Wrapf(err, "error during endpoint state sync"))
+				continue
+			}
+		}
+	}()
+
 	return nil
 }
 
 // Destroy cleans up the entire embedded etcd system. Use DestroyServer if you
 // only want to shutdown the embedded server portion.
 func (obj *EmbdEtcd) Destroy() error {
+	obj.Logf("destroy...")
+	obj.exit.Done(nil) // trigger an exit in Run!
 
-	// this should also trigger an unnominate, which should cause a shutdown
-	log.Printf("Etcd: Destroy: Unvolunteering...")
-	if err := Volunteer(obj, nil); err != nil { // unvolunteer so we can shutdown...
-		log.Printf("Etcd: Destroy: Error: %v", err) // we have a problem
-	}
+	reterr := obj.exit.Error() // wait for exit signal (block until arrival)
 
-	obj.serverwg.Wait() // wait for server shutdown signal
-
-	obj.exiting = true // must happen before we run the cancel functions!
-
-	// clean up any watchers which might want to continue
-	obj.cancelLock.Lock() // TODO: do we really need the lock here on exit?
-	log.Printf("Etcd: Destroy: Cancelling %d operations...", len(obj.cancels))
-	for _, cancelFunc := range obj.cancels {
-		cancelFunc()
-	}
-	obj.cancelLock.Unlock()
-
-	close(obj.exitchan) // cause main loop to exit
-	close(obj.exitchanCb)
-
-	obj.rLock.Lock()
-	if obj.client != nil {
-		obj.client.Close()
-	}
-	obj.client = nil
-	obj.rLock.Unlock()
-
-	// this happens in response to the unnominate callback. not needed here!
-	//if obj.server != nil {
-	//	return obj.DestroyServer()
-	//}
-	obj.exitwg.Wait()
-	return nil
+	obj.wg.Wait()
+	return reterr
 }
 
-// CtxDelayErr requests a retry in Delta duration.
-type CtxDelayErr struct {
-	Delta   time.Duration
-	Message string
-}
-
-func (obj *CtxDelayErr) Error() string {
-	return fmt.Sprintf("CtxDelayErr(%v): %s", obj.Delta, obj.Message)
-}
-
-// CtxRetriesErr lets you retry as long as you have retries available.
-// TODO: consider combining this with CtxDelayErr
-type CtxRetriesErr struct {
-	Retries uint
-	Message string
-}
-
-func (obj *CtxRetriesErr) Error() string {
-	return fmt.Sprintf("CtxRetriesErr(%v): %s", obj.Retries, obj.Message)
-}
-
-// CtxPermanentErr is a permanent failure error to notify about borkage.
-type CtxPermanentErr struct {
-	Message string
-}
-
-func (obj *CtxPermanentErr) Error() string {
-	return fmt.Sprintf("CtxPermanentErr: %s", obj.Message)
-}
-
-// CtxReconnectErr requests a client reconnect to the new endpoint list.
-type CtxReconnectErr struct {
-	Message string
-}
-
-func (obj *CtxReconnectErr) Error() string {
-	return fmt.Sprintf("CtxReconnectErr: %s", obj.Message)
-}
-
-// CancelCtx adds a tracked cancel function around an existing context.
-func (obj *EmbdEtcd) CancelCtx(ctx context.Context) (context.Context, func()) {
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	obj.cancelLock.Lock()
-	obj.cancels = append(obj.cancels, cancelFunc) // not thread-safe, needs lock
-	obj.cancelLock.Unlock()
-	return cancelCtx, cancelFunc
-}
-
-// TimeoutCtx adds a tracked cancel function with timeout around an existing context.
-func (obj *EmbdEtcd) TimeoutCtx(ctx context.Context, t time.Duration) (context.Context, func()) {
-	timeoutCtx, cancelFunc := context.WithTimeout(ctx, t)
-	obj.cancelLock.Lock()
-	obj.cancels = append(obj.cancels, cancelFunc) // not thread-safe, needs lock
-	obj.cancelLock.Unlock()
-	return timeoutCtx, cancelFunc
-}
-
-// CtxError is called whenever there is a connection or other client problem
-// that needs to be resolved before we can continue, eg: connection disconnected,
-// change of server to connect to, etc... It modifies the context if needed.
-func (obj *EmbdEtcd) CtxError(ctx context.Context, err error) (context.Context, error) {
-	if obj.ctxErr != nil { // stop on permanent error
-		return ctx, obj.ctxErr
-	}
-	type ctxKey string // use a non-basic type as ctx key (str can conflict)
-	const ctxErr ctxKey = "ctxErr"
-	const ctxIter ctxKey = "ctxIter"
-	expBackoff := func(tmin, texp, iter, tmax int) time.Duration {
-		// https://en.wikipedia.org/wiki/Exponential_backoff
-		// tmin <= texp^iter - 1 <= tmax // TODO: check my math
-		return time.Duration(math.Min(math.Max(math.Pow(float64(texp), float64(iter))-1.0, float64(tmin)), float64(tmax))) * time.Millisecond
-	}
-	var isTimeout bool
-	var iter int // = 0
-	if ctxerr, ok := ctx.Value(ctxErr).(error); ok {
-		if obj.flags.Debug {
-			log.Printf("Etcd: CtxError: err(%v), ctxerr(%v)", err, ctxerr)
-		}
-		if i, ok := ctx.Value(ctxIter).(int); ok {
-			iter = i + 1 // load and increment
-			if obj.flags.Debug {
-				log.Printf("Etcd: CtxError: Iter: %v", iter)
-			}
-		}
-		isTimeout = err == context.DeadlineExceeded
-		if obj.flags.Debug {
-			log.Printf("Etcd: CtxError: isTimeout: %v", isTimeout)
-		}
-		if !isTimeout {
-			iter = 0 // reset timer
-		}
-		err = ctxerr // restore error
-	} else if obj.flags.Debug {
-		log.Printf("Etcd: CtxError: No value found")
-	}
-	ctxHelper := func(tmin, texp, tmax int) context.Context {
-		t := expBackoff(tmin, texp, iter, tmax)
-		if obj.flags.Debug {
-			log.Printf("Etcd: CtxError: Timeout: %v", t)
-		}
-
-		ctxT, _ := obj.TimeoutCtx(ctx, t)
-		ctxV := context.WithValue(ctxT, ctxIter, iter) // save iter
-		ctxF := context.WithValue(ctxV, ctxErr, err)   // save err
-		return ctxF
-	}
-	_ = ctxHelper // TODO
-
-	isGrpc := func(e error) bool { // helper function
-		return grpc.ErrorDesc(err) == e.Error()
-	}
-
-	if err == nil {
-		log.Fatal("Etcd: CtxError: Error: Unexpected lack of error!")
-	}
-	if obj.exiting {
-		obj.ctxErr = fmt.Errorf("exit in progress")
-		return ctx, obj.ctxErr
-	}
-
-	// happens when we trigger the cancels during reconnect
-	if err == context.Canceled {
-		// TODO: do we want to create a fresh ctx here for all cancels?
-		//ctx = context.Background()
-		ctx, _ = obj.CancelCtx(ctx) // add a new one
-		return ctx, nil             // we should retry, reconnect probably happened
-	}
-
-	if delayErr, ok := err.(*CtxDelayErr); ok { // custom delay error
-		log.Printf("Etcd: CtxError: Reason: %s", delayErr.Error())
-		time.Sleep(delayErr.Delta) // sleep the amount of time requested
-		return ctx, nil
-	}
-
-	if retriesErr, ok := err.(*CtxRetriesErr); ok { // custom retry error
-		log.Printf("Etcd: CtxError: Reason: %s", retriesErr.Error())
-		if retriesErr.Retries == 0 {
-			obj.ctxErr = fmt.Errorf("no more retries due to CtxRetriesErr")
-			return ctx, obj.ctxErr
-		}
-		return ctx, nil
-	}
-
-	if permanentErr, ok := err.(*CtxPermanentErr); ok { // custom permanent error
-		obj.ctxErr = fmt.Errorf("error due to CtxPermanentErr: %s", permanentErr.Error())
-		return ctx, obj.ctxErr // quit
-	}
-
-	if err == etcd.ErrNoAvailableEndpoints { // etcd server is probably starting up
-		// TODO: tmin, texp, tmax := 500, 2, 16000 // ms, exp base, ms
-		// TODO: return ctxHelper(tmin, texp, tmax), nil
-		log.Printf("Etcd: CtxError: No endpoints available yet!")
-		time.Sleep(500 * time.Millisecond) // a ctx timeout won't help!
-		return ctx, nil                    // passthrough
-	}
-
-	// etcd server is apparently still starting up...
-	if err == rpctypes.ErrNotCapable { // isGrpc(rpctypes.ErrNotCapable) also matches
-		log.Printf("Etcd: CtxError: Server is starting up...")
-		time.Sleep(500 * time.Millisecond) // a ctx timeout won't help!
-		return ctx, nil                    // passthrough
-	}
-
-	if err == grpc.ErrClientConnTimeout { // sometimes caused by "too many colons" misconfiguration
-		return ctx, fmt.Errorf("misconfiguration: %v", err) // permanent failure?
-	}
-
-	// this can happen if my client connection shuts down, but without any
-	// available alternatives. in this case, rotate it off to someone else
-	reconnectErr, isReconnectErr := err.(*CtxReconnectErr) // custom reconnect error
-	switch {
-	case isReconnectErr:
-		log.Printf("Etcd: CtxError: Reason: %s", reconnectErr.Error())
-		fallthrough
-	case err == raft.ErrStopped: // TODO: does this ever happen?
-		fallthrough
-	case err == etcdserver.ErrStopped: // TODO: does this ever happen?
-		fallthrough
-	case isGrpc(raft.ErrStopped):
-		fallthrough
-	case isGrpc(etcdserver.ErrStopped):
-		fallthrough
-	case isGrpc(grpc.ErrClientConnClosing):
-
-		if obj.flags.Debug {
-			log.Printf("Etcd: CtxError: Error(%T): %+v", err, err)
-			log.Printf("Etcd: Endpoints are: %v", obj.client.Endpoints())
-			log.Printf("Etcd: Client endpoints are: %v", obj.endpoints)
-		}
-
-		if obj.flags.Debug {
-			log.Printf("Etcd: CtxError: Locking...")
-		}
-		obj.rLock.Lock()
-		// TODO: should this really be nested inside the other lock?
-		obj.cancelLock.Lock()
-		// we need to cancel any WIP connections like Txn()'s and so on
-		// we run the cancel()'s that are stored up so they don't block
-		log.Printf("Etcd: CtxError: Cancelling %d operations...", len(obj.cancels))
-		for _, cancelFunc := range obj.cancels {
-			cancelFunc()
-		}
-		obj.cancels = []func(){} // reset
-		obj.cancelLock.Unlock()
-
-		log.Printf("Etcd: CtxError: Reconnecting...")
-		if err := obj.Connect(true); err != nil {
-			defer obj.rLock.Unlock()
-			obj.ctxErr = fmt.Errorf("permanent connect error: %v", err)
-			return ctx, obj.ctxErr
-		}
-		if obj.flags.Debug {
-			log.Printf("Etcd: CtxError: Unlocking...")
-		}
-		obj.rLock.Unlock()
-		log.Printf("Etcd: CtxError: Reconnected!")
-		return ctx, nil
-	}
-
-	// FIXME: we might be one of the members in a two member cluster that
-	// had the other member crash.. hmmm bork?!
-	if isGrpc(context.DeadlineExceeded) {
-		log.Printf("Etcd: CtxError: DeadlineExceeded(%T): %+v", err, err) // TODO
-	}
-
-	if err == rpctypes.ErrDuplicateKey {
-		log.Fatalf("Etcd: CtxError: Programming error: %+v", err)
-	}
-
-	// if you hit this code path here, please report the unmatched error!
-	log.Printf("Etcd: CtxError: Unknown error(%T): %+v", err, err)
-	time.Sleep(1 * time.Second)
-	obj.ctxErr = fmt.Errorf("unknown CtxError")
-	return ctx, obj.ctxErr
-}
-
-// CbLoop is the loop where callback execution is serialized.
-func (obj *EmbdEtcd) CbLoop() {
-	obj.exitwg.Add(1)
-	defer obj.exitwg.Done()
-	cuid := obj.converger.Register()
-	defer cuid.Unregister()
-	if e := obj.Connect(false); e != nil {
-		return // fatal
-	}
-	var exitTimeout <-chan time.Time // = nil is implied
-	// we use this timer because when we ignore un-converge events and loop,
-	// we reset the ConvergedTimer case statement, ruining the timeout math!
-	cuid.StartTimer()
-	for {
-		ctx := context.Background() // TODO: inherit as input argument?
+// Interrupt causes this member to force shutdown. It does not safely wait for
+// an ordered shutdown. It is not recommended to use this unless you're borked.
+func (obj *EmbdEtcd) Interrupt() error {
+	obj.Logf("interrupt...")
+	wg := &sync.WaitGroup{}
+	var err error
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err = obj.Destroy() // set return error
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 		select {
-		// etcd watcher event
-		case re := <-obj.wevents:
-			if !re.skipConv { // if we want to count it...
-				cuid.ResetTimer() // activity!
-			}
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: CbLoop: Event: StartLoop")
-			}
-			for {
-				if obj.exiting { // the exit signal has been sent!
-					//re.resp.NACK() // nope!
-					break
-				}
-				if obj.flags.Trace {
-					log.Printf("Trace: Etcd: CbLoop: rawCallback()")
-				}
-				err := rawCallback(ctx, re)
-				if obj.flags.Trace {
-					log.Printf("Trace: Etcd: CbLoop: rawCallback(): %v", err)
-				}
-				if err == nil {
-					//re.resp.ACK() // success
-					break
-				}
-				re.retries++ // increment error retry count
-				if ctx, err = obj.CtxError(ctx, err); err != nil {
-					break // TODO: it's bad, break or return?
-				}
-			}
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: CbLoop: Event: FinishLoop")
-			}
-
-		// exit loop signal
-		case <-obj.exitchanCb:
-			obj.exitchanCb = nil
-			log.Println("Etcd: Exiting loop shortly...")
-			// activate exitTimeout switch which only opens after N
-			// seconds of inactivity in this select switch, which
-			// lets everything get bled dry to avoid blocking calls
-			// which would otherwise block us from exiting cleanly!
-			exitTimeout = util.TimeAfterOrBlock(exitDelay)
-
-		// exit loop commit
-		case <-exitTimeout:
-			log.Println("Etcd: Exiting callback loop!")
-			cuid.StopTimer() // clean up nicely
-			return
+		case <-obj.exit.Signal(): // wait for Destroy to run first
 		}
-	}
-}
+		obj.hardexit.Done(nil) // trigger a hard exit
+	}()
 
-// Loop is the main loop where everything is serialized.
-func (obj *EmbdEtcd) Loop() {
-	obj.exitwg.Add(1) // TODO: add these to other go routines?
-	defer obj.exitwg.Done()
-	cuid := obj.converger.Register()
-	defer cuid.Unregister()
-	if e := obj.Connect(false); e != nil {
-		return // fatal
-	}
-	var exitTimeout <-chan time.Time // = nil is implied
-	cuid.StartTimer()
-	for {
-		ctx := context.Background() // TODO: inherit as input argument?
-		// priority channel...
-		select {
-		case aw := <-obj.awq:
-			cuid.ResetTimer() // activity!
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: PriorityAW: StartLoop")
-			}
-			obj.loopProcessAW(ctx, aw)
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: PriorityAW: FinishLoop")
-			}
-			continue // loop to drain the priority channel first!
-		default:
-			// passthrough to normal channel
-		}
-
-		select {
-		// add watcher
-		case aw := <-obj.awq:
-			cuid.ResetTimer() // activity!
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: AW: StartLoop")
-			}
-			obj.loopProcessAW(ctx, aw)
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: AW: FinishLoop")
-			}
-
-		// set kv pair
-		case kv := <-obj.setq:
-			cuid.ResetTimer() // activity!
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Set: StartLoop")
-			}
-			for {
-				if obj.exiting { // the exit signal has been sent!
-					kv.resp.NACK() // nope!
-					break
-				}
-				err := obj.rawSet(ctx, kv)
-				if err == nil {
-					kv.resp.ACK() // success
-					break
-				}
-				if ctx, err = obj.CtxError(ctx, err); err != nil { // try to reconnect, etc...
-					break // TODO: it's bad, break or return?
-				}
-			}
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Set: FinishLoop")
-			}
-
-		// get value
-		case gq := <-obj.getq:
-			if !gq.skipConv {
-				cuid.ResetTimer() // activity!
-			}
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Get: StartLoop")
-			}
-			for {
-				if obj.exiting { // the exit signal has been sent!
-					gq.resp.NACK() // nope!
-					break
-				}
-				data, err := obj.rawGet(ctx, gq)
-				if err == nil {
-					gq.data = data // update struct
-					gq.resp.ACK()  // success
-					break
-				}
-				if ctx, err = obj.CtxError(ctx, err); err != nil {
-					break // TODO: it's bad, break or return?
-				}
-			}
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Get: FinishLoop")
-			}
-
-		// delete value
-		case dl := <-obj.delq:
-			cuid.ResetTimer() // activity!
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Delete: StartLoop")
-			}
-			for {
-				if obj.exiting { // the exit signal has been sent!
-					dl.resp.NACK() // nope!
-					break
-				}
-				data, err := obj.rawDelete(ctx, dl)
-				if err == nil {
-					dl.data = data // update struct
-					dl.resp.ACK()  // success
-					break
-				}
-				if ctx, err = obj.CtxError(ctx, err); err != nil {
-					break // TODO: it's bad, break or return?
-				}
-			}
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Delete: FinishLoop")
-			}
-
-		// run txn
-		case tn := <-obj.txnq:
-			cuid.ResetTimer() // activity!
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Txn: StartLoop")
-			}
-			for {
-				if obj.exiting { // the exit signal has been sent!
-					tn.resp.NACK() // nope!
-					break
-				}
-				data, err := obj.rawTxn(ctx, tn)
-				if err == nil {
-					tn.data = data // update struct
-					tn.resp.ACK()  // success
-					break
-				}
-				if ctx, err = obj.CtxError(ctx, err); err != nil {
-					break // TODO: it's bad, break or return?
-				}
-			}
-			if obj.flags.Trace {
-				log.Printf("Trace: Etcd: Loop: Txn: FinishLoop")
-			}
-
-		// exit loop signal
-		case <-obj.exitchan:
-			obj.exitchan = nil
-			log.Println("Etcd: Exiting loop shortly...")
-			// activate exitTimeout switch which only opens after N
-			// seconds of inactivity in this select switch, which
-			// lets everything get bled dry to avoid blocking calls
-			// which would otherwise block us from exiting cleanly!
-			exitTimeout = util.TimeAfterOrBlock(exitDelay)
-
-		// exit loop commit
-		case <-exitTimeout:
-			log.Println("Etcd: Exiting loop!")
-			cuid.StopTimer() // clean up nicely
-			return
-		}
-	}
-}
-
-// loopProcessAW is a helper function to facilitate creating priority channels!
-func (obj *EmbdEtcd) loopProcessAW(ctx context.Context, aw *AW) {
-	for {
-		if obj.exiting { // the exit signal has been sent!
-			aw.resp.NACK() // nope!
-			return
-		}
-		// cancelFunc is our data payload
-		cancelFunc, err := obj.rawAddWatcher(ctx, aw)
-		if err == nil {
-			aw.cancelFunc = cancelFunc // update struct
-			aw.resp.ACK()              // success
-			return
-		}
-		if ctx, err = obj.CtxError(ctx, err); err != nil {
-			return // TODO: do something else ?
-		}
-	}
-}
-
-// Set queues up a set operation to occur using our mainloop.
-func (obj *EmbdEtcd) Set(key, value string, opts ...etcd.OpOption) error {
-	resp := event.NewResp()
-	obj.setq <- &KV{key: key, value: value, opts: opts, resp: resp}
-	if err := resp.Wait(); err != nil { // wait for ack/nack
-		return fmt.Errorf("Etcd: Set: Probably received an exit: %v", err)
-	}
-	return nil
-}
-
-// rawSet actually implements the key set operation.
-func (obj *EmbdEtcd) rawSet(ctx context.Context, kv *KV) error {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawSet()")
-	}
-	// key is the full key path
-	// TODO: should this be : obj.client.KV.Put or obj.client.Put ?
-	obj.rLock.RLock() // these read locks need to wrap any use of obj.client
-	response, err := obj.client.KV.Put(ctx, kv.key, kv.value, kv.opts...)
-	obj.rLock.RUnlock()
-	log.Printf("Etcd: Set(%s): %v", kv.key, response) // w00t... bonus
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawSet(): %v", err)
-	}
+	wg.Wait()
 	return err
 }
 
-// Get performs a get operation and waits for an ACK to continue.
-func (obj *EmbdEtcd) Get(path string, opts ...etcd.OpOption) (map[string]string, error) {
-	return obj.ComplexGet(path, false, opts...)
+// Ready returns a channel that closes when we're up and running. This process
+// happens when calling Run. If Run is never called, this will never happen. Our
+// main startup must be running, and our client must be connected to get here.
+func (obj *EmbdEtcd) Ready() <-chan struct{} { return obj.readySignal }
+
+// Exited returns a channel that closes when we've destroyed. This process
+// happens after Run exits. If Run is never called, this will never happen.
+func (obj *EmbdEtcd) Exited() <-chan struct{} { return obj.exitsSignal }
+
+// config returns the config struct to be used during the etcd client connect.
+func (obj *EmbdEtcd) config() etcd.Config {
+	// FIXME: filter out any urls which wouldn't resolve ?
+	endpoints := fromURLsMapToStringList(obj.endpoints) // flatten map
+	// We don't need to do any sort of priority sort here, since for initial
+	// connect we'd be the only one, so it doesn't matter, and subsequent
+	// changes are made with SetEndpoints, not here, so we never need to
+	// prioritize our local endpoint.
+	sort.Strings(endpoints) // sort for determinism
+
+	if len(endpoints) == 0 { // initially, we need to use the defaults...
+		for _, u := range obj.Seeds {
+			endpoints = append(endpoints, u.String())
+		}
+	}
+	// XXX: connect to our local obj.ClientURLs instead of obj.AClientURLs ?
+	cfg := etcd.Config{
+		Endpoints: endpoints, // eg: []string{"http://254.0.0.1:12345"}
+		// RetryDialer chooses the next endpoint to use, and comes with
+		// a default dialer if unspecified.
+		DialTimeout: ClientDialTimeout,
+
+		// I think the keepalive stuff is needed for endpoint health.
+		DialKeepAliveTime:    ClientDialKeepAliveTime,
+		DialKeepAliveTimeout: ClientDialKeepAliveTimeout,
+
+		// 0 disables auto-sync. By default auto-sync is disabled.
+		AutoSyncInterval: 0, // we do something equivalent ourselves
+	}
+	return cfg
 }
 
-// ComplexGet performs a get operation and waits for an ACK to continue. It can
-// accept more arguments that are useful for the less common operations.
-// TODO: perhaps a get should never cause an un-converge ?
-func (obj *EmbdEtcd) ComplexGet(path string, skipConv bool, opts ...etcd.OpOption) (map[string]string, error) {
-	resp := event.NewResp()
-	gq := &GQ{path: path, skipConv: skipConv, opts: opts, resp: resp, data: nil}
-	obj.getq <- gq                      // send
-	if err := resp.Wait(); err != nil { // wait for ack/nack
-		return nil, fmt.Errorf("Etcd: Get: Probably received an exit: %v", err)
+// connect connects the client to a server. If we are the first peer, then that
+// server is itself.
+func (obj *EmbdEtcd) connect() error {
+	obj.Logf("connect...")
+	if obj.etcd != nil {
+		return fmt.Errorf("already connected")
 	}
-	return gq.data, nil
+	cfg := obj.config() // get config
+	var err error
+	obj.etcd, err = etcd.New(cfg) // connect!
+	return err
 }
 
-func (obj *EmbdEtcd) rawGet(ctx context.Context, gq *GQ) (result map[string]string, err error) {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawGet()")
+// disconnect closes the etcd connection.
+func (obj *EmbdEtcd) disconnect() error {
+	obj.Logf("disconnect...")
+	if obj.etcd == nil {
+		return fmt.Errorf("already disconnected")
 	}
-	obj.rLock.RLock()
-	// TODO: we're checking if this is nil to workaround a nil ptr bug...
-	if obj.client == nil { // bug?
-		obj.rLock.RUnlock()
-		return nil, fmt.Errorf("client is nil")
-	}
-	if obj.client.KV == nil { // bug?
-		obj.rLock.RUnlock()
-		return nil, fmt.Errorf("client.KV is nil")
-	}
-	response, err := obj.client.KV.Get(ctx, gq.path, gq.opts...)
-	obj.rLock.RUnlock()
-	if err != nil || response == nil {
+
+	return obj.etcd.Close()
+}
+
+// MakeClient returns an etcd Client interface that is suitable for basic tasks.
+// Don't run this until the Ready method has acknowledged.
+func (obj *EmbdEtcd) MakeClient() (interfaces.Client, error) {
+	c := client.NewClientFromClient(obj.etcd)
+	if err := c.Init(); err != nil {
 		return nil, err
 	}
-
-	// TODO: write a response.ToMap() function on https://godoc.org/github.com/coreos/etcd/etcdserver/etcdserverpb#RangeResponse
-	result = make(map[string]string)
-	for _, x := range response.Kvs {
-		result[bytes.NewBuffer(x.Key).String()] = bytes.NewBuffer(x.Value).String()
-	}
-
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawGet(): %v", result)
-	}
-	return
+	obj.clients = append(obj.clients, c) // make sure to clean up after...
+	return c, nil
 }
 
-// Delete performs a delete operation and waits for an ACK to continue.
-func (obj *EmbdEtcd) Delete(path string, opts ...etcd.OpOption) (int64, error) {
-	resp := event.NewResp()
-	dl := &DL{path: path, opts: opts, resp: resp, data: -1}
-	obj.delq <- dl                      // send
-	if err := resp.Wait(); err != nil { // wait for ack/nack
-		return -1, fmt.Errorf("Etcd: Delete: Probably received an exit: %v", err)
+// MakeClientFromNamespace returns an etcd Client interface that is suitable for
+// basic tasks and that has a key namespace prefix. // Don't run this until the
+// Ready method has acknowledged.
+func (obj *EmbdEtcd) MakeClientFromNamespace(ns string) (interfaces.Client, error) {
+	kv := namespace.NewKV(obj.etcd.KV, ns)
+	w := namespace.NewWatcher(obj.etcd.Watcher, ns)
+	c := client.NewClientFromNamespace(obj.etcd, kv, w)
+	if err := c.Init(); err != nil {
+		return nil, err
 	}
-	return dl.data, nil
-}
-
-func (obj *EmbdEtcd) rawDelete(ctx context.Context, dl *DL) (count int64, err error) {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawDelete()")
-	}
-	count = -1
-	obj.rLock.RLock()
-	response, err := obj.client.KV.Delete(ctx, dl.path, dl.opts...)
-	obj.rLock.RUnlock()
-	if err == nil {
-		count = response.Deleted
-	}
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawDelete(): %v", err)
-	}
-	return
-}
-
-// Txn performs a transaction and waits for an ACK to continue.
-func (obj *EmbdEtcd) Txn(ifcmps []etcd.Cmp, thenops, elseops []etcd.Op) (*etcd.TxnResponse, error) {
-	resp := event.NewResp()
-	tn := &TN{ifcmps: ifcmps, thenops: thenops, elseops: elseops, resp: resp, data: nil}
-	obj.txnq <- tn                      // send
-	if err := resp.Wait(); err != nil { // wait for ack/nack
-		return nil, fmt.Errorf("Etcd: Txn: Probably received an exit: %v", err)
-	}
-	return tn.data, nil
-}
-
-func (obj *EmbdEtcd) rawTxn(ctx context.Context, tn *TN) (*etcd.TxnResponse, error) {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawTxn()")
-	}
-	obj.rLock.RLock()
-	response, err := obj.client.KV.Txn(ctx).If(tn.ifcmps...).Then(tn.thenops...).Else(tn.elseops...).Commit()
-	obj.rLock.RUnlock()
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: rawTxn(): %v, %v", response, err)
-	}
-	return response, err
-}
-
-// AddWatcher queues up an add watcher request and returns a cancel function.
-// Remember to add the etcd.WithPrefix() option if you want to watch recursively.
-func (obj *EmbdEtcd) AddWatcher(path string, callback func(re *RE) error, errCheck bool, skipConv bool, opts ...etcd.OpOption) (func(), error) {
-	resp := event.NewResp()
-	awq := &AW{path: path, opts: opts, callback: callback, errCheck: errCheck, skipConv: skipConv, cancelFunc: nil, resp: resp}
-	obj.awq <- awq                      // send
-	if err := resp.Wait(); err != nil { // wait for ack/nack
-		return nil, fmt.Errorf("Etcd: AddWatcher: Got NACK: %v", err)
-	}
-	return awq.cancelFunc, nil
-}
-
-// rawAddWatcher adds a watcher and returns a cancel function to call to end it.
-func (obj *EmbdEtcd) rawAddWatcher(ctx context.Context, aw *AW) (func(), error) {
-	cancelCtx, cancelFunc := obj.CancelCtx(ctx)
-	go func(ctx context.Context) {
-		defer cancelFunc() // it's safe to cancelFunc() more than once!
-		obj.rLock.RLock()
-		rch := obj.client.Watcher.Watch(ctx, aw.path, aw.opts...)
-		obj.rLock.RUnlock()
-		var rev int64
-		var useRev = false
-		var retry, locked bool = false, false
-		for {
-			response := <-rch // read
-			err := response.Err()
-			isCanceled := response.Canceled || err == context.Canceled
-			if response.Header.Revision == 0 { // by inspection
-				if obj.flags.Debug {
-					log.Printf("Etcd: Watch: Received empty message!") // switched client connection
-				}
-				isCanceled = true
-			}
-
-			if isCanceled {
-				if obj.exiting { // if not, it could be reconnect
-					return
-				}
-				err = context.Canceled
-			}
-
-			if err == nil { // watch from latest good revision
-				rev = response.Header.Revision // TODO: +1 ?
-				useRev = true
-				if !locked {
-					retry = false
-				}
-				locked = false
-			} else {
-				if obj.flags.Debug {
-					log.Printf("Etcd: Watch: Error: %v", err) // probably fixable
-				}
-				// this new context is the fix for a tricky set
-				// of bugs which were encountered when re-using
-				// the existing canceled context! it has state!
-				ctx = context.Background() // this is critical!
-
-				if ctx, err = obj.CtxError(ctx, err); err != nil {
-					return // TODO: it's bad, break or return?
-				}
-
-				// remake it, but add old Rev when valid
-				opts := []etcd.OpOption{}
-				if useRev {
-					opts = append(opts, etcd.WithRev(rev))
-				}
-				opts = append(opts, aw.opts...)
-				rch = nil
-				obj.rLock.RLock()
-				if obj.client == nil {
-					defer obj.rLock.RUnlock()
-					return // we're exiting
-				}
-				rch = obj.client.Watcher.Watch(ctx, aw.path, opts...)
-				obj.rLock.RUnlock()
-				locked = true
-				retry = true
-				continue
-			}
-
-			// the response includes a list of grouped events, each
-			// of which includes one Kv struct. Send these all in a
-			// batched group so that they are processed together...
-			obj.wevents <- &RE{response: response, path: aw.path, err: err, callback: aw.callback, errCheck: aw.errCheck, skipConv: aw.skipConv, retryHint: retry} // send event
-		}
-	}(cancelCtx)
-	return cancelFunc, nil
-}
-
-// rawCallback is the companion to AddWatcher which runs the callback processing.
-func rawCallback(ctx context.Context, re *RE) error {
-	var err = re.err // the watch event itself might have had an error
-	if err == nil {
-		if callback := re.callback; callback != nil {
-			// TODO: we could add an async option if needed
-			// NOTE: the callback must *not* block!
-			// FIXME: do we need to pass ctx in via *RE, or in the callback signature ?
-			err = callback(re) // run the callback
-			if !re.errCheck || err == nil {
-				return nil
-			}
-		} else {
-			return nil
-		}
-	}
-	return err
-}
-
-// volunteerCallback runs to respond to the volunteer list change events.
-// Functionally, it controls the adding and removing of members.
-// FIXME: we might need to respond to member change/disconnect/shutdown events,
-// see: https://github.com/coreos/etcd/issues/5277
-func (obj *EmbdEtcd) volunteerCallback(re *RE) error {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: volunteerCallback()")
-		defer log.Printf("Trace: Etcd: volunteerCallback(): Finished!")
-	}
-	if err := obj.Connect(false); err != nil {
-		log.Printf("Etcd: volunteerCallback(): Connect failed permanently: %v", err)
-		// permanently fail...
-		return &CtxPermanentErr{fmt.Sprintf("Etcd: volunteerCallback(): Connect error: %s", err)}
-	}
-	var err error
-
-	// FIXME: if this is running in response to our OWN volunteering offer,
-	// skip doing stuff if we're not a server yet because it's pointless,
-	// and we might have just lost quorum if we just got nominated! Why the
-	// lack of quorum is needed to read data in etcd v3 but not in v2 is a
-	// mystery for now, since in v3 this now blocks! Maybe it's that the
-	// Maintenance.Status API requires a leader to return? Maybe that's it!
-	// FIXME: are there any situations where we don't want to short circuit
-	// here, such as if i'm the last node?
-	if obj.server == nil {
-		return nil // if we're not a server, we're not a leader, return
-	}
-
-	membersMap, err := Members(obj) // map[uint64]string
-	if err != nil {
-		return fmt.Errorf("Etcd: Members: Error: %+v", err)
-	}
-	members := util.StrMapValuesUint64(membersMap) // get values
-	log.Printf("Etcd: Members: List: %+v", members)
-
-	// we only do *one* change operation at a time so that the cluster can
-	// advance safely. we ensure this by returning CtxDelayErr any time an
-	// operation happens to ensure the function will reschedule itself due
-	// to the CtxError processing after this callback "fails". This custom
-	// error is caught by CtxError, and lets us specify a retry delay too!
-
-	// check for unstarted members, since we're currently "unhealthy"
-	for mID, name := range membersMap {
-		if name == "" {
-			// reschedule in one second
-			// XXX: will the unnominate TTL still happen if we are
-			// in an unhealthy state? that's what we're waiting for
-			return &CtxDelayErr{2 * time.Second, fmt.Sprintf("unstarted member, mID: %d", mID)}
-		}
-	}
-
-	leader, err := Leader(obj) // XXX: race!
-	if err != nil {
-		log.Printf("Etcd: Leader: Error: %+v", err)
-		return fmt.Errorf("Etcd: Leader: Error: %+v", err)
-	}
-	log.Printf("Etcd: Leader: %+v", leader)
-	if leader != obj.hostname {
-		log.Printf("Etcd: We are not the leader...")
-		return nil
-	}
-	// i am the leader!
-
-	// get the list of available volunteers
-	volunteersMap, err := Volunteers(obj)
-	if err != nil {
-		log.Printf("Etcd: Volunteers: Error: %+v", err)
-		return fmt.Errorf("Etcd: Volunteers: Error: %+v", err)
-	}
-
-	volunteers := []string{} // get keys
-	for k := range volunteersMap {
-		volunteers = append(volunteers, k)
-	}
-	sort.Strings(volunteers) // deterministic order
-	log.Printf("Etcd: Volunteers: %v", volunteers)
-
-	// unnominate anyone that unvolunteers, so that they can shutdown cleanly
-	quitters := util.StrFilterElementsInList(volunteers, members)
-	log.Printf("Etcd: Quitters: %v", quitters)
-
-	// if we're the only member left, just shutdown...
-	if len(members) == 1 && members[0] == obj.hostname && len(quitters) == 1 && quitters[0] == obj.hostname {
-		log.Printf("Etcd: Quitters: Shutting down self...")
-		if err := Nominate(obj, obj.hostname, nil); err != nil { // unnominate myself
-			return &CtxDelayErr{1 * time.Second, fmt.Sprintf("error shutting down self: %v", err)}
-		}
-		return nil
-	}
-
-	candidates := util.StrFilterElementsInList(members, volunteers)
-	log.Printf("Etcd: Candidates: %v", candidates)
-
-	// TODO: switch to < 0 so that we can shut the whole cluster down with 0
-	if obj.idealClusterSize < 1 { // safety in case value is not ready yet
-		return &CtxDelayErr{1 * time.Second, "The idealClusterSize is < 1."} // retry in one second
-	}
-
-	// do we need more members?
-	if len(candidates) > 0 && len(members)-len(quitters) < int(obj.idealClusterSize) {
-		chosen := candidates[0]           // XXX: use a better picker algorithm
-		peerURLs := volunteersMap[chosen] // comma separated list of urls
-
-		// NOTE: storing peerURLs when they're already in volunteers/ is
-		// redundant, but it seems to be necessary for a sane algorithm.
-		// nominate before we call the API so that members see it first!
-		Nominate(obj, chosen, peerURLs)
-		// XXX: add a ttl here, because once we nominate someone, we
-		// need to give them up to N seconds to start up after we run
-		// the MemberAdd API because if they don't, in some situations
-		// such as if we're adding the second node to the cluster, then
-		// we've lost quorum until a second member joins! If the TTL
-		// expires, we need to MemberRemove! In this special case, we
-		// need to forcefully remove the second member if we don't add
-		// them, because we'll be in a lack of quorum state and unable
-		// to do anything... As a result, we should always only add ONE
-		// member at a time!
-
-		log.Printf("Etcd: Member Add: %v", peerURLs)
-		mresp, err := MemberAdd(obj, peerURLs)
-		if err != nil {
-			// on error this function will run again, which is good
-			// because we need to make sure to run the below parts!
-			return fmt.Errorf("Etcd: Member Add: Error: %+v", err)
-		}
-		log.Printf("Etcd: Member Add: %+v", mresp.Member.PeerURLs)
-		// return and reschedule to check for unstarted members, etc...
-		return &CtxDelayErr{1 * time.Second, fmt.Sprintf("Member %s added successfully!", chosen)} // retry asap
-
-	} else if len(quitters) == 0 && len(members) > int(obj.idealClusterSize) { // too many members
-		for _, kicked := range members {
-			// don't kick ourself unless we are the only one left...
-			if kicked != obj.hostname || (obj.idealClusterSize == 0 && len(members) == 1) {
-				quitters = []string{kicked} // XXX: use a better picker algorithm
-				log.Printf("Etcd: Extras: %v", quitters)
-				break
-			}
-		}
-	}
-
-	// we must remove them from the members API or it will look like a crash
-	if lq := len(quitters); lq > 0 {
-		log.Printf("Etcd: Quitters: Shutting down %d members...", lq)
-	}
-	for _, quitter := range quitters {
-		mID, ok := util.Uint64KeyFromStrInMap(quitter, membersMap)
-		if !ok {
-			// programming error
-			log.Fatalf("Etcd: Member Remove: Error: %v(%v) not in members list!", quitter, mID)
-		}
-		Nominate(obj, quitter, nil) // unnominate
-		// once we issue the above unnominate, that peer will
-		// shutdown, and this might cause us to loose quorum,
-		// therefore, let that member remove itself, and then
-		// double check that it did happen in case delinquent
-		// TODO: get built-in transactional member Add/Remove
-		// functionality to avoid a separate nominate list...
-		if quitter == obj.hostname { // remove in unnominate!
-			log.Printf("Etcd: Quitters: Removing self...")
-			continue // TODO: CtxDelayErr ?
-		}
-
-		log.Printf("Etcd: Waiting %d seconds for %s to self remove...", selfRemoveTimeout, quitter)
-		time.Sleep(selfRemoveTimeout * time.Second)
-		// in case the removed member doesn't remove itself, do it!
-		removed, err := MemberRemove(obj, mID)
-		if err != nil {
-			return fmt.Errorf("Etcd: Member Remove: Error: %+v", err)
-		}
-		if removed {
-			log.Printf("Etcd: Member Removed (forced): %v(%v)", quitter, mID)
-		}
-
-		// Remove the endpoint from our list to avoid blocking
-		// future MemberList calls which would try and connect
-		// to a missing endpoint... The endpoints should get
-		// updated from the member exiting safely if it doesn't
-		// crash, but if it did and/or since it's a race to see
-		// if the update event will get seen before we need the
-		// new data, just do it now anyways, then update the
-		// endpoint list and trigger a reconnect.
-		delete(obj.endpoints, quitter) // proactively delete it
-		obj.endpointCallback(nil)      // update!
-		log.Printf("Member %s (%d) removed successfully!", quitter, mID)
-		return &CtxReconnectErr{"a member was removed"} // retry asap and update endpoint list
-	}
-
-	return nil
-}
-
-// nominateCallback runs to respond to the nomination list change events.
-// Functionally, it controls the starting and stopping of the server process.
-func (obj *EmbdEtcd) nominateCallback(re *RE) error {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: nominateCallback()")
-		defer log.Printf("Trace: Etcd: nominateCallback(): Finished!")
-	}
-	bootstrapping := len(obj.endpoints) == 0
-	var revision int64 // = 0
-	if re != nil {
-		revision = re.response.Header.Revision
-	}
-	if !bootstrapping && (re == nil || revision != obj.lastRevision) {
-		// don't reprocess if we've already processed this message
-		// this can happen if the callback errors and is re-called
-		obj.lastRevision = revision
-
-		// if we tried to lookup the nominated members here (in etcd v3)
-		// this would sometimes block because we would loose the cluster
-		// leader once the current leader calls the MemberAdd API and it
-		// steps down trying to form a two host cluster. Instead, we can
-		// look at the event response data to read the nominated values!
-		//nominated, err = Nominated(obj) // nope, won't always work
-		// since we only see what has *changed* in the response data, we
-		// have to keep track of the original state and apply the deltas
-		// this must be idempotent in case it errors and is called again
-		// if we're retrying and we get a data format error, it's normal
-		nominated := obj.nominated
-		if nominated, err := ApplyDeltaEvents(re, nominated); err == nil {
-			obj.nominated = nominated
-		} else if !re.retryHint || err != errApplyDeltaEventsInconsistent {
-			log.Fatal(err)
-		}
-
-	} else {
-		// TODO: should we just use the above delta method for everything?
-		//nominated, err := Nominated(obj) // just get it
-		//if err != nil {
-		//	return fmt.Errorf("Etcd: Nominate: Error: %+v", err)
-		//}
-		//obj.nominated = nominated // update our local copy
-	}
-	if n := obj.nominated; len(n) > 0 {
-		log.Printf("Etcd: Nominated: %+v", n)
-	} else {
-		log.Printf("Etcd: Nominated: []")
-	}
-
-	// if there are no other peers, we create a new server
-	_, exists := obj.nominated[obj.hostname]
-	// FIXME: can we get rid of the len(obj.nominated) == 0 ?
-	newCluster := len(obj.nominated) == 0 || (len(obj.nominated) == 1 && exists)
-	if obj.flags.Debug {
-		log.Printf("Etcd: nominateCallback(): newCluster: %v; exists: %v; obj.server == nil: %t", newCluster, exists, obj.server == nil)
-	}
-	// XXX: check if i have actually volunteered first of all...
-	if obj.server == nil && (newCluster || exists) {
-
-		log.Printf("Etcd: StartServer(newCluster: %t): %+v", newCluster, obj.nominated)
-		err := obj.StartServer(
-			newCluster,    // newCluster
-			obj.nominated, // other peer members and urls or empty map
-		)
-		if err != nil {
-			var retries uint
-			if re != nil {
-				retries = re.retries
-			}
-			// retry MaxStartServerRetries times, then permanently fail
-			return &CtxRetriesErr{MaxStartServerRetries - retries, fmt.Sprintf("Etcd: StartServer: Error: %+v", err)}
-		}
-
-		if len(obj.endpoints) == 0 {
-			// add server to obj.endpoints list...
-			addresses := obj.LocalhostClientURLs()
-			if len(addresses) == 0 {
-				// probably a programming error...
-				log.Fatal("Etcd: No valid clientUrls exist!")
-			}
-			obj.endpoints[obj.hostname] = addresses // now we have some!
-			// client connects to one of the obj.endpoints servers...
-			log.Printf("Etcd: Addresses are: %s", addresses)
-
-			surls := obj.serverURLs
-			if len(obj.advertiseServerURLs) > 0 {
-				surls = obj.advertiseServerURLs
-			}
-			// XXX: just put this wherever for now so we don't block
-			// nominate self so "member" list is correct for peers to see
-			Nominate(obj, obj.hostname, surls)
-			// XXX: if this fails, where will we retry this part ?
-		}
-
-		// advertise client urls
-		if curls := obj.clientURLs; len(curls) > 0 {
-			if len(obj.advertiseClientURLs) > 0 {
-				curls = obj.advertiseClientURLs
-			}
-			// XXX: don't advertise local addresses! 127.0.0.1:2381 doesn't really help remote hosts
-			// XXX: but sometimes this is what we want... hmmm how do we decide? filter on callback?
-			AdvertiseEndpoints(obj, curls)
-			// XXX: if this fails, where will we retry this part ?
-
-			// force this to remove sentinel before we reconnect...
-			obj.endpointCallback(nil)
-		}
-
-		return &CtxReconnectErr{"local server is running"} // trigger reconnect to self
-
-	} else if obj.server != nil && !exists {
-		// un advertise client urls
-		AdvertiseEndpoints(obj, nil)
-
-		// i have been un-nominated, remove self and shutdown server!
-		if len(obj.nominated) != 0 { // don't call if nobody left but me!
-			// this works around: https://github.com/coreos/etcd/issues/5482,
-			// and it probably makes sense to avoid calling if we're the last
-			log.Printf("Etcd: Member Remove: Removing self: %v", obj.memberID)
-			removed, err := MemberRemove(obj, obj.memberID)
-			if err != nil {
-				return fmt.Errorf("Etcd: Member Remove: Error: %+v", err)
-			}
-			if removed {
-				log.Printf("Etcd: Member Removed (self): %v(%v)", obj.hostname, obj.memberID)
-			}
-		}
-
-		log.Printf("Etcd: DestroyServer...")
-		obj.DestroyServer()
-		// TODO: make sure to think about the implications of
-		// shutting down and potentially intercepting signals
-		// here after i've removed myself from the nominated!
-
-		// if we are connected to self and other servers exist: trigger
-		// if any of the obj.clientURLs are in the endpoints list, then
-		// we are stale. it is not likely that the advertised endpoints
-		// have been updated because we're still blocking the callback.
-		stale := false
-		for key, eps := range obj.endpoints {
-			if key != obj.hostname && len(eps) > 0 { // other endpoints?
-				stale = true // only half true so far
-				break
-			}
-		}
-
-		for _, curl := range obj.clientURLs { // these just got shutdown
-			for _, ep := range obj.client.Endpoints() {
-				if (curl.Host == ep || curl.String() == ep) && stale {
-					// add back the sentinel to force update
-					log.Printf("Etcd: Forcing endpoint callback...")
-					obj.endpoints[seedSentinel] = nil                    //etcdtypes.URLs{}
-					obj.endpointCallback(nil)                            // update!
-					return &CtxReconnectErr{"local server has shutdown"} // trigger reconnect
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// endpointCallback runs to respond to the endpoint list change events.
-func (obj *EmbdEtcd) endpointCallback(re *RE) error {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: endpointCallback()")
-		defer log.Printf("Trace: Etcd: endpointCallback(): Finished!")
-	}
-
-	// if the startup sentinel exists, or delta fails, then get a fresh copy
-	endpoints := make(etcdtypes.URLsMap, len(obj.endpoints))
-	// this would copy the reference: endpoints := obj.endpoints
-	for k, v := range obj.endpoints {
-		endpoints[k] = make(etcdtypes.URLs, len(v))
-		copy(endpoints[k], v)
-	}
-
-	// updating
-	_, exists := endpoints[seedSentinel]
-	endpoints, err := ApplyDeltaEvents(re, endpoints)
-	if err != nil || exists {
-		// TODO: we could also lookup endpoints from the maintenance api
-		endpoints, err = Endpoints(obj)
-		if err != nil {
-			return err
-		}
-	}
-
-	// change detection
-	var changed = false // do we need to update?
-	if len(obj.endpoints) != len(endpoints) {
-		changed = true
-	}
-	for k, v1 := range obj.endpoints {
-		if changed { // catches previous statement and inner loop break
-			break
-		}
-		v2, exists := endpoints[k]
-		if !exists {
-			changed = true
-			break
-		}
-		if len(v1) != len(v2) {
-			changed = true
-			break
-		}
-		for i := range v1 {
-			if v1[i] != v2[i] {
-				changed = true
-				break
-			}
-		}
-	}
-	// is the endpoint list different?
-	if changed {
-		obj.endpoints = endpoints // set
-		if eps := endpoints; len(eps) > 0 {
-			log.Printf("Etcd: Endpoints: %+v", eps)
-		} else {
-			log.Printf("Etcd: Endpoints: []")
-		}
-		// can happen if a server drops out for example
-		return &CtxReconnectErr{"endpoint list changed"} // trigger reconnect with new endpoint list
-	}
-
-	return nil
-}
-
-// idealClusterSizeCallback runs to respond to the ideal cluster size changes.
-func (obj *EmbdEtcd) idealClusterSizeCallback(re *RE) error {
-	if obj.flags.Trace {
-		log.Printf("Trace: Etcd: idealClusterSizeCallback()")
-		defer log.Printf("Trace: Etcd: idealClusterSizeCallback(): Finished!")
-	}
-	path := fmt.Sprintf("%s/idealClusterSize", NS)
-	for _, event := range re.response.Events {
-		if key := bytes.NewBuffer(event.Kv.Key).String(); key != path {
-			continue
-		}
-		if event.Type != etcd.EventTypePut {
-			continue
-		}
-		val := bytes.NewBuffer(event.Kv.Value).String()
-		if val == "" {
-			continue
-		}
-		v, err := strconv.ParseUint(val, 10, 16)
-		if err != nil {
-			continue
-		}
-		if i := uint16(v); i > 0 {
-			log.Printf("Etcd: Ideal cluster size is now: %d", i)
-			obj.idealClusterSize = i
-			// now, emulate the calling of the volunteerCallback...
-			go func() {
-				obj.wevents <- &RE{callback: obj.volunteerCallback, errCheck: true} // send event
-			}() // don't block
-		}
-	}
-	return nil
-}
-
-// LocalhostClientURLs returns the most localhost like URLs for direct connection.
-// This gets clients to talk to the local servers first before searching remotely.
-func (obj *EmbdEtcd) LocalhostClientURLs() etcdtypes.URLs {
-	// look through obj.clientURLs and return the localhost ones
-	urls := etcdtypes.URLs{}
-	for _, x := range obj.clientURLs {
-		// "localhost", ::1 or anything in 127.0.0.0/8 is valid!
-		if s := x.Host; strings.HasPrefix(s, "localhost") || strings.HasPrefix(s, "127.") || strings.HasPrefix(s, "[::1]") {
-			urls = append(urls, x)
-		}
-		// or local unix domain socket
-		if x.Scheme == "unix" {
-			urls = append(urls, x)
-		}
-	}
-	return urls
-}
-
-// StartServer kicks of a new embedded etcd server.
-func (obj *EmbdEtcd) StartServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) error {
-	var err error
-	memberName := obj.hostname
-
-	err = os.MkdirAll(obj.dataDir, 0770)
-	if err != nil {
-		log.Printf("Etcd: StartServer: Couldn't mkdir: %s.", obj.dataDir)
-		log.Printf("Etcd: StartServer: Mkdir error: %s.", err)
-		obj.DestroyServer()
-		return err
-	}
-
-	// if no peer URLs exist, then starting a server is mostly only for some
-	// testing, but etcd doesn't allow the value to be empty so we use this!
-	peerURLs, _ := etcdtypes.NewURLs([]string{"http://localhost:0"})
-	if len(obj.serverURLs) > 0 {
-		peerURLs = obj.serverURLs
-	}
-	initialPeerURLsMap := make(etcdtypes.URLsMap)
-	for k, v := range peerURLsMap {
-		initialPeerURLsMap[k] = v // copy
-	}
-	if _, exists := peerURLsMap[memberName]; !exists {
-		initialPeerURLsMap[memberName] = peerURLs
-	}
-
-	aCUrls := obj.clientURLs
-	if len(obj.advertiseClientURLs) > 0 {
-		aCUrls = obj.advertiseClientURLs
-	}
-	aPUrls := peerURLs
-	if len(obj.advertiseServerURLs) > 0 {
-		aPUrls = obj.advertiseServerURLs
-	}
-
-	// embed etcd
-	cfg := embed.NewConfig()
-	cfg.Name = memberName // hostname
-	cfg.Dir = obj.dataDir
-	cfg.LCUrls = obj.clientURLs
-	cfg.LPUrls = peerURLs
-	cfg.ACUrls = aCUrls
-	cfg.APUrls = aPUrls
-	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/coreos/etcd/issues/6305
-	cfg.MaxTxnOps = DefaultMaxTxnOps
-
-	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!
-	if newCluster {
-		cfg.ClusterState = embed.ClusterStateFlagNew
-	} else {
-		cfg.ClusterState = embed.ClusterStateFlagExisting
-	}
-	//cfg.ForceNewCluster = newCluster // TODO: ?
-
-	log.Printf("Etcd: StartServer: Starting server...")
-	obj.server, err = embed.StartEtcd(cfg)
-	if err != nil {
-		return err
-	}
-	select {
-	case <-obj.server.Server.ReadyNotify(): // we hang here if things are bad
-		log.Printf("Etcd: StartServer: Done starting server!") // it didn't hang!
-	case <-time.After(time.Duration(MaxStartServerTimeout) * time.Second):
-		e := fmt.Errorf("timeout of %d seconds reached", MaxStartServerTimeout)
-		log.Printf("Etcd: StartServer: %s", e.Error())
-		obj.server.Server.Stop() // trigger a shutdown
-		obj.serverwg.Add(1)      // add for the DestroyServer()
-		obj.DestroyServer()
-		return e
-	// TODO: should we wait for this notification elsewhere?
-	case <-obj.server.Server.StopNotify(): // it's going down now...
-		e := fmt.Errorf("received stop notification")
-		log.Printf("Etcd: StartServer: %s", e.Error())
-		obj.server.Server.Stop() // trigger a shutdown
-		obj.serverwg.Add(1)      // add for the DestroyServer()
-		obj.DestroyServer()
-		return e
-	}
-	//log.Fatal(<-obj.server.Err())	XXX
-	log.Printf("Etcd: StartServer: Server running...")
-	obj.memberID = uint64(obj.server.Server.ID()) // store member id for internal use
-	close(obj.serverReady)                        // send a signal
-
-	obj.serverwg.Add(1)
-	return nil
-}
-
-// ServerReady returns on a channel when the server has started successfully.
-func (obj *EmbdEtcd) ServerReady() <-chan struct{} { return obj.serverReady }
-
-// DestroyServer shuts down the embedded etcd server portion.
-func (obj *EmbdEtcd) DestroyServer() error {
-	var err error
-	log.Printf("Etcd: DestroyServer: Destroying...")
-	if obj.server != nil {
-		obj.server.Close() // this blocks until server has stopped
-	}
-	log.Printf("Etcd: DestroyServer: Done closing...")
-
-	obj.memberID = 0
-	if obj.server == nil { // skip the .Done() below because we didn't .Add(1) it.
-		return err
-	}
-	obj.server = nil // important because this is used as an isRunning flag
-	log.Printf("Etcd: DestroyServer: Unlocking server...")
-	obj.serverReady = make(chan struct{}) // reset the signal
-	obj.serverwg.Done()                   // -1
-	return err
-}
-
-//func UrlRemoveScheme(urls etcdtypes.URLs) []string {
-//	strs := []string{}
-//	for _, u := range urls {
-//		strs = append(strs, u.Host) // remove http:// prefix
-//	}
-//	return strs
-//}
-
-// ApplyDeltaEvents modifies a URLsMap with the deltas from a WatchResponse.
-func ApplyDeltaEvents(re *RE, urlsmap etcdtypes.URLsMap) (etcdtypes.URLsMap, error) {
-	if re == nil { // passthrough
-		return urlsmap, nil
-	}
-	for _, event := range re.response.Events {
-		key := bytes.NewBuffer(event.Kv.Key).String()
-		key = key[len(re.path):] // remove path prefix
-		log.Printf("Etcd: ApplyDeltaEvents: Event(%s): %s", event.Type.String(), key)
-
-		switch event.Type {
-		case etcd.EventTypePut:
-			val := bytes.NewBuffer(event.Kv.Value).String()
-			if val == "" {
-				return nil, fmt.Errorf("value in ApplyDeltaEvents is empty")
-			}
-			urls, err := etcdtypes.NewURLs(strings.Split(val, ","))
-			if err != nil {
-				return nil, fmt.Errorf("format error in ApplyDeltaEvents: %v", err)
-			}
-			urlsmap[key] = urls // add to map
-
-		// expiry cases are seen as delete in v3 for now
-		//case etcd.EventTypeExpire: // doesn't exist right now
-		//	fallthrough
-		case etcd.EventTypeDelete:
-			if _, exists := urlsmap[key]; !exists {
-				// this can happen if we retry an operation b/w
-				// a reconnect so ignore if we are reconnecting
-				log.Printf("Etcd: ApplyDeltaEvents: Inconsistent key: %v", key)
-				return nil, errApplyDeltaEventsInconsistent
-			}
-			delete(urlsmap, key)
-
-		default:
-			return nil, fmt.Errorf("unknown event in ApplyDeltaEvents: %+v", event.Type)
-		}
-	}
-	return urlsmap, nil
+	obj.clients = append(obj.clients, c) // make sure to clean up after...
+	return c, nil
 }

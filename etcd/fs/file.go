@@ -22,7 +22,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -32,6 +31,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
+	etcdutil "github.com/coreos/etcd/clientv3/clientv3util"
 )
 
 func init() {
@@ -263,10 +263,8 @@ func (obj *File) Sync() error {
 
 	p := obj.path() // store file data at this path in etcd
 
-	// TODO: use https://github.com/coreos/etcd/pull/7417 if merged
-	cmp := etcd.Compare(etcd.Version(p), "=", 0) // KeyMissing
-	//cmp := etcd.KeyMissing(p))
-
+	//cmp := etcd.Compare(etcd.Version(p), "=", 0) // KeyMissing
+	cmp := etcdutil.KeyMissing(p)
 	op := etcd.OpPut(p, string(obj.data)) // this pushes contents to server
 
 	// it's important to do this in one transaction, and atomically, because
@@ -277,7 +275,7 @@ func (obj *File) Sync() error {
 	}
 	if !result.Succeeded {
 		if obj.fs.Debug {
-			log.Printf("debug: data already exists in storage")
+			obj.fs.Logf("debug: data already exists in storage")
 		}
 	}
 

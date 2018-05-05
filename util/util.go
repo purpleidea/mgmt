@@ -430,6 +430,21 @@ func TimeAfterOrBlockCtx(ctx context.Context, t int) <-chan struct{} {
 	return ch
 }
 
+// CloseAfter takes a duration, similarly to `time.After`, and returns a channel
+// that closes when either the context is done, or the duration expires.
+func CloseAfter(ctx context.Context, d time.Duration) <-chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		defer close(ch)
+		select {
+		case <-time.After(d):
+			// done
+		case <-ctx.Done():
+		}
+	}()
+	return ch
+}
+
 // SystemBusPrivateUsable makes using the private bus usable.
 // TODO: should be upstream: https://github.com/godbus/dbus/issues/15
 func SystemBusPrivateUsable() (conn *dbus.Conn, err error) {
@@ -466,6 +481,26 @@ func SessionBusPrivateUsable() (conn *dbus.Conn, err error) {
 		conn = nil
 	}
 	return conn, nil // success
+}
+
+// PriorityStrSliceSort filters any elements matching fn to the end of the list.
+// You can reverse the match result with a not to filter to the front instead!
+// A copy of the list is returned, the original is not modified.
+func PriorityStrSliceSort(input []string, fn func(string) bool) []string {
+	output := []string{}
+	found := []string{}
+	for _, x := range input {
+		if fn(x) { // if we find the key, don't include it just yet
+			found = append(found, x) // save for later
+			continue
+		}
+		output = append(output, x)
+	}
+
+	// include the keys at the end (if found)
+	output = append(output, found...)
+
+	return output
 }
 
 // SortedStrSliceCompare takes two lists of strings and returns whether or not

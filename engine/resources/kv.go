@@ -18,11 +18,15 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -37,6 +41,10 @@ type KVResSkipCmpStyle int
 const (
 	SkipCmpStyleInt KVResSkipCmpStyle = iota
 	SkipCmpStyleString
+)
+
+const (
+	kvCheckApplyTimeout = 5 * time.Second
 )
 
 // KVRes is a resource which writes a key/value pair into cluster wide storage.
@@ -66,6 +74,8 @@ type KVRes struct {
 	// SkipCmpStyle is the type of compare function used when determining if
 	// the value is greater when using the SkipLessThan parameter.
 	SkipCmpStyle KVResSkipCmpStyle `lang:"skipcmpstyle" yaml:"skipcmpstyle"`
+
+	interruptChan chan struct{}
 
 	// TODO: does it make sense to have different backends here? (eg: local)
 }
@@ -107,6 +117,8 @@ func (obj *KVRes) Validate() error {
 func (obj *KVRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	obj.interruptChan = make(chan struct{})
+
 	return nil
 }
 
@@ -117,9 +129,17 @@ func (obj *KVRes) Close() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *KVRes) Watch() error {
-	obj.init.Running() // when started, notify engine that we're running
+	// FIXME: add timeout to context
+	// The obj.init.Done channel is closed by the engine to signal shutdown.
+	ctx, cancel := util.ContextWithCloser(context.Background(), obj.init.Done)
+	defer cancel()
 
-	ch := obj.init.World.StrMapWatch(obj.getKey()) // get possible events!
+	ch, err := obj.init.World.StrMapWatch(ctx, obj.getKey()) // get possible events!
+	if err != nil {
+		return err
+	}
+
+	obj.init.Running() // when started, notify engine that we're running
 
 	var send = false // send event?
 	for {
@@ -191,13 +211,28 @@ func (obj *KVRes) lessThanCheck(value string) (bool, error) {
 func (obj *KVRes) CheckApply(apply bool) (bool, error) {
 	obj.init.Logf("CheckApply(%t)", apply)
 
+	wg := &sync.WaitGroup{}
+	defer wg.Wait() // this must be above the defer cancel() call
+	ctx, cancel := context.WithTimeout(context.Background(), kvCheckApplyTimeout)
+	defer cancel()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case <-obj.interruptChan:
+			cancel()
+		case <-ctx.Done():
+			// let this exit
+		}
+	}()
+
 	if val, exists := obj.init.Recv()["Value"]; exists && val.Changed {
 		// if we received on Value, and it changed, wooo, nothing to do.
 		obj.init.Logf("CheckApply: `Value` was updated!")
 	}
 
 	hostname := obj.init.Hostname // me
-	keyMap, err := obj.init.World.StrMapGet(obj.getKey())
+	keyMap, err := obj.init.World.StrMapGet(ctx, obj.getKey())
 	if err != nil {
 		return false, errwrap.Wrapf(err, "check error during StrGet")
 	}
@@ -217,7 +252,7 @@ func (obj *KVRes) CheckApply(apply bool) (bool, error) {
 		return true, nil // nothing to delete, we're good!
 
 	} else if ok && obj.Value == nil { // delete
-		err := obj.init.World.StrMapDel(obj.getKey())
+		err := obj.init.World.StrMapDel(ctx, obj.getKey())
 		return false, errwrap.Wrapf(err, "apply error during StrDel")
 	}
 
@@ -225,7 +260,7 @@ func (obj *KVRes) CheckApply(apply bool) (bool, error) {
 		return false, nil
 	}
 
-	if err := obj.init.World.StrMapSet(obj.getKey(), *obj.Value); err != nil {
+	if err := obj.init.World.StrMapSet(ctx, obj.getKey(), *obj.Value); err != nil {
 		return false, errwrap.Wrapf(err, "apply error during StrSet")
 	}
 
@@ -258,6 +293,12 @@ func (obj *KVRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the SkipCmpStyle param differs")
 	}
 
+	return nil
+}
+
+// Interrupt is called to ask the execution of this resource to end early.
+func (obj *KVRes) Interrupt() error {
+	close(obj.interruptChan)
 	return nil
 }
 

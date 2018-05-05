@@ -18,6 +18,7 @@
 package coreworld
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -75,6 +76,8 @@ func (obj *ExchangeFunc) Init(init *interfaces.Init) error {
 // Stream returns the changing values that this func has over time.
 func (obj *ExchangeFunc) Stream() error {
 	defer close(obj.init.Output) // the sender closes
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for {
 		select {
 		// TODO: should this first chan be run as a priority channel to
@@ -105,8 +108,13 @@ func (obj *ExchangeFunc) Stream() error {
 			// TODO: support changing the namespace over time...
 			// TODO: possibly removing our stored value there first!
 			if obj.namespace == "" {
-				obj.namespace = namespace                                 // store it
-				obj.watchChan = obj.init.World.StrMapWatch(obj.namespace) // watch for var changes
+				obj.namespace = namespace // store it
+				var err error
+				obj.watchChan, err = obj.init.World.StrMapWatch(ctx, obj.namespace) // watch for var changes
+				if err != nil {
+					return err
+				}
+
 			} else if obj.namespace != namespace {
 				return fmt.Errorf("can't change namespace, previously: `%s`", obj.namespace)
 			}
@@ -116,7 +124,7 @@ func (obj *ExchangeFunc) Stream() error {
 				obj.init.Logf("value: %+v", value)
 			}
 
-			if err := obj.init.World.StrMapSet(obj.namespace, value); err != nil {
+			if err := obj.init.World.StrMapSet(ctx, obj.namespace, value); err != nil {
 				return errwrap.Wrapf(err, "namespace write error of `%s` to `%s`", value, obj.namespace)
 			}
 
@@ -134,7 +142,7 @@ func (obj *ExchangeFunc) Stream() error {
 				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.namespace)
 			}
 
-			keyMap, err := obj.init.World.StrMapGet(obj.namespace)
+			keyMap, err := obj.init.World.StrMapGet(ctx, obj.namespace)
 			if err != nil {
 				return errwrap.Wrapf(err, "channel read failed on `%s`", obj.namespace)
 			}

@@ -18,6 +18,7 @@
 package yamlgraph
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -166,6 +167,10 @@ func (obj *GAPI) Next() chan gapi.Next {
 			ch <- next
 			return
 		}
+		// FIXME: add timeout to context
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
 
@@ -173,7 +178,16 @@ func (obj *GAPI) Next() chan gapi.Next {
 		if obj.data.NoStreamWatch {
 			watchChan = nil
 		} else {
-			watchChan = obj.data.World.ResWatch()
+			var err error
+			watchChan, err = obj.data.World.ResWatch(ctx)
+			if err != nil {
+				next := gapi.Next{
+					Err:  errwrap.Wrapf(err, "%s: could not start watch", Name),
+					Exit: true, // exit, b/c programming error?
+				}
+				ch <- next
+				return
+			}
 		}
 
 		for {

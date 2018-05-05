@@ -31,6 +31,32 @@ function token-coloncheck() {
 	return 0
 }
 
+function naked-error() {
+	# the $ before the \t magically makes grep match the tab somehow...
+	if grep $'\terrors.New(' "$1"; then	# missing a leading return
+		return 1
+	fi
+	if grep $'\tfmt.Errorf(' "$1"; then	# missing a leading return
+		return 1
+	fi
+	if grep $'\terrwrap.Wrap' "$1"; then	# missing a leading return
+		return 1
+	fi
+	return 0
+}
+
+function consistent-imports() {
+	if grep $'\t"github.com/pkg/errors"' "$1"; then	# import as errwrap
+		return 1
+	fi
+	if grep $'\t"github.com/hashicorp/go-multierror"' "$1"; then	# import as multierr
+		return 1
+	fi
+	if grep $'\t"github.com/purpleidea/mgmt/engine/util"' "$1"; then	# import as engineUtil
+		return 1
+	fi
+}
+
 # loop through directories in an attempt to scan each go package
 for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -not -path './tmp/*' -not -path './tmp' -not -path './.*' -not -path './vendor/*'`; do
 	match="$dir/*.go"
@@ -53,6 +79,8 @@ for file in `find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -
 	run-test grep 'log.' "$file" | grep '\\n"' && fail_test 'no newline needed in log.Printf()'	# no \n needed in log.Printf()
 	run-test simplify-gocase "$file"
 	run-test token-coloncheck "$file"
+	run-test naked-error "$file"
+	run-test consistent-imports "$file"
 done
 
 if [[ -n "$failures" ]]; then

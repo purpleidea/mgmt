@@ -25,7 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/graph/autoedge"
-	"github.com/purpleidea/mgmt/engine/util"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 )
 
@@ -118,13 +118,13 @@ func TestMiscEncodeDecode2(t *testing.T) {
 		return
 	}
 
-	b64, err := util.ResToB64(input)
+	b64, err := engineUtil.ResToB64(input)
 	if err != nil {
 		t.Errorf("Can't encode: %v", err)
 		return
 	}
 
-	output, err := util.B64ToRes(b64)
+	output, err := engineUtil.B64ToRes(b64)
 	if err != nil {
 		t.Errorf("Can't decode: %v", err)
 		return

@@ -35,8 +35,9 @@ func init() {
 }
 
 const (
-	hostname1Path  = "/org/freedesktop/hostname1"
-	hostname1Iface = "org.freedesktop.hostname1"
+	hostname1Path       = "/org/freedesktop/hostname1"
+	hostname1Iface      = "org.freedesktop.hostname1"
+	dbusPropertiesIface = "org.freedesktop.DBus.Properties"
 )
 
 // ErrResourceInsufficientParameters is returned when the configuration of the
@@ -112,12 +113,16 @@ func (obj *HostnameRes) Watch() error {
 		return errwrap.Wrap(err, "Failed to connect to bus")
 	}
 	defer bus.Close()
-	callResult := bus.BusObject().Call(
-		engineUtil.DBusAddMatch, 0,
-		fmt.Sprintf("type='signal',path='%s',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged'", hostname1Path))
-	if callResult.Err != nil {
-		return errwrap.Wrap(callResult.Err, "Failed to subscribe to DBus events for hostname1")
+	// watch the PropertiesChanged signal on the hostname1 dbus path
+	args := fmt.Sprintf(
+		"type='signal', path='%s', interface='%s', member='PropertiesChanged'",
+		hostname1Path,
+		dbusPropertiesIface,
+	)
+	if call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0, args); call.Err != nil {
+		return errwrap.Wrap(call.Err, "Failed to subscribe to DBus events for hostname1")
 	}
+	defer bus.BusObject().Call(engineUtil.DBusRemoveMatch, 0, args) // ignore the error
 
 	signals := make(chan *dbus.Signal, 10) // closed by dbus package
 	bus.Signal(signals)

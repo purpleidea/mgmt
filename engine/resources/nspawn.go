@@ -38,9 +38,9 @@ import (
 const (
 	running           = "running"
 	stopped           = "stopped"
-	dbusInterface     = "org.freedesktop.machine1.Manager"
-	machineNew        = "org.freedesktop.machine1.Manager.MachineNew"
-	machineRemoved    = "org.freedesktop.machine1.Manager.MachineRemoved"
+	dbusMachine1Iface = "org.freedesktop.machine1.Manager"
+	machineNew        = dbusMachine1Iface + ".MachineNew"
+	machineRemoved    = dbusMachine1Iface + ".MachineRemoved"
 	nspawnServiceTmpl = "systemd-nspawn@%s"
 )
 
@@ -155,13 +155,12 @@ func (obj *NspawnRes) Watch() error {
 	defer bus.Close()
 
 	// add a match rule to match messages going through the message bus
-	call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0,
-		fmt.Sprintf("type='signal',interface='%s',eavesdrop='true'",
-			dbusInterface))
-	// <-call.Done
-	if err := call.Err; err != nil {
+	args := fmt.Sprintf("type='signal',interface='%s',eavesdrop='true'", dbusMachine1Iface)
+	if call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0, args); call.Err != nil {
 		return err
 	}
+	defer bus.BusObject().Call(engineUtil.DBusRemoveMatch, 0, args) // ignore the error
+
 	busChan := make(chan *dbus.Signal)
 	defer close(busChan)
 	bus.Signal(busChan)

@@ -57,21 +57,13 @@ function consistent-imports() {
 	fi
 }
 
-# loop through directories in an attempt to scan each go package
-for dir in `find . -maxdepth 5 -type d -not -path './old/*' -not -path './old' -not -path './tmp/*' -not -path './tmp' -not -path './.*' -not -path './vendor/*'`; do
-	match="$dir/*.go"
-	#echo "match is: $match"
-	if ! ls $match &>/dev/null; then
-		#echo "skipping: $match"
-		continue	# no *.go files found
-	fi
-	#echo "matching: $match"
-	if [[ -z $(echo "${GO_VERSION[2]}" | grep -E 'go1.2|go1.3|go1.4|go1.5|go1.6|go1.7|go1.8') ]]; then
-		# workaround go vet issues by adding the new -source flag (go1.9+)
-		run-test go vet -source "$match" || fail_test "go vet -source did not pass pkg"
-	else
-		run-test go vet "$match" || fail_test "go vet did not pass pkg"	# since it doesn't output an ok message on pass
-	fi
+# run go vet on a per-package basis
+base=$(go list .)
+for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/"`; do
+	echo -e "\tgo vet: $pkg"
+	# workaround go vet issues by adding the new -source flag (go1.9+)
+	run-test go vet -source "$pkg" || fail_test "go vet -source did not pass pkg"
+
 done
 
 # loop through individual *.go files

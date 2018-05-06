@@ -2,8 +2,8 @@ language: go
 os:
   - linux
 go:
-  - 1.9.x
   - 1.10.x
+  - 1.11.x
   - tip
 go_import_path: github.com/purpleidea/mgmt
 sudo: true
@@ -26,13 +26,13 @@ script: 'make test'
 matrix:
   fast_finish: false
   allow_failures:
-    - go: 1.10.x
+    - go: 1.11.x
     - go: tip
     - os: osx
   # include only one build for osx for a quicker build as the nr. of these runners are sparse
   include:
     - os: osx
-      go: 1.9.x
+      go: 1.10.x
 
 # the "secure" channel value is the result of running: ./misc/travis-encrypt.sh
 # with a value of: irc.freenode.net#mgmtconfig to eliminate noise from forks...

@@ -63,11 +63,22 @@ if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; 
 	run-testsuite ./test/test-gotest.sh --race
 	run-testsuite ./test/test-integration.sh
 	run-testsuite ./test/test-integration.sh --race
+
+	# XXX: fix and enable these on travis (sudo: go: command not found)
+	#run-testsuite ./test/test-gotest.sh --root
+	#run-testsuite ./test/test-gotest.sh --root --race
+	#run-testsuite ./test/test-integration.sh --root
+	#run-testsuite ./test/test-integration.sh --root --race
 else
 	REASON="CI server only test" skip-testsuite ./test/test-shell.sh
 	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --race
 	REASON="CI server only test" skip-testsuite ./test/test-integration.sh
 	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --race
+
+	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --root
+	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --root --race
+	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --root
+	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --root --race
 fi
 
 run-testsuite ./test/test-gometalinter.sh

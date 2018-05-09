@@ -15,24 +15,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// +build !root
+// +build root
 
-package lib
+package util
 
 import (
+	"os/user"
 	"testing"
-
-	"github.com/purpleidea/mgmt/engine"
 )
 
-func TestRegisteredResourcesNames1(t *testing.T) {
-	kinds := engine.RegisteredResourcesNames()
-	for _, kind := range kinds {
-		if kind == "" {
-			t.Errorf("empty kind found")
-		}
+func TestIsRoot(t *testing.T) {
+	u, err := user.Current()
+	if err != nil {
+		t.Errorf("error running user.Current(): %+v", err)
+		return
 	}
-	if len(kinds) == 0 {
-		t.Errorf("no registered resources")
+	if u.Uid != "0" {
+		t.Errorf("expected uid 0, got: %s", u.Uid)
+		return
 	}
 }

@@ -8,6 +8,9 @@ go:
 go_import_path: github.com/purpleidea/mgmt
 sudo: true
 dist: trusty
+# travis requires that you update manually, and provides this key to trigger it
+apt:
+  update: true
 before_install:
   # as per a number of comments online, this might mitigate some flaky fails...
   - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6; fi

@@ -52,7 +52,7 @@ func TestFileAutoEdge1(t *testing.T) {
 		t.Errorf("should have 0 edges instead of: %d", i)
 	}
 
-	debug := true
+	debug := testing.Verbose() // set via the -test.v flag to `go test`
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}

@@ -222,7 +222,7 @@ func (obj *testGrouper) EdgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
 
 // helper function
 func runGraphCmp(t *testing.T, g1, g2 *pgraph.Graph) {
-	debug := true
+	debug := testing.Verbose() // set via the -test.v flag to `go test`
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}

@@ -25,6 +25,7 @@ GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
 PROGRAM := $(shell echo $(notdir $(CURDIR)) | cut -f1 -d"-")
+PKGNAME := $(shell go list .)
 ifeq ($(VERSION),$(SVERSION))
 	RELEASE = 1
 else
@@ -142,7 +143,12 @@ GOARCH=$(lastword $(subst -, ,$*))
 build/mgmt-%: $(GO_FILES) | bindata lang
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
 	@# reassigning GOOS and GOARCH to make build command copy/pastable
-	time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS);
+	@# go 1.10 requires specifying the package for ldflags
+	@if go version | grep -qE 'go1.9'; then \
+		time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS); \
+	else \
+		time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS); \
+	fi
 
 # create a list of binary file names to use as make targets
 crossbuild_targets = $(addprefix build/mgmt-,$(subst /,-,${GOOSARCHES}))

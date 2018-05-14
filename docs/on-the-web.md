@@ -43,3 +43,4 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from FOSDEM 2018, Config Management Devroom](https://video.fosdem.org/2018/UA2.114/mgmt.webm) |
 | James Shubin | blog | [Mgmt Configuration Language](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2018](https://www.youtube.com/watch?v=NxObmwZDyrI) |
+| Jonathan Gold | blog | [Go Netlink and Select](https://jonathangold.ca/blog/go-netlink-and-select/) |

@@ -24,7 +24,7 @@ Vagrant.configure(2) do |config|
 	config.vm.provision "file", source: "~/.gitconfig", destination: ".gitconfig"
 
 	# copied from make-deps.sh (with added git)
-	config.vm.provision "shell", inline: "dnf install -y libvirt-devel golang golang-googlecode-tools-stringer hg git make"
+	config.vm.provision "shell", inline: "dnf install -y libvirt-devel golang golang-googlecode-tools-stringer hg git make gem"
 
 	# set up packagekit
 	config.vm.provision "shell" do |shell|

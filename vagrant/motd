@@ -9,6 +9,6 @@ To get started, try:
 
 $ cdmgmt
 $ make clean build
-$ ./mgmt run --tmp-prefix --yaml examples/exec1.yaml --converged-timeout 5
+$ ./mgmt run --tmp-prefix --yaml examples/yaml/exec1.yaml --converged-timeout 5
 
 Enjoy!

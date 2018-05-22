@@ -34,6 +34,7 @@ func init() {
 type PrintRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Groupable
+	traits.Recvable
 	traits.Refreshable
 
 	init *engine.Init

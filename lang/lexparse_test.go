@@ -835,6 +835,30 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
+	{
+		values = append(values, test{
+			name: "parser set type incompatibility str",
+			code: `
+			$x int = "hello"	# type should be str to work
+			test "t1" {
+				str => $x,
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "parser set type incompatibility int",
+			code: `
+			$x int = "hello"	# value should be int to work
+			test "t1" {
+				int => $x,
+			}
+			`,
+			fail: true,
+		})
+	}
 
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.exp

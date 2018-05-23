@@ -31,6 +31,7 @@ const (
 	ErrLexerIntegerOverflow   = interfaces.Error("integer: overflow")
 	ErrLexerFloatOverflow     = interfaces.Error("float: overflow")
 	ErrParseError             = interfaces.Error("parser")
+	ErrParseSetType           = interfaces.Error("can't set return type in parser")
 	ErrParseAdditionalEquals  = interfaces.Error(errstrParseAdditionalEquals)
 	ErrParseExpectingComma    = interfaces.Error(errstrParseExpectingComma)
 )

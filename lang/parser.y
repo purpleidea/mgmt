@@ -637,7 +637,8 @@ bind:
 		posLast(yylex, yyDollar) // our pos
 		var expr interfaces.Expr = $4.expr
 		if err := expr.SetType($2.typ); err != nil {
-			panic(fmt.Sprintf("can't set type in parser: %+v", err))
+			// this will ultimately cause a parser error to occur...
+			yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
 		}
 		$$.stmt = &StmtBind{
 			Ident: $1.str,
@@ -926,6 +927,8 @@ func (yylex *Lexer) Error(str string) {
 			err = ErrParseAdditionalEquals
 		} else if strings.HasSuffix(str, ErrParseExpectingComma.Error()) {
 			err = ErrParseExpectingComma
+		} else if strings.HasPrefix(str, ErrParseSetType.Error()) {
+			err = ErrParseSetType
 		}
 		lp.parseErr = &LexParseErr{
 			Err: err,

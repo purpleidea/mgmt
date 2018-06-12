@@ -47,7 +47,6 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 	var receive = make(map[string]map[string]map[string]*engine.Send)
 
 	for _, res := range output.Resources {
-		graph.AddVertex(res)
 		kind := res.Kind()
 		name := res.Name()
 		if _, exists := lookup[kind]; !exists {
@@ -64,10 +63,13 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 				return nil, errwrap.Wrapf(err, "incompatible duplicate resource `%s` found", res)
 			}
 			// more than one compatible resource exists... we allow
-			// duplicates, if they're going to not conflict...
-			// XXX: does it matter which one we add to the graph?
+			// duplicates, if they're not going to conflict...
+			// TODO: does it matter which one we add to the graph?
+			// currently we add the first one that was found...
+			continue
 		}
 		lookup[kind][name] = res // add to temporary lookup table
+		graph.AddVertex(res)
 	}
 
 	for _, e := range output.Edges {

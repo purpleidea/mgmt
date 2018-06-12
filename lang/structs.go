@@ -919,12 +919,11 @@ func (obj *StmtEdgeHalf) Interpolate() (*StmtEdgeHalf, error) {
 		return nil, err
 	}
 
-	edgeHalf := &StmtEdgeHalf{
+	return &StmtEdgeHalf{
 		Kind:     obj.Kind,
 		Name:     name,
 		SendRecv: obj.SendRecv,
-	}
-	return edgeHalf, nil
+	}, nil
 }
 
 // SetScope stores the scope for later use in this resource and it's children,

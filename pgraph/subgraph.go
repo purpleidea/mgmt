@@ -66,6 +66,9 @@ func (g *Graph) AddEdgeGraphVertexLight(graph *Graph, vertex Vertex, edgeGenFn f
 // or from the vertices with an indegree or outdegree equal to zero depending on
 // if we specified reverse or not.
 func (g *Graph) addEdgeVertexGraphHelper(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge, reverse, light bool) {
+	if graph == nil {
+		return // if the graph is empty, there's nothing to do!
+	}
 
 	var degree map[Vertex]int // compute all of the in/outdegree's if needed
 	if light && reverse {

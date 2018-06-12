@@ -1175,9 +1175,8 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 // downwards to all child statements.
 func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	newScope := scope.Copy()
-	binds := []*StmtBind{}
-	names := make(map[string]struct{})
 
+	binds := make(map[string]struct{}) // bind existence in this scope
 	// collect all the bind statements in the first pass
 	// this allows them to appear out of order in this scope
 	for _, x := range obj.Prog {
@@ -1186,16 +1185,11 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			continue
 		}
 		// check for duplicates *in this scope*
-		if _, exists := names[bind.Ident]; exists {
+		if _, exists := binds[bind.Ident]; exists {
 			return fmt.Errorf("var `%s` already exists in this scope", bind.Ident)
 		}
-		names[bind.Ident] = struct{}{} // add to scope
-		binds = append(binds, bind)
-	}
 
-	// now we know there are no duplicates in this scope, there is only
-	// the possibility of shadowing a variable from the parent scope...
-	for _, bind := range binds {
+		binds[bind.Ident] = struct{}{} // mark as found in scope
 		// add to scope, (overwriting, aka shadowing is ok)
 		newScope.Variables[bind.Ident] = bind.Value
 	}

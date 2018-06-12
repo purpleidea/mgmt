@@ -969,18 +969,7 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
 func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("edgehalf")
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
-	}
-
-	g, err := obj.Name.Graph()
-	if err != nil {
-		return nil, err
-	}
-	graph.AddGraph(g)
-
-	return graph, nil
+	return obj.Name.Graph()
 }
 
 // StmtIf represents an if condition that contains between one and two branches

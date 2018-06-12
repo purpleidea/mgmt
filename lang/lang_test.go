@@ -378,6 +378,428 @@ func TestInterpretMany(t *testing.T) {
 			graph: graph,
 		})
 	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		x1 := r1.(*resources.TestRes)
+		s1 := "hello"
+		x1.StringPtr = &s1
+		graph.AddVertex(x1)
+		values = append(values, test{
+			name: "single include",
+			code: `
+			class c1($a, $b) {
+				test $a {
+					stringptr => $b,
+				}
+			}
+			include c1("t1", "hello")
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		r2, _ := engine.NewNamedResource("test", "t2")
+		x1 := r1.(*resources.TestRes)
+		x2 := r2.(*resources.TestRes)
+		s1, s2 := "hello", "world"
+		x1.StringPtr = &s1
+		x2.StringPtr = &s2
+		graph.AddVertex(x1, x2)
+		values = append(values, test{
+			name: "double include",
+			code: `
+			class c1($a, $b) {
+				test $a {
+					stringptr => $b,
+				}
+			}
+			include c1("t1", "hello")
+			include c1("t2", "world")
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		//graph, _ := pgraph.NewGraph("g")
+		//r1, _ := engine.NewNamedResource("test", "t1")
+		//r2, _ := engine.NewNamedResource("test", "t2")
+		//x1 := r1.(*resources.TestRes)
+		//x2 := r2.(*resources.TestRes)
+		//s1, i2 := "hello", int64(42)
+		//x1.StringPtr = &s1
+		//x2.Int64Ptr = &i2
+		//graph.AddVertex(x1, x2)
+		values = append(values, test{
+			name: "double include different types error",
+			code: `
+			class c1($a, $b) {
+				if $a == "t1" {
+					test $a {
+						stringptr => $b,
+					}
+				} else {
+					test $a {
+						int64ptr => $b,
+					}
+				}
+			}
+			include c1("t1", "hello")
+			include c1("t2", 42)
+			`,
+			fail: true, // should not be able to type check this!
+			//graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		r2, _ := engine.NewNamedResource("test", "t2")
+		x1 := r1.(*resources.TestRes)
+		x2 := r2.(*resources.TestRes)
+		s1, s2 := "testing", "testing"
+		x1.StringPtr = &s1
+		x2.StringPtr = &s2
+		graph.AddVertex(x1, x2)
+		values = append(values, test{
+			name: "double include different types allowed",
+			code: `
+			class c1($a, $b) {
+				if $b == $b { # for example purposes
+					test $a {
+						stringptr => "testing",
+					}
+				}
+			}
+			include c1("t1", "hello")
+			include c1("t2", 42) # this has a different sig
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	// TODO: add this test once printf supports %v
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	r1, _ := engine.NewNamedResource("test", "t1")
+	//	r2, _ := engine.NewNamedResource("test", "t2")
+	//	x1 := r1.(*resources.TestRes)
+	//	x2 := r2.(*resources.TestRes)
+	//	s1, s2 := "value is: hello", "value is: 42"
+	//	x1.StringPtr = &s1
+	//	x2.StringPtr = &s2
+	//	graph.AddVertex(x1, x2)
+	//	values = append(values, test{
+	//		name: "double include different printf types allowed",
+	//		code: `
+	//		class c1($a, $b) {
+	//			test $a {
+	//				stringptr => printf("value is: %v", $b),
+	//			}
+	//		}
+	//		include c1("t1", "hello")
+	//		include c1("t2", 42)
+	//		`,
+	//		fail:  false,
+	//		graph: graph,
+	//	})
+	//}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		r2, _ := engine.NewNamedResource("test", "t2")
+		x1 := r1.(*resources.TestRes)
+		x2 := r2.(*resources.TestRes)
+		s1, s2 := "hey", "hey"
+		x1.StringPtr = &s1
+		x2.StringPtr = &s2
+		graph.AddVertex(x1, x2)
+		values = append(values, test{
+			name: "double include with variable in parent scope",
+			code: `
+			$foo = "hey"
+			class c1($a) {
+				test $a {
+					stringptr => $foo,
+				}
+			}
+			include c1("t1")
+			include c1("t2")
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		r2, _ := engine.NewNamedResource("test", "t2")
+		x1 := r1.(*resources.TestRes)
+		x2 := r2.(*resources.TestRes)
+		s1, s2 := "hey", "hey"
+		x1.StringPtr = &s1
+		x2.StringPtr = &s2
+		graph.AddVertex(x1, x2)
+		values = append(values, test{
+			name: "double include with out of order variable in parent scope",
+			code: `
+			include c1("t1")
+			include c1("t2")
+			class c1($a) {
+				test $a {
+					stringptr => $foo,
+				}
+			}
+			$foo = "hey"
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		x1 := r1.(*resources.TestRes)
+		s1 := "hello"
+		x1.StringPtr = &s1
+		graph.AddVertex(x1)
+		values = append(values, test{
+			name: "duplicate include identical",
+			code: `
+			include c1("t1", "hello")
+			class c1($a, $b) {
+				test $a {
+					stringptr => $b,
+				}
+			}
+			include c1("t1", "hello") # this is an identical dupe
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		x1 := r1.(*resources.TestRes)
+		s1 := "hello"
+		x1.StringPtr = &s1
+		graph.AddVertex(x1)
+		values = append(values, test{
+			name: "duplicate include non-identical",
+			code: `
+			include c1("t1", "hello")
+			class c1($a, $b) {
+				if $a == "t1" {
+					test $a {
+						stringptr => $b,
+					}
+				} else {
+					test "t1" {
+						stringptr => $b,
+					}
+				}
+			}
+			include c1("t?", "hello") # should cause an identical dupe
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "duplicate include incompatible",
+			code: `
+			include c1("t1", "hello")
+			class c1($a, $b) {
+				test $a {
+					stringptr => $b,
+				}
+			}
+			include c1("t1", "world") # incompatible
+			`,
+			fail: true, // incompatible resources
+		})
+	}
+	{
+		values = append(values, test{
+			name: "class wrong number of args 1",
+			code: `
+			include c1("hello") # missing second arg
+			class c1($a, $b) {
+				test $a {
+					stringptr => $b,
+				}
+			}
+			`,
+			fail: true, // but should NOT panic
+		})
+	}
+	{
+		values = append(values, test{
+			name: "class wrong number of args 2",
+			code: `
+			include c1("hello", 42) # added second arg
+			class c1($a) {
+				test $a {
+					stringptr => "world",
+				}
+			}
+			`,
+			fail: true, // but should NOT panic
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		r2, _ := engine.NewNamedResource("test", "t2")
+		x1 := r1.(*resources.TestRes)
+		x2 := r2.(*resources.TestRes)
+		s1, s2 := "hello is 42", "world is 13"
+		x1.StringPtr = &s1
+		x2.StringPtr = &s2
+		graph.AddVertex(x1, x2)
+		values = append(values, test{
+			name: "nested classes 1",
+			code: `
+			include c1("t1", "hello") # test["t1"] -> hello is 42
+			include c1("t2", "world") # test["t2"] -> world is 13
+
+			class c1($a, $b) {
+				# nested class definition
+				class c2($c) {
+					test $a {
+						stringptr => printf("%s is %d", $b, $c),
+					}
+				}
+
+				if $a == "t1" {
+					include c2(42)
+				} else {
+					include c2(13)
+				}
+			}
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "nested classes out of scope 1",
+			code: `
+			include c1("t1", "hello") # test["t1"] -> hello is 42
+			include c2(99) # out of scope
+
+			class c1($a, $b) {
+				# nested class definition
+				class c2($c) {
+					test $a {
+						stringptr => printf("%s is %d", $b, $c),
+					}
+				}
+
+				if $a == "t1" {
+					include c2(42)
+				} else {
+					include c2(13)
+				}
+			}
+			`,
+			fail: true,
+		})
+	}
+	// TODO: recursive classes are not currently supported (should they be?)
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	values = append(values, test{
+	//		name: "recursive classes 0",
+	//		code: `
+	//		include c1(0) # start at zero
+	//		class c1($count) {
+	//			if $count != 3 {
+	//				include c1($count + 1)
+	//			}
+	//		}
+	//		`,
+	//		fail:  false,
+	//		graph: graph, // produces no output
+	//	})
+	//}
+	// TODO: recursive classes are not currently supported (should they be?)
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	r0, _ := engine.NewNamedResource("test", "done")
+	//	x0 := r0.(*resources.TestRes)
+	//	s0 := "count is 3"
+	//	x0.StringPtr = &s0
+	//	graph.AddVertex(x0)
+	//	values = append(values, test{
+	//		name: "recursive classes 1",
+	//		code: `
+	//		$max = 3
+	//		include c1(0) # start at zero
+	//		# test["done"] -> count is 3
+	//		class c1($count) {
+	//			if $count == $max {
+	//				test "done" {
+	//					stringptr => printf("count is %d", $count),
+	//				}
+	//			} else {
+	//				include c1($count + 1)
+	//			}
+	//		}
+	//		`,
+	//		fail:  false,
+	//		graph: graph,
+	//	})
+	//}
+	// TODO: recursive classes are not currently supported (should they be?)
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	r0, _ := engine.NewNamedResource("test", "zero")
+	//	r1, _ := engine.NewNamedResource("test", "ix:1")
+	//	r2, _ := engine.NewNamedResource("test", "ix:2")
+	//	r3, _ := engine.NewNamedResource("test", "ix:3")
+	//	x0 := r0.(*resources.TestRes)
+	//	x1 := r1.(*resources.TestRes)
+	//	x2 := r2.(*resources.TestRes)
+	//	x3 := r3.(*resources.TestRes)
+	//	s0, s1, s2, s3 := "count is 0", "count is 1", "count is 2", "count is 3"
+	//	x0.StringPtr = &s0
+	//	x1.StringPtr = &s1
+	//	x2.StringPtr = &s2
+	//	x3.StringPtr = &s3
+	//	graph.AddVertex(x0, x1, x2, x3)
+	//	values = append(values, test{
+	//		name: "recursive classes 2",
+	//		code: `
+	//		include c1("ix", 3)
+	//		# test["ix:3"] -> count is 3
+	//		# test["ix:2"] -> count is 2
+	//		# test["ix:1"] -> count is 1
+	//		# test["zero"] -> count is 0
+	//		class c1($name, $count) {
+	//			if $count == 0 {
+	//				test "zero" {
+	//					stringptr => printf("count is %d", $count),
+	//				}
+	//			} else {
+	//				include c1($name, $count - 1)
+	//				test "${name}:${count}" {
+	//					stringptr => printf("count is %d", $count),
+	//				}
+	//			}
+	//		}
+	//		`,
+	//		fail:  false,
+	//		graph: graph,
+	//	})
+	//}
 
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.graph

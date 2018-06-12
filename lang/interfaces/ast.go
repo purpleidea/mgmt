@@ -68,6 +68,7 @@ type Expr interface {
 type Scope struct {
 	Variables map[string]Expr
 	//Functions map[string]??? // TODO: do we want a separate namespace for user defined functions?
+	Classes map[string]Stmt
 }
 
 // Empty returns the zero, empty value for the scope, with all the internal
@@ -76,6 +77,7 @@ func (obj *Scope) Empty() *Scope {
 	return &Scope{
 		Variables: make(map[string]Expr),
 		//Functions: ???,
+		Classes: make(map[string]Stmt),
 	}
 }
 
@@ -85,13 +87,18 @@ func (obj *Scope) Empty() *Scope {
 // we need those to be consistently pointing to the same things after copying.
 func (obj *Scope) Copy() *Scope {
 	variables := make(map[string]Expr)
+	classes := make(map[string]Stmt)
 	if obj != nil { // allow copying nil scopes
 		for k, v := range obj.Variables { // copy
 			variables[k] = v // we don't copy the expr's!
 		}
+		for k, v := range obj.Classes { // copy
+			classes[k] = v // we don't copy the StmtClass!
+		}
 	}
 	return &Scope{
 		Variables: variables,
+		Classes:   classes,
 	}
 }
 

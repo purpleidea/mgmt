@@ -174,6 +174,16 @@
 			lval.str = yylex.Text()
 			return STRUCT_IDENTIFIER
 		}
+/class/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return CLASS_IDENTIFIER
+		}
+/include/	{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return INCLUDE_IDENTIFIER
+		}
 /variant/	{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

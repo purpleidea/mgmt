@@ -61,7 +61,7 @@ type StmtBind struct {
 	Value interfaces.Expr
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
@@ -125,7 +125,7 @@ type StmtRes struct {
 	Contents []StmtResContents // list of fields/edges in parsed order
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
@@ -512,7 +512,7 @@ type StmtResField struct {
 	Condition interfaces.Expr // the value will be used if nil or true
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // This interpolate is different It is different from the interpolate found in
@@ -647,7 +647,7 @@ type StmtResEdge struct {
 	Condition interfaces.Expr // the value will be used if nil or true
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // This interpolate is different It is different from the interpolate found in
@@ -764,7 +764,7 @@ type StmtEdge struct {
 	Notify bool // specifies that this edge sends a notification as well
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // TODO: could we expand the Name's from the EdgeHalf (if they're lists) to have
@@ -908,7 +908,7 @@ type StmtEdgeHalf struct {
 	SendRecv string          // name of field to send/recv from, empty to ignore
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // This interpolate is different It is different from the interpolate found in
@@ -983,7 +983,7 @@ type StmtIf struct {
 	ElseBranch interfaces.Stmt // optional
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
@@ -1152,7 +1152,7 @@ type StmtProg struct {
 	Prog []interfaces.Stmt
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
@@ -1194,6 +1194,24 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		newScope.Variables[bind.Ident] = bind.Value
 	}
 
+	// now collect any classes
+	// TODO: if we ever allow poly classes, then group in lists by name
+	classes := make(map[string]struct{})
+	for _, x := range obj.Prog {
+		class, ok := x.(*StmtClass)
+		if !ok {
+			continue
+		}
+		// check for duplicates *in this scope*
+		if _, exists := classes[class.Name]; exists {
+			return fmt.Errorf("class `%s` already exists in this scope", class.Name)
+		}
+
+		classes[class.Name] = struct{}{} // mark as found in scope
+		// add to scope, (overwriting, aka shadowing is ok)
+		newScope.Classes[class.Name] = class
+	}
+
 	// now set the child scopes (even on bind...)
 	for _, x := range obj.Prog {
 		if err := x.SetScope(newScope); err != nil {
@@ -1212,6 +1230,11 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 
 	// collect all the invariants of each sub-expression
 	for _, x := range obj.Prog {
+		// skip over *StmtClass here
+		if _, ok := x.(*StmtClass); ok {
+			continue
+		}
+
 		invars, err := x.Unify()
 		if err != nil {
 			return nil, err
@@ -1236,6 +1259,11 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 
 	// collect all graphs that need to be included
 	for _, x := range obj.Prog {
+		// skip over *StmtClass here
+		if _, ok := x.(*StmtClass); ok {
+			continue
+		}
+
 		g, err := x.Graph()
 		if err != nil {
 			return nil, err
@@ -1255,6 +1283,13 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 	edges := []*interfaces.Edge{}
 
 	for _, stmt := range obj.Prog {
+		// skip over *StmtClass here so its Output method can be used...
+		if _, ok := stmt.(*StmtClass); ok {
+			// don't read output from StmtClass, it
+			// gets consumed by StmtInclude instead
+			continue
+		}
+
 		output, err := stmt.Output()
 		if err != nil {
 			return nil, err
@@ -1271,6 +1306,229 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 	}, nil
 }
 
+// StmtClass represents a user defined class. It's effectively a program body
+// that can optionally take some parameterized inputs.
+// TODO: We don't currently support defining polymorphic classes (eg: different
+// signatures for the same class name) but it might be something to consider.
+type StmtClass struct {
+	Name string
+	Args []*Arg
+	Body interfaces.Stmt // probably a *StmtProg
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtClass) Interpolate() (interfaces.Stmt, error) {
+	interpolated, err := obj.Body.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+
+	args := obj.Args
+	if obj.Args == nil {
+		args = []*Arg{}
+	}
+
+	return &StmtClass{
+		Name: obj.Name,
+		Args: args, // ensure this has length == 0 instead of nil
+		Body: interpolated,
+	}, nil
+}
+
+// SetScope sets the scope of the child expression bound to it. It seems this is
+// necessary in order to reach this, in particular in situations when a bound
+// expression points to a previously bound expression.
+func (obj *StmtClass) SetScope(scope *interfaces.Scope) error {
+	return obj.Body.SetScope(scope)
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *StmtClass) Unify() ([]interfaces.Invariant, error) {
+	if obj.Name == "" {
+		return nil, fmt.Errorf("missing class name")
+	}
+
+	// TODO: do we need to add anything else here because of the obj.Args ?
+	return obj.Body.Unify()
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular func statement adds its linked expression to
+// the graph.
+func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
+	return obj.Body.Graph()
+}
+
+// Output for the class statement produces no output. Any values of interest
+// come from the use of the include which this binds the statements to. This is
+// usually called from the parent in StmtProg, but it skips running it so that
+// it can be called from the StmtInclude Output method.
+func (obj *StmtClass) Output() (*interfaces.Output, error) {
+	return obj.Body.Output()
+}
+
+// StmtInclude causes a user defined class to get used. It's effectively the way
+// to call a class except that it produces output instead of a value. Most of
+// the interesting logic for classes happens here or in StmtProg.
+type StmtInclude struct {
+	class *StmtClass // copy of class that we're using
+
+	Name string
+	Args []interfaces.Expr
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
+	args := []interfaces.Expr{}
+	if obj.Args != nil {
+		for _, x := range obj.Args {
+			interpolated, err := x.Interpolate()
+			if err != nil {
+				return nil, err
+			}
+			args = append(args, interpolated)
+		}
+	}
+
+	return &StmtInclude{
+		Name: obj.Name,
+		Args: args,
+	}, nil
+}
+
+// SetScope stores the scope for use in this statement.
+func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
+	if scope == nil {
+		scope = scope.Empty()
+	}
+
+	stmt, exists := scope.Classes[obj.Name]
+	if !exists {
+		return fmt.Errorf("class `%s` does not exist in this scope", obj.Name)
+	}
+	class, ok := stmt.(*StmtClass)
+	if !ok {
+		return fmt.Errorf("class scope of `%s` does not contain a class", obj.Name)
+	}
+
+	// helper function to keep things more logical
+	cp := func(input *StmtClass) (*StmtClass, error) {
+		// TODO: should we have a dedicated copy method instead? because
+		// we want to copy some things, but not others like Expr I think
+		copied, err := input.Interpolate() // this sort of copies things
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not copy class")
+		}
+		class, ok := copied.(*StmtClass) // convert it back again
+		if !ok {
+			return nil, fmt.Errorf("copied class named `%s` is not a class", obj.Name)
+		}
+		return class, nil
+	}
+
+	copied, err := cp(class) // copy it for each use of the include
+	if err != nil {
+		return errwrap.Wrapf(err, "could not copy class")
+	}
+	obj.class = copied
+
+	newScope := scope.Copy()
+	for i, arg := range obj.class.Args { // copy
+		newScope.Variables[arg.Name] = obj.Args[i]
+	}
+	if err := obj.class.SetScope(newScope); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
+	if obj.Name == "" {
+		return nil, fmt.Errorf("missing include name")
+	}
+
+	// is it even possible for the signatures to match?
+	if len(obj.class.Args) != len(obj.Args) {
+		return nil, fmt.Errorf("class `%s` expected %d args but got %d", obj.Name, len(obj.class.Args), len(obj.Args))
+	}
+
+	var invariants []interfaces.Invariant
+
+	// do this here because we skip doing it in the StmtProg parent
+	invars, err := obj.class.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, invars...)
+
+	// collect all the invariants of each sub-expression
+	for i, x := range obj.Args {
+		invars, err := x.Unify()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
+
+		// TODO: are additional invariants required?
+		// add invariants between the args and the class
+		if typ := obj.class.Args[i].Type; typ != nil {
+			invar := &unification.EqualsInvariant{
+				Expr: obj.Args[i],
+				Type: typ, // type of arg
+			}
+			invariants = append(invariants, invar)
+		}
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular func statement adds its linked expression to
+// the graph.
+func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("include")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.class.Graph()
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	return graph, nil
+}
+
+// Output returns the output that this include produces. This output is what
+// is used to build the output graph. This only exists for statements. The
+// analogous function for expressions is Value. Those Value functions might get
+// called by this Output function if they are needed to produce the output. The
+// ultimate source of this output comes from the previously defined StmtClass
+// which should be found in our scope.
+func (obj *StmtInclude) Output() (*interfaces.Output, error) {
+	return obj.class.Output()
+}
+
 // StmtComment is a representation of a comment. It is currently unused. It
 // probably makes sense to make a third kind of Node (not a Stmt or an Expr) so
 // that comments can still be part of the AST (for eventual automatic code
@@ -1280,11 +1538,15 @@ type StmtComment struct {
 	Value string
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // Here it simply returns itself, as no interpolation is possible.
-func (obj *StmtComment) Interpolate() (interfaces.Stmt, error) { return obj, nil }
+func (obj *StmtComment) Interpolate() (interfaces.Stmt, error) {
+	return &StmtComment{
+		Value: obj.Value,
+	}, nil
+}
 
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope.
@@ -1324,11 +1586,15 @@ type ExprBool struct {
 // String returns a short representation of this expression.
 func (obj *ExprBool) String() string { return fmt.Sprintf("bool(%t)", obj.V) }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // Here it simply returns itself, as no interpolation is possible.
-func (obj *ExprBool) Interpolate() (interfaces.Expr, error) { return obj, nil }
+func (obj *ExprBool) Interpolate() (interfaces.Expr, error) {
+	return &ExprBool{
+		V: obj.V,
+	}, nil
+}
 
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope.
@@ -1405,7 +1671,7 @@ type ExprStr struct {
 // String returns a short representation of this expression.
 func (obj *ExprStr) String() string { return fmt.Sprintf("str(%s)", obj.V) }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // Here it attempts to expand the string if there are any internal variables
@@ -1424,7 +1690,9 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 		return nil, err
 	}
 	if result == nil {
-		return obj, nil // pass self through, no changes
+		return &ExprStr{
+			V: obj.V,
+		}, nil
 	}
 	// we got something, overwrite the existing static str
 	return result, nil // replacement
@@ -1505,11 +1773,15 @@ type ExprInt struct {
 // String returns a short representation of this expression.
 func (obj *ExprInt) String() string { return fmt.Sprintf("int(%d)", obj.V) }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // Here it simply returns itself, as no interpolation is possible.
-func (obj *ExprInt) Interpolate() (interfaces.Expr, error) { return obj, nil }
+func (obj *ExprInt) Interpolate() (interfaces.Expr, error) {
+	return &ExprInt{
+		V: obj.V,
+	}, nil
+}
 
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope.
@@ -1588,11 +1860,15 @@ func (obj *ExprFloat) String() string {
 	return fmt.Sprintf("float(%g)", obj.V) // TODO: %f instead?
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // Here it simply returns itself, as no interpolation is possible.
-func (obj *ExprFloat) Interpolate() (interfaces.Expr, error) { return obj, nil }
+func (obj *ExprFloat) Interpolate() (interfaces.Expr, error) {
+	return &ExprFloat{
+		V: obj.V,
+	}, nil
+}
 
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope.
@@ -1678,7 +1954,7 @@ func (obj *ExprList) String() string {
 	return fmt.Sprintf("list(%s)", strings.Join(s, ", "))
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprList) Interpolate() (interfaces.Expr, error) {
@@ -1923,7 +2199,7 @@ func (obj *ExprMap) String() string {
 	return fmt.Sprintf("map(%s)", strings.Join(s, ", "))
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprMap) Interpolate() (interfaces.Expr, error) {
@@ -2263,7 +2539,7 @@ func (obj *ExprStruct) String() string {
 	return fmt.Sprintf("struct(%s)", strings.Join(s, "; "))
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprStruct) Interpolate() (interfaces.Expr, error) {
@@ -2521,11 +2797,15 @@ type ExprFunc struct {
 // we have a better printable function value and put that here instead.
 func (obj *ExprFunc) String() string { return fmt.Sprintf("func(???)") } // TODO: print nicely
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // Here it simply returns itself, as no interpolation is possible.
-func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) { return obj, nil }
+func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) {
+	return &ExprFunc{
+		V: obj.V,
+	}, nil
+}
 
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope.
@@ -2677,7 +2957,7 @@ func (obj *ExprCall) buildFunc() (interfaces.Func, error) {
 	return fn, nil
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
@@ -3052,12 +3332,16 @@ type ExprVar struct {
 // String returns a short representation of this expression.
 func (obj *ExprVar) String() string { return fmt.Sprintf("var(%s)", obj.Name) }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 // Here it returns itself, since variable names cannot be interpolated. We don't
 // support variable, variables or anything crazy like that.
-func (obj *ExprVar) Interpolate() (interfaces.Expr, error) { return obj, nil }
+func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
+	return &ExprVar{
+		Name: obj.Name,
+	}, nil
+}
 
 // SetScope stores the scope for use in this resource.
 func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
@@ -3249,6 +3533,13 @@ func (obj *ExprVar) Value() (types.Value, error) {
 	return expr.Value() // recurse
 }
 
+// Arg represents a name identifier for a func or class argument declaration and
+// is sometimes accompanied by a type. This does not satisfy the Expr interface.
+type Arg struct {
+	Name string
+	Type *types.Type // nil if unspecified (needs to be solved for)
+}
+
 // ExprIf represents an if expression which *must* have both branches, and which
 // returns a value. As a result, it has a type. This is different from a StmtIf,
 // which does not need to have both branches, and which does not return a value.
@@ -3265,7 +3556,7 @@ func (obj *ExprIf) String() string {
 	return fmt.Sprintf("if(%s)", obj.Condition.String()) // TODO: improve this
 }
 
-// Interpolate returns a new node (or itself) once it has been expanded. This
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprIf) Interpolate() (interfaces.Expr, error) {

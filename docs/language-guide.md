@@ -85,8 +85,9 @@ These docs will be expanded on when things are more certain to be stable.
 
 There are a very small number of statements in our language. They include:
 
-- **bind**: bind's an expression to a variable within that scope
+- **bind**: bind's an expression to a variable within that scope without output
 	- eg: `$x = 42`
+
 - **if**: produces up to one branch of statements based on a conditional
 expression
 
@@ -112,6 +113,31 @@ expression
 
 	```mcl
 	File["/tmp/hello"] -> Print["alert4"]
+	```
+
+- **class**: bind's a list of statements to a class name in scope without output
+
+	```mcl
+	class foo {
+		# some statements go here
+	}
+	```
+
+	or
+
+	```mcl
+	class bar($a, $b) { # a parameterized class
+		# some statements go here
+	}
+	```
+
+- **include**: include a particular class at this location producing output
+
+	```mcl
+	include foo
+
+	include bar("hello", 42)
+	include bar("world", 13) # an include can be called multiple times
 	```
 
 All statements produce _output_. Output consists of between zero and more
@@ -214,6 +240,82 @@ Pkg["drbd"] -> File["/etc/drbd.conf"] -> Svc["drbd"]
 to express a relationship between three resources. The first character in the
 resource kind must be capitalized so that the parser can't ascertain
 unambiguously that we are referring to a dependency relationship.
+
+#### Class
+
+A class is a grouping structure that bind's a list of statements to a name in
+the scope where it is defined. It doesn't directly produce any output. To
+produce output it must be called via the `include` statement.
+
+Defining classes follows the same scoping and shadowing rules that is applied to
+the `bind` statement, although they exist in a separate namespace. In other
+words you can have a variable named `foo` and a class named `foo` in the same
+scope without any conflicts.
+
+Classes can be both parameterized or naked. If a parameterized class is defined,
+then the argument types must be either specified manually, or inferred with the
+type unification algorithm. One interesting property is that the same class
+definition can be used with `include` via two different input signatures,
+although in practice this is probably fairly rare. Some usage examples include:
+
+A naked class definition:
+
+```mcl
+class foo {
+	# some statements go here
+}
+```
+
+A parameterized class with both input types being inferred if possible:
+
+```mcl
+class bar($a, $b) {
+	# some statements go here
+}
+```
+
+A parameterized class with one type specified statically and one being inferred:
+
+```mcl
+class baz($a str, $b) {
+	# some statements go here
+}
+```
+
+Classes can also be nested within other classes. Here's a contrived example:
+
+```mcl
+class c1($a, $b) {
+	# nested class definition
+	class c2($c) {
+		test $a {
+			stringptr => printf("%s is %d", $b, $c),
+		}
+	}
+
+	if $a == "t1" {
+		include c2(42)
+	}
+}
+```
+
+Defining polymorphic classes was considered but is not currently allowed at this
+time.
+
+Recursive classes are not currently supported and it is not clear if they will
+be in the future. Discussion about this topic is welcome on the mailing list.
+
+#### Include
+
+The `include` statement causes the previously defined class to produce the
+contained output. This statement must be called with parameters if the named
+class is defined with those.
+
+The defined class can be called as many times as you'd like either within the
+same scope or within different scopes. If a class uses inferred type input
+parameters, then the same class can even be called with different signatures.
+Whether the output is useful and whether there is a unique type unification
+solution is dependent on your code.
 
 ### Stages
 
@@ -595,6 +697,39 @@ someListOfStrings := &types.ListValue{
 
 If you don't build these properly, then you will cause a panic! Even empty lists
 have a type.
+
+### Is the `class` statement a singleton?
+
+Not really, but practically it can be used as such. The `class` statement is not
+a singleton since it can be called multiple times in different locations, and it
+can also be parameterized and called multiple times (with `include`) using
+different input parameters. The reason it can be used as such is that statement
+output (from multple classes) that is compatible (and usually identical) will
+be automatically collated and have the duplicates removed. In that way, you can
+assume that an unparameterized class is always a singleton, and that
+parameterized classes can often be singletons depending on their contents and if
+they are called in an identical way or not. In reality the de-duplication
+actually happens at the resource output level, so anything that produces
+multiple compatible resources is allowed.
+
+### Are recursive `class` definitions supported?
+
+Recursive class definitions where the contents of a `class` contain a
+self-referential `include`, either directly, or with indirection via any other
+number of classes is not supported. It's not clear if it ever will be in the
+future, unless we decide it's worth the extra complexity. The reason is that our
+FRP actually generates a static graph which doesn't change unless the code does.
+To support dynamic graphs would require our FRP to be a "higher-order" FRP,
+instead of the simpler "first-order" FRP that it is now. You might want to
+verify that I got the [nomenclature](https://github.com/gelisam/frp-zoo)
+correct. If it turns out that there's an important advantage to supporting a
+higher-order FRP in mgmt, then we can consider that in the future.
+
+I realized that recursion would require a static graph when I considered the
+structure required for a simple recursive class definition. If some "depth"
+value wasn't known statically by compile time, then there would be no way to
+know how large the graph would grow, and furthermore, the graph would need to
+change if that "depth" value changed.
 
 ### I don't like the mgmt language, is there an alternative?
 

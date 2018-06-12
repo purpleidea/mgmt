@@ -63,6 +63,9 @@ func init() {
 	structFields []*ExprStructField
 	structField  *ExprStructField
 
+	args []*Arg
+	arg  *Arg
+
 	resContents []StmtResContents // interface
 	resField    *StmtResField
 	resEdge     *StmtResEdge
@@ -82,6 +85,7 @@ func init() {
 %token STR_IDENTIFIER BOOL_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER IDENTIFIER
 %token VAR_IDENTIFIER_HX CAPITALIZED_IDENTIFIER
+%token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
 %token COMMENT ERROR
 
 // precedence table
@@ -183,6 +187,44 @@ stmt:
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			ElseBranch: $8.stmt,
+		}
+	}
+	// `class name { <prog> }`
+|	CLASS_IDENTIFIER IDENTIFIER OPEN_CURLY prog CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtClass{
+			Name: $2.str,
+			Args: nil,
+			Body: $4.stmt,
+		}
+	}
+	// `class name(<arg>) { <prog> }`
+	// `class name(<arg>, <arg>) { <prog> }`
+|	CLASS_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY prog CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtClass{
+			Name: $2.str,
+			Args: $4.args,
+			Body: $7.stmt,
+		}
+	}
+	// `include name`
+|	INCLUDE_IDENTIFIER IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtInclude{
+			Name: $2.str,
+		}
+	}
+	// `include name(...)`
+|	INCLUDE_IDENTIFIER IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtInclude{
+			Name: $2.str,
+			Args: $4.exprs,
 		}
 	}
 /*
@@ -596,6 +638,7 @@ call:
 	}
 ;
 // list order gets us the position of the arg, but named params would work too!
+// this is also used by the include statement when the called class uses args!
 call_args:
 	/* end of list */
 	{
@@ -620,6 +663,40 @@ var:
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ExprVar{
 			Name: $1.str,
+		}
+	}
+;
+args:
+	/* end of list */
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = []*Arg{}
+	}
+|	args COMMA arg
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = append($1.args, $3.arg)
+	}
+|	arg
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = append([]*Arg{}, $1.arg)
+	}
+;
+arg:
+	// `$x`
+	VAR_IDENTIFIER
+	{
+		$$.arg = &Arg{
+			Name: $1.str,
+		}
+	}
+	// `$x <type>`
+|	VAR_IDENTIFIER type
+	{
+		$$.arg = &Arg{
+			Name: $1.str,
+			Type: $2.typ,
 		}
 	}
 ;

@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -857,6 +858,195 @@ func TestLexParse0(t *testing.T) {
 			}
 			`,
 			fail: true,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtClass{
+					Name: "c1",
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{
+							&StmtRes{
+								Kind: "test",
+								Name: &ExprStr{
+									V: "t1",
+								},
+								Contents: []StmtResContents{
+									&StmtResField{
+										Field: "stringptr",
+										Value: &ExprStr{
+											V: "hello",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "c1",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple class 1",
+			code: `
+			class c1 {
+				test "t1" {
+					stringptr => "hello",
+				}
+			}
+			include c1
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtClass{
+					Name: "c1",
+					Args: []*Arg{
+						{
+							Name: "a",
+							//Type: &types.Type{},
+						},
+						{
+							Name: "b",
+							//Type: &types.Type{},
+						},
+					},
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{
+							&StmtRes{
+								Kind: "test",
+								Name: &ExprVar{
+									Name: "a",
+								},
+								Contents: []StmtResContents{
+									&StmtResField{
+										Field: "stringptr",
+										Value: &ExprVar{
+											Name: "b",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "c1",
+					Args: []interfaces.Expr{
+						&ExprStr{
+							V: "t1",
+						},
+						&ExprStr{
+							V: "hello",
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "c1",
+					Args: []interfaces.Expr{
+						&ExprStr{
+							V: "t2",
+						},
+						&ExprStr{
+							V: "world",
+						},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple class with args 1",
+			code: `
+			class c1($a, $b) {
+				test $a {
+					stringptr => $b,
+				}
+			}
+			include c1("t1", "hello")
+			include c1("t2", "world")
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtClass{
+					Name: "c1",
+					Args: []*Arg{
+						{
+							Name: "a",
+							Type: types.TypeStr,
+						},
+						{
+							Name: "b",
+							//Type: &types.Type{},
+						},
+					},
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{
+							&StmtRes{
+								Kind: "test",
+								Name: &ExprVar{
+									Name: "a",
+								},
+								Contents: []StmtResContents{
+									&StmtResField{
+										Field: "stringptr",
+										Value: &ExprVar{
+											Name: "b",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "c1",
+					Args: []interfaces.Expr{
+						&ExprStr{
+							V: "t1",
+						},
+						&ExprStr{
+							V: "hello",
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "c1",
+					Args: []interfaces.Expr{
+						&ExprStr{
+							V: "t2",
+						},
+						&ExprStr{
+							V: "world",
+						},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple class with typed args 1",
+			code: `
+			class c1($a str, $b) {
+				test $a {
+					stringptr => $b,
+				}
+			}
+			include c1("t1", "hello")
+			include c1("t2", "world")
+			`,
+			fail: false,
+			exp:  exp,
 		})
 	}
 

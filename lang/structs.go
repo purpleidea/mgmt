@@ -1144,14 +1144,15 @@ func (obj *StmtIf) Output() (*interfaces.Output, error) {
 	}
 
 	resources := []engine.Res{}
+	edges := []*interfaces.Edge{}
 	if output != nil {
 		resources = append(resources, output.Resources...)
-		//edges = output.Edges
+		edges = append(edges, output.Edges...)
 	}
 
 	return &interfaces.Output{
 		Resources: resources,
-		//Edges: edges,
+		Edges:     edges,
 	}, nil
 }
 

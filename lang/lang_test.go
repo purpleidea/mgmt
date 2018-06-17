@@ -800,6 +800,55 @@ func TestInterpretMany(t *testing.T) {
 	//		graph: graph,
 	//	})
 	//}
+	// TODO: remove this test if we ever support recursive classes
+	{
+		values = append(values, test{
+			name: "recursive classes fail 1",
+			code: `
+			$max = 3
+			include c1(0) # start at zero
+			class c1($count) {
+				if $count == $max {
+					test "done" {
+						stringptr => printf("count is %d", $count),
+					}
+				} else {
+					include c1($count + 1) # recursion not supported atm
+				}
+			}
+			`,
+			fail: true,
+		})
+	}
+	// TODO: remove this test if we ever support recursive classes
+	{
+		values = append(values, test{
+			name: "recursive classes fail 2",
+			code: `
+			$max = 5
+			include c1(0) # start at zero
+			class c1($count) {
+				if $count == $max {
+					test "done" {
+						stringptr => printf("count is %d", $count),
+					}
+				} else {
+					include c2($count + 1) # recursion not supported atm
+				}
+			}
+			class c2($count) {
+				if $count == $max {
+					test "done" {
+						stringptr => printf("count is %d", $count),
+					}
+				} else {
+					include c1($count + 1) # recursion not supported atm
+				}
+			}
+			`,
+			fail: true,
+		})
+	}
 
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.graph

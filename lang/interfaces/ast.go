@@ -69,6 +69,8 @@ type Scope struct {
 	Variables map[string]Expr
 	//Functions map[string]??? // TODO: do we want a separate namespace for user defined functions?
 	Classes map[string]Stmt
+
+	Chain []Stmt // chain of previously seen stmt's
 }
 
 // Empty returns the zero, empty value for the scope, with all the internal
@@ -78,6 +80,7 @@ func (obj *Scope) Empty() *Scope {
 		Variables: make(map[string]Expr),
 		//Functions: ???,
 		Classes: make(map[string]Stmt),
+		Chain:   []Stmt{},
 	}
 }
 
@@ -88,6 +91,7 @@ func (obj *Scope) Empty() *Scope {
 func (obj *Scope) Copy() *Scope {
 	variables := make(map[string]Expr)
 	classes := make(map[string]Stmt)
+	chain := []Stmt{}
 	if obj != nil { // allow copying nil scopes
 		for k, v := range obj.Variables { // copy
 			variables[k] = v // we don't copy the expr's!
@@ -95,10 +99,14 @@ func (obj *Scope) Copy() *Scope {
 		for k, v := range obj.Classes { // copy
 			classes[k] = v // we don't copy the StmtClass!
 		}
+		for _, x := range obj.Chain { // copy
+			chain = append(chain, x) // we don't copy the Stmt pointer!
+		}
 	}
 	return &Scope{
 		Variables: variables,
 		Classes:   classes,
+		Chain:     chain,
 	}
 }
 

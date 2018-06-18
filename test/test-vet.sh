@@ -29,9 +29,19 @@ function parser-indentation() {
 	return 0
 }
 
+function parser-conflicts() {
+	# in the test, run goyacc, but don't leave any output files around
+	if goyacc -o /dev/null -v /dev/null "$1" | grep 'conflict'; then	# grammar is ambiguous
+		return 1
+	fi
+
+	return 0
+}
+
 # loop through individual *.y files
 for file in `find . -maxdepth 3 -type f -name '*.y' -not -path './old/*' -not -path './tmp/*'`; do
 	run-test parser-indentation "$file"
+	run-test parser-conflicts "$file"
 done
 
 if [[ -n "$failures" ]]; then

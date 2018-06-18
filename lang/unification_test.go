@@ -147,7 +147,7 @@ func TestUnification1(t *testing.T) {
 				v1:   types.TypeFloat,
 				v2:   types.TypeFloat,
 				v3:   types.TypeFloat,
-				expr: types.NewType("{int: float}"),
+				expr: types.NewType("map{int: float}"),
 			},
 		})
 	}

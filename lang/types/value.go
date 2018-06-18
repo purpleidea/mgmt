@@ -125,7 +125,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}
 
 		return &MapValue{
-			T: NewType(fmt.Sprintf("{%s: %s}", kt.String(), vt.String())),
+			T: NewType(fmt.Sprintf("map{%s: %s}", kt.String(), vt.String())),
 			V: m,
 		}, nil
 

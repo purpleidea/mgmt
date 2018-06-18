@@ -58,7 +58,7 @@ func (obj *KVLookupFunc) Info() *interfaces.Info {
 		Pure: false, // definitely false
 		Memo: false,
 		// output is map of: hostname => value
-		Sig: types.NewType("func(namespace str) {str: str}"),
+		Sig: types.NewType("func(namespace str) map{str: str}"),
 		Err: obj.Validate(),
 	}
 }

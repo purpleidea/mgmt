@@ -169,6 +169,11 @@
 			lval.str = yylex.Text()
 			return FLOAT_IDENTIFIER
 		}
+/map/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return MAP_IDENTIFIER
+		}
 /struct/	{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

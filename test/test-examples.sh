@@ -11,6 +11,8 @@ cd "${ROOT}"
 
 failures=''
 
+# TODO: test examples/lang/ directory to see if the .mcl files compile correctly
+
 buildout='test-examples.out'
 # make symlink to outside of package
 linkto="`pwd`/examples/lib/"

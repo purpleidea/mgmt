@@ -242,11 +242,11 @@ func TestLexParse0(t *testing.T) {
 		values = append(values, test{
 			name: "maps and lists",
 			code: `
-			$strmap {str: int} = {
+			$strmap map{str: int} = {
 				"key1" => 42,
 				"key2" => -13,
 			}
-			$mapstrintlist {str: []int} = {
+			$mapstrintlist map{str: []int} = {
 				"key1" => [42, 44,],
 				"key2" => [],
 				"key3" => [-13,],

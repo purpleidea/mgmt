@@ -83,7 +83,7 @@ func init() {
 %token COMMA COLON SEMICOLON
 %token ELVIS ROCKET ARROW DOT
 %token STR_IDENTIFIER BOOL_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
-%token STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER IDENTIFIER
+%token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER IDENTIFIER
 %token VAR_IDENTIFIER_HX CAPITALIZED_IDENTIFIER
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
 %token COMMENT ERROR
@@ -910,11 +910,11 @@ type:
 		posLast(yylex, yyDollar) // our pos
 		$$.typ = types.NewType("[]" + $3.typ.String())
 	}
-|	OPEN_CURLY type COLON type CLOSE_CURLY
-	// map: {str: int} or {str: []int}
+|	MAP_IDENTIFIER OPEN_CURLY type COLON type CLOSE_CURLY
+	// map: map{str: int} or map{str: []int}
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.typ = types.NewType(fmt.Sprintf("{%s: %s}", $2.typ.String(), $4.typ.String()))
+		$$.typ = types.NewType(fmt.Sprintf("map{%s: %s}", $3.typ.String(), $5.typ.String()))
 	}
 |	STRUCT_IDENTIFIER OPEN_CURLY type_struct_fields CLOSE_CURLY
 	// struct: struct{} or struct{a bool} or struct{a bool; bb int}

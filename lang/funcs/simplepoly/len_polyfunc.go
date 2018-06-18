@@ -30,7 +30,7 @@ func init() {
 			V: Len,
 		},
 		{
-			T: types.NewType("func({variant: variant}) int"),
+			T: types.NewType("func(map{variant: variant}) int"),
 			V: Len,
 		},
 		// TODO: should we add support for struct or func lengths?

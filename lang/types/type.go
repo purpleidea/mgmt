@@ -236,8 +236,8 @@ func NewType(s string) *Type {
 	}
 
 	// KindMap
-	if strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}") {
-		s := s[1 : len(s)-1]
+	if strings.HasPrefix(s, "map{") && strings.HasSuffix(s, "}") {
+		s := s[len("map{") : len(s)-1]
 		if s == "" { // it is empty
 			return nil
 		}
@@ -502,7 +502,7 @@ func (obj *Type) String() string {
 		if obj.Key == nil || obj.Val == nil {
 			panic("malformed map type")
 		}
-		return fmt.Sprintf("{%s: %s}", obj.Key.String(), obj.Val.String())
+		return fmt.Sprintf("map{%s: %s}", obj.Key.String(), obj.Val.String())
 
 	case KindStruct: // {a bool; b int}
 		if obj.Map == nil {

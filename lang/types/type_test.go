@@ -122,8 +122,8 @@ func TestType1(t *testing.T) {
 		},
 
 		// maps
-		"{}": nil, // invalid
-		"{str: str}": {
+		"map{}": nil, // invalid
+		"map{str: str}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -132,7 +132,7 @@ func TestType1(t *testing.T) {
 				Kind: KindStr,
 			},
 		},
-		"{str: int}": {
+		"map{str: int}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -141,7 +141,7 @@ func TestType1(t *testing.T) {
 				Kind: KindInt,
 			},
 		},
-		"{str: variant}": {
+		"map{str: variant}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -150,7 +150,7 @@ func TestType1(t *testing.T) {
 				Kind: KindVariant,
 			},
 		},
-		"{variant: int}": {
+		"map{variant: int}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindVariant,
@@ -159,7 +159,7 @@ func TestType1(t *testing.T) {
 				Kind: KindInt,
 			},
 		},
-		"{variant: variant}": {
+		"map{variant: variant}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindVariant,
@@ -170,7 +170,7 @@ func TestType1(t *testing.T) {
 		},
 
 		// nested maps
-		"{str: {int: bool}}": {
+		"map{str: map{int: bool}}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -185,7 +185,7 @@ func TestType1(t *testing.T) {
 				},
 			},
 		},
-		"{{int: bool}: str}": {
+		"map{map{int: bool}: str}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindMap,
@@ -200,7 +200,7 @@ func TestType1(t *testing.T) {
 				Kind: KindStr,
 			},
 		},
-		"{{str: int}: {int: bool}}": {
+		"map{map{str: int}: map{int: bool}}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindMap,
@@ -221,7 +221,7 @@ func TestType1(t *testing.T) {
 				},
 			},
 		},
-		"{str: {int: {int: bool}}}": {
+		"map{str: map{int: map{int: bool}}}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -394,7 +394,7 @@ func TestType1(t *testing.T) {
 		},
 
 		// mixed nesting
-		"{str: []struct{a bool; int []bool}}": {
+		"map{str: []struct{a bool; int []bool}}": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -421,7 +421,7 @@ func TestType1(t *testing.T) {
 				},
 			},
 		},
-		"struct{a {str: {struct{deeply int; nested bool}: {int: bool}}}; bb struct{z bool; yy int}; ccc str}": {
+		"struct{a map{str: map{struct{deeply int; nested bool}: map{int: bool}}}; bb struct{z bool; yy int}; ccc str}": {
 			Kind: KindStruct,
 			Ord: []string{
 				"a",
@@ -558,7 +558,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func({str: int}) bool": {
+		"func(map{str: int}) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -579,7 +579,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(bool, {str: int}) bool": {
+		"func(bool, map{str: int}) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -1243,7 +1243,7 @@ func TestType3(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(aaa {str: int}) bool": {
+		"func(aaa map{str: int}) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{

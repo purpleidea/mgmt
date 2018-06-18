@@ -38,7 +38,7 @@ func init() {
 		V: HasEnv,
 	})
 	Register("env", &types.FuncValue{
-		T: types.NewType("func() {str: str}"),
+		T: types.NewType("func() map{str: str}"),
 		V: Env,
 	})
 }
@@ -78,7 +78,7 @@ func Env(input []types.Value) (types.Value, error) {
 		}
 	}
 	return &types.MapValue{
-		T: types.NewType("{str: str}"),
+		T: types.NewType("map{str: str}"),
 		V: environ,
 	}, nil
 }

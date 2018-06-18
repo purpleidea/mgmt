@@ -60,7 +60,7 @@ func (obj *ExchangeFunc) Info() *interfaces.Info {
 		// TODO: do we want to allow this to be statically polymorphic,
 		// and have value be any type we might want?
 		// output is map of: hostname => value
-		Sig: types.NewType("func(namespace str, value str) {str: str}"),
+		Sig: types.NewType("func(namespace str, value str) map{str: str}"),
 		Err: obj.Validate(),
 	}
 }

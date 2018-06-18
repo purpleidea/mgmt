@@ -81,14 +81,14 @@ func TestPrint1(t *testing.T) {
 		}}: `[["a", "bb", "ccc"], ["d", "ee", "fff"], ["g", "hh", "iii"]]`,
 	}
 
-	d0 := NewMap(NewType("{str: int}"))
+	d0 := NewMap(NewType("map{str: int}"))
 	values[d0] = `{}`
 
-	d1 := NewMap(NewType("{str: int}"))
+	d1 := NewMap(NewType("map{str: int}"))
 	d1.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
 	values[d1] = `{"answer": 42}`
 
-	d2 := NewMap(NewType("{str: int}"))
+	d2 := NewMap(NewType("map{str: int}"))
 	d2.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
 	d2.Add(&StrValue{V: "hello"}, &IntValue{V: 13})
 	values[d2] = `{"answer": 42, "hello": 13}`
@@ -196,10 +196,10 @@ func TestReflectValue1(t *testing.T) {
 		}: `[[a bb ccc] [d ee fff] [g hh iii]]`,
 	}
 
-	d0 := NewMap(NewType("{str: int}"))
+	d0 := NewMap(NewType("map{str: int}"))
 	values[d0] = `map[]`
 
-	d1 := NewMap(NewType("{str: int}"))
+	d1 := NewMap(NewType("map{str: int}"))
 	d1.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
 	values[d1] = `map[answer:42]`
 
@@ -464,7 +464,7 @@ func TestSort1(t *testing.T) {
 }
 
 func TestMapReflectValue1(t *testing.T) {
-	d := NewMap(NewType("{str: int}"))
+	d := NewMap(NewType("map{str: int}"))
 	d.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
 	d.Add(&StrValue{V: "hello"}, &IntValue{V: 13})
 	// both are valid, since map's aren't sorted
@@ -480,7 +480,7 @@ func TestMapReflectValue1(t *testing.T) {
 		t.Errorf("did not match expected: `%s`", exp2)
 	}
 
-	d2 := NewMap(NewType("{str: str}"))
+	d2 := NewMap(NewType("map{str: str}"))
 	d2.Add(&StrValue{V: "answer"}, &StrValue{V: "42 hello:13"})
 	val2 := d2.Value()
 
@@ -512,7 +512,7 @@ func TestList1(t *testing.T) {
 }
 
 func TestMapLookup1(t *testing.T) {
-	d := NewMap(NewType("{str: int}"))
+	d := NewMap(NewType("map{str: int}"))
 	k := &StrValue{V: "answer"}
 	v := &IntValue{V: 42}
 	if err := d.Add(k, v); err != nil {

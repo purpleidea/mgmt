@@ -88,11 +88,19 @@ func (obj *Lang) Init() error {
 		obj.Logf("behold, the AST: %+v", ast)
 	}
 
-	// TODO: should we validate the structure of the AST?
-	// TODO: should we do this *after* interpolate, or trust it to behave?
-	//if err := ast.Validate(); err != nil {
-	//	return errwrap.Wrapf(err, "could not validate AST")
-	//}
+	obj.Logf("init...")
+	// init and validate the structure of the AST
+	data := &interfaces.Data{
+		Debug: obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			// TODO: is this a sane prefix to use here?
+			obj.Logf("ast: "+format, v...)
+		},
+	}
+	// some of this might happen *after* interpolate in SetScope or Unify...
+	if err := ast.Init(data); err != nil {
+		return errwrap.Wrapf(err, "could not init and validate AST")
+	}
 
 	obj.Logf("interpolating...")
 	// interpolate strings and other expansionable nodes in AST

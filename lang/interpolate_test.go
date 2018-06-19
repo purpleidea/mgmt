@@ -140,6 +140,19 @@ func TestInterpolate0(t *testing.T) {
 			}
 			t.Logf("test #%d: AST: %+v", index, ast)
 
+			data := &interfaces.Data{
+				Debug: true,
+				Logf: func(format string, v ...interface{}) {
+					t.Logf("ast: "+format, v...)
+				},
+			}
+			// some of this might happen *after* interpolate in SetScope or Unify...
+			if err := ast.Init(data); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+				return
+			}
+
 			iast, err := ast.Interpolate()
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
@@ -152,15 +165,26 @@ func TestInterpolate0(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(iast, exp) {
-				t.Errorf("test #%d: AST did not match expected", index)
-				// TODO: consider making our own recursive print function
-				t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
-				t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
-				if diff := pretty.Compare(iast, exp); diff != "" { // bonus
-					t.Logf("test #%d: diff:\n%s", index, diff)
+			// init exp so that the match will look identical...
+			if !fail {
+				if err := exp.Init(data); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: match init failed with: %+v", index, err)
+					return
 				}
-				return
+			}
+
+			if !reflect.DeepEqual(iast, exp) {
+				// double check because DeepEqual is different since the logf exists
+				diff := pretty.Compare(iast, exp)
+				if diff != "" { // bonus
+					t.Errorf("test #%d: AST did not match expected", index)
+					// TODO: consider making our own recursive print function
+					t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
+					t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
+					t.Logf("test #%d: diff:\n%s", index, diff)
+					return
+				}
 			}
 		})
 	}
@@ -346,6 +370,19 @@ func TestInterpolateBasicStmt(t *testing.T) {
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 
+			data := &interfaces.Data{
+				Debug: true,
+				Logf: func(format string, v ...interface{}) {
+					t.Logf("ast: "+format, v...)
+				},
+			}
+			// some of this might happen *after* interpolate in SetScope or Unify...
+			if err := ast.Init(data); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+				return
+			}
+
 			iast, err := ast.Interpolate()
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
@@ -358,15 +395,26 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(iast, exp) {
-				t.Errorf("test #%d: AST did not match expected", index)
-				// TODO: consider making our own recursive print function
-				t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
-				t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
-				if diff := pretty.Compare(iast, exp); diff != "" { // bonus
-					t.Logf("test #%d: diff:\n%s", index, diff)
+			// init exp so that the match will look identical...
+			if !fail {
+				if err := exp.Init(data); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: match init failed with: %+v", index, err)
+					return
 				}
-				return
+			}
+
+			if !reflect.DeepEqual(iast, exp) {
+				// double check because DeepEqual is different since the logf exists
+				diff := pretty.Compare(iast, exp)
+				if diff != "" { // bonus
+					t.Errorf("test #%d: AST did not match expected", index)
+					// TODO: consider making our own recursive print function
+					t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
+					t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
+					t.Logf("test #%d: diff:\n%s", index, diff)
+					return
+				}
 			}
 		})
 	}
@@ -637,6 +685,19 @@ func TestInterpolateBasicExpr(t *testing.T) {
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 
+			data := &interfaces.Data{
+				Debug: true,
+				Logf: func(format string, v ...interface{}) {
+					t.Logf("ast: "+format, v...)
+				},
+			}
+			// some of this might happen *after* interpolate in SetScope or Unify...
+			if err := ast.Init(data); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+				return
+			}
+
 			iast, err := ast.Interpolate()
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
@@ -649,15 +710,26 @@ func TestInterpolateBasicExpr(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(iast, exp) {
-				t.Errorf("test #%d: AST did not match expected", index)
-				// TODO: consider making our own recursive print function
-				t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
-				t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
-				if diff := pretty.Compare(iast, exp); diff != "" { // bonus
-					t.Logf("test #%d: diff:\n%s", index, diff)
+			// init exp so that the match will look identical...
+			if !fail {
+				if err := exp.Init(data); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: match init failed with: %+v", index, err)
+					return
 				}
-				return
+			}
+
+			if !reflect.DeepEqual(iast, exp) {
+				// double check because DeepEqual is different since the logf exists
+				diff := pretty.Compare(iast, exp)
+				if diff != "" { // bonus
+					t.Errorf("test #%d: AST did not match expected", index)
+					// TODO: consider making our own recursive print function
+					t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
+					t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
+					t.Logf("test #%d: diff:\n%s", index, diff)
+					return
+				}
 			}
 		})
 	}

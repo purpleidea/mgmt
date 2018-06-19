@@ -387,6 +387,19 @@ func TestAstFunc0(t *testing.T) {
 		}
 		t.Logf("test #%d: AST: %+v", index, ast)
 
+		data := &interfaces.Data{
+			Debug: true,
+			Logf: func(format string, v ...interface{}) {
+				t.Logf("ast: "+format, v...)
+			},
+		}
+		// some of this might happen *after* interpolate in SetScope or Unify...
+		if err := ast.Init(data); err != nil {
+			t.Errorf("test #%d: FAIL", index)
+			t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+			return
+		}
+
 		iast, err := ast.Interpolate()
 		if err != nil {
 			t.Errorf("test #%d: FAIL", index)
@@ -599,6 +612,19 @@ func TestAstInterpret0(t *testing.T) {
 			continue
 		}
 		t.Logf("test #%d: AST: %+v", index, ast)
+
+		data := &interfaces.Data{
+			Debug: true,
+			Logf: func(format string, v ...interface{}) {
+				t.Logf("ast: "+format, v...)
+			},
+		}
+		// some of this might happen *after* interpolate in SetScope or Unify...
+		if err := ast.Init(data); err != nil {
+			t.Errorf("test #%d: FAIL", index)
+			t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+			return
+		}
 
 		// these tests only work in certain cases, since this does not
 		// perform type unification, run the function graph engine, and

@@ -23,15 +23,11 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 )
 
-const (
-	// Debug enables debugging for some commonly used debug information.
-	Debug = false
-)
-
 // Stmt represents a statement node in the language. A stmt could be a resource,
 // a `bind` statement, or even an `if` statement. (Different from an `if`
 // expression.)
 type Stmt interface {
+	Init(*Data) error            // initialize the populated node and validate
 	Interpolate() (Stmt, error)  // return expanded form of AST as a new AST
 	SetScope(*Scope) error       // set the scope here and propagate it downwards
 	Unify() ([]Invariant, error) // TODO: is this named correctly?
@@ -45,6 +41,7 @@ type Stmt interface {
 // these can be stored as pointers in our graph data structure.
 type Expr interface {
 	pgraph.Vertex               // must implement this since we store these in our graphs
+	Init(*Data) error           // initialize the populated node and validate
 	Interpolate() (Expr, error) // return expanded form of AST as a new AST
 	SetScope(*Scope) error      // set the scope here and propagate it downwards
 	SetType(*types.Type) error  // sets the type definitively, errors if incompatible
@@ -54,6 +51,15 @@ type Expr interface {
 	Func() (Func, error) // a function that represents this reactively
 	SetValue(types.Value) error
 	Value() (types.Value, error)
+}
+
+// Data provides some data to the node that could be useful during its lifetime.
+type Data struct {
+	// Debug represents if we're running in debug mode or not.
+	Debug bool
+
+	// Logf is a logger which should be used.
+	Logf func(format string, v ...interface{})
 }
 
 // Scope represents a mapping between a variables identifier and the

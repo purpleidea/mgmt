@@ -19,7 +19,6 @@ package lang // TODO: move this into a sub package of lang/$name?
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"strings"
 
@@ -59,6 +58,12 @@ const (
 type StmtBind struct {
 	Ident string
 	Value interfaces.Expr
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtBind) Init(data *interfaces.Data) error {
+	return obj.Value.Init(data)
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -120,9 +125,26 @@ func (obj *StmtBind) Output() (*interfaces.Output, error) {
 // Res's in the Output function. Alternatively, it could be a map[name]struct{},
 // or even a map[[]name]struct{}.
 type StmtRes struct {
+	data *interfaces.Data
+
 	Kind     string            // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr   // unique name for the res of this kind
 	Contents []StmtResContents // list of fields/edges in parsed order
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtRes) Init(data *interfaces.Data) error {
+	obj.data = data
+	if err := obj.Name.Init(data); err != nil {
+		return err
+	}
+	for _, x := range obj.Contents {
+		if err := x.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -144,6 +166,7 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtRes{
+		data:     obj.data,
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
@@ -322,8 +345,8 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 		}
 
 		// all our int's are src kind == reflect.Int64 in our language!
-		if interfaces.Debug {
-			log.Printf("field `%s`: type(%+v), expected(%+v)", x.Field, typ, tkk)
+		if obj.data.Debug {
+			obj.data.Logf("field `%s`: type(%+v), expected(%+v)", x.Field, typ, tkk)
 		}
 
 		// overflow check
@@ -353,15 +376,15 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 		// finally build a new value to set
 		tt := tf.Type
 		kk := tt.Kind()
-		if interfaces.Debug {
-			log.Printf("field `%s`: start(%v)->kind(%v)", x.Field, tt, kk)
+		if obj.data.Debug {
+			obj.data.Logf("field `%s`: start(%v)->kind(%v)", x.Field, tt, kk)
 		}
 		//fmt.Printf("start: %v || %+v\n", tt, kk)
 		for kk == reflect.Ptr {
 			tt = tt.Elem() // un-nest one pointer
 			kk = tt.Kind()
-			if interfaces.Debug {
-				log.Printf("field `%s`:\tloop(%v)->kind(%v)", x.Field, tt, kk)
+			if obj.data.Debug {
+				obj.data.Logf("field `%s`:\tloop(%v)->kind(%v)", x.Field, tt, kk)
 			}
 			// wrap in ptr by one level
 			valof := reflect.ValueOf(value.Interface())
@@ -498,6 +521,7 @@ func (obj *StmtRes) edges() ([]*interfaces.Edge, error) {
 // StmtResContents is the interface that is met by the resource contents. Look
 // closely for while it is similar to the Stmt interface, it is quite different.
 type StmtResContents interface {
+	Init(*interfaces.Data) error
 	Interpolate() (StmtResContents, error) // different!
 	SetScope(*interfaces.Scope) error
 	Unify(kind string) ([]interfaces.Invariant, error) // different!
@@ -510,6 +534,17 @@ type StmtResField struct {
 	Field     string
 	Value     interfaces.Expr
 	Condition interfaces.Expr // the value will be used if nil or true
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtResField) Init(data *interfaces.Data) error {
+	if obj.Condition != nil {
+		if err := obj.Condition.Init(data); err != nil {
+			return err
+		}
+	}
+	return obj.Value.Init(data)
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -647,6 +682,17 @@ type StmtResEdge struct {
 	Condition interfaces.Expr // the value will be used if nil or true
 }
 
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtResEdge) Init(data *interfaces.Data) error {
+	if obj.Condition != nil {
+		if err := obj.Condition.Init(data); err != nil {
+			return err
+		}
+	}
+	return obj.EdgeHalf.Init(data)
+}
+
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
@@ -762,6 +808,17 @@ type StmtEdge struct {
 
 	// TODO: should notify be an Expr?
 	Notify bool // specifies that this edge sends a notification as well
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtEdge) Init(data *interfaces.Data) error {
+	for _, x := range obj.EdgeHalfList {
+		if err := x.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -908,6 +965,12 @@ type StmtEdgeHalf struct {
 	SendRecv string          // name of field to send/recv from, empty to ignore
 }
 
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
+	return obj.Name.Init(data)
+}
+
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
@@ -981,6 +1044,25 @@ type StmtIf struct {
 	Condition  interfaces.Expr
 	ThenBranch interfaces.Stmt // optional, but usually present
 	ElseBranch interfaces.Stmt // optional
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtIf) Init(data *interfaces.Data) error {
+	if err := obj.Condition.Init(data); err != nil {
+		return err
+	}
+	if obj.ThenBranch != nil {
+		if err := obj.ThenBranch.Init(data); err != nil {
+			return err
+		}
+	}
+	if obj.ElseBranch != nil {
+		if err := obj.ElseBranch.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -1149,7 +1231,21 @@ func (obj *StmtIf) Output() (*interfaces.Output, error) {
 // the bind statement's are correctly applied in this scope, and irrespective of
 // their order of definition.
 type StmtProg struct {
+	data *interfaces.Data
+
 	Prog []interfaces.Stmt
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtProg) Init(data *interfaces.Data) error {
+	obj.data = data
+	for _, x := range obj.Prog {
+		if err := x.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -1165,6 +1261,7 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 		prog = append(prog, interpolated)
 	}
 	return &StmtProg{
+		data: obj.data,
 		Prog: prog,
 	}, nil
 }
@@ -1321,6 +1418,12 @@ type StmtClass struct {
 	Body interfaces.Stmt // probably a *StmtProg
 }
 
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtClass) Init(data *interfaces.Data) error {
+	return obj.Body.Init(data)
+}
+
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
@@ -1389,6 +1492,19 @@ type StmtInclude struct {
 
 	Name string
 	Args []interfaces.Expr
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtInclude) Init(data *interfaces.Data) error {
+	if obj.Args != nil {
+		for _, x := range obj.Args {
+			if err := x.Init(data); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -1580,6 +1696,12 @@ type StmtComment struct {
 	Value string
 }
 
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtComment) Init(*interfaces.Data) error {
+	return nil
+}
+
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
@@ -1627,6 +1749,10 @@ type ExprBool struct {
 
 // String returns a short representation of this expression.
 func (obj *ExprBool) String() string { return fmt.Sprintf("bool(%t)", obj.V) }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprBool) Init(*interfaces.Data) error { return nil }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -1707,11 +1833,20 @@ func (obj *ExprBool) Value() (types.Value, error) {
 
 // ExprStr is a representation of a string.
 type ExprStr struct {
+	data *interfaces.Data
+
 	V string // value of this string
 }
 
 // String returns a short representation of this expression.
 func (obj *ExprStr) String() string { return fmt.Sprintf("str(%s)", obj.V) }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprStr) Init(data *interfaces.Data) error {
+	obj.data = data
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -1727,13 +1862,20 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 		//Line: -1, // TODO
 		//Filename: "", // optional source filename, if known
 	}
-	result, err := InterpolateStr(obj.V, pos)
+	info := &InterpolateInfo{
+		Debug: obj.data.Debug,
+		Logf: func(format string, v ...interface{}) {
+			obj.data.Logf("interpolate: "+format, v...)
+		},
+	}
+	result, err := InterpolateStr(obj.V, pos, info)
 	if err != nil {
 		return nil, err
 	}
 	if result == nil {
 		return &ExprStr{
-			V: obj.V,
+			data: obj.data,
+			V:    obj.V,
 		}, nil
 	}
 	// we got something, overwrite the existing static str
@@ -1814,6 +1956,10 @@ type ExprInt struct {
 
 // String returns a short representation of this expression.
 func (obj *ExprInt) String() string { return fmt.Sprintf("int(%d)", obj.V) }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprInt) Init(*interfaces.Data) error { return nil }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -1901,6 +2047,10 @@ type ExprFloat struct {
 func (obj *ExprFloat) String() string {
 	return fmt.Sprintf("float(%g)", obj.V) // TODO: %f instead?
 }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprFloat) Init(*interfaces.Data) error { return nil }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -1994,6 +2144,17 @@ func (obj *ExprList) String() string {
 		s = append(s, x.String())
 	}
 	return fmt.Sprintf("list(%s)", strings.Join(s, ", "))
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprList) Init(data *interfaces.Data) error {
+	for _, x := range obj.Elements {
+		if err := x.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -2239,6 +2400,20 @@ func (obj *ExprMap) String() string {
 		s = append(s, fmt.Sprintf("%s: %s", x.Key.String(), x.Val.String()))
 	}
 	return fmt.Sprintf("map(%s)", strings.Join(s, ", "))
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprMap) Init(data *interfaces.Data) error {
+	for _, x := range obj.KVs {
+		if err := x.Key.Init(data); err != nil {
+			return err
+		}
+		if err := x.Val.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -2581,6 +2756,17 @@ func (obj *ExprStruct) String() string {
 	return fmt.Sprintf("struct(%s)", strings.Join(s, "; "))
 }
 
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprStruct) Init(data *interfaces.Data) error {
+	for _, x := range obj.Fields {
+		if err := x.Value.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
@@ -2839,6 +3025,10 @@ type ExprFunc struct {
 // we have a better printable function value and put that here instead.
 func (obj *ExprFunc) String() string { return fmt.Sprintf("func(???)") } // TODO: print nicely
 
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprFunc) Init(*interfaces.Data) error { return nil }
+
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
@@ -2997,6 +3187,17 @@ func (obj *ExprCall) buildFunc() (interfaces.Func, error) {
 		}
 	}
 	return fn, nil
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprCall) Init(data *interfaces.Data) error {
+	for _, x := range obj.Args {
+		if err := x.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -3374,6 +3575,10 @@ type ExprVar struct {
 // String returns a short representation of this expression.
 func (obj *ExprVar) String() string { return fmt.Sprintf("var(%s)", obj.Name) }
 
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprVar) Init(*interfaces.Data) error { return nil }
+
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
@@ -3596,6 +3801,21 @@ type ExprIf struct {
 // String returns a short representation of this expression.
 func (obj *ExprIf) String() string {
 	return fmt.Sprintf("if(%s)", obj.Condition.String()) // TODO: improve this
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprIf) Init(data *interfaces.Data) error {
+	if err := obj.Condition.Init(data); err != nil {
+		return err
+	}
+	if err := obj.ThenBranch.Init(data); err != nil {
+		return err
+	}
+	if err := obj.ElseBranch.Init(data); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This

@@ -7,6 +7,7 @@
 [![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/purpleidea/mgmt)
 [![IRC](https://img.shields.io/badge/irc-%23mgmtconfig-orange.svg?style=flat-square)](https://webchat.freenode.net/?channels=#mgmtconfig)
 [![Patreon](https://img.shields.io/badge/patreon-donate-yellow.svg?style=flat-square)](https://www.patreon.com/purpleidea)
+[![Liberapay](https://img.shields.io/badge/liberapay-donate-yellow.svg?style=flat-square)](https://liberapay.com/purpleidea/donate)
 
 ## Community:
 
@@ -18,6 +19,7 @@ Come join us in the `mgmt` community!
 | Twitter | [@mgmtconfig](https://twitter.com/mgmtconfig) & [#mgmtconfig](https://twitter.com/hashtag/mgmtconfig) |
 | Mailing list | [mgmtconfig-list@redhat.com](https://www.redhat.com/mailman/listinfo/mgmtconfig-list) |
 | Patreon | [purpleidea](https://www.patreon.com/purpleidea) on Patreon |
+| Liberapay | [purpleidea](https://liberapay.com/purpleidea/donate) on Liberapay |
 
 ## Status:
 

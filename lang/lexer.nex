@@ -149,6 +149,11 @@
 			lval.str = yylex.Text()
 			return DOT
 		}
+/\$/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return DOLLAR
+		}
 /bool/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

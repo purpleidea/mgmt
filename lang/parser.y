@@ -79,7 +79,7 @@ func init() {
 %token OPEN_BRACK CLOSE_BRACK
 %token IF ELSE
 %token STRING BOOL INTEGER FLOAT
-%token EQUALS
+%token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
 %token ELVIS ROCKET ARROW DOT
 %token STR_IDENTIFIER BOOL_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
@@ -211,7 +211,7 @@ stmt:
 		}
 	}
 	// `include name`
-|	INCLUDE_IDENTIFIER IDENTIFIER
+|	INCLUDE_IDENTIFIER dotted_identifier
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &StmtInclude{
@@ -219,7 +219,7 @@ stmt:
 		}
 	}
 	// `include name(...)`
-|	INCLUDE_IDENTIFIER IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
+|	INCLUDE_IDENTIFIER dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &StmtInclude{
@@ -405,7 +405,7 @@ struct_field:
 	}
 ;
 call:
-	IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
+	dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ExprCall{
@@ -610,7 +610,10 @@ call:
 			},
 		}
 	}
-//|	VAR_IDENTIFIER OPEN_CURLY INTEGER CLOSE_CURLY
+// TODO: fix conflicts with this method, and replace the above VAR_IDENTIFIER_HX
+// TODO: allow $pkg.ns.foo{4}, instead of $foo = $pkg.ns.foo ; $foo{4}
+// TODO: use this: dotted_var_identifier OPEN_BRACK INTEGER CLOSE_BRACK instead?
+//|	dotted_var_identifier OPEN_CURLY INTEGER CLOSE_CURLY
 //	{
 //		posLast(yylex, yyDollar) // our pos
 //		$$.expr = &ExprCall{
@@ -658,7 +661,7 @@ call_args:
 	}
 ;
 var:
-	VAR_IDENTIFIER
+	dotted_var_identifier
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ExprVar{
@@ -950,6 +953,39 @@ type_struct_field:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = fmt.Sprintf("%s %s", $1.str, $2.typ.String())
+	}
+;
+dotted_identifier:
+	IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
+|	dotted_identifier DOT IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str + "." + $3.str
+	}
+;
+// there are different ways the lexer/parser might choose to represent this...
+dotted_var_identifier:
+	// eg: $foo (no dots)
+	VAR_IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
+	// eg: $foo . bar.baz (identifier + dotted identifier)
+|	VAR_IDENTIFIER DOT dotted_identifier
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str + "." + $3.str
+	}
+	// eg: $ foo.bar.baz (dollar prefix + dotted identifier)
+|	DOLLAR dotted_identifier
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $2.str
 	}
 ;
 %%

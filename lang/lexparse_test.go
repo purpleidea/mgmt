@@ -318,6 +318,216 @@ func TestLexParse0(t *testing.T) {
 	{
 		exp := &StmtProg{
 			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "x1",
+					Value: &ExprCall{
+						Name: "foo1",
+						Args: []interfaces.Expr{},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "func call 1",
+			code: `
+			$x1 = foo1()
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "x1",
+					Value: &ExprCall{
+						Name: "foo1",
+						Args: []interfaces.Expr{
+							&ExprInt{
+								V: 13,
+							},
+							&ExprStr{
+								V: "hello",
+							},
+						},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "func call 2",
+			code: `
+			$x1 = foo1(13, "hello")
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "x1",
+					Value: &ExprCall{
+						Name: "pkg.foo1",
+						Args: []interfaces.Expr{},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "func call dotted 1",
+			code: `
+			$x1 = pkg.foo1()
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "x1",
+					Value: &ExprCall{
+						Name: "pkg.foo1",
+						Args: []interfaces.Expr{
+							&ExprBool{
+								V: true,
+							},
+							&ExprStr{
+								V: "hello",
+							},
+						},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "func call dotted 2",
+			code: `
+			$x1 = pkg.foo1(true, "hello")
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "func call dotted invalid 1",
+			code: `
+			$x1 = .pkg.foo1(true, "hello")
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "func call dotted invalid 2",
+			code: `
+			$x1 = pkg.foo1.(true, "hello")
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "func call dotted invalid 3",
+			code: `
+			$x1 = .pkg.foo1.(true, "hello")
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "func call dotted invalid 4",
+			code: `
+			$x1 = pkg..foo1(true, "hello")
+			`,
+			fail: true,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "x1",
+					Value: &ExprVar{
+						Name: "pkg.foo1",
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "dotted var 1",
+			code: `
+			$x1 = $pkg.foo1
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "x1",
+					Value: &ExprVar{
+						Name: "pkg.foo1.bar",
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "dotted var 2",
+			code: `
+			$x1 = $pkg.foo1.bar
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "invalid dotted var 1",
+			code: `
+			$x1 = $.pkg.foo1.bar
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "invalid dotted var 2",
+			code: `
+			$x1 = $pkg.foo1.bar.
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "invalid dotted var 3",
+			code: `
+			$x1 = $.pkg.foo1.bar.
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "invalid dotted var 4",
+			code: `
+			$x1 = $pkg..foo1.bar
+			`,
+			fail: true,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -901,6 +1111,158 @@ func TestLexParse0(t *testing.T) {
 			`,
 			fail: false,
 			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtClass{
+					Name: "c1",
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{
+							&StmtRes{
+								Kind: "test",
+								Name: &ExprStr{
+									V: "t1",
+								},
+								Contents: []StmtResContents{
+									&StmtResField{
+										Field: "stringptr",
+										Value: &ExprStr{
+											V: "hello",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "pkg.c1",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple dotted class 1",
+			code: `
+			# a dotted identifier only occurs via an imported class
+			class c1 {
+				test "t1" {
+					stringptr => "hello",
+				}
+			}
+			# a dotted identifier is allowed here if it's imported
+			include pkg.c1
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtClass{
+					Name: "c1",
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{
+							&StmtRes{
+								Kind: "test",
+								Name: &ExprStr{
+									V: "t1",
+								},
+								Contents: []StmtResContents{
+									&StmtResField{
+										Field: "stringptr",
+										Value: &ExprStr{
+											V: "hello",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "pkg.ns.c1",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple dotted class 2",
+			code: `
+			# a dotted identifier only occurs via an imported class
+			class c1 {
+				test "t1" {
+					stringptr => "hello",
+				}
+			}
+			# a dotted identifier is allowed here if it's imported
+			include pkg.ns.c1
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "simple dotted invalid class 1",
+			code: `
+			# a dotted identifier only occurs via an imported class
+			class foo.c1 {
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "simple dotted invalid class 2",
+			code: `
+			# a dotted identifier only occurs via an imported class
+			class foo.bar.c1 {
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "simple dotted invalid include 1",
+			code: `
+			class .foo.c1 {
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "simple dotted invalid include 2",
+			code: `
+			class foo.c1. {
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "simple dotted invalid include 3",
+			code: `
+			class .foo.c1. {
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "simple dotted invalid include 4",
+			code: `
+			class foo..c1 {
+			}
+			`,
+			fail: true,
 		})
 	}
 	{

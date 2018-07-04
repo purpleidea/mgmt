@@ -60,6 +60,18 @@ type StmtBind struct {
 	Value interfaces.Expr
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtBind) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Value.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtBind) Init(data *interfaces.Data) error {
@@ -130,6 +142,23 @@ type StmtRes struct {
 	Kind     string            // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr   // unique name for the res of this kind
 	Contents []StmtResContents // list of fields/edges in parsed order
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Name.Apply(fn); err != nil {
+		return err
+	}
+	for _, x := range obj.Contents {
+		if err := x.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -521,6 +550,7 @@ func (obj *StmtRes) edges() ([]*interfaces.Edge, error) {
 // StmtResContents is the interface that is met by the resource contents. Look
 // closely for while it is similar to the Stmt interface, it is quite different.
 type StmtResContents interface {
+	interfaces.Node
 	Init(*interfaces.Data) error
 	Interpolate() (StmtResContents, error) // different!
 	SetScope(*interfaces.Scope) error
@@ -534,6 +564,23 @@ type StmtResField struct {
 	Field     string
 	Value     interfaces.Expr
 	Condition interfaces.Expr // the value will be used if nil or true
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtResField) Apply(fn func(interfaces.Node) error) error {
+	if obj.Condition != nil {
+		if err := obj.Condition.Apply(fn); err != nil {
+			return err
+		}
+	}
+	if err := obj.Value.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -682,6 +729,23 @@ type StmtResEdge struct {
 	Condition interfaces.Expr // the value will be used if nil or true
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtResEdge) Apply(fn func(interfaces.Node) error) error {
+	if obj.Condition != nil {
+		if err := obj.Condition.Apply(fn); err != nil {
+			return err
+		}
+	}
+	if err := obj.EdgeHalf.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResEdge) Init(data *interfaces.Data) error {
@@ -808,6 +872,20 @@ type StmtEdge struct {
 
 	// TODO: should notify be an Expr?
 	Notify bool // specifies that this edge sends a notification as well
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtEdge) Apply(fn func(interfaces.Node) error) error {
+	for _, x := range obj.EdgeHalfList {
+		if err := x.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -965,6 +1043,18 @@ type StmtEdgeHalf struct {
 	SendRecv string          // name of field to send/recv from, empty to ignore
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtEdgeHalf) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Name.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
@@ -1044,6 +1134,28 @@ type StmtIf struct {
 	Condition  interfaces.Expr
 	ThenBranch interfaces.Stmt // optional, but usually present
 	ElseBranch interfaces.Stmt // optional
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtIf) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Condition.Apply(fn); err != nil {
+		return err
+	}
+	if obj.ThenBranch != nil {
+		if err := obj.ThenBranch.Apply(fn); err != nil {
+			return err
+		}
+	}
+	if obj.ElseBranch != nil {
+		if err := obj.ElseBranch.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -1236,6 +1348,20 @@ type StmtProg struct {
 	Prog []interfaces.Stmt
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtProg) Apply(fn func(interfaces.Node) error) error {
+	for _, x := range obj.Prog {
+		if err := x.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtProg) Init(data *interfaces.Data) error {
@@ -1418,6 +1544,18 @@ type StmtClass struct {
 	Body interfaces.Stmt // probably a *StmtProg
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtClass) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Body.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtClass) Init(data *interfaces.Data) error {
@@ -1492,6 +1630,22 @@ type StmtInclude struct {
 
 	Name string
 	Args []interfaces.Expr
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
+	if obj.Args != nil {
+		for _, x := range obj.Args {
+			if err := x.Apply(fn); err != nil {
+				return err
+			}
+		}
+	}
+	return fn(obj)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -1696,6 +1850,13 @@ type StmtComment struct {
 	Value string
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtComment) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtComment) Init(*interfaces.Data) error {
@@ -1746,6 +1907,13 @@ func (obj *StmtComment) Output() (*interfaces.Output, error) {
 type ExprBool struct {
 	V bool
 }
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprBool) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
 
 // String returns a short representation of this expression.
 func (obj *ExprBool) String() string { return fmt.Sprintf("bool(%t)", obj.V) }
@@ -1837,6 +2005,13 @@ type ExprStr struct {
 
 	V string // value of this string
 }
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprStr) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
 
 // String returns a short representation of this expression.
 func (obj *ExprStr) String() string { return fmt.Sprintf("str(%s)", obj.V) }
@@ -1954,6 +2129,13 @@ type ExprInt struct {
 	V int64
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprInt) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
 // String returns a short representation of this expression.
 func (obj *ExprInt) String() string { return fmt.Sprintf("int(%d)", obj.V) }
 
@@ -2042,6 +2224,13 @@ func (obj *ExprInt) Value() (types.Value, error) {
 type ExprFloat struct {
 	V float64
 }
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprFloat) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
 
 // String returns a short representation of this expression.
 func (obj *ExprFloat) String() string {
@@ -2135,6 +2324,20 @@ type ExprList struct {
 
 	//Elements []*ExprListElement
 	Elements []interfaces.Expr
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprList) Apply(fn func(interfaces.Node) error) error {
+	for _, x := range obj.Elements {
+		if err := x.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
 }
 
 // String returns a short representation of this expression.
@@ -2391,6 +2594,23 @@ type ExprMap struct {
 	typ *types.Type
 
 	KVs []*ExprMapKV
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprMap) Apply(fn func(interfaces.Node) error) error {
+	for _, x := range obj.KVs {
+		if err := x.Key.Apply(fn); err != nil {
+			return err
+		}
+		if err := x.Val.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
 }
 
 // String returns a short representation of this expression.
@@ -2747,6 +2967,20 @@ type ExprStruct struct {
 	Fields []*ExprStructField // the list (fields) are intentionally ordered!
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprStruct) Apply(fn func(interfaces.Node) error) error {
+	for _, x := range obj.Fields {
+		if err := x.Value.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
+}
+
 // String returns a short representation of this expression.
 func (obj *ExprStruct) String() string {
 	var s []string
@@ -3020,6 +3254,16 @@ type ExprFunc struct {
 	V func([]types.Value) (types.Value, error)
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprFunc) Apply(fn func(interfaces.Node) error) error {
+	// TODO: is there anything to iterate in here?
+	return fn(obj)
+}
+
 // String returns a short representation of this expression.
 // FIXME: fmt.Sprintf("func(%+v)", obj.V) fails `go vet` (bug?), so wait until
 // we have a better printable function value and put that here instead.
@@ -3117,6 +3361,20 @@ type ExprCall struct {
 
 	Name string
 	Args []interfaces.Expr // list of args in parsed order
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprCall) Apply(fn func(interfaces.Node) error) error {
+	for _, x := range obj.Args {
+		if err := x.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
 }
 
 // String returns a short representation of this expression.
@@ -3572,6 +3830,13 @@ type ExprVar struct {
 	Name string // name of the variable
 }
 
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprVar) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
 // String returns a short representation of this expression.
 func (obj *ExprVar) String() string { return fmt.Sprintf("var(%s)", obj.Name) }
 
@@ -3796,6 +4061,24 @@ type ExprIf struct {
 	Condition  interfaces.Expr
 	ThenBranch interfaces.Expr // could be an ExprBranch
 	ElseBranch interfaces.Expr // could be an ExprBranch
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprIf) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Condition.Apply(fn); err != nil {
+		return err
+	}
+	if err := obj.ThenBranch.Apply(fn); err != nil {
+		return err
+	}
+	if err := obj.ElseBranch.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
 }
 
 // String returns a short representation of this expression.

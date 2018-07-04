@@ -23,10 +23,18 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 )
 
+// Node represents either a Stmt or an Expr. It contains the minimum set of
+// methods that they must both implement. In practice it is not used especially
+// often since we usually know which kind of node we want.
+type Node interface {
+	Apply(fn func(Node) error) error
+}
+
 // Stmt represents a statement node in the language. A stmt could be a resource,
 // a `bind` statement, or even an `if` statement. (Different from an `if`
 // expression.)
 type Stmt interface {
+	Node
 	Init(*Data) error            // initialize the populated node and validate
 	Interpolate() (Stmt, error)  // return expanded form of AST as a new AST
 	SetScope(*Scope) error       // set the scope here and propagate it downwards
@@ -40,6 +48,7 @@ type Stmt interface {
 // easily copied and moved around. Expr also implements pgraph.Vertex so that
 // these can be stored as pointers in our graph data structure.
 type Expr interface {
+	Node
 	pgraph.Vertex               // must implement this since we store these in our graphs
 	Init(*Data) error           // initialize the populated node and validate
 	Interpolate() (Expr, error) // return expanded form of AST as a new AST

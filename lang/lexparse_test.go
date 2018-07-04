@@ -20,6 +20,7 @@
 package lang
 
 import (
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -1517,5 +1518,63 @@ func TestLexParse2(t *testing.T) {
 		t.Logf("row x col: %d x %d", e.Row, e.Col)
 		t.Logf("message: %s", e.Str)
 		t.Logf("output: %+v", err)
+	}
+}
+
+func TestLexParseWithOffsets1(t *testing.T) {
+	code1 := `
+	# "file1"
+	$a = 42
+	$b = true
+	$c = 13
+	$d = "hello"
+	$e = true
+	$f = 3.13
+	`
+	code2 := `
+	# "file2"
+	# some noop resource
+	noop "n0" {
+		foo => true,
+		bar => false	# this should be a parser error (no comma)
+	}
+	# hello
+	# world
+	test "t2" {}
+	`
+	code3 := `
+	# "file3"
+	# this is some more code
+	test "t3" {}
+	`
+	str1 := strings.NewReader(code1)
+	str2 := strings.NewReader(code2)
+	str3 := strings.NewReader(code3)
+	// TODO: this is currently in number of lines instead of bytes
+	o1 := uint64(len(strings.Split(code1, "\n")) - 1)
+	o2 := uint64(len(strings.Split(code2, "\n")) - 1)
+	//o1 := uint64(len(code1))
+	//o2 := uint64(len(code2))
+	t.Logf("o1: %+v", o1)
+	t.Logf("o2: %+v", o2)
+	t.Logf("o1+o2: %+v", o1+o2)
+	readers := io.MultiReader(str1, str2, str3)
+	offsets := map[uint64]string{
+		0:       "file1",
+		o1:      "file2",
+		o1 + o2: "file3", // offset is cumulative
+	}
+	_, err := LexParseWithOffsets(readers, offsets)
+	if e, ok := err.(*LexParseErr); ok && e.Err != ErrParseExpectingComma {
+		t.Errorf("lex/parse failure, got: %+v", e)
+	} else if err == nil {
+		t.Errorf("lex/parse success, expected error")
+	} else {
+		if e.Row != 5 || e.Col != 9 || e.Filename != "file2" {
+			t.Errorf("expected error in 'file2' @ 5 x 9, got: '%s' @ %d x %d", e.Filename, e.Row, e.Col)
+		}
+		t.Logf("file @ row x col: '%s' @ %d x %d", e.Filename, e.Row, e.Col)
+		t.Logf("message: %s", e.Str)
+		t.Logf("output: %+v", err) // this will be 1-indexed, instead of zero-indexed
 	}
 }

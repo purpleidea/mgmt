@@ -455,3 +455,41 @@ func (obj PathSlice) Less(i, j int) bool {
 	}
 	return true
 }
+
+// UInt64Slice attaches the methods of sort.Interface to []uint64, sorting in
+// increasing order.
+type UInt64Slice []uint64
+
+// Len returns the length of the slice of uint64's.
+func (obj UInt64Slice) Len() int { return len(obj) }
+
+// Less returns the smaller element in the sort order.
+func (obj UInt64Slice) Less(i, j int) bool { return obj[i] < obj[j] }
+
+// Swap swaps two elements in the slice.
+func (obj UInt64Slice) Swap(i, j int) { obj[i], obj[j] = obj[j], obj[i] }
+
+// Sort is a convenience method.
+func (obj UInt64Slice) Sort() { sort.Sort(obj) }
+
+// SortMapStringValuesByUInt64Keys builds a list of strings, sorted by the
+// corresponding key that is associated with that value.
+// TODO: add some tests
+func SortMapStringValuesByUInt64Keys(m map[uint64]string) []string {
+	//if m == nil { // no need to special case this, range handles it safely
+	//	return []string{}
+	//}
+	keys := []uint64{}
+	for i := range m {
+		keys = append(keys, i)
+	}
+	sort.Sort(UInt64Slice(keys))
+
+	result := []string{}
+	for _, key := range keys {
+		s := m[key]
+		result = append(result, s)
+	}
+
+	return result
+}

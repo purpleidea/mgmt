@@ -905,3 +905,53 @@ func TestPathSliceSort(t *testing.T) {
 		}
 	}
 }
+
+func TestSortUInt64Slice(t *testing.T) {
+	slice0 := []uint64{42, 13, 0}
+	sort.Sort(UInt64Slice(slice0))
+	if slice0[0] != 0 || slice0[1] != 13 || slice0[2] != 42 {
+		t.Errorf("input slice reordered to: %v", slice0)
+	}
+
+	slice1 := []uint64{99, 12, 13}
+	sort.Sort(UInt64Slice(slice1))
+	if slice1[0] != 12 || slice1[1] != 13 || slice1[2] != 99 {
+		t.Errorf("input slice reordered to: %v", slice1)
+	}
+}
+
+func TestSortMapStringValuesByUInt64Keys(t *testing.T) {
+	if x := len(SortMapStringValuesByUInt64Keys(nil)); x != 0 {
+		t.Errorf("input map of nil caused a: %d", x)
+	}
+
+	map0 := map[uint64]string{
+		42: "world",
+		34: "there",
+		13: "hello",
+	}
+	slice0 := SortMapStringValuesByUInt64Keys(map0)
+	if slice0[0] != "hello" || slice0[1] != "there" || slice0[2] != "world" {
+		t.Errorf("input slice reordered to: %v", slice0)
+	}
+
+	map1 := map[uint64]string{
+		99: "a",
+		12: "c",
+		13: "b",
+	}
+	slice1 := SortMapStringValuesByUInt64Keys(map1)
+	if slice1[0] != "c" || slice1[1] != "b" || slice1[2] != "a" {
+		t.Errorf("input slice reordered to: %v", slice1)
+	}
+
+	map2 := map[uint64]string{
+		12:    "c",
+		0:     "d",
+		44442: "b",
+	}
+	slice2 := SortMapStringValuesByUInt64Keys(map2)
+	if slice2[0] != "d" || slice2[1] != "c" || slice2[2] != "b" {
+		t.Errorf("input slice reordered to: %v", slice2)
+	}
+}

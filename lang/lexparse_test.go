@@ -20,6 +20,7 @@
 package lang
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -1576,5 +1577,215 @@ func TestLexParseWithOffsets1(t *testing.T) {
 		t.Logf("file @ row x col: '%s' @ %d x %d", e.Filename, e.Row, e.Col)
 		t.Logf("message: %s", e.Str)
 		t.Logf("output: %+v", err) // this will be 1-indexed, instead of zero-indexed
+	}
+}
+
+func TestImportParsing0(t *testing.T) {
+	type test struct { // an individual test
+		name   string
+		fail   bool
+		alias  string
+		system bool
+		local  bool
+		path   string
+	}
+	testCases := []test{}
+	testCases = append(testCases, test{ // index: 0
+		name: "",
+		fail: true, // can't be empty
+	})
+	testCases = append(testCases, test{
+		name: "/",
+		fail: true, // can't be root
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/mgmt",
+		alias: "mgmt",
+		local: false,
+		path:  "example.com/purpleidea/mgmt/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/mgmt/",
+		alias: "mgmt",
+		local: false,
+		path:  "example.com/purpleidea/mgmt/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/mgmt/foo/bar/",
+		alias: "bar",
+		local: false,
+		path:  "example.com/purpleidea/mgmt/foo/bar/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/mgmt-foo",
+		alias: "foo", // prefix is magic
+		local: false,
+		path:  "example.com/purpleidea/mgmt-foo/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/foo-bar",
+		alias: "foo_bar",
+		local: false,
+		path:  "example.com/purpleidea/foo-bar/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/FOO-bar",
+		alias: "foo_bar",
+		local: false,
+		path:  "example.com/purpleidea/FOO-bar/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/foo-BAR",
+		alias: "foo_bar",
+		local: false,
+		path:  "example.com/purpleidea/foo-BAR/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/foo-BAR-baz",
+		alias: "foo_bar_baz",
+		local: false,
+		path:  "example.com/purpleidea/foo-BAR-baz/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/Module-Name",
+		alias: "module_name",
+		local: false,
+		path:  "example.com/purpleidea/Module-Name/",
+	})
+	testCases = append(testCases, test{
+		name: "git://example.com/purpleidea/foo-",
+		fail: true, // trailing dash or underscore
+	})
+	testCases = append(testCases, test{
+		name: "git://example.com/purpleidea/foo_",
+		fail: true, // trailing dash or underscore
+	})
+	testCases = append(testCases, test{
+		name:  "/var/lib/mgmt",
+		alias: "mgmt",
+		fail:  true, // don't allow absolute paths
+		//local: true,
+		//path: "/var/lib/mgmt",
+	})
+	testCases = append(testCases, test{
+		name:  "/var/lib/mgmt/",
+		alias: "mgmt",
+		fail:  true, // don't allow absolute paths
+		//local: true,
+		//path: "/var/lib/mgmt/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/Module-Name?foo=bar&baz=42",
+		alias: "module_name",
+		local: false,
+		path:  "example.com/purpleidea/Module-Name/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/Module-Name/?foo=bar&baz=42",
+		alias: "module_name",
+		local: false,
+		path:  "example.com/purpleidea/Module-Name/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/Module-Name/?sha1=25ad05cce36d55ce1c55fd7e70a3ab74e321b66e",
+		alias: "module_name",
+		local: false,
+		path:  "example.com/purpleidea/Module-Name/",
+	})
+	testCases = append(testCases, test{
+		name:  "git://example.com/purpleidea/Module-Name/subpath/foo",
+		alias: "foo",
+		local: false,
+		path:  "example.com/purpleidea/Module-Name/subpath/foo/",
+	})
+	testCases = append(testCases, test{
+		name:  "foo/",
+		alias: "foo",
+		local: true,
+		path:  "foo/",
+	})
+	testCases = append(testCases, test{
+		name:   "foo/bar",
+		alias:  "bar",
+		system: true, // system because not a dir (no trailing slash)
+		local:  true, // not really used, but this is what we return
+	})
+	testCases = append(testCases, test{
+		name:   "foo/bar/baz",
+		alias:  "baz",
+		system: true, // system because not a dir (no trailing slash)
+		local:  true, // not really used, but this is what we return
+	})
+	testCases = append(testCases, test{
+		name:   "fmt",
+		alias:  "fmt",
+		system: true,
+		local:  true, // not really used, but this is what we return
+	})
+	testCases = append(testCases, test{
+		name:   "blah",
+		alias:  "blah",
+		system: true, // even modules that don't exist return true here
+		local:  true,
+	})
+
+	t.Logf("ModuleMagicPrefix: %s", ModuleMagicPrefix)
+	names := []string{}
+	for index, tc := range testCases { // run all the tests
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			name, fail, alias, system, local, path := tc.name, tc.fail, tc.alias, tc.system, tc.local, tc.path
+
+			output, err := ParseImportName(name)
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: ParseImportName failed with: %+v", index, err)
+				return
+			}
+			if fail && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: ParseImportName expected error, not nil", index)
+				return
+			}
+			if fail { // we failed as expected, don't continue...
+				return
+			}
+
+			if alias != output.Alias {
+				t.Errorf("test #%d: unexpected value for: `Alias`", index)
+				//t.Logf("test #%d:  input: %s", index, name)
+				t.Logf("test #%d: output: %+v", index, output)
+				t.Logf("test #%d:  alias: %s", index, alias)
+				return
+			}
+			if system != output.System {
+				t.Errorf("test #%d: unexpected value for: `System`", index)
+				//t.Logf("test #%d:  input: %s", index, name)
+				t.Logf("test #%d: output: %+v", index, output)
+				t.Logf("test #%d: system: %t", index, system)
+				return
+
+			}
+			if local != output.Local {
+				t.Errorf("test #%d: unexpected value for: `Local`", index)
+				//t.Logf("test #%d:  input: %s", index, name)
+				t.Logf("test #%d: output: %+v", index, output)
+				t.Logf("test #%d:  local: %t", index, local)
+				return
+
+			}
+			if path != output.Path {
+				t.Errorf("test #%d: unexpected value for: `Path`", index)
+				//t.Logf("test #%d:  input: %s", index, name)
+				t.Logf("test #%d: output: %+v", index, output)
+				t.Logf("test #%d:   path: %s", index, path)
+				return
+
+			}
+		})
 	}
 }

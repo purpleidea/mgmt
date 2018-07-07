@@ -21,6 +21,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"net/url"
 	"path"
 	"sort"
 	"strings"
@@ -30,6 +31,14 @@ import (
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
+)
+
+const (
+	// ModuleMagicPrefix is the prefix which, if found as a prefix to the
+	// last token in an import path, will be removed silently if there are
+	// remaining characters following the name. If this is the empty string
+	// then it will be ignored.
+	ModuleMagicPrefix = "mgmt-"
 )
 
 // These constants represent the different possible lexer/parser errors.
@@ -220,4 +229,110 @@ func DirectoryReader(fs engine.Fs, dir string) (io.Reader, map[uint64]string, er
 	}
 
 	return io.MultiReader(readers...), offsets, nil
+}
+
+// ImportData is the result of parsing a string import when it has not errored.
+type ImportData struct {
+	// Name is the original input that produced this struct. It is stored
+	// here so that you can parse it once and pass this struct around
+	// without having to include a copy of the original data if needed.
+	Name string
+
+	// Alias is the name identifier that should be used for this import.
+	Alias string
+
+	// System specifies that this is a system import.
+	System bool
+
+	// Local represents if a module is either local or a remote import.
+	Local bool
+
+	// Path represents the relative path to the directory that this import
+	// points to. Since it specifies a directory, it will end with a
+	// trailing slash which makes detection more obvious for other helpers.
+	// If this points to a local import, that directory is probably not
+	// expected to contain a metadata file, and it will be a simple path
+	// addition relative to the current file this import was parsed from. If
+	// this is a remote import, then it's likely that the file will be found
+	// in a more distinct path, such as a search path that contains the full
+	// fqdn of the import.
+	// TODO: should system imports put something here?
+	Path string
+}
+
+// ParseImportName parses an import name and returns the default namespace name
+// that should be used with it. For example, if the import name was:
+// "git://example.com/purpleidea/Module-Name", this might return an alias of
+// "module_name". It also returns a bunch of other data about the parsed import.
+// TODO: check for invalid or unwanted special characters
+func ParseImportName(name string) (*ImportData, error) {
+	magicPrefix := ModuleMagicPrefix
+	if name == "" {
+		return nil, fmt.Errorf("empty name")
+	}
+	if strings.HasPrefix(name, "/") {
+		return nil, fmt.Errorf("absolute paths are not allowed")
+	}
+
+	u, err := url.Parse(name)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "name is not a valid url")
+	}
+	if u.Path == "" {
+		return nil, fmt.Errorf("empty path")
+	}
+	p := u.Path
+
+	for strings.HasSuffix(p, "/") { // remove trailing slashes
+		p = p[:len(p)-len("/")]
+	}
+
+	split := strings.Split(p, "/") // take last chunk if slash separated
+	s := split[0]
+	if len(split) > 1 {
+		s = split[len(split)-1] // pick last chunk
+	}
+
+	// TODO: should we treat a special name: "purpleidea/mgmt-foo" as "foo"?
+	if magicPrefix != "" && strings.HasPrefix(s, magicPrefix) && len(s) > len(magicPrefix) {
+		s = s[len(magicPrefix):]
+	}
+
+	s = strings.Replace(s, "-", "_", -1)
+	if strings.HasPrefix(s, "_") || strings.HasSuffix(s, "_") {
+		return nil, fmt.Errorf("name can't begin or end with dash or underscore")
+	}
+	alias := strings.ToLower(s)
+
+	// if this is a local import, it's a straight directory path
+	// if it's an fqdn import, it should contain a metadata file
+
+	// if there's no protocol prefix, then this must be a local path
+	local := u.Scheme == ""
+	system := local && !strings.HasSuffix(u.Path, "/")
+	xpath := u.Path // magic path
+	if system {
+		xpath = ""
+	}
+	if !local {
+		host := u.Host // host or host:port
+		split := strings.Split(host, ":")
+		if l := len(split); l == 1 || l == 2 {
+			host = split[0]
+		} else {
+			return nil, fmt.Errorf("incorrect number of colons (%d) in hostname", l)
+		}
+		xpath = path.Join(host, xpath)
+	}
+	if !local && !strings.HasSuffix(xpath, "/") {
+		xpath = xpath + "/"
+	}
+
+	return &ImportData{
+		Name:   name, // save the original value here
+		Alias:  alias,
+		System: system,
+		Local:  local,
+		Path:   xpath,
+	}, nil
 }

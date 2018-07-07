@@ -29,6 +29,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 )
 
 func vertexAstCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
@@ -365,12 +366,18 @@ func TestAstFunc0(t *testing.T) {
 		})
 	}
 
+	names := []string{}
 	for index, test := range values { // run all the tests
 		name, code, fail, scope, exp := test.name, test.code, test.fail, test.scope, test.graph
 
 		if name == "" {
 			name = "<sub test not named>"
 		}
+		if util.StrInList(name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, name)
+			continue
+		}
+		names = append(names, name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
 		//if test.name != "simple operators" {
@@ -591,12 +598,18 @@ func TestAstInterpret0(t *testing.T) {
 		})
 	}
 
+	names := []string{}
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.graph
 
 		if name == "" {
 			name = "<sub test not named>"
 		}
+		if util.StrInList(name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, name)
+			continue
+		}
+		names = append(names, name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
 		//if test.name != "nil" {

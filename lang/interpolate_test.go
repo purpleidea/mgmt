@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/util"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/kylelemons/godebug/pretty"
@@ -127,7 +128,13 @@ func TestInterpolate0(t *testing.T) {
 		})
 	}
 
+	names := []string{}
 	for index, tc := range testCases { // run all the tests
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
 			code, fail, exp := tc.code, tc.fail, tc.ast
 
@@ -366,7 +373,13 @@ func TestInterpolateBasicStmt(t *testing.T) {
 		})
 	}
 
+	names := []string{}
 	for index, tc := range testCases { // run all the tests
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 
@@ -681,7 +694,13 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	//	})
 	//}
 
+	names := []string{}
 	for index, tc := range testCases { // run all the tests
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 

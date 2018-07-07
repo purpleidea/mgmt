@@ -26,6 +26,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -115,7 +116,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		values = append(values, test{
-			name: "one res",
+			name: "one res with param",
 			code: `
 			test "t1" {
 				int16 => 01134, # some comment
@@ -1412,12 +1413,18 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 
+	names := []string{}
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.exp
 
 		if name == "" {
 			name = "<sub test not named>"
 		}
+		if util.StrInList(name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, name)
+			continue
+		}
+		names = append(names, name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
 		//if (index != 20 && index != 21) {

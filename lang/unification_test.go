@@ -26,6 +26,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
+	"github.com/purpleidea/mgmt/util"
 )
 
 func TestUnification1(t *testing.T) {
@@ -511,7 +512,13 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 
+	names := []string{}
 	for index, test := range values { // run all the tests
+		if util.StrInList(test.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, test.name)
+			continue
+		}
+		names = append(names, test.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, test.name), func(t *testing.T) {
 			ast, fail, expect := test.ast, test.fail, test.expect
 

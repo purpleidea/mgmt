@@ -28,6 +28,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/resources"
 	_ "github.com/purpleidea/mgmt/lang/funcs/facts/core" // load facts
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -850,12 +851,18 @@ func TestInterpretMany(t *testing.T) {
 		})
 	}
 
+	names := []string{}
 	for index, test := range values { // run all the tests
 		name, code, fail, exp := test.name, test.code, test.fail, test.graph
 
 		if name == "" {
 			name = "<sub test not named>"
 		}
+		if util.StrInList(name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, name)
+			continue
+		}
+		names = append(names, name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
 		//if test.name != "nil" {

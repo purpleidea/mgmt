@@ -85,6 +85,7 @@ func init() {
 %token STR_IDENTIFIER BOOL_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER IDENTIFIER
 %token VAR_IDENTIFIER_HX CAPITALIZED_IDENTIFIER
+%token RES_IDENTIFIER CAPITALIZED_RES_IDENTIFIER
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
 %token COMMENT ERROR
 
@@ -743,7 +744,8 @@ rbind:
 ;
 */
 resource:
-	IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
+	// `file "/tmp/hello" { ... }` or `aws:ec2 "/tmp/hello" { ... }`
+	RES_IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &StmtRes{
@@ -752,6 +754,16 @@ resource:
 			Contents: $4.resContents,
 		}
 	}
+// TODO: do we need to include this simpler case as well?
+//|	IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
+//	{
+//		posLast(yylex, yyDollar) // our pos
+//		$$.stmt = &StmtRes{
+//			Kind:     $1.str,
+//			Name:     $2.expr,
+//			Contents: $4.resContents,
+//		}
+//	}
 ;
 resource_body:
 	/* end of list */
@@ -864,7 +876,7 @@ edge_half_list:
 ;
 edge_half:
 	// eg: Test["t1"]
-	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK
+	CAPITALIZED_RES_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &StmtEdgeHalf{
@@ -876,7 +888,7 @@ edge_half:
 ;
 edge_half_sendrecv:
 	// eg: Test["t1"].foo_send
-	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
+	CAPITALIZED_RES_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &StmtEdgeHalf{

@@ -330,6 +330,20 @@
 			lval.str = s[1:len(s)] // remove the leading $
 			return VAR_IDENTIFIER
 		}
+/[A-Z][a-z0-9:]*[a-z0-9]*/
+		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			lval.str = strings.ToLower(s) // uncapitalize it
+			return CAPITALIZED_RES_IDENTIFIER
+		}
+/[a-z][a-z0-9:]*[a-z0-9]*/
+		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			lval.str = strings.ToLower(s) // uncapitalize it
+			return RES_IDENTIFIER
+		}
 /[A-Z][a-z0-9]*/
 		{
 			yylex.pos(lval) // our pos

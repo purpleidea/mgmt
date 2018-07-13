@@ -63,7 +63,7 @@ func (obj *MyGAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 			Noop: c.GlobalBool("noop"),
 			Sema: c.GlobalInt("sema"),
 			GAPI: &MyGAPI{
-			// TODO: add properties here...
+				// TODO: add properties here...
 			},
 		}, nil
 	}

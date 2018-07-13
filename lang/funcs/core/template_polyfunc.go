@@ -170,19 +170,19 @@ func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, err
 	// see: https://golang.org/pkg/text/template/#FuncMap for more info
 	// note: we can override any other functions by adding them here...
 	funcMap := map[string]interface{}{
-	//"test1": func(in interface{}) (interface{}, error) { // ok
-	//	return fmt.Sprintf("got(%T): %+v", in, in), nil
-	//},
-	//"test2": func(in interface{}) interface{} { // NOT ok
-	//	panic("panic") // a panic here brings down everything!
-	//},
-	//"test3": func(foo int64) (string, error) { // ok, but errors
-	//	return "", fmt.Errorf("i am an error")
-	//},
-	//"test4": func(in1, in2 reflect.Value) (reflect.Value, error) { // ok
-	//	s := fmt.Sprintf("got: %+v and: %+v", in1, in2)
-	//	return reflect.ValueOf(s), nil
-	//},
+		//"test1": func(in interface{}) (interface{}, error) { // ok
+		//	return fmt.Sprintf("got(%T): %+v", in, in), nil
+		//},
+		//"test2": func(in interface{}) interface{} { // NOT ok
+		//	panic("panic") // a panic here brings down everything!
+		//},
+		//"test3": func(foo int64) (string, error) { // ok, but errors
+		//	return "", fmt.Errorf("i am an error")
+		//},
+		//"test4": func(in1, in2 reflect.Value) (reflect.Value, error) { // ok
+		//	s := fmt.Sprintf("got: %+v and: %+v", in1, in2)
+		//	return reflect.ValueOf(s), nil
+		//},
 	}
 
 	// FIXME: should we do this once in init() instead, or in the Register

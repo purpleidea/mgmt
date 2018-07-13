@@ -92,3 +92,41 @@ func TestGraphSync2(t *testing.T) {
 		t.Errorf("%s", s)
 	}
 }
+
+func TestGraphSync3(t *testing.T) {
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+
+	// g base graph with 3 edges
+	g := &Graph{}
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v1, v3, e3)
+
+	// newGraph input with 4 edges
+	newGraph := &Graph{}
+	newGraph.AddEdge(v1, v3, e1)
+	newGraph.AddEdge(v2, v3, e2)
+	newGraph.AddEdge(v1, v2, e3)
+	newGraph.AddEdge(v3, v1, e4)
+
+	if runGraphCmp(t, g, newGraph) == "" {
+		t.Errorf("identical graphs: fail")
+		return
+	}
+
+	if err := g.GraphSync(newGraph, strVertexCmpFn, vertexAddFn, vertexRemoveFn, strEdgeCmpFn); err != nil {
+		t.Errorf("fail: %v", err)
+		return
+	}
+
+	if s := runGraphCmp(t, g, newGraph); s != "" {
+		t.Errorf("%s", s)
+	}
+}

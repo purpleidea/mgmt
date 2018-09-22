@@ -164,6 +164,10 @@ func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtRes) Init(data *interfaces.Data) error {
+	if strings.Contains(obj.Kind, "_") {
+		return fmt.Errorf("kind must not contain underscores")
+	}
+
 	obj.data = data
 	if err := obj.Name.Init(data); err != nil {
 		return err
@@ -1058,6 +1062,10 @@ func (obj *StmtEdgeHalf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
+	if strings.Contains(obj.Kind, "_") {
+		return fmt.Errorf("kind must not contain underscores")
+	}
+
 	return obj.Name.Init(data)
 }
 

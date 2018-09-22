@@ -243,6 +243,34 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		values = append(values, test{
+			name: "maps 1",
+			code: `
+			# make sure the "str:" part doesn't match a single ident
+			$strmap map{str: int} = {
+				"key1" => 42,
+				"key2" => -13,
+			}
+			`,
+			fail: false,
+			//exp: ???, // FIXME: add the expected AST
+		})
+	}
+	{
+		values = append(values, test{
+			name: "maps 2",
+			code: `
+			$mapstrintlist map{str: []int} = {
+				"key1" => [42, 44,],
+				"key2" => [],
+				"key3" => [-13,],
+			}
+			`,
+			fail: false,
+			//exp: ???, // FIXME: add the expected AST
+		})
+	}
+	{
+		values = append(values, test{
 			name: "maps and lists",
 			code: `
 			$strmap map{str: int} = {
@@ -1263,6 +1291,52 @@ func TestLexParse0(t *testing.T) {
 			name: "simple dotted invalid include 4",
 			code: `
 			class foo..c1 {
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtClass{
+					Name: "x",
+					Args: []*Arg{},
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{},
+					},
+				},
+				&StmtClass{
+					Name: "y1",
+					Args: []*Arg{},
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{},
+					},
+				},
+				&StmtInclude{
+					Name: "z",
+					Args: nil,
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple class with args 0",
+			code: `
+			class x() {
+			}
+			class y1() {
+			}
+			include z
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		values = append(values, test{
+			name: "simple class underscore failure",
+			code: `
+			class x_() {
 			}
 			`,
 			fail: true,

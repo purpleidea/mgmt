@@ -754,16 +754,17 @@ resource:
 			Contents: $4.resContents,
 		}
 	}
-// TODO: do we need to include this simpler case as well?
-//|	IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
-//	{
-//		posLast(yylex, yyDollar) // our pos
-//		$$.stmt = &StmtRes{
-//			Kind:     $1.str,
-//			Name:     $2.expr,
-//			Contents: $4.resContents,
-//		}
-//	}
+	// note: this is a simplified version of the above if the lexer picks it
+	// note: must not include underscores, but that is checked after parsing
+|	IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtRes{
+			Kind:     $1.str,
+			Name:     $2.expr,
+			Contents: $4.resContents,
+		}
+	}
 ;
 resource_body:
 	/* end of list */
@@ -885,10 +886,32 @@ edge_half:
 			//SendRecv: "", // unused
 		}
 	}
+	// note: this is a simplified version of the above if the lexer picks it
+	// note: must not include underscores, but that is checked after parsing
+|	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.edgeHalf = &StmtEdgeHalf{
+			Kind: $1.str,
+			Name: $3.expr,
+			//SendRecv: "", // unused
+		}
+	}
 ;
 edge_half_sendrecv:
 	// eg: Test["t1"].foo_send
 	CAPITALIZED_RES_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.edgeHalf = &StmtEdgeHalf{
+			Kind: $1.str,
+			Name: $3.expr,
+			SendRecv: $6.str,
+		}
+	}
+	// note: this is a simplified version of the above if the lexer picks it
+	// note: must not include underscores, but that is checked after parsing
+|	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &StmtEdgeHalf{

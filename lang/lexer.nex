@@ -289,7 +289,7 @@
 				panic(fmt.Sprintf("error lexing FLOAT, got: %v", err))
 			}
 		}
-/\$[a-z][a-z0-9]*{[0-9]+}/
+/\$[a-z]+([a-z0-9_]*[a-z0-9]+)?{[0-9]+}/
 		{
 			// we have this as a single token, because otherwise the
 			// parser can get confused by the curly brackets :/
@@ -323,39 +323,39 @@
 				panic(fmt.Sprintf("error lexing VAR_IDENTIFIER_HX, got: %v", err))
 			}
 		}
-/\$[a-z][a-z0-9]*/
+/\$[a-z]([a-z0-9_]*[a-z0-9]+)?/
 		{
+			// an alternate pattern: /\$[a-z](|[a-z0-9_]*[a-z0-9])/
 			yylex.pos(lval) // our pos
 			s := yylex.Text()
 			lval.str = s[1:len(s)] // remove the leading $
 			return VAR_IDENTIFIER
 		}
-/[A-Z][a-z0-9:]*[a-z0-9]*/
+/[a-z]([a-z0-9_]*[a-z0-9]+)?/
 		{
 			yylex.pos(lval) // our pos
-			s := yylex.Text()
-			lval.str = strings.ToLower(s) // uncapitalize it
-			return CAPITALIZED_RES_IDENTIFIER
+			lval.str = yylex.Text()
+			return IDENTIFIER
 		}
-/[a-z][a-z0-9:]*[a-z0-9]*/
-		{
-			yylex.pos(lval) // our pos
-			s := yylex.Text()
-			lval.str = strings.ToLower(s) // uncapitalize it
-			return RES_IDENTIFIER
-		}
-/[A-Z][a-z0-9]*/
+/[A-Z]([a-z0-9_]*[a-z0-9]+)?/
 		{
 			yylex.pos(lval) // our pos
 			s := yylex.Text()
 			lval.str = strings.ToLower(s) // uncapitalize it
 			return CAPITALIZED_IDENTIFIER
 		}
-/[a-z][a-z0-9]*/
+/[a-z]([a-z0-9:]*[a-z0-9]+)?/
 		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
-			return IDENTIFIER
+			return RES_IDENTIFIER
+		}
+/[A-Z]([a-z0-9:]*[a-z0-9]+)?/
+		{
+			yylex.pos(lval) // our pos
+			s := yylex.Text()
+			lval.str = strings.ToLower(s) // uncapitalize it
+			return CAPITALIZED_RES_IDENTIFIER
 		}
 /#[^\n]*/
 		{	// this matches a (#) pound char followed by any
@@ -405,3 +405,7 @@ import (
 	"fmt"
 	"strconv"
 )
+
+// NOTE:
+// Among rules in the same scope, the longest matching pattern takes precedence.
+// In event of a tie, the first pattern wins.

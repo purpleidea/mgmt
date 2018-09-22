@@ -194,6 +194,16 @@
 			lval.str = yylex.Text()
 			return INCLUDE_IDENTIFIER
 		}
+/import/	{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return IMPORT_IDENTIFIER
+		}
+/as/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return AS_IDENTIFIER
+		}
 /variant/	{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

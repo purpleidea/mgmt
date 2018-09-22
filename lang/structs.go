@@ -1849,6 +1849,73 @@ func (obj *StmtInclude) Output() (*interfaces.Output, error) {
 	return obj.class.Output()
 }
 
+// StmtImport adds the exported scope definitions of a module into the current
+// scope. It can be used anywhere a statement is allowed, and can even be nested
+// inside a class definition. By convention, it is commonly used at the top of a
+// file. As with any statement, it produces output, but that output is empty. To
+// benefit from its inclusion, reference the scope definitions you want.
+type StmtImport struct {
+	Name  string
+	Alias string
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtImport) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtImport) Init(*interfaces.Data) error { return nil }
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtImport) Interpolate() (interfaces.Stmt, error) {
+	return &StmtImport{
+		Name:  obj.Name,
+		Alias: obj.Alias,
+	}, nil
+}
+
+// SetScope stores the scope for later use in this resource and it's children,
+// which it propagates this downwards to.
+func (obj *StmtImport) SetScope(*interfaces.Scope) error { return nil }
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *StmtImport) Unify() ([]interfaces.Invariant, error) {
+	if obj.Name == "" {
+		return nil, fmt.Errorf("missing import name")
+	}
+
+	return []interfaces.Invariant{}, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular statement just returns an empty graph.
+func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("import")
+	return graph, errwrap.Wrapf(err, "could not create graph")
+}
+
+// Output returns the output that this include produces. This output is what
+// is used to build the output graph. This only exists for statements. The
+// analogous function for expressions is Value. Those Value functions might get
+// called by this Output function if they are needed to produce the output. This
+// import statement itself produces no output, as it is only used to populate
+// the scope so that others can use that to produce values and output.
+func (obj *StmtImport) Output() (*interfaces.Output, error) {
+	return (&interfaces.Output{}).Empty(), nil
+}
+
 // StmtComment is a representation of a comment. It is currently unused. It
 // probably makes sense to make a third kind of Node (not a Stmt or an Expr) so
 // that comments can still be part of the AST (for eventual automatic code

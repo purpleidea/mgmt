@@ -1488,6 +1488,124 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name:  "foo1",
+					Alias: "",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple import 1",
+			code: `
+			import "foo1"
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name:  "foo1",
+					Alias: "bar",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple import 2",
+			code: `
+			import "foo1" as bar
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name:  "foo1",
+					Alias: "",
+				},
+				&StmtImport{
+					Name:  "foo2",
+					Alias: "bar",
+				},
+				&StmtImport{
+					Name:  "foo3",
+					Alias: "",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple import 3",
+			code: `
+			import "foo1"
+			import "foo2" as bar
+			import "foo3"
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name:  "foo1",
+					Alias: "*",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple import 4",
+			code: `
+			import "foo1" as *
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtClass{
+					Name: "c1",
+					Body: &StmtProg{
+						Prog: []interfaces.Stmt{
+							&StmtImport{
+								Name:  "foo",
+								Alias: "bar",
+							},
+							&StmtImport{
+								Name:  "baz",
+								Alias: "",
+							},
+						},
+					},
+				},
+				&StmtInclude{
+					Name: "c1",
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple import inside class 1",
+			code: `
+			class c1 {
+				import "foo" as bar
+				import "baz"
+			}
+			include c1
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
 
 	names := []string{}
 	for index, test := range values { // run all the tests

@@ -87,6 +87,7 @@ func init() {
 %token VAR_IDENTIFIER_HX CAPITALIZED_IDENTIFIER
 %token RES_IDENTIFIER CAPITALIZED_RES_IDENTIFIER
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
+%token IMPORT_IDENTIFIER AS_IDENTIFIER
 %token COMMENT ERROR
 
 // precedence table
@@ -226,6 +227,33 @@ stmt:
 		$$.stmt = &StmtInclude{
 			Name: $2.str,
 			Args: $4.exprs,
+		}
+	}
+	// `import "name"`
+|	IMPORT_IDENTIFIER STRING
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtImport{
+			Name: $2.str,
+			//Alias: "",
+		}
+	}
+	// `import "name" as alias`
+|	IMPORT_IDENTIFIER STRING AS_IDENTIFIER IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtImport{
+			Name:  $2.str,
+			Alias: $4.str,
+		}
+	}
+	// `import "name" as *`
+|	IMPORT_IDENTIFIER STRING AS_IDENTIFIER MULTIPLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtImport{
+			Name:  $2.str,
+			Alias: $4.str,
 		}
 	}
 /*

@@ -31,11 +31,13 @@ fi
 if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
+	$sudo_command $YUM install -y rubygems
 	$sudo_command $YUM install -y time
 fi
 if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
+	$sudo_command $APT install -y rubygems || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
 	# dependencies for building debian packages with `make deb`
 	$sudo_command $APT install -y dpkg-dev devscripts debhelper dh-golang dh-systemd
@@ -52,7 +54,7 @@ if [ ! -z "$BREW" ]; then
 fi
 
 if [ ! -z "$PACMAN" ]; then
-	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas libpcap
+	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap
 fi
 
 if [ $travis -eq 0 ]; then

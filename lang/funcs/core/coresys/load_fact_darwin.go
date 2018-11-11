@@ -15,31 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// +build !darwin
+// +build darwin
 
-package core // TODO: should this be in its own individual package?
+package coresys
 
-import (
-	"syscall"
-)
+/*
+#include <stdlib.h>
+*/
+import "C"
 
-const (
-	// LoadScale factor scales the output from sysinfo to the correct float
-	// value.
-	LoadScale = 65536 // XXX: is this correct or should it be 65535?
-)
-
-// load returns the system load averages for the last minute, five minutes and
-// fifteen minutes. Calling this more often than once every five seconds seems
-// to be unnecessary, since the kernel only updates these values that often.
-// TODO: is the kernel update interval configurable?
+// macOS/Darwin specific implementation to get load.
 func load() (one, five, fifteen float64, err error) {
-	var sysinfo syscall.Sysinfo_t
-	if err = syscall.Sysinfo(&sysinfo); err != nil {
-		return
-	}
-	one = float64(sysinfo.Loads[0]) / LoadScale
-	five = float64(sysinfo.Loads[1]) / LoadScale
-	fifteen = float64(sysinfo.Loads[2]) / LoadScale
+	avg := []C.double{0, 0, 0}
+
+	C.getloadavg(&avg[0], C.int(len(avg)))
+
+	one = float64(avg[0])
+	five = float64(avg[1])
+	fifteen = float64(avg[2])
+
 	return
 }

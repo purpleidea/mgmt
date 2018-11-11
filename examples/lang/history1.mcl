@@ -1,4 +1,6 @@
-$dt = datetime()
+import "datetime"
+
+$dt = datetime.now()
 
 $hystvalues = {"ix0" => $dt, "ix1" => $dt{1}, "ix2" => $dt{2}, "ix3" => $dt{3},}
 

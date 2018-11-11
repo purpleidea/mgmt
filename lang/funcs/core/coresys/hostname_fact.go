@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core // TODO: should this be in its own individual package?
+package coresys
 
 import (
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	facts.Register("hostname", func() facts.Fact { return &HostnameFact{} }) // must register the fact and name
+	facts.ModuleRegister(moduleName, "hostname", func() facts.Fact { return &HostnameFact{} }) // must register the fact and name
 }
 
 // HostnameFact is a function that returns the hostname.

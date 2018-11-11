@@ -1,3 +1,6 @@
+import "fmt"
+import "sys"
+
 $set = ["a", "b", "c", "d",]
 
 $c1 = "x1" in ["x1", "x2", "x3",]
@@ -5,18 +8,18 @@ $c2 = 42 in [4, 13, 42,]
 $c3 = "x" in $set
 $c4 = "b" in $set
 
-$s = printf("1: %t, 2: %t, 3: %t, 4: %t\n", $c1, $c2, $c3, $c4)
+$s = fmt.printf("1: %t, 2: %t, 3: %t, 4: %t\n", $c1, $c2, $c3, $c4)
 
 file "/tmp/mgmt/contains" {
 	content => $s,
 }
 
-$x = if hostname() in ["h1", "h3",] {
-	printf("i (%s) am one of the chosen few!\n", hostname())
+$x = if sys.hostname() in ["h1", "h3",] {
+	fmt.printf("i (%s) am one of the chosen few!\n", sys.hostname())
 } else {
-	printf("i (%s) was not chosen :(\n", hostname())
+	fmt.printf("i (%s) was not chosen :(\n", sys.hostname())
 }
 
-file "/tmp/mgmt/hello-${hostname()}" {
+file "/tmp/mgmt/hello-${sys.hostname()}" {
 	content => $x,
 }

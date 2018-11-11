@@ -15,20 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simple // TODO: should this be in its own individual package?
+package coreexample
 
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	Register("int2str", &types.FuncValue{
-		T: types.NewType("func(a int) str"),
+	simple.ModuleRegister(moduleName, "errorbool", &types.FuncValue{
+		T: types.NewType("func(a bool) str"),
 		V: func(input []types.Value) (types.Value, error) {
+			if input[0].Bool() {
+				return nil, fmt.Errorf("we errored on request")
+			}
 			return &types.StrValue{
-				V: fmt.Sprintf("%d", input[0].Int()),
+				V: "set input to true to generate an error",
 			}, nil
 		},
 	})

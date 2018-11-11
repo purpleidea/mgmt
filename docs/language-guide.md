@@ -285,11 +285,12 @@ class baz($a str, $b) {
 Classes can also be nested within other classes. Here's a contrived example:
 
 ```mcl
+import "fmt"
 class c1($a, $b) {
 	# nested class definition
 	class c2($c) {
 		test $a {
-			stringptr => printf("%s is %d", $b, $c),
+			stringptr => fmt.printf("%s is %d", $b, $c),
 		}
 	}
 

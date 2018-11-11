@@ -1,9 +1,12 @@
-$env = env()
+import "fmt"
+import "sys"
+
+$env = sys.env()
 $m = maplookup($env, "GOPATH", "")
 
 print "print0" {
-	msg => if hasenv("GOPATH") {
-		printf("GOPATH is: %s", $m)
+	msg => if sys.hasenv("GOPATH") {
+		fmt.printf("GOPATH is: %s", $m)
 	} else {
 		"GOPATH is missing!"
 	},

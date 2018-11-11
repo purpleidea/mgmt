@@ -47,6 +47,12 @@ func Register(name string, fn func() Fact) {
 	RegisteredFacts[name] = fn
 }
 
+// ModuleRegister is exactly like Register, except that it registers within a
+// named module. This is a helper function.
+func ModuleRegister(module, name string, fn func() Fact) {
+	Register(module+funcs.ModuleSep+name, fn)
+}
+
 // Info is a static representation of some information about the fact. It is
 // used for static analysis and type checking. If you break this contract, you
 // might cause a panic.

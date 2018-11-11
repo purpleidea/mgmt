@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core // TODO: should this be in its own individual package?
+package corefmt
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	funcs.Register("printf", func() interfaces.Func { return &PrintfFunc{} })
+	funcs.ModuleRegister(moduleName, "printf", func() interfaces.Func { return &PrintfFunc{} })
 }
 
 const (

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core // TODO: should this be in its own individual package?
+package coredatetime
 
 import (
 	"time"
@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	facts.Register("datetime", func() facts.Fact { return &DateTimeFact{} }) // must register the fact and name
+	facts.ModuleRegister(moduleName, "now", func() facts.Fact { return &DateTimeFact{} }) // must register the fact and name
 }
 
 // DateTimeFact is a fact which returns the current date and time.

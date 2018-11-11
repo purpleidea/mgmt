@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core // TODO: should this be in its own individual package?
+package coreexample
 
 import (
 	"fmt"
@@ -34,7 +34,7 @@ import (
 )
 
 func init() {
-	funcs.Register("vumeter", func() interfaces.Func { return &VUMeterFunc{} }) // must register the func and name
+	funcs.ModuleRegister(moduleName, "vumeter", func() interfaces.Func { return &VUMeterFunc{} }) // must register the func and name
 }
 
 // VUMeterFunc is a gimmic function to display a vu meter from the microphone.

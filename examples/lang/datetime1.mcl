@@ -1,4 +1,6 @@
-$d = datetime()
+import "datetime"
+
+$d = datetime.now()
 file "/tmp/mgmt/datetime" {
 	content => template("Hello! It is now: {{ datetime_print . }}\n", $d),
 }

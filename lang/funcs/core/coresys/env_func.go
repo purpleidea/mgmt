@@ -15,29 +15,30 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simple // TODO: should this be in its own individual package?
+package coresys
 
 import (
 	"os"
 	"strings"
 
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	Register("getenv", &types.FuncValue{
+	simple.ModuleRegister(moduleName, "getenv", &types.FuncValue{
 		T: types.NewType("func(str) str"),
 		V: GetEnv,
 	})
-	Register("defaultenv", &types.FuncValue{
+	simple.ModuleRegister(moduleName, "defaultenv", &types.FuncValue{
 		T: types.NewType("func(str, str) str"),
 		V: DefaultEnv,
 	})
-	Register("hasenv", &types.FuncValue{
+	simple.ModuleRegister(moduleName, "hasenv", &types.FuncValue{
 		T: types.NewType("func(str) bool"),
 		V: HasEnv,
 	})
-	Register("env", &types.FuncValue{
+	simple.ModuleRegister(moduleName, "env", &types.FuncValue{
 		T: types.NewType("func() map{str: str}"),
 		V: Env,
 	})

@@ -15,24 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// +build darwin
+package core
 
-package core // TODO: should this be in its own individual package?
-
-/*
-#include <stdlib.h>
-*/
-import "C"
-
-// macOS/Darwin specific implementation to get load.
-func load() (one, five, fifteen float64, err error) {
-	avg := []C.double{0, 0, 0}
-
-	C.getloadavg(&avg[0], C.int(len(avg)))
-
-	one = float64(avg[0])
-	five = float64(avg[1])
-	fifteen = float64(avg[2])
-
-	return
-}
+import (
+	// import so the funcs register
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/coredatetime"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/coreexample"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/corefmt"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/coremath"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/coresys"
+)

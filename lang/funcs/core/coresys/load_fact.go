@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core // TODO: should this be in its own individual package?
+package coresys
 
 import (
 	"time"
@@ -31,7 +31,7 @@ const (
 )
 
 func init() {
-	facts.Register("load", func() facts.Fact { return &LoadFact{} }) // must register the fact and name
+	facts.ModuleRegister(moduleName, "load", func() facts.Fact { return &LoadFact{} }) // must register the fact and name
 }
 
 // LoadFact is a fact which returns the current system load.

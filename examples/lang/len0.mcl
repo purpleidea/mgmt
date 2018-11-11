@@ -1,9 +1,11 @@
+import "fmt"
+
 $x1 = ["a", "b", "c", "d",]
 print "print4" {
-	msg => printf("length is: %d", len($x1)),
+	msg => fmt.printf("length is: %d", len($x1)),
 }
 
 $x2 = {"a" => 1, "b" => 2, "c" => 3,}
 print "print3" {
-	msg => printf("length is: %d", len($x2)),
+	msg => fmt.printf("length is: %d", len($x2)),
 }

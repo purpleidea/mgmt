@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core // TODO: should this be in its own individual package?
+package coreexample
 
 import (
 	"time"
@@ -25,8 +25,7 @@ import (
 )
 
 func init() {
-	// TODO: rename these `play` facts to start with a test_ prefix or similar
-	facts.Register("flipflop", func() facts.Fact { return &FlipFlopFact{} }) // must register the fact and name
+	facts.ModuleRegister(moduleName, "flipflop", func() facts.Fact { return &FlipFlopFact{} }) // must register the fact and name
 }
 
 // FlipFlopFact is a fact which flips a bool repeatedly. This is an example fact

@@ -15,25 +15,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simple // TODO: should this be in its own individual package?
+package coreexample
 
 import (
-	"fmt"
-
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+// Answer is the Answer to Life, the Universe and Everything.
+const Answer = 42
+
 func init() {
-	// TODO: should we support namespacing these, eg: example.errorbool ?
-	Register("example_errorbool", &types.FuncValue{
-		T: types.NewType("func(a bool) str"),
-		V: func(input []types.Value) (types.Value, error) {
-			if input[0].Bool() {
-				return nil, fmt.Errorf("we errored on request")
-			}
-			return &types.StrValue{
-				V: "set input to true to generate an error",
-			}, nil
+	simple.ModuleRegister(moduleName, "answer", &types.FuncValue{
+		T: types.NewType("func() int"),
+		V: func([]types.Value) (types.Value, error) {
+			return &types.IntValue{V: Answer}, nil
 		},
 	})
 }

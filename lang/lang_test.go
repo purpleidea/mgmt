@@ -26,7 +26,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
-	_ "github.com/purpleidea/mgmt/lang/funcs/facts/core" // load facts
+	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 
@@ -497,9 +497,10 @@ func TestInterpretMany(t *testing.T) {
 	//	values = append(values, test{
 	//		name: "double include different printf types allowed",
 	//		code: `
+	//		import "fmt"
 	//		class c1($a, $b) {
 	//			test $a {
-	//				stringptr => printf("value is: %v", $b),
+	//				stringptr => fmt.printf("value is: %v", $b),
 	//			}
 	//		}
 	//		include c1("t1", "hello")
@@ -667,6 +668,8 @@ func TestInterpretMany(t *testing.T) {
 		values = append(values, test{
 			name: "nested classes 1",
 			code: `
+			import "fmt"
+
 			include c1("t1", "hello") # test["t1"] -> hello is 42
 			include c1("t2", "world") # test["t2"] -> world is 13
 
@@ -674,7 +677,7 @@ func TestInterpretMany(t *testing.T) {
 				# nested class definition
 				class c2($c) {
 					test $a {
-						stringptr => printf("%s is %d", $b, $c),
+						stringptr => fmt.printf("%s is %d", $b, $c),
 					}
 				}
 
@@ -693,6 +696,8 @@ func TestInterpretMany(t *testing.T) {
 		values = append(values, test{
 			name: "nested classes out of scope 1",
 			code: `
+			import "fmt"
+
 			include c1("t1", "hello") # test["t1"] -> hello is 42
 			include c2(99) # out of scope
 
@@ -700,7 +705,7 @@ func TestInterpretMany(t *testing.T) {
 				# nested class definition
 				class c2($c) {
 					test $a {
-						stringptr => printf("%s is %d", $b, $c),
+						stringptr => fmt.printf("%s is %d", $b, $c),
 					}
 				}
 
@@ -742,13 +747,14 @@ func TestInterpretMany(t *testing.T) {
 	//	values = append(values, test{
 	//		name: "recursive classes 1",
 	//		code: `
+	//		import "fmt"
 	//		$max = 3
 	//		include c1(0) # start at zero
 	//		# test["done"] -> count is 3
 	//		class c1($count) {
 	//			if $count == $max {
 	//				test "done" {
-	//					stringptr => printf("count is %d", $count),
+	//					stringptr => fmt.printf("count is %d", $count),
 	//				}
 	//			} else {
 	//				include c1($count + 1)
@@ -779,6 +785,7 @@ func TestInterpretMany(t *testing.T) {
 	//	values = append(values, test{
 	//		name: "recursive classes 2",
 	//		code: `
+	//		import "fmt"
 	//		include c1("ix", 3)
 	//		# test["ix:3"] -> count is 3
 	//		# test["ix:2"] -> count is 2
@@ -787,12 +794,12 @@ func TestInterpretMany(t *testing.T) {
 	//		class c1($name, $count) {
 	//			if $count == 0 {
 	//				test "zero" {
-	//					stringptr => printf("count is %d", $count),
+	//					stringptr => fmt.printf("count is %d", $count),
 	//				}
 	//			} else {
 	//				include c1($name, $count - 1)
 	//				test "${name}:${count}" {
-	//					stringptr => printf("count is %d", $count),
+	//					stringptr => fmt.printf("count is %d", $count),
 	//				}
 	//			}
 	//		}
@@ -806,12 +813,13 @@ func TestInterpretMany(t *testing.T) {
 		values = append(values, test{
 			name: "recursive classes fail 1",
 			code: `
+			import "fmt"
 			$max = 3
 			include c1(0) # start at zero
 			class c1($count) {
 				if $count == $max {
 					test "done" {
-						stringptr => printf("count is %d", $count),
+						stringptr => fmt.printf("count is %d", $count),
 					}
 				} else {
 					include c1($count + 1) # recursion not supported atm
@@ -826,12 +834,13 @@ func TestInterpretMany(t *testing.T) {
 		values = append(values, test{
 			name: "recursive classes fail 2",
 			code: `
+			import "fmt"
 			$max = 5
 			include c1(0) # start at zero
 			class c1($count) {
 				if $count == $max {
 					test "done" {
-						stringptr => printf("count is %d", $count),
+						stringptr => fmt.printf("count is %d", $count),
 					}
 				} else {
 					include c2($count + 1) # recursion not supported atm
@@ -840,7 +849,7 @@ func TestInterpretMany(t *testing.T) {
 			class c2($count) {
 				if $count == $max {
 					test "done" {
-						stringptr => printf("count is %d", $count),
+						stringptr => fmt.printf("count is %d", $count),
 					}
 				} else {
 					include c1($count + 1) # recursion not supported atm

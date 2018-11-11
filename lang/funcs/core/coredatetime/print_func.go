@@ -15,43 +15,28 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simplepoly // TODO: should this be in its own individual package?
+package coredatetime
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	Register("len", []*types.FuncValue{
-		{
-			T: types.NewType("func([]variant) int"),
-			V: Len,
+	// FIXME: consider renaming this to printf, and add in a format string?
+	simple.ModuleRegister(moduleName, "print", &types.FuncValue{
+		T: types.NewType("func(a int) str"),
+		V: func(input []types.Value) (types.Value, error) {
+			epochDelta := input[0].Int()
+			if epochDelta < 0 {
+				return nil, fmt.Errorf("epoch delta must be positive")
+			}
+			return &types.StrValue{
+				V: time.Unix(epochDelta, 0).String(),
+			}, nil
 		},
-		{
-			T: types.NewType("func(map{variant: variant}) int"),
-			V: Len,
-		},
-		// TODO: should we add support for struct or func lengths?
 	})
-}
-
-// Len returns the number of elements in a list or the number of key pairs in a
-// map. It can operate on either of these types.
-func Len(input []types.Value) (types.Value, error) {
-	var length int
-	switch k := input[0].Type().Kind; k {
-	case types.KindList:
-		length = len(input[0].List())
-	case types.KindMap:
-		length = len(input[0].Map())
-
-	default:
-		return nil, fmt.Errorf("unsupported kind: %+v", k)
-	}
-
-	return &types.IntValue{
-		V: int64(length),
-	}, nil
 }

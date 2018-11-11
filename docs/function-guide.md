@@ -124,16 +124,15 @@ An example explains it best:
 ### Example
 
 ```golang
-package simplepoly
-
 import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
 )
 
 func init() {
-	Register("len", []*types.FuncValue{
+	simplepoly.Register("len", []*types.FuncValue{
 		{
 			T: types.NewType("func([]variant) int"),
 			V: Len,

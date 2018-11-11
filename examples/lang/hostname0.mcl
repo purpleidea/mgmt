@@ -1,4 +1,6 @@
-file "/tmp/mgmt/${hostname()}" {
-	content => "hello from ${hostname()}!\n",
+import "sys"
+
+file "/tmp/mgmt/${sys.hostname()}" {
+	content => "hello from ${sys.hostname()}!\n",
 	state => "exists",
 }

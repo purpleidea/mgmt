@@ -1,8 +1,11 @@
+import "fmt"
+import "example"
+
 $answer = 42
-$s = int2str($answer)
+$s = example.int2str($answer)
 
 print "print1" {
-	msg => printf("an str is: %s", $s),
+	msg => fmt.printf("an str is: %s", $s),
 }
 
 print "print2" {

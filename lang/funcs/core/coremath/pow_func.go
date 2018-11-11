@@ -15,17 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simple // TODO: should this be in its own individual package?
+package coremath
 
 import (
 	"fmt"
 	"math"
 
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	Register("pow", &types.FuncValue{
+	simple.ModuleRegister(moduleName, "pow", &types.FuncValue{
 		T: types.NewType("func(x float, y float) float"),
 		V: Pow,
 	})

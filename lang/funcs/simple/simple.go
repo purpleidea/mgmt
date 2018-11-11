@@ -42,6 +42,12 @@ func Register(name string, fn *types.FuncValue) {
 	funcs.Register(name, func() interfaces.Func { return &simpleFunc{Fn: fn} })
 }
 
+// ModuleRegister is exactly like Register, except that it registers within a
+// named module. This is a helper function.
+func ModuleRegister(module, name string, fn *types.FuncValue) {
+	Register(module+funcs.ModuleSep+name, fn)
+}
+
 // simpleFunc is a scaffolding function struct which fulfills the boiler-plate
 // for the function API, but that can run a very simple, static, pure function.
 type simpleFunc struct {

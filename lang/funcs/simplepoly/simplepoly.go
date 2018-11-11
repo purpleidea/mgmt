@@ -62,6 +62,12 @@ func Register(name string, fns []*types.FuncValue) {
 	funcs.Register(name, func() interfaces.Func { return &simplePolyFunc{Fns: fns} })
 }
 
+// ModuleRegister is exactly like Register, except that it registers within a
+// named module. This is a helper function.
+func ModuleRegister(module, name string, fns []*types.FuncValue) {
+	Register(module+funcs.ModuleSep+name, fns)
+}
+
 // simplePolyFunc is a scaffolding function struct which fulfills the
 // boiler-plate for the function API, but that can run a very simple, static,
 // pure, polymorphic function.

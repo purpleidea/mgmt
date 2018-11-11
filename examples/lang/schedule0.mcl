@@ -1,3 +1,5 @@
+import "sys"
+
 # here are all the possible options:
 #$opts = struct{strategy => "rr", max => 3, reuse => false, ttl => 10,}
 
@@ -13,6 +15,6 @@ $set = schedule("xsched", $opts)
 # and if you want, you can omit the options entirely:
 #$set = schedule("xsched")
 
-file "/tmp/mgmt/scheduled-${hostname()}" {
+file "/tmp/mgmt/scheduled-${sys.hostname()}" {
 	content => template("set: {{ . }}\n", $set),
 }

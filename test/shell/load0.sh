@@ -25,14 +25,17 @@ if [[ ! "$tmpdir" =~ "/tmp" ]]; then
 fi
 
 cat > "$tmpdir/load0.mcl" <<EOF
-\$theload = load()
+import "fmt"
+import "sys"
+
+\$theload = sys.load()
 
 \$x1 = structlookup(\$theload, "x1")
 \$x5 = structlookup(\$theload, "x5")
 \$x15 = structlookup(\$theload, "x15")
 
 file "${tmpdir}/loadavg" {
-	content => printf("load average: %f, %f, %f", \$x1, \$x5, \$x15),
+	content => fmt.printf("load average: %f, %f, %f", \$x1, \$x5, \$x15),
 	state => "exists",
 }
 EOF

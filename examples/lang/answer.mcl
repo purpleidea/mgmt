@@ -1,4 +1,6 @@
 # it was a lovely surprise to me, when i realized that mgmt had the answer!
+import "fmt"
+import "example"
 print "answer" {
-	msg => printf("the answer to life, the universe, and everything is: %d", answer()),
+	msg => fmt.printf("the answer to life, the universe, and everything is: %d", example.answer()),
 }

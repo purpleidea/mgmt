@@ -20,8 +20,16 @@ package funcs
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+)
+
+const (
+	// ModuleSep is the character used for the module scope separation. For
+	// example when using `fmt.printf` or `math.sin` this is the char used.
+	// It is included here for convenience when importing this package.
+	ModuleSep = interfaces.ModuleSep
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You
@@ -32,13 +40,31 @@ var registeredFuncs = make(map[string]func() interfaces.Func) // must initialize
 // Register takes a func and its name and makes it available for use. It is
 // commonly called in the init() method of the func at program startup. There is
 // no matching Unregister function. You may also register functions which
-// satisfy the PolyFunc interface.
+// satisfy the PolyFunc interface. To register a function which lives in a
+// module, you must join the module name to the function name with the ModuleSep
+// character. It is defined as a const and is probably the period character.
 func Register(name string, fn func() interfaces.Func) {
 	if _, exists := registeredFuncs[name]; exists {
 		panic(fmt.Sprintf("a func named %s is already registered", name))
 	}
+
+	// can't contain more than one period in a row
+	if strings.Index(name, ModuleSep+ModuleSep) >= 0 {
+		panic(fmt.Sprintf("a func named %s is invalid", name))
+	}
+	// can't start or end with a period
+	if strings.HasPrefix(name, ModuleSep) || strings.HasSuffix(name, ModuleSep) {
+		panic(fmt.Sprintf("a func named %s is invalid", name))
+	}
+
 	//gob.Register(fn())
 	registeredFuncs[name] = fn
+}
+
+// ModuleRegister is exactly like Register, except that it registers within a
+// named module.
+func ModuleRegister(module, name string, fn func() interfaces.Func) {
+	Register(module+ModuleSep+name, fn)
 }
 
 // Lookup returns a pointer to the function's struct. It may be convertible to a
@@ -49,4 +75,22 @@ func Lookup(name string) (interfaces.Func, error) {
 		return nil, fmt.Errorf("not found")
 	}
 	return f(), nil
+}
+
+// LookupPrefix returns a map of names to functions that start with a module
+// prefix. This search automatically adds the period separator. So if you want
+// functions in the `fmt` package, search for `fmt`, not `fmt.` and it will find
+// all the correctly registered functions. This removes that prefix from the
+// result in the map keys that it returns.
+func LookupPrefix(prefix string) (map[string]interfaces.Func, error) {
+	result := make(map[string]interfaces.Func)
+	for name, f := range registeredFuncs {
+		sep := prefix + ModuleSep
+		if !strings.HasPrefix(name, sep) {
+			continue
+		}
+		s := strings.TrimPrefix(name, sep) // TODO: is it okay to remove the prefix?
+		result[s] = f()                    // build
+	}
+	return result, nil
 }

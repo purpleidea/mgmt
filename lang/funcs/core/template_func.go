@@ -188,6 +188,8 @@ func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, err
 	// FIXME: should we do this once in init() instead, or in the Register
 	// function in the simple package?
 	// TODO: loop through this map in a sorted, deterministic order
+	// XXX: should this use the scope instead (so imports are used properly) ?
+	// XXX: dots are not valid here, so maybe replace dots with underscores so we can do fmt_print???
 	for name, fn := range simple.RegisteredFuncs {
 		if _, exists := funcMap[name]; exists {
 			obj.init.Logf("warning, existing function named: `%s` exists", name)

@@ -1,13 +1,15 @@
+import "fmt"
+
 $st = struct{f1 => 42, f2 => true, f3 => 3.14,}
 
 $f1 = structlookup($st, "f1")
 
 print "print1" {
-	msg => printf("f1 field is: %d", $f1),
+	msg => fmt.printf("f1 field is: %d", $f1),
 }
 
 $f2 = structlookup($st, "f2")
 
 print "print2" {
-	msg => printf("f2 field is: %t", $f2),
+	msg => fmt.printf("f2 field is: %t", $f2),
 }

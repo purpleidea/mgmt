@@ -1,19 +1,22 @@
-$tmpdir = defaultenv("TMPDIR", "/tmp")
+import "fmt"
+import "sys"
 
-$x = getenv("TEST")
-$y = getenv("DOESNOTEXIST")
-$z = getenv("EMPTY")
+$tmpdir = sys.defaultenv("TMPDIR", "/tmp")
 
-$a = defaultenv("TEST", "321")
-$b = defaultenv("DOESNOTEXIST", "321")
-$c = defaultenv("EMPTY", "456")
+$x = sys.getenv("TEST")
+$y = sys.getenv("DOESNOTEXIST")
+$z = sys.getenv("EMPTY")
 
-$t = hasenv("TEST")
-$f = hasenv("DOESNOTEXIST")
+$a = sys.defaultenv("TEST", "321")
+$b = sys.defaultenv("DOESNOTEXIST", "321")
+$c = sys.defaultenv("EMPTY", "456")
 
-$env = env()
+$t = sys.hasenv("TEST")
+$f = sys.hasenv("DOESNOTEXIST")
+
+$env = sys.env()
 $m = maplookup($env, "TEST", "321")
 
 file "${tmpdir}/environ" {
-	content => printf("%s,%s,%s:%s,%s,%s:%t,%t:%s", $x, $y, $z, $a, $b, $c, $t, $f, $m),
+	content => fmt.printf("%s,%s,%s:%s,%s,%s:%t,%t:%s", $x, $y, $z, $a, $b, $c, $t, $f, $m),
 }

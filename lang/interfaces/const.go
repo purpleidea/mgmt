@@ -15,28 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simple // TODO: should this be in its own individual package?
+package interfaces
 
-import (
-	"fmt"
-	"time"
-
-	"github.com/purpleidea/mgmt/lang/types"
+const (
+	// ModuleSep is the character used for the module scope separation. For
+	// example when using `fmt.printf` or `math.sin` this is the char used.
+	ModuleSep = "."
 )
-
-func init() {
-	// TODO: should we support namespacing these, eg: datetime.print ?
-	// FIXME: consider renaming this to printf, and add in a format string?
-	Register("datetime_print", &types.FuncValue{
-		T: types.NewType("func(a int) str"),
-		V: func(input []types.Value) (types.Value, error) {
-			epochDelta := input[0].Int()
-			if epochDelta < 0 {
-				return nil, fmt.Errorf("epoch delta must be positive")
-			}
-			return &types.StrValue{
-				V: time.Unix(epochDelta, 0).String(),
-			}, nil
-		},
-	})
-}

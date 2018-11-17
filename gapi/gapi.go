@@ -50,6 +50,7 @@ type Data struct {
 	Noop          bool
 	NoConfigWatch bool
 	NoStreamWatch bool
+	Prefix        string
 	Debug         bool
 	Logf          func(format string, v ...interface{})
 	// NOTE: we can add more fields here if needed by GAPI endpoints

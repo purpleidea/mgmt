@@ -47,6 +47,7 @@ type Lang struct {
 	Input    io.Reader // os.Stdin or anything that satisfies this interface
 	Hostname string
 	World    engine.World
+	Prefix   string
 	Debug    bool
 	Logf     func(format string, v ...interface{})
 

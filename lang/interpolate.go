@@ -38,6 +38,9 @@ type Pos struct {
 // InterpolateInfo contains some information passed around during interpolation.
 // TODO: rename to Info if this is moved to its own package.
 type InterpolateInfo struct {
+	// Prefix used for path namespacing if required.
+	Prefix string
+
 	// Debug represents if we're running in debug mode or not.
 	Debug bool
 
@@ -73,7 +76,8 @@ func InterpolateStr(str string, pos *Pos, info *InterpolateInfo) (interfaces.Exp
 	}
 
 	transformInfo := &InterpolateInfo{
-		Debug: info.Debug,
+		Prefix: info.Prefix,
+		Debug:  info.Debug,
 		Logf: func(format string, v ...interface{}) {
 			info.Logf("transform: "+format, v...)
 		},

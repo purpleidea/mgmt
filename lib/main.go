@@ -481,6 +481,7 @@ func (obj *Main) Run() error {
 					//NoWatch:  obj.NoWatch,
 					NoConfigWatch: obj.NoConfigWatch,
 					NoStreamWatch: obj.NoStreamWatch,
+					Prefix:        fmt.Sprintf("%s/", path.Join(prefix, "gapi")),
 					Debug:         obj.Flags.Debug,
 					Logf: func(format string, v ...interface{}) {
 						log.Printf("gapi: "+format, v...)

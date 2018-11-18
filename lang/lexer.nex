@@ -184,6 +184,11 @@
 			lval.str = yylex.Text()
 			return STRUCT_IDENTIFIER
 		}
+/func/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return FUNC_IDENTIFIER
+		}
 /class/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

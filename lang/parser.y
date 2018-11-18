@@ -87,6 +87,7 @@ func init() {
 %token VAR_IDENTIFIER_HX
 %token RES_IDENTIFIER CAPITALIZED_RES_IDENTIFIER
 %token IDENTIFIER CAPITALIZED_IDENTIFIER
+%token FUNC_IDENTIFIER
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
 %token IMPORT_IDENTIFIER AS_IDENTIFIER
 %token COMMENT ERROR
@@ -190,6 +191,60 @@ stmt:
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			ElseBranch: $8.stmt,
+		}
+	}
+	// this is the named version, iow, a user-defined function (statement)
+	// `func name() { <expr> }`
+	// `func name(<arg>) { <expr> }`
+	// `func name(<arg>, <arg>) { <expr> }`
+|	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &StmtFunc{
+			Name: $2.str,
+			Func: &ExprFunc{
+				Args: $4.args,
+				//Return: nil,
+				Body: $7.expr,
+			},
+		}
+	}
+	// `func name(...) <type> { <expr> }`
+|	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		fn := &ExprFunc{
+			Args:   $4.args,
+			Return: $6.typ, // return type is known
+			Body:   $8.expr,
+		}
+		isFullyTyped := $6.typ != nil // true if set
+		m := make(map[string]*types.Type)
+		ord := []string{}
+		for _, a := range $4.args {
+			if a.Type == nil {
+				// at least one is unknown, can't run SetType...
+				isFullyTyped = false
+				break
+			}
+			m[a.Name] = a.Type
+			ord = append(ord, a.Name)
+		}
+		if isFullyTyped {
+			typ := &types.Type{
+				Kind: types.KindFunc,
+				Map:  m,
+				Ord:  ord,
+				Out:  $6.typ,
+			}
+			if err := fn.SetType(typ); err != nil {
+				// this will ultimately cause a parser error to occur...
+				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
+			}
+		}
+		$$.stmt = &StmtFunc{
+			Name: $2.str,
+			Func: fn,
 		}
 	}
 	// `class name { <prog> }`
@@ -320,6 +375,12 @@ expr:
 		$$.expr = $1.expr
 	}
 |	var
+	{
+		posLast(yylex, yyDollar) // our pos
+		// TODO: var could be squashed in here directly...
+		$$.expr = $1.expr
+	}
+|	func
 	{
 		posLast(yylex, yyDollar) // our pos
 		// TODO: var could be squashed in here directly...
@@ -696,6 +757,55 @@ var:
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ExprVar{
 			Name: $1.str,
+		}
+	}
+;
+func:
+	// this is the lambda version, iow, a function as a value (expression)
+	// `func() { <expr> }`
+	// `func(<arg>) { <expr> }`
+	// `func(<arg>, <arg>) { <expr> }`
+	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ExprFunc{
+			Args: $3.args,
+			//Return: nil,
+			Body: $6.expr,
+		}
+	}
+	// `func(...) <type> { <expr> }`
+|	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ExprFunc{
+			Args:   $3.args,
+			Return: $5.typ, // return type is known
+			Body:   $7.expr,
+		}
+		isFullyTyped := $5.typ != nil // true if set
+		m := make(map[string]*types.Type)
+		ord := []string{}
+		for _, a := range $3.args {
+			if a.Type == nil {
+				// at least one is unknown, can't run SetType...
+				isFullyTyped = false
+				break
+			}
+			m[a.Name] = a.Type
+			ord = append(ord, a.Name)
+		}
+		if isFullyTyped {
+			typ := &types.Type{
+				Kind: types.KindFunc,
+				Map:  m,
+				Ord:  ord,
+				Out:  $5.typ,
+			}
+			if err := $$.expr.SetType(typ); err != nil {
+				// this will ultimately cause a parser error to occur...
+				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
+			}
 		}
 	}
 ;

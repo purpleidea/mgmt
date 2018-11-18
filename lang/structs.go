@@ -1542,6 +1542,86 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 	}, nil
 }
 
+// StmtFunc represents a user defined function. It binds the specified name to
+// the supplied function in the current scope and irrespective of the order of
+// definition.
+type StmtFunc struct {
+	Name string
+	//Func *ExprFunc // TODO: should it be this instead?
+	Func interfaces.Expr // TODO: is this correct?
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtFunc) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Func.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtFunc) Init(data *interfaces.Data) error {
+	//obj.data = data // TODO: ???
+	if err := obj.Func.Init(data); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Interpolate returns a new node (or itself) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtFunc) Interpolate() (interfaces.Stmt, error) {
+	interpolated, err := obj.Func.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &StmtFunc{
+		Name: obj.Name,
+		Func: interpolated,
+	}, nil
+}
+
+// SetScope sets the scope of the child expression bound to it. It seems this is
+// necessary in order to reach this, in particular in situations when a bound
+// expression points to a previously bound expression.
+func (obj *StmtFunc) SetScope(scope *interfaces.Scope) error {
+	return obj.Func.SetScope(scope)
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *StmtFunc) Unify() ([]interfaces.Invariant, error) {
+	if obj.Name == "" {
+		return nil, fmt.Errorf("missing function name")
+	}
+	return obj.Func.Unify()
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular func statement adds its linked expression to
+// the graph.
+func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
+	return obj.Func.Graph()
+}
+
+// Output for the func statement produces no output. Any values of interest come
+// from the use of the func which this binds the function to.
+func (obj *StmtFunc) Output() (*interfaces.Output, error) {
+	return (&interfaces.Output{}).Empty(), nil
+}
+
 // StmtClass represents a user defined class. It's effectively a program body
 // that can optionally take some parameterized inputs.
 // TODO: We don't currently support defining polymorphic classes (eg: different
@@ -3324,6 +3404,10 @@ type ExprStructField struct {
 // call, that is represented by ExprCall.
 // XXX: this is currently not fully implemented, and parts may be incorrect.
 type ExprFunc struct {
+	Args   []*Arg
+	Return *types.Type // return type if specified
+	Body   interfaces.Expr
+
 	typ *types.Type
 
 	V func([]types.Value) (types.Value, error)
@@ -3342,7 +3426,20 @@ func (obj *ExprFunc) Apply(fn func(interfaces.Node) error) error {
 // String returns a short representation of this expression.
 // FIXME: fmt.Sprintf("func(%+v)", obj.V) fails `go vet` (bug?), so wait until
 // we have a better printable function value and put that here instead.
-func (obj *ExprFunc) String() string { return fmt.Sprintf("func(???)") } // TODO: print nicely
+//func (obj *ExprFunc) String() string { return fmt.Sprintf("func(???)") } // TODO: print nicely
+func (obj *ExprFunc) String() string {
+	var a []string
+	for _, x := range obj.Args {
+		a = append(a, fmt.Sprintf("%s", x.String()))
+	}
+	args := strings.Join(a, ", ")
+	s := fmt.Sprintf("func(%s)", args)
+	if obj.Return != nil {
+		s += fmt.Sprintf(" %s", obj.Return.String())
+	}
+	s += fmt.Sprintf(" { %s }", obj.Body.String())
+	return s
+}
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
@@ -4125,6 +4222,15 @@ func (obj *ExprVar) Value() (types.Value, error) {
 type Arg struct {
 	Name string
 	Type *types.Type // nil if unspecified (needs to be solved for)
+}
+
+// String returns a short representation of this arg.
+func (obj *Arg) String() string {
+	s := obj.Name
+	if obj.Type != nil {
+		s += fmt.Sprintf(" %s", obj.Type.String())
+	}
+	return s
 }
 
 // ExprIf represents an if expression which *must* have both branches, and which

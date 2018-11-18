@@ -31,6 +31,7 @@ import (
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/kylelemons/godebug/pretty"
 )
 
 func TestLexParse0(t *testing.T) {
@@ -1606,6 +1607,168 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtFunc{
+					Name: "f1",
+					Func: &ExprFunc{
+						Body: &ExprInt{
+							V: 42,
+						},
+					},
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple function stmt 1",
+			code: `
+			func f1() {
+				42
+			}
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		fn := &ExprFunc{
+			Return: types.TypeInt,
+			Body: &ExprCall{
+				Name: operatorFuncName,
+				Args: []interfaces.Expr{
+					&ExprStr{
+						V: "+",
+					},
+					&ExprInt{
+						V: 13,
+					},
+					&ExprInt{
+						V: 42,
+					},
+				},
+			},
+		}
+		// sometimes, the type can get set by the parser when it's known
+		if err := fn.SetType(types.NewType("func() int")); err != nil {
+			t.Fatal("could not build type")
+		}
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtFunc{
+					Name: "f2",
+					Func: fn,
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple function stmt 2",
+			code: `
+			func f2() int {
+				13 + 42
+			}
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		fn := &ExprFunc{
+			Args: []*Arg{
+				{
+					Name: "a",
+					Type: types.TypeInt,
+				},
+				{
+					Name: "b",
+					//Type: &types.Type{},
+				},
+			},
+			Return: types.TypeInt,
+			Body: &ExprCall{
+				Name: operatorFuncName,
+				Args: []interfaces.Expr{
+					&ExprStr{
+						V: "+",
+					},
+					&ExprVar{
+						Name: "a",
+					},
+					&ExprVar{
+						Name: "b",
+					},
+				},
+			},
+		}
+		// we can't set the type here, because it's only partially known
+		//if err := fn.SetType(types.NewType("func() int")); err != nil {
+		//	t.Fatal("could not build type")
+		//}
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtFunc{
+					Name: "f3",
+					Func: fn,
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple function stmt 3",
+			code: `
+			func f3($a int, $b) int {
+				$a + $b
+			}
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		fn := &ExprFunc{
+			Args: []*Arg{
+				{
+					Name: "x",
+					Type: types.TypeStr,
+				},
+			},
+			Return: types.TypeStr,
+			Body: &ExprCall{
+				Name: operatorFuncName,
+				Args: []interfaces.Expr{
+					&ExprStr{
+						V: "+",
+					},
+					&ExprStr{
+						V: "hello",
+					},
+					&ExprVar{
+						Name: "x",
+					},
+				},
+			},
+		}
+		if err := fn.SetType(types.NewType("func(x str) str")); err != nil {
+			t.Fatal("could not build type")
+		}
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtFunc{
+					Name: "f4",
+					Func: fn,
+				},
+			},
+		}
+		values = append(values, test{
+			name: "simple function stmt 4",
+			code: `
+			func f4($x str) str {
+				"hello" + $x
+			}
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
 
 	names := []string{}
 	for index, test := range values { // run all the tests
@@ -1647,11 +1810,27 @@ func TestLexParse0(t *testing.T) {
 
 		if exp != nil {
 			if !reflect.DeepEqual(ast, exp) {
-				t.Errorf("test #%d: AST did not match expected", index)
-				// TODO: consider making our own recursive print function
-				t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
-				t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
-				continue
+				// double check because DeepEqual is different since the func exists
+				diff := pretty.Compare(ast, exp)
+				if diff != "" { // bonus
+					t.Errorf("test #%d: AST did not match expected", index)
+					// TODO: consider making our own recursive print function
+					t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
+					t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
+
+					// more details, for tricky cases:
+					diffable := &pretty.Config{
+						Diffable:          true,
+						IncludeUnexported: true,
+						//PrintStringers: false,
+						//PrintTextMarshalers: false,
+						//SkipZeroFields: false,
+					}
+					t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(ast))
+					t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(exp))
+					t.Logf("test #%d: diff:\n%s", index, diff)
+					continue
+				}
 			}
 		}
 	}

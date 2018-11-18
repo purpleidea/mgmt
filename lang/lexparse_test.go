@@ -1780,6 +1780,7 @@ func TestImportParsing0(t *testing.T) {
 		system bool
 		local  bool
 		path   string
+		url    string
 	}
 	testCases := []test{}
 	testCases = append(testCases, test{ // index: 0
@@ -1795,54 +1796,66 @@ func TestImportParsing0(t *testing.T) {
 		alias: "mgmt",
 		local: false,
 		path:  "example.com/purpleidea/mgmt/",
+		url:   "git://example.com/purpleidea/mgmt",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/mgmt/",
 		alias: "mgmt",
 		local: false,
 		path:  "example.com/purpleidea/mgmt/",
+		url:   "git://example.com/purpleidea/mgmt/",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/mgmt/foo/bar/",
 		alias: "bar",
 		local: false,
 		path:  "example.com/purpleidea/mgmt/foo/bar/",
+		// TODO: change this to be more clever about the clone URL
+		//url: "git://example.com/purpleidea/mgmt/",
+		// TODO: also consider changing `git` to `https` ?
+		url: "git://example.com/purpleidea/mgmt/foo/bar/",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/mgmt-foo",
 		alias: "foo", // prefix is magic
 		local: false,
 		path:  "example.com/purpleidea/mgmt-foo/",
+		url:   "git://example.com/purpleidea/mgmt-foo",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/foo-bar",
 		alias: "foo_bar",
 		local: false,
 		path:  "example.com/purpleidea/foo-bar/",
+		url:   "git://example.com/purpleidea/foo-bar",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/FOO-bar",
 		alias: "foo_bar",
 		local: false,
 		path:  "example.com/purpleidea/FOO-bar/",
+		url:   "git://example.com/purpleidea/FOO-bar",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/foo-BAR",
 		alias: "foo_bar",
 		local: false,
 		path:  "example.com/purpleidea/foo-BAR/",
+		url:   "git://example.com/purpleidea/foo-BAR",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/foo-BAR-baz",
 		alias: "foo_bar_baz",
 		local: false,
 		path:  "example.com/purpleidea/foo-BAR-baz/",
+		url:   "git://example.com/purpleidea/foo-BAR-baz",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/Module-Name",
 		alias: "module_name",
 		local: false,
 		path:  "example.com/purpleidea/Module-Name/",
+		url:   "git://example.com/purpleidea/Module-Name",
 	})
 	testCases = append(testCases, test{
 		name: "git://example.com/purpleidea/foo-",
@@ -1871,24 +1884,29 @@ func TestImportParsing0(t *testing.T) {
 		alias: "module_name",
 		local: false,
 		path:  "example.com/purpleidea/Module-Name/",
+		url:   "git://example.com/purpleidea/Module-Name",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/Module-Name/?foo=bar&baz=42",
 		alias: "module_name",
 		local: false,
 		path:  "example.com/purpleidea/Module-Name/",
+		url:   "git://example.com/purpleidea/Module-Name/",
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/Module-Name/?sha1=25ad05cce36d55ce1c55fd7e70a3ab74e321b66e",
 		alias: "module_name",
 		local: false,
 		path:  "example.com/purpleidea/Module-Name/",
+		url:   "git://example.com/purpleidea/Module-Name/",
+		// TODO: report the query string info as an additional param
 	})
 	testCases = append(testCases, test{
 		name:  "git://example.com/purpleidea/Module-Name/subpath/foo",
 		alias: "foo",
 		local: false,
 		path:  "example.com/purpleidea/Module-Name/subpath/foo/",
+		url:   "git://example.com/purpleidea/Module-Name/subpath/foo",
 	})
 	testCases = append(testCases, test{
 		name:  "foo/",
@@ -1930,7 +1948,7 @@ func TestImportParsing0(t *testing.T) {
 		}
 		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			name, fail, alias, system, local, path := tc.name, tc.fail, tc.alias, tc.system, tc.local, tc.path
+			name, fail, alias, system, local, path, url := tc.name, tc.fail, tc.alias, tc.system, tc.local, tc.path, tc.url
 
 			output, err := ParseImportName(name)
 			if !fail && err != nil {
@@ -1975,6 +1993,14 @@ func TestImportParsing0(t *testing.T) {
 				//t.Logf("test #%d:  input: %s", index, name)
 				t.Logf("test #%d: output: %+v", index, output)
 				t.Logf("test #%d:   path: %s", index, path)
+				return
+
+			}
+			if url != output.URL {
+				t.Errorf("test #%d: unexpected value for: `URL`", index)
+				//t.Logf("test #%d:  input: %s", index, name)
+				t.Logf("test #%d: output: %+v", index, output)
+				t.Logf("test #%d:   url: %s", index, url)
 				return
 
 			}

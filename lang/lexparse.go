@@ -258,6 +258,10 @@ type ImportData struct {
 	// fqdn of the import.
 	// TODO: should system imports put something here?
 	Path string
+
+	// URL is the path that a `git clone` operation should use as the URL.
+	// If it is a local import, then this is the empty value.
+	URL string
 }
 
 // ParseImportName parses an import name and returns the default namespace name
@@ -328,11 +332,25 @@ func ParseImportName(name string) (*ImportData, error) {
 		xpath = xpath + "/"
 	}
 
+	// build a url to clone from if we're not local...
+	// TODO: consider adding some logic that is similar to the logic in:
+	// https://github.com/golang/go/blob/054640b54df68789d9df0e50575d21d9dbffe99f/src/cmd/go/internal/get/vcs.go#L972
+	// so that we can more correctly figure out the correct url to clone...
+	xurl := ""
+	if !local {
+		u.Fragment = ""
+		// TODO: maybe look for ?sha1=... or ?tag=... to pick a real ref
+		u.RawQuery = ""
+		u.ForceQuery = false
+		xurl = u.String()
+	}
+
 	return &ImportData{
 		Name:   name, // save the original value here
 		Alias:  alias,
 		System: system,
 		Local:  local,
 		Path:   xpath,
+		URL:    xurl,
 	}, nil
 }

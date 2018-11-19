@@ -36,11 +36,11 @@ func TestUnification1(t *testing.T) {
 		fail   bool
 		expect map[interfaces.Expr]*types.Type
 	}
-	values := []test{}
+	testCases := []test{}
 
 	// this causes a panic, so it can't be used
 	//{
-	//	values = append(values, test{
+	//	testCases = append(testCases, test{
 	//		"nil",
 	//		nil,
 	//		true, // expect error
@@ -63,7 +63,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "one res",
 			ast:  stmt,
 			fail: false,
@@ -97,7 +97,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "list of strings",
 			ast:  stmt,
 			fail: false,
@@ -137,7 +137,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "map of int->float",
 			ast:  stmt,
 			fail: false,
@@ -179,7 +179,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple struct",
 			ast:  stmt,
 			fail: false,
@@ -227,7 +227,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call",
 			ast:  stmt,
 			fail: false,
@@ -282,7 +282,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call, multiple ints",
 			ast:  stmt,
 			fail: false,
@@ -338,7 +338,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call, multiple floats",
 			ast:  stmt,
 			fail: false,
@@ -372,7 +372,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "assign from func call or two ints",
 			ast:  stmt,
 			fail: false,
@@ -402,7 +402,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple template",
 			ast:  stmt,
 			fail: false,
@@ -439,7 +439,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "complex template",
 			ast:  stmt,
 			fail: false,
@@ -470,7 +470,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "single fact unification",
 			ast:  stmt,
 			fail: true,
@@ -505,7 +505,7 @@ func TestUnification1(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "function, wrong arg count",
 			ast:  stmt,
 			fail: true,
@@ -513,14 +513,18 @@ func TestUnification1(t *testing.T) {
 	}
 
 	names := []string{}
-	for index, test := range values { // run all the tests
-		if util.StrInList(test.name, names) {
-			t.Errorf("test #%d: duplicate sub test name of: %s", index, test.name)
+	for index, tc := range testCases { // run all the tests
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
 			continue
 		}
-		names = append(names, test.name)
-		t.Run(fmt.Sprintf("test #%d (%s)", index, test.name), func(t *testing.T) {
-			ast, fail, expect := test.ast, test.fail, test.expect
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			ast, fail, expect := tc.ast, tc.fail, tc.expect
 
 			//str := strings.NewReader(code)
 			//ast, err := LexParse(str)

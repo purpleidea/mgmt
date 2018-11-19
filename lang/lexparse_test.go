@@ -41,10 +41,10 @@ func TestLexParse0(t *testing.T) {
 		fail bool
 		exp  interfaces.Stmt
 	}
-	values := []test{}
+	testCases := []test{}
 
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			"nil",
 			``,
 			false,
@@ -52,7 +52,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple assignment",
 			code: `$rewsna = -42`,
 			fail: false,
@@ -69,7 +69,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "one res",
 			code: `noop "n1" {}`,
 			fail: false,
@@ -77,14 +77,14 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "res with keyword",
 			code: `false "n1" {}`, // false is a special keyword
 			fail: true,
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "bad escaping",
 			code: `
 			test "t1" {
@@ -95,7 +95,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "int overflow",
 			code: `
 			test "t1" {
@@ -106,7 +106,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "overflow after lexer",
 			code: `
 			test "t1" {
@@ -118,7 +118,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "one res with param",
 			code: `
 			test "t1" {
@@ -130,7 +130,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "one res with elvis",
 			code: `
 			test "t1" {
@@ -145,7 +145,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		// TODO: skip trailing comma requirement on one-liners
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "two lists",
 			code: `
 			$somelist = [42, 0, -13,]
@@ -162,7 +162,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "one map",
 			code: `
 			$somemap = {
@@ -175,7 +175,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "another map",
 			code: `
 			$somemap = {
@@ -189,7 +189,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	// TODO: alternate possible syntax ?
 	//{
-	//	values = append(values, test{ // ?
+	//	testCases = append(testCases, test{ // ?
 	//		code: `
 	//		$somestruct = struct{
 	//			foo: "foo1";
@@ -201,7 +201,7 @@ func TestLexParse0(t *testing.T) {
 	//	})
 	//}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "one struct",
 			code: `
 			$somestruct = struct{
@@ -214,7 +214,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "struct with nested struct",
 			code: `
 			$somestruct = struct{
@@ -232,7 +232,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	// types
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "some lists",
 			code: `
 			$intlist []int = [42, -0, 13,]
@@ -243,7 +243,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "maps 1",
 			code: `
 			# make sure the "str:" part doesn't match a single ident
@@ -257,7 +257,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "maps 2",
 			code: `
 			$mapstrintlist map{str: []int} = {
@@ -271,7 +271,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "maps and lists",
 			code: `
 			$strmap map{str: int} = {
@@ -289,7 +289,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "some structs",
 			code: `
 			$structx struct{a int; b bool; c str} = struct{
@@ -308,7 +308,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "res with floats",
 			code: `
 			test "t1" {
@@ -325,7 +325,7 @@ func TestLexParse0(t *testing.T) {
 	// ULP away from the largest floating point number of the given size,
 	// ParseFloat returns f = ±Inf, err.Err = ErrRange.
 	//{
-	//	values = append(values, test{
+	//	testCases = append(testCases, test{
 	//		name: "overflowing float",
 	//		code: `
 	//		test "t1" {
@@ -336,7 +336,7 @@ func TestLexParse0(t *testing.T) {
 	//	})
 	//}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "res and addition",
 			code: `
 			test "t1" {
@@ -359,7 +359,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call 1",
 			code: `
 			$x1 = foo1()
@@ -387,7 +387,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call 2",
 			code: `
 			$x1 = foo1(13, "hello")
@@ -408,7 +408,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call dotted 1",
 			code: `
 			$x1 = pkg.foo1()
@@ -436,7 +436,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call dotted 2",
 			code: `
 			$x1 = pkg.foo1(true, "hello")
@@ -446,7 +446,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call dotted invalid 1",
 			code: `
 			$x1 = .pkg.foo1(true, "hello")
@@ -455,7 +455,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call dotted invalid 2",
 			code: `
 			$x1 = pkg.foo1.(true, "hello")
@@ -464,7 +464,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call dotted invalid 3",
 			code: `
 			$x1 = .pkg.foo1.(true, "hello")
@@ -473,7 +473,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "func call dotted invalid 4",
 			code: `
 			$x1 = pkg..foo1(true, "hello")
@@ -492,7 +492,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "dotted var 1",
 			code: `
 			$x1 = $pkg.foo1
@@ -512,7 +512,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "dotted var 2",
 			code: `
 			$x1 = $pkg.foo1.bar
@@ -522,7 +522,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "invalid dotted var 1",
 			code: `
 			$x1 = $.pkg.foo1.bar
@@ -531,7 +531,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "invalid dotted var 2",
 			code: `
 			$x1 = $pkg.foo1.bar.
@@ -540,7 +540,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "invalid dotted var 3",
 			code: `
 			$x1 = $.pkg.foo1.bar.
@@ -549,7 +549,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "invalid dotted var 4",
 			code: `
 			$x1 = $pkg..foo1.bar
@@ -587,7 +587,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "addition",
 			code: `
 			test "t1" {
@@ -639,7 +639,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "multiple float addition",
 			code: `
 			test "t1" {
@@ -691,7 +691,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "order of operations lucky",
 			code: `
 			test "t1" {
@@ -743,7 +743,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "order of operations needs left precedence",
 			code: `
 			test "t1" {
@@ -795,7 +795,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "order of operations parens",
 			code: `
 			test "t1" {
@@ -847,7 +847,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "order of operations bools",
 			code: `
 			test "t1" {
@@ -899,7 +899,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "order of operations bools reversed",
 			code: `
 			test "t1" {
@@ -948,7 +948,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "order of operations with not",
 			code: `
 			test "t1" {
@@ -1000,7 +1000,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "order of operations logical",
 			code: `
 			test "t1" {
@@ -1062,7 +1062,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "edge stmt",
 			code: `
 			test "t1" {
@@ -1079,7 +1079,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "parser set type incompatibility str",
 			code: `
 			$x int = "hello"	# type should be str to work
@@ -1091,7 +1091,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "parser set type incompatibility int",
 			code: `
 			$x int = "hello"	# value should be int to work
@@ -1131,7 +1131,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple class 1",
 			code: `
 			class c1 {
@@ -1174,7 +1174,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted class 1",
 			code: `
 			# a dotted identifier only occurs via an imported class
@@ -1219,7 +1219,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted class 2",
 			code: `
 			# a dotted identifier only occurs via an imported class
@@ -1236,7 +1236,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted invalid class 1",
 			code: `
 			# a dotted identifier only occurs via an imported class
@@ -1247,7 +1247,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted invalid class 2",
 			code: `
 			# a dotted identifier only occurs via an imported class
@@ -1258,7 +1258,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted invalid include 1",
 			code: `
 			class .foo.c1 {
@@ -1268,7 +1268,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted invalid include 2",
 			code: `
 			class foo.c1. {
@@ -1278,7 +1278,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted invalid include 3",
 			code: `
 			class .foo.c1. {
@@ -1288,7 +1288,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple dotted invalid include 4",
 			code: `
 			class foo..c1 {
@@ -1320,7 +1320,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple class with args 0",
 			code: `
 			class x() {
@@ -1334,7 +1334,7 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple class underscore failure",
 			code: `
 			class x_() {
@@ -1401,7 +1401,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple class with args 1",
 			code: `
 			class c1($a, $b) {
@@ -1474,7 +1474,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple class with typed args 1",
 			code: `
 			class c1($a str, $b) {
@@ -1498,7 +1498,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple import 1",
 			code: `
 			import "foo1"
@@ -1516,7 +1516,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple import 2",
 			code: `
 			import "foo1" as bar
@@ -1542,7 +1542,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple import 3",
 			code: `
 			import "foo1"
@@ -1562,7 +1562,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple import 4",
 			code: `
 			import "foo1" as *
@@ -1594,7 +1594,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple import inside class 1",
 			code: `
 			class c1 {
@@ -1620,7 +1620,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple function stmt 1",
 			code: `
 			func f1() {
@@ -1661,7 +1661,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple function stmt 2",
 			code: `
 			func f2() int {
@@ -1712,7 +1712,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple function stmt 3",
 			code: `
 			func f3($a int, $b) int {
@@ -1758,7 +1758,7 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple function stmt 4",
 			code: `
 			func f4($x str) str {
@@ -1771,68 +1771,71 @@ func TestLexParse0(t *testing.T) {
 	}
 
 	names := []string{}
-	for index, test := range values { // run all the tests
-		name, code, fail, exp := test.name, test.code, test.fail, test.exp
-
-		if name == "" {
-			name = "<sub test not named>"
-		}
-		if util.StrInList(name, names) {
-			t.Errorf("test #%d: duplicate sub test name of: %s", index, name)
+	for index, tc := range testCases { // run all the tests
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
 			continue
 		}
-		names = append(names, name)
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
 		//if (index != 20 && index != 21) {
-		//if test.name != "nil" {
+		//if tc.name != "nil" {
 		//	continue
 		//}
 
-		t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			name, code, fail, exp := tc.name, tc.code, tc.fail, tc.exp
 
-		str := strings.NewReader(code)
-		ast, err := LexParse(str)
+			t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
 
-		if !fail && err != nil {
-			t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
-			continue
-		}
-		if fail && err == nil {
-			t.Errorf("test #%d: lex/parse passed, expected fail", index)
-			continue
-		}
+			str := strings.NewReader(code)
+			ast, err := LexParse(str)
 
-		if !fail && ast == nil {
-			t.Errorf("test #%d: lex/parse was nil", index)
-			continue
-		}
+			if !fail && err != nil {
+				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
+				return
+			}
+			if fail && err == nil {
+				t.Errorf("test #%d: lex/parse passed, expected fail", index)
+				return
+			}
 
-		if exp != nil {
-			if !reflect.DeepEqual(ast, exp) {
-				// double check because DeepEqual is different since the func exists
-				diff := pretty.Compare(ast, exp)
-				if diff != "" { // bonus
-					t.Errorf("test #%d: AST did not match expected", index)
-					// TODO: consider making our own recursive print function
-					t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
-					t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
+			if !fail && ast == nil {
+				t.Errorf("test #%d: lex/parse was nil", index)
+				return
+			}
 
-					// more details, for tricky cases:
-					diffable := &pretty.Config{
-						Diffable:          true,
-						IncludeUnexported: true,
-						//PrintStringers: false,
-						//PrintTextMarshalers: false,
-						//SkipZeroFields: false,
+			if exp != nil {
+				if !reflect.DeepEqual(ast, exp) {
+					// double check because DeepEqual is different since the func exists
+					diff := pretty.Compare(ast, exp)
+					if diff != "" { // bonus
+						t.Errorf("test #%d: AST did not match expected", index)
+						// TODO: consider making our own recursive print function
+						t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
+						t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
+
+						// more details, for tricky cases:
+						diffable := &pretty.Config{
+							Diffable:          true,
+							IncludeUnexported: true,
+							//PrintStringers: false,
+							//PrintTextMarshalers: false,
+							//SkipZeroFields: false,
+						}
+						t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(ast))
+						t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(exp))
+						t.Logf("test #%d: diff:\n%s", index, diff)
+						return
 					}
-					t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(ast))
-					t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(exp))
-					t.Logf("test #%d: diff:\n%s", index, diff)
-					continue
 				}
 			}
-		}
+		})
 	}
 }
 

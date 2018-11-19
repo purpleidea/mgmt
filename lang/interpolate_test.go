@@ -130,6 +130,10 @@ func TestInterpolate0(t *testing.T) {
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
+			continue
+		}
 		if util.StrInList(tc.name, names) {
 			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
 			continue

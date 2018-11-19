@@ -51,7 +51,7 @@ func TestType0(t *testing.T) {
 }
 
 func TestType1(t *testing.T) {
-	values := map[string]*Type{
+	testCases := map[string]*Type{
 		"":     nil, // error
 		"nope": nil, // error
 
@@ -664,7 +664,7 @@ func TestType1(t *testing.T) {
 		},
 	}
 
-	for str, val := range values { // run all the tests
+	for str, val := range testCases { // run all the tests
 
 		// for debugging
 		//if str != "func(str, int) bool" {
@@ -700,7 +700,7 @@ func TestType1(t *testing.T) {
 
 func TestType2(t *testing.T) {
 	// mapping from golang representation to our expected equivalent
-	values := map[string]*Type{
+	testCases := map[string]*Type{
 		// basic types
 		"bool": {
 			Kind: KindBool,
@@ -1180,7 +1180,7 @@ func TestType2(t *testing.T) {
 		},
 	}
 
-	for str, typ := range values { // run all the tests
+	for str, typ := range testCases { // run all the tests
 		// check the type
 		reflected := typ.Reflect()
 
@@ -1194,7 +1194,7 @@ func TestType2(t *testing.T) {
 
 func TestType3(t *testing.T) {
 	// functions with named types...
-	values := map[string]*Type{
+	testCases := map[string]*Type{
 		"func(input str) bool": {
 			Kind: KindFunc,
 			Map: map[string]*Type{
@@ -1266,7 +1266,7 @@ func TestType3(t *testing.T) {
 		},
 	}
 
-	for str, val := range values { // run all the tests
+	for str, val := range testCases { // run all the tests
 
 		// for debugging
 		//if str != "func(aaa str, bb int) bool" {

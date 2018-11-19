@@ -26,7 +26,7 @@ import (
 )
 
 func TestPrint1(t *testing.T) {
-	values := map[Value]string{
+	testCases := map[Value]string{
 		&BoolValue{V: true}:            "true",
 		&BoolValue{V: false}:           "false",
 		&StrValue{V: ""}:               `""`,
@@ -82,28 +82,28 @@ func TestPrint1(t *testing.T) {
 	}
 
 	d0 := NewMap(NewType("map{str: int}"))
-	values[d0] = `{}`
+	testCases[d0] = `{}`
 
 	d1 := NewMap(NewType("map{str: int}"))
 	d1.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
-	values[d1] = `{"answer": 42}`
+	testCases[d1] = `{"answer": 42}`
 
 	d2 := NewMap(NewType("map{str: int}"))
 	d2.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
 	d2.Add(&StrValue{V: "hello"}, &IntValue{V: 13})
-	values[d2] = `{"answer": 42, "hello": 13}`
+	testCases[d2] = `{"answer": 42, "hello": 13}`
 
 	s0 := NewStruct(NewType("struct{}"))
-	values[s0] = `struct{}`
+	testCases[s0] = `struct{}`
 
 	s1 := NewStruct(NewType("struct{answer int}"))
-	values[s1] = `struct{answer: 0}`
+	testCases[s1] = `struct{answer: 0}`
 
 	s2 := NewStruct(NewType("struct{answer int; truth bool; hello str}"))
-	values[s2] = `struct{answer: 0; truth: false; hello: ""}`
+	testCases[s2] = `struct{answer: 0; truth: false; hello: ""}`
 
 	s3 := NewStruct(NewType("struct{answer int; truth bool; hello str; nested []int}"))
-	values[s3] = `struct{answer: 0; truth: false; hello: ""; nested: []}`
+	testCases[s3] = `struct{answer: 0; truth: false; hello: ""; nested: []}`
 
 	s4 := NewStruct(NewType("struct{answer int; truth bool; hello str; nested []int}"))
 	if err := s4.Set("answer", &IntValue{V: 42}); err != nil {
@@ -114,9 +114,9 @@ func TestPrint1(t *testing.T) {
 		t.Errorf("struct could not set key, error: %v", err)
 		return
 	}
-	values[s4] = `struct{answer: 42; truth: true; hello: ""; nested: []}`
+	testCases[s4] = `struct{answer: 42; truth: true; hello: ""; nested: []}`
 
-	for v, exp := range values { // run all the tests
+	for v, exp := range testCases { // run all the tests
 		if s := v.String(); s != exp {
 			t.Errorf("value representation of `%s` did not match expected: `%s`", s, exp)
 		}
@@ -125,7 +125,7 @@ func TestPrint1(t *testing.T) {
 
 func TestReflectValue1(t *testing.T) {
 	// value string representations in golang can be ambiguous, see below...
-	values := map[Value]string{
+	testCases := map[Value]string{
 		&BoolValue{V: true}:            "true",
 		&BoolValue{V: false}:           "false",
 		&StrValue{V: ""}:               ``,
@@ -197,26 +197,26 @@ func TestReflectValue1(t *testing.T) {
 	}
 
 	d0 := NewMap(NewType("map{str: int}"))
-	values[d0] = `map[]`
+	testCases[d0] = `map[]`
 
 	d1 := NewMap(NewType("map{str: int}"))
 	d1.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
-	values[d1] = `map[answer:42]`
+	testCases[d1] = `map[answer:42]`
 
 	// multiple key maps are tested below since they have multiple outputs
 	// TODO: https://github.com/golang/go/issues/21095
 
 	s0 := NewStruct(NewType("struct{}"))
-	values[s0] = `{}`
+	testCases[s0] = `{}`
 
 	s1 := NewStruct(NewType("struct{Answer int}"))
-	values[s1] = `{Answer:0}`
+	testCases[s1] = `{Answer:0}`
 
 	s2 := NewStruct(NewType("struct{Answer int; Truth bool; Hello str}"))
-	values[s2] = `{Answer:0 Truth:false Hello:}`
+	testCases[s2] = `{Answer:0 Truth:false Hello:}`
 
 	s3 := NewStruct(NewType("struct{Answer int; Truth bool; Hello str; Nested []int}"))
-	values[s3] = `{Answer:0 Truth:false Hello: Nested:[]}`
+	testCases[s3] = `{Answer:0 Truth:false Hello: Nested:[]}`
 
 	s4 := NewStruct(NewType("struct{Answer int; Truth bool; Hello str; Nested []int}"))
 	if err := s4.Set("Answer", &IntValue{V: 42}); err != nil {
@@ -227,9 +227,9 @@ func TestReflectValue1(t *testing.T) {
 		t.Errorf("struct could not set key, error: %v", err)
 		return
 	}
-	values[s4] = `{Answer:42 Truth:true Hello: Nested:[]}`
+	testCases[s4] = `{Answer:42 Truth:true Hello: Nested:[]}`
 
-	for v, exp := range values { // run all the tests
+	for v, exp := range testCases { // run all the tests
 		//t.Logf("expected: %s", exp)
 		if v == nil {
 			t.Logf("nil: %s", exp)
@@ -249,7 +249,7 @@ func TestSort1(t *testing.T) {
 		values []Value
 		sorted []Value
 	}
-	values := []test{
+	testCases := []test{
 		{
 			[]Value{},
 			[]Value{},
@@ -443,8 +443,8 @@ func TestSort1(t *testing.T) {
 		// FIXME: add map and struct sorting tests
 	}
 
-	for index, test := range values { // run all the tests
-		v1, v2 := test.values, test.sorted
+	for index, tc := range testCases { // run all the tests
+		v1, v2 := tc.values, tc.sorted
 		sort.Sort(ValueSlice(v1)) // sort it :)
 
 		if l1, l2 := len(v1), len(v2); l1 != l2 {

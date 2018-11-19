@@ -68,7 +68,7 @@ func TestInstance1(t *testing.T) {
 		fail   bool
 		expect map[string]string
 	}
-	values := []test{}
+	testCases := []test{}
 
 	{
 		code := util.Code(`
@@ -79,7 +79,7 @@ func TestInstance1(t *testing.T) {
 			state => "exists",
 		}
 		`)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "hello world",
 			code: code,
 			fail: false,
@@ -89,9 +89,9 @@ func TestInstance1(t *testing.T) {
 		})
 	}
 
-	for index, test := range values { // run all the tests
-		t.Run(fmt.Sprintf("test #%d (%s)", index, test.name), func(t *testing.T) {
-			code, fail, expect := test.code, test.fail, test.expect
+	for index, tc := range testCases { // run all the tests
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			code, fail, expect := tc.code, tc.fail, tc.expect
 
 			m := Instance{
 				Hostname: "h1",
@@ -151,7 +151,7 @@ func TestCluster1(t *testing.T) {
 		hosts  []string
 		expect map[string]map[string]string // hostname, file, contents
 	}
-	values := []test{}
+	testCases := []test{}
 
 	{
 		code := util.Code(`
@@ -162,7 +162,7 @@ func TestCluster1(t *testing.T) {
 			state => "exists",
 		}
 		`)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name:  "simple pair",
 			code:  code,
 			fail:  false,
@@ -186,7 +186,7 @@ func TestCluster1(t *testing.T) {
 			state => "exists",
 		}
 		`)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name:  "hello world",
 			code:  code,
 			fail:  false,
@@ -205,9 +205,9 @@ func TestCluster1(t *testing.T) {
 		})
 	}
 
-	for index, test := range values { // run all the tests
-		t.Run(fmt.Sprintf("test #%d (%s)", index, test.name), func(t *testing.T) {
-			code, fail, hosts, expect := test.code, test.fail, test.hosts, test.expect
+	for index, tc := range testCases { // run all the tests
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			code, fail, hosts, expect := tc.code, tc.fail, tc.hosts, tc.expect
 
 			c := Cluster{
 				Hostnames: hosts,

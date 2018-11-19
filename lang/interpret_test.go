@@ -77,11 +77,11 @@ func TestAstFunc0(t *testing.T) {
 		scope *interfaces.Scope
 		graph *pgraph.Graph
 	}
-	values := []test{}
+	testCases := []test{}
 
 	{
 		graph, _ := pgraph.NewGraph("g")
-		values = append(values, test{ // 0
+		testCases = append(testCases, test{ // 0
 			"nil",
 			``,
 			false,
@@ -91,7 +91,7 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name:  "scope only",
 			code:  ``,
 			fail:  false,
@@ -105,7 +105,7 @@ func TestAstFunc0(t *testing.T) {
 		e1 := edge("x")
 		graph.AddVertex(&v1, &v2)
 		graph.AddEdge(&v1, &v2, &e1)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "two vars",
 			code: `
 				$x = 42
@@ -118,7 +118,7 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "self-referential vars",
 			code: `
 				$x = $y
@@ -136,7 +136,7 @@ func TestAstFunc0(t *testing.T) {
 		graph.AddEdge(&v1, &v2, &e1)
 		graph.AddEdge(&v2, &v3, &e2)
 		graph.AddEdge(&v3, &v4, &e3)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "chained vars",
 			code: `
 				test "t" {
@@ -156,7 +156,7 @@ func TestAstFunc0(t *testing.T) {
 		graph.AddVertex(&v1, &v2)
 		e1 := edge("b")
 		graph.AddEdge(&v1, &v2, &e1)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple bool",
 			code: `
 				if $b {
@@ -175,7 +175,7 @@ func TestAstFunc0(t *testing.T) {
 		graph.AddEdge(&v2, &v5, &e1)
 		graph.AddEdge(&v3, &v5, &e2)
 		graph.AddEdge(&v4, &v5, &e3)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple operator",
 			code: `
 				test "t" {
@@ -203,7 +203,7 @@ func TestAstFunc0(t *testing.T) {
 		graph.AddEdge(&v2, &v8, &e4)
 		graph.AddEdge(&v7, &v8, &e5)
 		graph.AddEdge(&v6, &v8, &e6)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "simple operators",
 			code: `
 				test "t" {
@@ -230,7 +230,7 @@ func TestAstFunc0(t *testing.T) {
 		graph.AddEdge(&v5, &v8, &e3)
 
 		graph.AddEdge(&v8, &v6, &e5)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "nested resource and scoped var",
 			code: `
 				if true {
@@ -246,7 +246,7 @@ func TestAstFunc0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "out of scope error",
 			code: `
 				# should be out of scope, and a compile error!
@@ -260,7 +260,7 @@ func TestAstFunc0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "variable re-declaration error",
 			code: `
 				# this should fail b/c of variable re-declaration
@@ -280,7 +280,7 @@ func TestAstFunc0(t *testing.T) {
 		// only one edge! (cool)
 		graph.AddEdge(&v1, &v4, &e1)
 
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "variable shadowing",
 			code: `
 				# this should be okay, because var is shadowed
@@ -306,7 +306,7 @@ func TestAstFunc0(t *testing.T) {
 		// only one edge! (cool)
 		graph.AddEdge(&v2, &v4, &e1)
 
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "variable shadowing inner",
 			code: `
 				# this should be okay, because var is shadowed
@@ -335,7 +335,7 @@ func TestAstFunc0(t *testing.T) {
 	//	graph.AddEdge(&v1, &v3, &e1)
 	//	graph.AddEdge(&v2, &v4, &e2)
 	//
-	//	values = append(values, test{
+	//	testCases = append(testCases, test{
 	//		name: "variable shadowing both",
 	//		code: `
 	//			# this should be okay, because var is shadowed
@@ -355,7 +355,7 @@ func TestAstFunc0(t *testing.T) {
 	//	})
 	//}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "variable re-declaration and type change error",
 			code: `
 				# this should fail b/c of variable re-declaration
@@ -367,8 +367,8 @@ func TestAstFunc0(t *testing.T) {
 	}
 
 	names := []string{}
-	for index, test := range values { // run all the tests
-		name, code, fail, scope, exp := test.name, test.code, test.fail, test.scope, test.graph
+	for index, tc := range testCases { // run all the tests
+		name, code, fail, scope, exp := tc.name, tc.code, tc.fail, tc.scope, tc.graph
 
 		if name == "" {
 			name = "<sub test not named>"
@@ -380,7 +380,7 @@ func TestAstFunc0(t *testing.T) {
 		names = append(names, name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
-		//if test.name != "simple operators" {
+		//if tc.name != "simple operators" {
 		//	continue
 		//}
 
@@ -495,11 +495,11 @@ func TestAstInterpret0(t *testing.T) {
 		fail  bool
 		graph *pgraph.Graph
 	}
-	values := []test{}
+	testCases := []test{}
 
 	{
 		graph, _ := pgraph.NewGraph("g")
-		values = append(values, test{ // 0
+		testCases = append(testCases, test{ // 0
 			"nil",
 			``,
 			false,
@@ -507,7 +507,7 @@ func TestAstInterpret0(t *testing.T) {
 		})
 	}
 	{
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "wrong res field type",
 			code: `
 				test "t1" {
@@ -530,7 +530,7 @@ func TestAstInterpret0(t *testing.T) {
 		int8ptrptrptr := &int8ptrptr
 		x.Int8PtrPtrPtr = &int8ptrptrptr
 		graph.AddVertex(t1)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "resource with three pointer fields",
 			code: `
 				test "t1" {
@@ -550,7 +550,7 @@ func TestAstInterpret0(t *testing.T) {
 		stringptr := "wow"
 		x.StringPtr = &stringptr
 		graph.AddVertex(t1)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "resource with simple string pointer field",
 			code: `
 				test "t1" {
@@ -582,7 +582,7 @@ func TestAstInterpret0(t *testing.T) {
 			Notify: false,
 		}
 		graph.AddEdge(t1, t2, edge)
-		values = append(values, test{
+		testCases = append(testCases, test{
 			name: "two resources and send/recv edge",
 			code: `
 			test "t1" {
@@ -599,8 +599,8 @@ func TestAstInterpret0(t *testing.T) {
 	}
 
 	names := []string{}
-	for index, test := range values { // run all the tests
-		name, code, fail, exp := test.name, test.code, test.fail, test.graph
+	for index, tc := range testCases { // run all the tests
+		name, code, fail, exp := tc.name, tc.code, tc.fail, tc.graph
 
 		if name == "" {
 			name = "<sub test not named>"
@@ -612,7 +612,7 @@ func TestAstInterpret0(t *testing.T) {
 		names = append(names, name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
-		//if test.name != "nil" {
+		//if tc.name != "nil" {
 		//	continue
 		//}
 

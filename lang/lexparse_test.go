@@ -1769,6 +1769,140 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
+	{
+
+		fn := &ExprFunc{
+			Body: &ExprInt{
+				V: 42,
+			},
+		}
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "fn",
+					Value: fn,
+				},
+			},
+		}
+		testCases = append(testCases, test{
+			name: "simple function expr 1",
+			code: `
+			# lambda
+			$fn = func() {
+				42
+			}
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		fn := &ExprFunc{
+			Args: []*Arg{
+				{
+					Name: "x",
+					Type: types.TypeStr,
+				},
+			},
+			Return: types.TypeStr,
+			Body: &ExprCall{
+				Name: operatorFuncName,
+				Args: []interfaces.Expr{
+					&ExprStr{
+						V: "+",
+					},
+					&ExprStr{
+						V: "hello",
+					},
+					&ExprVar{
+						Name: "x",
+					},
+				},
+			},
+		}
+		if err := fn.SetType(types.NewType("func(x str) str")); err != nil {
+			t.Fatal("could not build type")
+		}
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "fn",
+					Value: fn,
+				},
+			},
+		}
+		testCases = append(testCases, test{
+			name: "simple function expr 2",
+			code: `
+			# lambda
+			$fn = func($x str) str {
+				"hello" + $x
+			}
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
+		fn := &ExprFunc{
+			Args: []*Arg{
+				{
+					Name: "x",
+					Type: types.TypeStr,
+				},
+			},
+			Return: types.TypeStr,
+			Body: &ExprCall{
+				Name: operatorFuncName,
+				Args: []interfaces.Expr{
+					&ExprStr{
+						V: "+",
+					},
+					&ExprStr{
+						V: "hello",
+					},
+					&ExprVar{
+						Name: "x",
+					},
+				},
+			},
+		}
+		if err := fn.SetType(types.NewType("func(x str) str")); err != nil {
+			t.Fatal("could not build type")
+		}
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtBind{
+					Ident: "fn",
+					Value: fn,
+				},
+				&StmtBind{
+					Ident: "foo",
+					Value: &ExprCall{
+						Name: "fn",
+						Args: []interfaces.Expr{
+							&ExprStr{
+								V: "world",
+							},
+						},
+						//Var: true, // XXX: add this!
+					},
+				},
+			},
+		}
+		testCases = append(testCases, test{
+			name: "simple function expr 3",
+			code: `
+			# lambda
+			$fn = func($x str) str {
+				"hello" + $x
+			}
+			$foo = $fn("world")	# helloworld
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests

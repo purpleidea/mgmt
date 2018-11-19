@@ -496,12 +496,26 @@ struct_field:
 	}
 ;
 call:
+	// fmt.printf(...)
 	dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
+			//Var: false, // default
+		}
+	}
+	// calling a function that's stored in a variable (a lambda)
+	// `$foo(4, "hey")` # call function value
+|	VAR_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ExprCall{
+			Name: $1.str,
+			Args: $3.exprs,
+			// XXX: this Var option isn't implemented yet
+			//Var: true, // lambda
 		}
 	}
 |	expr PLUS expr

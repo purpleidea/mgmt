@@ -22,3 +22,6 @@
 [submodule "vendor/github.com/ugorji/go"]
 	path = vendor/github.com/ugorji/go
 	url = https://github.com/ugorji/go
+[submodule "vendor/github.com/docker/docker"]
+	path = vendor/github.com/docker/docker
+	url = https://github.com/jonathangold/moby

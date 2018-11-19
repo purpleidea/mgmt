@@ -332,7 +332,7 @@
 			lval.str = strings.ToLower(s) // uncapitalize it
 			return CAPITALIZED_IDENTIFIER
 		}
-/[a-z][a-z0-9]*/
+/[a-z]([a-z0-9:]*[a-z0-9]+)?/
 		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

@@ -88,9 +88,9 @@ type Scope struct {
 	Chain []Stmt // chain of previously seen stmt's
 }
 
-// Empty returns the zero, empty value for the scope, with all the internal
+// EmptyScope returns the zero, empty value for the scope, with all the internal
 // lists initialized appropriately.
-func (obj *Scope) Empty() *Scope {
+func EmptyScope() *Scope {
 	return &Scope{
 		Variables: make(map[string]Expr),
 		//Functions: ???,
@@ -146,9 +146,9 @@ type Output struct { // returned by Stmt
 	//Exported []*Exports // TODO: add exported resources
 }
 
-// Empty returns the zero, empty value for the output, with all the internal
-// lists initialized appropriately.
-func (obj *Output) Empty() *Output {
+// EmptyOutput returns the zero, empty value for the output, with all the
+// internal lists initialized appropriately.
+func EmptyOutput() *Output {
 	return &Output{
 		Resources: []engine.Res{},
 		Edges:     []*Edge{},

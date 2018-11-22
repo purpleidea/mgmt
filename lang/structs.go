@@ -129,7 +129,7 @@ func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
 // Output for the bind statement produces no output. Any values of interest come
 // from the use of the var which this binds the expression to.
 func (obj *StmtBind) Output() (*interfaces.Output, error) {
-	return (&interfaces.Output{}).Empty(), nil
+	return interfaces.EmptyOutput(), nil
 }
 
 // StmtRes is a representation of a resource and possibly some edges.
@@ -1619,7 +1619,7 @@ func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
 // Output for the func statement produces no output. Any values of interest come
 // from the use of the func which this binds the function to.
 func (obj *StmtFunc) Output() (*interfaces.Output, error) {
-	return (&interfaces.Output{}).Empty(), nil
+	return interfaces.EmptyOutput(), nil
 }
 
 // StmtClass represents a user defined class. It's effectively a program body
@@ -1780,7 +1780,7 @@ func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
 // handles the recursion scenario.
 func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
-		scope = scope.Empty()
+		scope = interfaces.EmptyScope()
 	}
 
 	stmt, exists := scope.Classes[obj.Name]
@@ -1993,7 +1993,7 @@ func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
 // import statement itself produces no output, as it is only used to populate
 // the scope so that others can use that to produce values and output.
 func (obj *StmtImport) Output() (*interfaces.Output, error) {
-	return (&interfaces.Output{}).Empty(), nil
+	return interfaces.EmptyOutput(), nil
 }
 
 // StmtComment is a representation of a comment. It is currently unused. It
@@ -2055,7 +2055,7 @@ func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
 
 // Output for the comment statement produces no output.
 func (obj *StmtComment) Output() (*interfaces.Output, error) {
-	return (&interfaces.Output{}).Empty(), nil
+	return interfaces.EmptyOutput(), nil
 }
 
 // ExprBool is a representation of a boolean.
@@ -3527,7 +3527,8 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 // ExprCall is a representation of a function call. This does not represent the
 // declaration or implementation of a new function value.
 type ExprCall struct {
-	typ *types.Type
+	scope *interfaces.Scope // store for referencing this later
+	typ   *types.Type
 
 	V types.Value // stored result (set with SetValue)
 
@@ -3652,6 +3653,11 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 // SetScope stores the scope for later use in this resource and it's children,
 // which it propagates this downwards to.
 func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
+	if scope == nil {
+		scope = interfaces.EmptyScope()
+	}
+	obj.scope = scope
+
 	for _, x := range obj.Args {
 		if err := x.SetScope(scope); err != nil {
 			return err
@@ -4030,7 +4036,7 @@ func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 // SetScope stores the scope for use in this resource.
 func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
-		scope = scope.Empty()
+		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
 	return nil

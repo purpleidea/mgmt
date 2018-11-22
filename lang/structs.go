@@ -1542,6 +1542,33 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 	}, nil
 }
 
+// IsModuleUnsafe returns whether or not this StmtProg is unsafe to consume as a
+// module scope. IOW, if someone writes a module which is imported and which has
+// statements other than bind, func, class or import, then it is not correct to
+// import, since those other elements wouldn't be used, and might provide a
+// false belief that they'll get included when mgmt imports that module.
+// SetScope should be called before this is used. (TODO: verify this)
+// TODO: return a multierr with all the unsafe elements, to provide better info
+// TODO: technically this could be a method on Stmt, possibly using Apply...
+func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
+	for _, x := range obj.Prog {
+		// stmt's allowed: import, bind, func, class
+		// stmt's not-allowed: if, include, res, edge
+		switch x.(type) {
+		case *StmtImport:
+		case *StmtBind:
+		case *StmtFunc:
+		case *StmtClass:
+		case *StmtComment: // possibly not even parsed
+			// all of these are safe
+		default:
+			// something else unsafe
+			return fmt.Errorf("found unsafe stmt: %v", x)
+		}
+	}
+	return nil
+}
+
 // StmtFunc represents a user defined function. It binds the specified name to
 // the supplied function in the current scope and irrespective of the order of
 // definition.

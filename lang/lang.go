@@ -18,8 +18,8 @@
 package lang // TODO: move this into a sub package of lang/$name?
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -28,14 +28,12 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
 )
 
 const (
-	// FileNameExtension is the filename extension used for languages files.
-	FileNameExtension = "mcl" // alternate suggestions welcome!
-
 	// make these available internally without requiring the import
 	operatorFuncName = funcs.OperatorFuncName
 	historyFuncName  = funcs.HistoryFuncName
@@ -44,7 +42,17 @@ const (
 
 // Lang is the main language lexer/parser object.
 type Lang struct {
-	Input    io.Reader // os.Stdin or anything that satisfies this interface
+	Fs engine.Fs // connected fs where input dir or metadata exists
+	// Input is a string which specifies what the lang should run. It can
+	// accept values in several different forms. If is passed a single dash
+	// (-), then it will use `os.Stdin`. If it is passed a single .mcl file,
+	// then it will attempt to run that. If it is passed a directory path,
+	// then it will attempt to run from there. Instead, if it is passed the
+	// path to a metadata file, then it will attempt to parse that and run
+	// from that specification. If none of those match, it will attempt to
+	// run the raw string as mcl code.
+	Input string
+
 	Hostname string
 	World    engine.World
 	Prefix   string
@@ -76,9 +84,36 @@ func (obj *Lang) Init() error {
 	once := &sync.Once{}
 	loadedSignal := func() { close(obj.loadedChan) } // only run once!
 
+	if obj.Debug {
+		obj.Logf("input: %s", obj.Input)
+		tree, err := util.FsTree(obj.Fs, "/") // should look like gapi
+		if err != nil {
+			return err
+		}
+		obj.Logf("run tree:\n%s", tree)
+	}
+
+	// we used to support stdin passthrough, but we we got rid of it for now
+	// the fs input here is the local fs we're reading to get the files from
+	// which is usually etcdFs.
+	output, err := parseInput(obj.Input, obj.Fs)
+	if err != nil {
+		return errwrap.Wrapf(err, "could not activate an input parser")
+	}
+	if len(output.Workers) > 0 {
+		// either programming error, or someone hacked in something here
+		// by the time *this* parseInput runs, we should be standardized
+		return fmt.Errorf("input contained file system workers")
+	}
+	reader := bytes.NewReader(output.Main)
+
+	// no need to run recursion detection since this is the beginning
+	// TODO: do the paths need to be cleaned for "../" before comparison?
+
 	// run the lexer/parser and build an AST
 	obj.Logf("lexing/parsing...")
-	ast, err := LexParse(obj.Input)
+	// this reads an io.Reader, which might be a stream of multiple files...
+	ast, err := LexParse(reader)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate AST")
 	}
@@ -86,10 +121,29 @@ func (obj *Lang) Init() error {
 		obj.Logf("behold, the AST: %+v", ast)
 	}
 
+	importGraph, err := pgraph.NewGraph("importGraph")
+	if err != nil {
+		return errwrap.Wrapf(err, "could not create graph")
+	}
+	importVertex := &pgraph.SelfVertex{
+		Name:  "",          // first node is the empty string
+		Graph: importGraph, // store a reference to ourself
+	}
+	importGraph.AddVertex(importVertex)
+
 	obj.Logf("init...")
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
-		Debug: obj.Debug,
+		Fs:       obj.Fs,
+		Base:     output.Base, // base dir (absolute path) the metadata file is in
+		Files:    output.Files,
+		Imports:  importVertex,
+		Metadata: output.Metadata,
+		Modules:  "/" + interfaces.ModuleDirectory, // do not set from env for a deploy!
+
+		//World: obj.World, // TODO: do we need this?
+		Prefix: obj.Prefix,
+		Debug:  obj.Debug,
 		Logf: func(format string, v ...interface{}) {
 			// TODO: is this a sane prefix to use here?
 			obj.Logf("ast: "+format, v...)
@@ -115,6 +169,8 @@ func (obj *Lang) Init() error {
 			// TODO: change to a func when we can change hostname dynamically!
 			"hostname": &ExprStr{V: obj.Hostname},
 		},
+		// all the built-in top-level, core functions enter here...
+		Functions: funcs.LookupPrefix(""),
 	}
 
 	obj.Logf("building scope...")

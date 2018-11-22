@@ -39,9 +39,10 @@ type Init struct {
 	//Noop bool
 	Input  chan types.Value // Engine will close `input` chan
 	Output chan types.Value // Stream must close `output` chan
-	World  engine.World
-	Debug  bool
-	Logf   func(format string, v ...interface{})
+	// TODO: should we pass in a *Scope here for functions like template() ?
+	World engine.World
+	Debug bool
+	Logf  func(format string, v ...interface{})
 }
 
 // Func is the interface that any valid func must fulfill. It is very simple,

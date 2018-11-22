@@ -147,6 +147,10 @@
 /\./		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
+			// sanity check... these should be the same!
+			if x, y := lval.str, interfaces.ModuleSep; x != y {
+				panic(fmt.Sprintf("DOT does not match ModuleSep (%s != %s)", x, y))
+			}
 			return DOT
 		}
 /\$/		{
@@ -419,6 +423,8 @@ package lang
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/purpleidea/mgmt/lang/interfaces"
 )
 
 // NOTE:

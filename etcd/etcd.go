@@ -37,12 +37,12 @@
 //
 // Smoke testing:
 // mkdir /tmp/mgmt{A..E}
-// ./mgmt run --yaml examples/etcd1a.yaml --hostname h1 --tmp-prefix --no-pgp
-// ./mgmt run --yaml examples/etcd1b.yaml --hostname h2 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382
-// ./mgmt run --yaml examples/etcd1c.yaml --hostname h3 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384
+// ./mgmt run --hostname h1 --tmp-prefix --no-pgp yaml --yaml examples/yaml/etcd1a.yaml
+// ./mgmt run --hostname h2 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 yaml --yaml examples/yaml/etcd1b.yaml
+// ./mgmt run --hostname h3 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 yaml --yaml examples/yaml/etcd1c.yaml
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/idealClusterSize 3
-// ./mgmt run --yaml examples/etcd1d.yaml --hostname h4 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386
-// ./mgmt run --yaml examples/etcd1e.yaml --hostname h5 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2387 --server-urls http://127.0.0.1:2388
+// ./mgmt run --hostname h4 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 yaml --yaml examples/yaml/etcd1d.yaml
+// ./mgmt run --hostname h5 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2387 --server-urls http://127.0.0.1:2388 yaml --yaml examples/yaml/etcd1e.yaml
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 put /_mgmt/idealClusterSize 5
 // ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list

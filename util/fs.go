@@ -25,7 +25,8 @@ import (
 
 // Fs is a simple wrapper to a file system to be used for standalone deploys.
 // This is basically a pass-through so that we fulfill the same interface that
-// the deploy mechanism uses.
+// the deploy mechanism uses. To use this, wrap it with the implied field name,
+// which will prevent `go vet` warnings, eg: `fs := &util.Fs{Afero: afs}`.
 // NOTE: This struct is here, since I don't know where else to put it for now.
 type Fs struct {
 	*afero.Afero

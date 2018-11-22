@@ -27,4 +27,9 @@ const (
 	// ErrTypeCurrentlyUnknown is returned from the Type() call on Expr if
 	// unification didn't run successfully and the type isn't obvious yet.
 	ErrTypeCurrentlyUnknown = Error("type is currently unknown")
+
+	// ErrExpectedFileMissing is returned when a file that is used by an
+	// import is missing. This might signal the downloader, or it might
+	// signal a permanent error.
+	ErrExpectedFileMissing = Error("file is currently missing")
 )

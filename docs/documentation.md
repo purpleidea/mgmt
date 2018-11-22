@@ -137,15 +137,15 @@ Invoke `mgmt` with the `--puppet` switch, which supports 3 variants:
 
 1. Request the configuration from the Puppet Master (like `puppet agent` does)
 
-	`mgmt run --puppet agent`
+	`mgmt run puppet --puppet agent`
 
 2. Compile a local manifest file (like `puppet apply`)
 
-	`mgmt run --puppet /path/to/my/manifest.pp`
+	`mgmt run puppet --puppet /path/to/my/manifest.pp`
 
 3. Compile an ad hoc manifest from the commandline (like `puppet apply -e`)
 
-	`mgmt run --puppet 'file { "/etc/ntp.conf": ensure => file }'`
+	`mgmt run puppet --puppet 'file { "/etc/ntp.conf": ensure => file }'`
 
 For more details and caveats see [Puppet.md](Puppet.md).
 
@@ -164,6 +164,7 @@ If you feel that a well used option needs documenting here, please patch it!
 ### Overview of reference
 
 * [Meta parameters](#meta-parameters): List of available resource meta parameters.
+* [Lang metadata file](#lang-metadata-file): Lang metadata file format.
 * [Graph definition file](#graph-definition-file): Main graph definition file.
 * [Command line](#command-line): Command line parameters.
 * [Compilation options](#compilation-options): Compilation options.
@@ -249,11 +250,48 @@ integer, then that value is the max size for that semaphore. Valid semaphore
 id's include: `some_id`, `hello:42`, `not:smart:4` and `:13`. It is expected
 that the last bare example be only used by the engine to add a global semaphore.
 
+### Lang metadata file
+
+Any module *must* have a metadata file in its root. It must be named
+`metadata.yaml`, even if it's empty. You can specify zero or more values in yaml
+format which can change how your module behaves, and where the `mcl` language
+looks for code and other files. The most important top level keys are: `main`,
+`path`, `files`, and `license`.
+
+#### Main
+
+The `main` key points to the default entry point of your code. It must be a
+relative path if specified. If it's empty it defaults to `main.mcl`. It should
+generally not be changed. It is sometimes set to `main/main.mcl` if you'd like
+your modules code out of the root and into a child directory for cases where you
+don't plan on having a lot deeper imports relative to `main.mcl` and all those
+files would clutter things up.
+
+#### Path
+
+The `path` key specifies the modules import search directory to use for this
+module. You can specify this if you'd like to vendor something for your module.
+In general, if you use it, please use the convention: `path/`. If it's not
+specified, you will default to the parent modules directory.
+
+#### Files
+
+The `files` key specifies some additional files that will get included in your
+deploy. It defaults to `files/`.
+
+#### License
+
+The `license` key allows you to specify a license for the module. Please specify
+one so that everyone can enjoy your code! Use a "short license identifier", like
+`LGPLv3+`, or `MIT`. The former is a safe choice if you're not sure what to use.
+
 ### Graph definition file
 
 graph.yaml is the compiled graph definition file. The format is currently
-undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)
-you can probably figure out most of it, as it's fairly intuitive.
+undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples/yaml/)
+you can probably figure out most of it, as it's fairly intuitive. It's not
+recommended that you use this, since it's preferable to write code in the
+[mcl language](language-guide.md) front-end.
 
 ### Command line
 

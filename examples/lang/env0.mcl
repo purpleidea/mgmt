@@ -1,5 +1,5 @@
 # read and print environment variable
-# env TEST=123 EMPTY= ./mgmt run --tmp-prefix --lang=examples/lang/env0.mcl --converged-timeout=5
+# env TEST=123 EMPTY= ./mgmt run --tmp-prefix --converged-timeout=5 lang --lang=examples/lang/env0.mcl
 
 import "fmt"
 import "sys"

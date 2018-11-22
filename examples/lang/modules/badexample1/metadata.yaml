@@ -1,0 +1,3 @@
+main: "main/hello.mcl"	# this is not the default, the default is "main.mcl"
+files: "files/"		# these are some extra files we can use (is the default)
+path: "path/"		# where to look for modules, defaults to using a global

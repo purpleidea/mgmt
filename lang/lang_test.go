@@ -21,17 +21,18 @@ package lang
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
+	"github.com/spf13/afero"
 )
 
 // TODO: unify with the other function like this...
@@ -85,12 +86,32 @@ func edgeCmpFn(e1, e2 pgraph.Edge) (bool, error) {
 }
 
 func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
-	str := strings.NewReader(code)
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: lang: "+format, v...)
 	}
+	mmFs := afero.NewMemMapFs()
+	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+	fs := &util.Fs{Afero: afs}
+
+	output, err := parseInput(code, fs) // raw code can be passed in
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "parseInput failed")
+	}
+	for _, fn := range output.Workers {
+		if err := fn(fs); err != nil {
+			return nil, err
+		}
+	}
+
+	tree, err := util.FsTree(fs, "/")
+	if err != nil {
+		return nil, err
+	}
+	logf("tree:\n%s", tree)
+
 	lang := &Lang{
-		Input: str, // string as an interface that satisfies io.Reader
+		Fs:    fs,
+		Input: "/" + interfaces.MetadataFilename, // start path in fs
 		Debug: true,
 		Logf:  logf,
 	}
@@ -125,18 +146,19 @@ func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
 	return graph, closeFn()
 }
 
-func TestInterpret0(t *testing.T) {
-	code := ``
-	graph, err := runInterpret(t, code)
-	if err != nil {
-		t.Errorf("runInterpret failed: %+v", err)
-		return
-	}
+// TODO: empty code is not currently allowed, should we allow it?
+//func TestInterpret0(t *testing.T) {
+//	code := ``
+//	graph, err := runInterpret(t, code)
+//	if err != nil {
+//		t.Errorf("runInterpret failed: %+v", err)
+//		return
+//	}
 
-	expected := &pgraph.Graph{}
+//	expected := &pgraph.Graph{}
 
-	runGraphCmp(t, graph, expected)
-}
+//	runGraphCmp(t, graph, expected)
+//}
 
 func TestInterpret1(t *testing.T) {
 	code := `noop "n1" {}`
@@ -307,24 +329,25 @@ func TestInterpretMany(t *testing.T) {
 	}
 	testCases := []test{}
 
-	{
-		graph, _ := pgraph.NewGraph("g")
-		testCases = append(testCases, test{ // 0
-			"nil",
-			``,
-			false,
-			graph,
-		})
-	}
-	{
-		graph, _ := pgraph.NewGraph("g")
-		testCases = append(testCases, test{ // 1
-			name:  "empty",
-			code:  ``,
-			fail:  false,
-			graph: graph,
-		})
-	}
+	// TODO: empty code is not currently allowed, should we allow it?
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	testCases = append(testCases, test{ // 0
+	//		"nil",
+	//		``,
+	//		false,
+	//		graph,
+	//	})
+	//}
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	testCases = append(testCases, test{ // 1
+	//		name:  "empty",
+	//		code:  ``,
+	//		fail:  false,
+	//		graph: graph,
+	//	})
+	//}
 	{
 		graph, _ := pgraph.NewGraph("g")
 		r, _ := engine.NewNamedResource("test", "t")
@@ -857,6 +880,66 @@ func TestInterpretMany(t *testing.T) {
 			}
 			`,
 			fail: true,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		x1 := r1.(*resources.TestRes)
+		s1 := "the answer is: 42"
+		x1.StringPtr = &s1
+		graph.AddVertex(x1)
+		testCases = append(testCases, test{
+			name: "simple import 1",
+			code: `
+			import "fmt"
+
+			test "t1" {
+				stringptr => fmt.printf("the answer is: %d", 42),
+			}
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		x1 := r1.(*resources.TestRes)
+		s1 := "the answer is: 42"
+		x1.StringPtr = &s1
+		graph.AddVertex(x1)
+		testCases = append(testCases, test{
+			name: "simple import 2",
+			code: `
+			import "fmt" as foo
+
+			test "t1" {
+				stringptr => foo.printf("the answer is: %d", 42),
+			}
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "t1")
+		x1 := r1.(*resources.TestRes)
+		s1 := "the answer is: 42"
+		x1.StringPtr = &s1
+		graph.AddVertex(x1)
+		testCases = append(testCases, test{
+			name: "simple import 3",
+			code: `
+			import "fmt" as *
+
+			test "t1" {
+				stringptr => printf("the answer is: %d", 42),
+			}
+			`,
+			fail:  false,
+			graph: graph,
 		})
 	}
 

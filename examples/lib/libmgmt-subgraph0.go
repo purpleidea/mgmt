@@ -36,14 +36,14 @@ type MyGAPI struct {
 	Name     string // graph name
 	Interval uint   // refresh interval, 0 to never refresh
 
-	data        gapi.Data
+	data        *gapi.Data
 	initialized bool
 	closeChan   chan struct{}
 	wg          sync.WaitGroup // sync group for tunnel go routines
 }
 
 // NewMyGAPI creates a new MyGAPI struct and calls Init().
-func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
+func NewMyGAPI(data *gapi.Data, name string, interval uint) (*MyGAPI, error) {
 	obj := &MyGAPI{
 		Name:     name,
 		Interval: interval,
@@ -51,28 +51,8 @@ func NewMyGAPI(data gapi.Data, name string, interval uint) (*MyGAPI, error) {
 	return obj, obj.Init(data)
 }
 
-// Cli takes a cli.Context, and returns our GAPI if activated. All arguments
-// should take the prefix of the registered name. On activation, if there are
-// any validation problems, you should return an error. If this was not
-// activated, then you should return a nil GAPI and a nil error.
-func (obj *MyGAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
-	if s := c.String(obj.Name); c.IsSet(obj.Name) {
-		if s != "" {
-			return nil, fmt.Errorf("input is not empty")
-		}
-
-		return &gapi.Deploy{
-			Name: obj.Name,
-			Noop: c.GlobalBool("noop"),
-			Sema: c.GlobalInt("sema"),
-			GAPI: &MyGAPI{},
-		}, nil
-	}
-	return nil, nil // we weren't activated!
-}
-
-// CliFlags returns a list of flags used by this deploy subcommand.
-func (obj *MyGAPI) CliFlags() []cli.Flag {
+// CliFlags returns a list of flags used by the passed in subcommand.
+func (obj *MyGAPI) CliFlags(string) []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
 			Name:  obj.Name,
@@ -82,8 +62,26 @@ func (obj *MyGAPI) CliFlags() []cli.Flag {
 	}
 }
 
+// Cli takes a cli.Context and some other info, and returns our GAPI. If there
+// are any validation problems, you should return an error.
+func (obj *MyGAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
+	c := cliInfo.CliContext
+	//fs := cliInfo.Fs // copy files from local filesystem *into* this fs...
+	//debug := cliInfo.Debug
+	//logf := func(format string, v ...interface{}) {
+	//	cliInfo.Logf(Name+": "+format, v...)
+	//}
+
+	return &gapi.Deploy{
+		Name: obj.Name,
+		Noop: c.GlobalBool("noop"),
+		Sema: c.GlobalInt("sema"),
+		GAPI: &MyGAPI{},
+	}, nil
+}
+
 // Init initializes the MyGAPI struct.
-func (obj *MyGAPI) Init(data gapi.Data) error {
+func (obj *MyGAPI) Init(data *gapi.Data) error {
 	if obj.initialized {
 		return fmt.Errorf("already initialized")
 	}

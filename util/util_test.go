@@ -65,6 +65,18 @@ func TestUtilT1(t *testing.T) {
 		t.Errorf("Result is incorrect.")
 	}
 
+	if Dirname("foo/bar.conf") != "foo/" {
+		t.Errorf("Result is incorrect.")
+	}
+
+	if Dirname("foo/bar/baz.conf") != "foo/bar/" {
+		t.Errorf("Result is incorrect.")
+	}
+
+	if Dirname("bar.conf") != "" {
+		t.Errorf("Result is incorrect.")
+	}
+
 	if Basename("/foo/bar/baz") != "baz" {
 		t.Errorf("Result is incorrect.")
 	}
@@ -918,6 +930,12 @@ func TestRebasePath0(t *testing.T) {
 	} else if s != "/opt/bin/project/" {
 		t.Errorf("unexpected string, got: %s", s)
 	}
+	// empty root to build a relative dir path
+	if s, err := Rebase("/var/lib/dir/file.conf", "/var/lib/", ""); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "dir/file.conf" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
 
 	// expected errors...
 	if s, err := Rebase("", "", "/opt/"); err == nil {
@@ -942,8 +960,57 @@ func TestRebasePath0(t *testing.T) {
 	if s, err := Rebase("/usr/bin/project/", "/bin/", "/opt/"); err == nil {
 		t.Errorf("expected error, got: %s", s)
 	}
-	if s, err := Rebase("/usr/bin/project", "/usr/", ""); err == nil {
-		t.Errorf("expected error, got: %s", s)
+
+	// formerly a failure:
+	//if s, err := Rebase("/usr/bin/project", "/usr/", ""); err == nil {
+	//	t.Errorf("expected error, got: %s", s)
+	//}
+	// replaced with a valid result instead:
+	if s, err := Rebase("/usr/bin/project", "/usr/", ""); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "bin/project" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/project/", "/usr/", ""); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/project/", "/usr/", "foo/bar/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "foo/bar/bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+}
+
+func TestRemovePathPrefix0(t *testing.T) {
+	testCases := []struct {
+		in  string
+		out string
+	}{
+		{
+			in:  "/simple1",
+			out: "/",
+		},
+		{
+			in:  "/simple1/foo/bar",
+			out: "/foo/bar",
+		},
+		{
+			in:  "/simple1/foo/bar/",
+			out: "/foo/bar/",
+		},
+	}
+	for _, test := range testCases {
+		out, err := RemovePathPrefix(test.in)
+		if err != nil {
+			t.Errorf("error: %+v", err)
+			continue
+		}
+		if test.out != out {
+			t.Errorf("failed: %s -> %s", test.in, out)
+			continue
+		}
 	}
 }
 

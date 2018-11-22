@@ -546,7 +546,7 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	}
 	{
 		ast := &ExprStr{
-			V: "i am: ${hostname()}",
+			V: "i am: ${sys.hostname()}",
 		}
 		exp := &ExprCall{
 			Name: operatorFuncName,
@@ -558,7 +558,7 @@ func TestInterpolateBasicExpr(t *testing.T) {
 					V: "i am: ",
 				},
 				&ExprCall{
-					Name: "hostname",
+					Name: "sys.hostname",
 					Args: []interfaces.Expr{},
 				},
 			},

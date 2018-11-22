@@ -39,6 +39,9 @@ type Cluster struct {
 	// This is helpful for running analysis or tests on the output.
 	Preserve bool
 
+	// Logf is a logger which should be used.
+	Logf func(format string, v ...interface{})
+
 	// Debug enables more verbosity.
 	Debug bool
 
@@ -62,7 +65,8 @@ func (obj *Cluster) Init() error {
 		}
 	}
 
-	for _, h := range obj.Hostnames {
+	for _, hostname := range obj.Hostnames {
+		h := hostname
 		instancePrefix := path.Join(obj.dir, h)
 		if err := os.MkdirAll(instancePrefix, dirMode); err != nil {
 			return errwrap.Wrapf(err, "can't create instance directory")
@@ -71,7 +75,10 @@ func (obj *Cluster) Init() error {
 		obj.instances[h] = &Instance{
 			Hostname: h,
 			Preserve: obj.Preserve,
-			Debug:    obj.Debug,
+			Logf: func(format string, v ...interface{}) {
+				obj.Logf(fmt.Sprintf("instance <%s>: ", h)+format, v...)
+			},
+			Debug: obj.Debug,
 
 			dir: instancePrefix,
 		}

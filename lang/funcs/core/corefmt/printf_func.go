@@ -29,6 +29,7 @@ import (
 )
 
 func init() {
+	// FIXME: should this be named sprintf instead?
 	funcs.ModuleRegister(moduleName, "printf", func() interfaces.Func { return &PrintfFunc{} })
 }
 

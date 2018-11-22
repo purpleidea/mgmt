@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
@@ -35,6 +36,7 @@ func TestUnification1(t *testing.T) {
 		ast    interfaces.Stmt // raw AST
 		fail   bool
 		expect map[interfaces.Expr]*types.Type
+		experr error // expected error if fail == true (nil ignores it)
 	}
 	testCases := []test{}
 
@@ -511,6 +513,136 @@ func TestUnification1(t *testing.T) {
 			fail: true,
 		})
 	}
+	// XXX: add these tests when we fix the bug!
+	//{
+	//	//test "t1" {
+	//	//	import "fmt"
+	//	//	stringptr => fmt.printf("hello %s and %s", "one"),	# bad
+	//	//}
+	//	expr := &ExprCall{
+	//		Name: "fmt.printf",
+	//		Args: []interfaces.Expr{
+	//			&ExprStr{
+	//				V: "hello %s and %s",
+	//			},
+	//			&ExprStr{
+	//				V: "one",
+	//			},
+	//		},
+	//	}
+	//	stmt := &StmtProg{
+	//		Prog: []interfaces.Stmt{
+	//			&StmtImport{
+	//				Name: "fmt",
+	//			},
+	//			&StmtRes{
+	//				Kind: "test",
+	//				Name: &ExprStr{V: "t1"},
+	//				Contents: []StmtResContents{
+	//					&StmtResField{
+	//						Field: "stringptr",
+	//						Value: expr,
+	//					},
+	//				},
+	//			},
+	//		},
+	//	}
+	//	testCases = append(testCases, test{
+	//		name: "function, missing arg for printf",
+	//		ast:  stmt,
+	//		fail: true,
+	//	})
+	//}
+	//{
+	//	//test "t1" {
+	//	//	import "fmt"
+	//	//	stringptr => fmt.printf("hello %s and %s", "one", "two", "three"),	# bad
+	//	//}
+	//	expr := &ExprCall{
+	//		Name: "fmt.printf",
+	//		Args: []interfaces.Expr{
+	//			&ExprStr{
+	//				V: "hello %s and %s",
+	//			},
+	//			&ExprStr{
+	//				V: "one",
+	//			},
+	//			&ExprStr{
+	//				V: "two",
+	//			},
+	//			&ExprStr{
+	//				V: "three",
+	//			},
+	//		},
+	//	}
+	//	stmt := &StmtProg{
+	//		Prog: []interfaces.Stmt{
+	//			&StmtImport{
+	//				Name: "fmt",
+	//			},
+	//			&StmtRes{
+	//				Kind: "test",
+	//				Name: &ExprStr{V: "t1"},
+	//				Contents: []StmtResContents{
+	//					&StmtResField{
+	//						Field: "stringptr",
+	//						Value: expr,
+	//					},
+	//				},
+	//			},
+	//		},
+	//	}
+	//	testCases = append(testCases, test{
+	//		name: "function, extra arg for printf",
+	//		ast:  stmt,
+	//		fail: true,
+	//	})
+	//}
+	{
+		//test "t1" {
+		//	import "fmt"
+		//	stringptr => fmt.printf("hello %s and %s", "one", "two"),
+		//}
+		expr := &ExprCall{
+			Name: "fmt.printf",
+			Args: []interfaces.Expr{
+				&ExprStr{
+					V: "hello %s and %s",
+				},
+				&ExprStr{
+					V: "one",
+				},
+				&ExprStr{
+					V: "two",
+				},
+			},
+		}
+		stmt := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name: "fmt",
+				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{V: "t1"},
+					Contents: []StmtResContents{
+						&StmtResField{
+							Field: "stringptr",
+							Value: expr,
+						},
+					},
+				},
+			},
+		}
+		testCases = append(testCases, test{
+			name: "function, regular printf unification",
+			ast:  stmt,
+			fail: false,
+			expect: map[interfaces.Expr]*types.Type{
+				expr: types.NewType("str"),
+			},
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
@@ -524,7 +656,7 @@ func TestUnification1(t *testing.T) {
 		}
 		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			ast, fail, expect := tc.ast, tc.fail, tc.expect
+			ast, fail, expect, experr := tc.ast, tc.fail, tc.expect, tc.experr
 
 			//str := strings.NewReader(code)
 			//ast, err := LexParse(str)
@@ -534,6 +666,19 @@ func TestUnification1(t *testing.T) {
 			//}
 			// TODO: print out the AST's so that we can see the types
 			t.Logf("\n\ntest #%d: AST (before): %+v\n", index, ast)
+
+			data := &interfaces.Data{
+				Debug: true,
+				Logf: func(format string, v ...interface{}) {
+					t.Logf(fmt.Sprintf("test #%d", index)+": ast: "+format, v...)
+				},
+			}
+			// some of this might happen *after* interpolate in SetScope or Unify...
+			if err := ast.Init(data); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+				return
+			}
 
 			// skip interpolation in this test so that the node pointers
 			// aren't changed and so we can compare directly to expected
@@ -548,7 +693,10 @@ func TestUnification1(t *testing.T) {
 			scope := &interfaces.Scope{
 				Variables: map[string]interfaces.Expr{
 					"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+					//"hostname": &ExprStr{V: obj.Hostname},
 				},
+				// all the built-in top-level, core functions enter here...
+				Functions: funcs.LookupPrefix(""),
 			}
 			// propagate the scope down through the AST...
 			if err := ast.SetScope(scope); err != nil {
@@ -576,6 +724,12 @@ func TestUnification1(t *testing.T) {
 				t.Errorf("test #%d: unification passed, expected fail", index)
 				return
 			}
+			if fail && experr != nil && err != experr { // test for specific error!
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expected fail, got wrong error", index)
+				t.Errorf("test #%d: got error: %+v", index, err)
+				t.Errorf("test #%d: exp error: %+v", index, experr)
+			}
 
 			if expect == nil { // test done early
 				return
@@ -592,6 +746,8 @@ func TestUnification1(t *testing.T) {
 
 				if err := typ.Cmp(exptyp); err != nil {
 					t.Errorf("test #%d: type cmp failed with: %+v", index, err)
+					t.Logf("test #%d: got: %+v", index, typ)
+					t.Logf("test #%d: exp: %+v", index, exptyp)
 					failed = true
 					break
 				}

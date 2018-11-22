@@ -62,3 +62,9 @@ func CopyStringToFs(fs engine.Fs, str, dst string) error {
 func CopyDirToFs(fs engine.Fs, src, dst string) error {
 	return util.CopyDiskToFs(fs, src, dst, false)
 }
+
+// CopyDirContentsToFs copies a dir contents from src path on the local fs to a
+// dst path on fs.
+func CopyDirContentsToFs(fs engine.Fs, src, dst string) error {
+	return util.CopyDiskContentsToFs(fs, src, dst, false)
+}

@@ -1152,7 +1152,7 @@ dotted_identifier:
 |	dotted_identifier DOT IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.str = $1.str + "." + $3.str
+		$$.str = $1.str + interfaces.ModuleSep + $3.str
 	}
 ;
 // there are different ways the lexer/parser might choose to represent this...
@@ -1167,7 +1167,7 @@ dotted_var_identifier:
 |	VAR_IDENTIFIER DOT dotted_identifier
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.str = $1.str + "." + $3.str
+		$$.str = $1.str + interfaces.ModuleSep + $3.str
 	}
 	// eg: $ foo.bar.baz (dollar prefix + dotted identifier)
 |	DOLLAR dotted_identifier

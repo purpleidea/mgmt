@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 
@@ -44,53 +43,69 @@ func init() {
 type GAPI struct {
 	InputURI string // input URI of file system containing yaml graph to use
 
-	data        gapi.Data
+	data        *gapi.Data
 	initialized bool
 	closeChan   chan struct{}
 	wg          sync.WaitGroup // sync group for tunnel go routines
+}
+
+// CliFlags returns a list of flags used by the specified subcommand.
+func (obj *GAPI) CliFlags(command string) []cli.Flag {
+	switch command {
+	case gapi.CommandRun:
+		fallthrough
+	case gapi.CommandDeploy:
+		return []cli.Flag{
+			cli.StringFlag{
+				Name:  Name,
+				Value: "",
+				Usage: "yaml graph definition to run",
+			},
+		}
+	//case gapi.CommandGet:
+	default:
+		return []cli.Flag{}
+	}
 }
 
 // Cli takes a cli.Context, and returns our GAPI if activated. All arguments
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
-	if s := c.String(Name); c.IsSet(Name) {
-		if s == "" {
-			return nil, fmt.Errorf("input yaml is empty")
-		}
-
-		// single file input only
-		if err := gapi.CopyFileToFs(fs, s, Start); err != nil {
-			return nil, errwrap.Wrapf(err, "can't copy yaml from `%s` to `%s`", s, Start)
-		}
-
-		return &gapi.Deploy{
-			Name: Name,
-			Noop: c.GlobalBool("noop"),
-			Sema: c.GlobalInt("sema"),
-			GAPI: &GAPI{
-				InputURI: fs.URI(),
-				// TODO: add properties here...
-			},
-		}, nil
+func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
+	c := cliInfo.CliContext
+	fs := cliInfo.Fs
+	//debug := cliInfo.Debug
+	//logf := func(format string, v ...interface{}) {
+	//	 cliInfo.Logf(Name + ": "+format, v...)
+	//}
+	if !c.IsSet(Name) {
+		return nil, nil // we weren't activated!
 	}
-	return nil, nil // we weren't activated!
-}
 
-// CliFlags returns a list of flags used by this deploy subcommand.
-func (obj *GAPI) CliFlags() []cli.Flag {
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:  Name,
-			Value: "",
-			Usage: "yaml graph definition to run",
+	s := c.String(Name)
+	if s == "" {
+		return nil, fmt.Errorf("input yaml is empty")
+	}
+
+	// single file input only
+	if err := gapi.CopyFileToFs(fs, s, Start); err != nil {
+		return nil, errwrap.Wrapf(err, "can't copy yaml from `%s` to `%s`", s, Start)
+	}
+
+	return &gapi.Deploy{
+		Name: Name,
+		Noop: c.GlobalBool("noop"),
+		Sema: c.GlobalInt("sema"),
+		GAPI: &GAPI{
+			InputURI: fs.URI(),
+			// TODO: add properties here...
 		},
-	}
+	}, nil
 }
 
 // Init initializes the yamlgraph GAPI struct.
-func (obj *GAPI) Init(data gapi.Data) error {
+func (obj *GAPI) Init(data *gapi.Data) error {
 	if obj.initialized {
 		return fmt.Errorf("already initialized")
 	}

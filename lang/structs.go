@@ -18,13 +18,16 @@
 package lang // TODO: move this into a sub package of lang/$name?
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/bindata"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -51,6 +54,17 @@ const (
 	// EdgeDepend declares an edge a <- b, such that no notification occurs.
 	// This is most similar to "require" in Puppet.
 	EdgeDepend = "depend"
+
+	// AllowUserDefinedPolyFunc specifies if we allow user-defined
+	// polymorphic functions or not. At the moment this is not implemented.
+	// XXX: not implemented
+	AllowUserDefinedPolyFunc = false
+
+	// RequireStrictModulePath can be set to true if you wish to ignore any
+	// of the metadata parent path searching. By default that is allowed,
+	// unless it is disabled per module with ParentPathBlock. This option is
+	// here in case we decide that the parent module searching is confusing.
+	RequireStrictModulePath = false
 )
 
 // StmtBind is a representation of an assignment, which binds a variable to an
@@ -1352,6 +1366,12 @@ func (obj *StmtIf) Output() (*interfaces.Output, error) {
 // their order of definition.
 type StmtProg struct {
 	data *interfaces.Data
+	// XXX: should this be copied when we run Interpolate here or elsewhere?
+	scope *interfaces.Scope // store for use by imports
+
+	// TODO: should this be a map? if so, how would we sort it to loop it?
+	importProgs []*StmtProg // list of child programs after running SetScope
+	importFiles []string    // list of files seen during the SetScope import
 
 	Prog []interfaces.Stmt
 }
@@ -1367,6 +1387,13 @@ func (obj *StmtProg) Apply(fn func(interfaces.Node) error) error {
 			return err
 		}
 	}
+
+	// might as well Apply on these too, to make file collection easier, etc
+	for _, x := range obj.importProgs {
+		if err := x.Apply(fn); err != nil {
+			return err
+		}
+	}
 	return fn(obj)
 }
 
@@ -1374,6 +1401,8 @@ func (obj *StmtProg) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtProg) Init(data *interfaces.Data) error {
 	obj.data = data
+	obj.importProgs = []*StmtProg{}
+	obj.importFiles = []string{}
 	for _, x := range obj.Prog {
 		if err := x.Init(data); err != nil {
 			return err
@@ -1395,21 +1424,497 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 		prog = append(prog, interpolated)
 	}
 	return &StmtProg{
-		data: obj.data,
-		Prog: prog,
+		data:        obj.data,
+		importProgs: obj.importProgs, // TODO: do we even need this here?
+		importFiles: obj.importFiles,
+		Prog:        prog,
 	}, nil
 }
 
+// importScope is a helper function called from SetScope. If it can't find a
+// particular scope, then it can also run the downloader if it is available.
+func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.Scope) (*interfaces.Scope, error) {
+	if obj.data.Debug {
+		obj.data.Logf("import: %s", info.Name)
+	}
+	// the abs file path that we started actively running SetScope on is:
+	// obj.data.Base + obj.data.Metadata.Main
+	// but recursive imports mean this is not always the active file...
+
+	if info.IsSystem { // system imports are the exact name, eg "fmt"
+		systemScope, err := obj.importSystemScope(info.Alias)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "system import of `%s` failed", info.Alias)
+		}
+		return systemScope, nil
+	}
+
+	// graph-based recursion detection
+	// TODO: is this suffiently unique, but not incorrectly unique?
+	// TODO: do we need to clean uvid for consistency so the compare works?
+	uvid := obj.data.Base + ";" + info.Name // unique vertex id
+	importVertex := obj.data.Imports        // parent vertex
+	if importVertex == nil {
+		return nil, fmt.Errorf("programming error: missing import vertex")
+	}
+	importGraph := importVertex.Graph // existing graph (ptr stored within)
+	nextVertex := &pgraph.SelfVertex{ // new vertex (if one doesn't already exist)
+		Name:  uvid,        // import name
+		Graph: importGraph, // store a reference to ourself
+	}
+	for _, v := range importGraph.VerticesSorted() { // search for one first
+		gv, ok := v.(*pgraph.SelfVertex)
+		if !ok { // someone misused the vertex
+			return nil, fmt.Errorf("programming error: unexpected vertex type")
+		}
+		if gv.Name == uvid {
+			nextVertex = gv // found the same name (use this instead!)
+			// this doesn't necessarily mean a cycle. a dag is okay
+			break
+		}
+	}
+
+	// add an edge
+	edge := &pgraph.SimpleEdge{Name: ""} // TODO: name me?
+	importGraph.AddEdge(importVertex, nextVertex, edge)
+	if _, err := importGraph.TopologicalSort(); err != nil {
+		// TODO: print the cycle in a prettier way (with file names?)
+		obj.data.Logf("import: not a dag:\n%s", importGraph.Sprint())
+		return nil, errwrap.Wrapf(err, "recursive import of: `%s`", info.Name)
+	}
+
+	if info.IsLocal {
+		// append the relative addition of where the running code is, on
+		// to the base path that the metadata file (data) is relative to
+		// if the main code file has no additional directory, then it is
+		// okay, because Dirname collapses down to the empty string here
+		importFilePath := obj.data.Base + util.Dirname(obj.data.Metadata.Main) + info.Path
+		if obj.data.Debug {
+			obj.data.Logf("import: file: %s", importFilePath)
+		}
+		// don't do this collection here, it has moved elsewhere...
+		//obj.importFiles = append(obj.importFiles, importFilePath) // save for CollectFiles
+
+		localScope, err := obj.importScopeWithInputs(importFilePath, scope, nextVertex)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "local import of `%s` failed", info.Name)
+		}
+		return localScope, nil
+	}
+
+	// Now, info.IsLocal is false... we're dealing with a remote import!
+
+	// This takes the current metadata as input so it can use the Path
+	// directory to search upwards if we wanted to look in parent paths.
+	// Since this is an fqdn import, it must contain a metadata file...
+	modulesPath, err := interfaces.FindModulesPath(obj.data.Metadata, obj.data.Base, obj.data.Modules)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "module path error")
+	}
+	importFilePath := modulesPath + info.Path + interfaces.MetadataFilename
+
+	if !RequireStrictModulePath { // look upwards
+		modulesPathList, err := interfaces.FindModulesPathList(obj.data.Metadata, obj.data.Base, obj.data.Modules)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "module path list error")
+		}
+		for _, mp := range modulesPathList { // first one to find a file
+			x := mp + info.Path + interfaces.MetadataFilename
+			if _, err := obj.data.Fs.Stat(x); err == nil {
+				// found a valid location, so keep using it!
+				modulesPath = mp
+				importFilePath = x
+				break
+			}
+		}
+		// If we get here, and we didn't find anything, then we use the
+		// originally decided, most "precise" location... The reason we
+		// do that is if the sysadmin wishes to require all the modules
+		// to come from their top-level (or higher-level) directory, it
+		// can be done by adding the code there, so that it is found in
+		// the above upwards search. Otherwise, we just do what the mod
+		// asked for and use the path/ directory if it wants its own...
+	}
+	if obj.data.Debug {
+		obj.data.Logf("import: modules path: %s", modulesPath)
+		obj.data.Logf("import: file: %s", importFilePath)
+	}
+	// don't do this collection here, it has moved elsewhere...
+	//obj.importFiles = append(obj.importFiles, importFilePath) // save for CollectFiles
+
+	// invoke the download when a path is missing, if the downloader exists
+	// we need to invoke the recursive checker before we run this download!
+	// this should cleverly deal with skipping modules that are up-to-date!
+	if obj.data.Downloader != nil {
+		// run downloader stuff first
+		if err := obj.data.Downloader.Get(info, modulesPath); err != nil {
+			return nil, errwrap.Wrapf(err, "download of `%s` failed", info.Name)
+		}
+	}
+
+	// takes the full absolute path to the metadata.yaml file
+	remoteScope, err := obj.importScopeWithInputs(importFilePath, scope, nextVertex)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "remote import of `%s` failed", info.Name)
+	}
+	return remoteScope, nil
+}
+
+// importSystemScope takes the name of a built-in system scope (eg: "fmt") and
+// returns the scope struct for that built-in. This function is slightly less
+// trivial than expected, because the scope is built from both native mcl code
+// and golang code as well. The native mcl code is compiled in as bindata.
+// TODO: can we memoize?
+func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
+	// this basically loop through the registeredFuncs and includes
+	// everything that starts with the name prefix and a period, and then
+	// lexes and parses the compiled in code, and adds that on top of the
+	// scope. we error if there's a duplicate!
+
+	isEmpty := true // assume empty (which should cause an error)
+
+	funcs := funcs.LookupPrefix(name)
+	if len(funcs) > 0 {
+		isEmpty = false
+	}
+
+	// initial scope, built from core golang code
+	scope := &interfaces.Scope{
+		// TODO: we could add core API's for variables and classes too!
+		//Variables: make(map[string]interfaces.Expr),
+		Functions: funcs, // map[string]func() interfaces.Func
+		//Classes: make(map[string]interfaces.Stmt),
+	}
+
+	// TODO: the obj.data.Fs filesystem handle is unused for now, but might
+	// be useful if we ever ship all the specific versions of system modules
+	// to the remote machines as well, and we want to load off of it...
+
+	// now add any compiled-in mcl code
+	paths := bindata.AssetNames()
+	// results are not sorted by default (ascertained by reading the code!)
+	sort.Strings(paths)
+	newScope := interfaces.EmptyScope()
+	// XXX: consider using a virtual `append *` statement to combine these instead.
+	for _, p := range paths {
+		// we only want code from this prefix
+		prefix := CoreDir + name + "/"
+		if !strings.HasPrefix(p, prefix) {
+			continue
+		}
+		// we only want code from this directory level, so skip children
+		// heuristically, a child mcl file will contain a path separator
+		if strings.Contains(p[len(prefix):], "/") {
+			continue
+		}
+
+		b, err := bindata.Asset(p)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't read asset: `%s`", p)
+		}
+
+		// to combine multiple *.mcl files from the same directory, we
+		// lex and parse each one individually, which each produces a
+		// scope struct. we then merge the scope structs, while making
+		// sure we don't overwrite any values. (this logic is only valid
+		// for modules, as top-level code combines the output values
+		// instead.)
+
+		reader := bytes.NewReader(b) // wrap the byte stream
+
+		// now run the lexer/parser to do the import
+		ast, err := LexParse(reader)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not generate AST from import `%s`", name)
+		}
+		if obj.data.Debug {
+			obj.data.Logf("behold, the AST: %+v", ast)
+		}
+
+		obj.data.Logf("init...")
+		// init and validate the structure of the AST
+		// some of this might happen *after* interpolate in SetScope or Unify...
+		if err := ast.Init(obj.data); err != nil {
+			return nil, errwrap.Wrapf(err, "could not init and validate AST")
+		}
+
+		obj.data.Logf("interpolating...")
+		// interpolate strings and other expansionable nodes in AST
+		interpolated, err := ast.Interpolate()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not interpolate AST from import `%s`", name)
+		}
+
+		obj.data.Logf("building scope...")
+		// propagate the scope down through the AST...
+		// most importantly, we ensure that the child imports will run!
+		// we pass in *our* parent scope, which will include the globals
+		if err := interpolated.SetScope(scope); err != nil {
+			return nil, errwrap.Wrapf(err, "could not set scope from import `%s`", name)
+		}
+
+		// is the root of our ast a program?
+		prog, ok := interpolated.(*StmtProg)
+		if !ok {
+			return nil, fmt.Errorf("import `%s` did not return a program", name)
+		}
+
+		if prog.scope == nil { // pull out the result
+			continue // nothing to do here, continue with the next!
+		}
+
+		// check for unwanted top-level elements in this module/scope
+		// XXX: add a test case to test for this in our core modules!
+		if err := prog.IsModuleUnsafe(); err != nil {
+			return nil, errwrap.Wrapf(err, "module contains unused statements")
+		}
+
+		if !prog.scope.IsEmpty() {
+			isEmpty = false // this module/scope isn't empty
+		}
+
+		// save a reference to the prog for future usage in Unify/Graph/Etc...
+		// XXX: we don't need to do this if we can combine with Append!
+		obj.importProgs = append(obj.importProgs, prog)
+
+		// attempt to merge
+		// XXX: test for duplicate var/func/class elements in a test!
+		if err := newScope.Merge(prog.scope); err != nil { // errors if something was overwritten
+			return nil, errwrap.Wrapf(err, "duplicate scope element(s) in module found")
+		}
+	}
+
+	if err := scope.Merge(newScope); err != nil { // errors if something was overwritten
+		return nil, errwrap.Wrapf(err, "duplicate scope element(s) found")
+	}
+
+	// when importing a system scope, we only error if there are zero class,
+	// function, or variable statements in the scope. We error in this case,
+	// because it is non-sensical to import such a scope.
+	if isEmpty {
+		return nil, fmt.Errorf("could not find any non-empty scope named: %s", name)
+	}
+
+	return scope, nil
+}
+
+// importScopeWithInputs returns a local or remote scope from an inputs string.
+// The inputs string is the common frontend for a lot of our parsing decisions.
+func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, parentVertex *pgraph.SelfVertex) (*interfaces.Scope, error) {
+	output, err := parseInput(s, obj.data.Fs)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not activate an input parser")
+	}
+
+	// TODO: rm this old, and incorrect, linear file duplicate checking...
+	// recursion detection (i guess following the imports has to be a dag!)
+	// run recursion detection by checking for duplicates in the seen files
+	// TODO: do the paths need to be cleaned for "../", etc before compare?
+	//for _, name := range obj.data.Files { // existing seen files
+	//	if util.StrInList(name, output.Files) {
+	//		return nil, fmt.Errorf("recursive import of: `%s`", name)
+	//	}
+	//}
+
+	reader := bytes.NewReader(output.Main)
+
+	// nested logger
+	logf := func(format string, v ...interface{}) {
+		obj.data.Logf("import: "+format, v...)
+	}
+
+	// build new list of files
+	files := []string{}
+	files = append(files, output.Files...)
+	files = append(files, obj.data.Files...)
+
+	// store a reference to the parent metadata
+	metadata := output.Metadata
+	metadata.Metadata = obj.data.Metadata
+
+	// now run the lexer/parser to do the import
+	ast, err := LexParse(reader)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not generate AST from import")
+	}
+	if obj.data.Debug {
+		logf("behold, the AST: %+v", ast)
+	}
+
+	logf("init...")
+	// init and validate the structure of the AST
+	data := &interfaces.Data{
+		Fs:         obj.data.Fs,
+		Base:       output.Base, // new base dir (absolute path)
+		Files:      files,
+		Imports:    parentVertex, // the parent vertex that imported me
+		Metadata:   metadata,
+		Modules:    obj.data.Modules,
+		Downloader: obj.data.Downloader,
+		//World: obj.data.World,
+
+		//Prefix: obj.Prefix, // TODO: add a path on?
+		Debug: obj.data.Debug,
+		Logf:  logf,
+	}
+	// some of this might happen *after* interpolate in SetScope or Unify...
+	if err := ast.Init(data); err != nil {
+		return nil, errwrap.Wrapf(err, "could not init and validate AST")
+	}
+
+	logf("interpolating...")
+	// interpolate strings and other expansionable nodes in AST
+	interpolated, err := ast.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate AST from import")
+	}
+
+	logf("building scope...")
+	// propagate the scope down through the AST...
+	// most importantly, we ensure that the child imports will run!
+	// we pass in *our* parent scope, which will include the globals
+	if err := interpolated.SetScope(scope); err != nil {
+		return nil, errwrap.Wrapf(err, "could not set scope from import")
+	}
+
+	// we DON'T do this here anymore, since Apply() digs into the children!
+	//// this nested ast needs to pass the data up into the parent!
+	//fileList, err := CollectFiles(interpolated)
+	//if err != nil {
+	//	return nil, errwrap.Wrapf(err, "could not collect files")
+	//}
+	//obj.importFiles = append(obj.importFiles, fileList...) // save for CollectFiles
+
+	// is the root of our ast a program?
+	prog, ok := interpolated.(*StmtProg)
+	if !ok {
+		return nil, fmt.Errorf("import did not return a program")
+	}
+
+	// check for unwanted top-level elements in this module/scope
+	// XXX: add a test case to test for this in our core modules!
+	if err := prog.IsModuleUnsafe(); err != nil {
+		return nil, errwrap.Wrapf(err, "module contains unused statements")
+	}
+
+	// when importing a system scope, we only error if there are zero class,
+	// function, or variable statements in the scope. We error in this case,
+	// because it is non-sensical to import such a scope.
+	if prog.scope.IsEmpty() {
+		return nil, fmt.Errorf("could not find any non-empty scope")
+	}
+
+	// save a reference to the prog for future usage in Unify/Graph/Etc...
+	obj.importProgs = append(obj.importProgs, prog)
+
+	// collecting these here is more elegant (and possibly more efficient!)
+	obj.importFiles = append(obj.importFiles, output.Files...) // save for CollectFiles
+
+	return prog.scope, nil
+}
+
 // SetScope propagates the scope into its list of statements. It does so
-// cleverly by first collecting all bind statements and adding those into the
-// scope after checking for any collisions. Finally it pushes the new scope
-// downwards to all child statements.
+// cleverly by first collecting all bind and func statements and adding those
+// into the scope after checking for any collisions. Finally it pushes the new
+// scope downwards to all child statements. If we support user defined function
+// polymorphism via multiple function definition, then these are built together
+// here. This SetScope is the one which follows the import statements. If it
+// can't follow one (perhaps it wasn't downloaded yet, and is missing) then it
+// leaves some information about these missing imports in the AST and errors, so
+// that a subsequent AST traversal (usually via Apply) can collect this detailed
+// information to be used by the downloader.
 func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	newScope := scope.Copy()
 
-	binds := make(map[string]struct{}) // bind existence in this scope
+	// start by looking for any `import` statements to pull into the scope!
+	// this will run child lexing/parsing, interpolation, and scope setting
+	imports := make(map[string]struct{})
+	aliases := make(map[string]struct{})
+
+	// keep track of new imports, to ensure they don't overwrite each other!
+	// this is different from scope shadowing which is allowed in new scopes
+	newVariables := make(map[string]string)
+	newFunctions := make(map[string]string)
+	newClasses := make(map[string]string)
+	for _, x := range obj.Prog {
+		imp, ok := x.(*StmtImport)
+		if !ok {
+			continue
+		}
+		// check for duplicates *in this scope*
+		if _, exists := imports[imp.Name]; exists {
+			return fmt.Errorf("import `%s` already exists in this scope", imp.Name)
+		}
+
+		result, err := ParseImportName(imp.Name)
+		if err != nil {
+			return errwrap.Wrapf(err, "import `%s` is not valid", imp.Name)
+		}
+		alias := result.Alias // this is what we normally call the import
+
+		if imp.Alias != "" { // this is what the user decided as the name
+			alias = imp.Alias // use alias if specified
+		}
+		if _, exists := aliases[alias]; exists {
+			return fmt.Errorf("import alias `%s` already exists in this scope", alias)
+		}
+
+		// run the scope importer...
+		importedScope, err := obj.importScope(result, scope)
+		if err != nil {
+			return errwrap.Wrapf(err, "import scope `%s` failed", imp.Name)
+		}
+
+		// read from stored scope which was previously saved in SetScope
+		// add to scope, (overwriting, aka shadowing is ok)
+		// rename scope values, adding the alias prefix
+		// check that we don't overwrite a new value from another import
+		// TODO: do this in a deterministic (sorted) order
+		for name, x := range importedScope.Variables {
+			newName := alias + interfaces.ModuleSep + name
+			if alias == "*" {
+				newName = name
+			}
+			if previous, exists := newVariables[newName]; exists {
+				// don't overwrite in same scope
+				return fmt.Errorf("can't squash variable `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+			}
+			newVariables[newName] = imp.Name
+			newScope.Variables[newName] = x // merge
+		}
+		for name, x := range importedScope.Functions {
+			newName := alias + interfaces.ModuleSep + name
+			if alias == "*" {
+				newName = name
+			}
+			if previous, exists := newFunctions[newName]; exists {
+				// don't overwrite in same scope
+				return fmt.Errorf("can't squash function `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+			}
+			newFunctions[newName] = imp.Name
+			newScope.Functions[newName] = x
+		}
+		for name, x := range importedScope.Classes {
+			newName := alias + interfaces.ModuleSep + name
+			if alias == "*" {
+				newName = name
+			}
+			if previous, exists := newClasses[newName]; exists {
+				// don't overwrite in same scope
+				return fmt.Errorf("can't squash class `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+			}
+			newClasses[newName] = imp.Name
+			newScope.Classes[newName] = x
+		}
+
+		// everything has been merged, move on to next import...
+		imports[imp.Name] = struct{}{} // mark as found in scope
+		aliases[alias] = struct{}{}
+	}
+
 	// collect all the bind statements in the first pass
 	// this allows them to appear out of order in this scope
+	binds := make(map[string]struct{}) // bind existence in this scope
 	for _, x := range obj.Prog {
 		bind, ok := x.(*StmtBind)
 		if !ok {
@@ -1423,6 +1928,44 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		binds[bind.Ident] = struct{}{} // mark as found in scope
 		// add to scope, (overwriting, aka shadowing is ok)
 		newScope.Variables[bind.Ident] = bind.Value
+	}
+
+	// now collect all the functions, and group by name (if polyfunc is ok)
+	funcs := make(map[string][]*StmtFunc)
+	for _, x := range obj.Prog {
+		fn, ok := x.(*StmtFunc)
+		if !ok {
+			continue
+		}
+
+		_, exists := funcs[fn.Name]
+		if !exists {
+			funcs[fn.Name] = []*StmtFunc{} // initialize
+		}
+
+		// check for duplicates *in this scope*
+		if exists && !AllowUserDefinedPolyFunc {
+			return fmt.Errorf("func `%s` already exists in this scope", fn.Name)
+		}
+
+		// collect funcs (if multiple, this is a polyfunc)
+		funcs[fn.Name] = append(funcs[fn.Name], fn)
+	}
+
+	for name, fnList := range funcs {
+		// add to scope, (overwriting, aka shadowing is ok)
+		if len(fnList) == 1 {
+			fn := fnList[0].Func // local reference to avoid changing it in the loop...
+			f, err := fn.Func()
+			if err != nil {
+				return errwrap.Wrapf(err, "could not build func from: %s", fnList[0].Name)
+			}
+			newScope.Functions[name] = func() interfaces.Func { return f }
+			continue
+		}
+
+		// build polyfunc's
+		// XXX: not implemented
 	}
 
 	// now collect any classes
@@ -1442,6 +1985,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		// add to scope, (overwriting, aka shadowing is ok)
 		newScope.Classes[class.Name] = class
 	}
+
+	obj.scope = newScope // save a reference in case we're read by an import
 
 	// now set the child scopes (even on bind...)
 	for _, x := range obj.Prog {
@@ -1478,6 +2023,15 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 		invariants = append(invariants, invars...)
 	}
 
+	// add invariants from SetScope's imported child programs
+	for _, x := range obj.importProgs {
+		invars, err := x.Unify()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
+	}
+
 	return invariants, nil
 }
 
@@ -1500,6 +2054,15 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 			continue
 		}
 
+		g, err := x.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	// add graphs from SetScope's imported child programs
+	for _, x := range obj.importProgs {
 		g, err := x.Graph()
 		if err != nil {
 			return nil, err
@@ -1535,6 +2098,8 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 			edges = append(edges, output.Edges...)
 		}
 	}
+
+	// nothing to add from SetScope's imported child programs
 
 	return &interfaces.Output{
 		Resources: resources,
@@ -3428,7 +3993,10 @@ type ExprStructField struct {
 }
 
 // ExprFunc is a representation of a function value. This is not a function
-// call, that is represented by ExprCall.
+// call, that is represented by ExprCall. This is what we build when we have a
+// lambda that we want to express, or the contents of a StmtFunc that needs a
+// function body (this ExprFunc) as well. This is used when the user defines an
+// inline function in mcl code somewhere.
 // XXX: this is currently not fully implemented, and parts may be incorrect.
 type ExprFunc struct {
 	Args   []*Arg
@@ -3622,15 +4190,12 @@ func (obj *ExprCall) buildType() (*types.Type, error) {
 // this function execution.
 // XXX: review this function logic please
 func (obj *ExprCall) buildFunc() (interfaces.Func, error) {
-	// TODO: if we have locally defined functions that can exist in scope,
-	// then perhaps we should do a lookup here before we use the built-in.
-	//fn, exists := obj.scope.Functions[obj.Name] // look for a local function
-	// Remember that a local function might have Invariants it needs to add!
-
-	fn, err := funcs.Lookup(obj.Name) // lookup the function by name
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "func `%s` could not be found", obj.Name)
+	// lookup function from scope
+	f, exists := obj.scope.Functions[obj.Name]
+	if !exists {
+		return nil, fmt.Errorf("func `%s` does not exist in this scope", obj.Name)
 	}
+	fn := f() // build
 
 	polyFn, ok := fn.(interfaces.PolyFunc) // is it statically polymorphic?
 	if !ok {
@@ -3711,9 +4276,14 @@ func (obj *ExprCall) SetType(typ *types.Type) error {
 // Type returns the type of this expression, which is the return type of the
 // function call.
 func (obj *ExprCall) Type() (*types.Type, error) {
-	fn, err := funcs.Lookup(obj.Name)     // lookup the function by name
+	f, exists := obj.scope.Functions[obj.Name]
+	if !exists {
+		return nil, fmt.Errorf("func `%s` does not exist in this scope", obj.Name)
+	}
+	fn := f() // build
+
 	_, isPoly := fn.(interfaces.PolyFunc) // is it statically polymorphic?
-	if err == nil && obj.typ == nil && !isPoly {
+	if obj.typ == nil && !isPoly {
 		if info := fn.Info(); info != nil {
 			if sig := info.Sig; sig != nil {
 				if typ := sig.Out; typ != nil && !typ.HasVariant() {

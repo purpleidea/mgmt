@@ -140,6 +140,31 @@ expression
 	include bar("world", 13) # an include can be called multiple times
 	```
 
+- **import**: import a particular scope from this location at a given namespace
+
+	```mcl
+	# a system module import
+	import "fmt"
+
+	# a local, single file import (relative path, not a module)
+	import "dir1/file.mcl"
+
+	# a local, module import (relative path, contents are a module)
+	import "dir2/"
+
+	# a remote module import (absolute remote path, contents are a module)
+	import "git://github.com/purpleidea/mgmt-example1/"
+	```
+
+	or
+
+	```mcl
+	import "fmt" as *	# contents namespaced into top-level names
+	import "foo.mcl"	# namespaced as foo
+	import "dir1/" as bar	# namespaced as bar
+	import "git://github.com/purpleidea/mgmt-example1/"	# namespaced as example1
+	```
+
 All statements produce _output_. Output consists of between zero and more
 `edges` and `resources`. A resource statement can produce a resource, whereas an
 `if` statement produces whatever the chosen branch produces. Ultimately the goal
@@ -317,6 +342,45 @@ same scope or within different scopes. If a class uses inferred type input
 parameters, then the same class can even be called with different signatures.
 Whether the output is useful and whether there is a unique type unification
 solution is dependent on your code.
+
+#### Import
+
+The `import` statement imports a scope into the specified namespace. A scope can
+contain variable, class, and function definitions. All are statements.
+Furthermore, since each of these have different logical uses, you could
+theoretically import a scope that contains an `int` variable named `foo`, a
+class named `foo`, and a function named `foo` as well. Keep in mind that
+variables can contain functions (they can have a type of function) and are
+commonly called lambdas.
+
+There are a few different kinds of imports. They differ by the string contents
+that you specify. Short single word, or multiple-word tokens separated by zero
+or more slashes are system imports. Eg: `math`, `fmt`, or even `math/trig`.
+Local imports are path imports that are relative to the current directory. They
+can either import a single `mcl` file, or an entire well-formed module. Eg:
+`file1.mcl` or `dir1/`. Lastly, you can have a remote import. This must be an
+absolute path to a well-formed module. The common transport is `git`, and it can
+be represented via an FQDN. Eg: `git://github.com/purpleidea/mgmt-example1/`.
+
+The namespace that any of these are imported into depends on how you use the
+import statement. By default, each kind of import will have a logic namespace
+identifier associated with it. System imports use the last token in their name.
+Eg: `fmt` would be imported as `fmt` and `math/trig` would be imported as
+`trig`. Local imports do the same, except the required `.mcl` extension, or
+trailing slash are removed. Eg: `foo/file1.mcl` would be imported as `file1` and
+`bar/baz/` would be imported as `baz`. Remote imports use some more complex
+rules. In general, well-named modules that contain a final directory name in the
+form: `mgmt-whatever/` will be named `whatever`. Otherwise, the last path token
+will be converted to lowercase and the dashes will be converted to underscores.
+The rules for remote imports might change, and should not be considered stable.
+
+In any of the import cases, you can change the namespace that you're imported
+into. Simply add the `as whatever` text at the end of the import, and `whatever`
+will be the name of the namespace. Please note that `whatever` is not surrounded
+by quotes, since it is an identifier, and not a `string`. If you'd like to add
+all of the import contents into the top-level scope, you can use the `as *` text
+to dump all of the contents in. This is generally not recommended, as it might
+cause a conflict with another identifier.
 
 ### Stages
 

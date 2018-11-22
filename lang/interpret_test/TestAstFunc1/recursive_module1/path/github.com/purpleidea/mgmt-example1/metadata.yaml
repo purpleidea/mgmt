@@ -1,0 +1,2 @@
+main: "main.mcl"
+files: "files/"		# these are some extra files we can use (is the default)

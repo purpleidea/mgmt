@@ -43,6 +43,9 @@ func hello(program, version string, flags Flags) {
 		capnslog.SetFormatter(capnslog.NewNilFormatter())
 	}
 
-	log.Printf("This is: %s, version: %s", program, version)
-	log.Printf("main: Start: %v", start)
+	if program == "" {
+		program = "<unknown>"
+	}
+	log.Printf("this is: %s, version: %s", program, version)
+	log.Printf("main: start: %v", start)
 }

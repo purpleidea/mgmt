@@ -1,0 +1,5 @@
+# this is a pretty lame module!
+import "git://github.com/purpleidea/mgmt-example1/" # import another module
+$ex1 = $example1.name
+
+$name = "i am github.com/purpleidea/mgmt-example2/ and i contain: " + $ex1

@@ -81,16 +81,38 @@ func Lookup(name string) (interfaces.Func, error) {
 // prefix. This search automatically adds the period separator. So if you want
 // functions in the `fmt` package, search for `fmt`, not `fmt.` and it will find
 // all the correctly registered functions. This removes that prefix from the
-// result in the map keys that it returns.
-func LookupPrefix(prefix string) (map[string]interfaces.Func, error) {
-	result := make(map[string]interfaces.Func)
+// result in the map keys that it returns. If you search for an empty prefix,
+// then this will return all the top-level functions that aren't in a module.
+func LookupPrefix(prefix string) map[string]func() interfaces.Func {
+	result := make(map[string]func() interfaces.Func)
 	for name, f := range registeredFuncs {
+		// requested top-level functions, and no module separators...
+		if prefix == "" {
+			if !strings.Contains(name, ModuleSep) {
+				result[name] = f // copy
+			}
+			continue
+		}
 		sep := prefix + ModuleSep
 		if !strings.HasPrefix(name, sep) {
 			continue
 		}
-		s := strings.TrimPrefix(name, sep) // TODO: is it okay to remove the prefix?
-		result[s] = f()                    // build
+		s := strings.TrimPrefix(name, sep) // remove the prefix
+		result[s] = f                      // copy
 	}
-	return result, nil
+	return result
+}
+
+// Map returns a map from all registered function names to a function to return
+// that one. We return a copy of our internal registered function store so that
+// this result can be manipulated safely. We return the functions that produce
+// the Func interface because we might use this result to create multiple
+// functions, and each one must have its own unique memory address to work
+// properly.
+func Map() map[string]func() interfaces.Func {
+	m := make(map[string]func() interfaces.Func)
+	for name, fn := range registeredFuncs { // copy
+		m[name] = fn
+	}
+	return m
 }

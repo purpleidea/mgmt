@@ -364,10 +364,13 @@ func RemoveBasePath(path, base string) (string, error) {
 }
 
 // Rebase takes an absolute base path (directory prefix) and removes it from an
-// absolute path and then returns that path with a new root as an absolute path.
+// absolute path and then returns that path with a new root as an absolute path
+// if root is an absolute dir, and as a relative path if root is a relative dir.
 // Eg: Rebase("/usr/bin/foo", "/usr/", "/usr/local/") -> "/usr/local/bin/foo"
+// Eg: Rebase("/var/lib/dir/file.conf", "/var/lib/", "") -> "dir/file.conf"
 func Rebase(path, base, root string) (string, error) {
-	if !strings.HasSuffix(root, "/") { // should end with a slash
+	// allow empty root's to rebase into a relative path if not a directory!
+	if root != "" && !strings.HasSuffix(root, "/") { // should end with a slash
 		return "", fmt.Errorf("root is not a directory")
 	}
 	s, err := RemoveBasePath(path, base)
@@ -375,6 +378,23 @@ func Rebase(path, base, root string) (string, error) {
 		return "", err
 	}
 	return root + s, nil
+}
+
+// RemovePathPrefix takes an absolute path and removes the first chunk. It
+// returns the remainder as an absolute path. This function is a bit of a hack,
+// and could probably be re-written to support any kind of path, and return a
+// relative path.
+func RemovePathPrefix(s string) (string, error) {
+	if !strings.HasPrefix(s, "/") {
+		return "", fmt.Errorf("must be absolute")
+	}
+	// this is the PathSplit logic...
+	x := []string{""} // assumes s == "/"
+	if s != "/" {
+		x = strings.Split(s, "/")
+	}
+	x = x[2:] // get rid of first two chunks, first is / and second is a dir name
+	return "/" + strings.Join(x, "/"), nil
 }
 
 // TimeAfterOrBlock is aspecial version of time.After that blocks when given a
@@ -484,6 +504,9 @@ func (obj PathSlice) Less(i, j int) bool {
 	return true
 }
 
+// Sort is a convenience method.
+func (obj PathSlice) Sort() { sort.Sort(obj) }
+
 // UInt64Slice attaches the methods of sort.Interface to []uint64, sorting in
 // increasing order.
 type UInt64Slice []uint64
@@ -491,11 +514,11 @@ type UInt64Slice []uint64
 // Len returns the length of the slice of uint64's.
 func (obj UInt64Slice) Len() int { return len(obj) }
 
-// Less returns the smaller element in the sort order.
-func (obj UInt64Slice) Less(i, j int) bool { return obj[i] < obj[j] }
-
 // Swap swaps two elements in the slice.
 func (obj UInt64Slice) Swap(i, j int) { obj[i], obj[j] = obj[j], obj[i] }
+
+// Less returns the smaller element in the sort order.
+func (obj UInt64Slice) Less(i, j int) bool { return obj[i] < obj[j] }
 
 // Sort is a convenience method.
 func (obj UInt64Slice) Sort() { sort.Sort(obj) }

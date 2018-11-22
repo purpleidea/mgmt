@@ -172,3 +172,59 @@ func TestCopyDiskToFs1(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyDiskContentsToFs1(t *testing.T) {
+	dir, err := TestDirFull()
+	if err != nil {
+		t.Errorf("could not get tests directory: %+v", err)
+		return
+	}
+	t.Logf("tests directory is: %s", dir)
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		t.Errorf("could not read through tests directory: %+v", err)
+		return
+	}
+	for _, f := range files {
+		if !f.IsDir() {
+			continue
+		}
+		treeFile := f.Name() + ".tree" // expected tree file
+		treeFileFull := dir + treeFile
+		info, err := os.Stat(treeFileFull)
+		if err != nil || info.IsDir() {
+			//t.Logf("skipping: %s -> %+v", treeFile, err)
+			continue
+		}
+		content, err := ioutil.ReadFile(treeFileFull)
+		if err != nil {
+			t.Errorf("could not read tree file: %+v", err)
+			return
+		}
+		str := string(content) // expected tree
+
+		t.Logf("testing: %s", treeFile)
+
+		mmFs := afero.NewMemMapFs()
+		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+		fs := &Fs{afs}
+
+		if err := CopyDiskContentsToFs(fs, dir+f.Name()+"/", "/", false); err != nil {
+			t.Errorf("copying to fs failed: %+v", err)
+			return
+		}
+
+		// this shows us what we pulled in from the test dir:
+		tree, err := FsTree(fs, "/")
+		if err != nil {
+			t.Errorf("tree failed: %+v", err)
+			return
+		}
+		t.Logf("tree:\n%s", tree)
+
+		if tree != str {
+			t.Errorf("trees differ for: %s", treeFile)
+			return
+		}
+	}
+}

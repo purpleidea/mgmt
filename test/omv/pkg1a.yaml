@@ -32,7 +32,7 @@
   - iptables -F
   - cd /vagrant/mgmt/ && make path
   - cd /vagrant/mgmt/ && make deps && make build && cp mgmt ~/bin/
-  - cd && mgmt run --yaml /vagrant/mgmt/examples/pkg1.yaml --converged-timeout=5
+  - cd && mgmt run --converged-timeout=5 yaml --yaml /vagrant/mgmt/examples/pkg1.yaml
 :namespace: omv
 :count: 0
 :username: ''

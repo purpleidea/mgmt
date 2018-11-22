@@ -91,32 +91,53 @@ func GetDeploys(obj Client) (map[uint64]string, error) {
 	return result, nil
 }
 
-// GetDeploy gets the latest deploy if id == 0, otherwise it returns the deploy
-// with the specified id if it exists.
+// calculateMax is a helper function.
+func calculateMax(deploys map[uint64]string) uint64 {
+	var max uint64
+	for i := range deploys {
+		if i > max {
+			max = i
+		}
+	}
+	return max
+}
+
+// GetDeploy returns the deploy with the specified id if it exists. If you input
+// an id of 0, you'll get back an empty deploy without error. This is useful so
+// that you can pass through this function easily.
 // FIXME: implement this more efficiently so that it doesn't have to download *all* the old deploys from etcd!
 func GetDeploy(obj Client, id uint64) (string, error) {
 	result, err := GetDeploys(obj)
 	if err != nil {
 		return "", err
 	}
-	if id != 0 {
-		str, exists := result[id]
-		if !exists {
-			return "", fmt.Errorf("can't find id `%d`", id)
-		}
-		return str, nil
-	}
-	// find the latest id
-	var max uint64
-	for i := range result {
-		if i > max {
-			max = i
-		}
-	}
-	if max == 0 {
+
+	// don't optimize this test to the top, because it's better to catch an
+	// etcd failure early if we can, rather than fail later when we deploy!
+	if id == 0 {
 		return "", nil // no results yet
 	}
-	return result[max], nil
+
+	str, exists := result[id]
+	if !exists {
+		return "", fmt.Errorf("can't find id `%d`", id)
+	}
+	return str, nil
+}
+
+// GetMaxDeployID returns the maximum deploy id. If none are found, this returns
+// zero. You must increment the returned value by one when you add a deploy. If
+// two or more clients race for this deploy id, then the loser is not committed,
+// and must repeat this GetMaxDeployID process until it succeeds with a commit!
+func GetMaxDeployID(obj Client) (uint64, error) {
+	// TODO: this was all implemented super inefficiently, fix up for perf!
+	deploys, err := GetDeploys(obj) // get previous deploys
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "error getting previous deploys")
+	}
+	// find the latest id
+	max := calculateMax(deploys)
+	return max, nil // found! (or zero)
 }
 
 // AddDeploy adds a new deploy. It takes an id and ensures it's sequential. If

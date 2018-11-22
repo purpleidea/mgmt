@@ -75,6 +75,9 @@ type Instance struct {
 	// This is helpful for running analysis or tests on the output.
 	Preserve bool
 
+	// Logf is a logger which should be used.
+	Logf func(format string, v ...interface{})
+
 	// Debug enables more verbosity.
 	Debug bool
 
@@ -205,6 +208,9 @@ func (obj *Instance) Run(seeds []*Instance) error {
 		//s := fmt.Sprintf("--seeds=%s", strings.Join(urls, ","))
 		cmdArgs = append(cmdArgs, s)
 	}
+	gapi := "empty" // empty GAPI (for now)
+	cmdArgs = append(cmdArgs, gapi)
+	obj.Logf("run: %s %s", cmdName, strings.Join(cmdArgs, " "))
 	obj.cmd = exec.Command(cmdName, cmdArgs...)
 	obj.cmd.Env = []string{
 		fmt.Sprintf("MGMT_TEST_ROOT=%s", obj.testRootDirectory),
@@ -369,8 +375,12 @@ func (obj *Instance) DeployLang(code string) error {
 		"--seeds", obj.clientURL,
 		"lang", "--lang", filename,
 	}
+	obj.Logf("run: %s %s", cmdName, strings.Join(cmdArgs, " "))
 	cmd := exec.Command(cmdName, cmdArgs...)
-	if err := cmd.Run(); err != nil {
+
+	stdoutStderr, err := cmd.CombinedOutput() // does cmd.Run() for us!
+	obj.Logf("stdout/stderr:\n%s", stdoutStderr)
+	if err != nil {
 		return errwrap.Wrapf(err, "can't run deploy")
 	}
 	return nil

@@ -1,0 +1,19 @@
+import "fmt"
+import "h2g2.mcl"
+import "mod1/"
+
+# imports as example1
+import "git://github.com/purpleidea/mgmt-example1/"
+import "git://github.com/purpleidea/mgmt-example2/"
+
+$answer = $h2g2.answer
+
+test "hello" {
+	anotherstr => fmt.printf("the answer is: %d", $answer),
+}
+test "hello2" {
+	anotherstr => fmt.printf("i imported local: %s", $mod1.name),
+}
+test "hello3" {
+	anotherstr => fmt.printf("i imported remote: %s and %s", $example1.name, $example2.ex1),
+}

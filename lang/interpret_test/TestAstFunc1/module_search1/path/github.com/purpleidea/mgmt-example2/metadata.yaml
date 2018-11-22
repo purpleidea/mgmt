@@ -1,0 +1,4 @@
+main: "main.mcl"
+files: "files/"		# these are some extra files we can use (is the default)
+path: "path/"           # specify this, even though we already imported in parent
+parentpathblock: false

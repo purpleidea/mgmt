@@ -18,9 +18,14 @@
 package interfaces
 
 import (
+	"fmt"
+	"sort"
+
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
+
+	multierr "github.com/hashicorp/go-multierror"
 )
 
 // Node represents either a Stmt or an Expr. It contains the minimum set of
@@ -64,6 +69,60 @@ type Expr interface {
 
 // Data provides some data to the node that could be useful during its lifetime.
 type Data struct {
+	// Fs represents a handle to the filesystem that we're running on. This
+	// is necessary for opening files if needed by import statements. The
+	// file() paths used to get templates or other files from our deploys
+	// come from here, this is *not* used to interact with the host file
+	// system to manage file resources or other aspects.
+	Fs engine.Fs
+
+	// Base directory (absolute path) that the running code is in. If an
+	// import is found, that's a recursive addition, and naturally for that
+	// run, this value would be different in the recursion.
+	Base string
+
+	// Files is a list of absolute paths seen so far. This includes all
+	// previously seen paths, where as the former Offsets parameter did not.
+	Files []string
+
+	// Imports stores a graph inside a vertex so we have a current cursor.
+	// This means that as we recurse through our import graph (hopefully a
+	// DAG) we can know what the parent vertex in our graph is to edge to.
+	// If we ever can't topologically sort it, then it has an import loop.
+	Imports *pgraph.SelfVertex
+
+	// Metadata is the metadata structure associated with the given parsing.
+	// It can be present, which is often the case when importing a module,
+	// or it can be nil, which is often the case when parsing a single file.
+	// When imports are nested (eg: an imported module imports another one)
+	// the metadata structure can recursively point to an earlier structure.
+	Metadata *Metadata
+
+	// Modules is an absolute path to a modules directory on the current Fs.
+	// It is the directory to use to look for remote modules if we haven't
+	// specified an alternative with the metadata Path field. This is
+	// usually initialized with the global modules path that can come from
+	// the cli or an environment variable, but this only occurs for the
+	// initial download/get operation, and obviously not once we're running
+	// a deploy, since by then everything in here would have been copied to
+	// the runtime fs.
+	Modules string
+
+	// Downloader is the interface that must be fulfilled to download
+	// modules. If a missing import is found, and this is not nil, then it
+	// will be run once in an attempt to get the missing module before it
+	// fails outright. In practice, it is recommended to separate this
+	// download phase in a separate step from the production running and
+	// deploys, however that is not blocked at the level of this interface.
+	Downloader Downloader
+
+	//World engine.World // TODO: do we need this?
+
+	// Prefix provides a unique path prefix that we can namespace in. It is
+	// currently shared identically across the whole AST. Nodes should be
+	// careful to not write on top of other nodes data.
+	Prefix string
+
 	// Debug represents if we're running in debug mode or not.
 	Debug bool
 
@@ -79,11 +138,15 @@ type Data struct {
 // scope. This is useful so that someone in the top scope can't prevent a child
 // module from ever using that variable name again. It might be worth revisiting
 // this point in the future if we find it adds even greater code safety. Please
-// report any bugs you have written that would have been prevented by this.
+// report any bugs you have written that would have been prevented by this. This
+// also contains the currently available functions. They function similarly to
+// the variables, and you can add new ones with a function statement definition.
+// An interesting note about these is that they exist in a distinct namespace
+// from the variables, which could actually contain lambda functions.
 type Scope struct {
 	Variables map[string]Expr
-	//Functions map[string]??? // TODO: do we want a separate namespace for user defined functions?
-	Classes map[string]Stmt
+	Functions map[string]func() Func
+	Classes   map[string]Stmt
 
 	Chain []Stmt // chain of previously seen stmt's
 }
@@ -93,9 +156,9 @@ type Scope struct {
 func EmptyScope() *Scope {
 	return &Scope{
 		Variables: make(map[string]Expr),
-		//Functions: ???,
-		Classes: make(map[string]Stmt),
-		Chain:   []Stmt{},
+		Functions: make(map[string]func() Func),
+		Classes:   make(map[string]Stmt),
+		Chain:     []Stmt{},
 	}
 }
 
@@ -105,11 +168,15 @@ func EmptyScope() *Scope {
 // we need those to be consistently pointing to the same things after copying.
 func (obj *Scope) Copy() *Scope {
 	variables := make(map[string]Expr)
+	functions := make(map[string]func() Func)
 	classes := make(map[string]Stmt)
 	chain := []Stmt{}
 	if obj != nil { // allow copying nil scopes
 		for k, v := range obj.Variables { // copy
 			variables[k] = v // we don't copy the expr's!
+		}
+		for k, v := range obj.Functions { // copy
+			functions[k] = v // we don't copy the generator func's
 		}
 		for k, v := range obj.Classes { // copy
 			classes[k] = v // we don't copy the StmtClass!
@@ -120,9 +187,78 @@ func (obj *Scope) Copy() *Scope {
 	}
 	return &Scope{
 		Variables: variables,
+		Functions: functions,
 		Classes:   classes,
 		Chain:     chain,
 	}
+}
+
+// Merge takes an existing scope and merges a scope on top of it. If any
+// elements had to be overwritten, then the error result will contain some info.
+// Even if this errors, the scope will have been merged successfully. The merge
+// runs in a deterministic order so that errors will be consistent. Use Copy if
+// you don't want to change this destructively.
+// FIXME: this doesn't currently merge Chain's... Should it?
+func (obj *Scope) Merge(scope *Scope) error {
+	var err error
+	// collect names so we can iterate in a deterministic order
+	namedVariables := []string{}
+	namedFunctions := []string{}
+	namedClasses := []string{}
+	for name := range scope.Variables {
+		namedVariables = append(namedVariables, name)
+	}
+	for name := range scope.Functions {
+		namedFunctions = append(namedFunctions, name)
+	}
+	for name := range scope.Classes {
+		namedClasses = append(namedClasses, name)
+	}
+	sort.Strings(namedVariables)
+	sort.Strings(namedFunctions)
+	sort.Strings(namedClasses)
+
+	for _, name := range namedVariables {
+		if _, exists := obj.Variables[name]; exists {
+			e := fmt.Errorf("variable `%s` was overwritten", name)
+			err = multierr.Append(err, e)
+		}
+		obj.Variables[name] = scope.Variables[name]
+	}
+	for _, name := range namedFunctions {
+		if _, exists := obj.Functions[name]; exists {
+			e := fmt.Errorf("function `%s` was overwritten", name)
+			err = multierr.Append(err, e)
+		}
+		obj.Functions[name] = scope.Functions[name]
+	}
+	for _, name := range namedClasses {
+		if _, exists := obj.Classes[name]; exists {
+			e := fmt.Errorf("class `%s` was overwritten", name)
+			err = multierr.Append(err, e)
+		}
+		obj.Classes[name] = scope.Classes[name]
+	}
+
+	return err
+}
+
+// IsEmpty returns whether or not a scope is empty or not.
+// FIXME: this doesn't currently consider Chain's... Should it?
+func (obj *Scope) IsEmpty() bool {
+	//if obj == nil { // TODO: add me if this turns out to be useful
+	//	return true
+	//}
+	if len(obj.Variables) > 0 {
+		return false
+	}
+	if len(obj.Functions) > 0 {
+		return false
+	}
+	if len(obj.Classes) > 0 {
+		return false
+	}
+	return true
 }
 
 // Edge is the data structure representing a compiled edge that is used in the

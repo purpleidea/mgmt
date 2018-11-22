@@ -728,6 +728,38 @@ func TestSort1(t *testing.T) {
 	}
 }
 
+func TestSprint1(t *testing.T) {
+	g, _ := NewGraph("graph1")
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+	e5 := NE("e5")
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v4, e3)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
+
+	str := g.Sprint()
+	t.Logf("graph is:\n%s", str)
+	count := 0
+	for count < 100000 { // about one second
+		x := g.Sprint()
+		if str != x {
+			t.Errorf("graph sprint is not consistent")
+			return
+		}
+		count++
+	}
+}
+
 func TestDeleteEdge1(t *testing.T) {
 	g, _ := NewGraph("g")
 

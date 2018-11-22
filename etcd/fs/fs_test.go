@@ -55,7 +55,7 @@ func runEtcd() (func() error, error) {
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error getting binary path")
 	}
-	cmd := exec.Command(cmdName, "run", "--tmp-prefix")
+	cmd := exec.Command(cmdName, "run", "--tmp-prefix", "empty") // empty GAPI
 	if err := cmd.Start(); err != nil {
 		return nil, errwrap.Wrapf(err, "error starting command %v", cmd)
 	}

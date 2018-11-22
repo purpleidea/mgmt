@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +71,7 @@ type Main struct {
 	NoWatch       bool // do not change graph under any circumstances
 	NoConfigWatch bool // do not update graph due to config changes
 	NoStreamWatch bool // do not update graph due to stream changes
+	NoDeployWatch bool // do not change deploys after an initial deploy
 
 	Noop                   bool   // globally force all resources into no-op mode
 	Sema                   int    // add a semaphore with this lock count to each resource
@@ -114,6 +116,9 @@ func (obj *Main) Validate() error {
 	if obj.Program == "" || obj.Version == "" {
 		return fmt.Errorf("you must set the Program and Version strings")
 	}
+	if strings.Contains(obj.Program, " ") {
+		return fmt.Errorf("the Program string contains unexpected spaces")
+	}
 
 	if obj.Prefix != nil && obj.TmpPrefix {
 		return fmt.Errorf("choosing a prefix and the request for a tmp prefix is illogical")
@@ -139,7 +144,7 @@ func (obj *Main) Init() error {
 	}
 
 	if obj.idealClusterSize < 1 {
-		return fmt.Errorf("the IdealClusterSize should be at least one")
+		return fmt.Errorf("the IdealClusterSize (%d) should be at least one", obj.idealClusterSize)
 	}
 
 	// transform the url list inputs into etcd typed lists
@@ -187,7 +192,7 @@ func (obj *Main) Run() error {
 	}
 
 	hello(obj.Program, obj.Version, obj.Flags) // say hello!
-	defer Logf("Goodbye!")
+	defer Logf("goodbye!")
 
 	defer obj.exit.Done(nil) // ensure this gets called even if Exit doesn't
 
@@ -216,7 +221,7 @@ func (obj *Main) Run() error {
 			Logf("warning: working prefix directory is temporary!")
 
 		} else {
-			return fmt.Errorf("can't create prefix")
+			return fmt.Errorf("can't create prefix: `%s`", prefix)
 		}
 	}
 	Logf("working prefix is: %s", prefix)
@@ -472,7 +477,7 @@ func (obj *Main) Run() error {
 				}
 				gapiImpl = gapiObj // copy it to active
 
-				data := gapi.Data{
+				data := &gapi.Data{
 					Program:  obj.Program,
 					Hostname: hostname,
 					World:    world,
@@ -666,109 +671,151 @@ func (obj *Main) Run() error {
 		}
 	}()
 
-	if obj.Deploy != nil {
-		deploy := obj.Deploy
-		// redundant
-		deploy.Noop = obj.Noop
-		deploy.Sema = obj.Sema
+	// get max id (from all the previous deploys)
+	// this is what the existing cluster is already running
+	// TODO: can this block since we didn't deploy yet?
+	max, err := etcd.GetMaxDeployID(embdEtcd)
+	if err != nil {
+		return errwrap.Wrapf(err, "error getting max deploy id")
+	}
 
-		select {
-		case deployChan <- deploy:
-			// send
-		case <-exitchan:
-			// pass
-		}
+	// improved etcd based deploy
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(deployChan) // no more are coming ever!
 
-		// don't inline this, because when we close the deployChan it's
-		// the signal to tell the engine to actually shutdown...
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer close(deployChan) // no more are coming ever!
-			select {                // wait until we're ready to shutdown
+		// we've been asked to deploy, so do that first...
+		if obj.Deploy != nil {
+			deploy := obj.Deploy
+			// redundant
+			deploy.Noop = obj.Noop
+			deploy.Sema = obj.Sema
+
+			select {
+			case deployChan <- deploy:
+				// send
+				if obj.Flags.Debug {
+					Logf("deploy: sending new gapi")
+				}
 			case <-exitchan:
 				return
 			}
-		}()
-	} else {
-		// etcd based deploy
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer close(deployChan)
-			startChan := make(chan struct{}) // start signal
-			close(startChan)                 // kick it off!
-			for {
-				select {
-				case <-startChan: // kick the loop once at start
-					startChan = nil // disable
+		}
 
-				case err, ok := <-etcd.WatchDeploy(embdEtcd):
-					if !ok {
-						obj.exit.Done(nil) // regular shutdown
-						return
-					}
-					if err != nil {
-						// TODO: it broke, can we restart?
-						obj.exit.Done(fmt.Errorf("deploy: watch error"))
-						return
-					}
-					startChan = nil // disable it early...
-
+		// now we can wait for future deploys, but if we already had an
+		// initial deploy from run, don't switch to this unless it's new
+		var last uint64
+		startChan := make(chan struct{}) // start signal
+		close(startChan)                 // kick it off!
+		for {
+			if obj.NoDeployWatch && (obj.Deploy != nil || last > 0) {
+				// block here, because when we close the
+				// deployChan it's the signal to tell the engine
+				// to actually shutdown...
+				select { // wait until we're ready to shutdown
 				case <-exitchan:
 					return
 				}
+			}
 
+			select {
+			case <-startChan: // kick the loop once at start
+				startChan = nil // disable
+
+			case err, ok := <-etcd.WatchDeploy(embdEtcd):
+				if !ok {
+					obj.exit.Done(nil) // regular shutdown
+					return
+				}
+				if err != nil {
+					// TODO: it broke, can we restart?
+					obj.exit.Done(fmt.Errorf("deploy: watch error"))
+					return
+				}
+				startChan = nil // disable it early...
 				if obj.Flags.Debug {
 					Logf("deploy: got activity")
 				}
-				str, err := etcd.GetDeploy(embdEtcd, 0) // 0 means get the latest one
-				if err != nil {
-					Logf("deploy: error getting deploy: %+v", err)
-					continue
-				}
-				if str == "" { // no available deploys exist yet
-					// send an empty deploy... this is done
-					// to start up the engine so it can run
-					// an empty graph and be ready to swap!
-					Logf("deploy: empty")
-					deploy := &gapi.Deploy{
-						Name: empty.Name,
-						GAPI: &empty.GAPI{},
-					}
-					select {
-					case deployChan <- deploy:
-						// send
-						if obj.Flags.Debug {
-							Logf("deploy: sending empty deploy")
-						}
 
-					case <-exitchan:
-						return
-					}
-					continue
-				}
+			case <-exitchan:
+				return
+			}
 
-				// decode the deploy (incl. GAPI) and send it!
-				deploy, err := gapi.NewDeployFromB64(str)
-				if err != nil {
-					Logf("deploy: error decoding deploy: %+v", err)
-					continue
-				}
+			latest, err := etcd.GetMaxDeployID(embdEtcd) // or zero
+			if err != nil {
+				Logf("error getting max deploy id: %+v", err)
+				continue
+			}
 
+			// if we already did the built-in one from run, and this
+			// new deploy is not newer than when we started, skip it
+			if obj.Deploy != nil && latest <= max {
+				// if latest and max are zero, it's okay to loop
+				continue
+			}
+
+			// if we're doing any deploy, don't run the previous one
+			// (this might be useful if we get a double event here!)
+			if obj.Deploy == nil && latest <= last && latest != 0 {
+				// if latest and last are zero, pass through it!
+				continue
+			}
+			// if we already did a deploy, but we're being asked for
+			// this again, then skip over it if it's not a newer one
+			if obj.Deploy != nil && latest <= last {
+				continue
+			}
+
+			// 0 passes through an empty deploy without an error...
+			// (unless there is some sort of etcd error that occurs)
+			str, err := etcd.GetDeploy(embdEtcd, latest)
+			if err != nil {
+				Logf("deploy: error getting deploy: %+v", err)
+				continue
+			}
+			if str == "" { // no available deploys exist yet
+				// send an empty deploy... this is done
+				// to start up the engine so it can run
+				// an empty graph and be ready to swap!
+				Logf("deploy: empty")
+				deploy := &gapi.Deploy{
+					Name: empty.Name,
+					GAPI: &empty.GAPI{},
+				}
 				select {
 				case deployChan <- deploy:
 					// send
 					if obj.Flags.Debug {
-						Logf("deploy: sending new gapi")
+						Logf("deploy: sending empty deploy")
 					}
 
 				case <-exitchan:
 					return
 				}
+				continue
 			}
-		}()
-	}
+
+			// decode the deploy (incl. GAPI) and send it!
+			deploy, err := gapi.NewDeployFromB64(str)
+			if err != nil {
+				Logf("deploy: error decoding deploy: %+v", err)
+				continue
+			}
+
+			select {
+			case deployChan <- deploy:
+				last = latest // update last deployed
+				// send
+				if obj.Flags.Debug {
+					Logf("deploy: sent new gapi")
+				}
+
+			case <-exitchan:
+				return
+			}
+		}
+	}()
 
 	Logf("running...")
 

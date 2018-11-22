@@ -3,11 +3,11 @@
 exit 0	# XXX: test temporarily disabled till etcd or mgmt regression is fixed.
 
 # run empty graphs, we're just testing etcd clustering
-$timeout --kill-after=180s 120s "$MGMT" run --hostname h1 --tmp-prefix &
+$timeout --kill-after=180s 120s "$MGMT" run --hostname h1 --tmp-prefix empty &
 pid1=$!
 sleep 15s	# let it startup
 
-$timeout --kill-after=180s 120s "$MGMT" run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --tmp-prefix &
+$timeout --kill-after=180s 120s "$MGMT" run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --tmp-prefix empty &
 pid2=$!
 sleep 15s
 

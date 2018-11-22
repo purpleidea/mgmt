@@ -28,7 +28,8 @@ import (
 // A successful call returns err == nil, not err == EOF. Because ReadAll is
 // defined to read from src until EOF, it does not treat an EOF from Read
 // as an error to be reported.
-//func ReadAll(r io.Reader) ([]byte, error) {
+//func (obj *Fs) ReadAll(r io.Reader) ([]byte, error) {
+//	// NOTE: doesn't need Fs, same as ioutil.ReadAll package
 //	return afero.ReadAll(r)
 //}
 

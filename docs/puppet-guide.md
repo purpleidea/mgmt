@@ -143,7 +143,7 @@ you to specify which `puppet.conf` file should be used during
 translation.
 
 ```
-mgmt run --puppet /opt/my-manifest.pp --puppet-conf /etc/mgmt/puppet.conf
+mgmt run puppet --puppet /opt/my-manifest.pp --puppet-conf /etc/mgmt/puppet.conf
 ```
 
 Within this file, you can just specify any needed options in the

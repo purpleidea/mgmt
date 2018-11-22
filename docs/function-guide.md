@@ -342,9 +342,19 @@ also ensures they can be encoded and decoded. Make sure to include the following
 code snippet for this to work.
 
 ```golang
+import "github.com/purpleidea/mgmt/lang/funcs"
+
 func init() { // special golang method that runs once
 	funcs.Register("foo", func() interfaces.Func { return &FooFunc{} })
 }
+```
+
+Functions inside of built-in modules will need to use the `ModuleRegister`
+method instead.
+
+```golang
+// moduleName is already set to "math" by the math package. Do this in `init`.
+funcs.ModuleRegister(moduleName, "cos", func() interfaces.Func { return &CosFunc{} })
 ```
 
 ### Composite functions

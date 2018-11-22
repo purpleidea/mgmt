@@ -20,16 +20,24 @@
 package lang
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
+
+	"github.com/kylelemons/godebug/pretty"
+	"github.com/spf13/afero"
 )
 
 func vertexAstCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
@@ -68,6 +76,8 @@ func TestAstFunc0(t *testing.T) {
 			"hello":  &ExprStr{V: "world"},
 			"answer": &ExprInt{V: 42},
 		},
+		// all the built-in top-level, core functions enter here...
+		Functions: funcs.LookupPrefix(""),
 	}
 
 	type test struct { // an individual test
@@ -183,6 +193,7 @@ func TestAstFunc0(t *testing.T) {
 				}
 			`,
 			fail:  false,
+			scope: scope,
 			graph: graph,
 		})
 	}
@@ -211,6 +222,7 @@ func TestAstFunc0(t *testing.T) {
 				}
 			`,
 			fail:  false,
+			scope: scope,
 			graph: graph,
 		})
 	}
@@ -242,6 +254,7 @@ func TestAstFunc0(t *testing.T) {
 				$i = 13
 			`,
 			fail:  false,
+			scope: scope,
 			graph: graph,
 		})
 	}
@@ -368,121 +381,446 @@ func TestAstFunc0(t *testing.T) {
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
-		name, code, fail, scope, exp := tc.name, tc.code, tc.fail, tc.scope, tc.graph
-
-		if name == "" {
-			name = "<sub test not named>"
-		}
-		if util.StrInList(name, names) {
-			t.Errorf("test #%d: duplicate sub test name of: %s", index, name)
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
 			continue
 		}
-		names = append(names, name)
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
 		//if tc.name != "simple operators" {
 		//	continue
 		//}
 
-		t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
-		str := strings.NewReader(code)
-		ast, err := LexParse(str)
-		if err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			name, code, fail, scope, exp := tc.name, tc.code, tc.fail, tc.scope, tc.graph
+
+			t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
+			str := strings.NewReader(code)
+			ast, err := LexParse(str)
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
+				return
+			}
+			t.Logf("test #%d: AST: %+v", index, ast)
+
+			data := &interfaces.Data{
+				Debug: true,
+				Logf: func(format string, v ...interface{}) {
+					t.Logf("ast: "+format, v...)
+				},
+			}
+			// some of this might happen *after* interpolate in SetScope or Unify...
+			if err := ast.Init(data); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+				return
+			}
+
+			iast, err := ast.Interpolate()
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: interpolate failed with: %+v", index, err)
+				return
+			}
+
+			// propagate the scope down through the AST...
+			err = iast.SetScope(scope)
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not set scope: %+v", index, err)
+				return
+			}
+			if fail && err != nil {
+				return // fail happened during set scope, don't run unification!
+			}
+
+			// apply type unification
+			logf := func(format string, v ...interface{}) {
+				t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
+			}
+			err = unification.Unify(iast, unification.SimpleInvariantSolverLogger(logf))
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not unify types: %+v", index, err)
+				return
+			}
+			// maybe it will fail during graph below instead?
+			//if fail && err == nil {
+			//	t.Errorf("test #%d: FAIL", index)
+			//	t.Errorf("test #%d: unification passed, expected fail", index)
+			//	continue
+			//}
+			if fail && err != nil {
+				return // fail happened during unification, don't run Graph!
+			}
+
+			// build the function graph
+			graph, err := iast.Graph()
+
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: functions failed with: %+v", index, err)
+				return
+			}
+			if fail && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: functions passed, expected fail", index)
+				return
+			}
+
+			if fail { // can't process graph if it's nil
+				// TODO: match against expected error
+				t.Logf("test #%d: error: %+v", index, err)
+				return
+			}
+
+			t.Logf("test #%d: graph: %+v", index, graph)
+			// TODO: improve: https://github.com/purpleidea/mgmt/issues/199
+			if err := graph.GraphCmp(exp, vertexAstCmpFn, edgeAstCmpFn); err != nil {
+				t.Errorf("test #%d: FAIL\n\n", index)
+				t.Logf("test #%d:   actual (g1): %v%s\n\n", index, graph, fullPrint(graph))
+				t.Logf("test #%d: expected (g2): %v%s\n\n", index, exp, fullPrint(exp))
+				t.Errorf("test #%d: cmp error:\n%v", index, err)
+				return
+			}
+
+			for i, v := range graph.Vertices() {
+				t.Logf("test #%d: vertex(%d): %+v", index, i, v)
+			}
+			for v1 := range graph.Adjacency() {
+				for v2, e := range graph.Adjacency()[v1] {
+					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
+				}
+			}
+		})
+	}
+}
+
+// TestAstFunc1 is a more advanced version which pulls code from physical dirs.
+func TestAstFunc1(t *testing.T) {
+	const magicError = "# err: "
+	const magicEmpty = "# empty!"
+	dir, err := util.TestDirFull()
+	if err != nil {
+		t.Errorf("FAIL: could not get tests directory: %+v", err)
+		return
+	}
+	t.Logf("tests directory is: %s", dir)
+	scope := &interfaces.Scope{ // global scope
+		Variables: map[string]interfaces.Expr{
+			"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+			// TODO: change to a func when we can change hostname dynamically!
+			"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
+		},
+		// all the built-in top-level, core functions enter here...
+		Functions: funcs.LookupPrefix(""),
+	}
+
+	type test struct { // an individual test
+		name string
+		path string // relative sub directory path inside tests dir
+		fail bool
+		//graph *pgraph.Graph
+		expstr string // expected graph in string format
+	}
+	testCases := []test{}
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	testCases = append(testCases, test{
+	//		name:   "simple hello world",
+	//		path:   "hello0/",
+	//		fail:   false,
+	//		expstr: graph.Sprint(),
+	//	})
+	//}
+
+	// build test array automatically from reading the dir
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		t.Errorf("FAIL: could not read through tests directory: %+v", err)
+		return
+	}
+	for _, f := range files {
+		if !f.IsDir() {
 			continue
 		}
-		t.Logf("test #%d: AST: %+v", index, ast)
-
-		data := &interfaces.Data{
-			Debug: true,
-			Logf: func(format string, v ...interface{}) {
-				t.Logf("ast: "+format, v...)
-			},
+		graphFile := f.Name() + ".graph" // expected graph file
+		graphFileFull := dir + graphFile
+		info, err := os.Stat(graphFileFull)
+		if err != nil || info.IsDir() {
+			t.Errorf("FAIL: missing: %s", graphFile)
+			t.Errorf("(err: %+v)", err)
+			continue
 		}
-		// some of this might happen *after* interpolate in SetScope or Unify...
-		if err := ast.Init(data); err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+		content, err := ioutil.ReadFile(graphFileFull)
+		if err != nil {
+			t.Errorf("FAIL: could not read graph file: %+v", err)
 			return
 		}
+		str := string(content) // expected graph
 
-		iast, err := ast.Interpolate()
-		if err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: interpolate failed with: %+v", index, err)
-			continue
-		}
-
-		// propagate the scope down through the AST...
-		err = iast.SetScope(scope)
-		if !fail && err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: could not set scope: %+v", index, err)
-			continue
-		}
-		if fail && err != nil {
-			continue // fail happened during set scope, don't run unification!
+		// if the graph file has a magic error string, it's a failure
+		errStr := ""
+		if strings.HasPrefix(str, magicError) {
+			errStr = strings.TrimPrefix(str, magicError)
+			str = errStr
 		}
 
-		// apply type unification
-		logf := func(format string, v ...interface{}) {
-			t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
-		}
-		err = unification.Unify(iast, unification.SimpleInvariantSolverLogger(logf))
-		if !fail && err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: could not unify types: %+v", index, err)
+		// add automatic test case
+		testCases = append(testCases, test{
+			name:   fmt.Sprintf("dir: %s", f.Name()),
+			path:   f.Name() + "/",
+			fail:   errStr != "",
+			expstr: str,
+		})
+		//t.Logf("adding: %s", f.Name() + "/")
+	}
+
+	names := []string{}
+	for index, tc := range testCases { // run all the tests
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
 			continue
 		}
-		// maybe it will fail during graph below instead?
-		//if fail && err == nil {
-		//	t.Errorf("test #%d: FAIL", index)
-		//	t.Errorf("test #%d: unification passed, expected fail", index)
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
+
+		//if index != 3 { // hack to run a subset (useful for debugging)
+		//if tc.name != "simple operators" {
 		//	continue
 		//}
-		if fail && err != nil {
-			continue // fail happened during unification, don't run Graph!
-		}
 
-		// build the function graph
-		graph, err := iast.Graph()
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			name, path, fail, expstr := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n")
+			src := dir + path // location of the test
 
-		if !fail && err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: functions failed with: %+v", index, err)
-			continue
-		}
-		if fail && err == nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: functions passed, expected fail", index)
-			continue
-		}
+			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
-		if fail { // can't process graph if it's nil
-			// TODO: match against expected error
-			t.Logf("test #%d: error: %+v", index, err)
-			continue
-		}
-
-		t.Logf("test #%d: graph: %+v", index, graph)
-		// TODO: improve: https://github.com/purpleidea/mgmt/issues/199
-		if err := graph.GraphCmp(exp, vertexAstCmpFn, edgeAstCmpFn); err != nil {
-			t.Errorf("test #%d: FAIL\n\n", index)
-			t.Logf("test #%d:   actual (g1): %v%s\n\n", index, graph, fullPrint(graph))
-			t.Logf("test #%d: expected (g2): %v%s\n\n", index, exp, fullPrint(exp))
-			t.Errorf("test #%d: cmp error:\n%v", index, err)
-			continue
-		}
-
-		for i, v := range graph.Vertices() {
-			t.Logf("test #%d: vertex(%d): %+v", index, i, v)
-		}
-		for v1 := range graph.Adjacency() {
-			for v2, e := range graph.Adjacency()[v1] {
-				t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
+			logf := func(format string, v ...interface{}) {
+				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
-		}
+			mmFs := afero.NewMemMapFs()
+			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+			fs := &util.Fs{Afero: afs}
+
+			// use this variant, so that we don't copy the dir name
+			// this is the equivalent to running `rsync -a src/ /`
+			if err := util.CopyDiskContentsToFs(fs, src, "/", false); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: CopyDiskContentsToFs failed: %+v", index, err)
+				return
+			}
+
+			// this shows us what we pulled in from the test dir:
+			tree0, err := util.FsTree(fs, "/")
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: FsTree failed: %+v", index, err)
+				return
+			}
+			logf("tree:\n%s", tree0)
+
+			input := "/"
+			logf("input: %s", input)
+
+			output, err := parseInput(input, fs) // raw code can be passed in
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: parseInput failed: %+v", index, err)
+				return
+			}
+			for _, fn := range output.Workers {
+				if err := fn(fs); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: worker execution failed: %+v", index, err)
+					return
+				}
+			}
+			tree, err := util.FsTree(fs, "/")
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: FsTree failed: %+v", index, err)
+				return
+			}
+			logf("tree:\n%s", tree)
+
+			logf("main:\n%s", output.Main) // debug
+
+			reader := bytes.NewReader(output.Main)
+			ast, err := LexParse(reader)
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
+				return
+			}
+			if fail && err != nil {
+				// TODO: %+v instead?
+				s := fmt.Sprintf("%s", err) // convert to string
+				if s != expstr {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return // fail happened during set scope, don't run unification!
+			}
+			t.Logf("test #%d: AST: %+v", index, ast)
+
+			importGraph, err := pgraph.NewGraph("importGraph")
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not create graph: %+v", index, err)
+				return
+			}
+			importVertex := &pgraph.SelfVertex{
+				Name:  "",          // first node is the empty string
+				Graph: importGraph, // store a reference to ourself
+			}
+			importGraph.AddVertex(importVertex)
+
+			data := &interfaces.Data{
+				Fs:       fs,
+				Base:     output.Base,  // base dir (absolute path) the metadata file is in
+				Files:    output.Files, // no really needed here afaict
+				Imports:  importVertex,
+				Metadata: output.Metadata,
+				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
+
+				Debug: true,
+				Logf: func(format string, v ...interface{}) {
+					logf("ast: "+format, v...)
+				},
+			}
+			// some of this might happen *after* interpolate in SetScope or Unify...
+			if err := ast.Init(data); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
+				return
+			}
+
+			iast, err := ast.Interpolate()
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: interpolate failed with: %+v", index, err)
+				return
+			}
+
+			// propagate the scope down through the AST...
+			err = iast.SetScope(scope)
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not set scope: %+v", index, err)
+				return
+			}
+			if fail && err != nil {
+				// TODO: %+v instead?
+				s := fmt.Sprintf("%s", err) // convert to string
+				if s != expstr {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return // fail happened during set scope, don't run unification!
+			}
+
+			// apply type unification
+			xlogf := func(format string, v ...interface{}) {
+				logf("unification: "+format, v...)
+			}
+			err = unification.Unify(iast, unification.SimpleInvariantSolverLogger(xlogf))
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not unify types: %+v", index, err)
+				return
+			}
+			// maybe it will fail during graph below instead?
+			//if fail && err == nil {
+			//	t.Errorf("test #%d: FAIL", index)
+			//	t.Errorf("test #%d: unification passed, expected fail", index)
+			//	continue
+			//}
+			if fail && err != nil {
+				// TODO: %+v instead?
+				s := fmt.Sprintf("%s", err) // convert to string
+				if s != expstr {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return // fail happened during unification, don't run Graph!
+			}
+
+			// build the function graph
+			graph, err := iast.Graph()
+
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: functions failed with: %+v", index, err)
+				return
+			}
+			if fail && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: functions passed, expected fail", index)
+				return
+			}
+
+			if fail { // can't process graph if it's nil
+				// TODO: %+v instead?
+				s := fmt.Sprintf("%s", err) // convert to string
+				if s != expstr {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return
+			}
+
+			t.Logf("test #%d: graph: %+v", index, graph)
+			str := strings.Trim(graph.Sprint(), "\n") // text format of graph
+			if expstr == magicEmpty {
+				expstr = ""
+			}
+			// XXX: something isn't consistent, and I can't figure
+			// out what, so workaround this by sorting these :(
+			sortHack := func(x string) string {
+				l := strings.Split(x, "\n")
+				sort.Strings(l)
+				return strings.Join(l, "\n")
+			}
+			str = sortHack(str)
+			expstr = sortHack(expstr)
+			if expstr != str {
+				t.Errorf("test #%d: FAIL\n\n", index)
+				t.Logf("test #%d:   actual (g1):\n%s\n\n", index, str)
+				t.Logf("test #%d: expected (g2):\n%s\n\n", index, expstr)
+				diff := pretty.Compare(str, expstr)
+				if diff != "" { // bonus
+					t.Logf("test #%d: diff:\n%s", index, diff)
+				}
+				return
+			}
+
+			for i, v := range graph.Vertices() {
+				t.Logf("test #%d: vertex(%d): %+v", index, i, v)
+			}
+			for v1 := range graph.Adjacency() {
+				for v2, e := range graph.Adjacency()[v1] {
+					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
+				}
+			}
+		})
 	}
 }
 

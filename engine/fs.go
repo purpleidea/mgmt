@@ -48,7 +48,7 @@ type Fs interface {
 	//IsDir(path string) (bool, error)
 	//IsEmpty(path string) (bool, error)
 	//NeuterAccents(s string) string
-	//ReadAll(r io.Reader) ([]byte, error) // not needed
+	//ReadAll(r io.Reader) ([]byte, error) // not needed, same as ioutil
 	ReadDir(dirname string) ([]os.FileInfo, error)
 	ReadFile(filename string) ([]byte, error)
 	//SafeWriteReader(path string, r io.Reader) (err error)

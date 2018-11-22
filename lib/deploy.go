@@ -25,11 +25,6 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
-	// these imports are so that GAPIs register themselves in init()
-	_ "github.com/purpleidea/mgmt/lang"
-	_ "github.com/purpleidea/mgmt/langpuppet"
-	_ "github.com/purpleidea/mgmt/puppet"
-	_ "github.com/purpleidea/mgmt/yamlgraph"
 
 	"github.com/google/uuid"
 	errwrap "github.com/pkg/errors"
@@ -46,17 +41,24 @@ const (
 
 // deploy is the cli target to manage deploys to our cluster.
 func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
-	program, version := c.App.Name, c.App.Version
+	cliContext := c.Parent()
+	if cliContext == nil {
+		return fmt.Errorf("could not get cli context")
+	}
+
+	program, version := safeProgram(c.App.Name), c.App.Version
 	var flags Flags
+	var debug bool
 	if val, exists := c.App.Metadata["flags"]; exists {
 		if f, ok := val.(Flags); ok {
 			flags = f
+			debug = flags.Debug
 		}
 	}
 	hello(program, version, flags) // say hello!
 
 	var hash, pHash string
-	if !c.GlobalBool("no-git") {
+	if !cliContext.Bool("no-git") {
 		wd, err := os.Getwd()
 		if err != nil {
 			return errwrap.Wrapf(err, "could not get current working directory")
@@ -72,7 +74,7 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		}
 
 		hash = head.Hash().String() // current commit id
-		log.Printf("Deploy: Hash: %s", hash)
+		log.Printf("deploy: hash: %s", hash)
 
 		lo := &git.LogOptions{
 			From: head.Hash(),
@@ -88,8 +90,8 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		if err == nil { // errors are okay, we might be empty
 			pHash = commit.Hash.String() // previous commit id
 		}
-		log.Printf("Deploy: Previous deploy hash: %s", pHash)
-		if c.GlobalBool("force") {
+		log.Printf("deploy: previous deploy hash: %s", pHash)
+		if cliContext.Bool("force") {
 			pHash = "" // don't check this :(
 		}
 		if hash == "" {
@@ -100,27 +102,21 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	uniqueid := uuid.New() // panic's if it can't generate one :P
 
 	etcdClient := &etcd.ClientEtcd{
-		Seeds: c.GlobalStringSlice("seeds"), // endpoints
+		Seeds: cliContext.StringSlice("seeds"), // endpoints
 	}
 	if err := etcdClient.Connect(); err != nil {
 		return errwrap.Wrapf(err, "client connection error")
 	}
 	defer etcdClient.Destroy()
 
-	// TODO: this was all implemented super inefficiently, fix up for perf!
-	deploys, err := etcd.GetDeploys(etcdClient) // get previous deploys
+	// get max id (from all the previous deploys)
+	max, err := etcd.GetMaxDeployID(etcdClient)
 	if err != nil {
-		return errwrap.Wrapf(err, "error getting previous deploys")
+		return errwrap.Wrapf(err, "error getting max deploy id")
 	}
 	// find the latest id
-	var max uint64
-	for i := range deploys {
-		if i > max {
-			max = i
-		}
-	}
 	var id = max + 1 // next id
-	log.Printf("Deploy: Previous deploy id: %d", max)
+	log.Printf("deploy: max deploy id: %d", max)
 
 	etcdFs := &etcdfs.Fs{
 		Client: etcdClient.GetClient(),
@@ -129,7 +125,18 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		DataPrefix: StoragePrefix,
 	}
 
-	deploy, err := gapiObj.Cli(c, etcdFs)
+	cliInfo := &gapi.CliInfo{
+		CliContext: c, // don't pass in the parent context
+
+		Fs:    etcdFs,
+		Debug: debug,
+		Logf: func(format string, v ...interface{}) {
+			// TODO: is this a sane prefix to use here?
+			log.Printf("cli: "+format, v...)
+		},
+	}
+
+	deploy, err := gapiObj.Cli(cliInfo)
 	if err != nil {
 		return errwrap.Wrapf(err, "cli parse error")
 	}
@@ -138,8 +145,8 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	}
 
 	// redundant
-	deploy.Noop = c.GlobalBool("noop")
-	deploy.Sema = c.GlobalInt("sema")
+	deploy.Noop = cliContext.Bool("noop")
+	deploy.Sema = cliContext.Int("sema")
 
 	str, err := deploy.ToB64()
 	if err != nil {
@@ -150,6 +157,6 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	if err := etcd.AddDeploy(etcdClient, id, hash, pHash, &str); err != nil {
 		return errwrap.Wrapf(err, "could not create deploy id `%d`", id)
 	}
-	log.Printf("Deploy: Success, id: %d", id)
+	log.Printf("deploy: success, id: %d", id)
 	return nil
 }

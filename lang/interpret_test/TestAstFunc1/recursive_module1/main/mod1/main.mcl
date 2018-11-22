@@ -1,0 +1,3 @@
+import "mod1/"	# the nested version, not us
+
+$name = "this is module mod1 which contains: " + $mod1.name

@@ -1,0 +1,5 @@
+import "fmt"
+
+test "printf" {
+	anotherstr => fmt.printf("the answer is: %d", 42),
+}

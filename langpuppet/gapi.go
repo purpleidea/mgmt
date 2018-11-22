@@ -23,7 +23,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lang"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -62,17 +61,43 @@ type GAPI struct {
 	puppetGraphReady bool // flag to indicate that a new graph from puppet is ready
 	graphFlagMutex   *sync.Mutex
 
-	data        gapi.Data
+	data        *gapi.Data
 	initialized bool
 	closeChan   chan struct{}
 	wg          sync.WaitGroup // sync group for tunnel go routines
+}
+
+// CliFlags returns a list of flags used by this deploy subcommand.
+// It consists of all flags accepted by lang and puppet mode,
+// with a respective "lp-" prefix.
+func (obj *GAPI) CliFlags(command string) []cli.Flag {
+	langFlags := (&lang.GAPI{}).CliFlags(command)
+	puppetFlags := (&puppet.GAPI{}).CliFlags(command)
+
+	var childFlags []cli.Flag
+	for _, flag := range append(langFlags, puppetFlags...) {
+		childFlags = append(childFlags, &cli.StringFlag{
+			Name:  FlagPrefix + strings.Split(flag.GetName(), ",")[0],
+			Value: "",
+			Usage: fmt.Sprintf("equivalent for '%s' when using the lang/puppet entrypoint", flag.GetName()),
+		})
+	}
+
+	return childFlags
 }
 
 // Cli takes a cli.Context, and returns our GAPI if activated. All arguments
 // should take the prefix of the registered name. On activation, if there are
 // any validation problems, you should return an error. If this was not
 // activated, then you should return a nil GAPI and a nil error.
-func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
+func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
+	c := cliInfo.CliContext
+	fs := cliInfo.Fs // copy files from local filesystem *into* this fs...
+	debug := cliInfo.Debug
+	logf := func(format string, v ...interface{}) {
+		cliInfo.Logf(Name+": "+format, v...)
+	}
+
 	if !c.IsSet(FlagPrefix+lang.Name) && !c.IsSet(FlagPrefix+puppet.Name) {
 		return nil, nil
 	}
@@ -97,13 +122,25 @@ func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 
 	var langDeploy *gapi.Deploy
 	var puppetDeploy *gapi.Deploy
+	langCliInfo := &gapi.CliInfo{
+		CliContext: cli.NewContext(c.App, flagSet, nil),
+		Fs:         fs,
+		Debug:      debug,
+		Logf:       logf, // TODO: wrap logf?
+	}
+	puppetCliInfo := &gapi.CliInfo{
+		CliContext: cli.NewContext(c.App, flagSet, nil),
+		Fs:         fs,
+		Debug:      debug,
+		Logf:       logf, // TODO: wrap logf?
+	}
 	var err error
 
 	// we don't really need the deploy object from the child GAPIs
-	if langDeploy, err = (&lang.GAPI{}).Cli(cli.NewContext(c.App, flagSet, nil), fs); err != nil {
+	if langDeploy, err = (&lang.GAPI{}).Cli(langCliInfo); err != nil {
 		return nil, err
 	}
-	if puppetDeploy, err = (&puppet.GAPI{}).Cli(cli.NewContext(c.App, flagSet, nil), fs); err != nil {
+	if puppetDeploy, err = (&puppet.GAPI{}).Cli(puppetCliInfo); err != nil {
 		return nil, err
 	}
 
@@ -118,34 +155,15 @@ func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 	}, nil
 }
 
-// CliFlags returns a list of flags used by this deploy subcommand.
-// It consists of all flags accepted by lang and puppet mode,
-// with a respective "lp-" prefix.
-func (obj *GAPI) CliFlags() []cli.Flag {
-	langFlags := (&lang.GAPI{}).CliFlags()
-	puppetFlags := (&puppet.GAPI{}).CliFlags()
-
-	var childFlags []cli.Flag
-	for _, flag := range append(langFlags, puppetFlags...) {
-		childFlags = append(childFlags, &cli.StringFlag{
-			Name:  FlagPrefix + strings.Split(flag.GetName(), ",")[0],
-			Value: "",
-			Usage: fmt.Sprintf("equivalent for '%s' when using the lang/puppet entrypoint", flag.GetName()),
-		})
-	}
-
-	return childFlags
-}
-
 // Init initializes the langpuppet GAPI struct.
-func (obj *GAPI) Init(data gapi.Data) error {
+func (obj *GAPI) Init(data *gapi.Data) error {
 	if obj.initialized {
 		return fmt.Errorf("already initialized")
 	}
 	obj.data = data // store for later
 	obj.graphFlagMutex = &sync.Mutex{}
 
-	dataLang := gapi.Data{
+	dataLang := &gapi.Data{
 		Program:       obj.data.Program,
 		Hostname:      obj.data.Hostname,
 		World:         obj.data.World,
@@ -157,7 +175,7 @@ func (obj *GAPI) Init(data gapi.Data) error {
 			obj.data.Logf(lang.Name+": "+format, v...)
 		},
 	}
-	dataPuppet := gapi.Data{
+	dataPuppet := &gapi.Data{
 		Program:       obj.data.Program,
 		Hostname:      obj.data.Hostname,
 		World:         obj.data.World,

@@ -234,9 +234,17 @@ func (g *Graph) VerticesChan() chan Vertex {
 // VertexSlice is a linear list of vertices. It can be sorted.
 type VertexSlice []Vertex
 
-func (vs VertexSlice) Len() int           { return len(vs) }
-func (vs VertexSlice) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
+// Len returns the length of the slice of vertices.
+func (vs VertexSlice) Len() int { return len(vs) }
+
+// Swap swaps two elements in the slice.
+func (vs VertexSlice) Swap(i, j int) { vs[i], vs[j] = vs[j], vs[i] }
+
+// Less returns the smaller element in the sort order.
 func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String() }
+
+// Sort is a convenience method.
+func (vs VertexSlice) Sort() { sort.Sort(vs) }
 
 // VerticesSorted returns a sorted slice of all vertices in the graph.
 // The order is sorted by String() to avoid the non-determinism in the map type.
@@ -259,14 +267,20 @@ func (g *Graph) String() string {
 
 // Sprint prints a full graph in textual form out to a string. To log this you
 // might want to use Logf, which will keep everything aligned with whatever your
-// logging prefix is.
+// logging prefix is. This function returns the result in a deterministic order.
 func (g *Graph) Sprint() string {
 	var str string
-	for v := range g.Adjacency() {
+	for _, v := range g.VerticesSorted() {
 		str += fmt.Sprintf("Vertex: %s\n", v)
 	}
-	for v1 := range g.Adjacency() {
-		for v2, e := range g.Adjacency()[v1] {
+	for _, v1 := range g.VerticesSorted() {
+		vs := []Vertex{}
+		for v2 := range g.Adjacency()[v1] {
+			vs = append(vs, v2)
+		}
+		sort.Sort(VertexSlice(vs)) // deterministic order
+		for _, v2 := range vs {
+			e := g.Adjacency()[v1][v2]
 			str += fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e)
 		}
 	}

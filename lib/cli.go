@@ -21,189 +21,32 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"sort"
-	"sync"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/bindata"
 	"github.com/purpleidea/mgmt/gapi"
+	// these imports are so that GAPIs register themselves in init()
+	_ "github.com/purpleidea/mgmt/lang"
+	_ "github.com/purpleidea/mgmt/langpuppet"
+	_ "github.com/purpleidea/mgmt/puppet"
+	_ "github.com/purpleidea/mgmt/yamlgraph"
 
-	"github.com/spf13/afero"
 	"github.com/urfave/cli"
 )
 
-// Fs is a simple wrapper to a memory backed file system to be used for
-// standalone deploys. This is basically a pass-through so that we fulfill the
-// same interface that the deploy mechanism uses.
-type Fs struct {
-	*afero.Afero
-}
-
-// URI returns the unique URI of this filesystem. It returns the root path.
-func (obj *Fs) URI() string { return fmt.Sprintf("%s://"+"/", obj.Name()) }
-
-// run is the main run target.
-func run(c *cli.Context) error {
-
-	obj := &Main{}
-
-	obj.Program = c.App.Name
-	obj.Version = c.App.Version
-	if val, exists := c.App.Metadata["flags"]; exists {
-		if flags, ok := val.(Flags); ok {
-			obj.Flags = flags
-		}
-	}
-
-	if h := c.String("hostname"); c.IsSet("hostname") && h != "" {
-		obj.Hostname = &h
-	}
-
-	if s := c.String("prefix"); c.IsSet("prefix") && s != "" {
-		obj.Prefix = &s
-	}
-	obj.TmpPrefix = c.Bool("tmp-prefix")
-	obj.AllowTmpPrefix = c.Bool("allow-tmp-prefix")
-
-	// add the versions GAPIs
-	names := []string{}
-	for name := range gapi.RegisteredGAPIs {
-		names = append(names, name)
-	}
-	sort.Strings(names) // ensure deterministic order when parsing
-
-	// create a memory backed temporary filesystem for storing runtime data
-	mmFs := afero.NewMemMapFs()
-	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-	standaloneFs := &Fs{afs}
-	obj.DeployFs = standaloneFs
-
-	for _, name := range names {
-		fn := gapi.RegisteredGAPIs[name]
-		deployObj, err := fn().Cli(c, standaloneFs)
-		if err != nil {
-			log.Printf("GAPI cli parse error: %v", err)
-			//return cli.NewExitError(err.Error(), 1) // TODO: ?
-			return cli.NewExitError("", 1)
-		}
-		if deployObj == nil { // not used
-			continue
-		}
-		if obj.Deploy != nil { // already set one
-			return fmt.Errorf("can't combine `%s` GAPI with existing GAPI", name)
-		}
-		obj.Deploy = deployObj
-	}
-
-	obj.NoWatch = c.Bool("no-watch")
-	obj.NoConfigWatch = c.Bool("no-config-watch")
-	obj.NoStreamWatch = c.Bool("no-stream-watch")
-
-	obj.Noop = c.Bool("noop")
-	obj.Sema = c.Int("sema")
-	obj.Graphviz = c.String("graphviz")
-	obj.GraphvizFilter = c.String("graphviz-filter")
-	obj.ConvergedTimeout = c.Int("converged-timeout")
-	obj.ConvergedTimeoutNoExit = c.Bool("converged-timeout-no-exit")
-	obj.ConvergedStatusFile = c.String("converged-status-file")
-	obj.MaxRuntime = uint(c.Int("max-runtime"))
-
-	obj.Seeds = c.StringSlice("seeds")
-	obj.ClientURLs = c.StringSlice("client-urls")
-	obj.ServerURLs = c.StringSlice("server-urls")
-	obj.AdvertiseClientURLs = c.StringSlice("advertise-client-urls")
-	obj.AdvertiseServerURLs = c.StringSlice("advertise-server-urls")
-	obj.IdealClusterSize = c.Int("ideal-cluster-size")
-	obj.NoServer = c.Bool("no-server")
-
-	obj.NoPgp = c.Bool("no-pgp")
-
-	if kp := c.String("pgp-key-path"); c.IsSet("pgp-key-path") {
-		obj.PgpKeyPath = &kp
-	}
-
-	if us := c.String("pgp-identity"); c.IsSet("pgp-identity") {
-		obj.PgpIdentity = &us
-	}
-
-	obj.Prometheus = c.Bool("prometheus")
-	obj.PrometheusListen = c.String("prometheus-listen")
-
-	if err := obj.Validate(); err != nil {
-		return err
-	}
-
-	if err := obj.Init(); err != nil {
-		return err
-	}
-
-	// install the exit signal handler
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-	exit := make(chan struct{})
-	defer close(exit)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		// must have buffer for max number of signals
-		signals := make(chan os.Signal, 3+1) // 3 * ^C + 1 * SIGTERM
-		signal.Notify(signals, os.Interrupt) // catch ^C
-		//signal.Notify(signals, os.Kill) // catch signals
-		signal.Notify(signals, syscall.SIGTERM)
-		var count uint8
-		for {
-			select {
-			case sig := <-signals: // any signal will do
-				if sig != os.Interrupt {
-					log.Printf("Interrupted by signal")
-					obj.Interrupt(fmt.Errorf("killed by %v", sig))
-					return
-				}
-
-				switch count {
-				case 0:
-					log.Printf("Interrupted by ^C")
-					obj.Exit(nil)
-				case 1:
-					log.Printf("Interrupted by ^C (fast pause)")
-					obj.FastExit(nil)
-				case 2:
-					log.Printf("Interrupted by ^C (hard interrupt)")
-					obj.Interrupt(nil)
-				}
-				count++
-
-			case <-exit:
-				return
-			}
-		}
-	}()
-
-	reterr := obj.Run()
-	if reterr != nil {
-		// log the error message returned
-		log.Printf("Main: Error: %v", reterr)
-	}
-
-	if err := obj.Close(); err != nil {
-		log.Printf("Main: Close: %v", err)
-		//return cli.NewExitError(err.Error(), 1) // TODO: ?
-		return cli.NewExitError("", 1)
-	}
-
-	return reterr
-}
-
 // CLI is the entry point for using mgmt normally from the CLI.
 func CLI(program, version string, flags Flags) error {
-
 	// test for sanity
 	if program == "" || version == "" {
 		return fmt.Errorf("program was not compiled correctly, see Makefile")
 	}
 
+	// All of these flags can be accessed in your GAPI implementation with
+	// the `c.Parent().Type` and `c.Parent().IsSet` functions. Their own
+	// flags can be accessed with `c.Type` and `c.IsSet` directly.
 	runFlags := []cli.Flag{
+		// common flags which all can use
+
 		// useful for testing multiple instances on same machine
 		cli.StringFlag{
 			Name:  "hostname",
@@ -236,6 +79,10 @@ func CLI(program, version string, flags Flags) error {
 		cli.BoolFlag{
 			Name:  "no-stream-watch",
 			Usage: "do not update graph on stream switch events",
+		},
+		cli.BoolFlag{
+			Name:  "no-deploy-watch",
+			Usage: "do not change deploys after an initial deploy",
 		},
 
 		cli.BoolFlag{
@@ -349,8 +196,53 @@ func CLI(program, version string, flags Flags) error {
 			Usage: "specify prometheus instance binding",
 		},
 	}
+	deployFlags := []cli.Flag{
+		// common flags which all can use
+		cli.StringSliceFlag{
+			Name:   "seeds, s",
+			Value:  &cli.StringSlice{}, // empty slice
+			Usage:  "default etc client endpoint",
+			EnvVar: "MGMT_SEEDS",
+		},
+		cli.BoolFlag{
+			Name:  "noop",
+			Usage: "globally force all resources into no-op mode",
+		},
+		cli.IntFlag{
+			Name:  "sema",
+			Value: -1,
+			Usage: "globally add a semaphore to all resources with this lock count",
+		},
 
-	subCommands := []cli.Command{} // build deploy sub commands
+		cli.BoolFlag{
+			Name:  "no-git",
+			Usage: "don't look at git commit id for safe deploys",
+		},
+		cli.BoolFlag{
+			Name:  "force",
+			Usage: "force a new deploy, even if the safety chain would break",
+		},
+	}
+	getFlags := []cli.Flag{
+		// common flags which all can use
+		cli.BoolFlag{
+			Name:  "noop",
+			Usage: "simulate the download (can't recurse)",
+		},
+		cli.IntFlag{
+			Name:  "sema",
+			Value: -1, // maximum parallelism
+			Usage: "globally add a semaphore to downloads with this lock count",
+		},
+		cli.BoolFlag{
+			Name:  "update",
+			Usage: "update all dependencies to the latest versions",
+		},
+	}
+
+	subCommandsRun := []cli.Command{}    // run sub commands
+	subCommandsDeploy := []cli.Command{} // deploy sub commands
+	subCommandsGet := []cli.Command{}    // get (download) sub commands
 
 	names := []string{}
 	for name := range gapi.RegisteredGAPIs {
@@ -361,24 +253,53 @@ func CLI(program, version string, flags Flags) error {
 		name := x // create a copy in this scope
 		fn := gapi.RegisteredGAPIs[name]
 		gapiObj := fn()
-		flags := gapiObj.CliFlags() // []cli.Flag
 
-		runFlags = append(runFlags, flags...)
-
-		command := cli.Command{
+		commandRun := cli.Command{
 			Name:  name,
-			Usage: fmt.Sprintf("deploy using the `%s` frontend", name),
+			Usage: fmt.Sprintf("run using the `%s` frontend", name),
 			Action: func(c *cli.Context) error {
-				if err := deploy(c, name, gapiObj); err != nil {
-					log.Printf("Deploy: Error: %v", err)
+				if err := run(c, name, gapiObj); err != nil {
+					log.Printf("run: error: %v", err)
 					//return cli.NewExitError(err.Error(), 1) // TODO: ?
 					return cli.NewExitError("", 1)
 				}
 				return nil
 			},
-			Flags: flags,
+			Flags: gapiObj.CliFlags(gapi.CommandRun),
 		}
-		subCommands = append(subCommands, command)
+		subCommandsRun = append(subCommandsRun, commandRun)
+
+		commandDeploy := cli.Command{
+			Name:  name,
+			Usage: fmt.Sprintf("deploy using the `%s` frontend", name),
+			Action: func(c *cli.Context) error {
+				if err := deploy(c, name, gapiObj); err != nil {
+					log.Printf("deploy: error: %v", err)
+					//return cli.NewExitError(err.Error(), 1) // TODO: ?
+					return cli.NewExitError("", 1)
+				}
+				return nil
+			},
+			Flags: gapiObj.CliFlags(gapi.CommandDeploy),
+		}
+		subCommandsDeploy = append(subCommandsDeploy, commandDeploy)
+
+		if _, ok := gapiObj.(gapi.GettableGAPI); ok {
+			commandGet := cli.Command{
+				Name:  name,
+				Usage: fmt.Sprintf("get (download) using the `%s` frontend", name),
+				Action: func(c *cli.Context) error {
+					if err := get(c, name, gapiObj); err != nil {
+						log.Printf("get: error: %v", err)
+						//return cli.NewExitError(err.Error(), 1) // TODO: ?
+						return cli.NewExitError("", 1)
+					}
+					return nil
+				},
+				Flags: gapiObj.CliFlags(gapi.CommandGet),
+			}
+			subCommandsGet = append(subCommandsGet, commandGet)
+		}
 	}
 
 	app := cli.NewApp()
@@ -416,48 +337,52 @@ func CLI(program, version string, flags Flags) error {
 	}
 
 	app.Commands = []cli.Command{
-		{
-			Name:    "run",
-			Aliases: []string{"r"},
-			Usage:   "run",
-			Action:  run,
-			Flags:   runFlags,
-		},
-		{
-			Name:        "deploy",
+		//{
+		//	Name:    gapi.CommandTODO,
+		//	Aliases: []string{"TODO"},
+		//	Usage:   "TODO",
+		//	Action:  TODO,
+		//	Flags:   TODOFlags,
+		//},
+	}
+
+	// run always requires a frontend to start the engine, but if you don't
+	// want a graph, you can use the `empty` frontend. The engine backend is
+	// agnostic to which frontend is running, in fact, you can deploy with
+	// multiple different frontends, one after another, on the same engine.
+	if len(subCommandsRun) > 0 {
+		commandRun := cli.Command{
+			Name:        gapi.CommandRun,
+			Aliases:     []string{"r"},
+			Usage:       "run",
+			Subcommands: subCommandsRun,
+			Flags:       runFlags,
+		}
+		app.Commands = append(app.Commands, commandRun)
+	}
+
+	if len(subCommandsDeploy) > 0 {
+		commandDeploy := cli.Command{
+			Name:        gapi.CommandDeploy,
 			Aliases:     []string{"d"},
 			Usage:       "deploy",
-			Subcommands: subCommands,
-			Flags: []cli.Flag{
-				cli.StringSliceFlag{
-					Name:   "seeds, s",
-					Value:  &cli.StringSlice{}, // empty slice
-					Usage:  "default etc client endpoint",
-					EnvVar: "MGMT_SEEDS",
-				},
-
-				// common flags which all can use
-				cli.BoolFlag{
-					Name:  "noop",
-					Usage: "globally force all resources into no-op mode",
-				},
-				cli.IntFlag{
-					Name:  "sema",
-					Value: -1,
-					Usage: "globally add a semaphore to all resources with this lock count",
-				},
-
-				cli.BoolFlag{
-					Name:  "no-git",
-					Usage: "don't look at git commit id for safe deploys",
-				},
-				cli.BoolFlag{
-					Name:  "force",
-					Usage: "force a new deploy, even if the safety chain would break",
-				},
-			},
-		},
+			Subcommands: subCommandsDeploy,
+			Flags:       deployFlags,
+		}
+		app.Commands = append(app.Commands, commandDeploy)
 	}
+
+	if len(subCommandsGet) > 0 {
+		commandGet := cli.Command{
+			Name:        gapi.CommandGet,
+			Aliases:     []string{"g"},
+			Usage:       "get",
+			Subcommands: subCommandsGet,
+			Flags:       getFlags,
+		}
+		app.Commands = append(app.Commands, commandGet)
+	}
+
 	app.EnableBashCompletion = true
 	return app.Run(os.Args)
 }

@@ -1,0 +1,4 @@
+# this is a pretty lame module!
+import "mod1/"	# yet another similarly named "mod1" import
+
+$name = "i am github.com/purpleidea/mgmt-example1/ and i contain: " + $mod1.name

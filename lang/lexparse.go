@@ -39,6 +39,9 @@ const (
 	// remaining characters following the name. If this is the empty string
 	// then it will be ignored.
 	ModuleMagicPrefix = "mgmt-"
+
+	// CoreDir is the directory prefix where core bindata mcl code is added.
+	CoreDir = "core/"
 )
 
 // These constants represent the different possible lexer/parser errors.
@@ -110,7 +113,8 @@ func LexParse(input io.Reader) (interfaces.Stmt, error) {
 // redirects directly to LexParse. This differs because when it errors it will
 // also report the corresponding file the error occurred in based on some offset
 // math. The offsets are in units of file size (bytes) and not length (lines).
-// FIXME: due to an implementation difficulty, offsets are currently in length!
+// TODO: Due to an implementation difficulty, offsets are currently in length!
+// NOTE: This was used for an older deprecated form of lex/parse file combining.
 func LexParseWithOffsets(input io.Reader, offsets map[uint64]string) (interfaces.Stmt, error) {
 	if offsets == nil || len(offsets) == 0 {
 		return LexParse(input) // special case, no named offsets...
@@ -165,7 +169,8 @@ func LexParseWithOffsets(input io.Reader, offsets map[uint64]string) (interfaces
 // source files, and as a result, this will skip over files that don't have the
 // correct extension. The offsets are in units of file size (bytes) and not
 // length (lines).
-// FIXME: due to an implementation difficulty, offsets are currently in length!
+// TODO: Due to an implementation difficulty, offsets are currently in length!
+// NOTE: This was used for an older deprecated form of lex/parse file combining.
 func DirectoryReader(fs engine.Fs, dir string) (io.Reader, map[uint64]string, error) {
 	fis, err := fs.ReadDir(dir) // ([]os.FileInfo, error)
 	if err != nil {
@@ -181,7 +186,7 @@ func DirectoryReader(fs engine.Fs, dir string) (io.Reader, map[uint64]string, er
 			continue // skip directories
 		}
 		name := path.Join(dir, fi.Name()) // relative path made absolute
-		if !strings.HasSuffix(name, "."+FileNameExtension) {
+		if !strings.HasSuffix(name, interfaces.DotFileNameExtension) {
 			continue
 		}
 
@@ -231,45 +236,12 @@ func DirectoryReader(fs engine.Fs, dir string) (io.Reader, map[uint64]string, er
 	return io.MultiReader(readers...), offsets, nil
 }
 
-// ImportData is the result of parsing a string import when it has not errored.
-type ImportData struct {
-	// Name is the original input that produced this struct. It is stored
-	// here so that you can parse it once and pass this struct around
-	// without having to include a copy of the original data if needed.
-	Name string
-
-	// Alias is the name identifier that should be used for this import.
-	Alias string
-
-	// System specifies that this is a system import.
-	System bool
-
-	// Local represents if a module is either local or a remote import.
-	Local bool
-
-	// Path represents the relative path to the directory that this import
-	// points to. Since it specifies a directory, it will end with a
-	// trailing slash which makes detection more obvious for other helpers.
-	// If this points to a local import, that directory is probably not
-	// expected to contain a metadata file, and it will be a simple path
-	// addition relative to the current file this import was parsed from. If
-	// this is a remote import, then it's likely that the file will be found
-	// in a more distinct path, such as a search path that contains the full
-	// fqdn of the import.
-	// TODO: should system imports put something here?
-	Path string
-
-	// URL is the path that a `git clone` operation should use as the URL.
-	// If it is a local import, then this is the empty value.
-	URL string
-}
-
 // ParseImportName parses an import name and returns the default namespace name
 // that should be used with it. For example, if the import name was:
 // "git://example.com/purpleidea/Module-Name", this might return an alias of
 // "module_name". It also returns a bunch of other data about the parsed import.
 // TODO: check for invalid or unwanted special characters
-func ParseImportName(name string) (*ImportData, error) {
+func ParseImportName(name string) (*interfaces.ImportData, error) {
 	magicPrefix := ModuleMagicPrefix
 	if name == "" {
 		return nil, fmt.Errorf("empty name")
@@ -286,6 +258,12 @@ func ParseImportName(name string) (*ImportData, error) {
 		return nil, fmt.Errorf("empty path")
 	}
 	p := u.Path
+	// catch bad paths like: git:////home/james/ (note the quad slash!)
+	// don't penalize if we have a dir with a trailing slash at the end
+	if s := path.Clean(u.Path); u.Path != s && u.Path != s+"/" {
+		// TODO: are there any cases where this is not what we want?
+		return nil, fmt.Errorf("dirty path, cleaned it's: `%s`", s)
+	}
 
 	for strings.HasSuffix(p, "/") { // remove trailing slashes
 		p = p[:len(p)-len("/")]
@@ -302,7 +280,7 @@ func ParseImportName(name string) (*ImportData, error) {
 		s = s[len(magicPrefix):]
 	}
 
-	s = strings.Replace(s, "-", "_", -1)
+	s = strings.Replace(s, "-", "_", -1) // XXX: allow underscores in IDENTIFIER
 	if strings.HasPrefix(s, "_") || strings.HasSuffix(s, "_") {
 		return nil, fmt.Errorf("name can't begin or end with dash or underscore")
 	}
@@ -312,13 +290,16 @@ func ParseImportName(name string) (*ImportData, error) {
 	// if it's an fqdn import, it should contain a metadata file
 
 	// if there's no protocol prefix, then this must be a local path
-	local := u.Scheme == ""
-	system := local && !strings.HasSuffix(u.Path, "/")
+	isLocal := u.Scheme == ""
+	// if it has a trailing slash or .mcl extension it's not a system import
+	isSystem := isLocal && !strings.HasSuffix(u.Path, "/") && !strings.HasSuffix(u.Path, interfaces.DotFileNameExtension)
+	// is it a local file?
+	isFile := !isSystem && isLocal && strings.HasSuffix(u.Path, interfaces.DotFileNameExtension)
 	xpath := u.Path // magic path
-	if system {
+	if isSystem {
 		xpath = ""
 	}
-	if !local {
+	if !isLocal {
 		host := u.Host // host or host:port
 		split := strings.Split(host, ":")
 		if l := len(split); l == 1 || l == 2 {
@@ -328,8 +309,16 @@ func ParseImportName(name string) (*ImportData, error) {
 		}
 		xpath = path.Join(host, xpath)
 	}
-	if !local && !strings.HasSuffix(xpath, "/") {
+	if !isLocal && !strings.HasSuffix(xpath, "/") {
 		xpath = xpath + "/"
+	}
+	// we're a git repo with a local path instead of an fqdn over http!
+	// this still counts as isLocal == false, since it's still a remote
+	if u.Host == "" && strings.HasPrefix(u.Path, "/") {
+		xpath = strings.TrimPrefix(xpath, "/") // make it a relative dir
+	}
+	if strings.HasPrefix(xpath, "/") { // safety check (programming error?)
+		return nil, fmt.Errorf("can't parse strange import")
 	}
 
 	// build a url to clone from if we're not local...
@@ -337,7 +326,7 @@ func ParseImportName(name string) (*ImportData, error) {
 	// https://github.com/golang/go/blob/054640b54df68789d9df0e50575d21d9dbffe99f/src/cmd/go/internal/get/vcs.go#L972
 	// so that we can more correctly figure out the correct url to clone...
 	xurl := ""
-	if !local {
+	if !isLocal {
 		u.Fragment = ""
 		// TODO: maybe look for ?sha1=... or ?tag=... to pick a real ref
 		u.RawQuery = ""
@@ -345,12 +334,45 @@ func ParseImportName(name string) (*ImportData, error) {
 		xurl = u.String()
 	}
 
-	return &ImportData{
-		Name:   name, // save the original value here
-		Alias:  alias,
-		System: system,
-		Local:  local,
-		Path:   xpath,
-		URL:    xurl,
+	// if u.Path is local file like: foo/server.mcl alias should be "server"
+	// we should trim the alias to remove the .mcl (the dir is already gone)
+	if isFile && strings.HasSuffix(alias, interfaces.DotFileNameExtension) {
+		alias = strings.TrimSuffix(alias, interfaces.DotFileNameExtension)
+	}
+
+	return &interfaces.ImportData{
+		Name:     name, // save the original value here
+		Alias:    alias,
+		IsSystem: isSystem,
+		IsLocal:  isLocal,
+		IsFile:   isFile,
+		Path:     xpath,
+		URL:      xurl,
 	}, nil
+}
+
+// CollectFiles collects all the files used in the AST. You will see more files
+// based on how many compiling steps have run. In general, this is useful for
+// collecting all the files needed to store in our file system for a deploy.
+func CollectFiles(ast interfaces.Stmt) ([]string, error) {
+	// collect the list of files
+	fileList := []string{}
+	fn := func(node interfaces.Node) error {
+		// redundant check for example purposes
+		stmt, ok := node.(interfaces.Stmt)
+		if !ok {
+			return nil
+		}
+		prog, ok := stmt.(*StmtProg)
+		if !ok {
+			return nil
+		}
+		// collect into global
+		fileList = append(fileList, prog.importFiles...)
+		return nil
+	}
+	if err := ast.Apply(fn); err != nil {
+		return nil, errwrap.Wrapf(err, "can't retrieve paths")
+	}
+	return fileList, nil
 }

@@ -32,7 +32,8 @@ import (
 
 func TestInstance0(t *testing.T) {
 	code := `
-	$root = getenv("MGMT_TEST_ROOT")
+	import "sys"
+	$root = sys.getenv("MGMT_TEST_ROOT")
 
 	file "${root}/mgmt-hello-world" {
 		content => "hello world from @purpleidea\n",
@@ -42,6 +43,10 @@ func TestInstance0(t *testing.T) {
 	m := Instance{
 		Hostname: "h1", // arbitrary
 		Preserve: true,
+		Debug:    false, // TODO: set to true if not too wordy
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("test: "+format, v...)
+		},
 	}
 	if err := m.SimpleDeployLang(code); err != nil {
 		t.Errorf("failed with: %+v", err)
@@ -72,7 +77,8 @@ func TestInstance1(t *testing.T) {
 
 	{
 		code := util.Code(`
-		$root = getenv("MGMT_TEST_ROOT")
+		import "sys"
+		$root = sys.getenv("MGMT_TEST_ROOT")
 
 		file "${root}/mgmt-hello-world" {
 			content => "hello world from @purpleidea\n",
@@ -96,6 +102,10 @@ func TestInstance1(t *testing.T) {
 			m := Instance{
 				Hostname: "h1",
 				Preserve: true,
+				Debug:    false, // TODO: set to true if not too wordy
+				Logf: func(format string, v ...interface{}) {
+					t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
+				},
 			}
 			err := m.SimpleDeployLang(code)
 			d := m.Dir()
@@ -155,10 +165,11 @@ func TestCluster1(t *testing.T) {
 
 	{
 		code := util.Code(`
-		$root = getenv("MGMT_TEST_ROOT")
+		import "sys"
+		$root = sys.getenv("MGMT_TEST_ROOT")
 
 		file "${root}/mgmt-hostname" {
-			content => "i am ${hostname()}\n",
+			content => "i am ${sys.hostname()}\n",
 			state => "exists",
 		}
 		`)
@@ -179,10 +190,11 @@ func TestCluster1(t *testing.T) {
 	}
 	{
 		code := util.Code(`
-		$root = getenv("MGMT_TEST_ROOT")
+		import "sys"
+		$root = sys.getenv("MGMT_TEST_ROOT")
 
 		file "${root}/mgmt-hostname" {
-			content => "i am ${hostname()}\n",
+			content => "i am ${sys.hostname()}\n",
 			state => "exists",
 		}
 		`)
@@ -212,6 +224,10 @@ func TestCluster1(t *testing.T) {
 			c := Cluster{
 				Hostnames: hosts,
 				Preserve:  true,
+				Debug:     false, // TODO: set to true if not too wordy
+				Logf: func(format string, v ...interface{}) {
+					t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
+				},
 			}
 			err := c.SimpleDeployLang(code)
 			if d := c.Dir(); d != "" {

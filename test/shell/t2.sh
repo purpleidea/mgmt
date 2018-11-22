@@ -7,7 +7,7 @@ if env | grep -q -e '^TRAVIS=true$'; then
 fi
 
 # run till completion
-$timeout --kill-after=15s 10s "$MGMT" run --yaml t2.yaml --converged-timeout=5 --no-watch --tmp-prefix &
+$timeout --kill-after=15s 10s "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t2.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

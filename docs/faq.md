@@ -57,6 +57,8 @@ hacking!
 
 ### Is this project ready for production?
 
+It's getting pretty close. I'm able to write modules for it now!
+
 Compared to some existing automation tools out there, mgmt is a relatively new
 project. It is probably not as feature complete as some other software, but it
 also offers a number of features which are not currently available elsewhere.
@@ -146,7 +148,7 @@ requires a number of seconds as an argument.
 #### Example:
 
 ```
-./mgmt run --lang examples/lang/hello0.mcl --converged-timeout=5
+./mgmt run lang --lang examples/lang/hello0.mcl --converged-timeout=5
 ```
 
 ### What does the error message about an inconsistent dataDir mean?
@@ -167,14 +169,15 @@ starting up, and as a result, a default endpoint never gets added. The solution
 is to either reconcile the mistake, and if there is no important data saved, you
 can remove the etcd dataDir. This is typically `/var/lib/mgmt/etcd/member/`.
 
-### Why do resources have both a `Compare` method and an `IFF` (on the UID) method?
+### Why do resources have both a `Cmp` method and an `IFF` (on the UID) method?
 
-The `Compare()` methods are for determining if two resources are effectively the
+The `Cmp()` methods are for determining if two resources are effectively the
 same, which is used to make graph change delta's efficient. This is when we want
 to change from the current running graph to a new graph, but preserve the common
 vertices. Since we want to make this process efficient, we only update the parts
-that are different, and leave everything else alone. This `Compare()` method can
-tell us if two resources are the same.
+that are different, and leave everything else alone. This `Cmp()` method can
+tell us if two resources are the same. In case it is not obvious, `cmp` is an
+abbrev. for compare.
 
 The `IFF()` method is part of the whole UID system, which is for discerning if a
 resource meets the requirements another expects for an automatic edge. This is

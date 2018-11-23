@@ -31,6 +31,24 @@ matrix:
   include:
     - os: osx
       go: 1.9.x
+# build deb, rpm and pkg packages for tagged releases
+before_deploy:
+  - ./misc/fpm-pack.sh
+# upload packages for tagged releases
+deploy:
+  provider: releases
+  api_key:
+    secure: kIUVzr9BRu+ntAIiynPOQkcpJlQ5xM20NYNcqHW0yk5J2zpZqO9/077rDqoheIhPoHu+RopztuB5ikiAxbf21yQKsvQomp0tNrfDO2SPo2L7Srk5Wht4VgDZmCzyJBX09K2F4SHgi/DDB8ilIdHGEVvmAP37a81xvyYTHw98X2QSvWaKNJwUD/iLxeXdeE+YZseILUy5MZFgbLzqA7Xcbu0U+4EsH9IPgifIwgUA4u/xN+r4+OdmnI+snf9j3COkxUtdNUAkTLAJvT1PxB/KHfewfY7fzjEU4B1C4HSLrdZ/F+GHBpyNRbRHtudDRslIUeAudVdyqg+DmNfVH9VuoGT/3QuZx5J5O78caFcDqgzk5exBrw32xmBMKDnWsSr0bSGKjojH0QTo9TNyTBA6oydSM3tssXF6xluRdEjLPFFbqtJ54rdEO0xbwxfl5usMvT8w+bZOz18dKVXQB/0JrrrpLuBmqNwGQfPxlhpzDJW66eDrvhg9eJpJeeRnoj3XmK+o/JtiWrjKaoxDR8MedvNGBMmb4Z6Sj+aJFSRk4zE1p/tNVJs5H4+C48HmNKi49sKVPKUUbhn6iwYcLG+rCxou52MuoSelBvdc5156CvxsS7WNZXeEX2SyXMDgPD8TZZ63IHamv+FwMkUWlF8bCSaCr2nZzg8nQT9106aRUDk=
+  skip_cleanup: true
+  file_glob: true
+  file:
+    - ./*.deb
+    - ./*.rpm
+    - ./*.pkg.tar.xz
+  on:
+    repo: jonathangold/mgmt
+    tags: true
+    go: 1.9.x
 
 # the "secure" channel value is the result of running: ./misc/travis-encrypt.sh
 # with a value of: irc.freenode.net#mgmtconfig to eliminate noise from forks...

@@ -39,6 +39,8 @@ if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y rubygems || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
+	# dependencies for building rpm and pacman packages with fpm
+	$sudo_command $APT install -y rpm bsdtar || true
 	# dependencies for building debian packages with `make deb`
 	$sudo_command $APT install -y dpkg-dev devscripts debhelper dh-golang dh-systemd
 	# `realpath` is a more universal alternative to `readlink -f` for absolute path resolution
@@ -102,5 +104,5 @@ go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
 go get golang.org/x/lint/golint				# for `golint`-ing
 go get github.com/tmthrgd/go-bindata/go-bindata	# for compiling in non golang files
 go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
-command -v mdl &>/dev/null || gem install mdl || true	# for linting markdown files
+command -v mdl &>/dev/null || gem install mdl fpm || true	# mdl for linting markdown files and fpm for packaging
 cd "$XPWD" >/dev/null

@@ -17,6 +17,7 @@ You might want to look at the [generated documentation](https://godoc.org/github
 for more up-to-date information about these resources.
 
 * [Augeas](#Augeas): Manipulate files using augeas.
+* [Docker](#Docker):[Container](#Container) Manage docker containers.
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.
 * [Group](#Group): Manage system groups.
@@ -39,6 +40,22 @@ for more up-to-date information about these resources.
 
 The augeas resource uses [augeas](http://augeas.net/) commands to manipulate
 files.
+
+## Docker
+
+### Container
+
+The docker:container resource manages docker containers.
+
+It has the following properties:
+
+* `state`: either `running`, `stopped`, or `removed`
+* `image`: docker `image` or `image:tag`
+* `cmd`: a command or list of commands to run on the container
+* `env`: a list of environment variables, e.g. `["VAR=val",],`
+* `ports`: a map of portmappings, e.g. `{"tcp" => {80 => 8080, 443 => 8443,},},`
+* `apiversion:` override the host's default docker version, e.g. `"v1.35"`
+* `force`: destroy and rebuild the container instead of erroring on wrong image
 
 ## Exec
 

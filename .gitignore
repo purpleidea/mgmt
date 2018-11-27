@@ -13,4 +13,4 @@ mgmt.static
 build/mgmt-*
 mgmt.iml
 rpmbuild/
-*.deb
+releases/

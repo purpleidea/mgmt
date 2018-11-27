@@ -31,16 +31,18 @@ fi
 if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
-	$sudo_command $YUM install -y rubygems
+	$sudo_command $YUM install -y ruby-devel rubygems
 	$sudo_command $YUM install -y time
+	# dependencies for building packages with fpm
+	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar || true
 fi
 if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
-	$sudo_command $APT install -y rubygems || true
+	$sudo_command $APT install -y ruby ruby-dev rubygems || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
-	# dependencies for building debian packages with `make deb`
-	$sudo_command $APT install -y dpkg-dev devscripts debhelper dh-golang dh-systemd
+	# dependencies for building packages with fpm
+	$sudo_command $APT install -y build-essential rpm bsdtar || true
 	# `realpath` is a more universal alternative to `readlink -f` for absolute path resolution
 	# (-f is missing on BSD/macOS), but older Debian/Ubuntu's don't include it in coreutils yet.
 	# https://unix.stackexchange.com/a/136527
@@ -103,4 +105,5 @@ go get golang.org/x/lint/golint				# for `golint`-ing
 go get github.com/tmthrgd/go-bindata/go-bindata	# for compiling in non golang files
 go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
 command -v mdl &>/dev/null || gem install mdl || true	# for linting markdown files
+command -v fpm &>/dev/null || gem install fpm || true	# for cross distro packaging
 cd "$XPWD" >/dev/null

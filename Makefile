@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr
+.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr release release/mkdirs
 .SILENT: clean bindata
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
@@ -47,6 +47,10 @@ GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
 
 GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)
+
+DEB_TAR = releases/mgmt_$(VERSION)_deb_amd64.tar.gz
+RPM_TAR = releases/mgmt_$(VERSION)_rpm_x86_64.tar.gz
+PACMAN_TAR = releases/mgmt_$(VERSION)_pacman_x86_64.tar.gz
 
 default: build
 
@@ -324,16 +328,81 @@ copr: upload-srpms ## build in copr
 	./misc/copr-build.py https://$(SERVER)/$(REMOTE_PATH)/SRPMS/$(SRPM_BASE)
 
 #
-#	deb build
+#	release
 #
 
-deb: ## build debian package
-	./misc/gen-deb-changelog-from-git.sh
-	dpkg-buildpackage
-	# especially when building in Docker container, pull build artifact in project directory.
-	cp ../mgmt_*_amd64.deb ./
-	# cleanup
-	rm -rf debian/mgmt/
+release: releases/mgmt-$(VERSION)-release.url
+
+releases/mgmt-$(VERSION)-release.url: $(DEB_TAR) $(RPM_TAR) $(PACMAN_TAR)
+	@echo "Creating github release..."
+	hub release create \
+		-F <( echo -e "$(VERSION)\n";echo "License: GPLv3" ) \
+		-a $(DEB_TAR) \
+		-a $(RPM_TAR) \
+		-a $(PACMAN_TAR) \
+		$(VERSION) \
+		> releases/mgmt-$(VERSION)-release.url \
+		&& cat releases/mgmt-$(VERSION)-release.url \
+		|| rm -f releases/mgmt-$(VERSION)-release.url
+
+release/mkdirs:
+	mkdir -p releases/{deb,rpm,pacman}
+
+$(DEB_TAR): releases/deb/SHA256SUMS.asc
+	@echo -e "Archiving deb package..."
+	tar -zcf $(DEB_TAR) -C releases/deb .
+
+releases/deb/SHA256SUMS.asc: releases/deb/SHA256SUMS
+	@echo "Signing sha256 sum..."
+	gpg2 --yes --clearsign releases/deb/SHA256SUMS
+
+releases/deb/SHA256SUMS: releases/deb/mgmt_$(VERSION)_amd64.deb
+	@echo "Generating sha256 sum..."
+	sha256sum releases/deb/*.deb > releases/deb/SHA256SUMS
+
+releases/deb/mgmt_$(VERSION)_amd64.deb: releases/deb/changelog
+	@echo "Building deb package..."
+	./misc/fpm-pack.sh deb libvirt-dev libaugeas-dev
+
+releases/deb/changelog: $(PROGRAM) | release/mkdirs
+	@echo "Generating deb changelog..."
+	./misc/make-deb-changelog.sh
+
+$(RPM_TAR): releases/rpm/SHA256SUMS.asc
+	@echo -e "Archiving rpm package..."
+	tar -zcf $(RPM_TAR) -C releases/rpm .
+
+releases/rpm/SHA256SUMS.asc: releases/rpm/SHA256SUMS
+	@echo "Signing sha256 sum..."
+	gpg2 --yes --clearsign releases/rpm/SHA256SUMS
+
+releases/rpm/SHA256SUMS: releases/rpm/mgmt-$(VERSION)-1.x86_64.rpm
+	@echo "Generating sha256 sum..."
+	sha256sum releases/rpm/*.rpm > releases/rpm/SHA256SUMS
+
+releases/rpm/mgmt-$(VERSION)-1.x86_64.rpm: releases/rpm/changelog
+	@echo "Building rpm package..."
+	./misc/fpm-pack.sh rpm libvirt-devel augeas-devel
+
+releases/rpm/changelog: $(PROGRAM) | release/mkdirs
+	@echo "Generating rpm changelog..."
+	./misc/make-rpm-changelog.sh
+
+$(PACMAN_TAR): releases/pacman/SHA256SUMS.asc
+	@echo -e "Archiving pacman package..."
+	tar -zcf $(PACMAN_TAR) -C releases/pacman .
+
+releases/pacman/SHA256SUMS.asc: releases/pacman/SHA256SUMS
+	@echo "Signing sha256 sum..."
+	gpg2 --yes --clearsign releases/pacman/SHA256SUMS
+
+releases/pacman/SHA256SUMS: releases/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
+	@echo "Generating sha256 sum..."
+	sha256sum releases/pacman/*.pkg.tar.xz > releases/pacman/SHA256SUMS
+
+releases/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz: $(PROGRAM) | release/mkdirs
+	@echo "Building pacman package..."
+	./misc/fpm-pack.sh pacman libvirt augeas
 
 build_container: ## builds the container
 	docker build -t purpleidea/mgmt-build -f docker/Dockerfile.build .

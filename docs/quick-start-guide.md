@@ -119,8 +119,11 @@ To build `mgmt` without augeas support please run:
 To build `mgmt` without libvirt support please run:
 `GOTAGS='novirt' make build`
 
-To build `mgmt` without augeas or libvirt support please run:
-`GOTAGS='noaugeas novirt' make build`
+To build `mgmt` without docker support please run:
+`GOTAGS='nodocker' make build`
+
+To build `mgmt` without augeas, libvirt or docker support please run:
+`GOTAGS='noaugeas novirt nodocker' make build`
 
 ## Binary Package Installation
 

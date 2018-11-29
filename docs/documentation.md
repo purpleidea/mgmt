@@ -351,10 +351,20 @@ GOTAGS=novirt make build
 
 #### Disable augeas support
 
-If you wish to compile mgmt without augeas support, you can use the following command:
+If you wish to compile mgmt without augeas support, you can use the following
+command:
 
 ```
 GOTAGS=noaugeas make build
+```
+
+#### Disable docker support
+
+If you wish to compile mgmt without docker support, you can use the following
+command:
+
+```
+GOTAGS=nodocker make build
 ```
 
 #### Combining compile-time flags
@@ -362,7 +372,7 @@ GOTAGS=noaugeas make build
 You can combine multiple tags by using a space-separated list:
 
 ```
-GOTAGS="noaugeas novirt" make build
+GOTAGS="noaugeas novirt nodocker" make build
 ```
 
 ## Examples

@@ -22,3 +22,12 @@
 [submodule "vendor/github.com/ugorji/go"]
 	path = vendor/github.com/ugorji/go
 	url = https://github.com/ugorji/go
+[submodule "vendor/github.com/purpleidea/docker"]
+	path = vendor/github.com/docker/docker
+	url = https://github.com/purpleidea/docker
+[submodule "vendor/github.com/purpleidea/distribution"]
+	path = vendor/github.com/docker/distribution
+	url = https://github.com/purpleidea/distribution
+[submodule "vendor/github.com/purpleidea/go-connections"]
+	path = vendor/github.com/docker/go-connections
+	url = https://github.com/docker/go-connections

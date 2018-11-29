@@ -816,6 +816,137 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 	}
 }
 
+func TestRemoveBasePath0(t *testing.T) {
+	// expected successes...
+	if s, err := RemoveBasePath("/usr/bin/foo", "/usr/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "bin/foo" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := RemoveBasePath("/usr/bin/project/", "/usr/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := RemoveBasePath("/", "/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "" { // TODO: is this correct?
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := RemoveBasePath("/usr/bin/project/", "/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "usr/bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := RemoveBasePath("/usr/bin/project/", "/usr/bin/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := RemoveBasePath("/usr/bin/foo", "/usr/bin/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "foo" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	// allow this one, even though it's relative paths
+	if s, err := RemoveBasePath("usr/bin/project/", "usr/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+
+	// expected errors...
+	if s, err := RemoveBasePath("", ""); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := RemoveBasePath("", "/usr/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := RemoveBasePath("usr/bin/project/", ""); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := RemoveBasePath("usr/bin/project/", "/usr/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := RemoveBasePath("/usr/bin/project/", "usr/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	// allow this one, even though it's relative paths
+	//if s, err := RemoveBasePath("usr/bin/project/", "usr/"); err == nil {
+	//	t.Errorf("expected error, got: %s", s)
+	//}
+	if s, err := RemoveBasePath("/usr/bin/project/", "/bin/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+}
+
+func TestRebasePath0(t *testing.T) {
+	// expected successes...
+	if s, err := Rebase("/usr/bin/foo", "/usr/", "/usr/local/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "/usr/local/bin/foo" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/project/", "/usr/", "/usr/local/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "/usr/local/bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := Rebase("/", "/", "/opt/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "/opt/" { // TODO: is this correct?
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/project/", "/", "/opt/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "/opt/usr/bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/project/", "/usr/bin/", "/opt/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "/opt/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/foo", "/usr/bin/", "/opt/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "/opt/foo" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+	// allow this one, even though it's relative paths
+	if s, err := Rebase("usr/bin/project/", "usr/", "/opt/"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	} else if s != "/opt/bin/project/" {
+		t.Errorf("unexpected string, got: %s", s)
+	}
+
+	// expected errors...
+	if s, err := Rebase("", "", "/opt/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := Rebase("", "/usr/", "/opt/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := Rebase("usr/bin/project/", "", "/opt/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := Rebase("usr/bin/project/", "/usr/", "/opt/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/project/", "usr/", "/opt/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	// allow this one, even though it's relative paths
+	//if s, err := Rebase("usr/bin/project/", "usr/", "/opt/"); err == nil {
+	//	t.Errorf("expected error, got: %s", s)
+	//}
+	if s, err := Rebase("/usr/bin/project/", "/bin/", "/opt/"); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+	if s, err := Rebase("/usr/bin/project", "/usr/", ""); err == nil {
+		t.Errorf("expected error, got: %s", s)
+	}
+}
+
 func TestSortedStrSliceCompare0(t *testing.T) {
 	slice0 := []string{"foo", "bar", "baz"}
 	slice1 := []string{"bar", "foo", "baz"}

@@ -349,6 +349,34 @@ func FlattenListWithSplit(input []string, split []string) []string {
 	return out
 }
 
+// RemoveBasePath removes an absolute base path (directory prefix) from an
+// absolute path that is any file or directory.
+// Eg: RemoveBasePath("/usr/bin/foo", "/usr/") -> "bin/foo"
+// Eg: RemoveBasePath("/usr/bin/project/", "/usr/") -> "bin/project/".
+func RemoveBasePath(path, base string) (string, error) {
+	if !strings.HasSuffix(base, "/") { // should end with a slash
+		return "", fmt.Errorf("base is not a directory")
+	}
+	if !strings.HasPrefix(path, base) {
+		return "", fmt.Errorf("path does not have base prefix")
+	}
+	return strings.TrimPrefix(path, base), nil
+}
+
+// Rebase takes an absolute base path (directory prefix) and removes it from an
+// absolute path and then returns that path with a new root as an absolute path.
+// Eg: Rebase("/usr/bin/foo", "/usr/", "/usr/local/") -> "/usr/local/bin/foo"
+func Rebase(path, base, root string) (string, error) {
+	if !strings.HasSuffix(root, "/") { // should end with a slash
+		return "", fmt.Errorf("root is not a directory")
+	}
+	s, err := RemoveBasePath(path, base)
+	if err != nil {
+		return "", err
+	}
+	return root + s, nil
+}
+
 // TimeAfterOrBlock is aspecial version of time.After that blocks when given a
 // negative integer. When used in a case statement, the timer restarts on each
 // select call to it.

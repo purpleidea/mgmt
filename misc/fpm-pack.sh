@@ -8,7 +8,7 @@ BINARY="mgmt"
 # git tag pointing to the current commit
 TAG=$(git tag -l --points-at HEAD)
 # maintainer email
-MAINTAINER="mgmt@noreply.github.com"
+MAINTAINER="mgmtconfig@purpleidea.com"
 # project url
 URL="https://github.com/purpleidea/mgmt/"
 # project description
@@ -31,6 +31,17 @@ if [ "$TAG" == "" ]; then
 	exit 1
 fi
 
+if [ "$2" == "" ]; then
+	echo "version was not specified"
+	exit 1
+fi
+VERSION="$2"
+
+if [ "$VERSION" != "$TAG" ]; then
+	echo "you must checkout the correct version before building (${VERSION} != ${TAG})"
+	exit 1
+fi
+
 # make sure the package type is valid
 if [ "$1" != "deb" ] && [ "$1" != "rpm" ] && [ "$1" != "pacman" ]; then
 	echo "invalid package type"
@@ -39,11 +50,11 @@ fi
 
 # there are no changelogs for pacman packages
 if [ "$1" != "pacman" ]; then
-	CHANGELOG="--${1}-changelog=${DIR}/${1}/changelog"
+	CHANGELOG="--${1}-changelog=${DIR}/${VERSION}/${1}/changelog"
 fi
 
-# arguments after the first one are deps
-for i in "${@:2}"; do
+# arguments after the first two are deps
+for i in "${@:3}"; do
 	DEPS="$DEPS -d $i"
 done
 
@@ -58,7 +69,7 @@ fpm \
 	--license "$LICENSE" \
 	--input-type dir \
 	--output-type "$1" \
-	--package "${DIR}/${1}/" \
+	--package "${DIR}/${VERSION}/${1}/" \
 	${CHANGELOG} \
 	${DEPS} \
 	--prefix "$PREFIX" \

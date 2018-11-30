@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr release release/mkdirs
+.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr tag release
 .SILENT: clean bindata
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
@@ -48,9 +48,12 @@ GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
 GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-DEB_TAR = releases/mgmt_$(VERSION)_deb_amd64.tar.gz
-RPM_TAR = releases/mgmt_$(VERSION)_rpm_x86_64.tar.gz
-PACMAN_TAR = releases/mgmt_$(VERSION)_pacman_x86_64.tar.gz
+RPM_PKG = releases/$(VERSION)/rpm/mgmt-$(VERSION)-1.x86_64.rpm
+DEB_PKG = releases/$(VERSION)/deb/mgmt_$(VERSION)_amd64.deb
+PACMAN_PKG = releases/$(VERSION)/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
+
+SHA256SUMS = releases/$(VERSION)/SHA256SUMS
+SHA256SUMS_ASC = $(SHA256SUMS).asc
 
 default: build
 
@@ -328,81 +331,60 @@ copr: upload-srpms ## build in copr
 	./misc/copr-build.py https://$(SERVER)/$(REMOTE_PATH)/SRPMS/$(SRPM_BASE)
 
 #
+#	tag
+#
+tag: ## tags a new release
+	./misc/tag.sh
+
+#
 #	release
 #
+release: releases/$(VERSION)/mgmt-release.url ## generates and uploads a release
 
-release: releases/mgmt-$(VERSION)-release.url
-
-releases/mgmt-$(VERSION)-release.url: $(DEB_TAR) $(RPM_TAR) $(PACMAN_TAR)
+releases/$(VERSION)/mgmt-release.url: $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(SHA256SUMS_ASC)
 	@echo "Creating github release..."
 	hub release create \
-		-F <( echo -e "$(VERSION)\n";echo "License: GPLv3" ) \
-		-a $(DEB_TAR) \
-		-a $(RPM_TAR) \
-		-a $(PACMAN_TAR) \
+		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
+		-a $(RPM_PKG) \
+		-a $(DEB_PKG) \
+		-a $(PACMAN_PKG) \
+		-a $(SHA256SUMS_ASC) \
 		$(VERSION) \
-		> releases/mgmt-$(VERSION)-release.url \
-		&& cat releases/mgmt-$(VERSION)-release.url \
-		|| rm -f releases/mgmt-$(VERSION)-release.url
+		> releases/$(VERSION)/mgmt-release.url \
+		&& cat releases/$(VERSION)/mgmt-release.url \
+		|| rm -f releases/$(VERSION)/mgmt-release.url
 
-release/mkdirs:
-	mkdir -p releases/{deb,rpm,pacman}
+releases/$(VERSION)/.mkdir:
+	mkdir -p releases/$(VERSION)/{deb,rpm,pacman}/ && touch releases/$(VERSION)/.mkdir
 
-$(DEB_TAR): releases/deb/SHA256SUMS.asc
-	@echo -e "Archiving deb package..."
-	tar -zcf $(DEB_TAR) -C releases/deb .
-
-releases/deb/SHA256SUMS.asc: releases/deb/SHA256SUMS
-	@echo "Signing sha256 sum..."
-	gpg2 --yes --clearsign releases/deb/SHA256SUMS
-
-releases/deb/SHA256SUMS: releases/deb/mgmt_$(VERSION)_amd64.deb
-	@echo "Generating sha256 sum..."
-	sha256sum releases/deb/*.deb > releases/deb/SHA256SUMS
-
-releases/deb/mgmt_$(VERSION)_amd64.deb: releases/deb/changelog
-	@echo "Building deb package..."
-	./misc/fpm-pack.sh deb libvirt-dev libaugeas-dev
-
-releases/deb/changelog: $(PROGRAM) | release/mkdirs
-	@echo "Generating deb changelog..."
-	./misc/make-deb-changelog.sh
-
-$(RPM_TAR): releases/rpm/SHA256SUMS.asc
-	@echo -e "Archiving rpm package..."
-	tar -zcf $(RPM_TAR) -C releases/rpm .
-
-releases/rpm/SHA256SUMS.asc: releases/rpm/SHA256SUMS
-	@echo "Signing sha256 sum..."
-	gpg2 --yes --clearsign releases/rpm/SHA256SUMS
-
-releases/rpm/SHA256SUMS: releases/rpm/mgmt-$(VERSION)-1.x86_64.rpm
-	@echo "Generating sha256 sum..."
-	sha256sum releases/rpm/*.rpm > releases/rpm/SHA256SUMS
-
-releases/rpm/mgmt-$(VERSION)-1.x86_64.rpm: releases/rpm/changelog
-	@echo "Building rpm package..."
-	./misc/fpm-pack.sh rpm libvirt-devel augeas-devel
-
-releases/rpm/changelog: $(PROGRAM) | release/mkdirs
+releases/$(VERSION)/rpm/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@echo "Generating rpm changelog..."
-	./misc/make-rpm-changelog.sh
+	./misc/make-rpm-changelog.sh $(VERSION)
 
-$(PACMAN_TAR): releases/pacman/SHA256SUMS.asc
-	@echo -e "Archiving pacman package..."
-	tar -zcf $(PACMAN_TAR) -C releases/pacman .
+$(RPM_PKG): releases/$(VERSION)/rpm/changelog
+	@echo "Building rpm package..."
+	./misc/fpm-pack.sh rpm $(VERSION) libvirt-devel augeas-devel
 
-releases/pacman/SHA256SUMS.asc: releases/pacman/SHA256SUMS
-	@echo "Signing sha256 sum..."
-	gpg2 --yes --clearsign releases/pacman/SHA256SUMS
+releases/$(VERSION)/deb/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@echo "Generating deb changelog..."
+	./misc/make-deb-changelog.sh $(VERSION)
 
-releases/pacman/SHA256SUMS: releases/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
-	@echo "Generating sha256 sum..."
-	sha256sum releases/pacman/*.pkg.tar.xz > releases/pacman/SHA256SUMS
+$(DEB_PKG): releases/$(VERSION)/deb/changelog
+	@echo "Building deb package..."
+	./misc/fpm-pack.sh deb $(VERSION) libvirt-dev libaugeas-dev
 
-releases/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz: $(PROGRAM) | release/mkdirs
+$(PACMAN_PKG): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@echo "Building pacman package..."
-	./misc/fpm-pack.sh pacman libvirt augeas
+	./misc/fpm-pack.sh pacman $(VERSION) libvirt augeas
+
+$(SHA256SUMS): $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG)
+	@# remove the directory separator in the SHA256SUMS file
+	@echo "Generating sha256 sum..."
+	sha256sum $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
+
+$(SHA256SUMS_ASC): $(SHA256SUMS)
+	@echo "Signing sha256 sum..."
+	gpg2 --yes --clearsign $(SHA256SUMS)
 
 build_container: ## builds the container
 	docker build -t purpleidea/mgmt-build -f docker/Dockerfile.build .

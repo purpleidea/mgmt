@@ -1,8 +1,10 @@
 #!/bin/bash
 # This script generates a deb changelog from the project's git history.
 
+# version we're releasing
+VERSION="$1"
 # path to store the changelog
-CHANGELOG="releases/deb/changelog"
+CHANGELOG="releases/${VERSION}/deb/changelog"
 # input to format flag for git tag
 TAG_FORMAT="-- %(creator) %(creatordate:format:%a, %d %b %Y %H:%M:%S %z) %(refname:lstrip=2)"
 # a list of tags to be parsed in the loop

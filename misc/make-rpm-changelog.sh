@@ -1,8 +1,10 @@
 #!/bin/bash
 # This script generates an rpm changelog from the project's git history.
 
+# version we're releasing
+VERSION="$1"
 # path to store the changelog
-CHANGELOG="releases/rpm/changelog"
+CHANGELOG="releases/${VERSION}/rpm/changelog"
 # input to format flag for git tag
 TAG_FORMAT="* %(creatordate:format:%a %b %d %Y) %(creator) %(refname:lstrip=2)"
 # a list of tags to be parsed in the loop

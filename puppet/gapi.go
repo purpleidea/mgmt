@@ -119,7 +119,7 @@ func (obj *GAPI) Cli(c *cli.Context, fs engine.Fs) (*gapi.Deploy, error) {
 		// TODO: do we want to include this if we have mode == "dir" ?
 		if pc := c.String("puppet-conf"); c.IsSet("puppet-conf") {
 			if err := gapi.CopyFileToFs(fs, pc, PuppetConf); err != nil {
-				return nil, errwrap.Wrapf(err, "can't copy puppet conf from `%s`")
+				return nil, errwrap.Wrapf(err, "can't copy puppet conf from `%s` to '%s'", pc, PuppetConf)
 			}
 		}
 

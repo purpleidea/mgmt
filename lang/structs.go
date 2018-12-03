@@ -2637,7 +2637,7 @@ func (obj *ExprStruct) Type() (*types.Type, error) {
 		// vals
 		t, e := x.Value.Type()
 		if e != nil {
-			err = errwrap.Wrapf(e, "field val, index `%s` did not return a type", i)
+			err = errwrap.Wrapf(e, "field val, index `%d` did not return a type", i)
 			break
 		}
 		if _, exists := m[x.Name]; exists {
@@ -2782,7 +2782,7 @@ func (obj *ExprStruct) Value() (types.Value, error) {
 		// vals
 		t, err := x.Value.Type()
 		if err != nil {
-			return nil, errwrap.Wrapf(err, "field val, index `%s` did not return a type", i)
+			return nil, errwrap.Wrapf(err, "field val, index `%d` did not return a type", i)
 		}
 		if _, exists := typ.Map[x.Name]; exists {
 			return nil, fmt.Errorf("struct type field index `%d` already exists", i)

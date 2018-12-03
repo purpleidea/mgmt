@@ -162,7 +162,7 @@ func AddDeploy(obj Client, id uint64, hash, pHash string, data *string) error {
 	// this way, we only generate one watch event, and only when it's needed
 	result, err := obj.Txn(ifs, ops, nil)
 	if err != nil {
-		return errwrap.Wrapf(err, "error creating deploy id %d: %s", id)
+		return errwrap.Wrapf(err, "error creating deploy id %d", id)
 	}
 	if !result.Succeeded {
 		return fmt.Errorf("could not create deploy id %d", id)

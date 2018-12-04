@@ -39,7 +39,7 @@ fi
 if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
-	$sudo_command $APT install -y ruby ruby-dev rubygems || true
+	$sudo_command $APT install -y ruby ruby-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
 	# dependencies for building packages with fpm
 	$sudo_command $APT install -y build-essential rpm bsdtar || true

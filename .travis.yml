@@ -12,6 +12,8 @@ dist: trusty
 apt:
   update: true
 before_install:
+  # workaround broken travis NO_PUBKEY error
+  - if [ -e /etc/apt/sources.list.d/rabbitmq_rabbitmq-server.list ]; then sudo rm -f /etc/apt/sources.list.d/rabbitmq_rabbitmq-server.list; fi
   # as per a number of comments online, this might mitigate some flaky fails...
   - if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6; fi
   # apt update tends to be flaky in travis, retry up to 3 times on failure

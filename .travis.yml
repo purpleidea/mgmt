@@ -7,7 +7,7 @@ go:
   - tip
 go_import_path: github.com/purpleidea/mgmt
 sudo: true
-dist: trusty
+dist: xenial
 # travis requires that you update manually, and provides this key to trigger it
 apt:
   update: true

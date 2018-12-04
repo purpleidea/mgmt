@@ -25,6 +25,8 @@ function run-test()
 	$XSUDO $@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 }
 
+# NOTE: you can run `go test` with the -tags flag to skip certain tests, eg:
+# go test -tags nodocker github.com/purpleidea/mgmt/engine/resources -v
 base=$(go list .)
 if [[ "$@" = *"--integration"* ]]; then
 	if [[ "$@" = *"--race"* ]]; then

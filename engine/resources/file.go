@@ -608,7 +608,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 	}
 
 	// content is not defined, leave it alone...
-	if obj.Content == nil {
+	if obj.Content == nil && obj.Source == "" {
 		return true, nil
 	}
 

@@ -1,0 +1,4 @@
+file "/tmp/mgmt/file-source.txt" {
+	source => "file-source.txt",
+	state => "exists",
+}

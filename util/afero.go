@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/spf13/afero"
 )
@@ -100,10 +101,7 @@ func CopyFs(srcFs, dstFs afero.Fs, src, dst string, force bool) error {
 		}
 		//perm := info.Perm()
 		perm := info.Mode() // TODO: is this correct?
-		p := name
-		if dst != "/" {
-			p = path.Join(dst, name) // relative dest in dst
-		}
+		p := path.Join(dst, filepath.Base(name))
 		if info.IsDir() {
 			err := dstFs.Mkdir(p, perm)
 			if os.IsExist(err) && (name == "/" || force) {

@@ -227,3 +227,59 @@ func TestFs3(t *testing.T) {
 	}
 	t.Logf("tree2: \n%s", tree2)
 }
+
+func TestFs4(t *testing.T) {
+	etcdClient := &etcd.ClientEtcd{
+		Seeds: []string{"localhost:2379"}, // endpoints
+	}
+
+	if err := etcdClient.Connect(); err != nil {
+		t.Logf("client connection error: %+v", err)
+		return
+	}
+	defer etcdClient.Destroy()
+
+	etcdFs := &etcdfs.Fs{
+		Client:     etcdClient.GetClient(),
+		Metadata:   superblock,
+		DataPrefix: etcdfs.DefaultDataPrefix,
+	}
+
+	etcdFs.Mkdir("/tmp", umask)
+	etcdFs.Mkdir("/tmp/foo", umask)
+	etcdFs.Mkdir("/tmp/foo/bar", umask)
+
+	tree, err := util.FsTree(etcdFs, "/")
+	if err != nil {
+		t.Errorf("tree error: %+v", err)
+		return
+	}
+	t.Logf("tree: \n%s", tree)
+
+	var memFs = afero.NewMemMapFs()
+
+	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/", false); err != nil {
+		t.Errorf("CopyFs error: %+v", err)
+		return
+	}
+	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/baz/", false); err != nil {
+		t.Errorf("CopyFs error: %+v", err)
+		return
+	}
+
+	tree2, err := util.FsTree(memFs, "/")
+	if err != nil {
+		t.Errorf("tree2 error: %+v", err)
+		return
+	}
+	t.Logf("tree2: \n%s", tree2)
+
+	if _, err := memFs.Stat("/bar"); err != nil {
+		t.Errorf("Stat error: %+v", err)
+		return
+	}
+	if _, err := memFs.Stat("/baz/bar"); err != nil {
+		t.Errorf("Stat error: %+v", err)
+		return
+	}
+}

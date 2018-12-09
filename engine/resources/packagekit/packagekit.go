@@ -214,7 +214,7 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 		call = bus.Call(engineUtil.DBusAddMatch, 0, args)
 	} else {
 		for _, signal := range signals {
-			args := fmt.Sprintf("type='signal', path='%s', interface='%s', member'%s'", pathStr, iface, signal)
+			args := fmt.Sprintf("type='signal', path='%s', interface='%s', member='%s'", pathStr, iface, signal)
 			argsList = append(argsList, args)
 			if call = bus.Call(engineUtil.DBusAddMatch, 0, args); call.Err != nil {
 				break // fail if any one fails

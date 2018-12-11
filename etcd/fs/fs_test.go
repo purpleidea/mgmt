@@ -20,17 +20,21 @@
 package fs_test // named this way to make it easier for examples
 
 import (
+	"fmt"
 	"io"
+	"os/exec"
+	"syscall"
 	"testing"
 
 	"github.com/purpleidea/mgmt/etcd"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
+	"github.com/purpleidea/mgmt/integration"
 	"github.com/purpleidea/mgmt/util"
 
+	errwrap "github.com/pkg/errors"
 	"github.com/spf13/afero"
 )
 
-// XXX: spawn etcd for this test, like `cdtmpmkdir && etcd` and then kill it...
 // XXX: write a bunch more tests to test this
 
 // TODO: apparently using 0666 is equivalent to respecting the current umask
@@ -39,13 +43,45 @@ const (
 	superblock = "/some/superblock" // TODO: generate randomly per test?
 )
 
+// runEtcd starts etcd locally via the mgmt binary. It returns a function to
+// kill the process which the caller must use to clean up.
+func runEtcd() (func() error, error) {
+	// Run mgmt as etcd backend to ensure that we are testing against the
+	// appropriate vendored version of etcd rather than some unknown version.
+	cmdName, err := integration.BinaryPath()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error getting binary path")
+	}
+	cmd := exec.Command(cmdName, "run", "--tmp-prefix")
+	if err := cmd.Start(); err != nil {
+		return nil, errwrap.Wrapf(err, "error starting command %v", cmd)
+	}
+
+	return func() error {
+		// cleanup when we're done
+		if err := cmd.Process.Signal(syscall.SIGQUIT); err != nil {
+			fmt.Printf("error sending quit signal: %+v\n", err)
+		}
+		if err := cmd.Process.Kill(); err != nil {
+			return errwrap.Wrapf(err, "error killing process")
+		}
+		return nil
+	}, nil
+}
+
 func TestFs1(t *testing.T) {
+	stopEtcd, err := runEtcd()
+	if err != nil {
+		t.Errorf("setup error: %+v", err)
+	}
+	defer stopEtcd() // ignore the error
+
 	etcdClient := &etcd.ClientEtcd{
 		Seeds: []string{"localhost:2379"}, // endpoints
 	}
 
 	if err := etcdClient.Connect(); err != nil {
-		t.Logf("client connection error: %+v", err)
+		t.Errorf("client connection error: %+v", err)
 		return
 	}
 	defer etcdClient.Destroy()
@@ -58,22 +94,21 @@ func TestFs1(t *testing.T) {
 	//var etcdFs afero.Fs = NewEtcdFs()
 
 	if err := etcdFs.Mkdir("/", umask); err != nil {
-		t.Logf("error: %+v", err)
+		t.Logf("mkdir error: %+v", err)
 		if err != etcdfs.ErrExist {
+			t.Errorf("mkdir error: %+v", err)
 			return
 		}
 	}
 
 	if err := etcdFs.Mkdir("/tmp", umask); err != nil {
-		t.Logf("error: %+v", err)
-		if err != etcdfs.ErrExist {
-			return
-		}
+		t.Errorf("mkdir2 error: %+v", err)
+		return
 	}
 
 	fi, err := etcdFs.Stat("/tmp")
 	if err != nil {
-		t.Logf("stat error: %+v", err)
+		t.Errorf("stat error: %+v", err)
 		return
 	}
 
@@ -82,7 +117,7 @@ func TestFs1(t *testing.T) {
 
 	f, err := etcdFs.Create("/tmp/foo")
 	if err != nil {
-		t.Logf("error: %+v", err)
+		t.Errorf("create error: %+v", err)
 		return
 	}
 
@@ -90,104 +125,77 @@ func TestFs1(t *testing.T) {
 
 	i, err := f.WriteString("hello world!\n")
 	if err != nil {
-		t.Logf("error: %+v", err)
+		t.Errorf("writestring error: %+v", err)
 		return
 	}
 	t.Logf("wrote: %d", i)
 
 	if err := etcdFs.Mkdir("/tmp/d1", umask); err != nil {
-		t.Logf("error: %+v", err)
-		if err != etcdfs.ErrExist {
-			return
-		}
-	}
-
-	if err := etcdFs.Rename("/tmp/foo", "/tmp/bar"); err != nil {
-		t.Logf("rename error: %+v", err)
+		t.Errorf("mkdir3 error: %+v", err)
 		return
 	}
 
-	//f2, err := etcdFs.Create("/tmp/bar")
-	//if err != nil {
-	//	t.Logf("error: %+v", err)
-	//	return
-	//}
+	if err := etcdFs.Rename("/tmp/foo", "/tmp/bar"); err != nil {
+		t.Errorf("rename error: %+v", err)
+		return
+	}
 
-	//i2, err := f2.WriteString("hello bar!\n")
-	//if err != nil {
-	//	t.Logf("error: %+v", err)
-	//	return
-	//}
-	//t.Logf("wrote: %d", i2)
+	f2, err := etcdFs.Create("/tmp/bar")
+	if err != nil {
+		t.Errorf("create2 error: %+v", err)
+		return
+	}
+
+	i2, err := f2.WriteString("hello bar!\n")
+	if err != nil {
+		t.Errorf("writestring2 error: %+v", err)
+		return
+	}
+	t.Logf("wrote: %d", i2)
 
 	dir, err := etcdFs.Open("/tmp")
 	if err != nil {
-		t.Logf("error: %+v", err)
+		t.Errorf("open error: %+v", err)
 		return
 	}
 	names, err := dir.Readdirnames(-1)
 	if err != nil && err != io.EOF {
-		t.Logf("error: %+v", err)
+		t.Errorf("readdirnames error: %+v", err)
 		return
 	}
 	for _, name := range names {
 		t.Logf("name in /tmp: %+v", name)
+		return
 	}
 
-	//dir, err := etcdFs.Open("/")
-	//if err != nil {
-	//	t.Logf("error: %+v", err)
-	//	return
-	//}
-	//names, err := dir.Readdirnames(-1)
-	//if err != nil && err != io.EOF {
-	//	t.Logf("error: %+v", err)
-	//	return
-	//}
-	//for _, name := range names {
-	//	t.Logf("name in /: %+v", name)
-	//}
+	dir, err = etcdFs.Open("/")
+	if err != nil {
+		t.Errorf("open2 error: %+v", err)
+		return
+	}
+	names, err = dir.Readdirnames(-1)
+	if err != nil && err != io.EOF {
+		t.Errorf("readdirnames2 error: %+v", err)
+		return
+	}
+	for _, name := range names {
+		t.Logf("name in /: %+v", name)
+	}
 }
 
 func TestFs2(t *testing.T) {
+	stopEtcd, err := runEtcd()
+	if err != nil {
+		t.Errorf("setup error: %+v", err)
+	}
+	defer stopEtcd() // ignore the error
+
 	etcdClient := &etcd.ClientEtcd{
 		Seeds: []string{"localhost:2379"}, // endpoints
 	}
 
 	if err := etcdClient.Connect(); err != nil {
-		t.Logf("client connection error: %+v", err)
-		return
-	}
-	defer etcdClient.Destroy()
-
-	etcdFs := &etcdfs.Fs{
-		Client:     etcdClient.GetClient(),
-		Metadata:   superblock,
-		DataPrefix: etcdfs.DefaultDataPrefix,
-	}
-
-	tree, err := util.FsTree(etcdFs, "/")
-	if err != nil {
-		t.Errorf("tree error: %+v", err)
-		return
-	}
-	t.Logf("tree: \n%s", tree)
-
-	tree2, err := util.FsTree(etcdFs, "/tmp")
-	if err != nil {
-		t.Errorf("tree2 error: %+v", err)
-		return
-	}
-	t.Logf("tree2: \n%s", tree2)
-}
-
-func TestFs3(t *testing.T) {
-	etcdClient := &etcd.ClientEtcd{
-		Seeds: []string{"localhost:2379"}, // endpoints
-	}
-
-	if err := etcdClient.Connect(); err != nil {
-		t.Logf("client connection error: %+v", err)
+		t.Errorf("client connection error: %+v", err)
 		return
 	}
 	defer etcdClient.Destroy()
@@ -208,15 +216,15 @@ func TestFs3(t *testing.T) {
 	var memFs = afero.NewMemMapFs()
 
 	if err := util.CopyFs(etcdFs, memFs, "/", "/", false); err != nil {
-		t.Errorf("CopyFs error: %+v", err)
+		t.Errorf("copyfs error: %+v", err)
 		return
 	}
 	if err := util.CopyFs(etcdFs, memFs, "/", "/", true); err != nil {
-		t.Errorf("CopyFs2 error: %+v", err)
+		t.Errorf("copyfs2 error: %+v", err)
 		return
 	}
 	if err := util.CopyFs(etcdFs, memFs, "/", "/tmp/d1/", false); err != nil {
-		t.Errorf("CopyFs3 error: %+v", err)
+		t.Errorf("copyfs3 error: %+v", err)
 		return
 	}
 
@@ -228,13 +236,19 @@ func TestFs3(t *testing.T) {
 	t.Logf("tree2: \n%s", tree2)
 }
 
-func TestFs4(t *testing.T) {
+func TestFs3(t *testing.T) {
+	stopEtcd, err := runEtcd()
+	if err != nil {
+		t.Errorf("setup error: %+v", err)
+	}
+	defer stopEtcd() // ignore the error
+
 	etcdClient := &etcd.ClientEtcd{
 		Seeds: []string{"localhost:2379"}, // endpoints
 	}
 
 	if err := etcdClient.Connect(); err != nil {
-		t.Logf("client connection error: %+v", err)
+		t.Errorf("client connection error: %+v", err)
 		return
 	}
 	defer etcdClient.Destroy()
@@ -245,9 +259,15 @@ func TestFs4(t *testing.T) {
 		DataPrefix: etcdfs.DefaultDataPrefix,
 	}
 
-	etcdFs.Mkdir("/tmp", umask)
-	etcdFs.Mkdir("/tmp/foo", umask)
-	etcdFs.Mkdir("/tmp/foo/bar", umask)
+	if err := etcdFs.Mkdir("/tmp", umask); err != nil {
+		t.Errorf("mkdir error: %+v", err)
+	}
+	if err := etcdFs.Mkdir("/tmp/foo", umask); err != nil {
+		t.Errorf("mkdir2 error: %+v", err)
+	}
+	if err := etcdFs.Mkdir("/tmp/foo/bar", umask); err != nil {
+		t.Errorf("mkdir3 error: %+v", err)
+	}
 
 	tree, err := util.FsTree(etcdFs, "/")
 	if err != nil {
@@ -259,11 +279,11 @@ func TestFs4(t *testing.T) {
 	var memFs = afero.NewMemMapFs()
 
 	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/", false); err != nil {
-		t.Errorf("CopyFs error: %+v", err)
+		t.Errorf("copyfs error: %+v", err)
 		return
 	}
 	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/baz/", false); err != nil {
-		t.Errorf("CopyFs error: %+v", err)
+		t.Errorf("copyfs2 error: %+v", err)
 		return
 	}
 
@@ -275,11 +295,11 @@ func TestFs4(t *testing.T) {
 	t.Logf("tree2: \n%s", tree2)
 
 	if _, err := memFs.Stat("/bar"); err != nil {
-		t.Errorf("Stat error: %+v", err)
+		t.Errorf("stat error: %+v", err)
 		return
 	}
 	if _, err := memFs.Stat("/baz/bar"); err != nil {
-		t.Errorf("Stat error: %+v", err)
+		t.Errorf("stat2 error: %+v", err)
 		return
 	}
 }

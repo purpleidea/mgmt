@@ -14,3 +14,5 @@ build/mgmt-*
 mgmt.iml
 rpmbuild/
 releases/
+# vim swap files
+.*.sw[op]

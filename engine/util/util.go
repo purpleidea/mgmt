@@ -19,6 +19,7 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
 
+	"github.com/godbus/dbus"
 	errwrap "github.com/pkg/errors"
 )
 
@@ -44,6 +46,20 @@ const (
 	// DBusRemoveMatch is the dbus method to remove a previously defined
 	// AddMatch rule.
 	DBusRemoveMatch = DBusInterface + ".RemoveMatch"
+	// DBusSystemd1Path is the base systemd1 path.
+	DBusSystemd1Path = "/org/freedesktop/systemd1"
+	// DBusSystemd1Iface is the base systemd1 interface.
+	DBusSystemd1Iface = "org.freedesktop.systemd1"
+	// DBusSystemd1ManagerIface is the systemd manager interface used for
+	// interfacing with systemd units.
+	DBusSystemd1ManagerIface = DBusSystemd1Iface + ".Manager"
+	// DBusRestartUnit is the dbus method for restarting systemd units.
+	DBusRestartUnit = DBusSystemd1ManagerIface + ".RestartUnit"
+	// DBusStopUnit is the dbus method for stopping systemd units.
+	DBusStopUnit = DBusSystemd1ManagerIface + ".StopUnit"
+	// DBusSignalJobRemoved is the name of the dbus signal that produces a
+	// message when a dbus job is done (or has errored.)
+	DBusSignalJobRemoved = "JobRemoved"
 )
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization).
@@ -258,4 +274,60 @@ func GetGID(group string) (int, error) {
 	}
 
 	return -1, errwrap.Wrapf(err, "group lookup error (%s)", group)
+}
+
+// RestartUnit resarts the given dbus unit and waits for it to finish starting.
+func RestartUnit(ctx context.Context, conn *dbus.Conn, unit string) error {
+	return unitStateAction(ctx, conn, unit, DBusRestartUnit)
+}
+
+// StopUnit stops the given dbus unit and waits for it to finish stopping.
+func StopUnit(ctx context.Context, conn *dbus.Conn, unit string) error {
+	return unitStateAction(ctx, conn, unit, DBusStopUnit)
+}
+
+// unitStateAction is a helper function to perform state actions on systemd
+// units. It waits for the requested job to be complete before it returns.
+func unitStateAction(ctx context.Context, conn *dbus.Conn, unit, action string) error {
+	// Add a dbus rule to watch the systemd1 JobRemoved signal, used to wait
+	// until the job completes.
+	args := []string{
+		"type='signal'",
+		fmt.Sprintf("path='%s'", DBusSystemd1Path),
+		fmt.Sprintf("interface='%s'", DBusSystemd1ManagerIface),
+		fmt.Sprintf("member='%s'", DBusSignalJobRemoved),
+		fmt.Sprintf("arg2='%s'", unit),
+	}
+	// match dbus messages
+	if call := conn.BusObject().Call(DBusAddMatch, 0, strings.Join(args, ",")); call.Err != nil {
+		return errwrap.Wrapf(call.Err, "error creating dbus call")
+	}
+	defer conn.BusObject().Call(DBusRemoveMatch, 0, args) // ignore the error
+
+	// channel for godbus signal
+	ch := make(chan *dbus.Signal)
+	defer close(ch)
+	// subscribe the channel to the signal
+	conn.Signal(ch)
+	defer conn.RemoveSignal(ch)
+
+	// perform requested action on specified unit
+	sd1 := conn.Object(DBusSystemd1Iface, dbus.ObjectPath(DBusSystemd1Path))
+	if call := sd1.Call(action, 0, unit, "fail"); call.Err != nil {
+		return errwrap.Wrapf(call.Err, "error stopping unit: %s", unit)
+	}
+
+	// wait for the job to be removed, indicating completion
+	select {
+	case event, ok := <-ch:
+		if !ok {
+			return fmt.Errorf("channel closed unexpectedly")
+		}
+		if event.Body[3] != "done" {
+			return fmt.Errorf("unexpected job status: %s", event.Body[3])
+		}
+	case <-ctx.Done():
+		return fmt.Errorf("action %s on %s failed due to context timeout", action, unit)
+	}
+	return nil
 }

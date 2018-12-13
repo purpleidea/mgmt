@@ -1,0 +1,9 @@
+[Unit]
+Description=Fake oneshot service for testing
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sleep 5s
+
+[Install]
+WantedBy=multi-user.target

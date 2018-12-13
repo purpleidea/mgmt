@@ -86,6 +86,7 @@ func (obj *SvcRes) Watch() error {
 	}
 
 	var conn *systemd.Conn
+	var bus *dbus.Conn
 	var err error
 	if obj.Session {
 		conn, err = systemd.NewUserConnection() // user session
@@ -99,7 +100,11 @@ func (obj *SvcRes) Watch() error {
 	defer conn.Close()
 
 	// if we share the bus with others, we will get each others messages!!
-	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
+	if obj.Session {
+		bus, err = util.SessionBusPrivateUsable()
+	} else {
+		bus, err = util.SystemBusPrivateUsable()
+	}
 	if err != nil {
 		return errwrap.Wrapf(err, "failed to connect to bus")
 	}

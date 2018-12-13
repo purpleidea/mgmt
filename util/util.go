@@ -359,10 +359,29 @@ func TimeAfterOrBlock(t int) <-chan time.Time {
 	return time.After(time.Duration(t) * time.Second)
 }
 
-// SystemBusPrivateUsable makes using the private bus usable
+// SystemBusPrivateUsable makes using the private bus usable.
 // TODO: should be upstream: https://github.com/godbus/dbus/issues/15
 func SystemBusPrivateUsable() (conn *dbus.Conn, err error) {
 	conn, err = dbus.SystemBusPrivate()
+	if err != nil {
+		return nil, err
+	}
+	if err = conn.Auth(nil); err != nil {
+		conn.Close()
+		conn = nil
+		return
+	}
+	if err = conn.Hello(); err != nil {
+		conn.Close()
+		conn = nil
+	}
+	return conn, nil // success
+}
+
+// SessionBusPrivateUsable makes using the private bus usable.
+// TODO: should be upstream: https://github.com/godbus/dbus/issues/15
+func SessionBusPrivateUsable() (conn *dbus.Conn, err error) {
+	conn, err = dbus.SessionBusPrivate()
 	if err != nil {
 		return nil, err
 	}

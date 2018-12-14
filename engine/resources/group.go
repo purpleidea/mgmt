@@ -41,6 +41,7 @@ const groupFile = "/etc/group"
 // GroupRes is a user group resource.
 type GroupRes struct {
 	traits.Base // add the base methods without re-implementation
+	traits.Edgeable
 
 	init *engine.Init
 
@@ -264,6 +265,11 @@ type GroupUID struct {
 	engine.BaseUID
 	name string
 	gid  *uint32
+}
+
+// AutoEdges returns the AutoEdge interface.
+func (obj *GroupRes) AutoEdges() (engine.AutoEdge, error) {
+	return nil, nil
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.

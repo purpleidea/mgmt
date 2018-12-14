@@ -331,3 +331,38 @@ func unitStateAction(ctx context.Context, conn *dbus.Conn, unit, action string) 
 	}
 	return nil
 }
+
+// autoEdgeCombiner holds the state of the auto edge generator.
+type autoEdgeCombiner struct {
+	ae  []engine.AutoEdge
+	ptr int
+}
+
+// Next returns the next automatic edge.
+func (obj *autoEdgeCombiner) Next() []engine.ResUID {
+	if len(obj.ae) <= obj.ptr {
+		panic("shouldn't be called anymore!")
+	}
+	return obj.ae[obj.ptr].Next() // return the next edge
+}
+
+// Test takes the output of the last call to Next() and outputs true if we
+// should continue.
+func (obj *autoEdgeCombiner) Test(input []bool) bool {
+	if !obj.ae[obj.ptr].Test(input) {
+		obj.ptr++ // match found, on to the next
+	}
+	return len(obj.ae) > obj.ptr // are there any auto edges left?
+}
+
+// AutoEdgeCombiner takes any number of AutoEdge structs, and combines them
+// into a single one, so that the logic from each one can be built separately,
+// and then combined using this utility. This makes implementing different
+// AutoEdge generators much easier. This respects the Next() and Test() API,
+// and ratchets through each AutoEdge entry until they have all run their
+// course.
+func AutoEdgeCombiner(ae ...engine.AutoEdge) (engine.AutoEdge, error) {
+	return &autoEdgeCombiner{
+		ae: ae,
+	}, nil
+}

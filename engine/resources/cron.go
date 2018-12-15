@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -87,6 +88,11 @@ type CronRes struct {
 	// State must be 'exists' or 'absent'.
 	State string `yaml:"state"`
 
+	// Session, if true, creates the timer as the current user, rather than
+	// root. The service it points to must also be a user unit. It defaults to
+	// false.
+	Session bool `yaml:"session"`
+
 	// Trigger is the type of timer. Valid types are 'OnCalendar',
 	// 'OnActiveSec'. 'OnBootSec'. 'OnStartupSec'. 'OnUnitActiveSec', and
 	// 'OnUnitInactiveSec'. For more information see 'man systemd.timer'.
@@ -135,7 +141,13 @@ func (obj *CronRes) Default() engine.Res {
 // validate and initialize the nested file resource and to apply the file state
 // in CheckApply.
 func (obj *CronRes) makeComposite() (*FileRes, error) {
-	res, err := engine.NewNamedResource("file", fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name()))
+	// root timer
+	path := fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name())
+	if obj.Session {
+		// user timer
+		path = fmt.Sprintf("%s/.config/systemd/user/%s.timer", os.Getenv("HOME"), obj.Name())
+	}
+	res, err := engine.NewNamedResource("file", path)
 	if err != nil {
 		return nil, err
 	}
@@ -210,13 +222,20 @@ func (obj *CronRes) Close() error {
 
 // Watch for state changes and sends a message to the bus if there is a change.
 func (obj *CronRes) Watch() error {
+	var bus *dbus.Conn
+	var err error
+
 	// this resource depends on systemd
 	if !systemdUtil.IsRunningSystemd() {
 		return fmt.Errorf("systemd is not running")
 	}
 
 	// create a private message bus
-	bus, err := util.SystemBusPrivateUsable()
+	if obj.Session {
+		bus, err = util.SessionBusPrivateUsable()
+	} else {
+		bus, err = util.SystemBusPrivateUsable()
+	}
 	if err != nil {
 		return errwrap.Wrapf(err, "failed to connect to bus")
 	}
@@ -241,8 +260,14 @@ func (obj *CronRes) Watch() error {
 	bus.Signal(dbusChan)
 	defer bus.RemoveSignal(dbusChan) // not needed here, but nice for symmetry
 
+	// root timer
+	path := fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name())
+	if obj.Session {
+		// user timer
+		path = fmt.Sprintf("%s/.config/systemd/user/%s.timer", os.Getenv("HOME"), obj.Name())
+	}
 	// recwatcher for the systemd-timer unit file
-	obj.recWatcher, err = recwatch.NewRecWatcher(fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name()), false)
+	obj.recWatcher, err = recwatch.NewRecWatcher(path, false)
 	if err != nil {
 		return err
 	}
@@ -317,12 +342,19 @@ func (obj *CronRes) CheckApply(apply bool) (checkOK bool, err error) {
 // unitCheckApply checks the state of the systemd-timer unit and, if apply is
 // true, applies the defined state.
 func (obj *CronRes) unitCheckApply(apply bool) (checkOK bool, err error) {
+	var conn *sdbus.Conn
+	var godbusConn *dbus.Conn
+
 	// this resource depends on systemd to ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return false, fmt.Errorf("systemd is not running")
 	}
 	// go-systemd connection
-	conn, err := sdbus.New()
+	if obj.Session {
+		conn, err = sdbus.NewUserConnection()
+	} else {
+		conn, err = sdbus.New() // system bus
+	}
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error making go-systemd dbus connection")
 	}
@@ -359,7 +391,11 @@ func (obj *CronRes) unitCheckApply(apply bool) (checkOK bool, err error) {
 	defer cancel()
 
 	// godbus connection for stopping/restarting the unit
-	godbusConn, err := util.SystemBusPrivateUsable()
+	if obj.Session {
+		godbusConn, err = util.SessionBusPrivateUsable()
+	} else {
+		godbusConn, err = util.SystemBusPrivateUsable()
+	}
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error making godbus connection")
 	}

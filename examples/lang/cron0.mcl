@@ -1,0 +1,9 @@
+cron "purpleidea-oneshot" {
+    session => true,
+    trigger => "OnBootSec",
+    time => "60",
+}
+
+svc "purpleidea-oneshot" {
+    session => true,
+}

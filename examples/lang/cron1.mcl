@@ -1,0 +1,3 @@
+cron "purpleidea-oneshot" {
+    state => "absent",
+}

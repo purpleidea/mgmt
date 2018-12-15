@@ -1,0 +1,8 @@
+cron "purpleidea-oneshot" {
+    trigger => "OnUnitActiveSec",
+    time => "2minutes",
+}
+
+svc "purpleidea-oneshot" {}
+
+file "/etc/systemd/system/purpleidea-oneshot.service" {}

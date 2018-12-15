@@ -21,9 +21,12 @@ package resources
 
 import (
 	"fmt"
+	"os/user"
+	"path"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 
 	systemd "github.com/coreos/go-systemd/dbus" // change namespace
@@ -380,7 +383,8 @@ type SvcUID struct {
 	// information about the resource we're matching. That data which is
 	// used in the IFF function, is what you see in the struct fields here.
 	engine.BaseUID
-	name string // the svc name
+	name    string // the svc name
+	session bool   // user session
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.
@@ -389,7 +393,13 @@ func (obj *SvcUID) IFF(uid engine.ResUID) bool {
 	if !ok {
 		return false
 	}
-	return obj.name == res.name
+	if obj.name != res.name {
+		return false
+	}
+	if obj.session != res.session {
+		return false
+	}
+	return true
 }
 
 // SvcResAutoEdges holds the state of the auto edge generator.
@@ -431,12 +441,55 @@ func (obj *SvcResAutoEdges) Test(input []bool) bool {
 	return true // keep going
 }
 
-// AutoEdges returns the AutoEdge interface. In this case the systemd units.
+// SvcResAutoEdgesCron holds the state of the svc -> cron auto edge generator.
+type SvcResAutoEdgesCron struct {
+	unit    string // target unit
+	session bool   // user session
+}
+
+// Next returns the next automatic edge.
+func (obj *SvcResAutoEdgesCron) Next() []engine.ResUID {
+	// XXX: should this be true if SvcRes State == "stopped"?
+	reversed := false
+	value := &CronUID{
+		BaseUID: engine.BaseUID{
+			Kind:     "CronRes",
+			Reversed: &reversed,
+		},
+		unit:    obj.unit,    // target unit
+		session: obj.session, // user session
+	}
+	return []engine.ResUID{value} // we return one, even though api supports N
+}
+
+// Test takes the output of the last call to Next() and outputs true if we
+// should continue.
+func (obj *SvcResAutoEdgesCron) Test([]bool) bool {
+	return false // only get one svc -> cron edge
+}
+
+// AutoEdges returns the AutoEdge interface. In this case, systemd unit file
+// resources and cron (systemd-timer) resources.
 func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
 	var data []engine.ResUID
-	svcFiles := []string{
+	var svcFiles []string
+	svcFiles = []string{
+		// root svc
 		fmt.Sprintf("/etc/systemd/system/%s.service", obj.Name()),     // takes precedence
 		fmt.Sprintf("/usr/lib/systemd/system/%s.service", obj.Name()), // pkg default
+	}
+	if obj.Session {
+		// user svc
+		u, err := user.Current()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error getting current user")
+		}
+		if u.HomeDir == "" {
+			return nil, fmt.Errorf("user has no home directory")
+		}
+		svcFiles = []string{
+			path.Join(u.HomeDir, "/.config/systemd/user/", fmt.Sprintf("%s.service", obj.Name())),
+		}
 	}
 	for _, x := range svcFiles {
 		var reversed = true
@@ -449,11 +502,18 @@ func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
 			path: x, // what matters
 		})
 	}
-	return &FileResAutoEdges{
+
+	fileEdge := &FileResAutoEdges{
 		data:    data,
 		pointer: 0,
 		found:   false,
-	}, nil
+	}
+	cronEdge := &SvcResAutoEdgesCron{
+		session: obj.Session,
+		unit:    fmt.Sprintf("%s.service", obj.Name()),
+	}
+
+	return engineUtil.AutoEdgeCombiner(fileEdge, cronEdge)
 }
 
 // UIDs includes all params to make a unique identification of this object.
@@ -461,7 +521,8 @@ func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
 func (obj *SvcRes) UIDs() []engine.ResUID {
 	x := &SvcUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		name:    obj.Name(), // svc name
+		name:    obj.Name(),  // svc name
+		session: obj.Session, // user session
 	}
 	return []engine.ResUID{x}
 }

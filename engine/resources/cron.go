@@ -21,7 +21,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
+	"os/user"
+	"path"
 	"strings"
 	"time"
 
@@ -141,15 +142,13 @@ func (obj *CronRes) Default() engine.Res {
 // validate and initialize the nested file resource and to apply the file state
 // in CheckApply.
 func (obj *CronRes) makeComposite() (*FileRes, error) {
-	// root timer
-	path := fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name())
-	if obj.Session {
-		// user timer
-		path = fmt.Sprintf("%s/.config/systemd/user/%s.timer", os.Getenv("HOME"), obj.Name())
-	}
-	res, err := engine.NewNamedResource("file", path)
+	p, err := obj.UnitFilePath()
 	if err != nil {
-		return nil, err
+		return nil, errwrap.Wrapf(err, "error generating unit file path")
+	}
+	res, err := engine.NewNamedResource("file", p)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error creating nested file resource")
 	}
 	file, ok := res.(*FileRes)
 	if !ok {
@@ -260,14 +259,12 @@ func (obj *CronRes) Watch() error {
 	bus.Signal(dbusChan)
 	defer bus.RemoveSignal(dbusChan) // not needed here, but nice for symmetry
 
-	// root timer
-	path := fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name())
-	if obj.Session {
-		// user timer
-		path = fmt.Sprintf("%s/.config/systemd/user/%s.timer", os.Getenv("HOME"), obj.Name())
+	p, err := obj.UnitFilePath()
+	if err != nil {
+		return errwrap.Wrapf(err, "error generating unit file path")
 	}
 	// recwatcher for the systemd-timer unit file
-	obj.recWatcher, err = recwatch.NewRecWatcher(path, false)
+	obj.recWatcher, err = recwatch.NewRecWatcher(p, false)
 	if err != nil {
 		return err
 	}
@@ -453,7 +450,8 @@ type CronUID struct {
 	// used in the IFF function, is what you see in the struct fields here.
 	engine.BaseUID
 
-	name string // the machine name
+	unit    string // name of target unit
+	session bool   // user session
 }
 
 // IFF aka if and only if they are equivalent, return true. If not, false.
@@ -462,17 +460,38 @@ func (obj *CronUID) IFF(uid engine.ResUID) bool {
 	if !ok {
 		return false
 	}
-	return obj.name == res.name
+	if obj.unit != res.unit {
+		return false
+	}
+	if obj.session != res.session {
+		return false
+	}
+	return true
+}
+
+// AutoEdges returns the AutoEdge interface.
+func (obj *CronRes) AutoEdges() (engine.AutoEdge, error) {
+	return nil, nil
 }
 
 // UIDs includes all params to make a unique identification of this object.
 // Most resources only return one although some resources can return multiple.
 func (obj *CronRes) UIDs() []engine.ResUID {
-	x := &CronUID{
-		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		name:    obj.Name(), // svc name
+	unit := fmt.Sprintf("%s.service", obj.Name())
+	if obj.Unit != "" {
+		unit = obj.Unit
 	}
-	return append([]engine.ResUID{x}, obj.file.UIDs()...)
+	uids := []engine.ResUID{
+		&CronUID{
+			BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+			unit:    unit,        // name of target unit
+			session: obj.Session, // user session
+		},
+	}
+	if file, err := obj.makeComposite(); err == nil {
+		uids = append(uids, file.UIDs()...) // add the file uid if we can
+	}
+	return uids
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct.
@@ -493,6 +512,23 @@ func (obj *CronRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = CronRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// UnitFilePath returns the path to the systemd-timer unit file.
+func (obj *CronRes) UnitFilePath() (string, error) {
+	// root timer
+	if !obj.Session {
+		return fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name()), nil
+	}
+	// user timer
+	u, err := user.Current()
+	if err != nil {
+		return "", errwrap.Wrapf(err, "error getting current user")
+	}
+	if u.HomeDir == "" {
+		return "", fmt.Errorf("user has no home directory")
+	}
+	return path.Join(u.HomeDir, "/.config/systemd/user/", fmt.Sprintf("%s.timer", obj.Name())), nil
 }
 
 // unitFileContents returns the contents of the unit file representing the

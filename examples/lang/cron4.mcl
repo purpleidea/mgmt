@@ -1,0 +1,17 @@
+$home = getenv("HOME")
+
+cron "purpleidea-oneshot" {
+    state => "absent",
+    session => true,
+    trigger => "OnCalendar",
+    time => "*:*:0",
+}
+
+svc "purpleidea-oneshot" {
+    state => "stopped",
+    session => true,
+}
+
+file printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home) {
+    state => "absent",
+}

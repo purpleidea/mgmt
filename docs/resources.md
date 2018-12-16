@@ -68,7 +68,7 @@ identified by a trailing slash in their path name. File have no such slash.
 
 It has the following properties:
 
-* `path`: file path (directories have a trailing slash here)
+* `path`: absolute file path (directories have a trailing slash here)
 * `content`: raw file content
 * `state`: either `exists` (the default value) or `absent`
 * `mode`: octal unix file permissions

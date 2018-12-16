@@ -54,7 +54,10 @@ type FileRes struct {
 
 	init *engine.Init
 
-	Path     string  `yaml:"path"`     // path variable (usually defaults to name)
+	// Path variable, which usually defaults to the name, represents the
+	// destination path for the file or directory being managed. It must be
+	// an absolute path, and as a result must start with a slash.
+	Path     string  `yaml:"path"`
 	Dirname  string  `yaml:"dirname"`  // override the path dirname
 	Basename string  `yaml:"basename"` // override the path basename
 	Content  *string `yaml:"content"`  // nil to mark as undefined
@@ -91,6 +94,10 @@ func (obj *FileRes) Validate() error {
 
 	if strings.HasPrefix(obj.Basename, "/") {
 		return fmt.Errorf("basename must not start with a slash")
+	}
+
+	if !strings.HasPrefix(obj.GetPath(), "/") {
+		return fmt.Errorf("resultant path must be absolute")
 	}
 
 	if obj.Content != nil && obj.Source != "" {

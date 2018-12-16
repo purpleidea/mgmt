@@ -146,3 +146,19 @@ func TestMiscEncodeDecode2(t *testing.T) {
 		t.Errorf("The input and output Res values do not match: %+v", err)
 	}
 }
+
+func TestFileAbsolute1(t *testing.T) {
+	// file resource paths should be absolute
+	f1 := &FileRes{
+		Path: "tmp/a/b", // some relative file
+	}
+	f2 := &FileRes{
+		Path: "tmp/a/b/", // some relative dir
+	}
+	f3 := &FileRes{
+		Path: "tmp", // some short relative file
+	}
+	if f1.Validate() == nil || f2.Validate() == nil || f3.Validate() == nil {
+		t.Errorf("file res should have failed validate")
+	}
+}

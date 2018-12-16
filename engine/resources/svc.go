@@ -280,7 +280,17 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
 	var stateOK = ((obj.State == "") || (obj.State == "running" && running) || (obj.State == "stopped" && !running))
-	var startupOK = true             // XXX: DETECT AND SET
+	var startupOK = true // XXX: DETECT AND SET
+
+	// NOTE: if this svc resource is embedded as a composite resource inside
+	// of another resource using a technique such as `makeComposite()`, then
+	// the Init of the embedded resource is traditionally passed through and
+	// identical to the parent's Init. As a result, the data matches what is
+	// expected from the parent. (So this luckily turns out to be actually a
+	// thing that does help, although it is important to add the Refreshable
+	// trait to the parent resource, or we'll panic when we call this line.)
+	// It might not be recommended to use the Watch method without a thought
+	// to what actually happens when we would run Send(), and other methods.
 	var refresh = obj.init.Refresh() // do we have a pending reload to apply?
 
 	if stateOK && startupOK && !refresh {

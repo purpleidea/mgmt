@@ -79,6 +79,7 @@ type CronRes struct {
 	traits.Base
 	traits.Edgeable
 	traits.Recvable
+	traits.Refreshable // needed because we embed a svc res
 
 	init *engine.Init
 

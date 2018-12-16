@@ -52,6 +52,7 @@ func init() {
 type NspawnRes struct {
 	traits.Base // add the base methods without re-implementation
 	//traits.Groupable // TODO: this would be quite useful for this resource
+	traits.Refreshable // needed because we embed a svc res
 
 	init *engine.Init
 

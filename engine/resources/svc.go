@@ -69,7 +69,6 @@ func (obj *SvcRes) Validate() error {
 // Init runs some startup code for this resource.
 func (obj *SvcRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
-
 	return nil
 }
 
@@ -108,12 +107,15 @@ func (obj *SvcRes) Watch() error {
 	if err != nil {
 		return errwrap.Wrapf(err, "failed to connect to bus")
 	}
+	defer bus.Close()
 
 	// XXX: will this detect new units?
 	bus.BusObject().Call("org.freedesktop.DBus.AddMatch", 0,
 		"type='signal',interface='org.freedesktop.systemd1.Manager',member='Reloading'")
 	buschan := make(chan *dbus.Signal, 10)
+	defer close(buschan) // NOTE: closing a chan that contains a value is ok
 	bus.Signal(buschan)
+	defer bus.RemoveSignal(buschan) // not needed here, but nice for symmetry
 
 	// notify engine that we're running
 	if err := obj.init.Running(); err != nil {
@@ -124,8 +126,12 @@ func (obj *SvcRes) Watch() error {
 	var send = false                                // send event?
 	var invalid = false                             // does the svc exist or not?
 	var previous bool                               // previous invalid value
-	set := conn.NewSubscriptionSet()                // no error should be returned
+
+	// TODO: do we first need to call conn.Subscribe() ?
+	set := conn.NewSubscriptionSet() // no error should be returned
 	subChannel, subErrors := set.Subscribe()
+	//defer close(subChannel) // cannot close receive-only channel
+	//defer close(subErrors) // cannot close receive-only channel
 	var activeSet = false
 
 	for {

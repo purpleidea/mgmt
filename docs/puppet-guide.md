@@ -164,3 +164,152 @@ language features.
 You should probably make sure to always use the latest release of
 both `ffrank-mgmtgraph` and `ffrank-yamlresource` (the latter is
 getting pulled in as a dependency of the former).
+
+## Using Puppet in conjunction with the mcl lang
+
+The graph that Puppet generates for `mgmt` can be united with a graph
+that is created from native `mgmt` code in its mcl language. This is
+useful when you are in the process of replacing Puppet with mgmt. You
+can translate your custom modules into mgmt's language one by one,
+and let mgmt run the current mix.
+
+Instead of the usual `--puppet`, `--puppet-conf`, and `--lang` for mcl,
+you need to use alternative flags to make this work:
+
+* `--lp-lang` to specify the mcl input
+* `--lp-puppet` to specify the puppet input
+* `--lp-puppet-conf` to point to the optional puppet.conf file
+
+`mgmt` will derive a graph that contains all edges and vertices from
+both inputs. You essentially get two unrelated subgraphs that run in
+parallel. To form edges between these subgraphs, you have to define
+special vertices that will be merged. This works through a hard-coded
+naming scheme.
+
+### Mixed graph example 1 - No merges
+
+```mcl
+# lang
+file "/tmp/mgmt_dir/" { state => "present" }
+file "/tmp/mgmt_dir/a" { state => "present" }
+```
+
+```puppet
+# puppet
+file { "/tmp/puppet_dir": ensure => "directory" }
+file { "/tmp/puppet_dir/a": ensure => "file" }
+```
+
+These very simple inputs (including implicit edges from directory to
+respective file) result in two subgraphs that do not relate.
+
+```
+File[/tmp/mgmt_dir/] -> File[/tmp/mgmt_dir/a]
+
+File[/tmp/puppet_dir] -> File[/tmp/puppet_dir/a]
+```
+
+### Mixed graph example 2 - Merged vertex
+
+In order to have merged vertices in the resulting graph, you will
+need to include special resources and classes in the respective
+input code.
+
+* On the lang side, add `noop` resources with names starting in `puppet_`.
+* On the Puppet side, add **empty** classes with names starting in `mgmt_`.
+
+```mcl
+# lang
+noop "puppet_handover_to_mgmt" {}
+file "/tmp/mgmt_dir/" { state => "present" }
+file "/tmp/mgmt_dir/a" { state => "present" }
+
+Noop["puppet_handover_to_mgmt"] -> File["/tmp/mgmt_dir/"]
+```
+
+```puppet
+# puppet
+class mgmt_handover_to_mgmt {}
+include mgmt_handover_to_mgmt
+
+file { "/tmp/puppet_dir": ensure => "directory" }
+file { "/tmp/puppet_dir/a": ensure => "file" }
+
+File["/tmp/puppet_dir/a"] -> Class["mgmt_handover_to_mgmt"]
+```
+
+The new `noop` resource is merged with the new class, resulting in
+the following graph:
+
+```
+File[/tmp/puppet_dir] -> File[/tmp/puppet_dir/a]
+				|
+				V
+		Noop[handover_to_mgmt]
+			|
+			V
+	File[/tmp/mgmt_dir/] -> File[/tmp/mgmt_dir/a]
+```
+
+You put all your ducks in a row, and the resources from the Puppet input
+run before those from the mcl input.
+
+**Note:** The names of the `noop` and the class must be identical after the
+respective prefix. The common part (here, `handover_to_mgmt`) becomes the name
+of the merged resource.
+
+## Mixed graph example 3 - Multiple merges
+
+In most scenarios, it will not be possible to define a single handover
+point like in the previous example. For example, if some Puppet resources
+need to run in between two stages of native resources, you need at least
+two merged vertices:
+
+```mcl
+# lang
+noop "puppet_handover" {}
+noop "puppet_handback" {}
+file "/tmp/mgmt_dir/" { state => "present" }
+file "/tmp/mgmt_dir/a" { state => "present" }
+file "/tmp/mgmt_dir/puppet_subtree/state-file" { state => "present" }
+
+File["/tmp/mgmt_dir/"] -> Noop["puppet_handover"]
+Noop["puppet_handback"] -> File["/tmp/mgmt_dir/puppet_subtree/state-file"]
+```
+
+```puppet
+# puppet
+class mgmt_handover {}
+class mgmt_handback {}
+
+include mgmt_handover, mgmt_handback
+
+class important_stuff {
+	file { "/tmp/mgmt_dir/puppet_subtree":
+		ensure => "directory"
+	}
+	# ...
+}
+
+Class["mgmt_handover"] -> Class["important_stuff"] -> Class["mgmt_handback"]
+```
+
+The resulting graph looks roughly like this:
+
+```
+File[/tmp/mgmt_dir/] -> File[/tmp/mgmt_dir/a]
+	|
+	V
+Noop[handover] -> ( class important_stuff resources )
+			|
+			V
+		Noop[handback]
+			|
+			V
+File[/tmp/mgmt_dir/puppet_subtree/state-file]
+```
+
+You can add arbitrary numbers of merge pairs to your code bases,
+with relationships as needed. From our limited experience, code
+readability suffers quite a lot from these, however. We advise
+to keep these structures simple.

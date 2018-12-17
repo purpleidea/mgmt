@@ -857,3 +857,51 @@ func TestSortedStrSliceCompare3(t *testing.T) {
 		t.Errorf("input slice reordered to: %v", slice1)
 	}
 }
+
+func TestPathSliceSort(t *testing.T) {
+	tests := []struct {
+		in  []string
+		out []string
+	}{
+		{
+			in: []string{
+				"/foo/bar/baz",
+				"/bing/bang/boom",
+				"/1/2/3/",
+				"/foo/bar/raz",
+				"/bing/buzz/",
+				"/foo/",
+				"/",
+				"/1/",
+				"/foo/bar/baz/bam",
+				"/bing/bang/",
+				"/1/2/",
+				"/foo/bar/",
+				"/bing/",
+			},
+			out: []string{
+				"/",
+				"/1/",
+				"/1/2/",
+				"/1/2/3/",
+				"/bing/",
+				"/bing/bang/",
+				"/bing/bang/boom",
+				"/bing/buzz/",
+				"/foo/",
+				"/foo/bar/",
+				"/foo/bar/baz",
+				"/foo/bar/baz/bam",
+				"/foo/bar/raz",
+			},
+		},
+	}
+	for _, tt := range tests {
+		sort.Sort(PathSlice(tt.in))
+		for i := range tt.in {
+			if tt.in[i] != tt.out[i] {
+				t.Errorf("path sort failed: wanted: %s got: %s", tt.out[i], tt.in[i])
+			}
+		}
+	}
+}

@@ -420,3 +420,38 @@ func SortedStrSliceCompare(a, b []string) error {
 	}
 	return nil
 }
+
+// PathSlice is a type used to implement sort.Interface on a slice of strings,
+// where each string is a path. This allows you to call sort.Sort() on a list
+// of paths, after casting the []string{} to this type. Paths will be sorted
+// by depth in alphabetical order.
+type PathSlice []string
+
+// Len returns the length of obj. It is required to satisfy sort.Interface.
+func (obj PathSlice) Len() int {
+	return len(obj)
+}
+
+// Swap swaps obj[i] and obj[j]. it is required to satisfy sort.Interface.
+func (obj PathSlice) Swap(i, j int) {
+	obj[i], obj[j] = obj[j], obj[i]
+}
+
+// Less returns whether obj[i] is less than obj[j]. It performs the logic
+// required to satisfy sort.Interface.
+func (obj PathSlice) Less(i, j int) bool {
+	x := PathSplitFullReversed(obj[i])
+	y := PathSplitFullReversed(obj[j])
+	if x[0] != y[0] {
+		return x[0] < y[0]
+	}
+	if len(x) > len(y) {
+		return false
+	}
+	for i := range x {
+		if x[i] > y[i] {
+			return false
+		}
+	}
+	return true
+}

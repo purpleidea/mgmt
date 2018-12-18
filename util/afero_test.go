@@ -20,6 +20,7 @@
 package util
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -27,10 +28,96 @@ import (
 	"github.com/spf13/afero"
 )
 
-func TestCopyDiskToFs1(t *testing.T) {
-	if true {
-		return // XXX: remove me once this test passes
+var dirInputs = []struct {
+	srcDirFull  string
+	srcCopyRoot string
+	dstCopyRoot string
+	dstExpected string
+	force       bool
+}{
+	{"/tmp/foo/bar/baz/", "/tmp/foo/", "/", "/foo/bar/baz", false},
+	{"/tmp/zoo/zar/zaz/", "/tmp/zoo/zar", "/start/dir", "/start/dir/zar/zaz", false},
+	{"/foo", "/foo", "/", "/foo", false},
+	{"/foo", "/foo", "/", "/foo", true},
+}
+
+func TestCopyFs1(t *testing.T) {
+	for _, tt := range dirInputs {
+		src := afero.NewMemMapFs()
+		dst := afero.NewMemMapFs()
+
+		t.Run(tt.srcDirFull, func(t *testing.T) {
+			err := src.MkdirAll(tt.srcDirFull, 0700)
+			if err != nil {
+				t.Errorf("could not MkdirAll %+v", err)
+				return
+			}
+			err = CopyFs(src, dst, tt.srcCopyRoot, tt.dstCopyRoot, tt.force)
+			if err != nil {
+				t.Errorf("error copying source %s to dest %s", tt.srcCopyRoot, tt.dstCopyRoot)
+				return
+			}
+
+			isDir, err := afero.IsDir(dst, tt.dstExpected)
+			if err != nil {
+				t.Errorf("could not check IsDir: %+v", err)
+				return
+			}
+			if !isDir {
+				t.Errorf("expected directory tree %s to exist in dest", tt.dstExpected)
+				return
+			}
+		})
 	}
+}
+
+func TestCopyFs2(t *testing.T) {
+	tree := "/foo/bar/baz/"
+	var files = []struct {
+		path    string
+		content []byte
+	}{
+		{"/foo/foo.txt", []byte("foo")},
+		{"/foo/bar/bar.txt", []byte("bar")},
+		{"/foo/bar/baz/baz.txt", []byte("baz")},
+	}
+
+	src := afero.NewMemMapFs()
+	dst := afero.NewMemMapFs()
+
+	err := src.MkdirAll(tree, 0700)
+	if err != nil {
+		t.Errorf("could not MkdirAll: %+v", err)
+		return
+	}
+
+	for _, f := range files {
+		err = afero.WriteFile(src, f.path, f.content, 0600)
+		if err != nil {
+			t.Errorf("could not WriteFile: %+v", err)
+			return
+		}
+	}
+
+	if err = CopyFs(src, dst, "", "", false); err != nil {
+		t.Errorf("could not CopyFs: %+v", err)
+		return
+	}
+
+	for _, f := range files {
+		content, err := afero.ReadFile(dst, f.path)
+		if err != nil {
+			t.Errorf("could not ReadFile: %+v", err)
+			return
+		}
+		if !bytes.Equal(content, f.content) {
+			t.Errorf("expected: %s, actual: %s, for file %s", string(f.content), string(content), f.path)
+			return
+		}
+	}
+}
+
+func TestCopyDiskToFs1(t *testing.T) {
 	dir, err := TestDirFull()
 	if err != nil {
 		t.Errorf("could not get tests directory: %+v", err)

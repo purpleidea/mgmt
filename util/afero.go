@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 
 	"github.com/spf13/afero"
 )
@@ -89,19 +88,20 @@ func stringify(fs afero.Fs, name string, indent []bool) (string, error) {
 // currently undefined.
 // TODO: this should be made more rsync like and robust!
 func CopyFs(srcFs, dstFs afero.Fs, src, dst string, force bool) error {
-	if src == "" {
-		src = "/"
-	}
-	if dst == "" {
-		dst = "/"
-	}
+	src = path.Join("/", src)
+	dst = path.Join("/", dst)
+
+	// TODO: clean this up with function that gets parent dir?
+	src = path.Clean(src)
+	parentDir, _ := path.Split(src)
+	srcFsLen := len(parentDir)
+
 	walkFn := func(name string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		//perm := info.Perm()
-		perm := info.Mode() // TODO: is this correct?
-		p := path.Join(dst, filepath.Base(name))
+		perm := info.Mode() // get file permissions
+		p := path.Join(dst, name[srcFsLen:])
 		if info.IsDir() {
 			err := dstFs.Mkdir(p, perm)
 			if os.IsExist(err) && (name == "/" || force) {

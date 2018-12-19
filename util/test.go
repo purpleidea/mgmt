@@ -22,10 +22,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
-// TestDir gets the absolute path to the test directory if it exists. This is a
-// utility function that is used in some tests.
+// TestDir gets the absolute path to the test directory if it exists. If the dir
+// does not exist, then this will error, but the path will still be returned.
+// This is a utility function that is used in some tests.
 func TestDir(suffix string) (string, error) {
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
@@ -34,7 +36,36 @@ func TestDir(suffix string) (string, error) {
 	dir := filepath.Dir(filename) + "/" // location of this test
 	testDir := dir + suffix             // test directory
 	if info, err := os.Stat(testDir); err != nil || !info.IsDir() {
-		return "", fmt.Errorf("error getting test dir, err was: %+v", err)
+		return testDir, fmt.Errorf("error getting test dir, err was: %+v", err)
+	}
+
+	return testDir, nil
+}
+
+// TestDir gets the full absolute path to a unique test directory if it exists.
+// If the dir does not exist, then this will error, but the path will still be
+// returned. This is a utility function that is used in some tests.
+func TestDirFull() (string, error) {
+	function, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		return "", fmt.Errorf("could not determine filename")
+	}
+	dir := filepath.Dir(filename) + "/" // location of this test
+	name := filepath.Base(filename)     // something like: foo_test.go
+	ext := filepath.Ext(name)
+	if ext != ".go" {
+		return "", fmt.Errorf("unexpected extension of: %s", ext)
+	}
+	name = strings.TrimSuffix(name, ext) + "/"  // remove extension, add slash
+	fname := runtime.FuncForPC(function).Name() // full fqdn func name
+	ix := strings.LastIndex(fname, ".")         // ends with package.<function name>
+	if fname == "" || ix == -1 {
+		return "", fmt.Errorf("function name not found")
+	}
+	fname = fname[ix+len("."):] + "/" // just the function name
+	testDir := dir + name + fname     // full test directory
+	if info, err := os.Stat(testDir); err != nil || !info.IsDir() {
+		return testDir, fmt.Errorf("error getting test dir, err was: %+v", err)
 	}
 
 	return testDir, nil

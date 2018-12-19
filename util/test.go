@@ -42,9 +42,9 @@ func TestDir(suffix string) (string, error) {
 	return testDir, nil
 }
 
-// TestDir gets the full absolute path to a unique test directory if it exists.
-// If the dir does not exist, then this will error, but the path will still be
-// returned. This is a utility function that is used in some tests.
+// TestDirFull gets the full absolute path to a unique test directory if it
+// exists. If the dir does not exist, then this will error, but the path will
+// still be returned. This is a utility function that is used in some tests.
 func TestDirFull() (string, error) {
 	function, filename, _, ok := runtime.Caller(1)
 	if !ok {

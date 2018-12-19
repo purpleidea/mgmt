@@ -313,6 +313,41 @@ func TestEtcdCopyFs0(t *testing.T) {
 		force                      bool
 	}{
 		{
+			mkdir: "/",
+			cpsrc: "/",
+			cpdst: "/",
+			check: "/",
+			force: false,
+		},
+		{
+			mkdir: "/",
+			cpsrc: "/",
+			cpdst: "/",
+			check: "/",
+			force: true,
+		},
+		{
+			mkdir: "/",
+			cpsrc: "/",
+			cpdst: "/tmp/d1",
+			check: "/tmp/d1",
+			force: false,
+		},
+		{
+			mkdir: "/tmp/foo/bar",
+			cpsrc: "/tmp/foo/bar",
+			cpdst: "/",
+			check: "/bar",
+			force: false,
+		},
+		{
+			mkdir: "/tmp/foo/bar",
+			cpsrc: "/tmp/foo/bar",
+			cpdst: "/baz/",
+			check: "/baz/bar",
+			force: false,
+		},
+		{
 			mkdir: "/tmp/foo/bar",
 			cpsrc: "/tmp/foo",
 			cpdst: "/baz/",

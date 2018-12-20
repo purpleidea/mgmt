@@ -29,7 +29,7 @@ function token-coloncheck() {
 		return 1	# tokens must end with a colon
 	fi
 	# tokens must be upper case
-	if grep -E "[t][Oo][Dd][Oo]|[Tt][Oo][Dd][o]|[f][Ii][Xx][Mm][Ee]|[Ff][Ii][Xx][Mm][e]|[x][Xx][Xx]|[Xx][Xx][x]" "$1"; then
+	if grep -E "[t][Oo][Dd][Oo]|[Tt][o][Dd][Oo]|[Tt][Oo][d][Oo]|[Tt][Oo][Dd][o]|[f][Ii][Xx][Mm][Ee]|[Ff][i][Xx][Mm][Ee]|[Ff][Ii][x][Mm][Ee]|[Ff][Ii][Xx][m][Ee]|[Ff][Ii][Xx][Mm][e]|[x][Xx][Xx]|[Xx][x][Xx]|[Xx][Xx][x]" "$1"; then
 		return 1
 	fi
 	return 0

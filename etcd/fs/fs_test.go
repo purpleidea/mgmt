@@ -43,6 +43,9 @@ const (
 	superblock = "/some/superblock" // TODO: generate randomly per test?
 )
 
+// Ensure that etcdfs.Fs implements afero.Fs.
+var _ afero.Fs = &etcdfs.Fs{}
+
 // runEtcd starts etcd locally via the mgmt binary. It returns a function to
 // kill the process which the caller must use to clean up.
 func runEtcd() (func() error, error) {

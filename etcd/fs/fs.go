@@ -347,6 +347,12 @@ func (obj *Fs) Chown(name string, uid, gid int) error {
 	return ErrNotImplemented
 }
 
+// Lchown is the equivalent of os.Lchown. It returns ErrNotImplemented.
+func (obj *Fs) Lchown(name string, uid, gid int) error {
+	// FIXME: Implement Lchown
+	return ErrNotImplemented
+}
+
 // Mkdir makes a new directory.
 func (obj *Fs) Mkdir(name string, perm os.FileMode) error {
 	if err := obj.mount(); err != nil {

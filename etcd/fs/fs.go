@@ -341,6 +341,12 @@ func (obj *Fs) Create(name string) (afero.File, error) {
 	return fileCreate(obj, name)
 }
 
+// Chown is the equivalent of os.Chown. It returns ErrNotImplemented.
+func (obj *Fs) Chown(name string, uid, gid int) error {
+	// FIXME: Implement Chown
+	return ErrNotImplemented
+}
+
 // Mkdir makes a new directory.
 func (obj *Fs) Mkdir(name string, perm os.FileMode) error {
 	if err := obj.mount(); err != nil {

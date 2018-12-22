@@ -306,3 +306,77 @@ func TestFs3(t *testing.T) {
 		return
 	}
 }
+
+func TestEtcdCopyFs0(t *testing.T) {
+	tests := []struct {
+		mkdir, cpsrc, cpdst, check string
+		force                      bool
+	}{
+		{
+			mkdir: "/tmp/foo/bar",
+			cpsrc: "/tmp/foo",
+			cpdst: "/baz/",
+			check: "/baz/foo/bar",
+			force: false,
+		},
+		{
+			mkdir: "/tmp/this/is/a/really/deep/directory/to/make/sure/we/can/handle/deep/copies",
+			cpsrc: "/tmp/this/is/a",
+			cpdst: "/that/was/",
+			check: "/that/was/a/really/deep/directory/to/make/sure/we/can/handle/deep/copies",
+			force: false,
+		},
+	}
+
+	for _, tt := range tests {
+		stopEtcd, err := runEtcd()
+		if err != nil {
+			t.Errorf("setup error: %+v", err)
+			return
+		}
+		defer stopEtcd() // ignore the error
+
+		etcdClient := &etcd.ClientEtcd{
+			Seeds: []string{"localhost:2379"}, // endpoints
+		}
+
+		if err := etcdClient.Connect(); err != nil {
+			t.Errorf("client connection error: %+v", err)
+			return
+		}
+		defer etcdClient.Destroy()
+
+		etcdFs := &etcdfs.Fs{
+			Client:     etcdClient.GetClient(),
+			Metadata:   superblock,
+			DataPrefix: etcdfs.DefaultDataPrefix,
+		}
+
+		if err := etcdFs.MkdirAll(tt.mkdir, umask); err != nil {
+			t.Errorf("mkdir error: %+v", err)
+			return
+		}
+		tree, err := util.FsTree(etcdFs, "/")
+		if err != nil {
+			t.Errorf("tree error: %+v", err)
+			return
+		}
+		t.Logf("tree: \n%s", tree)
+
+		var memFs = afero.NewMemMapFs()
+		if err := util.CopyFs(etcdFs, memFs, tt.cpsrc, tt.cpdst, tt.force); err != nil {
+			t.Errorf("copyfs error: %+v", err)
+			return
+		}
+		tree2, err := util.FsTree(memFs, "/")
+		if err != nil {
+			t.Errorf("tree2 error: %+v", err)
+			return
+		}
+		t.Logf("tree2: \n%s", tree2)
+		if _, err := memFs.Stat(tt.check); err != nil {
+			t.Errorf("stat error: %+v", err)
+			return
+		}
+	}
+}

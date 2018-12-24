@@ -197,16 +197,6 @@ func (g *Graph) FindEdge(v1, v2 Vertex) Edge {
 	return edge
 }
 
-// Vertices returns a randomly sorted slice of all vertices in the graph.
-// The order is random, because the map implementation is intentionally so!
-func (g *Graph) Vertices() []Vertex {
-	var vertices []Vertex
-	for k := range g.adjacency {
-		vertices = append(vertices, k)
-	}
-	return vertices
-}
-
 // Edges returns a randomly sorted slice of all edges in the graph.
 // The order is random, because the map implementation is intentionally so!
 func (g *Graph) Edges() []Edge {
@@ -231,6 +221,25 @@ func (g *Graph) VerticesChan() chan Vertex {
 	return ch
 }
 
+// Vertices returns a randomly sorted slice of all vertices in the graph.
+// The order is random, because the map implementation is intentionally so!
+func (g *Graph) Vertices() []Vertex {
+	var vertices []Vertex
+	for k := range g.adjacency {
+		vertices = append(vertices, k)
+	}
+	return vertices
+}
+
+// EdgeSlice is a linear list of edges. It can be sorted.
+type EdgeSlice []Edge
+
+func (es EdgeSlice) Len() int { return len(es) }
+
+func (es EdgeSlice) Swap(i, j int) { es[i], es[j] = es[j], es[i] }
+
+func (es EdgeSlice) Less(i, j int) bool { return es[i].String() < es[j].String() }
+
 // VertexSlice is a linear list of vertices. It can be sorted.
 type VertexSlice []Vertex
 
@@ -246,14 +255,64 @@ func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String
 // Sort is a convenience method.
 func (vs VertexSlice) Sort() { sort.Sort(vs) }
 
+// VertexIntenseSlice is a linear list of vertices. It can be sorted.
+type VertexIntenseSlice struct {
+	g        *Graph
+	vertices []Vertex
+}
+
+func (vs VertexIntenseSlice) Len() int {
+	return len(vs.vertices)
+}
+
+func (vs VertexIntenseSlice) Swap(i, j int) {
+	v := vs.vertices
+	v[i], v[j] = v[j], v[i]
+}
+
+func (vs VertexIntenseSlice) Less(i, j int) bool {
+	v := vs.vertices
+	if v[i].String() < v[j].String() {
+		return true
+	} else if v[i].String() > v[j].String() {
+		return false
+	}
+
+	// Labels are equal, time to check neighbor labels
+	neighSet1 := vs.g.GraphVertices(v[i])
+	neighSet2 := vs.g.GraphVertices(v[j])
+
+	if len(neighSet1) < len(neighSet2) {
+		return true
+	}
+
+	sort.Sort(VertexSlice(neighSet1))
+	sort.Sort(VertexSlice(neighSet2))
+
+	// TODO: maybe building a hash here and compare the result is better?
+	for i := 0; i < len(neighSet1); i++ {
+		if neighSet1[i].String() < neighSet2[i].String() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // VerticesSorted returns a sorted slice of all vertices in the graph.
 // The order is sorted by String() to avoid the non-determinism in the map type.
 func (g *Graph) VerticesSorted() []Vertex {
-	var vertices []Vertex
-	for k := range g.adjacency {
-		vertices = append(vertices, k)
-	}
+	vertices := g.Vertices()
 	sort.Sort(VertexSlice(vertices)) // add determinism
+	return vertices
+}
+
+// VerticesSortedIntense returns a sorted slice of all vertices in the
+// graph. Instead of sorting by String() on just the vertex, uses
+// the String() element of all its neighbors.
+func (g *Graph) VerticesSortedIntense() []Vertex {
+	vertices := g.Vertices()
+	sort.Sort(VertexIntenseSlice{g, vertices})
 	return vertices
 }
 
@@ -583,84 +642,62 @@ func (g *Graph) VertexMatchFn(fn func(Vertex) (bool, error)) (Vertex, error) {
 // they're equal. It uses a user defined function to compare topologically
 // equivalent vertices, and edges.
 // FIXME: add more test cases
-func (g *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), edgeCmpFn func(Edge, Edge) (bool, error)) error {
-	if graph == nil || g == nil {
-		if graph != g {
+func (g *Graph) GraphCmp(graphOther *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), edgeCmpFn func(Edge, Edge) (bool, error)) error {
+	if graphOther == nil || g == nil {
+		if graphOther != g {
 			return fmt.Errorf("one graph is nil")
 		}
 		return nil
 	}
-	n1, n2 := g.NumVertices(), graph.NumVertices()
+
+	// Quick checks: if the number of vertices or edges in graphs
+	// differ it is immediately obvious of their inequality
+	n1, n2 := g.NumVertices(), graphOther.NumVertices()
 	if n1 != n2 {
 		return fmt.Errorf("base graph has %d vertices, while input graph has %d", n1, n2)
 	}
-	if e1, e2 := g.NumEdges(), graph.NumEdges(); e1 != e2 {
+	if e1, e2 := g.NumEdges(), graphOther.NumEdges(); e1 != e2 {
 		return fmt.Errorf("base graph has %d edges, while input graph has %d", e1, e2)
 	}
 
-	var m = make(map[Vertex]Vertex) // g to graph vertex correspondence
-Loop:
-	// check vertices
-	for v1 := range g.Adjacency() { // for each vertex in g
-		for v2 := range graph.Adjacency() { // does it match in graph ?
-			b, err := vertexCmpFn(v1, v2)
-			if err != nil {
-				return errwrap.Wrapf(err, "could not run vertexCmpFn() properly")
-			}
-			// does it match ?
-			if b {
-				m[v1] = v2 // store the mapping
-				continue Loop
-			}
-		}
-		return fmt.Errorf("base graph, has no match in input graph for: %s", v1)
-	}
-	// vertices match :)
+	// Sorted graphs by labeled vertices
+	gSorted := g.VerticesSortedIntense()
+	otherSorted := graphOther.VerticesSortedIntense()
 
-	// is the mapping the right length?
-	if n1 := len(m); n1 != n2 {
-		return fmt.Errorf("mapping only has correspondence of %d, when it should have %d", n1, n2)
-	}
-
-	// check if mapping is unique (are there duplicates?)
-	m1 := []Vertex{}
-	m2 := []Vertex{}
-	for k, v := range m {
-		if VertexContains(k, m1) {
-			return fmt.Errorf("mapping from %s is used more than once to: %s", k, m1)
+	for i := 0; i < len(gSorted); i++ {
+		v1, v2 := gSorted[i], otherSorted[i]
+		b, err := vertexCmpFn(v1, v2)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not run vertexCmpFn() properly")
 		}
-		if VertexContains(v, m2) {
-			return fmt.Errorf("mapping to %s is used more than once from: %s", v, m2)
-		}
-		m1 = append(m1, k)
-		m2 = append(m2, v)
-	}
-
-	// check edges
-	for v1 := range g.Adjacency() { // for each vertex in g
-		v2 := m[v1] // lookup in map to get correspondance
-		// g.Adjacency()[v1] corresponds to graph.Adjacency()[v2]
-		if e1, e2 := len(g.Adjacency()[v1]), len(graph.Adjacency()[v2]); e1 != e2 {
-			return fmt.Errorf("base graph, vertex(%s) has %d edges, while input graph, vertex(%s) has %d", v1, e1, v2, e2)
+		if !b {
+			return fmt.Errorf("vertex %s != vertex %s", v1, v2)
 		}
 
-		for vv1, ee1 := range g.Adjacency()[v1] {
-			vv2 := m[vv1]
-			ee2 := graph.Adjacency()[v2][vv2]
+		// Now check that all vertices point to the same edges.
+		// TODO: do we want to use something like OutgoingGraphVertices here
+		// instead instead of relying on edge labels?
 
-			// these are edges from v1 -> vv1 via ee1 (graph 1)
-			// to cmp to edges from v2 -> vv2 via ee2 (graph 2)
+		edgeSet1 := g.GraphEdges(v1)
+		edgeSet2 := graphOther.GraphEdges(v2)
 
-			// check: (1) vv1 == vv2 ? (we've already checked this!)
+		if len(edgeSet1) != len(edgeSet2) {
+			return fmt.Errorf("bad degree: vertex %s = %d, vertex %s = %d edges", v1, len(edgeSet1), v2, len(edgeSet2))
+		}
 
-			// check: (2) ee1 == ee2
-			b, err := edgeCmpFn(ee1, ee2)
+		sort.Sort(EdgeSlice(edgeSet1))
+		sort.Sort(EdgeSlice(edgeSet2))
+
+		for j := 0; j < len(edgeSet1); j++ {
+			e1, e2 := edgeSet1[j], edgeSet2[j]
+			b, err = edgeCmpFn(e1, e2)
 			if err != nil {
 				return errwrap.Wrapf(err, "could not run edgeCmpFn() properly")
 			}
 			if !b {
-				return fmt.Errorf("base graph edge(%s) doesn't match input graph edge(%s)", ee1, ee2)
+				return fmt.Errorf("edge %s != edge %s", e1, e2)
 			}
+
 		}
 	}
 

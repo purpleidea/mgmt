@@ -335,38 +335,37 @@ func TestAstFunc0(t *testing.T) {
 			graph: graph,
 		})
 	}
-	//	// FIXME: blocked by: https://github.com/purpleidea/mgmt/issues/199
-	//{
-	//	graph, _ := pgraph.NewGraph("g")
-	//	v0 := vtex("bool(true)")
-	//	v1, v2 := vtex("str(hello)"), vtex("str(world)")
-	//	v3, v4 := vtex("var(x)"), vtex("var(x)") // different vertices!
-	//	v5, v6 := vtex("str(t1)"), vtex("str(t2)")
-	//
-	//	graph.AddVertex(&v0, &v1, &v2, &v3, &v4, &v5, &v6)
-	//	e1, e2 := edge("x"), edge("x")
-	//	graph.AddEdge(&v1, &v3, &e1)
-	//	graph.AddEdge(&v2, &v4, &e2)
-	//
-	//	testCases = append(testCases, test{
-	//		name: "variable shadowing both",
-	//		code: `
-	//			# this should be okay, because var is shadowed
-	//			$x = "hello"
-	//			if true {
-	//				$x = "world"	# shadowed
-	//				test "t2" {
-	//					stringptr => $x,
-	//				}
-	//			}
-	//			test "t1" {
-	//				stringptr => $x,
-	//			}
-	//		`,
-	//		fail: false,
-	//		graph: graph,
-	//	})
-	//}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		v0 := vtex("bool(true)")
+		v1, v2 := vtex("str(hello)"), vtex("str(world)")
+		v3, v4 := vtex("var(x)"), vtex("var(x)") // different vertices!
+		v5, v6 := vtex("str(t1)"), vtex("str(t2)")
+
+		graph.AddVertex(&v0, &v1, &v2, &v3, &v4, &v5, &v6)
+		e1, e2 := edge("x"), edge("x")
+		graph.AddEdge(&v1, &v3, &e1)
+		graph.AddEdge(&v2, &v4, &e2)
+
+		testCases = append(testCases, test{
+			name: "variable shadowing both",
+			code: `
+				# this should be okay, because var is shadowed
+				$x = "hello"
+				if true {
+					$x = "world"	# shadowed
+					test "t2" {
+						stringptr => $x,
+					}
+				}
+				test "t1" {
+					stringptr => $x,
+				}
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
 	{
 		testCases = append(testCases, test{
 			name: "variable re-declaration and type change error",

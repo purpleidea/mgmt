@@ -25,7 +25,7 @@ COPY . /home/$USER_NAME/mgmt
 WORKDIR /home/$USER_NAME/mgmt
 
 # Install dependencies
-RUN make deps
+RUN make dev
 
 # Chown $GOPATH
 RUN chown -R ${USER_ID}:${GROUP_ID} /go

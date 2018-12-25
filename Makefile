@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr tag release
+.PHONY: all art cleanart version program lang path deps run race bindata dev generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr tag release
 .SILENT: clean bindata
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
@@ -120,6 +120,8 @@ bindata: ## generate go files from non-go sources
 	@echo "Generating: bindata..."
 	$(MAKE) --quiet -C bindata
 	$(MAKE) --quiet -C lang/funcs
+
+dev: deps bindata
 
 generate:
 	go generate

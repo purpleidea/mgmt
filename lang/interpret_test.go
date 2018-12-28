@@ -546,11 +546,16 @@ func TestAstFunc1(t *testing.T) {
 		t.Errorf("FAIL: could not read through tests directory: %+v", err)
 		return
 	}
+	sorted := []string{}
 	for _, f := range files {
 		if !f.IsDir() {
 			continue
 		}
-		graphFile := f.Name() + ".graph" // expected graph file
+		sorted = append(sorted, f.Name())
+	}
+	sort.Strings(sorted)
+	for _, f := range sorted {
+		graphFile := f + ".graph" // expected graph file
 		graphFileFull := dir + graphFile
 		info, err := os.Stat(graphFileFull)
 		if err != nil || info.IsDir() {
@@ -574,12 +579,12 @@ func TestAstFunc1(t *testing.T) {
 
 		// add automatic test case
 		testCases = append(testCases, test{
-			name:   fmt.Sprintf("dir: %s", f.Name()),
-			path:   f.Name() + "/",
+			name:   fmt.Sprintf("dir: %s", f),
+			path:   f + "/",
 			fail:   errStr != "",
 			expstr: str,
 		})
-		//t.Logf("adding: %s", f.Name() + "/")
+		//t.Logf("adding: %s", f + "/")
 	}
 
 	names := []string{}

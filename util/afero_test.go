@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -129,11 +130,16 @@ func TestCopyDiskToFs1(t *testing.T) {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
 	}
+	sorted := []string{}
 	for _, f := range files {
 		if !f.IsDir() {
 			continue
 		}
-		treeFile := f.Name() + ".tree" // expected tree file
+		sorted = append(sorted, f.Name())
+	}
+	sort.Strings(sorted)
+	for _, f := range sorted {
+		treeFile := f + ".tree" // expected tree file
 		treeFileFull := dir + treeFile
 		info, err := os.Stat(treeFileFull)
 		if err != nil || info.IsDir() {
@@ -153,7 +159,7 @@ func TestCopyDiskToFs1(t *testing.T) {
 		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
 		fs := &Fs{afs}
 
-		if err := CopyDiskToFs(fs, dir+f.Name()+"/", "/", false); err != nil {
+		if err := CopyDiskToFs(fs, dir+f+"/", "/", false); err != nil {
 			t.Errorf("copying to fs failed: %+v", err)
 			return
 		}
@@ -185,11 +191,16 @@ func TestCopyDiskContentsToFs1(t *testing.T) {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
 	}
+	sorted := []string{}
 	for _, f := range files {
 		if !f.IsDir() {
 			continue
 		}
-		treeFile := f.Name() + ".tree" // expected tree file
+		sorted = append(sorted, f.Name())
+	}
+	sort.Strings(sorted)
+	for _, f := range sorted {
+		treeFile := f + ".tree" // expected tree file
 		treeFileFull := dir + treeFile
 		info, err := os.Stat(treeFileFull)
 		if err != nil || info.IsDir() {
@@ -209,7 +220,7 @@ func TestCopyDiskContentsToFs1(t *testing.T) {
 		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
 		fs := &Fs{afs}
 
-		if err := CopyDiskContentsToFs(fs, dir+f.Name()+"/", "/", false); err != nil {
+		if err := CopyDiskContentsToFs(fs, dir+f+"/", "/", false); err != nil {
 			t.Errorf("copying to fs failed: %+v", err)
 			return
 		}

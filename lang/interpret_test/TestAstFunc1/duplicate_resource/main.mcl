@@ -1,0 +1,17 @@
+import "fmt"
+
+# these two resources are identical to each other, so we should allow it
+file "/tmp/foo" {
+	content => "hello world",
+}
+file "/tmp/foo" {
+	content => fmt.printf("hello world"),
+}
+
+# these two resources are compatible with each other, so we should allow it
+pkg "cowsay" {
+	state => "installed",
+}
+pkg "cowsay" {
+	state => "newest",
+}

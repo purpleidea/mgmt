@@ -1,0 +1,10 @@
+Edge: str(hello world) -> call:fmt.printf(str(hello world)) # a
+Vertex: call:fmt.printf(str(hello world))
+Vertex: str(/tmp/foo)
+Vertex: str(/tmp/foo)
+Vertex: str(cowsay)
+Vertex: str(cowsay)
+Vertex: str(hello world)
+Vertex: str(hello world)
+Vertex: str(installed)
+Vertex: str(newest)

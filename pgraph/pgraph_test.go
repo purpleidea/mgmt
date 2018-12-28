@@ -667,18 +667,41 @@ func TestGraphCmp1(t *testing.T) {
 	}
 }
 
-// FIXME: i think we should allow equivalent elements in the graph to compare...
-// FIXME: currently this fails :(
-//func TestGraphCmp2(t *testing.T) {
-//	g1 := &Graph{}
-//	g2 := &Graph{}
-//	g1.AddVertex(NV("v1"), NV("v1"))
-//	g2.AddVertex(NV("v1"), NV("v1"))
-//
-//	if err := g1.GraphCmp(g2, strVertexCmpFn, strEdgeCmpFn); err != nil {
-//		t.Errorf("should have no error during GraphCmp, but got: %v", err)
-//	}
-//}
+func TestGraphCmp2(t *testing.T) {
+	g1 := &Graph{}
+	g2 := &Graph{}
+	g1.AddVertex(NV("v1"), NV("v1"))
+	g2.AddVertex(NV("v1"), NV("v1"))
+
+	if err := g1.GraphCmp(g2, strVertexCmpFn, strEdgeCmpFn); err != nil {
+		t.Errorf("should have no error during GraphCmp, but got: %v", err)
+	}
+}
+
+func TestGraphCmp3(t *testing.T) {
+	g1 := &Graph{}
+	g2 := &Graph{}
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+
+	g1.AddEdge(v1, v2, e1)
+	g2.AddEdge(v2, v1, e2)
+
+	if err := g1.GraphCmp(g2, strVertexCmpFn, strEdgeCmpFn); err == nil {
+		t.Errorf("should have error during GraphCmp, but got: %v", err)
+	}
+
+	g1.AddEdge(v2, v1, e2)
+	g2.AddEdge(v1, v2, e1)
+
+	if err := g1.GraphCmp(g2, strVertexCmpFn, strEdgeCmpFn); err != nil {
+		t.Errorf("should have no error during GraphCmp, but got: %v", err)
+	}
+}
 
 func TestSort0(t *testing.T) {
 	vs := []Vertex{}

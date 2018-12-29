@@ -44,6 +44,10 @@ var DefaultMetaParams = &MetaParams{
 type MetaRes interface {
 	// MetaParams lets you get or set meta params for the resource.
 	MetaParams() *MetaParams
+
+	// SetMetaParams lets you set all of the meta params for the resource in
+	// a single call.
+	SetMetaParams(*MetaParams)
 }
 
 // MetaParams provides some meta parameters that apply to every resource.

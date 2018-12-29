@@ -47,6 +47,12 @@ func (obj *Groupable) AutoGroupMeta() *engine.AutoGroupMeta {
 	return obj.meta
 }
 
+// SetAutoGroupMeta lets you set all of the meta params for the automatic
+// grouping trait in a single call.
+func (obj *Groupable) SetAutoGroupMeta(meta *engine.AutoGroupMeta) {
+	obj.meta = meta
+}
+
 // GroupCmp compares two resources and decides if they're suitable for grouping.
 // You'll probably want to override this method when implementing a resource...
 // This base implementation assumes not, so override me!

@@ -34,6 +34,10 @@ type GroupableRes interface {
 	// grouping trait.
 	AutoGroupMeta() *AutoGroupMeta
 
+	// SetAutoGroupMeta lets you set all of the meta params for the
+	// automatic grouping trait in a single call.
+	SetAutoGroupMeta(*AutoGroupMeta)
+
 	// GroupCmp compares two resources and decides if they're suitable for
 	//grouping. This usually needs to be unique to your resource.
 	GroupCmp(res GroupableRes) error

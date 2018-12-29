@@ -40,3 +40,9 @@ func (obj *Edgeable) AutoEdgeMeta() *engine.AutoEdgeMeta {
 	}
 	return obj.meta
 }
+
+// SetAutoEdgeMeta lets you set all of the meta params for the automatic edges
+// trait in a single call.
+func (obj *Edgeable) SetAutoEdgeMeta(meta *engine.AutoEdgeMeta) {
+	obj.meta = meta
+}

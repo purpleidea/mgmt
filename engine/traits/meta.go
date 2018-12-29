@@ -38,3 +38,9 @@ func (obj *Meta) MetaParams() *engine.MetaParams {
 	}
 	return obj.meta
 }
+
+// SetMetaParams lets you set all of the meta params for the resource in a
+// single call.
+func (obj *Meta) SetMetaParams(meta *engine.MetaParams) {
+	obj.meta = meta
+}

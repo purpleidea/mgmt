@@ -31,6 +31,10 @@ type EdgeableRes interface {
 	// trait.
 	AutoEdgeMeta() *AutoEdgeMeta
 
+	// SetAutoEdgeMeta lets you set all of the meta params for the automatic
+	// edges trait in a single call.
+	SetAutoEdgeMeta(*AutoEdgeMeta)
+
 	// UIDs includes all params to make a unique identification of this
 	// object.
 	UIDs() []ResUID // most resources only return one

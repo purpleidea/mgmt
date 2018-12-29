@@ -410,7 +410,7 @@ func (obj *CronRes) unitCheckApply(apply bool) (checkOK bool, err error) {
 func (obj *CronRes) Cmp(r engine.Res) error {
 	res, ok := r.(*CronRes)
 	if !ok {
-		return fmt.Errorf("not a timer res")
+		return fmt.Errorf("res is not the same kind")
 	}
 
 	if obj.State != res.State {

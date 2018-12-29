@@ -108,3 +108,53 @@ func ResCopy(r CopyableRes) (CopyableRes, error) {
 
 	return res, nil
 }
+
+// ResMerge merges a set of resources that are compatible with each other. This
+// is the main entry point for the merging. They must each successfully be able
+// to run AdaptCmp without error.
+func ResMerge(r ...CompatibleRes) (CompatibleRes, error) {
+	if len(r) == 0 {
+		return nil, fmt.Errorf("zero resources given")
+	}
+	if len(r) == 1 {
+		return r[0], nil
+	}
+	if len(r) > 2 {
+		r0 := r[0]
+		r1, err := ResMerge(r[1:]...)
+		if err != nil {
+			return nil, err
+		}
+		return ResMerge(r0, r1)
+	}
+	// now we have r[0] and r[1] to merge here...
+	r0 := r[0]
+	r1 := r[1]
+	if err := AdaptCmp(r0, r1); err != nil {
+		return nil, err
+	}
+
+	res, err := r0.Merge(r1) // resource method of this interface
+	if err != nil {
+		return nil, err
+	}
+
+	// meta should have come over in the copy
+
+	if x, ok := res.(RefreshableRes); ok {
+		x0, ok0 := r0.(RefreshableRes)
+		x1, ok1 := r1.(RefreshableRes)
+		if !ok0 || !ok1 {
+			// programming error
+			panic("refresh interfaces are illogical")
+		}
+
+		x.SetRefresh(x0.Refresh() || x1.Refresh()) // true if either is!
+	}
+
+	// the other traits and metaparams can't be merged easily... so we don't
+	// merge them, and if they were present and differed, and weren't copied
+	// in the ResCopy method, then we should have errored above in AdaptCmp!
+
+	return res, nil
+}

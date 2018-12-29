@@ -24,7 +24,8 @@ import (
 )
 
 // ResCmp compares two resources by checking multiple aspects. This is the main
-// entry point for running all the compare steps on two resource.
+// entry point for running all the compare steps on two resources. This code is
+// very similar to AdaptCmp.
 func ResCmp(r1, r2 Res) error {
 	if r1.Kind() != r2.Kind() {
 		return fmt.Errorf("kind differs")
@@ -35,6 +36,30 @@ func ResCmp(r1, r2 Res) error {
 
 	if err := r1.Cmp(r2); err != nil {
 		return err
+	}
+
+	// TODO: do we need to compare other traits/metaparams?
+
+	m1 := r1.MetaParams()
+	m2 := r2.MetaParams()
+	if (m1 == nil) != (m2 == nil) { // xor
+		return fmt.Errorf("meta params differ")
+	}
+	if m1 != nil && m2 != nil {
+		if err := m1.Cmp(m2); err != nil {
+			return err
+		}
+	}
+
+	r1x, ok1 := r1.(RefreshableRes)
+	r2x, ok2 := r2.(RefreshableRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("refreshable differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		if r1x.Refresh() != r2x.Refresh() {
+			return fmt.Errorf("refresh differs")
+		}
 	}
 
 	// compare meta params for resources with auto edges
@@ -84,6 +109,174 @@ func ResCmp(r1, r2 Res) error {
 					return err
 				}
 			}
+		}
+	}
+
+	r1r, ok1 := r1.(RecvableRes)
+	r2r, ok2 := r2.(RecvableRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("recvable differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		v1 := r1r.Recv()
+		v2 := r2r.Recv()
+
+		if (v1 == nil) != (v2 == nil) { // xor
+			return fmt.Errorf("recv params differ")
+		}
+		if v1 != nil && v2 != nil {
+			// TODO: until we hit this code path, don't allow
+			// comparing anything that has this set to non-zero
+			if len(v1) != 0 || len(v2) != 0 {
+				return fmt.Errorf("recv params exist")
+			}
+		}
+	}
+
+	r1s, ok1 := r1.(SendableRes)
+	r2s, ok2 := r2.(SendableRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("sendable differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		s1 := r1s.Sent()
+		s2 := r2s.Sent()
+
+		if (s1 == nil) != (s2 == nil) { // xor
+			return fmt.Errorf("send params differ")
+		}
+		if s1 != nil && s2 != nil {
+			// TODO: until we hit this code path, don't allow
+			// adapting anything that has this set to non-nil
+			return fmt.Errorf("send params exist")
+		}
+	}
+
+	return nil
+}
+
+// AdaptCmp compares two resources by checking multiple aspects. This is the
+// main entry point for running all the compatible compare steps on two
+// resources. This code is very similar to ResCmp.
+func AdaptCmp(r1, r2 CompatibleRes) error {
+	if r1.Kind() != r2.Kind() {
+		return fmt.Errorf("kind differs")
+	}
+	if r1.Name() != r2.Name() {
+		return fmt.Errorf("name differs")
+	}
+
+	// run `Adapts` instead of `Cmp`
+	if err := r1.Adapts(r2); err != nil {
+		return err
+	}
+
+	// TODO: do we need to compare other traits/metaparams?
+
+	m1 := r1.MetaParams()
+	m2 := r2.MetaParams()
+	if (m1 == nil) != (m2 == nil) { // xor
+		return fmt.Errorf("meta params differ")
+	}
+	if m1 != nil && m2 != nil {
+		if err := m1.Cmp(m2); err != nil {
+			return err
+		}
+	}
+
+	// we don't need to compare refresh, since those can always be merged...
+
+	// compare meta params for resources with auto edges
+	r1e, ok1 := r1.(EdgeableRes)
+	r2e, ok2 := r2.(EdgeableRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("edgeable differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		if r1e.AutoEdgeMeta().Cmp(r2e.AutoEdgeMeta()) != nil {
+			return fmt.Errorf("autoedge differs")
+		}
+	}
+
+	// compare meta params for resources with auto grouping
+	r1g, ok1 := r1.(GroupableRes)
+	r2g, ok2 := r2.(GroupableRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("groupable differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		if r1g.AutoGroupMeta().Cmp(r2g.AutoGroupMeta()) != nil {
+			return fmt.Errorf("autogroup differs")
+		}
+
+		// if resources are grouped, are the groups the same?
+		if i, j := r1g.GetGroup(), r2g.GetGroup(); len(i) != len(j) {
+			return fmt.Errorf("autogroup groups differ")
+		} else if len(i) > 0 { // trick the golinter
+
+			// Sort works with Res, so convert the lists to that
+			iRes := []Res{}
+			for _, r := range i {
+				res := r.(Res)
+				iRes = append(iRes, res)
+			}
+			jRes := []Res{}
+			for _, r := range j {
+				res := r.(Res)
+				jRes = append(jRes, res)
+			}
+
+			ix, jx := Sort(iRes), Sort(jRes) // now sort :)
+			for k := range ix {
+				// compare sub resources
+				// TODO: should we use AdaptCmp here?
+				// TODO: how would they run `Merge` ? (we don't)
+				// this code path will probably not run, because
+				// it is called in the lang before autogrouping!
+				if err := ResCmp(ix[k], jx[k]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	r1r, ok1 := r1.(RecvableRes)
+	r2r, ok2 := r2.(RecvableRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("recvable differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		v1 := r1r.Recv()
+		v2 := r2r.Recv()
+
+		if (v1 == nil) != (v2 == nil) { // xor
+			return fmt.Errorf("recv params differ")
+		}
+		if v1 != nil && v2 != nil {
+			// TODO: until we hit this code path, don't allow
+			// adapting anything that has this set to non-zero
+			if len(v1) != 0 || len(v2) != 0 {
+				return fmt.Errorf("recv params exist")
+			}
+		}
+	}
+
+	r1s, ok1 := r1.(SendableRes)
+	r2s, ok2 := r2.(SendableRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("sendable differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		s1 := r1s.Sent()
+		s2 := r2s.Sent()
+
+		if (s1 == nil) != (s2 == nil) { // xor
+			return fmt.Errorf("send params differ")
+		}
+		if s1 != nil && s2 != nil {
+			// TODO: until we hit this code path, don't allow
+			// adapting anything that has this set to non-nil
+			return fmt.Errorf("send params exist")
 		}
 	}
 

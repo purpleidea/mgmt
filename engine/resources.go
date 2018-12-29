@@ -197,7 +197,9 @@ type Res interface {
 	CheckApply(apply bool) (checkOK bool, err error)
 
 	// Cmp compares itself to another resource and returns an error if they
-	// are not equivalent.
+	// are not equivalent. This is more strict than the Equiv method of the
+	// CompatibleRes interface which allows for equivalent differences if
+	// the have a compatible result in CheckApply.
 	Cmp(Res) error
 }
 
@@ -264,6 +266,30 @@ type CopyableRes interface {
 	// Don't call this directly, use engine.ResCopy instead.
 	// TODO: should we copy any private state or not?
 	Copy() CopyableRes
+}
+
+// CompatibleRes is an interface that a resource can implement to express if a
+// similar variant of itself is functionally equivalent. For example, two `pkg`
+// resources that install `cowsay` could be equivalent if one requests a state
+// of `installed` and the other requests `newest`, since they'll finish with a
+// compatible result. This doesn't need to be behind a metaparam flag or trait,
+// because it is never beneficial to turn it off, unless there is a bug to fix.
+type CompatibleRes interface {
+	//Res // causes "duplicate method" error
+	CopyableRes // we'll need to use the Copy method in the Merge function!
+
+	// Adapts compares itself to another resource and returns an error if
+	// they are not compatibly equivalent. This is less strict than the
+	// default `Cmp` method which should be used for most cases. Don't call
+	// this directly, use engine.AdaptCmp instead.
+	Adapts(CompatibleRes) error
+
+	// Merge returns the combined resource to use when two are equivalent.
+	// This might get called multiple times for N different resources that
+	// need to get merged, and so it should produce a consistent result no
+	// matter which order it is called in. Don't call this directly, use
+	// engine.ResMerge instead.
+	Merge(CompatibleRes) (CompatibleRes, error)
 }
 
 // CollectableRes is an interface for resources that support collection. It is

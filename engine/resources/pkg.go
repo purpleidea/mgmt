@@ -366,6 +366,29 @@ func (obj *PkgRes) Cmp(r engine.Res) error {
 	if obj.State != res.State {
 		return fmt.Errorf("state differs: %s vs %s", obj.State, res.State)
 	}
+
+	return obj.Adapts(res)
+}
+
+// Adapts compares two resources and returns an error if they are not able to be
+// equivalently output compatible.
+func (obj *PkgRes) Adapts(r engine.CompatibleRes) error {
+	res, ok := r.(*PkgRes)
+	if !ok {
+		return fmt.Errorf("res is not the same kind")
+	}
+
+	if obj.State != res.State {
+		e := fmt.Errorf("state differs in an incompatible way: %s vs %s", obj.State, res.State)
+		if obj.State == PkgStateUninstalled || res.State == PkgStateUninstalled {
+			return e
+		}
+		if stateIsVersion(obj.State) || stateIsVersion(res.State) {
+			return e
+		}
+		// one must be installed, and the other must be "newest"
+	}
+
 	if obj.AllowUntrusted != res.AllowUntrusted {
 		return fmt.Errorf("allowuntrusted differs: %t vs %t", obj.AllowUntrusted, res.AllowUntrusted)
 	}
@@ -377,6 +400,50 @@ func (obj *PkgRes) Cmp(r engine.Res) error {
 	}
 
 	return nil
+}
+
+// Merge returns the best equivalent of the two resources. They must satisfy the
+// Adapts test for this to work.
+func (obj *PkgRes) Merge(r engine.CompatibleRes) (engine.CompatibleRes, error) {
+	res, ok := r.(*PkgRes)
+	if !ok {
+		return nil, fmt.Errorf("res is not the same kind")
+	}
+
+	if err := obj.Adapts(r); err != nil {
+		return nil, errwrap.Wrapf(err, "can't merge resources that aren't compatible")
+	}
+
+	// modify the copy, not the original
+	x, err := engine.ResCopy(obj) // don't call our .Copy() directly!
+	if err != nil {
+		return nil, err
+	}
+	result, ok := x.(*PkgRes)
+	if !ok {
+		// bug!
+		return nil, fmt.Errorf("res is not the same kind")
+	}
+
+	// if these two were compatible then if they're not identical, then one
+	// must be PkgStateNewest and the other is PkgStateInstalled, so we
+	// upgrade to the best common denominator
+	if obj.State != res.State {
+		result.State = PkgStateNewest
+	}
+
+	return result, nil
+}
+
+// Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
+// TODO: should this copy internal state?
+func (obj *PkgRes) Copy() engine.CopyableRes {
+	return &PkgRes{
+		State:            obj.State,
+		AllowUntrusted:   obj.AllowUntrusted,
+		AllowNonFree:     obj.AllowNonFree,
+		AllowUnsupported: obj.AllowUnsupported,
+	}
 }
 
 // PkgUID is the main UID struct for PkgRes.

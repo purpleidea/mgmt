@@ -367,6 +367,29 @@ func TestAstFunc0(t *testing.T) {
 	//		graph: graph,
 	//	})
 	//}
+	//	// FIXME: blocked by: https://github.com/purpleidea/mgmt/issues/199
+	//{
+	//	graph, _ := pgraph.NewGraph("g")
+	//	v1, v2 := vtex("str(cowsay)"), vtex("str(cowsay)")
+	//	v3, v4 := vtex("str(installed)"), vtex("str(newest)")
+	//
+	//	graph.AddVertex(&v1, &v2, &v3, &v4)
+	//
+	//	testCases = append(testCases, test{
+	//		name: "duplicate resource",
+	//		code: `
+	//			# these two are allowed because they are compatible
+	//			pkg "cowsay" {
+	//				state => "installed",
+	//			}
+	//			pkg "cowsay" {
+	//				state => "newest",
+	//			}
+	//		`,
+	//		fail: false,
+	//		graph: graph,
+	//	})
+	//}
 	{
 		testCases = append(testCases, test{
 			name: "variable re-declaration and type change error",

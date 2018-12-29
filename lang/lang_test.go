@@ -942,6 +942,76 @@ func TestInterpretMany(t *testing.T) {
 			graph: graph,
 		})
 	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("pkg", "cowsay")
+		x1 := r1.(*resources.PkgRes)
+		x1.State = "newest"
+		graph.AddVertex(x1)
+		// this second vertex gets merged in because they're compatible
+		//r2, _ := engine.NewNamedResource("pkg", "cowsay")
+		//x2 := r2.(*resources.PkgRes)
+		//x2.State = "installed"
+		//graph.AddVertex(x2)
+		testCases = append(testCases, test{
+			name: "duplicate compatible pkg resource",
+			code: `
+			pkg "cowsay" {
+				state => "newest",
+			}
+			pkg "cowsay" {
+				state => "installed",
+			}
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		// this test ensures that edges are preserved appropriately when
+		// two or more compatible resources and merged together in graph
+		graph, _ := pgraph.NewGraph("g")
+		t1, _ := engine.NewNamedResource("test", "t1")
+		t2, _ := engine.NewNamedResource("test", "t2")
+		t3, _ := engine.NewNamedResource("test", "t3")
+		t4, _ := engine.NewNamedResource("test", "t4")
+		r1, _ := engine.NewNamedResource("pkg", "cowsay")
+		x1 := r1.(*resources.PkgRes)
+		x1.State = "newest"
+		graph.AddVertex(t1, t2, t3, t4, x1)
+		// this second vertex gets merged in because they're compatible
+		//r2, _ := engine.NewNamedResource("pkg", "cowsay")
+		//x2 := r2.(*resources.PkgRes)
+		//x2.State = "installed"
+		//graph.AddVertex(x2)
+		graph.AddEdge(x1, t1, &engine.Edge{Name: "pkg[cowsay] -> test[t1]"}) // cowsay -> t1
+		graph.AddEdge(t2, x1, &engine.Edge{Name: "test[t2] -> pkg[cowsay]"}) // t2 -> cowsay
+		graph.AddEdge(x1, t3, &engine.Edge{Name: "pkg[cowsay] -> test[t3]"}) // cowsay -> t3
+		graph.AddEdge(t4, x1, &engine.Edge{Name: "test[t4] -> pkg[cowsay]"}) // t4 -> cowsay
+		testCases = append(testCases, test{
+			name: "duplicate compatible pkg resource with edges",
+			code: `
+			test "t1" {}
+			test "t2" {}
+			test "t3" {}
+			test "t4" {}
+			pkg "cowsay" {
+				state => "newest",
+
+				Before => Test["t1"], # cowsay -> t1
+				Depend => Test["t2"], # t2 -> cowsay
+			}
+			pkg "cowsay" {
+				state => "installed",
+
+				Before => Test["t3"], # cowsay -> t3
+				Depend => Test["t4"], # t4 -> cowsay
+			}
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests

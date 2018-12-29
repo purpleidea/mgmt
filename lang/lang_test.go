@@ -945,48 +945,51 @@ func TestInterpretMany(t *testing.T) {
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
-		name, code, fail, exp := tc.name, tc.code, tc.fail, tc.graph
-
-		if name == "" {
-			name = "<sub test not named>"
-		}
-		if util.StrInList(name, names) {
-			t.Errorf("test #%d: duplicate sub test name of: %s", index, name)
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
 			continue
 		}
-		names = append(names, name)
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
 
 		//if index != 3 { // hack to run a subset (useful for debugging)
 		//if tc.name != "nil" {
 		//	continue
 		//}
 
-		t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			name, code, fail, exp := tc.name, tc.code, tc.fail, tc.graph
 
-		graph, err := runInterpret(t, code)
-		if !fail && err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: runInterpret failed with: %+v", index, err)
-			continue
-		}
-		if fail && err == nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Errorf("test #%d: runInterpret passed, expected fail", index)
-			continue
-		}
+			t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
 
-		if fail { // can't process graph if it's nil
-			continue
-		}
+			graph, err := runInterpret(t, code)
+			if !fail && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: runInterpret failed with: %+v", index, err)
+				return
+			}
+			if fail && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: runInterpret passed, expected fail", index)
+				return
+			}
 
-		t.Logf("test #%d: graph: %+v", index, graph)
-		// TODO: improve: https://github.com/purpleidea/mgmt/issues/199
-		if err := graph.GraphCmp(exp, vertexCmpFn, edgeCmpFn); err != nil {
-			t.Errorf("test #%d: FAIL", index)
-			t.Logf("test #%d:   actual: %v%s", index, graph, fullPrint(graph))
-			t.Logf("test #%d: expected: %v%s", index, exp, fullPrint(exp))
-			t.Errorf("test #%d: cmp error:\n%v", index, err)
-			continue
-		}
+			if fail { // can't process graph if it's nil
+				return
+			}
+
+			t.Logf("test #%d: graph: %+v", index, graph)
+			// TODO: improve: https://github.com/purpleidea/mgmt/issues/199
+			if err := graph.GraphCmp(exp, vertexCmpFn, edgeCmpFn); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Logf("test #%d:   actual: %v%s", index, graph, fullPrint(graph))
+				t.Logf("test #%d: expected: %v%s", index, exp, fullPrint(exp))
+				t.Errorf("test #%d: cmp error:\n%v", index, err)
+				return
+			}
+		})
 	}
 }

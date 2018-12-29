@@ -343,38 +343,26 @@ func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *PkgRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *PkgRes) Compare(r engine.Res) bool {
 	// we can only compare PkgRes to others of the same resource kind
 	res, ok := r.(*PkgRes)
 	if !ok {
-		return false
+		return fmt.Errorf("res is not the same kind")
 	}
-
-	//	if obj.Name != res.Name {
-	//		return false
-	//	}
 
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("state differs: %s vs %s", obj.State, res.State)
 	}
 	if obj.AllowUntrusted != res.AllowUntrusted {
-		return false
+		return fmt.Errorf("allowuntrusted differs: %t vs %t", obj.AllowUntrusted, res.AllowUntrusted)
 	}
 	if obj.AllowNonFree != res.AllowNonFree {
-		return false
+		return fmt.Errorf("allownonfree differs: %t vs %t", obj.AllowNonFree, res.AllowNonFree)
 	}
 	if obj.AllowUnsupported != res.AllowUnsupported {
-		return false
+		return fmt.Errorf("allowunsupported differs: %t vs %t", obj.AllowUnsupported, res.AllowUnsupported)
 	}
 
-	return true
+	return nil
 }
 
 // PkgUID is the main UID struct for PkgRes.

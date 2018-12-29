@@ -58,23 +58,51 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 		}
 
 		if r, exists := lookup[kind][name]; exists { // found same name
+			// if the resources support the compatibility API, then
+			// we can attempt to merge them intelligently...
+			r1, ok1 := r.(engine.CompatibleRes)
+			r2, ok2 := res.(engine.CompatibleRes)
+			if ok1 && ok2 {
+				if err := engine.AdaptCmp(r1, r2); err != nil {
+					// TODO: print a diff of the two resources
+					return nil, errwrap.Wrapf(err, "incompatible duplicate resource `%s` found", res)
+				}
+				merged, err := engine.ResMerge(r1, r2)
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not merge duplicate resources")
+				}
+
+				lookup[kind][name] = merged
+				// they match here, we don't need to test below!
+				continue
+			}
+
 			if err := engine.ResCmp(r, res); err != nil {
 				// TODO: print a diff of the two resources
-				return nil, errwrap.Wrapf(err, "incompatible duplicate resource `%s` found", res)
+				return nil, errwrap.Wrapf(err, "inequivalent duplicate resource `%s` found", res)
 			}
-			// more than one compatible resource exists... we allow
-			// duplicates, if they're not going to conflict...
+			// more than one identical resource exists. we can allow
+			// duplicates, if they're not going to conflict... since
+			// it was identical, we leave the earlier version in the
+			// graph since they're exactly equivalent anyways.
 			// TODO: does it matter which one we add to the graph?
 			// currently we add the first one that was found...
 			continue
 		}
 		lookup[kind][name] = res // add to temporary lookup table
-		graph.AddVertex(res)
+		//graph.AddVertex(res) // do this below once this table is final
+	}
+
+	// ensure all the vertices exist...
+	for _, m := range lookup {
+		for _, res := range m {
+			graph.AddVertex(res)
+		}
 	}
 
 	for _, e := range output.Edges {
 		var v1, v2 engine.Res
-		var exists bool // = true
+		var exists bool
 		var m map[string]engine.Res
 		var notify = e.Notify
 

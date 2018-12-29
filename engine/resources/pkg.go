@@ -34,6 +34,20 @@ func init() {
 	engine.RegisterResource("pkg", func() engine.Res { return &PkgRes{} })
 }
 
+const (
+	// PkgStateInstalled is the string that represents that the package
+	// should be installed.
+	PkgStateInstalled = "installed"
+
+	// PkgStateUninstalled is the string that represents that the package
+	// should be uninstalled.
+	PkgStateUninstalled = "uninstalled"
+
+	// PkgStateNewest is the string that represents that the package should
+	// be installed in the newest available version.
+	PkgStateNewest = "newest"
+)
+
 // PkgRes is a package resource for packagekit.
 type PkgRes struct {
 	traits.Base // add the base methods without re-implementation
@@ -53,7 +67,7 @@ type PkgRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *PkgRes) Default() engine.Res {
 	return &PkgRes{
-		State: "installed", // i think this is preferable to "latest"
+		State: PkgStateInstalled, // i think this is preferable to "latest"
 	}
 }
 
@@ -190,7 +204,7 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 	var filter uint64                      // initializes at the "zero" value of 0
 	filter += packagekit.PkFilterEnumArch  // always search in our arch (optional!)
 	// we're requesting latest version, or to narrow down install choices!
-	if obj.State == "newest" || obj.State == "installed" {
+	if obj.State == PkgStateNewest || obj.State == PkgStateInstalled {
 		// if we add this, we'll still see older packages if installed
 		// this is an optimization, and is *optional*, this logic is
 		// handled inside of PackagesToPackageIDs now automatically!
@@ -283,13 +297,13 @@ func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
 	data, _ := result[obj.Name()] // if above didn't error, we won't either!
 	validState := util.BoolMapTrue(util.BoolMapValues(states))
 
-	// obj.State == "installed" || "uninstalled" || "newest" || "4.2-1.fc23"
+	// obj.State == PkgStateInstalled || PkgStateUninstalled || PkgStateNewest || "4.2-1.fc23"
 	switch obj.State {
-	case "installed":
+	case PkgStateInstalled:
 		fallthrough
-	case "uninstalled":
+	case PkgStateUninstalled:
 		fallthrough
-	case "newest":
+	case PkgStateNewest:
 		if validState {
 			return true, nil // state is correct, exit!
 		}
@@ -321,15 +335,15 @@ func (obj *PkgRes) CheckApply(apply bool) (checkOK bool, err error) {
 	// apply correct state!
 	obj.init.Logf("Set(%s): %s...", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	switch obj.State {
-	case "uninstalled": // run remove
+	case PkgStateUninstalled: // run remove
 		// NOTE: packageID is different than when installed, because now
-		// it has the "installed" flag added to the data portion if it!!
+		// it has the "installed" flag added to the data portion of it!!
 		err = bus.RemovePackages(packageIDs, transactionFlags)
 
-	case "newest": // TODO: isn't this the same operation as install, below?
+	case PkgStateNewest: // TODO: isn't this the same operation as install, below?
 		err = bus.UpdatePackages(packageIDs, transactionFlags)
 
-	case "installed":
+	case PkgStateInstalled:
 		fallthrough // same method as for "set specific version", below
 	default: // version string
 		err = bus.InstallPackages(packageIDs, transactionFlags)
@@ -540,8 +554,8 @@ func (obj *PkgRes) GroupCmp(r engine.GroupableRes) error {
 	if !ok {
 		return fmt.Errorf("resource is not the same kind")
 	}
-	objStateIsVersion := (obj.State != "installed" && obj.State != "uninstalled" && obj.State != "newest") // must be a ver. string
-	resStateIsVersion := (res.State != "installed" && res.State != "uninstalled" && res.State != "newest") // must be a ver. string
+	objStateIsVersion := (obj.State != PkgStateInstalled && obj.State != PkgStateUninstalled && obj.State != PkgStateNewest) // must be a ver. string
+	resStateIsVersion := (res.State != PkgStateInstalled && res.State != PkgStateUninstalled && res.State != PkgStateNewest) // must be a ver. string
 	if objStateIsVersion || resStateIsVersion {
 		// can't merge specific version checks atm
 		return fmt.Errorf("resource uses a version string")

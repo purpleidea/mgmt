@@ -767,6 +767,13 @@ func (obj *StmtResEdge) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResEdge) Init(data *interfaces.Data) error {
+	if obj.Property == "" {
+		return fmt.Errorf("empty property")
+	}
+	if obj.Property != EdgeNotify && obj.Property != EdgeBefore && obj.Property != EdgeListen && obj.Property != EdgeDepend {
+		return fmt.Errorf("invalid property: `%s`", obj.Property)
+	}
+
 	if obj.Condition != nil {
 		if err := obj.Condition.Init(data); err != nil {
 			return err

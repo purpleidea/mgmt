@@ -255,6 +255,17 @@ type InterruptableRes interface {
 	Interrupt() error
 }
 
+// CopyableRes is an interface that a resource can implement if we want to be
+// able to copy the resource to build another one.
+type CopyableRes interface {
+	Res
+
+	// Copy returns a new resource which has a copy of the public data.
+	// Don't call this directly, use engine.ResCopy instead.
+	// TODO: should we copy any private state or not?
+	Copy() CopyableRes
+}
+
 // CollectableRes is an interface for resources that support collection. It is
 // currently temporary until a proper API for all resources is invented.
 type CollectableRes interface {

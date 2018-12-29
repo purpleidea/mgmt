@@ -554,9 +554,8 @@ func (obj *PkgRes) GroupCmp(r engine.GroupableRes) error {
 	if !ok {
 		return fmt.Errorf("resource is not the same kind")
 	}
-	objStateIsVersion := (obj.State != PkgStateInstalled && obj.State != PkgStateUninstalled && obj.State != PkgStateNewest) // must be a ver. string
-	resStateIsVersion := (res.State != PkgStateInstalled && res.State != PkgStateUninstalled && res.State != PkgStateNewest) // must be a ver. string
-	if objStateIsVersion || resStateIsVersion {
+	// TODO: what should we do about the empty string?
+	if stateIsVersion(obj.State) || stateIsVersion(res.State) {
 		// can't merge specific version checks atm
 		return fmt.Errorf("resource uses a version string")
 	}
@@ -604,4 +603,11 @@ func ReturnSvcInFileList(fileList []string) []string {
 		}
 	}
 	return result
+}
+
+// stateIsVersion is a simple test to see if the state string is an existing
+// well-known flag.
+// TODO: what should we do about the empty string?
+func stateIsVersion(state string) bool {
+	return (state != PkgStateInstalled && state != PkgStateUninstalled && state != PkgStateNewest) // must be a ver. string
 }

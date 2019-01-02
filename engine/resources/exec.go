@@ -118,7 +118,7 @@ func (obj *ExecRes) Watch() error {
 			//cmdName = path.Join(d, cmdName)
 			cmdArgs = split[1:]
 		} else {
-			cmdName = obj.Shell // usually bash, or sh
+			cmdName = obj.WatchShell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.WatchCmd}
 		}
 		cmd := exec.Command(cmdName, cmdArgs...)

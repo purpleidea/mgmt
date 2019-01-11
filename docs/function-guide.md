@@ -10,7 +10,7 @@ knowledge is assumed.
 
 ## Theory
 
-Functions in `mgmt` are similar to functions in other languages, however they
+Functions in `mgmt` are similar to functions in other languages, however, they
 also have a [reactive](https://en.wikipedia.org/wiki/Functional_reactive_programming)
 component. Our functions can produce events over time, and there are different
 ways to write functions. For some background on this design, please read the
@@ -20,7 +20,7 @@ on the subject.
 ## Native Functions
 
 Native functions are functions which are implemented in the mgmt language
-itself. These are currently not available yet, but are coming soon. Stay tuned!
+itself. These are currently not available yet but are coming soon. Stay tuned!
 
 ## Simple Function API
 
@@ -33,7 +33,7 @@ and are also available for use anywhere inside mgmt programs.
 
 You'll need some basic knowledge of using the [`types`](https://github.com/purpleidea/mgmt/tree/master/lang/types)
 library which is included with mgmt. This library lets you interact with the
-available types and values in the mgmt language. It is very easy to use, and
+available types and values in the mgmt language. It is very easy to use and
 should be fairly intuitive. Most of what you'll need to know can be inferred
 from looking at example code.
 
@@ -55,7 +55,7 @@ import (
 
 // you must register your functions in init when the program starts up
 func init() {
-	// Example function that squares an int and prints out answer as an str.
+	// Example function that squares an int and prints out the answer as a str.
 	Register("talkingsquare", &types.FuncValue{
 		T: types.NewType("func(a int) str"), // declare the signature
 		V: func(input []types.Value) (types.Value, error) {
@@ -70,7 +70,7 @@ func init() {
 ```
 
 This simple function accepts one `int` as input, and returns one `str`.
-Functions can have zero or more inputs, and must have exactly one output. You
+Functions can have zero or more inputs and must have exactly one output. You
 must be sure to use the `types` library correctly, since if you try and access
 an input which should not exist (eg: `input[2]`, when there are only two
 that are expected), then you will cause a panic. If you have declared that a
@@ -78,19 +78,18 @@ particular argument is an `int` but you try to read it with `.Bool()` you will
 also cause a panic. Lastly, make sure that you return a value in the correct
 type or you will also cause a panic!
 
-If anything goes wrong, you can return an error, however this will cause the
+If anything goes wrong, you can return an error, however, this will cause the
 mgmt engine to shutdown. It should be seen as the equivalent to calling a
-`panic()`, however it is safer because it brings the engine down cleanly.
+`panic()`, however, it is safer because it brings the engine down cleanly.
 Ideally, your functions should never need to error. You should never cause a
-real `panic()`, since this could have negative consequences to the system.
+real `panic()` since this could have negative consequences to the system.
 
 ## Simple Polymorphic Function API
 
 Most functions should be implemented using the simple function API. If they need
 to have multiple polymorphic forms under the same name, then you can use this
 API. This is useful for situations when it would be unhelpful to name the
-functions differently, or when the number of possible signatures for the
-function would be infinite.
+functions differently, or when the number of possible signatures for the function would be infinite.
 
 The canonical example of this is the `len` function which returns the number of
 elements in either a `list` or a `map`. Since lists and maps are two different
@@ -102,7 +101,7 @@ possible input types for such a `len` function is infinite.
 
 Another downside to implementing your functions with this API is that they will
 *not* be made available for use inside templates. This is a limitation of the
-`golang` template library. In the future if this limitation proves to be
+`golang` template library. In the future, if this limitation proves to be
 significantly annoying, we might consider writing our own template library.
 
 As with the simple, non-polymorphic API, you can only implement [pure](https://en.wikipedia.org/wiki/Pure_function)
@@ -114,7 +113,7 @@ To implement a function, you'll need to create a file in
 The function should be implemented as a list of `FuncValue`'s in our type
 system. It is then registered with the engine during `init()`. You may also use
 the `variant` type in your type definitions. This special type will never be
-seen inside a running program, and will get converted to a concrete type if a
+seen inside a running program and will get converted to a concrete type if a
 suitable match to this signature can be found. Be warned that signatures which
 contain too many variants, or which are very general, might be hard for the
 compiler to match, and ambiguous type graphs make for user compiler errors.
@@ -219,7 +218,7 @@ Init(init *interfaces.Init) error
 
 This is called to initialize the function. If something goes wrong, it should
 return an error. It is passed a struct that contains all the important
-information and poiinters that it might need to work with throughout its
+information and pointers that it might need to work with throughout its
 lifetime. As a result, it will need to save a copy to that pointer for future
 use in the other methods.
 
@@ -266,7 +265,7 @@ it values on the `input` channel. It will only send a complete set of input
 values. You should send a value to the output channel when you have decided that
 one should be produced. Make sure to only use input values of the expected type
 as declared in the `Info` struct, and send values of the similarly declared
-appropriate return type. Failure to do so will may result in a panic and
+appropriate return type. Failure to do so will result in a panic and
 sadness.
 
 #### Example
@@ -306,7 +305,7 @@ func (obj *FooFunc) Stream() error {
 }
 ```
 
-As you can see, we read our inputs from the `input` channel, and write to the
+As you can see, we read our inputs from the `input` channel and write to the
 `output` channel. Our code is careful to never block or deadlock, and can always
 exit if a close signal is requested. It also cleans up after itself by closing
 the `output` channel when it is done using it. This is done easily with `defer`.
@@ -361,7 +360,7 @@ funcs.ModuleRegister(moduleName, "cos", func() interfaces.Func { return &CosFunc
 
 Composite functions are functions which import one or more existing functions.
 This is useful to prevent code duplication in higher level function scenarios.
-Unfortunately no further documentation about this subject has been written. To
+Unfortunately, no further documentation about this subject has been written. To
 expand this section, please send a patch! Please contact us if you'd like to
 work on a function that uses this feature, or to add it to an existing one!
 We don't expect this functionality to be particularly useful or common, as it's
@@ -377,7 +376,7 @@ might be different ways you would want to call `printf`, such as:
 `printf("the %s is %d", "answer", 42)` or `printf("3 * 2 = %d", 3 * 2)`. Since
 you couldn't implement the infinite number of possible signatures, this API lets
 you write code which can be coerced into different forms. This makes
-implementing what would appear to be generic or polymorphic, instead something
+implementing what would appear to be generic or polymorphic, instead of something
 that is actually static and that still has the static type safety properties
 that were guaranteed by the mgmt language.
 
@@ -394,7 +393,7 @@ respond by commit with the answer.)
 
 Probably not. You must assume that multiple copies of your function may be used
 at the same time. If they require a global variable, it's likely this won't
-work. Instead it's probably better to use a struct local variable if you need to
+work. Instead, it's probably better to use a struct local variable if you need to
 store some state.
 
 There might be some rare instances where a global would be acceptable, but if
@@ -444,3 +443,4 @@ Additional blog posts, videos and other material [is available!](https://github.
 If you have any ideas for API changes or other improvements to function writing,
 please let us know! We're still pre 1.0 and pre 0.1 and happy to break API in
 order to get it right!
+

@@ -12,7 +12,7 @@ dist: xenial
 apt:
   update: true
 before_install:
-  # print some debug issue to help catch the constant travis regressions
+  # print some debug information to help catch the constant travis regressions
   - if [ -e /etc/apt/sources.list.d/ ]; then sudo ls -l /etc/apt/sources.list.d/; fi
   # workaround broken travis NO_PUBKEY errors
   - if [ -e /etc/apt/sources.list.d/rabbitmq_rabbitmq-server.list ]; then sudo rm -f /etc/apt/sources.list.d/rabbitmq_rabbitmq-server.list; fi

@@ -1079,6 +1079,109 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t1",
+					},
+					Contents: []StmtResContents{
+						&StmtResMeta{
+							Property: "noop",
+							MetaExpr: &ExprBool{
+								V: true,
+							},
+						},
+						&StmtResMeta{
+							Property: "delay",
+							MetaExpr: &ExprInt{
+								V: 42,
+							},
+							Condition: &ExprBool{
+								V: true,
+							},
+						},
+					},
+				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t2",
+					},
+					Contents: []StmtResContents{
+						&StmtResMeta{
+							Property: "limit",
+							MetaExpr: &ExprFloat{
+								V: 0.45,
+							},
+						},
+						&StmtResMeta{
+							Property: "burst",
+							MetaExpr: &ExprInt{
+								V: 4,
+							},
+						},
+					},
+				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t3",
+					},
+					Contents: []StmtResContents{
+						&StmtResMeta{
+							Property: "noop",
+							MetaExpr: &ExprBool{
+								V: true,
+							},
+						},
+						&StmtResMeta{
+							Property: "meta",
+							MetaExpr: &ExprStruct{
+								Fields: []*ExprStructField{
+									{Name: "poll", Value: &ExprInt{V: 5}},
+									{Name: "retry", Value: &ExprInt{V: 3}},
+									{
+										Name: "sema",
+										Value: &ExprList{
+											Elements: []interfaces.Expr{
+												&ExprStr{V: "foo:1"},
+												&ExprStr{V: "bar:3"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				}},
+		}
+		testCases = append(testCases, test{
+			name: "res meta stmt",
+			code: `
+			test "t1" {
+				Meta:noop => true,
+				Meta:delay => true ?: 42,
+			}
+			test "t2" {
+				Meta:limit => 0.45,
+				Meta:burst => 4,
+			}
+			test "t3" {
+				Meta:noop => true, # meta params can be combined
+				Meta => struct{
+					poll => 5,
+					retry => 3,
+					sema => ["foo:1", "bar:3",],
+				},
+			}
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
+	{
 		testCases = append(testCases, test{
 			name: "parser set type incompatibility str",
 			code: `

@@ -214,6 +214,50 @@ it evaluates to `true`, then the parameter will be used. If no `elvis` operator
 is specified, then the parameter value will also be used. If the parameter is
 not specified, then it will obviously not be used.
 
+Resources may specify meta parameters. To do so, you must add them as you would
+a regular parameter, except that they start with `Meta` and are capitalized. Eg:
+
+```mcl
+file "/tmp/f1" {
+	content => "hello!\n",
+
+	Meta:noop => true,
+	Meta:delay => $b ?: 42,
+}
+```
+
+As you can see, they also support the elvis operator, and you can add as many as
+you like. While it is not recommended to add the same meta parameter more than
+once, it does not currently cause an error, and even though the result of doing
+so is officially undefined, it will currently take the last specified value.
+
+You may also specify a single meta parameter struct. This is useful if you'd
+like to reuse a value, or build a combined value programmatically. For example:
+
+```mcl
+file "/tmp/f1" {
+	content => "hello!\n",
+
+	Meta => $b ?: struct{
+		noop => false,
+		retry => -1,
+		delay => 0,
+		poll => 5,
+		limit => 4.2,
+		burst => 3,
+		sema => ["foo:1", "bar:3",],
+	},
+}
+```
+
+Remember that the top-level `Meta` field supports the elvis operator, while the
+individual struct fields in the struct type do not. This is to be expected, but
+since they are syntactically similar, it is worth mentioning to avoid confusion.
+
+Please note that at the moment, you must specify a full metaparams struct, since
+partial struct types are currently not supported in the language. Patches are
+welcome if you'd like to add this tricky feature!
+
 Resources may also declare edges internally. The edges may point to or from
 another resource, and may optionally include a notification. The four properties
 are: `Before`, `Depend`, `Notify` and `Listen`. The first two represent normal

@@ -963,6 +963,44 @@ func TestAstInterpret0(t *testing.T) {
 			graph: graph,
 		})
 	}
+	{
+		graph, _ := pgraph.NewGraph("g")
+		t1, _ := engine.NewNamedResource("test", "t1")
+		x := t1.(*resources.TestRes)
+		stringptr := "this is meta"
+		x.StringPtr = &stringptr
+		m := &engine.MetaParams{
+			Noop:  true, // overwritten
+			Retry: -1,
+			Delay: 0,
+			Poll:  5,
+			Limit: 4.2,
+			Burst: 3,
+			Sema:  []string{"foo:1", "bar:3"},
+		}
+		x.SetMetaParams(m)
+		graph.AddVertex(t1)
+		testCases = append(testCases, test{
+			name: "resource with meta params",
+			code: `
+				test "t1" {
+					stringptr => "this is meta",
+
+					Meta => struct{
+						noop => false,
+						retry => -1,
+						delay => 0,
+						poll => 5,
+						limit => 4.2,
+						burst => 3,
+						sema => ["foo:1", "bar:3",],
+					},
+					Meta:noop => true,
+				}
+			`,
+			graph: graph,
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests

@@ -69,6 +69,7 @@ func init() {
 	resContents []StmtResContents // interface
 	resField    *StmtResField
 	resEdge     *StmtResEdge
+	resMeta     *StmtResMeta
 
 	edgeHalfList []*StmtEdgeHalf
 	edgeHalf     *StmtEdgeHalf
@@ -945,6 +946,26 @@ resource_body:
 		posLast(yylex, yyDollar) // our pos
 		$$.resContents = append($1.resContents, $2.resEdge)
 	}
+|	resource_body resource_meta
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resContents = append($1.resContents, $2.resMeta)
+	}
+|	resource_body conditional_resource_meta
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resContents = append($1.resContents, $2.resMeta)
+	}
+|	resource_body resource_meta_struct
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resContents = append($1.resContents, $2.resMeta)
+	}
+|	resource_body conditional_resource_meta_struct
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.resContents = append($1.resContents, $2.resMeta)
+	}
 ;
 resource_field:
 	IDENTIFIER ROCKET expr COMMA
@@ -987,6 +1008,68 @@ conditional_resource_edge:
 		$$.resEdge = &StmtResEdge{
 			Property:  $1.str,
 			EdgeHalf:  $5.edgeHalf,
+			Condition: $3.expr,
+		}
+	}
+;
+resource_meta:
+	// Meta:noop => true,
+	CAPITALIZED_IDENTIFIER COLON IDENTIFIER ROCKET expr COMMA
+	{
+		posLast(yylex, yyDollar) // our pos
+		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+			// this will ultimately cause a parser error to occur...
+			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
+		}
+		$$.resMeta = &StmtResMeta{
+			Property: $3.str,
+			MetaExpr: $5.expr,
+		}
+	}
+;
+conditional_resource_meta:
+	// Meta:limit => $present ?: 4,
+	CAPITALIZED_IDENTIFIER COLON IDENTIFIER ROCKET expr ELVIS expr COMMA
+	{
+		posLast(yylex, yyDollar) // our pos
+		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+			// this will ultimately cause a parser error to occur...
+			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
+		}
+		$$.resMeta = &StmtResMeta{
+			Property:  $3.str,
+			MetaExpr:  $7.expr,
+			Condition: $5.expr,
+		}
+	}
+;
+resource_meta_struct:
+	// Meta => struct{meta => true, retry => 3,},
+	CAPITALIZED_IDENTIFIER ROCKET expr COMMA
+	{
+		posLast(yylex, yyDollar) // our pos
+		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+			// this will ultimately cause a parser error to occur...
+			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
+		}
+		$$.resMeta = &StmtResMeta{
+			Property: $1.str,
+			MetaExpr: $3.expr,
+		}
+	}
+;
+conditional_resource_meta_struct:
+	// Meta => $present ?: struct{poll => 60, sema => ["foo:1", "bar:3",],},
+	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS expr COMMA
+	{
+		posLast(yylex, yyDollar) // our pos
+		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+			// this will ultimately cause a parser error to occur...
+			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
+		}
+		$$.resMeta = &StmtResMeta{
+			Property:  $1.str,
+			MetaExpr:  $5.expr,
 			Condition: $3.expr,
 		}
 	}

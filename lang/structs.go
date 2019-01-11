@@ -36,6 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/util"
 
 	errwrap "github.com/pkg/errors"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -54,6 +55,9 @@ const (
 	// EdgeDepend declares an edge a <- b, such that no notification occurs.
 	// This is most similar to "require" in Puppet.
 	EdgeDepend = "depend"
+
+	// MetaField is the prefix used to specify a meta parameter for the res.
+	MetaField = "meta"
 
 	// AllowUserDefinedPolyFunc specifies if we allow user-defined
 	// polymorphic functions or not. At the moment this is not implemented.
@@ -302,7 +306,6 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output. In
 // the case of this resource statement, this is definitely the case.
-// XXX: Add MetaParams as a simple meta field with a struct of the right type...
 func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	nameValue, err := obj.Name.Value()
 	if err != nil {
@@ -447,6 +450,12 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 		return nil, errwrap.Wrapf(err, "error building edges")
 	}
 
+	metaparams, err := obj.metaparams()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error building meta params")
+	}
+	res.SetMetaParams(metaparams)
+
 	return &interfaces.Output{
 		Resources: []engine.Res{res},
 		Edges:     edges,
@@ -563,6 +572,115 @@ func (obj *StmtRes) edges() ([]*interfaces.Edge, error) {
 	}
 
 	return edges, nil
+}
+
+// metaparams is a helper function to generate the metaparams that come from the
+// resource.
+func (obj *StmtRes) metaparams() (*engine.MetaParams, error) {
+	meta := engine.DefaultMetaParams.Copy() // defaults
+
+	for _, line := range obj.Contents {
+		x, ok := line.(*StmtResMeta)
+		if !ok {
+			continue
+		}
+
+		if x.Condition != nil {
+			b, err := x.Condition.Value()
+			if err != nil {
+				return nil, err
+			}
+
+			if !b.Bool() { // if value exists, and is false, skip it
+				continue
+			}
+		}
+
+		v, err := x.MetaExpr.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		switch p := strings.ToLower(x.Property); p {
+		// TODO: we could add these fields dynamically if we were fancy!
+		case "noop":
+			meta.Noop = v.Bool() // must not panic
+
+		case "retry":
+			x := v.Int() // must not panic
+			// TODO: check that it doesn't overflow
+			meta.Retry = int16(x)
+
+		case "delay":
+			x := v.Int() // must not panic
+			// TODO: check that it isn't signed
+			meta.Delay = uint64(x)
+
+		case "poll":
+			x := v.Int() // must not panic
+			// TODO: check that it doesn't overflow and isn't signed
+			meta.Poll = uint32(x)
+
+		case "limit": // rate.Limit
+			x := v.Float() // must not panic
+			meta.Limit = rate.Limit(x)
+
+		case "burst":
+			x := v.Int() // must not panic
+			// TODO: check that it doesn't overflow
+			meta.Burst = int(x)
+
+		case "sema": // []string
+			values := []string{}
+			for _, x := range v.List() { // must not panic
+				s := x.Str() // must not panic
+				values = append(values, s)
+			}
+			meta.Sema = values
+
+		case MetaField:
+			if val, exists := v.Struct()["noop"]; exists {
+				meta.Noop = val.Bool() // must not panic
+			}
+			if val, exists := v.Struct()["retry"]; exists {
+				x := val.Int() // must not panic
+				// TODO: check that it doesn't overflow
+				meta.Retry = int16(x)
+			}
+			if val, exists := v.Struct()["delay"]; exists {
+				x := val.Int() // must not panic
+				// TODO: check that it isn't signed
+				meta.Delay = uint64(x)
+			}
+			if val, exists := v.Struct()["poll"]; exists {
+				x := val.Int() // must not panic
+				// TODO: check that it doesn't overflow and isn't signed
+				meta.Poll = uint32(x)
+			}
+			if val, exists := v.Struct()["limit"]; exists {
+				x := val.Float() // must not panic
+				meta.Limit = rate.Limit(x)
+			}
+			if val, exists := v.Struct()["burst"]; exists {
+				x := val.Int() // must not panic
+				// TODO: check that it doesn't overflow
+				meta.Burst = int(x)
+			}
+			if val, exists := v.Struct()["sema"]; exists {
+				values := []string{}
+				for _, x := range val.List() { // must not panic
+					s := x.Str() // must not panic
+					values = append(values, s)
+				}
+				meta.Sema = values
+			}
+
+		default:
+			return nil, fmt.Errorf("unknown property: %s", p)
+		}
+	}
+
+	return meta, nil
 }
 
 // StmtResContents is the interface that is met by the resource contents. Look
@@ -868,6 +986,208 @@ func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
 	}
 
 	g, err := obj.EdgeHalf.Graph()
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, err := obj.Condition.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// StmtResMeta represents a single meta value in the parsed resource
+// representation. It can also contain a struct that contains one or more meta
+// parameters. If it contains such a struct, then the `Property` field contains
+// the string found in the MetaField constant, otherwise this field will
+// correspond to the particular meta parameter specified. This does not satisfy
+// the Stmt interface.
+type StmtResMeta struct {
+	Property  string // TODO: iota constant instead?
+	MetaExpr  interfaces.Expr
+	Condition interfaces.Expr // the value will be used if nil or true
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtResMeta) Apply(fn func(interfaces.Node) error) error {
+	if obj.Condition != nil {
+		if err := obj.Condition.Apply(fn); err != nil {
+			return err
+		}
+	}
+	if err := obj.MetaExpr.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtResMeta) Init(data *interfaces.Data) error {
+	if obj.Property == "" {
+		return fmt.Errorf("empty property")
+	}
+
+	switch p := strings.ToLower(obj.Property); p {
+	// TODO: we could add these fields dynamically if we were fancy!
+	case "noop":
+	case "retry":
+	case "delay":
+	case "poll":
+	case "limit":
+	case "burst":
+	case "sema":
+	case MetaField:
+
+	default:
+		return fmt.Errorf("invalid property: `%s`", obj.Property)
+	}
+
+	if obj.Condition != nil {
+		if err := obj.Condition.Init(data); err != nil {
+			return err
+		}
+	}
+	return obj.MetaExpr.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This interpolate is different It is different from the interpolate found in
+// the Expr and Stmt interfaces because it returns a different type as output.
+func (obj *StmtResMeta) Interpolate() (StmtResContents, error) {
+	interpolated, err := obj.MetaExpr.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+	var condition interfaces.Expr
+	if obj.Condition != nil {
+		condition, err = obj.Condition.Interpolate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &StmtResMeta{
+		Property:  obj.Property,
+		MetaExpr:  interpolated,
+		Condition: condition,
+	}, nil
+}
+
+// SetScope stores the scope for later use in this resource and it's children,
+// which it propagates this downwards to.
+func (obj *StmtResMeta) SetScope(scope *interfaces.Scope) error {
+	if err := obj.MetaExpr.SetScope(scope); err != nil {
+		return err
+	}
+	if obj.Condition != nil {
+		if err := obj.Condition.SetScope(scope); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller. It is different from the Unify found in the Expr
+// and Stmt interfaces because it adds an input parameter.
+// XXX: Allow specifying partial meta param structs and unify the subset type.
+// XXX: The resource fields have the same limitation with field structs.
+func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+
+	invars, err := obj.MetaExpr.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, invars...)
+
+	// conditional expression might have some children invariants to share
+	if obj.Condition != nil {
+		condition, err := obj.Condition.Unify()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, condition...)
+
+		// the condition must ultimately be a boolean
+		conditionInvar := &unification.EqualsInvariant{
+			Expr: obj.Condition,
+			Type: types.TypeBool,
+		}
+		invariants = append(invariants, conditionInvar)
+	}
+
+	// add additional invariants based on what's in obj.Property !!!
+	var typ *types.Type
+	switch p := strings.ToLower(obj.Property); p {
+	// TODO: we could add these fields dynamically if we were fancy!
+	case "noop":
+		typ = types.TypeBool
+
+	case "retry":
+		typ = types.TypeInt
+
+	case "delay":
+		typ = types.TypeInt
+
+	case "poll":
+		typ = types.TypeInt
+
+	case "limit": // rate.Limit
+		typ = types.TypeFloat
+
+	case "burst":
+		typ = types.TypeInt
+
+	case "sema":
+		typ = types.NewType("[]str")
+
+	case MetaField:
+		// FIXME: allow partial subsets of this struct, and in any order
+		// FIXME: we might need an updated unification engine to do this
+		typ = types.NewType("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str}")
+
+	default:
+		return nil, fmt.Errorf("unknown property: %s", p)
+	}
+	invar := &unification.EqualsInvariant{
+		Expr: obj.MetaExpr,
+		Type: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. It is interesting to note that nothing directly adds an edge
+// to the resources created, but rather, once all the values (expressions) with
+// no outgoing edges have produced at least a single value, then the resources
+// know they're able to be built.
+func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resmeta")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.MetaExpr.Graph()
 	if err != nil {
 		return nil, err
 	}

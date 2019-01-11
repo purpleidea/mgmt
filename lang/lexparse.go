@@ -52,6 +52,7 @@ const (
 	ErrLexerFloatOverflow     = interfaces.Error("float: overflow")
 	ErrParseError             = interfaces.Error("parser")
 	ErrParseSetType           = interfaces.Error("can't set return type in parser")
+	ErrParseResFieldInvalid   = interfaces.Error("can't use unknown resource field")
 	ErrParseAdditionalEquals  = interfaces.Error(errstrParseAdditionalEquals)
 	ErrParseExpectingComma    = interfaces.Error(errstrParseExpectingComma)
 )

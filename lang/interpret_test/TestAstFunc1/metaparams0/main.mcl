@@ -1,0 +1,20 @@
+import "fmt"
+
+$b = true
+
+test "greeting" {
+	anotherstr => fmt.printf("hello world"),
+
+	Meta => $b ?: struct{
+		noop => false,
+		retry => -1,
+		delay => 0,
+		poll => 5,
+		limit => 4.2,
+		burst => 3,
+		sema => ["foo:1", "bar:3",],
+	},
+	Meta:noop => false,
+	Meta:noop => true,	# duplicates allowed atm, but not recommended!
+	Meta:poll => $b ?: 42,
+}

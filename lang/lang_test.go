@@ -75,6 +75,11 @@ func vertexCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
 		return false, nil
 	}
 
+	m1, m2 := r1.MetaParams(), r2.MetaParams()
+	if err := m1.Cmp(m2); err != nil {
+		return false, nil
+	}
+
 	return v1.String() == v2.String(), nil
 }
 

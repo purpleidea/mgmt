@@ -30,17 +30,18 @@ function run-test()
 base=$(go list .)
 if [[ "$@" = *"--integration"* ]]; then
 	if [[ "$@" = *"--race"* ]]; then
-		GOCACHE=off run-test go test -race "${base}/integration" -v ${XTAGS}
+		# adding -count=1 replaces the GOCACHE=off fix that was removed
+		run-test go test -count=1 -race "${base}/integration" -v ${XTAGS}
 	else
-		GOCACHE=off run-test go test "${base}/integration" -v ${XTAGS}
+		run-test go test -count=1 "${base}/integration" -v ${XTAGS}
 	fi
 else
 	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
 		echo -e "\ttesting: $pkg"
 		if [[ "$@" = *"--race"* ]]; then
-			GOCACHE=off run-test go test -race "$pkg" ${XTAGS}
+			run-test go test -count=1 -race "$pkg" ${XTAGS}
 		else
-			GOCACHE=off run-test go test "$pkg" ${XTAGS}
+			run-test go test -count=1 "$pkg" ${XTAGS}
 		fi
 	done
 fi

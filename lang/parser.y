@@ -85,7 +85,7 @@ func init() {
 %token STR_IDENTIFIER BOOL_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER
 %token VAR_IDENTIFIER_HX
-%token RES_IDENTIFIER CAPITALIZED_RES_IDENTIFIER
+%token RES_IDENTIFIER
 %token IDENTIFIER CAPITALIZED_IDENTIFIER
 %token FUNC_IDENTIFIER
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
@@ -1030,18 +1030,7 @@ edge_half_list:
 ;
 edge_half:
 	// eg: Test["t1"]
-	CAPITALIZED_RES_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.edgeHalf = &StmtEdgeHalf{
-			Kind: $1.str,
-			Name: $3.expr,
-			//SendRecv: "", // unused
-		}
-	}
-	// note: this is a simplified version of the above if the lexer picks it
-	// note: must not include underscores, but that is checked after parsing
-|	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK
+	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &StmtEdgeHalf{
@@ -1053,18 +1042,7 @@ edge_half:
 ;
 edge_half_sendrecv:
 	// eg: Test["t1"].foo_send
-	CAPITALIZED_RES_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.edgeHalf = &StmtEdgeHalf{
-			Kind: $1.str,
-			Name: $3.expr,
-			SendRecv: $6.str,
-		}
-	}
-	// note: this is a simplified version of the above if the lexer picks it
-	// note: must not include underscores, but that is checked after parsing
-|	CAPITALIZED_IDENTIFIER OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
+	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &StmtEdgeHalf{
@@ -1174,6 +1152,18 @@ dotted_var_identifier:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $2.str
+	}
+;
+capitalized_res_identifier:
+	CAPITALIZED_IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
+|	capitalized_res_identifier COLON IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str + ":" + $3.str
 	}
 ;
 %%

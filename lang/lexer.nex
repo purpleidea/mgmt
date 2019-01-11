@@ -369,13 +369,6 @@
 			lval.str = yylex.Text()
 			return RES_IDENTIFIER
 		}
-/[A-Z]([a-z0-9:]*[a-z0-9]+)?/
-		{
-			yylex.pos(lval) // our pos
-			s := yylex.Text()
-			lval.str = strings.ToLower(s) // uncapitalize it
-			return CAPITALIZED_RES_IDENTIFIER
-		}
 /#[^\n]*/
 		{	// this matches a (#) pound char followed by any
 			// number of chars that aren't the (\n) newline!

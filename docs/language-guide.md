@@ -262,6 +262,24 @@ Please note that at the moment, you must specify a full metaparams struct, since
 partial struct types are currently not supported in the language. Patches are
 welcome if you'd like to add this tricky feature!
 
+##### Resource naming
+
+Each resource must have a unique name of type `str` that is used to uniquely
+identify that resource, and can be used in the functioning of the resource at
+that resources discretion. For example, the `file` resource uses the unique name
+value to specify the path.
+
+Alternatively, the name value may be a list of strings `[]str` to build a list
+of resources, each with a name from that list. When this is done, each resource
+will use the same set of parameters. The list of internal edges specified in the
+same resource block is created intelligently to have the appropriate edge for
+each separate resource.
+
+Using this construct is a veiled form of looping (iteration). This technique is
+one of many ways you can perform iterative tasks that you might have
+traditionally used a `for` loop for instead. This is preferred, because flow
+control is error-prone and can make for less readable code.
+
 ##### Internal edges
 
 Resources may also declare edges internally. The edges may point to or from

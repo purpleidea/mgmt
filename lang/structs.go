@@ -150,10 +150,12 @@ func (obj *StmtBind) Output() (*interfaces.Output, error) {
 	return interfaces.EmptyOutput(), nil
 }
 
-// StmtRes is a representation of a resource and possibly some edges.
-// TODO: consider expanding Name (if it's a list) to have this return a list of
-// Res's in the Output function. Alternatively, it could be a map[name]struct{},
-// or even a map[[]name]struct{}.
+// StmtRes is a representation of a resource and possibly some edges. The `Name`
+// value can be a single string or a list of strings. The former will produce a
+// single resource, the latter produces a list of resources. Using this list
+// mechanism is a safe alternative to traditional flow control like `for` loops.
+// TODO: Consider expanding Name to have this return a list of Res's in the
+// Output function if it is a map[name]struct{}, or even a map[[]name]struct{}.
 type StmtRes struct {
 	data *interfaces.Data
 
@@ -250,10 +252,23 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, invars...)
 
-	// name must be a string
-	invar := &unification.EqualsInvariant{
+	// name must be a string or a list
+	ors := []interfaces.Invariant{}
+
+	invarStr := &unification.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.TypeStr,
+	}
+	ors = append(ors, invarStr)
+
+	invarListStr := &unification.EqualsInvariant{
+		Expr: obj.Name,
+		Type: types.NewType("[]str"),
+	}
+	ors = append(ors, invarListStr)
+
+	invar := &unification.ExclusiveInvariant{
+		Invariants: ors, // one and only one of these should be true
 	}
 	invariants = append(invariants, invar)
 
@@ -311,27 +326,48 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: test for []str instead, and loop
-	name := nameValue.Str() // must not panic
 
-	res, err := obj.resource(name)
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "error building resource")
+	names := []string{} // list of names to build
+	switch {
+	case types.TypeStr.Cmp(nameValue.Type()) == nil:
+		name := nameValue.Str() // must not panic
+		names = append(names, name)
+
+	case types.NewType("[]str").Cmp(nameValue.Type()) == nil:
+		for _, x := range nameValue.List() { // must not panic
+			name := x.Str() // must not panic
+			names = append(names, name)
+		}
+
+	default:
+		// programming error
+		return nil, fmt.Errorf("unhandled resource name type: %+v", nameValue.Type())
 	}
 
-	edges, err := obj.edges(name)
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "error building edges")
-	}
+	resources := []engine.Res{}
+	edges := []*interfaces.Edge{}
+	for _, name := range names {
+		res, err := obj.resource(name)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error building resource")
+		}
 
-	metaparams, err := obj.metaparams()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "error building meta params")
+		edgeList, err := obj.edges(name)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error building edges")
+		}
+		edges = append(edges, edgeList...)
+
+		metaparams, err := obj.metaparams()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error building meta params")
+		}
+		res.SetMetaParams(metaparams)
+		resources = append(resources, res)
 	}
-	res.SetMetaParams(metaparams)
 
 	return &interfaces.Output{
-		Resources: []engine.Res{res},
+		Resources: resources,
 		Edges:     edges,
 	}, nil
 }

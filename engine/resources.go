@@ -192,12 +192,12 @@ type Res interface {
 	// in response.
 	Watch() error
 
-	// CheckApply determines if the state of the resource is connect and if
+	// CheckApply determines if the state of the resource is correct and if
 	// asked to with the `apply` variable, applies the requested state.
 	CheckApply(apply bool) (checkOK bool, err error)
 
 	// Cmp compares itself to another resource and returns an error if they
-	// are not equivalent. This is more strict than the Equiv method of the
+	// are not equivalent. This is more strict than the Adapts method of the
 	// CompatibleRes interface which allows for equivalent differences if
 	// the have a compatible result in CheckApply.
 	Cmp(Res) error
@@ -248,11 +248,11 @@ type InterruptableRes interface {
 	// is designed to unblock any long running operation that is occurring
 	// in the CheckApply portion of the life cycle. If the resource has
 	// already exited, running this method should not block. (That is to say
-	// that you should not expect CheckApply or Watch to be able to alive
-	// and able to read from a channel to satisfy your request.) It is best
-	// to probably have this close a channel to multicast that signal around
-	// to anyone who can detect it in a select. If you are in a situation
-	// which cannot interrupt, then you can return an error.
+	// that you should not expect CheckApply or Watch to be alive and be
+	// able to read from a channel to satisfy your request.) It is best to
+	// probably have this close a channel to multicast that signal around to
+	// anyone who can detect it in a select. If you are in a situation which
+	// cannot interrupt, then you can return an error.
 	// FIXME: implement, and check the above description is what we expect!
 	Interrupt() error
 }

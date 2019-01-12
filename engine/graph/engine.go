@@ -125,7 +125,7 @@ func (obj *Engine) Validate() error {
 }
 
 // Apply a function to the pending graph. You must pass in a function which will
-// receive this graph as input, and return an error if it something does not
+// receive this graph as input, and return an error if something does not
 // succeed.
 func (obj *Engine) Apply(fn func(*pgraph.Graph) error) error {
 	return fn(obj.nextGraph)

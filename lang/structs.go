@@ -358,11 +358,9 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 		}
 		edges = append(edges, edgeList...)
 
-		metaparams, err := obj.metaparams()
-		if err != nil {
+		if err := obj.metaparams(res); err != nil { // set metaparams
 			return nil, errwrap.Wrapf(err, "error building meta params")
 		}
-		res.SetMetaParams(metaparams)
 		resources = append(resources, res)
 	}
 
@@ -614,9 +612,9 @@ func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 	return edges, nil
 }
 
-// metaparams is a helper function to generate the metaparams that come from the
-// resource.
-func (obj *StmtRes) metaparams() (*engine.MetaParams, error) {
+// metaparams is a helper function to set the metaparams that come from the
+// resource on to the individual resource we're working on.
+func (obj *StmtRes) metaparams(res engine.Res) error {
 	meta := engine.DefaultMetaParams.Copy() // defaults
 
 	for _, line := range obj.Contents {
@@ -628,7 +626,7 @@ func (obj *StmtRes) metaparams() (*engine.MetaParams, error) {
 		if x.Condition != nil {
 			b, err := x.Condition.Value()
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -638,7 +636,7 @@ func (obj *StmtRes) metaparams() (*engine.MetaParams, error) {
 
 		v, err := x.MetaExpr.Value()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		switch p := strings.ToLower(x.Property); p {
@@ -716,11 +714,12 @@ func (obj *StmtRes) metaparams() (*engine.MetaParams, error) {
 			}
 
 		default:
-			return nil, fmt.Errorf("unknown property: %s", p)
+			return fmt.Errorf("unknown property: %s", p)
 		}
 	}
 
-	return meta, nil
+	res.SetMetaParams(meta) // set it!
+	return nil
 }
 
 // StmtResContents is the interface that is met by the resource contents. Look

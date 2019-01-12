@@ -314,9 +314,34 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	// TODO: test for []str instead, and loop
 	name := nameValue.Str() // must not panic
 
-	res, err := engine.NewNamedResource(obj.Kind, name)
+	res, err := obj.resource(name)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, name)
+		return nil, errwrap.Wrapf(err, "error building resource")
+	}
+
+	edges, err := obj.edges()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error building edges")
+	}
+
+	metaparams, err := obj.metaparams()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error building meta params")
+	}
+	res.SetMetaParams(metaparams)
+
+	return &interfaces.Output{
+		Resources: []engine.Res{res},
+		Edges:     edges,
+	}, nil
+}
+
+// resource is a helper function to generate the res that comes from this.
+// TODO: it could memoize some of the work to avoid re-computation when looped
+func (obj *StmtRes) resource(resName string) (engine.Res, error) {
+	res, err := engine.NewNamedResource(obj.Kind, resName)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, resName)
 	}
 
 	s := reflect.ValueOf(res).Elem() // pointer to struct, then struct
@@ -442,24 +467,9 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 			value.Elem().Set(valof)
 		}
 		f.Set(value) // set it !
-
 	}
 
-	edges, err := obj.edges()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "error building edges")
-	}
-
-	metaparams, err := obj.metaparams()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "error building meta params")
-	}
-	res.SetMetaParams(metaparams)
-
-	return &interfaces.Output{
-		Resources: []engine.Res{res},
-		Edges:     edges,
-	}, nil
+	return res, nil
 }
 
 // edges is a helper function to generate the edges that come from the resource.

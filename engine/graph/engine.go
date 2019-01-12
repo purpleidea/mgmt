@@ -194,6 +194,7 @@ func (obj *Engine) Commit() error {
 		}
 		return nil
 	}
+	free := []func() error{} // functions to run after graphsync to reset...
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
 		// wait for exit before starting new graph!
 		obj.state[vertex].Event(event.Exit) // signal an exit
@@ -206,8 +207,12 @@ func (obj *Engine) Commit() error {
 		}
 
 		// delete to free up memory from old graphs
-		delete(obj.state, vertex)
-		delete(obj.waits, vertex)
+		fn := func() error {
+			delete(obj.state, vertex)
+			delete(obj.waits, vertex)
+			return nil
+		}
+		free = append(free, fn) // do this at the end, so we don't panic
 		return nil
 	}
 
@@ -217,6 +222,13 @@ func (obj *Engine) Commit() error {
 	obj.Logf("graph sync...")
 	if err := obj.graph.GraphSync(obj.nextGraph, engine.VertexCmpFn, vertexAddFn, vertexRemoveFn, engine.EdgeCmpFn); err != nil {
 		return errwrap.Wrapf(err, "error running graph sync")
+	}
+	// we run these afterwards, so that the state structs (that might get
+	// referenced) aren't destroyed while someone might poke or use one.
+	for _, fn := range free {
+		if err := fn(); err != nil {
+			return errwrap.Wrapf(err, "error running free fn")
+		}
 	}
 	obj.nextGraph = nil
 

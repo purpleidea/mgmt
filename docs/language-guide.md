@@ -227,6 +227,7 @@ file "/tmp/f1" {
 
 	Meta:noop => true,
 	Meta:delay => $b ?: 42,
+	Meta:autoedge => false,
 }
 ```
 
@@ -250,6 +251,8 @@ file "/tmp/f1" {
 		limit => 4.2,
 		burst => 3,
 		sema => ["foo:1", "bar:3",],
+		autoedge => true,
+		autogroup => false,
 	},
 }
 ```

@@ -994,8 +994,12 @@ func TestAstInterpret0(t *testing.T) {
 						limit => 4.2,
 						burst => 3,
 						sema => ["foo:1", "bar:3",],
+						autoedge => true,
+						autogroup => true,
 					},
 					Meta:noop => true,
+					Meta:autoedge => true,
+					Meta:autogroup => true,
 				}
 			`,
 			graph: graph,

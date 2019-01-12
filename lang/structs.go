@@ -617,6 +617,15 @@ func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 func (obj *StmtRes) metaparams(res engine.Res) error {
 	meta := engine.DefaultMetaParams.Copy() // defaults
 
+	var aem *engine.AutoEdgeMeta
+	if r, ok := res.(engine.EdgeableRes); ok {
+		aem = r.AutoEdgeMeta() // get a struct with the defaults
+	}
+	var agm *engine.AutoGroupMeta
+	if r, ok := res.(engine.GroupableRes); ok {
+		agm = r.AutoGroupMeta() // get a struct with the defaults
+	}
+
 	for _, line := range obj.Contents {
 		x, ok := line.(*StmtResMeta)
 		if !ok {
@@ -676,6 +685,16 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 			}
 			meta.Sema = values
 
+		case "autoedge":
+			if aem != nil {
+				aem.Disabled = !v.Bool() // must not panic
+			}
+
+		case "autogroup":
+			if agm != nil {
+				agm.Disabled = !v.Bool() // must not panic
+			}
+
 		case MetaField:
 			if val, exists := v.Struct()["noop"]; exists {
 				meta.Noop = val.Bool() // must not panic
@@ -712,6 +731,12 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 				}
 				meta.Sema = values
 			}
+			if val, exists := v.Struct()["autoedge"]; exists && aem != nil {
+				aem.Disabled = !val.Bool() // must not panic
+			}
+			if val, exists := v.Struct()["autogroup"]; exists && agm != nil {
+				agm.Disabled = !val.Bool() // must not panic
+			}
 
 		default:
 			return fmt.Errorf("unknown property: %s", p)
@@ -719,6 +744,13 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 	}
 
 	res.SetMetaParams(meta) // set it!
+	if r, ok := res.(engine.EdgeableRes); ok {
+		r.SetAutoEdgeMeta(aem) // set
+	}
+	if r, ok := res.(engine.GroupableRes); ok {
+		r.SetAutoGroupMeta(agm) // set
+	}
+
 	return nil
 }
 
@@ -1086,6 +1118,8 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "limit":
 	case "burst":
 	case "sema":
+	case "autoedge":
+	case "autogroup":
 	case MetaField:
 
 	default:
@@ -1194,10 +1228,18 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 	case "sema":
 		typ = types.NewType("[]str")
 
+	case "autoedge":
+		typ = types.TypeBool
+
+	case "autogroup":
+		typ = types.TypeBool
+
+	// autoedge and autogroup aren't part of the `MetaRes` interface, but we
+	// can merge them in here for simplicity in the public user interface...
 	case MetaField:
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
-		typ = types.NewType("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str}")
+		typ = types.NewType("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str; autoedge bool; autogroup bool}")
 
 	default:
 		return nil, fmt.Errorf("unknown property: %s", p)

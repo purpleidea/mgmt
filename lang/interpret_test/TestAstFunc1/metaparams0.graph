@@ -1,17 +1,23 @@
-Edge: bool(false) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3))) # noop
+Edge: bool(false) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # noop
+Edge: bool(true) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # autoedge
+Edge: bool(true) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # autogroup
 Edge: bool(true) -> var(b) # b
 Edge: bool(true) -> var(b) # b
-Edge: float(4.2) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3))) # limit
-Edge: int(-1) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3))) # retry
-Edge: int(0) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3))) # delay
-Edge: int(3) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3))) # burst
-Edge: int(5) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3))) # poll
-Edge: list(str(foo:1), str(bar:3)) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3))) # sema
+Edge: float(4.2) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # limit
+Edge: int(-1) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # retry
+Edge: int(0) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # delay
+Edge: int(3) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # burst
+Edge: int(5) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # poll
+Edge: list(str(foo:1), str(bar:3)) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true)) # sema
 Edge: str(bar:3) -> list(str(foo:1), str(bar:3)) # 1
 Edge: str(foo:1) -> list(str(foo:1), str(bar:3)) # 0
 Edge: str(hello world) -> call:fmt.printf(str(hello world)) # a
 Vertex: bool(false)
 Vertex: bool(false)
+Vertex: bool(false)
+Vertex: bool(true)
+Vertex: bool(true)
+Vertex: bool(true)
 Vertex: bool(true)
 Vertex: bool(true)
 Vertex: call:fmt.printf(str(hello world))
@@ -26,6 +32,6 @@ Vertex: str(bar:3)
 Vertex: str(foo:1)
 Vertex: str(greeting)
 Vertex: str(hello world)
-Vertex: struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)))
+Vertex: struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str(foo:1), str(bar:3)); autoedge: bool(true); autogroup: bool(true))
 Vertex: var(b)
 Vertex: var(b)

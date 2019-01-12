@@ -246,6 +246,16 @@ func (obj *State) Poke() {
 	obj.wg.Add(1)
 	defer obj.wg.Done()
 
+	// now that we've added to the wait group, obj.outputChan won't close...
+	// so see if there's an exit signal before we release the wait group!
+	// XXX: i don't think this is necessarily happening, but maybe it is?
+	// XXX: re-write some of the engine to ensure that: "the sender closes"!
+	select {
+	case <-obj.exit.Signal():
+		return // skip sending the poke b/c we're closing
+	default:
+	}
+
 	select {
 	case obj.outputChan <- nil:
 

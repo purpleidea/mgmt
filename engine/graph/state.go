@@ -65,7 +65,7 @@ type State struct {
 	// events is a channel of incoming events which is read by the Watch
 	// loop for that resource. It receives events like pause, start, and
 	// poke. The channel shuts down to signal for Watch to exit.
-	eventsChan chan event.Kind // incoming to resource
+	eventsChan chan *event.Msg // incoming to resource
 	eventsLock *sync.Mutex     // lock around sending and closing of events channel
 	eventsDone bool            // is channel closed?
 
@@ -93,7 +93,7 @@ type State struct {
 
 // Init initializes structures like channels.
 func (obj *State) Init() error {
-	obj.eventsChan = make(chan event.Kind)
+	obj.eventsChan = make(chan *event.Msg)
 	obj.eventsLock = &sync.Mutex{}
 
 	obj.outputChan = make(chan error)
@@ -256,7 +256,7 @@ func (obj *State) Poke() {
 // Event sends a Pause or Start event to the resource. It can also be used to
 // send Poke events, but it's much more efficient to send them directly instead
 // of passing them through the resource.
-func (obj *State) Event(kind event.Kind) {
+func (obj *State) Event(msg *event.Msg) {
 	// TODO: should these happen after the lock?
 	obj.wg.Add(1)
 	defer obj.wg.Done()
@@ -268,7 +268,7 @@ func (obj *State) Event(kind event.Kind) {
 		return
 	}
 
-	if kind == event.EventExit { // set this so future events don't deadlock
+	if msg.Kind == event.KindExit { // set this so future events don't deadlock
 		obj.Logf("exit event...")
 		obj.eventsDone = true
 		close(obj.eventsChan) // causes resource Watch loop to close
@@ -277,7 +277,7 @@ func (obj *State) Event(kind event.Kind) {
 	}
 
 	select {
-	case obj.eventsChan <- kind:
+	case obj.eventsChan <- msg:
 
 	case <-obj.exit.Signal():
 	}
@@ -285,40 +285,40 @@ func (obj *State) Event(kind event.Kind) {
 
 // read is a helper function used inside the main select statement of resources.
 // If it returns an error, then this is a signal for the resource to exit.
-func (obj *State) read(kind event.Kind) error {
-	switch kind {
-	case event.EventPoke:
+func (obj *State) read(msg *event.Msg) error {
+	switch msg.Kind {
+	case event.KindPoke:
 		return obj.event() // a poke needs to cause an event...
-	case event.EventStart:
+	case event.KindStart:
 		return fmt.Errorf("unexpected start")
-	case event.EventPause:
+	case event.KindPause:
 		// pass
-	case event.EventExit:
+	case event.KindExit:
 		return engine.ErrSignalExit
 
 	default:
-		return fmt.Errorf("unhandled event: %+v", kind)
+		return fmt.Errorf("unhandled event: %+v", msg.Kind)
 	}
 
 	// we're paused now
 	select {
-	case kind, ok := <-obj.eventsChan:
+	case msg, ok := <-obj.eventsChan:
 		if !ok {
 			return engine.ErrWatchExit
 		}
-		switch kind {
-		case event.EventPoke:
+		switch msg.Kind {
+		case event.KindPoke:
 			return fmt.Errorf("unexpected poke")
-		case event.EventPause:
+		case event.KindPause:
 			return fmt.Errorf("unexpected pause")
-		case event.EventStart:
+		case event.KindStart:
 			// resumed
 			return nil
-		case event.EventExit:
+		case event.KindExit:
 			return engine.ErrSignalExit
 
 		default:
-			return fmt.Errorf("unhandled event: %+v", kind)
+			return fmt.Errorf("unhandled event: %+v", msg.Kind)
 		}
 	}
 }
@@ -335,45 +335,45 @@ func (obj *State) event() error {
 			return nil // sent event!
 
 		// make sure to keep handling incoming
-		case kind, ok := <-obj.eventsChan:
+		case msg, ok := <-obj.eventsChan:
 			if !ok {
 				return engine.ErrWatchExit
 			}
-			switch kind {
-			case event.EventPoke:
+			switch msg.Kind {
+			case event.KindPoke:
 				// we're trying to send an event, so swallow the
 				// poke: it's what we wanted to have happen here
 				continue
-			case event.EventStart:
+			case event.KindStart:
 				return fmt.Errorf("unexpected start")
-			case event.EventPause:
+			case event.KindPause:
 				// pass
-			case event.EventExit:
+			case event.KindExit:
 				return engine.ErrSignalExit
 
 			default:
-				return fmt.Errorf("unhandled event: %+v", kind)
+				return fmt.Errorf("unhandled event: %+v", msg.Kind)
 			}
 		}
 
 		// we're paused now
 		select {
-		case kind, ok := <-obj.eventsChan:
+		case msg, ok := <-obj.eventsChan:
 			if !ok {
 				return engine.ErrWatchExit
 			}
-			switch kind {
-			case event.EventPoke:
+			switch msg.Kind {
+			case event.KindPoke:
 				return fmt.Errorf("unexpected poke")
-			case event.EventPause:
+			case event.KindPause:
 				return fmt.Errorf("unexpected pause")
-			case event.EventStart:
+			case event.KindStart:
 				// resumed
-			case event.EventExit:
+			case event.KindExit:
 				return engine.ErrSignalExit
 
 			default:
-				return fmt.Errorf("unhandled event: %+v", kind)
+				return fmt.Errorf("unhandled event: %+v", msg.Kind)
 			}
 		}
 	}

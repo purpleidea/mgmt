@@ -196,8 +196,8 @@ func (obj *Engine) Commit() error {
 	}
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
 		// wait for exit before starting new graph!
-		obj.state[vertex].Event(event.EventExit) // signal an exit
-		obj.waits[vertex].Wait()                 // sync
+		obj.state[vertex].Event(event.Exit) // signal an exit
+		obj.waits[vertex].Wait()            // sync
 
 		// close the state and resource
 		// FIXME: will this mess up the sync and block the engine?
@@ -276,7 +276,7 @@ func (obj *Engine) Start() error {
 		}
 
 		if unpause { // unpause (if needed)
-			obj.state[vertex].Event(event.EventStart)
+			obj.state[vertex].Event(event.Start)
 		}
 	}
 	// we wait for everyone to start before exiting!
@@ -301,7 +301,7 @@ func (obj *Engine) Pause(fastPause bool) {
 	for _, vertex := range topoSort { // squeeze out the events...
 		// The Event is sent to an unbuffered channel, so this event is
 		// synchronous, and as a result it blocks until it is received.
-		obj.state[vertex].Event(event.EventPause)
+		obj.state[vertex].Event(event.Pause)
 	}
 
 	// we are now completely paused...

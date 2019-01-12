@@ -25,9 +25,59 @@ type Kind int
 
 // The different event kinds are used in different contexts.
 const (
-	EventNil Kind = iota
-	EventStart
-	EventPause
-	EventPoke
-	EventExit
+	KindNil Kind = iota
+	KindStart
+	KindPause
+	KindPoke
+	KindExit
 )
+
+// Pre-built messages so they can be used directly without having to use NewMsg.
+// These are useful when we don't want a response via ACK().
+var (
+	Start = &Msg{Kind: KindStart}
+	Pause = &Msg{Kind: KindPause} // probably unused b/c we want a resp
+	Poke  = &Msg{Kind: KindPoke}
+	Exit  = &Msg{Kind: KindExit}
+)
+
+// Msg is an event primitive that represents a kind of event, and optionally a
+// request for an ACK.
+type Msg struct {
+	Kind Kind
+
+	resp chan struct{}
+}
+
+// NewMsg builds a new message struct. It will want an ACK. If you don't want an
+// ACK then use the pre-built messages in the package variable globals.
+func NewMsg(kind Kind) *Msg {
+	return &Msg{
+		Kind: kind,
+		resp: make(chan struct{}),
+	}
+}
+
+// CanACK determines if an ACK is possible for this message. It does not say
+// whether one has already been sent or not.
+func (obj *Msg) CanACK() bool {
+	return obj.resp != nil
+}
+
+// ACK acknowledges the event. It must not be called more than once for the same
+// event. It unblocks the past and future calls of Wait for this event.
+func (obj *Msg) ACK() {
+	close(obj.resp)
+}
+
+// Wait on ACK for this event. It doesn't matter if this runs before or after
+// the ACK. It will unblock either way.
+// TODO: consider adding a context if it's ever useful.
+func (obj *Msg) Wait() error {
+	select {
+	//case <-ctx.Done():
+	//	return ctx.Err()
+	case <-obj.resp:
+		return nil
+	}
+}

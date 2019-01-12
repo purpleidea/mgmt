@@ -100,11 +100,11 @@ type Init struct {
 
 	// Events returns a channel that we must watch for messages from the
 	// engine. When it closes, this is a signal to shutdown.
-	Events chan event.Kind
+	Events chan *event.Msg
 
 	// Read processes messages that come in from the Events channel. It is a
 	// helper method that knows how to handle the pause mechanism correctly.
-	Read func(event.Kind) error
+	Read func(*event.Msg) error
 
 	// Dirty marks the resource state as dirty. This signals to the engine
 	// that CheckApply will have some work to do in order to converge it.

@@ -347,7 +347,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	var limiter = rate.NewLimiter(res.MetaParams().Limit, res.MetaParams().Burst)
 	// It is important that we shutdown the Watch loop if this exits.
 	// Example, if Process errors permanently, we should ask Watch to exit.
-	defer obj.state[vertex].Event(event.EventExit) // signal an exit
+	defer obj.state[vertex].Event(event.Exit) // signal an exit
 	for {
 		select {
 		case err, ok := <-obj.state[vertex].outputChan: // read from watch channel
@@ -464,11 +464,11 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 			//	err = errwrap.Wrapf(err, "permanent process error")
 			//}
 
-			// If this exits, defer calls Event(event.EventExit),
+			// If this exits, defer calls: obj.Event(event.Exit),
 			// which will cause the Watch loop to shutdown. Also,
 			// if the Watch loop shuts down, that will cause this
 			// Process loop to shut down. Also the graph sync can
-			// run an Event(event.EventExit) which causes this to
+			// run an: obj.Event(event.Exit) which causes this to
 			// shutdown as well. Lastly, it is possible that more
 			// that one of these scenarios happens simultaneously.
 			return err

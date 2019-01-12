@@ -190,6 +190,8 @@ resource to control how it behaves. For example, setting the `content` parameter
 of a `file` resource to the string `hello`, will cause the contents of that file
 to contain the string `hello` after it has run.
 
+##### Undefined parameters
+
 For some parameters, there is a distinction between an unspecified parameter,
 and a parameter with a `zero` value. For example, for the file resource, you
 might choose to set the `content` parameter to be the empty string, which would
@@ -213,6 +215,8 @@ chosen in a programmatic way, even one in which that value varies over time. If
 it evaluates to `true`, then the parameter will be used. If no `elvis` operator
 is specified, then the parameter value will also be used. If the parameter is
 not specified, then it will obviously not be used.
+
+##### Meta parameters
 
 Resources may specify meta parameters. To do so, you must add them as you would
 a regular parameter, except that they start with `Meta` and are capitalized. Eg:
@@ -257,6 +261,8 @@ since they are syntactically similar, it is worth mentioning to avoid confusion.
 Please note that at the moment, you must specify a full metaparams struct, since
 partial struct types are currently not supported in the language. Patches are
 welcome if you'd like to add this tricky feature!
+
+##### Internal edges
 
 Resources may also declare edges internally. The edges may point to or from
 another resource, and may optionally include a notification. The four properties

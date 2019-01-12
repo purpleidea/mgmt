@@ -319,7 +319,7 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 		return nil, errwrap.Wrapf(err, "error building resource")
 	}
 
-	edges, err := obj.edges()
+	edges, err := obj.edges(name)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error building edges")
 	}
@@ -473,7 +473,7 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 }
 
 // edges is a helper function to generate the edges that come from the resource.
-func (obj *StmtRes) edges() ([]*interfaces.Edge, error) {
+func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 	edges := []*interfaces.Edge{}
 
 	// to and from self, map of kind, name, notify
@@ -542,17 +542,11 @@ func (obj *StmtRes) edges() ([]*interfaces.Edge, error) {
 	// TODO: we could detect simple loops here (if `from` and `to` have the
 	// same entry) but we can leave this to the proper dag checker later on
 
-	v, err := obj.Name.Value()
-	if err != nil {
-		return nil, err
-	}
-	self := v.Str() // must not panic
-
 	for kind, x := range to { // to this from self
 		for name, notify := range x {
 			edge := &interfaces.Edge{
 				Kind1: obj.Kind,
-				Name1: self,
+				Name1: resName, // self
 				//Send: "",
 
 				Kind2: kind,
@@ -572,7 +566,7 @@ func (obj *StmtRes) edges() ([]*interfaces.Edge, error) {
 				//Send: "",
 
 				Kind2: obj.Kind,
-				Name2: self,
+				Name2: resName, // self
 				//Recv: "",
 
 				Notify: notify,

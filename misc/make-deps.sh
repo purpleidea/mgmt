@@ -103,7 +103,9 @@ go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
 go get golang.org/x/lint/golint				# for `golint`-ing
 go get github.com/tmthrgd/go-bindata/go-bindata	# for compiling in non golang files
-go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
+if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
+	go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
+fi
 command -v mdl &>/dev/null || gem install mdl --no-ri --no-rdoc || true	# for linting markdown files
 command -v fpm &>/dev/null || gem install fpm --no-ri --no-rdoc || true	# for cross distro packaging
 cd "$XPWD" >/dev/null

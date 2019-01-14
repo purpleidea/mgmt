@@ -4,6 +4,9 @@
 
 echo running "$0"
 
+# ensure gometalinter is available
+command -v gometalinter >/dev/null 2>&1 || { echo >&2 "gometalinter not found"; exit 1; }
+
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"

@@ -62,6 +62,8 @@ func (obj *FactFunc) Init(init *interfaces.Init) error {
 			Hostname: init.Hostname,
 			Output:   init.Output,
 			World:    init.World,
+			Debug:    init.Debug,
+			Logf:     init.Logf,
 		},
 	)
 }

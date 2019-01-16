@@ -68,6 +68,8 @@ type Init struct {
 	//Noop bool
 	Output chan types.Value // Stream must close `output` chan
 	World  engine.World
+	Debug  bool
+	Logf   func(format string, v ...interface{})
 }
 
 // Fact is the interface that any valid fact must fulfill. It is very simple,

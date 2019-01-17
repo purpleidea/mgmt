@@ -119,6 +119,7 @@ func (obj *Engine) Process(vertex pgraph.Vertex) error {
 			for _, changed := range updated {
 				if changed { // at least one was updated
 					// invalidate cache, mark as dirty
+					obj.state[vertex].tuid.StopTimer()
 					obj.state[vertex].isStateOK = false
 					break
 				}
@@ -174,6 +175,7 @@ func (obj *Engine) Process(vertex pgraph.Vertex) error {
 
 	// if CheckApply ran without noop and without error, state should be good
 	if !noop && err == nil { // aka !noop || checkOK
+		obj.state[vertex].tuid.StartTimer()
 		obj.state[vertex].isStateOK = true // reset
 		if refresh {
 			obj.SetUpstreamRefresh(vertex, false) // refresh happened, clear the request
@@ -252,9 +254,11 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	defer close(obj.state[vertex].stopped) // done signal
 
 	obj.state[vertex].cuid = obj.Converger.Register()
+	obj.state[vertex].tuid = obj.Converger.Register()
 	// must wait for all users of the cuid to finish *before* we unregister!
 	// as a result, this defer happens *before* the below wait group Wait...
 	defer obj.state[vertex].cuid.Unregister()
+	defer obj.state[vertex].tuid.Unregister()
 
 	defer obj.state[vertex].wg.Wait() // this Worker is the last to exit!
 

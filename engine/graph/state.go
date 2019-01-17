@@ -86,6 +86,7 @@ type State struct {
 	working bool // is the Main() loop running ?
 
 	cuid converger.UID // primary converger
+	tuid converger.UID // secondary converger
 
 	init *engine.Init // a copy of the init struct passed to res Init
 }
@@ -121,6 +122,7 @@ func (obj *State) Init() error {
 	}
 
 	//obj.cuid = obj.Converger.Register() // gets registered in Worker()
+	//obj.tuid = obj.Converger.Register() // gets registered in Worker()
 
 	obj.init = &engine.Init{
 		Program:  obj.Program,
@@ -128,6 +130,7 @@ func (obj *State) Init() error {
 
 		// Watch:
 		Running: func() error {
+			obj.tuid.StopTimer()
 			close(obj.started)    // this is reset in the reset func
 			obj.isStateOK = false // assume we're initially dirty
 			// optimization: skip the initial send if not a starter
@@ -141,6 +144,7 @@ func (obj *State) Init() error {
 		Events: obj.eventsChan,
 		Read:   obj.read,
 		Dirty: func() { // TODO: should we rename this SetDirty?
+			obj.tuid.StopTimer()
 			obj.isStateOK = false
 		},
 
@@ -207,6 +211,9 @@ func (obj *State) Close() error {
 
 	//if obj.cuid != nil {
 	//	obj.cuid.Unregister() // gets unregistered in Worker()
+	//}
+	//if obj.tuid != nil {
+	//	obj.tuid.Unregister() // gets unregistered in Worker()
 	//}
 
 	// redundant safety

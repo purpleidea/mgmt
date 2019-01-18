@@ -42,6 +42,7 @@ import (
 	// do not clean up spawned goroutines. Should be replaced when a suitable
 	// alternative is available.
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -195,7 +196,7 @@ func (obj *NetRes) Watch() error {
 	defer wg.Wait()
 
 	// create a netlink socket for receiving network interface events
-	conn, err := socketset.NewSocketSet(rtmGrps, obj.socketFile)
+	conn, err := socketset.NewSocketSet(rtmGrps, obj.socketFile, unix.NETLINK_ROUTE)
 	if err != nil {
 		return errwrap.Wrapf(err, "error creating socket set")
 	}
@@ -223,7 +224,7 @@ func (obj *NetRes) Watch() error {
 		defer close(nlChan)
 		for {
 			// receive messages from the socket set
-			msgs, err := conn.Receive()
+			msgs, err := conn.ReceiveNetlinkMessages()
 			if err != nil {
 				select {
 				case nlChan <- &nlChanStruct{

@@ -1,0 +1,15 @@
+# fan in-out
+exec ["exec1", "exec2", "exec3", "exec4", "exec5", "exec6", "exec7",] {
+	cmd => "sleep 10s",
+	shell => "",
+	timeout => 0,
+
+	Meta:sema => ["s:2",],
+}
+
+Exec["exec1"] -> Exec["exec4"]
+Exec["exec2"] -> Exec["exec4"]
+Exec["exec3"] -> Exec["exec4"]
+Exec["exec4"] -> Exec["exec5"]
+Exec["exec4"] -> Exec["exec6"]
+Exec["exec4"] -> Exec["exec7"]

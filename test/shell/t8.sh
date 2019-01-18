@@ -1,7 +1,5 @@
 #!/bin/bash -e
 
-exit 0	# XXX: test temporarily disabled till etcd or mgmt regression is fixed.
-
 # run empty graphs, we're just testing etcd clustering
 $timeout --kill-after=180s 120s "$MGMT" run --hostname h1 --tmp-prefix empty &
 pid1=$!

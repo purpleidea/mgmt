@@ -1049,6 +1049,15 @@ func (obj *EmbdEtcd) rawGet(ctx context.Context, gq *GQ) (result map[string]stri
 		log.Printf("Trace: Etcd: rawGet()")
 	}
 	obj.rLock.RLock()
+	// TODO: we're checking if this is nil to workaround a nil ptr bug...
+	if obj.client == nil { // bug?
+		obj.rLock.RUnlock()
+		return nil, fmt.Errorf("client is nil")
+	}
+	if obj.client.KV == nil { // bug?
+		obj.rLock.RUnlock()
+		return nil, fmt.Errorf("client.KV is nil")
+	}
 	response, err := obj.client.KV.Get(ctx, gq.path, gq.opts...)
 	obj.rLock.RUnlock()
 	if err != nil || response == nil {

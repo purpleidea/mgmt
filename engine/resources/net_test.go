@@ -21,8 +21,6 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-
-	"golang.org/x/sys/unix"
 )
 
 // test cases for NetRes.unitFileContents()
@@ -79,88 +77,6 @@ func TestUnitFileContents(t *testing.T) {
 		result := test.in.unitFileContents()
 		if !bytes.Equal(test.out, result) {
 			t.Errorf("nfd test wanted:\n %s, got:\n %s", test.out, result)
-		}
-	}
-}
-
-// test cases for socketSet.fdSet()
-var fdSetTests = []struct {
-	in  *socketSet
-	out *unix.FdSet
-}{
-	{
-		&socketSet{
-			fdEvents: 3,
-			fdPipe:   4,
-		},
-		&unix.FdSet{
-			Bits: [16]int64{0x18}, // 11000
-		},
-	},
-	{
-		&socketSet{
-			fdEvents: 12,
-			fdPipe:   8,
-		},
-		&unix.FdSet{
-			Bits: [16]int64{0x1100}, // 1000100000000
-		},
-	},
-	{
-		&socketSet{
-			fdEvents: 9,
-			fdPipe:   21,
-		},
-		&unix.FdSet{
-			Bits: [16]int64{0x200200}, // 1000000000001000000000
-		},
-	},
-}
-
-// test socketSet.fdSet()
-func TestFdSet(t *testing.T) {
-	for _, test := range fdSetTests {
-		result := test.in.fdSet()
-		if *result != *test.out {
-			t.Errorf("fdSet test wanted: %b, got: %b", *test.out, *result)
-		}
-	}
-}
-
-// test cases for socketSet.nfd()
-var nfdTests = []struct {
-	in  *socketSet
-	out int
-}{
-	{
-		&socketSet{
-			fdEvents: 3,
-			fdPipe:   4,
-		},
-		5,
-	},
-	{
-		&socketSet{
-			fdEvents: 8,
-			fdPipe:   4,
-		},
-		9,
-	},
-	{
-		&socketSet{
-			fdEvents: 90,
-			fdPipe:   900,
-		},
-		901,
-	},
-}
-
-// test socketSet.nfd()
-func TestNfd(t *testing.T) {
-	for _, test := range nfdTests {
-		result := test.in.nfd()
-		if result != test.out {
-			t.Errorf("nfd test wanted: %d, got: %d", test.out, result)
 		}
 	}
 }

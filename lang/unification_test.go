@@ -732,6 +732,10 @@ func TestUnification1(t *testing.T) {
 				return
 			}
 
+			if fail && err != nil {
+				t.Logf("test #%d: err: %+v", index, err)
+			}
+
 			if expect == nil { // test done early
 				return
 			}

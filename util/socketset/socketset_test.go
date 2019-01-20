@@ -18,6 +18,7 @@
 package socketset
 
 import (
+	"sync"
 	"testing"
 
 	"golang.org/x/sys/unix"
@@ -103,4 +104,31 @@ func TestNfd(t *testing.T) {
 			t.Errorf("nfd test wanted: %d, got: %d", test.out, result)
 		}
 	}
+}
+
+// test SocketSet.Shutdown()
+func TestShutdown(t *testing.T) {
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	// pass 0 so we create a socket that doesn't receive any events
+	ss, err := NewSocketSet(0, "pipe.sock", 0)
+	if err != nil {
+		t.Errorf("could not create SocketSet: %+v", err)
+	}
+	closeChan := make(chan struct{})
+	defer close(closeChan)
+	defer ss.Close()
+	defer ss.Shutdown()
+
+	// create a listener that never receives any data
+	wg.Add(1) // add a waitgroup to ensure this will block if we don't properly unblock Select
+	go func() {
+		defer wg.Done()
+		_, _ = ss.ReceiveBytes() // this should block
+		select {
+		case <-closeChan:
+			return
+		}
+	}()
 }

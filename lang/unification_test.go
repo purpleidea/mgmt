@@ -729,6 +729,7 @@ func TestUnification1(t *testing.T) {
 				t.Errorf("test #%d: expected fail, got wrong error", index)
 				t.Errorf("test #%d: got error: %+v", index, err)
 				t.Errorf("test #%d: exp error: %+v", index, experr)
+				return
 			}
 
 			if expect == nil { // test done early

@@ -517,8 +517,8 @@ func TestUnification1(t *testing.T) {
 	}
 	// XXX: add these tests when we fix the bug!
 	//{
+	//	//import "fmt"
 	//	//test "t1" {
-	//	//	import "fmt"
 	//	//	stringptr => fmt.printf("hello %s and %s", "one"),	# bad
 	//	//}
 	//	expr := &ExprCall{
@@ -556,8 +556,8 @@ func TestUnification1(t *testing.T) {
 	//	})
 	//}
 	//{
+	//	//import "fmt"
 	//	//test "t1" {
-	//	//	import "fmt"
 	//	//	stringptr => fmt.printf("hello %s and %s", "one", "two", "three"),	# bad
 	//	//}
 	//	expr := &ExprCall{
@@ -601,8 +601,8 @@ func TestUnification1(t *testing.T) {
 	//	})
 	//}
 	{
+		//import "fmt"
 		//test "t1" {
-		//	import "fmt"
 		//	stringptr => fmt.printf("hello %s and %s", "one", "two"),
 		//}
 		expr := &ExprCall{

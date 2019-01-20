@@ -1,0 +1,9 @@
+import "fmt"
+$x str = if true {	# should fail unification
+	42
+} else {
+	13
+}
+test "t1" {
+	anotherstr => fmt.printf("hello %s", $x),
+}

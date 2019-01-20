@@ -531,45 +531,66 @@ func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 			}
 		}
 
-		v, err := x.EdgeHalf.Name.Value()
+		nameValue, err := x.EdgeHalf.Name.Value()
 		if err != nil {
 			return nil, err
 		}
-		name := v.Str() // must not panic
-		kind := x.EdgeHalf.Kind
-		var notify bool
 
-		switch p := x.Property; p {
-		// a -> b
-		// a notify b
-		// a before b
-		case EdgeNotify:
-			notify = true
-			fallthrough
-		case EdgeBefore:
-			if m, exists := to[kind]; !exists {
-				to[kind] = make(map[string]bool)
-			} else if n, exists := m[name]; exists {
-				notify = notify || n // collate
-			}
-			to[kind][name] = notify // to this from self
+		// the edge name can be a single string or a list of strings...
 
-		// b -> a
-		// b listen a
-		// b depend a
-		case EdgeListen:
-			notify = true
-			fallthrough
-		case EdgeDepend:
-			if m, exists := from[kind]; !exists {
-				from[kind] = make(map[string]bool)
-			} else if n, exists := m[name]; exists {
-				notify = notify || n // collate
+		names := []string{} // list of names to build
+		switch {
+		case types.TypeStr.Cmp(nameValue.Type()) == nil:
+			name := nameValue.Str() // must not panic
+			names = append(names, name)
+
+		case types.NewType("[]str").Cmp(nameValue.Type()) == nil:
+			for _, x := range nameValue.List() { // must not panic
+				name := x.Str() // must not panic
+				names = append(names, name)
 			}
-			from[kind][name] = notify // from this to self
 
 		default:
-			return nil, fmt.Errorf("unknown property: %s", p)
+			// programming error
+			return nil, fmt.Errorf("unhandled resource name type: %+v", nameValue.Type())
+		}
+
+		kind := x.EdgeHalf.Kind
+		for _, name := range names {
+			var notify bool
+
+			switch p := x.Property; p {
+			// a -> b
+			// a notify b
+			// a before b
+			case EdgeNotify:
+				notify = true
+				fallthrough
+			case EdgeBefore:
+				if m, exists := to[kind]; !exists {
+					to[kind] = make(map[string]bool)
+				} else if n, exists := m[name]; exists {
+					notify = notify || n // collate
+				}
+				to[kind][name] = notify // to this from self
+
+			// b -> a
+			// b listen a
+			// b depend a
+			case EdgeListen:
+				notify = true
+				fallthrough
+			case EdgeDepend:
+				if m, exists := from[kind]; !exists {
+					from[kind] = make(map[string]bool)
+				} else if n, exists := m[name]; exists {
+					notify = notify || n // collate
+				}
+				from[kind][name] = notify // from this to self
+
+			default:
+				return nil, fmt.Errorf("unknown property: %s", p)
+			}
 		}
 	}
 
@@ -1434,26 +1455,64 @@ func (obj *StmtEdge) Output() (*interfaces.Output, error) {
 		if err != nil {
 			return nil, err
 		}
-		name1 := nameValue1.Str() // must not panic
+
+		// the edge name can be a single string or a list of strings...
+
+		names1 := []string{} // list of names to build
+		switch {
+		case types.TypeStr.Cmp(nameValue1.Type()) == nil:
+			name := nameValue1.Str() // must not panic
+			names1 = append(names1, name)
+
+		case types.NewType("[]str").Cmp(nameValue1.Type()) == nil:
+			for _, x := range nameValue1.List() { // must not panic
+				name := x.Str() // must not panic
+				names1 = append(names1, name)
+			}
+
+		default:
+			// programming error
+			return nil, fmt.Errorf("unhandled resource name type: %+v", nameValue1.Type())
+		}
 
 		nameValue2, err := obj.EdgeHalfList[i+1].Name.Value()
 		if err != nil {
 			return nil, err
 		}
-		name2 := nameValue2.Str() // must not panic
 
-		edge := &interfaces.Edge{
-			Kind1: obj.EdgeHalfList[i].Kind,
-			Name1: name1,
-			Send:  obj.EdgeHalfList[i].SendRecv,
+		names2 := []string{} // list of names to build
+		switch {
+		case types.TypeStr.Cmp(nameValue2.Type()) == nil:
+			name := nameValue2.Str() // must not panic
+			names2 = append(names2, name)
 
-			Kind2: obj.EdgeHalfList[i+1].Kind,
-			Name2: name2,
-			Recv:  obj.EdgeHalfList[i+1].SendRecv,
+		case types.NewType("[]str").Cmp(nameValue2.Type()) == nil:
+			for _, x := range nameValue2.List() { // must not panic
+				name := x.Str() // must not panic
+				names2 = append(names2, name)
+			}
 
-			Notify: obj.Notify,
+		default:
+			// programming error
+			return nil, fmt.Errorf("unhandled resource name type: %+v", nameValue2.Type())
 		}
-		edges = append(edges, edge)
+
+		for _, name1 := range names1 {
+			for _, name2 := range names2 {
+				edge := &interfaces.Edge{
+					Kind1: obj.EdgeHalfList[i].Kind,
+					Name1: name1,
+					Send:  obj.EdgeHalfList[i].SendRecv,
+
+					Kind2: obj.EdgeHalfList[i+1].Kind,
+					Name2: name2,
+					Recv:  obj.EdgeHalfList[i+1].SendRecv,
+
+					Notify: obj.Notify,
+				}
+				edges = append(edges, edge)
+			}
+		}
 	}
 
 	return &interfaces.Output{
@@ -1531,10 +1590,23 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, invars...)
 
-	// name must be a string
-	invar := &unification.EqualsInvariant{
+	// name must be a string or a list
+	ors := []interfaces.Invariant{}
+
+	invarStr := &unification.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.TypeStr,
+	}
+	ors = append(ors, invarStr)
+
+	invarListStr := &unification.EqualsInvariant{
+		Expr: obj.Name,
+		Type: types.NewType("[]str"),
+	}
+	ors = append(ors, invarListStr)
+
+	invar := &unification.ExclusiveInvariant{
+		Invariants: ors, // one and only one of these should be true
 	}
 	invariants = append(invariants, invar)
 

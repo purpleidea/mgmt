@@ -1,0 +1,18 @@
+# this must pass type unification and generate output
+
+# single resource
+test "name" {}
+
+# single resource, defined by list variable
+$names = ["hey", "there",]
+test $names {}
+
+# multiples resources, defined by list
+test ["hello", "world",] {
+	Depend => Test[$names],
+}
+
+$morenames = ["wow", "cool", "amazing",]
+test $morenames {}
+
+Test[$names] -> Test[$morenames]

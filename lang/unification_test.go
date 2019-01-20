@@ -21,6 +21,7 @@ package lang
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -32,11 +33,12 @@ import (
 
 func TestUnification1(t *testing.T) {
 	type test struct { // an individual test
-		name   string
-		ast    interfaces.Stmt // raw AST
-		fail   bool
-		expect map[interfaces.Expr]*types.Type
-		experr error // expected error if fail == true (nil ignores it)
+		name      string
+		ast       interfaces.Stmt // raw AST
+		fail      bool
+		expect    map[interfaces.Expr]*types.Type
+		experr    error  // expected error if fail == true (nil ignores it)
+		experrstr string // expected error prefix
 	}
 	testCases := []test{}
 
@@ -656,7 +658,7 @@ func TestUnification1(t *testing.T) {
 		}
 		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			ast, fail, expect, experr := tc.ast, tc.fail, tc.expect, tc.experr
+			ast, fail, expect, experr, experrstr := tc.ast, tc.fail, tc.expect, tc.experr, tc.experrstr
 
 			//str := strings.NewReader(code)
 			//ast, err := LexParse(str)
@@ -734,6 +736,14 @@ func TestUnification1(t *testing.T) {
 
 			if fail && err != nil {
 				t.Logf("test #%d: err: %+v", index, err)
+			}
+			// test for specific error string!
+			if fail && experrstr != "" && !strings.HasPrefix(err.Error(), experrstr) {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expected fail, got wrong error", index)
+				t.Errorf("test #%d: got error: %s", index, err.Error())
+				t.Errorf("test #%d: exp error: %s", index, experrstr)
+				return
 			}
 
 			if expect == nil { // test done early

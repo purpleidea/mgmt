@@ -5255,6 +5255,15 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 		return nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
 	}
 
+	// if this was set explicitly by the parser
+	if obj.typ != nil {
+		invar := &unification.EqualsInvariant{
+			Expr: obj,
+			Type: obj.typ,
+		}
+		invariants = append(invariants, invar)
+	}
+
 	// don't recurse because we already got this through the bind statement
 	//invars, err := expr.Unify()
 	//if err != nil {
@@ -5530,6 +5539,15 @@ func (obj *ExprIf) Type() (*types.Type, error) {
 // collection to the caller.
 func (obj *ExprIf) Unify() ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
+
+	// if this was set explicitly by the parser
+	if obj.typ != nil {
+		invar := &unification.EqualsInvariant{
+			Expr: obj,
+			Type: obj.typ,
+		}
+		invariants = append(invariants, invar)
+	}
 
 	// conditional expression might have some children invariants to share
 	condition, err := obj.Condition.Unify()

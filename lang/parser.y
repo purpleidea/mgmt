@@ -859,6 +859,7 @@ arg:
 	}
 ;
 bind:
+	// `$s = "hey"`
 	VAR_IDENTIFIER EQUALS expr
 	{
 		posLast(yylex, yyDollar) // our pos
@@ -867,6 +868,8 @@ bind:
 			Value: $3.expr,
 		}
 	}
+	// `$x bool = true`
+	// `$x int = if true { 42 } else { 13 }`
 |	VAR_IDENTIFIER type EQUALS expr
 	{
 		posLast(yylex, yyDollar) // our pos

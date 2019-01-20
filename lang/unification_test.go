@@ -700,6 +700,59 @@ func TestUnification1(t *testing.T) {
 			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (2 != 3)",
 		})
 	}
+	{
+		//import "fmt"
+		//$w = true
+		//$x str = $w	# should fail unification
+		//test "t1" {
+		//	stringptr => fmt.printf("hello %s", $x),
+		//}
+		wvar := &ExprBool{V: true}
+		xvar := &ExprVar{Name: "w"}
+		xvar.SetType(types.TypeStr) // should fail unification
+		expr := &ExprCall{
+			Name: "fmt.printf",
+			Args: []interfaces.Expr{
+				&ExprStr{
+					V: "hello %s",
+				},
+				&ExprVar{
+					Name: "x", // the var
+				},
+			},
+		}
+		stmt := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name: "fmt",
+				},
+				&StmtBind{
+					Ident: "w",
+					Value: wvar,
+				},
+				&StmtBind{
+					Ident: "x", // the var
+					Value: xvar,
+				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{V: "t1"},
+					Contents: []StmtResContents{
+						&StmtResField{
+							Field: "anotherstr",
+							Value: expr,
+						},
+					},
+				},
+			},
+		}
+		testCases = append(testCases, test{
+			name:      "typed var expr",
+			ast:       stmt,
+			fail:      true,
+			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (2 != 1)",
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests

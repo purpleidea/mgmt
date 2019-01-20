@@ -699,7 +699,7 @@ func TestAstFunc1(t *testing.T) {
 					t.Logf("test #%d: err: %s", index, s)
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
-				return // fail happened during set scope, don't run unification!
+				return // fail happened during lex parse, don't run init/interpolate!
 			}
 			t.Logf("test #%d: AST: %+v", index, ast)
 

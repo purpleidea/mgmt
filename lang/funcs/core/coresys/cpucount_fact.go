@@ -76,9 +76,12 @@ func (obj CPUCountFact) Stream() error {
 
 	// waitgroup for netlink receive goroutine
 	wg := &sync.WaitGroup{}
-	defer wg.Wait()
 	defer ss.Close()
-	defer ss.Shutdown()
+	// We must wait for the Shutdown() AND the select inside of SocketSet to
+	// complete before we Close, since the unblocking in SocketSet is not a
+	// synchronous operation.
+	defer wg.Wait()
+	defer ss.Shutdown() // close the netlink socket and unblock conn.receive()
 
 	eventChan := make(chan *nlChanEvent) // updated in goroutine when we receive uevent
 	closeChan := make(chan struct{})     // channel to unblock selects in goroutine

@@ -108,18 +108,22 @@ func TestNfd(t *testing.T) {
 
 // test SocketSet.Shutdown()
 func TestShutdown(t *testing.T) {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
 	// pass 0 so we create a socket that doesn't receive any events
 	ss, err := NewSocketSet(0, "pipe.sock", 0)
 	if err != nil {
 		t.Errorf("could not create SocketSet: %+v", err)
 	}
+	// waitgroup for netlink receive goroutine
+	wg := &sync.WaitGroup{}
+	defer ss.Close()
+	// We must wait for the Shutdown() AND the select inside of SocketSet to
+	// complete before we Close, since the unblocking in SocketSet is not a
+	// synchronous operation.
+	defer wg.Wait()
+	defer ss.Shutdown() // close the netlink socket and unblock conn.receive()
+
 	closeChan := make(chan struct{})
 	defer close(closeChan)
-	defer ss.Close()
-	defer ss.Shutdown()
 
 	// create a listener that never receives any data
 	wg.Add(1) // add a waitgroup to ensure this will block if we don't properly unblock Select

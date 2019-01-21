@@ -191,15 +191,19 @@ func (obj *NetRes) Close() error {
 // TODO: currently gets events from ALL interfaces, would be nice to reject
 // events from other interfaces.
 func (obj *NetRes) Watch() error {
-	// waitgroup for netlink receive goroutine
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
 	// create a netlink socket for receiving network interface events
 	conn, err := socketset.NewSocketSet(rtmGrps, obj.socketFile, unix.NETLINK_ROUTE)
 	if err != nil {
 		return errwrap.Wrapf(err, "error creating socket set")
 	}
+
+	// waitgroup for netlink receive goroutine
+	wg := &sync.WaitGroup{}
+	defer conn.Close()
+	// We must wait for the Shutdown() AND the select inside of SocketSet to
+	// complete before we Close, since the unblocking in SocketSet is not a
+	// synchronous operation.
+	defer wg.Wait()
 	defer conn.Shutdown() // close the netlink socket and unblock conn.receive()
 
 	// watch the systemd-networkd configuration file
@@ -220,7 +224,6 @@ func (obj *NetRes) Watch() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer conn.Close() // close the pipe when we're done with it
 		defer close(nlChan)
 		for {
 			// receive messages from the socket set

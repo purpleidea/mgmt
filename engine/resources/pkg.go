@@ -67,7 +67,7 @@ type PkgRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *PkgRes) Default() engine.Res {
 	return &PkgRes{
-		State: PkgStateInstalled, // i think this is preferable to "latest"
+		State: PkgStateInstalled, // i think this is preferable to "newest"
 	}
 }
 
@@ -75,6 +75,9 @@ func (obj *PkgRes) Default() engine.Res {
 func (obj *PkgRes) Validate() error {
 	if obj.State == "" {
 		return fmt.Errorf("state cannot be empty")
+	}
+	if obj.State == "latest" {
+		return fmt.Errorf("state is invalid, did you mean `newest` ?")
 	}
 
 	return nil
@@ -203,7 +206,7 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 	packageMap[obj.Name()] = obj.State     // key is pkg name, value is pkg state
 	var filter uint64                      // initializes at the "zero" value of 0
 	filter += packagekit.PkFilterEnumArch  // always search in our arch (optional!)
-	// we're requesting latest version, or to narrow down install choices!
+	// we're requesting newest version, or to narrow down install choices!
 	if obj.State == PkgStateNewest || obj.State == PkgStateInstalled {
 		// if we add this, we'll still see older packages if installed
 		// this is an optimization, and is *optional*, this logic is
@@ -248,6 +251,10 @@ func (obj *PkgRes) populateFileList() error {
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
 		return fmt.Errorf("can't find package named '%s'", obj.Name())
+	}
+	if data.PackageID == "" {
+		// this can happen if you specify a bad version like "latest"
+		return fmt.Errorf("empty PackageID found for '%s'", obj.Name())
 	}
 
 	packageIDs := []string{data.PackageID} // just one for now

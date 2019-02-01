@@ -15,15 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package corestrings
 
-import (
-	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coredatetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coreexample"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/corefmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coremath"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coreos"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/corestrings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coresys"
+const (
+	// moduleName is the prefix given to all the functions in this module.
+	moduleName = "strings"
 )

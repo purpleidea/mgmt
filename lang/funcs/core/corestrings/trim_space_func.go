@@ -15,15 +15,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package corestrings
 
 import (
-	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coredatetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coreexample"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/corefmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coremath"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coreos"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/corestrings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coresys"
+	"strings"
+
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/types"
 )
+
+func init() {
+	simple.ModuleRegister(moduleName, "trim_space", &types.FuncValue{
+		T: types.NewType("func(a str) str"),
+		V: func(input []types.Value) (types.Value, error) {
+			return &types.StrValue{
+				V: strings.TrimSpace(input[0].Str()),
+			}, nil
+		},
+	})
+}

@@ -224,7 +224,7 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 	}
 	result, err := bus.PackagesToPackageIDs(packageMap, filter)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "Can't run PackagesToPackageIDs")
+		return nil, errwrap.Wrapf(err, "can't run PackagesToPackageIDs")
 	}
 	return result, nil
 }

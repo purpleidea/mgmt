@@ -148,7 +148,10 @@ func (obj *PkgRes) Watch() error {
 			send = true
 			obj.init.Dirty() // dirty
 
-		case event := <-obj.init.Events:
+		case event, ok := <-obj.init.Events:
+			if !ok {
+				return nil
+			}
 			if err := obj.init.Read(event); err != nil {
 				return err
 			}

@@ -176,7 +176,10 @@ func (obj *SvcRes) Watch() error {
 				// loop so that we can see the changed invalid signal
 				obj.init.Logf("daemon reload")
 
-			case event := <-obj.init.Events:
+			case event, ok := <-obj.init.Events:
+				if !ok {
+					return nil
+				}
 				if err := obj.init.Read(event); err != nil {
 					return err
 				}
@@ -222,7 +225,10 @@ func (obj *SvcRes) Watch() error {
 			case err := <-subErrors:
 				return errwrap.Wrapf(err, "unknown %s error", obj)
 
-			case event := <-obj.init.Events:
+			case event, ok := <-obj.init.Events:
+				if !ok {
+					return nil
+				}
 				if err := obj.init.Read(event); err != nil {
 					return err
 				}

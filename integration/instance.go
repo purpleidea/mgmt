@@ -315,10 +315,11 @@ func (obj *Instance) Wait(ctx context.Context) error {
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "error event received")
 			}
-
+			startup = nil
 			// send event...
 
 		case <-ctx.Done():
+			startup = nil
 			return ctx.Err()
 		}
 

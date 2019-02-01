@@ -7,28 +7,8 @@ count=1		# initial count
 factor=3
 function output() {
 count=$1	# arg!
-cat << EOF > ~/code/mgmt/examples/yaml/virt4.yaml
----
-graph: mygraph
-resources:
-  virt:
-  - name: mgmt4
-    meta:
-      limit: .inf
-      burst: 0
-    uri: 'qemu:///session'
-    cpus: $count
-    maxcpus: $maximum
-    memory: 524288
-    boot:
-    - hd
-    disk:
-    - type: qcow2
-      source: "~/.local/share/libvirt/images/fedora-23-scratch.qcow2"
-    state: running
-    transient: false
-edges: []
-comment: "qemu-img create -b fedora-23.qcow2 -f qcow2 fedora-23-scratch.qcow2"
+cat << EOF > /tmp/cpu-count
+$count
 EOF
 }
 #tput cuu 1 && tput el	# remove last line

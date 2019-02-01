@@ -1,0 +1,53 @@
+# qemu-img create -b fedora-23.qcow2 -f qcow2 fedora-23-scratch.qcow2
+
+import "fmt"
+import "os"
+import "strings"
+import "example"
+
+$input = example.str2int(strings.trim_space(os.readfile("/tmp/cpu-count")))
+$count = if $input > 8 {
+	8
+} else {
+	if $input < 1 {
+		1
+	} else {
+		$input
+	}
+}
+
+file "/tmp/output" {
+	content => fmt.printf("requesting: %d cpus\n", $count),
+}
+
+virt "mgmt4" {
+	uri => "qemu:///session",
+	cpus => $count,
+	maxcpus => 8,
+	memory => 524288,
+	state => "running",
+	transient => false,
+	boot => ["hd", ],
+	# can't add this part until we fix the unification bug
+	#disk => [
+	#	struct{
+	#	    source => "~/.local/share/libvirt/images/fedora-23-scratch.qcow2",
+	#	    type => "qcow2",
+	#	},
+	#],
+	# add the rest for unification bug
+	#osinit => "",
+	#cdrom => [
+	#],
+	#network => [
+	#],
+	#filesystem => [
+	#],
+	#auth => struct{
+	#	username => "",
+	#	password => "",
+	#},
+	#hotcpus => true,	# this is the default
+	#restartondiverge => "",
+	#restartonrefresh => false,
+}

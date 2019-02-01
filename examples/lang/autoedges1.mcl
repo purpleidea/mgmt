@@ -1,0 +1,30 @@
+pkg "drbd-utils" {
+	state => "installed",
+
+	Meta:autoedge => true,
+	Meta:noop => true,
+}
+
+file "/etc/drbd.conf" {
+	content => "this is an mgmt test",
+	state => "exists",
+
+	Meta:autoedge => true,
+	Meta:noop => true,
+}
+
+file "/etc/drbd.d/" {
+	source => "/dev/null",
+	state => "exists",
+
+	Meta:autoedge => true,
+	Meta:noop => true,
+}
+
+# note that the autoedges between the files and the svc don't exist yet :(
+svc "drbd" {
+	state => "stopped",
+
+	Meta:autoedge => true,
+	Meta:noop => true,
+}

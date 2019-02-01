@@ -1,0 +1,17 @@
+pkg "powertop" {
+	state => "installed",
+
+	Meta:autogroup => true,
+}
+
+pkg "sl" {
+	state => "installed",
+
+	Meta:autogroup => true,
+}
+
+pkg "cowsay" {
+	state => "installed",
+
+	Meta:autogroup => true,
+}

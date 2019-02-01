@@ -1,0 +1,31 @@
+# setenforce Permissive
+
+import "fmt"
+
+$codename = "stretch"
+$baserepo = "https://deb.debian.org/debian/"
+$rootpath = "/var/lib/machines/"
+
+pkg "debootstrap" {
+	state => "newest",
+}
+
+$dir = $codename + "-" + "nspawn" # dir name
+$cmd = fmt.printf("debootstrap --include=systemd-container %s %s %s", $codename, $dir, $baserepo)
+exec "debootstrap-" + $codename {
+	cwd => $rootpath,
+
+	shell => "/bin/bash",
+	cmd => $cmd,
+
+	ifshell => "/bin/bash",
+	ifcmd => fmt.printf("test ! -d %s", $rootpath),
+
+	Depend => Pkg["debootstrap"],
+}
+
+nspawn $dir {
+	state => "running",
+
+	Depend => Exec["debootstrap-" + $codename],
+}

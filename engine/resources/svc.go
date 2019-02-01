@@ -349,7 +349,12 @@ func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
 	if &status == nil {
 		return false, fmt.Errorf("systemd service action result is nil")
 	}
-	if status != "done" {
+	switch status {
+	case "done":
+		// pass
+	case "failed":
+		return false, fmt.Errorf("svc failed (selinux?)")
+	default:
 		return false, fmt.Errorf("unknown systemd return string: %v", status)
 	}
 

@@ -47,11 +47,14 @@ type ExecRes struct {
 	init *engine.Init
 
 	Cmd        string  `yaml:"cmd"`        // the command to run
+	Cwd        string  `yaml:"cwd"`        // the dir to run the command in (empty means use `pwd` of command)
 	Shell      string  `yaml:"shell"`      // the (optional) shell to use to run the cmd
 	Timeout    int     `yaml:"timeout"`    // the cmd timeout in seconds
 	WatchCmd   string  `yaml:"watchcmd"`   // the watch command to run
+	WatchCwd   string  `yaml:"watchcwd"`   // the dir to run the watch command in (empty means use `pwd` of command)
 	WatchShell string  `yaml:"watchshell"` // the (optional) shell to use to run the watch cmd
 	IfCmd      string  `yaml:"ifcmd"`      // the if command to run
+	IfCwd      string  `yaml:"ifcwd"`      // the dir to run the if command in (empty means use `pwd` of command)
 	IfShell    string  `yaml:"ifshell"`    // the (optional) shell to use to run the if cmd
 	User       string  `yaml:"user"`       // the (optional) user to use to execute the command
 	Group      string  `yaml:"group"`      // the (optional) group to use to execute the command
@@ -122,7 +125,7 @@ func (obj *ExecRes) Watch() error {
 			cmdArgs = []string{"-c", obj.WatchCmd}
 		}
 		cmd := exec.Command(cmdName, cmdArgs...)
-		//cmd.Dir = "" // look for program in pwd ?
+		cmd.Dir = obj.WatchCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
@@ -208,7 +211,6 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	// have a chance to execute, and all without the check of obj.Refresh()!
 
 	if obj.IfCmd != "" { // if there is no onlyif check, we should just run
-
 		var cmdName string
 		var cmdArgs []string
 		if obj.IfShell == "" {
@@ -224,6 +226,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 			cmdArgs = []string{"-c", obj.IfCmd}
 		}
 		cmd := exec.Command(cmdName, cmdArgs...)
+		cmd.Dir = obj.IfCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
@@ -266,7 +269,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 		cmdArgs = []string{"-c", obj.Cmd}
 	}
 	cmd := exec.Command(cmdName, cmdArgs...)
-	//cmd.Dir = "" // look for program in pwd ?
+	cmd.Dir = obj.Cwd // run program in pwd if ""
 	// ignore signals sent to parent process (we're in our own group)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
@@ -373,6 +376,9 @@ func (obj *ExecRes) Compare(r engine.Res) bool {
 	if obj.Cmd != res.Cmd {
 		return false
 	}
+	if obj.Cwd != res.Cwd {
+		return false
+	}
 	if obj.Shell != res.Shell {
 		return false
 	}
@@ -382,10 +388,16 @@ func (obj *ExecRes) Compare(r engine.Res) bool {
 	if obj.WatchCmd != res.WatchCmd {
 		return false
 	}
+	if obj.WatchCwd != res.WatchCwd {
+		return false
+	}
 	if obj.WatchShell != res.WatchShell {
 		return false
 	}
 	if obj.IfCmd != res.IfCmd {
+		return false
+	}
+	if obj.IfCwd != res.IfCwd {
 		return false
 	}
 	if obj.IfShell != res.IfShell {

@@ -1,0 +1,12 @@
+import "datetime"
+
+$secplus42 = 42 + $ayear
+
+# note the order of the assignment (year can come later in the code)
+$ayear = 60 * 60 * 24 * 365	# is a year in seconds (31536000)
+
+$tmplvalues = struct{time => $secplus42, hello => "world",}
+
+print "template-0" {
+	msg => template("Hello: {{ .hello }}, 42 sec + 1 year is: {{ .time }} seconds, aka: {{ datetime_print .time }}", $tmplvalues),
+}

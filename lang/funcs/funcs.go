@@ -30,6 +30,13 @@ const (
 	// example when using `fmt.printf` or `math.sin` this is the char used.
 	// It is included here for convenience when importing this package.
 	ModuleSep = interfaces.ModuleSep
+
+	// ReplaceChar is a special char that is used to replace ModuleSep when
+	// it can't be used for some reason. This currently only happens in the
+	// golang template library. Even with this limitation in that library,
+	// we don't want to allow this as the first or last character in a name.
+	// NOTE: the template library will panic if it is one of: .-#
+	ReplaceChar = "_"
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You
@@ -56,6 +63,11 @@ func Register(name string, fn func() interfaces.Func) {
 	if strings.HasPrefix(name, ModuleSep) || strings.HasSuffix(name, ModuleSep) {
 		panic(fmt.Sprintf("a func named %s is invalid", name))
 	}
+	// TODO: this should be added but conflicts with our internal functions
+	// can't start or end with an underscore
+	//if strings.HasPrefix(name, ReplaceChar) || strings.HasSuffix(name, ReplaceChar) {
+	//	panic(fmt.Sprintf("a func named %s is invalid", name))
+	//}
 
 	//gob.Register(fn())
 	registeredFuncs[name] = fn

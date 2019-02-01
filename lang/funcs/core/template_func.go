@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"text/template"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -189,8 +190,8 @@ func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, err
 	// function in the simple package?
 	// TODO: loop through this map in a sorted, deterministic order
 	// XXX: should this use the scope instead (so imports are used properly) ?
-	// XXX: dots are not valid here, so maybe replace dots with underscores so we can do fmt_print???
 	for name, fn := range simple.RegisteredFuncs {
+		name = safename(name) // TODO: rename since we can't include dot
 		if _, exists := funcMap[name]; exists {
 			obj.init.Logf("warning, existing function named: `%s` exists", name)
 			continue
@@ -324,6 +325,23 @@ func (obj *TemplateFunc) Stream() error {
 func (obj *TemplateFunc) Close() error {
 	close(obj.closeChan)
 	return nil
+}
+
+// safename renames the functions so they're valid inside the template. This is
+// a limitation of the template library, and it might be worth moving to a new
+// one.
+func safename(name string) string {
+	// TODO: should we pick a different replacement char?
+	char := funcs.ReplaceChar // can't be any of: .-#
+	result := strings.Replace(name, funcs.ModuleSep, char, -1)
+	if result == name {
+		// No change, so add a prefix for package-less functions... This
+		// prevents conflicts from sys.func1 -> sys_func1 which would be
+		// a conflict with a top-level function named sys_func1 which is
+		// now renamed to _sys_func1.
+		return char + name
+	}
+	return result
 }
 
 // wrap builds a function in the format expected by the template engine, and

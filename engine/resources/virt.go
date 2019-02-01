@@ -71,24 +71,24 @@ type VirtRes struct {
 
 	init *engine.Init
 
-	URI        string             `yaml:"uri"`       // connection uri, eg: qemu:///session
-	State      string             `yaml:"state"`     // running, paused, shutoff
-	Transient  bool               `yaml:"transient"` // defined (false) or undefined (true)
-	CPUs       uint               `yaml:"cpus"`
-	MaxCPUs    uint               `yaml:"maxcpus"`
-	Memory     uint64             `yaml:"memory"` // in KBytes
-	OSInit     string             `yaml:"osinit"` // init used by lxc
-	Boot       []string           `yaml:"boot"`   // boot order. values: fd, hd, cdrom, network
-	Disk       []diskDevice       `yaml:"disk"`
-	CDRom      []cdRomDevice      `yaml:"cdrom"`
-	Network    []networkDevice    `yaml:"network"`
-	Filesystem []filesystemDevice `yaml:"filesystem"`
-	Auth       *VirtAuth          `yaml:"auth"`
+	URI        string             `lang:"uri" yaml:"uri"`             // connection uri, eg: qemu:///session
+	State      string             `lang:"state" yaml:"state"`         // running, paused, shutoff
+	Transient  bool               `lang:"transient" yaml:"transient"` // defined (false) or undefined (true)
+	CPUs       uint               `lang:"cpus" yaml:"cpus"`
+	MaxCPUs    uint               `lang:"maxcpus" yaml:"maxcpus"`
+	Memory     uint64             `lang:"memory" yaml:"memory"` // in KBytes
+	OSInit     string             `lang:"osinit" yaml:"osinit"` // init used by lxc
+	Boot       []string           `lang:"boot" yaml:"boot"`     // boot order. values: fd, hd, cdrom, network
+	Disk       []DiskDevice       `lang:"disk" yaml:"disk"`
+	CDRom      []CDRomDevice      `lang:"cdrom" yaml:"cdrom"`
+	Network    []NetworkDevice    `lang:"network" yaml:"network"`
+	Filesystem []FilesystemDevice `lang:"filesystem" yaml:"filesystem"`
+	Auth       *VirtAuth          `lang:"auth" yaml:"auth"`
 
-	HotCPUs bool `yaml:"hotcpus"` // allow hotplug of cpus?
+	HotCPUs bool `lang:"hotcpus" yaml:"hotcpus"` // allow hotplug of cpus?
 	// FIXME: values here should be enum's!
-	RestartOnDiverge string `yaml:"restartondiverge"` // restart policy: "ignore", "ifneeded", "error"
-	RestartOnRefresh bool   `yaml:"restartonrefresh"` // restart on refresh?
+	RestartOnDiverge string `lang:"restartondiverge" yaml:"restartondiverge"` // restart policy: "ignore", "ifneeded", "error"
+	RestartOnRefresh bool   `lang:"restartonrefresh" yaml:"restartonrefresh"` // restart on refresh?
 
 	wg                  *sync.WaitGroup
 	conn                *libvirt.Connect
@@ -103,8 +103,8 @@ type VirtRes struct {
 
 // VirtAuth is used to pass credentials to libvirt.
 type VirtAuth struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Username string `lang:"username" yaml:"username"`
+	Password string `lang:"password" yaml:"password"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -970,44 +970,51 @@ type virtDevice interface {
 	GetXML(idx int) string
 }
 
-type diskDevice struct {
-	Source string `yaml:"source"`
-	Type   string `yaml:"type"`
+// DiskDevice represents a disk that is attached to the virt machine.
+type DiskDevice struct {
+	Source string `lang:"source" yaml:"source"`
+	Type   string `lang:"type" yaml:"type"`
 }
 
-type cdRomDevice struct {
-	Source string `yaml:"source"`
-	Type   string `yaml:"type"`
+// CDRomDevice represents a CDRom device that is attached to the virt machine.
+type CDRomDevice struct {
+	Source string `lang:"source" yaml:"source"`
+	Type   string `lang:"type" yaml:"type"`
 }
 
-type networkDevice struct {
-	Name string `yaml:"name"`
-	MAC  string `yaml:"mac"`
+// NetworkDevice represents a network card that is attached to the virt machine.
+type NetworkDevice struct {
+	Name string `lang:"name" yaml:"name"`
+	MAC  string `lang:"mac" yaml:"mac"`
 }
 
-type filesystemDevice struct {
-	Access   string `yaml:"access"`
-	Source   string `yaml:"source"`
-	Target   string `yaml:"target"`
-	ReadOnly bool   `yaml:"read_only"`
+// FilesystemDevice represents a filesystem that is attached to the virt
+// machine.
+type FilesystemDevice struct {
+	Access   string `lang:"access" yaml:"access"`
+	Source   string `lang:"source" yaml:"source"`
+	Target   string `lang:"target" yaml:"target"`
+	ReadOnly bool   `lang:"read_only" yaml:"read_only"`
 }
 
-func (d *diskDevice) GetXML(idx int) string {
-	source, _ := util.ExpandHome(d.Source) // TODO: should we handle errors?
+// GetXML returns the XML representation of this device.
+func (obj *DiskDevice) GetXML(idx int) string {
+	source, _ := util.ExpandHome(obj.Source) // TODO: should we handle errors?
 	var b string
 	b += "<disk type='file' device='disk'>"
-	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", d.Type)
+	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", obj.Type)
 	b += fmt.Sprintf("<source file='%s'/>", source)
 	b += fmt.Sprintf("<target dev='vd%s' bus='virtio'/>", util.NumToAlpha(idx))
 	b += "</disk>"
 	return b
 }
 
-func (d *cdRomDevice) GetXML(idx int) string {
-	source, _ := util.ExpandHome(d.Source) // TODO: should we handle errors?
+// GetXML returns the XML representation of this device.
+func (obj *CDRomDevice) GetXML(idx int) string {
+	source, _ := util.ExpandHome(obj.Source) // TODO: should we handle errors?
 	var b string
 	b += "<disk type='file' device='cdrom'>"
-	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", d.Type)
+	b += fmt.Sprintf("<driver name='qemu' type='%s'/>", obj.Type)
 	b += fmt.Sprintf("<source file='%s'/>", source)
 	b += fmt.Sprintf("<target dev='hd%s' bus='ide'/>", util.NumToAlpha(idx))
 	b += "<readonly/>"
@@ -1015,29 +1022,31 @@ func (d *cdRomDevice) GetXML(idx int) string {
 	return b
 }
 
-func (d *networkDevice) GetXML(idx int) string {
-	if d.MAC == "" {
-		d.MAC = randMAC()
+// GetXML returns the XML representation of this device.
+func (obj *NetworkDevice) GetXML(idx int) string {
+	if obj.MAC == "" {
+		obj.MAC = randMAC()
 	}
 	var b string
 	b += "<interface type='network'>"
-	b += fmt.Sprintf("<mac address='%s'/>", d.MAC)
-	b += fmt.Sprintf("<source network='%s'/>", d.Name)
+	b += fmt.Sprintf("<mac address='%s'/>", obj.MAC)
+	b += fmt.Sprintf("<source network='%s'/>", obj.Name)
 	b += "</interface>"
 	return b
 }
 
-func (d *filesystemDevice) GetXML(idx int) string {
-	source, _ := util.ExpandHome(d.Source) // TODO: should we handle errors?
+// GetXML returns the XML representation of this device.
+func (obj *FilesystemDevice) GetXML(idx int) string {
+	source, _ := util.ExpandHome(obj.Source) // TODO: should we handle errors?
 	var b string
 	b += "<filesystem" // open
-	if d.Access != "" {
-		b += fmt.Sprintf(" accessmode='%s'", d.Access)
+	if obj.Access != "" {
+		b += fmt.Sprintf(" accessmode='%s'", obj.Access)
 	}
 	b += ">" // close
 	b += fmt.Sprintf("<source dir='%s'/>", source)
-	b += fmt.Sprintf("<target dir='%s'/>", d.Target)
-	if d.ReadOnly {
+	b += fmt.Sprintf("<target dir='%s'/>", obj.Target)
+	if obj.ReadOnly {
 		b += "<readonly/>"
 	}
 	b += "</filesystem>"

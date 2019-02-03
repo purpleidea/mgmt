@@ -1,0 +1,6 @@
+# this is a pretty lame module!
+$name = "i am github.com/purpleidea/mgmt-example2/" # + $hmmm
+
+# import another module
+import "git://github.com/purpleidea/mgmt-example1/"
+$hmmm = $example1.name

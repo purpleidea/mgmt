@@ -1,0 +1,8 @@
+import "fmt"
+import "sys"
+
+$x = sys.getenv("TEST", "321")
+
+print "print1" {
+	msg => fmt.printf("TEST is: %s", $x),
+}

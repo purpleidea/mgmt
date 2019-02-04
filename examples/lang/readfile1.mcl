@@ -1,6 +1,6 @@
 import "os"
 
-# this copies the contents from /tmp/foo and puts them in /tmp/output
+# this copies the contents from /tmp/input and puts them in /tmp/output
 file "/tmp/output" {
-	content => os.readfile("/tmp/foo"),
+	content => os.readfile("/tmp/input"),
 }

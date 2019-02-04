@@ -1,6 +1,6 @@
 docker:container "mgmt-nginx" {
-    state => "running",
-    image => "nginx",
-    cmd => ["nginx", "-g", "daemon off;",],
-    ports => {"tcp" => {80 => 8080,},},
+	state => "running",
+	image => "nginx",
+	cmd => ["nginx", "-g", "daemon off;",],
+	ports => {"tcp" => {80 => 8080,},},
 }

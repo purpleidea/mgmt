@@ -1,6 +1,6 @@
 cron "purpleidea-oneshot" {
-    trigger => "OnUnitActiveSec",
-    time => "2minutes",
+	trigger => "OnUnitActiveSec",
+	time => "2minutes",
 }
 
 svc "purpleidea-oneshot" {}

@@ -1,0 +1,8 @@
+# this combination should error
+pkg "cowsay" {
+        state => "uninstalled",
+}
+
+pkg "cowsay" {
+        state => "installed",
+}

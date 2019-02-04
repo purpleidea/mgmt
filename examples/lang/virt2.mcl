@@ -31,8 +31,8 @@ virt "mgmt4" {
 	# can't add this part until we fix the unification bug
 	#disk => [
 	#	struct{
-	#	    source => "~/.local/share/libvirt/images/fedora-23-scratch.qcow2",
-	#	    type => "qcow2",
+	#		source => "~/.local/share/libvirt/images/fedora-23-scratch.qcow2",
+	#		type => "qcow2",
 	#	},
 	#],
 	# add the rest for unification bug

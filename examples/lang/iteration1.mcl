@@ -1,0 +1,21 @@
+# single resource
+print "name" {}
+
+# single resource, defined by list variable
+$names = ["hey", "there",]
+print $names {
+	Meta:autogroup => false,
+}
+
+# multiples resources, defined by list
+print ["hello", "world",] {
+	Meta:autogroup => false,
+	Depend => Print[$names],
+}
+
+$morenames = ["wow", "cool", "amazing",]
+print $morenames {
+	Meta:autogroup => false,
+}
+
+Print[$names] -> Print[$morenames]

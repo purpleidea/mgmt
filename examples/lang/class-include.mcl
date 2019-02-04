@@ -1,0 +1,22 @@
+import "fmt"
+class foo {
+	print "foo1" {
+		msg => "inside foo",
+
+		Meta:autogroup => false,
+	}
+}
+
+class bar($a, $b) { # a parameterized class
+	print "bar-"+ $a {
+		msg => fmt.printf("inside bar: %s", $b),
+
+		Meta:autogroup => false,
+	}
+}
+
+include foo
+include foo			# duplicate
+include bar("b1", "hello")
+include bar("b2", "world")
+include bar("b2", "world")	# duplicate

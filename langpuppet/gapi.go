@@ -123,13 +123,13 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	var langDeploy *gapi.Deploy
 	var puppetDeploy *gapi.Deploy
 	langCliInfo := &gapi.CliInfo{
-		CliContext: cli.NewContext(c.App, flagSet, nil),
+		CliContext: cli.NewContext(c.App, flagSet, c.Parent()),
 		Fs:         fs,
 		Debug:      debug,
 		Logf:       logf, // TODO: wrap logf?
 	}
 	puppetCliInfo := &gapi.CliInfo{
-		CliContext: cli.NewContext(c.App, flagSet, nil),
+		CliContext: cli.NewContext(c.App, flagSet, c.Parent()),
 		Fs:         fs,
 		Debug:      debug,
 		Logf:       logf, // TODO: wrap logf?

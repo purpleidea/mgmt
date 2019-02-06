@@ -21,7 +21,7 @@ fi
 
 # As per https://github.com/travis-ci/docs-travis-ci-com/blob/master/user/docker.md
 # Docker is not supported on Travis macOS test instances.
-if [[ "$TRAVIS_OS_NAME" == "osx" ]];then
+if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
 	XTAGS+=('nodocker')
 fi
 

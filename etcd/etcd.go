@@ -194,6 +194,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	advertiseClientURLs etcdtypes.URLs    // client urls to advertise
 	advertiseServerURLs etcdtypes.URLs    // server urls to advertise
 	noServer            bool              // disable all server peering if true
+	noNetwork           bool              // use unix:// sockets instead of TCP for clients/servers
 
 	// local tracked state
 	nominated        etcdtypes.URLsMap // copy of who's nominated to locally track state
@@ -220,7 +221,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 }
 
 // NewEmbdEtcd creates the top level embedded etcd struct client and server obj.
-func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClientURLs, advertiseServerURLs etcdtypes.URLs, noServer bool, idealClusterSize uint16, flags Flags, prefix string, converger converger.Converger) *EmbdEtcd {
+func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClientURLs, advertiseServerURLs etcdtypes.URLs, noServer bool, noNetwork bool, idealClusterSize uint16, flags Flags, prefix string, converger converger.Converger) *EmbdEtcd {
 	endpoints := make(etcdtypes.URLsMap)
 	if hostname == seedSentinel { // safety
 		return nil
@@ -229,6 +230,15 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 		log.Printf("Etcd: need at least one seed if running with --no-server!")
 		return nil
 	}
+	if noNetwork {
+		if len(clientURLs) != 0 || len(serverURLs) != 0 || len(seeds) != 0 {
+			log.Printf("--no-network is mutual exclusive with --seeds, --client-urls and --server-urls")
+			return nil
+		}
+		clientURLs, _ = etcdtypes.NewURLs([]string{"unix://clients.sock:0"})
+		serverURLs, _ = etcdtypes.NewURLs([]string{"unix://servers.sock:0"})
+	}
+
 	if len(seeds) > 0 {
 		endpoints[seedSentinel] = seeds
 		idealClusterSize = 0 // unset, get from running cluster
@@ -253,6 +263,7 @@ func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClient
 		advertiseClientURLs: advertiseClientURLs,
 		advertiseServerURLs: advertiseServerURLs,
 		noServer:            noServer,
+		noNetwork:           noNetwork,
 
 		idealClusterSize: idealClusterSize,
 		converger:        converger,
@@ -304,7 +315,7 @@ func (obj *EmbdEtcd) GetConfig() etcd.Config {
 	// XXX: filter out any urls which wouldn't resolve here ?
 	for _, eps := range obj.endpoints { // flatten map
 		for _, u := range eps {
-			endpoints = append(endpoints, u.Host) // remove http:// prefix
+			endpoints = append(endpoints, u.String()) // use full url including scheme
 		}
 	}
 	sort.Strings(endpoints) // sort for determinism
@@ -1692,8 +1703,12 @@ func (obj *EmbdEtcd) LocalhostClientURLs() etcdtypes.URLs {
 	// look through obj.clientURLs and return the localhost ones
 	urls := etcdtypes.URLs{}
 	for _, x := range obj.clientURLs {
-		// "localhost" or anything in 127.0.0.0/8 is valid!
-		if s := x.Host; strings.HasPrefix(s, "localhost") || strings.HasPrefix(s, "127.") {
+		// "localhost", ::1 or anything in 127.0.0.0/8 is valid!
+		if s := x.Host; strings.HasPrefix(s, "localhost") || strings.HasPrefix(s, "127.") || strings.HasPrefix(s, "[::1]") {
+			urls = append(urls, x)
+		}
+		// or local unix domain socket
+		if x.Scheme == "unix" {
 			urls = append(urls, x)
 		}
 	}

@@ -107,6 +107,7 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	obj.AdvertiseServerURLs = cliContext.StringSlice("advertise-server-urls")
 	obj.IdealClusterSize = cliContext.Int("ideal-cluster-size")
 	obj.NoServer = cliContext.Bool("no-server")
+	obj.NoNetwork = cliContext.Bool("no-network")
 
 	obj.NoPgp = cliContext.Bool("no-pgp")
 

@@ -31,7 +31,7 @@ func TestNewEmbdEtcd(t *testing.T) {
 	noServer := false
 	var flags Flags
 
-	obj := NewEmbdEtcd("", nil, nil, nil, nil, nil, noServer, 0, flags, "", nil)
+	obj := NewEmbdEtcd("", nil, nil, nil, nil, nil, noServer, false, 0, flags, "", nil)
 	if obj == nil {
 		t.Fatal("failed to create server object")
 	}
@@ -44,7 +44,7 @@ func TestNewEmbdEtcdConfigValidation(t *testing.T) {
 	noServer := true
 	var flags Flags
 
-	obj := NewEmbdEtcd("", seeds, nil, nil, nil, nil, noServer, 0, flags, "", nil)
+	obj := NewEmbdEtcd("", seeds, nil, nil, nil, nil, noServer, false, 0, flags, "", nil)
 	if obj != nil {
 		t.Fatal("server initialization should fail on invalid configuration")
 	}

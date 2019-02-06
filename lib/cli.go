@@ -171,7 +171,11 @@ func CLI(program, version string, flags Flags) error {
 			Name:  "no-server",
 			Usage: "do not start embedded etcd server (do not promote from client to peer)",
 		},
-
+		cli.BoolFlag{
+			Name:   "no-network",
+			Usage:  "run single node instance without clustering or opening tcp ports to the outside",
+			EnvVar: "MGMT_NO_NETWORK",
+		},
 		cli.BoolFlag{
 			Name:  "no-pgp",
 			Usage: "don't create pgp keys",

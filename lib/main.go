@@ -89,6 +89,7 @@ type Main struct {
 	AdvertiseServerURLs []string // list of URLs to advertise for server (peer) traffic
 	IdealClusterSize    int      // ideal number of server peers in cluster; only read by initial server
 	NoServer            bool     // do not let other servers peer with me
+	NoNetwork           bool     // run single node instance without clustering or opening tcp ports to the outside
 
 	seeds               etcdtypes.URLs // processed seeds value
 	clientURLs          etcdtypes.URLs // processed client urls value
@@ -354,6 +355,7 @@ func (obj *Main) Run() error {
 		obj.advertiseClientURLs,
 		obj.advertiseServerURLs,
 		obj.NoServer,
+		obj.NoNetwork,
 		obj.idealClusterSize,
 		etcd.Flags{
 			Debug:   obj.Flags.Debug,

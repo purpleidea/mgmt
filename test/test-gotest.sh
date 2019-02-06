@@ -9,20 +9,26 @@ cd "${ROOT}"
 
 # if we want to run this test as root, use build tag -root to ask each test...
 XSUDO=''
-XTAGS=''
+XTAGS=()
 if [[ "$@" = *"--root"* ]]; then
 	if ! timeout 1s sudo -A true; then
 		echo "sudo disabled: can't run as root"
 		exit 1
 	fi
 	XSUDO='sudo -E'
-	XTAGS='-tags root'
+	XTAGS+=('root')
+fi
+
+# As per https://github.com/travis-ci/docs-travis-ci-com/blob/master/user/docker.md
+# Docker is not supported on Travis macOS test instances.
+if [[ "$TRAVIS_OS_NAME" == "osx" ]];then
+	XTAGS+=('nodocker')
 fi
 
 failures=''
 function run-test()
 {
-	$XSUDO $@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
+	$XSUDO $@ -tags="${XTAGS[*]}" || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 }
 
 # NOTE: you can run `go test` with the -tags flag to skip certain tests, eg:
@@ -31,17 +37,17 @@ base=$(go list .)
 if [[ "$@" = *"--integration"* ]]; then
 	if [[ "$@" = *"--race"* ]]; then
 		# adding -count=1 replaces the GOCACHE=off fix that was removed
-		run-test go test -count=1 -race "${base}/integration" -v ${XTAGS}
+		run-test go test -count=1 -race "${base}/integration" -v
 	else
-		run-test go test -count=1 "${base}/integration" -v ${XTAGS}
+		run-test go test -count=1 "${base}/integration" -v
 	fi
 else
 	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
 		echo -e "\ttesting: $pkg"
 		if [[ "$@" = *"--race"* ]]; then
-			run-test go test -count=1 -race "$pkg" ${XTAGS}
+			run-test go test -count=1 -race "$pkg"
 		else
-			run-test go test -count=1 "$pkg" ${XTAGS}
+			run-test go test -count=1 "$pkg"
 		fi
 	done
 fi

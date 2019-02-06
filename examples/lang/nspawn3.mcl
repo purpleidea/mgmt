@@ -1,0 +1,4 @@
+# setenforce Permissive
+nspawn "stretch-nspawn-1" {
+	state => "running",
+}

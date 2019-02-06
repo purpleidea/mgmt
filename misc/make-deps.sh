@@ -102,6 +102,7 @@ go get github.com/blynn/nex				# for lexing
 go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
 go get golang.org/x/lint/golint				# for `golint`-ing
+go get golang.org/x/tools/cmd/goimports		# for fmt
 go get github.com/tmthrgd/go-bindata/go-bindata	# for compiling in non golang files
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
 	go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus

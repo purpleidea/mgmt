@@ -15,22 +15,31 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package corestrings
+package main
 
 import (
-	"strings"
+	"io/ioutil"
+	"log"
+	"path/filepath"
 
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
-	"github.com/purpleidea/mgmt/lang/types"
+	yaml "gopkg.in/yaml.v2"
 )
 
-func init() {
-	simple.ModuleRegister(moduleName, "trim_space", &types.FuncValue{
-		T: types.NewType("func(a str) str"),
-		V: func(input []types.Value) (types.Value, error) {
-			return &types.StrValue{
-				V: strings.TrimSpace(input[0].Str()),
-			}, nil
-		},
-	})
+func parsePkg(path, filename, templates string) error {
+	var c config
+	filePath := filepath.Join(path, filename)
+	log.Printf("Reading %s", filePath)
+	cfgFile, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	err = yaml.UnmarshalStrict(cfgFile, &c)
+	if err != nil {
+		return err
+	}
+	err = parseFuncs(c, path, templates)
+	if err != nil {
+		return err
+	}
+	return nil
 }

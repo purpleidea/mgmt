@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package corestrings
+package core
 
 import (
 	"strings"
@@ -25,15 +25,17 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(moduleName, "to_upper", &types.FuncValue{
-		T: types.NewType("func(a str) str"),
-		V: ToUpper,
+{{ range $i, $func := .Functions }}	simple.ModuleRegister("{{$func.MgmtPackage}}", "{{$func.MgmtName}}", &types.FuncValue{
+		T: types.NewType("{{$func.Signature}}"),
+		V: {{$func.GoFunc}},
 	})
+{{ end }}
 }
-
-// ToUpper turns a string to uppercase.
-func ToUpper(input []types.Value) (types.Value, error) {
-	return &types.StrValue{
-		V: strings.ToUpper(input[0].Str()),
+{{ range $i, $func := .Functions }}
+// {{$func.GoFunc}} {{$func.Help}}
+func {{$func.GoFunc}}(input []types.Value) (types.Value, error) {
+	return &types.{{$func.MakeGoReturn}}Value{
+		V: {{$func.GoPackage}}.{{$func.GoFunc}}({{$func.MakeGoArgs}}),
 	}, nil
 }
+{{ end -}}

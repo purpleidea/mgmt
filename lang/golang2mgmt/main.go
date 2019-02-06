@@ -15,30 +15,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package corestrings
+package main
 
 import (
-	"testing"
-
-	"github.com/purpleidea/mgmt/lang/types"
+	"flag"
+	"log"
 )
 
-func testToUpper(t *testing.T, input, expected string) {
-	inputStr := &types.StrValue{V: input}
-	value, err := ToUpper([]types.Value{inputStr})
+var (
+	pkg       = flag.String("package", "lang/funcs/core", "path to the package")
+	filename  = flag.String("filename", "golang2mgmt.yaml", "path to the config")
+	templates = flag.String("templates", "lang/golang2mgmt/templates/*.tpl", "path to the templates")
+)
+
+func main() {
+	flag.Parse()
+	if *pkg == "" {
+		log.Fatalf("No package passed!")
+	}
+
+	err := parsePkg(*pkg, *filename, *templates)
 	if err != nil {
-		t.Error(err)
-		return
+		log.Fatal(err)
 	}
-	if value.Str() != expected {
-		t.Errorf("Invalid output, expected %s, got %s", expected, value.Str())
-	}
-}
-
-func TestToUpperSimple(t *testing.T) {
-	testToUpper(t, "Hello", "HELLO")
-}
-
-func TestToUpperSameString(t *testing.T) {
-	testToUpper(t, "HELLO 22", "HELLO 22")
 }

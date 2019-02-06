@@ -433,7 +433,7 @@ func TestAstFunc0(t *testing.T) {
 			t.Logf("test #%d: AST: %+v", index, ast)
 
 			data := &interfaces.Data{
-				Debug: true,
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
 				},
@@ -723,7 +723,7 @@ func TestAstFunc1(t *testing.T) {
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
 
-				Debug: true,
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("ast: "+format, v...)
 				},
@@ -1052,7 +1052,7 @@ func TestAstFunc2(t *testing.T) {
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
 
-				Debug: true,
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("ast: "+format, v...)
 				},
@@ -1152,10 +1152,10 @@ func TestAstFunc2(t *testing.T) {
 
 			// run the function engine once to get some real output
 			funcs := &funcs.Engine{
-				Graph:    graph, // not the same as the output graph!
-				Hostname: "",    // NOTE: empty b/c not used
-				World:    nil,   // NOTE: nil b/c not used
-				Debug:    false, // TODO: set true if needed
+				Graph:    graph,             // not the same as the output graph!
+				Hostname: "",                // NOTE: empty b/c not used
+				World:    nil,               // NOTE: nil b/c not used
+				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)
 				},
@@ -1452,7 +1452,7 @@ func TestAstInterpret0(t *testing.T) {
 		t.Logf("test #%d: AST: %+v", index, ast)
 
 		data := &interfaces.Data{
-			Debug: true,
+			Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 			Logf: func(format string, v ...interface{}) {
 				t.Logf("ast: "+format, v...)
 			},

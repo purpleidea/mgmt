@@ -778,7 +778,7 @@ func TestUnification1(t *testing.T) {
 			t.Logf("\n\ntest #%d: AST (before): %+v\n", index, ast)
 
 			data := &interfaces.Data{
-				Debug: true,
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf(fmt.Sprintf("test #%d", index)+": ast: "+format, v...)
 				},

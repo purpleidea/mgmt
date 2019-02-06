@@ -20,7 +20,6 @@
 package facts
 
 import (
-	"log"
 	"testing"
 	"time"
 
@@ -28,70 +27,58 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 )
 
-const Debug = false // switch on for more interactive log messages when testing!
-
-// logf switches messages to use realtime logging when debugging tests, and the
-// quiet logging which is not shown until test failures, when debug mode is off.
-func logf(t *testing.T, format string, args ...interface{}) {
-	if Debug {
-		log.Printf(format, args...)
-	} else {
-		t.Logf(format, args...)
-	}
-}
-
 func TestFuncGraph0(t *testing.T) {
-	logf(t, "Hello!")
+	t.Logf("Hello!")
 	g, _ := pgraph.NewGraph("empty") // empty graph
 
 	obj := &funcs.Engine{
 		Graph: g,
 	}
 
-	logf(t, "Init...")
+	t.Logf("Init...")
 	if err := obj.Init(); err != nil {
 		t.Errorf("could not init: %+v", err)
 		return
 	}
 
-	logf(t, "Validate...")
+	t.Logf("Validate...")
 	if err := obj.Validate(); err != nil {
 		t.Errorf("could not validate: %+v", err)
 		return
 	}
 
-	logf(t, "Run...")
+	t.Logf("Run...")
 	if err := obj.Run(); err != nil {
 		t.Errorf("could not run: %+v", err)
 		return
 	}
 
 	// wait for some activity
-	logf(t, "Stream...")
+	t.Logf("Stream...")
 	stream := obj.Stream()
-	logf(t, "Loop...")
+	t.Logf("Loop...")
 	br := time.After(time.Duration(5) * time.Second)
 Loop:
 	for {
 		select {
 		case err, ok := <-stream:
 			if !ok {
-				logf(t, "Stream break...")
+				t.Logf("Stream break...")
 				break Loop
 			}
 			if err != nil {
-				logf(t, "Error: %+v", err)
+				t.Logf("Error: %+v", err)
 				continue
 			}
 
 		case <-br:
-			logf(t, "Break...")
+			t.Logf("Break...")
 			t.Errorf("empty graph should have closed stream")
 			break Loop
 		}
 	}
 
-	logf(t, "Closing...")
+	t.Logf("Closing...")
 	if err := obj.Close(); err != nil {
 		t.Errorf("could not close: %+v", err)
 		return

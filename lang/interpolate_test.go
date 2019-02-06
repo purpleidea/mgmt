@@ -152,7 +152,7 @@ func TestInterpolate0(t *testing.T) {
 			t.Logf("test #%d: AST: %+v", index, ast)
 
 			data := &interfaces.Data{
-				Debug: true,
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
 				},
@@ -388,7 +388,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 
 			data := &interfaces.Data{
-				Debug: true,
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
 				},
@@ -709,7 +709,7 @@ func TestInterpolateBasicExpr(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 
 			data := &interfaces.Data{
-				Debug: true,
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
 				},

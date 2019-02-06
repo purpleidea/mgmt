@@ -117,7 +117,7 @@ func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
 	lang := &Lang{
 		Fs:    fs,
 		Input: "/" + interfaces.MetadataFilename, // start path in fs
-		Debug: true,
+		Debug: testing.Verbose(),                 // set via the -test.v flag to `go test`
 		Logf:  logf,
 	}
 	if err := lang.Init(); err != nil {

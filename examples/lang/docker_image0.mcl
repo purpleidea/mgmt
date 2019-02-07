@@ -1,0 +1,3 @@
+docker:image "nginx" {
+	state => "exists",
+}

@@ -1,4 +1,5 @@
 import "sys"
+import "world"
 
 # here are all the possible options:
 #$opts = struct{strategy => "rr", max => 3, reuse => false, ttl => 10,}
@@ -10,10 +11,10 @@ import "sys"
 $opts = struct{strategy => "rr", max => 2, ttl => 10,}
 
 # schedule in a particular namespace with options:
-$set = schedule("xsched", $opts)
+$set = world.schedule("xsched", $opts)
 
 # and if you want, you can omit the options entirely:
-#$set = schedule("xsched")
+#$set = world.schedule("xsched")
 
 file "/tmp/mgmt/scheduled-${sys.hostname()}" {
 	content => template("set: {{ . }}\n", $set),

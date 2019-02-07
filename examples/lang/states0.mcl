@@ -1,5 +1,7 @@
+import "world"
+
 $ns = "estate"
-$exchanged = kvlookup($ns)
+$exchanged = world.kvlookup($ns)
 
 $state = maplookup($exchanged, $hostname, "default")
 

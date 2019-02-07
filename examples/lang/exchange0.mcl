@@ -6,9 +6,10 @@
 # time ./mgmt run --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 --tmp-prefix --no-pgp lang --lang examples/lang/exchange0.mcl
 
 import "sys"
+import "world"
 
 $rand = random1(8)
-$exchanged = exchange("keyns", $rand)
+$exchanged = world.exchange("keyns", $rand)
 
 file "/tmp/mgmt/exchange-${sys.hostname()}" {
 	content => template("Found: {{ . }}\n", $exchanged),

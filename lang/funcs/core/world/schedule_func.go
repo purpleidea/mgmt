@@ -27,7 +27,7 @@
 // kill h2
 // kill h1... all done!
 
-package core // TODO: should this be in its own individual package?
+package coreworld
 
 import (
 	"context"
@@ -47,7 +47,7 @@ const (
 )
 
 func init() {
-	funcs.Register("schedule", func() interfaces.Func { return &SchedulePolyFunc{} }) // must register the func and name
+	funcs.ModuleRegister(moduleName, "schedule", func() interfaces.Func { return &SchedulePolyFunc{} })
 }
 
 // SchedulePolyFunc is special function which determines where code should run

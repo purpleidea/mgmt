@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core // TODO: should this be in its own individual package?
+package coreworld
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	funcs.Register("exchange", func() interfaces.Func { return &ExchangeFunc{} }) // must register the func and name
+	funcs.ModuleRegister(moduleName, "exchange", func() interfaces.Func { return &ExchangeFunc{} })
 }
 
 // ExchangeFunc is special function which returns all the values of a given key

@@ -19,11 +19,11 @@ package core
 
 import (
 	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coredatetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coreexample"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/corefmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coremath"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coreos"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/corestrings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/coresys"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/fmt"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
 )

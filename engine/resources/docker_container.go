@@ -98,6 +98,11 @@ func (obj *DockerContainerRes) Validate() error {
 		return fmt.Errorf("state must be running, stopped or removed")
 	}
 
+	// make sure an image is specified
+	if obj.Image == "" {
+		return fmt.Errorf("image must be specified")
+	}
+
 	// validate env
 	for _, env := range obj.Env {
 		if !strings.Contains(env, "=") || strings.Contains(env, " ") {

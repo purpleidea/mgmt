@@ -248,7 +248,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	// TODO: does it make sense to switch dst to an io.Writer ?
 	// TODO: use obj.Force when dealing with symlinks and other file types!
 	if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: %s -> %s", src, dst)
+		obj.init.Logf("fileCheckApply: %v -> %s", src, dst)
 	}
 
 	srcFile, isFile := src.(*os.File)
@@ -345,7 +345,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 		return sha256sum, false, nil
 	}
 	if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: Apply: %s -> %s", src, dst)
+		obj.init.Logf("fileCheckApply: Apply: %v -> %s", src, dst)
 	}
 
 	dstClose() // unlock file usage so we can write to it
@@ -366,7 +366,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 
 	// TODO: should we offer a way to cancel the copy on ^C ?
 	if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: Copy: %s -> %s", src, dst)
+		obj.init.Logf("fileCheckApply: Copy: %v -> %s", src, dst)
 	}
 	if n, err := io.Copy(dstFile, src); err != nil {
 		return sha256sum, false, err

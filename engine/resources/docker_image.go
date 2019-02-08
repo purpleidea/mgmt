@@ -239,9 +239,23 @@ type DockerImageUID struct {
 func (obj *DockerImageRes) UIDs() []engine.ResUID {
 	x := &DockerImageUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		name:    obj.Name(),
+		image:   dockerImageNameTag(obj.Name()),
 	}
 	return []engine.ResUID{x}
+}
+
+// AutoEdges returns the AutoEdge interface.
+func (obj *DockerImageRes) AutoEdges() (engine.AutoEdge, error) {
+	return nil, nil
+}
+
+// IFF aka if and only if they are equivalent, return true. If not, false.
+func (obj *DockerImageUID) IFF(uid engine.ResUID) bool {
+	res, ok := uid.(*DockerImageUID)
+	if !ok {
+		return false
+	}
+	return obj.image == res.image
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct.

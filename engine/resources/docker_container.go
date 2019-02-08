@@ -400,16 +400,63 @@ func (obj *DockerContainerRes) Cmp(r engine.Res) error {
 	return nil
 }
 
-// DockerUID is the UID struct for DockerContainerRes.
-type DockerUID struct {
+// DockerContainerUID is the UID struct for DockerContainerRes.
+type DockerContainerUID struct {
 	engine.BaseUID
 	name string
+}
+
+// DockerContainerResAutoEdges holds the state of the auto edge generator.
+type DockerContainerResAutoEdges struct {
+	UIDs    []engine.ResUID
+	pointer int
+}
+
+// AutoEdges returns edges to any docker:image resource that matches the image
+// specified in the docker:container resource definition.
+func (obj *DockerContainerRes) AutoEdges() (engine.AutoEdge, error) {
+	var result []engine.ResUID
+	var reversed bool
+	if obj.State != "removed" {
+		reversed = true
+	}
+	result = append(result, &DockerImageUID{
+		BaseUID: engine.BaseUID{
+			Reversed: &reversed,
+		},
+		image: dockerImageNameTag(obj.Image),
+	})
+	return &DockerContainerResAutoEdges{
+		UIDs:    result,
+		pointer: 0,
+	}, nil
+}
+
+// Next returnes the next automatic edge.
+func (obj *DockerContainerResAutoEdges) Next() []engine.ResUID {
+	if len(obj.UIDs) == 0 {
+		return nil
+	}
+	value := obj.UIDs[obj.pointer]
+	obj.pointer++
+	return []engine.ResUID{value}
+}
+
+// Test gets results of the earlier Next() call, & returns if we should continue.
+func (obj *DockerContainerResAutoEdges) Test(input []bool) bool {
+	if len(obj.UIDs) <= obj.pointer {
+		return false
+	}
+	if len(input) != 1 { // in case we get given bad data
+		panic(fmt.Sprintf("Expecting a single value!"))
+	}
+	return true // keep going
 }
 
 // UIDs includes all params to make a unique identification of this object.
 // Most resources only return one, although some resources can return multiple.
 func (obj *DockerContainerRes) UIDs() []engine.ResUID {
-	x := &DockerUID{
+	x := &DockerContainerUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
 		name:    obj.Name(),
 	}

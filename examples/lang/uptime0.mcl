@@ -1,0 +1,8 @@
+import "fmt"
+import "sys"
+
+$uptime = sys.uptime()
+
+print "print1" {
+	msg => fmt.printf("uptime: %d", $uptime),
+}

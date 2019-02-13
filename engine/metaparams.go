@@ -37,6 +37,8 @@ var DefaultMetaParams = &MetaParams{
 	Limit: rate.Inf, // defaults to no limit
 	Burst: 0,        // no burst needed on an infinite rate
 	//Sema:  []string{},
+	Rewatch: true,
+	Realize: false, // true would be more awesome, but unexpected for users
 }
 
 // MetaRes is the interface a resource must implement to support meta params.
@@ -81,6 +83,24 @@ type MetaParams struct {
 	// has a count equal to 1, is different from a sema named `foo:1` which
 	// also has a count equal to 1, but is a different semaphore.
 	Sema []string `yaml:"sema"`
+
+	// Rewatch specifies whether we re-run the Watch worker during a swap
+	// if it has errored. When doing a GraphCmp to swap the graphs, if this
+	// is true, and this particular worker has errored, then we'll remove it
+	// and add it back as a new vertex, thus causing it to run again. This
+	// is different from the Retry metaparam which applies during the normal
+	// execution. It is only when this is exhausted that we're in permanent
+	// worker failure, and only then can we rely on this metaparam.
+	Rewatch bool `yaml:"rewatch"`
+
+	// Realize ensures that the resource is guaranteed to converge at least
+	// once before a potential graph swap removes or changes it. This
+	// guarantee is useful for fast changing graphs, to ensure that the
+	// brief creation of a resource is seen. This guarantee does not prevent
+	// against the engine quitting normally, and it can't guarantee it if
+	// the resource is blocked because of a failed pre-requisite resource.
+	// XXX: Not implemented!
+	Realize bool `yaml:"realize"`
 }
 
 // Cmp compares two AutoGroupMeta structs and determines if they're equivalent.
@@ -118,6 +138,13 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 		return errwrap.Wrapf(err, "values for Sema are different")
 	}
 
+	if obj.Rewatch != meta.Rewatch {
+		return fmt.Errorf("values for Rewatch are different")
+	}
+	if obj.Realize != meta.Realize {
+		return fmt.Errorf("values for Realize are different")
+	}
+
 	return nil
 }
 
@@ -147,13 +174,15 @@ func (obj *MetaParams) Copy() *MetaParams {
 		copy(sema, obj.Sema)
 	}
 	return &MetaParams{
-		Noop:  obj.Noop,
-		Retry: obj.Retry,
-		Delay: obj.Delay,
-		Poll:  obj.Poll,
-		Limit: obj.Limit, // FIXME: can we copy this type like this? test me!
-		Burst: obj.Burst,
-		Sema:  sema,
+		Noop:    obj.Noop,
+		Retry:   obj.Retry,
+		Delay:   obj.Delay,
+		Poll:    obj.Poll,
+		Limit:   obj.Limit, // FIXME: can we copy this type like this? test me!
+		Burst:   obj.Burst,
+		Sema:    sema,
+		Rewatch: obj.Rewatch,
+		Realize: obj.Realize,
 	}
 }
 

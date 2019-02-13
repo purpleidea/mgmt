@@ -24,12 +24,10 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/engine/event"
 	"github.com/purpleidea/mgmt/pgraph"
 
-	//multierr "github.com/hashicorp/go-multierror"
+	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
-	"golang.org/x/time/rate"
 )
 
 // OKTimestamp returns true if this vertex can run right now.
@@ -67,26 +65,24 @@ func (obj *Engine) Process(vertex pgraph.Vertex) error {
 		return fmt.Errorf("vertex is not a Res")
 	}
 
-	// Engine Guarantee: Do not allow CheckApply to run while we are paused.
-	// This makes the resource able to know that synchronous channel sending
-	// to the main loop select in Watch from within CheckApply, will succeed
-	// without blocking because the resource went into a paused state. If we
-	// are using the Poll metaparam, then Watch will (of course) not be run.
-	// FIXME: should this lock be here, or wrapped right around CheckApply ?
-	obj.state[vertex].eventsLock.Lock() // this lock is taken within Event()
-	defer obj.state[vertex].eventsLock.Unlock()
-
 	// backpoke! (can be async)
 	if vs := obj.BadTimestamps(vertex); len(vs) > 0 {
 		// back poke in parallel (sync b/c of waitgroup)
+		wg := &sync.WaitGroup{}
 		for _, v := range obj.graph.IncomingGraphVertices(vertex) {
 			if !pgraph.VertexContains(v, vs) { // only poke what's needed
 				continue
 			}
 
-			go obj.state[v].Poke() // async
+			// doesn't really need to be in parallel, but we can...
+			wg.Add(1)
+			go func(vv pgraph.Vertex) {
+				defer wg.Done()
+				obj.state[vv].Poke() // async
+			}(v)
 
 		}
+		wg.Wait()
 		return nil // can't continue until timestamp is in sequence
 	}
 
@@ -244,14 +240,17 @@ func (obj *Engine) Process(vertex pgraph.Vertex) error {
 
 // Worker is the common run frontend of the vertex. It handles all of the retry
 // and retry delay common code, and ultimately returns the final status of this
-// vertex execution.
+// vertex execution. This function cannot be "re-run" for the same vertex. The
+// retry mechanism stuff happens inside of this. To actually "re-run" you need
+// to remove the vertex and build a new one. The engine guarantees that we do
+// not allow CheckApply to run while we are paused. That is enforced here.
 func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	res, isRes := vertex.(engine.Res)
 	if !isRes {
 		return fmt.Errorf("vertex is not a resource")
 	}
 
-	defer close(obj.state[vertex].stopped) // done signal
+	//defer close(obj.state[vertex].stopped) // done signal
 
 	obj.state[vertex].cuid = obj.Converger.Register()
 	obj.state[vertex].tuid = obj.Converger.Register()
@@ -265,214 +264,140 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	obj.state[vertex].wg.Add(1)
 	go func() {
 		defer obj.state[vertex].wg.Done()
-		defer close(obj.state[vertex].outputChan) // we close this on behalf of res
+		defer close(obj.state[vertex].eventsChan) // we close this on behalf of res
 
-		var err error
-		var retry = res.MetaParams().Retry // lookup the retry value
-		var delay uint64
-		for { // retry loop
-			// a retry-delay was requested, wait, but don't block events!
-			if delay > 0 {
-				errDelayExpired := engine.Error("delay exit")
-				err = func() error { // slim watch main loop
-					timer := time.NewTimer(time.Duration(delay) * time.Millisecond)
-					defer obj.state[vertex].init.Logf("the Watch delay expired!")
-					defer timer.Stop() // it's nice to cleanup
-					for {
-						select {
-						case <-timer.C: // the wait is over
-							return errDelayExpired // special
+		// This is a close reverse-multiplexer. If any of the channels
+		// close, then it will cause the doneChan to close. That way,
+		// multiple different folks can send a close signal, without
+		// every worrying about duplicate channel close panics.
+		obj.state[vertex].wg.Add(1)
+		go func() {
+			defer obj.state[vertex].wg.Done()
 
-						case event, ok := <-obj.state[vertex].init.Events:
-							if !ok {
-								return nil
-							}
-							if err := obj.state[vertex].init.Read(event); err != nil {
-								return err
-							}
-						}
-					}
-				}()
-				if err == errDelayExpired {
-					delay = 0 // reset
-					continue
-				}
-			} else if interval := res.MetaParams().Poll; interval > 0 { // poll instead of watching :(
-				obj.state[vertex].cuid.StartTimer()
-				err = obj.state[vertex].poll(interval)
-				obj.state[vertex].cuid.StopTimer() // clean up nicely
-			} else {
-				obj.state[vertex].cuid.StartTimer()
-				obj.Logf("Watch(%s)", vertex)
-				err = res.Watch() // run the watch normally
-				obj.Logf("Watch(%s): Exited(%+v)", vertex, err)
-				obj.state[vertex].cuid.StopTimer() // clean up nicely
+			// reverse-multiplexer: any close, causes *the* close!
+			select {
+			case <-obj.state[vertex].processDone:
+			case <-obj.state[vertex].watchDone:
+			case <-obj.state[vertex].removeDone:
+			case <-obj.state[vertex].eventsDone:
 			}
-			if err == nil || err == engine.ErrWatchExit || err == engine.ErrSignalExit {
-				return // exited cleanly, we're done
-			}
-			// we've got an error...
-			delay = res.MetaParams().Delay
 
-			if retry < 0 { // infinite retries
-				obj.state[vertex].reset()
-				continue
-			}
-			if retry > 0 { // don't decrement past 0
-				retry--
-				obj.state[vertex].init.Logf("retrying Watch after %.4f seconds (%d left)", float64(delay)/1000, retry)
-				obj.state[vertex].reset()
-				continue
-			}
-			//if retry == 0 { // optional
-			//	err = errwrap.Wrapf(err, "permanent watch error")
-			//}
-			break // break out of this and send the error
+			// the main "done" signal gets activated here!
+			close(obj.state[vertex].doneChan)
+		}()
+
+		obj.Logf("Watch(%s)", vertex)
+		err := res.Watch() // run the watch normally
+		obj.Logf("Watch(%s): Exited(%+v)", vertex, err)
+		if err == nil { // || err == engine.ErrClosed
+			return // exited cleanly, we're done
 		}
+
 		// this section sends an error...
 		// If the CheckApply loop exits and THEN the Watch fails with an
 		// error, then we'd be stuck here if exit signal didn't unblock!
 		select {
-		case obj.state[vertex].outputChan <- errwrap.Wrapf(err, "watch failed"):
+		case obj.state[vertex].eventsChan <- errwrap.Wrapf(err, "watch failed"):
 			// send
-		case <-obj.state[vertex].exit.Signal():
-			// pass
 		}
 	}()
 
-	// bonus safety check
-	if res.MetaParams().Burst == 0 && !(res.MetaParams().Limit == rate.Inf) { // blocked
-		return fmt.Errorf("permanently limited (rate != Inf, burst = 0)")
-	}
-	var limiter = rate.NewLimiter(res.MetaParams().Limit, res.MetaParams().Burst)
-	// It is important that we shutdown the Watch loop if this exits.
-	// Example, if Process errors permanently, we should ask Watch to exit.
-	defer obj.state[vertex].Event(event.Exit) // signal an exit
-	for {
+	// If this exits cleanly, we must unblock the reverse-multiplexer.
+	// I think this additional close is unnecessary, but it's not harmful.
+	defer close(obj.state[vertex].eventsDone) // causes doneChan to close
+	var reterr error
+	var failed bool // has Process permanently failed?
+Loop:
+	for { // process loop
 		select {
-		case err, ok := <-obj.state[vertex].outputChan: // read from watch channel
+		case err, ok := <-obj.state[vertex].eventsChan: // read from watch channel
 			if !ok {
-				return nil
+				return reterr // we only return when chan closes
 			}
+			// If the Watch method exits with an error, then this
+			// channel will get that error propagated to it, which
+			// we then save so we can return it to the caller of us.
 			if err != nil {
-				return err // permanent failure
+				failed = true
+				close(obj.state[vertex].watchDone)    // causes doneChan to close
+				reterr = multierr.Append(reterr, err) // permanent failure
+				continue
+			}
+			if obj.Debug {
+				obj.Logf("event received")
 			}
 
-			// safe to go run the process...
-		case <-obj.state[vertex].exit.Signal(): // TODO: is this needed?
-			return nil
+		case _, ok := <-obj.state[vertex].pokeChan: // read from buffered poke channel
+			if !ok { // we never close it
+				panic("unexpected close of poke channel")
+			}
+			if obj.Debug {
+				obj.Logf("poke received")
+			}
+		}
+		if failed { // don't Process anymore if we've already failed...
+			continue Loop
 		}
 
-		now := time.Now()
-		r := limiter.ReserveN(now, 1) // one event
-		// r.OK() seems to always be true here!
-		d := r.DelayFrom(now)
-		if d > 0 { // delay
-			obj.state[vertex].init.Logf("limited (rate: %v/sec, burst: %d, next: %v)", res.MetaParams().Limit, res.MetaParams().Burst, d)
-			var count int
-			timer := time.NewTimer(time.Duration(d) * time.Millisecond)
-		LimitWait:
-			for {
-				select {
-				case <-timer.C: // the wait is over
-					break LimitWait
-
-				// consume other events while we're waiting...
-				case e, ok := <-obj.state[vertex].outputChan: // read from watch channel
-					if !ok {
-						// FIXME: is this logic correct?
-						if count == 0 {
-							return nil
-						}
-						// loop, because we have
-						// the previous event to
-						// run process on first!
-						continue
-					}
-					if e != nil {
-						return e // permanent failure
-					}
-					count++                         // count the events...
-					limiter.ReserveN(time.Now(), 1) // one event
-				}
+		// drop redundant pokes
+		for len(obj.state[vertex].pokeChan) > 0 {
+			select {
+			case <-obj.state[vertex].pokeChan:
+			default:
+				// race, someone else read one!
 			}
-			timer.Stop() // it's nice to cleanup
-			obj.state[vertex].init.Logf("rate limiting expired!")
+		}
+
+		// pause if one was requested...
+		select {
+		case <-obj.state[vertex].pauseSignal: // channel closes
+			// NOTE: If we allowed a doneChan below to let us out
+			// of the resumeSignal wait, then we could loop around
+			// and run this again, causing a panic. Instead of this
+			// being made safe with a sync.Once, we instead run a
+			// Resume() call inside of the vertexRemoveFn function,
+			// which should unblock it when we're going to need to.
+			obj.state[vertex].pausedAck.Ack() // send ack
+			// we are paused now, and waiting for resume or exit...
+			select {
+			case <-obj.state[vertex].resumeSignal: // channel closes
+				// resumed!
+				// pass through to allow a Process to try to run
+				// TODO: consider adding this fast pause here...
+				//if obj.fastPause {
+				//	obj.Logf("fast pausing on resume")
+				//	continue
+				//}
+			}
+		default:
+			// no pause requested, keep going...
 		}
 
 		var err error
-		var retry = res.MetaParams().Retry // lookup the retry value
-		var delay uint64
-	Loop:
-		for { // retry loop
-			if delay > 0 {
-				var count int
-				timer := time.NewTimer(time.Duration(delay) * time.Millisecond)
-			RetryWait:
-				for {
-					select {
-					case <-timer.C: // the wait is over
-						break RetryWait
-
-					// consume other events while we're waiting...
-					case e, ok := <-obj.state[vertex].outputChan: // read from watch channel
-						if !ok {
-							// FIXME: is this logic correct?
-							if count == 0 {
-								// last process error
-								return err
-							}
-							// loop, because we have
-							// the previous event to
-							// run process on first!
-							continue
-						}
-						if e != nil {
-							return e // permanent failure
-						}
-						count++                         // count the events...
-						limiter.ReserveN(time.Now(), 1) // one event
-					}
-				}
-				timer.Stop() // it's nice to cleanup
-				delay = 0    // reset
-				obj.state[vertex].init.Logf("the CheckApply delay expired!")
-			}
-
-			if obj.Debug {
-				obj.Logf("Process(%s)", vertex)
-			}
-			err = obj.Process(vertex)
-			if obj.Debug {
-				obj.Logf("Process(%s): Return(%+v)", vertex, err)
-			}
-			if err == nil {
-				break Loop
-			}
-			// we've got an error...
-			delay = res.MetaParams().Delay
-
-			if retry < 0 { // infinite retries
-				continue
-			}
-			if retry > 0 { // don't decrement past 0
-				retry--
-				obj.state[vertex].init.Logf("retrying CheckApply after %.4f seconds (%d left)", float64(delay)/1000, retry)
-				continue
-			}
-			//if retry == 0 { // optional
-			//	err = errwrap.Wrapf(err, "permanent process error")
-			//}
-
-			// If this exits, defer calls: obj.Event(event.Exit),
-			// which will cause the Watch loop to shutdown. Also,
-			// if the Watch loop shuts down, that will cause this
-			// Process loop to shut down. Also the graph sync can
-			// run an: obj.Event(event.Exit) which causes this to
-			// shutdown as well. Lastly, it is possible that more
-			// that one of these scenarios happens simultaneously.
-			return err
+		if obj.Debug {
+			obj.Logf("Process(%s)", vertex)
 		}
-	}
+		err = obj.Process(vertex)
+		if obj.Debug {
+			obj.Logf("Process(%s): Return(%+v)", vertex, err)
+		}
+
+		// It is important that we shutdown the Watch loop if this dies.
+		// If Process fails permanently, we ask it to exit right here...
+		if err != nil {
+			failed = true
+			close(obj.state[vertex].processDone)  // causes doneChan to close
+			reterr = multierr.Append(reterr, err) // permanent failure
+			continue
+		}
+
+		// When this Process loop exits, it's because something has
+		// caused Watch() to shutdown (even if it's our permanent
+		// failure from Process), which caused this channel to close.
+		// On or more exit signals are possible, and more than one can
+		// happen simultaneously.
+
+	} // process loop
+
 	//return nil // unreachable
 }

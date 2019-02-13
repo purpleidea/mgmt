@@ -31,9 +31,6 @@ func fakeInit(t *testing.T) *engine.Init {
 		t.Logf("test: "+format, v...)
 	}
 	return &engine.Init{
-		Running: func() error {
-			return nil
-		},
 		Debug: debug,
 		Logf:  logf,
 	}

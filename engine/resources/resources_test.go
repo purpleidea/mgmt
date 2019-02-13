@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/engine/event"
 	"github.com/purpleidea/mgmt/util"
 )
 
@@ -220,36 +219,33 @@ func TestResources1(t *testing.T) {
 
 			readyChan := make(chan struct{})
 			eventChan := make(chan struct{})
-			eventsChan := make(chan *event.Msg)
+			doneChan := make(chan struct{})
 			debug := testing.Verbose() // set via the -test.v flag to `go test`
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d: Res: ", index)+format, v...)
 			}
 			init := &engine.Init{
-				Running: func() error {
+				Running: func() {
 					close(readyChan)
 					select { // this always sends one!
 					case eventChan <- struct{}{}:
 
 					}
-					return nil
 				},
 				// Watch runs this to send a changed event.
-				Event: func() error {
+				Event: func() {
 					select {
 					case eventChan <- struct{}{}:
 
 					}
-					return nil
 				},
 
 				// Watch listens on this for close/pause events.
-				Events: eventsChan,
-				Debug:  debug,
-				Logf:   logf,
+				Done:  doneChan,
+				Debug: debug,
+				Logf:  logf,
 
 				// unused
-				Dirty: func() {},
 				Recv: func() map[string]*engine.Send {
 					return map[string]*engine.Send{}
 				},
@@ -341,7 +337,7 @@ func TestResources1(t *testing.T) {
 					}
 				}
 				t.Logf("test #%d: shutting down Watch", index)
-				close(eventsChan) // send Watch shutdown command
+				close(doneChan) // send Watch shutdown command
 			}()
 		Loop:
 			for {

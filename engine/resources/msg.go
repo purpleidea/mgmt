@@ -94,30 +94,20 @@ func (obj *MsgRes) Close() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *MsgRes) Watch() error {
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
+	//var send = false // send event?
 	for {
 		select {
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
+		case <-obj.init.Done: // closed by the engine to signal shutdown
+			return nil
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
-		}
+		//if send {
+		//	send = false
+		//	obj.init.Event() // notify engine of an event (this can block)
+		//}
 	}
 }
 
@@ -137,7 +127,7 @@ func (obj *MsgRes) isAllStateOK() bool {
 func (obj *MsgRes) updateStateOK() {
 	// XXX: this resource doesn't entirely make sense to me at the moment.
 	if !obj.isAllStateOK() {
-		obj.init.Dirty()
+		//obj.init.Dirty() // XXX: removed with API cleanup
 	}
 }
 

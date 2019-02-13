@@ -638,6 +638,10 @@ func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 func (obj *StmtRes) metaparams(res engine.Res) error {
 	meta := engine.DefaultMetaParams.Copy() // defaults
 
+	var rm *engine.ReversibleMeta
+	if r, ok := res.(engine.ReversibleRes); ok {
+		rm = r.ReversibleMeta() // get a struct with the defaults
+	}
 	var aem *engine.AutoEdgeMeta
 	if r, ok := res.(engine.EdgeableRes); ok {
 		aem = r.AutoEdgeMeta() // get a struct with the defaults
@@ -706,6 +710,21 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 			}
 			meta.Sema = values
 
+		case "rewatch":
+			meta.Rewatch = v.Bool() // must not panic
+
+		case "realize":
+			meta.Realize = v.Bool() // must not panic
+
+		case "reverse":
+			if v.Type().Cmp(types.TypeBool) == nil {
+				if rm != nil {
+					rm.Disabled = !v.Bool() // must not panic
+				}
+			} else {
+				// TODO: read values from struct into rm.XXX
+			}
+
 		case "autoedge":
 			if aem != nil {
 				aem.Disabled = !v.Bool() // must not panic
@@ -752,6 +771,19 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 				}
 				meta.Sema = values
 			}
+			if val, exists := v.Struct()["rewatch"]; exists {
+				meta.Rewatch = val.Bool() // must not panic
+			}
+			if val, exists := v.Struct()["realize"]; exists {
+				meta.Realize = val.Bool() // must not panic
+			}
+			if val, exists := v.Struct()["reverse"]; exists && rm != nil {
+				if val.Type().Cmp(types.TypeBool) == nil {
+					rm.Disabled = !val.Bool() // must not panic
+				} else {
+					// TODO: read values from struct into rm.XXX
+				}
+			}
 			if val, exists := v.Struct()["autoedge"]; exists && aem != nil {
 				aem.Disabled = !val.Bool() // must not panic
 			}
@@ -765,6 +797,9 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 	}
 
 	res.SetMetaParams(meta) // set it!
+	if r, ok := res.(engine.ReversibleRes); ok {
+		r.SetReversibleMeta(rm) // set
+	}
 	if r, ok := res.(engine.EdgeableRes); ok {
 		r.SetAutoEdgeMeta(aem) // set
 	}
@@ -1139,6 +1174,9 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "limit":
 	case "burst":
 	case "sema":
+	case "rewatch":
+	case "realize":
+	case "reverse":
 	case "autoedge":
 	case "autogroup":
 	case MetaField:
@@ -1225,49 +1263,82 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 	}
 
 	// add additional invariants based on what's in obj.Property !!!
-	var typ *types.Type
+	var invar interfaces.Invariant
+	static := func(typ *types.Type) interfaces.Invariant {
+		return &unification.EqualsInvariant{
+			Expr: obj.MetaExpr,
+			Type: typ,
+		}
+	}
 	switch p := strings.ToLower(obj.Property); p {
 	// TODO: we could add these fields dynamically if we were fancy!
 	case "noop":
-		typ = types.TypeBool
+		invar = static(types.TypeBool)
 
 	case "retry":
-		typ = types.TypeInt
+		invar = static(types.TypeInt)
 
 	case "delay":
-		typ = types.TypeInt
+		invar = static(types.TypeInt)
 
 	case "poll":
-		typ = types.TypeInt
+		invar = static(types.TypeInt)
 
 	case "limit": // rate.Limit
-		typ = types.TypeFloat
+		invar = static(types.TypeFloat)
 
 	case "burst":
-		typ = types.TypeInt
+		invar = static(types.TypeInt)
 
 	case "sema":
-		typ = types.NewType("[]str")
+		invar = static(types.NewType("[]str"))
+
+	case "rewatch":
+		invar = static(types.TypeBool)
+
+	case "realize":
+		invar = static(types.TypeBool)
+
+	case "reverse":
+		ors := []interfaces.Invariant{}
+
+		invarBool := static(types.TypeBool)
+		ors = append(ors, invarBool)
+
+		// TODO: decide what fields we might want here
+		//invarStruct := static(types.NewType("struct{edges str}"))
+		//ors = append(ors, invarStruct)
+
+		invar = &unification.ExclusiveInvariant{
+			Invariants: ors, // one and only one of these should be true
+		}
 
 	case "autoedge":
-		typ = types.TypeBool
+		invar = static(types.TypeBool)
 
 	case "autogroup":
-		typ = types.TypeBool
+		invar = static(types.TypeBool)
 
 	// autoedge and autogroup aren't part of the `MetaRes` interface, but we
 	// can merge them in here for simplicity in the public user interface...
 	case MetaField:
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
-		typ = types.NewType("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str; autoedge bool; autogroup bool}")
+		wrap := func(reverse *types.Type) *types.Type {
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+		}
+		ors := []interfaces.Invariant{}
+		invarBool := static(wrap(types.TypeBool))
+		ors = append(ors, invarBool)
+		// TODO: decide what fields we might want here
+		//invarStruct := static(wrap(types.NewType("struct{edges str}")))
+		//ors = append(ors, invarStruct)
+		invar = &unification.ExclusiveInvariant{
+			Invariants: ors, // one and only one of these should be true
+		}
 
 	default:
 		return nil, fmt.Errorf("unknown property: %s", p)
-	}
-	invar := &unification.EqualsInvariant{
-		Expr: obj.MetaExpr,
-		Type: typ,
 	}
 	invariants = append(invariants, invar)
 

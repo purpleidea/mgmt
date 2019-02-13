@@ -224,10 +224,7 @@ func (obj *MountRes) Watch() error {
 	// close the recwatcher when we're done
 	defer recWatcher.Close()
 
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // bubble up a NACK...
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
 	var send bool
 	var done bool
@@ -248,7 +245,6 @@ func (obj *MountRes) Watch() error {
 				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
 
-			obj.init.Dirty()
 			send = true
 
 		case event, ok := <-ch:
@@ -263,24 +259,16 @@ func (obj *MountRes) Watch() error {
 				obj.init.Logf("event: %+v", event)
 			}
 
-			obj.init.Dirty()
 			send = true
 
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
+		case <-obj.init.Done: // closed by the engine to signal shutdown
+			return nil
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event() // notify engine of an event (this can block)
 		}
 	}
 }

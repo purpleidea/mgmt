@@ -647,8 +647,10 @@ func (obj *Main) Run() error {
 
 			// Start needs to be synchronous because we don't want
 			// to loop around and cause a pause before we unpaused.
-			if err := obj.ge.Start(); err != nil { // sync
-				Logf("error starting graph: %+v", err)
+			// Commit already starts things, but we still need to
+			// resume anything that was pre-existing and was paused.
+			if err := obj.ge.Resume(); err != nil { // sync
+				Logf("error resuming graph: %+v", err)
 				continue
 			}
 			converger.Resume() // after Start()

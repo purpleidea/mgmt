@@ -25,7 +25,6 @@ import (
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/engine/event"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/semaphore"
 
@@ -50,13 +49,14 @@ type Engine struct {
 	graph     *pgraph.Graph
 	nextGraph *pgraph.Graph
 	state     map[pgraph.Vertex]*State
-	waits     map[pgraph.Vertex]*sync.WaitGroup
+	waits     map[pgraph.Vertex]*sync.WaitGroup // wg for the Worker func
 
 	slock *sync.Mutex // semaphore lock
 	semas map[string]*semaphore.Semaphore
 
-	wg *sync.WaitGroup
+	wg *sync.WaitGroup // wg for the whole engine (only used for close)
 
+	paused    bool // are we paused?
 	fastPause bool
 }
 
@@ -83,6 +83,8 @@ func (obj *Engine) Init() error {
 	obj.semas = make(map[string]*semaphore.Semaphore)
 
 	obj.wg = &sync.WaitGroup{}
+
+	obj.paused = true // start off true, so we can Resume after first Commit
 
 	return nil
 }
@@ -137,6 +139,7 @@ func (obj *Engine) Apply(fn func(*pgraph.Graph) error) error {
 func (obj *Engine) Commit() error {
 	// TODO: Does this hurt performance or graph changes ?
 
+	start := []func() error{} // functions to run after graphsync to start...
 	vertexAddFn := func(vertex pgraph.Vertex) error {
 		// some of these validation steps happen before this Commit step
 		// in Validate() to avoid erroring here. These are redundant.
@@ -192,12 +195,36 @@ func (obj *Engine) Commit() error {
 		if err := obj.state[vertex].Init(); err != nil {
 			return errwrap.Wrapf(err, "the Res did not Init")
 		}
+
+		fn := func() error {
+			// start the Worker
+			obj.wg.Add(1)
+			obj.waits[vertex].Add(1)
+			go func(v pgraph.Vertex) {
+				defer obj.wg.Done()
+				defer obj.waits[v].Done()
+
+				obj.Logf("Worker(%s)", v)
+				// contains the Watch and CheckApply loops
+				err := obj.Worker(v)
+				obj.Logf("Worker(%s): Exited(%+v)", v, err)
+				obj.state[v].workerErr = err // store the error
+				// If the Rewatch metaparam is true, then this will get
+				// restarted if we do a graph cmp swap. This is why the
+				// graph cmp function runs the removes before the adds.
+				// XXX: This should feed into an $error var in the lang.
+			}(vertex)
+			return nil
+		}
+		start = append(start, fn) // do this at the end, if it's needed
 		return nil
 	}
+
 	free := []func() error{} // functions to run after graphsync to reset...
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
 		// wait for exit before starting new graph!
-		obj.state[vertex].Event(event.Exit) // signal an exit
+		close(obj.state[vertex].removeDone) // causes doneChan to close
+		obj.state[vertex].Resume()          // unblock from resume
 		obj.waits[vertex].Wait()            // sync
 
 		// close the state and resource
@@ -216,15 +243,58 @@ func (obj *Engine) Commit() error {
 		return nil
 	}
 
+	// add the Worker swap (reload) on error decision into this vertexCmpFn
+	vertexCmpFn := func(v1, v2 pgraph.Vertex) (bool, error) {
+		r1, ok1 := v1.(engine.Res)
+		r2, ok2 := v2.(engine.Res)
+		if !ok1 || !ok2 { // should not happen, previously validated
+			return false, fmt.Errorf("not a Res")
+		}
+		m1 := r1.MetaParams()
+		m2 := r2.MetaParams()
+		swap1, swap2 := true, true // assume default of true
+		if m1 != nil {
+			swap1 = m1.Rewatch
+		}
+		if m2 != nil {
+			swap2 = m2.Rewatch
+		}
+
+		s1, ok1 := obj.state[v1]
+		s2, ok2 := obj.state[v2]
+		x1, x2 := false, false
+		if ok1 {
+			x1 = s1.workerErr != nil && swap1
+		}
+		if ok2 {
+			x2 = s2.workerErr != nil && swap2
+		}
+
+		if x1 || x2 {
+			// We swap, even if they're the same, so that we reload!
+			// This causes an add and remove of the "same" vertex...
+			return false, nil
+		}
+
+		return engine.VertexCmpFn(v1, v2) // do the normal cmp otherwise
+	}
+
 	// If GraphSync succeeds, it updates the receiver graph accordingly...
 	// Running the shutdown in vertexRemoveFn does not need to happen in a
 	// topologically sorted order because it already paused in that order.
 	obj.Logf("graph sync...")
-	if err := obj.graph.GraphSync(obj.nextGraph, engine.VertexCmpFn, vertexAddFn, vertexRemoveFn, engine.EdgeCmpFn); err != nil {
+	if err := obj.graph.GraphSync(obj.nextGraph, vertexCmpFn, vertexAddFn, vertexRemoveFn, engine.EdgeCmpFn); err != nil {
 		return errwrap.Wrapf(err, "error running graph sync")
 	}
-	// we run these afterwards, so that the state structs (that might get
-	// referenced) aren't destroyed while someone might poke or use one.
+	// We run these afterwards, so that we don't unnecessarily start anyone
+	// if GraphSync failed in some way. Otherwise we'd have to do clean up!
+	for _, fn := range start {
+		if err := fn(); err != nil {
+			return errwrap.Wrapf(err, "error running start fn")
+		}
+	}
+	// We run these afterwards, so that the state structs (that might get
+	// referenced) are not destroyed while someone might poke or use one.
 	for _, fn := range free {
 		if err := fn(); err != nil {
 			return errwrap.Wrapf(err, "error running free fn")
@@ -248,50 +318,28 @@ func (obj *Engine) Commit() error {
 	return nil
 }
 
-// Start runs the currently active graph. It also un-pauses the graph if it was
-// paused.
-func (obj *Engine) Start() error {
+// Resume runs the currently active graph. It also un-pauses the graph if it was
+// paused. Very little that is interesting should happen here. It all happens in
+// the Commit method. After Commit, new things are already started, but we still
+// need to Resume any pre-existing resources.
+func (obj *Engine) Resume() error {
+	if !obj.paused {
+		return fmt.Errorf("already resumed")
+	}
+
 	topoSort, err := obj.graph.TopologicalSort()
 	if err != nil {
 		return err
 	}
-	indegree := obj.graph.InDegree() // compute all of the indegree's
+	//indegree := obj.graph.InDegree() // compute all of the indegree's
 	reversed := pgraph.Reverse(topoSort)
 
 	for _, vertex := range reversed {
-		state := obj.state[vertex]
-		state.starter = (indegree[vertex] == 0)
-		var unpause = true // assume true
-
-		if !state.working { // if not running...
-			state.working = true
-			unpause = false // doesn't need unpausing if starting
-			obj.wg.Add(1)
-			obj.waits[vertex].Add(1)
-			go func(v pgraph.Vertex) {
-				defer obj.wg.Done()
-				defer obj.waits[vertex].Done()
-				defer func() {
-					obj.state[v].working = false
-				}()
-
-				obj.Logf("Worker(%s)", v)
-				// contains the Watch and CheckApply loops
-				err := obj.Worker(v)
-				obj.Logf("Worker(%s): Exited(%+v)", v, err)
-			}(vertex)
-		}
-
-		select {
-		case <-state.started:
-		case <-state.stopped: // we failed on Watch start
-		}
-
-		if unpause { // unpause (if needed)
-			obj.state[vertex].Event(event.Start)
-		}
+		//obj.state[vertex].starter = (indegree[vertex] == 0)
+		obj.state[vertex].Resume() // doesn't error
 	}
 	// we wait for everyone to start before exiting!
+	obj.paused = false
 	return nil
 }
 
@@ -302,22 +350,32 @@ func (obj *Engine) Start() error {
 // This is because once you've started a fast pause, some dependencies might
 // have been skipped when fast pausing, and future resources might have missed a
 // poke. In general this is only called when you're trying to hurry up the exit.
+// XXX: Not implemented
 func (obj *Engine) SetFastPause() {
 	obj.fastPause = true
 }
 
-// Pause the active, running graph. At the moment this cannot error.
-func (obj *Engine) Pause(fastPause bool) {
+// Pause the active, running graph.
+func (obj *Engine) Pause(fastPause bool) error {
+	if obj.paused {
+		return fmt.Errorf("already paused")
+	}
+
 	obj.fastPause = fastPause
 	topoSort, _ := obj.graph.TopologicalSort()
 	for _, vertex := range topoSort { // squeeze out the events...
 		// The Event is sent to an unbuffered channel, so this event is
 		// synchronous, and as a result it blocks until it is received.
-		obj.state[vertex].Event(event.Pause)
+		if err := obj.state[vertex].Pause(); err != nil && err != engine.ErrClosed {
+			return err
+		}
 	}
+
+	obj.paused = true
 
 	// we are now completely paused...
 	obj.fastPause = false // reset
+	return nil
 }
 
 // Close triggers a shutdown. Engine must be already paused before this is run.

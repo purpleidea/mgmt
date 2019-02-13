@@ -40,10 +40,10 @@ func strEdgeCmpFn(e1, e2 Edge) (bool, error) {
 // GraphSync updates the Graph so that it matches the newGraph. It leaves
 // identical elements alone so that they don't need to be refreshed.
 // It tries to mutate existing elements into new ones, if they support this.
-// This updates the Graph on success only.
+// This updates the Graph on success only. If it fails, then the graph won't
+// have been modified.
 // FIXME: should we do this with copies of the vertex resources?
 func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), vertexAddFn func(Vertex) error, vertexRemoveFn func(Vertex) error, edgeCmpFn func(Edge, Edge) (bool, error)) error {
-
 	oldGraph := obj.Copy() // work on a copy of the old graph
 	if oldGraph == nil {
 		var err error
@@ -69,8 +69,11 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 
 	var lookup = make(map[Vertex]Vertex)
 	var vertexKeep []Vertex // list of vertices which are the same in new graph
-	var edgeKeep []Edge     // list of vertices which are the same in new graph
+	var vertexDels []Vertex // list of vertices which are to be removed
+	var vertexAdds []Vertex // list of vertices which are to be added
+	var edgeKeep []Edge     // list of edges which are the same in new graph
 
+	// XXX: run this as a topological sort or reverse topological sort?
 	for v := range newGraph.Adjacency() { // loop through the vertices (resources)
 		var vertex Vertex
 		// step one, direct compare with res.Cmp
@@ -92,27 +95,44 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 		//	vertex = oldGraph.MutateMatch(res)
 		//}
 
+		// run the removes BEFORE the adds, so don't do the add here...
 		if vertex == nil { // no match found yet
-			if err := vertexAddFn(v); err != nil {
-				return errwrap.Wrapf(err, "vertexAddFn failed")
-			}
+			vertexAdds = append(vertexAdds, v) // append
 			vertex = v
-			oldGraph.AddVertex(vertex) // call standalone in case not part of an edge
 		}
 		lookup[v] = vertex                      // used for constructing edges
 		vertexKeep = append(vertexKeep, vertex) // append
 	}
-
 	// get rid of any vertices we shouldn't keep (that aren't in new graph)
 	for v := range oldGraph.Adjacency() {
 		if !VertexContains(v, vertexKeep) {
-			if err := vertexRemoveFn(v); err != nil {
-				return errwrap.Wrapf(err, "vertexRemoveFn failed")
-			}
-			oldGraph.DeleteVertex(v)
+			vertexDels = append(vertexDels, v) // append
 		}
 	}
 
+	// see if any of the add/remove functions actually fail first
+	// XXX: run this as a reverse topological sort or topological sort?
+	for _, vertex := range vertexDels {
+		if err := vertexRemoveFn(vertex); err != nil {
+			return errwrap.Wrapf(err, "vertexRemoveFn failed")
+		}
+	}
+	for _, vertex := range vertexAdds {
+		if err := vertexAddFn(vertex); err != nil {
+			return errwrap.Wrapf(err, "vertexAddFn failed")
+		}
+	}
+
+	// no add/remove functions failed, so we can actually modify the graph!
+	for _, vertex := range vertexDels {
+		oldGraph.DeleteVertex(vertex)
+	}
+	for _, vertex := range vertexAdds {
+		oldGraph.AddVertex(vertex) // call standalone in case not part of an edge
+	}
+
+	// XXX: fixup this part so the CmpFn stuff fails early, and THEN we edit
+	// the graph at the end, if no errors happened...
 	// compare edges
 	for v1 := range newGraph.Adjacency() { // loop through the vertices (resources)
 		for v2, e := range newGraph.Adjacency()[v1] {

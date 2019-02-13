@@ -21,8 +21,6 @@ import (
 	"encoding/gob"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/engine/event"
-
 	errwrap "github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -93,22 +91,14 @@ type Init struct {
 	// Called from within Watch:
 
 	// Running must be called after your watches are all started and ready.
-	Running func() error
+	Running func()
 
 	// Event sends an event notifying the engine of a possible state change.
-	Event func() error
+	Event func()
 
-	// Events returns a channel that we must watch for messages from the
-	// engine. When it closes, this is a signal to shutdown.
-	Events chan *event.Msg
-
-	// Read processes messages that come in from the Events channel. It is a
-	// helper method that knows how to handle the pause mechanism correctly.
-	Read func(*event.Msg) error
-
-	// Dirty marks the resource state as dirty. This signals to the engine
-	// that CheckApply will have some work to do in order to converge it.
-	Dirty func()
+	// Done returns a channel that will close to signal to us that it's time
+	// for us to shutdown.
+	Done chan struct{}
 
 	// Called from within CheckApply:
 

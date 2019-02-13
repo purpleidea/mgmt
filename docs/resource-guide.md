@@ -307,21 +307,18 @@ running.
 The lifetime of most resources `Watch` method should be spent in an infinite
 loop that is bounded by a `select` call. The `select` call is the point where
 our method hands back control to the engine (and the kernel) so that we can
-sleep until something of interest wakes us up. In this loop we must process
-events from the engine via the `<-obj.init.Events` channel, and receive events
-for our resource itself!
+sleep until something of interest wakes us up. In this loop we must wait until
+we get a shutdown event from the engine via the `<-obj.init.Done` channel, which
+closes when we'd like to shut everything down. At this point you should cleanup,
+and let `Watch` close.
 
 #### Events
 
-If we receive an internal event from the `<-obj.init.Events` channel, we should
-read it with the `obj.init.Read` helper function. This function tells us if we
-should shutdown our resource. It also handles pause functionality which blocks
-our resource temporarily in this method. If this channel shuts down, then we
-should treat that as an exit signal.
-
-When we want to send an event, we use the `Event` helper function. It is also
-important to mark the resource state as `dirty` if we believe it might have
-changed. We do this by calling the `obj.init.Dirty` function.
+If the  `<-obj.init.Done` channel closes, we should shutdown our resource. When
+When we want to send an event, we use the `Event` helper function. This
+automatically marks the resource state as `dirty`. If you're unsure, it's not
+harmful to send the event. This will ultimately cause `CheckApply` to run. This
+method can block if the resource is being paused.
 
 #### Startup
 
@@ -330,8 +327,7 @@ to generate one event to notify the `mgmt` engine that we're now listening
 successfully, so that it can run an initial `CheckApply` to ensure we're safely
 tracking a healthy state and that we didn't miss anything when `Watch` was down
 or from before `mgmt` was running. You must do this by calling the
-`obj.init.Running` method. If it returns an error, you must exit and return that
-error.
+`obj.init.Running` method.
 
 #### Converged
 
@@ -358,41 +354,29 @@ func (obj *FooRes) Watch() error {
 	defer obj.whatever.CloseFoo() // shutdown our Foo
 
 	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
 	var send = false // send event?
 	for {
 		select {
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				// shutdown engine
-				// (it is okay if some `defer` code runs first)
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
-
 		// the actual events!
 		case event := <-obj.foo.Events:
 			if is_an_event {
 				send = true
-				obj.init.Dirty() // dirty
 			}
 
 		// event errors
 		case err := <-obj.foo.Errors:
 			return err // will cause a retry or permanent failure
+
+		case <-obj.init.Done: // signal for shutdown request
+			return nil
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event()
 		}
 	}
 }
@@ -567,23 +551,10 @@ ready to detect changes.
 Event sends an event notifying the engine of a possible state change. It is
 only called from within `Watch`.
 
-### Events
+### Done
 
-Events is a channel that we must watch for messages from the engine. When it
-closes, this is a signal to shutdown. It is
-only called from within `Watch`.
-
-### Read
-
-Read processes messages that come in from the `Events` channel. It is a helper
-method that knows how to handle the pause mechanism correctly. It is
-only called from within `Watch`.
-
-### Dirty
-
-Dirty marks the resource state as dirty. This signals to the engine that
-CheckApply will have some work to do in order to converge it. It is
-only called from within `Watch`.
+Done is a channel that closes when the engine wants us to shutdown. It is only
+called from within `Watch`.
 
 ### Refresh
 

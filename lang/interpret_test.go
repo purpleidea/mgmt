@@ -1387,13 +1387,15 @@ func TestAstInterpret0(t *testing.T) {
 		stringptr := "this is meta"
 		x.StringPtr = &stringptr
 		m := &engine.MetaParams{
-			Noop:  true, // overwritten
-			Retry: -1,
-			Delay: 0,
-			Poll:  5,
-			Limit: 4.2,
-			Burst: 3,
-			Sema:  []string{"foo:1", "bar:3"},
+			Noop:    true, // overwritten
+			Retry:   -1,
+			Delay:   0,
+			Poll:    5,
+			Limit:   4.2,
+			Burst:   3,
+			Sema:    []string{"foo:1", "bar:3"},
+			Rewatch: false,
+			Realize: true,
 		}
 		x.SetMetaParams(m)
 		graph.AddVertex(t1)
@@ -1411,10 +1413,14 @@ func TestAstInterpret0(t *testing.T) {
 						limit => 4.2,
 						burst => 3,
 						sema => ["foo:1", "bar:3",],
+						rewatch => false,
+						realize => true,
+						reverse => true,
 						autoedge => true,
 						autogroup => true,
 					},
 					Meta:noop => true,
+					Meta:reverse => true,
 					Meta:autoedge => true,
 					Meta:autogroup => true,
 				}

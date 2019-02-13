@@ -120,10 +120,7 @@ func (obj *SvcRes) Watch() error {
 	bus.Signal(buschan)
 	defer bus.RemoveSignal(buschan) // not needed here, but nice for symmetry
 
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
 	var svc = fmt.Sprintf("%s.service", obj.Name()) // systemd name
 	var send = false                                // send event?
@@ -161,7 +158,6 @@ func (obj *SvcRes) Watch() error {
 
 		if previous != invalid { // if invalid changed, send signal
 			send = true
-			obj.init.Dirty() // dirty
 		}
 
 		if invalid {
@@ -176,13 +172,8 @@ func (obj *SvcRes) Watch() error {
 				// loop so that we can see the changed invalid signal
 				obj.init.Logf("daemon reload")
 
-			case event, ok := <-obj.init.Events:
-				if !ok {
-					return nil
-				}
-				if err := obj.init.Read(event); err != nil {
-					return err
-				}
+			case <-obj.init.Done: // closed by the engine to signal shutdown
+				return nil
 			}
 		} else {
 			if !activeSet {
@@ -220,26 +211,18 @@ func (obj *SvcRes) Watch() error {
 					obj.init.Logf("stopped")
 				}
 				send = true
-				obj.init.Dirty() // dirty
 
 			case err := <-subErrors:
 				return errwrap.Wrapf(err, "unknown %s error", obj)
 
-			case event, ok := <-obj.init.Events:
-				if !ok {
-					return nil
-				}
-				if err := obj.init.Read(event); err != nil {
-					return err
-				}
+			case <-obj.init.Done: // closed by the engine to signal shutdown
+				return nil
 			}
 		}
 
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event() // notify engine of an event (this can block)
 		}
 	}
 }

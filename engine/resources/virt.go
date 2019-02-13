@@ -326,10 +326,7 @@ func (obj *VirtRes) Watch() error {
 	}
 	defer obj.conn.DomainEventDeregister(gaCallbackID)
 
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
 	var send = false // send event?
 	for {
@@ -340,31 +337,26 @@ func (obj *VirtRes) Watch() error {
 			switch event {
 			case libvirt.DOMAIN_EVENT_DEFINED:
 				if obj.Transient {
-					obj.init.Dirty() // dirty
 					send = true
 				}
 			case libvirt.DOMAIN_EVENT_UNDEFINED:
 				if !obj.Transient {
-					obj.init.Dirty() // dirty
 					send = true
 				}
 			case libvirt.DOMAIN_EVENT_STARTED:
 				fallthrough
 			case libvirt.DOMAIN_EVENT_RESUMED:
 				if obj.State != "running" {
-					obj.init.Dirty() // dirty
 					send = true
 				}
 			case libvirt.DOMAIN_EVENT_SUSPENDED:
 				if obj.State != "paused" {
-					obj.init.Dirty() // dirty
 					send = true
 				}
 			case libvirt.DOMAIN_EVENT_STOPPED:
 				fallthrough
 			case libvirt.DOMAIN_EVENT_SHUTDOWN:
 				if obj.State != "shutoff" {
-					obj.init.Dirty() // dirty
 					send = true
 				}
 				processExited = true
@@ -375,7 +367,6 @@ func (obj *VirtRes) Watch() error {
 				// verify, detect and patch appropriately!
 				fallthrough
 			case libvirt.DOMAIN_EVENT_CRASHED:
-				obj.init.Dirty() // dirty
 				send = true
 				processExited = true // FIXME: is this okay for PMSUSPENDED ?
 			}
@@ -390,7 +381,6 @@ func (obj *VirtRes) Watch() error {
 
 			if state == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
 				obj.guestAgentConnected = true
-				obj.init.Dirty() // dirty
 				send = true
 				obj.init.Logf("Guest agent connected")
 
@@ -409,21 +399,14 @@ func (obj *VirtRes) Watch() error {
 		case err := <-errorChan:
 			return fmt.Errorf("unknown %s libvirt error: %s", obj, err)
 
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
+		case <-obj.init.Done: // closed by the engine to signal shutdown
+			return nil
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event() // notify engine of an event (this can block)
 		}
 	}
 }

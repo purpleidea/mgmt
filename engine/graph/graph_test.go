@@ -15,15 +15,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package engine
+// +build !root
 
-// Error is a constant error type that implements error.
-type Error string
+package graph
 
-// Error fulfills the error interface of this type.
-func (e Error) Error() string { return string(e) }
+import (
+	"fmt"
+	"testing"
 
-const (
-	// ErrClosed means we couldn't complete a task because we had closed.
-	ErrClosed = Error("closed")
+	multierr "github.com/hashicorp/go-multierror"
 )
+
+func TestMultiErr(t *testing.T) {
+	var err error
+	e := fmt.Errorf("some error")
+	err = multierr.Append(err, e) // build an error from a nil base
+	// ensure that this lib allows us to append to a nil
+	if err == nil {
+		t.Errorf("missing error")
+	}
+}

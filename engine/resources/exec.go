@@ -157,10 +157,7 @@ func (obj *ExecRes) Watch() error {
 		ioChan = obj.bufioChanScanner(scanner)
 	}
 
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
 	var send = false // send event?
 	for {
@@ -180,24 +177,16 @@ func (obj *ExecRes) Watch() error {
 			obj.init.Logf("watch output: %s", data.text)
 			if data.text != "" {
 				send = true
-				obj.init.Dirty() // dirty
 			}
 
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
+		case <-obj.init.Done: // closed by the engine to signal shutdown
+			return nil
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event() // notify engine of an event (this can block)
 		}
 	}
 }

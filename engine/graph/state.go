@@ -19,14 +19,11 @@ package graph
 
 import (
 	"fmt"
-	"os"
-	"path"
 	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/engine/event"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 
@@ -61,29 +58,49 @@ type State struct {
 
 	timestamp int64 // last updated timestamp
 	isStateOK bool  // is state OK or do we need to run CheckApply ?
+	workerErr error // did the Worker error?
 
-	// events is a channel of incoming events which is read by the Watch
-	// loop for that resource. It receives events like pause, start, and
-	// poke. The channel shuts down to signal for Watch to exit.
-	eventsChan chan *event.Msg // incoming to resource
-	eventsLock *sync.Mutex     // lock around sending and closing of events channel
-	eventsDone bool            // is channel closed?
+	// doneChan closes when Watch should shut down. When any of the
+	// following channels close, it causes this to close.
+	doneChan chan struct{}
 
-	// outputChan is the channel that the engine listens on for events from
+	// processDone is closed when the Process/CheckApply function fails
+	// permanently, and wants to cause Watch to exit.
+	processDone chan struct{}
+	// watchDone is closed when the Watch function fails permanently, and we
+	// close this to signal we should definitely exit. (Often redundant.)
+	watchDone chan struct{}
+	// removeDone is closed when the vertexRemoveFn method asks for an exit.
+	// This happens when we're switching graphs. The switch to an "empty" is
+	// the equivalent of asking for a final shutdown.
+	removeDone chan struct{}
+	// eventsDone is closed when we shutdown the Process loop because we
+	// closed without error. In theory this shouldn't happen, but it could
+	// if Watch returns without error for some reason.
+	eventsDone chan struct{}
+
+	// eventsChan is the channel that the engine listens on for events from
 	// the Watch loop for that resource. The event is nil normally, except
 	// when events are sent on this channel from the engine. This only
 	// happens as a signaling mechanism when Watch has shutdown and we want
 	// to notify the Process loop which reads from this.
-	outputChan chan error // outgoing from resource
+	eventsChan chan error // outgoing from resource
 
-	wg   *sync.WaitGroup
-	exit *util.EasyExit
+	// pokeChan is a separate channel that the Process loop listens on to
+	// know when we might need to run Process. It never closes, and is safe
+	// to send on since it is buffered.
+	pokeChan chan struct{} // outgoing from resource
 
-	started chan struct{} // closes when it's started
-	stopped chan struct{} // closes when it's stopped
+	// paused represents if this particular res is paused or not.
+	paused bool
+	// pauseSignal closes to request a pause of this resource.
+	pauseSignal chan struct{}
+	// resumeSignal closes to request a resume of this resource.
+	resumeSignal chan struct{}
+	// pausedAck is used to send an ack message saying that we've paused.
+	pausedAck *util.EasyAck
 
-	starter bool // do we have an indegree of 0 ?
-	working bool // is the Main() loop running ?
+	wg *sync.WaitGroup // used for all vertex specific processes
 
 	cuid *converger.UID // primary converger
 	tuid *converger.UID // secondary converger
@@ -93,17 +110,6 @@ type State struct {
 
 // Init initializes structures like channels.
 func (obj *State) Init() error {
-	obj.eventsChan = make(chan *event.Msg)
-	obj.eventsLock = &sync.Mutex{}
-
-	obj.outputChan = make(chan error)
-
-	obj.wg = &sync.WaitGroup{}
-	obj.exit = util.NewEasyExit()
-
-	obj.started = make(chan struct{})
-	obj.stopped = make(chan struct{})
-
 	res, isRes := obj.Vertex.(engine.Res)
 	if !isRes {
 		return fmt.Errorf("vertex is not a Res")
@@ -121,6 +127,24 @@ func (obj *State) Init() error {
 		return fmt.Errorf("the Logf function is missing")
 	}
 
+	obj.doneChan = make(chan struct{})
+
+	obj.processDone = make(chan struct{})
+	obj.watchDone = make(chan struct{})
+	obj.removeDone = make(chan struct{})
+	obj.eventsDone = make(chan struct{})
+
+	obj.eventsChan = make(chan error)
+
+	obj.pokeChan = make(chan struct{}, 1) // must be buffered
+
+	//obj.paused = false // starts off as started
+	obj.pauseSignal = make(chan struct{})
+	//obj.resumeSignal = make(chan struct{}) // happens on pause
+	//obj.pausedAck = util.NewEasyAck() // happens on pause
+
+	obj.wg = &sync.WaitGroup{}
+
 	//obj.cuid = obj.Converger.Register() // gets registered in Worker()
 	//obj.tuid = obj.Converger.Register() // gets registered in Worker()
 
@@ -129,24 +153,9 @@ func (obj *State) Init() error {
 		Hostname: obj.Hostname,
 
 		// Watch:
-		Running: func() error {
-			obj.tuid.StopTimer()
-			close(obj.started)    // this is reset in the reset func
-			obj.isStateOK = false // assume we're initially dirty
-			// optimization: skip the initial send if not a starter
-			// because we'll get poked from a starter soon anyways!
-			if !obj.starter {
-				return nil
-			}
-			return obj.event()
-		},
-		Event:  obj.event,
-		Events: obj.eventsChan,
-		Read:   obj.read,
-		Dirty: func() { // TODO: should we rename this SetDirty?
-			obj.tuid.StopTimer()
-			obj.isStateOK = false
-		},
+		Running: obj.event,
+		Event:   obj.event,
+		Done:    obj.doneChan,
 
 		// CheckApply:
 		Refresh: func() bool {
@@ -231,187 +240,91 @@ func (obj *State) Close() error {
 	return err
 }
 
-// reset is run to reset the state so that Watch can run a second time. Thus is
-// needed for the Watch retry in particular.
-func (obj *State) reset() {
-	obj.started = make(chan struct{})
-	obj.stopped = make(chan struct{})
-}
-
-// Poke sends a nil message on the outputChan. This channel is used by the
-// resource to signal a possible change. This will cause the Process loop to
-// run if it can.
+// Poke sends a notification on the poke channel. This channel is used to notify
+// the Worker to run the Process/CheckApply when it can. This is used when there
+// is a need to schedule or reschedule some work which got postponed or dropped.
+// This doesn't contain any internal synchronization primitives or wait groups,
+// callers are expected to make sure that they don't leave any of these running
+// by the time the Worker() shuts down.
 func (obj *State) Poke() {
-	// add a wait group on the vertex we're poking!
-	obj.wg.Add(1)
-	defer obj.wg.Done()
-
-	// now that we've added to the wait group, obj.outputChan won't close...
-	// so see if there's an exit signal before we release the wait group!
-	// XXX: i don't think this is necessarily happening, but maybe it is?
-	// XXX: re-write some of the engine to ensure that: "the sender closes"!
-	select {
-	case <-obj.exit.Signal():
-		return // skip sending the poke b/c we're closing
-	default:
-	}
+	// redundant
+	//if len(obj.pokeChan) > 0 {
+	//	return
+	//}
 
 	select {
-	case obj.outputChan <- nil:
-
-	case <-obj.exit.Signal():
+	case obj.pokeChan <- struct{}{}:
+	default: // if chan is now full because more than one poke happened...
 	}
 }
 
-// Event sends a Pause or Start event to the resource. It can also be used to
-// send Poke events, but it's much more efficient to send them directly instead
-// of passing them through the resource.
-func (obj *State) Event(msg *event.Msg) {
-	// TODO: should these happen after the lock?
-	obj.wg.Add(1)
-	defer obj.wg.Done()
+// Pause pauses this resource. It should not be called on any already paused
+// resource. It will block until the resource pauses with an acknowledgment, or
+// until an exit for that resource is seen. If the latter happens it will error.
+// It is NOT thread-safe with the Resume() method so only call either one at a
+// time.
+func (obj *State) Pause() error {
+	if obj.paused {
+		return fmt.Errorf("already paused")
+	}
 
-	obj.eventsLock.Lock()
-	defer obj.eventsLock.Unlock()
+	obj.pausedAck = util.NewEasyAck()
+	obj.resumeSignal = make(chan struct{}) // build the resume signal
+	close(obj.pauseSignal)
+	obj.Poke() // unblock and notice the pause if necessary
 
-	if obj.eventsDone { // closing, skip events...
+	// wait for ack (or exit signal)
+	select {
+	case <-obj.pausedAck.Wait(): // we got it!
+		// we're paused
+	case <-obj.doneChan:
+		return engine.ErrClosed
+	}
+	obj.paused = true
+
+	return nil
+}
+
+// Resume unpauses this resource. It can be safely called on a brand-new
+// resource that has just started running without incident. It is NOT
+// thread-safe with the Pause() method, so only call either one at a time.
+func (obj *State) Resume() {
+	// TODO: do we need a mutex around Resume?
+	if !obj.paused { // no need to unpause brand-new resources
 		return
 	}
 
-	if msg.Kind == event.KindExit { // set this so future events don't deadlock
-		obj.Logf("exit event...")
-		obj.eventsDone = true
-		close(obj.eventsChan) // causes resource Watch loop to close
-		obj.exit.Done(nil)    // trigger exit signal to unblock some cases
-		return
-	}
+	obj.pauseSignal = make(chan struct{}) // rebuild for next pause
+	close(obj.resumeSignal)
+	//obj.Poke() // not needed, we're already waiting for resume
+
+	obj.paused = false
+
+	// no need to wait for it to resume
+	//return // implied
+}
+
+// event is a helper function to send an event to the CheckApply process loop.
+// It can be used for the initial `running` event, or any regular event. You
+// should instead use Poke() to "schedule" a new Process/CheckApply loop when
+// one might be needed. This method will block until we're unpaused and ready to
+// receive on the events channel.
+func (obj *State) event() {
+	obj.setDirty() // assume we're initially dirty
 
 	select {
-	case obj.eventsChan <- msg:
-
-	case <-obj.exit.Signal():
+	case obj.eventsChan <- nil:
+		// send!
 	}
+
+	//return // implied
 }
 
-// read is a helper function used inside the main select statement of resources.
-// If it returns an error, then this is a signal for the resource to exit.
-func (obj *State) read(msg *event.Msg) error {
-	switch msg.Kind {
-	case event.KindPoke:
-		return obj.event() // a poke needs to cause an event...
-	case event.KindStart:
-		return fmt.Errorf("unexpected start")
-	case event.KindPause:
-		// pass
-	case event.KindExit:
-		return engine.ErrSignalExit
-
-	default:
-		return fmt.Errorf("unhandled event: %+v", msg.Kind)
-	}
-
-	// we're paused now
-	select {
-	case msg, ok := <-obj.eventsChan:
-		if !ok {
-			return engine.ErrWatchExit
-		}
-		switch msg.Kind {
-		case event.KindPoke:
-			return fmt.Errorf("unexpected poke")
-		case event.KindPause:
-			return fmt.Errorf("unexpected pause")
-		case event.KindStart:
-			// resumed
-			return nil
-		case event.KindExit:
-			return engine.ErrSignalExit
-
-		default:
-			return fmt.Errorf("unhandled event: %+v", msg.Kind)
-		}
-	}
-}
-
-// event is a helper function to send an event from the resource Watch loop. It
-// can be used for the initial `running` event, or any regular event. If it
-// returns an error, then the Watch loop must return this error and shutdown.
-func (obj *State) event() error {
-	// loop until we sent on obj.outputChan or exit with error
-	for {
-		select {
-		// send "activity" event
-		case obj.outputChan <- nil:
-			return nil // sent event!
-
-		// make sure to keep handling incoming
-		case msg, ok := <-obj.eventsChan:
-			if !ok {
-				return engine.ErrWatchExit
-			}
-			switch msg.Kind {
-			case event.KindPoke:
-				// we're trying to send an event, so swallow the
-				// poke: it's what we wanted to have happen here
-				continue
-			case event.KindStart:
-				return fmt.Errorf("unexpected start")
-			case event.KindPause:
-				// pass
-			case event.KindExit:
-				return engine.ErrSignalExit
-
-			default:
-				return fmt.Errorf("unhandled event: %+v", msg.Kind)
-			}
-		}
-
-		// we're paused now
-		select {
-		case msg, ok := <-obj.eventsChan:
-			if !ok {
-				return engine.ErrWatchExit
-			}
-			switch msg.Kind {
-			case event.KindPoke:
-				return fmt.Errorf("unexpected poke")
-			case event.KindPause:
-				return fmt.Errorf("unexpected pause")
-			case event.KindStart:
-				// resumed
-			case event.KindExit:
-				return engine.ErrSignalExit
-
-			default:
-				return fmt.Errorf("unhandled event: %+v", msg.Kind)
-			}
-		}
-	}
-}
-
-// varDir returns the path to a working directory for the resource. It will try
-// and create the directory first, and return an error if this failed. The dir
-// should be cleaned up by the resource on Close if it wishes to discard the
-// contents. If it does not, then a future resource with the same kind and name
-// may see those contents in that directory. The resource should clean up the
-// contents before use if it is important that nothing exist. It is always
-// possible that contents could remain after an abrupt crash, so do not store
-// overly sensitive data unless you're aware of the risks.
-func (obj *State) varDir(extra string) (string, error) {
-	// Using extra adds additional dirs onto our namespace. An empty extra
-	// adds no additional directories.
-	if obj.Prefix == "" { // safety
-		return "", fmt.Errorf("the VarDir prefix is empty")
-	}
-
-	// an empty string at the end has no effect
-	p := fmt.Sprintf("%s/", path.Join(obj.Prefix, extra))
-	if err := os.MkdirAll(p, 0770); err != nil {
-		return "", errwrap.Wrapf(err, "can't create prefix in: %s", p)
-	}
-
-	// returns with a trailing slash as per the mgmt file res convention
-	return p, nil
+// setDirty marks the resource state as dirty. This signals to the engine that
+// CheckApply will have some work to do in order to converge it.
+func (obj *State) setDirty() {
+	obj.tuid.StopTimer()
+	obj.isStateOK = false
 }
 
 // poll is a replacement for Watch when the Poll metaparameter is used.
@@ -420,34 +333,17 @@ func (obj *State) poll(interval uint32) error {
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
 
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		case <-ticker.C: // received the timer event
 			obj.init.Logf("polling...")
-			send = true
-			obj.init.Dirty() // dirty
 
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
+		case <-obj.init.Done: // signal for shutdown request
+			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }

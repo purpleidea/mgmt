@@ -63,31 +63,15 @@ func (obj *NoopRes) Close() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *NoopRes) Watch() error {
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
+	obj.init.Running() // when started, notify engine that we're running
+
+	select {
+	case <-obj.init.Done: // closed by the engine to signal shutdown
 	}
 
-	var send = false // send event?
-	for {
-		select {
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
-		}
+	//obj.init.Event() // notify engine of an event (this can block)
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
-		}
-	}
+	return nil
 }
 
 // CheckApply method for Noop resource. Does nothing, returns happy!

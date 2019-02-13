@@ -423,9 +423,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 
 	// We tell the engine that we're running right away. This is not correct,
 	// but the api doesn't have a way to signal when the waiters are ready.
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
 	// cancellable context used for exiting cleanly
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -488,14 +486,6 @@ func (obj *AwsEc2Res) longpollWatch() error {
 	// process events from the goroutine
 	for {
 		select {
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
-
 		case msg, ok := <-obj.awsChan:
 			if !ok {
 				return nil
@@ -509,15 +499,16 @@ func (obj *AwsEc2Res) longpollWatch() error {
 				continue
 			default:
 				obj.init.Logf("State: %v", msg.state)
-				obj.init.Dirty() // dirty
 				send = true
 			}
+
+		case <-obj.init.Done: // closed by the engine to signal shutdown
+			return nil
 		}
+
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event() // notify engine of an event (this can block)
 		}
 	}
 }
@@ -587,14 +578,6 @@ func (obj *AwsEc2Res) snsWatch() error {
 	// process events
 	for {
 		select {
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
-
 		case msg, ok := <-obj.awsChan:
 			if !ok {
 				return nil
@@ -607,20 +590,19 @@ func (obj *AwsEc2Res) snsWatch() error {
 			// is confirmed, we are ready to receive events, so we
 			// can notify the engine that we're running.
 			if msg.event == awsEc2EventWatchReady {
-				if err := obj.init.Running(); err != nil {
-					return err // exit if requested
-				}
+				obj.init.Running() // when started, notify engine that we're running
 				continue
 			}
 			obj.init.Logf("State: %v", msg.event)
-			obj.init.Dirty() // dirty
 			send = true
+
+		case <-obj.init.Done: // closed by the engine to signal shutdown
+			return nil
 		}
+
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event() // notify engine of an event (this can block)
 		}
 	}
 }

@@ -182,10 +182,7 @@ func (obj *PasswordRes) Watch() error {
 	}
 	defer obj.recWatcher.Close()
 
-	// notify engine that we're running
-	if err := obj.init.Running(); err != nil {
-		return err // exit if requested
-	}
+	obj.init.Running() // when started, notify engine that we're running
 
 	var send = false // send event?
 	for {
@@ -199,23 +196,15 @@ func (obj *PasswordRes) Watch() error {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			send = true
-			obj.init.Dirty() // dirty
 
-		case event, ok := <-obj.init.Events:
-			if !ok {
-				return nil
-			}
-			if err := obj.init.Read(event); err != nil {
-				return err
-			}
+		case <-obj.init.Done: // closed by the engine to signal shutdown
+			return nil
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			if err := obj.init.Event(); err != nil {
-				return err // exit if requested
-			}
+			obj.init.Event() // notify engine of an event (this can block)
 		}
 	}
 }

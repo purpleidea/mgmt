@@ -52,7 +52,7 @@ fi
 
 if [ ! -z "$BREW" ]; then
 	# coreutils contains gtimeout, gstat, etc
-	$BREW install libvirt augeas coreutils || true
+	$BREW install pkg-config libvirt augeas coreutils || true
 fi
 
 if [ ! -z "$PACMAN" ]; then

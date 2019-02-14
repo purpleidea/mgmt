@@ -69,7 +69,11 @@ type State struct {
 	processDone chan struct{}
 	// watchDone is closed when the Watch function fails permanently, and we
 	// close this to signal we should definitely exit. (Often redundant.)
-	watchDone chan struct{}
+	watchDone chan struct{} // could be shared with limitDone
+	// limitDone is closed when the Watch function fails permanently, and we
+	// close this to signal we should definitely exit. This happens inside
+	// of the limit loop of the Process section of Worker.
+	limitDone chan struct{} // could be shared with watchDone
 	// removeDone is closed when the vertexRemoveFn method asks for an exit.
 	// This happens when we're switching graphs. The switch to an "empty" is
 	// the equivalent of asking for a final shutdown.
@@ -131,6 +135,7 @@ func (obj *State) Init() error {
 
 	obj.processDone = make(chan struct{})
 	obj.watchDone = make(chan struct{})
+	obj.limitDone = make(chan struct{})
 	obj.removeDone = make(chan struct{})
 	obj.eventsDone = make(chan struct{})
 

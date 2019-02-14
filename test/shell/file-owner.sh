@@ -9,7 +9,7 @@ if ! timeout 1s sudo -A true; then
 fi
 
 # run till completion
-$timeout --kill-after=30s 25s sudo -A "$MGMT" run  --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml file-owner.yaml &
+$timeout --kill-after=360s 300s sudo -A "$MGMT" run  --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml file-owner.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

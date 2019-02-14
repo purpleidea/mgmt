@@ -9,7 +9,7 @@
 set -o errexit
 set -o pipefail
 
-$timeout --kill-after=3s 1s "$MGMT" --help # hello world!
+$timeout --kill-after=360s 300s "$MGMT" --help # hello world!
 pid=$!
 wait $pid	# get exit status
 exit $?

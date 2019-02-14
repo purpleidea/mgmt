@@ -3,7 +3,7 @@ graph: parallel
 resources:
   exec:
   - name: exec1
-    cmd: sleep 15s
+    cmd: sleep 10s
     shell: ''
     timeout: 0
     watchcmd: ''
@@ -12,7 +12,7 @@ resources:
     ifshell: ''
     state: present
   - name: exec2
-    cmd: sleep 15s
+    cmd: sleep 10s
     shell: ''
     timeout: 0
     watchcmd: ''
@@ -21,7 +21,7 @@ resources:
     ifshell: ''
     state: present
   - name: exec3
-    cmd: sleep 15s
+    cmd: sleep 10s
     shell: ''
     timeout: 0
     watchcmd: ''
@@ -30,7 +30,7 @@ resources:
     ifshell: ''
     state: present
   - name: exec4
-    cmd: sleep 15s
+    cmd: sleep 10s
     shell: ''
     timeout: 0
     watchcmd: ''
@@ -39,7 +39,7 @@ resources:
     ifshell: ''
     state: present
   - name: exec0
-    cmd: sleep 15s
+    cmd: sleep 10s
     shell: ''
     timeout: 0
     watchcmd: ''

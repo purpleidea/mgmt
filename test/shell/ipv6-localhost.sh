@@ -20,7 +20,7 @@ pid=$!
 trap 'pkill -9 mgmt' EXIT
 
 # give mgmt a little time to startup
-sleep 10
+sleep 10s
 
 # mgmt configured for ipv6 only should not listen on any IPv4 ports
 lsof -Pn -p "$pid" -a -i | grep '127.0.0.1' && false

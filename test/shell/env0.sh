@@ -14,7 +14,7 @@ if [[ ! "$tmpdir" =~ "/tmp" ]]; then
 	exit 99
 fi
 
-env TMPDIR="${tmpdir}" TEST=123 EMPTY="" $timeout -sKILL 60s "$MGMT" run --tmp-prefix --converged-timeout=5 lang --lang env0.mcl
+env TMPDIR="${tmpdir}" TEST=123 EMPTY="" $timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix --converged-timeout=5 lang --lang env0.mcl
 e=$?
 
 egrep "$regex" "$tmpdir/environ" || fail_test "Could not match '$(cat "$tmpdir/environ")' in '$tmpdir/environ' to '$regex'."

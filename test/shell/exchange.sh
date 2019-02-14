@@ -14,7 +14,7 @@ set -o pipefail
 trap 'pkill -9 mgmt' EXIT
 
 # wait for everything to converge
-sleep 10
+sleep 10s
 
 test "$(cat /tmp/mgmt/exchange-* | grep -c h1)" -eq 4
 test "$(cat /tmp/mgmt/exchange-* | grep -c h2)" -eq 4

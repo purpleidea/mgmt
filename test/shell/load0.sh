@@ -1,10 +1,6 @@
 #!/bin/bash -e
 
-if env | grep -q -e '^TRAVIS=true$'; then
-	# loadavg glibc calls don't seem to work properly on osx OS in travis
-	echo "Travis and Jenkins give wonky results here, skipping test!"
-	exit
-fi
+# TODO: do loadavg calls work properly on macOS in travis?
 
 set -o errexit
 set -o pipefail
@@ -16,7 +12,7 @@ set -o pipefail
 # Precision varies (eg: 4, 9 or 11 digits). Hence no strict check for precision but
 # anything above 3 will do. It is assumed we will hardly ever get a precision lower than 3 digits
 # from the current implementations. Otherwise this test would need to be revised.
-regex="load average: [0-9]\,[0-9]{3,}, [0-9]\,[0-9]{3,}, [0-9]\,[0-9]{3,}"
+regex="load average: [0-9]\.[0-9]{3,}, [0-9]\.[0-9]{3,}, [0-9]\.[0-9]{3,}"
 
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
 if [[ ! "$tmpdir" =~ "/tmp" ]]; then
@@ -35,12 +31,12 @@ import "sys"
 \$x15 = structlookup(\$theload, "x15")
 
 file "${tmpdir}/loadavg" {
-	content => fmt.printf("load average: %f, %f, %f", \$x1, \$x5, \$x15),
+	content => fmt.printf("load average: %f, %f, %f\n", \$x1, \$x5, \$x15),
 	state => "exists",
 }
 EOF
 
-$timeout --kill-after=60s 55s "$MGMT" run --tmp-prefix --converged-timeout=1 lang --lang "$tmpdir/load0.mcl"  &
+$timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix --converged-timeout=5 lang --lang "$tmpdir/load0.mcl"  &
 pid=$!
 wait $pid	# get exit status
 e=$?

@@ -5,7 +5,7 @@ set -x
 . ../util.sh
 
 # run till completion
-$timeout --kill-after=60s 55s "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml file-mode.yaml &
+$timeout --kill-after=360s 300s "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml file-mode.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

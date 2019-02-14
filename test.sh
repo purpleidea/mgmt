@@ -14,6 +14,15 @@ testsuite="$1"
 # print environment when running all testsuites
 test -z "$testsuite" && (echo "ENV:"; env; echo; )
 
+# make it easy to split test into blocks
+label-block() {
+	if $(env | grep -q -e '^TEST_BLOCK='"$1"'$') || $(! env | grep -q -e '^TEST_BLOCK=') || $(env | grep -q -e '^TEST_BLOCK=$'); then
+		return 0
+	else
+		return 1	# not my block
+	fi
+}
+
 # run a test and record failures
 function run-testsuite()
 {
@@ -43,27 +52,37 @@ function skip-testsuite()
 # used at the end to tell if everything went fine
 failures=''
 
-run-testsuite ./test/test-vet.sh
-run-testsuite ./test/test-misc.sh
-run-testsuite ./test/test-gofmt.sh
-run-testsuite ./test/test-yamlfmt.sh
-run-testsuite ./test/test-bashfmt.sh
-run-testsuite ./test/test-headerfmt.sh
-run-testsuite ./test/test-markdownlint.sh
-run-testsuite ./test/test-commit-message.sh
-run-testsuite ./test/test-govet.sh
-run-testsuite ./test/test-examples.sh
-run-testsuite ./test/test-gotest.sh
+if label-block "basic"; then
+	run-testsuite ./test/test-vet.sh
+	run-testsuite ./test/test-misc.sh
+	run-testsuite ./test/test-gofmt.sh
+	run-testsuite ./test/test-yamlfmt.sh
+	run-testsuite ./test/test-bashfmt.sh
+	run-testsuite ./test/test-headerfmt.sh
+	run-testsuite ./test/test-markdownlint.sh
+	run-testsuite ./test/test-commit-message.sh
+	run-testsuite ./test/test-govet.sh
+	run-testsuite ./test/test-examples.sh
+	run-testsuite ./test/test-gotest.sh
+	run-testsuite ./test/test-gometalinter.sh
+	run-testsuite ./test/test-golint.sh	# test last, because this test is somewhat arbitrary
+	# FIXME: this now fails everywhere :(
+	skip-testsuite ./test/test-reproducible.sh
+fi
 
 # skipping: https://github.com/purpleidea/mgmt/issues/327
 # run-test ./test/test-crossbuild.sh
 
 # do these longer tests only when running on ci
 if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
-	run-testsuite ./test/test-shell.sh
-	run-testsuite ./test/test-gotest.sh --race
-	run-testsuite ./test/test-integration.sh
-	run-testsuite ./test/test-integration.sh --race
+
+	if label-block "shell"; then
+		run-testsuite ./test/test-shell.sh
+	fi
+	if label-block "race"; then
+		run-testsuite ./test/test-gotest.sh --race
+		run-testsuite ./test/test-integration.sh --race
+	fi
 
 	# XXX: fix and enable these on travis (sudo: go: command not found)
 	#run-testsuite ./test/test-gotest.sh --root
@@ -82,10 +101,6 @@ else
 	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --root --race
 fi
 
-run-testsuite ./test/test-gometalinter.sh
-
-# FIXME: this now fails everywhere :(
-skip-testsuite ./test/test-reproducible.sh
 
 # run omv tests on jenkins physical hosts only
 if env | grep -q -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
@@ -95,8 +110,6 @@ else
 fi
 
 REASON="https://github.com/purpleidea/mgmt/issues/327" skip-testsuite ./test/test-crossbuild.sh
-
-run-testsuite ./test/test-golint.sh	# test last, because this test is somewhat arbitrary
 
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'

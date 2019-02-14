@@ -1,10 +1,6 @@
 language: go
 os:
   - linux
-go:
-  - 1.10.x
-  - 1.11.x
-  - tip
 go_import_path: github.com/purpleidea/mgmt
 sudo: true
 dist: xenial
@@ -25,17 +21,27 @@ before_install:
   - git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
   - git fetch --unshallow
 install: 'make deps'
-script: 'make test'
 matrix:
   fast_finish: false
   allow_failures:
-    - go: 1.11.x
-    - go: tip
-    - os: osx
+  - go: 1.11.x
+  - go: tip
+  - os: osx
   # include only one build for osx for a quicker build as the nr. of these runners are sparse
   include:
-    - os: osx
-      go: 1.10.x
+  - name: "basic tests"
+    go: 1.10.x
+    env: TEST_BLOCK=basic
+  - name: "shell tests"
+    go: 1.10.x
+    env: TEST_BLOCK=shell
+  - name: "race tests"
+    go: 1.10.x
+    env: TEST_BLOCK=race
+  - go: 1.11.x
+  - go: tip
+  - os: osx
+script: 'TEST_BLOCK="$TEST_BLOCK" make test'
 
 # the "secure" channel value is the result of running: ./misc/travis-encrypt.sh
 # with a value of: irc.freenode.net#mgmtconfig to eliminate noise from forks...

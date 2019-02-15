@@ -12,7 +12,9 @@
 testsuite="$1"
 
 # print environment when running all testsuites
+fold_start env.1 "environment"
 test -z "$testsuite" && (echo "ENV:"; env; echo; )
+fold_end env.1
 
 # make it easy to split test into blocks
 label-block() {

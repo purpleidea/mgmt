@@ -88,7 +88,9 @@ type DockerContainerRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *DockerContainerRes) Default() engine.Res {
-	return &DockerContainerRes{}
+	return &DockerContainerRes{
+		State: "running",
+	}
 }
 
 // Validate if the params passed in are valid data.

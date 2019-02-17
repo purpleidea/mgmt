@@ -68,7 +68,9 @@ type DockerImageRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *DockerImageRes) Default() engine.Res {
-	return &DockerImageRes{}
+	return &DockerImageRes{
+		State: "exists",
+	}
 }
 
 // Validate if the params passed in are valid data.

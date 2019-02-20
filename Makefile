@@ -373,7 +373,7 @@ releases/$(VERSION)/deb/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 
 $(DEB_PKG): releases/$(VERSION)/deb/changelog
 	@echo "Building: deb package..."
-	./misc/fpm-pack.sh deb $(VERSION) libvirt-dev libaugeas-dev
+	./misc/fpm-pack.sh deb $(VERSION) libvirt0 libaugeas0
 
 $(PACMAN_PKG): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@echo "Building: pacman package..."

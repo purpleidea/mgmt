@@ -52,7 +52,8 @@ type EasyOnce struct {
 	once *sync.Once
 }
 
-// Done runs the function which was defined in `Func` a maximum of once.
+// Done runs the function which was defined in `Func` a maximum of once. Please
+// note that this is not currently thread-safe. Wrap calls to this with a mutex.
 func (obj *EasyOnce) Done() {
 	if obj.once == nil {
 		// we must initialize it!
@@ -66,22 +67,27 @@ func (obj *EasyOnce) Done() {
 // EasyExit is a struct that helps you build a close switch and signal which can
 // be called multiple times safely, and used as a signal many times in parallel.
 type EasyExit struct {
-	exit chan struct{}
-	once *sync.Once
-	err  error
+	mutex *sync.Mutex
+	exit  chan struct{}
+	once  *sync.Once
+	err   error
 }
 
 // NewEasyExit builds an easy exit struct.
 func NewEasyExit() *EasyExit {
 	return &EasyExit{
-		exit: make(chan struct{}),
-		once: &sync.Once{},
+		mutex: &sync.Mutex{},
+		exit:  make(chan struct{}),
+		once:  &sync.Once{},
 	}
 }
 
 // Done triggers the exit signal. It associates an error condition with it too.
+// This is thread-safe.
 func (obj *EasyExit) Done(err error) {
-	if obj.once == nil {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	if obj.once == nil { // redundant
 		// we must initialize it!
 		obj.once = &sync.Once{}
 	}
@@ -94,7 +100,7 @@ func (obj *EasyExit) Done(err error) {
 
 // Signal returns the channel that we watch for the exit signal on. It will
 // close to signal us when triggered by Exit().
-func (obj *EasyExit) Signal() chan struct{} {
+func (obj *EasyExit) Signal() <-chan struct{} {
 	return obj.exit
 }
 

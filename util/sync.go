@@ -21,6 +21,28 @@ import (
 	"sync"
 )
 
+// EasyAck is a wrapper to build ack functionality into a simple interface.
+type EasyAck struct {
+	done chan struct{}
+}
+
+// NewEasyAck builds the object. This must be called before use.
+func NewEasyAck() *EasyAck {
+	return &EasyAck{
+		done: make(chan struct{}),
+	}
+}
+
+// Ack sends the acknowledgment message. This can only be called once.
+func (obj *EasyAck) Ack() {
+	close(obj.done)
+}
+
+// Wait returns a channel that you can wait on for the ack message.
+func (obj *EasyAck) Wait() <-chan struct{} {
+	return obj.done
+}
+
 // EasyOnce is a wrapper for the sync.Once functionality which lets you define
 // and register the associated `run once` function at declaration time. It may
 // be copied at any time.

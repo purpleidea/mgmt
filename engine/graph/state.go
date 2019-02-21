@@ -51,7 +51,7 @@ type State struct {
 	// created if needed.
 	Prefix string
 
-	//Converger converger.Converger
+	//Converger *converger.Coordinator
 
 	// Debug turns on additional output and behaviours.
 	Debug bool
@@ -85,8 +85,8 @@ type State struct {
 	starter bool // do we have an indegree of 0 ?
 	working bool // is the Main() loop running ?
 
-	cuid converger.UID // primary converger
-	tuid converger.UID // secondary converger
+	cuid *converger.UID // primary converger
+	tuid *converger.UID // secondary converger
 
 	init *engine.Init // a copy of the init struct passed to res Init
 }

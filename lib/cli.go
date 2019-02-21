@@ -104,7 +104,7 @@ func CLI(program, version string, flags Flags) error {
 			Value: "",
 			Usage: "graphviz filter to use",
 		},
-		cli.IntFlag{
+		cli.Int64Flag{
 			Name:   "converged-timeout, t",
 			Value:  -1,
 			Usage:  "after approximately this many seconds without activity, we're considered to be in a converged state",

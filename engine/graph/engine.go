@@ -42,7 +42,7 @@ type Engine struct {
 	// Prefix is a unique directory prefix which can be used. It should be
 	// created if needed.
 	Prefix    string
-	Converger converger.Converger
+	Converger *converger.Coordinator
 
 	Debug bool
 	Logf  func(format string, v ...interface{})

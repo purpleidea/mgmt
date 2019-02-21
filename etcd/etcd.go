@@ -210,8 +210,8 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	txnq    chan *TN // txn queue
 
 	flags     Flags
-	prefix    string              // folder prefix to use for misc storage
-	converger converger.Converger // converged tracking
+	prefix    string                 // folder prefix to use for misc storage
+	converger *converger.Coordinator // converged tracking
 
 	// etcd server related
 	serverwg    sync.WaitGroup // wait for server to shutdown
@@ -221,7 +221,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 }
 
 // NewEmbdEtcd creates the top level embedded etcd struct client and server obj.
-func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClientURLs, advertiseServerURLs etcdtypes.URLs, noServer bool, noNetwork bool, idealClusterSize uint16, flags Flags, prefix string, converger converger.Converger) *EmbdEtcd {
+func NewEmbdEtcd(hostname string, seeds, clientURLs, serverURLs, advertiseClientURLs, advertiseServerURLs etcdtypes.URLs, noServer bool, noNetwork bool, idealClusterSize uint16, flags Flags, prefix string, converger *converger.Coordinator) *EmbdEtcd {
 	endpoints := make(etcdtypes.URLsMap)
 	if hostname == seedSentinel { // safety
 		return nil
@@ -764,7 +764,6 @@ func (obj *EmbdEtcd) CbLoop() {
 	obj.exitwg.Add(1)
 	defer obj.exitwg.Done()
 	cuid := obj.converger.Register()
-	cuid.SetName("Etcd: CbLoop")
 	defer cuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal
@@ -833,7 +832,6 @@ func (obj *EmbdEtcd) Loop() {
 	obj.exitwg.Add(1) // TODO: add these to other go routines?
 	defer obj.exitwg.Done()
 	cuid := obj.converger.Register()
-	cuid.SetName("Etcd: Loop")
 	defer cuid.Unregister()
 	if e := obj.Connect(false); e != nil {
 		return // fatal

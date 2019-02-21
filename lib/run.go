@@ -95,7 +95,7 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	obj.Sema = cliContext.Int("sema")
 	obj.Graphviz = cliContext.String("graphviz")
 	obj.GraphvizFilter = cliContext.String("graphviz-filter")
-	obj.ConvergedTimeout = cliContext.Int("converged-timeout")
+	obj.ConvergedTimeout = cliContext.Int64("converged-timeout")
 	obj.ConvergedTimeoutNoExit = cliContext.Bool("converged-timeout-no-exit")
 	obj.ConvergedStatusFile = cliContext.String("converged-status-file")
 	obj.MaxRuntime = uint(cliContext.Int("max-runtime"))

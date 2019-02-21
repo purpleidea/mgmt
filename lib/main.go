@@ -77,7 +77,7 @@ type Main struct {
 	Sema                   int    // add a semaphore with this lock count to each resource
 	Graphviz               string // output file for graphviz data
 	GraphvizFilter         string // graphviz filter to use
-	ConvergedTimeout       int    // approximately this many seconds of inactivity means we're in a converged state; -1 to disable
+	ConvergedTimeout       int64  // approximately this many seconds of inactivity means we're in a converged state; -1 to disable
 	ConvergedTimeoutNoExit bool   // don't exit on converged timeout
 	ConvergedStatusFile    string // file to append converged status to
 	MaxRuntime             uint   // exit after a maximum of approximately this many seconds
@@ -313,7 +313,7 @@ func (obj *Main) Run() error {
 	}
 
 	// setup converger
-	converger := converger.NewConverger(
+	converger := converger.New(
 		obj.ConvergedTimeout,
 	)
 	if obj.ConvergedStatusFile != "" {
@@ -334,10 +334,12 @@ func (obj *Main) Run() error {
 	}
 
 	// XXX: should this be moved to later in the code?
-	go converger.Loop(true) // main loop for converger, true to start paused
+	go converger.Run(true) // main loop for converger, true to start paused
+	converger.Ready()      // block until ready
 	obj.cleanup = append(obj.cleanup, func() error {
 		// TODO: shutdown converger, but make sure that using it in a
 		// still running embdEtcd struct doesn't block waiting on it...
+		converger.Shutdown()
 		return nil
 	})
 
@@ -649,7 +651,7 @@ func (obj *Main) Run() error {
 				Logf("error starting graph: %+v", err)
 				continue
 			}
-			converger.Start() // after Start()
+			converger.Resume() // after Start()
 			started = true
 
 			Logf("graph: %+v", obj.ge.Graph()) // show graph

@@ -1,5 +1,5 @@
-# This file is to be used by github.com/purpleidea/mgmt/lang/golang2mgmt
-# to generate mgmt functions
+# This file is used by github.com/purpleidea/mgmt/lang/funcs/funcgen/ to
+# generate mcl functions.
 functions:
 - mgmtName: to_upper
   mgmtPackage: strings
@@ -15,7 +15,7 @@ functions:
       return: [{type: string, value: "HELLO 22"}]
 - mgmtName: trim
   mgmtPackage: strings
-  help: returns a slice of the string s with all leading and trailing Unicode code points contained in cutset removed..
+  help: returns a slice of the string s with all leading and trailing Unicode code points contained in cutset removed.
   goPackage: strings
   goFunc: Trim
   args: [{name: s, type: string}, {name: cutset, type: string}]

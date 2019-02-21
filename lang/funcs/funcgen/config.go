@@ -19,6 +19,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
 type config struct {
@@ -44,7 +46,7 @@ func (obj *arg) ToMcl() (string, error) {
 		if obj.Name != "" {
 			return fmt.Sprintf("%s str", obj.Name), nil
 		}
-		return "str", nil
+		return types.TypeStr.String(), nil
 	}
 	return "", fmt.Errorf("cannot convert %v to mcl", obj)
 }

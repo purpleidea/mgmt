@@ -54,7 +54,7 @@ func parseFuncs(c config, path, templates string) error {
 		return err
 	}
 	for _, tpl := range templateFiles {
-		log.Printf("Generating %s", tpl)
+		log.Printf("Template: %s", tpl)
 		err = generateTemplate(c, path, tpl)
 		if err != nil {
 			return err
@@ -64,7 +64,7 @@ func parseFuncs(c config, path, templates string) error {
 }
 
 func generateTemplate(c config, path, templateFile string) error {
-	log.Printf("Reading %s", templateFile)
+	log.Printf("Reading: %s", templateFile)
 	basename := filepath.Base(templateFile)
 	tplFile, err := ioutil.ReadFile(templateFile)
 	if err != nil {
@@ -76,7 +76,7 @@ func generateTemplate(c config, path, templateFile string) error {
 	}
 	finalName := strings.TrimSuffix(basename, ".tpl")
 	finalPath := filepath.Join(path, finalName)
-	log.Printf("Writing %s", finalPath)
+	log.Printf("Writing: %s", finalPath)
 	finalFile, err := os.Create(finalPath)
 	if err != nil {
 		return err

@@ -18,24 +18,28 @@
 package main
 
 import (
-	"flag"
+	"io/ioutil"
 	"log"
+	"path/filepath"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
-var (
-	pkg       = flag.String("package", "lang/funcs/core", "path to the package")
-	filename  = flag.String("filename", "golang2mgmt.yaml", "path to the config")
-	templates = flag.String("templates", "lang/golang2mgmt/templates/*.tpl", "path to the templates")
-)
-
-func main() {
-	flag.Parse()
-	if *pkg == "" {
-		log.Fatalf("No package passed!")
-	}
-
-	err := parsePkg(*pkg, *filename, *templates)
+func parsePkg(path, filename, templates string) error {
+	var c config
+	filePath := filepath.Join(path, filename)
+	log.Printf("Data: %s", filePath)
+	cfgFile, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	err = yaml.UnmarshalStrict(cfgFile, &c)
+	if err != nil {
+		return err
+	}
+	err = parseFuncs(c, path, templates)
+	if err != nil {
+		return err
+	}
+	return nil
 }

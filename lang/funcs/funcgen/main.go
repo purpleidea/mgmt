@@ -18,28 +18,24 @@
 package main
 
 import (
-	"io/ioutil"
+	"flag"
 	"log"
-	"path/filepath"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
-func parsePkg(path, filename, templates string) error {
-	var c config
-	filePath := filepath.Join(path, filename)
-	log.Printf("Reading %s", filePath)
-	cfgFile, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return err
+var (
+	pkg       = flag.String("package", "lang/funcs/core", "path to the package")
+	filename  = flag.String("filename", "funcgen.yaml", "path to the config")
+	templates = flag.String("templates", "lang/funcs/funcgen/templates/*.tpl", "path to the templates")
+)
+
+func main() {
+	flag.Parse()
+	if *pkg == "" {
+		log.Fatalf("No package passed!")
 	}
-	err = yaml.UnmarshalStrict(cfgFile, &c)
+
+	err := parsePkg(*pkg, *filename, *templates)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
-	err = parseFuncs(c, path, templates)
-	if err != nil {
-		return err
-	}
-	return nil
 }

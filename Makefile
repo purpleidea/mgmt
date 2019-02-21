@@ -410,11 +410,12 @@ help: ## show this help screen
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ''
 
-funcgen: lang/funcs/core/generated_funcs_tests.go lang/funcs/core/generated_funcs.go
+funcgen: lang/funcs/core/generated_funcs_test.go lang/funcs/core/generated_funcs.go
 
-lang/funcs/core/generated_funcs_tests.go: lang/funcs/core/generated_funcs.go
+lang/funcs/core/generated_funcs_test.go: lang/funcs/funcgen/*.go lang/funcs/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs_test.go.tpl
+	go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs_test.go.tpl
 
-lang/funcs/core/generated_funcs.go: lang/golang2mgmt/*.go lang/funcs/core/golang2mgmt.yaml lang/golang2mgmt/templates/*.tpl
-	go run lang/golang2mgmt/*.go
+lang/funcs/core/generated_funcs.go: lang/funcs/funcgen/*.go lang/funcs/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs.go.tpl
+	go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs.go.tpl
 
 # vim: ts=8

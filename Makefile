@@ -117,7 +117,6 @@ race:
 
 # generate go files from non-go source
 bindata: ## generate go files from non-go sources
-	@echo "Generating: bindata..."
 	$(MAKE) --quiet -C bindata
 	$(MAKE) --quiet -C lang/funcs
 
@@ -126,8 +125,7 @@ generate:
 
 lang: ## generates the lexer/parser for the language frontend
 	@# recursively run make in child dir named lang
-	@echo "Generating: lang..."
-	$(MAKE) --quiet -C lang
+	@$(MAKE) --quiet -C lang
 
 # build a `mgmt` binary for current host os/arch
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
@@ -362,28 +360,28 @@ releases/$(VERSION)/.mkdir:
 	mkdir -p releases/$(VERSION)/{deb,rpm,pacman}/ && touch releases/$(VERSION)/.mkdir
 
 releases/$(VERSION)/rpm/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
-	@echo "Generating rpm changelog..."
+	@echo "Generating: rpm changelog..."
 	./misc/make-rpm-changelog.sh $(VERSION)
 
 $(RPM_PKG): releases/$(VERSION)/rpm/changelog
-	@echo "Building rpm package..."
+	@echo "Building: rpm package..."
 	./misc/fpm-pack.sh rpm $(VERSION) libvirt-devel augeas-devel
 
 releases/$(VERSION)/deb/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
-	@echo "Generating deb changelog..."
+	@echo "Generating: deb changelog..."
 	./misc/make-deb-changelog.sh $(VERSION)
 
 $(DEB_PKG): releases/$(VERSION)/deb/changelog
-	@echo "Building deb package..."
+	@echo "Building: deb package..."
 	./misc/fpm-pack.sh deb $(VERSION) libvirt-dev libaugeas-dev
 
 $(PACMAN_PKG): $(PROGRAM) releases/$(VERSION)/.mkdir
-	@echo "Building pacman package..."
+	@echo "Building: pacman package..."
 	./misc/fpm-pack.sh pacman $(VERSION) libvirt augeas
 
 $(SHA256SUMS): $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG)
 	@# remove the directory separator in the SHA256SUMS file
-	@echo "Generating sha256 sum..."
+	@echo "Generating: sha256 sum..."
 	sha256sum $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
 
 $(SHA256SUMS_ASC): $(SHA256SUMS)
@@ -413,9 +411,11 @@ help: ## show this help screen
 funcgen: lang/funcs/core/generated_funcs_test.go lang/funcs/core/generated_funcs.go
 
 lang/funcs/core/generated_funcs_test.go: lang/funcs/funcgen/*.go lang/funcs/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs_test.go.tpl
-	go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs_test.go.tpl
+	@echo "Generating: funcs test..."
+	@go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs_test.go.tpl 2>/dev/null
 
 lang/funcs/core/generated_funcs.go: lang/funcs/funcgen/*.go lang/funcs/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs.go.tpl
-	go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs.go.tpl
+	@echo "Generating: funcs..."
+	@go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs.go.tpl 2>/dev/null
 
 # vim: ts=8

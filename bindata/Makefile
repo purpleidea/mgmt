@@ -30,6 +30,7 @@ build: bindata.go
 
 # add more input files as dependencies at the end here...
 bindata.go: ../COPYING
+	@echo "Generating: bindata..."
 	# go-bindata --pkg bindata -o <OUTPUT> <INPUT>
 	go-bindata --pkg bindata -o ./$@ $^
 	# gofmt the output file

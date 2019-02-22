@@ -25,13 +25,15 @@ all: build
 build: lexer.nn.go y.go
 
 clean:
-	rm lexer.nn.go y.go y.output || true
+	@rm -f lexer.nn.go y.go y.output || true
 
 lexer.nn.go: lexer.nex
+	@echo "Generating: lexer..."
 	nex -e lexer.nex
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'lexer.nn.go'
 
 y.go: parser.y
+	@echo "Generating: parser..."
 ifneq ($(OLDGOYACC),)
 	go tool yacc parser.y
 else

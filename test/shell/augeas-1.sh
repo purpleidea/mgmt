@@ -1,9 +1,11 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 mkdir -p "${MGMT_TMPDIR}"
 echo > "${MGMT_TMPDIR}"sshd_config
 
-$timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix yaml --yaml=augeas-1.yaml &
+$TIMEOUT "$MGMT" run --tmp-prefix yaml --yaml=augeas-1.yaml &
 pid=$!
 
 # kill server on error

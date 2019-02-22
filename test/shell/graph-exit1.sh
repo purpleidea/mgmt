@@ -1,9 +1,11 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 # should take 15 seconds for longest resources plus startup time to shutdown
 # we don't want the ^C to allow the rest of the graph to continue executing!
 # this is a test of mgmt exiting quickly via a fast pause after it sees a ^C
-$timeout --kill-after=60s 55s "$MGMT" run --no-watch --no-pgp --tmp-prefix yaml --yaml graph-exit1.yaml &
+$TIMEOUT "$MGMT" run --no-watch --no-pgp --tmp-prefix yaml --yaml graph-exit1.yaml &
 pid=$!
 sleep 5s	# let the initial resources start to run...
 killall -SIGINT mgmt	# send ^C to exit mgmt

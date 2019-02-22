@@ -1,7 +1,9 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 # run till completion
-$timeout --kill-after=360s 300s "$MGMT" run --no-watch --tmp-prefix yaml --yaml t6.yaml &
+$TIMEOUT "$MGMT" run --no-watch --tmp-prefix yaml --yaml t6.yaml &
 pid=$!
 sleep 10s	# let it converge
 test -e /tmp/mgmt/f1

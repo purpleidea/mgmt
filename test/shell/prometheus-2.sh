@@ -1,7 +1,9 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 # run empty graph, with prometheus support
-$timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix --prometheus --prometheus-listen :52637 empty &
+$TIMEOUT "$MGMT" run --tmp-prefix --prometheus --prometheus-listen :52637 empty &
 pid=$!
 sleep 5s	# let it converge
 

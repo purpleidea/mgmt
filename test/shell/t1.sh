@@ -6,10 +6,12 @@
 #	* it is recommended that you run mgmt --converged-timeout=<seconds>
 #	* you can run mgmt with --max-runtime=<seconds> in special scenarios
 
+. "$(dirname "$0")/../util.sh"
+
 set -o errexit
 set -o pipefail
 
-$timeout --kill-after=360s 300s "$MGMT" --help # hello world!
+$TIMEOUT "$MGMT" --help # hello world!
 pid=$!
 wait $pid	# get exit status
 exit $?

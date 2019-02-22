@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. "$(dirname "$0")/../util.sh"
+
 set -o errexit
 set -o pipefail
 
@@ -8,12 +10,10 @@ if ! ifconfig lo | grep 'inet6 ::1' >/dev/null; then
 	exit 0
 fi
 
-. "$(dirname "$0")/../util.sh"
-
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
 
 # run empty graph listing only to IPv6 addresses
-"$MGMT" run --client-urls "http://[::1]:2379" --server-urls "http://[::1]:2380" --tmp-prefix empty &
+$TIMEOUT "$MGMT" run --client-urls "http://[::1]:2379" --server-urls "http://[::1]:2380" --tmp-prefix empty &
 pid=$!
 
 # kill server on error/exit

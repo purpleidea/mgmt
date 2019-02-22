@@ -18,6 +18,8 @@ else
 	export STAT="stat"
 fi
 
+TIMEOUT="$timeout --kill-after=360s --signal=QUIT 300s"
+
 fail_test()
 {
 	echo -e "FAIL: $@"

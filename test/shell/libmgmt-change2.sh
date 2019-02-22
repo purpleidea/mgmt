@@ -1,11 +1,13 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 # XXX: this has not been updated to latest GAPI/Deploy API. Patches welcome!
 exit 0
 
 go build -i -o libmgmt libmgmt-change2.go
 # this example should change graphs frequently, and then shutdown...
-$timeout --kill-after=30s 20s ./libmgmt &
+$TIMEOUT ./libmgmt &
 pid=$!
 wait $pid	# get exit status
 e=$?

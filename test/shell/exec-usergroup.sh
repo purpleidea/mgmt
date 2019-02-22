@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. "$(dirname "$0")/../util.sh"
+
 set -x
 set -o pipefail
 
@@ -38,7 +40,7 @@ function run_usergroup_test() {
 	setup
 
 	# run till completion
-	sudo -A timeout --kill-after=360s 300s "$MGMT" run --converged-timeout=15 --no-watch --tmp-prefix yaml --yaml ./exec-usergroup/${graph} &
+	sudo -A $TIMEOUT "$MGMT" run --converged-timeout=15 --no-watch --tmp-prefix yaml --yaml ./exec-usergroup/${graph} &
 	pid=$!
 	wait $pid	# get exit status
 	e=$?

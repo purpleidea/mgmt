@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 exit 0	# TODO: this test needs to be update to use deploys instead
 
 #if env | grep -q -e '^TRAVIS=true$'; then
@@ -14,7 +16,7 @@ fi
 
 # set the config file
 cp -a yaml-change1a.yaml /tmp/mgmt/yaml-change.yaml
-$timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix yaml --yaml /tmp/mgmt/yaml-change.yaml &
+$TIMEOUT "$MGMT" run --tmp-prefix yaml --yaml /tmp/mgmt/yaml-change.yaml &
 pid=$!
 sleep 5s	# let it converge
 grep -q 'hello world' /tmp/mgmt/change1	# check contents are correct

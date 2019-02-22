@@ -1,11 +1,11 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 # TODO: do loadavg calls work properly on macOS in travis?
 
 set -o errexit
 set -o pipefail
-
-. ../util.sh
 
 # Expected load average values eg: load average: 1.64306640625, 1.8076171875, 1.82958984375
 # High precision results are preferred (more than the 2 digits in /proc/loadavg at least).
@@ -36,7 +36,7 @@ file "${tmpdir}/loadavg" {
 }
 EOF
 
-$timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix --converged-timeout=5 lang --lang "$tmpdir/load0.mcl"  &
+$TIMEOUT "$MGMT" run --tmp-prefix --converged-timeout=5 lang --lang "$tmpdir/load0.mcl"  &
 pid=$!
 wait $pid	# get exit status
 e=$?

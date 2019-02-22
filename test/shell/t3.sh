@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 if env | grep -q -e '^TRAVIS=true$'; then
 	# inotify doesn't seem to work properly on travis
 	echo "Travis and Jenkins give wonky results here, skipping test!"
@@ -10,11 +12,11 @@ fi
 mkdir -p "${MGMT_TMPDIR}"mgmt{A..C}
 
 # run till completion
-$timeout --kill-after=360s 300s "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t3-a.yaml &
+$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t3-a.yaml &
 pid1=$!
-$timeout --kill-after=360s 300s "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t3-b.yaml &
+$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t3-b.yaml &
 pid2=$!
-$timeout --kill-after=360s 300s "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t3-c.yaml &
+$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t3-c.yaml &
 pid3=$!
 
 wait $pid1	# get exit status

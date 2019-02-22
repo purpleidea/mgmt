@@ -1,15 +1,15 @@
 #!/bin/bash
 
+. "$(dirname "$0")/../util.sh"
+
 # Tests the behaviour of the --no-network
 set -o errexit
 set -o pipefail
 
-. "$(dirname "$0")/../util.sh"
-
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
 
 # run empty graph, with standalone enabled
-"$MGMT" run --no-network --prefix "$tmpdir" empty &
+$TIMEOUT "$MGMT" run --no-network --prefix "$tmpdir" empty &
 pid=$!
 
 # kill server on error/exit

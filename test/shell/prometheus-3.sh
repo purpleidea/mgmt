@@ -1,9 +1,11 @@
 #!/bin/bash -e
 
+. "$(dirname "$0")/../util.sh"
+
 exit 0	# XXX: temporarily disabled until prometheus is added back post refactor
 
 # run a graph, with prometheus support
-$timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix --no-pgp --prometheus yaml --yaml prometheus-3.yaml &
+$TIMEOUT "$MGMT" run --tmp-prefix --no-pgp --prometheus yaml --yaml prometheus-3.yaml &
 pid=$!
 sleep 10s	# let it converge
 

@@ -4,10 +4,12 @@
 
 exit 0
 
+. "$(dirname "$0")/../util.sh"
+
 mkdir -p /tmp/mgmt/a/b/c/
 
 # run empty graph, with prometheus support
-$timeout --kill-after=360s 300s "$MGMT" run --tmp-prefix yaml --yaml=examples/deep-dirs.yaml &
+$TIMEOUT "$MGMT" run --tmp-prefix yaml --yaml=examples/deep-dirs.yaml &
 pid=$!
 sleep 10s	# let it converge
 

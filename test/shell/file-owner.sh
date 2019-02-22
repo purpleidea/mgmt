@@ -1,6 +1,8 @@
 #!/bin/bash -e
 # vim: noet:ts=8:sts=8:sw=8
 
+. "$(dirname "$0")/../util.sh"
+
 set -x
 
 if ! timeout 1s sudo -A true; then
@@ -9,7 +11,7 @@ if ! timeout 1s sudo -A true; then
 fi
 
 # run till completion
-$timeout --kill-after=360s 300s sudo -A "$MGMT" run  --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml file-owner.yaml &
+$TIMEOUT sudo -A "$MGMT" run  --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml file-owner.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

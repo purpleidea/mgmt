@@ -22,6 +22,7 @@ package resources
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -92,6 +93,65 @@ func NewStartupStep(ms uint) Step {
 	}
 }
 
+type changedStep struct {
+	ms     uint
+	expect bool      // what checkOK value we're expecting
+	ch     chan bool // set by test harness, filled with checkOK values
+}
+
+func (obj *changedStep) Action() error {
+	select {
+	case checkOK, ok := <-obj.ch: // from CheckApply() in test Process loop
+		if !ok {
+			return fmt.Errorf("channel closed unexpectedly")
+		}
+		if checkOK != obj.expect {
+			return fmt.Errorf("got unexpected checkOK value of: %t", checkOK)
+		}
+	case <-time.After(time.Duration(obj.ms) * time.Millisecond):
+		return fmt.Errorf("took too long to startup")
+	}
+	return nil
+}
+func (obj *changedStep) Expect() error { return nil }
+
+// NewChangedStep waits up to this many ms for a CheckApply action to occur. Watch function to startup.
+func NewChangedStep(ms uint, expect bool) Step {
+	return &changedStep{
+		ms:     ms,
+		expect: expect,
+	}
+}
+
+type clearChangedStep struct {
+	ms uint
+	ch chan bool // set by test harness, filled with checkOK values
+}
+
+func (obj *clearChangedStep) Action() error {
+	// read all pending events...
+	for {
+		select {
+		case _, ok := <-obj.ch: // from CheckApply() in test Process loop
+			if !ok {
+				return fmt.Errorf("channel closed unexpectedly")
+			}
+		case <-time.After(time.Duration(obj.ms) * time.Millisecond):
+			return nil // done waiting
+		}
+	}
+}
+func (obj *clearChangedStep) Expect() error { return nil }
+
+// NewClearChangedStep waits up to this many ms for additional CheckApply
+// actions to occur, and flushes them all so that a future NewChangedStep won't
+// see unwanted events.
+func NewClearChangedStep(ms uint) Step {
+	return &clearChangedStep{
+		ms: ms,
+	}
+}
+
 func TestResources1(t *testing.T) {
 	type test struct { // an individual test
 		name      string
@@ -101,6 +161,7 @@ func TestResources1(t *testing.T) {
 		experrstr string       // expected error prefix
 		timeline  []Step       // TODO: this could be a generator that keeps pushing out steps until it's done!
 		expect    func() error // function to check for expected state
+		cleanup   func() error // function to run as cleanup
 	}
 
 	// helpers
@@ -152,11 +213,14 @@ func TestResources1(t *testing.T) {
 		r.Content = &contents
 
 		timeline := []Step{
-			NewStartupStep(3000),               // startup
+			NewStartupStep(1000 * 60),          // startup
+			NewChangedStep(1000*60, false),     // did we do something?
 			fileExpect(p, s),                   // check initial state
+			NewClearChangedStep(1000 * 15),     // did we do something?
 			fileWrite(p, "this is whatever\n"), // change state
-			sleep(1000),                        // wait for converge
+			NewChangedStep(1000*60, false),     // did we do something?
 			fileExpect(p, s),                   // check again
+			sleep(1),                           // we can sleep too!
 		}
 
 		testCases = append(testCases, test{
@@ -165,6 +229,7 @@ func TestResources1(t *testing.T) {
 			fail:     false,
 			timeline: timeline,
 			expect:   func() error { return nil },
+			cleanup:  func() error { return os.Remove(p) },
 		})
 	}
 
@@ -180,7 +245,7 @@ func TestResources1(t *testing.T) {
 		}
 		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			res, fail, experr, experrstr, timeline, expect := tc.res, tc.fail, tc.experr, tc.experrstr, tc.timeline, tc.expect
+			res, fail, experr, experrstr, timeline, expect, cleanup := tc.res, tc.fail, tc.experr, tc.experrstr, tc.timeline, tc.expect, tc.cleanup
 
 			t.Logf("\n\ntest #%d: Res: %+v\n", index, res)
 			defer t.Logf("test #%d: done!", index)
@@ -217,6 +282,7 @@ func TestResources1(t *testing.T) {
 				t.Logf("test #%d: err: %+v", index, err)
 			}
 
+			changedChan := make(chan bool, 1) // buffered!
 			readyChan := make(chan struct{})
 			eventChan := make(chan struct{})
 			doneChan := make(chan struct{})
@@ -254,6 +320,13 @@ func TestResources1(t *testing.T) {
 			// run init
 			t.Logf("test #%d: running Init", index)
 			err = res.Init(init)
+			defer func() {
+				t.Logf("test #%d: running cleanup()", index)
+				if err := cleanup(); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: could not cleanup: %+v", index, err)
+				}
+			}()
 			closeFn := func() {
 				// run close (we don't ever expect an error on close!)
 				t.Logf("test #%d: running Close", index)
@@ -319,9 +392,15 @@ func TestResources1(t *testing.T) {
 				defer wg.Done()
 				for ix, step := range timeline {
 
-					// magic setting of important value...
+					// magic setting of important values...
 					if s, ok := step.(*startupStep); ok {
 						s.ch = readyChan
+					}
+					if s, ok := step.(*changedStep); ok {
+						s.ch = changedChan
+					}
+					if s, ok := step.(*clearChangedStep); ok {
+						s.ch = changedChan
 					}
 
 					t.Logf("test #%d: step(%d)...", index, ix)
@@ -356,8 +435,11 @@ func TestResources1(t *testing.T) {
 					t.Errorf("test #%d: CheckApply failed: %s", index, err.Error())
 					return
 				}
-				_ = checkOK // TODO: do we look at this?
-
+				select {
+				// send a msg if we can, but never block
+				case changedChan <- checkOK:
+				default:
+				}
 			}
 
 			t.Logf("test #%d: waiting for shutdown", index)

@@ -36,13 +36,13 @@ file "${tmpdir}/loadavg" {
 }
 EOF
 
-$TIMEOUT "$MGMT" run --tmp-prefix --converged-timeout=5 lang --lang "$tmpdir/load0.mcl"  &
+$TIMEOUT "$MGMT" run --tmp-prefix --converged-timeout=15 lang --lang "$tmpdir/load0.mcl"  &
 pid=$!
 wait $pid	# get exit status
 e=$?
 
 set +e
-egrep "$regex" "$tmpdir/loadavg" || fail_test "Could not match $tmpdir/loadavg to '$regex'."
+egrep "$regex" "$tmpdir/loadavg" || fail_test "Could not match $tmpdir/loadavg to '$regex'. Got: '`cat $tmpdir/loadavg`'."
 
 if [ "$tmpdir" = "" ]; then
 	echo "BUG, tried to delete empty string path"

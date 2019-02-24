@@ -20,6 +20,7 @@ package resources
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"os/user"
@@ -154,7 +155,9 @@ func (obj *ExecRes) Watch() error {
 			return errwrap.Wrapf(err, "error starting Cmd")
 		}
 
-		ioChan = obj.bufioChanScanner(scanner)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel() // unblock and cleanup
+		ioChan = obj.bufioChanScanner(ctx, scanner)
 	}
 
 	obj.init.Running() // when started, notify engine that we're running
@@ -536,18 +539,26 @@ type bufioOutput struct {
 }
 
 // bufioChanScanner wraps the scanner output in a channel.
-func (obj *ExecRes) bufioChanScanner(scanner *bufio.Scanner) chan *bufioOutput {
+func (obj *ExecRes) bufioChanScanner(ctx context.Context, scanner *bufio.Scanner) chan *bufioOutput {
 	ch := make(chan *bufioOutput)
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
 		defer close(ch)
 		for scanner.Scan() {
-			ch <- &bufioOutput{text: scanner.Text()} // blocks here ?
+			select {
+			case ch <- &bufioOutput{text: scanner.Text()}: // blocks here ?
+			case <-ctx.Done():
+				return
+			}
 		}
 		// on EOF, scanner.Err() will be nil
 		if err := scanner.Err(); err != nil {
-			ch <- &bufioOutput{err: err} // send any misc errors we encounter
+			select {
+			case ch <- &bufioOutput{err: err}: // send any misc errors we encounter
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 	return ch

@@ -1,0 +1,8 @@
+---
+graph: mygraph
+resources:
+  pippet:
+    - name: File[mylink]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet1_link, ensure: link, target: /tmp/pippet1_target }"

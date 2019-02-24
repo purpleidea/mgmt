@@ -1,0 +1,88 @@
+---
+graph: mygraph
+resources:
+  pippet:
+    - name: File[mylink1]
+      type: file
+      title: mylink1
+      params: "{ path: /tmp/pippet1_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink2]
+      type: file
+      title: mylink2
+      params: "{ path: /tmp/pippet2_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink3]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet3_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink4]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet4_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink5]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet5_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink6]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet6_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink7]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet7_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink8]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet8_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink9]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet9_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink10]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet10_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink11]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet11_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink12]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet12_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink13]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet13_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink14]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet14_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink15]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet15_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink16]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet16_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink17]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet17_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink18]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet18_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink19]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet19_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink20]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet20_link, ensure: link, target: /tmp/pippet1_target }"
+    - name: File[mylink21]
+      type: file
+      title: mylink
+      params: "{ path: /tmp/pippet21_link, ensure: link, target: /tmp/pippet1_target }"

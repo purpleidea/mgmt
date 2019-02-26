@@ -105,7 +105,7 @@ expression
 	```mcl
 	file "/tmp/hello" {
 		content => "world",
-		mode => "o=rwx",
+		mode => "644",
 	}
 	```
 

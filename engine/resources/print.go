@@ -40,6 +40,10 @@ type PrintRes struct {
 	init *engine.Init
 
 	Msg string `lang:"msg" yaml:"msg"` // the message to display
+	// RefreshOnly is an option that causes the message to be printed only
+	// when notified by another resource. When set to true, this resource
+	// cannot be autogrouped.
+	RefreshOnly bool `lang:"refresh_only" yaml:"refresh_only"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -85,17 +89,25 @@ func (obj *PrintRes) CheckApply(apply bool) (checkOK bool, err error) {
 		obj.init.Logf("CheckApply: Received `Msg` of: %s", obj.Msg)
 	}
 
-	if obj.init.Refresh() {
+	var refresh = obj.init.Refresh()
+	// we output if not RefreshOnly, or we are in refresh mode and RefreshOnly
+	var display = refresh || !obj.RefreshOnly
+
+	if refresh {
 		obj.init.Logf("Received a notification!")
 	}
-	obj.init.Logf("Msg: %s", obj.Msg)
+	if display {
+		obj.init.Logf("Msg: %s", obj.Msg)
+	}
 	if g := obj.GetGroup(); len(g) > 0 { // add any grouped elements
 		for _, x := range g {
 			print, ok := x.(*PrintRes) // convert from Res
 			if !ok {
 				panic(fmt.Sprintf("grouped member %v is not a %s", x, obj.Kind()))
 			}
-			obj.init.Logf("%s: Msg: %s", print, print.Msg)
+			if display {
+				obj.init.Logf("%s: Msg: %s", print, print.Msg)
+			}
 		}
 	}
 	return true, nil // state is always okay
@@ -141,9 +153,13 @@ func (obj *PrintRes) UIDs() []engine.ResUID {
 
 // GroupCmp returns whether two resources can be grouped together or not.
 func (obj *PrintRes) GroupCmp(r engine.GroupableRes) error {
-	_, ok := r.(*PrintRes)
+	res, ok := r.(*PrintRes)
 	if !ok {
 		return fmt.Errorf("resource is not the same kind")
+	}
+	// we don't group if it's RefreshOnly: only the notifier may trigger
+	if obj.RefreshOnly || res.RefreshOnly {
+		return fmt.Errorf("resource uses RefreshOnly, it cannot be merged")
 	}
 	return nil // grouped together if we were asked to
 }

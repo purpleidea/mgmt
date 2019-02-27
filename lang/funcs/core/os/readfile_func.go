@@ -164,6 +164,7 @@ func (obj *ReadFileFunc) Stream() error {
 					//err = nil // reset
 				}
 			}()
+			continue // wait for an actual event or we'd send empty!
 
 		case err, ok := <-obj.events:
 			if !ok {

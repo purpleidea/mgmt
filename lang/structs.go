@@ -90,6 +90,11 @@ func (obj *StmtBind) Apply(fn func(interfaces.Node) error) error {
 	return fn(obj)
 }
 
+// String returns a short representation of this statement.
+func (obj *StmtBind) String() string {
+	return fmt.Sprintf("bind(%s)", obj.Ident)
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtBind) Init(data *interfaces.Data) error {
@@ -179,6 +184,11 @@ func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
 		}
 	}
 	return fn(obj)
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtRes) String() string {
+	return fmt.Sprintf("res(%s)", obj.Kind)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -1406,6 +1416,11 @@ func (obj *StmtEdge) Apply(fn func(interfaces.Node) error) error {
 	return fn(obj)
 }
 
+// String returns a short representation of this statement.
+func (obj *StmtEdge) String() string {
+	return "edge" // TODO: improve this
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdge) Init(data *interfaces.Data) error {
@@ -1731,6 +1746,11 @@ func (obj *StmtIf) Apply(fn func(interfaces.Node) error) error {
 	return fn(obj)
 }
 
+// String returns a short representation of this statement.
+func (obj *StmtIf) String() string {
+	return "if" // TODO: improve this
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtIf) Init(data *interfaces.Data) error {
@@ -1946,6 +1966,11 @@ func (obj *StmtProg) Apply(fn func(interfaces.Node) error) error {
 		}
 	}
 	return fn(obj)
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtProg) String() string {
+	return "prog" // TODO: improve this
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -2678,8 +2703,8 @@ func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
 		case *StmtComment: // possibly not even parsed
 			// all of these are safe
 		default:
-			// something else unsafe
-			return fmt.Errorf("found unsafe stmt: %v", x)
+			// something else unsafe (unused)
+			return fmt.Errorf("found stmt: %s", x.String())
 		}
 	}
 	return nil
@@ -2704,6 +2729,11 @@ func (obj *StmtFunc) Apply(fn func(interfaces.Node) error) error {
 		return err
 	}
 	return fn(obj)
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtFunc) String() string {
+	return fmt.Sprintf("func(%s)", obj.Name)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -2785,6 +2815,11 @@ func (obj *StmtClass) Apply(fn func(interfaces.Node) error) error {
 		return err
 	}
 	return fn(obj)
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtClass) String() string {
+	return fmt.Sprintf("class(%s)", obj.Name)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -2877,6 +2912,11 @@ func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
 		}
 	}
 	return fn(obj)
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtInclude) String() string {
+	return fmt.Sprintf("include(%s)", obj.Name)
 }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
@@ -3089,6 +3129,11 @@ type StmtImport struct {
 // a select number of node types, since they won't need extra noop iterators...
 func (obj *StmtImport) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
 
+// String returns a short representation of this statement.
+func (obj *StmtImport) String() string {
+	return fmt.Sprintf("import(%s)", obj.Name)
+}
+
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtImport) Init(*interfaces.Data) error { return nil }
@@ -3154,6 +3199,11 @@ type StmtComment struct {
 // Nevertheless, it is a useful facility for operations that might only apply to
 // a select number of node types, since they won't need extra noop iterators...
 func (obj *StmtComment) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
+// String returns a short representation of this statement.
+func (obj *StmtComment) String() string {
+	return fmt.Sprintf("comment(%s)", obj.Value)
+}
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.

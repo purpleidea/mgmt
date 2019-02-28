@@ -1,0 +1,7 @@
+import "fmt"
+import "something.mcl"
+
+include something.someclass
+print "p1" {
+	msg => fmt.printf("someint: %d", $something.someint),
+}

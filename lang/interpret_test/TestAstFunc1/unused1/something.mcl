@@ -1,0 +1,11 @@
+$someint = 42
+class someclass {
+	print "p2" {
+		msg => "i'm inside of someclass",
+	}
+}
+
+# this should generate a compile error
+print "unused" {
+	msg => "i'm unused because i'm inside an imported module",
+}

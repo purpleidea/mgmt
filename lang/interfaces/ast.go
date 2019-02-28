@@ -40,6 +40,7 @@ type Node interface {
 // expression.)
 type Stmt interface {
 	Node
+	fmt.Stringer                 // String() string
 	Init(*Data) error            // initialize the populated node and validate
 	Interpolate() (Stmt, error)  // return expanded form of AST as a new AST
 	SetScope(*Scope) error       // set the scope here and propagate it downwards
@@ -54,6 +55,7 @@ type Stmt interface {
 // these can be stored as pointers in our graph data structure.
 type Expr interface {
 	Node
+	//fmt.Stringer // already provided by pgraph.Vertex
 	pgraph.Vertex               // must implement this since we store these in our graphs
 	Init(*Data) error           // initialize the populated node and validate
 	Interpolate() (Expr, error) // return expanded form of AST as a new AST

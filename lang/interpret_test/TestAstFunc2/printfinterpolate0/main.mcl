@@ -1,0 +1,10 @@
+import "fmt"
+
+$str1 = "big"
+$str2 = "world"
+
+# FIXME: we'd like to pre-compute the interpolation if we can, so that we can
+# run this code properly... for now, we can't, so it's a compile time error...
+print "print1" {
+	msg => fmt.printf("hello ${str1} %s", $str2),
+}

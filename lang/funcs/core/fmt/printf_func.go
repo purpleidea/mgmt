@@ -85,6 +85,13 @@ func (obj *PrintfFunc) Polymorphisms(partialType *types.Type, partialValues []ty
 		}
 	}
 
+	// FIXME: we'd like to pre-compute the interpolation if we can, so that
+	// we can run this code properly... for now, we can't, so it's a compile
+	// time error...
+	if partialValues[0] == nil {
+		return nil, fmt.Errorf("could not determine type from format string")
+	}
+
 	format := partialValues[0].Str() // must not panic
 	typList, err := parseFormatToTypeList(format)
 	if err != nil {

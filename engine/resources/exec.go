@@ -47,21 +47,21 @@ type ExecRes struct {
 
 	init *engine.Init
 
-	Cmd        string  `yaml:"cmd"`        // the command to run
-	Cwd        string  `yaml:"cwd"`        // the dir to run the command in (empty means use `pwd` of command)
-	Shell      string  `yaml:"shell"`      // the (optional) shell to use to run the cmd
-	Timeout    int     `yaml:"timeout"`    // the cmd timeout in seconds
-	WatchCmd   string  `yaml:"watchcmd"`   // the watch command to run
-	WatchCwd   string  `yaml:"watchcwd"`   // the dir to run the watch command in (empty means use `pwd` of command)
-	WatchShell string  `yaml:"watchshell"` // the (optional) shell to use to run the watch cmd
-	IfCmd      string  `yaml:"ifcmd"`      // the if command to run
-	IfCwd      string  `yaml:"ifcwd"`      // the dir to run the if command in (empty means use `pwd` of command)
-	IfShell    string  `yaml:"ifshell"`    // the (optional) shell to use to run the if cmd
-	User       string  `yaml:"user"`       // the (optional) user to use to execute the command
-	Group      string  `yaml:"group"`      // the (optional) group to use to execute the command
-	Output     *string // all cmd output, read only, do not set!
-	Stdout     *string // the cmd stdout, read only, do not set!
-	Stderr     *string // the cmd stderr, read only, do not set!
+	Cmd        string  `lang:"cmd" yaml:"cmd"`               // the command to run
+	Cwd        string  `lang:"cwd" yaml:"cwd"`               // the dir to run the command in (empty means use `pwd` of command)
+	Shell      string  `lang:"shell" yaml:"shell"`           // the (optional) shell to use to run the cmd
+	Timeout    int     `lang:"timeout" yaml:"timeout"`       // the cmd timeout in seconds
+	WatchCmd   string  `lang:"watchcmd" yaml:"watchcmd"`     // the watch command to run
+	WatchCwd   string  `lang:"watchcwd" yaml:"watchcwd"`     // the dir to run the watch command in (empty means use `pwd` of command)
+	WatchShell string  `lang:"watchshell" yaml:"watchshell"` // the (optional) shell to use to run the watch cmd
+	IfCmd      string  `lang:"ifcmd" yaml:"ifcmd"`           // the if command to run
+	IfCwd      string  `lang:"ifcwd" yaml:"ifcwd"`           // the dir to run the if command in (empty means use `pwd` of command)
+	IfShell    string  `lang:"ifshell" yaml:"ifshell"`       // the (optional) shell to use to run the if cmd
+	User       string  `lang:"user" yaml:"user"`             // the (optional) user to use to execute the command
+	Group      string  `lang:"group" yaml:"group"`           // the (optional) group to use to execute the command
+	Output     *string `lang:"output"`                       // all cmd output, read only, do not set!
+	Stdout     *string `lang:"stdout"`                       // the cmd stdout, read only, do not set!
+	Stderr     *string `lang:"stderr"`                       // the cmd stderr, read only, do not set!
 
 	wg *sync.WaitGroup
 }

@@ -1,0 +1,9 @@
+import "fmt"
+import "os"
+
+print "debian" {
+	msg => fmt.printf("is_debian: %t", os.is_debian()),
+}
+print "redhat" {
+	msg => fmt.printf("is_redhat: %t", os.is_redhat()),
+}

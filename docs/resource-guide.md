@@ -96,8 +96,10 @@ Default() engine.Res
 ```
 
 This returns a populated resource struct as a `Res`. It shouldn't populate any
-values which already have the correct default as the golang zero value. In
+values which already get a good default as the respective golang zero value. In
 general it is preferable if the zero values make for the correct defaults.
+(This is to say, resources are designed to behave safely and intuitively
+when parameters take a zero value, whenever this is possible.)
 
 #### Example
 

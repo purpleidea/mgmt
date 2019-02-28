@@ -27,6 +27,10 @@ import (
 func init() {
 	simplepoly.Register("len", []*types.FuncValue{
 		{
+			T: types.NewType("func(str) int"),
+			V: Len,
+		},
+		{
 			T: types.NewType("func([]variant) int"),
 			V: Len,
 		},
@@ -43,6 +47,8 @@ func init() {
 func Len(input []types.Value) (types.Value, error) {
 	var length int
 	switch k := input[0].Type().Kind; k {
+	case types.KindStr:
+		length = len(input[0].Str())
 	case types.KindList:
 		length = len(input[0].List())
 	case types.KindMap:

@@ -28,6 +28,7 @@ import (
 type Info struct {
 	Pure bool        // is the function pure? (can it be memoized?)
 	Memo bool        // should the function be memoized? (false if too much output)
+	Slow bool        // is the function slow? (avoid speculative execution)
 	Sig  *types.Type // the signature of the function, must be KindFunc
 	Err  error       // is this a valid function, or was it created improperly?
 }

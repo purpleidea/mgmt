@@ -12,7 +12,8 @@ set -o pipefail
 # Precision varies (eg: 4, 9 or 11 digits). Hence no strict check for precision but
 # anything above 3 will do. It is assumed we will hardly ever get a precision lower than 3 digits
 # from the current implementations. Otherwise this test would need to be revised.
-regex="load average: [0-9]\.[0-9]{3,}, [0-9]\.[0-9]{3,}, [0-9]\.[0-9]{3,}"
+# We once got: 'load average: 0, 0.28515625, 0.349609375'.
+regex="load average: ([0-9]\.[0-9]{3,})|0, [0-9]\.[0-9]{3,}, [0-9]\.[0-9]{3,}"
 
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
 if [[ ! "$tmpdir" =~ "/tmp" ]]; then

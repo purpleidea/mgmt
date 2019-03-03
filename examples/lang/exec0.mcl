@@ -1,0 +1,14 @@
+exec "exec1" {
+	cmd => "/usr/bin/python",
+	# args can be specified as a list of strings when not using shell param
+	args => ["-c", "print(\"i'm in python!\")",],
+}
+
+exec "exec2" {
+	cmd => "echo hello world > /tmp/whatever",
+	shell => "/bin/bash",
+	ifcmd => "! diff <(cat /tmp/whatever) <(echo hello world)",
+	ifshell => "/bin/bash",
+	watchcmd => "touch /tmp/whatever && /usr/bin/inotifywait -e modify -m /tmp/whatever",
+	watchshell => "/bin/bash",
+}

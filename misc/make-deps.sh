@@ -48,6 +48,7 @@ if [ ! -z "$APT" ]; then
 	# https://unix.stackexchange.com/a/136527
 	$sudo_command $APT install -y realpath || true
 	$sudo_command $APT install -y time || true
+	$sudo_command $APT install -y inotify-tools # used by some tests
 fi
 
 if [ ! -z "$BREW" ]; then

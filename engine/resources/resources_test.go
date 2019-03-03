@@ -161,6 +161,7 @@ func TestResources1(t *testing.T) {
 		experrstr string       // expected error prefix
 		timeline  []Step       // TODO: this could be a generator that keeps pushing out steps until it's done!
 		expect    func() error // function to check for expected state
+		startup   func() error // function to run as startup
 		cleanup   func() error // function to run as cleanup
 	}
 
@@ -224,12 +225,47 @@ func TestResources1(t *testing.T) {
 		}
 
 		testCases = append(testCases, test{
-			name:     "simple res",
+			name:     "simple file",
 			res:      res,
 			fail:     false,
 			timeline: timeline,
 			expect:   func() error { return nil },
+			startup:  func() error { return nil },
 			cleanup:  func() error { return os.Remove(p) },
+		})
+	}
+	{
+		r := makeRes("exec", "x1")
+		res := r.(*ExecRes) // if this panics, the test will panic
+		s := "hello, world"
+		f := "/tmp/whatever"
+		res.Cmd = fmt.Sprintf("echo '%s' > '%s'", s, f)
+		res.Shell = "/bin/bash"
+		res.IfCmd = "! diff <(cat /tmp/whatever) <(echo hello, world)"
+		res.IfShell = "/bin/bash"
+		res.WatchCmd = fmt.Sprintf("/usr/bin/inotifywait -e modify -m %s", f)
+		//res.WatchShell = "/bin/bash"
+
+		timeline := []Step{
+			NewStartupStep(1000 * 60),        // startup
+			NewChangedStep(1000*60, false),   // did we do something?
+			fileExpect(f, s+"\n"),            // check initial state
+			NewClearChangedStep(1000 * 15),   // did we do something?
+			fileWrite(f, "this is stuff!\n"), // change state
+			NewChangedStep(1000*60, false),   // did we do something?
+			fileExpect(f, s+"\n"),            // check again
+			sleep(1),                         // we can sleep too!
+		}
+
+		testCases = append(testCases, test{
+			name:     "simple exec",
+			res:      res,
+			fail:     false,
+			timeline: timeline,
+			expect:   func() error { return nil },
+			// build file for inotifywait
+			startup: func() error { return ioutil.WriteFile(f, []byte("starting...\n"), 0666) },
+			cleanup: func() error { return os.Remove(f) },
 		})
 	}
 
@@ -245,7 +281,7 @@ func TestResources1(t *testing.T) {
 		}
 		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			res, fail, experr, experrstr, timeline, expect, cleanup := tc.res, tc.fail, tc.experr, tc.experrstr, tc.timeline, tc.expect, tc.cleanup
+			res, fail, experr, experrstr, timeline, expect, startup, cleanup := tc.res, tc.fail, tc.experr, tc.experrstr, tc.timeline, tc.expect, tc.startup, tc.cleanup
 
 			t.Logf("\n\ntest #%d: Res: %+v\n", index, res)
 			defer t.Logf("test #%d: done!", index)
@@ -312,11 +348,19 @@ func TestResources1(t *testing.T) {
 				Logf:  logf,
 
 				// unused
+				Send: func(st interface{}) error {
+					return nil
+				},
 				Recv: func() map[string]*engine.Send {
 					return map[string]*engine.Send{}
 				},
 			}
 
+			t.Logf("test #%d: running startup()", index)
+			if err := startup(); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not startup: %+v", index, err)
+			}
 			// run init
 			t.Logf("test #%d: running Init", index)
 			err = res.Init(init)

@@ -20,20 +20,34 @@
 package resources
 
 import (
+	"context"
+	"fmt"
+	"os/exec"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 )
 
-func fakeInit(t *testing.T) *engine.Init {
+func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
 	debug := testing.Verbose() // set via the -test.v flag to `go test`
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
+	execSends := &ExecSends{}
 	return &engine.Init{
+		Send: func(st interface{}) error {
+			x, ok := st.(*ExecSends)
+			if !ok {
+				return fmt.Errorf("unable to send")
+			}
+			*execSends = *x // set
+			return nil
+		},
 		Debug: debug,
 		Logf:  logf,
-	}
+	}, execSends
 }
 
 func TestExecSendRecv1(t *testing.T) {
@@ -50,7 +64,8 @@ func TestExecSendRecv1(t *testing.T) {
 			t.Errorf("close failed with: %v", err)
 		}
 	}()
-	if err := r1.Init(fakeInit(t)); err != nil {
+	init, execSends := fakeExecInit(t)
+	if err := r1.Init(init); err != nil {
 		t.Errorf("init failed with: %v", err)
 	}
 	// run artificially without the entire engine
@@ -58,23 +73,23 @@ func TestExecSendRecv1(t *testing.T) {
 		t.Errorf("checkapply failed with: %v", err)
 	}
 
-	t.Logf("output is: %v", r1.Output)
-	if r1.Output != nil {
-		t.Logf("output is: %v", *r1.Output)
+	t.Logf("output is: %v", execSends.Output)
+	if execSends.Output != nil {
+		t.Logf("output is: %v", *execSends.Output)
 	}
-	t.Logf("stdout is: %v", r1.Stdout)
-	if r1.Stdout != nil {
-		t.Logf("stdout is: %v", *r1.Stdout)
+	t.Logf("stdout is: %v", execSends.Stdout)
+	if execSends.Stdout != nil {
+		t.Logf("stdout is: %v", *execSends.Stdout)
 	}
-	t.Logf("stderr is: %v", r1.Stderr)
-	if r1.Stderr != nil {
-		t.Logf("stderr is: %v", *r1.Stderr)
+	t.Logf("stderr is: %v", execSends.Stderr)
+	if execSends.Stderr != nil {
+		t.Logf("stderr is: %v", *execSends.Stderr)
 	}
 
-	if r1.Stdout == nil {
+	if execSends.Stdout == nil {
 		t.Errorf("stdout is nil")
 	} else {
-		if out := *r1.Stdout; out != "hello world\n" {
+		if out := *execSends.Stdout; out != "hello world\n" {
 			t.Errorf("got wrong stdout(%d): %s", len(out), out)
 		}
 	}
@@ -94,7 +109,8 @@ func TestExecSendRecv2(t *testing.T) {
 			t.Errorf("close failed with: %v", err)
 		}
 	}()
-	if err := r1.Init(fakeInit(t)); err != nil {
+	init, execSends := fakeExecInit(t)
+	if err := r1.Init(init); err != nil {
 		t.Errorf("init failed with: %v", err)
 	}
 	// run artificially without the entire engine
@@ -102,23 +118,23 @@ func TestExecSendRecv2(t *testing.T) {
 		t.Errorf("checkapply failed with: %v", err)
 	}
 
-	t.Logf("output is: %v", r1.Output)
-	if r1.Output != nil {
-		t.Logf("output is: %v", *r1.Output)
+	t.Logf("output is: %v", execSends.Output)
+	if execSends.Output != nil {
+		t.Logf("output is: %v", *execSends.Output)
 	}
-	t.Logf("stdout is: %v", r1.Stdout)
-	if r1.Stdout != nil {
-		t.Logf("stdout is: %v", *r1.Stdout)
+	t.Logf("stdout is: %v", execSends.Stdout)
+	if execSends.Stdout != nil {
+		t.Logf("stdout is: %v", *execSends.Stdout)
 	}
-	t.Logf("stderr is: %v", r1.Stderr)
-	if r1.Stderr != nil {
-		t.Logf("stderr is: %v", *r1.Stderr)
+	t.Logf("stderr is: %v", execSends.Stderr)
+	if execSends.Stderr != nil {
+		t.Logf("stderr is: %v", *execSends.Stderr)
 	}
 
-	if r1.Stderr == nil {
+	if execSends.Stderr == nil {
 		t.Errorf("stderr is nil")
 	} else {
-		if out := *r1.Stderr; out != "hello world\n" {
+		if out := *execSends.Stderr; out != "hello world\n" {
 			t.Errorf("got wrong stderr(%d): %s", len(out), out)
 		}
 	}
@@ -138,7 +154,8 @@ func TestExecSendRecv3(t *testing.T) {
 			t.Errorf("close failed with: %v", err)
 		}
 	}()
-	if err := r1.Init(fakeInit(t)); err != nil {
+	init, execSends := fakeExecInit(t)
+	if err := r1.Init(init); err != nil {
 		t.Errorf("init failed with: %v", err)
 	}
 	// run artificially without the entire engine
@@ -146,42 +163,97 @@ func TestExecSendRecv3(t *testing.T) {
 		t.Errorf("checkapply failed with: %v", err)
 	}
 
-	t.Logf("output is: %v", r1.Output)
-	if r1.Output != nil {
-		t.Logf("output is: %v", *r1.Output)
+	t.Logf("output is: %v", execSends.Output)
+	if execSends.Output != nil {
+		t.Logf("output is: %v", *execSends.Output)
 	}
-	t.Logf("stdout is: %v", r1.Stdout)
-	if r1.Stdout != nil {
-		t.Logf("stdout is: %v", *r1.Stdout)
+	t.Logf("stdout is: %v", execSends.Stdout)
+	if execSends.Stdout != nil {
+		t.Logf("stdout is: %v", *execSends.Stdout)
 	}
-	t.Logf("stderr is: %v", r1.Stderr)
-	if r1.Stderr != nil {
-		t.Logf("stderr is: %v", *r1.Stderr)
+	t.Logf("stderr is: %v", execSends.Stderr)
+	if execSends.Stderr != nil {
+		t.Logf("stderr is: %v", *execSends.Stderr)
 	}
 
-	if r1.Output == nil {
+	if execSends.Output == nil {
 		t.Errorf("output is nil")
 	} else {
 		// it looks like bash or golang race to the write, so whichever
 		// order they come out in is ok, as long as they come out whole
-		if out := *r1.Output; out != "hello world\ngoodbye world\n" && out != "goodbye world\nhello world\n" {
+		if out := *execSends.Output; out != "hello world\ngoodbye world\n" && out != "goodbye world\nhello world\n" {
 			t.Errorf("got wrong output(%d): %s", len(out), out)
 		}
 	}
 
-	if r1.Stdout == nil {
+	if execSends.Stdout == nil {
 		t.Errorf("stdout is nil")
 	} else {
-		if out := *r1.Stdout; out != "hello world\n" {
+		if out := *execSends.Stdout; out != "hello world\n" {
 			t.Errorf("got wrong stdout(%d): %s", len(out), out)
 		}
 	}
 
-	if r1.Stderr == nil {
+	if execSends.Stderr == nil {
 		t.Errorf("stderr is nil")
 	} else {
-		if out := *r1.Stderr; out != "goodbye world\n" {
+		if out := *execSends.Stderr; out != "goodbye world\n" {
 			t.Errorf("got wrong stderr(%d): %s", len(out), out)
 		}
 	}
+}
+
+func TestExecTimeoutBehaviour(t *testing.T) {
+	// cmd.Process.Kill() is called on timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmdName := "/bin/sleep"    // it's /usr/bin/sleep on modern distros
+	cmdArgs := []string{"300"} // 5 min in seconds
+	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+	// ignore signals sent to parent process (we're in our own group)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
+	if err := cmd.Start(); err != nil {
+		t.Errorf("error starting cmd: %+v", err)
+		return
+	}
+
+	err := cmd.Wait() // we can unblock this with the timeout
+
+	if err == nil {
+		t.Errorf("expected error, got nil")
+		return
+	}
+
+	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+	if err != nil && ok {
+		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
+		wStatus, ok := pStateSys.(syscall.WaitStatus)
+		if !ok {
+			t.Errorf("error running cmd")
+			return
+		}
+		if !wStatus.Signaled() {
+			t.Errorf("did not get signal, exit status: %d", wStatus.ExitStatus())
+			return
+		}
+
+		// we get this on timeout, because ctx calls cmd.Process.Kill()
+		if sig := wStatus.Signal(); sig != syscall.SIGKILL {
+			t.Errorf("got wrong signal: %+v, exit status: %d", sig, wStatus.ExitStatus())
+			return
+		}
+
+		t.Logf("exit status: %d", wStatus.ExitStatus())
+		return
+
+	} else if err != nil {
+		t.Errorf("general cmd error")
+		return
+	}
+
+	// no error
 }

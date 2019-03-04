@@ -205,13 +205,13 @@ func TestResources1(t *testing.T) {
 
 	testCases := []test{}
 	{
-		res := makeRes("file", "r1")
-		r := res.(*FileRes) // if this panics, the test will panic
+		r := makeRes("file", "r1")
+		res := r.(*FileRes) // if this panics, the test will panic
 		p := "/tmp/whatever"
 		s := "hello, world\n"
-		r.Path = p
+		res.Path = p
 		contents := s
-		r.Content = &contents
+		res.Content = &contents
 
 		timeline := []Step{
 			NewStartupStep(1000 * 60),          // startup
@@ -479,6 +479,7 @@ func TestResources1(t *testing.T) {
 					t.Errorf("test #%d: CheckApply failed: %s", index, err.Error())
 					return
 				}
+				//t.Logf("test #%d: CheckApply(true) (%t, %+v)", index, checkOK, err)
 				select {
 				// send a msg if we can, but never block
 				case changedChan <- checkOK:

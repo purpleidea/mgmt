@@ -848,45 +848,50 @@ func (obj *FileRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *FileRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *FileRes) Compare(r engine.Res) bool {
 	// we can only compare FileRes to others of the same resource kind
 	res, ok := r.(*FileRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.path != res.path {
-		return false
+		return fmt.Errorf("the Path differs")
 	}
 	if (obj.Content == nil) != (res.Content == nil) { // xor
-		return false
+		return fmt.Errorf("the Content differs")
 	}
 	if obj.Content != nil && res.Content != nil {
 		if *obj.Content != *res.Content { // compare the strings
-			return false
+			return fmt.Errorf("the contents of Content differ")
 		}
 	}
 	if obj.Source != res.Source {
-		return false
+		return fmt.Errorf("the Source differs")
 	}
 	if obj.State != res.State {
-		return false
-	}
-	if obj.Recurse != res.Recurse {
-		return false
-	}
-	if obj.Force != res.Force {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 
-	return true
+	if obj.Owner != res.Owner {
+		return fmt.Errorf("the Owner differs")
+	}
+	if obj.Group != res.Group {
+		return fmt.Errorf("the Group differs")
+	}
+	// TODO: when we start to allow alternate representations for the mode,
+	// ensure that we compare in the same format. Eg: `ug=rw` == `0660`.
+	if obj.Mode != res.Mode {
+		return fmt.Errorf("the Mode differs")
+	}
+
+	if obj.Recurse != res.Recurse {
+		return fmt.Errorf("the Recurse option differs")
+	}
+	if obj.Force != res.Force {
+		return fmt.Errorf("the Force option differs")
+	}
+
+	return nil
 }
 
 // FileUID is the UID struct for FileRes.

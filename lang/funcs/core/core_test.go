@@ -454,7 +454,43 @@ func TestLiveFuncExec0(t *testing.T) {
 			cleanup:  func() error { return nil },
 		})
 	}
+	{
+		p := "/tmp/somefiletoread"
+		content := "hello world!\n"
+		timeline := []Step{
+			NewSendInputs([]types.Value{
+				vog(p),
+			}),
 
+			NewWaitForNValues(1, timeout), // more than 1 blocks here
+			NewWaitForNSeconds(5, 10),     // wait longer just to be sure
+
+			// pass in a custom validation function
+			NewRangeExpect(func(args []types.Value) error {
+				//fmt.Printf("range: %+v\n", args) // debugging
+				if c := len(args); c != 1 {
+					return fmt.Errorf("wrong args count, got: %d", c)
+				}
+				if args[0].Type().Kind != types.KindStr {
+					return fmt.Errorf("expected str, got: %+v", args[0])
+				}
+				if err := vog(content).Cmp(args[0]); err != nil {
+					return errwrap.Wrapf(err, "got different expected value: %+v", args[0])
+				}
+				return nil
+			}),
+		}
+
+		testCases = append(testCases, test{
+			name:     "readfile",
+			hostname: "", // not needed for this func
+			funcname: "os.readfile",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return ioutil.WriteFile(p, []byte(content), 0666) },
+			cleanup:  func() error { return os.Remove(p) },
+		})
+	}
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
 		if tc.name == "" {

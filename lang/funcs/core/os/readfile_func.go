@@ -206,7 +206,8 @@ func (obj *ReadFileFunc) Stream() error {
 
 // Close runs some shutdown code for this function and turns off the stream.
 func (obj *ReadFileFunc) Close() error {
-	close(obj.events) // clean up for fun
 	close(obj.closeChan)
+	obj.wg.Wait()     // block so we don't exit by the closure of obj.events
+	close(obj.events) // clean up for fun
 	return nil
 }

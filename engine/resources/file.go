@@ -54,20 +54,29 @@ type FileRes struct {
 
 	init *engine.Init
 
-	// Path variable, which usually defaults to the name, represents the
+	// Path, which defaults to the name if not specified, represents the
 	// destination path for the file or directory being managed. It must be
 	// an absolute path, and as a result must start with a slash.
-	Path     string  `yaml:"path"`
-	Dirname  string  `yaml:"dirname"`  // override the path dirname
-	Basename string  `yaml:"basename"` // override the path basename
-	Content  *string `yaml:"content"`  // nil to mark as undefined
-	Source   string  `yaml:"source"`   // file path for source content
-	State    string  `yaml:"state"`    // state: exists/present?, absent, (undefined?)
-	Owner    string  `yaml:"owner"`
-	Group    string  `yaml:"group"`
-	Mode     string  `yaml:"mode"`
-	Recurse  bool    `yaml:"recurse"`
-	Force    bool    `yaml:"force"`
+	Path     string `yaml:"path"`
+	Dirname  string `yaml:"dirname"`  // override the path dirname
+	Basename string `yaml:"basename"` // override the path basename
+
+	// Content specifies the file contents to use. If this is nil, they are
+	// left undefined. It cannot be combined with Source.
+	Content *string `yaml:"content"`
+	// Source specifies the source contents for the file resource. It cannot
+	// be combined with the Content parameter.
+	Source string `yaml:"source"`
+	// State specifies the desired state of the file. It can be either
+	// `exists` or `absent`. If you do not specify this, it will be
+	// undefined, and determined based on the other parameters.
+	State string `yaml:"state"`
+
+	Owner   string `yaml:"owner"`
+	Group   string `yaml:"group"`
+	Mode    string `yaml:"mode"`
+	Recurse bool   `yaml:"recurse"`
+	Force   bool   `yaml:"force"`
 
 	path       string // computed path
 	isDir      bool   // computed isDir
@@ -136,7 +145,7 @@ func (obj *FileRes) Validate() error {
 func (obj *FileRes) mode() (os.FileMode, error) {
 	m, err := strconv.ParseInt(obj.Mode, 8, 32)
 	if err != nil {
-		return os.FileMode(0), errwrap.Wrapf(err, "Mode should be an octal number (%s)", obj.Mode)
+		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number (%s)", obj.Mode)
 	}
 	return os.FileMode(m), nil
 }
@@ -199,7 +208,7 @@ func (obj *FileRes) Watch() error {
 	var send = false // send event?
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("Watching: %s", obj.path) // attempting to watch...
+			obj.init.Logf("watching: %s", obj.path) // attempting to watch...
 		}
 
 		select {
@@ -211,7 +220,7 @@ func (obj *FileRes) Watch() error {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
-				obj.init.Logf("Event(%s): %v", event.Body.Name, event.Body.Op)
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
 			send = true
 
@@ -288,7 +297,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 		}
 		// FIXME: respect obj.Recurse here...
 		// there is a dir here, where we want a file...
-		obj.init.Logf("fileCheckApply: Removing (force): %s", cleanDst)
+		obj.init.Logf("fileCheckApply: removing (force): %s", cleanDst)
 		if err := os.RemoveAll(cleanDst); err != nil { // dangerous ;)
 			return "", false, err
 		}
@@ -334,7 +343,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 		return sha256sum, false, nil
 	}
 	if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: Apply: %v -> %s", src, dst)
+		obj.init.Logf("fileCheckApply: apply: %v -> %s", src, dst)
 	}
 
 	dstClose() // unlock file usage so we can write to it
@@ -355,12 +364,12 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 
 	// TODO: should we offer a way to cancel the copy on ^C ?
 	if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: Copy: %v -> %s", src, dst)
+		obj.init.Logf("fileCheckApply: copy: %v -> %s", src, dst)
 	}
 	if n, err := io.Copy(dstFile, src); err != nil {
 		return sha256sum, false, err
 	} else if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: Copied: %v", n)
+		obj.init.Logf("fileCheckApply: copied: %v", n)
 	}
 	return sha256sum, false, dstFile.Sync()
 }
@@ -368,15 +377,15 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 // dirCheckApply is the CheckApply operation for an empty directory.
 func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 	// check if the path exists and is a directory
-	st, err := os.Stat(obj.path)
+	fileInfo, err := os.Stat(obj.path)
 	if err != nil && !os.IsNotExist(err) {
 		return false, errwrap.Wrapf(err, "error checking file resource existence")
 	}
 
-	if err == nil && st.IsDir() {
+	if err == nil && fileInfo.IsDir() {
 		return true, nil // already a directory, nothing to do
 	}
-	if err == nil && !st.IsDir() && !obj.Force {
+	if err == nil && !fileInfo.IsDir() && !obj.Force {
 		return false, fmt.Errorf("can't force file into dir: %s", obj.path)
 	}
 
@@ -386,8 +395,8 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 
 	// the path exists and is not a directory
 	// delete the file if force is given
-	if err == nil && !st.IsDir() {
-		obj.init.Logf("dirCheckApply: Removing (force): %s", obj.path)
+	if err == nil && !fileInfo.IsDir() {
+		obj.init.Logf("dirCheckApply: removing (force): %s", obj.path)
 		if err := os.Remove(obj.path); err != nil {
 			return false, err
 		}
@@ -424,7 +433,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		return false, fmt.Errorf("the src and dst must not be empty")
 	}
 
-	var checkOK = true
+	checkOK := true
 	// TODO: handle ./ cases or ../ cases that need cleaning ?
 
 	srcIsDir := strings.HasSuffix(src, "/")
@@ -441,7 +450,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		fin, err := os.Open(src)
 		if err != nil {
 			if obj.init.Debug && os.IsNotExist(err) { // if we get passed an empty src
-				obj.init.Logf("syncCheckApply: Missing src: %s", src)
+				obj.init.Logf("syncCheckApply: missing src: %s", src)
 			}
 			return false, err
 		}
@@ -489,7 +498,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 					if absCleanDst == "" || absCleanDst == "/" {
 						return false, fmt.Errorf("don't want to remove root") // safety
 					}
-					obj.init.Logf("syncCheckApply: Removing (force): %s", absCleanDst)
+					obj.init.Logf("syncCheckApply: removing (force): %s", absCleanDst)
 					if err := os.Remove(absCleanDst); err != nil {
 						return false, err
 					}
@@ -508,11 +517,11 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		}
 
 		if obj.init.Debug {
-			obj.init.Logf("syncCheckApply: Recurse: %s -> %s", absSrc, absDst)
+			obj.init.Logf("syncCheckApply: recurse: %s -> %s", absSrc, absDst)
 		}
 		if obj.Recurse {
 			if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil { // recurse
-				return false, errwrap.Wrapf(err, "syncCheckApply: Recurse failed")
+				return false, errwrap.Wrapf(err, "syncCheckApply: recurse failed")
 			} else if !c { // don't let subsequent passes make this true
 				checkOK = false
 			}
@@ -541,7 +550,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		// think the symmetry is more elegant and correct here for now
 		// Avoiding this is also useful if we had a recurse limit arg!
 		if true { // switch
-			obj.init.Logf("syncCheckApply: Removing: %s", absCleanDst)
+			obj.init.Logf("syncCheckApply: removing: %s", absCleanDst)
 			if apply {
 				if err := os.RemoveAll(absCleanDst); err != nil { // dangerous ;)
 					return false, err
@@ -616,7 +625,7 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 }
 
 // contentCheckApply performs a CheckApply for the file existence and content.
-func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
+func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 	obj.init.Logf("contentCheckApply(%t)", apply)
 
 	if obj.State == "absent" {
@@ -638,7 +647,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 		if obj.path == "" || obj.path == "/" {
 			return false, fmt.Errorf("don't want to remove root") // safety
 		}
-		obj.init.Logf("contentCheckApply: Removing: %s", obj.path)
+		obj.init.Logf("contentCheckApply: removing: %s", obj.path)
 		// FIXME: respect obj.Recurse here...
 		// TODO: add recurse limit here
 		err := os.RemoveAll(obj.path) // dangerous ;)
@@ -678,16 +687,16 @@ func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 }
 
 // chmodCheckApply performs a CheckApply for the file permissions.
-func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
+func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
 	obj.init.Logf("chmodCheckApply(%t)", apply)
 
 	if obj.State == "absent" {
-		// File is absent
+		// file is absent
 		return true, nil
 	}
 
 	if obj.Mode == "" {
-		// No mode specified, everything is ok
+		// no mode specified, everything is ok
 		return true, nil
 	}
 
@@ -703,17 +712,17 @@ func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
 		return false, err
 	}
 
-	st, err := os.Stat(obj.path)
+	fileInfo, err := os.Stat(obj.path)
 	if err != nil {
 		return false, err
 	}
 
-	// Nothing to do
-	if st.Mode() == mode {
+	// nothing to do
+	if fileInfo.Mode() == mode {
 		return true, nil
 	}
 
-	// Not clean but don't apply
+	// not clean but don't apply
 	if !apply {
 		return false, nil
 	}
@@ -723,16 +732,16 @@ func (obj *FileRes) chmodCheckApply(apply bool) (checkOK bool, _ error) {
 }
 
 // chownCheckApply performs a CheckApply for the file ownership.
-func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
+func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 	var expectedUID, expectedGID int
 	obj.init.Logf("chownCheckApply(%t)", apply)
 
 	if obj.State == "absent" {
-		// File is absent or no owner specified
+		// file is absent or no owner specified
 		return true, nil
 	}
 
-	st, err := os.Stat(obj.path)
+	fileInfo, err := os.Stat(obj.path)
 
 	// If the file does not exist and we are in
 	// noop mode, do not throw an error.
@@ -744,7 +753,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 		return false, err
 	}
 
-	stUnix, ok := st.Sys().(*syscall.Stat_t)
+	stUnix, ok := fileInfo.Sys().(*syscall.Stat_t)
 	if !ok {
 		// Not unix
 		panic("No support for your platform")
@@ -756,7 +765,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 			return false, err
 		}
 	} else {
-		// Nothing specified, no changes to be made, expect same as actual
+		// nothing specified, no changes to be made, expect same as actual
 		expectedUID = int(stUnix.Uid)
 	}
 
@@ -766,27 +775,26 @@ func (obj *FileRes) chownCheckApply(apply bool) (checkOK bool, _ error) {
 			return false, err
 		}
 	} else {
-		// Nothing specified, no changes to be made, expect same as actual
+		// nothing specified, no changes to be made, expect same as actual
 		expectedGID = int(stUnix.Gid)
 	}
 
-	// Nothing to do
+	// nothing to do
 	if int(stUnix.Uid) == expectedUID && int(stUnix.Gid) == expectedGID {
 		return true, nil
 	}
 
-	// Not clean, but don't apply
+	// not clean, but don't apply
 	if !apply {
 		return false, nil
 	}
 
-	err = os.Chown(obj.path, expectedUID, expectedGID)
-	return false, err
+	return false, os.Chown(obj.path, expectedUID, expectedGID)
 }
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
+func (obj *FileRes) CheckApply(apply bool) (bool, error) {
 	// NOTE: all send/recv change notifications *must* be processed before
 	// there is a possibility of failure in CheckApply. This is because if
 	// we fail (and possibly run again) the subsequent send->recv transfer
@@ -795,11 +803,11 @@ func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
 	// promptly, if they must not be lost, such as for cache invalidation.
 	if val, exists := obj.init.Recv()["Content"]; exists && val.Changed {
 		// if we received on Content, and it changed, invalidate the cache!
-		obj.init.Logf("contentCheckApply: Invalidating sha256sum of `Content`")
+		obj.init.Logf("contentCheckApply: invalidating sha256sum of `Content`")
 		obj.sha256sum = "" // invalidate!!
 	}
 
-	checkOK = true
+	checkOK := true
 
 	// always run stateCheckApply before contentCheckApply, they go together
 	if c, err := obj.stateCheckApply(apply); err != nil {

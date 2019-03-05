@@ -268,6 +268,54 @@ func TestResources1(t *testing.T) {
 			cleanup: func() error { return os.Remove(f) },
 		})
 	}
+	{
+		r := makeRes("file", "r1")
+		res := r.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/emptyfile"
+		res.Path = p
+		res.State = "exists"
+
+		timeline := []Step{
+			NewStartupStep(1000 * 60),      // startup
+			NewChangedStep(1000*60, false), // did we do something?
+			fileExpect(p, ""),              // check initial state
+			NewClearChangedStep(1000 * 15), // did we do something?
+		}
+
+		testCases = append(testCases, test{
+			name:     "touch file",
+			res:      res,
+			fail:     false,
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return os.Remove(p) },
+		})
+	}
+	{
+		r := makeRes("file", "r1")
+		res := r.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/existingfile"
+		res.Path = p
+		res.State = "exists"
+		content := "some existing text\n"
+
+		timeline := []Step{
+			NewStartupStep(1000 * 60),     // startup
+			NewChangedStep(1000*60, true), // did we do something?
+			fileExpect(p, content),        // check initial state
+		}
+
+		testCases = append(testCases, test{
+			name:     "existing file",
+			res:      res,
+			fail:     false,
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return ioutil.WriteFile(p, []byte(content), 0666) },
+			cleanup:  func() error { return os.Remove(p) },
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests

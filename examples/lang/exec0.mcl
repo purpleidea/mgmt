@@ -4,11 +4,16 @@ exec "exec1" {
 	args => ["-c", "print(\"i'm in python!\")",],
 }
 
+file "/tmp/whatever" {
+	state => "exists",
+}
+
 exec "exec2" {
 	cmd => "echo hello world > /tmp/whatever",
 	shell => "/bin/bash",
 	ifcmd => "! diff <(cat /tmp/whatever) <(echo hello world)",
 	ifshell => "/bin/bash",
-	watchcmd => "touch /tmp/whatever && /usr/bin/inotifywait -e modify -m /tmp/whatever",
-	watchshell => "/bin/bash",
+	watchcmd => "/usr/bin/inotifywait -e modify -m /tmp/whatever",
+
+	Depend => File["/tmp/whatever"], # so that inotifywait can startup
 }

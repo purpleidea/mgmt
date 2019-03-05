@@ -569,6 +569,52 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	return checkOK, nil
 }
 
+// state performs a CheckApply of the file state to create an empty file.
+func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
+	if obj.State == "" { // state is not specified
+		return true, nil
+	}
+
+	_, err := os.Stat(obj.path)
+
+	if err != nil && !os.IsNotExist(err) {
+		return false, errwrap.Wrapf(err, "could not stat file")
+	}
+
+	if obj.State == "absent" && os.IsNotExist(err) {
+		return true, nil
+	}
+
+	if obj.State == "exists" && err == nil {
+		return true, nil
+	}
+
+	// state is not okay, no work done, exit, but without error
+	if !apply {
+		return false, nil
+	}
+
+	if obj.State == "absent" {
+		return false, nil // defer the work to contentCheckApply
+	}
+
+	if obj.Content == nil && !obj.isDir {
+		// Create an empty file to ensure one exists. Don't O_TRUNC it,
+		// in case one is magically created right after our exists test.
+		// The chmod used is what is used by the os.Create function.
+		// TODO: is using O_EXCL okay?
+		f, err := os.OpenFile(obj.path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+		if err != nil {
+			return false, errwrap.Wrapf(err, "problem creating empty file")
+		}
+		if err := f.Close(); err != nil {
+			return false, errwrap.Wrapf(err, "problem closing empty file")
+		}
+	}
+
+	return false, nil // defer the Content != nil and isDir work to later...
+}
+
 // contentCheckApply performs a CheckApply for the file existence and content.
 func (obj *FileRes) contentCheckApply(apply bool) (checkOK bool, _ error) {
 	obj.init.Logf("contentCheckApply(%t)", apply)
@@ -755,6 +801,12 @@ func (obj *FileRes) CheckApply(apply bool) (checkOK bool, _ error) {
 
 	checkOK = true
 
+	// always run stateCheckApply before contentCheckApply, they go together
+	if c, err := obj.stateCheckApply(apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
+	}
 	if c, err := obj.contentCheckApply(apply); err != nil {
 		return false, err
 	} else if !c {

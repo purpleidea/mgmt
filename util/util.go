@@ -19,6 +19,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"sort"
@@ -405,6 +406,28 @@ func TimeAfterOrBlock(t int) <-chan time.Time {
 		return make(chan time.Time) // blocks forever
 	}
 	return time.After(time.Duration(t) * time.Second)
+}
+
+// TimeAfterOrBlockCtx returns a channel that closes after a timeout. If you use
+// a negative timeout, it will block forever. It can also unblock using context.
+// Make sure to cancel the context when you're done, or you'll leak a goroutine.
+func TimeAfterOrBlockCtx(ctx context.Context, t int) <-chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		defer close(ch)
+		if t < 0 {
+			select {
+			case <-ctx.Done():
+			}
+			return
+		}
+
+		select {
+		case <-time.After(time.Duration(t) * time.Second):
+		case <-ctx.Done():
+		}
+	}()
+	return ch
 }
 
 // SystemBusPrivateUsable makes using the private bus usable.

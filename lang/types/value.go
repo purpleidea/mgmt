@@ -46,6 +46,12 @@ type Value interface {
 	Func() func([]Value) (Value, error)
 }
 
+// ValueOfGolang is a helper that takes a golang value, and produces the mcl
+// equivalent internal representation. This is very useful for writing tests.
+func ValueOfGolang(i interface{}) (Value, error) {
+	return ValueOf(reflect.ValueOf(i))
+}
+
 // ValueOf takes a reflect.Value and returns an equivalent Value.
 func ValueOf(v reflect.Value) (Value, error) {
 	value := v

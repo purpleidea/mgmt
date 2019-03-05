@@ -78,8 +78,6 @@ type FileRes struct {
 	Recurse bool   `yaml:"recurse"`
 	Force   bool   `yaml:"force"`
 
-	path       string // computed path
-	isDir      bool   // computed isDir
 	sha256sum  string
 	recWatcher *recwatch.RecWatcher
 }
@@ -93,7 +91,7 @@ func (obj *FileRes) Default() engine.Res {
 
 // Validate reports any problems with the struct definition.
 func (obj *FileRes) Validate() error {
-	if obj.GetPath() == "" {
+	if obj.getPath() == "" {
 		return fmt.Errorf("path is empty")
 	}
 
@@ -105,7 +103,7 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("basename must not start with a slash")
 	}
 
-	if !strings.HasPrefix(obj.GetPath(), "/") {
+	if !strings.HasPrefix(obj.getPath(), "/") {
 		return fmt.Errorf("resultant path must be absolute")
 	}
 
@@ -113,7 +111,7 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("can't specify both Content and Source")
 	}
 
-	if obj.isDir && obj.Content != nil { // makes no sense
+	if obj.isDir() && obj.Content != nil { // makes no sense
 		return fmt.Errorf("can't specify Content when creating a Dir")
 	}
 
@@ -142,7 +140,7 @@ func (obj *FileRes) Validate() error {
 	}
 
 	// XXX: should this specify that we create an empty directory instead?
-	//if obj.Source == "" && obj.isDir {
+	//if obj.Source == "" && obj.isDir() {
 	//	return fmt.Errorf("Can't specify an empty source when creating a Dir.")
 	//}
 
@@ -165,8 +163,6 @@ func (obj *FileRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	obj.sha256sum = ""
-	obj.path = obj.GetPath()                     // compute once
-	obj.isDir = strings.HasSuffix(obj.path, "/") // dirs have trailing slashes
 
 	return nil
 }
@@ -176,9 +172,10 @@ func (obj *FileRes) Close() error {
 	return nil
 }
 
-// GetPath returns the actual path to use for this resource. It computes this
+// getPath returns the actual path to use for this resource. It computes this
 // after analysis of the Path, Dirname and Basename values. Dirs end with slash.
-func (obj *FileRes) GetPath() string {
+// TODO: memoize the result if this seems important.
+func (obj *FileRes) getPath() string {
 	p := obj.Path
 	if obj.Path == "" { // use the name as the path default if missing
 		p = obj.Name()
@@ -199,6 +196,11 @@ func (obj *FileRes) GetPath() string {
 	return obj.Dirname + obj.Basename
 }
 
+// isDir is a helper function to specify whether the path should be a dir.
+func (obj *FileRes) isDir() bool {
+	return strings.HasSuffix(obj.getPath(), "/") // dirs have trailing slashes
+}
+
 // Watch is the primary listener for this resource and it outputs events.
 // This one is a file watcher for files and directories.
 // Modify with caution, it is probably important to write some test cases first!
@@ -207,7 +209,7 @@ func (obj *FileRes) GetPath() string {
 // FIXME: Also watch the source directory when using obj.Source !!!
 func (obj *FileRes) Watch() error {
 	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, obj.Recurse)
+	obj.recWatcher, err = recwatch.NewRecWatcher(obj.getPath(), obj.Recurse)
 	if err != nil {
 		return err
 	}
@@ -218,7 +220,7 @@ func (obj *FileRes) Watch() error {
 	var send = false // send event?
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("watching: %s", obj.path) // attempting to watch...
+			obj.init.Logf("watching: %s", obj.getPath()) // attempting to watch...
 		}
 
 		select {
@@ -387,7 +389,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 // dirCheckApply is the CheckApply operation for an empty directory.
 func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 	// check if the path exists and is a directory
-	fileInfo, err := os.Stat(obj.path)
+	fileInfo, err := os.Stat(obj.getPath())
 	if err != nil && !os.IsNotExist(err) {
 		return false, errwrap.Wrapf(err, "error checking file resource existence")
 	}
@@ -396,7 +398,7 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 		return true, nil // already a directory, nothing to do
 	}
 	if err == nil && !fileInfo.IsDir() && !obj.Force {
-		return false, fmt.Errorf("can't force file into dir: %s", obj.path)
+		return false, fmt.Errorf("can't force file into dir: %s", obj.getPath())
 	}
 
 	if !apply {
@@ -406,8 +408,8 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 	// the path exists and is not a directory
 	// delete the file if force is given
 	if err == nil && !fileInfo.IsDir() {
-		obj.init.Logf("dirCheckApply: removing (force): %s", obj.path)
-		if err := os.Remove(obj.path); err != nil {
+		obj.init.Logf("dirCheckApply: removing (force): %s", obj.getPath())
+		if err := os.Remove(obj.getPath()); err != nil {
 			return false, err
 		}
 	}
@@ -426,10 +428,10 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 	if obj.Force {
 		// FIXME: respect obj.Recurse here...
 		// TODO: add recurse limit here
-		return false, os.MkdirAll(obj.path, mode)
+		return false, os.MkdirAll(obj.getPath(), mode)
 	}
 
-	return false, os.Mkdir(obj.path, mode)
+	return false, os.Mkdir(obj.getPath(), mode)
 }
 
 // syncCheckApply is the CheckApply operation for a source and destination dir.
@@ -594,7 +596,7 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 		return true, nil
 	}
 
-	_, err := os.Stat(obj.path)
+	_, err := os.Stat(obj.getPath())
 
 	if err != nil && !os.IsNotExist(err) {
 		return false, errwrap.Wrapf(err, "could not stat file")
@@ -617,12 +619,12 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 		return false, nil // defer the work to contentCheckApply
 	}
 
-	if obj.Content == nil && !obj.isDir {
+	if obj.Content == nil && !obj.isDir() {
 		// Create an empty file to ensure one exists. Don't O_TRUNC it,
 		// in case one is magically created right after our exists test.
 		// The chmod used is what is used by the os.Create function.
 		// TODO: is using O_EXCL okay?
-		f, err := os.OpenFile(obj.path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+		f, err := os.OpenFile(obj.getPath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "problem creating empty file")
 		}
@@ -639,7 +641,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 	obj.init.Logf("contentCheckApply(%t)", apply)
 
 	if obj.State == "absent" {
-		if _, err := os.Stat(obj.path); os.IsNotExist(err) {
+		if _, err := os.Stat(obj.getPath()); os.IsNotExist(err) {
 			// no such file or directory, but
 			// file should be missing, phew :)
 			return true, nil
@@ -654,17 +656,17 @@ func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 		}
 
 		// apply portion
-		if obj.path == "" || obj.path == "/" {
+		if obj.getPath() == "" || obj.getPath() == "/" {
 			return false, fmt.Errorf("don't want to remove root") // safety
 		}
-		obj.init.Logf("contentCheckApply: removing: %s", obj.path)
+		obj.init.Logf("contentCheckApply: removing: %s", obj.getPath())
 		// FIXME: respect obj.Recurse here...
 		// TODO: add recurse limit here
-		err := os.RemoveAll(obj.path) // dangerous ;)
-		return false, err             // either nil or not
+		err := os.RemoveAll(obj.getPath()) // dangerous ;)
+		return false, err                  // either nil or not
 	}
 
-	if obj.isDir && obj.Source == "" {
+	if obj.isDir() && obj.Source == "" {
 		return obj.dirCheckApply(apply)
 	}
 
@@ -675,7 +677,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 
 	if obj.Source == "" { // do the obj.Content checks first...
 		bufferSrc := bytes.NewReader([]byte(*obj.Content))
-		sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.path, obj.sha256sum)
+		sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.getPath(), obj.sha256sum)
 		if sha256sum != "" { // empty values mean errored or didn't hash
 			// this can be valid even when the whole function errors
 			obj.sha256sum = sha256sum // cache value
@@ -687,7 +689,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 		return checkOK, nil // success
 	}
 
-	checkOK, err := obj.syncCheckApply(apply, obj.Source, obj.path)
+	checkOK, err := obj.syncCheckApply(apply, obj.Source, obj.getPath())
 	if err != nil {
 		obj.init.Logf("syncCheckApply: Error: %v", err)
 		return false, err
@@ -722,7 +724,7 @@ func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
 		return false, err
 	}
 
-	fileInfo, err := os.Stat(obj.path)
+	fileInfo, err := os.Stat(obj.getPath())
 	if err != nil {
 		return false, err
 	}
@@ -737,7 +739,7 @@ func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
 		return false, nil
 	}
 
-	err = os.Chmod(obj.path, mode)
+	err = os.Chmod(obj.getPath(), mode)
 	return false, err
 }
 
@@ -751,7 +753,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 		return true, nil
 	}
 
-	fileInfo, err := os.Stat(obj.path)
+	fileInfo, err := os.Stat(obj.getPath())
 
 	// If the file does not exist and we are in
 	// noop mode, do not throw an error.
@@ -799,7 +801,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 		return false, nil
 	}
 
-	return false, os.Chown(obj.path, expectedUID, expectedGID)
+	return false, os.Chown(obj.getPath(), expectedUID, expectedGID)
 }
 
 // CheckApply checks the resource state and applies the resource if the bool
@@ -854,7 +856,9 @@ func (obj *FileRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
-	if obj.path != res.path {
+	// We don't need to compare Path, Dirname or Basename-- we only care if
+	// the resultant path is different or not.
+	if obj.getPath() != res.getPath() {
 		return fmt.Errorf("the Path differs")
 	}
 	if (obj.Content == nil) != (res.Content == nil) { // xor
@@ -952,8 +956,8 @@ func (obj *FileResAutoEdges) Test(input []bool) bool {
 // the bottom up!
 func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
 	var data []engine.ResUID // store linear result chain here...
-	// build it, but don't use obj.path because this gets called before Init
-	values := util.PathSplitFullReversed(obj.GetPath())
+	// don't use any memoization run in Init (this gets called before Init)
+	values := util.PathSplitFullReversed(obj.getPath())
 	_, values = values[0], values[1:] // get rid of first value which is me!
 	for _, x := range values {
 		var reversed = true // cheat by passing a pointer
@@ -978,7 +982,7 @@ func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
 func (obj *FileRes) UIDs() []engine.ResUID {
 	x := &FileUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		path:    obj.GetPath(), // not obj.path b/c we didn't init yet!
+		path:    obj.getPath(),
 	}
 	return []engine.ResUID{x}
 }

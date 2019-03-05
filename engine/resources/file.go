@@ -123,6 +123,16 @@ func (obj *FileRes) Validate() error {
 		}
 	}
 
+	if obj.Owner != "" || obj.Group != "" {
+		fileInfo, err := os.Stat("/") // pick root just to do this test
+		if err != nil {
+			return fmt.Errorf("can't stat root to get system information")
+		}
+		_, ok := fileInfo.Sys().(*syscall.Stat_t)
+		if !ok {
+			return fmt.Errorf("can't set Owner or Group on this platform")
+		}
+	}
 	if _, err := engineUtil.GetUID(obj.Owner); obj.Owner != "" && err != nil {
 		return err
 	}
@@ -754,9 +764,9 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 	}
 
 	stUnix, ok := fileInfo.Sys().(*syscall.Stat_t)
-	if !ok {
-		// Not unix
-		panic("No support for your platform")
+	if !ok { // this check is done in Validate, but it's done here again...
+		// not unix
+		return false, fmt.Errorf("can't set Owner or Group on this platform")
 	}
 
 	if obj.Owner != "" {

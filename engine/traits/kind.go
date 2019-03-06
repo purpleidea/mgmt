@@ -17,11 +17,21 @@
 
 package traits
 
+import (
+	"encoding/gob"
+)
+
+func init() {
+	gob.Register(&Kinded{})
+}
+
 // Kinded contains a general implementation of the properties and methods needed
 // to support the resource kind. It should be used as a starting point to avoid
 // re-implementing the straightforward kind methods.
 type Kinded struct {
-	kind string
+	// Xkind is the stored kind. It should be called `kind` but it must be
+	// public so that the `encoding/gob` package can encode it properly.
+	Xkind string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -29,11 +39,11 @@ type Kinded struct {
 
 // Kind returns the string representation for the kind this resource is.
 func (obj *Kinded) Kind() string {
-	return obj.kind
+	return obj.Xkind
 }
 
 // SetKind sets the kind string for this resource. It must only be set by the
 // engine.
 func (obj *Kinded) SetKind(kind string) {
-	obj.kind = kind
+	obj.Xkind = kind
 }

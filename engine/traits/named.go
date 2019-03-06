@@ -21,7 +21,9 @@ package traits
 // to support named resources. It should be used as a starting point to avoid
 // re-implementing the straightforward name methods.
 type Named struct {
-	name string
+	// Xname is the stored name. It should be called `name` but it must be
+	// public so that the `encoding/gob` package can encode it properly.
+	Xname string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -30,11 +32,11 @@ type Named struct {
 // Name returns the unique name this resource has. It is only unique within its
 // own kind.
 func (obj *Named) Name() string {
-	return obj.name
+	return obj.Xname
 }
 
 // SetName sets the unique name for this resource. It must only be unique within
 // its own kind.
 func (obj *Named) SetName(name string) {
-	obj.name = name
+	obj.Xname = name
 }

@@ -25,7 +25,9 @@ import (
 // to support meta parameters. It should be used as a starting point to avoid
 // re-implementing the straightforward meta methods.
 type Meta struct {
-	meta *engine.MetaParams
+	// Xmeta is the stored meta. It should be called `meta` but it must be
+	// public so that the `encoding/gob` package can encode it properly.
+	Xmeta *engine.MetaParams
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -33,14 +35,14 @@ type Meta struct {
 
 // MetaParams lets you get or set meta params for this trait.
 func (obj *Meta) MetaParams() *engine.MetaParams {
-	if obj.meta == nil { // set the defaults if previously empty
-		obj.meta = engine.DefaultMetaParams.Copy()
+	if obj.Xmeta == nil { // set the defaults if previously empty
+		obj.Xmeta = engine.DefaultMetaParams.Copy()
 	}
-	return obj.meta
+	return obj.Xmeta
 }
 
 // SetMetaParams lets you set all of the meta params for the resource in a
 // single call.
 func (obj *Meta) SetMetaParams(meta *engine.MetaParams) {
-	obj.meta = meta
+	obj.Xmeta = meta
 }

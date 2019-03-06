@@ -25,7 +25,9 @@ import (
 // methods needed to support autoedges on resources. It may be used as a start
 // point to avoid re-implementing the straightforward methods.
 type Edgeable struct {
-	meta *engine.AutoEdgeMeta
+	// Xmeta is the stored meta. It should be called `meta` but it must be
+	// public so that the `encoding/gob` package can encode it properly.
+	Xmeta *engine.AutoEdgeMeta
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -33,16 +35,16 @@ type Edgeable struct {
 
 // AutoEdgeMeta lets you get or set meta params for the automatic edges trait.
 func (obj *Edgeable) AutoEdgeMeta() *engine.AutoEdgeMeta {
-	if obj.meta == nil { // set the defaults if previously empty
-		obj.meta = &engine.AutoEdgeMeta{
+	if obj.Xmeta == nil { // set the defaults if previously empty
+		obj.Xmeta = &engine.AutoEdgeMeta{
 			Disabled: false,
 		}
 	}
-	return obj.meta
+	return obj.Xmeta
 }
 
 // SetAutoEdgeMeta lets you set all of the meta params for the automatic edges
 // trait in a single call.
 func (obj *Edgeable) SetAutoEdgeMeta(meta *engine.AutoEdgeMeta) {
-	obj.meta = meta
+	obj.Xmeta = meta
 }

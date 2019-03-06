@@ -119,6 +119,12 @@ func TestMiscEncodeDecode2(t *testing.T) {
 		t.Errorf("Can't create: %v", err)
 		return
 	}
+	// NOTE: Do not add this bit of code, because it would cause the path to
+	// get taken from the actual Path parameter, instead of using the name,
+	// and if we use the name, the Cmp function will detect if the name is
+	// stored properly or not.
+	//fileRes := input.(*FileRes) // must not panic
+	//fileRes.Path = "/tmp/whatever"
 
 	b64, err := engineUtil.ResToB64(input)
 	if err != nil {
@@ -142,7 +148,49 @@ func TestMiscEncodeDecode2(t *testing.T) {
 		t.Errorf("Output %v is not a Res", res2)
 		return
 	}
+	// this uses the standalone file cmp function
 	if err := res1.Cmp(res2); err != nil {
+		t.Errorf("The input and output Res values do not match: %+v", err)
+	}
+}
+
+func TestMiscEncodeDecode3(t *testing.T) {
+	var err error
+
+	// encode
+	input, err := engine.NewNamedResource("file", "file1")
+	if err != nil {
+		t.Errorf("Can't create: %v", err)
+		return
+	}
+	fileRes := input.(*FileRes) // must not panic
+	fileRes.Path = "/tmp/whatever"
+	// TODO: add other params/traits/etc here!
+
+	b64, err := engineUtil.ResToB64(input)
+	if err != nil {
+		t.Errorf("Can't encode: %v", err)
+		return
+	}
+
+	output, err := engineUtil.B64ToRes(b64)
+	if err != nil {
+		t.Errorf("Can't decode: %v", err)
+		return
+	}
+
+	res1, ok := input.(engine.Res)
+	if !ok {
+		t.Errorf("Input %v is not a Res", res1)
+		return
+	}
+	res2, ok := output.(engine.Res)
+	if !ok {
+		t.Errorf("Output %v is not a Res", res2)
+		return
+	}
+	// this uses the more complete, engine cmp function
+	if err := engine.ResCmp(res1, res2); err != nil {
 		t.Errorf("The input and output Res values do not match: %+v", err)
 	}
 }

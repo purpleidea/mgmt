@@ -1,0 +1,7 @@
+file "/tmp/file1" {
+	state => "exists",
+}
+
+file "/tmp/dir1/" {
+	state => "exists",
+}

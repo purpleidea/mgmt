@@ -1,1 +1,1 @@
-# err: import scope `something.mcl` failed: local import of `something.mcl` failed: module contains unused statements: found stmt: res(print)
+# err: err2: import scope `something.mcl` failed: local import of `something.mcl` failed: module contains unused statements: found stmt: res(print)

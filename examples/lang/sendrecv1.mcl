@@ -1,14 +1,24 @@
-file "/tmp/mgmt/foo" {
-	content => "hello from foo\n",
+import "fmt"
+import "world"
+
+$ns = "estate"
+$exchanged = world.kvlookup($ns)
+$state = maplookup($exchanged, $hostname, "default")
+
+exec "exec0" {
+	cmd => "echo hello world && echo goodbye world 1>&2", # to stdout && stderr
+	shell => "/bin/bash",
 }
 
-print "print0" {
+kv "kv0" {
+	key => $ns,
+	#value => "two",
 }
 
-File["/tmp/mgmt/foo"].content -> Print["print0"].msg
+Exec["exec0"].output -> Kv["kv0"].value
 
-print "print1" {
-	msg => "hello",
+if $state != "default" {
+	file "/tmp/mgmt/state" {
+		content => fmt.printf("state: %s\n", $state),
+	}
 }
-
-Print["print0"] -> Print["print1"]

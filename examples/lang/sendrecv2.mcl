@@ -1,8 +1,0 @@
-file "/tmp/mgmt/foo" {
-	content => "hello from foo\n",
-}
-
-file "/tmp/mgmt/bar" {
-}
-
-File["/tmp/mgmt/foo"].content -> File["/tmp/mgmt/bar"].content

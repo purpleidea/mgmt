@@ -1478,12 +1478,56 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 		return nil, fmt.Errorf("can't create an edge with only one half")
 	}
 	if len(obj.EdgeHalfList) == 2 {
-		if (obj.EdgeHalfList[0].SendRecv == "") != (obj.EdgeHalfList[1].SendRecv == "") { // xor
+		sr1 := obj.EdgeHalfList[0].SendRecv
+		sr2 := obj.EdgeHalfList[1].SendRecv
+		if (sr1 == "") != (sr2 == "") { // xor
 			return nil, fmt.Errorf("you must specify both send/recv fields or neither")
 		}
 
-		// XXX: check that the kind1:send -> kind2:recv fields are type
-		// compatible! XXX: we won't know the names yet, but it's okay.
+		if sr1 != "" && sr2 != "" {
+			k1 := obj.EdgeHalfList[0].Kind
+			k2 := obj.EdgeHalfList[1].Kind
+
+			r1, err := engine.NewResource(k1)
+			if err != nil {
+				return nil, err
+			}
+			r2, err := engine.NewResource(k2)
+			if err != nil {
+				return nil, err
+			}
+			res1, ok := r1.(engine.SendableRes)
+			if !ok {
+				return nil, fmt.Errorf("cannot send from resource of kind: %s", k1)
+			}
+			res2, ok := r2.(engine.RecvableRes)
+			if !ok {
+				return nil, fmt.Errorf("cannot recv to resource of kind: %s", k2)
+			}
+
+			// Check that the kind1:send -> kind2:recv fields are type
+			// compatible! We won't know the names yet, but it's okay.
+			if err := engineUtil.StructFieldCompat(res1.Sends(), sr1, res2, sr2); err != nil {
+				p1 := k1 // print defaults
+				p2 := k2
+				if v, err := obj.EdgeHalfList[0].Name.Value(); err == nil { // statically known
+					// display something nicer
+					if v.Type().Kind == types.KindStr {
+						p1 = engine.Repr(k1, v.Str())
+					} else if v.Type().Cmp(types.NewType("[]str")) == nil {
+						p1 = engine.Repr(k1, v.String())
+					}
+				}
+				if v, err := obj.EdgeHalfList[1].Name.Value(); err == nil {
+					if v.Type().Kind == types.KindStr {
+						p2 = engine.Repr(k2, v.Str())
+					} else if v.Type().Cmp(types.NewType("[]str")) == nil {
+						p2 = engine.Repr(k2, v.String())
+					}
+				}
+				return nil, errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", p1, sr1, p2, sr2)
+			}
+		}
 	}
 
 	for _, x := range obj.EdgeHalfList {

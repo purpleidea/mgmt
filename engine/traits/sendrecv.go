@@ -33,7 +33,7 @@ type Sendable struct {
 
 // Sends returns a struct containing the defaults of the type we send. This
 // needs to be implemented (overridden) by the struct with the Sendable trait to
-// be able to send any values. The public struct field names are the keys used.
+// be able to send any values. The field struct tag names are the keys used.
 func (obj *Sendable) Sends() interface{} {
 	return nil
 }

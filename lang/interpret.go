@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
 
@@ -143,18 +144,25 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 			// ignore identical duplicates
 			// TODO: does this safe ignore work with duplicate compatible resources?
 			if existingSend.Res != v1 || existingSend.Key != e.Send {
-				return nil, fmt.Errorf("resource kind: %s named: `%s` already receives on `%s`", e.Kind2, e.Name2, e.Recv)
+				return nil, fmt.Errorf("resource: `%s` has duplicate receive on: `%s` param", engine.Repr(e.Kind2, e.Name2), e.Recv)
 			}
 		}
 
-		res, ok := v1.(engine.SendableRes)
+		res1, ok := v1.(engine.SendableRes)
 		if !ok {
 			return nil, fmt.Errorf("cannot send from resource: %s", engine.Stringer(v1))
 		}
-		// XXX: type check the send/recv relationship somewhere
+		res2, ok := v2.(engine.RecvableRes)
+		if !ok {
+			return nil, fmt.Errorf("cannot recv to resource: %s", engine.Stringer(v2))
+		}
+
+		if err := engineUtil.StructFieldCompat(res1.Sends(), e.Send, res2, e.Recv); err != nil {
+			return nil, errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", engine.Stringer(v1), e.Send, engine.Stringer(v2), e.Recv)
+		}
 
 		// store mapping for later
-		receive[e.Kind2][e.Name2][e.Recv] = &engine.Send{Res: res, Key: e.Send}
+		receive[e.Kind2][e.Name2][e.Recv] = &engine.Send{Res: res1, Key: e.Send}
 	}
 
 	// we need to first build up a map of all the resources handles, because

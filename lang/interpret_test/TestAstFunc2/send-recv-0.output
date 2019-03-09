@@ -1,0 +1,7 @@
+Edge: exec[exec0] -> file[/tmp/command-output] # exec[exec0] -> file[/tmp/command-output]
+Edge: exec[exec0] -> file[/tmp/command-stderr] # exec[exec0] -> file[/tmp/command-stderr]
+Edge: exec[exec0] -> file[/tmp/command-stdout] # exec[exec0] -> file[/tmp/command-stdout]
+Vertex: exec[exec0]
+Vertex: file[/tmp/command-output]
+Vertex: file[/tmp/command-stderr]
+Vertex: file[/tmp/command-stdout]

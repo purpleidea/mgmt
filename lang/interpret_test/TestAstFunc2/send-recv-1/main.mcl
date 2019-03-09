@@ -1,0 +1,11 @@
+exec "exec0" {
+	cmd => "echo whatever",
+	shell => "/bin/bash",
+}
+
+file "/tmp/command-output" {
+	state => "exists",
+}
+
+# this is an error because the shell send key doesn't exist in exec
+Exec["exec0"].shell -> File["/tmp/command-output"].content

@@ -1439,7 +1439,7 @@ func TestAstInterpret0(t *testing.T) {
 				int64ptr => 13,
 			}
 
-			Test["t1"].foosend -> Test["t2"].barrecv # send/recv
+			Test["t1"].hello -> Test["t2"].stringptr # send/recv
 			`,
 			graph: graph,
 		})

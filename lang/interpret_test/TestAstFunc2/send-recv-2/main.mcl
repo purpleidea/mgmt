@@ -1,0 +1,11 @@
+exec ["exec0", "exec1",] {
+	cmd => "echo whatever",
+	shell => "/bin/bash",
+}
+
+file "/tmp/command-output" {
+	state => "exists",
+}
+
+# this is an error because two senders cannot send to the same receiver key
+Exec[["exec0", "exec1",]].output -> File["/tmp/command-output"].content

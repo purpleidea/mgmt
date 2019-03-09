@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 
 	multierr "github.com/hashicorp/go-multierror"
 	errwrap "github.com/pkg/errors"
@@ -47,16 +48,51 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 			st = v.Res.Sent()
 		}
 
+		if st == nil {
+			e := fmt.Errorf("received nil value from: %s", v.Res)
+			err = multierr.Append(err, e) // list of errors
+			continue
+		}
+
+		if e := engineUtil.StructFieldCompat(st, v.Key, res, k); e != nil {
+			err = multierr.Append(err, e) // list of errors
+			continue
+		}
+
 		// send
+		m1, e := engineUtil.StructTagToFieldName(st)
+		if e != nil {
+			err = multierr.Append(err, e) // list of errors
+			continue
+		}
+		key1, exists := m1[v.Key]
+		if !exists {
+			e := fmt.Errorf("requested key of `%s` not found in send struct", v.Key)
+			err = multierr.Append(err, e) // list of errors
+			continue
+		}
+
 		obj1 := reflect.Indirect(reflect.ValueOf(st))
 		type1 := obj1.Type()
-		value1 := obj1.FieldByName(v.Key)
+		value1 := obj1.FieldByName(key1)
 		kind1 := value1.Kind()
 
 		// recv
+		m2, e := engineUtil.StructTagToFieldName(res)
+		if e != nil {
+			err = multierr.Append(err, e) // list of errors
+			continue
+		}
+		key2, exists := m2[k]
+		if !exists {
+			e := fmt.Errorf("requested key of `%s` not found in recv struct", k)
+			err = multierr.Append(err, e) // list of errors
+			continue
+		}
+
 		obj2 := reflect.Indirect(reflect.ValueOf(res)) // pass in full struct
 		type2 := obj2.Type()
-		value2 := obj2.FieldByName(k)
+		value2 := obj2.FieldByName(key2)
 		kind2 := value2.Kind()
 
 		if obj.Debug {

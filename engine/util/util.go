@@ -127,6 +127,62 @@ func StructTagToFieldName(stptr interface{}) (map[string]string, error) {
 	return result, nil
 }
 
+// StructFieldCompat returns whether a send struct and key is compatible with a
+// recv struct and key. This inputs must both be a ptr to a string, and a valid
+// key that can be found in the struct tag.
+// TODO: add a bool to decide if *string to string or string to *string is okay.
+func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 string) error {
+	m1, err := StructTagToFieldName(st1)
+	if err != nil {
+		return err
+	}
+	k1, exists := m1[key1]
+	if !exists {
+		return fmt.Errorf("key not found in send struct")
+	}
+
+	m2, err := StructTagToFieldName(st2)
+	if err != nil {
+		return err
+	}
+	k2, exists := m2[key2]
+	if !exists {
+		return fmt.Errorf("key not found in recv struct")
+	}
+
+	obj1 := reflect.Indirect(reflect.ValueOf(st1))
+	//type1 := obj1.Type()
+	value1 := obj1.FieldByName(k1)
+	kind1 := value1.Kind()
+
+	obj2 := reflect.Indirect(reflect.ValueOf(st2))
+	//type2 := obj2.Type()
+	value2 := obj2.FieldByName(k2)
+	kind2 := value2.Kind()
+
+	if kind1 != kind2 {
+		return fmt.Errorf("kind mismatch between %s and %s", kind1, kind2)
+	}
+
+	if t1, t2 := value1.Type(), value2.Type(); t1 != t2 {
+		return fmt.Errorf("type mismatch between %s and %s", t1, t2)
+	}
+
+	if !value2.CanSet() { // if we can't set, then this is pointless!
+		return fmt.Errorf("can't set")
+	}
+
+	// if we can't interface, we can't compare...
+	if !value1.CanInterface() {
+		return fmt.Errorf("can't interface the send")
+	}
+	if !value2.CanInterface() {
+		return fmt.Errorf("can't interface the recv")
+	}
+
+	return nil
+}
+
 // LowerStructFieldNameToFieldName returns a mapping from the lower case version
 // of each field name to the actual field name. It only returns public fields.
 // It returns an error if it finds a collision.

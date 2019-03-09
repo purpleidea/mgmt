@@ -857,6 +857,11 @@ func TestAstFunc1(t *testing.T) {
 // stable, static output.
 func TestAstFunc2(t *testing.T) {
 	const magicError = "# err: "
+	const magicError1 = "err1: "
+	const magicError2 = "err2: "
+	const magicError3 = "err3: "
+	const magicError4 = "err4: "
+	const magicError5 = "err5: "
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
 	if err != nil {
@@ -874,12 +879,20 @@ func TestAstFunc2(t *testing.T) {
 		Functions: funcs.LookupPrefix(""),
 	}
 
+	type errs struct {
+		fail1 bool
+		fail2 bool
+		fail3 bool
+		fail4 bool
+		fail5 bool
+	}
 	type test struct { // an individual test
 		name string
 		path string // relative sub directory path inside tests dir
 		fail bool
 		//graph *pgraph.Graph
 		expstr string // expected output graph in string format
+		errs   errs
 	}
 	testCases := []test{}
 	//{
@@ -924,9 +937,40 @@ func TestAstFunc2(t *testing.T) {
 
 		// if the graph file has a magic error string, it's a failure
 		errStr := ""
+		fail1 := false
+		fail2 := false
+		fail3 := false
+		fail4 := false
+		fail5 := false
 		if strings.HasPrefix(str, magicError) {
 			errStr = strings.TrimPrefix(str, magicError)
 			str = errStr
+
+			if strings.HasPrefix(str, magicError1) {
+				errStr = strings.TrimPrefix(str, magicError1)
+				str = errStr
+				fail1 = true
+			}
+			if strings.HasPrefix(str, magicError2) {
+				errStr = strings.TrimPrefix(str, magicError2)
+				str = errStr
+				fail2 = true
+			}
+			if strings.HasPrefix(str, magicError3) {
+				errStr = strings.TrimPrefix(str, magicError3)
+				str = errStr
+				fail3 = true
+			}
+			if strings.HasPrefix(str, magicError4) {
+				errStr = strings.TrimPrefix(str, magicError4)
+				str = errStr
+				fail4 = true
+			}
+			if strings.HasPrefix(str, magicError5) {
+				errStr = strings.TrimPrefix(str, magicError5)
+				str = errStr
+				fail5 = true
+			}
 		}
 
 		// add automatic test case
@@ -935,6 +979,13 @@ func TestAstFunc2(t *testing.T) {
 			path:   f + "/",
 			fail:   errStr != "",
 			expstr: str,
+			errs: errs{
+				fail1: fail1,
+				fail2: fail2,
+				fail3: fail3,
+				fail4: fail4,
+				fail5: fail5,
+			},
 		})
 		//t.Logf("adding: %s", f + "/")
 	}
@@ -957,8 +1008,13 @@ func TestAstFunc2(t *testing.T) {
 		//}
 
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			name, path, fail, expstr := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n")
+			name, path, fail, expstr, errs := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n"), tc.errs
 			src := dir + path // location of the test
+			fail1 := errs.fail1
+			fail2 := errs.fail2
+			fail3 := errs.fail3
+			fail4 := errs.fail4
+			fail5 := errs.fail5
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
@@ -1019,7 +1075,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 				return
 			}
-			if fail && err != nil {
+			if fail1 && err != nil {
 				// TODO: %+v instead?
 				s := fmt.Sprintf("%s", err) // convert to string
 				if s != expstr {
@@ -1030,6 +1086,12 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return // fail happened during lex parse, don't run init/interpolate!
 			}
+			if fail1 && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: lex/parse passed, expected fail", index)
+				return
+			}
+
 			t.Logf("test #%d: AST: %+v", index, ast)
 
 			importGraph, err := pgraph.NewGraph("importGraph")
@@ -1078,7 +1140,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: could not set scope: %+v", index, err)
 				return
 			}
-			if fail && err != nil {
+			if fail2 && err != nil {
 				// TODO: %+v instead?
 				s := fmt.Sprintf("%s", err) // convert to string
 				if s != expstr {
@@ -1088,6 +1150,11 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
 				return // fail happened during set scope, don't run unification!
+			}
+			if fail2 && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: interpolation passed, expected fail", index)
+				return
 			}
 
 			// apply type unification
@@ -1100,13 +1167,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
 				return
 			}
-			// maybe it will fail during graph below instead?
-			//if fail && err == nil {
-			//	t.Errorf("test #%d: FAIL", index)
-			//	t.Errorf("test #%d: unification passed, expected fail", index)
-			//	continue
-			//}
-			if fail && err != nil {
+			if fail3 && err != nil {
 				// TODO: %+v instead?
 				s := fmt.Sprintf("%s", err) // convert to string
 				if s != expstr {
@@ -1117,6 +1178,11 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return // fail happened during unification, don't run Graph!
 			}
+			if fail3 && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unification passed, expected fail", index)
+				return
+			}
 
 			// build the function graph
 			graph, err := iast.Graph()
@@ -1126,13 +1192,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
 				return
 			}
-			if fail && err == nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: functions passed, expected fail", index)
-				return
-			}
-
-			if fail { // can't process graph if it's nil
+			if fail4 && err != nil { // can't process graph if it's nil
 				// TODO: %+v instead?
 				s := fmt.Sprintf("%s", err) // convert to string
 				if s != expstr {
@@ -1141,6 +1201,11 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: err: %s", index, s)
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
+				return
+			}
+			if fail4 && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: functions passed, expected fail", index)
 				return
 			}
 
@@ -1214,13 +1279,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: interpret failed with: %+v", index, err)
 				return
 			}
-			if fail && err == nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: interpret passed, expected fail", index)
-				return
-			}
-
-			if fail { // can't process graph if it's nil
+			if fail5 && err != nil { // can't process graph if it's nil
 				// TODO: %+v instead?
 				s := fmt.Sprintf("%s", err) // convert to string
 				if s != expstr {
@@ -1229,6 +1288,11 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: err: %s", index, s)
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
+				return
+			}
+			if fail5 && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: interpret passed, expected fail", index)
 				return
 			}
 

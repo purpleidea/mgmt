@@ -1611,7 +1611,7 @@ func (obj *StmtEdge) Output() (*interfaces.Output, error) {
 type StmtEdgeHalf struct {
 	Kind     string          // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr // unique name for the res of this kind
-	SendRecv string          // name of field to send/recv from, empty to ignore
+	SendRecv string          // name of field to send/recv from/to, empty to ignore
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -1668,6 +1668,15 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 
 	if obj.Kind == "" {
 		return nil, fmt.Errorf("missing resource kind in edge")
+	}
+
+	if obj.SendRecv != "" {
+		// FIXME: write this function (get expected type of field)
+		//invar, err := StructFieldInvariant(obj.Kind, obj.SendRecv)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//invariants = append(invariants, invar...)
 	}
 
 	invars, err := obj.Name.Unify()

@@ -56,12 +56,28 @@ type KVRes struct {
 
 	init *engine.Init
 
-	// XXX: shouldn't the name be the key?
-	Key          string            `yaml:"key"`          // key to set
-	Value        *string           `yaml:"value"`        // value to set (nil to delete)
-	SkipLessThan bool              `yaml:"skiplessthan"` // skip updates as long as stored value is greater
-	SkipCmpStyle KVResSkipCmpStyle `yaml:"skipcmpstyle"` // how to do the less than cmp
+	// Key represents the key to set. If it is not specified, the Name value
+	// is used instead.
+	Key string `lang:"key" yaml:"key"`
+	// Value represents the string value to set. If this value is nil or,
+	// undefined, then this will delete that key.
+	Value *string `lang:"value" yaml:"value"`
+	// SkipLessThan causes the value to be updated as long as it is greater.
+	SkipLessThan bool `lang:"skiplessthan" yaml:"skiplessthan"`
+	// SkipCmpStyle is the type of compare function used when determining if
+	// the value is greater when using the SkipLessThan parameter.
+	SkipCmpStyle KVResSkipCmpStyle `lang:"skipcmpstyle" yaml:"skipcmpstyle"`
+
 	// TODO: does it make sense to have different backends here? (eg: local)
+}
+
+// getKey returns the key to be used for this resource. If the Key field is
+// specified, it will use that, otherwise it uses the Name.
+func (obj *KVRes) getKey() string {
+	if obj.Key != "" {
+		return obj.Key
+	}
+	return obj.Name()
 }
 
 // Default returns some sensible defaults for this resource.
@@ -71,7 +87,7 @@ func (obj *KVRes) Default() engine.Res {
 
 // Validate if the params passed in are valid data.
 func (obj *KVRes) Validate() error {
-	if obj.Key == "" {
+	if obj.getKey() == "" {
 		return fmt.Errorf("key must not be empty")
 	}
 	if obj.SkipLessThan {
@@ -104,7 +120,7 @@ func (obj *KVRes) Close() error {
 func (obj *KVRes) Watch() error {
 	obj.init.Running() // when started, notify engine that we're running
 
-	ch := obj.init.World.StrMapWatch(obj.Key) // get possible events!
+	ch := obj.init.World.StrMapWatch(obj.getKey()) // get possible events!
 
 	var send = false // send event?
 	for {
@@ -118,7 +134,7 @@ func (obj *KVRes) Watch() error {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			if obj.init.Debug {
-				obj.init.Logf("Event!")
+				obj.init.Logf("event!")
 			}
 			send = true
 
@@ -182,7 +198,7 @@ func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
 	}
 
 	hostname := obj.init.Hostname // me
-	keyMap, err := obj.init.World.StrMapGet(obj.Key)
+	keyMap, err := obj.init.World.StrMapGet(obj.getKey())
 	if err != nil {
 		return false, errwrap.Wrapf(err, "check error during StrGet")
 	}
@@ -202,7 +218,7 @@ func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return true, nil // nothing to delete, we're good!
 
 	} else if ok && obj.Value == nil { // delete
-		err := obj.init.World.StrMapDel(obj.Key)
+		err := obj.init.World.StrMapDel(obj.getKey())
 		return false, errwrap.Wrapf(err, "apply error during StrDel")
 	}
 
@@ -210,7 +226,7 @@ func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
 		return false, nil
 	}
 
-	if err := obj.init.World.StrMapSet(obj.Key, *obj.Value); err != nil {
+	if err := obj.init.World.StrMapSet(obj.getKey(), *obj.Value); err != nil {
 		return false, errwrap.Wrapf(err, "apply error during StrSet")
 	}
 
@@ -219,39 +235,31 @@ func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *KVRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *KVRes) Compare(r engine.Res) bool {
 	// we can only compare KVRes to others of the same resource kind
 	res, ok := r.(*KVRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
-	if obj.Key != res.Key {
-		return false
+	if obj.getKey() != res.getKey() {
+		return fmt.Errorf("the Key differs")
 	}
 	if (obj.Value == nil) != (res.Value == nil) { // xor
-		return false
+		return fmt.Errorf("the Value differs")
 	}
 	if obj.Value != nil && res.Value != nil {
 		if *obj.Value != *res.Value { // compare the strings
-			return false
+			return fmt.Errorf("the contents of Value differs")
 		}
 	}
 	if obj.SkipLessThan != res.SkipLessThan {
-		return false
+		return fmt.Errorf("the SkipLessThan param differs")
 	}
 	if obj.SkipCmpStyle != res.SkipCmpStyle {
-		return false
+		return fmt.Errorf("the SkipCmpStyle param differs")
 	}
 
-	return true
+	return nil
 }
 
 // KVUID is the UID struct for KVRes.

@@ -94,10 +94,22 @@ func B64ToRes(str string) (engine.Res, error) {
 
 // StructTagToFieldName returns a mapping from recommended alias to actual field
 // name. It returns an error if it finds a collision. It uses the `lang` tags.
-func StructTagToFieldName(res engine.Res) (map[string]string, error) {
+// It must be passed a ptr to a struct or it will error.
+func StructTagToFieldName(stptr interface{}) (map[string]string, error) {
 	// TODO: fallback to looking up yaml tags, although harder to parse
 	result := make(map[string]string) // `lang` field tag -> field name
-	st := reflect.TypeOf(res).Elem()  // elem for ptr to res
+	if stptr == nil {
+		return nil, fmt.Errorf("got nil input instead of ptr to struct")
+	}
+	typ := reflect.TypeOf(stptr)
+	if k := typ.Kind(); k != reflect.Ptr { // we only look at *Struct's
+		return nil, fmt.Errorf("input is not a ptr, got: %+v", k)
+	}
+	st := typ.Elem()                         // elem for ptr to struct (dereference the pointer)
+	if k := st.Kind(); k != reflect.Struct { // this should be a struct now
+		return nil, fmt.Errorf("input doesn't point to a struct, got: %+v", k)
+	}
+
 	for i := 0; i < st.NumField(); i++ {
 		field := st.Field(i)
 		name := field.Name

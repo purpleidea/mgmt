@@ -344,7 +344,7 @@ func (obj *PasswordRes) UIDs() []engine.ResUID {
 // PasswordSends is the struct of data which is sent after a successful Apply.
 type PasswordSends struct {
 	// Password is the generated password being sent.
-	Password *string
+	Password *string `lang:"password"`
 	// Hashing is the algorithm used for this password. Empty is plain text.
 	Hashing string // TODO: implement me
 }

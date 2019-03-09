@@ -57,26 +57,26 @@ type FileRes struct {
 	// Path, which defaults to the name if not specified, represents the
 	// destination path for the file or directory being managed. It must be
 	// an absolute path, and as a result must start with a slash.
-	Path     string `yaml:"path"`
-	Dirname  string `yaml:"dirname"`  // override the path dirname
-	Basename string `yaml:"basename"` // override the path basename
+	Path     string `lang:"path" yaml:"path"`
+	Dirname  string `lang:"dirname" yaml:"dirname"`   // override the path dirname
+	Basename string `lang:"basename" yaml:"basename"` // override the path basename
 
 	// Content specifies the file contents to use. If this is nil, they are
 	// left undefined. It cannot be combined with Source.
-	Content *string `yaml:"content"`
+	Content *string `lang:"content" yaml:"content"`
 	// Source specifies the source contents for the file resource. It cannot
 	// be combined with the Content parameter.
-	Source string `yaml:"source"`
+	Source string `lang:"source" yaml:"source"`
 	// State specifies the desired state of the file. It can be either
 	// `exists` or `absent`. If you do not specify this, it will be
 	// undefined, and determined based on the other parameters.
-	State string `yaml:"state"`
+	State string `lang:"state" yaml:"state"`
 
-	Owner   string `yaml:"owner"`
-	Group   string `yaml:"group"`
-	Mode    string `yaml:"mode"`
-	Recurse bool   `yaml:"recurse"`
-	Force   bool   `yaml:"force"`
+	Owner   string `lang:"owner" yaml:"owner"`
+	Group   string `lang:"group" yaml:"group"`
+	Mode    string `lang:"mode" yaml:"mode"`
+	Recurse bool   `lang:"recurse" yaml:"recurse"`
+	Force   bool   `lang:"force" yaml:"force"`
 
 	sha256sum  string
 	recWatcher *recwatch.RecWatcher

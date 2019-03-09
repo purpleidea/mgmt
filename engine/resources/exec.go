@@ -595,11 +595,11 @@ func (obj *ExecRes) UIDs() []engine.ResUID {
 // ExecSends is the struct of data which is sent after a successful Apply.
 type ExecSends struct {
 	// Output is the combined stdout and stderr of the command.
-	Output *string
+	Output *string `lang:"output"`
 	// Stdout is the stdout of the command.
-	Stdout *string
+	Stdout *string `lang:"stdout"`
 	// Stderr is the stderr of the command.
-	Stderr *string
+	Stderr *string `lang:"stderr"`
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.

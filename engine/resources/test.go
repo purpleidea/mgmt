@@ -401,8 +401,8 @@ func (obj *TestRes) GroupCmp(r engine.GroupableRes) error {
 // TestSends is the struct of data which is sent after a successful Apply.
 type TestSends struct {
 	// Hello is some value being sent.
-	Hello  *string
-	Answer int // some other value being sent
+	Hello  *string `lang:"hello"`
+	Answer int     `lang:"answer"` // some other value being sent
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.

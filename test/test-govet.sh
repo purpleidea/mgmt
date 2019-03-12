@@ -50,6 +50,10 @@ function naked-error() {
 }
 
 function consistent-imports() {
+	if [ "$1" = './util/errwrap/errwrap.go' ]; then
+		return 0
+	fi
+
 	if grep $'\t"github.com/pkg/errors"' "$1"; then	# import as errwrap
 		return 1
 	fi

@@ -110,7 +110,7 @@ func (obj *HostnameRes) Watch() error {
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
-		return errwrap.Wrap(err, "Failed to connect to bus")
+		return errwrap.Wrapf(err, "failed to connect to bus")
 	}
 	defer bus.Close()
 	// watch the PropertiesChanged signal on the hostname1 dbus path
@@ -120,7 +120,7 @@ func (obj *HostnameRes) Watch() error {
 		dbusPropertiesIface,
 	)
 	if call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0, args); call.Err != nil {
-		return errwrap.Wrap(call.Err, "Failed to subscribe to DBus events for hostname1")
+		return errwrap.Wrapf(call.Err, "failed to subscribe to DBus events for hostname1")
 	}
 	defer bus.BusObject().Call(engineUtil.DBusRemoveMatch, 0, args) // ignore the error
 
@@ -153,12 +153,12 @@ func (obj *HostnameRes) updateHostnameProperty(object dbus.BusObject, expectedVa
 		return false, errwrap.Wrapf(err, "failed to get org.freedesktop.hostname1.%s", property)
 	}
 	if propertyObject.Value() == nil {
-		return false, errwrap.Errorf("Unexpected nil value received when reading property %s", property)
+		return false, fmt.Errorf("unexpected nil value received when reading property %s", property)
 	}
 
 	propertyValue, ok := propertyObject.Value().(string)
 	if !ok {
-		return false, fmt.Errorf("Received unexpected type as %s value, expected string got '%T'", property, propertyValue)
+		return false, fmt.Errorf("received unexpected type as %s value, expected string got '%T'", property, propertyValue)
 	}
 
 	// expected value and actual value match => checkOk
@@ -185,7 +185,7 @@ func (obj *HostnameRes) updateHostnameProperty(object dbus.BusObject, expectedVa
 func (obj *HostnameRes) CheckApply(apply bool) (checkOK bool, err error) {
 	conn, err := util.SystemBusPrivateUsable()
 	if err != nil {
-		return false, errwrap.Wrap(err, "Failed to connect to the private system bus")
+		return false, errwrap.Wrapf(err, "failed to connect to the private system bus")
 	}
 	defer conn.Close()
 

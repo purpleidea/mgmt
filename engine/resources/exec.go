@@ -136,7 +136,7 @@ func (obj *ExecRes) Validate() error {
 			return errwrap.Wrapf(err, "error looking up current user")
 		}
 		if currentUser.Uid != "0" {
-			return errwrap.Errorf("running as root is required if you want to use exec with a different user/group")
+			return fmt.Errorf("running as root is required if you want to use exec with a different user/group")
 		}
 	}
 

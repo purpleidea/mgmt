@@ -42,7 +42,6 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcdtypes "github.com/coreos/etcd/pkg/types"
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // Flags are some constant flags which are used throughout the program.
@@ -575,7 +574,7 @@ func (obj *Main) Run() error {
 					res, ok := v.(engine.Res)
 					if !ok {
 						e := fmt.Errorf("vertex `%s` is not a Res", v)
-						err = multierr.Append(err, e)
+						err = errwrap.Append(err, e)
 						continue // we'll catch the error later!
 					}
 
@@ -847,9 +846,8 @@ func (obj *Main) Close() error {
 	// run cleanup functions in reverse (defer) order
 	for i := len(obj.cleanup) - 1; i >= 0; i-- {
 		fn := obj.cleanup[i]
-		if e := fn(); e != nil {
-			err = multierr.Append(err, e) // list of errors
-		}
+		e := fn()
+		err = errwrap.Append(err, e) // list of errors
 	}
 
 	return err

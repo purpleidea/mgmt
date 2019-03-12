@@ -23,8 +23,6 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // AutoEdge adds the automatic edges to the graph.
@@ -49,7 +47,7 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 	for _, res := range sorted { // for each vertexes autoedges
 		autoEdgeObj, e := res.AutoEdges()
 		if e != nil {
-			err = multierr.Append(err, e) // collect all errors
+			err = errwrap.Append(err, e) // collect all errors
 			continue
 		}
 		if autoEdgeObj == nil {

@@ -58,7 +58,8 @@ function consistent-imports() {
 	if grep $'\t"github.com/pkg/errors"' "$1"; then
 		return 1
 	fi
-	if grep $'\t"github.com/hashicorp/go-multierror"' "$1"; then	# import as multierr
+	# import as github.com/purpleidea/mgmt/util/errwrap
+	if grep $'\t"github.com/hashicorp/go-multierror"' "$1"; then
 		return 1
 	fi
 	if grep $'\t"github.com/purpleidea/mgmt/engine/util"' "$1"; then	# import as engineUtil

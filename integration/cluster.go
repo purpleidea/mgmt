@@ -26,8 +26,6 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // Cluster represents an mgmt cluster. It uses the instance building blocks to
@@ -83,9 +81,7 @@ func (obj *Cluster) Init() error {
 
 			dir: instancePrefix,
 		}
-		if e := obj.instances[h].Init(); e != nil {
-			err = multierr.Append(err, e)
-		}
+		err = errwrap.Append(err, obj.instances[h].Init())
 	}
 
 	return err
@@ -101,9 +97,7 @@ func (obj *Cluster) Close() error {
 		if !exists {
 			continue
 		}
-		if e := instance.Close(); e != nil {
-			err = multierr.Append(err, e)
-		}
+		err = errwrap.Append(err, instance.Close())
 	}
 	if !obj.Preserve {
 		if obj.dir == "" || obj.dir == "/" {
@@ -157,9 +151,7 @@ func (obj *Cluster) Kill() error {
 		if !exists {
 			continue
 		}
-		if e := instance.Kill(); e != nil {
-			err = multierr.Append(err, e)
-		}
+		err = errwrap.Append(err, instance.Kill())
 	}
 	return err
 }
@@ -178,9 +170,7 @@ func (obj *Cluster) Quit(ctx context.Context) error {
 		if !exists {
 			continue
 		}
-		if e := instance.Quit(ctx); e != nil {
-			err = multierr.Append(err, e)
-		}
+		err = errwrap.Append(err, instance.Quit(ctx))
 	}
 	return err
 }
@@ -198,9 +188,7 @@ func (obj *Cluster) Wait(ctx context.Context) error {
 		// TODO: do we want individual waits?
 		//ctx, cancel := context.WithTimeout(context.Background(), longTimeout*time.Second)
 		//defer cancel()
-		if e := instance.Wait(ctx); e != nil {
-			err = multierr.Append(err, e)
-		}
+		err = errwrap.Append(err, instance.Wait(ctx))
 	}
 	return err
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/godbus/dbus"
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // global tweaks of verbosity and code path
@@ -198,9 +197,8 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	removeSignals := func() error {
 		var errList error
 		for i := len(argsList) - 1; i >= 0; i-- { // last in first out
-			if call := bus.Call(engineUtil.DBusRemoveMatch, 0, argsList[i]); call.Err != nil {
-				errList = multierr.Append(errList, call.Err)
-			}
+			call := bus.Call(engineUtil.DBusRemoveMatch, 0, argsList[i])
+			errList = errwrap.Append(errList, call.Err)
 		}
 		return errList
 	}

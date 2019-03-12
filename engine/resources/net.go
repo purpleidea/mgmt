@@ -37,7 +37,6 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/socketset"
 
-	multierr "github.com/hashicorp/go-multierror"
 	// XXX: Do NOT use subscribe methods from this lib, as they are racey and
 	// do not clean up spawned goroutines. Should be replaced when a suitable
 	// alternative is available.
@@ -179,9 +178,7 @@ func (obj *NetRes) Close() error {
 		return fmt.Errorf("socket file should not be the root path")
 	}
 	if obj.socketFile != "" { // safety
-		if err := os.Remove(obj.socketFile); err != nil {
-			errList = multierr.Append(errList, err)
-		}
+		errList = errwrap.Append(errList, os.Remove(obj.socketFile))
 	}
 
 	return errList

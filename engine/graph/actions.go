@@ -27,7 +27,6 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	multierr "github.com/hashicorp/go-multierror"
 	"golang.org/x/time/rate"
 )
 
@@ -377,8 +376,8 @@ Loop:
 			// we then save so we can return it to the caller of us.
 			if err != nil {
 				failed = true
-				close(obj.state[vertex].watchDone)    // causes doneChan to close
-				reterr = multierr.Append(reterr, err) // permanent failure
+				close(obj.state[vertex].watchDone)   // causes doneChan to close
+				reterr = errwrap.Append(reterr, err) // permanent failure
 				continue
 			}
 			if obj.Debug {
@@ -458,8 +457,8 @@ Loop:
 					}
 					if e != nil {
 						failed = true
-						close(obj.state[vertex].limitDone)  // causes doneChan to close
-						reterr = multierr.Append(reterr, e) // permanent failure
+						close(obj.state[vertex].limitDone) // causes doneChan to close
+						reterr = errwrap.Append(reterr, e) // permanent failure
 						break LimitWait
 					}
 					if obj.Debug {
@@ -498,8 +497,8 @@ Loop:
 						}
 						if e != nil {
 							failed = true
-							close(obj.state[vertex].limitDone)  // causes doneChan to close
-							reterr = multierr.Append(reterr, e) // permanent failure
+							close(obj.state[vertex].limitDone) // causes doneChan to close
+							reterr = errwrap.Append(reterr, e) // permanent failure
 							break RetryWait
 						}
 						if obj.Debug {
@@ -546,8 +545,8 @@ Loop:
 			// this dies. If Process fails permanently, we ask it
 			// to exit right here... (It happens when we loop...)
 			failed = true
-			close(obj.state[vertex].processDone)  // causes doneChan to close
-			reterr = multierr.Append(reterr, err) // permanent failure
+			close(obj.state[vertex].processDone) // causes doneChan to close
+			reterr = errwrap.Append(reterr, err) // permanent failure
 			continue
 
 		} // retry loop

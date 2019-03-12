@@ -25,8 +25,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/util"
-
-	multierr "github.com/hashicorp/go-multierror"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // New builds a new converger coordinator.
@@ -323,9 +322,8 @@ func (obj *Coordinator) runStateFns(converged bool) error {
 	for _, name := range keys { // run in deterministic order
 		fn := obj.stateFns[name]
 		// call an arbitrary function
-		if e := fn(converged); e != nil {
-			err = multierr.Append(err, e) // list of errors
-		}
+		e := fn(converged)
+		err = errwrap.Append(err, e) // list of errors
 	}
 	return err
 }

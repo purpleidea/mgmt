@@ -23,9 +23,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/semaphore"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // SemaSep is the trailing separator to split the semaphore id from the size.
@@ -46,9 +45,8 @@ func (obj *Engine) semaLock(semas []string) error {
 		}
 		obj.slock.Unlock()
 
-		if err := sema.P(1); err != nil { // lock!
-			reterr = multierr.Append(reterr, err) // list of errors
-		}
+		err := sema.P(1)                     // lock!
+		reterr = errwrap.Append(reterr, err) // list of errors
 	}
 	return reterr
 }
@@ -65,9 +63,8 @@ func (obj *Engine) semaUnlock(semas []string) error {
 			panic(fmt.Sprintf("graph: sema: %s does not exist", id))
 		}
 
-		if err := sema.V(1); err != nil { // unlock!
-			reterr = multierr.Append(reterr, err) // list of errors
-		}
+		err := sema.V(1)                     // unlock!
+		reterr = errwrap.Append(reterr, err) // list of errors
 	}
 	return reterr
 }

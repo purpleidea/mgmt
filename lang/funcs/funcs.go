@@ -27,8 +27,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -276,18 +274,12 @@ Loop:
 				break Loop
 			}
 			e := errwrap.Wrapf(err, "problem streaming func")
-			if reterr != nil {
-				reterr = multierr.Append(reterr, e)
-			} else {
-				reterr = e
-			}
+			reterr = errwrap.Append(reterr, e)
 		}
 	}
 
 	if err := handle.Close(); err != nil {
-		if reterr != nil {
-			err = multierr.Append(err, reterr)
-		}
+		err = errwrap.Append(err, reterr)
 		return nil, errwrap.Wrapf(err, "problem closing func")
 	}
 

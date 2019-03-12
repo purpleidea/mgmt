@@ -24,8 +24,6 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // SendRecv pulls in the sent values into the receive slots. It is called by the
@@ -50,25 +48,25 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 
 		if st == nil {
 			e := fmt.Errorf("received nil value from: %s", v.Res)
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
 		if e := engineUtil.StructFieldCompat(st, v.Key, res, k); e != nil {
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
 		// send
 		m1, e := engineUtil.StructTagToFieldName(st)
 		if e != nil {
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 		key1, exists := m1[v.Key]
 		if !exists {
 			e := fmt.Errorf("requested key of `%s` not found in send struct", v.Key)
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
@@ -80,13 +78,13 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		// recv
 		m2, e := engineUtil.StructTagToFieldName(res)
 		if e != nil {
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 		key2, exists := m2[k]
 		if !exists {
 			e := fmt.Errorf("requested key of `%s` not found in recv struct", k)
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
@@ -103,7 +101,7 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		// i think we probably want the same kind, at least for now...
 		if kind1 != kind2 {
 			e := fmt.Errorf("kind mismatch between %s: %s and %s: %s", v.Res, kind1, res, kind2)
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
@@ -111,21 +109,21 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		// FIXME: do we want to relax this for string -> *string ?
 		if e := TypeCmp(value1, value2); e != nil {
 			e := errwrap.Wrapf(e, "type mismatch between %s and %s", v.Res, res)
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
 		// if we can't set, then well this is pointless!
 		if !value2.CanSet() {
 			e := fmt.Errorf("can't set %s.%s", res, k)
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
 		// if we can't interface, we can't compare...
 		if !value1.CanInterface() || !value2.CanInterface() {
 			e := fmt.Errorf("can't interface %s.%s", res, k)
-			err = multierr.Append(err, e) // list of errors
+			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 

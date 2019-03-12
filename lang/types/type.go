@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"strings"
 
-	multierr "github.com/hashicorp/go-multierror"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // Basic types defined here as a convenience for use with Type.Cmp(X).
@@ -597,7 +597,7 @@ func (obj *Type) Cmp(typ *Type) error {
 		kerr := obj.Key.Cmp(typ.Key)
 		verr := obj.Val.Cmp(typ.Val)
 		if kerr != nil && verr != nil {
-			return multierr.Append(kerr, verr) // two errors
+			return errwrap.Append(kerr, verr) // two errors
 		}
 		if kerr != nil {
 			return kerr
@@ -964,7 +964,7 @@ func (obj *Type) ComplexCmp(typ *Type) (string, error) {
 		kstatus, kerr := obj.Key.ComplexCmp(typ.Key)
 		vstatus, verr := obj.Val.ComplexCmp(typ.Val)
 		if kerr != nil && verr != nil {
-			return "", multierr.Append(kerr, verr) // two errors
+			return "", errwrap.Append(kerr, verr) // two errors
 		}
 		if kerr != nil {
 			return "", kerr

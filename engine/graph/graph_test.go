@@ -23,13 +23,13 @@ import (
 	"fmt"
 	"testing"
 
-	multierr "github.com/hashicorp/go-multierror"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 func TestMultiErr(t *testing.T) {
 	var err error
 	e := fmt.Errorf("some error")
-	err = multierr.Append(err, e) // build an error from a nil base
+	err = errwrap.Append(err, e) // build an error from a nil base
 	// ensure that this lib allows us to append to a nil
 	if err == nil {
 		t.Errorf("missing error")

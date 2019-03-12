@@ -31,7 +31,6 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	multierr "github.com/hashicorp/go-multierror"
 	"github.com/spf13/afero"
 )
 
@@ -142,9 +141,8 @@ func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
 	graph, err := lang.Interpret()
 	if err != nil {
 		err := errwrap.Wrapf(err, "interpret failed")
-		if e := closeFn(); e != nil {
-			err = multierr.Append(err, e) // list of errors
-		}
+		e := closeFn()
+		err = errwrap.Append(err, e) // list of errors
 		return nil, err
 	}
 

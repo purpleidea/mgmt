@@ -31,7 +31,6 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	multierr "github.com/hashicorp/go-multierror"
 	"github.com/spf13/afero"
 	"github.com/urfave/cli"
 )
@@ -502,7 +501,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 					// because we should tell the lang obj
 					// to shut down all the running facts.
 					if e := obj.LangClose(); e != nil {
-						err = multierr.Append(err, e) // list of errors
+						err = errwrap.Append(err, e) // list of errors
 					}
 				} else {
 

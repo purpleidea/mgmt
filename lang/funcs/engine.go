@@ -27,8 +27,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // State represents the state of a function vertex. This corresponds to an AST
@@ -167,9 +165,8 @@ func (obj *Engine) Init() error {
 
 		obj.state[vertex] = &State{Expr: expr} // store some state!
 
-		if e := obj.state[vertex].Init(); e != nil {
-			err = multierr.Append(err, e) // list of errors
-		}
+		e := obj.state[vertex].Init()
+		err = errwrap.Append(err, e) // list of errors
 	}
 	if err != nil { // usually due to `not found` errors
 		return errwrap.Wrapf(err, "could not load requested funcs")
@@ -201,14 +198,14 @@ func (obj *Engine) Validate() error {
 		// duplicate pointers would get closed twice, causing a panic...
 		if inList(node.handle, ptrs) { // check for duplicate ptrs!
 			e := fmt.Errorf("vertex `%s` has duplicate ptr", vertex)
-			err = multierr.Append(err, e)
+			err = errwrap.Append(err, e)
 		}
 		ptrs = append(ptrs, node.handle)
 	}
 	for _, edge := range obj.Graph.Edges() {
 		if _, ok := edge.(*Edge); !ok {
 			e := fmt.Errorf("edge `%s` was not the correct type", edge)
-			err = multierr.Append(err, e)
+			err = errwrap.Append(err, e)
 		}
 	}
 	if err != nil {
@@ -220,7 +217,7 @@ func (obj *Engine) Validate() error {
 		node := obj.state[vertex]
 		if exp := len(node.handle.Info().Sig.Ord); exp != count {
 			e := fmt.Errorf("expected %d inputs to `%s`, got %d", exp, node, count)
-			err = multierr.Append(err, e)
+			err = errwrap.Append(err, e)
 		}
 	}
 
@@ -254,30 +251,30 @@ func (obj *Engine) Validate() error {
 				sig := node2.handle.Info().Sig
 				if len(sig.Ord) == 0 {
 					e := fmt.Errorf("no input expected from `%s` to `%s` with arg `%s`", node1, node2, arg)
-					err = multierr.Append(err, e)
+					err = errwrap.Append(err, e)
 					continue
 				}
 
 				if count, exists := expected[node2][arg]; !exists {
 					e := fmt.Errorf("wrong input name from `%s` to `%s` with arg `%s`", node1, node2, arg)
-					err = multierr.Append(err, e)
+					err = errwrap.Append(err, e)
 				} else if count == 0 {
 					e := fmt.Errorf("duplicate input from `%s` to `%s` with arg `%s`", node1, node2, arg)
-					err = multierr.Append(err, e)
+					err = errwrap.Append(err, e)
 				}
 				expected[node2][arg]-- // subtract one use
 
 				out := node1.handle.Info().Sig.Out
 				if out == nil {
 					e := fmt.Errorf("no output possible from `%s` to `%s` with arg `%s`", node1, node2, arg)
-					err = multierr.Append(err, e)
+					err = errwrap.Append(err, e)
 					continue
 				}
 				typ, exists := sig.Map[arg] // key in struct
 				if !exists {
 					// second check of this!
 					e := fmt.Errorf("wrong input name from `%s` to `%s` with arg `%s`", node1, node2, arg)
-					err = multierr.Append(err, errwrap.Wrapf(e, "programming error"))
+					err = errwrap.Append(err, errwrap.Wrapf(e, "programming error"))
 					continue
 				}
 
@@ -287,7 +284,7 @@ func (obj *Engine) Validate() error {
 					// pass (output arg variants)
 				} else if typ.Cmp(out) != nil {
 					e := fmt.Errorf("type mismatch from `%s` (%s) to `%s` (%s) with arg `%s`", node1, out, node2, typ, arg)
-					err = multierr.Append(err, e)
+					err = errwrap.Append(err, e)
 				}
 			}
 		}
@@ -299,7 +296,7 @@ func (obj *Engine) Validate() error {
 		for arg, count := range m {
 			if count != 0 { // count should be zero if all were used
 				e := fmt.Errorf("missing input to `%s` on arg `%s`", node, arg)
-				err = multierr.Append(err, e)
+				err = errwrap.Append(err, e)
 			}
 		}
 	}
@@ -640,7 +637,7 @@ func (obj *Engine) Close() error {
 		if node.init { // did we Init this func?
 			if e := node.handle.Close(); e != nil {
 				e := errwrap.Wrapf(e, "problem closing func `%s`", node)
-				err = multierr.Append(err, e) // list of errors
+				err = errwrap.Append(err, e) // list of errors
 			}
 		}
 	}

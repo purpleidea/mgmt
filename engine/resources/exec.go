@@ -33,8 +33,6 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 func init() {
@@ -722,13 +720,7 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 
 		// on EOF, scanner.Err() will be nil
 		reterr := scanner.Err()
-		if err := cmd.Wait(); err != nil { // always run Wait()
-			if reterr != nil {
-				reterr = multierr.Append(reterr, err)
-			} else {
-				reterr = err
-			}
-		}
+		reterr = errwrap.Append(reterr, cmd.Wait()) // always run Wait()
 		// send any misc errors we encounter on the channel
 		if reterr != nil {
 			select {

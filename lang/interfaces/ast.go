@@ -24,8 +24,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
-
-	multierr "github.com/hashicorp/go-multierror"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // Node represents either a Stmt or an Expr. It contains the minimum set of
@@ -223,21 +222,21 @@ func (obj *Scope) Merge(scope *Scope) error {
 	for _, name := range namedVariables {
 		if _, exists := obj.Variables[name]; exists {
 			e := fmt.Errorf("variable `%s` was overwritten", name)
-			err = multierr.Append(err, e)
+			err = errwrap.Append(err, e)
 		}
 		obj.Variables[name] = scope.Variables[name]
 	}
 	for _, name := range namedFunctions {
 		if _, exists := obj.Functions[name]; exists {
 			e := fmt.Errorf("function `%s` was overwritten", name)
-			err = multierr.Append(err, e)
+			err = errwrap.Append(err, e)
 		}
 		obj.Functions[name] = scope.Functions[name]
 	}
 	for _, name := range namedClasses {
 		if _, exists := obj.Classes[name]; exists {
 			e := fmt.Errorf("class `%s` was overwritten", name)
-			err = multierr.Append(err, e)
+			err = errwrap.Append(err, e)
 		}
 		obj.Classes[name] = scope.Classes[name]
 	}

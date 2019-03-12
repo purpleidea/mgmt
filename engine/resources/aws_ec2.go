@@ -43,7 +43,6 @@ import (
 	cwe "github.com/aws/aws-sdk-go/service/cloudwatchevents"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/sns"
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 func init() {
@@ -393,17 +392,14 @@ func (obj *AwsEc2Res) Close() error {
 	// clean up sns objects created by Init/snsWatch
 	if obj.snsClient != nil {
 		// delete the topic and associated subscriptions
-		if err := obj.snsDeleteTopic(obj.snsTopicArn); err != nil {
-			errList = multierr.Append(errList, err)
-		}
+		e1 := obj.snsDeleteTopic(obj.snsTopicArn)
+		errList = errwrap.Append(errList, e1)
 		// remove the target
-		if err := obj.cweRemoveTarget(CweTargetID, CweRuleName); err != nil {
-			errList = multierr.Append(errList, err)
-		}
+		e2 := obj.cweRemoveTarget(CweTargetID, CweRuleName)
+		errList = errwrap.Append(errList, e2)
 		// delete the cloudwatch rule
-		if err := obj.cweDeleteRule(CweRuleName); err != nil {
-			errList = multierr.Append(errList, err)
-		}
+		e3 := obj.cweDeleteRule(CweRuleName)
+		errList = errwrap.Append(errList, e3)
 	}
 
 	return errList

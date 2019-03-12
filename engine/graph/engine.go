@@ -28,8 +28,6 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/semaphore"
-
-	multierr "github.com/hashicorp/go-multierror"
 )
 
 // Engine encapsulates a generic graph and manages its operations.
@@ -380,20 +378,16 @@ func (obj *Engine) Pause(fastPause bool) error {
 
 // Close triggers a shutdown. Engine must be already paused before this is run.
 func (obj *Engine) Close() error {
-	var reterr error
-
-	emptyGraph, err := pgraph.NewGraph("empty")
-	if err != nil {
-		reterr = multierr.Append(reterr, err) // list of errors
-	}
+	emptyGraph, reterr := pgraph.NewGraph("empty")
 
 	// this is a graph switch (graph sync) that switches to an empty graph!
 	if err := obj.Load(emptyGraph); err != nil { // copy in empty graph
-		reterr = multierr.Append(reterr, err)
+		reterr = errwrap.Append(reterr, err)
 	}
+	// FIXME: Do we want to run commit if Load failed? Does this even work?
 	// the commit will cause the graph sync to shut things down cleverly...
 	if err := obj.Commit(); err != nil {
-		reterr = multierr.Append(reterr, err)
+		reterr = errwrap.Append(reterr, err)
 	}
 
 	obj.wg.Wait() // for now, this doesn't need to be a separate Wait() method

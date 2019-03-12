@@ -29,7 +29,6 @@ import (
 	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	multierr "github.com/hashicorp/go-multierror"
 	"github.com/urfave/cli"
 )
 
@@ -329,12 +328,11 @@ func (obj *GAPI) Close() error {
 	}
 
 	var err error
-	if e := obj.langGAPI.Close(); e != nil {
-		err = multierr.Append(err, errwrap.Wrapf(e, "closing lang GAPI failed"))
-	}
-	if e := obj.puppetGAPI.Close(); e != nil {
-		err = multierr.Append(err, errwrap.Wrapf(e, "closing Puppet GAPI failed"))
-	}
+	e1 := obj.langGAPI.Close()
+	err = errwrap.Append(err, errwrap.Wrapf(e1, "closing lang GAPI failed"))
+
+	e2 := obj.puppetGAPI.Close()
+	err = errwrap.Append(err, errwrap.Wrapf(e2, "closing Puppet GAPI failed"))
 
 	close(obj.closeChan)
 	obj.initialized = false // closed = true

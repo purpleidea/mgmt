@@ -20,7 +20,7 @@ package pgraph
 import (
 	"fmt"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 func strVertexCmpFn(v1, v2 Vertex) (bool, error) {

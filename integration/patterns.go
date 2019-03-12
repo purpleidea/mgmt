@@ -21,7 +21,7 @@ import (
 	"context"
 	"time"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // SimpleDeployLang is a helper method that takes a struct and runs a sequence

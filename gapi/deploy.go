@@ -22,7 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 func init() {

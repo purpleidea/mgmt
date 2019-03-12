@@ -30,10 +30,10 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/libvirt/libvirt-go"
 	libvirtxml "github.com/libvirt/libvirt-go-xml"
-	errwrap "github.com/pkg/errors"
 )
 
 func init() {

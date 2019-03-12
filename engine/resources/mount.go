@@ -33,13 +33,13 @@ import (
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	sdbus "github.com/coreos/go-systemd/dbus"
 	"github.com/coreos/go-systemd/unit"
 	systemdUtil "github.com/coreos/go-systemd/util"
 	fstab "github.com/deniswernert/go-fstab"
 	"github.com/godbus/dbus"
-	errwrap "github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 )
 

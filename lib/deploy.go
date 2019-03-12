@@ -25,9 +25,9 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/google/uuid"
-	errwrap "github.com/pkg/errors"
 	"github.com/urfave/cli"
 	git "gopkg.in/src-d/go-git.v4"
 )

@@ -29,8 +29,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/util/errwrap"
+
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
-	errwrap "github.com/pkg/errors"
 )
 
 func init() {

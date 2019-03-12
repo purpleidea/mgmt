@@ -39,10 +39,10 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcdtypes "github.com/coreos/etcd/pkg/types"
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 )
 
 // Flags are some constant flags which are used throughout the program.

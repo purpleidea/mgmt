@@ -27,8 +27,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lang/interfaces"
-
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // Module logic: We want one single file to start from. That single file will

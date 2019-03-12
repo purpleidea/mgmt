@@ -30,9 +30,9 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/godbus/dbus"
-	errwrap "github.com/pkg/errors"
 )
 
 const (

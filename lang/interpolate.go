@@ -21,10 +21,10 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/hashicorp/hil"
 	hilast "github.com/hashicorp/hil/ast"
-	errwrap "github.com/pkg/errors"
 )
 
 // Pos represents a position in the code.

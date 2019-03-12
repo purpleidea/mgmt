@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // Value represents an interface to get values out of each type. It is similar

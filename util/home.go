@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // ExpandHome does an expansion of ~/ or ~james/ into user's home dir value.

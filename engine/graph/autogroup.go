@@ -24,8 +24,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/graph/autogroup"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
-
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // AutoGroup runs the auto grouping on the loaded graph.

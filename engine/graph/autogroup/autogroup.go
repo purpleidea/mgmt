@@ -22,8 +22,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
-
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // AutoGroup is the mechanical auto group "runner" that runs the interface spec.

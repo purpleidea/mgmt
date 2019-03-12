@@ -23,7 +23,7 @@ import (
 	"sort"
 	"strings"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // Graph is the graph structure in this library.

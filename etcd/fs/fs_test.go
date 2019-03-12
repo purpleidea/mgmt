@@ -30,8 +30,8 @@ import (
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/integration"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
-	errwrap "github.com/pkg/errors"
 	"github.com/spf13/afero"
 )
 

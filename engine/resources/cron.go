@@ -31,12 +31,12 @@ import (
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	sdbus "github.com/coreos/go-systemd/dbus"
 	"github.com/coreos/go-systemd/unit"
 	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus"
-	errwrap "github.com/pkg/errors"
 )
 
 const (

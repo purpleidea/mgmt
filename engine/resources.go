@@ -21,7 +21,8 @@ import (
 	"encoding/gob"
 	"fmt"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
+
 	"gopkg.in/yaml.v2"
 )
 

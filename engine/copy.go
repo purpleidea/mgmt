@@ -20,7 +20,7 @@ package engine
 import (
 	"fmt"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // ResCopy copies a resource. This is the main entry point for copying a

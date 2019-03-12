@@ -21,8 +21,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/util/errwrap"
+
 	etcd "github.com/coreos/etcd/clientv3"
-	errwrap "github.com/pkg/errors"
 )
 
 // ErrNotExist is returned when GetStr can not find the requested key.

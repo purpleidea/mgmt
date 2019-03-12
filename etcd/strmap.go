@@ -22,9 +22,9 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	errwrap "github.com/pkg/errors"
 )
 
 // WatchStrMap returns a channel which spits out events on key activity.

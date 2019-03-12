@@ -25,8 +25,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/purpleidea/mgmt/util/errwrap"
+
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 )
 
 // Cluster represents an mgmt cluster. It uses the instance building blocks to

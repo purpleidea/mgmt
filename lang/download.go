@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
-	errwrap "github.com/pkg/errors"
 	git "gopkg.in/src-d/go-git.v4"
 )
 

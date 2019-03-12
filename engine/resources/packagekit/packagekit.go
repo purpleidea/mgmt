@@ -27,10 +27,10 @@ import (
 
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/godbus/dbus"
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 )
 
 // global tweaks of verbosity and code path

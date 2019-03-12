@@ -26,9 +26,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/purpleidea/mgmt/util/errwrap"
+
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
-	errwrap "github.com/pkg/errors"
 )
 
 const (

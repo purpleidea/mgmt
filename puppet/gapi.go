@@ -28,8 +28,8 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
-	errwrap "github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 

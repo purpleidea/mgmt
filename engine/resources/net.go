@@ -34,10 +34,10 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/socketset"
 
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 	// XXX: Do NOT use subscribe methods from this lib, as they are racey and
 	// do not clean up spawned goroutines. Should be replaced when a suitable
 	// alternative is available.

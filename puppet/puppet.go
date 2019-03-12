@@ -26,9 +26,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/yamlgraph"
-
-	errwrap "github.com/pkg/errors"
 )
 
 const (

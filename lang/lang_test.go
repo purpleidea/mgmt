@@ -29,9 +29,9 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 	"github.com/spf13/afero"
 )
 

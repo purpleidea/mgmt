@@ -22,8 +22,8 @@ import (
 	"strconv"
 
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
-	errwrap "github.com/pkg/errors"
 	"golang.org/x/time/rate"
 )
 

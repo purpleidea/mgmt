@@ -22,8 +22,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
 	"github.com/purpleidea/mgmt/lang/types"
-
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 func init() {

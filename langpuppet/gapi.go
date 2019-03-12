@@ -27,9 +27,9 @@ import (
 	"github.com/purpleidea/mgmt/lang"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/puppet"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
 

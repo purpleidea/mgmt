@@ -28,11 +28,11 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	systemd "github.com/coreos/go-systemd/dbus" // change namespace
 	systemdUtil "github.com/coreos/go-systemd/util"
 	"github.com/godbus/dbus" // namespace collides with systemd wrapper
-	errwrap "github.com/pkg/errors"
 )
 
 func init() {

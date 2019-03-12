@@ -25,9 +25,9 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/godbus/dbus"
-	errwrap "github.com/pkg/errors"
 )
 
 func init() {

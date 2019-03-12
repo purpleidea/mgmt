@@ -26,7 +26,7 @@ import (
 	"runtime"
 	"strconv"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (

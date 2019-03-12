@@ -23,9 +23,9 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 )
 
 // SendRecv pulls in the sent values into the receive slots. It is called by the

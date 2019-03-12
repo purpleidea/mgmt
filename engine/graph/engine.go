@@ -26,10 +26,10 @@ import (
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/semaphore"
 
 	multierr "github.com/hashicorp/go-multierror"
-	errwrap "github.com/pkg/errors"
 )
 
 // Engine encapsulates a generic graph and manages its operations.

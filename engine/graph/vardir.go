@@ -22,7 +22,7 @@ import (
 	"os"
 	"path"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // varDir returns the path to a working directory for the resource. It will try

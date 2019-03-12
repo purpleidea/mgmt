@@ -28,9 +28,9 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/socketset"
 
-	errwrap "github.com/pkg/errors"
 	"golang.org/x/sys/unix"
 )
 

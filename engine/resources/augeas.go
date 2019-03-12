@@ -27,8 +27,8 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/recwatch"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
-	errwrap "github.com/pkg/errors"
 	// FIXME: we vendor go/augeas because master requires augeas 1.6.0
 	// and libaugeas-dev-1.6.0 is not yet available in a PPA.
 	"honnef.co/go/augeas"

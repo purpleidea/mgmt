@@ -23,7 +23,8 @@ import (
 	"io/ioutil"
 	"strings"
 
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
+
 	"gopkg.in/yaml.v2"
 )
 

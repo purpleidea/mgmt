@@ -19,8 +19,7 @@ package autogroup
 
 import (
 	"github.com/purpleidea/mgmt/pgraph"
-
-	errwrap "github.com/pkg/errors"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // NonReachabilityGrouper is the most straight-forward algorithm for grouping.

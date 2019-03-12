@@ -34,9 +34,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/util/errwrap"
+
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
 	rpctypes "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
-	errwrap "github.com/pkg/errors"
 	"github.com/spf13/afero"
 	context "golang.org/x/net/context"
 )

@@ -75,7 +75,7 @@ for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/ex
 done
 
 # loop through individual *.go files
-for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path 'vendor/*'`; do
+for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*'`; do
 	#if [[ $file == "./vendor/"* ]]; then # skip files that start with...
 	#	continue
 	#fi

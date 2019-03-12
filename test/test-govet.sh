@@ -75,7 +75,10 @@ for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/ex
 done
 
 # loop through individual *.go files
-for file in `find . -maxdepth 3 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*'`; do
+for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path 'vendor/*'`; do
+	#if [[ $file == "./vendor/"* ]]; then # skip files that start with...
+	#	continue
+	#fi
 	run-test grep 'log.Print' "$file" | grep '\\n"' && fail_test 'no newline needed in log.Print*()'	# no \n needed in log.Printf or log.Println
 	run-test simplify-gocase "$file"
 	run-test token-coloncheck "$file"

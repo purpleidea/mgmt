@@ -39,7 +39,7 @@ function parser-conflicts() {
 }
 
 # loop through individual *.y files
-for file in `find . -maxdepth 3 -type f -name '*.y' -not -path './old/*' -not -path './tmp/*'`; do
+for file in `find . -maxdepth 9 -type f -name '*.y' -not -path './old/*' -not -path './tmp/*' -not -path 'vendor/*'`; do
 	run-test parser-indentation "$file"
 	run-test parser-conflicts "$file"
 done

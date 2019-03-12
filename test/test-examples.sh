@@ -22,7 +22,7 @@ ln -s "$linkto"	# symlink outside of dir
 cd `basename "$linkto"`
 
 # loop through individual *.go files in working dir
-for file in `find . -maxdepth 3 -type f -name '*.go'`; do
+for file in `find . -maxdepth 9 -type f -name '*.go'`; do
 	#echo "running test on: $file"
 	run-test go build -i -o "$buildout" "$file" || fail_test "could not build: $file"
 done

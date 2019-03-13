@@ -1,0 +1,3 @@
+sysctl "kernel.hostname" {
+  value => "sush.com",
+}

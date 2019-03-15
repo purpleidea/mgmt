@@ -18,6 +18,7 @@
 package util
 
 import (
+	"context"
 	"sync"
 )
 
@@ -66,11 +67,13 @@ func (obj *EasyOnce) Done() {
 
 // EasyExit is a struct that helps you build a close switch and signal which can
 // be called multiple times safely, and used as a signal many times in parallel.
+// It can also provide a context, if you prefer to use that as a signal instead.
 type EasyExit struct {
 	mutex *sync.Mutex
 	exit  chan struct{}
 	once  *sync.Once
 	err   error
+	wg    *sync.WaitGroup
 }
 
 // NewEasyExit builds an easy exit struct.
@@ -79,6 +82,7 @@ func NewEasyExit() *EasyExit {
 		mutex: &sync.Mutex{},
 		exit:  make(chan struct{}),
 		once:  &sync.Once{},
+		wg:    &sync.WaitGroup{},
 	}
 }
 
@@ -104,6 +108,22 @@ func (obj *EasyExit) Signal() <-chan struct{} {
 	return obj.exit
 }
 
+// Context returns a context that is canceled when the Done signal is triggered.
+// This can be used in addition to or instead of the Signal method.
+func (obj *EasyExit) Context() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	obj.wg.Add(1) // prevent leaks
+	go func() {
+		defer obj.wg.Done()
+		defer cancel()
+		select {
+		case <-obj.Signal():
+		}
+	}()
+
+	return ctx
+}
+
 // Error returns the error condition associated with the Done signal. It blocks
 // until Done is called at least once. It then returns any of the errors or nil.
 // It is only guaranteed to at least return the error from the first Done error.
@@ -111,5 +131,6 @@ func (obj *EasyExit) Error() error {
 	select {
 	case <-obj.exit:
 	}
+	obj.wg.Wait() // wait for cleanup
 	return obj.err
 }

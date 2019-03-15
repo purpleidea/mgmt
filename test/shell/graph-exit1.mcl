@@ -1,0 +1,8 @@
+exec ["exec1", "exec2", "exec3", "exec4", "exec0",] {
+	cmd => "sleep 15s",
+}
+
+# linear chain
+Exec["exec1"] -> Exec["exec2"]
+Exec["exec2"] -> Exec["exec3"]
+Exec["exec3"] -> Exec["exec4"]

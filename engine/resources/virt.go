@@ -29,6 +29,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -65,30 +66,53 @@ const (
 // VirtRes is a libvirt resource. A transient virt resource, which has its state
 // set to `shutoff` is one which does not exist. The parallel equivalent is a
 // file resource which removes a particular path.
+// TODO: some values inside here should be enum's!
 type VirtRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Refreshable
 
 	init *engine.Init
 
-	URI        string             `lang:"uri" yaml:"uri"`             // connection uri, eg: qemu:///session
-	State      string             `lang:"state" yaml:"state"`         // running, paused, shutoff
-	Transient  bool               `lang:"transient" yaml:"transient"` // defined (false) or undefined (true)
-	CPUs       uint               `lang:"cpus" yaml:"cpus"`
-	MaxCPUs    uint               `lang:"maxcpus" yaml:"maxcpus"`
-	Memory     uint64             `lang:"memory" yaml:"memory"` // in KBytes
-	OSInit     string             `lang:"osinit" yaml:"osinit"` // init used by lxc
-	Boot       []string           `lang:"boot" yaml:"boot"`     // boot order. values: fd, hd, cdrom, network
-	Disk       []DiskDevice       `lang:"disk" yaml:"disk"`
-	CDRom      []CDRomDevice      `lang:"cdrom" yaml:"cdrom"`
-	Network    []NetworkDevice    `lang:"network" yaml:"network"`
-	Filesystem []FilesystemDevice `lang:"filesystem" yaml:"filesystem"`
-	Auth       *VirtAuth          `lang:"auth" yaml:"auth"`
+	// URI is the libvirt connection URI, eg: `qemu:///session`.
+	URI string `lang:"uri" yaml:"uri"`
+	// State is the desired vm state. Possible values include: `running`,
+	// `paused` and `shutoff`.
+	State string `lang:"state" yaml:"state"`
+	// Transient is whether the vm is defined (false) or undefined (true).
+	Transient bool `lang:"transient" yaml:"transient"`
 
-	HotCPUs bool `lang:"hotcpus" yaml:"hotcpus"` // allow hotplug of cpus?
-	// FIXME: values here should be enum's!
-	RestartOnDiverge string `lang:"restartondiverge" yaml:"restartondiverge"` // restart policy: "ignore", "ifneeded", "error"
-	RestartOnRefresh bool   `lang:"restartonrefresh" yaml:"restartonrefresh"` // restart on refresh?
+	// CPUs is the desired cpu count of the machine.
+	CPUs uint `lang:"cpus" yaml:"cpus"`
+	// MaxCPUs is the maximum number of cpus allowed in the machine. You
+	// need to set this so that on boot the `hardware` knows how many cpu
+	// `slots` it might need to make room for.
+	MaxCPUs uint `lang:"maxcpus" yaml:"maxcpus"`
+	// HotCPUs specifies whether we can hot plug and unplug cpus.
+	HotCPUs bool `lang:"hotcpus" yaml:"hotcpus"`
+	// Memory is the size in KBytes of memory to include in the machine.
+	Memory uint64 `lang:"memory" yaml:"memory"`
+
+	// OSInit is the init used by lxc.
+	OSInit string `lang:"osinit" yaml:"osinit"`
+	// Boot is the boot order. Values are `fd`, `hd`, `cdrom` and `network`.
+	Boot []string `lang:"boot" yaml:"boot"`
+	// Disk is the list of disk devices to include.
+	Disk []*DiskDevice `lang:"disk" yaml:"disk"`
+	// CdRom is the list of cdrom devices to include.
+	CDRom []*CDRomDevice `lang:"cdrom" yaml:"cdrom"`
+	// Network is the list of network devices to include.
+	Network []*NetworkDevice `lang:"network" yaml:"network"`
+	// Filesystem is the list of file system devices to include.
+	Filesystem []*FilesystemDevice `lang:"filesystem" yaml:"filesystem"`
+
+	// Auth points to the libvirt credentials to use if any are necessary.
+	Auth *VirtAuth `lang:"auth" yaml:"auth"`
+
+	// RestartOnDiverge is the restart policy, and can be: `ignore`,
+	// `ifneeded` or `error`.
+	RestartOnDiverge string `lang:"restartondiverge" yaml:"restartondiverge"`
+	// RestartOnRefresh specifies if we restart on refresh signal.
+	RestartOnRefresh bool `lang:"restartonrefresh" yaml:"restartonrefresh"`
 
 	wg                  *sync.WaitGroup
 	conn                *libvirt.Connect
@@ -105,6 +129,24 @@ type VirtRes struct {
 type VirtAuth struct {
 	Username string `lang:"username" yaml:"username"`
 	Password string `lang:"password" yaml:"password"`
+}
+
+// Cmp compares two VirtAuth structs. It errors if they are not identical.
+func (obj *VirtAuth) Cmp(auth *VirtAuth) error {
+	if (obj == nil) != (auth == nil) { // xor
+		return fmt.Errorf("the VirtAuth differs")
+	}
+	if obj == nil && auth == nil {
+		return nil
+	}
+
+	if obj.Username != auth.Username {
+		return fmt.Errorf("the Username differs")
+	}
+	if obj.Password != auth.Password {
+		return fmt.Errorf("the Password differs")
+	}
+	return nil
 }
 
 // Default returns some sensible defaults for this resource.
@@ -138,7 +180,7 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(obj.URI); err != nil {
-		return errwrap.Wrapf(err, "%s: Parsing URI failed: %s", obj, obj.URI)
+		return errwrap.Wrapf(err, "parsing URI (`%s`) failed", obj.URI)
 	}
 	switch u.Scheme {
 	case "lxc":
@@ -149,7 +191,7 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 
 	obj.conn, err = obj.connect() // gets closed in Close method of Res API
 	if err != nil {
-		return errwrap.Wrapf(err, "%s: Connection to libvirt failed in init", obj)
+		return errwrap.Wrapf(err, "connection to libvirt failed in init")
 	}
 
 	// check for hard to change properties
@@ -157,14 +199,14 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 	if err == nil {
 		defer dom.Free()
 	} else if !isNotFound(err) {
-		return errwrap.Wrapf(err, "%s: Could not lookup on init", obj)
+		return errwrap.Wrapf(err, "could not lookup on init")
 	}
 
 	if err == nil {
 		// maxCPUs, err := dom.GetMaxVcpus()
 		i, err := dom.GetVcpusFlags(libvirt.DOMAIN_VCPU_MAXIMUM)
 		if err != nil {
-			return errwrap.Wrapf(err, "%s: Could not lookup MaxCPUs on init", obj)
+			return errwrap.Wrapf(err, "could not lookup MaxCPUs on init")
 		}
 		maxCPUs := uint(i)
 		if obj.MaxCPUs != maxCPUs { // max cpu slots is hard to change
@@ -177,11 +219,11 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 		// event handlers so that we don't miss any events via race?
 		xmlDesc, err := dom.GetXMLDesc(0) // 0 means no flags
 		if err != nil {
-			return errwrap.Wrapf(err, "%s: Could not GetXMLDesc on init", obj)
+			return errwrap.Wrapf(err, "could not GetXMLDesc on init")
 		}
 		domXML := &libvirtxml.Domain{}
 		if err := domXML.Unmarshal(xmlDesc); err != nil {
-			return errwrap.Wrapf(err, "%s: Could not unmarshal XML on init", obj)
+			return errwrap.Wrapf(err, "could not unmarshal XML on init")
 		}
 
 		// guest agent: domain->devices->channel->target->state == connected?
@@ -382,22 +424,22 @@ func (obj *VirtRes) Watch() error {
 			if state == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
 				obj.guestAgentConnected = true
 				send = true
-				obj.init.Logf("Guest agent connected")
+				obj.init.Logf("guest agent connected")
 
 			} else if state == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
 				obj.guestAgentConnected = false
 				// ignore CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_DOMAIN_STARTED
 				// events because they just tell you that guest agent channel was added
 				if reason == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL {
-					obj.init.Logf("Guest agent disconnected")
+					obj.init.Logf("guest agent disconnected")
 				}
 
 			} else {
-				return fmt.Errorf("unknown %s guest agent state: %v", obj, state)
+				return fmt.Errorf("unknown guest agent state: %v", state)
 			}
 
 		case err := <-errorChan:
-			return fmt.Errorf("unknown %s libvirt error: %s", obj, err)
+			return errwrap.Wrapf(err, "unknown libvirt error")
 
 		case <-obj.init.Done: // closed by the engine to signal shutdown
 			return nil
@@ -434,7 +476,7 @@ func (obj *VirtRes) domainCreate() (*libvirt.Domain, bool, error) {
 		if err != nil {
 			return dom, false, err // returned dom is invalid
 		}
-		obj.init.Logf("Domain transient %s", state)
+		obj.init.Logf("transient domain %s", state) // log the state
 		return dom, false, nil
 	}
 
@@ -442,20 +484,20 @@ func (obj *VirtRes) domainCreate() (*libvirt.Domain, bool, error) {
 	if err != nil {
 		return dom, false, err // returned dom is invalid
 	}
-	obj.init.Logf("Domain defined")
+	obj.init.Logf("domain defined")
 
 	if obj.State == "running" {
 		if err := dom.Create(); err != nil {
 			return dom, false, err
 		}
-		obj.init.Logf("Domain started")
+		obj.init.Logf("domain started")
 	}
 
 	if obj.State == "paused" {
 		if err := dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED); err != nil {
 			return dom, false, err
 		}
-		obj.init.Logf("Domain created paused")
+		obj.init.Logf("domain created paused")
 	}
 
 	return dom, false, nil
@@ -483,7 +525,7 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 		}
 		if domInfo.State == libvirt.DOMAIN_BLOCKED {
 			// TODO: what should happen?
-			return false, fmt.Errorf("domain %s is blocked", obj.Name())
+			return false, fmt.Errorf("domain is blocked")
 		}
 		if !apply {
 			return false, nil
@@ -493,14 +535,14 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 				return false, errwrap.Wrapf(err, "domain.Resume failed")
 			}
 			checkOK = false
-			obj.init.Logf("Domain resumed")
+			obj.init.Logf("domain resumed")
 			break
 		}
 		if err := dom.Create(); err != nil {
 			return false, errwrap.Wrapf(err, "domain.Create failed")
 		}
 		checkOK = false
-		obj.init.Logf("Domain created")
+		obj.init.Logf("domain created")
 
 	case "paused":
 		if domInfo.State == libvirt.DOMAIN_PAUSED {
@@ -514,14 +556,14 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 				return false, errwrap.Wrapf(err, "domain.Suspend failed")
 			}
 			checkOK = false
-			obj.init.Logf("Domain paused")
+			obj.init.Logf("domain paused")
 			break
 		}
 		if err := dom.CreateWithFlags(libvirt.DOMAIN_START_PAUSED); err != nil {
 			return false, errwrap.Wrapf(err, "domain.CreateWithFlags failed")
 		}
 		checkOK = false
-		obj.init.Logf("Domain created paused")
+		obj.init.Logf("domain created paused")
 
 	case "shutoff":
 		if domInfo.State == libvirt.DOMAIN_SHUTOFF || domInfo.State == libvirt.DOMAIN_SHUTDOWN {
@@ -535,7 +577,7 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 			return false, errwrap.Wrapf(err, "domain.Destroy failed")
 		}
 		checkOK = false
-		obj.init.Logf("Domain destroyed")
+		obj.init.Logf("domain destroyed")
 	}
 
 	return checkOK, nil
@@ -561,7 +603,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 		if err := dom.SetMemory(obj.Memory); err != nil {
 			return false, errwrap.Wrapf(err, "domain.SetMemory failed")
 		}
-		obj.init.Logf("Memory changed to %d", obj.Memory)
+		obj.init.Logf("memory changed to: %d", obj.Memory)
 	}
 
 	// check cpus
@@ -600,7 +642,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 				return false, errwrap.Wrapf(err, "domain.SetVcpus failed")
 			}
 			checkOK = false
-			obj.init.Logf("CPUs (hot) changed to %d", obj.CPUs)
+			obj.init.Logf("cpus (hot) changed to: %d", obj.CPUs)
 
 		case libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_SHUTDOWN:
 			if !obj.Transient {
@@ -612,7 +654,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 					return false, errwrap.Wrapf(err, "domain.SetVcpus failed")
 				}
 				checkOK = false
-				obj.init.Logf("CPUs (cold) changed to %d", obj.CPUs)
+				obj.init.Logf("cpus (cold) changed to: %d", obj.CPUs)
 			}
 
 		default:
@@ -643,7 +685,7 @@ func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error
 				return false, errwrap.Wrapf(err, "domain.SetVcpus failed")
 			}
 			checkOK = false
-			obj.init.Logf("CPUs (guest) changed to %d", obj.CPUs)
+			obj.init.Logf("cpus (guest) changed to: %d", obj.CPUs)
 		}
 	}
 
@@ -667,7 +709,7 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 			return false, errwrap.Wrapf(err, "domain.GetInfo failed")
 		}
 		if domInfo.State == libvirt.DOMAIN_SHUTOFF || domInfo.State == libvirt.DOMAIN_SHUTDOWN {
-			obj.init.Logf("Shutdown")
+			obj.init.Logf("shutdown")
 			break
 		}
 
@@ -679,7 +721,7 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 			obj.processExitChan = make(chan struct{})
 			// if machine shuts down before we call this, we error;
 			// this isn't ideal, but it happened due to user error!
-			obj.init.Logf("Running shutdown")
+			obj.init.Logf("running shutdown")
 			if err := dom.Shutdown(); err != nil {
 				// FIXME: if machine is already shutdown completely, return early
 				return false, errwrap.Wrapf(err, "domain.Shutdown failed")
@@ -700,7 +742,7 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 			// https://libvirt.org/formatdomain.html#elementsEvents
 			continue
 		case <-timeout:
-			return false, fmt.Errorf("%s: didn't shutdown after %d seconds", obj, MaxShutdownDelayTimeout)
+			return false, fmt.Errorf("didn't shutdown after %d seconds", MaxShutdownDelayTimeout)
 		}
 	}
 
@@ -710,8 +752,8 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
-	if obj.conn == nil {
-		panic("virt: CheckApply is being called with nil connection")
+	if obj.conn == nil { // programming error?
+		return false, fmt.Errorf("got called with nil connection")
 	}
 	// if we do the restart, we must flip the flag back to false as evidence
 	var restart bool                                // do we need to do a restart?
@@ -772,7 +814,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 			if err := dom.Undefine(); err != nil {
 				return false, errwrap.Wrapf(err, "domain.Undefine failed")
 			}
-			obj.init.Logf("Domain undefined")
+			obj.init.Logf("domain undefined")
 		} else {
 			domXML, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE)
 			if err != nil {
@@ -781,7 +823,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 			if _, err = obj.conn.DomainDefineXML(domXML); err != nil {
 				return false, errwrap.Wrapf(err, "conn.DomainDefineXML failed")
 			}
-			obj.init.Logf("Domain defined")
+			obj.init.Logf("domain defined")
 		}
 		checkOK = false
 	}
@@ -829,7 +871,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 
 	// we had to do a restart, we didn't, and we should error if it was needed
 	if obj.restartScheduled && restart == true && obj.RestartOnDiverge == "error" {
-		return false, fmt.Errorf("%s: needed restart but didn't! (RestartOnDiverge: %v)", obj, obj.RestartOnDiverge)
+		return false, fmt.Errorf("needed restart but didn't! (RestartOnDiverge: %s)", obj.RestartOnDiverge)
 	}
 
 	return checkOK, nil // w00t
@@ -959,27 +1001,6 @@ type DiskDevice struct {
 	Type   string `lang:"type" yaml:"type"`
 }
 
-// CDRomDevice represents a CDRom device that is attached to the virt machine.
-type CDRomDevice struct {
-	Source string `lang:"source" yaml:"source"`
-	Type   string `lang:"type" yaml:"type"`
-}
-
-// NetworkDevice represents a network card that is attached to the virt machine.
-type NetworkDevice struct {
-	Name string `lang:"name" yaml:"name"`
-	MAC  string `lang:"mac" yaml:"mac"`
-}
-
-// FilesystemDevice represents a filesystem that is attached to the virt
-// machine.
-type FilesystemDevice struct {
-	Access   string `lang:"access" yaml:"access"`
-	Source   string `lang:"source" yaml:"source"`
-	Target   string `lang:"target" yaml:"target"`
-	ReadOnly bool   `lang:"read_only" yaml:"read_only"`
-}
-
 // GetXML returns the XML representation of this device.
 func (obj *DiskDevice) GetXML(idx int) string {
 	source, _ := util.ExpandHome(obj.Source) // TODO: should we handle errors?
@@ -990,6 +1011,32 @@ func (obj *DiskDevice) GetXML(idx int) string {
 	b += fmt.Sprintf("<target dev='vd%s' bus='virtio'/>", util.NumToAlpha(idx))
 	b += "</disk>"
 	return b
+}
+
+// Cmp compares two DiskDevice's and returns an error if they are not
+// equivalent.
+func (obj *DiskDevice) Cmp(dev *DiskDevice) error {
+	if (obj == nil) != (dev == nil) { // xor
+		return fmt.Errorf("the DiskDevice differs")
+	}
+	if obj == nil && dev == nil {
+		return nil
+	}
+
+	if obj.Source != dev.Source {
+		return fmt.Errorf("the Source differs")
+	}
+	if obj.Type != dev.Type {
+		return fmt.Errorf("the Type differs")
+	}
+
+	return nil
+}
+
+// CDRomDevice represents a CDRom device that is attached to the virt machine.
+type CDRomDevice struct {
+	Source string `lang:"source" yaml:"source"`
+	Type   string `lang:"type" yaml:"type"`
 }
 
 // GetXML returns the XML representation of this device.
@@ -1005,6 +1052,32 @@ func (obj *CDRomDevice) GetXML(idx int) string {
 	return b
 }
 
+// Cmp compares two CDRomDevice's and returns an error if they are not
+// equivalent.
+func (obj *CDRomDevice) Cmp(dev *CDRomDevice) error {
+	if (obj == nil) != (dev == nil) { // xor
+		return fmt.Errorf("the CDRomDevice differs")
+	}
+	if obj == nil && dev == nil {
+		return nil
+	}
+
+	if obj.Source != dev.Source {
+		return fmt.Errorf("the Source differs")
+	}
+	if obj.Type != dev.Type {
+		return fmt.Errorf("the Type differs")
+	}
+
+	return nil
+}
+
+// NetworkDevice represents a network card that is attached to the virt machine.
+type NetworkDevice struct {
+	Name string `lang:"name" yaml:"name"`
+	MAC  string `lang:"mac" yaml:"mac"`
+}
+
 // GetXML returns the XML representation of this device.
 func (obj *NetworkDevice) GetXML(idx int) string {
 	if obj.MAC == "" {
@@ -1016,6 +1089,35 @@ func (obj *NetworkDevice) GetXML(idx int) string {
 	b += fmt.Sprintf("<source network='%s'/>", obj.Name)
 	b += "</interface>"
 	return b
+}
+
+// Cmp compares two NetworkDevice's and returns an error if they are not
+// equivalent.
+func (obj *NetworkDevice) Cmp(dev *NetworkDevice) error {
+	if (obj == nil) != (dev == nil) { // xor
+		return fmt.Errorf("the NetworkDevice differs")
+	}
+	if obj == nil && dev == nil {
+		return nil
+	}
+
+	if obj.Name != dev.Name {
+		return fmt.Errorf("the Name differs")
+	}
+	if obj.MAC != dev.MAC {
+		return fmt.Errorf("the MAC differs")
+	}
+
+	return nil
+}
+
+// FilesystemDevice represents a filesystem that is attached to the virt
+// machine.
+type FilesystemDevice struct {
+	Access   string `lang:"access" yaml:"access"`
+	Source   string `lang:"source" yaml:"source"`
+	Target   string `lang:"target" yaml:"target"`
+	ReadOnly bool   `lang:"read_only" yaml:"read_only"`
 }
 
 // GetXML returns the XML representation of this device.
@@ -1036,39 +1138,61 @@ func (obj *FilesystemDevice) GetXML(idx int) string {
 	return b
 }
 
-// Cmp compares two resources and returns an error if they are not equivalent.
-func (obj *VirtRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
+// Cmp compares two FilesystemDevice's and returns an error if they are not
+// equivalent.
+func (obj *FilesystemDevice) Cmp(dev *FilesystemDevice) error {
+	if (obj == nil) != (dev == nil) { // xor
+		return fmt.Errorf("the FilesystemDevice differs")
 	}
+	if obj == nil && dev == nil {
+		return nil
+	}
+
+	if obj.Access != dev.Access {
+		return fmt.Errorf("the Access differs")
+	}
+	if obj.Source != dev.Source {
+		return fmt.Errorf("the Source differs")
+	}
+	if obj.Target != dev.Target {
+		return fmt.Errorf("the Target differs")
+	}
+	if obj.ReadOnly != dev.ReadOnly {
+		return fmt.Errorf("the ReadOnly differs")
+	}
+
 	return nil
 }
 
-// Compare two resources and return if they are equivalent.
-func (obj *VirtRes) Compare(r engine.Res) bool {
+// Cmp compares two resources and returns an error if they are not equivalent.
+func (obj *VirtRes) Cmp(r engine.Res) error {
 	// we can only compare VirtRes to others of the same resource kind
 	res, ok := r.(*VirtRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.URI != res.URI {
-		return false
+		return fmt.Errorf("the URI differs")
 	}
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 	if obj.Transient != res.Transient {
-		return false
+		return fmt.Errorf("the Transient differs")
 	}
+
 	if obj.CPUs != res.CPUs {
-		return false
+		return fmt.Errorf("the CPUs differ")
 	}
 	// we can't change this property while machine is running!
 	// we do need to return false, so that a new struct gets built,
 	// which will cause at least one Init() & CheckApply() to run.
 	if obj.MaxCPUs != res.MaxCPUs {
-		return false
+		return fmt.Errorf("the MaxCPUs differ")
+	}
+	if obj.HotCPUs != res.HotCPUs {
+		return fmt.Errorf("the HotCPUs differ")
 	}
 	// TODO: can we skip the compare of certain properties such as
 	// Memory because this object (but with different memory) can be
@@ -1076,26 +1200,61 @@ func (obj *VirtRes) Compare(r engine.Res) bool {
 	// We would need to run some sort of "old struct update", to get
 	// the new values, but that's easy to add.
 	if obj.Memory != res.Memory {
-		return false
+		return fmt.Errorf("the Memory differs")
 	}
-	// TODO:
-	//if obj.Boot != res.Boot {
-	//	return false
-	//}
-	//if obj.Disk != res.Disk {
-	//	return false
-	//}
-	//if obj.CDRom != res.CDRom {
-	//	return false
-	//}
-	//if obj.Network != res.Network {
-	//	return false
-	//}
-	//if obj.Filesystem != res.Filesystem {
-	//	return false
-	//}
 
-	return true
+	if obj.OSInit != res.OSInit {
+		return fmt.Errorf("the OSInit differs")
+	}
+	if err := engineUtil.StrListCmp(obj.Boot, res.Boot); err != nil {
+		return errwrap.Wrapf(err, "the Boot differs")
+	}
+
+	if len(obj.Disk) != len(res.Disk) {
+		return fmt.Errorf("the Disk length differs")
+	}
+	for i := range obj.Disk {
+		if err := obj.Disk[i].Cmp(res.Disk[i]); err != nil {
+			return errwrap.Wrapf(err, "the Disk differs")
+		}
+	}
+	if len(obj.CDRom) != len(res.CDRom) {
+		return fmt.Errorf("the CDRom length differs")
+	}
+	for i := range obj.CDRom {
+		if err := obj.CDRom[i].Cmp(res.CDRom[i]); err != nil {
+			return errwrap.Wrapf(err, "the CDRom differs")
+		}
+	}
+	if len(obj.Network) != len(res.Network) {
+		return fmt.Errorf("the Network length differs")
+	}
+	for i := range obj.Network {
+		if err := obj.Network[i].Cmp(res.Network[i]); err != nil {
+			return errwrap.Wrapf(err, "the Network differs")
+		}
+	}
+	if len(obj.Filesystem) != len(res.Filesystem) {
+		return fmt.Errorf("the Filesystem length differs")
+	}
+	for i := range obj.Filesystem {
+		if err := obj.Filesystem[i].Cmp(res.Filesystem[i]); err != nil {
+			return errwrap.Wrapf(err, "the Filesystem differs")
+		}
+	}
+
+	if err := obj.Auth.Cmp(res.Auth); err != nil {
+		return errwrap.Wrapf(err, "the Auth differs")
+	}
+
+	if obj.RestartOnDiverge != res.RestartOnDiverge {
+		return fmt.Errorf("the RestartOnDiverge differs")
+	}
+	if obj.RestartOnRefresh != res.RestartOnRefresh {
+		return fmt.Errorf("the RestartOnRefresh differs")
+	}
+
+	return nil
 }
 
 // VirtUID is the UID struct for FileRes.

@@ -20,6 +20,8 @@
 package util
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -60,4 +62,85 @@ func TestEasyAck3(t *testing.T) {
 	case <-time.After(time.Duration(60) * time.Second):
 		t.Errorf("the second Ack did not arrive in time")
 	}
+}
+
+func ExampleSubscribeSync() {
+	fmt.Println("hello")
+
+	x := &SubscribedSignal{}
+	wg := &sync.WaitGroup{}
+	ready := &sync.WaitGroup{}
+
+	// unit1
+	wg.Add(1)
+	ready.Add(1)
+	go func() {
+		defer wg.Done()
+		ch, ack := x.Subscribe()
+		ready.Done()
+		select {
+		case <-ch:
+			fmt.Println("got signal")
+		}
+		time.Sleep(1 * time.Second) // wait a bit for fun
+		fmt.Println("(1) sending ack...")
+		ack() // must call ack
+		fmt.Println("done sending ack")
+	}()
+
+	// unit2
+	wg.Add(1)
+	ready.Add(1)
+	go func() {
+		defer wg.Done()
+		ch, ack := x.Subscribe()
+		ready.Done()
+		select {
+		case <-ch:
+			fmt.Println("got signal")
+		}
+		time.Sleep(2 * time.Second) // wait a bit for fun
+		fmt.Println("(2) sending ack...")
+		ack() // must call ack
+		fmt.Println("done sending ack")
+	}()
+
+	// unit3
+	wg.Add(1)
+	ready.Add(1)
+	go func() {
+		defer wg.Done()
+		ch, ack := x.Subscribe()
+		ready.Done()
+		select {
+		case <-ch:
+			fmt.Println("got signal")
+		}
+		time.Sleep(3 * time.Second) // wait a bit for fun
+		fmt.Println("(3) sending ack...")
+		ack() // must call ack
+		fmt.Println("done sending ack")
+	}()
+
+	ready.Wait() // wait for all subscribes
+	fmt.Println("sending signal...")
+	x.Send() // trigger!
+	fmt.Println("done sending signal")
+
+	wg.Wait() // wait for everyone to exit
+	fmt.Println("exiting...")
+
+	// Output: hello
+	// sending signal...
+	// got signal
+	// got signal
+	// got signal
+	// (1) sending ack...
+	// (2) sending ack...
+	// (3) sending ack...
+	// done sending signal
+	// done sending ack
+	// done sending ack
+	// done sending ack
+	// exiting...
 }

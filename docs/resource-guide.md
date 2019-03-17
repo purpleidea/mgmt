@@ -754,6 +754,23 @@ Feel free to use this pattern if you're convinced it's necessary. Alternatively,
 if you think I got the `Res` API wrong and you have an improvement, please let
 us know!
 
+### Why do resources have both a `Cmp` method and an `IFF` (on the UID) method?
+
+The `Cmp()` methods are for determining if two resources are effectively the
+same, which is used to make graph change delta's efficient. This is when we want
+to change from the current running graph to a new graph, but preserve the common
+vertices. Since we want to make this process efficient, we only update the parts
+that are different, and leave everything else alone. This `Cmp()` method can
+tell us if two resources are the same. In case it is not obvious, `cmp` is an
+abbrev. for compare.
+
+The `IFF()` method is part of the whole UID system, which is for discerning if a
+resource meets the requirements another expects for an automatic edge. This is
+because the automatic edge system assumes a unified UID pattern to test for
+equality. In the future it might be helpful or sane to merge the two similar
+comparison functions although for now they are separate because they are
+actually answer different questions.
+
 ### What new resource primitives need writing?
 
 There are still many ideas for new resources that haven't been written yet. If

@@ -9,6 +9,18 @@ I wanted a next generation config management solution that didn't have all of
 the design flaws or limitations that the current generation of tools do, and no
 tool existed!
 
+### Why did you choose `golang` for the project?
+
+When I started working on the project, I needed to choose a language that
+already had an implementation of a distributed consensus algorithm available.
+That meant [Paxos](https://en.wikipedia.org/wiki/Paxos_(computer_science)) or
+[Raft](https://en.wikipedia.org/wiki/Raft_(computer_science)). Golang was one
+language that actually had two different Raft implementations, `etcd`, and
+`consul`. Other design requirements included something that was reasonably fast,
+typed and memory-safe, and suited for systems engineering. After a reasonably
+extensive search, I chose `golang`. I think it was the right decision. There are
+a number of other features of the language which helped influence the decision.
+
 ### How do I contribute to the project if I don't know `golang`?
 
 There are many different ways you can contribute to the project. They can be
@@ -124,6 +136,47 @@ an existing mgmt cluster.
 The downside to this approach is that you won't benefit from the automatic
 elastic nature of the embedded etcd servers, and that you're responsible if you
 accidentally break your etcd cluster, or if you use an unsupported version.
+
+### In `mgmt` you talk about events. What is this referring to?
+
+Mgmt has two main concepts that involve "events":
+1. Events in the [resource primitive](resource-guide.md).
+2. Events in the [reactive language](language-guide.md).
+
+Each resource primitive in mgmt can test (check) and set (apply) the desired
+state that was requested of it. This is familiar to what is common with existing
+tools such as `Puppet`, `Ansible`, `Chef`, `Terraform`, etc... In addition,
+`mgmt` can also **watch** the state and detect changes. As a result, it never
+has to waste time and cpu resources by polling to test and set state, leading to
+a design which is algorithmically much faster than the existing generation of
+tools.
+
+To describe the set of resources to apply, mgmt describes this collection with a
+language. In order to model the time component of infrastructure, we use a
+special kind of language called an [FRP](https://en.wikipedia.org/wiki/Functional_reactive_programming).
+This language has a built-in concept that we call "events", and which means that
+we re-evaluate the relevant portions of the code whenever a value or function
+has an event that tells us that it changed. The `R` in `FRP` stands for
+reactive. This is similar to how a spreadsheet updates dependent cells when a
+pre-requisite value is modified. [This article](https://en.wikipedia.org/wiki/Reactive_programming)
+provides a bit more background.
+
+Whenever any of the streams of values in the language change, the program is
+partially re-evaluated. The output of any mgmt program is a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph)
+of resources, or more precisely, a stream of resource graphs. Since we have
+events per-resource, we can efficiently switch from one desired-state resource
+graph to the next without re-checking their individual states, since we've been
+monitoring them all along.
+
+One side-effect of all this, is that if a rogue systems administrator manually
+changes the state of any managed resource, mgmt will detect this and attempt to
+revert the change. This makes for excellent live demos, but is not the primary
+design goal. It is a consequence of tracking state so that graph changes are
+efficient. We implement the event detection via an intentional per-resource
+[main loop](https://en.wikipedia.org/wiki/Event_loop) which can enable other
+interesting functionality too!
+
+Make sure to get rid of your rogue sysadmin! ;)
 
 ### How can I run `mgmt` on-demand, or in `cron`, instead of continuously?
 

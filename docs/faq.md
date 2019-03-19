@@ -298,9 +298,8 @@ which definitely existed before the band did.
 ### You didn't answer my question, or I have a question!
 
 It's best to ask on [IRC](https://webchat.freenode.net/?channels=#mgmtconfig)
-to see if someone can help you. Once we get a big enough community going, we'll
-add a mailing list. If you don't get any response from the above, you can
-contact me through my [technical blog](https://purpleidea.com/contact/)
-and I'll do my best to help. If you have a good question, please add it as a
-patch to this documentation. I'll merge your question, and add a patch with the
-answer!
+to see if someone can help you. If you don't get a response from IRC, you can
+contact me through my [technical blog](https://purpleidea.com/contact/) and I'll
+do my best to help. If you have a good question, please add it as a patch to
+this documentation. I'll merge your question, and add a patch with the answer!
+For news and updates, subscribe to the [mailing list](https://www.redhat.com/mailman/listinfo/mgmtconfig-list).

@@ -20,12 +20,12 @@
 package coresys
 
 import (
-	"syscall"
+	"golang.org/x/sys/unix"
 )
 
 func uptime() (int64, error) {
-	var sysinfo syscall.Sysinfo_t
-	if err := syscall.Sysinfo(&sysinfo); err != nil {
+	var sysinfo unix.Sysinfo_t
+	if err := unix.Sysinfo(&sysinfo); err != nil {
 		return 0, err
 	}
 	return sysinfo.Uptime, nil

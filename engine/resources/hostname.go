@@ -147,7 +147,7 @@ func (obj *HostnameRes) Watch() error {
 	}
 }
 
-func (obj *HostnameRes) updateHostnameProperty(object dbus.BusObject, expectedValue, property, setterName string, apply bool) (checkOK bool, err error) {
+func (obj *HostnameRes) updateHostnameProperty(object dbus.BusObject, expectedValue, property, setterName string, apply bool) (bool, error) {
 	propertyObject, err := object.GetProperty("org.freedesktop.hostname1." + property)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to get org.freedesktop.hostname1.%s", property)
@@ -182,7 +182,7 @@ func (obj *HostnameRes) updateHostnameProperty(object dbus.BusObject, expectedVa
 }
 
 // CheckApply method for Hostname resource.
-func (obj *HostnameRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *HostnameRes) CheckApply(apply bool) (bool, error) {
 	conn, err := util.SystemBusPrivateUsable()
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to connect to the private system bus")
@@ -191,7 +191,7 @@ func (obj *HostnameRes) CheckApply(apply bool) (checkOK bool, err error) {
 
 	hostnameObject := conn.Object(hostname1Iface, hostname1Path)
 
-	checkOK = true
+	checkOK := true
 	if obj.PrettyHostname != "" {
 		propertyCheckOK, err := obj.updateHostnameProperty(hostnameObject, obj.PrettyHostname, "PrettyHostname", "SetPrettyHostname", apply)
 		if err != nil {

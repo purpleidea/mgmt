@@ -310,28 +310,29 @@ func (obj *CronRes) Watch() error {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *CronRes) CheckApply(apply bool) (checkOK bool, err error) {
-	ok := true
+func (obj *CronRes) CheckApply(apply bool) (bool, error) {
+	checkOK := true
 	// use the embedded file resource to apply the correct state
 	if c, err := obj.file.CheckApply(apply); err != nil {
 		return false, errwrap.Wrapf(err, "nested file failed")
 	} else if !c {
-		ok = false
+		checkOK = false
 	}
 	// check timer state and apply the defined state if needed
 	if c, err := obj.unitCheckApply(apply); err != nil {
 		return false, errwrap.Wrapf(err, "unitCheckApply error")
 	} else if !c {
-		ok = false
+		checkOK = false
 	}
-	return ok, nil
+	return checkOK, nil
 }
 
 // unitCheckApply checks the state of the systemd-timer unit and, if apply is
 // true, applies the defined state.
-func (obj *CronRes) unitCheckApply(apply bool) (checkOK bool, err error) {
+func (obj *CronRes) unitCheckApply(apply bool) (bool, error) {
 	var conn *sdbus.Conn
 	var godbusConn *dbus.Conn
+	var err error
 
 	// this resource depends on systemd to ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {

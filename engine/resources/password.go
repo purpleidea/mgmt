@@ -209,7 +209,7 @@ func (obj *PasswordRes) Watch() error {
 }
 
 // CheckApply method for Password resource. Does nothing, returns happy!
-func (obj *PasswordRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *PasswordRes) CheckApply(apply bool) (bool, error) {
 	var refresh = obj.init.Refresh() // do we have a pending reload to apply?
 	var exists = true                // does the file (aka the token) exist?
 	var generate bool                // do we need to generate a new password?

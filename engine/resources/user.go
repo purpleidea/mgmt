@@ -152,7 +152,7 @@ func (obj *UserRes) Watch() error {
 }
 
 // CheckApply method for User resource.
-func (obj *UserRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *UserRes) CheckApply(apply bool) (bool, error) {
 	obj.init.Logf("CheckApply(%t)", apply)
 
 	var exists = true

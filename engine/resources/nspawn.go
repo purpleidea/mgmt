@@ -201,7 +201,7 @@ func (obj *NspawnRes) Watch() error {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *NspawnRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *NspawnRes) CheckApply(apply bool) (bool, error) {
 	// this resource depends on systemd to ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return false, errors.New("systemd is not running")

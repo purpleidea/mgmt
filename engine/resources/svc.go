@@ -229,12 +229,13 @@ func (obj *SvcRes) Watch() error {
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *SvcRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *SvcRes) CheckApply(apply bool) (bool, error) {
 	if !systemdUtil.IsRunningSystemd() {
 		return false, fmt.Errorf("systemd is not running")
 	}
 
 	var conn *systemd.Conn
+	var err error
 	if obj.Session {
 		conn, err = systemd.NewUserConnection() // user session
 	} else {

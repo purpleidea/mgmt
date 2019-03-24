@@ -275,7 +275,7 @@ func (obj *MountRes) Watch() error {
 
 // fstabCheckApply checks /etc/fstab for entries corresponding to the resource
 // definition, and adds or deletes the entry as needed.
-func (obj *MountRes) fstabCheckApply(apply bool) (checkOK bool, err error) {
+func (obj *MountRes) fstabCheckApply(apply bool) (bool, error) {
 	exists, err := fstabEntryExists(fstabPath, obj.mount)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error checking if fstab entry exists")
@@ -339,8 +339,8 @@ func (obj *MountRes) mountCheckApply(apply bool) (bool, error) {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *MountRes) CheckApply(apply bool) (checkOK bool, err error) {
-	checkOK = true
+func (obj *MountRes) CheckApply(apply bool) (bool, error) {
+	checkOK := true
 
 	if c, err := obj.fstabCheckApply(apply); err != nil {
 		return false, err

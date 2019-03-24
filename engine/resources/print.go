@@ -82,7 +82,7 @@ func (obj *PrintRes) Watch() error {
 }
 
 // CheckApply method for Print resource. Does nothing, returns happy!
-func (obj *PrintRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *PrintRes) CheckApply(apply bool) (bool, error) {
 	obj.init.Logf("CheckApply: %t", apply)
 	if val, exists := obj.init.Recv()["Msg"]; exists && val.Changed {
 		// if we received on Msg, and it changed, log message

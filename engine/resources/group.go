@@ -118,7 +118,7 @@ func (obj *GroupRes) Watch() error {
 }
 
 // CheckApply method for Group resource.
-func (obj *GroupRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *GroupRes) CheckApply(apply bool) (bool, error) {
 	obj.init.Logf("CheckApply(%t)", apply)
 
 	// check if the group exists

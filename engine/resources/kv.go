@@ -150,7 +150,7 @@ func (obj *KVRes) Watch() error {
 }
 
 // lessThanCheck checks for less than validity.
-func (obj *KVRes) lessThanCheck(value string) (checkOK bool, err error) {
+func (obj *KVRes) lessThanCheck(value string) (bool, error) {
 	v := *obj.Value
 	if value == v { // redundant check for safety
 		return true, nil
@@ -188,7 +188,7 @@ func (obj *KVRes) lessThanCheck(value string) (checkOK bool, err error) {
 }
 
 // CheckApply method for Password resource. Does nothing, returns happy!
-func (obj *KVRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *KVRes) CheckApply(apply bool) (bool, error) {
 	obj.init.Logf("CheckApply(%t)", apply)
 
 	if val, exists := obj.init.Recv()["Value"]; exists && val.Changed {

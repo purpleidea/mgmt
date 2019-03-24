@@ -137,7 +137,7 @@ func (obj *TestRes) Watch() error {
 }
 
 // CheckApply method for Test resource. Does nothing, returns happy!
-func (obj *TestRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *TestRes) CheckApply(apply bool) (bool, error) {
 	for key, val := range obj.init.Recv() {
 		obj.init.Logf("CheckApply: Received `%s`, changed: %t", key, val.Changed)
 	}

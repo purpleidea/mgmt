@@ -201,7 +201,7 @@ func (obj *DockerContainerRes) Watch() error {
 }
 
 // CheckApply method for Docker resource.
-func (obj *DockerContainerRes) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *DockerContainerRes) CheckApply(apply bool) (bool, error) {
 	var id string
 	var destroy bool
 

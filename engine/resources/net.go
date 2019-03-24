@@ -460,8 +460,8 @@ func (obj *NetRes) fileCheckApply(apply bool) (bool, error) {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *NetRes) CheckApply(apply bool) (checkOK bool, err error) {
-	checkOK = true
+func (obj *NetRes) CheckApply(apply bool) (bool, error) {
+	checkOK := true
 
 	// check the network device
 	if c, err := obj.ifaceCheckApply(apply); err != nil {

@@ -604,7 +604,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 }
 
 // CheckApply method for AwsEc2 resource.
-func (obj *AwsEc2Res) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *AwsEc2Res) CheckApply(apply bool) (bool, error) {
 	obj.init.Logf("CheckApply(%t)", apply)
 
 	// find the instance we need to check

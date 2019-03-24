@@ -178,6 +178,17 @@ interesting functionality too!
 
 Make sure to get rid of your rogue sysadmin! ;)
 
+### Do I need to run `mgmt` as `root`?
+
+No and yes. It depends. Nothing in mgmt explicitly requires root in the design,
+however mgmt will require root only if the changes to your system that you want
+it to make require root.
+
+For example, if you use it to manage files that require root access to modify,
+then you'll need root. If you only use it to manage files and resources
+elsewhere, then it shouldn't need root. Many resources are perfectly usable
+without root, and virtually all of my live demos are done without root.
+
 ### How can I run `mgmt` on-demand, or in `cron`, instead of continuously?
 
 By default, `mgmt` will run continuously in an attempt to keep your machine in a

@@ -18,6 +18,7 @@
 package lib
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -46,6 +47,8 @@ func hello(program, version string, flags Flags) {
 	if program == "" {
 		program = "<unknown>"
 	}
-	log.Printf("this is: %s, version: %s", program, version)
+	fmt.Println(fmt.Sprintf("This is: %s, version: %s", program, version))
+	fmt.Println("Copyright (C) 2013-2019+ James Shubin and the project contributors")
+	fmt.Println("Written by James Shubin <james@shubin.ca> and the project contributors")
 	log.Printf("main: start: %v", start)
 }

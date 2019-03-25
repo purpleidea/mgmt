@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
-	"syscall"
 	"testing"
 
 	"github.com/purpleidea/mgmt/etcd"
@@ -33,6 +32,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/spf13/afero"
+	"golang.org/x/sys/unix"
 )
 
 // XXX: write a bunch more tests to test this
@@ -62,7 +62,7 @@ func runEtcd() (func() error, error) {
 
 	return func() error {
 		// cleanup when we're done
-		if err := cmd.Process.Signal(syscall.SIGQUIT); err != nil {
+		if err := cmd.Process.Signal(unix.SIGQUIT); err != nil {
 			fmt.Printf("error sending quit signal: %+v\n", err)
 		}
 		if err := cmd.Process.Kill(); err != nil {

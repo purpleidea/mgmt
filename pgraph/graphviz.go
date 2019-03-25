@@ -24,6 +24,8 @@ import (
 	"os/exec"
 	"strconv"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // Graphviz outputs the graph in graphviz format.
@@ -104,7 +106,7 @@ func (g *Graph) ExecGraphviz(program, filename, hostname string) error {
 	cmd := exec.Command(path, "-Tpng", fmt.Sprintf("-o%s", out), filename)
 
 	if err1 == nil && err2 == nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{}
+		cmd.SysProcAttr = &unix.SysProcAttr{}
 		cmd.SysProcAttr.Credential = &syscall.Credential{
 			Uid: uint32(uid),
 			Gid: uint32(gid),

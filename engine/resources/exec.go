@@ -33,6 +33,8 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -182,7 +184,7 @@ func (obj *ExecRes) Watch() error {
 		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 		cmd.Dir = obj.WatchCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
-		cmd.SysProcAttr = &syscall.SysProcAttr{
+		cmd.SysProcAttr = &unix.SysProcAttr{
 			Setpgid: true,
 			Pgid:    0,
 		}
@@ -217,7 +219,7 @@ func (obj *ExecRes) Watch() error {
 					return errwrap.Wrapf(err, "unknown error")
 				}
 				pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-				wStatus, ok := pStateSys.(syscall.WaitStatus)
+				wStatus, ok := pStateSys.(unix.WaitStatus)
 				if !ok {
 					return errwrap.Wrapf(err, "error running cmd")
 				}
@@ -278,7 +280,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 		cmd := exec.Command(cmdName, cmdArgs...)
 		cmd.Dir = obj.IfCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
-		cmd.SysProcAttr = &syscall.SysProcAttr{
+		cmd.SysProcAttr = &unix.SysProcAttr{
 			Setpgid: true,
 			Pgid:    0,
 		}
@@ -301,7 +303,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 				return false, err
 			}
 			pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-			wStatus, ok := pStateSys.(syscall.WaitStatus)
+			wStatus, ok := pStateSys.(unix.WaitStatus)
 			if !ok {
 				return false, errwrap.Wrapf(err, "error running cmd")
 			}
@@ -369,7 +371,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 	cmd.Dir = obj.Cwd // run program in pwd if ""
 	// ignore signals sent to parent process (we're in our own group)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
+	cmd.SysProcAttr = &unix.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,
 	}
@@ -423,7 +425,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
 	if err != nil && ok {
 		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-		wStatus, ok := pStateSys.(syscall.WaitStatus)
+		wStatus, ok := pStateSys.(unix.WaitStatus)
 		if !ok {
 			return false, errwrap.Wrapf(err, "error running cmd")
 		}
@@ -434,7 +436,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 		sig := wStatus.Signal()
 
 		// we get this on timeout, because ctx calls cmd.Process.Kill()
-		if sig == syscall.SIGKILL {
+		if sig == unix.SIGKILL {
 			return false, errwrap.Wrapf(err, "cmd timeout, exit status: %d", exitStatus)
 		}
 

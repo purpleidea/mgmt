@@ -20,7 +20,7 @@
 package coresys
 
 import (
-	"syscall"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -34,8 +34,8 @@ const (
 // to be unnecessary, since the kernel only updates these values that often.
 // TODO: is the kernel update interval configurable?
 func load() (one, five, fifteen float64, err error) {
-	var sysinfo syscall.Sysinfo_t
-	if err = syscall.Sysinfo(&sysinfo); err != nil {
+	var sysinfo unix.Sysinfo_t
+	if err = unix.Sysinfo(&sysinfo); err != nil {
 		return
 	}
 	one = float64(sysinfo.Loads[0]) / LoadScale

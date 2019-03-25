@@ -27,10 +27,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/util"
 
+	"golang.org/x/sys/unix"
 	"gopkg.in/fsnotify.v1"
 	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
 )
@@ -160,13 +160,13 @@ func (obj *RecWatcher) Watch() error {
 				log.Printf("watcher.Add(%s): Error: %v", current, err)
 			}
 			// ENOENT for linux, etc and IsNotExist for macOS
-			if err == syscall.ENOENT || os.IsNotExist(err) {
+			if err == unix.ENOENT || os.IsNotExist(err) {
 				index-- // usually not found, move up one dir
 				index = int(math.Max(1, float64(index)))
 				continue
 			}
 
-			if err == syscall.ENOSPC {
+			if err == unix.ENOSPC {
 				// no space left on device, out of inotify watches
 				// TODO: consider letting the user fall back to
 				// polling if they hit this error very often...

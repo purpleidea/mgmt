@@ -31,7 +31,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
@@ -40,6 +39,8 @@ import (
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
 	rpctypes "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"github.com/spf13/afero"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -404,7 +405,7 @@ func (obj *Fs) Mkdir(name string, perm os.FileMode) error {
 		return err
 	}
 	if !fi.IsDir() { // is the parent a suitable home?
-		return &os.PathError{Op: "mkdir", Path: name, Err: syscall.ENOTDIR}
+		return &os.PathError{Op: "mkdir", Path: name, Err: unix.ENOTDIR}
 	}
 
 	_, exists := node.findNode(dirPath) // does file already exist inside?
@@ -439,7 +440,7 @@ func (obj *Fs) MkdirAll(path string, perm os.FileMode) error {
 		if dir.IsDir() {
 			return nil
 		}
-		return &os.PathError{Op: "mkdir", Path: path, Err: syscall.ENOTDIR}
+		return &os.PathError{Op: "mkdir", Path: path, Err: unix.ENOTDIR}
 	}
 
 	// Slow path: make sure parent exists and then call Mkdir for path.
@@ -550,7 +551,7 @@ func (obj *Fs) Remove(name string) error {
 	}
 
 	if len(f.Children) > 0 { // this file or dir has children, can't remove!
-		return &os.PathError{Op: "remove", Path: name, Err: syscall.ENOTEMPTY}
+		return &os.PathError{Op: "remove", Path: name, Err: unix.ENOTEMPTY}
 	}
 
 	// find the parent node
@@ -597,7 +598,7 @@ func (obj *Fs) RemoveAll(path string) error {
 	dir, serr := obj.Lstat(path)
 	if serr != nil {
 		// TODO: I didn't check this logic thoroughly (edge cases?)
-		if serr, ok := serr.(*os.PathError); ok && (os.IsNotExist(serr.Err) || serr.Err == syscall.ENOTDIR) {
+		if serr, ok := serr.(*os.PathError); ok && (os.IsNotExist(serr.Err) || serr.Err == unix.ENOTDIR) {
 			return nil
 		}
 		return serr
@@ -747,7 +748,7 @@ func (obj *Fs) Rename(oldname, newname string) error {
 			return err
 		}
 		if !fi.IsDir() { // is the parent a suitable home?
-			return &os.LinkError{Op: "rename", Old: oldname, New: newname, Err: syscall.ENOTDIR}
+			return &os.LinkError{Op: "rename", Old: oldname, New: newname, Err: unix.ENOTDIR}
 		}
 
 		// remove from list by index

@@ -26,10 +26,11 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util/errwrap"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -241,7 +242,7 @@ func (obj *Instance) Kill() error {
 	}
 
 	// cause a stack dump first if we can
-	_ = obj.cmd.Process.Signal(syscall.SIGQUIT)
+	_ = obj.cmd.Process.Signal(unix.SIGQUIT)
 
 	return obj.cmd.Process.Kill()
 }

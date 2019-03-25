@@ -23,13 +23,14 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -111,7 +112,7 @@ func (obj *VUMeterFunc) Stream() error {
 			// arecord -d 1 /dev/shm/mgmt_rec.wav 2>/dev/null
 			args1 := []string{"-d", "1", "/dev/shm/mgmt_rec.wav"}
 			cmd1 := exec.Command("/usr/bin/arecord", args1...)
-			cmd1.SysProcAttr = &syscall.SysProcAttr{
+			cmd1.SysProcAttr = &unix.SysProcAttr{
 				Setpgid: true,
 				Pgid:    0,
 			}
@@ -123,7 +124,7 @@ func (obj *VUMeterFunc) Stream() error {
 			// sox -t .wav /dev/shm/mgmt_rec.wav -n stat 2>&1 | grep "Maximum amplitude" | cut -d ':' -f 2
 			args2 := []string{"-t", ".wav", "/dev/shm/mgmt_rec.wav", "-n", "stat"}
 			cmd2 := exec.Command("/usr/bin/sox", args2...)
-			cmd2.SysProcAttr = &syscall.SysProcAttr{
+			cmd2.SysProcAttr = &unix.SysProcAttr{
 				Setpgid: true,
 				Pgid:    0,
 			}

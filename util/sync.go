@@ -65,6 +65,35 @@ func (obj *EasyOnce) Done() {
 	}
 }
 
+// EasyAckOnce is a wrapper to build ack functionality into a simple interface.
+// It is safe because the Ack function can be called multiple times safely.
+type EasyAckOnce struct {
+	done chan struct{}
+	once *sync.Once
+}
+
+// NewEasyAckOnce builds the object. This must be called before use.
+func NewEasyAckOnce() *EasyAckOnce {
+	return &EasyAckOnce{
+		done: make(chan struct{}),
+		once: &sync.Once{},
+	}
+}
+
+// Ack sends the acknowledgment message. This can be called as many times as you
+// like. Only the first Ack is meaningful. Subsequent Ack's are redundant. It is
+// thread-safe.
+func (obj *EasyAckOnce) Ack() {
+	fn := func() { close(obj.done) }
+	obj.once.Do(fn)
+}
+
+// Wait returns a channel that you can wait on for the ack message. The return
+// channel closes on the first Ack it receives. Subsequent Ack's have no effect.
+func (obj *EasyAckOnce) Wait() <-chan struct{} {
+	return obj.done
+}
+
 // EasyExit is a struct that helps you build a close switch and signal which can
 // be called multiple times safely, and used as a signal many times in parallel.
 // It can also provide a context, if you prefer to use that as a signal instead.

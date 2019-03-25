@@ -64,6 +64,28 @@ func TestEasyAck3(t *testing.T) {
 	}
 }
 
+func TestEasyAckOnce1(t *testing.T) {
+	eao := NewEasyAckOnce()
+	eao.Ack()
+	eao.Ack() // must not panic
+	eao.Ack()
+	select {
+	case <-eao.Wait(): // we got it!
+	case <-time.After(time.Duration(60) * time.Second):
+		t.Errorf("the Ack did not arrive in time")
+	}
+}
+
+func TestEasyAckOnce2(t *testing.T) {
+	eao := NewEasyAckOnce()
+	// never send an ack
+	select {
+	case <-eao.Wait(): // we got it!
+		t.Errorf("the Ack arrived unexpectedly")
+	default:
+	}
+}
+
 func ExampleSubscribeSync() {
 	fmt.Println("hello")
 

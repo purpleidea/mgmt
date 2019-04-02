@@ -3,7 +3,7 @@
 This document contains some additional information and help regarding
 developing `mgmt`. Useful tools, conventions, etc.
 
-Be sure to read [quick start guide](docs/quick-start-guide.md) first.
+Be sure to read [quick start guide](quick-start-guide.md) first.
 
 ## Testing
 

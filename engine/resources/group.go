@@ -23,12 +23,13 @@ import (
 	"os/exec"
 	"os/user"
 	"strconv"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util/errwrap"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -190,7 +191,7 @@ func (obj *GroupRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	cmd := exec.Command(cmdName, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
+	cmd.SysProcAttr = &unix.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,
 	}

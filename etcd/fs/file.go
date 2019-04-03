@@ -26,12 +26,12 @@ import (
 	"os"
 	"path"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -133,7 +133,7 @@ func fileCreate(fs *Fs, name string) (*File, error) {
 		return nil, err
 	}
 	if !fi.IsDir() { // is the parent a suitable home?
-		return nil, &os.PathError{Op: "create", Path: name, Err: syscall.ENOTDIR}
+		return nil, &os.PathError{Op: "create", Path: name, Err: unix.ENOTDIR}
 	}
 
 	f, exists := node.findNode(filePath) // does file already exist inside?
@@ -370,7 +370,7 @@ func (obj *File) ReadAt(b []byte, off int64) (n int, err error) {
 // objects for each entry.
 func (obj *File) Readdir(count int) ([]os.FileInfo, error) {
 	if !obj.Mode.IsDir() {
-		return nil, &os.PathError{Op: "readdir", Path: obj.Name(), Err: syscall.ENOTDIR}
+		return nil, &os.PathError{Op: "readdir", Path: obj.Name(), Err: unix.ENOTDIR}
 	}
 
 	children := obj.Children[obj.dirCursor:] // available children to output

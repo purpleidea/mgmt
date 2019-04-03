@@ -29,7 +29,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -37,6 +36,8 @@ import (
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -125,7 +126,7 @@ func (obj *FileRes) Validate() error {
 		if err != nil {
 			return fmt.Errorf("can't stat root to get system information")
 		}
-		_, ok := fileInfo.Sys().(*syscall.Stat_t)
+		_, ok := fileInfo.Sys().(*unix.Stat_t)
 		if !ok {
 			return fmt.Errorf("can't set Owner or Group on this platform")
 		}
@@ -371,7 +372,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	}
 
 	// TODO: attempt to reflink with Splice() and int(file.Fd()) as input...
-	// syscall.Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n int64, err error)
+	// unix.Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n int64, err error)
 
 	// TODO: should we offer a way to cancel the copy on ^C ?
 	if obj.init.Debug {
@@ -764,7 +765,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 		return false, err
 	}
 
-	stUnix, ok := fileInfo.Sys().(*syscall.Stat_t)
+	stUnix, ok := fileInfo.Sys().(*unix.Stat_t)
 	if !ok { // this check is done in Validate, but it's done here again...
 		// not unix
 		return false, fmt.Errorf("can't set Owner or Group on this platform")

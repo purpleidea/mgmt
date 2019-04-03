@@ -65,6 +65,20 @@ function consistent-imports() {
 	if grep $'\t"github.com/purpleidea/mgmt/engine/util"' "$1"; then	# import as engineUtil
 		return 1
 	fi
+
+	# import as golang.org/x/sys/unix
+	if grep -q -E $'syscall\.' "$1"; then
+		if grep -q "syscall.Credential" "$1"; then
+			return 0  # Credential not available in golang.org/x/sys/unix
+		fi
+		if grep -q "syscall.NetlinkMessage" "$1"; then
+			return 0 # NetlinkMessage not available in golang.org/x/sys/unix
+		fi
+		# print out the filename and line number of the improper syscall usage
+		grep -Hn -E $'syscall\.' "$1"
+		return 1
+	fi
+
 }
 
 # run go vet on a per-package basis

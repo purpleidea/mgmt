@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -18,6 +17,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/urfave/cli"
+	"golang.org/x/sys/unix"
 )
 
 // XXX: this has not been updated to latest GAPI/Deploy API. Patches welcome!
@@ -244,7 +244,7 @@ func Run() error {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, os.Interrupt) // catch ^C
 		//signal.Notify(signals, os.Kill) // catch signals
-		signal.Notify(signals, syscall.SIGTERM)
+		signal.Notify(signals, unix.SIGTERM)
 
 		select {
 		case sig := <-signals: // any signal will do

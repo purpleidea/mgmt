@@ -6,13 +6,14 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
+
+	"golang.org/x/sys/unix"
 )
 
 // MyGAPI implements the main GAPI interface.
@@ -163,7 +164,7 @@ func Run() error {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, os.Interrupt) // catch ^C
 		//signal.Notify(signals, os.Kill) // catch signals
-		signal.Notify(signals, syscall.SIGTERM)
+		signal.Notify(signals, unix.SIGTERM)
 
 		select {
 		case sig := <-signals: // any signal will do

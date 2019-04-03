@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/util"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/spf13/afero"
 	"github.com/urfave/cli"
+	"golang.org/x/sys/unix"
 )
 
 // run is the main run target.
@@ -142,7 +142,7 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		signals := make(chan os.Signal, 3+1) // 3 * ^C + 1 * SIGTERM
 		signal.Notify(signals, os.Interrupt) // catch ^C
 		//signal.Notify(signals, os.Kill) // catch signals
-		signal.Notify(signals, syscall.SIGTERM)
+		signal.Notify(signals, unix.SIGTERM)
 		var count uint8
 		for {
 			select {

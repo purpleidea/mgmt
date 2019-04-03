@@ -23,11 +23,12 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+
+	"golang.org/x/sys/unix"
 )
 
 func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
@@ -211,7 +212,7 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 	cmdArgs := []string{"300"} // 5 min in seconds
 	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 	// ignore signals sent to parent process (we're in our own group)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
+	cmd.SysProcAttr = &unix.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,
 	}
@@ -231,7 +232,7 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
 	if err != nil && ok {
 		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-		wStatus, ok := pStateSys.(syscall.WaitStatus)
+		wStatus, ok := pStateSys.(unix.WaitStatus)
 		if !ok {
 			t.Errorf("error running cmd")
 			return
@@ -242,7 +243,7 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 		}
 
 		// we get this on timeout, because ctx calls cmd.Process.Kill()
-		if sig := wStatus.Signal(); sig != syscall.SIGKILL {
+		if sig := wStatus.Signal(); sig != unix.SIGKILL {
 			t.Errorf("got wrong signal: %+v, exit status: %d", sig, wStatus.ExitStatus())
 			return
 		}

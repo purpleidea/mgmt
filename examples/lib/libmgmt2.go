@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -17,6 +16,7 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 
 	"github.com/urfave/cli"
+	"golang.org/x/sys/unix"
 )
 
 // XXX: this has not been updated to latest GAPI/Deploy API. Patches welcome!
@@ -205,7 +205,7 @@ func Run(count uint) error {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, os.Interrupt) // catch ^C
 		//signal.Notify(signals, os.Kill) // catch signals
-		signal.Notify(signals, syscall.SIGTERM)
+		signal.Notify(signals, unix.SIGTERM)
 
 		select {
 		case sig := <-signals: // any signal will do

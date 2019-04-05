@@ -233,6 +233,19 @@ starting up, and as a result, a default endpoint never gets added. The solution
 is to either reconcile the mistake, and if there is no important data saved, you
 can remove the etcd dataDir. This is typically `/var/lib/mgmt/etcd/member/`.
 
+### On running `make` to build a new version, it errors with: `Text file busy`.
+
+If you get an error like:
+
+```
+cp: cannot create regular file 'mgmt': Text file busy
+```
+
+This can happen if you ran `make build` (or just `make`) when there was already
+an instance of mgmt running, or if a related file locking issue occurred. To
+solve this, shutdown and running mgmt process, run `rm mgmt` to remove the file,
+and then get a new one by running `make` again.
+
 ### Does this support Windows? OSX? GNU Hurd?
 
 Mgmt probably works best on Linux, because that's what most developers use for

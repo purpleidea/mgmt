@@ -146,7 +146,8 @@ func ExampleSubscribedSignal() {
 
 	ready.Wait() // wait for all subscribes
 	fmt.Println("sending signal...")
-	x.Send() // trigger!
+	x.Send()                    // trigger!
+	time.Sleep(1 * time.Second) // wait a bit so the next print doesn't race
 	fmt.Println("done sending signal")
 
 	wg.Wait() // wait for everyone to exit
@@ -160,9 +161,9 @@ func ExampleSubscribedSignal() {
 	// (1) sending ack...
 	// (2) sending ack...
 	// (3) sending ack...
+	// done sending ack
+	// done sending ack
+	// done sending ack
 	// done sending signal
-	// done sending ack
-	// done sending ack
-	// done sending ack
 	// exiting...
 }

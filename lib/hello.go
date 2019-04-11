@@ -29,11 +29,11 @@ import (
 func hello(program, version string, flags Flags) {
 	var start = time.Now().UnixNano()
 
-	var logFlags int
-	if flags.Debug || true { // TODO: remove || true
-		logFlags = log.LstdFlags | log.Lshortfile
+	logFlags := log.LstdFlags
+	if flags.Debug {
+		logFlags = logFlags + log.Lshortfile
 	}
-	logFlags = (logFlags - log.Ldate) // remove the date for now
+	logFlags = logFlags - log.Ldate // remove the date for now
 	log.SetFlags(logFlags)
 
 	// un-hijack from capnslog...

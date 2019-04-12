@@ -147,7 +147,7 @@ Invoke `mgmt` with the `--puppet` switch, which supports 3 variants:
 
 	`mgmt run puppet --puppet 'file { "/etc/ntp.conf": ensure => file }'`
 
-For more details and caveats see [Puppet.md](Puppet.md).
+For more details and caveats see [puppet-guide.md](puppet-guide.md).
 
 #### Blog post
 

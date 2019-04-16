@@ -529,6 +529,9 @@ func (obj *Main) Run() error {
 					continue
 				}
 				mainDeploy = deploy // save this one
+				if id := mainDeploy.ID; id != 0 {
+					Logf("deploy: got id: %d", id)
+				}
 				gapiObj := mainDeploy.GAPI
 				if gapiObj == nil {
 					Logf("deploy: received empty gapi")
@@ -891,6 +894,7 @@ func (obj *Main) Run() error {
 				Logf("deploy: error decoding deploy: %+v", err)
 				continue
 			}
+			deploy.ID = latest // store the ID
 
 			select {
 			case deployChan <- deploy:

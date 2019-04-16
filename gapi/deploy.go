@@ -34,6 +34,7 @@ func init() {
 // TODO: add staged rollout functionality to this struct
 // TODO: add proper authentication with gpg key signing
 type Deploy struct {
+	ID   uint64
 	Name string // lang, puppet, yaml, etc...
 	//Sync bool // wait for everyone to close previous GAPI before switching
 	Noop bool

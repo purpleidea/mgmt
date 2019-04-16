@@ -208,7 +208,7 @@ func (obj *EmbdEtcd) nominateCb(ctx context.Context) error {
 				if obj.Debug {
 					obj.Logf("error with member remove: %v", err)
 				}
-				return errwrap.Wrapf(err, "member remove error")
+				return errwrap.Wrapf(err, "member self remove error")
 			}
 			if resp != nil {
 				obj.Logf("member removed (self): %s (%d)", obj.Hostname, obj.serverID)

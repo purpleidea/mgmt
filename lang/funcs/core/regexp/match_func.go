@@ -15,17 +15,37 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package coreregexp
 
 import (
-	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/fmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/regexp"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
+	"regexp"
+
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
+
+func init() {
+	simple.ModuleRegister(moduleName, "match", &types.FuncValue{
+		T: types.NewType("func(pattern str, s str) bool"),
+		V: Match,
+	})
+}
+
+// Match matches whether a string matches the regexp pattern.
+func Match(input []types.Value) (types.Value, error) {
+	pattern := input[0].Str()
+	s := input[1].Str()
+
+	// TODO: We could make this more efficient with the regular function API
+	// by only compiling the pattern when it changes.
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "pattern did not compile")
+	}
+
+	result := re.MatchString(s)
+	return &types.BoolValue{
+		V: result,
+	}, nil
+}

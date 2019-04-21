@@ -1989,8 +1989,7 @@ func (obj *StmtIf) Output() (*interfaces.Output, error) {
 // the bind statement's are correctly applied in this scope, and irrespective of
 // their order of definition.
 type StmtProg struct {
-	data *interfaces.Data
-	// XXX: should this be copied when we run Interpolate here or elsewhere?
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for use by imports
 
 	// TODO: should this be a map? if so, how would we sort it to loop it?
@@ -2054,6 +2053,7 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 	}
 	return &StmtProg{
 		data:        obj.data,
+		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
 		Prog:        prog,
@@ -2451,7 +2451,11 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 // can't follow one (perhaps it wasn't downloaded yet, and is missing) then it
 // leaves some information about these missing imports in the AST and errors, so
 // that a subsequent AST traversal (usually via Apply) can collect this detailed
-// information to be used by the downloader.
+// information to be used by the downloader. When it propagates the scope
+// downwards, it first pushes it into all the classes, and then into everything
+// else (including the include stmt's) because the include statements require
+// that the scope already be known so that it can be combined with the include
+// args.
 func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	newScope := scope.Copy()
 
@@ -2617,9 +2621,20 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 	obj.scope = newScope // save a reference in case we're read by an import
 
+	// first set the scope on the classes, since it gets used in include...
+	for _, x := range obj.Prog {
+		if _, ok := x.(*StmtClass); !ok {
+			continue
+		}
+		if err := x.SetScope(newScope); err != nil {
+			return err
+		}
+	}
+
 	// now set the child scopes (even on bind...)
 	for _, x := range obj.Prog {
-		// skip over *StmtClass here (essential for recursive classes)
+		// NOTE: We used to skip over *StmtClass here for recursion...
+		// Skip over *StmtClass here, since we already did it above...
 		if _, ok := x.(*StmtClass); ok {
 			continue
 		}
@@ -2853,6 +2868,8 @@ func (obj *StmtFunc) Output() (*interfaces.Output, error) {
 // TODO: We don't currently support defining polymorphic classes (eg: different
 // signatures for the same class name) but it might be something to consider.
 type StmtClass struct {
+	scope *interfaces.Scope // store for referencing this later
+
 	Name string
 	Args []*Arg
 	Body interfaces.Stmt // probably a *StmtProg
@@ -2896,9 +2913,10 @@ func (obj *StmtClass) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtClass{
-		Name: obj.Name,
-		Args: args, // ensure this has length == 0 instead of nil
-		Body: interpolated,
+		scope: obj.scope,
+		Name:  obj.Name,
+		Args:  args, // ensure this has length == 0 instead of nil
+		Body:  interpolated,
 	}, nil
 }
 
@@ -2906,6 +2924,7 @@ func (obj *StmtClass) Interpolate() (interfaces.Stmt, error) {
 // necessary in order to reach this, in particular in situations when a bound
 // expression points to a previously bound expression.
 func (obj *StmtClass) SetScope(scope *interfaces.Scope) error {
+	obj.scope = scope // store for later
 	return obj.Body.SetScope(scope)
 }
 
@@ -3038,6 +3057,15 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 		return fmt.Errorf("include already contains a class pointer")
 	}
 
+	// make sure to propagate the scope to our input args!
+	if obj.Args != nil {
+		for _, x := range obj.Args {
+			if err := x.SetScope(scope); err != nil {
+				return err
+			}
+		}
+	}
+
 	for i := len(scope.Chain) - 1; i >= 0; i-- { // reverse order
 		x, ok := scope.Chain[i].(*StmtInclude)
 		if !ok {
@@ -3073,7 +3101,10 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	}
 	obj.class = copied
 
-	newScope := scope.Copy()
+	// We start with the scope that the class had, and we augment it with
+	// our parameterized arg variables, which will be needed in that scope.
+	newScope := obj.class.scope.Copy()
+	// Add our args `include foo(42, "bar", true)` into the class scope.
 	for i, arg := range obj.class.Args { // copy
 		newScope.Variables[arg.Name] = obj.Args[i]
 	}
@@ -3082,6 +3113,12 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	newScope.Chain = append(newScope.Chain, obj.orig) // add stmt to list
 	newScope.Classes[obj.Name] = copied               // overwrite with new pointer
 
+	// NOTE: This would overwrite the scope that was previously set here,
+	// which would break the scoping rules. Scopes are propagated into
+	// class definitions, but not into include definitions. Which is why we
+	// need to use the original scope of the class as it was set as the
+	// basis for this scope, so that we overwrite it only with the arg
+	// changes.
 	if err := obj.class.SetScope(newScope); err != nil {
 		return err
 	}
@@ -5056,9 +5093,10 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 		args = append(args, interpolated)
 	}
 	return &ExprCall{
-		typ:  obj.typ,
-		Name: obj.Name,
-		Args: args,
+		scope: obj.scope,
+		typ:   obj.typ,
+		Name:  obj.Name,
+		Args:  args,
 	}, nil
 }
 
@@ -5446,7 +5484,8 @@ func (obj *ExprVar) Init(*interfaces.Data) error { return nil }
 // support variable, variables or anything crazy like that.
 func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 	return &ExprVar{
-		Name: obj.Name,
+		scope: obj.scope,
+		Name:  obj.Name,
 	}, nil
 }
 

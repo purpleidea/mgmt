@@ -1,0 +1,12 @@
+import "fmt"
+$max = 3
+include c1(0) # start at zero
+class c1($count) {
+	if $count == $max {
+		test "done" {
+			stringptr => fmt.printf("count is %d", $count),
+		}
+	} else {
+		include c1($count + 1) # recursion not supported atm
+	}
+}

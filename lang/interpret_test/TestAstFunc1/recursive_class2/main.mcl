@@ -1,0 +1,24 @@
+# this currently fails with: "class `c1` does not exist in this scope"
+# instead of: "recursive class `c1` found" or "recursive class `c2` found"
+# ideally, we'd consider allowing finite (static) recursion such as this...
+import "fmt"
+$max = 5
+include c1(0) # start at zero
+class c1($count) {
+	if $count == $max {
+		test "done" {
+			stringptr => fmt.printf("count is %d", $count),
+		}
+	} else {
+		include c2($count + 1) # recursion not supported atm
+	}
+}
+class c2($count) {
+	if $count == $max {
+		test "done" {
+			stringptr => fmt.printf("count is %d", $count),
+		}
+	} else {
+		include c1($count + 1) # recursion not supported atm
+	}
+}

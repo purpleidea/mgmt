@@ -1,0 +1,5 @@
+import "second.mcl"
+
+import "os" # this fixes it but the wrong way
+
+include second.xclass

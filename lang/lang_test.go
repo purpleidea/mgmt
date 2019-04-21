@@ -590,6 +590,32 @@ func TestInterpretMany(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
+		r1, _ := engine.NewNamedResource("test", "hey1")
+		r2, _ := engine.NewNamedResource("test", "hey2")
+		x1 := r1.(*resources.TestRes)
+		x2 := r2.(*resources.TestRes)
+		s1, s2 := "hey", "hey"
+		x1.StringPtr = &s1
+		x2.StringPtr = &s2
+		graph.AddVertex(x1, x2)
+		testCases = append(testCases, test{
+			name: "double include with out of order variable in parent scope and scoped var",
+			code: `
+			include c1($foo + "1")
+			include c1($foo + "2")
+			class c1($a) {
+				test $a {
+					stringptr => $foo,
+				}
+			}
+			$foo = "hey"
+			`,
+			fail:  false,
+			graph: graph,
+		})
+	}
+	{
+		graph, _ := pgraph.NewGraph("g")
 		r1, _ := engine.NewNamedResource("test", "t1")
 		x1 := r1.(*resources.TestRes)
 		s1 := "hello"

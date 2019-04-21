@@ -1,0 +1,10 @@
+import "fmt"
+
+class xclass {
+	# note that `os` is not imported here
+	$aaa = if os.is_debian() { "bbb" }  else { "ccc" }
+
+	print "${aaa}" {
+		msg => "hello",
+	}
+}

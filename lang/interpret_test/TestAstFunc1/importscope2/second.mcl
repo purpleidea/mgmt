@@ -1,0 +1,11 @@
+import "fmt"
+
+class xclass {
+	import "os" # we can also use a scoped local import
+
+	$aaa = if os.is_debian() { "bbb" }  else { "ccc" }
+
+	print "${aaa}" {
+		msg => "hello",
+	}
+}

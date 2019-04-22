@@ -167,7 +167,6 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 		Hostname:      obj.data.Hostname,
 		World:         obj.data.World,
 		Noop:          obj.data.Noop,
-		NoConfigWatch: obj.data.NoConfigWatch,
 		NoStreamWatch: obj.data.NoStreamWatch,
 		Debug:         obj.data.Debug,
 		Logf: func(format string, v ...interface{}) {
@@ -179,7 +178,6 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 		Hostname:      obj.data.Hostname,
 		World:         obj.data.World,
 		Noop:          obj.data.Noop,
-		NoConfigWatch: obj.data.NoConfigWatch,
 		NoStreamWatch: obj.data.NoStreamWatch,
 		Debug:         obj.data.Debug,
 		Logf: func(format string, v ...interface{}) {

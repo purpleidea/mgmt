@@ -294,8 +294,6 @@ func (obj *GAPI) Next() chan gapi.Next {
 		close(startChan)                 // kick it off!
 
 		var pChan <-chan time.Time
-		// NOTE: we don't look at obj.data.NoConfigWatch since emulating
-		// puppet means we do not switch graphs on code changes anyways.
 		if obj.data.NoStreamWatch {
 			pChan = nil
 		} else {

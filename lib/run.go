@@ -87,7 +87,6 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	}
 
 	obj.NoWatch = cliContext.Bool("no-watch")
-	obj.NoConfigWatch = cliContext.Bool("no-config-watch")
 	obj.NoStreamWatch = cliContext.Bool("no-stream-watch")
 	obj.NoDeployWatch = cliContext.Bool("no-deploy-watch")
 

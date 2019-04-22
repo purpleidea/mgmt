@@ -73,7 +73,6 @@ type Data struct {
 	Hostname      string // uuid for the host, required for GAPI
 	World         engine.World
 	Noop          bool
-	NoConfigWatch bool
 	NoStreamWatch bool
 	Prefix        string
 	Debug         bool

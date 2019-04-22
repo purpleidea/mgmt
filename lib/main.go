@@ -75,7 +75,6 @@ type Main struct {
 	DeployFs engine.Fs    // used for static deploys
 
 	NoWatch       bool // do not change graph under any circumstances
-	NoConfigWatch bool // do not update graph due to config changes
 	NoStreamWatch bool // do not update graph due to stream changes
 	NoDeployWatch bool // do not change deploys after an initial deploy
 
@@ -140,9 +139,8 @@ func (obj *Main) Init() error {
 	// if we've turned off watching, then be explicit and disable them all!
 	// if all the watches are disabled, then it's equivalent to no watching
 	if obj.NoWatch {
-		obj.NoConfigWatch = true
 		obj.NoStreamWatch = true
-	} else if obj.NoConfigWatch && obj.NoStreamWatch {
+	} else if obj.NoStreamWatch {
 		obj.NoWatch = true
 	}
 
@@ -554,7 +552,6 @@ func (obj *Main) Run() error {
 					Noop:     mainDeploy.Noop,
 					// FIXME: should the below flags come from the deploy struct?
 					//NoWatch:  obj.NoWatch,
-					NoConfigWatch: obj.NoConfigWatch,
 					NoStreamWatch: obj.NoStreamWatch,
 					Prefix:        fmt.Sprintf("%s/", path.Join(prefix, "gapi")),
 					Debug:         obj.Flags.Debug,

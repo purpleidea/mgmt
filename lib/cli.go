@@ -73,10 +73,6 @@ func CLI(program, version string, flags Flags) error {
 			Usage: "do not update graph under any switch events",
 		},
 		cli.BoolFlag{
-			Name:  "no-config-watch",
-			Usage: "do not update graph on config switch events",
-		},
-		cli.BoolFlag{
 			Name:  "no-stream-watch",
 			Usage: "do not update graph on stream switch events",
 		},

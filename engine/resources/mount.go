@@ -584,7 +584,7 @@ func mountReload() error {
 	}
 
 	// systemctl restart remote-fs.target
-	if err := restartUnit(conn, "local-fs.target"); err != nil {
+	if err := restartUnit(conn, "remote-fs.target"); err != nil {
 		return errwrap.Wrapf(err, "error restarting unit")
 	}
 

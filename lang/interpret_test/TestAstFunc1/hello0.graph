@@ -1,8 +1,8 @@
-Vertex: call:fmt.printf(str(hello: %s), var(s))
-Vertex: str(greeting)
-Vertex: str(hello: %s)
-Vertex: str(world)
+Edge: str("hello: %s") -> call:fmt.printf(str("hello: %s"), var(s)) # a
+Edge: str("world") -> var(s) # s
+Edge: var(s) -> call:fmt.printf(str("hello: %s"), var(s)) # b
+Vertex: call:fmt.printf(str("hello: %s"), var(s))
+Vertex: str("greeting")
+Vertex: str("hello: %s")
+Vertex: str("world")
 Vertex: var(s)
-Edge: str(hello: %s) -> call:fmt.printf(str(hello: %s), var(s)) # a
-Edge: str(world) -> var(s) # s
-Edge: var(s) -> call:fmt.printf(str(hello: %s), var(s)) # b

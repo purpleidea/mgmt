@@ -1,12 +1,12 @@
-Edge: list(str(hey)) -> var(names) # names
-Edge: str(hello) -> list(str(hello), str(world)) # 0
-Edge: str(hey) -> list(str(hey)) # 0
-Edge: str(world) -> list(str(hello), str(world)) # 1
+Edge: list(str("hey")) -> var(names) # names
+Edge: str("hello") -> list(str("hello"), str("world")) # 0
+Edge: str("hey") -> list(str("hey")) # 0
+Edge: str("world") -> list(str("hello"), str("world")) # 1
 Vertex: list()
-Vertex: list(str(hello), str(world))
-Vertex: list(str(hey))
-Vertex: str(hello)
-Vertex: str(hey)
-Vertex: str(name)
-Vertex: str(world)
+Vertex: list(str("hello"), str("world"))
+Vertex: list(str("hey"))
+Vertex: str("hello")
+Vertex: str("hey")
+Vertex: str("name")
+Vertex: str("world")
 Vertex: var(names)

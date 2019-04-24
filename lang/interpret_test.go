@@ -140,7 +140,7 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2, v3, v4, v5 := vtex("int(42)"), vtex("var(a)"), vtex("var(b)"), vtex("var(c)"), vtex("str(t)")
+		v1, v2, v3, v4, v5 := vtex("int(42)"), vtex("var(a)"), vtex("var(b)"), vtex("var(c)"), vtex(`str("t")`)
 		e1, e2, e3 := edge("a"), edge("b"), edge("c")
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
 		graph.AddEdge(&v1, &v2, &e1)
@@ -179,7 +179,7 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2, v3, v4, v5 := vtex("str(t)"), vtex("str(+)"), vtex("int(42)"), vtex("int(13)"), vtex(fmt.Sprintf("call:%s(str(+), int(42), int(13))", operatorFuncName))
+		v1, v2, v3, v4, v5 := vtex(`str("t")`), vtex(`str("+")`), vtex("int(42)"), vtex("int(13)"), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), int(13))`, operatorFuncName))
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
 		e1, e2, e3 := edge("x"), edge("a"), edge("b")
 		graph.AddEdge(&v2, &v5, &e1)
@@ -199,10 +199,10 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2, v3 := vtex("str(t)"), vtex("str(-)"), vtex("str(+)")
+		v1, v2, v3 := vtex(`str("t")`), vtex(`str("-")`), vtex(`str("+")`)
 		v4, v5, v6 := vtex("int(42)"), vtex("int(13)"), vtex("int(99)")
-		v7 := vtex(fmt.Sprintf("call:%s(str(+), int(42), int(13))", operatorFuncName))
-		v8 := vtex(fmt.Sprintf("call:%s(str(-), call:%s(str(+), int(42), int(13)), int(99))", operatorFuncName, operatorFuncName))
+		v7 := vtex(fmt.Sprintf(`call:%s(str("+"), int(42), int(13))`, operatorFuncName))
+		v8 := vtex(fmt.Sprintf(`call:%s(str("-"), call:%s(str("+"), int(42), int(13)), int(99))`, operatorFuncName, operatorFuncName))
 
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
 		e1, e2, e3 := edge("x"), edge("a"), edge("b")
@@ -228,10 +228,10 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2 := vtex("bool(true)"), vtex("str(t)")
+		v1, v2 := vtex("bool(true)"), vtex(`str("t")`)
 		v3, v4 := vtex("int(13)"), vtex("int(42)")
 		v5, v6 := vtex("var(i)"), vtex("var(x)")
-		v7, v8 := vtex("str(+)"), vtex(fmt.Sprintf("call:%s(str(+), int(42), var(i))", operatorFuncName))
+		v7, v8 := vtex(`str("+")`), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), var(i))`, operatorFuncName))
 
 		e1, e2, e3, e4, e5 := edge("x"), edge("a"), edge("b"), edge("i"), edge("x")
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
@@ -285,8 +285,8 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2, v3 := vtex("str(hello)"), vtex("str(world)"), vtex("bool(true)")
-		v4, v5 := vtex("var(x)"), vtex("str(t)")
+		v1, v2, v3 := vtex(`str("hello")`), vtex(`str("world")`), vtex("bool(true)")
+		v4, v5 := vtex("var(x)"), vtex(`str("t")`)
 
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
 		e1 := edge("x")
@@ -311,8 +311,8 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2, v3 := vtex("str(hello)"), vtex("str(world)"), vtex("bool(true)")
-		v4, v5 := vtex("var(x)"), vtex("str(t)")
+		v1, v2, v3 := vtex(`str("hello")`), vtex(`str("world")`), vtex("bool(true)")
+		v4, v5 := vtex("var(x)"), vtex(`str("t")`)
 
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
 		e1 := edge("x")
@@ -339,9 +339,9 @@ func TestAstFunc0(t *testing.T) {
 	//{
 	//	graph, _ := pgraph.NewGraph("g")
 	//	v0 := vtex("bool(true)")
-	//	v1, v2 := vtex("str(hello)"), vtex("str(world)")
+	//	v1, v2 := vtex(`str("hello")`), vtex(`str("world")`)
 	//	v3, v4 := vtex("var(x)"), vtex("var(x)") // different vertices!
-	//	v5, v6 := vtex("str(t1)"), vtex("str(t2)")
+	//	v5, v6 := vtex(`str("t1")`), vtex(`str("t2")`)
 	//
 	//	graph.AddVertex(&v0, &v1, &v2, &v3, &v4, &v5, &v6)
 	//	e1, e2 := edge("x"), edge("x")
@@ -370,8 +370,8 @@ func TestAstFunc0(t *testing.T) {
 	//	// FIXME: blocked by: https://github.com/purpleidea/mgmt/issues/199
 	//{
 	//	graph, _ := pgraph.NewGraph("g")
-	//	v1, v2 := vtex("str(cowsay)"), vtex("str(cowsay)")
-	//	v3, v4 := vtex("str(installed)"), vtex("str(newest)")
+	//	v1, v2 := vtex(`str("cowsay")`), vtex(`str("cowsay")`)
+	//	v3, v4 := vtex(`str("installed)`), vtex(`str("newest")`)
 	//
 	//	graph.AddVertex(&v1, &v2, &v3, &v4)
 	//

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -3554,7 +3555,7 @@ type ExprStr struct {
 func (obj *ExprStr) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
 
 // String returns a short representation of this expression.
-func (obj *ExprStr) String() string { return fmt.Sprintf("str(%s)", obj.V) }
+func (obj *ExprStr) String() string { return fmt.Sprintf("str(%s)", strconv.Quote(obj.V)) }
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.

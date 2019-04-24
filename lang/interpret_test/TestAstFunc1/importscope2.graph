@@ -1,10 +1,10 @@
 Edge: call:os.is_debian() -> if(call:os.is_debian()) # c
 Edge: if(call:os.is_debian()) -> var(aaa) # aaa
-Edge: str(bbb) -> if(call:os.is_debian()) # a
-Edge: str(ccc) -> if(call:os.is_debian()) # b
+Edge: str("bbb") -> if(call:os.is_debian()) # a
+Edge: str("ccc") -> if(call:os.is_debian()) # b
 Vertex: call:os.is_debian()
 Vertex: if(call:os.is_debian())
-Vertex: str(bbb)
-Vertex: str(ccc)
-Vertex: str(hello)
+Vertex: str("bbb")
+Vertex: str("ccc")
+Vertex: str("hello")
 Vertex: var(aaa)

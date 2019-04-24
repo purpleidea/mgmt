@@ -34,6 +34,10 @@ func init() {
 		T: types.NewType("func() bool"),
 		V: IsRedHat,
 	})
+	simple.ModuleRegister(moduleName, "is_archlinux", &types.FuncValue{
+		T: types.NewType("func() bool"),
+		V: IsArchLinux,
+	})
 }
 
 // IsDebian detects if the os family is debian.
@@ -54,6 +58,19 @@ func IsDebian(input []types.Value) (types.Value, error) {
 func IsRedHat(input []types.Value) (types.Value, error) {
 	exists := true
 	_, err := os.Stat("/etc/redhat-release")
+	if os.IsNotExist(err) {
+		exists = false
+	}
+	return &types.BoolValue{
+		V: exists,
+	}, nil
+}
+
+// IsArchLinux detects if the os family is archlinux.
+// TODO: Detect OS changes.
+func IsArchLinux(input []types.Value) (types.Value, error) {
+	exists := true
+	_, err := os.Stat("/etc/arch-release")
 	if os.IsNotExist(err) {
 		exists = false
 	}

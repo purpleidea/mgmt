@@ -467,7 +467,13 @@ func TestAstFunc0(t *testing.T) {
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
 			}
-			err = unification.Unify(iast, unification.SimpleInvariantSolverLogger(logf))
+			unifier := &unification.Unifier{
+				AST:    iast,
+				Solver: unification.SimpleInvariantSolverLogger(logf),
+				Debug:  testing.Verbose(),
+				Logf:   logf,
+			}
+			err = unifier.Unify()
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
@@ -822,7 +828,13 @@ func TestAstFunc1(t *testing.T) {
 			xlogf := func(format string, v ...interface{}) {
 				logf("unification: "+format, v...)
 			}
-			err = unification.Unify(iast, unification.SimpleInvariantSolverLogger(xlogf))
+			unifier := &unification.Unifier{
+				AST:    iast,
+				Solver: unification.SimpleInvariantSolverLogger(xlogf),
+				Debug:  testing.Verbose(),
+				Logf:   xlogf,
+			}
+			err = unifier.Unify()
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
@@ -1216,7 +1228,13 @@ func TestAstFunc2(t *testing.T) {
 			xlogf := func(format string, v ...interface{}) {
 				logf("unification: "+format, v...)
 			}
-			err = unification.Unify(iast, unification.SimpleInvariantSolverLogger(xlogf))
+			unifier := &unification.Unifier{
+				AST:    iast,
+				Solver: unification.SimpleInvariantSolverLogger(xlogf),
+				Debug:  testing.Verbose(),
+				Logf:   xlogf,
+			}
+			err = unifier.Unify()
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)

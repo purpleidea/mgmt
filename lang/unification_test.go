@@ -819,7 +819,13 @@ func TestUnification1(t *testing.T) {
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
 			}
-			err := unification.Unify(ast, unification.SimpleInvariantSolverLogger(logf))
+			unifier := &unification.Unifier{
+				AST:    ast,
+				Solver: unification.SimpleInvariantSolverLogger(logf),
+				Debug:  testing.Verbose(),
+				Logf:   logf,
+			}
+			err := unifier.Unify()
 
 			// TODO: print out the AST's so that we can see the types
 			t.Logf("\n\ntest #%d: AST (after): %+v\n", index, ast)

@@ -2977,6 +2977,15 @@ type StmtInclude struct {
 // Nevertheless, it is a useful facility for operations that might only apply to
 // a select number of node types, since they won't need extra noop iterators...
 func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
+	// If the class exists, then descend into it, because at this point, the
+	// copy of the original class that is stored here, is the effective
+	// class that we care about for type unification, and everything else...
+	// It's not clear if this is needed, but it's probably nor harmful atm.
+	if obj.class != nil {
+		if err := obj.class.Apply(fn); err != nil {
+			return err
+		}
+	}
 	if obj.Args != nil {
 		for _, x := range obj.Args {
 			if err := x.Apply(fn); err != nil {
@@ -4890,7 +4899,11 @@ func (obj *ExprFunc) String() string {
 	if obj.Return != nil {
 		s += fmt.Sprintf(" %s", obj.Return.String())
 	}
-	s += fmt.Sprintf(" { %s }", obj.Body.String())
+	if obj.Body == nil {
+		s += fmt.Sprintf(" { ??? }") // TODO: why does this happen?
+	} else {
+		s += fmt.Sprintf(" { %s }", obj.Body.String())
+	}
 	return s
 }
 

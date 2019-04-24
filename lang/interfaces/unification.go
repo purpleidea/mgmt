@@ -19,6 +19,8 @@ package interfaces
 
 import (
 	"fmt"
+
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
 // Invariant represents a constraint that is described by the Expr's and Stmt's,
@@ -27,4 +29,11 @@ import (
 type Invariant interface {
 	// TODO: should we add any other methods to this type?
 	fmt.Stringer
+
+	// ExprList returns the list of valid expressions in this invariant.
+	ExprList() []Expr
+
+	// Matches returns whether an invariant matches the existing solution.
+	// If it is inconsistent, then it errors.
+	Matches(solved map[Expr]*types.Type) (bool, error)
 }

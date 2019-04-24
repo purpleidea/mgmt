@@ -1,0 +1,88 @@
+Edge: call:_operator(str("=="), var(state), str("default")) -> call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default"))) # b
+Edge: call:_operator(str("=="), var(state), str("one")) -> call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default"))) # a
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
+Edge: call:world.kvlookup(var(ns)) -> var(exchanged) # exchanged
+Edge: str("") -> var(hostname) # hostname
+Edge: str("==") -> call:_operator(str("=="), var(state), str("default")) # x
+Edge: str("==") -> call:_operator(str("=="), var(state), str("one")) # x
+Edge: str("==") -> call:_operator(str("=="), var(state), str("three")) # x
+Edge: str("==") -> call:_operator(str("=="), var(state), str("two")) # x
+Edge: str("default") -> call:_operator(str("=="), var(state), str("default")) # b
+Edge: str("default") -> call:maplookup(var(exchanged), var(hostname), str("default")) # default
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # ns
+Edge: str("one") -> call:_operator(str("=="), var(state), str("one")) # b
+Edge: str("three") -> call:_operator(str("=="), var(state), str("three")) # b
+Edge: str("two") -> call:_operator(str("=="), var(state), str("two")) # b
+Edge: str("||") -> call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default"))) # x
+Edge: var(exchanged) -> call:maplookup(var(exchanged), var(hostname), str("default")) # map
+Edge: var(hostname) -> call:maplookup(var(exchanged), var(hostname), str("default")) # key
+Edge: var(ns) -> call:world.kvlookup(var(ns)) # namespace
+Edge: var(state) -> call:_operator(str("=="), var(state), str("default")) # a
+Edge: var(state) -> call:_operator(str("=="), var(state), str("one")) # a
+Edge: var(state) -> call:_operator(str("=="), var(state), str("three")) # a
+Edge: var(state) -> call:_operator(str("=="), var(state), str("two")) # a
+Vertex: call:_operator(str("=="), var(state), str("default"))
+Vertex: call:_operator(str("=="), var(state), str("one"))
+Vertex: call:_operator(str("=="), var(state), str("three"))
+Vertex: call:_operator(str("=="), var(state), str("two"))
+Vertex: call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default")))
+Vertex: call:maplookup(var(exchanged), var(hostname), str("default"))
+Vertex: call:world.kvlookup(var(ns))
+Vertex: str("")
+Vertex: str("/tmp/mgmt/state")
+Vertex: str("/tmp/mgmt/state")
+Vertex: str("/tmp/mgmt/state")
+Vertex: str("/usr/bin/sleep 1s")
+Vertex: str("/usr/bin/sleep 1s")
+Vertex: str("/usr/bin/sleep 1s")
+Vertex: str("==")
+Vertex: str("==")
+Vertex: str("==")
+Vertex: str("==")
+Vertex: str("default")
+Vertex: str("default")
+Vertex: str("estate")
+Vertex: str("one")
+Vertex: str("one")
+Vertex: str("state: one\n")
+Vertex: str("state: three\n")
+Vertex: str("state: two\n")
+Vertex: str("three")
+Vertex: str("three")
+Vertex: str("timer")
+Vertex: str("timer")
+Vertex: str("timer")
+Vertex: str("timer")
+Vertex: str("timer")
+Vertex: str("timer")
+Vertex: str("two")
+Vertex: str("two")
+Vertex: str("||")
+Vertex: var(exchanged)
+Vertex: var(hostname)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(ns)
+Vertex: var(state)
+Vertex: var(state)
+Vertex: var(state)
+Vertex: var(state)

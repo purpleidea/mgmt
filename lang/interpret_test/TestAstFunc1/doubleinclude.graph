@@ -1,0 +1,11 @@
+Edge: str("hey") -> var(foo) # foo
+Edge: str("hey") -> var(foo) # foo
+Edge: str("t1") -> var(a) # a
+Edge: str("t2") -> var(a) # a
+Vertex: str("hey")
+Vertex: str("t1")
+Vertex: str("t2")
+Vertex: var(a)
+Vertex: var(a)
+Vertex: var(foo)
+Vertex: var(foo)

@@ -32,6 +32,7 @@ import (
 // often since we usually know which kind of node we want.
 type Node interface {
 	Apply(fn func(Node) error) error
+	//Parent() Node // TODO: should we implement this?
 }
 
 // Stmt represents a statement node in the language. A stmt could be a resource,

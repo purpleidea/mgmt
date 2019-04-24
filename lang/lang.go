@@ -185,7 +185,13 @@ func (obj *Lang) Init() error {
 		}
 	}
 	obj.Logf("running type unification...")
-	if err := unification.Unify(obj.ast, unification.SimpleInvariantSolverLogger(logf)); err != nil {
+	unifier := &unification.Unifier{
+		AST:    obj.ast,
+		Solver: unification.SimpleInvariantSolverLogger(logf),
+		Debug:  obj.Debug,
+		Logf:   logf,
+	}
+	if err := unifier.Unify(); err != nil {
 		return errwrap.Wrapf(err, "could not unify types")
 	}
 

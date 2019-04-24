@@ -25,6 +25,18 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+// Unifier holds all the data that the Unify function will need for it to run.
+type Unifier struct {
+	// AST is the input abstract syntax tree to unify.
+	AST interfaces.Stmt
+
+	// Solver is the solver algorithm implementation to use.
+	Solver func([]interfaces.Invariant, []interfaces.Expr) (*InvariantSolution, error)
+
+	Debug bool
+	Logf  func(format string, v ...interface{})
+}
+
 // Unify takes an AST expression tree and attempts to assign types to every node
 // using the specified solver. The expression tree returns a list of invariants
 // (or constraints) which must be met in order to find a unique value for the
@@ -37,32 +49,77 @@ import (
 // type. This function and logic was invented after the author could not find
 // any proper literature or examples describing a well-known implementation of
 // this process. Improvements and polite recommendations are welcome.
-func Unify(ast interfaces.Stmt, solver func([]interfaces.Invariant) (*InvariantSolution, error)) error {
-	//log.Printf("unification: tree: %+v", ast) // debug
-	if ast == nil {
-		return fmt.Errorf("AST is nil")
+func (obj *Unifier) Unify() error {
+	if obj.AST == nil {
+		return fmt.Errorf("the AST is nil")
+	}
+	if obj.Solver == nil {
+		return fmt.Errorf("the Solver is missing")
+	}
+	if obj.Logf == nil {
+		return fmt.Errorf("the Logf function is missing")
 	}
 
-	invariants, err := ast.Unify()
+	if obj.Debug {
+		obj.Logf("tree: %+v", obj.AST)
+	}
+	invariants, err := obj.AST.Unify()
 	if err != nil {
 		return err
 	}
 
-	solved, err := solver(invariants)
+	// build a list of what we think we need to solve for to succeed
+	exprs := []interfaces.Expr{}
+	for _, x := range invariants {
+		exprs = append(exprs, x.ExprList()...)
+	}
+	exprMap := ExprListToExprMap(exprs)    // makes searching faster
+	exprList := ExprMapToExprList(exprMap) // makes it unique (no duplicates)
+
+	solved, err := obj.Solver(invariants, exprList)
 	if err != nil {
 		return err
 	}
 
-	// TODO: ideally we would know how many different expressions need their
-	// types set in the AST and then ensure we have this many unique
-	// solutions, and if not, then fail. This would ensure we don't have an
-	// AST that is only partially populated with the correct types.
+	// determine what expr's we need to solve for
+	if obj.Debug {
+		obj.Logf("expr count: %d", len(exprList))
+		//for _, x := range exprList {
+		//	obj.Logf("> %p (%+v)", x, x)
+		//}
+	}
 
-	//log.Printf("unification: found a solution!") // TODO: get a logf function passed in...
+	// XXX: why doesn't `len(exprList)` always == `len(solved.Solutions)` ?
+	// XXX: is it due to the extra ExprAny ??? I see an extra function sometimes...
+
+	if obj.Debug {
+		obj.Logf("solutions count: %d", len(solved.Solutions))
+		//for _, x := range solved.Solutions {
+		//	obj.Logf("> %p (%+v) -- %s", x.Expr, x.Type, x.Expr.String())
+		//}
+	}
+
+	// Determine that our solver produced a solution for every expr that
+	// we're interested in. If it didn't, and it didn't error, then it's a
+	// bug. We check for this because we care about safety, this ensures
+	// that our AST will get fully populated with the correct types!
+	for _, x := range solved.Solutions {
+		delete(exprMap, x.Expr) // remove everything we know about
+	}
+	if c := len(exprMap); c > 0 { // if there's anything left, it's bad...
+		// programming error!
+		return fmt.Errorf("got %d unbound expr's", c)
+	}
+
+	if obj.Debug {
+		obj.Logf("found a solution!")
+	}
 	// solver has found a solution, apply it...
 	// we're modifying the AST, so code can't error now...
 	for _, x := range solved.Solutions {
-		//log.Printf("unification: solution: %p => %+v\t(%+v)", x.Expr, x.Type, x.Expr.String()) // debug
+		if obj.Debug {
+			obj.Logf("solution: %p => %+v\t(%+v)", x.Expr, x.Type, x.Expr.String())
+		}
 		// apply this to each AST node
 		if err := x.Expr.SetType(x.Type); err != nil {
 			// programming error!
@@ -85,6 +142,24 @@ func (obj *EqualsInvariant) String() string {
 	return fmt.Sprintf("%p == %s", obj.Expr, obj.Type)
 }
 
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualsInvariant) ExprList() []interfaces.Expr {
+	return []interfaces.Expr{obj.Expr}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualsInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	typ, exists := solved[obj.Expr]
+	if !exists {
+		return false, nil
+	}
+	if err := typ.Cmp(obj.Type); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // EqualityInvariant is an invariant that symbolizes that the two expressions
 // must have equivalent types.
 // TODO: is there a better name than EqualityInvariant
@@ -96,6 +171,26 @@ type EqualityInvariant struct {
 // String returns a representation of this invariant.
 func (obj *EqualityInvariant) String() string {
 	return fmt.Sprintf("%p == %p", obj.Expr1, obj.Expr2)
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualityInvariant) ExprList() []interfaces.Expr {
+	return []interfaces.Expr{obj.Expr1, obj.Expr2}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualityInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	t1, exists1 := solved[obj.Expr1]
+	t2, exists2 := solved[obj.Expr2]
+	if !exists1 || !exists2 {
+		return false, nil // not matched yet
+	}
+	if err := t1.Cmp(t2); err != nil {
+		return false, err
+	}
+
+	return true, nil // matched!
 }
 
 // EqualityInvariantList is an invariant that symbolizes that all the
@@ -113,6 +208,32 @@ func (obj *EqualityInvariantList) String() string {
 	return fmt.Sprintf("[%s]", strings.Join(a, ", "))
 }
 
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualityInvariantList) ExprList() []interfaces.Expr {
+	return obj.Exprs
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualityInvariantList) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	found := true // assume true
+	var typ *types.Type
+	for _, x := range obj.Exprs {
+		t, exists := solved[x]
+		if !exists {
+			found = false
+			continue
+		}
+		if typ == nil { // set the first time
+			typ = t
+		}
+		if err := typ.Cmp(t); err != nil {
+			return false, err
+		}
+	}
+	return found, nil
+}
+
 // EqualityWrapListInvariant expresses that a list in Expr1 must have elements
 // that have the same type as the expression in Expr2Val.
 type EqualityWrapListInvariant struct {
@@ -123,6 +244,28 @@ type EqualityWrapListInvariant struct {
 // String returns a representation of this invariant.
 func (obj *EqualityWrapListInvariant) String() string {
 	return fmt.Sprintf("%p == [%p]", obj.Expr1, obj.Expr2Val)
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualityWrapListInvariant) ExprList() []interfaces.Expr {
+	return []interfaces.Expr{obj.Expr1, obj.Expr2Val}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualityWrapListInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	t1, exists1 := solved[obj.Expr1] // list type
+	t2, exists2 := solved[obj.Expr2Val]
+	if !exists1 || !exists2 {
+		return false, nil // not matched yet
+	}
+	if t1.Kind != types.KindList {
+		return false, fmt.Errorf("expected list kind")
+	}
+	if err := t1.Val.Cmp(t2); err != nil {
+		return false, err // inconsistent!
+	}
+	return true, nil // matched!
 }
 
 // EqualityWrapMapInvariant expresses that a map in Expr1 must have keys that
@@ -137,6 +280,32 @@ type EqualityWrapMapInvariant struct {
 // String returns a representation of this invariant.
 func (obj *EqualityWrapMapInvariant) String() string {
 	return fmt.Sprintf("%p == {%p: %p}", obj.Expr1, obj.Expr2Key, obj.Expr2Val)
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualityWrapMapInvariant) ExprList() []interfaces.Expr {
+	return []interfaces.Expr{obj.Expr1, obj.Expr2Key, obj.Expr2Val}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualityWrapMapInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	t1, exists1 := solved[obj.Expr1] // list type
+	t2, exists2 := solved[obj.Expr2Key]
+	t3, exists3 := solved[obj.Expr2Val]
+	if !exists1 || !exists2 || !exists3 {
+		return false, nil // not matched yet
+	}
+	if t1.Kind != types.KindMap {
+		return false, fmt.Errorf("expected map kind")
+	}
+	if err := t1.Key.Cmp(t2); err != nil {
+		return false, err // inconsistent!
+	}
+	if err := t1.Val.Cmp(t3); err != nil {
+		return false, err // inconsistent!
+	}
+	return true, nil // matched!
 }
 
 // EqualityWrapStructInvariant expresses that a struct in Expr1 must have fields
@@ -161,6 +330,49 @@ func (obj *EqualityWrapStructInvariant) String() string {
 		s[i] = fmt.Sprintf("%s %p", k, t)
 	}
 	return fmt.Sprintf("%p == struct{%s}", obj.Expr1, strings.Join(s, "; "))
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualityWrapStructInvariant) ExprList() []interfaces.Expr {
+	exprs := []interfaces.Expr{obj.Expr1}
+	for _, x := range obj.Expr2Map {
+		exprs = append(exprs, x)
+	}
+	return exprs
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualityWrapStructInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	t1, exists1 := solved[obj.Expr1] // list type
+	if !exists1 {
+		return false, nil // not matched yet
+	}
+	if t1.Kind != types.KindStruct {
+		return false, fmt.Errorf("expected struct kind")
+	}
+
+	found := true // assume true
+	for _, key := range obj.Expr2Ord {
+		_, exists := t1.Map[key]
+		if !exists {
+			return false, fmt.Errorf("missing invariant struct key of: `%s`", key)
+		}
+		e, exists := obj.Expr2Map[key]
+		if !exists {
+			return false, fmt.Errorf("missing matched struct key of: `%s`", key)
+		}
+		t, exists := solved[e]
+		if !exists {
+			found = false
+			continue
+		}
+		if err := t1.Map[key].Cmp(t); err != nil {
+			return false, err // inconsistent!
+		}
+	}
+
+	return found, nil // matched!
 }
 
 // EqualityWrapFuncInvariant expresses that a func in Expr1 must have args that
@@ -190,6 +402,58 @@ func (obj *EqualityWrapFuncInvariant) String() string {
 	return fmt.Sprintf("%p == func{%s} %p", obj.Expr1, strings.Join(s, "; "), obj.Expr2Out)
 }
 
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualityWrapFuncInvariant) ExprList() []interfaces.Expr {
+	exprs := []interfaces.Expr{obj.Expr1}
+	for _, x := range obj.Expr2Map {
+		exprs = append(exprs, x)
+	}
+	exprs = append(exprs, obj.Expr2Out)
+	return exprs
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualityWrapFuncInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	t1, exists1 := solved[obj.Expr1] // list type
+	if !exists1 {
+		return false, nil // not matched yet
+	}
+	if t1.Kind != types.KindFunc {
+		return false, fmt.Errorf("expected func kind")
+	}
+
+	found := true // assume true
+	for _, key := range obj.Expr2Ord {
+		_, exists := t1.Map[key]
+		if !exists {
+			return false, fmt.Errorf("missing invariant struct key of: `%s`", key)
+		}
+		e, exists := obj.Expr2Map[key]
+		if !exists {
+			return false, fmt.Errorf("missing matched struct key of: `%s`", key)
+		}
+		t, exists := solved[e]
+		if !exists {
+			found = false
+			continue
+		}
+		if err := t1.Map[key].Cmp(t); err != nil {
+			return false, err // inconsistent!
+		}
+	}
+
+	t, exists := solved[obj.Expr2Out]
+	if !exists {
+		return false, nil
+	}
+	if err := t1.Out.Cmp(t); err != nil {
+		return false, err // inconsistent!
+	}
+
+	return found, nil // matched!
+}
+
 // ConjunctionInvariant represents a list of invariants which must all be true
 // together. In other words, it's a grouping construct for a set of invariants.
 type ConjunctionInvariant struct {
@@ -204,6 +468,31 @@ func (obj *ConjunctionInvariant) String() string {
 		a = append(a, s)
 	}
 	return fmt.Sprintf("[%s]", strings.Join(a, ", "))
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *ConjunctionInvariant) ExprList() []interfaces.Expr {
+	exprs := []interfaces.Expr{}
+	for _, x := range obj.Invariants {
+		exprs = append(exprs, x.ExprList()...)
+	}
+	return exprs
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *ConjunctionInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	found := true // assume true
+	for _, invar := range obj.Invariants {
+		match, err := invar.Matches(solved)
+		if err != nil {
+			return false, nil
+		}
+		if !match {
+			found = false
+		}
+	}
+	return found, nil
 }
 
 // ExclusiveInvariant represents a list of invariants where one and *only* one
@@ -224,6 +513,54 @@ func (obj *ExclusiveInvariant) String() string {
 		a = append(a, s)
 	}
 	return fmt.Sprintf("[%s]", strings.Join(a, ", "))
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *ExclusiveInvariant) ExprList() []interfaces.Expr {
+	// XXX: We should do this if we assume that exclusives don't have some
+	// sort of transient expr to satisfy that doesn't disappear depending on
+	// which choice in the exclusive is chosen...
+	//exprs := []interfaces.Expr{}
+	//for _, x := range obj.Invariants {
+	//	exprs = append(exprs, x.ExprList()...)
+	//}
+	//return exprs
+	// XXX: But if we ever specify an expr in this exclusive that isn't
+	// referenced anywhere else, then we'd need to use the above so that our
+	// type unification algorithm knows not to stop too early.
+	return []interfaces.Expr{} // XXX: Do we want to the set instead?
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors. Because this partial invariant requires only
+// one to be true, it will mask children errors, since it's normal for only one
+// to be consistent.
+func (obj *ExclusiveInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	found := false
+	reterr := fmt.Errorf("all exclusives errored")
+	for _, invar := range obj.Invariants {
+		match, err := invar.Matches(solved)
+		if err != nil {
+			continue
+		}
+		if !match {
+			// at least one was false, so we're not done here yet...
+			// we don't want to error yet, since we can't know there
+			// won't be a conflict once we get more data about this!
+			reterr = nil // clear the error
+			continue
+		}
+		if found { // we already found one
+			return false, fmt.Errorf("more than one exclusive solution")
+		}
+		found = true
+	}
+
+	if found { // we got exactly one valid solution
+		return true, nil
+	}
+
+	return false, reterr
 }
 
 // exclusivesProduct returns a list of different products produced from the
@@ -278,8 +615,30 @@ func (obj *AnyInvariant) String() string {
 	return fmt.Sprintf("%p == *", obj.Expr)
 }
 
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *AnyInvariant) ExprList() []interfaces.Expr {
+	return []interfaces.Expr{obj.Expr}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *AnyInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	_, exists := solved[obj.Expr] // we only care that it is found.
+	return exists, nil
+}
+
 // InvariantSolution lists a trivial set of EqualsInvariant mappings so that you
 // can populate your AST with SetType calls in a simple loop.
 type InvariantSolution struct {
 	Solutions []*EqualsInvariant // list of trivial solutions for each node
+}
+
+// ExprList returns the list of valid expressions. This struct is not part of
+// the invariant interface, but it implements this anyways.
+func (obj *InvariantSolution) ExprList() []interfaces.Expr {
+	exprs := []interfaces.Expr{}
+	for _, x := range obj.Solutions {
+		exprs = append(exprs, x.ExprList()...)
+	}
+	return exprs
 }

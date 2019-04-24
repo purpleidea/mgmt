@@ -293,7 +293,13 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		}
 	}
 	logf("running type unification...")
-	if err := unification.Unify(interpolated, unification.SimpleInvariantSolverLogger(unificationLogf)); err != nil {
+	unifier := &unification.Unifier{
+		AST:    interpolated,
+		Solver: unification.SimpleInvariantSolverLogger(unificationLogf),
+		Debug:  debug,
+		Logf:   unificationLogf,
+	}
+	if err := unifier.Unify(); err != nil {
 		return nil, errwrap.Wrapf(err, "could not unify types")
 	}
 

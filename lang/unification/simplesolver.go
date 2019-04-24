@@ -34,15 +34,16 @@ const (
 // SimpleInvariantSolver with the log parameter of your choice specified. The
 // result satisfies the correct signature for the solver parameter of the
 // Unification function.
-func SimpleInvariantSolverLogger(logf func(format string, v ...interface{})) func([]interfaces.Invariant) (*InvariantSolution, error) {
-	return func(invariants []interfaces.Invariant) (*InvariantSolution, error) {
-		return SimpleInvariantSolver(invariants, logf)
+func SimpleInvariantSolverLogger(logf func(format string, v ...interface{})) func([]interfaces.Invariant, []interfaces.Expr) (*InvariantSolution, error) {
+	return func(invariants []interfaces.Invariant, expected []interfaces.Expr) (*InvariantSolution, error) {
+		return SimpleInvariantSolver(invariants, expected, logf)
 	}
 }
 
 // SimpleInvariantSolver is an iterative invariant solver for AST expressions.
 // It is intended to be very simple, even if it's computationally inefficient.
-func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format string, v ...interface{})) (*InvariantSolution, error) {
+func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfaces.Expr, logf func(format string, v ...interface{})) (*InvariantSolution, error) {
+	debug := false // XXX: add to interface
 	logf("%s: invariants:", Name)
 	for i, x := range invariants {
 		logf("invariant(%d): %T: %s", i, x, x)
@@ -112,8 +113,18 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 	structPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 	funcPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 
+	isSolved := func(solved map[interfaces.Expr]*types.Type) bool {
+		for _, x := range expected {
+			if typ, exists := solved[x]; !exists || typ == nil {
+				return false
+			}
+		}
+		return true
+	}
+
 	logf("%s: starting loop with %d equalities", Name, len(equalities))
 	// run until we're solved, stop consuming equalities, or type clash
+Loop:
 	for {
 		logf("%s: iterate...", Name)
 		if len(equalities) == 0 && len(exclusives) == 0 {
@@ -498,10 +509,70 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 			}
 		} // end inner for loop
 		if len(used) == 0 {
-			// looks like we're now ambiguous, but if we have any
+			// Looks like we're now ambiguous, but if we have any
 			// exclusives, recurse into each possibility to see if
-			// one of them can help solve this! first one wins. add
+			// one of them can help solve this! first one wins. Add
 			// in the exclusive to the current set of equalities!
+
+			// To decrease the problem space, first check if we have
+			// enough solutions to solve everything. If so, then we
+			// don't need to solve any exclusives, and instead we
+			// only need to verify that they don't conflict with the
+			// found solution, which reduces the search space...
+
+			// Another optimization that can be done before we run
+			// the combinatorial exclusive solver, is we can look at
+			// each exclusive, and remove the ones that already
+			// match, because they don't tell us any new information
+			// that we don't already know. We can also fail early
+			// if anything proves we're already inconsistent.
+
+			// These two optimizations turn out to use the exact
+			// same algorithm and code, so they're combined here...
+			if isSolved(solved) {
+				logf("%s: solved early with %d exclusives left!", Name, len(exclusives))
+			} else {
+				logf("%s: unsolved with %d exclusives left!", Name, len(exclusives))
+			}
+			// check for consistency against remaining invariants
+			done := []int{}
+			for i, invar := range exclusives {
+				// test each one to see if at least one works
+				match, err := invar.Matches(solved)
+				if err != nil {
+					if debug {
+						logf("exclusive invar failed: %+v", invar)
+					}
+					return nil, errwrap.Wrapf(err, "inconsistent exclusive")
+				}
+				if !match {
+					continue
+				}
+				done = append(done, i)
+			}
+
+			// remove exclusives that matched correctly
+			for i := len(done) - 1; i >= 0; i-- {
+				ix := done[i] // delete index that was marked as done!
+				exclusives = append(exclusives[:ix], exclusives[ix+1:]...)
+			}
+
+			if len(exclusives) == 0 {
+				break Loop
+			}
+
+			// TODO: Lastly, we could loop through each exclusive
+			// and see if it only has a single, easy solution. For
+			// example, if we know that an exclusive is A or B or C
+			// and that B and C are inconsistent, then we can
+			// replace the exclusive with a single invariant and
+			// then run that through our solver. We can do this
+			// iteratively (recursively in our case) so that if
+			// we're lucky, we rarely need to run the raw exclusive
+			// combinatorial solver which is slow.
+
+			// TODO: We could try and replace our combinatorial
+			// exclusive solver with a real SAT solver algorithm.
 
 			// what have we learned for sure so far?
 			partialSolutions := []interfaces.Invariant{}
@@ -535,7 +606,7 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, logf func(format s
 				recursiveInvariants = append(recursiveInvariants, partialSolutions...)
 				recursiveInvariants = append(recursiveInvariants, ex...)
 				logf("%s: recursing...", Name)
-				solution, err := SimpleInvariantSolver(recursiveInvariants, logf)
+				solution, err := SimpleInvariantSolver(recursiveInvariants, expected, logf)
 				if err != nil {
 					logf("%s: recursive solution failed: %+v", Name, err)
 					continue // no solution found here...

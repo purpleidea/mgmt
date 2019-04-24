@@ -1,0 +1,12 @@
+import "fmt"
+
+# note that the class can have two separate types for $b
+include c1("t1", "hello") # len is 5
+include c1("t2", [13, 42, 0, -37,]) # len is 4
+
+# specifying a fixed type for $b is a compile error, because it's sometimes str!
+class c1($a, $b []str) {
+	test $a {
+		anotherstr => fmt.printf("len is: %d", len($b)),
+	}
+}

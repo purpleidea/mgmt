@@ -53,12 +53,12 @@ func (obj *VarFunc) Validate() error {
 
 	// we're supposed to call Validate() before we ever call Info()
 	if err := obj.Func.Validate(); err != nil {
-		return errwrap.Wrapf(err, "func did not validate")
+		return errwrap.Wrapf(err, "var func did not validate")
 	}
 
 	typ := obj.Func.Info().Sig
 	if err := obj.Type.Cmp(typ.Out); err != nil {
-		return errwrap.Wrapf(err, "expr type must match func out type")
+		return errwrap.Wrapf(err, "var expr type must match func out type")
 	}
 	return nil
 }

@@ -697,7 +697,7 @@ func TestUnification1(t *testing.T) {
 			name:      "typed if expr",
 			ast:       stmt,
 			fail:      true,
-			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (2 != 3)",
+			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (Str != Int)",
 		})
 	}
 	{
@@ -750,7 +750,7 @@ func TestUnification1(t *testing.T) {
 			name:      "typed var expr",
 			ast:       stmt,
 			fail:      true,
-			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (2 != 1)",
+			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (Str != Bool)",
 		})
 	}
 

@@ -27,7 +27,7 @@ if [ "$COMMITS" != "" ] && [ "$COMMITS" -gt "1" ]; then
 fi
 
 # find all go files, exluding temporary directories and generated files
-LINT=$(find * -maxdepth 9 -iname '*.go' -not -path 'old/*' -not -path 'tmp/*' -not -path 'bindata/*' -not -path 'lang/y.go' -not -path 'lang/lexer.nn.go' -not -path 'vendor/*' -exec golint {} \;)	# current golint output
+LINT=$(find * -maxdepth 9 -iname '*.go' -not -path 'old/*' -not -path 'tmp/*' -not -path 'bindata/*' -not -path 'lang/y.go' -not -path 'lang/lexer.nn.go' -not -path 'lang/types/kind_stringer.go' -not -path 'vendor/*' -exec golint {} \;)	# current golint output
 
 COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch
 [ "$LINT" = "" ] && echo PASS && exit	# everything is "perfect"

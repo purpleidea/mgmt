@@ -48,6 +48,7 @@ gml="$gml --enable=misspell"
 gml="$gml --exclude=lang/lexer.nn.go"
 gml="$gml --exclude=lang/y.go"
 gml="$gml --exclude=bindata/bindata.go"
+gml="$gml --exclude=lang/types/kind_stringer.go"
 
 gometalinter="$gml"	# final
 echo "Using: $gometalinter"

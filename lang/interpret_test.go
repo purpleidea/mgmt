@@ -1337,7 +1337,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				if err != nil {
 					t.Errorf("test #%d: FAIL", index)
-					t.Errorf("test #%d: stream errored", index)
+					t.Errorf("test #%d: stream errored: %+v", index, err)
 					return
 				}
 			}

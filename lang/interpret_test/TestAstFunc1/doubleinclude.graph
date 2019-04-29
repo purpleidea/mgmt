@@ -1,7 +1,7 @@
-Edge: str("hey") -> var(foo) # foo
-Edge: str("hey") -> var(foo) # foo
-Edge: str("t1") -> var(a) # a
-Edge: str("t2") -> var(a) # a
+Edge: str("hey") -> var(foo) # var:foo
+Edge: str("hey") -> var(foo) # var:foo
+Edge: str("t1") -> var(a) # var:a
+Edge: str("t2") -> var(a) # var:a
 Vertex: str("hey")
 Vertex: str("t1")
 Vertex: str("t2")

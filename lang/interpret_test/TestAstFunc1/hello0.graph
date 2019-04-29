@@ -1,5 +1,5 @@
 Edge: str("hello: %s") -> call:fmt.printf(str("hello: %s"), var(s)) # a
-Edge: str("world") -> var(s) # s
+Edge: str("world") -> var(s) # var:s
 Edge: var(s) -> call:fmt.printf(str("hello: %s"), var(s)) # b
 Vertex: call:fmt.printf(str("hello: %s"), var(s))
 Vertex: str("greeting")

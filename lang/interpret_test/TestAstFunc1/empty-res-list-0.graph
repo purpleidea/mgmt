@@ -1,4 +1,4 @@
-Edge: list(str("hey")) -> var(names) # names
+Edge: list(str("hey")) -> var(names) # var:names
 Edge: str("hello") -> list(str("hello"), str("world")) # 0
 Edge: str("hey") -> list(str("hey")) # 0
 Edge: str("world") -> list(str("hello"), str("world")) # 1

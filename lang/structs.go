@@ -5617,7 +5617,7 @@ func (obj *ExprVar) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	edge := &funcs.Edge{Args: []string{obj.Name}}
+	edge := &funcs.Edge{Args: []string{fmt.Sprintf("var:%s", obj.Name)}}
 
 	var once bool
 	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -5671,7 +5671,7 @@ func (obj *ExprVar) Func() (interfaces.Func, error) {
 	return &structs.VarFunc{
 		Type: typ,
 		Func: f,
-		Edge: obj.Name, // the edge name used above in Graph is this...
+		Edge: fmt.Sprintf("var:%s", obj.Name), // the edge name used above in Graph is this...
 	}, nil
 }
 

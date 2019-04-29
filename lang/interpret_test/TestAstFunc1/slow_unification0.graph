@@ -1,27 +1,27 @@
 Edge: call:_operator(str("=="), var(state), str("default")) -> call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default"))) # b
 Edge: call:_operator(str("=="), var(state), str("one")) -> call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default"))) # a
-Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
-Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
-Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
-Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # state
-Edge: call:world.kvlookup(var(ns)) -> var(exchanged) # exchanged
-Edge: str("") -> var(hostname) # hostname
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # var:state
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # var:state
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # var:state
+Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # var:state
+Edge: call:world.kvlookup(var(ns)) -> var(exchanged) # var:exchanged
+Edge: str("") -> var(hostname) # var:hostname
 Edge: str("==") -> call:_operator(str("=="), var(state), str("default")) # x
 Edge: str("==") -> call:_operator(str("=="), var(state), str("one")) # x
 Edge: str("==") -> call:_operator(str("=="), var(state), str("three")) # x
 Edge: str("==") -> call:_operator(str("=="), var(state), str("two")) # x
 Edge: str("default") -> call:_operator(str("=="), var(state), str("default")) # b
 Edge: str("default") -> call:maplookup(var(exchanged), var(hostname), str("default")) # default
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
-Edge: str("estate") -> var(ns) # ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
+Edge: str("estate") -> var(ns) # var:ns
 Edge: str("one") -> call:_operator(str("=="), var(state), str("one")) # b
 Edge: str("three") -> call:_operator(str("=="), var(state), str("three")) # b
 Edge: str("two") -> call:_operator(str("=="), var(state), str("two")) # b

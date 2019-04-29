@@ -112,7 +112,7 @@ func TestAstFunc0(t *testing.T) {
 	{
 		graph, _ := pgraph.NewGraph("g")
 		v1, v2 := vtex("int(42)"), vtex("var(x)")
-		e1 := edge("x")
+		e1 := edge("var:x")
 		graph.AddVertex(&v1, &v2)
 		graph.AddEdge(&v1, &v2, &e1)
 		testCases = append(testCases, test{
@@ -141,7 +141,7 @@ func TestAstFunc0(t *testing.T) {
 	{
 		graph, _ := pgraph.NewGraph("g")
 		v1, v2, v3, v4, v5 := vtex("int(42)"), vtex("var(a)"), vtex("var(b)"), vtex("var(c)"), vtex(`str("t")`)
-		e1, e2, e3 := edge("a"), edge("b"), edge("c")
+		e1, e2, e3 := edge("var:a"), edge("var:b"), edge("var:c")
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
 		graph.AddEdge(&v1, &v2, &e1)
 		graph.AddEdge(&v2, &v3, &e2)
@@ -164,7 +164,7 @@ func TestAstFunc0(t *testing.T) {
 		graph, _ := pgraph.NewGraph("g")
 		v1, v2 := vtex("bool(true)"), vtex("var(b)")
 		graph.AddVertex(&v1, &v2)
-		e1 := edge("b")
+		e1 := edge("var:b")
 		graph.AddEdge(&v1, &v2, &e1)
 		testCases = append(testCases, test{
 			name: "simple bool",
@@ -233,7 +233,7 @@ func TestAstFunc0(t *testing.T) {
 		v5, v6 := vtex("var(i)"), vtex("var(x)")
 		v7, v8 := vtex(`str("+")`), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), var(i))`, operatorFuncName))
 
-		e1, e2, e3, e4, e5 := edge("x"), edge("a"), edge("b"), edge("i"), edge("x")
+		e1, e2, e3, e4, e5 := edge("x"), edge("a"), edge("b"), edge("var:i"), edge("var:x")
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
 		graph.AddEdge(&v3, &v5, &e4)
 
@@ -289,7 +289,7 @@ func TestAstFunc0(t *testing.T) {
 		v4, v5 := vtex("var(x)"), vtex(`str("t")`)
 
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
-		e1 := edge("x")
+		e1 := edge("var:x")
 		// only one edge! (cool)
 		graph.AddEdge(&v1, &v4, &e1)
 
@@ -315,7 +315,7 @@ func TestAstFunc0(t *testing.T) {
 		v4, v5 := vtex("var(x)"), vtex(`str("t")`)
 
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
-		e1 := edge("x")
+		e1 := edge("var:x")
 		// only one edge! (cool)
 		graph.AddEdge(&v2, &v4, &e1)
 
@@ -344,7 +344,7 @@ func TestAstFunc0(t *testing.T) {
 	//	v5, v6 := vtex(`str("t1")`), vtex(`str("t2")`)
 	//
 	//	graph.AddVertex(&v0, &v1, &v2, &v3, &v4, &v5, &v6)
-	//	e1, e2 := edge("x"), edge("x")
+	//	e1, e2 := edge("var:x"), edge("var:x")
 	//	graph.AddEdge(&v1, &v3, &e1)
 	//	graph.AddEdge(&v2, &v4, &e2)
 	//

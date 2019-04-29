@@ -4,12 +4,12 @@ Edge: int(-37) -> list(int(13), int(42), int(0), int(-37)) # 3
 Edge: int(0) -> list(int(13), int(42), int(0), int(-37)) # 2
 Edge: int(13) -> list(int(13), int(42), int(0), int(-37)) # 0
 Edge: int(42) -> list(int(13), int(42), int(0), int(-37)) # 1
-Edge: list(int(13), int(42), int(0), int(-37)) -> var(b) # b
-Edge: str("hello") -> var(b) # b
+Edge: list(int(13), int(42), int(0), int(-37)) -> var(b) # var:b
+Edge: str("hello") -> var(b) # var:b
 Edge: str("len is: %d") -> call:fmt.printf(str("len is: %d"), call:len(var(b))) # a
 Edge: str("len is: %d") -> call:fmt.printf(str("len is: %d"), call:len(var(b))) # a
-Edge: str("t1") -> var(a) # a
-Edge: str("t2") -> var(a) # a
+Edge: str("t1") -> var(a) # var:a
+Edge: str("t2") -> var(a) # var:a
 Edge: var(b) -> call:len(var(b)) # 0
 Edge: var(b) -> call:len(var(b)) # 0
 Vertex: call:fmt.printf(str("len is: %d"), call:len(var(b)))

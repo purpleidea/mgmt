@@ -30,10 +30,10 @@ travis_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]
 # First char must be a a-z0-9
 [[ $(echo ", bar: bar" | grep -c "$travis_regex") -eq 0 ]]
 
-# Last chat before : must be a a-z0-9
+# Last char before : must be a a-z0-9
 [[ $(echo "foo, : bar" | grep -c "$travis_regex") -eq 0 ]]
 
-# Last chat before : must be a a-z0-9
+# Last char before : must be a a-z0-9
 [[ $(echo "foo,: bar" | grep -c "$travis_regex") -eq 0 ]]
 
 # No caps

@@ -46,14 +46,17 @@ func (g *Graph) Graphviz() (out string) {
 	//out += "\tnode [shape=box];\n"
 	str := ""
 	for i := range g.Adjacency() { // reverse paths
-		out += fmt.Sprintf("\t%s [label=%s];\n", strconv.Quote(i.String()), strconv.Quote(i.String()))
+		v1 := strconv.Quote(i.String()) // 1st vertex
+		out += fmt.Sprintf("\t\"%p\" [label=%s];\n", i, v1)
 		for j := range g.Adjacency()[i] {
 			k := g.Adjacency()[i][j]
+			//v2 := strconv.Quote(j.String()) // 2nd vertex
+			e := strconv.Quote(k.String()) // edge
 			// use str for clearer output ordering
 			//if fmtBoldFn(k) { // TODO: add this sort of formatting
 			//	str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i, j, k)
 			//} else {
-			str += fmt.Sprintf("\t%s -> %s [label=%s];\n", strconv.Quote(i.String()), strconv.Quote(j.String()), strconv.Quote(k.String()))
+			str += fmt.Sprintf("\t\"%p\" -> \"%p\" [label=%s];\n", i, j, e)
 			//}
 		}
 	}

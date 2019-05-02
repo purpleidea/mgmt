@@ -1,0 +1,18 @@
+FROM debian:8
+
+# Create environment to build release .deb for supported LTS Debian/Ubuntu versions
+
+RUN apt-get update
+RUN apt-get install -yqq git make curl
+
+# install at least go1.9
+RUN curl -sSL https://dl.google.com/go/go1.12.4.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+
+ENV GOPATH /gopath
+ENV PATH $PATH:$GOPATH/bin:/usr/local/go/bin
+
+RUN mkdir -p $GOPATH/src/github.com/purpleidea/
+COPY . $GOPATH/src/github.com/purpleidea/mgmt/
+
+WORKDIR $GOPATH/src/github.com/purpleidea/mgmt
+RUN make deps

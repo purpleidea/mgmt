@@ -367,13 +367,26 @@ $(RPM_PKG): releases/$(VERSION)/rpm/changelog
 	@echo "Building: rpm package..."
 	./misc/fpm-pack.sh rpm $(VERSION) libvirt-devel augeas-devel
 
-releases/$(VERSION)/deb/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+# Build deb release in oldest, most common denominator LTS for Debian/Ubuntu
+# to make sure it can be installed and run on every supported LTS.
+ifeq ($(shell grep 'Debian GNU/Linux 8 (jessie)' /etc/os-release),)
+$(DEB_PKG): releases/$(VERSION)/deb/changelog
+	@echo "Building: deb package using Docker environment..."
+	docker build -t mgmt-deb-release -f docker/Dockerfile.deb-release .
+	-docker rm -f mgmt-deb-release &>/dev/null
+	docker run --name mgmt-deb-release -ti --rm \
+		-v $$PWD:/gopath/src/github.com/purpleidea/mgmt/ \
+		mgmt-deb-release /bin/sh -c 'make clean && make $@ && make clean'
+
+# Git on Debian 8 is to old for the formatting arguments used in make-deb-changelog.sh.
+releases/$(VERSION)/deb/changelog: releases/$(VERSION)/.mkdir
 	@echo "Generating: deb changelog..."
 	./misc/make-deb-changelog.sh $(VERSION)
-
-$(DEB_PKG): releases/$(VERSION)/deb/changelog
+else
+$(DEB_PKG): $(PROGRAM) releases/$(VERSION)/deb/changelog
 	@echo "Building: deb package..."
 	./misc/fpm-pack.sh deb $(VERSION) libvirt0 libaugeas0
+endif
 
 $(PACMAN_PKG): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@echo "Building: pacman package..."

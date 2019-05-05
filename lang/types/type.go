@@ -34,7 +34,7 @@ var (
 	TypeVariant = NewType("variant")
 )
 
-//go:generate stringer -type=Kind -output=kind_stringer.go
+//go:generate stringer -type=Kind -trimprefix=Kind -output=kind_stringer.go
 
 // The Kind represents the base type of each value.
 type Kind int // this used to be called Type

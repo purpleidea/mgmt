@@ -110,11 +110,6 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 		fallthrough
 	case gapi.CommandDeploy:
 		flags := []cli.Flag{
-			cli.StringFlag{
-				Name:  fmt.Sprintf("%s, %s", Name, Name[0:1]),
-				Value: "",
-				Usage: "code to deploy",
-			},
 			// TODO: removed (temporarily?)
 			//cli.BoolFlag{
 			//	Name:  "stdin",
@@ -157,9 +152,13 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		cliInfo.Logf(Name+": "+format, v...)
 	}
 
-	if !c.IsSet(Name) {
-		return nil, nil // we weren't activated!
+	if l := c.NArg(); l != 1 {
+		if l > 1 {
+			return nil, fmt.Errorf("input program must be a single arg")
+		}
+		return nil, fmt.Errorf("must specify input program")
 	}
+	input := c.Args().Get(0)
 
 	// empty by default (don't set for deploy, only download)
 	modules := c.String(flagModulePath)
@@ -180,7 +179,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	// the fs input here is the local fs we're reading to get the files from
 	// this is different from the fs variable which is our output dest!!!
-	output, err := parseInput(c.String(Name), localFs)
+	output, err := parseInput(input, localFs)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not activate an input parser")
 	}
@@ -356,7 +355,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	// display the deploy fs tree
 	if debug || true { // TODO: should this only be shown on debug?
-		logf("input: %s", c.String(Name))
+		logf("input: %s", input)
 		tree, err := util.FsTree(fs, "/")
 		if err != nil {
 			return nil, err
@@ -587,6 +586,14 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	debug := getInfo.Debug
 	logf := getInfo.Logf
 
+	if l := c.NArg(); l != 1 {
+		if l > 1 {
+			return fmt.Errorf("input program must be a single arg")
+		}
+		return fmt.Errorf("must specify input program")
+	}
+	input := c.Args().Get(0)
+
 	// empty by default (don't set for deploy, only download)
 	modules := c.String(flagModulePath)
 	if modules != "" && (!strings.HasPrefix(modules, "/") || !strings.HasSuffix(modules, "/")) {
@@ -603,7 +610,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 
 	// the fs input here is the local fs we're reading to get the files from
 	// this is different from the fs variable which is our output dest!!!
-	output, err := parseInput(c.String(Name), localFs)
+	output, err := parseInput(input, localFs)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not activate an input parser")
 	}

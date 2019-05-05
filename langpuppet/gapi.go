@@ -73,6 +73,19 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	langFlags := (&lang.GAPI{}).CliFlags(command)
 	puppetFlags := (&puppet.GAPI{}).CliFlags(command)
 
+	l := cli.StringFlag{
+		Name:  fmt.Sprintf("%s, %s", lang.Name, lang.Name[0:1]),
+		Value: "",
+		Usage: "code to deploy",
+	}
+	langFlags = append(langFlags, l)
+	p := cli.StringFlag{
+		Name:  fmt.Sprintf("%s, %s", puppet.Name, puppet.Name[0:1]),
+		Value: "",
+		Usage: "load graph from puppet, optionally takes a manifest or path to manifest file",
+	}
+	puppetFlags = append(puppetFlags, p)
+
 	var childFlags []cli.Flag
 	for _, flag := range append(langFlags, puppetFlags...) {
 		childFlags = append(childFlags, &cli.StringFlag{
@@ -121,12 +134,14 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	var langDeploy *gapi.Deploy
 	var puppetDeploy *gapi.Deploy
+	// XXX: put the c.String(FlagPrefix+lang.Name) into the argv here!
 	langCliInfo := &gapi.CliInfo{
 		CliContext: cli.NewContext(c.App, flagSet, c.Parent()),
 		Fs:         fs,
 		Debug:      debug,
 		Logf:       logf, // TODO: wrap logf?
 	}
+	// XXX: put the c.String(FlagPrefix+puppet.Name) into the argv here!
 	puppetCliInfo := &gapi.CliInfo{
 		CliContext: cli.NewContext(c.App, flagSet, c.Parent()),
 		Fs:         fs,

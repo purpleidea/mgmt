@@ -3,7 +3,7 @@
 . "$(dirname "$0")/../util.sh"
 
 # run till completion
-$TIMEOUT "$MGMT" run --no-watch --tmp-prefix yaml --yaml t6.yaml &
+$TIMEOUT "$MGMT" run --no-watch --tmp-prefix yaml t6.yaml &
 pid=$!
 sleep 10s	# let it converge
 test -e /tmp/mgmt/f1

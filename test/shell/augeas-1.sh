@@ -5,7 +5,7 @@
 mkdir -p "${MGMT_TMPDIR}"
 echo > "${MGMT_TMPDIR}"sshd_config
 
-$TIMEOUT "$MGMT" run --tmp-prefix yaml --yaml=augeas-1.yaml &
+$TIMEOUT "$MGMT" run --tmp-prefix yaml augeas-1.yaml &
 pid=$!
 
 # kill server on error

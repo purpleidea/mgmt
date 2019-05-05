@@ -9,6 +9,6 @@ To get started, try:
 
 $ cdmgmt
 $ make clean build
-$ ./mgmt run --tmp-prefix lang --lang examples/lang/hello0.mcl`
+$ ./mgmt run --tmp-prefix lang examples/lang/hello0.mcl`
 
 Enjoy!

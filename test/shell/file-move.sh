@@ -6,7 +6,7 @@ mkdir -p /tmp/mgmt/
 rm /tmp/mgmt/f1 &>/dev/null || true
 
 # run empty graph, with prometheus support
-$TIMEOUT "$MGMT" run --tmp-prefix yaml --yaml=file-move.yaml 2>&1 | tee /tmp/mgmt/file-move.log &
+$TIMEOUT "$MGMT" run --tmp-prefix yaml file-move.yaml 2>&1 | tee /tmp/mgmt/file-move.log &
 pid=$!
 sleep 5s	# let it converge
 

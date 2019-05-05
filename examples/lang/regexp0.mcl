@@ -2,8 +2,8 @@ import "fmt"
 import "regexp"
 
 # test with:
-# ./mgmt run --hostname foo.example.com --tmp-prefix lang --lang examples/lang/regexp0.mcl
-# ./mgmt run --hostname db1.example.com --tmp-prefix lang --lang examples/lang/regexp0.mcl
+# ./mgmt run --hostname foo.example.com --tmp-prefix lang examples/lang/regexp0.mcl
+# ./mgmt run --hostname db1.example.com --tmp-prefix lang examples/lang/regexp0.mcl
 print "regexp" {
 	# TODO: add a heredoc string to avoid needing to escape the \ chars
 	msg => fmt.printf("match: %t", regexp.match("^db\\d+\\.example\\.com$", $hostname)),

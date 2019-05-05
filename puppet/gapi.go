@@ -71,11 +71,6 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	case gapi.CommandDeploy:
 		return []cli.Flag{
 			cli.StringFlag{
-				Name:  "puppet, p",
-				Value: "",
-				Usage: "load graph from puppet, optionally takes a manifest or path to manifest file",
-			},
-			cli.StringFlag{
 				Name:  "puppet-conf",
 				Value: "",
 				Usage: "the path to an alternate puppet.conf file",
@@ -99,10 +94,13 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	//	 cliInfo.Logf(Name + ": "+format, v...)
 	//}
 
-	if !c.IsSet(Name) {
-		return nil, nil // we weren't activated!
+	if l := c.NArg(); l != 1 {
+		if l > 1 {
+			return nil, fmt.Errorf("input program must be a single arg")
+		}
+		return nil, fmt.Errorf("must specify input program")
 	}
-	s := c.String(Name)
+	s := c.Args().Get(0)
 	if s == "" {
 		return nil, fmt.Errorf("%s input is empty", Name)
 	}

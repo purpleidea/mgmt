@@ -57,8 +57,8 @@ export PATH=$PATH:$GOPATH/bin
 
 ### Running mgmt
 
-* Run `time ./mgmt run --tmp-prefix lang --lang examples/lang/hello0.mcl` to try
-out a very simple example!
+* Run `time ./mgmt run --tmp-prefix lang examples/lang/hello0.mcl` to try out a
+very simple example!
 * Look in that example file that you ran to see if you can figure out what it
 did!
 * Have fun hacking on our future technology and get involved to shape the
@@ -181,5 +181,5 @@ Other examples:
 
 ```
 docker/scripts/exec-development make build
-docker/scripts/exec-development ./mgmt run --tmp-prefix lang --lang examples/lang/load0.mcl
+docker/scripts/exec-development ./mgmt run --tmp-prefix lang examples/lang/load0.mcl
 ```

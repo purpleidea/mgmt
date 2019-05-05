@@ -16,9 +16,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // test with:
-// time ./mgmt run --hostname h1 --tmp-prefix --no-pgp lang --lang examples/lang/schedule0.mcl
-// time ./mgmt run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --tmp-prefix --no-pgp lang --lang examples/lang/schedule0.mcl
-// time ./mgmt run --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 --tmp-prefix --no-pgp lang --lang examples/lang/schedule0.mcl
+// time ./mgmt run --hostname h1 --tmp-prefix --no-pgp lang examples/lang/schedule0.mcl
+// time ./mgmt run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --tmp-prefix --no-pgp lang examples/lang/schedule0.mcl
+// time ./mgmt run --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 --tmp-prefix --no-pgp lang examples/lang/schedule0.mcl
 // kill h2 (should see h1 and h3 pick [h1, h3] instead)
 // restart h2 (should see [h1, h3] as before)
 // kill h3 (should see h1 and h2 pick [h1, h2] instead)

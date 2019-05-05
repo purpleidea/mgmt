@@ -56,13 +56,7 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	case gapi.CommandRun:
 		fallthrough
 	case gapi.CommandDeploy:
-		return []cli.Flag{
-			cli.StringFlag{
-				Name:  Name,
-				Value: "",
-				Usage: "yaml graph definition to run",
-			},
-		}
+		return []cli.Flag{}
 	//case gapi.CommandGet:
 	default:
 		return []cli.Flag{}
@@ -80,11 +74,14 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	//logf := func(format string, v ...interface{}) {
 	//	 cliInfo.Logf(Name + ": "+format, v...)
 	//}
-	if !c.IsSet(Name) {
-		return nil, nil // we weren't activated!
-	}
 
-	s := c.String(Name)
+	if l := c.NArg(); l != 1 {
+		if l > 1 {
+			return nil, fmt.Errorf("input program must be a single arg")
+		}
+		return nil, fmt.Errorf("must specify input program")
+	}
+	s := c.Args().Get(0)
 	if s == "" {
 		return nil, fmt.Errorf("input yaml is empty")
 	}

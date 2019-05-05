@@ -5,7 +5,7 @@
 set -x
 
 # run till completion
-$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml file-mode.yaml &
+$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml file-mode.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

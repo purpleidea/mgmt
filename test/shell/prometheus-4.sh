@@ -5,7 +5,7 @@
 exit 0	# XXX: temporarily disabled until prometheus is added back post refactor
 
 # run a graph, with prometheus support
-$TIMEOUT "$MGMT" run --tmp-prefix --no-pgp --prometheus yaml --yaml prometheus-4.yaml &
+$TIMEOUT "$MGMT" run --tmp-prefix --no-pgp --prometheus yaml prometheus-4.yaml &
 pid=$!
 sleep 15s	# let it converge
 

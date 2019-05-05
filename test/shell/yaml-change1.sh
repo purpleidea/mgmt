@@ -16,7 +16,7 @@ fi
 
 # set the config file
 cp -a yaml-change1a.yaml /tmp/mgmt/yaml-change.yaml
-$TIMEOUT "$MGMT" run --tmp-prefix yaml --yaml /tmp/mgmt/yaml-change.yaml &
+$TIMEOUT "$MGMT" run --tmp-prefix yaml /tmp/mgmt/yaml-change.yaml &
 pid=$!
 sleep 5s	# let it converge
 grep -q 'hello world' /tmp/mgmt/change1	# check contents are correct

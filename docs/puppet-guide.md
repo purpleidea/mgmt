@@ -173,7 +173,7 @@ useful when you are in the process of replacing Puppet with mgmt. You
 can translate your custom modules into mgmt's language one by one,
 and let mgmt run the current mix.
 
-Instead of the usual `--puppet`, `--puppet-conf`, and `--lang` for mcl,
+Instead of the usual `--puppet-conf` flag and argv for `puppet` and `mcl` input,
 you need to use alternative flags to make this work:
 
 * `--lp-lang` to specify the mcl input

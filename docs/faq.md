@@ -212,7 +212,7 @@ requires a number of seconds as an argument.
 #### Example:
 
 ```
-./mgmt run lang --lang examples/lang/hello0.mcl --converged-timeout=5
+./mgmt run lang examples/lang/hello0.mcl --converged-timeout=5
 ```
 
 ### On startup `mgmt` hangs after: `etcd: server: starting...`.

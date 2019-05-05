@@ -4,7 +4,7 @@
 # time ./mgmt run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --tmp-prefix --no-pgp empty
 # time ./mgmt run --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 --tmp-prefix --no-pgp empty
 # time ./mgmt run --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 --tmp-prefix --no-pgp empty
-# time ./mgmt deploy --no-git --seeds http://127.0.0.1:2379 lang --lang examples/lang/exchange0.mcl
+# time ./mgmt deploy --no-git --seeds http://127.0.0.1:2379 lang examples/lang/exchange0.mcl
 
 import "sys"
 import "world"

@@ -298,10 +298,6 @@ recommended that you use this, since it's preferable to write code in the
 The main interface to the `mgmt` tool is the command line. For the most recent
 documentation, please run `mgmt --help`.
 
-#### `--yaml <graph.yaml>`
-
-Point to a graph file to run.
-
 #### `--converged-timeout <seconds>`
 
 Exit if the machine has converged for approximately this many seconds.

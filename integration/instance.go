@@ -373,7 +373,7 @@ func (obj *Instance) DeployLang(code string) error {
 		"deploy", // mode
 		"--no-git",
 		"--seeds", obj.clientURL,
-		"lang", "--lang", filename,
+		"lang", filename,
 	}
 	obj.Logf("run: %s %s", cmdName, strings.Join(cmdArgs, " "))
 	cmd := exec.Command(cmdName, cmdArgs...)

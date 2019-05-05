@@ -17,7 +17,7 @@ sleep 10s
 $TIMEOUT "$MGMT" run --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 --tmp-prefix --no-pgp empty &
 pid4=$!
 sleep 10s
-$TIMEOUT "$MGMT" deploy --no-git --seeds http://127.0.0.1:2379 lang --lang exchange0.mcl
+$TIMEOUT "$MGMT" deploy --no-git --seeds http://127.0.0.1:2379 lang exchange0.mcl
 
 # kill servers on error/exit
 #trap 'pkill -9 mgmt' EXIT

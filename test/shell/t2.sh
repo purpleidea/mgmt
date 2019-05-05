@@ -3,7 +3,7 @@
 . "$(dirname "$0")/../util.sh"
 
 # run till completion
-$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml --yaml t2.yaml &
+$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml t2.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

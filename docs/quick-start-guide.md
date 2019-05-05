@@ -13,7 +13,7 @@ Once you're familiar with the general idea, please start hacking...
 
 ### Installing golang
 
-* You need golang version 1.10 or greater installed.
+* You need golang version 1.11 or greater installed.
 	* To install on rpm style systems: `sudo dnf install golang`
 	* To install on apt style systems: `sudo apt install golang`
 	* To install on macOS systems install [Homebrew](https://brew.sh)
@@ -89,7 +89,7 @@ required for running the _test_ suite.
 
 ### Build
 
-* `golang` 1.10 or higher (required, available in some distros and distributed
+* `golang` 1.11 or higher (required, available in some distros and distributed
 as a binary officially by [golang.org](https://golang.org/dl/))
 
 ### Runtime

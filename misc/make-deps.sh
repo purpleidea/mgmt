@@ -84,8 +84,8 @@ if [ $travis -eq 0 ]; then
 fi
 
 # if golang is too old, we don't want to fail with an obscure error later
-if go version | grep 'go1\.[012345]\.'; then
-	echo "mgmt requires go1.6 or higher."
+if go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.'; then
+	echo "mgmt recommends go1.11 or higher."
 	exit 1
 fi
 

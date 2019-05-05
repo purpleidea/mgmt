@@ -27,4 +27,6 @@ clean:
 
 kind_stringer.go: type.go
 	@echo "Generating: type kind strings..."
-	go generate
+	@# workaround `stringer` regression in golang 1.11
+	@# see: https://github.com/golang/go/issues/31843
+	@unset GOCACHE && go generate # GOCACHE is returned to normal on exit...

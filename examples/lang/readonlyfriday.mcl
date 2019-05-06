@@ -1,0 +1,30 @@
+import "datetime"
+import "fmt"
+
+$now = datetime.now()
+$day = datetime.weekday($now)
+$is_friday = $day == "friday"
+
+$s1 = template("Hello! It is now: {{ datetime_print . }}\n", $now)
+$s2 = if $is_friday {
+	"It's friday!!! (don't break anything, read-only)"
+} else {
+	if $day == "saturday" || $day == "sunday" {
+		"It's the weekend!"
+	} else {
+		fmt.printf("Unfortunately, it is %s. Go to work!", $day)
+	}
+}
+
+print "msg" {
+	msg => $s1 + $s2,
+}
+
+file "/tmp/files/" {
+	state => "exists",
+	mode => if $is_friday { # this updates the mode, the instant it changes!
+		"0550"
+	} else {
+		"0770"
+	},
+}

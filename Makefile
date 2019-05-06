@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms copr tag release funcgen
+.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag release funcgen
 .SILENT: clean bindata
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
@@ -325,6 +325,10 @@ upload-rpms: rpmbuild/RPMS/ rpmbuild/RPMS/SHA256SUMS rpmbuild/RPMS/SHA256SUMS.as
 		echo Running RPMS upload...; \
 		rsync -avz --prune-empty-dirs rpmbuild/RPMS/ $(SERVER):$(REMOTE_PATH)/RPMS/; \
 	fi
+
+upload-releases:
+	echo Running releases/ upload...
+	rsync -avz --exclude '.mkdir' --exclude 'mgmt-release.url' releases/ $(SERVER):$(REMOTE_PATH)/releases/
 
 #
 #	copr build

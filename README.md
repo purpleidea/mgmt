@@ -9,6 +9,56 @@
 [![Patreon](https://img.shields.io/badge/patreon-donate-yellow.svg?style=flat-square)](https://www.patreon.com/purpleidea)
 [![Liberapay](https://img.shields.io/badge/liberapay-donate-yellow.svg?style=flat-square)](https://liberapay.com/purpleidea/donate)
 
+## About:
+
+`Mgmt` is a real-time automation tool. It is familiar to existing configuration
+management software, but is drastically more powerful as it can allow you to
+build real-time, closed-loop feedback systems, in a very safe way, and with a
+surprisingly small amout of our `mcl` code. For example, the following code will
+ensure that your file server is set to read-only when it's friday.
+
+```mcl
+import "datetime"
+$is_friday = datetime.weekday(datetime.now()) == "friday"
+file "/srv/files/" {
+	state => "exists",
+	mode => if $is_friday { # this updates the mode, the instant it changes!
+		"0550"
+	} else {
+		"0770"
+	},
+}
+```
+
+It can run continuously, intermittently, or on-demand, and in the first case, it
+will guarantee that your system is always in the desired state for that instant!
+In this mode it can run as a decentralized cluster of agents across your
+network, each exchanging information with the others in real-time, to respond to
+your changing needs. For example, if you want to ensure that some resource runs
+on a maximum of two hosts in your cluster, you can specify that as well:
+
+```mcl
+import "sys"
+import "world"
+
+# we'll set a few scheduling options:
+$opts = struct{strategy => "rr", max => 2, ttl => 10,}
+
+# schedule in a particular namespace with options:
+$set = world.schedule("xsched", $opts)
+
+if sys.hostname() in $set {
+	# use your imagination to put something more complex right here...
+	print "i got scheduled" {} # this will run on the chosen machines
+}
+```
+
+As you add and remove hosts from the cluster, the real-time `schedule` function
+will dynamically pick up to two hosts from the available pool. These specific
+functions aren't intrinsic to the core design, and new ones can be easily added.
+
+Please read on if you'd like to learn more...
+
 ## Community:
 
 Come join us in the `mgmt` community!
@@ -30,7 +80,7 @@ approach. The project contains an engine and a language.
 
 Mgmt is a fairly new project. It is usable today, but not yet feature complete.
 With your help you'll be able to influence our design and get us to 1.0 sooner!
-Interested developers should read the [quick start guide](docs/quick-start-guide.md).
+Interested users should read the [quick start guide](docs/quick-start-guide.md).
 
 ## Documentation:
 
@@ -38,7 +88,7 @@ Please read, enjoy and help improve our documentation!
 
 | Documentation | Additional Notes |
 |---|---|
-| [quick start guide](docs/quick-start-guide.md) | for mgmt developers |
+| [quick start guide](docs/quick-start-guide.md) | for everyone |
 | [frequently asked questions](docs/faq.md) | for everyone |
 | [general documentation](docs/documentation.md) | for everyone |
 | [language guide](docs/language-guide.md) | for everyone |
@@ -61,18 +111,13 @@ question, and a patch with the answer!
 
 Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 issues if you're a first time contributor to the project or if you're unsure
-about what to hack on!
-Please see: [TODO.md](TODO.md) for a list of upcoming work and TODO items.
-Please get involved by working on one of these items or by suggesting something
-else!
+about what to hack on! Please get involved by working on one of these items or
+by suggesting something else!
 
 ## Bugs:
 
 Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go)
 to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/issues).
-Bonus points if you provide a [shell](https://github.com/purpleidea/mgmt/tree/master/test/shell)
-or [OMV](https://github.com/purpleidea/mgmt/tree/master/test/omv) reproducible
-test case.
 Feel free to read my article on [debugging golang programs](https://purpleidea.com/blog/2016/02/15/debugging-golang-programs/).
 
 ## Patches:

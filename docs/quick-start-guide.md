@@ -2,16 +2,40 @@
 
 ## Introduction
 
-This guide is intended for developers. Once `mgmt` is minimally viable, we'll
-publish a quick start guide for users too. If you're brand new to `mgmt`, it's
-probably a good idea to start by reading the
-[introductory article](https://purpleidea.com/blog/2016/01/18/next-generation-configuration-mgmt/)
-or to watch an [introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1).
-Once you're familiar with the general idea, please start hacking...
+This guide is intended for users and developers. If you're brand new to `mgmt`,
+it's probably a good idea to start by reading an
+[introductory article about the engine](https://purpleidea.com/blog/2016/01/18/next-generation-configuration-mgmt/)
+and an [introductory article about the language](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/).
+[There are other articles and videos available](on-the-web.md) if you'd like to
+learn more or prefer different formats. Once you're familiar with the general
+idea, or if you prefer a hands-on approach, please start hacking...
 
-## Quick start
+## Getting mgmt
 
-### Installing golang
+You can either build `mgmt` from source, or you can download a pre-built
+release. There are also some distro repositories available, but they may not be
+up to date. A pre-built release is the fastest option if there's one that's
+available for your platform. If you are developing or testing a new patch to
+`mgmt`, or there is not a release available for your platform, then you'll have
+to build your own.
+
+### Downloading a pre-built release:
+
+The latest releases can be found [here](https://github.com/purpleidea/mgmt/releases/).
+An alternate mirror is available [here](https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/).
+
+Make sure to verify the signatures of all packages before you use them. The
+signing key can be downloaded from [https://purpleidea.com/contact/#pgp-key](https://purpleidea.com/contact/#pgp-key)
+to verify the release.
+
+If you've decided to install a pre-build release, you can skip to the
+[Running mgmt](#running-mgmt) section below!
+
+### Building a release:
+
+You'll need some dependencies, including `golang`, and some associated tools.
+
+#### Installing golang
 
 * You need golang version 1.11 or greater installed.
 	* To install on rpm style systems: `sudo dnf install golang`
@@ -22,45 +46,64 @@ Once you're familiar with the general idea, please start hacking...
 * If your distro is tool old, you may need to [download](https://golang.org/dl/)
 a newer golang version.
 
-### Setting up golang
+#### Setting up golang
 
-* If you do not have a GOPATH yet, create one and export it:
+* You can skip this step, as your installation will default to using `~/go/`,
+but if you do not have a `GOPATH` yet and want one in a custom location, create
+one and export it:
 
-```
+```shell
 mkdir $HOME/gopath
 export GOPATH=$HOME/gopath
 ```
 
 * You might also want to add the GOPATH to your `~/.bashrc` or `~/.profile`.
-* For more information you can read the [GOPATH documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable).
+* For more information you can read the
+[GOPATH documentation](https://golang.org/cmd/go/#hdr-GOPATH_environment_variable).
 
-### Getting the mgmt code and dependencies
+#### Getting the mgmt code and associated dependencies
 
-* Download the `mgmt` code into the GOPATH, and switch to that directory:
+* Download the `mgmt` code into the `GOPATH`, and switch to that directory:
 
-```
-mkdir -p $GOPATH/src/github.com/purpleidea/
-cd $GOPATH/src/github.com/purpleidea/
+```shell
+[ -z "$GOPATH" ] && mkdir ~/go/ || mkdir -p $GOPATH/src/github.com/purpleidea/
+cd $GOPATH/src/github.com/purpleidea/ || cd ~/go/
 git clone --recursive https://github.com/purpleidea/mgmt/
-cd $GOPATH/src/github.com/purpleidea/mgmt
+cd $GOPATH/src/github.com/purpleidea/mgmt/ || cd ~/go/src/github.com/purpleidea/mgmt/
 ```
 
-* Add $GOPATH/bin to $PATH
+* Add `$GOPATH/bin` to `$PATH`
 
-```
+```shell
 export PATH=$PATH:$GOPATH/bin
 ```
 
 * Run `make deps` to install system and golang dependencies. Take a look at
-`misc/make-deps.sh` for details.
-* Run `make build` to get a freshly built `mgmt` binary.
+`misc/make-deps.sh` if you want to see the details of what it does.
 
-### Running mgmt
+#### Building mgmt
 
-* Run `time ./mgmt run --tmp-prefix lang examples/lang/hello0.mcl` to try out a
-very simple example!
+* Now run `make` to get a freshly built `mgmt` binary. If this succeeds, you can
+proceed to the [Running mgmt](#running-mgmt) section below!
+
+### Installing a distro release
+
+Installation of `mgmt` from distribution packages currently needs improvement.
+They are not always up-to-date with git master and as such are not recommended.
+At the moment we have:
+* [COPR](https://copr.fedoraproject.org/coprs/purpleidea/mgmt/) (currently dead)
+* [Arch](https://aur.archlinux.org/packages/mgmt/) (currently stale)
+
+Please contribute more and help improve these! We'd especially like to see a
+Debian package!
+
+## Running mgmt
+
+* Run `mgmt run --tmp-prefix lang examples/lang/hello0.mcl` to try out a very
+simple example! If you built it from source, you'll need to use `./mgmt` from
+the project directory.
 * Look in that example file that you ran to see if you can figure out what it
-did!
+did! You can press `^C` to exit `mgmt`.
 * Have fun hacking on our future technology and get involved to shape the
 project!
 
@@ -68,118 +111,3 @@ project!
 
 Please look in the [examples/lang/](../examples/lang/) folder for some more
 examples!
-
-## Vagrant
-
-If you would like to avoid doing the above steps manually, we have prepared a
-[Vagrant](https://www.vagrantup.com/) environment for your convenience. From the
-project directory, run a `vagrant up`, and then a `vagrant status`. From there,
-you can `vagrant ssh` into the `mgmt` machine. The MOTD will explain the rest.
-
-## Using Docker
-
-Alternatively, you can check out the [docker-guide](docs/docker-guide.md) in
-order to develop or deploy using docker.
-
-## Information about dependencies
-
-Software projects have a few different kinds of dependencies. There are _build_
-dependencies, _runtime_ dependencies, and additionally, a few extra dependencies
-required for running the _test_ suite.
-
-### Build
-
-* `golang` 1.11 or higher (required, available in some distros and distributed
-as a binary officially by [golang.org](https://golang.org/dl/))
-
-### Runtime
-
-A relatively modern GNU/Linux system should be able to run `mgmt` without any
-problems. Since `mgmt` runs as a single statically compiled binary, all of the
-library dependencies are included. It is expected, that certain advanced
-resources require host specific facilities to work. These requirements are
-listed below:
-
-| Resource | Dependency        | Version                     | Check version with                                        |
-|----------|-------------------|-----------------------------|-----------------------------------------------------------|
-| augeas   | augeas-devel      | `augeas 1.6` or greater     | `dnf info augeas-devel` or `apt-cache show libaugeas-dev` |
-| file     | inotify           | `Linux 2.6.27` or greater   | `uname -a`                                                |
-| hostname | systemd-hostnamed | `systemd 25` or greater     | `systemctl --version`                                     |
-| nspawn   | systemd-nspawn    | `systemd ???` or greater    | `systemctl --version`                                     |
-| pkg      | packagekitd       | `packagekit 1.x` or greater | `pkcon --version`                                         |
-| svc      | systemd           | `systemd ???` or greater    | `systemctl --version`                                     |
-| virt     | libvirt-devel     | `libvirt 1.2.0` or greater  | `dnf info libvirt-devel` or `apt-cache show libvirt-dev`  |
-| virt     | libvirtd          | `libvirt 1.2.0` or greater  | `libvirtd --version`                                      |
-
-For building a visual representation of the graph, `graphviz` is required.
-
-To build `mgmt` without augeas support please run:
-`GOTAGS='noaugeas' make build`
-
-To build `mgmt` without libvirt support please run:
-`GOTAGS='novirt' make build`
-
-To build `mgmt` without docker support please run:
-`GOTAGS='nodocker' make build`
-
-To build `mgmt` without augeas, libvirt or docker support please run:
-`GOTAGS='noaugeas novirt nodocker' make build`
-
-## Binary Package Installation
-
-Installation of `mgmt` from distribution packages currently needs improvement.
-They are not always up-to-date with git master and as such are not recommended.
-At the moment we have:
-* [COPR](https://copr.fedoraproject.org/coprs/purpleidea/mgmt/)
-* [Arch](https://aur.archlinux.org/packages/mgmt/)
-
-Please contribute more! We'd especially like to see a Debian package!
-
-## OSX/macOS/Darwin development
-
-Developing and running `mgmt` on macOS is currently not supported (but not
-discouraged either). Meaning it might work but in the case it doesn't you would
-have to provide your own patches to fix problems (the project maintainer and
-community are glad to assist where needed).
-
-There are currently some issues that make `mgmt` less suitable to run for provisioning
-macOS. But as a client to provision remote servers it should run fine.
-
-Since the primary supported systems are Linux and these are the environments
-tested for it is wise to run these suites during macOS development as well. To
-ease this Docker can be leveraged ([Docker for Mac](https://docs.docker.com/docker-for-mac/)).
-
-Before running any of the commands below create the development Docker image:
-
-```
-docker/scripts/build-development
-```
-
-This image requires updating every time dependencies (`make-deps.sh`) change.
-
-Then to run the test suite:
-
-```
-docker run --rm -ti \
-	-v $PWD:/go/src/github.com/purpleidea/mgmt/ \
-	-w /go/src/github.com/purpleidea/mgmt/ \
-	purpleidea/mgmt:development \
-	make test
-```
-
-For convenience this command is wrapped in `docker/scripts/exec-development`.
-
-Basically any command can be executed this way. Because the repository source is
-mounted into the Docker container invocation will be quick and allow rapid
-testing, example:
-
-```
-docker/scripts/exec-development test/test-shell.sh load0.sh
-```
-
-Other examples:
-
-```
-docker/scripts/exec-development make build
-docker/scripts/exec-development ./mgmt run --tmp-prefix lang examples/lang/load0.mcl
-```

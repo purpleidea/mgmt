@@ -215,6 +215,17 @@ requires a number of seconds as an argument.
 ./mgmt run lang examples/lang/hello0.mcl --converged-timeout=5
 ```
 
+### When I try to build `mgmt` I see: `no Go files in $GOPATH/src/github.com/purpleidea/mgmt/bindata`.
+
+Due to the arcane way that `golang` designed its `$GOPATH`, the main project
+directory must be inside your `$GOPATH`, and at the appropriate FQDN. This is:
+`$GOPATH/src/github.com/purpleidea/mgmt/`. If you have your project root outside
+of that directory, then you may get this error when you try to build it. In this
+case there is likely a `go get` version of the project at this location. Remove
+it and replace it with your git cloned directory. In my case, I like to work on
+things in `~/code/mgmt/`, so that path is a symlink that points to the long
+project directory.
+
 ### On startup `mgmt` hangs after: `etcd: server: starting...`.
 
 If you get an error message similar to:

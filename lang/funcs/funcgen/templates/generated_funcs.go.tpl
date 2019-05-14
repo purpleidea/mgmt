@@ -18,24 +18,33 @@
 package core
 
 import (
-	"strings"
-
+{{ range $i, $func := .Packages }}	{{ if not (eq .Alias "") }}{{.Alias}} {{end}}"{{.Name}}"
+{{ end }}
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-{{ range $i, $func := .Functions }}	simple.ModuleRegister("{{$func.MgmtPackage}}", "{{$func.MgmtName}}", &types.FuncValue{
+{{ range $i, $func := .Functions }}	simple.ModuleRegister("{{$func.MgmtPackage}}", "{{$func.MclName}}", &types.FuncValue{
 		T: types.NewType("{{$func.Signature}}"),
-		V: {{$func.GoFunc}},
+		V: {{$func.InternalName}},
 	})
 {{ end }}
 }
 {{ range $i, $func := .Functions }}
-// {{$func.GoFunc}} {{$func.Help}}
-func {{$func.GoFunc}}(input []types.Value) (types.Value, error) {
+{{$func.Help}}func {{$func.InternalName}}(input []types.Value) (types.Value, error) {
+{{- if $func.Errorful }}
+	v, err := {{ if not (eq $func.GolangPackage.Alias "") }}{{$func.GolangPackage.Alias}}{{else}}{{$func.GolangPackage.Name}}{{end}}.{{$func.GolangFunc}}({{$func.MakeGolangArgs}})
+	if err != nil {
+		return nil, err
+	}
 	return &types.{{$func.MakeGoReturn}}Value{
-		V: {{$func.GoPackage}}.{{$func.GoFunc}}({{$func.MakeGoArgs}}),
+		V: {{$func.ConvertStart}}v{{$func.ConvertStop}},
 	}, nil
+{{ else }}
+	return &types.{{$func.MakeGoReturn}}Value{
+		V: {{$func.ConvertStart}}{{ if not (eq $func.GolangPackage.Alias "") }}{{$func.GolangPackage.Alias}}{{else}}{{$func.GolangPackage.Name}}{{end}}.{{$func.GolangFunc}}({{$func.MakeGolangArgs}}{{$func.ConvertStop}}),
+	}, nil
+{{ end -}}
 }
 {{ end -}}

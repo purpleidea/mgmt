@@ -1,55 +1,19 @@
 # This file is used by github.com/purpleidea/mgmt/lang/funcs/funcgen/ to
 # generate mcl functions.
-functions:
-- mgmtName: to_upper
-  mgmtPackage: strings
-  help: turns a string to uppercase.
-  goPackage: strings
-  goFunc: ToUpper
-  args: [{name: a, type: string}]
-  return: [{type: string}]
-  tests:
-    - args: [{type: string, value: "Hello"}]
-      return: [{type: string, value: "HELLO"}]
-    - args: [{type: string, value: "HELLO 22"}]
-      return: [{type: string, value: "HELLO 22"}]
-- mgmtName: trim
-  mgmtPackage: strings
-  help: returns a slice of the string s with all leading and trailing Unicode code points contained in cutset removed.
-  goPackage: strings
-  goFunc: Trim
-  args: [{name: s, type: string}, {name: cutset, type: string}]
-  return: [{type: string}]
-  tests:
-    - args: [{type: string, value: "??Hello.."}, {type: string, value: "?."}]
-      return: [{type: string, value: "Hello"}]
-- mgmtName: trim_left
-  mgmtPackage: strings
-  help: returns a slice of the string s with all leading Unicode code points contained in cutset removed.
-  goPackage: strings
-  goFunc: TrimLeft
-  args: [{name: s, type: string}, {name: cutset, type: string}]
-  return: [{type: string}]
-  tests:
-    - args: [{type: string, value: "??Hello.."}, {type: string, value: "?."}]
-      return: [{type: string, value: "Hello.."}]
-- mgmtName: trim_space
-  mgmtPackage: strings
-  help: returns a slice of the string s, with all leading and trailing white space removed, as defined by Unicode.
-  goPackage: strings
-  goFunc: TrimSpace
-  args: [{name: s, type: string}]
-  return: [{type: string}]
-  tests:
-    - args: [{type: string, value: "Hello 2    "}]
-      return: [{type: string, value: "Hello 2"}]
-- mgmtName: trim_right
-  mgmtPackage: strings
-  help: returns a slice of the string s with all trailing Unicode code points contained in cutset removed.
-  goPackage: strings
-  goFunc: TrimRight
-  args: [{name: s, type: string}, {name: cutset, type: string}]
-  return: [{type: string}]
-  tests:
-    - args: [{type: string, value: "??Hello.."}, {type: string, value: "?."}]
-      return: [{type: string, value: "??Hello"}]
+packages:
+- name: html
+- name: math
+- name: math/rand
+  alias: rand
+  mgmtAlias: rand
+- name: os
+- name: os/exec
+  alias: exec
+  mgmtAlias: exec
+- name: path
+- name: path/filepath
+  alias: filepath
+  mgmtAlias: filepath
+- name: runtime
+- name: strconv
+- name: strings

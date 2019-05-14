@@ -1,4 +1,4 @@
-import "strings"
+import "golang/strings"
 import "deploy"
 import "second.mcl"
 import "mod1/"

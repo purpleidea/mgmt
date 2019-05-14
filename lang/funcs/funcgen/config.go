@@ -24,45 +24,78 @@ import (
 )
 
 type config struct {
-	Functions functions `yaml:"functions"`
+	Packages golangPackages `yaml:"packages"`
 }
 
 type functions []function
 
-type testarg struct {
-	Name  string `yaml:"name,omitempty"`
-	Type  string `yaml:"type"`
-	Value string `yaml:"value"`
+type arg struct {
+	// Name is the name of the argument.
+	Name string `yaml:"name,omitempty"`
+	// Value is the value of the argument.
+	Value string `yaml:"value,omitempty"`
+	// Type is the type of the argument.
+	// Supported: bool, string, int, int64, float64.
+	Type string `yaml:"type"`
 }
 
-type arg struct {
-	Name string `yaml:"name,omitempty"`
-	Type string `yaml:"type"`
+// GolangType prints the golang equivalent of a mcl type.
+func (obj *arg) GolangType() string {
+	t := obj.Type
+	if t == "float" {
+		return "float64"
+	}
+	return t
 }
 
 // ToMcl prints the arg signature as expected by mcl.
 func (obj *arg) ToMcl() (string, error) {
-	if obj.Type == "string" {
-		if obj.Name != "" {
-			return fmt.Sprintf("%s str", obj.Name), nil
-		}
-		return types.TypeStr.String(), nil
+	var prefix string
+	if obj.Name != "" {
+		prefix = fmt.Sprintf("%s ", obj.Name)
 	}
-	return "", fmt.Errorf("cannot convert %v to mcl", obj)
+	switch obj.Type {
+	case "bool":
+		return fmt.Sprintf("%s%s", prefix, types.TypeBool.String()), nil
+	case "string":
+		return fmt.Sprintf("%s%s", prefix, types.TypeStr.String()), nil
+	case "int64", "int":
+		return fmt.Sprintf("%s%s", prefix, types.TypeInt.String()), nil
+	case "float64":
+		return fmt.Sprintf("%s%s", prefix, types.TypeFloat.String()), nil
+	default:
+		return "", fmt.Errorf("cannot convert %v to mcl", obj)
+	}
 }
 
 // ToGo prints the arg signature as expected by golang.
-func (obj *arg) ToGo() (string, error) {
-	if obj.Type == "string" {
+func (obj *arg) ToGolang() (string, error) {
+	switch obj.Type {
+	case "bool":
+		return "Bool", nil
+	case "string":
 		return "Str", nil
+	case "int", "int64":
+		return "Int", nil
+	case "float64":
+		return "Float", nil
+	default:
+		return "", fmt.Errorf("cannot convert %v to golang", obj)
 	}
-	return "", fmt.Errorf("cannot convert %v to go", obj)
 }
 
 // ToTestInput prints the arg signature as expected by tests.
 func (obj *arg) ToTestInput() (string, error) {
-	if obj.Type == "string" {
+	switch obj.Type {
+	case "bool":
+		return fmt.Sprintf("&types.BoolValue{V: %s}", obj.Name), nil
+	case "string":
 		return fmt.Sprintf("&types.StrValue{V: %s}", obj.Name), nil
+	case "int":
+		return fmt.Sprintf("&types.IntValue{V: %s}", obj.Name), nil
+	case "float":
+		return fmt.Sprintf("&types.FloatValue{V: %s}", obj.Name), nil
+	default:
+		return "", fmt.Errorf("cannot convert %v to test input", obj)
 	}
-	return "", fmt.Errorf("cannot convert %v to test input", obj)
 }

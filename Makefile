@@ -504,14 +504,10 @@ help: ## show this help screen
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ''
 
-funcgen: lang/funcs/core/generated_funcs_test.go lang/funcs/core/generated_funcs.go
-
-lang/funcs/core/generated_funcs_test.go: lang/funcs/funcgen/*.go lang/funcs/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs_test.go.tpl
-	@echo "Generating: funcs test..."
-	@go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs_test.go.tpl 2>/dev/null
+funcgen: lang/funcs/core/generated_funcs.go
 
 lang/funcs/core/generated_funcs.go: lang/funcs/funcgen/*.go lang/funcs/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs.go.tpl
 	@echo "Generating: funcs..."
-	@go run lang/funcs/funcgen/*.go -templates lang/funcs/funcgen/templates/generated_funcs.go.tpl 2>/dev/null
+	@go run `find lang/funcs/funcgen/ -maxdepth 1 -type f -name '*.go' -not -name '*_test.go'` -templates=lang/funcs/funcgen/templates/generated_funcs.go.tpl 2>/dev/null
 
 # vim: ts=8

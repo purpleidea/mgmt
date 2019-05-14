@@ -1,0 +1,27 @@
+import "golang/os"
+import "golang/exec"
+import "fmt"
+
+$tmpdir = os.temp_dir()
+
+file "${tmpdir}/execinfo" {
+	state => "exists",
+	content => fmt.printf("mgmt is at %s\n", os.executable()),
+}
+
+file "${tmpdir}/mgmtenv" {
+	state => "exists",
+	content => os.expand_env("$HOME sweet ${os.getenv(\"HOME\")}\n"),
+}
+
+file "${tmpdir}/mgmtos" {
+	state => "exists",
+	content => os.readlink("/bin"),
+}
+
+$rm = exec.look_path("rm")
+
+file "${tmpdir}/cache" {
+	state => "exists",
+	content => "Plz cache in ${os.user_cache_dir()}.\nYour home is ${os.user_home_dir()}. Remove with ${rm}\n",
+}

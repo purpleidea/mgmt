@@ -1,0 +1,7 @@
+import "golang/runtime"
+import "fmt"
+
+file "/tmp/mgmtinfo" {
+	state => "exists",
+	content => fmt.printf("Hi from mgmt! mgmt is running with %s; and GOROOT is %s.\n", runtime.version(), runtime.goroot()),
+}

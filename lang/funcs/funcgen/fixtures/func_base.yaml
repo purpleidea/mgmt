@@ -1,0 +1,42 @@
+- mgmtPackage: golang/testpkg
+  mgmtName: all_kind
+  internalName: TestpkgAllKind
+  golangPackage: &pkg
+    name: testpkg
+    exclude: [ToLower]
+  golangFunc: AllKind
+  errorful: false
+  args: [{name: x, type: int64},{name: y, type: string}]
+  return: [{type: float64}]
+- mgmtPackage: golang/testpkg
+  mgmtName: to_upper
+  internalName: TestpkgToUpper
+  golangPackage: *pkg
+  golangFunc: ToUpper
+  errorful: false
+  args: [{name: s, type: string}]
+  return: [{type: string}]
+- mgmtPackage: golang/testpkg
+  mgmtName: max
+  internalName: TestpkgMax
+  golangPackage: *pkg
+  golangFunc: Max
+  errorful: false
+  args: [{name: x, type: float64},{name: y, type: float64}]
+  return: [{type: float64}]
+- mgmtPackage: golang/testpkg
+  mgmtName: with_error
+  internalName: TestpkgWithError
+  golangPackage: *pkg
+  golangFunc: WithError
+  errorful: true
+  args: [{name: s, type: string}]
+  return: [{type: string}]
+- mgmtPackage: golang/testpkg
+  mgmtName: with_int
+  internalName: TestpkgWithInt
+  golangPackage: *pkg
+  golangFunc: WithInt
+  errorful: false
+  args: [{name: s, type: float64}, {name: i, type: int}, {name: x, type: int64}, {name: j, type: int}, {name: k, type: int}, {name: b, type: bool}, {name: t, type: string}]
+  return: [{type: string}]

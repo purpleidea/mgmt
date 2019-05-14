@@ -1,0 +1,14 @@
+Random
+const E = 2.71828182845904523536028747135266249775724709369995957496696763 ...
+const MaxFloat32 = 3.40282346638528859811704183484516925440e+38 ...
+const MaxInt8 = 1<<7 - 1 ...
+func Lgamma(x float64) (lgamma float64, sign int)
+func AllKind(x int64, y string) float64
+func ToUpper(s string) string
+func ToLower(s string) string
+func Max(x, y float64) float64
+func WithError(s string) (string, error)
+func WithErrorButNothingElse(s string) error
+func WithNothingElse(s string)
+func Nextafter32(x, y float32) (r float32)
+func WithInt(s float64, i int, x int64, j, k int, b bool, t string) string

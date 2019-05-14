@@ -28,34 +28,40 @@ import (
 )
 
 type function struct {
-	MgmtPackage string     `yaml:"mgmtPackage"`
-	MgmtName    string     `yaml:"mgmtName"`
-	Help        string     `yaml:"help"`
-	GoPackage   string     `yaml:"goPackage"`
-	GoFunc      string     `yaml:"goFunc"`
-	Args        []arg      `yaml:"args"`
-	Return      []arg      `yaml:"return"`
-	Tests       []functest `yaml:"tests"`
+	// MclName is the name of the package of the function in mcl.
+	MgmtPackage string `yaml:"mgmtPackage"`
+	// MclName is the name of the function in mcl.
+	MclName string `yaml:"mgmtName"`
+	// InternalName is the name used inside the templated file.
+	// Used to avoid clash between same functions from different packages.
+	InternalName string `yaml:"internalName"`
+	// Help is the docstring of the function, including // and
+	// new lines.
+	Help string `yaml:"help"`
+	// GolangPackage is the representation of the package.
+	GolangPackage *golangPackage `yaml:"golangPackage"`
+	// GolangFunc is the name of the function in golang.
+	GolangFunc string `yaml:"golangFunc"`
+	// Errorful indicates wether the golang function can return an error
+	// as second argument.
+	Errorful bool `yaml:"errorful"`
+	// Args is the list of the arguments of the function.
+	Args []arg `yaml:"args"`
+	// ExtraGolangArgs are arguments that are added at the end of the go call.
+	// e.g. strconv.ParseFloat("3.1415", 64) could require add 64.
+	ExtraGolangArgs []arg `yaml:"extraGolangArgs"`
+	// Return is the list of arguments returned by the function.
+	Return []arg `yaml:"return"`
 }
 
-type functest struct {
-	Args   []testarg `yaml:"args"`
-	Expect []testarg `yaml:"return"`
-}
-
-type templateInput struct {
-	Func        function
-	MgmtPackage string
-}
-
-func parseFuncs(c config, path, templates string) error {
+func parseFuncs(c config, f functions, path, templates string) error {
 	templateFiles, err := filepath.Glob(templates)
 	if err != nil {
 		return err
 	}
 	for _, tpl := range templateFiles {
 		log.Printf("Template: %s", tpl)
-		err = generateTemplate(c, path, tpl)
+		err = generateTemplate(c, f, path, tpl, "")
 		if err != nil {
 			return err
 		}
@@ -63,7 +69,7 @@ func parseFuncs(c config, path, templates string) error {
 	return nil
 }
 
-func generateTemplate(c config, path, templateFile string) error {
+func generateTemplate(c config, f functions, path, templateFile, finalName string) error {
 	log.Printf("Reading: %s", templateFile)
 	basename := filepath.Base(templateFile)
 	tplFile, err := ioutil.ReadFile(templateFile)
@@ -74,28 +80,42 @@ func generateTemplate(c config, path, templateFile string) error {
 	if err != nil {
 		return err
 	}
-	finalName := strings.TrimSuffix(basename, ".tpl")
+	if finalName == "" {
+		finalName = strings.TrimSuffix(basename, ".tpl")
+	}
 	finalPath := filepath.Join(path, finalName)
-	log.Printf("Writing: %s", finalPath)
 	finalFile, err := os.Create(finalPath)
 	if err != nil {
 		return err
 	}
-	if err = t.Execute(finalFile, c); err != nil {
+	if err = t.Execute(finalFile, struct {
+		Packages  golangPackages
+		Functions []function
+	}{
+		c.Packages,
+		f,
+	}); err != nil {
 		return err
 	}
 	return nil
 }
 
-// MakeGoArgs translates the func args to go args.
-func (obj *function) MakeGoArgs() (string, error) {
+// MakeGolangArgs translates the func args to golang args.
+func (obj *function) MakeGolangArgs() (string, error) {
 	var args []string
 	for i, a := range obj.Args {
-		gol, err := a.ToGo()
+		gol, err := a.ToGolang()
 		if err != nil {
 			return "", err
 		}
-		args = append(args, fmt.Sprintf("input[%d].%s()", i, gol))
+		input := fmt.Sprintf("input[%d].%s()", i, gol)
+		if a.Type == "int" {
+			input = fmt.Sprintf("int(%s)", input)
+		}
+		args = append(args, input)
+	}
+	for _, a := range obj.ExtraGolangArgs {
+		args = append(args, a.Value)
 	}
 	return strings.Join(args, ", "), nil
 }
@@ -123,59 +143,39 @@ func (obj *function) Signature() (string, error) {
 
 // MakeGoReturn returns the golang signature of the return.
 func (obj *function) MakeGoReturn() (string, error) {
-	return obj.Return[0].ToGo()
+	return obj.Return[0].ToGolang()
 }
 
-// MakeGoTypeReturn returns the mcl signature of the return.
-func (obj *function) MakeGoTypeReturn() string {
-	return obj.Return[0].Type
+// ConvertStart returns the start of a casting function required to convert from mcl to golang.
+func (obj *function) ConvertStart() string {
+	t := obj.Return[0].Type
+	switch t {
+	case "int":
+		return "int64("
+	default:
+		return ""
+	}
 }
 
-// MakeTestSign returns the signature of the test.
-func (obj *function) MakeTestSign() string {
-	var args []string
-	for i, a := range obj.Args {
-		var nextSign string
-		if i+1 < len(obj.Args) {
-			nextSign = obj.Args[i+1].Type
-		} else {
-			nextSign = obj.MakeGoTypeReturn()
-		}
-		if nextSign == a.Type {
-			args = append(args, a.Name)
-		} else {
-			args = append(args, fmt.Sprintf("%s %s", a.Name, a.Type))
-		}
+// ConvertStop returns the end of the conversion function required to convert from mcl to golang.
+func (obj *function) ConvertStop() string {
+	t := obj.Return[0].Type
+	switch t {
+	case "int":
+		return ")"
+	default:
+		return ""
 	}
-	args = append(args, fmt.Sprintf("expected %s", obj.MakeGoTypeReturn()))
-	return strings.Join(args, ", ")
 }
 
-// TestInput generated a string that can be passed as test input.
-func (obj *function) TestInput() (string, error) {
-	var values []string
-	for _, i := range obj.Args {
-		tti, err := i.ToTestInput()
-		if err != nil {
-			return "", err
-		}
-		values = append(values, tti)
+// MakeGolangTypeReturn returns the mcl signature of the return.
+func (obj *function) MakeGolangTypeReturn() string {
+	t := obj.Return[0].Type
+	switch t {
+	case "int64":
+		t = "int"
+	case "float64":
+		t = "float"
 	}
-	return fmt.Sprintf("[]types.Value{%s}", strings.Join(values, ", ")), nil
-}
-
-// MakeTestArgs generates a string that can be passed a test arguments.
-func (obj *functest) MakeTestArgs() string {
-	var values []string
-	for _, i := range obj.Args {
-		if i.Type == "string" {
-			values = append(values, fmt.Sprintf(`"%s"`, i.Value))
-		}
-	}
-	for _, i := range obj.Expect {
-		if i.Type == "string" {
-			values = append(values, fmt.Sprintf(`"%s"`, i.Value))
-		}
-	}
-	return strings.Join(values, ", ")
+	return t
 }

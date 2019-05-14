@@ -266,7 +266,7 @@ serious automation workloads. Support for non-Linux operating systems isn't a
 high priority of mine, but we're happy to accept patches for missing features
 or resources that you think would make sense on your favourite platform.
 
-### Why aren't you using `glide` or `godep` for dependency management?
+### Why aren't you using `glide`, `godep` or `go mod` for dependency management?
 
 Vendoring dependencies means that as the git master branch of each dependency
 marches on, you're left behind using an old version. As a result, bug fixes and

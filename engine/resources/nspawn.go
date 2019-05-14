@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"unicode"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -358,10 +359,12 @@ func systemdVersion() (uint16, error) {
 		return 0, errwrap.Wrapf(err, "could not get version property")
 	}
 	// lose the surrounding quotes
-	verNum, err := strconv.Unquote(verString)
+	verNumString, err := strconv.Unquote(verString)
 	if err != nil {
 		return 0, errwrap.Wrapf(err, "error unquoting version number")
 	}
+	// trim possible version suffix like in "242.19-1"
+	verNum := strings.Split(verNumString, ".")[0]
 	// cast to uint16
 	ver, err := strconv.ParseUint(verNum, 10, 16)
 	if err != nil {

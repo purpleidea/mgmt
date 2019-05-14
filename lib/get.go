@@ -23,7 +23,7 @@ import (
 
 	"github.com/purpleidea/mgmt/gapi"
 
-	"github.com/urfave/cli"
+	"gopkg.in/urfave/cli.v1"
 )
 
 // get is the cli target to run code/import downloads.

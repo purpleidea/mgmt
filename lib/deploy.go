@@ -30,8 +30,8 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/google/uuid"
-	"github.com/urfave/cli"
 	git "gopkg.in/src-d/go-git.v4"
+	"gopkg.in/urfave/cli.v1"
 )
 
 const (

@@ -30,7 +30,7 @@ import (
 	_ "github.com/purpleidea/mgmt/puppet"
 	_ "github.com/purpleidea/mgmt/yamlgraph"
 
-	"github.com/urfave/cli"
+	"gopkg.in/urfave/cli.v1"
 )
 
 // CLI is the entry point for using mgmt normally from the CLI.

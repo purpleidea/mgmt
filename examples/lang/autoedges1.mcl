@@ -1,8 +1,9 @@
+$noop = false
 pkg "drbd-utils" {
 	state => "installed",
 
 	Meta:autoedge => true,
-	Meta:noop => true,
+	Meta:noop => $noop,
 }
 
 file "/etc/drbd.conf" {
@@ -10,15 +11,14 @@ file "/etc/drbd.conf" {
 	state => "exists",
 
 	Meta:autoedge => true,
-	Meta:noop => true,
+	Meta:noop => $noop,
 }
 
 file "/etc/drbd.d/" {
-	source => "/dev/null",
 	state => "exists",
 
 	Meta:autoedge => true,
-	Meta:noop => true,
+	Meta:noop => $noop,
 }
 
 # note that the autoedges between the files and the svc don't exist yet :(
@@ -26,5 +26,5 @@ svc "drbd" {
 	state => "stopped",
 
 	Meta:autoedge => true,
-	Meta:noop => true,
+	Meta:noop => $noop,
 }

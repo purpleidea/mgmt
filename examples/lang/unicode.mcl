@@ -1,0 +1,7 @@
+$unicode = "ᴊᴀᴍᴇꜱ is cool ⇨ and so is π ☻"
+print "unicode" {
+	msg => $unicode,
+}
+file "/tmp/unicode" {
+	content => $unicode + "\n",
+}

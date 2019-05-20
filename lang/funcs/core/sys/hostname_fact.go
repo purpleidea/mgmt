@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	facts.ModuleRegister(moduleName, "hostname", func() facts.Fact { return &HostnameFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, "hostname", func() facts.Fact { return &HostnameFact{} }) // must register the fact and name
 }
 
 // HostnameFact is a function that returns the hostname.

@@ -18,6 +18,6 @@
 package coreregexp
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "regexp"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "regexp"
 )

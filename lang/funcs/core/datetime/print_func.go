@@ -27,7 +27,7 @@ import (
 
 func init() {
 	// FIXME: consider renaming this to printf, and add in a format string?
-	simple.ModuleRegister(moduleName, "print", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "print", &types.FuncValue{
 		T: types.NewType("func(a int) str"),
 		V: func(input []types.Value) (types.Value, error) {
 			epochDelta := input[0].Int()

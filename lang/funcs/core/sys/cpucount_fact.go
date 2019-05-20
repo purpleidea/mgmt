@@ -41,7 +41,7 @@ const (
 )
 
 func init() {
-	facts.ModuleRegister(moduleName, "cpu_count", func() facts.Fact { return &CPUCountFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, "cpu_count", func() facts.Fact { return &CPUCountFact{} }) // must register the fact and name
 }
 
 // CPUCountFact is a fact that returns the current CPU count.

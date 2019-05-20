@@ -18,6 +18,6 @@
 package coreexample
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "example"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "example"
 )

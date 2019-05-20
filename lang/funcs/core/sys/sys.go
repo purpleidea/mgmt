@@ -18,6 +18,6 @@
 package coresys
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "sys"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "sys"
 )

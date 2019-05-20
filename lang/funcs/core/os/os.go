@@ -18,6 +18,6 @@
 package coreos
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "os"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "os"
 )

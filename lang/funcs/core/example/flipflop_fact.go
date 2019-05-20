@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	facts.ModuleRegister(moduleName, "flipflop", func() facts.Fact { return &FlipFlopFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, "flipflop", func() facts.Fact { return &FlipFlopFact{} }) // must register the fact and name
 }
 
 // FlipFlopFact is a fact which flips a bool repeatedly. This is an example fact

@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	funcs.ModuleRegister(moduleName, "exchange", func() interfaces.Func { return &ExchangeFunc{} })
+	funcs.ModuleRegister(ModuleName, "exchange", func() interfaces.Func { return &ExchangeFunc{} })
 }
 
 // ExchangeFunc is special function which returns all the values of a given key

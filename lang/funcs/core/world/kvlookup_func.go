@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	funcs.ModuleRegister(moduleName, "kvlookup", func() interfaces.Func { return &KVLookupFunc{} })
+	funcs.ModuleRegister(ModuleName, "kvlookup", func() interfaces.Func { return &KVLookupFunc{} })
 }
 
 // KVLookupFunc is special function which returns all the values of a given key

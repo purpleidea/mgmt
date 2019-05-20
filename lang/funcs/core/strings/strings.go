@@ -18,6 +18,6 @@
 package corestrings
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "strings"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "strings"
 )

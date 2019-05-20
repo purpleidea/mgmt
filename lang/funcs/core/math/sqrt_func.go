@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(moduleName, "sqrt", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "sqrt", &types.FuncValue{
 		T: types.NewType("func(x float) float"),
 		V: Sqrt,
 	})

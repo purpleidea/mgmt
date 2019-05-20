@@ -26,7 +26,7 @@ import (
 const Answer = 42
 
 func init() {
-	simple.ModuleRegister(moduleName, "answer", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "answer", &types.FuncValue{
 		T: types.NewType("func() int"),
 		V: func([]types.Value) (types.Value, error) {
 			return &types.IntValue{V: Answer}, nil

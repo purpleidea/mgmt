@@ -46,7 +46,7 @@ const (
 )
 
 func init() {
-	funcs.ModuleRegister(moduleName, "schedule", func() interfaces.Func { return &SchedulePolyFunc{} })
+	funcs.ModuleRegister(ModuleName, "schedule", func() interfaces.Func { return &SchedulePolyFunc{} })
 }
 
 // SchedulePolyFunc is special function which determines where code should run

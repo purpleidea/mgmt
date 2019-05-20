@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(moduleName, "match", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "match", &types.FuncValue{
 		T: types.NewType("func(pattern str, s str) bool"),
 		V: Match,
 	})

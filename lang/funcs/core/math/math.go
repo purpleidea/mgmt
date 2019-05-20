@@ -18,6 +18,6 @@
 package coremath
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "math"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "math"
 )

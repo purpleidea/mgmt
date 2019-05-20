@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	facts.ModuleRegister(moduleName, "now", func() facts.Fact { return &DateTimeFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, "now", func() facts.Fact { return &DateTimeFact{} }) // must register the fact and name
 }
 
 // DateTimeFact is a fact which returns the current date and time.

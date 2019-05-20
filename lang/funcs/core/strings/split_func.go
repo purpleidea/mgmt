@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(moduleName, "split", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "split", &types.FuncValue{
 		T: types.NewType("func(a str, b str) []str"),
 		V: Split,
 	})

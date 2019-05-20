@@ -18,6 +18,6 @@
 package coreworld
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "world"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "world"
 )

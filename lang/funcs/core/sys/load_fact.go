@@ -30,7 +30,7 @@ const (
 )
 
 func init() {
-	facts.ModuleRegister(moduleName, "load", func() facts.Fact { return &LoadFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, "load", func() facts.Fact { return &LoadFact{} }) // must register the fact and name
 }
 
 // LoadFact is a fact which returns the current system load.

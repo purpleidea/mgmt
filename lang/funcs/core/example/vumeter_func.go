@@ -33,7 +33,7 @@ import (
 )
 
 func init() {
-	funcs.ModuleRegister(moduleName, "vumeter", func() interfaces.Func { return &VUMeterFunc{} }) // must register the func and name
+	funcs.ModuleRegister(ModuleName, "vumeter", func() interfaces.Func { return &VUMeterFunc{} }) // must register the func and name
 }
 
 // VUMeterFunc is a gimmic function to display a vu meter from the microphone.

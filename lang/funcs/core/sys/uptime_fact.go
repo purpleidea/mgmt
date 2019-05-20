@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	facts.ModuleRegister(moduleName, "uptime", func() facts.Fact { return &UptimeFact{} })
+	facts.ModuleRegister(ModuleName, "uptime", func() facts.Fact { return &UptimeFact{} })
 }
 
 // UptimeFact is a fact which returns the current uptime of your system.

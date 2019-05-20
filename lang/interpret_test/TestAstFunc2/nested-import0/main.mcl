@@ -1,0 +1,5 @@
+import "example/nested"
+
+$x = nested.hello()
+
+test $x {}

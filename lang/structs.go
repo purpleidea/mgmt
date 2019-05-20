@@ -2072,9 +2072,9 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 	// but recursive imports mean this is not always the active file...
 
 	if info.IsSystem { // system imports are the exact name, eg "fmt"
-		systemScope, err := obj.importSystemScope(info.Alias)
+		systemScope, err := obj.importSystemScope(info.Name)
 		if err != nil {
-			return nil, errwrap.Wrapf(err, "system import of `%s` failed", info.Alias)
+			return nil, errwrap.Wrapf(err, "system import of `%s` failed", info.Name)
 		}
 		return systemScope, nil
 	}

@@ -333,6 +333,7 @@ func safename(name string) string {
 	// TODO: should we pick a different replacement char?
 	char := funcs.ReplaceChar // can't be any of: .-#
 	result := strings.Replace(name, funcs.ModuleSep, char, -1)
+	result = strings.Replace(result, "/", char, -1) // nested imports
 	if result == name {
 		// No change, so add a prefix for package-less functions... This
 		// prevents conflicts from sys.func1 -> sys_func1 which would be

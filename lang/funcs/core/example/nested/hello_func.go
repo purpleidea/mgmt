@@ -15,18 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package corenested
 
 import (
-	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example/nested"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/fmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/regexp"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
+	coreexample "github.com/purpleidea/mgmt/lang/funcs/core/example"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/types"
 )
+
+func init() {
+	simple.ModuleRegister(coreexample.ModuleName+"/"+ModuleName, "hello", &types.FuncValue{
+		T: types.NewType("func() str"),
+		V: Hello,
+	})
+}
+
+// Hello returns some string. This is just to test nesting.
+func Hello(input []types.Value) (types.Value, error) {
+	return &types.StrValue{
+		V: "Hello!",
+	}, nil
+}

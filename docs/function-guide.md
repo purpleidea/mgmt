@@ -219,7 +219,7 @@ Init(init *interfaces.Init) error
 
 This is called to initialize the function. If something goes wrong, it should
 return an error. It is passed a struct that contains all the important
-information and poiinters that it might need to work with throughout its
+information and pointers that it might need to work with throughout its
 lifetime. As a result, it will need to save a copy to that pointer for future
 use in the other methods.
 
@@ -377,9 +377,9 @@ might be different ways you would want to call `printf`, such as:
 `printf("the %s is %d", "answer", 42)` or `printf("3 * 2 = %d", 3 * 2)`. Since
 you couldn't implement the infinite number of possible signatures, this API lets
 you write code which can be coerced into different forms. This makes
-implementing what would appear to be generic or polymorphic, instead something
-that is actually static and that still has the static type safety properties
-that were guaranteed by the mgmt language.
+implementing what would appear to be generic or polymorphic, instead of
+something that is actually static and that still has the static type safety
+properties that were guaranteed by the mgmt language.
 
 Since this is an advanced topic, it is not described in full at this time. For
 more information please have a look at the source code comments, some of the

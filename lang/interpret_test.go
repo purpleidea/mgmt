@@ -658,6 +658,9 @@ func TestAstFunc1(t *testing.T) {
 		//t.Logf("adding: %s", f + "/")
 	}
 
+	if testing.Short() {
+		t.Logf("available tests:")
+	}
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
 		if tc.name == "" {
@@ -675,7 +678,12 @@ func TestAstFunc1(t *testing.T) {
 		//	continue
 		//}
 
-		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+		testName := fmt.Sprintf("test #%d (%s)", index, tc.name)
+		if testing.Short() { // make listing tests easier
+			t.Logf("%s", testName)
+			continue
+		}
+		t.Run(testName, func(t *testing.T) {
 			name, path, fail, expstr, errs := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n"), tc.errs
 			src := dir + path // location of the test
 			fail1 := errs.fail1
@@ -917,6 +925,9 @@ func TestAstFunc1(t *testing.T) {
 			}
 		})
 	}
+	if testing.Short() {
+		t.Skip("skipping all tests...")
+	}
 }
 
 // TestAstFunc2 is a more advanced version which pulls code from physical dirs.
@@ -1057,6 +1068,9 @@ func TestAstFunc2(t *testing.T) {
 		//t.Logf("adding: %s", f + "/")
 	}
 
+	if testing.Short() {
+		t.Logf("available tests:")
+	}
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
 		if tc.name == "" {
@@ -1074,7 +1088,12 @@ func TestAstFunc2(t *testing.T) {
 		//	continue
 		//}
 
-		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+		testName := fmt.Sprintf("test #%d (%s)", index, tc.name)
+		if testing.Short() { // make listing tests easier
+			t.Logf("%s", testName)
+			continue
+		}
+		t.Run(testName, func(t *testing.T) {
 			name, path, fail, expstr, errs := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n"), tc.errs
 			src := dir + path // location of the test
 			fail1 := errs.fail1
@@ -1403,6 +1422,9 @@ func TestAstFunc2(t *testing.T) {
 				}
 			}
 		})
+	}
+	if testing.Short() {
+		t.Skip("skipping all tests...")
 	}
 }
 

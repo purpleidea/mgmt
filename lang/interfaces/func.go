@@ -90,3 +90,14 @@ type PolyFunc interface {
 	// are all that should be needed or used after this point.)
 	Build(*types.Type) error // then, you can get argNames from Info()
 }
+
+// NamedArgsFunc is a function that uses non-standard function arg names. If you
+// don't implement this, then the argnames (if specified) must correspond to the
+// a, b, c...z, aa, ab...az, ba...bz, and so on sequence.
+type NamedArgsFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// ArgGen implements the arg name generator function. By default, we use
+	// the util.NumToAlpha function when this interface isn't implemented...
+	ArgGen(int) string
+}

@@ -5400,7 +5400,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
 func (obj *ExprCall) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("func")
+	graph, err := pgraph.NewGraph("call")
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not create graph")
 	}

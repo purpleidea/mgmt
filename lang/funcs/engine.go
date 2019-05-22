@@ -165,8 +165,9 @@ func (obj *Engine) Init() error {
 
 		obj.state[vertex] = &State{Expr: expr} // store some state!
 
-		e := obj.state[vertex].Init()
-		err = errwrap.Append(err, e) // list of errors
+		e1 := obj.state[vertex].Init()
+		e2 := errwrap.Wrapf(e1, "error loading func `%s`", vertex)
+		err = errwrap.Append(err, e2) // list of errors
 	}
 	if err != nil { // usually due to `not found` errors
 		return errwrap.Wrapf(err, "could not load requested funcs")
@@ -217,6 +218,10 @@ func (obj *Engine) Validate() error {
 		node := obj.state[vertex]
 		if exp := len(node.handle.Info().Sig.Ord); exp != count {
 			e := fmt.Errorf("expected %d inputs to `%s`, got %d", exp, node, count)
+			if obj.Debug {
+				obj.Logf("expected %d inputs to `%s`, got %d", exp, node, count)
+				obj.Logf("expected: %+v for `%s`", node.handle.Info().Sig.Ord, node)
+			}
 			err = errwrap.Append(err, e)
 		}
 	}
@@ -520,6 +525,10 @@ func (obj *Engine) Run() error {
 						node.mutex.RUnlock()
 						if !nodeLoaded {
 							loaded = false // we were wrong
+							// TODO: add better "not loaded" reporting
+							if obj.Debug {
+								obj.Logf("not yet loaded: %s", node)
+							}
 							break
 						}
 					}

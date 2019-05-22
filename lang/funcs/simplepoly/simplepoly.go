@@ -42,6 +42,10 @@ func Register(name string, fns []*types.FuncValue) {
 		panic(fmt.Sprintf("a simple polyfunc named %s is already registered", name))
 	}
 
+	if len(fns) == 0 {
+		panic("no functions specified for simple polyfunc")
+	}
+
 	// check for uniqueness in type signatures
 	typs := []*types.Type{}
 	for _, f := range fns {

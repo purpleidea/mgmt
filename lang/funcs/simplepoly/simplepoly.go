@@ -23,6 +23,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	langutil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -55,7 +56,7 @@ func Register(name string, fns []*types.FuncValue) {
 		typs = append(typs, f.T)
 	}
 
-	if err := hasDuplicateTypes(typs); err != nil {
+	if err := langutil.HasDuplicateTypes(typs); err != nil {
 		panic(fmt.Sprintf("polyfunc %s has a duplicate implementation: %+v", name, err))
 	}
 
@@ -179,7 +180,7 @@ func (obj *simplePolyFunc) Validate() error {
 		typs = append(typs, f.T)
 	}
 
-	if err := hasDuplicateTypes(typs); err != nil {
+	if err := langutil.HasDuplicateTypes(typs); err != nil {
 		return errwrap.Wrapf(err, "duplicate implementation found")
 	}
 
@@ -276,21 +277,5 @@ func (obj *simplePolyFunc) Stream() error {
 // Close runs some shutdown code for this function and turns off the stream.
 func (obj *simplePolyFunc) Close() error {
 	close(obj.closeChan)
-	return nil
-}
-
-// hasDuplicateTypes returns an error if the list of types is not unique.
-func hasDuplicateTypes(typs []*types.Type) error {
-	// FIXME: do this comparison in < O(n^2) ?
-	for i, ti := range typs {
-		for j, tj := range typs {
-			if i == j {
-				continue // don't compare to self
-			}
-			if ti.Cmp(tj) == nil {
-				return fmt.Errorf("duplicate type of %+v found", ti)
-			}
-		}
-	}
 	return nil
 }

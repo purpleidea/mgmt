@@ -25,7 +25,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -160,6 +159,11 @@ func PureFuncExec(handle interfaces.Func, args []types.Value) (types.Value, erro
 		return nil, fmt.Errorf("must be kind func")
 	}
 
+	ord := handle.Info().Sig.Ord
+	if i, j := len(ord), len(args); i != j {
+		return nil, fmt.Errorf("expected %d args, got %d", i, j)
+	}
+
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
@@ -233,7 +237,7 @@ func PureFuncExec(handle interfaces.Func, args []types.Value) (types.Value, erro
 		st := types.NewStruct(si)
 
 		for i, arg := range args {
-			name := util.NumToAlpha(i)                // assume (incorrectly) for now...
+			name := handle.Info().Sig.Ord[i]
 			if err := st.Set(name, arg); err != nil { // populate struct
 				select {
 				case errch <- errwrap.Wrapf(err, "struct set failure"):

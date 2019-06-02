@@ -3143,6 +3143,10 @@ func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
 	if obj.Name == "" {
 		return nil, fmt.Errorf("missing include name")
 	}
+	if obj.class == nil {
+		// possible programming error
+		return nil, fmt.Errorf("include doesn't contain a class pointer yet")
+	}
 
 	// is it even possible for the signatures to match?
 	if len(obj.class.Args) != len(obj.Args) {

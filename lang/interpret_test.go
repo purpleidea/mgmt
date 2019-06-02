@@ -745,7 +745,7 @@ func TestAstFunc1(t *testing.T) {
 
 			reader := bytes.NewReader(output.Main)
 			ast, err := LexParse(reader)
-			if !fail && err != nil {
+			if (!fail || !fail1) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 				return
@@ -810,7 +810,7 @@ func TestAstFunc1(t *testing.T) {
 
 			// propagate the scope down through the AST...
 			err = iast.SetScope(scope)
-			if !fail && err != nil {
+			if (!fail || !fail2) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not set scope: %+v", index, err)
 				return
@@ -843,7 +843,7 @@ func TestAstFunc1(t *testing.T) {
 				Logf:   xlogf,
 			}
 			err = unifier.Unify()
-			if !fail && err != nil {
+			if (!fail || !fail3) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
 				return
@@ -868,7 +868,7 @@ func TestAstFunc1(t *testing.T) {
 			// build the function graph
 			graph, err := iast.Graph()
 
-			if !fail && err != nil {
+			if (!fail || !fail4) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
 				return
@@ -1156,7 +1156,7 @@ func TestAstFunc2(t *testing.T) {
 
 			reader := bytes.NewReader(output.Main)
 			ast, err := LexParse(reader)
-			if !fail && err != nil {
+			if (!fail || !fail1) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 				return
@@ -1221,7 +1221,7 @@ func TestAstFunc2(t *testing.T) {
 
 			// propagate the scope down through the AST...
 			err = iast.SetScope(scope)
-			if !fail && err != nil {
+			if (!fail || !fail2) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not set scope: %+v", index, err)
 				return
@@ -1254,7 +1254,7 @@ func TestAstFunc2(t *testing.T) {
 				Logf:   xlogf,
 			}
 			err = unifier.Unify()
-			if !fail && err != nil {
+			if (!fail || !fail3) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
 				return
@@ -1279,7 +1279,7 @@ func TestAstFunc2(t *testing.T) {
 			// build the function graph
 			graph, err := iast.Graph()
 
-			if !fail && err != nil {
+			if (!fail || !fail4) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
 				return
@@ -1366,7 +1366,7 @@ func TestAstFunc2(t *testing.T) {
 			ograph, err := interpret(iast)
 			funcs.RUnlock()
 
-			if !fail && err != nil {
+			if (!fail || !fail5) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpret failed with: %+v", index, err)
 				return

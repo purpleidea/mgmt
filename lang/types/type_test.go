@@ -20,7 +20,10 @@
 package types
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/purpleidea/mgmt/util"
 )
 
 func TestType0(t *testing.T) {
@@ -1292,6 +1295,180 @@ func TestType3(t *testing.T) {
 			t.Errorf("type: `%s` did not match expected: `%v`", str, err)
 			return
 		}
+	}
+}
+
+func TestComplexCmp0(t *testing.T) {
+	type test struct { // an individual test
+		name string
+		typ1 *Type
+		typ2 *Type
+		err  bool   // expected err ?
+		str  string // expected output str
+	}
+	testCases := []test{}
+
+	{
+		testCases = append(testCases, test{
+			name: "int vs str",
+			typ1: TypeInt,
+			typ2: TypeStr,
+			err:  true,
+			str:  "",
+		})
+	}
+	{
+		testCases = append(testCases, test{
+			name: "nested list vs list variant",
+			typ1: NewType("[][]str"),
+			typ2: &Type{
+				Kind: KindList,
+				Val:  TypeVariant,
+			},
+			err: false,
+			str: "variant",
+		})
+	}
+	{
+		testCases = append(testCases, test{
+			name: "nil vs type",
+			typ1: nil,
+			typ2: NewType("[][]str"),
+			err:  false,
+			str:  "partial",
+		})
+	}
+	{
+		testCases = append(testCases, test{
+			name: "variant vs type",
+			typ1: TypeVariant,
+			typ2: NewType("[][]str"),
+			err:  false,
+			str:  "variant",
+		})
+	}
+	{
+		testCases = append(testCases, test{
+			name: "nil vs variant",
+			typ1: nil,
+			typ2: TypeVariant,
+			err:  false,
+			str:  "both",
+		})
+	}
+	{
+		testCases = append(testCases, test{
+			name: "type vs nil",
+			typ1: NewType("[][]str"),
+			typ2: nil,
+			err:  false,
+			str:  "partial",
+		})
+	}
+	{
+		testCases = append(testCases, test{
+			name: "type vs variant",
+			typ1: NewType("[][]str"),
+			typ2: TypeVariant,
+			err:  false,
+			str:  "variant",
+		})
+	}
+	{
+		testCases = append(testCases, test{
+			name: "variant vs nil",
+			typ1: TypeVariant,
+			typ2: nil,
+			err:  false,
+			str:  "both",
+		})
+	}
+	{
+		// func([]int) VS func([]variant) int
+		testCases = append(testCases, test{
+			name: "partial vs variant",
+			typ1: &Type{
+				Kind: KindFunc,
+				Map: map[string]*Type{
+					"ints": {
+						Kind: KindList,
+						Val:  TypeInt,
+					},
+				},
+				Ord: []string{"ints"},
+				Out: nil, // unspecified, it's a partial
+			},
+			typ2: &Type{
+				Kind: KindFunc,
+				Map: map[string]*Type{
+					"ints": {
+						Kind: KindList,
+						Val:  TypeVariant, // variant!
+					},
+				},
+				Ord: []string{"ints"},
+				Out: TypeInt,
+			},
+			err: false,
+			str: "both",
+		})
+	}
+
+	if testing.Short() {
+		t.Logf("available tests:")
+	}
+	names := []string{}
+	for index, tc := range testCases { // run all the tests
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
+			continue
+		}
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
+
+		testName := fmt.Sprintf("test #%d (%s)", index, tc.name)
+		if testing.Short() { // make listing tests easier
+			t.Logf("%s", testName)
+			continue
+		}
+		t.Run(testName, func(t *testing.T) {
+			typ1, typ2, err, str := tc.typ1, tc.typ2, tc.err, tc.str
+
+			// the reverse should probably match the forward version
+			s1, err1 := typ1.ComplexCmp(typ2)
+			s2, err2 := typ2.ComplexCmp(typ1)
+
+			if err && err1 == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expected error, got nil", index)
+			}
+			if !err && err1 != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unexpected error: %+v", index, err1)
+			}
+			if err && err2 == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expected error, got nil", index)
+			}
+			if !err && err2 != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unexpected error: %+v", index, err2)
+			}
+
+			if s1 != s2 {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: strings did not match: %+v != %+v", index, s1, s2)
+				return
+			}
+			if s1 != str {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unexpected string: %+v != %+v", index, s1, str)
+				return
+			}
+		})
 	}
 }
 

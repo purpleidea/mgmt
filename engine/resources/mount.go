@@ -75,6 +75,8 @@ const (
 	// diskByLabel is the location of symlinks for partitions by label.
 	diskByPartLabel = devDisk + "by-partlabel/"
 
+	// dbusSystemdService is the service to connect to systemd itself.
+	dbusSystemd1Service = "org.freedesktop.systemd1"
 	// dbusSystemd1Interface is the base systemd1 path.
 	dbusSystemd1Path = "/org/freedesktop/systemd1"
 	// dbusUnitPath is the dbus path where mount unit files are found.
@@ -88,6 +90,9 @@ const (
 	dbusManagerInterface = dbusSystemd1Interface + ".Manager"
 	// dbusRestartUnit is the dbus method for restarting systemd units.
 	dbusRestartUnit = dbusManagerInterface + ".RestartUnit"
+	// dbusReloadSystemd is the dbus method for reloading systemd settings.
+	// (i.e. systemctl daemon-reload)
+	dbusReloadSystemd = dbusManagerInterface + ".Reload"
 	// restartTimeout is the delay before restartUnit is assumed to have
 	// failed.
 	dbusRestartCtxTimeout = 10
@@ -576,7 +581,10 @@ func mountReload() error {
 	}
 	defer conn.Close()
 	// systemctl daemon-reload
-	conn.BusObject().Call("Reload", 0)
+	call := conn.Object(dbusSystemd1Service, dbusSystemd1Path).Call(dbusReloadSystemd, 0)
+	if call.Err != nil {
+		return errwrap.Wrapf(call.Err, "error reloading systemd")
+	}
 
 	// systemctl restart local-fs.target
 	if err := restartUnit(conn, "local-fs.target"); err != nil {
@@ -619,7 +627,7 @@ func restartUnit(conn *dbus.Conn, unit string) error {
 	defer conn.RemoveSignal(ch)
 
 	// restart the unit
-	sd1 := conn.Object(dbusSystemd1Interface, dbus.ObjectPath(dbusSystemd1Path))
+	sd1 := conn.Object(dbusSystemd1Service, dbus.ObjectPath(dbusSystemd1Path))
 	if call := sd1.Call(dbusRestartUnit, 0, unit, "fail"); call.Err != nil {
 		return errwrap.Wrapf(call.Err, "error restarting unit: %s", unit)
 	}

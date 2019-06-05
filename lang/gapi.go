@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/gapi"
-	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -271,7 +270,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 			"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
 		},
 		// all the built-in top-level, core functions enter here...
-		Functions: funcs.LookupPrefix(""),
+		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	logf("building scope...")

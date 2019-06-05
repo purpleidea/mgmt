@@ -1,0 +1,30 @@
+Edge: call:_operator(str("+"), str("hello"), var(x)) -> func(x) { call:_operator(str("+"), str("hello"), var(x)) } # body
+Edge: call:_operator(str("+"), str("hello"), var(x)) -> func(x) { call:_operator(str("+"), str("hello"), var(x)) } # body
+Edge: call:prefixer(str("a")) -> var(out1) # var:out1
+Edge: call:prefixer(str("b")) -> var(out2) # var:out2
+Edge: func(x) { call:_operator(str("+"), str("hello"), var(x)) } -> call:prefixer(str("a")) # call:prefixer
+Edge: func(x) { call:_operator(str("+"), str("hello"), var(x)) } -> call:prefixer(str("b")) # call:prefixer
+Edge: str("+") -> call:_operator(str("+"), str("hello"), var(x)) # op
+Edge: str("+") -> call:_operator(str("+"), str("hello"), var(x)) # op
+Edge: str("a") -> call:prefixer(str("a")) # x
+Edge: str("a") -> var(x) # var:x
+Edge: str("b") -> call:prefixer(str("b")) # x
+Edge: str("b") -> var(x) # var:x
+Edge: str("hello") -> call:_operator(str("+"), str("hello"), var(x)) # a
+Edge: str("hello") -> call:_operator(str("+"), str("hello"), var(x)) # a
+Edge: var(x) -> call:_operator(str("+"), str("hello"), var(x)) # b
+Edge: var(x) -> call:_operator(str("+"), str("hello"), var(x)) # b
+Vertex: call:_operator(str("+"), str("hello"), var(x))
+Vertex: call:_operator(str("+"), str("hello"), var(x))
+Vertex: call:prefixer(str("a"))
+Vertex: call:prefixer(str("b"))
+Vertex: func(x) { call:_operator(str("+"), str("hello"), var(x)) }
+Vertex: func(x) { call:_operator(str("+"), str("hello"), var(x)) }
+Vertex: str("+")
+Vertex: str("a")
+Vertex: str("b")
+Vertex: str("hello")
+Vertex: var(out1)
+Vertex: var(out2)
+Vertex: var(x)
+Vertex: var(x)

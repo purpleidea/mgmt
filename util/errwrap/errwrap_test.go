@@ -49,3 +49,15 @@ func TestAppendErr3(t *testing.T) {
 		t.Errorf("expected err")
 	}
 }
+
+func TestString1(t *testing.T) {
+	var err error
+	if String(err) != "" {
+		t.Errorf("expected empty result")
+	}
+
+	msg := "this is an error"
+	if err := fmt.Errorf(msg); String(err) != msg {
+		t.Errorf("expected different result")
+	}
+}

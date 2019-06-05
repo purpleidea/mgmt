@@ -31,7 +31,12 @@ import (
 // methods that they must both implement. In practice it is not used especially
 // often since we usually know which kind of node we want.
 type Node interface {
+	//fmt.Stringer // already provided by pgraph.Vertex
+	pgraph.Vertex // must implement this since we store these in our graphs
+
+	// Apply is a general purpose iterator method that operates on any node.
 	Apply(fn func(Node) error) error
+
 	//Parent() Node // TODO: should we implement this?
 }
 
@@ -40,12 +45,37 @@ type Node interface {
 // expression.)
 type Stmt interface {
 	Node
-	fmt.Stringer                 // String() string
-	Init(*Data) error            // initialize the populated node and validate
-	Interpolate() (Stmt, error)  // return expanded form of AST as a new AST
-	SetScope(*Scope) error       // set the scope here and propagate it downwards
-	Unify() ([]Invariant, error) // TODO: is this named correctly?
+
+	// Init initializes the populated node and does some basic validation.
+	Init(*Data) error
+
+	// Interpolate returns an expanded form of the AST as a new AST. It does
+	// a recursive interpolate (copy) of all members in the AST.
+	Interpolate() (Stmt, error) // return expanded form of AST as a new AST
+
+	// Copy returns a light copy of the struct. Anything static will not be
+	// copied. For a full recursive copy consider using Interpolate instead.
+	// TODO: do we need an error in the signature?
+	Copy() (Stmt, error)
+
+	// Ordering returns a graph of the scope ordering that represents the
+	// data flow. This can be used in SetScope so that it knows the correct
+	// order to run it in.
+	Ordering(map[string]Node) (*pgraph.Graph, map[Node]string, error)
+
+	// SetScope sets the scope here and propagates it downwards.
+	SetScope(*Scope) error
+
+	// Unify returns the list of invariants that this node produces. It does
+	// so recursively on any children elements that exist in the AST, and
+	// returns the collection to the caller.
+	Unify() ([]Invariant, error)
+
+	// Graph returns the reactive function graph expressed by this node.
 	Graph() (*pgraph.Graph, error)
+
+	// Output returns the output that this "program" produces. This output
+	// is what is used to build the output graph.
 	Output() (*Output, error)
 }
 
@@ -55,17 +85,51 @@ type Stmt interface {
 // these can be stored as pointers in our graph data structure.
 type Expr interface {
 	Node
-	//fmt.Stringer // already provided by pgraph.Vertex
-	pgraph.Vertex               // must implement this since we store these in our graphs
-	Init(*Data) error           // initialize the populated node and validate
-	Interpolate() (Expr, error) // return expanded form of AST as a new AST
-	SetScope(*Scope) error      // set the scope here and propagate it downwards
-	SetType(*types.Type) error  // sets the type definitively, errors if incompatible
+
+	// Init initializes the populated node and does some basic validation.
+	Init(*Data) error
+
+	// Interpolate returns an expanded form of the AST as a new AST. It does
+	// a recursive interpolate (copy) of all members in the AST. For a light
+	// copy use Copy.
+	Interpolate() (Expr, error)
+
+	// Copy returns a light copy of the struct. Anything static will not be
+	// copied. For a full recursive copy consider using Interpolate instead.
+	// TODO: do we need an error in the signature?
+	Copy() (Expr, error)
+
+	// Ordering returns a graph of the scope ordering that represents the
+	// data flow. This can be used in SetScope so that it knows the correct
+	// order to run it in.
+	Ordering(map[string]Node) (*pgraph.Graph, map[Node]string, error)
+
+	// SetScope sets the scope here and propagates it downwards.
+	SetScope(*Scope) error
+
+	// SetType sets the type definitively, and errors if it is incompatible.
+	SetType(*types.Type) error
+
+	// Type returns the type of this expression. It may speculate if it can
+	// determine it statically. This errors if it is not yet known.
 	Type() (*types.Type, error)
-	Unify() ([]Invariant, error) // TODO: is this named correctly?
+
+	// Unify returns the list of invariants that this node produces. It does
+	// so recursively on any children elements that exist in the AST, and
+	// returns the collection to the caller.
+	Unify() ([]Invariant, error)
+
+	// Graph returns the reactive function graph expressed by this node.
 	Graph() (*pgraph.Graph, error)
-	Func() (Func, error) // a function that represents this reactively
+
+	// Func returns a function that represents this reactively.
+	Func() (Func, error)
+
+	// SetValue stores the result of the last computation of this expression
+	// node.
 	SetValue(types.Value) error
+
+	// Value returns the value of this expression in our type system.
 	Value() (types.Value, error)
 }
 
@@ -147,10 +211,13 @@ type Data struct {
 // from the variables, which could actually contain lambda functions.
 type Scope struct {
 	Variables map[string]Expr
-	Functions map[string]func() Func
+	Functions map[string]Expr // the Expr will usually be an *ExprFunc
 	Classes   map[string]Stmt
+	// TODO: It is easier to shift a list, but let's use a map for Indexes
+	// for now in case we ever need holes...
+	Indexes map[int][]Expr // TODO: use [][]Expr instead?
 
-	Chain []Stmt // chain of previously seen stmt's
+	Chain []Node // chain of previously seen node's
 }
 
 // EmptyScope returns the zero, empty value for the scope, with all the internal
@@ -158,9 +225,30 @@ type Scope struct {
 func EmptyScope() *Scope {
 	return &Scope{
 		Variables: make(map[string]Expr),
-		Functions: make(map[string]func() Func),
+		Functions: make(map[string]Expr),
 		Classes:   make(map[string]Stmt),
-		Chain:     []Stmt{},
+		Indexes:   make(map[int][]Expr),
+		Chain:     []Node{},
+	}
+}
+
+// InitScope initializes any uninitialized part of the struct. It is safe to use
+// on scopes with existing data.
+func (obj *Scope) InitScope() {
+	if obj.Variables == nil {
+		obj.Variables = make(map[string]Expr)
+	}
+	if obj.Functions == nil {
+		obj.Functions = make(map[string]Expr)
+	}
+	if obj.Classes == nil {
+		obj.Classes = make(map[string]Stmt)
+	}
+	if obj.Indexes == nil {
+		obj.Indexes = make(map[int][]Expr)
+	}
+	if obj.Chain == nil {
+		obj.Chain = []Node{}
 	}
 }
 
@@ -170,10 +258,12 @@ func EmptyScope() *Scope {
 // we need those to be consistently pointing to the same things after copying.
 func (obj *Scope) Copy() *Scope {
 	variables := make(map[string]Expr)
-	functions := make(map[string]func() Func)
+	functions := make(map[string]Expr)
 	classes := make(map[string]Stmt)
-	chain := []Stmt{}
+	indexes := make(map[int][]Expr)
+	chain := []Node{}
 	if obj != nil { // allow copying nil scopes
+		obj.InitScope()                   // safety
 		for k, v := range obj.Variables { // copy
 			variables[k] = v // we don't copy the expr's!
 		}
@@ -183,6 +273,13 @@ func (obj *Scope) Copy() *Scope {
 		for k, v := range obj.Classes { // copy
 			classes[k] = v // we don't copy the StmtClass!
 		}
+		for k, v := range obj.Indexes { // copy
+			ixs := []Expr{}
+			for _, x := range v {
+				ixs = append(ixs, x) // we don't copy the expr's!
+			}
+			indexes[k] = ixs
+		}
 		for _, x := range obj.Chain { // copy
 			chain = append(chain, x) // we don't copy the Stmt pointer!
 		}
@@ -191,6 +288,7 @@ func (obj *Scope) Copy() *Scope {
 		Variables: variables,
 		Functions: functions,
 		Classes:   classes,
+		Indexes:   indexes,
 		Chain:     chain,
 	}
 }
@@ -220,6 +318,8 @@ func (obj *Scope) Merge(scope *Scope) error {
 	sort.Strings(namedFunctions)
 	sort.Strings(namedClasses)
 
+	obj.InitScope() // safety
+
 	for _, name := range namedVariables {
 		if _, exists := obj.Variables[name]; exists {
 			e := fmt.Errorf("variable `%s` was overwritten", name)
@@ -242,6 +342,9 @@ func (obj *Scope) Merge(scope *Scope) error {
 		obj.Classes[name] = scope.Classes[name]
 	}
 
+	// FIXME: should we merge or overwrite? (I think this isn't even used)
+	obj.Indexes = scope.Indexes // overwrite without error
+
 	return err
 }
 
@@ -257,10 +360,78 @@ func (obj *Scope) IsEmpty() bool {
 	if len(obj.Functions) > 0 {
 		return false
 	}
+	if len(obj.Indexes) > 0 { // FIXME: should we check each one? (unused?)
+		return false
+	}
 	if len(obj.Classes) > 0 {
 		return false
 	}
 	return true
+}
+
+// MaxIndexes returns the maximum index of Indexes stored in the scope. If it is
+// empty then -1 is returned.
+func (obj *Scope) MaxIndexes() int {
+	obj.InitScope() // safety
+	max := -1
+	for k := range obj.Indexes {
+		if k > max {
+			max = k
+		}
+	}
+	return max
+}
+
+// PushIndexes adds a list of expressions at the zeroth index in Indexes after
+// firsh pushing everyone else over by one. If you pass in nil input this may
+// panic!
+func (obj *Scope) PushIndexes(exprs []Expr) {
+	if exprs == nil {
+		// TODO: is this the right thing to do?
+		panic("unexpected nil input")
+	}
+	obj.InitScope() // safety
+	max := obj.MaxIndexes()
+	for i := max; i >= 0; i-- { // reverse order
+		indexes, exists := obj.Indexes[i]
+		if !exists {
+			continue
+		}
+		delete(obj.Indexes, i)
+		obj.Indexes[i+1] = indexes // push it
+	}
+
+	if obj.Indexes == nil { // in case we weren't initialized yet
+		obj.Indexes = make(map[int][]Expr)
+	}
+	obj.Indexes[0] = exprs // usually the list of Args in ExprCall
+}
+
+// PullIndexes takes a list of expressions from the zeroth index in Indexes and
+// then pulls everyone over by one. The returned value is only valid if one was
+// found at the zeroth index. The returned boolean will be true if it exists.
+func (obj *Scope) PullIndexes() ([]Expr, bool) {
+	obj.InitScope()         // safety
+	if obj.Indexes == nil { // in case we weren't initialized yet
+		obj.Indexes = make(map[int][]Expr)
+	}
+
+	indexes, exists := obj.Indexes[0] // save for later
+
+	max := obj.MaxIndexes()
+	for i := 0; i <= max; i++ {
+		ixs, exists := obj.Indexes[i]
+		if !exists {
+			continue
+		}
+		delete(obj.Indexes, i)
+		if i == 0 { // zero falls off
+			continue
+		}
+		obj.Indexes[i-1] = ixs
+	}
+
+	return indexes, exists
 }
 
 // Edge is the data structure representing a compiled edge that is used in the

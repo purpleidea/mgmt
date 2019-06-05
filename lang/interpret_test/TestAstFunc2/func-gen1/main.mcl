@@ -1,0 +1,11 @@
+# This sort of thing is not currently supported, and not sure if it ever will.
+
+# test generating a function
+class funcgen1 {
+	func fun1() {
+		"hi"
+	}
+}
+include funcgen1
+$x1 = fun1()	# not funcgen1.fun1 since it's *not* an import!
+test $x1 {}	# hi

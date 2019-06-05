@@ -22,15 +22,15 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
+	//"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // VarFunc is a function that passes through a function that came from a bind
 // lookup. It exists so that the reactive function engine type checks correctly.
 type VarFunc struct {
 	Type *types.Type // this is the type of the var's value that we hold
-	Func interfaces.Func
-	Edge string // name of the edge used
+	Edge string      // name of the edge used
+	//Func interfaces.Func // this isn't actually used in the Stream :/
 
 	init   *interfaces.Init
 	last   types.Value // last value received to use for diff
@@ -44,21 +44,8 @@ func (obj *VarFunc) Validate() error {
 	if obj.Type == nil {
 		return fmt.Errorf("must specify a type")
 	}
-	if obj.Func == nil {
-		return fmt.Errorf("must specify a func")
-	}
 	if obj.Edge == "" {
 		return fmt.Errorf("must specify an edge name")
-	}
-
-	// we're supposed to call Validate() before we ever call Info()
-	if err := obj.Func.Validate(); err != nil {
-		return errwrap.Wrapf(err, "var func did not validate")
-	}
-
-	typ := obj.Func.Info().Sig
-	if err := obj.Type.Cmp(typ.Out); err != nil {
-		return errwrap.Wrapf(err, "var expr type must match func out type")
 	}
 	return nil
 }

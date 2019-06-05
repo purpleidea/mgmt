@@ -21,4 +21,8 @@ const (
 	// ModuleSep is the character used for the module scope separation. For
 	// example when using `fmt.printf` or `math.sin` this is the char used.
 	ModuleSep = "."
+
+	// VarPrefix is the prefix character that precedes the variables
+	// identifer. For example, `$foo` or for a lambda, `$fn(42)`.
+	VarPrefix = "$"
 )

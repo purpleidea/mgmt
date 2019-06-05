@@ -1,0 +1,10 @@
+import "fmt"
+
+$add = func($x) {
+	$x + $x
+}
+
+$num = 2
+$out = $add($num) # 4
+
+test fmt.printf("%d + %d is %d", $num, $num, $out) {} # simple math

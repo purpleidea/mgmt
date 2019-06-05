@@ -1,0 +1,16 @@
+Edge: call:answer() -> var(out1) # var:out1
+Edge: call:answer() -> var(out2) # var:out2
+Edge: func() { str("the answer is 42") } -> call:answer() # call:answer
+Edge: func() { str("the answer is 42") } -> call:answer() # call:answer
+Edge: str("+") -> call:_operator(str("+"), var(out1), var(out2)) # op
+Edge: str("the answer is 42") -> func() { str("the answer is 42") } # body
+Edge: var(out1) -> call:_operator(str("+"), var(out1), var(out2)) # a
+Edge: var(out2) -> call:_operator(str("+"), var(out1), var(out2)) # b
+Vertex: call:_operator(str("+"), var(out1), var(out2))
+Vertex: call:answer()
+Vertex: call:answer()
+Vertex: func() { str("the answer is 42") }
+Vertex: str("+")
+Vertex: str("the answer is 42")
+Vertex: var(out1)
+Vertex: var(out2)

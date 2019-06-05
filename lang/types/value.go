@@ -980,8 +980,9 @@ func (obj *FuncValue) Func() func([]Value) (Value, error) {
 }
 
 // Set sets the function value to be a new function.
-func (obj *FuncValue) Set(fn func([]Value) (Value, error)) { // TODO: change method name?
+func (obj *FuncValue) Set(fn func([]Value) (Value, error)) error { // TODO: change method name?
 	obj.V = fn
+	return nil // TODO: can we do any sort of checking here?
 }
 
 // Call runs the function value and returns its result. It returns an error if

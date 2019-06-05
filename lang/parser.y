@@ -516,8 +516,9 @@ call:
 		$$.expr = &ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
-			// XXX: this Var option isn't implemented yet
-			//Var: true, // lambda
+			// Instead of `Var: true`, we could have added a `$`
+			// prefix to the Name, but I felt this was more elegant.
+			Var: true, // lambda
 		}
 	}
 |	expr PLUS expr
@@ -1186,7 +1187,7 @@ type:
 
 		m := make(map[string]*types.Type)
 		ord := []string{}
-		for i, a := range $4.args {
+		for i, a := range $3.args {
 			if a.Type == nil {
 				// at least one is unknown, can't run SetType...
 				// this means there is a programming error here!

@@ -1,0 +1,38 @@
+Edge: bool(false) -> call:funcgen(bool(false)) # b
+Edge: bool(false) -> var(b) # var:b
+Edge: bool(true) -> call:funcgen(bool(true)) # b
+Edge: bool(true) -> var(b) # var:b
+Edge: call:fn1() -> var(out1) # var:out1
+Edge: call:fn2() -> var(out2) # var:out2
+Edge: call:funcgen(bool(false)) -> call:fn2() # call:fn2
+Edge: call:funcgen(bool(true)) -> call:fn1() # call:fn1
+Edge: func() { str("hello") } -> if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } # a
+Edge: func() { str("hello") } -> if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } # a
+Edge: func() { str("world") } -> if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } # b
+Edge: func() { str("world") } -> if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } # b
+Edge: func(b) { if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } } -> call:funcgen(bool(false)) # call:funcgen
+Edge: func(b) { if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } } -> call:funcgen(bool(true)) # call:funcgen
+Edge: if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } -> func(b) { if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } } # body
+Edge: if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } -> func(b) { if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } } # body
+Edge: str("hello") -> func() { str("hello") } # body
+Edge: str("world") -> func() { str("world") } # body
+Edge: var(b) -> if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } # c
+Edge: var(b) -> if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } # c
+Vertex: bool(false)
+Vertex: bool(true)
+Vertex: call:fn1()
+Vertex: call:fn2()
+Vertex: call:funcgen(bool(false))
+Vertex: call:funcgen(bool(true))
+Vertex: func() { str("hello") }
+Vertex: func() { str("world") }
+Vertex: func(b) { if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } }
+Vertex: func(b) { if( var(b) ) { func() { str("hello") } } else { func() { str("world") } } }
+Vertex: if( var(b) ) { func() { str("hello") } } else { func() { str("world") } }
+Vertex: if( var(b) ) { func() { str("hello") } } else { func() { str("world") } }
+Vertex: str("hello")
+Vertex: str("world")
+Vertex: var(b)
+Vertex: var(b)
+Vertex: var(out1)
+Vertex: var(out2)

@@ -36,4 +36,13 @@ type Invariant interface {
 	// Matches returns whether an invariant matches the existing solution.
 	// If it is inconsistent, then it errors.
 	Matches(solved map[Expr]*types.Type) (bool, error)
+
+	// Possible returns an error if it is certain that it is NOT possible to
+	// get a solution with this invariant and the set of partials. In
+	// certain cases, it might not be able to determine that it's not
+	// possible, while simultaneously not being able to guarantee a possible
+	// solution either. In this situation, it should return nil, since this
+	// is used as a filtering mechanism, and the nil result of possible is
+	// preferred over eliminating a tricky, but possible one.
+	Possible(partials []Invariant) error
 }

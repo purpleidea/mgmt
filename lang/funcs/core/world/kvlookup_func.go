@@ -46,6 +46,15 @@ type KVLookupFunc struct {
 	closeChan chan struct{}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *KVLookupFunc) ArgGen(index int) (string, error) {
+	seq := []string{"namespace"}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
 func (obj *KVLookupFunc) Validate() error {

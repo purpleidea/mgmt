@@ -1,0 +1,13 @@
+import "fmt"
+
+# test a function with part of the expression scoped from outside
+$c1 = 42 # put this after to confirm any-order rules
+$constmult = func($x) {
+	$c1 * $x * $c2
+}
+$c2 = 37 # put this after to confirm any-order rules
+
+$num = 13
+$out = $constmult($num) # 20202
+
+test fmt.printf("%d * %d * %d is %d", $c1, $num, $c2, $out) {}

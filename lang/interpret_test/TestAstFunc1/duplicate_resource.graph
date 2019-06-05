@@ -1,4 +1,4 @@
-Edge: str("hello world") -> call:fmt.printf(str("hello world")) # a
+Edge: str("hello world") -> call:fmt.printf(str("hello world")) # format
 Vertex: call:fmt.printf(str("hello world"))
 Vertex: str("/tmp/foo")
 Vertex: str("/tmp/foo")

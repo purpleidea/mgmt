@@ -1,0 +1,69 @@
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) -> var(inside) # var:inside
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) -> var(inside) # var:inside
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) -> var(inside) # var:inside
+Edge: call:_operator(str("+"), var(some_value1), var(some_value2)) -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # a
+Edge: call:_operator(str("+"), var(some_value1), var(some_value2)) -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # a
+Edge: call:_operator(str("+"), var(some_value1), var(some_value2)) -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # a
+Edge: int(1) -> var(num) # var:num
+Edge: int(13) -> var(some_value2) # var:some_value2
+Edge: int(13) -> var(some_value2) # var:some_value2
+Edge: int(13) -> var(some_value2) # var:some_value2
+Edge: int(2) -> var(num) # var:num
+Edge: int(3) -> var(num) # var:num
+Edge: int(4) -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # b
+Edge: int(4) -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # b
+Edge: int(4) -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # b
+Edge: int(42) -> var(some_value1) # var:some_value1
+Edge: int(42) -> var(some_value1) # var:some_value1
+Edge: int(42) -> var(some_value1) # var:some_value1
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # op
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # op
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4)) # op
+Edge: str("+") -> call:_operator(str("+"), var(some_value1), var(some_value2)) # op
+Edge: str("+") -> call:_operator(str("+"), var(some_value1), var(some_value2)) # op
+Edge: str("+") -> call:_operator(str("+"), var(some_value1), var(some_value2)) # op
+Edge: str("test-%d-%d") -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # format
+Edge: str("test-%d-%d") -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # format
+Edge: str("test-%d-%d") -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # format
+Edge: var(inside) -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # b
+Edge: var(inside) -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # b
+Edge: var(inside) -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # b
+Edge: var(num) -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # a
+Edge: var(num) -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # a
+Edge: var(num) -> call:fmt.printf(str("test-%d-%d"), var(num), var(inside)) # a
+Edge: var(some_value1) -> call:_operator(str("+"), var(some_value1), var(some_value2)) # a
+Edge: var(some_value1) -> call:_operator(str("+"), var(some_value1), var(some_value2)) # a
+Edge: var(some_value1) -> call:_operator(str("+"), var(some_value1), var(some_value2)) # a
+Edge: var(some_value2) -> call:_operator(str("+"), var(some_value1), var(some_value2)) # b
+Edge: var(some_value2) -> call:_operator(str("+"), var(some_value1), var(some_value2)) # b
+Edge: var(some_value2) -> call:_operator(str("+"), var(some_value1), var(some_value2)) # b
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4))
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4))
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(some_value1), var(some_value2)), int(4))
+Vertex: call:_operator(str("+"), var(some_value1), var(some_value2))
+Vertex: call:_operator(str("+"), var(some_value1), var(some_value2))
+Vertex: call:_operator(str("+"), var(some_value1), var(some_value2))
+Vertex: call:fmt.printf(str("test-%d-%d"), var(num), var(inside))
+Vertex: call:fmt.printf(str("test-%d-%d"), var(num), var(inside))
+Vertex: call:fmt.printf(str("test-%d-%d"), var(num), var(inside))
+Vertex: int(1)
+Vertex: int(13)
+Vertex: int(2)
+Vertex: int(3)
+Vertex: int(4)
+Vertex: int(42)
+Vertex: str("+")
+Vertex: str("+")
+Vertex: str("test-%d-%d")
+Vertex: var(inside)
+Vertex: var(inside)
+Vertex: var(inside)
+Vertex: var(num)
+Vertex: var(num)
+Vertex: var(num)
+Vertex: var(some_value1)
+Vertex: var(some_value1)
+Vertex: var(some_value1)
+Vertex: var(some_value2)
+Vertex: var(some_value2)
+Vertex: var(some_value2)

@@ -19,10 +19,12 @@ package unification
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // Unifier holds all the data that the Unify function will need for it to run.
@@ -107,8 +109,22 @@ func (obj *Unifier) Unify() error {
 		delete(exprMap, x.Expr) // remove everything we know about
 	}
 	if c := len(exprMap); c > 0 { // if there's anything left, it's bad...
+		ptrs := []string{}
+		disp := make(map[string]string) // display hack
+		for i := range exprMap {
+			s := fmt.Sprintf("%p", i) // pointer
+			ptrs = append(ptrs, s)
+			disp[s] = i.String()
+		}
+		sort.Strings(ptrs)
 		// programming error!
-		return fmt.Errorf("got %d unbound expr's", c)
+		s := strings.Join(ptrs, ", ")
+
+		obj.Logf("got %d unbound expr's: %s", c, s)
+		for i, s := range ptrs {
+			obj.Logf("(%d) %s => %s", i, s, disp[s])
+		}
+		return fmt.Errorf("got %d unbound expr's: %s", c, s)
 	}
 
 	if obj.Debug {
@@ -160,6 +176,43 @@ func (obj *EqualsInvariant) Matches(solved map[interfaces.Expr]*types.Type) (boo
 	return true, nil
 }
 
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+func (obj *EqualsInvariant) Possible(partials []interfaces.Invariant) error {
+	// TODO: we could pass in a solver here
+	//set := []interfaces.Invariant{}
+	//set = append(set, obj)
+	//set = append(set, partials...)
+	//_, err := SimpleInvariantSolver(set, ...)
+	//if err != nil {
+	//	// being ambiguous doesn't guarantee that we're possible
+	//	if err == ErrAmbiguous {
+	//		return nil // might be possible, might not be...
+	//	}
+	//	return err
+	//}
+
+	// FIXME: This is not right because we want to know if the whole thing
+	// works together, and as a result, the above solver is better, however,
+	// the goal is to eliminate easy impossible solutions, so allow this!
+	// XXX: Double check this is logical.
+	solved := map[interfaces.Expr]*types.Type{
+		obj.Expr: obj.Type,
+	}
+	for _, invar := range partials { // check each one
+		_, err := invar.Matches(solved)
+		if err != nil { // inconsistent, so it's not possible
+			return errwrap.Wrapf(err, "not possible")
+		}
+	}
+
+	return nil
+}
+
 // EqualityInvariant is an invariant that symbolizes that the two expressions
 // must have equivalent types.
 // TODO: is there a better name than EqualityInvariant
@@ -191,6 +244,59 @@ func (obj *EqualityInvariant) Matches(solved map[interfaces.Expr]*types.Type) (b
 	}
 
 	return true, nil // matched!
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+func (obj *EqualityInvariant) Possible(partials []interfaces.Invariant) error {
+	// The idea here is that we look for the expression pointers in the list
+	// of partial invariants. It's only impossible if we (1) find both of
+	// them, and (2) that they relate to each other. The second part is
+	// harder.
+	var one, two bool
+	exprs := []interfaces.Invariant{}
+	for _, x := range partials {
+		for _, y := range x.ExprList() { // []interfaces.Expr
+			if y == obj.Expr1 {
+				one = true
+				exprs = append(exprs, x)
+			}
+			if y == obj.Expr2 {
+				two = true
+				exprs = append(exprs, x)
+			}
+		}
+	}
+
+	if !one || !two {
+		return nil // we're unconnected to anything, this is possible!
+	}
+
+	// we only need to check the connections in this case...
+	// let's keep this simple, and less perfect for now...
+	var typ *types.Type
+	for _, x := range exprs {
+		eq, ok := x.(*EqualsInvariant)
+		if !ok {
+			// XXX: add support for other kinds in the future...
+			continue
+		}
+
+		if typ != nil {
+			if err := typ.Cmp(eq.Type); err != nil {
+				// we found proof it's not possible
+				return errwrap.Wrapf(err, "not possible")
+			}
+		}
+
+		typ = eq.Type // store for next type
+	}
+
+	return nil
 }
 
 // EqualityInvariantList is an invariant that symbolizes that all the
@@ -234,6 +340,62 @@ func (obj *EqualityInvariantList) Matches(solved map[interfaces.Expr]*types.Type
 	return found, nil
 }
 
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+func (obj *EqualityInvariantList) Possible(partials []interfaces.Invariant) error {
+	// The idea here is that we look for the expression pointers in the list
+	// of partial invariants. It's only impossible if we (1) find two or
+	// more, and (2) that any of them relate to each other. The second part
+	// is harder.
+	inList := func(needle interfaces.Expr, haystack []interfaces.Expr) bool {
+		for _, x := range haystack {
+			if x == needle {
+				return true
+			}
+		}
+		return false
+	}
+
+	exprs := []interfaces.Invariant{}
+	for _, x := range partials {
+		for _, y := range x.ExprList() { // []interfaces.Expr
+			if inList(y, obj.Exprs) {
+				exprs = append(exprs, x)
+			}
+		}
+	}
+
+	if len(exprs) <= 1 {
+		return nil // we're unconnected to anything, this is possible!
+	}
+
+	// we only need to check the connections in this case...
+	// let's keep this simple, and less perfect for now...
+	var typ *types.Type
+	for _, x := range exprs {
+		eq, ok := x.(*EqualsInvariant)
+		if !ok {
+			// XXX: add support for other kinds in the future...
+			continue
+		}
+
+		if typ != nil {
+			if err := typ.Cmp(eq.Type); err != nil {
+				// we found proof it's not possible
+				return errwrap.Wrapf(err, "not possible")
+			}
+		}
+
+		typ = eq.Type // store for next type
+	}
+
+	return nil
+}
+
 // EqualityWrapListInvariant expresses that a list in Expr1 must have elements
 // that have the same type as the expression in Expr2Val.
 type EqualityWrapListInvariant struct {
@@ -268,6 +430,18 @@ func (obj *EqualityWrapListInvariant) Matches(solved map[interfaces.Expr]*types.
 	return true, nil // matched!
 }
 
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *EqualityWrapListInvariant) Possible(partials []interfaces.Invariant) error {
+	// XXX: not implemented
+	return nil // safer to return nil than error
+}
+
 // EqualityWrapMapInvariant expresses that a map in Expr1 must have keys that
 // match the type of the expression in Expr2Key and values that match the type
 // of the expression in Expr2Val.
@@ -290,7 +464,7 @@ func (obj *EqualityWrapMapInvariant) ExprList() []interfaces.Expr {
 // Matches returns whether an invariant matches the existing solution. If it is
 // inconsistent, then it errors.
 func (obj *EqualityWrapMapInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
-	t1, exists1 := solved[obj.Expr1] // list type
+	t1, exists1 := solved[obj.Expr1] // map type
 	t2, exists2 := solved[obj.Expr2Key]
 	t3, exists3 := solved[obj.Expr2Val]
 	if !exists1 || !exists2 || !exists3 {
@@ -306,6 +480,18 @@ func (obj *EqualityWrapMapInvariant) Matches(solved map[interfaces.Expr]*types.T
 		return false, err // inconsistent!
 	}
 	return true, nil // matched!
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *EqualityWrapMapInvariant) Possible(partials []interfaces.Invariant) error {
+	// XXX: not implemented
+	return nil // safer to return nil than error
 }
 
 // EqualityWrapStructInvariant expresses that a struct in Expr1 must have fields
@@ -344,7 +530,7 @@ func (obj *EqualityWrapStructInvariant) ExprList() []interfaces.Expr {
 // Matches returns whether an invariant matches the existing solution. If it is
 // inconsistent, then it errors.
 func (obj *EqualityWrapStructInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
-	t1, exists1 := solved[obj.Expr1] // list type
+	t1, exists1 := solved[obj.Expr1] // struct type
 	if !exists1 {
 		return false, nil // not matched yet
 	}
@@ -375,6 +561,18 @@ func (obj *EqualityWrapStructInvariant) Matches(solved map[interfaces.Expr]*type
 	return found, nil // matched!
 }
 
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *EqualityWrapStructInvariant) Possible(partials []interfaces.Invariant) error {
+	// XXX: not implemented
+	return nil // safer to return nil than error
+}
+
 // EqualityWrapFuncInvariant expresses that a func in Expr1 must have args that
 // match the type of the expressions listed in Expr2Map and a return value that
 // matches the type of the expression in Expr2Out.
@@ -399,7 +597,7 @@ func (obj *EqualityWrapFuncInvariant) String() string {
 		}
 		s[i] = fmt.Sprintf("%s %p", k, t)
 	}
-	return fmt.Sprintf("%p == func{%s} %p", obj.Expr1, strings.Join(s, "; "), obj.Expr2Out)
+	return fmt.Sprintf("%p == func(%s) %p", obj.Expr1, strings.Join(s, "; "), obj.Expr2Out)
 }
 
 // ExprList returns the list of valid expressions in this invariant.
@@ -415,7 +613,7 @@ func (obj *EqualityWrapFuncInvariant) ExprList() []interfaces.Expr {
 // Matches returns whether an invariant matches the existing solution. If it is
 // inconsistent, then it errors.
 func (obj *EqualityWrapFuncInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
-	t1, exists1 := solved[obj.Expr1] // list type
+	t1, exists1 := solved[obj.Expr1] // func type
 	if !exists1 {
 		return false, nil // not matched yet
 	}
@@ -452,6 +650,72 @@ func (obj *EqualityWrapFuncInvariant) Matches(solved map[interfaces.Expr]*types.
 	}
 
 	return found, nil // matched!
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *EqualityWrapFuncInvariant) Possible(partials []interfaces.Invariant) error {
+	// XXX: not implemented
+	return nil // safer to return nil than error
+}
+
+// EqualityWrapCallInvariant expresses that a call result that happened in Expr1
+// must match the type of the function result listed in Expr2. In this case,
+// Expr2 will be a function expression, and the returned expression should match
+// with the Expr1 expression, when comparing types.
+// TODO: should this be named EqualityWrapFuncInvariant or not?
+// TODO: should Expr1 and Expr2 be reversed???
+type EqualityWrapCallInvariant struct {
+	Expr1     interfaces.Expr
+	Expr2Func interfaces.Expr
+}
+
+// String returns a representation of this invariant.
+func (obj *EqualityWrapCallInvariant) String() string {
+	return fmt.Sprintf("%p == call(%p)", obj.Expr1, obj.Expr2Func)
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *EqualityWrapCallInvariant) ExprList() []interfaces.Expr {
+	return []interfaces.Expr{obj.Expr1, obj.Expr2Func}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *EqualityWrapCallInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
+	t1, exists1 := solved[obj.Expr1] // call type
+	t2, exists2 := solved[obj.Expr2Func]
+	if !exists1 || !exists2 {
+		return false, nil // not matched yet
+	}
+	//if t1.Kind != types.KindFunc {
+	//	return false, fmt.Errorf("expected func kind")
+	//}
+
+	if t2.Kind != types.KindFunc {
+		return false, fmt.Errorf("expected func kind")
+	}
+	if err := t1.Cmp(t2.Out); err != nil {
+		return false, err // inconsistent!
+	}
+	return true, nil // matched!
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *EqualityWrapCallInvariant) Possible(partials []interfaces.Invariant) error {
+	// XXX: not implemented
+	return nil // safer to return nil than error
 }
 
 // ConjunctionInvariant represents a list of invariants which must all be true
@@ -493,6 +757,24 @@ func (obj *ConjunctionInvariant) Matches(solved map[interfaces.Expr]*types.Type)
 		}
 	}
 	return found, nil
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *ConjunctionInvariant) Possible(partials []interfaces.Invariant) error {
+	for _, invar := range obj.Invariants {
+		if err := invar.Possible(partials); err != nil {
+			// we found proof it's not possible
+			return errwrap.Wrapf(err, "not possible")
+		}
+	}
+	// XXX: unfortunately we didn't look for them all together with a solver
+	return nil
 }
 
 // ExclusiveInvariant represents a list of invariants where one and *only* one
@@ -538,9 +820,11 @@ func (obj *ExclusiveInvariant) ExprList() []interfaces.Expr {
 func (obj *ExclusiveInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
 	found := false
 	reterr := fmt.Errorf("all exclusives errored")
+	var errs error
 	for _, invar := range obj.Invariants {
 		match, err := invar.Matches(solved)
 		if err != nil {
+			errs = errwrap.Append(errs, err)
 			continue
 		}
 		if !match {
@@ -560,7 +844,65 @@ func (obj *ExclusiveInvariant) Matches(solved map[interfaces.Expr]*types.Type) (
 		return true, nil
 	}
 
-	return false, reterr
+	return false, errwrap.Wrapf(reterr, errwrap.String(errs))
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *ExclusiveInvariant) Possible(partials []interfaces.Invariant) error {
+	var errs error
+	for _, invar := range obj.Invariants {
+		err := invar.Possible(partials)
+		if err == nil {
+			// we found proof it's possible
+			return nil
+		}
+		errs = errwrap.Append(errs, err)
+	}
+
+	return errwrap.Wrapf(errs, "not possible")
+}
+
+// simplify attempts to reduce the exclusive invariant to eliminate any
+// possibilities based on the list of known partials at this time. Hopefully,
+// this will weed out some of the function polymorphism possibilities so that we
+// can solve the problem without recursive, combinatorial permutation, which is
+// very, very slow.
+func (obj *ExclusiveInvariant) simplify(partials []interfaces.Invariant) ([]interfaces.Invariant, error) {
+	if len(obj.Invariants) == 0 { // unexpected case
+		return []interfaces.Invariant{}, nil // we don't need anything!
+	}
+
+	possible := []interfaces.Invariant{}
+	var reasons error
+	for _, invar := range obj.Invariants { // []interfaces.Invariant
+		if err := invar.Possible(partials); err != nil {
+			reasons = errwrap.Append(reasons, err)
+			continue
+		}
+		possible = append(possible, invar)
+	}
+
+	if len(possible) == 0 { // nothing was possible
+		return nil, errwrap.Wrapf(reasons, "no possible simplifications")
+	}
+	if len(possible) == 1 { // we flattened out the exclusive!
+		return possible, nil
+	}
+
+	if len(possible) == len(obj.Invariants) { // nothing changed
+		return nil, fmt.Errorf("no possible simplifications, we're unchanged")
+	}
+
+	invar := &ExclusiveInvariant{
+		Invariants: possible, // hopefully a smaller exclusive!
+	}
+	return []interfaces.Invariant{invar}, nil
 }
 
 // exclusivesProduct returns a list of different products produced from the
@@ -625,6 +967,18 @@ func (obj *AnyInvariant) ExprList() []interfaces.Expr {
 func (obj *AnyInvariant) Matches(solved map[interfaces.Expr]*types.Type) (bool, error) {
 	_, exists := solved[obj.Expr] // we only care that it is found.
 	return exists, nil
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation always returns nil.
+func (obj *AnyInvariant) Possible([]interfaces.Invariant) error {
+	// keep it simple, even though we don't technically check the inputs...
+	return nil
 }
 
 // InvariantSolution lists a trivial set of EqualsInvariant mappings so that you

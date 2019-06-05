@@ -1,0 +1,11 @@
+# simple function definition containing function to be returned
+func funcgen() {
+	func() {
+		"hello"
+	}
+}
+
+$fn = funcgen()
+$out = $fn()
+
+test $out {}

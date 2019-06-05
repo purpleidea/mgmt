@@ -1,0 +1,5 @@
+Vertex: test[true-true-10]
+Vertex: test[true-false-20]
+Vertex: test[true-false-negative]
+Vertex: test[false-true-big]
+Vertex: test[false-false-some-world]

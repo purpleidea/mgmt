@@ -1,0 +1,18 @@
+import "fmt"
+
+# we should only see one copy of $s1, $s2 and $fn
+$s1 = "hello"
+$fn = func() {
+	$s1 + " " + $s2
+}
+$s2 = "world"
+
+test "greeting1" {
+	anotherstr => $fn(),
+}
+test "greeting2" {
+	anotherstr => $fn(),
+}
+test "greeting3" {
+	anotherstr => $fn(),
+}

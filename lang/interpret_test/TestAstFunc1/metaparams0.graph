@@ -14,7 +14,7 @@ Edge: int(5) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: i
 Edge: list(str("foo:1"), str("bar:3")) -> struct(noop: bool(false); retry: int(-1); delay: int(0); poll: int(5); limit: float(4.2); burst: int(3); sema: list(str("foo:1"), str("bar:3")); rewatch: bool(false); realize: bool(true); reverse: bool(true); autoedge: bool(true); autogroup: bool(true)) # sema
 Edge: str("bar:3") -> list(str("foo:1"), str("bar:3")) # 1
 Edge: str("foo:1") -> list(str("foo:1"), str("bar:3")) # 0
-Edge: str("hello world") -> call:fmt.printf(str("hello world")) # a
+Edge: str("hello world") -> call:fmt.printf(str("hello world")) # format
 Vertex: bool(false)
 Vertex: bool(false)
 Vertex: bool(false)

@@ -1,0 +1,11 @@
+Edge: call:fn() -> var(out) # var:out
+Edge: call:funcgen() -> call:fn() # call:fn
+Edge: func() { func() { str("hello") } } -> call:funcgen() # call:funcgen
+Edge: func() { str("hello") } -> func() { func() { str("hello") } } # body
+Edge: str("hello") -> func() { str("hello") } # body
+Vertex: call:fn()
+Vertex: call:funcgen()
+Vertex: func() { func() { str("hello") } }
+Vertex: func() { str("hello") }
+Vertex: str("hello")
+Vertex: var(out)

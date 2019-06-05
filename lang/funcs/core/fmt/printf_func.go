@@ -33,9 +33,7 @@ func init() {
 }
 
 const (
-	// XXX: does this need to be `a` ? -- for now yes, fix this compiler bug
-	//formatArgName = "format" // name of the first arg
-	formatArgName = "a" // name of the first arg
+	formatArgName = "format" // name of the first arg
 )
 
 // PrintfFunc is a static polymorphic function that compiles a format string and
@@ -56,6 +54,14 @@ type PrintfFunc struct {
 	result string // last calculated output
 
 	closeChan chan struct{}
+}
+
+// ArgGen returns the Nth arg name for this function.
+func (obj *PrintfFunc) ArgGen(index int) (string, error) {
+	if index == 0 {
+		return formatArgName, nil
+	}
+	return util.NumToAlpha(index - 1), nil
 }
 
 // Polymorphisms returns the possible type signature for this function. In this
@@ -108,9 +114,9 @@ func (obj *PrintfFunc) Polymorphisms(partialType *types.Type, partialValues []ty
 	typ.Ord = append(typ.Ord, formatArgName)
 
 	for i, x := range typList {
-		name := util.NumToAlpha(i + 1) // +1 to skip the format arg
+		name := util.NumToAlpha(i) // start with a...
 		if name == formatArgName {
-			return nil, fmt.Errorf("could not build function with %d args", i+1)
+			return nil, fmt.Errorf("could not build function with %d args", i+1) // +1 for format arg
 		}
 
 		// if we also had even more partial type information, check it!

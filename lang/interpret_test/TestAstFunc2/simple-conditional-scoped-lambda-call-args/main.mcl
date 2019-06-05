@@ -1,0 +1,20 @@
+$funcgen1 = func() {
+	func($b) {
+		"hello" + $b
+	}
+}
+$funcgen2 = func() {
+	func($bb) {
+		"world" + $bb
+	}
+}
+
+$some_bool = false
+$fn = if $some_bool {
+	$funcgen1()
+} else {
+	$funcgen2()
+}
+
+$out = $fn("wide")
+test $out {}

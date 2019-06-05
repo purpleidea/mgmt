@@ -1,0 +1,15 @@
+import "fmt"
+
+# this value should only be built once
+$some_value1 = 42 # or something more complex like the output of a slow function...
+class foo($num) {
+	# we should have a different `$inside` value for each use of this class
+	$inside = $some_value1 + $some_value2 + 4
+	test fmt.printf("test-%d-%d", $num, $inside) {} # some resource
+}
+$some_value2 = 13 # check that non-ordering works too!
+
+# We *don't* unnecessarily copy `4` on each include, because it's static!
+include foo(1)
+include foo(2)
+include foo(3)

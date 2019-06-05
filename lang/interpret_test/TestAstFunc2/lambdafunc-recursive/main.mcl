@@ -1,0 +1,20 @@
+import "fmt"
+
+# recursive function (not supported!)
+$sum = func($in) {
+	if $in < 0 {
+		-1 * $sum(-1 * $in)
+	} else {
+		if $in == 0 {
+			0 # terminate recursion
+		} else {
+			$in + $sum($in - 1)
+		}
+	}
+}
+
+$out1 = $sum(4) # 4 + 3 + 2 + 1 + 0 = 10
+$out2 = $sum(-5) # -5 + -4 + -3 + -2 + -1 + -0 = -15
+
+test fmt.printf("sum(4) is %d", $out1) {}
+test fmt.printf("sum(-5) is %d", $out2) {}

@@ -41,8 +41,14 @@ func init() {
 	funcs.Register("template", func() interfaces.Func { return &TemplateFunc{} })
 }
 
-// TemplateName is the name of our template as required by the template library.
-const TemplateName = "template"
+const (
+	// TemplateName is the name of our template as required by the template
+	// library.
+	TemplateName = "template"
+
+	argNameTemplate = "template"
+	argNameVars     = "vars"
+)
 
 // TemplateFunc is a static polymorphic function that compiles a template and
 // returns the output as a string. It bases its output on the values passed in
@@ -62,6 +68,15 @@ type TemplateFunc struct {
 	closeChan chan struct{}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *TemplateFunc) ArgGen(index int) (string, error) {
+	seq := []string{argNameTemplate, argNameVars}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Polymorphisms returns the possible type signatures for this template. In this
 // case, since the second argument can be an infinite number of values, it
 // instead returns either the final precise type (if it can be gleamed from the
@@ -72,7 +87,8 @@ type TemplateFunc struct {
 // XXX: is there a better API than returning a buried `variant` type?
 func (obj *TemplateFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	// TODO: return `variant` as second arg for now -- maybe there's a better way?
-	variant := []*types.Type{types.NewType("func(a str, b variant) str")}
+	str := fmt.Sprintf("func(%s str, %s variant) str", argNameTemplate, argNameVars)
+	variant := []*types.Type{types.NewType(str)}
 
 	if partialType == nil {
 		return variant, nil
@@ -150,10 +166,15 @@ func (obj *TemplateFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *TemplateFunc) Info() *interfaces.Info {
+	var sig *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		str := fmt.Sprintf("func(%s str, %s %s) str", argNameTemplate, argNameVars, obj.Type.String())
+		sig = types.NewType(str)
+	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  types.NewType(fmt.Sprintf("func(template str, vars %s) str", obj.Type.String())),
+		Sig:  sig,
 		Err:  obj.Validate(),
 	}
 }
@@ -293,8 +314,8 @@ func (obj *TemplateFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			tmpl := input.Struct()["template"].Str()
-			vars := input.Struct()["vars"]
+			tmpl := input.Struct()[argNameTemplate].Str()
+			vars := input.Struct()[argNameVars]
 
 			result, err := obj.run(tmpl, vars)
 			if err != nil {

@@ -21,6 +21,7 @@ SHELL = /usr/bin/env bash
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
 GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
+MCL_FILES := $(shell find lang/funcs/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
@@ -131,7 +132,7 @@ lang: ## generates the lexer/parser for the language frontend
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
 	cp -a $< $@
 
-$(PROGRAM).static: $(GO_FILES)
+$(PROGRAM).static: $(GO_FILES) $(MCL_FILES)
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
@@ -146,7 +147,7 @@ build-debug: $(PROGRAM)
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) | bindata lang funcgen
+build/mgmt-%: $(GO_FILES) $(MCL_FILES) | bindata lang funcgen
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
 	@# reassigning GOOS and GOARCH to make build command copy/pastable
 	@# go 1.10+ requires specifying the package for ldflags

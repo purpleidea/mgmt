@@ -1,0 +1,16 @@
+import "fmt"
+
+# this should be a regular polymorphic function
+func add($x) {
+	$x + $x
+}
+
+$num = 2
+$out1 = add($num) # 4
+
+test fmt.printf("%d + %d is %d", $num, $num, $out1) {} # simple math
+
+$val = "hello"
+$out2 = add($val) # hellohello
+
+test fmt.printf("%s + %s is %s", $val, $val, $out2) {} # simple concat

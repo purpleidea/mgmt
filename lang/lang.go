@@ -169,7 +169,7 @@ func (obj *Lang) Init() error {
 			"hostname": &ExprStr{V: obj.Hostname},
 		},
 		// all the built-in top-level, core functions enter here...
-		Functions: funcs.LookupPrefix(""),
+		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	obj.Logf("building scope...")

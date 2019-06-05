@@ -1,0 +1,56 @@
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) -> func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) } # body
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) -> func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) } # body
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) -> func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) } # body
+Edge: call:_operator(str("+"), var(s1), str(" ")) -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # a
+Edge: call:_operator(str("+"), var(s1), str(" ")) -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # a
+Edge: call:_operator(str("+"), var(s1), str(" ")) -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # a
+Edge: func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) } -> call:fn() # call:fn
+Edge: func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) } -> call:fn() # call:fn
+Edge: func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) } -> call:fn() # call:fn
+Edge: str(" ") -> call:_operator(str("+"), var(s1), str(" ")) # b
+Edge: str(" ") -> call:_operator(str("+"), var(s1), str(" ")) # b
+Edge: str(" ") -> call:_operator(str("+"), var(s1), str(" ")) # b
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # op
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # op
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # op
+Edge: str("+") -> call:_operator(str("+"), var(s1), str(" ")) # op
+Edge: str("+") -> call:_operator(str("+"), var(s1), str(" ")) # op
+Edge: str("+") -> call:_operator(str("+"), var(s1), str(" ")) # op
+Edge: str("hello") -> var(s1) # var:s1
+Edge: str("hello") -> var(s1) # var:s1
+Edge: str("hello") -> var(s1) # var:s1
+Edge: str("world") -> var(s2) # var:s2
+Edge: str("world") -> var(s2) # var:s2
+Edge: str("world") -> var(s2) # var:s2
+Edge: var(s1) -> call:_operator(str("+"), var(s1), str(" ")) # a
+Edge: var(s1) -> call:_operator(str("+"), var(s1), str(" ")) # a
+Edge: var(s1) -> call:_operator(str("+"), var(s1), str(" ")) # a
+Edge: var(s2) -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # b
+Edge: var(s2) -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # b
+Edge: var(s2) -> call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) # b
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2))
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2))
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2))
+Vertex: call:_operator(str("+"), var(s1), str(" "))
+Vertex: call:_operator(str("+"), var(s1), str(" "))
+Vertex: call:_operator(str("+"), var(s1), str(" "))
+Vertex: call:fn()
+Vertex: call:fn()
+Vertex: call:fn()
+Vertex: func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) }
+Vertex: func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) }
+Vertex: func() { call:_operator(str("+"), call:_operator(str("+"), var(s1), str(" ")), var(s2)) }
+Vertex: str(" ")
+Vertex: str("+")
+Vertex: str("+")
+Vertex: str("greeting1")
+Vertex: str("greeting2")
+Vertex: str("greeting3")
+Vertex: str("hello")
+Vertex: str("world")
+Vertex: var(s1)
+Vertex: var(s1)
+Vertex: var(s1)
+Vertex: var(s2)
+Vertex: var(s2)
+Vertex: var(s2)

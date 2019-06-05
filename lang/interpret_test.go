@@ -77,7 +77,7 @@ func TestAstFunc0(t *testing.T) {
 			"answer": &ExprInt{V: 42},
 		},
 		// all the built-in top-level, core functions enter here...
-		Functions: funcs.LookupPrefix(""),
+		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	type test struct { // an individual test
@@ -111,10 +111,11 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2 := vtex("int(42)"), vtex("var(x)")
-		e1 := edge("var:x")
-		graph.AddVertex(&v1, &v2)
-		graph.AddEdge(&v1, &v2, &e1)
+		// empty graph at the moment, because they're all unused!
+		//v1, v2 := vtex("int(42)"), vtex("var(x)")
+		//e1 := edge("var:x")
+		//graph.AddVertex(&v1, &v2)
+		//graph.AddEdge(&v1, &v2, &e1)
 		testCases = append(testCases, test{
 			name: "two vars",
 			code: `
@@ -181,7 +182,7 @@ func TestAstFunc0(t *testing.T) {
 		graph, _ := pgraph.NewGraph("g")
 		v1, v2, v3, v4, v5 := vtex(`str("t")`), vtex(`str("+")`), vtex("int(42)"), vtex("int(13)"), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), int(13))`, operatorFuncName))
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
-		e1, e2, e3 := edge("x"), edge("a"), edge("b")
+		e1, e2, e3 := edge("op"), edge("a"), edge("b")
 		graph.AddEdge(&v2, &v5, &e1)
 		graph.AddEdge(&v3, &v5, &e2)
 		graph.AddEdge(&v4, &v5, &e3)
@@ -205,12 +206,12 @@ func TestAstFunc0(t *testing.T) {
 		v8 := vtex(fmt.Sprintf(`call:%s(str("-"), call:%s(str("+"), int(42), int(13)), int(99))`, operatorFuncName, operatorFuncName))
 
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
-		e1, e2, e3 := edge("x"), edge("a"), edge("b")
+		e1, e2, e3 := edge("op"), edge("a"), edge("b")
 		graph.AddEdge(&v3, &v7, &e1)
 		graph.AddEdge(&v4, &v7, &e2)
 		graph.AddEdge(&v5, &v7, &e3)
 
-		e4, e5, e6 := edge("x"), edge("a"), edge("b")
+		e4, e5, e6 := edge("op"), edge("a"), edge("b")
 		graph.AddEdge(&v2, &v8, &e4)
 		graph.AddEdge(&v7, &v8, &e5)
 		graph.AddEdge(&v6, &v8, &e6)
@@ -233,7 +234,7 @@ func TestAstFunc0(t *testing.T) {
 		v5, v6 := vtex("var(i)"), vtex("var(x)")
 		v7, v8 := vtex(`str("+")`), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), var(i))`, operatorFuncName))
 
-		e1, e2, e3, e4, e5 := edge("x"), edge("a"), edge("b"), edge("var:i"), edge("var:x")
+		e1, e2, e3, e4, e5 := edge("op"), edge("a"), edge("b"), edge("var:i"), edge("var:x")
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
 		graph.AddEdge(&v3, &v5, &e4)
 
@@ -288,7 +289,8 @@ func TestAstFunc0(t *testing.T) {
 		v1, v2, v3 := vtex(`str("hello")`), vtex(`str("world")`), vtex("bool(true)")
 		v4, v5 := vtex("var(x)"), vtex(`str("t")`)
 
-		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
+		graph.AddVertex(&v1, &v3, &v4, &v5)
+		_ = v2 // v2 is not used because it's shadowed!
 		e1 := edge("var:x")
 		// only one edge! (cool)
 		graph.AddEdge(&v1, &v4, &e1)
@@ -314,7 +316,8 @@ func TestAstFunc0(t *testing.T) {
 		v1, v2, v3 := vtex(`str("hello")`), vtex(`str("world")`), vtex("bool(true)")
 		v4, v5 := vtex("var(x)"), vtex(`str("t")`)
 
-		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
+		graph.AddVertex(&v2, &v3, &v4, &v5)
+		_ = v1 // v1 is not used because it's shadowed!
 		e1 := edge("var:x")
 		// only one edge! (cool)
 		graph.AddEdge(&v2, &v4, &e1)
@@ -552,7 +555,7 @@ func TestAstFunc1(t *testing.T) {
 			"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
 		},
 		// all the built-in top-level, core functions enter here...
-		Functions: funcs.LookupPrefix(""),
+		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	type errs struct {
@@ -890,7 +893,22 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 
-			t.Logf("test #%d: graph: %+v", index, graph)
+			t.Logf("test #%d: graph: %s", index, graph)
+			for i, v := range graph.Vertices() {
+				t.Logf("test #%d: vertex(%d): %+v", index, i, v)
+			}
+			for v1 := range graph.Adjacency() {
+				for v2, e := range graph.Adjacency()[v1] {
+					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
+				}
+			}
+			t.Logf("test #%d: Running graphviz...", index)
+			if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: writing graph failed: %+v", index, err)
+				return
+			}
+
 			str := strings.Trim(graph.Sprint(), "\n") // text format of graph
 			if expstr == magicEmpty {
 				expstr = ""
@@ -954,7 +972,7 @@ func TestAstFunc2(t *testing.T) {
 			"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
 		},
 		// all the built-in top-level, core functions enter here...
-		Functions: funcs.LookupPrefix(""),
+		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	type errs struct {
@@ -1307,6 +1325,22 @@ func TestAstFunc2(t *testing.T) {
 				return
 			}
 
+			t.Logf("test #%d: graph: %s", index, graph)
+			for i, v := range graph.Vertices() {
+				t.Logf("test #%d: vertex(%d): %+v", index, i, v)
+			}
+			for v1 := range graph.Adjacency() {
+				for v2, e := range graph.Adjacency()[v1] {
+					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
+				}
+			}
+			t.Logf("test #%d: Running graphviz...", index)
+			if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: writing graph failed: %+v", index, err)
+				return
+			}
+
 			// run the function engine once to get some real output
 			funcs := &funcs.Engine{
 				Graph:    graph,             // not the same as the output graph!
@@ -1342,6 +1376,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: run error with func engine: %+v", index, err)
 				return
 			}
+			// TODO: cleanup before we print any test failures...
 			defer funcs.Close() // cleanup
 
 			// wait for some activity

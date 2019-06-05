@@ -1,0 +1,7 @@
+Edge: call:answer() -> var(out1) # var:out1
+Edge: func() { str("the answer is 42") } -> call:answer() # call:answer
+Edge: str("the answer is 42") -> func() { str("the answer is 42") } # body
+Vertex: call:answer()
+Vertex: func() { str("the answer is 42") }
+Vertex: str("the answer is 42")
+Vertex: var(out1)

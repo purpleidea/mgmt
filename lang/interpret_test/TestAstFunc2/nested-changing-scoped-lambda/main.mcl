@@ -1,0 +1,52 @@
+import "fmt"
+# this can return changing functions, and could be optimized, too
+$funcgen = func($a) {
+	if $a {
+		func($b) {
+			if $b == "hello" {
+				func($c1) {
+					fmt.printf("true-true-%d", $c1)
+				}
+			} else {
+				func($c2) {
+					if $c2 >= 0 {
+						fmt.printf("true-false-%d", $c2)
+					} else {
+						"true-false-negative"
+					}
+				}
+			}
+		}
+	} else {
+		func($b) {
+			if $b == "hello" {
+				func($c3) {
+					if $c3 > 20 {
+						"false-true-big"
+					} else {
+						"false-true-small"
+					}
+				}
+			} else {
+				func($c4) { # $c4 is ignored, $b is from parent
+					"false-false-some-" + $b
+				}
+			}
+		}
+	}
+}
+
+$fn1 = $funcgen(true)
+$fn2 = $funcgen(false)
+
+$out1 = $fn1("hello")
+$out2 = $fn1("world")
+$out3 = $fn2("hello")
+$out4 = $fn2("world")
+
+
+test $out1(10) {}
+test if true { $out2(20) } else { $out2(-20) } {}
+test if false { $out2(20) } else { $out2(-20) } {}
+test $out3(30) {}
+test $out4(40) {}

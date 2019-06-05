@@ -1,0 +1,11 @@
+import "fmt"
+
+# this should be a function as a value, iow a lambda
+$answer = func() {
+	"the answer is 42"
+}
+
+$out1 = $answer()
+$out2 = $answer()
+
+test $out1 + $out2 {}

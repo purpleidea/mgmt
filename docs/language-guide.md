@@ -511,6 +511,9 @@ without making any changes. The `ExprVar` node naturally consumes scope's and
 the `StmtProg` node cleverly passes the scope through in the order expected for
 the out-of-order bind logic to work.
 
+This step typically calls the ordering algorithm to determine the correct order
+of statements in a program.
+
 #### Type unification
 
 Each expression must have a known type. The unpleasant option is to force the

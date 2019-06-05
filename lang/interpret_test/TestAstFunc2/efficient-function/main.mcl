@@ -1,0 +1,11 @@
+$prefix = "hello"
+
+func prefixer($x) {
+	$prefix + ":" + $x	# i'd only ever expect one ":" in the graph
+}
+
+$out1 = prefixer("a")
+$out2 = prefixer("b")
+
+test $out1 {} # hello:a
+test $out2 {} # hello:b

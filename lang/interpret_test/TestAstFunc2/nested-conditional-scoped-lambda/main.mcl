@@ -1,0 +1,48 @@
+import "fmt"
+
+$funcgen1 = func($a, $d) {
+	func($i) {
+		fmt.printf("text: %s, count: %d", $a, $d + $i)
+	}
+}
+
+$funcgen2 = func() {
+	func($b) {
+		if $b == "" {
+			$funcgen1("hello magic number", 42)
+		} else {
+			$funcgen1("hello " + $b, 13)
+		}
+	}
+}
+
+$some_bool = true
+$fn = if $some_bool {
+	$funcgen2()
+} else {
+	func($bb) {
+		func($ii) {
+			if $bb == "james" {
+				"hello purpleidea"
+			} else {
+				if $bb == "" {
+					"who is there?"
+				} else {
+					"hello " + $bb
+				}
+			}
+		}
+	}
+}
+
+$fn1 = $fn("user")
+$fn2 = $fn("james")
+$fn3 = $fn("")
+
+$out1 = $fn1(1)
+$out2 = $fn2(22)
+$out3 = $fn3(0)
+
+test $out1 {}
+test $out2 {}
+test $out3 {}

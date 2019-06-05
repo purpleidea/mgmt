@@ -1,0 +1,41 @@
+$funcgen1 = func() {
+	func($b) {
+		$b + " " + "world"
+	}
+}
+
+$funcgen2 = func() {
+	func($b) {
+		if $b == "hello" {
+			"hey"
+		} else {
+			$b
+		}
+	}
+}
+
+$funcgen3 = func() {
+	func($b) {
+		if $b == "hello" {
+			func() {
+				"hey"
+			}
+		} else {
+			func() {
+				$b
+			}
+		}
+	}
+}
+
+$fn1 = $funcgen1()
+$out1 = $fn1("hello")
+test $out1 {}
+
+$fn2 = $funcgen2()
+$out2 = $fn2("hello")
+test $out2 {}
+
+$fn3 = $funcgen3()
+$out3 = $fn3("goodbye")
+test $out3() {}

@@ -76,6 +76,15 @@ func (obj *SchedulePolyFunc) validOpts() map[string]*types.Type {
 	}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *SchedulePolyFunc) ArgGen(index int) (string, error) {
+	seq := []string{"namespace", "opts"} // 2nd arg is optional
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.

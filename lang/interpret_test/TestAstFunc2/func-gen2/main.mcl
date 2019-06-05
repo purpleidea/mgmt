@@ -1,0 +1,14 @@
+# This sort of thing is not currently supported, and not sure if it ever will.
+
+# test generating a function with outside scoping
+$const1 = "hello"
+class funcgen2 {
+	func fun2() {
+		$const1 + " " + $const2
+	}
+}
+$const2 = "world"	# added here to confirm any-order rules
+
+include funcgen2
+$x2 = fun2()	# not funcgen2.fun2 since it's *not* an import!
+test $x2 {}	# hello world

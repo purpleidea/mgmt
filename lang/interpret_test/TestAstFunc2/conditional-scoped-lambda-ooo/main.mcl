@@ -1,0 +1,27 @@
+# out of order
+$out1 = $fn(true)
+$some_bool = false
+$fn = if $some_bool {
+	$funcgen()
+} else {
+	func($bb) {
+		if $bb {
+			"so true"
+		} else {
+			"so false"
+		}
+	}
+}
+$out2 = $fn(false)
+$funcgen = func() {
+	func($b) {
+		if $b {
+			"hello"
+		} else {
+			"world"
+		}
+	}
+}
+
+test $out1 {}
+test $out2 {}

@@ -1,0 +1,9 @@
+# single resource
+test "name" {}
+
+# single resource, defined by list variable
+$names = ["hey",]
+test $names {}
+
+# multiples resources, defined by list
+test ["hello", "world",] {}

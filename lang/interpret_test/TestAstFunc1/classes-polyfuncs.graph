@@ -1,0 +1,17 @@
+Edge: call:len(var(b)) -> call:fmt.printf(str("len is: %d"), call:len(var(b))) # a
+Edge: int(-37) -> list(int(13), int(42), int(0), int(-37)) # 3
+Edge: int(0) -> list(int(13), int(42), int(0), int(-37)) # 2
+Edge: int(13) -> list(int(13), int(42), int(0), int(-37)) # 0
+Edge: int(42) -> list(int(13), int(42), int(0), int(-37)) # 1
+Edge: list(int(13), int(42), int(0), int(-37)) -> var(b) # var:b
+Edge: str("len is: %d") -> call:fmt.printf(str("len is: %d"), call:len(var(b))) # format
+Edge: var(b) -> call:len(var(b)) # 0
+Vertex: call:fmt.printf(str("len is: %d"), call:len(var(b)))
+Vertex: call:len(var(b))
+Vertex: int(-37)
+Vertex: int(0)
+Vertex: int(13)
+Vertex: int(42)
+Vertex: list(int(13), int(42), int(0), int(-37))
+Vertex: str("len is: %d")
+Vertex: var(b)

@@ -1,0 +1,8 @@
+func answer() {
+	"the answer is 42"
+}
+
+$out1 = answer()
+$out2 = answer()
+
+test $out1 + $out2 {}

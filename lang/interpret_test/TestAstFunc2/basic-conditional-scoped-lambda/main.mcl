@@ -1,0 +1,13 @@
+$some_bool = false
+$fn = if $some_bool {
+	func($b) {
+		"hello"
+	}
+} else {
+	func($bb) {
+		"world"
+	}
+}
+
+$out = $fn(false)
+test $out {}

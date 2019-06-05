@@ -1,0 +1,30 @@
+$funcgen = func() {
+	func($b) {
+		"hello" + " " + "world"
+	}
+}
+
+$some_bool = false
+$fn = if $some_bool {
+	$funcgen()
+} else {
+	func($bb) {
+		if $bb == "james" {
+			"hello purpleidea"
+		} else {
+			if $bb == "" {
+				"who is there?"
+			} else {
+				"hello " + $bb
+			}
+		}
+	}
+}
+
+$out1 = $fn("user")
+$out2 = $fn("james")
+$out3 = $fn("")
+
+test $out1 {}
+test $out2 {}
+test $out3 {}

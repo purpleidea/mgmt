@@ -27,6 +27,13 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// DirectInterface specifies whether we should use the direct function
+	// API or not. If we don't use it, then these simple functions are
+	// wrapped with the struct below.
+	DirectInterface = false // XXX: fix any bugs and set to true!
+)
+
 // RegisteredFuncs maps a function name to the corresponding static, pure funcs.
 var RegisteredFuncs = make(map[string][]*types.FuncValue) // must initialize
 
@@ -60,10 +67,15 @@ func Register(name string, fns []*types.FuncValue) {
 		panic(fmt.Sprintf("polyfunc %s has a duplicate implementation: %+v", name, err))
 	}
 
+	_, err := consistentArgs(fns)
+	if err != nil {
+		panic(fmt.Sprintf("polyfunc %s has inconsistent arg names: %+v", name, err))
+	}
+
 	RegisteredFuncs[name] = fns // store a copy for ourselves
 
 	// register a copy in the main function database
-	funcs.Register(name, func() interfaces.Func { return &simplePolyFunc{Fns: fns} })
+	funcs.Register(name, func() interfaces.Func { return &WrappedFunc{Fns: fns} })
 }
 
 // ModuleRegister is exactly like Register, except that it registers within a
@@ -72,10 +84,38 @@ func ModuleRegister(module, name string, fns []*types.FuncValue) {
 	Register(module+funcs.ModuleSep+name, fns)
 }
 
-// simplePolyFunc is a scaffolding function struct which fulfills the
-// boiler-plate for the function API, but that can run a very simple, static,
-// pure, polymorphic function.
-type simplePolyFunc struct {
+// consistentArgs returns the list of arg names across all the functions or
+// errors if one consistent list could not be found.
+func consistentArgs(fns []*types.FuncValue) ([]string, error) {
+	if len(fns) == 0 {
+		return nil, fmt.Errorf("no functions specified for simple polyfunc")
+	}
+	seq := []string{}
+	for _, x := range fns {
+		typ := x.Type()
+		if typ.Kind != types.KindFunc {
+			return nil, fmt.Errorf("expected %s, got %s", types.KindFunc, typ.Kind)
+		}
+		ord := typ.Ord
+		// check
+		l := len(seq)
+		if m := len(ord); m < l {
+			l = m // min
+		}
+		for i := 0; i < l; i++ { // check shorter list
+			if seq[i] != ord[i] {
+				return nil, fmt.Errorf("arg name at index %d differs (%s != %s)", i, seq[i], ord[i])
+			}
+		}
+		seq = ord // keep longer version!
+	}
+	return seq, nil
+}
+
+// WrappedFunc is a scaffolding function struct which fulfills the boiler-plate
+// for the function API, but that can run a very simple, static, pure,
+// polymorphic function.
+type WrappedFunc struct {
 	Fns []*types.FuncValue // list of possible functions
 
 	fn *types.FuncValue // the concrete version of our chosen function
@@ -88,10 +128,22 @@ type simplePolyFunc struct {
 	closeChan chan struct{}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *WrappedFunc) ArgGen(index int) (string, error) {
+	seq, err := consistentArgs(obj.Fns)
+	if err != nil {
+		return "", err
+	}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
-func (obj *simplePolyFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
+func (obj *WrappedFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	if len(obj.Fns) == 0 {
 		return nil, fmt.Errorf("no matching signatures for simple polyfunc")
 	}
@@ -101,7 +153,7 @@ func (obj *simplePolyFunc) Polymorphisms(partialType *types.Type, partialValues 
 	for _, f := range obj.Fns {
 		// TODO: if status is "both", should we skip as too difficult?
 		_, err := f.T.ComplexCmp(partialType)
-		// XXX: can an f.T with a variant compare with a partial ?
+		// can an f.T with a variant compare with a partial ? (yes)
 		if err != nil {
 			continue
 		}
@@ -115,58 +167,28 @@ func (obj *simplePolyFunc) Polymorphisms(partialType *types.Type, partialValues 
 // specific statically typed version. It is usually run after Unify completes,
 // and must be run before Info() and any of the other Func interface methods are
 // used.
-func (obj *simplePolyFunc) Build(typ *types.Type) error {
+func (obj *WrappedFunc) Build(typ *types.Type) error {
 	// typ is the KindFunc signature we're trying to build...
-	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
-	}
 
-	// find typ in obj.Fns
-	for ix, f := range obj.Fns {
-		if f.T.HasVariant() {
-			continue // match these if no direct matches exist
-		}
-		// FIXME: can we replace this by the complex matcher down below?
-		if f.T.Cmp(typ) == nil {
-			obj.buildFunction(typ, ix) // found match at this index
-			return nil
-		}
+	index, err := langutil.FnMatch(typ, obj.Fns)
+	if err != nil {
+		return err
 	}
+	obj.buildFunction(typ, index) // found match at this index
 
-	// match concrete type against our list that might contain a variant
-	var found bool
-	for ix, f := range obj.Fns {
-		_, err := typ.ComplexCmp(f.T)
-		if err != nil {
-			continue
-		}
-		if found { // already found one...
-			// TODO: we *could* check that the previous duplicate is
-			// equivalent, but in this case, it is really a bug that
-			// the function author had by allowing ambiguity in this
-			return fmt.Errorf("duplicate match found for build type: %+v", typ)
-		}
-		found = true
-		obj.buildFunction(typ, ix) // found match at this index
-	}
-	// ensure there's only one match...
-	if found {
-		return nil // w00t!
-	}
-
-	return fmt.Errorf("unable to find a compatible function for type: %+v", typ)
+	return nil
 }
 
 // buildFunction builds our concrete static function, from the potentially
 // abstract, possibly variant containing list of functions.
-func (obj *simplePolyFunc) buildFunction(typ *types.Type, ix int) {
+func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) {
 	obj.fn = obj.Fns[ix].Copy().(*types.FuncValue)
 	obj.fn.T = typ.Copy() // overwrites any contained "variant" type
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
-func (obj *simplePolyFunc) Validate() error {
+func (obj *WrappedFunc) Validate() error {
 	if len(obj.Fns) == 0 {
 		return fmt.Errorf("missing list of functions")
 	}
@@ -195,24 +217,28 @@ func (obj *simplePolyFunc) Validate() error {
 }
 
 // Info returns some static info about itself.
-func (obj *simplePolyFunc) Info() *interfaces.Info {
+func (obj *WrappedFunc) Info() *interfaces.Info {
+	var sig *types.Type
+	if obj.fn != nil { // don't panic if called speculatively
+		sig = obj.fn.Type()
+	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false, // TODO: should this be something we specify here?
-		Sig:  obj.fn.Type(),
+		Sig:  sig,
 		Err:  obj.Validate(),
 	}
 }
 
 // Init runs some startup code for this function.
-func (obj *simplePolyFunc) Init(init *interfaces.Init) error {
+func (obj *WrappedFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *simplePolyFunc) Stream() error {
+func (obj *WrappedFunc) Stream() error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -275,7 +301,7 @@ func (obj *simplePolyFunc) Stream() error {
 }
 
 // Close runs some shutdown code for this function and turns off the stream.
-func (obj *simplePolyFunc) Close() error {
+func (obj *WrappedFunc) Close() error {
 	close(obj.closeChan)
 	return nil
 }

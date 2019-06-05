@@ -44,3 +44,12 @@ func Append(reterr, err error) error {
 	// both are real errors
 	return multierror.Append(reterr, err)
 }
+
+// String returns a string representation of the error. In particular, if the
+// error is nil, it returns an empty string instead of panicing.
+func String(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}

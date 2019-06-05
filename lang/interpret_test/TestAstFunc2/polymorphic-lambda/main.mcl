@@ -1,0 +1,17 @@
+import "fmt"
+
+# TODO: should this be allowed? it means the func value has two different types!
+# this should be a polymorphic function as a value, iow a lambda
+$add = func($x) {
+	$x + $x
+}
+
+$num = 2
+$out1 = $add($num) # 4
+
+test fmt.printf("%d + %d is %d", $num, $num, $out1) {} # simple math
+
+$val = "hello"
+$out2 = $add($val) # hellohello
+
+test fmt.printf("%s + %s is %s", $val, $val, $out2) {} # simple concat

@@ -26,6 +26,13 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// DirectInterface specifies whether we should use the direct function
+	// API or not. If we don't use it, then these simple functions are
+	// wrapped with the struct below.
+	DirectInterface = false // XXX: fix any bugs and set to true!
+)
+
 // RegisteredFuncs maps a function name to the corresponding static, pure func.
 var RegisteredFuncs = make(map[string]*types.FuncValue) // must initialize
 
@@ -38,7 +45,7 @@ func Register(name string, fn *types.FuncValue) {
 	RegisteredFuncs[name] = fn // store a copy for ourselves
 
 	// register a copy in the main function database
-	funcs.Register(name, func() interfaces.Func { return &simpleFunc{Fn: fn} })
+	funcs.Register(name, func() interfaces.Func { return &WrappedFunc{Fn: fn} })
 }
 
 // ModuleRegister is exactly like Register, except that it registers within a
@@ -47,9 +54,9 @@ func ModuleRegister(module, name string, fn *types.FuncValue) {
 	Register(module+funcs.ModuleSep+name, fn)
 }
 
-// simpleFunc is a scaffolding function struct which fulfills the boiler-plate
+// WrappedFunc is a scaffolding function struct which fulfills the boiler-plate
 // for the function API, but that can run a very simple, static, pure function.
-type simpleFunc struct {
+type WrappedFunc struct {
 	Fn *types.FuncValue
 
 	init *interfaces.Init
@@ -60,9 +67,22 @@ type simpleFunc struct {
 	closeChan chan struct{}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *WrappedFunc) ArgGen(index int) (string, error) {
+	typ := obj.Fn.Type()
+	if typ.Kind != types.KindFunc {
+		return "", fmt.Errorf("expected %s, got %s", types.KindFunc, typ.Kind)
+	}
+	seq := typ.Ord
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
-func (obj *simpleFunc) Validate() error {
+func (obj *WrappedFunc) Validate() error {
 	if obj.Fn == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -70,7 +90,7 @@ func (obj *simpleFunc) Validate() error {
 }
 
 // Info returns some static info about itself.
-func (obj *simpleFunc) Info() *interfaces.Info {
+func (obj *WrappedFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false, // TODO: should this be something we specify here?
@@ -80,14 +100,14 @@ func (obj *simpleFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *simpleFunc) Init(init *interfaces.Init) error {
+func (obj *WrappedFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *simpleFunc) Stream() error {
+func (obj *WrappedFunc) Stream() error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -141,7 +161,7 @@ func (obj *simpleFunc) Stream() error {
 }
 
 // Close runs some shutdown code for this function and turns off the stream.
-func (obj *simpleFunc) Close() error {
+func (obj *WrappedFunc) Close() error {
 	close(obj.closeChan)
 	return nil
 }

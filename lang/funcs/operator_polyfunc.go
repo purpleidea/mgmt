@@ -33,8 +33,9 @@ const (
 	// starts with an underscore so that it cannot be used from the lexer.
 	OperatorFuncName = "_operator"
 
-	// operatorArgName is the edge and arg name used for the function's operator.
-	operatorArgName = "x" // something short and arbitrary
+	// operatorArgName is the edge and arg name used for the function's
+	// operator.
+	operatorArgName = "op" // something short and arbitrary
 )
 
 func init() {
@@ -356,6 +357,7 @@ func RegisterOperator(operator string, fn *types.FuncValue) {
 			panic(fmt.Sprintf("can't use `%s` as an argName for operator `%s` with type `%+v`", x, operator, fn.T))
 		}
 		// yes this limits the arg max to 24 (`x`) including operator
+		// if the operator is `x`...
 		if s := util.NumToAlpha(i); x != s {
 			panic(fmt.Sprintf("arg for operator `%s` (index `%d`) should be named `%s`, not `%s`", operator, i, s, x))
 		}
@@ -387,8 +389,7 @@ func LookupOperator(operator string, size int) ([]*types.Type, error) {
 	}
 
 	for _, fn := range fns {
-		typ := addOperatorArg(fn.T)        // add in the `operatorArgName` arg
-		typ = unlabelOperatorArgNames(typ) // label in standard a..b..c
+		typ := addOperatorArg(fn.T) // add in the `operatorArgName` arg
 
 		if size >= 0 && len(typ.Ord) != size {
 			continue
@@ -414,7 +415,7 @@ type OperatorPolyFunc struct {
 
 // argNames returns the maximum list of possible argNames. This can be truncated
 // if needed. The first arg name is the operator.
-func (obj *OperatorPolyFunc) argNames() []string {
+func (obj *OperatorPolyFunc) argNames() ([]string, error) {
 	// we could just do this statically, but i did it dynamically so that I
 	// wouldn't ever have to remember to update this list...
 	max := 0
@@ -434,12 +435,12 @@ func (obj *OperatorPolyFunc) argNames() []string {
 	for i := 0; i < max; i++ {
 		s := util.NumToAlpha(i)
 		if s == operatorArgName {
-			panic(fmt.Sprintf("can't use `%s` as arg name", operatorArgName))
+			return nil, fmt.Errorf("can't use `%s` as arg name", operatorArgName)
 		}
 		args = append(args, s)
 	}
 
-	return args
+	return args, nil
 }
 
 // findFunc tries to find the first available registered operator function that
@@ -456,6 +457,18 @@ func (obj *OperatorPolyFunc) findFunc(operator string) *types.FuncValue {
 		}
 	}
 	return nil
+}
+
+// ArgGen returns the Nth arg name for this function.
+func (obj *OperatorPolyFunc) ArgGen(index int) (string, error) {
+	seq, err := obj.argNames()
+	if err != nil {
+		return "", err
+	}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
 }
 
 // Polymorphisms returns the list of possible function signatures available for
@@ -507,11 +520,9 @@ func (obj *OperatorPolyFunc) Polymorphisms(partialType *types.Type, partialValue
 // specific statically typed version. It is usually run after Unify completes,
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
-// runs. It typically re-labels the input arg names to match what is actually
-// used.
+// runs.
 func (obj *OperatorPolyFunc) Build(typ *types.Type) error {
 	// typ is the KindFunc signature we're trying to build...
-
 	if len(typ.Ord) < 1 {
 		return fmt.Errorf("the operator function needs at least 1 arg")
 	}
@@ -519,11 +530,7 @@ func (obj *OperatorPolyFunc) Build(typ *types.Type) error {
 		return fmt.Errorf("return type of function must be specified")
 	}
 
-	t, err := obj.relabelOperatorArgNames(typ)
-	if err != nil {
-		return fmt.Errorf("could not build function from type: %+v", typ)
-	}
-	obj.Type = t // func type
+	obj.Type = typ // func type
 	return nil
 }
 
@@ -633,59 +640,6 @@ func (obj *OperatorPolyFunc) Stream() error {
 func (obj *OperatorPolyFunc) Close() error {
 	close(obj.closeChan)
 	return nil
-}
-
-// relabelOperatorArgNames relabels the input type of kind func with arg names
-// that match the expected ones for this operator (which are all standardized).
-func (obj *OperatorPolyFunc) relabelOperatorArgNames(typ *types.Type) (*types.Type, error) {
-	if typ == nil {
-		return nil, fmt.Errorf("cannot re-label missing type")
-	}
-	if typ.Kind != types.KindFunc {
-		return nil, fmt.Errorf("specified type must be a func kind")
-	}
-
-	argNames := obj.argNames() // correct arg names...
-
-	if l := len(argNames); len(typ.Ord) > l {
-		return nil, fmt.Errorf("did not expect more than %d args", l)
-	}
-
-	m := make(map[string]*types.Type)
-	ord := []string{}
-	for pos, x := range typ.Ord { // function args in order
-		name := argNames[pos] // new arg name
-		m[name] = typ.Map[x]  // n-th type stored with new arg name
-		ord = append(ord, name)
-	}
-	return &types.Type{
-		Kind: types.KindFunc,
-		Map:  m,
-		Ord:  ord,
-		Out:  typ.Out,
-	}, nil
-}
-
-// unlabelOperatorArgNames unlabels the input type of kind func with arg names
-// that match the default ones for all functions (which are all standardized).
-func unlabelOperatorArgNames(typ *types.Type) *types.Type {
-	if typ == nil {
-		return nil
-	}
-
-	m := make(map[string]*types.Type)
-	ord := []string{}
-	for pos, x := range typ.Ord { // function args in order
-		name := util.NumToAlpha(pos) // default (unspecified) naming
-		m[name] = typ.Map[x]         // n-th type stored with new arg name
-		ord = append(ord, name)
-	}
-	return &types.Type{
-		Kind: types.KindFunc,
-		Map:  m,
-		Ord:  ord,
-		Out:  typ.Out,
-	}
 }
 
 // removeOperatorArg returns a copy of the input KindFunc type, without the

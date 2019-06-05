@@ -1,0 +1,4 @@
+Edge: str("hello") -> var(x) # var:x
+Vertex: bool(true)
+Vertex: str("hello")
+Vertex: var(x)

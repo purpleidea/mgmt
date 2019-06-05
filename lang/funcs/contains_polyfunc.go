@@ -48,6 +48,15 @@ type ContainsPolyFunc struct {
 	closeChan chan struct{}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *ContainsPolyFunc) ArgGen(index int) (string, error) {
+	seq := []string{"needle", "haystack"}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
@@ -155,11 +164,15 @@ func (obj *ContainsPolyFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *ContainsPolyFunc) Info() *interfaces.Info {
-	typ := types.NewType(fmt.Sprintf("func(needle %s, haystack []%s) bool", obj.Type.String(), obj.Type.String()))
+	var sig *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		s := obj.Type.String()
+		sig = types.NewType(fmt.Sprintf("func(needle %s, haystack []%s) bool", s, s))
+	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  typ, // func kind
+		Sig:  sig, // func kind
 		Err:  obj.Validate(),
 	}
 }

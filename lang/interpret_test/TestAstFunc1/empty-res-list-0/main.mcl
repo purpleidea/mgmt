@@ -1,13 +1,5 @@
 # this is an empty list of test resources, iow test resources
 # this must pass type unification
+# this can only currently pass if we allow recursive unification solving
+# if we do, then the function graph is: `Vertex: list()` otherwise it's an error
 test [] {}
-
-# single resource
-test "name" {}
-
-# single resource, defined by list variable
-$names = ["hey",]
-test $names {}
-
-# multiples resources, defined by list
-test ["hello", "world",] {}

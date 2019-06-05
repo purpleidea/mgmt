@@ -389,6 +389,7 @@ func NewType(s string) *Type {
 			}
 
 			// just name the keys 0, 1, 2, N...
+			// XXX: util.NumToAlpha ?
 			if key == "" {
 				key = fmt.Sprintf("%d", len(keys))
 			}

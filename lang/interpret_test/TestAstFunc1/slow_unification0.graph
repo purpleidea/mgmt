@@ -6,10 +6,10 @@ Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state
 Edge: call:maplookup(var(exchanged), var(hostname), str("default")) -> var(state) # var:state
 Edge: call:world.kvlookup(var(ns)) -> var(exchanged) # var:exchanged
 Edge: str("") -> var(hostname) # var:hostname
-Edge: str("==") -> call:_operator(str("=="), var(state), str("default")) # x
-Edge: str("==") -> call:_operator(str("=="), var(state), str("one")) # x
-Edge: str("==") -> call:_operator(str("=="), var(state), str("three")) # x
-Edge: str("==") -> call:_operator(str("=="), var(state), str("two")) # x
+Edge: str("==") -> call:_operator(str("=="), var(state), str("default")) # op
+Edge: str("==") -> call:_operator(str("=="), var(state), str("one")) # op
+Edge: str("==") -> call:_operator(str("=="), var(state), str("three")) # op
+Edge: str("==") -> call:_operator(str("=="), var(state), str("two")) # op
 Edge: str("default") -> call:_operator(str("=="), var(state), str("default")) # b
 Edge: str("default") -> call:maplookup(var(exchanged), var(hostname), str("default")) # default
 Edge: str("estate") -> var(ns) # var:ns
@@ -25,7 +25,7 @@ Edge: str("estate") -> var(ns) # var:ns
 Edge: str("one") -> call:_operator(str("=="), var(state), str("one")) # b
 Edge: str("three") -> call:_operator(str("=="), var(state), str("three")) # b
 Edge: str("two") -> call:_operator(str("=="), var(state), str("two")) # b
-Edge: str("||") -> call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default"))) # x
+Edge: str("||") -> call:_operator(str("||"), call:_operator(str("=="), var(state), str("one")), call:_operator(str("=="), var(state), str("default"))) # op
 Edge: var(exchanged) -> call:maplookup(var(exchanged), var(hostname), str("default")) # map
 Edge: var(hostname) -> call:maplookup(var(exchanged), var(hostname), str("default")) # key
 Edge: var(ns) -> call:world.kvlookup(var(ns)) # namespace

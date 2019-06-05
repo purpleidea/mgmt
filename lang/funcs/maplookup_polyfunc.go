@@ -30,6 +30,10 @@ const (
 	// starts with an underscore so that it cannot be used from the lexer.
 	// XXX: change to _maplookup and add syntax in the lexer/parser
 	MapLookupFuncName = "maplookup"
+
+	argNameMap = "map"
+	argNameKey = "key"
+	argNameDef = "default"
 )
 
 func init() {
@@ -46,6 +50,15 @@ type MapLookupPolyFunc struct {
 	result types.Value // last calculated output
 
 	closeChan chan struct{}
+}
+
+// ArgGen returns the Nth arg name for this function.
+func (obj *MapLookupPolyFunc) ArgGen(index int) (string, error) {
+	seq := []string{argNameMap, argNameKey, argNameDef}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
 }
 
 // Polymorphisms returns the list of possible function signatures available for
@@ -116,20 +129,20 @@ func (obj *MapLookupPolyFunc) Polymorphisms(partialType *types.Type, partialValu
 	typFunc := &types.Type{
 		Kind: types.KindFunc, // function type
 		Map:  make(map[string]*types.Type),
-		Ord:  []string{"map", "key", "default"},
+		Ord:  []string{argNameMap, argNameKey, argNameDef},
 		Out:  nil,
 	}
-	typFunc.Map["map"] = typ
-	typFunc.Map["key"] = typ.Key
-	typFunc.Map["default"] = typ.Val
+	typFunc.Map[argNameMap] = typ
+	typFunc.Map[argNameKey] = typ.Key
+	typFunc.Map[argNameDef] = typ.Val
 	typFunc.Out = typ.Val
 
 	// TODO: don't include partial internal func map's for now, allow in future?
 	if typ.Key == nil || typ.Val == nil {
 		typFunc.Map = make(map[string]*types.Type) // erase partial
-		typFunc.Map["map"] = types.TypeVariant
-		typFunc.Map["key"] = types.TypeVariant
-		typFunc.Map["default"] = types.TypeVariant
+		typFunc.Map[argNameMap] = types.TypeVariant
+		typFunc.Map[argNameKey] = types.TypeVariant
+		typFunc.Map[argNameDef] = types.TypeVariant
 	}
 	if typ.Val == nil {
 		typFunc.Out = types.TypeVariant
@@ -211,7 +224,13 @@ func (obj *MapLookupPolyFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *MapLookupPolyFunc) Info() *interfaces.Info {
-	typ := types.NewType(fmt.Sprintf("func(map %s, key %s, default %s) %s", obj.Type.String(), obj.Type.Key.String(), obj.Type.Val.String(), obj.Type.Val.String()))
+	var typ *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		// TODO: can obj.Type.Key or obj.Type.Val be nil (a partial) ?
+		k := obj.Type.Key.String()
+		v := obj.Type.Val.String()
+		typ = types.NewType(fmt.Sprintf("func(map %s, key %s, default %s) %s", obj.Type.String(), k, v, v))
+	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
@@ -245,9 +264,9 @@ func (obj *MapLookupPolyFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			m := (input.Struct()["map"]).(*types.MapValue)
-			key := input.Struct()["key"]
-			def := input.Struct()["default"]
+			m := (input.Struct()[argNameMap]).(*types.MapValue)
+			key := input.Struct()[argNameKey]
+			def := input.Struct()[argNameDef]
 
 			var result types.Value
 			val, exists := m.Lookup(key)

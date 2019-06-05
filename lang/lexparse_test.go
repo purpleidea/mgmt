@@ -1716,6 +1716,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtFunc{
 					Name: "f1",
 					Func: &ExprFunc{
+						Args: []*Arg{},
 						Body: &ExprInt{
 							V: 42,
 						},
@@ -1736,6 +1737,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ExprFunc{
+			Args:   []*Arg{},
 			Return: types.TypeInt,
 			Body: &ExprCall{
 				Name: operatorFuncName,
@@ -1875,6 +1877,7 @@ func TestLexParse0(t *testing.T) {
 	{
 
 		fn := &ExprFunc{
+			Args: []*Arg{},
 			Body: &ExprInt{
 				V: 42,
 			},
@@ -1988,7 +1991,7 @@ func TestLexParse0(t *testing.T) {
 								V: "world",
 							},
 						},
-						//Var: true, // XXX: add this!
+						Var: true,
 					},
 				},
 			},
@@ -2006,7 +2009,60 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
+	{
+		exp := &StmtProg{
+			Prog: []interfaces.Stmt{
+				&StmtFunc{
+					Name: "funcgen",
+					// This is the outer function...
+					Func: &ExprFunc{
+						Args: []*Arg{},
+						// This is the inner function...
+						Body: &ExprFunc{
+							Args: []*Arg{},
+							Body: &ExprStr{
+								V: "hello",
+							},
+						},
+					},
+				},
+				&StmtBind{
+					Ident: "fn",
+					Value: &ExprCall{
+						Name: "funcgen",
+						Args: []interfaces.Expr{},
+						Var:  false,
+					},
+				},
+				&StmtBind{
+					Ident: "foo",
+					Value: &ExprCall{
+						Name: "fn",
+						Args: []interfaces.Expr{},
+						Var:  true, // comes from a var
+					},
+				},
+			},
+		}
+		testCases = append(testCases, test{
+			name: "simple nested function 1",
+			code: `
+			func funcgen() {	# returns a function expression
+				func() {
+					"hello"
+				}
+			}
+			$fn = funcgen()
+			$foo = $fn()	# hello
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
 
+	if testing.Short() {
+		t.Logf("available tests:")
+	}
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
 		if tc.name == "" {
@@ -2025,7 +2081,12 @@ func TestLexParse0(t *testing.T) {
 		//	continue
 		//}
 
-		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+		testName := fmt.Sprintf("test #%d (%s)", index, tc.name)
+		if testing.Short() { // make listing tests easier
+			t.Logf("%s", testName)
+			continue
+		}
+		t.Run(testName, func(t *testing.T) {
 			name, code, fail, exp := tc.name, tc.code, tc.fail, tc.exp
 
 			t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
@@ -2050,21 +2111,22 @@ func TestLexParse0(t *testing.T) {
 			if exp != nil {
 				if !reflect.DeepEqual(ast, exp) {
 					// double check because DeepEqual is different since the func exists
-					diff := pretty.Compare(ast, exp)
+
+					// more details, for tricky cases:
+					diffable := &pretty.Config{
+						Diffable:          true,
+						IncludeUnexported: false,
+						//PrintStringers: false, // always false!
+						//PrintTextMarshalers: false,
+						SkipZeroFields: true,
+					}
+					diff := diffable.Compare(exp, ast)
 					if diff != "" { // bonus
 						t.Errorf("test #%d: AST did not match expected", index)
 						// TODO: consider making our own recursive print function
 						t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
 						t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
 
-						// more details, for tricky cases:
-						diffable := &pretty.Config{
-							Diffable:          true,
-							IncludeUnexported: true,
-							//PrintStringers: false,
-							//PrintTextMarshalers: false,
-							//SkipZeroFields: false,
-						}
 						t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(ast))
 						t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(exp))
 						t.Logf("test #%d: diff:\n%s", index, diff)

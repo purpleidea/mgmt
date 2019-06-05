@@ -1,0 +1,11 @@
+import "fmt"
+
+# this should be a function as a value, iow a lambda
+$some_const = 42
+$answer = func() {
+	$some_const
+}
+
+$out = $answer()
+
+test fmt.printf("the answer is %d", $out) {}

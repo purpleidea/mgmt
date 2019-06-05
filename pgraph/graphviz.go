@@ -19,11 +19,17 @@ package pgraph // TODO: this should be a subpackage
 
 import (
 	"fmt"
+	"html"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
 	"syscall"
+)
+
+const (
+	ptrLabels     = true
+	ptrLabelsSize = 10
 )
 
 // Graphviz outputs the graph in graphviz format.
@@ -45,18 +51,32 @@ func (g *Graph) Graphviz() (out string) {
 	out += fmt.Sprintf("\tlabel=\"%s\";\n", g.GetName())
 	//out += "\tnode [shape=box];\n"
 	str := ""
+	// XXX: add determinism to this loop
 	for i := range g.Adjacency() { // reverse paths
-		v1 := strconv.Quote(i.String()) // 1st vertex
-		out += fmt.Sprintf("\t\"%p\" [label=%s];\n", i, v1)
+		v1 := html.EscapeString(i.String()) // 1st vertex
+		if ptrLabels {
+			text := fmt.Sprintf("%p", i)
+			small := fmt.Sprintf("<FONT POINT-SIZE=\"%d\">%s</FONT>", ptrLabelsSize, text)
+			out += fmt.Sprintf("\t\"%p\" [label=<%s<BR />%s>];\n", i, v1, small)
+		} else {
+			out += fmt.Sprintf("\t\"%p\" [label=<%s>];\n", i, v1)
+		}
+
 		for j := range g.Adjacency()[i] {
 			k := g.Adjacency()[i][j]
-			//v2 := strconv.Quote(j.String()) // 2nd vertex
-			e := strconv.Quote(k.String()) // edge
+			//v2 := html.EscapeString(j.String()) // 2nd vertex
+			e := html.EscapeString(k.String()) // edge
 			// use str for clearer output ordering
 			//if fmtBoldFn(k) { // TODO: add this sort of formatting
-			//	str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=\"%s\",style=bold];\n", i, j, k)
+			//	str += fmt.Sprintf("\t\"%s\" -> \"%s\" [label=<%s>,style=bold];\n", i, j, k)
 			//} else {
-			str += fmt.Sprintf("\t\"%p\" -> \"%p\" [label=%s];\n", i, j, e)
+			if false { // XXX: don't need the labels for edges
+				text := fmt.Sprintf("%p", k)
+				small := fmt.Sprintf("<FONT POINT-SIZE=\"%d\">%s</FONT>", ptrLabelsSize, text)
+				str += fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s<BR />%s>];\n", i, j, e, small)
+			} else {
+				str += fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s>];\n", i, j, e)
+			}
 			//}
 		}
 	}

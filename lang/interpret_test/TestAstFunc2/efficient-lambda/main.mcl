@@ -1,0 +1,10 @@
+# this should be a function as a value, iow a lambda
+$prefixer = func($x) {
+	"hello" + $x	# i'd only ever expect one "hello" string in the graph
+}
+
+$out1 = $prefixer("a")
+$out2 = $prefixer("b")
+
+test $out1 {} # helloa
+test $out2 {} # hellob

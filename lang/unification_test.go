@@ -24,7 +24,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
@@ -354,6 +353,9 @@ func TestUnification1(t *testing.T) {
 	}
 	{
 		//$x = 42 - 13
+		//test "t1" {
+		//	int64 => $x,
+		//}
 		innerFunc := &ExprCall{
 			Name: operatorFuncName,
 			Args: []interfaces.Expr{
@@ -374,6 +376,20 @@ func TestUnification1(t *testing.T) {
 					Ident: "x",
 					Value: innerFunc,
 				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t1",
+					},
+					Contents: []StmtResContents{
+						&StmtResField{
+							Field: "int64",
+							Value: &ExprVar{
+								Name: "x",
+							},
+						},
+					},
+				},
 			},
 		}
 		testCases = append(testCases, test{
@@ -387,6 +403,9 @@ func TestUnification1(t *testing.T) {
 	}
 	{
 		//$x = template("hello", 42)
+		//test "t1" {
+		//	anotherstr => $x,
+		//}
 		innerFunc := &ExprCall{
 			Name: "template",
 			Args: []interfaces.Expr{
@@ -404,6 +423,20 @@ func TestUnification1(t *testing.T) {
 					Ident: "x",
 					Value: innerFunc,
 				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t1",
+					},
+					Contents: []StmtResContents{
+						&StmtResField{
+							Field: "anotherstr",
+							Value: &ExprVar{
+								Name: "x",
+							},
+						},
+					},
+				},
 			},
 		}
 		testCases = append(testCases, test{
@@ -418,6 +451,9 @@ func TestUnification1(t *testing.T) {
 	{
 		//$v = 42
 		//$x = template("hello", $v) # redirect var for harder unification
+		//test "t1" {
+		//	anotherstr => $x,
+		//}
 		innerFunc := &ExprCall{
 			Name: "template",
 			Args: []interfaces.Expr{
@@ -425,7 +461,7 @@ func TestUnification1(t *testing.T) {
 					V: "hello", // whatever...
 				},
 				&ExprVar{
-					Name: "x",
+					Name: "v",
 				},
 			},
 		}
@@ -441,6 +477,20 @@ func TestUnification1(t *testing.T) {
 					Ident: "x",
 					Value: innerFunc,
 				},
+				&StmtRes{
+					Kind: "test",
+					Name: &ExprStr{
+						V: "t1",
+					},
+					Contents: []StmtResContents{
+						&StmtResField{
+							Field: "anotherstr",
+							Value: &ExprVar{
+								Name: "x",
+							},
+						},
+					},
+				},
 			},
 		}
 		testCases = append(testCases, test{
@@ -453,15 +503,19 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
+		// import "datetime"
 		//test "t1" {
-		//	stringptr => datetime(),	# bad (str vs. int)
+		//	stringptr => datetime.now(),	# bad (str vs. int)
 		//}
 		expr := &ExprCall{
-			Name: "datetime",
+			Name: "datetime.now",
 			Args: []interfaces.Expr{},
 		}
 		stmt := &StmtProg{
 			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name: "datetime",
+				},
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "t1"},
@@ -481,11 +535,12 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
+		//import "sys"
 		//test "t1" {
-		//	stringptr => getenv("GOPATH", "bug"),	# bad (two args vs. one)
+		//	stringptr => sys.getenv("GOPATH", "bug"),	# bad (two args vs. one)
 		//}
 		expr := &ExprCall{
-			Name: "getenv",
+			Name: "sys.getenv",
 			Args: []interfaces.Expr{
 				&ExprStr{
 					V: "GOPATH",
@@ -497,6 +552,9 @@ func TestUnification1(t *testing.T) {
 		}
 		stmt := &StmtProg{
 			Prog: []interfaces.Stmt{
+				&StmtImport{
+					Name: "sys",
+				},
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "t1"},
@@ -806,7 +864,7 @@ func TestUnification1(t *testing.T) {
 					//"hostname": &ExprStr{V: obj.Hostname},
 				},
 				// all the built-in top-level, core functions enter here...
-				Functions: funcs.LookupPrefix(""),
+				Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 			}
 			// propagate the scope down through the AST...
 			if err := ast.SetScope(scope); err != nil {

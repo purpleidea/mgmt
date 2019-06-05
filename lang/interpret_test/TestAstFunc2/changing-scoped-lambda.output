@@ -1,0 +1,4 @@
+Vertex: test[true-true]
+Vertex: test[true-false]
+Vertex: test[false-true]
+Vertex: test[false-false]

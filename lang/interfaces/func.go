@@ -53,6 +53,13 @@ type Init struct {
 // never change to avoid the overhead of the goroutine and channel listener?
 type Func interface {
 	Validate() error // FIXME: this is only needed for PolyFunc. Get it moved and used!
+
+	// Info returns some information about the function in question, which
+	// includes the function signature. For a polymorphic function, this
+	// might not be known until after Build was called. As a result, the
+	// sig should be allowed to return a partial or variant type if it is
+	// not known yet. This is because the Info method might be called
+	// speculatively to aid in type unification.
 	Info() *Info
 	Init(*Init) error
 	Stream() error
@@ -99,5 +106,5 @@ type NamedArgsFunc interface {
 
 	// ArgGen implements the arg name generator function. By default, we use
 	// the util.NumToAlpha function when this interface isn't implemented...
-	ArgGen(int) string
+	ArgGen(int) (string, error)
 }

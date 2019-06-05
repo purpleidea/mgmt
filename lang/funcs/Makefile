@@ -33,6 +33,7 @@ build: $(GENERATED)
 
 # add more input files as dependencies at the end here...
 $(GENERATED): $(MCL_FILES)
+	@echo "Generating: native mcl..."
 	@# go-bindata --pkg bindata -o <OUTPUT> <INPUT>
 	go-bindata --pkg bindata -o ./$@ $^
 	@# gofmt the output file

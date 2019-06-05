@@ -1,0 +1,16 @@
+import "fmt"
+
+# we should only see one copy of $fn
+$fn = func() {
+	"hello world"
+}
+
+test "greeting1" {
+	anotherstr => $fn(),
+}
+test "greeting2" {
+	anotherstr => $fn(),
+}
+test "greeting3" {
+	anotherstr => $fn(),
+}

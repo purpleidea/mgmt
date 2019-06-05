@@ -1,0 +1,8 @@
+# simple function definition
+func greeting($w) {
+	"hello " + $w
+}
+
+$out = greeting("world")
+
+test $out {}

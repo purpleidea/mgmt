@@ -1,0 +1,11 @@
+import "fmt"
+
+# this should be a function as a value, iow a lambda
+$square = func($x) {
+	$x * $x
+}
+
+$num = 4
+$out = $square($num)
+
+test fmt.printf("%d * %d is %d", $num, $num, $out) {}

@@ -1,0 +1,13 @@
+$some_bool = false
+$fn = if $some_bool {
+	func($b) {
+		"hello" + $b
+	}
+} else {
+	func($bb) {
+		"world" + $bb
+	}
+}
+
+$out = $fn("wide")
+test $out {}

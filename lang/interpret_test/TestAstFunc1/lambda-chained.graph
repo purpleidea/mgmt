@@ -1,0 +1,45 @@
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) -> func(x) { call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) } # body
+Edge: call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) -> func(x) { call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) } # body
+Edge: call:_operator(str("+"), var(prefix), str(":")) -> call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) # a
+Edge: call:_operator(str("+"), var(prefix), str(":")) -> call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) # a
+Edge: call:prefixer(str("world")) -> var(out1) # var:out1
+Edge: call:prefixer(str("world")) -> var(out1) # var:out1
+Edge: call:prefixer(var(out1)) -> var(out2) # var:out2
+Edge: func(x) { call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) } -> call:prefixer(str("world")) # call:prefixer
+Edge: func(x) { call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) } -> call:prefixer(var(out1)) # call:prefixer
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) # op
+Edge: str("+") -> call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) # op
+Edge: str("+") -> call:_operator(str("+"), var(prefix), str(":")) # op
+Edge: str("+") -> call:_operator(str("+"), var(prefix), str(":")) # op
+Edge: str(":") -> call:_operator(str("+"), var(prefix), str(":")) # b
+Edge: str(":") -> call:_operator(str("+"), var(prefix), str(":")) # b
+Edge: str("hello") -> var(prefix) # var:prefix
+Edge: str("hello") -> var(prefix) # var:prefix
+Edge: str("world") -> call:prefixer(str("world")) # x
+Edge: str("world") -> var(x) # var:x
+Edge: var(out1) -> call:prefixer(var(out1)) # x
+Edge: var(out1) -> var(x) # var:x
+Edge: var(prefix) -> call:_operator(str("+"), var(prefix), str(":")) # a
+Edge: var(prefix) -> call:_operator(str("+"), var(prefix), str(":")) # a
+Edge: var(x) -> call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) # b
+Edge: var(x) -> call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) # b
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x))
+Vertex: call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x))
+Vertex: call:_operator(str("+"), var(prefix), str(":"))
+Vertex: call:_operator(str("+"), var(prefix), str(":"))
+Vertex: call:prefixer(str("world"))
+Vertex: call:prefixer(var(out1))
+Vertex: func(x) { call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) }
+Vertex: func(x) { call:_operator(str("+"), call:_operator(str("+"), var(prefix), str(":")), var(x)) }
+Vertex: str("+")
+Vertex: str("+")
+Vertex: str(":")
+Vertex: str("hello")
+Vertex: str("world")
+Vertex: var(out1)
+Vertex: var(out1)
+Vertex: var(out2)
+Vertex: var(prefix)
+Vertex: var(prefix)
+Vertex: var(x)
+Vertex: var(x)

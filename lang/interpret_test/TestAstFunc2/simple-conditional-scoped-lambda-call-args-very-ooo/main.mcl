@@ -1,0 +1,19 @@
+# very out of order
+$funcgen1 = func() {
+	func($b) {
+		"hello" + $b
+	}
+}
+test $out {}
+$out = $fn("wide")
+$fn = if $some_bool {
+	$funcgen1()
+} else {
+	$funcgen2()
+}
+$some_bool = false
+$funcgen2 = func() {
+	func($bb) {
+		"world" + $bb
+	}
+}

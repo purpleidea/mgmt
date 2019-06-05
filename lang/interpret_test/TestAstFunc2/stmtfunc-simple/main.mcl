@@ -1,0 +1,8 @@
+# simple function definition
+func answer() {
+	"the answer is 42"
+}
+
+$out = answer()
+
+test $out {}

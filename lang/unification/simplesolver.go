@@ -28,6 +28,23 @@ import (
 const (
 	// Name is the prefix for our solver log messages.
 	Name = "solver: simple"
+
+	// ErrAmbiguous means we couldn't find a solution, but we weren't
+	// inconsistent.
+	ErrAmbiguous = interfaces.Error("can't unify, no equalities were consumed, we're ambiguous")
+
+	// AllowRecursion specifies whether we're allowed to use the recursive
+	// solver or not. It uses an absurd amount of memory, and might hang
+	// your system if a simple solution doesn't exist.
+	AllowRecursion = false
+
+	// RecursionDepthLimit specifies the max depth that is allowed.
+	// FIXME: RecursionDepthLimit is not currently implemented
+	RecursionDepthLimit = 5 // TODO: pick a better value ?
+
+	// RecursionInvariantLimit specifies the max number of invariants we can
+	// recurse into.
+	RecursionInvariantLimit = 5 // TODO: pick a better value ?
 )
 
 // SimpleInvariantSolverLogger is a wrapper which returns a
@@ -44,74 +61,90 @@ func SimpleInvariantSolverLogger(logf func(format string, v ...interface{})) fun
 // It is intended to be very simple, even if it's computationally inefficient.
 func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfaces.Expr, logf func(format string, v ...interface{})) (*InvariantSolution, error) {
 	debug := false // XXX: add to interface
+	process := func(invariants []interfaces.Invariant) ([]interfaces.Invariant, []*ExclusiveInvariant, error) {
+		equalities := []interfaces.Invariant{}
+		exclusives := []*ExclusiveInvariant{}
+
+		for _, x := range invariants {
+			switch invariant := x.(type) {
+			case *EqualsInvariant:
+				equalities = append(equalities, invariant)
+
+			case *EqualityInvariant:
+				equalities = append(equalities, invariant)
+
+			case *EqualityInvariantList:
+				// de-construct this list variant into a series
+				// of equality variants so that our solver can
+				// be implemented more simply...
+				if len(invariant.Exprs) < 2 {
+					return nil, nil, fmt.Errorf("list invariant needs at least two elements")
+				}
+				for i := 0; i < len(invariant.Exprs)-1; i++ {
+					invar := &EqualityInvariant{
+						Expr1: invariant.Exprs[i],
+						Expr2: invariant.Exprs[i+1],
+					}
+					equalities = append(equalities, invar)
+				}
+
+			case *EqualityWrapListInvariant:
+				equalities = append(equalities, invariant)
+
+			case *EqualityWrapMapInvariant:
+				equalities = append(equalities, invariant)
+
+			case *EqualityWrapStructInvariant:
+				equalities = append(equalities, invariant)
+
+			case *EqualityWrapFuncInvariant:
+				equalities = append(equalities, invariant)
+
+			case *EqualityWrapCallInvariant:
+				equalities = append(equalities, invariant)
+
+			// contains a list of invariants which this represents
+			case *ConjunctionInvariant:
+				for _, invar := range invariant.Invariants {
+					equalities = append(equalities, invar)
+				}
+
+			case *ExclusiveInvariant:
+				// these are special, note the different list
+				if len(invariant.Invariants) > 0 {
+					exclusives = append(exclusives, invariant)
+				}
+
+			case *AnyInvariant:
+				equalities = append(equalities, invariant)
+
+			default:
+				return nil, nil, fmt.Errorf("unknown invariant type: %T", x)
+			}
+		}
+
+		return equalities, exclusives, nil
+	}
+
 	logf("%s: invariants:", Name)
 	for i, x := range invariants {
 		logf("invariant(%d): %T: %s", i, x, x)
 	}
 
 	solved := make(map[interfaces.Expr]*types.Type)
-	equalities := []interfaces.Invariant{}
-	exclusives := []*ExclusiveInvariant{}
 	// iterate through all invariants, flattening and sorting the list...
-	for _, x := range invariants {
-		switch invariant := x.(type) {
-		case *EqualsInvariant:
-			equalities = append(equalities, invariant)
-
-		case *EqualityInvariant:
-			equalities = append(equalities, invariant)
-
-		case *EqualityInvariantList:
-			// de-construct this list variant into a series
-			// of equality variants so that our solver can
-			// be implemented more simply...
-			if len(invariant.Exprs) < 2 {
-				return nil, fmt.Errorf("list invariant needs at least two elements")
-			}
-			for i := 0; i < len(invariant.Exprs)-1; i++ {
-				invar := &EqualityInvariant{
-					Expr1: invariant.Exprs[i],
-					Expr2: invariant.Exprs[i+1],
-				}
-				equalities = append(equalities, invar)
-			}
-
-		case *EqualityWrapListInvariant:
-			equalities = append(equalities, invariant)
-
-		case *EqualityWrapMapInvariant:
-			equalities = append(equalities, invariant)
-
-		case *EqualityWrapStructInvariant:
-			equalities = append(equalities, invariant)
-
-		case *EqualityWrapFuncInvariant:
-			equalities = append(equalities, invariant)
-
-		// contains a list of invariants which this represents
-		case *ConjunctionInvariant:
-			for _, invar := range invariant.Invariants {
-				equalities = append(equalities, invar)
-			}
-
-		case *ExclusiveInvariant:
-			// these are special, note the different list
-			if len(invariant.Invariants) > 0 {
-				exclusives = append(exclusives, invariant)
-			}
-
-		case *AnyInvariant:
-			equalities = append(equalities, invariant)
-
-		default:
-			return nil, fmt.Errorf("unknown invariant type: %T", x)
-		}
+	equalities, exclusives, err := process(invariants)
+	if err != nil {
+		return nil, err
 	}
 
+	// XXX: if these partials all shared the same variable definition, would
+	// it all work??? Maybe we don't even need the first map prefix...
 	listPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 	mapPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 	structPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 	funcPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
+	callPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 
 	isSolved := func(solved map[interfaces.Expr]*types.Type) bool {
 		for _, x := range expected {
@@ -461,6 +494,42 @@ Loop:
 					continue
 				}
 
+			case *EqualityWrapCallInvariant:
+				// the logic is slightly different here, because
+				// we can only go from the func type to the call
+				// type as we can't do the reverse determination
+				if _, exists := callPartials[eq.Expr2Func]; !exists {
+					callPartials[eq.Expr2Func] = make(map[interfaces.Expr]*types.Type)
+				}
+
+				if typ, exists := solved[eq.Expr2Func]; exists {
+					// wow, now known, so tell the partials!
+					if typ.Kind != types.KindFunc {
+						return nil, fmt.Errorf("expected: %s, got: %s", types.KindFunc, typ.Kind)
+					}
+					callPartials[eq.Expr2Func][eq.Expr1] = typ.Out
+				}
+
+				typ, ready := callPartials[eq.Expr2Func][eq.Expr1]
+				if ready { // ready to solve
+					if t, exists := solved[eq.Expr1]; exists {
+						if err := t.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with call")
+						}
+					}
+					// sub checks
+					if t, exists := solved[eq.Expr2Func]; exists {
+						if err := t.Out.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with call out")
+						}
+					}
+
+					solved[eq.Expr1] = typ // yay, we learned something!
+					used = append(used, i) // mark equality as used up
+					logf("%s: solved call wrap partial", Name)
+					continue
+				}
+
 			// regular matching
 			case *EqualityInvariant:
 				typ1, exists1 := solved[eq.Expr1]
@@ -533,16 +602,21 @@ Loop:
 				logf("%s: solved early with %d exclusives left!", Name, len(exclusives))
 			} else {
 				logf("%s: unsolved with %d exclusives left!", Name, len(exclusives))
+				if debug {
+					for i, x := range exclusives {
+						logf("%s: exclusive(%d) left: %s", Name, i, x)
+					}
+				}
 			}
+
 			// check for consistency against remaining invariants
+			logf("%s: checking for consistency against %d exclusives...", Name, len(exclusives))
 			done := []int{}
 			for i, invar := range exclusives {
 				// test each one to see if at least one works
 				match, err := invar.Matches(solved)
 				if err != nil {
-					if debug {
-						logf("exclusive invar failed: %+v", invar)
-					}
+					logf("exclusive invar failed: %+v", invar)
 					return nil, errwrap.Wrapf(err, "inconsistent exclusive")
 				}
 				if !match {
@@ -550,29 +624,18 @@ Loop:
 				}
 				done = append(done, i)
 			}
+			logf("%s: removed %d consistent exclusives...", Name, len(done))
 
-			// remove exclusives that matched correctly
+			// Remove exclusives that matched correctly.
 			for i := len(done) - 1; i >= 0; i-- {
 				ix := done[i] // delete index that was marked as done!
 				exclusives = append(exclusives[:ix], exclusives[ix+1:]...)
 			}
 
-			if len(exclusives) == 0 {
-				break Loop
+			// If we removed any exclusives, then we can start over.
+			if len(done) > 0 {
+				continue Loop
 			}
-
-			// TODO: Lastly, we could loop through each exclusive
-			// and see if it only has a single, easy solution. For
-			// example, if we know that an exclusive is A or B or C
-			// and that B and C are inconsistent, then we can
-			// replace the exclusive with a single invariant and
-			// then run that through our solver. We can do this
-			// iteratively (recursively in our case) so that if
-			// we're lucky, we rarely need to run the raw exclusive
-			// combinatorial solver which is slow.
-
-			// TODO: We could try and replace our combinatorial
-			// exclusive solver with a real SAT solver algorithm.
 
 			// what have we learned for sure so far?
 			partialSolutions := []interfaces.Invariant{}
@@ -595,6 +658,69 @@ Loop:
 				}
 			}
 
+			// Lastly, we could loop through each exclusive and see
+			// if it only has a single, easy solution. For example,
+			// if we know that an exclusive is A or B or C, and that
+			// B and C are inconsistent, then we can replace the
+			// exclusive with a single invariant and then run that
+			// through our solver. We can do this iteratively
+			// (recursively for accuracy, but in our case via the
+			// simplify method) so that if we're lucky, we rarely
+			// need to run the raw exclusive combinatorial solver,
+			// which is slow.
+			logf("%s: attempting to simplify %d exclusives...", Name, len(exclusives))
+
+			done = []int{} // clear for re-use
+			simplified := []interfaces.Invariant{}
+			for i, invar := range exclusives {
+				// The partialSolutions don't contain any other
+				// exclusives... We look at each individually.
+				s, err := invar.simplify(partialSolutions) // XXX: pass in the solver?
+				if err != nil {
+					logf("exclusive simplification failed: %+v", invar)
+					continue
+				}
+				done = append(done, i)
+				simplified = append(simplified, s...)
+			}
+			logf("%s: simplified %d exclusives...", Name, len(done))
+
+			// Remove exclusives that matched correctly.
+			for i := len(done) - 1; i >= 0; i-- {
+				ix := done[i] // delete index that was marked as done!
+				exclusives = append(exclusives[:ix], exclusives[ix+1:]...)
+			}
+
+			// Add new equalities and exclusives onto state globals.
+			eq, ex, err := process(simplified) // process like at the top
+			if err != nil {
+				// programming error?
+				return nil, errwrap.Wrapf(err, "processing error")
+			}
+			equalities = append(equalities, eq...)
+			exclusives = append(exclusives, ex...)
+
+			// If we removed any exclusives, then we can start over.
+			if len(done) > 0 {
+				continue Loop
+			}
+
+			// TODO: We could try and replace our combinatorial
+			// exclusive solver with a real SAT solver algorithm.
+
+			if !AllowRecursion || len(exclusives) > RecursionInvariantLimit {
+				logf("%s: %d solved, %d unsolved, and %d exclusives left", Name, len(solved), len(equalities), len(exclusives))
+				for i, eq := range equalities {
+					logf("%s: (%d) equality: %s", Name, i, eq)
+				}
+				for i, ex := range exclusives {
+					logf("%s: (%d) exclusive: %s", Name, i, ex)
+				}
+
+				// these can be very slow, so try to avoid them
+				return nil, fmt.Errorf("only recursive solutions left")
+			}
+
 			// let's try each combination, one at a time...
 			for i, ex := range exclusivesProduct(exclusives) { // [][]interfaces.Invariant
 				logf("%s: exclusive(%d):\n%+v", Name, i, ex)
@@ -605,6 +731,7 @@ Loop:
 				recursiveInvariants := []interfaces.Invariant{}
 				recursiveInvariants = append(recursiveInvariants, partialSolutions...)
 				recursiveInvariants = append(recursiveInvariants, ex...)
+				// FIXME: implement RecursionDepthLimit
 				logf("%s: recursing...", Name)
 				solution, err := SimpleInvariantSolver(recursiveInvariants, expected, logf)
 				if err != nil {
@@ -617,7 +744,7 @@ Loop:
 			}
 
 			// TODO: print ambiguity
-			return nil, fmt.Errorf("can't unify, no equalities were consumed, we're ambiguous")
+			return nil, ErrAmbiguous
 		}
 		// delete used equalities, in reverse order to preserve indexing!
 		for i := len(used) - 1; i >= 0; i-- {

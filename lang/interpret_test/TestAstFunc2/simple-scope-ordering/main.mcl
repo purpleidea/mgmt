@@ -1,0 +1,19 @@
+# set scope ordering test
+if $foo {
+	$bar = true
+	test "a" {}
+	if $bar {
+		test "b" {}
+	}
+}
+
+if $bar {
+	$foo = false # shadowing!
+	test "c" {}
+	if $foo {
+		test "d" {}
+	}
+}
+
+$foo = true
+$bar = false

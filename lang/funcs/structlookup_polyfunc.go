@@ -50,6 +50,15 @@ type StructLookupPolyFunc struct {
 	closeChan chan struct{}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *StructLookupPolyFunc) ArgGen(index int) (string, error) {
+	seq := []string{"struct", "field"}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
@@ -200,11 +209,15 @@ func (obj *StructLookupPolyFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *StructLookupPolyFunc) Info() *interfaces.Info {
-	typ := types.NewType(fmt.Sprintf("func(struct %s, field str) %s", obj.Type.String(), obj.Out.String()))
+	var sig *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		// TODO: can obj.Out be nil (a partial) ?
+		sig = types.NewType(fmt.Sprintf("func(struct %s, field str) %s", obj.Type.String(), obj.Out.String()))
+	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  typ, // func kind
+		Sig:  sig, // func kind
 		Err:  obj.Validate(),
 	}
 }

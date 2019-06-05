@@ -277,6 +277,10 @@ Loop:
 			if !ok {
 				break Loop
 			}
+			if err == nil {
+				// programming error
+				err = fmt.Errorf("error was missing")
+			}
 			e := errwrap.Wrapf(err, "problem streaming func")
 			reterr = errwrap.Append(reterr, e)
 		}
@@ -287,5 +291,13 @@ Loop:
 		return nil, errwrap.Wrapf(err, "problem closing func")
 	}
 
+	if result == nil && reterr == nil {
+		// programming error
+		// XXX: i think this can happen when we exit without error, but
+		// before we send one output message... not sure how this happens
+		// XXX: iow, we never send on output, and errch closes...
+		// XXX: this could happen if we send zero input args, and Stream exits without error
+		return nil, fmt.Errorf("function exited with nil result and nil error")
+	}
 	return result, reterr
 }

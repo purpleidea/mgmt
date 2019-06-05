@@ -1,0 +1,21 @@
+# this can return changing functions, and could be optimized, too
+func funcgen($b) {
+	if $b {
+		func() {
+			"hello"
+		}
+	} else {
+		func() {
+			"world"
+		}
+	}
+}
+
+$fn1 = funcgen(true)
+$fn2 = funcgen(false)
+
+$out1 = $fn1()
+$out2 = $fn2()
+
+test $out1 {}
+test $out2 {}

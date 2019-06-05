@@ -57,6 +57,15 @@ type HistoryFunc struct {
 	closeChan chan struct{}
 }
 
+// ArgGen returns the Nth arg name for this function.
+func (obj *HistoryFunc) ArgGen(index int) (string, error) {
+	seq := []string{"value", "index"}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
 // Polymorphisms returns the possible type signature for this function. In this
 // case, since the number of possible types for the first arg can be infinite,
 // it returns the final precise type only if it can be gleamed statically. If
@@ -149,10 +158,15 @@ func (obj *HistoryFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *HistoryFunc) Info() *interfaces.Info {
+	var sig *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		s := obj.Type.String()
+		sig = types.NewType(fmt.Sprintf("func(value %s, index int) %s", s, s))
+	}
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
-		Sig:  types.NewType(fmt.Sprintf("func(value %s, index int) %s", obj.Type.String(), obj.Type.String())),
+		Sig:  sig,
 		Err:  obj.Validate(),
 	}
 }

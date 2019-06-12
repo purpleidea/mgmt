@@ -24,6 +24,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util"
 )
 
 const (
@@ -1177,6 +1178,45 @@ type:
 		posLast(yylex, yyDollar) // our pos
 		$$.typ = types.NewType(fmt.Sprintf("%s{%s}", $1.str, strings.Join($3.strSlice, "; ")))
 	}
+|	FUNC_IDENTIFIER OPEN_PAREN type_func_args CLOSE_PAREN type
+	// XXX: should we allow named args in the type signature?
+	// func: func() float or func(bool) str or func(a bool, bb int) float
+	{
+		posLast(yylex, yyDollar) // our pos
+
+		m := make(map[string]*types.Type)
+		ord := []string{}
+		for i, a := range $4.args {
+			if a.Type == nil {
+				// at least one is unknown, can't run SetType...
+				// this means there is a programming error here!
+				err := fmt.Errorf("type is unspecified for arg #%d", i)
+				// this will ultimately cause a parser error to occur...
+				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
+				break // safety
+			}
+			name := a.Name
+			if name == "" {
+				name = util.NumToAlpha(i) // if unspecified...
+			}
+			if util.StrInList(name, ord) {
+				// duplicate arg name used
+				err := fmt.Errorf("duplicate arg name of `%s`", name)
+				// this will ultimately cause a parser error to occur...
+				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
+				break // safety
+			}
+			m[name] = a.Type
+			ord = append(ord, name)
+		}
+
+		$$.typ = &types.Type{
+			Kind: types.KindFunc,
+			Map:  m,
+			Ord:  ord,
+			Out:  $5.typ,
+		}
+	}
 |	VARIANT_IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
@@ -1205,6 +1245,42 @@ type_struct_field:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = fmt.Sprintf("%s %s", $1.str, $2.typ.String())
+	}
+;
+type_func_args:
+	/* end of list */
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = []*Arg{}
+	}
+|	type_func_args COMMA type_func_arg
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = append($1.args, $3.arg)
+	}
+|	type_func_arg
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = append([]*Arg{}, $1.arg)
+		//$$.args = []*Arg{$1.arg} // TODO: is this equivalent?
+	}
+;
+type_func_arg:
+	// `<type>`
+	type
+	{
+		$$.arg = &Arg{
+			Type: $1.typ,
+		}
+	}
+	// `$x <type>`
+	// XXX: should we allow specifying the arg name here?
+|	VAR_IDENTIFIER type
+	{
+		$$.arg = &Arg{
+			Name: $1.str,
+			Type: $2.typ,
+		}
 	}
 ;
 dotted_identifier:

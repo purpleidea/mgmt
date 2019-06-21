@@ -99,7 +99,7 @@ Debian package!
 
 ## Running mgmt
 
-* Run `mgmt run --tmp-prefix lang examples/lang/hello0.mcl` to try out a very
+* Run `mgmt run --tmp-prefix lang --lang examples/lang/hello0.mcl` to try out a very
 simple example! If you built it from source, you'll need to use `./mgmt` from
 the project directory.
 * Look in that example file that you ran to see if you can figure out what it

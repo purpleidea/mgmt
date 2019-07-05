@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/user"
 	"path"
 	"strings"
 	"sync"
@@ -214,7 +215,35 @@ func (obj *Main) Run() error {
 		return fmt.Errorf("hostname cannot be empty")
 	}
 
+	user, err := user.Current()
+	if err != nil {
+		return errwrap.Wrapf(err, "can't get current user")
+	}
+
+	// Use systemd StateDirectory if set. If not, use XDG_CACHE_DIR unless user
+	// is root, then use /var/lib/mgmt/.
 	var prefix = fmt.Sprintf("/var/lib/%s/", obj.Program) // default prefix
+	stateDir := os.Getenv("STATE_DIRECTORY")
+	// Ensure there is a / at the end of the directory path.
+	if stateDir != "" && !strings.HasSuffix(stateDir, "/") {
+		stateDir = stateDir + "/"
+	}
+
+	xdg := os.Getenv("XDG_CACHE_HOME")
+	// Ensure there is a / at the end of the directory path.
+	if xdg != "" && !strings.HasSuffix(xdg, "/") {
+		xdg = xdg + "/"
+	}
+	if xdg == "" && user.HomeDir != "" {
+		xdg = fmt.Sprintf("%s/.cache/%s/", user.HomeDir, obj.Program)
+	}
+
+	if stateDir != "" {
+		prefix = stateDir
+	} else if user.Uid != "0" {
+		prefix = xdg
+	}
+
 	if p := obj.Prefix; p != nil {
 		prefix = *p
 	}

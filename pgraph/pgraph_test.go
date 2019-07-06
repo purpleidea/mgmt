@@ -840,3 +840,47 @@ func TestDeleteEdge2(t *testing.T) {
 		t.Errorf("expected outgoing graph edges for vertex v1: e4, instead of: %s", res)
 	}
 }
+
+func TestFindEdge1(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
+	v7 := NV("v7")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+	e5 := NE("e5")
+	e6 := NE("e6")
+	e7 := NE("e7")
+	e8 := NE("e8")
+	e9 := NE("e9")
+	e10 := NE("e10")
+
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v1, v4, e2)
+	g.AddEdge(v1, v3, e3)
+	g.AddEdge(v2, v3, e4)
+	g.AddEdge(v2, v4, e5)
+	g.AddEdge(v2, v6, e6)
+	g.AddEdge(v2, v5, e7)
+	g.AddEdge(v3, v6, e8)
+	g.AddEdge(v4, v7, e9)
+	g.AddEdge(v5, v7, e10)
+
+	if !(g.HasVertex(v1) && g.HasVertex(v4) && g.HasVertex(v7)) {
+		t.Errorf("graph expected to have vertices v1, v4, and v7")
+	}
+	if g.FindEdge(v1, v4) != e2 {
+		t.Errorf("edge e2 was not returned")
+	}
+	if g.FindEdge(v1, v7) != nil {
+		t.Errorf("an edge was found although it did not exist")
+	}
+}

@@ -7,6 +7,11 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 . test/util.sh
 
+# travis is slow for some reason
+if env | grep -q -e '^TRAVIS=true$'; then
+	export GO_TEST_TIMEOUT_SCALE=3
+fi
+
 # if we want to run this test as root, use build tag -root to ask each test...
 XSUDO=''
 XTAGS=()

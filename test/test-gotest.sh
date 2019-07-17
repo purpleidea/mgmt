@@ -50,7 +50,16 @@ else
 	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
 		echo -e "\ttesting: $pkg"
 		if [[ "$@" = *"--race"* ]]; then
-			run-test go test -count=1 -race "$pkg"
+			# split up long tests to avoid CI timeouts
+			if [ "$pkg" = "${base}/lang" ]; then # pkg lang is big!
+				for sub in `go test "${base}/lang" -list Test`; do
+					if [ "$sub" = "ok" ]; then break; fi # skip go test output artifact
+					echo -e "\t\tsub-testing: $sub"
+					run-test go test -count=1 -race "$pkg" -run "$sub"
+				done
+			else
+				run-test go test -count=1 -race "$pkg"
+			fi
 		else
 			run-test go test -count=1 "$pkg"
 		fi

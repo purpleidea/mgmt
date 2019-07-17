@@ -35,6 +35,7 @@ if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y time
 	# dependencies for building packages with fpm
 	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar || true
+	$sudo_command $YUM install -y graphviz || true # for debugging
 fi
 if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
@@ -49,6 +50,7 @@ if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y realpath || true
 	$sudo_command $APT install -y time || true
 	$sudo_command $APT install -y inotify-tools # used by some tests
+	$sudo_command $APT install -y graphviz # for debugging
 fi
 
 if [ ! -z "$BREW" ]; then

@@ -40,6 +40,10 @@ import (
 	"github.com/spf13/afero"
 )
 
+const (
+	runGraphviz = false // run graphviz in tests?
+)
+
 func vertexAstCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
 	//fmt.Printf("V1: %T %+v\n", v1, v1)
 	//node := v1.(*funcs.Node)
@@ -902,11 +906,13 @@ func TestAstFunc1(t *testing.T) {
 					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
 				}
 			}
-			t.Logf("test #%d: Running graphviz...", index)
-			if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: writing graph failed: %+v", index, err)
-				return
+			if runGraphviz {
+				t.Logf("test #%d: Running graphviz...", index)
+				if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: writing graph failed: %+v", index, err)
+					return
+				}
 			}
 
 			str := strings.Trim(graph.Sprint(), "\n") // text format of graph
@@ -1334,11 +1340,14 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
 				}
 			}
-			t.Logf("test #%d: Running graphviz...", index)
-			if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: writing graph failed: %+v", index, err)
-				return
+
+			if runGraphviz {
+				t.Logf("test #%d: Running graphviz...", index)
+				if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: writing graph failed: %+v", index, err)
+					return
+				}
 			}
 
 			// run the function engine once to get some real output

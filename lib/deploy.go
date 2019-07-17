@@ -29,7 +29,7 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/google/uuid"
+	"github.com/pborman/uuid"
 	"github.com/urfave/cli"
 	git "gopkg.in/src-d/go-git.v4"
 )

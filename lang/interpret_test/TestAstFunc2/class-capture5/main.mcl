@@ -1,0 +1,7 @@
+$x1 = "bad1"
+class foo($x1, $x2) {
+	test "t1: " + $x2 {} # swapped
+	test "t2: " + $x1 {}
+}
+include foo($x2, "t1")
+$x2 = "t2"

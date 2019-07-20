@@ -1,0 +1,9 @@
+class c1($cond) {
+	test "nope" {}
+	if $cond {
+		include c1(false)
+	} else {
+		test "done" {}
+	}
+}
+include c1(true)

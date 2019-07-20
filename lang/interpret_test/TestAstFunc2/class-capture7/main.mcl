@@ -1,0 +1,9 @@
+class foo {
+	test "t1" {}
+	class bar { # unused definition
+		test "t0" {}
+	}
+}
+include foo
+# This sort of thing is not currently supported, and not sure if it ever will.
+include bar # nope!

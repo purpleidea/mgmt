@@ -1,0 +1,17 @@
+$foo = "a"
+
+class c1($cond) {
+	$foo = "b" # this var is NOT exported into the parent scope on include
+	if $cond {
+		$foo = "c"
+	}
+	test "hello" {}
+}
+include c1(true)
+
+# If the $foo did get exported from the `c1` scope, then the binding could
+# change over time as `$cond` alternated between true and false. This would be
+# error prone, and also require a higher-order FRP, which would add complexity
+# but little value.
+
+test $foo {}

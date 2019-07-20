@@ -1,0 +1,6 @@
+class c1 {
+	include c2
+}
+class c2 {
+	include c1
+}

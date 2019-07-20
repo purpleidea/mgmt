@@ -1,0 +1,12 @@
+$x1 = "bad1"
+class foo($x1, $x2) {
+	include bar
+	test "t1: " + $x1 {}
+	test "t2: " + $x2 {}
+	class bar {
+		test "t0: " + $x0 {}
+	}
+}
+include foo("t1", $x2)
+$x2 = "t2"
+$x0 = "t0"

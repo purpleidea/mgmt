@@ -1,0 +1,7 @@
+$x1 = "t1"
+class foo {
+	test $x1 {}
+	test $x2 {}
+}
+include foo
+$x2 = "t2"

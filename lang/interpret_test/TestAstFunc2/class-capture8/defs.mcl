@@ -1,0 +1,4 @@
+class foo {
+	test $x1 {} # capture the var
+}
+$x1 = "t1"

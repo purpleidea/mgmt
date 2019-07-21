@@ -61,7 +61,16 @@ else
 				run-test go test -count=1 -race "$pkg"
 			fi
 		else
-			run-test go test -count=1 "$pkg"
+			# split up long tests to avoid CI timeouts
+			if [ "$pkg" = "${base}/lang" ]; then # pkg lang is big!
+				for sub in `go test "${base}/lang" -list Test`; do
+					if [ "$sub" = "ok" ]; then break; fi # skip go test output artifact
+					echo -e "\t\tsub-testing: $sub"
+					run-test go test -count=1 "$pkg" -run "$sub"
+				done
+			else
+				run-test go test -count=1 "$pkg"
+			fi
 		fi
 	done
 fi

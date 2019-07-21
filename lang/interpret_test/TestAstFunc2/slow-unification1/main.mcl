@@ -1,0 +1,43 @@
+import "datetime"
+import "math"
+
+class foo($bar) {
+	$now = datetime.now()
+	$x = math.mod($now, 2)
+	print "flipflop-${bar}" {
+		msg => if $x == 0 { "FLIP" } else { "FLOP" },
+	}
+}
+
+# Increasing the number of these, used to cause the performance to tank after 5.
+include foo("hello world")
+include foo("meep")
+include foo("moop")
+include foo("foo")
+include foo("bar")
+include foo("a")
+include foo("b")
+include foo("c")
+include foo("d")
+include foo("e")
+include foo("f")
+include foo("g")
+include foo("h")
+include foo("i")
+include foo("j")
+include foo("k")
+include foo("l")
+include foo("m")
+include foo("n")
+include foo("o")
+include foo("p")
+include foo("q")
+include foo("r")
+include foo("s")
+include foo("t")
+include foo("u")
+include foo("v")
+include foo("w")
+include foo("x")
+include foo("y")
+include foo("z")

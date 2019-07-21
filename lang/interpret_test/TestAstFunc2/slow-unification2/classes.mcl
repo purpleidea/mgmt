@@ -1,0 +1,13 @@
+import "datetime"
+import "math"
+
+class foo($bar) {
+	$now = datetime.now()
+	print "/tmp/some-module-${bar}" {
+		msg => if datetime.weekday($now) == "friday" { "TGIF YAY!" } else { "meh..." },
+	}
+	$x = math.mod($now, 2)
+	print "/tmp/some-module-${bar}-flipflop" {
+		msg => if $x == 0 { "FLIP" } else { "FLOP" },
+	}
+}

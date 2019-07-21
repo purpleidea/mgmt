@@ -1,0 +1,6 @@
+Vertex: print[/tmp/some-module-foo-flipflop]
+Vertex: print[/tmp/some-module-foo]
+Vertex: print[/tmp/some-module-hello world-flipflop]
+Vertex: print[/tmp/some-module-hello world]
+Vertex: print[/tmp/some-module-meep-flipflop]
+Vertex: print[/tmp/some-module-meep]

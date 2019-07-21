@@ -1,0 +1,5 @@
+$foo = "bad1"
+func bar($foo) {
+	"hello " + $foo # shadows parent var
+}
+test bar("world") {}

@@ -1,0 +1,10 @@
+import "fmt"
+
+# function expression
+$notfn = 42
+
+$x = $notfn(7)
+
+print "msg" {
+	msg => fmt.printf("notfn: %d", $x),
+}

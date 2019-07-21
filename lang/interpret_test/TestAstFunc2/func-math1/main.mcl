@@ -1,0 +1,17 @@
+import "fmt"
+
+# function statement
+func sq1($x, $y) {
+	$y + $x * $x
+}
+
+# function expression
+$sq2 = func($x, $y) {
+	$y + $x * $x
+}
+
+$x1 = sq1(3, 4) # 3^2 + 4 = 13
+$x2 = $sq2(7, -7) # 7^2 + 2 = 42
+
+test fmt.printf("sq1: %d", $x1) {}
+test fmt.printf("sq2: %d", $x2) {}

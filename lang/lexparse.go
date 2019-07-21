@@ -46,6 +46,7 @@ const (
 // These constants represent the different possible lexer/parser errors.
 const (
 	ErrLexerUnrecognized      = interfaces.Error("unrecognized")
+	ErrLexerUnrecognizedCR    = interfaces.Error("unrecognized carriage return")
 	ErrLexerStringBadEscaping = interfaces.Error("string: bad escaping")
 	ErrLexerIntegerOverflow   = interfaces.Error("integer: overflow")
 	ErrLexerFloatOverflow     = interfaces.Error("float: overflow")

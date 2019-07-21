@@ -384,8 +384,12 @@
 			yylex.pos(lval) // our pos
 			s := yylex.Text()
 			lp := yylex.cast()
+			e := ErrLexerUnrecognized
+			if s == "\r" { // windows!
+				e = ErrLexerUnrecognizedCR
+			}
 			lp.lexerErr = &LexParseErr{
-				Err: ErrLexerUnrecognized,
+				Err: e,
 				Str: s,
 				Row: yylex.Line(),
 				Col: yylex.Column(),

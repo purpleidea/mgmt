@@ -143,29 +143,31 @@ func TestPureFuncExec0(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(result, expect) {
-				// double check because DeepEqual is different since the func exists
-				diff := pretty.Compare(result, expect)
-				if diff != "" { // bonus
-					t.Errorf("test #%d: result did not match expected", index)
-					// TODO: consider making our own recursive print function
-					t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(result))
-					t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(expect))
-
-					// more details, for tricky cases:
-					diffable := &pretty.Config{
-						Diffable:          true,
-						IncludeUnexported: true,
-						//PrintStringers: false,
-						//PrintTextMarshalers: false,
-						//SkipZeroFields: false,
-					}
-					t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(result))
-					t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(expect))
-					t.Logf("test #%d: diff:\n%s", index, diff)
-					return
-				}
+			if reflect.DeepEqual(result, expect) {
+				return
 			}
+
+			// double check because DeepEqual is different since the func exists
+			diff := pretty.Compare(result, expect)
+			if diff == "" { // bonus
+				return
+			}
+			t.Errorf("test #%d: result did not match expected", index)
+			// TODO: consider making our own recursive print function
+			t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(result))
+			t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(expect))
+
+			// more details, for tricky cases:
+			diffable := &pretty.Config{
+				Diffable:          true,
+				IncludeUnexported: true,
+				//PrintStringers: false,
+				//PrintTextMarshalers: false,
+				//SkipZeroFields: false,
+			}
+			t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(result))
+			t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(expect))
+			t.Logf("test #%d: diff:\n%s", index, diff)
 		})
 	}
 }

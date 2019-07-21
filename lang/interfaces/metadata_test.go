@@ -145,31 +145,33 @@ func TestMetadataParse0(t *testing.T) {
 				return
 			}
 
-			if metadata != nil {
-				if !reflect.DeepEqual(meta, metadata) {
-					// double check because DeepEqual is different since the func exists
-					diff := pretty.Compare(meta, metadata)
-					if diff != "" { // bonus
-						t.Errorf("test #%d: metadata did not match expected", index)
-						// TODO: consider making our own recursive print function
-						t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(meta))
-						t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(metadata))
-
-						// more details, for tricky cases:
-						diffable := &pretty.Config{
-							Diffable:          true,
-							IncludeUnexported: true,
-							//PrintStringers: false,
-							//PrintTextMarshalers: false,
-							//SkipZeroFields: false,
-						}
-						t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(meta))
-						t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(metadata))
-						t.Logf("test #%d: diff:\n%s", index, diff)
-						return
-					}
-				}
+			if metadata == nil {
+				return
 			}
+			if reflect.DeepEqual(meta, metadata) {
+				return
+			}
+			// double check because DeepEqual is different since the func exists
+			diff := pretty.Compare(meta, metadata)
+			if diff == "" { // bonus
+				return
+			}
+			t.Errorf("test #%d: metadata did not match expected", index)
+			// TODO: consider making our own recursive print function
+			t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(meta))
+			t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(metadata))
+
+			// more details, for tricky cases:
+			diffable := &pretty.Config{
+				Diffable:          true,
+				IncludeUnexported: true,
+				//PrintStringers: false,
+				//PrintTextMarshalers: false,
+				//SkipZeroFields: false,
+			}
+			t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(meta))
+			t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(metadata))
+			t.Logf("test #%d: diff:\n%s", index, diff)
 		})
 	}
 }

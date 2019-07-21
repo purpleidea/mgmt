@@ -2108,32 +2108,34 @@ func TestLexParse0(t *testing.T) {
 				return
 			}
 
-			if exp != nil {
-				if !reflect.DeepEqual(ast, exp) {
-					// double check because DeepEqual is different since the func exists
-
-					// more details, for tricky cases:
-					diffable := &pretty.Config{
-						Diffable:          true,
-						IncludeUnexported: false,
-						//PrintStringers: false, // always false!
-						//PrintTextMarshalers: false,
-						SkipZeroFields: true,
-					}
-					diff := diffable.Compare(exp, ast)
-					if diff != "" { // bonus
-						t.Errorf("test #%d: AST did not match expected", index)
-						// TODO: consider making our own recursive print function
-						t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
-						t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
-
-						t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(ast))
-						t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(exp))
-						t.Logf("test #%d: diff:\n%s", index, diff)
-						return
-					}
-				}
+			if exp == nil {
+				return
 			}
+			if reflect.DeepEqual(ast, exp) {
+				return
+			}
+			// double check because DeepEqual is different since the func exists
+
+			// more details, for tricky cases:
+			diffable := &pretty.Config{
+				Diffable:          true,
+				IncludeUnexported: false,
+				//PrintStringers: false, // always false!
+				//PrintTextMarshalers: false,
+				SkipZeroFields: true,
+			}
+			diff := diffable.Compare(exp, ast)
+			if diff == "" { // bonus
+				return
+			}
+			t.Errorf("test #%d: AST did not match expected", index)
+			// TODO: consider making our own recursive print function
+			t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(ast))
+			t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
+
+			t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(ast))
+			t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(exp))
+			t.Logf("test #%d: diff:\n%s", index, diff)
 		})
 	}
 }

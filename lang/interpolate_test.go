@@ -185,18 +185,19 @@ func TestInterpolate0(t *testing.T) {
 				}
 			}
 
-			if !reflect.DeepEqual(iast, exp) {
-				// double check because DeepEqual is different since the logf exists
-				diff := pretty.Compare(iast, exp)
-				if diff != "" { // bonus
-					t.Errorf("test #%d: AST did not match expected", index)
-					// TODO: consider making our own recursive print function
-					t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
-					t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
-					t.Logf("test #%d: diff:\n%s", index, diff)
-					return
-				}
+			if reflect.DeepEqual(iast, exp) {
+				return
 			}
+			// double check because DeepEqual is different since the logf exists
+			diff := pretty.Compare(iast, exp)
+			if diff == "" { // bonus
+				return
+			}
+			t.Errorf("test #%d: AST did not match expected", index)
+			// TODO: consider making our own recursive print function
+			t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
+			t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
+			t.Logf("test #%d: diff:\n%s", index, diff)
 		})
 	}
 }
@@ -421,18 +422,19 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				}
 			}
 
-			if !reflect.DeepEqual(iast, exp) {
-				// double check because DeepEqual is different since the logf exists
-				diff := pretty.Compare(iast, exp)
-				if diff != "" { // bonus
-					t.Errorf("test #%d: AST did not match expected", index)
-					// TODO: consider making our own recursive print function
-					t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
-					t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
-					t.Logf("test #%d: diff:\n%s", index, diff)
-					return
-				}
+			if reflect.DeepEqual(iast, exp) {
+				return
 			}
+			// double check because DeepEqual is different since the logf exists
+			diff := pretty.Compare(iast, exp)
+			if diff == "" { // bonus
+				return
+			}
+			t.Errorf("test #%d: AST did not match expected", index)
+			// TODO: consider making our own recursive print function
+			t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
+			t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
+			t.Logf("test #%d: diff:\n%s", index, diff)
 		})
 	}
 }
@@ -742,18 +744,19 @@ func TestInterpolateBasicExpr(t *testing.T) {
 				}
 			}
 
-			if !reflect.DeepEqual(iast, exp) {
-				// double check because DeepEqual is different since the logf exists
-				diff := pretty.Compare(iast, exp)
-				if diff != "" { // bonus
-					t.Errorf("test #%d: AST did not match expected", index)
-					// TODO: consider making our own recursive print function
-					t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
-					t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
-					t.Logf("test #%d: diff:\n%s", index, diff)
-					return
-				}
+			if reflect.DeepEqual(iast, exp) {
+				return
 			}
+			// double check because DeepEqual is different since the logf exists
+			diff := pretty.Compare(iast, exp)
+			if diff == "" { // bonus
+				return
+			}
+			t.Errorf("test #%d: AST did not match expected", index)
+			// TODO: consider making our own recursive print function
+			t.Logf("test #%d:   actual: \n%s", index, spew.Sdump(iast))
+			t.Logf("test #%d: expected: \n%s", index, spew.Sdump(exp))
+			t.Logf("test #%d: diff:\n%s", index, diff)
 		})
 	}
 }

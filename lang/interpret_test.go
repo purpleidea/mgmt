@@ -30,6 +30,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
+	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
@@ -1135,6 +1136,20 @@ func TestAstFunc2(t *testing.T) {
 			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
 			fs := &util.Fs{Afero: afs}
 
+			// implementation of the World API (alternatives can be substituted in)
+			world := &etcd.World{
+				//Hostname:       hostname,
+				//Client:         etcdClient,
+				//MetadataPrefix: /fs, // MetadataPrefix
+				//StoragePrefix:  "/storage", // StoragePrefix
+				// TODO: is this correct? (seems to work for testing)
+				StandaloneFs: fs,                // used for static deploys
+				Debug:        testing.Verbose(), // set via the -test.v flag to `go test`
+				Logf: func(format string, v ...interface{}) {
+					logf("world: etcd: "+format, v...)
+				},
+			}
+
 			// use this variant, so that we don't copy the dir name
 			// this is the equivalent to running `rsync -a src/ /`
 			if err := util.CopyDiskContentsToFs(fs, src, "/", false); err != nil {
@@ -1354,7 +1369,7 @@ func TestAstFunc2(t *testing.T) {
 			funcs := &funcs.Engine{
 				Graph:    graph,             // not the same as the output graph!
 				Hostname: "",                // NOTE: empty b/c not used
-				World:    nil,               // NOTE: nil b/c not used
+				World:    world,             // used partially in some tests
 				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)

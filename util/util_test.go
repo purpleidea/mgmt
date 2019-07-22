@@ -1015,6 +1015,46 @@ func TestRemovePathPrefix0(t *testing.T) {
 	}
 }
 
+func TestRemovePathSuffix0(t *testing.T) {
+	testCases := []struct {
+		in  string
+		out string
+	}{
+		{
+			in:  "/simple1/",
+			out: "/",
+		},
+		{
+			in:  "/simple1/foo/bar/",
+			out: "/simple1/foo/",
+		},
+		{
+			in:  "/simple1/foo/",
+			out: "/simple1/",
+		},
+		// TODO: are these what we want?
+		{
+			in:  "/simple1/foo",
+			out: "/simple1/",
+		},
+		{
+			in:  "/simple1",
+			out: "/",
+		},
+	}
+	for _, test := range testCases {
+		out, err := RemovePathSuffix(test.in)
+		if err != nil {
+			t.Errorf("error: %+v", err)
+			continue
+		}
+		if test.out != out {
+			t.Errorf("failed: %s -> %s (exp: %s)", test.in, out, test.out)
+			continue
+		}
+	}
+}
+
 func TestPriorityStrSliceSort0(t *testing.T) {
 	in := []string{"foo", "bar", "baz"}
 	ex := []string{"bar", "baz", "foo"}

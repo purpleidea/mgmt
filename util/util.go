@@ -398,6 +398,29 @@ func RemovePathPrefix(s string) (string, error) {
 	return "/" + strings.Join(x, "/"), nil
 }
 
+// RemovePathSuffix takes an absolute path and removes the last chunk. It
+// returns the remainder as an absolute path. This function is a bit of a hack,
+// and could probably be re-written to support any kind of path, and return a
+// relative path.
+func RemovePathSuffix(s string) (string, error) {
+	if !strings.HasPrefix(s, "/") {
+		return "", fmt.Errorf("must be absolute")
+	}
+	// this is the PathSplit logic...
+	if s == "/" {
+		//return "", nil // TODO: return this instead?
+		return "", fmt.Errorf("input is /")
+	}
+	x := strings.Split(s, "/")
+
+	// get rid of the last two chunks, last is / and second to last is a dir
+	if strings.HasSuffix(s, "/") {
+		_, x = x[len(x)-1], x[:len(x)-1] // pop the last slash
+	}
+	_, x = x[len(x)-1], x[:len(x)-1] // pop the last chunk
+	return strings.Join(x, "/") + "/", nil
+}
+
 // TimeAfterOrBlock is aspecial version of time.After that blocks when given a
 // negative integer. When used in a case statement, the timer restarts on each
 // select call to it.

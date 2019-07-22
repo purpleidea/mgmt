@@ -3061,6 +3061,16 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 		isEmpty = false
 	}
 
+	// perform any normal "startup" for these functions...
+	for _, fn := range funcs {
+		// XXX: is this the right place for this, or should it be elsewhere?
+		// XXX: do we need a modified obj.data for this b/c it's in a scope?
+		if err := fn.Init(obj.data); err != nil {
+			return nil, errwrap.Wrapf(err, "could not init function")
+		}
+		// TODO: do we want to run Interpolate or SetScope?
+	}
+
 	// initial scope, built from core golang code
 	scope := &interfaces.Scope{
 		// TODO: we could add core API's for variables and classes too!
@@ -6654,7 +6664,7 @@ func (obj *ExprFunc) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprFunc) Init(data *interfaces.Data) error {
-	obj.data = data
+	obj.data = data // TODO: why is this sometimes nil?
 
 	// validate that we're using *only* one correct representation
 	a := obj.Body != nil

@@ -340,6 +340,15 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		}
 
 		if strings.HasSuffix(src, "/") { // it's a dir
+			// FIXME: I think fixing CopyDirToFs might be better...
+			if dst != "/" { // XXX: hack, don't nest the copy badly!
+				out, err := util.RemovePathSuffix(dst)
+				if err != nil {
+					// possible programming error
+					return nil, errwrap.Wrapf(err, "malformed dst dir path: `%s`", dst)
+				}
+				dst = out
+			}
 			// TODO: add more tests to this (it is actually CopyFs)
 			if err := gapi.CopyDirToFs(fs, src, dst); err != nil {
 				return nil, errwrap.Wrapf(err, "can't copy dir from `%s` to `%s`", src, dst)

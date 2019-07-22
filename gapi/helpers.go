@@ -58,6 +58,8 @@ func CopyStringToFs(fs engine.Fs, str, dst string) error {
 }
 
 // CopyDirToFs copies a dir from src path on the local fs to a dst path on fs.
+// FIXME: I'm not sure this does the logical thing when the dst path is a dir.
+// FIXME: We've got a workaround for this inside of the lang CLI GAPI.
 func CopyDirToFs(fs engine.Fs, src, dst string) error {
 	return util.CopyDiskToFs(fs, src, dst, false)
 }

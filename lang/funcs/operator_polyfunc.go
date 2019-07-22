@@ -181,7 +181,7 @@ func init() {
 		T: types.NewType("func(a str, b str) bool"),
 		V: func(input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
-				V: input[0].Str() == input[1].Str(),
+				V: input[0].Str() != input[1].Str(),
 			}, nil
 		},
 	})

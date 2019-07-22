@@ -108,3 +108,28 @@ type NamedArgsFunc interface {
 	// the util.NumToAlpha function when this interface isn't implemented...
 	ArgGen(int) (string, error)
 }
+
+// FuncData is some data that is passed into the function during compilation. It
+// helps provide some context about the AST and the deploy for functions that
+// might need it.
+// TODO: Consider combining this with the existing Data struct or more of it...
+// TODO: Do we want to add line/col/file values here, and generalize this?
+type FuncData struct {
+
+	// Base directory (absolute path) that the running code is in. This is a
+	// copy of the value from the Expr and Stmt Data struct for Init.
+	Base string
+}
+
+// DataFunc is a function that accepts some context from the AST and deploy
+// before Init and runtime. If you don't wish to accept this data, then don't
+// implement this method and you won't get any. This is mostly useful for
+// special functions that are useful in core.
+// TODO: This could be replaced if a func ever needs a SetScope method...
+type DataFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// SetData is used by the language to pass our function some code-level
+	// context.
+	SetData(*FuncData)
+}

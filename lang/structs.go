@@ -6676,6 +6676,13 @@ func (obj *ExprFunc) Init(data *interfaces.Data) error {
 			return fmt.Errorf("func is being re-built")
 		}
 		obj.function = obj.Function() // build it
+		// pass in some data to the function
+		// TODO: do we want to pass in the full obj.data instead ?
+		if dataFunc, ok := obj.function.(interfaces.DataFunc); ok {
+			dataFunc.SetData(&interfaces.FuncData{
+				Base: obj.data.Base,
+			})
+		}
 	}
 
 	if len(obj.Values) > 0 {
@@ -6755,6 +6762,13 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 	var function interfaces.Func
 	if obj.Function != nil {
 		function = obj.Function() // force re-build a new pointer here!
+		// pass in some data to the function
+		// TODO: do we want to pass in the full obj.data instead ?
+		if dataFunc, ok := function.(interfaces.DataFunc); ok {
+			dataFunc.SetData(&interfaces.FuncData{
+				Base: obj.data.Base,
+			})
+		}
 		copied = true
 	}
 

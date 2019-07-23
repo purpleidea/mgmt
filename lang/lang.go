@@ -41,7 +41,9 @@ const (
 
 // Lang is the main language lexer/parser object.
 type Lang struct {
-	Fs engine.Fs // connected fs where input dir or metadata exists
+	Fs    engine.Fs // connected fs where input dir or metadata exists
+	FsURI string
+
 	// Input is a string which specifies what the lang should run. It can
 	// accept values in several different forms. If is passed a single dash
 	// (-), then it will use `os.Stdin`. If it is passed a single .mcl file,
@@ -133,7 +135,9 @@ func (obj *Lang) Init() error {
 	obj.Logf("init...")
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
+		// TODO: add missing fields here if/when needed
 		Fs:       obj.Fs,
+		FsURI:    obj.FsURI,
 		Base:     output.Base, // base dir (absolute path) the metadata file is in
 		Files:    output.Files,
 		Imports:  importVertex,

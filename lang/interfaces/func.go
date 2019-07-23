@@ -115,6 +115,16 @@ type NamedArgsFunc interface {
 // TODO: Consider combining this with the existing Data struct or more of it...
 // TODO: Do we want to add line/col/file values here, and generalize this?
 type FuncData struct {
+	// Fs represents a handle to the filesystem that we're running on. This
+	// is necessary for opening files if needed by import statements. The
+	// file() paths used to get templates or other files from our deploys
+	// come from here, this is *not* used to interact with the host file
+	// system to manage file resources or other aspects.
+	Fs engine.Fs
+
+	// FsURI is the fs URI of the active filesystem. This is useful to pass
+	// to the engine.World API for further consumption.
+	FsURI string
 
 	// Base directory (absolute path) that the running code is in. This is a
 	// copy of the value from the Expr and Stmt Data struct for Init.

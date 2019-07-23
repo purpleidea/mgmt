@@ -3241,7 +3241,9 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 	logf("init...")
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
+		// TODO: add missing fields here if/when needed
 		Fs:         obj.data.Fs,
+		FsURI:      obj.data.FsURI,
 		Base:       output.Base, // new base dir (absolute path)
 		Files:      files,
 		Imports:    parentVertex, // the parent vertex that imported me
@@ -6690,7 +6692,9 @@ func (obj *ExprFunc) Init(data *interfaces.Data) error {
 		// TODO: do we want to pass in the full obj.data instead ?
 		if dataFunc, ok := obj.function.(interfaces.DataFunc); ok {
 			dataFunc.SetData(&interfaces.FuncData{
-				Base: obj.data.Base,
+				Fs:    obj.data.Fs,
+				FsURI: obj.data.FsURI,
+				Base:  obj.data.Base,
 			})
 		}
 	}
@@ -6776,7 +6780,9 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		// TODO: do we want to pass in the full obj.data instead ?
 		if dataFunc, ok := function.(interfaces.DataFunc); ok {
 			dataFunc.SetData(&interfaces.FuncData{
-				Base: obj.data.Base,
+				Fs:    obj.data.Fs,
+				FsURI: obj.data.FsURI,
+				Base:  obj.data.Base,
 			})
 		}
 		copied = true

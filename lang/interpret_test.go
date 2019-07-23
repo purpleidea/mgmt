@@ -441,6 +441,7 @@ func TestAstFunc0(t *testing.T) {
 			t.Logf("test #%d: AST: %+v", index, ast)
 
 			data := &interfaces.Data{
+				// TODO: add missing fields here if/when needed
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
@@ -790,7 +791,9 @@ func TestAstFunc1(t *testing.T) {
 			importGraph.AddVertex(importVertex)
 
 			data := &interfaces.Data{
+				// TODO: add missing fields here if/when needed
 				Fs:       fs,
+				FsURI:    fs.URI(),     // TODO: is this right?
 				Base:     output.Base,  // base dir (absolute path) the metadata file is in
 				Files:    output.Files, // no really needed here afaict
 				Imports:  importVertex,
@@ -1232,9 +1235,11 @@ func TestAstFunc2(t *testing.T) {
 			importGraph.AddVertex(importVertex)
 
 			data := &interfaces.Data{
+				// TODO: add missing fields here if/when needed
 				Fs:       fs,
-				Base:     output.Base,  // base dir (absolute path) the metadata file is in
-				Files:    output.Files, // no really needed here afaict
+				FsURI:    "memmapfs:///", // we're in standalone mode
+				Base:     output.Base,    // base dir (absolute path) the metadata file is in
+				Files:    output.Files,   // no really needed here afaict
 				Imports:  importVertex,
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
@@ -1676,6 +1681,7 @@ func TestAstInterpret0(t *testing.T) {
 		t.Logf("test #%d: AST: %+v", index, ast)
 
 		data := &interfaces.Data{
+			// TODO: add missing fields here if/when needed
 			Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 			Logf: func(format string, v ...interface{}) {
 				t.Logf("ast: "+format, v...)

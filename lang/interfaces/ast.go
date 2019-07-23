@@ -142,6 +142,10 @@ type Data struct {
 	// system to manage file resources or other aspects.
 	Fs engine.Fs
 
+	// FsURI is the fs URI of the active filesystem. This is useful to pass
+	// to the engine.World API for further consumption.
+	FsURI string
+
 	// Base directory (absolute path) that the running code is in. If an
 	// import is found, that's a recursive addition, and naturally for that
 	// run, this value would be different in the recursion.

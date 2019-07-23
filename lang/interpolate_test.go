@@ -389,6 +389,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 
 			data := &interfaces.Data{
+				// TODO: add missing fields here if/when needed
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
@@ -711,6 +712,7 @@ func TestInterpolateBasicExpr(t *testing.T) {
 			ast, fail, exp := tc.ast, tc.fail, tc.exp
 
 			data := &interfaces.Data{
+				// TODO: add missing fields here if/when needed
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)

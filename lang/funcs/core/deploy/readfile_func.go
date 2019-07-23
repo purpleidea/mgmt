@@ -15,40 +15,40 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package coreos
+package coredeploy
 
 import (
 	"fmt"
-	"io/ioutil"
-	"sync"
+	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, "readfile", func() interfaces.Func { return &ReadFileFunc{} }) // must register the func and name
+	funcs.ModuleRegister(moduleName, "readfile", func() interfaces.Func { return &ReadFileFunc{} }) // must register the func and name
 }
 
-// ReadFileFunc is a function that reads the full contents from a local file. If
-// the file contents change or the file path changes, a new string will be sent.
-// Please note that this is different from the readfile function in the deploy
-// package.
+// ReadFileFunc is a function that reads the full contents from a file in our
+// deploy. The file contents can only change with a new deploy, so this is
+// static. Please note that this is different from the readfile function in the
+// os package.
 type ReadFileFunc struct {
 	init *interfaces.Init
+	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
 
-	filename   string // the active filename
-	recWatcher *recwatch.RecWatcher
-	events     chan error // internal events
-	wg         *sync.WaitGroup
-
-	result string // last calculated output
+	filename string // the active filename
+	result   string // last calculated output
 
 	closeChan chan struct{}
+}
+
+// SetData is used by the language to pass our function some code-level context.
+func (obj *ReadFileFunc) SetData(data *interfaces.FuncData) {
+	obj.data = data
 }
 
 // ArgGen returns the Nth arg name for this function.
@@ -78,22 +78,17 @@ func (obj *ReadFileFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ReadFileFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.events = make(chan error)
-	obj.wg = &sync.WaitGroup{}
 	obj.closeChan = make(chan struct{})
+	if obj.data == nil {
+		// programming error
+		return fmt.Errorf("missing function data")
+	}
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *ReadFileFunc) Stream() error {
 	defer close(obj.init.Output) // the sender closes
-	defer obj.wg.Wait()
-	defer func() {
-		if obj.recWatcher != nil {
-			obj.recWatcher.Close() // close previous watcher
-			obj.wg.Wait()
-		}
-	}()
 	for {
 		select {
 		case input, ok := <-obj.init.Input:
@@ -117,82 +112,31 @@ func (obj *ReadFileFunc) Stream() error {
 			}
 			obj.filename = filename
 
-			if obj.recWatcher != nil {
-				obj.recWatcher.Close() // close previous watcher
-				obj.wg.Wait()
+			p := strings.TrimSuffix(obj.data.Base, "/")
+			if p == obj.data.Base { // didn't trim, so we fail
+				// programming error
+				return fmt.Errorf("no trailing slash on Base, got: `%s`", p)
 			}
-			// create new watcher
-			obj.recWatcher = &recwatch.RecWatcher{
-				Path:    obj.filename,
-				Recurse: false,
-				Flags: recwatch.Flags{
-					// TODO: add Logf
-					Debug: obj.init.Debug,
-				},
+			path := p
+
+			if !strings.HasPrefix(obj.filename, "/") {
+				return fmt.Errorf("filename was not absolute, got: `%s`", obj.filename)
+				//path += "/" // be forgiving ?
 			}
-			if err := obj.recWatcher.Init(); err != nil {
-				obj.recWatcher = nil
-				// TODO: should we ignore the error and send ""?
-				return errwrap.Wrapf(err, "could not watch file")
-			}
+			path += obj.filename
 
-			// FIXME: instead of sending one event here, the recwatch
-			// library should send one initial event at startup...
-			startup := make(chan struct{})
-			close(startup)
-
-			// watch recwatch events in a proxy goroutine, since
-			// changing the recwatch object would panic the main
-			// select when it's nil...
-			obj.wg.Add(1)
-			go func() {
-				defer obj.wg.Done()
-				for {
-					var err error
-					select {
-					case <-startup:
-						startup = nil
-						// send an initial event
-
-					case event, ok := <-obj.recWatcher.Events():
-						if !ok {
-							return // file watcher shut down
-						}
-						if err = event.Error; err != nil {
-							err = errwrap.Wrapf(err, "error event received")
-						}
-					}
-
-					select {
-					case obj.events <- err:
-						// send event...
-
-					case <-obj.closeChan:
-						// don't block here on shutdown
-						return
-					}
-					//err = nil // reset
-				}
-			}()
-			continue // wait for an actual event or we'd send empty!
-
-		case err, ok := <-obj.events:
-			if !ok {
-				return fmt.Errorf("no more events")
-			}
+			fs, err := obj.init.World.Fs(obj.data.FsURI) // open the remote file system
 			if err != nil {
-				return errwrap.Wrapf(err, "error event received")
+				return errwrap.Wrapf(err, "can't load code from file system `%s`", obj.data.FsURI)
 			}
-
-			if obj.last == nil {
-				continue // still waiting for input values
-			}
-
-			// read file...
-			content, err := ioutil.ReadFile(obj.filename)
+			// this is relative to the module dir the func is in!
+			content, err := fs.ReadFile(path) // open the remote file system
+			// We could use it directly, but it feels like less correct.
+			//content, err := obj.data.Fs.ReadFile(path) // open the remote file system
 			if err != nil {
-				return errwrap.Wrapf(err, "error reading file")
+				return errwrap.Wrapf(err, "can't read file `%s` (%s)", obj.filename, path)
 			}
+
 			result := string(content) // convert to string
 
 			if obj.result == result {
@@ -217,7 +161,5 @@ func (obj *ReadFileFunc) Stream() error {
 // Close runs some shutdown code for this function and turns off the stream.
 func (obj *ReadFileFunc) Close() error {
 	close(obj.closeChan)
-	obj.wg.Wait()     // block so we don't exit by the closure of obj.events
-	close(obj.events) // clean up for fun
 	return nil
 }

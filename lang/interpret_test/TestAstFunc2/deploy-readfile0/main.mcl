@@ -1,0 +1,53 @@
+import "strings"
+import "deploy"
+import "second.mcl"
+import "mod1/"
+
+#$f1 = "/metadata.yaml" # works
+#$f1 = "/main.mcl" # works
+$f1 = "/files/file1"
+
+$f2 = "/files/file2"
+
+$f3 = "/mod1/files/file3"
+
+# the abspath method shouldn't be used often, it's here for testing...
+if $f1 != deploy.abspath($f1) { # should be the same, since we're in the same dir
+	test "f1 error" {}
+}
+if $f2 != $second.f2 {
+	test "f2 error" {}
+}
+if $f3 != $mod1.f3 {
+	test "f3 error" {}
+}
+
+# the readfileabs method shouldn't be used often, it's here for testing...
+$x1 = deploy.readfileabs($f1)
+$x2 = deploy.readfileabs($f2)
+$x3 = deploy.readfileabs($f3)
+
+if $x1 != deploy.readfile($f1) {
+	test "x1 error" {}
+}
+if $x2 != $second.x2 {
+	test "x2 error" {}
+}
+if $x3 != $mod1.x3 {
+	test "x3 error" {}
+}
+
+# hide the newlines from our output
+test strings.trim_space($x1) {}
+test strings.trim_space($x2) {}
+test strings.trim_space($x3) {}
+# debugging:
+#test "f1" {
+#	anotherstr => $x1,
+#}
+#test "f2" {
+#	anotherstr => $x2,
+#}
+#test "f3" {
+#	anotherstr => $x3,
+#}

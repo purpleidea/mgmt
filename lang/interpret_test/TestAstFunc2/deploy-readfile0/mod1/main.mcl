@@ -1,0 +1,6 @@
+import "deploy"
+
+# relative paths for us
+$f = "/files/file3" # real file is in: /mod1/files/file3
+$f3 = deploy.abspath($f)
+$x3 = deploy.readfile($f)

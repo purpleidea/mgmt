@@ -1,0 +1,6 @@
+import "deploy"
+
+# relative paths for us
+$f = "/files/file2" # real file is here as well
+$f2 = deploy.abspath($f)
+$x2 = deploy.readfile($f)

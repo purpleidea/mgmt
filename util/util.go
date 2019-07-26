@@ -421,6 +421,60 @@ func RemovePathSuffix(s string) (string, error) {
 	return strings.Join(x, "/") + "/", nil
 }
 
+// DirParents returns a list of the parent directories in a given path. If you
+// pass it an empty string, or a single slash, then you will get an empty list.
+// If you pass it a malformed path, then you might get unexpected results.
+func DirParents(p string) []string {
+	if p == "" {
+		return nil // TODO: should we error?
+	}
+	if p == "/" {
+		return []string{}
+	}
+	d := Dirname(p)
+	x := DirParents(d)
+	x = append(x, d)
+	return x
+}
+
+// MissingMkdirs takes a list of paths, and returns a list of any missing paths
+// that would be needed to avoid having to `mkdir -p` to prevent missing parent
+// directory errors from happening. This adds paths all the way up to the root,
+// but without including it, because it's implied.
+// TODO: do we want to include the root?
+// TODO: this could probably be implemented in a more efficient way...
+func MissingMkdirs(input []string) ([]string, error) {
+	dirs := []string{}
+	for _, p := range input {
+		if p == "/" {
+			continue
+		}
+		d := Dirname(p)
+		dirs = append(dirs, d)
+		if strings.HasSuffix(p, "/") { // it's a dir
+			dirs = append(dirs, p)
+		}
+	}
+	// TODO: remove duplicates for efficiency?
+
+	result := []string{}
+	for _, d := range dirs {
+		p := DirParents(d) // TODO: memoize
+		p = append(p, d)   // include self
+		for _, x := range p {
+			if StrInList(x, input) {
+				continue
+			}
+			result = append(result, x)
+		}
+	}
+
+	out := StrRemoveDuplicatesInList(result) // avoid duplicates
+	sort.Sort(PathSlice(out))
+
+	return out, nil
+}
+
 // TimeAfterOrBlock is aspecial version of time.After that blocks when given a
 // negative integer. When used in a case statement, the timer restarts on each
 // select call to it.

@@ -1055,6 +1055,233 @@ func TestRemovePathSuffix0(t *testing.T) {
 	}
 }
 
+func TestDirParents0(t *testing.T) {
+	tests := []struct {
+		in  string
+		out []string
+	}{
+		{
+			in:  "",
+			out: nil,
+		},
+		{
+			in:  "/",
+			out: []string{},
+		},
+		{
+			in: "/tmp/x1/mod1/files/",
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				"/tmp/x1/mod1/",
+			},
+		},
+		{
+			in: "/tmp/x1/mod1/files/foo",
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				"/tmp/x1/mod1/",
+				"/tmp/x1/mod1/files/",
+			},
+		},
+	}
+	for index, tt := range tests {
+		result := DirParents(tt.in)
+		if a, b := len(result), len(tt.out); a != b {
+			t.Errorf("test #%d: expected length differs (%d != %d)", index, a, b)
+			t.Errorf("test #%d: actual: %+v", index, result)
+			t.Errorf("test #%d: expected: %+v", index, tt.out)
+			break
+		}
+		for i := range result {
+			if result[i] != tt.out[i] {
+				t.Errorf("test #%d: parents diff: wanted: %s got: %s", index, tt.out[i], result[i])
+			}
+		}
+	}
+}
+
+func TestMissingMkdirs0(t *testing.T) {
+	tests := []struct {
+		in   []string
+		out  []string
+		fail bool
+	}{
+		{
+			in:  []string{},
+			out: []string{},
+		},
+		{
+			in: []string{
+				"/",
+			},
+			out: []string{},
+		},
+		{
+			in: []string{
+				"/tmp/x1/metadata.yaml",
+				"/tmp/x1/main.mcl",
+				"/tmp/x1/files/",
+				"/tmp/x1/second.mcl",
+				"/tmp/x1/mod1/metadata.yaml",
+				"/tmp/x1/mod1/main.mcl",
+				"/tmp/x1/mod1/files/",
+			},
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				"/tmp/x1/mod1/",
+			},
+		},
+		{
+			in: []string{
+				"/tmp/x1/files/",
+				"/tmp/x1/main.mcl",
+				"/tmp/x1/metadata.yaml",
+				"/tmp/x1/mod1/files/",
+				"/tmp/x1/mod1/main.mcl",
+				"/tmp/x1/mod1/metadata.yaml",
+				"/tmp/x1/second.mcl",
+			},
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				"/tmp/x1/mod1/",
+			},
+		},
+		{
+			in: []string{
+				"/tmp/x1/files/",
+				"/tmp/x1/files/a/b/c/",
+			},
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				//"/tmp/x1/files/", // already exists!
+				"/tmp/x1/files/a/",
+				"/tmp/x1/files/a/b/",
+			},
+		},
+		{
+			in: []string{
+				"/tmp/x1/files/",
+				"/tmp/x1/files/a/b/c/",
+				"/tmp/x1/files/a/b/c/",
+				"/tmp/x1/files/a/b/c/",
+				"/tmp/x1/files/a/b/c/", // duplicates
+			},
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				//"/tmp/x1/files/", // already exists!
+				"/tmp/x1/files/a/",
+				"/tmp/x1/files/a/b/",
+			},
+		},
+		{
+			in: []string{
+				"/tmp/x1/files/",
+				"/tmp/x1/files/a/b/c/d1",
+				"/tmp/x1/files/a/b/c/d2",
+			},
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				//"/tmp/x1/files/", // already exists!
+				"/tmp/x1/files/a/",
+				"/tmp/x1/files/a/b/",
+				"/tmp/x1/files/a/b/c/",
+			},
+		},
+		{
+			in: []string{
+				"/tmp/x1/files/",
+				"/tmp/x1/files/a/b/c/d1",
+				"/tmp/x1/files/a/b/c/d1",
+				"/tmp/x1/files/a/b/c/d1",
+				"/tmp/x1/files/a/b/c/d1", // duplicates!
+				"/tmp/x1/files/a/b/c/d2",
+			},
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				//"/tmp/x1/files/", // already exists!
+				"/tmp/x1/files/a/",
+				"/tmp/x1/files/a/b/",
+				"/tmp/x1/files/a/b/c/",
+			},
+		},
+		{
+			in: []string{
+				"/tmp/x1/files/",
+				"/tmp/x1/files/a/b/c/d1",
+				"/tmp/x1/files/a/b/c/d1",
+				"/tmp/x1/files/a/b/c/d1",
+				"/tmp/x1/files/a/b/c/d1", // duplicates!
+				"/tmp/x1/files/a/b/",
+				"/tmp/x1/files/a/b/c/d2",
+			},
+			out: []string{
+				"/",
+				"/tmp/",
+				"/tmp/x1/",
+				//"/tmp/x1/files/", // already exists!
+				"/tmp/x1/files/a/",
+				"/tmp/x1/files/a/b/c/",
+			},
+		},
+		// invalid path list, so undefined results
+		//{
+		//	in: []string{
+		//		"/tmp/x1/files/",
+		//		"/tmp/x1/files/a/b/c/d",
+		//		"/tmp/x1/files/a/b/c/d/", // error: same name as file
+		//		"/tmp/x1/files/a/b/c/d1",
+		//	},
+		//	out: []string{},
+		//	fail: true, // TODO: put a specific error?
+		//},
+		// TODO: add more tests
+	}
+	for index, tt := range tests {
+		result, err := MissingMkdirs(tt.in)
+
+		if !tt.fail && err != nil {
+			t.Errorf("test #%d: failed with: %+v", index, err)
+			break
+		}
+		if tt.fail && err == nil {
+			t.Errorf("test #%d: passed, expected fail", index)
+			break
+		}
+		if !tt.fail && result == nil {
+			t.Errorf("test #%d: output was nil", index)
+			break
+		}
+
+		if a, b := len(result), len(tt.out); a != b {
+			t.Errorf("test #%d: expected length differs (%d != %d)", index, a, b)
+			t.Errorf("test #%d: actual: %+v", index, result)
+			t.Errorf("test #%d: expected: %+v", index, tt.out)
+			break
+		}
+		for i := range result {
+			if result[i] != tt.out[i] {
+				t.Errorf("test #%d: missing mkdirs diff: wanted: %s got: %s", index, tt.out[i], result[i])
+			}
+		}
+	}
+}
+
 func TestPriorityStrSliceSort0(t *testing.T) {
 	in := []string{"foo", "bar", "baz"}
 	ex := []string{"bar", "baz", "foo"}

@@ -197,7 +197,7 @@ func Basename(p string) string {
 	if p == "" {
 		return ""
 	}
-	if p[len(p)-1:] == "/" { // don't loose the tail slash
+	if p[len(p)-1:] == "/" { // don't lose the tail slash
 		b += "/"
 	}
 	return b

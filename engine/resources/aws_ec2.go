@@ -1025,7 +1025,7 @@ func (obj *AwsEc2Res) snsMakeTopic() (string, error) {
 	}
 	obj.init.Logf("Created SNS Topic")
 	if topic.TopicArn == nil {
-		return "", fmt.Errorf("TopicArn is nil")
+		return "", fmt.Errorf("the TopicArn is nil")
 	}
 	return *topic.TopicArn, nil
 }

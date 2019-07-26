@@ -140,7 +140,7 @@ func (obj *FileRes) Validate() error {
 
 	// XXX: should this specify that we create an empty directory instead?
 	//if obj.Source == "" && obj.isDir() {
-	//	return fmt.Errorf("Can't specify an empty source when creating a Dir.")
+	//	return fmt.Errorf("can't specify an empty source when creating a Dir.")
 	//}
 
 	return nil

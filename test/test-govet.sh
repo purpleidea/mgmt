@@ -49,6 +49,22 @@ function naked-error() {
 	return 0
 }
 
+# catch errors that start with a capital
+function lowercase-errors() {
+	if [[ $1 == *"/bindata.go" ]]; then	# ends with bindata.go ?
+		return 0	# skip those generated files
+	fi
+
+	if grep -E 'errors\.New\(\"[A-Z]' "$1"; then
+		return 1
+	fi
+	if grep -E 'fmt\.Errorf\(\"[A-Z]' "$1"; then
+		return 1
+	fi
+	# TODO: add errwrap.Wrap* related matching
+	return 0
+}
+
 function consistent-imports() {
 	if [ "$1" = './util/errwrap/errwrap.go' ]; then
 		return 0
@@ -93,6 +109,7 @@ for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -
 	run-test simplify-gocase "$file"
 	run-test token-coloncheck "$file"
 	run-test naked-error "$file"
+	run-test lowercase-errors "$file"
 	run-test consistent-imports "$file"
 done
 

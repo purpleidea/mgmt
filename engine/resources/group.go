@@ -58,7 +58,7 @@ func (obj *GroupRes) Default() engine.Res {
 // Validate if the params passed in are valid data.
 func (obj *GroupRes) Validate() error {
 	if obj.State != "exists" && obj.State != "absent" {
-		return fmt.Errorf("State must be 'exists' or 'absent'")
+		return fmt.Errorf("state must be 'exists' or 'absent'")
 	}
 	return nil
 }

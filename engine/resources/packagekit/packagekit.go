@@ -352,7 +352,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return []string{}, fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return []string{}, fmt.Errorf("error in body: %v", signal.Body)
 			}
 		}
 	}
@@ -363,9 +363,9 @@ loop:
 func (obj *Conn) IsInstalledList(packages []string) ([]bool, error) {
 	var filter uint64          // initializes at the "zero" value of 0
 	filter += PkFilterEnumArch // always search in our arch
-	packageIDs, e := obj.ResolvePackages(packages, filter)
-	if e != nil {
-		return nil, fmt.Errorf("ResolvePackages error: %v", e)
+	packageIDs, err := obj.ResolvePackages(packages, filter)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error resolving packages")
 	}
 
 	var m = make(map[string]int)
@@ -443,7 +443,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return fmt.Errorf("error in body: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
 				// only start the timer once we're here...
@@ -454,14 +454,14 @@ loop:
 			} else if signal.Name == FmtTransactionMethod("Destroy") {
 				return nil // success
 			} else {
-				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return fmt.Errorf("error in body: %v", signal.Body)
 			}
 		case <-util.TimeAfterOrBlock(timeout):
 			if finished {
 				obj.Logf("Timeout: InstallPackages: Waiting for 'Destroy'")
 				return nil // got tired of waiting for Destroy
 			}
-			return fmt.Errorf("PackageKit: Timeout: InstallPackages: %s", strings.Join(packageIDs, ", "))
+			return fmt.Errorf("timeout installing packages: %s", strings.Join(packageIDs, ", "))
 		}
 	}
 }
@@ -500,7 +500,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return fmt.Errorf("error in body: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
 				continue loop
@@ -511,7 +511,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return fmt.Errorf("error in body: %v", signal.Body)
 			}
 		}
 	}
@@ -549,7 +549,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return fmt.Errorf("error in body: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
@@ -558,7 +558,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return fmt.Errorf("error in body: %v", signal.Body)
 			}
 		}
 	}
@@ -601,7 +601,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				err = fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				err = fmt.Errorf("error in body: %v", signal.Body)
 				return
 
 				// one signal returned per packageID found...
@@ -626,7 +626,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				err = fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				err = fmt.Errorf("error in body: %v", signal.Body)
 				return
 			}
 		}
@@ -669,7 +669,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return nil, fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return nil, fmt.Errorf("error in body: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 
 				//pkg_int, ok := signal.Body[0].(int)
@@ -692,7 +692,7 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return nil, fmt.Errorf("PackageKit: Error: %v", signal.Body)
+				return nil, fmt.Errorf("error in body: %v", signal.Body)
 			}
 		}
 	}
@@ -718,9 +718,9 @@ func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 	if obj.Debug {
 		obj.Logf("PackagesToPackageIDs(): %s", strings.Join(packages, ", "))
 	}
-	resolved, e := obj.ResolvePackages(packages, filter)
-	if e != nil {
-		return nil, fmt.Errorf("Resolve error: %v", e)
+	resolved, err := obj.ResolvePackages(packages, filter)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error resolving")
 	}
 
 	found := make([]bool, count) // default false
@@ -758,7 +758,7 @@ func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 		}
 		state := packageMap[pkg] // lookup the requested state/version
 		if state == "" {
-			return nil, fmt.Errorf("Empty package state for %v", pkg)
+			return nil, fmt.Errorf("empty package state for: `%s`", pkg)
 		}
 		found[index] = true
 		stateIsVersion := (state != "installed" && state != "uninstalled" && state != "newest") // must be a ver. string
@@ -794,9 +794,9 @@ func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 	// to be done, and if so, anything that needs updating isn't newest!
 	// if something isn't installed, we can't verify it with this method
 	// FIXME: https://github.com/hughsie/PackageKit/issues/116
-	updates, e := obj.GetUpdates(filter)
-	if e != nil {
-		return nil, fmt.Errorf("Updates error: %v", e)
+	updates, err := obj.GetUpdates(filter)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "updates error")
 	}
 	for _, packageID := range updates {
 		//obj.Logf("* %v", packageID)
@@ -844,9 +844,9 @@ func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 			if obj.Debug {
 				obj.Logf("PackagesToPackageIDs(): Recurse: %s", strings.Join(checkPackages, ", "))
 			}
-			recursion, e = obj.PackagesToPackageIDs(filteredPackageMap, filter+PkFilterEnumNewest)
-			if e != nil {
-				return nil, fmt.Errorf("Recursion error: %v", e)
+			recursion, err = obj.PackagesToPackageIDs(filteredPackageMap, filter+PkFilterEnumNewest)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "recursion error")
 			}
 		}
 	}

@@ -33,7 +33,7 @@ func testSqrtSuccess(input, sqrt float64) error {
 		return err
 	}
 	if val.Float() != sqrt {
-		return fmt.Errorf("Invalid output, expected %f, got %f", sqrt, val.Float())
+		return fmt.Errorf("invalid output, expected %f, got %f", sqrt, val.Float())
 	}
 	return nil
 }
@@ -42,7 +42,7 @@ func testSqrtError(input float64) error {
 	inputVal := &types.FloatValue{V: input}
 	_, err := Sqrt([]types.Value{inputVal})
 	if err == nil {
-		return fmt.Errorf("Expected error for input %f, got nil", input)
+		return fmt.Errorf("expected error for input %f, got nil", input)
 	}
 	return nil
 }

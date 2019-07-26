@@ -227,7 +227,7 @@ func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, 
 
 	// store in backend (usually etcd)
 	if err := world.ResExport(context.TODO(), resourceList); err != nil {
-		return nil, fmt.Errorf("Config: Could not export resources: %v", err)
+		return nil, fmt.Errorf("config: could not export resources: %v", err)
 	}
 
 	// lookup from backend (usually etcd)
@@ -243,7 +243,7 @@ func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, 
 		var err error
 		resourceList, err = world.ResCollect(context.TODO(), hostnameFilter, kindFilter)
 		if err != nil {
-			return nil, fmt.Errorf("Config: Could not collect resources: %v", err)
+			return nil, fmt.Errorf("config: could not collect resources: %v", err)
 		}
 	}
 	for _, res := range resourceList {

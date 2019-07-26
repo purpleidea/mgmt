@@ -400,7 +400,7 @@ func (obj *EmbdEtcd) Validate() error {
 
 	if obj.NoNetwork {
 		if len(obj.Seeds) != 0 || len(obj.ClientURLs) != 0 || len(obj.ServerURLs) != 0 {
-			return fmt.Errorf("NoNetwork is mutually exclusive with Seeds, ClientURLs and ServerURLs")
+			return fmt.Errorf("option NoNetwork is mutually exclusive with Seeds, ClientURLs and ServerURLs")
 		}
 	}
 

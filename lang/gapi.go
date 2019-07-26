@@ -330,6 +330,27 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		return nil, fmt.Errorf("duplicates in file list found")
 	}
 
+	// Add any missing dirs, so that we don't need to use `MkdirAll`...
+	// FIXME: It's possible that the dirs get generated upstream, but it's
+	// not exactly clear where they'd need to get added into the list. If we
+	// figure that out, we can remove this additional step. It's trickier,
+	// because adding duplicates isn't desirable either.
+	//dirs, err := util.MissingMkdirs(files)
+	//if err != nil {
+	//	// possible programming error
+	//	return nil, errwrap.Wrapf(err, "unexpected missing mkdirs input")
+	//}
+	//parents := util.DirParents(output.Base)
+	//parents = append(parents, output.Base) // include self
+	//
+	// And we don't want to include any of the parents above the Base dir...
+	//for _, x := range dirs {
+	//	if util.StrInList(x, parents) {
+	//		continue
+	//	}
+	//	files = append(files, x)
+	//}
+
 	// sort by depth dependency order! (or mkdir -p all the dirs first)
 	// TODO: is this natively already in a correctly sorted order?
 	util.PathSlice(files).Sort() // sort it
@@ -352,7 +373,8 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 				dst = out
 			}
 			// TODO: add more tests to this (it is actually CopyFs)
-			if err := gapi.CopyDirToFs(fs, src, dst); err != nil {
+			// TODO: Used to be: CopyDirToFs, but it had issues...
+			if err := gapi.CopyDirToFsForceAll(fs, src, dst); err != nil {
 				return nil, errwrap.Wrapf(err, "can't copy dir from `%s` to `%s`", src, dst)
 			}
 			continue

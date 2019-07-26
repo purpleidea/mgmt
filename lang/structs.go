@@ -4929,13 +4929,25 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 		//Line: -1, // TODO
 		//Filename: "", // optional source filename, if known
 	}
-	info := &InterpolateInfo{
-		Debug: obj.data.Debug,
+
+	data := &interfaces.Data{
+		// TODO: add missing fields here if/when needed
+		Fs:         obj.data.Fs,
+		FsURI:      obj.data.FsURI,
+		Base:       obj.data.Base,
+		Files:      obj.data.Files,
+		Imports:    obj.data.Imports,
+		Metadata:   obj.data.Metadata,
+		Modules:    obj.data.Modules,
+		Downloader: obj.data.Downloader,
+		//World:      obj.data.World,
+		Prefix: obj.data.Prefix,
+		Debug:  obj.data.Debug,
 		Logf: func(format string, v ...interface{}) {
 			obj.data.Logf("interpolate: "+format, v...)
 		},
 	}
-	result, err := InterpolateStr(obj.V, pos, info)
+	result, err := InterpolateStr(obj.V, pos, data)
 	if err != nil {
 		return nil, err
 	}

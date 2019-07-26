@@ -35,24 +35,11 @@ type Pos struct {
 	Filename string // optional source filename, if known
 }
 
-// InterpolateInfo contains some information passed around during interpolation.
-// TODO: rename to Info if this is moved to its own package.
-type InterpolateInfo struct {
-	// Prefix used for path namespacing if required.
-	Prefix string
-
-	// Debug represents if we're running in debug mode or not.
-	Debug bool
-
-	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
-}
-
 // InterpolateStr interpolates a string and returns the representative AST. This
 // particular implementation uses the hashicorp hil library and syntax to do so.
-func InterpolateStr(str string, pos *Pos, info *InterpolateInfo) (interfaces.Expr, error) {
-	if info.Debug {
-		info.Logf("interpolating: %s", str)
+func InterpolateStr(str string, pos *Pos, data *interfaces.Data) (interfaces.Expr, error) {
+	if data.Debug {
+		data.Logf("interpolating: %s", str)
 	}
 	var line, column int = -1, -1
 	var filename string
@@ -71,51 +58,58 @@ func InterpolateStr(str string, pos *Pos, info *InterpolateInfo) (interfaces.Exp
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't parse string interpolation: `%s`", str)
 	}
-	if info.Debug {
-		info.Logf("tree: %+v", tree)
+	if data.Debug {
+		data.Logf("tree: %+v", tree)
 	}
 
-	transformInfo := &InterpolateInfo{
-		Prefix: info.Prefix,
-		Debug:  info.Debug,
+	transformData := &interfaces.Data{
+		// TODO: add missing fields here if/when needed
+		Fs:         data.Fs,
+		FsURI:      data.FsURI,
+		Base:       data.Base,
+		Files:      data.Files,
+		Imports:    data.Imports,
+		Metadata:   data.Metadata,
+		Modules:    data.Modules,
+		Downloader: data.Downloader,
+		//World:      data.World,
+		Prefix: data.Prefix,
+		Debug:  data.Debug,
 		Logf: func(format string, v ...interface{}) {
-			info.Logf("transform: "+format, v...)
+			data.Logf("transform: "+format, v...)
 		},
 	}
-	result, err := hilTransform(tree, transformInfo)
+	result, err := hilTransform(tree, transformData)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error running AST map: `%s`", str)
 	}
-	if info.Debug {
-		info.Logf("transform: %+v", result)
+	if data.Debug {
+		data.Logf("transform: %+v", result)
 	}
 
 	// make sure to run the Init on the new expression
-	return result, errwrap.Wrapf(result.Init(&interfaces.Data{
-		Debug: info.Debug,
-		Logf:  info.Logf,
-	}), "init failed")
+	return result, errwrap.Wrapf(result.Init(data), "init failed")
 }
 
 // hilTransform returns the AST equivalent of the hil AST.
-func hilTransform(root hilast.Node, info *InterpolateInfo) (interfaces.Expr, error) {
+func hilTransform(root hilast.Node, data *interfaces.Data) (interfaces.Expr, error) {
 	switch node := root.(type) {
 	case *hilast.Output: // common root node
-		if info.Debug {
-			info.Logf("got output type: %+v", node)
+		if data.Debug {
+			data.Logf("got output type: %+v", node)
 		}
 
 		if len(node.Exprs) == 0 {
 			return nil, fmt.Errorf("no expressions found")
 		}
 		if len(node.Exprs) == 1 {
-			return hilTransform(node.Exprs[0], info)
+			return hilTransform(node.Exprs[0], data)
 		}
 
 		// assumes len > 1
 		args := []interfaces.Expr{}
 		for _, n := range node.Exprs {
-			expr, err := hilTransform(n, info)
+			expr, err := hilTransform(n, data)
 			if err != nil {
 				return nil, errwrap.Wrapf(err, "root failed")
 			}
@@ -131,12 +125,12 @@ func hilTransform(root hilast.Node, info *InterpolateInfo) (interfaces.Expr, err
 		return result, nil
 
 	case *hilast.Call:
-		if info.Debug {
-			info.Logf("got function type: %+v", node)
+		if data.Debug {
+			data.Logf("got function type: %+v", node)
 		}
 		args := []interfaces.Expr{}
 		for _, n := range node.Args {
-			arg, err := hilTransform(n, info)
+			arg, err := hilTransform(n, data)
 			if err != nil {
 				return nil, fmt.Errorf("call failed: %+v", err)
 			}
@@ -149,8 +143,8 @@ func hilTransform(root hilast.Node, info *InterpolateInfo) (interfaces.Expr, err
 		}, nil
 
 	case *hilast.LiteralNode: // string, int, etc...
-		if info.Debug {
-			info.Logf("got literal type: %+v", node)
+		if data.Debug {
+			data.Logf("got literal type: %+v", node)
 		}
 
 		switch node.Typex {
@@ -184,8 +178,8 @@ func hilTransform(root hilast.Node, info *InterpolateInfo) (interfaces.Expr, err
 		}
 
 	case *hilast.VariableAccess: // variable lookup
-		if info.Debug {
-			info.Logf("got variable access type: %+v", node)
+		if data.Debug {
+			data.Logf("got variable access type: %+v", node)
 		}
 		return &ExprVar{
 			Name: node.Name,

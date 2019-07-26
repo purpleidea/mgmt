@@ -87,7 +87,7 @@ func stringify(fs afero.Fs, name string, indent []bool) (string, error) {
 // dst has a different set of contents in the same location, the behaviour is
 // currently undefined.
 // TODO: this should be made more rsync like and robust!
-func CopyFs(srcFs, dstFs afero.Fs, src, dst string, force bool) error {
+func CopyFs(srcFs, dstFs afero.Fs, src, dst string, force bool, all bool) error {
 	src = path.Join("/", src)
 	dst = path.Join("/", dst)
 
@@ -103,7 +103,11 @@ func CopyFs(srcFs, dstFs afero.Fs, src, dst string, force bool) error {
 		perm := info.Mode() // get file permissions
 		p := path.Join(dst, name[srcFsLen:])
 		if info.IsDir() {
-			err := dstFs.Mkdir(p, perm)
+			if all {
+				err = dstFs.MkdirAll(p, perm)
+			} else {
+				err = dstFs.Mkdir(p, perm)
+			}
 			if os.IsExist(err) && (name == "/" || force) {
 				return nil
 			}
@@ -170,13 +174,21 @@ func CopyFsContents(srcFs afero.Fs, dstFs afero.Fs, src string, dst string, forc
 // CopyFsToDisk performs exactly as CopyFs, except that the dst fs is our local
 // disk os fs.
 func CopyFsToDisk(srcFs afero.Fs, src, dst string, force bool) error {
-	return CopyFs(srcFs, afero.NewOsFs(), src, dst, force)
+	return CopyFs(srcFs, afero.NewOsFs(), src, dst, force, false)
 }
 
 // CopyDiskToFs performs exactly as CopyFs, except that the src fs is our local
 // disk os fs.
 func CopyDiskToFs(dstFs afero.Fs, src, dst string, force bool) error {
-	return CopyFs(afero.NewOsFs(), dstFs, src, dst, force)
+	return CopyFs(afero.NewOsFs(), dstFs, src, dst, force, false)
+}
+
+// CopyDiskToFsAll performs exactly as CopyDiskToFs, except that it allows you
+// to specify the `all` argument which switches CopyFs to using MkdirAll instead
+// of the regular Mkdir.
+// TODO: This works around weird copying issues. POSIX is hard.
+func CopyDiskToFsAll(dstFs afero.Fs, src, dst string, force, all bool) error {
+	return CopyFs(afero.NewOsFs(), dstFs, src, dst, force, all)
 }
 
 // CopyFsContentsToDisk performs exactly as CopyFs, except that the dst fs is

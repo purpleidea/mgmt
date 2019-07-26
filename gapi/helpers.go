@@ -64,6 +64,14 @@ func CopyDirToFs(fs engine.Fs, src, dst string) error {
 	return util.CopyDiskToFs(fs, src, dst, false)
 }
 
+// CopyDirToFsForceAll copies a dir from src path on the local fs to a dst path
+// on fs, but it doesn't error when making a dir that already exists. It also
+// uses `MkdirAll` to prevent some issues.
+// FIXME: This is being added because of issues with CopyDirToFs. POSIX is hard.
+func CopyDirToFsForceAll(fs engine.Fs, src, dst string) error {
+	return util.CopyDiskToFsAll(fs, src, dst, true, true)
+}
+
 // CopyDirContentsToFs copies a dir contents from src path on the local fs to a
 // dst path on fs.
 func CopyDirContentsToFs(fs engine.Fs, src, dst string) error {

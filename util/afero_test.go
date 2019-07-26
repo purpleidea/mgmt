@@ -53,7 +53,7 @@ func TestCopyFs1(t *testing.T) {
 				t.Errorf("could not MkdirAll %+v", err)
 				return
 			}
-			err = CopyFs(src, dst, tt.srcCopyRoot, tt.dstCopyRoot, tt.force)
+			err = CopyFs(src, dst, tt.srcCopyRoot, tt.dstCopyRoot, tt.force, false)
 			if err != nil {
 				t.Errorf("error copying source %s to dest %s", tt.srcCopyRoot, tt.dstCopyRoot)
 				return
@@ -100,7 +100,7 @@ func TestCopyFs2(t *testing.T) {
 		}
 	}
 
-	if err = CopyFs(src, dst, "", "", false); err != nil {
+	if err = CopyFs(src, dst, "", "", false, false); err != nil {
 		t.Errorf("could not CopyFs: %+v", err)
 		return
 	}

@@ -231,15 +231,15 @@ func TestFs2(t *testing.T) {
 
 	var memFs = afero.NewMemMapFs()
 
-	if err := util.CopyFs(etcdFs, memFs, "/", "/", false); err != nil {
+	if err := util.CopyFs(etcdFs, memFs, "/", "/", false, false); err != nil {
 		t.Errorf("copyfs error: %+v", err)
 		return
 	}
-	if err := util.CopyFs(etcdFs, memFs, "/", "/", true); err != nil {
+	if err := util.CopyFs(etcdFs, memFs, "/", "/", true, false); err != nil {
 		t.Errorf("copyfs2 error: %+v", err)
 		return
 	}
-	if err := util.CopyFs(etcdFs, memFs, "/", "/tmp/d1/", false); err != nil {
+	if err := util.CopyFs(etcdFs, memFs, "/", "/tmp/d1/", false, false); err != nil {
 		t.Errorf("copyfs3 error: %+v", err)
 		return
 	}
@@ -300,11 +300,11 @@ func TestFs3(t *testing.T) {
 
 	var memFs = afero.NewMemMapFs()
 
-	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/", false); err != nil {
+	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/", false, false); err != nil {
 		t.Errorf("copyfs error: %+v", err)
 		return
 	}
-	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/baz/", false); err != nil {
+	if err := util.CopyFs(etcdFs, memFs, "/tmp/foo/bar", "/baz/", false, false); err != nil {
 		t.Errorf("copyfs2 error: %+v", err)
 		return
 	}
@@ -419,7 +419,7 @@ func TestEtcdCopyFs0(t *testing.T) {
 		t.Logf("tree: \n%s", tree)
 
 		var memFs = afero.NewMemMapFs()
-		if err := util.CopyFs(etcdFs, memFs, tt.cpsrc, tt.cpdst, tt.force); err != nil {
+		if err := util.CopyFs(etcdFs, memFs, tt.cpsrc, tt.cpdst, tt.force, false); err != nil {
 			t.Errorf("copyfs error: %+v", err)
 			return
 		}

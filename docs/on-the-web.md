@@ -44,3 +44,11 @@ if we missed something that you think is relevant!
 | James Shubin | blog | [Mgmt Configuration Language](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2018](https://www.youtube.com/watch?v=NxObmwZDyrI) |
 | Jonathan Gold | blog | [Go Netlink and Select](https://jonathangold.ca/blog/go-netlink-and-select/) |
+| James Shubin | video | [Recording from DevOpsDays Montreal 2018](https://www.youtube.com/watch?v=1i38c5cooHo) |
+| James Shubin | video | [Recording from FOSDEM Minimalistic Languages Devroom 2019](https://video.fosdem.org/2019/K.4.201/mgmtconfig.webm) |
+| James Shubin | video | [Recording from FOSDEM Infra Management Devroom 2019](https://video.fosdem.org/2019/UB2.252A/mgmt.webm) |
+| James Shubin | video | [Recording from FOSDEM Graph Processing Devroom 2019](https://video.fosdem.org/2019/H.1308/graph_mgmt_config.webm) |
+| James Shubin | video | [Recording from FOSDEM Virtualization Devroom 2019](https://video.fosdem.org/2019/H.2213/vai_real_time_virtualization_automation.webm) |
+| James Shubin | video | [Recording from FOSDEM Containers Devroom 2019](https://video.fosdem.org/2019/UA2.114/containers_mgmt.webm) |
+| James Shubin | video | [Recording from FOSDEM Monitoring Devroom 2019](https://video.fosdem.org/2019/UB2.252A/real_time_merging_of_config_management_and_monitoring.webm) |
+| James Shubin | blog | [Mgmt Configuration Language: Class and Include](https://purpleidea.com/blog/2019/07/26/class-and-include-in-mgmt/) |

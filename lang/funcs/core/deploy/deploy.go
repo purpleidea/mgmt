@@ -18,6 +18,6 @@
 package coredeploy
 
 const (
-	// moduleName is the prefix given to all the functions in this module.
-	moduleName = "deploy"
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "deploy"
 )

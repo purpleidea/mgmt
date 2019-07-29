@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	funcs.ModuleRegister(moduleName, "readfileabs", func() interfaces.Func { return &ReadFileAbsFunc{} }) // must register the func and name
+	funcs.ModuleRegister(ModuleName, "readfileabs", func() interfaces.Func { return &ReadFileAbsFunc{} }) // must register the func and name
 }
 
 // ReadFileAbsFunc is a function that reads the full contents from a file in our

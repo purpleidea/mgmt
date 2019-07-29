@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	funcs.ModuleRegister(moduleName, "abspath", func() interfaces.Func { return &AbsPathFunc{} }) // must register the func and name
+	funcs.ModuleRegister(ModuleName, "abspath", func() interfaces.Func { return &AbsPathFunc{} }) // must register the func and name
 }
 
 const (

@@ -7721,10 +7721,6 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 	// TODO: switch based on obj.Var ?
 	//newScope.Functions[obj.Name] = copied // overwrite with new pointer
 
-	if obj.data.Debug {
-		obj.data.Logf("call(%s): set scope: adding to indexes: %+v", obj.Name, newScope.Indexes)
-	}
-
 	err = obj.expr.SetScope(newScope)
 	return errwrap.Wrapf(err, "could not set call expr scope")
 }

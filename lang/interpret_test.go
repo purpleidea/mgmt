@@ -1283,7 +1283,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if fail2 && err == nil {
 				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: interpolation passed, expected fail", index)
+				t.Errorf("test #%d: set scope passed, expected fail", index)
 				return
 			}
 

@@ -884,3 +884,35 @@ func TestFindEdge1(t *testing.T) {
 		t.Errorf("an edge was found although it did not exist")
 	}
 }
+
+func TestFindEdge2(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+
+	g.AddEdge(v1, v4, e1)
+	g.AddEdge(v2, v5, e2)
+	g.AddEdge(v3, v6, e3)
+
+	if g.FindEdge(v1, v4) != e1 {
+		t.Errorf("edge e1 was not returned")
+	}
+	if g.FindEdge(v2, v5) != e2 {
+		t.Errorf("edge e1 was not returned")
+	}
+	if g.FindEdge(v3, v6) != e3 {
+		t.Errorf("edge e1 was not returned")
+	}
+	if g.FindEdge(v2, v6) != nil {
+		t.Errorf("an edge was found although it did not exist")
+	}
+}

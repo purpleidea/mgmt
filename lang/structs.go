@@ -8453,7 +8453,13 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
-	return nil
+
+	// XXX: do we want to SetScope into the variable if it's set?
+	expr, exists := obj.scope.Variables[obj.Name]
+	if !exists {
+		return nil
+	}
+	return expr.SetScope(scope)
 }
 
 // SetType is used to set the type of this expression once it is known. This

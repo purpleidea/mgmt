@@ -44,7 +44,7 @@ func TestExpandHome(t *testing.T) {
 		}
 
 		if actual != test.expanded {
-			t.Errorf("ExpandHome(%s): expected %s, actual %s", test.path, test.expanded, actual)
+			t.Errorf("input: %s, expected: %s, actual: %s", test.path, test.expanded, actual)
 		}
 	}
 }

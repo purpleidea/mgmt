@@ -41,7 +41,7 @@ func runGraphCmp(t *testing.T, g1, g2 *pgraph.Graph) {
 	if err != nil {
 		t.Logf("  actual (g1): %v%s", g1, fullPrint(g1))
 		t.Logf("expected (g2): %v%s", g2, fullPrint(g2))
-		t.Errorf("Cmp error:\n%v", err)
+		t.Errorf("cmp error:\n%v", err)
 	}
 }
 

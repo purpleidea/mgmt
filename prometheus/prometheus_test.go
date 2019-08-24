@@ -38,7 +38,7 @@ func TestInitKindMetrics(t *testing.T) {
 	gatherer := prometheus.DefaultGatherer
 	metrics, err := gatherer.Gather()
 	if err != nil {
-		t.Errorf("Error while gathering metrics: %s", err)
+		t.Errorf("error while gathering metrics: %s", err)
 		return
 	}
 
@@ -71,7 +71,7 @@ func TestInitKindMetrics(t *testing.T) {
 
 	for name, count := range expectedMetrics {
 		if count[1] != count[0] {
-			t.Errorf("%s: Expected %d metrics, got %d metrics", name, count[0], count[1])
+			t.Errorf("with: %s, expected %d metrics, got %d metrics", name, count[0], count[1])
 		}
 	}
 }

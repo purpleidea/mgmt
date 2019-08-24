@@ -31,7 +31,7 @@ func testToLower(t *testing.T, input, expected string) {
 		return
 	}
 	if value.Str() != expected {
-		t.Errorf("Invalid output, expected %s, got %s", expected, value.Str())
+		t.Errorf("invalid output, expected %s, got %s", expected, value.Str())
 	}
 }
 

@@ -550,7 +550,7 @@ func TestAstFunc1(t *testing.T) {
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
 	if err != nil {
-		t.Errorf("FAIL: could not get tests directory: %+v", err)
+		t.Errorf("could not get tests directory: %+v", err)
 		return
 	}
 	t.Logf("tests directory is: %s", dir)
@@ -592,7 +592,7 @@ func TestAstFunc1(t *testing.T) {
 	// build test array automatically from reading the dir
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		t.Errorf("FAIL: could not read through tests directory: %+v", err)
+		t.Errorf("could not read through tests directory: %+v", err)
 		return
 	}
 	sorted := []string{}
@@ -608,13 +608,13 @@ func TestAstFunc1(t *testing.T) {
 		graphFileFull := dir + graphFile
 		info, err := os.Stat(graphFileFull)
 		if err != nil || info.IsDir() {
-			t.Errorf("FAIL: missing: %s", graphFile)
+			t.Errorf("missing: %s", graphFile)
 			t.Errorf("(err: %+v)", err)
 			continue
 		}
 		content, err := ioutil.ReadFile(graphFileFull)
 		if err != nil {
-			t.Errorf("FAIL: could not read graph file: %+v", err)
+			t.Errorf("could not read graph file: %+v", err)
 			return
 		}
 		str := string(content) // expected graph
@@ -971,7 +971,7 @@ func TestAstFunc2(t *testing.T) {
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
 	if err != nil {
-		t.Errorf("FAIL: could not get tests directory: %+v", err)
+		t.Errorf("could not get tests directory: %+v", err)
 		return
 	}
 	t.Logf("tests directory is: %s", dir)
@@ -1014,7 +1014,7 @@ func TestAstFunc2(t *testing.T) {
 	// build test array automatically from reading the dir
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		t.Errorf("FAIL: could not read through tests directory: %+v", err)
+		t.Errorf("could not read through tests directory: %+v", err)
 		return
 	}
 	sorted := []string{}
@@ -1030,13 +1030,13 @@ func TestAstFunc2(t *testing.T) {
 		graphFileFull := dir + graphFile
 		info, err := os.Stat(graphFileFull)
 		if err != nil || info.IsDir() {
-			t.Errorf("FAIL: missing: %s", graphFile)
+			t.Errorf("missing: %s", graphFile)
 			t.Errorf("(err: %+v)", err)
 			continue
 		}
 		content, err := ioutil.ReadFile(graphFileFull)
 		if err != nil {
-			t.Errorf("FAIL: could not read graph file: %+v", err)
+			t.Errorf("could not read graph file: %+v", err)
 			return
 		}
 		str := string(content) // expected graph

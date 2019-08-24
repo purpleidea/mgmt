@@ -43,7 +43,7 @@ func TestGraphSync1(t *testing.T) {
 
 	err := g.GraphSync(newGraph, nil, nil, nil, nil)
 	if err != nil {
-		t.Errorf("GraphSync failed: %v", err)
+		t.Errorf("failed with: %+v", err)
 		return
 	}
 
@@ -83,7 +83,7 @@ func TestGraphSync2(t *testing.T) {
 
 	err := g.GraphSync(newGraph, strVertexCmpFn, vertexAddFn, vertexRemoveFn, strEdgeCmpFn)
 	if err != nil {
-		t.Errorf("GraphSync failed: %v", err)
+		t.Errorf("failed with: %+v", err)
 		return
 	}
 

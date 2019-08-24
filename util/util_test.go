@@ -43,7 +43,7 @@ func TestNumToAlpha(t *testing.T) {
 	for _, test := range numToAlphaTests {
 		actual := NumToAlpha(test.number)
 		if actual != test.result {
-			t.Errorf("NumToAlpha(%d): expected %s, actual %s", test.number, test.result, actual)
+			t.Errorf("input: %d, expected: %s, actual: %s", test.number, test.result, actual)
 		}
 	}
 }
@@ -51,51 +51,51 @@ func TestNumToAlpha(t *testing.T) {
 func TestUtilT1(t *testing.T) {
 
 	if Dirname("/foo/bar/baz") != "/foo/bar/" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Dirname("/foo/bar/baz/") != "/foo/bar/" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Dirname("/foo/") != "/" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Dirname("/") != "" { // TODO: should this equal "/" or "" ?
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Dirname("foo/bar.conf") != "foo/" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Dirname("foo/bar/baz.conf") != "foo/bar/" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Dirname("bar.conf") != "" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Basename("/foo/bar/baz") != "baz" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Basename("/foo/bar/baz/") != "baz/" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Basename("/foo/") != "foo/" {
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Basename("/") != "/" { // TODO: should this equal "" or "/" ?
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 
 	if Basename("") != "" { // TODO: should this equal something different?
-		t.Errorf("Result is incorrect.")
+		t.Errorf("result is incorrect.")
 	}
 }
 
@@ -105,87 +105,87 @@ func TestUtilT2(t *testing.T) {
 	p0 := "/"
 	r0 := []string{""} // TODO: is this correct?
 	if len(PathSplit(p0)) != len(r0) {
-		t.Errorf("Result should be: %q.", r0)
-		t.Errorf("Result should have a length of: %v.", len(r0))
+		t.Errorf("result should be: %q.", r0)
+		t.Errorf("result should have a length of: %v.", len(r0))
 	}
 
 	p1 := "/foo/bar/baz"
 	r1 := []string{"", "foo", "bar", "baz"}
 	if len(PathSplit(p1)) != len(r1) {
-		//t.Errorf("Result should be: %q.", r1)
-		t.Errorf("Result should have a length of: %v.", len(r1))
+		//t.Errorf("result should be: %q.", r1)
+		t.Errorf("result should have a length of: %v.", len(r1))
 	}
 
 	p2 := "/foo/bar/baz/"
 	r2 := []string{"", "foo", "bar", "baz"}
 	if len(PathSplit(p2)) != len(r2) {
-		t.Errorf("Result should have a length of: %v.", len(r2))
+		t.Errorf("result should have a length of: %v.", len(r2))
 	}
 }
 
 func TestUtilT3(t *testing.T) {
 
 	if HasPathPrefix("/foo/bar/baz", "/foo/ba") != false {
-		t.Errorf("Result should be false.")
+		t.Errorf("result should be false.")
 	}
 
 	if HasPathPrefix("/foo/bar/baz", "/foo/bar") != true {
-		t.Errorf("Result should be true.")
+		t.Errorf("result should be true.")
 	}
 
 	if HasPathPrefix("/foo/bar/baz", "/foo/bar/") != true {
-		t.Errorf("Result should be true.")
+		t.Errorf("result should be true.")
 	}
 
 	if HasPathPrefix("/foo/bar/baz/", "/foo/bar") != true {
-		t.Errorf("Result should be true.")
+		t.Errorf("result should be true.")
 	}
 
 	if HasPathPrefix("/foo/bar/baz/", "/foo/bar/") != true {
-		t.Errorf("Result should be true.")
+		t.Errorf("result should be true.")
 	}
 
 	if HasPathPrefix("/foo/bar/baz/", "/foo/bar/baz/dude") != false {
-		t.Errorf("Result should be false.")
+		t.Errorf("result should be false.")
 	}
 
 	if HasPathPrefix("/foo/bar/baz/boo/", "/foo/") != true {
-		t.Errorf("Result should be true.")
+		t.Errorf("result should be true.")
 	}
 }
 
 func TestUtilT4(t *testing.T) {
 
 	if PathPrefixDelta("/foo/bar/baz", "/foo/ba") != -1 {
-		t.Errorf("Result should be -1.")
+		t.Errorf("result should be -1.")
 	}
 
 	if PathPrefixDelta("/foo/bar/baz", "/foo/bar") != 1 {
-		t.Errorf("Result should be 1.")
+		t.Errorf("result should be 1.")
 	}
 
 	if PathPrefixDelta("/foo/bar/baz", "/foo/bar/") != 1 {
-		t.Errorf("Result should be 1.")
+		t.Errorf("result should be 1.")
 	}
 
 	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar") != 1 {
-		t.Errorf("Result should be 1.")
+		t.Errorf("result should be 1.")
 	}
 
 	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar/") != 1 {
-		t.Errorf("Result should be 1.")
+		t.Errorf("result should be 1.")
 	}
 
 	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar/baz/dude") != -1 {
-		t.Errorf("Result should be -1.")
+		t.Errorf("result should be -1.")
 	}
 
 	if PathPrefixDelta("/foo/bar/baz/a/b/c/", "/foo/bar/baz") != 3 {
-		t.Errorf("Result should be 3.")
+		t.Errorf("result should be 3.")
 	}
 
 	if PathPrefixDelta("/foo/bar/baz/", "/foo/bar/baz") != 0 {
-		t.Errorf("Result should be 0.")
+		t.Errorf("result should be 0.")
 	}
 }
 
@@ -193,17 +193,17 @@ func TestUtilT8(t *testing.T) {
 
 	r0 := []string{"/"}
 	if fullList0 := PathSplitFullReversed("/"); !reflect.DeepEqual(r0, fullList0) {
-		t.Errorf("PathSplitFullReversed expected: %v; got: %v.", r0, fullList0)
+		t.Errorf("expected: %v; got: %v.", r0, fullList0)
 	}
 
 	r1 := []string{"/foo/bar/baz/file", "/foo/bar/baz/", "/foo/bar/", "/foo/", "/"}
 	if fullList1 := PathSplitFullReversed("/foo/bar/baz/file"); !reflect.DeepEqual(r1, fullList1) {
-		t.Errorf("PathSplitFullReversed expected: %v; got: %v.", r1, fullList1)
+		t.Errorf("expected: %v; got: %v.", r1, fullList1)
 	}
 
 	r2 := []string{"/foo/bar/baz/dir/", "/foo/bar/baz/", "/foo/bar/", "/foo/", "/"}
 	if fullList2 := PathSplitFullReversed("/foo/bar/baz/dir/"); !reflect.DeepEqual(r2, fullList2) {
-		t.Errorf("PathSplitFullReversed expected: %v; got: %v.", r2, fullList2)
+		t.Errorf("expected: %v; got: %v.", r2, fullList2)
 	}
 
 }
@@ -341,9 +341,9 @@ func TestUtilT9(t *testing.T) {
 	sort.Strings(dirify)
 	equals := reflect.DeepEqual(fileListOut, dirify)
 	if a, b := len(fileListOut), len(dirify); a != b {
-		t.Errorf("DirifyFileList counts didn't match: %d != %d", a, b)
+		t.Errorf("counts didn't match: %d != %d", a, b)
 	} else if !equals {
-		t.Errorf("DirifyFileList did not match expected!")
+		t.Errorf("did not match expected!")
 		for i := 0; i < len(dirify); i++ {
 			if fileListOut[i] != dirify[i] {
 				t.Errorf("# %d: %v <> %v", i, fileListOut[i], dirify[i])
@@ -377,9 +377,9 @@ func TestUtilT10(t *testing.T) {
 	sort.Strings(dirify)
 	equals := reflect.DeepEqual(fileListOut, dirify)
 	if a, b := len(fileListOut), len(dirify); a != b {
-		t.Errorf("DirifyFileList counts didn't match: %d != %d", a, b)
+		t.Errorf("counts didn't match: %d != %d", a, b)
 	} else if !equals {
-		t.Errorf("DirifyFileList did not match expected!")
+		t.Errorf("did not match expected!")
 		for i := 0; i < len(dirify); i++ {
 			if fileListOut[i] != dirify[i] {
 				t.Errorf("# %d: %v <> %v", i, fileListOut[i], dirify[i])
@@ -395,7 +395,7 @@ func TestUtilT11(t *testing.T) {
 	out1 := RemoveCommonFilePrefixes(in1)
 	sort.Strings(out1)
 	if !reflect.DeepEqual(ex1, out1) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex1, out1)
+		t.Errorf("expected: %v; got: %v.", ex1, out1)
 	}
 
 	in2 := []string{"/", "/usr/"}
@@ -404,14 +404,14 @@ func TestUtilT11(t *testing.T) {
 	out2 := RemoveCommonFilePrefixes(in2)
 	sort.Strings(out2)
 	if !reflect.DeepEqual(ex2, out2) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex2, out2)
+		t.Errorf("expected: %v; got: %v.", ex2, out2)
 	}
 
 	in3 := []string{"/"}
 	ex3 := []string{"/"}
 	out3 := RemoveCommonFilePrefixes(in3)
 	if !reflect.DeepEqual(ex3, out3) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex3, out3)
+		t.Errorf("expected: %v; got: %v.", ex3, out3)
 	}
 
 	in4 := []string{"/usr/bin/foo", "/usr/bin/bar", "/usr/lib/", "/usr/share/"}
@@ -420,7 +420,7 @@ func TestUtilT11(t *testing.T) {
 	out4 := RemoveCommonFilePrefixes(in4)
 	sort.Strings(out4)
 	if !reflect.DeepEqual(ex4, out4) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex4, out4)
+		t.Errorf("expected: %v; got: %v.", ex4, out4)
 	}
 
 	in5 := []string{"/usr/bin/foo", "/usr/bin/bar", "/usr/lib/", "/usr/share/", "/usr/bin"}
@@ -429,7 +429,7 @@ func TestUtilT11(t *testing.T) {
 	out5 := RemoveCommonFilePrefixes(in5)
 	sort.Strings(out5)
 	if !reflect.DeepEqual(ex5, out5) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex5, out5)
+		t.Errorf("expected: %v; got: %v.", ex5, out5)
 	}
 
 	in6 := []string{"/etc/drbd.d/", "/lib/drbd/", "/usr/lib/drbd/", "/usr/lib/systemd/system/", "/usr/lib/tmpfiles.d/", "/usr/sbin/", "/usr/share/doc/drbd-utils/", "/usr/share/man/man5/", "/usr/share/man/man8/", "/usr/share/doc/", "/var/lib/"}
@@ -438,7 +438,7 @@ func TestUtilT11(t *testing.T) {
 	out6 := RemoveCommonFilePrefixes(in6)
 	sort.Strings(out6)
 	if !reflect.DeepEqual(ex6, out6) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex6, out6)
+		t.Errorf("expected: %v; got: %v.", ex6, out6)
 	}
 
 	in7 := []string{"/etc/", "/lib/", "/usr/lib/", "/usr/lib/systemd/", "/usr/", "/usr/share/doc/", "/usr/share/man/", "/var/"}
@@ -447,7 +447,7 @@ func TestUtilT11(t *testing.T) {
 	out7 := RemoveCommonFilePrefixes(in7)
 	sort.Strings(out7)
 	if !reflect.DeepEqual(ex7, out7) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex7, out7)
+		t.Errorf("expected: %v; got: %v.", ex7, out7)
 	}
 
 	in8 := []string{
@@ -576,7 +576,7 @@ func TestUtilT11(t *testing.T) {
 	out8 := RemoveCommonFilePrefixes(in8)
 	sort.Strings(out8)
 	if !reflect.DeepEqual(ex8, out8) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex8, out8)
+		t.Errorf("expected: %v; got: %v.", ex8, out8)
 	}
 
 	in9 := []string{
@@ -623,7 +623,7 @@ func TestUtilT11(t *testing.T) {
 	out9 := RemoveCommonFilePrefixes(in9)
 	sort.Strings(out9)
 	if !reflect.DeepEqual(ex9, out9) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex9, out9)
+		t.Errorf("expected: %v; got: %v.", ex9, out9)
 	}
 
 	in10 := []string{
@@ -752,7 +752,7 @@ func TestUtilT11(t *testing.T) {
 	out10 := RemoveCommonFilePrefixes(in10)
 	sort.Strings(out10)
 	if !reflect.DeepEqual(ex10, out10) {
-		t.Errorf("RemoveCommonFilePrefixes expected: %v; got: %v.", ex10, out10)
+		t.Errorf("expected: %v; got: %v.", ex10, out10)
 		for i := 0; i < len(ex10); i++ {
 			if ex10[i] != out10[i] {
 				t.Errorf("# %d: %v <> %v", i, ex10[i], out10[i])
@@ -769,7 +769,7 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 		sort.Strings(out)
 		sort.Strings(ex)
 		if !reflect.DeepEqual(ex, out) {
-			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+			t.Errorf("expected: %v; got: %v.", ex, out)
 		}
 	}
 
@@ -780,7 +780,7 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 		sort.Strings(out)
 		sort.Strings(ex)
 		if !reflect.DeepEqual(ex, out) {
-			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+			t.Errorf("expected: %v; got: %v.", ex, out)
 		}
 	}
 
@@ -791,7 +791,7 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 		sort.Strings(out)
 		sort.Strings(ex)
 		if !reflect.DeepEqual(ex, out) {
-			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+			t.Errorf("expected: %v; got: %v.", ex, out)
 		}
 	}
 
@@ -802,7 +802,7 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 		sort.Strings(out)
 		sort.Strings(ex)
 		if !reflect.DeepEqual(ex, out) {
-			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+			t.Errorf("expected: %v; got: %v.", ex, out)
 		}
 	}
 
@@ -813,7 +813,7 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 		sort.Strings(out)
 		sort.Strings(ex)
 		if !reflect.DeepEqual(ex, out) {
-			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+			t.Errorf("expected: %v; got: %v.", ex, out)
 		}
 	}
 
@@ -824,7 +824,7 @@ func TestUtilFlattenListWithSplit1(t *testing.T) {
 		sort.Strings(out)
 		sort.Strings(ex)
 		if !reflect.DeepEqual(ex, out) {
-			t.Errorf("FlattenListWithSplit expected: %v; got: %v.", ex, out)
+			t.Errorf("expected: %v; got: %v.", ex, out)
 		}
 	}
 }
@@ -1292,7 +1292,7 @@ func TestPriorityStrSliceSort0(t *testing.T) {
 	out := PriorityStrSliceSort(in, fn)
 
 	if !reflect.DeepEqual(ex, out) {
-		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+		t.Errorf("expected: %v; got: %v.", ex, out)
 	}
 }
 
@@ -1306,7 +1306,7 @@ func TestPriorityStrSliceSort1(t *testing.T) {
 	out := PriorityStrSliceSort(in, fn)
 
 	if !reflect.DeepEqual(ex, out) {
-		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+		t.Errorf("expected: %v; got: %v.", ex, out)
 	}
 }
 
@@ -1320,7 +1320,7 @@ func TestPriorityStrSliceSort2(t *testing.T) {
 	out := PriorityStrSliceSort(in, fn)
 
 	if !reflect.DeepEqual(ex, out) {
-		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+		t.Errorf("expected: %v; got: %v.", ex, out)
 	}
 }
 
@@ -1334,7 +1334,7 @@ func TestPriorityStrSliceSort3(t *testing.T) {
 	out := PriorityStrSliceSort(in, fn)
 
 	if !reflect.DeepEqual(ex, out) {
-		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+		t.Errorf("expected: %v; got: %v.", ex, out)
 	}
 }
 
@@ -1348,7 +1348,7 @@ func TestPriorityStrSliceSort4(t *testing.T) {
 	out := PriorityStrSliceSort(in, fn)
 
 	if !reflect.DeepEqual(ex, out) {
-		t.Errorf("PriorityStrSliceSort expected: %v; got: %v.", ex, out)
+		t.Errorf("expected: %v; got: %v.", ex, out)
 	}
 }
 

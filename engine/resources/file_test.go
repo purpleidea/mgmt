@@ -78,7 +78,7 @@ func TestMiscEncodeDecode1(t *testing.T) {
 	e := gob.NewEncoder(&b1)
 	err = e.Encode(&input) // pass with &
 	if err != nil {
-		t.Errorf("Gob failed to Encode: %v", err)
+		t.Errorf("gob failed to Encode: %v", err)
 	}
 	str := base64.StdEncoding.EncodeToString(b1.Bytes())
 
@@ -86,27 +86,27 @@ func TestMiscEncodeDecode1(t *testing.T) {
 	var output interface{}
 	bb, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		t.Errorf("Base64 failed to Decode: %v", err)
+		t.Errorf("base64 failed to Decode: %v", err)
 	}
 	b2 := bytes.NewBuffer(bb)
 	d := gob.NewDecoder(b2)
 	err = d.Decode(&output) // pass with &
 	if err != nil {
-		t.Errorf("Gob failed to Decode: %v", err)
+		t.Errorf("gob failed to Decode: %v", err)
 	}
 
 	res1, ok := input.(engine.Res)
 	if !ok {
-		t.Errorf("Input %v is not a Res", res1)
+		t.Errorf("input %v is not a Res", res1)
 		return
 	}
 	res2, ok := output.(engine.Res)
 	if !ok {
-		t.Errorf("Output %v is not a Res", res2)
+		t.Errorf("output %v is not a Res", res2)
 		return
 	}
 	if err := res1.Cmp(res2); err != nil {
-		t.Errorf("The input and output Res values do not match: %+v", err)
+		t.Errorf("the input and output Res values do not match: %+v", err)
 	}
 }
 
@@ -116,7 +116,7 @@ func TestMiscEncodeDecode2(t *testing.T) {
 	// encode
 	input, err := engine.NewNamedResource("file", "file1")
 	if err != nil {
-		t.Errorf("Can't create: %v", err)
+		t.Errorf("can't create: %v", err)
 		return
 	}
 	// NOTE: Do not add this bit of code, because it would cause the path to
@@ -128,29 +128,29 @@ func TestMiscEncodeDecode2(t *testing.T) {
 
 	b64, err := engineUtil.ResToB64(input)
 	if err != nil {
-		t.Errorf("Can't encode: %v", err)
+		t.Errorf("can't encode: %v", err)
 		return
 	}
 
 	output, err := engineUtil.B64ToRes(b64)
 	if err != nil {
-		t.Errorf("Can't decode: %v", err)
+		t.Errorf("can't decode: %v", err)
 		return
 	}
 
 	res1, ok := input.(engine.Res)
 	if !ok {
-		t.Errorf("Input %v is not a Res", res1)
+		t.Errorf("input %v is not a Res", res1)
 		return
 	}
 	res2, ok := output.(engine.Res)
 	if !ok {
-		t.Errorf("Output %v is not a Res", res2)
+		t.Errorf("output %v is not a Res", res2)
 		return
 	}
 	// this uses the standalone file cmp function
 	if err := res1.Cmp(res2); err != nil {
-		t.Errorf("The input and output Res values do not match: %+v", err)
+		t.Errorf("the input and output Res values do not match: %+v", err)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestMiscEncodeDecode3(t *testing.T) {
 	// encode
 	input, err := engine.NewNamedResource("file", "file1")
 	if err != nil {
-		t.Errorf("Can't create: %v", err)
+		t.Errorf("can't create: %v", err)
 		return
 	}
 	fileRes := input.(*FileRes) // must not panic
@@ -169,29 +169,29 @@ func TestMiscEncodeDecode3(t *testing.T) {
 
 	b64, err := engineUtil.ResToB64(input)
 	if err != nil {
-		t.Errorf("Can't encode: %v", err)
+		t.Errorf("can't encode: %v", err)
 		return
 	}
 
 	output, err := engineUtil.B64ToRes(b64)
 	if err != nil {
-		t.Errorf("Can't decode: %v", err)
+		t.Errorf("can't decode: %v", err)
 		return
 	}
 
 	res1, ok := input.(engine.Res)
 	if !ok {
-		t.Errorf("Input %v is not a Res", res1)
+		t.Errorf("input %v is not a Res", res1)
 		return
 	}
 	res2, ok := output.(engine.Res)
 	if !ok {
-		t.Errorf("Output %v is not a Res", res2)
+		t.Errorf("output %v is not a Res", res2)
 		return
 	}
 	// this uses the more complete, engine cmp function
 	if err := engine.ResCmp(res1, res2); err != nil {
-		t.Errorf("The input and output Res values do not match: %+v", err)
+		t.Errorf("the input and output Res values do not match: %+v", err)
 	}
 }
 

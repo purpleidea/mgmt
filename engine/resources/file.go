@@ -43,6 +43,15 @@ func init() {
 	engine.RegisterResource("file", func() engine.Res { return &FileRes{} })
 }
 
+const (
+	// FileStateExists is the string that represents that the file should be
+	// present.
+	FileStateExists = "exists"
+	// FileStateAbsent is the string that represents that the file should
+	// not exist.
+	FileStateAbsent = "absent"
+)
+
 // FileRes is a file and directory resource. Dirs are defined by names ending
 // in a slash.
 type FileRes struct {
@@ -84,7 +93,7 @@ type FileRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *FileRes) Default() engine.Res {
 	return &FileRes{
-		State: "exists",
+		State: FileStateExists,
 	}
 }
 
@@ -601,11 +610,11 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 		return false, errwrap.Wrapf(err, "could not stat file")
 	}
 
-	if obj.State == "absent" && os.IsNotExist(err) {
+	if obj.State == FileStateAbsent && os.IsNotExist(err) {
 		return true, nil
 	}
 
-	if obj.State == "exists" && err == nil {
+	if obj.State == FileStateExists && err == nil {
 		return true, nil
 	}
 
@@ -614,7 +623,7 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 		return false, nil
 	}
 
-	if obj.State == "absent" {
+	if obj.State == FileStateAbsent {
 		return false, nil // defer the work to contentCheckApply
 	}
 
@@ -639,7 +648,7 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 	obj.init.Logf("contentCheckApply(%t)", apply)
 
-	if obj.State == "absent" {
+	if obj.State == FileStateAbsent {
 		if _, err := os.Stat(obj.getPath()); os.IsNotExist(err) {
 			// no such file or directory, but
 			// file should be missing, phew :)
@@ -701,7 +710,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
 	obj.init.Logf("chmodCheckApply(%t)", apply)
 
-	if obj.State == "absent" {
+	if obj.State == FileStateAbsent {
 		// file is absent
 		return true, nil
 	}
@@ -747,7 +756,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 	var expectedUID, expectedGID int
 	obj.init.Logf("chownCheckApply(%t)", apply)
 
-	if obj.State == "absent" {
+	if obj.State == FileStateAbsent {
 		// file is absent or no owner specified
 		return true, nil
 	}

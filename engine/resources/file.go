@@ -50,6 +50,9 @@ const (
 	// FileStateAbsent is the string that represents that the file should
 	// not exist.
 	FileStateAbsent = "absent"
+	// FileStateUndefined means the file state has not been specified.
+	// TODO: consider moving to *string and express this state as a nil.
+	FileStateUndefined = ""
 )
 
 // FileRes is a file and directory resource. Dirs are defined by names ending
@@ -121,6 +124,10 @@ func (obj *FileRes) Validate() error {
 
 	if obj.isDir() && obj.Content != nil { // makes no sense
 		return fmt.Errorf("can't specify Content when creating a Dir")
+	}
+
+	if obj.State != FileStateExists && obj.State != FileStateAbsent && obj.State != FileStateUndefined {
+		return fmt.Errorf("the State is invalid")
 	}
 
 	if obj.Mode != "" {
@@ -600,7 +607,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 
 // state performs a CheckApply of the file state to create an empty file.
 func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
-	if obj.State == "" { // state is not specified
+	if obj.State == FileStateUndefined { // state is not specified
 		return true, nil
 	}
 
@@ -1046,7 +1053,7 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 		Basename: obj.Basename,
 		Content:  content,
 		Source:   obj.Source,
-		State:    obj.State,
+		State:    obj.State, // TODO: if this becomes a pointer, copy the string!
 		Owner:    obj.Owner,
 		Group:    obj.Group,
 		Mode:     obj.Mode,

@@ -1023,6 +1023,29 @@ func (obj *FileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
+// TODO: should this copy internal state?
+func (obj *FileRes) Copy() engine.CopyableRes {
+	var content *string
+	if obj.Content != nil { // copy the string contents, not the pointer...
+		s := *obj.Content
+		content = &s
+	}
+	return &FileRes{
+		Path:     obj.Path,
+		Dirname:  obj.Dirname,
+		Basename: obj.Basename,
+		Content:  content,
+		Source:   obj.Source,
+		State:    obj.State,
+		Owner:    obj.Owner,
+		Group:    obj.Group,
+		Mode:     obj.Mode,
+		Recurse:  obj.Recurse,
+		Force:    obj.Force,
+	}
+}
+
 // smartPath adds a trailing slash to the path if it is a directory.
 func smartPath(fileInfo os.FileInfo) string {
 	smartPath := fileInfo.Name() // absolute path

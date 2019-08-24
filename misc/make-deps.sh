@@ -34,6 +34,11 @@ if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then
 	exit 1
 fi
 
+# I think having both installed confused golang somehow...
+if [ ! -z "$YUM" ] && [ ! -z "$APT" ]; then
+	echo "You have both $APT and $YUM installed. Please check your deps manually."
+fi
+
 if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel

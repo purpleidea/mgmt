@@ -15,12 +15,18 @@ GO=`command -v go 2>/dev/null`
 YUM=`command -v yum 2>/dev/null`
 DNF=`command -v dnf 2>/dev/null`
 APT=`command -v apt-get 2>/dev/null`
+NEWAPT=`command -v apt 2>/dev/null`
 BREW=`command -v brew 2>/dev/null`
 PACMAN=`command -v pacman 2>/dev/null`
 
 # if DNF is available use it
 if [ -x "$DNF" ]; then
 	YUM=$DNF
+fi
+
+# if APT is available use it
+if [ -x "$NEWAPT" ]; then
+	APT=$NEWAPT
 fi
 
 if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then

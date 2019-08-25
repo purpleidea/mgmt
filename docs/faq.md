@@ -226,6 +226,15 @@ it and replace it with your git cloned directory. In my case, I like to work on
 things in `~/code/mgmt/`, so that path is a symlink that points to the long
 project directory.
 
+This error can also be caused by having an outdated version of libvirt installed.
+If you still see `no Go files in $GOPATH/src/github.com/purpleidea/mgmt/bindata`
+when attempting to build `mgmt`, you should reinstall libvirt with the command
+below:
+
+```
+go get -u github.com/libvirt/libvirt-go
+```
+
 ### On startup `mgmt` hangs after: `etcd: server: starting...`.
 
 If you get an error message similar to:

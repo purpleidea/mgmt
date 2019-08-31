@@ -55,6 +55,7 @@ type UserRes struct {
 	AllowDuplicateUID bool     `yaml:"allowduplicateuid"` // allow duplicate uid
 
 	recWatcher *recwatch.RecWatcher
+	fileList   []string // FIXME: update if pkg changes
 }
 
 // Default returns some sensible defaults for this resource.
@@ -343,6 +344,13 @@ type UserUID struct {
 	name string
 }
 
+// plan b
+// UserFileUID is the UID struct for UserRes files.
+// type UserFileUID struct {
+// 	engine.BaseUID
+// 	path string // path of the file
+// }
+
 // UserResAutoEdges holds the state of the auto edge generator.
 type UserResAutoEdges struct {
 	UIDs    []engine.ResUID
@@ -419,7 +427,16 @@ func (obj *UserRes) UIDs() []engine.ResUID {
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
 		name:    obj.Name(),
 	}
-	return []engine.ResUID{x}
+	result := []engine.ResUID{x}
+
+	for _, y := range obj.fileList {
+		y := &FileUID{
+			BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+			path:    y,
+		}
+		result = append(result, y)
+	}
+	return result
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct.

@@ -48,6 +48,7 @@ type GroupRes struct {
 	GID   *uint32 `yaml:"gid"`   // the group's gid
 
 	recWatcher *recwatch.RecWatcher
+	fileList   []string // FIXME: update if pkg changes
 }
 
 // Default returns some sensible defaults for this resource.
@@ -255,6 +256,12 @@ type GroupUID struct {
 	gid  *uint32
 }
 
+// GroupFileUID is the UID struct for GroupRes files.
+// type GroupFileUID struct {
+// 	engine.BaseUID
+// 	path string // path of the file
+// }
+
 // AutoEdges returns the AutoEdge interface.
 func (obj *GroupRes) AutoEdges() (engine.AutoEdge, error) {
 	return nil, nil
@@ -287,7 +294,16 @@ func (obj *GroupRes) UIDs() []engine.ResUID {
 		name:    obj.Name(),
 		gid:     obj.GID,
 	}
-	return []engine.ResUID{x}
+	result := []engine.ResUID{x}
+
+	for _, y := range obj.fileList {
+		y := &FileUID{
+			BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+			path:    y,
+		}
+		result = append(result, y)
+	}
+	return result
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct.

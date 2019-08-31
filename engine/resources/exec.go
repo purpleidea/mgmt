@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -91,6 +92,7 @@ type ExecRes struct {
 	// used for any command being run.
 	Group string `yaml:"group"`
 
+	GID    *uint32 `yaml:"gid"` // gid of the exec resource's primary group
 	output *string // all cmd output, read only, do not set!
 	stdout *string // the cmd stdout, read only, do not set!
 	stderr *string // the cmd stderr, read only, do not set!
@@ -525,7 +527,6 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	if obj.Group != res.Group {
 		return fmt.Errorf("the Group differs")
 	}
-
 	return nil
 }
 
@@ -562,8 +563,8 @@ func (obj *ExecResAutoEdges) Test(input []bool) bool {
 // AutoEdges returns the AutoEdge interface. In this case the systemd units.
 func (obj *ExecRes) AutoEdges() (engine.AutoEdge, error) {
 	var data []engine.ResUID
+	var reversed = true
 	for _, x := range obj.cmdFiles() {
-		var reversed = true
 		data = append(data, &PkgFileUID{
 			BaseUID: engine.BaseUID{
 				Name:     obj.Name(),
@@ -571,6 +572,54 @@ func (obj *ExecRes) AutoEdges() (engine.AutoEdge, error) {
 				Reversed: &reversed,
 			},
 			path: x, // what matters
+		})
+		data = append(data, &FileUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed,
+			},
+			path: x,
+		})
+		// plan b
+		// data = append(data, &UserFileUID{
+		// 	BaseUID: engine.BaseUID{
+		// 		Name:     obj.Name(),
+		// 		Kind:     obj.Kind(),
+		// 		Reversed: &reversed,
+		// 	},
+		// 	path: x,
+		// })
+	}
+	if obj.User != "" {
+		var reversed = true
+		data = append(data, &UserUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed,
+			},
+			name: obj.User,
+		})
+	}
+	if obj.Group != "" {
+		group, err := user.LookupGroup(obj.Group)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error while looking for %s group id", obj.Group)
+		}
+		groupID, err := strconv.Atoi(group.Gid)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error while converting %s's group id to uint32", obj.Group)
+		}
+		gid := uint32(groupID)
+		data = append(data, &GroupUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed,
+			},
+			name: obj.Group,
+			gid:  &gid,
 		})
 	}
 	return &ExecResAutoEdges{

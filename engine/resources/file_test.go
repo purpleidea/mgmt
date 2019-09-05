@@ -195,6 +195,59 @@ func TestMiscEncodeDecode3(t *testing.T) {
 	}
 }
 
+func TestMiscEncodeDecode4(t *testing.T) {
+	var err error
+	const (
+		Kind = "file"
+		Name = "file1"
+	)
+
+	// encode
+	input, err := engine.NewNamedResource(Kind, Name)
+	if err != nil {
+		t.Errorf("can't create: %v", err)
+		return
+	}
+	fileRes := input.(*FileRes) // must not panic
+	fileRes.Path = "/tmp/whatever"
+	// TODO: add other params/traits/etc here!
+
+	b64, err := engineUtil.ResToB64(input)
+	if err != nil {
+		t.Errorf("can't encode: %v", err)
+		return
+	}
+
+	output, err := engineUtil.B64ToRes(b64)
+	if err != nil {
+		t.Errorf("can't decode: %v", err)
+		return
+	}
+
+	res1, ok := input.(engine.Res)
+	if !ok {
+		t.Errorf("input %v is not a Res", res1)
+		return
+	}
+	res2, ok := output.(engine.Res)
+	if !ok {
+		t.Errorf("output %v is not a Res", res2)
+		return
+	}
+	// this uses the more complete, engine cmp function
+	if err := engine.ResCmp(res1, res2); err != nil {
+		t.Errorf("the input and output Res values do not match: %+v", err)
+	}
+
+	// ensure the kind and name are correctly decoded too!
+	if kind := res2.Kind(); kind != Kind {
+		t.Errorf("the output kind was `%s`, expected `%s`", kind, Kind)
+	}
+	if name := res2.Name(); name != Name {
+		t.Errorf("the output name was `%s`, expected `%s`", name, Name)
+	}
+}
+
 func TestFileAbsolute1(t *testing.T) {
 	// file resource paths should be absolute
 	f1 := &FileRes{

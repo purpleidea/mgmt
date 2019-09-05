@@ -30,6 +30,12 @@ import (
 	"github.com/purpleidea/mgmt/util/semaphore"
 )
 
+const (
+	// StateDir is the name of the sub directory where all the local
+	// resource state is stored.
+	StateDir = "state"
+)
+
 // Engine encapsulates a generic graph and manages its operations.
 type Engine struct {
 	Program  string
@@ -176,7 +182,8 @@ func (obj *Engine) Commit() error {
 
 		// FIXME: is res.Name() sufficiently unique to use as a UID here?
 		pathUID := fmt.Sprintf("%s-%s", res.Kind(), res.Name())
-		statePrefix := fmt.Sprintf("%s/", path.Join(obj.Prefix, "state", pathUID))
+		statePrefix := fmt.Sprintf("%s/", path.Join(obj.statePrefix(), pathUID))
+
 		// don't create this unless it *will* be used
 		//if err := os.MkdirAll(statePrefix, 0770); err != nil {
 		//	return errwrap.Wrapf(err, "can't create state prefix")
@@ -415,4 +422,9 @@ func (obj *Engine) Close() error {
 // Graph returns the running graph.
 func (obj *Engine) Graph() *pgraph.Graph {
 	return obj.graph
+}
+
+// statePrefix returns the dir where all the resource state is stored locally.
+func (obj *Engine) statePrefix() string {
+	return fmt.Sprintf("%s/", path.Join(obj.Prefix, StateDir))
 }

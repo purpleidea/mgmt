@@ -1257,7 +1257,7 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 
 	typ, exists := typMap[obj.Field]
 	if !exists {
-		return nil, fmt.Errorf("could not determine type for `%s` field of `%s`", obj.Field, kind)
+		return nil, fmt.Errorf("field `%s` does not exist in `%s`", obj.Field, kind)
 	}
 	invar := &unification.EqualsInvariant{
 		Expr: obj.Value,

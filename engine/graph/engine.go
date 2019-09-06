@@ -25,6 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/semaphore"
@@ -180,8 +181,7 @@ func (obj *Engine) Commit() error {
 			return errwrap.Wrapf(err, "the Res did not Validate")
 		}
 
-		// FIXME: is res.Name() sufficiently unique to use as a UID here?
-		pathUID := fmt.Sprintf("%s-%s", res.Kind(), res.Name())
+		pathUID := engineUtil.ResPathUID(res)
 		statePrefix := fmt.Sprintf("%s/", path.Join(obj.statePrefix(), pathUID))
 
 		// don't create this unless it *will* be used

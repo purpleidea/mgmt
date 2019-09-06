@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"os"
 	"os/user"
 	"reflect"
 	"strconv"
@@ -61,6 +62,23 @@ const (
 	// message when a dbus job is done (or has errored.)
 	DBusSignalJobRemoved = "JobRemoved"
 )
+
+// ResPathUID returns a unique resource UID based on its name and kind. It's
+// safe to use as a token in a path, and as a result has no slashes in it.
+func ResPathUID(res engine.Res) string {
+	// res.Name() is NOT sufficiently unique to use as a UID here, because:
+	// a name of: /tmp/mgmt/foo is /tmp-mgmt-foo and
+	// a name of: /tmp/mgmt-foo -> /tmp-mgmt-foo if we replace slashes.
+	// As a result, we base64 encode (but without slashes).
+	name := strings.Replace(res.Name(), "/", "-", -1) // TODO: use ReplaceAll in 1.12
+	if os.PathSeparator != '/' {                      // lol windows?
+		name = strings.Replace(name, string(os.PathSeparator), "-", -1) // TODO: use ReplaceAll in 1.12
+	}
+	b := []byte(res.Name())
+	encoded := base64.URLEncoding.EncodeToString(b)
+	// Add the safe name on so that it's easier to identify by name...
+	return fmt.Sprintf("%s-%s+%s", res.Kind(), encoded, name)
+}
 
 // ResToB64 encodes a resource to a base64 encoded string (after serialization).
 func ResToB64(res engine.Res) (string, error) {

@@ -96,7 +96,7 @@ type FileRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *FileRes) Default() engine.Res {
 	return &FileRes{
-		State: FileStateExists,
+		//State: FileStateUndefined, // the default must be undefined!
 	}
 }
 

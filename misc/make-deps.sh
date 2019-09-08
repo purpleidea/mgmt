@@ -75,7 +75,7 @@ fi
 
 if [ $travis -eq 0 ]; then
 	if [ ! -z "$YUM" ]; then
-		if [ -z "$GO" ]; then
+		if [ -z "$GO" ] && [ go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.' ]; then
 			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer
 		fi
 		# some go dependencies are stored in mercurial
@@ -83,7 +83,7 @@ if [ $travis -eq 0 ]; then
 	fi
 	if [ ! -z "$APT" ]; then
 		$sudo_command $APT update
-		if [ -z "$GO" ]; then
+		if [ -z "$GO" ] && [ go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.' ]; then
 			$sudo_command $APT install -y golang
 			# one of these two golang tools packages should work on debian
 			$sudo_command $APT install -y golang-golang-x-tools || true

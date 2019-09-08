@@ -21,8 +21,6 @@ resources:
     state: exists
   - name: file4
     path: "/tmp/mgmt/f4"
-    content: |
-      i am f4 and i should not be here
     state: absent
   - name: dir1
     path: "/tmp/mgmt/dir1/"

@@ -130,6 +130,10 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("the State is invalid")
 	}
 
+	if obj.State == FileStateAbsent && obj.Content != nil {
+		return fmt.Errorf("can't specify content for an absent file")
+	}
+
 	if obj.Mode != "" {
 		if _, err := obj.mode(); err != nil {
 			return err

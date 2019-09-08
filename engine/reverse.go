@@ -41,10 +41,14 @@ type ReversibleRes interface {
 
 	// Reversed returns the "reverse" or "reciprocal" resource. This is used
 	// to "clean" up after a previously defined resource has been removed.
-	// Interestingly, this returns the core Res interface instead of a
+	// Interestingly, this could return the core Res interface instead of a
 	// ReversibleRes, because there is no requirement that the reverse of a
 	// Res be the same kind of Res, and the reverse might not be reversible!
-	Reversed() (Res, error)
+	// However, in practice, it's nice to use some of the Reversible meta
+	// params in the built value, so keep things simple and have this be a
+	// reversible res. The Res itself doesn't have to implement Reversed()
+	// in a meaningful way, it can just return nil and it will get ignored.
+	Reversed() (ReversibleRes, error)
 }
 
 // ReversibleMeta provides some parameters specific to reversible resources.
@@ -53,6 +57,16 @@ type ReversibleMeta struct {
 	// resource.
 	Disabled bool
 
+	// Reversal specifies that the resource was built from a reversal. This
+	// must be set if the resource was built by a reversal.
+	Reversal bool
+
+	// Overwrite specifies that we should overwrite any existing stored
+	// reversible resource if one that is pending already exists. If this is
+	// false, and a resource with the same name and kind exists, then this
+	// will cause an error.
+	Overwrite bool
+
 	// TODO: add options here, including whether to reverse edges, etc...
 }
 
@@ -60,6 +74,12 @@ type ReversibleMeta struct {
 func (obj *ReversibleMeta) Cmp(rm *ReversibleMeta) error {
 	if obj.Disabled != rm.Disabled {
 		return fmt.Errorf("values for Disabled are different")
+	}
+	if obj.Reversal != rm.Reversal { // TODO: do we want to compare these?
+		return fmt.Errorf("values for Reversal are different")
+	}
+	if obj.Overwrite != rm.Overwrite {
+		return fmt.Errorf("values for Overwrite are different")
 	}
 	return nil
 }

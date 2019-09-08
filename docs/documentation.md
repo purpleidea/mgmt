@@ -270,6 +270,23 @@ and it can't guarantee it if the resource is blocked because of a failed
 pre-requisite resource.
 *XXX: This is currently not implemented!*
 
+#### Reverse
+
+Boolean. Reverse is a property that some resources can implement that specifies
+that some "reverse" operation should happen when that resource "disappears". A
+disappearance happens when a resource is defined in one instance of the graph,
+and is gone in the subsequent one. This disappearance can happen if it was
+previously in an if statement that then becomes false.
+
+This is helpful for building robust programs with the engine. The engine adds a
+"reversed" resource to that subsequent graph to accomplish the desired "reverse"
+mechanics. The specifics of what this entails is a property of the particular
+resource that is being "reversed".
+
+It might be wise to combine the use of this meta parameter with the use of the
+`realize` meta parameter to ensure that your reversed resource actually runs at
+least once, if there's a chance that it might be gone for a while.
+
 ### Lang metadata file
 
 Any module *must* have a metadata file in its root. It must be named

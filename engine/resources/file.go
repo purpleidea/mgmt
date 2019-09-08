@@ -62,6 +62,7 @@ type FileRes struct {
 	traits.Edgeable
 	//traits.Groupable // TODO: implement this
 	traits.Recvable
+	traits.Reversible
 
 	init *engine.Init
 
@@ -1064,6 +1065,98 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 		Recurse:  obj.Recurse,
 		Force:    obj.Force,
 	}
+}
+
+// Reversed returns the "reverse" or "reciprocal" resource. This is used to
+// "clean" up after a previously defined resource has been removed.
+func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
+	// NOTE: Previously, we did some more complicated management of reversed
+	// properties. For example, we could add mode and state even when they
+	// weren't originally specified. This code has now been simplified to
+	// avoid this complexity, because it's not really necessary, and it is
+	// somewhat illogical anyways.
+
+	// TODO: reversing this could be tricky, since we'd store it all
+	if obj.isDir() { // XXX: limit this error to a defined state or content?
+		return nil, fmt.Errorf("can't reverse a dir yet")
+	}
+
+	cp, err := engine.ResCopy(obj)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy")
+	}
+	rev, ok := cp.(engine.ReversibleRes)
+	if !ok {
+		return nil, fmt.Errorf("not reversible")
+	}
+	rev.ReversibleMeta().Disabled = true // the reverse shouldn't run again
+
+	res, ok := cp.(*FileRes)
+	if !ok {
+		return nil, fmt.Errorf("copied res was not our kind")
+	}
+
+	// these are already copied in, and we don't need to change them...
+	//res.Path = obj.Path
+	//res.Dirname = obj.Dirname
+	//res.Basename = obj.Basename
+
+	//res.Source = "" // XXX: what should we do with this?
+
+	// these are already copied in, and we don't need to change them...
+	//res.Recurse = obj.Recurse
+	//res.Force = obj.Force
+
+	if obj.State == FileStateExists {
+		res.State = FileStateAbsent
+	}
+	if obj.State == FileStateAbsent {
+		res.State = FileStateExists
+	}
+
+	// If we've specified content, we might need to restore the original, OR
+	// if we're removing the file with a `state => "absent"`, save it too...
+	// The `res.State != FileStateAbsent` check is an optional optimization.
+	if (obj.Content != nil || obj.State == FileStateAbsent) && res.State != FileStateAbsent {
+		content, err := ioutil.ReadFile(obj.getPath())
+		if err != nil && !os.IsNotExist(err) {
+			return nil, errwrap.Wrapf(err, "could not read file for reversal storage")
+		}
+		res.Content = nil
+		if err == nil {
+			str := string(content)
+			res.Content = &str // set contents
+		}
+	}
+	if res.State == FileStateAbsent { // can't specify content when absent!
+		res.Content = nil
+	}
+
+	// There is a race if the operating system is adding/changing/removing
+	// the file between the ioutil.Readfile at the top and here. If there is
+	// a discrepancy between the two, then you might get an unexpected
+	// reverse, but in reality, your perspective is pretty absurd. This is a
+	// user error, and not an issue we actually care about, afaict.
+	fileInfo, err := os.Stat(obj.getPath())
+	if err != nil && !os.IsNotExist(err) {
+		return nil, errwrap.Wrapf(err, "could not stat file for reversal information")
+	}
+	res.Owner = ""
+	res.Group = ""
+	res.Mode = ""
+	if err == nil {
+		stUnix, ok := fileInfo.Sys().(*syscall.Stat_t)
+		// XXX: add a !ok error scenario or some alternative?
+		if ok { // if not, this isn't unix
+			res.Owner = strconv.FormatInt(int64(stUnix.Uid), 10) // Uid is a uint32
+			res.Group = strconv.FormatInt(int64(stUnix.Gid), 10) // Gid is a uint32
+		}
+
+		// TODO: use Mode().String() when we support full rwx style mode specs!
+		res.Mode = fmt.Sprintf("%#o", fileInfo.Mode().Perm()) // 0400, 0777, etc.
+	}
+
+	return res, nil
 }
 
 // smartPath adds a trailing slash to the path if it is a directory.

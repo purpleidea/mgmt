@@ -30,6 +30,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // TODO: consider providing this as a lib so that we can add tests into the
@@ -543,6 +544,464 @@ func TestResources1(t *testing.T) {
 
 			t.Logf("test #%d: waiting for shutdown", index)
 			wg.Wait()
+
+			if err := expect(); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expect failed: %s", index, err.Error())
+				return
+			}
+
+			// all done!
+		})
+	}
+}
+
+// TestResources2 just tests a partial execution of the resource by running
+// CheckApply and Reverse and basics without the mainloop. It's a less accurate
+// representation of a running resource, but is still useful for many
+// circumstances. This also uses a simpler timeline, because it was not possible
+// to get the reference passing of the reversed resource working with the fancy
+// version.
+func TestResources2(t *testing.T) {
+	type test struct { // an individual test
+		name     string
+		timeline []func() error // TODO: this could be a generator that keeps pushing out steps until it's done!
+		expect   func() error   // function to check for expected state
+		startup  func() error   // function to run as startup (unused?)
+		cleanup  func() error   // function to run as cleanup
+	}
+
+	// resValidate runs Validate on the res.
+	resValidate := func(res engine.Res) func() error {
+		// run Close
+		return func() error {
+			return res.Validate()
+		}
+	}
+	// resInit runs Init on the res.
+	resInit := func(res engine.Res) func() error {
+		logf := func(format string, v ...interface{}) {
+			// noop for now
+		}
+		init := &engine.Init{
+			//Debug: debug,
+			Logf: logf,
+
+			// unused
+			Send: func(st interface{}) error {
+				return nil
+			},
+			Recv: func() map[string]*engine.Send {
+				return map[string]*engine.Send{}
+			},
+		}
+		// run Init
+		return func() error {
+			return res.Init(init)
+
+		}
+	}
+	// resCheckApply runs CheckApply with noop = false for the res. It
+	// errors if the returned values aren't what we were expecting.
+	resCheckApply := func(res engine.Res, expCheckOK bool, expErr error) func() error {
+		return func() error {
+			checkOK, err := res.CheckApply(true) // no noop!
+			if err != expErr {
+				return fmt.Errorf("error from CheckApply did not match expected: `%+v` != `%+v`", err, expErr)
+			}
+			if checkOK != expCheckOK {
+				return fmt.Errorf("result from CheckApply did not match expected: `%t` != `%t`", checkOK, expCheckOK)
+			}
+			return nil
+		}
+	}
+	// resClose runs Close on the res.
+	resClose := func(res engine.Res) func() error {
+		// run Close
+		return func() error {
+			return res.Close()
+		}
+	}
+	// resReversal runs Reverse on the resource and stores the result in the
+	// rev variable. This should be called before the res CheckApply, and
+	// usually before Init, but after Validate.
+	resReversal := func(res engine.Res, rev *engine.Res) func() error {
+		return func() error {
+			r, ok := res.(engine.ReversibleRes)
+			if !ok {
+				return fmt.Errorf("res is not a ReversibleRes")
+			}
+
+			// We don't really need this to be checked here.
+			//if r.ReversibleMeta().Disabled {
+			//	return fmt.Errorf("res did not specify Meta:reverse")
+			//}
+
+			if r.ReversibleMeta().Reversal {
+				//logf("triangle reversal") // warn!
+			}
+
+			reversed, err := r.Reversed()
+			if err != nil {
+				return errwrap.Wrapf(err, "could not reverse: %s", r.String())
+			}
+			if reversed == nil {
+				return nil // this can't be reversed, or isn't implemented here
+			}
+
+			reversed.ReversibleMeta().Reversal = true // set this for later...
+
+			retRes, ok := reversed.(engine.Res)
+			if !ok {
+				return fmt.Errorf("not a Res")
+			}
+
+			*rev = retRes // store!
+			return nil
+		}
+	}
+	fileWrite := func(p, s string) func() error {
+		// write the file to path
+		return func() error {
+			return ioutil.WriteFile(p, []byte(s), 0666)
+		}
+	}
+	fileExpect := func(p, s string) func() error {
+		// check the contents at the path match the string we expect
+		return func() error {
+			content, err := ioutil.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			if string(content) != s {
+				return fmt.Errorf("contents did not match in %s", p)
+			}
+			return nil
+		}
+	}
+	fileAbsent := func(p string) func() error {
+		// does the file exist?
+		return func() error {
+			_, err := os.Stat(p)
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("file was supposed to be absent, got: %+v", err)
+			}
+			return nil
+		}
+	}
+	fileRemove := func(p string) func() error {
+		// remove the file at path
+		return func() error {
+			err := os.Remove(p)
+			// if the file isn't there, don't error
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			return nil
+		}
+	}
+
+	testCases := []test{}
+	{
+		//file "/tmp/somefile" {
+		//	content => "some new text\n",
+		//	state => "exists",
+		//
+		//	Meta:reverse => true,
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		res.State = "exists"
+		content := "some new text\n"
+		res.Content = &content
+		original := "this is the original state\n" // original state
+		var r2 engine.Res                          // future reversed resource
+
+		timeline := []func() error{
+			fileWrite(p, original),
+			fileExpect(p, original),
+			resValidate(r1),
+			resReversal(r1, &r2), // runs in Init to snapshot
+			func() error { // random test
+				if st := r2.(*FileRes).State; st != "absent" {
+					return fmt.Errorf("unexpected state: %s", st)
+				}
+				return nil
+			},
+			resInit(r1),
+			resCheckApply(r1, false, nil), // changed
+			fileExpect(p, content),
+			resCheckApply(r1, true, nil), // it's already good
+			resClose(r1),
+			//resValidate(r2), // no!!!
+			func() error {
+				// wrap it b/c it is currently nil
+				return r2.Validate()
+			},
+			func() error {
+				return resInit(r2)()
+			},
+			func() error {
+				return resCheckApply(r2, false, nil)()
+			},
+			func() error {
+				return resCheckApply(r2, true, nil)()
+			},
+			func() error {
+				return resClose(r2)()
+			},
+			fileAbsent(p), // ensure it's absent
+		}
+
+		testCases = append(testCases, test{
+			name:     "some file",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	content => "some new text\n",
+		//
+		//	Meta:reverse => true,
+		//}
+		//# and there's an existing file at this path...
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		//res.State = "exists" // unspecified
+		content := "some new text\n"
+		res.Content = &content
+		original := "this is the original state\n" // original state
+		var r2 engine.Res                          // future reversed resource
+
+		timeline := []func() error{
+			fileWrite(p, original),
+			fileExpect(p, original),
+			resValidate(r1),
+			resReversal(r1, &r2), // runs in Init to snapshot
+			func() error { // random test
+				// state should be unspecified
+				if st := r2.(*FileRes).State; st == "absent" || st == "exists" {
+					return fmt.Errorf("unexpected state: %s", st)
+				}
+				return nil
+			},
+			resInit(r1),
+			resCheckApply(r1, false, nil), // changed
+			fileExpect(p, content),
+			resCheckApply(r1, true, nil), // it's already good
+			resClose(r1),
+			//resValidate(r2),
+			func() error {
+				// wrap it b/c it is currently nil
+				return r2.Validate()
+			},
+			func() error {
+				return resInit(r2)()
+			},
+			func() error {
+				return resCheckApply(r2, false, nil)()
+			},
+			func() error {
+				return resCheckApply(r2, true, nil)()
+			},
+			func() error {
+				return resClose(r2)()
+			},
+			fileExpect(p, original), // we restored the contents!
+			fileRemove(p),           // cleanup
+		}
+
+		testCases = append(testCases, test{
+			name:     "some file restore",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	content => "some new text\n",
+		//
+		//	Meta:reverse => true,
+		//}
+		//# and there's NO existing file at this path...
+		//# NOTE: This is a corner case subtlety... if you don't want
+		// this particular behaviour, then specify `state` and you won't
+		// get something potentially unexpected. This is probably the
+		// better choice, because it's otherwise hard to emulate this
+		// behaviour, where as specifying state gets you the other
+		// possibility.
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		//res.State = "exists" // unspecified
+		content := "some new text\n"
+		res.Content = &content
+		var r2 engine.Res // future reversed resource
+
+		timeline := []func() error{
+			fileRemove(p), // ensure no file exists
+			resValidate(r1),
+			resReversal(r1, &r2), // runs in Init to snapshot
+			func() error { // random test
+				// state should be unspecified i think
+				// TODO: or should it be absent?
+				if st := r2.(*FileRes).State; st == "absent" || st == "exists" {
+					return fmt.Errorf("unexpected state: %s", st)
+				}
+				return nil
+			},
+			resInit(r1),
+			resCheckApply(r1, false, nil), // changed
+			fileExpect(p, content),
+			resCheckApply(r1, true, nil), // it's already good
+			resClose(r1),
+			//resValidate(r2),
+			func() error {
+				// wrap it b/c it is currently nil
+				return r2.Validate()
+			},
+			func() error {
+				return resInit(r2)()
+			},
+			//func() error {
+			//	return resCheckApply(r2, false, nil)()
+			//},
+			func() error { // it's already in the correct state
+				return resCheckApply(r2, true, nil)()
+			},
+			func() error {
+				return resClose(r2)()
+			},
+			// TODO: instead should r2 have removed the file?
+			// TODO: the subtlety is that state wasn't specified :/
+			fileExpect(p, content), // we never changed it back...
+			fileRemove(p),          // cleanup
+		}
+
+		testCases = append(testCases, test{
+			name:     "ambiguous file restore",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	state => "absent",
+		//
+		//	Meta:reverse => true,
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		res.State = "absent"
+		original := "this is the original state\n" // original state
+		var r2 engine.Res                          // future reversed resource
+
+		timeline := []func() error{
+			fileWrite(p, original),
+			fileExpect(p, original),
+			resValidate(r1),
+			resReversal(r1, &r2), // runs in Init to snapshot
+			func() error { // random test
+				if st := r2.(*FileRes).State; st != "exists" {
+					return fmt.Errorf("unexpected state: %s", st)
+				}
+				return nil
+			},
+			resInit(r1),
+			resCheckApply(r1, false, nil), // changed
+			fileAbsent(p),                 // ensure it got removed
+			resCheckApply(r1, true, nil),  // it's already good
+			resClose(r1),
+			//resValidate(r2), // no!!!
+			func() error {
+				// wrap it b/c it is currently nil
+				return r2.Validate()
+			},
+			func() error {
+				return resInit(r2)()
+			},
+			func() error {
+				return resCheckApply(r2, false, nil)()
+			},
+			func() error {
+				return resCheckApply(r2, true, nil)()
+			},
+			func() error {
+				return resClose(r2)()
+			},
+			fileExpect(p, original), // ensure it's back to original
+		}
+
+		testCases = append(testCases, test{
+			name:     "some removal",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+
+	names := []string{}
+	for index, tc := range testCases { // run all the tests
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
+			continue
+		}
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
+		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
+			timeline, expect, startup, cleanup := tc.timeline, tc.expect, tc.startup, tc.cleanup
+
+			t.Logf("test #%d: starting...\n", index)
+			defer t.Logf("test #%d: done!", index)
+
+			//debug := testing.Verbose() // set via the -test.v flag to `go test`
+			//logf := func(format string, v ...interface{}) {
+			//	t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
+			//}
+
+			t.Logf("test #%d: running startup()", index)
+			if err := startup(); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not startup: %+v", index, err)
+			}
+			defer func() {
+				t.Logf("test #%d: running cleanup()", index)
+				if err := cleanup(); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: could not cleanup: %+v", index, err)
+				}
+			}()
+
+			// run timeline
+			t.Logf("test #%d: executing timeline", index)
+			for ix, step := range timeline {
+				t.Logf("test #%d: step(%d)...", index, ix)
+				if err := step(); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: step(%d) action failed: %s", index, ix, err.Error())
+					break
+				}
+			}
+
+			t.Logf("test #%d: shutting down...", index)
 
 			if err := expect(); err != nil {
 				t.Errorf("test #%d: FAIL", index)

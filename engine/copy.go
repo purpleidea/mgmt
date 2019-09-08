@@ -106,6 +106,16 @@ func ResCopy(r CopyableRes) (CopyableRes, error) {
 		}
 	}
 
+	// copy meta params for resources with reversible traits
+	if x, ok := r.(ReversibleRes); ok {
+		dst, ok := res.(ReversibleRes)
+		if !ok {
+			// programming error
+			panic("reversible interfaces are illogical")
+		}
+		dst.SetReversibleMeta(x.ReversibleMeta()) // no need to copy atm
+	}
+
 	return res, nil
 }
 

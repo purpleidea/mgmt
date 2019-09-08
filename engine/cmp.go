@@ -152,6 +152,18 @@ func ResCmp(r1, r2 Res) error {
 		}
 	}
 
+	// compare meta params for resources with reversible traits
+	r1v, ok1 := r1.(ReversibleRes)
+	r2v, ok2 := r2.(ReversibleRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("reversible differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		if r1v.ReversibleMeta().Cmp(r2v.ReversibleMeta()) != nil {
+			return fmt.Errorf("reversible differs")
+		}
+	}
+
 	return nil
 }
 
@@ -277,6 +289,18 @@ func AdaptCmp(r1, r2 CompatibleRes) error {
 			// TODO: until we hit this code path, don't allow
 			// adapting anything that has this set to non-nil
 			return fmt.Errorf("send params exist")
+		}
+	}
+
+	// compare meta params for resources with reversible traits
+	r1v, ok1 := r1.(ReversibleRes)
+	r2v, ok2 := r2.(ReversibleRes)
+	if ok1 != ok2 {
+		return fmt.Errorf("reversible differs") // they must be different (optional)
+	}
+	if ok1 && ok2 {
+		if r1v.ReversibleMeta().Cmp(r2v.ReversibleMeta()) != nil {
+			return fmt.Errorf("reversible differs")
 		}
 	}
 

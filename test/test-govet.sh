@@ -16,6 +16,13 @@ function run-test()
 
 GO_VERSION=($(go version))
 
+function typos() {
+	if grep -i 'reversable' "$1"; then	# the word is "reversible"
+		return 1
+	fi
+	return 0
+}
+
 function simplify-gocase() {
 	if grep 'case _ = <-' "$1"; then
 		return 1	# 'case _ = <- can be simplified to: case <-'
@@ -106,6 +113,7 @@ for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -
 	#	continue
 	#fi
 	run-test grep 'log.Print' "$file" | grep '\\n"' && fail_test 'no newline needed in log.Print*()'	# no \n needed in log.Printf or log.Println
+	run-test typos "$file"
 	run-test simplify-gocase "$file"
 	run-test token-coloncheck "$file"
 	run-test naked-error "$file"

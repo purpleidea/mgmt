@@ -203,6 +203,12 @@ func (obj *State) Init() error {
 	if obj.Debug {
 		obj.Logf("Init(%s)", res)
 	}
+
+	// write the reverse request to the disk...
+	if err := obj.ReversalInit(); err != nil {
+		return err // TODO: test this code path...
+	}
+
 	err := res.Init(obj.init)
 	if obj.Debug {
 		obj.Logf("Init(%s): Return(%+v)", res, err)
@@ -236,12 +242,23 @@ func (obj *State) Close() error {
 	if obj.Debug {
 		obj.Logf("Close(%s)", res)
 	}
-	err := res.Close()
-	if obj.Debug {
-		obj.Logf("Close(%s): Return(%+v)", res, err)
+
+	var reverr error
+	// clear the reverse request from the disk...
+	if err := obj.ReversalClose(); err != nil {
+		// TODO: test this code path...
+		// TODO: should this be an error or a warning?
+		reverr = err
 	}
 
-	return err
+	reterr := res.Close()
+	if obj.Debug {
+		obj.Logf("Close(%s): Return(%+v)", res, reterr)
+	}
+
+	reterr = errwrap.Append(reterr, reverr)
+
+	return reterr
 }
 
 // Poke sends a notification on the poke channel. This channel is used to notify

@@ -18,6 +18,9 @@
 package autogroup
 
 import (
+	"fmt"
+
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -112,8 +115,17 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 			// note: This branch isn't used if the vertexMergeFn
 			// decides to just merge logically on its own instead
 			// of actually returning something that we then merge.
-			v1 = v // TODO: ineffassign?
+			v1 = v // XXX: ineffassign?
 			//*v1 = *v
+
+			// Ensure that everything still validates. (For safety!)
+			r, ok := v1.(engine.Res) // TODO: v ?
+			if !ok {
+				return fmt.Errorf("not a Res")
+			}
+			if err := engine.Validate(r); err != nil {
+				return errwrap.Wrapf(err, "the Res did not Validate")
+			}
 		}
 	}
 	g.DeleteVertex(v2) // remove grouped vertex

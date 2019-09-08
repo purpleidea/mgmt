@@ -1,0 +1,25 @@
+import "datetime"
+import "math"
+
+$now = datetime.now()
+
+# alternate every four seconds
+$mod0 = math.mod($now, 8) == 0
+$mod1 = math.mod($now, 8) == 1
+$mod2 = math.mod($now, 8) == 2
+$mod3 = math.mod($now, 8) == 3
+$mod = $mod0 || $mod1 || $mod2 || $mod3
+
+file "/tmp/mgmt/" {
+	state => "exists",
+}
+
+# file should change the mode every four seconds
+# editing the file contents at anytime is allowed
+if $mod {
+	file "/tmp/mgmt/hello" {
+		mode => "0777",
+
+		Meta:reverse => true,
+	}
+}

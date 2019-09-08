@@ -706,6 +706,24 @@ func (obj *Main) Run() error {
 				continue
 			}
 
+			// XXX: can we change this into a ge.Apply operation?
+			// run reversals; modifies the graph
+			if err := obj.ge.Reversals(); err != nil {
+				obj.ge.Abort() // delete graph
+				Logf("error running the reversals: %+v", err)
+				continue
+			}
+
+			// Double check before we commit.
+			if err := obj.ge.Apply(func(graph *pgraph.Graph) error {
+				_, e := graph.TopologicalSort() // am i a dag or not?
+				return e
+			}); err != nil { // apply an operation to the new graph
+				obj.ge.Abort() // delete graph
+				Logf("error running the TopologicalSort: %+v", err)
+				continue
+			}
+
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships
 

@@ -152,6 +152,37 @@ func NewClearChangedStep(ms uint) Step {
 	}
 }
 
+// FileExpect takes a path and a string to expect in that file, and builds a
+// Step that checks that out of them.
+func FileExpect(p, s string) Step { // path & string
+	return &manualStep{
+		action: func() error { return nil },
+		expect: func() error {
+			content, err := ioutil.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			if string(content) != s {
+				return fmt.Errorf("contents did not match in %s", p)
+			}
+			return nil
+		},
+	}
+}
+
+// FileExpect takes a path and a string to write to that file, and builds a Step
+// that does that to them.
+func FileWrite(p, s string) Step { // path & string
+	return &manualStep{
+		action: func() error {
+			// TODO: apparently using 0666 is equivalent to respecting the current umask
+			const umask = 0666
+			return ioutil.WriteFile(p, []byte(s), umask)
+		},
+		expect: func() error { return nil },
+	}
+}
+
 func TestResources1(t *testing.T) {
 	type test struct { // an individual test
 		name      string
@@ -177,31 +208,6 @@ func TestResources1(t *testing.T) {
 			expect: func() error { return nil },
 		}
 	}
-	fileExpect := func(p, s string) Step { // path & string
-		return &manualStep{
-			action: func() error { return nil },
-			expect: func() error {
-				content, err := ioutil.ReadFile(p)
-				if err != nil {
-					return err
-				}
-				if string(content) != s {
-					return fmt.Errorf("contents did not match in %s", p)
-				}
-				return nil
-			},
-		}
-	}
-	fileWrite := func(p, s string) Step { // path & string
-		return &manualStep{
-			action: func() error {
-				// TODO: apparently using 0666 is equivalent to respecting the current umask
-				const umask = 0666
-				return ioutil.WriteFile(p, []byte(s), umask)
-			},
-			expect: func() error { return nil },
-		}
-	}
 
 	testCases := []test{}
 	{
@@ -216,11 +222,11 @@ func TestResources1(t *testing.T) {
 		timeline := []Step{
 			NewStartupStep(1000 * 60),          // startup
 			NewChangedStep(1000*60, false),     // did we do something?
-			fileExpect(p, s),                   // check initial state
+			FileExpect(p, s),                   // check initial state
 			NewClearChangedStep(1000 * 15),     // did we do something?
-			fileWrite(p, "this is whatever\n"), // change state
+			FileWrite(p, "this is whatever\n"), // change state
 			NewChangedStep(1000*60, false),     // did we do something?
-			fileExpect(p, s),                   // check again
+			FileExpect(p, s),                   // check again
 			sleep(1),                           // we can sleep too!
 		}
 
@@ -249,11 +255,11 @@ func TestResources1(t *testing.T) {
 		timeline := []Step{
 			NewStartupStep(1000 * 60),        // startup
 			NewChangedStep(1000*60, false),   // did we do something?
-			fileExpect(f, s+"\n"),            // check initial state
+			FileExpect(f, s+"\n"),            // check initial state
 			NewClearChangedStep(1000 * 15),   // did we do something?
-			fileWrite(f, "this is stuff!\n"), // change state
+			FileWrite(f, "this is stuff!\n"), // change state
 			NewChangedStep(1000*60, false),   // did we do something?
-			fileExpect(f, s+"\n"),            // check again
+			FileExpect(f, s+"\n"),            // check again
 			sleep(1),                         // we can sleep too!
 		}
 
@@ -278,7 +284,7 @@ func TestResources1(t *testing.T) {
 		timeline := []Step{
 			NewStartupStep(1000 * 60),      // startup
 			NewChangedStep(1000*60, false), // did we do something?
-			fileExpect(p, ""),              // check initial state
+			FileExpect(p, ""),              // check initial state
 			NewClearChangedStep(1000 * 15), // did we do something?
 		}
 
@@ -303,7 +309,7 @@ func TestResources1(t *testing.T) {
 		timeline := []Step{
 			NewStartupStep(1000 * 60),     // startup
 			NewChangedStep(1000*60, true), // did we do something?
-			fileExpect(p, content),        // check initial state
+			FileExpect(p, content),        // check initial state
 		}
 
 		testCases = append(testCases, test{

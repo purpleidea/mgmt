@@ -378,7 +378,7 @@ func TestResources1(t *testing.T) {
 			doneChan := make(chan struct{})
 			debug := testing.Verbose() // set via the -test.v flag to `go test`
 			logf := func(format string, v ...interface{}) {
-				t.Logf(fmt.Sprintf("test #%d: Res: ", index)+format, v...)
+				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			}
 			init := &engine.Init{
 				Running: func() {

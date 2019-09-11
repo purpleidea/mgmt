@@ -17,6 +17,7 @@ $count = if $input > 8 {
 }
 
 file "/tmp/output" {
+	state => "exists",
 	content => fmt.printf("requesting: %d cpus\n", $count),
 }
 

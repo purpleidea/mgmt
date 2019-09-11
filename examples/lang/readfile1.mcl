@@ -2,5 +2,6 @@ import "os"
 
 # this copies the contents from /tmp/input and puts them in /tmp/output
 file "/tmp/output" {
+	state => "exists",
 	content => os.readfile("/tmp/input"),
 }

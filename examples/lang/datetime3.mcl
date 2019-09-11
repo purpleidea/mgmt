@@ -14,5 +14,6 @@ $theload = structlookup(sys.load(), "x1")
 $vumeter = example.vumeter("====", 10, 0.9)
 
 file "/tmp/mgmt/datetime" {
+	state => "exists",
 	content => template("Now + 1 year is: {{ .year }} seconds, aka: {{ datetime_print .year }}\n\nload average: {{ .load }}\n\nvu: {{ .vumeter }}\n", $tmplvalues),
 }

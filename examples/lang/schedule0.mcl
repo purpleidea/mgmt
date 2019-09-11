@@ -17,5 +17,6 @@ $set = world.schedule("xsched", $opts)
 #$set = world.schedule("xsched")
 
 file "/tmp/mgmt/scheduled-${sys.hostname()}" {
+	state => "exists",
 	content => template("set: {{ . }}\n", $set),
 }

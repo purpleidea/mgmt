@@ -18,6 +18,7 @@ file "/tmp/mgmt/" {
 # editing the file contents at anytime is allowed
 if $mod {
 	file "/tmp/mgmt/hello" {
+		state => "exists",
 		mode => "0777",
 
 		Meta:reverse => true,

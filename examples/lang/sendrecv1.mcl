@@ -19,6 +19,7 @@ Exec["exec0"].output -> Kv["kv0"].value
 
 if $state != "default" {
 	file "/tmp/mgmt/state" {
+		state => "exists",
 		content => fmt.printf("state: %s\n", $state),
 	}
 }

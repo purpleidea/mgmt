@@ -7,6 +7,7 @@ $state = maplookup($exchanged, $hostname, "default")
 if $state == "one" || $state == "default" {
 
 	file "/tmp/mgmt/state" {
+		state => "exists",
 		content => "state: one\n",
 	}
 
@@ -22,6 +23,7 @@ if $state == "one" || $state == "default" {
 if $state == "two" {
 
 	file "/tmp/mgmt/state" {
+		state => "exists",
 		content => "state: two\n",
 	}
 
@@ -37,6 +39,7 @@ if $state == "two" {
 if $state == "three" {
 
 	file "/tmp/mgmt/state" {
+		state => "exists",
 		content => "state: three\n",
 	}
 

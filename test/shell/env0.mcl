@@ -18,5 +18,6 @@ $env = sys.env()
 $m = maplookup($env, "TEST", "321")
 
 file "${tmpdir}/environ" {
+	state => "exists",
 	content => fmt.printf("%s,%s,%s:%s,%s,%s:%t,%t:%s", $x, $y, $z, $a, $b, $c, $t, $f, $m),
 }

@@ -3,5 +3,6 @@ print "unicode" {
 	msg => $unicode,
 }
 file "/tmp/unicode" {
+	state => "exists",
 	content => $unicode + "\n",
 }

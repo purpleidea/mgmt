@@ -184,6 +184,14 @@ func FileWrite(p, s string) Step { // path & string
 	}
 }
 
+// ErrIsNotExistOK returns nil if we get an IsNotExist true result on the error.
+func ErrIsNotExistOK(e error) error {
+	if os.IsNotExist(e) {
+		return nil
+	}
+	return errwrap.Wrapf(e, "unexpected error")
+}
+
 func TestResources1(t *testing.T) {
 	type test struct { // an individual test
 		name      string
@@ -217,6 +225,7 @@ func TestResources1(t *testing.T) {
 		p := "/tmp/whatever"
 		s := "hello, world\n"
 		res.Path = p
+		res.State = "exists"
 		contents := s
 		res.Content = &contents
 
@@ -601,19 +610,33 @@ func TestResources2(t *testing.T) {
 
 		}
 	}
-	// resCheckApply runs CheckApply with noop = false for the res. It
-	// errors if the returned values aren't what we were expecting.
-	resCheckApply := func(res engine.Res, expCheckOK bool, expErr error) func() error {
+	// resCheckApplyError runs CheckApply with noop = false for the res. It
+	// errors if the returned checkOK values isn't what we were expecting or
+	// if the errOK function returns an error when given a chance to inspect
+	// the returned error.
+	resCheckApplyError := func(res engine.Res, expCheckOK bool, errOK func(e error) error) func() error {
 		return func() error {
 			checkOK, err := res.CheckApply(true) // no noop!
-			if err != expErr {
-				return fmt.Errorf("error from CheckApply did not match expected: `%+v` != `%+v`", err, expErr)
+			if e := errOK(err); e != nil {
+				return errwrap.Wrapf(e, "error from CheckApply did not match expected")
 			}
 			if checkOK != expCheckOK {
 				return fmt.Errorf("result from CheckApply did not match expected: `%t` != `%t`", checkOK, expCheckOK)
 			}
 			return nil
 		}
+	}
+	// resCheckApply runs CheckApply with noop = false for the res. It
+	// errors if the returned checkOK values isn't what we were expecting or
+	// if there was an error.
+	resCheckApply := func(res engine.Res, expCheckOK bool) func() error {
+		errOK := func(e error) error {
+			if e == nil {
+				return nil
+			}
+			return errwrap.Wrapf(e, "unexpected error from CheckApply")
+		}
+		return resCheckApplyError(res, expCheckOK, errOK)
 	}
 	// resClose runs Close on the res.
 	resClose := func(res engine.Res) func() error {
@@ -704,6 +727,160 @@ func TestResources2(t *testing.T) {
 	testCases := []test{}
 	{
 		//file "/tmp/somefile" {
+		//	state => "exists",
+		//	content => "some new text\n",
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		res.State = "exists"
+		content := "some new text\n"
+		res.Content = &content
+
+		timeline := []func() error{
+			fileWrite(p, "whatever"),
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, false), // changed
+			fileExpect(p, content),
+			resCheckApply(r1, true), // it's already good
+			resClose(r1),
+			fileExpect(p, content), // ensure it exists
+		}
+
+		testCases = append(testCases, test{
+			name:     "simple file",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	# state is NOT specified
+		//	content => "some new text\n",
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		//res.State = "exists" // not specified!
+		content := "some new text\n"
+		res.Content = &content
+
+		timeline := []func() error{
+			fileWrite(p, "whatever"),
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, false), // changed
+			fileExpect(p, content),
+			resCheckApply(r1, true), // it's already good
+			resClose(r1),
+			fileExpect(p, content), // ensure it exists
+		}
+
+		testCases = append(testCases, test{
+			name:     "edit file only",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	# state is NOT specified
+		//	content => "some new text\n",
+		//}
+		// and no existing file exists! (therefore we want an error!)
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		//res.State = "exists" // not specified!
+		content := "some new text\n"
+		res.Content = &content
+
+		timeline := []func() error{
+			fileRemove(p), // nothing here
+			resValidate(r1),
+			resInit(r1),
+			resCheckApplyError(r1, false, ErrIsNotExistOK), // should error
+			resCheckApplyError(r1, false, ErrIsNotExistOK), // double check
+			resClose(r1),
+			fileAbsent(p), // ensure it's absent
+		}
+
+		testCases = append(testCases, test{
+			name:     "strict file",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	state => "absent",
+		//}
+		// and no existing file exists!
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		res.State = "absent"
+
+		timeline := []func() error{
+			fileRemove(p), // nothing here
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, true),
+			resCheckApply(r1, true),
+			resClose(r1),
+			fileAbsent(p), // ensure it's absent
+		}
+
+		testCases = append(testCases, test{
+			name:     "absent file",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	state => "absent",
+		//}
+		// and a file already exists!
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		res.State = "absent"
+
+		timeline := []func() error{
+			fileWrite(p, "whatever"),
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, false),
+			resCheckApply(r1, true),
+			resClose(r1),
+			fileAbsent(p), // ensure it's absent
+		}
+
+		testCases = append(testCases, test{
+			name:     "absent file pre-existing",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
 		//	content => "some new text\n",
 		//	state => "exists",
 		//
@@ -731,9 +908,9 @@ func TestResources2(t *testing.T) {
 				return nil
 			},
 			resInit(r1),
-			resCheckApply(r1, false, nil), // changed
+			resCheckApply(r1, false), // changed
 			fileExpect(p, content),
-			resCheckApply(r1, true, nil), // it's already good
+			resCheckApply(r1, true), // it's already good
 			resClose(r1),
 			//resValidate(r2), // no!!!
 			func() error {
@@ -744,10 +921,10 @@ func TestResources2(t *testing.T) {
 				return resInit(r2)()
 			},
 			func() error {
-				return resCheckApply(r2, false, nil)()
+				return resCheckApply(r2, false)()
 			},
 			func() error {
-				return resCheckApply(r2, true, nil)()
+				return resCheckApply(r2, true)()
 			},
 			func() error {
 				return resClose(r2)()
@@ -793,9 +970,9 @@ func TestResources2(t *testing.T) {
 				return nil
 			},
 			resInit(r1),
-			resCheckApply(r1, false, nil), // changed
+			resCheckApply(r1, false), // changed
 			fileExpect(p, content),
-			resCheckApply(r1, true, nil), // it's already good
+			resCheckApply(r1, true), // it's already good
 			resClose(r1),
 			//resValidate(r2),
 			func() error {
@@ -806,10 +983,10 @@ func TestResources2(t *testing.T) {
 				return resInit(r2)()
 			},
 			func() error {
-				return resCheckApply(r2, false, nil)()
+				return resCheckApply(r2, false)()
 			},
 			func() error {
-				return resCheckApply(r2, true, nil)()
+				return resCheckApply(r2, true)()
 			},
 			func() error {
 				return resClose(r2)()
@@ -833,12 +1010,8 @@ func TestResources2(t *testing.T) {
 		//	Meta:reverse => true,
 		//}
 		//# and there's NO existing file at this path...
-		//# NOTE: This is a corner case subtlety... if you don't want
-		// this particular behaviour, then specify `state` and you won't
-		// get something potentially unexpected. This is probably the
-		// better choice, because it's otherwise hard to emulate this
-		// behaviour, where as specifying state gets you the other
-		// possibility.
+		//# NOTE: This used to be a corner case subtlety for reversal.
+		//# Now that we error in this scenario before reversal, it's ok!
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
 		p := "/tmp/somefile"
@@ -861,31 +1034,25 @@ func TestResources2(t *testing.T) {
 				return nil
 			},
 			resInit(r1),
-			resCheckApply(r1, false, nil), // changed
-			fileExpect(p, content),
-			resCheckApply(r1, true, nil), // it's already good
+			resCheckApplyError(r1, false, ErrIsNotExistOK), // changed
+			//fileExpect(p, content),
+			//resCheckApply(r1, true), // it's already good
 			resClose(r1),
-			//resValidate(r2),
-			func() error {
-				// wrap it b/c it is currently nil
-				return r2.Validate()
-			},
-			func() error {
-				return resInit(r2)()
-			},
 			//func() error {
-			//	return resCheckApply(r2, false, nil)()
+			//	// wrap it b/c it is currently nil
+			//	return r2.Validate()
 			//},
-			func() error { // it's already in the correct state
-				return resCheckApply(r2, true, nil)()
-			},
-			func() error {
-				return resClose(r2)()
-			},
-			// TODO: instead should r2 have removed the file?
-			// TODO: the subtlety is that state wasn't specified :/
-			fileExpect(p, content), // we never changed it back...
-			fileRemove(p),          // cleanup
+			//func() error {
+			//	return resInit(r2)()
+			//},
+			//func() error { // it's already in the correct state
+			//	return resCheckApply(r2, true)()
+			//},
+			//func() error {
+			//	return resClose(r2)()
+			//},
+			//fileExpect(p, content), // we never changed it back...
+			//fileRemove(p),          // cleanup
 		}
 
 		testCases = append(testCases, test{
@@ -922,9 +1089,9 @@ func TestResources2(t *testing.T) {
 				return nil
 			},
 			resInit(r1),
-			resCheckApply(r1, false, nil), // changed
-			fileAbsent(p),                 // ensure it got removed
-			resCheckApply(r1, true, nil),  // it's already good
+			resCheckApply(r1, false), // changed
+			fileAbsent(p),            // ensure it got removed
+			resCheckApply(r1, true),  // it's already good
 			resClose(r1),
 			//resValidate(r2), // no!!!
 			func() error {
@@ -935,10 +1102,10 @@ func TestResources2(t *testing.T) {
 				return resInit(r2)()
 			},
 			func() error {
-				return resCheckApply(r2, false, nil)()
+				return resCheckApply(r2, false)()
 			},
 			func() error {
-				return resCheckApply(r2, true, nil)()
+				return resCheckApply(r2, true)()
 			},
 			func() error {
 				return resClose(r2)()

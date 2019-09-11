@@ -226,6 +226,34 @@ it and replace it with your git cloned directory. In my case, I like to work on
 things in `~/code/mgmt/`, so that path is a symlink that points to the long
 project directory.
 
+### Why does my file resource error with `no such file or directory`?
+
+If you create a file resource and only specify the content like this:
+
+```
+file "/tmp/foo" {
+	content => "hello world\n",
+}
+```
+
+Then this will attempt to set the contents of that file to the desired string,
+but *only* if that file already exists. If you'd like to ensure that it also
+gets created in case it is not present, then you must also specify the state:
+
+```
+file "/tmp/foo" {
+	state => "exists",
+	content => "hello world\n",
+}
+```
+
+Similar logic applies for situations when you only specify the `mode` parameter.
+
+This all turns out to be more safe and "correct", in that it would error and
+prevent masking an error for a situation when you expected a file to already be
+at that location. It also turns out to simplify the internals significantly, and
+remove an ambiguous scenario with the reversable file resource.
+
 ### On startup `mgmt` hangs after: `etcd: server: starting...`.
 
 If you get an error message similar to:

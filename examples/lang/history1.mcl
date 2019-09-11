@@ -5,5 +5,6 @@ $dt = datetime.now()
 $hystvalues = {"ix0" => $dt, "ix1" => $dt{1}, "ix2" => $dt{2}, "ix3" => $dt{3},}
 
 file "/tmp/mgmt/history" {
+	state => "exists",
 	content => template("Index(0) {{.ix0}}: {{ datetime_print .ix0 }}\nIndex(1) {{.ix1}}: {{ datetime_print .ix1 }}\nIndex(2) {{.ix2}}: {{ datetime_print .ix2 }}\nIndex(3) {{.ix3}}: {{ datetime_print .ix3 }}\n", $hystvalues),
 }

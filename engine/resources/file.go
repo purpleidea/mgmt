@@ -73,123 +73,35 @@ type FileRes struct {
 	Dirname  string `lang:"dirname" yaml:"dirname"`   // override the path dirname
 	Basename string `lang:"basename" yaml:"basename"` // override the path basename
 
+	// State specifies the desired state of the file. It can be either
+	// `exists` or `absent`. If you do not specify this, we will not be able
+	// to create or remove a file if it might be logical for another
+	// param to require that. Instead it will error. This means that this
+	// field is not implied by specifying some content or a mode.
+	State string `lang:"state" yaml:"state"`
+
 	// Content specifies the file contents to use. If this is nil, they are
 	// left undefined. It cannot be combined with Source.
 	Content *string `lang:"content" yaml:"content"`
 	// Source specifies the source contents for the file resource. It cannot
 	// be combined with the Content parameter.
 	Source string `lang:"source" yaml:"source"`
-	// State specifies the desired state of the file. It can be either
-	// `exists` or `absent`. If you do not specify this, it will be
-	// undefined, and determined based on the other parameters.
-	State string `lang:"state" yaml:"state"`
 
-	Owner   string `lang:"owner" yaml:"owner"`
-	Group   string `lang:"group" yaml:"group"`
+	// Owner specifies the file owner. You can specify either the string
+	// name, or a string representation of the owner integer uid.
+	Owner string `lang:"owner" yaml:"owner"`
+	// Group specifies the file group. You can specify either the string
+	// name, or a string representation of the group integer gid.
+	Group string `lang:"group" yaml:"group"`
+	// Mode is the mode of the file as a string representation of the octal
+	// form.
+	// TODO: add symbolic representations
 	Mode    string `lang:"mode" yaml:"mode"`
 	Recurse bool   `lang:"recurse" yaml:"recurse"`
 	Force   bool   `lang:"force" yaml:"force"`
 
 	sha256sum  string
 	recWatcher *recwatch.RecWatcher
-}
-
-// Default returns some sensible defaults for this resource.
-func (obj *FileRes) Default() engine.Res {
-	return &FileRes{
-		//State: FileStateUndefined, // the default must be undefined!
-	}
-}
-
-// Validate reports any problems with the struct definition.
-func (obj *FileRes) Validate() error {
-	if obj.getPath() == "" {
-		return fmt.Errorf("path is empty")
-	}
-
-	if obj.Dirname != "" && !strings.HasSuffix(obj.Dirname, "/") {
-		return fmt.Errorf("dirname must end with a slash")
-	}
-
-	if strings.HasPrefix(obj.Basename, "/") {
-		return fmt.Errorf("basename must not start with a slash")
-	}
-
-	if !strings.HasPrefix(obj.getPath(), "/") {
-		return fmt.Errorf("resultant path must be absolute")
-	}
-
-	if obj.Content != nil && obj.Source != "" {
-		return fmt.Errorf("can't specify both Content and Source")
-	}
-
-	if obj.isDir() && obj.Content != nil { // makes no sense
-		return fmt.Errorf("can't specify Content when creating a Dir")
-	}
-
-	if obj.State != FileStateExists && obj.State != FileStateAbsent && obj.State != FileStateUndefined {
-		return fmt.Errorf("the State is invalid")
-	}
-
-	if obj.State == FileStateAbsent && obj.Content != nil {
-		return fmt.Errorf("can't specify content for an absent file")
-	}
-
-	if obj.Mode != "" {
-		if _, err := obj.mode(); err != nil {
-			return err
-		}
-	}
-
-	if obj.Owner != "" || obj.Group != "" {
-		fileInfo, err := os.Stat("/") // pick root just to do this test
-		if err != nil {
-			return fmt.Errorf("can't stat root to get system information")
-		}
-		_, ok := fileInfo.Sys().(*syscall.Stat_t)
-		if !ok {
-			return fmt.Errorf("can't set Owner or Group on this platform")
-		}
-	}
-	if _, err := engineUtil.GetUID(obj.Owner); obj.Owner != "" && err != nil {
-		return err
-	}
-
-	if _, err := engineUtil.GetGID(obj.Group); obj.Group != "" && err != nil {
-		return err
-	}
-
-	// XXX: should this specify that we create an empty directory instead?
-	//if obj.Source == "" && obj.isDir() {
-	//	return fmt.Errorf("can't specify an empty source when creating a Dir.")
-	//}
-
-	return nil
-}
-
-// mode returns the file permission specified on the graph. It doesn't handle
-// the case where the mode is not specified. The caller should check obj.Mode is
-// not empty.
-func (obj *FileRes) mode() (os.FileMode, error) {
-	m, err := strconv.ParseInt(obj.Mode, 8, 32)
-	if err != nil {
-		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number (%s)", obj.Mode)
-	}
-	return os.FileMode(m), nil
-}
-
-// Init runs some startup code for this resource.
-func (obj *FileRes) Init(init *engine.Init) error {
-	obj.init = init // save for later
-
-	obj.sha256sum = ""
-
-	return nil
-}
-
-// Close is run by the engine to clean up after the resource is done.
-func (obj *FileRes) Close() error {
-	return nil
 }
 
 // getPath returns the actual path to use for this resource. It computes this
@@ -219,6 +131,115 @@ func (obj *FileRes) getPath() string {
 // isDir is a helper function to specify whether the path should be a dir.
 func (obj *FileRes) isDir() bool {
 	return strings.HasSuffix(obj.getPath(), "/") // dirs have trailing slashes
+}
+
+// mode returns the file permission specified on the graph. It doesn't handle
+// the case where the mode is not specified. The caller should check obj.Mode is
+// not empty.
+func (obj *FileRes) mode() (os.FileMode, error) {
+	m, err := strconv.ParseInt(obj.Mode, 8, 32)
+	if err != nil {
+		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number (%s)", obj.Mode)
+	}
+	return os.FileMode(m), nil
+}
+
+// Default returns some sensible defaults for this resource.
+func (obj *FileRes) Default() engine.Res {
+	return &FileRes{
+		//State: FileStateUndefined, // the default must be undefined!
+	}
+}
+
+// Validate reports any problems with the struct definition.
+func (obj *FileRes) Validate() error {
+	if obj.getPath() == "" {
+		return fmt.Errorf("path is empty")
+	}
+
+	if obj.Dirname != "" && !strings.HasSuffix(obj.Dirname, "/") {
+		return fmt.Errorf("dirname must end with a slash")
+	}
+
+	if strings.HasPrefix(obj.Basename, "/") {
+		return fmt.Errorf("basename must not start with a slash")
+	}
+
+	if !strings.HasPrefix(obj.getPath(), "/") {
+		return fmt.Errorf("resultant path must be absolute")
+	}
+
+	if obj.State != FileStateExists && obj.State != FileStateAbsent && obj.State != FileStateUndefined {
+		return fmt.Errorf("the State is invalid")
+	}
+
+	if obj.State == FileStateAbsent && obj.Content != nil {
+		return fmt.Errorf("can't specify Content for an absent file")
+	}
+
+	if obj.Content != nil && obj.Source != "" {
+		return fmt.Errorf("can't specify both Content and Source")
+	}
+
+	if obj.isDir() && obj.Content != nil { // makes no sense
+		return fmt.Errorf("can't specify Content when creating a Dir")
+	}
+
+	// TODO: should we silently ignore these errors or include them?
+	//if obj.State == FileStateAbsent && obj.Owner != "" {
+	//	return fmt.Errorf("can't specify Owner for an absent file")
+	//}
+	//if obj.State == FileStateAbsent && obj.Group != "" {
+	//	return fmt.Errorf("can't specify Group for an absent file")
+	//}
+	if obj.Owner != "" || obj.Group != "" {
+		fileInfo, err := os.Stat("/") // pick root just to do this test
+		if err != nil {
+			return fmt.Errorf("can't stat root to get system information")
+		}
+		_, ok := fileInfo.Sys().(*syscall.Stat_t)
+		if !ok {
+			return fmt.Errorf("can't set Owner or Group on this platform")
+		}
+	}
+	if _, err := engineUtil.GetUID(obj.Owner); obj.Owner != "" && err != nil {
+		return err
+	}
+
+	if _, err := engineUtil.GetGID(obj.Group); obj.Group != "" && err != nil {
+		return err
+	}
+
+	// TODO: should we silently ignore this error or include it?
+	//if obj.State == FileStateAbsent && obj.Mode != "" {
+	//	return fmt.Errorf("can't specify Mode for an absent file")
+	//}
+	if obj.Mode != "" {
+		if _, err := obj.mode(); err != nil {
+			return err
+		}
+	}
+
+	// XXX: should this specify that we create an empty directory instead?
+	//if obj.Source == "" && obj.isDir() {
+	//	return fmt.Errorf("can't specify an empty source when creating a Dir.")
+	//}
+
+	return nil
+}
+
+// Init runs some startup code for this resource.
+func (obj *FileRes) Init(init *engine.Init) error {
+	obj.init = init // save for later
+
+	obj.sha256sum = ""
+
+	return nil
+}
+
+// Close is run by the engine to clean up after the resource is done.
+func (obj *FileRes) Close() error {
+	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.
@@ -273,7 +294,7 @@ func (obj *FileRes) Watch() error {
 // can be a bytes Buffer struct. It can take an input sha256 hash to use instead
 // of computing the source data hash, and it returns the computed value if this
 // function reaches that stage. As usual, it respects the apply action variable,
-// and it symmetry with the main CheckApply function returns checkOK and error.
+// and has some symmetry with the main CheckApply function.
 func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sha256sum string) (string, bool, error) {
 	// TODO: does it make sense to switch dst to an io.Writer ?
 	// TODO: use obj.Force when dealing with symlinks and other file types!
@@ -310,17 +331,24 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 	defer dstClose()
 	dstExists := !os.IsNotExist(err)
 
+	// Optimization: we shouldn't be making the file, it happens in
+	// stateCheckApply, but we skip doing it there in order to do it here,
+	// unless we're undefined, and then we shouldn't force it!
+	if !dstExists && obj.State == FileStateUndefined {
+		return "", false, err
+	}
+
 	dstStat, err := dstFile.Stat()
 	if err != nil && dstExists {
 		return "", false, err
 	}
 
 	if dstExists && dstStat.IsDir() { // oops, dst is a dir, and we want a file...
-		if !apply {
-			return "", false, nil
-		}
 		if !obj.Force {
 			return "", false, fmt.Errorf("can't force dir into file: %s", dst)
+		}
+		if !apply {
+			return "", false, nil
 		}
 
 		cleanDst := path.Clean(dst)
@@ -411,7 +439,7 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 	// check if the path exists and is a directory
 	fileInfo, err := os.Stat(obj.getPath())
 	if err != nil && !os.IsNotExist(err) {
-		return false, errwrap.Wrapf(err, "error checking file resource existence")
+		return false, errwrap.Wrapf(err, "stat error on file resource")
 	}
 
 	if err == nil && fileInfo.IsDir() {
@@ -524,6 +552,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 				relPathFile := strings.TrimSuffix(relPath, "/")
 				if _, ok := smartDst[relPathFile]; ok {
 					absCleanDst := path.Clean(absDst)
+					// TODO: can we fail this before `!apply`?
 					if !obj.Force {
 						return false, fmt.Errorf("can't force file into dir: %s", absCleanDst)
 					}
@@ -592,13 +621,13 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 			continue
 		}
 		_ = absSrc
-		//obj.init.Logf("syncCheckApply: Recurse rm: %s -> %s", absSrc, absDst)
+		//obj.init.Logf("syncCheckApply: recurse rm: %s -> %s", absSrc, absDst)
 		//if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil {
-		//	return false, errwrap.Wrapf(err, "syncCheckApply: Recurse rm failed")
+		//	return false, errwrap.Wrapf(err, "syncCheckApply: recurse rm failed")
 		//} else if !c { // don't let subsequent passes make this true
 		//	checkOK = false
 		//}
-		//obj.init.Logf("syncCheckApply: Removing: %s", absCleanDst)
+		//obj.init.Logf("syncCheckApply: removing: %s", absCleanDst)
 		//if apply { // safety
 		//	if err := os.Remove(absCleanDst); err != nil {
 		//		return false, err
@@ -610,7 +639,8 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	return checkOK, nil
 }
 
-// state performs a CheckApply of the file state to create an empty file.
+// stateCheckApply performs a CheckApply of the file state to create or remove
+// an empty file or directory.
 func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 	if obj.State == FileStateUndefined { // state is not specified
 		return true, nil
@@ -635,153 +665,107 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 		return false, nil
 	}
 
-	if obj.State == FileStateAbsent {
-		return false, nil // defer the work to contentCheckApply
-	}
-
-	if obj.Content == nil && !obj.isDir() {
-		// Create an empty file to ensure one exists. Don't O_TRUNC it,
-		// in case one is magically created right after our exists test.
-		// The chmod used is what is used by the os.Create function.
-		// TODO: is using O_EXCL okay?
-		f, err := os.OpenFile(obj.getPath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
-		if err != nil {
-			return false, errwrap.Wrapf(err, "problem creating empty file")
+	if obj.State == FileStateAbsent { // remove
+		p := obj.getPath()
+		if p == "" {
+			// programming error?
+			return false, fmt.Errorf("can't remove empty path") // safety
 		}
-		if err := f.Close(); err != nil {
-			return false, errwrap.Wrapf(err, "problem closing empty file")
-		}
-	}
-
-	return false, nil // defer the Content != nil and isDir work to later...
-}
-
-// contentCheckApply performs a CheckApply for the file existence and content.
-func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
-	obj.init.Logf("contentCheckApply(%t)", apply)
-
-	if obj.State == FileStateAbsent {
-		if _, err := os.Stat(obj.getPath()); os.IsNotExist(err) {
-			// no such file or directory, but
-			// file should be missing, phew :)
-			return true, nil
-
-		} else if err != nil { // what could this error be?
-			return false, err
-		}
-
-		// state is not okay, no work done, exit, but without error
-		if !apply {
-			return false, nil
-		}
-
-		// apply portion
-		if obj.getPath() == "" || obj.getPath() == "/" {
+		if p == "/" {
 			return false, fmt.Errorf("don't want to remove root") // safety
 		}
-		obj.init.Logf("contentCheckApply: removing: %s", obj.getPath())
+		obj.init.Logf("stateCheckApply: removing: %s", p)
 		// FIXME: respect obj.Recurse here...
 		// TODO: add recurse limit here
-		err := os.RemoveAll(obj.getPath()) // dangerous ;)
-		return false, err                  // either nil or not
+		err := os.RemoveAll(p) // dangerous ;)
+		return false, err      // either nil or not
 	}
 
-	if obj.isDir() && obj.Source == "" {
+	// we need to make a file or a directory now
+
+	if obj.isDir() {
 		return obj.dirCheckApply(apply)
 	}
 
+	// Optimization: we shouldn't even look at obj.Content here, but we can
+	// skip this empty file creation here since we know we're going to be
+	// making it there anyways. This way we save the extra fopen noise.
+	if obj.Content != nil {
+		return false, nil // pretend we actually made it
+	}
+
+	// Create an empty file to ensure one exists. Don't O_TRUNC it, in case
+	// one is magically created right after our exists test. The chmod used
+	// is what is used by the os.Create function.
+	// TODO: is using O_EXCL okay?
+	f, err := os.OpenFile(obj.getPath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+	if err != nil {
+		return false, errwrap.Wrapf(err, "problem creating empty file")
+	}
+	if err := f.Close(); err != nil {
+		return false, errwrap.Wrapf(err, "problem closing empty file")
+	}
+
+	return false, nil // defer the Content != nil work to later...
+}
+
+// contentCheckApply performs a CheckApply for the file content.
+func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
+	obj.init.Logf("contentCheckApply(%t)", apply)
+
 	// content is not defined, leave it alone...
-	if obj.Content == nil && obj.Source == "" {
+	if obj.Content == nil {
 		return true, nil
 	}
 
-	if obj.Source == "" { // do the obj.Content checks first...
-		bufferSrc := bytes.NewReader([]byte(*obj.Content))
-		sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.getPath(), obj.sha256sum)
-		if sha256sum != "" { // empty values mean errored or didn't hash
-			// this can be valid even when the whole function errors
-			obj.sha256sum = sha256sum // cache value
-		}
-		if err != nil {
-			return false, err
-		}
-		// if no err, but !ok, then...
-		return checkOK, nil // success
+	bufferSrc := bytes.NewReader([]byte(*obj.Content))
+	sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.getPath(), obj.sha256sum)
+	if sha256sum != "" { // empty values mean errored or didn't hash
+		// this can be valid even when the whole function errors
+		obj.sha256sum = sha256sum // cache value
+	}
+	if err != nil {
+		return false, err
+	}
+	// if no err, but !ok, then...
+	return checkOK, nil // success
+}
+
+// sourceCheckApply performs a CheckApply for the file source.
+func (obj *FileRes) sourceCheckApply(apply bool) (bool, error) {
+	obj.init.Logf("sourceCheckApply(%t)", apply)
+
+	// source is not defined, leave it alone...
+	if obj.Source == "" {
+		return true, nil
 	}
 
 	checkOK, err := obj.syncCheckApply(apply, obj.Source, obj.getPath())
 	if err != nil {
-		obj.init.Logf("syncCheckApply: Error: %v", err)
+		obj.init.Logf("syncCheckApply: error: %v", err)
 		return false, err
 	}
 
 	return checkOK, nil
 }
 
-// chmodCheckApply performs a CheckApply for the file permissions.
-func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
-	obj.init.Logf("chmodCheckApply(%t)", apply)
-
-	if obj.State == FileStateAbsent {
-		// file is absent
-		return true, nil
-	}
-
-	if obj.Mode == "" {
-		// no mode specified, everything is ok
-		return true, nil
-	}
-
-	mode, err := obj.mode()
-
-	// If the file does not exist and we are in
-	// noop mode, do not throw an error.
-	if os.IsNotExist(err) && !apply {
-		return false, nil
-	}
-
-	if err != nil {
-		return false, err
-	}
-
-	fileInfo, err := os.Stat(obj.getPath())
-	if err != nil {
-		return false, err
-	}
-
-	// nothing to do
-	if fileInfo.Mode() == mode {
-		return true, nil
-	}
-
-	// not clean but don't apply
-	if !apply {
-		return false, nil
-	}
-
-	err = os.Chmod(obj.getPath(), mode)
-	return false, err
-}
-
 // chownCheckApply performs a CheckApply for the file ownership.
 func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
-	var expectedUID, expectedGID int
 	obj.init.Logf("chownCheckApply(%t)", apply)
 
-	if obj.State == FileStateAbsent {
-		// file is absent or no owner specified
+	if obj.Owner == "" && obj.Group == "" {
+		// no owner or group specified, everything is ok
 		return true, nil
 	}
 
 	fileInfo, err := os.Stat(obj.getPath())
-
-	// If the file does not exist and we are in
-	// noop mode, do not throw an error.
-	if os.IsNotExist(err) && !apply {
-		return false, nil
-	}
-
-	if err != nil {
+	// TODO: is this a sane behaviour that we want to preserve?
+	// If the file does not exist and we are in noop mode, do not throw an
+	// error.
+	//if os.IsNotExist(err) && !apply {
+	//	return false, nil
+	//}
+	if err != nil { // if the file does not exist, it's correct to error!
 		return false, err
 	}
 
@@ -790,6 +774,8 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 		// not unix
 		return false, fmt.Errorf("can't set Owner or Group on this platform")
 	}
+
+	var expectedUID, expectedGID int
 
 	if obj.Owner != "" {
 		expectedUID, err = engineUtil.GetUID(obj.Owner)
@@ -800,7 +786,6 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 		// nothing specified, no changes to be made, expect same as actual
 		expectedUID = int(stUnix.Uid)
 	}
-
 	if obj.Group != "" {
 		expectedGID, err = engineUtil.GetGID(obj.Group)
 		if err != nil {
@@ -824,6 +809,38 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 	return false, os.Chown(obj.getPath(), expectedUID, expectedGID)
 }
 
+// chmodCheckApply performs a CheckApply for the file permissions.
+func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
+	obj.init.Logf("chmodCheckApply(%t)", apply)
+
+	if obj.Mode == "" {
+		// no mode specified, everything is ok
+		return true, nil
+	}
+
+	mode, err := obj.mode() // get the desired mode
+	if err != nil {
+		return false, err
+	}
+
+	fileInfo, err := os.Stat(obj.getPath())
+	if err != nil { // if the file does not exist, it's correct to error!
+		return false, err
+	}
+
+	// nothing to do
+	if fileInfo.Mode() == mode {
+		return true, nil
+	}
+
+	// not clean but don't apply
+	if !apply {
+		return false, nil
+	}
+
+	return false, os.Chmod(obj.getPath(), mode)
+}
+
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *FileRes) CheckApply(apply bool) (bool, error) {
@@ -841,7 +858,7 @@ func (obj *FileRes) CheckApply(apply bool) (bool, error) {
 
 	checkOK := true
 
-	// always run stateCheckApply before contentCheckApply, they go together
+	// run stateCheckApply before contentCheckApply and sourceCheckApply
 	if c, err := obj.stateCheckApply(apply); err != nil {
 		return false, err
 	} else if !c {
@@ -852,14 +869,18 @@ func (obj *FileRes) CheckApply(apply bool) (bool, error) {
 	} else if !c {
 		checkOK = false
 	}
-
-	if c, err := obj.chmodCheckApply(apply); err != nil {
+	if c, err := obj.sourceCheckApply(apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
 
 	if c, err := obj.chownCheckApply(apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
+	}
+	if c, err := obj.chmodCheckApply(apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
@@ -881,6 +902,11 @@ func (obj *FileRes) Cmp(r engine.Res) error {
 	if obj.getPath() != res.getPath() {
 		return fmt.Errorf("the Path differs")
 	}
+
+	if obj.State != res.State {
+		return fmt.Errorf("the State differs")
+	}
+
 	if (obj.Content == nil) != (res.Content == nil) { // xor
 		return fmt.Errorf("the Content differs")
 	}
@@ -891,9 +917,6 @@ func (obj *FileRes) Cmp(r engine.Res) error {
 	}
 	if obj.Source != res.Source {
 		return fmt.Errorf("the Source differs")
-	}
-	if obj.State != res.State {
-		return fmt.Errorf("the State differs")
 	}
 
 	if obj.Owner != res.Owner {
@@ -1056,9 +1079,9 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 		Path:     obj.Path,
 		Dirname:  obj.Dirname,
 		Basename: obj.Basename,
+		State:    obj.State, // TODO: if this becomes a pointer, copy the string!
 		Content:  content,
 		Source:   obj.Source,
-		State:    obj.State, // TODO: if this becomes a pointer, copy the string!
 		Owner:    obj.Owner,
 		Group:    obj.Group,
 		Mode:     obj.Mode,
@@ -1101,12 +1124,6 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 	//res.Dirname = obj.Dirname
 	//res.Basename = obj.Basename
 
-	//res.Source = "" // XXX: what should we do with this?
-
-	// these are already copied in, and we don't need to change them...
-	//res.Recurse = obj.Recurse
-	//res.Force = obj.Force
-
 	if obj.State == FileStateExists {
 		res.State = FileStateAbsent
 	}
@@ -1132,6 +1149,11 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 		res.Content = nil
 	}
 
+	//res.Source = "" // XXX: what should we do with this?
+	if obj.Source != "" {
+		return nil, fmt.Errorf("can't reverse with Source yet")
+	}
+
 	// There is a race if the operating system is adding/changing/removing
 	// the file between the ioutil.Readfile at the top and here. If there is
 	// a discrepancy between the two, then you might get an unexpected
@@ -1148,13 +1170,23 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 		stUnix, ok := fileInfo.Sys().(*syscall.Stat_t)
 		// XXX: add a !ok error scenario or some alternative?
 		if ok { // if not, this isn't unix
-			res.Owner = strconv.FormatInt(int64(stUnix.Uid), 10) // Uid is a uint32
-			res.Group = strconv.FormatInt(int64(stUnix.Gid), 10) // Gid is a uint32
+			if obj.Owner != "" {
+				res.Owner = strconv.FormatInt(int64(stUnix.Uid), 10) // Uid is a uint32
+			}
+			if obj.Group != "" {
+				res.Group = strconv.FormatInt(int64(stUnix.Gid), 10) // Gid is a uint32
+			}
 		}
 
 		// TODO: use Mode().String() when we support full rwx style mode specs!
-		res.Mode = fmt.Sprintf("%#o", fileInfo.Mode().Perm()) // 0400, 0777, etc.
+		if obj.Mode != "" {
+			res.Mode = fmt.Sprintf("%#o", fileInfo.Mode().Perm()) // 0400, 0777, etc.
+		}
 	}
+
+	// these are already copied in, and we don't need to change them...
+	//res.Recurse = obj.Recurse
+	//res.Force = obj.Force
 
 	return res, nil
 }

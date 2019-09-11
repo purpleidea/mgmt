@@ -69,8 +69,8 @@ identified by a trailing slash in their path name. File have no such slash.
 It has the following properties:
 
 * `path`: absolute file path (directories have a trailing slash here)
+* `state`: either `exists`, `absent`, or undefined
 * `content`: raw file content
-* `state`: either `exists` (the default value) or `absent`
 * `mode`: octal unix file permissions
 * `owner`: username or uid for the file owner
 * `group`: group name or gid for the file group
@@ -78,6 +78,16 @@ It has the following properties:
 ### Path
 
 The path property specifies the file or directory that we are managing.
+
+### State
+
+The state property describes the action we'd like to apply for the resource. The
+possible values are: `exists` and `absent`. If you do not specify either of
+these, it is undefined. Without specifying this value as `exists`, another param
+cannot cause a file to get implicitly created. When specifying this value as
+`absent`, you should not specify any other params that would normally change the
+file. For example, if you specify `content` and this param is `absent`, then you
+will get an engine validation error.
 
 ### Content
 
@@ -87,11 +97,6 @@ The content property is a string that specifies the desired file contents.
 
 The source property points to a source file or directory path that we wish to
 copy over and use as the desired contents for our resource.
-
-### State
-
-The state property describes the action we'd like to apply for the resource. The
-possible values are: `exists` and `absent`.
 
 ### Recurse
 

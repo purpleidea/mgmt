@@ -1,6 +1,7 @@
 import "sys"
 
 file "/tmp/mgmt/systemload" {
+	state => "exists",
 	content => template("load average: {{ .load }} threshold: {{ .threshold }}\n", $tmplvalues),
 }
 

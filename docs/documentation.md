@@ -250,6 +250,26 @@ integer, then that value is the max size for that semaphore. Valid semaphore
 id's include: `some_id`, `hello:42`, `not:smart:4` and `:13`. It is expected
 that the last bare example be only used by the engine to add a global semaphore.
 
+#### Rewatch
+
+Boolean. Rewatch specifies whether we re-run the Watch worker during a graph
+swap if it has errored. When doing a graph compare to swap the graphs, if this
+is true, and this particular worker has errored, then we'll remove it and add it
+back as a new vertex, thus causing it to run again. This is different from the
+`Retry` metaparam which applies during the normal execution. It is only when
+this is exhausted that we're in permanent worker failure, and only then can we
+rely on this metaparam.
+
+#### Realize
+
+Boolean. Realize ensures that the resource is guaranteed to converge at least
+once before a potential graph swap removes or changes it. This guarantee is
+useful for fast changing graphs, to ensure that the brief creation of a resource
+is seen. This guarantee does not prevent against the engine quitting normally,
+and it can't guarantee it if the resource is blocked because of a failed
+pre-requisite resource.
+*XXX: This is currently not implemented!*
+
 ### Lang metadata file
 
 Any module *must* have a metadata file in its root. It must be named

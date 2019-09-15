@@ -43,9 +43,35 @@ if [ "$VERSION" != "$TAG" ]; then
 fi
 
 # make sure the package type is valid
-if [ "$1" != "deb" ] && [ "$1" != "rpm" ] && [ "$1" != "pacman" ]; then
+if [ "$1" != "rpm" ] && [ "$1" != "deb" ] && [ "$1" != "pacman" ]; then
 	echo "invalid package type"
 	exit 1
+fi
+
+# don't run if the file already exists (bad idempotent implementation)
+if [ -d "${DIR}/${VERSION}/${1}/" ]; then
+	if [ "$1" = "rpm" ]; then
+		if ls "${DIR}/${VERSION}/${1}/"*.rpm &>/dev/null; then
+			# update timestamp so the Makefile is happy =D
+			touch "${DIR}/${VERSION}/${1}/"*.rpm
+			echo "a .rpm already exists"
+			exit 0	# don't error, we want to be idempotent
+		fi
+	fi
+	if [ "$1" = "deb" ]; then
+		if ls "${DIR}/${VERSION}/${1}/"*.deb &>/dev/null; then
+			touch "${DIR}/${VERSION}/${1}/"*.deb
+			echo "a .deb already exists"
+			exit 0
+		fi
+	fi
+	if [ "$1" = "pacman" ]; then
+		if ls "${DIR}/${VERSION}/${1}/"*.tar.xz &>/dev/null; then
+			touch "${DIR}/${VERSION}/${1}/"*.tar.xz
+			echo "a .tar.xz already exists"
+			exit 0
+		fi
+	fi
 fi
 
 # there are no changelogs for pacman packages
@@ -57,6 +83,11 @@ fi
 for i in "${@:3}"; do
 	DEPS="$DEPS -d $i"
 done
+
+# in case the `fpm` gem bin isn't in the $PATH
+if which ruby >/dev/null && which gem >/dev/null && ! command -v fpm 2>/dev/null; then
+	PATH="$(ruby -r rubygems -e 'puts Gem.user_dir')/bin:$PATH"
+fi
 
 # build the package
 fpm \

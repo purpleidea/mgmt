@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag release funcgen
+.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag mkosi mkosi_rpm mkosi_deb mkosi_pacman release releases_path release_rpm release_deb release_pacman funcgen
 .SILENT: clean bindata
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
@@ -165,6 +165,7 @@ clean: ## clean things up
 	$(MAKE) --quiet -C bindata clean
 	$(MAKE) --quiet -C lang/funcs clean
 	$(MAKE) --quiet -C lang clean
+	$(MAKE) --quiet -C misc/mkosi clean
 	rm -f lang/funcs/core/generated_funcs.go || true
 	rm -f lang/funcs/core/generated_funcs_test.go || true
 	[ ! -e $(PROGRAM) ] || rm $(PROGRAM)
@@ -344,9 +345,34 @@ tag: ## tags a new release
 	./misc/tag.sh
 
 #
+#	mkosi
+#
+mkosi: mkosi_rpm mkosi_deb mkosi_pacman ## builds distro packages via mkosi
+
+mkosi_rpm: releases/$(VERSION)/.mkdir
+	@echo "Generating: rpm via mkosi..."
+	./misc/mkosi/make.sh rpm mkosi.default.fedora-29 `realpath "releases/$(VERSION)/"`
+
+mkosi_deb: releases/$(VERSION)/.mkdir
+	@echo "Generating: deb via mkosi..."
+	./misc/mkosi/make.sh deb mkosi.default.debian-10 `realpath "releases/$(VERSION)/"`
+
+mkosi_pacman: releases/$(VERSION)/.mkdir
+	@echo "Generating: pacman via mkosi..."
+	./misc/mkosi/make.sh pacman mkosi.default.archlinux `realpath "releases/$(VERSION)/"`
+
+#
 #	release
 #
 release: releases/$(VERSION)/mgmt-release.url ## generates and uploads a release
+
+releases_path:
+	@#Don't put any other output or dependencies in here or they'll show!
+	@echo "releases/$(VERSION)/"
+
+release_rpm: $(RPM_PKG)
+release_deb: $(DEB_PKG)
+release_pacman: $(PACMAN_PKG)
 
 releases/$(VERSION)/mgmt-release.url: $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(SHA256SUMS_ASC)
 	@echo "Creating github release..."
@@ -362,7 +388,7 @@ releases/$(VERSION)/mgmt-release.url: $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(SHA2
 		|| rm -f releases/$(VERSION)/mgmt-release.url
 
 releases/$(VERSION)/.mkdir:
-	mkdir -p releases/$(VERSION)/{deb,rpm,pacman}/ && touch releases/$(VERSION)/.mkdir
+	mkdir -p releases/$(VERSION)/{rpm,deb,pacman}/ && touch releases/$(VERSION)/.mkdir
 
 releases/$(VERSION)/rpm/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@echo "Generating: rpm changelog..."

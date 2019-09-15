@@ -1,0 +1,53 @@
+[Distribution]
+Distribution=arch
+#Mirror=http://mirror.rackspace.com/archlinux/
+
+[Output]
+Format=raw_btrfs
+Bootable=yes
+
+# This can be a ramdisk to improve performance.
+OutputDirectory=mkosi.output
+
+[Partitions]
+# 1G isn't enough for the base distros.
+RootSize=5G
+
+[Packages]
+# We need to download sources from the internet.
+WithNetwork=true
+
+# The packages to appear in both the build and the final image.
+Packages=
+	pacman
+	pacman-contrib
+	pacman-mirrorlist
+	make
+	git
+	go
+	tree
+# The packages to appear in the build image, but absent from the final image.
+#BuildPackages=
+#	pacman
+#	pacman-contrib
+#	pacman-mirrorlist
+#	make
+#	git
+#	go
+#	tree
+
+# Store our build artifacts here. This makes them accessible to the outside.
+BuildDirectory=mkosi.builddir
+
+# Cache some of our package manager downloads.
+Cache=mkosi.cache
+
+# Pull the parent git repository into the image.
+BuildSources=../..
+
+# Use this transfer mode for the git sources.
+# XXX: Does auto-detect even work if BuildSources is not the current dir? Bug?
+SourceFileTransfer=copy-git-cached
+
+# Skip the (second) final build phase, since we only need the build artifact.
+SkipFinalPhase=true

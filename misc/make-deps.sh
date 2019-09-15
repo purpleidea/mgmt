@@ -45,7 +45,7 @@ if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y ruby-devel rubygems
 	$sudo_command $YUM install -y time
 	# dependencies for building packages with fpm
-	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar || true
+	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar mkosi || true
 	$sudo_command $YUM install -y graphviz || true # for debugging
 fi
 if [ ! -z "$APT" ]; then

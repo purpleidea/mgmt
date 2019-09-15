@@ -1,0 +1,5 @@
+mkosi.cache/
+mkosi.builddir/
+mkosi.output/
+image.raw.cache-pre-dev
+image.raw.cache-pre-inst

@@ -295,33 +295,25 @@ func (obj *PasswordRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *PasswordRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *PasswordRes) Compare(r engine.Res) bool {
 	// we can only compare PasswordRes to others of the same resource kind
 	res, ok := r.(*PasswordRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.Length != res.Length {
-		return false
+		return fmt.Errorf("the Length differs")
 	}
 	// TODO: we *could* optimize by allowing CheckApply to move from
 	// saved->!saved, by removing the file, but not likely worth it!
 	if obj.Saved != res.Saved {
-		return false
+		return fmt.Errorf("the Saved differs")
 	}
 	if obj.CheckRecovery != res.CheckRecovery {
-		return false
+		return fmt.Errorf("the CheckRecovery differs")
 	}
 
-	return true
+	return nil
 }
 
 // PasswordUID is the UID struct for PasswordRes.

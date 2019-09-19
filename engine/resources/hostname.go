@@ -219,31 +219,23 @@ func (obj *HostnameRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *HostnameRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *HostnameRes) Compare(r engine.Res) bool {
 	// we can only compare HostnameRes to others of the same resource kind
 	res, ok := r.(*HostnameRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.PrettyHostname != res.PrettyHostname {
-		return false
+		return fmt.Errorf("the PrettyHostname differs")
 	}
 	if obj.StaticHostname != res.StaticHostname {
-		return false
+		return fmt.Errorf("the StaticHostname differs")
 	}
 	if obj.TransientHostname != res.TransientHostname {
-		return false
+		return fmt.Errorf("the TransientHostname differs")
 	}
 
-	return true
+	return nil
 }
 
 // HostnameUID is the UID struct for HostnameRes.

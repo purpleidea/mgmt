@@ -200,36 +200,28 @@ func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *MsgRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *MsgRes) Compare(r engine.Res) bool {
 	// we can only compare MsgRes to others of the same resource kind
 	res, ok := r.(*MsgRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.Body != res.Body {
-		return false
+		return fmt.Errorf("the Body differs")
 	}
 	if obj.Priority != res.Priority {
-		return false
+		return fmt.Errorf("the Priority differs")
 	}
 	if len(obj.Fields) != len(res.Fields) {
-		return false
+		return fmt.Errorf("the length of Fields differs")
 	}
 	for field, value := range obj.Fields {
 		if res.Fields[field] != value {
-			return false
+			return fmt.Errorf("the Fields differ")
 		}
 	}
 
-	return true
+	return nil
 }
 
 // MsgUID is a unique representation for a MsgRes object.

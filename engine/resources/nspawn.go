@@ -261,35 +261,27 @@ func (obj *NspawnRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *NspawnRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *NspawnRes) Compare(r engine.Res) bool {
 	// we can only compare NspawnRes to others of the same resource kind
 	res, ok := r.(*NspawnRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 
 	// TODO: why is res.svc ever nil?
 	if (obj.svc == nil) != (res.svc == nil) { // xor
-		return false
+		return fmt.Errorf("the svc differs")
 	}
 	if obj.svc != nil && res.svc != nil {
-		if !obj.svc.Compare(res.svc) {
-			return false
+		if err := obj.svc.Cmp(res.svc); err != nil {
+			return errwrap.Wrapf(err, "the svc differs")
 		}
 	}
 
-	return true
+	return nil
 }
 
 // NspawnUID is a unique resource identifier.

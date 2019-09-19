@@ -506,34 +506,26 @@ func (obj *NetRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *NetRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *NetRes) Compare(r engine.Res) bool {
 	// we can only compare NetRes to others of the same resource kind
 	res, ok := r.(*NetRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 	if (obj.Addrs == nil) != (res.Addrs == nil) {
-		return false
+		return fmt.Errorf("the Addrs differ")
 	}
 	if err := util.SortedStrSliceCompare(obj.Addrs, res.Addrs); err != nil {
-		return false
+		return fmt.Errorf("the Addrs differ")
 	}
 	if obj.Gateway != res.Gateway {
-		return false
+		return fmt.Errorf("the Gateway differs")
 	}
 
-	return true
+	return nil
 }
 
 // NetUID is a unique resource identifier.

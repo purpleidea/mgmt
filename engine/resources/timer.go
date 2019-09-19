@@ -113,25 +113,17 @@ func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *TimerRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *TimerRes) Compare(r engine.Res) bool {
 	// we can only compare TimerRes to others of the same resource kind
 	res, ok := r.(*TimerRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.Interval != res.Interval {
-		return false
+		return fmt.Errorf("the Interval differs")
 	}
 
-	return true
+	return nil
 }
 
 // TimerUID is the UID struct for TimerRes.

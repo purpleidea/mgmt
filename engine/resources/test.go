@@ -199,25 +199,17 @@ func (obj *TestRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *TestRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *TestRes) Compare(r engine.Res) bool {
 	// we can only compare TestRes to others of the same resource kind
 	res, ok := r.(*TestRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 	//if obj.Name != res.Name {
 	//	return false
 	//}
 
 	if obj.CompareFail || res.CompareFail {
-		return false
+		return fmt.Errorf("the CompareFail is true")
 	}
 
 	// TODO: yes, I know the long manual version is absurd, but I couldn't
@@ -228,145 +220,145 @@ func (obj *TestRes) Compare(r engine.Res) bool {
 	//}
 
 	if obj.Bool != res.Bool {
-		return false
+		return fmt.Errorf("the Bool differs")
 	}
 	if obj.Str != res.Str {
-		return false
+		return fmt.Errorf("the Str differs")
 	}
 
 	if obj.Int != res.Int {
-		return false
+		return fmt.Errorf("the Str differs")
 	}
 	if obj.Int8 != res.Int8 {
-		return false
+		return fmt.Errorf("the Int8 differs")
 	}
 	if obj.Int16 != res.Int16 {
-		return false
+		return fmt.Errorf("the Int16 differs")
 	}
 	if obj.Int32 != res.Int32 {
-		return false
+		return fmt.Errorf("the Int32 differs")
 	}
 	if obj.Int64 != res.Int64 {
-		return false
+		return fmt.Errorf("the Int64 differs")
 	}
 
 	if obj.Uint != res.Uint {
-		return false
+		return fmt.Errorf("the Uint differs")
 	}
 	if obj.Uint8 != res.Uint8 {
-		return false
+		return fmt.Errorf("the Uint8 differs")
 	}
 	if obj.Uint16 != res.Uint16 {
-		return false
+		return fmt.Errorf("the Uint16 differs")
 	}
 	if obj.Uint32 != res.Uint32 {
-		return false
+		return fmt.Errorf("the Uint32 differs")
 	}
 	if obj.Uint64 != res.Uint64 {
-		return false
+		return fmt.Errorf("the Uint64 differs")
 	}
 
 	//if obj.Uintptr
 	if obj.Byte != res.Byte {
-		return false
+		return fmt.Errorf("the Byte differs")
 	}
 	if obj.Rune != res.Rune {
-		return false
+		return fmt.Errorf("the Rune differs")
 	}
 
 	if obj.Float32 != res.Float32 {
-		return false
+		return fmt.Errorf("the Float32 differs")
 	}
 	if obj.Float64 != res.Float64 {
-		return false
+		return fmt.Errorf("the Float64 differs")
 	}
 	if obj.Complex64 != res.Complex64 {
-		return false
+		return fmt.Errorf("the Complex64 differs")
 	}
 	if obj.Complex128 != res.Complex128 {
-		return false
+		return fmt.Errorf("the Complex128 differs")
 	}
 
 	if (obj.BoolPtr == nil) != (res.BoolPtr == nil) { // xor
-		return false
+		return fmt.Errorf("the BoolPtr differs")
 	}
 	if obj.BoolPtr != nil && res.BoolPtr != nil {
 		if *obj.BoolPtr != *res.BoolPtr { // compare
-			return false
+			return fmt.Errorf("the BoolPtr differs")
 		}
 	}
 	if (obj.StringPtr == nil) != (res.StringPtr == nil) { // xor
-		return false
+		return fmt.Errorf("the StringPtr differs")
 	}
 	if obj.StringPtr != nil && res.StringPtr != nil {
 		if *obj.StringPtr != *res.StringPtr { // compare
-			return false
+			return fmt.Errorf("the StringPtr differs")
 		}
 	}
 	if (obj.Int64Ptr == nil) != (res.Int64Ptr == nil) { // xor
-		return false
+		return fmt.Errorf("the Int64Ptr differs")
 	}
 	if obj.Int64Ptr != nil && res.Int64Ptr != nil {
 		if *obj.Int64Ptr != *res.Int64Ptr { // compare
-			return false
+			return fmt.Errorf("the Int64Ptr differs")
 		}
 	}
 	if (obj.Int8Ptr == nil) != (res.Int8Ptr == nil) { // xor
-		return false
+		return fmt.Errorf("the Int8Ptr differs")
 	}
 	if obj.Int8Ptr != nil && res.Int8Ptr != nil {
 		if *obj.Int8Ptr != *res.Int8Ptr { // compare
-			return false
+			return fmt.Errorf("the Int8Ptr differs")
 		}
 	}
 	if (obj.Uint8Ptr == nil) != (res.Uint8Ptr == nil) { // xor
-		return false
+		return fmt.Errorf("the Uint8Ptr differs")
 	}
 	if obj.Uint8Ptr != nil && res.Uint8Ptr != nil {
 		if *obj.Uint8Ptr != *res.Uint8Ptr { // compare
-			return false
+			return fmt.Errorf("the Uint8Ptr differs")
 		}
 	}
 
 	if !reflect.DeepEqual(obj.Int8PtrPtrPtr, res.Int8PtrPtrPtr) {
-		return false
+		return fmt.Errorf("the Int8PtrPtrPtr differs")
 	}
 
 	if !reflect.DeepEqual(obj.SliceString, res.SliceString) {
-		return false
+		return fmt.Errorf("the SliceString differs")
 	}
 	if !reflect.DeepEqual(obj.MapIntFloat, res.MapIntFloat) {
-		return false
+		return fmt.Errorf("the MapIntFloat differs")
 	}
 	if !reflect.DeepEqual(obj.MixedStruct, res.MixedStruct) {
-		return false
+		return fmt.Errorf("the MixedStruct differs")
 	}
 	if !reflect.DeepEqual(obj.Interface, res.Interface) {
-		return false
+		return fmt.Errorf("the Interface differs")
 	}
 
 	if obj.AnotherStr != res.AnotherStr {
-		return false
+		return fmt.Errorf("the AnotherStr differs")
 	}
 
 	if obj.ValidateBool != res.ValidateBool {
-		return false
+		return fmt.Errorf("the ValidateBool differs")
 	}
 	if obj.ValidateError != res.ValidateError {
-		return false
+		return fmt.Errorf("the ValidateError differs")
 	}
 	if obj.AlwaysGroup != res.AlwaysGroup {
-		return false
+		return fmt.Errorf("the AlwaysGroup differs")
 	}
 	if obj.SendValue != res.SendValue {
-		return false
+		return fmt.Errorf("the SendValue differs")
 	}
 
 	if obj.Comment != res.Comment {
-		return false
+		return fmt.Errorf("the Comment differs")
 	}
 
-	return true
+	return nil
 }
 
 // TestUID is the UID struct for TestRes.

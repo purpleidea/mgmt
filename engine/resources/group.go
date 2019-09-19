@@ -220,32 +220,24 @@ func (obj *GroupRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *GroupRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *GroupRes) Compare(r engine.Res) bool {
 	// we can only compare GroupRes to others of the same resource kind
 	res, ok := r.(*GroupRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 	if (obj.GID == nil) != (res.GID == nil) {
-		return false
+		return fmt.Errorf("the GID differs")
 	}
 	if obj.GID != nil && res.GID != nil {
 		if *obj.GID != *res.GID {
-			return false
+			return fmt.Errorf("the GID differs")
 		}
 	}
-	return true
+	return nil
 }
 
 // GroupUID is the UID struct for GroupRes.

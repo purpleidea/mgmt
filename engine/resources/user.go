@@ -273,45 +273,37 @@ func (obj *UserRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *UserRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *UserRes) Compare(r engine.Res) bool {
 	// we can only compare UserRes to others of the same resource kind
 	res, ok := r.(*UserRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 	if (obj.UID == nil) != (res.UID == nil) {
-		return false
+		return fmt.Errorf("the UID differs")
 	}
 	if obj.UID != nil && res.UID != nil {
 		if *obj.UID != *res.UID {
-			return false
+			return fmt.Errorf("the UID differs")
 		}
 	}
 	if (obj.GID == nil) != (res.GID == nil) {
-		return false
+		return fmt.Errorf("the GID differs")
 	}
 	if obj.GID != nil && res.GID != nil {
 		if *obj.GID != *res.GID {
-			return false
+			return fmt.Errorf("the GID differs")
 		}
 	}
 	if (obj.Groups == nil) != (res.Groups == nil) {
-		return false
+		return fmt.Errorf("the Group differs")
 	}
 	if obj.Groups != nil && res.Groups != nil {
 		if len(obj.Groups) != len(res.Groups) {
-			return false
+			return fmt.Errorf("the Group differs")
 		}
 		objGroups := obj.Groups
 		resGroups := res.Groups
@@ -319,22 +311,22 @@ func (obj *UserRes) Compare(r engine.Res) bool {
 		sort.Strings(resGroups)
 		for i := range objGroups {
 			if objGroups[i] != resGroups[i] {
-				return false
+				return fmt.Errorf("the Group differs at index: %d", i)
 			}
 		}
 	}
 	if (obj.HomeDir == nil) != (res.HomeDir == nil) {
-		return false
+		return fmt.Errorf("the HomeDirs differs")
 	}
 	if obj.HomeDir != nil && res.HomeDir != nil {
-		if *obj.HomeDir != *obj.HomeDir {
-			return false
+		if *obj.HomeDir != *res.HomeDir {
+			return fmt.Errorf("the HomeDir differs")
 		}
 	}
 	if obj.AllowDuplicateUID != res.AllowDuplicateUID {
-		return false
+		return fmt.Errorf("the AllowDuplicateUID differs")
 	}
-	return true
+	return nil
 }
 
 // UserUID is the UID struct for UserRes.

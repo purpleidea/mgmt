@@ -354,31 +354,23 @@ func (obj *SvcRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *SvcRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *SvcRes) Compare(r engine.Res) bool {
 	// we can only compare SvcRes to others of the same resource kind
 	res, ok := r.(*SvcRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 	if obj.Startup != res.Startup {
-		return false
+		return fmt.Errorf("the Startup differs")
 	}
 	if obj.Session != res.Session {
-		return false
+		return fmt.Errorf("the Session differs")
 	}
 
-	return true
+	return nil
 }
 
 // SvcUID is the UID struct for SvcRes.

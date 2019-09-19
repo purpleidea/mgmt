@@ -751,45 +751,37 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *AwsEc2Res) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *AwsEc2Res) Compare(r engine.Res) bool {
 	// we can only compare AwsEc2Res to others of the same resource kind
 	res, ok := r.(*AwsEc2Res)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.State != res.State {
-		return false
+		return fmt.Errorf("the State differs")
 	}
 	if obj.Region != res.Region {
-		return false
+		return fmt.Errorf("the Region differs")
 	}
 	if obj.Type != res.Type {
-		return false
+		return fmt.Errorf("the Type differs")
 	}
 	if obj.ImageID != res.ImageID {
-		return false
+		return fmt.Errorf("the ImageID differs")
 	}
 	if obj.WatchEndpoint != res.WatchEndpoint {
-		return false
+		return fmt.Errorf("the WatchEndpoint differs")
 	}
 	if obj.WatchListenAddr != res.WatchListenAddr {
-		return false
+		return fmt.Errorf("the WatchListenAddr differs")
 	}
 	if obj.ErrorOnMalformedPost != res.ErrorOnMalformedPost {
-		return false
+		return fmt.Errorf("the ErrorOnMalformedPost differs")
 	}
 	if obj.UserData != res.UserData {
-		return false
+		return fmt.Errorf("the UserData differs")
 	}
-	return true
+	return nil
 }
 
 func (obj *AwsEc2Res) prependName() string {

@@ -115,24 +115,16 @@ func (obj *PrintRes) CheckApply(apply bool) (bool, error) {
 
 // Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *PrintRes) Cmp(r engine.Res) error {
-	if !obj.Compare(r) {
-		return fmt.Errorf("did not compare")
-	}
-	return nil
-}
-
-// Compare two resources and return if they are equivalent.
-func (obj *PrintRes) Compare(r engine.Res) bool {
 	// we can only compare PrintRes to others of the same resource kind
 	res, ok := r.(*PrintRes)
 	if !ok {
-		return false
+		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
 	if obj.Msg != res.Msg {
-		return false
+		return fmt.Errorf("the Msg differs")
 	}
-	return true
+	return nil
 }
 
 // PrintUID is the UID struct for PrintRes.

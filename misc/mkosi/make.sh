@@ -9,21 +9,18 @@ ROOT=$(dirname "${BASH_SOURCE}")
 cd "${ROOT}"
 #pwd
 
-if [ "$3" = "" ]; then
+if [ "$2" = "" ]; then
 	# output should be an absolute path
-	echo "Usage: ./$0 <type> <input> <output>"
+	echo "Usage: ./$0 <distro> <output>"
 	exit 1
 fi
+distro="$1"	# eg: fedora-29
+output="$2"	# an absolute dir path
 
-# The type should be one of these.
-if [ "$1" != "rpm" ] && [ "$1" != "deb" ] && [ "$1" != "pacman" ]; then
-	echo "Error: build type sanity check failure."
-	exit 1
-fi
-
-# The input should start with this format string.
-if [[ $2 != mkosi.default.* ]]; then
-	echo "Error: build input sanity check failure."
+# Check that the "default" mkosi distro file exists.
+mkosi_default="mkosi.default.${distro}"	# eg: mkosi.default.fedora-29
+if [ ! -e "${mkosi_default}" ]; then
+	echo "Error: mkosi distro file doesn't exist."
 	exit 1
 fi
 
@@ -47,7 +44,8 @@ sudo mount -t tmpfs -o size=5g tmpfs mkosi.output/	# zoom!
 trap 'echo Unmounting tmpfs... && sudo umount mkosi.output/' EXIT	# Unmount on script exit.
 
 echo "Running mkosi (requires root)..."
-time sudo mkosi --default="$2" build	# Test with `summary` instead of `build`.
+# Passing env vars doesn't work, so use: https://github.com/systemd/mkosi/pull/367
+time sudo mkosi --default="${mkosi_default}" build	# Test with `summary` instead of `build`.
 
 # FIXME: workaround bug: https://github.com/systemd/mkosi/issues/366
 u=$(id --name --user)
@@ -56,6 +54,6 @@ echo "Running chown (requires root)..."
 sudo chown -R $u:$g mkosi.{cache,builddir}
 
 # Move packaged build artifact into our releases/ directory.
-mv mkosi.builddir/${1}/ "$3"	# mv mkosi.builddir/rpm/ /.../releases/$(VERSION)/
+mv mkosi.builddir/${distro}/ "${output}"	# mv mkosi.builddir/fedora-29/ /.../releases/$(VERSION)/
 
 echo "Done $0 run!"

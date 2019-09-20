@@ -31,6 +31,17 @@ mv "$SRCDIR" "$MGMTDIR"
 # Work from that directory.
 cd "$MGMTDIR"
 
+# Pull from the MKOSI_DEFAULT var: https://github.com/systemd/mkosi/pull/367
+mkosi_default="mkosi.default."	# remove this prefix
+MGMT_MKOSI_DISTRO="${MKOSI_DEFAULT##$mkosi_default}"
+
+# Lookup the type of image build we're doing.
+if [ "${MGMT_MKOSI_DISTRO}" = "" ]; then
+	echo "The MGMT_MKOSI_DISTRO variable is empty."
+	exit 1
+fi
+echo "Build distro: $MGMT_MKOSI_DISTRO"
+
 # Arch mirror fixes.
 if [ -e "/etc/arch-release" ]; then
 	cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
@@ -64,24 +75,9 @@ mkdir -p "$releases_path"	# Ensure it exists.
 echo "The releases_path is: ${releases_path}."
 
 # Build the package for the distribution that we're in.
-if [ -e "/etc/redhat-release" ]; then
-	# TODO: differentiate between Fedora and CentOS
-	make release_rpm
-	typ='rpm'
-elif [ -e "/etc/debian_version" ]; then
-	# TODO: differentiate between Debian and Ubuntu
-	make release_deb
-	typ='deb'
-elif [ -e "/etc/arch-release" ]; then
-	make release_pacman
-	typ='pacman'
-else
-	echo "OS family is unknown."
-	exit 1
-fi
-echo "The release type is: ${typ}."
+make release_${MGMT_MKOSI_DISTRO}
 
 # Store releases.
-mv "$releases_path${typ}/" $BUILDDIR	# mv releases/$(VERSION)/rpm/ $BUILDDIR
+mv "$releases_path${MGMT_MKOSI_DISTRO}/" $BUILDDIR	# mv releases/$(VERSION)/fedora-29/ $BUILDDIR
 
 echo "Done mkosi build!"

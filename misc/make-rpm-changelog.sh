@@ -2,9 +2,19 @@
 # This script generates an rpm changelog from the project's git history.
 
 # version we're releasing
-VERSION="$1"
+DISTRO="$1"
+VERSION="$2"
+if [ "$VERSION" = "" ]; then
+	echo "usage: ./$0 <distro> <version>"
+	exit 1
+fi
 # path to store the changelog
-CHANGELOG="releases/${VERSION}/rpm/changelog"
+CHANGELOG="releases/${VERSION}/${DISTRO}/changelog"
+dir="$(dirname "$CHANGELOG")/"
+if [ ! -d "$dir" ]; then
+	echo "changelog dir ($dir) does not exist"
+	exit 1
+fi
 # input to format flag for git tag
 TAG_FORMAT="* %(creatordate:format:%a %b %d %Y) %(creator) %(refname:lstrip=2)"
 # a list of tags to be parsed in the loop

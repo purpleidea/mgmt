@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag mkosi mkosi_rpm mkosi_deb mkosi_pacman release releases_path release_rpm release_deb release_pacman funcgen
+.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag mkosi mkosi_fedora-29 mkosi_debian-10 mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux release releases_path release_fedora-29 release_debian-10 release_rpm release_deb release_pacman release_archlinux funcgen
 .SILENT: clean bindata
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
@@ -49,9 +49,12 @@ GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
 GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
+PKG_FEDORA-29 = releases/$(VERSION)/fedora-29/mgmt-$(VERSION)-1.x86_64.rpm
+PKG_DEBIAN-10 = releases/$(VERSION)/debian-10/mgmt_$(VERSION)_amd64.deb
 RPM_PKG = releases/$(VERSION)/rpm/mgmt-$(VERSION)-1.x86_64.rpm
 DEB_PKG = releases/$(VERSION)/deb/mgmt_$(VERSION)_amd64.deb
 PACMAN_PKG = releases/$(VERSION)/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
+PKG_ARCHLINUX = releases/$(VERSION)/archlinux/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
 
 SHA256SUMS = releases/$(VERSION)/SHA256SUMS
 SHA256SUMS_ASC = $(SHA256SUMS).asc
@@ -347,7 +350,15 @@ tag: ## tags a new release
 #
 #	mkosi
 #
-mkosi: mkosi_rpm mkosi_deb mkosi_pacman ## builds distro packages via mkosi
+mkosi: mkosi_fedora-29 mkosi_debian-10 mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux ## builds distro packages via mkosi
+
+mkosi_fedora-29: releases/$(VERSION)/.mkdir
+	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
+	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
+
+mkosi_debian-10: releases/$(VERSION)/.mkdir
+	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
+	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
 mkosi_rpm: releases/$(VERSION)/.mkdir
 	@echo "Generating: rpm via mkosi..."
@@ -361,6 +372,11 @@ mkosi_pacman: releases/$(VERSION)/.mkdir
 	@echo "Generating: pacman via mkosi..."
 	./misc/mkosi/make.sh pacman mkosi.default.archlinux `realpath "releases/$(VERSION)/"`
 
+mkosi_archlinux: releases/$(VERSION)/.mkdir
+	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
+	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
+
+
 #
 #	release
 #
@@ -370,17 +386,23 @@ releases_path:
 	@#Don't put any other output or dependencies in here or they'll show!
 	@echo "releases/$(VERSION)/"
 
+release_fedora-29: $(PKG_FEDORA-29)
+release_debian-10: $(PKG_DEBIAN-10)
 release_rpm: $(RPM_PKG)
 release_deb: $(DEB_PKG)
 release_pacman: $(PACMAN_PKG)
+release_archlinux: $(PKG_ARCHLINUX)
 
-releases/$(VERSION)/mgmt-release.url: $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(SHA256SUMS_ASC)
+releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
 	@echo "Creating github release..."
 	hub release create \
 		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
+		-a $(PKG_FEDORA-29) \
+		-a $(PKG_DEBIAN-10) \
 		-a $(RPM_PKG) \
 		-a $(DEB_PKG) \
 		-a $(PACMAN_PKG) \
+		-a $(PKG_ARCHLINUX) \
 		-a $(SHA256SUMS_ASC) \
 		$(VERSION) \
 		> releases/$(VERSION)/mgmt-release.url \
@@ -388,7 +410,23 @@ releases/$(VERSION)/mgmt-release.url: $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(SHA2
 		|| rm -f releases/$(VERSION)/mgmt-release.url
 
 releases/$(VERSION)/.mkdir:
-	mkdir -p releases/$(VERSION)/{rpm,deb,pacman}/ && touch releases/$(VERSION)/.mkdir
+	mkdir -p releases/$(VERSION)/{fedora-29,debian-10,rpm,deb,pacman,archlinux}/ && touch releases/$(VERSION)/.mkdir
+
+releases/$(VERSION)/fedora-29/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-rpm-changelog.sh "$${distro}" $(VERSION)
+
+$(PKG_FEDORA-29): releases/$(VERSION)/fedora-29/changelog
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-devel augeas-devel
+
+releases/$(VERSION)/debian-10/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-deb-changelog.sh "$${distro}" $(VERSION)
+
+$(PKG_DEBIAN-10): releases/$(VERSION)/debian-10/changelog
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
 
 releases/$(VERSION)/rpm/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@echo "Generating: rpm changelog..."
@@ -410,10 +448,14 @@ $(PACMAN_PKG): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@echo "Building: pacman package..."
 	./misc/fpm-pack.sh pacman $(VERSION) libvirt augeas
 
-$(SHA256SUMS): $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG)
+$(PKG_ARCHLINUX): $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt augeas
+
+$(SHA256SUMS): $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX)
 	@# remove the directory separator in the SHA256SUMS file
 	@echo "Generating: sha256 sum..."
-	sha256sum $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
+	sha256sum $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
 
 $(SHA256SUMS_ASC): $(SHA256SUMS)
 	@echo "Signing sha256 sum..."

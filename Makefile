@@ -18,8 +18,8 @@
 SHELL = /usr/bin/env bash
 .PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
-.PHONY: mkosi mkosi_fedora-29 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux
-.PHONY: release releases_path release_fedora-29 release_debian-10 release_ubuntu-bionic release_rpm release_deb release_pacman release_archlinux
+.PHONY: mkosi mkosi_fedora-29 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux
+.PHONY: release releases_path release_fedora-29 release_debian-10 release_ubuntu-bionic release_archlinux
 .PHONY: funcgen
 .SILENT: clean bindata
 
@@ -56,9 +56,6 @@ GOHOSTARCH = $(shell go env GOHOSTARCH)
 PKG_FEDORA-29 = releases/$(VERSION)/fedora-29/mgmt-$(VERSION)-1.x86_64.rpm
 PKG_DEBIAN-10 = releases/$(VERSION)/debian-10/mgmt_$(VERSION)_amd64.deb
 PKG_UBUNTU-BIONIC = releases/$(VERSION)/ubuntu-bionic/mgmt_$(VERSION)_amd64.deb
-RPM_PKG = releases/$(VERSION)/rpm/mgmt-$(VERSION)-1.x86_64.rpm
-DEB_PKG = releases/$(VERSION)/deb/mgmt_$(VERSION)_amd64.deb
-PACMAN_PKG = releases/$(VERSION)/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
 PKG_ARCHLINUX = releases/$(VERSION)/archlinux/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
 
 SHA256SUMS = releases/$(VERSION)/SHA256SUMS
@@ -355,7 +352,7 @@ tag: ## tags a new release
 #
 #	mkosi
 #
-mkosi: mkosi_fedora-29 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux ## builds distro packages via mkosi
+mkosi: mkosi_fedora-29 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux ## builds distro packages via mkosi
 
 mkosi_fedora-29: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
@@ -369,22 +366,9 @@ mkosi_ubuntu-bionic: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
-mkosi_rpm: releases/$(VERSION)/.mkdir
-	@echo "Generating: rpm via mkosi..."
-	./misc/mkosi/make.sh rpm mkosi.default.fedora-29 `realpath "releases/$(VERSION)/"`
-
-mkosi_deb: releases/$(VERSION)/.mkdir
-	@echo "Generating: deb via mkosi..."
-	./misc/mkosi/make.sh deb mkosi.default.debian-10 `realpath "releases/$(VERSION)/"`
-
-mkosi_pacman: releases/$(VERSION)/.mkdir
-	@echo "Generating: pacman via mkosi..."
-	./misc/mkosi/make.sh pacman mkosi.default.archlinux `realpath "releases/$(VERSION)/"`
-
 mkosi_archlinux: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
-
 
 #
 #	release
@@ -398,21 +382,15 @@ releases_path:
 release_fedora-29: $(PKG_FEDORA-29)
 release_debian-10: $(PKG_DEBIAN-10)
 release_ubuntu-bionic: $(PKG_UBUNTU-BIONIC)
-release_rpm: $(RPM_PKG)
-release_deb: $(DEB_PKG)
-release_pacman: $(PACMAN_PKG)
 release_archlinux: $(PKG_ARCHLINUX)
 
-releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
+releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
 	@echo "Creating github release..."
 	hub release create \
 		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
 		-a $(PKG_FEDORA-29) \
 		-a $(PKG_DEBIAN-10) \
 		-a $(PKG_UBUNTU-BIONIC) \
-		-a $(RPM_PKG) \
-		-a $(DEB_PKG) \
-		-a $(PACMAN_PKG) \
 		-a $(PKG_ARCHLINUX) \
 		-a $(SHA256SUMS_ASC) \
 		$(VERSION) \
@@ -421,7 +399,7 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UB
 		|| rm -f releases/$(VERSION)/mgmt-release.url
 
 releases/$(VERSION)/.mkdir:
-	mkdir -p releases/$(VERSION)/{fedora-29,debian-10,ubuntu-bionic,rpm,deb,pacman,archlinux}/ && touch releases/$(VERSION)/.mkdir
+	mkdir -p releases/$(VERSION)/{fedora-29,debian-10,ubuntu-bionic,archlinux}/ && touch releases/$(VERSION)/.mkdir
 
 releases/$(VERSION)/fedora-29/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
@@ -447,34 +425,14 @@ $(PKG_UBUNTU-BIONIC): releases/$(VERSION)/ubuntu-bionic/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
 
-releases/$(VERSION)/rpm/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
-	@echo "Generating: rpm changelog..."
-	./misc/make-rpm-changelog.sh $(VERSION)
-
-$(RPM_PKG): releases/$(VERSION)/rpm/changelog
-	@echo "Building: rpm package..."
-	./misc/fpm-pack.sh rpm $(VERSION) libvirt-devel augeas-devel
-
-releases/$(VERSION)/deb/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
-	@echo "Generating: deb changelog..."
-	./misc/make-deb-changelog.sh $(VERSION)
-
-$(DEB_PKG): releases/$(VERSION)/deb/changelog
-	@echo "Building: deb package..."
-	./misc/fpm-pack.sh deb $(VERSION) libvirt-dev libaugeas-dev
-
-$(PACMAN_PKG): $(PROGRAM) releases/$(VERSION)/.mkdir
-	@echo "Building: pacman package..."
-	./misc/fpm-pack.sh pacman $(VERSION) libvirt augeas
-
 $(PKG_ARCHLINUX): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt augeas
 
-$(SHA256SUMS): $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX)
+$(SHA256SUMS): $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX)
 	@# remove the directory separator in the SHA256SUMS file
 	@echo "Generating: sha256 sum..."
-	sha256sum $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
+	sha256sum $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
 
 $(SHA256SUMS_ASC): $(SHA256SUMS)
 	@echo "Signing sha256 sum..."

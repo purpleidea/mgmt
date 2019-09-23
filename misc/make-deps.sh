@@ -96,6 +96,16 @@ if [ $travis -eq 0 ]; then
 	fi
 fi
 
+# attempt to workaround old ubuntu
+if [ ! -z "$APT" ] && go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.'; then
+	echo "install golang from a ppa."
+	$sudo_command $APT remove -y golang
+	$sudo_command $APT install -y software-properties-common	# for add-apt-repository
+	$sudo_command add-apt-repository -y ppa:longsleep/golang-backports
+	$sudo_command $APT update -y
+	$sudo_command $APT install -y golang-go
+fi
+
 # if golang is too old, we don't want to fail with an obscure error later
 if go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.'; then
 	echo "mgmt recommends go1.11 or higher."

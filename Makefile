@@ -16,7 +16,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag mkosi mkosi_fedora-29 mkosi_debian-10 mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux release releases_path release_fedora-29 release_debian-10 release_rpm release_deb release_pacman release_archlinux funcgen
+.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs
+.PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
+.PHONY: mkosi mkosi_fedora-29 mkosi_debian-10 mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux
+.PHONY: release releases_path release_fedora-29 release_debian-10 release_rpm release_deb release_pacman release_archlinux
+.PHONY: funcgen
 .SILENT: clean bindata
 
 # a large amount of output from this `find`, can cause `make` to be much slower!

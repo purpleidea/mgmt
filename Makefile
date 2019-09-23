@@ -53,10 +53,15 @@ GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
 GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-PKG_FEDORA-29 = releases/$(VERSION)/fedora-29/mgmt-$(VERSION)-1.x86_64.rpm
-PKG_DEBIAN-10 = releases/$(VERSION)/debian-10/mgmt_$(VERSION)_amd64.deb
-PKG_UBUNTU-BIONIC = releases/$(VERSION)/ubuntu-bionic/mgmt_$(VERSION)_amd64.deb
-PKG_ARCHLINUX = releases/$(VERSION)/archlinux/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
+TOKEN_FEDORA-29 = fedora-29
+TOKEN_DEBIAN-10 = debian-10
+TOKEN_UBUNTU-BIONIC = ubuntu-bionic
+TOKEN_ARCHLINUX = archlinux
+
+PKG_FEDORA-29 = releases/$(VERSION)/$(TOKEN_FEDORA-29)/mgmt-$(VERSION)-1.x86_64.rpm
+PKG_DEBIAN-10 = releases/$(VERSION)/$(TOKEN_DEBIAN-10)/mgmt_$(VERSION)_amd64.deb
+PKG_UBUNTU-BIONIC = releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/mgmt_$(VERSION)_amd64.deb
+PKG_ARCHLINUX = releases/$(VERSION)/$(TOKEN_ARCHLINUX)/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
 
 SHA256SUMS = releases/$(VERSION)/SHA256SUMS
 SHA256SUMS_ASC = $(SHA256SUMS).asc
@@ -399,29 +404,29 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UB
 		|| rm -f releases/$(VERSION)/mgmt-release.url
 
 releases/$(VERSION)/.mkdir:
-	mkdir -p releases/$(VERSION)/{fedora-29,debian-10,ubuntu-bionic,archlinux}/ && touch releases/$(VERSION)/.mkdir
+	mkdir -p releases/$(VERSION)/{$(TOKEN_FEDORA-29),$(TOKEN_DEBIAN-10),$(TOKEN_UBUNTU-BIONIC),$(TOKEN_ARCHLINUX)}/ && touch releases/$(VERSION)/.mkdir
 
-releases/$(VERSION)/fedora-29/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+releases/$(VERSION)/$(TOKEN_FEDORA-29)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-rpm-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_FEDORA-29): releases/$(VERSION)/fedora-29/changelog
+$(PKG_FEDORA-29): releases/$(VERSION)/$(TOKEN_FEDORA-29)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-devel augeas-devel
 
-releases/$(VERSION)/debian-10/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+releases/$(VERSION)/$(TOKEN_DEBIAN-10)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-deb-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_DEBIAN-10): releases/$(VERSION)/debian-10/changelog
+$(PKG_DEBIAN-10): releases/$(VERSION)/$(TOKEN_DEBIAN-10)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
 
-releases/$(VERSION)/ubuntu-bionic/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-deb-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_UBUNTU-BIONIC): releases/$(VERSION)/ubuntu-bionic/changelog
+$(PKG_UBUNTU-BIONIC): releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
 

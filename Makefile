@@ -18,8 +18,8 @@
 SHELL = /usr/bin/env bash
 .PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
-.PHONY: mkosi mkosi_fedora-29 mkosi_debian-10 mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux
-.PHONY: release releases_path release_fedora-29 release_debian-10 release_rpm release_deb release_pacman release_archlinux
+.PHONY: mkosi mkosi_fedora-29 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux
+.PHONY: release releases_path release_fedora-29 release_debian-10 release_ubuntu-bionic release_rpm release_deb release_pacman release_archlinux
 .PHONY: funcgen
 .SILENT: clean bindata
 
@@ -55,6 +55,7 @@ GOHOSTARCH = $(shell go env GOHOSTARCH)
 
 PKG_FEDORA-29 = releases/$(VERSION)/fedora-29/mgmt-$(VERSION)-1.x86_64.rpm
 PKG_DEBIAN-10 = releases/$(VERSION)/debian-10/mgmt_$(VERSION)_amd64.deb
+PKG_UBUNTU-BIONIC = releases/$(VERSION)/ubuntu-bionic/mgmt_$(VERSION)_amd64.deb
 RPM_PKG = releases/$(VERSION)/rpm/mgmt-$(VERSION)-1.x86_64.rpm
 DEB_PKG = releases/$(VERSION)/deb/mgmt_$(VERSION)_amd64.deb
 PACMAN_PKG = releases/$(VERSION)/pacman/mgmt-$(VERSION)-1-x86_64.pkg.tar.xz
@@ -354,13 +355,17 @@ tag: ## tags a new release
 #
 #	mkosi
 #
-mkosi: mkosi_fedora-29 mkosi_debian-10 mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux ## builds distro packages via mkosi
+mkosi: mkosi_fedora-29 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_rpm mkosi_deb mkosi_pacman mkosi_archlinux ## builds distro packages via mkosi
 
 mkosi_fedora-29: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
 mkosi_debian-10: releases/$(VERSION)/.mkdir
+	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
+	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
+
+mkosi_ubuntu-bionic: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
@@ -392,17 +397,19 @@ releases_path:
 
 release_fedora-29: $(PKG_FEDORA-29)
 release_debian-10: $(PKG_DEBIAN-10)
+release_ubuntu-bionic: $(PKG_UBUNTU-BIONIC)
 release_rpm: $(RPM_PKG)
 release_deb: $(DEB_PKG)
 release_pacman: $(PACMAN_PKG)
 release_archlinux: $(PKG_ARCHLINUX)
 
-releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
+releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
 	@echo "Creating github release..."
 	hub release create \
 		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
 		-a $(PKG_FEDORA-29) \
 		-a $(PKG_DEBIAN-10) \
+		-a $(PKG_UBUNTU-BIONIC) \
 		-a $(RPM_PKG) \
 		-a $(DEB_PKG) \
 		-a $(PACMAN_PKG) \
@@ -414,7 +421,7 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(RPM_PK
 		|| rm -f releases/$(VERSION)/mgmt-release.url
 
 releases/$(VERSION)/.mkdir:
-	mkdir -p releases/$(VERSION)/{fedora-29,debian-10,rpm,deb,pacman,archlinux}/ && touch releases/$(VERSION)/.mkdir
+	mkdir -p releases/$(VERSION)/{fedora-29,debian-10,ubuntu-bionic,rpm,deb,pacman,archlinux}/ && touch releases/$(VERSION)/.mkdir
 
 releases/$(VERSION)/fedora-29/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
@@ -429,6 +436,14 @@ releases/$(VERSION)/debian-10/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-deb-changelog.sh "$${distro}" $(VERSION)
 
 $(PKG_DEBIAN-10): releases/$(VERSION)/debian-10/changelog
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
+
+releases/$(VERSION)/ubuntu-bionic/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-deb-changelog.sh "$${distro}" $(VERSION)
+
+$(PKG_UBUNTU-BIONIC): releases/$(VERSION)/ubuntu-bionic/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
 
@@ -456,10 +471,10 @@ $(PKG_ARCHLINUX): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt augeas
 
-$(SHA256SUMS): $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX)
+$(SHA256SUMS): $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX)
 	@# remove the directory separator in the SHA256SUMS file
 	@echo "Generating: sha256 sum..."
-	sha256sum $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
+	sha256sum $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(RPM_PKG) $(DEB_PKG) $(PACMAN_PKG) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
 
 $(SHA256SUMS_ASC): $(SHA256SUMS)
 	@echo "Signing sha256 sum..."

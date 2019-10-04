@@ -1,10 +1,18 @@
 # TODO
 
-If you're looking for something to do, look here!
-Let us know if you're working on one of the items.
-If you'd like something to work on, ping @purpleidea and I'll create an issue
-tailored especially for you! Just let me know your approximate golang skill
-level and how many hours you'd like to spend on the patch.
+Here is a TODO list of longstanding items that are either lower-priority, or
+more involved in terms of time, skill-level, and/or motivation.
+
+Please have a look, and let us know if you're working on one of the items. It's
+best to open an issue to track your progress and to discuss any implementation
+questions you might have.
+
+Lastly, if you'd like something different to work on, please ping @purpleidea
+and I'll create an issue tailored especially for your approximate golang skill
+level and available time commitment in terms of hours you'd need to spend on the
+patch.
+
+Happy Hacking!
 
 ## Package resource
 
@@ -19,7 +27,7 @@ level and how many hours you'd like to spend on the patch.
 
 ## Svc resource
 
-- [ ] base resource improvements
+- [ ] refreshonly support [:heart:](https://github.com/purpleidea/mgmt/issues/464)
 
 ## Exec resource
 
@@ -33,33 +41,14 @@ level and how many hours you'd like to spend on the patch.
 
 - [ ] automatic edges to file resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
-## Virt (libvirt) resource
-
-- [ ] base resource improvements [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-
-## Net (systemd-networkd) resource
-
-- [ ] base resource
-
-## Nspawn (systemd-nspawn) resource
-
-- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-
-## Mount (systemd-mount) resource
-
-- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-
-## Cron (systemd-timer) resource
-
-- [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
-
 ## Http resource
 
 - [ ] base resource [:heart:](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 
 ## Etcd improvements
 
-- [ ] fix embedded etcd master race
+- [ ] fix etcd race bug that only happens during CI testing (intermittently
+failing test case issue)
 
 ## Torrent/dht file transfer
 
@@ -69,17 +58,33 @@ level and how many hours you'd like to spend on the patch.
 
 - [ ] base plumbing
 
+## Resource improvements
+
+- [ ] more reversible resources implemented
+- [ ] more "cloud" resources
+
 ## Language improvements
 
 - [ ] more core functions
 - [ ] automatic language formatter, ala `gofmt`
 - [ ] gedit/gnome-builder/gtksourceview syntax highlighting
 - [ ] vim syntax highlighting
-- [x] emacs syntax highlighting: see `misc/emacs/`
+- [ ] emacs syntax highlighting: see `misc/emacs/` (needs updating)
+- [ ] exposed $error variable for feedback in the language
+- [ ] improve the printf function to add %[]s, %[]f ([]str, []float) and map,
+struct, nested etc... %v would be nice too!
+- [ ] add line/col/file annotations to AST so we can get locations of errors
+that the parser finds
+- [ ] add more error messages with the `%error` pattern in parser.y
+- [ ] we should have helper functions or language sugar to pull a field out of a
+struct, or a value out of a map, or an index out of a list, etc...
+
+## Engine improvements
+
+- [ ] add a "waiting for func" message in the func engine to notify the user
+about slow functions...
 
 ## Other
 
-- [ ] better error/retry handling
-- [ ] deb package target in Makefile
 - [ ] reproducible builds
 - [ ] add your suggestions!

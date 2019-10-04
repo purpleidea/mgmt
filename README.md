@@ -107,12 +107,13 @@ If you have a well phrased question that might benefit others, consider asking
 it by sending a patch to the [FAQ](docs/faq.md) section. I'll merge your
 question, and a patch with the answer!
 
-## Roadmap:
+## Get involved:
 
 Feel free to grab one of the straightforward [#mgmtlove](https://github.com/purpleidea/mgmt/labels/mgmtlove)
 issues if you're a first time contributor to the project or if you're unsure
 about what to hack on! Please get involved by working on one of these items or
-by suggesting something else!
+by suggesting something else! There are some lower priority issues and harder
+issues available in our [TODO](TODO.md) file. Please have a look.
 
 ## Bugs:
 

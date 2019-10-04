@@ -33,16 +33,12 @@ if [[ "${h}" == "${v}" ]]; then
 	exit 0
 fi
 
-# Give the user a chance to abort.
-echo "WARN: About to tag \"${h}\" as \"${t}\" and push."
-echo "Press ^C within 3s to abort."
-sleep 3s
+# Give the user some information.
+echo "WARN: About to tag \"${h}\" as \"${t}\" locally."
 
-# Tag and push.
+# Tag and sign.
 echo "release: tag $t" | git tag --file=- --sign $t
 echo "INFO: Version $t is now tagged."
-echo "INFO: Pushing $t to origin."
-git push origin $t
 
 # Be informative.
 GIT_PAGER=cat git diff --stat "$v" "$t"

@@ -403,6 +403,8 @@ release_ubuntu-bionic: $(PKG_UBUNTU-BIONIC)
 release_archlinux: $(PKG_ARCHLINUX)
 
 releases/$(VERSION)/mgmt-release.url: $(PKG_FEDORA-30) $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
+	@echo "Pushing git tag $(VERSION) to origin..."
+	git push origin $(VERSION)
 	@echo "Creating github release..."
 	hub release create \
 		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \

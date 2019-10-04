@@ -42,6 +42,11 @@ if [ "$VERSION" == "" ]; then
 	echo "version was not specified"
 	exit 1
 fi
+OUTPUT="$3"
+if [ "$OUTPUT" == "" ]; then
+	echo "output file was not specified"
+	exit 1
+fi
 
 if [ "$VERSION" != "$TAG" ]; then
 	echo "you must checkout the correct version before building (${VERSION} != ${TAG})"
@@ -90,9 +95,9 @@ if [ "$typ" != "pacman" ]; then
 	CHANGELOG="--${typ}-changelog=${DIR}/${VERSION}/${DISTRO}/changelog"
 fi
 
-# arguments after the first two are deps
-for i in "${@:3}"; do
-	DEPS="$DEPS -d $i"
+# arguments after the first three are deps
+for i in "${@:4}"; do
+	DEPS="$DEPS --depends $i"
 done
 
 # in case the `fpm` gem bin isn't in the $PATH
@@ -111,7 +116,7 @@ fpm \
 	--license "$LICENSE" \
 	--input-type dir \
 	--output-type "$typ" \
-	--package "${DIR}/${VERSION}/${DISTRO}/" \
+	--package "${DIR}/${VERSION}/${DISTRO}/${OUTPUT}" \
 	${CHANGELOG} \
 	${DEPS} \
 	--prefix "$PREFIX" \

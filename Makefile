@@ -59,11 +59,17 @@ TOKEN_DEBIAN-10 = debian-10
 TOKEN_UBUNTU-BIONIC = ubuntu-bionic
 TOKEN_ARCHLINUX = archlinux
 
-PKG_FEDORA-30 = releases/$(VERSION)/$(TOKEN_FEDORA-30)/mgmt-$(TOKEN_FEDORA-30)-$(VERSION)-1.x86_64.rpm
-PKG_FEDORA-29 = releases/$(VERSION)/$(TOKEN_FEDORA-29)/mgmt-$(TOKEN_FEDORA-29)-$(VERSION)-1.x86_64.rpm
-PKG_DEBIAN-10 = releases/$(VERSION)/$(TOKEN_DEBIAN-10)/mgmt_$(TOKEN_DEBIAN-10)_$(VERSION)_amd64.deb
-PKG_UBUNTU-BIONIC = releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/mgmt_$(TOKEN_UBUNTU-BIONIC)_$(VERSION)_amd64.deb
-PKG_ARCHLINUX = releases/$(VERSION)/$(TOKEN_ARCHLINUX)/mgmt-$(TOKEN_ARCHLINUX)-$(VERSION)-1-x86_64.pkg.tar.xz
+FILE_FEDORA-30 = mgmt-$(TOKEN_FEDORA-30)-$(VERSION)-1.x86_64.rpm
+FILE_FEDORA-29 = mgmt-$(TOKEN_FEDORA-29)-$(VERSION)-1.x86_64.rpm
+FILE_DEBIAN-10 = mgmt_$(TOKEN_DEBIAN-10)_$(VERSION)_amd64.deb
+FILE_UBUNTU-BIONIC = mgmt_$(TOKEN_UBUNTU-BIONIC)_$(VERSION)_amd64.deb
+FILE_ARCHLINUX = mgmt-$(TOKEN_ARCHLINUX)-$(VERSION)-1-x86_64.pkg.tar.xz
+
+PKG_FEDORA-30 = releases/$(VERSION)/$(TOKEN_FEDORA-30)/$(FILE_FEDORA-30)
+PKG_FEDORA-29 = releases/$(VERSION)/$(TOKEN_FEDORA-29)/$(FILE_FEDORA-29)
+PKG_DEBIAN-10 = releases/$(VERSION)/$(TOKEN_DEBIAN-10)/$(FILE_DEBIAN-10)
+PKG_UBUNTU-BIONIC = releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/$(FILE_UBUNTU-BIONIC)
+PKG_ARCHLINUX = releases/$(VERSION)/$(TOKEN_ARCHLINUX)/$(FILE_ARCHLINUX)
 
 SHA256SUMS = releases/$(VERSION)/SHA256SUMS
 SHA256SUMS_ASC = $(SHA256SUMS).asc
@@ -420,7 +426,7 @@ releases/$(VERSION)/$(TOKEN_FEDORA-30)/changelog: $(PROGRAM) releases/$(VERSION)
 
 $(PKG_FEDORA-30): releases/$(VERSION)/$(TOKEN_FEDORA-30)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-devel augeas-devel
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-30)" libvirt-devel augeas-devel
 
 releases/$(VERSION)/$(TOKEN_FEDORA-29)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
@@ -428,7 +434,7 @@ releases/$(VERSION)/$(TOKEN_FEDORA-29)/changelog: $(PROGRAM) releases/$(VERSION)
 
 $(PKG_FEDORA-29): releases/$(VERSION)/$(TOKEN_FEDORA-29)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-devel augeas-devel
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-29)" libvirt-devel augeas-devel
 
 releases/$(VERSION)/$(TOKEN_DEBIAN-10)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
@@ -436,7 +442,7 @@ releases/$(VERSION)/$(TOKEN_DEBIAN-10)/changelog: $(PROGRAM) releases/$(VERSION)
 
 $(PKG_DEBIAN-10): releases/$(VERSION)/$(TOKEN_DEBIAN-10)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_DEBIAN-10)" libvirt-dev libaugeas-dev
 
 releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
@@ -444,11 +450,11 @@ releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/changelog: $(PROGRAM) releases/$(VERS
 
 $(PKG_UBUNTU-BIONIC): releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt-dev libaugeas-dev
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_UBUNTU-BIONIC)" libvirt-dev libaugeas-dev
 
 $(PKG_ARCHLINUX): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) libvirt augeas
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_ARCHLINUX)" libvirt augeas
 
 $(SHA256SUMS): $(PKG_FEDORA-30) $(PKG_FEDORA-29) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX)
 	@# remove the directory separator in the SHA256SUMS file

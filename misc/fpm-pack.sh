@@ -72,7 +72,7 @@ fi
 # assume the file extension
 ext="$typ"
 if [ "$typ" = "pacman" ]; then	# archlinux is an exception
-	ext=".tar.xz"
+	ext="pkg.tar.xz"
 fi
 
 # don't run if the file already exists (bad idempotent implementation)

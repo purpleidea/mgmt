@@ -1,11 +1,13 @@
 [Distribution]
-Distribution=centos
+Distribution=centos_epel
 Release=7
 
 [Output]
 Format=raw_btrfs
 #Format=gpt_btrfs
-Bootable=yes
+# Bootable must be no or else systemd-udev package will be installed (some bug)
+# TODO: https://github.com/systemd/mkosi/issues/356
+Bootable=no
 
 # This can be a ramdisk to improve performance.
 OutputDirectory=mkosi.output
@@ -20,17 +22,17 @@ WithNetwork=true
 
 # The packages to appear in both the build and the final image.
 Packages=
-	dnf
+	yum
+	rpm-build
 	make
 	git
-	golang
 	tree
 # The packages to appear in the build image, but absent from the final image.
 #BuildPackages=
-#	dnf
+#	yum
+#	rpm-build
 #	make
 #	git
-#	golang
 #	tree
 
 # Store our build artifacts here. This makes them accessible to the outside.

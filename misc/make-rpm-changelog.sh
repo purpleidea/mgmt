@@ -15,6 +15,20 @@ if [ ! -d "$dir" ]; then
 	echo "changelog dir ($dir) does not exist"
 	exit 1
 fi
+
+if [ "$DISTRO" = "centos-7" ]; then
+	# FIXME: This will fail *inside* a build running on CentOS-7, until we
+	# improve the below script to work when we have an old version of git!
+	# Build a "fake" (temporary) changelog so that fpm doesn't fail.
+	echo "" > "$CHANGELOG"
+	echo "* $(date '+%a %b %d %Y') James Shubin <james@shubin.ca> ${VERSION}" >> "$CHANGELOG"
+	echo "" >> "$CHANGELOG"
+	echo " - James Shubin (1):" >> "$CHANGELOG"
+	echo "      Latest release of mgmt" >> "$CHANGELOG"
+	echo "" >> "$CHANGELOG"
+	exit 0	# `git tag` isn't new enough on centos-7, skip this here
+fi
+
 # input to format flag for git tag
 TAG_FORMAT="* %(creatordate:format:%a %b %d %Y) %(creator) %(refname:lstrip=2)"
 # a list of tags to be parsed in the loop

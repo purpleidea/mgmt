@@ -76,7 +76,7 @@ fi
 if [ $travis -eq 0 ]; then
 	if [ ! -z "$YUM" ]; then
 		if [ -z "$GO" ]; then
-			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer
+			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer || $sudo_command $YUM install -y golang-bin # centos-7 epel
 		fi
 		# some go dependencies are stored in mercurial
 		$sudo_command $YUM install -y hg

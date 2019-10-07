@@ -6,7 +6,7 @@ Vagrant.configure(2) do |config|
 	config.vm.synced_folder ".", "/vagrant", disabled: true
 
 	config.vm.define "mgmt-dev" do |instance|
-		instance.vm.box = "fedora/28-cloud-base"
+		instance.vm.box = "fedora/30-cloud-base"
 	end
 
 	config.vm.provider "virtualbox" do |v|
@@ -24,7 +24,7 @@ Vagrant.configure(2) do |config|
 	config.vm.provision "file", source: "~/.gitconfig", destination: ".gitconfig"
 
 	# copied from make-deps.sh (with added git)
-	config.vm.provision "shell", inline: "dnf install -y libvirt-devel golang golang-googlecode-tools-stringer hg git make gem"
+	config.vm.provision "shell", inline: "dnf install -y libvirt-devel golang golang-googlecode-tools-stringer git make gem"
 
 	# set up packagekit
 	config.vm.provision "shell" do |shell|

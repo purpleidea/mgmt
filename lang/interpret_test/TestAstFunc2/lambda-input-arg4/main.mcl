@@ -1,0 +1,19 @@
+import "fmt"
+
+$fn = func() {
+	"hello"
+}
+
+func apply1($a, $b) {
+	$a() + $b # call
+}
+
+$apply2 = func($a, $b) {
+	$a() + $b # call
+}
+
+$out1 = apply1($fn, "world")
+$out2 = $apply2($fn, "everyone")
+
+test $out1 {}
+test $out2 {}

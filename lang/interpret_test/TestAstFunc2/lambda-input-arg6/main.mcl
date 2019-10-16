@@ -1,0 +1,17 @@
+import "fmt"
+
+$in = 42
+
+$fn = func($x) {
+	$x
+}
+
+func apply($a) {
+	$a($in) # call
+}
+
+$out = apply($fn)
+
+$s = fmt.printf("%d & %d", $in, $out)
+
+test $s {}

@@ -1,0 +1,30 @@
+import "fmt"
+
+$const1 = 3
+
+$fn = func($x) {
+	$x * $x * $const1 * $const2 # captured scope
+}
+
+$const2 = 4
+
+
+$in1 = 42
+$in2 = 13
+
+func apply1($a, $b) {
+	$a($b) + $b # call
+}
+
+$apply2 = func($a, $b) {
+	$a($b) + $b # call
+}
+
+$out1 = apply1($fn, $in1)
+$out2 = $apply2($fn, $in2)
+
+$s1 = fmt.printf("%d * %d * %d * %d + %d = %d", $in1, $in1, $const1, $const2, $in1, $out1)
+$s2 = fmt.printf("%d * %d * %d * %d + %d = %d", $in2, $in2, $const1, $const2, $in2, $out2)
+
+test $s1 {}
+test $s2 {}

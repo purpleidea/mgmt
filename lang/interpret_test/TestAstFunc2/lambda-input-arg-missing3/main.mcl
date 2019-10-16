@@ -1,0 +1,8 @@
+func apply1($a) {
+	$a() # call
+}
+
+# should error since `$apply1` should be `apply1` because the func is a stmt
+$out1 = $apply1(func() { "hello" }) # inline-lambda
+
+test $out1 {}

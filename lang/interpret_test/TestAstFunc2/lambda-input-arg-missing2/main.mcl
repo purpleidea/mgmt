@@ -1,0 +1,9 @@
+$s2 = "everyone"
+
+$apply2 = func($a) {
+	$missing() + $s2 # function call is missing!
+}
+
+$out2 = $apply2(func() { "hello" }) # inline-lambda
+
+test $out2 {}

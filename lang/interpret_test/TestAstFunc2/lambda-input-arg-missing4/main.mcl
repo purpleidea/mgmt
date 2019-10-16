@@ -1,0 +1,8 @@
+$apply2 = func($a) {
+	$a() # call
+}
+
+# should error since `apply2` should be `$apply2` because the func is a lambda
+$out2 = apply2(func() { "world" }) # inline-lambda
+
+test $out2 {}

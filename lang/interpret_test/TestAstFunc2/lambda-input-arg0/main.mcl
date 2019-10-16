@@ -1,0 +1,13 @@
+func apply1($a) {
+	$a() # call
+}
+
+$apply2 = func($a) {
+	$a() # call
+}
+
+$out1 = apply1(func() { "hello" }) # inline-lambda
+$out2 = $apply2(func() { "world" }) # inline-lambda
+
+test $out1 {}
+test $out2 {}

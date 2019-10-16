@@ -1,0 +1,23 @@
+$s1 = "hello"
+$s2 = "world"
+
+$fn1 = func() {
+	$s1
+}
+$fn2 = func() {
+	$s2
+}
+
+func apply1($a) {
+	$a() # call
+}
+
+$apply2 = func($a) {
+	$a() # call
+}
+
+$out1 = apply1($fn1)
+$out2 = $apply2($fn2)
+
+test $out1 {}
+test $out2 {}

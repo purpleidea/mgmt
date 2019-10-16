@@ -1,0 +1,21 @@
+$fn1 = func() {
+	"hello"
+}
+
+$fn2 = func() {
+	"world"
+}
+
+func apply1($a) {
+	$a() # call
+}
+
+$apply2 = func($a) {
+	$a() # call
+}
+
+$out1 = apply1($fn1)
+$out2 = $apply2($fn2)
+
+test $out1 {}
+test $out2 {}

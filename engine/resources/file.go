@@ -123,8 +123,7 @@ type FileRes struct {
 	// name, or a string representation of the group integer gid.
 	Group string `lang:"group" yaml:"group"`
 	// Mode is the mode of the file as a string representation of the octal
-	// form.
-	// TODO: add symbolic representations
+	// form or symbolic form.
 	Mode    string `lang:"mode" yaml:"mode"`
 	Recurse bool   `lang:"recurse" yaml:"recurse"`
 	Force   bool   `lang:"force" yaml:"force"`
@@ -170,10 +169,23 @@ func (obj *FileRes) isDir() bool {
 // the case where the mode is not specified. The caller should check obj.Mode is
 // not empty.
 func (obj *FileRes) mode() (os.FileMode, error) {
-	m, err := strconv.ParseInt(obj.Mode, 8, 32)
-	if err != nil {
-		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number (%s)", obj.Mode)
+	if n, err := strconv.ParseInt(obj.Mode, 8, 32); err == nil {
+		return os.FileMode(n), nil
 	}
+
+	// Try parsing symbolic by first getting the files current mode.
+	stat, err := os.Stat(obj.getPath())
+	if err != nil {
+		return os.FileMode(0), errwrap.Wrapf(err, "failed to get the current file mode")
+	}
+	m := stat.Mode()
+
+	modes := strings.Split(obj.Mode, ",")
+	m, err = engineUtil.ParseSymbolicModes(modes, m, false)
+	if err != nil {
+		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number or symbolic mode (%s)", obj.Mode)
+	}
+
 	return os.FileMode(m), nil
 }
 

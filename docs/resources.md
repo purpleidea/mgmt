@@ -72,7 +72,7 @@ It has the following properties:
 * `path`: absolute file path (directories have a trailing slash here)
 * `state`: either `exists`, `absent`, or undefined
 * `content`: raw file content
-* `mode`: octal unix file permissions
+* `mode`: octal unix file permissions or symbolic string
 * `owner`: username or uid for the file owner
 * `group`: group name or gid for the file group
 

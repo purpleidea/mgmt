@@ -25,6 +25,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/example/nested"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/fmt"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/iter"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/net"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"

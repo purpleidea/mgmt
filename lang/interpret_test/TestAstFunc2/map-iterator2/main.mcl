@@ -1,0 +1,13 @@
+import "iter"
+
+$fn = func($x) { # ignore arg
+	42
+}
+
+$in = [5, 4, 3, 2, 1,]
+
+$out = iter.xmap($fn, $in) # XXX: change to map
+
+$t = template("out: {{ . }}", $out)
+
+test $t {}

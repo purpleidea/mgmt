@@ -1,0 +1,27 @@
+import "iter"
+
+func iterxmap($a, $b) { # XXX: change to map
+	iter.xmap($a, $b) # XXX: change to map
+}
+
+$fn = func($x) {
+	$x + $x
+}
+
+$in1 = [5, 4, 3, 2, 1,]
+$in2 = ["a", "b", "c", "d", "e",]
+
+$out1 = iter.xmap($fn, $in1) # XXX: change to map
+$out2 = iter.xmap($fn, $in2) # XXX: change to map
+$out3 = iterxmap($fn, $in1) # XXX: change to map
+$out4 = iterxmap($fn, $in2) # XXX: change to map
+
+$t1 = template("out1: {{ . }}", $out1)
+$t2 = template("out2: {{ . }}", $out2)
+$t3 = template("out3: {{ . }}", $out3)
+$t4 = template("out4: {{ . }}", $out4)
+
+test $t1 {}
+test $t2 {}
+test $t3 {}
+test $t4 {}

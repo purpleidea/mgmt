@@ -54,7 +54,7 @@ can be impossible to infer the item's type.
 
 An unordered set of unique keys of the same type and corresponding value pairs
 of another type, eg:
-`{"boiling" => 100, "freezing" => 0, "room" => "25", "house" => 22, "canada" => -30,}`.
+`{"boiling" => 100, "freezing" => 0, "room" => 25, "house" => 22, "canada" => -30,}`.
 That is to say, all of the keys must have the same type, and all of the values
 must have the same type. You can use any type for either, although it is
 probably advisable to avoid using very complex types as map keys.

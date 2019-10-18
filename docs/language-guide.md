@@ -293,7 +293,7 @@ send notifications. You may have multiples of these per resource, including
 multiple `Depend` lines if necessary. Each of these properties also supports the
 conditional inclusion `elvis` operator as well.
 
-For example, you may write is:
+For example, you may write:
 
 ```mcl
 $b = true # for example purposes

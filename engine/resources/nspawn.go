@@ -113,7 +113,7 @@ func (obj *NspawnRes) Validate() error {
 		return errwrap.Wrapf(err, "makeComposite failed in validate")
 	}
 	if err := svc.Validate(); err != nil { // composite resource
-		return errwrap.Wrapf(err, "validate failed for embedded svc: %s", obj.svc)
+		return errwrap.Wrapf(err, "validate failed for embedded svc: %s", svc)
 	}
 	return nil
 }

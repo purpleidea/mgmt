@@ -1,0 +1,11 @@
+Edge: file[/tmp/frags/] -> file[/tmp/frags/f1] # file[/tmp/frags/] -> file[/tmp/frags/f1] (autoedge)
+Edge: file[/tmp/frags/] -> file[/tmp/frags/f2] # file[/tmp/frags/] -> file[/tmp/frags/f2] (autoedge)
+Edge: file[/tmp/frags/] -> file[/tmp/frags/f3] # file[/tmp/frags/] -> file[/tmp/frags/f3] (autoedge)
+Edge: file[/tmp/bonus_file] -> file[/tmp/whole1] # file[/tmp/bonus_file] -> file[/tmp/whole1] (autoedge)
+Edge: file[/tmp/frags/] -> file[/tmp/whole1] # file[/tmp/frags/] -> file[/tmp/whole1] (autoedge)
+Vertex: file[/tmp/bonus_file]
+Vertex: file[/tmp/frags/]
+Vertex: file[/tmp/frags/f1]
+Vertex: file[/tmp/frags/f2]
+Vertex: file[/tmp/frags/f3]
+Vertex: file[/tmp/whole1]

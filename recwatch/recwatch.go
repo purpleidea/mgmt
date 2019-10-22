@@ -96,6 +96,7 @@ func (obj *RecWatcher) Init() error {
 			obj.mutex.Lock()
 			if !obj.closed {
 				select {
+				// TODO: &Event instead?
 				case obj.events <- Event{Error: err}:
 				case <-obj.exit:
 					// pass
@@ -282,6 +283,7 @@ func (obj *RecWatcher) Watch() error {
 				// only invalid state on certain types of events
 				select {
 				// exit even when we're blocked on event sending
+				// TODO: &Event instead?
 				case obj.events <- Event{Error: nil, Body: &event}:
 				case <-obj.exit:
 					return fmt.Errorf("pending event not sent")

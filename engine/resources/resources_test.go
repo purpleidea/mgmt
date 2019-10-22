@@ -723,6 +723,15 @@ func TestResources2(t *testing.T) {
 			return nil
 		}
 	}
+	fileMkdir := func(p string, all bool) func() error {
+		// mkdir at the path
+		return func() error {
+			if all {
+				return os.MkdirAll(p, 0777)
+			}
+			return os.Mkdir(p, 0777)
+		}
+	}
 
 	testCases := []test{}
 	{
@@ -1115,6 +1124,71 @@ func TestResources2(t *testing.T) {
 
 		testCases = append(testCases, test{
 			name:     "some removal",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return nil },
+		})
+	}
+	{
+		//file "/tmp/somefile" {
+		//	state => "exists",
+		//	fragments => [
+		//		"/tmp/frag1",
+		//		"/tmp/fragdir1/",
+		//		"/tmp/frag2",
+		//		"/tmp/fragdir2/",
+		//		"/tmp/frag3",
+		//	],
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		res.Path = p
+		res.State = "exists"
+		res.Fragments = []string{
+			"/tmp/frag1",
+			"/tmp/fragdir1/",
+			"/tmp/frag2",
+			"/tmp/fragdir2/",
+			"/tmp/frag3",
+		}
+
+		frag1 := "frag1\n"
+		f1 := "f1\n"
+		f2 := "f2\n"
+		f3 := "f3\n"
+		frag2 := "frag2\n"
+		f1d2 := "f1 from fragdir2\n"
+		f2d2 := "f2 from fragdir2\n"
+		f3d2 := "f3 from fragdir2\n"
+		frag3 := "frag3\n"
+		content := frag1 + f1 + f2 + f3 + frag2 + f1d2 + f2d2 + f3d2 + frag3
+
+		timeline := []func() error{
+			fileWrite("/tmp/frag1", frag1),
+			fileWrite("/tmp/frag2", frag2),
+			fileWrite("/tmp/frag3", frag3),
+			fileMkdir("/tmp/fragdir1/", true),
+			fileWrite("/tmp/fragdir1/f1", f1),
+			fileWrite("/tmp/fragdir1/f2", f2),
+			fileWrite("/tmp/fragdir1/f3", f3),
+			fileMkdir("/tmp/fragdir2/", true),
+			fileWrite("/tmp/fragdir2/f1", f1d2),
+			fileWrite("/tmp/fragdir2/f2", f2d2),
+			fileWrite("/tmp/fragdir2/f3", f3d2),
+			fileWrite(p, "whatever"),
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, false), // changed
+			fileExpect(p, content),
+			resCheckApply(r1, true), // it's already good
+			resClose(r1),
+			fileExpect(p, content), // ensure it exists
+		}
+
+		testCases = append(testCases, test{
+			name:     "file fragments",
 			timeline: timeline,
 			expect:   func() error { return nil },
 			startup:  func() error { return nil },

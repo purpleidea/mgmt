@@ -98,6 +98,13 @@ The content property is a string that specifies the desired file contents.
 The source property points to a source file or directory path that we wish to
 copy over and use as the desired contents for our resource.
 
+### Fragments
+
+The fragments property lets you specify a list of files to concatenate together
+to make up the contents of this file. They will be combined in the order that
+they are listed in. If one of the files specified is a directory, then the
+files in that top-level directory will be themselves combined together and used.
+
 ### Recurse
 
 The recurse property limits whether file resource operations should recurse into

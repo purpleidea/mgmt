@@ -1,0 +1,33 @@
+file "/tmp/frags/" {
+	state => "exists",
+}
+
+# fragments
+file "/tmp/frags/f1" {
+	state => "exists",
+	content => "i am f1\n",
+}
+file "/tmp/frags/f2" {
+	state => "exists",
+	content => "i am f2\n",
+}
+file "/tmp/frags/f3" {
+	state => "exists",
+	content => "i am f3\n",
+}
+
+# You can also drop in an unmanaged file into the frags dir for it to get used!
+# And of course you can hard-code the list of files to use like this one is...
+file "/tmp/bonus_file" {
+	state => "exists",
+	content => "i am a bonus file\n",
+}
+
+# automatic edges will get added!
+file "/tmp/whole1" {
+	state => "exists",
+	fragments => [
+		"/tmp/frags/", # pull from this dir
+		"/tmp/bonus_file", # also pull this one file
+	],
+}

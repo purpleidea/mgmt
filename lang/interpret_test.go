@@ -29,6 +29,7 @@ import (
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/graph/autoedge"
 	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -968,6 +969,7 @@ func TestAstFunc2(t *testing.T) {
 	const magicError3 = "err3: "
 	const magicError4 = "err4: "
 	const magicError5 = "err5: "
+	const magicError6 = "err6: "
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
 	if err != nil {
@@ -991,6 +993,7 @@ func TestAstFunc2(t *testing.T) {
 		fail3 bool
 		fail4 bool
 		fail5 bool
+		fail6 bool
 	}
 	type test struct { // an individual test
 		name string
@@ -1048,6 +1051,7 @@ func TestAstFunc2(t *testing.T) {
 		fail3 := false
 		fail4 := false
 		fail5 := false
+		fail6 := false
 		if strings.HasPrefix(str, magicError) {
 			errStr = strings.TrimPrefix(str, magicError)
 			str = errStr
@@ -1077,6 +1081,11 @@ func TestAstFunc2(t *testing.T) {
 				str = errStr
 				fail5 = true
 			}
+			if strings.HasPrefix(str, magicError6) {
+				errStr = strings.TrimPrefix(str, magicError6)
+				str = errStr
+				fail6 = true
+			}
 		}
 
 		// add automatic test case
@@ -1091,6 +1100,7 @@ func TestAstFunc2(t *testing.T) {
 				fail3: fail3,
 				fail4: fail4,
 				fail5: fail5,
+				fail6: fail6,
 			},
 		})
 		//t.Logf("adding: %s", f + "/")
@@ -1129,6 +1139,7 @@ func TestAstFunc2(t *testing.T) {
 			fail3 := errs.fail3
 			fail4 := errs.fail4
 			fail5 := errs.fail5
+			fail6 := errs.fail6
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
@@ -1451,6 +1462,32 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: interpret passed, expected fail", index)
 				return
 			}
+
+			// add automatic edges...
+			err = autoedge.AutoEdge(ograph, testing.Verbose(), logf)
+			if (!fail || !fail6) && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: automatic edges failed with: %+v", index, err)
+				return
+			}
+			if fail6 && err != nil {
+				// TODO: %+v instead?
+				s := fmt.Sprintf("%s", err) // convert to string
+				if s != expstr {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return
+			}
+			if fail6 && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: automatic edges passed, expected fail", index)
+				return
+			}
+
+			// TODO: perform autogrouping?
 
 			t.Logf("test #%d: graph: %+v", index, ograph)
 			str := strings.Trim(ograph.Sprint(), "\n") // text format of output graph

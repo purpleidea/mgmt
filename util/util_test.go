@@ -152,6 +152,27 @@ func TestUtilT3(t *testing.T) {
 	if HasPathPrefix("/foo/bar/baz/boo/", "/foo/") != true {
 		t.Errorf("result should be true.")
 	}
+
+	if HasPathPrefix("/foo/bar/baz", "/foo/bar/baz") != true {
+		t.Errorf("result should be true.")
+	}
+
+	if HasPathPrefix("/foo/bar/baz/", "/foo/bar/baz/") != true {
+		t.Errorf("result should be true.")
+	}
+
+	if HasPathPrefix("/foo", "/foo") != true {
+		t.Errorf("result should be true.")
+	}
+
+	if HasPathPrefix("/foo/", "/foo/") != true {
+		t.Errorf("result should be true.")
+	}
+
+	if HasPathPrefix("/", "/") != true {
+		t.Errorf("result should be true.")
+	}
+
 }
 
 func TestUtilT4(t *testing.T) {

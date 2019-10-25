@@ -603,6 +603,19 @@ func TestResources2(t *testing.T) {
 			Recv: func() map[string]*engine.Send {
 				return map[string]*engine.Send{}
 			},
+
+			// Copied from state.go
+			FilteredGraph: func() (*pgraph.Graph, error) {
+				graph, err := pgraph.NewGraph("filtered")
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create graph")
+				}
+				// Hack: We just add ourself as allowed since
+				// we're just a one-vertex test suite...
+				graph.AddVertex(res) // hack!
+
+				return graph, nil // we return in a func so it's fresh!
+			},
 		}
 		// run Init
 		return func() error {

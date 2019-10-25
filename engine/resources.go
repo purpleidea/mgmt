@@ -21,6 +21,7 @@ import (
 	"encoding/gob"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"gopkg.in/yaml.v2"
@@ -125,6 +126,14 @@ type Init struct {
 	// you are about to use it, and discard it right after.
 	// FIXME: it might be better to offer a safer, more limited, GraphQuery?
 	//Graph func() *pgraph.Graph // TODO: not implemented, use FilteredGraph
+
+	// FilteredGraph is a function that returns a filtered variant of the
+	// current graph. Only resource that have allowed themselves to be added
+	// into this graph will appear. If they did not consent, then those
+	// vertices and any associated edges, will not be present.
+	FilteredGraph func() (*pgraph.Graph, error)
+
+	// TODO: GraphQuery offers an interface to query the resource graph.
 
 	// World provides a connection to the outside world. This is most often
 	// used for communicating with the distributed database.

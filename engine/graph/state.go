@@ -200,6 +200,51 @@ func (obj *State) Init() error {
 		//	return obj.Graph // we return in a func so it's fresh!
 		//},
 
+		FilteredGraph: func() (*pgraph.Graph, error) {
+			graph, err := pgraph.NewGraph("filtered")
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not create graph")
+			}
+
+			// filter graph and build a new one...
+			adjacency := obj.Graph.Adjacency()
+			for v1 := range adjacency {
+				// check we're allowed
+				r1, ok := v1.(engine.GraphQueryableRes)
+				if !ok {
+					continue
+				}
+				// pass in information on requestor...
+				if err := r1.GraphQueryAllowed(
+					engine.GraphQueryableOptionKind(res.Kind()),
+					engine.GraphQueryableOptionName(res.Name()),
+					// TODO: add more information...
+				); err != nil {
+					continue
+				}
+				graph.AddVertex(v1)
+
+				for v2, edge := range adjacency[v1] {
+					r2, ok := v2.(engine.GraphQueryableRes)
+					if !ok {
+						continue
+					}
+					// pass in information on requestor...
+					if err := r2.GraphQueryAllowed(
+						engine.GraphQueryableOptionKind(res.Kind()),
+						engine.GraphQueryableOptionName(res.Name()),
+						// TODO: add more information...
+					); err != nil {
+						continue
+					}
+					//graph.AddVertex(v2) // redundant
+					graph.AddEdge(v1, v2, edge)
+				}
+			}
+
+			return graph, nil // we return in a func so it's fresh!
+		},
+
 		World:  obj.World,
 		VarDir: obj.varDir,
 

@@ -715,6 +715,22 @@ func TestResources2(t *testing.T) {
 			return nil
 		}
 	}
+	fileExists := func(p string, dir bool) func() error {
+		// does the file exist?
+		return func() error {
+			fi, err := os.Stat(p)
+			if err != nil {
+				return fmt.Errorf("file was supposed to be present, got: %+v", err)
+			}
+			if fi.IsDir() != dir {
+				if dir {
+					return fmt.Errorf("not a dir")
+				}
+				return fmt.Errorf("not a regular file")
+			}
+			return nil
+		}
+	}
 	fileAbsent := func(p string) func() error {
 		// does the file exist?
 		return func() error {

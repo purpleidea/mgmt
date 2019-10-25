@@ -191,7 +191,7 @@ func (obj *Engine) Commit() error {
 
 		obj.waits[vertex] = &sync.WaitGroup{}
 		obj.state[vertex] = &State{
-			//Graph: obj.graph, // TODO: what happens if we swap the graph?
+			Graph:  obj.graph, // Update if we swap the graph!
 			Vertex: vertex,
 
 			Program:  obj.Program,
@@ -329,14 +329,14 @@ func (obj *Engine) Commit() error {
 	// the changes that we'd made to the previously primary graph. This is
 	// because this function is meant to atomically swap the graphs safely.
 
-	// TODO: update all the `State` structs with the new Graph pointer
-	//for _, vertex := range obj.graph.Vertices() {
-	//	state, exists := obj.state[vertex]
-	//	if !exists {
-	//		continue
-	//	}
-	//	state.Graph = obj.graph // update pointer to graph
-	//}
+	// Update all the `State` structs with the new Graph pointer.
+	for _, vertex := range obj.graph.Vertices() {
+		state, exists := obj.state[vertex]
+		if !exists {
+			continue
+		}
+		state.Graph = obj.graph // update pointer to graph
+	}
 
 	return nil
 }

@@ -32,7 +32,7 @@ import (
 // State stores some state about the resource it is mapped to.
 type State struct {
 	// Graph is a pointer to the graph that this vertex is part of.
-	//Graph pgraph.Graph
+	Graph *pgraph.Graph
 
 	// Vertex is the pointer in the graph that this state corresponds to. It
 	// can be converted to a `Res` if necessary.
@@ -189,6 +189,16 @@ func (obj *State) Init() error {
 			}
 			return res.Recv()
 		},
+
+		// FIXME: pass in a safe, limited query func instead?
+		// TODO: not implemented, use FilteredGraph
+		//Graph: func() *pgraph.Graph {
+		//	_, ok := obj.Vertex.(engine.CanGraphQueryRes)
+		//	if !ok {
+		//		panic("res does not support the GraphQuery trait")
+		//	}
+		//	return obj.Graph // we return in a func so it's fresh!
+		//},
 
 		World:  obj.World,
 		VarDir: obj.varDir,

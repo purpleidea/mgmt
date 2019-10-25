@@ -120,6 +120,12 @@ type Init struct {
 
 	// Other functionality:
 
+	// Graph is a function that returns the current graph. The returned
+	// value won't be valid after a graphsync so make sure to call this when
+	// you are about to use it, and discard it right after.
+	// FIXME: it might be better to offer a safer, more limited, GraphQuery?
+	//Graph func() *pgraph.Graph // TODO: not implemented, use FilteredGraph
+
 	// World provides a connection to the outside world. This is most often
 	// used for communicating with the distributed database.
 	World World

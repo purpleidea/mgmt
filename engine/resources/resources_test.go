@@ -639,7 +639,7 @@ func TestResources2(t *testing.T) {
 				return errwrap.Wrapf(e, "error from CheckApply did not match expected")
 			}
 			if checkOK != expCheckOK {
-				return fmt.Errorf("result from CheckApply did not match expected: `%t` != `%t`", checkOK, expCheckOK)
+				return fmt.Errorf("result from CheckApply did not match expected: got: %t exp: %t", checkOK, expCheckOK)
 			}
 			return nil
 		}

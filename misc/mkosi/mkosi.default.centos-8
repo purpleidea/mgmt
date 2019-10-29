@@ -1,0 +1,51 @@
+[Distribution]
+Distribution=centos_epel
+Release=8
+
+[Output]
+Format=raw_btrfs
+#Format=gpt_btrfs
+# Bootable must be no or else systemd-udev package will be installed (some bug)
+# TODO: https://github.com/systemd/mkosi/issues/356
+Bootable=no
+
+# This can be a ramdisk to improve performance.
+OutputDirectory=mkosi.output
+
+[Partitions]
+# 1G isn't enough for the base distros.
+RootSize=5G
+
+[Packages]
+# We need to download sources from the internet.
+WithNetwork=true
+
+# The packages to appear in both the build and the final image.
+Packages=
+	yum
+	rpm-build
+	make
+	git
+	tree
+# The packages to appear in the build image, but absent from the final image.
+#BuildPackages=
+#	yum
+#	rpm-build
+#	make
+#	git
+#	tree
+
+# Store our build artifacts here. This makes them accessible to the outside.
+BuildDirectory=mkosi.builddir
+
+# Cache some of our package manager downloads.
+Cache=mkosi.cache
+
+# Pull the parent git repository into the image.
+BuildSources=../..
+
+# Use this transfer mode for the git sources.
+SourceFileTransfer=copy-git-more
+
+# Skip the (second) final build phase, since we only need the build artifact.
+SkipFinalPhase=true

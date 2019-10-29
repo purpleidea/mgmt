@@ -23,12 +23,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -585,6 +587,29 @@ func TestResources2(t *testing.T) {
 		cleanup  func() error   // function to run as cleanup
 	}
 
+	type initOptions struct {
+		// graph is the graph that should be passed in with Init
+		graph *pgraph.Graph
+		// TODO: add more options if needed
+
+		// logf specifies the log function for Init to pass through...
+		logf func(format string, v ...interface{})
+	}
+
+	type initOption func(*initOptions)
+
+	addGraph := func(graph *pgraph.Graph) initOption {
+		return func(io *initOptions) {
+			io.graph = graph
+		}
+	}
+
+	addLogf := func(logf func(format string, v ...interface{})) initOption {
+		return func(io *initOptions) {
+			io.logf = logf
+		}
+	}
+
 	// resValidate runs Validate on the res.
 	resValidate := func(res engine.Res) func() error {
 		// run Close
@@ -593,9 +618,18 @@ func TestResources2(t *testing.T) {
 		}
 	}
 	// resInit runs Init on the res.
-	resInit := func(res engine.Res) func() error {
+	resInit := func(res engine.Res, opts ...initOption) func() error {
+
+		io := &initOptions{}              // defaults
+		for _, optionFunc := range opts { // apply the options
+			optionFunc(io)
+		}
+
 		logf := func(format string, v ...interface{}) {
-			// noop for now
+			if io.logf == nil {
+				return
+			}
+			io.logf(fmt.Sprintf("test: ")+format+"\n", v...)
 		}
 		init := &engine.Init{
 			//Debug: debug,
@@ -611,15 +645,18 @@ func TestResources2(t *testing.T) {
 
 			// Copied from state.go
 			FilteredGraph: func() (*pgraph.Graph, error) {
-				graph, err := pgraph.NewGraph("filtered")
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create graph")
-				}
+				//graph, err := pgraph.NewGraph("filtered")
+				//if err != nil {
+				//	return nil, errwrap.Wrapf(err, "could not create graph")
+				//}
 				// Hack: We just add ourself as allowed since
 				// we're just a one-vertex test suite...
-				graph.AddVertex(res) // hack!
-
-				return graph, nil // we return in a func so it's fresh!
+				//graph.AddVertex(res) // hack!
+				//return graph, nil // we return in a func so it's fresh!
+				if io.graph == nil {
+					return nil, fmt.Errorf("use addGraph to add one here")
+				}
+				return io.graph, nil
 			},
 		}
 		// run Init
@@ -1229,10 +1266,326 @@ func TestResources2(t *testing.T) {
 			timeline: timeline,
 			expect:   func() error { return nil },
 			startup:  func() error { return nil },
-			cleanup:  func() error { return nil },
+			cleanup:  func() error { return os.Remove(p) },
 		})
 	}
+	{
+		//file "/tmp/somefile" {
+		//	state => "exists",
+		//	source => "/tmp/somefiletocopy",
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somefile"
+		p2 := "/tmp/somefiletocopy"
+		content := "hello this is some file to copy\n"
+		res.Path = p
+		res.State = "exists"
+		res.Source = p2
 
+		timeline := []func() error{
+			fileAbsent(p), // ensure it's absent
+			fileWrite(p2, content),
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, false), // changed
+			fileExpect(p, content),   // should be created like this
+			fileExpect(p2, content),  // should not change
+			resCheckApply(r1, true),  // it's already good
+			fileExpect(p, content),   // should already be like this
+			fileExpect(p2, content),  // should not change either
+			resClose(r1),
+		}
+
+		testCases = append(testCases, test{
+			name:     "copy file with source",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return os.Remove(p) },
+		})
+	}
+	{
+		//file "/tmp/somedir/" {
+		//	state => "exists",
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somedir/"
+		res.Path = p
+		res.State = "exists"
+
+		timeline := []func() error{
+			fileAbsent(p), // ensure it's absent
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, false), // changed
+			fileExists(p, true),      // ensure it's a dir
+			resCheckApply(r1, true),  // it's already good
+			fileExists(p, true),      // ensure it's a dir
+			resClose(r1),
+		}
+
+		testCases = append(testCases, test{
+			name:     "make empty directory",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return os.RemoveAll(p) },
+		})
+	}
+	{
+		//file "/tmp/somedir/" {
+		//	state => "exists",
+		//	source => /tmp/somedirtocopy/,
+		//	recurse => true,
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somedir/"
+		p2 := "/tmp/somedirtocopy/"
+		res.Path = p
+		res.State = "exists"
+		res.Source = p2
+		res.Recurse = true
+
+		f1 := path.Join(p, "f1")
+		f2 := path.Join(p, "f2")
+		d1 := path.Join(p, "d1/")
+		d2 := path.Join(p, "d2/")
+		d1f1 := path.Join(p, "d1/f1")
+		d1f2 := path.Join(p, "d1/f2")
+		d2f1 := path.Join(p, "d2/f1")
+		d2f2 := path.Join(p, "d2/f2")
+		d2f3 := path.Join(p, "d2/f3")
+
+		xf1 := path.Join(p2, "f1")
+		xf2 := path.Join(p2, "f2")
+		xd1 := path.Join(p2, "d1/")
+		xd2 := path.Join(p2, "d2/")
+		xd1f1 := path.Join(p2, "d1/f1")
+		xd1f2 := path.Join(p2, "d1/f2")
+		xd2f1 := path.Join(p2, "d2/f1")
+		xd2f2 := path.Join(p2, "d2/f2")
+		xd2f3 := path.Join(p2, "d2/f3")
+
+		timeline := []func() error{
+			fileMkdir(p2, true),
+			fileWrite(xf1, "f1\n"),
+			fileWrite(xf2, "f2\n"),
+			fileMkdir(xd1, true),
+			fileMkdir(xd2, true),
+			fileWrite(xd1f1, "d1f1\n"),
+			fileWrite(xd1f2, "d1f2\n"),
+			fileWrite(xd2f1, "d2f1\n"),
+			fileWrite(xd2f2, "d2f2\n"),
+			fileWrite(xd2f3, "d2f3\n"),
+			resValidate(r1),
+			resInit(r1),
+			resCheckApply(r1, false), // changed
+			fileExists(p, true),      // ensure it's a dir
+			fileExists(f1, false),    // ensure it's a file
+			fileExists(f2, false),
+			fileExists(d1, true), // ensure it's a dir
+			fileExists(d2, true),
+			fileExists(d1f1, false),
+			fileExists(d1f2, false),
+			fileExists(d2f1, false),
+			fileExists(d2f2, false),
+			fileExists(d2f3, false),
+			resCheckApply(r1, true), // it's already good
+			resClose(r1),
+		}
+
+		testCases = append(testCases, test{
+			name:     "source dir copy",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return os.RemoveAll(p) },
+		})
+	}
+	{
+		//file "/tmp/somedir/" {
+		//	state => "exists",
+		//	recurse => true,
+		//	purge => true,
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somedir/"
+		res.Path = p
+		res.State = "exists"
+		res.Recurse = true
+		res.Purge = true
+
+		f1 := path.Join(p, "f1")
+		f2 := path.Join(p, "f2")
+		d1 := path.Join(p, "d1/")
+		d2 := path.Join(p, "d2/")
+		d1f1 := path.Join(p, "d1/f1")
+		d1f2 := path.Join(p, "d1/f2")
+		d2f1 := path.Join(p, "d2/f1")
+		d2f2 := path.Join(p, "d2/f2")
+		d2f3 := path.Join(p, "d2/f3")
+
+		graph, err := pgraph.NewGraph("test")
+		if err != nil {
+			panic("can't make graph")
+		}
+		graph.AddVertex(res) // add self
+
+		timeline := []func() error{
+			fileMkdir(p, true),
+			fileWrite(f1, "f1\n"),
+			fileWrite(f2, "f2\n"),
+			fileMkdir(d1, true),
+			fileMkdir(d2, true),
+			fileWrite(d1f1, "d1f1\n"),
+			fileWrite(d1f2, "d1f2\n"),
+			fileWrite(d2f1, "d2f1\n"),
+			fileWrite(d2f2, "d2f2\n"),
+			fileWrite(d2f3, "d2f3\n"),
+			resValidate(r1),
+			resInit(r1, addGraph(graph)),
+			resCheckApply(r1, false), // changed
+			fileExists(p, true),      // ensure it's a dir
+			fileAbsent(f1),           // ensure it's absent
+			fileAbsent(f2),
+			fileAbsent(d1),
+			fileAbsent(d2),
+			fileAbsent(d1f1),
+			fileAbsent(d1f2),
+			fileAbsent(d2f1),
+			fileAbsent(d2f2),
+			fileAbsent(d2f3),
+			resCheckApply(r1, true), // it's already good
+			resClose(r1),
+		}
+
+		testCases = append(testCases, test{
+			name:     "dir purge",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return os.RemoveAll(p) },
+		})
+	}
+	{
+		//file "/tmp/somedir/" {
+		//	state => "exists",
+		//	recurse => true,
+		//	purge => true,
+		//}
+		// TODO: should State be required for these to not delete them?
+		//file "/tmp/somedir/hello" {
+		//}
+		//file "/tmp/somedir/nested-dir/" {
+		//}
+		//file "/tmp/somedir/nested-dir/nestedfileindir" {
+		//}
+		r1 := makeRes("file", "r1")
+		res := r1.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/somedir/"
+		res.Path = p
+		res.State = "exists"
+		res.Recurse = true
+		res.Purge = true
+
+		f1 := path.Join(p, "f1")
+		f2 := path.Join(p, "f2")
+		d1 := path.Join(p, "d1/")
+		d2 := path.Join(p, "d2/")
+		d1f1 := path.Join(p, "d1/f1")
+		d1f2 := path.Join(p, "d1/f2")
+		d2f1 := path.Join(p, "d2/f1")
+		d2f2 := path.Join(p, "d2/f2")
+		d2f3 := path.Join(p, "d2/f3")
+
+		r2 := makeRes("file", "r2")
+		res2 := r2.(*FileRes)
+		p2 := path.Join(p, "hello")
+		res2.Path = p2
+		p2c := "i am a hello file\n"
+		// TODO: should State be required for this to not delete it?
+
+		r3 := makeRes("file", "r3")
+		res3 := r3.(*FileRes)
+		p3 := path.Join(p, "nested-dir/")
+		res3.Path = p3
+		// TODO: should State be required for this to not delete it?
+
+		r4 := makeRes("file", "r4")
+		res4 := r4.(*FileRes)
+		p4 := path.Join(p3, "nestedfileindir")
+		res4.Path = p4
+		p4c := "i am a nested file\n"
+		// TODO: should State be required for this to not delete it?
+
+		graph, err := pgraph.NewGraph("test")
+		if err != nil {
+			panic("can't make graph")
+		}
+		graph.AddVertex(res, res2, res3, res4)
+
+		timeline := []func() error{
+			fileMkdir(p, true),
+			fileWrite(f1, "f1\n"),
+			fileWrite(f2, "f2\n"),
+			fileMkdir(d1, true),
+			fileMkdir(d2, true),
+			fileWrite(d1f1, "d1f1\n"),
+			fileWrite(d1f2, "d1f2\n"),
+			fileWrite(d2f1, "d2f1\n"),
+			fileWrite(d2f2, "d2f2\n"),
+			fileWrite(d2f3, "d2f3\n"),
+			fileWrite(p2, p2c),
+			fileMkdir(p3, true),
+			fileWrite(p4, p4c),
+
+			resValidate(r2),
+			resInit(r2),
+			//resCheckApply(r2, false), // not really needed in test
+			resClose(r2),
+
+			resValidate(r3),
+			resInit(r3),
+			//resCheckApply(r3, false), // not really needed in test
+			resClose(r3),
+
+			resValidate(r4),
+			resInit(r4),
+			//resCheckApply(r4, false), // not really needed in test
+			resClose(r4),
+
+			resValidate(r1),
+			resInit(r1, addGraph(graph), addLogf(nil)), // show the full graph
+			resCheckApply(r1, false),                   // changed
+			fileExists(p, true),                        // ensure it's a dir
+			fileAbsent(f1),                             // ensure it's absent
+			fileAbsent(f2),
+			fileAbsent(d1),
+			fileAbsent(d2),
+			fileAbsent(d1f1),
+			fileAbsent(d1f2),
+			fileAbsent(d2f1),
+			fileAbsent(d2f2),
+			fileAbsent(d2f3),
+			fileExists(p2, false), // ensure it's a file XXX !!!
+			fileExists(p3, true),  // ensure it's a dir
+			fileExists(p4, false),
+			resCheckApply(r1, true), // it's already good
+			resClose(r1),
+		}
+
+		testCases = append(testCases, test{
+			name:     "dir purge with others inside",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup:  func() error { return os.RemoveAll(p) },
+		})
+	}
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
 		if tc.name == "" {

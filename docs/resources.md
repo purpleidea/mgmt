@@ -116,6 +116,12 @@ The force property is required if we want the file resource to be able to change
 a file into a directory or vice-versa. If such a change is needed, but the force
 property is not set to `true`, then this file resource will error.
 
+### Purge
+
+The purge property is used when this file represents a directory, and we'd like
+to remove any unmanaged files from within it. Please note that any unmanaged
+files in a directory with this flag set will be irreversibly deleted.
+
 ## Group
 
 The group resource manages the system groups from `/etc/group`.

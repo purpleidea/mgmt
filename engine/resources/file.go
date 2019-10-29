@@ -61,6 +61,7 @@ const (
 type FileRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
+	traits.GraphQueryable // allow others to query this res in the res graph
 	//traits.Groupable // TODO: implement this
 	traits.Recvable
 	traits.Reversible
@@ -86,7 +87,20 @@ type FileRes struct {
 	// parameters.
 	Content *string `lang:"content" yaml:"content"`
 	// Source specifies the source contents for the file resource. It cannot
-	// be combined with the Content or Fragments parameters.
+	// be combined with the Content or Fragments parameters. It must be an
+	// absolute path, and it can point to a file or a directory. If it
+	// points to a file, then that will will be copied throuh directly. If
+	// it points to a directory, then it will copy the directory "rsync
+	// style" onto the file destination. As a result, if this is a file,
+	// then the main file res must be a file, and if it is a directory, then
+	// this must be a directory. To meaningfully copy a full directory, you
+	// also need to specify the Recurse parameter, which is currently
+	// required. If you want an existing dir to be turned into a file (or
+	// vice-versa) instead of erroring, then you'll also need to specify the
+	// Force parameter. If source is undefined and the file path is a
+	// directory, then a directory will be created. If left undefined, and
+	// combined with the Purge option too, then any unmanaged file in this
+	// dir will be removed.
 	Source string `lang:"source" yaml:"source"`
 	// Fragments specifies that the file is built from a list of individual
 	// files. If one of the files is a directory, then the list of files in
@@ -114,6 +128,11 @@ type FileRes struct {
 	Mode    string `lang:"mode" yaml:"mode"`
 	Recurse bool   `lang:"recurse" yaml:"recurse"`
 	Force   bool   `lang:"force" yaml:"force"`
+	// Purge specifies that when true, any unmanaged file in this file
+	// directory will be removed. As a result, this file resource must be a
+	// directory. This isn't particularly meaningful if you don't also set
+	// Recurse to true. This doesn't work with Content or Fragments.
+	Purge bool `lang:"purge" yaml:"purge"`
 
 	sha256sum string
 }
@@ -198,8 +217,27 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("can't specify file Content, Source, or Fragments when State is %s", FileStateAbsent)
 	}
 
+	// The path and Source must either both be dirs or both not be.
+	srcIsDir := strings.HasSuffix(obj.Source, "/")
+	if isSrc && (obj.isDir() != srcIsDir) {
+		return fmt.Errorf("the path and Source must either both be dirs or both not be")
+	}
+
 	if obj.isDir() && (isContent || isFrag) { // makes no sense
 		return fmt.Errorf("can't specify Content or Fragments when creating a Dir")
+	}
+
+	// TODO: is this really a requirement that we want to enforce?
+	if isSrc && obj.isDir() && srcIsDir && !obj.Recurse {
+		return fmt.Errorf("you'll want to Recurse when you have a Source dir to copy")
+	}
+	// TODO: do we want to enforce this sort of thing?
+	if obj.Purge && !obj.Recurse {
+		return fmt.Errorf("you'll want to Recurse when you have a Purge to do")
+	}
+
+	if isSrc && !obj.isDir() && !srcIsDir && obj.Recurse {
+		return fmt.Errorf("you can't recurse when copying a single file")
 	}
 
 	for _, frag := range obj.Fragments {
@@ -208,6 +246,14 @@ func (obj *FileRes) Validate() error {
 			return fmt.Errorf("the frag (`%s`) isn't an absolute path", frag)
 		}
 	}
+
+	if obj.Purge && (isContent || isFrag) {
+		return fmt.Errorf("can't combine Purge with Content or Fragments")
+	}
+	// XXX: should this work with obj.Purge && obj.Source != "" or not?
+	//if obj.Purge && obj.Source != "" {
+	//	return fmt.Errorf("can't Purge when Source is specified")
+	//}
 
 	// TODO: should we silently ignore these errors or include them?
 	//if obj.State == FileStateAbsent && obj.Owner != "" {
@@ -243,11 +289,6 @@ func (obj *FileRes) Validate() error {
 			return err
 		}
 	}
-
-	// XXX: should this specify that we create an empty directory instead?
-	//if obj.Source == "" && obj.isDir() {
-	//	return fmt.Errorf("can't specify an empty source when creating a Dir.")
-	//}
 
 	return nil
 }
@@ -617,11 +658,14 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 // syncCheckApply is the CheckApply operation for a source and destination dir.
 // It is recursive and can create directories directly, and files via the usual
 // fileCheckApply method. It returns checkOK and error as is normally expected.
-func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
+// If excludes is specified, none of those files there will be deleted by this,
+// with the exception that a sync *can* convert a file to a dir, or vice-versa.
+func (obj *FileRes) syncCheckApply(apply bool, src, dst string, excludes []string) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("syncCheckApply: %s -> %s", src, dst)
 	}
-	if src == "" || dst == "" {
+	// an src of "" is now supported, if dst is a dir
+	if dst == "" {
 		return false, fmt.Errorf("the src and dst must not be empty")
 	}
 
@@ -631,11 +675,14 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	srcIsDir := strings.HasSuffix(src, "/")
 	dstIsDir := strings.HasSuffix(dst, "/")
 
-	if srcIsDir != dstIsDir {
+	if srcIsDir != dstIsDir && src != "" {
 		return false, fmt.Errorf("the src and dst must be both either files or directories")
 	}
+	if src == "" && !dstIsDir {
+		return false, fmt.Errorf("dst must be a dir if we have an empty src")
+	}
 
-	if !srcIsDir && !dstIsDir {
+	if !srcIsDir && !dstIsDir && src != "" {
 		if obj.init.Debug {
 			obj.init.Logf("syncCheckApply: %s -> %s", src, dst)
 		}
@@ -656,18 +703,23 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	}
 
 	// else: if srcIsDir && dstIsDir
-	srcFiles, err := ReadDir(src)          // if src does not exist...
-	if err != nil && !os.IsNotExist(err) { // an empty map comes out below!
-		return false, err
+
+	smartSrc := make(map[string]FileInfo)
+	if src != "" {
+		srcFiles, err := ReadDir(src)          // if src does not exist...
+		if err != nil && !os.IsNotExist(err) { // an empty map comes out below!
+			return false, err
+		}
+		smartSrc = mapPaths(srcFiles)
+		obj.init.Logf("syncCheckApply: srcFiles: %v", srcFiles)
 	}
+
 	dstFiles, err := ReadDir(dst)
 	if err != nil && !os.IsNotExist(err) {
 		return false, err
 	}
-	//obj.init.Logf("syncCheckApply: srcFiles: %v", srcFiles)
-	//obj.init.Logf("syncCheckApply: dstFiles: %v", dstFiles)
-	smartSrc := mapPaths(srcFiles)
 	smartDst := mapPaths(dstFiles)
+	obj.init.Logf("syncCheckApply: dstFiles: %v", dstFiles)
 
 	for relPath, fileInfo := range smartSrc {
 		absSrc := fileInfo.AbsPath // absolute path
@@ -713,7 +765,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 			obj.init.Logf("syncCheckApply: recurse: %s -> %s", absSrc, absDst)
 		}
 		if obj.Recurse {
-			if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil { // recurse
+			if c, err := obj.syncCheckApply(apply, absSrc, absDst, excludes); err != nil { // recurse
 				return false, errwrap.Wrapf(err, "syncCheckApply: recurse failed")
 			} else if !c { // don't let subsequent passes make this true
 				checkOK = false
@@ -728,6 +780,19 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 	if !apply && len(smartDst) > 0 { // we know there are files to remove!
 		return false, nil // so just exit now
 	}
+
+	// isExcluded specifies if the path is part of an excluded path. For
+	// example, if we exclude /tmp/foo/bar from deletion, then we don't want
+	// to delete /tmp/foo/bar *or* /tmp/foo/ *or* /tmp/ b/c they're parents.
+	isExcluded := func(p string) bool {
+		for _, x := range excludes {
+			if util.HasPathPrefix(x, p) {
+				return true
+			}
+		}
+		return false
+	}
+
 	// any files that now remain in smartDst need to be removed...
 	for relPath, fileInfo := range smartDst {
 		absSrc := src + relPath    // absolute dest (should not exist!)
@@ -743,6 +808,9 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		// think the symmetry is more elegant and correct here for now
 		// Avoiding this is also useful if we had a recurse limit arg!
 		if true { // switch
+			if isExcluded(absDst) { // skip removing excluded files
+				continue
+			}
 			obj.init.Logf("syncCheckApply: removing: %s", absCleanDst)
 			if apply {
 				if err := os.RemoveAll(absCleanDst); err != nil { // dangerous ;)
@@ -754,10 +822,13 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string) (bool, error) {
 		}
 		_ = absSrc
 		//obj.init.Logf("syncCheckApply: recurse rm: %s -> %s", absSrc, absDst)
-		//if c, err := obj.syncCheckApply(apply, absSrc, absDst); err != nil {
+		//if c, err := obj.syncCheckApply(apply, absSrc, absDst, excludes); err != nil {
 		//	return false, errwrap.Wrapf(err, "syncCheckApply: recurse rm failed")
 		//} else if !c { // don't let subsequent passes make this true
 		//	checkOK = false
+		//}
+		//if isExcluded(absDst) { // skip removing excluded files
+		//	continue
 		//}
 		//obj.init.Logf("syncCheckApply: removing: %s", absCleanDst)
 		//if apply { // safety
@@ -869,11 +940,48 @@ func (obj *FileRes) sourceCheckApply(apply bool) (bool, error) {
 	obj.init.Logf("sourceCheckApply(%t)", apply)
 
 	// source is not defined, leave it alone...
-	if obj.Source == "" {
+	if obj.Source == "" && !obj.Purge {
 		return true, nil
 	}
 
-	checkOK, err := obj.syncCheckApply(apply, obj.Source, obj.getPath())
+	excludes := []string{}
+
+	// If we're running a purge, do it here.
+	if obj.Purge {
+		graph, err := obj.init.FilteredGraph()
+		if err != nil {
+			return false, errwrap.Wrapf(err, "can't read filtered graph")
+		}
+		for _, vertex := range graph.Vertices() {
+			res, ok := vertex.(engine.Res)
+			if !ok {
+				// programming error
+				return false, fmt.Errorf("not a Res")
+			}
+			if res.Kind() != "file" {
+				continue // only interested in files
+			}
+			if res.Name() == obj.Name() {
+				continue // skip me!
+			}
+			fileRes, ok := res.(*FileRes)
+			if !ok {
+				// programming error
+				return false, fmt.Errorf("not a FileRes")
+			}
+			p := fileRes.getPath() // if others use it, make public!
+			if !util.HasPathPrefix(p, obj.getPath()) {
+				continue
+			}
+			excludes = append(excludes, p)
+		}
+	}
+	if obj.init.Debug {
+		obj.init.Logf("syncCheckApply: excludes: %+v", excludes)
+	}
+
+	// XXX: should this work with obj.Purge && obj.Source != "" or not?
+	checkOK, err := obj.syncCheckApply(apply, obj.Source, obj.getPath(), excludes)
 	if err != nil {
 		obj.init.Logf("syncCheckApply: error: %v", err)
 		return false, err
@@ -1144,6 +1252,9 @@ func (obj *FileRes) Cmp(r engine.Res) error {
 	if obj.Force != res.Force {
 		return fmt.Errorf("the Force option differs")
 	}
+	if obj.Purge != res.Purge {
+		return fmt.Errorf("the Purge option differs")
+	}
 
 	return nil
 }
@@ -1334,6 +1445,7 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 		Mode:      obj.Mode,
 		Recurse:   obj.Recurse,
 		Force:     obj.Force,
+		Purge:     obj.Purge,
 	}
 }
 
@@ -1444,6 +1556,18 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 	//res.Force = obj.Force
 
 	return res, nil
+}
+
+// GraphQueryAllowed returns nil if you're allowed to query the graph. This
+// function accepts information about the requesting resource so we can
+// determine the access with some form of fine-grained control.
+func (obj *FileRes) GraphQueryAllowed(opts ...engine.GraphQueryableOption) error {
+	options := &engine.GraphQueryableOptions{} // default options
+	options.Apply(opts...)                     // apply the options
+	if options.Kind != "file" {
+		return fmt.Errorf("only other files can access my information")
+	}
+	return nil
 }
 
 // smartPath adds a trailing slash to the path if it is a directory.

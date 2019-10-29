@@ -420,15 +420,20 @@ func TestResources1(t *testing.T) {
 				},
 			}
 
-			t.Logf("test #%d: running startup()", index)
-			if err := startup(); err != nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: could not startup: %+v", index, err)
+			if startup != nil {
+				t.Logf("test #%d: running startup()", index)
+				if err := startup(); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: could not startup: %+v", index, err)
+				}
 			}
 			// run init
 			t.Logf("test #%d: running Init", index)
 			err = res.Init(init)
 			defer func() {
+				if cleanup == nil {
+					return
+				}
 				t.Logf("test #%d: running cleanup()", index)
 				if err := cleanup(); err != nil {
 					t.Errorf("test #%d: FAIL", index)
@@ -1247,12 +1252,17 @@ func TestResources2(t *testing.T) {
 			//	t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			//}
 
-			t.Logf("test #%d: running startup()", index)
-			if err := startup(); err != nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: could not startup: %+v", index, err)
+			if startup != nil {
+				t.Logf("test #%d: running startup()", index)
+				if err := startup(); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: could not startup: %+v", index, err)
+				}
 			}
 			defer func() {
+				if cleanup == nil {
+					return
+				}
 				t.Logf("test #%d: running cleanup()", index)
 				if err := cleanup(); err != nil {
 					t.Errorf("test #%d: FAIL", index)

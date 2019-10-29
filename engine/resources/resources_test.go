@@ -740,6 +740,9 @@ func TestResources2(t *testing.T) {
 		// does the file exist?
 		return func() error {
 			_, err := os.Stat(p)
+			if err == nil {
+				return fmt.Errorf("file exists, expecting absent")
+			}
 			if !os.IsNotExist(err) {
 				return fmt.Errorf("file was supposed to be absent, got: %+v", err)
 			}

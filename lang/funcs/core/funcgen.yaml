@@ -5,15 +5,12 @@ packages:
 - name: math
 - name: math/rand
   alias: rand
-  mgmtAlias: rand
 - name: os
 - name: os/exec
   alias: exec
-  mgmtAlias: exec
 - name: path
 - name: path/filepath
   alias: filepath
-  mgmtAlias: filepath
 - name: runtime
 - name: strconv
 - name: strings

@@ -31,7 +31,7 @@ type function struct {
 	// MclName is the name of the package of the function in mcl.
 	MgmtPackage string `yaml:"mgmtPackage"`
 	// MclName is the name of the function in mcl.
-	MclName string `yaml:"mgmtName"`
+	MclName string `yaml:"mclName"`
 	// InternalName is the name used inside the templated file.
 	// Used to avoid clash between same functions from different packages.
 	InternalName string `yaml:"internalName"`

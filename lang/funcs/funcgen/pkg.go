@@ -33,14 +33,14 @@ import (
 )
 
 var (
-	validSignature = regexp.MustCompile(`^func (?P<name>[A-Z][a-zA-Z0-9]+)\((?P<args>([a-zA-Z]+( (string|bool|float64|int64|int))?(, )?){0,})\) (?P<return>(string|float64|int64|bool|int)|\((string|float64|int64|bool|int), error\))$`)
+	validSignature = regexp.MustCompile(`^func (?P<name>[A-Z][a-zA-Z0-9]+)\((?P<args>([a-zA-Z]+( (bool|string|int|int64|float64))?(, )?){0,})\) (?P<return>(bool|string|int|int64|float64|)|\((bool|string|int|int64|float64), error\))$`)
 	errExcluded    = errors.New("function is excluded")
 )
 
 type golangPackages []*golangPackage
 
 type golangPackage struct {
-	// Name is the name of the go package.
+	// Name is the name of the golang package.
 	Name string `yaml:"name"`
 	// Alias is the alias of the package when imported in golang.
 	// e.g. import rand "os.rand"
@@ -142,11 +142,11 @@ func (obj *golangPackage) parseFunctionLine(line string, getHelp bool) (*functio
 		return nil, errExcluded
 	}
 
-	mgmtpackage := obj.Name
+	mgmtPackage := obj.Name
 	if obj.MgmtAlias != "" {
-		mgmtpackage = obj.MgmtAlias
+		mgmtPackage = obj.MgmtAlias
 	}
-	mgmtpackage = fmt.Sprintf("golang/%s", mgmtpackage)
+	mgmtPackage = fmt.Sprintf("golang/%s", mgmtPackage)
 
 	internalName := fmt.Sprintf("%s%s", strcase.ToCamel(strings.Replace(obj.Name, "/", "", -1)), name)
 	internalName = strings.Replace(internalName, "Html", "HTML", -1)
@@ -159,7 +159,7 @@ func (obj *golangPackage) parseFunctionLine(line string, getHelp bool) (*functio
 	}
 
 	return &function{
-		MgmtPackage:   mgmtpackage,
+		MgmtPackage:   mgmtPackage,
 		MclName:       strcase.ToSnake(name),
 		InternalName:  internalName,
 		Help:          help,
@@ -205,7 +205,7 @@ func parseArgs(str string) []arg {
 
 func parseReturn(str string) []arg {
 	var returns []arg
-	re := regexp.MustCompile(`(int64|float64|string|bool|int)`)
+	re := regexp.MustCompile(`(bool|string|int|int64|float64)`)
 	t := string(re.Find([]byte(str)))
 	returns = append(returns, arg{Type: t})
 	return returns

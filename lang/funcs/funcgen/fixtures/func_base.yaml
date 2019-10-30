@@ -1,5 +1,5 @@
 - mgmtPackage: golang/testpkg
-  mgmtName: all_kind
+  mclName: all_kind
   internalName: TestpkgAllKind
   golangPackage: &pkg
     name: testpkg
@@ -9,7 +9,7 @@
   args: [{name: x, type: int64},{name: y, type: string}]
   return: [{type: float64}]
 - mgmtPackage: golang/testpkg
-  mgmtName: to_upper
+  mclName: to_upper
   internalName: TestpkgToUpper
   golangPackage: *pkg
   golangFunc: ToUpper
@@ -17,7 +17,7 @@
   args: [{name: s, type: string}]
   return: [{type: string}]
 - mgmtPackage: golang/testpkg
-  mgmtName: max
+  mclName: max
   internalName: TestpkgMax
   golangPackage: *pkg
   golangFunc: Max
@@ -25,7 +25,7 @@
   args: [{name: x, type: float64},{name: y, type: float64}]
   return: [{type: float64}]
 - mgmtPackage: golang/testpkg
-  mgmtName: with_error
+  mclName: with_error
   internalName: TestpkgWithError
   golangPackage: *pkg
   golangFunc: WithError
@@ -33,7 +33,7 @@
   args: [{name: s, type: string}]
   return: [{type: string}]
 - mgmtPackage: golang/testpkg
-  mgmtName: with_int
+  mclName: with_int
   internalName: TestpkgWithInt
   golangPackage: *pkg
   golangFunc: WithInt

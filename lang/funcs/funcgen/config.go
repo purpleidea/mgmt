@@ -59,7 +59,7 @@ func (obj *arg) ToMcl() (string, error) {
 		return fmt.Sprintf("%s%s", prefix, types.TypeBool.String()), nil
 	case "string":
 		return fmt.Sprintf("%s%s", prefix, types.TypeStr.String()), nil
-	case "int64", "int":
+	case "int", "int64":
 		return fmt.Sprintf("%s%s", prefix, types.TypeInt.String()), nil
 	case "float64":
 		return fmt.Sprintf("%s%s", prefix, types.TypeFloat.String()), nil

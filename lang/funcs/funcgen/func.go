@@ -109,8 +109,11 @@ func (obj *function) MakeGolangArgs() (string, error) {
 			return "", err
 		}
 		input := fmt.Sprintf("input[%d].%s()", i, gol)
-		if a.Type == "int" {
+		switch a.Type {
+		case "int":
 			input = fmt.Sprintf("int(%s)", input)
+		case "[]byte":
+			input = fmt.Sprintf("[]byte(%s)", input)
 		}
 		args = append(args, input)
 	}
@@ -152,6 +155,8 @@ func (obj *function) ConvertStart() string {
 	switch t {
 	case "int":
 		return "int64("
+	case "[]byte":
+		return "string("
 	default:
 		return ""
 	}
@@ -161,7 +166,7 @@ func (obj *function) ConvertStart() string {
 func (obj *function) ConvertStop() string {
 	t := obj.Return[0].Type
 	switch t {
-	case "int":
+	case "int", "[]byte":
 		return ")"
 	default:
 		return ""

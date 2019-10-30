@@ -40,3 +40,11 @@
   errorful: false
   args: [{name: s, type: float64}, {name: i, type: int}, {name: x, type: int64}, {name: j, type: int}, {name: k, type: int}, {name: b, type: bool}, {name: t, type: string}]
   return: [{type: string}]
+- mgmtPackage: golang/testpkg
+  mclName: super_byte
+  internalName: TestpkgSuperByte
+  golangPackage: *pkg
+  golangFunc: SuperByte
+  errorful: false
+  args: [{name: s, type: "[]byte"}, {name: t, type: string}]
+  return: [{type: "[]byte"}]

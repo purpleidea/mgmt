@@ -12,3 +12,4 @@ func WithErrorButNothingElse(s string) error
 func WithNothingElse(s string)
 func Nextafter32(x, y float32) (r float32)
 func WithInt(s float64, i int, x int64, j, k int, b bool, t string) string
+func SuperByte(s []byte, t string) []byte

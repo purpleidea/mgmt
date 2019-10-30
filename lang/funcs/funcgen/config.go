@@ -35,7 +35,7 @@ type arg struct {
 	// Value is the value of the argument.
 	Value string `yaml:"value,omitempty"`
 	// Type is the type of the argument.
-	// Supported: bool, string, int, int64, float64.
+	// Supported: bool, string, int, int64, float64, []byte.
 	Type string `yaml:"type"`
 }
 
@@ -57,14 +57,14 @@ func (obj *arg) ToMcl() (string, error) {
 	switch obj.Type {
 	case "bool":
 		return fmt.Sprintf("%s%s", prefix, types.TypeBool.String()), nil
-	case "string":
+	case "string", "[]byte":
 		return fmt.Sprintf("%s%s", prefix, types.TypeStr.String()), nil
 	case "int", "int64":
 		return fmt.Sprintf("%s%s", prefix, types.TypeInt.String()), nil
 	case "float64":
 		return fmt.Sprintf("%s%s", prefix, types.TypeFloat.String()), nil
 	default:
-		return "", fmt.Errorf("cannot convert %v to mcl", obj)
+		return "", fmt.Errorf("cannot convert %v to mcl", obj.Type)
 	}
 }
 
@@ -73,7 +73,7 @@ func (obj *arg) ToGolang() (string, error) {
 	switch obj.Type {
 	case "bool":
 		return "Bool", nil
-	case "string":
+	case "string", "[]byte":
 		return "Str", nil
 	case "int", "int64":
 		return "Int", nil
@@ -89,7 +89,7 @@ func (obj *arg) ToTestInput() (string, error) {
 	switch obj.Type {
 	case "bool":
 		return fmt.Sprintf("&types.BoolValue{V: %s}", obj.Name), nil
-	case "string":
+	case "string", "[]byte":
 		return fmt.Sprintf("&types.StrValue{V: %s}", obj.Name), nil
 	case "int":
 		return fmt.Sprintf("&types.IntValue{V: %s}", obj.Name), nil

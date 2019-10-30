@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	validSignature = regexp.MustCompile(`^func (?P<name>[A-Z][a-zA-Z0-9]+)\((?P<args>([a-zA-Z]+( (bool|string|int|int64|float64))?(, )?){0,})\) (?P<return>(bool|string|int|int64|float64|)|\((bool|string|int|int64|float64), error\))$`)
+	validSignature = regexp.MustCompile(`^func (?P<name>[A-Z][a-zA-Z0-9]+)\((?P<args>([a-zA-Z]+( (bool|string|int|int64|float64|\[\]byte))?(, )?){0,})\) (?P<return>(bool|string|int|int64|float64|\[\]byte|)|\((bool|string|int|int64|float64|\[\]byte), error\))$`)
 	errExcluded    = errors.New("function is excluded")
 )
 
@@ -205,7 +205,7 @@ func parseArgs(str string) []arg {
 
 func parseReturn(str string) []arg {
 	var returns []arg
-	re := regexp.MustCompile(`(bool|string|int|int64|float64)`)
+	re := regexp.MustCompile(`(bool|string|int|int64|float64|\[\]byte)`)
 	t := string(re.Find([]byte(str)))
 	returns = append(returns, arg{Type: t})
 	return returns

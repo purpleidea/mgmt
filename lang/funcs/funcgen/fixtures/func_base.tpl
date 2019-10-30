@@ -45,6 +45,10 @@ func init() {
 		T: types.NewType("func(s float, i int, x int, j int, k int, b bool, t str) str"),
 		V: TestpkgWithInt,
 	})
+	simple.ModuleRegister("golang/testpkg", "super_byte", &types.FuncValue{
+		T: types.NewType("func(s str, t str) str"),
+		V: TestpkgSuperByte,
+	})
 
 }
 
@@ -79,5 +83,11 @@ func TestpkgWithError(input []types.Value) (types.Value, error) {
 func TestpkgWithInt(input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: testpkg.WithInt(input[0].Float(), int(input[1].Int()), input[2].Int(), int(input[3].Int()), int(input[4].Int()), input[5].Bool(), input[6].Str()),
+	}, nil
+}
+
+func TestpkgSuperByte(input []types.Value) (types.Value, error) {
+	return &types.StrValue{
+		V: string(testpkg.SuperByte([]byte(input[0].Str()), input[1].Str())),
 	}, nil
 }

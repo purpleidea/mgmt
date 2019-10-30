@@ -19,6 +19,7 @@ package core
 
 import (
 	// import so the funcs register
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/convert"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/deploy"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"

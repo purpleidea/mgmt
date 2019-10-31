@@ -105,7 +105,7 @@ when parameters take a zero value, whenever this is possible.)
 
 ```golang
 // Default returns some sensible defaults for this resource.
-func (obj *FooRes) Default() Res {
+func (obj *FooRes) Default() engine.Res {
 	return &FooRes{
 		Answer: 42, // sometimes, defaults shouldn't be the zero value
 	}

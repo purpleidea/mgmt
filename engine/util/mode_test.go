@@ -15,25 +15,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package util_test
+// +build !root
+
+package util
 
 import (
 	"fmt"
 	"os"
 	"strings"
 	"testing"
-
-	engineutil "github.com/purpleidea/mgmt/engine/util"
 )
 
 func TestSymbolicMode(t *testing.T) {
 	def := os.FileMode(0644) | os.ModeSetgid
 	symModeTests := []struct {
-		name       string
-		input      []string
-		expect     os.FileMode
-		onlyAssign bool
-		err        error
+		name        string
+		input       []string
+		expect      os.FileMode
+		allowAssign bool
+		err         error
 	}{
 		// Test single mode inputs.
 		{"assign", []string{"a=rwx"}, 0777, false, nil},
@@ -42,36 +42,36 @@ func TestSymbolicMode(t *testing.T) {
 		{"assign", []string{"ug=trwx"}, 0774 | os.ModeSticky, false, nil},
 		{"assign", []string{"o=rx"}, 0645 | os.ModeSetgid, false, nil},
 		{"assign", []string{"ug=srwx"}, 0774 | os.ModeSetgid | os.ModeSetuid, false, nil},
-		{"addition", []string{"o+rwx"}, 0647 | os.ModeSetgid, false, nil},
-		{"addition", []string{"u+x"}, 0744 | os.ModeSetgid, false, nil},
-		{"addition", []string{"u+x"}, 0744 | os.ModeSetgid, false, nil},
-		{"addition", []string{"u+s"}, 0644 | os.ModeSetgid | os.ModeSetuid, false, nil},
-		{"addition", []string{"u+t"}, 0644 | os.ModeSetgid | os.ModeSticky, false, nil},
-		{"subtraction", []string{"o-rwx"}, 0640 | os.ModeSetgid, false, nil},
-		{"subtraction", []string{"u-w"}, 0444 | os.ModeSetgid, false, nil},
-		{"subtraction", []string{"g-s"}, 0644, false, nil},
-		{"subtraction", []string{"u-t"}, 0644 | os.ModeSetgid, false, nil},
+		{"addition", []string{"o+rwx"}, 0647 | os.ModeSetgid, true, nil},
+		{"addition", []string{"u+x"}, 0744 | os.ModeSetgid, true, nil},
+		{"addition", []string{"u+x"}, 0744 | os.ModeSetgid, true, nil},
+		{"addition", []string{"u+s"}, 0644 | os.ModeSetgid | os.ModeSetuid, true, nil},
+		{"addition", []string{"u+t"}, 0644 | os.ModeSetgid | os.ModeSticky, true, nil},
+		{"subtraction", []string{"o-rwx"}, 0640 | os.ModeSetgid, true, nil},
+		{"subtraction", []string{"u-w"}, 0444 | os.ModeSetgid, true, nil},
+		{"subtraction", []string{"g-s"}, 0644, true, nil},
+		{"subtraction", []string{"u-t"}, 0644 | os.ModeSetgid, true, nil},
 
 		// Test multiple mode inputs.
-		{"mixed", []string{"u=rwx", "g+w"}, 0764 | os.ModeSetgid, false, nil},
-		{"mixed", []string{"u+rwx", "g=w"}, 0724, false, nil},
+		{"mixed", []string{"u=rwx", "g+w"}, 0764 | os.ModeSetgid, true, nil},
+		{"mixed", []string{"u+rwx", "g=w"}, 0724, true, nil},
 
-		// Test that a engineutil.ModeError is returned. Value is not checked so the
-		// empty string works.
-		{"invalid separator", []string{"ug_rwx"}, os.FileMode(0), false, fmt.Errorf("ug_rwx is not a valid a symbolic mode")},
-		{"invalid who", []string{"xg=rwx"}, os.FileMode(0), false, fmt.Errorf("unexpected character assignment in xg=rwx")},
-		{"invalid what", []string{"g=rwy"}, os.FileMode(0), false, fmt.Errorf("unexpected character assignment in g=rwy")},
-		{"double assignment", []string{"a=rwx", "u=r"}, os.FileMode(0), false, fmt.Errorf("subject was repeated: each subject (u,g,o) is only accepted once")},
+		// Test that a ModeError is returned. Value is not checked so
+		// the empty string works.
+		{"invalid separator", []string{"ug_rwx"}, os.FileMode(0), true, fmt.Errorf("ug_rwx is not a valid a symbolic mode")},
+		{"invalid who", []string{"xg=rwx"}, os.FileMode(0), true, fmt.Errorf("unexpected character assignment in xg=rwx")},
+		{"invalid what", []string{"g=rwy"}, os.FileMode(0), true, fmt.Errorf("unexpected character assignment in g=rwy")},
+		{"double assignment", []string{"a=rwx", "u=r"}, os.FileMode(0), true, fmt.Errorf("subject was repeated: each subject (u,g,o) is only accepted once")},
 
-		// Test onlyAssign bool
-		{"only assign", []string{"u+x", "g=rw"}, os.FileMode(0), true, fmt.Errorf("u+x is not a valid a symbolic mode")},
-		{"not only assign", []string{"u+x", "g=rw"}, os.FileMode(0764), false, nil},
+		// Test allowAssign bool.
+		{"only assign", []string{"u+x", "g=rw"}, os.FileMode(0), false, fmt.Errorf("u+x is not a valid a symbolic mode")},
+		{"not only assign", []string{"u+x", "g=rw"}, os.FileMode(0764), true, nil},
 	}
 
 	for _, ts := range symModeTests {
 		test := ts
 		t.Run(test.name+" "+strings.Join(test.input, ","), func(t *testing.T) {
-			got, err := engineutil.ParseSymbolicModes(test.input, def, test.onlyAssign)
+			got, err := ParseSymbolicModes(test.input, def, test.allowAssign)
 			if test.err != nil {
 				if err == nil {
 					t.Errorf("input: %s, expected error: %#v, but got nil", def, test.err)

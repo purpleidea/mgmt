@@ -43,16 +43,16 @@ const (
 // false if not.
 func modeIsValidWho(who string) bool {
 	for _, w := range []string{"u", "g", "o"} {
-		who = strings.Replace(who, w, "", -1)
+		who = strings.Replace(who, w, "", -1) // TODO: use ReplaceAll in 1.12
 	}
 	return len(who) == 0
 }
 
 // modeIsValidWhat checks that only the valid mode characters are in the what
-// string ('w', 'r', 'x', 's', 't').
+// string ('r', 'w', 'x', 's', 't').
 func modeIsValidWhat(what string) bool {
-	for _, w := range []string{"w", "r", "x", "s", "t"} {
-		what = strings.Replace(what, w, "", -1)
+	for _, w := range []string{"r", "w", "x", "s", "t"} {
+		what = strings.Replace(what, w, "", -1) // TODO: use ReplaceAll in 1.12
 	}
 	return len(what) == 0
 }
@@ -77,13 +77,13 @@ func modeAssigned(who, what string, from os.FileMode) (os.FileMode, error) {
 
 	for _, c := range what {
 		switch c {
-		case 'w':
-			m := modeValueFrom(who, ModeWrite)
+		case 'r':
+			m := modeValueFrom(who, ModeRead)
 			if from&m == 0 {
 				from = from | m
 			}
-		case 'r':
-			m := modeValueFrom(who, ModeRead)
+		case 'w':
+			m := modeValueFrom(who, ModeWrite)
 			if from&m == 0 {
 				from = from | m
 			}
@@ -116,13 +116,13 @@ func modeAssigned(who, what string, from os.FileMode) (os.FileMode, error) {
 func modeAdded(who, what string, from os.FileMode) (os.FileMode, error) {
 	for _, c := range what {
 		switch c {
-		case 'w':
-			m := modeValueFrom(who, ModeWrite)
+		case 'r':
+			m := modeValueFrom(who, ModeRead)
 			if from&m == 0 {
 				from = from | m
 			}
-		case 'r':
-			m := modeValueFrom(who, ModeRead)
+		case 'w':
+			m := modeValueFrom(who, ModeWrite)
 			if from&m == 0 {
 				from = from | m
 			}
@@ -155,13 +155,13 @@ func modeAdded(who, what string, from os.FileMode) (os.FileMode, error) {
 func modeSubtracted(who, what string, from os.FileMode) (os.FileMode, error) {
 	for _, c := range what {
 		switch c {
-		case 'w':
-			m := modeValueFrom(who, ModeWrite)
+		case 'r':
+			m := modeValueFrom(who, ModeRead)
 			if from&m != 0 {
 				from = from &^ m
 			}
-		case 'r':
-			m := modeValueFrom(who, ModeRead)
+		case 'w':
+			m := modeValueFrom(who, ModeWrite)
 			if from&m != 0 {
 				from = from &^ m
 			}
@@ -214,18 +214,18 @@ func modeValueFrom(who string, modeType uint32) os.FileMode {
 }
 
 // ParseSymbolicModes parses a slice of symbolic mode strings. By default it
-// will accept all symbolic mode strings (=,+,-) but can be set to only accept
-// the assignment input with the 'onlyAssign' bool.
+// will only accept the assignment input (=), but if allowAssign is true, then
+// all symbolic mode strings (=,+,-) can be used as well.
 //
 // Symbolic mode is expected to be a string of who (user, group, other) then
 // the operation (=, +, -) then the change (read, write, execute, setuid,
 // setgid, sticky).
 //
-// Ex. ug=rw
+// Eg: ug=rw
 //
 // If you repeat yourself in the slice (ex. u=rw,u=w) ParseSymbolicModes will
 // fail with an error.
-func ParseSymbolicModes(modes []string, from os.FileMode, onlyAssign bool) (os.FileMode, error) {
+func ParseSymbolicModes(modes []string, from os.FileMode, allowAssign bool) (os.FileMode, error) {
 	symModes := make([]struct {
 		mode, who, what string
 
@@ -235,7 +235,8 @@ func ParseSymbolicModes(modes []string, from os.FileMode, onlyAssign bool) (os.F
 	for i, mode := range modes {
 		symModes[i].mode = mode
 
-		// If string contains '=' and no '+/-' it is safe to guess it is an assign
+		// If string contains '=' and no '+/-' it is safe to guess it is
+		// an assign.
 		if strings.Contains(mode, "=") && !strings.ContainsAny(mode, "+-") {
 			m := strings.Split(mode, "=")
 			if len(m) != 2 {
@@ -245,7 +246,8 @@ func ParseSymbolicModes(modes []string, from os.FileMode, onlyAssign bool) (os.F
 			symModes[i].what = m[1]
 			symModes[i].parse = modeAssigned
 			continue
-		} else if strings.Contains(mode, "+") && !strings.ContainsAny(mode, "=-") && !onlyAssign {
+
+		} else if strings.Contains(mode, "+") && !strings.ContainsAny(mode, "=-") && allowAssign {
 			m := strings.Split(mode, "+")
 			if len(m) != 2 {
 				return os.FileMode(0), fmt.Errorf("only a single %q is allowed but found %d", "+", len(m))
@@ -254,7 +256,8 @@ func ParseSymbolicModes(modes []string, from os.FileMode, onlyAssign bool) (os.F
 			symModes[i].what = m[1]
 			symModes[i].parse = modeAdded
 			continue
-		} else if strings.Contains(mode, "-") && !strings.ContainsAny(mode, "=+") && !onlyAssign {
+
+		} else if strings.Contains(mode, "-") && !strings.ContainsAny(mode, "=+") && allowAssign {
 			m := strings.Split(mode, "-")
 			if len(m) != 2 {
 				return os.FileMode(0), fmt.Errorf("only a single %q is allowed but found %d", "-", len(m))
@@ -268,13 +271,14 @@ func ParseSymbolicModes(modes []string, from os.FileMode, onlyAssign bool) (os.F
 		return os.FileMode(0), fmt.Errorf("%s is not a valid a symbolic mode", symModes[i].mode)
 	}
 
-	// Validate input and verify the slice of symbolic modes does not contain
-	// redundancy.
-	seen := make(map[rune]struct{}) // To validate all subjects are not dupicated
+	// Validate input and verify the slice of symbolic modes does not
+	// contain redundancy.
+	seen := make(map[rune]struct{}) // validate that subjects are not duplicated
 	for i := range symModes {
 		if strings.ContainsRune(symModes[i].who, 'a') || symModes[i].who == "" {
-			// If 'a' or empty who (implicit 'a') is called and there are more
-			// symbolic modes in the slice then it must be a repetition.
+			// If 'a' or empty who (implicit 'a') is called and
+			// there are more symbolic modes in the slice then it
+			// must be a repetition.
 			if len(symModes) > 1 {
 				return os.FileMode(0), fmt.Errorf("subject was repeated: each subject (u,g,o) is only accepted once")
 			}
@@ -294,7 +298,7 @@ func ParseSymbolicModes(modes []string, from os.FileMode, onlyAssign bool) (os.F
 		}
 	}
 
-	// Parse each sybolic mode accumulatively onto the from file mode.
+	// Parse each symbolic mode accumulatively onto the file mode.
 	for _, m := range symModes {
 		var err error
 		from, err = m.parse(m.who, m.what, from)

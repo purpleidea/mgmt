@@ -54,6 +54,12 @@ const (
 	// FileStateUndefined means the file state has not been specified.
 	// TODO: consider moving to *string and express this state as a nil.
 	FileStateUndefined = ""
+
+	// FileModeAllowAssign specifies whether we only use ugo=rwx style
+	// assignment (false) or if we also allow ugo+-rwx style too (true). I
+	// think that it's possibly illogical to allow imperative mode
+	// specifiers in a declarative language, so let's leave it off for now.
+	FileModeAllowAssign = false
 )
 
 // FileRes is a file and directory resource. Dirs are defined by names ending
@@ -173,15 +179,14 @@ func (obj *FileRes) mode() (os.FileMode, error) {
 		return os.FileMode(n), nil
 	}
 
-	// Try parsing symbolic by first getting the files current mode.
+	// Try parsing symbolically by first getting the files current mode.
 	stat, err := os.Stat(obj.getPath())
 	if err != nil {
 		return os.FileMode(0), errwrap.Wrapf(err, "failed to get the current file mode")
 	}
-	m := stat.Mode()
 
 	modes := strings.Split(obj.Mode, ",")
-	m, err = engineUtil.ParseSymbolicModes(modes, m, false)
+	m, err := engineUtil.ParseSymbolicModes(modes, stat.Mode(), FileModeAllowAssign)
 	if err != nil {
 		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number or symbolic mode (%s)", obj.Mode)
 	}

@@ -17,6 +17,7 @@ You might want to look at the [generated documentation](https://godoc.org/github
 for more up-to-date information about these resources.
 
 * [Augeas](#Augeas): Manipulate files using augeas.
+* [Consul:KV](#ConsulKV): Set keys in a Consul datastore.
 * [Docker](#Docker):[Container](#Container) Manage docker containers.
 * [Exec](#Exec): Execute shell commands on the system.
 * [File](#File): Manage files and directories.

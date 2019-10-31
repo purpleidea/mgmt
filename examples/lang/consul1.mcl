@@ -1,0 +1,4 @@
+consul:kv "love" {
+	key   => "mgmt/love",
+	value => "YES",
+}

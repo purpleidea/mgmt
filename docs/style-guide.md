@@ -61,6 +61,12 @@ Occasionally inline, two line source code comments are used within a function.
 These should usually be balanced so that you don't have one line with 78
 characters and the second with only four. Split the comment between the two.
 
+### Default values
+
+Whenever a constant or function parameter is defined, try and have the safer or
+default value be the `zero` value. For example, instead of `const NoDanger`, use
+`const AllowDanger` so that the `false` value is the safe scenario.
+
 ### Method receiver naming
 
 [Contrary](https://github.com/golang/go/wiki/CodeReviewComments#receiver-names)
@@ -84,6 +90,57 @@ func (obj *Foo) Bar(baz string) int {
 }
 ```
 
+### Variable naming
+
+We prefer shorter, scoped variables rather than `unnecessarilyLongIdentifiers`.
+Remember the scoping rules and feel free to use new variables where appropriate.
+For example, in a short string snippet you can use `s` instead of `myString`, as
+well as other common choices. `i` is a common `int` counter, `f` for files, `fn`
+for functions, `x` for something else and so on.
+
+### Variable re-use
+
+Feel free to create and use new variables instead of attempting to re-use the
+same string. For example, if a function input arg is named `s`, you can use a
+new variable to receive the first computation result on `s` instead of storing
+it back into the original `s`. This avoids confusion if a different part of the
+code wants to read the original input, and it avoids any chance of edit by
+reference of the original callers copy of the variable.
+
+#### Example
+
+```golang
+MyNotIdealFunc(s string, b bool) string {
+	if !b {
+		return s + "hey"
+	}
+	s = strings.Replace(s, "blah", "", -1) // not ideal (re-use of `s` var)
+	return s
+}
+
+MyOkayFunc(s string, b bool) string {
+	if !b {
+		return s + "hey"
+	}
+	s2 := strings.Replace(s, "blah", "", -1) // doesn't re-use `s` variable
+	return s2
+}
+
+MyGreatFunc(s string, b bool) string {
+	if !b {
+		return s + "hey"
+	}
+	return strings.Replace(s, "blah", "", -1) // even cleaner
+}
+```
+
+### Constants in code
+
+If a function takes a specifier (often a bool) it's sometimes better to name
+that variable (often with a `const`) rather than leaving a naked `bool` in the
+code. For example, `x := MyFoo("blah", false)` is less clear than
+`const useMagic = false; x := MyFoo("blah", useMagic)`.
+
 ### Consistent ordering
 
 In general we try to preserve a logical ordering in source files which usually
@@ -95,6 +152,23 @@ declared in the interface.
 
 When implementing code for the various types in the language, please follow this
 order: `bool`, `str`, `int`, `float`, `list`, `map`, `struct`, `func`.
+
+For other aspects where you have a set of items, try to be internally consistent
+as well. For example, if you have two switch statements with `A`, `B`, and `C`,
+please use the same ordering for these elements elsewhere that they appear in
+the code and in the commentary if it is not illogical to do so.
+
+### Product identifiers
+
+Try to avoid references in the code to `mgmt` or a specific program name string
+if possible. This makes it easier to rename code if we ever pick a better name
+or support `libmgmt` better if we embed it. You can use the `Program` variable
+which is available in numerous places if you want a string to put in the logs.
+
+It is also recommended to avoid the `go` (programming language name) string if
+possible. Try to use `golang` if required, since the word `go` is already
+overloaded, and in particular it was even already used by the
+[`go!`](https://en.wikipedia.org/wiki/Go!_(programming_language)).
 
 ## Overview for mcl code
 

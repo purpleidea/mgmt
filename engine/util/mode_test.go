@@ -89,3 +89,47 @@ func TestSymbolicMode(t *testing.T) {
 		})
 	}
 }
+
+func TestSymbolicMode1(t *testing.T) {
+	def := os.FileMode(0)
+	symModeTests := []struct {
+		name        string
+		input       []string
+		expect      os.FileMode
+		allowAssign bool
+		err         error
+	}{
+		{"assign", []string{"u=r"}, 0400, false, nil},
+		{"assign", []string{"g=rw"}, 0060, false, nil},
+		{"assign", []string{"o=rwx"}, 0007, false, nil},
+		{"assign", []string{"u=r"}, 0400, false, nil},
+		{"multiple assignment", []string{"u=r", "g=w", "o=x"}, 0421, false, nil},
+		{"multiple assignment", []string{"ug=rw", "o=rx"}, 0665, false, nil},
+		{"double assignment", []string{"ug=r", "go=r", "ua=x"}, os.FileMode(0), true, fmt.Errorf("subject was repeated: only define each subject (u,g,o) once")},
+		{"double assignment", []string{"uu=rw", "ug=rw", "gg=xr"}, os.FileMode(0), true, fmt.Errorf("subject was repeated: only define each subject (u,g,o) once")},
+		{"double assignment", []string{"ugo=r", "g=w", "o=w"}, os.FileMode(0), true, fmt.Errorf("subject was repeated: only define each subject (u,g,o) once")},
+		{"double assignment", []string{"g=r", "ugo=x", "a=w"}, os.FileMode(0), true, fmt.Errorf("subject was repeated: only define each subject (u,g,o) once")},
+		{"invalid what", []string{"o=args"}, os.FileMode(0), true, fmt.Errorf("unexpected character assignment in o=args")},
+		{"invalid what", []string{"o=args"}, os.FileMode(0), true, fmt.Errorf("unexpected character assignment in o=args")},
+	}
+	for _, ts := range symModeTests {
+		test := ts
+		t.Run(test.name+" "+strings.Join(test.input, ","), func(t *testing.T) {
+			got, err := ParseSymbolicModes(test.input, def, test.allowAssign)
+			if test.err != nil {
+				if err == nil {
+					t.Errorf("input: %s, expected error: %#v, but got nil", def, test.err)
+				} else if err.Error() != test.err.Error() {
+					t.Errorf("input: %s, expected error: %q, got: %q", def, test.err, err)
+				}
+			} else if test.err == nil && err != nil {
+				t.Errorf("input: %s, did not expect error but got: %#v", def, err)
+			}
+
+			if test.expect != got {
+				t.Errorf("input: %s, expected: %v, got: %v", def, test.expect, got)
+			}
+		})
+	}
+
+}

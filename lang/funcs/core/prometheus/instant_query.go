@@ -15,21 +15,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package coreprometheus
 
 import (
-	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/convert"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/deploy"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example/nested"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/fmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/prometheus"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/regexp"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/types"
 )
+
+func init() {
+	simple.ModuleRegister(ModuleName, "instant_query", &types.FuncValue{
+		T: types.NewType("func(query str, date int, config struct{address str}) []struct{labels map{str: str}; value str}"),
+		V: InstantQuery,
+	})
+}
+
+// InstantQuery runs a Prometheus query at a specific time and returns the
+// output as a list of structs
+func InstantQuery(input []types.Value) (types.Value, error) {
+	return nil, nil
+}

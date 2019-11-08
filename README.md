@@ -125,6 +125,19 @@ Feel free to read my article on [debugging golang programs](https://purpleidea.c
 
 We'd love to have your patches! Please send them by email, or as a pull request.
 
+## Sponsors:
+
+Running a [Free and Open Source Software](https://en.wikipedia.org/wiki/Free_and_open-source_software)
+project is very challenging, but it is made easier with the help of our
+*sponsors*!
+
+Please thank them and check out their commercial offerings!
+
+| Sponsors |
+|---|
+| [purpleidea's patreon spnsors](https://www.patreon.com/purpleidea) |
+| [Your company name and logo here](https://purpleidea.com/contact/) |
+
 ## On the web:
 
 [Read what people are saying and publishing about mgmt!](docs/on-the-web.md)

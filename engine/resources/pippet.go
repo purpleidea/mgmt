@@ -37,7 +37,7 @@ func init() {
 }
 
 // PippetRes is a wrapper resource for puppet.  It implements the functional
-// equivalent of an exec resource that calls "pupept resource <type> <title>
+// equivalent of an exec resource that calls "puppet resource <type> <title>
 // <params>", but offers superior performance through a long-running Puppet
 // process that receives resources through a pipe (hence the name).
 type PippetRes struct {
@@ -90,7 +90,7 @@ func (obj *PippetRes) Init(init *engine.Init) error {
 		return err
 	}
 
-	if err = obj.runner.Register(); err != nil {
+	if err := obj.runner.Register(); err != nil {
 		return err
 	}
 
@@ -170,11 +170,6 @@ func (obj *PippetRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// GroupCmp returns whether two resources can be grouped together or not.
-func (obj *PippetRes) GroupCmp(r engine.GroupableRes) error {
-	return fmt.Errorf("pippet resources are never grouped")
-}
-
 // UnmarshalYAML is the custom unmarshal handler for this struct.
 // It is primarily useful for setting the defaults.
 func (obj *PippetRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -246,18 +241,16 @@ func (obj *pippetReceiver) Init() error {
 	}
 	obj.stdout, err = cmd.StdoutPipe()
 	if err != nil {
-		err = errwrap.Append(err, obj.stdin.Close())
-		return err
+		return errwrap.Append(err, obj.stdin.Close())
 	}
 	if err = cmd.Start(); err != nil {
-		err = errwrap.Append(err, obj.stdin.Close())
-		return err
+		return errwrap.Append(err, obj.stdin.Close())
 	}
 	buf := make([]byte, 80)
 	if _, err = obj.stdout.Read(buf); err != nil {
-		err = errwrap.Append(err, obj.stdin.Close())
+		return errwrap.Append(err, obj.stdin.Close())
 	}
-	return err
+	return nil
 }
 
 // Register should be called by any user (i.e., any pippet resource) before
@@ -287,14 +280,13 @@ func (obj *pippetReceiver) Unregister() error {
 	obj.registerMutex.Lock()
 	defer obj.registerMutex.Unlock()
 	obj.registered = obj.registered - 1
-	var err error
 	if obj.registered == 0 {
-		err = obj.Close()
+		return obj.Close()
 	}
 	if obj.registered < 0 {
-		err = errwrap.Append(err, fmt.Errorf("pippet runner: ERROR: unregistered more resources than were registered"))
+		return fmt.Errorf("pippet runner: ERROR: unregistered more resources than were registered")
 	}
-	return err
+	return nil
 }
 
 // LockApply locks the pippetReceiver's mutex for an "Apply"transaction.
@@ -325,19 +317,19 @@ func (obj *pippetReceiver) Close() error {
 }
 
 // applyPippetRes does the actual work of making Puppet synchronize a resource.
-func applyPippetRes(runner PippetRunner, resource *PippetRes) (changed bool, err error) {
+func applyPippetRes(runner PippetRunner, resource *PippetRes) (bool, error) {
 	runner.LockApply()
 	defer runner.UnlockApply()
-	if err = json.NewEncoder(runner.InputStream()).Encode(resource); err != nil {
-		return false, fmt.Errorf("failed to send resource to puppet: %v", err)
+	if err := json.NewEncoder(runner.InputStream()).Encode(resource); err != nil {
+		return false, errwrap.Wrapf(err, "failed to send resource to puppet")
 	}
 
 	result := PippetResult{
 		Error:     true,
 		Exception: "missing output fields",
 	}
-	if err = json.NewDecoder(runner.OutputStream()).Decode(&result); err != nil {
-		return false, fmt.Errorf("failed to read response from puppet: %v", err)
+	if err := json.NewDecoder(runner.OutputStream()).Decode(&result); err != nil {
+		return false, errwrap.Wrapf(err, "failed to read response from puppet")
 	}
 
 	if result.Error {

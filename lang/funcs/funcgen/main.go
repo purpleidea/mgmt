@@ -20,6 +20,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 )
 
 var (
@@ -34,7 +35,10 @@ func main() {
 		log.Fatalf("No package passed!")
 	}
 
+	log.SetOutput(os.Stdout)
 	err := parsePkg(*pkg, *filename, *templates)
+	log.SetOutput(os.Stderr)
+
 	if err != nil {
 		log.Fatal(err)
 	}

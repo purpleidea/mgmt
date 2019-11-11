@@ -430,3 +430,65 @@ func (obj *DockerContainerRes) UnmarshalYAML(unmarshal func(interface{}) error) 
 	*obj = DockerContainerRes(raw) // restore from indirection with type conversion!
 	return nil
 }
+
+// Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
+func (obj *DockerContainerRes) Copy() engine.CopyableRes {
+	cmd := []string{}
+	for _, command := range obj.Cmd {
+		cmd = append(cmd, command)
+	}
+	env := []string{}
+	for _, envi := range obj.Env {
+		env = append(env, envi)
+	}
+	return &DockerContainerRes{
+		State:      obj.State,
+		Image:      obj.Image,
+		Cmd:        cmd,
+		Env:        env,
+		Ports:      obj.Ports,
+		APIVersion: obj.APIVersion,
+	}
+}
+
+// Reversed returns the "reverse" or "reciprocal" resource. This is used to
+// "clean" up after a previously defined resource has been removed.
+func (obj *DockerContainerRes) Reversed() (engine.ReversibleRes, error) {
+
+	cp, err := engine.ResCopy(obj)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy")
+	}
+	rev, ok := cp.(engine.ReversibleRes)
+	if !ok {
+		return nil, fmt.Errorf("not reversible")
+	}
+	rev.ReversibleMeta().Disabled = true
+
+	res, ok := cp.(*DockerContainerRes)
+	if !ok {
+		return nil, fmt.Errorf("copied res was not our kind")
+	}
+
+	if obj.State == ContainerRunning {
+		res.State = ContainerStopped
+	}
+	if obj.State == ContainerStopped {
+		res.State = ContainerRunning
+	}
+	if obj.State == ContainerRemoved {
+		// TODO: create a ContainerExist function for this
+		res.State = ContainerRunning
+	}
+	// Container properties should be copied from the container struct
+
+	if res.State == ContainerRemoved {
+		// Can't specify container properties if it's removed
+		res.Image = ""
+		res.Env = []string{}
+		res.Ports = map[string]map[int64]int64{}
+		res.APIVersion = ""
+	}
+
+	return nil, err
+}

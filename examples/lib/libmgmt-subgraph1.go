@@ -49,7 +49,7 @@ func NewMyGAPI(data *gapi.Data, name string, interval uint) (*MyGAPI, error) {
 // CliFlags returns a list of flags used by the passed in subcommand.
 func (obj *MyGAPI) CliFlags(string) []cli.Flag {
 	return []cli.Flag{
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  obj.Name,
 			Value: "",
 			Usage: "run",
@@ -69,8 +69,8 @@ func (obj *MyGAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	return &gapi.Deploy{
 		Name: obj.Name,
-		Noop: c.GlobalBool("noop"),
-		Sema: c.GlobalInt("sema"),
+		Noop: c.Bool("noop"),
+		Sema: c.Int("sema"),
 		GAPI: &MyGAPI{},
 	}, nil
 }

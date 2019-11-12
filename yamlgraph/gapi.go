@@ -93,8 +93,8 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	return &gapi.Deploy{
 		Name: Name,
-		Noop: c.GlobalBool("noop"),
-		Sema: c.GlobalInt("sema"),
+		Noop: c.Bool("noop"),
+		Sema: c.Int("sema"),
 		GAPI: &GAPI{
 			InputURI: fs.URI(),
 			// TODO: add properties here...

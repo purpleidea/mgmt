@@ -44,7 +44,7 @@ const (
 // deploy is the cli target to manage deploys to our cluster.
 // TODO: add a timeout and/or cancel signal to replace context.TODO()
 func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
-	cliContext := c.Parent()
+	cliContext := c.Lineage()[1]
 	if cliContext == nil {
 		return fmt.Errorf("could not get cli context")
 	}

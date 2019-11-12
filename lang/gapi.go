@@ -66,21 +66,21 @@ type GAPI struct {
 // CliFlags returns a list of flags used by the specified subcommand.
 func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	result := []cli.Flag{}
-	modulePath := cli.StringFlag{
-		Name:   flagModulePath,
-		Value:  "", // empty by default
-		Usage:  "choose the modules path (absolute)",
-		EnvVar: "MGMT_MODULE_PATH",
+	modulePath := &cli.StringFlag{
+		Name:    flagModulePath,
+		Value:   "", // empty by default
+		Usage:   "choose the modules path (absolute)",
+		EnvVars: []string{"MGMT_MODULE_PATH"},
 	}
 
 	// add this only to run (not needed for get or deploy)
 	if command == gapi.CommandRun {
 		runFlags := []cli.Flag{
-			cli.BoolFlag{
+			&cli.BoolFlag{
 				Name:  flagDownload,
 				Usage: "download any missing imports (as the get command does)",
 			},
-			cli.BoolFlag{
+			&cli.BoolFlag{
 				Name:  "update",
 				Usage: "update all dependencies to the latest versions",
 			},
@@ -91,12 +91,12 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	switch command {
 	case gapi.CommandGet:
 		flags := []cli.Flag{
-			cli.IntFlag{
+			&cli.IntFlag{
 				Name:  "depth d",
 				Value: -1,
 				Usage: "max recursion depth limit (-1 is unlimited)",
 			},
-			cli.IntFlag{
+			&cli.IntFlag{
 				Name:  "retry r",
 				Value: 0, // any error is a failure by default
 				Usage: "max number of retries (-1 is unlimited)",
@@ -110,7 +110,7 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	case gapi.CommandDeploy:
 		flags := []cli.Flag{
 			// TODO: removed (temporarily?)
-			//cli.BoolFlag{
+			//*cli.BoolFlag{
 			//	Name:  "stdin",
 			//	Usage: "use passthrough stdin",
 			//},
@@ -140,7 +140,7 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 // is passed in.
 func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	c := cliInfo.CliContext
-	cliContext := c.Parent()
+	cliContext := c.Lineage()[1]
 	if cliContext == nil {
 		return nil, fmt.Errorf("could not get cli context")
 	}
@@ -397,8 +397,8 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	return &gapi.Deploy{
 		Name: Name,
-		Noop: c.GlobalBool("noop"),
-		Sema: c.GlobalInt("sema"),
+		Noop: c.Bool("noop"),
+		Sema: c.Int("sema"),
 		GAPI: &GAPI{
 			InputURI: fs.URI(),
 			// TODO: add properties here...
@@ -611,7 +611,7 @@ func (obj *GAPI) Close() error {
 // also work when called with the download flag during a normal execution run.
 func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	c := getInfo.CliContext
-	cliContext := c.Parent()
+	cliContext := c.Lineage()[1]
 	if cliContext == nil {
 		return fmt.Errorf("could not get cli context")
 	}

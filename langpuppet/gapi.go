@@ -73,13 +73,13 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	langFlags := (&lang.GAPI{}).CliFlags(command)
 	puppetFlags := (&puppet.GAPI{}).CliFlags(command)
 
-	l := cli.StringFlag{
+	l := &cli.StringFlag{
 		Name:  fmt.Sprintf("%s, %s", lang.Name, lang.Name[0:1]),
 		Value: "",
 		Usage: "code to deploy",
 	}
 	langFlags = append(langFlags, l)
-	p := cli.StringFlag{
+	p := &cli.StringFlag{
 		Name:  fmt.Sprintf("%s, %s", puppet.Name, puppet.Name[0:1]),
 		Value: "",
 		Usage: "load graph from puppet, optionally takes a manifest or path to manifest file",
@@ -89,9 +89,9 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	var childFlags []cli.Flag
 	for _, flag := range append(langFlags, puppetFlags...) {
 		childFlags = append(childFlags, &cli.StringFlag{
-			Name:  FlagPrefix + strings.Split(flag.GetName(), ",")[0],
+			Name:  FlagPrefix + flag.Names()[0],
 			Value: "",
-			Usage: fmt.Sprintf("equivalent for '%s' when using the lang/puppet entrypoint", flag.GetName()),
+			Usage: fmt.Sprintf("equivalent for '%s' when using the lang/puppet entrypoint", flag.Names()[0]),
 		})
 	}
 
@@ -136,14 +136,14 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	var puppetDeploy *gapi.Deploy
 	// XXX: put the c.String(FlagPrefix+lang.Name) into the argv here!
 	langCliInfo := &gapi.CliInfo{
-		CliContext: cli.NewContext(c.App, flagSet, c.Parent()),
+		CliContext: cli.NewContext(c.App, flagSet, c.Lineage()[1]),
 		Fs:         fs,
 		Debug:      debug,
 		Logf:       logf, // TODO: wrap logf?
 	}
 	// XXX: put the c.String(FlagPrefix+puppet.Name) into the argv here!
 	puppetCliInfo := &gapi.CliInfo{
-		CliContext: cli.NewContext(c.App, flagSet, c.Parent()),
+		CliContext: cli.NewContext(c.App, flagSet, c.Lineage()[1]),
 		Fs:         fs,
 		Debug:      debug,
 		Logf:       logf, // TODO: wrap logf?
@@ -160,8 +160,8 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	return &gapi.Deploy{
 		Name: Name,
-		Noop: c.GlobalBool("noop"),
-		Sema: c.GlobalInt("sema"),
+		Noop: c.Bool("noop"),
+		Sema: c.Int("sema"),
 		GAPI: &GAPI{
 			langGAPI:   langDeploy.GAPI,
 			puppetGAPI: puppetDeploy.GAPI,

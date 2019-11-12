@@ -41,155 +41,155 @@ func CLI(program, version string, flags Flags) error {
 	}
 
 	// All of these flags can be accessed in your GAPI implementation with
-	// the `c.Parent().Type` and `c.Parent().IsSet` functions. Their own
+	// the `c.Lineage()[1].Type` and `c.Lineage()[1].IsSet` functions. Their own
 	// flags can be accessed with `c.Type` and `c.IsSet` directly.
 	runFlags := []cli.Flag{
 		// common flags which all can use
 
 		// useful for testing multiple instances on same machine
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "hostname",
 			Value: "",
 			Usage: "hostname to use",
 		},
 
-		cli.StringFlag{
-			Name:   "prefix",
-			Usage:  "specify a path to the working prefix directory",
-			EnvVar: "MGMT_PREFIX",
+		&cli.StringFlag{
+			Name:    "prefix",
+			Usage:   "specify a path to the working prefix directory",
+			EnvVars: []string{"MGMT_PREFIX"},
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "tmp-prefix",
 			Usage: "request a pseudo-random, temporary prefix to be used",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "allow-tmp-prefix",
 			Usage: "allow creation of a new temporary prefix if main prefix is unavailable",
 		},
 
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "no-watch",
 			Usage: "do not update graph under any switch events",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "no-stream-watch",
 			Usage: "do not update graph on stream switch events",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "no-deploy-watch",
 			Usage: "do not change deploys after an initial deploy",
 		},
 
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "noop",
 			Usage: "globally force all resources into no-op mode",
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "sema",
 			Value: -1,
 			Usage: "globally add a semaphore to all resources with this lock count",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "graphviz, g",
 			Value: "",
 			Usage: "output file for graphviz data",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "graphviz-filter, gf",
 			Value: "",
 			Usage: "graphviz filter to use",
 		},
-		cli.Int64Flag{
-			Name:   "converged-timeout, t",
-			Value:  -1,
-			Usage:  "after approximately this many seconds without activity, we're considered to be in a converged state",
-			EnvVar: "MGMT_CONVERGED_TIMEOUT",
+		&cli.Int64Flag{
+			Name:    "converged-timeout, t",
+			Value:   -1,
+			Usage:   "after approximately this many seconds without activity, we're considered to be in a converged state",
+			EnvVars: []string{"MGMT_CONVERGED_TIMEOUT"},
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "converged-timeout-no-exit",
 			Usage: "don't exit on converged-timeout",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "converged-status-file",
 			Value: "",
 			Usage: "file to append the current converged state to, mostly used for testing",
 		},
-		cli.IntFlag{
-			Name:   "max-runtime",
-			Value:  0,
-			Usage:  "exit after a maximum of approximately this many seconds",
-			EnvVar: "MGMT_MAX_RUNTIME",
+		&cli.IntFlag{
+			Name:    "max-runtime",
+			Value:   0,
+			Usage:   "exit after a maximum of approximately this many seconds",
+			EnvVars: []string{"MGMT_MAX_RUNTIME"},
 		},
 
 		// if empty, it will startup a new server
-		cli.StringSliceFlag{
-			Name:   "seeds, s",
-			Value:  &cli.StringSlice{}, // empty slice
-			Usage:  "default etc client endpoint",
-			EnvVar: "MGMT_SEEDS",
+		&cli.StringSliceFlag{
+			Name:    "seeds, s",
+			Value:   &cli.StringSlice{}, // empty slice
+			Usage:   "default etc client endpoint",
+			EnvVars: []string{"MGMT_SEEDS"},
 		},
 		// port 2379 and 4001 are common
-		cli.StringSliceFlag{
-			Name:   "client-urls",
-			Value:  &cli.StringSlice{},
-			Usage:  "list of URLs to listen on for client traffic",
-			EnvVar: "MGMT_CLIENT_URLS",
+		&cli.StringSliceFlag{
+			Name:    "client-urls",
+			Value:   &cli.StringSlice{},
+			Usage:   "list of URLs to listen on for client traffic",
+			EnvVars: []string{"MGMT_CLIENT_URLS"},
 		},
 		// port 2380 and 7001 are common
-		cli.StringSliceFlag{
-			Name:   "server-urls, peer-urls",
-			Value:  &cli.StringSlice{},
-			Usage:  "list of URLs to listen on for server (peer) traffic",
-			EnvVar: "MGMT_SERVER_URLS",
+		&cli.StringSliceFlag{
+			Name:    "server-urls, peer-urls",
+			Value:   &cli.StringSlice{},
+			Usage:   "list of URLs to listen on for server (peer) traffic",
+			EnvVars: []string{"MGMT_SERVER_URLS"},
 		},
 		// port 2379 and 4001 are common
-		cli.StringSliceFlag{
-			Name:   "advertise-client-urls",
-			Value:  &cli.StringSlice{},
-			Usage:  "list of URLs to listen on for client traffic",
-			EnvVar: "MGMT_ADVERTISE_CLIENT_URLS",
+		&cli.StringSliceFlag{
+			Name:    "advertise-client-urls",
+			Value:   &cli.StringSlice{},
+			Usage:   "list of URLs to listen on for client traffic",
+			EnvVars: []string{"MGMT_ADVERTISE_CLIENT_URLS"},
 		},
 		// port 2380 and 7001 are common
-		cli.StringSliceFlag{
-			Name:   "advertise-server-urls, advertise-peer-urls",
-			Value:  &cli.StringSlice{},
-			Usage:  "list of URLs to listen on for server (peer) traffic",
-			EnvVar: "MGMT_ADVERTISE_SERVER_URLS",
+		&cli.StringSliceFlag{
+			Name:    "advertise-server-urls, advertise-peer-urls",
+			Value:   &cli.StringSlice{},
+			Usage:   "list of URLs to listen on for server (peer) traffic",
+			EnvVars: []string{"MGMT_ADVERTISE_SERVER_URLS"},
 		},
-		cli.IntFlag{
-			Name:   "ideal-cluster-size",
-			Value:  -1,
-			Usage:  "ideal number of server peers in cluster; only read by initial server",
-			EnvVar: "MGMT_IDEAL_CLUSTER_SIZE",
+		&cli.IntFlag{
+			Name:    "ideal-cluster-size",
+			Value:   -1,
+			Usage:   "ideal number of server peers in cluster; only read by initial server",
+			EnvVars: []string{"MGMT_IDEAL_CLUSTER_SIZE"},
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "no-server",
 			Usage: "do not start embedded etcd server (do not promote from client to peer)",
 		},
-		cli.BoolFlag{
-			Name:   "no-network",
-			Usage:  "run single node instance without clustering or opening tcp ports to the outside",
-			EnvVar: "MGMT_NO_NETWORK",
+		&cli.BoolFlag{
+			Name:    "no-network",
+			Usage:   "run single node instance without clustering or opening tcp ports to the outside",
+			EnvVars: []string{"MGMT_NO_NETWORK"},
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "no-pgp",
 			Usage: "don't create pgp keys",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "pgp-key-path",
 			Value: "",
 			Usage: "path for instance key pair",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "pgp-identity",
 			Value: "",
 			Usage: "default identity used for generation",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "prometheus",
 			Usage: "start a prometheus instance",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "prometheus-listen",
 			Value: "",
 			Usage: "specify prometheus instance binding",
@@ -197,51 +197,51 @@ func CLI(program, version string, flags Flags) error {
 	}
 	deployFlags := []cli.Flag{
 		// common flags which all can use
-		cli.StringSliceFlag{
-			Name:   "seeds, s",
-			Value:  &cli.StringSlice{}, // empty slice
-			Usage:  "default etc client endpoint",
-			EnvVar: "MGMT_SEEDS",
+		&cli.StringSliceFlag{
+			Name:    "seeds, s",
+			Value:   &cli.StringSlice{}, // empty slice
+			Usage:   "default etc client endpoint",
+			EnvVars: []string{"MGMT_SEEDS"},
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "noop",
 			Usage: "globally force all resources into no-op mode",
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "sema",
 			Value: -1,
 			Usage: "globally add a semaphore to all resources with this lock count",
 		},
 
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "no-git",
 			Usage: "don't look at git commit id for safe deploys",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "force",
 			Usage: "force a new deploy, even if the safety chain would break",
 		},
 	}
 	getFlags := []cli.Flag{
 		// common flags which all can use
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "noop",
 			Usage: "simulate the download (can't recurse)",
 		},
-		cli.IntFlag{
+		&cli.IntFlag{
 			Name:  "sema",
 			Value: -1, // maximum parallelism
 			Usage: "globally add a semaphore to downloads with this lock count",
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "update",
 			Usage: "update all dependencies to the latest versions",
 		},
 	}
 
-	subCommandsRun := []cli.Command{}    // run sub commands
-	subCommandsDeploy := []cli.Command{} // deploy sub commands
-	subCommandsGet := []cli.Command{}    // get (download) sub commands
+	subCommandsRun := []*cli.Command{}    // run sub commands
+	subCommandsDeploy := []*cli.Command{} // deploy sub commands
+	subCommandsGet := []*cli.Command{}    // get (download) sub commands
 
 	names := []string{}
 	for name := range gapi.RegisteredGAPIs {
@@ -253,7 +253,7 @@ func CLI(program, version string, flags Flags) error {
 		fn := gapi.RegisteredGAPIs[name]
 		gapiObj := fn()
 
-		commandRun := cli.Command{
+		commandRun := &cli.Command{
 			Name:  name,
 			Usage: fmt.Sprintf("run using the `%s` frontend", name),
 			Action: func(c *cli.Context) error {
@@ -268,7 +268,7 @@ func CLI(program, version string, flags Flags) error {
 		}
 		subCommandsRun = append(subCommandsRun, commandRun)
 
-		commandDeploy := cli.Command{
+		commandDeploy := &cli.Command{
 			Name:  name,
 			Usage: fmt.Sprintf("deploy using the `%s` frontend", name),
 			Action: func(c *cli.Context) error {
@@ -284,7 +284,7 @@ func CLI(program, version string, flags Flags) error {
 		subCommandsDeploy = append(subCommandsDeploy, commandDeploy)
 
 		if _, ok := gapiObj.(gapi.GettableGAPI); ok {
-			commandGet := cli.Command{
+			commandGet := &cli.Command{
 				Name:  name,
 				Usage: fmt.Sprintf("get (download) using the `%s` frontend", name),
 				Action: func(c *cli.Context) error {
@@ -329,13 +329,13 @@ func CLI(program, version string, flags Flags) error {
 
 	// global flags
 	app.Flags = []cli.Flag{
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "license",
 			Usage: "prints the software license",
 		},
 	}
 
-	app.Commands = []cli.Command{
+	app.Commands = []*cli.Command{
 		//{
 		//	Name:    gapi.CommandTODO,
 		//	Aliases: []string{"TODO"},
@@ -350,7 +350,7 @@ func CLI(program, version string, flags Flags) error {
 	// agnostic to which frontend is running, in fact, you can deploy with
 	// multiple different frontends, one after another, on the same engine.
 	if len(subCommandsRun) > 0 {
-		commandRun := cli.Command{
+		commandRun := &cli.Command{
 			Name:        gapi.CommandRun,
 			Aliases:     []string{"r"},
 			Usage:       "run",
@@ -361,7 +361,7 @@ func CLI(program, version string, flags Flags) error {
 	}
 
 	if len(subCommandsDeploy) > 0 {
-		commandDeploy := cli.Command{
+		commandDeploy := &cli.Command{
 			Name:        gapi.CommandDeploy,
 			Aliases:     []string{"d"},
 			Usage:       "deploy",
@@ -372,7 +372,7 @@ func CLI(program, version string, flags Flags) error {
 	}
 
 	if len(subCommandsGet) > 0 {
-		commandGet := cli.Command{
+		commandGet := &cli.Command{
 			Name:        gapi.CommandGet,
 			Aliases:     []string{"g"},
 			Usage:       "get",

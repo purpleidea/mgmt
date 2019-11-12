@@ -70,7 +70,7 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 		fallthrough
 	case gapi.CommandDeploy:
 		return []cli.Flag{
-			cli.StringFlag{
+			&cli.StringFlag{
 				Name:  "puppet-conf",
 				Value: "",
 				Usage: "the path to an alternate puppet.conf file",
@@ -157,8 +157,8 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	return &gapi.Deploy{
 		Name: Name,
-		Noop: c.GlobalBool("noop"),
-		Sema: c.GlobalInt("sema"),
+		Noop: c.Bool("noop"),
+		Sema: c.Int("sema"),
 		GAPI: &GAPI{
 			InputURI: fs.URI(),
 			Mode:     mode,

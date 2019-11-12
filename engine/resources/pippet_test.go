@@ -72,7 +72,7 @@ func newFakePippetReceiver(jsonTestOutput string) *fakePippetReceiver {
 	return result
 }
 
-var res *PippetRes = &PippetRes{
+var pippetTestRes *PippetRes = &PippetRes{
 	Type:   "notify",
 	Title:  "testmessage",
 	Params: `{msg: "This is a test"}`,
@@ -80,7 +80,7 @@ var res *PippetRes = &PippetRes{
 
 func TestNormalPuppetOutput(t *testing.T) {
 	r := newFakePippetReceiver(`{"resource":"Notify[test]","failed":false,"changed":true,"noop":false,"error":false,"exception":null}`)
-	changed, err := applyPippetRes(r, res)
+	changed, err := applyPippetRes(r, pippetTestRes)
 
 	if err != nil {
 		t.Errorf("normal Puppet output led to an apply error: %v", err)
@@ -93,7 +93,7 @@ func TestNormalPuppetOutput(t *testing.T) {
 
 func TestUnchangedPuppetOutput(t *testing.T) {
 	r := newFakePippetReceiver(`{"resource":"Notify[test]","failed":false,"changed":false,"noop":false,"error":false,"exception":null}`)
-	changed, err := applyPippetRes(r, res)
+	changed, err := applyPippetRes(r, pippetTestRes)
 
 	if err != nil {
 		t.Errorf("normal Puppet output led to an apply error: %v", err)
@@ -106,7 +106,7 @@ func TestUnchangedPuppetOutput(t *testing.T) {
 
 func TestFailingPuppetOutput(t *testing.T) {
 	r := newFakePippetReceiver(`{"resource":"Notify[test]","failed":false,"changed":false,"noop":false,"error":true,"exception":"I failed!"}`)
-	_, err := applyPippetRes(r, res)
+	_, err := applyPippetRes(r, pippetTestRes)
 
 	if err == nil {
 		t.Errorf("failing Puppet output led to an apply error: %v", err)
@@ -119,7 +119,7 @@ func TestEmptyPuppetOutput(t *testing.T) {
 
 func TestPartialPuppetOutput(t *testing.T) {
 	r := newFakePippetReceiver(`{"resource":"Notify[test]","failed":false,"changed":true}`)
-	_, err := applyPippetRes(r, res)
+	_, err := applyPippetRes(r, pippetTestRes)
 
 	if err == nil {
 		t.Errorf("partial Puppet output did not lead to an apply error")
@@ -128,7 +128,7 @@ func TestPartialPuppetOutput(t *testing.T) {
 
 func TestMalformedPuppetOutput(t *testing.T) {
 	r := newFakePippetReceiver(`oops something went wrong!!1!eleven`)
-	_, err := applyPippetRes(r, res)
+	_, err := applyPippetRes(r, pippetTestRes)
 
 	if err == nil {
 		t.Errorf("malformed Puppet output did not lead to an apply error")

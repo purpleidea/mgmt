@@ -83,17 +83,10 @@ func (obj *PippetRes) Validate() error {
 // Init makes sure that the PippetReceiver object is initialized.
 func (obj *PippetRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
-
-	var err error
-	obj.runner, err = pippetReceiverInstance()
-	if err != nil {
-		return err
-	}
-
+	obj.runner = getPippetReceiverInstance()
 	if err := obj.runner.Register(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -208,16 +201,16 @@ type PippetResult struct {
 	Exception string
 }
 
-// PippetReceiverInstance returns a pointer to the PippetReceiver object.
+// GetPippetReceiverInstance returns a pointer to the PippetReceiver object.
 // The PippetReceiver is supposed to be a singleton object. The pippet resource
 // code should always use the PippetReceiverInstance function to gain access to
 // the pippetReceiver object. Other objects of type pippetReceiver should not
 // be created.
-func pippetReceiverInstance() (*pippetReceiver, error) {
-	if pippetReceiverInstance == nil {
+func getPippetReceiverInstance() *pippetReceiver {
+	for pippetReceiverInstance == nil {
 		pippetReceiverOnce.Do(func() { pippetReceiverInstance = &pippetReceiver{} })
 	}
-	return pippetReceiverInstance, nil
+	return pippetReceiverInstance
 }
 
 type pippetReceiver struct {

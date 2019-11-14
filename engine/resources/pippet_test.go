@@ -72,7 +72,7 @@ func newFakePippetReceiver(jsonTestOutput string) *fakePippetReceiver {
 	return result
 }
 
-var pippetTestRes *PippetRes = &PippetRes{
+var pippetTestRes = &PippetRes{
 	Type:   "notify",
 	Title:  "testmessage",
 	Params: `{msg: "This is a test"}`,

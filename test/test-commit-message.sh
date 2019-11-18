@@ -104,6 +104,11 @@ test_commit_message_common_bugs() {
 		echo 'FAIL: Commit message starts with `language:`, did you mean `lang:` ?'
 		exit 1
 	fi
+	if git log --format=%s $1 | head -n 1 | grep -q "^lang: func:"
+	then
+		echo 'FAIL: Commit message starts with `lang: func:`, did you mean `lang: funcs:` ?'
+		exit 1
+	fi
 }
 
 if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]

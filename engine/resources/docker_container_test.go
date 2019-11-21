@@ -25,12 +25,16 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/traits"
 )
 
 var res *DockerContainerRes

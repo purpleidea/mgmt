@@ -36,7 +36,7 @@ func init() {
 	engine.RegisterResource("pippet", func() engine.Res { return &PippetRes{} })
 }
 
-// PippetRes is a wrapper resource for puppet.  It implements the functional
+// PippetRes is a wrapper resource for puppet. It implements the functional
 // equivalent of an exec resource that calls "puppet resource <type> <title>
 // <params>", but offers superior performance through a long-running Puppet
 // process that receives resources through a pipe (hence the name).
@@ -47,19 +47,18 @@ type PippetRes struct {
 	init *engine.Init
 
 	// Type is the exact name of the wrapped Puppet resource type, e.g.
-	// "file", "mount". This needs not be a core type. It can be
-	// a type from a module. The Puppet installation local to the mgmt
-	// agent machine must be able recognize it. It has to be a native
-	// type though, as opposed to defined types from your Puppet manifest
-	// code.
+	// "file", "mount". This needs not be a core type. It can be a type
+	// from a module. The Puppet installation local to the mgmt agent
+	// machine must be able recognize it. It has to be a native type
+	// though, as opposed to defined types from your Puppet manifest code.
 	Type string `yaml:"type" json:"type"`
 	// Title is used by Puppet as the resource title. Puppet will often
 	// assign special meaning to the title, e.g. use it as the path for a
 	// file resource, or the name of a package.
 	Title string `yaml:"title" json:"title"`
 	// Params is expected to be a hash in YAML format, pairing resource
-	// parameter names with their respective values,
-	// e.g. { ensure: present }
+	// parameter names with their respective values, e.g. { ensure: present
+	// }
 	Params string `yaml:"params" json:"params"`
 
 	runner *pippetReceiver
@@ -163,8 +162,8 @@ func (obj *PippetRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *PippetRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes PippetRes // indirection to avoid infinite recursion
 
@@ -247,8 +246,8 @@ func (obj *pippetReceiver) Init() error {
 }
 
 // Register should be called by any user (i.e., any pippet resource) before
-// using the PippetRunner functions on this receiver object. Register implicitly takes
-// care of calling Init if required.
+// using the PippetRunner functions on this receiver object. Register
+// implicitly takes care of calling Init if required.
 func (obj *pippetReceiver) Register() error {
 	obj.registerMutex.Lock()
 	defer obj.registerMutex.Unlock()
@@ -267,7 +266,7 @@ func (obj *pippetReceiver) Register() error {
 // Unregister should be called by any object that registered itself using the
 // Register function, and which no longer needs the receiver. This should
 // typically happen at closing time of the pippet resource that registered
-// itself.  Unregister implicitly calls Close in case all registered resources
+// itself. Unregister implicitly calls Close in case all registered resources
 // have unregistered.
 func (obj *pippetReceiver) Unregister() error {
 	obj.registerMutex.Lock()

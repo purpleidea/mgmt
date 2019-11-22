@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/local/bin/bash
 
 if [ "$1" = "" ] || [ "$1" = "--help" ]; then
 	echo "usage: append standard header to file"

@@ -48,7 +48,7 @@ REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
 ifneq ($(GOTAGS),)
 	BUILD_FLAGS = -tags '$(GOTAGS)'
 endif
-GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
+GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64 openbsd/amd64
 
 GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)

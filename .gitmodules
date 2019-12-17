@@ -1,5 +1,5 @@
 [submodule "vendor/github.com/coreos/etcd"]
-	path = vendor/github.com/coreos/etcd
+	path = vendor/go.etcd.io/etcd
 	url = https://github.com/coreos/etcd/
 [submodule "vendor/google.golang.org/grpc"]
 	path = vendor/google.golang.org/grpc

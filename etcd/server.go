@@ -27,8 +27,8 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/coreos/etcd/embed"
-	etcdtypes "github.com/coreos/etcd/pkg/types"
+	"go.etcd.io/etcd/embed"
+	etcdtypes "go.etcd.io/etcd/pkg/types"
 )
 
 const (
@@ -143,7 +143,7 @@ func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (
 	cfg.LCUrls = obj.ClientURLs
 	cfg.APUrls = aPUrls
 	cfg.ACUrls = aCUrls
-	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/coreos/etcd/issues/6305
+	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/etcd-io/etcd/issues/6305
 	cfg.MaxTxnOps = DefaultMaxTxnOps
 
 	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!

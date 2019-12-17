@@ -28,8 +28,8 @@ import (
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
+	etcd "go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/clientv3/concurrency"
 )
 
 const (

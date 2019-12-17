@@ -26,8 +26,8 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
-	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
+	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
+	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 )
 
 // nominateApply applies the changed watcher data onto our local caches.
@@ -192,7 +192,7 @@ func (obj *EmbdEtcd) nominateCb(ctx context.Context) error {
 		// an "event" for member add since there is not any event that's
 		// currently built-in to etcd and (3) so we have a key to expire
 		// when we shutdown or crash to give us the member remove event.
-		// please see issue: https://github.com/coreos/etcd/issues/5277
+		// please see issue: https://github.com/etcd-io/etcd/issues/5277
 
 	} else if obj.serverAction(serverActionStop) { // stop?
 		// server is running, but it should not be
@@ -200,7 +200,7 @@ func (obj *EmbdEtcd) nominateCb(ctx context.Context) error {
 		// i have been un-nominated, remove self and shutdown server!
 		// we don't need to do a member remove if i'm the last one...
 		if len(obj.nominated) != 0 { // don't call if nobody left but me!
-			// work around: https://github.com/coreos/etcd/issues/5482
+			// work around: https://github.com/etcd-io/etcd/issues/5482
 			// and it might make sense to avoid it if we're the last
 			obj.Logf("member remove: removing self: %d", obj.serverID)
 			resp, err := obj.memberRemove(ctx, obj.serverID)
@@ -243,7 +243,7 @@ func (obj *EmbdEtcd) nominateCb(ctx context.Context) error {
 // volunteer entry we must respond by removing the nomination so that it can
 // receive that message and shutdown.
 // FIXME: we might need to respond to member change/disconnect/shutdown events,
-// see: https://github.com/coreos/etcd/issues/5277
+// see: https://github.com/etcd-io/etcd/issues/5277
 // XXX: Don't allow this function to partially run if it is canceled part way
 // through... We don't want an inconsistent state where we did unnominate, but
 // didn't remove a member...
@@ -301,7 +301,7 @@ func (obj *EmbdEtcd) volunteerCb(ctx context.Context) error {
 
 	// NOTE: There used to be an is_leader check right here...
 	// FIXME: Should we use WithRequireLeader instead? Here? Elsewhere?
-	// https://godoc.org/github.com/coreos/etcd/clientv3#WithRequireLeader
+	// https://godoc.org/github.com/etcd-io/etcd/clientv3#WithRequireLeader
 
 	// FIXME: can this happen, and if so, is it an error or a pass-through?
 	if len(obj.volunteers) == 0 {

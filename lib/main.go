@@ -45,7 +45,7 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcdtypes "github.com/coreos/etcd/pkg/types"
+	etcdtypes "go.etcd.io/etcd/pkg/types"
 )
 
 const (

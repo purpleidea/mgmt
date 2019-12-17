@@ -26,10 +26,10 @@ import (
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "github.com/coreos/etcd/clientv3"
-	rpctypes "github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
-	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
-	etcdtypes "github.com/coreos/etcd/pkg/types"
+	etcd "go.etcd.io/etcd/clientv3"
+	rpctypes "go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
+	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
+	etcdtypes "go.etcd.io/etcd/pkg/types"
 )
 
 // addSelfState is used to populate the initial state when I am adding myself.
@@ -161,7 +161,7 @@ func (obj *EmbdEtcd) memberRemove(ctx context.Context, memberID uint64) (*etcd.M
 // and doesn't watch events, it could miss changes if they happen rapidly. It
 // does not send results on the channel, since results could be captured in the
 // fn callback. It will send an error on the channel if something goes wrong.
-// TODO: https://github.com/coreos/etcd/issues/5277
+// TODO: https://github.com/etcd-io/etcd/issues/5277
 func (obj *EmbdEtcd) memberChange(ctx context.Context, fn func([]*pb.Member) error, d time.Duration) (chan error, error) {
 	ch := make(chan error)
 	go func() {

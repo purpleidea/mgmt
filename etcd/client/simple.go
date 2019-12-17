@@ -26,8 +26,8 @@ import (
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
-	"github.com/coreos/etcd/clientv3/namespace"
+	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
+	"go.etcd.io/etcd/clientv3/namespace"
 )
 
 // method represents the method we used to build the simple client.
@@ -301,7 +301,7 @@ func (obj *Simple) Get(ctx context.Context, path string, opts ...etcd.OpOption) 
 		return nil, fmt.Errorf("empty response")
 	}
 
-	// TODO: write a resp.ToMap() function on https://godoc.org/github.com/coreos/etcd/etcdserver/etcdserverpb#RangeResponse
+	// TODO: write a resp.ToMap() function on https://godoc.org/github.com/etcd-io/etcd/etcdserver/etcdserverpb#RangeResponse
 	result := make(map[string]string)
 	for _, x := range resp.Kvs {
 		result[string(x.Key)] = string(x.Value)
@@ -387,8 +387,8 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 	wg := &sync.WaitGroup{}
 
 	// TODO: if we can detect the use of WithCreatedNotify, we don't need to
-	// hard-code it down below... https://github.com/coreos/etcd/issues/9689
-	// XXX: proof of concept patch: https://github.com/coreos/etcd/pull/9705
+	// hard-code it down below... https://github.com/etcd-io/etcd/issues/9689
+	// XXX: proof of concept patch: https://github.com/etcd-io/etcd/pull/9705
 	//for _, op := range opts {
 	//	//if op.Cmp(etcd.WithCreatedNotify()) == nil { // would be best
 	//	if etcd.OpOptionCmp(op, etcd.WithCreatedNotify()) == nil {

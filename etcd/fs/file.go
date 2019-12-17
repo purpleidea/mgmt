@@ -30,8 +30,8 @@ import (
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "github.com/coreos/etcd/clientv3" // "clientv3"
-	etcdutil "github.com/coreos/etcd/clientv3/clientv3util"
+	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
+	etcdutil "go.etcd.io/etcd/clientv3/clientv3util"
 )
 
 func init() {

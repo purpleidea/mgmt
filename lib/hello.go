@@ -22,8 +22,6 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"github.com/coreos/pkg/capnslog"
 )
 
 func hello(program, version string, flags Flags) {
@@ -36,14 +34,7 @@ func hello(program, version string, flags Flags) {
 	logFlags = logFlags - log.Ldate // remove the date for now
 	log.SetFlags(logFlags)
 
-	// un-hijack from capnslog...
-	// XXX: move this to the etcd package when new version deprecates capnslog
 	log.SetOutput(os.Stderr)
-	if flags.Verbose {
-		capnslog.SetFormatter(capnslog.NewLogFormatter(os.Stderr, "(etcd) ", logFlags))
-	} else {
-		capnslog.SetFormatter(capnslog.NewNilFormatter())
-	}
 
 	if program == "" {
 		program = "<unknown>"

@@ -145,6 +145,9 @@ func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (
 	cfg.ACUrls = aCUrls
 	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/etcd-io/etcd/issues/6305
 	cfg.MaxTxnOps = DefaultMaxTxnOps
+	cfg.Logger = "zap"
+	//cfg.LogOutputs = []string{} // FIXME: add a way to pass in our logf func
+	cfg.LogLevel = "error" // keep things quieter for now
 
 	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!
 	if newCluster {

@@ -33,6 +33,8 @@ for more up-to-date information about these resources.
 * [Print](#Print): Print messages to the console.
 * [Svc](#Svc): Manage system systemd services.
 * [Test](#Test): A mostly harmless resource that is used for internal testing.
+* [Tftp:File](#TftpFile): Add files to the small embedded embedded tftp server.
+* [Tftp:Server](#TftpServer): Run a small embedded tftp server.
 * [Timer](#Timer): Manage system systemd services.
 * [User](#User): Manage system users.
 * [Virt](#Virt): Manage virtual machines with libvirt.
@@ -224,6 +226,16 @@ The service resource is still very WIP. Please help us by improving it!
 ## Test
 
 The test resource is mostly harmless and is used for internal tests.
+
+## Tftp:File
+
+This adds files to the running tftp server. It's useful because it allows you to
+add individual files without needing to create them on disk.
+
+## Tftp:Server
+
+Run a small embedded tftp server. This doesn't apply any state, but instead runs
+a pure golang tftp server in the Watch loop.
 
 ## Timer
 

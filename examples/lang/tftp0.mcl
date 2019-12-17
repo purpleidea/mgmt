@@ -1,0 +1,44 @@
+$root = "/tmp/tftproot/"
+file $root {
+	state => "exists",
+}
+file "${root}file0" {
+	content => "i'm file0 in ${root}\n",
+	state => "exists",
+}
+
+tftp:server ":1069" {	# by default tftp uses :69 but using :1069 avoids needing root!
+	#address => ":1069",	# you can override the name like this
+	timeout => 60,		# increase the timeout
+	root => $root,		# add a tftproot (optional)
+}
+
+# you can add a raw file like this...
+tftp:file "/file1" {
+	data => "hello, world, i'm file1 and i don't exist on disk!\n",
+}
+
+# or if there's a file on disk you care about...
+$f2 = "/tmp/some_file"
+file $f2 {
+	content => "i'm a cool file in /tmp\n",
+	state => "exists",
+}
+
+# you can point to it directly...
+tftp:file "/file2" {
+	path => $f2,
+
+	Depend => File[$f2],	# TODO: add autoedges
+}
+
+# here's a file in the middle of nowhere that still works...
+tftp:file "/i/am/some/deeply/nested/file" {
+	data => "how did you find me!\n",
+}
+
+# and this file won't autogroup with the main tftp server
+tftp:file "/nope/noway" {
+	data => "i won't be seen!\n",
+	server => "someone else!",	# normally we don't use this this way
+}

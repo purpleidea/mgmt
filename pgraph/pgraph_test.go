@@ -916,3 +916,21 @@ func TestFindEdge2(t *testing.T) {
 		t.Errorf("an edge was found although it did not exist")
 	}
 }
+
+func TestSetValue(t *testing.T) {
+	g, _ := NewGraph("SetValue")
+
+	key := "k1"
+	value := "v1"
+
+	g.SetValue(key, value)
+	if g.kv[key] != value {
+		t.Errorf("expecting value of %s at %s position, got %v", value, key, g.kv[key])
+	}
+
+	if v, ok := g.Value(key); !ok {
+		t.Errorf("key %s doesn't exist", key)
+	} else if v != value {
+		t.Errorf("expecting value of %s at %s position, got %v", value, key, v)
+	}
+}

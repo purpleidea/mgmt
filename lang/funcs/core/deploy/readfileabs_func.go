@@ -40,8 +40,8 @@ type ReadFileAbsFunc struct {
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
 
-	filename string // the active filename
-	result   string // last calculated output
+	filename string  // the active filename
+	result   *string // last calculated output
 
 	closeChan chan struct{}
 }
@@ -125,10 +125,10 @@ func (obj *ReadFileAbsFunc) Stream() error {
 
 			result := string(content) // convert to string
 
-			if obj.result == result {
+			if obj.result != nil && *obj.result == result {
 				continue // result didn't change
 			}
-			obj.result = result // store new result
+			obj.result = &result // store new result
 
 		case <-obj.closeChan:
 			return nil
@@ -136,7 +136,7 @@ func (obj *ReadFileAbsFunc) Stream() error {
 
 		select {
 		case obj.init.Output <- &types.StrValue{
-			V: obj.result,
+			V: *obj.result,
 		}:
 		case <-obj.closeChan:
 			return nil

@@ -45,7 +45,7 @@ type VUMeterFunc struct {
 	multiplier int64
 	peak       float64
 
-	result string // last calculated output
+	result *string // last calculated output
 
 	closeChan chan struct{}
 }
@@ -153,10 +153,10 @@ func (obj *VUMeterFunc) Stream() error {
 				return errwrap.Wrapf(err, "could not generate visual")
 			}
 
-			if obj.result == result {
+			if obj.result != nil && *obj.result == result {
 				continue // result didn't change
 			}
-			obj.result = result // store new result
+			obj.result = &result // store new result
 
 		case <-obj.closeChan:
 			return nil
@@ -164,7 +164,7 @@ func (obj *VUMeterFunc) Stream() error {
 
 		select {
 		case obj.init.Output <- &types.StrValue{
-			V: obj.result,
+			V: *obj.result,
 		}:
 		case <-obj.closeChan:
 			return nil

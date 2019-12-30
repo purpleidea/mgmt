@@ -46,7 +46,7 @@ type ReadFileFunc struct {
 	events     chan error // internal events
 	wg         *sync.WaitGroup
 
-	result string // last calculated output
+	result *string // last calculated output
 
 	closeChan chan struct{}
 }
@@ -195,10 +195,10 @@ func (obj *ReadFileFunc) Stream() error {
 			}
 			result := string(content) // convert to string
 
-			if obj.result == result {
+			if obj.result != nil && *obj.result == result {
 				continue // result didn't change
 			}
-			obj.result = result // store new result
+			obj.result = &result // store new result
 
 		case <-obj.closeChan:
 			return nil
@@ -206,7 +206,7 @@ func (obj *ReadFileFunc) Stream() error {
 
 		select {
 		case obj.init.Output <- &types.StrValue{
-			V: obj.result,
+			V: *obj.result,
 		}:
 		case <-obj.closeChan:
 			return nil

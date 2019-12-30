@@ -43,8 +43,8 @@ type AbsPathFunc struct {
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
 
-	path   string // the active path
-	result string // last calculated output
+	path   string  // the active path
+	result *string // last calculated output
 
 	closeChan chan struct{}
 }
@@ -130,10 +130,10 @@ func (obj *AbsPathFunc) Stream() error {
 			}
 			result += obj.path
 
-			if obj.result == result {
+			if obj.result != nil && *obj.result == result {
 				continue // result didn't change
 			}
-			obj.result = result // store new result
+			obj.result = &result // store new result
 
 		case <-obj.closeChan:
 			return nil
@@ -141,7 +141,7 @@ func (obj *AbsPathFunc) Stream() error {
 
 		select {
 		case obj.init.Output <- &types.StrValue{
-			V: obj.result,
+			V: *obj.result,
 		}:
 		case <-obj.closeChan:
 			return nil

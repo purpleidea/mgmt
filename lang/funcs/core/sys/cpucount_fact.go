@@ -89,6 +89,8 @@ func (obj CPUCountFact) Stream() error {
 	closeChan := make(chan struct{})     // channel to unblock selects in goroutine
 	defer close(closeChan)
 
+	var once bool // did we send at least once?
+
 	// wait for kernel to poke us about new device changes on the system
 	wg.Add(1)
 	go func() {
@@ -121,6 +123,8 @@ func (obj CPUCountFact) Stream() error {
 			if err != nil {
 				obj.init.Logf("Could not get initial CPU count. Setting to zero.")
 			}
+			// TODO: would we rather error instead of sending zero?
+
 		case event, ok := <-eventChan:
 			if !ok {
 				continue
@@ -142,7 +146,7 @@ func (obj CPUCountFact) Stream() error {
 			return nil
 		}
 
-		if newCount == cpuCount {
+		if once && newCount == cpuCount {
 			continue
 		}
 		cpuCount = newCount
@@ -151,6 +155,7 @@ func (obj CPUCountFact) Stream() error {
 		case obj.init.Output <- &types.IntValue{
 			V: cpuCount,
 		}:
+			once = true
 			// send
 		case <-obj.closeChan:
 			return nil

@@ -280,6 +280,7 @@ func (obj *WrappedFunc) Stream() error {
 				obj.init.Logf("Function returned with: %+v", values)
 			}
 
+			// TODO: do we want obj.result to be a pointer instead?
 			if obj.result == result {
 				continue // result didn't change
 			}

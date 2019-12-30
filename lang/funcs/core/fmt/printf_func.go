@@ -51,7 +51,7 @@ type PrintfFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	result string // last calculated output
+	result *string // last calculated output
 
 	closeChan chan struct{}
 }
@@ -224,10 +224,10 @@ func (obj *PrintfFunc) Stream() error {
 				return err // no errwrap needed b/c helper func
 			}
 
-			if obj.result == result {
+			if obj.result != nil && *obj.result == result {
 				continue // result didn't change
 			}
-			obj.result = result // store new result
+			obj.result = &result // store new result
 
 		case <-obj.closeChan:
 			return nil
@@ -235,7 +235,7 @@ func (obj *PrintfFunc) Stream() error {
 
 		select {
 		case obj.init.Output <- &types.StrValue{
-			V: obj.result,
+			V: *obj.result,
 		}:
 		case <-obj.closeChan:
 			return nil

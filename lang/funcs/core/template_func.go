@@ -58,7 +58,12 @@ const (
 // TODO: We *might* need to add events for internal function changes over time,
 // but only if they are not pure. We currently only use simple, pure functions.
 type TemplateFunc struct {
+	// Type is the type of the input vars (2nd) arg if one is specified. Nil
+	// is the special undetermined value that is used before type is known.
 	Type *types.Type // type of vars
+	// NoVars is set to true instead of specifying Type if we have a boring
+	// template that takes no args.
+	NoVars bool
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
@@ -100,17 +105,20 @@ func (obj *TemplateFunc) Polymorphisms(partialType *types.Type, partialValues []
 
 	ord := partialType.Ord
 	if partialType.Map != nil {
-		if len(ord) != 2 {
-			return nil, fmt.Errorf("must have exactly two args in template func")
+		if len(ord) != 2 && len(ord) != 1 {
+			return nil, fmt.Errorf("must have exactly one or two args in template func")
 		}
 		if t, exists := partialType.Map[ord[0]]; exists && t != nil {
 			if t.Cmp(types.TypeStr) != nil {
 				return nil, fmt.Errorf("first arg for template must be an str")
 			}
 		}
-		if t, exists := partialType.Map[ord[1]]; exists && t != nil {
+		if len(ord) == 1 { // no args being passed in (boring template)
+			return []*types.Type{types.NewType(fmt.Sprintf("func(%s str) str", argNameTemplate))}, nil
+
+		} else if t, exists := partialType.Map[ord[1]]; exists && t != nil {
 			// known vars type! w00t!
-			return []*types.Type{types.NewType(fmt.Sprintf("func(a str, b %s) str", t.String()))}, nil
+			return []*types.Type{types.NewType(fmt.Sprintf("func(%s str, %s %s) str", argNameTemplate, argNameVars, t.String()))}, nil
 		}
 	}
 
@@ -125,8 +133,8 @@ func (obj *TemplateFunc) Build(typ *types.Type) error {
 	if typ.Kind != types.KindFunc {
 		return fmt.Errorf("input type must be of kind func")
 	}
-	if len(typ.Ord) != 2 {
-		return fmt.Errorf("the template function needs exactly two args")
+	if len(typ.Ord) != 2 && len(typ.Ord) != 1 {
+		return fmt.Errorf("the template function needs exactly one or two args")
 	}
 	if typ.Out == nil {
 		return fmt.Errorf("return type of function must be specified")
@@ -146,6 +154,11 @@ func (obj *TemplateFunc) Build(typ *types.Type) error {
 		return fmt.Errorf("first arg for template must be an str")
 	}
 
+	if len(typ.Ord) == 1 { // no args being passed in (boring template)
+		obj.NoVars = true
+		return nil
+	}
+
 	t1, exists := typ.Map[typ.Ord[1]]
 	if !exists || t1 == nil {
 		return fmt.Errorf("second arg must be specified")
@@ -158,7 +171,7 @@ func (obj *TemplateFunc) Build(typ *types.Type) error {
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
 func (obj *TemplateFunc) Validate() error {
-	if obj.Type == nil { // build must be run first
+	if obj.Type == nil && !obj.NoVars { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
 	return nil
@@ -167,7 +180,11 @@ func (obj *TemplateFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *TemplateFunc) Info() *interfaces.Info {
 	var sig *types.Type
-	if obj.Type != nil { // don't panic if called speculatively
+	if obj.NoVars {
+		str := fmt.Sprintf("func(%s str) str", argNameTemplate)
+		sig = types.NewType(str)
+
+	} else if obj.Type != nil { // don't panic if called speculatively
 		str := fmt.Sprintf("func(%s str, %s %s) str", argNameTemplate, argNameVars, obj.Type.String())
 		sig = types.NewType(str)
 	}
@@ -235,6 +252,15 @@ func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, err
 	}
 
 	buf := new(bytes.Buffer)
+
+	if vars == nil {
+		// run the template
+		if err := tmpl.Execute(buf, nil); err != nil {
+			return "", errwrap.Wrapf(err, "template: execution error")
+		}
+		return buf.String(), nil
+	}
+
 	// NOTE: any objects in here can have their methods called by the template!
 	var data interface{} // can be many types, eg a struct!
 	v := vars.Copy()     // make a copy since we make modifications to it...
@@ -314,8 +340,13 @@ func (obj *TemplateFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			tmpl := input.Struct()[argNameTemplate].Str()
-			vars := input.Struct()[argNameVars]
+			st := input.Struct()
+
+			tmpl := st[argNameTemplate].Str()
+			vars, exists := st[argNameVars]
+			if !exists {
+				vars = nil
+			}
 
 			result, err := obj.run(tmpl, vars)
 			if err != nil {

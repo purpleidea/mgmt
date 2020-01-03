@@ -50,8 +50,8 @@ const (
 	// initCtxTimeout is the length of time, in seconds, before requests are
 	// cancelled in Init.
 	initCtxTimeout = 20
-	// checkApplyCtxTimeout is the length of time, in seconds, before requests
-	// are cancelled in CheckApply.
+	// checkApplyCtxTimeout is the length of time, in seconds, before
+	// requests are cancelled in CheckApply.
 	checkApplyCtxTimeout = 120
 )
 
@@ -74,11 +74,12 @@ type DockerContainerRes struct {
 	Env []string `yaml:"env"`
 	// Ports is a map of port bindings. E.g. {"tcp" => {80 => 8080},}.
 	Ports map[string]map[int64]int64 `yaml:"ports"`
-	// APIVersion allows you to override the host's default client API version.
+	// APIVersion allows you to override the host's default client API
+	// version.
 	APIVersion string `yaml:"apiversion"`
 
-	// Force, if true, will destroy and redeploy the container if the image is
-	// incorrect.
+	// Force, if true, this will destroy and redeploy the container if the
+	// image is incorrect.
 	Force bool `yaml:"force"`
 
 	client *client.Client // docker api client
@@ -374,30 +375,34 @@ func (obj *DockerContainerRes) Cmp(r engine.Res) error {
 	if !ok {
 		return fmt.Errorf("error casting r to *DockerContainerRes")
 	}
-	if obj.Name() != res.Name() {
-		return fmt.Errorf("names differ")
+
+	if obj.State != res.State {
+		return fmt.Errorf("the State differs")
+	}
+	if obj.Image != res.Image {
+		return fmt.Errorf("the Image differs")
 	}
 	if err := util.SortedStrSliceCompare(obj.Cmd, res.Cmd); err != nil {
-		return errwrap.Wrapf(err, "cmd differs")
+		return errwrap.Wrapf(err, "the Cmd field differs")
 	}
 	if err := util.SortedStrSliceCompare(obj.Env, res.Env); err != nil {
-		return errwrap.Wrapf(err, "env differs")
+		return errwrap.Wrapf(err, "tne Env field differs")
 	}
 	if len(obj.Ports) != len(res.Ports) {
-		return fmt.Errorf("ports length differs")
+		return fmt.Errorf("the Ports length differs")
 	}
 	for k, v := range obj.Ports {
 		for p, q := range v {
 			if w, ok := res.Ports[k][p]; !ok || q != w {
-				return fmt.Errorf("ports differ")
+				return fmt.Errorf("the Ports field differs")
 			}
 		}
 	}
 	if obj.APIVersion != res.APIVersion {
-		return fmt.Errorf("apiversions differ")
+		return fmt.Errorf("the APIVersion differs")
 	}
 	if obj.Force != res.Force {
-		return fmt.Errorf("forces differ")
+		return fmt.Errorf("The Force field differs")
 	}
 	return nil
 }
@@ -405,6 +410,7 @@ func (obj *DockerContainerRes) Cmp(r engine.Res) error {
 // DockerContainerUID is the UID struct for DockerContainerRes.
 type DockerContainerUID struct {
 	engine.BaseUID
+
 	name string
 }
 

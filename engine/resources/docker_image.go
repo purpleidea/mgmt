@@ -37,11 +37,11 @@ import (
 )
 
 const (
-	// dockerImageInitCtxTimeout is the length of time, in seconds, before requests are
-	// cancelled in Init.
+	// dockerImageInitCtxTimeout is the length of time, in seconds, before
+	// requests are cancelled in Init.
 	dockerImageInitCtxTimeout = 20
-	// dockerImageCheckApplyCtxTimeout is the length of time, in seconds, before requests
-	// are cancelled in CheckApply.
+	// dockerImageCheckApplyCtxTimeout is the length of time, in seconds,
+	// before requests are cancelled in CheckApply.
 	dockerImageCheckApplyCtxTimeout = 120
 )
 
@@ -50,14 +50,15 @@ func init() {
 }
 
 // DockerImageRes is a docker image resource. The resource's name must be a
-// be a docker image in any supported format (url, image, or image:tag).
+// docker image in any supported format (url, image, or image:tag).
 type DockerImageRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
 
 	// State of the image must be exists or absent.
 	State string `yaml:"state"`
-	// APIVersion allows you to override the host's default client API version.
+	// APIVersion allows you to override the host's default client API
+	// version.
 	APIVersion string `yaml:"apiversion"`
 
 	image  string         // full image:tag format
@@ -69,6 +70,8 @@ type DockerImageRes struct {
 // Default returns some sensible defaults for this resource.
 func (obj *DockerImageRes) Default() engine.Res {
 	return &DockerImageRes{
+		// TODO: eventually if image supports other properties, this can
+		// be left out and we could have the state be "unmanaged".
 		State: "exists",
 	}
 }
@@ -221,11 +224,12 @@ func (obj *DockerImageRes) Cmp(r engine.Res) error {
 	if !ok {
 		return fmt.Errorf("error casting r to *DockerImageRes")
 	}
-	if obj.Name() != res.Name() {
-		return fmt.Errorf("names differ")
+	if obj.State != res.State {
+		return fmt.Errorf("the State differs")
 	}
+
 	if obj.APIVersion != res.APIVersion {
-		return fmt.Errorf("apiversions differ")
+		return fmt.Errorf("the APIVersion differs")
 	}
 	return nil
 }
@@ -233,6 +237,7 @@ func (obj *DockerImageRes) Cmp(r engine.Res) error {
 // DockerImageUID is the UID struct for DockerImageRes.
 type DockerImageUID struct {
 	engine.BaseUID
+
 	image string
 }
 

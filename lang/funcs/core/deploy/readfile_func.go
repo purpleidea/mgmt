@@ -40,7 +40,7 @@ type ReadFileFunc struct {
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
 
-	filename string  // the active filename
+	filename *string // the active filename
 	result   *string // last calculated output
 
 	closeChan chan struct{}
@@ -107,10 +107,11 @@ func (obj *ReadFileFunc) Stream() error {
 
 			filename := input.Struct()["filename"].Str()
 			// TODO: add validation for absolute path?
-			if filename == obj.filename {
+			// TODO: add check for empty string
+			if obj.filename != nil && *obj.filename == filename {
 				continue // nothing changed
 			}
-			obj.filename = filename
+			obj.filename = &filename
 
 			p := strings.TrimSuffix(obj.data.Base, "/")
 			if p == obj.data.Base { // didn't trim, so we fail
@@ -119,11 +120,11 @@ func (obj *ReadFileFunc) Stream() error {
 			}
 			path := p
 
-			if !strings.HasPrefix(obj.filename, "/") {
-				return fmt.Errorf("filename was not absolute, got: `%s`", obj.filename)
+			if !strings.HasPrefix(*obj.filename, "/") {
+				return fmt.Errorf("filename was not absolute, got: `%s`", *obj.filename)
 				//path += "/" // be forgiving ?
 			}
-			path += obj.filename
+			path += *obj.filename
 
 			fs, err := obj.init.World.Fs(obj.data.FsURI) // open the remote file system
 			if err != nil {

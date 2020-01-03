@@ -41,7 +41,7 @@ type ReadFileFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	filename   string // the active filename
+	filename   *string // the active filename
 	recWatcher *recwatch.RecWatcher
 	events     chan error // internal events
 	wg         *sync.WaitGroup
@@ -112,10 +112,11 @@ func (obj *ReadFileFunc) Stream() error {
 
 			filename := input.Struct()["filename"].Str()
 			// TODO: add validation for absolute path?
-			if filename == obj.filename {
+			// TODO: add check for empty string
+			if obj.filename != nil && *obj.filename == filename {
 				continue // nothing changed
 			}
-			obj.filename = filename
+			obj.filename = &filename
 
 			if obj.recWatcher != nil {
 				obj.recWatcher.Close() // close previous watcher
@@ -123,7 +124,7 @@ func (obj *ReadFileFunc) Stream() error {
 			}
 			// create new watcher
 			obj.recWatcher = &recwatch.RecWatcher{
-				Path:    obj.filename,
+				Path:    *obj.filename,
 				Recurse: false,
 				Flags: recwatch.Flags{
 					// TODO: add Logf
@@ -189,7 +190,7 @@ func (obj *ReadFileFunc) Stream() error {
 			}
 
 			// read file...
-			content, err := ioutil.ReadFile(obj.filename)
+			content, err := ioutil.ReadFile(*obj.filename)
 			if err != nil {
 				return errwrap.Wrapf(err, "error reading file")
 			}

@@ -49,8 +49,8 @@ type PippetRes struct {
 	// Type is the exact name of the wrapped Puppet resource type, e.g.
 	// "file", "mount". This needs not be a core type. It can be a type
 	// from a module. The Puppet installation local to the mgmt agent
-	// machine must be able recognize it. It has to be a native type
-	// though, as opposed to defined types from your Puppet manifest code.
+	// machine must be able recognize it. It has to be a native type though,
+	// as opposed to defined types from your Puppet manifest code.
 	Type string `yaml:"type" json:"type"`
 	// Title is used by Puppet as the resource title. Puppet will often
 	// assign special meaning to the title, e.g. use it as the path for a
@@ -109,9 +109,8 @@ func (obj *PippetRes) Watch() error {
 
 // CheckApply synchronizes the resource if required.
 func (obj *PippetRes) CheckApply(apply bool) (bool, error) {
-	var changed bool
-	var err error
-	if changed, err = applyPippetRes(obj.runner, obj); err != nil {
+	changed, err := applyPippetRes(obj.runner, obj)
+	if err != nil {
 		return false, fmt.Errorf("pippet: %s[%s]: ERROR - %v", obj.Type, obj.Title, err)
 	}
 	return !changed, nil
@@ -125,20 +124,19 @@ func (obj *PippetRes) Cmp(r engine.Res) error {
 	}
 
 	if obj.Type != res.Type {
-		return fmt.Errorf("the type params differ")
+		return fmt.Errorf("the Type param differs")
 	}
 
 	if obj.Title != res.Title {
-		return fmt.Errorf("the resource titles differ")
+		return fmt.Errorf("the Title param differs")
 	}
 
-	// FIXME: This is a lie. Parameter lists can be equivalent
-	// but not lexically identical (e.g. whitespace differences,
-	// parameter order).
-	// This is difficult to handle because we cannot casually
-	// unmarshall the YAML content.
+	// FIXME: This is a lie. Parameter lists can be equivalent but not
+	// lexically identical (e.g. whitespace differences, parameter order).
+	// This is difficult to handle because we cannot casually unmarshall the
+	// YAML content.
 	if obj.Params != res.Params {
-		return fmt.Errorf("the parameters differ")
+		return fmt.Errorf("the Param param differs")
 	}
 
 	return nil
@@ -151,8 +149,8 @@ type PippetUID struct {
 	resourceTitle string
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *PippetRes) UIDs() []engine.ResUID {
 	x := &PippetUID{
 		BaseUID:       engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -200,11 +198,11 @@ type PippetResult struct {
 	Exception string
 }
 
-// GetPippetReceiverInstance returns a pointer to the PippetReceiver object.
-// The PippetReceiver is supposed to be a singleton object. The pippet resource
-// code should always use the PippetReceiverInstance function to gain access to
-// the pippetReceiver object. Other objects of type pippetReceiver should not
-// be created.
+// GetPippetReceiverInstance returns a pointer to the PippetReceiver object. The
+// PippetReceiver is supposed to be a singleton object. The pippet resource code
+// should always use the PippetReceiverInstance function to gain access to the
+// pippetReceiver object. Other objects of type pippetReceiver should not be
+// created.
 func getPippetReceiverInstance() *pippetReceiver {
 	for pippetReceiverInstance == nil {
 		pippetReceiverOnce.Do(func() { pippetReceiverInstance = &pippetReceiver{} })
@@ -246,8 +244,8 @@ func (obj *pippetReceiver) Init() error {
 }
 
 // Register should be called by any user (i.e., any pippet resource) before
-// using the PippetRunner functions on this receiver object. Register
-// implicitly takes care of calling Init if required.
+// using the PippetRunner functions on this receiver object. Register implicitly
+// takes care of calling Init if required.
 func (obj *pippetReceiver) Register() error {
 	obj.registerMutex.Lock()
 	defer obj.registerMutex.Unlock()
@@ -281,12 +279,12 @@ func (obj *pippetReceiver) Unregister() error {
 	return nil
 }
 
-// LockApply locks the pippetReceiver's mutex for an "Apply"transaction.
+// LockApply locks the pippetReceiver's mutex for an "Apply" transaction.
 func (obj *pippetReceiver) LockApply() {
 	obj.applyMutex.Lock()
 }
 
-// UnlockApply unlocks the pippetReceiver's mutex for an "Apply"transaction.
+// UnlockApply unlocks the pippetReceiver's mutex for an "Apply" transaction.
 func (obj *pippetReceiver) UnlockApply() {
 	obj.applyMutex.Unlock()
 }

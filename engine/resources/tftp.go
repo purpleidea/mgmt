@@ -384,7 +384,7 @@ func (obj *TftpServerRes) readHandler() func(string, io.ReaderFrom) error {
 
 		n, err := rf.ReadFrom(handle)
 		if err != nil {
-			obj.init.Logf("could not read %s", filename)
+			obj.init.Logf("could not read %s, error: %+v", filename, err)
 			// don't leak additional information to client!
 			return fmt.Errorf("could not read: %s", filename)
 

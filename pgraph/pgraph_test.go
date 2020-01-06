@@ -934,3 +934,11 @@ func TestSetValue(t *testing.T) {
 		t.Errorf("expecting value of %s at %s position, got %v", value, key, v)
 	}
 }
+
+func TestGetName(t *testing.T) {
+	G, _ := NewGraph("g9")
+	graph := G.GetName()
+	if graph == nil {
+		t.Errorf("Empty graph returned, expecting graph: %v", graph)
+		}
+}

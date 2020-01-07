@@ -940,5 +940,5 @@ func TestGetName(t *testing.T) {
 	graph := G.GetName()
 	if graph == nil {
 		t.Errorf("Empty graph returned, expecting graph: %v", graph)
-		}
+	}
 }

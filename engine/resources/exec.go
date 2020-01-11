@@ -54,7 +54,7 @@ type ExecRes struct {
 	// only be used when a Shell is *not* specified. The advantage of this
 	// is that you don't have to worry about escape characters.
 	Args []string `yaml:"args"`
-	// Cmd is the dir to run the command in. If empty, then this will use
+	// Cwd is the dir to run the command in. If empty, then this will use
 	// the working directory of the calling process. (This process is mgmt,
 	// not the process being run here.)
 	Cwd string `yaml:"cwd"`

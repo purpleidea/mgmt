@@ -322,6 +322,42 @@ func TestResources1(t *testing.T) {
 		})
 	}
 	{
+		r := makeRes("exec", "x2")
+		res := r.(*ExecRes) // if this panics, the test will panic
+		res.Env = map[string]string{
+			"boiling": "one hundred",
+		}
+		f := "/tmp/whatever"
+		res.Cmd = fmt.Sprintf("env | grep boiling > %s", f)
+		res.Shell = "/bin/bash"
+		res.IfCmd = "! diff <(cat /tmp/whatever) <(echo boiling=one hundred)"
+		res.IfShell = "/bin/bash"
+		res.WatchCmd = fmt.Sprintf("/usr/bin/inotifywait -e modify -m %s", f)
+		res.WatchShell = "/bin/bash"
+
+		timeline := []Step{
+			NewStartupStep(1000 * 60),              // startup
+			NewChangedStep(1000*60, false),         // did we do something?
+			FileExpect(f, "boiling=one hundred\n"), // check initial state
+			NewClearChangedStep(1000 * 15),         // did we do something?
+			FileWrite(f, "this is stuff!\n"),       // change state
+			NewChangedStep(1000*60, false),         // did we do something?
+			FileExpect(f, "boiling=one hundred\n"), // check again
+			sleep(1),                               // we can sleep too!
+		}
+
+		testCases = append(testCases, test{
+			name:     "exec with env",
+			res:      res,
+			fail:     false,
+			timeline: timeline,
+			expect:   func() error { return nil },
+			// build file for inotifywait
+			startup: func() error { return ioutil.WriteFile(f, []byte("starting...\n"), 0666) },
+			cleanup: func() error { return os.Remove(f) },
+		})
+	}
+	{
 		r := makeRes("file", "r1")
 		res := r.(*FileRes) // if this panics, the test will panic
 		p := "/tmp/emptyfile"

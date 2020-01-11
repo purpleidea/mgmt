@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -65,6 +66,9 @@ type ExecRes struct {
 	// running command. If the Kill is received before the process exits,
 	// then this be treated as an error.
 	Timeout uint64 `yaml:"timeout"`
+	// Env allows the user to specify environment variables for script
+	// execution. These are taken using a map of format of VAR_NAME -> value.
+	Env map[string]string `yaml:"env"`
 
 	// Watch is the command to run to detect event changes. Each line of
 	// output from this command is treated as an event.
@@ -138,6 +142,12 @@ func (obj *ExecRes) Validate() error {
 		}
 	}
 
+	// check that environment variables' format is valid
+	for key := range obj.Env {
+		if err := isNameValid(key); err != nil {
+			return errwrap.Wrapf(err, "invalid variable name")
+		}
+	}
 	return nil
 }
 
@@ -371,6 +381,18 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 	cmd.Dir = obj.Cwd // run program in pwd if ""
+
+	envKeys := []string{}
+	for key := range obj.Env {
+		envKeys = append(envKeys, key)
+	}
+	sort.Strings(envKeys)
+	cmdEnv := []string{}
+	for _, k := range envKeys {
+		cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
+	}
+	cmd.Env = cmdEnv
+
 	// ignore signals sent to parent process (we're in our own group)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
@@ -803,4 +825,21 @@ func (obj *wrapWriter) Write(p []byte) (int, error) {
 // String returns the contents of the unshared buffer.
 func (obj *wrapWriter) String() string {
 	return obj.Buffer.String()
+}
+
+// isNameValid checks that environment variable name is valid.
+func isNameValid(varName string) error {
+	if varName == "" {
+		return fmt.Errorf("variable name cannot be an empty string")
+	}
+	for i := range varName {
+		c := varName[i]
+		if i == 0 && '0' <= c && c <= '9' {
+			return fmt.Errorf("variable name cannot begin with number")
+		}
+		if !(c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
+			return fmt.Errorf("invalid character in variable name")
+		}
+	}
+	return nil
 }

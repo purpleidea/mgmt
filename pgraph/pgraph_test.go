@@ -936,9 +936,10 @@ func TestSetValue(t *testing.T) {
 }
 
 func TestGetName(t *testing.T) {
-	G, _ := NewGraph("g9")
+	name := "g9"
+	G, _ := NewGraph(name)
 	graph := G.GetName()
-	if graph == nil {
-		t.Errorf("Empty graph returned, expecting graph: %v", graph)
+	if graph == "" {
+		t.Errorf("empty graph name returned, expecting graph with name: %v", name)
 	}
 }

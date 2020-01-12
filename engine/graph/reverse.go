@@ -291,5 +291,10 @@ func (obj *State) ReversalDelete() error {
 	}
 	file := path.Join(dir, ReverseFile) // return a unique file
 
-	return errwrap.Wrapf(os.Remove(file), "could not remove reverse state file")
+	// FIXME: why do we see these removals when there isn't a state file?
+	if err = os.Remove(file); os.IsNotExist(err) {
+		return nil // ignore missing files
+	}
+
+	return errwrap.Wrapf(err, "could not remove reverse state file")
 }

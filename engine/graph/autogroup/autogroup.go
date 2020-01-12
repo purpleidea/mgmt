@@ -66,8 +66,8 @@ func AutoGroup(ag engine.AutoGrouper, g *pgraph.Graph, debug bool, logf func(for
 		}
 	}
 
-	// It would be great to ensure we didn't add any loops here, but instead
-	// of checking now, we'll move the check into the main loop.
+	// It would be great to ensure we didn't add any graph cycles here, but
+	// instead of checking now, we'll move the check into the main loop.
 
 	return nil
 }

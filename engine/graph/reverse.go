@@ -150,8 +150,8 @@ func (obj *Engine) Reversals() error {
 	}
 	// TODO: Do we want a way for stored reversals to add edges too?
 
-	// It would be great to ensure we didn't add any loops here, but instead
-	// of checking now, we'll move the check into the main loop.
+	// It would be great to ensure we didn't add any graph cycles here, but
+	// instead of checking now, we'll move the check into the main loop.
 	return nil
 }
 

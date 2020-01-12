@@ -16,9 +16,10 @@ file "/tmp/mgmt/" {
 
 # file should change the mode every four seconds
 # editing the file contents at anytime is allowed
+# you should create the file before you run this
 if $mod {
 	file "/tmp/mgmt/hello" {
-		state => "exists",
+		#state => "exists",	# omit to see it change the mode only!
 		mode => "0777",
 
 		Meta:reverse => true,

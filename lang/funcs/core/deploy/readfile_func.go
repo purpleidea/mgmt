@@ -135,7 +135,7 @@ func (obj *ReadFileFunc) Stream() error {
 			// We could use it directly, but it feels like less correct.
 			//content, err := obj.data.Fs.ReadFile(path) // open the remote file system
 			if err != nil {
-				return errwrap.Wrapf(err, "can't read file `%s` (%s)", obj.filename, path)
+				return errwrap.Wrapf(err, "can't read file `%s` (%s)", *obj.filename, path)
 			}
 
 			result := string(content) // convert to string

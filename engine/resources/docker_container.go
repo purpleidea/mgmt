@@ -402,7 +402,7 @@ func (obj *DockerContainerRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the APIVersion differs")
 	}
 	if obj.Force != res.Force {
-		return fmt.Errorf("The Force field differs")
+		return fmt.Errorf("the Force field differs")
 	}
 	return nil
 }

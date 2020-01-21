@@ -174,7 +174,7 @@ func FileExpect(p, s string) Step { // path & string
 	}
 }
 
-// FileExpect takes a path and a string to write to that file, and builds a Step
+// FileWrite takes a path and a string to write to that file, and builds a Step
 // that does that to them.
 func FileWrite(p, s string) Step { // path & string
 	return &manualStep{

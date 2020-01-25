@@ -1,4 +1,4 @@
-// Signal tee
+// Mgmt
 // Copyright (C) 2013-2020+ James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
@@ -56,7 +56,7 @@ func main() {
 
 	_, err = io.Copy(writer, os.Stdin)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "copy error: %w\n", err)
+		fmt.Fprintf(os.Stderr, "copy error: %+v\n", err)
 		os.Exit(1)
 		return
 	}

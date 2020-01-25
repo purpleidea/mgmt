@@ -43,11 +43,10 @@ func init() {
 	gapi.Register(Name, func() gapi.GAPI { return &GAPI{} }) // register
 }
 
-// GAPI implements the main langpuppet GAPI interface.
-// It wraps the Puppet and Lang GAPIs and receives graphs from both.
-// It then runs a merging algorithm that mainly just makes a union
-// of both the sets of vertices and edges. Some vertices are merged
-// using a naming convention. Details can be found in the
+// GAPI implements the main langpuppet GAPI interface. It wraps the Puppet and
+// Lang GAPIs and receives graphs from both. It then runs a merging algorithm
+// that mainly just makes a union of both the sets of vertices and edges. Some
+// vertices are merged using a naming convention. Details can be found in the
 // langpuppet.mergeGraphs function.
 type GAPI struct {
 	langGAPI   gapi.GAPI // the wrapped lang entrypoint
@@ -66,9 +65,9 @@ type GAPI struct {
 	wg          sync.WaitGroup // sync group for tunnel go routines
 }
 
-// CliFlags returns a list of flags used by this deploy subcommand.
-// It consists of all flags accepted by lang and puppet mode,
-// with a respective "lp-" prefix.
+// CliFlags returns a list of flags used by this deploy subcommand. It consists
+// of all flags accepted by lang and puppet mode, with a respective "lp-"
+// prefix.
 func (obj *GAPI) CliFlags(command string) []cli.Flag {
 	langFlags := (&lang.GAPI{}).CliFlags(command)
 	puppetFlags := (&puppet.GAPI{}).CliFlags(command)

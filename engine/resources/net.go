@@ -81,9 +81,9 @@ const (
 	socketFile = "pipe.sock" // path in vardir to store our socket file
 )
 
-// NetRes is a network interface resource based on netlink. It manages the
-// state of a network link. Configuration is also stored in a networkd
-// configuration file, so the network is available upon reboot.
+// NetRes is a network interface resource based on netlink. It manages the state
+// of a network link. Configuration is also stored in a networkd configuration
+// file, so the network is available upon reboot.
 type NetRes struct {
 	traits.Base // add the base methods without re-implementation
 
@@ -99,8 +99,8 @@ type NetRes struct {
 	socketFile string // path for storing the pipe socket file
 }
 
-// nlChanStruct defines the channel used to send netlink messages and errors
-// to the event processing loop in Watch.
+// nlChanStruct defines the channel used to send netlink messages and errors to
+// the event processing loop in Watch.
 type nlChanStruct struct {
 	msg []syscall.NetlinkMessage
 	err error
@@ -371,8 +371,8 @@ func (obj *NetRes) addrCheckApply(apply bool) (bool, error) {
 	return false, nil
 }
 
-// gatewayCheckApply checks if the interface has the correct default gateway
-// and adds/deletes routes as necessary.
+// gatewayCheckApply checks if the interface has the correct default gateway and
+// adds/deletes routes as necessary.
 func (obj *NetRes) gatewayCheckApply(apply bool) (bool, error) {
 	// get all routes from the interface
 	routes, err := netlink.RouteList(obj.iface.link, netlink.FAMILY_V4)
@@ -548,8 +548,8 @@ func (obj *NetUID) IFF(uid engine.ResUID) bool {
 	return obj.name == res.name
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one although some resources can return multiple.
 func (obj *NetRes) UIDs() []engine.ResUID {
 	x := &NetUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -558,8 +558,8 @@ func (obj *NetRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *NetRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes NetRes // indirection to avoid infinite recursion
 
@@ -625,8 +625,8 @@ func (obj *iface) linkUpDown(state string) error {
 	return netlink.LinkSetDown(obj.link)
 }
 
-// getAddrs returns a list of strings containing all of the interface's
-// IP addresses in CIDR format.
+// getAddrs returns a list of strings containing all of the interface's IP
+// addresses in CIDR format.
 func (obj *iface) getAddrs() ([]string, error) {
 	var ifaceAddrs []string
 	a, err := obj.iface.Addrs()
@@ -694,8 +694,8 @@ func (obj *iface) kernelApply(addrs []string) error {
 	return nil
 }
 
-// addrApplyDelete, checks the interface's addresses and deletes any that are not
-// in the list/definition.
+// addrApplyDelete, checks the interface's addresses and deletes any that are
+// not in the list/definition.
 func (obj *iface) addrApplyDelete(objAddrs []string) error {
 	ifaceAddrs, err := obj.getAddrs()
 	if err != nil {

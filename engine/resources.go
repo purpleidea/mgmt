@@ -30,8 +30,8 @@ import (
 // TODO: should each resource be a sub-package?
 var registeredResources = map[string]func() Res{}
 
-// RegisterResource registers a new resource by providing a constructor
-// function that returns a resource object ready to be unmarshalled from YAML.
+// RegisterResource registers a new resource by providing a constructor function
+// that returns a resource object ready to be unmarshalled from YAML.
 func RegisterResource(kind string, fn func() Res) {
 	f := fn()
 	if kind == "" {
@@ -242,8 +242,8 @@ func Validate(res Res) error {
 // the Interrupt method to shutdown the resource quickly. Running this method
 // may leave the resource in a partial state, however this may be desired if you
 // want a faster exit or if you'd prefer a partial state over letting the
-// resource complete in a situation where you made an error and you wish to
-// exit quickly to avoid data loss. It is usually triggered after multiple ^C
+// resource complete in a situation where you made an error and you wish to exit
+// quickly to avoid data loss. It is usually triggered after multiple ^C
 // signals.
 type InterruptableRes interface {
 	Res

@@ -61,8 +61,8 @@ type Info struct {
 	Err    error       // did this fact validate?
 }
 
-// Init is the structure of values and references which is passed into all
-// facts on initialization.
+// Init is the structure of values and references which is passed into all facts
+// on initialization.
 type Init struct {
 	Hostname string // uuid for the host
 	//Noop bool

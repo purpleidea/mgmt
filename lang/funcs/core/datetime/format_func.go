@@ -35,8 +35,7 @@ func init() {
 // Format returns returns a textual representation of the input time. The format
 // has to be defined like specified by the golang "time" package. The time is
 // the number of seconds since the epoch, and matches what comes from our Now
-// function.
-// Golang documentation: https://golang.org/pkg/time/#Time.Format
+// function. Golang documentation: https://golang.org/pkg/time/#Time.Format
 func Format(input []types.Value) (types.Value, error) {
 	epochDelta := input[0].Int()
 	if epochDelta < 0 {

@@ -341,12 +341,12 @@ type UserResAutoEdges struct {
 	pointer int
 }
 
-// AutoEdges returns edges from the user resource to each group found in
-// its definition. The groups can be in any of the three applicable fields
-// (GID, Group and Groups.) If the user exists, reversed ensures the edge
-// goes from group to user, and if the user is absent the edge goes from
-// user to group. This ensures that we don't add users to groups that
-// don't exist or delete groups before we delete their members.
+// AutoEdges returns edges from the user resource to each group found in its
+// definition. The groups can be in any of the three applicable fields (GID,
+// Group and Groups.) If the user exists, reversed ensures the edge goes from
+// group to user, and if the user is absent the edge goes from user to group.
+// This ensures that we don't add users to groups that don't exist or delete
+// groups before we delete their members.
 func (obj *UserRes) AutoEdges() (engine.AutoEdge, error) {
 	var result []engine.ResUID
 	var reversed bool
@@ -393,7 +393,8 @@ func (obj *UserResAutoEdges) Next() []engine.ResUID {
 	return []engine.ResUID{value}
 }
 
-// Test gets results of the earlier Next() call, & returns if we should continue.
+// Test gets results of the earlier Next() call, & returns if we should
+// continue.
 func (obj *UserResAutoEdges) Test(input []bool) bool {
 	if len(obj.UIDs) <= obj.pointer {
 		return false
@@ -404,8 +405,8 @@ func (obj *UserResAutoEdges) Test(input []bool) bool {
 	return true // keep going
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *UserRes) UIDs() []engine.ResUID {
 	x := &UserUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -414,8 +415,8 @@ func (obj *UserRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *UserRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes UserRes // indirection to avoid infinite recursion
 

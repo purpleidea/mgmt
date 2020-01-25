@@ -8,6 +8,8 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 . test/util.sh
 
+make --quiet -C test	# run make in test directory to prepare any needed tools
+
 failures=''
 function run-test()
 {
@@ -98,6 +100,22 @@ function consistent-imports() {
 	fi
 }
 
+function reflowed-comments() {
+	if [[ $1 == *"/bindata.go" ]]; then	# ends with bindata.go ?
+		return 0	# skip those generated files
+	fi
+
+	if [ "$1" = './lang/funcs/core/generated_funcs.go' ]; then
+		return 0
+	fi
+
+	if [ "$1" = './lang/lexer.nn.go' ]; then
+		return 0
+	fi
+
+	./test/comment_parser "$1"
+}
+
 # run go vet on a per-package basis
 base=$(go list .)
 for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/"`; do
@@ -119,6 +137,7 @@ for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -
 	run-test naked-error "$file"
 	run-test lowercase-errors "$file"
 	run-test consistent-imports "$file"
+	run-test reflowed-comments "$file"
 done
 
 if [[ -n "$failures" ]]; then

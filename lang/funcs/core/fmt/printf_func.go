@@ -67,8 +67,8 @@ func (obj *PrintfFunc) ArgGen(index int) (string, error) {
 // Polymorphisms returns the possible type signature for this function. In this
 // case, since the number of arguments can be infinite, it returns the final
 // precise type if it can be gleamed from the format argument. If it cannot, it
-// is because either the format argument was not known statically, or because
-// it had an invalid format string.
+// is because either the format argument was not known statically, or because it
+// had an invalid format string.
 func (obj *PrintfFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	if partialType == nil || len(partialValues) < 1 {
 		return nil, fmt.Errorf("first argument must be a static format string")

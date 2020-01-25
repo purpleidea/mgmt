@@ -100,8 +100,8 @@ func (obj *PkgRes) Close() error {
 	return nil
 }
 
-// Watch is the primary listener for this resource and it outputs events.
-// It uses the PackageKit UpdatesChanged signal to watch for changes.
+// Watch is the primary listener for this resource and it outputs events. It
+// uses the PackageKit UpdatesChanged signal to watch for changes.
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
 func (obj *PkgRes) Watch() error {
@@ -504,7 +504,8 @@ func (obj *PkgResAutoEdges) Next() []engine.ResUID {
 	return result
 }
 
-// Test gets results of the earlier Next() call, & returns if we should continue!
+// Test gets results of the earlier Next() call, & returns if we should
+// continue!
 func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	if !obj.testIsNext {
 		panic("expecting a call to Next()")
@@ -591,8 +592,8 @@ func (obj *PkgRes) AutoEdges() (engine.AutoEdge, error) {
 	}, nil
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *PkgRes) UIDs() []engine.ResUID {
 	x := &PkgUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -611,9 +612,9 @@ func (obj *PkgRes) UIDs() []engine.ResUID {
 	return result
 }
 
-// GroupCmp returns whether two resources can be grouped together or not.
-// Can these two resources be merged, aka, does this resource support doing so?
-// Will resource allow itself to be grouped _into_ this obj?
+// GroupCmp returns whether two resources can be grouped together or not. Can
+// these two resources be merged, aka, does this resource support doing so? Will
+// resource allow itself to be grouped _into_ this obj?
 func (obj *PkgRes) GroupCmp(r engine.GroupableRes) error {
 	res, ok := r.(*PkgRes)
 	if !ok {
@@ -631,8 +632,8 @@ func (obj *PkgRes) GroupCmp(r engine.GroupableRes) error {
 	return nil
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *PkgRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes PkgRes // indirection to avoid infinite recursion
 
@@ -651,7 +652,8 @@ func (obj *PkgRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-// ReturnSvcInFileList returns a list of svc names for matches like: `/usr/lib/systemd/system/*.service`.
+// ReturnSvcInFileList returns a list of svc names for matches like:
+// `/usr/lib/systemd/system/*.service`.
 func ReturnSvcInFileList(fileList []string) []string {
 	result := []string{}
 	for _, x := range fileList {

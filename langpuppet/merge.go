@@ -33,17 +33,15 @@ const (
 	MergePrefixPuppet = "mgmt_"
 )
 
-// mergeGraph returns the merged graph containing all vertices
-// and edges found in the graphs produced by the lang and Puppet GAPIs
-// associated with the wrapping GAPI.
-// Vertices are merged if they adhere to the following rules (for any
-// given value of POSTFIX):
-//  1. The graph from lang contains a noop vertex named puppet_POSTFIX
-//  2. The graph from Puppet contains an empty class mgmt_POSTFIX
-//  3. The resulting graph will contain one noop vertex named POSTFIX
-//     that replaces all nodes mentioned in (1) and (2)
-// All edges connecting to any of the vertices merged this way
-// will be present in the merged graph.
+// mergeGraph returns the merged graph containing all vertices and edges found
+// in the graphs produced by the lang and Puppet GAPIs associated with the
+// wrapping GAPI. Vertices are merged if they adhere to the following rules (for
+// any given value of POSTFIX): (1) The graph from lang contains a noop vertex
+// named puppet_POSTFIX. (2) The graph from Puppet contains an empty class
+// mgmt_POSTFIX. (3) The resulting graph will contain one noop vertex named
+// POSTFIX that replaces all nodes mentioned in (1) and (2). All edges
+// connecting to any of the vertices merged this way will be present in the
+// merged graph.
 func mergeGraphs(graphFromLang, graphFromPuppet *pgraph.Graph) (*pgraph.Graph, error) {
 	if graphFromLang == nil || graphFromPuppet == nil {
 		return nil, fmt.Errorf("cannot merge graphs until both child graphs are loaded")

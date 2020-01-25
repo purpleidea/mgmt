@@ -62,8 +62,8 @@ const (
 	FileModeAllowAssign = false
 )
 
-// FileRes is a file and directory resource. Dirs are defined by names ending
-// in a slash.
+// FileRes is a file and directory resource. Dirs are defined by names ending in
+// a slash.
 type FileRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
@@ -324,11 +324,11 @@ func (obj *FileRes) Close() error {
 	return nil
 }
 
-// Watch is the primary listener for this resource and it outputs events.
-// This one is a file watcher for files and directories.
-// Modify with caution, it is probably important to write some test cases first!
-// If the Watch returns an error, it means that something has gone wrong, and it
-// must be restarted. On a clean exit it returns nil.
+// Watch is the primary listener for this resource and it outputs events. This
+// one is a file watcher for files and directories. Modify with caution, it is
+// probably important to write some test cases first! If the Watch returns an
+// error, it means that something has gone wrong, and it must be restarted. On a
+// clean exit it returns nil.
 func (obj *FileRes) Watch() error {
 	// TODO: chan *recwatch.Event instead?
 	inputEvents := make(chan recwatch.Event)
@@ -1322,7 +1322,8 @@ func (obj *FileResAutoEdges) Next() []engine.ResUID {
 	return []engine.ResUID{value} // we return one, even though api supports N
 }
 
-// Test gets results of the earlier Next() call, & returns if we should continue!
+// Test gets results of the earlier Next() call, & returns if we should
+// continue!
 func (obj *FileResAutoEdges) Test(input []bool) bool {
 	// We do all of these first...
 	if !obj.fdone && len(obj.frags) > 0 {
@@ -1390,8 +1391,8 @@ func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
 	}, nil
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *FileRes) UIDs() []engine.ResUID {
 	x := &FileUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -1417,8 +1418,8 @@ func (obj *FileRes) CollectPattern(pattern string) {
 	obj.Dirname = pattern // XXX: simplistic for now
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *FileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes FileRes // indirection to avoid infinite recursion
 

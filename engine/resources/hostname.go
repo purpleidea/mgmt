@@ -46,12 +46,12 @@ var ErrResourceInsufficientParameters = errors.New("insufficient parameters for 
 
 // HostnameRes is a resource that allows setting and watching the hostname.
 //
-// StaticHostname is the one configured in /etc/hostname or a similar file.
-// It is chosen by the local user. It is not always in sync with the current
-// host name as returned by the gethostname() system call.
+// StaticHostname is the one configured in /etc/hostname or a similar file. It
+// is chosen by the local user. It is not always in sync with the current host
+// name as returned by the gethostname() system call.
 //
-// TransientHostname is the one configured via the kernel's sethostbyname().
-// It can be different from the static hostname in case DHCP or mDNS have been
+// TransientHostname is the one configured via the kernel's sethostbyname(). It
+// can be different from the static hostname in case DHCP or mDNS have been
 // configured to change the name based on network information.
 //
 // PrettyHostname is a free-form UTF8 host name for presentation to the user.
@@ -248,8 +248,8 @@ type HostnameUID struct {
 	transientHostname string
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *HostnameRes) UIDs() []engine.ResUID {
 	x := &HostnameUID{
 		BaseUID:           engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -261,8 +261,8 @@ func (obj *HostnameRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *HostnameRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes HostnameRes // indirection to avoid infinite recursion
 

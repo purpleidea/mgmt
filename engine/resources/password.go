@@ -322,8 +322,8 @@ type PasswordUID struct {
 	name string
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *PasswordRes) UIDs() []engine.ResUID {
 	x := &PasswordUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -347,8 +347,8 @@ func (obj *PasswordRes) Sends() interface{} {
 	}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *PasswordRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes PasswordRes // indirection to avoid infinite recursion
 

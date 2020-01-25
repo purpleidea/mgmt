@@ -642,8 +642,8 @@ The signature intentionally matches what is required to satisfy the `go-yaml`
 #### Example
 
 ```golang
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *FooRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes FooRes // indirection to avoid infinite recursion
 

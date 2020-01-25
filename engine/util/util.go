@@ -91,7 +91,8 @@ func ResToB64(res engine.Res) (string, error) {
 	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
 }
 
-// B64ToRes decodes a resource from a base64 encoded string (after deserialization).
+// B64ToRes decodes a resource from a base64 encoded string (after
+// deserialization).
 func B64ToRes(str string) (engine.Res, error) {
 	var output interface{}
 	bb, err := base64.StdEncoding.DecodeString(str)
@@ -441,12 +442,11 @@ func (obj *autoEdgeCombiner) Test(input []bool) bool {
 	return len(obj.ae) > obj.ptr // are there any auto edges left?
 }
 
-// AutoEdgeCombiner takes any number of AutoEdge structs, and combines them
-// into a single one, so that the logic from each one can be built separately,
-// and then combined using this utility. This makes implementing different
-// AutoEdge generators much easier. This respects the Next() and Test() API,
-// and ratchets through each AutoEdge entry until they have all run their
-// course.
+// AutoEdgeCombiner takes any number of AutoEdge structs, and combines them into
+// a single one, so that the logic from each one can be built separately, and
+// then combined using this utility. This makes implementing different AutoEdge
+// generators much easier. This respects the Next() and Test() API, and ratchets
+// through each AutoEdge entry until they have all run their course.
 func AutoEdgeCombiner(ae ...engine.AutoEdge) (engine.AutoEdge, error) {
 	return &autoEdgeCombiner{
 		ae: ae,

@@ -24,8 +24,8 @@ import (
 )
 
 // Invariant represents a constraint that is described by the Expr's and Stmt's,
-// and which is passed into the unification solver to describe what is known
-// by the AST.
+// and which is passed into the unification solver to describe what is known by
+// the AST.
 type Invariant interface {
 	// TODO: should we add any other methods to this type?
 	fmt.Stringer

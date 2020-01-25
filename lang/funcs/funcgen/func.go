@@ -149,7 +149,8 @@ func (obj *function) MakeGoReturn() (string, error) {
 	return obj.Return[0].ToGolang()
 }
 
-// ConvertStart returns the start of a casting function required to convert from mcl to golang.
+// ConvertStart returns the start of a casting function required to convert from
+// mcl to golang.
 func (obj *function) ConvertStart() string {
 	t := obj.Return[0].Type
 	switch t {
@@ -162,7 +163,8 @@ func (obj *function) ConvertStart() string {
 	}
 }
 
-// ConvertStop returns the end of the conversion function required to convert from mcl to golang.
+// ConvertStop returns the end of the conversion function required to convert
+// from mcl to golang.
 func (obj *function) ConvertStop() string {
 	t := obj.Return[0].Type
 	switch t {

@@ -117,7 +117,8 @@ func (obj *GAPI) ParseConfigFromPuppet() (*yamlgraph.GraphConfig, error) {
 	return &config, nil
 }
 
-// RefreshInterval returns the graph refresh interval from the puppet configuration.
+// RefreshInterval returns the graph refresh interval from the puppet
+// configuration.
 func (obj *GAPI) refreshInterval() int {
 	if obj.data.Debug {
 		obj.data.Logf("determining graph refresh interval")

@@ -367,8 +367,8 @@ type TestUID struct {
 	name string
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *TestRes) UIDs() []engine.ResUID {
 	x := &TestUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -405,8 +405,8 @@ func (obj *TestRes) Sends() interface{} {
 	}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *TestRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes TestRes // indirection to avoid infinite recursion
 

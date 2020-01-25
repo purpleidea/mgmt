@@ -128,7 +128,8 @@ func calculateMax(deploys map[uint64]string) uint64 {
 // GetDeploy returns the deploy with the specified id if it exists. If you input
 // an id of 0, you'll get back an empty deploy without error. This is useful so
 // that you can pass through this function easily.
-// FIXME: implement this more efficiently so that it doesn't have to download *all* the old deploys from etcd!
+// FIXME: implement this more efficiently so that it doesn't have to download
+// *all* the old deploys from etcd!
 func (obj *SimpleDeploy) GetDeploy(ctx context.Context, id uint64) (string, error) {
 	result, err := obj.GetDeploys(ctx)
 	if err != nil {

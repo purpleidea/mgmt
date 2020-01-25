@@ -139,9 +139,9 @@ func (obj *CronRes) Default() engine.Res {
 	}
 }
 
-// makeComposite creates a pointer to a FileRes. The pointer is used to
-// validate and initialize the nested file resource and to apply the file state
-// in CheckApply.
+// makeComposite creates a pointer to a FileRes. The pointer is used to validate
+// and initialize the nested file resource and to apply the file state in
+// CheckApply.
 func (obj *CronRes) makeComposite() (*FileRes, error) {
 	p, err := obj.UnitFilePath()
 	if err != nil {
@@ -466,8 +466,8 @@ func (obj *CronRes) AutoEdges() (engine.AutoEdge, error) {
 	return nil, nil
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one although some resources can return multiple.
 func (obj *CronRes) UIDs() []engine.ResUID {
 	unit := fmt.Sprintf("%s.service", obj.Name())
 	if obj.Unit != "" {
@@ -486,8 +486,8 @@ func (obj *CronRes) UIDs() []engine.ResUID {
 	return uids
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *CronRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes CronRes // indirection to avoid infinite recursion
 

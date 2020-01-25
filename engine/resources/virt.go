@@ -1262,8 +1262,8 @@ type VirtUID struct {
 	engine.BaseUID
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *VirtRes) UIDs() []engine.ResUID {
 	x := &VirtUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -1272,8 +1272,8 @@ func (obj *VirtRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *VirtRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes VirtRes // indirection to avoid infinite recursion
 

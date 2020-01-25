@@ -34,10 +34,12 @@ func init() {
 	engine.RegisterResource("kv", func() engine.Res { return &KVRes{} })
 }
 
-// KVResSkipCmpStyle represents the different styles of comparison when using SkipLessThan.
+// KVResSkipCmpStyle represents the different styles of comparison when using
+// SkipLessThan.
 type KVResSkipCmpStyle int
 
-// These are the different allowed comparison styles. Most folks will want SkipCmpStyleInt.
+// These are the different allowed comparison styles. Most folks will want
+// SkipCmpStyleInt.
 const (
 	SkipCmpStyleInt KVResSkipCmpStyle = iota
 	SkipCmpStyleString
@@ -308,8 +310,8 @@ type KVUID struct {
 	name string
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *KVRes) UIDs() []engine.ResUID {
 	x := &KVUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -318,8 +320,8 @@ func (obj *KVRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *KVRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes KVRes // indirection to avoid infinite recursion
 

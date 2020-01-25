@@ -118,7 +118,8 @@ func (obj *changedStep) Action() error {
 }
 func (obj *changedStep) Expect() error { return nil }
 
-// NewChangedStep waits up to this many ms for a CheckApply action to occur. Watch function to startup.
+// NewChangedStep waits up to this many ms for a CheckApply action to occur.
+// Watch function to startup.
 func NewChangedStep(ms uint, expect bool) Step {
 	return &changedStep{
 		ms:     ms,

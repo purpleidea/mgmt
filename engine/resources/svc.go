@@ -419,7 +419,8 @@ func (obj *SvcResAutoEdges) Next() []engine.ResUID {
 	return []engine.ResUID{value} // we return one, even though api supports N
 }
 
-// Test gets results of the earlier Next() call, & returns if we should continue!
+// Test gets results of the earlier Next() call, & returns if we should
+// continue!
 func (obj *SvcResAutoEdges) Test(input []bool) bool {
 	// if there aren't any more remaining
 	if len(obj.data) <= obj.pointer {
@@ -513,8 +514,8 @@ func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
 	return engineUtil.AutoEdgeCombiner(fileEdge, cronEdge)
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *SvcRes) UIDs() []engine.ResUID {
 	x := &SvcUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -536,8 +537,8 @@ func (obj *SvcRes) UIDs() []engine.ResUID {
 //	return fmt.Errorf("not possible at the moment")
 //}
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *SvcRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes SvcRes // indirection to avoid infinite recursion
 

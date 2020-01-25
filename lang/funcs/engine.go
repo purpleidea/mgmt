@@ -131,7 +131,8 @@ type Engine struct {
 // Init initializes the struct. This is the first call you must make. Do not
 // proceed with calls to other methods unless this succeeds first. This also
 // loads all the functions by calling Init on each one in the graph.
-// TODO: should Init take the graph as an input arg to keep it as a private field?
+// TODO: should Init take the graph as an input arg to keep it as a private
+// field?
 func (obj *Engine) Init() error {
 	obj.ag = make(chan error)
 	obj.agLock = &sync.Mutex{}

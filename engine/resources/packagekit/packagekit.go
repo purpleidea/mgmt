@@ -37,7 +37,8 @@ const (
 	Paranoid = false // enable if you see any ghosts
 )
 
-// constants which might need to be tweaked or which contain special dbus strings.
+// constants which might need to be tweaked or which contain special dbus
+// strings.
 const (
 	// FIXME: if PkBufferSize is too low, install seems to drop signals
 	PkBufferSize = 1000
@@ -71,7 +72,7 @@ var (
 	}
 )
 
-//type enum_filter uint64
+// type enum_filter uint64
 // https://github.com/hughsie/PackageKit/blob/master/lib/packagekit-glib2/pk-enum.c
 const ( //static const PkEnumMatch enum_filter[]
 	PkFilterEnumUnknown        uint64 = 1 << iota // "unknown"
@@ -154,7 +155,8 @@ type Conn struct {
 	Logf  func(format string, v ...interface{})
 }
 
-// PkPackageIDActionData is a struct that is returned by PackagesToPackageIDs in the map values.
+// PkPackageIDActionData is a struct that is returned by PackagesToPackageIDs in
+// the map values.
 type PkPackageIDActionData struct {
 	Found     bool
 	Installed bool
@@ -185,7 +187,8 @@ func (obj *Conn) Close() error {
 	return obj.conn.Close()
 }
 
-// internal helper to add signal matches to the bus, should only be called once
+// matchSignal is an internal helper to add signal matches to the bus. It should
+// only be called once.
 func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface string, signals []string) (func() error, error) {
 	if obj.Debug {
 		obj.Logf("matchSignal(%v, %v, %s, %v)", ch, path, iface, signals)
@@ -565,7 +568,8 @@ loop:
 	return nil
 }
 
-// GetFilesByPackageID gets the list of files that are contained inside a list of packageIDs.
+// GetFilesByPackageID gets the list of files that are contained inside a list
+// of packageIDs.
 func (obj *Conn) GetFilesByPackageID(packageIDs []string) (files map[string][]string, err error) {
 	// NOTE: the maximum number of files in an RPM is 52116 in Fedora 23
 	// https://gist.github.com/purpleidea/b98e60dcd449e1ac3b8a
@@ -634,7 +638,8 @@ loop:
 	return
 }
 
-// GetUpdates gets a list of packages that are installed and which can be updated, mod filter.
+// GetUpdates gets a list of packages that are installed and which can be
+// updated, mod filter.
 func (obj *Conn) GetUpdates(filter uint64) ([]string, error) {
 	if obj.Debug {
 		obj.Logf("GetUpdates()")
@@ -876,7 +881,8 @@ func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 	return result, nil
 }
 
-// FilterPackageIDs returns a list of packageIDs which match the set of package names in packages.
+// FilterPackageIDs returns a list of packageIDs which match the set of package
+// names in packages.
 func FilterPackageIDs(m map[string]*PkPackageIDActionData, packages []string) ([]string, error) {
 	result := []string{}
 	for _, k := range packages {
@@ -890,7 +896,8 @@ func FilterPackageIDs(m map[string]*PkPackageIDActionData, packages []string) ([
 	return result, nil
 }
 
-// FilterState returns a map of whether each package queried matches the particular state.
+// FilterState returns a map of whether each package queried matches the
+// particular state.
 func FilterState(m map[string]*PkPackageIDActionData, packages []string, state string) (result map[string]bool, err error) {
 	result = make(map[string]bool)
 	pkgs := []string{} // bad pkgs that don't have a bool state
@@ -920,7 +927,8 @@ func FilterState(m map[string]*PkPackageIDActionData, packages []string, state s
 	return result, err
 }
 
-// FilterPackageState returns all packages that are in package and match the specific state.
+// FilterPackageState returns all packages that are in package and match the
+// specific state.
 func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, state string) (result []string, err error) {
 	result = []string{}
 	for _, k := range packages {
@@ -946,7 +954,8 @@ func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, 
 	return result, err
 }
 
-// FlagInData asks whether a flag exists inside the data portion of a packageID field?
+// FlagInData asks whether a flag exists inside the data portion of a packageID
+// field?
 func FlagInData(flag, data string) bool {
 	flags := strings.Split(data, ":")
 	for _, f := range flags {

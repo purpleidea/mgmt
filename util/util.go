@@ -70,8 +70,8 @@ func Uint64KeyFromStrInMap(needle string, haystack map[uint64]string) (uint64, b
 	return 0, false
 }
 
-// StrRemoveDuplicatesInList removes any duplicate values in the list.
-// This implementation is possibly sub-optimal (O(n^2)?) but preserves ordering.
+// StrRemoveDuplicatesInList removes any duplicate values in the list. This
+// implementation is possibly sub-optimal (O(n^2)?) but preserves ordering.
 func StrRemoveDuplicatesInList(list []string) []string {
 	unique := []string{}
 	for _, x := range list {
@@ -561,8 +561,8 @@ func SessionBusPrivateUsable() (conn *dbus.Conn, err error) {
 }
 
 // PriorityStrSliceSort filters any elements matching fn to the end of the list.
-// You can reverse the match result with a not to filter to the front instead!
-// A copy of the list is returned, the original is not modified.
+// You can reverse the match result with a not to filter to the front instead! A
+// copy of the list is returned, the original is not modified.
 func PriorityStrSliceSort(input []string, fn func(string) bool) []string {
 	output := []string{}
 	found := []string{}
@@ -605,9 +605,9 @@ func SortedStrSliceCompare(a, b []string) error {
 }
 
 // PathSlice is a type used to implement sort.Interface on a slice of strings,
-// where each string is a path. This allows you to call sort.Sort() on a list
-// of paths, after casting the []string{} to this type. Paths will be sorted
-// by depth in alphabetical order.
+// where each string is a path. This allows you to call sort.Sort() on a list of
+// paths, after casting the []string{} to this type. Paths will be sorted by
+// depth in alphabetical order.
 type PathSlice []string
 
 // Len returns the length of obj. It is required to satisfy sort.Interface.

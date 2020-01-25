@@ -35,8 +35,8 @@ import (
 )
 
 // SocketSet is used to receive events from a socket and shut it down cleanly
-// when asked. It contains a socket for events and a pipe socket to unblock receive
-// on shutdown.
+// when asked. It contains a socket for events and a pipe socket to unblock
+// receive on shutdown.
 type SocketSet struct {
 	fdEvents int
 	fdPipe   int
@@ -80,8 +80,8 @@ func NewSocketSet(groups uint32, name string, proto int) (*SocketSet, error) {
 }
 
 // ReceiveBytes waits for bytes from fdEvents and return a byte array truncated
-// to the message length. It will block until an event is produced, or shutdown is
-// called.
+// to the message length. It will block until an event is produced, or shutdown
+// is called.
 func (obj *SocketSet) ReceiveBytes() ([]byte, error) {
 	// Select will return when any fd in fdSet (fdEvents and fdPipe) is ready
 	// to read.

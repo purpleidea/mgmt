@@ -229,8 +229,8 @@ func (obj *ConfigEtcdRes) Interrupt() error {
 	return nil
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *ConfigEtcdRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes ConfigEtcdRes // indirection to avoid infinite recursion
 

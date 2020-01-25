@@ -66,8 +66,8 @@ func (obj *CPUCountFact) Init(init *facts.Init) error {
 }
 
 // Stream returns the changing values that this fact has over time. It will
-// first poll sysfs to get the initial cpu count, and then receives UEvents
-// from the kernel as CPUs are added/removed.
+// first poll sysfs to get the initial cpu count, and then receives UEvents from
+// the kernel as CPUs are added/removed.
 func (obj CPUCountFact) Stream() error {
 	defer close(obj.init.Output) // signal when we're done
 
@@ -178,8 +178,8 @@ func getCPUCount() (int64, error) {
 	return parseCPUList(string(dat))
 }
 
-// Parses a line of the form X,Y,Z,... where X,Y,Z can be either a single CPU or a
-// contiguous range of CPUs. e.g. "2,4-31,32-63". If there is an error parsing
+// Parses a line of the form X,Y,Z,... where X,Y,Z can be either a single CPU or
+// a contiguous range of CPUs. e.g. "2,4-31,32-63". If there is an error parsing
 // the line the function will return 0.
 func parseCPUList(list string) (int64, error) {
 	var count int64

@@ -44,14 +44,16 @@ func init() {
 	})
 }
 
-// GetEnv gets environment variable by name or returns empty string if non existing.
+// GetEnv gets environment variable by name or returns empty string if non
+// existing.
 func GetEnv(input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: os.Getenv(input[0].Str()),
 	}, nil
 }
 
-// DefaultEnv gets environment variable by name or returns default if non existing.
+// DefaultEnv gets environment variable by name or returns default if non
+// existing.
 func DefaultEnv(input []types.Value) (types.Value, error) {
 	value, exists := os.LookupEnv(input[0].Str())
 	if !exists {

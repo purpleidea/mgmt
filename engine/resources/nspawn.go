@@ -73,8 +73,8 @@ func (obj *NspawnRes) Default() engine.Res {
 	}
 }
 
-// makeComposite creates a pointer to a SvcRes. The pointer is used to
-// validate and initialize the nested svc.
+// makeComposite creates a pointer to a SvcRes. The pointer is used to validate
+// and initialize the nested svc.
 func (obj *NspawnRes) makeComposite() (*SvcRes, error) {
 	res, err := engine.NewNamedResource("svc", fmt.Sprintf(nspawnServiceTmpl, obj.Name()))
 	if err != nil {
@@ -304,8 +304,8 @@ func (obj *NspawnUID) IFF(uid engine.ResUID) bool {
 	return obj.name == res.name
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one although some resources can return multiple.
 func (obj *NspawnRes) UIDs() []engine.ResUID {
 	x := &NspawnUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -314,8 +314,8 @@ func (obj *NspawnRes) UIDs() []engine.ResUID {
 	return append([]engine.ResUID{x}, obj.svc.UIDs()...)
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *NspawnRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes NspawnRes // indirection to avoid infinite recursion
 

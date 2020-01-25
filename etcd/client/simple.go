@@ -372,10 +372,8 @@ func (obj *Simple) Watcher(ctx context.Context, path string, opts ...etcd.OpOpti
 // will return an error. Remember to add the WithPrefix() option if you want to
 // watch recursively.
 // TODO: do we need to support retry and changed client connections?
-// XXX: do we need to track last successful revision and retry from there?
-// XXX: if so, use:
-// lastRev := response.Header.Revision // TODO: +1 ?
-// etcd.WithRev(rev)
+// XXX: do we need to track last successful revision and retry from there? If so
+// use: lastRev := response.Header.Revision // TODO: +1 ? and: etcd.WithRev(rev)
 func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd.OpOption) (*interfaces.WatcherInfo, error) {
 	if obj.client == nil { // catch bugs, this often means programming error
 		return nil, fmt.Errorf("client is nil") // extra safety!

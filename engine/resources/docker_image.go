@@ -241,8 +241,8 @@ type DockerImageUID struct {
 	image string
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *DockerImageRes) UIDs() []engine.ResUID {
 	x := &DockerImageUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -265,8 +265,8 @@ func (obj *DockerImageUID) IFF(uid engine.ResUID) bool {
 	return obj.image == res.image
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *DockerImageRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes DockerImageRes // indirection to avoid infinite recursion
 

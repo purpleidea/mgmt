@@ -255,8 +255,8 @@ func (obj *TftpServerRes) Cmp(r engine.Res) error {
 //	}
 //}
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *TftpServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes TftpServerRes // indirection to avoid infinite recursion
 
@@ -275,9 +275,9 @@ func (obj *TftpServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error
 	return nil
 }
 
-// GroupCmp returns whether two resources can be grouped together or not.
-// Can these two resources be merged, aka, does this resource support doing so?
-// Will resource allow itself to be grouped _into_ this obj?
+// GroupCmp returns whether two resources can be grouped together or not. Can
+// these two resources be merged, aka, does this resource support doing so? Will
+// resource allow itself to be grouped _into_ this obj?
 func (obj *TftpServerRes) GroupCmp(r engine.GroupableRes) error {
 	res, ok := r.(*TftpFileRes) // different from what we usually do!
 	if !ok {
@@ -582,8 +582,8 @@ func (obj *TftpFileRes) Cmp(r engine.Res) error {
 	return nil
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *TftpFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes TftpFileRes // indirection to avoid infinite recursion
 

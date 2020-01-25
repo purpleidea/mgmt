@@ -13,8 +13,8 @@ import (
 	"time"
 )
 
-// you can use `wget http://127.0.0.1:12345/hello -O /dev/null`
-// or `go run client.go`
+// you can use `wget http://127.0.0.1:12345/hello -O /dev/null` or you can run
+// `go run client.go`
 const (
 	addr = ":12345"
 )

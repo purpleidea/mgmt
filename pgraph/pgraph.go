@@ -26,8 +26,8 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-// Graph is the graph structure in this library.
-// The graph abstract data type (ADT) is defined as follows:
+// Graph is the graph structure in this library. The graph abstract data type
+// (ADT) is defined as follows:
 // * the directed graph arrows point from left to right ( -> )
 // * the arrows point away from their dependencies (eg: arrows mean "before")
 // * IOW, you might see package -> file -> service (where package runs first)
@@ -197,8 +197,8 @@ func (g *Graph) FindEdge(v1, v2 Vertex) Edge {
 	return edge
 }
 
-// Vertices returns a randomly sorted slice of all vertices in the graph.
-// The order is random, because the map implementation is intentionally so!
+// Vertices returns a randomly sorted slice of all vertices in the graph. The
+// order is random, because the map implementation is intentionally so!
 func (g *Graph) Vertices() []Vertex {
 	var vertices []Vertex
 	for k := range g.adjacency {
@@ -207,8 +207,8 @@ func (g *Graph) Vertices() []Vertex {
 	return vertices
 }
 
-// Edges returns a randomly sorted slice of all edges in the graph.
-// The order is random, because the map implementation is intentionally so!
+// Edges returns a randomly sorted slice of all edges in the graph. The order is
+// random, because the map implementation is intentionally so!
 func (g *Graph) Edges() []Edge {
 	var edges []Edge
 	for vertex := range g.adjacency {
@@ -246,8 +246,8 @@ func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String
 // Sort is a convenience method.
 func (vs VertexSlice) Sort() { sort.Sort(vs) }
 
-// VerticesSorted returns a sorted slice of all vertices in the graph.
-// The order is sorted by String() to avoid the non-determinism in the map type.
+// VerticesSorted returns a sorted slice of all vertices in the graph. The order
+// is sorted by String() to avoid the non-determinism in the map type.
 func (g *Graph) VerticesSorted() []Vertex {
 	var vertices []Vertex
 	for k := range g.adjacency {
@@ -321,8 +321,8 @@ func (g *Graph) OutgoingGraphVertices(v Vertex) []Vertex {
 	return s
 }
 
-// GraphVertices returns an array (slice) of all vertices that connect to vertex v.
-// This is the union of IncomingGraphVertices and OutgoingGraphVertices.
+// GraphVertices returns an array (slice) of all vertices that connect to vertex
+// v. This is the union of IncomingGraphVertices and OutgoingGraphVertices.
 func (g *Graph) GraphVertices(v Vertex) []Vertex {
 	var s []Vertex
 	s = append(s, g.IncomingGraphVertices(v)...)
@@ -330,7 +330,8 @@ func (g *Graph) GraphVertices(v Vertex) []Vertex {
 	return s
 }
 
-// IncomingGraphEdges returns all of the edges that point to vertex v (??? -> v).
+// IncomingGraphEdges returns all of the edges that point to vertex v.
+// Eg: (??? -> v).
 func (g *Graph) IncomingGraphEdges(v Vertex) []Edge {
 	var edges []Edge
 	for v1 := range g.adjacency { // reverse paths
@@ -343,7 +344,8 @@ func (g *Graph) IncomingGraphEdges(v Vertex) []Edge {
 	return edges
 }
 
-// OutgoingGraphEdges returns all of the edges that point from vertex v (v -> ???).
+// OutgoingGraphEdges returns all of the edges that point from vertex v.
+// Eg: (v -> ???).
 func (g *Graph) OutgoingGraphEdges(v Vertex) []Edge {
 	var edges []Edge
 	for _, e := range g.adjacency[v] { // forward paths
@@ -435,7 +437,8 @@ func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 	return graphs, nil
 }
 
-// InDegree returns the count of vertices that point to me in one big lookup map.
+// InDegree returns the count of vertices that point to me in one big lookup
+// map.
 func (g *Graph) InDegree() map[Vertex]int {
 	result := make(map[Vertex]int)
 	if g == nil || g.adjacency == nil {
@@ -453,7 +456,8 @@ func (g *Graph) InDegree() map[Vertex]int {
 	return result
 }
 
-// OutDegree returns the count of vertices that point away in one big lookup map.
+// OutDegree returns the count of vertices that point away in one big lookup
+// map.
 func (g *Graph) OutDegree() map[Vertex]int {
 	result := make(map[Vertex]int)
 	if g == nil || g.adjacency == nil {
@@ -468,8 +472,8 @@ func (g *Graph) OutDegree() map[Vertex]int {
 	return result
 }
 
-// TopologicalSort returns the sort of graph vertices in that order.
-// It is based on descriptions and code from wikipedia and rosetta code.
+// TopologicalSort returns the sort of graph vertices in that order. It is based
+// on descriptions and code from wikipedia and rosetta code.
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	var L []Vertex                    // empty list that will contain the sorted elements
@@ -523,6 +527,7 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 // Since there could be more than one possible result for this operation, we
 // arbitrarily choose one of the shortest possible. As a result, this should
 // actually return a tree if we cared about correctness.
+//
 // This operates by a recursive algorithm; a more efficient version is likely.
 // If you don't give this function a DAG, you might cause infinite recursion!
 func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
@@ -667,7 +672,8 @@ Loop:
 	return nil // success!
 }
 
-// VertexContains is an "in array" function to test for a vertex in a slice of vertices.
+// VertexContains is an "in array" function to test for a vertex in a slice of
+// vertices.
 func VertexContains(needle Vertex, haystack []Vertex) bool {
 	for _, v := range haystack {
 		if needle == v {
@@ -677,7 +683,8 @@ func VertexContains(needle Vertex, haystack []Vertex) bool {
 	return false
 }
 
-// EdgeContains is an "in array" function to test for an edge in a slice of edges.
+// EdgeContains is an "in array" function to test for an edge in a slice of
+// edges.
 func EdgeContains(needle Edge, haystack []Edge) bool {
 	for _, v := range haystack {
 		if needle == v {

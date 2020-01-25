@@ -183,6 +183,7 @@ crossbuild_targets = $(addprefix build/mgmt-,$(subst /,-,${GOOSARCHES}))
 crossbuild: ${crossbuild_targets}
 
 clean: ## clean things up
+	$(MAKE) --quiet -C test clean
 	$(MAKE) --quiet -C bindata clean
 	$(MAKE) --quiet -C lang/funcs clean
 	$(MAKE) --quiet -C lang clean
@@ -196,6 +197,8 @@ clean: ## clean things up
 	rm -f build/mgmt-*
 
 test: build ## run tests
+	@# recursively run make in child dir named test
+	@$(MAKE) --quiet -C test
 	./test.sh
 
 # create all test targets for make tab completion (eg: make test-gofmt)

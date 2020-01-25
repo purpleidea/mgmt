@@ -46,8 +46,8 @@ const (
 	ResStateHardFail
 )
 
-// Prometheus is the struct that contains information about the
-// prometheus instance. Run Init() on it.
+// Prometheus is the struct that contains information about the prometheus
+// instance. Run Init() on it.
 type Prometheus struct {
 	Listen string // the listen specification for the net/http server
 
@@ -133,8 +133,8 @@ func (obj *Prometheus) Init() error {
 	return nil
 }
 
-// Start runs a http server in a go routine, that responds to /metrics
-// as prometheus would expect.
+// Start runs a http server in a go routine, that responds to /metrics as
+// prometheus would expect.
 func (obj *Prometheus) Start() error {
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(obj.Listen, nil)
@@ -148,8 +148,8 @@ func (obj *Prometheus) Stop() error {
 	return nil
 }
 
-// InitKindMetrics initialized prometheus counters. For each kind of
-// resource checkApply counters are initialized with all the possible value.
+// InitKindMetrics initialized prometheus counters. For each kind of resource,
+// checkApply counters are initialized with all the possible value.
 func (obj *Prometheus) InitKindMetrics(kinds []string) error {
 	if obj == nil {
 		return nil // happens when mgmt is launched without --prometheus
@@ -194,8 +194,8 @@ func (obj *Prometheus) UpdateCheckApplyTotal(kind string, apply, eventful, error
 	return nil
 }
 
-// UpdatePgraphStartTime updates the mgmt_graph_start_time_seconds metric
-// to the current timestamp.
+// UpdatePgraphStartTime updates the mgmt_graph_start_time_seconds metric to the
+// current timestamp.
 func (obj *Prometheus) UpdatePgraphStartTime() error {
 	if obj == nil {
 		return nil // happens when mgmt is launched without --prometheus
@@ -204,7 +204,8 @@ func (obj *Prometheus) UpdatePgraphStartTime() error {
 	return nil
 }
 
-// AddManagedResource increments the Managed Resource counter and updates the resource status.
+// AddManagedResource increments the Managed Resource counter and updates the
+// resource status.
 func (obj *Prometheus) AddManagedResource(resUUID string, rtype string) error {
 	if obj == nil {
 		return nil // happens when mgmt is launched without --prometheus
@@ -216,7 +217,8 @@ func (obj *Prometheus) AddManagedResource(resUUID string, rtype string) error {
 	return nil
 }
 
-// RemoveManagedResource decrements the Managed Resource counter and updates the resource status.
+// RemoveManagedResource decrements the Managed Resource counter and updates the
+// resource status.
 func (obj *Prometheus) RemoveManagedResource(resUUID string, rtype string) error {
 	if obj == nil {
 		return nil // happens when mgmt is launched without --prometheus
@@ -228,7 +230,8 @@ func (obj *Prometheus) RemoveManagedResource(resUUID string, rtype string) error
 	return nil
 }
 
-// deleteState removes the resources for the state map and re-populates the failing gauge.
+// deleteState removes the resources for the state map and re-populates the
+// failing gauge.
 func (obj *Prometheus) deleteState(resUUID string) error {
 	if obj == nil {
 		return nil // happens when mgmt is launched without --prometheus
@@ -242,8 +245,8 @@ func (obj *Prometheus) deleteState(resUUID string) error {
 	return nil
 }
 
-// UpdateState updates the state of the resources in our internal state map
-// then triggers a refresh of the failing gauge.
+// UpdateState updates the state of the resources in our internal state map then
+// triggers a refresh of the failing gauge.
 func (obj *Prometheus) UpdateState(resUUID string, rtype string, newState ResState) error {
 	defer obj.updateFailingGauge()
 	if obj == nil {
@@ -266,8 +269,8 @@ func (obj *Prometheus) UpdateState(resUUID string, rtype string, newState ResSta
 	return nil
 }
 
-// updateFailingGauge refreshes the failing gauge by parsking the internal
-// state map.
+// updateFailingGauge refreshes the failing gauge by parsking the internal state
+// map.
 func (obj *Prometheus) updateFailingGauge() error {
 	if obj == nil {
 		return nil // happens when mgmt is launched without --prometheus

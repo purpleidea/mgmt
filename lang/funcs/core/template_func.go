@@ -86,9 +86,9 @@ func (obj *TemplateFunc) ArgGen(index int) (string, error) {
 // case, since the second argument can be an infinite number of values, it
 // instead returns either the final precise type (if it can be gleamed from the
 // input partials) or if it cannot, it returns a single entry with the complete
-// type but with the variable second argument specified as a `variant` type.
-// If it encounters any partial type specifications which are not possible, then
-// it errors out. This could happen if you specified a non string template arg.
+// type but with the variable second argument specified as a `variant` type. If
+// it encounters any partial type specifications which are not possible, then it
+// errors out. This could happen if you specified a non string template arg.
 // XXX: is there a better API than returning a buried `variant` type?
 func (obj *TemplateFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	// TODO: return `variant` as second arg for now -- maybe there's a better way?

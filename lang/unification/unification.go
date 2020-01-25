@@ -906,8 +906,8 @@ func (obj *ExclusiveInvariant) simplify(partials []interfaces.Invariant) ([]inte
 }
 
 // exclusivesProduct returns a list of different products produced from the
-// combinatorial product of the list of exclusives. Each ExclusiveInvariant
-// must contain between one and more Invariants. This takes every combination of
+// combinatorial product of the list of exclusives. Each ExclusiveInvariant must
+// contain between one and more Invariants. This takes every combination of
 // Invariants (choosing one from each ExclusiveInvariant) and returns that list.
 // In other words, if you have three exclusives, with invariants named (A1, B1),
 // (A2), and (A3, B3, C3) you'll get: (A1, A2, A3), (A1, A2, B3), (A1, A2, C3),

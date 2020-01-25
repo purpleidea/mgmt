@@ -72,8 +72,8 @@ type Type struct {
 // cannot represent the type in our type system. Common examples of things it
 // cannot express include reflect.Invalid, reflect.Interface, Reflect.Complex128
 // and more. It is not reversible because some information may be either added
-// or lost. For example, reflect.Array and reflect.Slice are both converted to
-// a Type of KindList, and KindFunc names the arguments of a func sequentially.
+// or lost. For example, reflect.Array and reflect.Slice are both converted to a
+// Type of KindList, and KindFunc names the arguments of a func sequentially.
 // The lossy inverse of this is Reflect.
 func TypeOf(t reflect.Type) (*Type, error) {
 	typ := t

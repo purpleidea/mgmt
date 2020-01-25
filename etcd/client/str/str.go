@@ -37,8 +37,9 @@ const (
 // something goes wrong.
 // XXX: since the caller of this (via the World API) has no way to tell it it's
 // done, does that mean we leak go-routines since it might still be running, but
-// perhaps even blocked??? Could this cause a dead-lock? Should we instead return
-// some sort of struct which has a close method with it to ask for a shutdown?
+// perhaps even blocked??? Could this cause a dead-lock? Should we instead
+// return some sort of struct which has a close method with it to ask for a
+// shutdown?
 func WatchStr(ctx context.Context, client interfaces.Client, key string) (chan error, error) {
 	// new key structure is $NS/strings/$key = $data
 	path := fmt.Sprintf("%s/strings/%s", ns, key)
@@ -70,8 +71,8 @@ func GetStr(ctx context.Context, client interfaces.Client, key string) (string, 
 	return val, nil
 }
 
-// SetStr sets a key and hostname pair to a certain value. If the value is
-// nil, then it deletes the key. Otherwise the value should point to a string.
+// SetStr sets a key and hostname pair to a certain value. If the value is nil,
+// then it deletes the key. Otherwise the value should point to a string.
 // TODO: TTL or delete disconnect?
 func SetStr(ctx context.Context, client interfaces.Client, key string, data *string) error {
 	// key structure is $NS/strings/$key = $data

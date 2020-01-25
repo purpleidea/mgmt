@@ -132,7 +132,8 @@ func (obj *World) StrDel(ctx context.Context, namespace string) error {
 	return str.SetStr(ctx, obj.Client, namespace, nil)
 }
 
-// StrMapWatch returns a channel which spits out events on possible string changes.
+// StrMapWatch returns a channel which spits out events on possible string
+// changes.
 func (obj *World) StrMapWatch(ctx context.Context, namespace string) (chan error, error) {
 	return strmap.WatchStrMap(ctx, obj.Client, namespace)
 }

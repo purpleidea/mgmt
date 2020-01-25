@@ -82,9 +82,9 @@ var (
 // update the metadata pointer to point to the new blob. This might seem slow,
 // but it has the unique advantage of being relatively straight forward to
 // implement, and repeated uploads of the same file cost almost nothing. Since
-// etcd isn't meant for large file systems, this fits the desired use case.
-// This implementation is designed to have a single writer for each superblock,
-// but as many readers as you like.
+// etcd isn't meant for large file systems, this fits the desired use case. This
+// implementation is designed to have a single writer for each superblock, but
+// as many readers as you like.
 // FIXME: this is not currently thread-safe, nor is it clear if it needs to be.
 // XXX: we probably aren't updating the modification time everywhere we should!
 // XXX: because we never delete data blocks, we need to occasionally "vacuum".
@@ -656,10 +656,10 @@ func (obj *Fs) RemoveAll(path string) error {
 }
 
 // Rename moves or renames a file or directory.
-// TODO: seems it's okay to move files or directories, but you can't clobber dirs
-// but you can clobber single files. a dir can't clobber a file and a file can't
-// clobber a dir. but a file can clobber another file but a dir can't clobber
-// another dir. you can also transplant dirs or files into other dirs.
+// TODO: seems it's okay to move files or directories, but you can't clobber
+// dirs but you can clobber single files. a dir can't clobber a file and a file
+// can't clobber a dir. but a file can clobber another file but a dir can't
+// clobber another dir. you can also transplant dirs or files into other dirs.
 func (obj *Fs) Rename(oldname, newname string) error {
 	// XXX: do we need to check if dest path is inside src path?
 	// XXX: if dirs/files are next to each other, do we mess up the .Children list of the common parent?

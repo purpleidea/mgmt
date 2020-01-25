@@ -121,8 +121,8 @@ const (
 )
 
 // AwsRegions is a list of all AWS regions generated using ec2.DescribeRegions.
-// cn-north-1 and us-gov-west-1 are not returned, probably due to security.
-// List available at http://docs.aws.amazon.com/general/latest/gr/rande.html
+// cn-north-1 and us-gov-west-1 are not returned, probably due to security. List
+// available at http://docs.aws.amazon.com/general/latest/gr/rande.html
 var AwsRegions = []string{
 	"ap-northeast-1",
 	"ap-northeast-2",
@@ -187,7 +187,8 @@ type AwsEc2Res struct {
 	InstanceID  string
 }
 
-// chanStruct defines the type for a channel used to pass events and errors to watch.
+// chanStruct defines the type for a channel used to pass events and errors to
+// watch.
 type chanStruct struct {
 	event awsEc2Event
 	state string
@@ -233,7 +234,8 @@ type ruleDetail struct {
 	State []string `json:"state"`
 }
 
-// postData is the format of the messages received and decoded by snsPostHandler().
+// postData is the format of the messages received and decoded by
+// snsPostHandler().
 type postData struct {
 	Type             string `json:"Type"`
 	MessageID        string `json:"MessageId"`
@@ -247,7 +249,8 @@ type postData struct {
 	SigningCertURL   string `json:"SigningCertURL"`
 }
 
-// postMsg is used to unmarshal the postData message if it's an event notification.
+// postMsg is used to unmarshal the postData message if it's an event
+// notification.
 type postMsg struct {
 	InstanceID string `json:"instance-id"`
 	State      string `json:"state"`
@@ -413,7 +416,8 @@ func (obj *AwsEc2Res) Watch() error {
 	return obj.longpollWatch()
 }
 
-// longpollWatch uses the ec2 api's built in methods to watch ec2 resource state.
+// longpollWatch uses the ec2 api's built in methods to watch ec2 resource
+// state.
 func (obj *AwsEc2Res) longpollWatch() error {
 	send := false
 
@@ -510,10 +514,10 @@ func (obj *AwsEc2Res) longpollWatch() error {
 }
 
 // snsWatch uses amazon's SNS and CloudWatchEvents APIs to get instance state-
-// change notifications pushed to the http endpoint (snsServer) set up below.
-// In Init() a CloudWatch rule is created along with a corresponding SNS topic
-// that it can publish to. snsWatch creates an http server which listens for
-// messages published to the topic and processes them accordingly.
+// change notifications pushed to the http endpoint (snsServer) set up below. In
+// Init() a CloudWatch rule is created along with a corresponding SNS topic that
+// it can publish to. snsWatch creates an http server which listens for messages
+// published to the topic and processes them accordingly.
 func (obj *AwsEc2Res) snsWatch() error {
 	send := false
 	defer obj.wg.Wait()
@@ -795,8 +799,8 @@ type AwsEc2UID struct {
 	name string
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *AwsEc2Res) UIDs() []engine.ResUID {
 	x := &AwsEc2UID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -805,8 +809,8 @@ func (obj *AwsEc2Res) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *AwsEc2Res) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes AwsEc2Res // indirection to avoid infinite recursion
 
@@ -942,8 +946,8 @@ func (obj *AwsEc2Res) snsVerifySignature(post postData) error {
 	return nil
 }
 
-// snsGetCert downloads and parses the signing certificate from the provided
-// URL for message verification.
+// snsGetCert downloads and parses the signing certificate from the provided URL
+// for message verification.
 func (obj *AwsEc2Res) snsGetCert(url string) (*x509.Certificate, error) {
 	// only download valid certificates from amazon
 	matchURL, err := regexp.MatchString(SnsCertURLRegex, url)
@@ -1035,8 +1039,8 @@ func (obj *AwsEc2Res) snsDeleteTopic(topicArn string) error {
 	return nil
 }
 
-// snsSubscribe subscribes the endpoint to the sns topic.
-// Returning SubscriptionArn here is useless as it is still pending confirmation.
+// snsSubscribe subscribes the endpoint to the sns topic. Returning
+// SubscriptionArn here is useless as it is still pending confirmation.
 func (obj *AwsEc2Res) snsSubscribe(endpoint string, topicArn string) error {
 	// subscribe to the topic
 	subInput := &sns.SubscribeInput{
@@ -1052,8 +1056,8 @@ func (obj *AwsEc2Res) snsSubscribe(endpoint string, topicArn string) error {
 	return nil
 }
 
-// snsConfirmSubscription confirms the sns subscription.
-// Returning SubscriptionArn here is useless as it is still pending confirmation.
+// snsConfirmSubscription confirms the sns subscription. Returning
+// SubscriptionArn here is useless as it is still pending confirmation.
 func (obj *AwsEc2Res) snsConfirmSubscription(topicArn string, token string) error {
 	// confirm the subscription
 	csInput := &sns.ConfirmSubscriptionInput{
@@ -1105,7 +1109,8 @@ func (obj *AwsEc2Res) snsProcessEvent(message, instanceName string) (awsEc2Event
 	return awsEc2EventNone, nil
 }
 
-// snsAuthorize adds the necessary permission for cloudwatch to publish to the SNS topic.
+// snsAuthorize adds the necessary permission for cloudwatch to publish to the
+// SNS topic.
 func (obj *AwsEc2Res) snsAuthorizeCloudWatch(topicArn string) error {
 	// get the topic attributes, including the security policy
 	gaInput := &sns.GetTopicAttributesInput{

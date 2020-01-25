@@ -124,8 +124,8 @@ func (obj *AugeasRes) Close() error {
 	return nil
 }
 
-// Watch is the primary listener for this resource and it outputs events.
-// Taken from the File resource.
+// Watch is the primary listener for this resource and it outputs events. This
+// was taken from the File resource.
 // FIXME: DRY - This is taken from the file resource
 func (obj *AugeasRes) Watch() error {
 	var err error
@@ -301,8 +301,8 @@ func (obj *AugeasRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *AugeasRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes AugeasRes // indirection to avoid infinite recursion
 

@@ -25,8 +25,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// TestInitKindMetrics tests that we are initializing the Prometheus
-// metrics correctly for all kind of resources.
+// TestInitKindMetrics tests that we are initializing the Prometheus metrics
+// correctly for all kinds of resources.
 func TestInitKindMetrics(t *testing.T) {
 	var prom Prometheus
 	prom.Init()

@@ -71,7 +71,8 @@ func Import(privKeyPath string) (*PGP, error) {
 	return obj, nil
 }
 
-// Generate creates new key pair. This key pair must be saved or it will be lost.
+// Generate creates new key pair. This key pair must be saved or it will be
+// lost.
 func Generate(name, comment, email string, hash *crypto.Hash) (*PGP, error) {
 	if hash != nil {
 		CONFIG.DefaultHash = *hash

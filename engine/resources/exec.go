@@ -553,7 +553,8 @@ func (obj *ExecResAutoEdges) Next() []engine.ResUID {
 	return obj.edges
 }
 
-// Test gets results of the earlier Next() call, & returns if we should continue!
+// Test gets results of the earlier Next() call, & returns if we should
+// continue!
 func (obj *ExecResAutoEdges) Test(input []bool) bool {
 	return false // never keep going
 	// TODO: we could return false if we find as many edges as the number of different path's in cmdFiles()
@@ -578,8 +579,8 @@ func (obj *ExecRes) AutoEdges() (engine.AutoEdge, error) {
 	}, nil
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *ExecRes) UIDs() []engine.ResUID {
 	x := &ExecUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -609,8 +610,8 @@ func (obj *ExecRes) Sends() interface{} {
 	}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *ExecRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes ExecRes // indirection to avoid infinite recursion
 
@@ -690,9 +691,9 @@ type cmdOutput struct {
 }
 
 // cmdOutputRunner wraps the Cmd in with a StdoutPipe scanner and reads for
-// errors. It runs Start and Wait, and errors runtime things in the channel.
-// If it can't start up the command, it will fail early. Once it's running, it
-// will return the channel which can be used for the duration of the process.
+// errors. It runs Start and Wait, and errors runtime things in the channel. If
+// it can't start up the command, it will fail early. Once it's running, it will
+// return the channel which can be used for the duration of the process.
 // Cancelling the context merely unblocks the sending on the output channel, it
 // does not Kill the cmd process. For that you must do it yourself elsewhere.
 func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *cmdOutput, error) {

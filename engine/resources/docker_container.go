@@ -450,7 +450,8 @@ func (obj *DockerContainerResAutoEdges) Next() []engine.ResUID {
 	return []engine.ResUID{value}
 }
 
-// Test gets results of the earlier Next() call, & returns if we should continue.
+// Test gets results of the earlier Next() call, & returns if we should
+// continue.
 func (obj *DockerContainerResAutoEdges) Test(input []bool) bool {
 	if len(obj.UIDs) <= obj.pointer {
 		return false
@@ -461,8 +462,8 @@ func (obj *DockerContainerResAutoEdges) Test(input []bool) bool {
 	return true // keep going
 }
 
-// UIDs includes all params to make a unique identification of this object.
-// Most resources only return one, although some resources can return multiple.
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
 func (obj *DockerContainerRes) UIDs() []engine.ResUID {
 	x := &DockerContainerUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
@@ -471,8 +472,8 @@ func (obj *DockerContainerRes) UIDs() []engine.ResUID {
 	return []engine.ResUID{x}
 }
 
-// UnmarshalYAML is the custom unmarshal handler for this struct.
-// It is primarily useful for setting the defaults.
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *DockerContainerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes DockerContainerRes // indirection to avoid infinite recursion
 

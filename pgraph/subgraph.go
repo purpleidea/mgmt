@@ -22,36 +22,36 @@ func (g *Graph) AddGraph(graph *Graph) {
 	g.addEdgeVertexGraphHelper(nil, graph, nil, false, false)
 }
 
-// AddEdgeVertexGraph adds a directed edge to the graph from a vertex.
-// This is useful for flattening the relationship between a subgraph and an
-// existing graph, without having to run the subgraph recursively. It adds the
-// maximum number of edges, creating a relationship to every vertex.
+// AddEdgeVertexGraph adds a directed edge to the graph from a vertex. This is
+// useful for flattening the relationship between a subgraph and an existing
+// graph, without having to run the subgraph recursively. It adds the maximum
+// number of edges, creating a relationship to every vertex.
 func (g *Graph) AddEdgeVertexGraph(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge) {
 	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, false, false)
 }
 
-// AddEdgeVertexGraphLight adds a directed edge to the graph from a vertex.
-// This is useful for flattening the relationship between a subgraph and an
-// existing graph, without having to run the subgraph recursively. It adds the
-// minimum number of edges, creating a relationship to the vertices with
-// indegree equal to zero.
+// AddEdgeVertexGraphLight adds a directed edge to the graph from a vertex. This
+// is useful for flattening the relationship between a subgraph and an existing
+// graph, without having to run the subgraph recursively. It adds the minimum
+// number of edges, creating a relationship to the vertices with indegree equal
+// to zero.
 func (g *Graph) AddEdgeVertexGraphLight(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge) {
 	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, false, true)
 }
 
-// AddEdgeGraphVertex adds a directed edge to the vertex from a graph.
-// This is useful for flattening the relationship between a subgraph and an
-// existing graph, without having to run the subgraph recursively. It adds the
-// maximum number of edges, creating a relationship from every vertex.
+// AddEdgeGraphVertex adds a directed edge to the vertex from a graph. This is
+// useful for flattening the relationship between a subgraph and an existing
+// graph, without having to run the subgraph recursively. It adds the maximum
+// number of edges, creating a relationship from every vertex.
 func (g *Graph) AddEdgeGraphVertex(graph *Graph, vertex Vertex, edgeGenFn func(v1, v2 Vertex) Edge) {
 	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, true, false)
 }
 
-// AddEdgeGraphVertexLight adds a directed edge to the vertex from a graph.
-// This is useful for flattening the relationship between a subgraph and an
-// existing graph, without having to run the subgraph recursively. It adds the
-// minimum number of edges, creating a relationship from the vertices with
-// outdegree equal to zero.
+// AddEdgeGraphVertexLight adds a directed edge to the vertex from a graph. This
+// is useful for flattening the relationship between a subgraph and an existing
+// graph, without having to run the subgraph recursively. It adds the minimum
+// number of edges, creating a relationship from the vertices with outdegree
+// equal to zero.
 func (g *Graph) AddEdgeGraphVertexLight(graph *Graph, vertex Vertex, edgeGenFn func(v1, v2 Vertex) Edge) {
 	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, true, true)
 }

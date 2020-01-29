@@ -68,6 +68,8 @@ labels:
     color: e11d21
   - name: question
     color: cc317c
+  - name: needinfo
+    color: fbca04
   - name: wontfix
     color: ffffff
 #  - name: first-timers-only

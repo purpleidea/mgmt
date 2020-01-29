@@ -37,7 +37,7 @@ func TestInstance0(t *testing.T) {
 
 	file "${root}/mgmt-hello-world" {
 		content => "hello world from @purpleidea\n",
-		state => "exists",
+		state => $const.res.file.state.exists,
 	}
 	`
 	m := Instance{
@@ -82,7 +82,7 @@ func TestInstance1(t *testing.T) {
 
 		file "${root}/mgmt-hello-world" {
 			content => "hello world from @purpleidea\n",
-			state => "exists",
+			state => $const.res.file.state.exists,
 		}
 		`)
 		testCases = append(testCases, test{
@@ -170,7 +170,7 @@ func TestCluster1(t *testing.T) {
 
 		file "${root}/mgmt-hostname" {
 			content => "i am ${sys.hostname()}\n",
-			state => "exists",
+			state => $const.res.file.state.exists,
 		}
 		`)
 		testCases = append(testCases, test{
@@ -195,7 +195,7 @@ func TestCluster1(t *testing.T) {
 
 		file "${root}/mgmt-hostname" {
 			content => "i am ${sys.hostname()}\n",
-			state => "exists",
+			state => $const.res.file.state.exists,
 		}
 		`)
 		testCases = append(testCases, test{

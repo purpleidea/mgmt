@@ -35,16 +35,46 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/lang/funcs/vars"
+	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 func init() {
-	engine.RegisterResource("file", func() engine.Res { return &FileRes{} })
+	engine.RegisterResource(KindFile, func() engine.Res { return &FileRes{} })
+
+	// const.res.file.state.exists = "exists"
+	// const.res.file.state.absent = "absent"
+	vars.RegisterResourceParams(KindFile, map[string]map[string]func() interfaces.Var{
+		ParamFileState: {
+			FileStateExists: func() interfaces.Var {
+				return &types.StrValue{
+					V: FileStateExists,
+				}
+			},
+			FileStateAbsent: func() interfaces.Var {
+				return &types.StrValue{
+					V: FileStateAbsent,
+				}
+			},
+			// TODO: consider removing this field entirely
+			"undefined": func() interfaces.Var {
+				return &types.StrValue{
+					V: FileStateUndefined, // empty string
+				}
+			},
+		},
+	})
 }
 
 const (
+	// KindFile is the kind string used to identify this resource.
+	KindFile = "file"
+	// ParamFileState is the name of the state field parameter.
+	ParamFileState = "state"
 	// FileStateExists is the string that represents that the file should be
 	// present.
 	FileStateExists = "exists"
@@ -975,7 +1005,7 @@ func (obj *FileRes) sourceCheckApply(apply bool) (bool, error) {
 				// programming error
 				return false, fmt.Errorf("not a Res")
 			}
-			if res.Kind() != "file" {
+			if res.Kind() != KindFile {
 				continue // only interested in files
 			}
 			if res.Name() == obj.Name() {
@@ -1582,7 +1612,7 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 func (obj *FileRes) GraphQueryAllowed(opts ...engine.GraphQueryableOption) error {
 	options := &engine.GraphQueryableOptions{} // default options
 	options.Apply(opts...)                     // apply the options
-	if options.Kind != "file" {
+	if options.Kind != KindFile {
 		return fmt.Errorf("only other files can access my information")
 	}
 	return nil

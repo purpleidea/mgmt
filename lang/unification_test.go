@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
@@ -858,12 +859,23 @@ func TestUnification1(t *testing.T) {
 			//}
 			//t.Logf("test #%d: astInterpolated: %+v", index, astInterpolated)
 
+			variables := map[string]interfaces.Expr{
+				"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+				//"hostname": &ExprStr{V: obj.Hostname},
+			}
+			consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+			addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
+			var err error
+			variables, err = MergeExprMaps(variables, consts, addback)
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: couldn't merge in consts: %+v", index, err)
+				return
+			}
+
 			// top-level, built-in, initial global scope
 			scope := &interfaces.Scope{
-				Variables: map[string]interfaces.Expr{
-					"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-					//"hostname": &ExprStr{V: obj.Hostname},
-				},
+				Variables: variables,
 				// all the built-in top-level, core functions enter here...
 				Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 			}
@@ -884,7 +896,7 @@ func TestUnification1(t *testing.T) {
 				Debug:  testing.Verbose(),
 				Logf:   logf,
 			}
-			err := unifier.Unify()
+			err = unifier.Unify()
 
 			// TODO: print out the AST's so that we can see the types
 			t.Logf("\n\ntest #%d: AST (after): %+v\n", index, ast)

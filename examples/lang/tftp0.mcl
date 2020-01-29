@@ -1,10 +1,10 @@
 $root = "/tmp/tftproot/"
 file $root {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 file "${root}file0" {
 	content => "i'm file0 in ${root}\n",
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 tftp:server ":1069" {	# by default tftp uses :69 but using :1069 avoids needing root!
@@ -22,7 +22,7 @@ tftp:file "/file1" {
 $f2 = "/tmp/some_file"
 file $f2 {
 	content => "i'm a cool file in /tmp\n",
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 # you can point to it directly...

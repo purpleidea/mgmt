@@ -5,6 +5,6 @@ import "example"
 $now = datetime.now()
 
 file "/tmp/mgmt-datetime" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => template("Il est l'or Monseignor: {{ . }}\n", datetime.format($now, "15:04:05")),
 }

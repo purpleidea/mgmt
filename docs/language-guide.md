@@ -206,7 +206,7 @@ value to use if that boolean is true. You can do this with the resource-specific
 $b = true # change me to false and then try editing the file manually
 file "/tmp/mgmt-elvis" {
 	content => $b ?: "hello world\n",
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 ```
 

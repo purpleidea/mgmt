@@ -3073,9 +3073,10 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 
 	// initial scope, built from core golang code
 	scope := &interfaces.Scope{
-		// TODO: we could add core API's for variables and classes too!
+		// TODO: we could use the core API for variables somehow...
 		//Variables: make(map[string]interfaces.Expr),
-		Functions: funcs, // map[string]Expr
+		Functions: funcs, // map[string]interfaces.Expr
+		// TODO: we could add a core API for classes too!
 		//Classes: make(map[string]interfaces.Stmt),
 	}
 

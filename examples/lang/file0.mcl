@@ -1,7 +1,7 @@
 file "/tmp/file1" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 file "/tmp/dir1/" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }

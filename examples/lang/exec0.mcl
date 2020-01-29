@@ -5,7 +5,7 @@ exec "exec1" {
 }
 
 file "/tmp/whatever" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 exec "exec2" {

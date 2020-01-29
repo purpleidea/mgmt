@@ -2,6 +2,6 @@ import "datetime"
 
 $d = datetime.now()
 file "/tmp/mgmt/datetime" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => template("Hello! It is now: {{ datetime_print . }}\n", $d),
 }

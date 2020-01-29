@@ -4,7 +4,7 @@ exec "exec0" {
 }
 
 file ["/tmp/command-output", "/tmp/command-stdout", "/tmp/command-stderr",] {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 Exec["exec0"].output -> File["/tmp/command-output"].content

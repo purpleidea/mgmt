@@ -4,7 +4,7 @@ exec ["exec0", "exec1",] {
 }
 
 file "/tmp/command-output" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 # this is an error because two senders cannot send to the same receiver key

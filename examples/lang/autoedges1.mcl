@@ -8,14 +8,14 @@ pkg "drbd-utils" {
 
 file "/etc/drbd.conf" {
 	content => "this is an mgmt test",
-	state => "exists",
+	state => $const.res.file.state.exists,
 
 	Meta:autoedge => true,
 	Meta:noop => $noop,
 }
 
 file "/etc/drbd.d/" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 
 	Meta:autoedge => true,
 	Meta:noop => $noop,

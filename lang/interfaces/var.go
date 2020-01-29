@@ -15,33 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// +build !root
-
-package util
+package interfaces
 
 import (
-	"testing"
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
-func TestCodeIndent(t *testing.T) {
-	c1 := Code(
-		`
-	$root = getenv("MGMT_TEST_ROOT")
-
-	file "${root}/mgmt-hello-world" {
-		content => "hello world from @purpleidea\n",
-		state => $const.res.file.state.exists,
-	}
-	`)
-	c2 :=
-		`$root = getenv("MGMT_TEST_ROOT")
-
-file "${root}/mgmt-hello-world" {
-	content => "hello world from @purpleidea\n",
-	state => $const.res.file.state.exists,
-}
-`
-	if c1 != c2 {
-		t.Errorf("code samples differ")
-	}
+// Var is the interface that any valid stand-alone variable must fulfill.
+// NOTE: It's just a simple Value from our types library at the moment.
+type Var interface {
+	types.Value
 }

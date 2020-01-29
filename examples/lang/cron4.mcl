@@ -13,5 +13,5 @@ svc "purpleidea-oneshot" {
 }
 
 file printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home) {
-	state => "absent",
+	state => $const.res.file.state.absent,
 }

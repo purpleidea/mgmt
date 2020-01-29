@@ -5,6 +5,6 @@ $text1 = html.unescape_string("&lt;h1&gt;MGMT!&lt;/h1&gt;")
 $text2 = html.escape_string("Test & Re-Test\n")
 
 file "/tmp/index.html" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => "${text1}${text2}",
 }

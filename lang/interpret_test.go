@@ -33,6 +33,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -555,12 +556,22 @@ func TestAstFunc1(t *testing.T) {
 		return
 	}
 	t.Logf("tests directory is: %s", dir)
+
+	variables := map[string]interfaces.Expr{
+		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		// TODO: change to a func when we can change hostname dynamically!
+		"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
+	}
+	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
+	variables, err = MergeExprMaps(variables, consts, addback)
+	if err != nil {
+		t.Errorf("couldn't merge in consts: %+v", err)
+		return
+	}
+
 	scope := &interfaces.Scope{ // global scope
-		Variables: map[string]interfaces.Expr{
-			"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-			// TODO: change to a func when we can change hostname dynamically!
-			"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
-		},
+		Variables: variables,
 		// all the built-in top-level, core functions enter here...
 		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
@@ -977,12 +988,22 @@ func TestAstFunc2(t *testing.T) {
 		return
 	}
 	t.Logf("tests directory is: %s", dir)
+
+	variables := map[string]interfaces.Expr{
+		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		// TODO: change to a func when we can change hostname dynamically!
+		"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
+	}
+	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
+	variables, err = MergeExprMaps(variables, consts, addback)
+	if err != nil {
+		t.Errorf("couldn't merge in consts: %+v", err)
+		return
+	}
+
 	scope := &interfaces.Scope{ // global scope
-		Variables: map[string]interfaces.Expr{
-			"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-			// TODO: change to a func when we can change hostname dynamically!
-			"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
-		},
+		Variables: variables,
 		// all the built-in top-level, core functions enter here...
 		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}

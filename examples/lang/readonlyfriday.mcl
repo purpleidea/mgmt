@@ -21,7 +21,7 @@ print "msg" {
 }
 
 file "/tmp/files/" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	mode => if $is_friday { # this updates the mode, the instant it changes!
 		"0550"
 	} else {

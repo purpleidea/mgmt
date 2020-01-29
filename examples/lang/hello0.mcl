@@ -1,4 +1,4 @@
 file "/tmp/mgmt-hello-world" {
 	content => "hello world from @purpleidea\n",
-	state => "exists",
+	state => $const.res.file.state.exists,
 }

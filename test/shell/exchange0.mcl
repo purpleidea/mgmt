@@ -13,6 +13,6 @@ $rand = random1(8)
 $exchanged = world.exchange("keyns", $rand)
 
 file "/tmp/mgmt/exchange-${sys.hostname()}" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => template("Found: {{ . }}\n", $exchanged),
 }

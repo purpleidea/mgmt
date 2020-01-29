@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/gapi"
+	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -264,13 +265,21 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		return nil, errwrap.Wrapf(err, "could not interpolate AST")
 	}
 
+	variables := map[string]interfaces.Expr{
+		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		// TODO: change to a func when we can change hostname dynamically!
+		"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
+	}
+	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
+	variables, err = MergeExprMaps(variables, consts, addback)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "couldn't merge in consts")
+	}
+
 	// top-level, built-in, initial global scope
 	scope := &interfaces.Scope{
-		Variables: map[string]interfaces.Expr{
-			"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-			// TODO: change to a func when we can change hostname dynamically!
-			"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
-		},
+		Variables: variables,
 		// all the built-in top-level, core functions enter here...
 		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
+	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -165,13 +166,21 @@ func (obj *Lang) Init() error {
 	}
 	obj.ast = interpolated
 
+	variables := map[string]interfaces.Expr{
+		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		// TODO: change to a func when we can change hostname dynamically!
+		"hostname": &ExprStr{V: obj.Hostname},
+	}
+	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
+	variables, err = MergeExprMaps(variables, consts, addback)
+	if err != nil {
+		return errwrap.Wrapf(err, "couldn't merge in consts")
+	}
+
 	// top-level, built-in, initial global scope
 	scope := &interfaces.Scope{
-		Variables: map[string]interfaces.Expr{
-			"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-			// TODO: change to a func when we can change hostname dynamically!
-			"hostname": &ExprStr{V: obj.Hostname},
-		},
+		Variables: variables,
 		// all the built-in top-level, core functions enter here...
 		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}

@@ -4,7 +4,7 @@ exec "exec0" {
 }
 
 file "/tmp/command-output" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 # this is an error because the shell send key doesn't exist in exec

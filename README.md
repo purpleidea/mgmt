@@ -21,7 +21,7 @@ ensure that your file server is set to read-only when it's friday.
 import "datetime"
 $is_friday = datetime.weekday(datetime.now()) == "friday"
 file "/srv/files/" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	mode => if $is_friday { # this updates the mode, the instant it changes!
 		"0550"
 	} else {

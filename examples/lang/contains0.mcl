@@ -11,7 +11,7 @@ $c4 = "b" in $set
 $s = fmt.printf("1: %t, 2: %t, 3: %t, 4: %t\n", $c1, $c2, $c3, $c4)
 
 file "/tmp/mgmt/contains" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => $s,
 }
 
@@ -22,6 +22,6 @@ $x = if sys.hostname() in ["h1", "h3",] {
 }
 
 file "/tmp/mgmt/hello-${sys.hostname()}" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => $x,
 }

@@ -5,23 +5,23 @@ import "fmt"
 $tmpdir = os.temp_dir()
 
 file "${tmpdir}/execinfo" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => fmt.printf("mgmt is at %s\n", os.executable()),
 }
 
 file "${tmpdir}/mgmtenv" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => os.expand_env("$HOME sweet ${os.getenv(\"HOME\")}\n"),
 }
 
 file "${tmpdir}/mgmtos" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => os.readlink("/bin"),
 }
 
 $rm = exec.look_path("rm")
 
 file "${tmpdir}/cache" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => "Plz cache in ${os.user_cache_dir()}.\nYour home is ${os.user_home_dir()}. Remove with ${rm}\n",
 }

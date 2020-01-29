@@ -11,14 +11,14 @@ $mod3 = math.mod($now, 8) == 3
 $mod = $mod0 || $mod1 || $mod2 || $mod3
 
 file "/tmp/mgmt/" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 # file should disappear and re-appear every four seconds
 if $mod {
 	file "/tmp/mgmt/hello" {
 		content => "please say abracadabra...\n",
-		state => "exists",
+		state => $const.res.file.state.exists,
 
 		Meta:reverse => true,
 	}

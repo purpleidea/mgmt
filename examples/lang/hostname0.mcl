@@ -2,5 +2,5 @@ import "sys"
 
 file "/tmp/mgmt/${sys.hostname()}" {
 	content => "hello from ${sys.hostname()}!\n",
-	state => "exists",
+	state => $const.res.file.state.exists,
 }

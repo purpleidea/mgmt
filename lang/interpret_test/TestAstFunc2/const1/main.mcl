@@ -1,0 +1,2 @@
+# this magic string variable should exist and be "exists"
+test $const.res.file.state.exists {}

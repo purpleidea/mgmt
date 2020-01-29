@@ -242,7 +242,7 @@ gets created in case it is not present, then you must also specify the state:
 
 ```
 file "/tmp/foo" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => "hello world\n",
 }
 ```

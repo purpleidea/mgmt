@@ -11,7 +11,7 @@ $mod3 = math.mod($now, 8) == 3
 $mod = $mod0 || $mod1 || $mod2 || $mod3
 
 file "/tmp/mgmt/" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 }
 
 # file should change the mode every four seconds
@@ -19,7 +19,7 @@ file "/tmp/mgmt/" {
 # you should create the file before you run this
 if $mod {
 	file "/tmp/mgmt/hello" {
-		#state => "exists",	# omit to see it change the mode only!
+		#state => $const.res.file.state.exists,	# omit to see it change the mode only!
 		mode => "0777",
 
 		Meta:reverse => true,

@@ -1,19 +1,19 @@
 file "/tmp/some_dir/" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	#source => "", # this default means empty directory
 	recurse => true,
 	purge => true,
 }
 
 file "/tmp/some_dir/fileA" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => "i am fileA\n",
 }
 file "/tmp/some_dir/fileB" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => "i am fileB\n",
 }
 file "/tmp/some_dir/fileC" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => "i am fileC\n",
 }

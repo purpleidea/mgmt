@@ -5,5 +5,5 @@ cron "purpleidea-oneshot" {
 
 svc "purpleidea-oneshot" {}
 
-# TODO: do we need a state => "exists" specified here?
+# TODO: do we need a state => $const.res.file.state.exists specified here?
 file "/etc/systemd/system/purpleidea-oneshot.service" {}

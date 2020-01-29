@@ -3,6 +3,6 @@ print "unicode" {
 	msg => $unicode,
 }
 file "/tmp/unicode" {
-	state => "exists",
+	state => $const.res.file.state.exists,
 	content => $unicode + "\n",
 }

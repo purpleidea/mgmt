@@ -22,13 +22,13 @@ OLDGOYACC := $(shell go version | grep -E 'go1.6|go1.7')
 
 all: build
 
-build: lexer.nn.go y.go
+build: lexer.nn.go y.go interpolate/parse.generated.go
 	@# recursively run make in child dir named types
 	@$(MAKE) --quiet -C types
 
 clean:
 	$(MAKE) --quiet -C types clean
-	@rm -f lexer.nn.go y.go y.output || true
+	@rm -f lexer.nn.go y.go y.output interpolate/parse.generated.go || true
 
 lexer.nn.go: lexer.nex
 	@echo "Generating: lexer..."
@@ -44,6 +44,16 @@ else
 	goyacc parser.y
 endif
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'y.go'
+
+interpolate/parse.generated.go: interpolate/parse.rl
+	@echo "Generating: interpolation..."
+	ragel -Z -G2 -o interpolate/parse.generated.go interpolate/parse.rl
+	#@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'interpolate/parse.generated.go'
+	# XXX: I have no idea why I need to sed twice. I give up :P
+	# remove the ragel header so our header test passes
+	@sed -i -e "1d" 'interpolate/parse.generated.go'
+	@sed -i -e "1d" 'interpolate/parse.generated.go'
+	gofmt -s -w 'interpolate/parse.generated.go'
 
 fuzz:
 	@$(MAKE) --quiet -C fuzz

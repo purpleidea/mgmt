@@ -24,6 +24,7 @@ import (
 	"go/token"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -250,6 +251,9 @@ func IsNewStart(word string) bool {
 	if word == "*" { // bullets
 		return true
 	}
+	if IsNumberBullet(word) {
+		return true
+	}
 
 	return false
 }
@@ -268,4 +272,13 @@ func IsSpecialLine(line string) bool {
 	}
 
 	return false
+}
+
+// IsNumberBullet returns true if the word starts with a number bullet like 42).
+func IsNumberBullet(word string) bool {
+	matched, err := regexp.MatchString(`[0-9]+\)*`, word)
+	if err != nil {
+		return false
+	}
+	return matched
 }

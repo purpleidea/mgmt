@@ -16,7 +16,8 @@ $set = world.schedule("xsched", $opts)
 # and if you want, you can omit the options entirely:
 #$set = world.schedule("xsched")
 
-file "/tmp/mgmt/scheduled-${sys.hostname()}" {
+$host = sys.hostname()
+file "/tmp/mgmt/scheduled-${host}" {
 	state => $const.res.file.state.exists,
 	content => template("set: {{ . }}\n", $set),
 }

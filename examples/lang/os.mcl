@@ -1,5 +1,5 @@
 import "golang/os"
-import "golang/exec"
+import "golang/os/exec"
 import "fmt"
 
 $tmpdir = os.temp_dir()
@@ -9,9 +9,10 @@ file "${tmpdir}/execinfo" {
 	content => fmt.printf("mgmt is at %s\n", os.executable()),
 }
 
+$home = os.getenv("HOME")
 file "${tmpdir}/mgmtenv" {
 	state => $const.res.file.state.exists,
-	content => os.expand_env("$HOME sweet ${os.getenv(\"HOME\")}\n"),
+	content => os.expand_env("$HOME sweet ${home}\n"),
 }
 
 file "${tmpdir}/mgmtos" {
@@ -19,9 +20,10 @@ file "${tmpdir}/mgmtos" {
 	content => os.readlink("/bin"),
 }
 
+$cache_dir = os.user_cache_dir()
+$home_dir = os.user_home_dir()
 $rm = exec.look_path("rm")
-
 file "${tmpdir}/cache" {
 	state => $const.res.file.state.exists,
-	content => "Plz cache in ${os.user_cache_dir()}.\nYour home is ${os.user_home_dir()}. Remove with ${rm}\n",
+	content => "Plz cache in ${cache_dir}.\nYour home is ${home_dir}. Remove with ${rm}\n",
 }

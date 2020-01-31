@@ -1,0 +1,2 @@
+# this is invalid (you can't have a function inside a var lookup)
+test "X: ${foo()}" {}

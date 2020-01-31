@@ -19,8 +19,11 @@ package util
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // HasDuplicateTypes returns an error if the list of types is not unique.
@@ -88,4 +91,39 @@ func FnMatch(typ *types.Type, fns []*types.FuncValue) (int, error) {
 	}
 
 	return 0, fmt.Errorf("unable to find a compatible function for type: %+v", typ)
+}
+
+// ValidateVarName returns an error if the string pattern does not match the
+// format for a valid variable name. The leading dollar sign must not be passed
+// in.
+func ValidateVarName(name string) error {
+	if name == "" {
+		return fmt.Errorf("got empty var name")
+	}
+
+	// A variable always starts with an lowercase alphabetical char and
+	// contains lowercase alphanumeric characters or numbers, underscores,
+	// and non-consecutive dots. The last char must not be an underscore or
+	// a dot.
+	// TODO: put the variable matching pattern in a const somewhere?
+	pattern := `^[a-z]([a-z0-9_]|(\.|_)[a-z0-9_])*$`
+
+	matched, err := regexp.MatchString(pattern, name)
+	if err != nil {
+		return errwrap.Wrapf(err, "error matching regex")
+	}
+	if !matched {
+		return fmt.Errorf("invalid var name: `%s`", name)
+	}
+
+	// Check that we don't get consecutive underscores or dots!
+	// TODO: build this into the above regexp and into the parse.rl file!
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("var name contains multiple periods: `%s`", name)
+	}
+	if strings.Contains(name, "__") {
+		return fmt.Errorf("var name contains multiple underscores: `%s`", name)
+	}
+
+	return nil
 }

@@ -21,7 +21,8 @@ $x = if sys.hostname() in ["h1", "h3",] {
 	fmt.printf("i (%s) was not chosen :(\n", sys.hostname())
 }
 
-file "/tmp/mgmt/hello-${sys.hostname()}" {
+$host = sys.hostname()
+file "/tmp/mgmt/hello-${host}" {
 	state => $const.res.file.state.exists,
 	content => $x,
 }

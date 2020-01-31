@@ -113,6 +113,10 @@ function reflowed-comments() {
 		return 0
 	fi
 
+	if [ "$1" = './lang/interpolate/parse.generated.go' ]; then
+		return 0
+	fi
+
 	./test/comment_parser "$1"
 }
 

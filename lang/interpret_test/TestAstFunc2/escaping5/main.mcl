@@ -1,0 +1,2 @@
+# this is invalid (there's no \j escape sequence)
+test "X: there is no \j sequence" {}

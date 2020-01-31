@@ -50,6 +50,7 @@ if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y augeas-devel
 	$sudo_command $YUM install -y ruby-devel rubygems
 	$sudo_command $YUM install -y time
+	$sudo_command $YUM install -y ragel
 	# dependencies for building packages with fpm
 	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar mkosi || true
 	$sudo_command $YUM install -y graphviz || true # for debugging
@@ -59,6 +60,7 @@ if [ -n "$APT" ]; then
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y ruby ruby-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
+	$sudo_command $APT install -y ragel || true
 	# dependencies for building packages with fpm
 	$sudo_command $APT install -y build-essential rpm bsdtar || true
 	# `realpath` is a more universal alternative to `readlink -f` for absolute path resolution
@@ -73,11 +75,11 @@ fi
 # Prevent linuxbrew installing redundant deps in CI
 if [ -n "$BREW" -a "$RUNNER_OS" != "Linux" ]; then
 	# coreutils contains gtimeout, gstat, etc
-	$BREW install pkg-config libvirt augeas coreutils || true
+	$BREW install pkg-config libvirt augeas coreutils ragel || true
 fi
 
 if [ -n "$PACMAN" ]; then
-	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap
+	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap ragel
 fi
 fold_end "Install dependencies"
 
@@ -102,6 +104,24 @@ if ! in_ci; then
 	if [ -n "$PACMAN" ]; then
 		$sudo_command $PACMAN -S --noconfirm --asdeps --needed go gcc pkg-config
 	fi
+fi
+
+if in_ci; then
+	# TODO: consider bumping to new package manager version
+	RAGEL_VERSION='6.10'	# current stable version
+	RAGEL_TMP='/tmp/ragel/'
+	RAGEL_FILE="${RAGEL_TMP}ragel-${RAGEL_VERSION}.tar.gz"
+	RAGEL_DIR="${RAGEL_TMP}ragel-${RAGEL_VERSION}/"
+	mkdir -p "$RAGEL_TMP"
+	cd "$RAGEL_TMP"
+	wget "https://www.colm.net/files/ragel/ragel-${RAGEL_VERSION}.tar.gz" -O "$RAGEL_FILE"
+	tar -xvf "$RAGEL_FILE"
+	cd -
+	cd "$RAGEL_DIR"
+	./configure --prefix=/usr/local --disable-manual
+	make
+	sudo make install
+	cd -
 fi
 
 # attempt to workaround old ubuntu

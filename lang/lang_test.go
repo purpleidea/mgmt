@@ -224,7 +224,7 @@ func TestInterpret4(t *testing.T) {
 			# comment 3
 			stringptr => "the actual field name is: StringPtr", # comment 4
 			int8ptr => 99, # comment 5
-			comment => "☺\thello\u263a\nwo\"rld\\2\u263a", # must escape these
+			comment => "☺\thello\nwo\"rld\\2", # must escape these
 		}
 	`
 	graph, err := runInterpret(t, code)
@@ -244,7 +244,7 @@ func TestInterpret4(t *testing.T) {
 	x.StringPtr = &stringptr
 	int8ptr := int8(99)
 	x.Int8Ptr = &int8ptr
-	x.Comment = "☺\thello☺\nwo\"rld\\2\u263a" // must escape the escaped chars
+	x.Comment = "☺\thello\nwo\"rld\\2" // must escape the escaped chars
 
 	expected := &pgraph.Graph{}
 	expected.AddVertex(x)

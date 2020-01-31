@@ -1,0 +1,30 @@
+print "escaping1" {
+	msg => "\${hello}",
+
+	Meta:autogroup => false,
+}
+
+$hello = "hi"
+print "escaping2" {
+	msg => "${hello}",
+
+	Meta:autogroup => false,
+}
+
+print "escaping3" {
+	msg => "\\${hello}",
+
+	Meta:autogroup => false,
+}
+
+print "escaping4" {
+	msg => "\\ ${hello}",
+
+	Meta:autogroup => false,
+}
+
+print "escaping5" {
+	msg => "\"${hello}",
+
+	Meta:autogroup => false,
+}

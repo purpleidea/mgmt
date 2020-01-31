@@ -167,9 +167,10 @@ func TestCluster1(t *testing.T) {
 		code := util.Code(`
 		import "sys"
 		$root = sys.getenv("MGMT_TEST_ROOT")
+		$host = sys.hostname()
 
 		file "${root}/mgmt-hostname" {
-			content => "i am ${sys.hostname()}\n",
+			content => "i am ${host}\n",
 			state => $const.res.file.state.exists,
 		}
 		`)
@@ -192,9 +193,10 @@ func TestCluster1(t *testing.T) {
 		code := util.Code(`
 		import "sys"
 		$root = sys.getenv("MGMT_TEST_ROOT")
+		$host = sys.hostname()
 
 		file "${root}/mgmt-hostname" {
-			content => "i am ${sys.hostname()}\n",
+			content => "i am ${host}\n",
 			state => $const.res.file.state.exists,
 		}
 		`)

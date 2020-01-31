@@ -11,8 +11,9 @@ import "world"
 
 $rand = random1(8)
 $exchanged = world.exchange("keyns", $rand)
+$host = sys.hostname()
 
-file "/tmp/mgmt/exchange-${sys.hostname()}" {
+file "/tmp/mgmt/exchange-${host}" {
 	state => $const.res.file.state.exists,
 	content => template("Found: {{ . }}\n", $exchanged),
 }

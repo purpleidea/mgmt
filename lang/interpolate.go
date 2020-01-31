@@ -21,10 +21,18 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/hashicorp/hil"
 	hilast "github.com/hashicorp/hil/ast"
+)
+
+const (
+	// UseHilInterpolation specifies that we use the legacy Hil interpolate.
+	// This can't properly escape a $ in the standard way. It's here in case
+	// someone wants to play with it and examine how the AST stuff worked...
+	UseHilInterpolation = false
 )
 
 // Pos represents a position in the code.
@@ -35,12 +43,72 @@ type Pos struct {
 	Filename string // optional source filename, if known
 }
 
-// InterpolateStr interpolates a string and returns the representative AST. This
-// particular implementation uses the hashicorp hil library and syntax to do so.
+// InterpolateStr interpolates a string and returns the representative AST.
 func InterpolateStr(str string, pos *Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	if data.Debug {
 		data.Logf("interpolating: %s", str)
 	}
+
+	if UseHilInterpolation {
+		return InterpolateHil(str, pos, data)
+	}
+	return InterpolateRagel(str, pos, data)
+}
+
+// InterpolateRagel interpolates a string and returns the representative AST. It
+// uses the ragel parser to perform the string interpolation.
+func InterpolateRagel(str string, pos *Pos, data *interfaces.Data) (interfaces.Expr, error) {
+	sequence, err := interpolate.Parse(str)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "parser failed")
+	}
+
+	exprs := []interfaces.Expr{}
+	for _, term := range sequence {
+
+		switch t := term.(type) {
+		case interpolate.Literal:
+			expr := &ExprStr{
+				V: t.Value,
+			}
+			exprs = append(exprs, expr)
+
+		case interpolate.Variable:
+			expr := &ExprVar{
+				Name: t.Name,
+			}
+			exprs = append(exprs, expr)
+		default:
+			return nil, fmt.Errorf("unknown term (%T): %+v", t, t)
+		}
+	}
+
+	// If we didn't find anything of value, we got an empty string...
+	if len(sequence) == 0 && str == "" { // be doubly sure...
+		expr := &ExprStr{
+			V: "",
+		}
+		exprs = append(exprs, expr)
+	}
+
+	// The parser produces non-optimal results where two strings are next to
+	// each other, when they could be statically combined together.
+	simplified, err := simplifyExprList(exprs)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "expr list simplify failed")
+	}
+
+	result, err := concatExprListIntoCall(simplified)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "concat expr list failed")
+	}
+
+	return result, errwrap.Wrapf(result.Init(data), "init failed")
+}
+
+// InterpolateHil interpolates a string and returns the representative AST. This
+// particular implementation uses the hashicorp hil library and syntax to do so.
+func InterpolateHil(str string, pos *Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	var line, column int = -1, -1
 	var filename string
 	if pos != nil {
@@ -246,6 +314,7 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 	}
 
 	return &ExprCall{
+		// NOTE: if we don't set the data field we need Init() called on it!
 		Name: operatorFuncName, // concatenate the two strings with + operator
 		Args: []interfaces.Expr{
 			operator, // operator first
@@ -253,4 +322,43 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 			grouped,  // nested function call which returns a string
 		},
 	}, nil
+}
+
+// simplifyExprList takes a list of *ExprStr and *ExprVar and groups the
+// sequential *ExprStr's together. If you pass it a list of Expr's that contains
+// a different type of Expr, then this will error.
+func simplifyExprList(exprs []interfaces.Expr) ([]interfaces.Expr, error) {
+	last := false
+	result := []interfaces.Expr{}
+
+	for _, x := range exprs {
+		switch v := x.(type) {
+		case *ExprStr:
+			if !last {
+				last = true
+				result = append(result, x)
+				continue
+			}
+
+			// combine!
+			expr := result[len(result)-1] // there has to be at least one
+			str, ok := expr.(*ExprStr)
+			if !ok {
+				// programming error
+				return nil, fmt.Errorf("unexpected type (%T)", expr)
+			}
+			str.V += v.V // combine!
+			//last = true // redundant, it's already true
+			// ... and don't append, we've combined!
+
+		case *ExprVar:
+			last = false // the next one can't combine with me
+			result = append(result, x)
+
+		default:
+			return nil, fmt.Errorf("unsupported type (%T)", x)
+		}
+	}
+
+	return result, nil
 }

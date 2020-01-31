@@ -1,0 +1,2 @@
+# this is invalid (you can't escape a z, right?)
+test "X: \z" {}

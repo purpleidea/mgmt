@@ -96,6 +96,17 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		testCases = append(testCases, test{
+			name: "bad escaping 2",
+			code: `
+			test "t1" {
+				str => "he\\ llo", # incorrect escaping
+			}
+			`,
+			fail: true,
+		})
+	}
+	{
+		testCases = append(testCases, test{
 			name: "int overflow",
 			code: `
 			test "t1" {

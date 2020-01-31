@@ -1,0 +1,68 @@
+# escaping examples
+
+test "A: \${test}" {}
+
+test "B: \$" {}
+
+$c1 = "This is c1"
+test "C: ${c1}" {}
+
+test "D: \\\$" {}
+
+test "E: {}" {}
+
+test "F: hello" {}
+
+$g1 = "This is g1"
+test "G: ${g1} EOF" {}
+
+test "H: {hhh} EOF" {}
+
+$i_i = "This is ii"
+test "I: ${i_i} EOF" {}
+
+# is this okay?
+test "J: $ is a dollar sign" {}
+
+test "K: $ {zzz} EOF" {}
+
+$l1 = "This is l1"
+test "L: $$${l1} EOF" {}
+
+test "M: $ $$" {}
+
+test "N: hello \" world" {}
+
+test "O: hello \"\" world" {}
+
+test "P: hello \\ world" {}
+
+test "Q: hello \\\\ world" {}
+
+$r1 = "This is r1"
+test "R: \\${r1} EOF" {}
+
+test "S: \\$ EOF" {}
+
+test "T: newline\nEOF" {}
+
+# XXX: possible bugs or misunderstood expectations:
+
+#test "W: \\$" {}
+# got: <error>
+# exp: W: \$
+
+#$x1 = "This is x1"
+#test "X: $${x1} EOF" {}
+# got: X: $${x1} EOF
+# exp: X: $This is x1 EOF
+
+#$unused = "i am unused"
+#$y1 = "{unused}"
+#test "Y: $${y1} EOF" {} # check there isn't double parsing
+# got: Y: $${y1} EOF
+# exp: Y: ${unused} EOF
+
+#test "Z: $$$" {}
+# got: <error>
+# exp: Z: $$$ EOF

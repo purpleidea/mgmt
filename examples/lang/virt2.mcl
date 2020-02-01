@@ -2,7 +2,7 @@
 
 import "fmt"
 import "os"
-import "strings"
+import "golang/strings"
 import "example"
 
 $input = example.str2int(strings.trim_space(os.readfile("/tmp/cpu-count")))

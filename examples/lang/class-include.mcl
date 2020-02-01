@@ -7,9 +7,11 @@ class foo {
 	}
 }
 
+$wow = "this is wow"	# gets captured
+
 class bar($a, $b) { # a parameterized class
 	print "bar-"+ $a {
-		msg => fmt.printf("inside bar: %s", $b),
+		msg => fmt.printf("inside bar: %s", $b + "; " + $wow),
 
 		Meta:autogroup => false,
 	}

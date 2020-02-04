@@ -23,9 +23,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -174,6 +177,28 @@ func FileExpect(p, s string) Step { // path & string
 	}
 }
 
+// FileOwnerExpect takes a path and a uid to expect from that file, and builds a
+// Step that checks that out of them.
+func FileOwnerExpect(p, o string) Step { // path & owner
+	return &manualStep{
+		action: func() error { return nil },
+		expect: func() error {
+			var stat syscall.Stat_t
+			if err := syscall.Stat(p, &stat); err != nil {
+				return err
+			}
+			i, err := strconv.ParseUint(o, 10, 32)
+			if err != nil {
+				return err
+			}
+			if i != uint64(stat.Uid) {
+				return fmt.Errorf("file uid did not match in %s", p)
+			}
+			return nil
+		},
+	}
+}
+
 // FileWrite takes a path and a string to write to that file, and builds a Step
 // that does that to them.
 func FileWrite(p, s string) Step { // path & string
@@ -193,6 +218,15 @@ func ErrIsNotExistOK(e error) error {
 		return nil
 	}
 	return errwrap.Wrapf(e, "unexpected error")
+}
+
+// GetUID returns the UID of the user running this test.
+func GetUID() (string, error) {
+	u, err := user.Lookup(os.Getenv("USER"))
+	if err != nil {
+		return "", err
+	}
+	return u.Uid, nil
 }
 
 func TestResources1(t *testing.T) {
@@ -327,6 +361,33 @@ func TestResources1(t *testing.T) {
 
 		testCases = append(testCases, test{
 			name:     "existing file",
+			res:      res,
+			fail:     false,
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return ioutil.WriteFile(p, []byte(content), 0666) },
+			cleanup:  func() error { return os.Remove(p) },
+		})
+	}
+	{
+		r := makeRes("file", "r1")
+		res := r.(*FileRes) // if this panics, the test will panic
+		p := "/tmp/ownerfile"
+		uid, _ := GetUID()
+		res.Path = p
+		res.State = FileStateExists
+		res.Owner = uid
+		content := "some test file owned by uid " + uid
+
+		timeline := []Step{
+			NewStartupStep(1000 * 60),     // startup
+			NewChangedStep(1000*60, true), // did we do something?
+			FileExpect(p, content),        // check file content
+			FileOwnerExpect(p, uid),       // check uid of the file
+		}
+
+		testCases = append(testCases, test{
+			name:     "uid test file",
 			res:      res,
 			fail:     false,
 			timeline: timeline,

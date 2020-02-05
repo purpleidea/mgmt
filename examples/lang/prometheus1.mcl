@@ -1,12 +1,23 @@
 import "prometheus"
 import "datetime"
+import "fmt"
 import "golang/math"
+import "golang/strconv"
 
-$now = math.mod(datetime.now(), 30)
+
+$now = datetime.now()
+$date = fmt.printf("%d", $now)
+$datefloat = strconv.parse_float($date, 64)
+$date30 = strconv.parse_float("3", 64)
+$mod = math.mod($datefloat, $date30)
+$modstr = fmt.printf("%f", $mod)
+$modint = datetime.now()  - strconv.parse_int($modstr, 10, 64)
+
 $prometheus_server = struct{address => "http://127.0.0.1:9090",}
+$v = prometheus.instant_query_value("avg(up)", $modint, $prometheus_server)
+$up = strconv.parse_float($v, 64)
+$zero = strconv.parse_float("0", 64)
 
-$s1 = prometheus.instant_query("up", $now, $prometheus_server)
-file "/tmp/prometheus" {
-	state => "exists",
-    content => $s1,
+consul:kv "http://127.0.0.1:8500/up" {
+  value => $v,
 }

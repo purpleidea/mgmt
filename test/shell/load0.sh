@@ -33,7 +33,7 @@ import "sys"
 
 file "${tmpdir}/loadavg" {
 	content => fmt.printf("load average: %f, %f, %f\n", \$x1, \$x5, \$x15),
-	state => $const.res.file.state.exists,
+	state => \$const.res.file.state.exists,
 }
 EOF
 

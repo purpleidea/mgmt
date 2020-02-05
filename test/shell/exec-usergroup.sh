@@ -76,3 +76,6 @@ cleanup
 run_usergroup_test "exec-usergroup-${GROUP}.yaml" "nobody" "${GROUP}"
 run_usergroup_test "exec-usergroup-user.yaml" "nobody" ""
 run_usergroup_test "exec-usergroup-group-${GROUP}.yaml" "" "${GROUP}"
+
+# avoid race against rm command from the shell test wrapper
+sleep 1

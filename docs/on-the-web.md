@@ -52,3 +52,6 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from FOSDEM Containers Devroom 2019](https://video.fosdem.org/2019/UA2.114/containers_mgmt.webm) |
 | James Shubin | video | [Recording from FOSDEM Monitoring Devroom 2019](https://video.fosdem.org/2019/UB2.252A/real_time_merging_of_config_management_and_monitoring.webm) |
 | James Shubin | blog | [Mgmt Configuration Language: Class and Include](https://purpleidea.com/blog/2019/07/26/class-and-include-in-mgmt/) |
+| James Shubin | video | [Recording from FOSDEM 2020, Main Track (History)](https://video.fosdem.org/2020/Janson/automation.webm) |
+| James Shubin | video | [Recording from FOSDEM 2020, Infra Management Devroom](https://video.fosdem.org/2020/UA2.120/mgmt.webm) |
+| James Shubin | video | [Recording from FOSDEM 2020, Minimalistic Languages Devroom](https://video.fosdem.org/2020/AW1.125/mgmtconfigmore.webm) |

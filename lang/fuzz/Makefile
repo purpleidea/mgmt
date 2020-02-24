@@ -16,34 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all build clean fuzz
+.PHONY: all fuzz
 
-OLDGOYACC := $(shell go version | grep -E 'go1.6|go1.7')
-
-all: build
-
-build: lexer.nn.go y.go
-	@# recursively run make in child dir named types
-	@$(MAKE) --quiet -C types
-
-clean:
-	$(MAKE) --quiet -C types clean
-	@rm -f lexer.nn.go y.go y.output || true
-
-lexer.nn.go: lexer.nex
-	@echo "Generating: lexer..."
-	nex -e lexer.nex
-	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'lexer.nn.go'
-
-y.go: parser.y
-	@echo "Generating: parser..."
-ifneq ($(OLDGOYACC),)
-	go tool yacc parser.y
-else
-	@# newer golang versions moved yacc into: golang.org/x/tools/cmd/goyacc
-	goyacc parser.y
-endif
-	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'y.go'
+all: fuzz
 
 fuzz:
-	@$(MAKE) --quiet -C fuzz
+	mkdir -p corpus
+	find ../.. -name \*.mcl -exec cp {} corpus \;
+	go-fuzz-build
+	go-fuzz -bin=./lang-fuzz.zip -workdir=.

@@ -48,8 +48,6 @@ func init() {
 	int     int64 // this is the .int as seen in lexer.nex
 	float   float64
 
-	strSlice []string
-
 	typ   *types.Type
 
 	stmts []interfaces.Stmt
@@ -1177,7 +1175,23 @@ type:
 	// struct: struct{} or struct{a bool} or struct{a bool; bb int}
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.typ = types.NewType(fmt.Sprintf("%s{%s}", $1.str, strings.Join($3.strSlice, "; ")))
+
+		names := make(map[string]struct{})
+		strs := []string{}
+		for _, arg := range $3.args {
+			s := fmt.Sprintf("%s %s", arg.Name, arg.Type.String())
+			if _, exists := names[s]; exists {
+				// duplicate field name used
+				err := fmt.Errorf("duplicate struct field of `%s`", s)
+				// this will ultimately cause a parser error to occur...
+				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
+				break // we must skip, because code continues!
+			}
+			names[s] = struct{}{}
+			strs = append(strs, s)
+		}
+
+		$$.typ = types.NewType(fmt.Sprintf("%s{%s}", $1.str, strings.Join(strs, "; ")))
 	}
 |	FUNC_IDENTIFIER OPEN_PAREN type_func_args CLOSE_PAREN type
 	// XXX: should we allow named args in the type signature?
@@ -1228,24 +1242,27 @@ type_struct_fields:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.strSlice = []string{}
+		$$.args = []*Arg{}
 	}
 |	type_struct_fields SEMICOLON type_struct_field
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.strSlice = append($1.strSlice, $3.str)
+		$$.args = append($1.args, $3.arg)
 	}
 |	type_struct_field
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.strSlice = []string{$1.str}
+		$$.args = append([]*Arg{}, $1.arg)
 	}
 ;
 type_struct_field:
 	IDENTIFIER type
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.str = fmt.Sprintf("%s %s", $1.str, $2.typ.String())
+		$$.arg = &Arg{ // re-use the Arg struct
+			Name: $1.str,
+			Type: $2.typ,
+		}
 	}
 ;
 type_func_args:

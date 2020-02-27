@@ -1,0 +1,2 @@
+$st struct{x str} = struct{x => "hello", x => "world",}
+test structlookup($st, "x") {}

@@ -1,0 +1,1 @@
+# err: err1: can't set return type in parser: `can't set return type in parser: duplicate struct field of `x int`` @1:24

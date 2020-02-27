@@ -5730,6 +5730,7 @@ func (obj *ExprMap) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprMap) Init(data *interfaces.Data) error {
+	// XXX: Can we check that there aren't any duplicate keys? Can we Cmp?
 	for _, x := range obj.KVs {
 		if err := x.Key.Init(data); err != nil {
 			return err
@@ -6252,7 +6253,14 @@ func (obj *ExprStruct) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprStruct) Init(data *interfaces.Data) error {
+	fields := make(map[string]struct{})
 	for _, x := range obj.Fields {
+		// Validate field names and ensure no duplicates!
+		if _, exists := fields[x.Name]; exists {
+			return fmt.Errorf("duplicate struct field name of: `%s`", x.Name)
+		}
+		fields[x.Name] = struct{}{}
+
 		if err := x.Value.Init(data); err != nil {
 			return err
 		}

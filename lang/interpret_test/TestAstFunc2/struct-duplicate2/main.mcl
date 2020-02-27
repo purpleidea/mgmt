@@ -1,0 +1,1 @@
+$st struct{x int; x int} = struct{x => 0, x => 0,}

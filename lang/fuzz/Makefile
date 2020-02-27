@@ -21,7 +21,7 @@ SHELL = /usr/bin/env bash
 all: fuzz
 
 fuzz:
-	mkdir -p corpus
-	find ../.. -name \*.mcl -exec cp {} corpus \;
+	mkdir -p corpus/
+	find ../.. -name \*.mcl -exec cp {} corpus/ \;
 	go-fuzz-build
 	go-fuzz -bin=./lang-fuzz.zip -workdir=.

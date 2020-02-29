@@ -24,4 +24,4 @@ fuzz:
 	mkdir -p corpus/
 	find ../.. -name \*.mcl -exec cp {} corpus/ \;
 	go-fuzz-build
-	go-fuzz -bin=./lang-fuzz.zip -workdir=.
+	go-fuzz -bin=./fuzz-fuzz.zip -workdir=.

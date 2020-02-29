@@ -1180,14 +1180,14 @@ type:
 		strs := []string{}
 		for _, arg := range $3.args {
 			s := fmt.Sprintf("%s %s", arg.Name, arg.Type.String())
-			if _, exists := names[s]; exists {
+			if _, exists := names[arg.Name]; exists {
 				// duplicate field name used
 				err := fmt.Errorf("duplicate struct field of `%s`", s)
 				// this will ultimately cause a parser error to occur...
 				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
 				break // we must skip, because code continues!
 			}
-			names[s] = struct{}{}
+			names[arg.Name] = struct{}{}
 			strs = append(strs, s)
 		}
 

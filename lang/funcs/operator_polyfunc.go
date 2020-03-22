@@ -39,6 +39,9 @@ const (
 )
 
 func init() {
+	// epsilon definition
+	var epsilon = math.Nextafter(1.0, 2.0) - 1
+
 	// concatenation
 	RegisterOperator("+", &types.FuncValue{
 		T: types.NewType("func(a str, b str) str"),
@@ -169,9 +172,15 @@ func init() {
 	RegisterOperator("==", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
 		V: func(input []types.Value) (types.Value, error) {
-			// TODO: should we do an epsilon check?
+			// epsilon check
+			epsilonBool := math.Abs(input[0].Float()-input[1].Float()) <= epsilon
+			if epsilonBool {
+				return &types.BoolValue{
+					V: epsilonBool,
+				}, nil
+			}
 			return &types.BoolValue{
-				V: input[0].Float() == input[1].Float(),
+				V: false,
 			}, nil
 		},
 	})
@@ -207,9 +216,15 @@ func init() {
 	RegisterOperator("!=", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
 		V: func(input []types.Value) (types.Value, error) {
-			// TODO: should we do an epsilon check?
+			// epsilon check
+			epsilonBool := math.Abs(input[0].Float()-input[1].Float()) > epsilon
+			if epsilonBool {
+				return &types.BoolValue{
+					V: epsilonBool,
+				}, nil
+			}
 			return &types.BoolValue{
-				V: input[0].Float() != input[1].Float(),
+				V: false,
 			}, nil
 		},
 	})
@@ -227,9 +242,14 @@ func init() {
 	RegisterOperator("<", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
 		V: func(input []types.Value) (types.Value, error) {
-			// TODO: should we do an epsilon check?
+			// epsilon check
+			if math.Abs(input[0].Float()-input[1].Float()) > epsilon {
+				return &types.BoolValue{
+					V: input[0].Float() < input[1].Float(),
+				}, nil
+			}
 			return &types.BoolValue{
-				V: input[0].Float() < input[1].Float(),
+				V: false,
 			}, nil
 		},
 	})
@@ -246,9 +266,14 @@ func init() {
 	RegisterOperator(">", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
 		V: func(input []types.Value) (types.Value, error) {
-			// TODO: should we do an epsilon check?
+			// epsilon check
+			if math.Abs(input[0].Float()-input[1].Float()) > epsilon {
+				return &types.BoolValue{
+					V: input[0].Float() > input[1].Float(),
+				}, nil
+			}
 			return &types.BoolValue{
-				V: input[0].Float() > input[1].Float(),
+				V: false,
 			}, nil
 		},
 	})
@@ -265,9 +290,20 @@ func init() {
 	RegisterOperator("<=", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
 		V: func(input []types.Value) (types.Value, error) {
-			// TODO: should we do an epsilon check?
+			// epsilon check
+			epsilonBool := math.Abs(input[0].Float()-input[1].Float()) <= epsilon
+			if epsilonBool {
+				return &types.BoolValue{
+					V: epsilonBool,
+				}, nil
+			}
+			if math.Abs(input[0].Float()-input[1].Float()) > epsilon {
+				return &types.BoolValue{
+					V: input[0].Float() <= input[1].Float(),
+				}, nil
+			}
 			return &types.BoolValue{
-				V: input[0].Float() <= input[1].Float(),
+				V: false,
 			}, nil
 		},
 	})
@@ -284,9 +320,20 @@ func init() {
 	RegisterOperator(">=", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
 		V: func(input []types.Value) (types.Value, error) {
-			// TODO: should we do an epsilon check?
+			// epsilon check
+			epsilonBool := math.Abs(input[0].Float()-input[1].Float()) <= epsilon
+			if epsilonBool {
+				return &types.BoolValue{
+					V: epsilonBool,
+				}, nil
+			}
+			if math.Abs(input[0].Float()-input[1].Float()) > epsilon {
+				return &types.BoolValue{
+					V: input[0].Float() >= input[1].Float(),
+				}, nil
+			}
 			return &types.BoolValue{
-				V: input[0].Float() >= input[1].Float(),
+				V: false,
 			}, nil
 		},
 	})

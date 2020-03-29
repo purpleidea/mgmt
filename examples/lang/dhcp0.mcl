@@ -1,0 +1,26 @@
+$iface = "lo"	# replace with your desired interface like eth0
+
+net $iface {
+	state => "up",
+	addrs => ["192.168.42.1/24",],
+}
+
+dhcp:server ":67" {
+	interface => $iface,		# required for now
+	leasetime => "60s",		# increase this for normal production
+	dns => ["8.8.8.8", "1.1.1.1",],	# pick your own better ones!
+	routers => ["192.168.42.1",],
+
+	Depend => Net[$iface],	# TODO: add autoedges
+}
+
+dhcp:host "hostname1" {
+	mac => "00:11:22:33:44:55",	# replace with your own!
+	ip => "192.168.42.101/24",	# cidr notation is required
+}
+
+dhcp:host "hostname2" {
+	mac => "ba:98:76:54:32:11",			# replace with your own!
+	ip => "192.168.42.102/24",
+	nbp => "tftp://192.168.42.1/pxelinux.0",	# for bios clients
+}

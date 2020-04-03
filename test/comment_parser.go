@@ -191,14 +191,23 @@ func IsWrappedProperly(lines []string, length int) error {
 			return fmt.Errorf("line %d contained multiple spaces", lineno)
 		}
 
-		if len(line) > length && !IsSpecialLine(line) {
-			return fmt.Errorf("line %d is too long", lineno)
-		}
-
 		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			//continue // should not happen with above check
 			return fmt.Errorf("line %d had an unexpected empty list of fields", lineno)
+		}
+
+		lastIndex := len(fields) - 1
+		lastChunk := fields[lastIndex]
+		beginning := strings.Join(fields[0:lastIndex], " ")
+		// !strings.Contains(lastChunk, " ") // redundant
+
+		// Either of these conditions is a reason we can skip this test.
+		skip1 := IsSpecialLine(line)
+		skip2 := (len(beginning) <= length && IsSpecialLine(lastChunk))
+
+		if len(line) > length && (!skip1) && (!skip2) {
+			return fmt.Errorf("line %d is too long", lineno)
 		}
 
 		// If we have a new start word, then we don't need to reflow it

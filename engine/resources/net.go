@@ -83,15 +83,30 @@ const (
 
 // NetRes is a network interface resource based on netlink. It manages the state
 // of a network link. Configuration is also stored in a networkd configuration
-// file, so the network is available upon reboot.
+// file, so the network is available upon reboot. The name of the resource is
+// the string representing the network interface name. This could be "eth0" for
+// example.
 type NetRes struct {
 	traits.Base // add the base methods without re-implementation
 
 	init *engine.Init
 
-	State   string   `yaml:"state"`   // up, down, or empty
-	Addrs   []string `yaml:"addrs"`   // list of addresses in cidr format
-	Gateway string   `yaml:"gateway"` // gateway address
+	// State is the desired state of the interface. It can be "up", "down",
+	// or the empty string to leave that unspecified.
+	State string `lang:"state" yaml:"state"`
+
+	// Addrs is the list of addresses to set on the interface. They must
+	// each be in CIDR notation such as: 192.0.2.42/24 for example.
+	Addrs []string `lang:"addrs" yaml:"addrs"`
+
+	// Gateway represents the default route to set for the interface.
+	Gateway string `lang:"gateway" yaml:"gateway"`
+
+	// IPForward is a boolean that sets whether we should forward incoming
+	// packets onward when this is set. It default to unspecified, which
+	// downstream (in the systemd-networkd configuration) defaults to false.
+	// XXX: this could also be "ipv4" or "ipv6", add those as a second option?
+	IPForward *bool `lang:"ip_forward" yaml:"ip_forward"`
 
 	iface        *iface // a struct containing the net.Interface and netlink.Link
 	unitFilePath string // the interface unit file path
@@ -589,6 +604,13 @@ func (obj *NetRes) unitFileContents() []byte {
 	}
 	if obj.Gateway != "" {
 		u = append(u, fmt.Sprintf("Gateway=%s", obj.Gateway))
+	}
+	if obj.IPForward != nil {
+		b := "false"
+		if *obj.IPForward {
+			b = "true"
+		}
+		u = append(u, fmt.Sprintf("IPForward=%s", b))
 	}
 	c := strings.Join(u, "\n")
 	return []byte(c)

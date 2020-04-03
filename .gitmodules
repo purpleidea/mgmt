@@ -31,3 +31,6 @@
 [submodule "vendor/github.com/purpleidea/go-connections"]
 	path = vendor/github.com/docker/go-connections
 	url = https://github.com/docker/go-connections
+[submodule "vendor/github.com/hashicorp/go-multierror"]
+	path = vendor/github.com/hashicorp/go-multierror
+	url = https://github.com/hashicorp/go-multierror

@@ -37,8 +37,8 @@ import (
 )
 
 func init() {
-	engine.RegisterResource("tftp:server", func() engine.Res { return &TftpServerRes{} })
-	engine.RegisterResource("tftp:file", func() engine.Res { return &TftpFileRes{} })
+	engine.RegisterResource("tftp:server", func() engine.Res { return &TFTPServerRes{} })
+	engine.RegisterResource("tftp:file", func() engine.Res { return &TFTPFileRes{} })
 }
 
 const (
@@ -51,17 +51,17 @@ const (
 	TftpUseSecureJoin = true
 )
 
-// TftpServerRes is a tftp server resource. It serves files, but does not
+// TFTPServerRes is a tftp server resource. It serves files, but does not
 // actually apply any state. The name is used as the address to listen on,
 // unless the Address field is specified, and in that case it is used instead.
 // This resource can offer up files for serving that are specified either inline
 // in this resource by specifying a tftp root, or as tftp:file resources which
 // will get autogrouped into this resource at runtime. The two methods can be
 // combined as well.
-type TftpServerRes struct {
+type TFTPServerRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
-	traits.Groupable // can have TftpFileRes grouped into it
+	traits.Groupable // can have TFTPFileRes grouped into it
 
 	init *engine.Init
 
@@ -83,15 +83,15 @@ type TftpServerRes struct {
 }
 
 // Default returns some sensible defaults for this resource.
-func (obj *TftpServerRes) Default() engine.Res {
-	return &TftpServerRes{
+func (obj *TFTPServerRes) Default() engine.Res {
+	return &TFTPServerRes{
 		Timeout: TftpDefaultTimeout,
 	}
 }
 
 // getAddress returns the actual address to use. When Address is not specified,
 // we use the Name.
-func (obj *TftpServerRes) getAddress() string {
+func (obj *TFTPServerRes) getAddress() string {
 	if obj.Address != "" {
 		return obj.Address
 	}
@@ -99,12 +99,22 @@ func (obj *TftpServerRes) getAddress() string {
 }
 
 // Validate checks if the resource data structure was populated correctly.
-func (obj *TftpServerRes) Validate() error {
+func (obj *TFTPServerRes) Validate() error {
 	if obj.getAddress() == "" {
 		return fmt.Errorf("empty address")
 	}
 
-	// FIXME: parse getAddress and ensure it's in a legal format
+	host, _, err := net.SplitHostPort(obj.getAddress())
+	if err != nil {
+		return errwrap.Wrapf(err, "the Address is in an invalid format: %s", obj.getAddress())
+	}
+	if host != "" {
+		// TODO: should we allow fqdn's here?
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return fmt.Errorf("the Address is not a valid IP: %s", host)
+		}
+	}
 
 	if obj.Root != "" && !strings.HasPrefix(obj.Root, "/") {
 		return fmt.Errorf("the Root must be absolute")
@@ -117,19 +127,19 @@ func (obj *TftpServerRes) Validate() error {
 }
 
 // Init runs some startup code for this resource.
-func (obj *TftpServerRes) Init(init *engine.Init) error {
+func (obj *TFTPServerRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	return nil
 }
 
 // Close is run by the engine to clean up after the resource is done.
-func (obj *TftpServerRes) Close() error {
+func (obj *TFTPServerRes) Close() error {
 	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *TftpServerRes) Watch() error {
+func (obj *TFTPServerRes) Watch() error {
 	addr, err := net.ResolveUDPAddr("udp", obj.getAddress())
 	if err != nil {
 		return errwrap.Wrapf(err, "could not resolve address")
@@ -179,7 +189,7 @@ func (obj *TftpServerRes) Watch() error {
 	var send = false // send event?
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("%s: Looping...")
+			obj.init.Logf("Looping...")
 		}
 
 		select {
@@ -205,7 +215,7 @@ func (obj *TftpServerRes) Watch() error {
 // CheckApply never has anything to do for this resource, so it always succeeds.
 // It does however check that certain runtime requirements (such as the Root dir
 // existing if one was specified) are fulfilled.
-func (obj *TftpServerRes) CheckApply(apply bool) (bool, error) {
+func (obj *TFTPServerRes) CheckApply(apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
@@ -225,9 +235,9 @@ func (obj *TftpServerRes) CheckApply(apply bool) (bool, error) {
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
-func (obj *TftpServerRes) Cmp(r engine.Res) error {
-	// we can only compare TftpServerRes to others of the same resource kind
-	res, ok := r.(*TftpServerRes)
+func (obj *TFTPServerRes) Cmp(r engine.Res) error {
+	// we can only compare TFTPServerRes to others of the same resource kind
+	res, ok := r.(*TFTPServerRes)
 	if !ok {
 		return fmt.Errorf("res is not the same kind")
 	}
@@ -245,25 +255,25 @@ func (obj *TftpServerRes) Cmp(r engine.Res) error {
 	return nil
 }
 
-//// Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
-//// TODO: should this copy internal state?
-//func (obj *TftpServerRes) Copy() engine.CopyableRes {
-//	return &TftpServerRes{
-//		Address: obj.Address,
-//		Timeout: obj.Timeout,
-//		Root:    obj.Root,
-//	}
-//}
+// Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
+// TODO: should this copy internal state?
+func (obj *TFTPServerRes) Copy() engine.CopyableRes {
+	return &TFTPServerRes{
+		Address: obj.Address,
+		Timeout: obj.Timeout,
+		Root:    obj.Root,
+	}
+}
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *TftpServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawRes TftpServerRes // indirection to avoid infinite recursion
+func (obj *TFTPServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes TFTPServerRes // indirection to avoid infinite recursion
 
 	def := obj.Default()            // get the default
-	res, ok := def.(*TftpServerRes) // put in the right format
+	res, ok := def.(*TFTPServerRes) // put in the right format
 	if !ok {
-		return fmt.Errorf("could not convert to TftpServerRes")
+		return fmt.Errorf("could not convert to TFTPServerRes")
 	}
 	raw := rawRes(*res) // convert; the defaults go here
 
@@ -271,15 +281,15 @@ func (obj *TftpServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error
 		return err
 	}
 
-	*obj = TftpServerRes(raw) // restore from indirection with type conversion!
+	*obj = TFTPServerRes(raw) // restore from indirection with type conversion!
 	return nil
 }
 
 // GroupCmp returns whether two resources can be grouped together or not. Can
 // these two resources be merged, aka, does this resource support doing so? Will
 // resource allow itself to be grouped _into_ this obj?
-func (obj *TftpServerRes) GroupCmp(r engine.GroupableRes) error {
-	res, ok := r.(*TftpFileRes) // different from what we usually do!
+func (obj *TFTPServerRes) GroupCmp(r engine.GroupableRes) error {
+	res, ok := r.(*TFTPFileRes) // different from what we usually do!
 	if !ok {
 		return fmt.Errorf("resource is not the right kind")
 	}
@@ -294,7 +304,7 @@ func (obj *TftpServerRes) GroupCmp(r engine.GroupableRes) error {
 }
 
 // readHandler handles all the incoming download requests from clients.
-func (obj *TftpServerRes) readHandler() func(string, io.ReaderFrom) error {
+func (obj *TFTPServerRes) readHandler() func(string, io.ReaderFrom) error {
 	return func(filename string, rf io.ReaderFrom) error {
 		raddr := rf.(tftp.OutgoingTransfer).RemoteAddr()
 		laddr := rf.(tftp.RequestPacketInfo).LocalIP() // may be nil
@@ -314,7 +324,7 @@ func (obj *TftpServerRes) readHandler() func(string, io.ReaderFrom) error {
 		// Look through the autogrouped resources!
 		// TODO: can we improve performance by only searching here once?
 		for _, x := range obj.GetGroup() { // grouped elements
-			res, ok := x.(*TftpFileRes) // convert from Res
+			res, ok := x.(*TFTPFileRes) // convert from Res
 			if !ok {
 				continue
 			}
@@ -370,8 +380,8 @@ func (obj *TftpServerRes) readHandler() func(string, io.ReaderFrom) error {
 
 		// We never found a file...
 		if handle == nil {
-			if obj.init.Debug {
-				obj.init.Logf("Never found file: %s", filename)
+			if obj.init.Debug || true { // XXX: maybe we should always do this?
+				obj.init.Logf("File not found: %s", filename)
 			}
 			// don't leak additional information to client!
 			return errwrap.Wrapf(os.ErrNotExist, "file: %s", filename)
@@ -395,14 +405,14 @@ func (obj *TftpServerRes) readHandler() func(string, io.ReaderFrom) error {
 }
 
 // writeHandler handles all the incoming upload requests from clients.
-func (obj *TftpServerRes) writeHandler() func(string, io.WriterTo) error {
+func (obj *TFTPServerRes) writeHandler() func(string, io.WriterTo) error {
 	// Use nil in place of handler function to disable that operation.
 	return nil // not implemented
 }
 
 // hook is a helper function to build the tftp.Hook that we'd like to use. It
 // must not be called before Init.
-func (obj *TftpServerRes) hook() tftp.Hook {
+func (obj *TFTPServerRes) hook() tftp.Hook {
 	if obj.init == nil {
 		return nil // should not happen
 	}
@@ -437,15 +447,15 @@ func (obj *hook) OnFailure(stats tftp.TransferStats, err error) {
 	obj.logf("transfer failure: %+v", stats)
 }
 
-// TftpFileRes is a file that exists within a tftp server. The name is used as
+// TFTPFileRes is a file that exists within a tftp server. The name is used as
 // the public path of the file, unless the filename field is specified, and in
 // that case it is used instead. The way this works is that it autogroups at
 // runtime with an existing tftp resource, and in doing so makes the file
 // associated with this resource available for serving from that tftp server.
-type TftpFileRes struct {
+type TFTPFileRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
-	traits.Groupable // can be grouped into TftpServerRes
+	traits.Groupable // can be grouped into TFTPServerRes
 
 	init *engine.Init
 
@@ -471,15 +481,15 @@ type TftpFileRes struct {
 }
 
 // Default returns some sensible defaults for this resource.
-func (obj *TftpFileRes) Default() engine.Res {
-	return &TftpFileRes{}
+func (obj *TFTPFileRes) Default() engine.Res {
+	return &TFTPFileRes{}
 }
 
 // getFilename returns the actual filename to use. When Filename is not
 // specified, we use the Name. Note that this is the filename that will be seen
 // on the tftp server, it is *not* the source path to the actual file contents
 // being sent by the server.
-func (obj *TftpFileRes) getFilename() string {
+func (obj *TFTPFileRes) getFilename() string {
 	if obj.Filename != "" {
 		return obj.Filename
 	}
@@ -489,7 +499,7 @@ func (obj *TftpFileRes) getFilename() string {
 // getContent returns the content that we expect from this resource. It depends
 // on whether the user specified the Path or Data fields, and whether the Path
 // exists or not.
-func (obj *TftpFileRes) getContent() (io.ReadSeeker, error) {
+func (obj *TFTPFileRes) getContent() (io.ReadSeeker, error) {
 	if obj.Path != "" && obj.Data != "" {
 		// programming error! this should have been caught in Validate!
 		return nil, fmt.Errorf("must not specify Path and Data")
@@ -503,7 +513,7 @@ func (obj *TftpFileRes) getContent() (io.ReadSeeker, error) {
 }
 
 // Validate checks if the resource data structure was populated correctly.
-func (obj *TftpFileRes) Validate() error {
+func (obj *TFTPFileRes) Validate() error {
 	if obj.getFilename() == "" {
 		return fmt.Errorf("empty filename")
 	}
@@ -523,21 +533,21 @@ func (obj *TftpFileRes) Validate() error {
 }
 
 // Init runs some startup code for this resource.
-func (obj *TftpFileRes) Init(init *engine.Init) error {
+func (obj *TFTPFileRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	return nil
 }
 
 // Close is run by the engine to clean up after the resource is done.
-func (obj *TftpFileRes) Close() error {
+func (obj *TFTPFileRes) Close() error {
 	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.
-func (obj *TftpFileRes) Watch() error {
+func (obj *TFTPFileRes) Watch() error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
@@ -550,7 +560,7 @@ func (obj *TftpFileRes) Watch() error {
 }
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
-func (obj *TftpFileRes) CheckApply(apply bool) (bool, error) {
+func (obj *TFTPFileRes) CheckApply(apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
@@ -559,9 +569,9 @@ func (obj *TftpFileRes) CheckApply(apply bool) (bool, error) {
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
-func (obj *TftpFileRes) Cmp(r engine.Res) error {
-	// we can only compare TftpFileRes to others of the same resource kind
-	res, ok := r.(*TftpFileRes)
+func (obj *TFTPFileRes) Cmp(r engine.Res) error {
+	// we can only compare TFTPFileRes to others of the same resource kind
+	res, ok := r.(*TFTPFileRes)
 	if !ok {
 		return fmt.Errorf("res is not the same kind")
 	}
@@ -584,13 +594,13 @@ func (obj *TftpFileRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *TftpFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawRes TftpFileRes // indirection to avoid infinite recursion
+func (obj *TFTPFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes TFTPFileRes // indirection to avoid infinite recursion
 
 	def := obj.Default()          // get the default
-	res, ok := def.(*TftpFileRes) // put in the right format
+	res, ok := def.(*TFTPFileRes) // put in the right format
 	if !ok {
-		return fmt.Errorf("could not convert to TftpFileRes")
+		return fmt.Errorf("could not convert to TFTPFileRes")
 	}
 	raw := rawRes(*res) // convert; the defaults go here
 
@@ -598,6 +608,6 @@ func (obj *TftpFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	*obj = TftpFileRes(raw) // restore from indirection with type conversion!
+	*obj = TFTPFileRes(raw) // restore from indirection with type conversion!
 	return nil
 }

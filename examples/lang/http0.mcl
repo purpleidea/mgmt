@@ -1,0 +1,44 @@
+$root = "/tmp/httproot/"
+file $root {
+	state => $const.res.file.state.exists,
+}
+file "${root}file0" {
+	content => "i'm file0 in ${root}\n",
+	state => $const.res.file.state.exists,
+}
+
+http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+	#address => ":8080",	# you can override the name like this
+	timeout => 60,		# add a timeout (seconds)
+	root => $root,		# add a httproot (optional)
+}
+
+# you can add a raw file like this...
+http:file "/file1" {
+	data => "hello, world, i'm file1 and i don't exist on disk!\n",
+}
+
+# or if there's a file on disk you care about...
+$f2 = "/tmp/some_file"
+file $f2 {
+	content => "i'm a cool file in /tmp\n",
+	state => $const.res.file.state.exists,
+}
+
+# you can point to it directly...
+http:file "/file2" {
+	path => $f2,
+
+	Depend => File[$f2],	# TODO: add autoedges
+}
+
+# here's a file in the middle of nowhere that still works...
+http:file "/i/am/some/deeply/nested/file" {
+	data => "how did you find me!\n",
+}
+
+# and this file won't autogroup with the main http server
+http:file "/nope/noway" {
+	data => "i won't be seen!\n",
+	server => "someone else!",	# normally we don't use this this way
+}

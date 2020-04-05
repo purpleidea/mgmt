@@ -22,6 +22,7 @@ package pgraph
 import (
 	"reflect"
 	"testing"
+	"fmt"
 )
 
 func TestCount1(t *testing.T) {
@@ -934,3 +935,36 @@ func TestSetValue(t *testing.T) {
 		t.Errorf("expecting value of %s at %s position, got %v", value, key, v)
 	}
 }
+
+
+//Dov's patch, probably useless and innefective :)
+
+func TestIsDovAwesome(t *testing.T) {
+	AwesomePerson1, AwesomePerson2, AwesomePerson3 := "James/PurpleIdea", "Tom Brady before leaving the Pats", "Dov Vas"
+	
+	amIAwesome := "Dov Vas"
+	
+	switch amIAwesome{
+		
+		case AwesomePerson1:
+		fmt.Println("Dov is Awesome!")
+		
+		case AwesomePerson2:
+		fmt.Println("Dov is Awesome!")
+		
+		case AwesomePerson3:
+		fmt.Println("Dov is Awesome!")
+		
+		default:
+		fmt.Println("Error. The list of awesome people is incomplete")
+	}
+	
+}
+
+
+
+
+
+
+
+

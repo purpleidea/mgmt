@@ -160,6 +160,11 @@ func (obj *EmbdEtcd) nominateCb(ctx context.Context) error {
 			defer close(obj.errExitN) // multi-signal for errChan close op
 			// blocks until server exits
 			serverErr = obj.runServer(newCluster, nominated)
+			if serverErr != nil {
+				// TODO: why isn't this error seen elsewhere?
+				// TODO: shouldn't it get propagated somewhere?
+				obj.Logf("runServer exited with: %+v", serverErr)
+			}
 			// in case this exits on its own instead of with destroy
 			defer obj.destroyServer()          // run to reset some values
 			if sendError && serverErr != nil { // exited with an error

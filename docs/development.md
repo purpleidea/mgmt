@@ -28,7 +28,7 @@ required for running the _test_ suite.
 
 ### Build
 
-* `golang` 1.12 or higher (required, available in some distros and distributed
+* `golang` 1.13 or higher (required, available in some distros and distributed
 as a binary officially by [golang.org](https://golang.org/dl/))
 
 ### Runtime

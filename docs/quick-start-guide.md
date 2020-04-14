@@ -37,7 +37,7 @@ You'll need some dependencies, including `golang`, and some associated tools.
 
 #### Installing golang
 
-* You need golang version 1.12 or greater installed.
+* You need golang version 1.13 or greater installed.
 	* To install on rpm style systems: `sudo dnf install golang`
 	* To install on apt style systems: `sudo apt install golang`
 	* To install on macOS systems install [Homebrew](https://brew.sh)

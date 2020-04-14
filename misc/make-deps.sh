@@ -19,6 +19,14 @@ NEWAPT=`command -v apt 2>/dev/null`
 BREW=`command -v brew 2>/dev/null`
 PACMAN=`command -v pacman 2>/dev/null`
 
+# set minimum go version and installed go version
+mingoversion=13
+goversion=0
+if [ -x "$GO" ]; then
+	# capture the minor version number
+	goversion=$(go version | grep -o -P '(?<=go1\.)[0-9]*')
+fi
+
 # if DNF is available use it
 if [ -x "$DNF" ]; then
 	YUM=$DNF
@@ -97,7 +105,7 @@ if [ $travis -eq 0 ]; then
 fi
 
 # attempt to workaround old ubuntu
-if [ ! -z "$APT" ] && go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.'; then
+if [ ! -z "$APT" ] && [ "$goversion" -lt "$mingoversion" ]; then
 	echo "install golang from a ppa."
 	$sudo_command $APT remove -y golang
 	$sudo_command $APT install -y software-properties-common	# for add-apt-repository
@@ -107,8 +115,8 @@ if [ ! -z "$APT" ] && go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.';
 fi
 
 # if golang is too old, we don't want to fail with an obscure error later
-if go version | grep -e 'go1\.[0123456789]\.' -e 'go1\.10\.'; then
-	echo "mgmt recommends go1.11 or higher."
+if [ "$goversion" -lt "$mingoversion" ]; then
+	echo "mgmt recommends go1.$mingoversion or higher."
 	exit 1
 fi
 

@@ -27,7 +27,7 @@ import (
 
 // VertexMerge merges v2 into v1 by reattaching the edges where appropriate, and
 // then by deleting v2 from the graph. Since more than one edge between two
-// vertices is not allowed, duplicate edges are merged as well. an edge merge
+// vertices is not allowed, duplicate edges are merged as well. An edge merge
 // function can be provided if you'd like to control how you merge the edges!
 func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error), edgeMergeFn func(pgraph.Edge, pgraph.Edge) pgraph.Edge) error {
 	// methodology

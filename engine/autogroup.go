@@ -39,7 +39,7 @@ type GroupableRes interface {
 	SetAutoGroupMeta(*AutoGroupMeta)
 
 	// GroupCmp compares two resources and decides if they're suitable for
-	//grouping. This usually needs to be unique to your resource.
+	// grouping. This usually needs to be unique to your resource.
 	GroupCmp(res GroupableRes) error
 
 	// GroupRes groups resource argument (res) into self.

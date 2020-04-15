@@ -54,7 +54,7 @@ func AutoGroup(ag engine.AutoGrouper, g *pgraph.Graph, debug bool, logf func(for
 			logf("!VertexMerge for: %s into: %s", wStr, vStr)
 
 		} else { // success!
-			logf("success for: %s into: %s", wStr, vStr)
+			logf("%s into %s", wStr, vStr)
 			merged = true // woo
 		}
 

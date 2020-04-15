@@ -89,6 +89,19 @@ func (ag *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 			ag.done = true
 		}
 	}
+	// TODO: is this index swap better or even valid?
+	//if ag.i < l {
+	//	ag.i++
+	//}
+	//if ag.i == l {
+	//	ag.i = 0
+	//	if ag.j < l {
+	//		ag.j++
+	//	}
+	//	if ag.j == l {
+	//		ag.done = true
+	//	}
+	//}
 
 	return
 }
@@ -110,7 +123,7 @@ func (ag *baseGrouper) VertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err e
 	return nil, fmt.Errorf("vertexMerge needs to be overridden")
 }
 
-// EdgeMerge can be overridden, since it just simple returns the first edge.
+// EdgeMerge can be overridden, since it just simply returns the first edge.
 func (ag *baseGrouper) EdgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
 	return e1 // noop
 }

@@ -1442,7 +1442,7 @@ capitalized_res_identifier:
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $1.str
 	}
-|	capitalized_res_identifier COLON IDENTIFIER
+|	capitalized_res_identifier COLON CAPITALIZED_IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $1.str + $2.str + $3.str

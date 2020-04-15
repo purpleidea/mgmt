@@ -169,26 +169,9 @@ func (obj *State) Init() error {
 			}
 			return res.Refresh()
 		},
-		Send: func(st interface{}) error {
-			res, ok := obj.Vertex.(engine.SendableRes)
-			if !ok {
-				panic("res does not support the Sendable trait")
-			}
-			// XXX: type check this
-			//expected := res.Sends()
-			//if err := XXX_TYPE_CHECK(expected, st); err != nil {
-			//	return err
-			//}
 
-			return res.Send(st) // send the struct
-		},
-		Recv: func() map[string]*engine.Send { // TODO: change this API?
-			res, ok := obj.Vertex.(engine.RecvableRes)
-			if !ok {
-				panic("res does not support the Recvable trait")
-			}
-			return res.Recv()
-		},
+		Send: engine.GenerateSendFunc(res),
+		Recv: engine.GenerateRecvFunc(res),
 
 		// FIXME: pass in a safe, limited query func instead?
 		// TODO: not implemented, use FilteredGraph

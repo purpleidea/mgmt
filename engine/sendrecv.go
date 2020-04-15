@@ -33,7 +33,9 @@ type SendableRes interface {
 	Sends() interface{}
 
 	// Send is used in CheckApply to send the desired data. It returns an
-	// error if the data is malformed or doesn't type check.
+	// error if the data is malformed or doesn't type check. You should use
+	// the GenerateSendFunc helper function to build this function for use
+	// in the resource internal state handle.
 	Send(st interface{}) error
 
 	// Sent returns the most recently sent data. This is used by the engine.
@@ -54,7 +56,8 @@ type RecvableRes interface {
 
 	// Recv is used by the resource to get information on changes. This data
 	// can be used to invalidate caches, restart watches, or it can be
-	// ignored entirely.
+	// ignored entirely. You should use the GenerateRecvFunc helper function
+	// to build this function for use in the resource internal state handle.
 	Recv() map[string]*Send
 }
 
@@ -64,4 +67,36 @@ type Send struct {
 	Key string      // the key in the resource that we're sending
 
 	Changed bool // set to true if this key was updated, read only!
+}
+
+// GenerateSendFunc generates the Send function using the resource of our choice
+// for use in the resource internal state handle.
+func GenerateSendFunc(res Res) func(interface{}) error {
+	return func(st interface{}) error {
+		//fmt.Printf("from: %+v\n", res)
+		//fmt.Printf("send: %+v\n", st)
+		r, ok := res.(SendableRes)
+		if !ok {
+			panic("res does not support the Sendable trait")
+		}
+		// XXX: type check this
+		//expected := r.Sends()
+		//if err := XXX_TYPE_CHECK(expected, st); err != nil {
+		//	return err
+		//}
+
+		return r.Send(st) // send the struct
+	}
+}
+
+// GenerateRecvFunc generates the Recv function using the resource of our choice
+// for use in the resource internal state handle.
+func GenerateRecvFunc(res Res) func() map[string]*Send {
+	return func() map[string]*Send { // TODO: change this API?
+		r, ok := res.(RecvableRes)
+		if !ok {
+			panic("res does not support the Recvable trait")
+		}
+		return r.Recv()
+	}
 }

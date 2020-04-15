@@ -214,19 +214,21 @@ func (obj *ExecRes) Watch() error {
 				exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
 				if !ok {
 					// command failed in some bad way
-					return errwrap.Wrapf(err, "unknown error")
+					return errwrap.Wrapf(err, "watchcmd failed in some bad way")
 				}
 				pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
 				wStatus, ok := pStateSys.(syscall.WaitStatus)
 				if !ok {
-					return errwrap.Wrapf(err, "error running cmd")
+					return errwrap.Wrapf(err, "could not get exit status of watchcmd")
 				}
 				exitStatus := wStatus.ExitStatus()
-				obj.init.Logf("watchcmd exited with: %d", exitStatus)
-				if exitStatus != 0 {
-					return errwrap.Wrapf(err, "unexpected exit status of zero")
+				if exitStatus == 0 {
+					// i'm not sure if this could happen
+					return errwrap.Wrapf(err, "unexpected watchcmd exit status of zero")
 				}
-				return err // i'm not sure if this could happen
+
+				obj.init.Logf("watchcmd exited with: %d", exitStatus)
+				return errwrap.Wrapf(err, "watchcmd errored")
 			}
 
 			// each time we get a line of output, we loop!
@@ -298,16 +300,17 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 			exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
 			if !ok {
 				// command failed in some bad way
-				return false, err
+				return false, errwrap.Wrapf(err, "ifcmd failed in some bad way")
 			}
 			pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
 			wStatus, ok := pStateSys.(syscall.WaitStatus)
 			if !ok {
-				return false, errwrap.Wrapf(err, "error running cmd")
+				return false, errwrap.Wrapf(err, "could not get exit status of ifcmd")
 			}
 			exitStatus := wStatus.ExitStatus()
 			if exitStatus == 0 {
-				return false, fmt.Errorf("unexpected exit status of zero")
+				// i'm not sure if this could happen
+				return false, errwrap.Wrapf(err, "unexpected ifcmd exit status of zero")
 			}
 
 			obj.init.Logf("ifcmd exited with: %d", exitStatus)
@@ -438,7 +441,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 			return false, errwrap.Wrapf(err, "cmd timeout, exit status: %d", exitStatus)
 		}
 
-		return false, fmt.Errorf("unknown cmd error, signal: %s, exit status: %d", sig, exitStatus)
+		return false, errwrap.Wrapf(err, "unknown cmd error, signal: %s, exit status: %d", sig, exitStatus)
 
 	} else if err != nil {
 		return false, errwrap.Wrapf(err, "general cmd error")

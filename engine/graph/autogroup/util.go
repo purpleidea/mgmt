@@ -19,6 +19,8 @@ package autogroup
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -135,4 +137,68 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 		return errwrap.Wrapf(err, "the TopologicalSort failed") // not a dag
 	}
 	return nil // success
+}
+
+// RHVSlice is a linear list of vertices. It can be sorted by the Kind, taking
+// into account the hierarchy of names separated by colons. Afterwards, it uses
+// String() to avoid the non-determinism in the map type. RHV stands for Reverse
+// Hierarchical Vertex, meaning the hierarchical topology of the vertex
+// (resource) names are used.
+type RHVSlice []pgraph.Vertex
+
+// Len returns the length of the slice of vertices.
+func (obj RHVSlice) Len() int { return len(obj) }
+
+// Swap swaps two elements in the slice.
+func (obj RHVSlice) Swap(i, j int) { obj[i], obj[j] = obj[j], obj[i] }
+
+// Less returns the smaller element in the sort order according to the
+// aforementioned rules.
+// XXX: Add some tests to make sure I didn't get any "reverse" part backwards.
+func (obj RHVSlice) Less(i, j int) bool {
+	resi, oki := obj[i].(engine.Res)
+	resj, okj := obj[j].(engine.Res)
+	if !oki || !okj || resi.Kind() == "" || resj.Kind() == "" {
+		// One of these isn't a normal Res, so just compare normally.
+		return obj[i].String() > obj[j].String() // reverse
+	}
+
+	si := strings.Split(resi.Kind(), ":")
+	sj := strings.Split(resj.Kind(), ":")
+	// both lengths should each be at least one now
+	li := len(si)
+	lj := len(sj)
+
+	if li != lj { // eg: http:ui vs. http:ui:text
+		return li > lj // reverse
+	}
+
+	// same number of chunks
+	for k := 0; k < li; k++ {
+		if si[k] != sj[k] { // lhs chunk differs
+			return si[k] > sj[k] // reverse
+		}
+
+		// if the chunks are the same, we continue...
+	}
+
+	// They must all have the same chunks, so finally we compare the names.
+	return resi.Name() > resj.Name() // reverse
+}
+
+// Sort is a convenience method.
+func (obj RHVSlice) Sort() { sort.Sort(obj) }
+
+// RHVSort returns a deterministically sorted slice of all vertices in the list.
+// The order is sorted by the Kind, taking into account the hierarchy of names
+// separated by colons. Afterwards, it uses String() to avoid the
+// non-determinism in the map type. RHV stands for Reverse Hierarchical Vertex,
+// meaning the hierarchical topology of the vertex (resource) names are used.
+func RHVSort(vertices []pgraph.Vertex) []pgraph.Vertex {
+	var vs []pgraph.Vertex
+	for _, v := range vertices { // copy first
+		vs = append(vs, v)
+	}
+	sort.Sort(RHVSlice(vs)) // add determinism
+	return vs
 }

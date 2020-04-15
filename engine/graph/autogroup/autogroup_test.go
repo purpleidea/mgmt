@@ -741,17 +741,30 @@ func TestPgraphGrouping16(t *testing.T) {
 		g1.AddEdge(b1, c1, e2)
 		g1.AddEdge(a2, c1, e3)
 	}
-	g2, _ := pgraph.NewGraph("g2") // expected result
+	//g2, _ := pgraph.NewGraph("g2") // expected result
+	//{
+	//	a := NewNoopResTest("a1,a2")
+	//	b1 := NewNoopResTest("b1")
+	//	c1 := NewNoopResTest("c1")
+	//	e1 := NE("e1,e3")
+	//	e2 := NE("e2,e3") // e3 gets "merged through" to BOTH edges!
+	//	g2.AddEdge(a, b1, e1)
+	//	g2.AddEdge(b1, c1, e2)
+	//}
+	//runGraphCmp(t, g1, g2)
+	g3, _ := pgraph.NewGraph("g3") // alternative expected result
 	{
 		a := NewNoopResTest("a1,a2")
 		b1 := NewNoopResTest("b1")
 		c1 := NewNoopResTest("c1")
-		e1 := NE("e1,e3")
-		e2 := NE("e2,e3") // e3 gets "merged through" to BOTH edges!
-		g2.AddEdge(a, b1, e1)
-		g2.AddEdge(b1, c1, e2)
+		e1 := NE("e1")
+		e2 := NE("e2")
+		e3 := NE("e3")
+		g3.AddEdge(a, b1, e1)
+		g3.AddEdge(b1, c1, e2)
+		g3.AddEdge(a, c1, e3)
 	}
-	runGraphCmp(t, g1, g2)
+	runGraphCmp(t, g1, g3)
 }
 
 /*
@@ -792,11 +805,12 @@ func TestPgraphGrouping17(t *testing.T) {
 /*
 // re-attach 3 (double)
 // similar to "re-attach 1", technically there is a second possibility for this
-// a2   a1    b2         a1,a2
-//   \   |   /             |
-//    \ b1  /      >>>   b1,b2   (arrows point downwards)
-//     \ | /               |
-//      c1                c1
+// TODO: verify this second possibility manually
+// a2   a1    b2         a1,a2        a1,a2
+//   \   |   /             |            |   \
+//    \ b1  /      >>>   b1,b2   OR   b1,b2 /   (arrows point downwards)
+//     \ | /               |            |  /
+//      c1                c1           c1
 */
 func TestPgraphGrouping18(t *testing.T) {
 	g1, _ := pgraph.NewGraph("g1") // original graph
@@ -815,17 +829,30 @@ func TestPgraphGrouping18(t *testing.T) {
 		g1.AddEdge(a2, c1, e3)
 		g1.AddEdge(b2, c1, e4)
 	}
-	g2, _ := pgraph.NewGraph("g2") // expected result
+	//g2, _ := pgraph.NewGraph("g2") // expected result
+	//{
+	//	a := NewNoopResTest("a1,a2")
+	//	b := NewNoopResTest("b1,b2")
+	//	c1 := NewNoopResTest("c1")
+	//	e1 := NE("e1,e3")
+	//	e2 := NE("e2,e3,e4") // e3 gets "merged through" to BOTH edges!
+	//	g2.AddEdge(a, b, e1)
+	//	g2.AddEdge(b, c1, e2)
+	//}
+	//runGraphCmp(t, g1, g2)
+	g3, _ := pgraph.NewGraph("g3") // alternative expected result
 	{
 		a := NewNoopResTest("a1,a2")
 		b := NewNoopResTest("b1,b2")
 		c1 := NewNoopResTest("c1")
-		e1 := NE("e1,e3")
-		e2 := NE("e2,e3,e4") // e3 gets "merged through" to BOTH edges!
-		g2.AddEdge(a, b, e1)
-		g2.AddEdge(b, c1, e2)
+		e1 := NE("e1")
+		e2 := NE("e2,e4")
+		e3 := NE("e3")
+		g3.AddEdge(a, b, e1)
+		g3.AddEdge(b, c1, e2)
+		g3.AddEdge(a, c1, e3)
 	}
-	runGraphCmp(t, g1, g2)
+	runGraphCmp(t, g1, g3)
 }
 
 /*

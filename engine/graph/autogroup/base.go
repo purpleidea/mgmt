@@ -43,8 +43,24 @@ func (ag *baseGrouper) Init(g *pgraph.Graph) error {
 	if ag.graph != nil {
 		return fmt.Errorf("the init method has already been called")
 	}
-	ag.graph = g                            // pointer
-	ag.vertices = ag.graph.VerticesSorted() // cache in deterministic order!
+	ag.graph = g // pointer
+
+	// We sort deterministically, first by kind, and then by name. In
+	// particular, longer kind chunks sort first. So http:ui:text should
+	// appear before http:server and http:ui. This is a hack so that if we
+	// are doing hierarchical automatic grouping, it gives the http:ui:text
+	// a chance to get grouped into http:ui, before http:ui gets grouped
+	// into http:server, because once that happens, http:ui:text will never
+	// get grouped, and this won't work properly. This works, because when
+	// we start comparing iteratively the list of resources, it does this
+	// with a O(n^2) loop that compares the X and Y zero indexes first, and
+	// and then continues along. If the "longer" resources appear first,
+	// then they'll group together first. We should probably put this into
+	// a new Grouper struct, but for now we might as well leave it here.
+	//vertices := ag.graph.VerticesSorted() // formerly
+	vertices := RHVSort(ag.graph.Vertices())
+
+	ag.vertices = vertices // cache in deterministic order!
 	ag.i = 0
 	ag.j = 0
 	if len(ag.vertices) == 0 { // empty graph

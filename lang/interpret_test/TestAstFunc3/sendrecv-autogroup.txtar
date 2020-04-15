@@ -33,17 +33,17 @@ Value["value2"].any -> Print["print2"].msg
 Value["value3"].any -> Print["print3"].msg
 -- OUTPUT --
 Edge: value[value1] -> print[print1] # value[value1] -> print[print1]
-Edge: value[value2] -> print[print2] # value[value2] -> print[print2]
-Edge: value[value3] -> print[print2] # value[value3] -> print[print3]
+Edge: value[value2] -> print[print3] # value[value2] -> print[print2]
+Edge: value[value3] -> print[print3] # value[value3] -> print[print3]
 Field: print[print1].Msg = "i am value1"
-Field: print[print2].Msg = "i am value2"
+Field: print[print3].Msg = "i am value3"
 Field: value[value1].Any = "i am value1"
 Field: value[value2].Any = "i am value2"
 Field: value[value3].Any = "i am value3"
-Group: print[print2]: Field: print[print3].Msg = "i am value3"
-Group: print[print2]: Vertex: print[print3]
+Group: print[print3]: Field: print[print2].Msg = "i am value2"
+Group: print[print3]: Vertex: print[print2]
 Vertex: print[print1]
-Vertex: print[print2]
+Vertex: print[print3]
 Vertex: value[value1]
 Vertex: value[value2]
 Vertex: value[value3]

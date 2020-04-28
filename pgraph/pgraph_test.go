@@ -934,3 +934,21 @@ func TestSetValue(t *testing.T) {
 		t.Errorf("expecting value of %s at %s position, got %v", value, key, v)
 	}
 }
+
+
+//Dov's new test
+
+//Testing the naming of graphs
+func TestSetName(t *testing.T) {
+	name := "Dov's Graph"
+	
+	var g string
+	g == name
+	
+	if !g == name {
+		t.Errorf("The graph's name is wrong because it should be %s and instead it is %s.", name, g)
+	}
+	
+	return
+}
+

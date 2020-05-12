@@ -15,21 +15,39 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package corenet
 
 import (
-	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/convert"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/deploy"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example/nested"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/fmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/net"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/regexp"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
+	"fmt"
+	"net"
+	"strings"
+
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/types"
 )
+
+func init() {
+	simple.ModuleRegister(ModuleName, "macfmt", &types.FuncValue{
+		T: types.NewType("func(a str) str"),
+		V: MacFmt,
+	})
+}
+
+// MacFmt takes a MAC address with hyphens and converts it to a format with
+// colons.
+func MacFmt(input []types.Value) (types.Value, error) {
+	mac := input[0].Str()
+
+	// Check if the MAC address is valid.
+	if len(mac) != len("00:00:00:00:00:00") {
+		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
+	}
+	_, err := net.ParseMAC(mac)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.StrValue{
+		V: strings.Replace(mac, "-", ":", -1),
+	}, nil
+}

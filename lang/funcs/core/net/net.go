@@ -15,21 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package corenet
 
-import (
-	// import so the funcs register
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/convert"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/deploy"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/example/nested"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/fmt"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/net"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/regexp"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
+const (
+	// ModuleName is the prefix given to all the functions in this module.
+	ModuleName = "net"
 )

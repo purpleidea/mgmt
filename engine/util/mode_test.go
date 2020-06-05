@@ -75,16 +75,20 @@ func TestSymbolicMode(t *testing.T) {
 			if test.err != nil {
 				if err == nil {
 					t.Errorf("input: %s, expected error: %#v, but got nil", def, test.err)
+					return
 				} else if err.Error() != test.err.Error() {
 					t.Errorf("input: %s, expected error: %q, got: %q", def, test.err, err)
+					return
 				}
 			} else if test.err == nil && err != nil {
 				t.Errorf("input: %s, did not expect error but got: %#v", def, err)
+				return
 			}
 
 			// Verify we get the expected value (including zero on error).
 			if test.expect != got {
 				t.Errorf("input: %s, expected: %v, got: %v", def, test.expect, got)
+				return
 			}
 		})
 	}
@@ -119,15 +123,19 @@ func TestSymbolicMode1(t *testing.T) {
 			if test.err != nil {
 				if err == nil {
 					t.Errorf("input: %s, expected error: %#v, but got nil", def, test.err)
+					return
 				} else if err.Error() != test.err.Error() {
 					t.Errorf("input: %s, expected error: %q, got: %q", def, test.err, err)
+					return
 				}
 			} else if test.err == nil && err != nil {
 				t.Errorf("input: %s, did not expect error but got: %#v", def, err)
+				return
 			}
 
 			if test.expect != got {
 				t.Errorf("input: %s, expected: %v, got: %v", def, test.expect, got)
+				return
 			}
 		})
 	}

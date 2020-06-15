@@ -1,0 +1,7 @@
+exec "exec_duplicate" {
+	cmd => "/usr/bin/env",
+	cmd => "echo hello world",
+	shell => "/bin/bash",
+	ifcmd => "/bin/true",
+	ifshell => "/bin/bash",
+}

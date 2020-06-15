@@ -222,8 +222,7 @@ func TestInterpret4(t *testing.T) {
 			int64 => 42,
 			boolptr => true,
 			# comment 3
-			stringptr => "the actual field name is: StringPtr", # comment 4
-			int8ptr => 99, # comment 5
+			int8ptr => 99, # comment 4
 			comment => "☺\thello\u263a\nwo\"rld\\2\u263a", # must escape these
 		}
 	`
@@ -240,8 +239,6 @@ func TestInterpret4(t *testing.T) {
 	x.Int64 = 42
 	b := true
 	x.BoolPtr = &b
-	stringptr := "the actual field name is: StringPtr"
-	x.StringPtr = &stringptr
 	int8ptr := int8(99)
 	x.Int8Ptr = &int8ptr
 	x.Comment = "☺\thello☺\nwo\"rld\\2\u263a" // must escape the escaped chars

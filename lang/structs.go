@@ -311,9 +311,18 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 	if err := obj.Name.Init(data); err != nil {
 		return err
 	}
+	typeMap := make(map[string]struct{})
 	for _, x := range obj.Contents {
 		if err := x.Init(data); err != nil {
 			return err
+		}
+
+		// checks if the current ResField type has already been added to typeMap
+		_, isPresent := typeMap[x.String()]
+		if !isPresent {
+			typeMap[x.String()] = struct{}{}
+		} else {
+			return fmt.Errorf("resource must not contain duplicate fields")
 		}
 	}
 	return nil

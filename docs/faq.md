@@ -254,6 +254,14 @@ prevent masking an error for a situation when you expected a file to already be
 at that location. It also turns out to simplify the internals significantly, and
 remove an ambiguous scenario with the reversable file resource.
 
+### What do the `_print` suffixes on functions represent?
+
+The template library which we use to implement the template() function doesn't
+support the dot notation, so we import all our normal functions, and add
+underscores. As an example, the standard datetime.print function is shown within
+mcl scripts as datetime_print after being imported and is implemented
+[here](https://github.com/purpleidea/mgmt/blob/master/lang/funcs/core/datetime/print_func.go)
+
 ### On startup `mgmt` hangs after: `etcd: server: starting...`.
 
 If you get an error message similar to:

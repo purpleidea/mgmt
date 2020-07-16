@@ -5,3 +5,7 @@ file "/tmp/mgmt/datetime" {
 	state => $const.res.file.state.exists,
 	content => template("Hello! It is now: {{ datetime_print . }}\n", $d),
 }
+
+file "/tmp/mgmt/" {
+	state => $const.res.file.state.exists,
+}

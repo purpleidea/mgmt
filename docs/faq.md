@@ -287,6 +287,13 @@ an instance of mgmt running, or if a related file locking issue occurred. To
 solve this, shutdown and running mgmt process, run `rm mgmt` to remove the file,
 and then get a new one by running `make` again.
 
+### The docs speaks of `--remote` but the CLI errors out?
+
+The `--remote` flag existed in an earlier version of mgmt. It was removed and
+will be replaced with a more powerful version, which is a "remote" resource. The
+code is mostly ready but it's not finished. If you'd like to help finish it or
+sponsor the work, please let me know.
+
 ### Does this support Windows? OSX? GNU Hurd?
 
 Mgmt probably works best on Linux, because that's what most developers use for

@@ -118,6 +118,13 @@ We hope you'll participate as an early adopter. Every additional pair of helping
 hands gets us all there faster! It's quite possible to use this to build useful
 automation today, and we hope you'll start getting familiar with the software.
 
+### The docs speaks of `--remote` but CLI error out `flag provided but not defined`?
+
+The `--remote` existed in an earlier version of mgmt. It was removed and will be
+replaced with a more powerful version, which is "remote" but via a resource.
+The code is almost ready but it's not finished.
+If you'd like to help finish it or sponsor the work, lmk. Sorry!
+
 ### Why did you use etcd? What about consul?
 
 Etcd and consul are both written in golang, which made them the top two

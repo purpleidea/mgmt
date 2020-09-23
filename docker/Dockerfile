@@ -1,10 +1,10 @@
-FROM golang:1.9
+FROM golang:1.12
 
 MAINTAINER Michał Czeraszkiewicz <contact@czerasz.com>
 
 # Set the reset cache variable
 # Read more here: http://czerasz.com/2014/11/13/docker-tip-and-tricks/#use-refreshedat-variable-for-better-cache-control
-ENV REFRESHED_AT 2017-11-16
+ENV REFRESHED_AT 2020-09-23
 
 # Update the package list to be able to use required packages
 RUN apt-get update

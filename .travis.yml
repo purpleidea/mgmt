@@ -24,21 +24,21 @@ install: 'make deps'
 matrix:
   fast_finish: false
   allow_failures:
-  - go: 1.12.x
+  - go: 1.13.x
   - go: tip
   - os: osx
   # include only one build for osx for a quicker build as the nr. of these runners are sparse
   include:
   - name: "basic tests"
-    go: 1.11.x
+    go: 1.12.x
     env: TEST_BLOCK=basic
   - name: "shell tests"
-    go: 1.11.x
+    go: 1.12.x
     env: TEST_BLOCK=shell
   - name: "race tests"
-    go: 1.11.x
+    go: 1.12.x
     env: TEST_BLOCK=race
-  - go: 1.12.x
+  - go: 1.13.x
   - go: tip
   - os: osx
 script: 'TEST_BLOCK="$TEST_BLOCK" make test'

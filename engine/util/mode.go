@@ -43,7 +43,7 @@ const (
 // false if not.
 func modeIsValidWho(who string) bool {
 	for _, w := range []string{"u", "g", "o"} {
-		who = strings.Replace(who, w, "", -1) // TODO: use ReplaceAll in 1.12
+		who = strings.ReplaceAll(who, w, "")
 	}
 	return len(who) == 0
 }
@@ -52,7 +52,7 @@ func modeIsValidWho(who string) bool {
 // string ('r', 'w', 'x', 's', 't').
 func modeIsValidWhat(what string) bool {
 	for _, w := range []string{"r", "w", "x", "s", "t"} {
-		what = strings.Replace(what, w, "", -1) // TODO: use ReplaceAll in 1.12
+		what = strings.ReplaceAll(what, w, "")
 	}
 	return len(what) == 0
 }

@@ -70,9 +70,9 @@ func ResPathUID(res engine.Res) string {
 	// a name of: /tmp/mgmt/foo is /tmp-mgmt-foo and
 	// a name of: /tmp/mgmt-foo -> /tmp-mgmt-foo if we replace slashes.
 	// As a result, we base64 encode (but without slashes).
-	name := strings.Replace(res.Name(), "/", "-", -1) // TODO: use ReplaceAll in 1.12
-	if os.PathSeparator != '/' {                      // lol windows?
-		name = strings.Replace(name, string(os.PathSeparator), "-", -1) // TODO: use ReplaceAll in 1.12
+	name := strings.ReplaceAll(res.Name(), "/", "-")
+	if os.PathSeparator != '/' { // lol windows?
+		name = strings.ReplaceAll(name, string(os.PathSeparator), "-")
 	}
 	b := []byte(res.Name())
 	encoded := base64.URLEncoding.EncodeToString(b)

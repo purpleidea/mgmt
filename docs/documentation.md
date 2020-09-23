@@ -122,6 +122,10 @@ entire set of running mgmt agents will need to all simultaneously converge for
 the group to exit. This is particularly useful for bootstrapping new clusters
 which need to exchange information that is only available at run time.
 
+This existed in earlier versions of mgmt as a `--remote` option, but it has been
+removed and is being ported to a more powerful variant where you can remote
+execute via a `remote` resource.
+
 #### Blog post
 
 You can read the introductory blog post about this topic here:
@@ -360,12 +364,6 @@ collision with this globally defined semaphore. The size value must be greater
 than zero at this time. The traditional non-parallel execution found in config
 management tools such as `Puppet` can be obtained with `--sema 1`.
 
-#### `--remote <graph.yaml>`
-
-Point to a graph file to run on the remote host specified within. This parameter
-can be used multiple times if you'd like to remotely run on multiple hosts in
-parallel.
-
 #### `--allow-interactive`
 
 Allow interactive prompting for SSH passwords if there is no authentication
@@ -404,8 +402,8 @@ default prefix. This can't be combined with the `--prefix` option.
 If this option is specified, we will attempt to fall back to a temporary prefix
 if the primary prefix couldn't be created. This is useful for avoiding failures
 in environments where the primary prefix may or may not be available, but you'd
-like to try. The canonical example is when running `mgmt` with `--remote` there
-might be a cached copy of the binary in the primary prefix, but in case there's
+like to try. The canonical example is when running `mgmt` with remote execution
+there might be a cached copy of the binary in the primary prefix, but if there's
 no binary available continue working in a temporary directory to avoid failure.
 
 ### Compilation options

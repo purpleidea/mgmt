@@ -318,6 +318,12 @@ func inputCode(s string, fs engine.Fs) (*ParsedInput, error) {
 		}
 	}
 
+	// check if code is `metadata.yaml`, which is obviously not correct here
+	if s == interfaces.MetadataFilename {
+		return nil, fmt.Errorf("unexpected raw code '%s'. Did you mean './%s'?",
+			interfaces.MetadataFilename, interfaces.MetadataFilename)
+	}
+
 	wd, err := os.Getwd() // NOTE: not meaningful for stdin unless fs is an OsFs
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't get working dir")

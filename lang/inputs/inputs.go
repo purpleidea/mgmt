@@ -160,7 +160,8 @@ func inputStdin(s string, fs engine.Fs) (*ParsedInput, error) {
 // inputMetadata checks to see if we have a metadata file path.
 func inputMetadata(s string, fs engine.Fs) (*ParsedInput, error) {
 	// we've got a metadata.yaml file
-	if !strings.HasSuffix(s, "/"+interfaces.MetadataFilename) {
+	if !(s == interfaces.MetadataFilename ||
+		strings.HasSuffix(s, "/"+interfaces.MetadataFilename)) {
 		return nil, nil // not us, but no error
 	}
 	var err error

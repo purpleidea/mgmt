@@ -125,11 +125,6 @@ go get -v -t -d ./...	# get all the go dependencies
 echo "done running 'go get -v -t -d ./...'"
 
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
-# vet is built-in in go 1.6 - we check for go vet command
-go vet 1> /dev/null 2>&1
-if [[ $? != 0 ]]; then
-	go get golang.org/x/tools/cmd/vet      # add in `go vet` for travis
-fi
 go get github.com/blynn/nex				# for lexing
 go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing

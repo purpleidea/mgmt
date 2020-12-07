@@ -170,13 +170,7 @@ GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
 build/mgmt-%: $(GO_FILES) $(MCL_FILES) | bindata lang funcgen
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
-	@# reassigning GOOS and GOARCH to make build command copy/pastable
-	@# go 1.10+ requires specifying the package for ldflags
-	@if go version | grep -qE 'go1.9'; then \
-		time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS); \
-	else \
-		time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS); \
-	fi
+	@time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 
 # create a list of binary file names to use as make targets
 crossbuild_targets = $(addprefix build/mgmt-,$(subst /,-,${GOOSARCHES}))

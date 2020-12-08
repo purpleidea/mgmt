@@ -1,24 +1,24 @@
 #!/bin/bash
 # check for any markdown files that aren't in an ideal format
 
-echo running "$0 $@"
+echo running "$0 $*"
 set -o errexit
 set -o nounset
 set -o pipefail
 
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
-ROOT=$(dirname "${BASH_SOURCE}")/..
-cd "${ROOT}"
+ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+cd "${ROOT}" || exit 1
 . test/util.sh
 
-MDL=`command -v mdl 2>/dev/null`
-if [ -z $MDL ]; then
+MDL=$(command -v mdl 2>/dev/null) || true
+if [ -z "$MDL" ]; then
 	fail_test "The 'mdl' utility can't be found."
 fi
 
 STYLE=$($mktemp)
 # styles that we ignore... if they're too onerous, we can exclude them here...
-cat << 'EOF' > $STYLE
+cat << 'EOF' > "$STYLE"
 all
 exclude_rule 'MD010'	# Hard tabs
 exclude_rule 'MD032'	# Lists should be surrounded by blank lines
@@ -60,7 +60,7 @@ bad_files=$(
 		fi
 
 		# check the markdown format with the linter
-		if ! $MDL --style "$STYLE" "$i" 1>&2; then
+		if ! "$MDL" --style "$STYLE" "$i" 1>&2; then
 			echo "$i"
 		fi
 	done

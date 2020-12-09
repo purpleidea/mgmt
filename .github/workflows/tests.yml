@@ -1,0 +1,36 @@
+on:
+  pull_request:
+  push:
+  schedule:
+  - cron: 0 4 * * *
+
+jobs:
+  maketest:
+    name: make test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # minimum required and latest published go_version
+        go_version:
+          - 1.13
+          - 1.15
+        test_blocks:
+          - basic
+          - shell
+    steps:
+      # Do not shallow fetch, will fail when building bindata/
+      - name: Checkout the code into the golang module directory
+        uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+      - name: Ensure go version
+        uses: actions/setup-go@v2
+        with:
+          go-version: "${{ matrix.go_version }}"
+      - name: Get deps
+        run: |
+          make deps
+      - name: Run test
+        run: |
+          TEST_BLOCK="${{ matrix.test_blocks }}" make test

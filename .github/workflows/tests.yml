@@ -1,0 +1,58 @@
+on:
+  pull_request:
+  push:
+  schedule:
+  - cron: 0 4 * * *
+
+jobs:
+  maketest:
+    name: Test ${{ matrix.test_block }}
+    runs-on: ${{ matrix.os }}
+    env:
+      GOPATH: /home/runner/work/mgmt/mgmt/go
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          # macos tests are currently failing in CI
+          #- macos-latest
+        go_version:
+          # minimum required and latest published go_version
+          #- 1.13
+          - 1.15
+        test_block:
+          - basic
+          - shell
+          #- race
+
+    steps:
+      # Do not shallow fetch, will fail when building bindata/
+      # The path can't be absolute, so we need to move it to the
+      # expected location later.
+      - name: Clone mgmt
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          path: ./go/src/github.com/purpleidea/mgmt
+
+      - name: Install Go ${{ matrix.go_version }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go_version }}
+
+      # Install & configure ruby, fixes gem permissions error
+      - name: Install Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: head
+
+      - name: Install dependencies
+        working-directory: ./go/src/github.com/purpleidea/mgmt
+        run: |
+          make deps
+
+      - name: Run test
+        working-directory: ./go/src/github.com/purpleidea/mgmt
+        run: |
+          TEST_BLOCK="${{ matrix.test_block }}" make test

@@ -8,6 +8,7 @@ tmp/
 *WIP
 *_stringer.go
 bindata/*.go
+!bindata/doc.go
 mgmt
 mgmt.static
 # crossbuild artifacts

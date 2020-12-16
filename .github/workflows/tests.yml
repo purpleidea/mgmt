@@ -8,6 +8,8 @@ jobs:
   maketest:
     name: make test
     runs-on: ubuntu-latest
+    env:
+      MGMTWORKDIR: /home/runner/go/src/github.com/purpleidea/mgmt/
     strategy:
       matrix:
         # minimum required and latest published go_version
@@ -19,18 +21,34 @@ jobs:
           - shell
     steps:
       # Do not shallow fetch, will fail when building bindata/
+      # The path can't be absolute, so we need to move it to the
+      # expected location later.
       - name: Checkout the code into the golang module directory
         uses: actions/checkout@v2
         with:
           submodules: 'recursive'
           fetch-depth: 0
+          path: mgmt-code-tree
+      - name: Ensure code is in the right folders
+        run: |
+          mkdir -p $(dirname ${{ env.MGMTWORKDIR }})
+          mv mgmt-code-tree/ ${{ env.MGMTWORKDIR }}
+
+      - name: Install necessary packages
+        run: |
+          sudo apt update && sudo apt install -y libvirt-dev build-essential packagekit mercurial
+
       - name: Ensure go version
         uses: actions/setup-go@v2
         with:
           go-version: "${{ matrix.go_version }}"
+
       - name: Get deps
+        working-directory: ${{ env.MGMTWORKDIR }}
         run: |
           make deps
+
       - name: Run test
+        working-directory: ${{ env.MGMTWORKDIR }}
         run: |
           TEST_BLOCK="${{ matrix.test_blocks }}" make test

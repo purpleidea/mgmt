@@ -28,9 +28,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
+	"docker.io/go-docker/api/types"
+	"docker.io/go-docker/api/types/container"
+	"docker.io/go-docker/api/types/filters"
 )
 
 var res *DockerContainerRes

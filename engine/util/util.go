@@ -33,7 +33,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 )
 
 const (

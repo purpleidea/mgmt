@@ -29,7 +29,7 @@ import (
 	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 const (

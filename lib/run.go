@@ -30,7 +30,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/spf13/afero"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 // run is the main run target.

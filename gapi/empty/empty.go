@@ -24,7 +24,7 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 const (

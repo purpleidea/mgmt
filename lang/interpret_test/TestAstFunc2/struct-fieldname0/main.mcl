@@ -1,0 +1,5 @@
+test "test" {
+    namedstruct => struct {
+        named => "this is a value",
+    },
+}

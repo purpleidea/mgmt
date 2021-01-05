@@ -82,6 +82,13 @@ type TestRes struct {
 	} `lang:"mixedstruct" yaml:"mixedstruct"`
 	Interface interface{} `lang:"interface" yaml:"interface"`
 
+	// See TestAstFunc2/struct-filename0
+	// https://github.com/purpleidea/mgmt/issues/624
+	NamedStruct struct {
+		// Go field name explicitly differs from lang/mcl tag
+		Named string `lang:"named" yaml:"named"`
+	} `lang:"namedstruct" yaml:"namedstruct"`
+
 	AnotherStr string `lang:"anotherstr" yaml:"anotherstr"`
 
 	ValidateBool  bool   `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error

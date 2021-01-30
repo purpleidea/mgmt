@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
-	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/bindata"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
@@ -609,11 +608,11 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 		panic(fmt.Sprintf("expected struct, got: %s", k))
 	}
 
-	mapping, err := engineUtil.LangFieldNameToStructFieldName(obj.Kind)
+	ts := reflect.TypeOf(res).Elem() // pointer to struct, then struct
+	mapping, err := types.LangFieldNameToStructFieldName(ts)
 	if err != nil {
 		return nil, err
 	}
-	ts := reflect.TypeOf(res).Elem() // pointer to struct, then struct
 
 	// FIXME: we could probably simplify this code...
 	for _, line := range obj.Contents {
@@ -1242,7 +1241,15 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 
 	// TODO: unfortunately this gets called separately for each field... if
 	// we could cache this, it might be worth looking into for performance!
-	typMap, err := engineUtil.LangFieldNameToStructType(kind)
+
+	// XXX: refactor potentially circular engine import
+	res, err := engine.NewResource(kind)
+	if err != nil {
+		return nil, err
+	}
+
+	// returns a mapping between fieldName and expected *Type
+	typMap, err := StructFieldToType(reflect.TypeOf(res).Elem())
 	if err != nil {
 		return nil, err
 	}
@@ -2054,7 +2061,7 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 
 			// Check that the kind1:send -> kind2:recv fields are type
 			// compatible! We won't know the names yet, but it's okay.
-			if err := engineUtil.StructFieldCompat(res1.Sends(), sr1, res2, sr2); err != nil {
+			if err := types.StructFieldCompat(res1.Sends(), sr1, res2, sr2); err != nil {
 				p1 := k1 // print defaults
 				p2 := k2
 				if v, err := obj.EdgeHalfList[0].Name.Value(); err == nil { // statically known

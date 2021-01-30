@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"testing"
 
-	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func TestStructTagToFieldName0(t *testing.T) {
@@ -35,7 +35,7 @@ func TestStructTagToFieldName0(t *testing.T) {
 		Delta   int `lang:"surprise"`
 	}
 
-	mapping, err := engineUtil.StructTagToFieldName(&TestStruct{})
+	mapping, err := types.StructTagToFieldName(&TestStruct{})
 	if err != nil {
 		t.Errorf("failed: %+v", err)
 		return
@@ -64,7 +64,7 @@ func TestLowerStructFieldNameToFieldName0(t *testing.T) {
 		Delta     int
 	}
 
-	mapping, err := engineUtil.LowerStructFieldNameToFieldName(&TestStruct{})
+	mapping, err := types.LowerStructFieldNameToFieldName(reflect.TypeOf(TestStruct{}))
 	if err != nil {
 		t.Errorf("failed: %+v", err)
 		return
@@ -102,7 +102,7 @@ func TestLowerStructFieldNameToFieldName1(t *testing.T) {
 		Delta      int
 	}
 
-	mapping, err := engineUtil.LowerStructFieldNameToFieldName(&TestStruct{})
+	mapping, err := types.LowerStructFieldNameToFieldName(reflect.TypeOf(TestStruct{}))
 	if err == nil {
 		t.Errorf("expected failure, but passed with: %+v", mapping)
 		return
@@ -110,7 +110,7 @@ func TestLowerStructFieldNameToFieldName1(t *testing.T) {
 }
 
 func TestLowerStructFieldNameToFieldName2(t *testing.T) {
-	mapping, err := engineUtil.LowerStructFieldNameToFieldName(&TestRes{})
+	mapping, err := types.LowerStructFieldNameToFieldName(reflect.TypeOf(TestRes{}))
 	if err != nil {
 		t.Errorf("failed: %+v", err)
 		return

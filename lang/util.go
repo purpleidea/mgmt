@@ -19,6 +19,7 @@ package lang
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -27,6 +28,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // FuncPrefixToFunctionsScope is a helper function to return the functions
@@ -214,4 +216,44 @@ func ValueToExpr(val types.Value) (interfaces.Expr, error) {
 	}
 
 	return expr, expr.SetType(val.Type())
+}
+
+// StructFieldToType returns the mapping from lang (AST) field names,
+// and the expected type in our type system for each.
+func StructFieldToType(st reflect.Type) (map[string]*types.Type, error) {
+	fieldNameTypMap, err := types.StructKindToFieldNameTypeMap(st)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not determine types for `%s`", st.Kind())
+	}
+
+	mapping, err := types.LangFieldNameToStructFieldName(st)
+	if err != nil {
+		return nil, err
+	}
+
+	// transform from field name to tag name
+	typMap := make(map[string]*types.Type)
+	for name, typ := range fieldNameTypMap {
+		if strings.Title(name) != name {
+			continue // skip private fields
+		}
+
+		found := false
+		for k, v := range mapping {
+			if v != name {
+				continue
+			}
+			// found
+			if found { // previously found!
+				return nil, fmt.Errorf("duplicate mapping for: %s", name)
+			}
+			typMap[k] = typ
+			found = true // :)
+		}
+		if !found {
+			return nil, fmt.Errorf("could not find mapping for: %s", name)
+		}
+	}
+
+	return typMap, nil
 }

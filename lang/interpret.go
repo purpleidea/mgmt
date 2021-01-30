@@ -21,8 +21,8 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/engine"
-	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -156,7 +156,7 @@ func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 			return nil, fmt.Errorf("cannot recv to resource: %s", engine.Stringer(v2))
 		}
 
-		if err := engineUtil.StructFieldCompat(res1.Sends(), e.Send, res2, e.Recv); err != nil {
+		if err := types.StructFieldCompat(res1.Sends(), e.Send, res2, e.Recv); err != nil {
 			return nil, errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", engine.Stringer(v1), e.Send, engine.Stringer(v2), e.Recv)
 		}
 

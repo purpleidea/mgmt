@@ -22,7 +22,7 @@ import (
 	"reflect"
 
 	"github.com/purpleidea/mgmt/engine"
-	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -52,13 +52,13 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 			continue
 		}
 
-		if e := engineUtil.StructFieldCompat(st, v.Key, res, k); e != nil {
+		if e := types.StructFieldCompat(st, v.Key, res, k); e != nil {
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
 
 		// send
-		m1, e := engineUtil.StructTagToFieldName(st)
+		m1, e := types.StructTagToFieldName(st)
 		if e != nil {
 			err = errwrap.Append(err, e) // list of errors
 			continue
@@ -76,7 +76,7 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		kind1 := value1.Kind()
 
 		// recv
-		m2, e := engineUtil.StructTagToFieldName(res)
+		m2, e := types.StructTagToFieldName(res)
 		if e != nil {
 			err = errwrap.Append(err, e) // list of errors
 			continue

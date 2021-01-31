@@ -143,7 +143,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
 		}
-		l := value.Len() // number of struct fields according to value
+		l := value.NumField() // number of struct fields according to value
 
 		if l != len(t.Ord) {
 			// programming error?

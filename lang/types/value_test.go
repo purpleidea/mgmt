@@ -21,6 +21,7 @@ package types
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"testing"
 )
@@ -590,5 +591,51 @@ func TestStruct2(t *testing.T) {
 }
 
 func TestValueOf0(t *testing.T) {
-	// TODO: implement testing of the ValueOf function
+	testCases := map[Value]interface{}{
+		&BoolValue{V: true}:  true,
+		&StrValue{V: "abc"}:  "abc",
+		&IntValue{V: 4}:      4,
+		&IntValue{V: -4}:     -4,
+		&FloatValue{V: 9.87}: 9.87,
+		&ListValue{
+			T: NewType("[]int"),
+			V: []Value{
+				&IntValue{V: 1},
+				&IntValue{V: 3},
+				&IntValue{V: 5},
+			},
+		}: []int64{1, 3, 5},
+		&MapValue{
+			T: NewType("map{str: int}"),
+			V: map[Value]Value{
+				&StrValue{V: "a"}: &IntValue{V: 1},
+				&StrValue{V: "b"}: &IntValue{V: 2},
+				&StrValue{V: "c"}: &IntValue{V: 3},
+			},
+		}: map[string]int{"a": 1, "b": 2, "c": 3}, // go map ordering is alphabetically sorted
+		&StructValue{
+			T: NewType("struct{num int; name str}"),
+			V: map[string]Value{
+				"num":  &IntValue{V: 42},
+				"name": &StrValue{V: "mgmt"},
+			},
+		}: struct {
+			num  int
+			name string
+		}{42, "mgmt"},
+		// TODO: implement ValueOf tests for TypeFunc
+	}
+
+	for value, gotyp := range testCases {
+		// get reflect.Value, then call ValueOf() for types.Value
+		val, err := ValueOf(reflect.ValueOf(gotyp))
+		if err != nil {
+			t.Errorf("function ValueOf(%+v) returned err %s", gotyp, err)
+		}
+		// use string representation comparison as maps are non-deterministic in order
+		// and cmp doesn't work as the pointers differ
+		if val.String() != value.String() {
+			t.Errorf("function ValueOf(%+v) gave %+v and doesn't match expected %+v", gotyp, val, value)
+		}
+	}
 }

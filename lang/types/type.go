@@ -150,9 +150,16 @@ func TypeOf(t reflect.Type) (*Type, error) {
 				return nil, err
 			}
 			// TODO: should we skip over fields with field.Anonymous ?
-			m[field.Name] = tt
-			ord = append(ord, field.Name) // in order
-			// NOTE: we discard the field.Tag data
+
+			// TODO: make struct field name lookup consistent with a helper function
+			// if struct field has a `lang:""` tag, use that instead of the struct field name
+			fieldName := field.Name
+			if alias, ok := field.Tag.Lookup(StructTag); ok {
+				fieldName = alias
+			}
+
+			m[fieldName] = tt
+			ord = append(ord, fieldName) // in order
 		}
 
 		return &Type{

@@ -37,8 +37,6 @@ import (
 )
 
 const (
-	// StructTag is the key we use in struct field names for key mapping.
-	StructTag = "lang"
 	// DBusInterface is the dbus interface that contains genereal methods.
 	DBusInterface = "org.freedesktop.DBus"
 	// DBusAddMatch is the dbus method to receive a subset of dbus broadcast
@@ -133,7 +131,7 @@ func StructTagToFieldName(stptr interface{}) (map[string]string, error) {
 		field := st.Field(i)
 		name := field.Name
 		// if !ok, then nothing is found
-		if alias, ok := field.Tag.Lookup(StructTag); ok { // golang 1.7+
+		if alias, ok := field.Tag.Lookup(types.StructTag); ok { // golang 1.7+
 			if val, exists := result[alias]; exists {
 				return nil, fmt.Errorf("field `%s` uses the same key `%s` as field `%s`", name, alias, val)
 			}

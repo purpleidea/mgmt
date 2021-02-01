@@ -25,6 +25,11 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// StructTag is the key we use in struct field names for key mapping.
+	StructTag = "lang"
+)
+
 // Basic types defined here as a convenience for use with Type.Cmp(X).
 var (
 	TypeBool    = NewType("bool")

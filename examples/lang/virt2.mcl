@@ -29,26 +29,24 @@ virt "mgmt4" {
 	state => "running",
 	transient => false,
 	boot => ["hd", ],
-	# can't add this part until we fix the unification bug
-	#disk => [
-	#	struct{
-	#		source => "~/.local/share/libvirt/images/fedora-23-scratch.qcow2",
-	#		type => "qcow2",
-	#	},
-	#],
-	# add the rest for unification bug
-	#osinit => "",
-	#cdrom => [
-	#],
-	#network => [
-	#],
-	#filesystem => [
-	#],
-	#auth => struct{
-	#	username => "",
-	#	password => "",
-	#},
-	#hotcpus => true,	# this is the default
-	#restartondiverge => "",
-	#restartonrefresh => false,
+	disk => [
+		struct{
+			source => "~/.local/share/libvirt/images/fedora-23-scratch.qcow2",
+			type => "qcow2",
+		},
+	],
+	osinit => "",
+	cdrom => [
+	],
+	network => [
+	],
+	filesystem => [
+	],
+	auth => struct{
+		username => "",
+		password => "",
+	},
+	hotcpus => true,	# this is the default
+	restartondiverge => "",
+	restartonrefresh => false,
 }

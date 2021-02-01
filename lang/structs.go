@@ -604,8 +604,8 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, resName)
 	}
 
-	s := reflect.ValueOf(res).Elem() // pointer to struct, then struct
-	if k := s.Kind(); k != reflect.Struct {
+	sv := reflect.ValueOf(res).Elem() // pointer to struct, then struct
+	if k := sv.Kind(); k != reflect.Struct {
 		panic(fmt.Sprintf("expected struct, got: %s", k))
 	}
 
@@ -613,7 +613,7 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 	if err != nil {
 		return nil, err
 	}
-	ts := reflect.TypeOf(res).Elem() // pointer to struct, then struct
+	st := reflect.TypeOf(res).Elem() // pointer to struct, then struct
 
 	// FIXME: we could probably simplify this code...
 	for _, line := range obj.Contents {
@@ -638,25 +638,19 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 			return nil, errwrap.Wrapf(err, "resource field `%s` did not return a type", x.Field)
 		}
 
-		fieldValue, err := x.Value.Value() // Value method on Expr
-		if err != nil {
-			return nil, err
-		}
-		val := fieldValue.Value() // get interface value
-
 		name, exists := mapping[x.Field] // lookup recommended field name
-		if !exists {
+		if !exists {                     // this should be caught during unification.
 			return nil, fmt.Errorf("field `%s` does not exist", x.Field) // user made a typo?
 		}
 
-		f := s.FieldByName(name) // exported field
-		if !f.IsValid() || !f.CanSet() {
-			return nil, fmt.Errorf("field `%s` cannot be set", name) // field is broken?
+		tf, exists := st.FieldByName(name) // exported field type
+		if !exists {
+			return nil, fmt.Errorf("field `%s` type does not exist", x.Field)
 		}
 
-		tf, exists := ts.FieldByName(name) // exported field type
-		if !exists {                       // illogical because of above check?
-			return nil, fmt.Errorf("field `%s` type does not exist", x.Field)
+		f := sv.FieldByName(name) // exported field
+		if !f.IsValid() || !f.CanSet() {
+			return nil, fmt.Errorf("field `%s` cannot be set", name) // field is broken?
 		}
 
 		// is expr type compatible with expected field type?
@@ -668,65 +662,15 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 			return nil, errwrap.Wrapf(err, "resource field `%s` of type `%+v`, cannot take type `%+v", x.Field, t, typ)
 		}
 
-		// user `pestle` on #go-nuts irc wrongly insisted that it wasn't
-		// right to use reflect to do all of this. what is a better way?
-
-		// first iterate through the raw pointers to the underlying type
-		ttt := tf.Type // ttt is field expected type
-		tkk := ttt.Kind()
-		for tkk == reflect.Ptr {
-			ttt = ttt.Elem() // un-nest one pointer
-			tkk = ttt.Kind()
+		fv, err := x.Value.Value() // Value method on Expr
+		if err != nil {
+			return nil, err
 		}
 
-		// all our int's are src kind == reflect.Int64 in our language!
-		if obj.data.Debug {
-			obj.data.Logf("field `%s`: type(%+v), expected(%+v)", x.Field, typ, tkk)
+		// mutate the struct field f with the mcl data in fv
+		if err := types.Into(fv, f); err != nil {
+			return nil, err
 		}
-
-		// overflow check
-		switch tkk { // match on destination field kind
-		case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-			ff := reflect.Zero(ttt)          // test on a non-ptr equivalent
-			if ff.OverflowInt(val.(int64)) { // this is valid!
-				return nil, fmt.Errorf("field `%s` is an `%s`, and value `%d` will overflow it", x.Field, f.Kind(), val)
-			}
-
-		case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-			ff := reflect.Zero(ttt)
-			if ff.OverflowUint(uint64(val.(int64))) { // TODO: is this correct?
-				return nil, fmt.Errorf("field `%s` is an `%s`, and value `%d` will overflow it", x.Field, f.Kind(), val)
-			}
-
-		case reflect.Float64, reflect.Float32:
-			ff := reflect.Zero(ttt)
-			if ff.OverflowFloat(val.(float64)) {
-				return nil, fmt.Errorf("field `%s` is an `%s`, and value `%d` will overflow it", x.Field, f.Kind(), val)
-			}
-		}
-
-		value := reflect.ValueOf(val) // raw value
-		value = value.Convert(ttt)    // now convert our raw value properly
-
-		// finally build a new value to set
-		tt := tf.Type
-		kk := tt.Kind()
-		if obj.data.Debug {
-			obj.data.Logf("field `%s`: start(%v)->kind(%v)", x.Field, tt, kk)
-		}
-		//fmt.Printf("start: %v || %+v\n", tt, kk)
-		for kk == reflect.Ptr {
-			tt = tt.Elem() // un-nest one pointer
-			kk = tt.Kind()
-			if obj.data.Debug {
-				obj.data.Logf("field `%s`:\tloop(%v)->kind(%v)", x.Field, tt, kk)
-			}
-			// wrap in ptr by one level
-			valof := reflect.ValueOf(value.Interface())
-			value = reflect.New(valof.Type())
-			value.Elem().Set(valof)
-		}
-		f.Set(value) // set it !
 	}
 
 	return res, nil

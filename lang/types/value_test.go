@@ -21,6 +21,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"testing"
@@ -637,5 +638,289 @@ func TestValueOf0(t *testing.T) {
 		if val.String() != value.String() {
 			t.Errorf("function ValueOf(%+v) gave %+v and doesn't match expected %+v", gotyp, val, value)
 		}
+	}
+}
+
+func TestValueInto0(t *testing.T) {
+	// converts a Go variable to a types.Value, or panics if any error
+	mustValue := func(v interface{}) Value {
+		val, err := ValueOfGolang(v)
+		if err != nil {
+			panic(err)
+		}
+		return val
+	}
+	// reflect variant of & on a variable. Creates a pointer in
+	// memory, sets the destination, then returns the pointer
+	ptrto := func(v interface{}) interface{} {
+		p := reflect.New(reflect.TypeOf(v))
+		p.Elem().Set(reflect.ValueOf(v))
+		return p.Interface()
+	}
+	ptrstr := func(s string) *string {
+		return ptrto(s).(*string)
+	}
+
+	// various container variables for below tests
+	var b bool
+	var s string
+
+	var i int64
+	var u uint64
+	var i8 int8
+	var u8 uint8
+
+	var f float64
+
+	var l []string
+	var ll [][]string
+	var lptrlptr []*[]*string
+	var arr [10]string
+
+	var m map[string]int
+
+	type str1 struct {
+		X string
+		Y int
+	}
+	var ms map[string]str1
+
+	var mptr map[string]*string
+	var msptr map[string]*str1
+
+	type str2 struct {
+		X *string
+		Y *int
+	}
+	var mptrsptr map[string]*str2
+
+	var testCases = []struct {
+		// backing container to call Into() on
+		container interface{}
+		// lang value to be Into()ed
+		value Value
+		// test comparison data to ensure the Into() worked
+		compare interface{}
+		// shouldErr set to true if an err is expected
+		shouldErr bool
+		// shouldPanic set to true if a panic is expected
+		shouldPanic bool
+	}{
+		{
+			container: &b,
+			value:     mustValue(true),
+			compare:   true,
+		},
+		{
+			container: &s,
+			value:     mustValue("testing"),
+			compare:   "testing",
+		},
+		{
+			container: &i,
+			value:     mustValue(int64(-12345)),
+			compare:   int64(-12345),
+		},
+		{
+			container: &u,
+			value:     mustValue(uint64(math.MaxUint64)),
+			compare:   uint64(math.MaxUint64),
+		},
+		{ // ensure -1 from an int64 fits into an int8
+			container: &i8,
+			value:     mustValue(int64(-1)),
+			compare:   int8(-1),
+		},
+		{ // ensure valid uint8 from an int64 fits into an uint8
+			container: &u8,
+			value:     mustValue(int64(200)),
+			compare:   uint8(200),
+		},
+		{ // this test case proves overflows work
+			container: &u8,
+			value:     mustValue(int64(256)),
+			shouldErr: true,
+		},
+		{ // it would be good to put float32 -> float64 here but precision says no
+			container: &f,
+			value:     mustValue(float64(1.23)),
+			compare:   float64(1.23),
+		},
+		{
+			container: &l,
+			value:     mustValue([]string{"1", "2", "3"}),
+			compare:   []string{"1", "2", "3"},
+		},
+		{ // arrays are pretty much the same as slices
+			container: &arr,
+			value:     mustValue([]string{"1", "2", "3"}),
+			compare:   [10]string{"1", "2", "3"},
+		},
+		{
+			container: &ll,
+			value:     mustValue([][]string{{"1"}, {"2"}}),
+			compare:   [][]string{{"1"}, {"2"}},
+		},
+		{
+			container: &m,
+			value:     mustValue(map[string]int{"1": 1, "2": 2}),
+			compare:   map[string]int{"1": 1, "2": 2},
+		},
+		{
+			container: &ms,
+			value:     mustValue(map[string]str1{"a": {"a", 97}, "b": {"b", 98}}),
+			compare:   map[string]str1{"a": {"a", 97}, "b": {"b", 98}},
+		},
+
+		// Various error sanity tests. All of these tests should return type errors.
+		{ // int into string
+			container: &s,
+			value:     mustValue(12345),
+			shouldErr: true,
+		},
+		{ // string into int
+			container: &i,
+			value:     mustValue("hello"),
+			shouldErr: true,
+		},
+		{ // map[int]int into map[string]int
+			container: &m,
+			value:     mustValue(map[int]int{1: 2, 3: 4}),
+			shouldErr: true,
+		},
+
+		// Pointer and pointer-to-pointer tests
+		{
+			container: ptrto(&s),
+			value:     mustValue("pointer to a string"),
+			compare:   ptrto("pointer to a string"),
+		},
+		{
+			container: ptrto(ptrto(&s)),
+			value:     mustValue("pointer to a pointer to a string"),
+			compare:   ptrto(ptrto("pointer to a pointer to a string")),
+		},
+		{ // tests Into() instantiating the nil pointers in the map values before following/setting the values
+			container: &mptr,
+			value: mustValue(map[string]string{
+				"first":  "firstptr",
+				"second": "secondptr",
+			}),
+			compare: map[string]*string{
+				"first":  ptrstr("firstptr"),
+				"second": ptrstr("secondptr"),
+			},
+		},
+		{
+			container: &lptrlptr,
+			value: mustValue([][]string{
+				{"hello", "world"},
+				{"hola", "món"},
+			}),
+			// List of pointers to lists of pointers to strings. Confused yet?
+			compare: []*[]*string{
+				{ptrstr("hello"), ptrstr("world")},
+				{ptrstr("hola"), ptrstr("món")},
+			},
+		},
+		{
+			container: &msptr,
+			value: mustValue(map[string]str1{
+				"str1": {
+					X: "str",
+					Y: 98765,
+				},
+			}),
+			compare: map[string]*str1{
+				"str1": {
+					X: "str",
+					Y: 98765,
+				},
+			},
+		},
+		{ // Use str1 to try to Into() str2. They're field-compatible, except str2 uses pointers to values instead.
+			container: &mptrsptr,
+			value: mustValue(map[string]str1{
+				"str2": {
+					X: "string pointer",
+					// cannot omit any fields, as doing so makes the comparison
+					// fail because nil.(*int) != 0. Using .String() or coercing
+					// both values to the same type for comparison might work
+					Y: 555,
+				},
+			}),
+			compare: map[string]*str2{
+				"str2": {
+					X: ptrstr("string pointer"),
+					Y: ptrto(555).(*int),
+				},
+			},
+		},
+	}
+
+	for index, tc := range testCases {
+		name := fmt.Sprintf("test Into() %s #%d", reflect.TypeOf(tc.container).Elem(), index)
+		// https://github.com/purpleidea/mgmt/pull/629/files#r568305689
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			rvo := reflect.ValueOf(tc.container)
+
+			if tc.shouldPanic {
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("function Into() didn't panic but it was expected")
+					}
+				}()
+			}
+
+			// Into() the value into the reflect.Value
+			err := Into(tc.value, rvo)
+
+			// check for non/expected errors
+			if !tc.shouldErr && err != nil {
+				t.Errorf("function Into() returned an error: %s", err)
+				return
+			} else if tc.shouldErr && err == nil {
+				t.Errorf("function Into() didn't return an error but one was expected")
+				return
+			}
+
+			if tc.shouldErr || tc.shouldPanic {
+				// err/panic was expected. no comparison to do here
+				return
+			}
+
+			// follow the container pointer: (*tc.container).(interface{})
+			container := rvo.Elem().Interface()
+			// ensure they're identical
+			if !reflect.DeepEqual(container, tc.compare) {
+				t.Errorf("result %s %+v doesn't match expected %s %+v",
+					rvo.Elem().Type(), container, reflect.TypeOf(tc.compare), tc.compare,
+				)
+				return
+			}
+		})
+	}
+}
+func TestValueIntoStructNameMapping(t *testing.T) {
+	st := NewStruct(NewType("struct{word str; magic int}"))
+	if err := st.Set("word", &StrValue{V: "zing"}); err != nil {
+		t.Errorf("struct could not set key, error: %v", err)
+	}
+	if err := st.Set("magic", &IntValue{V: 0x5F3759DF}); err != nil {
+		t.Errorf("struct could not set key, error: %v", err)
+	}
+
+	var compare struct {
+		Word  string `lang:"word"`
+		Magic int    `lang:"magic"`
+	}
+	err := Into(st, reflect.ValueOf(&compare))
+	if err != nil {
+		t.Errorf("function Into() returned an error: %s", err)
+	}
+
+	if compare.Word != "zing" || compare.Magic != 0x5F3759DF {
+		t.Errorf("struct field value is missing or incorrect")
 	}
 }

@@ -1474,4 +1474,5 @@ func TestComplexCmp0(t *testing.T) {
 
 func TestTypeOf0(t *testing.T) {
 	// TODO: implement testing of the TypeOf function
+	// TODO: implement testing TypeOf for struct field name mappings
 }

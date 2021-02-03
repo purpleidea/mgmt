@@ -203,6 +203,201 @@ func ValueOf(v reflect.Value) (Value, error) {
 	}
 }
 
+// Into mutates the given reflect.Value with the data represented by the Value.
+// In almost every case, it is likely that the reflect.Value will be modified,
+// instantiating nil pointers and even potentially partially filling data before
+// returning an error. It should be assumed that if this returns an error, the
+// reflect.Value passed in has been trashed and should be discarded before
+// reuse.
+func Into(v Value, rv reflect.Value) error {
+	typ := rv.Type()
+	kind := typ.Kind()
+	for kind == reflect.Ptr {
+		typ = typ.Elem() // un-nest one pointer
+		kind = typ.Kind()
+
+		// if pointer was nil, instantiate the destination type and point
+		// at it to prevent nil pointer dereference when setting values
+		if rv.IsNil() {
+			rv.Set(reflect.New(typ))
+		}
+		rv = rv.Elem() // un-nest rv from pointer
+	}
+
+	// capture rv and v in a closure that is static for the scope of this Into() call
+	// mustInto ensures rv is in a list of compatible types before attempting to reflect it
+	mustInto := func(kinds ...reflect.Kind) error {
+		// sigh. Go can be so elegant, and then it makes you do this
+		for _, n := range kinds {
+			if kind == n {
+				return nil
+			}
+		}
+		// No matching kind found, must be an incompatible conversion
+		return fmt.Errorf("cannot Into() %+v of type %s into %s", v, v.Type(), typ)
+	}
+
+	switch v := v.(type) {
+	case *BoolValue:
+		if err := mustInto(reflect.Bool); err != nil {
+			return err
+		}
+
+		rv.SetBool(v.V)
+		return nil
+
+	case *StrValue:
+		if err := mustInto(reflect.String); err != nil {
+			return err
+		}
+
+		rv.SetString(v.V)
+		return nil
+
+	case *IntValue:
+		// overflow check
+		switch kind { // match on destination field kind
+		case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
+			ff := reflect.Zero(typ)  // test on a non-ptr equivalent
+			if ff.OverflowInt(v.V) { // this is valid!
+				return fmt.Errorf("%+v is an `%s`, and rv `%d` will overflow it", rv.Interface(), rv.Kind(), v.V)
+			}
+			rv.SetInt(v.V)
+			return nil
+
+		case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
+			ff := reflect.Zero(typ)
+			if ff.OverflowUint(uint64(v.V)) { // TODO: is this correct?
+				return fmt.Errorf("%+v is an `%s`, and rv `%d` will overflow it", rv.Interface(), rv.Kind(), v.V)
+			}
+			rv.SetUint(uint64(v.V))
+			return nil
+		default:
+			return fmt.Errorf("cannot Into() %+v of type %s into %s", v, v.Type(), typ)
+		}
+
+	case *FloatValue:
+		if err := mustInto(reflect.Float32, reflect.Float64); err != nil {
+			return err
+		}
+
+		ff := reflect.Zero(typ)
+		if ff.OverflowFloat(v.V) {
+			return fmt.Errorf("%+v is an `%s`, and value `%f` will overflow it", rv.Interface(), rv.Kind(), v.V)
+		}
+		rv.SetFloat(v.V)
+		return nil
+
+	case *ListValue:
+		if err := mustInto(reflect.Slice, reflect.Array); err != nil {
+			return err
+		}
+
+		count := len(v.V)
+		if count > rv.Cap() {
+			pow := nextPowerOfTwo(uint32(count))
+			nval := reflect.MakeSlice(rv.Type(), count, int(pow))
+			rv.Set(nval)
+		}
+		for i, x := range v.V {
+			f := rv.Index(i)
+			el := reflect.New(f.Type()).Elem()
+			if err := Into(x, el); err != nil { // recurse
+				return err
+			}
+			f.Set(el)
+		}
+		return nil
+
+	case *MapValue:
+		if err := mustInto(reflect.Map); err != nil {
+			return err
+		}
+
+		if rv.IsNil() {
+			rv.Set(reflect.MakeMapWithSize(typ, len(v.V)))
+		}
+
+		// convert both key and value, then set them in the map
+		for mk, mv := range v.V {
+			key := reflect.New(typ.Key()).Elem()
+			if err := Into(mk, key); err != nil { // recurse
+				return err
+			}
+			val := reflect.New(typ.Elem()).Elem()
+			if err := Into(mv, val); err != nil { // recurse
+				return err
+			}
+			rv.SetMapIndex(key, val)
+		}
+		return nil
+
+	case *StructValue:
+		if err := mustInto(reflect.Struct); err != nil {
+			return err
+		}
+
+		// Into sets the value of the given reflect.Value to the value of this obj
+		mapping, err := TypeStructTagToFieldName(typ)
+		if err != nil {
+			return err
+		}
+
+		for k := range v.T.Map {
+			mk := k
+			// map mcl field name -> go field name based on `lang:""` tag
+			if key, exists := mapping[k]; exists {
+				mk = key
+			}
+			field := rv.FieldByName(mk)
+			if err := Into(v.V[k], field); err != nil { // recurse
+				return err
+			}
+		}
+		return nil
+
+	case *FuncValue:
+		if err := mustInto(reflect.Func); err != nil {
+			return err
+		}
+
+		// wrap our function with the translation that is necessary
+		fn := func(args []reflect.Value) (results []reflect.Value) { // build
+			innerArgs := []Value{}
+			for _, x := range args {
+				v, err := ValueOf(x) // reflect.Value -> Value
+				if err != nil {
+					panic(fmt.Errorf("can't determine value of %+v", x))
+				}
+				innerArgs = append(innerArgs, v)
+			}
+			result, err := v.V(innerArgs) // call it
+			if err != nil {
+				// when calling our function with the Call method, then
+				// we get the error output and have a chance to decide
+				// what to do with it, but when calling it from within
+				// a normal golang function call, the error represents
+				// that something went horribly wrong, aka a panic...
+				panic(fmt.Errorf("function panic: %+v", err))
+			}
+			out := reflect.New(rv.Type().Out(0))
+			// convert the lang result back to a Go value
+			if err := Into(result, out); err != nil {
+				panic(fmt.Errorf("function return conversion panic: %+v", err))
+			}
+			return []reflect.Value{out} // only one result
+		}
+		rv.Set(reflect.MakeFunc(rv.Type(), fn))
+		return nil
+
+	case *VariantValue:
+		return Into(v.V, rv)
+
+	default:
+		return fmt.Errorf("cannot Into() %+v of type %s into %s", v, v.Type(), typ)
+	}
+}
+
 // ValueSlice is a linear list of values. It is used for sorting purposes.
 type ValueSlice []Value
 

@@ -12,8 +12,8 @@
 testsuite="$1"
 
 # print environment when running all testsuites
-fold_start env.1 "environment"
-test -z "$testsuite" && (echo "ENV:"; env; echo; )
+fold_start environment
+test -z "$testsuite" && (echo "ENV:"; env | sort; echo;)
 fold_end env.1
 
 # make it easy to split test into blocks
@@ -26,18 +26,18 @@ label-block() {
 }
 
 # run a test and record failures
-function run-testsuite()
-{
+function run-testsuite() {
 	testname="$(basename "$1" .sh)"
 	# if not running all tests or if this test is not explicitly selected, skip it
 	if test -z "$testsuite" || test "test-$testsuite" = "$testname";then
-		$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
+		fold_start "$testname"
+		"$@" || failures=$([ -n "$failures" ] && echo "$failures\\n$@" || echo "$@")
+		fold_end "$testname"
 	fi
 }
 
 # only run test if it is explicitly selected, otherwise report it is skipped
-function skip-testsuite()
-{
+function skip-testsuite() {
 	testname=$(basename "$1" .sh)
 	# show skip message only when running full suite
 	if test -z "$testsuite";then
@@ -76,8 +76,7 @@ fi
 # run-test ./test/test-crossbuild.sh
 
 # do these longer tests only when running on ci
-if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
-
+if in_ci; then
 	if label-block "shell"; then
 		run-testsuite ./test/test-shell.sh
 	fi

@@ -13,7 +13,7 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 . test/util.sh
 
-#if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
+#if in_ci travis jenkins; then
 #	echo "Travis and Jenkins give wonky results here, skipping test!"
 #	exit 0
 #fi

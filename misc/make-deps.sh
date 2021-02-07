@@ -4,10 +4,7 @@ XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}" >/dev/null
 
-travis=0
-if env | grep -q '^TRAVIS=true$'; then
-	travis=1
-fi
+. ${ROOT}/test/util.sh
 
 sudo_command=$(command -v sudo)
 
@@ -43,11 +40,12 @@ if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then
 fi
 
 # I think having both installed confused golang somehow...
-if [ ! -z "$YUM" ] && [ ! -z "$APT" ]; then
+if [ -n "$YUM" -a -n "$APT" ]; then
 	echo "You have both $APT and $YUM installed. Please check your deps manually."
 fi
 
-if [ ! -z "$YUM" ]; then
+fold_start "Install dependencies"
+if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
 	$sudo_command $YUM install -y ruby-devel rubygems
@@ -56,7 +54,7 @@ if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar mkosi || true
 	$sudo_command $YUM install -y graphviz || true # for debugging
 fi
-if [ ! -z "$APT" ]; then
+if [ -n "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y ruby ruby-dev || true
@@ -72,24 +70,26 @@ if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y graphviz # for debugging
 fi
 
-if [ ! -z "$BREW" ]; then
+# Prevent linuxbrew installing redundant deps in CI
+if [ -n "$BREW" -a "$RUNNER_OS" != "Linux" ]; then
 	# coreutils contains gtimeout, gstat, etc
 	$BREW install pkg-config libvirt augeas coreutils || true
 fi
 
-if [ ! -z "$PACMAN" ]; then
+if [ -n "$PACMAN" ]; then
 	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap
 fi
+fold_end "Install dependencies"
 
-if [ $travis -eq 0 ]; then
-	if [ ! -z "$YUM" ]; then
+if ! in_ci; then
+	if [ -n "$YUM" ]; then
 		if [ -z "$GO" ]; then
 			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer || $sudo_command $YUM install -y golang-bin # centos-7 epel
 		fi
 		# some go dependencies are stored in mercurial
 		$sudo_command $YUM install -y hg
 	fi
-	if [ ! -z "$APT" ]; then
+	if [ -n "$APT" ]; then
 		$sudo_command $APT update
 		if [ -z "$GO" ]; then
 			$sudo_command $APT install -y golang
@@ -99,13 +99,13 @@ if [ $travis -eq 0 ]; then
 		fi
 		$sudo_command $APT install -y build-essential packagekit mercurial
 	fi
-	if [ ! -z "$PACMAN" ]; then
+	if [ -n "$PACMAN" ]; then
 		$sudo_command $PACMAN -S --noconfirm --asdeps --needed go gcc pkg-config
 	fi
 fi
 
 # attempt to workaround old ubuntu
-if [ ! -z "$APT" ] && [ "$goversion" -lt "$mingoversion" ]; then
+if [ -n "$APT" -a "$goversion" -lt "$mingoversion" ]; then
 	echo "install golang from a ppa."
 	$sudo_command $APT remove -y golang
 	$sudo_command $APT install -y software-properties-common	# for add-apt-repository
@@ -120,11 +120,15 @@ if [ "$goversion" -lt "$mingoversion" ]; then
 	exit 1
 fi
 
+fold_start "Install Go dependencies"
 echo "running 'go get -v -d ./...' from `pwd`"
 go get -v -t -d ./...	# get all the go dependencies
 echo "done running 'go get -v -t -d ./...'"
+fold_end "Install Go dependencies"
 
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
+
+fold_start "Install Go tools"
 go get github.com/blynn/nex				# for lexing
 go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
@@ -132,9 +136,16 @@ go get golang.org/x/lint/golint				# for `golint`-ing
 go get golang.org/x/tools/cmd/goimports		# for fmt
 go get github.com/tmthrgd/go-bindata/go-bindata	# for compiling in non golang files
 go get github.com/dvyukov/go-fuzz/go-fuzz		# for fuzzing the mcl lang bits
-if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
-	go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
+if in_ci; then
+	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
+    mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \
+    gometalinter --install	# bonus
 fi
+fold_end "Install Go tools"
+
+fold_start "Install miscellaneous tools"
 command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files
 command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
+fold_end "Install miscellaneous tools"
+
 cd "$XPWD" >/dev/null

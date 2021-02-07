@@ -8,7 +8,7 @@ cd "${ROOT}"
 . test/util.sh
 
 # travis is slow for some reason
-if env | grep -q -e '^TRAVIS=true$'; then
+if in_ci travis; then
 	export GO_TEST_TIMEOUT_SCALE=3
 fi
 

@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -89,7 +90,8 @@ func (obj *VUMeterFunc) Stream() error {
 	// FIXME: this goChan seems to work better than the ticker :)
 	// this is because we have a ~1sec delay in capturing the value in exec
 	goChan := make(chan struct{})
-	close(goChan)
+	once := &sync.Once{}
+	onceFunc := func() { close(goChan) } // only run once!
 	for {
 		select {
 		case input, ok := <-obj.init.Input:
@@ -109,9 +111,11 @@ func (obj *VUMeterFunc) Stream() error {
 			obj.symbol = input.Struct()["symbol"].Str()
 			obj.multiplier = input.Struct()["multiplier"].Int()
 			obj.peak = input.Struct()["peak"].Float()
+			once.Do(onceFunc)
+			continue // we must wrap around and go in through goChan
 
 		//case <-ticker.C: // received the timer event
-		case <-goChan:
+		case <-goChan: // triggers constantly
 
 			if obj.last == nil {
 				continue // still waiting for input values

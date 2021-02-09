@@ -165,6 +165,7 @@ func setup() error {
 		},
 		&container.HostConfig{},
 		nil,
+		nil,
 		"mgmt-test",
 	)
 	if err != nil {

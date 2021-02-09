@@ -310,7 +310,7 @@ func (obj *DockerContainerRes) CheckApply(apply bool) (bool, error) {
 			}
 		}
 
-		c, err := obj.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, obj.Name())
+		c, err := obj.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, obj.Name())
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error creating container")
 		}

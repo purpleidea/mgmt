@@ -69,7 +69,8 @@ if [ -n "$APT" ]; then
 	$sudo_command $APT install -y graphviz # for debugging
 fi
 
-if [ -n "$BREW" ]; then
+# Prevent linuxbrew installing redundant deps in CI
+if [ -n "$BREW" -a "$RUNNER_OS" != "Linux" ]; then
 	# coreutils contains gtimeout, gstat, etc
 	$BREW install pkg-config libvirt augeas coreutils || true
 fi

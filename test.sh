@@ -12,9 +12,9 @@
 testsuite="$1"
 
 # print environment when running all testsuites
-fold_start env.1 "environment"
-test -z "$testsuite" && (echo "ENV:"; env; echo; )
-fold_end env.1
+fold_start environment
+test -z "$testsuite" && (echo "ENV:"; env | sort; echo;)
+fold_end environment
 
 # make it easy to split test into blocks
 label-block() {
@@ -26,18 +26,18 @@ label-block() {
 }
 
 # run a test and record failures
-function run-testsuite()
-{
+function run-testsuite() {
 	testname="$(basename "$1" .sh)"
 	# if not running all tests or if this test is not explicitly selected, skip it
 	if test -z "$testsuite" || test "test-$testsuite" = "$testname";then
-		$@ || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
+		fold_start "$testname"
+		"$@" || failures=$([ -n "$failures" ] && echo "$failures\\n$@" || echo "$@")
+		fold_end "$testname"
 	fi
 }
 
 # only run test if it is explicitly selected, otherwise report it is skipped
-function skip-testsuite()
-{
+function skip-testsuite() {
 	testname=$(basename "$1" .sh)
 	# show skip message only when running full suite
 	if test -z "$testsuite";then

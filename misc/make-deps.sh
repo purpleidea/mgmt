@@ -44,6 +44,7 @@ if [ -n "$YUM" -a -n "$APT" ]; then
 	echo "You have both $APT and $YUM installed. Please check your deps manually."
 fi
 
+fold_start "Install dependencies"
 if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
@@ -78,6 +79,7 @@ fi
 if [ -n "$PACMAN" ]; then
 	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap
 fi
+fold_end "Install dependencies"
 
 if ! in_ci; then
 	if [ -n "$YUM" ]; then
@@ -118,11 +120,15 @@ if [ "$goversion" -lt "$mingoversion" ]; then
 	exit 1
 fi
 
+fold_start "Install Go dependencies"
 echo "running 'go get -v -d ./...' from `pwd`"
 go get -v -t -d ./...	# get all the go dependencies
 echo "done running 'go get -v -t -d ./...'"
+fold_end "Install Go dependencies"
 
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
+
+fold_start "Install Go tools"
 go get github.com/blynn/nex				# for lexing
 go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
@@ -135,6 +141,11 @@ if in_ci; then
 	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \
 	gometalinter --install	# bonus
 fi
+fold_end "Install Go tools"
+
+fold_start "Install miscellaneous tools"
 command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files
 command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
+fold_end "Install miscellaneous tools"
+
 cd "$XPWD" >/dev/null

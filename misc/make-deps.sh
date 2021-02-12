@@ -40,11 +40,11 @@ if [ -z "$YUM" -a -z "$APT" -a -z "$BREW" -a -z "$PACMAN" ]; then
 fi
 
 # I think having both installed confused golang somehow...
-if [ ! -z "$YUM" ] && [ ! -z "$APT" ]; then
+if [ -n "$YUM" -a -n "$APT" ]; then
 	echo "You have both $APT and $YUM installed. Please check your deps manually."
 fi
 
-if [ ! -z "$YUM" ]; then
+if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
 	$sudo_command $YUM install -y ruby-devel rubygems
@@ -53,7 +53,7 @@ if [ ! -z "$YUM" ]; then
 	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar mkosi || true
 	$sudo_command $YUM install -y graphviz || true # for debugging
 fi
-if [ ! -z "$APT" ]; then
+if [ -n "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y ruby ruby-dev || true
@@ -69,24 +69,24 @@ if [ ! -z "$APT" ]; then
 	$sudo_command $APT install -y graphviz # for debugging
 fi
 
-if [ ! -z "$BREW" ]; then
+if [ -n "$BREW" ]; then
 	# coreutils contains gtimeout, gstat, etc
 	$BREW install pkg-config libvirt augeas coreutils || true
 fi
 
-if [ ! -z "$PACMAN" ]; then
+if [ -n "$PACMAN" ]; then
 	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap
 fi
 
 if ! in_ci; then
-	if [ ! -z "$YUM" ]; then
+	if [ -n "$YUM" ]; then
 		if [ -z "$GO" ]; then
 			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer || $sudo_command $YUM install -y golang-bin # centos-7 epel
 		fi
 		# some go dependencies are stored in mercurial
 		$sudo_command $YUM install -y hg
 	fi
-	if [ ! -z "$APT" ]; then
+	if [ -n "$APT" ]; then
 		$sudo_command $APT update
 		if [ -z "$GO" ]; then
 			$sudo_command $APT install -y golang
@@ -96,13 +96,13 @@ if ! in_ci; then
 		fi
 		$sudo_command $APT install -y build-essential packagekit mercurial
 	fi
-	if [ ! -z "$PACMAN" ]; then
+	if [ -n "$PACMAN" ]; then
 		$sudo_command $PACMAN -S --noconfirm --asdeps --needed go gcc pkg-config
 	fi
 fi
 
 # attempt to workaround old ubuntu
-if [ ! -z "$APT" ] && [ "$goversion" -lt "$mingoversion" ]; then
+if [ -n "$APT" -a "$goversion" -lt "$mingoversion" ]; then
 	echo "install golang from a ppa."
 	$sudo_command $APT remove -y golang
 	$sudo_command $APT install -y software-properties-common	# for add-apt-repository

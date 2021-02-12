@@ -2,7 +2,7 @@
 
 . "$(dirname "$0")/../util.sh"
 
-if env | grep -q -e '^TRAVIS=true$'; then
+if in_ci travis; then
 	# this often fails in travis with: `address already in use`
 	echo "Travis gives wonky results here, skipping test!"
 	exit

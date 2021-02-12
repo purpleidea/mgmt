@@ -4,10 +4,7 @@ XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}" >/dev/null
 
-travis=0
-if env | grep -q '^TRAVIS=true$'; then
-	travis=1
-fi
+. ${ROOT}/test/util.sh
 
 sudo_command=$(command -v sudo)
 
@@ -81,7 +78,7 @@ if [ ! -z "$PACMAN" ]; then
 	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap
 fi
 
-if [ $travis -eq 0 ]; then
+if ! in_ci; then
 	if [ ! -z "$YUM" ]; then
 		if [ -z "$GO" ]; then
 			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer || $sudo_command $YUM install -y golang-bin # centos-7 epel
@@ -132,8 +129,10 @@ go get golang.org/x/lint/golint				# for `golint`-ing
 go get golang.org/x/tools/cmd/goimports		# for fmt
 go get github.com/tmthrgd/go-bindata/go-bindata	# for compiling in non golang files
 go get github.com/dvyukov/go-fuzz/go-fuzz		# for fuzzing the mcl lang bits
-if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
-	go get -u gopkg.in/alecthomas/gometalinter.v1 && mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && gometalinter --install	# bonus
+if in_ci; then
+	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
+	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \
+	gometalinter --install	# bonus
 fi
 command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files
 command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging

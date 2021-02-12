@@ -2,7 +2,7 @@
 
 . "$(dirname "$0")/../util.sh"
 
-if env | grep -q -e '^TRAVIS=true$'; then
+if in_ci travis jenkins; then
 	# inotify doesn't seem to work properly on travis
 	echo "Travis and Jenkins give wonky results here, skipping test!"
 	exit

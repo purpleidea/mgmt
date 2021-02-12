@@ -76,8 +76,7 @@ fi
 # run-test ./test/test-crossbuild.sh
 
 # do these longer tests only when running on ci
-if env | grep -q -e '^TRAVIS=true$' -e '^JENKINS_URL=' -e '^BUILD_TAG=jenkins'; then
-
+if in_ci; then
 	if label-block "shell"; then
 		run-testsuite ./test/test-shell.sh
 	fi

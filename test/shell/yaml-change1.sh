@@ -4,7 +4,7 @@
 
 exit 0	# TODO: this test needs to be update to use deploys instead
 
-#if env | grep -q -e '^TRAVIS=true$'; then
+#if in_ci; then
 #	# inotify doesn't seem to work properly on travis
 #	echo "Travis and Jenkins give wonky results here, skipping test!"
 #	exit

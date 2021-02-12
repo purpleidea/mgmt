@@ -20,26 +20,43 @@ fi
 
 TIMEOUT="$timeout --kill-after=360s --signal=QUIT 300s"
 
-fail_test()
-{
+in_ci() {
+	if [ $# -eq 0 ]; then
+		test -n "$CI" -o -n "$TRAVIS" -o -n "$JENKINS_URL"
+		return $?
+	fi
+
+	for var in "$@"; do
+		case "$var" in
+		travis)
+			test "$TRAVIS" = "true" && return 0;;
+		jenkins)
+			test -n "$JENKINS_URL" && return 0;;
+		*)
+			continue;;
+		esac
+	done
+	return 1
+}
+
+fail_test() {
 	echo -e "FAIL: $@"
 	exit 1
 }
 
-function run-test()
-{
+function run-test() {
 	"$@" || failures=$( [ -n "$failures" ] && echo "$failures\\n$@" || echo "$@" )
 }
 
 # travis expander helpers from:
 # https://github.com/travis-ci/travis-rubies/blob/build/build.sh
 fold_start() {
-	if env | grep -q -e '^TRAVIS=true$'; then
-		echo -e "travis_fold:start:$1\033[33;1m$2\033[0m"
+	if in_ci travis; then
+		echo -e "travis_fold:start:$1\033[33;1m${@:2}\033[0m"
 	fi
 }
 fold_end() {
-	if env | grep -q -e '^TRAVIS=true$'; then
+	if in_ci travis; then
 		echo -e "\ntravis_fold:end:$1\r"
 	fi
 }

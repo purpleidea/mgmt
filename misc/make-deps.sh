@@ -1,5 +1,5 @@
 #!/bin/bash
-# setup a simple go environment
+# setup a simple golang environment
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "${ROOT}" >/dev/null
@@ -16,7 +16,7 @@ NEWAPT=`command -v apt 2>/dev/null`
 BREW=`command -v brew 2>/dev/null`
 PACMAN=`command -v pacman 2>/dev/null`
 
-# set minimum go version and installed go version
+# set minimum golang version and installed golang version
 mingoversion=13
 goversion=0
 if [ -x "$GO" ]; then
@@ -86,7 +86,7 @@ if ! in_ci; then
 		if [ -z "$GO" ]; then
 			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer || $sudo_command $YUM install -y golang-bin # centos-7 epel
 		fi
-		# some go dependencies are stored in mercurial
+		# some golang dependencies are stored in mercurial
 		$sudo_command $YUM install -y hg
 	fi
 	if [ -n "$APT" ]; then
@@ -120,15 +120,15 @@ if [ "$goversion" -lt "$mingoversion" ]; then
 	exit 1
 fi
 
-fold_start "Install Go dependencies"
+fold_start "Install golang dependencies"
 echo "running 'go get -v -d ./...' from `pwd`"
-go get -v -t -d ./...	# get all the go dependencies
+go get -v -t -d ./...	# get all the golang dependencies
 echo "done running 'go get -v -t -d ./...'"
-fold_end "Install Go dependencies"
+fold_end "Install golang dependencies"
 
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
 
-fold_start "Install Go tools"
+fold_start "Install golang tools"
 go get github.com/blynn/nex				# for lexing
 go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
@@ -141,7 +141,7 @@ if in_ci; then
 	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \
 	gometalinter --install	# bonus
 fi
-fold_end "Install Go tools"
+fold_end "Install golang tools"
 
 fold_start "Install miscellaneous tools"
 command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files

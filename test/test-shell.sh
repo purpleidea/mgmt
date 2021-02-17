@@ -18,7 +18,8 @@ if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
 	exit 1
 fi
 
-LINE=$(printf '=%.0s' `seq -s ' ' $(tput cols)`)	# a terminal width string
+COLS="$(tput cols 2>/dev/null || echo 80)"	# github-actions has no $TERM
+LINE=$(printf '=%.0s' `seq -s ' ' $COLS`)	# a terminal width string
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
 cd "$DIR" >/dev/null	# work from main mgmt directory
 failures=""

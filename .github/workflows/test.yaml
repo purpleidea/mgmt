@@ -1,29 +1,41 @@
+# Docs: https://help.github.com/en/articles/workflow-syntax-for-github-actions
+
+# If the name is omitted, it uses the filename instead.
+#name: Test
 on:
+  # Run on all pull requests.
   pull_request:
+    #branches:
+    #- master
+  # Run on all pushes.
   push:
+  # Run daily at 4am.
   schedule:
   - cron: 0 4 * * *
 
 jobs:
   maketest:
-    name: Test ${{ matrix.test_block }}
+    name: Test (${{ matrix.test_block }}) on ${{ matrix.os }} with golang ${{ matrix.golang_version }}
     runs-on: ${{ matrix.os }}
     env:
       GOPATH: /home/runner/work/mgmt/mgmt/go
     strategy:
       matrix:
+        # TODO: Add tip when it's supported: https://github.com/actions/setup-go/issues/21
         os:
           - ubuntu-latest
           # macos tests are currently failing in CI
           #- macos-latest
-        go_version:
+        golang_version:
+          # TODO: add 1.15.x and tip
           # minimum required and latest published go_version
           #- 1.13
           - 1.15
         test_block:
           - basic
           - shell
-          #- race
+          - race
+      #fail-fast: false
 
     steps:
       # Do not shallow fetch, will fail when building bindata/
@@ -36,10 +48,10 @@ jobs:
           fetch-depth: 0
           path: ./go/src/github.com/purpleidea/mgmt
 
-      - name: Install Go ${{ matrix.go_version }}
+      - name: Install Go ${{ matrix.golang_version }}
         uses: actions/setup-go@v2
         with:
-          go-version: ${{ matrix.go_version }}
+          go-version: ${{ matrix.golang_version }}
 
       # Install & configure ruby, fixes gem permissions error
       - name: Install Ruby

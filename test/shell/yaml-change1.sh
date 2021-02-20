@@ -2,7 +2,7 @@
 
 . "$(dirname "$0")/../util.sh"
 
-exit 0	# TODO: this test needs to be update to use deploys instead
+exit 0	# TODO: this test needs to be updated to use deploys instead
 
 #if in_ci; then
 #	# inotify doesn't seem to work properly on travis

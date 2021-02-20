@@ -42,6 +42,10 @@ func main() {
 
 	buf := new(bytes.Buffer)
 	n, err := wt.WriteTo(buf)
+	if err != nil {
+		log.Printf("Error writing to buffer: %v", err)
+		return
+	}
 
 	log.Printf("%d bytes received", n)
 	log.Printf("Got: %s", buf.String())

@@ -33,9 +33,18 @@ func TestIPPort(t *testing.T) {
 		err      error
 	}{
 		// Success
-		{"success", "192.168.1.1", "80", "192.168.1.1:80", nil},
+		{"correct ipv4 and port", "192.168.1.1", "80", "192.168.1.1:80", nil},
+		{"correct ipv6 and port", "2345:0425:2CA1:0000:0000:0567:5673:23b5", "8080", "2345:0425:2CA1:0000:0000:0567:5673:23b5:8080", nil},
+		{"correct ipv4 and port - allow port 0", "192.168.1.1", "0", "192.168.1.1:0", nil},
+		{"correct ipv6 and port - allows port 65536", "2345:0425:2CA1::0567:5673:23b5", "65536", "2345:0425:2CA1::0567:5673:23b5:65536", nil},
 		// Fail
-		{"fail", "192.168.1.1", "9483670", "", errors.New("port number must be between 1-65536")},
+		{"incorrect ipv4 - octet over 255", "392.868.11.79", "80", "", errors.New("incorrect ip format")},
+		{"incorrect ipv4 - CIDR format", "10.10.10.100/8", "23", "", errors.New("incorrect ip format")},
+		{"incorrect ipv4 - dots...", "172.16.10..254", "23", "", errors.New("incorrect ip format")},
+		{"incorrect ipv6 - double double colon", "5678:A425:2CA1::0567::5673:23b5", "80", "", errors.New("incorrect ip format")},
+		{"incorrect ipv6 - non hex chars", "M678:Z425:2CA1::05X7:T673:23b5", "1234", "", errors.New("incorrect ip format")},
+		{"incorrect port - outside of range", "192.168.1.1", "65537", "", errors.New("port not in range 0-65536")},
+		{"incorrect port - negative port number", "192.168.1.1", "-9483670", "", errors.New("port not in range 0-65536")},
 	}
 
 	for _, test := range ipporttests {

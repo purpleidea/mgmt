@@ -20,6 +20,7 @@ package corenet
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -33,20 +34,25 @@ func init() {
 	})
 }
 
-// IPPort returns the combind IP:(input[0]) and Port:(input[1]) arguments as
-// long as port input is within range 1-65536
+// IPPort returns the combind IPv4/IPv6:(input[0]) and Port:(input[1]). Returns
+// error if IPv4/IPv6 string is incorrect format or Port not in range 0-65536.
 func IPPort(input []types.Value) (types.Value, error) {
-	ip := input[0].Str()
+	ip := net.ParseIP(input[0].Str()) // Is nil if incorrect format.
+	ipStr := input[0].Str()
 	port := input[1].Str()
 	portInt, err := strconv.Atoi(port)
 
+	if ip == nil {
+		return &types.StrValue{V: ""}, errors.New("incorrect ip format")
+	}
 	if err != nil {
 		return &types.StrValue{V: ""}, fmt.Errorf("err converting str to int %v", err)
 	}
-	if portInt < 1 || portInt > 65536 {
-		return &types.StrValue{V: ""}, errors.New("port number must be between 1-65536")
+	if portInt < 0 || portInt > 65536 {
+		return &types.StrValue{V: ""}, errors.New("port not in range 0-65536")
 	}
+
 	return &types.StrValue{
-		V: ip + ":" + port,
+		V: ipStr + ":" + port,
 	}, nil
 }

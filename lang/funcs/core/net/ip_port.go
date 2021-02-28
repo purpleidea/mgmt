@@ -33,8 +33,8 @@ func init() {
 	})
 }
 
-// IPPort returns the combind IP:(input[0]) and Port:(input[1]) arguments
-// as long as port input is within range 1-65536
+// IPPort returns the combind IP:(input[0]) and Port:(input[1]) arguments as
+// long as port input is within range 1-65536
 func IPPort(input []types.Value) (types.Value, error) {
 	ip := input[0].Str()
 	port := input[1].Str()

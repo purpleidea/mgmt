@@ -1,0 +1,26 @@
+import "datetime"
+import "math"
+
+$now = datetime.now()
+
+# alternate every four seconds
+$mod0 = math.mod($now, 8) == 0
+$mod1 = math.mod($now, 8) == 1
+$mod2 = math.mod($now, 8) == 2
+$mod3 = math.mod($now, 8) == 3
+$mod = $mod0 || $mod1 || $mod2 || $mod3
+
+
+# file should disappear and re-appear every four seconds
+if $mod {
+	file "/tmp/mgmt/hello" {
+		content => "some different shell script",
+		state => $const.res.file.state.exists,
+		Meta:reverse => true,
+	}
+} else {
+		file "/tmp/mgmt/hello" {
+		content => "some shell script",
+		state => $const.res.file.state.exists,
+	}
+}

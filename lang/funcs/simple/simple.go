@@ -42,6 +42,12 @@ func Register(name string, fn *types.FuncValue) {
 	if _, exists := RegisteredFuncs[name]; exists {
 		panic(fmt.Sprintf("a simple func named %s is already registered", name))
 	}
+	if fn == nil {
+		panic(fmt.Sprintf("simple func %s contains no function body", name))
+	}
+	if fn.T == nil {
+		panic(fmt.Sprintf("simple func %s contains a nil type signature", name))
+	}
 	RegisteredFuncs[name] = fn // store a copy for ourselves
 
 	// register a copy in the main function database

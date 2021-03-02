@@ -29,7 +29,7 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "ip_port", &types.FuncValue{
-		T: types.NewType("func(ip, port str) str"),
+		T: types.NewType("func(ipport str) str"),
 		V: IPPort,
 	})
 }

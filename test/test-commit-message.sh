@@ -133,3 +133,5 @@ then
 	done
 fi
 echo 'PASS'
+
+echo "AWESOME"

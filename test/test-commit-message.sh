@@ -123,7 +123,17 @@ then
 	done
 elif [[ -n "$GITHUB_SHA" ]]
 then
-	commits=$(git log --no-merges --format=%H origin/${GITHUB_BASE_REF}..${GITHUB_SHA})
+	# GITHUB_SHA is the HEAD of the branch
+	# GITHUB_REF: The branch or tag ref that triggered the workflow. For example, refs/heads/feature-branch-1. If neither a branch or tag is available for the event type, the variable will not exist.
+	# GITHUB_BASE_REF: Only set for pull request events. The name of the base branch.
+	if [[ -n "${GITHUB_BASE_REF}" ]]; then
+		ref=${GITHUB_BASE_REF}
+		head=${GITHUB_SHA}
+	else
+		ref=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
+		head=""
+	fi
+	commits=$(git log --no-merges --format=%H origin/${ref}..${head})
 	[[ -n "$commits" ]]
 
 	for commit in $commits

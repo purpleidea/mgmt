@@ -47,8 +47,8 @@ script: 'TEST_BLOCK="$TEST_BLOCK" make test'
 # with a value of: irc.freenode.net#mgmtconfig to eliminate noise from forks...
 notifications:
   irc:
-    channels:
-      - secure: htcuWAczm3C1zKC9vUfdRzhIXM1vtF+q0cLlQFXK1IQQlk693/pM30Mmf2L/9V2DVDeps+GyLdip0ARXD1DZEJV0lK+Ca1qbHdFP1r4Xv6l5+jaDb5Y88YU5LI8K758QShiZJojuQ1aO2j8xmmt9V0/5y5QwlpPeHbKYBOFPBX3HvlT9DhvwZNKGhBb4qJOEaPVOwq9IkN3DyQ456MHcJ3q3vF9Lb440uTuLsJNof2AbYZH8ZIHCSG2N8tBj2qhJOpWQboYtQJzE2pRaGkGBL4kYcHZSZMXX8sl4cBM1vx/IRUkvBxJUpLJz2gn/eRI+/gr59juZE2K0+FOLlx9dLnX626Y9xSViopBI6JsIoHJDqNC7aGaF2qaYulGYN65VNKVqmghjgt6JLmmiKeH10hYrJMMvt2rms8l4+5iwmCwXvhH/WU9edzk2p5wqERMnostJFEJib0zI3yzLoF0sdJs+veKtagzfayY2d2l7hlmt951IpqqVWldVgWUcQKVvi8gmRarbwFlK+5D7BEnkUDcLNly/cqf7BgEeX6YfF+FiR4pgfOhYvGCD+2q91NgWQXHBCxbyN0be1TVdkXD94f0Lkn94VyEJJ+PkPlG+rPgFwGcjqN4oEGkJeJmES2If05q2Ms1dJLwYQDL3+Py4lNMSdSWj24TzlFVhtwHepuw=
+    #channels:
+    #  - secure: htcuWAczm3C1zKC9vUfdRzhIXM1vtF+q0cLlQFXK1IQQlk693/pM30Mmf2L/9V2DVDeps+GyLdip0ARXD1DZEJV0lK+Ca1qbHdFP1r4Xv6l5+jaDb5Y88YU5LI8K758QShiZJojuQ1aO2j8xmmt9V0/5y5QwlpPeHbKYBOFPBX3HvlT9DhvwZNKGhBb4qJOEaPVOwq9IkN3DyQ456MHcJ3q3vF9Lb440uTuLsJNof2AbYZH8ZIHCSG2N8tBj2qhJOpWQboYtQJzE2pRaGkGBL4kYcHZSZMXX8sl4cBM1vx/IRUkvBxJUpLJz2gn/eRI+/gr59juZE2K0+FOLlx9dLnX626Y9xSViopBI6JsIoHJDqNC7aGaF2qaYulGYN65VNKVqmghjgt6JLmmiKeH10hYrJMMvt2rms8l4+5iwmCwXvhH/WU9edzk2p5wqERMnostJFEJib0zI3yzLoF0sdJs+veKtagzfayY2d2l7hlmt951IpqqVWldVgWUcQKVvi8gmRarbwFlK+5D7BEnkUDcLNly/cqf7BgEeX6YfF+FiR4pgfOhYvGCD+2q91NgWQXHBCxbyN0be1TVdkXD94f0Lkn94VyEJJ+PkPlG+rPgFwGcjqN4oEGkJeJmES2If05q2Ms1dJLwYQDL3+Py4lNMSdSWj24TzlFVhtwHepuw=
     template:
       - "%{repository} (%{commit}: %{author}): %{message}"
       - "More info : %{build_url}"

@@ -134,12 +134,12 @@ then
 		head=""
 	fi
 	commits=$(git log --no-merges --format=%H origin/${ref}..${head})
-	[[ -n "$commits" ]]
-
-	for commit in $commits
-	do
-		test_commit_message $commit
-		test_commit_message_common_bugs $commit
-	done
+	if [[ -n "$commits" ]]; then
+		for commit in $commits
+		do
+			test_commit_message $commit
+			test_commit_message_common_bugs $commit
+		done
+	fi
 fi
 echo 'PASS'

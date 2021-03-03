@@ -111,35 +111,14 @@ test_commit_message_common_bugs() {
 	fi
 }
 
-if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]
-then
-	commits=$(git log --format=%H origin/${TRAVIS_BRANCH}..${TRAVIS_PULL_REQUEST_SHA})
-	[[ -n "$commits" ]]
-
+commits=$(git rev-list $(git remote | head -n 1)/master..HEAD --no-merges)
+if [[ -z "$commits" ]]; then
+	echo "NO COMMIT TESTED"
+else
 	for commit in $commits
 	do
 		test_commit_message $commit
 		test_commit_message_common_bugs $commit
 	done
-elif [[ -n "$GITHUB_SHA" ]]
-then
-	# GITHUB_SHA is the HEAD of the branch
-	# GITHUB_REF: The branch or tag ref that triggered the workflow. For example, refs/heads/feature-branch-1. If neither a branch or tag is available for the event type, the variable will not exist.
-	# GITHUB_BASE_REF: Only set for pull request events. The name of the base branch.
-	if [[ -n "${GITHUB_BASE_REF}" ]]; then
-		ref=${GITHUB_BASE_REF}
-		head=${GITHUB_SHA}
-	else
-		ref=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
-		head=""
-	fi
-	commits=$(git log --no-merges --format=%H origin/${ref}..${head})
-	if [[ -n "$commits" ]]; then
-		for commit in $commits
-		do
-			test_commit_message $commit
-			test_commit_message_common_bugs $commit
-		done
-	fi
 fi
 echo 'PASS'

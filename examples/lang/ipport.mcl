@@ -1,0 +1,12 @@
+import "net"
+
+$ipport = net.ip_port("192.168.1.1", "433")
+
+print "ipport" {
+	msg => $ipport,
+}
+
+file "/tmp/mgmt/ipport" {
+	state => $const.res.file.state.exists,
+	content => $ipport,
+}

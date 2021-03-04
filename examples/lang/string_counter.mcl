@@ -1,0 +1,14 @@
+import "fmt"
+import "strings"
+import "sys"
+import "os"
+
+$home = sys.getenv("HOME")
+$file = "${home}/.bashrc"
+$s = os.readfile($file)
+$substr = ""
+$lenoffile = strings.count($s, $substr)
+
+print "print0" {
+	msg => fmt.printf("char length of file: %s: %s", $file, $lenoffileb,
+}

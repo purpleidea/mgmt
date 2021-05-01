@@ -109,7 +109,7 @@ func (obj *DockerImageRes) Init(init *engine.Init) error {
 	defer cancel()
 
 	// Initialize the docker client.
-	obj.client, err = client.NewClient(client.DefaultDockerHost, obj.APIVersion, nil, nil)
+	obj.client, err = client.NewClientWithOpts(client.WithVersion(obj.APIVersion))
 	if err != nil {
 		return errwrap.Wrapf(err, "error creating docker client")
 	}

@@ -984,3 +984,53 @@ func (obj *ValueInvariant) Possible(partials []Invariant) error {
 
 	return nil
 }
+
+// CallFuncArgsValueInvariant expresses that a func call is associated with a
+// particular func, and that it is called with a specific list of args. Expr
+// must match the function call expression, Func must match the actual function
+// expression, and Args matches the args used in the call to run the func.
+// TODO: should this be named FuncCallArgsValueInvariant or something different
+// or not?
+type CallFuncArgsValueInvariant struct {
+	// Expr represents the pointer to the ExprCall.
+	Expr Expr
+
+	// Func represents the pointer to the ExprFunc that ExprCall is using.
+	Func Expr
+
+	// Args represents the list of args that the ExprCall is using to call
+	// the ExprFunc. A solver might speculatively call Value() on each of
+	// these in the hopes of doing something useful if a value happens to be
+	// known statically at compile time. One such solver that might do this
+	// is the GeneratorInvariant inside of a difficult function like printf.
+	Args []Expr
+}
+
+// String returns a representation of this invariant.
+func (obj *CallFuncArgsValueInvariant) String() string {
+	return fmt.Sprintf("%p == callfuncargs(%p) %p", obj.Expr, obj.Func, obj.Args) // TODO: improve this
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *CallFuncArgsValueInvariant) ExprList() []Expr {
+	return []Expr{obj.Expr} // XXX: add obj.Func or each obj.Args ?
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *CallFuncArgsValueInvariant) Matches(solved map[Expr]*types.Type) (bool, error) {
+	// XXX: not implemented
+	panic("not implemented")
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *CallFuncArgsValueInvariant) Possible(partials []Invariant) error {
+	// XXX: not implemented
+	return nil // safer to return nil than error
+}

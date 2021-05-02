@@ -845,3 +845,65 @@ func (obj *AnyInvariant) Possible([]Invariant) error {
 	// keep it simple, even though we don't technically check the inputs...
 	return nil
 }
+
+// ValueInvariant is an invariant that stores the value associated with an expr
+// if it happens to be known statically at unification/compile time. This must
+// only be used for static/pure values. For example, in `$x = 42`, we know that
+// $x is 42. It's useful here because for `printf("hello %d times", 42)` we can
+// get both the format string, and the other args as these new invariants, and
+// we'd store those separately into this invariant, where they can eventually be
+// passed into the generator invariant, where it can parse the format string and
+// we'd be able to produce a precise type for the printf function, since it's
+// nearly impossible to do otherwise since the number of possibilities is
+// infinite! One special note: these values are typically not consumed, by the
+// solver, because they need to be around for the generator invariant to use, so
+// make sure your solver implementation can still terminate with unused
+// invariants!
+type ValueInvariant struct {
+	Expr  Expr
+	Value types.Value // pointer
+}
+
+// String returns a representation of this invariant.
+func (obj *ValueInvariant) String() string {
+	return fmt.Sprintf("%p == %s", obj.Expr, obj.Value)
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *ValueInvariant) ExprList() []Expr {
+	return []Expr{obj.Expr}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *ValueInvariant) Matches(solved map[Expr]*types.Type) (bool, error) {
+	typ, exists := solved[obj.Expr]
+	if !exists {
+		return false, nil
+	}
+	if err := typ.Cmp(obj.Value.Type()); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+func (obj *ValueInvariant) Possible(partials []Invariant) error {
+	// XXX: Double check this is logical. It was modified from EqualsInvariant.
+	solved := map[Expr]*types.Type{
+		obj.Expr: obj.Value.Type(),
+	}
+	for _, invar := range partials { // check each one
+		_, err := invar.Matches(solved)
+		if err != nil { // inconsistent, so it's not possible
+			return errwrap.Wrapf(err, "not possible")
+		}
+	}
+
+	return nil
+}

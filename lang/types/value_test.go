@@ -27,6 +27,28 @@ import (
 	"testing"
 )
 
+// mustValue converts a Go variable to a types.Value, or panics if any error.
+func mustValue(v interface{}) Value {
+	val, err := ValueOfGolang(v)
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
+// Reflect variant of & on a variable. Creates a pointer in memory, sets the
+// destination, then returns the pointer.
+func ptrto(v interface{}) interface{} {
+	p := reflect.New(reflect.TypeOf(v))
+	p.Elem().Set(reflect.ValueOf(v))
+	return p.Interface()
+}
+
+// ptrstr creates a pointer to the specified string, and returns it.
+func ptrstr(s string) *string {
+	return ptrto(s).(*string)
+}
+
 func TestPrint1(t *testing.T) {
 	testCases := map[Value]string{
 		&BoolValue{V: true}:            "true",
@@ -592,6 +614,8 @@ func TestStruct2(t *testing.T) {
 }
 
 func TestValueOf0(t *testing.T) {
+	var nilStrPtr *string
+
 	testCases := map[Value]interface{}{
 		&BoolValue{V: true}:  true,
 		&StrValue{V: "abc"}:  "abc",
@@ -615,15 +639,38 @@ func TestValueOf0(t *testing.T) {
 			},
 		}: map[string]int{"a": 1, "b": 2, "c": 3}, // go map ordering is alphabetically sorted
 		&StructValue{
-			T: NewType("struct{num int; name str}"),
+			T: NewType("struct{num int; name str; ptr str}"),
 			V: map[string]Value{
 				"num":  &IntValue{V: 42},
 				"name": &StrValue{V: "mgmt"},
+				"ptr":  &StrValue{V: "point"},
 			},
 		}: struct {
-			num  int
-			name string
-		}{42, "mgmt"},
+			Num  int     `lang:"num"`
+			Name string  `lang:"name"`
+			Ptr  *string `lang:"ptr"`
+		}{42, "mgmt", ptrstr("point")},
+		// ValueOf with pointer types
+		&StrValue{V: ""}:       nilStrPtr,
+		&StrValue{V: "nested"}: ptrto(ptrto(ptrto("nested"))),
+		&StructValue{
+			T: NewType("struct{x struct{y int}}"),
+			V: map[string]Value{
+				"x": &StructValue{
+					T: NewType("struct{y int}"),
+					V: map[string]Value{
+						"y": &IntValue{V: 0},
+					},
+				},
+			},
+		}: struct {
+			X *struct {
+				Y int `lang:"y"`
+			} `lang:"x"`
+		}{
+			// inner struct is nil, but ValueOf should return zero value
+			X: nil,
+		},
 		// TODO: implement ValueOf tests for TypeFunc
 	}
 
@@ -695,25 +742,6 @@ func TestValueOf2(t *testing.T) {
 }
 
 func TestValueInto0(t *testing.T) {
-	// converts a Go variable to a types.Value, or panics if any error
-	mustValue := func(v interface{}) Value {
-		val, err := ValueOfGolang(v)
-		if err != nil {
-			panic(err)
-		}
-		return val
-	}
-	// reflect variant of & on a variable. Creates a pointer in
-	// memory, sets the destination, then returns the pointer
-	ptrto := func(v interface{}) interface{} {
-		p := reflect.New(reflect.TypeOf(v))
-		p.Elem().Set(reflect.ValueOf(v))
-		return p.Interface()
-	}
-	ptrstr := func(s string) *string {
-		return ptrto(s).(*string)
-	}
-
 	// various container variables for below tests
 	var b bool
 	var s string

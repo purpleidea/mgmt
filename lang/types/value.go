@@ -53,16 +53,28 @@ func ValueOfGolang(i interface{}) (Value, error) {
 }
 
 // ValueOf takes a reflect.Value and returns an equivalent Value.
-func ValueOf(v reflect.Value) (Value, error) {
-	value := v
+func ValueOf(value reflect.Value) (Value, error) {
+	// gracefully handle invalid values instead of panic()
+	if !value.IsValid() {
+		return nil, &reflect.ValueError{Method: "types.ValueOf", Kind: reflect.Invalid}
+	}
+
 	typ := value.Type()
 	kind := typ.Kind()
+
 	for kind == reflect.Ptr {
-		typ = typ.Elem() // un-nest one pointer
-		kind = typ.Kind()
+		// Prevent panic() if value is a nil pointer and instead return the zero
+		// value based on the type of the nil pointer.
+		if value.IsNil() {
+			t, err := TypeOf(typ)
+			if err != nil {
+				return nil, err
+			}
+			return t.New(), nil
+		}
 
 		// un-nest value from pointer
-		value = value.Elem() // XXX: is this correct?
+		return ValueOf(value.Elem())
 	}
 
 	switch kind { // match on destination field kind
@@ -199,7 +211,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}, nil
 
 	default:
-		return nil, fmt.Errorf("unable to represent value of %+v", v)
+		return nil, fmt.Errorf("unable to represent value of %+v", value)
 	}
 }
 

@@ -32,7 +32,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/lang/unification"
 	langutil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -481,19 +480,19 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 	// name must be a string or a list
 	ors := []interfaces.Invariant{}
 
-	invarStr := &unification.EqualsInvariant{
+	invarStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.TypeStr,
 	}
 	ors = append(ors, invarStr)
 
-	invarListStr := &unification.EqualsInvariant{
+	invarListStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.NewType("[]str"),
 	}
 	ors = append(ors, invarListStr)
 
-	invar := &unification.ExclusiveInvariant{
+	invar := &interfaces.ExclusiveInvariant{
 		Invariants: ors, // one and only one of these should be true
 	}
 	invariants = append(invariants, invar)
@@ -1177,7 +1176,7 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 		invariants = append(invariants, condition...)
 
 		// the condition must ultimately be a boolean
-		conditionInvar := &unification.EqualsInvariant{
+		conditionInvar := &interfaces.EqualsInvariant{
 			Expr: obj.Condition,
 			Type: types.TypeBool,
 		}
@@ -1203,7 +1202,7 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 	if !exists {
 		return nil, fmt.Errorf("field `%s` does not exist in `%s`", obj.Field, kind)
 	}
-	invar := &unification.EqualsInvariant{
+	invar := &interfaces.EqualsInvariant{
 		Expr: obj.Value,
 		Type: typ,
 	}
@@ -1435,7 +1434,7 @@ func (obj *StmtResEdge) Unify(kind string) ([]interfaces.Invariant, error) {
 		invariants = append(invariants, condition...)
 
 		// the condition must ultimately be a boolean
-		conditionInvar := &unification.EqualsInvariant{
+		conditionInvar := &interfaces.EqualsInvariant{
 			Expr: obj.Condition,
 			Type: types.TypeBool,
 		}
@@ -1690,7 +1689,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		invariants = append(invariants, condition...)
 
 		// the condition must ultimately be a boolean
-		conditionInvar := &unification.EqualsInvariant{
+		conditionInvar := &interfaces.EqualsInvariant{
 			Expr: obj.Condition,
 			Type: types.TypeBool,
 		}
@@ -1700,7 +1699,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 	// add additional invariants based on what's in obj.Property !!!
 	var invar interfaces.Invariant
 	static := func(typ *types.Type) interfaces.Invariant {
-		return &unification.EqualsInvariant{
+		return &interfaces.EqualsInvariant{
 			Expr: obj.MetaExpr,
 			Type: typ,
 		}
@@ -1744,7 +1743,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		//invarStruct := static(types.NewType("struct{edges str}"))
 		//ors = append(ors, invarStruct)
 
-		invar = &unification.ExclusiveInvariant{
+		invar = &interfaces.ExclusiveInvariant{
 			Invariants: ors, // one and only one of these should be true
 		}
 
@@ -1768,7 +1767,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		// TODO: decide what fields we might want here
 		//invarStruct := static(wrap(types.NewType("struct{edges str}")))
 		//ors = append(ors, invarStruct)
-		invar = &unification.ExclusiveInvariant{
+		invar = &interfaces.ExclusiveInvariant{
 			Invariants: ors, // one and only one of these should be true
 		}
 
@@ -2250,19 +2249,19 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 	// name must be a string or a list
 	ors := []interfaces.Invariant{}
 
-	invarStr := &unification.EqualsInvariant{
+	invarStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.TypeStr,
 	}
 	ors = append(ors, invarStr)
 
-	invarListStr := &unification.EqualsInvariant{
+	invarListStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.NewType("[]str"),
 	}
 	ors = append(ors, invarListStr)
 
-	invar := &unification.ExclusiveInvariant{
+	invar := &interfaces.ExclusiveInvariant{
 		Invariants: ors, // one and only one of these should be true
 	}
 	invariants = append(invariants, invar)
@@ -2540,7 +2539,7 @@ func (obj *StmtIf) Unify() ([]interfaces.Invariant, error) {
 	invariants = append(invariants, condition...)
 
 	// the condition must ultimately be a boolean
-	conditionInvar := &unification.EqualsInvariant{
+	conditionInvar := &interfaces.EqualsInvariant{
 		Expr: obj.Condition,
 		Type: types.TypeBool,
 	}
@@ -4371,7 +4370,7 @@ func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
 		// TODO: are additional invariants required?
 		// add invariants between the args and the class
 		if typ := obj.class.Args[i].Type; typ != nil {
-			invar := &unification.EqualsInvariant{
+			invar := &interfaces.EqualsInvariant{
 				Expr: obj.Args[i],
 				Type: typ, // type of arg
 			}
@@ -4667,7 +4666,7 @@ func (obj *ExprAny) Type() (*types.Type, error) {
 // collection to the caller.
 func (obj *ExprAny) Unify() ([]interfaces.Invariant, error) {
 	invariants := []interfaces.Invariant{
-		&unification.AnyInvariant{ // it has to be something, anything!
+		&interfaces.AnyInvariant{ // it has to be something, anything!
 			Expr: obj,
 		},
 	}
@@ -4785,7 +4784,7 @@ func (obj *ExprBool) Type() (*types.Type, error) { return types.TypeBool, nil }
 // collection to the caller.
 func (obj *ExprBool) Unify() ([]interfaces.Invariant, error) {
 	invariants := []interfaces.Invariant{
-		&unification.EqualsInvariant{
+		&interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: types.TypeBool,
 		},
@@ -4956,7 +4955,7 @@ func (obj *ExprStr) Type() (*types.Type, error) { return types.TypeStr, nil }
 // collection to the caller.
 func (obj *ExprStr) Unify() ([]interfaces.Invariant, error) {
 	invariants := []interfaces.Invariant{
-		&unification.EqualsInvariant{
+		&interfaces.EqualsInvariant{
 			Expr: obj, // unique id for this expression (a pointer)
 			Type: types.TypeStr,
 		},
@@ -5082,7 +5081,7 @@ func (obj *ExprInt) Type() (*types.Type, error) { return types.TypeInt, nil }
 // collection to the caller.
 func (obj *ExprInt) Unify() ([]interfaces.Invariant, error) {
 	invariants := []interfaces.Invariant{
-		&unification.EqualsInvariant{
+		&interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: types.TypeInt,
 		},
@@ -5210,7 +5209,7 @@ func (obj *ExprFloat) Type() (*types.Type, error) { return types.TypeFloat, nil 
 // collection to the caller.
 func (obj *ExprFloat) Unify() ([]interfaces.Invariant, error) {
 	invariants := []interfaces.Invariant{
-		&unification.EqualsInvariant{
+		&interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: types.TypeFloat,
 		},
@@ -5461,7 +5460,7 @@ func (obj *ExprList) Unify() ([]interfaces.Invariant, error) {
 
 	// if this was set explicitly by the parser
 	if obj.typ != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: obj.typ,
 		}
@@ -5479,7 +5478,7 @@ func (obj *ExprList) Unify() ([]interfaces.Invariant, error) {
 
 	// each element must be equal to each other
 	if len(obj.Elements) > 1 {
-		invariant := &unification.EqualityInvariantList{
+		invariant := &interfaces.EqualityInvariantList{
 			Exprs: obj.Elements,
 		}
 		invariants = append(invariants, invariant)
@@ -5487,7 +5486,7 @@ func (obj *ExprList) Unify() ([]interfaces.Invariant, error) {
 
 	// we should be type list of (type of element)
 	if len(obj.Elements) > 0 {
-		invariant := &unification.EqualityWrapListInvariant{
+		invariant := &interfaces.EqualityWrapListInvariant{
 			Expr1:    obj, // unique id for this expression (a pointer)
 			Expr2Val: obj.Elements[0],
 		}
@@ -5496,7 +5495,7 @@ func (obj *ExprList) Unify() ([]interfaces.Invariant, error) {
 
 	// make sure this empty list gets an element type somehow
 	if len(obj.Elements) == 0 {
-		invariant := &unification.AnyInvariant{
+		invariant := &interfaces.AnyInvariant{
 			Expr: obj,
 		}
 		invariants = append(invariants, invariant)
@@ -5512,11 +5511,11 @@ func (obj *ExprList) Unify() ([]interfaces.Invariant, error) {
 		// FIXME: instead of using `ExprAny`, we could actually teach
 		// our unification engine to ensure that our expr kind is list,
 		// eg:
-		//&unification.EqualityKindInvariant{
+		//&interfaces.EqualityKindInvariant{
 		//	Expr1: obj,
 		//	Kind:  types.KindList,
 		//}
-		invar := &unification.EqualityWrapListInvariant{
+		invar := &interfaces.EqualityWrapListInvariant{
 			Expr1:    obj,
 			Expr2Val: exprAny, // hack
 		}
@@ -5913,7 +5912,7 @@ func (obj *ExprMap) Unify() ([]interfaces.Invariant, error) {
 
 	// if this was set explicitly by the parser
 	if obj.typ != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: obj.typ,
 		}
@@ -5943,12 +5942,12 @@ func (obj *ExprMap) Unify() ([]interfaces.Invariant, error) {
 			valExprs = append(valExprs, obj.KVs[i].Val)
 		}
 
-		keyInvariant := &unification.EqualityInvariantList{
+		keyInvariant := &interfaces.EqualityInvariantList{
 			Exprs: keyExprs,
 		}
 		invariants = append(invariants, keyInvariant)
 
-		valInvariant := &unification.EqualityInvariantList{
+		valInvariant := &interfaces.EqualityInvariantList{
 			Exprs: valExprs,
 		}
 		invariants = append(invariants, valInvariant)
@@ -5956,7 +5955,7 @@ func (obj *ExprMap) Unify() ([]interfaces.Invariant, error) {
 
 	// we should be type map of (type of element)
 	if len(obj.KVs) > 0 {
-		invariant := &unification.EqualityWrapMapInvariant{
+		invariant := &interfaces.EqualityWrapMapInvariant{
 			Expr1:    obj, // unique id for this expression (a pointer)
 			Expr2Key: obj.KVs[0].Key,
 			Expr2Val: obj.KVs[0].Val,
@@ -5966,7 +5965,7 @@ func (obj *ExprMap) Unify() ([]interfaces.Invariant, error) {
 
 	// make sure this empty map gets a type for its key/value somehow
 	if len(obj.KVs) == 0 {
-		invariant := &unification.AnyInvariant{
+		invariant := &interfaces.AnyInvariant{
 			Expr: obj,
 		}
 		invariants = append(invariants, invariant)
@@ -5987,11 +5986,11 @@ func (obj *ExprMap) Unify() ([]interfaces.Invariant, error) {
 		// FIXME: instead of using `ExprAny`, we could actually teach
 		// our unification engine to ensure that our expr kind is list,
 		// eg:
-		//&unification.EqualityKindInvariant{
+		//&interfaces.EqualityKindInvariant{
 		//	Expr1: obj,
 		//	Kind:  types.KindMap,
 		//}
-		invar := &unification.EqualityWrapMapInvariant{
+		invar := &interfaces.EqualityWrapMapInvariant{
 			Expr1:    obj,
 			Expr2Key: exprAnyKey, // hack
 			Expr2Val: exprAnyVal, // hack
@@ -6381,7 +6380,7 @@ func (obj *ExprStruct) Unify() ([]interfaces.Invariant, error) {
 
 	// if this was set explicitly by the parser
 	if obj.typ != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: obj.typ,
 		}
@@ -6404,7 +6403,7 @@ func (obj *ExprStruct) Unify() ([]interfaces.Invariant, error) {
 		mapped[x.Name] = x.Value
 		ordered = append(ordered, x.Name)
 	}
-	invariant := &unification.EqualityWrapStructInvariant{
+	invariant := &interfaces.EqualityWrapStructInvariant{
 		Expr1:    obj, // unique id for this expression (a pointer)
 		Expr2Map: mapped,
 		Expr2Ord: ordered,
@@ -7013,7 +7012,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 	// if this was set explicitly by the parser
 	if obj.typ != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: obj.typ,
 		}
@@ -7023,7 +7022,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 	// if we know the type statically...
 	// TODO: is this redundant, or do we need something similar elsewhere?
 	if typ, err := obj.Type(); err == nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: typ,
 		}
@@ -7056,7 +7055,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 				// if the arg's type is known statically...
 				if typ := obj.Args[i].Type; typ != nil {
-					invar := &unification.EqualsInvariant{
+					invar := &interfaces.EqualsInvariant{
 						Expr: arg,
 						Type: typ,
 					}
@@ -7071,7 +7070,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 					return nil, errwrap.Wrapf(err, "can't get body scope")
 				}
 				if bodyScope != nil { // TODO: can this be nil?
-					invar := &unification.EqualityInvariant{
+					invar := &interfaces.EqualityInvariant{
 						Expr1: arg,
 						Expr2: bodyScope.Variables[name],
 					}
@@ -7093,7 +7092,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 			//
 			//	// if the arg's type is known statically...
 			//	if typ := arg.Type; typ != nil {
-			//		invar := &unification.EqualsInvariant{
+			//		invar := &interfaces.EqualsInvariant{
 			//			Expr: expr,
 			//			Type: typ,
 			//		}
@@ -7107,7 +7106,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 			//	//	return nil, errwrap.Wrapf(err, "can't get body scope")
 			//	//}
 			//	//// The scoped variable should match the arg.
-			//	//invar := &unification.EqualityInvariant{
+			//	//invar := &interfaces.EqualityInvariant{
 			//	//	Expr1: expr,
 			//	//	Expr2: bodyScope.Variables[name], // ???
 			//	//}
@@ -7116,7 +7115,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 		}
 
 		// XXX: is this the right kind of invariant???
-		invariant := &unification.EqualityWrapFuncInvariant{
+		invariant := &interfaces.EqualityWrapFuncInvariant{
 			Expr1:    obj,
 			Expr2Map: mapped,
 			Expr2Ord: ordered,
@@ -7127,7 +7126,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 	// return type must be equal to the body expression
 	if obj.Body != nil && obj.Return != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj.Body,
 			Type: obj.Return,
 		}
@@ -7141,7 +7140,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 		//if !ok {
 		//	sig := fn.Info().Sig
 		//	if sig != nil && !sig.HasVariant() {
-		//		invar := &unification.EqualsInvariant{
+		//		invar := &interfaces.EqualsInvariant{
 		//			Expr: obj,
 		//			Type: sig,
 		//		}
@@ -7174,7 +7173,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 		// TODO: Previously, we just skipped all of these invariants! If
 		// we get examples that don't work well, just abandon this part.
 		if !typ.HasVariant() {
-			invar := &unification.EqualsInvariant{
+			invar := &interfaces.EqualsInvariant{
 				Expr: obj,
 				Type: typ,
 			}
@@ -7183,7 +7182,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 			// Add at *most* only one any invariant in an exclusive
 			// set, otherwise two or more possibilities will have
 			// equivalent answers.
-			anyInvar := &unification.AnyInvariant{
+			anyInvar := &interfaces.AnyInvariant{
 				Expr: obj,
 			}
 			ors = append(ors, anyInvar)
@@ -7192,7 +7191,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 	} // end results loop
 	if len(ors) > 0 {
-		var invar interfaces.Invariant = &unification.ExclusiveInvariant{
+		var invar interfaces.Invariant = &interfaces.ExclusiveInvariant{
 			Invariants: ors, // one and only one of these should be true
 		}
 		if len(ors) == 1 {
@@ -7783,7 +7782,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 
 	// if this was set explicitly by the parser
 	if obj.typ != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: obj.typ,
 		}
@@ -7791,7 +7790,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	}
 
 	//if obj.typ != nil { // XXX: i think this is probably incorrect...
-	//	invar := &unification.EqualsInvariant{
+	//	invar := &interfaces.EqualsInvariant{
 	//		Expr: obj.expr,
 	//		Type: obj.typ,
 	//	}
@@ -7815,13 +7814,13 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, invars...)
 
-	anyInvar := &unification.AnyInvariant{ // TODO: maybe this isn't needed?
+	anyInvar := &interfaces.AnyInvariant{ // TODO: maybe this isn't needed?
 		Expr: obj.expr,
 	}
 	invariants = append(invariants, anyInvar)
 
 	// our type should equal the return type of the called function
-	invar := &unification.EqualityWrapCallInvariant{
+	invar := &interfaces.EqualityWrapCallInvariant{
 		// TODO: should Expr1 and Expr2 be reversed???
 		Expr1:     obj, // return type expression from calling the function
 		Expr2Func: obj.expr,
@@ -7837,7 +7836,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 
 	// if we know the return type, it should match our type
 	if fn.Body != nil && fn.Return != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,       // return type from calling the function
 			Type: fn.Return, // specified return type
 		}
@@ -7857,7 +7856,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 			if x.Type == nil { // unknown type
 				continue
 			}
-			invar := &unification.EqualsInvariant{
+			invar := &interfaces.EqualsInvariant{
 				Expr: obj.Args[i],
 				Type: x.Type,
 			}
@@ -7872,7 +7871,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 			if !exists || x.Type == nil {
 				continue
 			}
-			invar := &unification.EqualsInvariant{
+			invar := &interfaces.EqualsInvariant{
 				Expr: expr,
 				Type: x.Type,
 			}
@@ -7888,7 +7887,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		}
 
 		// determine the type of the function itself
-		invariant := &unification.EqualityWrapFuncInvariant{
+		invariant := &interfaces.EqualityWrapFuncInvariant{
 			Expr1:    fn, // unique id for this expression (a pointer)
 			Expr2Map: mapped,
 			Expr2Ord: ordered,
@@ -7897,7 +7896,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		invariants = append(invariants, invariant)
 
 		//if fn.Return != nil {
-		//	invariant := &unification.EqualityWrapFuncInvariant{
+		//	invariant := &interfaces.EqualityWrapFuncInvariant{
 		//		Expr1:    fn, // unique id for this expression (a pointer)
 		//		Expr2Map: mapped,
 		//		Expr2Ord: ordered,
@@ -7909,14 +7908,14 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		// TODO: Do we need to add an EqualityWrapCallInvariant here?
 
 		// the return type of this call expr, should match the body type
-		invar := &unification.EqualityInvariant{
+		invar := &interfaces.EqualityInvariant{
 			Expr1: obj,
 			Expr2: fn.Body,
 		}
 		invariants = append(invariants, invar)
 
 		//if fn.Return != nil {
-		//	invar := &unification.EqualityInvariant{
+		//	invar := &interfaces.EqualityInvariant{
 		//		Expr1: obj,
 		//		Expr2: fn.Return, XXX: ???
 		//	}
@@ -8036,7 +8035,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		}
 		if typ.Kind == types.KindVariant { // XXX: ¯\_(ツ)_/¯
 			// XXX: maybe needed to avoid an oversimplified exclusive!
-			anyInvar := &unification.AnyInvariant{
+			anyInvar := &interfaces.AnyInvariant{
 				Expr: fn, // TODO: fn or obj ?
 			}
 			ors = append(ors, anyInvar)
@@ -8054,13 +8053,13 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		for i, x := range typ.Ord {
 			if typ.Map[x].HasVariant() { // XXX: ¯\_(ツ)_/¯
 				// TODO: maybe this isn't needed?
-				invar := &unification.AnyInvariant{
+				invar := &interfaces.AnyInvariant{
 					Expr: obj.Args[i],
 				}
 				invars = append(invars, invar)
 				continue
 			}
-			invar := &unification.EqualsInvariant{
+			invar := &interfaces.EqualsInvariant{
 				Expr: obj.Args[i],
 				Type: typ.Map[x], // type of arg
 			}
@@ -8070,12 +8069,12 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 			// this expression should equal the output type of the function
 			if typ.Out.HasVariant() { // XXX: ¯\_(ツ)_/¯
 				// TODO: maybe this isn't needed?
-				invar := &unification.AnyInvariant{
+				invar := &interfaces.AnyInvariant{
 					Expr: obj,
 				}
 				invars = append(invars, invar)
 			} else {
-				invar := &unification.EqualsInvariant{
+				invar := &interfaces.EqualsInvariant{
 					Expr: obj,
 					Type: typ.Out,
 				}
@@ -8093,14 +8092,14 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		}
 
 		if !typ.HasVariant() { // XXX: ¯\_(ツ)_/¯
-			funcInvariant := &unification.EqualsInvariant{
+			funcInvariant := &interfaces.EqualsInvariant{
 				Expr: fn,
 				Type: typ,
 			}
 			invars = append(invars, funcInvariant)
 		} else {
 			// XXX: maybe needed to avoid an oversimplified exclusive!
-			anyInvar := &unification.AnyInvariant{
+			anyInvar := &interfaces.AnyInvariant{
 				Expr: fn, // TODO: fn or obj ?
 			}
 			invars = append(invars, anyInvar)
@@ -8110,7 +8109,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		// is the return type which is produced, where as the entire
 		// function itself has its own type which includes the types of
 		// the input arguments...
-		invar := &unification.EqualityWrapFuncInvariant{
+		invar := &interfaces.EqualityWrapFuncInvariant{
 			Expr1:    fn,
 			Expr2Map: mapped,
 			Expr2Ord: ordered,
@@ -8119,7 +8118,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		invars = append(invars, invar)
 
 		// all of these need to be true together
-		and := &unification.ConjunctionInvariant{
+		and := &interfaces.ConjunctionInvariant{
 			Invariants: invars,
 		}
 
@@ -8131,7 +8130,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	//	return nil, fmt.Errorf("can't find any valid signatures that match func `%s`", obj.Name)
 	//}
 	if len(ors) > 0 {
-		var invar interfaces.Invariant = &unification.ExclusiveInvariant{
+		var invar interfaces.Invariant = &interfaces.ExclusiveInvariant{
 			Invariants: ors, // one and only one of these should be true
 		}
 		if len(ors) == 1 {
@@ -8464,7 +8463,7 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 
 	// if this was set explicitly by the parser
 	if obj.typ != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: obj.typ,
 		}
@@ -8481,7 +8480,7 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 
 	// this expression's type must be the type of what the var is bound to!
 	// TODO: does this always cause an identical duplicate invariant?
-	invar := &unification.EqualityInvariant{
+	invar := &interfaces.EqualityInvariant{
 		Expr1: obj,
 		Expr2: expr,
 	}
@@ -8868,7 +8867,7 @@ func (obj *ExprIf) Unify() ([]interfaces.Invariant, error) {
 
 	// if this was set explicitly by the parser
 	if obj.typ != nil {
-		invar := &unification.EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
 			Type: obj.typ,
 		}
@@ -8883,7 +8882,7 @@ func (obj *ExprIf) Unify() ([]interfaces.Invariant, error) {
 	invariants = append(invariants, condition...)
 
 	// the condition must ultimately be a boolean
-	conditionInvar := &unification.EqualsInvariant{
+	conditionInvar := &interfaces.EqualsInvariant{
 		Expr: obj.Condition,
 		Type: types.TypeBool,
 	}
@@ -8903,19 +8902,19 @@ func (obj *ExprIf) Unify() ([]interfaces.Invariant, error) {
 	invariants = append(invariants, elseBranch...)
 
 	// the two branches must be equally typed
-	branchesInvar := &unification.EqualityInvariant{
+	branchesInvar := &interfaces.EqualityInvariant{
 		Expr1: obj.ThenBranch,
 		Expr2: obj.ElseBranch,
 	}
 	invariants = append(invariants, branchesInvar)
 
 	// the two branches must match the type of the whole expression
-	thenInvar := &unification.EqualityInvariant{
+	thenInvar := &interfaces.EqualityInvariant{
 		Expr1: obj,
 		Expr2: obj.ThenBranch,
 	}
 	invariants = append(invariants, thenInvar)
-	elseInvar := &unification.EqualityInvariant{
+	elseInvar := &interfaces.EqualityInvariant{
 		Expr1: obj,
 		Expr2: obj.ElseBranch,
 	}

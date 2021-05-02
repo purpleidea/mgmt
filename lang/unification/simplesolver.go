@@ -61,19 +61,19 @@ func SimpleInvariantSolverLogger(logf func(format string, v ...interface{})) fun
 // It is intended to be very simple, even if it's computationally inefficient.
 func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfaces.Expr, logf func(format string, v ...interface{})) (*InvariantSolution, error) {
 	debug := false // XXX: add to interface
-	process := func(invariants []interfaces.Invariant) ([]interfaces.Invariant, []*ExclusiveInvariant, error) {
+	process := func(invariants []interfaces.Invariant) ([]interfaces.Invariant, []*interfaces.ExclusiveInvariant, error) {
 		equalities := []interfaces.Invariant{}
-		exclusives := []*ExclusiveInvariant{}
+		exclusives := []*interfaces.ExclusiveInvariant{}
 
 		for _, x := range invariants {
 			switch invariant := x.(type) {
-			case *EqualsInvariant:
+			case *interfaces.EqualsInvariant:
 				equalities = append(equalities, invariant)
 
-			case *EqualityInvariant:
+			case *interfaces.EqualityInvariant:
 				equalities = append(equalities, invariant)
 
-			case *EqualityInvariantList:
+			case *interfaces.EqualityInvariantList:
 				// de-construct this list variant into a series
 				// of equality variants so that our solver can
 				// be implemented more simply...
@@ -81,41 +81,41 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 					return nil, nil, fmt.Errorf("list invariant needs at least two elements")
 				}
 				for i := 0; i < len(invariant.Exprs)-1; i++ {
-					invar := &EqualityInvariant{
+					invar := &interfaces.EqualityInvariant{
 						Expr1: invariant.Exprs[i],
 						Expr2: invariant.Exprs[i+1],
 					}
 					equalities = append(equalities, invar)
 				}
 
-			case *EqualityWrapListInvariant:
+			case *interfaces.EqualityWrapListInvariant:
 				equalities = append(equalities, invariant)
 
-			case *EqualityWrapMapInvariant:
+			case *interfaces.EqualityWrapMapInvariant:
 				equalities = append(equalities, invariant)
 
-			case *EqualityWrapStructInvariant:
+			case *interfaces.EqualityWrapStructInvariant:
 				equalities = append(equalities, invariant)
 
-			case *EqualityWrapFuncInvariant:
+			case *interfaces.EqualityWrapFuncInvariant:
 				equalities = append(equalities, invariant)
 
-			case *EqualityWrapCallInvariant:
+			case *interfaces.EqualityWrapCallInvariant:
 				equalities = append(equalities, invariant)
 
 			// contains a list of invariants which this represents
-			case *ConjunctionInvariant:
+			case *interfaces.ConjunctionInvariant:
 				for _, invar := range invariant.Invariants {
 					equalities = append(equalities, invar)
 				}
 
-			case *ExclusiveInvariant:
+			case *interfaces.ExclusiveInvariant:
 				// these are special, note the different list
 				if len(invariant.Invariants) > 0 {
 					exclusives = append(exclusives, invariant)
 				}
 
-			case *AnyInvariant:
+			case *interfaces.AnyInvariant:
 				equalities = append(equalities, invariant)
 
 			default:
@@ -171,7 +171,7 @@ Loop:
 			// method on the Invariant type to simplify this code?
 			switch eq := x.(type) {
 			// trivials
-			case *EqualsInvariant:
+			case *interfaces.EqualsInvariant:
 				typ, exists := solved[eq.Expr]
 				if !exists {
 					solved[eq.Expr] = eq.Type // yay, we learned something!
@@ -190,7 +190,7 @@ Loop:
 				continue
 
 			// partials
-			case *EqualityWrapListInvariant:
+			case *interfaces.EqualityWrapListInvariant:
 				if _, exists := listPartials[eq.Expr1]; !exists {
 					listPartials[eq.Expr1] = make(map[interfaces.Expr]*types.Type)
 				}
@@ -248,7 +248,7 @@ Loop:
 					continue
 				}
 
-			case *EqualityWrapMapInvariant:
+			case *interfaces.EqualityWrapMapInvariant:
 				if _, exists := mapPartials[eq.Expr1]; !exists {
 					mapPartials[eq.Expr1] = make(map[interfaces.Expr]*types.Type)
 				}
@@ -319,7 +319,7 @@ Loop:
 					continue
 				}
 
-			case *EqualityWrapStructInvariant:
+			case *interfaces.EqualityWrapStructInvariant:
 				if _, exists := structPartials[eq.Expr1]; !exists {
 					structPartials[eq.Expr1] = make(map[interfaces.Expr]*types.Type)
 				}
@@ -393,7 +393,7 @@ Loop:
 					continue
 				}
 
-			case *EqualityWrapFuncInvariant:
+			case *interfaces.EqualityWrapFuncInvariant:
 				if _, exists := funcPartials[eq.Expr1]; !exists {
 					funcPartials[eq.Expr1] = make(map[interfaces.Expr]*types.Type)
 				}
@@ -494,7 +494,7 @@ Loop:
 					continue
 				}
 
-			case *EqualityWrapCallInvariant:
+			case *interfaces.EqualityWrapCallInvariant:
 				// the logic is slightly different here, because
 				// we can only go from the func type to the call
 				// type as we can't do the reverse determination
@@ -531,7 +531,7 @@ Loop:
 				}
 
 			// regular matching
-			case *EqualityInvariant:
+			case *interfaces.EqualityInvariant:
 				typ1, exists1 := solved[eq.Expr1]
 				typ2, exists2 := solved[eq.Expr2]
 
@@ -565,7 +565,7 @@ Loop:
 				panic("reached unexpected code")
 
 			// wtf matching
-			case *AnyInvariant:
+			case *interfaces.AnyInvariant:
 				// this basically ensures that the expr gets solved
 				if _, exists := solved[eq.Expr]; exists {
 					used = append(used, i) // mark equality as used up
@@ -643,7 +643,7 @@ Loop:
 			if len(exclusives) > 0 {
 				// FIXME: can we do this loop in a deterministic, sorted way?
 				for expr, typ := range solved {
-					invar := &EqualsInvariant{
+					invar := &interfaces.EqualsInvariant{
 						Expr: expr,
 						Type: typ,
 					}
@@ -675,7 +675,7 @@ Loop:
 			for i, invar := range exclusives {
 				// The partialSolutions don't contain any other
 				// exclusives... We look at each individually.
-				s, err := invar.simplify(partialSolutions) // XXX: pass in the solver?
+				s, err := invar.Simplify(partialSolutions) // XXX: pass in the solver?
 				if err != nil {
 					logf("exclusive simplification failed: %+v", invar)
 					continue
@@ -754,10 +754,10 @@ Loop:
 	} // end giant for loop
 
 	// build final solution
-	solutions := []*EqualsInvariant{}
+	solutions := []*interfaces.EqualsInvariant{}
 	// FIXME: can we do this loop in a deterministic, sorted way?
 	for expr, typ := range solved {
-		invar := &EqualsInvariant{
+		invar := &interfaces.EqualsInvariant{
 			Expr: expr,
 			Type: typ,
 		}

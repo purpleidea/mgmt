@@ -622,6 +622,83 @@ func (obj *EqualityWrapCallInvariant) Possible(partials []Invariant) error {
 	return nil // safer to return nil than error
 }
 
+// GeneratorInvariant is an experimental type of new invariant. The idea is that
+// this is a special invariant that the solver knows how to use; the solver runs
+// all the easy bits first, and then passes the current solution state into the
+// function, and in response, it runs some user-defined code and builds some new
+// invariants that are added to the solver! This is not without caveats... This
+// should only be used sparingly, and with care. It can suffer from the
+// confluence problem, if the generator code that was provided is incorrect.
+// What this means is that it could generate different results (and a different
+// final solution) depending on the order in which it is called. Since this is
+// undesirable, you must only use it for straight-forward situations. As an
+// extreme example, if it generated different invariants depending on the time
+// of day, this would be very problematic, and evil. Alternatively, it could be
+// a pure function, but that returns wildly different results depending on what
+// invariants were passed in. Use it wisely. It was added to make the printf
+// function (which can have an infinite number of signatures) possible to
+// express in terms of "normal" invariants. Lastly, if you wanted to use this to
+// add-in partial progress, you could have it generate a list of invariants and
+// include a new generator invariant in this list. Be sure to only do this if
+// you are making progress on each invocation, and make sure to avoid infinite
+// looping which isn't something we can currently detect or prevent.
+//
+// NOTE: We might *consider* an optimization where we return a different kind of
+// error that represents a response of "impossible". This would mean that there
+// is no way to reconcile the current world-view with what is know about things.
+// However, it would be easier and better to just return your invariants and let
+// the normal solver run its course, although future research might show that it
+// could maybe help in some cases.
+// XXX: solver question: Can our solver detect `expr1 == str` AND `expr1 == int`
+// and fail the whole thing when we know of a case like this that is impossible?
+type GeneratorInvariant struct {
+	// Func is a generator function that takes the state of the world, and
+	// returns new invariants that should be added to this world view. The
+	// state of the world includes both the currently unsolved invariants,
+	// as well as the known solution map that has been solved so far.
+	Func func(invariants []Invariant, solved map[Expr]*types.Type) ([]Invariant, error)
+}
+
+// String returns a representation of this invariant.
+func (obj *GeneratorInvariant) String() string {
+	return fmt.Sprintf("gen(%p)", obj.Func) // TODO: improve this
+}
+
+// ExprList returns the list of valid expressions in this invariant.
+func (obj *GeneratorInvariant) ExprList() []Expr {
+	return []Expr{}
+}
+
+// Matches returns whether an invariant matches the existing solution. If it is
+// inconsistent, then it errors.
+func (obj *GeneratorInvariant) Matches(solved map[Expr]*types.Type) (bool, error) {
+	// XXX: not implemented
+	//return false, err // inconsistent!
+	//return false, nil // not matched yet
+	//return true, nil  // matched!
+
+	// If we error, it's because we don't have any new information to
+	// provide at this time... If it's nil, it's because the invariants
+	// could have worked with this solution.
+	//invariants, err := obj.Func(?, solved)
+	//if err != nil {
+	//}
+
+	panic("not implemented")
+}
+
+// Possible returns an error if it is certain that it is NOT possible to get a
+// solution with this invariant and the set of partials. In certain cases, it
+// might not be able to determine that it's not possible, while simultaneously
+// not being able to guarantee a possible solution either. In this situation, it
+// should return nil, since this is used as a filtering mechanism, and the nil
+// result of possible is preferred over eliminating a tricky, but possible one.
+// This particular implementation is currently not implemented!
+func (obj *GeneratorInvariant) Possible(partials []Invariant) error {
+	// XXX: not implemented
+	return nil // safer to return nil than error
+}
+
 // ConjunctionInvariant represents a list of invariants which must all be true
 // together. In other words, it's a grouping construct for a set of invariants.
 type ConjunctionInvariant struct {

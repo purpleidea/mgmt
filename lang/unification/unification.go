@@ -143,6 +143,22 @@ func (obj *Unifier) Unify() error {
 	return nil
 }
 
+// InvariantSolution lists a trivial set of EqualsInvariant mappings so that you
+// can populate your AST with SetType calls in a simple loop.
+type InvariantSolution struct {
+	Solutions []*interfaces.EqualsInvariant // list of trivial solutions for each node
+}
+
+// ExprList returns the list of valid expressions. This struct is not part of
+// the invariant interface, but it implements this anyways.
+func (obj *InvariantSolution) ExprList() []interfaces.Expr {
+	exprs := []interfaces.Expr{}
+	for _, x := range obj.Solutions {
+		exprs = append(exprs, x.ExprList()...)
+	}
+	return exprs
+}
+
 // exclusivesProduct returns a list of different products produced from the
 // combinatorial product of the list of exclusives. Each ExclusiveInvariant must
 // contain between one and more Invariants. This takes every combination of
@@ -180,20 +196,4 @@ func exclusivesProduct(exclusives []*interfaces.ExclusiveInvariant) [][]interfac
 	}
 
 	return results
-}
-
-// InvariantSolution lists a trivial set of EqualsInvariant mappings so that you
-// can populate your AST with SetType calls in a simple loop.
-type InvariantSolution struct {
-	Solutions []*interfaces.EqualsInvariant // list of trivial solutions for each node
-}
-
-// ExprList returns the list of valid expressions. This struct is not part of
-// the invariant interface, but it implements this anyways.
-func (obj *InvariantSolution) ExprList() []interfaces.Expr {
-	exprs := []interfaces.Expr{}
-	for _, x := range obj.Solutions {
-		exprs = append(exprs, x.ExprList()...)
-	}
-	return exprs
 }

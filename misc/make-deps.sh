@@ -154,7 +154,7 @@ go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing
 go get golang.org/x/lint/golint				# for `golint`-ing
 go get golang.org/x/tools/cmd/goimports		# for fmt
-go get github.com/tmthrgd/go-bindata/go-bindata	# for compiling in non golang files
+go get github.com/kevinburke/go-bindata/go-bindata	# for compiling in non golang files
 go get github.com/dvyukov/go-fuzz/go-fuzz		# for fuzzing the mcl lang bits
 if in_ci; then
 	go get -u gopkg.in/alecthomas/gometalinter.v1 && \

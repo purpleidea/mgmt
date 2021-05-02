@@ -20,6 +20,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -691,6 +692,23 @@ func TestValueOf2(t *testing.T) {
 	if val.String() != value.String() {
 		t.Errorf("function ValueOf(%+v) gave %+v and doesn't match expected %+v", st, val, value)
 		return
+	}
+}
+
+func TestValueOf3(t *testing.T) {
+	st := struct {
+		Ptr  *string  `lang:"ptr"`
+		Ptr2 **string `lang:"ptr2"`
+	}{nil, nil}
+
+	// cannot represent nil pointers, expect an err
+	val, err := ValueOf(reflect.ValueOf(st))
+	if err == nil {
+		t.Errorf("function ValueOf(%+v) returned a Value when error was expected: %s", st, val)
+		return
+	}
+	if !errors.Is(err, ErrNilValue) {
+		t.Errorf("function ValueOf(%+v) returned err %s but types.ErrNilValue was expected", st, err)
 	}
 }
 

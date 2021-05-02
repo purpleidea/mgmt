@@ -18,6 +18,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -25,6 +26,16 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
+)
+
+var (
+	// ErrNilValue is returned when ValueOf() attempts to represent a nil
+	// pointer as an mcl value. This is not supported in mcl.
+	ErrNilValue = errors.New("cannot represent a nil Golang value in mcl")
+
+	// ErrInvalidValue is returned when ValueOf() is called on an invalid or
+	// zero reflect.Value.
+	ErrInvalidValue = errors.New("cannot represent invalid reflect.Value")
 )
 
 // Value represents an interface to get values out of each type. It is similar
@@ -65,12 +76,22 @@ func ValueOfGolang(i interface{}) (Value, error) {
 // a resource field. This is done with our "elvis" operator. When using this
 // function, if you pass in something with a nil value, then expect a panic or
 // an error if you're lucky.
-// FIXME: we should make sure we error instead of ever panic-ing on a nil value
 func ValueOf(v reflect.Value) (Value, error) {
+	// Gracefully handle invalid values instead of panic(). Invalid
+	// reflect.Value values can come from nil values, or the zero value.
+	if !v.IsValid() {
+		return nil, ErrInvalidValue
+	}
+
 	value := v
 	typ := value.Type()
 	kind := typ.Kind()
 	for kind == reflect.Ptr {
+		// Prevent panic() if value is a nil pointer and return an error.
+		if value.IsNil() {
+			return nil, ErrNilValue
+		}
+
 		typ = typ.Elem() // un-nest one pointer
 		kind = typ.Kind()
 

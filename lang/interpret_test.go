@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/graph/autoedge"
@@ -1504,6 +1505,11 @@ func TestAstFunc2(t *testing.T) {
 					t.Errorf("test #%d: stream errored: %+v", index, err)
 					return
 				}
+
+			case <-time.After(60 * time.Second): // blocked functions
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: stream timeout", index)
+				return
 			}
 
 			// run interpret!

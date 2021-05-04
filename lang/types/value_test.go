@@ -632,12 +632,65 @@ func TestValueOf0(t *testing.T) {
 		val, err := ValueOf(reflect.ValueOf(gotyp))
 		if err != nil {
 			t.Errorf("function ValueOf(%+v) returned err %s", gotyp, err)
+			continue
 		}
 		// use string representation comparison as maps are non-deterministic in order
 		// and cmp doesn't work as the pointers differ
 		if val.String() != value.String() {
 			t.Errorf("function ValueOf(%+v) gave %+v and doesn't match expected %+v", gotyp, val, value)
+			continue
 		}
+	}
+}
+
+func TestValueOf1(t *testing.T) {
+	str := "abc"
+	pstr := &str
+	value := &StrValue{V: "abc"}
+
+	val, err := ValueOf(reflect.ValueOf(pstr))
+	if err != nil {
+		t.Errorf("function ValueOf(%+v) returned err %s", pstr, err)
+		return
+	}
+	if val.String() != value.String() {
+		t.Errorf("function ValueOf(%+v) gave %+v and doesn't match expected %+v", pstr, val, value)
+		return
+	}
+}
+
+func TestValueOf2(t *testing.T) {
+	str := "point"
+	pstr := &str
+
+	str2 := "point2"
+	pstr2 := &str2
+	ppstr2 := &pstr2
+	st := struct {
+		Num  int      `lang:"num"`
+		Name string   `lang:"name"`
+		Ptr  *string  `lang:"ptr"`
+		Ptr2 **string `lang:"ptr2"`
+	}{42, "mgmt", pstr, ppstr2}
+
+	value := &StructValue{
+		T: NewType("struct{num int; name str; ptr str; ptr2 str}"),
+		V: map[string]Value{
+			"num":  &IntValue{V: 42},
+			"name": &StrValue{V: "mgmt"},
+			"ptr":  &StrValue{V: "point"},
+			"ptr2": &StrValue{V: "point2"},
+		},
+	}
+
+	val, err := ValueOf(reflect.ValueOf(st))
+	if err != nil {
+		t.Errorf("function ValueOf(%+v) returned err %s", st, err)
+		return
+	}
+	if val.String() != value.String() {
+		t.Errorf("function ValueOf(%+v) gave %+v and doesn't match expected %+v", st, val, value)
+		return
 	}
 }
 

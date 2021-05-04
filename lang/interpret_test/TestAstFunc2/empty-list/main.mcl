@@ -1,0 +1,5 @@
+# make sure the engine works with empty values
+test "name" {
+	slicestring => [],	# empty list
+	mapintfloat => {},	# empty map
+}

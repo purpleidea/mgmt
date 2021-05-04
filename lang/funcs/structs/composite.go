@@ -119,6 +119,20 @@ func (obj *CompositeFunc) Stream() error {
 		select {
 		case input, ok := <-obj.init.Input:
 			if !ok {
+				obj.init.Input = nil // don't infinite loop back
+
+				if obj.last == nil {
+					// FIXME: can we get an empty struct?
+					result := obj.Type.New() // new list or map
+					obj.result = result
+					select {
+					case obj.init.Output <- result: // send
+						// pass
+					case <-obj.closeChan:
+						return nil
+					}
+				}
+
 				return nil // can't output any more
 			}
 			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {

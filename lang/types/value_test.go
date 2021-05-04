@@ -781,7 +781,7 @@ func TestValueInto0(t *testing.T) {
 	var l []string
 	var ll [][]string
 	var lptrlptr []*[]*string
-	var arr [10]string
+	var arr [3]string
 
 	var m map[string]int
 
@@ -860,7 +860,7 @@ func TestValueInto0(t *testing.T) {
 		{ // arrays are pretty much the same as slices
 			container: &arr,
 			value:     mustValue([]string{"1", "2", "3"}),
-			compare:   [10]string{"1", "2", "3"},
+			compare:   [3]string{"1", "2", "3"},
 		},
 		{
 			container: &ll,
@@ -892,6 +892,11 @@ func TestValueInto0(t *testing.T) {
 		{ // map[int]int into map[string]int
 			container: &m,
 			value:     mustValue(map[int]int{1: 2, 3: 4}),
+			shouldErr: true,
+		},
+		{ // [4]string  into [3]string
+			container: &arr,
+			value:     mustValue([4]string{"1", "2", "3", "4"}),
 			shouldErr: true,
 		},
 
@@ -1008,6 +1013,65 @@ func TestValueInto0(t *testing.T) {
 		})
 	}
 }
+
+func TestValueInto1(t *testing.T) {
+	testCases := []struct {
+		container interface{}
+		compare   interface{}
+		data      Value
+	}{
+		{
+			container: &[]string{"", "", "three"},
+			compare:   []string{"one", "two"},
+			data: &ListValue{
+				T: NewType("[]str"),
+				V: []Value{&StrValue{V: "one"}, &StrValue{V: "two"}},
+			},
+		},
+		{
+			container: &[3]string{"", "", "three"},
+			compare:   [3]string{"one", "two", ""},
+			data: &ListValue{
+				T: NewType("[]str"),
+				V: []Value{&StrValue{V: "one"}, &StrValue{V: "two"}},
+			},
+		},
+		{
+			container: &map[string]string{"3": "three"},
+			compare:   map[string]string{"1": "one", "2": "two"},
+			data: &MapValue{
+				T: NewType("map{str: str}"),
+				V: map[Value]Value{
+					&StrValue{V: "1"}: &StrValue{V: "one"},
+					&StrValue{V: "2"}: &StrValue{V: "two"},
+				},
+			},
+		},
+	}
+
+	for index, tc := range testCases {
+		name := fmt.Sprintf("test Into() %s #%d", reflect.TypeOf(tc.container).Elem(), index)
+
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			ctrVal := reflect.ValueOf(tc.container)
+
+			// ensure Into() clears existing elements out of the container
+			if err := Into(tc.data, ctrVal); err != nil {
+				t.Errorf("func Into(%+v, %+v) failed: %s", tc.data, tc.container, err)
+				return
+			}
+
+			// follow the container pointer: (*tc.container).(interface{})
+			ctrPtr := ctrVal.Elem().Interface()
+			if !reflect.DeepEqual(ctrPtr, tc.compare) {
+				t.Errorf("func Into(%+v, %+v) did not clear existing values from the list", tc.data, ctrPtr)
+				return
+			}
+		})
+	}
+}
+
 func TestValueIntoStructNameMapping(t *testing.T) {
 	st := NewStruct(NewType("struct{word str; magic int}"))
 	if err := st.Set("word", &StrValue{V: "zing"}); err != nil {

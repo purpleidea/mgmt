@@ -238,6 +238,12 @@ func ValueOf(v reflect.Value) (Value, error) {
 }
 
 // Into mutates the given reflect.Value with the data represented by the Value.
+//
+// Container types like map/list (and to a certain extent structs) will be
+// cleared before adding the contained data such that the existing data doesn't
+// affect the outcome, and the output reflect.Value directly maps to the input
+// Value.
+//
 // In almost every case, it is likely that the reflect.Value will be modified,
 // instantiating nil pointers and even potentially partially filling data before
 // returning an error. It should be assumed that if this returns an error, the
@@ -323,16 +329,24 @@ func Into(v Value, rv reflect.Value) error {
 		return nil
 
 	case *ListValue:
-		if err := mustInto(reflect.Slice, reflect.Array); err != nil {
-			return err
-		}
-
 		count := len(v.V)
-		if count > rv.Cap() {
+
+		switch kind {
+		case reflect.Slice:
 			pow := nextPowerOfTwo(uint32(count))
 			nval := reflect.MakeSlice(rv.Type(), count, int(pow))
 			rv.Set(nval)
+
+		case reflect.Array:
+			if count > rv.Len() {
+				return fmt.Errorf("%+v is too small for %+v", typ, v)
+			}
+			rv.Set(reflect.New(typ).Elem())
+
+		default:
+			return mustInto() // nothing, always returns err
 		}
+
 		for i, x := range v.V {
 			f := rv.Index(i)
 			el := reflect.New(f.Type()).Elem()
@@ -348,9 +362,7 @@ func Into(v Value, rv reflect.Value) error {
 			return err
 		}
 
-		if rv.IsNil() {
-			rv.Set(reflect.MakeMapWithSize(typ, len(v.V)))
-		}
+		rv.Set(reflect.MakeMapWithSize(typ, len(v.V)))
 
 		// convert both key and value, then set them in the map
 		for mk, mv := range v.V {

@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/graph/autoedge"
+	"github.com/purpleidea/mgmt/pgraph"
 )
 
 func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
@@ -256,4 +258,78 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 	}
 
 	// no error
+}
+
+func TestExecAutoEdge1(t *testing.T) {
+	g, err := pgraph.NewGraph("TestGraph")
+	if err != nil {
+		t.Errorf("error creating graph: %v", err)
+		return
+	}
+
+	resUser, err := engine.NewNamedResource("user", "someuser")
+	if err != nil {
+		t.Errorf("error creating user resource: %v", err)
+		return
+	}
+
+	resGroup, err := engine.NewNamedResource("group", "somegroup")
+	if err != nil {
+		t.Errorf("error creating group resource: %v", err)
+		return
+	}
+
+	resFile, err := engine.NewNamedResource("file", "/somefile")
+	if err != nil {
+		t.Errorf("error creating group resource: %v", err)
+		return
+	}
+
+	resExec, err := engine.NewNamedResource("exec", "somefile")
+	if err != nil {
+		t.Errorf("error creating exec resource: %v", err)
+		return
+	}
+	exc := resExec.(*ExecRes)
+	exc.Cmd = resFile.Name()
+	exc.User = resUser.Name()
+	exc.Group = resGroup.Name()
+
+	g.AddVertex(resUser, resGroup, resFile, resExec)
+
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("should have 0 edges instead of: %d", i)
+		return
+	}
+
+	debug := testing.Verbose() // set via the -test.v flag to `go test`
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+	if err := autoedge.AutoEdge(g, debug, logf); err != nil {
+		t.Errorf("error running autoedges: %v", err)
+		return
+	}
+
+	expected, err := pgraph.NewGraph("Expected")
+	if err != nil {
+		t.Errorf("error creating graph: %v", err)
+		return
+	}
+
+	expectEdge := func(from, to pgraph.Vertex) {
+		edge := &engine.Edge{Name: fmt.Sprintf("%s -> %s (expected)", from, to)}
+		expected.AddEdge(from, to, edge)
+	}
+	expectEdge(resFile, resExec)
+	expectEdge(resUser, resExec)
+	expectEdge(resGroup, resExec)
+
+	vertexCmp := func(v1, v2 pgraph.Vertex) (bool, error) { return v1 == v2, nil } // pointer compare is sufficient
+	edgeCmp := func(e1, e2 pgraph.Edge) (bool, error) { return true, nil }         // we don't care about edges here
+
+	if err := expected.GraphCmp(g, vertexCmp, edgeCmp); err != nil {
+		t.Errorf("graph doesn't match expected: %s", err)
+		return
+	}
 }

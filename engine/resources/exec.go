@@ -570,26 +570,38 @@ type ExecUID struct {
 
 // ExecResAutoEdges holds the state of the auto edge generator.
 type ExecResAutoEdges struct {
-	edges []engine.ResUID
+	edges   []engine.ResUID
+	pointer int
 }
 
 // Next returns the next automatic edge.
 func (obj *ExecResAutoEdges) Next() []engine.ResUID {
-	return obj.edges
+	if len(obj.edges) == 0 {
+		return nil
+	}
+	value := obj.edges[obj.pointer]
+	obj.pointer++
+	return []engine.ResUID{value}
 }
 
 // Test gets results of the earlier Next() call, & returns if we should
 // continue!
 func (obj *ExecResAutoEdges) Test(input []bool) bool {
-	return false // never keep going
-	// TODO: we could return false if we find as many edges as the number of different path's in cmdFiles()
+	if len(obj.edges) <= obj.pointer {
+		return false
+	}
+	if len(input) != 1 { // in case we get given bad data
+		panic(fmt.Sprintf("Expecting a single value!"))
+	}
+	return true // keep going
 }
 
 // AutoEdges returns the AutoEdge interface. In this case the systemd units.
 func (obj *ExecRes) AutoEdges() (engine.AutoEdge, error) {
 	var data []engine.ResUID
+	var reversed = true
+
 	for _, x := range obj.cmdFiles() {
-		var reversed = true
 		data = append(data, &PkgFileUID{
 			BaseUID: engine.BaseUID{
 				Name:     obj.Name(),
@@ -598,9 +610,39 @@ func (obj *ExecRes) AutoEdges() (engine.AutoEdge, error) {
 			},
 			path: x, // what matters
 		})
+		data = append(data, &FileUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed,
+			},
+			path: x,
+		})
 	}
+	if obj.User != "" {
+		data = append(data, &UserUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed,
+			},
+			name: obj.User,
+		})
+	}
+	if obj.Group != "" {
+		data = append(data, &GroupUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed,
+			},
+			name: obj.Group,
+		})
+	}
+
 	return &ExecResAutoEdges{
-		edges: data,
+		edges:   data,
+		pointer: 0,
 	}, nil
 }
 

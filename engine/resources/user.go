@@ -333,6 +333,26 @@ func (obj *UserRes) Cmp(r engine.Res) error {
 type UserUID struct {
 	engine.BaseUID
 	name string
+	uid  *uint32
+}
+
+// IFF aka if and only if they are equivalent, return true. If not, false.
+func (obj *UserUID) IFF(uid engine.ResUID) bool {
+	res, ok := uid.(*UserUID)
+	if !ok {
+		return false
+	}
+	if obj.uid != nil && res.uid != nil {
+		if *obj.uid != *res.uid {
+			return false
+		}
+	}
+	if obj.name != "" && res.name != "" {
+		if obj.name != res.name {
+			return false
+		}
+	}
+	return true
 }
 
 // UserResAutoEdges holds the state of the auto edge generator.
@@ -411,6 +431,7 @@ func (obj *UserRes) UIDs() []engine.ResUID {
 	x := &UserUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
 		name:    obj.Name(),
+		uid:     obj.UID,
 	}
 	return []engine.ResUID{x}
 }

@@ -47,12 +47,25 @@ type Value interface {
 }
 
 // ValueOfGolang is a helper that takes a golang value, and produces the mcl
-// equivalent internal representation. This is very useful for writing tests.
+// equivalent internal representation. This is very useful for writing tests. A
+// reminder that if you pass in a nil value, or something containing a nil
+// value, then you won't get what you want. See our documentation for ValueOf.
 func ValueOfGolang(i interface{}) (Value, error) {
 	return ValueOf(reflect.ValueOf(i))
 }
 
-// ValueOf takes a reflect.Value and returns an equivalent Value.
+// ValueOf takes a reflect.Value and returns an equivalent Value. Remember that
+// the mcl type system currently can't represent certain values that *are*
+// possible in golang. This is intentional. For example, mcl can't represent a
+// *string (pointer to a string) where as this is quite common in golang. This
+// is because mcl has no `nil/null` values. It is designed this way to avoid the
+// well-known expensive "null-pointer-exception" style bugs. A version two of
+// the language might consider an "Optional" type. In the meantime, you can
+// still represent an "undefined" value, but only so far as when it's passed to
+// a resource field. This is done with our "elvis" operator. When using this
+// function, if you pass in something with a nil value, then expect a panic or
+// an error if you're lucky.
+// FIXME: we should make sure we error instead of ever panic-ing on a nil value
 func ValueOf(v reflect.Value) (Value, error) {
 	value := v
 	typ := value.Type()

@@ -712,6 +712,41 @@ func TestValueOf3(t *testing.T) {
 	}
 }
 
+func TestValueOf4(t *testing.T) {
+	str := "" // test with empty values
+	pstr := &str
+
+	str2 := ""
+	pstr2 := &str2
+	ppstr2 := &pstr2
+	st := struct {
+		Num  int      `lang:"num"`
+		Name string   `lang:"name"`
+		Ptr  *string  `lang:"ptr"`
+		Ptr2 **string `lang:"ptr2"`
+	}{0, "", pstr, ppstr2}
+
+	value := &StructValue{
+		T: NewType("struct{num int; name str; ptr str; ptr2 str}"),
+		V: map[string]Value{
+			"num":  &IntValue{V: 0},
+			"name": &StrValue{V: ""},
+			"ptr":  &StrValue{V: ""},
+			"ptr2": &StrValue{V: ""},
+		},
+	}
+
+	val, err := ValueOf(reflect.ValueOf(st))
+	if err != nil {
+		t.Errorf("function ValueOf(%+v) returned err %s", st, err)
+		return
+	}
+	if val.String() != value.String() {
+		t.Errorf("function ValueOf(%+v) gave %+v and doesn't match expected %+v", st, val, value)
+		return
+	}
+}
+
 func TestValueInto0(t *testing.T) {
 	// converts a Go variable to a types.Value, or panics if any error
 	mustValue := func(v interface{}) Value {

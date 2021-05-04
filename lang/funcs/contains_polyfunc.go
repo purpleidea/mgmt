@@ -57,6 +57,158 @@ func (obj *ContainsPolyFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
+// Unify returns the list of invariants that this func produces.
+func (obj *ContainsPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+	var invar interfaces.Invariant
+
+	// func(needle variant, haystack variant) bool
+	// func(needle %s, haystack []%s) bool
+
+	needleName, err := obj.ArgGen(0)
+	if err != nil {
+		return nil, err
+	}
+	haystackName, err := obj.ArgGen(1)
+	if err != nil {
+		return nil, err
+	}
+
+	dummyNeedle := &interfaces.ExprAny{}   // corresponds to the needle type
+	dummyHaystack := &interfaces.ExprAny{} // corresponds to the haystack type
+	//dummyHaystackValue := &interfaces.ExprAny{} // corresponds to the haystack list type
+	dummyOut := &interfaces.ExprAny{} // corresponds to the out boolean
+
+	//invar = &unification.EqualityInvariant{
+	//	Expr1: dummyNeedle,
+	//	Expr2: dummyHaystackValue,
+	//}
+	//invariants = append(invariants, invar)
+
+	// list relationship between needle and haystack
+	// TODO: did I get this equality backwards?
+	invar = &interfaces.EqualityWrapListInvariant{
+		Expr1:    dummyHaystack,
+		Expr2Val: dummyNeedle,
+	}
+	invariants = append(invariants, invar)
+
+	// full function
+	mapped := make(map[string]interfaces.Expr)
+	ordered := []string{needleName, haystackName}
+	mapped[needleName] = dummyNeedle
+	mapped[haystackName] = dummyHaystack
+
+	invar = &interfaces.EqualityWrapFuncInvariant{
+		Expr1:    expr, // maps directly to us!
+		Expr2Map: mapped,
+		Expr2Ord: ordered,
+		Expr2Out: dummyOut,
+	}
+	invariants = append(invariants, invar)
+
+	// return type of bool
+	invar = &interfaces.EqualsInvariant{
+		Expr: dummyOut,
+		Type: types.TypeBool,
+	}
+	invariants = append(invariants, invar)
+
+	// generator function to link this to the right type
+	fn := obj.fnBuilder(false, expr, dummyNeedle, dummyHaystack)
+	invar = &interfaces.GeneratorInvariant{
+		Func: fn,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
+// fnBuilder builds the function for the generator invariant. It is unique in
+// that it can recursively call itself to build a second generation generator
+// invariant. This can only happen once, because by then we'll have given all
+// the new information we can, and falsely producing redundant information is a
+// good way to stall the solver if it thinks it keeps learning more things!
+func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHaystack interfaces.Expr) func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+	return func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+		for _, invariant := range fnInvariants {
+			// search for this special type of invariant
+			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
+			if !ok {
+				continue
+			}
+			// did we find the mapping from us to ExprCall ?
+			if cfavInvar.Func != expr {
+				continue
+			}
+			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Args are the args that ExprCall uses!
+			if l := len(cfavInvar.Args); l != 2 {
+				return nil, fmt.Errorf("unable to build function with %d args", l)
+			}
+
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			if !recurse { // only do this once!
+				invar = &interfaces.EqualityInvariant{
+					Expr1: dummyNeedle,
+					Expr2: cfavInvar.Args[0],
+				}
+				invariants = append(invariants, invar)
+
+				invar = &interfaces.EqualityInvariant{
+					Expr1: dummyHaystack,
+					Expr2: cfavInvar.Args[1],
+				}
+				invariants = append(invariants, invar)
+			}
+
+			var needleTyp *types.Type
+
+			if typ, err := cfavInvar.Args[1].Type(); err == nil {
+				if k := typ.Kind; k == types.KindList {
+					needleTyp = typ.Val // contained element type
+				}
+			}
+
+			if typ, err := cfavInvar.Args[0].Type(); err == nil {
+				if err := needleTyp.Cmp(typ); needleTyp != nil && err != nil {
+					// inconsistent types!
+					return nil, errwrap.Wrapf(err, "inconsistent type")
+				}
+
+				needleTyp = typ
+			}
+
+			// We only want to recurse once.
+			if recurse && needleTyp == nil {
+				// nothing new we can do
+				return nil, fmt.Errorf("couldn't generate new invariants")
+			}
+
+			if needleTyp == nil {
+				// recurse-- we build a new one!
+				fn := obj.fnBuilder(true, expr, dummyNeedle, dummyHaystack)
+				invar = &interfaces.GeneratorInvariant{
+					Func: fn,
+				}
+				invariants = append(invariants, invar)
+			}
+
+			invar = &interfaces.EqualsInvariant{
+				Expr: dummyNeedle,
+				Type: needleTyp,
+			}
+			invariants = append(invariants, invar)
+
+			return invariants, nil // generator return
+		}
+		// We couldn't tell the solver anything it didn't already know!
+		return nil, fmt.Errorf("couldn't generate new invariants")
+	}
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.

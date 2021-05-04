@@ -1,0 +1,6 @@
+# empty lists/maps must return at least one value during Stream()
+
+test "name" {
+	slicestring => [],
+	mapintfloat => {},
+}

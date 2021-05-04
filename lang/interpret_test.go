@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/graph/autoedge"
@@ -1490,9 +1491,15 @@ func TestAstFunc2(t *testing.T) {
 			defer funcs.Close() // cleanup
 
 			// wait for some activity
+			const streamTimeout = time.Second
 			logf("stream...")
 			stream := funcs.Stream()
 			select {
+			case <-time.After(streamTimeout):
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: Stream() produced no results after %s", index, streamTimeout)
+				return
+
 			case err, ok := <-stream:
 				if !ok {
 					t.Errorf("test #%d: FAIL", index)

@@ -498,6 +498,15 @@ func (obj *Engine) Run() error {
 			}
 			// no more output values are coming...
 			obj.Logf("func `%s` stopped", node)
+
+			// nodes that never loaded will cause the engine to hang
+			if !node.loaded {
+				select {
+				case obj.ag <- fmt.Errorf("func `%s` stopped before it was loaded", node):
+				case <-obj.closeChan:
+					return
+				}
+			}
 		}(vertex)
 	}
 

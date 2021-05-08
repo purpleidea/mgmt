@@ -549,7 +549,7 @@ func TestAstFunc1(t *testing.T) {
 	const magicErrorLexParse = "errLexParse: "
 	const magicErrorFailInit = "errInit: "
 	const magicErrorSetScope = "errSetScope: "
-	const magicError3 = "err3: "
+	const magicErrorUnify = "errUnify: "
 	const magicError4 = "err4: "
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
@@ -582,7 +582,7 @@ func TestAstFunc1(t *testing.T) {
 		failLexParse bool
 		failInit     bool
 		failSetScope bool
-		fail3        bool
+		failUnify    bool
 		fail4        bool
 	}
 	type test struct { // an individual test
@@ -639,7 +639,7 @@ func TestAstFunc1(t *testing.T) {
 		failLexParse := false
 		failInit := false
 		failSetScope := false
-		fail3 := false
+		failUnify := false
 		fail4 := false
 		if strings.HasPrefix(str, magicError) {
 			errStr = strings.TrimPrefix(str, magicError)
@@ -660,10 +660,10 @@ func TestAstFunc1(t *testing.T) {
 				str = errStr
 				failSetScope = true
 			}
-			if strings.HasPrefix(str, magicError3) {
-				errStr = strings.TrimPrefix(str, magicError3)
+			if strings.HasPrefix(str, magicErrorUnify) {
+				errStr = strings.TrimPrefix(str, magicErrorUnify)
 				str = errStr
-				fail3 = true
+				failUnify = true
 			}
 			if strings.HasPrefix(str, magicError4) {
 				errStr = strings.TrimPrefix(str, magicError4)
@@ -682,7 +682,7 @@ func TestAstFunc1(t *testing.T) {
 				failLexParse: failLexParse,
 				failInit:     failInit,
 				failSetScope: failSetScope,
-				fail3:        fail3,
+				failUnify:    failUnify,
 				fail4:        fail4,
 			},
 		})
@@ -720,7 +720,7 @@ func TestAstFunc1(t *testing.T) {
 			failLexParse := errs.failLexParse
 			failInit := errs.failInit
 			failSetScope := errs.failSetScope
-			fail3 := errs.fail3
+			failUnify := errs.failUnify
 			fail4 := errs.fail4
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
@@ -891,12 +891,12 @@ func TestAstFunc1(t *testing.T) {
 				Logf:   xlogf,
 			}
 			err = unifier.Unify()
-			if (!fail || !fail3) && err != nil {
+			if (!fail || !failUnify) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
 				return
 			}
-			if fail3 && err != nil {
+			if failUnify && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -906,7 +906,7 @@ func TestAstFunc1(t *testing.T) {
 				}
 				return // fail happened during unification, don't run Graph!
 			}
-			if fail3 && err == nil {
+			if failUnify && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: unification passed, expected fail", index)
 				return
@@ -1003,7 +1003,7 @@ func TestAstFunc2(t *testing.T) {
 	const magicError8 = "err8: " // TODO: rename
 	// TODO: move them all down by one
 	const magicErrorSetScope = "errSetScope: "
-	const magicError3 = "err3: "
+	const magicErrorUnify = "errUnify: "
 	const magicError4 = "err4: "
 	const magicError5 = "err5: "
 	const magicError6 = "err6: "
@@ -1040,7 +1040,7 @@ func TestAstFunc2(t *testing.T) {
 		fail8        bool // TODO: rename
 		// TODO: move them all down by one
 		failSetScope bool
-		fail3        bool
+		failUnify    bool
 		fail4        bool
 		fail5        bool
 		fail6        bool
@@ -1101,7 +1101,7 @@ func TestAstFunc2(t *testing.T) {
 		fail8 := false // TODO: rename
 		// TODO: move them all down by one
 		failSetScope := false
-		fail3 := false
+		failUnify := false
 		fail4 := false
 		fail5 := false
 		fail6 := false
@@ -1130,10 +1130,10 @@ func TestAstFunc2(t *testing.T) {
 				str = errStr
 				failSetScope = true
 			}
-			if strings.HasPrefix(str, magicError3) {
-				errStr = strings.TrimPrefix(str, magicError3)
+			if strings.HasPrefix(str, magicErrorUnify) {
+				errStr = strings.TrimPrefix(str, magicErrorUnify)
 				str = errStr
-				fail3 = true
+				failUnify = true
 			}
 			if strings.HasPrefix(str, magicError4) {
 				errStr = strings.TrimPrefix(str, magicError4)
@@ -1164,7 +1164,7 @@ func TestAstFunc2(t *testing.T) {
 				fail8:        fail8, // TODO: rename
 				// TODO: move them all down by one
 				failSetScope: failSetScope,
-				fail3:        fail3,
+				failUnify:    failUnify,
 				fail4:        fail4,
 				fail5:        fail5,
 				fail6:        fail6,
@@ -1206,7 +1206,7 @@ func TestAstFunc2(t *testing.T) {
 			fail8 := errs.fail8 // TODO: rename
 			// TODO: move them all down by one
 			failSetScope := errs.failSetScope
-			fail3 := errs.fail3
+			failUnify := errs.failUnify
 			fail4 := errs.fail4
 			fail5 := errs.fail5
 			fail6 := errs.fail6
@@ -1408,12 +1408,12 @@ func TestAstFunc2(t *testing.T) {
 				Logf:   xlogf,
 			}
 			err = unifier.Unify()
-			if (!fail || !fail3) && err != nil {
+			if (!fail || !failUnify) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
 				return
 			}
-			if fail3 && err != nil {
+			if failUnify && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -1423,7 +1423,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return // fail happened during unification, don't run Graph!
 			}
-			if fail3 && err == nil {
+			if failUnify && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: unification passed, expected fail", index)
 				return

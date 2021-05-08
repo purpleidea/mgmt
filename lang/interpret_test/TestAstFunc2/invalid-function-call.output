@@ -1,1 +1,1 @@
-# err: err3: expected: Func, got: Int
+# err: errUnify: expected: Func, got: Int

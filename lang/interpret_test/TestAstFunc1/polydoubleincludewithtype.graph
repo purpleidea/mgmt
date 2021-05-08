@@ -1,1 +1,1 @@
-# err: err3: can't unify, invariant illogicality with equals: base kind does not match (Str != List)
+# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Str != List)

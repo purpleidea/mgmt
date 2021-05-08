@@ -550,7 +550,7 @@ func TestAstFunc1(t *testing.T) {
 	const magicErrorFailInit = "errInit: "
 	const magicErrorSetScope = "errSetScope: "
 	const magicErrorUnify = "errUnify: "
-	const magicError4 = "err4: "
+	const magicErrorGraph = "errGraph: "
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
 	if err != nil {
@@ -583,7 +583,7 @@ func TestAstFunc1(t *testing.T) {
 		failInit     bool
 		failSetScope bool
 		failUnify    bool
-		fail4        bool
+		failGraph    bool
 	}
 	type test struct { // an individual test
 		name string
@@ -640,7 +640,7 @@ func TestAstFunc1(t *testing.T) {
 		failInit := false
 		failSetScope := false
 		failUnify := false
-		fail4 := false
+		failGraph := false
 		if strings.HasPrefix(str, magicError) {
 			errStr = strings.TrimPrefix(str, magicError)
 			str = errStr
@@ -665,10 +665,10 @@ func TestAstFunc1(t *testing.T) {
 				str = errStr
 				failUnify = true
 			}
-			if strings.HasPrefix(str, magicError4) {
-				errStr = strings.TrimPrefix(str, magicError4)
+			if strings.HasPrefix(str, magicErrorGraph) {
+				errStr = strings.TrimPrefix(str, magicErrorGraph)
 				str = errStr
-				fail4 = true
+				failGraph = true
 			}
 		}
 
@@ -683,7 +683,7 @@ func TestAstFunc1(t *testing.T) {
 				failInit:     failInit,
 				failSetScope: failSetScope,
 				failUnify:    failUnify,
-				fail4:        fail4,
+				failGraph:    failGraph,
 			},
 		})
 		//t.Logf("adding: %s", f + "/")
@@ -721,7 +721,7 @@ func TestAstFunc1(t *testing.T) {
 			failInit := errs.failInit
 			failSetScope := errs.failSetScope
 			failUnify := errs.failUnify
-			fail4 := errs.fail4
+			failGraph := errs.failGraph
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
@@ -915,12 +915,12 @@ func TestAstFunc1(t *testing.T) {
 			// build the function graph
 			graph, err := iast.Graph()
 
-			if (!fail || !fail4) && err != nil {
+			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
 				return
 			}
-			if fail4 && err != nil { // can't process graph if it's nil
+			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -930,7 +930,7 @@ func TestAstFunc1(t *testing.T) {
 				}
 				return
 			}
-			if fail4 && err == nil {
+			if failGraph && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions passed, expected fail", index)
 				return
@@ -1004,7 +1004,7 @@ func TestAstFunc2(t *testing.T) {
 	// TODO: move them all down by one
 	const magicErrorSetScope = "errSetScope: "
 	const magicErrorUnify = "errUnify: "
-	const magicError4 = "err4: "
+	const magicErrorGraph = "errGraph: "
 	const magicError5 = "err5: "
 	const magicError6 = "err6: "
 	const magicEmpty = "# empty!"
@@ -1041,7 +1041,7 @@ func TestAstFunc2(t *testing.T) {
 		// TODO: move them all down by one
 		failSetScope bool
 		failUnify    bool
-		fail4        bool
+		failGraph    bool
 		fail5        bool
 		fail6        bool
 	}
@@ -1102,7 +1102,7 @@ func TestAstFunc2(t *testing.T) {
 		// TODO: move them all down by one
 		failSetScope := false
 		failUnify := false
-		fail4 := false
+		failGraph := false
 		fail5 := false
 		fail6 := false
 		if strings.HasPrefix(str, magicError) {
@@ -1135,10 +1135,10 @@ func TestAstFunc2(t *testing.T) {
 				str = errStr
 				failUnify = true
 			}
-			if strings.HasPrefix(str, magicError4) {
-				errStr = strings.TrimPrefix(str, magicError4)
+			if strings.HasPrefix(str, magicErrorGraph) {
+				errStr = strings.TrimPrefix(str, magicErrorGraph)
 				str = errStr
-				fail4 = true
+				failGraph = true
 			}
 			if strings.HasPrefix(str, magicError5) {
 				errStr = strings.TrimPrefix(str, magicError5)
@@ -1165,7 +1165,7 @@ func TestAstFunc2(t *testing.T) {
 				// TODO: move them all down by one
 				failSetScope: failSetScope,
 				failUnify:    failUnify,
-				fail4:        fail4,
+				failGraph:    failGraph,
 				fail5:        fail5,
 				fail6:        fail6,
 			},
@@ -1207,7 +1207,7 @@ func TestAstFunc2(t *testing.T) {
 			// TODO: move them all down by one
 			failSetScope := errs.failSetScope
 			failUnify := errs.failUnify
-			fail4 := errs.fail4
+			failGraph := errs.failGraph
 			fail5 := errs.fail5
 			fail6 := errs.fail6
 
@@ -1432,12 +1432,12 @@ func TestAstFunc2(t *testing.T) {
 			// build the function graph
 			graph, err := iast.Graph()
 
-			if (!fail || !fail4) && err != nil {
+			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
 				return
 			}
-			if fail4 && err != nil { // can't process graph if it's nil
+			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -1447,7 +1447,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return
 			}
-			if fail4 && err == nil {
+			if failGraph && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions passed, expected fail", index)
 				return

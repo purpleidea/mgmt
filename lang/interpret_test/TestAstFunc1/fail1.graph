@@ -1,1 +1,1 @@
-# err: err1: parser: `syntax error: unexpected COLON` @2:8
+# err: errLexParse: parser: `syntax error: unexpected COLON` @2:8

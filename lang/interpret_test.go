@@ -546,7 +546,7 @@ func TestAstFunc0(t *testing.T) {
 // TestAstFunc1 is a more advanced version which pulls code from physical dirs.
 func TestAstFunc1(t *testing.T) {
 	const magicError = "# err: "
-	const magicError1 = "err1: "
+	const magicErrorLexParse = "errLexParse: "
 	const magicErrorFailInit = "errInit: "
 	const magicError2 = "err2: "
 	const magicError3 = "err3: "
@@ -579,11 +579,11 @@ func TestAstFunc1(t *testing.T) {
 	}
 
 	type errs struct {
-		fail1    bool
-		failInit bool
-		fail2    bool
-		fail3    bool
-		fail4    bool
+		failLexParse bool
+		failInit     bool
+		fail2        bool
+		fail3        bool
+		fail4        bool
 	}
 	type test struct { // an individual test
 		name string
@@ -636,7 +636,7 @@ func TestAstFunc1(t *testing.T) {
 
 		// if the graph file has a magic error string, it's a failure
 		errStr := ""
-		fail1 := false
+		failLexParse := false
 		failInit := false
 		fail2 := false
 		fail3 := false
@@ -645,10 +645,10 @@ func TestAstFunc1(t *testing.T) {
 			errStr = strings.TrimPrefix(str, magicError)
 			str = errStr
 
-			if strings.HasPrefix(str, magicError1) {
-				errStr = strings.TrimPrefix(str, magicError1)
+			if strings.HasPrefix(str, magicErrorLexParse) {
+				errStr = strings.TrimPrefix(str, magicErrorLexParse)
 				str = errStr
-				fail1 = true
+				failLexParse = true
 			}
 			if strings.HasPrefix(str, magicErrorFailInit) {
 				errStr = strings.TrimPrefix(str, magicErrorFailInit)
@@ -679,11 +679,11 @@ func TestAstFunc1(t *testing.T) {
 			fail:   errStr != "",
 			expstr: str,
 			errs: errs{
-				fail1:    fail1,
-				failInit: failInit,
-				fail2:    fail2,
-				fail3:    fail3,
-				fail4:    fail4,
+				failLexParse: failLexParse,
+				failInit:     failInit,
+				fail2:        fail2,
+				fail3:        fail3,
+				fail4:        fail4,
 			},
 		})
 		//t.Logf("adding: %s", f + "/")
@@ -717,7 +717,7 @@ func TestAstFunc1(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			name, path, fail, expstr, errs := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n"), tc.errs
 			src := dir + path // location of the test
-			fail1 := errs.fail1
+			failLexParse := errs.failLexParse
 			failInit := errs.failInit
 			fail2 := errs.fail2
 			fail3 := errs.fail3
@@ -777,12 +777,12 @@ func TestAstFunc1(t *testing.T) {
 
 			reader := bytes.NewReader(output.Main)
 			ast, err := LexParse(reader)
-			if (!fail || !fail1) && err != nil {
+			if (!fail || !failLexParse) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 				return
 			}
-			if fail1 && err != nil {
+			if failLexParse && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -792,7 +792,7 @@ func TestAstFunc1(t *testing.T) {
 				}
 				return // fail happened during lex parse, don't run init/interpolate!
 			}
-			if fail1 && err == nil {
+			if failLexParse && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse passed, expected fail", index)
 				return
@@ -998,7 +998,7 @@ func TestAstFunc1(t *testing.T) {
 // stable, static output.
 func TestAstFunc2(t *testing.T) {
 	const magicError = "# err: "
-	const magicError1 = "err1: "
+	const magicErrorLexParse = "errLexParse: "
 	const magicError9 = "err9: " // TODO: rename
 	const magicError8 = "err8: " // TODO: rename
 	// TODO: move them all down by one
@@ -1035,9 +1035,9 @@ func TestAstFunc2(t *testing.T) {
 	}
 
 	type errs struct {
-		fail1 bool
-		fail9 bool // TODO: rename
-		fail8 bool // TODO: rename
+		failLexParse bool
+		fail9        bool // TODO: rename
+		fail8        bool // TODO: rename
 		// TODO: move them all down by one
 		fail2 bool
 		fail3 bool
@@ -1096,7 +1096,7 @@ func TestAstFunc2(t *testing.T) {
 
 		// if the graph file has a magic error string, it's a failure
 		errStr := ""
-		fail1 := false
+		failLexParse := false
 		fail9 := false // TODO: rename
 		fail8 := false // TODO: rename
 		// TODO: move them all down by one
@@ -1109,10 +1109,10 @@ func TestAstFunc2(t *testing.T) {
 			errStr = strings.TrimPrefix(str, magicError)
 			str = errStr
 
-			if strings.HasPrefix(str, magicError1) {
-				errStr = strings.TrimPrefix(str, magicError1)
+			if strings.HasPrefix(str, magicErrorLexParse) {
+				errStr = strings.TrimPrefix(str, magicErrorLexParse)
 				str = errStr
-				fail1 = true
+				failLexParse = true
 			}
 			if strings.HasPrefix(str, magicError9) { // TODO: rename
 				errStr = strings.TrimPrefix(str, magicError9)
@@ -1159,9 +1159,9 @@ func TestAstFunc2(t *testing.T) {
 			fail:   errStr != "",
 			expstr: str,
 			errs: errs{
-				fail1: fail1,
-				fail9: fail9, // TODO: rename
-				fail8: fail8, // TODO: rename
+				failLexParse: failLexParse,
+				fail9:        fail9, // TODO: rename
+				fail8:        fail8, // TODO: rename
 				// TODO: move them all down by one
 				fail2: fail2,
 				fail3: fail3,
@@ -1201,7 +1201,7 @@ func TestAstFunc2(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			name, path, fail, expstr, errs := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n"), tc.errs
 			src := dir + path // location of the test
-			fail1 := errs.fail1
+			failLexParse := errs.failLexParse
 			fail9 := errs.fail9 // TODO: rename
 			fail8 := errs.fail8 // TODO: rename
 			// TODO: move them all down by one
@@ -1279,12 +1279,12 @@ func TestAstFunc2(t *testing.T) {
 
 			reader := bytes.NewReader(output.Main)
 			ast, err := LexParse(reader)
-			if (!fail || !fail1) && err != nil {
+			if (!fail || !failLexParse) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 				return
 			}
-			if fail1 && err != nil {
+			if failLexParse && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -1294,7 +1294,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return // fail happened during lex parse, don't run init/interpolate!
 			}
-			if fail1 && err == nil {
+			if failLexParse && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse passed, expected fail", index)
 				return

@@ -548,7 +548,7 @@ func TestAstFunc1(t *testing.T) {
 	const magicError = "# err: "
 	const magicErrorLexParse = "errLexParse: "
 	const magicErrorFailInit = "errInit: "
-	const magicError2 = "err2: "
+	const magicErrorSetScope = "errSetScope: "
 	const magicError3 = "err3: "
 	const magicError4 = "err4: "
 	const magicEmpty = "# empty!"
@@ -581,7 +581,7 @@ func TestAstFunc1(t *testing.T) {
 	type errs struct {
 		failLexParse bool
 		failInit     bool
-		fail2        bool
+		failSetScope bool
 		fail3        bool
 		fail4        bool
 	}
@@ -638,7 +638,7 @@ func TestAstFunc1(t *testing.T) {
 		errStr := ""
 		failLexParse := false
 		failInit := false
-		fail2 := false
+		failSetScope := false
 		fail3 := false
 		fail4 := false
 		if strings.HasPrefix(str, magicError) {
@@ -655,10 +655,10 @@ func TestAstFunc1(t *testing.T) {
 				str = errStr
 				failInit = true
 			}
-			if strings.HasPrefix(str, magicError2) {
-				errStr = strings.TrimPrefix(str, magicError2)
+			if strings.HasPrefix(str, magicErrorSetScope) {
+				errStr = strings.TrimPrefix(str, magicErrorSetScope)
 				str = errStr
-				fail2 = true
+				failSetScope = true
 			}
 			if strings.HasPrefix(str, magicError3) {
 				errStr = strings.TrimPrefix(str, magicError3)
@@ -681,7 +681,7 @@ func TestAstFunc1(t *testing.T) {
 			errs: errs{
 				failLexParse: failLexParse,
 				failInit:     failInit,
-				fail2:        fail2,
+				failSetScope: failSetScope,
 				fail3:        fail3,
 				fail4:        fail4,
 			},
@@ -719,7 +719,7 @@ func TestAstFunc1(t *testing.T) {
 			src := dir + path // location of the test
 			failLexParse := errs.failLexParse
 			failInit := errs.failInit
-			fail2 := errs.fail2
+			failSetScope := errs.failSetScope
 			fail3 := errs.fail3
 			fail4 := errs.fail4
 
@@ -859,12 +859,12 @@ func TestAstFunc1(t *testing.T) {
 
 			// propagate the scope down through the AST...
 			err = iast.SetScope(scope)
-			if (!fail || !fail2) && err != nil {
+			if (!fail || !failSetScope) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not set scope: %+v", index, err)
 				return
 			}
-			if fail2 && err != nil {
+			if failSetScope && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -874,7 +874,7 @@ func TestAstFunc1(t *testing.T) {
 				}
 				return // fail happened during set scope, don't run unification!
 			}
-			if fail2 && err == nil {
+			if failSetScope && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: set scope passed, expected fail", index)
 				return
@@ -1002,7 +1002,7 @@ func TestAstFunc2(t *testing.T) {
 	const magicError9 = "err9: " // TODO: rename
 	const magicError8 = "err8: " // TODO: rename
 	// TODO: move them all down by one
-	const magicError2 = "err2: "
+	const magicErrorSetScope = "errSetScope: "
 	const magicError3 = "err3: "
 	const magicError4 = "err4: "
 	const magicError5 = "err5: "
@@ -1039,11 +1039,11 @@ func TestAstFunc2(t *testing.T) {
 		fail9        bool // TODO: rename
 		fail8        bool // TODO: rename
 		// TODO: move them all down by one
-		fail2 bool
-		fail3 bool
-		fail4 bool
-		fail5 bool
-		fail6 bool
+		failSetScope bool
+		fail3        bool
+		fail4        bool
+		fail5        bool
+		fail6        bool
 	}
 	type test struct { // an individual test
 		name string
@@ -1100,7 +1100,7 @@ func TestAstFunc2(t *testing.T) {
 		fail9 := false // TODO: rename
 		fail8 := false // TODO: rename
 		// TODO: move them all down by one
-		fail2 := false
+		failSetScope := false
 		fail3 := false
 		fail4 := false
 		fail5 := false
@@ -1125,10 +1125,10 @@ func TestAstFunc2(t *testing.T) {
 				fail8 = true
 			}
 			// TODO: move them all down by one
-			if strings.HasPrefix(str, magicError2) {
-				errStr = strings.TrimPrefix(str, magicError2)
+			if strings.HasPrefix(str, magicErrorSetScope) {
+				errStr = strings.TrimPrefix(str, magicErrorSetScope)
 				str = errStr
-				fail2 = true
+				failSetScope = true
 			}
 			if strings.HasPrefix(str, magicError3) {
 				errStr = strings.TrimPrefix(str, magicError3)
@@ -1163,11 +1163,11 @@ func TestAstFunc2(t *testing.T) {
 				fail9:        fail9, // TODO: rename
 				fail8:        fail8, // TODO: rename
 				// TODO: move them all down by one
-				fail2: fail2,
-				fail3: fail3,
-				fail4: fail4,
-				fail5: fail5,
-				fail6: fail6,
+				failSetScope: failSetScope,
+				fail3:        fail3,
+				fail4:        fail4,
+				fail5:        fail5,
+				fail6:        fail6,
 			},
 		})
 		//t.Logf("adding: %s", f + "/")
@@ -1205,7 +1205,7 @@ func TestAstFunc2(t *testing.T) {
 			fail9 := errs.fail9 // TODO: rename
 			fail8 := errs.fail8 // TODO: rename
 			// TODO: move them all down by one
-			fail2 := errs.fail2
+			failSetScope := errs.failSetScope
 			fail3 := errs.fail3
 			fail4 := errs.fail4
 			fail5 := errs.fail5
@@ -1376,12 +1376,12 @@ func TestAstFunc2(t *testing.T) {
 
 			// propagate the scope down through the AST...
 			err = iast.SetScope(scope)
-			if (!fail || !fail2) && err != nil {
+			if (!fail || !failSetScope) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not set scope: %+v", index, err)
 				return
 			}
-			if fail2 && err != nil {
+			if failSetScope && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -1391,7 +1391,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return // fail happened during set scope, don't run unification!
 			}
-			if fail2 && err == nil {
+			if failSetScope && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: set scope passed, expected fail", index)
 				return

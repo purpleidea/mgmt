@@ -1,1 +1,1 @@
-# err: err2: func `fun1` does not exist in this scope
+# err: errSetScope: func `fun1` does not exist in this scope

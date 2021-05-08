@@ -1,1 +1,1 @@
-# err: err2: class `bar` does not exist in this scope
+# err: errSetScope: class `bar` does not exist in this scope

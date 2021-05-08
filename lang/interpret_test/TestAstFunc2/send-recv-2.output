@@ -1,1 +1,1 @@
-# err: err5: resource: `file[/tmp/command-output]` has duplicate receive on: `content` param
+# err: errInterpret: resource: `file[/tmp/command-output]` has duplicate receive on: `content` param

@@ -1004,8 +1004,8 @@ func TestAstFunc2(t *testing.T) {
 	const magicErrorSetScope = "errSetScope: "
 	const magicErrorUnify = "errUnify: "
 	const magicErrorGraph = "errGraph: "
-	const magicError5 = "err5: "
-	const magicError6 = "err6: "
+	const magicErrorInterpret = "errInterpret: "
+	const magicErrorAutoEdge = "errAutoEdge: "
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
 	if err != nil {
@@ -1040,8 +1040,8 @@ func TestAstFunc2(t *testing.T) {
 		failSetScope    bool
 		failUnify       bool
 		failGraph       bool
-		fail5           bool
-		fail6           bool
+		failInterpret   bool
+		failAutoEdge    bool
 	}
 	type test struct { // an individual test
 		name string
@@ -1100,8 +1100,8 @@ func TestAstFunc2(t *testing.T) {
 		failSetScope := false
 		failUnify := false
 		failGraph := false
-		fail5 := false
-		fail6 := false
+		failInterpret := false
+		failAutoEdge := false
 		if strings.HasPrefix(str, magicError) {
 			errStr = strings.TrimPrefix(str, magicError)
 			str = errStr
@@ -1136,15 +1136,15 @@ func TestAstFunc2(t *testing.T) {
 				str = errStr
 				failGraph = true
 			}
-			if strings.HasPrefix(str, magicError5) {
-				errStr = strings.TrimPrefix(str, magicError5)
+			if strings.HasPrefix(str, magicErrorInterpret) {
+				errStr = strings.TrimPrefix(str, magicErrorInterpret)
 				str = errStr
-				fail5 = true
+				failInterpret = true
 			}
-			if strings.HasPrefix(str, magicError6) {
-				errStr = strings.TrimPrefix(str, magicError6)
+			if strings.HasPrefix(str, magicErrorAutoEdge) {
+				errStr = strings.TrimPrefix(str, magicErrorAutoEdge)
 				str = errStr
-				fail6 = true
+				failAutoEdge = true
 			}
 		}
 
@@ -1161,8 +1161,8 @@ func TestAstFunc2(t *testing.T) {
 				failSetScope:    failSetScope,
 				failUnify:       failUnify,
 				failGraph:       failGraph,
-				fail5:           fail5,
-				fail6:           fail6,
+				failInterpret:   failInterpret,
+				failAutoEdge:    failAutoEdge,
 			},
 		})
 		//t.Logf("adding: %s", f + "/")
@@ -1202,8 +1202,8 @@ func TestAstFunc2(t *testing.T) {
 			failSetScope := errs.failSetScope
 			failUnify := errs.failUnify
 			failGraph := errs.failGraph
-			fail5 := errs.fail5
-			fail6 := errs.fail6
+			failInterpret := errs.failInterpret
+			failAutoEdge := errs.failAutoEdge
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
@@ -1537,12 +1537,12 @@ func TestAstFunc2(t *testing.T) {
 			ograph, err := interpret(iast)
 			funcs.RUnlock()
 
-			if (!fail || !fail5) && err != nil {
+			if (!fail || !failInterpret) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpret failed with: %+v", index, err)
 				return
 			}
-			if fail5 && err != nil { // can't process graph if it's nil
+			if failInterpret && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -1552,7 +1552,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return
 			}
-			if fail5 && err == nil {
+			if failInterpret && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpret passed, expected fail", index)
 				return
@@ -1560,12 +1560,12 @@ func TestAstFunc2(t *testing.T) {
 
 			// add automatic edges...
 			err = autoedge.AutoEdge(ograph, testing.Verbose(), logf)
-			if (!fail || !fail6) && err != nil {
+			if (!fail || !failAutoEdge) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: automatic edges failed with: %+v", index, err)
 				return
 			}
-			if fail6 && err != nil {
+			if failAutoEdge && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -1575,7 +1575,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return
 			}
-			if fail6 && err == nil {
+			if failAutoEdge && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: automatic edges passed, expected fail", index)
 				return

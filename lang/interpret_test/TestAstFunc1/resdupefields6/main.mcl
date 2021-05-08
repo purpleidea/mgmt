@@ -1,0 +1,21 @@
+# XXX: should work, but we have a type unification bug
+#test "test" {
+#	anotherstr => "test",
+#
+#	Meta => true ?: struct{
+#		retry => -1,
+#		delay => 0,
+#		realize => true,
+#		autogroup => true,
+#	},
+#	Meta => true ?: struct{
+#		poll => 5,
+#		limit => 4.2,
+#		burst => 3,
+#		sema => ["foo:1", "bar:3",],
+#		rewatch => false,
+#		reverse => true,
+#	},
+#	Meta:noop => true,
+#	Meta:autoedge => true,
+#}

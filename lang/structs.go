@@ -310,7 +310,32 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 	if err := obj.Name.Init(data); err != nil {
 		return err
 	}
+	fieldNames := make(map[string]struct{})
+	metaNames := make(map[string]struct{})
 	for _, x := range obj.Contents {
+
+		// Duplicate checking for identical field names.
+		if line, ok := x.(*StmtResField); ok {
+			// Was the field already seen in this resource?
+			if _, exists := fieldNames[line.Field]; exists {
+				return fmt.Errorf("resource has duplicate field of: %s", line.Field)
+			}
+			fieldNames[line.Field] = struct{}{}
+		}
+
+		// NOTE: you can have as many *StmtResEdge lines as you want =D
+
+		if line, ok := x.(*StmtResMeta); ok {
+			// Was the meta entry already seen in this resource?
+			// Ignore the generic MetaField struct field for now.
+			// You're allowed to have more than one Meta field, but
+			// they can't contain the same field twice.
+			if _, exists := metaNames[line.Property]; exists && line.Property != MetaField {
+				return fmt.Errorf("resource has duplicate meta entry of: %s", line.Property)
+			}
+			metaNames[line.Property] = struct{}{}
+		}
+
 		if err := x.Init(data); err != nil {
 			return err
 		}
@@ -518,7 +543,47 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
+//
+// This runs right after type unification. For this particular resource, we can
+// do some additional static analysis, but only after unification has been done.
+// Since I don't think it's worth extending the Stmt API for this, we can do the
+// checks here at the beginning, and error out if something was invalid. In this
+// particular case, the issue is one of catching duplicate meta fields.
 func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
+	metaNames := make(map[string]struct{})
+	for _, x := range obj.Contents {
+		line, ok := x.(*StmtResMeta)
+		if !ok {
+			continue
+		}
+
+		properties := []string{line.Property} // "noop" or "Meta" or...
+		if line.Property == MetaField {
+			// If this is the generic MetaField struct field, then
+			// we lookup the type signature to see which fields are
+			// defined. You're allowed to have more than one Meta
+			// field, but they can't contain the same field twice.
+
+			typ, err := line.MetaExpr.Type() // must be known now
+			if err != nil {
+				// programming error in type unification
+				return nil, errwrap.Wrapf(err, "unknown resource meta type")
+			}
+			if t := typ.Kind; t != types.KindStruct {
+				return nil, fmt.Errorf("unexpected resource meta kind of: %s", t)
+			}
+			properties = typ.Ord // list of field names in this struct
+		}
+
+		for _, property := range properties {
+			// Was the meta entry already seen in this resource?
+			if _, exists := metaNames[property]; exists {
+				return nil, fmt.Errorf("resource has duplicate meta entry of: %s", property)
+			}
+			metaNames[property] = struct{}{}
+		}
+	}
+
 	graph, err := pgraph.NewGraph("res")
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not create graph")

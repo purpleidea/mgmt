@@ -1,0 +1,4 @@
+test "test" {
+	anotherstr => "hello",
+	anotherstr => "hello",	# values aren't checked in dupe checks
+}

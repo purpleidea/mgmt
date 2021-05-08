@@ -1,0 +1,22 @@
+test "test" {
+	anotherstr => "test",
+
+	Meta => true ?: struct{
+		noop => false,
+		retry => -1,
+		delay => 0,
+		poll => 5,
+		limit => 4.2,
+		burst => 3,
+		sema => ["foo:1", "bar:3",],
+		rewatch => false,
+		realize => true,
+		reverse => true,
+		autoedge => true,
+		autogroup => true,
+	},
+	Meta:noop => false,
+	#Meta:poll => $b ?: 42,
+	#Meta:autoedge => true,
+	#Meta:autogroup => false,
+}

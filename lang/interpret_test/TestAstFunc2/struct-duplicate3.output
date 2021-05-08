@@ -1,1 +1,1 @@
-# err: err9: duplicate struct field name of: `x`
+# err: errInit: duplicate struct field name of: `x`

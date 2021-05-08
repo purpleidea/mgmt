@@ -547,7 +547,7 @@ func TestAstFunc0(t *testing.T) {
 func TestAstFunc1(t *testing.T) {
 	const magicError = "# err: "
 	const magicErrorLexParse = "errLexParse: "
-	const magicErrorFailInit = "errInit: "
+	const magicErrorInit = "errInit: "
 	const magicErrorSetScope = "errSetScope: "
 	const magicErrorUnify = "errUnify: "
 	const magicErrorGraph = "errGraph: "
@@ -650,8 +650,8 @@ func TestAstFunc1(t *testing.T) {
 				str = errStr
 				failLexParse = true
 			}
-			if strings.HasPrefix(str, magicErrorFailInit) {
-				errStr = strings.TrimPrefix(str, magicErrorFailInit)
+			if strings.HasPrefix(str, magicErrorInit) {
+				errStr = strings.TrimPrefix(str, magicErrorInit)
 				str = errStr
 				failInit = true
 			}
@@ -999,7 +999,7 @@ func TestAstFunc1(t *testing.T) {
 func TestAstFunc2(t *testing.T) {
 	const magicError = "# err: "
 	const magicErrorLexParse = "errLexParse: "
-	const magicError9 = "err9: " // TODO: rename
+	const magicErrorInit = "errInit: "
 	const magicError8 = "err8: " // TODO: rename
 	// TODO: move them all down by one
 	const magicErrorSetScope = "errSetScope: "
@@ -1036,7 +1036,7 @@ func TestAstFunc2(t *testing.T) {
 
 	type errs struct {
 		failLexParse bool
-		fail9        bool // TODO: rename
+		failInit     bool
 		fail8        bool // TODO: rename
 		// TODO: move them all down by one
 		failSetScope bool
@@ -1097,7 +1097,7 @@ func TestAstFunc2(t *testing.T) {
 		// if the graph file has a magic error string, it's a failure
 		errStr := ""
 		failLexParse := false
-		fail9 := false // TODO: rename
+		failInit := false
 		fail8 := false // TODO: rename
 		// TODO: move them all down by one
 		failSetScope := false
@@ -1114,10 +1114,10 @@ func TestAstFunc2(t *testing.T) {
 				str = errStr
 				failLexParse = true
 			}
-			if strings.HasPrefix(str, magicError9) { // TODO: rename
-				errStr = strings.TrimPrefix(str, magicError9)
+			if strings.HasPrefix(str, magicErrorInit) {
+				errStr = strings.TrimPrefix(str, magicErrorInit)
 				str = errStr
-				fail9 = true
+				failInit = true
 			}
 			if strings.HasPrefix(str, magicError8) { // TODO: rename
 				errStr = strings.TrimPrefix(str, magicError8)
@@ -1160,7 +1160,7 @@ func TestAstFunc2(t *testing.T) {
 			expstr: str,
 			errs: errs{
 				failLexParse: failLexParse,
-				fail9:        fail9, // TODO: rename
+				failInit:     failInit,
 				fail8:        fail8, // TODO: rename
 				// TODO: move them all down by one
 				failSetScope: failSetScope,
@@ -1202,7 +1202,7 @@ func TestAstFunc2(t *testing.T) {
 			name, path, fail, expstr, errs := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n"), tc.errs
 			src := dir + path // location of the test
 			failLexParse := errs.failLexParse
-			fail9 := errs.fail9 // TODO: rename
+			failInit := errs.failInit
 			fail8 := errs.fail8 // TODO: rename
 			// TODO: move them all down by one
 			failSetScope := errs.failSetScope
@@ -1331,12 +1331,12 @@ func TestAstFunc2(t *testing.T) {
 			}
 			// some of this might happen *after* interpolate in SetScope or Unify...
 			err = ast.Init(data)
-			if (!fail || !fail9) && err != nil {
+			if (!fail || !failInit) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
 				return
 			}
-			if fail9 && err != nil {
+			if failInit && err != nil {
 				s := err.Error() // convert to string
 				if s != expstr {
 					t.Errorf("test #%d: FAIL", index)
@@ -1346,7 +1346,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				return // fail happened during lex parse, don't run init/interpolate!
 			}
-			if fail9 && err == nil {
+			if failInit && err == nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: Init passed, expected fail", index)
 				return

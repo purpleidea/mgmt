@@ -56,6 +56,7 @@ if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y graphviz || true # for debugging
 fi
 if [ -n "$APT" ]; then
+	$sudo_command $APT update -y
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y ruby ruby-dev || true

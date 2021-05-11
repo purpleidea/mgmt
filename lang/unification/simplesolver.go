@@ -135,17 +135,20 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 
 		// optimization: if we have zero generator invariants, we can
 		// discard the value invariants!
-		if len(generators) == 0 {
+		// NOTE: if exclusives do *not* contain nested generators, then
+		// we don't need to check for exclusives here, and the logic is
+		// much faster and simpler and can possibly solve more cases...
+		if len(generators) == 0 && len(exclusives) == 0 {
 			used := []int{}
 			for i, x := range equalities {
-				if _, ok := x.(*interfaces.ValueInvariant); !ok {
-					continue
-				}
-				if _, ok := x.(*interfaces.CallFuncArgsValueInvariant); !ok {
+				_, ok1 := x.(*interfaces.ValueInvariant)
+				_, ok2 := x.(*interfaces.CallFuncArgsValueInvariant)
+				if !ok1 && !ok2 {
 					continue
 				}
 				used = append(used, i) // mark equality as used up
 			}
+			logf("%s: got %d equalities left after %d used up", Name, len(equalities)-len(used), len(used))
 			// delete used equalities, in reverse order to preserve indexing!
 			for i := len(used) - 1; i >= 0; i-- {
 				ix := used[i] // delete index that was marked as used!
@@ -180,13 +183,16 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 	funcPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 	callPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 
-	isSolved := func(solved map[interfaces.Expr]*types.Type) bool {
+	isSolvedFn := func(solved map[interfaces.Expr]*types.Type) (map[interfaces.Expr]struct{}, bool) {
+		unsolved := make(map[interfaces.Expr]struct{})
+		result := true
 		for _, x := range expected {
 			if typ, exists := solved[x]; !exists || typ == nil {
-				return false
+				result = false
+				unsolved[x] = struct{}{}
 			}
 		}
-		return true
+		return unsolved, result
 	}
 
 	logf("%s: starting loop with %d equalities", Name, len(equalities))
@@ -676,7 +682,8 @@ Loop:
 
 			// These two optimizations turn out to use the exact
 			// same algorithm and code, so they're combined here...
-			if isSolved(solved) {
+			_, isSolved := isSolvedFn(solved)
+			if isSolved {
 				logf("%s: solved early with %d exclusives left!", Name, len(exclusives))
 			} else {
 				logf("%s: unsolved with %d exclusives left!", Name, len(exclusives))
@@ -713,6 +720,37 @@ Loop:
 			// If we removed any exclusives, then we can start over.
 			if len(done) > 0 {
 				continue Loop
+			}
+
+			// If we don't have any exclusives left, then we don't
+			// need the Value invariants... This logic is the same
+			// as in process() but it's duplicated here because we
+			// want it to happen at this stage as well. We can try
+			// and clean up the duplication and improve the logic.
+			// NOTE: We should probably check that there aren't any
+			// generators left in the equalities, but since we have
+			// already tried to use them up, it is probably safe to
+			// unblock the solver if it's only ValueInvatiant left.
+			if len(exclusives) == 0 || isSolved { // either is okay
+				used := []int{}
+				for i, x := range equalities {
+					_, ok1 := x.(*interfaces.ValueInvariant)
+					_, ok2 := x.(*interfaces.CallFuncArgsValueInvariant)
+					if !ok1 && !ok2 {
+						continue
+					}
+					used = append(used, i) // mark equality as used up
+				}
+				logf("%s: got %d equalities left after %d used up", Name, len(equalities)-len(used), len(used))
+				// delete used equalities, in reverse order to preserve indexing!
+				for i := len(used) - 1; i >= 0; i-- {
+					ix := used[i] // delete index that was marked as used!
+					equalities = append(equalities[:ix], equalities[ix+1:]...)
+				}
+
+				if len(used) > 0 {
+					continue Loop
+				}
 			}
 
 			// what have we learned for sure so far?
@@ -822,6 +860,14 @@ Loop:
 			}
 
 			// TODO: print ambiguity
+			logf("%s: ================ ambiguity ================", Name)
+			for _, x := range equalities {
+				logf("%s: unsolved equality: %+v", Name, x)
+			}
+			unsolved, _ := isSolvedFn(solved)
+			for x := range unsolved {
+				logf("%s: unsolved expected: %+v", Name, x)
+			}
 			return nil, ErrAmbiguous
 		}
 		// delete used equalities, in reverse order to preserve indexing!

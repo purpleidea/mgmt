@@ -6981,6 +6981,14 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 			return nil, err
 		}
 		invariants = append(invariants, invars...)
+	}
+
+	if obj.Body != nil { // XXX: nuke this section?
+		invars, err := obj.Body.Unify()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
 
 		mapped := make(map[string]interfaces.Expr)
 		ordered := []string{}
@@ -7078,25 +7086,40 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 		invariants = append(invariants, invar)
 	}
 
+	// TODO: should we try and add invariants for obj.Args?
+
 	if obj.Function != nil {
 		// XXX: can we add anything here, perhaps this?
-		//fn := obj.Function()
-		//polyFn, ok := fn.(interfaces.PolyFunc) // is it statically polymorphic?
-		//if !ok {
-		//	sig := fn.Info().Sig
-		//	if sig != nil && !sig.HasVariant() {
-		//		invar := &interfaces.EqualsInvariant{
-		//			Expr: obj,
-		//			Type: sig,
-		//		}
-		//		invariants = append(invariants, invar)
-		//	}
-		//} else {
-		//	results, err := polyFn.Polymorphisms(nil, nil) // TODO: is this okay?
-		//	if err == nil {
-		//		// TODO: build an exclusive here...
-		//	}
-		//}
+		fn := obj.Function()
+		_, ok1 := fn.(interfaces.PolyFunc)                    // is it statically polymorphic?
+		unifiedPolyFn, ok2 := fn.(interfaces.UnifiedPolyFunc) // is it statically polymorphic?
+		if !ok1 && !ok2 {
+			sig := fn.Info().Sig
+			if sig != nil && !sig.HasVariant() {
+				invar := &interfaces.EqualsInvariant{
+					Expr: obj,
+					Type: sig,
+				}
+				invariants = append(invariants, invar)
+			}
+
+		} else if ok2 { // XXX: try the new interface for now
+			// We just run the Unify() method of the ExprFunc if it
+			// happens to have one. Get the list of Invariants, and
+			// return them directly.
+			invars, err := unifiedPolyFn.Unify(obj)
+			if err != nil {
+				return nil, err
+			}
+			invariants = append(invariants, invars...)
+
+		} else {
+			// XXX: ignore this part for now... plan on deprecating it
+			//results, err := polyFn.Polymorphisms(nil, nil) // TODO: is this okay?
+			//if err == nil {
+			//	// TODO: build an exclusive here...
+			//}
+		}
 	}
 
 	//if len(obj.Values) > 0
@@ -7751,6 +7774,24 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		invariants = append(invariants, invars...)
 	}
 
+	// I think I need to associate the func call with the actual func
+	// expression somehow... This is because when I try to do unification in
+	// a function like printf, I need to be able to know which args (values)
+	// this particular version of the function I'm calling is associated
+	// with. So I need to know the linkage. It has to be added here, since
+	// ExprFunc doesn't know who's calling it. And why would it even want to
+	// know who's calling it?
+	argsCopy := []interfaces.Expr{}
+	for _, arg := range obj.Args {
+		argsCopy = append(argsCopy, arg)
+	}
+	invar := &interfaces.CallFuncArgsValueInvariant{
+		Expr: obj,
+		Func: obj.expr,
+		Args: argsCopy,
+	}
+	invariants = append(invariants, invar)
+
 	// add the invariants from the actual function that we'll be using...
 	// don't add them from the pre-copied function, which is never used...
 	invars, err := obj.expr.Unify()
@@ -7765,13 +7806,13 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	invariants = append(invariants, anyInvar)
 
 	// our type should equal the return type of the called function
-	invar := &interfaces.EqualityWrapCallInvariant{
+	callInvar := &interfaces.EqualityWrapCallInvariant{
 		// TODO: should Expr1 and Expr2 be reversed???
 		Expr1:     obj, // return type expression from calling the function
 		Expr2Func: obj.expr,
 		// Expr2Args: obj.Args, XXX: ???
 	}
-	invariants = append(invariants, invar)
+	invariants = append(invariants, callInvar)
 
 	// function specific code follows...
 	fn, isFn := obj.expr.(*ExprFunc)

@@ -82,6 +82,140 @@ func (obj *TemplateFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
+// Unify returns the list of invariants that this func produces.
+func (obj *TemplateFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+	var invar interfaces.Invariant
+
+	// func(format string, arg variant) string
+
+	formatName, err := obj.ArgGen(0)
+	if err != nil {
+		return nil, err
+	}
+
+	dummyFormat := &interfaces.ExprAny{} // corresponds to the format type
+	dummyOut := &interfaces.ExprAny{}    // corresponds to the out string
+
+	// format arg type of string
+	invar = &interfaces.EqualsInvariant{
+		Expr: dummyFormat,
+		Type: types.TypeStr,
+	}
+	invariants = append(invariants, invar)
+
+	// return type of string
+	invar = &interfaces.EqualsInvariant{
+		Expr: dummyOut,
+		Type: types.TypeStr,
+	}
+	invariants = append(invariants, invar)
+
+	// generator function
+	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+		for _, invariant := range fnInvariants {
+			// search for this special type of invariant
+			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
+			if !ok {
+				continue
+			}
+			// did we find the mapping from us to ExprCall ?
+			if cfavInvar.Func != expr {
+				continue
+			}
+			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Args are the args that ExprCall uses!
+			if len(cfavInvar.Args) == 0 {
+				return nil, fmt.Errorf("unable to build function with no args")
+			}
+			if l := len(cfavInvar.Args); l > 2 {
+				return nil, fmt.Errorf("unable to build function with %d args", l)
+			}
+			// we can either have one arg or two
+
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			// first arg must be a string
+			invar = &interfaces.EqualsInvariant{
+				Expr: cfavInvar.Args[0],
+				Type: types.TypeStr,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: if the template is known statically, we could
+			// parse it to check for variable safety if we wanted!
+			//value, err := cfavInvar.Args[0].Value() // is it known?
+			//if err != nil {
+			//}
+
+			// full function
+			mapped := make(map[string]interfaces.Expr)
+			ordered := []string{formatName}
+			mapped[formatName] = dummyFormat
+
+			if len(cfavInvar.Args) == 2 { // two args is more complex
+				argName, err := obj.ArgGen(1) // 1st arg after 0
+				if err != nil {
+					return nil, err
+				}
+				if argName == argNameTemplate {
+					return nil, fmt.Errorf("could not build function with %d args", 1)
+				}
+
+				dummyArg := &interfaces.ExprAny{}
+
+				// speculate about the type? (maybe redundant)
+				if typ, err := cfavInvar.Args[1].Type(); err == nil {
+					invar := &interfaces.EqualsInvariant{
+						Expr: dummyArg,
+						Type: typ,
+					}
+					invariants = append(invariants, invar)
+				}
+
+				// expression must match type of the input arg
+				invar := &interfaces.EqualityInvariant{
+					Expr1: dummyArg,
+					Expr2: cfavInvar.Args[1],
+				}
+				invariants = append(invariants, invar)
+
+				mapped[argName] = dummyArg
+				ordered = append(ordered, argName)
+			}
+
+			invar = &interfaces.EqualityWrapFuncInvariant{
+				Expr1:    expr, // maps directly to us!
+				Expr2Map: mapped,
+				Expr2Ord: ordered,
+				Expr2Out: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: do we return this relationship with ExprCall?
+			invar = &interfaces.EqualityWrapCallInvariant{
+				// TODO: should Expr1 and Expr2 be reversed???
+				Expr1: cfavInvar.Expr,
+				//Expr2Func: cfavInvar.Func, // same as below
+				Expr2Func: expr,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: are there any other invariants we should build?
+			return invariants, nil // generator return
+		}
+		// We couldn't tell the solver anything it didn't already know!
+		return nil, fmt.Errorf("couldn't generate new invariants")
+	}
+	invar = &interfaces.GeneratorInvariant{
+		Func: fn,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
 // Polymorphisms returns the possible type signatures for this template. In this
 // case, since the second argument can be an infinite number of values, it
 // instead returns either the final precise type (if it can be gleamed from the

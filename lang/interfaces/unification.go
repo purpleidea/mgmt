@@ -655,7 +655,10 @@ type GeneratorInvariant struct {
 	// Func is a generator function that takes the state of the world, and
 	// returns new invariants that should be added to this world view. The
 	// state of the world includes both the currently unsolved invariants,
-	// as well as the known solution map that has been solved so far.
+	// as well as the known solution map that has been solved so far. If
+	// this returns nil, we add the invariants it returned and we remove it
+	// from the list. If we error, it's because we don't have any new
+	// information to provide at this time...
 	Func func(invariants []Invariant, solved map[Expr]*types.Type) ([]Invariant, error)
 }
 
@@ -672,10 +675,11 @@ func (obj *GeneratorInvariant) ExprList() []Expr {
 // Matches returns whether an invariant matches the existing solution. If it is
 // inconsistent, then it errors.
 func (obj *GeneratorInvariant) Matches(solved map[Expr]*types.Type) (bool, error) {
-	// XXX: not implemented
+	// XXX: not implemented (don't panic though)
 	//return false, err // inconsistent!
 	//return false, nil // not matched yet
 	//return true, nil  // matched!
+	return false, nil // not matched yet
 
 	// If we error, it's because we don't have any new information to
 	// provide at this time... If it's nil, it's because the invariants
@@ -683,17 +687,9 @@ func (obj *GeneratorInvariant) Matches(solved map[Expr]*types.Type) (bool, error
 	//invariants, err := obj.Func(?, solved)
 	//if err != nil {
 	//}
-
-	panic("not implemented")
 }
 
-// Possible returns an error if it is certain that it is NOT possible to get a
-// solution with this invariant and the set of partials. In certain cases, it
-// might not be able to determine that it's not possible, while simultaneously
-// not being able to guarantee a possible solution either. In this situation, it
-// should return nil, since this is used as a filtering mechanism, and the nil
-// result of possible is preferred over eliminating a tricky, but possible one.
-// This particular implementation is currently not implemented!
+// Possible is currently not implemented!
 func (obj *GeneratorInvariant) Possible(partials []Invariant) error {
 	// XXX: not implemented
 	return nil // safer to return nil than error
@@ -1019,8 +1015,11 @@ func (obj *CallFuncArgsValueInvariant) ExprList() []Expr {
 // Matches returns whether an invariant matches the existing solution. If it is
 // inconsistent, then it errors.
 func (obj *CallFuncArgsValueInvariant) Matches(solved map[Expr]*types.Type) (bool, error) {
-	// XXX: not implemented
-	panic("not implemented")
+	// XXX: not implemented (don't panic though)
+	//return false, err // inconsistent!
+	//return false, nil // not matched yet
+	//return true, nil  // matched!
+	return false, nil // not matched yet
 }
 
 // Possible returns an error if it is certain that it is NOT possible to get a

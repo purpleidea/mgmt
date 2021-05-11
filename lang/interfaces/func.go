@@ -66,6 +66,49 @@ type Func interface {
 	Close() error
 }
 
+// UnifiedPolyFunc is an interface for functions which are statically
+// polymorphic. In other words, they are functions which before compile time are
+// polymorphic, but after a successful compilation have a fixed static
+// signature. This makes implementing what would appear to be generic or
+// polymorphic instead something that is actually static and that still has the
+// language safety properties. Our engine requires that by the end of
+// compilation, everything is static. This is needed so that values can flow
+// safely along the DAG that represents their execution. If the types could
+// change, then we wouldn't be able to safely pass values around.
+//
+// XXX: This interface is similar to PolyFunc, except that it uses a Unify
+// method that works differently than the original Polymorphisms method. This
+// allows us to build invariants that are used directly by the type unification
+// solver. If this new approach is more successful, then we will rename the
+// UnifiedPolyFunc to PolyFunc. This interface is subject to change because this
+// is currently not properly tested.
+type UnifiedPolyFunc interface { // XXX: name this "PolyFunc" and remove or wrap the old interface?
+	Func // implement everything in Func but add the additional requirements
+
+	// Unify returns the list of invariants that this func produces. It is a
+	// way for a polymorphic function to describe its type requirements. It
+	// would be expected for this function to return at least one
+	// ExclusiveInvariant or GeneratorInvariant, since these are two common
+	// mechanisms for polymorphic functions to describe their constraints.
+	// The important realization behind this method is that the collecting
+	// of possible invariants, must happen *before* the solver runs so that
+	// the solver can look at all the available logic *simultaneously* to
+	// find a solution if we want to be able to reliably solve for things.
+	// The input argument that it receives is the expression pointer that it
+	// is unifying against-- in other words, the pointer is its own handle.
+	// This is different than the `obj` reference of this function
+	// implementation because _that_ handle is not the object/pointer in the
+	// AST that we're discussing when performing type unification. Put
+	// another way: the Expr input is the ExprFunc, not the ExprCall.
+	Unify(Expr) ([]Invariant, error)
+
+	// Build takes the known type signature for this function and finalizes
+	// this structure so that it is now determined, and ready to function as
+	// a normal function would. (The normal methods in the Func interface
+	// are all that should be needed or used after this point.)
+	Build(*types.Type) error // then, you can get argNames from Info()
+}
+
 // PolyFunc is an interface for functions which are statically polymorphic. In
 // other words, they are functions which before compile time are polymorphic,
 // but after a successful compilation have a fixed static signature. This makes

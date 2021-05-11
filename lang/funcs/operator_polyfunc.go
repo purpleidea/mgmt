@@ -400,6 +400,28 @@ func LookupOperator(operator string, size int) ([]*types.Type, error) {
 	return results, nil
 }
 
+// LookupOperatorShort is similar to LookupOperator except that it returns the
+// "short" (standalone) types of the direct functions that are attached to each
+// operator. IOW, if you specify "+" and 2, you'll get the sigs for "a" + "b"
+// and 1 + 2, without the third "op" as the first argument.
+func LookupOperatorShort(operator string, size int) ([]*types.Type, error) {
+	fns, exists := OperatorFuncs[operator]
+	if !exists && operator != "" {
+		return nil, fmt.Errorf("operator not found")
+	}
+	results := []*types.Type{}
+
+	for _, fn := range fns {
+		typ := fn.T
+		if len(typ.Ord) != size {
+			continue
+		}
+		results = append(results, typ)
+	}
+
+	return results, nil
+}
+
 // OperatorPolyFunc is an operator function that performs an operation on N
 // values.
 type OperatorPolyFunc struct {
@@ -471,6 +493,249 @@ func (obj *OperatorPolyFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
+// Unify returns the list of invariants that this func produces.
+func (obj *OperatorPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+	var invar interfaces.Invariant
+
+	// func(operator string, args... variant) string
+
+	operatorName, err := obj.ArgGen(0)
+	if err != nil {
+		return nil, err
+	}
+
+	dummyOperator := &interfaces.ExprAny{} // corresponds to the format type
+	dummyOut := &interfaces.ExprAny{}      // corresponds to the out type
+
+	// operator arg type of string
+	invar = &interfaces.EqualsInvariant{
+		Expr: dummyOperator,
+		Type: types.TypeStr,
+	}
+	invariants = append(invariants, invar)
+
+	// return type is currently unknown
+	invar = &interfaces.AnyInvariant{
+		Expr: dummyOut, // make sure to include it so we know it solves
+	}
+	invariants = append(invariants, invar)
+
+	// generator function
+	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+		for _, invariant := range fnInvariants {
+			// search for this special type of invariant
+			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
+			if !ok {
+				continue
+			}
+			// did we find the mapping from us to ExprCall ?
+			if cfavInvar.Func != expr {
+				continue
+			}
+			// cfavInvar.Expr is the ExprCall! (the return pointer)
+			// cfavInvar.Args are the args that ExprCall uses!
+			if len(cfavInvar.Args) == 0 {
+				return nil, fmt.Errorf("unable to build function with no args")
+			}
+			// our operator is the 0th arg, but that's the minimum!
+
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			// add the relationship to the returned value
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// add the relationships to the called args
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Args[0],
+				Expr2: dummyOperator,
+			}
+			invariants = append(invariants, invar)
+
+			// first arg must be a string
+			invar = &interfaces.EqualsInvariant{
+				Expr: cfavInvar.Args[0],
+				Type: types.TypeStr,
+			}
+			invariants = append(invariants, invar)
+
+			value, err := cfavInvar.Args[0].Value() // is it known?
+			if err != nil {
+				return nil, fmt.Errorf("operator string is not known statically")
+			}
+
+			if k := value.Type().Kind; k != types.KindStr {
+				return nil, fmt.Errorf("unable to build function with 0th arg of kind: %s", k)
+			}
+			op := value.Str() // must not panic
+			if op == "" {
+				return nil, fmt.Errorf("unable to build function with empty op")
+			}
+			size := len(cfavInvar.Args) - 1 // -1 to remove the op
+
+			// since built-in functions have their signatures
+			// explicitly defined, we can add easy invariants
+			// between in/out args and their expected types.
+			results, err := LookupOperatorShort(op, size)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "error finding signatures for operator `%s`", op)
+			}
+
+			if len(results) == 0 {
+				return nil, fmt.Errorf("no matching signatures for operator `%s` could be found", op)
+			}
+
+			// helper function to build our complex func invariants
+			buildInvar := func(typ *types.Type) ([]interfaces.Invariant, error) {
+				var invariants []interfaces.Invariant
+				var invar interfaces.Invariant
+				// full function
+				mapped := make(map[string]interfaces.Expr)
+				ordered := []string{operatorName}
+				mapped[operatorName] = dummyOperator
+				// assume this is a types.KindFunc
+				for i, x := range typ.Ord {
+					t := typ.Map[x]
+					if t == nil {
+						// programming error
+						return nil, fmt.Errorf("unexpected func nil arg (%d) type", i)
+					}
+
+					argName, err := obj.ArgGen(i + 1) // skip 0th
+					if err != nil {
+						return nil, err
+					}
+					if argName == operatorArgName {
+						return nil, fmt.Errorf("could not build function with %d args", i+1) // +1 for op arg
+					}
+
+					dummyArg := &interfaces.ExprAny{}
+					invar = &interfaces.EqualsInvariant{
+						Expr: dummyArg,
+						Type: t,
+					}
+					invariants = append(invariants, invar)
+
+					invar = &interfaces.EqualityInvariant{
+						Expr1: dummyArg,
+						Expr2: cfavInvar.Args[i+1],
+					}
+					invariants = append(invariants, invar)
+
+					mapped[argName] = dummyArg
+					ordered = append(ordered, argName)
+				}
+
+				invar = &interfaces.EqualityWrapFuncInvariant{
+					Expr1:    expr, // maps directly to us!
+					Expr2Map: mapped,
+					Expr2Ord: ordered,
+					Expr2Out: dummyOut,
+				}
+				invariants = append(invariants, invar)
+
+				if typ.Out == nil {
+					// programming error
+					return nil, fmt.Errorf("unexpected func nil return type")
+				}
+
+				// remember to add the relationship to the
+				// return type of the functions as well...
+				invar = &interfaces.EqualsInvariant{
+					Expr: dummyOut,
+					Type: typ.Out,
+				}
+				invariants = append(invariants, invar)
+
+				return invariants, nil
+			}
+
+			// argCmp trims down the list of possible types...
+			// this makes our exclusive invariants smaller, and
+			// easier to solve without combinatorial slow recursion
+			argCmp := func(typ *types.Type) bool {
+				if len(cfavInvar.Args)-1 != len(typ.Ord) {
+					return false // arg length differs
+				}
+				for i, x := range cfavInvar.Args[1:] {
+					if t, err := x.Type(); err == nil {
+						if t.Cmp(typ.Map[typ.Ord[i]]) != nil {
+							return false // impossible!
+						}
+					}
+
+					// is the type already known as solved?
+					if t, exists := solved[x]; exists { // alternate way to lookup type
+						if t.Cmp(typ.Map[typ.Ord[i]]) != nil {
+							return false // impossible!
+						}
+					}
+				}
+				return true // possible
+			}
+
+			// TODO: do we return this relationship with ExprCall?
+			invar = &interfaces.EqualityWrapCallInvariant{
+				// TODO: should Expr1 and Expr2 be reversed???
+				Expr1: cfavInvar.Expr,
+				//Expr2Func: cfavInvar.Func, // same as below
+				Expr2Func: expr,
+			}
+			invariants = append(invariants, invar)
+
+			ors := []interfaces.Invariant{} // solve only one from this list
+			for _, typ := range results {   // operator func types
+				if typ.Kind != types.KindFunc {
+					// programming error
+					return nil, fmt.Errorf("type must be a kind of func")
+				}
+
+				if !argCmp(typ) { // filter out impossible types
+					continue // not a possible match
+				}
+
+				invars, err := buildInvar(typ)
+				if err != nil {
+					return nil, err
+				}
+
+				// all of these need to be true together
+				and := &interfaces.ConjunctionInvariant{
+					Invariants: invars,
+				}
+				ors = append(ors, and) // one solution added!
+			}
+			if len(ors) == 0 {
+				return nil, fmt.Errorf("no matching signatures for operator `%s` could be found", op)
+			}
+
+			invar = &interfaces.ExclusiveInvariant{
+				Invariants: ors, // one and only one of these should be true
+			}
+			if len(ors) == 1 {
+				invar = ors[0] // there should only be one
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: are there any other invariants we should build?
+			return invariants, nil // generator return
+		}
+		// We couldn't tell the solver anything it didn't already know!
+		return nil, fmt.Errorf("couldn't generate new invariants")
+	}
+	invar = &interfaces.GeneratorInvariant{
+		Func: fn,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
@@ -504,7 +769,7 @@ func (obj *OperatorPolyFunc) Polymorphisms(partialType *types.Type, partialValue
 	// can add easy invariants between in/out args and their expected types.
 	results, err := LookupOperator(op, size)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "error findings signatures for operator `%s`", op)
+		return nil, errwrap.Wrapf(err, "error finding signatures for operator `%s`", op)
 	}
 
 	// TODO: we can add additional results filtering here if we'd like...

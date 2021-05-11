@@ -111,6 +111,16 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 				return nil, fmt.Errorf("unable to build function with no args")
 			}
 
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			// first arg must be a string
+			invar = &interfaces.EqualsInvariant{
+				Expr: cfavInvar.Args[0],
+				Type: types.TypeStr,
+			}
+			invariants = append(invariants, invar)
+
 			value, err := cfavInvar.Args[0].Value() // is it known?
 			if err != nil {
 				return nil, fmt.Errorf("format string is not known statically")
@@ -130,8 +140,6 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 			ordered := []string{formatName}
 			mapped[formatName] = dummyFormat
 
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
 			for i, x := range typList {
 				argName, err := obj.ArgGen(i + 1) // skip 0th
 				if err != nil {

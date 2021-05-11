@@ -741,7 +741,28 @@ Loop:
 					}
 					used = append(used, i) // mark equality as used up
 				}
-				logf("%s: got %d equalities left after %d used up", Name, len(equalities)-len(used), len(used))
+				logf("%s: got %d equalities left after %d value invariants used up", Name, len(equalities)-len(used), len(used))
+				// delete used equalities, in reverse order to preserve indexing!
+				for i := len(used) - 1; i >= 0; i-- {
+					ix := used[i] // delete index that was marked as used!
+					equalities = append(equalities[:ix], equalities[ix+1:]...)
+				}
+
+				if len(used) > 0 {
+					continue Loop
+				}
+			}
+
+			if len(exclusives) == 0 && isSolved { // old generators
+				used := []int{}
+				for i, x := range equalities {
+					_, ok := x.(*interfaces.GeneratorInvariant)
+					if !ok {
+						continue
+					}
+					used = append(used, i) // mark equality as used up
+				}
+				logf("%s: got %d equalities left after %d generators used up", Name, len(equalities)-len(used), len(used))
 				// delete used equalities, in reverse order to preserve indexing!
 				for i := len(used) - 1; i >= 0; i-- {
 					ix := used[i] // delete index that was marked as used!
@@ -861,10 +882,11 @@ Loop:
 
 			// TODO: print ambiguity
 			logf("%s: ================ ambiguity ================", Name)
+			unsolved, isSolved := isSolvedFn(solved)
+			logf("%s: isSolved: %+v", Name, isSolved)
 			for _, x := range equalities {
 				logf("%s: unsolved equality: %+v", Name, x)
 			}
-			unsolved, _ := isSolvedFn(solved)
 			for x := range unsolved {
 				logf("%s: unsolved expected: %+v", Name, x)
 			}

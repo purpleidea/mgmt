@@ -641,7 +641,18 @@ func (obj *EqualityWrapCallInvariant) Possible(partials []Invariant) error {
 // add-in partial progress, you could have it generate a list of invariants and
 // include a new generator invariant in this list. Be sure to only do this if
 // you are making progress on each invocation, and make sure to avoid infinite
-// looping which isn't something we can currently detect or prevent.
+// looping which isn't something we can currently detect or prevent. One special
+// bit about generators and returning a partial: you must always return the
+// minimum set of expressions that need to be solved in the first Unify() call
+// that also returns the very first generator. This is because you must not rely
+// on the generator to tell the solver about new expressions that it *also*
+// wants solved. This is because after the initial (pre-generator-running)
+// collection of the invariants, we need to be able to build a list of all the
+// expressions that need to be solved for us to consider the problem "done". If
+// a new expression only appeared after we ran a generator, then this would
+// require our solver be far more complicated than it needs to be and currently
+// is. Besides, there's no reason (that I know of at the moment) that needs this
+// sort of invariant that only appears after the solver is running.
 //
 // NOTE: We might *consider* an optimization where we return a different kind of
 // error that represents a response of "impossible". This would mean that there

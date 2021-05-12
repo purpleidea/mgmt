@@ -1,0 +1,6 @@
+import "fmt"
+import "math"
+# FIXME: floats don't print nicely: https://github.com/golang/go/issues/46118
+# FIXME: This means that we see "42" for both, instead of 42.0 ...
+test fmt.printf("int: %d", math.fortytwo()) {}
+test fmt.printf("float: %f", math.fortytwo()) {}

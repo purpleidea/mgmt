@@ -379,6 +379,14 @@ func (obj *PrintfFunc) Close() error {
 // valueToString prints our values how we expect for printf.
 // FIXME: if this turns out to be useful, add it to the types package.
 func valueToString(value types.Value) string {
+	switch x := value.Type().Kind; x {
+	// FIXME: floats don't print nicely: https://github.com/golang/go/issues/46118
+	case types.KindFloat:
+		// TODO: use formatting flags ?
+		// FIXME: Our String() method in FloatValue doesn't print nicely
+		return value.String()
+	}
+
 	// FIXME: this is just an "easy-out" implementation for now...
 	return fmt.Sprintf("%v", value.Value())
 

@@ -708,6 +708,7 @@ func NewFloat() *FloatValue { return &FloatValue{} }
 // String returns a visual representation of this value.
 func (obj *FloatValue) String() string {
 	// TODO: is this the right display mode?
+	// FIXME: floats don't print nicely: https://github.com/golang/go/issues/46118
 	return strconv.FormatFloat(obj.V, 'f', -1, 64) // -1 for exact precision
 }
 

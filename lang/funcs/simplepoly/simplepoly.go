@@ -140,6 +140,215 @@ func (obj *WrappedFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
+// Unify returns the list of invariants that this func produces.
+func (obj *WrappedFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+	if len(obj.Fns) == 0 {
+		return nil, fmt.Errorf("no matching signatures for simple polyfunc")
+	}
+
+	var invariants []interfaces.Invariant
+	var invar interfaces.Invariant
+
+	// Special case to help it solve faster. We still include the generator,
+	// in the chance that the relationship between the args is an important
+	// linkage that we should be specifying somehow...
+	if len(obj.Fns) == 1 {
+		fn := obj.Fns[0]
+		if fn == nil {
+			// programming error
+			return nil, fmt.Errorf("simple poly function value is nil")
+		}
+		typ := fn.T
+		if typ == nil {
+			// programming error
+			return nil, fmt.Errorf("simple poly function type is nil")
+		}
+		invar = &interfaces.EqualsInvariant{
+			Expr: expr,
+			Type: typ,
+		}
+		invariants = append(invariants, invar)
+	}
+
+	dummyOut := &interfaces.ExprAny{} // corresponds to the out type
+
+	// return type is currently unknown
+	invar = &interfaces.AnyInvariant{
+		Expr: dummyOut, // make sure to include it so we know it solves
+	}
+	invariants = append(invariants, invar)
+
+	// generator function
+	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+		for _, invariant := range fnInvariants {
+			// search for this special type of invariant
+			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
+			if !ok {
+				continue
+			}
+			// did we find the mapping from us to ExprCall ?
+			if cfavInvar.Func != expr {
+				continue
+			}
+			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Args are the args that ExprCall uses!
+			// any number of args are permitted
+
+			// helper function to build our complex func invariants
+			buildInvar := func(typ *types.Type) ([]interfaces.Invariant, error) {
+				var invariants []interfaces.Invariant
+				var invar interfaces.Invariant
+				// full function
+				mapped := make(map[string]interfaces.Expr)
+				ordered := []string{}
+				// assume this is a types.KindFunc
+				for i, x := range typ.Ord {
+					t := typ.Map[x]
+					if t == nil {
+						// programming error
+						return nil, fmt.Errorf("unexpected func nil arg (%d) type", i)
+					}
+
+					argName, err := obj.ArgGen(i)
+					if err != nil {
+						return nil, err
+					}
+
+					dummyArg := &interfaces.ExprAny{}
+					invar = &interfaces.EqualsInvariant{
+						Expr: dummyArg,
+						Type: t,
+					}
+					invariants = append(invariants, invar)
+
+					invar = &interfaces.EqualityInvariant{
+						Expr1: dummyArg,
+						Expr2: cfavInvar.Args[i],
+					}
+					invariants = append(invariants, invar)
+
+					mapped[argName] = dummyArg
+					ordered = append(ordered, argName)
+				}
+
+				invar = &interfaces.EqualityWrapFuncInvariant{
+					Expr1:    expr, // maps directly to us!
+					Expr2Map: mapped,
+					Expr2Ord: ordered,
+					Expr2Out: dummyOut,
+				}
+				invariants = append(invariants, invar)
+
+				if typ.Out == nil {
+					// programming error
+					return nil, fmt.Errorf("unexpected func nil return type")
+				}
+
+				// remember to add the relationship to the
+				// return type of the functions as well...
+				invar = &interfaces.EqualsInvariant{
+					Expr: dummyOut,
+					Type: typ.Out,
+				}
+				invariants = append(invariants, invar)
+
+				return invariants, nil
+			}
+
+			// argCmp trims down the list of possible types...
+			// this makes our exclusive invariants smaller, and
+			// easier to solve without combinatorial slow recursion
+			argCmp := func(typ *types.Type) bool {
+				if len(cfavInvar.Args) != len(typ.Ord) {
+					return false // arg length differs
+				}
+				for i, x := range cfavInvar.Args {
+					if t, err := x.Type(); err == nil {
+						if t.Cmp(typ.Map[typ.Ord[i]]) != nil {
+							return false // impossible!
+						}
+					}
+
+					// is the type already known as solved?
+					if t, exists := solved[x]; exists { // alternate way to lookup type
+						if t.Cmp(typ.Map[typ.Ord[i]]) != nil {
+							return false // impossible!
+						}
+					}
+				}
+				return true // possible
+			}
+
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			ors := []interfaces.Invariant{} // solve only one from this list
+			for _, f := range obj.Fns {     // operator func types
+				typ := f.T
+				if typ == nil {
+					return nil, fmt.Errorf("nil type signature found")
+				}
+				if typ.Kind != types.KindFunc {
+					// programming error
+					return nil, fmt.Errorf("type must be a kind of func")
+				}
+
+				if !argCmp(typ) { // filter out impossible types
+					continue // not a possible match
+				}
+
+				invars, err := buildInvar(typ)
+				if err != nil {
+					return nil, err
+				}
+
+				// all of these need to be true together
+				and := &interfaces.ConjunctionInvariant{
+					Invariants: invars,
+				}
+				ors = append(ors, and) // one solution added!
+			}
+			if len(ors) == 0 {
+				return nil, fmt.Errorf("no matching signatures for simple poly func could be found")
+			}
+
+			// TODO: To improve the filtering, it would be
+			// excellent if we could examine the return type in
+			// `solved` somehow (if it is known) and use that to
+			// trim our list of exclusives down even further! The
+			// smaller the exclusives are, the faster everything in
+			// the solver can run.
+			invar = &interfaces.ExclusiveInvariant{
+				Invariants: ors, // one and only one of these should be true
+			}
+			if len(ors) == 1 {
+				invar = ors[0] // there should only be one
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: do we return this relationship with ExprCall?
+			invar = &interfaces.EqualityWrapCallInvariant{
+				// TODO: should Expr1 and Expr2 be reversed???
+				Expr1: cfavInvar.Expr,
+				//Expr2Func: cfavInvar.Func, // same as below
+				Expr2Func: expr,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: are there any other invariants we should build?
+			return invariants, nil // generator return
+		}
+		// We couldn't tell the solver anything it didn't already know!
+		return nil, fmt.Errorf("couldn't generate new invariants")
+	}
+	invar = &interfaces.GeneratorInvariant{
+		Func: fn,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.

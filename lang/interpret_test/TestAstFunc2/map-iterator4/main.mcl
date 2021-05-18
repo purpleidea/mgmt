@@ -1,0 +1,13 @@
+import "iter"
+
+$in = ["a", "bb", "ccc", "dddd", "eeeee",]
+
+# the inline lambda format is more readable with the func as the second arg
+$out = iter.xmap($in, func($x) {
+	len($x)
+
+}) # XXX: change to map
+
+$t = template("out: {{ . }}", $out)
+
+test $t {}

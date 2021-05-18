@@ -11,10 +11,10 @@ $fn = func($x) {
 $in1 = [5, 4, 3, 2, 1,]
 $in2 = ["a", "b", "c", "d", "e",]
 
-$out1 = iter.xmap($fn, $in1) # XXX: change to map
-$out2 = iter.xmap($fn, $in2) # XXX: change to map
-$out3 = iterxmap($fn, $in1) # XXX: change to map
-$out4 = iterxmap($fn, $in2) # XXX: change to map
+$out1 = iter.xmap($in1, $fn) # XXX: change to map
+$out2 = iter.xmap($in2, $fn) # XXX: change to map
+$out3 = iterxmap($in1, $fn) # XXX: change to map
+$out4 = iterxmap($in2, $fn) # XXX: change to map
 
 $t1 = template("out1: {{ . }}", $out1)
 $t2 = template("out2: {{ . }}", $out2)

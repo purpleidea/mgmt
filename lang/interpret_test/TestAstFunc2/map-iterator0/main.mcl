@@ -1,0 +1,13 @@
+import "iter"
+
+$fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
+	len($x)
+}
+
+$in1 = ["a", "bb", "ccc", "dddd", "eeeee",]
+
+$out1 = iter.xmap($in1, $fn) # XXX: change to map
+
+$t1 = template("out1: {{ . }}", $out1)
+
+test $t1 {}

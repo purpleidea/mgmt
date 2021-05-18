@@ -72,6 +72,13 @@ func Register(name string, fn func() interfaces.Func) {
 	//	panic(fmt.Sprintf("a func named %s is invalid", name))
 	//}
 
+	fnx := fn() // check that all functions have migrated to the new API!
+	if _, ok := fnx.(interfaces.OldPolyFunc); ok {
+		if _, ok := fnx.(interfaces.PolyFunc); !ok {
+			panic(fmt.Sprintf("a func named %s implements OldPolyFunc but not PolyFunc", name))
+		}
+	}
+
 	//gob.Register(fn())
 	registeredFuncs[name] = fn
 }

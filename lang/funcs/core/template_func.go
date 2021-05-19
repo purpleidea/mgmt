@@ -87,6 +87,8 @@ func (obj *TemplateFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, er
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
+	// func(format string) string
+	// OR
 	// func(format string, arg variant) string
 
 	formatName, err := obj.ArgGen(0)
@@ -123,7 +125,7 @@ func (obj *TemplateFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, er
 			if cfavInvar.Func != expr {
 				continue
 			}
-			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Expr is the ExprCall! (the return pointer)
 			// cfavInvar.Args are the args that ExprCall uses!
 			if len(cfavInvar.Args) == 0 {
 				return nil, fmt.Errorf("unable to build function with no args")
@@ -135,6 +137,20 @@ func (obj *TemplateFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, er
 
 			var invariants []interfaces.Invariant
 			var invar interfaces.Invariant
+
+			// add the relationship to the returned value
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// add the relationships to the called args
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Args[0],
+				Expr2: dummyFormat,
+			}
+			invariants = append(invariants, invar)
 
 			// first arg must be a string
 			invar = &interfaces.EqualsInvariant{
@@ -167,6 +183,14 @@ func (obj *TemplateFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, er
 
 				// speculate about the type? (maybe redundant)
 				if typ, err := cfavInvar.Args[1].Type(); err == nil {
+					invar := &interfaces.EqualsInvariant{
+						Expr: dummyArg,
+						Type: typ,
+					}
+					invariants = append(invariants, invar)
+				}
+
+				if typ, exists := solved[cfavInvar.Args[1]]; exists { // alternate way to lookup type
 					invar := &interfaces.EqualsInvariant{
 						Expr: dummyArg,
 						Type: typ,

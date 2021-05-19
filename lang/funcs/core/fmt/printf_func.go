@@ -105,7 +105,7 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 			if cfavInvar.Func != expr {
 				continue
 			}
-			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Expr is the ExprCall! (the return pointer)
 			// cfavInvar.Args are the args that ExprCall uses!
 			if len(cfavInvar.Args) == 0 {
 				return nil, fmt.Errorf("unable to build function with no args")
@@ -114,12 +114,37 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 			var invariants []interfaces.Invariant
 			var invar interfaces.Invariant
 
+			// add the relationship to the returned value
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// add the relationships to the called args
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Args[0],
+				Expr2: dummyFormat,
+			}
+			invariants = append(invariants, invar)
+
 			// first arg must be a string
 			invar = &interfaces.EqualsInvariant{
 				Expr: cfavInvar.Args[0],
 				Type: types.TypeStr,
 			}
 			invariants = append(invariants, invar)
+
+			// XXX: We could add an alternate mode for this
+			// function where instead of knowing args[0]
+			// statically, if we happen to know all of the input
+			// arg types, we build the function, without verifying
+			// that the format string is valid... In this case, if
+			// it was built dynamically or happened to not be in
+			// the right format, we'd just print out some yucky
+			// result. The golang printf does something similar
+			// when it can't catch things statically at compile
+			// time.
 
 			value, err := cfavInvar.Args[0].Value() // is it known?
 			if err != nil {
@@ -150,9 +175,16 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 				}
 
 				dummyArg := &interfaces.ExprAny{}
-				invar := &interfaces.EqualsInvariant{
+				invar = &interfaces.EqualsInvariant{
 					Expr: dummyArg,
 					Type: x,
+				}
+				invariants = append(invariants, invar)
+
+				// add the relationships to the called args
+				invar = &interfaces.EqualityInvariant{
+					Expr1: cfavInvar.Args[i+1],
+					Expr2: dummyArg,
 				}
 				invariants = append(invariants, invar)
 

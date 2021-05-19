@@ -59,6 +59,241 @@ func (obj *StructLookupPolyFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
+// Unify returns the list of invariants that this func produces.
+func (obj *StructLookupPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+	var invar interfaces.Invariant
+
+	// func(struct T1, field str) T2
+
+	structName, err := obj.ArgGen(0)
+	if err != nil {
+		return nil, err
+	}
+
+	fieldName, err := obj.ArgGen(1)
+	if err != nil {
+		return nil, err
+	}
+
+	dummyStruct := &interfaces.ExprAny{} // corresponds to the struct type
+	dummyField := &interfaces.ExprAny{}  // corresponds to the field type
+	dummyOut := &interfaces.ExprAny{}    // corresponds to the out string
+
+	// field arg type of string
+	invar = &interfaces.EqualsInvariant{
+		Expr: dummyField,
+		Type: types.TypeStr,
+	}
+	invariants = append(invariants, invar)
+
+	// XXX: we could use this relationship *if* our solver could understand
+	// different fields, and partial struct matches. I guess we'll leave it
+	// for another day!
+	//mapped := make(map[string]interfaces.Expr)
+	//ordered := []string{???}
+	//mapped[???] = dummyField
+	//invar = &interfaces.EqualityWrapStructInvariant{
+	//	Expr1:    dummyStruct,
+	//	Expr2Map: mapped,
+	//	Expr2Ord: ordered,
+	//}
+	//invariants = append(invariants, invar)
+
+	// full function
+	mapped := make(map[string]interfaces.Expr)
+	ordered := []string{structName, fieldName}
+	mapped[structName] = dummyStruct
+	mapped[fieldName] = dummyField
+
+	invar = &interfaces.EqualityWrapFuncInvariant{
+		Expr1:    expr, // maps directly to us!
+		Expr2Map: mapped,
+		Expr2Ord: ordered,
+		Expr2Out: dummyOut,
+	}
+	invariants = append(invariants, invar)
+
+	// generator function
+	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+		for _, invariant := range fnInvariants {
+			// search for this special type of invariant
+			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
+			if !ok {
+				continue
+			}
+			// did we find the mapping from us to ExprCall ?
+			if cfavInvar.Func != expr {
+				continue
+			}
+			// cfavInvar.Expr is the ExprCall! (the return pointer)
+			// cfavInvar.Args are the args that ExprCall uses!
+			if l := len(cfavInvar.Args); l != 2 {
+				return nil, fmt.Errorf("unable to build function with %d args", l)
+			}
+
+			// add the relationship to the returned value
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// add the relationships to the called args
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Args[0],
+				Expr2: dummyStruct,
+			}
+			invariants = append(invariants, invar)
+
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Args[1],
+				Expr2: dummyField,
+			}
+			invariants = append(invariants, invar)
+
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			// second arg must be a string
+			invar = &interfaces.EqualsInvariant{
+				Expr: cfavInvar.Args[1],
+				Type: types.TypeStr,
+			}
+			invariants = append(invariants, invar)
+
+			value, err := cfavInvar.Args[1].Value() // is it known?
+			if err != nil {
+				return nil, fmt.Errorf("field string is not known statically")
+			}
+
+			if k := value.Type().Kind; k != types.KindStr {
+				return nil, fmt.Errorf("unable to build function with 1st arg of kind: %s", k)
+			}
+			field := value.Str() // must not panic
+
+			// If we figure out both of these two types, we'll know
+			// the full type...
+			var t1 *types.Type // struct type
+			var t2 *types.Type // return type
+
+			// validateArg0 checks: struct T1
+			validateArg0 := func(typ *types.Type) error {
+				if typ == nil { // unknown so far
+					return nil
+				}
+
+				// we happen to have a struct!
+				if k := typ.Kind; k != types.KindStruct {
+					return fmt.Errorf("unable to build function with 0th arg of kind: %s", k)
+				}
+
+				// check both Ord and Map for safety
+				found := false
+				for _, s := range typ.Ord {
+					if s == field {
+						found = true
+						break
+					}
+				}
+				t, exists := typ.Map[field] // type found is T2
+				if !exists || !found {
+					return fmt.Errorf("struct is missing field: %s", field)
+				}
+
+				if err := typ.Cmp(t1); t1 != nil && err != nil {
+					return errwrap.Wrapf(err, "input type was inconsistent")
+				}
+
+				if err := t.Cmp(t2); t2 != nil && err != nil {
+					return errwrap.Wrapf(err, "input type was inconsistent")
+				}
+
+				// learn!
+				t1 = typ
+				t2 = t
+				return nil
+			}
+
+			if typ, err := cfavInvar.Args[0].Type(); err == nil { // is it known?
+				// this sets t1 and t2 on success if it learned
+				if err := validateArg0(typ); err != nil {
+					return nil, errwrap.Wrapf(err, "first struct arg type is inconsistent")
+				}
+			}
+			if typ, exists := solved[cfavInvar.Args[0]]; exists { // alternate way to lookup type
+				// this sets t1 and t2 on success if it learned
+				if err := validateArg0(typ); err != nil {
+					return nil, errwrap.Wrapf(err, "first struct arg type is inconsistent")
+				}
+			}
+
+			// XXX: if the struct type/value isn't know statically?
+
+			if t1 != nil {
+				invar = &interfaces.EqualsInvariant{
+					Expr: dummyStruct,
+					Type: t1,
+				}
+				invariants = append(invariants, invar)
+
+				// We know *some* information about the struct!
+				// XXX: uncomment this if we're sure that the
+				// unusedField expr won't trip up the solver...
+				mapped := make(map[string]interfaces.Expr)
+				ordered := []string{}
+				for _, x := range t1.Ord {
+					// We *don't* need to solve dummyField!
+					unusedField := &interfaces.ExprAny{}
+					mapped[x] = unusedField
+					if x == field { // the one we care about
+						mapped[x] = dummyField
+					}
+					ordered = append(ordered, x)
+				}
+				mapped[field] = dummyField // redundant =D
+				invar = &interfaces.EqualityWrapStructInvariant{
+					Expr1:    dummyStruct,
+					Expr2Map: mapped,
+					Expr2Ord: ordered,
+				}
+				invariants = append(invariants, invar)
+			}
+			if t2 != nil {
+				invar := &interfaces.EqualsInvariant{
+					Expr: dummyOut,
+					Type: t2,
+				}
+				invariants = append(invariants, invar)
+			}
+
+			// XXX: if t1 or t2 are missing, we could also return a
+			// new generator for later if we learn new information,
+			// but we'd have to be careful to not do the infinitely
+
+			// TODO: do we return this relationship with ExprCall?
+			invar = &interfaces.EqualityWrapCallInvariant{
+				// TODO: should Expr1 and Expr2 be reversed???
+				Expr1: cfavInvar.Expr,
+				//Expr2Func: cfavInvar.Func, // same as below
+				Expr2Func: expr,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: are there any other invariants we should build?
+			return invariants, nil // generator return
+		}
+		// We couldn't tell the solver anything it didn't already know!
+		return nil, fmt.Errorf("couldn't generate new invariants")
+	}
+	invar = &interfaces.GeneratorInvariant{
+		Func: fn,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.

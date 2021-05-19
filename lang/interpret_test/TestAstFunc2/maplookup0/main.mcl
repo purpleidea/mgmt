@@ -1,0 +1,11 @@
+$map1 map{int: str} = {42 => "hello1",}
+test maplookup($map1, 42, "not found") {}
+
+$map2 map{int: str} = {42 => "hello2",}
+test maplookup($map2, 13, "world2") {}
+
+$map3 = {42 => "hello3",}
+test maplookup($map3, 42, "not found") {}
+
+$map4 = {42 => "hello4",}
+test maplookup($map4, 13, "world4") {}

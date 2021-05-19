@@ -43,6 +43,9 @@ import (
 const (
 	// DefaultStrategy is the strategy to use if none has been specified.
 	DefaultStrategy = "rr"
+
+	argNameNamespace = "namespace"
+	argNameOpts      = "opts"
 )
 
 func init() {
@@ -78,7 +81,7 @@ func (obj *SchedulePolyFunc) validOpts() map[string]*types.Type {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *SchedulePolyFunc) ArgGen(index int) (string, error) {
-	seq := []string{"namespace", "opts"} // 2nd arg is optional
+	seq := []string{argNameNamespace, argNameOpts} // 2nd arg is optional
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -287,13 +290,13 @@ func (obj *SchedulePolyFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			namespace := input.Struct()["namespace"].Str()
+			namespace := input.Struct()[argNameNamespace].Str()
 			if namespace == "" {
 				return fmt.Errorf("can't use an empty namespace")
 			}
 
 			opts := make(map[string]types.Value) // empty "struct"
-			if val, exists := input.Struct()["opts"]; exists {
+			if val, exists := input.Struct()[argNameOpts]; exists {
 				opts = val.Struct()
 			}
 

@@ -7088,37 +7088,36 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 	// TODO: should we try and add invariants for obj.Args?
 
+	// We don't want to Unify against the *original* ExprFunc pointer, since
+	// we want the copy of it which is what ExprCall points to. We don't
+	// call this Unify() method from anywhere except from when it's within
+	// an ExprCall. We don't call it from StmtFunc which is just a container
+	// for it. This is basically used as a helper function! By the time this
+	// is called, we've already made an obj.function which is the copied,
+	// instantiated version of obj.Function that we are going to use.
 	if obj.Function != nil {
-		// XXX: can we add anything here, perhaps this?
-		fn := obj.Function()
-		_, ok1 := fn.(interfaces.PolyFunc)                    // is it statically polymorphic?
-		unifiedPolyFn, ok2 := fn.(interfaces.UnifiedPolyFunc) // is it statically polymorphic?
-		if !ok1 && !ok2 {
-			sig := fn.Info().Sig
-			if sig != nil && !sig.HasVariant() {
-				invar := &interfaces.EqualsInvariant{
-					Expr: obj,
-					Type: sig,
-				}
-				invariants = append(invariants, invar)
-			}
-
-		} else if ok2 { // XXX: try the new interface for now
+		fn := obj.function                     // instantiated copy of obj.Function
+		polyFn, ok := fn.(interfaces.PolyFunc) // is it statically polymorphic?
+		if ok {
 			// We just run the Unify() method of the ExprFunc if it
 			// happens to have one. Get the list of Invariants, and
 			// return them directly.
-			invars, err := unifiedPolyFn.Unify(obj)
+			invars, err := polyFn.Unify(obj)
 			if err != nil {
 				return nil, err
 			}
 			invariants = append(invariants, invars...)
+		}
 
-		} else {
-			// XXX: ignore this part for now... plan on deprecating it
-			//results, err := polyFn.Polymorphisms(nil, nil) // TODO: is this okay?
-			//if err == nil {
-			//	// TODO: build an exclusive here...
-			//}
+		// It's okay to attempt to get a static signature too, if it's
+		// nil or has a variant (polymorphic funcs) then it's ignored.
+		sig := fn.Info().Sig
+		if sig != nil && !sig.HasVariant() {
+			invar := &interfaces.EqualsInvariant{
+				Expr: obj,
+				Type: sig,
+			}
+			invariants = append(invariants, invar)
 		}
 	}
 
@@ -7974,20 +7973,30 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 
 	var polyFn interfaces.PolyFunc
 	var ok bool
-	// do we have a special case like the operator or template function?
 	if fn.Function != nil {
 		polyFn, ok = fn.function.(interfaces.PolyFunc) // is it statically polymorphic?
 	}
 
 	if fn.Function != nil && ok {
-		var err error
-		results, err = polyFn.Polymorphisms(partialType, partialValues)
+		// We just run the Unify() method of the ExprFunc if it happens
+		// to have one. Get the list of Invariants, and return them
+		// directly. We want to run this unification inside of ExprCall
+		// and not in ExprFunc, because it's only in ExprCall that we
+		// have the instantiated copy of the ExprFunc that we actually
+		// build and unify against and which has the correct pointer
+		// now, where as the ExprFunc pointer isn't what we unify with!
+		invars, err := polyFn.Unify(obj.expr)
 		if err != nil {
-			return nil, errwrap.Wrapf(err, "polymorphic signatures for func `%s` could not be found", obj.Name)
+			return nil, errwrap.Wrapf(err, "polymorphic unification for func `%s` could not be done", obj.Name)
 		}
+		invariants = append(invariants, invars...)
 
 	} else if fn.Function != nil && !ok {
 		sig := fn.function.Info().Sig
+		if sig == nil {
+			// this can happen if it's incorrectly implemented
+			return nil, errwrap.Wrapf(err, "unification for func `%s` returned nil signature", obj.Name)
+		}
 		results = []*types.Type{sig} // only one (non-polymorphic)
 	}
 

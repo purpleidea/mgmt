@@ -66,23 +66,21 @@ type Func interface {
 	Close() error
 }
 
-// UnifiedPolyFunc is an interface for functions which are statically
-// polymorphic. In other words, they are functions which before compile time are
-// polymorphic, but after a successful compilation have a fixed static
-// signature. This makes implementing what would appear to be generic or
-// polymorphic instead something that is actually static and that still has the
-// language safety properties. Our engine requires that by the end of
-// compilation, everything is static. This is needed so that values can flow
-// safely along the DAG that represents their execution. If the types could
-// change, then we wouldn't be able to safely pass values around.
+// PolyFunc is an interface for functions which are statically polymorphic. In
+// other words, they are functions which before compile time are polymorphic,
+// but after a successful compilation have a fixed static signature. This makes
+// implementing what would appear to be generic or polymorphic instead something
+// that is actually static and that still has the language safety properties.
+// Our engine requires that by the end of compilation, everything is static.
+// This is needed so that values can flow safely along the DAG that represents
+// their execution. If the types could change, then we wouldn't be able to
+// safely pass values around.
 //
-// XXX: This interface is similar to PolyFunc, except that it uses a Unify
+// NOTE: This interface is similar to OldPolyFunc, except that it uses a Unify
 // method that works differently than the original Polymorphisms method. This
 // allows us to build invariants that are used directly by the type unification
-// solver. If this new approach is more successful, then we will rename the
-// UnifiedPolyFunc to PolyFunc. This interface is subject to change because this
-// is currently not properly tested.
-type UnifiedPolyFunc interface { // XXX: name this "PolyFunc" and remove or wrap the old interface?
+// solver.
+type PolyFunc interface {
 	Func // implement everything in Func but add the additional requirements
 
 	// Unify returns the list of invariants that this func produces. It is a
@@ -109,12 +107,12 @@ type UnifiedPolyFunc interface { // XXX: name this "PolyFunc" and remove or wrap
 	Build(*types.Type) error // then, you can get argNames from Info()
 }
 
-// PolyFunc is an interface for functions which are statically polymorphic. In
-// other words, they are functions which before compile time are polymorphic,
+// OldPolyFunc is an interface for functions which are statically polymorphic.
+// In other words, they are functions which before compile time are polymorphic,
 // but after a successful compilation have a fixed static signature. This makes
 // implementing what would appear to be generic or polymorphic instead something
 // that is actually static and that still has the language safety properties.
-type PolyFunc interface {
+type OldPolyFunc interface {
 	Func // implement everything in Func but add the additional requirements
 
 	// Polymorphisms returns a list of possible function type signatures. It

@@ -68,23 +68,26 @@ func (obj *CallFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *CallFunc) Info() *interfaces.Info {
-	typ := &types.Type{
-		Kind: types.KindFunc, // function type
-		Map:  make(map[string]*types.Type),
-		Ord:  []string{},
-		Out:  obj.Type, // this is the output type for the expression
-	}
+	var typ *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		typ = &types.Type{
+			Kind: types.KindFunc, // function type
+			Map:  make(map[string]*types.Type),
+			Ord:  []string{},
+			Out:  obj.Type, // this is the output type for the expression
+		}
 
-	sig := obj.FuncType
-	if obj.Edge != "" {
-		typ.Map[obj.Edge] = sig // we get a function in
-		typ.Ord = append(typ.Ord, obj.Edge)
-	}
+		sig := obj.FuncType
+		if obj.Edge != "" {
+			typ.Map[obj.Edge] = sig // we get a function in
+			typ.Ord = append(typ.Ord, obj.Edge)
+		}
 
-	// add any incoming args
-	for _, key := range sig.Ord { // sig.Out, not sig!
-		typ.Map[key] = sig.Map[key]
-		typ.Ord = append(typ.Ord, key)
+		// add any incoming args
+		for _, key := range sig.Ord { // sig.Out, not sig!
+			typ.Map[key] = sig.Map[key]
+			typ.Ord = append(typ.Ord, key)
+		}
 	}
 
 	return &interfaces.Info{

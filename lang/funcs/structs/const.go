@@ -42,10 +42,16 @@ func (obj *ConstFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *ConstFunc) Info() *interfaces.Info {
+	var typ *types.Type
+	if obj.Value != nil { // don't panic if called speculatively
+		if t := obj.Value.Type(); t != nil {
+			typ = types.NewType(fmt.Sprintf("func() %s", t.String()))
+		}
+	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false, // TODO: ???
-		Sig:  types.NewType(fmt.Sprintf("func() %s", obj.Value.Type().String())),
+		Sig:  typ,
 		Err:  obj.Validate(), // XXX: implement this and check .Err in engine!
 	}
 }

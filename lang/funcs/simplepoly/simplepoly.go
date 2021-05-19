@@ -218,14 +218,15 @@ func (obj *WrappedFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *WrappedFunc) Info() *interfaces.Info {
-	var sig *types.Type
+	var typ *types.Type
 	if obj.fn != nil { // don't panic if called speculatively
-		sig = obj.fn.Type()
+		typ = obj.fn.Type()
 	}
+
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false, // TODO: should this be something we specify here?
-		Sig:  sig,
+		Sig:  typ,
 		Err:  obj.Validate(),
 	}
 }

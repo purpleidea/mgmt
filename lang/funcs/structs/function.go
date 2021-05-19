@@ -82,17 +82,20 @@ func (obj *FunctionFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *FunctionFunc) Info() *interfaces.Info {
-	typ := &types.Type{
-		Kind: types.KindFunc, // function type
-		Map:  make(map[string]*types.Type),
-		Ord:  []string{},
-		Out:  obj.Type, // after the function is called it's this...
-	}
+	var typ *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		typ = &types.Type{
+			Kind: types.KindFunc, // function type
+			Map:  make(map[string]*types.Type),
+			Ord:  []string{},
+			Out:  obj.Type, // after the function is called it's this...
+		}
 
-	// type of body is what we'd get by running the function (what's inside)
-	if obj.Edge != "" {
-		typ.Map[obj.Edge] = obj.Type.Out
-		typ.Ord = append(typ.Ord, obj.Edge)
+		// type of body is what we'd get by running the function (what's inside)
+		if obj.Edge != "" {
+			typ.Map[obj.Edge] = obj.Type.Out
+			typ.Ord = append(typ.Ord, obj.Edge)
+		}
 	}
 
 	pure := true // assume true

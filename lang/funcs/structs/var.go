@@ -52,11 +52,14 @@ func (obj *VarFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *VarFunc) Info() *interfaces.Info {
-	typ := &types.Type{
-		Kind: types.KindFunc, // function type
-		Map:  map[string]*types.Type{obj.Edge: obj.Type},
-		Ord:  []string{obj.Edge},
-		Out:  obj.Type, // this is the output type for the expression
+	var typ *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		typ = &types.Type{
+			Kind: types.KindFunc, // function type
+			Map:  map[string]*types.Type{obj.Edge: obj.Type},
+			Ord:  []string{obj.Edge},
+			Out:  obj.Type, // this is the output type for the expression
+		}
 	}
 
 	return &interfaces.Info{

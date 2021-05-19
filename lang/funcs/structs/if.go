@@ -46,15 +46,18 @@ func (obj *IfFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *IfFunc) Info() *interfaces.Info {
-	typ := &types.Type{
-		Kind: types.KindFunc, // function type
-		Map: map[string]*types.Type{
-			"c": types.TypeBool, // conditional must be a boolean
-			"a": obj.Type,       // true branch must be this type
-			"b": obj.Type,       // false branch must be this type too
-		},
-		Ord: []string{"c", "a", "b"}, // conditional, and two branches
-		Out: obj.Type,                // result type must match
+	var typ *types.Type
+	if obj.Type != nil { // don't panic if called speculatively
+		typ = &types.Type{
+			Kind: types.KindFunc, // function type
+			Map: map[string]*types.Type{
+				"c": types.TypeBool, // conditional must be a boolean
+				"a": obj.Type,       // true branch must be this type
+				"b": obj.Type,       // false branch must be this type too
+			},
+			Ord: []string{"c", "a", "b"}, // conditional, and two branches
+			Out: obj.Type,                // result type must match
+		}
 	}
 
 	return &interfaces.Info{

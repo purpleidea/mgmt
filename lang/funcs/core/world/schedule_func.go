@@ -32,6 +32,7 @@ package coreworld
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/purpleidea/mgmt/etcd/scheduler" // TODO: is it okay to import this without abstraction?
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -44,6 +45,14 @@ const (
 	// DefaultStrategy is the strategy to use if none has been specified.
 	DefaultStrategy = "rr"
 
+	// StrictScheduleOpts specifies whether the opts passed into the
+	// scheduler must be strictly what we're expecting, and nothing more.
+	// If this was false, then we'd allow an opts struct that had a field
+	// that wasn't used by the scheduler. This could be useful if we need to
+	// migrate to a newer version of the function. It's probably best to
+	// keep this strict.
+	StrictScheduleOpts = true
+
 	argNameNamespace = "namespace"
 	argNameOpts      = "opts"
 )
@@ -55,7 +64,9 @@ func init() {
 // SchedulePolyFunc is special function which determines where code should run
 // in the cluster.
 type SchedulePolyFunc struct {
-	Type *types.Type // this is the type of value stored in our list
+	Type *types.Type // this is the type of opts used if specified
+
+	built bool // was this function built yet?
 
 	init *interfaces.Init
 
@@ -86,6 +97,190 @@ func (obj *SchedulePolyFunc) ArgGen(index int) (string, error) {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
 	return seq[index], nil
+}
+
+// Unify returns the list of invariants that this func produces.
+func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+	var invar interfaces.Invariant
+
+	// func(namespace str) []str
+	// OR
+	// func(namespace str, opts T1) []str
+
+	namespaceName, err := obj.ArgGen(0)
+	if err != nil {
+		return nil, err
+	}
+
+	dummyNamespace := &interfaces.ExprAny{} // corresponds to the namespace type
+	dummyOut := &interfaces.ExprAny{}       // corresponds to the out string
+
+	// namespace arg type of string
+	invar = &interfaces.EqualsInvariant{
+		Expr: dummyNamespace,
+		Type: types.TypeStr,
+	}
+	invariants = append(invariants, invar)
+
+	// return type of []string
+	invar = &interfaces.EqualsInvariant{
+		Expr: dummyOut,
+		Type: types.NewType("[]str"),
+	}
+	invariants = append(invariants, invar)
+
+	// generator function
+	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+		for _, invariant := range fnInvariants {
+			// search for this special type of invariant
+			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
+			if !ok {
+				continue
+			}
+			// did we find the mapping from us to ExprCall ?
+			if cfavInvar.Func != expr {
+				continue
+			}
+			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Args are the args that ExprCall uses!
+			if len(cfavInvar.Args) == 0 {
+				return nil, fmt.Errorf("unable to build function with no args")
+			}
+			if l := len(cfavInvar.Args); l > 2 {
+				return nil, fmt.Errorf("unable to build function with %d args", l)
+			}
+			// we can either have one arg or two
+
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			// add the relationships to the called args
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Args[0],
+				Expr2: dummyNamespace,
+			}
+			invariants = append(invariants, invar)
+
+			// first arg must be a string
+			invar = &interfaces.EqualsInvariant{
+				Expr: cfavInvar.Args[0],
+				Type: types.TypeStr,
+			}
+			invariants = append(invariants, invar)
+
+			// full function
+			mapped := make(map[string]interfaces.Expr)
+			ordered := []string{namespaceName}
+			mapped[namespaceName] = dummyNamespace
+
+			if len(cfavInvar.Args) == 2 { // two args is more complex
+				dummyOpts := &interfaces.ExprAny{}
+
+				optsTypeKnown := false
+
+				// speculate about the type?
+				if typ, err := cfavInvar.Args[1].Type(); err == nil {
+					optsTypeKnown = true
+					if typ.Kind != types.KindStruct {
+						return nil, fmt.Errorf("second arg must be of kind struct")
+					}
+
+					// XXX: the problem is that I can't
+					// currently express the opts struct as
+					// an invariant, without building a big
+					// giant, unusable exclusive...
+					validOpts := obj.validOpts()
+
+					if StrictScheduleOpts {
+						// strict opts field checking!
+						for _, name := range typ.Ord {
+							t := typ.Map[name]
+							value, exists := validOpts[name]
+							if !exists {
+								return nil, fmt.Errorf("unexpected opts field: `%s`", name)
+							}
+
+							if err := t.Cmp(value); err != nil {
+								return nil, errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
+							}
+						}
+
+					} else {
+						// permissive field checking...
+						validOptsSorted := []string{}
+						for name := range validOpts {
+							validOptsSorted = append(validOptsSorted, name)
+						}
+						sort.Strings(validOptsSorted)
+						for _, name := range validOptsSorted {
+							value := validOpts[name] // type
+
+							t, exists := typ.Map[name]
+							if !exists {
+								continue // ignore it
+							}
+
+							// if it exists, check the type
+							if err := t.Cmp(value); err != nil {
+								return nil, errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
+							}
+						}
+					}
+
+					invar := &interfaces.EqualsInvariant{
+						Expr: dummyOpts,
+						Type: typ,
+					}
+					invariants = append(invariants, invar)
+				}
+
+				// If we're strict, require it, otherwise let
+				// in whatever, and let Build() deal with it.
+				if StrictScheduleOpts && !optsTypeKnown {
+					return nil, fmt.Errorf("the type of the opts struct is not known")
+				}
+
+				// expression must match type of the input arg
+				invar := &interfaces.EqualityInvariant{
+					Expr1: dummyOpts,
+					Expr2: cfavInvar.Args[1],
+				}
+				invariants = append(invariants, invar)
+
+				mapped[argNameOpts] = dummyOpts
+				ordered = append(ordered, argNameOpts)
+			}
+
+			invar = &interfaces.EqualityWrapFuncInvariant{
+				Expr1:    expr, // maps directly to us!
+				Expr2Map: mapped,
+				Expr2Ord: ordered,
+				Expr2Out: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: do we return this relationship with ExprCall?
+			invar = &interfaces.EqualityWrapCallInvariant{
+				// TODO: should Expr1 and Expr2 be reversed???
+				Expr1: cfavInvar.Expr,
+				//Expr2Func: cfavInvar.Func, // same as below
+				Expr2Func: expr,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: are there any other invariants we should build?
+			return invariants, nil // generator return
+		}
+		// We couldn't tell the solver anything it didn't already know!
+		return nil, fmt.Errorf("couldn't generate new invariants")
+	}
+	invar = &interfaces.GeneratorInvariant{
+		Func: fn,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
 }
 
 // Polymorphisms returns the list of possible function signatures available for
@@ -206,6 +401,7 @@ func (obj *SchedulePolyFunc) Build(typ *types.Type) error {
 
 	if len(typ.Ord) == 1 {
 		obj.Type = nil
+		obj.built = true
 		return nil // done early, 2nd arg is absent!
 	}
 	tOpts, exists := typ.Map[typ.Ord[1]]
@@ -218,24 +414,53 @@ func (obj *SchedulePolyFunc) Build(typ *types.Type) error {
 	}
 
 	validOpts := obj.validOpts()
-	for _, name := range tOpts.Ord {
-		t := tOpts.Map[name]
-		value, exists := validOpts[name]
-		if !exists {
-			return fmt.Errorf("unexpected opts field: `%s`", name)
+
+	if StrictScheduleOpts {
+		// strict opts field checking!
+		for _, name := range tOpts.Ord {
+			t := tOpts.Map[name]
+			value, exists := validOpts[name]
+			if !exists {
+				return fmt.Errorf("unexpected opts field: `%s`", name)
+			}
+
+			if err := t.Cmp(value); err != nil {
+				return errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
+			}
 		}
 
-		if err := t.Cmp(value); err != nil {
-			return errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
+	} else {
+		// permissive field checking...
+		validOptsSorted := []string{}
+		for name := range validOpts {
+			validOptsSorted = append(validOptsSorted, name)
+		}
+		sort.Strings(validOptsSorted)
+		for _, name := range validOptsSorted {
+			value := validOpts[name] // type
+
+			t, exists := tOpts.Map[name]
+			if !exists {
+				continue // ignore it
+			}
+
+			// if it exists, check the type
+			if err := t.Cmp(value); err != nil {
+				return errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
+			}
 		}
 	}
 
 	obj.Type = tOpts // type of opts struct, even an empty: `struct{}`
+	obj.built = true
 	return nil
 }
 
 // Validate tells us if the input struct takes a valid form.
 func (obj *SchedulePolyFunc) Validate() error {
+	if !obj.built {
+		return fmt.Errorf("function wasn't built yet")
+	}
 	// obj.Type can be nil if no 2nd arg is given, or a struct (even empty!)
 	if obj.Type != nil && obj.Type.Kind != types.KindStruct { // build must be run first
 		return fmt.Errorf("type must be nil or a struct")
@@ -246,9 +471,14 @@ func (obj *SchedulePolyFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *SchedulePolyFunc) Info() *interfaces.Info {
-	typ := types.NewType("func(namespace str) []str") // simplest form
-	if obj.Type != nil {
-		typ = types.NewType(fmt.Sprintf("func(namespace str, opts %s) []str", obj.Type.String()))
+	// It's important that you don't return a non-nil sig if this is called
+	// before you're built. Type unification may call it opportunistically.
+	var typ *types.Type
+	if obj.built {
+		typ = types.NewType("func(namespace str) []str") // simplest form
+		if obj.Type != nil {
+			typ = types.NewType(fmt.Sprintf("func(namespace str, opts %s) []str", obj.Type.String()))
+		}
 	}
 	return &interfaces.Info{
 		Pure: false, // definitely false

@@ -115,7 +115,7 @@ func (obj *ContainsPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 	invariants = append(invariants, invar)
 
 	// generator function to link this to the right type
-	fn := obj.fnBuilder(false, expr, dummyNeedle, dummyHaystack)
+	fn := obj.fnBuilder(false, expr, dummyNeedle, dummyHaystack, dummyOut)
 	invar = &interfaces.GeneratorInvariant{
 		Func: fn,
 	}
@@ -129,7 +129,7 @@ func (obj *ContainsPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 // invariant. This can only happen once, because by then we'll have given all
 // the new information we can, and falsely producing redundant information is a
 // good way to stall the solver if it thinks it keeps learning more things!
-func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHaystack interfaces.Expr) func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHaystack, dummyOut interfaces.Expr) func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
 	return func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
 		for _, invariant := range fnInvariants {
 			// search for this special type of invariant
@@ -141,7 +141,7 @@ func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHay
 			if cfavInvar.Func != expr {
 				continue
 			}
-			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Expr is the ExprCall! (the return pointer)
 			// cfavInvar.Args are the args that ExprCall uses!
 			if l := len(cfavInvar.Args); l != 2 {
 				return nil, fmt.Errorf("unable to build function with %d args", l)
@@ -151,6 +151,14 @@ func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHay
 			var invar interfaces.Invariant
 
 			if !recurse { // only do this once!
+				// add the relationship to the returned value
+				invar = &interfaces.EqualityInvariant{
+					Expr1: dummyOut,
+					Expr2: cfavInvar.Expr,
+				}
+				invariants = append(invariants, invar)
+
+				// add the relationships to the called args
 				invar = &interfaces.EqualityInvariant{
 					Expr1: dummyNeedle,
 					Expr2: cfavInvar.Args[0],
@@ -162,17 +170,28 @@ func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHay
 					Expr2: cfavInvar.Args[1],
 				}
 				invariants = append(invariants, invar)
+
+				// TODO: do we return this relationship with ExprCall?
+				invar = &interfaces.EqualityWrapCallInvariant{
+					// TODO: should Expr1 and Expr2 be reversed???
+					Expr1: cfavInvar.Expr,
+					//Expr2Func: cfavInvar.Func, // same as below
+					Expr2Func: expr,
+				}
+				invariants = append(invariants, invar)
 			}
 
 			var needleTyp *types.Type
 
-			if typ, err := cfavInvar.Args[1].Type(); err == nil {
+			// Instead of using cfavInvar.Args[*].Type() I think we
+			// can probably rely on the solved to find this for us!
+			if typ, exists := solved[cfavInvar.Args[1]]; exists {
 				if k := typ.Kind; k == types.KindList {
 					needleTyp = typ.Val // contained element type
 				}
 			}
 
-			if typ, err := cfavInvar.Args[0].Type(); err == nil {
+			if typ, exists := solved[cfavInvar.Args[0]]; exists {
 				if err := needleTyp.Cmp(typ); needleTyp != nil && err != nil {
 					// inconsistent types!
 					return nil, errwrap.Wrapf(err, "inconsistent type")
@@ -189,7 +208,7 @@ func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHay
 
 			if needleTyp == nil {
 				// recurse-- we build a new one!
-				fn := obj.fnBuilder(true, expr, dummyNeedle, dummyHaystack)
+				fn := obj.fnBuilder(true, expr, dummyNeedle, dummyHaystack, dummyOut)
 				invar = &interfaces.GeneratorInvariant{
 					Func: fn,
 				}

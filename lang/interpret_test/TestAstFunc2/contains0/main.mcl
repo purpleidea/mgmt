@@ -1,0 +1,37 @@
+$ints = [13, 42, 0, -37,]
+
+$s1 = if contains(42, $ints) {
+	"passed1"
+} else {
+	"failed"
+}
+
+$s2 = if contains(99, $ints) {
+	"failed"
+} else {
+	"passed2"
+}
+
+$intlists = [
+	[13, 99,],
+	[42, 13,],
+	[0,],
+	[-37,],
+]
+
+$s3 = if contains([42, 13,], $intlists) {
+	"passed3"
+} else {
+	"failed"
+}
+
+$s4 = if contains([42, 13, 0,], $intlists) {
+	"failed"
+} else {
+	"passed4"
+}
+
+test $s1 {} # passed
+test $s2 {} # passed
+test $s3 {} # passed
+test $s4 {} # passed

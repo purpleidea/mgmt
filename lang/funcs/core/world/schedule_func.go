@@ -142,7 +142,7 @@ func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 			if cfavInvar.Func != expr {
 				continue
 			}
-			// cfavInvar.Expr is the ExprCall!
+			// cfavInvar.Expr is the ExprCall! (the return pointer)
 			// cfavInvar.Args are the args that ExprCall uses!
 			if len(cfavInvar.Args) == 0 {
 				return nil, fmt.Errorf("unable to build function with no args")
@@ -154,6 +154,13 @@ func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 
 			var invariants []interfaces.Invariant
 			var invar interfaces.Invariant
+
+			// add the relationship to the returned value
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyOut,
+			}
+			invariants = append(invariants, invar)
 
 			// add the relationships to the called args
 			invar = &interfaces.EqualityInvariant{
@@ -180,7 +187,7 @@ func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 				optsTypeKnown := false
 
 				// speculate about the type?
-				if typ, err := cfavInvar.Args[1].Type(); err == nil {
+				if typ, exists := solved[cfavInvar.Args[1]]; exists {
 					optsTypeKnown = true
 					if typ.Kind != types.KindStruct {
 						return nil, fmt.Errorf("second arg must be of kind struct")
@@ -230,6 +237,14 @@ func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 
 					invar := &interfaces.EqualsInvariant{
 						Expr: dummyOpts,
+						Type: typ,
+					}
+					invariants = append(invariants, invar)
+				}
+				// redundant?
+				if typ, err := cfavInvar.Args[1].Type(); err == nil {
+					invar := &interfaces.EqualsInvariant{
+						Expr: cfavInvar.Args[1],
 						Type: typ,
 					}
 					invariants = append(invariants, invar)

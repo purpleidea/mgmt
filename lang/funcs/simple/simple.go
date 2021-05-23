@@ -48,6 +48,10 @@ func Register(name string, fn *types.FuncValue) {
 	if fn.T == nil {
 		panic(fmt.Sprintf("simple func %s contains a nil type signature", name))
 	}
+	if fn.T.HasVariant() {
+		panic(fmt.Sprintf("simple func %s contains a variant type signature", name))
+	}
+
 	RegisteredFuncs[name] = fn // store a copy for ourselves
 
 	// register a copy in the main function database

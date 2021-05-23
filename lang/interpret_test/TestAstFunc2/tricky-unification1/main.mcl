@@ -1,0 +1,4 @@
+import "fmt"
+$ints = [13, 42, 0, -37,]
+$l int = len($ints)	# return type is known statically!
+test fmt.printf("len is: %d", $l) {} # len is 4

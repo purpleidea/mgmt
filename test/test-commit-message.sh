@@ -130,7 +130,7 @@ then
 		ref=${GITHUB_BASE_REF}
 		head=${GITHUB_SHA}
 	else
-		ref=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
+		ref=$(echo $GITHUB_REF | cut -d/ -f3-)
 		head=""
 	fi
 	commits=$(git log --no-merges --format=%H origin/${ref}..${head})

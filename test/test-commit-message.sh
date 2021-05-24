@@ -133,7 +133,7 @@ then
 		ref=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
 		head=""
 	fi
-	commits=$(git log --no-merges --format=%H origin/${ref}..${head})
+	commits=$(git log --no-merges --format=%H -- origin/${ref}..${head})
 	if [[ -n "$commits" ]]; then
 		for commit in $commits
 		do

@@ -37,8 +37,10 @@ available types and values in the mgmt language. It is very easy to use, and
 should be fairly intuitive. Most of what you'll need to know can be inferred
 from looking at example code.
 
-To implement a function, you'll need to create a file in
-[`lang/funcs/simple/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simple/).
+To implement a function, you'll need to create a file that imports the
+[`lang/funcs/simple/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simple/)
+module. It should probably get created in the correct directory inside of:
+[`lang/funcs/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 The function should be implemented as a `FuncValue` in our type system. It is
 then registered with the engine during `init()`. An example explains it best:
 
@@ -50,14 +52,15 @@ package simple
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 // you must register your functions in init when the program starts up
 func init() {
 	// Example function that squares an int and prints out answer as an str.
-	Register("talkingsquare", &types.FuncValue{
-		T: types.NewType("func(a int) str"), // declare the signature
+	simple.ModuleRegister(ModuleName, "talkingsquare", &types.FuncValue{
+		T: types.NewType("func(int) str"), // declare the signature
 		V: func(input []types.Value) (types.Value, error) {
 			i := input[0].Int() // get first arg as an int64
 			// must return the above specified value
@@ -109,15 +112,20 @@ As with the simple, non-polymorphic API, you can only implement [pure](https://e
 functions, without writing too much boilerplate code. They will be automatically
 re-evaluated as needed when their input values change.
 
-To implement a function, you'll need to create a file in
-[`lang/funcs/simplepoly/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simplepoly/).
+To implement a function, you'll need to create a file that imports the
+[`lang/funcs/simplepoly/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simplepoly/)
+module. It should probably get created in the correct directory inside of:
+[`lang/funcs/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
 The function should be implemented as a list of `FuncValue`'s in our type
 system. It is then registered with the engine during `init()`. You may also use
 the `variant` type in your type definitions. This special type will never be
 seen inside a running program, and will get converted to a concrete type if a
 suitable match to this signature can be found. Be warned that signatures which
 contain too many variants, or which are very general, might be hard for the
-compiler to match, and ambiguous type graphs make for user compiler errors.
+compiler to match, and ambiguous type graphs make for user compiler errors. The
+top-level type must still be a function type, it may only contain variants as
+part of its signature. It is probably more difficult to unify a function if its
+return type is a variant, as opposed to if one of its args was.
 
 An example explains it best:
 
@@ -127,11 +135,13 @@ An example explains it best:
 import (
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
+	// You may use the simplepoly.ModuleRegister method to register your
+	// function if it's in a module, as seen in the simple function example.
 	simplepoly.Register("len", []*types.FuncValue{
 		{
 			T: types.NewType("func([]variant) int"),
@@ -190,7 +200,7 @@ if it meets your needs. Most functions will be able to use that API. If you
 really need something more powerful, then you can use the regular function API.
 What follows are each of the method signatures and a description of each.
 
-### Default
+### Info
 
 ```golang
 Info() *interfaces.Info
@@ -434,6 +444,11 @@ then the only way is to keep track of this yourself. You can use a function
 generator to build your `FuncValue` implementations, and pass in the unique
 signature to each one as you are building them. Using a generator is a common
 technique which was mentioned previously.
+
+One obvious situation where this might occur is if your function doesn't take
+any inputs! An example `math.fortytwo()` function was implemented that
+demonstrates the use of function generators to pass the type signatures into the
+implementations.
 
 ### Where can I find more information about mgmt?
 

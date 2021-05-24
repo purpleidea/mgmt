@@ -238,20 +238,22 @@ func (obj *StructLookupPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invar
 				invariants = append(invariants, invar)
 
 				// We know *some* information about the struct!
-				// XXX: uncomment this if we're sure that the
-				// unusedField expr won't trip up the solver...
+				// Let's hope the unusedField expr won't trip
+				// up the solver...
 				mapped := make(map[string]interfaces.Expr)
 				ordered := []string{}
 				for _, x := range t1.Ord {
-					// We *don't* need to solve dummyField!
+					// We *don't* need to solve unusedField
 					unusedField := &interfaces.ExprAny{}
 					mapped[x] = unusedField
 					if x == field { // the one we care about
-						mapped[x] = dummyField
+						mapped[x] = dummyOut
 					}
 					ordered = append(ordered, x)
 				}
-				mapped[field] = dummyField // redundant =D
+				// We map to dummyOut which is the return type
+				// and has the same type of the field we want!
+				mapped[field] = dummyOut // redundant =D
 				invar = &interfaces.EqualityWrapStructInvariant{
 					Expr1:    dummyStruct,
 					Expr2Map: mapped,

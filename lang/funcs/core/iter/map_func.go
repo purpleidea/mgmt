@@ -91,6 +91,21 @@ func (obj *MapFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) 
 	dummyArgFunc := &interfaces.ExprAny{} // corresponds to the input func
 	dummyOutList := &interfaces.ExprAny{} // corresponds to the output list
 
+	t1Expr := &interfaces.ExprAny{} // corresponds to the t1 type
+	t2Expr := &interfaces.ExprAny{} // corresponds to the t2 type
+
+	invar = &interfaces.EqualityWrapListInvariant{
+		Expr1:    dummyArgList,
+		Expr2Val: t1Expr,
+	}
+	invariants = append(invariants, invar)
+
+	invar = &interfaces.EqualityWrapListInvariant{
+		Expr1:    dummyOutList,
+		Expr2Val: t2Expr,
+	}
+	invariants = append(invariants, invar)
+
 	// full function
 	mapped := make(map[string]interfaces.Expr)
 	ordered := []string{inputsName, functionName}
@@ -102,6 +117,18 @@ func (obj *MapFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) 
 		Expr2Map: mapped,
 		Expr2Ord: ordered,
 		Expr2Out: dummyOutList,
+	}
+	invariants = append(invariants, invar)
+
+	// relationship between t1 and t2
+	argName := util.NumToAlpha(0) // XXX: does the arg name matter?
+	invar = &interfaces.EqualityWrapFuncInvariant{
+		Expr1: dummyArgFunc,
+		Expr2Map: map[string]interfaces.Expr{
+			argName: t1Expr,
+		},
+		Expr2Ord: []string{argName},
+		Expr2Out: t2Expr,
 	}
 	invariants = append(invariants, invar)
 
@@ -127,9 +154,6 @@ func (obj *MapFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) 
 			var invariants []interfaces.Invariant
 			var invar interfaces.Invariant
 
-			t1Expr := &interfaces.ExprAny{} // corresponds to the t1 type
-			t2Expr := &interfaces.ExprAny{} // corresponds to the t2 type
-
 			// add the relationship to the returned value
 			invar = &interfaces.EqualityInvariant{
 				Expr1: cfavInvar.Expr,
@@ -147,6 +171,18 @@ func (obj *MapFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) 
 			invar = &interfaces.EqualityInvariant{
 				Expr1: cfavInvar.Args[1],
 				Expr2: dummyArgFunc,
+			}
+			invariants = append(invariants, invar)
+
+			invar = &interfaces.EqualityWrapListInvariant{
+				Expr1:    cfavInvar.Args[0],
+				Expr2Val: t1Expr,
+			}
+			invariants = append(invariants, invar)
+
+			invar = &interfaces.EqualityWrapListInvariant{
+				Expr1:    cfavInvar.Expr,
+				Expr2Val: t2Expr,
 			}
 			invariants = append(invariants, invar)
 
@@ -264,34 +300,22 @@ func (obj *MapFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) 
 					Type: t1,
 				}
 				invariants = append(invariants, invar)
-
-				invar = &interfaces.EqualityWrapListInvariant{
-					Expr1:    cfavInvar.Args[0],
-					Expr2Val: t1Expr,
-				}
-				invariants = append(invariants, invar)
-				// we already have the mapping, but add both in
-				// case we need to solve these from either side
-				invar = &interfaces.EqualityWrapListInvariant{
-					Expr1:    dummyArgList,
-					Expr2Val: t1Expr,
-				}
-				invariants = append(invariants, invar)
 			}
 
 			if t1 != nil && t2 != nil {
-				argName := foundArgName // XXX: is this a hack?
-				mapped := make(map[string]interfaces.Expr)
-				ordered := []string{argName}
-				mapped[argName] = t1Expr
-
-				invar = &interfaces.EqualityWrapFuncInvariant{
-					Expr1:    dummyArgFunc,
-					Expr2Map: mapped,
-					Expr2Ord: ordered,
-					Expr2Out: t2Expr,
-				}
-				invariants = append(invariants, invar)
+				// TODO: if the argName matters, do it here...
+				_ = foundArgName
+				//argName := foundArgName // XXX: is this a hack?
+				//mapped := make(map[string]interfaces.Expr)
+				//ordered := []string{argName}
+				//mapped[argName] = t1Expr
+				//invar = &interfaces.EqualityWrapFuncInvariant{
+				//	Expr1:    dummyArgFunc,
+				//	Expr2Map: mapped,
+				//	Expr2Ord: ordered,
+				//	Expr2Out: t2Expr,
+				//}
+				//invariants = append(invariants, invar)
 			}
 
 			// note, currently, we can't learn t2 without t1
@@ -299,19 +323,6 @@ func (obj *MapFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) 
 				invar = &interfaces.EqualsInvariant{
 					Expr: t2Expr,
 					Type: t2,
-				}
-				invariants = append(invariants, invar)
-
-				invar = &interfaces.EqualityWrapListInvariant{
-					Expr1:    dummyOutList,
-					Expr2Val: t2Expr,
-				}
-				invariants = append(invariants, invar)
-				// we already have the mapping, but add both in
-				// case we need to solve these from either side
-				invar = &interfaces.EqualityWrapListInvariant{
-					Expr1:    cfavInvar.Expr,
-					Expr2Val: t2Expr,
 				}
 				invariants = append(invariants, invar)
 			}

@@ -37,7 +37,7 @@ You'll need some dependencies, including `golang`, and some associated tools.
 
 #### Installing golang
 
-* You need golang version 1.13 or greater installed.
+* You need golang version 1.16 or greater installed.
 	* To install on rpm style systems: `sudo dnf install golang`
 	* To install on apt style systems: `sudo apt install golang`
 	* To install on macOS systems install [Homebrew](https://brew.sh)
@@ -63,13 +63,11 @@ export GOPATH=$HOME/gopath
 
 #### Getting the mgmt code and associated dependencies
 
-* Download the `mgmt` code into the `GOPATH`, and switch to that directory:
+* Download the `mgmt` code and switch to that directory:
 
 ```shell
-[ -z "$GOPATH" ] && mkdir ~/go/ || mkdir -p $GOPATH/src/github.com/purpleidea/
-cd $GOPATH/src/github.com/purpleidea/ || cd ~/go/
-git clone --recursive https://github.com/purpleidea/mgmt/
-cd $GOPATH/src/github.com/purpleidea/mgmt/ || cd ~/go/src/github.com/purpleidea/mgmt/
+git clone --recursive https://github.com/purpleidea/mgmt/ ~/mgmt/
+cd ~/mgmt/
 ```
 
 * Add `$GOPATH/bin` to `$PATH`

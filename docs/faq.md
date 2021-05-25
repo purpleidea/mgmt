@@ -216,17 +216,6 @@ requires a number of seconds as an argument.
 ./mgmt run lang examples/lang/hello0.mcl --converged-timeout=5
 ```
 
-### When I try to build `mgmt` I see: `no Go files in $GOPATH/src/github.com/purpleidea/mgmt/bindata`.
-
-Due to the arcane way that `golang` designed its `$GOPATH`, the main project
-directory must be inside your `$GOPATH`, and at the appropriate FQDN. This is:
-`$GOPATH/src/github.com/purpleidea/mgmt/`. If you have your project root outside
-of that directory, then you may get this error when you try to build it. In this
-case there is likely a `go get` version of the project at this location. Remove
-it and replace it with your git cloned directory. In my case, I like to work on
-things in `~/code/mgmt/`, so that path is a symlink that points to the long
-project directory.
-
 ### Why does my file resource error with `no such file or directory`?
 
 If you create a file resource and only specify the content like this:
@@ -363,6 +352,14 @@ output, and responsibly plan and test your versions bumps with ease.
 Don't blindly use the tools that others tell you to. Learn what they do, think
 for yourself, and become a power user today! That process led us to using
 `git submodules`. Hopefully you'll come to the same conclusions that we did.
+
+**UPDATE:**
+
+After golang made it virtually impossible to build without `go.mod` stuff, we've
+switched to it since golang 1.16. I still think the above approach was better,
+and that the `go mod` tooling should have been a layer on top of git submodules
+so that we don't grow yet another lock file format, and existing folks who are
+comfortable with `git` can use those tools directly.
 
 ### Did you know that there is a band named `MGMT`?
 

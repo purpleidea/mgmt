@@ -38,8 +38,8 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/spf13/afero"
-	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
-	rpctypes "go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
+	rpctypes "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 func init() {

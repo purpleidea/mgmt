@@ -30,7 +30,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/pborman/uuid"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	git "gopkg.in/src-d/go-git.v4"
 )
 

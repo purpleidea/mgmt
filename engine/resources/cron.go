@@ -33,10 +33,10 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	sdbus "github.com/coreos/go-systemd/dbus"
-	"github.com/coreos/go-systemd/unit"
-	systemdUtil "github.com/coreos/go-systemd/util"
-	"github.com/godbus/dbus"
+	sdbus "github.com/coreos/go-systemd/v22/dbus"
+	"github.com/coreos/go-systemd/v22/unit"
+	systemdUtil "github.com/coreos/go-systemd/v22/util"
+	"github.com/godbus/dbus/v5"
 )
 
 const (

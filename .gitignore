@@ -7,7 +7,6 @@ old/
 tmp/
 *WIP
 *_stringer.go
-bindata/*.go
 mgmt
 mgmt.static
 # crossbuild artifacts

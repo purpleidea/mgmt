@@ -1,4 +1,4 @@
-FROM golang:1.13
+FROM golang:1.16
 
 MAINTAINER Michał Czeraszkiewicz <contact@czerasz.com>
 
@@ -26,9 +26,6 @@ WORKDIR /home/$USER_NAME/mgmt
 
 # Install dependencies
 RUN make deps
-
-# Chown $GOPATH
-RUN chown -R ${USER_ID}:${GROUP_ID} /go
 
 # Change user
 USER ${USER_NAME}

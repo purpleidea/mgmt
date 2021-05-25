@@ -16,7 +16,7 @@ import (
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 // XXX: this has not been updated to latest GAPI/Deploy API. Patches welcome!

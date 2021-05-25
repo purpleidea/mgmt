@@ -124,7 +124,6 @@ function reflowed-comments() {
 base=$(go list .)
 for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/"`; do
 	echo -e "\tgo vet: $pkg"
-	# workaround go vet issues by adding the new -source flag (go1.9+)
 	run-test go vet -source "$pkg" || fail_test "go vet -source did not pass pkg"
 
 done

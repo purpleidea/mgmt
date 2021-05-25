@@ -27,15 +27,6 @@ A next generation config management prototype!
 %setup -q
 
 %build
-# FIXME: in the future, these could be vendor-ed in
-mkdir -p vendor/
-export GOPATH=`pwd`/vendor/
-go get github.com/etcd-io/etcd/clientv3
-go get gopkg.in/yaml.v2
-go get gopkg.in/fsnotify.v1
-go get github.com/urfave/cli
-go get github.com/coreos/go-systemd/dbus
-go get github.com/coreos/go-systemd/util
 make build
 
 %install

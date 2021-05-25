@@ -122,11 +122,11 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
-	"go.etcd.io/etcd/clientv3/concurrency"
-	"go.etcd.io/etcd/clientv3/namespace"
-	"go.etcd.io/etcd/embed"
-	etcdtypes "go.etcd.io/etcd/pkg/types"
+	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
+	etcd "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
+	"go.etcd.io/etcd/client/v3/namespace"
+	"go.etcd.io/etcd/server/v3/embed"
 )
 
 const (

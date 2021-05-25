@@ -139,7 +139,6 @@ race:
 
 # generate go files from non-go source
 bindata: ## generate go files from non-go sources
-	$(MAKE) --quiet -C bindata
 	$(MAKE) --quiet -C lang/funcs
 
 generate:
@@ -170,7 +169,7 @@ GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
 build/mgmt-%: $(GO_FILES) $(MCL_FILES) | bindata lang funcgen
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
-	@time env GOOS=${GOOS} GOARCH=${GOARCH} go build -i -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
+	time env GOOS=${GOOS} GOARCH=${GOARCH} go build -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 
 # create a list of binary file names to use as make targets
 crossbuild_targets = $(addprefix build/mgmt-,$(subst /,-,${GOOSARCHES}))
@@ -178,7 +177,6 @@ crossbuild: ${crossbuild_targets}
 
 clean: ## clean things up
 	$(MAKE) --quiet -C test clean
-	$(MAKE) --quiet -C bindata clean
 	$(MAKE) --quiet -C lang/funcs clean
 	$(MAKE) --quiet -C lang clean
 	$(MAKE) --quiet -C misc/mkosi clean

@@ -25,8 +25,8 @@ import (
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 
-	etcd "go.etcd.io/etcd/clientv3"
-	etcdtypes "go.etcd.io/etcd/pkg/types"
+	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // XXX: Test causing cluster shutdowns with:

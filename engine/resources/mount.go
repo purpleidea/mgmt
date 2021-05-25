@@ -35,11 +35,11 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	sdbus "github.com/coreos/go-systemd/dbus"
-	"github.com/coreos/go-systemd/unit"
-	systemdUtil "github.com/coreos/go-systemd/util"
+	sdbus "github.com/coreos/go-systemd/v22/dbus"
+	"github.com/coreos/go-systemd/v22/unit"
+	systemdUtil "github.com/coreos/go-systemd/v22/util"
 	fstab "github.com/deniswernert/go-fstab"
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 	"golang.org/x/sys/unix"
 )
 

@@ -24,9 +24,9 @@ import (
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "go.etcd.io/etcd/clientv3"
-	etcdutil "go.etcd.io/etcd/clientv3/clientv3util"
-	etcdtypes "go.etcd.io/etcd/pkg/types"
+	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
+	etcd "go.etcd.io/etcd/client/v3"
+	etcdutil "go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 // volunteer offers yourself up to be a server if needed. If you specify a nil

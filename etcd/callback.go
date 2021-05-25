@@ -26,8 +26,8 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
-	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
+	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // nominateApply applies the changed watcher data onto our local caches.

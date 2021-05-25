@@ -23,21 +23,34 @@ import (
 	"os"
 	"sort"
 
-	"github.com/purpleidea/mgmt/bindata"
 	"github.com/purpleidea/mgmt/gapi"
 	_ "github.com/purpleidea/mgmt/lang" // import so the GAPI registers
 	_ "github.com/purpleidea/mgmt/langpuppet"
 	_ "github.com/purpleidea/mgmt/puppet"
 	_ "github.com/purpleidea/mgmt/yamlgraph"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
+// CLIArgs is a struct of values that we pass to the main CLI function.
+type CLIArgs struct {
+	Program string
+	Version string
+	Copying string
+	Flags   Flags
+}
+
 // CLI is the entry point for using mgmt normally from the CLI.
-func CLI(program, version string, flags Flags) error {
+func CLI(cliArgs *CLIArgs) error {
 	// test for sanity
-	if program == "" || version == "" {
+	if cliArgs == nil {
+		return fmt.Errorf("this CLI was not run correctly")
+	}
+	if cliArgs.Program == "" || cliArgs.Version == "" {
 		return fmt.Errorf("program was not compiled correctly, see Makefile")
+	}
+	if cliArgs.Copying == "" {
+		return fmt.Errorf("program copyrights we're removed, can't run")
 	}
 
 	// All of these flags can be accessed in your GAPI implementation with
@@ -302,23 +315,18 @@ func CLI(program, version string, flags Flags) error {
 	}
 
 	app := cli.NewApp()
-	app.Name = program // App.name and App.version pass these values through
-	app.Version = version
+	app.Name = cliArgs.Program // App.name and App.version pass these values through
+	app.Version = cliArgs.Version
 	app.Usage = "next generation config management"
 	app.Metadata = map[string]interface{}{ // additional flags
-		"flags": flags,
+		"flags": cliArgs.Flags,
 	}
 
 	// if no app.Command is specified
 	app.Action = func(c *cli.Context) error {
 		// print the license
 		if c.Bool("license") {
-			license, err := bindata.Asset("../COPYING") // use go-bindata to get the bytes
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("%s", license)
+			fmt.Printf("%s", cliArgs.Copying)
 			return nil
 		}
 

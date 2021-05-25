@@ -27,8 +27,9 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"go.etcd.io/etcd/embed"
-	etcdtypes "go.etcd.io/etcd/pkg/types"
+	etcdTransport "go.etcd.io/etcd/client/pkg/v3/transport"
+	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
+	"go.etcd.io/etcd/server/v3/embed"
 )
 
 const (
@@ -148,6 +149,11 @@ func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (
 	cfg.Logger = "zap"
 	//cfg.LogOutputs = []string{} // FIXME: add a way to pass in our logf func
 	cfg.LogLevel = "error" // keep things quieter for now
+
+	cfg.SocketOpts = etcdTransport.SocketOpts{
+		//ReusePort: false, // SO_REUSEPORT
+		ReuseAddress: true, // SO_REUSEADDR
+	}
 
 	cfg.InitialCluster = initialPeerURLsMap.String() // including myself!
 	if newCluster {

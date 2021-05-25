@@ -17,11 +17,11 @@ BREW=`command -v brew 2>/dev/null`
 PACMAN=`command -v pacman 2>/dev/null`
 
 # set minimum golang version and installed golang version
-mingoversion=13
-goversion=0
+mingolangversion=16
+golangversion=0
 if [ -x "$GO" ]; then
 	# capture the minor version number
-	goversion=$(go version | grep -o -P '(?<=go1\.)[0-9]*')
+	golangversion=$(go version | grep -o -P '(?<=go1\.)[0-9]*')
 fi
 
 # if DNF is available use it
@@ -126,7 +126,7 @@ if in_ci; then
 fi
 
 # attempt to workaround old ubuntu
-if [ -n "$APT" -a "$goversion" -lt "$mingoversion" ]; then
+if [ -n "$APT" -a "$golangversion" -lt "$mingolangversion" ]; then
 	echo "install golang from a ppa."
 	$sudo_command $APT remove -y golang
 	$sudo_command $APT install -y software-properties-common	# for add-apt-repository
@@ -136,20 +136,15 @@ if [ -n "$APT" -a "$goversion" -lt "$mingoversion" ]; then
 fi
 
 # if golang is too old, we don't want to fail with an obscure error later
-if [ "$goversion" -lt "$mingoversion" ]; then
-	echo "mgmt recommends go1.$mingoversion or higher."
+if [ "$golangversion" -lt "$mingolangversion" ]; then
+	echo "mgmt recommends go1.$mingolangversion or higher."
 	exit 1
 fi
-
-fold_start "Install golang dependencies"
-echo "running 'go get -v -d ./...' from `pwd`"
-go get -v -t -d ./...	# get all the golang dependencies
-echo "done running 'go get -v -t -d ./...'"
-fold_end "Install golang dependencies"
 
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
 
 fold_start "Install golang tools"
+# TODO: change this for golang 1.17
 go get github.com/blynn/nex				# for lexing
 go get golang.org/x/tools/cmd/goyacc			# formerly `go tool yacc`
 go get golang.org/x/tools/cmd/stringer			# for automatic stringer-ing

@@ -31,8 +31,7 @@ import (
 
 	"github.com/purpleidea/mgmt/util"
 
-	"gopkg.in/fsnotify.v1"
-	//"github.com/go-fsnotify/fsnotify" // git master of "gopkg.in/fsnotify.v1"
+	"github.com/fsnotify/fsnotify"
 )
 
 // Event represents a watcher event. These can include errors.
@@ -212,7 +211,7 @@ func (obj *RecWatcher) Watch() error {
 
 			} else {
 				// TODO: different watchers get each others events!
-				// https://github.com/go-fsnotify/fsnotify/issues/95
+				// https://github.com/fsnotify/fsnotify/issues/95
 				// this happened with two values such as:
 				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
 				continue

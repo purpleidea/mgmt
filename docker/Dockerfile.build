@@ -6,7 +6,7 @@ ENV PATH=/opt/rh/rh-ruby22/root/usr/bin:/root/gopath/bin:/usr/local/sbin:/sbin:/
 ENV LD_LIBRARY_PATH=/opt/rh/rh-ruby22/root/usr/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ENV PKG_CONFIG_PATH=/opt/rh/rh-ruby22/root/usr/lib64/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
 
-RUN yum -y install epel-release wget unzip git make which centos-release-scl gcc && sed -i "s/enabled=0/enabled=1/" /etc/yum.repos.d/epel-testing.repo && yum -y install rh-ruby22 && wget -O /opt/go1.9.1.linux-amd64.tar.gz https://storage.googleapis.com/golang/go1.9.1.linux-amd64.tar.gz && tar -C /usr/local -xzf /opt/go1.9.1.linux-amd64.tar.gz
+RUN yum -y install epel-release wget unzip git make which centos-release-scl gcc && sed -i "s/enabled=0/enabled=1/" /etc/yum.repos.d/epel-testing.repo && yum -y install rh-ruby22 && wget -O /opt/go1.16.8.linux-amd64.tar.gz https://storage.googleapis.com/golang/go1.16.8.linux-amd64.tar.gz && tar -C /usr/local -xzf /opt/go1.16.8.linux-amd64.tar.gz
 RUN mkdir -p $GOPATH/src/github.com/purpleidea && cd $GOPATH/src/github.com/purpleidea && git clone --recursive https://github.com/purpleidea/mgmt
 RUN go get -u gopkg.in/alecthomas/gometalinter.v1 && cd $GOPATH/src/github.com/purpleidea/mgmt && make deps && make build
 CMD ["/bin/bash"]

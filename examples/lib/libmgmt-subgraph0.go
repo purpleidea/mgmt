@@ -17,7 +17,7 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 // XXX: this has not been updated to latest GAPI/Deploy API. Patches welcome!

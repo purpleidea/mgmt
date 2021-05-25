@@ -36,6 +36,9 @@ const (
 	// CommentPrefix is the prefix we look for at the beginning of comments.
 	CommentPrefix = "// "
 
+	// CommentGolangPrefix is the magic golang prefix that tools use.
+	CommentGolangPrefix = "//go:"
+
 	// CommentMultilinePrefix is what a multiline comment starts with.
 	CommentMultilinePrefix = "/*"
 
@@ -135,6 +138,11 @@ func Check(filename string) error {
 
 			// TODO: how do we deal with multiline comments?
 			if strings.HasPrefix(s, CommentMultilinePrefix) {
+				break // skip
+			}
+
+			// skip the magic compiler comments
+			if strings.HasPrefix(s, CommentGolangPrefix) {
 				break // skip
 			}
 

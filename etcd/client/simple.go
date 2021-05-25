@@ -26,8 +26,8 @@ import (
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
-	"go.etcd.io/etcd/clientv3/namespace"
+	etcd "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/namespace"
 )
 
 // method represents the method we used to build the simple client.
@@ -301,7 +301,7 @@ func (obj *Simple) Get(ctx context.Context, path string, opts ...etcd.OpOption) 
 		return nil, fmt.Errorf("empty response")
 	}
 
-	// TODO: write a resp.ToMap() function on https://godoc.org/github.com/etcd-io/etcd/etcdserver/etcdserverpb#RangeResponse
+	// TODO: write a resp.ToMap() function on https://godoc.org/github.com/etcd-io/etcd/api/etcdserverpb#RangeResponse
 	result := make(map[string]string)
 	for _, x := range resp.Kvs {
 		result[string(x.Key)] = string(x.Value)

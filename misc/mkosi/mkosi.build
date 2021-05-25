@@ -13,23 +13,11 @@
 # The default that will get used automatically.
 export GOPATH=~/go/
 
-# The golang bins are stored here.
+# The golang binaries are stored here.
 export GOBIN="${GOPATH}bin/"
 
 # Needed so that golang build tools will get found.
 export PATH="${GOBIN}:${PATH}"
-
-# Define the golang dir for mgmt.
-MGMTDIR="${GOPATH}src/github.com/purpleidea/mgmt/"
-
-# Make the parent dir.
-mkdir -p $(dirname $MGMTDIR)
-
-# Move our code into it so that golang works.
-mv "$SRCDIR" "$MGMTDIR"
-
-# Work from that directory.
-cd "$MGMTDIR"
 
 # Pull from the MKOSI_DEFAULT var: https://github.com/systemd/mkosi/pull/367
 mkosi_default="mkosi.default."	# remove this prefix
@@ -51,7 +39,7 @@ if [ -e "/etc/arch-release" ]; then
 	echo 'Server = http://mirror.rackspace.com/archlinux/$repo/os/$arch' > /etc/pacman.d/mirrorlist
 	cat /etc/pacman.d/mirrorlist.backup >> /etc/pacman.d/mirrorlist
 	pacman -Syu --noconfirm pacman-mirrorlist
-	pacman -Syyu
+	pacman -Syu
 fi
 
 # Get all the dependencies for mgmt.

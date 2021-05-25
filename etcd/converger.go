@@ -23,7 +23,7 @@ import (
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "go.etcd.io/etcd/clientv3"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // setHostnameConverged sets whether a specific hostname is converged.

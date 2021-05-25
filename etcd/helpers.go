@@ -27,10 +27,10 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	etcd "go.etcd.io/etcd/clientv3"
-	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
-	"go.etcd.io/etcd/mvcc/mvccpb"
-	etcdtypes "go.etcd.io/etcd/pkg/types" // generated package
+	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types" // generated package
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // setEndpoints sets the endpoints on the etcd client if it exists. It

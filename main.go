@@ -18,6 +18,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 
@@ -36,12 +37,21 @@ var (
 	version string
 )
 
+//go:embed COPYING
+var copying string
+
 func main() {
 	flags := mgmt.Flags{
 		Debug:   Debug,
 		Verbose: Verbose,
 	}
-	if err := mgmt.CLI(program, version, flags); err != nil {
+	cliArgs := &mgmt.CLIArgs{
+		Program: program,
+		Version: version,
+		Copying: copying,
+		Flags:   flags,
+	}
+	if err := mgmt.CLI(cliArgs); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return

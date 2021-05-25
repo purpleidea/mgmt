@@ -18,8 +18,6 @@
 SHELL = /usr/bin/env bash
 .PHONY: all build clean fuzz
 
-OLDGOYACC := $(shell go version | grep -E 'go1.6|go1.7')
-
 all: build
 
 build: lexer.nn.go y.go interpolate/parse.generated.go
@@ -37,12 +35,7 @@ lexer.nn.go: lexer.nex
 
 y.go: parser.y
 	@echo "Generating: parser..."
-ifneq ($(OLDGOYACC),)
-	go tool yacc parser.y
-else
-	@# newer golang versions moved yacc into: golang.org/x/tools/cmd/goyacc
 	goyacc parser.y
-endif
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'y.go'
 
 interpolate/parse.generated.go: interpolate/parse.rl

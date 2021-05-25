@@ -20,8 +20,8 @@ package interfaces
 import (
 	"context"
 
-	etcd "go.etcd.io/etcd/clientv3" // "clientv3"
-	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
+	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 // WatcherData is the structure of data passed to a callback from any watcher.

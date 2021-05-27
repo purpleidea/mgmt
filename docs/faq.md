@@ -53,10 +53,10 @@ find a number of tutorials online.
 3. Spend between four to six hours with the [golang tour](https://tour.golang.org/).
 Skip over the longer problems, but try and get a solid overview of everything.
 If you forget something, you can always go back and repeat those parts.
-4. Connect to our [#mgmtconfig](https://webchat.freenode.net/?channels=#mgmtconfig)
-IRC channel on the [Freenode](https://freenode.net/) network. You can use any
-IRC client that you'd like, but the [hosted web portal](https://webchat.freenode.net/?channels=#mgmtconfig)
-will suffice if you don't know what else to use.
+4. Connect to our [#mgmtconfig](ircs://irc.libera.chat:6697/#mgmtconfig)
+IRC channel on the [Libera.Chat](https://libera.chat/) network. You can use any
+IRC client that you'd like, including any web-based portal will suffice if you
+don't know what else to use. [Here are a few suggestions.](https://libera.chat/guides/clients)
 5. Now it's time to try and starting writing a patch! We have tagged a bunch of
 [open issues as #mgmtlove](https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove)
 for new users to have somewhere to get involved. Look through them to see if
@@ -376,7 +376,7 @@ which definitely existed before the band did.
 
 ### You didn't answer my question, or I have a question!
 
-It's best to ask on [IRC](https://webchat.freenode.net/?channels=#mgmtconfig)
+It's best to ask on [IRC](ircs://irc.libera.chat:6697/#mgmtconfig)
 to see if someone can help you. If you don't get a response from IRC, you can
 contact me through my [technical blog](https://purpleidea.com/contact/) and I'll
 do my best to help. If you have a good question, please add it as a patch to

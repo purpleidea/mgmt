@@ -476,7 +476,7 @@ func (obj *StmtRes) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
 	if err := obj.Name.SetScope(scope); err != nil {
@@ -1205,7 +1205,7 @@ func (obj *StmtResField) Ordering(produces map[string]interfaces.Node) (*pgraph.
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtResField) SetScope(scope *interfaces.Scope) error {
 	if err := obj.Value.SetScope(scope); err != nil {
@@ -1463,7 +1463,7 @@ func (obj *StmtResEdge) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtResEdge) SetScope(scope *interfaces.Scope) error {
 	if err := obj.EdgeHalf.SetScope(scope); err != nil {
@@ -1716,7 +1716,7 @@ func (obj *StmtResMeta) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtResMeta) SetScope(scope *interfaces.Scope) error {
 	if err := obj.MetaExpr.SetScope(scope); err != nil {
@@ -2010,7 +2010,7 @@ func (obj *StmtEdge) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtEdge) SetScope(scope *interfaces.Scope) error {
 	for _, x := range obj.EdgeHalfList {
@@ -2280,7 +2280,7 @@ func (obj *StmtEdgeHalf) Copy() (*StmtEdgeHalf, error) {
 	}, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtEdgeHalf) SetScope(scope *interfaces.Scope) error {
 	return obj.Name.SetScope(scope)
@@ -2571,7 +2571,7 @@ func (obj *StmtIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph,
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtIf) SetScope(scope *interfaces.Scope) error {
 	if err := obj.Condition.SetScope(scope); err != nil {
@@ -4533,7 +4533,7 @@ func (obj *StmtImport) Ordering(produces map[string]interfaces.Node) (*pgraph.Gr
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtImport) SetScope(*interfaces.Scope) error { return nil }
 
@@ -5333,7 +5333,7 @@ func (obj *ExprList) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *ExprList) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
@@ -5766,7 +5766,7 @@ func (obj *ExprMap) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *ExprMap) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
@@ -6251,7 +6251,7 @@ func (obj *ExprStruct) Ordering(produces map[string]interfaces.Node) (*pgraph.Gr
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *ExprStruct) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
@@ -6772,7 +6772,7 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *ExprFunc) SetScope(scope *interfaces.Scope) error {
 	// TODO: Should we merge the existing obj.scope with the new one? This
@@ -7494,7 +7494,7 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to. This particular function has been
 // heavily optimized to work correctly with calling functions with the correct
 // args. Edit cautiously and with extensive testing.
@@ -8805,7 +8805,7 @@ func (obj *ExprIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph,
 	return graph, cons, nil
 }
 
-// SetScope stores the scope for later use in this resource and it's children,
+// SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *ExprIf) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {

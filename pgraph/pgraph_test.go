@@ -934,3 +934,24 @@ func TestSetValue(t *testing.T) {
 		t.Errorf("expecting value of %s at %s position, got %v", value, key, v)
 	}
 }
+
+func TestAddEdge1(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+
+	g.AddVertex(v1)
+	g.AddVertex(v2)
+
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("should have 0 edges but got %d", i)
+	}
+
+	e1 := NE("e1")
+	g.AddEdge(v1, v2, e1)
+
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("should have 1 edge but got %d", i)
+	}
+}

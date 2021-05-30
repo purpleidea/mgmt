@@ -62,8 +62,8 @@ func init() {
 	structFields []*ExprStructField
 	structField  *ExprStructField
 
-	args []*Arg
-	arg  *Arg
+	args []*interfaces.Arg
+	arg  *interfaces.Arg
 
 	resContents []StmtResContents // interface
 	resField    *StmtResField
@@ -828,7 +828,7 @@ args:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.args = []*Arg{}
+		$$.args = []*interfaces.Arg{}
 	}
 |	args COMMA arg
 	{
@@ -838,21 +838,21 @@ args:
 |	arg
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.args = append([]*Arg{}, $1.arg)
+		$$.args = append([]*interfaces.Arg{}, $1.arg)
 	}
 ;
 arg:
 	// `$x`
 	VAR_IDENTIFIER
 	{
-		$$.arg = &Arg{
+		$$.arg = &interfaces.Arg{
 			Name: $1.str,
 		}
 	}
 	// `$x <type>`
 |	VAR_IDENTIFIER type
 	{
-		$$.arg = &Arg{
+		$$.arg = &interfaces.Arg{
 			Name: $1.str,
 			Type: $2.typ,
 		}
@@ -1242,7 +1242,7 @@ type_struct_fields:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.args = []*Arg{}
+		$$.args = []*interfaces.Arg{}
 	}
 |	type_struct_fields SEMICOLON type_struct_field
 	{
@@ -1252,14 +1252,14 @@ type_struct_fields:
 |	type_struct_field
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.args = append([]*Arg{}, $1.arg)
+		$$.args = append([]*interfaces.Arg{}, $1.arg)
 	}
 ;
 type_struct_field:
 	IDENTIFIER type
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.arg = &Arg{ // re-use the Arg struct
+		$$.arg = &interfaces.Arg{ // re-use the Arg struct
 			Name: $1.str,
 			Type: $2.typ,
 		}
@@ -1269,7 +1269,7 @@ type_func_args:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.args = []*Arg{}
+		$$.args = []*interfaces.Arg{}
 	}
 |	type_func_args COMMA type_func_arg
 	{
@@ -1279,15 +1279,15 @@ type_func_args:
 |	type_func_arg
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.args = append([]*Arg{}, $1.arg)
-		//$$.args = []*Arg{$1.arg} // TODO: is this equivalent?
+		$$.args = append([]*interfaces.Arg{}, $1.arg)
+		//$$.args = []*interfaces.Arg{$1.arg} // TODO: is this equivalent?
 	}
 ;
 type_func_arg:
 	// `<type>`
 	type
 	{
-		$$.arg = &Arg{
+		$$.arg = &interfaces.Arg{
 			Type: $1.typ,
 		}
 	}
@@ -1295,7 +1295,7 @@ type_func_arg:
 	// XXX: should we allow specifying the arg name here?
 |	VAR_IDENTIFIER type
 	{
-		$$.arg = &Arg{
+		$$.arg = &interfaces.Arg{
 			Name: $1.str,
 			Type: $2.typ,
 		}

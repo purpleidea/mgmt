@@ -3970,7 +3970,7 @@ type StmtClass struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	Name string
-	Args []*Arg
+	Args []*interfaces.Arg
 	Body interfaces.Stmt // probably a *StmtProg
 }
 
@@ -4008,7 +4008,7 @@ func (obj *StmtClass) Interpolate() (interfaces.Stmt, error) {
 
 	args := obj.Args
 	if obj.Args == nil {
-		args = []*Arg{}
+		args = []*interfaces.Arg{}
 	}
 
 	return &StmtClass{
@@ -4032,7 +4032,7 @@ func (obj *StmtClass) Copy() (interfaces.Stmt, error) {
 
 	args := obj.Args
 	if obj.Args == nil {
-		args = []*Arg{}
+		args = []*interfaces.Arg{}
 	}
 
 	if !copied { // it's static
@@ -6507,7 +6507,7 @@ type ExprFunc struct {
 	// Args are the list of args that were used when defining the function.
 	// This can include a string name and a type, however the type might be
 	// absent here.
-	Args []*Arg
+	Args []*interfaces.Arg
 	// Return is the return type of the function if it was defined.
 	Return *types.Type // return type if specified
 	// Body is the contents of the function. It can be any expression.
@@ -6647,7 +6647,7 @@ func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) {
 
 	args := obj.Args
 	if obj.Args == nil {
-		args = []*Arg{}
+		args = []*interfaces.Arg{}
 	}
 
 	return &ExprFunc{
@@ -8598,22 +8598,6 @@ func (obj *ExprVar) Value() (types.Value, error) {
 		return nil, fmt.Errorf("var `%s` does not exist in scope", obj.Name)
 	}
 	return expr.Value() // recurse
-}
-
-// Arg represents a name identifier for a func or class argument declaration and
-// is sometimes accompanied by a type. This does not satisfy the Expr interface.
-type Arg struct {
-	Name string
-	Type *types.Type // nil if unspecified (needs to be solved for)
-}
-
-// String returns a short representation of this arg.
-func (obj *Arg) String() string {
-	s := obj.Name
-	if obj.Type != nil {
-		s += fmt.Sprintf(" %s", obj.Type.String())
-	}
-	return s
 }
 
 // ExprIf represents an if expression which *must* have both branches, and which

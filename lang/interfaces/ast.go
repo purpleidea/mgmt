@@ -438,6 +438,22 @@ func (obj *Scope) PullIndexes() ([]Expr, bool) {
 	return indexes, exists
 }
 
+// Arg represents a name identifier for a func or class argument declaration and
+// is sometimes accompanied by a type. This does not satisfy the Expr interface.
+type Arg struct {
+	Name string
+	Type *types.Type // nil if unspecified (needs to be solved for)
+}
+
+// String returns a short representation of this arg.
+func (obj *Arg) String() string {
+	s := obj.Name
+	if obj.Type != nil {
+		s += fmt.Sprintf(" %s", obj.Type.String())
+	}
+	return s
+}
+
 // Edge is the data structure representing a compiled edge that is used in the
 // lang to express a dependency between two resources and optionally send/recv.
 type Edge struct {

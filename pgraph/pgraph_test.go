@@ -75,6 +75,27 @@ func TestAddVertex1(t *testing.T) {
 	}
 }
 
+func TestAddEdge1(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+
+	g.AddVertex(v1)
+	g.AddVertex(v2)
+
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("should have 0 edges but got %d", i)
+	}
+
+	e1 := NE("e1")
+	g.AddEdge(v1, v2, e1)
+
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("should have 1 edge but got %d", i)
+	}
+}
+
 func TestDFS1(t *testing.T) {
 	G, _ := NewGraph("g3")
 	v1 := NV("v1")

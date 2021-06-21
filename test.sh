@@ -29,7 +29,7 @@ label-block() {
 function run-testsuite() {
 	testname="$(basename "$1" .sh)"
 	# if not running all tests or if this test is not explicitly selected, skip it
-	if test -z "$testsuite" || test "test-$testsuite" = "$testname";then
+	if test -z "$testsuite" || test "test-$testsuite" = "$testname"; then
 		fold_start "$testname"
 		"$@" || failures=$([ -n "$failures" ] && echo "$failures\\n$@" || echo "$@")
 		fold_end "$testname"
@@ -40,12 +40,12 @@ function run-testsuite() {
 function skip-testsuite() {
 	testname=$(basename "$1" .sh)
 	# show skip message only when running full suite
-	if test -z "$testsuite";then
+	if test -z "$testsuite"; then
 		echo skipping "$@" "($REASON)"
 		echo 'SKIP'
 	else
 		# if a skipped suite is explicity called, run it anyway
-		if test "test-$testsuite" == "$testname";then
+		if test "test-$testsuite" == "$testname"; then
 			run-testsuite "$@"
 		fi
 	fi

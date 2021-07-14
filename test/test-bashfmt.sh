@@ -26,6 +26,11 @@ bad_files=$(
 		if grep -q '^  ' "$i"; then
 			echo "$i"
 		fi
+
+		# search for files with weird semicolon, then pattern
+		if grep -q ';''then' "$i"; then
+			echo "$i"
+		fi
 	done
 )
 

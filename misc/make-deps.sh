@@ -157,6 +157,9 @@ go get golang.org/x/lint/golint				# for `golint`-ing
 go get golang.org/x/tools/cmd/goimports		# for fmt
 go get github.com/kevinburke/go-bindata/go-bindata	# for compiling in non golang files
 go get github.com/dvyukov/go-fuzz/go-fuzz		# for fuzzing the mcl lang bits
+# heavily recommended to use curl to install instead of go get under https://golangci-lint.run/usage/install/
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.41.1
+
 if in_ci; then
 	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
 	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \

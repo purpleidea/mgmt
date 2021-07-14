@@ -1,0 +1,18 @@
+# test-golangci-lint configuration file for golangci-lint
+
+run:
+  skip-files:
+    - lang/lexer.nn.go
+    - lang/y.go
+    - bindata/bindata.go
+    - lang/types/kind_stringer.go
+    - lang/interpolate/parse.generated.go
+    - lang/interpolate/interpolate/parse.generated.go
+
+linters:
+  disable-all: true
+  enable:
+    - goimports
+    - revive # using revive instead of golint as it runs more quickly
+    - misspell
+

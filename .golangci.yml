@@ -13,6 +13,6 @@ linters:
   disable-all: true
   enable:
     - goimports
-    - revive
+    - revive # using revive instead of golint as it runs more quickly
     - misspell
 

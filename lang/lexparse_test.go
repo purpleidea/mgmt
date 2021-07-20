@@ -1416,14 +1416,14 @@ func TestLexParse0(t *testing.T) {
 			Prog: []interfaces.Stmt{
 				&StmtClass{
 					Name: "x",
-					Args: []*Arg{},
+					Args: []*interfaces.Arg{},
 					Body: &StmtProg{
 						Prog: []interfaces.Stmt{},
 					},
 				},
 				&StmtClass{
 					Name: "y1",
-					Args: []*Arg{},
+					Args: []*interfaces.Arg{},
 					Body: &StmtProg{
 						Prog: []interfaces.Stmt{},
 					},
@@ -1462,7 +1462,7 @@ func TestLexParse0(t *testing.T) {
 			Prog: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
-					Args: []*Arg{
+					Args: []*interfaces.Arg{
 						{
 							Name: "a",
 							//Type: &types.Type{},
@@ -1535,7 +1535,7 @@ func TestLexParse0(t *testing.T) {
 			Prog: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
-					Args: []*Arg{
+					Args: []*interfaces.Arg{
 						{
 							Name: "a",
 							Type: types.TypeStr,
@@ -1727,7 +1727,7 @@ func TestLexParse0(t *testing.T) {
 				&StmtFunc{
 					Name: "f1",
 					Func: &ExprFunc{
-						Args: []*Arg{},
+						Args: []*interfaces.Arg{},
 						Body: &ExprInt{
 							V: 42,
 						},
@@ -1748,7 +1748,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ExprFunc{
-			Args:   []*Arg{},
+			Args:   []*interfaces.Arg{},
 			Return: types.TypeInt,
 			Body: &ExprCall{
 				Name: operatorFuncName,
@@ -1790,7 +1790,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ExprFunc{
-			Args: []*Arg{
+			Args: []*interfaces.Arg{
 				{
 					Name: "a",
 					Type: types.TypeInt,
@@ -1841,7 +1841,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ExprFunc{
-			Args: []*Arg{
+			Args: []*interfaces.Arg{
 				{
 					Name: "x",
 					Type: types.TypeStr,
@@ -1888,7 +1888,7 @@ func TestLexParse0(t *testing.T) {
 	{
 
 		fn := &ExprFunc{
-			Args: []*Arg{},
+			Args: []*interfaces.Arg{},
 			Body: &ExprInt{
 				V: 42,
 			},
@@ -1915,7 +1915,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ExprFunc{
-			Args: []*Arg{
+			Args: []*interfaces.Arg{
 				{
 					Name: "x",
 					Type: types.TypeStr,
@@ -1962,7 +1962,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ExprFunc{
-			Args: []*Arg{
+			Args: []*interfaces.Arg{
 				{
 					Name: "x",
 					Type: types.TypeStr,
@@ -2027,10 +2027,10 @@ func TestLexParse0(t *testing.T) {
 					Name: "funcgen",
 					// This is the outer function...
 					Func: &ExprFunc{
-						Args: []*Arg{},
+						Args: []*interfaces.Arg{},
 						// This is the inner function...
 						Body: &ExprFunc{
-							Args: []*Arg{},
+							Args: []*interfaces.Arg{},
 							Body: &ExprStr{
 								V: "hello",
 							},

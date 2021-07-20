@@ -34,3 +34,6 @@
 [submodule "vendor/github.com/containerd/containerd"]
 	path = vendor/github.com/containerd/containerd
 	url = https://github.com/purpleidea/containerd
+[submodule "vendor/github.com/hashicorp/consul"]
+	path = vendor/github.com/hashicorp/consul
+	url = https://github.com/hashicorp/consul/

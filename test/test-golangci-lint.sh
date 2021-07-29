@@ -17,7 +17,7 @@ function run-test()
 }
 
 # using .golangci.yml config file settings in ROOT
-gcl='golangci-lint run' 
+gcl='golangci-lint run'
 
 # commented out from gometalinter linter test
 # aligncheck, dupl, errcheck, gas, goconst, gocyclo, gotype, unconvert
@@ -27,11 +27,11 @@ gcl='golangci-lint run'
 # safesql, staticcheck, structcheck, unparam, unused, varcheck
 
 for dir in `find * -maxdepth 9 -type d -not -path 'old/*' -not -path 'old' -not -path 'tmp/*' -not -path 'tmp' -not -path 'vendor/*' -not -path 'examples/*' -not -path 'test/*' -not -path 'interpolate/*'`; do
-	
+
     # doesn't acquire files individually, but treats them as a set of * files
     match="$dir/*.go"
 
-	if ! ls $match &>/dev/null; 
+	if ! ls $match &>/dev/null;
     then
 		continue	# no *.go files found
     fi

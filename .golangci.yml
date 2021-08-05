@@ -15,4 +15,3 @@ linters:
     - goimports
     - revive # using revive instead of golint as it runs more quickly
     - misspell
-

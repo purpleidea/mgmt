@@ -22,8 +22,8 @@ gcl='golangci-lint run'
 # commented out from gometalinter linter test
 # aligncheck, dupl, errcheck, gas, goconst, gocyclo, gotype, unconvert
 
-# TODO: only a few fixes needed
-# linters: deadcode, gosimple, ineffassign, interfacer, lll --line-length=200
+# TODO: only a few fixes needed before using following linters:
+# deadcode, gosimple, ineffassign, interfacer, lll --line-length=200
 # safesql, staticcheck, structcheck, unparam, unused, varcheck
 
 for dir in `find * -maxdepth 9 -type d -not -path 'old/*' -not -path 'old' -not -path 'tmp/*' -not -path 'tmp' -not -path 'vendor/*' -not -path 'examples/*' -not -path 'test/*' -not -path 'interpolate/*'`; do
@@ -31,8 +31,7 @@ for dir in `find * -maxdepth 9 -type d -not -path 'old/*' -not -path 'old' -not 
     # doesn't acquire files individually, but treats them as a set of * files
     match="$dir/*.go"
 
-	if ! ls $match &>/dev/null;
-    then
+	if ! ls $match &>/dev/null; then
 		continue	# no *.go files found
     fi
 

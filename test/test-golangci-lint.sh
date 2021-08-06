@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# print current test
+# print current running test
 echo running "$0"
 
 command -v golangci-lint >/dev/null 2>&1 || { echo >&2 "golangci-lint not found"; exit 1; }
@@ -28,14 +28,14 @@ gcl='golangci-lint run'
 
 for dir in `find * -maxdepth 9 -type d -not -path 'old/*' -not -path 'old' -not -path 'tmp/*' -not -path 'tmp' -not -path 'vendor/*' -not -path 'examples/*' -not -path 'test/*' -not -path 'interpolate/*'`; do
 
-    # doesn't acquire files individually, but treats them as a set of * files
-    match="$dir/*.go"
+	# doesn't acquire files individually, but treats them as a set of * files
+	match="$dir/*.go"
 
 	if ! ls $match &>/dev/null; then
 		continue	# no *.go files found
-    fi
+	fi
 
-    run-test $gcl "$dir" || fail_test "golangci-lint did not pass"
+	run-test $gcl "$dir" || fail_test "golangci-lint did not pass"
 done
 
 if [[ -n "$failures" ]]; then

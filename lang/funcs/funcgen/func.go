@@ -88,16 +88,13 @@ func generateTemplate(c config, f functions, path, templateFile, finalName strin
 	if err != nil {
 		return err
 	}
-	if err = t.Execute(finalFile, struct {
+	return t.Execute(finalFile, struct {
 		Packages  golangPackages
 		Functions []function
 	}{
 		c.Packages,
 		f,
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // MakeGolangArgs translates the func args to golang args.

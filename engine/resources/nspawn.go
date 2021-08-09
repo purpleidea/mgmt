@@ -128,10 +128,7 @@ func (obj *NspawnRes) Init(init *engine.Init) error {
 	}
 	obj.svc = svc
 	// TODO: we could build a new init that adds a prefix to the logger...
-	if err := obj.svc.Init(init); err != nil {
-		return err
-	}
-	return nil
+	return obj.svc.Init(init)
 }
 
 // Close is run by the engine to clean up after the resource is done.

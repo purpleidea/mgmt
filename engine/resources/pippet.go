@@ -83,10 +83,7 @@ func (obj *PippetRes) Validate() error {
 func (obj *PippetRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 	obj.runner = getPippetReceiverInstance()
-	if err := obj.runner.Register(); err != nil {
-		return err
-	}
-	return nil
+	return obj.runner.Register()
 }
 
 // Close is run by the engine to clean up after the resource is done.

@@ -3841,6 +3841,7 @@ func (obj *StmtFunc) Init(data *interfaces.Data) error {
 	if err := obj.Func.Init(data); err != nil {
 		return err
 	}
+	// no errors
 	return nil
 }
 
@@ -4395,6 +4396,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 		return err
 	}
 
+	// no errors
 	return nil
 }
 
@@ -8650,6 +8652,8 @@ func (obj *ExprIf) Init(data *interfaces.Data) error {
 	if err := obj.ElseBranch.Init(data); err != nil {
 		return err
 	}
+
+	// no errors
 	return nil
 }
 

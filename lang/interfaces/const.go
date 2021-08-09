@@ -23,6 +23,6 @@ const (
 	ModuleSep = "."
 
 	// VarPrefix is the prefix character that precedes the variables
-	// identifer. For example, `$foo` or for a lambda, `$fn(42)`.
+	// identifier. For example, `$foo` or for a lambda, `$fn(42)`.
 	VarPrefix = "$"
 )

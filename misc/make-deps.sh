@@ -157,13 +157,35 @@ go get golang.org/x/lint/golint				# for `golint`-ing
 go get golang.org/x/tools/cmd/goimports		# for fmt
 go get github.com/kevinburke/go-bindata/go-bindata	# for compiling in non golang files
 go get github.com/dvyukov/go-fuzz/go-fuzz		# for fuzzing the mcl lang bits
-# heavily recommended to use curl to install instead of go get under https://golangci-lint.run/usage/install/
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.41.1
 
 if in_ci; then
 	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
 	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \
 	gometalinter --install	# bonus
+
+	# 	# heavily recommended to use curl to install instead of go get under https://golangci-lint.run/usage/install/
+	# glc_version = "v1.42.0"
+	# curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh > $(go env GOPATH)/bin/golangci-lint
+	# chmod +x $(go env GOPATH)/bin/golangci-lint
+	# 	# curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh
+	# echo "THIS IS IN BIN!"
+	# ls $(go env GOPATH)/bin/
+	# echo "THIS IS IN GOLANGCI-LINT!"
+	# ls $(go env GOPATH)/bin/golangci-lint
+	# 	# puts binary into $(go env GOPATH)/bin/golangci-lint
+	# 	# heavily recommended to install specific version of golangci-lint as per https://golangci-lint.run/usage/install/
+	# 	# used to avoid breaking builds when new linter errors are introduced from a new release (minor or major)
+	# sh -s -- -b $(go env GOPATH)/bin/golangci-lint $glc_version
+	# sh -s -- -b $(go env GOPATH)/bin/golangci-lint v1.42.0
+
+	# curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh > $(go env GOPATH)/bin/golangci-lint-install
+	chmod u+x $(go env GOPATH)/bin/golangci-lint-install
+	./$(go env GOPATH)/bin/golangci-lint-install v1.42.0
+	echo "INSTALLED!"
+	export PATH=$PATH:$(go env GOPATH)/bin
+	golangci-lint --version
+
 fi
 fold_end "Install golang tools"
 

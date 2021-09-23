@@ -1,0 +1,34 @@
+$tarfilepath1 = "/tmp/mytar1.tar"
+
+file "/tmp/file1.txt" {
+	content => "julius caesar",
+	state => $const.res.file.state.exists,
+	Before => Tar["${tarfilepath1}"],
+}
+
+file "/tmp/file2.txt" {
+	content => "hello world",
+	state => $const.res.file.state.exists,
+	Before => Tar["${tarfilepath1}"],
+}
+
+file "/tmp/somedir/" {
+	state => $const.res.file.state.exists,
+}
+
+file "/tmp/somedir/file3.txt" {
+	state => $const.res.file.state.exists,
+}
+
+tar "${tarfilepath1}" {
+	inputs => ["/tmp/file1.txt", "/tmp/file2.txt", "/tmp/somedir/",],
+	state => $const.res.tar.state.exists,
+	compress => false,
+}
+
+$tarfilepath2 = "/tmp/mytar2.tar"
+tar "${tarfilepath2}" {
+	inputs => ["/tmp/file1.txt", "/tmp/file2.txt", "/tmp/somedir/",],
+	state => $const.res.tar.state.absent,
+	compress => false,
+}

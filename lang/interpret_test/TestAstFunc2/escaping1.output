@@ -19,3 +19,8 @@ Vertex: test[R: \This is r1 EOF]
 Vertex: test[S: \$ EOF]
 Vertex: test[T: newline
 EOF]
+Vertex: test[U: tab	\	tabEOF]
+Vertex: test[W: \$]
+Vertex: test[X: $This is x1 EOF]
+Vertex: test[Y: ${unused} EOF]
+Vertex: test[Z: $$$]

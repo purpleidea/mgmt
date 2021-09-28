@@ -76,7 +76,7 @@ func Parse(data string) (out Stream, _ error) {
 		var = '${' var_name '}' ;
 
 		# Any special escape characters are matched here.
-		escaped_lit = '\\' ( 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' | '\\' | '"' | '$' )
+		escaped_lit = '\\' (any)
 		@{
 			switch s := data[fpc:fpc+1]; s {
 			case "a":
@@ -105,23 +105,16 @@ func Parse(data string) (out Stream, _ error) {
 			//	x = "\x00"
 			default:
 				//x = s // in case we want to avoid erroring
-				// this is a programming (parser) error I think
-				return nil, fmt.Errorf("unhandled escape sequence token: %s", s)
+				return nil, fmt.Errorf("unknown escape sequence: \\%s", s)
 			}
 			l = Literal{Value: x}
 		};
 
-		# XXX: explicitly try and add this one?
-		#escape_lit = '\\\\'
-		#@{
-		#	l = Literal{Value: "\\\\"}
-		#};
-
-		# Anything followed by a '$' that is not a '{' is used as-is
-		# with the dollar.
-		dollar_lit = '$' (any - '{')
+		# A lone dollar is a literal, if it is not a var. The `token` rule
+		# declares a var match is attempted first, else a `lit` and thus this.
+		dollar_lit = '$'
 		@{
-			l = Literal{Value: data[fpc-1:fpc+1]}
+			l = Literal{Value: data[fpc:fpc+1]}
 		};
 
 		# Literal strings that don't contain '$' or '\'.

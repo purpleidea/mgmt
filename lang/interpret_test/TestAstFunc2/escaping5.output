@@ -1,1 +1,1 @@
-# err: errInterpolate: parser failed: cannot parse string: X: there is no \j sequence
+# err: errInterpolate: parser failed: unknown escape sequence: \j

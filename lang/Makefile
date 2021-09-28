@@ -47,13 +47,10 @@ endif
 
 interpolate/parse.generated.go: interpolate/parse.rl
 	@echo "Generating: interpolation..."
-	ragel -Z -G2 -o interpolate/parse.generated.go interpolate/parse.rl
-	#@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'interpolate/parse.generated.go'
-	# XXX: I have no idea why I need to sed twice. I give up :P
+	ragel -Z -G2 -o $@ $<
 	# remove the ragel header so our header test passes
-	@sed -i -e "1d" 'interpolate/parse.generated.go'
-	@sed -i -e "1d" 'interpolate/parse.generated.go'
-	gofmt -s -w 'interpolate/parse.generated.go'
+	sed -i -e 1,2d $@
+	gofmt -s -w $@
 
 fuzz:
 	@$(MAKE) --quiet -C fuzz

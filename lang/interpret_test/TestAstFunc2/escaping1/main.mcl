@@ -46,23 +46,17 @@ test "S: \\$ EOF" {}
 
 test "T: newline\nEOF" {}
 
-# XXX: possible bugs or misunderstood expectations:
+test "U: tab\t\\\ttabEOF" {}
 
-#test "W: \\$" {}
-# got: <error>
-# exp: W: \$
+# test "V: " {}
 
-#$x1 = "This is x1"
-#test "X: $${x1} EOF" {}
-# got: X: $${x1} EOF
-# exp: X: $This is x1 EOF
+test "W: \\$" {}
 
-#$unused = "i am unused"
-#$y1 = "{unused}"
-#test "Y: $${y1} EOF" {} # check there isn't double parsing
-# got: Y: $${y1} EOF
-# exp: Y: ${unused} EOF
+$x1 = "This is x1"
+test "X: $${x1} EOF" {}
 
-#test "Z: $$$" {}
-# got: <error>
-# exp: Z: $$$ EOF
+$unused = "i am unused"
+$y1 = "{unused}"
+test "Y: $${y1} EOF" {} # check there isn't double parsing
+
+test "Z: $$$" {}

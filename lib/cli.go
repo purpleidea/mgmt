@@ -353,7 +353,7 @@ func CLI(program, version string, flags Flags) error {
 		commandRun := &cli.Command{
 			Name:        gapi.CommandRun,
 			Aliases:     []string{"r"},
-			Usage:       "run",
+			Usage:       "Run code on this machine",
 			Subcommands: subCommandsRun,
 			Flags:       runFlags,
 		}
@@ -364,7 +364,7 @@ func CLI(program, version string, flags Flags) error {
 		commandDeploy := &cli.Command{
 			Name:        gapi.CommandDeploy,
 			Aliases:     []string{"d"},
-			Usage:       "deploy",
+			Usage:       "Deploy code into the cluster",
 			Subcommands: subCommandsDeploy,
 			Flags:       deployFlags,
 		}
@@ -375,7 +375,7 @@ func CLI(program, version string, flags Flags) error {
 		commandGet := &cli.Command{
 			Name:        gapi.CommandGet,
 			Aliases:     []string{"g"},
-			Usage:       "get",
+			Usage:       "Download code from the internet",
 			Subcommands: subCommandsGet,
 			Flags:       getFlags,
 		}

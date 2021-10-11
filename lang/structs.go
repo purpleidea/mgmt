@@ -950,6 +950,18 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 		case "realize":
 			meta.Realize = v.Bool() // must not panic
 
+		case "stable":
+			meta.Stable = v.Bool() // must not panic
+
+		case "stable_count":
+			x := v.Int() // must not panic
+			// TODO: check that it doesn't overflow
+			meta.StableCount = uint64(x)
+
+		case "stable_rate": // rate.Limit
+			x := v.Float() // must not panic
+			meta.StableRate = rate.Limit(x)
+
 		case "reverse":
 			if v.Type().Cmp(types.TypeBool) == nil {
 				if rm != nil {
@@ -1010,6 +1022,18 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 			}
 			if val, exists := v.Struct()["realize"]; exists {
 				meta.Realize = val.Bool() // must not panic
+			}
+			if val, exists := v.Struct()["stable"]; exists {
+				meta.Stable = val.Bool() // must not panic
+			}
+			if val, exists := v.Struct()["stable_count"]; exists {
+				x := val.Int() // must not panic
+				// TODO: check that it isn't signed
+				meta.StableCount = uint64(x)
+			}
+			if val, exists := v.Struct()["stable_rate"]; exists {
+				x := val.Float() // must not panic
+				meta.StableRate = rate.Limit(x)
 			}
 			if val, exists := v.Struct()["reverse"]; exists && rm != nil {
 				if val.Type().Cmp(types.TypeBool) == nil {
@@ -1594,6 +1618,9 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "sema":
 	case "rewatch":
 	case "realize":
+	case "stable":
+	case "stable_count":
+	case "stable_rate":
 	case "reverse":
 	case "autoedge":
 	case "autogroup":
@@ -1798,6 +1825,15 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 	case "realize":
 		invar = static(types.TypeBool)
 
+	case "stable":
+		invar = static(types.TypeBool)
+
+	case "stable_count":
+		invar = static(types.TypeInt)
+
+	case "stable_rate": // rate.Limit
+		invar = static(types.TypeFloat)
+
 	case "reverse":
 		ors := []interfaces.Invariant{}
 
@@ -1824,7 +1860,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str; rewatch bool; realize bool; stable bool; stable_count int; stable_rate float; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		ors := []interfaces.Invariant{}
 		invarBool := static(wrap(types.TypeBool))

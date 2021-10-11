@@ -274,6 +274,21 @@ and it can't guarantee it if the resource is blocked because of a failed
 pre-requisite resource.
 *XXX: This is currently not implemented!*
 
+#### Stable
+
+Boolean. The docs for `stable` are not available yet.
+*XXX: This is currently not implemented!*
+
+#### StableCount
+
+Int. The docs for `stable_count` are not available yet.
+*XXX: This is currently not implemented!*
+
+#### StableRate
+
+Float. The docs for `stable_rate` are not available yet.
+*XXX: This is currently not implemented!*
+
 #### Reverse
 
 Boolean. Reverse is a property that some resources can implement that specifies

@@ -37,8 +37,11 @@ var DefaultMetaParams = &MetaParams{
 	Limit: rate.Inf, // defaults to no limit
 	Burst: 0,        // no burst needed on an infinite rate
 	//Sema:  []string{},
-	Rewatch: true,
-	Realize: false, // true would be more awesome, but unexpected for users
+	Rewatch:     true,
+	Realize:     false, // true would be more awesome, but unexpected for users
+	Stable:      false,
+	StableCount: 0,
+	StableRate:  rate.Inf, // defaults to no limit
 }
 
 // MetaRes is the interface a resource must implement to support meta params.
@@ -101,6 +104,40 @@ type MetaParams struct {
 	// the resource is blocked because of a failed pre-requisite resource.
 	// XXX: Not implemented!
 	Realize bool `yaml:"realize"`
+
+	// Stable will cause an error notification to occur if this resource
+	// runs more than the specified number of times. When no specific number
+	// is specified and this meta param is set to true, then that number
+	// defaults to 1. Instead of a specific static count, this could also
+	// specify a rate limit above which the alarm will trigger. This is
+	// useful to alert of a resource which should not need a second
+	// CheckApply after the initial state check. In other words, it will
+	// allow an initial CheckApply that modifies the state, and then a
+	// second CheckApply that doesn't modify the state. Or just a single
+	// CheckApply that doesn't modify the state. The canonical use case for
+	// this is for a package that gets installed. We wouldn't want it to get
+	// uninstalled by a human or some other mechanism that flip-flop's it,
+	// so we alert if the state changes a second time. To alert we will
+	// print a log message and also send a variable through the $error
+	// event mechanism.
+	// XXX: Not implemented!
+	Stable bool `yaml:"stable"`
+
+	// StableCount is the maximum number of changes to allow before sending
+	// an alert of an issue. If the state is okay at startup, then this
+	// check counts as 1. If this is zero, then it is ignored. This can be
+	// combined with StableRate. You must set `Stable` to true if you want
+	// to use the modified.
+	// XXX: Not implemented!
+	StableCount uint64 `yaml:"stable_count"`
+
+	// StableRate is the maximum rate of changes to allow before sending an
+	// alert of an issue. This counts using the same mechanism as
+	// StableCount, but turns this into a rate threshold instead. This can
+	// be combined with StableCount. You must set `Stable` to true if you
+	// want to use the modified.
+	// XXX: Not implemented!
+	StableRate rate.Limit `yaml:"stable_rate"`
 }
 
 // Cmp compares two AutoGroupMeta structs and determines if they're equivalent.
@@ -145,6 +182,16 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 		return fmt.Errorf("values for Realize are different")
 	}
 
+	if obj.Stable != meta.Stable {
+		return fmt.Errorf("values for Stable are different")
+	}
+	if obj.StableCount != meta.StableCount {
+		return fmt.Errorf("values for StableCount are different")
+	}
+	if obj.StableRate != meta.StableRate {
+		return fmt.Errorf("values for StableRate are different")
+	}
+
 	return nil
 }
 
@@ -163,6 +210,13 @@ func (obj *MetaParams) Validate() error {
 		}
 	}
 
+	if !obj.Stable && obj.StableCount != 0 {
+		return fmt.Errorf("stable_count is specified, but stable is false")
+	}
+	if !obj.Stable && obj.StableRate != rate.Inf {
+		return fmt.Errorf("stable_rate is specified, but stable is false")
+	}
+
 	return nil
 }
 
@@ -174,15 +228,18 @@ func (obj *MetaParams) Copy() *MetaParams {
 		copy(sema, obj.Sema)
 	}
 	return &MetaParams{
-		Noop:    obj.Noop,
-		Retry:   obj.Retry,
-		Delay:   obj.Delay,
-		Poll:    obj.Poll,
-		Limit:   obj.Limit, // FIXME: can we copy this type like this? test me!
-		Burst:   obj.Burst,
-		Sema:    sema,
-		Rewatch: obj.Rewatch,
-		Realize: obj.Realize,
+		Noop:        obj.Noop,
+		Retry:       obj.Retry,
+		Delay:       obj.Delay,
+		Poll:        obj.Poll,
+		Limit:       obj.Limit, // FIXME: can we copy this type like this? test me!
+		Burst:       obj.Burst,
+		Sema:        sema,
+		Rewatch:     obj.Rewatch,
+		Realize:     obj.Realize,
+		Stable:      obj.Stable,
+		StableCount: obj.StableCount,
+		StableRate:  obj.StableRate,
 	}
 }
 

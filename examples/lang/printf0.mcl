@@ -1,10 +1,10 @@
 import "fmt"
 
 test "printf-a" {
-	anotherstr => fmt.printf("the %v is: %v", "answer", 42),
+	anotherstr => fmt.printf("the %s is: %d", "answer", 42),
 }
 
-$format = "a %v is: %v"
+$format = "a %s is: %f"
 test "printf-b" {
 	anotherstr => fmt.printf($format, "cool number", 3.14159),
 }

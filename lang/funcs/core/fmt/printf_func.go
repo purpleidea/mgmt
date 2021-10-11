@@ -145,6 +145,11 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 			// result. The golang printf does something similar
 			// when it can't catch things statically at compile
 			// time.
+			// XXX: In the above scenario, we'd have to also change
+			// the compileFormatToString function to handle a list
+			// of values with a badly matched string. Maybe best to
+			// just not allow this entirely? Or set this behaviour
+			// with a constant?
 
 			value, err := cfavInvar.Args[0].Value() // is it known?
 			if err != nil {
@@ -175,11 +180,14 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 				}
 
 				dummyArg := &interfaces.ExprAny{}
-				invar = &interfaces.EqualsInvariant{
-					Expr: dummyArg,
-					Type: x,
+				// if it's a variant, we can't add the invariant
+				if x != types.TypeVariant {
+					invar = &interfaces.EqualsInvariant{
+						Expr: dummyArg,
+						Type: x,
+					}
+					invariants = append(invariants, invar)
 				}
-				invariants = append(invariants, invar)
 
 				// add the relationships to the called args
 				invar = &interfaces.EqualityInvariant{
@@ -228,6 +236,8 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 // precise type if it can be gleamed from the format argument. If it cannot, it
 // is because either the format argument was not known statically, or because it
 // had an invalid format string.
+// XXX: This version of the function does not handle any variants returned from
+// the parseFormatToTypeList helper function.
 func (obj *PrintfFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	if partialType == nil || len(partialValues) < 1 {
 		return nil, fmt.Errorf("first argument must be a static format string")
@@ -437,7 +447,8 @@ func valueToString(value types.Value) string {
 }
 
 // parseFormatToTypeList takes a format string and returns a list of types that
-// it expects to use in the order found in the format string.
+// it expects to use in the order found in the format string. This can also
+// handle the %v special variant type in the format string.
 // FIXME: add support for more types, and add tests!
 func parseFormatToTypeList(format string) ([]*types.Type, error) {
 	typList := []*types.Type{}
@@ -476,6 +487,10 @@ func parseFormatToTypeList(format string) ([]*types.Type, error) {
 
 		// FIXME: add fancy types like: %[]s, %[]f, %{s:f}, etc...
 
+		// special!
+		case 'v':
+			typList = append(typList, types.TypeVariant)
+
 		default:
 			return nil, fmt.Errorf("invalid format string at %d", i)
 		}
@@ -486,7 +501,9 @@ func parseFormatToTypeList(format string) ([]*types.Type, error) {
 }
 
 // compileFormatToString takes a format string and a list of values and returns
-// the compiled/templated output.
+// the compiled/templated output. This can also handle the %v special variant
+// type in the format string. Of course the corresponding value to those %v
+// entries must have a static, fixed, precise type.
 // FIXME: add support for more types, and add tests!
 func compileFormatToString(format string, values []types.Value) (string, error) {
 	output := ""
@@ -529,12 +546,20 @@ func compileFormatToString(format string, values []types.Value) (string, error) 
 
 		// FIXME: add fancy types like: %[]s, %[]f, %{s:f}, etc...
 
+		case 'v':
+			typ = types.TypeVariant
+
 		default:
 			return "", fmt.Errorf("invalid format string at %d", i)
 		}
 		inType = false // done
 
-		if err := typ.Cmp(values[ix].Type()); err != nil {
+		// check the type (if not a variant) matches what we have...
+		if typ == types.TypeVariant {
+			if values[ix].Type() == nil {
+				return "", fmt.Errorf("unexpected nil type")
+			}
+		} else if err := typ.Cmp(values[ix].Type()); err != nil {
 			return "", errwrap.Wrapf(err, "unexpected type")
 		}
 

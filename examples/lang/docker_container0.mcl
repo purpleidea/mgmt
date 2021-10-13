@@ -2,5 +2,38 @@ docker:container "mgmt-nginx" {
 	state => "running",
 	image => "nginx",
 	cmd => ["nginx", "-g", "daemon off;",],
-	ports => {"tcp" => {80 => 8080,},},
+	ports => {"tcp" => {80 => "127.0.0.127:8080",},},
 }
+
+docker:image "nginx" {
+	state => "exists",
+}
+
+docker:container:mount "/tmp" {
+	container => "mgmt-nginx",
+	type => "tmpfs",
+	size => "2M",
+}
+
+$network = "test"
+docker:network $network {
+	state => "exists",
+	force => true,
+	enableipv6 => true,
+	labels => {"key" => "value",},
+}
+
+docker:network:address "${network}-ipv4" {
+	network => $network,
+	subnet => "10.10.10.0/24",
+	iprange => "10.10.10.10/25",
+	gateway => "10.10.10.10",
+}
+
+docker:network:address "${network}-ipv6" {
+	network => $network,
+	subnet => "fd00:f7e:b1b:abcd::/64",
+	gateway => "fd00:f7e:b1b:abcd::1",
+}
+
+

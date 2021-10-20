@@ -30,6 +30,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/bindata"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
+	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	langutil "github.com/purpleidea/mgmt/lang/util"
@@ -3207,7 +3208,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 // importScopeWithInputs returns a local or remote scope from an inputs string.
 // The inputs string is the common frontend for a lot of our parsing decisions.
 func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, parentVertex *pgraph.SelfVertex) (*interfaces.Scope, error) {
-	output, err := parseInput(s, obj.data.Fs)
+	output, err := inputs.ParseInput(s, obj.data.Fs)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not activate an input parser")
 	}

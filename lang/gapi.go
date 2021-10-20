@@ -25,6 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
+	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -179,7 +180,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	// the fs input here is the local fs we're reading to get the files from
 	// this is different from the fs variable which is our output dest!!!
-	output, err := parseInput(input, localFs)
+	output, err := inputs.ParseInput(input, localFs)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not activate an input parser")
 	}
@@ -652,7 +653,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 
 	// the fs input here is the local fs we're reading to get the files from
 	// this is different from the fs variable which is our output dest!!!
-	output, err := parseInput(input, localFs)
+	output, err := inputs.ParseInput(input, localFs)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not activate an input parser")
 	}

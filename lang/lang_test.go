@@ -26,6 +26,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
+	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -97,9 +98,9 @@ func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
 	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
 	fs := &util.Fs{Afero: afs}
 
-	output, err := parseInput(code, fs) // raw code can be passed in
+	output, err := inputs.ParseInput(code, fs) // raw code can be passed in
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "parseInput failed")
+		return nil, errwrap.Wrapf(err, "ParseInput failed")
 	}
 	for _, fn := range output.Workers {
 		if err := fn(fs); err != nil {

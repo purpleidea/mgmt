@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lang
+package inputs
 
 import (
 	"fmt"
@@ -67,9 +67,9 @@ type ParsedInput struct {
 	Workers  []func(engine.Fs) error // copy files here that aren't listed!
 }
 
-// parseInput runs the list if input parsers to know how to run the lexer,
+// ParseInput runs the list if input parsers to know how to run the lexer,
 // parser, and so on... The fs input is the source filesystem to look in.
-func parseInput(s string, fs engine.Fs) (*ParsedInput, error) {
+func ParseInput(s string, fs engine.Fs) (*ParsedInput, error) {
 	var err error
 	var output *ParsedInput
 	activated := false

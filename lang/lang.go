@@ -26,6 +26,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
+	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/unification"
@@ -99,13 +100,13 @@ func (obj *Lang) Init() error {
 	// we used to support stdin passthrough, but we we got rid of it for now
 	// the fs input here is the local fs we're reading to get the files from
 	// which is usually etcdFs.
-	output, err := parseInput(obj.Input, obj.Fs)
+	output, err := inputs.ParseInput(obj.Input, obj.Fs)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not activate an input parser")
 	}
 	if len(output.Workers) > 0 {
 		// either programming error, or someone hacked in something here
-		// by the time *this* parseInput runs, we should be standardized
+		// by the time *this* ParseInput runs, we should be standardized
 		return fmt.Errorf("input contained file system workers")
 	}
 	reader := bytes.NewReader(output.Main)

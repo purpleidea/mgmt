@@ -35,6 +35,7 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
+	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/unification"
@@ -753,10 +754,10 @@ func TestAstFunc1(t *testing.T) {
 			input := "/"
 			logf("input: %s", input)
 
-			output, err := parseInput(input, fs) // raw code can be passed in
+			output, err := inputs.ParseInput(input, fs) // raw code can be passed in
 			if err != nil {
 				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: parseInput failed: %+v", index, err)
+				t.Errorf("test #%d: ParseInput failed: %+v", index, err)
 				return
 			}
 			for _, fn := range output.Workers {
@@ -1249,10 +1250,10 @@ func TestAstFunc2(t *testing.T) {
 			input := "/"
 			logf("input: %s", input)
 
-			output, err := parseInput(input, fs) // raw code can be passed in
+			output, err := inputs.ParseInput(input, fs) // raw code can be passed in
 			if err != nil {
 				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: parseInput failed: %+v", index, err)
+				t.Errorf("test #%d: ParseInput failed: %+v", index, err)
 				return
 			}
 			for _, fn := range output.Workers {

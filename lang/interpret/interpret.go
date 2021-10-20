@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lang // TODO: move this into a sub package of lang/$name?
+package interpret
 
 import (
 	"fmt"
@@ -27,11 +27,11 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-// interpret runs the program and causes a graph generation as a side effect.
+// Interpret runs the program and causes a graph generation as a side effect.
 // You should not run this on the AST if you haven't previously run the function
 // graph engine so that output values have been produced! Type unification is
 // another important aspect which needs to have been completed.
-func interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
+func Interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
 	output, err := ast.Output() // contains resList, edgeList, etc...
 	if err != nil {
 		return nil, err

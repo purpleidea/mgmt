@@ -27,6 +27,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -331,7 +332,7 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 		obj.funcs.RLock()
 	}
 	// this call returns the graph
-	graph, err := interpret(obj.ast)
+	graph, err := interpret.Interpret(obj.ast)
 	if obj.funcs != nil {
 		obj.funcs.RUnlock()
 	}

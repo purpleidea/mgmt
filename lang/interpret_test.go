@@ -36,6 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -1534,7 +1535,7 @@ func TestAstFunc2(t *testing.T) {
 
 			// run interpret!
 			funcs.RLock() // in case something is actually changing
-			ograph, err := interpret(iast)
+			ograph, err := interpret.Interpret(iast)
 			funcs.RUnlock()
 
 			if (!fail || !failInterpret) && err != nil {
@@ -1829,7 +1830,7 @@ func TestAstInterpret0(t *testing.T) {
 		// perform type unification, run the function graph engine, and
 		// only gives you limited results... don't expect normal code to
 		// run and produce meaningful things in this test...
-		graph, err := interpret(ast)
+		graph, err := interpret.Interpret(ast)
 
 		if !fail && err != nil {
 			t.Errorf("test #%d: interpret failed with: %+v", index, err)

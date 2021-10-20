@@ -2715,7 +2715,7 @@ type StmtProg struct {
 	importProgs []*StmtProg // list of child programs after running SetScope
 	importFiles []string    // list of files seen during the SetScope import
 
-	Prog []interfaces.Stmt
+	Body []interfaces.Stmt
 }
 
 // String returns a short representation of this statement.
@@ -2729,7 +2729,7 @@ func (obj *StmtProg) String() string {
 // Nevertheless, it is a useful facility for operations that might only apply to
 // a select number of node types, since they won't need extra noop iterators...
 func (obj *StmtProg) Apply(fn func(interfaces.Node) error) error {
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		if err := x.Apply(fn); err != nil {
 			return err
 		}
@@ -2750,7 +2750,7 @@ func (obj *StmtProg) Init(data *interfaces.Data) error {
 	obj.data = data
 	obj.importProgs = []*StmtProg{}
 	obj.importFiles = []string{}
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		if err := x.Init(data); err != nil {
 			return err
 		}
@@ -2762,28 +2762,28 @@ func (obj *StmtProg) Init(data *interfaces.Data) error {
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
-	prog := []interfaces.Stmt{}
-	for _, x := range obj.Prog {
+	body := []interfaces.Stmt{}
+	for _, x := range obj.Body {
 		interpolated, err := x.Interpolate()
 		if err != nil {
 			return nil, err
 		}
-		prog = append(prog, interpolated)
+		body = append(body, interpolated)
 	}
 	return &StmtProg{
 		data:        obj.data,
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
-		Prog:        prog,
+		Body:        body,
 	}, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
 func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 	copied := false
-	prog := []interfaces.Stmt{}
-	for _, x := range obj.Prog {
+	body := []interfaces.Stmt{}
+	for _, x := range obj.Body {
 		cp, err := x.Copy()
 		if err != nil {
 			return nil, err
@@ -2791,7 +2791,7 @@ func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 		if cp != x { // must have been copied, or pointer would be same
 			copied = true
 		}
-		prog = append(prog, cp)
+		body = append(body, cp)
 	}
 
 	if !copied { // it's static
@@ -2802,7 +2802,7 @@ func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
-		Prog:        prog,
+		Body:        body,
 	}, nil
 }
 
@@ -2827,7 +2827,7 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	graph.AddVertex(obj)
 
 	prod := make(map[string]interfaces.Node)
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		if stmt, ok := x.(*StmtClass); ok {
 			if stmt.Name == "" {
 				return nil, nil, fmt.Errorf("missing class name")
@@ -2880,7 +2880,7 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 	cons := make(map[interfaces.Node]string) // swapped!
 
-	for _, node := range obj.Prog {
+	for _, node := range obj.Body {
 		g, c, err := node.Ordering(newProduces)
 		if err != nil {
 			return nil, nil, err
@@ -3348,7 +3348,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	newVariables := make(map[string]string)
 	newFunctions := make(map[string]string)
 	newClasses := make(map[string]string)
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		imp, ok := x.(*StmtImport)
 		if !ok {
 			continue
@@ -3427,7 +3427,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// collect all the bind statements in the first pass
 	// this allows them to appear out of order in this scope
 	binds := make(map[string]struct{}) // bind existence in this scope
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		bind, ok := x.(*StmtBind)
 		if !ok {
 			continue
@@ -3447,7 +3447,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 	// now collect all the functions, and group by name (if polyfunc is ok)
 	funcs := make(map[string][]*StmtFunc)
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		fn, ok := x.(*StmtFunc)
 		if !ok {
 			continue
@@ -3487,7 +3487,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// now collect any classes
 	// TODO: if we ever allow poly classes, then group in lists by name
 	classes := make(map[string]struct{})
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		class, ok := x.(*StmtClass)
 		if !ok {
 			continue
@@ -3509,7 +3509,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// cases, such as double-recursion. It's left here for reference.
 	if legacyProgSetScope {
 		// first set the scope on the classes, since it gets used in include...
-		for _, stmt := range obj.Prog {
+		for _, stmt := range obj.Body {
 			//if _, ok := stmt.(*StmtClass); !ok {
 			//	continue
 			//}
@@ -3529,7 +3529,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		}
 
 		// now set the child scopes...
-		for _, stmt := range obj.Prog {
+		for _, stmt := range obj.Body {
 			// NOTE: We used to skip over *StmtClass here for recursion...
 			// Skip over *StmtClass here, since we already did it above...
 			if _, ok := stmt.(*StmtClass); ok {
@@ -3614,7 +3614,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
 			continue
 		}
-		if !stmtInList(stmt, obj.Prog) {
+		if !stmtInList(stmt, obj.Body) {
 			// Skip any unwanted additions that we pulled in.
 			continue
 		}
@@ -3637,7 +3637,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
 			continue
 		}
-		if !stmtInList(stmt, obj.Prog) {
+		if !stmtInList(stmt, obj.Body) {
 			// Skip any unwanted additions that we pulled in.
 			continue
 		}
@@ -3662,7 +3662,7 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 
 	// collect all the invariants of each sub-expression
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		// skip over *StmtClass here
 		if _, ok := x.(*StmtClass); ok {
 			continue
@@ -3706,7 +3706,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 	}
 
 	// collect all graphs that need to be included
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		// skip over *StmtClass here
 		if _, ok := x.(*StmtClass); ok {
 			continue
@@ -3747,7 +3747,7 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
 
-	for _, stmt := range obj.Prog {
+	for _, stmt := range obj.Body {
 		// skip over *StmtClass here so its Output method can be used...
 		if _, ok := stmt.(*StmtClass); ok {
 			// don't read output from StmtClass, it
@@ -3790,7 +3790,7 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 // TODO: return a multierr with all the unsafe elements, to provide better info
 // TODO: technically this could be a method on Stmt, possibly using Apply...
 func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
-	for _, x := range obj.Prog {
+	for _, x := range obj.Body {
 		// stmt's allowed: import, bind, func, class
 		// stmt's not-allowed: if, include, res, edge
 		switch x.(type) {

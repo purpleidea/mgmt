@@ -57,7 +57,7 @@ func TestLexParse0(t *testing.T) {
 			code: `$rewsna = -42`,
 			fail: false,
 			exp: &StmtProg{
-				Prog: []interfaces.Stmt{
+				Body: []interfaces.Stmt{
 					&StmtBind{
 						Ident: "rewsna",
 						Value: &ExprInt{
@@ -360,7 +360,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x1",
 					Value: &ExprCall{
@@ -381,7 +381,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x1",
 					Value: &ExprCall{
@@ -409,7 +409,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x1",
 					Value: &ExprCall{
@@ -430,7 +430,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x1",
 					Value: &ExprCall{
@@ -494,7 +494,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x1",
 					Value: &ExprVar{
@@ -514,7 +514,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x1",
 					Value: &ExprVar{
@@ -570,7 +570,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -611,7 +611,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -663,7 +663,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -715,7 +715,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -767,7 +767,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -819,7 +819,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -871,7 +871,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -923,7 +923,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -972,7 +972,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -1024,7 +1024,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -1091,7 +1091,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -1218,11 +1218,11 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{
+						Body: []interfaces.Stmt{
 							&StmtRes{
 								Kind: "test",
 								Name: &ExprStr{
@@ -1261,11 +1261,11 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{
+						Body: []interfaces.Stmt{
 							&StmtRes{
 								Kind: "test",
 								Name: &ExprStr{
@@ -1306,11 +1306,11 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{
+						Body: []interfaces.Stmt{
 							&StmtRes{
 								Kind: "test",
 								Name: &ExprStr{
@@ -1413,19 +1413,19 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtClass{
 					Name: "x",
 					Args: []*interfaces.Arg{},
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{},
+						Body: []interfaces.Stmt{},
 					},
 				},
 				&StmtClass{
 					Name: "y1",
 					Args: []*interfaces.Arg{},
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{},
+						Body: []interfaces.Stmt{},
 					},
 				},
 				&StmtInclude{
@@ -1459,7 +1459,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
 					Args: []*interfaces.Arg{
@@ -1473,7 +1473,7 @@ func TestLexParse0(t *testing.T) {
 						},
 					},
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{
+						Body: []interfaces.Stmt{
 							&StmtRes{
 								Kind: "test",
 								Name: &ExprVar{
@@ -1532,7 +1532,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
 					Args: []*interfaces.Arg{
@@ -1546,7 +1546,7 @@ func TestLexParse0(t *testing.T) {
 						},
 					},
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{
+						Body: []interfaces.Stmt{
 							&StmtRes{
 								Kind: "test",
 								Name: &ExprVar{
@@ -1605,7 +1605,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name:  "foo1",
 					Alias: "",
@@ -1623,7 +1623,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name:  "foo1",
 					Alias: "bar",
@@ -1641,7 +1641,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name:  "foo1",
 					Alias: "",
@@ -1669,7 +1669,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name:  "foo1",
 					Alias: "*",
@@ -1687,11 +1687,11 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtClass{
 					Name: "c1",
 					Body: &StmtProg{
-						Prog: []interfaces.Stmt{
+						Body: []interfaces.Stmt{
 							&StmtImport{
 								Name:  "foo",
 								Alias: "bar",
@@ -1723,7 +1723,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtFunc{
 					Name: "f1",
 					Func: &ExprFunc{
@@ -1770,7 +1770,7 @@ func TestLexParse0(t *testing.T) {
 			t.Fatal("could not build type")
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtFunc{
 					Name: "f2",
 					Func: fn,
@@ -1821,7 +1821,7 @@ func TestLexParse0(t *testing.T) {
 		//	t.Fatal("could not build type")
 		//}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtFunc{
 					Name: "f3",
 					Func: fn,
@@ -1867,7 +1867,7 @@ func TestLexParse0(t *testing.T) {
 			t.Fatal("could not build type")
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtFunc{
 					Name: "f4",
 					Func: fn,
@@ -1894,7 +1894,7 @@ func TestLexParse0(t *testing.T) {
 			},
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "fn",
 					Value: fn,
@@ -1941,7 +1941,7 @@ func TestLexParse0(t *testing.T) {
 			t.Fatal("could not build type")
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "fn",
 					Value: fn,
@@ -1988,7 +1988,7 @@ func TestLexParse0(t *testing.T) {
 			t.Fatal("could not build type")
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "fn",
 					Value: fn,
@@ -2022,7 +2022,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtFunc{
 					Name: "funcgen",
 					// This is the outer function...

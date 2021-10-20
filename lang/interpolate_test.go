@@ -46,7 +46,7 @@ func TestInterpolate0(t *testing.T) {
 
 	{
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{},
+			Body: []interfaces.Stmt{},
 		}
 		testCases = append(testCases, test{ // 0
 			"nil",
@@ -57,7 +57,7 @@ func TestInterpolate0(t *testing.T) {
 	}
 	{
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -101,7 +101,7 @@ func TestInterpolate0(t *testing.T) {
 			},
 		}
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -130,7 +130,7 @@ func TestInterpolate0(t *testing.T) {
 	}
 	{
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -160,7 +160,7 @@ func TestInterpolate0(t *testing.T) {
 	}
 	{
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -297,7 +297,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 	//}
 	{
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -315,7 +315,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			},
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -341,7 +341,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 	}
 	{
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -373,7 +373,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			},
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: resName,
@@ -397,7 +397,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 	}
 	{
 		ast := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -430,7 +430,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			},
 		}
 		exp := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: resName,

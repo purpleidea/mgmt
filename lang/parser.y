@@ -134,7 +134,7 @@ prog:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &StmtProg{
-			Prog: []interfaces.Stmt{},
+			Body: []interfaces.Stmt{},
 		}
 	}
 |	prog stmt
@@ -144,10 +144,10 @@ prog:
 		//if _, ok := $2.stmt.(*StmtComment); !ok {
 		//}
 		if stmt, ok := $1.stmt.(*StmtProg); ok {
-			stmts := stmt.Prog
+			stmts := stmt.Body
 			stmts = append(stmts, $2.stmt)
 			$$.stmt = &StmtProg{
-				Prog: stmts,
+				Body: stmts,
 			}
 		}
 	}

@@ -54,7 +54,7 @@ func TestUnification1(t *testing.T) {
 	{
 		expr := &ExprStr{V: "hello"}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "t1"},
@@ -88,7 +88,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "test"},
@@ -128,7 +128,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "test"},
@@ -170,7 +170,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{V: "test"},
@@ -216,7 +216,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -271,7 +271,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -327,7 +327,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtRes{
 					Kind: "test",
 					Name: &ExprStr{
@@ -372,7 +372,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x",
 					Value: innerFunc,
@@ -419,7 +419,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "x",
 					Value: innerFunc,
@@ -467,7 +467,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtBind{
 					Ident: "v",
 					Value: &ExprInt{
@@ -513,7 +513,7 @@ func TestUnification1(t *testing.T) {
 			Args: []interfaces.Expr{},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name: "datetime",
 				},
@@ -552,7 +552,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name: "sys",
 				},
@@ -592,7 +592,7 @@ func TestUnification1(t *testing.T) {
 	//		},
 	//	}
 	//	stmt := &StmtProg{
-	//		Prog: []interfaces.Stmt{
+	//		Body: []interfaces.Stmt{
 	//			&StmtImport{
 	//				Name: "fmt",
 	//			},
@@ -637,7 +637,7 @@ func TestUnification1(t *testing.T) {
 	//		},
 	//	}
 	//	stmt := &StmtProg{
-	//		Prog: []interfaces.Stmt{
+	//		Body: []interfaces.Stmt{
 	//			&StmtImport{
 	//				Name: "fmt",
 	//			},
@@ -679,7 +679,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name: "fmt",
 				},
@@ -732,7 +732,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name: "fmt",
 				},
@@ -781,7 +781,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		stmt := &StmtProg{
-			Prog: []interfaces.Stmt{
+			Body: []interfaces.Stmt{
 				&StmtImport{
 					Name: "fmt",
 				},

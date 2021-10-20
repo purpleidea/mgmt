@@ -2941,7 +2941,7 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 	}
 
 	// graph-based recursion detection
-	// TODO: is this suffiently unique, but not incorrectly unique?
+	// TODO: is this sufficiently unique, but not incorrectly unique?
 	// TODO: do we need to clean uvid for consistency so the compare works?
 	uvid := obj.data.Base + ";" + info.Name // unique vertex id
 	importVertex := obj.data.Imports        // parent vertex

@@ -25,6 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lang"
+	"github.com/purpleidea/mgmt/lang/download"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -215,7 +216,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 			},
 		}
 		// this fulfills the interfaces.Downloader interface
-		downloader = &lang.Downloader{
+		downloader = &download.Downloader{
 			Depth: c.Int("depth"), // default of infinite is -1
 			Retry: c.Int("retry"), // infinite is -1
 		}
@@ -686,7 +687,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 		},
 	}
 	// this fulfills the interfaces.Downloader interface
-	downloader := &lang.Downloader{
+	downloader := &download.Downloader{
 		Depth: c.Int("depth"), // default of infinite is -1
 		Retry: c.Int("retry"), // infinite is -1
 	}

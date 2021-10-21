@@ -24,7 +24,7 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/gapi"
-	"github.com/purpleidea/mgmt/lang"
+	lang "github.com/purpleidea/mgmt/lang/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/puppet"
 	"github.com/purpleidea/mgmt/util/errwrap"

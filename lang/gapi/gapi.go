@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lang
+package gapi
 
 import (
 	"bytes"
@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/gapi"
+	"github.com/purpleidea/mgmt/lang"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -55,7 +56,7 @@ func init() {
 type GAPI struct {
 	InputURI string // input URI of code file system to run
 
-	lang *Lang // lang struct
+	lang *lang.Lang // lang struct
 
 	// this data struct is only available *after* Init, so as a result, it
 	// can not be used inside the Cli(...) method.
@@ -189,7 +190,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	// TODO: do the paths need to be cleaned for "../" before comparison?
 
 	logf("lexing/parsing...")
-	ast, err := LexParse(bytes.NewReader(output.Main))
+	ast, err := lang.LexParse(bytes.NewReader(output.Main))
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not generate AST")
 	}
@@ -214,7 +215,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 			},
 		}
 		// this fulfills the interfaces.Downloader interface
-		downloader = &Downloader{
+		downloader = &lang.Downloader{
 			Depth: c.Int("depth"), // default of infinite is -1
 			Retry: c.Int("retry"), // infinite is -1
 		}
@@ -267,13 +268,13 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	}
 
 	variables := map[string]interfaces.Expr{
-		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		"purpleidea": &lang.ExprStr{V: "hello world!"}, // james says hi
 		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
+		"hostname": &lang.ExprStr{V: ""}, // NOTE: empty b/c not used
 	}
-	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
-	variables, err = MergeExprMaps(variables, consts, addback)
+	consts := lang.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep         // add it back...
+	variables, err = lang.MergeExprMaps(variables, consts, addback)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "couldn't merge in consts")
 	}
@@ -282,7 +283,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	scope := &interfaces.Scope{
 		Variables: variables,
 		// all the built-in top-level, core functions enter here...
-		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+		Functions: lang.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	logf("building scope...")
@@ -314,7 +315,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	}
 
 	// get the list of needed files (this is available after SetScope)
-	fileList, err := CollectFiles(interpolated)
+	fileList, err := lang.CollectFiles(interpolated)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not collect files")
 	}
@@ -447,7 +448,7 @@ func (obj *GAPI) LangInit() error {
 	// the lang always tries to load from this standard path: /metadata.yaml
 	input := "/" + interfaces.MetadataFilename // path in remote fs
 
-	obj.lang = &Lang{
+	obj.lang = &lang.Lang{
 		Fs:    fs,
 		FsURI: obj.InputURI,
 		Input: input,
@@ -662,7 +663,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	// TODO: do the paths need to be cleaned for "../" before comparison?
 
 	logf("lexing/parsing...")
-	ast, err := LexParse(bytes.NewReader(output.Main))
+	ast, err := lang.LexParse(bytes.NewReader(output.Main))
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate AST")
 	}
@@ -685,7 +686,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 		},
 	}
 	// this fulfills the interfaces.Downloader interface
-	downloader := &Downloader{
+	downloader := &lang.Downloader{
 		Depth: c.Int("depth"), // default of infinite is -1
 		Retry: c.Int("retry"), // infinite is -1
 	}

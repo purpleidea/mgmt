@@ -40,6 +40,9 @@ const (
 	// we don't want to allow this as the first or last character in a name.
 	// NOTE: the template library will panic if it is one of: .-#
 	ReplaceChar = "_"
+
+	// CoreDir is the directory prefix where core bindata mcl code is added.
+	CoreDir = "core/"
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lang
+package ast
 
 import (
 	"fmt"
@@ -27,6 +27,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // FuncPrefixToFunctionsScope is a helper function to return the functions
@@ -214,4 +215,30 @@ func ValueToExpr(val types.Value) (interfaces.Expr, error) {
 	}
 
 	return expr, expr.SetType(val.Type())
+}
+
+// CollectFiles collects all the files used in the AST. You will see more files
+// based on how many compiling steps have run. In general, this is useful for
+// collecting all the files needed to store in our file system for a deploy.
+func CollectFiles(ast interfaces.Stmt) ([]string, error) {
+	// collect the list of files
+	fileList := []string{}
+	fn := func(node interfaces.Node) error {
+		// redundant check for example purposes
+		stmt, ok := node.(interfaces.Stmt)
+		if !ok {
+			return nil
+		}
+		body, ok := stmt.(*StmtProg)
+		if !ok {
+			return nil
+		}
+		// collect into global
+		fileList = append(fileList, body.importFiles...)
+		return nil
+	}
+	if err := ast.Apply(fn); err != nil {
+		return nil, errwrap.Wrapf(err, "can't retrieve paths")
+	}
+	return fileList, nil
 }

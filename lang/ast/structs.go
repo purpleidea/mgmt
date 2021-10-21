@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lang // TODO: move this into a sub package of lang/$name?
+package ast
 
 import (
 	"bytes"
@@ -3065,13 +3065,13 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 
 	isEmpty := true // assume empty (which should cause an error)
 
-	funcs := FuncPrefixToFunctionsScope(name) // runs funcs.LookupPrefix
-	if len(funcs) > 0 {
+	functions := FuncPrefixToFunctionsScope(name) // runs funcs.LookupPrefix
+	if len(functions) > 0 {
 		isEmpty = false
 	}
 
 	// perform any normal "startup" for these functions...
-	for _, fn := range funcs {
+	for _, fn := range functions {
 		// XXX: is this the right place for this, or should it be elsewhere?
 		// XXX: do we need a modified obj.data for this b/c it's in a scope?
 		if err := fn.Init(obj.data); err != nil {
@@ -3084,7 +3084,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 	scope := &interfaces.Scope{
 		// TODO: we could use the core API for variables somehow...
 		//Variables: make(map[string]interfaces.Expr),
-		Functions: funcs, // map[string]interfaces.Expr
+		Functions: functions, // map[string]interfaces.Expr
 		// TODO: we could add a core API for classes too!
 		//Classes: make(map[string]interfaces.Stmt),
 	}
@@ -3101,7 +3101,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 	// XXX: consider using a virtual `append *` statement to combine these instead.
 	for _, p := range paths {
 		// we only want code from this prefix
-		prefix := CoreDir + name + "/"
+		prefix := funcs.CoreDir + name + "/"
 		if !strings.HasPrefix(p, prefix) {
 			continue
 		}
@@ -3126,7 +3126,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 		reader := bytes.NewReader(b) // wrap the byte stream
 
 		// now run the lexer/parser to do the import
-		ast, err := LexParse(reader)
+		ast, err := obj.data.LexParser(reader)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not generate AST from import `%s`", name)
 		}
@@ -3240,7 +3240,7 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 	metadata.Metadata = obj.data.Metadata
 
 	// now run the lexer/parser to do the import
-	ast, err := LexParse(reader)
+	ast, err := obj.data.LexParser(reader)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not generate AST from import")
 	}
@@ -3252,15 +3252,18 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:         obj.data.Fs,
-		FsURI:      obj.data.FsURI,
-		Base:       output.Base, // new base dir (absolute path)
-		Files:      files,
-		Imports:    parentVertex, // the parent vertex that imported me
-		Metadata:   metadata,
-		Modules:    obj.data.Modules,
-		Downloader: obj.data.Downloader,
-		//World: obj.data.World,
+		Fs:       obj.data.Fs,
+		FsURI:    obj.data.FsURI,
+		Base:     output.Base, // new base dir (absolute path)
+		Files:    files,
+		Imports:  parentVertex, // the parent vertex that imported me
+		Metadata: metadata,
+		Modules:  obj.data.Modules,
+
+		LexParser:       obj.data.LexParser,
+		Downloader:      obj.data.Downloader,
+		StrInterpolater: obj.data.StrInterpolater,
+		//World: obj.data.World, // TODO: do we need this?
 
 		//Prefix: obj.Prefix, // TODO: add a path on?
 		Debug: obj.data.Debug,
@@ -3359,7 +3362,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			return fmt.Errorf("import `%s` already exists in this scope", imp.Name)
 		}
 
-		result, err := ParseImportName(imp.Name)
+		result, err := langutil.ParseImportName(imp.Name)
 		if err != nil {
 			return errwrap.Wrapf(err, "import `%s` is not valid", imp.Name)
 		}
@@ -3447,16 +3450,16 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	}
 
 	// now collect all the functions, and group by name (if polyfunc is ok)
-	funcs := make(map[string][]*StmtFunc)
+	functions := make(map[string][]*StmtFunc)
 	for _, x := range obj.Body {
 		fn, ok := x.(*StmtFunc)
 		if !ok {
 			continue
 		}
 
-		_, exists := funcs[fn.Name]
+		_, exists := functions[fn.Name]
 		if !exists {
-			funcs[fn.Name] = []*StmtFunc{} // initialize
+			functions[fn.Name] = []*StmtFunc{} // initialize
 		}
 
 		// check for duplicates *in this scope*
@@ -3464,11 +3467,11 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			return fmt.Errorf("func `%s` already exists in this scope", fn.Name)
 		}
 
-		// collect funcs (if multiple, this is a polyfunc)
-		funcs[fn.Name] = append(funcs[fn.Name], fn)
+		// collect functions (if multiple, this is a polyfunc)
+		functions[fn.Name] = append(functions[fn.Name], fn)
 	}
 
-	for name, fnList := range funcs {
+	for name, fnList := range functions {
 		if obj.data.Debug { // TODO: is this message ever useful?
 			obj.data.Logf("prog: set scope: collect: (%+v -> %d): %+v (%T)", name, len(fnList), fnList[0].Func, fnList[0].Func)
 		}
@@ -4816,7 +4819,7 @@ func (obj *ExprStr) Init(data *interfaces.Data) error {
 // which need interpolation. If any are found, it returns a larger AST which has
 // a function which returns a string as its root. Otherwise it returns itself.
 func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
-	pos := &Pos{
+	pos := &interfaces.Pos{
 		// column/line number, starting at 1
 		//Column: -1, // TODO
 		//Line: -1, // TODO
@@ -4825,22 +4828,27 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:         obj.data.Fs,
-		FsURI:      obj.data.FsURI,
-		Base:       obj.data.Base,
-		Files:      obj.data.Files,
-		Imports:    obj.data.Imports,
-		Metadata:   obj.data.Metadata,
-		Modules:    obj.data.Modules,
-		Downloader: obj.data.Downloader,
-		//World:      obj.data.World,
+		Fs:       obj.data.Fs,
+		FsURI:    obj.data.FsURI,
+		Base:     obj.data.Base,
+		Files:    obj.data.Files,
+		Imports:  obj.data.Imports,
+		Metadata: obj.data.Metadata,
+		Modules:  obj.data.Modules,
+
+		LexParser:       obj.data.LexParser,
+		Downloader:      obj.data.Downloader,
+		StrInterpolater: obj.data.StrInterpolater,
+		//World: obj.data.World, // TODO: do we need this?
+
 		Prefix: obj.data.Prefix,
 		Debug:  obj.data.Debug,
 		Logf: func(format string, v ...interface{}) {
 			obj.data.Logf("interpolate: "+format, v...)
 		},
 	}
-	result, err := InterpolateStr(obj.V, pos, data)
+
+	result, err := obj.data.StrInterpolater(obj.V, pos, data)
 	if err != nil {
 		return nil, err
 	}

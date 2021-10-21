@@ -17,7 +17,7 @@
 
 // +build !root
 
-package lang
+package ast
 
 import (
 	"fmt"

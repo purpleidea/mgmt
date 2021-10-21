@@ -19,6 +19,7 @@ package interfaces
 
 import (
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -185,6 +186,16 @@ type Data struct {
 	// download phase in a separate step from the production running and
 	// deploys, however that is not blocked at the level of this interface.
 	Downloader Downloader
+
+	// LexParser is a function that needs to get passed in to run the lexer
+	// and parser to build the initial AST. This is passed in this way to
+	// avoid dependency cycles.
+	LexParser func(io.Reader) (Stmt, error)
+
+	// StrInterpolater is a function that needs to get passed in to run the
+	// string interpolation. This is passed in this way to avoid dependency
+	// cycles.
+	StrInterpolater func(string, *Pos, *Data) (Expr, error)
 
 	//World engine.World // TODO: do we need this?
 

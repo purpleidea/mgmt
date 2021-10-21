@@ -33,11 +33,14 @@ import (
 	"github.com/purpleidea/mgmt/engine/graph/autoedge"
 	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/etcd"
+	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/interpret"
+	"github.com/purpleidea/mgmt/lang/parser"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -83,11 +86,11 @@ func (obj *edge) String() string {
 func TestAstFunc0(t *testing.T) {
 	scope := &interfaces.Scope{ // global scope
 		Variables: map[string]interfaces.Expr{
-			"hello":  &ExprStr{V: "world"},
-			"answer": &ExprInt{V: 42},
+			"hello":  &ast.ExprStr{V: "world"},
+			"answer": &ast.ExprInt{V: 42},
 		},
 		// all the built-in top-level, core functions enter here...
-		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	type test struct { // an individual test
@@ -190,7 +193,7 @@ func TestAstFunc0(t *testing.T) {
 	}
 	{
 		graph, _ := pgraph.NewGraph("g")
-		v1, v2, v3, v4, v5 := vtex(`str("t")`), vtex(`str("+")`), vtex("int(42)"), vtex("int(13)"), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), int(13))`, operatorFuncName))
+		v1, v2, v3, v4, v5 := vtex(`str("t")`), vtex(`str("+")`), vtex("int(42)"), vtex("int(13)"), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), int(13))`, funcs.OperatorFuncName))
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5)
 		e1, e2, e3 := edge("op"), edge("a"), edge("b")
 		graph.AddEdge(&v2, &v5, &e1)
@@ -212,8 +215,8 @@ func TestAstFunc0(t *testing.T) {
 		graph, _ := pgraph.NewGraph("g")
 		v1, v2, v3 := vtex(`str("t")`), vtex(`str("-")`), vtex(`str("+")`)
 		v4, v5, v6 := vtex("int(42)"), vtex("int(13)"), vtex("int(99)")
-		v7 := vtex(fmt.Sprintf(`call:%s(str("+"), int(42), int(13))`, operatorFuncName))
-		v8 := vtex(fmt.Sprintf(`call:%s(str("-"), call:%s(str("+"), int(42), int(13)), int(99))`, operatorFuncName, operatorFuncName))
+		v7 := vtex(fmt.Sprintf(`call:%s(str("+"), int(42), int(13))`, funcs.OperatorFuncName))
+		v8 := vtex(fmt.Sprintf(`call:%s(str("-"), call:%s(str("+"), int(42), int(13)), int(99))`, funcs.OperatorFuncName, funcs.OperatorFuncName))
 
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
 		e1, e2, e3 := edge("op"), edge("a"), edge("b")
@@ -242,7 +245,7 @@ func TestAstFunc0(t *testing.T) {
 		v1, v2 := vtex("bool(true)"), vtex(`str("t")`)
 		v3, v4 := vtex("int(13)"), vtex("int(42)")
 		v5, v6 := vtex("var(i)"), vtex("var(x)")
-		v7, v8 := vtex(`str("+")`), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), var(i))`, operatorFuncName))
+		v7, v8 := vtex(`str("+")`), vtex(fmt.Sprintf(`call:%s(str("+"), int(42), var(i))`, funcs.OperatorFuncName))
 
 		e1, e2, e3, e4, e5 := edge("op"), edge("a"), edge("b"), edge("var:i"), edge("var:x")
 		graph.AddVertex(&v1, &v2, &v3, &v4, &v5, &v6, &v7, &v8)
@@ -437,29 +440,31 @@ func TestAstFunc0(t *testing.T) {
 
 			t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
 			str := strings.NewReader(code)
-			ast, err := LexParse(str)
+			xast, err := parser.LexParse(str)
 			if err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 				return
 			}
-			t.Logf("test #%d: AST: %+v", index, ast)
+			t.Logf("test #%d: AST: %+v", index, xast)
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
+				StrInterpolater: interpolate.InterpolateStr,
+
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
 				},
 			}
 			// some of this might happen *after* interpolate in SetScope or Unify...
-			if err := ast.Init(data); err != nil {
+			if err := xast.Init(data); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
 				return
 			}
 
-			iast, err := ast.Interpolate()
+			iast, err := xast.Interpolate()
 			if err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpolate failed with: %+v", index, err)
@@ -562,13 +567,13 @@ func TestAstFunc1(t *testing.T) {
 	t.Logf("tests directory is: %s", dir)
 
 	variables := map[string]interfaces.Expr{
-		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
 		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
+		"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
 	}
-	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
-	variables, err = MergeExprMaps(variables, consts, addback)
+	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
+	variables, err = ast.MergeExprMaps(variables, consts, addback)
 	if err != nil {
 		t.Errorf("couldn't merge in consts: %+v", err)
 		return
@@ -577,7 +582,7 @@ func TestAstFunc1(t *testing.T) {
 	scope := &interfaces.Scope{ // global scope
 		Variables: variables,
 		// all the built-in top-level, core functions enter here...
-		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	type errs struct {
@@ -778,7 +783,7 @@ func TestAstFunc1(t *testing.T) {
 			logf("main:\n%s", output.Main) // debug
 
 			reader := bytes.NewReader(output.Main)
-			ast, err := LexParse(reader)
+			xast, err := parser.LexParse(reader)
 			if (!fail || !failLexParse) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
@@ -800,7 +805,7 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 
-			t.Logf("test #%d: AST: %+v", index, ast)
+			t.Logf("test #%d: AST: %+v", index, xast)
 
 			importGraph, err := pgraph.NewGraph("importGraph")
 			if err != nil {
@@ -824,13 +829,16 @@ func TestAstFunc1(t *testing.T) {
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
 
+				LexParser:       parser.LexParse,
+				StrInterpolater: interpolate.InterpolateStr,
+
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("ast: "+format, v...)
 				},
 			}
 			// some of this might happen *after* interpolate in SetScope or Unify...
-			err = ast.Init(data)
+			err = xast.Init(data)
 			if (!fail || !failInit) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
@@ -852,7 +860,7 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 
-			iast, err := ast.Interpolate()
+			iast, err := xast.Interpolate()
 			if err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpolate failed with: %+v", index, err)
@@ -1017,13 +1025,13 @@ func TestAstFunc2(t *testing.T) {
 	t.Logf("tests directory is: %s", dir)
 
 	variables := map[string]interfaces.Expr{
-		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
 		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &ExprStr{V: ""}, // NOTE: empty b/c not used
+		"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
 	}
-	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
-	variables, err = MergeExprMaps(variables, consts, addback)
+	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
+	variables, err = ast.MergeExprMaps(variables, consts, addback)
 	if err != nil {
 		t.Errorf("couldn't merge in consts: %+v", err)
 		return
@@ -1032,7 +1040,7 @@ func TestAstFunc2(t *testing.T) {
 	scope := &interfaces.Scope{ // global scope
 		Variables: variables,
 		// all the built-in top-level, core functions enter here...
-		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	type errs struct {
@@ -1274,7 +1282,7 @@ func TestAstFunc2(t *testing.T) {
 			logf("main:\n%s", output.Main) // debug
 
 			reader := bytes.NewReader(output.Main)
-			ast, err := LexParse(reader)
+			xast, err := parser.LexParse(reader)
 			if (!fail || !failLexParse) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
@@ -1296,7 +1304,7 @@ func TestAstFunc2(t *testing.T) {
 				return
 			}
 
-			t.Logf("test #%d: AST: %+v", index, ast)
+			t.Logf("test #%d: AST: %+v", index, xast)
 
 			importGraph, err := pgraph.NewGraph("importGraph")
 			if err != nil {
@@ -1320,13 +1328,16 @@ func TestAstFunc2(t *testing.T) {
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
 
+				LexParser:       parser.LexParse,
+				StrInterpolater: interpolate.InterpolateStr,
+
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("ast: "+format, v...)
 				},
 			}
 			// some of this might happen *after* interpolate in SetScope or Unify...
-			err = ast.Init(data)
+			err = xast.Init(data)
 			if (!fail || !failInit) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
@@ -1348,7 +1359,7 @@ func TestAstFunc2(t *testing.T) {
 				return
 			}
 
-			iast, err := ast.Interpolate()
+			iast, err := xast.Interpolate()
 			if (!fail || !failInterpolate) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: Interpolate failed with: %+v", index, err)
@@ -1806,12 +1817,12 @@ func TestAstInterpret0(t *testing.T) {
 		t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
 
 		str := strings.NewReader(code)
-		ast, err := LexParse(str)
+		xast, err := parser.LexParse(str)
 		if err != nil {
 			t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 			continue
 		}
-		t.Logf("test #%d: AST: %+v", index, ast)
+		t.Logf("test #%d: AST: %+v", index, xast)
 
 		data := &interfaces.Data{
 			// TODO: add missing fields here if/when needed
@@ -1821,7 +1832,7 @@ func TestAstInterpret0(t *testing.T) {
 			},
 		}
 		// some of this might happen *after* interpolate in SetScope or Unify...
-		if err := ast.Init(data); err != nil {
+		if err := xast.Init(data); err != nil {
 			t.Errorf("test #%d: FAIL", index)
 			t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
 			return
@@ -1831,7 +1842,7 @@ func TestAstInterpret0(t *testing.T) {
 		// perform type unification, run the function graph engine, and
 		// only gives you limited results... don't expect normal code to
 		// run and produce meaningful things in this test...
-		graph, err := interpret.Interpret(ast)
+		graph, err := interpret.Interpret(xast)
 
 		if !fail && err != nil {
 			t.Errorf("test #%d: interpret failed with: %+v", index, err)

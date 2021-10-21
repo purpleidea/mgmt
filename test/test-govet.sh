@@ -109,7 +109,7 @@ function reflowed-comments() {
 		return 0
 	fi
 
-	if [ "$1" = './lang/lexer.nn.go' ]; then
+	if [ "$1" = './lang/parser/lexer.nn.go' ]; then
 		return 0
 	fi
 

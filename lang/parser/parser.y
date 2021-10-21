@@ -16,12 +16,14 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 %{
-package lang
+package parser
 
 import (
 	"fmt"
 	"strings"
 
+	"github.com/purpleidea/mgmt/lang/ast"
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
@@ -56,22 +58,22 @@ func init() {
 	exprs []interfaces.Expr
 	expr  interfaces.Expr
 
-	mapKVs []*ExprMapKV
-	mapKV  *ExprMapKV
+	mapKVs []*ast.ExprMapKV
+	mapKV  *ast.ExprMapKV
 
-	structFields []*ExprStructField
-	structField  *ExprStructField
+	structFields []*ast.ExprStructField
+	structField  *ast.ExprStructField
 
 	args []*interfaces.Arg
 	arg  *interfaces.Arg
 
-	resContents []StmtResContents // interface
-	resField    *StmtResField
-	resEdge     *StmtResEdge
-	resMeta     *StmtResMeta
+	resContents []ast.StmtResContents // interface
+	resField    *ast.StmtResField
+	resEdge     *ast.StmtResEdge
+	resMeta     *ast.StmtResMeta
 
-	edgeHalfList []*StmtEdgeHalf
-	edgeHalf     *StmtEdgeHalf
+	edgeHalfList []*ast.StmtEdgeHalf
+	edgeHalf     *ast.StmtEdgeHalf
 }
 
 %token OPEN_CURLY CLOSE_CURLY
@@ -133,7 +135,7 @@ prog:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtProg{
+		$$.stmt = &ast.StmtProg{
 			Body: []interfaces.Stmt{},
 		}
 	}
@@ -141,12 +143,12 @@ prog:
 	{
 		posLast(yylex, yyDollar) // our pos
 		// TODO: should we just skip comments for now?
-		//if _, ok := $2.stmt.(*StmtComment); !ok {
+		//if _, ok := $2.stmt.(*ast.StmtComment); !ok {
 		//}
-		if stmt, ok := $1.stmt.(*StmtProg); ok {
+		if stmt, ok := $1.stmt.(*ast.StmtProg); ok {
 			stmts := stmt.Body
 			stmts = append(stmts, $2.stmt)
-			$$.stmt = &StmtProg{
+			$$.stmt = &ast.StmtProg{
 				Body: stmts,
 			}
 		}
@@ -156,7 +158,7 @@ stmt:
 	COMMENT
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtComment{
+		$$.stmt = &ast.StmtComment{
 			Value: $1.str,
 		}
 	}
@@ -178,7 +180,7 @@ stmt:
 |	IF expr OPEN_CURLY prog CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtIf{
+		$$.stmt = &ast.StmtIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			//ElseBranch: nil,
@@ -187,7 +189,7 @@ stmt:
 |	IF expr OPEN_CURLY prog CLOSE_CURLY ELSE OPEN_CURLY prog CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtIf{
+		$$.stmt = &ast.StmtIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			ElseBranch: $8.stmt,
@@ -200,9 +202,9 @@ stmt:
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtFunc{
+		$$.stmt = &ast.StmtFunc{
 			Name: $2.str,
-			Func: &ExprFunc{
+			Func: &ast.ExprFunc{
 				Args: $4.args,
 				//Return: nil,
 				Body: $7.expr,
@@ -213,7 +215,7 @@ stmt:
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		fn := &ExprFunc{
+		fn := &ast.ExprFunc{
 			Args:   $4.args,
 			Return: $6.typ, // return type is known
 			Body:   $8.expr,
@@ -242,7 +244,7 @@ stmt:
 				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
 			}
 		}
-		$$.stmt = &StmtFunc{
+		$$.stmt = &ast.StmtFunc{
 			Name: $2.str,
 			Func: fn,
 		}
@@ -251,7 +253,7 @@ stmt:
 |	CLASS_IDENTIFIER IDENTIFIER OPEN_CURLY prog CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtClass{
+		$$.stmt = &ast.StmtClass{
 			Name: $2.str,
 			Args: nil,
 			Body: $4.stmt,
@@ -262,7 +264,7 @@ stmt:
 |	CLASS_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY prog CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtClass{
+		$$.stmt = &ast.StmtClass{
 			Name: $2.str,
 			Args: $4.args,
 			Body: $7.stmt,
@@ -272,7 +274,7 @@ stmt:
 |	INCLUDE_IDENTIFIER dotted_identifier
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtInclude{
+		$$.stmt = &ast.StmtInclude{
 			Name: $2.str,
 		}
 	}
@@ -280,7 +282,7 @@ stmt:
 |	INCLUDE_IDENTIFIER dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtInclude{
+		$$.stmt = &ast.StmtInclude{
 			Name: $2.str,
 			Args: $4.exprs,
 		}
@@ -289,7 +291,7 @@ stmt:
 |	IMPORT_IDENTIFIER STRING
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtImport{
+		$$.stmt = &ast.StmtImport{
 			Name: $2.str,
 			//Alias: "",
 		}
@@ -298,7 +300,7 @@ stmt:
 |	IMPORT_IDENTIFIER STRING AS_IDENTIFIER IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtImport{
+		$$.stmt = &ast.StmtImport{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
@@ -307,7 +309,7 @@ stmt:
 |	IMPORT_IDENTIFIER STRING AS_IDENTIFIER MULTIPLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtImport{
+		$$.stmt = &ast.StmtImport{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
@@ -325,28 +327,28 @@ expr:
 	BOOL
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprBool{
+		$$.expr = &ast.ExprBool{
 			V: $1.bool,
 		}
 	}
 |	STRING
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprStr{
+		$$.expr = &ast.ExprStr{
 			V: $1.str,
 		}
 	}
 |	INTEGER
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprInt{
+		$$.expr = &ast.ExprInt{
 			V: $1.int,
 		}
 	}
 |	FLOAT
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprFloat{
+		$$.expr = &ast.ExprFloat{
 			V: $1.float,
 		}
 	}
@@ -389,7 +391,7 @@ expr:
 |	IF expr OPEN_CURLY expr CLOSE_CURLY ELSE OPEN_CURLY expr CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprIf{
+		$$.expr = &ast.ExprIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.expr,
 			ElseBranch: $8.expr,
@@ -407,7 +409,7 @@ list:
 	OPEN_BRACK list_elements CLOSE_BRACK
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprList{
+		$$.expr = &ast.ExprList{
 			Elements: $2.exprs,
 		}
 	}
@@ -436,7 +438,7 @@ map:
 	OPEN_CURLY map_kvs CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprMap{
+		$$.expr = &ast.ExprMap{
 			KVs: $2.mapKVs,
 		}
 	}
@@ -445,7 +447,7 @@ map_kvs:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.mapKVs = []*ExprMapKV{}
+		$$.mapKVs = []*ast.ExprMapKV{}
 	}
 |	map_kvs map_kv
 	{
@@ -457,7 +459,7 @@ map_kv:
 	expr ROCKET expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.mapKV = &ExprMapKV{
+		$$.mapKV = &ast.ExprMapKV{
 			Key: $1.expr,
 			Val: $3.expr,
 		}
@@ -468,7 +470,7 @@ struct:
 	STRUCT_IDENTIFIER OPEN_CURLY struct_fields CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprStruct{
+		$$.expr = &ast.ExprStruct{
 			Fields: $3.structFields,
 		}
 	}
@@ -477,7 +479,7 @@ struct_fields:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.structFields = []*ExprStructField{}
+		$$.structFields = []*ast.ExprStructField{}
 	}
 |	struct_fields struct_field
 	{
@@ -489,7 +491,7 @@ struct_field:
 	IDENTIFIER ROCKET expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.structField = &ExprStructField{
+		$$.structField = &ast.ExprStructField{
 			Name:  $1.str,
 			Value: $3.expr,
 		}
@@ -500,7 +502,7 @@ call:
 	dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
+		$$.expr = &ast.ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
 			//Var: false, // default
@@ -511,7 +513,7 @@ call:
 |	VAR_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
+		$$.expr = &ast.ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
 			// Instead of `Var: true`, we could have added a `$`
@@ -522,11 +524,11 @@ call:
 |	expr PLUS expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{          // operator first
-					V: $2.str, // for PLUS this is a `+` character
+				&ast.ExprStr{          // operator first
+					V: $2.str,     // for PLUS this is a `+` character
 				},
 				$1.expr,
 				$3.expr,
@@ -536,10 +538,10 @@ call:
 |	expr MINUS expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -550,10 +552,10 @@ call:
 |	expr MULTIPLY expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -564,10 +566,10 @@ call:
 |	expr DIVIDE expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -578,10 +580,10 @@ call:
 |	expr EQ expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -592,10 +594,10 @@ call:
 |	expr NEQ expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -606,10 +608,10 @@ call:
 |	expr LT expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -620,10 +622,10 @@ call:
 |	expr GT expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -634,10 +636,10 @@ call:
 |	expr LTE expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -648,10 +650,10 @@ call:
 |	expr GTE expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -662,10 +664,10 @@ call:
 |	expr AND expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -676,10 +678,10 @@ call:
 |	expr OR expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $2.str,
 				},
 				$1.expr,
@@ -690,10 +692,10 @@ call:
 |	NOT expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: operatorFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{ // operator first
+				&ast.ExprStr{ // operator first
 					V: $1.str,
 				},
 				$2.expr,
@@ -704,13 +706,13 @@ call:
 	// get the N-th historical value, eg: $foo{3} is equivalent to: history($foo, 3)
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: historyFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.HistoryFuncName,
 			Args: []interfaces.Expr{
-				&ExprVar{
+				&ast.ExprVar{
 					Name: $1.str,
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: $1.int,
 				},
 			},
@@ -722,13 +724,13 @@ call:
 //|	dotted_var_identifier OPEN_CURLY INTEGER CLOSE_CURLY
 //	{
 //		posLast(yylex, yyDollar) // our pos
-//		$$.expr = &ExprCall{
-//			Name: historyFuncName,
+//		$$.expr = &ast.ExprCall{
+//			Name: funcs.HistoryFuncName,
 //			Args: []interfaces.Expr{
-//				&ExprVar{
+//				&ast.ExprVar{
 //					Name: $1.str,
 //				},
-//				&ExprInt{
+//				&ast.ExprInt{
 //					V: $3.int,
 //				},
 //			},
@@ -737,8 +739,8 @@ call:
 |	expr IN expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprCall{
-			Name: containsFuncName,
+		$$.expr = &ast.ExprCall{
+			Name: funcs.ContainsFuncName,
 			Args: []interfaces.Expr{
 				$1.expr,
 				$3.expr,
@@ -770,7 +772,7 @@ var:
 	dotted_var_identifier
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprVar{
+		$$.expr = &ast.ExprVar{
 			Name: $1.str,
 		}
 	}
@@ -783,7 +785,7 @@ func:
 	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprFunc{
+		$$.expr = &ast.ExprFunc{
 			Args: $3.args,
 			//Return: nil,
 			Body: $6.expr,
@@ -793,7 +795,7 @@ func:
 |	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ExprFunc{
+		$$.expr = &ast.ExprFunc{
 			Args:   $3.args,
 			Return: $5.typ, // return type is known
 			Body:   $7.expr,
@@ -863,7 +865,7 @@ bind:
 	VAR_IDENTIFIER EQUALS expr
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtBind{
+		$$.stmt = &ast.StmtBind{
 			Ident: $1.str,
 			Value: $3.expr,
 		}
@@ -878,7 +880,7 @@ bind:
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
 		}
-		$$.stmt = &StmtBind{
+		$$.stmt = &ast.StmtBind{
 			Ident: $1.str,
 			Value: expr,
 		}
@@ -893,7 +895,7 @@ rbind:
 		// XXX: this kind of bind is different than the others, because
 		// it can only really be used for send->recv stuff, eg:
 		// foo.SomeString -> bar.SomeOtherString
-		$$.expr = &StmtBind{
+		$$.expr = &ast.StmtBind{
 			Ident: $1.str,
 			Value: $3.stmt,
 		}
@@ -905,7 +907,7 @@ resource:
 	RES_IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtRes{
+		$$.stmt = &ast.StmtRes{
 			Kind:     $1.str,
 			Name:     $2.expr,
 			Contents: $4.resContents,
@@ -916,7 +918,7 @@ resource:
 |	IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtRes{
+		$$.stmt = &ast.StmtRes{
 			Kind:     $1.str,
 			Name:     $2.expr,
 			Contents: $4.resContents,
@@ -927,7 +929,7 @@ resource_body:
 	/* end of list */
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resContents = []StmtResContents{}
+		$$.resContents = []ast.StmtResContents{}
 	}
 |	resource_body resource_field
 	{
@@ -974,7 +976,7 @@ resource_field:
 	IDENTIFIER ROCKET expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resField = &StmtResField{
+		$$.resField = &ast.StmtResField{
 			Field: $1.str,
 			Value: $3.expr,
 		}
@@ -985,7 +987,7 @@ conditional_resource_field:
 	IDENTIFIER ROCKET expr ELVIS expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resField = &StmtResField{
+		$$.resField = &ast.StmtResField{
 			Field:     $1.str,
 			Value:     $5.expr,
 			Condition: $3.expr,
@@ -997,7 +999,7 @@ resource_edge:
 	CAPITALIZED_IDENTIFIER ROCKET edge_half COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resEdge = &StmtResEdge{
+		$$.resEdge = &ast.StmtResEdge{
 			Property: $1.str,
 			EdgeHalf: $3.edgeHalf,
 		}
@@ -1008,7 +1010,7 @@ conditional_resource_edge:
 	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS edge_half COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.resEdge = &StmtResEdge{
+		$$.resEdge = &ast.StmtResEdge{
 			Property:  $1.str,
 			EdgeHalf:  $5.edgeHalf,
 			Condition: $3.expr,
@@ -1020,11 +1022,11 @@ resource_meta:
 	CAPITALIZED_IDENTIFIER COLON IDENTIFIER ROCKET expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
 		}
-		$$.resMeta = &StmtResMeta{
+		$$.resMeta = &ast.StmtResMeta{
 			Property: $3.str,
 			MetaExpr: $5.expr,
 		}
@@ -1035,11 +1037,11 @@ conditional_resource_meta:
 	CAPITALIZED_IDENTIFIER COLON IDENTIFIER ROCKET expr ELVIS expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
 		}
-		$$.resMeta = &StmtResMeta{
+		$$.resMeta = &ast.StmtResMeta{
 			Property:  $3.str,
 			MetaExpr:  $7.expr,
 			Condition: $5.expr,
@@ -1051,11 +1053,11 @@ resource_meta_struct:
 	CAPITALIZED_IDENTIFIER ROCKET expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
 		}
-		$$.resMeta = &StmtResMeta{
+		$$.resMeta = &ast.StmtResMeta{
 			Property: $1.str,
 			MetaExpr: $3.expr,
 		}
@@ -1066,11 +1068,11 @@ conditional_resource_meta_struct:
 	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS expr COMMA
 	{
 		posLast(yylex, yyDollar) // our pos
-		if strings.ToLower($1.str) != strings.ToLower(MetaField) {
+		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
 		}
-		$$.resMeta = &StmtResMeta{
+		$$.resMeta = &ast.StmtResMeta{
 			Property:  $1.str,
 			MetaExpr:  $5.expr,
 			Condition: $3.expr,
@@ -1084,7 +1086,7 @@ edge:
 	edge_half_list
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtEdge{
+		$$.stmt = &ast.StmtEdge{
 			EdgeHalfList: $1.edgeHalfList,
 			//Notify: false, // unused here
 		}
@@ -1093,8 +1095,8 @@ edge:
 |	edge_half_sendrecv ARROW edge_half_sendrecv
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &StmtEdge{
-			EdgeHalfList: []*StmtEdgeHalf{
+		$$.stmt = &ast.StmtEdge{
+			EdgeHalfList: []*ast.StmtEdgeHalf{
 				$1.edgeHalf,
 				$3.edgeHalf,
 			},
@@ -1106,7 +1108,7 @@ edge_half_list:
 	edge_half
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.edgeHalfList = []*StmtEdgeHalf{$1.edgeHalf}
+		$$.edgeHalfList = []*ast.StmtEdgeHalf{$1.edgeHalf}
 	}
 |	edge_half_list ARROW edge_half
 	{
@@ -1119,7 +1121,7 @@ edge_half:
 	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.edgeHalf = &StmtEdgeHalf{
+		$$.edgeHalf = &ast.StmtEdgeHalf{
 			Kind: $1.str,
 			Name: $3.expr,
 			//SendRecv: "", // unused
@@ -1131,7 +1133,7 @@ edge_half_sendrecv:
 	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.edgeHalf = &StmtEdgeHalf{
+		$$.edgeHalf = &ast.StmtEdgeHalf{
 			Kind: $1.str,
 			Name: $3.expr,
 			SendRecv: $6.str,

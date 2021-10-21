@@ -17,13 +17,15 @@
 
 // +build !root
 
-package lang
+package lang // XXX: move this to the unification package
 
 import (
 	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/purpleidea/mgmt/lang/ast"
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -52,14 +54,14 @@ func TestUnification1(t *testing.T) {
 	//	})
 	//}
 	{
-		expr := &ExprStr{V: "hello"}
-		stmt := &StmtProg{
+		expr := &ast.ExprStr{V: "hello"}
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "t1"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "t1"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "str",
 							Value: expr,
 						},
@@ -77,23 +79,23 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
-		v1 := &ExprStr{}
-		v2 := &ExprStr{}
-		v3 := &ExprStr{}
-		expr := &ExprList{
+		v1 := &ast.ExprStr{}
+		v2 := &ast.ExprStr{}
+		v3 := &ast.ExprStr{}
+		expr := &ast.ExprList{
 			Elements: []interfaces.Expr{
 				v1,
 				v2,
 				v3,
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "test"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "test"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "slicestring",
 							Value: expr,
 						},
@@ -114,26 +116,26 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
-		k1 := &ExprInt{}
-		k2 := &ExprInt{}
-		k3 := &ExprInt{}
-		v1 := &ExprFloat{}
-		v2 := &ExprFloat{}
-		v3 := &ExprFloat{}
-		expr := &ExprMap{
-			KVs: []*ExprMapKV{
+		k1 := &ast.ExprInt{}
+		k2 := &ast.ExprInt{}
+		k3 := &ast.ExprInt{}
+		v1 := &ast.ExprFloat{}
+		v2 := &ast.ExprFloat{}
+		v3 := &ast.ExprFloat{}
+		expr := &ast.ExprMap{
+			KVs: []*ast.ExprMapKV{
 				{Key: k1, Val: v1},
 				{Key: k2, Val: v2},
 				{Key: k3, Val: v3},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "test"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "test"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "mapintfloat",
 							Value: expr,
 						},
@@ -157,25 +159,25 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
-		b := &ExprBool{}
-		s := &ExprStr{}
-		i := &ExprInt{}
-		f := &ExprFloat{}
-		expr := &ExprStruct{
-			Fields: []*ExprStructField{
+		b := &ast.ExprBool{}
+		s := &ast.ExprStr{}
+		i := &ast.ExprInt{}
+		f := &ast.ExprFloat{}
+		expr := &ast.ExprStruct{
+			Fields: []*ast.ExprStructField{
 				{Name: "somebool", Value: b},
 				{Name: "somestr", Value: s},
 				{Name: "someint", Value: i},
 				{Name: "somefloat", Value: f},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "test"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "test"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "mixedstruct",
 							Value: expr,
 						},
@@ -200,30 +202,30 @@ func TestUnification1(t *testing.T) {
 		// test "n1" {
 		//	int64ptr => 13 + 42,
 		//}
-		expr := &ExprCall{
-			Name: operatorFuncName,
+		expr := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 13,
 				},
 
-				&ExprInt{
+				&ast.ExprInt{
 					V: 42,
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "n1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "int64ptr",
 							Value: expr, // func
 						},
@@ -244,41 +246,41 @@ func TestUnification1(t *testing.T) {
 		//test "n1" {
 		//	int64ptr => 13 + 42 - 4,
 		//}
-		innerFunc := &ExprCall{
-			Name: operatorFuncName,
+		innerFunc := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "-",
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 42,
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 4,
 				},
 			},
 		}
-		expr := &ExprCall{
-			Name: operatorFuncName,
+		expr := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 13,
 				},
 				innerFunc, // nested func, can we unify?
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "n1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "int64ptr",
 							Value: expr,
 						},
@@ -300,41 +302,41 @@ func TestUnification1(t *testing.T) {
 		//test "n1" {
 		//	float32 => -25.38789 + 32.6 + 13.7,
 		//}
-		innerFunc := &ExprCall{
-			Name: operatorFuncName,
+		innerFunc := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprFloat{
+				&ast.ExprFloat{
 					V: 32.6,
 				},
-				&ExprFloat{
+				&ast.ExprFloat{
 					V: 13.7,
 				},
 			},
 		}
-		expr := &ExprCall{
-			Name: operatorFuncName,
+		expr := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprFloat{
+				&ast.ExprFloat{
 					V: -25.38789,
 				},
 				innerFunc, // nested func, can we unify?
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "n1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "float32",
 							Value: expr,
 						},
@@ -357,35 +359,35 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	int64 => $x,
 		//}
-		innerFunc := &ExprCall{
-			Name: operatorFuncName,
+		innerFunc := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "-",
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 42,
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 13,
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtBind{
+				&ast.StmtBind{
 					Ident: "x",
 					Value: innerFunc,
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "int64",
-							Value: &ExprVar{
+							Value: &ast.ExprVar{
 								Name: "x",
 							},
 						},
@@ -407,32 +409,32 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	anotherstr => $x,
 		//}
-		innerFunc := &ExprCall{
+		innerFunc := &ast.ExprCall{
 			Name: "template",
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "hello",
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 42,
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtBind{
+				&ast.StmtBind{
 					Ident: "x",
 					Value: innerFunc,
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "anotherstr",
-							Value: &ExprVar{
+							Value: &ast.ExprVar{
 								Name: "x",
 							},
 						},
@@ -455,38 +457,38 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	anotherstr => $x,
 		//}
-		innerFunc := &ExprCall{
+		innerFunc := &ast.ExprCall{
 			Name: "template",
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "hello", // whatever...
 				},
-				&ExprVar{
+				&ast.ExprVar{
 					Name: "v",
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtBind{
+				&ast.StmtBind{
 					Ident: "v",
-					Value: &ExprInt{
+					Value: &ast.ExprInt{
 						V: 42,
 					},
 				},
-				&StmtBind{
+				&ast.StmtBind{
 					Ident: "x",
 					Value: innerFunc,
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "anotherstr",
-							Value: &ExprVar{
+							Value: &ast.ExprVar{
 								Name: "x",
 							},
 						},
@@ -508,20 +510,20 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	stringptr => datetime.now(),	# bad (str vs. int)
 		//}
-		expr := &ExprCall{
+		expr := &ast.ExprCall{
 			Name: "datetime.now",
 			Args: []interfaces.Expr{},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtImport{
+				&ast.StmtImport{
 					Name: "datetime",
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "t1"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "t1"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
 							Value: expr,
 						},
@@ -540,27 +542,27 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	stringptr => sys.getenv("GOPATH", "bug"),	# bad (two args vs. one)
 		//}
-		expr := &ExprCall{
+		expr := &ast.ExprCall{
 			Name: "sys.getenv",
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "GOPATH",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "bug",
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtImport{
+				&ast.StmtImport{
 					Name: "sys",
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "t1"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "t1"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
 							Value: expr,
 						},
@@ -580,27 +582,27 @@ func TestUnification1(t *testing.T) {
 	//	//test "t1" {
 	//	//	stringptr => fmt.printf("hello %s and %s", "one"),	# bad
 	//	//}
-	//	expr := &ExprCall{
+	//	expr := &ast.ExprCall{
 	//		Name: "fmt.printf",
 	//		Args: []interfaces.Expr{
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "hello %s and %s",
 	//			},
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "one",
 	//			},
 	//		},
 	//	}
-	//	stmt := &StmtProg{
+	//	stmt := &ast.StmtProg{
 	//		Body: []interfaces.Stmt{
-	//			&StmtImport{
+	//			&ast.StmtImport{
 	//				Name: "fmt",
 	//			},
-	//			&StmtRes{
+	//			&ast.StmtRes{
 	//				Kind: "test",
-	//				Name: &ExprStr{V: "t1"},
-	//				Contents: []StmtResContents{
-	//					&StmtResField{
+	//				Name: &ast.ExprStr{V: "t1"},
+	//				Contents: []ast.StmtResContents{
+	//					&ast.StmtResField{
 	//						Field: "stringptr",
 	//						Value: expr,
 	//					},
@@ -619,33 +621,33 @@ func TestUnification1(t *testing.T) {
 	//	//test "t1" {
 	//	//	stringptr => fmt.printf("hello %s and %s", "one", "two", "three"),	# bad
 	//	//}
-	//	expr := &ExprCall{
+	//	expr := &ast.ExprCall{
 	//		Name: "fmt.printf",
 	//		Args: []interfaces.Expr{
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "hello %s and %s",
 	//			},
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "one",
 	//			},
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "two",
 	//			},
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "three",
 	//			},
 	//		},
 	//	}
-	//	stmt := &StmtProg{
+	//	stmt := &ast.StmtProg{
 	//		Body: []interfaces.Stmt{
-	//			&StmtImport{
+	//			&ast.StmtImport{
 	//				Name: "fmt",
 	//			},
-	//			&StmtRes{
+	//			&ast.StmtRes{
 	//				Kind: "test",
-	//				Name: &ExprStr{V: "t1"},
-	//				Contents: []StmtResContents{
-	//					&StmtResField{
+	//				Name: &ast.ExprStr{V: "t1"},
+	//				Contents: []ast.StmtResContents{
+	//					&ast.StmtResField{
 	//						Field: "stringptr",
 	//						Value: expr,
 	//					},
@@ -664,30 +666,30 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	stringptr => fmt.printf("hello %s and %s", "one", "two"),
 		//}
-		expr := &ExprCall{
+		expr := &ast.ExprCall{
 			Name: "fmt.printf",
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "hello %s and %s",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "one",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "two",
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtImport{
+				&ast.StmtImport{
 					Name: "fmt",
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "t1"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "t1"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
 							Value: expr,
 						},
@@ -714,37 +716,37 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	stringptr => fmt.printf("hello %s", $x),
 		//}
-		cond := &ExprIf{
-			Condition:  &ExprBool{V: true},
-			ThenBranch: &ExprInt{V: 42},
-			ElseBranch: &ExprInt{V: 13},
+		cond := &ast.ExprIf{
+			Condition:  &ast.ExprBool{V: true},
+			ThenBranch: &ast.ExprInt{V: 42},
+			ElseBranch: &ast.ExprInt{V: 13},
 		}
 		cond.SetType(types.TypeStr) // should fail unification
-		expr := &ExprCall{
+		expr := &ast.ExprCall{
 			Name: "fmt.printf",
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "hello %s",
 				},
-				&ExprVar{
+				&ast.ExprVar{
 					Name: "x", // the var
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtImport{
+				&ast.StmtImport{
 					Name: "fmt",
 				},
-				&StmtBind{
+				&ast.StmtBind{
 					Ident: "x", // the var
 					Value: cond,
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "t1"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "t1"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "anotherstr",
 							Value: expr,
 						},
@@ -766,38 +768,38 @@ func TestUnification1(t *testing.T) {
 		//test "t1" {
 		//	stringptr => fmt.printf("hello %s", $x),
 		//}
-		wvar := &ExprBool{V: true}
-		xvar := &ExprVar{Name: "w"}
+		wvar := &ast.ExprBool{V: true}
+		xvar := &ast.ExprVar{Name: "w"}
 		xvar.SetType(types.TypeStr) // should fail unification
-		expr := &ExprCall{
+		expr := &ast.ExprCall{
 			Name: "fmt.printf",
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "hello %s",
 				},
-				&ExprVar{
+				&ast.ExprVar{
 					Name: "x", // the var
 				},
 			},
 		}
-		stmt := &StmtProg{
+		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtImport{
+				&ast.StmtImport{
 					Name: "fmt",
 				},
-				&StmtBind{
+				&ast.StmtBind{
 					Ident: "w",
 					Value: wvar,
 				},
-				&StmtBind{
+				&ast.StmtBind{
 					Ident: "x", // the var
 					Value: xvar,
 				},
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{V: "t1"},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Name: &ast.ExprStr{V: "t1"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "anotherstr",
 							Value: expr,
 						},
@@ -825,16 +827,16 @@ func TestUnification1(t *testing.T) {
 		}
 		names = append(names, tc.name)
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			ast, fail, expect, experr, experrstr := tc.ast, tc.fail, tc.expect, tc.experr, tc.experrstr
+			xast, fail, expect, experr, experrstr := tc.ast, tc.fail, tc.expect, tc.experr, tc.experrstr
 
 			//str := strings.NewReader(code)
-			//ast, err := LexParse(str)
+			//xast, err := parser.LexParse(str)
 			//if err != nil {
 			//	t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
 			//	return
 			//}
 			// TODO: print out the AST's so that we can see the types
-			t.Logf("\n\ntest #%d: AST (before): %+v\n", index, ast)
+			t.Logf("\n\ntest #%d: AST (before): %+v\n", index, xast)
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
@@ -844,7 +846,7 @@ func TestUnification1(t *testing.T) {
 				},
 			}
 			// some of this might happen *after* interpolate in SetScope or Unify...
-			if err := ast.Init(data); err != nil {
+			if err := xast.Init(data); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not init and validate AST: %+v", index, err)
 				return
@@ -860,13 +862,13 @@ func TestUnification1(t *testing.T) {
 			//t.Logf("test #%d: astInterpolated: %+v", index, astInterpolated)
 
 			variables := map[string]interfaces.Expr{
-				"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
-				//"hostname": &ExprStr{V: obj.Hostname},
+				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
+				//"hostname": &ast.ExprStr{V: obj.Hostname},
 			}
-			consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-			addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
+			consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+			addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
 			var err error
-			variables, err = MergeExprMaps(variables, consts, addback)
+			variables, err = ast.MergeExprMaps(variables, consts, addback)
 			if err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: couldn't merge in consts: %+v", index, err)
@@ -877,10 +879,10 @@ func TestUnification1(t *testing.T) {
 			scope := &interfaces.Scope{
 				Variables: variables,
 				// all the built-in top-level, core functions enter here...
-				Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+				Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 			}
 			// propagate the scope down through the AST...
-			if err := ast.SetScope(scope); err != nil {
+			if err := xast.SetScope(scope); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: set scope failed with: %+v", index, err)
 				return
@@ -891,7 +893,7 @@ func TestUnification1(t *testing.T) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
 			}
 			unifier := &unification.Unifier{
-				AST:    ast,
+				AST:    xast,
 				Solver: unification.SimpleInvariantSolverLogger(logf),
 				Debug:  testing.Verbose(),
 				Logf:   logf,
@@ -899,7 +901,7 @@ func TestUnification1(t *testing.T) {
 			err = unifier.Unify()
 
 			// TODO: print out the AST's so that we can see the types
-			t.Logf("\n\ntest #%d: AST (after): %+v\n", index, ast)
+			t.Logf("\n\ntest #%d: AST (after): %+v\n", index, xast)
 
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)

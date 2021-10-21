@@ -17,7 +17,7 @@
 
 // +build !root
 
-package lang
+package interpolate
 
 import (
 	"fmt"
@@ -25,7 +25,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/purpleidea/mgmt/lang/ast"
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/parser"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/davecgh/go-spew/spew"
@@ -45,28 +48,28 @@ func TestInterpolate0(t *testing.T) {
 	// names, and then run `go test -run <pattern>` with the name(s) to run.
 
 	{
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{},
 		}
 		testCases = append(testCases, test{ // 0
 			"nil",
 			``,
 			false,
-			ast,
+			xast,
 		})
 	}
 	{
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "foo",
 							},
 						},
@@ -82,33 +85,33 @@ func TestInterpolate0(t *testing.T) {
 			}
 			`,
 			fail: false,
-			ast:  ast,
+			ast:  xast,
 		})
 	}
 	{
-		fieldName := &ExprCall{
-			Name: operatorFuncName,
+		fieldName := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "foo-",
 				},
-				&ExprVar{
+				&ast.ExprVar{
 					Name: "x",
 				},
 			},
 		}
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
 							Value: fieldName,
 						},
@@ -125,21 +128,21 @@ func TestInterpolate0(t *testing.T) {
 			}
 			`,
 			fail: false,
-			ast:  ast,
+			ast:  xast,
 		})
 	}
 	{
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "${hello}",
 							},
 						},
@@ -155,21 +158,21 @@ func TestInterpolate0(t *testing.T) {
 			}
 			`,
 			fail: false,
-			ast:  ast,
+			ast:  xast,
 		})
 	}
 	{
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: `\` + `$` + `{hello}`,
 							},
 						},
@@ -185,7 +188,7 @@ func TestInterpolate0(t *testing.T) {
 			}
 			`,
 			fail: false,
-			ast:  ast,
+			ast:  xast,
 		})
 	}
 
@@ -204,7 +207,7 @@ func TestInterpolate0(t *testing.T) {
 			code, fail, exp := tc.code, tc.fail, tc.ast
 
 			str := strings.NewReader(code)
-			ast, err := LexParse(str)
+			ast, err := parser.LexParse(str)
 			if err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
@@ -213,6 +216,9 @@ func TestInterpolate0(t *testing.T) {
 			t.Logf("test #%d: AST: %+v", index, ast)
 
 			data := &interfaces.Data{
+				// TODO: add missing fields here if/when needed
+				StrInterpolater: InterpolateStr,
+
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
@@ -296,17 +302,17 @@ func TestInterpolateBasicStmt(t *testing.T) {
 	//	})
 	//}
 	{
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "foo",
 							},
 						},
@@ -314,17 +320,17 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				},
 			},
 		}
-		exp := &StmtProg{
+		exp := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t1",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "foo",
 							},
 						},
@@ -334,23 +340,23 @@ func TestInterpolateBasicStmt(t *testing.T) {
 		}
 		testCases = append(testCases, test{
 			name: "basic resource",
-			ast:  ast,
+			ast:  xast,
 			fail: false,
 			exp:  exp,
 		})
 	}
 	{
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t${blah}",
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "foo",
 							},
 						},
@@ -358,29 +364,29 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				},
 			},
 		}
-		resName := &ExprCall{
-			Name: operatorFuncName,
+		resName := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "t",
 				},
-				&ExprVar{
+				&ast.ExprVar{
 					Name: "blah",
 				},
 			},
 		}
-		exp := &StmtProg{
+		exp := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
 					Name: resName,
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "foo",
 							},
 						},
@@ -390,23 +396,23 @@ func TestInterpolateBasicStmt(t *testing.T) {
 		}
 		testCases = append(testCases, test{
 			name: "expanded resource",
-			ast:  ast,
+			ast:  xast,
 			fail: false,
 			exp:  exp,
 		})
 	}
 	{
-		ast := &StmtProg{
+		xast := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
-					Name: &ExprStr{
+					Name: &ast.ExprStr{
 						V: "t${42}", // incorrect type
 					},
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "foo",
 							},
 						},
@@ -414,30 +420,30 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				},
 			},
 		}
-		resName := &ExprCall{
-			Name: operatorFuncName,
+		resName := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			// incorrect sig for this function, and now invalid interpolation
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "t",
 				},
-				&ExprInt{
+				&ast.ExprInt{
 					V: 42,
 				},
 			},
 		}
-		exp := &StmtProg{
+		exp := &ast.StmtProg{
 			Body: []interfaces.Stmt{
-				&StmtRes{
+				&ast.StmtRes{
 					Kind: "test",
 					Name: resName,
-					Contents: []StmtResContents{
-						&StmtResField{
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
 							Field: "stringptr",
-							Value: &ExprStr{
+							Value: &ast.ExprStr{
 								V: "foo",
 							},
 						},
@@ -448,7 +454,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 		_ = exp // historical
 		testCases = append(testCases, test{
 			name: "expanded invalid resource name",
-			ast:  ast,
+			ast:  xast,
 			fail: true,
 			//exp:  exp,
 		})
@@ -466,6 +472,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
+				StrInterpolater: InterpolateStr,
+
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)
@@ -535,51 +543,51 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	//	})
 	//}
 	{
-		ast := &ExprStr{
+		xast := &ast.ExprStr{
 			V: "hello",
 		}
-		exp := &ExprStr{
+		exp := &ast.ExprStr{
 			V: "hello",
 		}
 		testCases = append(testCases, test{
 			name: "basic string",
-			ast:  ast,
+			ast:  xast,
 			fail: false,
 			exp:  exp,
 		})
 	}
 	{
-		ast := &ExprStr{
+		xast := &ast.ExprStr{
 			V: "hello ${person_name}",
 		}
-		exp := &ExprCall{
-			Name: operatorFuncName,
+		exp := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "hello ",
 				},
-				&ExprVar{
+				&ast.ExprVar{
 					Name: "person_name",
 				},
 			},
 		}
 		testCases = append(testCases, test{
 			name: "basic expansion",
-			ast:  ast,
+			ast:  xast,
 			fail: false,
 			exp:  exp,
 		})
 	}
 	{
-		ast := &ExprStr{
+		xast := &ast.ExprStr{
 			V: "hello ${x ${y} z}",
 		}
 		testCases = append(testCases, test{
 			name: "invalid expansion",
-			ast:  ast,
+			ast:  xast,
 			fail: true,
 		})
 	}
@@ -587,31 +595,31 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	// library, but are not yet supported by our translation layer, nor do
 	// they necessarily work or make much sense at this point in time...
 	//{
-	//	ast := &ExprStr{
+	//	xast := &ast.ExprStr{
 	//		V: `hello ${func("hello ${var.foo}")}`,
 	//	}
 	//	exp := nil // TODO: add this
 	//	testCases = append(testCases, test{
 	//		name: "double expansion",
-	//		ast:  ast,
+	//		ast:  xast,
 	//		fail: false,
 	//		exp:  exp,
 	//	})
 	//}
 	{
-		ast := &ExprStr{
+		xast := &ast.ExprStr{
 			V: "sweetie${3.14159}", // invalid
 		}
-		exp := &ExprCall{
-			Name: operatorFuncName,
+		exp := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "sweetie",
 				},
-				&ExprFloat{
+				&ast.ExprFloat{
 					V: 3.14159,
 				},
 			},
@@ -619,24 +627,24 @@ func TestInterpolateBasicExpr(t *testing.T) {
 		_ = exp // historical
 		testCases = append(testCases, test{
 			name: "float expansion",
-			ast:  ast,
+			ast:  xast,
 			fail: true,
 		})
 	}
 	{
-		ast := &ExprStr{
+		xast := &ast.ExprStr{
 			V: "i am: ${sys.hostname()}",
 		}
-		exp := &ExprCall{
-			Name: operatorFuncName,
+		exp := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "i am: ",
 				},
-				&ExprCall{
+				&ast.ExprCall{
 					Name: "sys.hostname",
 					Args: []interfaces.Expr{},
 				},
@@ -645,30 +653,30 @@ func TestInterpolateBasicExpr(t *testing.T) {
 		_ = exp // historical
 		testCases = append(testCases, test{
 			name: "function expansion",
-			ast:  ast,
+			ast:  xast,
 			fail: true,
 		})
 	}
 	{
-		ast := &ExprStr{
+		xast := &ast.ExprStr{
 			V: "i am: ${blah(21, 12.3)}",
 		}
-		exp := &ExprCall{
-			Name: operatorFuncName,
+		exp := &ast.ExprCall{
+			Name: funcs.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ExprStr{
+				&ast.ExprStr{
 					V: "+",
 				},
-				&ExprStr{
+				&ast.ExprStr{
 					V: "i am: ",
 				},
-				&ExprCall{
+				&ast.ExprCall{
 					Name: "blah",
 					Args: []interfaces.Expr{
-						&ExprInt{
+						&ast.ExprInt{
 							V: 21,
 						},
-						&ExprFloat{
+						&ast.ExprFloat{
 							V: 12.3,
 						},
 					},
@@ -678,31 +686,31 @@ func TestInterpolateBasicExpr(t *testing.T) {
 		_ = exp // historical
 		testCases = append(testCases, test{
 			name: "function expansion arg",
-			ast:  ast,
+			ast:  xast,
 			fail: true,
 		})
 	}
 	// FIXME: i am broken, i don't deal well with negatives for some reason
 	//{
-	//	ast := &ExprStr{
+	//	xast := &ast.ExprStr{
 	//		V: "i am: ${blah(21, -12.3)}",
 	//	}
-	//	exp := &ExprCall{
-	//		Name: operatorFuncName,
+	//	exp := &ast.ExprCall{
+	//		Name: funcs.OperatorFuncName,
 	//		Args: []interfaces.Expr{
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "+",
 	//			},
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "i am: ",
 	//			},
-	//			&ExprCall{
+	//			&ast.ExprCall{
 	//				Name: "blah",
 	//				Args: []interfaces.Expr{
-	//					&ExprInt{
+	//					&ast.ExprInt{
 	//						V: 21,
 	//					},
-	//					&ExprFloat{
+	//					&ast.ExprFloat{
 	//						V: -12.3,
 	//					},
 	//				},
@@ -711,58 +719,58 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	//	}
 	//	testCases = append(testCases, test{
 	//		name: "function expansion arg negative",
-	//		ast:  ast,
+	//		ast:  xast,
 	//		fail: false,
 	//		exp:  exp,
 	//	})
 	//}
 	// FIXME: i am broken :(
 	//{
-	//	ast := &ExprStr{
+	//	xast := &ast.ExprStr{
 	//		V: "sweetie${-3.14159}", // FIXME: only the negative breaks this
 	//	}
-	//	exp := &ExprCall{
-	//		Name: operatorFuncName,
+	//	exp := &ast.ExprCall{
+	//		Name: funcs.OperatorFuncName,
 	//		Args: []interfaces.Expr{
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "+",
 	//			},
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "sweetie",
 	//			},
-	//			&ExprFloat{
+	//			&ast.ExprFloat{
 	//				V: -3.14159,
 	//			},
 	//		},
 	//	}
 	//	testCases = append(testCases, test{
 	//		name: "negative float expansion",
-	//		ast:  ast,
+	//		ast:  xast,
 	//		fail: false,
 	//		exp:  exp,
 	//	})
 	//}
 	// FIXME: i am also broken, but less important
 	//{
-	//	ast := &ExprStr{
+	//	xast := &ast.ExprStr{
 	//		V: `i am: ${blah(42, "${foo}")}`,
 	//	}
-	//	exp := &ExprCall{
-	//		Name: operatorFuncName,
+	//	exp := &ast.ExprCall{
+	//		Name: funcs.OperatorFuncName,
 	//		Args: []interfaces.Expr{
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "+",
 	//			},
-	//			&ExprStr{
+	//			&ast.ExprStr{
 	//				V: "i am: ",
 	//			},
-	//			&ExprCall{
+	//			&ast.ExprCall{
 	//				Name: "blah",
 	//				Args: []interfaces.Expr{
-	//					&ExprInt{
+	//					&ast.ExprInt{
 	//						V: 42,
 	//					},
-	//					&ExprVar{
+	//					&ast.ExprVar{
 	//						Name: "foo",
 	//					},
 	//				},
@@ -771,7 +779,7 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	//	}
 	//	testCases = append(testCases, test{
 	//		name: "function expansion arg with var",
-	//		ast:  ast,
+	//		ast:  xast,
 	//		fail: false,
 	//		exp:  exp,
 	//	})
@@ -789,6 +797,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
+				StrInterpolater: InterpolateStr,
+
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf("ast: "+format, v...)

@@ -25,10 +25,13 @@ import (
 
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lang"
+	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/download"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/interpolate"
+	"github.com/purpleidea/mgmt/lang/parser"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -191,12 +194,12 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	// TODO: do the paths need to be cleaned for "../" before comparison?
 
 	logf("lexing/parsing...")
-	ast, err := lang.LexParse(bytes.NewReader(output.Main))
+	xast, err := parser.LexParse(bytes.NewReader(output.Main))
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not generate AST")
 	}
 	if debug {
-		logf("behold, the AST: %+v", ast)
+		logf("behold, the AST: %+v", xast)
 	}
 
 	var downloader interfaces.Downloader
@@ -239,16 +242,19 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:         localFs,       // the local fs!
-		FsURI:      localFs.URI(), // TODO: is this right?
-		Base:       output.Base,   // base dir (absolute path) that this is rooted in
-		Files:      output.Files,
-		Imports:    importVertex,
-		Metadata:   output.Metadata,
-		Modules:    modules,
-		Downloader: downloader,
+		Fs:       localFs,       // the local fs!
+		FsURI:    localFs.URI(), // TODO: is this right?
+		Base:     output.Base,   // base dir (absolute path) that this is rooted in
+		Files:    output.Files,
+		Imports:  importVertex,
+		Metadata: output.Metadata,
+		Modules:  modules,
 
+		LexParser:       parser.LexParse,
+		Downloader:      downloader,
+		StrInterpolater: interpolate.InterpolateStr,
 		//World: obj.World, // TODO: do we need this?
+
 		Prefix: prefix,
 		Debug:  debug,
 		Logf: func(format string, v ...interface{}) {
@@ -257,25 +263,25 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		},
 	}
 	// some of this might happen *after* interpolate in SetScope or Unify...
-	if err := ast.Init(data); err != nil {
+	if err := xast.Init(data); err != nil {
 		return nil, errwrap.Wrapf(err, "could not init and validate AST")
 	}
 
 	logf("interpolating...")
 	// interpolate strings and other expansionable nodes in AST
-	interpolated, err := ast.Interpolate()
+	interpolated, err := xast.Interpolate()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpolate AST")
 	}
 
 	variables := map[string]interfaces.Expr{
-		"purpleidea": &lang.ExprStr{V: "hello world!"}, // james says hi
+		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
 		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &lang.ExprStr{V: ""}, // NOTE: empty b/c not used
+		"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
 	}
-	consts := lang.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep         // add it back...
-	variables, err = lang.MergeExprMaps(variables, consts, addback)
+	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
+	variables, err = ast.MergeExprMaps(variables, consts, addback)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "couldn't merge in consts")
 	}
@@ -284,7 +290,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	scope := &interfaces.Scope{
 		Variables: variables,
 		// all the built-in top-level, core functions enter here...
-		Functions: lang.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	logf("building scope...")
@@ -316,7 +322,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	}
 
 	// get the list of needed files (this is available after SetScope)
-	fileList, err := lang.CollectFiles(interpolated)
+	fileList, err := ast.CollectFiles(interpolated)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not collect files")
 	}
@@ -664,7 +670,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	// TODO: do the paths need to be cleaned for "../" before comparison?
 
 	logf("lexing/parsing...")
-	ast, err := lang.LexParse(bytes.NewReader(output.Main))
+	ast, err := parser.LexParse(bytes.NewReader(output.Main))
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate AST")
 	}
@@ -709,16 +715,19 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:         localFs,       // the local fs!
-		FsURI:      localFs.URI(), // TODO: is this right?
-		Base:       output.Base,   // base dir (absolute path) that this is rooted in
-		Files:      output.Files,
-		Imports:    importVertex,
-		Metadata:   output.Metadata,
-		Modules:    modules,
-		Downloader: downloader,
+		Fs:       localFs,       // the local fs!
+		FsURI:    localFs.URI(), // TODO: is this right?
+		Base:     output.Base,   // base dir (absolute path) that this is rooted in
+		Files:    output.Files,
+		Imports:  importVertex,
+		Metadata: output.Metadata,
+		Modules:  modules,
 
+		LexParser:       parser.LexParse,
+		Downloader:      downloader,
+		StrInterpolater: interpolate.InterpolateStr,
 		//World: obj.World, // TODO: do we need this?
+
 		Prefix: prefix,
 		Debug:  debug,
 		Logf: func(format string, v ...interface{}) {

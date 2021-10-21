@@ -19,11 +19,22 @@ package util
 
 import (
 	"fmt"
+	"net/url"
+	"path"
 	"regexp"
 	"strings"
 
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
+)
+
+const (
+	// ModuleMagicPrefix is the prefix which, if found as a prefix to the
+	// last token in an import path, will be removed silently if there are
+	// remaining characters following the name. If this is the empty string
+	// then it will be ignored.
+	ModuleMagicPrefix = "mgmt-"
 )
 
 // HasDuplicateTypes returns an error if the list of types is not unique.
@@ -126,4 +137,119 @@ func ValidateVarName(name string) error {
 	}
 
 	return nil
+}
+
+// ParseImportName parses an import name and returns the default namespace name
+// that should be used with it. For example, if the import name was:
+// "git://example.com/purpleidea/Module-Name", this might return an alias of
+// "module_name". It also returns a bunch of other data about the parsed import.
+// TODO: check for invalid or unwanted special characters
+func ParseImportName(name string) (*interfaces.ImportData, error) {
+	magicPrefix := ModuleMagicPrefix
+	if name == "" {
+		return nil, fmt.Errorf("empty name")
+	}
+	if strings.HasPrefix(name, "/") {
+		return nil, fmt.Errorf("absolute paths are not allowed")
+	}
+
+	u, err := url.Parse(name)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "name is not a valid url")
+	}
+	if u.Path == "" {
+		return nil, fmt.Errorf("empty path")
+	}
+	p := u.Path
+	// catch bad paths like: git:////home/james/ (note the quad slash!)
+	// don't penalize if we have a dir with a trailing slash at the end
+	if s := path.Clean(u.Path); u.Path != s && u.Path != s+"/" {
+		// TODO: are there any cases where this is not what we want?
+		return nil, fmt.Errorf("dirty path, cleaned it's: `%s`", s)
+	}
+
+	for strings.HasSuffix(p, "/") { // remove trailing slashes
+		p = p[:len(p)-len("/")]
+	}
+
+	split := strings.Split(p, "/") // take last chunk if slash separated
+	s := split[0]
+	if len(split) > 1 {
+		s = split[len(split)-1] // pick last chunk
+	}
+
+	// TODO: should we treat a special name: "purpleidea/mgmt-foo" as "foo"?
+	if magicPrefix != "" && strings.HasPrefix(s, magicPrefix) && len(s) > len(magicPrefix) {
+		s = s[len(magicPrefix):]
+	}
+
+	s = strings.Replace(s, "-", "_", -1) // XXX: allow underscores in IDENTIFIER
+	if strings.HasPrefix(s, "_") || strings.HasSuffix(s, "_") {
+		return nil, fmt.Errorf("name can't begin or end with dash or underscore")
+	}
+	alias := strings.ToLower(s)
+
+	// if this is a local import, it's a straight directory path
+	// if it's an fqdn import, it should contain a metadata file
+
+	// if there's no protocol prefix, then this must be a local path
+	isLocal := u.Scheme == ""
+	// if it has a trailing slash or .mcl extension it's not a system import
+	isSystem := isLocal && !strings.HasSuffix(u.Path, "/") && !strings.HasSuffix(u.Path, interfaces.DotFileNameExtension)
+	// is it a local file?
+	isFile := !isSystem && isLocal && strings.HasSuffix(u.Path, interfaces.DotFileNameExtension)
+	xpath := u.Path // magic path
+	if isSystem {
+		xpath = ""
+	}
+	if !isLocal {
+		host := u.Host // host or host:port
+		split := strings.Split(host, ":")
+		if l := len(split); l == 1 || l == 2 {
+			host = split[0]
+		} else {
+			return nil, fmt.Errorf("incorrect number of colons (%d) in hostname", l)
+		}
+		xpath = path.Join(host, xpath)
+	}
+	if !isLocal && !strings.HasSuffix(xpath, "/") {
+		xpath = xpath + "/"
+	}
+	// we're a git repo with a local path instead of an fqdn over http!
+	// this still counts as isLocal == false, since it's still a remote
+	if u.Host == "" && strings.HasPrefix(u.Path, "/") {
+		xpath = strings.TrimPrefix(xpath, "/") // make it a relative dir
+	}
+	if strings.HasPrefix(xpath, "/") { // safety check (programming error?)
+		return nil, fmt.Errorf("can't parse strange import")
+	}
+
+	// build a url to clone from if we're not local...
+	// TODO: consider adding some logic that is similar to the logic in:
+	// https://github.com/golang/go/blob/054640b54df68789d9df0e50575d21d9dbffe99f/src/cmd/go/internal/get/vcs.go#L972
+	// so that we can more correctly figure out the correct url to clone...
+	xurl := ""
+	if !isLocal {
+		u.Fragment = ""
+		// TODO: maybe look for ?sha1=... or ?tag=... to pick a real ref
+		u.RawQuery = ""
+		u.ForceQuery = false
+		xurl = u.String()
+	}
+
+	// if u.Path is local file like: foo/server.mcl alias should be "server"
+	// we should trim the alias to remove the .mcl (the dir is already gone)
+	if isFile && strings.HasSuffix(alias, interfaces.DotFileNameExtension) {
+		alias = strings.TrimSuffix(alias, interfaces.DotFileNameExtension)
+	}
+
+	return &interfaces.ImportData{
+		Name:     name, // save the original value here
+		Alias:    alias,
+		IsSystem: isSystem,
+		IsLocal:  isLocal,
+		IsFile:   isFile,
+		Path:     xpath,
+		URL:      xurl,
+	}, nil
 }

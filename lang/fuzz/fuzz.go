@@ -20,7 +20,7 @@ package fuzz
 import (
 	"bytes"
 
-	"github.com/purpleidea/mgmt/lang"
+	"github.com/purpleidea/mgmt/lang/parser"
 )
 
 // Fuzz is repeatedly called by go-fuzz with semi-random inputs in an attempt to
@@ -32,7 +32,7 @@ import (
 // gives new coverage; and 0 otherwise; other values are reserved for future
 // use.
 func Fuzz(data []byte) int {
-	ast, err := lang.LexParse(bytes.NewReader(data))
+	ast, err := parser.LexParse(bytes.NewReader(data))
 	if err != nil {
 		if ast != nil {
 			panic("ast != nil on error")

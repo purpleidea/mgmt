@@ -20,23 +20,23 @@ SHELL = /usr/bin/env bash
 
 all: build
 
-build: lexer.nn.go y.go interpolate/parse.generated.go
+build: parser/lexer.nn.go parser/y.go interpolate/parse.generated.go
 	@# recursively run make in child dir named types
 	@$(MAKE) --quiet -C types
 
 clean:
 	$(MAKE) --quiet -C types clean
-	@rm -f lexer.nn.go y.go y.output interpolate/parse.generated.go || true
+	@rm -f parser/lexer.nn.go parser/y.go parser/y.output interpolate/parse.generated.go || true
 
-lexer.nn.go: lexer.nex
+parser/lexer.nn.go: parser/lexer.nex
 	@echo "Generating: lexer..."
-	nex -e lexer.nex
-	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'lexer.nn.go'
+	nex -e -o $@ $<
+	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/lexer.nn.go'
 
-y.go: parser.y
+parser/y.go: parser/parser.y
 	@echo "Generating: parser..."
-	goyacc parser.y
-	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'y.go'
+	goyacc -v parser/y.output -o $@ $<
+	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/y.go'
 
 interpolate/parse.generated.go: interpolate/parse.rl
 	@echo "Generating: interpolation..."

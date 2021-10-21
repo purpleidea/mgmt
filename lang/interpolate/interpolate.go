@@ -15,13 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lang // TODO: move this into a sub package of lang/$name?
+package interpolate
 
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/ast"
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
-	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/hashicorp/hil"
@@ -35,16 +36,8 @@ const (
 	UseHilInterpolation = false
 )
 
-// Pos represents a position in the code.
-// TODO: consider expanding with range characteristics.
-type Pos struct {
-	Line     int    // line number starting at 1
-	Column   int    // column number starting at 1
-	Filename string // optional source filename, if known
-}
-
 // InterpolateStr interpolates a string and returns the representative AST.
-func InterpolateStr(str string, pos *Pos, data *interfaces.Data) (interfaces.Expr, error) {
+func InterpolateStr(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	if data.Debug {
 		data.Logf("interpolating: %s", str)
 	}
@@ -57,8 +50,8 @@ func InterpolateStr(str string, pos *Pos, data *interfaces.Data) (interfaces.Exp
 
 // InterpolateRagel interpolates a string and returns the representative AST. It
 // uses the ragel parser to perform the string interpolation.
-func InterpolateRagel(str string, pos *Pos, data *interfaces.Data) (interfaces.Expr, error) {
-	sequence, err := interpolate.Parse(str)
+func InterpolateRagel(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
+	sequence, err := Parse(str)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "parser failed")
 	}
@@ -67,14 +60,14 @@ func InterpolateRagel(str string, pos *Pos, data *interfaces.Data) (interfaces.E
 	for _, term := range sequence {
 
 		switch t := term.(type) {
-		case interpolate.Literal:
-			expr := &ExprStr{
+		case Literal:
+			expr := &ast.ExprStr{
 				V: t.Value,
 			}
 			exprs = append(exprs, expr)
 
-		case interpolate.Variable:
-			expr := &ExprVar{
+		case Variable:
+			expr := &ast.ExprVar{
 				Name: t.Name,
 			}
 			exprs = append(exprs, expr)
@@ -85,7 +78,7 @@ func InterpolateRagel(str string, pos *Pos, data *interfaces.Data) (interfaces.E
 
 	// If we didn't find anything of value, we got an empty string...
 	if len(sequence) == 0 && str == "" { // be doubly sure...
-		expr := &ExprStr{
+		expr := &ast.ExprStr{
 			V: "",
 		}
 		exprs = append(exprs, expr)
@@ -108,7 +101,7 @@ func InterpolateRagel(str string, pos *Pos, data *interfaces.Data) (interfaces.E
 
 // InterpolateHil interpolates a string and returns the representative AST. This
 // particular implementation uses the hashicorp hil library and syntax to do so.
-func InterpolateHil(str string, pos *Pos, data *interfaces.Data) (interfaces.Expr, error) {
+func InterpolateHil(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	var line, column int = -1, -1
 	var filename string
 	if pos != nil {
@@ -132,15 +125,19 @@ func InterpolateHil(str string, pos *Pos, data *interfaces.Data) (interfaces.Exp
 
 	transformData := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:         data.Fs,
-		FsURI:      data.FsURI,
-		Base:       data.Base,
-		Files:      data.Files,
-		Imports:    data.Imports,
-		Metadata:   data.Metadata,
-		Modules:    data.Modules,
-		Downloader: data.Downloader,
-		//World:      data.World,
+		Fs:       data.Fs,
+		FsURI:    data.FsURI,
+		Base:     data.Base,
+		Files:    data.Files,
+		Imports:  data.Imports,
+		Metadata: data.Metadata,
+		Modules:  data.Modules,
+
+		LexParser:       data.LexParser,
+		Downloader:      data.Downloader,
+		StrInterpolater: data.StrInterpolater,
+		//World: data.World, // TODO: do we need this?
+
 		Prefix: data.Prefix,
 		Debug:  data.Debug,
 		Logf: func(format string, v ...interface{}) {
@@ -205,7 +202,7 @@ func hilTransform(root hilast.Node, data *interfaces.Data) (interfaces.Expr, err
 			args = append(args, arg)
 		}
 
-		return &ExprCall{
+		return &ast.ExprCall{
 			Name: node.Func, // name
 			Args: args,
 		}, nil
@@ -217,23 +214,23 @@ func hilTransform(root hilast.Node, data *interfaces.Data) (interfaces.Expr, err
 
 		switch node.Typex {
 		case hilast.TypeBool:
-			return &ExprBool{
+			return &ast.ExprBool{
 				V: node.Value.(bool),
 			}, nil
 
 		case hilast.TypeString:
-			return &ExprStr{
+			return &ast.ExprStr{
 				V: node.Value.(string),
 			}, nil
 
 		case hilast.TypeInt:
-			return &ExprInt{
+			return &ast.ExprInt{
 				// node.Value is an int stored as an interface
 				V: int64(node.Value.(int)),
 			}, nil
 
 		case hilast.TypeFloat:
-			return &ExprFloat{
+			return &ast.ExprFloat{
 				V: node.Value.(float64),
 			}, nil
 
@@ -249,7 +246,7 @@ func hilTransform(root hilast.Node, data *interfaces.Data) (interfaces.Expr, err
 		if data.Debug {
 			data.Logf("got variable access type: %+v", node)
 		}
-		return &ExprVar{
+		return &ast.ExprVar{
 			Name: node.Name,
 		}, nil
 
@@ -284,7 +281,7 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 		return nil, fmt.Errorf("empty list")
 	}
 
-	operator := &ExprStr{
+	operator := &ast.ExprStr{
 		V: "+", // for PLUS this is a `+` character
 	}
 
@@ -293,11 +290,11 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 	}
 	//if len(exprs) == 1 {
 	//	arg := exprs[0]
-	//	emptyStr := &ExprStr{
+	//	emptyStr := &ast.ExprStr{
 	//		V: "", // empty str
 	//	}
-	//	return &ExprCall{
-	//		Name: operatorFuncName, // concatenate the two strings with + operator
+	//	return &ast.ExprCall{
+	//		Name: funcs.OperatorFuncName, // concatenate the two strings with + operator
 	//		Args: []interfaces.Expr{
 	//			operator, // operator first
 	//			arg,      // string arg
@@ -313,9 +310,9 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 		return nil, err
 	}
 
-	return &ExprCall{
+	return &ast.ExprCall{
 		// NOTE: if we don't set the data field we need Init() called on it!
-		Name: operatorFuncName, // concatenate the two strings with + operator
+		Name: funcs.OperatorFuncName, // concatenate the two strings with + operator
 		Args: []interfaces.Expr{
 			operator, // operator first
 			head,     // string arg
@@ -333,7 +330,7 @@ func simplifyExprList(exprs []interfaces.Expr) ([]interfaces.Expr, error) {
 
 	for _, x := range exprs {
 		switch v := x.(type) {
-		case *ExprStr:
+		case *ast.ExprStr:
 			if !last {
 				last = true
 				result = append(result, x)
@@ -342,7 +339,7 @@ func simplifyExprList(exprs []interfaces.Expr) ([]interfaces.Expr, error) {
 
 			// combine!
 			expr := result[len(result)-1] // there has to be at least one
-			str, ok := expr.(*ExprStr)
+			str, ok := expr.(*ast.ExprStr)
 			if !ok {
 				// programming error
 				return nil, fmt.Errorf("unexpected type (%T)", expr)
@@ -351,7 +348,7 @@ func simplifyExprList(exprs []interfaces.Expr) ([]interfaces.Expr, error) {
 			//last = true // redundant, it's already true
 			// ... and don't append, we've combined!
 
-		case *ExprVar:
+		case *ast.ExprVar:
 			last = false // the next one can't combine with me
 			result = append(result, x)
 

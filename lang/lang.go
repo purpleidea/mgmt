@@ -23,23 +23,19 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/interpret"
+	"github.com/purpleidea/mgmt/lang/parser"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-)
-
-const (
-	// make these available internally without requiring the import
-	operatorFuncName = funcs.OperatorFuncName
-	historyFuncName  = funcs.HistoryFuncName
-	containsFuncName = funcs.ContainsFuncName
 )
 
 // Lang is the main language lexer/parser object.
@@ -117,12 +113,12 @@ func (obj *Lang) Init() error {
 	// run the lexer/parser and build an AST
 	obj.Logf("lexing/parsing...")
 	// this reads an io.Reader, which might be a stream of multiple files...
-	ast, err := LexParse(reader)
+	xast, err := parser.LexParse(reader)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate AST")
 	}
 	if obj.Debug {
-		obj.Logf("behold, the AST: %+v", ast)
+		obj.Logf("behold, the AST: %+v", xast)
 	}
 
 	importGraph, err := pgraph.NewGraph("importGraph")
@@ -147,7 +143,11 @@ func (obj *Lang) Init() error {
 		Metadata: output.Metadata,
 		Modules:  "/" + interfaces.ModuleDirectory, // do not set from env for a deploy!
 
+		LexParser:       parser.LexParse,
+		Downloader:      nil, // XXX: is this used here?
+		StrInterpolater: interpolate.InterpolateStr,
 		//World: obj.World, // TODO: do we need this?
+
 		Prefix: obj.Prefix,
 		Debug:  obj.Debug,
 		Logf: func(format string, v ...interface{}) {
@@ -156,26 +156,26 @@ func (obj *Lang) Init() error {
 		},
 	}
 	// some of this might happen *after* interpolate in SetScope or Unify...
-	if err := ast.Init(data); err != nil {
+	if err := xast.Init(data); err != nil {
 		return errwrap.Wrapf(err, "could not init and validate AST")
 	}
 
 	obj.Logf("interpolating...")
 	// interpolate strings and other expansionable nodes in AST
-	interpolated, err := ast.Interpolate()
+	interpolated, err := xast.Interpolate()
 	if err != nil {
 		return errwrap.Wrapf(err, "could not interpolate AST")
 	}
 	obj.ast = interpolated
 
 	variables := map[string]interfaces.Expr{
-		"purpleidea": &ExprStr{V: "hello world!"}, // james says hi
+		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
 		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &ExprStr{V: obj.Hostname},
+		"hostname": &ast.ExprStr{V: obj.Hostname},
 	}
-	consts := VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep    // add it back...
-	variables, err = MergeExprMaps(variables, consts, addback)
+	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
+	variables, err = ast.MergeExprMaps(variables, consts, addback)
 	if err != nil {
 		return errwrap.Wrapf(err, "couldn't merge in consts")
 	}
@@ -184,7 +184,7 @@ func (obj *Lang) Init() error {
 	scope := &interfaces.Scope{
 		Variables: variables,
 		// all the built-in top-level, core functions enter here...
-		Functions: FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
 	obj.Logf("building scope...")

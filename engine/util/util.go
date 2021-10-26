@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package util contains utility functions that are specific to the resource
+// engine.
 package util
 
 import (

@@ -15,6 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package graph contains the actual implementation of the resource graph engine
+// that runs the graph of resources in real-time. This package has the algorithm
+// that runs all the graph transitions.
 package graph
 
 import (

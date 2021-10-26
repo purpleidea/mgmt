@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package unification contains the code related to type unification for the mcl
+// language.
 package unification
 
 import (

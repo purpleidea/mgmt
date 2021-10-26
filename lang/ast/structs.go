@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package ast contains the structs implementing and some utility functions for
+// interacting with the abstract syntax tree for the mcl language.
 package ast
 
 import (

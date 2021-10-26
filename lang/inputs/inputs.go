@@ -15,6 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package inputs contains the input parsing logic for how mcl module
+// entrypoints are handled for the language.
+//
+// In other words, given a string, does this represent stdin, a specific
+// metadata input file, a specific code file, a directory of code, some raw and
+// inline code, or nothing at all.
 package inputs
 
 import (

@@ -15,5 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package types provides a framework for our mcl language values and types.
-package types
+// Package interfaces contains the common interfaces used in the mcl language.
+// This package has the common imports that most consumers use directly.
+package interfaces

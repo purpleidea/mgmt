@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package interpret contains the implementation of the actual interpret
+// function that takes an AST and returns a resource graph.
 package interpret
 
 import (

@@ -15,7 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lang // TODO: move this into a sub package of lang/$name?
+// Package lang is the mcl language frontend that implements the reactive DSL
+// that lets users model their desired state over time.
+package lang
 
 import (
 	"bytes"

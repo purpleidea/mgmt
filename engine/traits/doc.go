@@ -15,5 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package types provides a framework for our mcl language values and types.
-package types
+// Package traits contains all the definitions and implementations of the core
+// resource traits that are imported by all the resource implementations.
+package traits

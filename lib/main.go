@@ -15,6 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package lib is the home for the mgmt core library. It is implemented as a
+// library (so that it can be reused within other programs) and our cli is just
+// a wrapper around this.
 package lib
 
 import (

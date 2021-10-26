@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package interpolate contains the string interpolation parser and associated
+// structs and code.
 package interpolate
 
 import (

@@ -119,5 +119,5 @@ fpm \
 	--package "${DIR}/${VERSION}/${DISTRO}/${OUTPUT}" \
 	${CHANGELOG} \
 	${DEPS} \
-	--prefix "$PREFIX" \
-	"$BINARY"
+	"misc/mgmt.service"="/usr/lib/systemd/system/mgmt.service" \
+	"$BINARY"="$PREFIX/mgmt"

@@ -15,12 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+//go:build !root
 // +build !root
 
 package pgraph
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -46,6 +48,54 @@ func TestCount1(t *testing.T) {
 
 	if i := G.NumEdges(); i != 1 {
 		t.Errorf("should have 1 edges instead of: %d", i)
+	}
+}
+
+func TestCountNodesAndEdges(t *testing.T) {
+
+	G := &Graph{Name: "MyG"}
+
+	if i := G.NumVertices(); i != 0 {
+		t.Errorf("should have 0 vertices instead of: %d", i)
+	}
+
+	if i := G.NumEdges(); i != 0 {
+		t.Errorf("should have 0 edges instead of: %d", i)
+	}
+
+	// populate vertices
+	var vertices [6]Vertex
+	for i := 0; i < len(vertices); i++ {
+		var name string = "v" + strconv.Itoa(i+1)
+		vertices[i] = NV(name)
+	}
+
+	// populate edges
+	var edges [5]Edge
+	for x := 0; x < len(edges); x++ {
+		var name string = "e" + strconv.Itoa(x+1)
+		edges[x] = NE(name)
+	}
+
+	// add all the vertices
+	for a := 0; a < len(vertices); a++ {
+		G.AddVertex(vertices[a])
+	}
+
+	// add edges to the vertices
+	for a := 0; a < len(vertices); a++ {
+		var b int = a + 1
+		if a <= len(vertices)-2 {
+			G.AddEdge(vertices[a], vertices[b], edges[a])
+		}
+	}
+
+	if y := G.NumVertices(); y != 6 {
+		t.Errorf("should have 6 vertices instead of: %d", y)
+	}
+
+	if w := G.NumEdges(); w != 5 {
+		t.Errorf("should have 5 edges instead of: %d", w)
 	}
 }
 

@@ -276,6 +276,13 @@ func StructKindToFieldNameTypeMap(kind string) (map[string]*types.Type, error) {
 		//	continue
 		//}
 
+		// Skip unexported fields. These should never be mapped golang<->mcl.
+		// TODO: Use StructField.IsExported() in golang 1.17
+		//if !field.IsExported() {
+		if field.PkgPath != "" {
+			continue
+		}
+
 		typ, err := types.TypeOf(field.Type)
 		// some types (eg complex64) aren't convertible, so skip for now...
 		if err != nil {

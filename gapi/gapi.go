@@ -70,6 +70,7 @@ type CliInfo struct {
 // Data is the set of input values passed into the GAPI structs via Init.
 type Data struct {
 	Program       string // name of the originating program
+	Version       string // version of the originating program
 	Hostname      string // uuid for the host, required for GAPI
 	World         engine.World
 	Noop          bool

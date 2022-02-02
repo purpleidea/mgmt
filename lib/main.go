@@ -490,6 +490,7 @@ func (obj *Main) Run() error {
 
 	obj.ge = &graph.Engine{
 		Program:   obj.Program,
+		Version:   obj.Version,
 		Hostname:  hostname,
 		World:     world,
 		Prefix:    fmt.Sprintf("%s/", path.Join(prefix, "engine")),
@@ -579,6 +580,7 @@ func (obj *Main) Run() error {
 
 				data := &gapi.Data{
 					Program:  obj.Program,
+					Version:  obj.Version,
 					Hostname: hostname,
 					World:    world,
 					Noop:     mainDeploy.Noop,

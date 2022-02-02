@@ -87,6 +87,9 @@ type Init struct {
 	// Program is the name of the program.
 	Program string
 
+	// Version is the version of the program.
+	Version string
+
 	// Hostname is the uuid for the host.
 	Hostname string
 

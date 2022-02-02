@@ -1,0 +1,51 @@
+import "os"
+#import "deploy"
+
+# read token from a local path outside repo:
+$f = "../localsecrets/apitoken.txt"
+$token = os.readfile($f)
+
+# alternatively, read from the deploy:
+# $token = deploy.readfile(...)
+
+# or give the string directly:
+# $token = "..."
+
+hetzner:vm "resourcedemo" {
+	# generate a token on https://console.hetzner.cloud
+	# NOTE: SSH keys must also be registered via console
+	apitoken => $token,
+
+	# set server state (``, `absent`,`exists`, `running`, `off`)
+	# default: undefined state. Don't specify this param, or set ""
+	state => "absent",
+
+	# choose server protection policy (``, `ignore`, `ifneeded`)
+	# default: `` throws error to prevent destructive rebuilds
+	allowrebuild => "",
+
+	# serverconfig params: full options must be requested from Hetzner API
+	# static reference on https://github.com/JefMasereel/hcloud-go-getopts
+	# for example:
+	servertype => "cx11", 		# `cx11`, `cx21`, `cx31`
+	datacenter => "hel1-dc2", 	# `nbg1-dc3`, `fsn1-dc14`, `hel1-dc2`
+	image => "debian-10", 		# `centos-7`, `ubuntu-18.04`, `debian-10`
+
+	# provide a cloud-init script that will be run at server creation (optional)
+	userdata => "",
+
+	# set rescue mode (`linux32`/`linux64`/`freebsd64`/``)
+	# default: `` disables rescue mode
+	serverrescuemode => "linux64",
+
+	# list the SSH keys to be enabled when using rescue mode
+	# note: must be a subset of the keys registered with the project!
+	serverrescuekeys => ["bootstrap-test-key",],
+
+	# set wait interval and timeout in seconds
+	waitinterval => 1,
+	waittimeout => 5*60,
+
+	# set polling interval in seconds
+	Meta:poll => 10,
+}

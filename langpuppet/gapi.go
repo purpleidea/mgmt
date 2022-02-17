@@ -178,6 +178,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 
 	dataLang := &gapi.Data{
 		Program:       obj.data.Program,
+		Version:       obj.data.Version,
 		Hostname:      obj.data.Hostname,
 		World:         obj.data.World,
 		Noop:          obj.data.Noop,
@@ -189,6 +190,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 	}
 	dataPuppet := &gapi.Data{
 		Program:       obj.data.Program,
+		Version:       obj.data.Version,
 		Hostname:      obj.data.Hostname,
 		World:         obj.data.World,
 		Noop:          obj.data.Noop,

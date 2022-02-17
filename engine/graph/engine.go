@@ -43,6 +43,7 @@ const (
 // Engine encapsulates a generic graph and manages its operations.
 type Engine struct {
 	Program  string
+	Version  string
 	Hostname string
 	World    engine.World
 
@@ -198,6 +199,7 @@ func (obj *Engine) Commit() error {
 			Vertex: vertex,
 
 			Program:  obj.Program,
+			Version:  obj.Version,
 			Hostname: obj.Hostname,
 
 			World:  obj.World,

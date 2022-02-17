@@ -40,6 +40,7 @@ type State struct {
 	Vertex pgraph.Vertex
 
 	Program  string
+	Version  string
 	Hostname string
 	World    engine.World
 
@@ -154,6 +155,7 @@ func (obj *State) Init() error {
 
 	obj.init = &engine.Init{
 		Program:  obj.Program,
+		Version:  obj.Version,
 		Hostname: obj.Hostname,
 
 		// Watch:

@@ -5,6 +5,7 @@ go 1.16
 require (
 	cloud.google.com/go v0.54.0 // indirect
 	github.com/Microsoft/go-winio v0.4.17 // indirect
+	github.com/apparentlymart/go-cidr v1.1.0
 	github.com/aws/aws-sdk-go v1.40.49
 	github.com/containerd/containerd v1.4.9 // indirect
 	github.com/coredhcp/coredhcp v0.0.0-20210830115404-2176f33418f4
@@ -12,10 +13,11 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deniswernert/go-fstab v0.0.0-20141204152952-eb4090f26517
+	github.com/docker/cli v20.10.9+incompatible
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.8+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/docker/go-units v0.4.0 // indirect
+	github.com/docker/go-units v0.4.0
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/godbus/dbus/v5 v5.0.4
 	github.com/google/uuid v1.2.0 // indirect

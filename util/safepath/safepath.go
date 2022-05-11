@@ -176,12 +176,25 @@ func (obj AbsFile) Cmp(absFile AbsFile) error {
 }
 
 // Base returns the last component of the AbsFile, in this case, the filename.
-// TODO: add tests
 func (obj AbsFile) Base() RelFile {
 	obj.PanicValidate()
 	ix := strings.LastIndex(obj.path, "/")
 	return RelFile{
 		path: obj.path[ix+1:],
+	}
+}
+
+// Dir returns the head component of the AbsFile, in this case, the directory.
+func (obj AbsFile) Dir() AbsDir {
+	obj.PanicValidate()
+	ix := strings.LastIndex(obj.path, "/")
+	if ix == 0 {
+		return AbsDir{
+			path: "/",
+		}
+	}
+	return AbsDir{
+		path: obj.path[0:ix],
 	}
 }
 

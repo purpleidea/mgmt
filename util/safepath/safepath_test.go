@@ -643,3 +643,55 @@ func TestPathHasPrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestAbsFile(t *testing.T) {
+	tests := []struct {
+		AbsFile string
+		Base    string // relfile
+		Dir     string // absdir
+	}{
+		// not possible afaict
+		//{
+		//	AbsFile: "/",
+		//	Base:    "",
+		//	Dir:    "/",
+		//},
+		//{
+		//	AbsFile: "",
+		//	Base:    "",
+		//	Dir:    "",
+		//},
+		{
+			AbsFile: "/abc/def/ghi",
+			Base:    "ghi",
+			Dir:     "/abc/def/",
+		},
+		{
+			AbsFile: "/x",
+			Base:    "x",
+			Dir:     "/",
+		},
+		{
+			AbsFile: "/abc",
+			Base:    "abc",
+			Dir:     "/",
+		},
+		{
+			AbsFile: "/abc/def",
+			Base:    "def",
+			Dir:     "/abc/",
+		},
+	}
+
+	for _, x := range tests {
+		absFile := UnsafeParseIntoAbsFile(x.AbsFile)
+		base := UnsafeParseIntoRelFile(x.Base)
+		dir := UnsafeParseIntoAbsDir(x.Dir)
+		if out := absFile.Base(); base.Path() != out.Path() {
+			t.Errorf("%s exp base: %+v, got: %+v", x.AbsFile, base.Path(), out.Path())
+		}
+		if out := absFile.Dir(); dir.Path() != out.Path() {
+			t.Errorf("%s exp dir: %+v, got: %+v", x.AbsFile, dir.Path(), out.Path())
+		}
+	}
+}

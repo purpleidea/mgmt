@@ -1,0 +1,70 @@
+import "datetime"
+import "fmt"
+import "os"
+
+# Re-runs the command every second, but the output of the calculation
+# ($now / 10) % 10 is the same for 10 seconds in a row.
+#
+# The value of $n over time looks like this:
+#
+#	[...]
+#	8
+#	[10 seconds pause]
+#	9
+#	[10 seconds pause]
+#	0
+#	[10 seconds pause]
+#	1
+#	[10 seconds pause]
+#	2
+#	[...]
+$n = os.system(fmt.printf("echo \"(%d / 10) %% 10\" | bc", datetime.now()))
+
+# Re-runs the command every 10 seconds, when $n changes. Produces a str for
+# every line that the command outputs, which happens to be every $n seconds.
+#
+# The value of $i over time looks like this:
+#
+#	[...]
+#	108
+#	[8 seconds pause]
+#	208
+#	[10 - 8 = 2 seconds pause, aborts and restarts]
+#	109
+#	[9 seconds pause]
+#	209
+#	[10 - 9 = 1 second pause, aborts and restarts]
+#	100
+#	200
+#	300
+#	done
+#	double done
+#	[10 - 0 - 0 - 0 = 10 seconds pause, restarts]
+#	101
+#	[1 second pause]
+#	201
+#	[1 second pause]
+#	301
+#	[1 second pause]
+#	done
+#	double done
+#	[10 - 1 - 1 - 1 = 7 seconds pause, restarts]
+#	102
+#	[2 seconds pause]
+#	202
+#	[2 seconds pause]
+#	302
+#	[2 seconds pause]
+#	done
+#	double done
+#	[10 - 2 - 2 - 2 = 4 seconds pause, restarts]
+#	[...]
+$i = os.system(fmt.printf("for x in `seq 3`; do echo \"100 * $x + %s\" | bc; sleep %s; done; echo done; echo double done", $n, $n))
+
+# The anotherstr field is updated every time $i changes, however when such a
+# field changes several times in quick succession, the resource is only
+# guaranteed to be ran for the last value. Thus, it is likely that the "done"
+# values will not be printed.
+test "out" {
+	anotherstr => $i,
+}

@@ -61,6 +61,8 @@ func (obj *PrintfFunc) ArgGen(index int) (string, error) {
 	if index == 0 {
 		return formatArgName, nil
 	}
+	// TODO: if index is big enough that it would return the string in
+	// `formatArgName` then we should return an error! (Nearly impossible.)
 	return util.NumToAlpha(index - 1), nil
 }
 

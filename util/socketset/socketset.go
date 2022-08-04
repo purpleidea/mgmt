@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// +build !darwin
+//go:build !darwin
 
 // Package socketset is in API for creating a select style netlink socket to
 // receive events from the kernel.

@@ -888,7 +888,10 @@ Loop:
 				logf("%s: unsolved equality: %+v", Name, x)
 			}
 			for x := range unsolved {
-				logf("%s: unsolved expected: %+v", Name, x)
+				logf("%s: unsolved expected: (%p) %+v", Name, x, x)
+			}
+			for expr, typ := range solved {
+				logf("%s: solved: (%p) => %+v", Name, expr, typ)
 			}
 			return nil, ErrAmbiguous
 		}

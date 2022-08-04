@@ -270,7 +270,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	logf("interpolating...")
 	// interpolate strings and other expansionable nodes in AST
-	interpolated, err := xast.Interpolate()
+	iast, err := xast.Interpolate()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpolate AST")
 	}
@@ -301,7 +301,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	// operation should not depend on any initial scope values, since those
 	// would all be runtime changes, and we do not support dynamic imports,
 	// however, we need to since we're doing type unification to err early!
-	if err := interpolated.SetScope(scope); err != nil { // empty initial scope!
+	if err := iast.SetScope(scope); err != nil { // empty initial scope!
 		return nil, errwrap.Wrapf(err, "could not set scope")
 	}
 
@@ -313,7 +313,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	}
 	logf("running type unification...")
 	unifier := &unification.Unifier{
-		AST:    interpolated,
+		AST:    iast,
 		Solver: unification.SimpleInvariantSolverLogger(unificationLogf),
 		Debug:  debug,
 		Logf:   unificationLogf,
@@ -323,7 +323,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	}
 
 	// get the list of needed files (this is available after SetScope)
-	fileList, err := ast.CollectFiles(interpolated)
+	fileList, err := ast.CollectFiles(iast)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not collect files")
 	}
@@ -743,7 +743,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 
 	logf("interpolating...")
 	// interpolate strings and other expansionable nodes in AST
-	interpolated, err := ast.Interpolate()
+	iast, err := ast.Interpolate()
 	if err != nil {
 		return errwrap.Wrapf(err, "could not interpolate AST")
 	}
@@ -754,7 +754,8 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	// don't think we need to pass in an initial scope because the download
 	// operation shouldn't depend on any initial scope values, since those
 	// would all be runtime changes, and we do not support dynamic imports!
-	if err := interpolated.SetScope(nil); err != nil { // empty initial scope!
+	// XXX Add non-empty scope?
+	if err := iast.SetScope(nil); err != nil { // empty initial scope!
 		return errwrap.Wrapf(err, "could not set scope")
 	}
 

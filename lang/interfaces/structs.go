@@ -28,6 +28,8 @@ import (
 // ExprAny is a placeholder expression that is used for type unification hacks.
 type ExprAny struct {
 	typ *types.Type
+
+	V types.Value // stored value (set with SetValue)
 }
 
 // String returns a short representation of this expression.
@@ -51,6 +53,7 @@ func (obj *ExprAny) Init(*Data) error { return nil }
 func (obj *ExprAny) Interpolate() (Expr, error) {
 	return &ExprAny{
 		typ: obj.typ,
+		V:   obj.V,
 	}, nil
 }
 
@@ -85,14 +88,29 @@ func (obj *ExprAny) SetType(typ *types.Type) error {
 	if obj.typ != nil {
 		return obj.typ.Cmp(typ) // if not set, ensure it doesn't change
 	}
+	if obj.V != nil {
+		// if there's a value already, ensure the types are the same...
+		if err := obj.V.Type().Cmp(typ); err != nil {
+			return err
+		}
+	}
 	obj.typ = typ // set
 	return nil
 }
 
 // Type returns the type of this expression.
 func (obj *ExprAny) Type() (*types.Type, error) {
-	if obj.typ == nil {
+	if obj.typ == nil && obj.V == nil {
 		return nil, ErrTypeCurrentlyUnknown
+	}
+	if obj.typ != nil && obj.V != nil {
+		if err := obj.V.Type().Cmp(obj.typ); err != nil {
+			return nil, err
+		}
+		return obj.typ, nil
+	}
+	if obj.V != nil {
+		return obj.V.Type(), nil
 	}
 	return obj.typ, nil
 }
@@ -106,6 +124,8 @@ func (obj *ExprAny) Unify() ([]Invariant, error) {
 			Expr: obj,
 		},
 	}
+	// TODO: should we return an EqualsInvariant with obj.typ ?
+	// TODO: should we return a ValueInvariant with obj.V ?
 	return invariants, nil
 }
 
@@ -127,20 +147,39 @@ func (obj *ExprAny) Graph() (*pgraph.Graph, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprAny) Func() (Func, error) {
-	return nil, fmt.Errorf("programming error") // this should not be called
+	//	// XXX: this could be a list too, so improve this code or improve the subgraph code...
+	//	return &structs.ConstFunc{
+	//		Value: obj.V,
+	//	}
+
+	return nil, fmt.Errorf("programming error using ExprAny") // this should not be called
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
 // the func engine, the child elements (the list elements) will have had this
 // done to them first, and as such when we try and retrieve the set value from
 // this expression by calling `Value`, it will build it from scratch!
+
+// SetValue here is used to store a value for this expression node. This value
+// is cached and can be retrieved by calling Value.
 func (obj *ExprAny) SetValue(value types.Value) error {
-	return fmt.Errorf("programming error") // this should not be called
+	typ := value.Type()
+	if obj.typ != nil {
+		if err := obj.typ.Cmp(typ); err != nil {
+			return err
+		}
+	}
+	obj.typ = typ
+	obj.V = value
+	return nil
 }
 
 // Value returns the value of this expression in our type system. This will
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprAny) Value() (types.Value, error) {
-	return nil, fmt.Errorf("programming error") // this should not be called
+	if obj.V == nil {
+		return nil, fmt.Errorf("value is not set")
+	}
+	return obj.V, nil
 }

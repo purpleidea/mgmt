@@ -22,6 +22,9 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+// FuncSig is the simple signature that is used throughout our implementations.
+type FuncSig = func([]types.Value) (types.Value, error)
+
 // Info is a static representation of some information about the function. It is
 // used for static analysis and type checking. If you break this contract, you
 // might cause a panic.

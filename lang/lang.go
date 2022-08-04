@@ -164,11 +164,11 @@ func (obj *Lang) Init() error {
 
 	obj.Logf("interpolating...")
 	// interpolate strings and other expansionable nodes in AST
-	interpolated, err := xast.Interpolate()
+	iast, err := xast.Interpolate()
 	if err != nil {
 		return errwrap.Wrapf(err, "could not interpolate AST")
 	}
-	obj.ast = interpolated
+	obj.ast = iast
 
 	variables := map[string]interfaces.Expr{
 		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
@@ -301,7 +301,7 @@ func (obj *Lang) Init() error {
 			select {
 			case obj.streamChan <- err: // send
 				if err != nil {
-					obj.Logf("Stream error: %+v", err)
+					obj.Logf("stream error: %+v", err)
 					return
 				}
 

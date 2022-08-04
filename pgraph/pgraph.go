@@ -28,9 +28,9 @@ import (
 
 // Graph is the graph structure in this library. The graph abstract data type
 // (ADT) is defined as follows:
-// * the directed graph arrows point from left to right ( -> )
-// * the arrows point away from their dependencies (eg: arrows mean "before")
-// * IOW, you might see package -> file -> service (where package runs first)
+// * The directed graph arrows point from left to right. ( -> )
+// * The arrows point away from their dependencies. (eg: arrows mean "before")
+// * IOW, you might see package -> file -> service. (where package runs first)
 // * This is also the direction that the notify should happen in...
 type Graph struct {
 	Name string
@@ -89,7 +89,10 @@ func (g *Graph) SetValue(key string, val interface{}) {
 	g.kv[key] = val
 }
 
-// Copy makes a copy of the graph struct.
+// Copy makes a copy of the graph struct. This doesn't copy the individual
+// vertices or edges, those pointers remain untouched. This lets you modify the
+// structure of the graph without changing the original. If you also want to
+// copy the nodes, please use CopyWithFn instead.
 func (g *Graph) Copy() *Graph {
 	if g == nil { // allow nil graphs through
 		return g
@@ -99,10 +102,78 @@ func (g *Graph) Copy() *Graph {
 		adjacency: make(map[Vertex]map[Vertex]Edge, len(g.adjacency)),
 		kv:        g.kv,
 	}
-	for k, v := range g.adjacency {
-		newGraph.adjacency[k] = v // copy
+	for v1, m := range g.adjacency {
+		newGraph.adjacency[v1] = make(map[Vertex]Edge)
+		for v2, e := range m {
+			newGraph.adjacency[v1][v2] = e // copy
+		}
 	}
 	return newGraph
+}
+
+// CopyWithFn makes a copy of the graph struct but lets you provide a function
+// to copy the vertices.
+// TODO: add tests
+func (g *Graph) CopyWithFn(vertexCpFn func(Vertex) (Vertex, error)) (*Graph, error) {
+	if g == nil { // allow nil graphs through
+		return g, nil
+	}
+	if l := len(g.adjacency); vertexCpFn == nil && l > 0 {
+		return nil, fmt.Errorf("graph has %d vertices, but vertexCpFn is nil", l)
+	}
+	newGraph := &Graph{
+		Name:      g.Name,
+		adjacency: make(map[Vertex]map[Vertex]Edge, len(g.adjacency)),
+		kv:        g.kv,
+	}
+	vm := make(map[Vertex]Vertex) // copy mapping from old ptr to new ptr...
+	for v1, m := range g.adjacency {
+		// We copy each vertex, but then we need to do a lookup so that
+		// when (if) we see that old pointer again, we use the new one.
+		v, err := vertexCpFn(v1) // copy
+		if err != nil {
+			return nil, err
+		}
+		vm[v1] = v // mapping
+		newGraph.adjacency[v] = make(map[Vertex]Edge)
+		for v2, e := range m {
+			vx, exists := vm[v2] // copied equivalent of v2
+			if !exists {
+				// programming error or corrupt adjacency maps!
+				// anything in the second map, should be in the
+				// first one, or else it was added/modified oob
+				return nil, fmt.Errorf("corrupt datastructure")
+			}
+			// TODO: add edgeCpFn if it's deemed useful somehow...
+			//edge, err := edgeCpFn(e) // copy edge
+			//if err != nil {
+			//	return nil, err
+			//}
+			//newGraph.adjacency[v][vx] = edge
+			newGraph.adjacency[v][vx] = e // store the edge
+		}
+	}
+	return newGraph, nil
+}
+
+// VertexSwap swaps vertices in a graph. It returns a new graph with the same
+// structure but with replacements done according to the translation map passed
+// in. If a vertex is not found in the graph, then it is not substituted.
+// TODO: add tests
+func (g *Graph) VertexSwap(vs map[Vertex]Vertex) (*Graph, error) {
+	vertexCpFn := func(v Vertex) (Vertex, error) {
+		if vs == nil { // pass through
+			return v, nil
+		}
+		vx, exists := vs[v]
+		if !exists {
+			return v, nil // pass through
+		}
+		return vx, nil // swap!
+	}
+
+	// We can implement the logic we want on top of CopyWithFn easily!
+	return g.CopyWithFn(vertexCpFn)
 }
 
 // GetName returns the name of the graph.

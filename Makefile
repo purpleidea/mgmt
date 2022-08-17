@@ -53,10 +53,6 @@ GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
 GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-# Work around a golang 1.16 bug https://github.com/golang/go/issues/44129
-# Can be removed when 1.17 is the minimum supported version
-export GOFLAGS ?= -mod=mod
-
 TOKEN_FEDORA-30 = fedora-30
 TOKEN_FEDORA-29 = fedora-29
 TOKEN_CENTOS-7 = centos-7

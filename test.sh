@@ -86,6 +86,9 @@ if in_ci; then
 		run-testsuite ./test/test-gotest.sh --race
 		run-testsuite ./test/test-integration.sh --race
 	fi
+	if label-block "basic"; then
+		run-testsuite ./test/test-golangci-lint.sh
+	fi
 
 	# XXX: fix and enable these on travis (sudo: go: command not found)
 	#run-testsuite ./test/test-gotest.sh --root
@@ -97,6 +100,7 @@ else
 	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --race
 	REASON="CI server only test" skip-testsuite ./test/test-integration.sh
 	REASON="CI server only test" skip-testsuite ./test/test-integration.sh --race
+	REASON="CI server only test" skip-testsuite ./test/test-golangci-test.sh
 
 	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --root
 	REASON="CI server only test" skip-testsuite ./test/test-gotest.sh --root --race

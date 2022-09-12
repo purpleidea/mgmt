@@ -1,3 +1,5 @@
 --ignore-dir=old/
 --ignore-dir=tmp/
 --ignore-dir=vendor/
+--ignore-dir=releases/
+--ignore-dir=rpmbuild/

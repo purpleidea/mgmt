@@ -1,2 +1,0 @@
-# You can add *.mcl files alongside the *.go files into the core/ directory.
-# They will get compiled into the binary when it is built.

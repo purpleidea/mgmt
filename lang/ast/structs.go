@@ -30,7 +30,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
-	"github.com/purpleidea/mgmt/lang/funcs/bindata"
+	"github.com/purpleidea/mgmt/lang/funcs/core"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -3057,7 +3057,7 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 // importSystemScope takes the name of a built-in system scope (eg: "fmt") and
 // returns the scope struct for that built-in. This function is slightly less
 // trivial than expected, because the scope is built from both native mcl code
-// and golang code as well. The native mcl code is compiled in as bindata.
+// and golang code as well. The native mcl code is compiled in with "embed".
 // TODO: can we memoize?
 func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 	// this basically loop through the registeredFuncs and includes
@@ -3096,7 +3096,10 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 	// to the remote machines as well, and we want to load off of it...
 
 	// now add any compiled-in mcl code
-	paths := bindata.AssetNames()
+	paths, err := core.AssetNames()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't read asset names")
+	}
 	// results are not sorted by default (ascertained by reading the code!)
 	sort.Strings(paths)
 	newScope := interfaces.EmptyScope()
@@ -3113,7 +3116,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 			continue
 		}
 
-		b, err := bindata.Asset(p)
+		b, err := core.Asset(p)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "can't read asset: `%s`", p)
 		}

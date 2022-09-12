@@ -18,6 +18,9 @@
 package core
 
 import (
+	"embed"
+	"io/fs"
+
 	// import so the funcs register
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/convert"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/datetime"
@@ -34,3 +37,34 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
 )
+
+// TODO: Instead of doing this one-level embed, we could give each package an
+// API that it calls to "register" the private embed.FS that it wants to share.
+
+//go:embed */*.mcl
+var mcl embed.FS
+
+// AssetNames returns a flattened list of embedded .mcl file paths.
+func AssetNames() ([]string, error) {
+	fileSystem := mcl
+	paths := []string{}
+	err := fs.WalkDir(fileSystem, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() { // skip the dirs
+			return nil
+		}
+		paths = append(paths, path)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
+// Asset returns the contents of an embedded .mcl file.
+func Asset(name string) ([]byte, error) {
+	return mcl.ReadFile(name)
+}

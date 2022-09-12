@@ -37,9 +37,8 @@ jobs:
       #fail-fast: false
 
     steps:
-      # Do not shallow fetch, will fail when building bindata/
-      # The path can't be absolute, so we need to move it to the
-      # expected location later.
+      # Do not shallow fetch. The path can't be absolute, so we need to move it
+      # to the expected location later.
       - name: Clone mgmt
         uses: actions/checkout@v2
         with:

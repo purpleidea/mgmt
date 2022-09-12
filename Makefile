@@ -16,12 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 SHELL = /usr/bin/env bash
-.PHONY: all art cleanart version program lang path deps run race bindata generate build build-debug crossbuild clean test gofmt yamlfmt format docs
+.PHONY: all art cleanart version program lang path deps run race generate build build-debug crossbuild clean test gofmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
 .PHONY: mkosi mkosi_fedora-30 mkosi_fedora-29 mkosi_centos-7 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux
 .PHONY: release releases_path release_fedora-30 release_fedora-29 release_centos-7 release_debian-10 release_ubuntu-bionic release_archlinux
 .PHONY: funcgen
-.SILENT: clean bindata
+.SILENT: clean
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
 GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
@@ -137,10 +137,6 @@ run: ## run mgmt
 race:
 	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
 
-# generate go files from non-go source
-bindata: ## generate go files from non-go sources
-	$(MAKE) --quiet -C lang/funcs
-
 generate:
 	go generate
 
@@ -167,7 +163,7 @@ build-debug: $(PROGRAM)
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) $(MCL_FILES) | bindata lang funcgen
+build/mgmt-%: $(GO_FILES) $(MCL_FILES) | lang funcgen
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
 	@time env GOOS=${GOOS} GOARCH=${GOARCH} go build -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 

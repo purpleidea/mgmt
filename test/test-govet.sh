@@ -60,10 +60,6 @@ function naked-error() {
 
 # catch errors that start with a capital
 function lowercase-errors() {
-	if [[ $1 == *"/bindata.go" ]]; then	# ends with bindata.go ?
-		return 0	# skip those generated files
-	fi
-
 	if grep -E 'errors\.New\(\"[A-Z]' "$1"; then
 		return 1
 	fi
@@ -101,10 +97,6 @@ function consistent-imports() {
 }
 
 function reflowed-comments() {
-	if [[ $1 == *"/bindata.go" ]]; then	# ends with bindata.go ?
-		return 0	# skip those generated files
-	fi
-
 	if [ "$1" = './lang/funcs/core/generated_funcs.go' ]; then
 		return 0
 	fi

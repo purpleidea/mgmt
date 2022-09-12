@@ -41,7 +41,7 @@ const (
 	// NOTE: the template library will panic if it is one of: .-#
 	ReplaceChar = "_"
 
-	// CoreDir is the directory prefix where core bindata mcl code is added.
+	// CoreDir is the directory prefix where core mcl code is embedded.
 	CoreDir = "core/"
 )
 

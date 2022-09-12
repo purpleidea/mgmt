@@ -144,12 +144,12 @@ fi
 [ -e "$GOBIN/mgmt" ] && rm -f "$GOBIN/mgmt"	# the `go get` version has no -X
 
 fold_start "Install golang tools"
-go install github.com/blynn/nex				# for lexing
-go install golang.org/x/tools/cmd/goyacc		# formerly `go tool yacc`
-go install golang.org/x/tools/cmd/stringer		# for automatic stringer-ing
-go install golang.org/x/lint/golint			# for `golint`-ing
-go install golang.org/x/tools/cmd/goimports		# for fmt
-go install github.com/dvyukov/go-fuzz/go-fuzz		# for fuzzing the mcl lang bits
+cd / && go install github.com/blynn/nex@latest			# for lexing
+cd / && go install golang.org/x/tools/cmd/goyacc@latest		# formerly `go tool yacc`
+cd / && go install golang.org/x/tools/cmd/stringer@latest	# for automatic stringer-ing
+cd / && go install golang.org/x/lint/golint@latest		# for `golint`-ing
+cd / && go install golang.org/x/tools/cmd/goimports@latest	# for fmt
+cd / && go install github.com/dvyukov/go-fuzz/go-fuzz@latest	# for fuzzing the mcl lang bits
 if in_ci; then
 	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
 	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \

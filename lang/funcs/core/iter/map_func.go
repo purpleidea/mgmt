@@ -40,11 +40,11 @@ const (
 // MapFunc is the standard map iterator function that applies a function to each
 // element in a list. It returns a list with the same number of elements as the
 // input list. There is no requirement that the element output type be the same
-// as the input element type. This implements the signature:
-// `func(inputs []T1, function func(T1) T2) []T2` instead of the alternate with
-// the two input args swapped, because while the latter is more common with
-// languages that support partial function application, the former variant that
-// we implemented is much more readable when using an inline lambda.
+// as the input element type. This implements the signature: `func(inputs []T1,
+// function func(T1) T2) []T2` instead of the alternate with the two input args
+// swapped, because while the latter is more common with languages that support
+// partial function application, the former variant that we implemented is much
+// more readable when using an inline lambda.
 // TODO: should we extend this to support iterating over map's and structs, or
 // should that be a different function? I think a different function is best.
 type MapFunc struct {

@@ -754,7 +754,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	// don't think we need to pass in an initial scope because the download
 	// operation shouldn't depend on any initial scope values, since those
 	// would all be runtime changes, and we do not support dynamic imports!
-	// XXX Add non-empty scope?
+	// XXX: Add non-empty scope?
 	if err := iast.SetScope(nil); err != nil { // empty initial scope!
 		return errwrap.Wrapf(err, "could not set scope")
 	}

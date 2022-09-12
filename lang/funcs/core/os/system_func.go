@@ -44,6 +44,7 @@ type SystemFunc struct {
 	init *interfaces.Init
 
 	closeChan chan struct{}
+	cancel    context.CancelFunc
 }
 
 // ArgGen returns the Nth arg name for this function.
@@ -101,9 +102,12 @@ func (obj *SystemFunc) Stream() error {
 	// Kill the current process, if any. A new cancel function is created
 	// each time a new process is started.
 	var ctx context.Context
-	var cancel context.CancelFunc
-	cancel = func() {}
-	defer cancel()
+	defer func() {
+		if obj.cancel == nil {
+			return
+		}
+		obj.cancel()
+	}()
 
 	for {
 		select {
@@ -121,13 +125,15 @@ func (obj *SystemFunc) Stream() error {
 			shellCommand := input.Struct()["shell_command"].Str()
 
 			// Kill the previous command, if any.
-			cancel()
+			if obj.cancel != nil {
+				obj.cancel()
+			}
 			<-processedChan
 
 			// Run the command, connecting it to ctx so we can kill
 			// it if needed, and to two Readers so we can read its
 			// stdout and stderr.
-			ctx, cancel = context.WithCancel(context.Background())
+			ctx, obj.cancel = context.WithCancel(context.Background())
 			cmd := exec.CommandContext(ctx, "sh", "-c", shellCommand)
 			stdoutReader, err := cmd.StdoutPipe()
 			if err != nil {

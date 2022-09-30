@@ -41,6 +41,11 @@ in_ci() {
 	return 1
 }
 
+in_ci_github() {
+	test -n "$GITHUB_ACTION" && return 0
+	return 1
+}
+
 fail_test() {
 	if in_ci github; then
 		echo "::error::$@"

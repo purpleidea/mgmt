@@ -443,7 +443,7 @@ Loop:
 		}
 		if reserv != nil && d > 0 { // delay
 			obj.state[vertex].init.Logf("limited (rate: %v/sec, burst: %d, next: %v)", res.MetaParams().Limit, res.MetaParams().Burst, d)
-			timer := time.NewTimer(time.Duration(d) * time.Millisecond)
+			timer := time.NewTimer(d)
 		LimitWait:
 			for {
 				select {

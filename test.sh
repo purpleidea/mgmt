@@ -67,8 +67,14 @@ if label-block "basic"; then
 	# FIXME: this fails with go.mod
 	skip-testsuite ./test/test-examples.sh
 	run-testsuite ./test/test-gotest.sh
-	# FIXME: this fails with go.mod
-	skip-testsuite ./test/test-gometalinter.sh
+	# FIXME: getting it working in github actions properly
+	run-testsuite ./test/test-golangci-lint.sh
+	#if in_ci_github; then
+	#	# github runs this with separate actions runner
+	#	skip-testsuite ./test/test-golangci-lint.sh
+	#else
+	#	run-testsuite ./test/test-golangci-lint.sh
+	#fi
 	run-testsuite ./test/test-golint.sh	# test last, because this test is somewhat arbitrary
 	# FIXME: this now fails everywhere :(
 	skip-testsuite ./test/test-reproducible.sh

@@ -151,9 +151,12 @@ cd / && go install golang.org/x/lint/golint@latest		# for `golint`-ing
 cd / && go install golang.org/x/tools/cmd/goimports@latest	# for fmt
 cd / && go install github.com/dvyukov/go-fuzz/go-fuzz@latest	# for fuzzing the mcl lang bits
 if in_ci; then
-	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
-	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \
-	gometalinter --install	# bonus
+	# FIXME: getting it working in github actions properly
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.49.0
+	#if ! in_ci_github; then	# github action has it already
+	#	# binary will be $(go env GOPATH)/bin/golangci-lint
+	#	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.49.0
+	#fi
 fi
 fold_end "Install golang tools"
 

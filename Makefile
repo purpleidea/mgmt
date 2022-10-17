@@ -148,7 +148,7 @@ lang: ## generates the lexer/parser for the language frontend
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
 	cp -a $< $@
 
-$(PROGRAM).static: $(GO_FILES) $(MCL_FILES)
+$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) go.mod go.sum
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 	go build -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
@@ -163,7 +163,7 @@ build-debug: $(PROGRAM)
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) $(MCL_FILES) | lang funcgen
+build/mgmt-%: $(GO_FILES) $(MCL_FILES) go.mod go.sum | lang funcgen
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
 	@time env GOOS=${GOOS} GOARCH=${GOARCH} go build -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 

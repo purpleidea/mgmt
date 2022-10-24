@@ -168,6 +168,9 @@ build/mgmt-%: $(GO_FILES) $(MCL_FILES) go.mod go.sum | lang funcgen
 	@time env GOOS=${GOOS} GOARCH=${GOARCH} go build -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 
 # create a list of binary file names to use as make targets
+# to use this you might want to run something like:
+# GOOSARCHES='linux/arm64' GOTAGS='noaugeas novirt' make crossbuild
+# and the output will end up in build/
 crossbuild_targets = $(addprefix build/mgmt-,$(subst /,-,${GOOSARCHES}))
 crossbuild: ${crossbuild_targets}
 

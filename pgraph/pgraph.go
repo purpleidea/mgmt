@@ -198,11 +198,21 @@ func (g *Graph) AddVertex(xv ...Vertex) {
 	}
 }
 
-// DeleteVertex deletes a particular vertex from the graph.
-func (g *Graph) DeleteVertex(v Vertex) {
-	delete(g.adjacency, v)
-	for k := range g.adjacency {
-		delete(g.adjacency[k], v)
+// DeleteVertex uses variadic input to delete all listed vertices from the
+// graph.
+func (g *Graph) DeleteVertex(xv ...Vertex) {
+	if len(xv) == 1 {
+		v := xv[0]
+		delete(g.adjacency, v)
+		for k := range g.adjacency {
+			delete(g.adjacency[k], v)
+		}
+		return
+	}
+
+	// handles case len(xv) == 0 and len(xv) > 1
+	for _, v := range xv {
+		g.DeleteVertex(v)
 	}
 }
 
@@ -215,12 +225,18 @@ func (g *Graph) AddEdge(v1, v2 Vertex, e Edge) {
 	g.adjacency[v1][v2] = e
 }
 
-// DeleteEdge deletes a particular edge from the graph.
-func (g *Graph) DeleteEdge(e Edge) {
+// DeleteEdge uses variadic input to delete all the listed edges from the graph.
+func (g *Graph) DeleteEdge(xe ...Edge) {
+	if len(xe) == 0 {
+		return
+	}
+	// handles case len(xv) > 0
 	for v1 := range g.adjacency {
 		for v2, edge := range g.adjacency[v1] {
-			if e == edge {
-				delete(g.adjacency[v1], v2)
+			for _, e := range xe {
+				if e == edge {
+					delete(g.adjacency[v1], v2)
+				}
 			}
 		}
 	}

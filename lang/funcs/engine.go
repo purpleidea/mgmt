@@ -19,7 +19,6 @@ package funcs
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -84,17 +83,6 @@ func (obj *State) String() string {
 	//defer obj.mutex.RUnlock()
 	// FIXME: also add read locks on any of the children Expr in obj.Expr
 	return obj.Expr.String()
-}
-
-// Edge links an output vertex (value) to an input vertex with a named argument.
-type Edge struct {
-	Args []string // list of named args that this edge sends to
-}
-
-// String displays the list of arguments this edge satisfies. It is a required
-// property to be a valid pgraph.Edge.
-func (obj *Edge) String() string {
-	return strings.Join(obj.Args, ", ")
 }
 
 // Engine represents the running time varying directed acyclic function graph.
@@ -205,7 +193,7 @@ func (obj *Engine) Validate() error {
 		ptrs = append(ptrs, node.handle)
 	}
 	for _, edge := range obj.Graph.Edges() {
-		if _, ok := edge.(*Edge); !ok {
+		if _, ok := edge.(*interfaces.FuncEdge); !ok {
 			e := fmt.Errorf("edge `%s` was not the correct type", edge)
 			err = errwrap.Append(err, e)
 		}
@@ -250,7 +238,7 @@ func (obj *Engine) Validate() error {
 		node1 := obj.state[vertex1]
 		for vertex2, edge := range obj.Graph.Adjacency()[vertex1] {
 			node2 := obj.state[vertex2]
-			edge := edge.(*Edge)
+			edge := edge.(*interfaces.FuncEdge)
 			// check vertex1 -> vertex2 (with e) is valid
 
 			for _, arg := range edge.Args { // loop over each arg
@@ -378,7 +366,7 @@ func (obj *Engine) Run() error {
 					}
 					st := types.NewStruct(si)
 					for _, v := range incoming {
-						args := obj.Graph.Adjacency()[v][vertex].(*Edge).Args
+						args := obj.Graph.Adjacency()[v][vertex].(*interfaces.FuncEdge).Args
 						from := obj.state[v]
 						obj.mutex.RLock()
 						value, exists := obj.table[v]

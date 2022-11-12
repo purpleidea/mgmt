@@ -5508,7 +5508,7 @@ func (obj *ExprList) Graph() (*pgraph.Graph, error) {
 		}
 
 		fieldName := fmt.Sprintf("%d", index) // argNames as integers!
-		edge := &funcs.Edge{Args: []string{fieldName}}
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -5984,7 +5984,7 @@ func (obj *ExprMap) Graph() (*pgraph.Graph, error) {
 		}
 		// do the key names ever change? -- yes
 		fieldName := fmt.Sprintf("key:%d", index) // stringify map key
-		edge := &funcs.Edge{Args: []string{fieldName}}
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -6004,7 +6004,7 @@ func (obj *ExprMap) Graph() (*pgraph.Graph, error) {
 			return nil, err
 		}
 		fieldName := fmt.Sprintf("val:%d", index) // stringify map val
-		edge := &funcs.Edge{Args: []string{fieldName}}
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -6396,7 +6396,7 @@ func (obj *ExprStruct) Graph() (*pgraph.Graph, error) {
 		}
 
 		fieldName := x.Name
-		edge := &funcs.Edge{Args: []string{fieldName}}
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -7209,7 +7209,7 @@ func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
 		// when we add an edge from this, then we'll get two because the
 		// contents aren't linked.
 		name := "body" // TODO: what should we name this?
-		edge := &funcs.Edge{Args: []string{name}}
+		edge := &interfaces.FuncEdge{Args: []string{name}}
 
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -8221,9 +8221,9 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, error) {
 
 		//argName := fmt.Sprintf("%d", pos) // indexed!
 		argName := argNames[pos]
-		edge := &funcs.Edge{Args: []string{argName}}
+		edge := &interfaces.FuncEdge{Args: []string{argName}}
 		// TODO: replace with:
-		//edge := &funcs.Edge{Args: []string{fmt.Sprintf("arg:%s", argName)}}
+		//edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("arg:%s", argName)}}
 
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -8253,7 +8253,7 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	edge := &funcs.Edge{Args: []string{fmt.Sprintf("call:%s", obj.Name)}}
+	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("call:%s", obj.Name)}}
 
 	var once bool
 	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -8536,7 +8536,7 @@ func (obj *ExprVar) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	edge := &funcs.Edge{Args: []string{fmt.Sprintf("var:%s", obj.Name)}}
+	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("var:%s", obj.Name)}}
 
 	var once bool
 	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
@@ -8949,7 +8949,7 @@ func (obj *ExprIf) Graph() (*pgraph.Graph, error) {
 			return nil, err
 		}
 
-		edge := &funcs.Edge{Args: []string{argName}}
+		edge := &interfaces.FuncEdge{Args: []string{argName}}
 
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {

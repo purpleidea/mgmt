@@ -18,6 +18,8 @@
 package interfaces
 
 import (
+	"strings"
+
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -186,4 +188,16 @@ type DataFunc interface {
 	// SetData is used by the language to pass our function some code-level
 	// context.
 	SetData(*FuncData)
+}
+
+// FuncEdge links an output vertex (value) to an input vertex with a named
+// argument.
+type FuncEdge struct {
+	Args []string // list of named args that this edge sends to
+}
+
+// String displays the list of arguments this edge satisfies. It is a required
+// property to be a valid pgraph.Edge.
+func (obj *FuncEdge) String() string {
+	return strings.Join(obj.Args, ", ")
 }

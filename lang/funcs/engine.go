@@ -44,6 +44,7 @@ type State struct {
 
 	input  chan types.Value // the top level type must be a struct
 	output chan types.Value
+	txn    interfaces.Txn // API of graphTxn struct to pass to each function
 
 	mutex *sync.RWMutex // concurrency guard for modifying Expr with String/SetValue
 }
@@ -70,6 +71,7 @@ func (obj *State) Init() error {
 
 	obj.input = make(chan types.Value)  // we close this when we're done
 	obj.output = make(chan types.Value) // we create it, func closes it
+	obj.txn = (&graphTxn{}).init()
 
 	obj.mutex = &sync.RWMutex{}
 
@@ -324,6 +326,10 @@ func (obj *Engine) Run() error {
 		if obj.Debug {
 			obj.SafeLogf("Startup func `%s`", node)
 		}
+		// populate each txn object with the handles it needs...
+		obj.state[vertex].txn.(*graphTxn).Graph = obj.Graph   // pgraph
+		obj.state[vertex].txn.(*graphTxn).Lock = obj.Lock     // fn
+		obj.state[vertex].txn.(*graphTxn).Unlock = obj.Unlock // fn
 
 		incoming := obj.Graph.IncomingGraphVertices(vertex) // []Vertex
 
@@ -331,6 +337,7 @@ func (obj *Engine) Run() error {
 			Hostname: obj.Hostname,
 			Input:    node.input,
 			Output:   node.output,
+			Txn:      node.txn,
 			World:    obj.World,
 			Debug:    obj.Debug,
 			Logf: func(format string, v ...interface{}) {
@@ -567,6 +574,22 @@ func (obj *Engine) Run() error {
 	return nil
 }
 
+// Lock takes a "lock" so that we can safely modify the running graph without
+// shutting it down. We don't want to stop and restart it because that would
+// lose any state that the currently running functions might be holding.
+func (obj *Engine) Lock() {
+	// XXX: not implemented yet
+	panic("not implemented")
+}
+
+// Unlock frees that "lock" so that we can safely resume the running graph that
+// we previously just paused. We don't want to stop and restart it because that
+// would lose any state that the currently running functions might be holding.
+func (obj *Engine) Unlock() {
+	// XXX: not implemented yet
+	panic("not implemented")
+}
+
 // agAdd registers a user on the ag channel.
 func (obj *Engine) agAdd(i int) {
 	defer obj.agLock.Unlock()
@@ -651,4 +674,147 @@ func (obj *Engine) Close() error {
 	close(obj.closeChan)
 	obj.wg.Wait() // wait so that each func doesn't need to do this in close
 	return err
+}
+
+// graphTxn holds the state of a transaction and runs it when needed. When this
+// has been setup and initialized, it implements the Txn API that can be used by
+// functions in their Stream method to modify the function graph while it is
+// "running".
+type graphTxn struct {
+	// Graph is a handle pointing to the graph structure we're modifying.
+	Graph *pgraph.Graph
+
+	// Lock is a handle to the lock function to call before the operation.
+	Lock func()
+
+	// Unlock is a handle to the unlock function to call before the
+	// operation.
+	Unlock func()
+
+	// ops is a list of operations to run on a graph
+	ops []func(*pgraph.Graph)
+
+	// mutex guards changes to the ops list
+	mutex *sync.Mutex
+}
+
+// init must be called to initialized the struct before first use. This is
+// private because the creator, not the user should run it.
+func (obj *graphTxn) init() interfaces.Txn {
+	obj.ops = []func(*pgraph.Graph){}
+	obj.mutex = &sync.Mutex{}
+
+	return obj // return self so it can be called in a chain
+}
+
+// AddVertex adds a vertex to the running graph. The operation will get
+// completed when Commit is run.
+// XXX: should this be interfaces.Expr instead of pgraph.Vertex ?
+func (obj *graphTxn) AddVertex(xv ...pgraph.Vertex) interfaces.Txn {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	op := func(g *pgraph.Graph) {
+		g.AddVertex(xv...)
+	}
+	obj.ops = append(obj.ops, op)
+
+	return obj // return self so it can be called in a chain
+}
+
+// AddEdge adds an edge to the running graph. The operation will get completed
+// when Commit is run.
+// XXX: should this be interfaces.Expr instead of pgraph.Vertex ?
+// XXX: should this be interfaces.FuncEdge instead of pgraph.Edge ?
+func (obj *graphTxn) AddEdge(v1, v2 pgraph.Vertex, e pgraph.Edge) interfaces.Txn {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	op := func(g *pgraph.Graph) {
+		g.AddEdge(v1, v2, e)
+	}
+	obj.ops = append(obj.ops, op)
+
+	return obj // return self so it can be called in a chain
+}
+
+// DeleteVertex adds a vertex to the running graph. The operation will get
+// completed when Commit is run.
+// XXX: should this be interfaces.Expr instead of pgraph.Vertex ?
+func (obj *graphTxn) DeleteVertex(xv ...pgraph.Vertex) interfaces.Txn {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	op := func(g *pgraph.Graph) {
+		g.DeleteVertex(xv...)
+	}
+	obj.ops = append(obj.ops, op)
+
+	return obj // return self so it can be called in a chain
+}
+
+// DeleteEdge adds a vertex to the running graph. The operation will get
+// completed when Commit is run.
+// XXX: should this be interfaces.FuncEdge instead of pgraph.Edge ?
+func (obj *graphTxn) DeleteEdge(xe ...pgraph.Edge) interfaces.Txn {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	op := func(g *pgraph.Graph) {
+		g.DeleteEdge(xe...)
+	}
+	obj.ops = append(obj.ops, op)
+
+	return obj // return self so it can be called in a chain
+}
+
+// Commit runs the pending transaction.
+func (obj *graphTxn) Commit() error {
+	// Lock our internal state mutex first... this prevents other AddVertex
+	// or similar calls from interferring with our work here.
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	if len(obj.ops) == 0 { // nothing to do
+		return nil
+	}
+
+	// TODO: Instead of requesting the below locks, it's conceivable that we
+	// could either write an engine that doesn't require pausing the graph
+	// with a lock, or one that doesn't in the specific case being changed
+	// here need locks. And then in theory we'd have improved performance
+	// from the function engine. For our function consumers, the Txn API
+	// would never need to change, so we don't break API! A simple example
+	// is the len(ops) == 0 one right above. A simplification, but shows we
+	// aren't forced to call the locks even when we get Commit called here.
+
+	// Now request the lock from the actual graph engine.
+	obj.Lock()
+	defer obj.Unlock()
+
+	// Copy the graph structure, perform the ops, check we didn't add a
+	// cycle, and if it's safe, do the real thing. Otherwise error here.
+	g := obj.Graph.Copy() // copy the graph structure
+	for _, x := range obj.ops {
+		x(g) // call it
+	}
+	if _, err := g.TopologicalSort(); err != nil {
+		return errwrap.Wrapf(err, "topo sort failed in txn commit")
+	}
+	// FIXME: is there anything else we should check? Should we type-check?
+
+	// Now do it for real...
+	for _, x := range obj.ops {
+		x(obj.Graph) // call it
+	}
+	obj.ops = []func(*pgraph.Graph){} // clear it
+	return nil
+}
+
+// Clear erases any pending transactions that weren't committed yet.
+func (obj *graphTxn) Clear() {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	obj.ops = []func(*pgraph.Graph){} // clear it
 }

@@ -22,6 +22,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/pgraph"
 )
 
 // FuncSig is the simple signature that is used throughout our implementations.
@@ -43,8 +44,20 @@ type Info struct {
 type Init struct {
 	Hostname string // uuid for the host
 	//Noop bool
-	Input  chan types.Value // Engine will close `input` chan
-	Output chan types.Value // Stream must close `output` chan
+
+	// Input is where a chan (stream) of values will get sent to this node.
+	// The engine will close this `input` chan.
+	Input chan types.Value
+
+	// Output is the chan (stream) of values to get sent out from this node.
+	// The Stream function must close this `output` chan.
+	Output chan types.Value
+
+	// Txn provides a transaction API that can be used to modify the
+	// function graph while it is "running". This should not be used by most
+	// nodes, and when it is used, it should be used carefully.
+	Txn Txn
+
 	// TODO: should we pass in a *Scope here for functions like template() ?
 	World engine.World
 	Debug bool
@@ -200,4 +213,47 @@ type FuncEdge struct {
 // property to be a valid pgraph.Edge.
 func (obj *FuncEdge) String() string {
 	return strings.Join(obj.Args, ", ")
+}
+
+// Txn is the interface that the engine graph API makes available so that
+// functions can modify the function graph dynamically while it is "running".
+// This could be implemented in one of two methods.
+//
+// Method 1: Have a pair of graph Lock and Unlock methods. Queue up the work to
+// do and when we "commit" the transaction, we're just queuing up the work to do
+// and then we run it all surrounded by the lock.
+//
+// Method 2: It's possible that we might eventually be able to actually modify
+// the running graph without even causing it to pause at all. In this scenario,
+// the "commit" would just directly perform those operations without even using
+// the Lock and Unlock mutex operations. This is why we don't expose those in
+// the API. It's also safer because someone can't forget to run Unlock which
+// would block the whole code base.
+type Txn interface {
+	// AddVertex adds a vertex to the running graph. The operation will get
+	// completed when Commit is run.
+	// XXX: should this be interfaces.Expr instead of pgraph.Vertex ?
+	AddVertex(...pgraph.Vertex) Txn
+
+	// AddEdge adds an edge to the running graph. The operation will get
+	// completed when Commit is run.
+	// XXX: should this be interfaces.Expr instead of pgraph.Vertex ?
+	// XXX: should this be interfaces.FuncEdge instead of pgraph.Edge ?
+	AddEdge(pgraph.Vertex, pgraph.Vertex, pgraph.Edge) Txn
+
+	// DeleteVertex adds a vertex to the running graph. The operation will
+	// get completed when Commit is run.
+	// XXX: should this be interfaces.Expr instead of pgraph.Vertex ?
+	DeleteVertex(...pgraph.Vertex) Txn
+
+	// DeleteEdge adds a vertex to the running graph. The operation will get
+	// completed when Commit is run.
+	// XXX: should this be interfaces.FuncEdge instead of pgraph.Edge ?
+	DeleteEdge(...pgraph.Edge) Txn
+
+	// Commit runs the pending transaction.
+	Commit() error
+
+	// Clear erases any pending transactions that weren't committed yet.
+	Clear()
 }

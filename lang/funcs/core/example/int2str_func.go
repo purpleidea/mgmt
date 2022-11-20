@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "int2str", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "int2str", &types.SimpleFn{
 		T: types.NewType("func(a int) str"),
 		V: func(input []types.Value) (types.Value, error) {
 			return &types.StrValue{

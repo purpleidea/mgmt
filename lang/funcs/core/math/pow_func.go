@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "pow", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "pow", &types.SimpleFn{
 		T: types.NewType("func(x float, y float) float"),
 		V: Pow,
 	})

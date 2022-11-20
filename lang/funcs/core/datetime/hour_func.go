@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "hour", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "hour", &types.SimpleFn{
 		T: types.NewType("func(a int) int"),
 		V: Hour,
 	})

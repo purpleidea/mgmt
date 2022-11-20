@@ -39,14 +39,14 @@ func FuncPrefixToFunctionsScope(prefix string) map[string]interfaces.Expr {
 	for name, f := range fns {
 
 		x := f() // inspect
-		// We can pass in Fns []*types.FuncValue for the simple and
+		// We can pass in Fns []*types.SimpleFn for the simple and
 		// simplepoly API's and avoid the double wrapping from the
 		// simple/simplepoly API's to the main function api and back.
 		if st, ok := x.(*simple.WrappedFunc); simple.DirectInterface && ok {
 			fn := &ExprFunc{
 				Title: name,
 
-				Values: []*types.FuncValue{st.Fn}, // just one!
+				Values: []*types.SimpleFn{st.Fn}, // just one!
 			}
 			// XXX: should we run fn.SetType(st.Fn.Type()) ?
 			exprs[name] = fn
@@ -194,16 +194,6 @@ func ValueToExpr(val types.Value) (interfaces.Expr, error) {
 
 		expr = &ExprStruct{
 			Fields: fields,
-		}
-
-	case *types.FuncValue:
-		// TODO: this particular case is particularly untested!
-		expr = &ExprFunc{
-			Title: "<func from ValueToExpr>", // TODO: change this?
-			// TODO: symmetrically, it would have used x.Func() here
-			Values: []*types.FuncValue{
-				x, // just one!
-			},
 		}
 
 	case *types.VariantValue:

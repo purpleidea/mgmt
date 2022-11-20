@@ -21,9 +21,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -35,11 +37,11 @@ const (
 )
 
 // RegisteredFuncs maps a function name to the corresponding static, pure func.
-var RegisteredFuncs = make(map[string]*types.FuncValue) // must initialize
+var RegisteredFuncs = make(map[string]*types.SimpleFn) // must initialize
 
 // Register registers a simple, static, pure function. It is easier to use than
 // the raw function API, but also limits you to simple, static, pure functions.
-func Register(name string, fn *types.FuncValue) {
+func Register(name string, fn *types.SimpleFn) {
 	if _, exists := RegisteredFuncs[name]; exists {
 		panic(fmt.Sprintf("a simple func named %s is already registered", name))
 	}
@@ -64,7 +66,7 @@ func Register(name string, fn *types.FuncValue) {
 
 // ModuleRegister is exactly like Register, except that it registers within a
 // named module. This is a helper function.
-func ModuleRegister(module, name string, fn *types.FuncValue) {
+func ModuleRegister(module, name string, fn *types.SimpleFn) {
 	Register(module+funcs.ModuleSep+name, fn)
 }
 
@@ -73,7 +75,7 @@ func ModuleRegister(module, name string, fn *types.FuncValue) {
 type WrappedFunc struct {
 	Name string
 
-	Fn *types.FuncValue
+	Fn *types.SimpleFn
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
@@ -183,4 +185,43 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// In the following set of conversion functions, a "constant" Func is a node
+// with in-degree zero which always outputs the same function value, while a
+// "direct" Func is a node with one upstream node for each of the function's
+// arguments.
+
+func FuncValueToConstFunc(obj *fancyfunc.FuncValue) interfaces.Func {
+	return &funcs.ConstFunc{
+		Value:    obj,
+		NameHint: "FuncValue",
+	}
+}
+
+func SimpleFnToDirectFunc(obj *types.SimpleFn) interfaces.Func {
+	return &WrappedFunc{
+		Fn: obj,
+	}
+}
+
+func SimpleFnToFuncValue(obj *types.SimpleFn) *fancyfunc.FuncValue {
+	return &fancyfunc.FuncValue{
+		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			wrappedFunc := SimpleFnToDirectFunc(obj)
+			txn.AddVertex(wrappedFunc)
+			for i, arg := range args {
+				argName := obj.T.Ord[i]
+				txn.AddEdge(arg, wrappedFunc, &interfaces.FuncEdge{
+					Args: []string{argName},
+				})
+			}
+			return wrappedFunc, nil
+		},
+		T: obj.T,
+	}
+}
+
+func SimpleFnToConstFunc(obj *types.SimpleFn) interfaces.Func {
+	return FuncValueToConstFunc(SimpleFnToFuncValue(obj))
 }

@@ -15,7 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package structs
+//package structs
+package ast
 
 import (
 	"context"
@@ -24,20 +25,17 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	//"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	// VarFuncName is the unique name identifier for this function.
-	VarFuncName = "var"
+	// IfFuncName is the unique name identifier for this function.
+	IfFuncName = "if"
 )
 
-// VarFunc is a function that passes through a function that came from a bind
-// lookup. It exists so that the reactive function engine type checks correctly.
-type VarFunc struct {
-	Type *types.Type // this is the type of the var's value that we hold
-	Edge string      // name of the edge used
-	//Func interfaces.Func // this isn't actually used in the Stream :/
+// IfFunc is a function that passes through the value of the correct branch
+// based on the conditional value it gets.
+type IfFunc struct {
+	Type *types.Type // this is the type of the if expression output we hold
 
 	init   *interfaces.Init
 	last   types.Value // last value received to use for diff
@@ -46,31 +44,31 @@ type VarFunc struct {
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *VarFunc) String() string {
-	// XXX: This is a bit of a temporary hack to display it nicely.
-	return fmt.Sprintf("%s(%s)", VarFuncName, strings.TrimPrefix(obj.Edge, "var:"))
+func (obj *IfFunc) String() string {
+	return IfFuncName
 }
 
-// Validate makes sure we've built our struct properly.
-func (obj *VarFunc) Validate() error {
+// Validate tells us if the input struct takes a valid form.
+func (obj *IfFunc) Validate() error {
 	if obj.Type == nil {
 		return fmt.Errorf("must specify a type")
-	}
-	if obj.Edge == "" {
-		return fmt.Errorf("must specify an edge name")
 	}
 	return nil
 }
 
 // Info returns some static info about itself.
-func (obj *VarFunc) Info() *interfaces.Info {
+func (obj *IfFunc) Info() *interfaces.Info {
 	var typ *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		typ = &types.Type{
 			Kind: types.KindFunc, // function type
-			Map:  map[string]*types.Type{obj.Edge: obj.Type},
-			Ord:  []string{obj.Edge},
-			Out:  obj.Type, // this is the output type for the expression
+			Map: map[string]*types.Type{
+				"c": types.TypeBool, // conditional must be a boolean
+				"a": obj.Type,       // true branch must be this type
+				"b": obj.Type,       // false branch must be this type too
+			},
+			Ord: []string{"c", "a", "b"}, // conditional, and two branches
+			Out: obj.Type,                // result type must match
 		}
 	}
 
@@ -82,8 +80,8 @@ func (obj *VarFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this composite function.
-func (obj *VarFunc) Init(init *interfaces.Init) error {
+// Init runs some startup code for this if expression function.
+func (obj *IfFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
@@ -91,7 +89,7 @@ func (obj *VarFunc) Init(init *interfaces.Init) error {
 // Stream takes an input struct in the format as described in the Func and Graph
 // methods of the Expr, and returns the actual expected value as a stream based
 // on the changing inputs to that value.
-func (obj *VarFunc) Stream(ctx context.Context) error {
+func (obj *IfFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -108,12 +106,12 @@ func (obj *VarFunc) Stream(ctx context.Context) error {
 			obj.last = input // store for next
 
 			var result types.Value
-			st := input.(*types.StructValue) // must be!
-			value, exists := st.Lookup(obj.Edge)
-			if !exists {
-				return fmt.Errorf("missing expected input argument `%s`", obj.Edge)
+
+			if input.Struct()["c"].Bool() {
+				result = input.Struct()["a"] // true branch
+			} else {
+				result = input.Struct()["b"] // false branch
 			}
-			result = value
 
 			// skip sending an update...
 			if obj.result != nil && result.Cmp(obj.result) == nil {

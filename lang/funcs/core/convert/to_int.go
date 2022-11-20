@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "to_int", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "to_int", &types.SimpleFn{
 		T: types.NewType("func(a float) int"),
 		V: ToInt,
 	})

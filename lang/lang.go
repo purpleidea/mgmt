@@ -207,10 +207,21 @@ func (obj *Lang) Init() error {
 	obj.Logf("building function graph...")
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
-	graph, err := obj.ast.Graph(nil) // build the graph of functions
+	graph := &pgraph.Graph{Name: "functionGraph"}
+	env := make(map[string]interfaces.Func)
+	for k, v := range scope.Variables {
+		g, builtinFunc, err := v.MergedGraph(nil)
+		if err != nil {
+			return errwrap.Wrapf(err, "calling MergedGraph on builtins")
+		}
+		graph.AddGraph(g)
+		env[k] = builtinFunc
+	}
+	g, err := obj.ast.MergedGraph(env) // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}
+	graph.AddGraph(g)
 
 	if obj.Debug {
 		obj.Logf("function graph: %+v", obj.graph)

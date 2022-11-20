@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-{{ range $i, $func := .Functions }}	simple.ModuleRegister("{{$func.MgmtPackage}}", "{{$func.MclName}}", &types.FuncValue{
+{{ range $i, $func := .Functions }}	simple.ModuleRegister("{{$func.MgmtPackage}}", "{{$func.MclName}}", &types.SimpleFn{
 		T: types.NewType("{{$func.Signature}}"),
 		V: {{$func.InternalName}},
 	})

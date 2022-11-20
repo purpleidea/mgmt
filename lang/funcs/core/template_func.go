@@ -569,7 +569,7 @@ func safename(name string) string {
 // function API with what is expected from the reflection API. It returns a
 // version that includes the optional second error return value so that our
 // functions can return errors without causing a panic.
-func wrap(name string, fn *types.FuncValue) interface{} {
+func wrap(name string, fn *types.SimpleFn) interface{} {
 	if fn.T.Map == nil {
 		panic("malformed func type")
 	}

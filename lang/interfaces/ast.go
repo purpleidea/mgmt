@@ -76,6 +76,9 @@ type Stmt interface {
 	// takes in the environment of any functions in scope.
 	Graph(map[string]Func) (*pgraph.Graph, error)
 
+	// MergedGraph returns the graph and func together in one call.
+	MergedGraph(env map[string]Func) (*pgraph.Graph, error)
+
 	// Output returns the output that this "program" produces. This output
 	// is what is used to build the output graph. It requires the input
 	// table of values that are used to populate each function.

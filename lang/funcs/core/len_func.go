@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	simplepoly.Register("len", []*types.FuncValue{
+	simplepoly.Register("len", []*types.SimpleFn{
 		{
 			T: types.NewType("func(str) int"),
 			V: Len,

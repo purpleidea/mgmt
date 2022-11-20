@@ -21,9 +21,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -57,12 +60,9 @@ type MapFunc struct {
 	RType *types.Type // this is the type of the elements in our output list
 
 	init *interfaces.Init
-	last types.Value // last value received to use for diff
 
-	inputs   types.Value
-	function func([]types.Value) (types.Value, error)
-
-	result types.Value // last calculated output
+	lastFuncValue       *fancyfunc.FuncValue // remember the last function value
+	lastInputListLength int                  // remember the last input list length
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -561,70 +561,197 @@ func (obj *MapFunc) sig() *types.Type {
 // Init runs some startup code for this function.
 func (obj *MapFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.lastFuncValue = nil
+	obj.lastInputListLength = -1
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *MapFunc) Stream(ctx context.Context) error {
+	// Every time the FuncValue or the length of the list changes, recreate the
+	// subgraph, by calling the FuncValue N times on N nodes, each of which
+	// extracts one of the N values in the list.
+
 	defer close(obj.init.Output) // the sender closes
-	rtyp := types.NewType(fmt.Sprintf("[]%s", obj.RType.String()))
+
+	inputListType := types.NewType(fmt.Sprintf("[]%s", obj.Type))
+	outputListType := types.NewType(fmt.Sprintf("[]%s", obj.RType))
+
+	// A Func to send input lists to the subgraph. This Func is not reset when
+	// the subgraph is recreated, so that the function graph can propagate the
+	// last list we received to the subgraph.
+	inputChan := make(chan types.Value)
+	subgraphInput := &simple.ChannelBasedSourceFunc{
+		Name: "subgraphInput",
+		Chan: inputChan,
+		Type: inputListType,
+	}
+	obj.init.Txn.AddVertex(subgraphInput)
+	defer func() {
+		close(inputChan)
+		obj.init.Txn.DeleteVertex(subgraphInput)
+	}()
+
+	// An initially-closed channel from which we receive output lists from the
+	// subgraph. This channel is reset when the subgraph is recreated.
+	var outputChan chan types.Value = nil
+
+	// Create a subgraph which splits the input list into 'n' nodes, applies
+	// 'newFuncValue' to each, then combines the 'n' outputs back into a list.
+	//
+	// Here is what the subgraph looks like:
+	//
+	// digraph {
+	//   "subgraphInput" -> "inputElemFunc0"
+	//   "subgraphInput" -> "inputElemFunc1"
+	//   "subgraphInput" -> "inputElemFunc2"
+	//
+	//   "inputElemFunc0" -> "outputElemFunc0"
+	//   "inputElemFunc1" -> "outputElemFunc1"
+	//   "inputElemFunc2" -> "outputElemFunc2"
+	//
+	//   "outputElemFunc0" -> "outputListFunc"
+	//   "outputElemFunc1" -> "outputListFunc"
+	//   "outputElemFunc1" -> "outputListFunc"
+	//
+	//   "outputListFunc" -> "subgraphOutput"
+	// }
+	replaceSubGraph := func(
+		newFuncValue *fancyfunc.FuncValue,
+		n int,
+	) error {
+		// delete the old subgraph
+		obj.init.Txn.Reverse() // XXX: Reverse?
+
+		// create the new subgraph
+
+		outputChan = make(chan types.Value)
+		subgraphOutput := &simple.ChannelBasedSinkFunc{
+			Name: "subgraphOutput",
+			Chan: outputChan,
+			Type: outputListType,
+		}
+		obj.init.Txn.AddVertex(subgraphOutput)
+
+		outputListFuncArgs := "" // e.g. "outputElem0 int, outputElem1 int, outputElem2 int"
+		for i := 0; i < n; i++ {
+			if i > 0 {
+				outputListFuncArgs += ", "
+			}
+			outputListFuncArgs += fmt.Sprintf("outputElem%d %s", i, obj.RType)
+		}
+		outputListFunc := simple.SimpleFnToDirectFunc(&types.SimpleFn{
+			V: func(args []types.Value) (types.Value, error) {
+				listValue := &types.ListValue{
+					V: args,
+					T: outputListType,
+				}
+
+				return listValue, nil
+			},
+			T: types.NewType(fmt.Sprintf("func(%s) %s", outputListFuncArgs, outputListType)),
+		})
+		obj.init.Txn.AddVertex(outputListFunc)
+		obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
+			Args: []string{"arg"},
+		})
+
+		for i := 0; i < n; i++ {
+			inputElemFunc := simple.SimpleFnToDirectFunc(
+				&types.SimpleFn{
+					V: func(args []types.Value) (types.Value, error) {
+						if len(args) != 1 {
+							return nil, fmt.Errorf("inputElemFunc: expected a single argument")
+						}
+						arg := args[0]
+
+						list, ok := arg.(*types.ListValue)
+						if !ok {
+							return nil, fmt.Errorf("inputElemFunc: expected a ListValue argument")
+						}
+
+						return list.List()[i], nil
+					},
+					T: types.NewType(fmt.Sprintf("func(inputList %s) %s", inputListType, obj.Type)),
+				},
+			)
+			obj.init.Txn.AddVertex(inputElemFunc)
+
+			outputElemFunc, err := newFuncValue.Call(obj.init.Txn, []interfaces.Func{inputElemFunc})
+			if err != nil {
+				return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
+			}
+
+			obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
+				Args: []string{"inputList"},
+			})
+			obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
+				Args: []string{"arg"},
+			})
+		}
+
+		obj.init.Txn.Commit()
+
+		return nil
+	}
+	defer func() {
+		obj.init.Txn.Reverse()
+		//obj.init.Txn.Commit()
+	}()
+
+	canReceiveMoreFuncValuesOrInputLists := true
+	canReceiveMoreOutputLists := true
 	for {
 		select {
 		case input, ok := <-obj.init.Input:
 			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
+				canReceiveMoreFuncValuesOrInputLists = false
+			} else {
+				newFuncValue := input.Struct()[argNameFunction].(*fancyfunc.FuncValue)
+				newInputList := input.Struct()[argNameInputs].(*types.ListValue)
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			function := input.Struct()[argNameFunction].Func() // func([]Value) (Value, error)
-			//if function == obj.function { // TODO: how can we cmp?
-			//	continue // nothing changed
-			//}
-			obj.function = function
-
-			inputs := input.Struct()[argNameInputs]
-			if obj.inputs != nil && obj.inputs.Cmp(inputs) == nil {
-				continue // nothing changed
-			}
-			obj.inputs = inputs
-
-			// run the function on each index
-			output := []types.Value{}
-			for ix, v := range inputs.List() { // []Value
-				args := []types.Value{v} // only one input arg!
-				x, err := function(args)
-				if err != nil {
-					return errwrap.Wrapf(err, "error running map function on index %d", ix)
+				// If we have a new function or the length of the input list has
+				// changed, then we need to replace the subgraph with a new one
+				// that uses the new function the correct number of times.
+				n := len(newInputList.V)
+				if newFuncValue != obj.lastFuncValue || n != obj.lastInputListLength {
+					if err := replaceSubGraph(newFuncValue, n); err != nil {
+						return errwrap.Wrapf(err, "could not replace subgraph")
+					}
+					canReceiveMoreOutputLists = true
+					obj.lastFuncValue = newFuncValue
+					obj.lastInputListLength = n
 				}
 
-				output = append(output, x)
-			}
-			result := &types.ListValue{
-				V: output,
-				T: rtyp,
+				// send the new input list to the subgraph
+				select {
+				case inputChan <- newInputList:
+				case <-ctx.Done():
+					return nil
+				}
 			}
 
-			if obj.result != nil && obj.result.Cmp(result) == nil {
-				continue // result didn't change
+		case outputList, ok := <-outputChan:
+			// send the new output list downstream
+			if !ok {
+				canReceiveMoreOutputLists = false
+
+				// prevent the next loop iteration from trying to receive from a
+				// closed channel
+				outputChan = nil
+			} else {
+				select {
+				case obj.init.Output <- outputList:
+				case <-ctx.Done():
+					return nil
+				}
 			}
-			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
-		case <-ctx.Done():
+		if !canReceiveMoreFuncValuesOrInputLists && !canReceiveMoreOutputLists {
 			return nil
 		}
 	}

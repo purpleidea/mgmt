@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "format", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "format", &types.SimpleFn{
 		T: types.NewType("func(a int, b str) str"),
 		V: Format,
 	})

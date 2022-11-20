@@ -6536,10 +6536,10 @@ type ExprFunc struct {
 
 	// Values represents a list of simple functions. This means this can be
 	// polymorphic if more than one was specified!
-	Values []*types.FuncValue
+	Values []*types.SimpleFn
 
 	// XXX: is this necessary?
-	V func([]types.Value) (types.Value, error)
+	V func([]pgraph.Vertex) (pgraph.Vertex, error)
 }
 
 // String returns a short representation of this expression.
@@ -6839,7 +6839,7 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope) error {
 		// TODO: if interfaces.Func grows a SetScope method do it here
 	}
 	if len(obj.Values) > 0 {
-		// TODO: if *types.FuncValue grows a SetScope method do it here
+		// TODO: if *types.SimpleFn grows a SetScope method do it here
 	}
 
 	return nil
@@ -6872,7 +6872,7 @@ func (obj *ExprFunc) SetType(typ *types.Type) error {
 			return errwrap.Wrapf(err, "could not build values func")
 		}
 		// TODO: build the function here for later use if that is wanted
-		//fn := obj.Values[index].Copy().(*types.FuncValue)
+		//fn := obj.Values[index].Copy()
 		//fn.T = typ.Copy() // overwrites any contained "variant" type
 	}
 
@@ -7274,7 +7274,7 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 	}
 	// build
 	// TODO: this could probably be done in SetType and cached in the struct
-	fn := obj.Values[index].Copy().(*types.FuncValue)
+	fn := obj.Values[index].Copy()
 	fn.T = typ.Copy() // overwrites any contained "variant" type
 
 	return &structs.FunctionFunc{

@@ -27,7 +27,7 @@ import (
 func init() {
 	typInt := types.NewType("func() int")
 	typFloat := types.NewType("func() float")
-	simplepoly.ModuleRegister(ModuleName, "fortytwo", []*types.FuncValue{
+	simplepoly.ModuleRegister(ModuleName, "fortytwo", []*types.SimpleFn{
 		{
 			T: typInt,
 			V: fortyTwo(typInt), // generate the correct function here

@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	simplepoly.ModuleRegister(ModuleName, "mod", []*types.FuncValue{
+	simplepoly.ModuleRegister(ModuleName, "mod", []*types.SimpleFn{
 		{
 			T: types.NewType("func(int, int) int"),
 			V: Mod,

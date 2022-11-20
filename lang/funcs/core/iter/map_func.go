@@ -552,68 +552,69 @@ func (obj *MapFunc) Init(init *interfaces.Init) error {
 
 // Stream returns the changing values that this func has over time.
 func (obj *MapFunc) Stream() error {
-	defer close(obj.init.Output) // the sender closes
-	rtyp := types.NewType(fmt.Sprintf("[]%s", obj.RType.String()))
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
+	panic("TODO [SimpleFn]: every time the FuncValue or the length of the list changes, recreate the subgraph, by calling the FuncValue N times on N nodes which extract each of the N values in the list")
+	//defer close(obj.init.Output) // the sender closes
+	//rtyp := types.NewType(fmt.Sprintf("[]%s", obj.RType.String()))
+	//for {
+	//	select {
+	//	case input, ok := <-obj.init.Input:
+	//		if !ok {
+	//			obj.init.Input = nil // don't infinite loop back
+	//			continue             // no more inputs, but don't return!
+	//		}
+	//		//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
+	//		//	return errwrap.Wrapf(err, "wrong function input")
+	//		//}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
+	//		if obj.last != nil && input.Cmp(obj.last) == nil {
+	//			continue // value didn't change, skip it
+	//		}
+	//		obj.last = input // store for next
 
-			function := input.Struct()[argNameFunction].Func() // func([]Value) (Value, error)
-			//if function == obj.function { // TODO: how can we cmp?
-			//	continue // nothing changed
-			//}
-			obj.function = function
+	//		function := input.Struct()[argNameFunction].Func() // func([]Value) (Value, error)
+	//		//if function == obj.function { // TODO: how can we cmp?
+	//		//	continue // nothing changed
+	//		//}
+	//		obj.function = function
 
-			inputs := input.Struct()[argNameInputs]
-			if obj.inputs != nil && obj.inputs.Cmp(inputs) == nil {
-				continue // nothing changed
-			}
-			obj.inputs = inputs
+	//		inputs := input.Struct()[argNameInputs]
+	//		if obj.inputs != nil && obj.inputs.Cmp(inputs) == nil {
+	//			continue // nothing changed
+	//		}
+	//		obj.inputs = inputs
 
-			// run the function on each index
-			output := []types.Value{}
-			for ix, v := range inputs.List() { // []Value
-				args := []types.Value{v} // only one input arg!
-				x, err := function(args)
-				if err != nil {
-					return errwrap.Wrapf(err, "error running map function on index %d", ix)
-				}
+	//		// run the function on each index
+	//		output := []types.Value{}
+	//		for ix, v := range inputs.List() { // []Value
+	//			args := []types.Value{v} // only one input arg!
+	//			x, err := function(args)
+	//			if err != nil {
+	//				return errwrap.Wrapf(err, "error running map function on index %d", ix)
+	//			}
 
-				output = append(output, x)
-			}
-			result := &types.ListValue{
-				V: output,
-				T: rtyp,
-			}
+	//			output = append(output, x)
+	//		}
+	//		result := &types.ListValue{
+	//			V: output,
+	//			T: rtyp,
+	//		}
 
-			if obj.result != nil && obj.result.Cmp(result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
+	//		if obj.result != nil && obj.result.Cmp(result) == nil {
+	//			continue // result didn't change
+	//		}
+	//		obj.result = result // store new result
 
-		case <-obj.closeChan:
-			return nil
-		}
+	//	case <-obj.closeChan:
+	//		return nil
+	//	}
 
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
-		case <-obj.closeChan:
-			return nil
-		}
-	}
+	//	select {
+	//	case obj.init.Output <- obj.result: // send
+	//		// pass
+	//	case <-obj.closeChan:
+	//		return nil
+	//	}
+	//}
 }
 
 // Close runs some shutdown code for this function and turns off the stream.

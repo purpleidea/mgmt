@@ -109,68 +109,69 @@ func (obj *CallFunc) Init(init *interfaces.Init) error {
 // methods of the Expr, and returns the actual expected value as a stream based
 // on the changing inputs to that value.
 func (obj *CallFunc) Stream() error {
-	defer close(obj.init.Output) // the sender closes
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
+	panic("TODO [SimpleFn]: every time the FuncValue changes, recreate the subgraph by calling the FuncValue")
+	//defer close(obj.init.Output) // the sender closes
+	//for {
+	//	select {
+	//	case input, ok := <-obj.init.Input:
+	//		if !ok {
+	//			return nil // can't output any more
+	//		}
+	//		//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
+	//		//	return errwrap.Wrapf(err, "wrong function input")
+	//		//}
+	//		if obj.last != nil && input.Cmp(obj.last) == nil {
+	//			continue // value didn't change, skip it
+	//		}
+	//		obj.last = input // store for next
 
-			st := input.(*types.StructValue) // must be!
+	//		st := input.(*types.StructValue) // must be!
 
-			// get the function
-			fn, exists := st.Lookup(obj.Edge)
-			if !exists {
-				return fmt.Errorf("missing expected input argument `%s`", obj.Edge)
-			}
+	//		// get the function
+	//		fn, exists := st.Lookup(obj.Edge)
+	//		if !exists {
+	//			return fmt.Errorf("missing expected input argument `%s`", obj.Edge)
+	//		}
 
-			// get the arguments to call the function
-			args := []types.Value{}
-			typ := obj.FuncType
-			for ix, key := range typ.Ord { // sig!
-				if obj.Indexed {
-					key = fmt.Sprintf("%d", ix)
-				}
-				value, exists := st.Lookup(key)
-				// TODO: replace with:
-				//value, exists := st.Lookup(fmt.Sprintf("arg:%s", key))
-				if !exists {
-					return fmt.Errorf("missing expected input argument `%s`", key)
-				}
-				args = append(args, value)
-			}
+	//		// get the arguments to call the function
+	//		args := []types.Value{}
+	//		typ := obj.FuncType
+	//		for ix, key := range typ.Ord { // sig!
+	//			if obj.Indexed {
+	//				key = fmt.Sprintf("%d", ix)
+	//			}
+	//			value, exists := st.Lookup(key)
+	//			// TODO: replace with:
+	//			//value, exists := st.Lookup(fmt.Sprintf("arg:%s", key))
+	//			if !exists {
+	//				return fmt.Errorf("missing expected input argument `%s`", key)
+	//			}
+	//			args = append(args, value)
+	//		}
 
-			// actually call it
-			result, err := fn.(*types.FuncValue).Call(args)
-			if err != nil {
-				return errwrap.Wrapf(err, "error calling function")
-			}
+	//		// actually call it
+	//		result, err := fn.(*types.SimpleFn).Call(args)
+	//		if err != nil {
+	//			return errwrap.Wrapf(err, "error calling function")
+	//		}
 
-			// skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
+	//		// skip sending an update...
+	//		if obj.result != nil && result.Cmp(obj.result) == nil {
+	//			continue // result didn't change
+	//		}
+	//		obj.result = result // store new result
 
-		case <-obj.closeChan:
-			return nil
-		}
+	//	case <-obj.closeChan:
+	//		return nil
+	//	}
 
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
-		case <-obj.closeChan:
-			return nil
-		}
-	}
+	//	select {
+	//	case obj.init.Output <- obj.result: // send
+	//		// pass
+	//	case <-obj.closeChan:
+	//		return nil
+	//	}
+	//}
 }
 
 // Close runs some shutdown code for this function and turns off the stream.

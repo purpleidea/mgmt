@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -54,7 +55,7 @@ type Value interface {
 	List() []Value
 	Map() map[Value]Value // keys must all have same type, same for values
 	Struct() map[string]Value
-	Func() func([]Value) (Value, error)
+	Func() func([]pgraph.Vertex) (pgraph.Vertex, error)
 }
 
 // ValueOfGolang is a helper that takes a golang value, and produces the mcl
@@ -201,36 +202,37 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}, nil
 
 	case reflect.Func:
-		t, err := TypeOf(value.Type())
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
-		}
-		if t.Out == nil {
-			return nil, fmt.Errorf("cannot only represent functions with one output value")
-		}
+		panic("TODO [SimpleFn] [Reflect]: what's all this reflection stuff for?")
+		//t, err := TypeOf(value.Type())
+		//if err != nil {
+		//	return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
+		//}
+		//if t.Out == nil {
+		//	return nil, fmt.Errorf("cannot only represent functions with one output value")
+		//}
 
-		f := func(args []Value) (Value, error) {
-			in := []reflect.Value{}
-			for _, x := range args {
-				// TODO: should we build this method instead?
-				//v := x.Reflect() // types.Value -> reflect.Value
-				v := reflect.ValueOf(x.Value())
-				in = append(in, v)
-			}
+		//f := func(args []Value) (Value, error) {
+		//	in := []reflect.Value{}
+		//	for _, x := range args {
+		//		// TODO: should we build this method instead?
+		//		//v := x.Reflect() // types.Value -> reflect.Value
+		//		v := reflect.ValueOf(x.Value())
+		//		in = append(in, v)
+		//	}
 
-			// FIXME: can we trap panic's ?
-			out := value.Call(in) // []reflect.Value
-			if len(out) != 1 {    // TODO: panic, b/c already checked in TypeOf?
-				return nil, fmt.Errorf("cannot only represent functions with one output value")
-			}
+		//	// FIXME: can we trap panic's ?
+		//	out := value.Call(in) // []reflect.Value
+		//	if len(out) != 1 {    // TODO: panic, b/c already checked in TypeOf?
+		//		return nil, fmt.Errorf("cannot only represent functions with one output value")
+		//	}
 
-			return ValueOf(out[0]) // recurse
-		}
+		//	return ValueOf(out[0]) // recurse
+		//}
 
-		return &FuncValue{
-			T: t,
-			V: f,
-		}, nil
+		//return &FuncValue{
+		//	T: t,
+		//	V: f,
+		//}, nil
 
 	default:
 		return nil, fmt.Errorf("unable to represent value of %+v", v)
@@ -403,38 +405,39 @@ func Into(v Value, rv reflect.Value) error {
 		return nil
 
 	case *FuncValue:
-		if err := mustInto(reflect.Func); err != nil {
-			return err
-		}
+		panic("TODO [SimpleFn] [Reflect]: what's all this reflection stuff for?")
+		//if err := mustInto(reflect.Func); err != nil {
+		//	return err
+		//}
 
-		// wrap our function with the translation that is necessary
-		fn := func(args []reflect.Value) (results []reflect.Value) { // build
-			innerArgs := []Value{}
-			for _, x := range args {
-				v, err := ValueOf(x) // reflect.Value -> Value
-				if err != nil {
-					panic(fmt.Errorf("can't determine value of %+v", x))
-				}
-				innerArgs = append(innerArgs, v)
-			}
-			result, err := v.V(innerArgs) // call it
-			if err != nil {
-				// when calling our function with the Call method, then
-				// we get the error output and have a chance to decide
-				// what to do with it, but when calling it from within
-				// a normal golang function call, the error represents
-				// that something went horribly wrong, aka a panic...
-				panic(fmt.Errorf("function panic: %+v", err))
-			}
-			out := reflect.New(rv.Type().Out(0))
-			// convert the lang result back to a Go value
-			if err := Into(result, out); err != nil {
-				panic(fmt.Errorf("function return conversion panic: %+v", err))
-			}
-			return []reflect.Value{out} // only one result
-		}
-		rv.Set(reflect.MakeFunc(rv.Type(), fn))
-		return nil
+		//// wrap our function with the translation that is necessary
+		//fn := func(args []reflect.Value) (results []reflect.Value) { // build
+		//	innerArgs := []Value{}
+		//	for _, x := range args {
+		//		v, err := ValueOf(x) // reflect.Value -> Value
+		//		if err != nil {
+		//			panic(fmt.Errorf("can't determine value of %+v", x))
+		//		}
+		//		innerArgs = append(innerArgs, v)
+		//	}
+		//	result, err := v.V(innerArgs) // call it
+		//	if err != nil {
+		//		// when calling our function with the Call method, then
+		//		// we get the error output and have a chance to decide
+		//		// what to do with it, but when calling it from within
+		//		// a normal golang function call, the error represents
+		//		// that something went horribly wrong, aka a panic...
+		//		panic(fmt.Errorf("function panic: %+v", err))
+		//	}
+		//	out := reflect.New(rv.Type().Out(0))
+		//	// convert the lang result back to a Go value
+		//	if err := Into(result, out); err != nil {
+		//		panic(fmt.Errorf("function return conversion panic: %+v", err))
+		//	}
+		//	return []reflect.Value{out} // only one result
+		//}
+		//rv.Set(reflect.MakeFunc(rv.Type(), fn))
+		//return nil
 
 	case *VariantValue:
 		return Into(v.V, rv)
@@ -498,7 +501,7 @@ func (obj *base) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *base) Func() func([]Value) (Value, error) {
+func (obj *base) Func() func([]pgraph.Vertex) (pgraph.Vertex, error) {
 	panic("not a func")
 }
 
@@ -1128,12 +1131,23 @@ func (obj *StructValue) Lookup(k string) (value Value, exists bool) {
 	return v, exists
 }
 
-// FuncValue represents a function value. The defined function takes a list of
-// Value arguments and returns a Value. It can also return an error which could
-// represent that something went horribly wrong. (Think, an internal panic.)
+// FuncValue represents a function value, for example a builtin or a lambda.
+//
+// In most languages, we can simply call a function with a list of arguments and
+// expect to receive a single value. In this language, however, a function might
+// be something like datetime.now() or fn(n) {shell(Sprintf("seq %d", n))},
+// which might not produce a value immediately, and might then produce multiple
+// values over time. Thus, in this language, a FuncValue does not receive
+// Values, instead it receives input Func nodes. The FuncValue then adds more
+// Func nodes and edges in order to arrange for output values to be sent to a
+// particular output node, which the function returns so that the caller may
+// connect that output node to more nodes down the line.
+//
+// The function can also return an error which could represent that something
+// went horribly wrong. (Think, an internal panic.)
 type FuncValue struct {
 	base
-	V func([]Value) (Value, error)
+	V func([]pgraph.Vertex) (pgraph.Vertex, error)
 	T *Type // contains ordered field types, arg names are a bonus part
 }
 
@@ -1142,7 +1156,7 @@ func NewFunc(t *Type) *FuncValue {
 	if t.Kind != KindFunc {
 		return nil // sanity check
 	}
-	v := func([]Value) (Value, error) {
+	v := func([]pgraph.Vertex) (pgraph.Vertex, error) {
 		return nil, fmt.Errorf("nil function") // TODO: is this correct?
 	}
 	return &FuncValue{
@@ -1188,49 +1202,95 @@ func (obj *FuncValue) Copy() Value {
 
 // Value returns the raw value of this type.
 func (obj *FuncValue) Value() interface{} {
-	typ := obj.T.Reflect()
+	panic("TODO [SimpleFn] [Reflect]: what's all this reflection stuff for?")
+	//typ := obj.T.Reflect()
 
-	// wrap our function with the translation that is necessary
-	fn := func(args []reflect.Value) (results []reflect.Value) { // build
-		innerArgs := []Value{}
-		for _, x := range args {
-			v, err := ValueOf(x) // reflect.Value -> Value
-			if err != nil {
-				panic(fmt.Sprintf("can't determine value of %+v", x))
-			}
-			innerArgs = append(innerArgs, v)
-		}
-		result, err := obj.V(innerArgs) // call it
-		if err != nil {
-			// when calling our function with the Call method, then
-			// we get the error output and have a chance to decide
-			// what to do with it, but when calling it from within
-			// a normal golang function call, the error represents
-			// that something went horribly wrong, aka a panic...
-			panic(fmt.Sprintf("function panic: %+v", err))
-		}
-		return []reflect.Value{reflect.ValueOf(result.Value())} // only one result
-	}
-	val := reflect.MakeFunc(typ, fn)
-	return val.Interface()
+	//// wrap our function with the translation that is necessary
+	//fn := func(args []reflect.Value) (results []reflect.Value) { // build
+	//	innerArgs := []Value{}
+	//	for _, x := range args {
+	//		v, err := ValueOf(x) // reflect.Value -> Value
+	//		if err != nil {
+	//			panic(fmt.Sprintf("can't determine value of %+v", x))
+	//		}
+	//		innerArgs = append(innerArgs, v)
+	//	}
+	//	result, err := obj.V(innerArgs) // call it
+	//	if err != nil {
+	//		// when calling our function with the Call method, then
+	//		// we get the error output and have a chance to decide
+	//		// what to do with it, but when calling it from within
+	//		// a normal golang function call, the error represents
+	//		// that something went horribly wrong, aka a panic...
+	//		panic(fmt.Sprintf("function panic: %+v", err))
+	//	}
+	//	return []reflect.Value{reflect.ValueOf(result.Value())} // only one result
+	//}
+	//val := reflect.MakeFunc(typ, fn)
+	//return val.Interface()
 }
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *FuncValue) Func() func([]Value) (Value, error) {
+func (obj *FuncValue) Func() func([]pgraph.Vertex) (pgraph.Vertex, error) {
 	return obj.V
 }
 
 // Set sets the function value to be a new function.
-func (obj *FuncValue) Set(fn func([]Value) (Value, error)) error { // TODO: change method name?
+func (obj *FuncValue) Set(fn func([]pgraph.Vertex) (pgraph.Vertex, error)) error { // TODO: change method name?
 	obj.V = fn
 	return nil // TODO: can we do any sort of checking here?
+}
+
+// Call runs the function value, thus causing the Func graph to be modified, and
+// then returns the output node. It returns an error if something goes wrong
+// during execution, and panic's if you call this with inappropriate input
+// types, or if it returns an inappropriate output type.
+func (obj *FuncValue) Call(args []pgraph.Vertex) (pgraph.Vertex, error) {
+	panic("TODO [SimpleFn]: modify the graph, and double-check the comment above")
+	//// cmp input args type to obj.T
+	//length := len(obj.T.Ord)
+	//if length != len(args) {
+	//	return nil, fmt.Errorf("arg length of %d does not match expected of %d", len(args), length)
+	//}
+	//for i := 0; i < length; i++ {
+	//	if err := args[i].Type().Cmp(obj.T.Map[obj.T.Ord[i]]); err != nil {
+	//		return nil, errwrap.Wrapf(err, "cannot cmp input types")
+	//	}
+	//}
+
+	//result, err := obj.V(args) // call it
+	//if result == nil {
+	//	if err == nil {
+	//		return nil, fmt.Errorf("function returned nil result")
+	//	}
+	//	return nil, errwrap.Wrapf(err, "function returned nil result during error")
+	//}
+	//if err := result.Type().Cmp(obj.T.Out); err != nil {
+	//	return nil, errwrap.Wrapf(err, "cannot cmp return types")
+	//}
+
+	//return result, err
+}
+
+// SimpleFn represents a function which takes a list of Value arguments and
+// returns a Value. It can also return an error which could represent that
+// something went horribly wrong. (Think, an internal panic.)
+//
+// This is not general enough to represent all functions in the language (see
+// FuncValue above), but it is a useful common case.
+//
+// SimpleFn is not a Value, but it is a useful building block for implementing
+// Func nodes.
+type SimpleFn struct {
+	V func([]Value) (Value, error)
+	T *Type // contains ordered field types, arg names are a bonus part
 }
 
 // Call runs the function value and returns its result. It returns an error if
 // something goes wrong during execution, and panic's if you call this with
 // inappropriate input types, or if it returns an inappropriate output type.
-func (obj *FuncValue) Call(args []Value) (Value, error) {
+func (obj *SimpleFn) Call(args []Value) (Value, error) {
 	// cmp input args type to obj.T
 	length := len(obj.T.Ord)
 	if length != len(args) {
@@ -1254,6 +1314,16 @@ func (obj *FuncValue) Call(args []Value) (Value, error) {
 	}
 
 	return result, err
+}
+
+func (obj *SimpleFn) Type() *Type { return obj.T }
+
+// Copy returns a copy of this value.
+func (obj *SimpleFn) Copy() *SimpleFn {
+	return &SimpleFn{
+		V: obj.V,
+		T: obj.T.Copy(),
+	}
 }
 
 // VariantValue represents a variant value.
@@ -1377,6 +1447,6 @@ func (obj *VariantValue) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *VariantValue) Func() func([]Value) (Value, error) {
+func (obj *VariantValue) Func() func([]pgraph.Vertex) (pgraph.Vertex, error) {
 	return obj.V.Func()
 }

@@ -34,11 +34,11 @@ const (
 )
 
 // RegisteredFuncs maps a function name to the corresponding static, pure func.
-var RegisteredFuncs = make(map[string]*types.FuncValue) // must initialize
+var RegisteredFuncs = make(map[string]*types.SimpleFn) // must initialize
 
 // Register registers a simple, static, pure function. It is easier to use than
 // the raw function API, but also limits you to simple, static, pure functions.
-func Register(name string, fn *types.FuncValue) {
+func Register(name string, fn *types.SimpleFn) {
 	if _, exists := RegisteredFuncs[name]; exists {
 		panic(fmt.Sprintf("a simple func named %s is already registered", name))
 	}
@@ -63,14 +63,14 @@ func Register(name string, fn *types.FuncValue) {
 
 // ModuleRegister is exactly like Register, except that it registers within a
 // named module. This is a helper function.
-func ModuleRegister(module, name string, fn *types.FuncValue) {
+func ModuleRegister(module, name string, fn *types.SimpleFn) {
 	Register(module+funcs.ModuleSep+name, fn)
 }
 
 // WrappedFunc is a scaffolding function struct which fulfills the boiler-plate
 // for the function API, but that can run a very simple, static, pure function.
 type WrappedFunc struct {
-	Fn *types.FuncValue
+	Fn *types.SimpleFn
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff

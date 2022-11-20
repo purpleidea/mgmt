@@ -58,7 +58,7 @@ func HasDuplicateTypes(typs []*types.Type) error {
 // FnMatch is run to turn a polymorphic, undetermined list of functions, into a
 // specific statically typed version. It is usually run after Unify completes.
 // It returns the index of the matched function.
-func FnMatch(typ *types.Type, fns []*types.FuncValue) (int, error) {
+func FnMatch(typ *types.Type, fns []*types.SimpleFn) (int, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ == nil {
 		return 0, fmt.Errorf("type of function must be specified")

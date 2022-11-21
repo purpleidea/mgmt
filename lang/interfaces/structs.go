@@ -29,7 +29,7 @@ import (
 type ExprAny struct {
 	typ *types.Type
 
-	V types.Value // stored value (set with SetValue)
+	V types.Value // stored value
 }
 
 // String returns a short representation of this expression.
@@ -153,25 +153,6 @@ func (obj *ExprAny) Func() (Func, error) {
 	//	}
 
 	return nil, fmt.Errorf("programming error using ExprAny") // this should not be called
-}
-
-// SetValue here is a no-op, because algorithmically when this is called from
-// the func engine, the child elements (the list elements) will have had this
-// done to them first, and as such when we try and retrieve the set value from
-// this expression by calling `Value`, it will build it from scratch!
-
-// SetValue here is used to store a value for this expression node. This value
-// is cached and can be retrieved by calling Value.
-func (obj *ExprAny) SetValue(value types.Value) error {
-	typ := value.Type()
-	if obj.typ != nil {
-		if err := obj.typ.Cmp(typ); err != nil {
-			return err
-		}
-	}
-	obj.typ = typ
-	obj.V = value
-	return nil
 }
 
 // Value returns the value of this expression in our type system. This will

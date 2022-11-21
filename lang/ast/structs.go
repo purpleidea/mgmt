@@ -4770,18 +4770,6 @@ func (obj *ExprBool) Func() (interfaces.Func, error) {
 	}, nil
 }
 
-// SetValue for a bool expression is always populated statically, and does not
-// ever receive any incoming values (no incoming edges) so this should never be
-// called. It has been implemented for uniformity.
-func (obj *ExprBool) SetValue(value types.Value) error {
-	if err := types.TypeBool.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// XXX: should we compare the incoming value with the stored value?
-	obj.V = value.Bool()
-	return nil
-}
-
 // Value returns the value of this expression in our type system. This will
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
@@ -4946,17 +4934,6 @@ func (obj *ExprStr) Func() (interfaces.Func, error) {
 	}, nil
 }
 
-// SetValue for an str expression is always populated statically, and does not
-// ever receive any incoming values (no incoming edges) so this should never be
-// called. It has been implemented for uniformity.
-func (obj *ExprStr) SetValue(value types.Value) error {
-	if err := types.TypeStr.Cmp(value.Type()); err != nil {
-		return err
-	}
-	obj.V = value.Str()
-	return nil
-}
-
 // Value returns the value of this expression in our type system. This will
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
@@ -5070,17 +5047,6 @@ func (obj *ExprInt) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
 		Value: &types.IntValue{V: obj.V},
 	}, nil
-}
-
-// SetValue for an int expression is always populated statically, and does not
-// ever receive any incoming values (no incoming edges) so this should never be
-// called. It has been implemented for uniformity.
-func (obj *ExprInt) SetValue(value types.Value) error {
-	if err := types.TypeInt.Cmp(value.Type()); err != nil {
-		return err
-	}
-	obj.V = value.Int()
-	return nil
 }
 
 // Value returns the value of this expression in our type system. This will
@@ -5198,17 +5164,6 @@ func (obj *ExprFloat) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
 		Value: &types.FloatValue{V: obj.V},
 	}, nil
-}
-
-// SetValue for a float expression is always populated statically, and does not
-// ever receive any incoming values (no incoming edges) so this should never be
-// called. It has been implemented for uniformity.
-func (obj *ExprFloat) SetValue(value types.Value) error {
-	if err := types.TypeFloat.Cmp(value.Type()); err != nil {
-		return err
-	}
-	obj.V = value.Float()
-	return nil
 }
 
 // Value returns the value of this expression in our type system. This will
@@ -5536,19 +5491,6 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 		Type: typ,
 		Len:  len(obj.Elements),
 	}, nil
-}
-
-// SetValue here is a no-op, because algorithmically when this is called from
-// the func engine, the child elements (the list elements) will have had this
-// done to them first, and as such when we try and retrieve the set value from
-// this expression by calling `Value`, it will build it from scratch!
-func (obj *ExprList) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// noop!
-	//obj.V = value
-	return nil
 }
 
 // Value returns the value of this expression in our type system. This will
@@ -6034,19 +5976,6 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 	}, nil
 }
 
-// SetValue here is a no-op, because algorithmically when this is called from
-// the func engine, the child key/value's (the map elements) will have had this
-// done to them first, and as such when we try and retrieve the set value from
-// this expression by calling `Value`, it will build it from scratch!
-func (obj *ExprMap) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// noop!
-	//obj.V = value
-	return nil
-}
-
 // Value returns the value of this expression in our type system. This will
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
@@ -6423,19 +6352,6 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 	return &structs.CompositeFunc{
 		Type: typ,
 	}, nil
-}
-
-// SetValue here is a no-op, because algorithmically when this is called from
-// the func engine, the child fields (the struct elements) will have had this
-// done to them first, and as such when we try and retrieve the set value from
-// this expression by calling `Value`, it will build it from scratch!
-func (obj *ExprStruct) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// noop!
-	//obj.V = value
-	return nil
 }
 
 // Value returns the value of this expression in our type system. This will
@@ -7284,18 +7200,6 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 	}, nil
 }
 
-// SetValue for a func expression is always populated statically, and does not
-// ever receive any incoming values (no incoming edges) so this should never be
-// called. It has been implemented for uniformity.
-func (obj *ExprFunc) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// FIXME: is this part necessary?
-	obj.V = value.Func()
-	return nil
-}
-
 // Value returns the value of this expression in our type system. This will
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
@@ -7319,7 +7223,7 @@ type ExprCall struct {
 	expr interfaces.Expr // copy of what we're calling
 	orig *ExprCall       // original pointer to this
 
-	V types.Value // stored result (set with SetValue)
+	V types.Value // stored result
 
 	// Name of the function to be called. We look for it in the scope.
 	Name string
@@ -8318,23 +8222,10 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 	}, nil
 }
 
-// SetValue here is used to store the result of the last computation of this
-// expression node after it has received all the required input values. This
-// value is cached and can be retrieved by calling Value.
-func (obj *ExprCall) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	obj.V = value
-	return nil
-}
-
 // Value returns the value of this expression in our type system. This will
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 // It is often unlikely that this kind of speculative execution finds something.
-// This particular implementation of the function returns the previously stored
-// and cached value as received by SetValue.
 func (obj *ExprCall) Value() (types.Value, error) {
 	if obj.V == nil {
 		return nil, fmt.Errorf("func value does not yet exist")
@@ -8587,19 +8478,6 @@ func (obj *ExprVar) Func() (interfaces.Func, error) {
 		Type: typ,
 		Edge: fmt.Sprintf("var:%s", obj.Name), // the edge name used above in Graph is this...
 	}, nil
-}
-
-// SetValue here is a no-op, because algorithmically when this is called from
-// the func engine, the child fields (the dest lookup expr) will have had this
-// done to them first, and as such when we try and retrieve the set value from
-// this expression by calling `Value`, it will build it from scratch!
-func (obj *ExprVar) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// noop!
-	//obj.V = value
-	return nil
 }
 
 // Value returns the value of this expression in our type system. This will
@@ -8976,19 +8854,6 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 	return &structs.IfFunc{
 		Type: typ, // this is the output type of the expression
 	}, nil
-}
-
-// SetValue here is a no-op, because algorithmically when this is called from
-// the func engine, the child fields (the branches expr's) will have had this
-// done to them first, and as such when we try and retrieve the set value from
-// this expression by calling `Value`, it will build it from scratch!
-func (obj *ExprIf) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// noop!
-	//obj.V = value
-	return nil
 }
 
 // Value returns the value of this expression in our type system. This will

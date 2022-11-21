@@ -45,7 +45,7 @@ type State struct {
 	input  chan types.Value // the top level type must be a struct
 	output chan types.Value
 
-	mutex *sync.RWMutex // concurrency guard for modifying Expr with String/SetValue
+	mutex *sync.RWMutex // concurrency guard for accessing Expr.String()
 }
 
 // Init creates the function state if it can be found in the registered list.
@@ -450,10 +450,6 @@ func (obj *Engine) Run() error {
 				// XXX: maybe we can get rid of the table...
 				obj.table[vertex] = value // save the latest
 				node.mutex.Lock()
-				if err := node.Expr.SetValue(value); err != nil {
-					node.mutex.Unlock() // don't block node.String()
-					panic(fmt.Sprintf("could not set value for `%s`: %+v", node, err))
-				}
 				node.loaded = true // set *after* value is in :)
 				obj.Logf("func `%s` changed", node)
 				node.mutex.Unlock()

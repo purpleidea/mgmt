@@ -126,10 +126,6 @@ type Expr interface {
 	// Func returns a function that represents this reactively.
 	Func() (Func, error)
 
-	// SetValue stores the result of the last computation of this expression
-	// node.
-	SetValue(types.Value) error
-
 	// Value returns the value of this expression in our type system.
 	Value() (types.Value, error)
 }

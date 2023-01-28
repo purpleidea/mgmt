@@ -257,3 +257,39 @@ type Txn interface {
 	// Clear erases any pending transactions that weren't committed yet.
 	Clear()
 }
+
+type ReversibleTxn struct {
+	// The Txn which will do the actual work of adding and deleting.
+	InnerTxn Txn
+
+	// The vertices and edges that were added since the last call to Reverse().
+	vertices []pgraph.Vertex
+	edges    []pgraph.Edge
+}
+
+func (obj *ReversibleTxn) AddVertex(v pgraph.Vertex) {
+	obj.InnerTxn = obj.InnerTxn.AddVertex(v)
+	obj.vertices = append(obj.vertices, v)
+}
+
+func (obj *ReversibleTxn) AddEdge(v1, v2 pgraph.Vertex, e pgraph.Edge) {
+	obj.InnerTxn = obj.InnerTxn.AddEdge(v1, v2, e)
+	obj.edges = append(obj.edges, e)
+}
+
+func (obj *ReversibleTxn) Commit() error {
+	return obj.InnerTxn.Commit()
+}
+
+// Removes all vertices and edges that were added since the last call to
+// Reset(), even if they were committed.
+func (obj *ReversibleTxn) Reset() {
+	for _, e := range obj.edges {
+		obj.InnerTxn.DeleteEdge(e)
+	}
+	for _, v := range obj.vertices {
+		obj.InnerTxn.DeleteVertex(v)
+	}
+	obj.vertices = nil
+	obj.edges = nil
+}

@@ -32,7 +32,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
-	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -4766,7 +4765,7 @@ func (obj *ExprBool) Graph() (*pgraph.Graph, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprBool) Func() (interfaces.Func, error) {
-	return &structs.ConstFunc{
+	return &ConstFunc{
 		Value: &types.BoolValue{V: obj.V},
 	}, nil
 }
@@ -4942,7 +4941,7 @@ func (obj *ExprStr) Graph() (*pgraph.Graph, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprStr) Func() (interfaces.Func, error) {
-	return &structs.ConstFunc{
+	return &ConstFunc{
 		Value: &types.StrValue{V: obj.V},
 	}, nil
 }
@@ -5068,7 +5067,7 @@ func (obj *ExprInt) Graph() (*pgraph.Graph, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprInt) Func() (interfaces.Func, error) {
-	return &structs.ConstFunc{
+	return &ConstFunc{
 		Value: &types.IntValue{V: obj.V},
 	}, nil
 }
@@ -5196,7 +5195,7 @@ func (obj *ExprFloat) Graph() (*pgraph.Graph, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprFloat) Func() (interfaces.Func, error) {
-	return &structs.ConstFunc{
+	return &ConstFunc{
 		Value: &types.FloatValue{V: obj.V},
 	}, nil
 }
@@ -5533,7 +5532,7 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 	}
 
 	// composite func (list, map, struct)
-	return &structs.CompositeFunc{
+	return &CompositeFunc{
 		Type: typ,
 		Len:  len(obj.Elements),
 	}, nil
@@ -6029,7 +6028,7 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 	}
 
 	// composite func (list, map, struct)
-	return &structs.CompositeFunc{
+	return &CompositeFunc{
 		Type: typ, // the key/val types are known via this type
 		Len:  len(obj.KVs),
 	}, nil
@@ -6421,7 +6420,7 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 	}
 
 	// composite func (list, map, struct)
-	return &structs.CompositeFunc{
+	return &CompositeFunc{
 		Type: typ,
 	}, nil
 }
@@ -7250,7 +7249,7 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 		//}
 
 		// direct func
-		return &structs.FunctionFunc{
+		return &FunctionFunc{
 			Type: typ, // this is a KindFunc
 			//Func: f,
 			Edge: "body", // the edge name used above in Graph is this...
@@ -7259,7 +7258,7 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 
 	if obj.Function != nil {
 		// XXX: is this correct?
-		return &structs.FunctionFunc{
+		return &FunctionFunc{
 			Type: typ,          // this is a KindFunc
 			Func: obj.function, // pass it through
 			Edge: "",           // no edge, since nothing is incoming to the built-in
@@ -7278,7 +7277,7 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 	fn := obj.Values[index].Copy()
 	fn.T = typ.Copy() // overwrites any contained "variant" type
 
-	return &structs.FunctionFunc{
+	return &FunctionFunc{
 		Type: typ, // this is a KindFunc
 		Fn:   fn,  // pass it through
 		Edge: "",  // no edge, since nothing is incoming to the built-in
@@ -8305,7 +8304,7 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 
 	// XXX: receive the ExprFunc properly, and use it in CallFunc...
 	//if isFn && len(fn.Values) > 0 {
-	//	return &structs.CallFunc{
+	//	return &CallFunc{
 	//		Type:     typ, // this is the type of what the func returns
 	//		FuncType: ftyp,
 	//		Edge: "???",
@@ -8314,7 +8313,7 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 	//}
 
 	// direct func
-	return &structs.CallFunc{
+	return &CallFunc{
 		Type:     typ, // this is the type of what the func returns
 		FuncType: ftyp,
 		// the edge name used above in Graph is this...
@@ -8588,7 +8587,7 @@ func (obj *ExprVar) Func() (interfaces.Func, error) {
 	}
 
 	// var func
-	return &structs.VarFunc{
+	return &VarFunc{
 		Type: typ,
 		Edge: fmt.Sprintf("var:%s", obj.Name), // the edge name used above in Graph is this...
 	}, nil
@@ -8978,7 +8977,7 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 		return nil, err
 	}
 
-	return &structs.IfFunc{
+	return &IfFunc{
 		Type: typ, // this is the output type of the expression
 	}, nil
 }

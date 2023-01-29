@@ -29,7 +29,6 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
-	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
 	"github.com/purpleidea/mgmt/lang/inputs"
@@ -6539,7 +6538,7 @@ type ExprFunc struct {
 	Values []*types.SimpleFn
 
 	// XXX: is this necessary?
-	V func(interfaces.ReversibleTxn, []pgraph.Vertex) (pgraph.Vertex, error)
+	//V func(interfaces.ReversibleTxn, []pgraph.Vertex) (pgraph.Vertex, error)
 }
 
 // String returns a short representation of this expression.
@@ -6677,7 +6676,6 @@ func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) {
 		Function: obj.Function,
 		function: obj.function,
 		Values:   obj.Values,
-		V:        obj.V,
 	}, nil
 }
 
@@ -6741,7 +6739,6 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		Function: obj.Function,
 		function: function,
 		Values:   obj.Values, // XXX: do we need to force rebuild these?
-		V:        obj.V,
 	}, nil
 }
 
@@ -7288,15 +7285,18 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 // ever receive any incoming values (no incoming edges) so this should never be
 // called. It has been implemented for uniformity.
 func (obj *ExprFunc) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// FIXME: is this part necessary?
-	funcValue, worked := value.(*fancyfunc.FuncValue)
-	if !worked {
-		return fmt.Errorf("expected a FuncValue")
-	}
-	obj.V = funcValue.V
+	// We don't need to do anything because no resource has a function field and
+	// so nobody is going to call Value().
+
+	//if err := obj.typ.Cmp(value.Type()); err != nil {
+	//	return err
+	//}
+	//// FIXME: is this part necessary?
+	//funcValue, worked := value.(*fancyfunc.FuncValue)
+	//if !worked {
+	//	return fmt.Errorf("expected a FuncValue")
+	//}
+	//obj.V = funcValue.V
 	return nil
 }
 
@@ -7305,11 +7305,12 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This might get called speculatively (early) during unification to learn more.
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
-	// TODO: implement speculative value lookup (if not already sufficient)
-	return &fancyfunc.FuncValue{
-		V: obj.V,
-		T: obj.typ,
-	}, nil
+	panic("ExprFunc does not store its latest value because resources are not expected to have function fields.")
+	//// TODO: implement speculative value lookup (if not already sufficient)
+	//return &fancyfunc.FuncValue{
+	//	V: obj.V,
+	//	T: obj.typ,
+	//}, nil
 }
 
 // ExprCall is a representation of a function call. This does not represent the

@@ -21,8 +21,10 @@ package ast
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -37,11 +39,11 @@ type CallFunc struct {
 
 	// Indexed specifies that args are accessed by index instead of name.
 	// This is currently unused.
-	Indexed bool
+	Indexed     bool
+	ArgVertices []pgraph.Vertex
 
-	init   *interfaces.Init
-	last   types.Value // last value received to use for diff
-	result types.Value // last calculated output
+	init          *interfaces.Init
+	reversibleTxn *interfaces.ReversibleTxn
 
 	closeChan chan struct{}
 }
@@ -102,6 +104,9 @@ func (obj *CallFunc) Info() *interfaces.Info {
 // Init runs some startup code for this composite function.
 func (obj *CallFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.reversibleTxn = &interfaces.ReversibleTxn{
+		InnerTxn: init.Txn,
+	}
 	obj.closeChan = make(chan struct{})
 	return nil
 }
@@ -110,69 +115,89 @@ func (obj *CallFunc) Init(init *interfaces.Init) error {
 // methods of the Expr, and returns the actual expected value as a stream based
 // on the changing inputs to that value.
 func (obj *CallFunc) Stream() error {
-	panic("TODO [SimpleFn]: every time the FuncValue changes, recreate the subgraph by calling the FuncValue")
-	//defer close(obj.init.Output) // the sender closes
-	//for {
-	//	select {
-	//	case input, ok := <-obj.init.Input:
-	//		if !ok {
-	//			return nil // can't output any more
-	//		}
-	//		//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-	//		//	return errwrap.Wrapf(err, "wrong function input")
-	//		//}
-	//		if obj.last != nil && input.Cmp(obj.last) == nil {
-	//			continue // value didn't change, skip it
-	//		}
-	//		obj.last = input // store for next
+	defer close(obj.init.Output) // the sender closes
 
-	//		st := input.(*types.StructValue) // must be!
+	// Create a channel to receive the output of the subgraph.
+	outChan := make(chan types.Value)
 
-	//		// get the function
-	//		fn, exists := st.Lookup(obj.Edge)
-	//		if !exists {
-	//			return fmt.Errorf("missing expected input argument `%s`", obj.Edge)
-	//		}
+	// TODO: detect when the subgraph will no longer emit any new values and
+	// inform the for loop below so it can stop when both the input FuncValues
+	// have stopped coming in and the subgraph has stopped emitting values.
+	subgraphOutputToChannel := &ExprFunc{
+		Title: "subgraphOutputToChannel",
+		Values: []*types.SimpleFn{
+			{
+				V: func(args []types.Value) (types.Value, error) {
+					outputValue := args[0]
+					outChan <- outputValue
+					return nil, nil
+				},
+				T: types.NewType(fmt.Sprintf("func(outputValue %s)", obj.Type)),
+			},
+		},
+	}
+	// TODO: call Init() on every node we create
 
-	//		// get the arguments to call the function
-	//		args := []types.Value{}
-	//		typ := obj.FuncType
-	//		for ix, key := range typ.Ord { // sig!
-	//			if obj.Indexed {
-	//				key = fmt.Sprintf("%d", ix)
-	//			}
-	//			value, exists := st.Lookup(key)
-	//			// TODO: replace with:
-	//			//value, exists := st.Lookup(fmt.Sprintf("arg:%s", key))
-	//			if !exists {
-	//				return fmt.Errorf("missing expected input argument `%s`", key)
-	//			}
-	//			args = append(args, value)
-	//		}
+	// Use obj.init.Txn instead of obj.txn because we don't want to
+	// reverse this operation when the subgraph changes.
+	obj.init.Txn.AddVertex(subgraphOutputToChannel)
+	obj.init.Txn.Commit()
 
-	//		// actually call it
-	//		result, err := fn.(*types.SimpleFn).Call(args)
-	//		if err != nil {
-	//			return errwrap.Wrapf(err, "error calling function")
-	//		}
+	defer func() {
+		obj.init.Txn.DeleteVertex(subgraphOutputToChannel)
+		obj.init.Txn.Commit()
+	}()
 
-	//		// skip sending an update...
-	//		if obj.result != nil && result.Cmp(obj.result) == nil {
-	//			continue // result didn't change
-	//		}
-	//		obj.result = result // store new result
+	// Every time the FuncValue changes, recreate the subgraph by calling the FuncValue.
+	var prevFn *fancyfunc.FuncValue
+	for {
+		select {
+		case input, ok := <-obj.init.Input:
+			if !ok {
+				// The graph cannot change anymore, but values can still flow
+				// through it, e.g. if the function is a lambda and one of the
+				// captured variables (not an argument) changes. Therefore, we
+				// must not close the output channel yet.
+			}
 
-	//	case <-obj.closeChan:
-	//		return nil
-	//	}
+			st := input.(*types.StructValue) // must be!
 
-	//	select {
-	//	case obj.init.Output <- obj.result: // send
-	//		// pass
-	//	case <-obj.closeChan:
-	//		return nil
-	//	}
-	//}
+			// get the function
+			fnValue, exists := st.Lookup("fn")
+			if !exists {
+				return fmt.Errorf("missing function")
+			}
+			fn, isFuncValue := fnValue.(*fancyfunc.FuncValue)
+			if !isFuncValue {
+				return fmt.Errorf("function is not a FuncValue")
+			}
+
+			if fn != prevFn {
+				// The function changed, so we need to recreate the subgraph.
+				obj.reversibleTxn.Reset()
+				outVertex, err := fn.Call(obj.reversibleTxn, obj.ArgVertices)
+				if err != nil {
+					return nil
+				}
+
+				// attach the output vertex to the output channel
+				obj.reversibleTxn.AddEdge(outVertex, subgraphOutputToChannel, &pgraph.SimpleEdge{
+					Name: "subgraphOutput",
+				})
+				obj.reversibleTxn.Commit()
+			}
+
+		case output, ok := <-outChan:
+			if !ok {
+				panic("We don't yet have any logic to handle the case where the subgraph stops emitting values.")
+			}
+
+			obj.init.Output <- output
+
+		case <-obj.closeChan:
+			return nil
+		}
+	}
 }
 
 // Close runs some shutdown code for this function and turns off the stream.

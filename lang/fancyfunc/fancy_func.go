@@ -161,7 +161,7 @@ func (obj *FuncValue) Set(fn func(interfaces.ReversibleTxn, []pgraph.Vertex) (pg
 // then returns the output node. It returns an error if something goes wrong
 // during execution, and panic's if you call this with inappropriate input
 // types, or if it returns an inappropriate output type.
-func (obj *FuncValue) Call(txn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
+func (obj *FuncValue) Call(txn *interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
 	panic("TODO [SimpleFn]: modify the graph, and double-check the comment above")
 	//// cmp input args type to obj.T
 	//length := len(obj.T.Ord)

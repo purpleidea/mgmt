@@ -7331,6 +7331,8 @@ type ExprCall struct {
 	Args []interfaces.Expr // list of args in parsed order
 	// Var specifies whether the function being called is a lambda in a var.
 	Var bool
+
+	argVertices []pgraph.Vertex // keep between calls to Graph() and Func()
 }
 
 // String returns a short representation of this expression.
@@ -8217,27 +8219,15 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, error) {
 	}
 
 	// Each func argument needs to point to the final function expression.
-	for pos, x := range obj.Args { // function arguments in order
+	for _, x := range obj.Args { // function arguments in order
 		g, err := x.Graph()
 		if err != nil {
 			return nil, err
 		}
 
 		//argName := fmt.Sprintf("%d", pos) // indexed!
-		argName := argNames[pos]
-		edge := &interfaces.FuncEdge{Args: []string{argName}}
-		// TODO: replace with:
-		//edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("arg:%s", argName)}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for func `%s`, arg `%s` was called twice", obj.Name, argName))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // arg -> func
+		graph.AddGraph(g)
+		obj.argVertices = append(obj.argVertices, x)
 	}
 
 	// This is important, because we don't want an extra, unnecessary edge!
@@ -8319,6 +8309,7 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 		// the edge name used above in Graph is this...
 		Edge: fmt.Sprintf("call:%s", obj.Name),
 		//Indexed: true, // 0, 1, 2 ... TODO: is this useful?
+		ArgVertices: obj.argVertices,
 	}, nil
 }
 

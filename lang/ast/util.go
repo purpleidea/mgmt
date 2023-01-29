@@ -196,17 +196,6 @@ func ValueToExpr(val types.Value) (interfaces.Expr, error) {
 			Fields: fields,
 		}
 
-	case *types.FuncValue:
-		panic("TODO [SimpleFn]: should ExprFunc use FuncValue or SimpleFn?")
-		//// TODO: this particular case is particularly untested!
-		//expr = &ExprFunc{
-		//	Title: "<func from ValueToExpr>", // TODO: change this?
-		//	// TODO: symmetrically, it would have used x.Func() here
-		//	Values: []*types.SimpleFn{
-		//		x, // just one!
-		//	},
-		//}
-
 	case *types.VariantValue:
 		// TODO: should this be allowed, or should we unwrap them?
 		return nil, fmt.Errorf("variant values are not supported")

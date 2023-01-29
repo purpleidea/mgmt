@@ -29,6 +29,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
@@ -6539,7 +6540,7 @@ type ExprFunc struct {
 	Values []*types.SimpleFn
 
 	// XXX: is this necessary?
-	V func([]pgraph.Vertex) (pgraph.Vertex, error)
+	V func(interfaces.ReversibleTxn, []pgraph.Vertex) (pgraph.Vertex, error)
 }
 
 // String returns a short representation of this expression.
@@ -7292,7 +7293,11 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 		return err
 	}
 	// FIXME: is this part necessary?
-	obj.V = value.Func()
+	funcValue, worked := value.(*fancyfunc.FuncValue)
+	if !worked {
+		return fmt.Errorf("expected a FuncValue")
+	}
+	obj.V = funcValue.V
 	return nil
 }
 
@@ -7302,7 +7307,7 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
 	// TODO: implement speculative value lookup (if not already sufficient)
-	return &types.FuncValue{
+	return &fancyfunc.FuncValue{
 		V: obj.V,
 		T: obj.typ,
 	}, nil

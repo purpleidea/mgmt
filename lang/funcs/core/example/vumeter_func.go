@@ -18,9 +18,11 @@
 package coreexample
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,6 +65,43 @@ func (obj *VUMeterFunc) ArgGen(index int) (string, error) {
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
 func (obj *VUMeterFunc) Validate() error {
+	check := func(binary string) error {
+		args := []string{"--help"}
+
+		prog := fmt.Sprintf("%s %s", binary, strings.Join(args, " "))
+
+		//obj.init.Logf("running: %s", prog)
+
+		p, err := filepath.EvalSymlinks(binary)
+		if err != nil {
+			return err
+		}
+		// TODO: do we need to do the ^C handling?
+		// XXX: is the ^C context cancellation propagating into this correctly?
+		cmd := exec.CommandContext(context.TODO(), p, args...)
+		cmd.Dir = ""
+		cmd.Env = []string{}
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+			Pgid:    0,
+		}
+
+		if err := cmd.Run(); err != nil {
+			if e, ok := err.(*exec.Error); ok && e.Err == exec.ErrNotFound {
+				return fmt.Errorf("is %s in your $PATH ?", binary)
+			}
+
+			return errwrap.Wrapf(err, "error running: %s", prog)
+		}
+		return nil
+	}
+
+	// if rec is a symlink, this will error without the above EvalSymlinks!
+	for _, x := range []string{"/usr/bin/rec", "/usr/bin/sox"} {
+		if err := check(x); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -121,9 +160,14 @@ func (obj *VUMeterFunc) Stream() error {
 				continue // still waiting for input values
 			}
 
+			// record for one second to a shared memory file
+			// rec /dev/shm/mgmt_rec.wav trim 0 1 2>/dev/null
+			args1 := []string{"/dev/shm/mgmt_rec.wav", "trim", "0", "1"}
+			cmd1 := exec.Command("/usr/bin/rec", args1...)
+			// XXX: arecord stopped working on newer linux...
 			// arecord -d 1 /dev/shm/mgmt_rec.wav 2>/dev/null
-			args1 := []string{"-d", "1", "/dev/shm/mgmt_rec.wav"}
-			cmd1 := exec.Command("/usr/bin/arecord", args1...)
+			//args1 := []string{"-d", "1", "/dev/shm/mgmt_rec.wav"}
+			//cmd1 := exec.Command("/usr/bin/arecord", args1...)
 			cmd1.SysProcAttr = &syscall.SysProcAttr{
 				Setpgid: true,
 				Pgid:    0,

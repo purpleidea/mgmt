@@ -29,8 +29,10 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -6496,18 +6498,66 @@ type ExprStructField struct {
 	Value interfaces.Expr
 }
 
+// In the following set of conversion functions, a "constant" Func is a node
+// with in-degree zero which always outputs the same function value, while a
+// "direct" Func is a node with one upstream node for each of the function's
+// arguments.
+
+func FuncValueToConstFunc(obj *fancyfunc.FuncValue) interfaces.Func {
+	return &ConstFunc{
+		Value: obj,
+	}
+}
+
+//func FuncValueToConstExpr(obj *fancyfunc.FuncValue) interfaces.Expr {
+//return &ExprFunc{
+//Function: func() interfaces.Func {
+//return FuncValueToConstFunc(obj)
+//},
+//}
+//}
+
+func SimpleFnToDirectFunc(obj *types.SimpleFn) interfaces.Func {
+	return &simple.WrappedFunc{
+		Fn: obj,
+	}
+}
+
+func SimpleFnToFuncValue(obj *types.SimpleFn) *fancyfunc.FuncValue {
+	return &fancyfunc.FuncValue{
+		V: func(txn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
+			wrappedFunc := SimpleFnToDirectFunc(obj)
+			txn.AddVertex(wrappedFunc)
+			for i, arg := range args {
+				txn.AddEdge(arg, wrappedFunc, &pgraph.SimpleEdge{
+					Name: fmt.Sprintf("arg%d XXX", i),
+				})
+			}
+			return wrappedFunc, nil
+		},
+		T: obj.T,
+	}
+}
+
+func SimpleFnToConstFunc(obj *types.SimpleFn) interfaces.Func {
+	return FuncValueToConstFunc(SimpleFnToFuncValue(obj))
+}
+
+//func SimpleFnToConstExpr(obj *types.SimpleFn) interfaces.Expr {
+//	return &ExprFunc{
+//		Values: []*types.SimpleFn{obj},
+//	}
+//}
+
 // ExprFunc is a representation of a function value. This is not a function
-// call, that is represented by ExprCall. This can represent either the contents
-// of a StmtFunc, a lambda function, or a core system function. You may only use
-// one of the internal representations of a function to build this, if you use
-// more than one then the behaviour is not defined, and could conceivably panic.
-// The first possibility is to specify the function via the Args, Return, and
-// Body fields. This is used for native mcl code. The second possibility is to
-// specify the function via the Function field only. This is used for built-in
-// functions that implement the Func API. The third possibility is to specify a
-// list of function values via the Values field. This is used for built-in
-// functions that implement the simple function API or the simplepoly function
-// API and that aren't wrapped in the Func API. (This was the historical case.)
+// call, that is represented by ExprCall.
+//
+// There are several kinds of functions which can be represented:
+// 1. The contents of a StmtFunc (set Args, Return, and Body)
+// 2. A lambda function (also set Args, Return, and Body)
+// 3. A stateful built-in function (set Function)
+// 4. A pure built-in function (set Values to a singleton)
+// 5. A pure polymorphic built-in function (set Values to a list)
 type ExprFunc struct {
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later

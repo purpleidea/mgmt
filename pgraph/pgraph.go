@@ -19,12 +19,16 @@
 package pgraph
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
+
+// ErrNotAcyclic specifies that a particular graph was not found to be a dag.
+var ErrNotAcyclic = errors.New("not a dag!")
 
 // Graph is the graph structure in this library. The graph abstract data type
 // (ADT) is defined as follows:
@@ -599,7 +603,7 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 		if in > 0 {
 			for n := range g.adjacency[c] {
 				if remaining[n] > 0 {
-					return nil, fmt.Errorf("not a dag")
+					return nil, ErrNotAcyclic
 				}
 			}
 		}
@@ -622,7 +626,7 @@ func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 		return nil, fmt.Errorf("empty vertex")
 	}
 	if _, err := g.TopologicalSort(); err != nil {
-		return nil, err // not a dag?
+		return nil, err // not a dag!
 	}
 
 	vertices := g.OutgoingGraphVertices(a) // what points away from a ?

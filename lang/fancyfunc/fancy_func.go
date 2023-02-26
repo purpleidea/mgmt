@@ -9,7 +9,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-// FuncValue represents a function value, for example a builtin or a lambda.
+// FuncValue represents a function value, for example a built-in or a lambda.
 //
 // In most languages, we can simply call a function with a list of arguments and
 // expect to receive a single value. In this language, however, a function might

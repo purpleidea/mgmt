@@ -7382,8 +7382,6 @@ type ExprCall struct {
 	Args []interfaces.Expr // list of args in parsed order
 	// Var specifies whether the function being called is a lambda in a var.
 	Var bool
-
-	argVertices []pgraph.Vertex // keep between calls to Graph() and Func()
 }
 
 // String returns a short representation of this expression.
@@ -8278,7 +8276,6 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, error) {
 
 		//argName := fmt.Sprintf("%d", pos) // indexed!
 		graph.AddGraph(g)
-		obj.argVertices = append(obj.argVertices, x)
 	}
 
 	// This is important, because we don't want an extra, unnecessary edge!
@@ -8360,7 +8357,7 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 		// the edge name used above in Graph is this...
 		Edge: fmt.Sprintf("call:%s", obj.Name),
 		//Indexed: true, // 0, 1, 2 ... TODO: is this useful?
-		ArgVertices: obj.argVertices,
+		ArgVertices: obj.Args,
 	}, nil
 }
 

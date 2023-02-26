@@ -7244,38 +7244,8 @@ func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not create graph")
 	}
+
 	graph.AddVertex(obj)
-
-	if obj.Body != nil {
-		g, err := obj.Body.Graph()
-		if err != nil {
-			return nil, err
-		}
-
-		// We need to add this edge, because if this isn't linked, then
-		// when we add an edge from this, then we'll get two because the
-		// contents aren't linked.
-		name := "body" // TODO: what should we name this?
-		edge := &interfaces.FuncEdge{Args: []string{name}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for func was called twice"))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // body -> func
-	}
-
-	if obj.Function != nil { // no input args are needed, func is built-in.
-		// TODO: is there anything to do ?
-	}
-	if len(obj.Values) > 0 { // no input args are needed, func is built-in.
-		// TODO: is there anything to do ?
-	}
-
 	return graph, nil
 }
 
@@ -7283,52 +7253,43 @@ func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
 // need this indirection, because our returned function that actually runs also
 // accepts the "body" of the function (an expr) as an input.
 func (obj *ExprFunc) Func() (interfaces.Func, error) {
-	typ, err := obj.Type()
-	if err != nil {
-		return nil, err
-	}
-
 	if obj.Body != nil {
-		// TODO: i think this is unused
-		//f, err := obj.Body.Func()
-		//if err != nil {
-		//	return nil, err
-		//}
+		return FuncValueToConstFunc(&fancyfunc.FuncValue{
+			V: func(txn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
+				subgraph, err := obj.Body.Graph()
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
+				}
 
-		// direct func
-		return &FunctionFunc{
-			Type: typ, // this is a KindFunc
-			//Func: f,
-			Edge: "body", // the edge name used above in Graph is this...
-		}, nil
+				// add all the vertices from the subgraph to the main graph
+				for _, v := range subgraph.Vertices() {
+					subgraph.AddVertex(v)
+				}
+
+				// add all the edges from the subgraph to the main graph
+				for v1, m := range subgraph.Adjacency() {
+					for v2, e := range m {
+						subgraph.AddEdge(v1, v2, e)
+					}
+				}
+
+				return obj.Body, nil
+			},
+			T: obj.typ,
+		}), nil
+	} else if obj.Function != nil {
+		return obj.Function(), nil
+	} else /* len(obj.Values) > 0 */ {
+		index, err := langutil.FnMatch(obj.typ, obj.Values)
+		if err != nil {
+			// programming error
+			return nil, errwrap.Wrapf(err, "since type checking succeeded at this point, there should only be one match")
+		}
+		simpleFn := obj.Values[index]
+		simpleFn.T = obj.typ
+
+		return SimpleFnToConstFunc(simpleFn), nil
 	}
-
-	if obj.Function != nil {
-		// XXX: is this correct?
-		return &FunctionFunc{
-			Type: typ,          // this is a KindFunc
-			Func: obj.function, // pass it through
-			Edge: "",           // no edge, since nothing is incoming to the built-in
-		}, nil
-	}
-
-	// third kind
-	//if len(obj.Values) > 0
-	index, err := langutil.FnMatch(typ, obj.Values)
-	if err != nil {
-		// programming error ?
-		return nil, errwrap.Wrapf(err, "no valid function found")
-	}
-	// build
-	// TODO: this could probably be done in SetType and cached in the struct
-	fn := obj.Values[index].Copy()
-	fn.T = typ.Copy() // overwrites any contained "variant" type
-
-	return &FunctionFunc{
-		Type: typ, // this is a KindFunc
-		Fn:   fn,  // pass it through
-		Edge: "",  // no edge, since nothing is incoming to the built-in
-	}, nil
 }
 
 // SetValue for a func expression is always populated statically, and does not

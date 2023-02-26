@@ -4755,20 +4755,12 @@ func (obj *ExprBool) Unify() ([]interfaces.Invariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprBool) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("bool")
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
-	}
-	graph.AddVertex(obj)
-	return graph, nil
-}
-
-// Func returns the reactive stream of values that this expression produces.
-func (obj *ExprBool) Func() (interfaces.Func, error) {
-	return &ConstFunc{
+func (obj *ExprBool) Graph(txn interfaces.ReversibleTxn, _ map[string]pgraph.Vertex) (interfaces.Func, error) {
+	out := &ConstFunc{
 		Value: &types.BoolValue{V: obj.V},
-	}, nil
+	}
+	txn.AddVertex(out)
+	return out, nil
 }
 
 // SetValue for a bool expression is always populated statically, and does not

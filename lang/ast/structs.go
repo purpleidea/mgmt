@@ -8926,12 +8926,11 @@ func (obj *ExprIf) Unify() ([]interfaces.Invariant, error) {
 // shouldn't have any ill effects.
 // XXX: is this completely true if we're running technically impure, but safe
 // built-in functions on both branches? Can we turn off half of this?
-func (obj *ExprIf) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("if")
+func (obj *ExprIf) Graph(txn interfaces.Txn, env map[string]pgraph.Vertex) (interfaces.Func, error) {
+	out, err := obj.Func()
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, errwrap.Wrapf(err, "could not create func")
 	}
-	graph.AddVertex(obj)
 
 	exprs := map[string]interfaces.Expr{
 		"c": obj.Condition,
@@ -8940,25 +8939,15 @@ func (obj *ExprIf) Graph() (*pgraph.Graph, error) {
 	}
 	for _, argName := range []string{"c", "a", "b"} { // deterministic order
 		x := exprs[argName]
-		g, err := x.Graph()
+		node, err := x.Graph(txn, env)
 		if err != nil {
-			return nil, err
+			return nil, errwrap.Wrapf(err, "could not create the graph for `%s`", argName)
 		}
 
-		edge := &interfaces.FuncEdge{Args: []string{argName}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for ifexpr edge `%s` was called twice", argName))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // branch -> if
+		txn.AddEdge(node, out, &pgraph.SimpleEdge{Name: argName})
 	}
 
-	return graph, nil
+	return out, nil
 }
 
 // Func returns a function which returns the correct branch based on the ever

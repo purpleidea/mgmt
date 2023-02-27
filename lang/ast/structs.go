@@ -7225,47 +7225,28 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 	return invariants, nil
 }
 
-// Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("func")
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
-	}
-
-	graph.AddVertex(obj)
-	return graph, nil
-}
-
-// Func returns the reactive stream of values that this expression produces. We
-// need this indirection, because our returned function that actually runs also
-// accepts the "body" of the function (an expr) as an input.
-func (obj *ExprFunc) Func() (interfaces.Func, error) {
+func (obj *ExprFunc) mkFunc(env map[string]pgraph.Vertex) (interfaces.Func, error) {
 	if obj.Body != nil {
 		return FuncValueToConstFunc(&fancyfunc.FuncValue{
-			V: func(txn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
-				subgraph, err := obj.Body.Graph()
+			V: func(innerTxn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
+				// Specify the argument vertex to which to instantiate each of
+				// the lambda's parameters, without modifying the original env.
+				extendedEnv := make(map[string]pgraph.Vertex)
+				for k, v := range env {
+					extendedEnv[k] = v
+				}
+				for i, arg := range obj.Args {
+					extendedEnv[arg.Name] = args[i]
+				}
+
+				// Create a subgraph from the lambda's body, instantiating the
+				// lambda's parameters with the args.
+				node, err := obj.Body.Graph(innerTxn, extendedEnv)
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
 				}
 
-				// add all the vertices from the subgraph to the main graph
-				for _, v := range subgraph.Vertices() {
-					subgraph.AddVertex(v)
-				}
-
-				// add all the edges from the subgraph to the main graph
-				for v1, m := range subgraph.Adjacency() {
-					for v2, e := range m {
-						subgraph.AddEdge(v1, v2, e)
-					}
-				}
-
-				return obj.Body, nil
+				return node, nil
 			},
 			T: obj.typ,
 		}), nil
@@ -7282,6 +7263,27 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 
 		return SimpleFnToConstFunc(simpleFn), nil
 	}
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This returns a graph with a single vertex in it; that vertex
+// emits a FuncValue which generates the the remainder of the graph.
+func (obj *ExprFunc) Graph(outerTxn interfaces.ReversibleTxn, env map[string]pgraph.Vertex) (interfaces.Func, error) {
+	out, err := obj.mkFunc(env)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create func")
+	}
+
+	outerTxn.AddVertex(out)
+	return out, nil
+}
+
+func (obj *ExprFunc) Func() (interfaces.Func, error) {
+	panic("can't create a Func without an environment")
 }
 
 // SetValue for a func expression is always populated statically, and does not

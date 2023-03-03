@@ -20,6 +20,7 @@ package structs
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -28,6 +29,10 @@ const (
 	// ConstFuncName is the unique name identifier for this function.
 	ConstFuncName = "const"
 )
+
+func init() {
+	funcs.ModuleRegister(ModuleName, ConstFuncName, func() interfaces.Func { return &ConstFunc{} })
+}
 
 // ConstFunc is a function that returns the constant value passed to Value.
 type ConstFunc struct {

@@ -31,6 +31,10 @@ const (
 	FunctionFuncName = "function"
 )
 
+func init() {
+	funcs.ModuleRegister(ModuleName, FunctionFuncName, func() interfaces.Func { return &FunctionFunc{} })
+}
+
 // FunctionFunc is a function that passes through the function body it receives.
 type FunctionFunc struct {
 	Type *types.Type // this is the type of the function that we hold

@@ -20,6 +20,7 @@ package structs
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -28,6 +29,10 @@ const (
 	// IfFuncName is the unique name identifier for this function.
 	IfFuncName = "if"
 )
+
+func init() {
+	funcs.ModuleRegister(ModuleName, IfFuncName, func() interfaces.Func { return &IfFunc{} })
+}
 
 // IfFunc is a function that passes through the value of the correct branch
 // based on the conditional value it gets.

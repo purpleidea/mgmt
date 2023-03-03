@@ -20,6 +20,7 @@ package structs
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -29,6 +30,10 @@ const (
 	// CallFuncName is the unique name identifier for this function.
 	CallFuncName = "call"
 )
+
+func init() {
+	funcs.ModuleRegister(ModuleName, CallFuncName, func() interfaces.Func { return &CallFunc{} })
+}
 
 // CallFunc is a function that takes in a function and all the args, and passes
 // through the results of running the function call.

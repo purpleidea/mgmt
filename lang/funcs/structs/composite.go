@@ -20,6 +20,7 @@ package structs
 import (
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -29,6 +30,10 @@ const (
 	// CompositeFuncName is the unique name identifier for this function.
 	CompositeFuncName = "composite"
 )
+
+func init() {
+	funcs.ModuleRegister(ModuleName, CompositeFuncName, func() interfaces.Func { return &CompositeFunc{} })
+}
 
 // CompositeFunc is a function that passes through the value it receives. It is
 // used to take a series of inputs to a list, map or struct, and return that

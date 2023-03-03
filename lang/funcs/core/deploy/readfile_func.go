@@ -27,8 +27,13 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// ReadFileFuncName is the name this function is registered as.
+	ReadFileFuncName = "readfile"
+)
+
 func init() {
-	funcs.ModuleRegister(ModuleName, "readfile", func() interfaces.Func { return &ReadFileFunc{} }) // must register the func and name
+	funcs.ModuleRegister(ModuleName, ReadFileFuncName, func() interfaces.Func { return &ReadFileFunc{} }) // must register the func and name
 }
 
 // ReadFileFunc is a function that reads the full contents from a file in our
@@ -44,6 +49,12 @@ type ReadFileFunc struct {
 	result   *string // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *ReadFileFunc) String() string {
+	return ReadFileFuncName
 }
 
 // SetData is used by the language to pass our function some code-level context.

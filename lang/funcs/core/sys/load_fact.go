@@ -26,17 +26,27 @@ import (
 )
 
 const (
+	// LoadFuncName is the name this fact is registered as. It's still a
+	// Func Name because this is the name space the fact is actually using.
+	LoadFuncName = "load"
+
 	loadSignature = "struct{x1 float; x5 float; x15 float}"
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, "load", func() facts.Fact { return &LoadFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, LoadFuncName, func() facts.Fact { return &LoadFact{} }) // must register the fact and name
 }
 
 // LoadFact is a fact which returns the current system load.
 type LoadFact struct {
 	init      *facts.Init
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this fact. This is needed so this struct can
+// satisfy the pgraph.Vertex interface.
+func (obj *LoadFact) String() string {
+	return LoadFuncName
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

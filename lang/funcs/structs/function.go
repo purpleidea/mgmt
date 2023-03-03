@@ -26,6 +26,11 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// FunctionFuncName is the unique name identifier for this function.
+	FunctionFuncName = "function"
+)
+
 // FunctionFunc is a function that passes through the function body it receives.
 type FunctionFunc struct {
 	Type *types.Type // this is the type of the function that we hold
@@ -38,6 +43,12 @@ type FunctionFunc struct {
 	result types.Value // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *FunctionFunc) String() string {
+	return FunctionFuncName
 }
 
 // fn returns the function that wraps the Func interface if that API is used.

@@ -79,6 +79,7 @@ type Init struct {
 // never change to avoid the overhead of the goroutine and channel listener?
 // TODO: should we move this to the interface package?
 type Fact interface {
+	String() string
 	//Validate() error // currently not needed since no facts are internal
 	Info() *Info
 	Init(*Init) error

@@ -52,6 +52,12 @@ type MapLookupPolyFunc struct {
 	closeChan chan struct{}
 }
 
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *MapLookupPolyFunc) String() string {
+	return MapLookupFuncName
+}
+
 // ArgGen returns the Nth arg name for this function.
 func (obj *MapLookupPolyFunc) ArgGen(index int) (string, error) {
 	seq := []string{argNameMap, argNameKey, argNameDef}

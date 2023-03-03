@@ -28,10 +28,15 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	// Random1FuncName is the name this function is registered as.
+	Random1FuncName = "random1"
+
+	alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
 
 func init() {
-	funcs.Register("random1", func() interfaces.Func { return &Random1Func{} })
+	funcs.Register(Random1FuncName, func() interfaces.Func { return &Random1Func{} })
 }
 
 // Random1Func returns one random string of a certain length.
@@ -50,6 +55,12 @@ type Random1Func struct {
 	finished bool // did we send the random string?
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *Random1Func) String() string {
+	return Random1FuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

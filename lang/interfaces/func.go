@@ -18,6 +18,7 @@
 package interfaces
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -57,6 +58,8 @@ type Init struct {
 // TODO: should we support a static version of this interface for funcs that
 // never change to avoid the overhead of the goroutine and channel listener?
 type Func interface {
+	fmt.Stringer // so that this can be stored as a Vertex
+
 	Validate() error // FIXME: this is only needed for PolyFunc. Get it moved and used!
 
 	// Info returns some information about the function in question, which

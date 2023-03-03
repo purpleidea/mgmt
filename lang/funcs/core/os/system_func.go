@@ -29,8 +29,13 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// SystemFuncName is the name this function is registered as.
+	SystemFuncName = "system"
+)
+
 func init() {
-	funcs.ModuleRegister(ModuleName, "system", func() interfaces.Func { return &SystemFunc{} })
+	funcs.ModuleRegister(ModuleName, SystemFuncName, func() interfaces.Func { return &SystemFunc{} })
 }
 
 // SystemFunc runs a string as a shell command, then produces each line from
@@ -45,6 +50,12 @@ type SystemFunc struct {
 
 	closeChan chan struct{}
 	cancel    context.CancelFunc
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *SystemFunc) String() string {
+	return SystemFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

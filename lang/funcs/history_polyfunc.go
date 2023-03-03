@@ -58,6 +58,12 @@ type HistoryFunc struct {
 	closeChan chan struct{}
 }
 
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *HistoryFunc) String() string {
+	return HistoryFuncName
+}
+
 // ArgGen returns the Nth arg name for this function.
 func (obj *HistoryFunc) ArgGen(index int) (string, error) {
 	seq := []string{"value", "index"}

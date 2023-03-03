@@ -24,14 +24,26 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// NowFuncName is the name this fact is registered as. It's still a Func
+	// Name because this is the name space the fact is actually using.
+	NowFuncName = "now"
+)
+
 func init() {
-	facts.ModuleRegister(ModuleName, "now", func() facts.Fact { return &DateTimeFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, NowFuncName, func() facts.Fact { return &DateTimeFact{} }) // must register the fact and name
 }
 
 // DateTimeFact is a fact which returns the current date and time.
 type DateTimeFact struct {
 	init      *facts.Init
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this fact. This is needed so this struct can
+// satisfy the pgraph.Vertex interface.
+func (obj *DateTimeFact) String() string {
+	return NowFuncName
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

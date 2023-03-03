@@ -35,8 +35,13 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// VUMeterFuncName is the name this function is registered as.
+	VUMeterFuncName = "vumeter"
+)
+
 func init() {
-	funcs.ModuleRegister(ModuleName, "vumeter", func() interfaces.Func { return &VUMeterFunc{} }) // must register the func and name
+	funcs.ModuleRegister(ModuleName, VUMeterFuncName, func() interfaces.Func { return &VUMeterFunc{} }) // must register the func and name
 }
 
 // VUMeterFunc is a gimmic function to display a vu meter from the microphone.
@@ -51,6 +56,12 @@ type VUMeterFunc struct {
 	result *string // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *VUMeterFunc) String() string {
+	return VUMeterFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

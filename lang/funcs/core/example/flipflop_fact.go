@@ -24,8 +24,14 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// FlipFlopFuncName is the name this fact is registered as. It's still a
+	// Func Name because this is the name space the fact is actually using.
+	FlipFlopFuncName = "flipflop"
+)
+
 func init() {
-	facts.ModuleRegister(ModuleName, "flipflop", func() facts.Fact { return &FlipFlopFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, FlipFlopFuncName, func() facts.Fact { return &FlipFlopFact{} }) // must register the fact and name
 }
 
 // FlipFlopFact is a fact which flips a bool repeatedly. This is an example fact
@@ -35,6 +41,12 @@ type FlipFlopFact struct {
 	init      *facts.Init
 	value     bool
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this fact. This is needed so this struct can
+// satisfy the pgraph.Vertex interface.
+func (obj *FlipFlopFact) String() string {
+	return FlipFlopFuncName
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

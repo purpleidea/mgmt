@@ -27,8 +27,13 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// KVLookupFuncName is the name this function is registered as.
+	KVLookupFuncName = "kvlookup"
+)
+
 func init() {
-	funcs.ModuleRegister(ModuleName, "kvlookup", func() interfaces.Func { return &KVLookupFunc{} })
+	funcs.ModuleRegister(ModuleName, KVLookupFuncName, func() interfaces.Func { return &KVLookupFunc{} })
 }
 
 // KVLookupFunc is special function which returns all the values of a given key
@@ -44,6 +49,12 @@ type KVLookupFunc struct {
 
 	watchChan chan error
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *KVLookupFunc) String() string {
+	return KVLookupFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

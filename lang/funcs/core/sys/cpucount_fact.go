@@ -35,19 +35,29 @@ import (
 )
 
 const (
+	// CPUCountFuncName is the name this fact is registered as. It's still a
+	// Func Name because this is the name space the fact is actually using.
+	CPUCountFuncName = "cpu_count"
+
 	rtmGrps         = 0x1 // make me a multicast receiver
 	socketFile      = "pipe.sock"
 	cpuDevpathRegex = "/devices/system/cpu/cpu[0-9]"
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, "cpu_count", func() facts.Fact { return &CPUCountFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, CPUCountFuncName, func() facts.Fact { return &CPUCountFact{} }) // must register the fact and name
 }
 
 // CPUCountFact is a fact that returns the current CPU count.
 type CPUCountFact struct {
 	init      *facts.Init
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this fact. This is needed so this struct can
+// satisfy the pgraph.Vertex interface.
+func (obj *CPUCountFact) String() string {
+	return CPUCountFuncName
 }
 
 // Info returns static typing info about what the fact returns.

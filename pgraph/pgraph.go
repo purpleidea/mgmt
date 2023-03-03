@@ -28,7 +28,7 @@ import (
 )
 
 // ErrNotAcyclic specifies that a particular graph was not found to be a dag.
-var ErrNotAcyclic = errors.New("not a dag!")
+var ErrNotAcyclic = errors.New("not a dag")
 
 // Graph is the graph structure in this library. The graph abstract data type
 // (ADT) is defined as follows:
@@ -626,7 +626,7 @@ func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 		return nil, fmt.Errorf("empty vertex")
 	}
 	if _, err := g.TopologicalSort(); err != nil {
-		return nil, err // not a dag!
+		return nil, err // not a dag
 	}
 
 	vertices := g.OutgoingGraphVertices(a) // what points away from a ?

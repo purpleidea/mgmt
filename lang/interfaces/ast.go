@@ -126,6 +126,9 @@ type Expr interface {
 	// Func returns a function that represents this reactively.
 	Func() (Func, error)
 
+	// MergedGraph returns the graph and func together in one call.
+	MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, Func, error)
+
 	// SetValue stores the result of the last computation of this expression
 	// node.
 	SetValue(types.Value) error

@@ -75,6 +75,9 @@ type Stmt interface {
 	// Graph returns the reactive function graph expressed by this node.
 	Graph() (*pgraph.Graph, error)
 
+	// MergedGraph returns the graph and func together in one call.
+	MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error)
+
 	// Output returns the output that this "program" produces. This output
 	// is what is used to build the output graph.
 	Output() (*Output, error)

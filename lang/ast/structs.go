@@ -259,6 +259,11 @@ func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
 	return pgraph.NewGraph("stmtbind") // empty graph!
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtBind) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
+}
+
 // Output for the bind statement produces no output. Any values of interest come
 // from the use of the var which this binds the expression to.
 func (obj *StmtBind) Output() (*interfaces.Output, error) {
@@ -600,6 +605,64 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 
 	for _, x := range obj.Contents {
 		g, err := x.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtRes) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	metaNames := make(map[string]struct{})
+	for _, x := range obj.Contents {
+		line, ok := x.(*StmtResMeta)
+		if !ok {
+			continue
+		}
+
+		properties := []string{line.Property} // "noop" or "Meta" or...
+		if line.Property == MetaField {
+			// If this is the generic MetaField struct field, then
+			// we lookup the type signature to see which fields are
+			// defined. You're allowed to have more than one Meta
+			// field, but they can't contain the same field twice.
+
+			typ, err := line.MetaExpr.Type() // must be known now
+			if err != nil {
+				// programming error in type unification
+				return nil, errwrap.Wrapf(err, "unknown resource meta type")
+			}
+			if t := typ.Kind; t != types.KindStruct {
+				return nil, fmt.Errorf("unexpected resource meta kind of: %s", t)
+			}
+			properties = typ.Ord // list of field names in this struct
+		}
+
+		for _, property := range properties {
+			// Was the meta entry already seen in this resource?
+			if _, exists := metaNames[property]; exists {
+				return nil, fmt.Errorf("resource has duplicate meta entry of: %s", property)
+			}
+			metaNames[property] = struct{}{}
+		}
+	}
+
+	graph, err := pgraph.NewGraph("res")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.Name.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	for _, x := range obj.Contents {
+		g, err := x.MergedGraph(txn, env)
 		if err != nil {
 			return nil, err
 		}
@@ -1058,6 +1121,7 @@ type StmtResContents interface {
 	SetScope(*interfaces.Scope) error
 	Unify(kind string) ([]interfaces.Invariant, error) // different!
 	Graph() (*pgraph.Graph, error)
+	MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error)
 }
 
 // StmtResField represents a single field in the parsed resource representation.
@@ -1311,6 +1375,30 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtResField) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resfield")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.Value.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, _, err := obj.Condition.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // StmtResEdge represents a single edge property in the parsed resource
 // representation. This does not satisfy the Stmt interface.
 type StmtResEdge struct {
@@ -1535,6 +1623,30 @@ func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
 
 	if obj.Condition != nil {
 		g, err := obj.Condition.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtResEdge) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resedge")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.EdgeHalf.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, _, err := obj.Condition.MergedGraph(txn, env)
 		if err != nil {
 			return nil, err
 		}
@@ -1879,6 +1991,30 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtResMeta) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resmeta")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.MetaExpr.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, _, err := obj.Condition.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // StmtEdge is a representation of a dependency. It also supports send/recv.
 // Edges represents that the first resource (Kind/Name) listed in the
 // EdgeHalfList should happen in the resource graph *before* the next resource
@@ -2129,6 +2265,24 @@ func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtEdge) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("edge")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	for _, x := range obj.EdgeHalfList {
+		g, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // Output returns the output that this "program" produces. This output is what
 // is used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -2348,6 +2502,15 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 // know they're able to be built.
 func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
 	return obj.Name.Graph()
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtEdgeHalf) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	g, _, err := obj.Name.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 // StmtIf represents an if condition that contains between one and two branches
@@ -2660,6 +2823,33 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 			continue
 		}
 		g, err := x.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtIf) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("if")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.Condition.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	for _, x := range []interfaces.Stmt{obj.ThenBranch, obj.ElseBranch} {
+		if x == nil {
+			continue
+		}
+		g, err := x.MergedGraph(txn, env)
 		if err != nil {
 			return nil, err
 		}
@@ -3748,6 +3938,47 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtProg) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("prog")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	// collect all graphs that need to be included
+	for _, x := range obj.Body {
+		// skip over *StmtClass here
+		if _, ok := x.(*StmtClass); ok {
+			continue
+		}
+		// skip over StmtFunc, even though it doesn't produce anything!
+		if _, ok := x.(*StmtFunc); ok {
+			continue
+		}
+		// skip over StmtBind, even though it doesn't produce anything!
+		if _, ok := x.(*StmtBind); ok {
+			continue
+		}
+
+		g, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	// add graphs from SetScope's imported child programs
+	for _, x := range obj.importProgs {
+		g, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // Output returns the output that this "program" produces. This output is what
 // is used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -3966,6 +4197,11 @@ func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
+}
+
 // Output for the func statement produces no output. Any values of interest come
 // from the use of the func which this binds the function to.
 func (obj *StmtFunc) Output() (*interfaces.Output, error) {
@@ -4134,6 +4370,11 @@ func (obj *StmtClass) Unify() ([]interfaces.Invariant, error) {
 // the graph.
 func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
 	return obj.Body.Graph()
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtClass) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Body.MergedGraph(txn, env)
 }
 
 // Output for the class statement produces no output. Any values of interest
@@ -4479,6 +4720,22 @@ func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtInclude) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("include")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.class.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	return graph, nil
+}
+
 // Output returns the output that this include produces. This output is what is
 // used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -4570,6 +4827,11 @@ func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
 	return graph, errwrap.Wrapf(err, "could not create graph")
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtImport) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
+}
+
 // Output returns the output that this include produces. This output is what is
 // used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -4658,6 +4920,11 @@ func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
 		return nil, errwrap.Wrapf(err, "could not create graph")
 	}
 	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtComment) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
 }
 
 // Output for the comment statement produces no output.

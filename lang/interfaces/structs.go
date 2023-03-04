@@ -145,7 +145,7 @@ func (obj *ExprAny) Func() (Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprAny) Graph() (*pgraph.Graph, Func, error) {
+func (obj *ExprAny) Graph(env map[string]Func) (*pgraph.Graph, Func, error) {
 	graph, err := pgraph.NewGraph("any")
 	if err != nil {
 		return nil, nil, err
@@ -155,7 +155,6 @@ func (obj *ExprAny) Graph() (*pgraph.Graph, Func, error) {
 		return nil, nil, err
 	}
 	graph.AddVertex(function)
-
 	return graph, function, nil
 }
 

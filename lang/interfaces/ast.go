@@ -72,8 +72,9 @@ type Stmt interface {
 	// returns the collection to the caller.
 	Unify() ([]Invariant, error)
 
-	// Graph returns the reactive function graph expressed by this node.
-	Graph() (*pgraph.Graph, error)
+	// Graph returns the reactive function graph expressed by this node. It
+	// takes in the environment of any functions in scope.
+	Graph(map[string]Func) (*pgraph.Graph, error)
 
 	// Output returns the output that this "program" produces. This output
 	// is what is used to build the output graph. It requires the input
@@ -121,9 +122,13 @@ type Expr interface {
 	// returns the collection to the caller.
 	Unify() ([]Invariant, error)
 
+	// Func returns a function that represents this reactively.
+	Func() (Func, error)
+
 	// Graph returns the reactive function graph expressed by this node. It
-	// also returns the function for this node.
-	Graph() (*pgraph.Graph, Func, error)
+	// takes in the environment of any functions in scope. It also returns
+	// the function for this node.
+	Graph(env map[string]Func) (*pgraph.Graph, Func, error)
 
 	// SetValue stores the result of the last computation of this expression
 	// node.

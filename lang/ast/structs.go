@@ -260,12 +260,12 @@ func (obj *StmtBind) Unify() ([]interfaces.Invariant, error) {
 // children might. This particular bind statement adds its linked expression to
 // the graph. It is not logically done in the ExprVar since that could exist
 // multiple times for the single binding operation done here.
-func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
+func (obj *StmtBind) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
 	// It seems that adding this to the graph will end up including an
 	// expression in the case of an ExprFunc lambda, since we copy it and
 	// build a new ExprFunc when it's used by ExprCall.
-	//return obj.Value.Graph() // nope!
-	return pgraph.NewGraph("stmtbind") // empty graph!
+	//return obj.Value.Graph(env) // nope!
+	return pgraph.NewGraph("stmtbind") // empty graph
 }
 
 // Output for the bind statement produces no output. Any values of interest come
@@ -562,7 +562,7 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 // Since I don't think it's worth extending the Stmt API for this, we can do the
 // checks here at the beginning, and error out if something was invalid. In this
 // particular case, the issue is one of catching duplicate meta fields.
-func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
+func (obj *StmtRes) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	metaNames := make(map[string]struct{})
 	for _, x := range obj.Contents {
 		line, ok := x.(*StmtResMeta)
@@ -602,7 +602,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.Name.Graph()
+	g, _, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -610,7 +610,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 	obj.namePtr = f
 
 	for _, x := range obj.Contents {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1101,7 +1101,7 @@ type StmtResContents interface {
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
 	Unify(kind string) ([]interfaces.Invariant, error) // different!
-	Graph() (*pgraph.Graph, error)
+	Graph(map[string]interfaces.Func) (*pgraph.Graph, error)
 }
 
 // StmtResField represents a single field in the parsed resource representation.
@@ -1334,13 +1334,13 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResField) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resfield")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.Value.Graph()
+	g, _, err := obj.Value.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1348,7 +1348,7 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	obj.valuePtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph()
+		g, _, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1570,20 +1570,20 @@ func (obj *StmtResEdge) Unify(kind string) ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResEdge) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resedge")
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := obj.EdgeHalf.Graph()
+	g, err := obj.EdgeHalf.Graph(env)
 	if err != nil {
 		return nil, err
 	}
 	graph.AddGraph(g)
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph()
+		g, _, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1916,13 +1916,13 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResMeta) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resmeta")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.MetaExpr.Graph()
+	g, _, err := obj.MetaExpr.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1930,7 +1930,7 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	obj.metaExprPtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph()
+		g, _, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2175,14 +2175,14 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 // to the edges created, but rather, once all the values (expressions) with no
 // outgoing function graph edges have produced at least a single value, then the
 // edges know they're able to be built.
-func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtEdge) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("edge")
 	if err != nil {
 		return nil, err
 	}
 
 	for _, x := range obj.EdgeHalfList {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2417,12 +2417,11 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
-	g, f, err := obj.Name.Graph()
+func (obj *StmtEdgeHalf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	g, _, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
-	obj.namePtr = f
 	return g, nil
 }
 
@@ -2720,13 +2719,13 @@ func (obj *StmtIf) Unify() ([]interfaces.Invariant, error) {
 // shouldn't have any ill effects.
 // XXX: is this completely true if we're running technically impure, but safe
 // built-in functions on both branches? Can we turn off half of this?
-func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
+func (obj *StmtIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.Condition.Graph()
+	g, _, err := obj.Condition.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2737,7 +2736,7 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 		if x == nil {
 			continue
 		}
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -3790,7 +3789,7 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
+func (obj *StmtProg) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("prog")
 	if err != nil {
 		return nil, err
@@ -3811,7 +3810,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 			continue
 		}
 
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -3820,7 +3819,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 
 	// add graphs from SetScope's imported child programs
 	for _, x := range obj.importProgs {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -4043,8 +4042,8 @@ func (obj *StmtFunc) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
-	//return obj.Func.Graph() // nope!
+func (obj *StmtFunc) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
+	//return obj.Func.Graph(env) // nope!
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
 
@@ -4214,8 +4213,8 @@ func (obj *StmtClass) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
-	return obj.Body.Graph()
+func (obj *StmtClass) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	return obj.Body.Graph(env)
 }
 
 // Output for the class statement produces no output. Any values of interest
@@ -4546,13 +4545,14 @@ func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
+func (obj *StmtInclude) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("include")
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := obj.class.Graph()
+	// XXX: add the included vars to the env
+	g, err := obj.class.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -4647,7 +4647,7 @@ func (obj *StmtImport) Unify() ([]interfaces.Invariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular statement just returns an empty graph.
-func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
+func (obj *StmtImport) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
 	return pgraph.NewGraph("import") // empty graph
 }
 
@@ -4733,7 +4733,7 @@ func (obj *StmtComment) Unify() ([]interfaces.Invariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular graph does nothing clever.
-func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
+func (obj *StmtComment) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("comment")
 	if err != nil {
 		return nil, err
@@ -4842,7 +4842,7 @@ func (obj *ExprBool) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprBool) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprBool) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("bool")
 	if err != nil {
 		return nil, nil, err
@@ -5022,7 +5022,7 @@ func (obj *ExprStr) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprStr) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprStr) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("str")
 	if err != nil {
 		return nil, nil, err
@@ -5152,7 +5152,7 @@ func (obj *ExprInt) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprInt) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprInt) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("int")
 	if err != nil {
 		return nil, nil, err
@@ -5284,7 +5284,7 @@ func (obj *ExprFloat) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprFloat) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprFloat) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("float")
 	if err != nil {
 		return nil, nil, err
@@ -5595,6 +5595,48 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 		Type: typ,
 		Len:  len(obj.Elements),
 	}, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This returns a graph with a single vertex (itself) in it, and
+// the edges from all of the child graphs to this.
+func (obj *ExprList) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("list")
+	if err != nil {
+		return nil, nil, err
+	}
+	function, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(function)
+
+	// each list element needs to point to the final list expression
+	for index, x := range obj.Elements { // list elements in order
+		g, _, err := x.Graph(env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		fieldName := fmt.Sprintf("%d", index) // argNames as integers!
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for list, index `%d` was called twice", index))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // element -> list
+	}
+
+	return graph, function, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -6076,6 +6118,68 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
+func (obj *ExprMap) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("map")
+	if err != nil {
+		return nil, nil, err
+	}
+	function, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(function)
+
+	// each map key value pair needs to point to the final map expression
+	for index, x := range obj.KVs { // map fields in order
+		g, _, err := x.Key.Graph(env)
+		if err != nil {
+			return nil, nil, err
+		}
+		// do the key names ever change? -- yes
+		fieldName := fmt.Sprintf("key:%d", index) // stringify map key
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for map, key `%s` was called twice", fieldName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // key -> func
+	}
+
+	// each map key value pair needs to point to the final map expression
+	for index, x := range obj.KVs { // map fields in order
+		g, _, err := x.Val.Graph(env)
+		if err != nil {
+			return nil, nil, err
+		}
+		fieldName := fmt.Sprintf("val:%d", index) // stringify map val
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for map, val `%s` was called twice", fieldName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // val -> func
+	}
+
+	return graph, function, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This returns a graph with a single vertex (itself) in it, and
+// the edges from all of the child graphs to this.
 func (obj *ExprMap) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("map")
 	if err != nil {
@@ -6468,6 +6572,48 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 	return &structs.CompositeFunc{
 		Type: typ,
 	}, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This returns a graph with a single vertex (itself) in it, and
+// the edges from all of the child graphs to this.
+func (obj *ExprStruct) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("struct")
+	if err != nil {
+		return nil, nil, err
+	}
+	function, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(function)
+
+	// each struct field needs to point to the final struct expression
+	for _, x := range obj.Fields { // struct fields in order
+		g, _, err := x.Value.Graph(env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		fieldName := x.Name
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for struct, arg `%s` was called twice", fieldName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // arg -> func
+	}
+
+	return graph, function, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -7326,7 +7472,8 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprFunc) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	//panic("i suspect ExprFunc->Graph might need to be different somehow") // XXX !!!
 	graph, err := pgraph.NewGraph("func")
 	if err != nil {
 		return nil, nil, err
@@ -7338,18 +7485,26 @@ func (obj *ExprFunc) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	graph.AddVertex(function)
 
 	if obj.Body != nil {
-		g, f, err := obj.Body.Graph()
+		g, _, err := obj.Body.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
-		graph.AddGraph(g)
 
 		// We need to add this edge, because if this isn't linked, then
 		// when we add an edge from this, then we'll get two because the
 		// contents aren't linked.
-		fieldName := "body" // TODO: what should we name this?
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // body -> func
+		name := "body" // TODO: what should we name this?
+		edge := &interfaces.FuncEdge{Args: []string{name}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for func was called twice"))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // body -> func
 	}
 
 	if obj.Function != nil { // no input args are needed, func is built-in.
@@ -8289,7 +8444,8 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprCall) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	//panic("i suspect ExprCall->Graph might need to be different somehow") // XXX !!!
 	if obj.expr == nil {
 		// possible programming error
 		return nil, nil, fmt.Errorf("call doesn't contain an expr pointer yet")
@@ -8347,19 +8503,26 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, interfaces.Func, error) {
 
 	// Each func argument needs to point to the final function expression.
 	for pos, x := range obj.Args { // function arguments in order
-		g, f, err := x.Graph()
+		g, _, err := x.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
-		graph.AddGraph(g)
 
-		//fieldName := fmt.Sprintf("%d", pos) // indexed!
-		fieldName := argNames[pos]
+		//argName := fmt.Sprintf("%d", pos) // indexed!
+		argName := argNames[pos]
+		edge := &interfaces.FuncEdge{Args: []string{argName}}
 		// TODO: replace with:
-		//fieldName := fmt.Sprintf("arg:%s", fieldName)
+		//edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("arg:%s", argName)}}
 
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // arg -> call
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for func `%s`, arg `%s` was called twice", obj.Name, argName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // arg -> func
 	}
 
 	// This is important, because we don't want an extra, unnecessary edge!
@@ -8372,17 +8535,28 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	// Note: This can cause a panic if you get two NOT-connected vertices,
 	// in the source graph, because it tries to add two edges! Solution: add
 	// the missing edge between those in the source... Happy bug killing =D
+	// XXX
+	// XXX: this is probably incorrect! Graph has functions now
+	// XXX
 	//graph.AddVertex(obj.expr) // duplicate additions are ignored and are harmless
 
-	g, f, err := obj.expr.Graph()
+	g, f, err := obj.expr.Graph(env)
 	if err != nil {
 		return nil, nil, err
 	}
-	graph.AddGraph(g)
+	graph.AddVertex(f) // duplicate additions are ignored and are harmless
 
-	fieldName := fmt.Sprintf("call:%s", obj.Name)
-	edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-	graph.AddEdge(f, function, edge) // expr -> call
+	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("call:%s", obj.Name)}}
+
+	var once bool
+	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+		if once {
+			panic(fmt.Sprintf("edgeGenFn for call `%s` was called twice", obj.Name))
+		}
+		once = true
+		return edge
+	}
+	graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // expr -> call
 
 	return graph, function, nil
 }
@@ -8620,7 +8794,7 @@ func (obj *ExprVar) Func() (interfaces.Func, error) {
 // important for filling the logical requirements of the graph type checker, and
 // to avoid duplicating production of the incoming input value from the bound
 // expression.
-func (obj *ExprVar) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprVar) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("var")
 	if err != nil {
 		return nil, nil, err
@@ -8639,18 +8813,29 @@ func (obj *ExprVar) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	}
 
 	// should already exist in graph (i think)...
+	// XXX
+	// XXX: this is probably incorrect! Graph has functions now
+	// XXX
 	//graph.AddVertex(expr) // duplicate additions are ignored and are harmless
 
 	// the expr needs to point to the var lookup expression
-	g, f, err := expr.Graph()
+	g, f, err := expr.Graph(env)
 	if err != nil {
 		return nil, nil, err
 	}
-	graph.AddGraph(g)
+	graph.AddVertex(f) // duplicate additions are ignored and are harmless
 
-	fieldName := fmt.Sprintf("var:%s", obj.Name)
-	edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-	graph.AddEdge(f, function, edge) // expr -> var
+	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("var:%s", obj.Name)}}
+
+	var once bool
+	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+		if once {
+			panic(fmt.Sprintf("edgeGenFn for var `%s` was called twice", obj.Name))
+		}
+		once = true
+		return edge
+	}
+	graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // expr -> var
 
 	return graph, function, nil
 }
@@ -8997,6 +9182,55 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 	return &structs.IfFunc{
 		Type: typ, // this is the output type of the expression
 	}, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular if expression doesn't do anything clever here
+// other than adding in both branches of the graph. Since we're functional, this
+// shouldn't have any ill effects.
+// XXX: is this completely true if we're running technically impure, but safe
+// built-in functions on both branches? Can we turn off half of this?
+func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("if")
+	if err != nil {
+		return nil, nil, err
+	}
+	function, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(function)
+
+	exprs := map[string]interfaces.Expr{
+		"c": obj.Condition,
+		"a": obj.ThenBranch,
+		"b": obj.ElseBranch,
+	}
+	for _, argName := range []string{"c", "a", "b"} { // deterministic order
+		x := exprs[argName]
+		g, _, err := x.Graph(env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		edge := &interfaces.FuncEdge{Args: []string{argName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for ifexpr edge `%s` was called twice", argName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // branch -> if
+	}
+
+	return graph, function, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

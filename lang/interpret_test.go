@@ -509,7 +509,7 @@ func TestAstFunc0(t *testing.T) {
 			}
 
 			// build the function graph
-			graph, err := iast.Graph()
+			graph, err := iast.MergedGraph(struct{}{}, nil)
 
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
@@ -929,7 +929,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			// build the function graph
-			graph, err := iast.Graph()
+			graph, err := iast.MergedGraph(struct{}{}, nil)
 
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
@@ -1449,7 +1449,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 
 			// build the function graph
-			graph, err := iast.Graph()
+			graph, err := iast.MergedGraph(struct{}{}, nil)
 
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)

@@ -7725,66 +7725,74 @@ func (obj *ExprFunc) mkFunc(env map[string]pgraph.Vertex) (interfaces.Func, erro
 // vertices that are produced by its children. Nodes which fulfill the Expr
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This returns a graph with a single vertex in it; that vertex
-// emits a FuncValue which generates the the remainder of the graph.
-func (obj *ExprFunc) Graph(outerTxn interfaces.ReversibleTxn, env map[string]pgraph.Vertex) (interfaces.Func, error) {
-	out, err := obj.mkFunc(env)
+// children might. This returns a graph with a single vertex (itself) in it.
+func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("func")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create func")
+		return nil, errwrap.Wrapf(err, "could not create graph")
 	}
 
-	outerTxn.AddVertex(out)
-	return out, nil
+	graph.AddVertex(obj)
+	return graph, nil
 }
 
+// Func returns the reactive stream of values that this expression produces. We
+// need this indirection, because our returned function that actually runs also
+// accepts the "body" of the function (an expr) as an input.
 func (obj *ExprFunc) Func() (interfaces.Func, error) {
-	panic("can't create a Func without an environment")
+	if obj.Body != nil {
+		return FuncValueToConstFunc(&fancyfunc.FuncValue{
+			V: func(txn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
+				subgraph, err := obj.Body.Graph()
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
+				}
+
+				// add all the vertices from the subgraph to the main graph
+				for _, v := range subgraph.Vertices() {
+					subgraph.AddVertex(v)
+				}
+
+				// add all the edges from the subgraph to the main graph
+				for v1, m := range subgraph.Adjacency() {
+					for v2, e := range m {
+						subgraph.AddEdge(v1, v2, e)
+					}
+				}
+
+				return obj.Body, nil
+			},
+			T: obj.typ,
+		}), nil
+	} else if obj.Function != nil {
+		return obj.Function(), nil
+	} else /* len(obj.Values) > 0 */ {
+		index, err := langutil.FnMatch(obj.typ, obj.Values)
+		if err != nil {
+			// programming error
+			return nil, errwrap.Wrapf(err, "since type checking succeeded at this point, there should only be one match")
+		}
+		simpleFn := obj.Values[index]
+		simpleFn.T = obj.typ
+
+		return SimpleFnToConstFunc(simpleFn), nil
+	}
 }
 
 // MergedGraph returns the graph and func together in one call.
-func (obj *ExprFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
-	panic("i suspect ExprFunc->MergedGraph might need to be different somehow") // XXX !!!
-	graph, err := pgraph.NewGraph("func")
-	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
-	}
-	graph.AddVertex(obj)
-
-	if obj.Body != nil {
-		g, _, err := obj.Body.MergedGraph(txn, env)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// We need to add this edge, because if this isn't linked, then
-		// when we add an edge from this, then we'll get two because the
-		// contents aren't linked.
-		name := "body" // TODO: what should we name this?
-		edge := &interfaces.FuncEdge{Args: []string{name}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for func was called twice"))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // body -> func
-	}
-
-	if obj.Function != nil { // no input args are needed, func is built-in.
-		// TODO: is there anything to do ?
-	}
-	if len(obj.Values) > 0 { // no input args are needed, func is built-in.
-		// TODO: is there anything to do ?
-	}
-
-	f, err := obj.Func()
+func (obj *ExprFunc) MergedGraph(outerTxn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	g, err := obj.Graph()
 	if err != nil {
 		return nil, nil, err
 	}
-	return graph, f, nil
+
+	out, err := obj.mkFunc(env)
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create func")
+	}
+
+	outerTxn.AddVertex(out)
+	return g, out, nil
 }
 
 // SetValue for a func expression is always populated statically, and does not

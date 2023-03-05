@@ -45,7 +45,7 @@ type CallFunc struct {
 	// Indexed specifies that args are accessed by index instead of name.
 	// This is currently unused.
 	Indexed     bool
-	ArgVertices []pgraph.Vertex
+	ArgVertices []interfaces.Func
 
 	init          *interfaces.Init
 	reversibleTxn *interfaces.ReversibleTxn

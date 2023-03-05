@@ -8682,155 +8682,17 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
 func (obj *ExprCall) Graph() (*pgraph.Graph, error) {
-	if obj.expr == nil {
-		// possible programming error
-		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")
-	}
-
-	graph, err := pgraph.NewGraph("call")
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
-	}
-	graph.AddVertex(obj)
-
-	// argnames!
-	argNames := []string{}
-
-	typ, err := obj.expr.Type()
-	if err != nil {
-		return nil, err
-	}
-	// TODO: can we use this method for all of the kinds of obj.expr?
-	// TODO: probably, but i've left in the expanded versions for now
-	argNames = typ.Ord
-	var inconsistentEdgeNames = false // probably better off with this off!
-
-	// function specific code follows...
-	fn, isFn := obj.expr.(*ExprFunc)
-	if isFn && inconsistentEdgeNames {
-		if fn.Body != nil {
-			// add arg names that are seen in the ExprFunc struct!
-			a := []string{}
-			for _, x := range fn.Args {
-				a = append(a, x.Name)
-			}
-			argNames = a
-		}
-		if fn.Function != nil {
-			argNames = fn.function.Info().Sig.Ord
-		}
-		if len(fn.Values) > 0 {
-			// add the expected arg names from the selected function
-			typ, err := fn.Type()
-			if err != nil {
-				return nil, err
-			}
-			argNames = typ.Ord
-		}
-	}
-
-	if len(argNames) != len(obj.Args) { // extra safety...
-		return nil, fmt.Errorf("func `%s` expected %d args, got %d", obj.Name, len(argNames), len(obj.Args))
-	}
-
-	// Each func argument needs to point to the final function expression.
-	for _, x := range obj.Args { // function arguments in order
-		g, err := x.Graph()
-		if err != nil {
-			return nil, err
-		}
-
-		//argName := fmt.Sprintf("%d", pos) // indexed!
-		graph.AddGraph(g)
-	}
-
-	// This is important, because we don't want an extra, unnecessary edge!
-	if isFn && (fn.Function != nil || len(fn.Values) > 0) {
-		return graph, nil // built-in's don't need a vertex or an edge!
-	}
-
-	// Add the graph of the expression which must proceed the call... This
-	// might already exist in graph (i think)...
-	// Note: This can cause a panic if you get two NOT-connected vertices,
-	// in the source graph, because it tries to add two edges! Solution: add
-	// the missing edge between those in the source... Happy bug killing =D
-	graph.AddVertex(obj.expr) // duplicate additions are ignored and are harmless
-
-	g, err := obj.expr.Graph()
-	if err != nil {
-		return nil, err
-	}
-
-	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("call:%s", obj.Name)}}
-
-	var once bool
-	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-		if once {
-			panic(fmt.Sprintf("edgeGenFn for call `%s` was called twice", obj.Name))
-		}
-		once = true
-		return edge
-	}
-	graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // expr -> call
-
-	return graph, nil
+	panic("Please use ExprCall.MergedGraph() instead")
 }
 
 // Func returns the reactive stream of values that this expression produces.
 // Reminder that this looks very similar to ExprVar...
 func (obj *ExprCall) Func() (interfaces.Func, error) {
-	if obj.expr == nil {
-		// possible programming error
-		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")
-	}
-
-	typ, err := obj.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	ftyp, err := obj.expr.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	// function specific code follows...
-	fn, isFn := obj.expr.(*ExprFunc)
-	if isFn && fn.Function != nil {
-		// NOTE: This has to be a unique pointer each time, which is why
-		// the ExprFunc builds a special unique copy into .function that
-		// is used here. If it was shared across the function graph, the
-		// function engine would error, because it would be operating on
-		// the same struct that is being touched from multiple places...
-		return fn.function, nil
-		//return obj.fn.Func() // this is incorrect. see ExprVar comment
-	}
-
-	// XXX: receive the ExprFunc properly, and use it in CallFunc...
-	//if isFn && len(fn.Values) > 0 {
-	//	return &CallFunc{
-	//		Type:     typ, // this is the type of what the func returns
-	//		FuncType: ftyp,
-	//		Edge: "???",
-	//		Fn: ???,
-	//	}, nil
-	//}
-
-	// direct func
-	return &CallFunc{
-		Type:     typ, // this is the type of what the func returns
-		FuncType: ftyp,
-		// the edge name used above in Graph is this...
-		Edge: fmt.Sprintf("call:%s", obj.Name),
-		//Indexed: true, // 0, 1, 2 ... TODO: is this useful?
-		ArgVertices: obj.Args,
-	}, nil
+	panic("Please use ExprCall.MergedGraph() instead")
 }
 
 // MergedGraph returns the graph and func together in one call.
 func (obj *ExprCall) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
-	panic("i suspect ExprCall->MergedGraph might need to be different somehow") // XXX !!!
-
 	if obj.expr == nil {
 		// possible programming error
 		return nil, nil, fmt.Errorf("call doesn't contain an expr pointer yet")
@@ -8840,106 +8702,62 @@ func (obj *ExprCall) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) 
 	if err != nil {
 		return nil, nil, errwrap.Wrapf(err, "could not create graph")
 	}
-	graph.AddVertex(obj)
 
-	// argnames!
-	argNames := []string{}
-
-	typ, err := obj.expr.Type()
-	if err != nil {
-		return nil, nil, err
-	}
-	// TODO: can we use this method for all of the kinds of obj.expr?
-	// TODO: probably, but i've left in the expanded versions for now
-	argNames = typ.Ord
-	var inconsistentEdgeNames = false // probably better off with this off!
-
-	// function specific code follows...
-	fn, isFn := obj.expr.(*ExprFunc)
-	if isFn && inconsistentEdgeNames {
-		if fn.Body != nil {
-			// add arg names that are seen in the ExprFunc struct!
-			a := []string{}
-			for _, x := range fn.Args {
-				a = append(a, x.Name)
-			}
-			argNames = a
+	// Add the vertex for the function.
+	var fnFunc interfaces.Func
+	if obj.Var {
+		// $f(...)
+		fnVertex, ok := env[obj.Name]
+		if !ok {
+			return nil, nil, fmt.Errorf("var `%s` is missing from the environment", obj.Name)
 		}
-		if fn.Function != nil {
-			argNames = fn.function.Info().Sig.Ord
+		// check if fnVertex is a Func
+		fnFunc, ok = fnVertex.(interfaces.Func)
+		if !ok {
+			return nil, nil, fmt.Errorf("var `%s` is not a Func", obj.Name)
 		}
-		if len(fn.Values) > 0 {
-			// add the expected arg names from the selected function
-			typ, err := fn.Type()
-			if err != nil {
-				return nil, nil, err
-			}
-			argNames = typ.Ord
-		}
+	} else {
+		// f(...)
+		// TODO: We probably need to change obj.expr to something else in order
+		// to implement this. obj.expr gives us the definition site, but what we
+		// need is the Func which was already produced by the MergedGraph on
+		// that definition site. I guess we need two environments, one for
+		// $-prefixed variables and one for functions?
+		// On the other hand, it probably doesn't make sense for this second
+		// environment to contain one Func for every single built-in. So we also
+		// need a way to create Funcs on the fly.
+		panic("TODO: f(...) syntax unimplemented")
 	}
+	graph.AddVertex(fnFunc)
 
-	if len(argNames) != len(obj.Args) { // extra safety...
-		return nil, nil, fmt.Errorf("func `%s` expected %d args, got %d", obj.Name, len(argNames), len(obj.Args))
-	}
-
-	// Each func argument needs to point to the final function expression.
-	for pos, x := range obj.Args { // function arguments in order
-		g, _, err := x.MergedGraph(txn, env)
+	// Loop over the arguments, add them to the graph, but do _not_ connect them
+	// to the function vertex. Instead, each time the call vertex (which we
+	// create below) receives a FuncValue from the function node, it creates the
+	// corresponding sub-graph and connects these arguments to it.
+	var argFuncs []interfaces.Func
+	for i, arg := range obj.Args {
+		argGraph, argFunc, err := arg.MergedGraph(txn, env)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errwrap.Wrapf(err, "could not get graph for arg %d", i)
 		}
-
-		//argName := fmt.Sprintf("%d", pos) // indexed!
-		argName := argNames[pos]
-		edge := &interfaces.FuncEdge{Args: []string{argName}}
-		// TODO: replace with:
-		//edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("arg:%s", argName)}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for func `%s`, arg `%s` was called twice", obj.Name, argName))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // arg -> func
+		graph.AddGraph(argGraph)
+		argFuncs = append(argFuncs, argFunc)
 	}
 
-	// This is important, because we don't want an extra, unnecessary edge!
-	if isFn && (fn.Function != nil || len(fn.Values) > 0) {
-		return graph, nil, nil // built-in's don't need a vertex or an edge!
-	}
-
-	// Add the graph of the expression which must proceed the call... This
-	// might already exist in graph (i think)...
-	// Note: This can cause a panic if you get two NOT-connected vertices,
-	// in the source graph, because it tries to add two edges! Solution: add
-	// the missing edge between those in the source... Happy bug killing =D
-	graph.AddVertex(obj.expr) // duplicate additions are ignored and are harmless
-
-	g, _, err := obj.expr.MergedGraph(txn, env)
+	// Add a vertex for the call itself.
+	ftyp, err := obj.expr.Type()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
 	}
 
-	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("call:%s", obj.Name)}}
-
-	var once bool
-	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-		if once {
-			panic(fmt.Sprintf("edgeGenFn for call `%s` was called twice", obj.Name))
-		}
-		once = true
-		return edge
+	callFunc := &CallFunc{
+		Type:        obj.typ,
+		FuncType:    ftyp,
+		ArgVertices: argFuncs,
 	}
-	graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // expr -> call
+	graph.AddVertex(callFunc)
 
-	f, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-	return graph, f, nil
+	return graph, callFunc, nil
 }
 
 // SetValue here is used to store the result of the last computation of this

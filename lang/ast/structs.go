@@ -260,6 +260,11 @@ func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
 	return pgraph.NewGraph("stmtbind") // empty graph!
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtBind) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
+}
+
 // Output for the bind statement produces no output. Any values of interest come
 // from the use of the var which this binds the expression to.
 func (obj *StmtBind) Output() (*interfaces.Output, error) {
@@ -601,6 +606,64 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 
 	for _, x := range obj.Contents {
 		g, err := x.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtRes) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	metaNames := make(map[string]struct{})
+	for _, x := range obj.Contents {
+		line, ok := x.(*StmtResMeta)
+		if !ok {
+			continue
+		}
+
+		properties := []string{line.Property} // "noop" or "Meta" or...
+		if line.Property == MetaField {
+			// If this is the generic MetaField struct field, then
+			// we lookup the type signature to see which fields are
+			// defined. You're allowed to have more than one Meta
+			// field, but they can't contain the same field twice.
+
+			typ, err := line.MetaExpr.Type() // must be known now
+			if err != nil {
+				// programming error in type unification
+				return nil, errwrap.Wrapf(err, "unknown resource meta type")
+			}
+			if t := typ.Kind; t != types.KindStruct {
+				return nil, fmt.Errorf("unexpected resource meta kind of: %s", t)
+			}
+			properties = typ.Ord // list of field names in this struct
+		}
+
+		for _, property := range properties {
+			// Was the meta entry already seen in this resource?
+			if _, exists := metaNames[property]; exists {
+				return nil, fmt.Errorf("resource has duplicate meta entry of: %s", property)
+			}
+			metaNames[property] = struct{}{}
+		}
+	}
+
+	graph, err := pgraph.NewGraph("res")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.Name.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	for _, x := range obj.Contents {
+		g, err := x.MergedGraph(txn, env)
 		if err != nil {
 			return nil, err
 		}
@@ -1059,6 +1122,7 @@ type StmtResContents interface {
 	SetScope(*interfaces.Scope) error
 	Unify(kind string) ([]interfaces.Invariant, error) // different!
 	Graph() (*pgraph.Graph, error)
+	MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error)
 }
 
 // StmtResField represents a single field in the parsed resource representation.
@@ -1312,6 +1376,30 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtResField) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resfield")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.Value.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, _, err := obj.Condition.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // StmtResEdge represents a single edge property in the parsed resource
 // representation. This does not satisfy the Stmt interface.
 type StmtResEdge struct {
@@ -1536,6 +1624,30 @@ func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
 
 	if obj.Condition != nil {
 		g, err := obj.Condition.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtResEdge) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resedge")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.EdgeHalf.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, _, err := obj.Condition.MergedGraph(txn, env)
 		if err != nil {
 			return nil, err
 		}
@@ -1880,6 +1992,30 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtResMeta) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("resmeta")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.MetaExpr.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	if obj.Condition != nil {
+		g, _, err := obj.Condition.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // StmtEdge is a representation of a dependency. It also supports send/recv.
 // Edges represents that the first resource (Kind/Name) listed in the
 // EdgeHalfList should happen in the resource graph *before* the next resource
@@ -2130,6 +2266,24 @@ func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtEdge) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("edge")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	for _, x := range obj.EdgeHalfList {
+		g, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // Output returns the output that this "program" produces. This output is what
 // is used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -2349,6 +2503,15 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 // know they're able to be built.
 func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
 	return obj.Name.Graph()
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtEdgeHalf) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	g, _, err := obj.Name.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 // StmtIf represents an if condition that contains between one and two branches
@@ -2661,6 +2824,33 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 			continue
 		}
 		g, err := x.Graph()
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtIf) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("if")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, _, err := obj.Condition.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	for _, x := range []interfaces.Stmt{obj.ThenBranch, obj.ElseBranch} {
+		if x == nil {
+			continue
+		}
+		g, err := x.MergedGraph(txn, env)
 		if err != nil {
 			return nil, err
 		}
@@ -3749,6 +3939,47 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtProg) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("prog")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	// collect all graphs that need to be included
+	for _, x := range obj.Body {
+		// skip over *StmtClass here
+		if _, ok := x.(*StmtClass); ok {
+			continue
+		}
+		// skip over StmtFunc, even though it doesn't produce anything!
+		if _, ok := x.(*StmtFunc); ok {
+			continue
+		}
+		// skip over StmtBind, even though it doesn't produce anything!
+		if _, ok := x.(*StmtBind); ok {
+			continue
+		}
+
+		g, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	// add graphs from SetScope's imported child programs
+	for _, x := range obj.importProgs {
+		g, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, err
+		}
+		graph.AddGraph(g)
+	}
+
+	return graph, nil
+}
+
 // Output returns the output that this "program" produces. This output is what
 // is used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -3967,6 +4198,11 @@ func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
+}
+
 // Output for the func statement produces no output. Any values of interest come
 // from the use of the func which this binds the function to.
 func (obj *StmtFunc) Output() (*interfaces.Output, error) {
@@ -4135,6 +4371,11 @@ func (obj *StmtClass) Unify() ([]interfaces.Invariant, error) {
 // the graph.
 func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
 	return obj.Body.Graph()
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtClass) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Body.MergedGraph(txn, env)
 }
 
 // Output for the class statement produces no output. Any values of interest
@@ -4480,6 +4721,22 @@ func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
 	return graph, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtInclude) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("include")
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not create graph")
+	}
+
+	g, err := obj.class.MergedGraph(txn, env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+
+	return graph, nil
+}
+
 // Output returns the output that this include produces. This output is what is
 // used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -4571,6 +4828,11 @@ func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
 	return graph, errwrap.Wrapf(err, "could not create graph")
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtImport) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
+}
+
 // Output returns the output that this include produces. This output is what is
 // used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
@@ -4659,6 +4921,11 @@ func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
 		return nil, errwrap.Wrapf(err, "could not create graph")
 	}
 	return graph, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *StmtComment) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, error) {
+	return obj.Graph() // does nothing
 }
 
 // Output for the comment statement produces no output.
@@ -4761,6 +5028,19 @@ func (obj *ExprBool) Graph(txn interfaces.ReversibleTxn, _ map[string]pgraph.Ver
 	}
 	txn.AddVertex(out)
 	return out, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprBool) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	g, err := obj.Graph()
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return g, f, nil
 }
 
 // SetValue for a bool expression is always populated statically, and does not
@@ -4939,6 +5219,19 @@ func (obj *ExprStr) Func() (interfaces.Func, error) {
 	}, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprStr) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	g, err := obj.Graph()
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return g, f, nil
+}
+
 // SetValue for an str expression is always populated statically, and does not
 // ever receive any incoming values (no incoming edges) so this should never be
 // called. It has been implemented for uniformity.
@@ -5063,6 +5356,19 @@ func (obj *ExprInt) Func() (interfaces.Func, error) {
 	return &ConstFunc{
 		Value: &types.IntValue{V: obj.V},
 	}, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprInt) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	g, err := obj.Graph()
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return g, f, nil
 }
 
 // SetValue for an int expression is always populated statically, and does not
@@ -5191,6 +5497,19 @@ func (obj *ExprFloat) Func() (interfaces.Func, error) {
 	return &ConstFunc{
 		Value: &types.FloatValue{V: obj.V},
 	}, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprFloat) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	g, err := obj.Graph()
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return g, f, nil
 }
 
 // SetValue for a float expression is always populated statically, and does not
@@ -5529,6 +5848,42 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 		Type: typ,
 		Len:  len(obj.Elements),
 	}, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprList) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("list")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(obj)
+
+	// each list element needs to point to the final list expression
+	for index, x := range obj.Elements { // list elements in order
+		g, _, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		fieldName := fmt.Sprintf("%d", index) // argNames as integers!
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for list, index `%d` was called twice", index))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // element -> list
+	}
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return graph, f, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
@@ -6027,6 +6382,62 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 	}, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprMap) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("map")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(obj)
+
+	// each map key value pair needs to point to the final map expression
+	for index, x := range obj.KVs { // map fields in order
+		g, _, err := x.Key.MergedGraph(txn, env)
+		if err != nil {
+			return nil, nil, err
+		}
+		// do the key names ever change? -- yes
+		fieldName := fmt.Sprintf("key:%d", index) // stringify map key
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for map, key `%s` was called twice", fieldName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // key -> func
+	}
+
+	// each map key value pair needs to point to the final map expression
+	for index, x := range obj.KVs { // map fields in order
+		g, _, err := x.Val.MergedGraph(txn, env)
+		if err != nil {
+			return nil, nil, err
+		}
+		fieldName := fmt.Sprintf("val:%d", index) // stringify map val
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for map, val `%s` was called twice", fieldName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // val -> func
+	}
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return graph, f, nil
+}
+
 // SetValue here is a no-op, because algorithmically when this is called from
 // the func engine, the child key/value's (the map elements) will have had this
 // done to them first, and as such when we try and retrieve the set value from
@@ -6416,6 +6827,42 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 	return &CompositeFunc{
 		Type: typ,
 	}, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprStruct) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("struct")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(obj)
+
+	// each struct field needs to point to the final struct expression
+	for _, x := range obj.Fields { // struct fields in order
+		g, _, err := x.Value.MergedGraph(txn, env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		fieldName := x.Name
+		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for struct, arg `%s` was called twice", fieldName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // arg -> func
+	}
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return graph, f, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
@@ -7284,6 +7731,52 @@ func (obj *ExprFunc) Graph(outerTxn interfaces.ReversibleTxn, env map[string]pgr
 
 func (obj *ExprFunc) Func() (interfaces.Func, error) {
 	panic("can't create a Func without an environment")
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	panic("i suspect ExprFunc->MergedGraph might need to be different somehow") // XXX !!!
+	graph, err := pgraph.NewGraph("func")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(obj)
+
+	if obj.Body != nil {
+		g, _, err := obj.Body.MergedGraph(txn, env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// We need to add this edge, because if this isn't linked, then
+		// when we add an edge from this, then we'll get two because the
+		// contents aren't linked.
+		name := "body" // TODO: what should we name this?
+		edge := &interfaces.FuncEdge{Args: []string{name}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for func was called twice"))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // body -> func
+	}
+
+	if obj.Function != nil { // no input args are needed, func is built-in.
+		// TODO: is there anything to do ?
+	}
+	if len(obj.Values) > 0 { // no input args are needed, func is built-in.
+		// TODO: is there anything to do ?
+	}
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return graph, f, nil
 }
 
 // SetValue for a func expression is always populated statically, and does not
@@ -8316,6 +8809,121 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 	}, nil
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprCall) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	panic("i suspect ExprCall->MergedGraph might need to be different somehow") // XXX !!!
+
+	if obj.expr == nil {
+		// possible programming error
+		return nil, nil, fmt.Errorf("call doesn't contain an expr pointer yet")
+	}
+
+	graph, err := pgraph.NewGraph("call")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(obj)
+
+	// argnames!
+	argNames := []string{}
+
+	typ, err := obj.expr.Type()
+	if err != nil {
+		return nil, nil, err
+	}
+	// TODO: can we use this method for all of the kinds of obj.expr?
+	// TODO: probably, but i've left in the expanded versions for now
+	argNames = typ.Ord
+	var inconsistentEdgeNames = false // probably better off with this off!
+
+	// function specific code follows...
+	fn, isFn := obj.expr.(*ExprFunc)
+	if isFn && inconsistentEdgeNames {
+		if fn.Body != nil {
+			// add arg names that are seen in the ExprFunc struct!
+			a := []string{}
+			for _, x := range fn.Args {
+				a = append(a, x.Name)
+			}
+			argNames = a
+		}
+		if fn.Function != nil {
+			argNames = fn.function.Info().Sig.Ord
+		}
+		if len(fn.Values) > 0 {
+			// add the expected arg names from the selected function
+			typ, err := fn.Type()
+			if err != nil {
+				return nil, nil, err
+			}
+			argNames = typ.Ord
+		}
+	}
+
+	if len(argNames) != len(obj.Args) { // extra safety...
+		return nil, nil, fmt.Errorf("func `%s` expected %d args, got %d", obj.Name, len(argNames), len(obj.Args))
+	}
+
+	// Each func argument needs to point to the final function expression.
+	for pos, x := range obj.Args { // function arguments in order
+		g, _, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		//argName := fmt.Sprintf("%d", pos) // indexed!
+		argName := argNames[pos]
+		edge := &interfaces.FuncEdge{Args: []string{argName}}
+		// TODO: replace with:
+		//edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("arg:%s", argName)}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for func `%s`, arg `%s` was called twice", obj.Name, argName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // arg -> func
+	}
+
+	// This is important, because we don't want an extra, unnecessary edge!
+	if isFn && (fn.Function != nil || len(fn.Values) > 0) {
+		return graph, nil, nil // built-in's don't need a vertex or an edge!
+	}
+
+	// Add the graph of the expression which must proceed the call... This
+	// might already exist in graph (i think)...
+	// Note: This can cause a panic if you get two NOT-connected vertices,
+	// in the source graph, because it tries to add two edges! Solution: add
+	// the missing edge between those in the source... Happy bug killing =D
+	graph.AddVertex(obj.expr) // duplicate additions are ignored and are harmless
+
+	g, _, err := obj.expr.MergedGraph(txn, env)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("call:%s", obj.Name)}}
+
+	var once bool
+	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+		if once {
+			panic(fmt.Sprintf("edgeGenFn for call `%s` was called twice", obj.Name))
+		}
+		once = true
+		return edge
+	}
+	graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // expr -> call
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return graph, f, nil
+}
+
 // SetValue here is used to store the result of the last computation of this
 // expression node after it has received all the required input values. This
 // value is cached and can be retrieved by calling Value.
@@ -8585,6 +9193,49 @@ func (obj *ExprVar) Func() (interfaces.Func, error) {
 		Type: typ,
 		Edge: fmt.Sprintf("var:%s", obj.Name), // the edge name used above in Graph is this...
 	}, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprVar) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("var")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(obj)
+
+	// ??? = $foo (this is the foo)
+	// lookup value from scope
+	expr, exists := obj.scope.Variables[obj.Name]
+	if !exists {
+		return nil, nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
+	}
+
+	// should already exist in graph (i think)...
+	graph.AddVertex(expr) // duplicate additions are ignored and are harmless
+
+	// the expr needs to point to the var lookup expression
+	g, _, err := expr.MergedGraph(txn, env)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("var:%s", obj.Name)}}
+
+	var once bool
+	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+		if once {
+			panic(fmt.Sprintf("edgeGenFn for var `%s` was called twice", obj.Name))
+		}
+		once = true
+		return edge
+	}
+	graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // expr -> var
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return graph, f, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
@@ -8963,6 +9614,46 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 	return &IfFunc{
 		Type: typ, // this is the output type of the expression
 	}, nil
+}
+
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprIf) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("if")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(obj)
+
+	exprs := map[string]interfaces.Expr{
+		"c": obj.Condition,
+		"a": obj.ThenBranch,
+		"b": obj.ElseBranch,
+	}
+	for _, argName := range []string{"c", "a", "b"} { // deterministic order
+		x := exprs[argName]
+		g, _, err := x.MergedGraph(txn, env)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		edge := &interfaces.FuncEdge{Args: []string{argName}}
+
+		var once bool
+		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
+			if once {
+				panic(fmt.Sprintf("edgeGenFn for ifexpr edge `%s` was called twice", argName))
+			}
+			once = true
+			return edge
+		}
+		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // branch -> if
+	}
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return graph, f, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

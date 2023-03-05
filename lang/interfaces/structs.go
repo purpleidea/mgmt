@@ -155,6 +155,19 @@ func (obj *ExprAny) Func() (Func, error) {
 	return nil, fmt.Errorf("programming error using ExprAny") // this should not be called
 }
 
+// MergedGraph returns the graph and func together in one call.
+func (obj *ExprAny) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, Func, error) {
+	g, err := obj.Graph()
+	if err != nil {
+		return nil, nil, err
+	}
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	return g, f, nil
+}
+
 // SetValue here is a no-op, because algorithmically when this is called from
 // the func engine, the child elements (the list elements) will have had this
 // done to them first, and as such when we try and retrieve the set value from

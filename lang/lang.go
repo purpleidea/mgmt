@@ -215,7 +215,7 @@ func (obj *Lang) Init() error {
 	obj.Logf("building function graph...")
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
-	graph, err := obj.ast.Graph() // build the graph of functions
+	graph, err := obj.ast.MergedGraph(struct{}{}, nil) // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}

@@ -71,7 +71,7 @@ type Init struct {
 // TODO: should we support a static version of this interface for funcs that
 // never change to avoid the overhead of the goroutine and channel listener?
 type Func interface {
-	fmt.Stringer
+	fmt.Stringer // so that this can be stored as a Vertex
 
 	Validate() error // FIXME: this is only needed for PolyFunc. Get it moved and used!
 

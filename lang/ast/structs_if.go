@@ -25,6 +25,11 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// IfFuncName is the unique name identifier for this function.
+	IfFuncName = "if"
+)
+
 // IfFunc is a function that passes through the value of the correct branch
 // based on the conditional value it gets.
 type IfFunc struct {
@@ -35,6 +40,12 @@ type IfFunc struct {
 	result types.Value // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *IfFunc) String() string {
+	return IfFuncName
 }
 
 // Validate tells us if the input struct takes a valid form.

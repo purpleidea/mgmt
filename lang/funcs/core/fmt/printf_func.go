@@ -27,14 +27,17 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-func init() {
-	// FIXME: should this be named sprintf instead?
-	funcs.ModuleRegister(ModuleName, "printf", func() interfaces.Func { return &PrintfFunc{} })
-}
-
 const (
+	// PrintfFuncName is the name this function is registered as.
+	// FIXME: should this be named sprintf instead?
+	PrintfFuncName = "printf"
+
 	formatArgName = "format" // name of the first arg
 )
+
+func init() {
+	funcs.ModuleRegister(ModuleName, PrintfFuncName, func() interfaces.Func { return &PrintfFunc{} })
+}
 
 // PrintfFunc is a static polymorphic function that compiles a format string and
 // returns the output as a string. It bases its output on the values passed in
@@ -54,6 +57,12 @@ type PrintfFunc struct {
 	result *string // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *PrintfFunc) String() string {
+	return PrintfFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

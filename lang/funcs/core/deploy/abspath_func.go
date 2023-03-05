@@ -26,13 +26,16 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// AbsPathFuncName is the name this function is registered as.
+	AbsPathFuncName = "abspath"
+
+	pathArg = "path"
+)
+
 func init() {
 	funcs.ModuleRegister(ModuleName, "abspath", func() interfaces.Func { return &AbsPathFunc{} }) // must register the func and name
 }
-
-const (
-	pathArg = "path"
-)
 
 // AbsPathFunc is a function that returns the absolute, full path in the deploy
 // from an input path that is relative to the calling file. If you pass it an
@@ -47,6 +50,12 @@ type AbsPathFunc struct {
 	result *string // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *AbsPathFunc) String() string {
+	return AbsPathFuncName
 }
 
 // SetData is used by the language to pass our function some code-level context.

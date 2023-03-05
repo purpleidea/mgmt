@@ -28,6 +28,11 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// CallFuncName is the unique name identifier for this function.
+	CallFuncName = "call"
+)
+
 // CallFunc is a function that takes in a function and all the args, and passes
 // through the results of running the function call.
 type CallFunc struct {
@@ -46,6 +51,12 @@ type CallFunc struct {
 	reversibleTxn *interfaces.ReversibleTxn
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *CallFunc) String() string {
+	return CallFuncName
 }
 
 // Validate makes sure we've built our struct properly.

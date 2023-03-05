@@ -22,8 +22,14 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// HostnameFuncName is the name this fact is registered as. It's still a
+	// Func Name because this is the name space the fact is actually using.
+	HostnameFuncName = "hostname"
+)
+
 func init() {
-	facts.ModuleRegister(ModuleName, "hostname", func() facts.Fact { return &HostnameFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, HostnameFuncName, func() facts.Fact { return &HostnameFact{} }) // must register the fact and name
 }
 
 // HostnameFact is a function that returns the hostname.
@@ -31,6 +37,12 @@ func init() {
 type HostnameFact struct {
 	init      *facts.Init
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this fact. This is needed so this struct can
+// satisfy the pgraph.Vertex interface.
+func (obj *HostnameFact) String() string {
+	return HostnameFuncName
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

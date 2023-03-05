@@ -58,7 +58,7 @@ func Register(name string, fn *types.SimpleFn) {
 	RegisteredFuncs[name] = fn // store a copy for ourselves
 
 	// register a copy in the main function database
-	funcs.Register(name, func() interfaces.Func { return &WrappedFunc{Fn: fn} })
+	funcs.Register(name, func() interfaces.Func { return &WrappedFunc{Name: name, Fn: fn} })
 }
 
 // ModuleRegister is exactly like Register, except that it registers within a
@@ -70,6 +70,8 @@ func ModuleRegister(module, name string, fn *types.SimpleFn) {
 // WrappedFunc is a scaffolding function struct which fulfills the boiler-plate
 // for the function API, but that can run a very simple, static, pure function.
 type WrappedFunc struct {
+	Name string
+
 	Fn *types.SimpleFn
 
 	init *interfaces.Init
@@ -78,6 +80,12 @@ type WrappedFunc struct {
 	result types.Value // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *WrappedFunc) String() string {
+	return obj.Name
 }
 
 // ArgGen returns the Nth arg name for this function.

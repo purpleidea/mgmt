@@ -25,12 +25,23 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// ConstFuncName is the unique name identifier for this function.
+	ConstFuncName = "const"
+)
+
 // ConstFunc is a function that returns the constant value passed to Value.
 type ConstFunc struct {
 	Value types.Value
 
 	init      *interfaces.Init
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *ConstFunc) String() string {
+	return ConstFuncName
 }
 
 // Validate makes sure we've built our struct properly.

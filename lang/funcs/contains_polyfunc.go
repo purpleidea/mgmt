@@ -48,6 +48,12 @@ type ContainsPolyFunc struct {
 	closeChan chan struct{}
 }
 
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *ContainsPolyFunc) String() string {
+	return ContainsFuncName
+}
+
 // ArgGen returns the Nth arg name for this function.
 func (obj *ContainsPolyFunc) ArgGen(index int) (string, error) {
 	seq := []string{"needle", "haystack"}

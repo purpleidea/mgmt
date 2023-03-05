@@ -31,17 +31,10 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-var (
-	// errorType represents a reflection type of error as seen in:
-	// https://github.com/golang/go/blob/ec62ee7f6d3839fe69aeae538dadc1c9dc3bf020/src/text/template/exec.go#L612
-	errorType = reflect.TypeOf((*error)(nil)).Elem()
-)
-
-func init() {
-	funcs.Register("template", func() interfaces.Func { return &TemplateFunc{} })
-}
-
 const (
+	// TemplateFuncName is the name this function is registered as.
+	TemplateFuncName = "template"
+
 	// TemplateName is the name of our template as required by the template
 	// library.
 	TemplateName = "template"
@@ -49,6 +42,16 @@ const (
 	argNameTemplate = "template"
 	argNameVars     = "vars"
 )
+
+var (
+	// errorType represents a reflection type of error as seen in:
+	// https://github.com/golang/go/blob/ec62ee7f6d3839fe69aeae538dadc1c9dc3bf020/src/text/template/exec.go#L612
+	errorType = reflect.TypeOf((*error)(nil)).Elem()
+)
+
+func init() {
+	funcs.Register(TemplateFuncName, func() interfaces.Func { return &TemplateFunc{} })
+}
 
 // TemplateFunc is a static polymorphic function that compiles a template and
 // returns the output as a string. It bases its output on the values passed in
@@ -71,6 +74,12 @@ type TemplateFunc struct {
 	result *string // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *TemplateFunc) String() string {
+	return TemplateFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

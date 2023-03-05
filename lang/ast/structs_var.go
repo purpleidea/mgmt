@@ -26,6 +26,11 @@ import (
 	//"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// VarFuncName is the unique name identifier for this function.
+	VarFuncName = "var"
+)
+
 // VarFunc is a function that passes through a function that came from a bind
 // lookup. It exists so that the reactive function engine type checks correctly.
 type VarFunc struct {
@@ -38,6 +43,12 @@ type VarFunc struct {
 	result types.Value // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *VarFunc) String() string {
+	return VarFuncName
 }
 
 // Validate makes sure we've built our struct properly.

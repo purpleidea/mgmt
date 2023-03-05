@@ -1,0 +1,8 @@
+import "example"
+
+$vumeter = example.vumeter("====", 10, 0.9)
+
+file "/tmp/vumeter" {
+	state => $const.res.file.state.exists,
+	content => $vumeter,
+}

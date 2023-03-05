@@ -27,9 +27,14 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-func init() {
+const (
+	// MapFuncName is the name this function is registered as.
 	// XXX: rename to map once our parser sees a function name and not a type
-	funcs.ModuleRegister(ModuleName, "xmap", func() interfaces.Func { return &MapFunc{} }) // must register the func and name
+	MapFuncName = "xmap"
+)
+
+func init() {
+	funcs.ModuleRegister(ModuleName, MapFuncName, func() interfaces.Func { return &MapFunc{} }) // must register the func and name
 }
 
 const (
@@ -60,6 +65,12 @@ type MapFunc struct {
 	result types.Value // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *MapFunc) String() string {
+	return MapFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

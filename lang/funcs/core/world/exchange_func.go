@@ -27,8 +27,13 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// ExchangeFuncName is the name this function is registered as.
+	ExchangeFuncName = "exchange"
+)
+
 func init() {
-	funcs.ModuleRegister(ModuleName, "exchange", func() interfaces.Func { return &ExchangeFunc{} })
+	funcs.ModuleRegister(ModuleName, ExchangeFuncName, func() interfaces.Func { return &ExchangeFunc{} })
 }
 
 // ExchangeFunc is special function which returns all the values of a given key
@@ -44,6 +49,12 @@ type ExchangeFunc struct {
 
 	watchChan chan error
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *ExchangeFunc) String() string {
+	return ExchangeFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.

@@ -435,6 +435,13 @@ type OperatorPolyFunc struct {
 	closeChan chan struct{}
 }
 
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *OperatorPolyFunc) String() string {
+	// TODO: return the exact operator if we can guarantee it doesn't change
+	return OperatorFuncName
+}
+
 // argNames returns the maximum list of possible argNames. This can be truncated
 // if needed. The first arg name is the operator.
 func (obj *OperatorPolyFunc) argNames() ([]string, error) {

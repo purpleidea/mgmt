@@ -26,6 +26,11 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// CompositeFuncName is the unique name identifier for this function.
+	CompositeFuncName = "composite"
+)
+
 // CompositeFunc is a function that passes through the value it receives. It is
 // used to take a series of inputs to a list, map or struct, and return that
 // value as a stream that depends on those inputs. It helps the list, map, and
@@ -39,6 +44,12 @@ type CompositeFunc struct {
 	result types.Value // last calculated output
 
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *CompositeFunc) String() string {
+	return CompositeFuncName
 }
 
 // Validate makes sure we've built our struct properly.

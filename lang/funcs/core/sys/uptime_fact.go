@@ -25,14 +25,26 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// UptimeFuncName is the name this fact is registered as. It's still a
+	// Func Name because this is the name space the fact is actually using.
+	UptimeFuncName = "uptime"
+)
+
 func init() {
-	facts.ModuleRegister(ModuleName, "uptime", func() facts.Fact { return &UptimeFact{} })
+	facts.ModuleRegister(ModuleName, UptimeFuncName, func() facts.Fact { return &UptimeFact{} })
 }
 
 // UptimeFact is a fact which returns the current uptime of your system.
 type UptimeFact struct {
 	init      *facts.Init
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this fact. This is needed so this struct can
+// satisfy the pgraph.Vertex interface.
+func (obj *UptimeFact) String() string {
+	return UptimeFuncName
 }
 
 // Info returns some static info about itself.

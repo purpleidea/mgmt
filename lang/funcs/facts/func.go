@@ -30,6 +30,12 @@ type FactFunc struct { // implements `interfaces.Func`
 	Fact Fact
 }
 
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *FactFunc) String() string {
+	return obj.Fact.String()
+}
+
 // Validate makes sure we've built our struct properly.
 func (obj *FactFunc) Validate() error {
 	if obj.Fact == nil {

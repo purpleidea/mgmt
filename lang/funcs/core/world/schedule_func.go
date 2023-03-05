@@ -42,6 +42,9 @@ import (
 )
 
 const (
+	// ScheduleFuncName is the name this function is registered as.
+	ScheduleFuncName = "schedule"
+
 	// DefaultStrategy is the strategy to use if none has been specified.
 	DefaultStrategy = "rr"
 
@@ -58,7 +61,7 @@ const (
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, "schedule", func() interfaces.Func { return &SchedulePolyFunc{} })
+	funcs.ModuleRegister(ModuleName, ScheduleFuncName, func() interfaces.Func { return &SchedulePolyFunc{} })
 }
 
 // SchedulePolyFunc is special function which determines where code should run
@@ -78,6 +81,12 @@ type SchedulePolyFunc struct {
 
 	watchChan chan *schedulerResult
 	closeChan chan struct{}
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *SchedulePolyFunc) String() string {
+	return ScheduleFuncName
 }
 
 // validOpts returns the available mapping of valid opts fields to types.

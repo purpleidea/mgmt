@@ -7696,7 +7696,7 @@ func (obj *ExprFunc) mkFunc(env map[string]pgraph.Vertex) (interfaces.Func, erro
 
 				// Create a subgraph from the lambda's body, instantiating the
 				// lambda's parameters with the args.
-				node, err := obj.Body.Graph(innerTxn, extendedEnv)
+				_, node, err := obj.Body.MergedGraph(innerTxn, extendedEnv)
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
 				}
@@ -7780,7 +7780,9 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 }
 
 // MergedGraph returns the graph and func together in one call.
-func (obj *ExprFunc) MergedGraph(outerTxn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
+	outerTxn := txn.(interfaces.ReversibleTxn)
+
 	g, err := obj.Graph()
 	if err != nil {
 		return nil, nil, err

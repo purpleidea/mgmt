@@ -261,6 +261,120 @@ type Txn interface {
 	Clear()
 }
 
+// A single-threaded transaction which modifies an underlying graph.
+type GraphTxn struct {
+	// The Graph we are modifying.
+	Graph pgraph.Graph
+
+	// The vertices and edges that were added and removed since the last call to Commit().
+	// A given vertex or edge can only be added or removed, not both.
+	verticesToAdd    map[pgraph.Vertex]struct{}
+	verticesToRemove map[pgraph.Vertex]struct{}
+	edgesToAdd       map[pgraph.Edge]struct {
+		v1 pgraph.Vertex
+		v2 pgraph.Vertex
+	}
+	edgesToRemove map[pgraph.Edge]struct{}
+}
+
+func (obj *GraphTxn) AddVertex(v ...pgraph.Vertex) Txn {
+	if obj.verticesToAdd == nil {
+		obj.verticesToAdd = make(map[pgraph.Vertex]struct{})
+	}
+	if obj.verticesToRemove == nil {
+		obj.verticesToRemove = make(map[pgraph.Vertex]struct{})
+	}
+
+	for _, x := range v {
+		obj.verticesToAdd[x] = struct{}{}
+		delete(obj.verticesToRemove, x)
+	}
+
+	return obj
+}
+
+func (obj *GraphTxn) AddEdge(v1, v2 pgraph.Vertex, e pgraph.Edge) Txn {
+	if obj.edgesToAdd == nil {
+		obj.edgesToAdd = make(map[pgraph.Edge]struct {
+			v1 pgraph.Vertex
+			v2 pgraph.Vertex
+		})
+	}
+	if obj.edgesToRemove == nil {
+		obj.edgesToRemove = make(map[pgraph.Edge]struct{})
+	}
+
+	obj.edgesToAdd[e] = struct {
+		v1 pgraph.Vertex
+		v2 pgraph.Vertex
+	}{v1, v2}
+	delete(obj.edgesToRemove, e)
+
+	return obj
+}
+
+func (obj *GraphTxn) DeleteVertex(v ...pgraph.Vertex) Txn {
+	if obj.verticesToAdd == nil {
+		obj.verticesToAdd = make(map[pgraph.Vertex]struct{})
+	}
+	if obj.verticesToRemove == nil {
+		obj.verticesToRemove = make(map[pgraph.Vertex]struct{})
+	}
+
+	for _, x := range v {
+		obj.verticesToRemove[x] = struct{}{}
+		delete(obj.verticesToAdd, x)
+	}
+
+	return obj
+}
+
+func (obj *GraphTxn) DeleteEdge(e ...pgraph.Edge) Txn {
+	if obj.edgesToAdd == nil {
+		obj.edgesToAdd = make(map[pgraph.Edge]struct {
+			v1 pgraph.Vertex
+			v2 pgraph.Vertex
+		})
+	}
+	if obj.edgesToRemove == nil {
+		obj.edgesToRemove = make(map[pgraph.Edge]struct{})
+	}
+
+	for _, x := range e {
+		obj.edgesToRemove[x] = struct{}{}
+		delete(obj.edgesToAdd, x)
+	}
+
+	return obj
+}
+
+func (obj *GraphTxn) Commit() error {
+	for x := range obj.verticesToAdd {
+		obj.Graph.AddVertex(x)
+	}
+	for x := range obj.verticesToRemove {
+		obj.Graph.DeleteVertex(x)
+	}
+
+	for x, y := range obj.edgesToAdd {
+		obj.Graph.AddEdge(y.v1, y.v2, x)
+	}
+	for x := range obj.edgesToRemove {
+		obj.Graph.DeleteEdge(x)
+	}
+
+	obj.Clear()
+
+	return nil
+}
+
+func (obj *GraphTxn) Clear() {
+	obj.verticesToAdd = nil
+	obj.verticesToRemove = nil
+	obj.edgesToAdd = nil
+	obj.edgesToRemove = nil
+}
+
 type ReversibleTxn struct {
 	// The Txn which will do the actual work of adding and deleting.
 	InnerTxn Txn

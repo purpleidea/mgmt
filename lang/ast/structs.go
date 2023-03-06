@@ -8958,41 +8958,7 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 // to avoid duplicating production of the incoming input value from the bound
 // expression.
 func (obj *ExprVar) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("var")
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
-	}
-	graph.AddVertex(obj)
-
-	// ??? = $foo (this is the foo)
-	// lookup value from scope
-	expr, exists := obj.scope.Variables[obj.Name]
-	if !exists {
-		return nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
-	}
-
-	// should already exist in graph (i think)...
-	graph.AddVertex(expr) // duplicate additions are ignored and are harmless
-
-	// the expr needs to point to the var lookup expression
-	g, err := expr.Graph()
-	if err != nil {
-		return nil, err
-	}
-
-	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("var:%s", obj.Name)}}
-
-	var once bool
-	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-		if once {
-			panic(fmt.Sprintf("edgeGenFn for var `%s` was called twice", obj.Name))
-		}
-		once = true
-		return edge
-	}
-	graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // expr -> var
-
-	return graph, nil
+	panic("Please use ExprVar.MergedGraph() instead")
 }
 
 // Func returns a "pass-through" function which receives the bound value, and
@@ -9000,80 +8966,28 @@ func (obj *ExprVar) Graph() (*pgraph.Graph, error) {
 // of the function graph engine. Reminder that this looks very similar to
 // ExprCall...
 func (obj *ExprVar) Func() (interfaces.Func, error) {
-	//expr, exists := obj.scope.Variables[obj.Name]
-	//if !exists {
-	//	return nil, fmt.Errorf("var `%s` does not exist in scope", obj.Name)
-	//}
-
-	// this is wrong, if we did it this way, this expr wouldn't exist as a
-	// distinct node in the function graph to relay values through, instead,
-	// it would be acting as a "substitution/lookup" function, which just
-	// copies the bound function over into here. As a result, we'd have N
-	// copies of that function (based on the number of times N that that
-	// variable is used) instead of having that single bound function as
-	// input which is sent via N different edges to the multiple locations
-	// where the variables are used. Since the bound function would still
-	// have a single unique pointer, this wouldn't actually exist more than
-	// once in the graph, although since it's illogical, it causes the graph
-	// type checking (the edge counting in the function graph engine) to
-	// notice a problem and error.
-	//return expr.Func() // recurse?
-
-	// instead, return a function which correctly does a lookup in the scope
-	// and returns *that* stream of values instead.
-	typ, err := obj.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	// var func
-	return &VarFunc{
-		Type: typ,
-		Edge: fmt.Sprintf("var:%s", obj.Name), // the edge name used above in Graph is this...
-	}, nil
+	panic("Please use ExprCall.MergedGraph() instead")
 }
 
 // MergedGraph returns the graph and func together in one call.
 func (obj *ExprVar) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
-	graph, err := pgraph.NewGraph("var")
+	// The environment contains every variable which is in scope, so we should
+	// be able to simply look up the variable.
+	varVertex, exists := env[obj.Name]
+	if !exists {
+		return nil, nil, fmt.Errorf("var `%s` is not in the environment", obj.Name)
+	}
+	varFunc, ok := varVertex.(interfaces.Func)
+	if !ok {
+		return nil, nil, fmt.Errorf("var `%s` is not a func", obj.Name)
+	}
+
+	graph, err := pgraph.NewGraph("ExprVar")
 	if err != nil {
 		return nil, nil, errwrap.Wrapf(err, "could not create graph")
 	}
-	graph.AddVertex(obj)
-
-	// ??? = $foo (this is the foo)
-	// lookup value from scope
-	expr, exists := obj.scope.Variables[obj.Name]
-	if !exists {
-		return nil, nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
-	}
-
-	// should already exist in graph (i think)...
-	graph.AddVertex(expr) // duplicate additions are ignored and are harmless
-
-	// the expr needs to point to the var lookup expression
-	g, _, err := expr.MergedGraph(txn, env)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	edge := &interfaces.FuncEdge{Args: []string{fmt.Sprintf("var:%s", obj.Name)}}
-
-	var once bool
-	edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-		if once {
-			panic(fmt.Sprintf("edgeGenFn for var `%s` was called twice", obj.Name))
-		}
-		once = true
-		return edge
-	}
-	graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // expr -> var
-
-	f, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-	return graph, f, nil
+	graph.AddVertex(varFunc)
+	return graph, varFunc, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

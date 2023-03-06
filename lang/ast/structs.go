@@ -7680,46 +7680,6 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 	return invariants, nil
 }
 
-func (obj *ExprFunc) mkFunc(env map[string]pgraph.Vertex) (interfaces.Func, error) {
-	if obj.Body != nil {
-		return FuncValueToConstFunc(&fancyfunc.FuncValue{
-			V: func(innerTxn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
-				// Specify the argument vertex to which to instantiate each of
-				// the lambda's parameters, without modifying the original env.
-				extendedEnv := make(map[string]pgraph.Vertex)
-				for k, v := range env {
-					extendedEnv[k] = v
-				}
-				for i, arg := range obj.Args {
-					extendedEnv[arg.Name] = args[i]
-				}
-
-				// Create a subgraph from the lambda's body, instantiating the
-				// lambda's parameters with the args.
-				_, node, err := obj.Body.MergedGraph(innerTxn, extendedEnv)
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
-				}
-
-				return node, nil
-			},
-			T: obj.typ,
-		}), nil
-	} else if obj.Function != nil {
-		return obj.Function(), nil
-	} else /* len(obj.Values) > 0 */ {
-		index, err := langutil.FnMatch(obj.typ, obj.Values)
-		if err != nil {
-			// programming error
-			return nil, errwrap.Wrapf(err, "since type checking succeeded at this point, there should only be one match")
-		}
-		simpleFn := obj.Values[index]
-		simpleFn.T = obj.typ
-
-		return SimpleFnToConstFunc(simpleFn), nil
-	}
-}
-
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr

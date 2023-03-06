@@ -7727,64 +7727,76 @@ func (obj *ExprFunc) mkFunc(env map[string]pgraph.Vertex) (interfaces.Func, erro
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
 func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("func")
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
-	}
-
-	graph.AddVertex(obj)
-	return graph, nil
+	panic("Please use ExprFunc.MergedGraph() instead")
 }
 
 // Func returns the reactive stream of values that this expression produces. We
 // need this indirection, because our returned function that actually runs also
 // accepts the "body" of the function (an expr) as an input.
 func (obj *ExprFunc) Func() (interfaces.Func, error) {
-	if obj.Body != nil {
-		return FuncValueToConstFunc(&fancyfunc.FuncValue{
-			V: func(txn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
-				subgraph, err := obj.Body.Graph()
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
-				}
-
-				txn.AddGraph(subgraph)
-
-				return obj.Body, nil
-			},
-			T: obj.typ,
-		}), nil
-	} else if obj.Function != nil {
-		return obj.Function(), nil
-	} else /* len(obj.Values) > 0 */ {
-		index, err := langutil.FnMatch(obj.typ, obj.Values)
-		if err != nil {
-			// programming error
-			return nil, errwrap.Wrapf(err, "since type checking succeeded at this point, there should only be one match")
-		}
-		simpleFn := obj.Values[index]
-		simpleFn.T = obj.typ
-
-		return SimpleFnToConstFunc(simpleFn), nil
-	}
+	panic("Please use ExprFunc.MergedGraph() instead")
 }
 
 // MergedGraph returns the graph and func together in one call.
 func (obj *ExprFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) (*pgraph.Graph, interfaces.Func, error) {
-	outerTxn := txn.(interfaces.ReversibleTxn)
+	// This implementation produces a graph with a single node of in-degree zero
+	// which outputs a single FuncValue. The FuncValue is a closure, in that it holds both
+	// a lambda body and a captured environment. This environment, which we
+	// receive from the caller, gives information about the variables declared
+	// _outside_ of the lambda, at the time the lambda is returned.
+	//
+	// Each time the FuncValue is called, it produces a separate graph, the
+	// sub-graph which computes the lambda's output value from the lambda's
+	// argument values. The nodes created for that sub-graph have a shorter life
+	// span than the nodes in the captured environment.
 
-	g, err := obj.Graph()
-	if err != nil {
-		return nil, nil, err
+	var fnFunc interfaces.Func
+	if obj.Body != nil {
+		fnFunc = FuncValueToConstFunc(&fancyfunc.FuncValue{
+			V: func(innerTxn interfaces.ReversibleTxn, args []pgraph.Vertex) (pgraph.Vertex, error) {
+				// Extend the environment with the arguments.
+				extendedEnv := make(map[string]pgraph.Vertex)
+				for k, v := range env {
+					extendedEnv[k] = v
+				}
+				for i, arg := range obj.Args {
+					extendedEnv[arg.Name] = args[i]
+				}
+
+				// Create a subgraph from the lambda's body, instantiating the
+				// lambda's parameters with the args and the other variables
+				// with the nodes in the captured environment.
+				subgraph, bodyFunc, err := obj.Body.MergedGraph(innerTxn, extendedEnv)
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
+				}
+
+				innerTxn.AddGraph(subgraph)
+
+				return bodyFunc, nil
+			},
+			T: obj.typ,
+		})
+	} else if obj.Function != nil {
+		fnFunc = obj.Function()
+	} else /* len(obj.Values) > 0 */ {
+		index, err := langutil.FnMatch(obj.typ, obj.Values)
+		if err != nil {
+			// programming error
+			return nil, nil, errwrap.Wrapf(err, "since type checking succeeded at this point, there should only be one match")
+		}
+		simpleFn := obj.Values[index]
+		simpleFn.T = obj.typ
+
+		fnFunc = SimpleFnToConstFunc(simpleFn)
 	}
 
-	out, err := obj.mkFunc(env)
+	outerGraph, err := pgraph.NewGraph("ExprFunc")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create func")
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
 	}
-
-	outerTxn.AddVertex(out)
-	return g, out, nil
+	outerGraph.AddVertex(fnFunc)
+	return outerGraph, fnFunc, nil
 }
 
 // SetValue for a func expression is always populated statically, and does not

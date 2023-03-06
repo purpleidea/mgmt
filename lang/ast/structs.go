@@ -7698,7 +7698,7 @@ func (obj *ExprFunc) mkFunc(env map[string]pgraph.Vertex) (interfaces.Func, erro
 				// lambda's parameters with the args.
 				_, node, err := obj.Body.MergedGraph(innerTxn, extendedEnv)
 				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
 				}
 
 				return node, nil
@@ -7746,8 +7746,8 @@ func (obj *ExprFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) 
 	// _outside_ of the lambda, at the time the lambda is returned.
 	//
 	// Each time the FuncValue is called, it produces a separate graph, the
-	// sub-graph which computes the lambda's output value from the lambda's
-	// argument values. The nodes created for that sub-graph have a shorter life
+	// subgraph which computes the lambda's output value from the lambda's
+	// argument values. The nodes created for that subgraph have a shorter life
 	// span than the nodes in the captured environment.
 
 	var fnFunc interfaces.Func
@@ -7768,7 +7768,7 @@ func (obj *ExprFunc) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) 
 				// with the nodes in the captured environment.
 				subgraph, bodyFunc, err := obj.Body.MergedGraph(innerTxn, extendedEnv)
 				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
 				}
 
 				innerTxn.AddGraph(subgraph)
@@ -8735,7 +8735,7 @@ func (obj *ExprCall) MergedGraph(txn interface{}, env map[string]pgraph.Vertex) 
 	// Loop over the arguments, add them to the graph, but do _not_ connect them
 	// to the function vertex. Instead, each time the call vertex (which we
 	// create below) receives a FuncValue from the function node, it creates the
-	// corresponding sub-graph and connects these arguments to it.
+	// corresponding subgraph and connects these arguments to it.
 	var argFuncs []interfaces.Func
 	for i, arg := range obj.Args {
 		argGraph, argFunc, err := arg.MergedGraph(txn, env)

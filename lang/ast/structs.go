@@ -7748,17 +7748,7 @@ func (obj *ExprFunc) Func() (interfaces.Func, error) {
 					return nil, errwrap.Wrapf(err, "could not create the lambda body's sub-graph")
 				}
 
-				// add all the vertices from the subgraph to the main graph
-				for _, v := range subgraph.Vertices() {
-					subgraph.AddVertex(v)
-				}
-
-				// add all the edges from the subgraph to the main graph
-				for v1, m := range subgraph.Adjacency() {
-					for v2, e := range m {
-						subgraph.AddEdge(v1, v2, e)
-					}
-				}
+				txn.AddGraph(subgraph)
 
 				return obj.Body, nil
 			},

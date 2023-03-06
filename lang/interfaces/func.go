@@ -394,6 +394,18 @@ func (obj *ReversibleTxn) AddEdge(v1, v2 pgraph.Vertex, e pgraph.Edge) {
 	obj.edges = append(obj.edges, e)
 }
 
+func (obj *ReversibleTxn) AddGraph(g *pgraph.Graph) {
+	for _, v := range g.Vertices() {
+		obj.InnerTxn.AddVertex(v)
+	}
+
+	for v1, m := range g.Adjacency() {
+		for v2, e := range m {
+			obj.InnerTxn.AddEdge(v1, v2, e)
+		}
+	}
+}
+
 func (obj *ReversibleTxn) Commit() error {
 	return obj.InnerTxn.Commit()
 }

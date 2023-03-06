@@ -134,19 +134,14 @@ func (obj *CallFunc) Stream() error {
 	// TODO: detect when the subgraph will no longer emit any new values and
 	// inform the for loop below so it can stop when both the input FuncValues
 	// have stopped coming in and the subgraph has stopped emitting values.
-	subgraphOutputToChannel := &ExprFunc{
-		Title: "subgraphOutputToChannel",
-		Values: []*types.SimpleFn{
-			{
-				V: func(args []types.Value) (types.Value, error) {
-					outputValue := args[0]
-					outChan <- outputValue
-					return nil, nil
-				},
-				T: types.NewType(fmt.Sprintf("func(outputValue %s)", obj.Type)),
-			},
+	subgraphOutputToChannel := SimpleFnToDirectFunc(&types.SimpleFn{
+		V: func(args []types.Value) (types.Value, error) {
+			outputValue := args[0]
+			outChan <- outputValue
+			return nil, nil
 		},
-	}
+		T: types.NewType(fmt.Sprintf("func(outputValue %s)", obj.Type)),
+	})
 	// TODO: call Init() on every node we create
 
 	// Use obj.init.Txn instead of obj.txn because we don't want to
@@ -155,11 +150,13 @@ func (obj *CallFunc) Stream() error {
 	obj.init.Txn.Commit()
 
 	defer func() {
+		obj.reversibleTxn.Reset()
 		obj.init.Txn.DeleteVertex(subgraphOutputToChannel)
 		obj.init.Txn.Commit()
 	}()
 
-	// Every time the FuncValue changes, recreate the subgraph by calling the FuncValue.
+	// Every time the FuncValue changes, recreate the subgraph by calling the
+	// FuncValue.
 	var prevFn *fancyfunc.FuncValue
 	for {
 		select {
@@ -186,13 +183,13 @@ func (obj *CallFunc) Stream() error {
 			if fn != prevFn {
 				// The function changed, so we need to recreate the subgraph.
 				obj.reversibleTxn.Reset()
-				outVertex, err := fn.Call(obj.reversibleTxn, obj.ArgVertices)
+				subgraphFunc, err := fn.Call(obj.reversibleTxn, obj.ArgVertices)
 				if err != nil {
-					return nil
+					return errwrap.Wrapf(err, "error creating the subgraph")
 				}
 
 				// attach the output vertex to the output channel
-				obj.reversibleTxn.AddEdge(outVertex, subgraphOutputToChannel, &pgraph.SimpleEdge{
+				obj.reversibleTxn.AddEdge(subgraphFunc, subgraphOutputToChannel, &pgraph.SimpleEdge{
 					Name: "subgraphOutput",
 				})
 				obj.reversibleTxn.Commit()

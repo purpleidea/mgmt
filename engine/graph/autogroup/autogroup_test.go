@@ -595,7 +595,8 @@ func TestPgraphGrouping11(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* simple merge 1
+/*
+// simple merge 1
 // a1   a2         a1,a2
 //   \ /     >>>     |     (arrows point downwards)
 //    b              b
@@ -621,7 +622,8 @@ func TestPgraphGrouping12(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* simple merge 2
+/*
+// simple merge 2
 //    b              b
 //   / \     >>>     |     (arrows point downwards)
 // a1   a2         a1,a2
@@ -647,7 +649,8 @@ func TestPgraphGrouping13(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* triple merge
+/*
+// triple merge
 // a1 a2  a3         a1,a2,a3
 //   \ | /     >>>       |      (arrows point downwards)
 //     b                 b
@@ -676,7 +679,8 @@ func TestPgraphGrouping14(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* chain merge
+/*
+// chain merge
 //    a1             a1
 //   /  \             |
 // b1    b2   >>>   b1,b2   (arrows point downwards)
@@ -712,7 +716,8 @@ func TestPgraphGrouping15(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* re-attach 1 (outer)
+/*
+// re-attach 1 (outer)
 // technically the second possibility is valid too, depending on which order we
 // merge edges in, and if we don't filter out any unnecessary edges afterwards!
 // a1    a2         a1,a2        a1,a2
@@ -748,7 +753,8 @@ func TestPgraphGrouping16(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* re-attach 2 (inner)
+/*
+// re-attach 2 (inner)
 // a1    b2          a1
 //  |   /             |
 // b1  /      >>>   b1,b2   (arrows point downwards)
@@ -782,7 +788,8 @@ func TestPgraphGrouping17(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* re-attach 3 (double)
+/*
+// re-attach 3 (double)
 // similar to "re-attach 1", technically there is a second possibility for this
 // a2   a1    b2         a1,a2
 //   \   |   /             |
@@ -820,7 +827,8 @@ func TestPgraphGrouping18(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* connected merge 0, (no change!)
+/*
+// connected merge 0, (no change!)
 // a1            a1
 //   \     >>>     \     (arrows point downwards)
 //    a2            a2
@@ -843,7 +851,8 @@ func TestPgraphGroupingConnected0(t *testing.T) {
 	runGraphCmp(t, g1, g2)
 }
 
-/* connected merge 1, (no change!)
+/*
+// connected merge 1, (no change!)
 // a1              a1
 //   \               \
 //    b      >>>      b      (arrows point downwards)

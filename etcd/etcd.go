@@ -28,7 +28,7 @@
 // robust, battle-test etcd cluster, then manage your own, and point each mgmt
 // agent at it with --seeds and --no-server.
 //
-// Algorithm
+// # Algorithm
 //
 // The elastic etcd algorithm works in the following way:
 //
@@ -46,7 +46,7 @@
 //
 // * The elected leader should decide who to nominate/unnominate as needed.
 //
-// Notes
+// # Notes
 //
 // If you attempt to add a new member to the cluster with a duplicate hostname,
 // then the behaviour is undefined, and you could bork your cluster. This is not
@@ -65,21 +65,21 @@
 // internal changes to etcd. Help is welcome if you're interested in working on
 // this.
 //
-// Smoke testing
+// # Smoke testing
 //
 // Here is a simple way to test etcd clustering basics...
 //
-//  ./mgmt run --tmp-prefix --no-pgp --hostname h1 empty
-//  ./mgmt run --tmp-prefix --no-pgp --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 empty
-//  ./mgmt run --tmp-prefix --no-pgp --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 empty
-//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/chooser/dynamicsize/idealclustersize 3
-//  ./mgmt run --tmp-prefix --no-pgp --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 empty
-//  ./mgmt run --tmp-prefix --no-pgp --hostname h5 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2387 --server-urls http://127.0.0.1:2388 empty
-//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
-//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 put /_mgmt/chooser/dynamicsize/idealclustersize 5
-//  ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list
+//	./mgmt run --tmp-prefix --no-pgp --hostname h1 empty
+//	./mgmt run --tmp-prefix --no-pgp --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 empty
+//	./mgmt run --tmp-prefix --no-pgp --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 empty
+//	ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/chooser/dynamicsize/idealclustersize 3
+//	./mgmt run --tmp-prefix --no-pgp --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 empty
+//	./mgmt run --tmp-prefix --no-pgp --hostname h5 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2387 --server-urls http://127.0.0.1:2388 empty
+//	ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 member list
+//	ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 put /_mgmt/chooser/dynamicsize/idealclustersize 5
+//	ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2381 member list
 //
-// Bugs
+// # Bugs
 //
 // A member might occasionally think that an endpoint still exists after it has
 // already shutdown. This isn't a major issue, since if that endpoint doesn't

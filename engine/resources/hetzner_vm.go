@@ -36,20 +36,20 @@ const (
 	// needed to make that change.
 	HetznerStateUndefined = ""
 	// HetznerStateExists indicates that the server must exist, without
-	// differentiation between `off`, `running` or any transient states.
-	// If the server was absent, a new server is created in `off` state, with
-	// one exception: if the last observed state before a rebuild was `running`
-	// or `starting`, rebuildServer will set the new server to `running`.
+	// differentiation between "off", "running" or any transient states.
+	// If the server was absent, a new server is created in "off" state, with
+	// one exception: if the last observed state before a rebuild was "running"
+	// or "starting", rebuildServer will set the new server to "running".
 	HetznerStateExists = "exists"
 	// HetznerStateRunning indicates that the server must be powered on. If the
-	// server was absent, a new server is created in `running` state.
+	// server was absent, a new server is created in "running" state.
 	HetznerStateRunning = "running"
 	// HetznerStateOff indicates that the server must be powered off. If the
-	// server was absent, a new server is created in `off` state.
+	// server was absent, a new server is created in "off" state.
 	HetznerStateOff = "off"
 	// HetznerStateAbsent indicates that the server must be deleted/absent. If
 	// the server already existed, it is deleted. Note that this deletion is
-	// always executed if the `absent` state is explicitly specified!
+	// always executed if the "absent" state is explicitly specified!
 	HetznerStateAbsent = "absent"
 
 	// HetznerAllowRebuildError blocks any server rebuild requests in CheckApply
@@ -116,15 +116,15 @@ func init() {
 // project must be generated manually, via the cloud console (2), before this
 // resource can establish a connection with the API. One Hetzner resource
 // represents one server instance, and multiple instances can be registered
-// under the same project. A resource in the `absent` state only exists as a
+// under the same project. A resource in the "absent" state only exists as a
 // local mcl struct, and does not exist as server instance on Hetzner's side.
 // NOTE: the Hetzner cloud console must be used to create a new project,
 // generate the corresponding API token, and initialize the desired SSH keys.
 // All registered SSH keys are used when creating a server, and a subset of
-// those can be enabled for rescue mode via the `serverrescuekeys` param.
+// those can be enabled for rescue mode via the "serverrescuekeys" param.
 // NOTE: complete and up-to-date serverconfig options must be requested from the
 // Hetzner API, but hcloud-go-getopts (3) provides a static reference.
-// NOTE: this resources requires polling, via the `Meta:poll` param. The Hetzner
+// NOTE: this resources requires polling, via the "Meta:poll" param. The Hetzner
 // API imposes a maximum rate of 3600 requests per hour that must be taken into
 // account for intensive and/or long term operations. When running N hetzner:vm
 // resources under the same Hetzner project, it is recommended to use a polling
@@ -151,24 +151,24 @@ type HetznerVMRes struct {
 	APIToken string `lang:"apitoken"`
 
 	// State specifies the desired state of the server instance. The supported
-	// options are `` (undefined), `absent`, `exists`, `off` and `running`.
-	// HetznerStateUndefined (``) leaves the state undefined by default.
-	// HetznerStateExists (`exists`) indicates that the server must exist.
-	// HetznerStateAbsent (`absent`) indicates that the server must not exist.
-	// HetznerStateRunning (`running`) tells the server it must be powered on.
-	// HetznerStateOff (`off`) tells the server it must be powered off.
+	// options are "" (undefined), "absent", "exists", "off" and "running".
+	// HetznerStateUndefined ("") leaves the state undefined by default.
+	// HetznerStateExists ("exists") indicates that the server must exist.
+	// HetznerStateAbsent ("absent") indicates that the server must not exist.
+	// HetznerStateRunning ("running") tells the server it must be powered on.
+	// HetznerStateOff ("off") tells the server it must be powered off.
 	// NOTE: any other inputs will not pass Validate and result in an error.
-	// NOTE: setting the state of a live server to `absent` will delete all data
+	// NOTE: setting the state of a live server to "absent" will delete all data
 	// and services that are located on that instance! Use with caution.
 	State string `lang:"state"`
 
 	// AllowRebuild provides flexible protection against unexpected server
-	// rebuilds. Any changes to the `servertype`, `datacenter` or `image` params
+	// rebuilds. Any changes to the "servertype", "datacenter" or "image" params
 	// require a destructive rebuild, which deletes all data on that server.
 	// The user must explicitly allow these operations with AllowRebuild.
-	// Choose from three options: `ifneeded` allows all rebuilds that are needed
-	// by CheckApply to meet the specified params. `ignore` disables these
-	// rebuilds, but continues without error. The default option (``) disables
+	// Choose from three options: "ifneeded" allows all rebuilds that are needed
+	// by CheckApply to meet the specified params. "ignore" disables these
+	// rebuilds, but continues without error. The default option ("") disables
 	// always returns an error when CheckApply requests a rebuild.
 	// NOTE: Soft updates related to power and rescue mode are always allowed,
 	// because they are only required for explicit changes to resource fields.
@@ -178,7 +178,7 @@ type HetznerVMRes struct {
 	// ServerType determines the machine type as defined by Hetzner. A complete
 	// and up-to-date list of options must be requested from the Hetzner API,
 	// but hcloud-go-getopts (url) provides a static reference. Basic servertype
-	// options include `cx11`, `cx21`, `cx31` etc.
+	// options include "cx11", "cx21", "cx31" etc.
 	// NOTE: make sure to check the price of the selected servertype! The listed
 	// examples are usually very cheap, but never free. Price and availability
 	// can also be dependent on the selected datacenter.
@@ -189,14 +189,14 @@ type HetznerVMRes struct {
 	// Datacenter determines where the resource is hosted.  A complete and
 	// up-to-date list of options must be requested from the Hetzner API, but
 	// hcloud-go-getopts (url) provides a static reference. The datacenter
-	// options include `nbg1-dc3`, `fsn1-dc14`, `hel1-dc2` etc.
+	// options include "nbg1-dc3", "fsn1-dc14", "hel1-dc2" etc.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
 	Datacenter string `lang:"datacenter"`
 
 	// Image determines the operating system to be installed. A complete and
 	// up-to-date list of options must be requested from the Hetzner API, but
 	// hcloud-go-getopts (url) provides a static reference. The image type
-	// options include `centos-7`, `ubuntu-18.04`, `debian-10` etc.
+	// options include "centos-7", "ubuntu-18.04", "debian-10" etc.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
 	Image string `lang:"image"`
 
@@ -205,7 +205,7 @@ type HetznerVMRes struct {
 	UserData string `lang:"userdata"`
 
 	// ServerRescueMode specifies the image type used when enabling rescue mode.
-	// The supported image types are `linux32`, `linux64` and `freebsd64`.
+	// The supported image types are "linux32", "linux64" and "freebsd64".
 	// Alternatively, leave this string empty to disable rescue mode (default).
 	// Other input values will not pass Validate and result in an error.
 	// NOTE: rescue mode can not be enabled if the server is absent.
@@ -228,7 +228,7 @@ type HetznerVMRes struct {
 	// value causes the waiter to run without delays (burst requests). Although
 	// such burst requests are allowed, it is recommended to use a wait interval
 	// that keeps the total request rate under 3600 requests per hour. Take
-	// these factors into account: polling rate `Meta:poll`, number of active
+	// these factors into account: polling rate "Meta:poll", number of active
 	// resources under the same Hetzner project, and the expected rate of param
 	// updates. This will help to prevent rate limit errors.
 	WaitInterval uint32 `lang:"waitinterval"`
@@ -255,7 +255,7 @@ type HetznerVMRes struct {
 
 	// lastObservedState is a local copy of the last observed state of the
 	// resource. This is used to determine the startAfterCreate option during
-	// server rebuilds when the state is `` (undefined).
+	// server rebuilds when the state is "" (undefined).
 	lastObservedState hcloud.ServerStatus
 
 	// rescueKeys is a local copy of the array of SSH key values to be enabled
@@ -383,7 +383,7 @@ func (obj *HetznerVMRes) Watch() error {
 // NOTE: all functions that push changes to the Hetzner instance run a waitUntil
 // call with the appropriate exit condition before returning, such that the
 // requested operation is confirmed before continuing. This ensures that the
-// `server` struct always contains up-to-date info of the live instance.
+// "server" struct always contains up-to-date info of the live instance.
 // NOTE: this last assumption might still fail in case the same resource
 // instance is managed by multiple running mgmt instances!
 // TODO: possible to ensure safe concurrency?
@@ -445,7 +445,7 @@ func (obj *HetznerVMRes) checkApplyServerState(ctx context.Context, apply bool) 
 	// Make sure the server exists as intended before further checks.
 	serverCreationRequired := false
 	if obj.server == nil {
-		// The server doesn't exist as intended (state = `absent`).
+		// The server doesn't exist as intended (state = "absent").
 		if obj.State == HetznerStateAbsent {
 			return true, nil
 		}
@@ -527,7 +527,7 @@ func (obj *HetznerVMRes) checkApplyServerRebuild(ctx context.Context, apply bool
 		return false, nil
 	}
 	// Rebuild the server to meet specs (if AllowRebuild passes).
-	// NOTE: if `undefined`, this tries to match the last observed state.
+	// NOTE: if "undefined", this tries to match the last observed state.
 	if err := obj.rebuildServer(ctx); err != nil {
 		return false, errwrap.Wrapf(err, "rebuildServer failed")
 	}
@@ -538,28 +538,28 @@ func (obj *HetznerVMRes) checkApplyServerRebuild(ctx context.Context, apply bool
 // intended, and tries to disable (or enable) the rescue mode if needed to meet
 // the specified parameters. When enabling rescue mode, the SSH keys specified
 // by ServerRescueSSHKeys are validated and enabled for rescue login over SSH.
-// NOTE: rescue mode changes require steady state (`off` or `running`).
+// NOTE: rescue mode changes require steady state ("off" or "running").
 // NOTE: the output arguments follow the rules of CheckApply: If the resource
 // requires changes, CheckApply returns false regardless of the apply value,
 // true otherwise. Any errors that might occur are wrapped and returned.
 // NOTE: switching image type in ServerRescueMode triggers this checkapply, but
 // dynamic changes to the SSH keys are not yet supported.
-// TODO: add `undefined` option for HetznerServerRescueMode? default?
+// TODO: add "undefined" option for HetznerServerRescueMode? default?
 // TODO: add support for rescue login via root password?
 func (obj *HetznerVMRes) checkApplyRescueMode(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("checkApplyRescueMode(apply: %t)", apply)
 	}
 	// Exit immediately if the server is absent.
-	// NOTE: an absent server is treated as rescue mode `disabled`.
+	// NOTE: an absent server is treated as rescue mode "disabled".
 	if obj.server == nil {
 		if obj.ServerRescueMode == HetznerServerRescueDisabled {
 			return true, nil
 		}
 		return false, nil
 	}
-	// Exit if the server is not in a steady state (`running` or `off`).
-	// NOTE: otherwise the `server is locked` when trying to enable or disable.
+	// Exit if the server is not in a steady state ("running" or "off").
+	// NOTE: otherwise the "server is locked" when trying to enable or disable.
 	stateOK, err := obj.serverInSteadyState()
 	if err != nil {
 		return false, errwrap.Wrapf(err, "serverInSteadyState failed")
@@ -593,7 +593,7 @@ func (obj *HetznerVMRes) checkApplyRescueMode(ctx context.Context, apply bool) (
 }
 
 // getServerUpdate pings the Hetzner API for up-to-date server info.
-// NOTE: if obj.server is nil, the server is considered to be in `absent` state.
+// NOTE: if obj.server is nil, the server is considered to be in "absent" state.
 func (obj *HetznerVMRes) getServerUpdate(ctx context.Context) error {
 	if obj.init.Debug {
 		obj.init.Logf("getServerUpdate()")
@@ -685,7 +685,7 @@ func (obj *HetznerVMRes) cmpServerSpecs() (bool, error) {
 }
 
 // powerServerOn requests a poweron for the specified server, then waits until
-// the new `running` state is confirmed. Returns an error if the specified
+// the new "running" state is confirmed. Returns an error if the specified
 // server is absent, or if waitUntil exits early due to timeout, context
 // cancellation or another error.
 func (obj *HetznerVMRes) powerServerOn(ctx context.Context) error {
@@ -706,7 +706,7 @@ func (obj *HetznerVMRes) powerServerOn(ctx context.Context) error {
 }
 
 // powerServerOff requests a poweroff for the specified server, then waits until
-// the new `off` state is confirmed. Returns an error if the specified server is
+// the new "off" state is confirmed. Returns an error if the specified server is
 // absent, or if waitUntil exits early due to timeout, context cancellation or
 // another error.
 func (obj *HetznerVMRes) powerServerOff(ctx context.Context) error {
@@ -731,9 +731,9 @@ func (obj *HetznerVMRes) powerServerOff(ctx context.Context) error {
 // creation with that configuration, and waits until the creation is confirmed.
 // Errors occur when the server exists already, the client fails, or the wait
 // step exits early due context cancellation, client failure or timeout.
-// NOTE: the startAfterCreate option is used to reach `running` state faster for
-// two cases. When the state is specified as `running`, or when the state is ``
-// (undefined) and the last observed serverstatus was `running` or `starting`.
+// NOTE: the startAfterCreate option is used to reach "running" state faster for
+// two cases. When the state is specified as "running", or when the state is ""
+// (undefined) and the last observed serverstatus was "running" or "starting".
 func (obj *HetznerVMRes) createServer(ctx context.Context) error {
 	if obj.init.Debug {
 		obj.init.Logf("createServer()")
@@ -778,9 +778,9 @@ func (obj *HetznerVMRes) deleteServer(ctx context.Context) error {
 }
 
 // rebuildServer deletes the current server instance and creates a new one, in
-// accordance with the provided resource specifications. If the state is ``
+// accordance with the provided resource specifications. If the state is ""
 // (undefined), this function tries to match the last observed state of the live
-// instance. If that last observed state is `absent`, rebuild returns nil
+// instance. If that last observed state is "absent", rebuild returns nil
 // without creating a new server. Otherwise, the server must exist, and absence
 // will result in an error.
 // NOTE: AllowRebuild protects the user against unexpected server deletions:
@@ -828,9 +828,9 @@ func (obj *HetznerVMRes) rebuildServer(ctx context.Context) error {
 // instance that matches the specified parameters. Errors can occur if the
 // params used to construct serverconfig contain invalid arguments, or if the
 // client fails.
-// NOTE: the startAfterCreate option is used to reach `running` state faster for
-// two cases. When the state is specified as `running`, or when the state is ``
-// (undefined) and the last observed serverstatus was `running` or `starting`.
+// NOTE: the startAfterCreate option is used to reach "running" state faster for
+// two cases. When the state is specified as "running", or when the state is ""
+// (undefined) and the last observed serverstatus was "running" or "starting".
 // TODO: add option to define Location xor Datacenter (never both!).
 func (obj *HetznerVMRes) getServerConfig(ctx context.Context) error {
 	if obj.init.Debug {
@@ -839,7 +839,7 @@ func (obj *HetznerVMRes) getServerConfig(ctx context.Context) error {
 	// default, volumes not supported (yet)
 	// TODO: add support for volume selection?
 	automount := false
-	// poweron at creation to reach `running` faster
+	// poweron at creation to reach "running" faster
 	startAfterCreate := false
 	if obj.State == HetznerStateRunning {
 		startAfterCreate = true
@@ -909,7 +909,7 @@ func (obj *HetznerVMRes) getServerConfig(ctx context.Context) error {
 // waits until the operation is confirmed. Returns an error if the server is not
 // in steady state, if an intermediate API request fails, if waitUntil exits
 // early or in case of context cancellation.
-// NOTE: the EnableRescue request requires steady state (`off` or `running`).
+// NOTE: the EnableRescue request requires steady state ("off" or "running").
 func (obj *HetznerVMRes) enableRescueMode(ctx context.Context) error {
 	if obj.init.Debug {
 		obj.init.Logf("enableRescueMode()")
@@ -922,14 +922,14 @@ func (obj *HetznerVMRes) enableRescueMode(ctx context.Context) error {
 	if obj.server.RescueEnabled {
 		return nil
 	}
-	// Exit if the server is not in a steady state (`running` or `off`).
-	// NOTE: otherwise the `server is locked` when trying to enable.
+	// Exit if the server is not in a steady state ("running" or "off").
+	// NOTE: otherwise the "server is locked" when trying to enable.
 	stateOK, err := obj.serverInSteadyState()
 	if err != nil {
 		return errwrap.Wrapf(err, "serverInSteadyState failed")
 	}
 	if !stateOK {
-		return fmt.Errorf("state must be `running` or `off` (now: %s)", obj.server.Status)
+		return fmt.Errorf("state must be 'running' or 'off' (now: %s)", obj.server.Status)
 	}
 	// Format rescueImage and rescueKeys, then enable rescue mode.
 	// NOTE: rescueImage and rescueKeys also provide a checkapply reference.
@@ -960,7 +960,7 @@ func (obj *HetznerVMRes) enableRescueMode(ctx context.Context) error {
 // is already disabled. Returns an error if an intermediate API request fails,
 // if waitUntil exits early, or in case of context cancellation.
 // NOTE: an absent server is treated as a disabled serverrescuemode.
-// NOTE: the DisableRescue request requires steady state (`off` or `running`).
+// NOTE: the DisableRescue request requires steady state ("off" or "running").
 func (obj *HetznerVMRes) disableRescueMode(ctx context.Context) error {
 	if obj.init.Debug {
 		obj.init.Logf("disableRescueMode()")
@@ -972,14 +972,14 @@ func (obj *HetznerVMRes) disableRescueMode(ctx context.Context) error {
 	if !obj.server.RescueEnabled {
 		return nil
 	}
-	// Exit if the server is not in a steady state (`running` or `off`).
-	// NOTE: otherwise the `server is locked` when trying to enable.
+	// Exit if the server is not in a steady state ("running" or "off").
+	// NOTE: otherwise the "server is locked" when trying to enable.
 	stateOK, err := obj.serverInSteadyState()
 	if err != nil {
 		return errwrap.Wrapf(err, "serverInSteadyState failed")
 	}
 	if !stateOK {
-		return fmt.Errorf("state must be `running` or `off` (now: %s)", obj.server.Status)
+		return fmt.Errorf("state must be 'running' or 'off' (now: %s)", obj.server.Status)
 	}
 	// Disable rescue mode.
 	if _, _, err := obj.client.Server.DisableRescue(ctx, obj.server); err != nil {
@@ -1059,8 +1059,8 @@ func (obj *HetznerVMRes) waitUntil(ctx context.Context, condition func() (bool, 
 }
 
 // serverStateConverged checks if the target server is in the desired state.
-// Returns true if the client confirms that the state is `exists`, `running`,
-// `off` or `absent` as intended. An undefined state `` always returns true.
+// Returns true if the client confirms that the state is "exists", "running",
+// "off" or "absent" as intended. An undefined state "" always returns true.
 // Otherwise, this function returns false. Invalid states result in an error.
 func (obj *HetznerVMRes) serverStateConverged() (converged bool, err error) {
 	if obj.init.Debug {
@@ -1094,8 +1094,8 @@ func (obj *HetznerVMRes) serverStateConverged() (converged bool, err error) {
 }
 
 // serverInSteadyState returns true if the server is in one of the two known
-// steady states, i.e. `running` or `off`, and false otherwise. Any other states
-// are either transients or `absent`, so it is safe to return false without
+// steady states, i.e. "running" or "off", and false otherwise. Any other states
+// are either transients or "absent", so it is safe to return false without
 // errors and try again later if needed.
 func (obj *HetznerVMRes) serverInSteadyState() (steady bool, err error) {
 	if obj.init.Debug {
@@ -1127,7 +1127,7 @@ func (obj *HetznerVMRes) rescueModeEnabled() (bool, error) {
 }
 
 // rescueModeDisabled returns true if rescue mode is disabled, false otherwise.
-// Server absence is also considered to `disable` rescue mode, and returns true.
+// Server absence is also considered to "disable" rescue mode, and returns true.
 func (obj *HetznerVMRes) rescueModeDisabled() (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("rescueModeDisabled()")
@@ -1184,10 +1184,10 @@ func (obj *HetznerVMRes) rescueModeConverged() (bool, error) {
 // serverStateIs returns a function that can be used with waitUntil. When this
 // function is called, it returns true if the server status matches the state
 // specified as input argument, false otherwise. It also returns false if the
-// state argument is not supported. The supported states are `absent`, `exists`,
-// `running`, `off` and `` (undefined). Other inputs will result in an error.
+// state argument is not supported. The supported states are "absent", "exists",
+// "running", "off" and "" (undefined). Other inputs will result in an error.
 // NOTE: hcloud states like ServerStatusUnknown and ServerStatusDeleting are
-// also considered to be valid for state `exists`. This is important to take
+// also considered to be valid for state "exists". This is important to take
 // into account when rewriting or adjusting any logic using this function.
 func (obj *HetznerVMRes) serverStateIs(state string) func() (bool, error) {
 	if obj.init.Debug {

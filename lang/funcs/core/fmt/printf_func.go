@@ -62,7 +62,7 @@ type PrintfFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *PrintfFunc) String() string {
-	return PrintfFuncName
+	return fmt.Sprintf("%s@%p", PrintfFuncName, obj) // be more unique!
 }
 
 // ArgGen returns the Nth arg name for this function.

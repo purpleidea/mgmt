@@ -1731,6 +1731,10 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
 				}
 			}
+
+			if !t.Failed() {
+				t.Logf("test #%d: Passed!", index)
+			}
 		})
 	}
 	if testing.Short() {

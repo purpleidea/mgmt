@@ -450,10 +450,10 @@ func (obj *Engine) Run() error {
 				// XXX: maybe we can get rid of the table...
 				obj.table[vertex] = value // save the latest
 				node.mutex.Lock()
-				if err := node.Expr.SetValue(value); err != nil {
-					node.mutex.Unlock() // don't block node.String()
-					panic(fmt.Sprintf("could not set value for `%s`: %+v", node, err))
-				}
+				//if err := node.Expr.SetValue(value); err != nil {
+				//	node.mutex.Unlock() // don't block node.String()
+				//	panic(fmt.Sprintf("could not set value for `%s`: %+v", node, err))
+				//}
 				node.loaded = true // set *after* value is in :)
 				obj.Logf("func `%s` changed", node)
 				node.mutex.Unlock()
@@ -485,7 +485,7 @@ func (obj *Engine) Run() error {
 				}
 			}
 			// no more output values are coming...
-			obj.Logf("func `%s` stopped", node)
+			obj.SafeLogf("func `%s` stopped", node)
 
 			// nodes that never loaded will cause the engine to hang
 			if !node.loaded {
@@ -603,6 +603,22 @@ func (obj *Engine) agDone(vertex pgraph.Vertex) {
 	}
 }
 
+// Lock takes a write lock on the data that gets written to the AST, so that
+// interpret/SetValue can be run without anything changing part way through.
+// XXX: This API is kind of yucky, but is related to us running .String() on the
+// nodes. Maybe we can avoid this somehow?
+func (obj *Engine) Lock() {
+	obj.mutex.Lock()
+}
+
+// Unlock takes a write lock on the data that gets written to the AST, so that
+// interpret/SetValue can be run without anything changing part way through.
+// XXX: This API is kind of yucky, but is related to us running .String() on the
+// nodes. Maybe we can avoid this somehow?
+func (obj *Engine) Unlock() {
+	obj.mutex.Unlock()
+}
+
 // RLock takes a read lock on the data that gets written to the AST, so that
 // interpret can be run without anything changing part way through.
 func (obj *Engine) RLock() {
@@ -634,6 +650,22 @@ func (obj *Engine) SafeLogf(format string, v ...interface{}) {
 // Do not run the Table function before we've received one non-error event.
 func (obj *Engine) Stream() chan error {
 	return obj.streamChan
+}
+
+// Table returns a copy of the populated data table of values. We return a copy
+// because since these values are constantly changing, we need an atomic
+// snapshot to present to the consumer of this API.
+// TODO: is this globally glitch consistent?
+// TODO: do we need an API to return a single value? (wrapped in read locks)
+func (obj *Engine) Table() map[pgraph.Vertex]types.Value {
+	obj.mutex.RLock()
+	defer obj.mutex.RUnlock()
+	table := make(map[pgraph.Vertex]types.Value)
+	for k, v := range obj.table {
+		//table[k] = v.Copy() // XXX: do we need to copy these values?
+		table[k] = v
+	}
+	return table
 }
 
 // Close shuts down the function engine. It waits till everything has finished.

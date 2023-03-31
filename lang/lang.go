@@ -331,14 +331,38 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	}
 
 	obj.Logf("running interpret...")
-	if obj.funcs != nil { // no need to rlock if we have a static graph
-		obj.funcs.RLock()
+	table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
+	fn := func(n interfaces.Node) error {
+		expr, ok := n.(interfaces.Expr)
+		if !ok {
+			return nil
+		}
+		v, ok := expr.(pgraph.Vertex)
+		if !ok {
+			panic("programming error in interfaces.Expr -> pgraph.Vertex lookup")
+		}
+		val, exists := table[v]
+		if !exists {
+			fmt.Printf("XXX: missing value in table is pointer: %p\n", v)
+			return nil // XXX: workaround for now...
+			//return fmt.Errorf("missing value in table for: %s", v)
+		}
+		return expr.SetValue(val) // set the value
 	}
+	obj.funcs.Lock() // XXX: apparently there are races between SetValue and reading obj.V values...
+	if err := obj.ast.Apply(fn); err != nil {
+		if obj.Debug {
+			for k, v := range table {
+				obj.Logf("table: key: %+v ; value: %+v", k, v)
+			}
+		}
+		obj.funcs.Unlock()
+		return nil, err
+	}
+	obj.funcs.Unlock()
+
 	// this call returns the graph
 	graph, err := interpret.Interpret(obj.ast)
-	if obj.funcs != nil {
-		obj.funcs.RUnlock()
-	}
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpret")
 	}

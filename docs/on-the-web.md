@@ -56,3 +56,4 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from FOSDEM 2020, Infra Management Devroom](https://video.fosdem.org/2020/UA2.120/mgmt.webm) |
 | James Shubin | video | [Recording from FOSDEM 2020, Minimalistic Languages Devroom](https://video.fosdem.org/2020/AW1.125/mgmtconfigmore.webm) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2020](https://www.youtube.com/watch?v=Kd7FAORFtsc) |
+| James Shubin | video | [Recording from CfgMgmtCamp.eu 2023](https://www.youtube.com/watch?v=FeRGRj8w0BU) |

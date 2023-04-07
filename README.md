@@ -100,6 +100,8 @@ Please read, enjoy and help improve our documentation!
 | [prometheus guide](docs/prometheus.md) | for everyone |
 | [puppet guide](docs/puppet-guide.md) | for puppet sysadmins |
 | [development](docs/development.md) | for mgmt developers |
+| [videos](docs/on-the-web.md) | for everyone |
+| [blogs](docs/on-the-web.md) | for everyone |
 
 ## Questions:
 
@@ -128,6 +130,6 @@ We'd love to have your patches! Please send them by email, or as a pull request.
 
 ## On the web:
 
-[Read what people are saying and publishing about mgmt!](docs/on-the-web.md)
+[Blog posts and recorded talks about mgmt are listed here!](docs/on-the-web.md)
 
 Happy hacking!

@@ -745,7 +745,7 @@ func TestResources2(t *testing.T) {
 			FilteredGraph: func() (*pgraph.Graph, error) {
 				//graph, err := pgraph.NewGraph("filtered")
 				//if err != nil {
-				//	return nil, errwrap.Wrapf(err, "could not create graph")
+				//	return nil, err
 				//}
 				// Hack: We just add ourself as allowed since
 				// we're just a one-vertex test suite...

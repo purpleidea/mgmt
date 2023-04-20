@@ -231,7 +231,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	importGraph, err := pgraph.NewGraph("importGraph")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	importVertex := &pgraph.SelfVertex{
 		Name:  "",          // first node is the empty string
@@ -704,7 +704,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 
 	importGraph, err := pgraph.NewGraph("importGraph")
 	if err != nil {
-		return errwrap.Wrapf(err, "could not create graph")
+		return err
 	}
 	importVertex := &pgraph.SelfVertex{
 		Name:  "",          // first node is the empty string

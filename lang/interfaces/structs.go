@@ -22,7 +22,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // ExprAny is a placeholder expression that is used for type unification hacks.
@@ -67,7 +66,7 @@ func (obj *ExprAny) Copy() (Expr, error) {
 func (obj *ExprAny) Ordering(produces map[string]Node) (*pgraph.Graph, map[Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -139,7 +138,7 @@ func (obj *ExprAny) Unify() ([]Invariant, error) {
 func (obj *ExprAny) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("any")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 	return graph, nil

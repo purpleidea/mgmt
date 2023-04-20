@@ -125,7 +125,7 @@ func (obj *Lang) Init() error {
 
 	importGraph, err := pgraph.NewGraph("importGraph")
 	if err != nil {
-		return errwrap.Wrapf(err, "could not create graph")
+		return err
 	}
 	importVertex := &pgraph.SelfVertex{
 		Name:  "",          // first node is the empty string

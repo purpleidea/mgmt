@@ -188,7 +188,7 @@ func (obj *State) Init() error {
 		FilteredGraph: func() (*pgraph.Graph, error) {
 			graph, err := pgraph.NewGraph("filtered")
 			if err != nil {
-				return nil, errwrap.Wrapf(err, "could not create graph")
+				return nil, err
 			}
 
 			// filter graph and build a new one...

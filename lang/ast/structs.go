@@ -184,7 +184,7 @@ func (obj *StmtBind) Copy() (interfaces.Stmt, error) {
 func (obj *StmtBind) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -417,7 +417,7 @@ func (obj *StmtRes) Copy() (interfaces.Stmt, error) {
 func (obj *StmtRes) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -589,7 +589,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 
 	graph, err := pgraph.NewGraph("res")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	g, err := obj.Name.Graph()
@@ -1164,7 +1164,7 @@ func (obj *StmtResField) Copy() (StmtResContents, error) {
 func (obj *StmtResField) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -1291,7 +1291,7 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resfield")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	g, err := obj.Value.Graph()
@@ -1421,7 +1421,7 @@ func (obj *StmtResEdge) Copy() (StmtResContents, error) {
 func (obj *StmtResEdge) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -1524,7 +1524,7 @@ func (obj *StmtResEdge) Unify(kind string) ([]interfaces.Invariant, error) {
 func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resedge")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	g, err := obj.EdgeHalf.Graph()
@@ -1675,7 +1675,7 @@ func (obj *StmtResMeta) Copy() (StmtResContents, error) {
 func (obj *StmtResMeta) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -1859,7 +1859,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resmeta")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	g, err := obj.MetaExpr.Graph()
@@ -1976,7 +1976,7 @@ func (obj *StmtEdge) Copy() (interfaces.Stmt, error) {
 func (obj *StmtEdge) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -2115,7 +2115,7 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("edge")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	for _, x := range obj.EdgeHalfList {
@@ -2495,7 +2495,7 @@ func (obj *StmtIf) Copy() (interfaces.Stmt, error) {
 func (obj *StmtIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -2646,7 +2646,7 @@ func (obj *StmtIf) Unify() ([]interfaces.Invariant, error) {
 func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	g, err := obj.Condition.Graph()
@@ -2825,7 +2825,7 @@ func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -3711,7 +3711,7 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("prog")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	// collect all graphs that need to be included
@@ -3899,7 +3899,7 @@ func (obj *StmtFunc) Copy() (interfaces.Stmt, error) {
 func (obj *StmtFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -4068,7 +4068,7 @@ func (obj *StmtClass) Copy() (interfaces.Stmt, error) {
 func (obj *StmtClass) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -4266,7 +4266,7 @@ func (obj *StmtInclude) Copy() (interfaces.Stmt, error) {
 func (obj *StmtInclude) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -4467,7 +4467,7 @@ func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
 func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("include")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 
 	g, err := obj.class.Graph()
@@ -4536,7 +4536,7 @@ func (obj *StmtImport) Copy() (interfaces.Stmt, error) {
 func (obj *StmtImport) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -4566,8 +4566,7 @@ func (obj *StmtImport) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular statement just returns an empty graph.
 func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("import")
-	return graph, errwrap.Wrapf(err, "could not create graph")
+	return pgraph.NewGraph("import")
 }
 
 // Output returns the output that this include produces. This output is what is
@@ -4627,7 +4626,7 @@ func (obj *StmtComment) Copy() (interfaces.Stmt, error) {
 func (obj *StmtComment) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -4655,7 +4654,7 @@ func (obj *StmtComment) Unify() ([]interfaces.Invariant, error) {
 func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("comment")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	return graph, nil
 }
@@ -4707,7 +4706,7 @@ func (obj *ExprBool) Copy() (interfaces.Expr, error) {
 func (obj *ExprBool) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -4757,7 +4756,7 @@ func (obj *ExprBool) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprBool) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("bool")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 	return graph, nil
@@ -4883,7 +4882,7 @@ func (obj *ExprStr) Copy() (interfaces.Expr, error) {
 func (obj *ExprStr) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -4933,7 +4932,7 @@ func (obj *ExprStr) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprStr) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("str")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 	return graph, nil
@@ -5009,7 +5008,7 @@ func (obj *ExprInt) Copy() (interfaces.Expr, error) {
 func (obj *ExprInt) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -5059,7 +5058,7 @@ func (obj *ExprInt) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprInt) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("int")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 	return graph, nil
@@ -5137,7 +5136,7 @@ func (obj *ExprFloat) Copy() (interfaces.Expr, error) {
 func (obj *ExprFloat) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -5187,7 +5186,7 @@ func (obj *ExprFloat) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprFloat) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("float")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 	return graph, nil
@@ -5313,7 +5312,7 @@ func (obj *ExprList) Copy() (interfaces.Expr, error) {
 func (obj *ExprList) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -5496,7 +5495,7 @@ func (obj *ExprList) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprList) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("list")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -5721,7 +5720,7 @@ func (obj *ExprMap) Copy() (interfaces.Expr, error) {
 func (obj *ExprMap) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -5972,7 +5971,7 @@ func (obj *ExprMap) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprMap) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("map")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -6231,7 +6230,7 @@ func (obj *ExprStruct) Copy() (interfaces.Expr, error) {
 func (obj *ExprStruct) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -6384,7 +6383,7 @@ func (obj *ExprStruct) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprStruct) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("struct")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -6751,7 +6750,7 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -7195,7 +7194,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("func")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -7459,7 +7458,7 @@ func (obj *ExprCall) Copy() (interfaces.Expr, error) {
 func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -8168,7 +8167,7 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, error) {
 
 	graph, err := pgraph.NewGraph("call")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -8398,7 +8397,7 @@ func (obj *ExprVar) Copy() (interfaces.Expr, error) {
 func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -8516,7 +8515,7 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprVar) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("var")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -8739,7 +8738,7 @@ func (obj *ExprIf) Copy() (interfaces.Expr, error) {
 func (obj *ExprIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(obj)
 
@@ -8933,7 +8932,7 @@ func (obj *ExprIf) Unify() ([]interfaces.Invariant, error) {
 func (obj *ExprIf) Graph() (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, err
 	}
 	graph.AddVertex(obj)
 

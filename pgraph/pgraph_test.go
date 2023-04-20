@@ -938,6 +938,76 @@ func TestFindEdge2(t *testing.T) {
 	}
 }
 
+func TestLookupEdge1(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
+	v7 := NV("v7")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+	e5 := NE("e5")
+	e6 := NE("e6")
+	e7 := NE("e7")
+	e8 := NE("e8")
+	e9 := NE("e9")
+	e10 := NE("e10")
+
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v1, v4, e2)
+	g.AddEdge(v1, v3, e3)
+	g.AddEdge(v2, v3, e4)
+	g.AddEdge(v2, v4, e5)
+	g.AddEdge(v2, v6, e6)
+	g.AddEdge(v2, v5, e7)
+	g.AddEdge(v3, v6, e8)
+	g.AddEdge(v4, v7, e9)
+	g.AddEdge(v5, v7, e10)
+
+	if x, y, found := g.LookupEdge(e1); !found || x != v1 || y != v2 {
+		t.Errorf("vertices v1, v2 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e2); !found || x != v1 || y != v4 {
+		t.Errorf("vertices v1, v4 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e3); !found || x != v1 || y != v3 {
+		t.Errorf("vertices v1, v3 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e4); !found || x != v2 || y != v3 {
+		t.Errorf("vertices v2, v3 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e5); !found || x != v2 || y != v4 {
+		t.Errorf("vertices v2, v4 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e6); !found || x != v2 || y != v6 {
+		t.Errorf("vertices v2, v6 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e7); !found || x != v2 || y != v5 {
+		t.Errorf("vertices v2, v5 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e8); !found || x != v3 || y != v6 {
+		t.Errorf("vertices v3, v6 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e9); !found || x != v4 || y != v7 {
+		t.Errorf("vertices v4, v7 were not returned")
+	}
+	if x, y, found := g.LookupEdge(e10); !found || x != v5 || y != v7 {
+		t.Errorf("vertices v5, v7 were not returned")
+	}
+
+	e99 := NE("e99")
+	if _, _, found := g.LookupEdge(e99); found {
+		t.Errorf("unexpected vertices were found")
+	}
+}
+
 func TestSetValue(t *testing.T) {
 	g, _ := NewGraph("SetValue")
 

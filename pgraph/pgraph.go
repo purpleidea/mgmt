@@ -288,6 +288,21 @@ func (g *Graph) FindEdge(v1, v2 Vertex) Edge {
 	return edge
 }
 
+// LookupEdge takes an edge and tries to find the vertex pair that connects it.
+// If it finds a match, then it returns the pair and true. Otherwise it returns
+// false.
+func (g *Graph) LookupEdge(e Edge) (Vertex, Vertex, bool) {
+	for v1, x := range g.adjacency {
+		for v2, edge := range x {
+			if edge == e {
+				return v1, v2, true
+			}
+		}
+	}
+
+	return nil, nil, false // not found
+}
+
 // Vertices returns a randomly sorted slice of all vertices in the graph. The
 // order is random, because the map implementation is intentionally so!
 func (g *Graph) Vertices() []Vertex {

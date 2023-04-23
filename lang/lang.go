@@ -35,7 +35,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/parser"
-	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -66,9 +65,9 @@ type Lang struct {
 	ast   interfaces.Stmt // store main prog AST here
 	funcs *dage.Engine    // function event engine
 
-	mapExprFunc map[interfaces.Expr]interfaces.Func // temporary mapping
+	loadedChan chan struct{} // loaded signal
 
-	streamChan <-chan error // signals a new graph can be created or problem
+	streamChan chan error // signals a new graph can be created or problem
 	//streamBurst bool // should we try and be bursty with the stream events?
 
 	wg *sync.WaitGroup
@@ -239,40 +238,6 @@ func (obj *Lang) Init() error {
 		return nil // exit early, no funcs to load!
 	}
 
-	// XXX: temporary compatibility mapping for now...
-	// XXX: this could be a helper function eventually...
-	// map the graph from interfaces.Expr to interfaces.Func
-	obj.mapExprFunc = make(map[interfaces.Expr]interfaces.Func)
-	for v1, x := range graph.Adjacency() {
-		v1, ok := v1.(interfaces.Expr)
-		if !ok {
-			panic("programming error")
-		}
-		if _, exists := obj.mapExprFunc[v1]; !exists {
-			var err error
-			obj.mapExprFunc[v1], err = v1.Func()
-			if err != nil {
-				panic("programming error")
-			}
-		}
-		//funcs.AddVertex(v1)
-		for v2 := range x {
-			v2, ok := v2.(interfaces.Expr)
-			if !ok {
-				panic("programming error")
-			}
-			if _, exists := obj.mapExprFunc[v2]; !exists {
-				var err error
-				obj.mapExprFunc[v2], err = v2.Func()
-				if err != nil {
-					panic("programming error")
-				}
-
-			}
-			//funcs.AddEdge(v1, v2, edge)
-		}
-	}
-
 	obj.funcs = &dage.Engine{
 		Name:     "lang", // TODO: arbitrary name for now
 		Hostname: obj.Hostname,
@@ -367,45 +332,7 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	}
 
 	obj.Logf("running interpret...")
-	//table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
-	applyFn := func(table map[interfaces.Func]types.Value) error {
-
-		fn := func(n interfaces.Node) error {
-			expr, ok := n.(interfaces.Expr)
-			if !ok {
-				return nil
-			}
-			f, exists := obj.mapExprFunc[expr]
-			if !exists {
-				fmt.Printf("XXX: missing value in mapExprFunc is pointer: %p\n", expr)
-				fmt.Printf("XXX: missing value in mapExprFunc is expr: %+v\n", expr)
-				//panic("programming error in interfaces.Expr -> pgraph.Vertex lookup")
-				return nil // XXX: workaround for now...
-			}
-			val, exists := table[f]
-			if !exists {
-				fmt.Printf("XXX: missing value in table is pointer: %p\n", f)
-				return nil // XXX: workaround for now...
-				//return fmt.Errorf("missing value in table for: %s", v)
-			}
-			return expr.SetValue(val) // set the value
-		}
-
-		// XXX: apparently there are races between SetValue and reading obj.V values...
-		if err := obj.ast.Apply(fn); err != nil {
-			if obj.Debug {
-				for k, v := range table {
-					obj.Logf("table: key: %+v ; value: %+v", k, v)
-				}
-			}
-			return err
-		}
-		return nil
-	}
-
-	if err := obj.funcs.Apply(applyFn); err != nil {
-		return nil, errwrap.Wrapf(err, "could not apply")
-	}
+	table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
 
 	// this call returns the graph
 	graph, err := interpret.Interpret(obj.ast, table)

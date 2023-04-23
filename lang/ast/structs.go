@@ -602,7 +602,7 @@ func (obj *StmtRes) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error)
 		return nil, err
 	}
 
-	g, _, err := obj.Name.Graph(env)
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1340,7 +1340,7 @@ func (obj *StmtResField) Graph(env map[string]interfaces.Func) (*pgraph.Graph, e
 		return nil, err
 	}
 
-	g, _, err := obj.Value.Graph(env)
+	g, f, err := obj.Value.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1348,7 +1348,7 @@ func (obj *StmtResField) Graph(env map[string]interfaces.Func) (*pgraph.Graph, e
 	obj.valuePtr = f
 
 	if obj.Condition != nil {
-		g, _, err := obj.Condition.Graph(env)
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1583,7 +1583,7 @@ func (obj *StmtResEdge) Graph(env map[string]interfaces.Func) (*pgraph.Graph, er
 	graph.AddGraph(g)
 
 	if obj.Condition != nil {
-		g, _, err := obj.Condition.Graph(env)
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1922,7 +1922,7 @@ func (obj *StmtResMeta) Graph(env map[string]interfaces.Func) (*pgraph.Graph, er
 		return nil, err
 	}
 
-	g, _, err := obj.MetaExpr.Graph(env)
+	g, f, err := obj.MetaExpr.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1930,7 +1930,7 @@ func (obj *StmtResMeta) Graph(env map[string]interfaces.Func) (*pgraph.Graph, er
 	obj.metaExprPtr = f
 
 	if obj.Condition != nil {
-		g, _, err := obj.Condition.Graph(env)
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2418,10 +2418,11 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
 func (obj *StmtEdgeHalf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
-	g, _, err := obj.Name.Graph(env)
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
+	obj.namePtr = f
 	return g, nil
 }
 
@@ -2725,7 +2726,7 @@ func (obj *StmtIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) 
 		return nil, err
 	}
 
-	g, _, err := obj.Condition.Graph(env)
+	g, f, err := obj.Condition.Graph(env)
 	if err != nil {
 		return nil, err
 	}

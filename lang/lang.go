@@ -210,14 +210,14 @@ func (obj *Lang) Init() error {
 	graph := &pgraph.Graph{Name: "functionGraph"}
 	env := make(map[string]interfaces.Func)
 	for k, v := range scope.Variables {
-		g, builtinFunc, err := v.MergedGraph(nil)
+		g, builtinFunc, err := v.Graph(nil)
 		if err != nil {
-			return errwrap.Wrapf(err, "calling MergedGraph on builtins")
+			return errwrap.Wrapf(err, "calling Graph on builtins")
 		}
 		graph.AddGraph(g)
 		env[k] = builtinFunc
 	}
-	g, err := obj.ast.MergedGraph(env) // build the graph of functions
+	g, err := obj.ast.Graph(env) // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}

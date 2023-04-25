@@ -24,7 +24,7 @@ import (
 // The function can also return an error which could represent that something
 // went horribly wrong. (Think, an internal panic.)
 type FuncValue struct {
-	V func(*interfaces.ReversibleTxn, []interfaces.Func) (interfaces.Func, error)
+	V func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
 	T *types.Type // contains ordered field types, arg names are a bonus part
 }
 
@@ -33,7 +33,7 @@ func NewFunc(t *types.Type) *FuncValue {
 	if t.Kind != types.KindFunc {
 		return nil // sanity check
 	}
-	v := func(*interfaces.ReversibleTxn, []interfaces.Func) (interfaces.Func, error) {
+	v := func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error) {
 		return nil, fmt.Errorf("nil function") // TODO: is this correct?
 	}
 	return &FuncValue{
@@ -152,11 +152,11 @@ func (obj *FuncValue) Func() func([]pgraph.Vertex) (pgraph.Vertex, error) {
 }
 
 // Set sets the function value to be a new function.
-func (obj *FuncValue) Set(fn func(*interfaces.ReversibleTxn, []interfaces.Func) (interfaces.Func, error)) error { // TODO: change method name?
+func (obj *FuncValue) Set(fn func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)) error { // TODO: change method name?
 	obj.V = fn
 	return nil // TODO: can we do any sort of checking here?
 }
 
-func (obj *FuncValue) Call(txn *interfaces.ReversibleTxn, args []interfaces.Func) (interfaces.Func, error) {
+func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 	return obj.V(txn, args)
 }

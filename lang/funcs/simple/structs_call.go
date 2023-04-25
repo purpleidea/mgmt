@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//package structs
+// package structs
 package simple
 
 import (
@@ -24,7 +24,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -46,8 +45,7 @@ type CallFunc struct {
 
 	ArgVertices []interfaces.Func
 
-	init          *interfaces.Init
-	reversibleTxn *interfaces.ReversibleTxn
+	init *interfaces.Init
 
 	lastFuncValue *fancyfunc.FuncValue // remember the last function value
 
@@ -98,9 +96,6 @@ func (obj *CallFunc) Info() *interfaces.Info {
 // Init runs some startup code for this composite function.
 func (obj *CallFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.reversibleTxn = &interfaces.ReversibleTxn{
-		InnerTxn: init.Txn,
-	}
 	obj.lastFuncValue = nil
 	obj.closeChan = make(chan struct{})
 	return nil
@@ -131,11 +126,11 @@ func (obj *CallFunc) Stream() error {
 		newFuncValue *fancyfunc.FuncValue,
 	) error {
 		// delete the old subgraph
-		obj.reversibleTxn.Reset()
+		obj.init.Txn.Reverse() // XXX: or Clear?
 
 		// create the new subgraph
 
-		outputFunc, err := newFuncValue.Call(obj.reversibleTxn, obj.ArgVertices)
+		outputFunc, err := newFuncValue.Call(obj.init.Txn, obj.ArgVertices)
 		if err != nil {
 			return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 		}
@@ -146,16 +141,15 @@ func (obj *CallFunc) Stream() error {
 			Chan: outputChan,
 			Type: obj.Type,
 		}
-		obj.reversibleTxn.AddVertex(subgraphOutput)
-		obj.reversibleTxn.AddEdge(outputFunc, subgraphOutput, &pgraph.SimpleEdge{Name: "arg"})
+		obj.init.Txn.AddVertex(subgraphOutput)
+		obj.init.Txn.AddEdge(outputFunc, subgraphOutput, &interfaces.FuncEdge{Args: []string{"arg"}})
 
-		obj.reversibleTxn.Commit()
+		obj.init.Txn.Commit()
 
 		return nil
 	}
 	defer func() {
-		obj.reversibleTxn.Reset()
-		obj.reversibleTxn.Commit()
+		obj.init.Txn.Reverse()
 	}()
 
 	canReceiveMoreFuncValues := true

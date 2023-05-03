@@ -563,11 +563,11 @@ would like to propose a more logical or performant variant.
 
 #### Function graph generation
 
-At this point we have a fully type AST. The AST must now be transformed into a
+At this point we have a fully typed AST. The AST must now be transformed into a
 directed, acyclic graph (DAG) data structure that represents the flow of data as
 necessary for everything to be reactive. Note that this graph is *different*
 from the resource graph which is produced and sent to the engine. It is just a
-coincidence that both happen to be DAG's. (You don't freak out when you see a
+coincidence that both happen to be DAG's. (You aren't surprised when you see a
 list data structure show up in more than one place, do you?)
 
 To produce this graph, each node has a `Graph` method which it can call. This
@@ -575,9 +575,8 @@ starts at the top most node, and is called down through the AST. The edges in
 the graphs must represent the individual expression values which are passed
 from node to node. The names of the edges must match the function type argument
 names which are used in the definition of the corresponding function. These
-corresponding functions must exist for each expression node and are produced by
-calling that expression's `Func` method. These are usually called by the
-function engine during function creation and validation.
+corresponding functions must exist for each expression node and are produced as
+the vertices of this returned graph. This is built for the function engine.
 
 #### Function engine creation and validation
 

@@ -122,9 +122,6 @@ type Expr interface {
 	// returns the collection to the caller.
 	Unify() ([]Invariant, error)
 
-	// Func returns a function that represents this reactively.
-	Func() (Func, error)
-
 	// Graph returns the reactive function graph expressed by this node. It
 	// takes in the environment of any functions in scope. It also returns
 	// the function for this node.

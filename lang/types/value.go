@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -55,7 +54,7 @@ type Value interface {
 	List() []Value
 	Map() map[Value]Value // keys must all have same type, same for values
 	Struct() map[string]Value
-	Func() func([]pgraph.Vertex) (pgraph.Vertex, error)
+	Func() interface{} // func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
 }
 
 // ValueOfGolang is a helper that takes a golang value, and produces the mcl
@@ -466,7 +465,7 @@ func (obj *base) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *base) Func() func([]pgraph.Vertex) (pgraph.Vertex, error) {
+func (obj *base) Func() interface{} {
 	panic("not a func")
 }
 
@@ -1106,8 +1105,27 @@ func (obj *StructValue) Lookup(k string) (value Value, exists bool) {
 // SimpleFn is not a Value, but it is a useful building block for implementing
 // Func nodes.
 type SimpleFn struct {
+	base
 	V func([]Value) (Value, error)
 	T *Type // contains ordered field types, arg names are a bonus part
+}
+
+// Create a useless function which will get overwritten by something more useful later.
+func NewFunc(t *Type) *SimpleFn {
+	if t.Kind != KindFunc {
+		return nil // sanity check
+	}
+	// return an empty interface{}
+	return &SimpleFn{
+		V: func([]Value) (Value, error) {
+			panic("NewFunc: you were not supposed to call the temporary function, you were supposed to replace it with a real implementation")
+		},
+		T: t,
+	}
+}
+
+func (obj *SimpleFn) String() string {
+	return "some function (you can't print functions)"
 }
 
 // Call runs the function value and returns its result. It returns an error if
@@ -1141,8 +1159,20 @@ func (obj *SimpleFn) Call(args []Value) (Value, error) {
 
 func (obj *SimpleFn) Type() *Type { return obj.T }
 
+func (obj *SimpleFn) Less(v Value) bool {
+	panic("you cannot compare functions")
+}
+
+func (obj *SimpleFn) Cmp(val Value) error {
+	panic("you cannot compare functions")
+}
+
+func (obj *SimpleFn) Value() interface{} {
+	return obj.V
+}
+
 // Copy returns a copy of this value.
-func (obj *SimpleFn) Copy() *SimpleFn {
+func (obj *SimpleFn) Copy() Value {
 	return &SimpleFn{
 		V: obj.V,
 		T: obj.T.Copy(),
@@ -1270,6 +1300,6 @@ func (obj *VariantValue) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *VariantValue) Func() func([]pgraph.Vertex) (pgraph.Vertex, error) {
+func (obj *VariantValue) Func() interface{} {
 	return obj.V.Func()
 }

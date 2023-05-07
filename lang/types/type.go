@@ -568,8 +568,7 @@ func (obj *Type) New() Value {
 	case KindStruct:
 		return NewStruct(obj)
 	case KindFunc:
-		panic("TODO [SimpleFn]: NewFunc is now in a different package, so we can't use it here!")
-		//return NewFunc(obj)
+		return NewFunc(obj)
 	case KindVariant:
 		return NewVariant(obj)
 	}

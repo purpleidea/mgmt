@@ -5,7 +5,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -147,8 +146,8 @@ func (obj *FuncValue) Struct() map[string]types.Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *FuncValue) Func() func([]pgraph.Vertex) (pgraph.Vertex, error) {
-	panic("cannot implement Func() for FuncValue, because FuncValue manipulates the graph, not just returns a value")
+func (obj *FuncValue) Func() interface{} {
+	return obj.V
 }
 
 // Set sets the function value to be a new function.

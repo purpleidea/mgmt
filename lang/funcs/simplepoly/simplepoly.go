@@ -495,7 +495,7 @@ func (obj *WrappedFunc) Build(typ *types.Type) (*types.Type, error) {
 // buildFunction builds our concrete static function, from the potentially
 // abstract, possibly variant containing list of functions.
 func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) {
-	obj.fn = obj.Fns[ix].Copy()
+	obj.fn = obj.Fns[ix].Copy().(*types.SimpleFn)
 	obj.fn.T = typ.Copy() // overwrites any contained "variant" type
 }
 

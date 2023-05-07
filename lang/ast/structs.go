@@ -8545,14 +8545,16 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
 	}
 
+	edgeName := simple.CallFuncArgNameFunction
 	callFunc := &simple.CallFunc{
 		Type:        obj.typ,
 		FuncType:    ftyp,
+		EdgeName:    edgeName,
 		ArgVertices: argFuncs,
 	}
 	graph.AddVertex(callFunc)
 	graph.AddEdge(fnFunc, callFunc, &interfaces.FuncEdge{
-		Args: []string{simple.CallFuncArgNameFunction},
+		Args: []string{edgeName},
 	})
 
 	return graph, callFunc, nil

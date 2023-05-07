@@ -31,7 +31,7 @@ const (
 	// CallFuncName is the unique name identifier for this function.
 	CallFuncName = "call"
 
-	// How to name the edge which connects the input function to CallFunc.
+	// Suggestion for how to name the edge which connects the input function to CallFunc.
 	CallFuncArgNameFunction = "fn"
 )
 
@@ -42,6 +42,7 @@ const (
 type CallFunc struct {
 	Type     *types.Type // the type of the result of applying the function
 	FuncType *types.Type // the type of the function
+	EdgeName string
 
 	ArgVertices []interfaces.Func
 
@@ -82,7 +83,7 @@ func (obj *CallFunc) Validate() error {
 func (obj *CallFunc) Info() *interfaces.Info {
 	var typ *types.Type
 	if obj.Type != nil && obj.FuncType != nil { // don't panic if called speculatively
-		typ = types.NewType(fmt.Sprintf("func(%s %s) %s", CallFuncArgNameFunction, obj.FuncType, obj.Type))
+		typ = types.NewType(fmt.Sprintf("func(%s %s) %s", obj.EdgeName, obj.FuncType, obj.Type))
 	}
 
 	return &interfaces.Info{
@@ -162,7 +163,7 @@ func (obj *CallFunc) Stream() error {
 			if !ok {
 				canReceiveMoreFuncValues = false
 			} else {
-				newFuncValue := input.Struct()[CallFuncArgNameFunction].(*fancyfunc.FuncValue)
+				newFuncValue := input.Struct()[obj.EdgeName].(*fancyfunc.FuncValue)
 
 				// If we have a new function, then we need to replace the
 				// subgraph with a new one that uses the new function.

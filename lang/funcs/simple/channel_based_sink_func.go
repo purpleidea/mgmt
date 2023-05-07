@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	// How to name the edge which connects the input value to ChannelBasedSinkFunc.
+	// Suggestion for how to name the edge which connects the input value to ChannelBasedSinkFunc.
 	ChannelBasedSinkFuncArgName = "channelBasedSinkFuncArg"
 )
 

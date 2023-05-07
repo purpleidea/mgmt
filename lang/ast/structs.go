@@ -8551,7 +8551,9 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		ArgVertices: argFuncs,
 	}
 	graph.AddVertex(callFunc)
-	graph.AddEdge(fnFunc, callFunc, &pgraph.SimpleEdge{Name: simple.CallFuncArgNameFunction})
+	graph.AddEdge(fnFunc, callFunc, &interfaces.FuncEdge{
+		Args: []string{simple.CallFuncArgNameFunction},
+	})
 
 	return graph, callFunc, nil
 }

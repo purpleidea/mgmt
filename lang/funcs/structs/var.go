@@ -20,6 +20,7 @@ package structs
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -46,7 +47,8 @@ type VarFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *VarFunc) String() string {
-	return VarFuncName
+	// XXX: This is a bit of a temporary hack to display it nicely.
+	return fmt.Sprintf("%s(%s)", VarFuncName, strings.TrimPrefix(obj.Edge, "var:"))
 }
 
 // Validate makes sure we've built our struct properly.

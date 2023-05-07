@@ -135,14 +135,16 @@ func (obj *CallFunc) Stream() error {
 			return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 		}
 
+		edgeName := ChannelBasedSinkFuncArgName
 		outputChan = make(chan types.Value)
 		subgraphOutput := &ChannelBasedSinkFunc{
-			Name: "subgraphOutput",
-			Chan: outputChan,
-			Type: obj.Type,
+			Name:     "subgraphOutput",
+			EdgeName: edgeName,
+			Chan:     outputChan,
+			Type:     obj.Type,
 		}
 		obj.init.Txn.AddVertex(subgraphOutput)
-		obj.init.Txn.AddEdge(outputFunc, subgraphOutput, &interfaces.FuncEdge{Args: []string{"arg"}})
+		obj.init.Txn.AddEdge(outputFunc, subgraphOutput, &interfaces.FuncEdge{Args: []string{edgeName}})
 
 		obj.init.Txn.Commit()
 

@@ -24,9 +24,15 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// How to name the edge which connects the input value to ChannelBasedSinkFunc.
+	ChannelBasedSinkFuncArgName = "channelBasedSinkFuncArg"
+)
+
 // A Func which receives values from upstream nodes and emits them to a Chan.
 type ChannelBasedSinkFunc struct {
-	Name string
+	Name     string
+	EdgeName string
 
 	Chan chan types.Value
 	Type *types.Type
@@ -48,7 +54,7 @@ func (obj *ChannelBasedSinkFunc) ArgGen(index int) (string, error) {
 	if index != 1 {
 		return "", fmt.Errorf("the ChannelBasedSinkFunc only has one argument")
 	}
-	return "arg", nil
+	return obj.EdgeName, nil
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

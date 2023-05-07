@@ -41,8 +41,9 @@ type ConstFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *ConstFunc) String() string {
+	return ConstFuncName
 	//return fmt.Sprintf("%s: %s(%s)", ConstFuncName, obj.Value.Type().String(), obj.Value.String())
-	return fmt.Sprintf("%s(%s)", obj.Value.Type().String(), obj.Value.String())
+	//return fmt.Sprintf("%s(%s)", obj.Value.Type().String(), obj.Value.String())
 }
 
 // Validate makes sure we've built our struct properly.

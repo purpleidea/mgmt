@@ -7566,7 +7566,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 			T: obj.typ,
 		})
 	} else if obj.Function != nil {
-		fnFunc = obj.Function()
+		fnFunc = obj.function
 	} else /* len(obj.Values) > 0 */ {
 		index, err := langutil.FnMatch(obj.typ, obj.Values)
 		if err != nil {

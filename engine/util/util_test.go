@@ -24,6 +24,9 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func TestUnknownGroup(t *testing.T) {
@@ -163,4 +166,70 @@ func TestStructTagToFieldName2(t *testing.T) {
 	}
 	t.Logf("got output: %+v", m)
 	t.Logf("got error: %+v", err)
+}
+
+type testEngineRes struct {
+	PublicProp1  string
+	PublicProp2  map[string][]map[string]int
+	privateProp1 bool
+	privateProp2 []int
+}
+
+func (t *testEngineRes) CheckApply(bool) (bool, error) { return false, nil }
+
+func (t *testEngineRes) Close() error { return nil }
+
+func (t *testEngineRes) Cmp(engine.Res) error { return nil }
+
+func (t *testEngineRes) Default() engine.Res { return t }
+
+func (t *testEngineRes) Init(*engine.Init) error { return nil }
+
+func (t *testEngineRes) Kind() string { return "test-kind" }
+
+func (t *testEngineRes) MetaParams() *engine.MetaParams { return nil }
+
+func (t *testEngineRes) Name() string { return "test-name" }
+
+func (t *testEngineRes) SetKind(string) {}
+
+func (t *testEngineRes) SetMetaParams(*engine.MetaParams) {}
+
+func (t *testEngineRes) SetName(string) {}
+
+func (t *testEngineRes) String() string { return "test-string" }
+
+func (t *testEngineRes) Validate() error { return nil }
+
+func (t *testEngineRes) Watch() error { return nil }
+
+func TestStructKindToFieldNameTypeMap(t *testing.T) {
+	k := "test-kind"
+
+	engine.RegisterResource(k, func() engine.Res { return &testEngineRes{} })
+	res, err := StructKindToFieldNameTypeMap(k)
+
+	expected := map[string]*types.Type{
+		"PublicProp1": types.TypeStr,
+		"PublicProp2": {
+			Kind: types.KindMap,
+			Key:  types.TypeStr,
+			Val: &types.Type{
+				Kind: types.KindList,
+				Val: &types.Type{
+					Kind: types.KindMap,
+					Key:  types.TypeStr,
+					Val:  types.TypeInt,
+				},
+			},
+		},
+	}
+	if err != nil {
+		t.Errorf("error trying to get the field name type map: %s", err.Error())
+		return
+	}
+	if !reflect.DeepEqual(res, expected) {
+		t.Errorf("unexpected result: %+v", res)
+		return
+	}
 }

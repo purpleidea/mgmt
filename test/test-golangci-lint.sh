@@ -19,18 +19,18 @@ function run-test()
 }
 
 # TODO: run more linters here if we're brave...
-gml='golangci-lint run --disable-all'
+glc='golangci-lint run --disable-all'
 
 # enable linters here
-gml="$gml --enable=goimports"
-gml="$gml --enable=revive"
-gml="$gml --enable=misspell"
+glc="$glc --enable=goimports"
+glc="$glc --enable=revive"
+glc="$glc --enable=misspell"
 
 # exclude files and directories here:
-# gml = "$gml --skip-files=EnterFileName"
-# gml = "$gml --skip-dirs=EnterDirName"
+# glc = "$glc --skip-files=EnterFileName"
+# glc = "$glc --skip-dirs=EnterDirName"
 
-golangci_lint="$gml"	# final
+golangci_lint="$glc"	# final
 echo "Using: $golangci_lint"
 
 # loop through directories in an attempt to scan each go package

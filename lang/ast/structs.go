@@ -8488,8 +8488,13 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		return nil, nil, errwrap.Wrapf(err, "could not create graph")
 	}
 
-	// Add the vertex for the function.
-	var fnFunc interfaces.Func
+	ftyp, err := obj.expr.Type()
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
+	}
+
+	// Add the vertex which produces the FuncValue.
+	var funcValueFunc interfaces.Func
 	if obj.Var {
 		// $f(...)
 		// The function value comes from a variable, so we must use the existing
@@ -8505,25 +8510,39 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 			return nil, nil, fmt.Errorf("var `%s` is missing from the environment", obj.Name)
 		}
 		// check if fnVertex is a Func
-		fnFunc, ok = fnVertex.(interfaces.Func)
+		funcValueFunc, ok = fnVertex.(interfaces.Func)
 		if !ok {
 			return nil, nil, fmt.Errorf("var `%s` is not a Func", obj.Name)
 		}
-
-		graph.AddVertex(fnFunc)
 	} else {
 		// f(...)
-		// The function value comes from a func declaration, so the
-		// coin-flipping scenario is not possible, as f always has the same
-		// definition.
-		var g *pgraph.Graph
-		g, fnFunc, err = obj.expr.Graph(nil) // XXX: pass in globals from scope?
-		if err != nil {
-			return nil, nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
-		}
-
-		graph.AddGraph(g)
+		// The function comes from a func declaration, so the coin-flipping
+		// scenario is not possible, as f always has the same definition.
+		//
+		// obj.expr.Graph() produces a node which transforms input values into
+		// an output value, but we need to construct a node which takes no
+		// inputs and produces a FuncValue, so we need to wrap it.
+		//
+		// TODO: should obj.expr.Graph() already be returning a node which
+		// produces a FuncValue?
+		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
+			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				g, valueTransformingFunc, err := obj.expr.Graph(nil) // XXX: pass in globals from scope?
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
+				}
+				interfaces.AddGraphToTxn(txn, g)
+				for i, arg := range args {
+					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+						Args: []string{fmt.Sprintf("arg%d XXX", i)},
+					})
+				}
+				return valueTransformingFunc, nil
+			},
+			T: ftyp,
+		})
 	}
+	graph.AddVertex(funcValueFunc)
 
 	// Loop over the arguments, add them to the graph, but do _not_ connect them
 	// to the function vertex. Instead, each time the call vertex (which we
@@ -8540,11 +8559,6 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	}
 
 	// Add a vertex for the call itself.
-	ftyp, err := obj.expr.Type()
-	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
-	}
-
 	edgeName := simple.CallFuncArgNameFunction
 	callFunc := &simple.CallFunc{
 		Type:        obj.typ,
@@ -8553,7 +8567,7 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		ArgVertices: argFuncs,
 	}
 	graph.AddVertex(callFunc)
-	graph.AddEdge(fnFunc, callFunc, &interfaces.FuncEdge{
+	graph.AddEdge(funcValueFunc, callFunc, &interfaces.FuncEdge{
 		Args: []string{edgeName},
 	})
 

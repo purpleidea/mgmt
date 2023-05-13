@@ -317,3 +317,15 @@ type Txn interface {
 	// isn't affected by a different user of this transaction.
 	Copy() Txn
 }
+
+func AddGraphToTxn(txn Txn, g *pgraph.Graph) {
+	for _, v := range g.Vertices() {
+		txn.AddVertex(v.(Func))
+	}
+
+	for v1, m := range g.Adjacency() {
+		for v2, e := range m {
+			txn.AddEdge(v1.(Func), v2.(Func), e.(*FuncEdge))
+		}
+	}
+}

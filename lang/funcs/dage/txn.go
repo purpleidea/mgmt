@@ -22,6 +22,7 @@ package dage
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -321,6 +322,12 @@ func (obj *graphTxn) commit() error {
 		obj.rev = append(obj.rev, op) // add the reverse op
 	}
 	obj.ops = []opfn{} // clear it
+	if engine, ok := obj.GraphAPI.(*Engine); ok {
+		d := time.Now().Unix()
+		if err := engine.graph.ExecGraphviz("dot", fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d), ""); err != nil {
+			panic("no graphviz")
+		}
+	}
 	return nil
 }
 

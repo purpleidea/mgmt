@@ -71,7 +71,7 @@ func (obj *ChannelBasedSinkFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false,
 		Memo: false,
-		Sig:  types.NewType(fmt.Sprintf("func(%s)", obj.Type)),
+		Sig:  types.NewType(fmt.Sprintf("func(%s) %s", obj.Type, obj.Type)),
 		Err:  obj.Validate(),
 	}
 }
@@ -85,8 +85,8 @@ func (obj *ChannelBasedSinkFunc) Init(init *interfaces.Init) error {
 
 // Stream returns the changing values that this func has over time.
 func (obj *ChannelBasedSinkFunc) Stream() error {
-	defer close(obj.Chan)  // the sender closes
-	close(obj.init.Output) // we will never send any value downstream
+	defer close(obj.Chan)        // the sender closes
+	defer close(obj.init.Output) // the sender closes
 
 	for {
 		select {
@@ -106,6 +106,15 @@ func (obj *ChannelBasedSinkFunc) Stream() error {
 
 		select {
 		case obj.Chan <- obj.last: // send
+		case <-obj.closeChan:
+			return nil
+		}
+
+		// Also send the value downstream. If we don't, then when we close the
+		// Output channel, the function engine is going to complain that we
+		// closed that channel without sending it any value.
+		select {
+		case obj.init.Output <- obj.last: // send
 		case <-obj.closeChan:
 			return nil
 		}

@@ -95,10 +95,11 @@ func (obj *ChannelBasedSinkFunc) Stream() error {
 				return nil // can't output any more
 			}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
+			inputValue := input.Struct()[obj.EdgeName]
+			if obj.last != nil && inputValue.Cmp(obj.last) == nil {
 				continue // value didn't change, skip it
 			}
-			obj.last = input // store so we can send after this select
+			obj.last = inputValue // store so we can send after this select
 
 		case <-obj.closeChan:
 			return nil

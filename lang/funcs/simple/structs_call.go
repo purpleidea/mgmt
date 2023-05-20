@@ -110,8 +110,7 @@ func (obj *CallFunc) Stream() error {
 
 	// An initially-closed channel from which we receive output lists from the
 	// subgraph. This channel is reset when the subgraph is recreated.
-	outputChan := make(chan types.Value)
-	close(outputChan)
+	var outputChan chan types.Value = nil
 
 	// Create a subgraph which looks as follows. Most of the nodes are elided
 	// because we don't know which nodes the FuncValues will create.
@@ -180,6 +179,10 @@ func (obj *CallFunc) Stream() error {
 			// send the new output value downstream
 			if !ok {
 				canReceiveMoreOutputValues = false
+
+				// prevent the next loop iteration from trying to receive from a
+				// closed channel
+				outputChan = nil
 			} else {
 				select {
 				case obj.init.Output <- outputValue:

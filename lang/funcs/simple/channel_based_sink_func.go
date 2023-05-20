@@ -71,7 +71,7 @@ func (obj *ChannelBasedSinkFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false,
 		Memo: false,
-		Sig:  types.NewType(fmt.Sprintf("func(%s) %s", obj.Type, obj.Type)),
+		Sig:  types.NewType(fmt.Sprintf("func(%s %s) %s", obj.EdgeName, obj.Type, obj.Type)),
 		Err:  obj.Validate(),
 	}
 }

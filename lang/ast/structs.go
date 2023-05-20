@@ -8533,8 +8533,9 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 				}
 				interfaces.AddGraphToTxn(txn, g)
 				for i, arg := range args {
+					argName := ftyp.Ord[i]
 					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
-						Args: []string{fmt.Sprintf("arg%d XXX", i)},
+						Args: []string{argName},
 					})
 				}
 				return valueTransformingFunc, nil

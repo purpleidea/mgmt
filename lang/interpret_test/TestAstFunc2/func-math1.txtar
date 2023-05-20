@@ -2,11 +2,11 @@
 import "fmt"
 
 # function expression
-$sq2 = func() {
-	42
+$sq2 = func($x, $y) {
+	$y + $x * $x
 }
 
-$x2 = $sq2() # 42
+$x2 = $sq2(7, -7) # 7*7 - 7 = 42
 
 test fmt.printf("sq2: %d", $x2) {}
 -- OUTPUT --

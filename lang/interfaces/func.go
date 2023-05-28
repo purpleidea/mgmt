@@ -18,6 +18,7 @@
 package interfaces
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -69,9 +70,18 @@ type Func interface {
 	// not known yet. This is because the Info method might be called
 	// speculatively to aid in type unification.
 	Info() *Info
+
+	// Init passes some important values and references to the function.
 	Init(*Init) error
-	Stream() error
-	Close() error
+
+	// Stream is the mainloop of the function. It reads and writes from
+	// channels to return the changing values that this func has over time.
+	// It should shutdown and cleanup when the input context is cancelled.
+	// It must not exit before any goroutines it spawned have terminated.
+	// It must close the Output chan if it's done sending new values out. It
+	// must send at least one value, or return an error. It may also return
+	// an error at anytime if it can't continue.
+	Stream(context.Context) error
 }
 
 // PolyFunc is an interface for functions which are statically polymorphic. In

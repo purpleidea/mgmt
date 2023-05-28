@@ -18,6 +18,7 @@
 package coresys
 
 import (
+	"context"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -37,8 +38,7 @@ func init() {
 
 // UptimeFact is a fact which returns the current uptime of your system.
 type UptimeFact struct {
-	init      *facts.Init
-	closeChan chan struct{}
+	init *facts.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -57,12 +57,11 @@ func (obj *UptimeFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *UptimeFact) Init(init *facts.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *UptimeFact) Stream() error {
+func (obj *UptimeFact) Stream(ctx context.Context) error {
 	defer close(obj.init.Output)
 	ticker := time.NewTicker(time.Duration(1) * time.Second)
 
@@ -75,7 +74,7 @@ func (obj *UptimeFact) Stream() error {
 			startChan = nil
 		case <-ticker.C:
 			// send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -87,14 +86,8 @@ func (obj *UptimeFact) Stream() error {
 		select {
 		case obj.init.Output <- &types.IntValue{V: uptime}:
 			// send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this fact and turns off the stream.
-func (obj *UptimeFact) Close() error {
-	close(obj.closeChan)
-	return nil
 }

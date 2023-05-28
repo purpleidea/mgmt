@@ -20,6 +20,7 @@
 package coresys
 
 import (
+	"context"
 	"io/ioutil"
 	"regexp"
 	"strconv"
@@ -50,8 +51,7 @@ func init() {
 
 // CPUCountFact is a fact that returns the current CPU count.
 type CPUCountFact struct {
-	init      *facts.Init
-	closeChan chan struct{}
+	init *facts.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -67,18 +67,16 @@ func (obj *CPUCountFact) Info() *facts.Info {
 	}
 }
 
-// Init runs startup code for this fact. Initializes the closeChan and sets the
-// facts.Init variable.
+// Init runs startup code for this fact and sets the facts.Init variable.
 func (obj *CPUCountFact) Init(init *facts.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time. It will
 // first poll sysfs to get the initial cpu count, and then receives UEvents from
 // the kernel as CPUs are added/removed.
-func (obj CPUCountFact) Stream() error {
+func (obj CPUCountFact) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // signal when we're done
 
 	ss, err := socketset.NewSocketSet(rtmGrps, socketFile, unix.NETLINK_KOBJECT_UEVENT)
@@ -152,7 +150,7 @@ func (obj CPUCountFact) Stream() error {
 					continue
 				}
 			}
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -167,16 +165,10 @@ func (obj CPUCountFact) Stream() error {
 		}:
 			once = true
 			// send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs cleanup code for the fact and turns off the Stream.
-func (obj *CPUCountFact) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 // getCPUCount looks in sysfs to get the number of CPUs that are online.

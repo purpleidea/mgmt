@@ -19,6 +19,7 @@
 package facts
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -83,6 +84,5 @@ type Fact interface {
 	//Validate() error // currently not needed since no facts are internal
 	Info() *Info
 	Init(*Init) error
-	Stream() error
-	Close() error
+	Stream(context.Context) error
 }

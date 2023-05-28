@@ -18,6 +18,7 @@
 package funcs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -37,11 +38,11 @@ const (
 )
 
 func init() {
-	Register(StructLookupFuncName, func() interfaces.Func { return &StructLookupPolyFunc{} }) // must register the func and name
+	Register(StructLookupFuncName, func() interfaces.Func { return &StructLookupFunc{} }) // must register the func and name
 }
 
-// StructLookupPolyFunc is a key map lookup function.
-type StructLookupPolyFunc struct {
+// StructLookupFunc is a struct field lookup function.
+type StructLookupFunc struct {
 	Type *types.Type // Kind == Struct, that is used as the struct we lookup
 	Out  *types.Type // type of field we're extracting
 
@@ -50,18 +51,16 @@ type StructLookupPolyFunc struct {
 	field string
 
 	result types.Value // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *StructLookupPolyFunc) String() string {
+func (obj *StructLookupFunc) String() string {
 	return StructLookupFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *StructLookupPolyFunc) ArgGen(index int) (string, error) {
+func (obj *StructLookupFunc) ArgGen(index int) (string, error) {
 	seq := []string{structLookupArgNameStruct, structLookupArgNameField}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
@@ -70,7 +69,7 @@ func (obj *StructLookupPolyFunc) ArgGen(index int) (string, error) {
 }
 
 // Unify returns the list of invariants that this func produces.
-func (obj *StructLookupPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+func (obj *StructLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
@@ -309,7 +308,7 @@ func (obj *StructLookupPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invar
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
-func (obj *StructLookupPolyFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
+func (obj *StructLookupFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	// TODO: return `variant` as arg for now -- maybe there's a better way?
 	variant := []*types.Type{types.NewType("func(struct variant, field str) variant")}
 
@@ -395,7 +394,7 @@ func (obj *StructLookupPolyFunc) Polymorphisms(partialType *types.Type, partialV
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *StructLookupPolyFunc) Build(typ *types.Type) error {
+func (obj *StructLookupFunc) Build(typ *types.Type) error {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
 		return fmt.Errorf("input type must be of kind func")
@@ -434,7 +433,7 @@ func (obj *StructLookupPolyFunc) Build(typ *types.Type) error {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *StructLookupPolyFunc) Validate() error {
+func (obj *StructLookupFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -455,7 +454,7 @@ func (obj *StructLookupPolyFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *StructLookupPolyFunc) Info() *interfaces.Info {
+func (obj *StructLookupFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		// TODO: can obj.Out be nil (a partial) ?
@@ -470,14 +469,13 @@ func (obj *StructLookupPolyFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *StructLookupPolyFunc) Init(init *interfaces.Init) error {
+func (obj *StructLookupFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *StructLookupPolyFunc) Stream() error {
+func (obj *StructLookupFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -522,20 +520,14 @@ func (obj *StructLookupPolyFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *StructLookupPolyFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

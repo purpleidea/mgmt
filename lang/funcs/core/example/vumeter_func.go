@@ -59,8 +59,6 @@ type VUMeterFunc struct {
 	peak       float64
 
 	result *string // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -133,12 +131,11 @@ func (obj *VUMeterFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *VUMeterFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *VUMeterFunc) Stream() error {
+func (obj *VUMeterFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	ticker := newTicker()
 	defer ticker.Stop()
@@ -222,7 +219,7 @@ func (obj *VUMeterFunc) Stream() error {
 			}
 			obj.result = &result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -230,16 +227,10 @@ func (obj *VUMeterFunc) Stream() error {
 		case obj.init.Output <- &types.StrValue{
 			V: *obj.result,
 		}:
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *VUMeterFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 func newTicker() *time.Ticker {

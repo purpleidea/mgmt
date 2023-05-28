@@ -18,6 +18,8 @@
 package coresys
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -35,8 +37,7 @@ func init() {
 // HostnameFact is a function that returns the hostname.
 // TODO: support hostnames that change in the future.
 type HostnameFact struct {
-	init      *facts.Init
-	closeChan chan struct{}
+	init *facts.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -61,26 +62,19 @@ func (obj *HostnameFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *HostnameFact) Init(init *facts.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the single value that this fact has, and then closes.
-func (obj *HostnameFact) Stream() error {
+func (obj *HostnameFact) Stream(ctx context.Context) error {
 	select {
 	case obj.init.Output <- &types.StrValue{
 		V: obj.init.Hostname,
 	}:
 		// pass
-	case <-obj.closeChan:
+	case <-ctx.Done():
 		return nil
 	}
 	close(obj.init.Output) // signal that we're done sending
-	return nil
-}
-
-// Close runs some shutdown code for this fact and turns off the stream.
-func (obj *HostnameFact) Close() error {
-	close(obj.closeChan)
 	return nil
 }

@@ -49,10 +49,8 @@ func init() {
 // after the other, the downstream resources might not run for every line unless
 // the "Meta:realize" metaparam is set to true.
 type SystemFunc struct {
-	init *interfaces.Init
-
-	closeChan chan struct{}
-	cancel    context.CancelFunc
+	init   *interfaces.Init
+	cancel context.CancelFunc
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -89,12 +87,15 @@ func (obj *SystemFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *SystemFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *SystemFunc) Stream() error {
+func (obj *SystemFunc) Stream(ctx context.Context) error {
+	// XXX: this implementation is a bit awkward especially with the port to
+	// the Stream(context.Context) signature change. This is a straight port
+	// but we could refactor this eventually.
+
 	// Close the output chan to signal that no more values are coming.
 	defer close(obj.init.Output)
 
@@ -115,7 +116,7 @@ func (obj *SystemFunc) Stream() error {
 
 	// Kill the current process, if any. A new cancel function is created
 	// each time a new process is started.
-	var ctx context.Context
+	var innerCtx context.Context
 	defer func() {
 		if obj.cancel == nil {
 			return
@@ -132,7 +133,7 @@ func (obj *SystemFunc) Stream() error {
 				select {
 				case <-processedChan:
 					return nil
-				case <-obj.closeChan:
+				case <-ctx.Done():
 					return nil
 				}
 			}
@@ -147,8 +148,8 @@ func (obj *SystemFunc) Stream() error {
 			// Run the command, connecting it to ctx so we can kill
 			// it if needed, and to two Readers so we can read its
 			// stdout and stderr.
-			ctx, obj.cancel = context.WithCancel(context.Background())
-			cmd := exec.CommandContext(ctx, "sh", "-c", shellCommand)
+			innerCtx, obj.cancel = context.WithCancel(context.Background())
+			cmd := exec.CommandContext(innerCtx, "sh", "-c", shellCommand)
 			stdoutReader, err := cmd.StdoutPipe()
 			if err != nil {
 				return err
@@ -205,14 +206,8 @@ func (obj *SystemFunc) Stream() error {
 				wg.Wait()
 				close(processedChan)
 			}()
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *SystemFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

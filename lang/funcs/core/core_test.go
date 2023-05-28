@@ -583,6 +583,9 @@ func TestLiveFuncExec0(t *testing.T) {
 			valueptrch := make(chan int)        // which Nth value are we at?
 			killTimeline := make(chan struct{}) // ask timeline to exit
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			// wait for close signals
 			wg.Add(1)
 			go func() {
@@ -617,7 +620,7 @@ func TestLiveFuncExec0(t *testing.T) {
 				if debug {
 					logf("Running func")
 				}
-				err := handle.Stream() // sends to output chan
+				err := handle.Stream(ctx) // sends to output chan
 				t.Logf("test #%d: stream exited with: %+v", index, err)
 				if debug {
 					logf("Exiting func")
@@ -740,12 +743,8 @@ func TestLiveFuncExec0(t *testing.T) {
 				t.Logf("test #%d: timeline finished", index)
 				close(argch)
 
-				t.Logf("test #%d: running Close", index)
-				if err := handle.Close(); err != nil {
-					t.Errorf("test #%d: FAIL", index)
-					t.Errorf("test #%d: could not close func: %+v", index, err)
-					return
-				}
+				t.Logf("test #%d: running cancel", index)
+				cancel()
 			}()
 
 			// read everything

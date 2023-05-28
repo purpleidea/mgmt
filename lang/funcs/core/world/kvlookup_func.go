@@ -51,7 +51,6 @@ type KVLookupFunc struct {
 	result types.Value // last calculated output
 
 	watchChan chan error
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -90,14 +89,13 @@ func (obj *KVLookupFunc) Info() *interfaces.Info {
 func (obj *KVLookupFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.watchChan = make(chan error) // XXX: sender should close this, but did I implement that part yet???
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *KVLookupFunc) Stream() error {
+func (obj *KVLookupFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for {
 		select {
@@ -143,7 +141,7 @@ func (obj *KVLookupFunc) Stream() error {
 				select {
 				case obj.init.Output <- result: // send one!
 					// pass
-				case <-obj.closeChan:
+				case <-ctx.Done():
 					return nil
 				}
 
@@ -176,23 +174,17 @@ func (obj *KVLookupFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
 			// pass
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *KVLookupFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 // buildMap builds the result map which we'll need. It uses struct variables.

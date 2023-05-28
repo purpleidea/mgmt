@@ -18,6 +18,7 @@
 package funcs // TODO: should this be in its own individual package?
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -58,8 +59,6 @@ type HistoryFunc struct {
 	history []types.Value // goes from newest (index->0) to oldest (len()-1)
 
 	result types.Value // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -358,12 +357,11 @@ func (obj *HistoryFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *HistoryFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *HistoryFunc) Stream() error {
+func (obj *HistoryFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -412,21 +410,15 @@ func (obj *HistoryFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
 			// pass
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *HistoryFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

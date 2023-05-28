@@ -18,6 +18,7 @@
 package coreexample
 
 import (
+	"context"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -38,9 +39,8 @@ func init() {
 // and is not meant for serious computing. This would be better served by a flip
 // function which you could specify an interval for.
 type FlipFlopFact struct {
-	init      *facts.Init
-	value     bool
-	closeChan chan struct{}
+	init  *facts.Init
+	value bool
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -65,12 +65,11 @@ func (obj *FlipFlopFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *FlipFlopFact) Init(init *facts.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *FlipFlopFact) Stream() error {
+func (obj *FlipFlopFact) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // always signal when we're done
 	// TODO: don't hard code 5 sec interval
 	ticker := time.NewTicker(time.Duration(5) * time.Second)
@@ -85,7 +84,7 @@ func (obj *FlipFlopFact) Stream() error {
 			startChan = nil // disable
 		case <-ticker.C: // received the timer event
 			// pass
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -93,16 +92,10 @@ func (obj *FlipFlopFact) Stream() error {
 		case obj.init.Output <- &types.BoolValue{ // flip
 			V: obj.value,
 		}:
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		obj.value = !obj.value // flip it
 	}
-}
-
-// Close runs some shutdown code for this fact and turns off the stream.
-func (obj *FlipFlopFact) Close() error {
-	close(obj.closeChan)
-	return nil
 }

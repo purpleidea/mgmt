@@ -18,6 +18,7 @@
 package coreos
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"sync"
@@ -55,8 +56,6 @@ type ReadFileFunc struct {
 	wg         *sync.WaitGroup
 
 	result *string // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -94,13 +93,13 @@ func (obj *ReadFileFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.events = make(chan error)
 	obj.wg = &sync.WaitGroup{}
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *ReadFileFunc) Stream() error {
+func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
+	defer close(obj.events)      // clean up for fun
 	defer obj.wg.Wait()
 	defer func() {
 		if obj.recWatcher != nil {
@@ -182,7 +181,7 @@ func (obj *ReadFileFunc) Stream() error {
 					case obj.events <- err:
 						// send event...
 
-					case <-obj.closeChan:
+					case <-ctx.Done():
 						// don't block here on shutdown
 						return
 					}
@@ -215,7 +214,7 @@ func (obj *ReadFileFunc) Stream() error {
 			}
 			obj.result = &result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -223,16 +222,8 @@ func (obj *ReadFileFunc) Stream() error {
 		case obj.init.Output <- &types.StrValue{
 			V: *obj.result,
 		}:
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *ReadFileFunc) Close() error {
-	close(obj.closeChan)
-	obj.wg.Wait()     // block so we don't exit by the closure of obj.events
-	close(obj.events) // clean up for fun
-	return nil
 }

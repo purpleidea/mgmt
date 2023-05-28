@@ -18,6 +18,7 @@
 package coredeploy
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -50,8 +51,6 @@ type ReadFileAbsFunc struct {
 
 	filename *string // the active filename
 	result   *string // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -92,7 +91,6 @@ func (obj *ReadFileAbsFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ReadFileAbsFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	if obj.data == nil {
 		// programming error
 		return fmt.Errorf("missing function data")
@@ -101,7 +99,7 @@ func (obj *ReadFileAbsFunc) Init(init *interfaces.Init) error {
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *ReadFileAbsFunc) Stream() error {
+func (obj *ReadFileAbsFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -145,7 +143,7 @@ func (obj *ReadFileAbsFunc) Stream() error {
 			}
 			obj.result = &result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -153,14 +151,8 @@ func (obj *ReadFileAbsFunc) Stream() error {
 		case obj.init.Output <- &types.StrValue{
 			V: *obj.result,
 		}:
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *ReadFileAbsFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

@@ -18,6 +18,7 @@
 package coresys
 
 import (
+	"context"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -39,8 +40,7 @@ func init() {
 
 // LoadFact is a fact which returns the current system load.
 type LoadFact struct {
-	init      *facts.Init
-	closeChan chan struct{}
+	init *facts.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -65,12 +65,11 @@ func (obj *LoadFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *LoadFact) Init(init *facts.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *LoadFact) Stream() error {
+func (obj *LoadFact) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // always signal when we're done
 
 	// it seems the different values only update once every 5
@@ -88,7 +87,7 @@ func (obj *LoadFact) Stream() error {
 			startChan = nil // disable
 		case <-ticker.C: // received the timer event
 			// pass
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -107,14 +106,8 @@ func (obj *LoadFact) Stream() error {
 		select {
 		case obj.init.Output <- st:
 			// send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this fact and turns off the stream.
-func (obj *LoadFact) Close() error {
-	close(obj.closeChan)
-	return nil
 }

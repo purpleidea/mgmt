@@ -18,6 +18,7 @@
 package structs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -37,8 +38,6 @@ type IfFunc struct {
 	init   *interfaces.Init
 	last   types.Value // last value received to use for diff
 	result types.Value // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -82,14 +81,13 @@ func (obj *IfFunc) Info() *interfaces.Info {
 // Init runs some startup code for this if expression function.
 func (obj *IfFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream takes an input struct in the format as described in the Func and Graph
 // methods of the Expr, and returns the actual expected value as a stream based
 // on the changing inputs to that value.
-func (obj *IfFunc) Stream() error {
+func (obj *IfFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -119,21 +117,15 @@ func (obj *IfFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
 			// pass
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *IfFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

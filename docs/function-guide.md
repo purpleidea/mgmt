@@ -239,27 +239,6 @@ use in the other methods.
 // Init runs some startup code for this function.
 func (obj *FooFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{}) // shutdown signal
-	return nil
-}
-```
-
-### Close
-
-```golang
-Close() error
-```
-
-This is called to cleanup the function. It usually causes the stream to
-shutdown. Even if `Stream()` decided to shutdown early, it might still get
-called. It is usually called by the engine to tell the function to shutdown.
-
-#### Example
-
-```golang
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *FooFunc) Close() error {
-	close(obj.closeChan) // send a signal to tell the stream to close
 	return nil
 }
 ```
@@ -267,23 +246,24 @@ func (obj *FooFunc) Close() error {
 ### Stream
 
 ```golang
-Stream() error
+Stream(context.Context) error
 ```
 
 `Stream` is where the real _work_ is done. This method is started by the
 language function engine. It will run this function while simultaneously sending
-it values on the `input` channel. It will only send a complete set of input
+it values on the `Input` channel. It will only send a complete set of input
 values. You should send a value to the output channel when you have decided that
 one should be produced. Make sure to only use input values of the expected type
 as declared in the `Info` struct, and send values of the similarly declared
 appropriate return type. Failure to do so will may result in a panic and
-sadness.
+sadness. You must shutdown if the input context cancels. You must close the
+`Output` channel if you are done generating new values and/or when you shutdown.
 
 #### Example
 
 ```golang
 // Stream returns the single value that was generated and then closes.
-func (obj *FooFunc) Stream() error {
+func (obj *FooFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	var result string
 	for {
@@ -300,7 +280,7 @@ func (obj *FooFunc) Stream() error {
 
 			result = fmt.Sprintf("the input is: %d", ix)
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -309,7 +289,7 @@ func (obj *FooFunc) Stream() error {
 			V: result,
 		}:
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
@@ -340,8 +320,6 @@ type FooFunc struct {
 	init *interfaces.Init
 
 	// this space can be used if needed
-
-	closeChan chan struct{} // shutdown signal
 }
 ```
 

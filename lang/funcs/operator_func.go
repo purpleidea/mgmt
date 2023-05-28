@@ -18,6 +18,7 @@
 package funcs // this is here, in case we allow others to register operators...
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sort"
@@ -332,7 +333,7 @@ func init() {
 		},
 	})
 
-	Register(OperatorFuncName, func() interfaces.Func { return &OperatorPolyFunc{} }) // must register the func and name
+	Register(OperatorFuncName, func() interfaces.Func { return &OperatorFunc{} }) // must register the func and name
 }
 
 // OperatorFuncs maps an operator to a list of callable function values.
@@ -422,29 +423,26 @@ func LookupOperatorShort(operator string, size int) ([]*types.Type, error) {
 	return results, nil
 }
 
-// OperatorPolyFunc is an operator function that performs an operation on N
-// values.
-type OperatorPolyFunc struct {
+// OperatorFunc is an operator function that performs an operation on N values.
+type OperatorFunc struct {
 	Type *types.Type // Kind == Function, including operator arg
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
 	result types.Value // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *OperatorPolyFunc) String() string {
+func (obj *OperatorFunc) String() string {
 	// TODO: return the exact operator if we can guarantee it doesn't change
 	return OperatorFuncName
 }
 
 // argNames returns the maximum list of possible argNames. This can be truncated
 // if needed. The first arg name is the operator.
-func (obj *OperatorPolyFunc) argNames() ([]string, error) {
+func (obj *OperatorFunc) argNames() ([]string, error) {
 	// we could just do this statically, but i did it dynamically so that I
 	// wouldn't ever have to remember to update this list...
 	max := 0
@@ -474,7 +472,7 @@ func (obj *OperatorPolyFunc) argNames() ([]string, error) {
 
 // findFunc tries to find the first available registered operator function that
 // matches the Operator/Type pattern requested. If none is found it returns nil.
-func (obj *OperatorPolyFunc) findFunc(operator string) *types.FuncValue {
+func (obj *OperatorFunc) findFunc(operator string) *types.FuncValue {
 	fns, exists := OperatorFuncs[operator]
 	if !exists {
 		return nil
@@ -489,7 +487,7 @@ func (obj *OperatorPolyFunc) findFunc(operator string) *types.FuncValue {
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *OperatorPolyFunc) ArgGen(index int) (string, error) {
+func (obj *OperatorFunc) ArgGen(index int) (string, error) {
 	seq, err := obj.argNames()
 	if err != nil {
 		return "", err
@@ -501,7 +499,7 @@ func (obj *OperatorPolyFunc) ArgGen(index int) (string, error) {
 }
 
 // Unify returns the list of invariants that this func produces.
-func (obj *OperatorPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+func (obj *OperatorFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
@@ -746,7 +744,7 @@ func (obj *OperatorPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
-func (obj *OperatorPolyFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
+func (obj *OperatorFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	var op string
 	var size = -1
 
@@ -793,7 +791,7 @@ func (obj *OperatorPolyFunc) Polymorphisms(partialType *types.Type, partialValue
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *OperatorPolyFunc) Build(typ *types.Type) error {
+func (obj *OperatorFunc) Build(typ *types.Type) error {
 	// typ is the KindFunc signature we're trying to build...
 	if len(typ.Ord) < 1 {
 		return fmt.Errorf("the operator function needs at least 1 arg")
@@ -807,7 +805,7 @@ func (obj *OperatorPolyFunc) Build(typ *types.Type) error {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *OperatorPolyFunc) Validate() error {
+func (obj *OperatorFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -819,7 +817,7 @@ func (obj *OperatorPolyFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *OperatorPolyFunc) Info() *interfaces.Info {
+func (obj *OperatorFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
@@ -829,14 +827,13 @@ func (obj *OperatorPolyFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *OperatorPolyFunc) Init(init *interfaces.Init) error {
+func (obj *OperatorFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *OperatorPolyFunc) Stream() error {
+func (obj *OperatorFunc) Stream(ctx context.Context) error {
 	var op, lastOp string
 	var fn *types.FuncValue
 	defer close(obj.init.Output) // the sender closes
@@ -896,22 +893,16 @@ func (obj *OperatorPolyFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *OperatorPolyFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 // removeOperatorArg returns a copy of the input KindFunc type, without the

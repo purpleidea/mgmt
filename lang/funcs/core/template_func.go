@@ -19,6 +19,7 @@ package core // TODO: should this be in its own individual package?
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -73,8 +74,6 @@ type TemplateFunc struct {
 	last types.Value // last value received to use for diff
 
 	result *string // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -367,7 +366,6 @@ func (obj *TemplateFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *TemplateFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
@@ -491,7 +489,7 @@ Loop:
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *TemplateFunc) Stream() error {
+func (obj *TemplateFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -526,7 +524,7 @@ func (obj *TemplateFunc) Stream() error {
 			}
 			obj.result = &result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -534,16 +532,10 @@ func (obj *TemplateFunc) Stream() error {
 		case obj.init.Output <- &types.StrValue{
 			V: *obj.result,
 		}:
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *TemplateFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 // safename renames the functions so they're valid inside the template. This is

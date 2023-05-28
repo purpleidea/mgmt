@@ -18,6 +18,7 @@
 package funcs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -38,29 +39,27 @@ const (
 )
 
 func init() {
-	Register(MapLookupFuncName, func() interfaces.Func { return &MapLookupPolyFunc{} }) // must register the func and name
+	Register(MapLookupFuncName, func() interfaces.Func { return &MapLookupFunc{} }) // must register the func and name
 }
 
-// MapLookupPolyFunc is a key map lookup function.
-type MapLookupPolyFunc struct {
+// MapLookupFunc is a key map lookup function.
+type MapLookupFunc struct {
 	Type *types.Type // Kind == Map, that is used as the map we lookup
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
 	result types.Value // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *MapLookupPolyFunc) String() string {
+func (obj *MapLookupFunc) String() string {
 	return MapLookupFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *MapLookupPolyFunc) ArgGen(index int) (string, error) {
+func (obj *MapLookupFunc) ArgGen(index int) (string, error) {
 	seq := []string{mapLookupArgNameMap, mapLookupArgNameKey, mapLookupArgNameDef}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
@@ -69,7 +68,7 @@ func (obj *MapLookupPolyFunc) ArgGen(index int) (string, error) {
 }
 
 // Unify returns the list of invariants that this func produces.
-func (obj *MapLookupPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+func (obj *MapLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
@@ -369,7 +368,7 @@ func (obj *MapLookupPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invarian
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
-func (obj *MapLookupPolyFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
+func (obj *MapLookupFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	// TODO: return `variant` as arg for now -- maybe there's a better way?
 	variant := []*types.Type{types.NewType("func(map variant, key variant, default variant) variant")}
 
@@ -468,7 +467,7 @@ func (obj *MapLookupPolyFunc) Polymorphisms(partialType *types.Type, partialValu
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *MapLookupPolyFunc) Build(typ *types.Type) error {
+func (obj *MapLookupFunc) Build(typ *types.Type) error {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
 		return fmt.Errorf("input type must be of kind func")
@@ -516,7 +515,7 @@ func (obj *MapLookupPolyFunc) Build(typ *types.Type) error {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *MapLookupPolyFunc) Validate() error {
+func (obj *MapLookupFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -528,7 +527,7 @@ func (obj *MapLookupPolyFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *MapLookupPolyFunc) Info() *interfaces.Info {
+func (obj *MapLookupFunc) Info() *interfaces.Info {
 	var typ *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		// TODO: can obj.Type.Key or obj.Type.Val be nil (a partial) ?
@@ -545,14 +544,13 @@ func (obj *MapLookupPolyFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *MapLookupPolyFunc) Init(init *interfaces.Init) error {
+func (obj *MapLookupFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *MapLookupPolyFunc) Stream() error {
+func (obj *MapLookupFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -589,20 +587,14 @@ func (obj *MapLookupPolyFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *MapLookupPolyFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

@@ -18,6 +18,7 @@
 package core // TODO: should this be in its own individual package?
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -56,8 +57,6 @@ type Random1Func struct {
 	init *interfaces.Init
 
 	finished bool // did we send the random string?
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -119,12 +118,11 @@ func generate(length uint16) (string, error) {
 // Init runs some startup code for this function.
 func (obj *Random1Func) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the single value that was generated and then closes.
-func (obj *Random1Func) Stream() error {
+func (obj *Random1Func) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	var result string
 	for {
@@ -153,7 +151,7 @@ func (obj *Random1Func) Stream() error {
 				return err // no errwrap needed b/c helper func
 			}
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -164,14 +162,8 @@ func (obj *Random1Func) Stream() error {
 			// we only send one value, then wait for input to close
 			obj.finished = true
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *Random1Func) Close() error {
-	close(obj.closeChan)
-	return nil
 }

@@ -19,6 +19,7 @@
 package funcs
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -150,6 +151,8 @@ func PureFuncExec(handle interfaces.Func, args []types.Value) (types.Value, erro
 	hostname := ""                                   // XXX: add to interface
 	debug := false                                   // XXX: add to interface
 	logf := func(format string, v ...interface{}) {} // XXX: add to interface
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	info := handle.Info()
 	if !info.Pure {
@@ -217,7 +220,7 @@ func PureFuncExec(handle interfaces.Func, args []types.Value) (types.Value, erro
 		if debug {
 			logf("Running func")
 		}
-		err := handle.Stream() // sends to output chan
+		err := handle.Stream(ctx) // sends to output chan
 		if debug {
 			logf("Exiting func")
 		}
@@ -296,10 +299,7 @@ Loop:
 		}
 	}
 
-	if err := handle.Close(); err != nil {
-		err = errwrap.Append(err, reterr)
-		return nil, errwrap.Wrapf(err, "problem closing func")
-	}
+	cancel()
 
 	if result == nil && reterr == nil {
 		// programming error

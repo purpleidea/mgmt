@@ -20,6 +20,7 @@
 package coresys
 
 import (
+	"context"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -41,8 +42,9 @@ func TestSimple(t *testing.T) {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		defer fact.Close()
+		defer cancel()
 	Loop:
 		for {
 			select {
@@ -54,7 +56,7 @@ func TestSimple(t *testing.T) {
 	}()
 
 	// now start the stream
-	if err := fact.Stream(); err != nil {
+	if err := fact.Stream(ctx); err != nil {
 		t.Error(err)
 	}
 }

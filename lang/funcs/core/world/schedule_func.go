@@ -62,12 +62,12 @@ const (
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, ScheduleFuncName, func() interfaces.Func { return &SchedulePolyFunc{} })
+	funcs.ModuleRegister(ModuleName, ScheduleFuncName, func() interfaces.Func { return &ScheduleFunc{} })
 }
 
-// SchedulePolyFunc is special function which determines where code should run
-// in the cluster.
-type SchedulePolyFunc struct {
+// ScheduleFunc is special function which determines where code should run in
+// the cluster.
+type ScheduleFunc struct {
 	Type *types.Type // this is the type of opts used if specified
 
 	built bool // was this function built yet?
@@ -81,17 +81,16 @@ type SchedulePolyFunc struct {
 	result types.Value // last calculated output
 
 	watchChan chan *schedulerResult
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *SchedulePolyFunc) String() string {
+func (obj *ScheduleFunc) String() string {
 	return ScheduleFuncName
 }
 
 // validOpts returns the available mapping of valid opts fields to types.
-func (obj *SchedulePolyFunc) validOpts() map[string]*types.Type {
+func (obj *ScheduleFunc) validOpts() map[string]*types.Type {
 	return map[string]*types.Type{
 		"strategy": types.TypeStr,
 		"max":      types.TypeInt,
@@ -101,7 +100,7 @@ func (obj *SchedulePolyFunc) validOpts() map[string]*types.Type {
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *SchedulePolyFunc) ArgGen(index int) (string, error) {
+func (obj *ScheduleFunc) ArgGen(index int) (string, error) {
 	seq := []string{scheduleArgNameNamespace, scheduleArgNameOpts} // 2nd arg is optional
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
@@ -110,7 +109,7 @@ func (obj *SchedulePolyFunc) ArgGen(index int) (string, error) {
 }
 
 // Unify returns the list of invariants that this func produces.
-func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+func (obj *ScheduleFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
@@ -311,7 +310,7 @@ func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
-func (obj *SchedulePolyFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
+func (obj *ScheduleFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	// TODO: technically, we could generate all permutations of the struct!
 	//variant := []*types.Type{}
 	//t0 := types.NewType("func(namespace str) []str")
@@ -399,7 +398,7 @@ func (obj *SchedulePolyFunc) Polymorphisms(partialType *types.Type, partialValue
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *SchedulePolyFunc) Build(typ *types.Type) error {
+func (obj *ScheduleFunc) Build(typ *types.Type) error {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
 		return fmt.Errorf("input type must be of kind func")
@@ -482,7 +481,7 @@ func (obj *SchedulePolyFunc) Build(typ *types.Type) error {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *SchedulePolyFunc) Validate() error {
+func (obj *ScheduleFunc) Validate() error {
 	if !obj.built {
 		return fmt.Errorf("function wasn't built yet")
 	}
@@ -495,7 +494,7 @@ func (obj *SchedulePolyFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *SchedulePolyFunc) Info() *interfaces.Info {
+func (obj *ScheduleFunc) Info() *interfaces.Info {
 	// It's important that you don't return a non-nil sig if this is called
 	// before you're built. Type unification may call it opportunistically.
 	var typ *types.Type
@@ -515,16 +514,15 @@ func (obj *SchedulePolyFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *SchedulePolyFunc) Init(init *interfaces.Init) error {
+func (obj *ScheduleFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.watchChan = make(chan *schedulerResult)
-	obj.closeChan = make(chan struct{})
 	//obj.init.Debug = true // use this for local debugging
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *SchedulePolyFunc) Stream() error {
+func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -618,24 +616,28 @@ func (obj *SchedulePolyFunc) Stream() error {
 				// process the stream of scheduling output...
 				go func() {
 					defer close(obj.watchChan)
-					ctx, cancel := context.WithCancel(context.Background())
+					// XXX: maybe we could share the parent
+					// ctx, but I have to work out the
+					// ordering logic first. For now this is
+					// just a port of what it was before.
+					newCtx, cancel := context.WithCancel(context.Background())
 					go func() {
 						defer cancel() // unblock Next()
 						defer obj.scheduler.Shutdown()
 						select {
-						case <-obj.closeChan:
+						case <-ctx.Done():
 							return
 						}
 					}()
 					for {
-						hosts, err := obj.scheduler.Next(ctx)
+						hosts, err := obj.scheduler.Next(newCtx)
 						select {
 						case obj.watchChan <- &schedulerResult{
 							hosts: hosts,
 							err:   err,
 						}:
 
-						case <-obj.closeChan:
+						case <-ctx.Done():
 							return
 						}
 					}
@@ -688,23 +690,17 @@ func (obj *SchedulePolyFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
 			// pass
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *SchedulePolyFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 // schedulerResult combines our internal events into a single message packet.

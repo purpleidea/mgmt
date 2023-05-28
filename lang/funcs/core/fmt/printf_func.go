@@ -18,6 +18,7 @@
 package corefmt
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -55,8 +56,6 @@ type PrintfFunc struct {
 	last types.Value // last value received to use for diff
 
 	result *string // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -367,12 +366,11 @@ func (obj *PrintfFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *PrintfFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *PrintfFunc) Stream() error {
+func (obj *PrintfFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -409,7 +407,7 @@ func (obj *PrintfFunc) Stream() error {
 			}
 			obj.result = &result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -417,16 +415,10 @@ func (obj *PrintfFunc) Stream() error {
 		case obj.init.Output <- &types.StrValue{
 			V: *obj.result,
 		}:
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *PrintfFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 // valueToString prints our values how we expect for printf.

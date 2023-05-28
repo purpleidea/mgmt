@@ -18,6 +18,7 @@
 package simplepoly
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -141,8 +142,6 @@ type WrappedFunc struct {
 	last types.Value // last value received to use for diff
 
 	result types.Value // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -546,12 +545,11 @@ func (obj *WrappedFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *WrappedFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *WrappedFunc) Stream() error {
+func (obj *WrappedFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -599,7 +597,7 @@ func (obj *WrappedFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -608,14 +606,8 @@ func (obj *WrappedFunc) Stream() error {
 			if len(obj.fn.Type().Ord) == 0 {
 				return nil // no more values, we're a pure func
 			}
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *WrappedFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

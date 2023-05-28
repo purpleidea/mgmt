@@ -18,6 +18,7 @@
 package funcs
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -34,6 +35,9 @@ type State struct {
 	Expr interfaces.Expr // pointer to the expr vertex
 
 	handle interfaces.Func // the function (if not nil, we've found it on init)
+
+	ctx    context.Context // used for shutting down each Stream function.
+	cancel context.CancelFunc
 
 	init   bool // have we run Init on our func?
 	ready  bool // has it received all the args it needs at least once?
@@ -112,6 +116,9 @@ type Engine struct {
 
 	streamChan chan error // signals a new graph can be created or problem
 
+	ctx    context.Context // used for shutting down each Stream function.
+	cancel context.CancelFunc
+
 	closeChan chan struct{} // close signal
 	wg        *sync.WaitGroup
 }
@@ -137,6 +144,8 @@ func (obj *Engine) Init() error {
 	}
 	obj.topologicalSort = topologicalSort // cache the result
 
+	obj.ctx, obj.cancel = context.WithCancel(context.Background()) // top
+
 	for _, vertex := range obj.Graph.Vertices() {
 		// is this an interface we can use?
 		if _, exists := obj.state[vertex]; exists {
@@ -152,7 +161,13 @@ func (obj *Engine) Init() error {
 			obj.Logf("Loading func `%s`", vertex)
 		}
 
-		obj.state[vertex] = &State{Expr: expr} // store some state!
+		innerCtx, innerCancel := context.WithCancel(obj.ctx)
+		obj.state[vertex] = &State{
+			Expr: expr,
+
+			ctx:    innerCtx,
+			cancel: innerCancel,
+		} // store some state!
 
 		e1 := obj.state[vertex].Init()
 		e2 := errwrap.Wrapf(e1, "error loading func `%s`", vertex)
@@ -407,7 +422,7 @@ func (obj *Engine) Run() error {
 			if obj.Debug {
 				obj.SafeLogf("Running func `%s`", node)
 			}
-			err := node.handle.Stream()
+			err := node.handle.Stream(node.ctx)
 			if obj.Debug {
 				obj.SafeLogf("Exiting func `%s`", node)
 			}
@@ -673,14 +688,10 @@ func (obj *Engine) Close() error {
 	var err error
 	for _, vertex := range obj.topologicalSort { // FIXME: should we do this in reverse?
 		node := obj.state[vertex]
-		if node.init { // did we Init this func?
-			if e := node.handle.Close(); e != nil {
-				e := errwrap.Wrapf(e, "problem closing func `%s`", node)
-				err = errwrap.Append(err, e) // list of errors
-			}
-		}
+		node.cancel() // ctx
 	}
 	close(obj.closeChan)
 	obj.wg.Wait() // wait so that each func doesn't need to do this in close
+	obj.cancel()  // free
 	return err
 }

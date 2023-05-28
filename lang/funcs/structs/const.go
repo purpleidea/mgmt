@@ -18,6 +18,7 @@
 package structs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -33,8 +34,7 @@ const (
 type ConstFunc struct {
 	Value types.Value
 
-	init      *interfaces.Init
-	closeChan chan struct{}
+	init *interfaces.Init
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -70,24 +70,17 @@ func (obj *ConstFunc) Info() *interfaces.Info {
 // Init runs some startup code for this const.
 func (obj *ConstFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the single value that this const has, and then closes.
-func (obj *ConstFunc) Stream() error {
+func (obj *ConstFunc) Stream(ctx context.Context) error {
 	select {
 	case obj.init.Output <- obj.Value:
 		// pass
-	case <-obj.closeChan:
+	case <-ctx.Done():
 		return nil
 	}
 	close(obj.init.Output) // signal that we're done sending
-	return nil
-}
-
-// Close runs some shutdown code for this const and turns off the stream.
-func (obj *ConstFunc) Close() error {
-	close(obj.closeChan)
 	return nil
 }

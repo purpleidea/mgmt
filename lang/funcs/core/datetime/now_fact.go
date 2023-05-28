@@ -18,6 +18,7 @@
 package coredatetime
 
 import (
+	"context"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -36,8 +37,7 @@ func init() {
 
 // DateTimeFact is a fact which returns the current date and time.
 type DateTimeFact struct {
-	init      *facts.Init
-	closeChan chan struct{}
+	init *facts.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -62,12 +62,11 @@ func (obj *DateTimeFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *DateTimeFact) Init(init *facts.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *DateTimeFact) Stream() error {
+func (obj *DateTimeFact) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // always signal when we're done
 	// XXX: this might be an interesting fact to write because:
 	// 1) will the sleeps from the ticker be in sync with the second ticker?
@@ -87,7 +86,7 @@ func (obj *DateTimeFact) Stream() error {
 			startChan = nil // disable
 		case <-ticker.C: // received the timer event
 			// pass
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -95,14 +94,8 @@ func (obj *DateTimeFact) Stream() error {
 		case obj.init.Output <- &types.IntValue{ // seconds since 1970...
 			V: time.Now().Unix(), // .UTC() not necessary
 		}:
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this fact and turns off the stream.
-func (obj *DateTimeFact) Close() error {
-	close(obj.closeChan)
-	return nil
 }

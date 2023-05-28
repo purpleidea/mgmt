@@ -683,7 +683,7 @@ Please see the example functions in
 ### Stream
 
 ```golang
-Stream() error
+Stream(context.Context) error
 ```
 
 Stream is called by the function engine when it is ready for your function to
@@ -692,23 +692,8 @@ value. Failure to produce at least one value will probably cause the function
 engine to hang waiting for your output. This function must close the `Output`
 channel when it has no more values to send. The engine will close the `Input`
 channel when it has no more values to send. This may or may not influence
-whether or not you close the `Output` channel.
-
-#### Example
-
-```golang
-Please see the example functions in
-[lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
-```
-
-### Close
-
-```golang
-Close() error
-```
-
-Close asks the particular function to shutdown its `Stream()` function and
-return.
+whether or not you close the `Output` channel. You must shutdown if the input
+context cancels.
 
 #### Example
 

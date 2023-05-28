@@ -18,6 +18,7 @@
 package funcs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -37,29 +38,27 @@ const (
 )
 
 func init() {
-	Register(ContainsFuncName, func() interfaces.Func { return &ContainsPolyFunc{} }) // must register the func and name
+	Register(ContainsFuncName, func() interfaces.Func { return &ContainsFunc{} }) // must register the func and name
 }
 
-// ContainsPolyFunc returns true if a value is found in a list. Otherwise false.
-type ContainsPolyFunc struct {
+// ContainsFunc returns true if a value is found in a list. Otherwise false.
+type ContainsFunc struct {
 	Type *types.Type // this is the type of value stored in our list
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
 	result types.Value // last calculated output
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *ContainsPolyFunc) String() string {
+func (obj *ContainsFunc) String() string {
 	return ContainsFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *ContainsPolyFunc) ArgGen(index int) (string, error) {
+func (obj *ContainsFunc) ArgGen(index int) (string, error) {
 	seq := []string{containsArgNameNeedle, containsArgNameHaystack}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
@@ -68,7 +67,7 @@ func (obj *ContainsPolyFunc) ArgGen(index int) (string, error) {
 }
 
 // Unify returns the list of invariants that this func produces.
-func (obj *ContainsPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+func (obj *ContainsFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
@@ -139,7 +138,7 @@ func (obj *ContainsPolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 // invariant. This can only happen once, because by then we'll have given all
 // the new information we can, and falsely producing redundant information is a
 // good way to stall the solver if it thinks it keeps learning more things!
-func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHaystack, dummyOut interfaces.Expr) func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+func (obj *ContainsFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHaystack, dummyOut interfaces.Expr) func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
 	return func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
 		for _, invariant := range fnInvariants {
 			// search for this special type of invariant
@@ -241,7 +240,7 @@ func (obj *ContainsPolyFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHay
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
-func (obj *ContainsPolyFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
+func (obj *ContainsFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	// TODO: return `variant` as arg for now -- maybe there's a better way?
 	variant := []*types.Type{types.NewType("func(needle variant, haystack variant) bool")}
 
@@ -292,7 +291,7 @@ func (obj *ContainsPolyFunc) Polymorphisms(partialType *types.Type, partialValue
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *ContainsPolyFunc) Build(typ *types.Type) error {
+func (obj *ContainsFunc) Build(typ *types.Type) error {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
 		return fmt.Errorf("input type must be of kind func")
@@ -335,7 +334,7 @@ func (obj *ContainsPolyFunc) Build(typ *types.Type) error {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *ContainsPolyFunc) Validate() error {
+func (obj *ContainsFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -344,7 +343,7 @@ func (obj *ContainsPolyFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *ContainsPolyFunc) Info() *interfaces.Info {
+func (obj *ContainsFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		s := obj.Type.String()
@@ -359,14 +358,13 @@ func (obj *ContainsPolyFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *ContainsPolyFunc) Init(init *interfaces.Init) error {
+func (obj *ContainsFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *ContainsPolyFunc) Stream() error {
+func (obj *ContainsFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -397,20 +395,14 @@ func (obj *ContainsPolyFunc) Stream() error {
 			}
 			obj.result = result // store new result
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.result: // send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *ContainsPolyFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

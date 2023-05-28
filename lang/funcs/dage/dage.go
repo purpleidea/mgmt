@@ -289,7 +289,6 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 	// lookup when we're in an unlocked state.
 	delete(obj.state, f)
 	obj.graph.DeleteVertex(f)
-	//return f.Close() // XXX: change api to close with ctx instead.
 	return nil
 }
 
@@ -364,7 +363,6 @@ Loop:
 
 	rollback := func() {
 		for f := range status {
-			//f.Close() // shutdown if necessary
 			obj.graph.DeleteVertex(f)
 			delete(obj.state, f)
 		}
@@ -671,8 +669,7 @@ func (obj *Engine) Run(ctx context.Context) error {
 				if obj.Debug {
 					obj.SafeLogf("Running func `%s`", node)
 				}
-				//runErr := f.Stream(node.ctx) // XXX: new API!
-				runErr := f.Stream()
+				runErr := f.Stream(node.ctx)
 				if obj.Debug {
 					obj.SafeLogf("Exiting func `%s`", node)
 				}
@@ -686,15 +683,6 @@ func (obj *Engine) Run(ctx context.Context) error {
 					}
 				}
 				// if node never loaded, then we error in the node.output loop!
-			}(f, node)
-
-			node.wg.Add(1)
-			go func(f interfaces.Func, node *state) {
-				defer node.wg.Done()
-				select {
-				case <-ctx.Done():
-				}
-				_ = f.Close() // XXX: change api to close with ctx instead.
 			}(f, node)
 
 			// process events

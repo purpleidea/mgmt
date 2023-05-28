@@ -20,6 +20,7 @@
 package dage
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -105,12 +106,11 @@ type testNullFunc struct {
 	name string
 }
 
-func (obj *testNullFunc) String() string              { return obj.name }
-func (obj *testNullFunc) Info() *interfaces.Info      { return nil }
-func (obj *testNullFunc) Validate() error             { return nil }
-func (obj *testNullFunc) Init(*interfaces.Init) error { return nil }
-func (obj *testNullFunc) Stream() error               { return nil }
-func (obj *testNullFunc) Close() error                { return nil }
+func (obj *testNullFunc) String() string               { return obj.name }
+func (obj *testNullFunc) Info() *interfaces.Info       { return nil }
+func (obj *testNullFunc) Validate() error              { return nil }
+func (obj *testNullFunc) Init(*interfaces.Init) error  { return nil }
+func (obj *testNullFunc) Stream(context.Context) error { return nil }
 
 func TestTxn1(t *testing.T) {
 	graph, err := pgraph.NewGraph("test")

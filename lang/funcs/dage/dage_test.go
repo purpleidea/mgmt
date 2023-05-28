@@ -35,9 +35,8 @@ type testFunc struct {
 	Func func(types.Value) (types.Value, error)
 	Meta *meta
 
-	value     types.Value
-	init      *interfaces.Init
-	closeChan chan struct{}
+	value types.Value
+	init  *interfaces.Init
 }
 
 func (obj *testFunc) String() string { return obj.Name }
@@ -60,12 +59,10 @@ func (obj *testFunc) Validate() error {
 
 func (obj *testFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
-// XXX: replace with ctx closer
-func (obj *testFunc) Stream() error {
+func (obj *testFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	defer obj.init.Logf("stream closed")
 	obj.init.Logf("stream startup")
@@ -104,7 +101,7 @@ func (obj *testFunc) Stream() error {
 				}
 			}
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -125,16 +122,10 @@ func (obj *testFunc) Stream() error {
 				}
 			}()
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// XXX: replace with ctx closer
-func (obj *testFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }
 
 type meta struct {

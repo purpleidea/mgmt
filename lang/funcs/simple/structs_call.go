@@ -19,6 +19,7 @@
 package simple
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/fancyfunc"
@@ -49,8 +50,6 @@ type CallFunc struct {
 	init *interfaces.Init
 
 	lastFuncValue *fancyfunc.FuncValue // remember the last function value
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -98,14 +97,13 @@ func (obj *CallFunc) Info() *interfaces.Info {
 func (obj *CallFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.lastFuncValue = nil
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream takes an input struct in the format as described in the Func and Graph
 // methods of the Expr, and returns the actual expected value as a stream based
 // on the changing inputs to that value.
-func (obj *CallFunc) Stream() error {
+func (obj *CallFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 
 	// An initially-closed channel from which we receive output lists from the
@@ -186,12 +184,12 @@ func (obj *CallFunc) Stream() error {
 			} else {
 				select {
 				case obj.init.Output <- outputValue:
-				case <-obj.closeChan:
+				case <-ctx.Done():
 					return nil
 				}
 			}
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -199,10 +197,4 @@ func (obj *CallFunc) Stream() error {
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *CallFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

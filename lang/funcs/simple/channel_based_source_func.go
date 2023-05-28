@@ -18,6 +18,7 @@
 package simple
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -34,8 +35,6 @@ type ChannelBasedSourceFunc struct {
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -71,12 +70,11 @@ func (obj *ChannelBasedSourceFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ChannelBasedSourceFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *ChannelBasedSourceFunc) Stream() error {
+func (obj *ChannelBasedSourceFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 
 	for {
@@ -91,20 +89,14 @@ func (obj *ChannelBasedSourceFunc) Stream() error {
 			}
 			obj.last = input // store so we can send after this select
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.init.Output <- obj.last: // send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *ChannelBasedSourceFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

@@ -18,6 +18,7 @@
 package simple
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -39,8 +40,6 @@ type ChannelBasedSinkFunc struct {
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
-
-	closeChan chan struct{}
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -79,12 +78,11 @@ func (obj *ChannelBasedSinkFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ChannelBasedSinkFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.closeChan = make(chan struct{})
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *ChannelBasedSinkFunc) Stream() error {
+func (obj *ChannelBasedSinkFunc) Stream(ctx context.Context) error {
 	defer close(obj.Chan)        // the sender closes
 	defer close(obj.init.Output) // the sender closes
 
@@ -101,13 +99,13 @@ func (obj *ChannelBasedSinkFunc) Stream() error {
 			}
 			obj.last = inputValue // store so we can send after this select
 
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
 		select {
 		case obj.Chan <- obj.last: // send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 
@@ -116,14 +114,8 @@ func (obj *ChannelBasedSinkFunc) Stream() error {
 		// closed that channel without sending it any value.
 		select {
 		case obj.init.Output <- obj.last: // send
-		case <-obj.closeChan:
+		case <-ctx.Done():
 			return nil
 		}
 	}
-}
-
-// Close runs some shutdown code for this function and turns off the stream.
-func (obj *ChannelBasedSinkFunc) Close() error {
-	close(obj.closeChan)
-	return nil
 }

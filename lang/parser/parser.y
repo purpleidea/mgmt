@@ -499,6 +499,7 @@ struct_field:
 ;
 call:
 	// fmt.printf(...)
+	// iter.map(...)
 	dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
@@ -1303,13 +1304,26 @@ type_func_arg:
 		}
 	}
 ;
-dotted_identifier:
+undotted_identifier:
 	IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $1.str
 	}
-|	dotted_identifier DOT IDENTIFIER
+	// a function could be named map()!
+|	MAP_IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
+;
+dotted_identifier:
+	undotted_identifier
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
+|	dotted_identifier DOT undotted_identifier
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $1.str + interfaces.ModuleSep + $3.str

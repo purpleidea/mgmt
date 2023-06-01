@@ -29,8 +29,7 @@ import (
 
 const (
 	// MapFuncName is the name this function is registered as.
-	// XXX: rename to map once our parser sees a function name and not a type
-	MapFuncName = "xmap"
+	MapFuncName = "map"
 )
 
 func init() {

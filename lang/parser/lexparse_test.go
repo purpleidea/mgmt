@@ -2073,6 +2073,81 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
+	{
+		fn := &ast.ExprFunc{
+			Args: []*interfaces.Arg{
+				{
+					Name: "x",
+					//Type: types.TypeInt,
+				},
+			},
+			//Return: types.TypeInt,
+			Body: &ast.ExprCall{
+				Name: funcs.OperatorFuncName,
+				Args: []interfaces.Expr{
+					&ast.ExprStr{
+						V: "*",
+					},
+					&ast.ExprVar{
+						Name: "x",
+					},
+					&ast.ExprVar{
+						Name: "x",
+					},
+				},
+			},
+		}
+		//if err := fn.SetType(types.NewType("func(x int) int")); err != nil {
+		//	t.Fatal("could not build type")
+		//}
+
+		exp := &ast.StmtProg{
+			Body: []interfaces.Stmt{
+				&ast.StmtImport{
+					Name: "iter",
+				},
+				&ast.StmtBind{
+					Ident: "fn",
+					Value: fn,
+				},
+				&ast.StmtBind{
+					Ident: "out",
+					Value: &ast.ExprCall{
+						Name: "iter.map", // does this name lex/parse correctly?
+						Args: []interfaces.Expr{
+							&ast.ExprList{
+								Elements: []interfaces.Expr{
+									&ast.ExprInt{
+										V: 1,
+									},
+									&ast.ExprInt{
+										V: 2,
+									},
+									&ast.ExprInt{
+										V: 3,
+									},
+								},
+							},
+							&ast.ExprVar{
+								Name: "fn",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		testCases = append(testCases, test{
+			name: "iter.map",
+			code: `
+			import "iter"
+			$fn = func($x) { $x * $x }
+			$out = iter.map([1,2,3,], $fn)
+			`,
+			fail: false,
+			exp:  exp,
+		})
+	}
 
 	if testing.Short() {
 		t.Logf("available tests:")

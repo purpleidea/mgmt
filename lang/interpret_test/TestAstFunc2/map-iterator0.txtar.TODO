@@ -7,7 +7,7 @@ $fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
 
 $in1 = ["a", "bb", "ccc", "dddd", "eeeee",]
 
-$out1 = iter.xmap($in1, $fn) # XXX: change to map
+$out1 = iter.map($in1, $fn)
 
 $t1 = template("out1: {{ . }}", $out1)
 

@@ -7,7 +7,7 @@ $fn = func($x) { # ignore arg
 
 $in = [5, 4, 3, 2, 1,]
 
-$out = iter.xmap($in, $fn) # XXX: change to map
+$out = iter.map($in, $fn)
 
 $t = template("out: {{ . }}", $out)
 

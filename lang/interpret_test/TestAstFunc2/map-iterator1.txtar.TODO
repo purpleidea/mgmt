@@ -1,8 +1,8 @@
 -- main.mcl --
 import "iter"
 
-func iterxmap($a, $b) { # XXX: change to map
-	iter.xmap($a, $b) # XXX: change to map
+func itermap($a, $b) {
+	iter.map($a, $b)
 }
 
 $fn = func($x) {
@@ -12,10 +12,10 @@ $fn = func($x) {
 $in1 = [5, 4, 3, 2, 1,]
 $in2 = ["a", "b", "c", "d", "e",]
 
-$out1 = iter.xmap($in1, $fn) # XXX: change to map
-$out2 = iter.xmap($in2, $fn) # XXX: change to map
-$out3 = iterxmap($in1, $fn) # XXX: change to map
-$out4 = iterxmap($in2, $fn) # XXX: change to map
+$out1 = iter.map($in1, $fn)
+$out2 = iter.map($in2, $fn)
+$out3 = itermap($in1, $fn)
+$out4 = itermap($in2, $fn)
 
 $t1 = template("out1: {{ . }}", $out1)
 $t2 = template("out2: {{ . }}", $out2)

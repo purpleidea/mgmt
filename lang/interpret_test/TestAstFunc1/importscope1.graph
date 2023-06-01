@@ -1,1 +1,0 @@
-# err: errSetScope: import scope `second.mcl` failed: local import of `second.mcl` failed: could not set scope from import: func `os.is_debian` does not exist in this scope

@@ -1,0 +1,30 @@
+-- main.mcl --
+import "fmt"
+
+# we should only see one copy of $fn
+$fn = func() {
+	"hello world"
+}
+
+test "greeting1" {
+	anotherstr => $fn(),
+}
+test "greeting2" {
+	anotherstr => $fn(),
+}
+test "greeting3" {
+	anotherstr => $fn(),
+}
+-- OUTPUT --
+Edge: func() { str("hello world") } -> call:fn() # call:fn
+Edge: func() { str("hello world") } -> call:fn() # call:fn
+Edge: func() { str("hello world") } -> call:fn() # call:fn
+Edge: str("hello world") -> func() { str("hello world") } # body
+Vertex: call:fn()
+Vertex: call:fn()
+Vertex: call:fn()
+Vertex: func() { str("hello world") }
+Vertex: str("greeting1")
+Vertex: str("greeting2")
+Vertex: str("greeting3")
+Vertex: str("hello world")

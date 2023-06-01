@@ -1,0 +1,128 @@
+-- metadata.yaml --
+main: "main/hello.mcl"	# this is not the default, the default is "main.mcl"
+files: "files/"		# these are some extra files we can use (is the default)
+path: "path/"		# where to look for modules, defaults to using a global
+-- main/h2g2.mcl --
+import "third.mcl"
+
+$answer = 42 + $third.three
+-- main/hello.mcl --
+import "fmt"
+import "h2g2.mcl"
+import "mod1/"
+
+# imports as example1
+import "git://github.com/purpleidea/mgmt-example1/"
+import "git://github.com/purpleidea/mgmt-example2/"
+
+$answer = $h2g2.answer
+
+test "hello" {
+	anotherstr => fmt.printf("the answer is: %d", $answer),
+}
+test "hello2" {
+	anotherstr => fmt.printf("i imported local: %s", $mod1.name),
+}
+test "hello3" {
+	anotherstr => fmt.printf("i imported remote: %s and %s", $example1.name, $example2.ex1),
+}
+-- main/third.mcl --
+$three = 3
+-- main/mod1/metadata.yaml --
+# empty metadata file (use defaults)
+-- main/mod1/main.mcl --
+import "mod1/"	# the nested version, not us
+
+$name = "this is module mod1 which contains: " + $mod1.name
+-- main/mod1/mod1/metadata.yaml --
+# empty metadata file (use defaults)
+-- main/mod1/mod1/main.mcl --
+$name = "this is the nested local module mod1"
+-- path/github.com/purpleidea/mgmt-example1/metadata.yaml --
+main: "main.mcl"
+files: "files/"		# these are some extra files we can use (is the default)
+-- path/github.com/purpleidea/mgmt-example1/main.mcl --
+# this is a pretty lame module!
+import "mod1/"	# yet another similarly named "mod1" import
+
+$name = "i am github.com/purpleidea/mgmt-example1/ and i contain: " + $mod1.name
+-- path/github.com/purpleidea/mgmt-example1/mod1/metadata.yaml --
+# empty metadata file (use defaults)
+-- path/github.com/purpleidea/mgmt-example1/mod1/main.mcl --
+$name = "this is the nested git module mod1"
+-- path/github.com/purpleidea/mgmt-example2/metadata.yaml --
+main: "main.mcl"
+files: "files/"		# these are some extra files we can use (is the default)
+path: "path/"           # specify this, even though we already imported in parent
+parentpathblock: false
+-- path/github.com/purpleidea/mgmt-example2/main.mcl --
+# this is a pretty lame module!
+import "git://github.com/purpleidea/mgmt-example1/" # import another module
+$ex1 = $example1.name
+
+$name = "i am github.com/purpleidea/mgmt-example2/ and i contain: " + $ex1
+-- OUTPUT --
+Edge: call:_operator(str("+"), int(42), var(third.three)) -> var(h2g2.answer) # var:h2g2.answer
+Edge: call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) -> var(example1.name) # var:example1.name
+Edge: call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) -> var(example1.name) # var:example1.name
+Edge: call:_operator(str("+"), str("this is module mod1 which contains: "), var(mod1.name)) -> var(mod1.name) # var:mod1.name
+Edge: int(3) -> var(third.three) # var:third.three
+Edge: int(42) -> call:_operator(str("+"), int(42), var(third.three)) # a
+Edge: str("+") -> call:_operator(str("+"), int(42), var(third.three)) # op
+Edge: str("+") -> call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) # op
+Edge: str("+") -> call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) # op
+Edge: str("+") -> call:_operator(str("+"), str("this is module mod1 which contains: "), var(mod1.name)) # op
+Edge: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ") -> call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) # a
+Edge: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ") -> call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) # a
+Edge: str("i imported local: %s") -> call:fmt.printf(str("i imported local: %s"), var(mod1.name)) # format
+Edge: str("i imported remote: %s and %s") -> call:fmt.printf(str("i imported remote: %s and %s"), var(example1.name), var(example2.ex1)) # format
+Edge: str("the answer is: %d") -> call:fmt.printf(str("the answer is: %d"), var(answer)) # format
+Edge: str("this is module mod1 which contains: ") -> call:_operator(str("+"), str("this is module mod1 which contains: "), var(mod1.name)) # a
+Edge: str("this is the nested git module mod1") -> var(mod1.name) # var:mod1.name
+Edge: str("this is the nested git module mod1") -> var(mod1.name) # var:mod1.name
+Edge: str("this is the nested local module mod1") -> var(mod1.name) # var:mod1.name
+Edge: var(answer) -> call:fmt.printf(str("the answer is: %d"), var(answer)) # a
+Edge: var(example1.name) -> call:fmt.printf(str("i imported remote: %s and %s"), var(example1.name), var(example2.ex1)) # a
+Edge: var(example1.name) -> var(example2.ex1) # var:example2.ex1
+Edge: var(example2.ex1) -> call:fmt.printf(str("i imported remote: %s and %s"), var(example1.name), var(example2.ex1)) # b
+Edge: var(h2g2.answer) -> var(answer) # var:answer
+Edge: var(mod1.name) -> call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) # b
+Edge: var(mod1.name) -> call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name)) # b
+Edge: var(mod1.name) -> call:_operator(str("+"), str("this is module mod1 which contains: "), var(mod1.name)) # b
+Edge: var(mod1.name) -> call:fmt.printf(str("i imported local: %s"), var(mod1.name)) # a
+Edge: var(third.three) -> call:_operator(str("+"), int(42), var(third.three)) # b
+Vertex: call:_operator(str("+"), int(42), var(third.three))
+Vertex: call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name))
+Vertex: call:_operator(str("+"), str("i am github.com/purpleidea/mgmt-example1/ and i contain: "), var(mod1.name))
+Vertex: call:_operator(str("+"), str("this is module mod1 which contains: "), var(mod1.name))
+Vertex: call:fmt.printf(str("i imported local: %s"), var(mod1.name))
+Vertex: call:fmt.printf(str("i imported remote: %s and %s"), var(example1.name), var(example2.ex1))
+Vertex: call:fmt.printf(str("the answer is: %d"), var(answer))
+Vertex: int(3)
+Vertex: int(42)
+Vertex: str("+")
+Vertex: str("+")
+Vertex: str("+")
+Vertex: str("+")
+Vertex: str("hello")
+Vertex: str("hello2")
+Vertex: str("hello3")
+Vertex: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ")
+Vertex: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ")
+Vertex: str("i imported local: %s")
+Vertex: str("i imported remote: %s and %s")
+Vertex: str("the answer is: %d")
+Vertex: str("this is module mod1 which contains: ")
+Vertex: str("this is the nested git module mod1")
+Vertex: str("this is the nested git module mod1")
+Vertex: str("this is the nested local module mod1")
+Vertex: var(answer)
+Vertex: var(example1.name)
+Vertex: var(example1.name)
+Vertex: var(example2.ex1)
+Vertex: var(h2g2.answer)
+Vertex: var(mod1.name)
+Vertex: var(mod1.name)
+Vertex: var(mod1.name)
+Vertex: var(mod1.name)
+Vertex: var(third.three)

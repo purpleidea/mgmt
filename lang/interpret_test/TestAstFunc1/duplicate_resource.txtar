@@ -1,0 +1,29 @@
+-- main.mcl --
+import "fmt"
+
+# these two resources are identical to each other, so we should allow it
+file "/tmp/foo" {
+	content => "hello world",
+}
+file "/tmp/foo" {
+	content => fmt.printf("hello world"),
+}
+
+# these two resources are compatible with each other, so we should allow it
+pkg "cowsay" {
+	state => "installed",
+}
+pkg "cowsay" {
+	state => "newest",
+}
+-- OUTPUT --
+Edge: str("hello world") -> call:fmt.printf(str("hello world")) # format
+Vertex: call:fmt.printf(str("hello world"))
+Vertex: str("/tmp/foo")
+Vertex: str("/tmp/foo")
+Vertex: str("cowsay")
+Vertex: str("cowsay")
+Vertex: str("hello world")
+Vertex: str("hello world")
+Vertex: str("installed")
+Vertex: str("newest")

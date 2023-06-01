@@ -1,3 +1,0 @@
-import "second.mcl"
-
-include second.xclass

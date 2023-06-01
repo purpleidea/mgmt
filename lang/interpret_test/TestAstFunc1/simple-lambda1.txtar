@@ -1,0 +1,19 @@
+-- main.mcl --
+import "fmt"
+
+# this should be a function as a value, iow a lambda
+$answer = func() {
+	"the answer is 42"
+}
+
+$out = $answer()
+
+test $out {}
+-- OUTPUT --
+Edge: call:answer() -> var(out) # var:out
+Edge: func() { str("the answer is 42") } -> call:answer() # call:answer
+Edge: str("the answer is 42") -> func() { str("the answer is 42") } # body
+Vertex: call:answer()
+Vertex: func() { str("the answer is 42") }
+Vertex: str("the answer is 42")
+Vertex: var(out)

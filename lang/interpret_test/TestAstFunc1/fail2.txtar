@@ -1,0 +1,12 @@
+-- main.mcl --
+import "fmt"
+$x str = if true {	# should fail unification
+	42
+} else {
+	13
+}
+test "t1" {
+	anotherstr => fmt.printf("hello %s", $x),
+}
+-- OUTPUT --
+# err: errUnify: can't unify, invariant illogicality with equality: base kind does not match (Str != Int)

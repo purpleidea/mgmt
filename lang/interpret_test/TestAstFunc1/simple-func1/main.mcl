@@ -1,7 +1,0 @@
-func answer() {
-	"the answer is 42"
-}
-
-$out1 = answer()
-
-test $out1 {}

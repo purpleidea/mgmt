@@ -1,0 +1,7 @@
+-- main.mcl --
+# this is not valid mcl code, this is puppet!
+file { "/tmp/foo":
+	ensure => present,
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COLON` @2:8

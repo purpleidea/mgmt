@@ -1,5 +1,0 @@
-test "test" {
-	anotherstr => "test",
-	Meta:noop => false,
-	Meta:noop => true,
-}

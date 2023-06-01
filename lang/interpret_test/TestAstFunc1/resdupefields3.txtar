@@ -1,0 +1,8 @@
+-- main.mcl --
+test "test" {
+	anotherstr => "test",
+	Meta:noop => false,
+	Meta:noop => false,
+}
+-- OUTPUT --
+# err: errInit: resource has duplicate meta entry of: noop

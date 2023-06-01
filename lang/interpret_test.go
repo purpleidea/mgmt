@@ -587,31 +587,11 @@ func TestAstFunc1(t *testing.T) {
 		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
-	type errs struct {
-		failLexParse bool
-		failInit     bool
-		failSetScope bool
-		failUnify    bool
-		failGraph    bool
-	}
 	type test struct { // an individual test
 		name string
-		path string // relative sub directory path inside tests dir
-		fail bool
-		//graph *pgraph.Graph
-		expstr string // expected graph in string format
-		errs   errs
+		path string // relative txtar path inside tests dir
 	}
 	testCases := []test{}
-	//{
-	//	graph, _ := pgraph.NewGraph("g")
-	//	testCases = append(testCases, test{
-	//		name:   "simple hello world",
-	//		path:   "hello0/",
-	//		fail:   false,
-	//		expstr: graph.Sprint(),
-	//	})
-	//}
 
 	// build test array automatically from reading the dir
 	files, err := ioutil.ReadDir(dir)
@@ -621,87 +601,19 @@ func TestAstFunc1(t *testing.T) {
 	}
 	sorted := []string{}
 	for _, f := range files {
-		if !f.IsDir() {
+		if !strings.HasSuffix(f.Name(), ".txtar") {
 			continue
 		}
+
 		sorted = append(sorted, f.Name())
 	}
 	sort.Strings(sorted)
 	for _, f := range sorted {
-		graphFile := f + ".graph" // expected graph file
-		graphFileFull := dir + graphFile
-		info, err := os.Stat(graphFileFull)
-		if err != nil || info.IsDir() {
-			p := dir + f + "." + "T" + "O" + "D" + "O"
-			if _, err := os.Stat(p); err == nil {
-				// if it's a WIP, then don't error things
-				t.Logf("missing: %s", p)
-				continue
-			}
-			t.Errorf("missing: %s", graphFile)
-			t.Errorf("(err: %+v)", err)
-			continue
-		}
-		content, err := ioutil.ReadFile(graphFileFull)
-		if err != nil {
-			t.Errorf("could not read graph file: %+v", err)
-			return
-		}
-		str := string(content) // expected graph
-
-		// if the graph file has a magic error string, it's a failure
-		errStr := ""
-		failLexParse := false
-		failInit := false
-		failSetScope := false
-		failUnify := false
-		failGraph := false
-		if strings.HasPrefix(str, magicError) {
-			errStr = strings.TrimPrefix(str, magicError)
-			str = errStr
-
-			if strings.HasPrefix(str, magicErrorLexParse) {
-				errStr = strings.TrimPrefix(str, magicErrorLexParse)
-				str = errStr
-				failLexParse = true
-			}
-			if strings.HasPrefix(str, magicErrorInit) {
-				errStr = strings.TrimPrefix(str, magicErrorInit)
-				str = errStr
-				failInit = true
-			}
-			if strings.HasPrefix(str, magicErrorSetScope) {
-				errStr = strings.TrimPrefix(str, magicErrorSetScope)
-				str = errStr
-				failSetScope = true
-			}
-			if strings.HasPrefix(str, magicErrorUnify) {
-				errStr = strings.TrimPrefix(str, magicErrorUnify)
-				str = errStr
-				failUnify = true
-			}
-			if strings.HasPrefix(str, magicErrorGraph) {
-				errStr = strings.TrimPrefix(str, magicErrorGraph)
-				str = errStr
-				failGraph = true
-			}
-		}
-
 		// add automatic test case
 		testCases = append(testCases, test{
-			name:   fmt.Sprintf("dir: %s", f),
-			path:   f + "/",
-			fail:   errStr != "",
-			expstr: str,
-			errs: errs{
-				failLexParse: failLexParse,
-				failInit:     failInit,
-				failSetScope: failSetScope,
-				failUnify:    failUnify,
-				failGraph:    failGraph,
-			},
+			name: fmt.Sprintf("%s", f),
+			path: f, // <something>.txtar
 		})
-		//t.Logf("adding: %s", f + "/")
 	}
 
 	if testing.Short() {
@@ -730,13 +642,87 @@ func TestAstFunc1(t *testing.T) {
 			continue
 		}
 		t.Run(testName, func(t *testing.T) {
-			name, path, fail, expstr, errs := tc.name, tc.path, tc.fail, strings.Trim(tc.expstr, "\n"), tc.errs
-			src := dir + path // location of the test
-			failLexParse := errs.failLexParse
-			failInit := errs.failInit
-			failSetScope := errs.failSetScope
-			failUnify := errs.failUnify
-			failGraph := errs.failGraph
+			name, path := tc.name, tc.path
+			tmpdir := t.TempDir() // gets cleaned up at end, new dir for each call
+			src := tmpdir         // location of the test
+			txtarFile := dir + path
+
+			archive, err := txtar.ParseFile(txtarFile)
+			if err != nil {
+				t.Errorf("err parsing txtar(%s): %+v", txtarFile, err)
+				return
+			}
+			comment := strings.TrimSpace(string(archive.Comment))
+			t.Logf("comment: %s\n", comment)
+
+			// copy files out into the test temp directory
+			var testOutput []byte
+			found := false
+			for _, file := range archive.Files {
+				if file.Name == "OUTPUT" {
+					testOutput = file.Data
+					found = true
+					continue
+				}
+
+				name := filepath.Join(tmpdir, file.Name)
+				dir := filepath.Dir(name)
+				if err := os.MkdirAll(dir, 0770); err != nil {
+					t.Errorf("err making dir(%s): %+v", dir, err)
+					return
+				}
+				if err := ioutil.WriteFile(name, file.Data, 0660); err != nil {
+					t.Errorf("err writing file(%s): %+v", name, err)
+					return
+				}
+			}
+
+			if !found { // skip missing tests
+				return
+			}
+
+			expstr := string(testOutput) // expected graph
+
+			// if the graph file has a magic error string, it's a failure
+			errStr := ""
+			failLexParse := false
+			failInit := false
+			failSetScope := false
+			failUnify := false
+			failGraph := false
+			if strings.HasPrefix(expstr, magicError) {
+				errStr = strings.TrimPrefix(expstr, magicError)
+				expstr = errStr
+
+				if strings.HasPrefix(expstr, magicErrorLexParse) {
+					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
+					expstr = errStr
+					failLexParse = true
+				}
+				if strings.HasPrefix(expstr, magicErrorInit) {
+					errStr = strings.TrimPrefix(expstr, magicErrorInit)
+					expstr = errStr
+					failInit = true
+				}
+				if strings.HasPrefix(expstr, magicErrorSetScope) {
+					errStr = strings.TrimPrefix(expstr, magicErrorSetScope)
+					expstr = errStr
+					failSetScope = true
+				}
+				if strings.HasPrefix(expstr, magicErrorUnify) {
+					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
+					expstr = errStr
+					failUnify = true
+				}
+				if strings.HasPrefix(expstr, magicErrorGraph) {
+					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
+					expstr = errStr
+					failGraph = true
+				}
+			}
+
+			fail := errStr != ""
+			expstr = strings.Trim(expstr, "\n")
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 

@@ -1,7 +1,0 @@
-import "fmt"
-
-$s = "world"
-
-test "greeting" {
-	anotherstr => fmt.printf("hello: %s", $s),
-}

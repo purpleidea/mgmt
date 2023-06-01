@@ -1,0 +1,7 @@
+-- main.mcl --
+test "test" {
+	anotherstr => "hello",
+	anotherstr => "hello",	# values aren't checked in dupe checks
+}
+-- OUTPUT --
+# err: errInit: resource has duplicate field of: anotherstr

@@ -1,6 +1,0 @@
-import "fmt"
-
-include c1([13, 42, 0, -37,])
-class c1($b) {
-	test fmt.printf("len is: %d", len($b)) {}	# len is 4
-}

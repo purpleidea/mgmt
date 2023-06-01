@@ -1,3 +1,0 @@
-import "third.mcl"
-
-$answer = 42 + $third.three

@@ -1,0 +1,19 @@
+-- main.mcl --
+import "second.mcl"
+
+import "os" # this fixes it but the wrong way
+
+include second.xclass
+-- second.mcl --
+import "fmt"
+
+class xclass {
+	# note that `os` is not imported here
+	$aaa = if os.is_debian() { "bbb" }  else { "ccc" }
+
+	print "${aaa}" {
+		msg => "hello",
+	}
+}
+-- OUTPUT --
+# err: errSetScope: import scope `second.mcl` failed: local import of `second.mcl` failed: could not set scope from import: func `os.is_debian` does not exist in this scope

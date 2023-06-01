@@ -1,4 +1,0 @@
-# this is not valid mcl code, this is puppet!
-file { "/tmp/foo":
-	ensure => present,
-}

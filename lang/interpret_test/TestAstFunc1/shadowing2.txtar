@@ -1,0 +1,12 @@
+-- main.mcl --
+# this should be okay, because var is shadowed
+$x = "hello"
+if true {
+	$x = "world"	# shadowed
+	test $x {}
+}
+-- OUTPUT --
+Edge: str("world") -> var(x) # var:x
+Vertex: bool(true)
+Vertex: str("world")
+Vertex: var(x)

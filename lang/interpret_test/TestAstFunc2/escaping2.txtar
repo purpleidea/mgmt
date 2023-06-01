@@ -1,0 +1,5 @@
+-- main.mcl --
+# this is invalid (you can't have a function inside a var lookup)
+test "X: ${foo()}" {}
+-- OUTPUT --
+# err: errInterpolate: parser failed: cannot parse string: X: ${foo()}

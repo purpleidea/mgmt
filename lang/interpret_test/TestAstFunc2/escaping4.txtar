@@ -1,0 +1,5 @@
+-- main.mcl --
+# this is invalid (you can't escape a z, right?)
+test "X: \z" {}
+-- OUTPUT --
+# err: errInterpolate: parser failed: unknown escape sequence: \z

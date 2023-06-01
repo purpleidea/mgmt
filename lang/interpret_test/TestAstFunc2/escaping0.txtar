@@ -1,0 +1,6 @@
+-- main.mcl --
+# escaping example
+$x = "This is x"
+test "x: ${x}" {}
+-- OUTPUT --
+Vertex: test[x: This is x]

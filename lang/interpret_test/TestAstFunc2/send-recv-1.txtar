@@ -1,0 +1,14 @@
+-- main.mcl --
+exec "exec0" {
+	cmd => "echo whatever",
+	shell => "/bin/bash",
+}
+
+file "/tmp/command-output" {
+	state => $const.res.file.state.exists,
+}
+
+# this is an error because the shell send key doesn't exist in exec
+Exec["exec0"].shell -> File["/tmp/command-output"].content
+-- OUTPUT --
+# err: errUnify: cannot send/recv from exec[exec0].shell to file[/tmp/command-output].content: key not found in send struct

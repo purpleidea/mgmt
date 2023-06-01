@@ -1,5 +1,0 @@
-import "example/nested" as foo
-
-$x = foo.hello()
-
-test $x {}

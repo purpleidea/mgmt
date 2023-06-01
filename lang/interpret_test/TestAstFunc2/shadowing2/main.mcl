@@ -1,6 +1,0 @@
-# this should be okay, because var is shadowed
-$x = "hello"
-if true {
-	$x = "world"	# shadowed
-	test $x {}
-}

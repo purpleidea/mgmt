@@ -1,0 +1,76 @@
+-- main.mcl --
+import "datetime"
+import "math"
+
+class foo($bar) {
+	$now = datetime.now()
+	$x = math.mod($now, 2)
+	print "flipflop-${bar}" {
+		msg => if $x == 0 { "FLIP" } else { "FLOP" },
+	}
+}
+
+# Increasing the number of these, used to cause the performance to tank after 5.
+include foo("hello world")
+include foo("meep")
+include foo("moop")
+include foo("foo")
+include foo("bar")
+include foo("a")
+include foo("b")
+include foo("c")
+include foo("d")
+include foo("e")
+include foo("f")
+include foo("g")
+include foo("h")
+include foo("i")
+include foo("j")
+include foo("k")
+include foo("l")
+include foo("m")
+include foo("n")
+include foo("o")
+include foo("p")
+include foo("q")
+include foo("r")
+include foo("s")
+include foo("t")
+include foo("u")
+include foo("v")
+include foo("w")
+include foo("x")
+include foo("y")
+include foo("z")
+-- OUTPUT --
+Vertex: print[flipflop-a]
+Vertex: print[flipflop-b]
+Vertex: print[flipflop-bar]
+Vertex: print[flipflop-c]
+Vertex: print[flipflop-d]
+Vertex: print[flipflop-e]
+Vertex: print[flipflop-f]
+Vertex: print[flipflop-foo]
+Vertex: print[flipflop-g]
+Vertex: print[flipflop-h]
+Vertex: print[flipflop-hello world]
+Vertex: print[flipflop-i]
+Vertex: print[flipflop-j]
+Vertex: print[flipflop-k]
+Vertex: print[flipflop-l]
+Vertex: print[flipflop-m]
+Vertex: print[flipflop-meep]
+Vertex: print[flipflop-moop]
+Vertex: print[flipflop-n]
+Vertex: print[flipflop-o]
+Vertex: print[flipflop-p]
+Vertex: print[flipflop-q]
+Vertex: print[flipflop-r]
+Vertex: print[flipflop-s]
+Vertex: print[flipflop-t]
+Vertex: print[flipflop-u]
+Vertex: print[flipflop-v]
+Vertex: print[flipflop-w]
+Vertex: print[flipflop-x]
+Vertex: print[flipflop-y]
+Vertex: print[flipflop-z]

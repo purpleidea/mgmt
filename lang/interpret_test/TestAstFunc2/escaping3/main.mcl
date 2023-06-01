@@ -1,2 +1,0 @@
-# this is invalid (you can't have an empty var lookup)
-test "X: ${}" {}

@@ -1,0 +1,90 @@
+-- main.mcl --
+# escaping examples
+
+test "A: \${test}" {}
+
+test "B: \$" {}
+
+$c1 = "This is c1"
+test "C: ${c1}" {}
+
+test "D: \\\$" {}
+
+test "E: {}" {}
+
+test "F: hello" {}
+
+$g1 = "This is g1"
+test "G: ${g1} EOF" {}
+
+test "H: {hhh} EOF" {}
+
+$i_i = "This is ii"
+test "I: ${i_i} EOF" {}
+
+# is this okay?
+test "J: $ is a dollar sign" {}
+
+test "K: $ {zzz} EOF" {}
+
+$l1 = "This is l1"
+test "L: $$${l1} EOF" {}
+
+test "M: $ $$" {}
+
+test "N: hello \" world" {}
+
+test "O: hello \"\" world" {}
+
+test "P: hello \\ world" {}
+
+test "Q: hello \\\\ world" {}
+
+$r1 = "This is r1"
+test "R: \\${r1} EOF" {}
+
+test "S: \\$ EOF" {}
+
+test "T: newline\nEOF" {}
+
+test "U: tab\t\\\ttabEOF" {}
+
+# test "V: " {}
+
+test "W: \\$" {}
+
+$x1 = "This is x1"
+test "X: $${x1} EOF" {}
+
+$unused = "i am unused"
+$y1 = "{unused}"
+test "Y: $${y1} EOF" {} # check there isn't double parsing
+
+test "Z: $$$" {}
+-- OUTPUT --
+Vertex: test[A: ${test}]
+Vertex: test[B: $]
+Vertex: test[C: This is c1]
+Vertex: test[D: \$]
+Vertex: test[E: {}]
+Vertex: test[F: hello]
+Vertex: test[G: This is g1 EOF]
+Vertex: test[H: {hhh} EOF]
+Vertex: test[I: This is ii EOF]
+Vertex: test[J: $ is a dollar sign]
+Vertex: test[K: $ {zzz} EOF]
+Vertex: test[L: $$This is l1 EOF]
+Vertex: test[M: $ $$]
+Vertex: test[N: hello " world]
+Vertex: test[O: hello "" world]
+Vertex: test[P: hello \ world]
+Vertex: test[Q: hello \\ world]
+Vertex: test[R: \This is r1 EOF]
+Vertex: test[S: \$ EOF]
+Vertex: test[T: newline
+EOF]
+Vertex: test[U: tab	\	tabEOF]
+Vertex: test[W: \$]
+Vertex: test[X: $This is x1 EOF]
+Vertex: test[Y: ${unused} EOF]
+Vertex: test[Z: $$$]

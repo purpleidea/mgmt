@@ -1,0 +1,27 @@
+-- main.mcl --
+# reported by foxxx0
+import "classes.mcl" as baz
+include baz.foo("hello world")
+include baz.foo("meep")
+include baz.foo("foo")
+-- classes.mcl --
+import "datetime"
+import "math"
+
+class foo($bar) {
+	$now = datetime.now()
+	print "/tmp/some-module-${bar}" {
+		msg => if datetime.weekday($now) == "friday" { "TGIF YAY!" } else { "meh..." },
+	}
+	$x = math.mod($now, 2)
+	print "/tmp/some-module-${bar}-flipflop" {
+		msg => if $x == 0 { "FLIP" } else { "FLOP" },
+	}
+}
+-- OUTPUT --
+Vertex: print[/tmp/some-module-foo-flipflop]
+Vertex: print[/tmp/some-module-foo]
+Vertex: print[/tmp/some-module-hello world-flipflop]
+Vertex: print[/tmp/some-module-hello world]
+Vertex: print[/tmp/some-module-meep-flipflop]
+Vertex: print[/tmp/some-module-meep]

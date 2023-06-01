@@ -1,5 +1,0 @@
-# reported by foxxx0
-import "classes.mcl" as baz
-include baz.foo("hello world")
-include baz.foo("meep")
-include baz.foo("foo")

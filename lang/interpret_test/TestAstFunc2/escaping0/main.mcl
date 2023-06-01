@@ -1,3 +1,0 @@
-# escaping example
-$x = "This is x"
-test "x: ${x}" {}

@@ -1,0 +1,9 @@
+-- main.mcl --
+class c1 {
+	include c2
+}
+class c2 {
+	include c1
+}
+-- OUTPUT --
+# err: errSetScope: recursive reference while setting scope: not a dag

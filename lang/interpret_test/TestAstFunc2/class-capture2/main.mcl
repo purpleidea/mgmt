@@ -1,5 +1,0 @@
-include foo
-class foo {
-	test $x1 {}
-}
-$x1 = "t1"

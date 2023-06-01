@@ -1,0 +1,14 @@
+-- main.mcl --
+$funcgen = func() {
+	func($b) {
+		"hello world"
+	}
+}
+
+# specify the type, to make sure we don't have a unification bug here
+$fn func(bool) str = $funcgen()
+$out = $fn(true)
+
+test $out {}
+-- OUTPUT --
+Vertex: test[hello world]

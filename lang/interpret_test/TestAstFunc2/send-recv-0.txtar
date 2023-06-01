@@ -1,0 +1,21 @@
+-- main.mcl --
+exec "exec0" {
+	cmd => "echo this is stdout && echo this is stderr 1>&2", # to stdout && stderr
+	shell => "/bin/bash",
+}
+
+file ["/tmp/command-output", "/tmp/command-stdout", "/tmp/command-stderr",] {
+	state => $const.res.file.state.exists,
+}
+
+Exec["exec0"].output -> File["/tmp/command-output"].content
+Exec["exec0"].stdout -> File["/tmp/command-stdout"].content
+Exec["exec0"].stderr -> File["/tmp/command-stderr"].content
+-- OUTPUT --
+Edge: exec[exec0] -> file[/tmp/command-output] # exec[exec0] -> file[/tmp/command-output]
+Edge: exec[exec0] -> file[/tmp/command-stderr] # exec[exec0] -> file[/tmp/command-stderr]
+Edge: exec[exec0] -> file[/tmp/command-stdout] # exec[exec0] -> file[/tmp/command-stdout]
+Vertex: exec[exec0]
+Vertex: file[/tmp/command-output]
+Vertex: file[/tmp/command-stderr]
+Vertex: file[/tmp/command-stdout]

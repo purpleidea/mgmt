@@ -1,0 +1,12 @@
+some comment can go here!
+
+-- main.mcl --
+import "fmt"
+
+test fmt.printf("answer: %d", 42) {}
+-- files/file1 --
+this is file1
+-- files/file2 --
+this is file2
+-- OUTPUT --
+Vertex: test[answer: 42]

@@ -1,0 +1,5 @@
+-- main.mcl --
+# this is invalid (you can't have an empty var lookup)
+test "X: ${}" {}
+-- OUTPUT --
+# err: errInterpolate: parser failed: cannot parse string: X: ${}

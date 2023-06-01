@@ -1,0 +1,13 @@
+-- main.mcl --
+$funcgen = func() {
+	func() {
+		"hello"
+	}
+}
+
+$fn = $funcgen()
+$out = $fn()
+
+test $out {}
+-- OUTPUT --
+Vertex: test[hello]

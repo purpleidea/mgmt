@@ -1,0 +1,4 @@
+-- main.mcl --
+$d []struct{x int;x float}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected $end, expecting EQUALS` @1:6

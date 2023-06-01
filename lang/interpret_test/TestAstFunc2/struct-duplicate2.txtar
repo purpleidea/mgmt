@@ -1,0 +1,4 @@
+-- main.mcl --
+$st struct{x int; x int} = struct{x => 0, x => 0,}
+-- OUTPUT --
+# err: errLexParse: can't set return type in parser: `can't set return type in parser: duplicate struct field of `x int`` @1:24

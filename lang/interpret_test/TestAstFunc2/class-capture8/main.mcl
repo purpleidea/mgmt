@@ -1,4 +1,0 @@
-$x1 = "bad1"
-include defs.foo
-
-import "defs.mcl" # out of order for fun

@@ -1,5 +1,0 @@
-import "fmt"
-
-$out = 42
-
-test fmt.printf("the answer is %d", $out) {}

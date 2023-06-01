@@ -1,0 +1,6 @@
+-- main.mcl --
+# this should not compile, but previously once did! (woops)
+import "fmt"
+$x = fmt.printf("TEST is %s", if $x == "b" {"a"} else {"b"} )
+-- OUTPUT --
+# err: errSetScope: recursive reference while setting scope: not a dag

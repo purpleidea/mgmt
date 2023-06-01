@@ -1,0 +1,20 @@
+-- main.mcl --
+$funcgen = func() {
+	func($b) {
+		"hello"
+	}
+}
+
+$some_bool = false
+$fn = if $some_bool {
+	$funcgen()
+} else {
+	func($bb) {
+		"world"
+	}
+}
+
+$out = $fn(false)
+test $out {}
+-- OUTPUT --
+Vertex: test[world]

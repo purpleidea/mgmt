@@ -1,0 +1,8 @@
+-- main.mcl --
+import "example/nested" as foo
+
+$x = foo.hello()
+
+test $x {}
+-- OUTPUT --
+Vertex: test[Hello!]

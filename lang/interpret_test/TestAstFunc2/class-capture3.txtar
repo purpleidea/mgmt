@@ -1,0 +1,8 @@
+-- main.mcl --
+$x1 = "bad1"
+class foo($x1) {
+	test $x1 {}
+}
+include foo("t1")
+-- OUTPUT --
+Vertex: test[t1]

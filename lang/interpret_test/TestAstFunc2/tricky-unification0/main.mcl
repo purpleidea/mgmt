@@ -1,3 +1,0 @@
-import "fmt"
-$ints = [13, 42, 0, -37,]
-test fmt.printf("len is: %d", len($ints)) {} # len is 4

@@ -1,0 +1,12 @@
+-- main.mcl --
+$x1 = "bad1"
+include defs.foo
+
+import "defs.mcl" # out of order for fun
+-- defs.mcl --
+class foo {
+	test $x1 {} # capture the var
+}
+$x1 = "t1"
+-- OUTPUT --
+Vertex: test[t1]

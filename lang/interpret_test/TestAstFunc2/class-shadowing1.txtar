@@ -1,0 +1,13 @@
+-- main.mcl --
+$msg = "a"
+class shadowme($msg) {
+	$msg = "c"
+	if true {
+		$msg = "d" # this is used!
+		test $msg {}
+	}
+}
+
+include shadowme("b")
+-- OUTPUT --
+Vertex: test[d]

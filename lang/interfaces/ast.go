@@ -229,9 +229,6 @@ type Scope struct {
 	Variables map[string]Expr
 	Functions map[string]Expr // the Expr will usually be an *ExprFunc
 	Classes   map[string]Stmt
-	// TODO: It is easier to shift a list, but let's use a map for Indexes
-	// for now in case we ever need holes...
-	Indexes map[int][]Expr // TODO: use [][]Expr instead?
 
 	Chain []Node // chain of previously seen node's
 }
@@ -243,7 +240,6 @@ func EmptyScope() *Scope {
 		Variables: make(map[string]Expr),
 		Functions: make(map[string]Expr),
 		Classes:   make(map[string]Stmt),
-		Indexes:   make(map[int][]Expr),
 		Chain:     []Node{},
 	}
 }
@@ -260,9 +256,6 @@ func (obj *Scope) InitScope() {
 	if obj.Classes == nil {
 		obj.Classes = make(map[string]Stmt)
 	}
-	if obj.Indexes == nil {
-		obj.Indexes = make(map[int][]Expr)
-	}
 	if obj.Chain == nil {
 		obj.Chain = []Node{}
 	}
@@ -276,7 +269,6 @@ func (obj *Scope) Copy() *Scope {
 	variables := make(map[string]Expr)
 	functions := make(map[string]Expr)
 	classes := make(map[string]Stmt)
-	indexes := make(map[int][]Expr)
 	chain := []Node{}
 	if obj != nil { // allow copying nil scopes
 		obj.InitScope()                   // safety
@@ -289,13 +281,6 @@ func (obj *Scope) Copy() *Scope {
 		for k, v := range obj.Classes { // copy
 			classes[k] = v // we don't copy the StmtClass!
 		}
-		for k, v := range obj.Indexes { // copy
-			ixs := []Expr{}
-			for _, x := range v {
-				ixs = append(ixs, x) // we don't copy the expr's!
-			}
-			indexes[k] = ixs
-		}
 		for _, x := range obj.Chain { // copy
 			chain = append(chain, x) // we don't copy the Stmt pointer!
 		}
@@ -304,7 +289,6 @@ func (obj *Scope) Copy() *Scope {
 		Variables: variables,
 		Functions: functions,
 		Classes:   classes,
-		Indexes:   indexes,
 		Chain:     chain,
 	}
 }
@@ -358,9 +342,6 @@ func (obj *Scope) Merge(scope *Scope) error {
 		obj.Classes[name] = scope.Classes[name]
 	}
 
-	// FIXME: should we merge or overwrite? (I think this isn't even used)
-	obj.Indexes = scope.Indexes // overwrite without error
-
 	return err
 }
 
@@ -376,78 +357,10 @@ func (obj *Scope) IsEmpty() bool {
 	if len(obj.Functions) > 0 {
 		return false
 	}
-	if len(obj.Indexes) > 0 { // FIXME: should we check each one? (unused?)
-		return false
-	}
 	if len(obj.Classes) > 0 {
 		return false
 	}
 	return true
-}
-
-// MaxIndexes returns the maximum index of Indexes stored in the scope. If it is
-// empty then -1 is returned.
-func (obj *Scope) MaxIndexes() int {
-	obj.InitScope() // safety
-	max := -1
-	for k := range obj.Indexes {
-		if k > max {
-			max = k
-		}
-	}
-	return max
-}
-
-// PushIndexes adds a list of expressions at the zeroth index in Indexes after
-// firsh pushing everyone else over by one. If you pass in nil input this may
-// panic!
-func (obj *Scope) PushIndexes(exprs []Expr) {
-	if exprs == nil {
-		// TODO: is this the right thing to do?
-		panic("unexpected nil input")
-	}
-	obj.InitScope() // safety
-	max := obj.MaxIndexes()
-	for i := max; i >= 0; i-- { // reverse order
-		indexes, exists := obj.Indexes[i]
-		if !exists {
-			continue
-		}
-		delete(obj.Indexes, i)
-		obj.Indexes[i+1] = indexes // push it
-	}
-
-	if obj.Indexes == nil { // in case we weren't initialized yet
-		obj.Indexes = make(map[int][]Expr)
-	}
-	obj.Indexes[0] = exprs // usually the list of Args in ExprCall
-}
-
-// PullIndexes takes a list of expressions from the zeroth index in Indexes and
-// then pulls everyone over by one. The returned value is only valid if one was
-// found at the zeroth index. The returned boolean will be true if it exists.
-func (obj *Scope) PullIndexes() ([]Expr, bool) {
-	obj.InitScope()         // safety
-	if obj.Indexes == nil { // in case we weren't initialized yet
-		obj.Indexes = make(map[int][]Expr)
-	}
-
-	indexes, exists := obj.Indexes[0] // save for later
-
-	max := obj.MaxIndexes()
-	for i := 0; i <= max; i++ {
-		ixs, exists := obj.Indexes[i]
-		if !exists {
-			continue
-		}
-		delete(obj.Indexes, i)
-		if i == 0 { // zero falls off
-			continue
-		}
-		obj.Indexes[i-1] = ixs
-	}
-
-	return indexes, exists
 }
 
 // Arg represents a name identifier for a func or class argument declaration and

@@ -7111,7 +7111,7 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope) error {
 			}
 		}
 
-		indexes, exists := newScope.PullIndexes()
+		indexes, exists := panic("outdated call to newScope.PullIndexes()")
 		if exists {
 			if i, j := len(indexes), len(obj.Args); i != j {
 				return fmt.Errorf("called with %d args, but function requires %d", i, j)
@@ -7315,7 +7315,7 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 		// If the args are passed in by index, then we can use this,
 		// otherwise we can try and look them up in the standard scope.
-		if indexes, exists := obj.scope.Indexes[0]; exists {
+		if indexes, exists := panic("outdated use of obj.scope.Indexes[0]"); exists {
 			if i, j := len(indexes), len(obj.Args); i != j {
 				return nil, fmt.Errorf("called with %d args, but function requires %d", i, j)
 			}
@@ -8068,26 +8068,23 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 	}
 	newScope := s.Copy()
 	//newScope := obj.fn.scope.Copy() // formerly
-	oldScope := scope.Copy()
+	//oldScope := scope.Copy()
 
-	// We need to keep the function's scope, because that's what matters,
-	// but we need to augment it with the indexes we have currently. Plan:
-	// 1) Push indexes of "travelling" scope onto existing function scope.
-	// 2) Append to indexes any args that we're currently calling.
-	// 3) Propagate this new scope into the function.
-	// 4) In case of a future bug, consider dealing with this edge case!
-	if len(newScope.Indexes) > 0 {
-		// programming error ?
-		// TODO: this happens when we don't copy a static function... Is
-		// it a problem that we overwrite it below? It seems to be ok...
-		//return fmt.Errorf("edge case in ExprCall:SetScope, newScope is non-zero")
-	}
-	newScope.Indexes = oldScope.Indexes
-	newScope.PushIndexes(indexes) // obj.Args added to [0]
-
-	if obj.data.Debug {
-		obj.data.Logf("call(%s): set scope: adding to indexes: %+v", obj.Name, newScope.Indexes)
-	}
+	panic("outdated use of Indexes")
+	//// We need to keep the function's scope, because that's what matters,
+	//// but we need to augment it with the indexes we have currently. Plan:
+	//// 1) Push indexes of "travelling" scope onto existing function scope.
+	//// 2) Append to indexes any args that we're currently calling.
+	//// 3) Propagate this new scope into the function.
+	//// 4) In case of a future bug, consider dealing with this edge case!
+	//if len(newScope.Indexes) > 0 {
+	//	// programming error ?
+	//	// TODO: this happens when we don't copy a static function... Is
+	//	// it a problem that we overwrite it below? It seems to be ok...
+	//	//return fmt.Errorf("edge case in ExprCall:SetScope, newScope is non-zero")
+	//}
+	//newScope.Indexes = oldScope.Indexes
+	//newScope.PushIndexes(indexes) // obj.Args added to [0]
 
 	// recursion detection
 	newScope.Chain = append(newScope.Chain, obj.orig) // add expr to list

@@ -7092,47 +7092,24 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *ExprFunc) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
-	// TODO: Should we merge the existing obj.scope with the new one? This
-	// gets called multiple times, maybe doing that would simplify other
-	// parts of the code.
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope // store for later
 
 	if obj.Body != nil {
-		newScope := scope.Copy()
-
-		if obj.data.Debug {
-			if obj.Title != "" {
-				obj.data.Logf("func: %s: scope: pull index 0", obj.Title)
-			} else {
-				obj.data.Logf("func: scope: pull index 0")
-			}
+		bodyContext := make(map[string]interfaces.Expr)
+		for k, v := range context {
+			bodyContext[k] = v
 		}
 
-		indexes, exists := panic("outdated call to newScope.PullIndexes()")
-		if exists {
-			if i, j := len(indexes), len(obj.Args); i != j {
-				return fmt.Errorf("called with %d args, but function requires %d", i, j)
-			}
-			// this version is more future proof, but less logical...
-			// in particular, if there are no indices, then this is skipped!
-			for i, arg := range indexes { // unrename
-				name := obj.Args[i].Name
-				newScope.Variables[name] = arg
-			}
-			// this version is less future proof, but more logical...
-			//for i, arg := range obj.Args { // copy (unrename)
-			//	newScope.Variables[arg.Name] = indexes[i]
-			//}
+		// add the parameters to the context
+		for _, arg := range obj.Args {
+			bodyContext[arg.Name] = &ExprParam{Name: arg.Name, Typ: arg.Type}
 		}
 
-		// We used to store newScope here as bodyScope for later lookup!
-		//obj.bodyScope = newScope // store for later
-		// Instead we just added a private getScope method for expr's...
-		if err := obj.Body.SetScope(newScope, context); err != nil {
-			return err
+		if err := obj.Body.SetScope(scope, bodyContext); err != nil {
+			return errwrap.Wrapf(err, "failed to set scope on function body")
 		}
 	}
 
@@ -8717,7 +8694,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 	// separately.
 	monomorphicTarget, err := polymorphicTarget.Copy()
 	if err != nil {
-		return fmt.Errorf("copying the expression to which an ExprVar refers: %s", err)
+		return errwrap.Wrapf(err, "copying the expression to which an ExprVar refers")
 	}
 	obj.scope.Variables[obj.Name] = monomorphicTarget
 
@@ -8728,7 +8705,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 	targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
 	err = monomorphicTarget.SetScope(targetScope, map[string]interfaces.Expr{})
 	if err != nil {
-		return fmt.Errorf("scope-checking the expression to which an ExprVar refers: %s", err)
+		return errwrap.Wrapf(err, "scope-checking the expression to which an ExprVar refers")
 	}
 
 	return nil
@@ -8865,7 +8842,7 @@ func (obj *ExprVar) Value() (types.Value, error) {
 // ExprParam represents a parameter to a function.
 type ExprParam struct {
 	Name string // name of the parameter
-	typ  *types.Type
+	Typ  *types.Type
 }
 
 // String returns a short representation of this expression.
@@ -8894,7 +8871,7 @@ func (obj *ExprParam) Init(*interfaces.Data) error {
 func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 	return &ExprParam{
 		Name: obj.Name,
-		typ:  obj.typ,
+		Typ:  obj.Typ,
 	}, nil
 }
 
@@ -8906,7 +8883,7 @@ func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 func (obj *ExprParam) Copy() (interfaces.Expr, error) {
 	return &ExprParam{
 		Name: obj.Name,
-		typ:  obj.typ,
+		Typ:  obj.Typ,
 	}, nil
 }
 
@@ -8949,10 +8926,10 @@ func (obj *ExprParam) SetScope(scope *interfaces.Scope, context map[string]inter
 // change on expressions, if you attempt to set a different type than what has
 // previously been set (when not initially known) this will error.
 func (obj *ExprParam) SetType(typ *types.Type) error {
-	if obj.typ != nil {
-		return obj.typ.Cmp(typ) // if not set, ensure it doesn't change
+	if obj.Typ != nil {
+		return obj.Typ.Cmp(typ) // if not set, ensure it doesn't change
 	}
-	obj.typ = typ // set
+	obj.Typ = typ // set
 	return nil
 }
 
@@ -8960,10 +8937,10 @@ func (obj *ExprParam) SetType(typ *types.Type) error {
 func (obj *ExprParam) Type() (*types.Type, error) {
 	// Return the type if it is already known statically... It is useful for
 	// type unification to have some extra info early.
-	if obj.typ == nil {
+	if obj.Typ == nil {
 		return nil, interfaces.ErrTypeCurrentlyUnknown
 	}
-	return obj.typ, nil
+	return obj.Typ, nil
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -8973,10 +8950,10 @@ func (obj *ExprParam) Unify() ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 
 	// if this was set explicitly by the parser
-	if obj.typ != nil {
+	if obj.Typ != nil {
 		invar := &interfaces.EqualsInvariant{
 			Expr: obj,
-			Type: obj.typ,
+			Type: obj.Typ,
 		}
 		invariants = append(invariants, invar)
 	}

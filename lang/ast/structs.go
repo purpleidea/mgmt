@@ -94,6 +94,9 @@ const (
 	// paramOrderingPrefix is a magic prefix used for the Ordering graph.
 	paramOrderingPrefix = "param:"
 
+	// recurOrderingPrefix is a magic prefix used for the Ordering graph.
+	recurOrderingPrefix = "recur:"
+
 	// funcOrderingPrefix is a magic prefix used for the Ordering graph.
 	funcOrderingPrefix = "func:"
 
@@ -7612,6 +7615,128 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 	//	V: obj.V,
 	//	T: obj.typ,
 	//}, nil
+}
+
+// A dummy Expr implementation, used to detect recursion (which is not supported
+// in this language).
+type ExprRecur struct {
+	Name string // name of the variable which refers to itself recursively
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprRecur) String() string {
+	return fmt.Sprintf("recursion detector for %s", obj.Name)
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprRecur) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprRecur) Init(*interfaces.Data) error {
+	return langutil.ValidateVarName(obj.Name)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// Here it returns itself, since variable names cannot be interpolated. We don't
+// support variable, variables or anything crazy like that.
+func (obj *ExprRecur) Interpolate() (interfaces.Expr, error) {
+	return &ExprRecur{
+		Name: obj.Name,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *ExprRecur) Copy() (interfaces.Expr, error) {
+	return &ExprRecur{
+		Name: obj.Name,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprRecur) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	if obj.Name == "" {
+		return nil, nil, fmt.Errorf("missing var name")
+	}
+	uid := recurOrderingPrefix + obj.Name // ordering id
+
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
+
+	node, exists := produces[uid]
+	if exists {
+		edge := &pgraph.SimpleEdge{Name: "exprrecur"}
+		graph.AddEdge(node, obj, edge) // prod -> cons
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprRecur) SetScope(scope *interfaces.Scope) error {
+	return fmt.Errorf("recursion detected: %s", obj.Name)
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprRecur) SetType(typ *types.Type) error {
+	panic("ExprRecur node still present after SetScope()")
+}
+
+// Type returns the type of this expression.
+func (obj *ExprRecur) Type() (*types.Type, error) {
+	panic("ExprRecur node still present after SetScope()")
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *ExprRecur) Unify() ([]interfaces.Invariant, error) {
+	panic("ExprRecur node still present after SetScope()")
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprRecur) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	panic("ExprRecur node still present after SetScope()")
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
+func (obj *ExprRecur) SetValue(value types.Value) error {
+	panic("ExprRecur node still present after SetScope()")
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+// This returns the value this variable points to. It is able to do so because
+// it can lookup in the previous set scope which expression this points to, and
+// then it can call Value on that expression.
+func (obj *ExprRecur) Value() (types.Value, error) {
+	panic("ExprRecur node still present after SetScope()")
 }
 
 // ExprCall is a representation of a function call. This does not represent the

@@ -498,7 +498,7 @@ func (obj *StmtRes) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
-	if err := obj.Name.SetScope(scope); err != nil {
+	if err := obj.Name.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	for _, x := range obj.Contents {
@@ -1263,11 +1263,11 @@ func (obj *StmtResField) Ordering(produces map[string]interfaces.Node) (*pgraph.
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtResField) SetScope(scope *interfaces.Scope) error {
-	if err := obj.Value.SetScope(scope); err != nil {
+	if err := obj.Value.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	if obj.Condition != nil {
-		if err := obj.Condition.SetScope(scope); err != nil {
+		if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 			return err
 		}
 	}
@@ -1528,7 +1528,7 @@ func (obj *StmtResEdge) SetScope(scope *interfaces.Scope) error {
 		return err
 	}
 	if obj.Condition != nil {
-		if err := obj.Condition.SetScope(scope); err != nil {
+		if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 			return err
 		}
 	}
@@ -1782,11 +1782,11 @@ func (obj *StmtResMeta) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtResMeta) SetScope(scope *interfaces.Scope) error {
-	if err := obj.MetaExpr.SetScope(scope); err != nil {
+	if err := obj.MetaExpr.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	if obj.Condition != nil {
-		if err := obj.Condition.SetScope(scope); err != nil {
+		if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 			return err
 		}
 	}
@@ -2363,7 +2363,7 @@ func (obj *StmtEdgeHalf) Copy() (*StmtEdgeHalf, error) {
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtEdgeHalf) SetScope(scope *interfaces.Scope) error {
-	return obj.Name.SetScope(scope)
+	return obj.Name.SetScope(scope, map[string]interfaces.Expr{})
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -2660,7 +2660,7 @@ func (obj *StmtIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph,
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtIf) SetScope(scope *interfaces.Scope) error {
-	if err := obj.Condition.SetScope(scope); err != nil {
+	if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	if obj.ThenBranch != nil {
@@ -4103,7 +4103,7 @@ func (obj *StmtFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // necessary in order to reach this, in particular in situations when a bound
 // expression points to a previously bound expression.
 func (obj *StmtFunc) SetScope(scope *interfaces.Scope) error {
-	return obj.Func.SetScope(scope)
+	return obj.Func.SetScope(scope, map[string]interfaces.Expr{})
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -4510,7 +4510,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// make sure to propagate the scope to our input args!
 	if obj.Args != nil {
 		for _, x := range obj.Args {
-			if err := x.SetScope(scope); err != nil {
+			if err := x.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 				return err
 			}
 		}
@@ -4880,7 +4880,7 @@ func (obj *ExprBool) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprBool) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprBool) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -5060,7 +5060,7 @@ func (obj *ExprStr) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprStr) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprStr) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -5190,7 +5190,7 @@ func (obj *ExprInt) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprInt) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprInt) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -5322,7 +5322,7 @@ func (obj *ExprFloat) Ordering(produces map[string]interfaces.Node) (*pgraph.Gra
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprFloat) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprFloat) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -5529,14 +5529,14 @@ func (obj *ExprList) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprList) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprList) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
 
 	for _, x := range obj.Elements {
-		if err := x.SetScope(scope); err != nil {
+		if err := x.SetScope(scope, context); err != nil {
 			return err
 		}
 	}
@@ -6000,17 +6000,17 @@ func (obj *ExprMap) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprMap) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprMap) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
 
 	for _, x := range obj.KVs {
-		if err := x.Key.SetScope(scope); err != nil {
+		if err := x.Key.SetScope(scope, context); err != nil {
 			return err
 		}
-		if err := x.Val.SetScope(scope); err != nil {
+		if err := x.Val.SetScope(scope, context); err != nil {
 			return err
 		}
 	}
@@ -6537,14 +6537,14 @@ func (obj *ExprStruct) Ordering(produces map[string]interfaces.Node) (*pgraph.Gr
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprStruct) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprStruct) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
 
 	for _, x := range obj.Fields {
-		if err := x.Value.SetScope(scope); err != nil {
+		if err := x.Value.SetScope(scope, context); err != nil {
 			return err
 		}
 	}
@@ -7091,7 +7091,7 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprFunc) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprFunc) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	// TODO: Should we merge the existing obj.scope with the new one? This
 	// gets called multiple times, maybe doing that would simplify other
 	// parts of the code.
@@ -7131,7 +7131,7 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope) error {
 		// We used to store newScope here as bodyScope for later lookup!
 		//obj.bodyScope = newScope // store for later
 		// Instead we just added a private getScope method for expr's...
-		if err := obj.Body.SetScope(newScope); err != nil {
+		if err := obj.Body.SetScope(newScope, context); err != nil {
 			return err
 		}
 	}
@@ -7686,7 +7686,7 @@ func (obj *ExprRecur) Ordering(produces map[string]interfaces.Node) (*pgraph.Gra
 }
 
 // SetScope stores the scope for use in this resource.
-func (obj *ExprRecur) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprRecur) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	return fmt.Errorf("recursion detected: %s", obj.Name)
 }
 
@@ -7945,7 +7945,7 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // which it propagates this downwards to. This particular function has been
 // heavily optimized to work correctly with calling functions with the correct
 // args. Edit cautiously and with extensive testing.
-func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprCall) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -7957,7 +7957,7 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 
 	// scope-check the arguments
 	for _, x := range obj.Args {
-		if err := x.SetScope(scope); err != nil {
+		if err := x.SetScope(scope, context); err != nil {
 			return err
 		}
 	}
@@ -7999,7 +7999,7 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 	} else {
 		copiedScope.Functions[obj.Name] = &ExprRecur{obj.Name}
 	}
-	err = copied.SetScope(copiedScope)
+	err = copied.SetScope(copiedScope, context)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not set scope for copied function definition `%s`", obj.Name)
 	}
@@ -8700,7 +8700,7 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 }
 
 // SetScope stores the scope for use in this resource.
-func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		obj.scope = interfaces.EmptyScope()
 	} else {
@@ -8726,7 +8726,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 	// refer to itself!
 	targetScope := obj.scope.Copy()
 	targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
-	err = monomorphicTarget.SetScope(targetScope)
+	err = monomorphicTarget.SetScope(targetScope, map[string]interfaces.Expr{})
 	if err != nil {
 		return fmt.Errorf("scope-checking the expression to which an ExprVar refers: %s", err)
 	}
@@ -8937,7 +8937,7 @@ func (obj *ExprParam) Ordering(produces map[string]interfaces.Node) (*pgraph.Gra
 }
 
 // SetScope stores the scope for use in this resource.
-func (obj *ExprParam) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprParam) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	// ExprParam doesn't have a scope, because it is the node to which a VarExpr
 	// can point to, it doesn't point to anything itself.
 	return nil
@@ -9213,18 +9213,18 @@ func (obj *ExprIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph,
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprIf) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprIf) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
-	if err := obj.ThenBranch.SetScope(scope); err != nil {
+	if err := obj.ThenBranch.SetScope(scope, context); err != nil {
 		return err
 	}
-	if err := obj.ElseBranch.SetScope(scope); err != nil {
+	if err := obj.ElseBranch.SetScope(scope, context); err != nil {
 		return err
 	}
-	return obj.Condition.SetScope(scope)
+	return obj.Condition.SetScope(scope, context)
 }
 
 // SetType is used to set the type of this expression once it is known. This

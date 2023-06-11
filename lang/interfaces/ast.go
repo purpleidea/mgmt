@@ -108,7 +108,7 @@ type Expr interface {
 	Ordering(map[string]Node) (*pgraph.Graph, map[Node]string, error)
 
 	// SetScope sets the scope here and propagates it downwards.
-	SetScope(*Scope) error
+	SetScope(*Scope, map[string]Expr) error
 
 	// SetType sets the type definitively, and errors if it is incompatible.
 	SetType(*types.Type) error

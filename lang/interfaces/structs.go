@@ -76,7 +76,7 @@ func (obj *ExprAny) Ordering(produces map[string]Node) (*pgraph.Graph, map[Node]
 
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope.
-func (obj *ExprAny) SetScope(*Scope) error { return nil }
+func (obj *ExprAny) SetScope(*Scope, map[string]Expr) error { return nil }
 
 // SetType is used to set the type of this expression once it is known. This
 // usually happens during type unification, but it can also happen during

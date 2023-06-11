@@ -8684,28 +8684,40 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 		obj.scope = scope.Copy()
 	}
 
-	polymorphicTarget := obj.scope.Variables[obj.Name]
-	if polymorphicTarget == nil {
-		return fmt.Errorf("variable %s not in scope", obj.Name)
-	}
+	if monomorphicTarget, exists := context[obj.Name]; exists {
+		// This ExprVar refers to a parameter bound by an enclosing lambda definition.
+		// We do _not_ copy the definition, because it is already monomorphic.
+		obj.scope.Variables[obj.Name] = monomorphicTarget
 
-	// Each occurrence of a variable can instantiate the definition at a different
-	// type, so we make a copy, and later each copy will be type-checked
-	// separately.
-	monomorphicTarget, err := polymorphicTarget.Copy()
-	if err != nil {
-		return errwrap.Wrapf(err, "copying the expression to which an ExprVar refers")
-	}
-	obj.scope.Variables[obj.Name] = monomorphicTarget
+		// There is no need to scope-check the target, it's just a ParamExpr with no
+		// internal references.
+	} else {
+		// This ExprVar refers to a top-level expression. Those expressions can be
+		// instantiated at different types in different parts of the program, so the
+		// the definition we found has a "polymorphic" type.
+		polymorphicTarget := obj.scope.Variables[obj.Name]
+		if polymorphicTarget == nil {
+			return fmt.Errorf("variable %s not in scope", obj.Name)
+		}
 
-	// This ExprVar now has the only reference to monomorphicTarget, so it is our
-	// responsibility to scope-check it. But make sure monomorphicTarget does not
-	// refer to itself!
-	targetScope := obj.scope.Copy()
-	targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
-	err = monomorphicTarget.SetScope(targetScope, map[string]interfaces.Expr{})
-	if err != nil {
-		return errwrap.Wrapf(err, "scope-checking the expression to which an ExprVar refers")
+		// This particular ExprVar is one of the parts of the program which uses the
+		// polymorphic expression at a single, "monomorphic" type. We make a copy of
+		// the definition, and later each copy will be type-checked separately.
+		monomorphicTarget, err := polymorphicTarget.Copy()
+		if err != nil {
+			return errwrap.Wrapf(err, "copying the expression to which an ExprVar refers")
+		}
+		obj.scope.Variables[obj.Name] = monomorphicTarget
+
+		// This ExprVar now has the only reference to monomorphicTarget, so it is our
+		// responsibility to scope-check it. But make sure monomorphicTarget does not
+		// refer to itself!
+		targetScope := obj.scope.Copy()
+		targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
+		err = monomorphicTarget.SetScope(targetScope, map[string]interfaces.Expr{})
+		if err != nil {
+			return errwrap.Wrapf(err, "scope-checking the expression to which an ExprVar refers")
+		}
 	}
 
 	return nil

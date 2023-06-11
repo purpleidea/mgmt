@@ -91,6 +91,9 @@ const (
 	// varOrderingPrefix is a magic prefix used for the Ordering graph.
 	varOrderingPrefix = "var:"
 
+	// paramOrderingPrefix is a magic prefix used for the Ordering graph.
+	paramOrderingPrefix = "param:"
+
 	// funcOrderingPrefix is a magic prefix used for the Ordering graph.
 	funcOrderingPrefix = "func:"
 
@@ -8798,6 +8801,164 @@ func (obj *ExprVar) Value() (types.Value, error) {
 		return nil, fmt.Errorf("var `%s` does not exist in scope", obj.Name)
 	}
 	return expr.Value() // recurse
+}
+
+// ExprParam represents a parameter to a function.
+type ExprParam struct {
+	Name string // name of the parameter
+	typ  *types.Type
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprParam) String() string {
+	return fmt.Sprintf("param(%s)", obj.Name)
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprParam) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprParam) Init(*interfaces.Data) error {
+	return langutil.ValidateVarName(obj.Name)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// Here it returns itself, since variable names cannot be interpolated. We don't
+// support variable, variables or anything crazy like that.
+func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
+	return &ExprParam{
+		Name: obj.Name,
+		typ:  obj.typ,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+// This intentionally returns a copy, because if a function (usually a lambda)
+// that is used more than once, contains this variable, we will want each
+// instantiation of it to be unique, otherwise they will be the same pointer,
+// and they won't be able to have different values.
+func (obj *ExprParam) Copy() (interfaces.Expr, error) {
+	return &ExprParam{
+		Name: obj.Name,
+		typ:  obj.typ,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprParam) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	if obj.Name == "" {
+		return nil, nil, fmt.Errorf("missing param name")
+	}
+	uid := paramOrderingPrefix + obj.Name // ordering id
+
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
+
+	node, exists := produces[uid]
+	if exists {
+		edge := &pgraph.SimpleEdge{Name: "exprparam"}
+		graph.AddEdge(node, obj, edge) // prod -> cons
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprParam) SetScope(scope *interfaces.Scope) error {
+	// ExprParam doesn't have a scope, because it is the node to which a VarExpr
+	// can point to, it doesn't point to anything itself.
+	return nil
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprParam) SetType(typ *types.Type) error {
+	if obj.typ != nil {
+		return obj.typ.Cmp(typ) // if not set, ensure it doesn't change
+	}
+	obj.typ = typ // set
+	return nil
+}
+
+// Type returns the type of this expression.
+func (obj *ExprParam) Type() (*types.Type, error) {
+	// Return the type if it is already known statically... It is useful for
+	// type unification to have some extra info early.
+	if obj.typ == nil {
+		return nil, interfaces.ErrTypeCurrentlyUnknown
+	}
+	return obj.typ, nil
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *ExprParam) Unify() ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+
+	// if this was set explicitly by the parser
+	if obj.typ != nil {
+		invar := &interfaces.EqualsInvariant{
+			Expr: obj,
+			Type: obj.typ,
+		}
+		invariants = append(invariants, invar)
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprParam) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	// Since ExprParam represents a function parameter, we want to receive values
+	// from the arguments passed to the function. The caller of ExprParam.Graph()
+	// should already know what those arguments are, so we can simply look up the
+	// argument by name in the environment.
+	paramFunc, exists := env[obj.Name]
+	if !exists {
+		return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
+	}
+
+	graph, err := pgraph.NewGraph("ExprParam")
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+	}
+	graph.AddVertex(paramFunc)
+	return graph, paramFunc, nil
+}
+
+func (obj *ExprParam) SetValue(value types.Value) error {
+	// ignored, as we don't support ExprParam.Value()
+	return nil
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprParam) Value() (types.Value, error) {
+	return nil, nil
 }
 
 // ExprIf represents an if expression which *must* have both branches, and which

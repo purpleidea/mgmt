@@ -8813,8 +8813,11 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 	obj.scope.Variables[obj.Name] = monomorphicTarget
 
 	// This ExprVar now has the only reference to monomorphicTarget, so it is our
-	// responsibility to scope-check it.
-	monomorphicTarget.SetScope(scope)
+	// responsibility to scope-check it. But make sure monomorphicTarget does not
+	// refer to itself!
+	targetScope := obj.scope.Copy()
+	targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
+	monomorphicTarget.SetScope(targetScope)
 
 	return nil
 }

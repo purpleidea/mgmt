@@ -7955,16 +7955,14 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 		obj.data.Logf("call: %s(%t): scope: functions: %+v", obj.Name, obj.Var, obj.scope.Functions)
 	}
 
-	// Remember that we *want* to propagate this scope into the args that
-	// we use, but we DON'T want to propagate it into the function body...
-	// Only the args should get propagated into it that way.
+	// scope-check the arguments
 	for _, x := range obj.Args {
 		if err := x.SetScope(scope); err != nil {
 			return err
 		}
 	}
 
-	// which scope should we look in for our function?
+	// in which scope should we look for our function?
 	var funcScope map[string]interfaces.Expr
 	if obj.Var {
 		funcScope = obj.scope.Variables // lambda value
@@ -7978,121 +7976,35 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 		return fmt.Errorf("func `%s` does not exist in this scope", obj.Name)
 	}
 
-	// Whether or not this is an ExprCall or ExprFunc, we do the same thing!
-	fn, isFn := f.(*ExprFunc)
-	if !isFn {
-		// this logic is now combined into the main execution flow...
-		//_, ok := f.(*ExprCall)
-	}
-
-	if isFn && fn.Body != nil {
-		if i, j := len(obj.Args), len(fn.Args); i != j {
-			return fmt.Errorf("func `%s` is being called with %d args, but expected %d args", obj.Name, i, j)
-		}
-	}
-	// XXX: is this check or the above one logical here before unification?
-	if isFn && fn.Function != nil {
-		//if i, j := len(obj.Args), len(???.Args); i != j {
-		//	return fmt.Errorf("func `%s` is being called with %d args, but expected %d args", obj.Name, i, j)
-		//}
-	}
-
-	if isFn && len(fn.Values) > 0 {
-		// XXX: what can we add here?
-	}
-
-	// XXX: we do this twice, so we should avoid the first one somehow...
-	// XXX: why do we do it twice???
-	if obj.expr != nil {
-		// possible programming error
-		//return fmt.Errorf("call already contains a func pointer")
-	}
-
-	// FIXME: do we want scope or obj.fn.scope (below, and after it's set) ?
-	for i := len(scope.Chain) - 1; i >= 0; i-- { // reverse order
-		x, ok := scope.Chain[i].(*ExprCall)
-		if !ok {
-			continue
-		}
-
-		if x == obj.orig { // look for my original self
-			// scope chain found!
-			obj.expr = f // same pointer, don't copy
-			return fmt.Errorf("recursive func `%s` found", obj.Name)
-			//return nil // if recursion was supported
-		}
-	}
-
-	// Don't copy using interpolate, because we don't want to recursively
-	// copy things. We copy it for each use of the call.
-	// TODO: We want to recursively copy, but do we want to keep all the
-	// pointers the same, except for the obj.Args[i] ones that we stick in
-	// the scope for lookups...?
-	copied, err := f.Copy() // this does a light copy
+	// Each occurrence of a variable, including $f(), can instantiate the
+	// definition at a different type, so we make a copy, and later each copy will
+	// be type-checked separately. And if this call is to a function f(), then
+	// same thing, each call to f can instantiate the function definition at a
+	// different type.
+	copied, err := f.Copy()
 	if err != nil {
-		return errwrap.Wrapf(err, "could not copy expr")
+		return errwrap.Wrapf(err, "could not copy the function definition `%s`", obj.Name)
 	}
 	obj.expr = copied
 	if obj.data.Debug {
 		obj.data.Logf("call(%s): set scope: func pointer: %p (before) -> %p (after)", obj.Name, f, copied)
 	}
 
-	// Here, in the below loop, we want to do the equivalent of:
-	// `newScope.Variables["foo"] = obj.Args[i]`, which we can't because we
-	// only know the positional, indexed arguments. So, instead we build an
-	// indexed scope that is unpacked as such.
-	// Can't add the args `call:foo(42, "bar", true)` into the func scope...
-	//for i, arg := range obj.fn.Args { // copy
-	//	newScope.Variables[arg.Name] = obj.Args[i]
-	//}
-	// Instead we use the special indexes to do that...
-	indexes := []interfaces.Expr{}
-	for _, arg := range obj.Args {
-		indexes = append(indexes, arg)
+	// This ExprCall now has the only reference to copied, so it is our
+	// responsibility to scope-check it. But make sure copied does not refer to
+	// itself!
+	copiedScope := scope.Copy()
+	if obj.Var {
+		copiedScope.Variables[obj.Name] = &ExprRecur{obj.Name}
+	} else {
+		copiedScope.Functions[obj.Name] = &ExprRecur{obj.Name}
+	}
+	err = copied.SetScope(copiedScope)
+	if err != nil {
+		return errwrap.Wrapf(err, "could not set scope for copied function definition `%s`", obj.Name)
 	}
 
-	// We start with the scope that the func had, and we augment it with our
-	// indexed arg variables, which will be needed in that scope. It is very
-	// important to *NOT* add the surrounding scope into the body because it
-	// shouldn't be able to jump into the function, only the args go into it
-	// from this point. We also need to extract the indexed args that are in
-	// the current scope that we've been building up via the SetScope stuff.
-	// FIXME: check I didn't pick the wrong scope in class/include...
-	s, err := getScope(obj.expr)
-	if err == ErrNoStoredScope {
-		s = interfaces.EmptyScope()
-		//s = scope // XXX: or this?
-	} else if err != nil {
-		// programming error?
-		return errwrap.Wrapf(err, "could not get scope from: %+v", obj.expr)
-	}
-	newScope := s.Copy()
-	//newScope := obj.fn.scope.Copy() // formerly
-	//oldScope := scope.Copy()
-
-	panic("outdated use of Indexes")
-	//// We need to keep the function's scope, because that's what matters,
-	//// but we need to augment it with the indexes we have currently. Plan:
-	//// 1) Push indexes of "travelling" scope onto existing function scope.
-	//// 2) Append to indexes any args that we're currently calling.
-	//// 3) Propagate this new scope into the function.
-	//// 4) In case of a future bug, consider dealing with this edge case!
-	//if len(newScope.Indexes) > 0 {
-	//	// programming error ?
-	//	// TODO: this happens when we don't copy a static function... Is
-	//	// it a problem that we overwrite it below? It seems to be ok...
-	//	//return fmt.Errorf("edge case in ExprCall:SetScope, newScope is non-zero")
-	//}
-	//newScope.Indexes = oldScope.Indexes
-	//newScope.PushIndexes(indexes) // obj.Args added to [0]
-
-	// recursion detection
-	newScope.Chain = append(newScope.Chain, obj.orig) // add expr to list
-	// TODO: switch based on obj.Var ?
-	//newScope.Functions[obj.Name] = copied // overwrite with new pointer
-
-	err = obj.expr.SetScope(newScope)
-	return errwrap.Wrapf(err, "could not set call expr scope")
+	return nil
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -8814,7 +8726,10 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 	// refer to itself!
 	targetScope := obj.scope.Copy()
 	targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
-	monomorphicTarget.SetScope(targetScope)
+	err = monomorphicTarget.SetScope(targetScope)
+	if err != nil {
+		return fmt.Errorf("scope-checking the expression to which an ExprVar refers: %s", err)
+	}
 
 	return nil
 }

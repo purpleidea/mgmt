@@ -231,11 +231,10 @@ func (obj *StmtBind) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
-// SetScope sets the scope of the child expression bound to it. It seems this is
-// necessary in order to reach this, in particular in situations when a bound
-// expression points to a previously bound expression.
 func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
-	return obj.Value.SetScope(scope)
+	// If a variable uses the value which this StmtBind binds, they will make a
+	// copy and call SetScope on the copy.
+	return nil
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -8670,7 +8669,24 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
+	} else {
+		scope = scope.Copy()
 	}
+
+	polymorphicTarget := obj.scope.Variables[obj.Name]
+	if polymorphicTarget == nil {
+		return fmt.Errorf("variable %s not in scope", obj.Name)
+	}
+
+	// Each occurrence of a variable can instantiate the definition at a different
+	// type, so we make a copy, and later each copy will be type-checked
+	// separately.
+	monomorphicTarget, err := polymorphicTarget.Copy()
+	if err != nil {
+		return fmt.Errorf("copying the expression to which an ExprVar refers: %s", err)
+	}
+	obj.scope.Variables[obj.Name] = monomorphicTarget
+
 	obj.scope = scope
 	return nil
 }

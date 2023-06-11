@@ -8816,8 +8816,6 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 		invariants = append(invariants, invar)
 	}
 
-	// don't recurse because we already got this through the bind statement
-	// FIXME: see the comment in StmtBind... keep this in for now...
 	invars, err := expr.Unify()
 	if err != nil {
 		return nil, err

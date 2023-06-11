@@ -8668,9 +8668,9 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 // SetScope stores the scope for use in this resource.
 func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
-		scope = interfaces.EmptyScope()
+		obj.scope = interfaces.EmptyScope()
 	} else {
-		scope = scope.Copy()
+		obj.scope = scope.Copy()
 	}
 
 	polymorphicTarget := obj.scope.Variables[obj.Name]
@@ -8687,7 +8687,10 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
 	}
 	obj.scope.Variables[obj.Name] = monomorphicTarget
 
-	obj.scope = scope
+	// This ExprVar now has the only reference to monomorphicTarget, so it is our
+	// responsibility to scope-check it.
+	monomorphicTarget.SetScope(scope)
+
 	return nil
 }
 

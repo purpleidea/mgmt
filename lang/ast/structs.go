@@ -7485,13 +7485,6 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 	return invariants, nil
 }
 
-// Func returns the reactive stream of values that this expression produces. We
-// need this indirection, because our returned function that actually runs also
-// accepts the "body" of the function (an expr) as an input.
-func (obj *ExprFunc) Func() (interfaces.Func, error) {
-	panic("Please use ExprFunc.Graph() instead") // XXX !!!
-}
-
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -8464,12 +8457,6 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	return invariants, nil
 }
 
-// Func returns the reactive stream of values that this expression produces.
-// Reminder that this looks very similar to ExprVar...
-func (obj *ExprCall) Func() (interfaces.Func, error) {
-	panic("Please use ExprCall.Graph() instead")
-}
-
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -8755,14 +8742,6 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 	invariants = append(invariants, invar)
 
 	return invariants, nil
-}
-
-// Func returns a "pass-through" function which receives the bound value, and
-// passes it to the consumer. This is essential for satisfying the type checker
-// of the function graph engine. Reminder that this looks very similar to
-// ExprCall...
-func (obj *ExprVar) Func() (interfaces.Func, error) {
-	panic("Please use ExprCall.Graph() instead")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

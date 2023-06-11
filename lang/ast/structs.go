@@ -7939,46 +7939,86 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, context map[string]interf
 		}
 	}
 
-	// in which scope should we look for our function?
-	var funcScope map[string]interfaces.Expr
+	// Some of the branches copy the function, we'll process it in similar ways
+	// below if this variable is set.
+	var copied interfaces.Expr
+
 	if obj.Var {
-		funcScope = obj.scope.Variables // lambda value
+		// The call looks like $f().
+		if monomorphicTarget, exists := context[obj.Name]; exists {
+			// $f refers to a parameter bound by an enclosing lambda definition.
+			// We do _not_ copy the definition, because it is already monomorphic.
+			obj.expr = monomorphicTarget
+		} else {
+			// $f refers to a top-level expression. Those expressions can be
+			// instantiated at different types in different parts of the program, so
+			// the definition we found has a "polymorphic" type.
+			polymorphicTarget, exists := obj.scope.Variables[obj.Name]
+			if !exists {
+				return fmt.Errorf("func `$%s` is not in scope", obj.Name)
+			}
+
+			// This particular call to $f is one of the parts of the program which
+			// uses the polymorphic expression at a single, "monomorphic" type. We
+			// make a copy of the definition, and later each copy will by type-checked
+			// separately.
+			var err error
+			copied, err = polymorphicTarget.Copy()
+			if err != nil {
+				return errwrap.Wrapf(err, "could not copy the function definition `$%s`", obj.Name)
+			}
+
+			if obj.data.Debug {
+				obj.data.Logf("call $%s(): set scope: func pointer: %p (polymorphic) -> %p (copy)", obj.Name, &polymorphicTarget, copied)
+			}
+
+			obj.expr = copied
+		}
 	} else {
-		funcScope = obj.scope.Functions // func statement
+		// The call looks like f(). f refers to a top-level function definition.
+		// Those definitions can be instantiated at different types in different
+		// parts of the program, so the definition we found has a "polymorphic"
+		// type.
+		polymorphicTarget, exists := obj.scope.Functions[obj.Name]
+		if !exists {
+			return fmt.Errorf("func `%s` is not in scope", obj.Name)
+		}
+
+		// This particular call to f is one of the parts of the program which uses
+		// the polymorphic expression at a single, "monomorphic" type. We make a
+		// copy of the definition, and later each copy will by type-checked
+		// separately.
+		var err error
+		copied, err = polymorphicTarget.Copy()
+		if err != nil {
+			return errwrap.Wrapf(err, "could not copy the function definition `%s`", obj.Name)
+		}
+
+		if obj.data.Debug {
+			obj.data.Logf("call %s(): set scope: func pointer: %p (polymorphic) -> %p (copy)", obj.Name, &polymorphicTarget, copied)
+		}
+
+		obj.expr = copied
 	}
 
-	// Lookup function from scope...
-	f, exists := funcScope[obj.Name]
-	if !exists {
-		return fmt.Errorf("func `%s` does not exist in this scope", obj.Name)
-	}
-
-	// Each occurrence of a variable, including $f(), can instantiate the
-	// definition at a different type, so we make a copy, and later each copy will
-	// be type-checked separately. And if this call is to a function f(), then
-	// same thing, each call to f can instantiate the function definition at a
-	// different type.
-	copied, err := f.Copy()
-	if err != nil {
-		return errwrap.Wrapf(err, "could not copy the function definition `%s`", obj.Name)
-	}
-	obj.expr = copied
-	if obj.data.Debug {
-		obj.data.Logf("call(%s): set scope: func pointer: %p (before) -> %p (after)", obj.Name, f, copied)
-	}
-
-	// This ExprCall now has the only reference to copied, so it is our
-	// responsibility to scope-check it. But make sure copied does not refer to
-	// itself!
-	copiedScope := scope.Copy()
-	if obj.Var {
-		copiedScope.Variables[obj.Name] = &ExprRecur{obj.Name}
-	} else {
-		copiedScope.Functions[obj.Name] = &ExprRecur{obj.Name}
-	}
-	err = copied.SetScope(copiedScope, context)
-	if err != nil {
-		return errwrap.Wrapf(err, "could not set scope for copied function definition `%s`", obj.Name)
+	if copied != nil {
+		// This ExprCall now has the only reference to copied, so it is our
+		// responsibility to scope-check it. But make sure copied does not refer to
+		// itself!
+		copiedScope := scope.Copy()
+		if obj.Var {
+			copiedScope.Variables[obj.Name] = &ExprRecur{obj.Name}
+		} else {
+			copiedScope.Functions[obj.Name] = &ExprRecur{obj.Name}
+		}
+		err := copied.SetScope(copiedScope, context)
+		if err != nil {
+			if obj.Var {
+				return errwrap.Wrapf(err, "could not set scope for copied function definition `$%s`", obj.Name)
+			} else {
+				return errwrap.Wrapf(err, "could not set scope for copied function definition `%s`", obj.Name)
+			}
+		}
 	}
 
 	return nil
@@ -8695,8 +8735,8 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 		// This ExprVar refers to a top-level expression. Those expressions can be
 		// instantiated at different types in different parts of the program, so the
 		// the definition we found has a "polymorphic" type.
-		polymorphicTarget := obj.scope.Variables[obj.Name]
-		if polymorphicTarget == nil {
+		polymorphicTarget, exists := obj.scope.Variables[obj.Name]
+		if !exists {
 			return fmt.Errorf("variable %s not in scope", obj.Name)
 		}
 
@@ -8809,19 +8849,10 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 // to avoid duplicating production of the incoming input value from the bound
 // expression.
 func (obj *ExprVar) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
-	// The environment contains every variable which is in scope, so we should
-	// be able to simply look up the variable.
-	varFunc, exists := env[obj.Name]
-	if !exists {
-		return nil, nil, fmt.Errorf("var `%s` is not in the environment", obj.Name)
-	}
-
-	graph, err := pgraph.NewGraph("ExprVar")
-	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
-	}
-	graph.AddVertex(varFunc)
-	return graph, varFunc, nil
+	// Delegate to the target.
+	target := obj.scope.Variables[obj.Name]
+	graph, varFunc, err := target.Graph(env)
+	return graph, varFunc, err
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

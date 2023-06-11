@@ -2,12 +2,12 @@
 import "fmt"
 
 # function expression
-$sq2 = func($x, $y) {
-	$y + $x * $x
+$id = func($x) {
+	$x
 }
 
-$x2 = $sq2(7, -7) # 7*7 - 7 = 42
+$foo = $id("foo")
 
-test fmt.printf("sq2: %d", $x2) {}
+test $foo {}
 -- OUTPUT --
-Vertex: test[sq2: 42]
+Vertex: test[foo]

@@ -9417,3 +9417,123 @@ func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
 		return nil, fmt.Errorf("unexpected: %+v", node)
 	}
 }
+
+type StringWrapper struct {
+	s string
+}
+
+func (sw StringWrapper) String() string {
+	return sw.s
+}
+
+func (obj *StmtBind) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *StmtRes) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	obj.Name.SetScopeGraphviz(g)
+	g.AddEdge(obj, obj.Name, StringWrapper{"name"})
+}
+
+func (obj *StmtEdge) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *StmtIf) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *StmtProg) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	for _, s := range obj.Body {
+		s.SetScopeGraphviz(g)
+		g.AddEdge(obj, s, StringWrapper{""})
+	}
+}
+
+func (obj *StmtFunc) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *StmtClass) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *StmtInclude) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *StmtImport) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *StmtComment) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprBool) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprStr) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprInt) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprFloat) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprList) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprMap) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprStruct) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprFunc) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	if obj.Body != nil {
+		obj.Body.SetScopeGraphviz(g)
+		g.AddEdge(obj, obj.Body, StringWrapper{"body"})
+	}
+}
+
+func (obj *ExprRecur) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprCall) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	obj.expr.SetScopeGraphviz(g)
+	g.AddEdge(obj, obj.expr, StringWrapper{"expr"})
+
+	for i, arg := range obj.Args {
+		arg.SetScopeGraphviz(g)
+		g.AddEdge(obj, arg, StringWrapper{fmt.Sprintf("arg%d", i)})
+	}
+}
+
+func (obj *ExprVar) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	target := obj.scope.Variables[obj.Name]
+	target.SetScopeGraphviz(g)
+	g.AddEdge(obj, target, StringWrapper{"target"})
+}
+
+func (obj *ExprParam) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+func (obj *ExprIf) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}

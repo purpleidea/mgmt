@@ -66,6 +66,7 @@ type Stmt interface {
 
 	// SetScope sets the scope here and propagates it downwards.
 	SetScope(*Scope) error
+	SetScopeGraphviz(g *pgraph.Graph)
 
 	// Unify returns the list of invariants that this node produces. It does
 	// so recursively on any children elements that exist in the AST, and
@@ -109,6 +110,7 @@ type Expr interface {
 
 	// SetScope sets the scope here and propagates it downwards.
 	SetScope(*Scope, map[string]Expr) error
+	SetScopeGraphviz(g *pgraph.Graph)
 
 	// SetType sets the type definitively, and errors if it is incompatible.
 	SetType(*types.Type) error

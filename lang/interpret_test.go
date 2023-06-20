@@ -55,7 +55,7 @@ import (
 )
 
 const (
-	runGraphviz = false // run graphviz in tests?
+	runGraphviz = true // run graphviz in tests?
 )
 
 func vertexAstCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
@@ -1383,6 +1383,25 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: set scope passed, expected fail", index)
 				return
+			}
+
+			if runGraphviz {
+				t.Logf("test #%d: Running graphviz after setScope...", index)
+
+				// build a graph of the AST, to make sure everything is connected properly
+				graph, err := pgraph.NewGraph("setScope")
+				if err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: could not create setScope graph: %+v", index, err)
+					return
+				}
+				iast.SetScopeGraphviz(graph)
+
+				if err := graph.ExecGraphviz("dot", "/tmp/set-scope.dot", ""); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: writing graph failed: %+v", index, err)
+					return
+				}
 			}
 
 			// apply type unification

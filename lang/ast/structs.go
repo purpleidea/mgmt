@@ -6827,6 +6827,9 @@ type ExprFunc struct {
 	// This can include a string name and a type, however the type might be
 	// absent here.
 	Args []*interfaces.Arg
+	// One ExprParam is created for each parameter, and the ExprVars which refer
+	// to those parameters are set to point to the corresponding ExprParam.
+	params []*ExprParam
 	// Return is the return type of the function if it was defined.
 	Return *types.Type // return type if specified
 	// Body is the contents of the function. It can be any expression.
@@ -7104,8 +7107,12 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, context map[string]interf
 		}
 
 		// add the parameters to the context
-		for _, arg := range obj.Args {
-			bodyContext[arg.Name] = &ExprParam{Name: arg.Name, Typ: arg.Type}
+		// make a list as long as obj.Args
+		obj.params = make([]*ExprParam, len(obj.Args))
+		for i, arg := range obj.Args {
+			param := &ExprParam{Name: arg.Name, Typ: arg.Type}
+			obj.params[i] = param
+			bodyContext[arg.Name] = param
 		}
 
 		if err := obj.Body.SetScope(scope, bodyContext); err != nil {
@@ -7273,6 +7280,20 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 	// collect all the invariants of the body
 	if obj.Body != nil {
+		expr2Ord := []string{}
+		expr2Map := map[string]interfaces.Expr{}
+		for i, arg := range obj.Args {
+			expr2Ord = append(expr2Ord, arg.Name)
+			expr2Map[arg.Name] = obj.params[i]
+		}
+		funcInvariant := &interfaces.EqualityWrapFuncInvariant{
+			Expr1:    obj,
+			Expr2Map: expr2Map,
+			Expr2Ord: expr2Ord,
+			Expr2Out: obj.Body,
+		}
+		invariants = append(invariants, funcInvariant)
+
 		invars, err := obj.Body.Unify()
 		if err != nil {
 			return nil, err

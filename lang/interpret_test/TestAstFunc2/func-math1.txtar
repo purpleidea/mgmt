@@ -1,9 +1,11 @@
 -- main.mcl --
 
-$f = func($x) {
+$id = func($x str) {
         $x
 }
 
-test $f("foo") {}
+$foo = $id("foo")
+
+test $foo {}
 -- OUTPUT --
 Vertex: test[foo]

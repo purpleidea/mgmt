@@ -8083,14 +8083,24 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, anyInvar)
 
-	// our type should equal the return type of the called function
-	callInvar := &interfaces.EqualityWrapCallInvariant{
-		// TODO: should Expr1 and Expr2 be reversed???
-		Expr1:     obj, // return type expression from calling the function
-		Expr2Func: obj.expr,
-		// Expr2Args: obj.Args, XXX: ???
+	// our type should equal the return type of the called function, and our
+	// argument types should be equal to the types of the parameters of the
+	// function
+	// arg1, arg2, arg3
+	expr2Ord := []string{}
+	expr2Map := map[string]interfaces.Expr{}
+	for i, argExpr := range obj.Args {
+		argName := fmt.Sprintf("arg%d", i)
+		expr2Ord = append(expr2Ord, argName)
+		expr2Map[argName] = argExpr
 	}
-	invariants = append(invariants, callInvar)
+	funcInvar := &interfaces.EqualityWrapFuncInvariant{
+		Expr1:    obj.expr,
+		Expr2Map: expr2Map,
+		Expr2Ord: expr2Ord,
+		Expr2Out: obj,
+	}
+	invariants = append(invariants, funcInvar)
 
 	// function specific code follows...
 	fn, isFn := obj.expr.(*ExprFunc)

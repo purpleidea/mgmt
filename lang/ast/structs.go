@@ -3820,66 +3820,6 @@ func (obj *StmtProg) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error
 		extendedEnv[varName] = importedFunc
 	}
 
-	// TODO: this could be called once at the top-level, and then cached...
-	// TODO: it currently gets called inside child programs, which is slow!
-	orderingGraph, _, err := obj.Ordering(nil) // XXX: pass in globals from scope?
-	// TODO: look at consumed variables, and prevent startup of unused ones?
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not generate ordering")
-	}
-
-	nodeOrder, err := orderingGraph.TopologicalSort()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "recursive reference while running Graph")
-	}
-
-	// XXX: implement ValidTopoSortOrder!
-	//topoSanity := (RequireTopologicalOrdering || TopologicalOrderingWarning)
-	//if topoSanity && !orderingGraph.ValidTopoSortOrder(nodeOrder) {
-	//	msg := "code is out of order, you're insane!"
-	//	if TopologicalOrderingWarning {
-	//		obj.data.Logf(msg)
-	//		if obj.data.Debug {
-	//			// TODO: print out of order problems
-	//		}
-	//	}
-	//	if RequireTopologicalOrdering {
-	//		return fmt.Errorf(msg)
-	//	}
-	//}
-
-	// TODO: move this function to a utility package
-	stmtInList := func(needle interfaces.Stmt, haystack []interfaces.Stmt) bool {
-		for _, x := range haystack {
-			if needle == x {
-				return true
-			}
-		}
-		return false
-	}
-
-	binds := []*StmtBind{}
-	for _, x := range nodeOrder { // these are in the correct order for Graph
-		stmt, ok := x.(*StmtBind)
-		if !ok {
-			continue
-		}
-		if !stmtInList(stmt, obj.Body) {
-			// Skip any unwanted additions that we pulled in.
-			continue
-		}
-		binds = append(binds, stmt)
-	}
-
-	for _, v := range binds { // these are in the correct order for Graph
-		g, boundFunc, err := v.Value.Graph(extendedEnv)
-		if err != nil {
-			return nil, err
-		}
-		graph.AddGraph(g)
-		extendedEnv[v.Ident] = boundFunc
-	}
-
 	// collect all graphs that need to be included
 	for _, x := range obj.Body {
 		// skip over *StmtClass here

@@ -160,6 +160,77 @@ func TestSimpleSolver1(t *testing.T) {
 			},
 		})
 	}
+	{
+		// even though the arg names are different, it still unifies!
+		// ?1 = func(x str) ?2
+		// ?1 = func(y str) ?3
+		// ?3 = str # needed since we don't know what the func body is
+		expr1 := &interfaces.ExprAny{} // ?1
+		expr2 := &interfaces.ExprAny{} // ?2
+		expr3 := &interfaces.ExprAny{} // ?3
+
+		argx := &interfaces.ExprAny{} // argx
+		argy := &interfaces.ExprAny{} // argy
+
+		invarA := &interfaces.EqualityWrapFuncInvariant{
+			Expr1: expr1, // Expr
+			Expr2Map: map[string]interfaces.Expr{ // map[string]Expr
+				"x": argx,
+			},
+			Expr2Ord: []string{"x"}, // []string
+			Expr2Out: expr2,         // Expr
+		}
+
+		invarB := &interfaces.EqualityWrapFuncInvariant{
+			Expr1: expr1, // Expr
+			Expr2Map: map[string]interfaces.Expr{ // map[string]Expr
+				"y": argy,
+			},
+			Expr2Ord: []string{"y"}, // []string
+			Expr2Out: expr3,         // Expr
+		}
+
+		invarC := &interfaces.EqualsInvariant{
+			Expr: expr3,
+			Type: types.NewType("str"),
+		}
+
+		invarD := &interfaces.EqualsInvariant{
+			Expr: argx,
+			Type: types.NewType("str"),
+		}
+
+		invarE := &interfaces.EqualsInvariant{
+			Expr: argy,
+			Type: types.NewType("str"),
+		}
+
+		testCases = append(testCases, test{
+			name: "different func arg names",
+			invariants: []interfaces.Invariant{
+				invarA,
+				invarB,
+				invarC,
+				invarD,
+				invarE,
+			},
+			expected: []interfaces.Expr{
+				expr1,
+				expr2,
+				expr3,
+				argx,
+				argy,
+			},
+			fail: false,
+			expect: map[interfaces.Expr]*types.Type{
+				expr1: types.NewType("func(str) str"),
+				expr2: types.NewType("str"),
+				expr3: types.NewType("str"),
+				argx:  types.NewType("str"),
+				argy:  types.NewType("str"),
+			},
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests

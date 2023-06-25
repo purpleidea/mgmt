@@ -177,6 +177,8 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 
 	// XXX: if these partials all shared the same variable definition, would
 	// it all work??? Maybe we don't even need the first map prefix...
+	// XXX: yes i think it would work, but we'd have to avoid overwriting
+	// types a lot more carefully than we currently do!
 	listPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 	mapPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
 	structPartials := make(map[interfaces.Expr]map[interfaces.Expr]*types.Type)
@@ -444,6 +446,25 @@ Loop:
 				}
 
 			case *interfaces.EqualityWrapFuncInvariant:
+
+				fnMap := []map[string]interfaces.Expr{}
+				fnOrd := [][]string{}
+				fnOut := []interfaces.Expr{}
+				for _, fn := range fnInvariants {
+					// Don't skip our own to avoid duplicate
+					// code for the existing checks...
+					//if eq == fn { // let us add our own in too
+					//	continue // skip our own invariant
+					//}
+					if eq.Expr1 != fn.Expr1 {
+						continue // not the same function!
+					}
+
+					fnMap = append(fnMap, fn.Expr2Map)
+					fnOrd = append(fnOrd, fn.Expr2Ord)
+					fnOut = append(fnOut, fn.Expr2Out)
+				}
+
 				if _, exists := funcPartials[eq.Expr1]; !exists {
 					funcPartials[eq.Expr1] = make(map[interfaces.Expr]*types.Type)
 				}
@@ -451,32 +472,63 @@ Loop:
 				if typ, exists := solved[eq.Expr1]; exists {
 					// wow, now known, so tell the partials!
 					// TODO: this assumes typ is a func, is that guaranteed?
-					if len(typ.Ord) != len(eq.Expr2Ord) {
-						return nil, fmt.Errorf("func arg count differs")
+					//if len(typ.Ord) != len(eq.Expr2Ord) {
+					//	return nil, fmt.Errorf("func arg count differs")
+					//}
+					//for i, name := range eq.Expr2Ord {
+					//	expr := eq.Expr2Map[name]                          // assume key exists
+					//	funcPartials[eq.Expr1][expr] = typ.Map[typ.Ord[i]] // assume key exists
+					//}
+					for ix, a := range fnOrd {
+						b := fnMap[ix] // assume key exists
+						// TODO: this assumes typ is a func, is that guaranteed?
+						if len(typ.Ord) != len(a) {
+							return nil, fmt.Errorf("func arg count differs")
+						}
+						for i, name := range a {
+							expr := b[name] // assume key exists
+							t, exists := funcPartials[eq.Expr1][expr]
+							if !exists {
+								funcPartials[eq.Expr1][expr] = typ.Map[typ.Ord[i]] // assume key exists
+							}
+							if err := t.Cmp(typ.Map[typ.Ord[i]]); err != nil {
+								return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg: %s", name)
+							}
+						}
 					}
-					for i, name := range eq.Expr2Ord {
-						expr := eq.Expr2Map[name]                          // assume key exists
-						funcPartials[eq.Expr1][expr] = typ.Map[typ.Ord[i]] // assume key exists
+					//funcPartials[eq.Expr1][eq.Expr2Out] = typ.Out
+					for _, a := range fnOut {
+						t, exists := funcPartials[eq.Expr1][a]
+						if !exists {
+							funcPartials[eq.Expr1][a] = typ.Out // learn
+							continue
+						}
+						if err := t.Cmp(typ.Out); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg")
+						}
 					}
-					funcPartials[eq.Expr1][eq.Expr2Out] = typ.Out
 				}
 
-				// can we add to partials ?
-				for name, y := range eq.Expr2Map {
-					typ, exists := solved[y]
-					if !exists {
-						continue
-					}
-					t, exists := funcPartials[eq.Expr1][y]
-					if !exists {
-						funcPartials[eq.Expr1][y] = typ // learn!
-						continue
-					}
-					if err := t.Cmp(typ); err != nil {
-						return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg: %s", name)
+				for ix := range fnOrd {
+					// can we add to partials ?
+					//for name, y := range eq.Expr2Map {
+					for name, y := range fnMap[ix] {
+						typ, exists := solved[y]
+						if !exists {
+							continue
+						}
+						t, exists := funcPartials[eq.Expr1][y]
+						if !exists {
+							funcPartials[eq.Expr1][y] = typ // learn!
+							continue
+						}
+						if err := t.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg: %s", name)
+						}
 					}
 				}
-				for _, y := range []interfaces.Expr{eq.Expr2Out} {
+				//for _, y := range []interfaces.Expr{eq.Expr2Out} {
+				for _, y := range fnOut {
 					typ, exists := solved[y]
 					if !exists {
 						continue

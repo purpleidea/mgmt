@@ -652,7 +652,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 		})
 		obj.init.Txn.AddVertex(outputListFunc)
 		obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
-			Args: []string{"arg"},
+			Args: []string{simple.ChannelBasedSinkFuncArgName},
 		})
 
 		for i := 0; i < n; i++ {

@@ -1,9 +1,13 @@
 -- main.mcl --
+import "fmt"
 
-$f = func($x) {
-        $x
+# function expression
+$id = func($x) {
+	$x
 }
 
-test $f("foo") {}
+$foo = $id("foo")
+
+test $foo {}
 -- OUTPUT --
 Vertex: test[foo]

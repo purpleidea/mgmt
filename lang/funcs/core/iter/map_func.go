@@ -551,7 +551,7 @@ func (obj *MapFunc) sig() *types.Type {
 	tO := types.NewType(fmt.Sprintf("[]%s", tOi.String())) // return type
 
 	// type of 1st arg (the function)
-	tF := types.NewType(fmt.Sprintf("func(%s) %s", tIi.String(), tOi.String()))
+	tF := types.NewType(fmt.Sprintf("func(%s %s) %s", "name-which-can-vary-over-time", tIi.String(), tOi.String()))
 
 	s := fmt.Sprintf("func(%s %s, %s %s) %s", argNameInputs, tI, argNameFunction, tF, tO)
 	return types.NewType(s) // yay!
@@ -686,7 +686,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 				Args: []string{"inputList"},
 			})
 			obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
-				Args: []string{"arg"},
+				Args: []string{fmt.Sprintf("outputElem%d", i)},
 			})
 		}
 

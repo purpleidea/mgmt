@@ -8433,22 +8433,30 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		//
 		// TODO: should obj.expr.Graph() already be returning a node which
 		// produces a FuncValue?
+
+		// XXX: James thinks instantiating a static copy of the Func here is yucky
+		_, staticValueTransformingFunc, err := obj.expr.Graph(nil) // XXX: pass in globals from scope? no
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "could not get static graph for function %s", obj.Name)
+		}
+		fmt.Printf("%s() incorrect %v %v\n", obj.Name, ftyp.Ord, ftyp)
+		fmt.Printf("%s() correct %v %v\n", obj.Name, staticValueTransformingFunc.Info().Sig.Ord, staticValueTransformingFunc.Info().Sig)
 		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				g, valueTransformingFunc, err := obj.expr.Graph(nil) // XXX: pass in globals from scope?
+				g, dynamicValueTransformingFunc, err := obj.expr.Graph(nil) // XXX: pass in globals from scope?
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
 				}
 				interfaces.AddGraphToTxn(txn, g)
 				for i, arg := range args {
 					argName := ftyp.Ord[i]
-					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+					txn.AddEdge(arg, dynamicValueTransformingFunc, &interfaces.FuncEdge{
 						Args: []string{argName},
 					})
 				}
-				return valueTransformingFunc, nil
+				return dynamicValueTransformingFunc, nil
 			},
-			T: ftyp,
+			T: staticValueTransformingFunc.Info().Sig,
 		})
 	}
 	graph.AddVertex(funcValueFunc)

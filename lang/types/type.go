@@ -553,8 +553,11 @@ func (obj *Type) String() string {
 			if t == nil {
 				panic("malformed func field")
 			}
-			//s[i] = fmt.Sprintf("%s %s", k, t.String()) // strict
-			s[i] = t.String()
+
+			// We need to print function arg names for Copy() to use
+			// the String() hack here and avoid erasing them here!
+			//s[i] = t.String()
+			s[i] = fmt.Sprintf("%s %s", k, t.String()) // strict
 		}
 		var out string
 		if obj.Out != nil {
@@ -723,6 +726,7 @@ func (obj *Type) Cmp(typ *Type) error {
 
 // Copy copies this type so that inplace modification won't affect the original.
 func (obj *Type) Copy() *Type {
+	// String() needs to print function arg names or they'd get erased here!
 	return NewType(obj.String()) // hack to do this easily
 }
 

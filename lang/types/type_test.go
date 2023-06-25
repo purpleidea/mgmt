@@ -501,7 +501,7 @@ func TestType1(t *testing.T) {
 				Kind: KindFloat,
 			},
 		},
-		"func(str) bool": {
+		"func(a0 str) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -516,7 +516,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(str, int) bool": {
+		"func(hello str, answer int) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -535,7 +535,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(str, []int, float) bool": {
+		"func(a0 str, a1 []int, a2 float) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -561,7 +561,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(map{str: int}) bool": {
+		"func(answer map{str: int}) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -582,7 +582,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(bool, map{str: int}) bool": {
+		"func(hello bool, answer map{str: int}) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -607,7 +607,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(struct{a str; bb int}) bool": {
+		"func(answer struct{a str; bb int}) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -634,7 +634,7 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(bool, struct{a str; bb int}) bool": {
+		"func(hello bool, answer struct{a str; bb int}) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -1469,6 +1469,20 @@ func TestComplexCmp0(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+func TestTypeCopy0(t *testing.T) {
+	typ := NewType("func(arg0 str, arg1 bool) int")
+	cp := typ.Copy()
+	if len(cp.Ord) != 2 {
+		t.Errorf("incorrect ord length after Copy")
+	}
+	if cp.Ord[0] != "arg0" {
+		t.Errorf("incorrect 0th arg name after Copy")
+	}
+	if cp.Ord[1] != "arg1" {
+		t.Errorf("incorrect 1st arg name after Copy")
 	}
 }
 

@@ -656,6 +656,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 		})
 
 		for i := 0; i < n; i++ {
+			i := i
 			inputElemFunc := simple.SimpleFnToDirectFunc(
 				&types.SimpleFn{
 					V: func(args []types.Value) (types.Value, error) {

@@ -195,6 +195,16 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 		return unsolved, result
 	}
 
+	// build a static list that won't get consumed
+	fnInvariants := []*interfaces.EqualityWrapFuncInvariant{}
+	for _, x := range equalities {
+		eq, ok := x.(*interfaces.EqualityWrapFuncInvariant)
+		if !ok {
+			continue
+		}
+		fnInvariants = append(fnInvariants, eq)
+	}
+
 	logf("%s: starting loop with %d equalities", Name, len(equalities))
 	// run until we're solved, stop consuming equalities, or type clash
 Loop:
@@ -479,6 +489,78 @@ Loop:
 					if err := t.Cmp(typ); err != nil {
 						return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg")
 					}
+				}
+
+				// is there another EqualityWrapFuncInvariant with the same Expr1 pointer?
+				for _, fn := range fnInvariants {
+					if eq.Expr1 != fn.Expr1 {
+						continue
+					}
+					// wow they match
+
+					if len(eq.Expr2Ord) != len(fn.Expr2Ord) {
+						return nil, fmt.Errorf("func arg count differs")
+					}
+					for i := range eq.Expr2Ord {
+						lhsName := eq.Expr2Ord[i]
+						lhsExpr := eq.Expr2Map[lhsName] // assume key exists
+						rhsName := fn.Expr2Ord[i]
+						rhsExpr := fn.Expr2Map[rhsName] // assume key exists
+
+						lhsTyp, lhsExists := solved[lhsExpr]
+						rhsTyp, rhsExists := solved[rhsExpr]
+
+						// both solved or both unsolved we skip
+						if lhsExists && !rhsExists { // teach rhs
+							typ, exists := funcPartials[eq.Expr1][rhsExpr]
+							if !exists {
+								funcPartials[eq.Expr1][rhsExpr] = lhsTyp // learn!
+								continue
+							}
+							if err := typ.Cmp(lhsTyp); err != nil {
+								return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg")
+							}
+						}
+						if rhsExists && !lhsExists { // teach lhs
+							typ, exists := funcPartials[eq.Expr1][lhsExpr]
+							if !exists {
+								funcPartials[eq.Expr1][lhsExpr] = rhsTyp // learn!
+								continue
+							}
+							if err := typ.Cmp(rhsTyp); err != nil {
+								return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg")
+							}
+						}
+					}
+
+					lhsExpr := eq.Expr2Out
+					rhsExpr := fn.Expr2Out
+
+					lhsTyp, lhsExists := solved[lhsExpr]
+					rhsTyp, rhsExists := solved[rhsExpr]
+
+					// both solved or both unsolved we skip
+					if lhsExists && !rhsExists { // teach rhs
+						typ, exists := funcPartials[eq.Expr1][rhsExpr]
+						if !exists {
+							funcPartials[eq.Expr1][rhsExpr] = lhsTyp // learn!
+							continue
+						}
+						if err := typ.Cmp(lhsTyp); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg")
+						}
+					}
+					if rhsExists && !lhsExists { // teach lhs
+						typ, exists := funcPartials[eq.Expr1][lhsExpr]
+						if !exists {
+							funcPartials[eq.Expr1][lhsExpr] = rhsTyp // learn!
+							continue
+						}
+						if err := typ.Cmp(rhsTyp); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg")
+						}
+					}
+
 				}
 
 				// can we solve anything?

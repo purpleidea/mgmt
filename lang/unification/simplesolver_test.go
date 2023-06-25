@@ -96,6 +96,70 @@ func TestSimpleSolver1(t *testing.T) {
 			//experr: ErrAmbiguous,
 		})
 	}
+	{
+		// ?1 = func(x ?2) ?3
+		// ?1 = func(arg0 str) ?4
+		// ?3 = str # needed since we don't know what the func body is
+		expr1 := &interfaces.ExprAny{} // ?1
+		expr2 := &interfaces.ExprAny{} // ?2
+		expr3 := &interfaces.ExprAny{} // ?3
+		expr4 := &interfaces.ExprAny{} // ?4
+
+		arg0 := &interfaces.ExprAny{} // arg0
+
+		invarA := &interfaces.EqualityWrapFuncInvariant{
+			Expr1: expr1, // Expr
+			Expr2Map: map[string]interfaces.Expr{ // map[string]Expr
+				"x": expr2,
+			},
+			Expr2Ord: []string{"x"}, // []string
+			Expr2Out: expr3,         // Expr
+		}
+
+		invarB := &interfaces.EqualityWrapFuncInvariant{
+			Expr1: expr1, // Expr
+			Expr2Map: map[string]interfaces.Expr{ // map[string]Expr
+				"arg0": arg0,
+			},
+			Expr2Ord: []string{"arg0"}, // []string
+			Expr2Out: expr4,            // Expr
+		}
+
+		invarC := &interfaces.EqualsInvariant{
+			Expr: expr3,
+			Type: types.NewType("str"),
+		}
+
+		invarD := &interfaces.EqualsInvariant{
+			Expr: arg0,
+			Type: types.NewType("str"),
+		}
+
+		testCases = append(testCases, test{
+			name: "dual functions",
+			invariants: []interfaces.Invariant{
+				invarA,
+				invarB,
+				invarC,
+				invarD,
+			},
+			expected: []interfaces.Expr{
+				expr1,
+				expr2,
+				expr3,
+				expr4,
+				arg0,
+			},
+			fail: false,
+			expect: map[interfaces.Expr]*types.Type{
+				expr1: types.NewType("func(str) str"),
+				expr2: types.NewType("str"),
+				expr3: types.NewType("str"),
+				expr4: types.NewType("str"),
+				arg0:  types.NewType("str"),
+			},
+		})
+	}
 
 	names := []string{}
 	for index, tc := range testCases { // run all the tests

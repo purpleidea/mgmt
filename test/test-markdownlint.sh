@@ -36,7 +36,7 @@ exclude_rule 'MD029'	# Ordered list item prefix
 exclude_rule 'MD039'	# Spaces inside link text
 
 # Line length
-rule 'MD013', :line_length => 80, :code_blocks => false, :tables => false
+rule 'MD013', :line_length => 80, :ignore_code_blocks => true, :tables => false
 EOF
 
 #STYLE="test/mdl.style"	# style file

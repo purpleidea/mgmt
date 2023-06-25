@@ -9396,6 +9396,13 @@ func (obj *StmtRes) SetScopeGraphviz(g *pgraph.Graph) {
 	g.AddVertex(obj)
 	obj.Name.SetScopeGraphviz(g)
 	g.AddEdge(obj, obj.Name, StringWrapper{"name"})
+	for _, resContents := range obj.Contents {
+		switch r := resContents.(type) {
+		case *StmtResField:
+			r.Value.SetScopeGraphviz(g)
+			g.AddEdge(obj, r.Value, StringWrapper{r.Field})
+		}
+	}
 }
 
 func (obj *StmtEdge) SetScopeGraphviz(g *pgraph.Graph) {

@@ -8414,27 +8414,18 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	var funcValueFunc interfaces.Func
 	if obj.Var {
 		// $f(...)
-		// The function value comes from a variable, so we must use the existing
-		// Func from the environment in order to make sure each occurrence of
-		// this variable shares the same internal state. For example, suppose that
-		// $f's definition says that a coin is flipped to pick whether $f should
-		// behave like + or *. If we called obj.expr.MergeGraph(nil) here then
-		// each call site would flip its own coin, whereas by using the existing
-		// Func from the environment, a single coin is flipped at the definition
-		// site and then if + is picked then every use site of $f behaves like +.
-		fnVertex, ok := env[obj.Name]
-		if !ok {
-			return nil, nil, fmt.Errorf("var `%s` is missing from the environment", obj.Name)
+		//
+		// obj.expr.Graph() produces a node which produces a FuncValue, which is
+		// exactly what we need.
+
+		exprGraph, exprFunc, err := obj.expr.Graph(env)
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
 		}
-		// check if fnVertex is a Func
-		funcValueFunc, ok = fnVertex.(interfaces.Func)
-		if !ok {
-			return nil, nil, fmt.Errorf("var `%s` is not a Func", obj.Name)
-		}
+		graph.AddGraph(exprGraph)
+		funcValueFunc = exprFunc
 	} else {
 		// f(...)
-		// The function comes from a func declaration, so the coin-flipping
-		// scenario is not possible, as f always has the same definition.
 		//
 		// obj.expr.Graph() produces a node which transforms input values into
 		// an output value, but we need to construct a node which takes no

@@ -32,7 +32,7 @@ import (
 
 const (
 	// MapFuncName is the name this function is registered as.
-	MapFuncName = "map"
+	MapFuncName = "xmap"
 )
 
 func init() {

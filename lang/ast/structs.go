@@ -7408,6 +7408,8 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 			T: obj.typ,
 		})
 	} else if obj.Function != nil {
+		// XXX: Sam thinks we should call obj.Function() here
+		//obj.function = obj.Function()
 		fnFunc = obj.function
 	} else /* len(obj.Values) > 0 */ {
 		index, err := langutil.FnMatch(obj.typ, obj.Values)
@@ -8443,7 +8445,12 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		fmt.Printf("%s() correct %v %v\n", obj.Name, staticValueTransformingFunc.Info().Sig.Ord, staticValueTransformingFunc.Info().Sig)
 		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				g, dynamicValueTransformingFunc, err := obj.expr.Graph(nil) // XXX: pass in globals from scope?
+				// XXX: Sam thinks we should not call Copy() here, instead call obj.Function() in ExprFunc.Graph()
+				copy, err := obj.expr.Copy()
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not copy expression")
+				}
+				g, dynamicValueTransformingFunc, err := copy.Graph(nil) // XXX: pass in globals from scope?
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
 				}

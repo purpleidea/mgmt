@@ -8051,7 +8051,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	expr2Ord := []string{}
 	expr2Map := map[string]interfaces.Expr{}
 	for i, argExpr := range obj.Args {
-		argName := fmt.Sprintf("arg%d", i)
+		argName := fmt.Sprintf("arg2-%d", i)
 		expr2Ord = append(expr2Ord, argName)
 		expr2Map[argName] = argExpr
 	}
@@ -9496,7 +9496,7 @@ func (obj *ExprCall) SetScopeGraphviz(g *pgraph.Graph) {
 
 	for i, arg := range obj.Args {
 		arg.SetScopeGraphviz(g)
-		g.AddEdge(obj, arg, StringWrapper{fmt.Sprintf("arg%d", i)})
+		g.AddEdge(obj, arg, StringWrapper{fmt.Sprintf("arg1-%d", i)})
 	}
 }
 

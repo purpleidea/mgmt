@@ -1,13 +1,6 @@
 -- main.mcl --
-import "fmt"
-
-# function expression
-$sq2 = func($x, $y) {
-	$y + $x * $x
+test "foo" {
+  int8 => 2 + 2,
 }
-
-$x2 = $sq2(7, -7) # 7*7 - 7 = 42
-
-test fmt.printf("sq2: %d", $x2) {}
 -- OUTPUT --
-Vertex: test[sq2: 42]
+Vertex: test[foo]

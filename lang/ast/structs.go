@@ -6953,6 +6953,15 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 	var function interfaces.Func
 	if obj.Function != nil {
 		function = obj.Function() // force re-build a new pointer here!
+		// restore the type we previously set in SetType()
+		if obj.typ != nil {
+			polyFn, ok := function.(interfaces.PolyFunc) // is it statically polymorphic?
+			if ok {
+				if err := polyFn.Build(obj.typ); err != nil {
+					return nil, errwrap.Wrapf(err, "could not build expr func")
+				}
+			}
+		}
 		// pass in some data to the function
 		// TODO: do we want to pass in the full obj.data instead ?
 		if dataFunc, ok := function.(interfaces.DataFunc); ok {

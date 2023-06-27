@@ -50,7 +50,7 @@ func (obj *ChannelBasedSinkFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *ChannelBasedSinkFunc) ArgGen(index int) (string, error) {
-	if index != 1 {
+	if index != 0 {
 		return "", fmt.Errorf("the ChannelBasedSinkFunc only has one argument")
 	}
 	return obj.EdgeName, nil
@@ -94,9 +94,9 @@ func (obj *ChannelBasedSinkFunc) Stream(ctx context.Context) error {
 			}
 
 			inputValue := input.Struct()[obj.EdgeName]
-			if obj.last != nil && inputValue.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
+			//if obj.last != nil && inputValue.Cmp(obj.last) == nil {
+			//	continue // value didn't change, skip it
+			//}
 			obj.last = inputValue // store so we can send after this select
 
 		case <-ctx.Done():

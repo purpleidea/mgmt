@@ -84,9 +84,9 @@ func (obj *ChannelBasedSourceFunc) Stream(ctx context.Context) error {
 				return nil // can't output any more
 			}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
+			//if obj.last != nil && input.Cmp(obj.last) == nil {
+			//	continue // value didn't change, skip it
+			//}
 			obj.last = input // store so we can send after this select
 
 		case <-ctx.Done():

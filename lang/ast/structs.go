@@ -8450,16 +8450,25 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not get static graph for function %s", obj.Name)
 		}
-		fmt.Printf("%s() incorrect %v %v\n", obj.Name, ftyp.Ord, ftyp)
-		fmt.Printf("%s() correct %v %v\n", obj.Name, staticValueTransformingFunc.Info().Sig.Ord, staticValueTransformingFunc.Info().Sig)
+
+		// XXX: James wants to know why we can't just run this instead?
+		jamesTyp, err := obj.expr.Type()
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "could not get type for function %s", obj.Name)
+		}
+		fmt.Printf("%s() incorrect %v\n", obj.Name, ftyp)
+		fmt.Printf("%s() correct %v\n", obj.Name, staticValueTransformingFunc.Info().Sig)
+		fmt.Printf("%s() third %v ; same?: %t\n", obj.Name, jamesTyp, jamesTyp.Cmp(staticValueTransformingFunc.Info().Sig) == nil)
+
 		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// XXX: Sam thinks we should not call Copy() here, instead call obj.Function() in ExprFunc.Graph()
-				copy, err := obj.expr.Copy()
+				// XXX: James believes sam has changed his mind about this now?
+				cp, err := obj.expr.Copy()
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not copy expression")
 				}
-				g, dynamicValueTransformingFunc, err := copy.Graph(nil) // XXX: pass in globals from scope?
+				g, dynamicValueTransformingFunc, err := cp.Graph(nil) // XXX: pass in globals from scope?
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
 				}

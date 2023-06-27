@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -883,6 +884,7 @@ func (obj *Engine) Run(ctx context.Context) error {
 		// Send new notifications in case any new edges are sending away
 		// to these... They might have already missed the notifications!
 		for k := range obj.resend { // resend TO these!
+			obj.Graphviz(false) // XXX DEBUG
 			node, exists := obj.state[k]
 			if !exists {
 				continue
@@ -998,6 +1000,19 @@ func (obj *Engine) SafeLogf(format string, v ...interface{}) {
 			obj.rwmutex.RUnlock()
 		}
 	}()
+}
+
+// Graphviz is a temporary method used for debugging.
+func (obj *Engine) Graphviz(lock bool) {
+	if lock {
+		obj.rwmutex.RLock()
+		defer obj.rwmutex.RUnlock()
+	}
+
+	d := time.Now().UnixMilli()
+	if err := obj.graph.ExecGraphviz("dot", fmt.Sprintf("/tmp/engine-graphviz-%d.dot", d), ""); err != nil {
+		panic("no graphviz")
+	}
 }
 
 // state tracks some internal vertex-specific state information.

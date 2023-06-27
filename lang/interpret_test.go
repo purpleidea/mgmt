@@ -1526,6 +1526,21 @@ func TestAstFunc2(t *testing.T) {
 				}
 			}()
 
+			wg.Add(1)
+			go func() { // XXX: debugging
+				defer wg.Done()
+				for {
+					select {
+					case <-time.After(100 * time.Millisecond): // blocked functions
+						t.Logf("test #%d: graphviz...", index)
+						funcs.Graphviz(true) // log to /tmp/engine-graphviz-%d ...
+
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+
 			<-funcs.Started() // wait for startup (will not block forever)
 
 			// XXX: use Txn API

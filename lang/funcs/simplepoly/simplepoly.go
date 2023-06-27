@@ -590,7 +590,7 @@ func (obj *WrappedFunc) Stream() error {
 				return errwrap.Wrapf(err, "simple poly function errored")
 			}
 			if obj.init.Debug {
-				obj.init.Logf("Function returned with: %+v", values)
+				obj.init.Logf("Function returned with: %+v", result)
 			}
 
 			// TODO: do we want obj.result to be a pointer instead?

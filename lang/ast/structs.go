@@ -7417,8 +7417,6 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 			T: obj.typ,
 		})
 	} else if obj.Function != nil {
-		// XXX: Sam thinks we should call obj.Function() here
-		//obj.function = obj.Function()
 		fnFunc = obj.function
 	} else /* len(obj.Values) > 0 */ {
 		index, err := langutil.FnMatch(obj.typ, obj.Values)
@@ -8462,8 +8460,6 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 
 		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// XXX: Sam thinks we should not call Copy() here, instead call obj.Function() in ExprFunc.Graph()
-				// XXX: James believes sam has changed his mind about this now?
 				cp, err := obj.expr.Copy()
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not copy expression")

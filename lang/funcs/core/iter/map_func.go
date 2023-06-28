@@ -576,10 +576,9 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	inputListType := types.NewType(fmt.Sprintf("[]%s", obj.Type))
 	outputListType := types.NewType(fmt.Sprintf("[]%s", obj.RType))
 
-	// A Func to send input lists to the subgraph. The double-commit ensures that
-	// this Func is not reset when the subgraph is recreated (only the second,
-	// empty commit is reversed), so that the function graph can propagate the
-	// last list we received to the subgraph.
+	// A Func to send input lists to the subgraph. The Txn.Erase() call ensures
+	// that this Func is not removed when the subgraph is recreated, so that the
+	// function graph can propagate the last list we received to the subgraph.
 	inputChan := make(chan types.Value)
 	subgraphInput := &simple.ChannelBasedSourceFunc{
 		Name: "subgraphInput",
@@ -588,7 +587,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	}
 	obj.init.Txn.AddVertex(subgraphInput)
 	obj.init.Txn.Commit()
-	obj.init.Txn.Commit()
+	obj.init.Txn.Erase() // prevent the next Reverse() from removing subgraphInput
 	defer func() {
 		close(inputChan)
 		obj.init.Txn.Reverse()

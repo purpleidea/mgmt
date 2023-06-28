@@ -8450,6 +8450,15 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		}
 
 		// XXX: James wants to know why we can't just run this instead?
+		// XXX: Sam explains: jamesTyp is the same as ftyp. The arg names in the
+		//      type are sometimes arg%d, which are some dummy arg names which come
+		//      from the type inference phase, and are unlikely to be correct.
+		//      We introduced staticValueTransformingFunc in order to make sure we
+		//      use the arg names expected by the Func, rather than the arg names
+		//      calculated by the type inference. Sometimes they are the same, e.g.
+		//      when the Func calculates its arg names from the inferred type. But
+		//      they are not guaranteed to be the same, so we need this hack until
+		//      we change SetType() so that it doesn't overwrite the arg names.
 		jamesTyp, err := obj.expr.Type()
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not get type for function %s", obj.Name)

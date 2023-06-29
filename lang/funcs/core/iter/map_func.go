@@ -33,16 +33,15 @@ import (
 const (
 	// MapFuncName is the name this function is registered as.
 	MapFuncName = "map"
+
+	// arg names...
+	mapArgNameInputs   = "inputs"
+	mapArgNameFunction = "function"
 )
 
 func init() {
 	funcs.ModuleRegister(ModuleName, MapFuncName, func() interfaces.Func { return &MapFunc{} }) // must register the func and name
 }
-
-const (
-	argNameInputs   = "inputs"
-	argNameFunction = "function"
-)
 
 // MapFunc is the standard map iterator function that applies a function to each
 // element in a list. It returns a list with the same number of elements as the
@@ -72,7 +71,7 @@ func (obj *MapFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *MapFunc) ArgGen(index int) (string, error) {
-	seq := []string{argNameInputs, argNameFunction} // inverted for pretty!
+	seq := []string{mapArgNameInputs, mapArgNameFunction} // inverted for pretty!
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -438,7 +437,7 @@ func (obj *MapFunc) Polymorphisms(partialType *types.Type, partialValues []types
 	tI := types.NewType(fmt.Sprintf("[]%s", t1.String())) // in
 	tO := types.NewType(fmt.Sprintf("[]%s", t2.String())) // out
 	tF := types.NewType(fmt.Sprintf("func(%s) %s", t1.String(), t2.String()))
-	s := fmt.Sprintf("func(%s %s, %s %s) %s", argNameInputs, tI, argNameFunction, tF, tO)
+	s := fmt.Sprintf("func(%s %s, %s %s) %s", mapArgNameInputs, tI, mapArgNameFunction, tF, tO)
 	typ := types.NewType(s) // yay!
 
 	// TODO: type check that the partialValues are compatible
@@ -553,8 +552,15 @@ func (obj *MapFunc) sig() *types.Type {
 	// type of 1st arg (the function)
 	tF := types.NewType(fmt.Sprintf("func(%s %s) %s", "name-which-can-vary-over-time", tIi.String(), tOi.String()))
 
-	s := fmt.Sprintf("func(%s %s, %s %s) %s", argNameInputs, tI, argNameFunction, tF, tO)
-	return types.NewType(s) // yay!
+	s := fmt.Sprintf("func(%s %s, %s %s) %s", mapArgNameInputs, tI, mapArgNameFunction, tF, tO)
+	typ := types.NewType(s) // yay!
+
+	return &interfaces.Info{
+		Pure: false, // TODO: what if the input function isn't pure?
+		Memo: false,
+		Sig:  typ,
+		Err:  obj.Validate(),
+	}
 }
 
 // Init runs some startup code for this function.
@@ -707,8 +713,8 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 			if !ok {
 				canReceiveMoreFuncValuesOrInputLists = false
 			} else {
-				newFuncValue := input.Struct()[argNameFunction].(*fancyfunc.FuncValue)
-				newInputList := input.Struct()[argNameInputs].(*types.ListValue)
+				newFuncValue := input.Struct()[mapArgNameFunction].(*fancyfunc.FuncValue)
+				newInputList := input.Struct()[mapArgNameInputs].(*types.ListValue)
 
 				// If we have a new function or the length of the input list has
 				// changed, then we need to replace the subgraph with a new one

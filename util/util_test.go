@@ -38,6 +38,7 @@ func TestNumToAlpha(t *testing.T) {
 		{702, "aaa"},
 		{703, "aab"},
 		{63269, "cool"},
+		{-1, ""},
 	}
 
 	for _, test := range numToAlphaTests {

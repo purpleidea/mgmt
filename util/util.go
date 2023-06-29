@@ -33,6 +33,9 @@ import (
 // you specify 0, you'll get `a`, 25 gives you `z`, and 26 gives you `aa` and so
 // on...
 func NumToAlpha(idx int) string {
+	if idx < 0 {
+		return "" // don't error or produce junk
+	}
 	var mod = idx % 26
 	var div = idx / 26
 	if div > 0 {

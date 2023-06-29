@@ -30,6 +30,10 @@ const (
 	// starts with an underscore so that it cannot be used from the lexer.
 	// XXX: change to _contains and add syntax in the lexer/parser
 	ContainsFuncName = "contains"
+
+	// arg names...
+	containsArgNameNeedle   = "needle"
+	containsArgNameHaystack = "haystack"
 )
 
 func init() {
@@ -56,7 +60,7 @@ func (obj *ContainsPolyFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *ContainsPolyFunc) ArgGen(index int) (string, error) {
-	seq := []string{"needle", "haystack"}
+	seq := []string{containsArgNameNeedle, containsArgNameHaystack}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -379,8 +383,8 @@ func (obj *ContainsPolyFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			needle := input.Struct()["needle"]
-			haystack := (input.Struct()["haystack"]).(*types.ListValue)
+			needle := input.Struct()[containsArgNameNeedle]
+			haystack := (input.Struct()[containsArgNameHaystack]).(*types.ListValue)
 
 			_, exists := haystack.Contains(needle)
 			var result types.Value = &types.BoolValue{V: exists}

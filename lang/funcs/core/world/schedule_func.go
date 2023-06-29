@@ -56,8 +56,9 @@ const (
 	// keep this strict.
 	StrictScheduleOpts = true
 
-	argNameNamespace = "namespace"
-	argNameOpts      = "opts"
+	// arg names...
+	scheduleArgNameNamespace = "namespace"
+	scheduleArgNameOpts      = "opts"
 )
 
 func init() {
@@ -101,7 +102,7 @@ func (obj *SchedulePolyFunc) validOpts() map[string]*types.Type {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *SchedulePolyFunc) ArgGen(index int) (string, error) {
-	seq := []string{argNameNamespace, argNameOpts} // 2nd arg is optional
+	seq := []string{scheduleArgNameNamespace, scheduleArgNameOpts} // 2nd arg is optional
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -272,8 +273,8 @@ func (obj *SchedulePolyFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant
 				}
 				invariants = append(invariants, invar)
 
-				mapped[argNameOpts] = dummyOpts
-				ordered = append(ordered, argNameOpts)
+				mapped[scheduleArgNameOpts] = dummyOpts
+				ordered = append(ordered, scheduleArgNameOpts)
 			}
 
 			invar = &interfaces.EqualityWrapFuncInvariant{
@@ -544,13 +545,13 @@ func (obj *SchedulePolyFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			namespace := input.Struct()[argNameNamespace].Str()
+			namespace := input.Struct()[scheduleArgNameNamespace].Str()
 			if namespace == "" {
 				return fmt.Errorf("can't use an empty namespace")
 			}
 
 			opts := make(map[string]types.Value) // empty "struct"
-			if val, exists := input.Struct()[argNameOpts]; exists {
+			if val, exists := input.Struct()[scheduleArgNameOpts]; exists {
 				opts = val.Struct()
 			}
 

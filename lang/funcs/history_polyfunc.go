@@ -29,6 +29,10 @@ const (
 	// HistoryFuncName is the name this function is registered as. This
 	// starts with an underscore so that it cannot be used from the lexer.
 	HistoryFuncName = "_history"
+
+	// arg names...
+	historyArgNameValue = "value"
+	historyArgNameIndex = "index"
 )
 
 func init() {
@@ -66,7 +70,7 @@ func (obj *HistoryFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *HistoryFunc) ArgGen(index int) (string, error) {
-	seq := []string{"value", "index"}
+	seq := []string{historyArgNameValue, historyArgNameIndex}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -376,8 +380,8 @@ func (obj *HistoryFunc) Stream() error {
 			//}
 			//obj.last = input // store for next
 
-			index := int(input.Struct()["index"].Int())
-			value := input.Struct()["value"]
+			index := int(input.Struct()[historyArgNameIndex].Int())
+			value := input.Struct()[historyArgNameValue]
 			var result types.Value
 
 			if index < 0 {

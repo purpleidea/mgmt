@@ -31,9 +31,10 @@ const (
 	// XXX: change to _maplookup and add syntax in the lexer/parser
 	MapLookupFuncName = "maplookup"
 
-	argNameMap = "map"
-	argNameKey = "key"
-	argNameDef = "default"
+	// arg names...
+	mapLookupArgNameMap = "map"
+	mapLookupArgNameKey = "key"
+	mapLookupArgNameDef = "default"
 )
 
 func init() {
@@ -60,7 +61,7 @@ func (obj *MapLookupPolyFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *MapLookupPolyFunc) ArgGen(index int) (string, error) {
-	seq := []string{argNameMap, argNameKey, argNameDef}
+	seq := []string{mapLookupArgNameMap, mapLookupArgNameKey, mapLookupArgNameDef}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -433,20 +434,20 @@ func (obj *MapLookupPolyFunc) Polymorphisms(partialType *types.Type, partialValu
 	typFunc := &types.Type{
 		Kind: types.KindFunc, // function type
 		Map:  make(map[string]*types.Type),
-		Ord:  []string{argNameMap, argNameKey, argNameDef},
+		Ord:  []string{mapLookupArgNameMap, mapLookupArgNameKey, mapLookupArgNameDef},
 		Out:  nil,
 	}
-	typFunc.Map[argNameMap] = typ
-	typFunc.Map[argNameKey] = typ.Key
-	typFunc.Map[argNameDef] = typ.Val
+	typFunc.Map[mapLookupArgNameMap] = typ
+	typFunc.Map[mapLookupArgNameKey] = typ.Key
+	typFunc.Map[mapLookupArgNameDef] = typ.Val
 	typFunc.Out = typ.Val
 
 	// TODO: don't include partial internal func map's for now, allow in future?
 	if typ.Key == nil || typ.Val == nil {
 		typFunc.Map = make(map[string]*types.Type) // erase partial
-		typFunc.Map[argNameMap] = types.TypeVariant
-		typFunc.Map[argNameKey] = types.TypeVariant
-		typFunc.Map[argNameDef] = types.TypeVariant
+		typFunc.Map[mapLookupArgNameMap] = types.TypeVariant
+		typFunc.Map[mapLookupArgNameKey] = types.TypeVariant
+		typFunc.Map[mapLookupArgNameDef] = types.TypeVariant
 	}
 	if typ.Val == nil {
 		typFunc.Out = types.TypeVariant
@@ -568,9 +569,9 @@ func (obj *MapLookupPolyFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			m := (input.Struct()[argNameMap]).(*types.MapValue)
-			key := input.Struct()[argNameKey]
-			def := input.Struct()[argNameDef]
+			m := (input.Struct()[mapLookupArgNameMap]).(*types.MapValue)
+			key := input.Struct()[mapLookupArgNameKey]
+			def := input.Struct()[mapLookupArgNameDef]
 
 			var result types.Value
 			val, exists := m.Lookup(key)

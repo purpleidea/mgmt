@@ -32,7 +32,7 @@ const (
 	// FIXME: should this be named sprintf instead?
 	PrintfFuncName = "printf"
 
-	formatArgName = "format" // name of the first arg
+	printfArgNameFormat = "format" // name of the first arg
 )
 
 func init() {
@@ -68,10 +68,10 @@ func (obj *PrintfFunc) String() string {
 // ArgGen returns the Nth arg name for this function.
 func (obj *PrintfFunc) ArgGen(index int) (string, error) {
 	if index == 0 {
-		return formatArgName, nil
+		return printfArgNameFormat, nil
 	}
 	// TODO: if index is big enough that it would return the string in
-	// `formatArgName` then we should return an error! (Nearly impossible.)
+	// `printfArgNameFormat` then we should return an error! (Nearly impossible.)
 	return util.NumToAlpha(index - 1), nil
 }
 
@@ -186,7 +186,7 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 				if err != nil {
 					return nil, err
 				}
-				if argName == formatArgName {
+				if argName == printfArgNameFormat {
 					return nil, fmt.Errorf("could not build function with %d args", i+1) // +1 for format arg
 				}
 
@@ -290,12 +290,12 @@ func (obj *PrintfFunc) Polymorphisms(partialType *types.Type, partialValues []ty
 		Out:  types.TypeStr,
 	}
 	// add first arg
-	typ.Map[formatArgName] = types.TypeStr
-	typ.Ord = append(typ.Ord, formatArgName)
+	typ.Map[printfArgNameFormat] = types.TypeStr
+	typ.Ord = append(typ.Ord, printfArgNameFormat)
 
 	for i, x := range typList {
 		name := util.NumToAlpha(i) // start with a...
-		if name == formatArgName {
+		if name == printfArgNameFormat {
 			return nil, fmt.Errorf("could not build function with %d args", i+1) // +1 for format arg
 		}
 
@@ -389,10 +389,10 @@ func (obj *PrintfFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			format := input.Struct()[formatArgName].Str()
+			format := input.Struct()[printfArgNameFormat].Str()
 			values := []types.Value{}
 			for _, name := range obj.Type.Ord {
-				if name == formatArgName { // skip format arg
+				if name == printfArgNameFormat { // skip format arg
 					continue
 				}
 				x := input.Struct()[name]

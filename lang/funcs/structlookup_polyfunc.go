@@ -30,6 +30,10 @@ const (
 	// starts with an underscore so that it cannot be used from the lexer.
 	// XXX: change to _structlookup and add syntax in the lexer/parser
 	StructLookupFuncName = "structlookup"
+
+	// arg names...
+	structLookupArgNameStruct = "struct"
+	structLookupArgNameField  = "field"
 )
 
 func init() {
@@ -58,7 +62,7 @@ func (obj *StructLookupPolyFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *StructLookupPolyFunc) ArgGen(index int) (string, error) {
-	seq := []string{"struct", "field"}
+	seq := []string{structLookupArgNameStruct, structLookupArgNameField}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -369,15 +373,15 @@ func (obj *StructLookupPolyFunc) Polymorphisms(partialType *types.Type, partialV
 	typFunc := &types.Type{
 		Kind: types.KindFunc, // function type
 		Map:  make(map[string]*types.Type),
-		Ord:  []string{"struct", "field"},
+		Ord:  []string{structLookupArgNameStruct, structLookupArgNameField},
 		Out:  out,
 	}
-	typFunc.Map["struct"] = typ
-	typFunc.Map["field"] = types.TypeStr
+	typFunc.Map[structLookupArgNameStruct] = typ
+	typFunc.Map[structLookupArgNameField] = types.TypeStr
 
 	// set variant instead of nil
-	if typFunc.Map["struct"] == nil {
-		typFunc.Map["struct"] = types.TypeVariant
+	if typFunc.Map[structLookupArgNameStruct] == nil {
+		typFunc.Map[structLookupArgNameStruct] = types.TypeVariant
 	}
 	if out == nil {
 		typFunc.Out = types.TypeVariant
@@ -490,8 +494,8 @@ func (obj *StructLookupPolyFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			st := (input.Struct()["struct"]).(*types.StructValue)
-			field := input.Struct()["field"].Str()
+			st := (input.Struct()[structLookupArgNameStruct]).(*types.StructValue)
+			field := input.Struct()[structLookupArgNameField].Str()
 
 			if field == "" {
 				return fmt.Errorf("received empty field")

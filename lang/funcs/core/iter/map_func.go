@@ -43,6 +43,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, MapFuncName, func() interfaces.Func { return &MapFunc{} }) // must register the func and name
 }
 
+var _ interfaces.PolyFunc = &MapFunc{} // ensure it meets this expectation
+
 // MapFunc is the standard map iterator function that applies a function to each
 // element in a list. It returns a list with the same number of elements as the
 // input list. There is no requirement that the element output type be the same
@@ -553,14 +555,7 @@ func (obj *MapFunc) sig() *types.Type {
 	tF := types.NewType(fmt.Sprintf("func(%s %s) %s", "name-which-can-vary-over-time", tIi.String(), tOi.String()))
 
 	s := fmt.Sprintf("func(%s %s, %s %s) %s", mapArgNameInputs, tI, mapArgNameFunction, tF, tO)
-	typ := types.NewType(s) // yay!
-
-	return &interfaces.Info{
-		Pure: false, // TODO: what if the input function isn't pure?
-		Memo: false,
-		Sig:  typ,
-		Err:  obj.Validate(),
-	}
+	return types.NewType(s) // yay!
 }
 
 // Init runs some startup code for this function.

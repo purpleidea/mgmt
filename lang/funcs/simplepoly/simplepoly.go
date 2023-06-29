@@ -494,9 +494,13 @@ func (obj *WrappedFunc) Build(typ *types.Type) (*types.Type, error) {
 
 // buildFunction builds our concrete static function, from the potentially
 // abstract, possibly variant containing list of functions.
-func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) {
+func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) *types.Type {
 	obj.fn = obj.Fns[ix].Copy().(*types.SimpleFn)
-	obj.fn.T = typ.Copy() // overwrites any contained "variant" type
+	if obj.fn.T == nil { // XXX: should this even ever happen? What about argnames here?
+		obj.fn.T = typ.Copy() // overwrites any contained "variant" type
+	}
+
+	return obj.fn.T
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

@@ -6957,9 +6957,15 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		if obj.typ != nil {
 			polyFn, ok := function.(interfaces.PolyFunc) // is it statically polymorphic?
 			if ok {
-				if err := polyFn.Build(obj.typ); err != nil {
+				newTyp, err := polyFn.Build(obj.typ)
+				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not build expr func")
 				}
+				// Cmp doesn't compare arg names. Check it's compatible...
+				if err := obj.typ.Cmp(newTyp); err != nil {
+					return nil, errwrap.Wrapf(err, "incompatible type")
+				}
+				obj.typ = newTyp
 			}
 		}
 		// pass in some data to the function

@@ -38,6 +38,11 @@ import (
 const (
 	// VUMeterFuncName is the name this function is registered as.
 	VUMeterFuncName = "vumeter"
+
+	// arg names...
+	vuMeterArgNameSymbol     = "symbol"
+	vuMeterArgNameMultiplier = "multiplier"
+	vuMeterArgNamePeak       = "peak"
 )
 
 func init() {
@@ -66,7 +71,7 @@ func (obj *VUMeterFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *VUMeterFunc) ArgGen(index int) (string, error) {
-	seq := []string{"symbol", "multiplier", "peak"}
+	seq := []string{vuMeterArgNameSymbol, vuMeterArgNameMultiplier, vuMeterArgNamePeak}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -121,7 +126,7 @@ func (obj *VUMeterFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  types.NewType("func(symbol str, multiplier int, peak float) str"),
+		Sig:  types.NewType(fmt.Sprintf("func(%s str, %s int, %s float) str", vuMeterArgNameSymbol, vuMeterArgNameMultiplier, vuMeterArgNamePeak)),
 	}
 }
 
@@ -158,9 +163,9 @@ func (obj *VUMeterFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			obj.symbol = input.Struct()["symbol"].Str()
-			obj.multiplier = input.Struct()["multiplier"].Int()
-			obj.peak = input.Struct()["peak"].Float()
+			obj.symbol = input.Struct()[vuMeterArgNameSymbol].Str()
+			obj.multiplier = input.Struct()[vuMeterArgNameMultiplier].Int()
+			obj.peak = input.Struct()[vuMeterArgNamePeak].Float()
 			once.Do(onceFunc)
 			continue // we must wrap around and go in through goChan
 

@@ -30,6 +30,9 @@ import (
 const (
 	// KVLookupFuncName is the name this function is registered as.
 	KVLookupFuncName = "kvlookup"
+
+	// arg names...
+	kvLookupArgNameNamespace = "namespace"
 )
 
 func init() {
@@ -59,7 +62,7 @@ func (obj *KVLookupFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *KVLookupFunc) ArgGen(index int) (string, error) {
-	seq := []string{"namespace"}
+	seq := []string{kvLookupArgNameNamespace}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -78,7 +81,7 @@ func (obj *KVLookupFunc) Info() *interfaces.Info {
 		Pure: false, // definitely false
 		Memo: false,
 		// output is map of: hostname => value
-		Sig: types.NewType("func(namespace str) map{str: str}"),
+		Sig: types.NewType(fmt.Sprintf("func(%s str) map{str: str}", kvLookupArgNameNamespace)),
 		Err: obj.Validate(),
 	}
 }
@@ -115,7 +118,7 @@ func (obj *KVLookupFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			namespace := input.Struct()["namespace"].Str()
+			namespace := input.Struct()[kvLookupArgNameNamespace].Str()
 			if namespace == "" {
 				return fmt.Errorf("can't use an empty namespace")
 			}

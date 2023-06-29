@@ -30,11 +30,12 @@ const (
 	// AbsPathFuncName is the name this function is registered as.
 	AbsPathFuncName = "abspath"
 
-	pathArg = "path"
+	// arg names...
+	absPathArgNamePath = "path"
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, "abspath", func() interfaces.Func { return &AbsPathFunc{} }) // must register the func and name
+	funcs.ModuleRegister(ModuleName, AbsPathFuncName, func() interfaces.Func { return &AbsPathFunc{} }) // must register the func and name
 }
 
 // AbsPathFunc is a function that returns the absolute, full path in the deploy
@@ -65,7 +66,7 @@ func (obj *AbsPathFunc) SetData(data *interfaces.FuncData) {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *AbsPathFunc) ArgGen(index int) (string, error) {
-	seq := []string{pathArg}
+	seq := []string{absPathArgNamePath}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -83,7 +84,7 @@ func (obj *AbsPathFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // maybe false because the file contents can change
 		Memo: false,
-		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", pathArg)),
+		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", absPathArgNamePath)),
 	}
 }
 
@@ -117,7 +118,7 @@ func (obj *AbsPathFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			path := input.Struct()[pathArg].Str()
+			path := input.Struct()[absPathArgNamePath].Str()
 			// TODO: add validation for absolute path?
 			if obj.path != nil && *obj.path == path {
 				continue // nothing changed

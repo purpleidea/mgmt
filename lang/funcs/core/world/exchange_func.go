@@ -30,6 +30,10 @@ import (
 const (
 	// ExchangeFuncName is the name this function is registered as.
 	ExchangeFuncName = "exchange"
+
+	// arg names...
+	exchangeArgNameNamespace = "namespace"
+	exchangeArgNameValue     = "value"
 )
 
 func init() {
@@ -59,7 +63,7 @@ func (obj *ExchangeFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *ExchangeFunc) ArgGen(index int) (string, error) {
-	seq := []string{"namespace", "value"}
+	seq := []string{exchangeArgNameNamespace, exchangeArgNameValue}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -80,7 +84,7 @@ func (obj *ExchangeFunc) Info() *interfaces.Info {
 		// TODO: do we want to allow this to be statically polymorphic,
 		// and have value be any type we might want?
 		// output is map of: hostname => value
-		Sig: types.NewType("func(namespace str, value str) map{str: str}"),
+		Sig: types.NewType(fmt.Sprintf("func(%s str, %s str) map{str: str}", exchangeArgNameNamespace, exchangeArgNameValue)),
 		Err: obj.Validate(),
 	}
 }
@@ -117,7 +121,7 @@ func (obj *ExchangeFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			namespace := input.Struct()["namespace"].Str()
+			namespace := input.Struct()[exchangeArgNameNamespace].Str()
 			if namespace == "" {
 				return fmt.Errorf("can't use an empty namespace")
 			}
@@ -139,7 +143,7 @@ func (obj *ExchangeFunc) Stream() error {
 				return fmt.Errorf("can't change namespace, previously: `%s`", obj.namespace)
 			}
 
-			value := input.Struct()["value"].Str()
+			value := input.Struct()[exchangeArgNameValue].Str()
 			if obj.init.Debug {
 				obj.init.Logf("value: %+v", value)
 			}

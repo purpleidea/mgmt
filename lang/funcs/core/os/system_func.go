@@ -32,6 +32,9 @@ import (
 const (
 	// SystemFuncName is the name this function is registered as.
 	SystemFuncName = "system"
+
+	// arg names...
+	systemArgNameCmd = "cmd"
 )
 
 func init() {
@@ -60,7 +63,7 @@ func (obj *SystemFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *SystemFunc) ArgGen(index int) (string, error) {
-	seq := []string{"shell_command"}
+	seq := []string{systemArgNameCmd}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -78,7 +81,7 @@ func (obj *SystemFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
-		Sig:  types.NewType("func(shell_command str) str"),
+		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", systemArgNameCmd)),
 		Err:  obj.Validate(),
 	}
 }
@@ -133,7 +136,7 @@ func (obj *SystemFunc) Stream() error {
 					return nil
 				}
 			}
-			shellCommand := input.Struct()["shell_command"].Str()
+			shellCommand := input.Struct()[systemArgNameCmd].Str()
 
 			// Kill the previous command, if any.
 			if obj.cancel != nil {

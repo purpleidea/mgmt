@@ -32,6 +32,9 @@ const (
 	// Random1FuncName is the name this function is registered as.
 	Random1FuncName = "random1"
 
+	// arg names...
+	random1ArgNameLength = "length"
+
 	alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
@@ -65,7 +68,7 @@ func (obj *Random1Func) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *Random1Func) ArgGen(index int) (string, error) {
-	seq := []string{"length"}
+	seq := []string{random1ArgNameLength}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -82,7 +85,7 @@ func (obj *Random1Func) Validate() error {
 func (obj *Random1Func) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false,
-		Sig:  types.NewType("func(length int) str"),
+		Sig:  types.NewType(fmt.Sprintf("func(%s int) str", random1ArgNameLength)),
 		Err:  obj.Validate(),
 	}
 }
@@ -139,7 +142,7 @@ func (obj *Random1Func) Stream() error {
 				return fmt.Errorf("you can only pass a single input to random")
 			}
 
-			length := input.Struct()["length"].Int()
+			length := input.Struct()[random1ArgNameLength].Int()
 			// TODO: if negative, randomly pick a length ?
 			if length < 0 {
 				return fmt.Errorf("can't generate a negative length")

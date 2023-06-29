@@ -29,6 +29,9 @@ import (
 const (
 	// ReadFileAbsFuncName is the name this function is registered as.
 	ReadFileAbsFuncName = "readfileabs"
+
+	// arg names...
+	readfileArgNameFilename = "filename"
 )
 
 func init() {
@@ -64,7 +67,7 @@ func (obj *ReadFileAbsFunc) SetData(data *interfaces.FuncData) {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *ReadFileAbsFunc) ArgGen(index int) (string, error) {
-	seq := []string{"filename"}
+	seq := []string{readfileArgNameFilename}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -82,7 +85,7 @@ func (obj *ReadFileAbsFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // maybe false because the file contents can change
 		Memo: false,
-		Sig:  types.NewType("func(filename str) str"),
+		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", readfileArgNameFilename)),
 	}
 }
 
@@ -116,7 +119,7 @@ func (obj *ReadFileAbsFunc) Stream() error {
 			}
 			obj.last = input // store for next
 
-			filename := input.Struct()["filename"].Str()
+			filename := input.Struct()[readfileArgNameFilename].Str()
 			// TODO: add validation for absolute path?
 			// TODO: add check for empty string
 			if obj.filename != nil && *obj.filename == filename {

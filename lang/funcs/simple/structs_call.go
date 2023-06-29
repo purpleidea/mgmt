@@ -50,6 +50,11 @@ type CallFunc struct {
 	init *interfaces.Init
 
 	lastFuncValue *fancyfunc.FuncValue // remember the last function value
+
+	// outputChan is an initially-nil channel from which we receive output
+	// lists from the subgraph. This channel is reset when the subgraph is
+	// recreated.
+	outputChan chan types.Value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -106,12 +111,72 @@ func (obj *CallFunc) Init(init *interfaces.Init) error {
 func (obj *CallFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 
-	// An initially-closed channel from which we receive output lists from the
-	// subgraph. This channel is reset when the subgraph is recreated.
-	var outputChan chan types.Value = nil
+	obj.outputChan = nil
 
-	// Create a subgraph which looks as follows. Most of the nodes are elided
-	// because we don't know which nodes the FuncValues will create.
+	defer func() {
+		obj.init.Txn.Reverse()
+	}()
+
+	canReceiveMoreFuncValues := true
+	canReceiveMoreOutputValues := true
+	for {
+
+		if !canReceiveMoreFuncValues && !canReceiveMoreOutputValues {
+			// break
+			return nil
+		}
+
+		select {
+		case input, ok := <-obj.init.Input:
+			if !ok {
+				obj.init.Input = nil // block looping back here
+				canReceiveMoreFuncValues = false
+				continue
+			}
+
+			newFuncValue, ok := input.Struct()[obj.EdgeName].(*fancyfunc.FuncValue)
+			if !ok {
+				return fmt.Errorf("programming error, can't convert to *FuncValue")
+			}
+
+			if newFuncValue == obj.lastFuncValue {
+				continue
+			}
+			// If we have a new function, then we need to replace
+			// the subgraph with a new one that uses the new
+			// function.
+			obj.lastFuncValue = newFuncValue
+
+			if err := obj.replaceSubGraph(newFuncValue); err != nil {
+				return errwrap.Wrapf(err, "could not replace subgraph")
+			}
+			canReceiveMoreOutputValues = true
+			continue
+
+		case outputValue, ok := <-obj.outputChan:
+			// send the new output value downstream
+			if !ok {
+				obj.outputChan = nil
+				canReceiveMoreOutputValues = false
+				continue
+			}
+
+			// send to the output
+			select {
+			case obj.init.Output <- outputValue:
+			case <-ctx.Done():
+				return nil
+			}
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (obj *CallFunc) replaceSubGraph(newFuncValue *fancyfunc.FuncValue) error {
+	// Create a subgraph which looks as follows. Most of the nodes are
+	// elided because we don't know which nodes the FuncValues will create.
 	//
 	// digraph {
 	//   ArgVertices[0] -> ...
@@ -120,81 +185,32 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 	//
 	//   outputFunc -> "subgraphOutput"
 	// }
-	replaceSubGraph := func(
-		newFuncValue *fancyfunc.FuncValue,
-	) error {
-		// delete the old subgraph
-		obj.init.Txn.Reverse() // XXX: or Clear?
 
-		// create the new subgraph
+	// delete the old subgraph
+	obj.init.Txn.Reverse()
 
-		outputFunc, err := newFuncValue.Call(obj.init.Txn, obj.ArgVertices)
-		if err != nil {
-			return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
-		}
-
-		edgeName := ChannelBasedSinkFuncArgName
-		outputChan = make(chan types.Value)
-		subgraphOutput := &ChannelBasedSinkFunc{
-			Name:     "subgraphOutput",
-			EdgeName: edgeName,
-			Chan:     outputChan,
-			Type:     obj.Type,
-		}
-		obj.init.Txn.AddVertex(subgraphOutput)
-		obj.init.Txn.AddEdge(outputFunc, subgraphOutput, &interfaces.FuncEdge{Args: []string{edgeName}})
-
-		obj.init.Txn.Commit()
-
-		return nil
+	// create the new subgraph
+	// XXX XXX XXX SAM: This Txn is the same one we're using here! The use
+	// here is consistent, but that might not be globally true depending on
+	// what happens to it in this Call... Remember that Reverse is really a
+	// Commit that a subsequent Reverse can reverse. So that could cause a
+	// bug if this child Txn is used somehow badly. If needed we can copy it
+	// so it gets it's own state.
+	outputFunc, err := newFuncValue.Call(obj.init.Txn, obj.ArgVertices)
+	if err != nil {
+		return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 	}
-	defer func() {
-		obj.init.Txn.Reverse()
-	}()
 
-	canReceiveMoreFuncValues := true
-	canReceiveMoreOutputValues := true
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				canReceiveMoreFuncValues = false
-			} else {
-				newFuncValue := input.Struct()[obj.EdgeName].(*fancyfunc.FuncValue)
-
-				// If we have a new function, then we need to replace the
-				// subgraph with a new one that uses the new function.
-				if newFuncValue != obj.lastFuncValue {
-					if err := replaceSubGraph(newFuncValue); err != nil {
-						return errwrap.Wrapf(err, "could not replace subgraph")
-					}
-					canReceiveMoreOutputValues = true
-					obj.lastFuncValue = newFuncValue
-				}
-			}
-
-		case outputValue, ok := <-outputChan:
-			// send the new output value downstream
-			if !ok {
-				canReceiveMoreOutputValues = false
-
-				// prevent the next loop iteration from trying to receive from a
-				// closed channel
-				outputChan = nil
-			} else {
-				select {
-				case obj.init.Output <- outputValue:
-				case <-ctx.Done():
-					return nil
-				}
-			}
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		if !canReceiveMoreFuncValues && !canReceiveMoreOutputValues {
-			return nil
-		}
+	obj.outputChan = make(chan types.Value)
+	edgeName := ChannelBasedSinkFuncArgName
+	subgraphOutput := &ChannelBasedSinkFunc{
+		Name:     "subgraphOutput",
+		EdgeName: edgeName,
+		Chan:     obj.outputChan,
+		Type:     obj.Type,
 	}
+	edge := &interfaces.FuncEdge{Args: []string{edgeName}}
+	obj.init.Txn.AddVertex(subgraphOutput)
+	obj.init.Txn.AddEdge(outputFunc, subgraphOutput, edge)
+	return obj.init.Txn.Commit()
 }

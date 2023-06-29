@@ -83,8 +83,8 @@ func (obj *ChannelBasedSinkFunc) Init(init *interfaces.Init) error {
 
 // Stream returns the changing values that this func has over time.
 func (obj *ChannelBasedSinkFunc) Stream(ctx context.Context) error {
-	defer close(obj.Chan)        // the sender closes
 	defer close(obj.init.Output) // the sender closes
+	defer close(obj.Chan)        // the sender closes
 
 	for {
 		select {
@@ -109,9 +109,10 @@ func (obj *ChannelBasedSinkFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		// Also send the value downstream. If we don't, then when we close the
-		// Output channel, the function engine is going to complain that we
-		// closed that channel without sending it any value.
+		// Also send the value downstream. If we don't, then when we
+		// close the Output channel, the function engine is going to
+		// complain that we closed that channel without sending it any
+		// value.
 		select {
 		case obj.init.Output <- obj.last: // send
 		case <-ctx.Done():

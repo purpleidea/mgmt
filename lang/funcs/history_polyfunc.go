@@ -345,7 +345,7 @@ func (obj *HistoryFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		s := obj.Type.String()
-		sig = types.NewType(fmt.Sprintf("func(value %s, index int) %s", s, s))
+		sig = types.NewType(fmt.Sprintf("func(%s %s, %s int) %s", historyArgNameValue, s, historyArgNameIndex, s))
 	}
 	return &interfaces.Info{
 		Pure: false, // definitely false

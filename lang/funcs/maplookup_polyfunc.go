@@ -534,7 +534,7 @@ func (obj *MapLookupPolyFunc) Info() *interfaces.Info {
 		// TODO: can obj.Type.Key or obj.Type.Val be nil (a partial) ?
 		k := obj.Type.Key.String()
 		v := obj.Type.Val.String()
-		typ = types.NewType(fmt.Sprintf("func(map %s, key %s, default %s) %s", obj.Type.String(), k, v, v))
+		typ = types.NewType(fmt.Sprintf("func(%s %s, %s %s, %s %s) %s", mapLookupArgNameMap, obj.Type.String(), mapLookupArgNameKey, k, mapLookupArgNameDef, v, v))
 	}
 	return &interfaces.Info{
 		Pure: true,

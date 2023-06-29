@@ -500,9 +500,9 @@ func (obj *SchedulePolyFunc) Info() *interfaces.Info {
 	// before you're built. Type unification may call it opportunistically.
 	var typ *types.Type
 	if obj.built {
-		typ = types.NewType("func(namespace str) []str") // simplest form
+		typ = types.NewType(fmt.Sprintf("func(%s str) []str", scheduleArgNameNamespace)) // simplest form
 		if obj.Type != nil {
-			typ = types.NewType(fmt.Sprintf("func(namespace str, opts %s) []str", obj.Type.String()))
+			typ = types.NewType(fmt.Sprintf("func(%s str, %s %s) []str", scheduleArgNameNamespace, scheduleArgNameOpts, obj.Type.String()))
 		}
 	}
 	return &interfaces.Info{

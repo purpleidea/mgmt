@@ -348,7 +348,7 @@ func (obj *ContainsPolyFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		s := obj.Type.String()
-		sig = types.NewType(fmt.Sprintf("func(needle %s, haystack []%s) bool", s, s))
+		sig = types.NewType(fmt.Sprintf("func(%s %s, %s []%s) bool", containsArgNameNeedle, s, containsArgNameHaystack, s))
 	}
 	return &interfaces.Info{
 		Pure: true,

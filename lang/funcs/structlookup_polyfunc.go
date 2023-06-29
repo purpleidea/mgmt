@@ -459,7 +459,7 @@ func (obj *StructLookupPolyFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		// TODO: can obj.Out be nil (a partial) ?
-		sig = types.NewType(fmt.Sprintf("func(struct %s, field str) %s", obj.Type.String(), obj.Out.String()))
+		sig = types.NewType(fmt.Sprintf("func(%s %s, %s str) %s", structLookupArgNameStruct, obj.Type.String(), structLookupArgNameField, obj.Out.String()))
 	}
 	return &interfaces.Info{
 		Pure: true,

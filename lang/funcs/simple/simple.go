@@ -208,9 +208,11 @@ func SimpleFnToFuncValue(obj *types.SimpleFn) *fancyfunc.FuncValue {
 	return &fancyfunc.FuncValue{
 		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 			wrappedFunc := SimpleFnToDirectFunc(obj)
+fmt.Printf("XXX wrappedFunc ADD VERTEX\n")
 			txn.AddVertex(wrappedFunc)
 			for i, arg := range args {
 				argName := obj.T.Ord[i]
+fmt.Printf("XXX wrappedFunc ADD VERTEX ARG: %v\n", argName)
 				txn.AddEdge(arg, wrappedFunc, &interfaces.FuncEdge{
 					Args: []string{argName},
 				})

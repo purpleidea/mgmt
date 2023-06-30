@@ -8062,7 +8062,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	// our type should equal the return type of the called function, and our
 	// argument types should be equal to the types of the parameters of the
 	// function
-	// arg1, arg2, arg3
+	// arg0, arg1, arg2
 	expr2Ord := []string{}
 	expr2Map := map[string]interfaces.Expr{}
 	for i, argExpr := range obj.Args {

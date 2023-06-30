@@ -1,10 +1,13 @@
 -- main.mcl --
-func sq1($x str) {
-	$x
+import "fmt"
+
+# function statement
+func sq1($x) {
+	$x + $x
 }
 
-$x1 = sq1("foo")
+$x1 = sq1(3) # 3^2 + 4 = 13
 
-test $x1 {}
+test fmt.printf("sq1: %d", $x1) {}
 -- OUTPUT --
-Vertex: test[foo]
+Vertex: test[sq1: 6]

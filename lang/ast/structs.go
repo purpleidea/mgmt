@@ -7377,9 +7377,9 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	//}
 	//graph.AddVertex(function)
 
-	var fnFunc interfaces.Func
+	var funcValueFunc interfaces.Func
 	if obj.Body != nil {
-		fnFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
+		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Extend the environment with the arguments.
 				extendedEnv := make(map[string]interfaces.Func)
@@ -7423,7 +7423,36 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 			T: obj.typ,
 		})
 	} else if obj.Function != nil {
-		fnFunc = obj.function
+		// obj.function is a node which transforms input values into
+		// an output value, but we need to construct a node which takes no
+		// inputs and produces a FuncValue, so we need to wrap it.
+
+		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
+			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				// Copy obj.function so that the underlying ExprFunc.function gets
+				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
+				// calls to this function will share the same Func.
+				exprCopy, err := obj.Copy() // XXX: I'm pretty sure this concurrent copy is causing issues. Mutex somehow.
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not copy expression")
+				}
+				funcExprCopy, ok := exprCopy.(*ExprFunc)
+				if !ok {
+					// programming error
+					return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
+				}
+				valueTransformingFunc := funcExprCopy.function
+				txn.AddVertex(valueTransformingFunc)
+				for i, arg := range args {
+					argName := obj.typ.Ord[i]
+					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+						Args: []string{argName},
+					})
+				}
+				return valueTransformingFunc, nil
+			},
+			T: obj.typ,
+		})
 	} else /* len(obj.Values) > 0 */ {
 		index, err := langutil.FnMatch(obj.typ, obj.Values)
 		if err != nil {
@@ -7433,15 +7462,15 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		simpleFn := obj.Values[index]
 		simpleFn.T = obj.typ
 
-		fnFunc = simple.SimpleFnToConstFunc(simpleFn)
+		funcValueFunc = simple.SimpleFnToConstFunc(simpleFn)
 	}
 
 	outerGraph, err := pgraph.NewGraph("ExprFunc")
 	if err != nil {
 		return nil, nil, err
 	}
-	outerGraph.AddVertex(fnFunc)
-	return outerGraph, fnFunc, nil
+	outerGraph.AddVertex(funcValueFunc)
+	return outerGraph, funcValueFunc, nil
 }
 
 // SetValue for a func expression is always populated statically, and does not
@@ -8426,54 +8455,11 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	}
 
 	// Add the vertex which produces the FuncValue.
-	var funcValueFunc interfaces.Func
-	if obj.Var {
-		// $f(...)
-		//
-		// obj.expr.Graph() produces a node which produces a FuncValue, which is
-		// exactly what we need.
-
-		exprGraph, exprFunc, err := obj.expr.Graph(env)
-		if err != nil {
-			return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
-		}
-		graph.AddGraph(exprGraph)
-		funcValueFunc = exprFunc
-	} else {
-		// f(...)
-		//
-		// obj.expr.Graph() produces a node which transforms input values into
-		// an output value, but we need to construct a node which takes no
-		// inputs and produces a FuncValue, so we need to wrap it.
-		//
-		// TODO: should obj.expr.Graph() already be returning a node which
-		// produces a FuncValue?
-
-		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
-			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// Copy obj.expr so that the underlying ExprFunc.function gets refreshed
-				// with a new ExprFunc.Function() call. Otherwise, multiple calls to
-				// this function will share the same Func.
-				cp, err := obj.expr.Copy() // XXX: I'm pretty sure this concurrent copy is causing issues. Mutex somehow.
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not copy expression")
-				}
-				g, valueTransformingFunc, err := cp.Graph(nil) // XXX: pass in globals from scope?
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
-				}
-				interfaces.AddGraphToTxn(txn, g)
-				for i, arg := range args {
-					argName := ftyp.Ord[i]
-					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
-						Args: []string{argName},
-					})
-				}
-				return valueTransformingFunc, nil
-			},
-			T: ftyp,
-		})
+	exprGraph, funcValueFunc, err := obj.expr.Graph(env)
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
 	}
+	graph.AddGraph(exprGraph)
 	graph.AddVertex(funcValueFunc)
 
 	// Loop over the arguments, add them to the graph, but do _not_ connect them

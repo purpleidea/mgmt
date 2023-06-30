@@ -8449,52 +8449,28 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		// TODO: should obj.expr.Graph() already be returning a node which
 		// produces a FuncValue?
 
-		// XXX: James thinks instantiating a static copy of the Func here is yucky
-		_, staticValueTransformingFunc, err := obj.expr.Graph(nil) // XXX: pass in globals from scope? no
-		if err != nil {
-			return nil, nil, errwrap.Wrapf(err, "could not get static graph for function %s", obj.Name)
-		}
-
-		// XXX: James wants to know why we can't just run this instead?
-		// XXX: Sam explains: jamesTyp is the same as ftyp. The arg names in the
-		//      type are sometimes arg%d, which are some dummy arg names which come
-		//      from the type inference phase, and are unlikely to be correct.
-		//      We introduced staticValueTransformingFunc in order to make sure we
-		//      use the arg names expected by the Func, rather than the arg names
-		//      calculated by the type inference. Sometimes they are the same, e.g.
-		//      when the Func calculates its arg names from the inferred type. But
-		//      they are not guaranteed to be the same, so we need this hack until
-		//      we change SetType() so that it doesn't overwrite the arg names.
-		jamesTyp, err := obj.expr.Type()
-		if err != nil {
-			return nil, nil, errwrap.Wrapf(err, "could not get type for function %s", obj.Name)
-		}
-		fmt.Printf("%s() incorrect %v\n", obj.Name, ftyp)
-		fmt.Printf("%s() correct %v\n", obj.Name, staticValueTransformingFunc.Info().Sig)
-		fmt.Printf("%s() third %v ; same?: %t\n", obj.Name, jamesTyp, jamesTyp.Cmp(staticValueTransformingFunc.Info().Sig) == nil)
-
 		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				cp, err := obj.expr.Copy()
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not copy expression")
 				}
-				g, dynamicValueTransformingFunc, err := cp.Graph(nil) // XXX: pass in globals from scope?
+				g, valueTransformingFunc, err := cp.Graph(nil) // XXX: pass in globals from scope?
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
 				}
-fmt.Printf("XXX funcValueFunc ADD GRAPH\n")
+				fmt.Printf("XXX funcValueFunc ADD GRAPH\n")
 				interfaces.AddGraphToTxn(txn, g)
 				for i, arg := range args {
 					argName := ftyp.Ord[i]
-fmt.Printf("XXX funcValueFunc ADD VERTEX ARG: %v\n", argName)
-					txn.AddEdge(arg, dynamicValueTransformingFunc, &interfaces.FuncEdge{
+					fmt.Printf("XXX funcValueFunc ADD VERTEX ARG: %v\n", argName)
+					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
 						Args: []string{argName},
 					})
 				}
-				return dynamicValueTransformingFunc, nil
+				return valueTransformingFunc, nil
 			},
-			T: staticValueTransformingFunc.Info().Sig,
+			T: ftyp,
 		})
 	}
 	graph.AddVertex(funcValueFunc)

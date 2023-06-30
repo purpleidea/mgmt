@@ -707,12 +707,18 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	}
 	obj.init.Txn.AddVertex(subgraphOutput)
 
-	outputListFuncArgs := "" // e.g. "outputElem0 int, outputElem1 int, outputElem2 int"
+	m := make(map[string]*types.Type)
+	ord := []string{}
 	for i := 0; i < obj.lastInputListLength; i++ {
-		if i > 0 {
-			outputListFuncArgs += ", "
-		}
-		outputListFuncArgs += fmt.Sprintf("outputElem%d %s", i, obj.RType)
+		argName := fmt.Sprintf("outputElem%d", i)
+		m[argName] = obj.RType
+		ord = append(ord, argName)
+	}
+	typ := &types.Type{
+		Kind: types.KindFunc,
+		Map: m,
+		Ord: ord,
+		Out: obj.outputListType,
 	}
 	outputListFunc := simple.SimpleFnToDirectFunc(&types.SimpleFn{
 		V: func(args []types.Value) (types.Value, error) {
@@ -723,8 +729,9 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 			return listValue, nil
 		},
-		T: types.NewType(fmt.Sprintf("func(%s) %s", outputListFuncArgs, obj.outputListType)),
+		T: typ,
 	})
+
 	obj.init.Txn.AddVertex(outputListFunc)
 	obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
 		Args: []string{simple.ChannelBasedSinkFuncArgName},

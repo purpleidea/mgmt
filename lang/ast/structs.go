@@ -8451,6 +8451,9 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 
 		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				// Copy obj.expr so that the underlying ExprFunc.function gets refreshed
+				// with a new ExprFunc.Function() call. Otherwise, multiple calls to
+				// this function will share the same Func.
 				cp, err := obj.expr.Copy() // XXX: I'm pretty sure this concurrent copy is causing issues. Mutex somehow.
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not copy expression")

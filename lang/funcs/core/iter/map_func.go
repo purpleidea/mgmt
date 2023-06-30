@@ -63,6 +63,14 @@ type MapFunc struct {
 
 	lastFuncValue       *fancyfunc.FuncValue // remember the last function value
 	lastInputListLength int                  // remember the last input list length
+
+	inputListType  *types.Type
+	outputListType *types.Type
+
+	// outputChan is an initially-nil channel from which we receive output
+	// lists from the subgraph. This channel is reset when the subgraph is
+	// recreated.
+	outputChan chan types.Value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -563,6 +571,10 @@ func (obj *MapFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.lastFuncValue = nil
 	obj.lastInputListLength = -1
+
+	obj.inputListType = types.NewType(fmt.Sprintf("[]%s", obj.Type))
+	obj.outputListType = types.NewType(fmt.Sprintf("[]%s", obj.RType))
+
 	return nil
 }
 
@@ -574,9 +586,6 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 
 	defer close(obj.init.Output) // the sender closes
 
-	inputListType := types.NewType(fmt.Sprintf("[]%s", obj.Type))
-	outputListType := types.NewType(fmt.Sprintf("[]%s", obj.RType))
-
 	// A Func to send input lists to the subgraph. The Txn.Erase() call ensures
 	// that this Func is not removed when the subgraph is recreated, so that the
 	// function graph can propagate the last list we received to the subgraph.
@@ -584,7 +593,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	subgraphInput := &simple.ChannelBasedSourceFunc{
 		Name: "subgraphInput",
 		Chan: inputChan,
-		Type: inputListType,
+		Type: obj.inputListType,
 	}
 	obj.init.Txn.AddVertex(subgraphInput)
 	obj.init.Txn.Commit()
@@ -596,10 +605,74 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 		obj.init.Txn.Commit()
 	}()
 
-	// An initially-closed channel from which we receive output lists from the
-	// subgraph. This channel is reset when the subgraph is recreated.
-	var outputChan chan types.Value = nil
+	obj.outputChan = nil
 
+	canReceiveMoreFuncValuesOrInputLists := true
+	canReceiveMoreOutputLists := true
+	for {
+
+		if !canReceiveMoreFuncValuesOrInputLists && !canReceiveMoreOutputLists {
+			//break
+			return nil
+		}
+
+		select {
+		case input, ok := <-obj.init.Input:
+			if !ok {
+				obj.init.Input = nil // block looping back here
+				canReceiveMoreFuncValuesOrInputLists = false
+				continue
+			}
+
+			newFuncValue, ok := input.Struct()[mapArgNameFunction].(*fancyfunc.FuncValue)
+			if !ok {
+				return fmt.Errorf("programming error, can't convert to *FuncValue")
+			}
+
+			newInputList := input.Struct()[mapArgNameInputs]
+
+			// If we have a new function or the length of the input list has
+			// changed, then we need to replace the subgraph with a new one
+			// that uses the new function the correct number of times.
+			n := len(newInputList.List())
+			if newFuncValue != obj.lastFuncValue || n != obj.lastInputListLength {
+				obj.lastFuncValue = newFuncValue
+				obj.lastInputListLength = n
+				// replaceSubGraph uses the above two values
+				if err := obj.replaceSubGraph(subgraphInput); err != nil {
+					return errwrap.Wrapf(err, "could not replace subgraph")
+				}
+				canReceiveMoreOutputLists = true
+			}
+
+			// send the new input list to the subgraph
+			select {
+			case inputChan <- newInputList:
+			case <-ctx.Done():
+				return nil
+			}
+
+		case outputList, ok := <-obj.outputChan:
+			// send the new output list downstream
+			if !ok {
+				obj.outputChan = nil
+				canReceiveMoreOutputLists = false
+				continue
+			}
+
+			select {
+			case obj.init.Output <- outputList:
+			case <-ctx.Done():
+				return nil
+			}
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// Create a subgraph which splits the input list into 'n' nodes, applies
 	// 'newFuncValue' to each, then combines the 'n' outputs back into a list.
 	//
@@ -620,140 +693,79 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	//
 	//   "outputListFunc" -> "subgraphOutput"
 	// }
-	replaceSubGraph := func(
-		newFuncValue *fancyfunc.FuncValue,
-		n int,
-	) error {
-		// delete the old subgraph
-		obj.init.Txn.Reverse() // XXX: Reverse?
 
-		// create the new subgraph
+	// delete the old subgraph
+	obj.init.Txn.Reverse() // XXX: Reverse?
 
-		outputChan = make(chan types.Value)
-		subgraphOutput := &simple.ChannelBasedSinkFunc{
-			Name: "subgraphOutput",
-			Chan: outputChan,
-			Type: outputListType,
-		}
-		obj.init.Txn.AddVertex(subgraphOutput)
+	// create the new subgraph
 
-		outputListFuncArgs := "" // e.g. "outputElem0 int, outputElem1 int, outputElem2 int"
-		for i := 0; i < n; i++ {
-			if i > 0 {
-				outputListFuncArgs += ", "
-			}
-			outputListFuncArgs += fmt.Sprintf("outputElem%d %s", i, obj.RType)
-		}
-		outputListFunc := simple.SimpleFnToDirectFunc(&types.SimpleFn{
-			V: func(args []types.Value) (types.Value, error) {
-				listValue := &types.ListValue{
-					V: args,
-					T: outputListType,
-				}
-
-				return listValue, nil
-			},
-			T: types.NewType(fmt.Sprintf("func(%s) %s", outputListFuncArgs, outputListType)),
-		})
-		obj.init.Txn.AddVertex(outputListFunc)
-		obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
-			Args: []string{simple.ChannelBasedSinkFuncArgName},
-		})
-
-		for i := 0; i < n; i++ {
-			i := i
-			inputElemFunc := simple.SimpleFnToDirectFunc(
-				&types.SimpleFn{
-					V: func(args []types.Value) (types.Value, error) {
-						if len(args) != 1 {
-							return nil, fmt.Errorf("inputElemFunc: expected a single argument")
-						}
-						arg := args[0]
-
-						list, ok := arg.(*types.ListValue)
-						if !ok {
-							return nil, fmt.Errorf("inputElemFunc: expected a ListValue argument")
-						}
-
-						return list.List()[i], nil
-					},
-					T: types.NewType(fmt.Sprintf("func(inputList %s) %s", inputListType, obj.Type)),
-				},
-			)
-			obj.init.Txn.AddVertex(inputElemFunc)
-
-			outputElemFunc, err := newFuncValue.Call(obj.init.Txn, []interfaces.Func{inputElemFunc})
-			if err != nil {
-				return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
-			}
-
-			obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
-				Args: []string{"inputList"},
-			})
-			obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
-				Args: []string{fmt.Sprintf("outputElem%d", i)},
-			})
-		}
-
-		obj.init.Txn.Commit()
-
-		return nil
+	obj.outputChan = make(chan types.Value)
+	subgraphOutput := &simple.ChannelBasedSinkFunc{
+		Name: "subgraphOutput",
+		Chan: obj.outputChan,
+		Type: obj.outputListType,
 	}
+	obj.init.Txn.AddVertex(subgraphOutput)
 
-	canReceiveMoreFuncValuesOrInputLists := true
-	canReceiveMoreOutputLists := true
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				canReceiveMoreFuncValuesOrInputLists = false
-			} else {
-				newFuncValue := input.Struct()[mapArgNameFunction].(*fancyfunc.FuncValue)
-				newInputList := input.Struct()[mapArgNameInputs].(*types.ListValue)
+	outputListFuncArgs := "" // e.g. "outputElem0 int, outputElem1 int, outputElem2 int"
+	for i := 0; i < obj.lastInputListLength; i++ {
+		if i > 0 {
+			outputListFuncArgs += ", "
+		}
+		outputListFuncArgs += fmt.Sprintf("outputElem%d %s", i, obj.RType)
+	}
+	outputListFunc := simple.SimpleFnToDirectFunc(&types.SimpleFn{
+		V: func(args []types.Value) (types.Value, error) {
+			listValue := &types.ListValue{
+				V: args,
+				T: obj.outputListType,
+			}
 
-				// If we have a new function or the length of the input list has
-				// changed, then we need to replace the subgraph with a new one
-				// that uses the new function the correct number of times.
-				n := len(newInputList.V)
-				if newFuncValue != obj.lastFuncValue || n != obj.lastInputListLength {
-					if err := replaceSubGraph(newFuncValue, n); err != nil {
-						return errwrap.Wrapf(err, "could not replace subgraph")
+			return listValue, nil
+		},
+		T: types.NewType(fmt.Sprintf("func(%s) %s", outputListFuncArgs, obj.outputListType)),
+	})
+	obj.init.Txn.AddVertex(outputListFunc)
+	obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
+		Args: []string{simple.ChannelBasedSinkFuncArgName},
+	})
+
+	for i := 0; i < obj.lastInputListLength; i++ {
+		i := i
+		inputElemFunc := simple.SimpleFnToDirectFunc(
+			&types.SimpleFn{
+				V: func(args []types.Value) (types.Value, error) {
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElemFunc: expected a single argument")
 					}
-					canReceiveMoreOutputLists = true
-					obj.lastFuncValue = newFuncValue
-					obj.lastInputListLength = n
-				}
+					arg := args[0]
 
-				// send the new input list to the subgraph
-				select {
-				case inputChan <- newInputList:
-				case <-ctx.Done():
-					return nil
-				}
-			}
+					list, ok := arg.(*types.ListValue)
+					if !ok {
+						return nil, fmt.Errorf("inputElemFunc: expected a ListValue argument")
+					}
 
-		case outputList, ok := <-outputChan:
-			// send the new output list downstream
-			if !ok {
-				canReceiveMoreOutputLists = false
+					return list.List()[i], nil
+				},
+				T: types.NewType(fmt.Sprintf("func(inputList %s) %s", obj.inputListType, obj.Type)),
+			},
+		)
+		obj.init.Txn.AddVertex(inputElemFunc)
 
-				// prevent the next loop iteration from trying to receive from a
-				// closed channel
-				outputChan = nil
-			} else {
-				select {
-				case obj.init.Output <- outputList:
-				case <-ctx.Done():
-					return nil
-				}
-			}
-
-		case <-ctx.Done():
-			return nil
+		outputElemFunc, err := obj.lastFuncValue.Call(obj.init.Txn, []interfaces.Func{inputElemFunc})
+		if err != nil {
+			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.Call()")
 		}
 
-		if !canReceiveMoreFuncValuesOrInputLists && !canReceiveMoreOutputLists {
-			return nil
-		}
+		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
+			Args: []string{"inputList"},
+		})
+		obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
+			Args: []string{fmt.Sprintf("outputElem%d", i)},
+		})
 	}
+
+	obj.init.Txn.Commit()
+
+	return nil
 }

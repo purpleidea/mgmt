@@ -175,6 +175,7 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 	// lookup when we're in an unlocked state.
 	node := &state{
 		Func: f,
+		name: f.String(), // cache a name
 
 		input:  input,
 		output: output,
@@ -1009,6 +1010,8 @@ func (obj *Engine) Started() <-chan struct{} {
 // is not guaranteed to log this method synchronously.
 // XXX: this is so ugly, can we do something better?
 func (obj *Engine) SafeLogf(format string, v ...interface{}) {
+	obj.Logf(format, v...)
+	return // XXX
 	// We're adding a waitgroup and running it with a goroutine, because it
 	// seems it can happen when we're locked and this can cause a deadlock!
 	// We're adding a global mutex, because it's harder to only isolate the
@@ -1052,6 +1055,7 @@ func (obj *Engine) Graphviz(lock bool) {
 // state tracks some internal vertex-specific state information.
 type state struct {
 	Func interfaces.Func
+	name string // cache a name here for safer concurrency
 
 	notify chan struct{} // ping here when new input values exist
 
@@ -1074,5 +1078,9 @@ type state struct {
 
 // String implements the fmt.Stringer interface for pretty printing!
 func (obj *state) String() string {
+	if obj.name != "" {
+		return obj.name
+	}
+
 	return obj.Func.String()
 }

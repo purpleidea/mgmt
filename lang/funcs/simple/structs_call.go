@@ -190,12 +190,6 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *fancyfunc.FuncValue) error {
 	obj.init.Txn.Reverse()
 
 	// create the new subgraph
-	// XXX XXX XXX SAM: This Txn is the same one we're using here! The use
-	// here is consistent, but that might not be globally true depending on
-	// what happens to it in this Call... Remember that Reverse is really a
-	// Commit that a subsequent Reverse can reverse. So that could cause a
-	// bug if this child Txn is used somehow badly. If needed we can copy it
-	// so it gets it's own state.
 	outputFunc, err := newFuncValue.Call(obj.init.Txn, obj.ArgVertices)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not call newFuncValue.Call()")

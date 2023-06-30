@@ -8462,11 +8462,9 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not get graph for function %s", obj.Name)
 				}
-				fmt.Printf("XXX funcValueFunc ADD GRAPH\n")
 				interfaces.AddGraphToTxn(txn, g)
 				for i, arg := range args {
 					argName := ftyp.Ord[i]
-					fmt.Printf("XXX funcValueFunc ADD VERTEX ARG: %v\n", argName)
 					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
 						Args: []string{argName},
 					})

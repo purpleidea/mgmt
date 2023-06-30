@@ -1,6 +1,5 @@
 -- main.mcl --
-test "foo" {
-  int8 => 2 + 2,
+test "x" + "y" {
 }
 -- OUTPUT --
-Vertex: test[foo]
+Vertex: test[xy]

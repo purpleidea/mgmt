@@ -795,7 +795,8 @@ func (obj *Engine) Run(ctx context.Context) error {
 				// no more output values are coming...
 				//obj.SafeLogf("func `%s` stopped", node)
 
-				// XXX shouldn't we close obj.output here?
+				// XXX shouldn't we record the fact that obj.output closed, and close
+				// the downstream node's obj.input?
 
 				// nodes that never loaded will cause the engine to hang
 				if !node.loaded {

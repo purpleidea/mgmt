@@ -22,6 +22,7 @@ package dage
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -30,6 +31,12 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
+)
+
+var (
+	// XXX: temp for debugging
+	xxxDebuggingGraphvizLock  = &sync.Mutex{}
+	xxxDebuggingGraphvizCount = int64(0)
 )
 
 // Engine implements a dag engine which lets us "run" a dag of functions, but
@@ -1009,8 +1016,18 @@ func (obj *Engine) Graphviz(lock bool) {
 		defer obj.rwmutex.RUnlock()
 	}
 
+	xxxDebuggingGraphvizLock.Lock()
+	defer xxxDebuggingGraphvizLock.Unlock()
+
+	if xxxDebuggingGraphvizCount == 0 {
+		xxxDebuggingGraphvizCount = time.Now().Unix()
+	}
+
 	d := time.Now().UnixMilli()
-	if err := obj.graph.ExecGraphviz("dot", fmt.Sprintf("/tmp/engine-graphviz-%d.dot", d), ""); err != nil {
+	if err := os.MkdirAll(fmt.Sprintf("/tmp/engine-graphviz-%d/", xxxDebuggingGraphvizCount), 0755); err != nil {
+		panic(err)
+	}
+	if err := obj.graph.ExecGraphviz("dot", fmt.Sprintf("/tmp/engine-graphviz-%d/%d.dot", xxxDebuggingGraphvizCount, d), ""); err != nil {
 		panic("no graphviz")
 	}
 }

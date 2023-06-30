@@ -701,13 +701,7 @@ func (obj *Engine) Run(ctx context.Context) error {
 				defer node.wg.Done()
 				defer obj.wgAg.Done()
 
-				if node.Func.String() == "FuncValue" {
-					fmt.Printf("engine waiting for (%p FuncValue) to output to (%p chan)\n", node.Func, node.output)
-				}
 				for value := range node.output { // read from channel
-					if node.Func.String() == "FuncValue" {
-						fmt.Printf("engine received an output from (%p FuncValue)'s output (%p chan)\n", node.Func, node.output)
-					}
 					if value == nil {
 						// bug!
 						obj.SafeLogf("func `%s` got nil value", node)
@@ -788,9 +782,6 @@ func (obj *Engine) Run(ctx context.Context) error {
 						}
 					}
 				} // end for
-				if node.Func.String() == "FuncValue" {
-					fmt.Printf("engine saw (%p FuncValue) close its output (%p chan)\n", node.Func, node.output)
-				}
 
 				// no more output values are coming...
 				//obj.SafeLogf("func `%s` stopped", node)
@@ -821,9 +812,6 @@ func (obj *Engine) Run(ctx context.Context) error {
 			go func(f interfaces.Func, node *state) {
 				defer node.wg.Done()
 				defer close(node.input)
-				if node.Func.String() == "call" {
-					defer fmt.Printf("engine is closing (%p CallFunc)'s input (%p chan)\n", node.Func, node.input)
-				}
 				if node.notify == nil { // if sig.Ord == 0, it's nil
 					// extra safety, should be caught above
 					return
@@ -885,9 +873,6 @@ func (obj *Engine) Run(ctx context.Context) error {
 						continue
 					}
 
-					if node.Func.String() == "call" {
-						fmt.Printf("engine is sending to (%p CallFunc)'s input (%p chan)\n", node.Func, node.input)
-					}
 					select {
 					case node.input <- st: // send to function
 

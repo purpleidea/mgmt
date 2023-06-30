@@ -82,17 +82,11 @@ func (obj *ConstFunc) Init(init *interfaces.Init) error {
 
 // Stream returns the single value that this const has, and then closes.
 func (obj *ConstFunc) Stream(ctx context.Context) error {
-	if obj.NameHint == "FuncValue" {
-		fmt.Printf("(%p FuncValue) sending value to (%p channel)\n", obj, obj.init.Output)
-	}
 	select {
 	case obj.init.Output <- obj.Value:
 		// pass
 	case <-ctx.Done():
 		return nil
-	}
-	if obj.NameHint == "FuncValue" {
-		fmt.Printf("(%p FuncValue) closing (%p channel)\n", obj, obj.init.Output)
 	}
 	close(obj.init.Output) // signal that we're done sending
 	return nil

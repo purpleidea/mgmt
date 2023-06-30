@@ -126,8 +126,10 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 
+		fmt.Printf("(%p CallFunc) blocks on (%p input chan)...\n", obj, obj.init.Input)
 		select {
 		case input, ok := <-obj.init.Input:
+			fmt.Printf("(%p CallFunc) unblocked by (%p input chan)\n", obj, obj.init.Input)
 			if !ok {
 				obj.init.Input = nil // block looping back here
 				canReceiveMoreFuncValues = false
@@ -154,6 +156,7 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 			continue
 
 		case outputValue, ok := <-obj.outputChan:
+			fmt.Printf("(%p CallFunc) unblocked by output (%p chan)\n", obj, obj.outputChan)
 			// send the new output value downstream
 			if !ok {
 				obj.outputChan = nil

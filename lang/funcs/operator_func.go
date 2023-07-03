@@ -900,7 +900,11 @@ func (obj *OperatorFunc) Stream(ctx context.Context) error {
 			// build up arg list
 			args := []types.Value{}
 			for _, name := range obj.Type.Ord {
-				v := input.Struct()[name]
+				v, exists := input.Struct()[name]
+				if !exists {
+					// programming error
+					return fmt.Errorf("function engine was early, missing arg: %s", name)
+				}
 				if name == operatorArgName {
 					op = v.Str()
 					continue // skip over the operator arg

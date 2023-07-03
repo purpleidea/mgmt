@@ -834,6 +834,15 @@ func (obj *Engine) Run(ctx context.Context) error {
 						Ord:  node.Func.Info().Sig.Ord,
 					}
 					st := types.NewStruct(si)
+					// The above builds a struct with fields
+					// populated for each key (empty values)
+					// so we need to very carefully check if
+					// every field is received before we can
+					// safely send it downstream to an edge.
+					need := make(map[string]struct{}) // keys we need
+					for _, k := range node.Func.Info().Sig.Ord {
+						need[k] = struct{}{}
+					}
 					for _, v := range incoming {
 						obj.rwmutex.RLock()
 						args := obj.graph.Adjacency()[v][f].(*interfaces.FuncEdge).Args
@@ -867,9 +876,18 @@ func (obj *Engine) Run(ctx context.Context) error {
 								}
 								panic(fmt.Sprintf("struct set failure on `%s` from `%s`: %v, has: %v", node, fromNode, err, keys))
 							}
+							if _, exists := need[arg]; !exists {
+								keys := []string{}
+								for k := range st.Struct() {
+									keys = append(keys, k)
+								}
+								// could be either a duplicate or an unwanted field (edge name)
+								panic(fmt.Sprintf("unexpected struct key on `%s` from `%s`: %v, has: %v", node, fromNode, err, keys))
+							}
+							delete(need, arg)
 						}
 					}
-					if !ready {
+					if !ready || len(need) != 0 {
 						continue
 					}
 

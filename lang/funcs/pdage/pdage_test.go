@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package dage
+package pdage
 
 import (
 	"context"
@@ -144,21 +144,21 @@ type meta struct {
 func (obj *meta) Lock()   { obj.mutex.Lock() }
 func (obj *meta) Unlock() { obj.mutex.Unlock() }
 
-type dageTestOp func(*Engine, *meta) error
+type pdageTestOp func(*Engine, *meta) error
 
-func TestDageTable(t *testing.T) {
+func TestPdageTable(t *testing.T) {
 
 	type test struct { // an individual test
 		name     string
 		vertices []interfaces.Func
-		actions  []dageTestOp
+		actions  []pdageTestOp
 	}
 	testCases := []test{}
 	{
 		testCases = append(testCases, test{
 			name:     "empty graph",
 			vertices: []interfaces.Func{},
-			actions: []dageTestOp{
+			actions: []pdageTestOp{
 				func(engine *Engine, meta *meta) error {
 					engine.Lock()
 					time.Sleep(1 * time.Second) // XXX: unfortunate
@@ -184,7 +184,7 @@ func TestDageTable(t *testing.T) {
 		testCases = append(testCases, test{
 			name:     "simple add vertex",
 			vertices: []interfaces.Func{f1}, // so the test engine can pass in debug/observability handles
-			actions: []dageTestOp{
+			actions: []pdageTestOp{
 				func(engine *Engine, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
@@ -211,7 +211,7 @@ func TestDageTable(t *testing.T) {
 		testCases = append(testCases, test{
 			name:     "simple add edge",
 			vertices: []interfaces.Func{f1, f2},
-			actions: []dageTestOp{
+			actions: []pdageTestOp{
 				func(engine *Engine, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
@@ -250,7 +250,7 @@ func TestDageTable(t *testing.T) {
 		testCases = append(testCases, test{
 			name:     "simple add multiple edges",
 			vertices: []interfaces.Func{f1, f2, f3, f4},
-			actions: []dageTestOp{
+			actions: []pdageTestOp{
 				func(engine *Engine, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
@@ -345,7 +345,7 @@ func TestDageTable(t *testing.T) {
 		testCases = append(testCases, test{
 			name:     "simple add/delete vertex",
 			vertices: []interfaces.Func{f1},
-			actions: []dageTestOp{
+			actions: []pdageTestOp{
 				func(engine *Engine, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
@@ -385,7 +385,7 @@ func TestDageTable(t *testing.T) {
 		testCases = append(testCases, test{
 			name:     "simple add/delete edge",
 			vertices: []interfaces.Func{f1, f2},
-			actions: []dageTestOp{
+			actions: []pdageTestOp{
 				func(engine *Engine, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
@@ -506,7 +506,7 @@ func TestDageTable(t *testing.T) {
 			}()
 
 			engine := &Engine{
-				Name: "dage",
+				Name: "pdage",
 
 				Debug: debug,
 				Logf:  t.Logf,

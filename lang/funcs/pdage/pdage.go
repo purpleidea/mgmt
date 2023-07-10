@@ -15,9 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package dage implements a DAG function engine.
+// Package pdage implements a parallel DAG function engine.
 // TODO: can we rename this to something more interesting?
-package dage
+package pdage
 
 import (
 	"context"

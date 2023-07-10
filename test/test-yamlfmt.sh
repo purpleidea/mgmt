@@ -13,7 +13,7 @@ ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}"
 . test/util.sh
 
-#if in_ci travis jenkins; then
+#if in_env travis jenkins; then
 #	echo "Travis and Jenkins give wonky results here, skipping test!"
 #	exit 0
 #fi

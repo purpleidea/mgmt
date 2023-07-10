@@ -4,7 +4,7 @@
 
 exit 0	# TODO: this test needs to be updated to use deploys instead
 
-#if in_ci; then
+#if in_env; then
 #	# inotify doesn't seem to work properly on travis
 #	echo "Travis and Jenkins give wonky results here, skipping test!"
 #	exit

@@ -21,6 +21,8 @@ to build your own.
 
 ### Downloading a pre-built release:
 
+This method is not recommended because those packages are now very old.
+
 The latest releases can be found [here](https://github.com/purpleidea/mgmt/releases/).
 An alternate mirror is available [here](https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/).
 
@@ -94,6 +96,21 @@ At the moment we have:
 
 Please contribute more and help improve these! We'd especially like to see a
 Debian package!
+
+### Building from a container:
+
+This method avoids polluting your workstation with the dependencies for the
+build. Here is an example using Fedora, Podman and Buildah:
+
+```shell
+git clone --recursive https://github.com/purpleidea/mgmt/ ~/mgmt/
+cd ~/mgmt/docker
+buildah build -f Dockerfile-fedora.build -t mgmt_build
+podman run -d -it --name mgmt_build localhost/mgmt_build
+podman cp mgmt_build:/src/github.com/purpleidea/mgmt/mgmt /tmp/mgmt
+sudo mv /tmp/mgmt /usr/local/bin  # be sure this is in your $PATH
+sudo chown root:root /usr/local/bin/mgmt
+```
 
 ## Running mgmt
 

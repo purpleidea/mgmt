@@ -1,0 +1,20 @@
+FROM fedora:38
+LABEL org.opencontainers.image.authors="laurent.indermuehle@pm.me"
+
+ENV GOPATH=/root/gopath
+ENV PATH=/root/gopath/bin:/usr/local/sbin:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/go/bin:/usr/local/bin
+ENV LD_LIBRARY_PATH=/usr/lib64
+ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+
+# This forces make-deps.sh to install Ragel 6.1 instead of 7.0
+ENV DOCKER=true
+
+RUN dnf -y install wget unzip git make which gcc gcc-c++ ruby golang
+
+RUN mkdir -p $GOPATH/src/github.com/purpleidea
+WORKDIR $GOPATH/src/github.com/purpleidea
+RUN git clone --recursive https://github.com/purpleidea/mgmt mgmt
+WORKDIR $GOPATH/src/github.com/purpleidea/mgmt
+RUN make deps
+RUN make build
+CMD ["/bin/bash"]

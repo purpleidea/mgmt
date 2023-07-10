@@ -2,13 +2,13 @@
 
 . "$(dirname "$0")/../util.sh"
 
-if in_ci travis; then
+if in_env travis; then
 	# this often fails in travis with: `address already in use`
 	echo "Travis gives wonky results here, skipping test!"
 	exit
 fi
 
-if in_ci github; then
+if in_env github; then
 	# TODO: consider debugging this
 	echo "This is failing in github, skipping test!"
 	exit

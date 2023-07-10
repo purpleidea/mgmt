@@ -2,7 +2,7 @@
 
 . "$(dirname "$0")/../util.sh"
 
-if in_ci github; then
+if in_env github; then
 	# TODO: consider debugging this (flaky)
 	echo "This is failing in github, skipping test!"
 	exit

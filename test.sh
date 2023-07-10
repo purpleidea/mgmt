@@ -78,7 +78,7 @@ fi
 # run-test ./test/test-crossbuild.sh
 
 # do these longer tests only when running on ci
-if in_ci; then
+if in_env; then
 	if label-block "shell"; then
 		run-testsuite ./test/test-shell.sh
 	fi

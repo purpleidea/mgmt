@@ -50,7 +50,10 @@ if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y augeas-devel
 	$sudo_command $YUM install -y ruby-devel rubygems
 	$sudo_command $YUM install -y time
-	$sudo_command $YUM install -y ragel
+	if ! in_env; then
+		$sudo_command $YUM install -y ragel
+	fi
+
 	# dependencies for building packages with fpm
 	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar mkosi || true
 	$sudo_command $YUM install -y graphviz || true # for debugging
@@ -61,7 +64,10 @@ if [ -n "$APT" ]; then
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y ruby ruby-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
-	$sudo_command $APT install -y ragel || true
+	if ! in_env; then
+		$sudo_command $APT install -y ragel || true
+	fi
+
 	# dependencies for building packages with fpm
 	$sudo_command $APT install -y build-essential rpm bsdtar || true
 	# `realpath` is a more universal alternative to `readlink -f` for absolute path resolution
@@ -84,7 +90,7 @@ if [ -n "$PACMAN" ]; then
 fi
 fold_end "Install dependencies"
 
-if ! in_ci; then
+if ! in_env; then
 	if [ -n "$YUM" ]; then
 		if [ -z "$GO" ]; then
 			$sudo_command $YUM install -y golang golang-googlecode-tools-stringer || $sudo_command $YUM install -y golang-bin # centos-7 epel
@@ -107,7 +113,7 @@ if ! in_ci; then
 	fi
 fi
 
-if in_ci; then
+if in_env; then
 	# TODO: consider bumping to new package manager version
 	RAGEL_VERSION='6.10'	# current stable version
 	RAGEL_TMP='/tmp/ragel/'
@@ -150,7 +156,7 @@ cd / && go install golang.org/x/tools/cmd/stringer@latest	# for automatic string
 cd / && go install golang.org/x/lint/golint@latest		# for `golint`-ing
 cd / && go install golang.org/x/tools/cmd/goimports@latest	# for fmt
 cd / && go install github.com/dvyukov/go-fuzz/go-fuzz@latest	# for fuzzing the mcl lang bits
-if in_ci; then
+if in_env; then
 	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
 	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \
 	gometalinter --install	# bonus

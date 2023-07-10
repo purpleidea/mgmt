@@ -2,13 +2,13 @@
 
 . "$(dirname "$0")/../util.sh"
 
-if in_ci travis jenkins; then
+if in_env travis jenkins; then
 	# inotify doesn't seem to work properly on travis
 	echo "Travis and Jenkins give wonky results here, skipping test!"
 	exit
 fi
 
-if in_ci github; then
+if in_env github; then
 	# TODO: consider debugging this
 	echo "This is failing in github, skipping test!"
 	exit

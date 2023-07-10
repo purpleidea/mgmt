@@ -20,9 +20,9 @@ fi
 
 TIMEOUT="$timeout --kill-after=360s --signal=QUIT 300s"
 
-in_ci() {
+in_env() {
 	if [ $# -eq 0 ]; then
-		test -n "$CI" -o -n "$GITHUB_ACTION" -o -n "$TRAVIS" -o -n "$JENKINS_URL"
+		test -n "$CI" -o -n "$GITHUB_ACTION" -o -n "$TRAVIS" -o -n "$JENKINS_URL" -o -n "$DOCKER"
 		return $?
 	fi
 
@@ -34,6 +34,8 @@ in_ci() {
 			test "$TRAVIS" = "true" && return 0;;
 		jenkins)
 			test -n "$JENKINS_URL" && return 0;;
+		docker)
+			test -n "$DOCKER" && return 0;;
 		*)
 			continue;;
 		esac
@@ -42,7 +44,7 @@ in_ci() {
 }
 
 fail_test() {
-	if in_ci github; then
+	if in_env github; then
 		echo "::error::$@"
 	else
 		echo -e "FAIL: $@"
@@ -57,16 +59,16 @@ function run-test() {
 # travis expander helpers from:
 # https://github.com/travis-ci/travis-rubies/blob/build/build.sh
 fold_start() {
-	if in_ci travis; then
+	if in_env travis; then
 		echo -e "travis_fold:start:$1\033[33;1m${@:2}\033[0m"
-	elif in_ci github; then
+	elif in_env github; then
 		echo "::group::$@"
 	fi
 }
 fold_end() {
-	if in_ci travis; then
+	if in_env travis; then
 		echo -e "\ntravis_fold:end:$1\r"
-	elif in_ci github; then
+	elif in_env github; then
 		echo "::endgroup::"
 	fi
 }

@@ -208,7 +208,7 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	// TODO: if we make this call many times, we seem to receive signals
 	// that many times... Maybe this should be an object singleton?
 	var call *dbus.Call
-	pathStr := fmt.Sprintf("%s", path)
+	pathStr := path
 	if len(signals) == 0 {
 		args := fmt.Sprintf("type='signal', path='%s', interface='%s'", pathStr, iface)
 		argsList = append(argsList, args)

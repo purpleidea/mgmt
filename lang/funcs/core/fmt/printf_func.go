@@ -168,7 +168,7 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 			}
 
 			if k := value.Type().Kind; k != types.KindStr {
-				return nil, fmt.Errorf("unable to build function with 0th arg of kind: %s", k)
+				return nil, fmt.Errorf("unable to build function with 0th arg of kind: %d", k)
 			}
 			format := value.Str() // must not panic
 			typList, err := parseFormatToTypeList(format)

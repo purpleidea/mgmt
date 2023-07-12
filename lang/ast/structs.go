@@ -6566,7 +6566,7 @@ func (obj *ExprFunc) String() string {
 
 	var a []string
 	for _, x := range obj.Args {
-		a = append(a, fmt.Sprintf("%s", x.String()))
+		a = append(a, x.String())
 	}
 	args := strings.Join(a, ", ")
 	s := fmt.Sprintf("func(%s)", args)
@@ -7213,7 +7213,7 @@ func (obj *ExprFunc) Graph() (*pgraph.Graph, error) {
 		var once bool
 		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
 			if once {
-				panic(fmt.Sprintf("edgeGenFn for func was called twice"))
+				panic("edgeGenFn for func was called twice")
 			}
 			once = true
 			return edge
@@ -7332,7 +7332,7 @@ type ExprCall struct {
 func (obj *ExprCall) String() string {
 	var s []string
 	for _, x := range obj.Args {
-		s = append(s, fmt.Sprintf("%s", x.String()))
+		s = append(s, x.String())
 	}
 	return fmt.Sprintf("call:%s(%s)", obj.Name, strings.Join(s, ", "))
 }

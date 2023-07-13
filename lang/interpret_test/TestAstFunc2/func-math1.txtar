@@ -2,12 +2,23 @@
 import "fmt"
 
 # function statement
-func sq1($x) {
-	$x + $x
+#func sq1($x) {
+#	#$x + $x
+#	#$x + 3
+#	3
+#}
+
+#$x1 = sq1(3) # 3^2 + 4 = 13
+
+#test fmt.printf("sq1: %d", $x1) {}
+#test "hello" {}	# works
+#test fmt.printf("hello: %d", 42) {} # doesn't work
+
+$hey = func() {
+	"hello"
 }
 
-$x1 = sq1(3) # 3^2 + 4 = 13
+test $hey() {}
 
-test fmt.printf("sq1: %d", $x1) {}
 -- OUTPUT --
 Vertex: test[sq1: 6]

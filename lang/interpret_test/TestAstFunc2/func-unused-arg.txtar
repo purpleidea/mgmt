@@ -1,0 +1,13 @@
+-- main.mcl --
+import "fmt"
+
+# function statement
+func stradd($x) {
+	"nothing"
+}
+
+$x1 = stradd("hey")
+
+test $x1 {}
+-- OUTPUT --
+Vertex: test[nothing]

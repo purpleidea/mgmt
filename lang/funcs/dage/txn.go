@@ -31,7 +31,7 @@ import (
 // PostReverseCommit specifies that if we run Reverse, and we had previous items
 // pending for Commit, that we should Commit them after our Reverse runs.
 // Otherwise they remain on the pending queue and wait for you to run Commit.
-const PostReverseCommit = true
+const PostReverseCommit = false
 
 // opfn is an interface that holds the normal op, and the reverse op if we need
 // to rollback from the forward fn. Implementations of each op can decide to

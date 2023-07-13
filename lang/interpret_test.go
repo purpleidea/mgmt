@@ -1623,6 +1623,8 @@ func TestAstFunc2(t *testing.T) {
 				}
 			}
 
+			t.Logf("test #%d: %s", index, funcs.Stats())
+
 			// run interpret!
 			table := funcs.Table() // map[interfaces.Func]types.Value
 

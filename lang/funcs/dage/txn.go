@@ -42,8 +42,22 @@ type opfn interface {
 	Rev(interfaces.GraphAPI) error
 }
 
+type opfnSkipRev interface {
+	opfn
+
+	// Skip tells us if this op should be skipped from reversing.
+	Skip() bool
+
+	// SetSkip specifies that this op should be skipped from reversing.
+	SetSkip(bool)
+}
+
 // RevOp returns the reversed op from an op by packing or unpacking it.
 func RevOp(op opfn) opfn {
+	if skipOp, ok := op.(opfnSkipRev); ok && skipOp.Skip() {
+		return nil // skip
+	}
+
 	if newOp, ok := op.(*opRev); ok {
 		return newOp.Op // unpack it
 	}
@@ -65,8 +79,22 @@ func (obj *opRev) Rev(g interfaces.GraphAPI) error {
 	return obj.Op.Fn(g)
 }
 
+type opSkip struct {
+	skip bool
+}
+
+func (obj *opSkip) Skip() bool {
+	return obj.skip
+}
+
+func (obj *opSkip) SetSkip(skip bool) {
+	obj.skip = skip
+}
+
 type opAddVertex struct {
 	F interfaces.Func
+
+	*opSkip
 }
 
 func (obj *opAddVertex) Fn(g interfaces.GraphAPI) error {
@@ -84,6 +112,8 @@ type opAddEdge struct {
 
 	has1 bool
 	has2 bool
+
+	*opSkip
 }
 
 func (obj *opAddEdge) Fn(g interfaces.GraphAPI) error {
@@ -112,6 +142,8 @@ func (obj *opAddEdge) Rev(g interfaces.GraphAPI) error {
 
 type opDeleteVertex struct {
 	F interfaces.Func
+
+	*opSkip
 }
 
 func (obj *opDeleteVertex) Fn(g interfaces.GraphAPI) error {
@@ -128,6 +160,8 @@ type opDeleteEdge struct {
 	f1    interfaces.Func
 	f2    interfaces.Func
 	found bool
+
+	*opSkip
 }
 
 func (obj *opDeleteEdge) Fn(g interfaces.GraphAPI) error {
@@ -211,6 +245,8 @@ func (obj *graphTxn) AddVertex(f interfaces.Func) interfaces.Txn {
 
 	opfn := &opAddVertex{
 		F: f,
+
+		opSkip: &opSkip{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -229,6 +265,8 @@ func (obj *graphTxn) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) in
 		F1: f1,
 		F2: f2,
 		FE: fe,
+
+		opSkip: &opSkip{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -248,6 +286,8 @@ func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 
 	opfn := &opDeleteVertex{
 		F: f,
+
+		opSkip: &opSkip{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -263,8 +303,32 @@ func (obj *graphTxn) DeleteEdge(fe *interfaces.FuncEdge) interfaces.Txn {
 
 	opfn := &opDeleteEdge{
 		FE: fe,
+
+		opSkip: &opSkip{},
 	}
 	obj.ops = append(obj.ops, opfn)
+
+	return obj // return self so it can be called in a chain
+}
+
+// AddReverse appends to the commit queue anything that was staged for reverse.
+// This also removes those operations from the reverse queue as if you had
+// called Erase. Of note, these operations will not get used on subsequent calls
+// to Reverse or AddReverse if either are called. The operation will get
+// completed when Commit is run.
+func (obj *graphTxn) AddReverse() interfaces.Txn {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	for _, op := range obj.rev { // copy in the rev stuff to commit!
+		// mark these as being not reversable (so skip them on reverse!)
+		if skipOp, ok := op.(opfnSkipRev); ok {
+			skipOp.SetSkip(true)
+		}
+		obj.ops = append(obj.ops, op)
+	}
+
+	obj.rev = []opfn{} // clear
 
 	return obj // return self so it can be called in a chain
 }
@@ -325,8 +389,10 @@ func (obj *graphTxn) commit() error {
 			return err
 		}
 
-		op = RevOp(op)                // reverse the op!
-		obj.rev = append(obj.rev, op) // add the reverse op
+		op = RevOp(op) // reverse the op!
+		if op != nil {
+			obj.rev = append(obj.rev, op) // add the reverse op
+		}
 	}
 	obj.ops = []opfn{} // clear it
 	if engine, ok := obj.GraphAPI.(*Engine); ok {
@@ -379,6 +445,10 @@ func (obj *graphTxn) Reverse() error {
 	obj.ops = []opfn{} // clear
 
 	for _, op := range obj.rev { // copy in the rev stuff to commit!
+		// mark these as being not reversable (so skip them on reverse!)
+		if skipOp, ok := op.(opfnSkipRev); ok {
+			skipOp.SetSkip(true)
+		}
 		obj.ops = append(obj.ops, op)
 	}
 

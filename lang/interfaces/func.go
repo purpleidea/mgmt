@@ -290,6 +290,13 @@ type Txn interface {
 	// completed when Commit is run.
 	DeleteEdge(*FuncEdge) Txn
 
+	// AddReverse appends to the commit queue anything that was staged for
+	// reverse. This also removes those operations from the reverse queue as
+	// if you had called Erase. Of note, these operations will not get used
+	// on subsequent calls to Reverse or AddReverse if either are called.
+	// The operation will get completed when Commit is run.
+	AddReverse() Txn
+
 	// Commit runs the pending transaction.
 	Commit() error
 

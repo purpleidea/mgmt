@@ -601,6 +601,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	defer func() {
 		close(inputChan)
 		obj.init.Txn.Reverse()
+		//obj.init.Txn.AddReverse() // Add the Reverse ops to our upcoming Commit!
 		obj.init.Txn.DeleteVertex(subgraphInput)
 		obj.init.Txn.Commit()
 	}()
@@ -695,7 +696,8 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// }
 
 	// delete the old subgraph
-	obj.init.Txn.Reverse() // XXX: Reverse?
+	obj.init.Txn.Reverse()
+	//obj.init.Txn.AddReverse() // Add the Reverse ops to our upcoming Commit!
 
 	// create the new subgraph
 

@@ -276,6 +276,9 @@ func (obj *graphTxn) commit() error {
 		return nil
 	}
 
+	fmt.Printf("YYY YYY YYY COMMIT(%p) START (PRE-LOCK)\n", obj)
+	defer fmt.Printf("YYY YYY YYY COMMIT(%p) DONE\n", obj)
+
 	// TODO: Instead of requesting the below locks, it's conceivable that we
 	// could either write an engine that doesn't require pausing the graph
 	// with a lock, or one that doesn't in the specific case being changed
@@ -288,6 +291,9 @@ func (obj *graphTxn) commit() error {
 	// Now request the lock from the actual graph engine.
 	obj.Lock()
 	defer obj.Unlock()
+
+	fmt.Printf("YYY YYY YYY COMMIT(%p) LOCKED\n", obj)
+	defer fmt.Printf("YYY YYY YYY COMMIT(%p) UNLOCKED\n", obj)
 
 	// TODO: we don't need to do this anymore, because the engine does it!
 	// Copy the graph structure, perform the ops, check we didn't add a
@@ -305,6 +311,7 @@ func (obj *graphTxn) commit() error {
 	obj.rev = []opfn{} // clear it for safety
 	for _, op := range obj.ops {
 		if err := op.Fn(obj.GraphAPI); err != nil { // call it
+			fmt.Printf("TXN COMMIT FN ERROR: %+v\n", err)
 			// something went wrong (we made a cycle?)
 			// so we reverse everything that succeeded...
 			for i := len(obj.rev) - 1; i >= 0; i-- {

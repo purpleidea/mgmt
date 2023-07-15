@@ -111,11 +111,17 @@ func (obj *CallFunc) Init(init *interfaces.Init) error {
 func (obj *CallFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 
+	defer fmt.Printf("XXX XXX XXX CALLFUNC(%p) STREAM/REVERSE CLOSE\n", obj)
+
 	obj.outputChan = nil
 
 	defer func() {
 		obj.init.Txn.Reverse()
 	}()
+
+	defer fmt.Printf("XXX XXX XXX CALLFUNC(%p) REVERSE\n", obj)
+
+	fmt.Printf("XXX XXX XXX CALLFUNC(%p) STREAM\n", obj)
 
 	canReceiveMoreFuncValues := true
 	canReceiveMoreOutputValues := true
@@ -129,10 +135,13 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 		select {
 		case input, ok := <-obj.init.Input:
 			if !ok {
+				fmt.Printf("XXX XXX XXX CALLFUNC(%p) CLOSED INPUT\n", obj)
 				obj.init.Input = nil // block looping back here
 				canReceiveMoreFuncValues = false
 				continue
 			}
+
+			fmt.Printf("XXX XXX XXX CALLFUNC(%p) GOT INPUT: %+v\n", obj, input)
 
 			newFuncValue, ok := input.Struct()[obj.EdgeName].(*fancyfunc.FuncValue)
 			if !ok {
@@ -185,6 +194,14 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *fancyfunc.FuncValue) error {
 	//
 	//   outputFunc -> "subgraphOutput"
 	// }
+
+	fmt.Printf("ZZZ ZZZ ZZZ CALLFUNC(%p) REPLACE START\n", obj)
+	defer fmt.Printf("ZZZ ZZZ ZZZ CALLFUNC(%p) REPLACE CLOSE\n", obj)
+
+	// XXX: I think the bug is that this Reverse (which is a commit) happens, and then
+	// XXX: we race with another CallFunc->Stream->replaceSubGraph() which interleaves
+	// XXX: things with the second Commit down below... So can we combine both into one
+	// XXX: big transaction?
 
 	// delete the old subgraph
 	obj.init.Txn.Reverse()

@@ -204,7 +204,9 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *fancyfunc.FuncValue) error {
 	// XXX: big transaction?
 
 	// delete the old subgraph
+	fmt.Printf("ZZZ ZZZ ZZZ CALLFUNC(%p) BEFORE REVERSE\n", obj)
 	obj.init.Txn.Reverse()
+	fmt.Printf("ZZZ ZZZ ZZZ CALLFUNC(%p) AFTER REVERSE\n", obj)
 	//obj.init.Txn.AddReverse() // Add the Reverse ops to our upcoming Commit!
 
 	// create the new subgraph

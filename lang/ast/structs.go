@@ -7462,7 +7462,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		simpleFn := obj.Values[index]
 		simpleFn.T = obj.typ
 
-		funcValueFunc = simple.SimpleFnToConstFunc(simpleFn)
+		funcValueFunc = simple.SimpleFnToConstFunc(fmt.Sprintf("title: %s", obj.Title), simpleFn)
 	}
 
 	outerGraph, err := pgraph.NewGraph("ExprFunc")

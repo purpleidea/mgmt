@@ -722,17 +722,20 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		Ord:  ord,
 		Out:  obj.outputListType,
 	}
-	outputListFunc := simple.SimpleFnToDirectFunc(&types.SimpleFn{
-		V: func(args []types.Value) (types.Value, error) {
-			listValue := &types.ListValue{
-				V: args,
-				T: obj.outputListType,
-			}
+	outputListFunc := simple.SimpleFnToDirectFunc(
+		"mapOutputList",
+		&types.SimpleFn{
+			V: func(args []types.Value) (types.Value, error) {
+				listValue := &types.ListValue{
+					V: args,
+					T: obj.outputListType,
+				}
 
-			return listValue, nil
+				return listValue, nil
+			},
+			T: typ,
 		},
-		T: typ,
-	})
+	)
 
 	obj.init.Txn.AddVertex(outputListFunc)
 	obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
@@ -742,6 +745,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	for i := 0; i < obj.lastInputListLength; i++ {
 		i := i
 		inputElemFunc := simple.SimpleFnToDirectFunc(
+			fmt.Sprintf("mapInputElem[%d]", i),
 			&types.SimpleFn{
 				V: func(args []types.Value) (types.Value, error) {
 					if len(args) != 1 {

@@ -85,7 +85,7 @@ type WrappedFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *WrappedFunc) String() string {
-	return fmt.Sprintf("%s@%p", obj.Name, obj) // be more unique!
+	return fmt.Sprintf("%s @ %p", obj.Name, obj) // be more unique!
 }
 
 // ArgGen returns the Nth arg name for this function.
@@ -198,16 +198,17 @@ func FuncValueToConstFunc(obj *fancyfunc.FuncValue) interfaces.Func {
 	}
 }
 
-func SimpleFnToDirectFunc(obj *types.SimpleFn) interfaces.Func {
+func SimpleFnToDirectFunc(name string, obj *types.SimpleFn) interfaces.Func {
 	return &WrappedFunc{
-		Fn: obj,
+		Name: name,
+		Fn:   obj,
 	}
 }
 
-func SimpleFnToFuncValue(obj *types.SimpleFn) *fancyfunc.FuncValue {
+func SimpleFnToFuncValue(name string, obj *types.SimpleFn) *fancyfunc.FuncValue {
 	return &fancyfunc.FuncValue{
 		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-			wrappedFunc := SimpleFnToDirectFunc(obj)
+			wrappedFunc := SimpleFnToDirectFunc(name, obj)
 			txn.AddVertex(wrappedFunc)
 			for i, arg := range args {
 				argName := obj.T.Ord[i]
@@ -221,6 +222,6 @@ func SimpleFnToFuncValue(obj *types.SimpleFn) *fancyfunc.FuncValue {
 	}
 }
 
-func SimpleFnToConstFunc(obj *types.SimpleFn) interfaces.Func {
-	return FuncValueToConstFunc(SimpleFnToFuncValue(obj))
+func SimpleFnToConstFunc(name string, obj *types.SimpleFn) interfaces.Func {
+	return FuncValueToConstFunc(SimpleFnToFuncValue(name, obj))
 }

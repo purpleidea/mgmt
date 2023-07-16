@@ -450,6 +450,7 @@ func (obj *graphTxn) commit() error {
 	for _, op := range obj.ops {
 
 		if newFlagOp, ok := op.(opfnFlag); ok {
+			_ = newFlagOp
 			//fmt.Printf("000: flag: %+v\n", newFlagOp.Flag())
 		} else {
 			fmt.Printf("XXX: our opfnFlag implementation is broken 2: %+T\n", op)

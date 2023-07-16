@@ -695,6 +695,8 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//   "outputListFunc" -> "subgraphOutput"
 	// }
 
+	const channelBasedSinkFuncArgNameEdgeName = simple.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
+
 	// delete the old subgraph
 	obj.init.Txn.Reverse()
 	//obj.init.Txn.AddReverse() // Add the Reverse ops to our upcoming Commit!
@@ -703,9 +705,10 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	obj.outputChan = make(chan types.Value)
 	subgraphOutput := &simple.ChannelBasedSinkFunc{
-		Name: "subgraphOutput",
-		Chan: obj.outputChan,
-		Type: obj.outputListType,
+		Name:     "subgraphOutput",
+		EdgeName: channelBasedSinkFuncArgNameEdgeName,
+		Chan:     obj.outputChan,
+		Type:     obj.outputListType,
 	}
 	obj.init.Txn.AddVertex(subgraphOutput)
 
@@ -739,7 +742,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	obj.init.Txn.AddVertex(outputListFunc)
 	obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
-		Args: []string{simple.ChannelBasedSinkFuncArgName},
+		Args: []string{channelBasedSinkFuncArgNameEdgeName},
 	})
 
 	for i := 0; i < obj.lastInputListLength; i++ {

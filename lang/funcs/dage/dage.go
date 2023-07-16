@@ -575,7 +575,8 @@ func (obj *Engine) Run(ctx context.Context) error {
 	// We need to keep the main loop running until everyone else has shut
 	// down. When the top context closes, we wait for everyone to finish,
 	// and then we shut down this main context.
-	mainCtx, mainCancel := context.WithCancel(ctx) // wrap parent
+	//mainCtx, mainCancel := context.WithCancel(ctx) // wrap parent
+	mainCtx, mainCancel := context.WithCancel(context.Background()) // DON'T wrap parent, close on your own terms
 	defer mainCancel()
 
 	wg.Add(1)
@@ -588,6 +589,12 @@ func (obj *Engine) Run(ctx context.Context) error {
 		// XXX RENAME wgAg because of its use here
 		wgAg.Wait() // wait until all the routines have closed
 		mainCancel()
+	}()
+
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Printf("Recovered in FOR Run: %+v\n", err)
+		}
 	}()
 
 	// we start off "running", but we'll have an empty graph initially...

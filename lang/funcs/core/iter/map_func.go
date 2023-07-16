@@ -706,6 +706,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	obj.outputChan = make(chan types.Value)
 	subgraphOutput := &simple.ChannelBasedSinkFunc{
 		Name:     "subgraphOutput",
+		Target:   obj,
 		EdgeName: channelBasedSinkFuncArgNameEdgeName,
 		Chan:     obj.outputChan,
 		Type:     obj.outputListType,

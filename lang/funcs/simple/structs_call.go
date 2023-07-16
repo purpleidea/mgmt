@@ -221,6 +221,7 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *fancyfunc.FuncValue) error {
 	edgeName := ChannelBasedSinkFuncArgName
 	subgraphOutput := &ChannelBasedSinkFunc{
 		Name:     "subgraphOutput",
+		Target:   obj,
 		EdgeName: edgeName,
 		Chan:     obj.outputChan,
 		Type:     obj.Type,

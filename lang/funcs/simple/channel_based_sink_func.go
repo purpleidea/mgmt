@@ -34,6 +34,7 @@ const (
 type ChannelBasedSinkFunc struct {
 	Name     string
 	EdgeName string
+	Target   interfaces.Func // for drawing dashed edges in the Graphviz visualization
 
 	Chan chan types.Value
 	Type *types.Type

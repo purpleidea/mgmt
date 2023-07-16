@@ -24,20 +24,16 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
-)
-
-var (
-	// XXX: temp for debugging
-	xxxDebuggingGraphvizLock  = &sync.Mutex{}
-	xxxDebuggingGraphvizCount = int64(0)
 )
 
 // Engine implements a dag engine which lets us "run" a dag of functions, but
@@ -103,6 +99,18 @@ type Engine struct {
 
 	// statsMutex wraps access to the stats data.
 	statsMutex *sync.RWMutex
+
+	// graphvizMutex wraps access to the Graphviz method.
+	graphvizMutex *sync.Mutex
+
+	// graphvizCount keeps a running tally of how many graphs we've
+	// generated. This is useful for displaying a sequence (timeline) of
+	// graphs in a linear order.
+	graphvizCount int64
+
+	// graphvizDirectory stores the generated path for outputting graphviz
+	// files if one is not specified at runtime.
+	graphvizDirectory string
 }
 
 // Setup sets up the internal datastructures needed for this engine.
@@ -137,6 +145,8 @@ func (obj *Engine) Setup() error {
 		runningList: make(map[*state]struct{}),
 	}
 	obj.statsMutex = &sync.RWMutex{}
+
+	obj.graphvizMutex = &sync.Mutex{}
 	return nil
 }
 
@@ -820,7 +830,7 @@ func (obj *Engine) Run(ctx context.Context) error {
 		// Send new notifications in case any new edges are sending away
 		// to these... They might have already missed the notifications!
 		for k := range obj.resend { // resend TO these!
-			obj.Graphviz(false) // XXX DEBUG
+			//obj.Graphviz("") // XXX DEBUG
 			node, exists := obj.state[k]
 			if !exists {
 				continue
@@ -1100,22 +1110,64 @@ func (obj *Engine) Stats() string {
 	return obj.stats.String()
 }
 
-// Graphviz is a temporary method used for debugging.
-func (obj *Engine) Graphviz(lock bool) {
-	xxxDebuggingGraphvizLock.Lock()
-	defer xxxDebuggingGraphvizLock.Unlock()
+// Graphviz writes out the diagram of a graph to be used for visualization and
+// debugging. You must not modify the graph (eg: during Lock) when calling this
+// method.
+func (obj *Engine) Graphviz(dir string) error {
+	// XXX: would this deadlock if we added this?
+	//obj.graphMutex.Lock()         // XXX: should this be a RLock?
+	//defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?
 
-	if xxxDebuggingGraphvizCount == 0 {
-		xxxDebuggingGraphvizCount = time.Now().Unix()
+	obj.graphvizMutex.Lock()
+	defer obj.graphvizMutex.Unlock()
+
+	obj.graphvizCount++ // increment
+
+	if dir == "" {
+		dir = obj.graphvizDirectory
+	}
+	if dir == "" { // XXX: hack for ergonomics
+		d := time.Now().UnixMilli()
+		dir = fmt.Sprintf("/tmp/dage-graphviz-%s-%d/", obj.Name, d)
+		obj.graphvizDirectory = dir
+	}
+	if !strings.HasSuffix(dir, "/") {
+		return fmt.Errorf("dir must end with a slash")
 	}
 
-	d := time.Now().UnixMilli()
-	if err := os.MkdirAll(fmt.Sprintf("/tmp/engine-graphviz-%d/", xxxDebuggingGraphvizCount), 0755); err != nil {
-		panic(err)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
 	}
-	if err := obj.graph.ExecGraphviz("dot", fmt.Sprintf("/tmp/engine-graphviz-%d/%d.dot", xxxDebuggingGraphvizCount, d), ""); err != nil {
-		panic("no graphviz")
+
+	dashedEdges, err := pgraph.NewGraph("dashedEdges")
+	if err != nil {
+		return err
 	}
+	for _, v1 := range obj.graph.Vertices() {
+		// if it's a ChannelBasedSinkFunc...
+		if cb, ok := v1.(*simple.ChannelBasedSinkFunc); ok {
+			// ...then add a dashed edge to its input
+			dashedEdges.AddEdge(v1, cb.Target, &pgraph.SimpleEdge{
+				Name: "channel", // secret channel
+			})
+		}
+	}
+
+	gv := &pgraph.Graphviz{
+		Name:     obj.graph.GetName(),
+		Filename: fmt.Sprintf("%s/%d.dot", dir, obj.graphvizCount),
+		Graphs: map[*pgraph.Graph]*pgraph.GraphvizOpts{
+			obj.graph: nil,
+			dashedEdges: {
+				Style: "dashed",
+			},
+		},
+	}
+
+	if err := gv.Exec(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // state tracks some internal vertex-specific state information.

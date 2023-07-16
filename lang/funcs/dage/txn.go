@@ -480,9 +480,18 @@ func (obj *graphTxn) commit() error {
 	obj.ops = []opfn{} // clear it
 	if engine, ok := obj.GraphAPI.(*Engine); ok {
 		d := time.Now().Unix()
-		if err := engine.graph.ExecGraphviz("dot", fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d), ""); err != nil {
+		if err := engine.graph.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
 			panic("no graphviz")
 		}
+		//gv := &pgraph.Graphviz{
+		//	Filename: fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d),
+		//	Graphs: map[*pgraph.Graph]*pgraph.GraphvizOpts{
+		//		engine.graph: nil,
+		//	},
+		//}
+		//if err := gv.Exec(); err != nil {
+		//	panic("no graphviz")
+		//}
 	}
 	return nil
 }

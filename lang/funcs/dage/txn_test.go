@@ -390,7 +390,7 @@ func TestTxnTable(t *testing.T) {
 				// debug
 				//func(g *pgraph.Graph, txn interfaces.Txn) error {
 				//	fileName := "/tmp/graphviz-txn1.dot"
-				//	if err := g.ExecGraphviz("dot", fileName, ""); err != nil {
+				//	if err := g.ExecGraphviz(fileName); err != nil {
 				//		return fmt.Errorf("writing graph failed at: %s, err: %+v", fileName, err)
 				//	}
 				//	return nil
@@ -401,7 +401,7 @@ func TestTxnTable(t *testing.T) {
 				// debug
 				//func(g *pgraph.Graph, txn interfaces.Txn) error {
 				//	fileName := "/tmp/graphviz-txn2.dot"
-				//	if err := g.ExecGraphviz("dot", fileName, ""); err != nil {
+				//	if err := g.ExecGraphviz(fileName); err != nil {
 				//		return fmt.Errorf("writing graph failed at: %s, err: %+v", fileName, err)
 				//	}
 				//	return nil

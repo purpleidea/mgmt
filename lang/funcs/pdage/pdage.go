@@ -1051,7 +1051,7 @@ func (obj *Engine) Graphviz(lock bool) {
 	if err := os.MkdirAll(fmt.Sprintf("/tmp/engine-graphviz-%d/", xxxDebuggingGraphvizCount), 0755); err != nil {
 		panic(err)
 	}
-	if err := obj.graph.ExecGraphviz("dot", fmt.Sprintf("/tmp/engine-graphviz-%d/%d.dot", xxxDebuggingGraphvizCount, d), ""); err != nil {
+	if err := obj.graph.ExecGraphviz(fmt.Sprintf("/tmp/engine-graphviz-%d/%d.dot", xxxDebuggingGraphvizCount, d)); err != nil {
 		panic("no graphviz")
 	}
 }

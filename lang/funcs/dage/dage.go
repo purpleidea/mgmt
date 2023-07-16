@@ -614,7 +614,7 @@ func (obj *Engine) Run(ctx context.Context) error {
 			// XXX: maybe break this out into a goroutine?
 			// process the graph once
 			obj.Logf("process...")
-			//time.Sleep(100 * time.Millisecond) // XXX for now
+			time.Sleep(100 * time.Millisecond) // XXX for now
 			if err := obj.process(mainCtx); err != nil {
 				// XXX: check for context.Canceled and context.DeadlineExceeded ?
 				return err

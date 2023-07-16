@@ -65,16 +65,15 @@ type Engine struct {
 	// error has occurred, it will set that error property.
 	Callback func(context.Context, error)
 
-	graph *pgraph.Graph
+	graph *pgraph.Graph                   // guarded by graphMutex
 	table map[interfaces.Func]types.Value // guarded by tableMutex
 	state map[interfaces.Func]*state
 
+	// graphMutex wraps access to the table map.
+	graphMutex *sync.Mutex // TODO: &sync.RWMutex{} ?
+
 	// tableMutex wraps access to the table map.
 	tableMutex *sync.RWMutex
-
-	// mutex wraps any internal operation so that this engine is
-	// thread-safe. It especially guards access to the graph.
-	mutex *sync.Mutex
 
 	// rwmutex wraps any read or write access to the graph or state fields.
 	rwmutex *sync.RWMutex
@@ -100,7 +99,7 @@ type Engine struct {
 	wakeChan chan struct{}
 
 	// stats holds some statistics and other debugging information.
-	stats *stats
+	stats *stats // guarded by statsMutex
 
 	// statsMutex wraps access to the stats data.
 	statsMutex *sync.RWMutex
@@ -115,8 +114,9 @@ func (obj *Engine) Setup() error {
 	}
 	obj.table = make(map[interfaces.Func]types.Value)
 	obj.state = make(map[interfaces.Func]*state)
+	obj.graphMutex = &sync.Mutex{} // TODO: &sync.RWMutex{} ?
 	obj.tableMutex = &sync.RWMutex{}
-	obj.mutex = &sync.Mutex{}
+
 	obj.rwmutex = &sync.RWMutex{}
 	obj.wg = &sync.WaitGroup{}
 
@@ -233,8 +233,8 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 // AddVertex is the thread-safe way to add a vertex. You will need to call the
 // engine Lock method before using this and the Unlock method afterwards.
 func (obj *Engine) AddVertex(f interfaces.Func) error {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()
+	defer obj.graphMutex.Unlock()
 
 	return obj.addVertex(f) // lockless version
 }
@@ -245,8 +245,8 @@ func (obj *Engine) AddVertex(f interfaces.Func) error {
 // already part of the graph. You should only create DAG's as this function
 // engine cannot handle cycles and this method will error if you cause a cycle.
 func (obj *Engine) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) error {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()
+	defer obj.graphMutex.Unlock()
 
 	// safety check to avoid cycles
 	g := obj.graph.Copy()
@@ -320,8 +320,8 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 // DeleteVertex is the thread-safe way to delete a vertex. You will need to call
 // the engine Lock method before using this and the Unlock method afterwards.
 func (obj *Engine) DeleteVertex(f interfaces.Func) error {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()
+	defer obj.graphMutex.Unlock()
 
 	return obj.deleteVertex(f) // lockless version
 }
@@ -329,8 +329,8 @@ func (obj *Engine) DeleteVertex(f interfaces.Func) error {
 // DeleteEdge is the thread-safe way to delete an edge. You will need to call
 // the engine Lock method before using this and the Unlock method afterwards.
 func (obj *Engine) DeleteEdge(e *interfaces.FuncEdge) error {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()
+	defer obj.graphMutex.Unlock()
 
 	// Don't bother checking if edge exists first and don't error if it
 	// doesn't because it might have gotten deleted when a vertex did, and
@@ -345,8 +345,8 @@ func (obj *Engine) DeleteEdge(e *interfaces.FuncEdge) error {
 // will automatically run AddVertex and AddEdge on the graph vertices and edges
 // if they are not already part of the graph.
 func (obj *Engine) AddGraph(graph *pgraph.Graph) error {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()
+	defer obj.graphMutex.Unlock()
 
 	var err error
 	status := make(map[interfaces.Func]struct{})
@@ -410,8 +410,8 @@ Loop:
 // You will need to call the engine Lock method before using this and the Unlock
 // method afterwards.
 func (obj *Engine) HasVertex(f interfaces.Func) bool {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()         // XXX: should this be a RLock?
+	defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?
 
 	return obj.graph.HasVertex(f)
 }
@@ -420,8 +420,8 @@ func (obj *Engine) HasVertex(f interfaces.Func) bool {
 // between an edge in the graph. You will need to call the engine Lock method
 // before using this and the Unlock method afterwards.
 func (obj *Engine) LookupEdge(fe *interfaces.FuncEdge) (interfaces.Func, interfaces.Func, bool) {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()         // XXX: should this be a RLock?
+	defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?
 
 	v1, v2, found := obj.graph.LookupEdge(fe)
 	if !found {
@@ -453,7 +453,7 @@ func (obj *Engine) Lock() { // pause
 	case <-obj.pausedChan:
 	}
 	// this mutex locks at start of Run() and unlocks at finish of Run()
-	obj.mutex.Unlock() // safe to make changes now
+	obj.graphMutex.Unlock() // safe to make changes now
 }
 
 // Unlock must be used after modifying the running graph. Make sure to Lock
@@ -461,7 +461,7 @@ func (obj *Engine) Lock() { // pause
 // XXX: should Unlock take a context if we want to bail mid-way?
 func (obj *Engine) Unlock() { // resume
 	// this mutex locks at start of Run() and unlocks at finish of Run()
-	obj.mutex.Lock() // no more changes are allowed
+	obj.graphMutex.Lock() // no more changes are allowed
 	select {
 	case obj.resumeChan <- struct{}{}:
 	}
@@ -482,8 +482,8 @@ func (obj *Engine) Unlock() { // resume
 // with the cancellation of this Run main loop. Make sure to only call one at a
 // time.
 func (obj *Engine) Run(ctx context.Context) error {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
+	obj.graphMutex.Lock()
+	defer obj.graphMutex.Unlock()
 
 	// XXX: can the above defer get called while we are already unlocked?
 	// XXX: is it a possibility if we use <-Started() ?

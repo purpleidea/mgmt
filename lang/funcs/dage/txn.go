@@ -207,8 +207,6 @@ func (obj *opDeleteVertex) Rev(g interfaces.GraphAPI) error {
 }
 
 func (obj *opDeleteVertex) String() string {
-panic("delete vertex")
-
 	return fmt.Sprintf("DeleteVertex: %+v", obj.F)
 }
 
@@ -476,6 +474,7 @@ func (obj *graphTxn) commit() error {
 		op = RevOp(op) // reverse the op!
 		if op != nil {
 			obj.rev = append(obj.rev, op) // add the reverse op
+			//obj.rev = append([]opfn{op}, obj.rev...) // add to front
 		}
 	}
 	obj.ops = []opfn{} // clear it
@@ -528,7 +527,9 @@ func (obj *graphTxn) Reverse() error {
 	}
 	obj.ops = []opfn{} // clear
 
-	for _, op := range obj.rev { // copy in the rev stuff to commit!
+	//for _, op := range obj.rev
+	for i := len(obj.rev) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
+		op := obj.rev[i]
 		// mark these as being not reversable (so skip them on reverse!)
 		if skipOp, ok := op.(opfnSkipRev); ok {
 			skipOp.SetSkip(true)
@@ -544,7 +545,9 @@ func (obj *graphTxn) Reverse() error {
 
 	rollback := func() {
 		//for _, op := range rev { // from our safer copy
-		for _, op := range obj.ops { // copy back out the rev stuff
+		//for _, op := range obj.ops { // copy back out the rev stuff
+		for i := len(obj.ops) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
+			op := obj.rev[i]
 			obj.rev = append(obj.rev, op)
 		}
 		obj.ops = []opfn{}       // clear

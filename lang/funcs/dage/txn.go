@@ -52,23 +52,48 @@ type opfnSkipRev interface {
 	SetSkip(bool)
 }
 
+type opfnFlag interface {
+	opfn
+
+	// Flag reads some misc data.
+	Flag() interface{}
+
+	// SetFlag sets some misc data.
+	SetFlag(interface{})
+}
+
 // RevOp returns the reversed op from an op by packing or unpacking it.
 func RevOp(op opfn) opfn {
 	if skipOp, ok := op.(opfnSkipRev); ok && skipOp.Skip() {
 		return nil // skip
 	}
 
+	// XXX: is the reverse of a reverse just undoing it? maybe not but might not matter for us
 	if newOp, ok := op.(*opRev); ok {
+
+		if newFlagOp, ok := op.(opfnFlag); ok {
+			newFlagOp.SetFlag("does this rev of rev even happen?")
+		} else {
+			fmt.Printf("XXX: our opfnFlag implementation is broken: %+T\n", op)
+			panic("our opfnFlag implementation is broken")
+		}
+
 		return newOp.Op // unpack it
 	}
 
-	return &opRev{Op: op} // pack it
+	return &opRev{
+		Op: op,
+
+		opFlag: &opFlag{},
+	} // pack it
 }
 
 // opRev switches the Fn and Rev methods by wrapping the contained op in each
 // other.
 type opRev struct {
 	Op opfn
+
+	*opFlag
 }
 
 func (obj *opRev) Fn(g interfaces.GraphAPI) error {
@@ -78,6 +103,10 @@ func (obj *opRev) Fn(g interfaces.GraphAPI) error {
 func (obj *opRev) Rev(g interfaces.GraphAPI) error {
 	return obj.Op.Fn(g)
 }
+
+//func (obj *opRev) String() string {
+//	return obj.Op.String()
+//}
 
 type opSkip struct {
 	skip bool
@@ -91,10 +120,23 @@ func (obj *opSkip) SetSkip(skip bool) {
 	obj.skip = skip
 }
 
+type opFlag struct {
+	flag interface{}
+}
+
+func (obj *opFlag) Flag() interface{} {
+	return obj.flag
+}
+
+func (obj *opFlag) SetFlag(flag interface{}) {
+	obj.flag = flag
+}
+
 type opAddVertex struct {
 	F interfaces.Func
 
 	*opSkip
+	*opFlag
 }
 
 func (obj *opAddVertex) Fn(g interfaces.GraphAPI) error {
@@ -103,6 +145,10 @@ func (obj *opAddVertex) Fn(g interfaces.GraphAPI) error {
 
 func (obj *opAddVertex) Rev(g interfaces.GraphAPI) error {
 	return g.DeleteVertex(obj.F)
+}
+
+func (obj *opAddVertex) String() string {
+	return fmt.Sprintf("AddVertex: %+v", obj.F)
 }
 
 type opAddEdge struct {
@@ -114,6 +160,7 @@ type opAddEdge struct {
 	has2 bool
 
 	*opSkip
+	*opFlag
 }
 
 func (obj *opAddEdge) Fn(g interfaces.GraphAPI) error {
@@ -140,10 +187,15 @@ func (obj *opAddEdge) Rev(g interfaces.GraphAPI) error {
 	return err
 }
 
+func (obj *opAddEdge) String() string {
+	return fmt.Sprintf("AddEdge: %+v -> %+v (%+v)", obj.F1, obj.F2, obj.FE)
+}
+
 type opDeleteVertex struct {
 	F interfaces.Func
 
 	*opSkip
+	*opFlag
 }
 
 func (obj *opDeleteVertex) Fn(g interfaces.GraphAPI) error {
@@ -154,6 +206,12 @@ func (obj *opDeleteVertex) Rev(g interfaces.GraphAPI) error {
 	return g.AddVertex(obj.F)
 }
 
+func (obj *opDeleteVertex) String() string {
+panic("delete vertex")
+
+	return fmt.Sprintf("DeleteVertex: %+v", obj.F)
+}
+
 type opDeleteEdge struct {
 	FE *interfaces.FuncEdge
 
@@ -162,6 +220,7 @@ type opDeleteEdge struct {
 	found bool
 
 	*opSkip
+	*opFlag
 }
 
 func (obj *opDeleteEdge) Fn(g interfaces.GraphAPI) error {
@@ -186,6 +245,10 @@ func (obj *opDeleteEdge) Rev(g interfaces.GraphAPI) error {
 
 	// if we reverse, we add back the original edge that we had found
 	return g.AddEdge(obj.f1, obj.f2, obj.FE)
+}
+
+func (obj *opDeleteEdge) String() string {
+	return fmt.Sprintf("DeleteEdge: %+v -> %+v (%+v)", obj.f1, obj.f2, obj.FE)
 }
 
 // graphTxn holds the state of a transaction and runs it when needed. When this
@@ -247,6 +310,7 @@ func (obj *graphTxn) AddVertex(f interfaces.Func) interfaces.Txn {
 		F: f,
 
 		opSkip: &opSkip{},
+		opFlag: &opFlag{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -267,6 +331,7 @@ func (obj *graphTxn) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) in
 		FE: fe,
 
 		opSkip: &opSkip{},
+		opFlag: &opFlag{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -288,6 +353,7 @@ func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 		F: f,
 
 		opSkip: &opSkip{},
+		opFlag: &opFlag{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -305,6 +371,7 @@ func (obj *graphTxn) DeleteEdge(fe *interfaces.FuncEdge) interfaces.Txn {
 		FE: fe,
 
 		opSkip: &opSkip{},
+		opFlag: &opFlag{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -343,6 +410,13 @@ func (obj *graphTxn) commit() error {
 	fmt.Printf("YYY YYY YYY COMMIT(%p) START (PRE-LOCK)\n", obj)
 	defer fmt.Printf("YYY YYY YYY COMMIT(%p) DONE\n", obj)
 
+	// XXX: FYI these aren't showing the reverse...
+	//fmt.Printf("000: commit: >>>>>>\n")
+	//for i, op := range obj.ops {
+	//	fmt.Printf("000: op(%d): %v\n", i, op)
+	//}
+	//fmt.Printf("000: commit: <<<<<<\n")
+
 	// TODO: Instead of requesting the below locks, it's conceivable that we
 	// could either write an engine that doesn't require pausing the graph
 	// with a lock, or one that doesn't in the specific case being changed
@@ -374,7 +448,16 @@ func (obj *graphTxn) commit() error {
 	// Now do it for real...
 	obj.rev = []opfn{} // clear it for safety
 	for _, op := range obj.ops {
+
+		if newFlagOp, ok := op.(opfnFlag); ok {
+			//fmt.Printf("000: flag: %+v\n", newFlagOp.Flag())
+		} else {
+			fmt.Printf("XXX: our opfnFlag implementation is broken 2: %+T\n", op)
+			panic("our opfnFlag implementation is broken 2")
+		}
+
 		if err := op.Fn(obj.GraphAPI); err != nil { // call it
+			fmt.Printf("TXN COMMIT OP WAS: %+v\n", op)
 			fmt.Printf("TXN COMMIT FN ERROR: %+v\n", err)
 			// something went wrong (we made a cycle?)
 			// so we reverse everything that succeeded...

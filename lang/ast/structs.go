@@ -7398,25 +7398,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
 				}
 
-				//innerTxn.AddGraph(subgraph) // TODO
-				for v1, x := range subgraph.Adjacency() {
-					f1, ok := v1.(interfaces.Func)
-					if !ok {
-						panic("not a Func")
-					}
-					innerTxn.AddVertex(f1)
-					for v2, edge := range x {
-						f2, ok := v2.(interfaces.Func)
-						if !ok {
-							panic("not a Func")
-						}
-						fe, ok := edge.(*interfaces.FuncEdge)
-						if !ok {
-							panic("not a FuncEdge")
-						}
-						innerTxn.AddEdge(f1, f2, fe)
-					}
-				}
+				interfaces.AddGraphToTxn(innerTxn, subgraph)
 
 				return bodyFunc, nil
 			},

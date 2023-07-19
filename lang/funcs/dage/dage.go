@@ -747,7 +747,18 @@ func (obj *Engine) Run(ctx context.Context) error {
 					obj.stats.runningList[node] = struct{}{}
 					obj.statsMutex.Unlock()
 				}
-				runErr := f.Stream(node.ctx)
+
+				fn := func(nodeCtx context.Context) (reterr error) {
+					defer func() {
+						// catch programming errors
+						if r := recover(); r != nil {
+							obj.Logf("Panic in func `%s`: %+v", node, r)
+							reterr = fmt.Errorf("panic in func `%s`: %+v", node, r)
+						}
+					}()
+					return f.Stream(nodeCtx)
+				}
+				runErr := fn(node.ctx) // wrap with recover()
 				if obj.Debug {
 					obj.Logf("Exiting func `%s`", node)
 					obj.statsMutex.Lock()

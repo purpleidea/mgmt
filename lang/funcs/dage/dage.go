@@ -244,8 +244,10 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 // engine Lock method before using this and the Unlock method afterwards.
 func (obj *Engine) AddVertex(f interfaces.Func) error {
 	obj.graphMutex.Lock()
-	fmt.Printf("AddVertex: %p %s\n", f, f)
 	defer obj.graphMutex.Unlock()
+	if obj.Debug {
+		obj.Logf("Engine:AddVertex: %p %s", f, f)
+	}
 
 	return obj.addVertex(f) // lockless version
 }
@@ -257,8 +259,10 @@ func (obj *Engine) AddVertex(f interfaces.Func) error {
 // engine cannot handle cycles and this method will error if you cause a cycle.
 func (obj *Engine) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) error {
 	obj.graphMutex.Lock()
-	fmt.Printf("AddEdge %p %s: %p %s -> %p %s\n", fe, fe, f1, f1, f2, f2)
 	defer obj.graphMutex.Unlock()
+	if obj.Debug {
+		obj.Logf("Engine:AddEdge %p %s: %p %s -> %p %s", fe, fe, f1, f1, f2, f2)
+	}
 
 	// safety check to avoid cycles
 	g := obj.graph.Copy()
@@ -308,7 +312,7 @@ func (obj *Engine) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) erro
 func (obj *Engine) deleteVertex(f interfaces.Func) error {
 	node, exists := obj.state[f]
 	if !exists {
-		return fmt.Errorf("vertex %p %s doesn't exist", f, f) // XXX WE HIT THIS SOMETIMES WITH TXN...
+		return fmt.Errorf("vertex %p %s doesn't exist", f, f)
 	}
 
 	if node.running {
@@ -333,8 +337,10 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 // the engine Lock method before using this and the Unlock method afterwards.
 func (obj *Engine) DeleteVertex(f interfaces.Func) error {
 	obj.graphMutex.Lock()
-	fmt.Printf("DeleteVertex: %p %s\n", f, f)
 	defer obj.graphMutex.Unlock()
+	if obj.Debug {
+		obj.Logf("Engine:DeleteVertex: %p %s", f, f)
+	}
 
 	return obj.deleteVertex(f) // lockless version
 }
@@ -343,13 +349,15 @@ func (obj *Engine) DeleteVertex(f interfaces.Func) error {
 // the engine Lock method before using this and the Unlock method afterwards.
 func (obj *Engine) DeleteEdge(e *interfaces.FuncEdge) error {
 	obj.graphMutex.Lock()
-	f1, f2, found := obj.graph.LookupEdge(e)
-	if found {
-		fmt.Printf("DeleteEdge: %p %s -> %p %s\n", f1, f1, f2, f2)
-	} else {
-		fmt.Printf("DeleteEdge: not found %p %s\n", e, e)
-	}
 	defer obj.graphMutex.Unlock()
+	if obj.Debug {
+		f1, f2, found := obj.graph.LookupEdge(e)
+		if found {
+			obj.Logf("Engine:DeleteEdge: %p %s -> %p %s", f1, f1, f2, f2)
+		} else {
+			obj.Logf("Engine:DeleteEdge: not found %p %s", e, e)
+		}
+	}
 
 	// Don't bother checking if edge exists first and don't error if it
 	// doesn't because it might have gotten deleted when a vertex did, and

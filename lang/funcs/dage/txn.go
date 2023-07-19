@@ -73,9 +73,6 @@ func RevOp(op opfn) opfn {
 
 		if newFlagOp, ok := op.(opfnFlag); ok {
 			newFlagOp.SetFlag("does this rev of rev even happen?")
-		} else {
-			fmt.Printf("XXX: our opfnFlag implementation is broken: %+T\n", op)
-			panic("our opfnFlag implementation is broken")
 		}
 
 		return newOp.Op // unpack it
@@ -408,13 +405,6 @@ func (obj *graphTxn) commit() error {
 	fmt.Printf("YYY YYY YYY COMMIT(%p) START (PRE-LOCK)\n", obj)
 	defer fmt.Printf("YYY YYY YYY COMMIT(%p) DONE\n", obj)
 
-	// XXX: FYI these aren't showing the reverse...
-	//fmt.Printf("000: commit: >>>>>>\n")
-	//for i, op := range obj.ops {
-	//	fmt.Printf("000: op(%d): %v\n", i, op)
-	//}
-	//fmt.Printf("000: commit: <<<<<<\n")
-
 	// TODO: Instead of requesting the below locks, it's conceivable that we
 	// could either write an engine that doesn't require pausing the graph
 	// with a lock, or one that doesn't in the specific case being changed
@@ -446,18 +436,7 @@ func (obj *graphTxn) commit() error {
 	// Now do it for real...
 	obj.rev = []opfn{} // clear it for safety
 	for _, op := range obj.ops {
-
-		if newFlagOp, ok := op.(opfnFlag); ok {
-			_ = newFlagOp
-			//fmt.Printf("000: flag: %+v\n", newFlagOp.Flag())
-		} else {
-			fmt.Printf("XXX: our opfnFlag implementation is broken 2: %+T\n", op)
-			panic("our opfnFlag implementation is broken 2")
-		}
-
 		if err := op.Fn(obj.GraphAPI); err != nil { // call it
-			fmt.Printf("TXN COMMIT OP WAS: %+v\n", op)
-			fmt.Printf("TXN COMMIT FN ERROR: %+v\n", err)
 			// something went wrong (we made a cycle?)
 			// so we reverse everything that succeeded...
 			for i := len(obj.rev) - 1; i >= 0; i-- {

@@ -22,7 +22,6 @@ package dage
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -458,10 +457,14 @@ func (obj *graphTxn) commit() error {
 	}
 	obj.ops = []opfn{} // clear it
 	if engine, ok := obj.GraphAPI.(*Engine); ok {
-		d := time.Now().Unix()
-		if err := engine.graph.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
-			panic("no graphviz")
+		//d := time.Now().Unix()
+		//if err := engine.graph.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
+		//	panic("no graphviz")
+		//}
+		if err := engine.Graphviz(""); err != nil {
+			panic(err) // XXX
 		}
+
 		//gv := &pgraph.Graphviz{
 		//	Filename: fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d),
 		//	Graphs: map[*pgraph.Graph]*pgraph.GraphvizOpts{

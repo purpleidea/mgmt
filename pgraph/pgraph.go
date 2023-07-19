@@ -347,7 +347,14 @@ func (vs VertexSlice) Len() int { return len(vs) }
 func (vs VertexSlice) Swap(i, j int) { vs[i], vs[j] = vs[j], vs[i] }
 
 // Less returns the smaller element in the sort order.
-func (vs VertexSlice) Less(i, j int) bool { return vs[i].String() < vs[j].String() }
+func (vs VertexSlice) Less(i, j int) bool {
+	a := vs[i].String()
+	b := vs[j].String()
+	if a == b { // fallback to ptr compare
+		return fmt.Sprintf("%p", vs[i]) < fmt.Sprintf("%p", vs[j])
+	}
+	return a < b
+}
 
 // Sort is a convenience method.
 func (vs VertexSlice) Sort() { sort.Sort(vs) }

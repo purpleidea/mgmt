@@ -148,6 +148,12 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 				return fmt.Errorf("programming error, can't convert to *FuncValue")
 			}
 
+			// It's important to have this compare step to avoid
+			// redundant graph replacements which slow things down,
+			// but also cause the engine to lock, which can preempt
+			// the process scheduler, which can cause duplicate or
+			// unnecessary re-sending of values here, which causes
+			// the whole process to repeat ad-nauseum.
 			if newFuncValue == obj.lastFuncValue {
 				continue
 			}

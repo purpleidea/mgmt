@@ -601,7 +601,6 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	defer func() {
 		close(inputChan)
 		obj.init.Txn.Reverse()
-		//obj.init.Txn.AddReverse() // Add the Reverse ops to our upcoming Commit!
 		obj.init.Txn.DeleteVertex(subgraphInput)
 		obj.init.Txn.Commit()
 	}()
@@ -632,9 +631,17 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 
 			newInputList := input.Struct()[mapArgNameInputs]
 
-			// If we have a new function or the length of the input list has
-			// changed, then we need to replace the subgraph with a new one
-			// that uses the new function the correct number of times.
+			// If we have a new function or the length of the input
+			// list has changed, then we need to replace the
+			// subgraph with a new one that uses the new function
+			// the correct number of times.
+
+			// It's important to have this compare step to avoid
+			// redundant graph replacements which slow things down,
+			// but also cause the engine to lock, which can preempt
+			// the process scheduler, which can cause duplicate or
+			// unnecessary re-sending of values here, which causes
+			// the whole process to repeat ad-nauseum.
 			n := len(newInputList.List())
 			if newFuncValue != obj.lastFuncValue || n != obj.lastInputListLength {
 				obj.lastFuncValue = newFuncValue
@@ -699,7 +706,6 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	// delete the old subgraph
 	obj.init.Txn.Reverse()
-	//obj.init.Txn.AddReverse() // Add the Reverse ops to our upcoming Commit!
 
 	// create the new subgraph
 

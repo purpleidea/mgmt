@@ -468,6 +468,7 @@ func (obj *Engine) LookupEdge(fe *interfaces.FuncEdge) (interfaces.Func, interfa
 // Lock must be used before modifying the running graph. Make sure to Unlock
 // when done.
 // XXX: should Lock take a context if we want to bail mid-way?
+// TODO: could we replace pauseChan with SubscribedSignal ?
 func (obj *Engine) Lock() { // pause
 	obj.rwmutex.Lock() // TODO: or should it go right after pauseChan?
 	select {
@@ -501,429 +502,42 @@ func (obj *Engine) Unlock() { // resume
 	obj.rwmutex.Unlock() // TODO: or should it go right before resumedChan?
 }
 
-// Run kicks off the main engine. This takes a mutex. When we're "paused" the
-// mutex is temporarily released until we "resume". Those operations transition
-// with the engine Lock and Unlock methods. It is recommended to only add
-// vertices to the engine after it's running. If you add them before Run, then
-// Run will cause a Lock/Unlock to occur to cycle them in. Lock and Unlock race
-// with the cancellation of this Run main loop. Make sure to only call one at a
-// time.
-func (obj *Engine) Run(ctx context.Context) error {
-	obj.graphMutex.Lock()
-	defer obj.graphMutex.Unlock()
-
-	// XXX: can the above defer get called while we are already unlocked?
-	// XXX: is it a possibility if we use <-Started() ?
-
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Printf("Recovered in Run: %+v\n", err)
-		}
-	}()
-
-	ctx, cancel := context.WithCancel(ctx) // wrap parent
-	defer cancel()
-
-	// Add a wait before the "started" signal runs so that Cleanup waits.
-	obj.wg.Add(1)
-	defer obj.wg.Done()
-
-	// Send the start signal.
-	close(obj.startedChan)
-
-	if n := obj.graph.NumVertices(); n > 0 { // hack to make the api easier
-		obj.Logf("graph contained %d vertices before Run", n)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// kick the engine once to pull in any vertices from
-			// before we started running!
-			defer obj.Unlock()
-			obj.Lock()
-		}()
-	}
-
-	// Aggregation channel and wait group.
-	ag := make(chan error)
-	wgAg := &sync.WaitGroup{}
-
-	// close the aggregate channel when everyone is done with it...
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		select {
-		case <-ctx.Done():
-		}
-		// don't wait and close ag before we're really done with Run()
-		wgAg.Wait() // wait for last ag user to close
-		close(ag)   // last one closes the ag channel
-	}()
-
-	// aggregate events channel
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer close(obj.streamChan)
-		for {
-			var err error
-			var ok bool
-			select {
-			case err, ok = <-ag: // aggregated channel
-				if !ok {
-					return // channel shutdown
-				}
-			}
-
-			// XXX: check obj.loaded first?
-
-			// now send event...
-			if obj.Callback != nil {
-				// send stream signal (callback variant)
-				obj.Callback(ctx, err)
-			} else {
-				// send stream signal
-				select {
-				// send events or errors on streamChan
-				case obj.streamChan <- err: // send
-				case <-ctx.Done(): // when asked to exit
-					return
-				}
-			}
-			if err != nil {
-				cancel() // cancel the context!
-				return
-			}
-		}
-	}()
-
-	// We need to keep the main loop running until everyone else has shut
-	// down. When the top context closes, we wait for everyone to finish,
-	// and then we shut down this main context.
-	//mainCtx, mainCancel := context.WithCancel(ctx) // wrap parent
-	mainCtx, mainCancel := context.WithCancel(context.Background()) // DON'T wrap parent, close on your own terms
-	defer mainCancel()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		select {
-		case <-ctx.Done():
-		}
-
-		// XXX RENAME wgAg because of its use here
-		wgAg.Wait() // wait until all the routines have closed
-		mainCancel()
-	}()
-
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Printf("Recovered in FOR Run: %+v\n", err)
-		}
-	}()
-
-	// we start off "running", but we'll have an empty graph initially...
-	for {
-
-		// After we've resumed, we can try to exit.
-		select {
-		case <-mainCtx.Done(): // when asked to exit
-			return nil // we exit happily
-		default:
-		}
-
-		// run through our graph, check for pause request occasionally
-		for {
-
-			// XXX: how would I get to pauseChan section without this?
-			// XXX: we could replace pauseChan with SubscribedSignal ?
-			//select {
-			//case <-obj.wakeChan: // wait until something has actually woken up...
-			//case <-mainCtx.Done():
-			//	return nil
-			//}
-
-			// XXX: maybe break this out into a goroutine?
-			// process the graph once
-			obj.Logf("process...")
-			time.Sleep(100 * time.Millisecond) // XXX for now
-			if err := obj.process(mainCtx); err != nil {
-				// XXX: check for context.Canceled and context.DeadlineExceeded ?
-				return err
-			}
-			obj.Logf("process end...") // XXX
-
-			// wait until paused/locked request comes in...
-			var ok bool
-			select {
-			case _, ok = <-obj.pauseChan:
-				obj.Logf("pausing...")
-				break // break select (named loop break is ugly)
-
-			case <-mainCtx.Done(): // when asked to exit
-				return nil // we exit happily
-
-			default:
-				continue
-			}
-			if ok {
-				break
-			}
-		}
-
-		// Toposort for paused workers. We run this before the actual
-		// pause completes, because the second we are paused, the graph
-		// could then immediately change. We don't need a lock in here
-		// because the mutex only unlocks when pause is complete below.
-		topoSort1, err := obj.graph.TopologicalSort()
-		if err != nil {
-			return err
-		}
-		for _, v := range topoSort1 {
-			// XXX API
-			//v.Pause?()
-			//obj.state[vertex].whatever
-			_ = v // XXX
-		}
-
-		// pause is complete
-		// no exit case from here, must be fully running or paused...
-		select {
-		case obj.pausedChan <- struct{}{}:
-			obj.Logf("paused!")
-		}
-
-		//
-		// the graph changes shape right here... we are locked right now
-		//
-
-		// wait until resumed/unlocked
-		select {
-		case <-obj.resumeChan:
-			obj.Logf("resuming...")
-		}
-
-		// Toposort to run/resume workers. (Bottom of toposort first!)
-		topoSort2, err := obj.graph.TopologicalSort()
-		if err != nil {
-			return err
-		}
-		reversed := pgraph.Reverse(topoSort2)
-		for _, v := range reversed {
-			f, ok := v.(interfaces.Func)
-			if !ok {
-				panic("not a Func")
-			}
-			node, exists := obj.state[f]
-			if !exists {
-				panic(fmt.Sprintf("missing node in iterate: %s", f))
-			}
-
-			if node.running { // it's not a new vertex
-				continue
-			}
-			//obj.rwmutex.Lock() // already locked between resuming and resumed
-			obj.loaded = false // reset this
-			//obj.rwmutex.Unlock()
-			node.running = true
-
-			innerCtx, innerCancel := context.WithCancel(ctx) // wrap parent (not mainCtx)
-			// we defer innerCancel() in the goroutine to cleanup!
-			node.ctx = innerCtx
-			node.cancel = innerCancel
-
-			// run mainloop
-			wgAg.Add(1)
-			node.wg.Add(1)
-			go func(f interfaces.Func, node *state) {
-				defer node.wg.Done()
-				defer wgAg.Done()
-				defer node.cancel() // if we close, clean up and send the signal to anyone watching
-				if obj.Debug {
-					obj.Logf("Running func `%s`", node)
-					obj.statsMutex.Lock()
-					obj.stats.runningList[node] = struct{}{}
-					obj.statsMutex.Unlock()
-				}
-
-				fn := func(nodeCtx context.Context) (reterr error) {
-					defer func() {
-						// catch programming errors
-						if r := recover(); r != nil {
-							obj.Logf("Panic in func `%s`: %+v", node, r)
-							reterr = fmt.Errorf("panic in func `%s`: %+v", node, r)
-						}
-					}()
-					return f.Stream(nodeCtx)
-				}
-				runErr := fn(node.ctx) // wrap with recover()
-				if obj.Debug {
-					obj.Logf("Exiting func `%s`", node)
-					obj.statsMutex.Lock()
-					delete(obj.stats.runningList, node)
-					obj.statsMutex.Unlock()
-				}
-				if runErr != nil {
-					// send to a aggregate channel
-					// the first to error will cause ag to
-					// shutdown, so make sure we can exit...
-					select {
-					case ag <- runErr: // send to aggregate channel
-					case <-node.ctx.Done():
-					}
-				}
-				// if node never loaded, then we error in the node.output loop!
-			}(f, node)
-
-			// consume output
-			wgAg.Add(1)
-			node.wg.Add(1)
-			go func(f interfaces.Func, node *state) {
-				defer node.wg.Done()
-				defer wgAg.Done()
-
-				for value := range node.output { // read from channel
-					if value == nil {
-						// bug!
-						obj.Logf("func `%s` got nil value", node)
-						panic("got nil value")
-					}
-
-					obj.tableMutex.RLock()
-					cached, exists := obj.table[f]
-					obj.tableMutex.RUnlock()
-					if !exists { // first value received
-						// RACE: do this AFTER value is present!
-						//node.loaded = true // not yet please
-						obj.Logf("func `%s` started", node)
-					} else if value.Cmp(cached) == nil {
-						// skip if new value is same as previous
-						// if this happens often, it *might* be
-						// a bug in the function implementation
-						// FIXME: do we need to disable engine
-						// caching when using hysteresis?
-						obj.Logf("func `%s` skipped", node)
-						continue
-					}
-					obj.tableMutex.Lock()
-					obj.table[f] = value // save the latest
-					obj.tableMutex.Unlock()
-					node.rwmutex.Lock()
-					node.loaded = true // set *after* value is in :)
-					//obj.Logf("func `%s` changed", node)
-					node.rwmutex.Unlock()
-
-					// XXX: I think we need this read lock
-					// because we don't want to be adding a
-					// new vertex here but then missing to
-					// send an event to it because it
-					// started after we did the range...
-
-					node.rwmutex.RLock()
-					isLeaf := node.isLeaf
-					node.rwmutex.RUnlock()
-
-					// TODO: if shutdown, did we still want to do this?
-					if obj.Glitch || isLeaf {
-						select {
-						case ag <- nil: // send to aggregate channel
-						case <-node.ctx.Done():
-							//return
-						}
-					}
-
-				} // end for
-
-				// no more output values are coming...
-				//obj.Logf("func `%s` stopped", node)
-
-				// XXX shouldn't we record the fact that obj.output closed, and close
-				// the downstream node's obj.input?
-
-				// nodes that never loaded will cause the engine to hang
-				if !node.loaded {
-					select {
-					case ag <- fmt.Errorf("func `%s` stopped before it was loaded", node):
-					case <-node.ctx.Done():
-						return
-					}
-				}
-
-			}(f, node)
-
-		} // end for
-
-		// Send new notifications in case any new edges are sending away
-		// to these... They might have already missed the notifications!
-		for k := range obj.resend { // resend TO these!
-			//obj.Graphviz("") // XXX DEBUG
-			node, exists := obj.state[k]
-			if !exists {
-				continue
-			}
-			// Run as a goroutine to avoid erroring in parent thread.
-			wg.Add(1)
-			go func(node *state) {
-				defer wg.Done()
-				obj.Logf("XXX would like to resend to func `%s`", node) // XXX
-				//select {
-				//case node.notify <- struct{}{}:
-				//	obj.Logf("resend to func `%s`", node)
-				//case <-ctx.Done(): // XXX or mainCtx ?
-				//	return // no error returned in goroutine!
-				//}
-			}(node)
-		}
-		obj.resend = make(map[interfaces.Func]struct{}) // reset
-
-		// now check their states...
-		for _, v := range reversed {
-			v, ok := v.(interfaces.Func)
-			if !ok {
-				panic("not a Func")
-			}
-			_ = v
-			//close(obj.state[v].startup) XXX once?
-
-			// wait for startup XXX XXX XXX XXX
-			//select {
-			//case <-obj.state[v].startup:
-			////case XXX close?:
-			//}
-
-			// XXX API
-			//v.Resume?()
-			//obj.state[vertex].whatever
-		}
-
-		// resume is complete
-		// no exit case from here, must be fully running or paused...
-		select {
-		case obj.resumedChan <- struct{}{}:
-			obj.Logf("resumed!")
-		}
-
-	} // end for
-}
-
 // wake sends a message to the wake queue to wake up the main process function
-// which would otherwise spin unnecessarily. This can be called whenever, and
-// doesn't hurt, it only wastes cpu if there's nothing to do. This does NOT
-// block, and that's important for being able to call it anywhere.
+// which would otherwise spin unnecessarily. This can be called anytime, and
+// doesn't hurt, it only wastes cpu if there's nothing to do. This does NOT ever
+// block, and that's important so it can be called from anywhere.
 func (obj *Engine) wake() {
+	// The mutex guards the len check to avoid this function sending two
+	// messages down the channel, because the second would block if the
+	// consumer isn't fast enough. This mutex makes this method effectively
+	// asynchronous.
+	//obj.wakeMutex.Lock()
+	//defer obj.wakeMutex.Unlock()
+	//if len(obj.wakeChan) > 0 { // collapse duplicate, pending wake signals
+	//	return
+	//}
 	select {
 	case obj.wakeChan <- struct{}{}: // send to chan of length 1
-	default:
+		obj.Logf("wake sent")
+	default: // this is a cheap alternative to avoid the mutex altogether!
+		// skip sending, we already have a message pending!
 	}
 }
 
-func (obj *Engine) process(ctx context.Context) error {
-
+// process is the inner loop that runs through the entire graph. It can be
+// called successively safely, as it is roughly idempotent, and is used to push
+// values through the graph. If it is interrupted, it can pick up where it left
+// off on the next run. This does however require it to re-check some things,
+// but that is the price we pay for being always available to unblock.
+// Importantly, re-running this resumes work in progress even if there was
+// caching, and that if interrupted, it'll be queued again so as to not drop a
+// wakeChan notification!
+func (obj *Engine) process(ctx context.Context) (reterr error) {
 	defer func() {
-		if err := recover(); err != nil {
-			fmt.Printf("Recovered in process: %+v\n", err)
+		// catch programming errors
+		if r := recover(); r != nil {
+			obj.Logf("Panic in process: %+v", r)
+			reterr = fmt.Errorf("panic in process: %+v", r)
 		}
 	}()
 
@@ -959,9 +573,6 @@ func (obj *Engine) process(ctx context.Context) error {
 		if !nodeLoaded {
 			loaded = false // we were wrong
 		}
-
-		// XXX gather all incoming values for an incoming struct if any...
-		// XXX use a read lock on the table to get the data
 
 		// XXX: memoize this which we can do easily now since graph shape doesn't change in this loop!
 		incoming := obj.graph.IncomingGraphVertices(f) // []pgraph.Vertex
@@ -1061,13 +672,35 @@ func (obj *Engine) process(ctx context.Context) error {
 
 		// XXX: respect the info.Pure and info.Memo fields somewhere here...
 
+		// XXX: keep track of some state about who i sent to last before
+		// being interrupted so that I can avoid resending to some nodes
+		// if it's not necessary...
+
+		// It's critical to avoid deadlock with this sending select that
+		// any events that could happen during this send can be
+		// preempted and that future executions of this function can be
+		// resumed. We must return with an error to let folks know that
+		// we were interrupted.
 		obj.Logf("send to func `%s`", node)
 		select {
 		case node.input <- st: // send to function
+			// pass
 		case <-node.ctx.Done(): // node died
+			obj.wake() // interrupted, so queue again
+			// XXX: can this happen now and should we continue or err?
+			return node.ctx.Err()
+			// continue // probably best to return and come finish later
 		case <-ctx.Done():
+			obj.wake() // interrupted, so queue again
+			return ctx.Err()
 		}
 
+		// It's okay if this section gets preempted and we re-run this
+		// function. The worst that happens is we end up sending the
+		// same input data a second time. This means that we could in
+		// theory be causing unnecessary graph changes (and locks which
+		// cause preemption here) if nodes that cause locks aren't
+		// skipping duplicate/identical input values!
 		if closed && !node.closed {
 			node.closed = true
 			close(node.input)
@@ -1076,11 +709,461 @@ func (obj *Engine) process(ctx context.Context) error {
 		// XXX now we need to somehow wait to make sure that node has the time to send at least one output... no we don't or do we?
 		// XXX: we could add a counter to each input that gets passed through the function... Eg: if we pass in 4, we should wait until
 		// a 4 comes out the output side. But we'd need to change the signature of func for this... Wait for now.
-	}
 
+	} // end topoSort loop
+
+	// It's okay if this section gets preempted and we re-run this bit here.
 	obj.loaded = loaded // this gets reset when graph adds new nodes
 
 	return nil
+}
+
+
+// Run kicks off the main engine. This takes a mutex. When we're "paused" the
+// mutex is temporarily released until we "resume". Those operations transition
+// with the engine Lock and Unlock methods. It is recommended to only add
+// vertices to the engine after it's running. If you add them before Run, then
+// Run will cause a Lock/Unlock to occur to cycle them in. Lock and Unlock race
+// with the cancellation of this Run main loop. Make sure to only call one at a
+// time.
+func (obj *Engine) Run(ctx context.Context) (reterr error) {
+	obj.graphMutex.Lock()
+	defer obj.graphMutex.Unlock()
+
+	// XXX: can the above defer get called while we are already unlocked?
+	// XXX: is it a possibility if we use <-Started() ?
+
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	defer func() {
+		// catch programming errors
+		if r := recover(); r != nil {
+			obj.Logf("Panic in Run: %+v", r)
+			reterr = fmt.Errorf("panic in Run: %+v", r)
+		}
+	}()
+
+	ctx, cancel := context.WithCancel(ctx) // wrap parent
+	defer cancel()
+
+	// Add a wait before the "started" signal runs so that Cleanup waits.
+	obj.wg.Add(1)
+	defer obj.wg.Done()
+
+	// Send the start signal.
+	close(obj.startedChan)
+
+	if n := obj.graph.NumVertices(); n > 0 { // hack to make the api easier
+		obj.Logf("graph contained %d vertices before Run", n)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// kick the engine once to pull in any vertices from
+			// before we started running!
+			defer obj.Unlock()
+			obj.Lock()
+		}()
+	}
+
+	// Aggregation channel and wait group.
+	ag := make(chan error)
+	wgAg := &sync.WaitGroup{}
+
+	// close the aggregate channel when everyone is done with it...
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case <-ctx.Done():
+		}
+		// don't wait and close ag before we're really done with Run()
+		wgAg.Wait() // wait for last ag user to close
+		close(ag)   // last one closes the ag channel
+	}()
+
+	// aggregate events channel
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(obj.streamChan)
+		for {
+			var err error
+			var ok bool
+			select {
+			case err, ok = <-ag: // aggregated channel
+				if !ok {
+					return // channel shutdown
+				}
+			}
+
+			// XXX: check obj.loaded first?
+
+			// now send event...
+			if obj.Callback != nil {
+				// send stream signal (callback variant)
+				obj.Callback(ctx, err)
+			} else {
+				// send stream signal
+				select {
+				// send events or errors on streamChan
+				case obj.streamChan <- err: // send
+				case <-ctx.Done(): // when asked to exit
+					return
+				}
+			}
+			if err != nil {
+				cancel() // cancel the context!
+				return
+			}
+		}
+	}()
+
+	// We need to keep the main loop running until everyone else has shut
+	// down. When the top context closes, we wait for everyone to finish,
+	// and then we shut down this main context.
+	//mainCtx, mainCancel := context.WithCancel(ctx) // wrap parent
+	mainCtx, mainCancel := context.WithCancel(context.Background()) // DON'T wrap parent, close on your own terms
+	defer mainCancel()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case <-ctx.Done():
+		}
+
+		// XXX RENAME wgAg because of its use here
+		wgAg.Wait() // wait until all the routines have closed
+		mainCancel()
+	}()
+
+	wgFn := &sync.WaitGroup{} // wg for process function runner
+	defer wgFn.Wait() // extra safety
+
+	// XXX XXX XXX
+	//go func() { // XXX: debugging to make sure we didn't forget to wake someone...
+	//	for {
+	//		obj.wake() // new value, so send wake up
+	//		time.Sleep(3 * time.Second)
+	//	}
+	//}()
+	// XXX XXX XXX
+
+	// we start off "running", but we'll have an empty graph initially...
+	for {
+
+		// After we've resumed, we can try to exit. (shortcut)
+		// NOTE: If someone calls Lock(), which would send to
+		// obj.pauseChan, it *won't* deadlock here because mainCtx is
+		// only closed when all the worker waitgroups close first!
+		select {
+		case <-mainCtx.Done(): // when asked to exit
+			return nil // we exit happily
+		default:
+		}
+
+		// run through our graph, check for pause request occasionally
+		for {
+			// Start the process run for this iteration of the loop.
+			ctxFn, cancelFn := context.WithCancel(context.Background())
+			// we run cancelFn() below to cleanup!
+			var errFn error
+			chanFn := make(chan struct{}) // normal exit signal
+			wgFn.Add(1)
+			go func() {
+				defer wgFn.Done()
+				defer close(chanFn) // signal that I exited
+				for {
+					obj.Logf("process...")
+					if errFn = obj.process(ctxFn); errFn != nil { // store
+						obj.Logf("process end err: %+v...", errFn)
+						return
+					}
+					obj.Logf("process end...")
+					// If process finishes without error, we
+					// should sit here and wait until we get
+					// run again from a wake-up, or we exit.
+					select {
+					case <-obj.wakeChan: // wait until something has actually woken up...
+						obj.Logf("process wakeup...")
+						// loop!
+					case <-ctxFn.Done():
+						errFn = context.Canceled
+						return
+					}
+				}
+			}()
+
+			chPause := false
+			ctxExit := false
+			select {
+			//case <-obj.wakeChan:
+				// this happens entirely in the process inner, inner loop now.
+
+			case <-chanFn: // process exited on it's own in error!
+				// pass
+
+			case <-obj.pauseChan:
+				obj.Logf("pausing...")
+				chPause = true
+
+			case <-mainCtx.Done(): // when asked to exit
+				//return nil // we exit happily
+				ctxExit = true
+			}
+
+			cancelFn()  // cancel the process function
+			wgFn.Wait() // wait for the process function to return
+			if errFn == nil {
+				return fmt.Errorf("unexpected nil error in process")
+			}
+			if errFn != nil && errFn != context.Canceled {
+				return errwrap.Wrapf(errFn, "process error")
+			}
+			//if errFn == context.Canceled {
+			//	// ignore, we asked for it
+			//}
+
+			if ctxExit {
+				return nil // we exit happily
+			}
+			if chPause {
+				break
+			}
+			// programming error
+			return fmt.Errorf("unhandled process state")
+		}
+
+		// Toposort for paused workers. We run this before the actual
+		// pause completes, because the second we are paused, the graph
+		// could then immediately change. We don't need a lock in here
+		// because the mutex only unlocks when pause is complete below.
+		topoSort1, err := obj.graph.TopologicalSort()
+		if err != nil {
+			return err
+		}
+		for _, v := range topoSort1 {
+			// XXX API
+			//v.Pause?()
+			//obj.state[vertex].whatever
+			_ = v // XXX
+		}
+
+		// pause is complete
+		// no exit case from here, must be fully running or paused...
+		select {
+		case obj.pausedChan <- struct{}{}:
+			obj.Logf("paused!")
+		}
+
+		//
+		// the graph changes shape right here... we are locked right now
+		//
+
+		// wait until resumed/unlocked
+		select {
+		case <-obj.resumeChan:
+			obj.Logf("resuming...")
+		}
+
+		// Toposort to run/resume workers. (Bottom of toposort first!)
+		topoSort2, err := obj.graph.TopologicalSort()
+		if err != nil {
+			return err
+		}
+		reversed := pgraph.Reverse(topoSort2)
+		for _, v := range reversed {
+			f, ok := v.(interfaces.Func)
+			if !ok {
+				panic("not a Func")
+			}
+			node, exists := obj.state[f]
+			if !exists {
+				panic(fmt.Sprintf("missing node in iterate: %s", f))
+			}
+
+			if node.running { // it's not a new vertex
+				continue
+			}
+			//obj.rwmutex.Lock() // already locked between resuming and resumed
+			obj.loaded = false // reset this
+			//obj.rwmutex.Unlock()
+			node.running = true
+
+			innerCtx, innerCancel := context.WithCancel(ctx) // wrap parent (not mainCtx)
+			// we defer innerCancel() in the goroutine to cleanup!
+			node.ctx = innerCtx
+			node.cancel = innerCancel
+
+			// run mainloop
+			wgAg.Add(1)
+			node.wg.Add(1)
+			go func(f interfaces.Func, node *state) {
+				defer node.wg.Done()
+				defer wgAg.Done()
+				defer node.cancel() // if we close, clean up and send the signal to anyone watching
+				if obj.Debug {
+					obj.Logf("Running func `%s`", node)
+					obj.statsMutex.Lock()
+					obj.stats.runningList[node] = struct{}{}
+					obj.statsMutex.Unlock()
+				}
+
+				fn := func(nodeCtx context.Context) (reterr error) {
+					defer func() {
+						// catch programming errors
+						if r := recover(); r != nil {
+							obj.Logf("Panic in Stream of func `%s`: %+v", node, r)
+							reterr = fmt.Errorf("panic in Stream of func `%s`: %+v", node, r)
+						}
+					}()
+					return f.Stream(nodeCtx)
+				}
+				runErr := fn(node.ctx) // wrap with recover()
+				if obj.Debug {
+					obj.Logf("Exiting func `%s`", node)
+					obj.statsMutex.Lock()
+					delete(obj.stats.runningList, node)
+					obj.statsMutex.Unlock()
+				}
+				if runErr != nil {
+					// send to a aggregate channel
+					// the first to error will cause ag to
+					// shutdown, so make sure we can exit...
+					select {
+					case ag <- runErr: // send to aggregate channel
+					case <-node.ctx.Done():
+					}
+				}
+				// if node never loaded, then we error in the node.output loop!
+			}(f, node)
+
+			// consume output
+			wgAg.Add(1)
+			node.wg.Add(1)
+			go func(f interfaces.Func, node *state) {
+				defer node.wg.Done()
+				defer wgAg.Done()
+
+				for value := range node.output { // read from channel
+					if value == nil {
+						// bug!
+						obj.Logf("func `%s` got nil value", node)
+						panic("got nil value")
+					}
+
+					obj.tableMutex.RLock()
+					cached, exists := obj.table[f]
+					obj.tableMutex.RUnlock()
+					if !exists { // first value received
+						// RACE: do this AFTER value is present!
+						//node.loaded = true // not yet please
+						obj.Logf("func `%s` started", node)
+					} else if value.Cmp(cached) == nil {
+						// skip if new value is same as previous
+						// if this happens often, it *might* be
+						// a bug in the function implementation
+						// FIXME: do we need to disable engine
+						// caching when using hysteresis?
+						obj.Logf("func `%s` skipped", node)
+						continue
+					}
+					obj.tableMutex.Lock()
+					obj.table[f] = value // save the latest
+					obj.tableMutex.Unlock()
+					node.rwmutex.Lock()
+					node.loaded = true // set *after* value is in :)
+					//obj.Logf("func `%s` changed", node)
+					node.rwmutex.Unlock()
+					obj.wake() // new value, so send wake up
+
+					// XXX: I think we need this read lock
+					// because we don't want to be adding a
+					// new vertex here but then missing to
+					// send an event to it because it
+					// started after we did the range...
+
+					node.rwmutex.RLock()
+					isLeaf := node.isLeaf
+					node.rwmutex.RUnlock()
+
+					// TODO: if shutdown, did we still want to do this?
+					if obj.Glitch || isLeaf {
+						select {
+						case ag <- nil: // send to aggregate channel
+						case <-node.ctx.Done():
+							//return
+						}
+					}
+
+				} // end for
+
+				// no more output values are coming...
+				//obj.Logf("func `%s` stopped", node)
+
+				// XXX shouldn't we record the fact that obj.output closed, and close
+				// the downstream node's obj.input?
+
+				// nodes that never loaded will cause the engine to hang
+				if !node.loaded {
+					select {
+					case ag <- fmt.Errorf("func `%s` stopped before it was loaded", node):
+					case <-node.ctx.Done():
+						return
+					}
+				}
+
+			}(f, node)
+
+		} // end for
+
+		// Send new notifications in case any new edges are sending away
+		// to these... They might have already missed the notifications!
+		for k := range obj.resend { // resend TO these!
+			//obj.Graphviz("") // XXX DEBUG
+			node, exists := obj.state[k]
+			if !exists {
+				continue
+			}
+			// Run as a goroutine to avoid erroring in parent thread.
+			wg.Add(1)
+			go func(node *state) {
+				defer wg.Done()
+				obj.Logf("resend to func `%s`", node)
+				obj.wake() // new value, so send wake up
+			}(node)
+		}
+		obj.resend = make(map[interfaces.Func]struct{}) // reset
+
+		// now check their states...
+		for _, v := range reversed {
+			v, ok := v.(interfaces.Func)
+			if !ok {
+				panic("not a Func")
+			}
+			_ = v
+			//close(obj.state[v].startup) XXX once?
+
+			// wait for startup XXX XXX XXX XXX
+			//select {
+			//case <-obj.state[v].startup:
+			////case XXX close?:
+			//}
+
+			// XXX API
+			//v.Resume?()
+			//obj.state[vertex].whatever
+		}
+
+		// resume is complete
+		// no exit case from here, must be fully running or paused...
+		select {
+		case obj.resumedChan <- struct{}{}:
+			obj.Logf("resumed!")
+		}
+
+	} // end for
 }
 
 func (obj *Engine) Stream() <-chan error {

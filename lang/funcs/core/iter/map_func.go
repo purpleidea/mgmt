@@ -591,9 +591,10 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	// function graph can propagate the last list we received to the subgraph.
 	inputChan := make(chan types.Value)
 	subgraphInput := &simple.ChannelBasedSourceFunc{
-		Name: "subgraphInput",
-		Chan: inputChan,
-		Type: obj.inputListType,
+		Name:   "subgraphInput",
+		Source: obj,
+		Chan:   inputChan,
+		Type:   obj.inputListType,
 	}
 	obj.init.Txn.AddVertex(subgraphInput)
 	obj.init.Txn.Commit()

@@ -28,7 +28,8 @@ import (
 // A Func which receives values from a Chan and emits them to the downstream
 // nodes.
 type ChannelBasedSourceFunc struct {
-	Name string
+	Name   string
+	Source interfaces.Func // for drawing dashed edges in the Graphviz visualization
 
 	Chan chan types.Value
 	Type *types.Type

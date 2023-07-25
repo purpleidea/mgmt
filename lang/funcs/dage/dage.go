@@ -718,7 +718,6 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 	return nil
 }
 
-
 // Run kicks off the main engine. This takes a mutex. When we're "paused" the
 // mutex is temporarily released until we "resume". Those operations transition
 // with the engine Lock and Unlock methods. It is recommended to only add
@@ -839,7 +838,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 	}()
 
 	wgFn := &sync.WaitGroup{} // wg for process function runner
-	defer wgFn.Wait() // extra safety
+	defer wgFn.Wait()         // extra safety
 
 	// XXX XXX XXX
 	//go func() { // XXX: debugging to make sure we didn't forget to wake someone...
@@ -899,7 +898,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			ctxExit := false
 			select {
 			//case <-obj.wakeChan:
-				// this happens entirely in the process inner, inner loop now.
+			// this happens entirely in the process inner, inner loop now.
 
 			case <-chanFn: // process exited on it's own in error!
 				// pass
@@ -1257,8 +1256,15 @@ func (obj *Engine) Graphviz(dir string) error {
 	for _, v1 := range obj.graph.Vertices() {
 		// if it's a ChannelBasedSinkFunc...
 		if cb, ok := v1.(*simple.ChannelBasedSinkFunc); ok {
-			// ...then add a dashed edge to its input
+			// ...then add a dashed edge to its output
 			dashedEdges.AddEdge(v1, cb.Target, &pgraph.SimpleEdge{
+				Name: "channel", // secret channel
+			})
+		}
+		// if it's a ChannelBasedSourceFunc...
+		if cb, ok := v1.(*simple.ChannelBasedSourceFunc); ok {
+			// ...then add a dashed edge from its input
+			dashedEdges.AddEdge(cb.Source, v1, &pgraph.SimpleEdge{
 				Name: "channel", // secret channel
 			})
 		}

@@ -71,9 +71,7 @@ type Engine struct {
 	// tableMutex wraps access to the table map.
 	tableMutex *sync.RWMutex
 
-	// rwmutex wraps any read or write access to the graph or state fields.
-	rwmutex *sync.RWMutex
-	wg      *sync.WaitGroup
+	wg *sync.WaitGroup
 
 	// pause/resume state machine signals
 	pauseChan   chan struct{}
@@ -83,6 +81,15 @@ type Engine struct {
 
 	// resend tracks which new nodes might need a new notification
 	resend map[interfaces.Func]struct{}
+
+	// nodeWaitFns is a list of cleanup functions to run after we've begun
+	// resume, but before we've resumed completely. These are actions that
+	// we would like to do when paused from a deleteVertex operation, but
+	// that would deadlock if we did.
+	nodeWaitFns []func()
+
+	// nodeWaitMutex wraps access to the nodeWaitFns list.
+	nodeWaitMutex *sync.Mutex
 
 	streamChan chan error
 
@@ -125,7 +132,6 @@ func (obj *Engine) Setup() error {
 	obj.graphMutex = &sync.Mutex{} // TODO: &sync.RWMutex{} ?
 	obj.tableMutex = &sync.RWMutex{}
 
-	obj.rwmutex = &sync.RWMutex{}
 	obj.wg = &sync.WaitGroup{}
 
 	obj.pauseChan = make(chan struct{})
@@ -134,6 +140,10 @@ func (obj *Engine) Setup() error {
 	obj.resumedChan = make(chan struct{})
 
 	obj.resend = make(map[interfaces.Func]struct{})
+
+	obj.nodeWaitFns = []func(){}
+
+	obj.nodeWaitMutex = &sync.Mutex{}
 
 	obj.streamChan = make(chan error)
 	//obj.loadedChan = make(chan struct{}) // TODO: currently not used
@@ -318,10 +328,16 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 	if node.running {
 		// cancel the running vertex
 		node.cancel() // cancel inner ctx
-		node.wg.Wait()
-		//if node.notify != nil { // if sig.Ord == 0, we didn't make it!
-		//	close(node.notify) // after node.wg.Wait() finishes, we're done
-		//}
+
+		// We store this work to be performed later on in the main loop
+		// because this Wait() might be blocked by a defer Commit, which
+		// is itself blocked because this deleteVertex operation is part
+		// of a Commit.
+		obj.nodeWaitMutex.Lock()
+		obj.nodeWaitFns = append(obj.nodeWaitFns, func() {
+			node.wg.Wait()
+		})
+		obj.nodeWaitMutex.Unlock()
 	}
 
 	// This is the one of two places where we modify this map. To avoid
@@ -470,7 +486,6 @@ func (obj *Engine) LookupEdge(fe *interfaces.FuncEdge) (interfaces.Func, interfa
 // XXX: should Lock take a context if we want to bail mid-way?
 // TODO: could we replace pauseChan with SubscribedSignal ?
 func (obj *Engine) Lock() { // pause
-	obj.rwmutex.Lock() // TODO: or should it go right after pauseChan?
 	select {
 	case obj.pauseChan <- struct{}{}:
 	}
@@ -499,7 +514,6 @@ func (obj *Engine) Unlock() { // resume
 	select {
 	case <-obj.resumedChan:
 	}
-	obj.rwmutex.Unlock() // TODO: or should it go right before resumedChan?
 }
 
 // wake sends a message to the wake queue to wake up the main process function
@@ -522,6 +536,18 @@ func (obj *Engine) wake() {
 	default: // this is a cheap alternative to avoid the mutex altogether!
 		// skip sending, we already have a message pending!
 	}
+}
+
+// runNodeWaitFns is a helper to run the cleanup nodeWaitFns list. It clears the
+// list after it runs.
+func (obj *Engine) runNodeWaitFns() {
+	// The lock is probably not needed here, but it won't hurt either.
+	obj.nodeWaitMutex.Lock()
+	defer obj.nodeWaitMutex.Unlock()
+	for _, fn := range obj.nodeWaitFns {
+		fn()
+	}
+	obj.nodeWaitFns = []func(){} // clear
 }
 
 // process is the inner loop that runs through the entire graph. It can be
@@ -849,6 +875,8 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 	//}()
 	// XXX XXX XXX
 
+	defer obj.runNodeWaitFns() // just in case
+
 	// we start off "running", but we'll have an empty graph initially...
 	for {
 
@@ -966,6 +994,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			obj.Logf("resuming...")
 		}
 
+		// Do any cleanup needed from delete vertex.
+		obj.runNodeWaitFns()
+
 		// Toposort to run/resume workers. (Bottom of toposort first!)
 		topoSort2, err := obj.graph.TopologicalSort()
 		if err != nil {
@@ -985,9 +1016,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			if node.running { // it's not a new vertex
 				continue
 			}
-			//obj.rwmutex.Lock() // already locked between resuming and resumed
 			obj.loaded = false // reset this
-			//obj.rwmutex.Unlock()
 			node.running = true
 
 			innerCtx, innerCancel := context.WithCancel(ctx) // wrap parent (not mainCtx)

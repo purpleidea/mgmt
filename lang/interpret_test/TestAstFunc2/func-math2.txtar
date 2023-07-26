@@ -1,0 +1,17 @@
+-- main.mcl --
+import "fmt"
+import "math"
+
+# XXX: do the input nodes to _operator look weird here? in my testing I saw
+# fortytwo appear, and then disappear before we finished running...
+# function statement
+func sq1($x) {
+	$x + 3
+}
+
+$x1 = sq1(math.fortytwo())
+
+test fmt.printf("sq1: %d", $x1) {}
+
+-- OUTPUT --
+Vertex: test[sq1: 45]

@@ -153,6 +153,7 @@ func (obj *Engine) Setup() error {
 
 	obj.stats = &stats{
 		runningList: make(map[*state]struct{}),
+		loadedList:  make(map[*state]bool),
 	}
 	obj.statsMutex = &sync.RWMutex{}
 
@@ -1035,6 +1036,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 					obj.Logf("Running func `%s`", node)
 					obj.statsMutex.Lock()
 					obj.stats.runningList[node] = struct{}{}
+					obj.stats.loadedList[node] = false
 					obj.statsMutex.Unlock()
 				}
 
@@ -1105,6 +1107,10 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 					//obj.Logf("func `%s` changed", node)
 					node.rwmutex.Unlock()
 					obj.wake() // new value, so send wake up
+
+					obj.statsMutex.Lock()
+					obj.stats.loadedList[node] = true
+					obj.statsMutex.Unlock()
 
 					// XXX: I think we need this read lock
 					// because we don't want to be adding a
@@ -1356,18 +1362,48 @@ type stats struct {
 
 	// runningList keeps track of which nodes are still running.
 	runningList map[*state]struct{}
+
+	// loadedList keeps track of which nodes have loaded.
+	loadedList map[*state]bool
 }
 
 func (obj *stats) String() string {
+	// XXX: just build the lock into *stats instead of into our dage obj
 	s := "stats:\n"
-	s += "\trunningList:\n"
-	names := []string{}
-	for k := range obj.runningList {
-		names = append(names, k.String())
+	{
+		s += "\trunningList:\n"
+		names := []string{}
+		for k := range obj.runningList {
+			names = append(names, k.String())
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			s += fmt.Sprintf("\t * %s\n", name)
+		}
 	}
-	sort.Strings(names)
-	for _, name := range names {
-		s += fmt.Sprintf("\t * %s\n", name)
+	{
+		nodes := []*state{}
+		for k := range obj.loadedList {
+			nodes = append(nodes, k)
+		}
+		sort.Slice(nodes, func(i, j int) bool { return nodes[i].String() < nodes[j].String() })
+
+		s += "\tloaded:\n"
+		for _, node := range nodes {
+			if !obj.loadedList[node] {
+				continue
+			}
+			s += fmt.Sprintf("\t * %s\n", node)
+		}
+
+		s += "\tnot loaded:\n"
+		for _, node := range nodes {
+			if obj.loadedList[node] {
+				continue
+			}
+			s += fmt.Sprintf("\t * %s\n", node)
+		}
 	}
+
 	return s
 }

@@ -154,6 +154,7 @@ func (obj *Engine) Setup() error {
 	obj.stats = &stats{
 		runningList: make(map[*state]struct{}),
 		loadedList:  make(map[*state]bool),
+		inputList:   make(map[*state]int64),
 	}
 	obj.statsMutex = &sync.RWMutex{}
 
@@ -711,6 +712,10 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 		obj.Logf("send to func `%s`", node)
 		select {
 		case node.input <- st: // send to function
+			obj.statsMutex.Lock()
+			val, _ := obj.stats.inputList[node] // val is # or zero
+			obj.stats.inputList[node] = val + 1 // increment
+			obj.statsMutex.Unlock()
 			// pass
 		case <-node.ctx.Done(): // node died
 			obj.wake() // interrupted, so queue again
@@ -1365,13 +1370,16 @@ type stats struct {
 
 	// loadedList keeps track of which nodes have loaded.
 	loadedList map[*state]bool
+
+	// inputList keeps track of the number of inputs each node received.
+	inputList map[*state]int64
 }
 
 func (obj *stats) String() string {
 	// XXX: just build the lock into *stats instead of into our dage obj
 	s := "stats:\n"
 	{
-		s += "\trunningList:\n"
+		s += "\trunning:\n"
 		names := []string{}
 		for k := range obj.runningList {
 			names = append(names, k.String())
@@ -1404,6 +1412,17 @@ func (obj *stats) String() string {
 			s += fmt.Sprintf("\t * %s\n", node)
 		}
 	}
-
+	{
+		s += "\tinput count:\n"
+		nodes := []*state{}
+		for k := range obj.inputList {
+			nodes = append(nodes, k)
+		}
+		//sort.Slice(nodes, func(i, j int) bool { return nodes[i].String() < nodes[j].String() })
+		sort.Slice(nodes, func(i, j int) bool { return obj.inputList[nodes[i]] < obj.inputList[nodes[j]] })
+		for _, node := range nodes {
+			s += fmt.Sprintf("\t * (%d) %s\n", obj.inputList[node], node)
+		}
+	}
 	return s
 }

@@ -625,12 +625,20 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 				continue
 			}
 
-			newFuncValue, ok := input.Struct()[mapArgNameFunction].(*fancyfunc.FuncValue)
+			value, exists := input.Struct()[mapArgNameFunction]
+			if !exists {
+				return fmt.Errorf("programming error, can't find edge")
+			}
+
+			newFuncValue, ok := value.(*fancyfunc.FuncValue)
 			if !ok {
 				return fmt.Errorf("programming error, can't convert to *FuncValue")
 			}
 
-			newInputList := input.Struct()[mapArgNameInputs]
+			newInputList, exists := input.Struct()[mapArgNameInputs]
+			if !exists {
+				return fmt.Errorf("programming error, can't find edge")
+			}
 
 			// If we have a new function or the length of the input
 			// list has changed, then we need to replace the

@@ -143,7 +143,12 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 
 			fmt.Printf("XXX XXX XXX CALLFUNC(%p) GOT INPUT: %+v\n", obj, input)
 
-			newFuncValue, ok := input.Struct()[obj.EdgeName].(*fancyfunc.FuncValue)
+			value, exists := input.Struct()[obj.EdgeName]
+			if !exists {
+				return fmt.Errorf("programming error, can't find edge")
+			}
+
+			newFuncValue, ok := value.(*fancyfunc.FuncValue)
 			if !ok {
 				return fmt.Errorf("programming error, can't convert to *FuncValue")
 			}

@@ -94,11 +94,15 @@ func (obj *ChannelBasedSinkFunc) Stream(ctx context.Context) error {
 				return nil // can't output any more
 			}
 
-			inputValue := input.Struct()[obj.EdgeName]
-			//if obj.last != nil && inputValue.Cmp(obj.last) == nil {
-			//	continue // value didn't change, skip it
-			//}
-			obj.last = inputValue // store so we can send after this select
+			value, exists := input.Struct()[obj.EdgeName]
+			if !exists {
+				return fmt.Errorf("programming error, can't find edge")
+			}
+
+			if obj.last != nil && value.Cmp(obj.last) == nil {
+				continue // value didn't change, skip it
+			}
+			obj.last = value // store so we can send after this select
 
 		case <-ctx.Done():
 			return nil

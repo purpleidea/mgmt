@@ -597,7 +597,9 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 		Type:   obj.inputListType,
 	}
 	obj.init.Txn.AddVertex(subgraphInput)
-	obj.init.Txn.Commit()
+	if err := obj.init.Txn.Commit(); err != nil {
+		return errwrap.Wrapf(err, "commit error in Stream")
+	}
 	obj.init.Txn.Erase() // prevent the next Reverse() from removing subgraphInput
 	defer func() {
 		close(inputChan)
@@ -808,7 +810,5 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		fn()
 	}
 
-	obj.init.Txn.Commit()
-
-	return nil
+	return obj.init.Txn.Commit()
 }

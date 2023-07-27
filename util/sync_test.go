@@ -167,3 +167,107 @@ func ExampleSubscribedSignal() {
 	// done sending signal
 	// exiting...
 }
+
+func ExampleBoundedReadSemaphore() {
+	fmt.Printf("hello\n")
+	defer fmt.Printf("goodbye\n")
+
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	ch := make(chan struct{}) // close signal
+
+	brs := NewBoundedReadSemaphore()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		brs.Lock()
+		defer brs.Unlock()
+		time.Sleep(100 * time.Millisecond) // delay for consistent print
+
+		fmt.Printf("#1 is in the locked zone\n")
+		time.Sleep(1 * time.Second)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		brs.Lock()
+		defer brs.Unlock()
+		time.Sleep(200 * time.Millisecond) // delay for consistent print
+
+		fmt.Printf("#2 is in the locked zone\n")
+		time.Sleep(2 * time.Second)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		brs.Lock()
+		defer brs.Unlock()
+		time.Sleep(300 * time.Millisecond) // delay for consistent print
+
+		fmt.Printf("#3 is in the locked zone\n")
+		time.Sleep(3 * time.Second)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(ch) // exit signal
+		max := 2        // configure me
+		for {
+			if max == 0 {
+				break
+			}
+			max--
+			time.Sleep(4 * time.Second)
+			brs.Lock()
+			time.Sleep(100 * time.Millisecond) // delay for consistent print
+			fmt.Printf("#4 is in the locked zone\n")
+
+			brs.Unlock()
+			time.Sleep(100 * time.Millisecond) // delay for consistent print
+			fmt.Printf("#4 is in the unlocked zone\n")
+		}
+	}()
+
+Loop:
+	for {
+		select {
+		case <-ch: // exit signal
+			break Loop
+
+		case <-brs.Start(): // An empty value is received to start the locking.
+			fmt.Printf("shared mutex start\n")
+		}
+
+		// subsequent Lock's that happen when at least one Lock is
+		// already held are permitted...
+		time.Sleep(1 * time.Second)
+
+		// something happens here
+
+		select {
+		case <-brs.End(): // An empty values is received when the last Unlock happens.
+			fmt.Printf("shared mutex end\n")
+		}
+	}
+
+	// Output: hello
+	// shared mutex start
+	// #1 is in the locked zone
+	// #2 is in the locked zone
+	// #3 is in the locked zone
+	// shared mutex end
+	// shared mutex start
+	// #4 is in the locked zone
+	// shared mutex end
+	// #4 is in the unlocked zone
+	// shared mutex start
+	// #4 is in the locked zone
+	// shared mutex end
+	// #4 is in the unlocked zone
+	// goodbye
+}

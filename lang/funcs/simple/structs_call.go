@@ -216,7 +216,9 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *fancyfunc.FuncValue) error {
 
 	// delete the old subgraph
 	fmt.Printf("ZZZ ZZZ ZZZ CALLFUNC(%p) BEFORE REVERSE\n", obj)
-	obj.init.Txn.Reverse()
+	if err := obj.init.Txn.Reverse(); err != nil {
+		return errwrap.Wrapf(err, "could not Reverse")
+	}
 	fmt.Printf("ZZZ ZZZ ZZZ CALLFUNC(%p) AFTER REVERSE\n", obj)
 	//obj.init.Txn.AddReverse() // Add the Reverse ops to our upcoming Commit!
 

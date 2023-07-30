@@ -716,7 +716,9 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	const channelBasedSinkFuncArgNameEdgeName = simple.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
 
 	// delete the old subgraph
-	obj.init.Txn.Reverse()
+	if err := obj.init.Txn.Reverse(); err != nil {
+		return errwrap.Wrapf(err, "could not Reverse")
+	}
 
 	// create the new subgraph
 

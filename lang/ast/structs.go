@@ -5638,23 +5638,15 @@ func (obj *ExprList) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 
 	// each list element needs to point to the final list expression
 	for index, x := range obj.Elements { // list elements in order
-		g, _, err := x.Graph(env)
+		g, f, err := x.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
+		graph.AddGraph(g)
 
 		fieldName := fmt.Sprintf("%d", index) // argNames as integers!
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for list, index `%d` was called twice", index))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // element -> list
+		graph.AddEdge(f, function, edge) // element -> list
 	}
 
 	return graph, function, nil
@@ -6152,43 +6144,29 @@ func (obj *ExprMap) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interf
 
 	// each map key value pair needs to point to the final map expression
 	for index, x := range obj.KVs { // map fields in order
-		g, _, err := x.Key.Graph(env)
+		g, f, err := x.Key.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
+		graph.AddGraph(g)
+
 		// do the key names ever change? -- yes
 		fieldName := fmt.Sprintf("key:%d", index) // stringify map key
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for map, key `%s` was called twice", fieldName))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // key -> func
+		graph.AddEdge(f, function, edge) // key -> func
 	}
 
 	// each map key value pair needs to point to the final map expression
 	for index, x := range obj.KVs { // map fields in order
-		g, _, err := x.Val.Graph(env)
+		g, f, err := x.Val.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
+		graph.AddGraph(g)
+
 		fieldName := fmt.Sprintf("val:%d", index) // stringify map val
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for map, val `%s` was called twice", fieldName))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // val -> func
+		graph.AddEdge(f, function, edge) // val -> func
 	}
 
 	return graph, function, nil
@@ -6615,23 +6593,15 @@ func (obj *ExprStruct) Graph(env map[string]interfaces.Func) (*pgraph.Graph, int
 
 	// each struct field needs to point to the final struct expression
 	for _, x := range obj.Fields { // struct fields in order
-		g, _, err := x.Value.Graph(env)
+		g, f, err := x.Value.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
+		graph.AddGraph(g)
 
 		fieldName := x.Name
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for struct, arg `%s` was called twice", fieldName))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, function, edgeGenFn) // arg -> func
+		graph.AddEdge(function, f, edge) // arg -> func
 	}
 
 	return graph, function, nil
@@ -9229,7 +9199,7 @@ func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfa
 		return nil, nil, errwrap.Wrapf(err, "could not create graph")
 	}
 
-	f, err := obj.Func()
+	function, err := obj.Func()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -9241,25 +9211,17 @@ func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfa
 	}
 	for _, argName := range []string{"c", "a", "b"} { // deterministic order
 		x := exprs[argName]
-		g, _, err := x.Graph(env)
+		g, f, err := x.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
+		graph.AddGraph(g)
 
 		edge := &interfaces.FuncEdge{Args: []string{argName}}
-
-		var once bool
-		edgeGenFn := func(v1, v2 pgraph.Vertex) pgraph.Edge {
-			if once {
-				panic(fmt.Sprintf("edgeGenFn for ifexpr edge `%s` was called twice", argName))
-			}
-			once = true
-			return edge
-		}
-		graph.AddEdgeGraphVertexLight(g, f, edgeGenFn) // branch -> if
+		graph.AddEdge(f, function, edge) // branch -> if
 	}
 
-	return graph, f, nil
+	return graph, function, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

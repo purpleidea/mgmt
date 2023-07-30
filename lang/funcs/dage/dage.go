@@ -350,7 +350,7 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 		// of a Commit.
 		obj.nodeWaitMutex.Lock()
 		obj.nodeWaitFns = append(obj.nodeWaitFns, func() {
-			node.wg.Wait()
+			node.wg.Wait() // While waiting, the Stream might cause a new Reverse Commit
 		})
 		obj.nodeWaitMutex.Unlock()
 	}
@@ -1039,8 +1039,18 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			obj.Logf("resuming...")
 		}
 
-		// Do any cleanup needed from delete vertex.
-		obj.runNodeWaitFns()
+		// Do any cleanup needed from delete vertex. Or do we?
+		// We've ascertained that while we want this stuff to shutdown,
+		// and while we also know that a Stream() function running is a
+		// part of what we're waiting for to exit, it doesn't matter
+		// that it exits now! This is actually causing a deadlock
+		// because the pending Stream exit, might be calling a new
+		// Reverse commit, which means we're deadlocked. It's safe for
+		// the Stream to keep running, all it might do is needlessly add
+		// a new value to obj.table which won't bother us since we won't
+		// even use it in process. We _do_ want to wait for all of these
+		// before the final exit, but we already have that in a defer.
+		//obj.runNodeWaitFns()
 
 		// Toposort to run/resume workers. (Bottom of toposort first!)
 		topoSort2, err := obj.graph.TopologicalSort()

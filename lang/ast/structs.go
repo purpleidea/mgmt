@@ -9119,7 +9119,7 @@ func (obj *ExprIf) SetType(typ *types.Type) error {
 // Type returns the type of this expression.
 func (obj *ExprIf) Type() (*types.Type, error) {
 	boolValue, err := obj.Condition.Value() // attempt early speculation
-	if err == nil && obj.typ == nil {
+	if err == nil && obj.typ == nil && boolValue != nil {
 		branch := obj.ElseBranch
 		if boolValue.Bool() { // must not panic
 			branch = obj.ThenBranch

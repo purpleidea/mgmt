@@ -1543,7 +1543,7 @@ func TestAstFunc2(t *testing.T) {
 
 			<-funcs.Started() // wait for startup (will not block forever)
 
-			// XXX: use Txn API
+			// XXX: use Txn API and defer the Reverse so graph looks empty at the end. Easy to check for bugs for forgetting to remove a node!
 			funcs.Lock()
 			// XXX: add an AddGraph API
 			for v1, x := range graph.Adjacency() {

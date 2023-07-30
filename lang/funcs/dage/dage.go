@@ -221,6 +221,7 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 		GraphAPI: obj,
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
+		//Count:    XXX, // Reference counting. map[Vertex]int64
 	}
 	txn := graphTxn.init()
 

@@ -9228,7 +9228,11 @@ func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfa
 	if err != nil {
 		return nil, nil, errwrap.Wrapf(err, "could not create graph")
 	}
-	graph.AddVertex(obj)
+
+	f, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	exprs := map[string]interfaces.Expr{
 		"c": obj.Condition,
@@ -9252,13 +9256,9 @@ func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfa
 			once = true
 			return edge
 		}
-		graph.AddEdgeGraphVertexLight(g, obj, edgeGenFn) // branch -> if
+		graph.AddEdgeGraphVertexLight(g, f, edgeGenFn) // branch -> if
 	}
 
-	f, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
 	return graph, f, nil
 }
 

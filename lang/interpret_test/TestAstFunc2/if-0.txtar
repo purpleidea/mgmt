@@ -1,0 +1,10 @@
+-- main.mcl --
+$out1 = if true {
+                "hello"
+        } else {
+                "world"
+        }
+
+test $out1 {}
+-- OUTPUT --
+Vertex: test[hello]

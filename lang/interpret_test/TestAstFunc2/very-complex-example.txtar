@@ -1,0 +1,28 @@
+-- main.mcl --
+import "fmt"
+
+# function expression
+$id1 = func($x) {  # definition site
+	$x
+}
+$id2 = func($x) {
+	$x + $x
+}
+
+$str = $id1("foo")
+$int = $id1(42)
+
+func generate($idN) {
+  printf(
+    "%s %d",
+    $idN("foo"),  # 1 call site, 2 calls
+    $idN(42)
+  )
+}
+
+# this code should be rejected
+$foo = map($generate, [$id1,$id2])
+
+test $foo[0] {}
+-- OUTPUT --
+Vertex: test[foo]

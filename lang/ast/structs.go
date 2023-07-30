@@ -26,7 +26,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
@@ -6966,7 +6965,6 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 				if err := obj.typ.Cmp(newTyp); err != nil {
 					return nil, errwrap.Wrapf(err, "incompatible type")
 				}
-				obj.typ = newTyp
 			}
 		}
 		// pass in some data to the function
@@ -7410,15 +7408,12 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
 
-		mutex := &sync.Mutex{} // lock around concurrent calls to copy
 		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Copy obj.function so that the underlying ExprFunc.function gets
 				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
 				// calls to this function will share the same Func.
-				mutex.Lock()
 				exprCopy, err := obj.Copy()
-				mutex.Unlock()
 				if err != nil {
 					return nil, errwrap.Wrapf(err, "could not copy expression")
 				}

@@ -478,6 +478,8 @@ func (obj *GAPI) LangInit() error {
 		return errwrap.Wrapf(err, "can't init the lang")
 	}
 
+	// XXX: I'm certain I've probably got a deadlock or race somewhere here
+	// or in lib/main.go so we'll fix it with an API fixup and rewrite soon
 	obj.wgRun = &sync.WaitGroup{}
 	obj.ctx, obj.cancel = context.WithCancel(context.Background())
 	obj.wgRun.Add(1)

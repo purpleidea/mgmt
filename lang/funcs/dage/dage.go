@@ -95,8 +95,8 @@ type Engine struct {
 	// streamChan is used to send notifications to the outside world.
 	streamChan chan error
 
-	loaded bool // are all of the funcs loaded?
-	//loadedChan chan struct{} // funcs loaded signal
+	loaded     bool          // are all of the funcs loaded?
+	loadedChan chan struct{} // funcs loaded signal
 
 	startedChan chan struct{} // closes when Run() starts
 
@@ -164,7 +164,7 @@ func (obj *Engine) Setup() error {
 	obj.nodeWaitMutex = &sync.Mutex{}
 
 	obj.streamChan = make(chan error)
-	//obj.loadedChan = make(chan struct{}) // TODO: currently not used
+	obj.loadedChan = make(chan struct{})
 	obj.startedChan = make(chan struct{})
 
 	obj.wakeChan = make(chan struct{}, 1) // hold up to one message
@@ -909,6 +909,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		}()
 	}
 
+	once := &sync.Once{}
+	loadedSignal := func() { close(obj.loadedChan) } // only run once!
+
 	// aggregate events channel
 	wg.Add(1)
 	go func() {
@@ -925,6 +928,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			}
 
 			// TODO: check obj.loaded first?
+			once.Do(loadedSignal)
 
 			// now send event...
 			if obj.Callback != nil {
@@ -1320,6 +1324,11 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 // Do not block reading from this channel as you can hold up the entire engine.
 func (obj *Engine) Stream() <-chan error {
 	return obj.streamChan
+}
+
+// Loaded returns a channel that closes when the function engine loads.
+func (obj *Engine) Loaded() <-chan struct{} {
+	return obj.loadedChan
 }
 
 // Table returns a copy of the populated data table of values. We return a copy

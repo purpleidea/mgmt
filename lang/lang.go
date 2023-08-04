@@ -64,10 +64,9 @@ type Lang struct {
 
 	ast   interfaces.Stmt // store main prog AST here
 	funcs *dage.Engine    // function event engine
+	graph *pgraph.Graph   // function graph
 
-	loadedChan chan struct{} // loaded signal
-
-	streamChan chan error // signals a new graph can be created or problem
+	streamChan <-chan error // signals a new graph can be created or problem
 	//streamBurst bool // should we try and be bursty with the stream events?
 
 	wg *sync.WaitGroup
@@ -207,46 +206,25 @@ func (obj *Lang) Init() error {
 	obj.Logf("building function graph...")
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
-	graph := &pgraph.Graph{Name: "functionGraph"}
+	obj.graph = &pgraph.Graph{Name: "functionGraph"}
 	env := make(map[string]interfaces.Func)
 	for k, v := range scope.Variables {
 		g, builtinFunc, err := v.Graph(nil)
 		if err != nil {
 			return errwrap.Wrapf(err, "calling Graph on builtins")
 		}
-		graph.AddGraph(g)
+		obj.graph.AddGraph(g)
 		env[k] = builtinFunc
 	}
 	g, err := obj.ast.Graph(env) // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}
-	graph.AddGraph(g)
+	obj.graph.AddGraph(g)
 
 	if obj.Debug {
 		obj.Logf("function graph: %+v", obj.graph)
 		obj.graph.Logf(obj.Logf) // log graph output with this logger...
-		//if err := obj.graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
-		//	return errwrap.Wrapf(err, "writing graph failed")
-		//}
-	}
-
-	if graph.NumVertices() == 0 { // no funcs to load!
-		// send only one signal since we won't ever send after this!
-		obj.Logf("static graph found")
-		obj.wg.Add(1)
-		go func() {
-			defer obj.wg.Done()
-			defer close(obj.streamChan) // no more events are coming!
-			close(obj.loadedChan)       // signal
-			select {
-			case obj.streamChan <- nil: // send one signal
-				// pass
-			case <-obj.closeChan:
-				return
-			}
-		}()
-		return nil // exit early, no funcs to load!
 	}
 
 	obj.funcs = &dage.Engine{
@@ -263,7 +241,19 @@ func (obj *Lang) Init() error {
 	if err := obj.funcs.Setup(); err != nil {
 		return errwrap.Wrapf(err, "init error with func engine")
 	}
-	//defer obj.funcs.Cleanup() // run in Close()?
+
+	obj.streamChan = obj.funcs.Stream() // after obj.funcs.Setup runs
+
+	return nil
+}
+
+// Run kicks off the function engine. Use the context to shut it down.
+func (obj *Lang) Run(ctx context.Context) (reterr error) {
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	//obj.Logf("function engine validating...")
 	//if err := obj.funcs.Validate(); err != nil {
@@ -271,56 +261,43 @@ func (obj *Lang) Init() error {
 	//}
 
 	obj.Logf("function engine starting...")
-	//XXX	// On failure, we expect the caller to run Close() to shutdown all of
-	//XXX	// the currently initialized (and running) funcs... This is needed if
-	//XXX	// we successfully ran `Run` but isn't needed only for Init/Validate.
-	//XXX: maybe instead on shutdown we Lock() and DeleteVertex everything from the graph?
-
-	errChan := make(chan error)
-	//wg := &sync.WaitGroup{}
-	//defer wg.Wait()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	//wg.Add(1)
-	obj.wg.Add(1)
+	wg.Add(1)
 	go func() {
-		//defer close(errChan) // happens never!
-		defer obj.wg.Done()
-		//defer wg.Done()
-		err := obj.funcs.Run(ctx)
-		if err == nil {
-			return
+		defer wg.Done()
+		if err := obj.funcs.Run(ctx); err == nil {
+			reterr = errwrap.Append(reterr, err)
 		}
 		// Run() should only error if not a dag I think...
-		select {
-		case errChan <- errwrap.Wrapf(err, "run error with func engine"):
-		case <-ctx.Done():
-			// unblock
-		}
 	}()
 
 	<-obj.funcs.Started() // wait for startup (will not block forever)
 
-	obj.funcs.Lock()
-	if err := obj.funcs.AddGraph(graph); err != nil { // add all of this graph into the func engine
+	// Sanity checks for graph size.
+	if count := obj.funcs.NumVertices(); count != 0 {
+		return fmt.Errorf("expected empty graph on start, got %d vertices", count)
+	}
+	defer func() {
+		if count := obj.funcs.NumVertices(); count != 0 {
+			err := fmt.Errorf("expected empty graph on exit, got %d vertices", count)
+			reterr = errwrap.Append(reterr, err)
+		}
+	}()
+
+	txn := obj.funcs.Txn()
+	interfaces.AddGraphToTxn(txn, obj.graph)
+	if err := txn.Commit(); err != nil {
 		return errwrap.Wrapf(err, "error adding to function graph engine")
 	}
-	obj.funcs.Unlock()
+	defer func() {
+		if err := txn.Reverse(); err != nil { // should remove everything we added
+			reterr = errwrap.Append(reterr, err)
+		}
+	}()
 
 	// wait for some activity
 	obj.Logf("stream...")
 
-			case err, ok = <-errChan:
-				if !ok {
-					obj.Logf("error chan closed")
-					//return
-					continue
-				}
-
-			case <-obj.closeChan:
-				return
-			}
+	wg.Wait() // wait for Run to finish
 
 	return nil
 }
@@ -354,14 +331,7 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	return graph, nil // return a graph
 }
 
-// Close shuts down the lang struct and causes all the funcs to shutdown. It
-// must be called when finished after any successful Init ran.
-func (obj *Lang) Close() error {
-	var err error
-	if obj.funcs != nil {
-		err = obj.funcs.Cleanup()
-	}
-	close(obj.closeChan)
-	obj.wg.Wait()
-	return err
+// Cleanup cleans up and frees memory and resources after everything is done.
+func (obj *Lang) Cleanup() error {
+	return obj.funcs.Cleanup()
 }

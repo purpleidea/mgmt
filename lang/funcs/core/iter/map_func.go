@@ -60,6 +60,7 @@ type MapFunc struct {
 	RType *types.Type // this is the type of the elements in our output list
 
 	init *interfaces.Init
+	last types.Value // last value received to use for diff
 
 	lastFuncValue       *fancyfunc.FuncValue // remember the last function value
 	lastInputListLength int                  // remember the last input list length
@@ -626,6 +627,12 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 				canReceiveMoreFuncValuesOrInputLists = false
 				continue
 			}
+
+			// XXX: double check this passes through function changes
+			if obj.last != nil && input.Cmp(obj.last) == nil {
+				continue // value didn't change, skip it
+			}
+			obj.last = input // store for next
 
 			value, exists := input.Struct()[mapArgNameFunction]
 			if !exists {

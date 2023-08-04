@@ -64,7 +64,11 @@ func (obj *FuncValue) Cmp(val types.Value) error {
 		return errwrap.Wrapf(err, "cannot cmp types")
 	}
 
-	return fmt.Errorf("cannot cmp funcs") // TODO: can we ?
+	if obj != val { // best we can do
+		return fmt.Errorf("different pointers")
+	}
+
+	return nil
 }
 
 // Copy returns a copy of this value.

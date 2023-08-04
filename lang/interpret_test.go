@@ -1554,6 +1554,8 @@ func TestAstFunc2(t *testing.T) {
 					t.Errorf("test #%d: expected empty graph on exit, got %d vertices", index, count)
 				}
 			}()
+			defer wg.Wait()
+			defer cancel()
 
 			txn := funcs.Txn()
 			interfaces.AddGraphToTxn(txn, graph)

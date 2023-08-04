@@ -1000,12 +1000,18 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				defer wgFn.Done()
 				defer close(chanFn) // signal that I exited
 				for {
-					obj.Logf("process...")
+					if obj.Debug {
+						obj.Logf("process...")
+					}
 					if errFn = obj.process(ctxFn); errFn != nil { // store
-						obj.Logf("process end err: %+v...", errFn)
+						if errFn != context.Canceled {
+							obj.Logf("process end err: %+v...", errFn)
+						}
 						return
 					}
-					obj.Logf("process end...")
+					if obj.Debug {
+						obj.Logf("process end...")
+					}
 					// If process finishes without error, we
 					// should sit here and wait until we get
 					// run again from a wake-up, or we exit.

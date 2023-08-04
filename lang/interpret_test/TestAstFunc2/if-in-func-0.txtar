@@ -1,11 +1,11 @@
 -- main.mcl --
 # this can return changing functions, and could be optimized, too
 $fn = func($b) {
-        if true {
-                "hello"
-        } else {
-                "world"
-        }
+	if true {
+		"hello"
+	} else {
+		"world"
+	}
 }
 
 $out1 = $fn(true)

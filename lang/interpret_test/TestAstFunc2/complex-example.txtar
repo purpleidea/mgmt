@@ -2,7 +2,7 @@
 import "fmt"
 
 # function expression
-$id1 = func($x str) {  # definition site
+$id1 = func($x str) { # definition site
 	$x
 }
 $id2 = func($x str) {
@@ -10,11 +10,15 @@ $id2 = func($x str) {
 }
 
 func generate($idN) {
-  $idN("foo")  # 1 call site, 2 calls
+	$idN("foo") # 1 call site, 2 calls
 }
 
-$foo = map($generate, [$id1,$id2])
+$foo = map($generate, [$id1, $id2])
 
-test $foo[0] {}
+#test $foo[0] {}
+#test $foo[1] {}
+test listlookup($foo, 0, "fail") {} # TODO: add syntactic sugar for listlookup
+test listlookup($foo, 1, "fail") {} # TODO: add syntactic sugar for listlookup
 -- OUTPUT --
 Vertex: test[foo]
+Vertex: test[foofoo]

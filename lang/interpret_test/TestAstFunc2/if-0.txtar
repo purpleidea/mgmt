@@ -1,9 +1,9 @@
 -- main.mcl --
 $out1 = if true {
-                "hello"
-        } else {
-                "world"
-        }
+	"hello"
+} else {
+	"world"
+}
 
 test $out1 {}
 -- OUTPUT --

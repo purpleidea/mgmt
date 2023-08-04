@@ -39,7 +39,6 @@ import (
 
 // Engine implements a dag engine which lets us "run" a dag of functions, but
 // also allows us to modify it while we are running.
-// XXX: this could be wrapped with the Txn API we wrote...
 type Engine struct {
 	// Name is the name used for the instance of the engine and in the graph
 	// that is held within it.
@@ -196,6 +195,20 @@ func (obj *Engine) Cleanup() error {
 	return nil
 }
 
+// Txn returns a transaction that is suitable for adding and removing from the
+// graph. You must run Setup before this method is called.
+func (obj *Engine) Txn() interfaces.Txn {
+	if obj.refCount == nil {
+		panic("you must run setup before first use")
+	}
+	return (&graphTxn{
+		Lock:     obj.Lock,
+		Unlock:   obj.Unlock,
+		GraphAPI: obj,
+		RefCount: obj.refCount, // reference counting
+	}).init()
+}
+
 // addVertex is the lockless version of the AddVertex function. This is needed
 // so that AddEdge can add two vertices within the same lock.
 func (obj *Engine) addVertex(f interfaces.Func) error {
@@ -224,13 +237,7 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 
 	input := make(chan types.Value)
 	output := make(chan types.Value)
-	graphTxn := &graphTxn{
-		Lock:     obj.Lock,
-		Unlock:   obj.Unlock,
-		GraphAPI: obj,
-		RefCount: obj.refCount, // reference counting
-	}
-	txn := graphTxn.init()
+	txn := obj.Txn()
 
 	// This is the one of two places where we modify this map. To avoid
 	// concurrent writes, we only do this when we're locked! Anywhere that
@@ -1309,6 +1316,8 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 	} // end for
 }
 
+// Stream returns a channel that you can follow to get aggregated graph events.
+// Do not block reading from this channel as you can hold up the entire engine.
 func (obj *Engine) Stream() <-chan error {
 	return obj.streamChan
 }
@@ -1354,6 +1363,14 @@ func (obj *Engine) Apply(fn func(map[interfaces.Func]types.Value) error) error {
 // that would normally panic if Run wasn't started up first.
 func (obj *Engine) Started() <-chan struct{} {
 	return obj.startedChan
+}
+
+// NumVertices returns the number of vertices in the current graph.
+func (obj *Engine) NumVertices() int {
+	// XXX: would this deadlock if we added this?
+	//obj.graphMutex.Lock()         // XXX: should this be a RLock?
+	//defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?
+	return obj.graph.NumVertices()
 }
 
 // Return some statistics in a human-readable form.

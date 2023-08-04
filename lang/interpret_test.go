@@ -1543,28 +1543,26 @@ func TestAstFunc2(t *testing.T) {
 
 			<-funcs.Started() // wait for startup (will not block forever)
 
-			// XXX: use Txn API and defer the Reverse so graph looks empty at the end. Easy to check for bugs for forgetting to remove a node!
-			funcs.Lock()
-			// XXX: add an AddGraph API
-			for v1, x := range graph.Adjacency() {
-				f1, ok := v1.(interfaces.Func)
-				if !ok {
-					panic("programming error")
-				}
-				funcs.AddVertex(f1)
-				for v2, edge := range x {
-					f2, ok := v2.(interfaces.Func)
-					if !ok {
-						panic("programming error")
-					}
-					fe, ok := edge.(*interfaces.FuncEdge)
-					if !ok {
-						panic("programming error")
-					}
-					funcs.AddEdge(f1, f2, fe)
-				}
+			// Sanity checks for graph size.
+			if count := funcs.NumVertices(); count != 0 {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expected empty graph on start, got %d vertices", index, count)
 			}
-			funcs.Unlock()
+			defer func() {
+				if count := funcs.NumVertices(); count != 0 {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected empty graph on exit, got %d vertices", index, count)
+				}
+			}()
+
+			txn := funcs.Txn()
+			interfaces.AddGraphToTxn(txn, graph)
+			if err := txn.Commit(); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: run error with initial commit: %+v", index, err)
+				return
+			}
+			defer txn.Reverse() // should remove everything we added
 
 			// wait for some activity
 			logf("stream...")

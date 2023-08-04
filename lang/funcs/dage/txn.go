@@ -32,6 +32,10 @@ import (
 // Otherwise they remain on the pending queue and wait for you to run Commit.
 const PostReverseCommit = false
 
+// GraphvizDebug enables writing graphviz graphs on each commit. This is very
+// slow.
+const GraphvizDebug = false
+
 // opapi is the input for any op. This allows us to keeps things compact and it
 // also allows us to change API slightly without re-writing code.
 type opapi struct {
@@ -647,7 +651,9 @@ func (obj *graphTxn) commit() error {
 		}
 	}
 	obj.ops = []opfn{} // clear it
-	if engine, ok := obj.GraphAPI.(*Engine); ok {
+	// XXX: running this on each commit has a huge performance hit.
+	// XXX: we could write out the .dot files and run graphviz afterwards
+	if engine, ok := obj.GraphAPI.(*Engine); ok && GraphvizDebug {
 		//d := time.Now().Unix()
 		//if err := engine.graph.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
 		//	panic("no graphviz")

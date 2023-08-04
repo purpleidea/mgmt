@@ -55,7 +55,7 @@ import (
 )
 
 const (
-	runGraphviz = true // run graphviz in tests?
+	runGraphviz = false // run graphviz in tests?
 )
 
 func vertexAstCmpFn(v1, v2 pgraph.Vertex) (bool, error) {

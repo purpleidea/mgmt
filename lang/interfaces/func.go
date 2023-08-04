@@ -256,6 +256,7 @@ type GraphAPI interface {
 
 	//Adjacency() map[Func]map[Func]*FuncEdge
 	HasVertex(Func) bool
+	FindEdge(Func, Func) *FuncEdge
 	LookupEdge(*FuncEdge) (Func, Func, bool)
 }
 
@@ -282,13 +283,16 @@ type Txn interface {
 	// completed when Commit is run.
 	AddEdge(Func, Func, *FuncEdge) Txn
 
-	// DeleteVertex adds a vertex to the running graph. The operation will
-	// get completed when Commit is run.
+	// DeleteVertex removes a vertex from the running graph. The operation
+	// will get completed when Commit is run.
 	DeleteVertex(Func) Txn
 
-	// DeleteEdge adds a vertex to the running graph. The operation will get
-	// completed when Commit is run.
-	DeleteEdge(*FuncEdge) Txn
+	// DeleteEdge removes an edge from the running graph. It removes the
+	// edge that is found between the two input vertices. The operation will
+	// get completed when Commit is run. The edge is part of the signature
+	// so that it is both symmetrical with AddEdge, and also easier to
+	//reverse.
+	DeleteEdge(Func, Func, *FuncEdge) Txn
 
 	// AddReverse appends to the commit queue anything that was staged for
 	// reverse. This also removes those operations from the reverse queue as

@@ -32,13 +32,22 @@ import (
 // Otherwise they remain on the pending queue and wait for you to run Commit.
 const PostReverseCommit = false
 
+// opapi is the input for any op. This allows us to keeps things compact and it
+// also allows us to change API slightly without re-writing code.
+type opapi struct {
+	GraphAPI interfaces.GraphAPI
+	RefCount *RefCount
+}
+
 // opfn is an interface that holds the normal op, and the reverse op if we need
 // to rollback from the forward fn. Implementations of each op can decide to
 // store some internal state when running the forward op which might be needed
 // for the possible future reverse op.
 type opfn interface {
-	Fn(interfaces.GraphAPI) error
-	Rev(interfaces.GraphAPI) error
+	fmt.Stringer
+
+	Fn(*opapi) error
+	Rev(*opapi) error
 }
 
 type opfnSkipRev interface {
@@ -92,17 +101,17 @@ type opRev struct {
 	*opFlag
 }
 
-func (obj *opRev) Fn(g interfaces.GraphAPI) error {
-	return obj.Op.Rev(g)
+func (obj *opRev) Fn(opapi *opapi) error {
+	return obj.Op.Rev(opapi)
 }
 
-func (obj *opRev) Rev(g interfaces.GraphAPI) error {
-	return obj.Op.Fn(g)
+func (obj *opRev) Rev(opapi *opapi) error {
+	return obj.Op.Fn(opapi)
 }
 
-//func (obj *opRev) String() string {
-//	return obj.Op.String()
-//}
+func (obj *opRev) String() string {
+	return "rev(" + obj.Op.String() + ")" // TODO: is this correct?
+}
 
 type opSkip struct {
 	skip bool
@@ -135,12 +144,25 @@ type opAddVertex struct {
 	*opFlag
 }
 
-func (obj *opAddVertex) Fn(g interfaces.GraphAPI) error {
-	return g.AddVertex(obj.F)
+func (obj *opAddVertex) Fn(opapi *opapi) error {
+	count, _ := opapi.RefCount.Vertices[obj.F]
+	opapi.RefCount.Vertices[obj.F] = count + 1
+	if count != 0 {
+		return nil
+	}
+	return opapi.GraphAPI.AddVertex(obj.F)
 }
 
-func (obj *opAddVertex) Rev(g interfaces.GraphAPI) error {
-	return g.DeleteVertex(obj.F)
+func (obj *opAddVertex) Rev(opapi *opapi) error {
+	count, _ := opapi.RefCount.Vertices[obj.F]
+	opapi.RefCount.Vertices[obj.F] = count - 1
+	if count == 0 {
+		return fmt.Errorf("negative count")
+	}
+	if count > 1 {
+		return nil
+	}
+	return opapi.GraphAPI.DeleteVertex(obj.F)
 }
 
 func (obj *opAddVertex) String() string {
@@ -152,34 +174,120 @@ type opAddEdge struct {
 	F2 interfaces.Func
 	FE *interfaces.FuncEdge
 
-	has1 bool
-	has2 bool
-
 	*opSkip
 	*opFlag
 }
 
-func (obj *opAddEdge) Fn(g interfaces.GraphAPI) error {
-	// store state before op
-	obj.has1 = g.HasVertex(obj.F1)
-	obj.has2 = g.HasVertex(obj.F2)
-	return g.AddEdge(obj.F1, obj.F2, obj.FE)
+func (obj *opAddEdge) Fn(opapi *opapi) error {
+	if obj.F1 == obj.F2 { // simplify below code/logic with this easy check
+		return fmt.Errorf("duplicate vertex cycle")
+	}
+
+	count1, _ := opapi.RefCount.Vertices[obj.F1]
+	opapi.RefCount.Vertices[obj.F1] = count1 + 1
+
+	count2, _ := opapi.RefCount.Vertices[obj.F2]
+	opapi.RefCount.Vertices[obj.F2] = count2 + 1
+
+	errs := []error{} // check all errors at the same time to avoid partials
+	if count1 == 0 {
+		if err := opapi.GraphAPI.AddVertex(obj.F1); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if count2 == 0 {
+		if err := opapi.GraphAPI.AddVertex(obj.F2); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	for _, arg := range obj.FE.Args { // ref count each arg
+		r := opapi.RefCount.MakeEdge(obj.F1, obj.F2, arg)
+		count := opapi.RefCount.Edges[r]
+		opapi.RefCount.Edges[r] = count + 1
+	}
+
+	// The dage API currently smooshes together any existing edge args with
+	// our new edge arg names.
+	if err := opapi.GraphAPI.AddEdge(obj.F1, obj.F2, obj.FE); err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) == 0 {
+		return nil
+	}
+	if len(errs) == 1 {
+		return errs[0]
+	}
+
+	err := fmt.Errorf("the AddEdge op failed")
+	for _, e := range errs {
+		err = errwrap.Append(err, e)
+	}
+	return err
 }
 
-func (obj *opAddEdge) Rev(g interfaces.GraphAPI) error {
-	err := g.DeleteEdge(obj.FE)
+func (obj *opAddEdge) Rev(opapi *opapi) error {
+	fns := []func() error{}
+	for _, arg := range obj.FE.Args { // ref count each arg
+		r := opapi.RefCount.MakeEdge(obj.F1, obj.F2, arg)
+		count := opapi.RefCount.Edges[r]
+		opapi.RefCount.Edges[r] = count - 1
 
-	if !obj.has1 { // it was added by the fwd op!
-		if e := g.DeleteVertex(obj.F1); e != nil { // so we have to delete it
-			err = errwrap.Append(err, e)
+		if count == 0 {
+			return fmt.Errorf("negative count")
+		}
+		if count > 1 {
+			continue
+		}
+
+		edge := opapi.GraphAPI.FindEdge(obj.F1, obj.F2)
+		if edge == nil {
+			return fmt.Errorf("missing edge between %p %s and %p %s", obj.F1, obj.F1, obj.F2, obj.F2)
+		}
+
+		fn := func() error { return opapi.GraphAPI.DeleteEdge(edge) }
+		fns = append(fns, fn)
+	}
+
+	count1, _ := opapi.RefCount.Vertices[obj.F1]
+	opapi.RefCount.Vertices[obj.F1] = count1 - 1
+	if count1 == 0 {
+		return fmt.Errorf("negative count")
+	}
+	if count1 == 1 {
+		fn := func() error { return opapi.GraphAPI.DeleteVertex(obj.F1) }
+		fns = append(fns, fn)
+	}
+
+	count2, _ := opapi.RefCount.Vertices[obj.F2]
+	opapi.RefCount.Vertices[obj.F2] = count2 - 1
+	if count1 == 0 {
+		return fmt.Errorf("negative count")
+	}
+	if count2 == 1 {
+		fn := func() error { return opapi.GraphAPI.DeleteVertex(obj.F2) }
+		fns = append(fns, fn)
+	}
+
+	errs := []error{} // check all errors at the same time to avoid partials
+	for _, fn := range fns {
+		if err := fn(); err != nil {
+			errs = append(errs, err)
 		}
 	}
-	if !obj.has2 {
-		if e := g.DeleteVertex(obj.F2); e != nil {
-			err = errwrap.Append(err, e)
-		}
+
+	if len(errs) == 0 {
+		return nil
+	}
+	if len(errs) == 1 {
+		return errs[0]
 	}
 
+	err := fmt.Errorf("the AddEdge rev op failed")
+	for _, e := range errs {
+		err = errwrap.Append(err, e)
+	}
 	return err
 }
 
@@ -194,12 +302,25 @@ type opDeleteVertex struct {
 	*opFlag
 }
 
-func (obj *opDeleteVertex) Fn(g interfaces.GraphAPI) error {
-	return g.DeleteVertex(obj.F)
+func (obj *opDeleteVertex) Fn(opapi *opapi) error {
+	count, _ := opapi.RefCount.Vertices[obj.F]
+	opapi.RefCount.Vertices[obj.F] = count - 1
+	if count == 0 {
+		return fmt.Errorf("negative count")
+	}
+	if count > 1 {
+		return nil
+	}
+	return opapi.GraphAPI.DeleteVertex(obj.F)
 }
 
-func (obj *opDeleteVertex) Rev(g interfaces.GraphAPI) error {
-	return g.AddVertex(obj.F)
+func (obj *opDeleteVertex) Rev(opapi *opapi) error {
+	count, _ := opapi.RefCount.Vertices[obj.F]
+	opapi.RefCount.Vertices[obj.F] = count + 1
+	if count != 0 {
+		return nil
+	}
+	return opapi.GraphAPI.AddVertex(obj.F)
 }
 
 func (obj *opDeleteVertex) String() string {
@@ -207,42 +328,92 @@ func (obj *opDeleteVertex) String() string {
 }
 
 type opDeleteEdge struct {
+	F1 interfaces.Func
+	F2 interfaces.Func
 	FE *interfaces.FuncEdge
-
-	f1    interfaces.Func
-	f2    interfaces.Func
-	found bool
 
 	*opSkip
 	*opFlag
 }
 
-func (obj *opDeleteEdge) Fn(g interfaces.GraphAPI) error {
-	// store state before op
-	if f1, f2, found := g.LookupEdge(obj.FE); found {
-		obj.f1 = f1
-		obj.f2 = f2
-		obj.found = found
+func (obj *opDeleteEdge) Fn(opapi *opapi) error {
+	fe := opapi.GraphAPI.FindEdge(obj.F1, obj.F2)
+	if fe == nil {
+		return fmt.Errorf("no edge found") // TODO: error or ignore?
 	}
-	// If !found, then don't error, we only care about erroring for that if
-	// we actually end up performing the reverse operation. Unlikely but do
-	// the error in there, not here where we don't care. This would only be
-	// not found if the person using the API didn't use it correctly.
+	if obj.FE != nil { // if specified, make sure it's consistent
+		f1, f2, found := opapi.GraphAPI.LookupEdge(obj.FE)
+		if !found {
+			return fmt.Errorf("edge not found")
+		}
+		if f1 != obj.F1 || f2 != obj.F2 {
+			return fmt.Errorf("inconsistent edge deletion in vertex")
+		}
+		if fe != obj.FE {
+			return fmt.Errorf("inconsistent edge deletion in edge")
+		}
+	}
 
-	return g.DeleteEdge(obj.FE)
+	//fns := []func() error{}
+	for _, arg := range fe.Args { // ref count each arg
+		r := opapi.RefCount.MakeEdge(obj.F1, obj.F2, arg)
+		count := opapi.RefCount.Edges[r]
+		opapi.RefCount.Edges[r] = count - 1
+
+		if count == 0 {
+			return fmt.Errorf("negative count")
+		}
+		if count > 1 {
+			continue
+		}
+
+		//edge := opapi.GraphAPI.FindEdge(f1, f2)
+		//if edge == nil {
+		//	return fmt.Errorf("missing edge between %p %s and %p %s", f1, f2, f2, f2)
+		//}
+		//fn := func() error { return opapi.GraphAPI.DeleteEdge(edge) }
+		//fns = append(fns, fn)
+	}
+
+	err := opapi.GraphAPI.DeleteEdge(fe)
+	return errwrap.Wrapf(err, "the DeleteEdge op failed")
 }
 
-func (obj *opDeleteEdge) Rev(g interfaces.GraphAPI) error {
-	if !obj.found {
-		return fmt.Errorf("edge vertices not found") // fatal error
+func (obj *opDeleteEdge) Rev(opapi *opapi) error {
+	fe := &interfaces.FuncEdge{Args: []string{"default"}} // TODO: arg name?
+	if obj.FE != nil {
+		fe = obj.FE
 	}
 
-	// if we reverse, we add back the original edge that we had found
-	return g.AddEdge(obj.f1, obj.f2, obj.FE)
+	for _, arg := range fe.Args { // ref count each arg
+		r := opapi.RefCount.MakeEdge(obj.F1, obj.F2, arg)
+		count := opapi.RefCount.Edges[r]
+		opapi.RefCount.Edges[r] = count + 1
+	}
+
+	// The dage API currently smooshes together any existing edge args with
+	// our new edge arg names.
+	errs := []error{} // check all errors at the same time to avoid partials
+	if err := opapi.GraphAPI.AddEdge(obj.F1, obj.F2, fe); err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) == 0 {
+		return nil
+	}
+	if len(errs) == 1 {
+		return errs[0]
+	}
+
+	err := fmt.Errorf("the AddEdge op failed")
+	for _, e := range errs {
+		err = errwrap.Append(err, e)
+	}
+	return err
 }
 
 func (obj *opDeleteEdge) String() string {
-	return fmt.Sprintf("DeleteEdge: %+v -> %+v (%+v)", obj.f1, obj.f2, obj.FE)
+	return fmt.Sprintf("DeleteEdge: %+v -> %+v (%+v)", obj.F1, obj.F2, obj.FE)
 }
 
 // graphTxn holds the state of a transaction and runs it when needed. When this
@@ -250,16 +421,20 @@ func (obj *opDeleteEdge) String() string {
 // functions in their Stream method to modify the function graph while it is
 // "running".
 type graphTxn struct {
-	// GraphAPI is a handle pointing to the graph API implementation we're
-	// using for any txn operations.
-	GraphAPI interfaces.GraphAPI
-
 	// Lock is a handle to the lock function to call before the operation.
 	Lock func()
 
 	// Unlock is a handle to the unlock function to call before the
 	// operation.
 	Unlock func()
+
+	// GraphAPI is a handle pointing to the graph API implementation we're
+	// using for any txn operations.
+	GraphAPI interfaces.GraphAPI
+
+	// RefCount keeps track of vertex and edge references across the entire
+	// graph.
+	RefCount *RefCount
 
 	// ops is a list of operations to run on a graph
 	ops []opfn
@@ -286,9 +461,10 @@ func (obj *graphTxn) init() interfaces.Txn {
 // different user of this transaction.
 func (obj *graphTxn) Copy() interfaces.Txn {
 	txn := &graphTxn{
-		GraphAPI: obj.GraphAPI,
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
+		GraphAPI: obj.GraphAPI,
+		RefCount: obj.RefCount, // this is shared across all txn's
 	}
 	return txn.init()
 }
@@ -355,13 +531,16 @@ func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 }
 
 // DeleteEdge adds a vertex to the running graph. The operation will get
-// completed when Commit is run.
+// completed when Commit is run. The edge is part of the signature so that it is
+// both symmetrical with AddEdge, and also easier to reverse.
 // XXX: should this be pgraph.Edge instead of *interfaces.FuncEdge ?
-func (obj *graphTxn) DeleteEdge(fe *interfaces.FuncEdge) interfaces.Txn {
+func (obj *graphTxn) DeleteEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) interfaces.Txn {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
 	opfn := &opDeleteEdge{
+		F1: f1,
+		F2: f2,
 		FE: fe,
 
 		opSkip: &opSkip{},
@@ -420,6 +599,14 @@ func (obj *graphTxn) commit() error {
 	fmt.Printf("YYY YYY YYY COMMIT(%p) LOCKED\n", obj)
 	defer fmt.Printf("YYY YYY YYY COMMIT(%p) UNLOCKED\n", obj)
 
+	// Now request the ref count mutex. This may seem redundant, but it's
+	// not. The above graph engine Lock might allow more than one commit
+	// through simultaneously depending on implementation. The actual count
+	// mathematics must not, and so it has a separate lock. We could lock it
+	// per-operation, but that would probably be a lot slower.
+	obj.RefCount.Mutex.Lock()
+	defer obj.RefCount.Mutex.Unlock()
+
 	// TODO: we don't need to do this anymore, because the engine does it!
 	// Copy the graph structure, perform the ops, check we didn't add a
 	// cycle, and if it's safe, do the real thing. Otherwise error here.
@@ -434,12 +621,16 @@ func (obj *graphTxn) commit() error {
 
 	// Now do it for real...
 	obj.rev = []opfn{} // clear it for safety
+	opapi := &opapi{
+		GraphAPI: obj.GraphAPI,
+		RefCount: obj.RefCount,
+	}
 	for _, op := range obj.ops {
-		if err := op.Fn(obj.GraphAPI); err != nil { // call it
+		if err := op.Fn(opapi); err != nil { // call it
 			// something went wrong (we made a cycle?)
 			// so we reverse everything that succeeded...
 			for i := len(obj.rev) - 1; i >= 0; i-- {
-				if err := obj.rev[i].Rev(obj.GraphAPI); err != nil {
+				if err := obj.rev[i].Rev(opapi); err != nil {
 					// programming error or ghosts
 					panic(err)
 				}
@@ -571,4 +762,49 @@ func (obj *graphTxn) Erase() {
 	defer obj.mutex.Unlock()
 
 	obj.rev = []opfn{} // clear it
+}
+
+// RefCount keeps track of vertex and edge references across the entire graph.
+type RefCount struct {
+	// Mutex locks this edge for read or write.
+	Mutex *sync.Mutex
+
+	// Vertices is a reference count of the number of vertices used.
+	Vertices map[interfaces.Func]int64
+
+	// Edges is a reference count of the number of edges used.
+	Edges map[*RefCountEdge]int64 // TODO: hash *RefCountEdge as a key instead
+}
+
+// RefCountEdge is a virtual "hash" entry for the RefCount edges map key.
+type RefCountEdge struct {
+	f1  interfaces.Func
+	f2  interfaces.Func
+	arg string
+}
+
+// Init must be called to initialized the struct before first use.
+func (obj *RefCount) Init() *RefCount {
+	obj.Mutex = &sync.Mutex{}
+	obj.Vertices = make(map[interfaces.Func]int64)
+	obj.Edges = make(map[*RefCountEdge]int64)
+	return obj // return self so it can be called in a chain
+}
+
+// MakeEdge looks up an edge with the "hash" input we are seeking. If it doesn't
+// find a match, it returns a new one with those fields.
+func (obj *RefCount) MakeEdge(f1, f2 interfaces.Func, arg string) *RefCountEdge {
+	for k := range obj.Edges {
+		//if k == nil { // programming error
+		//	continue
+		//}
+		if k.f1 == f1 && k.f2 == f2 && k.arg == arg {
+			return k
+		}
+	}
+	return &RefCountEdge{ // not found, so make a new one!
+		f1:  f1,
+		f2:  f2,
+		arg: arg,
+	}
 }

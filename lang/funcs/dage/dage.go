@@ -33,6 +33,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -67,6 +68,10 @@ type Engine struct {
 
 	// tableMutex wraps access to the table map.
 	tableMutex *sync.RWMutex
+
+	// refCount keeps track of vertex and edge references across the entire
+	// graph.
+	refCount *RefCount
 
 	wg *sync.WaitGroup
 
@@ -144,6 +149,8 @@ func (obj *Engine) Setup() error {
 	obj.graphMutex = &sync.Mutex{} // TODO: &sync.RWMutex{} ?
 	obj.tableMutex = &sync.RWMutex{}
 
+	obj.refCount = (&RefCount{}).Init()
+
 	obj.wg = &sync.WaitGroup{}
 
 	obj.pauseChan = make(chan struct{})
@@ -218,10 +225,10 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 	input := make(chan types.Value)
 	output := make(chan types.Value)
 	graphTxn := &graphTxn{
-		GraphAPI: obj,
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
-		//Count:    XXX, // Reference counting. map[Vertex]int64
+		GraphAPI: obj,
+		RefCount: obj.refCount, // reference counting
 	}
 	txn := graphTxn.init()
 
@@ -321,7 +328,30 @@ func (obj *Engine) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) erro
 	if hasf1 {
 		obj.resend[f2] = struct{}{} // resend notification to me
 	}
-	obj.graph.AddEdge(f1, f2, fe)
+
+	if edge := obj.graph.FindEdge(f1, f2); edge != nil { // found an edge!
+		edge, ok := edge.(*interfaces.FuncEdge)
+		if !ok {
+			panic("edge is not a FuncEdge")
+		}
+
+		// Search for any existing args on the edge we want to add. Add
+		// only the new ones. No need to have duplicate edge names.
+		add := []string{}
+		for _, arg := range edge.Args {
+			if util.StrInList(arg, fe.Args) {
+				// XXX: should we error for the duplicate here?
+				continue
+			}
+			add = append(add, arg)
+		}
+		for _, arg := range add {
+			fe.Args = append(fe.Args, arg)
+		}
+		// TODO: sort fe.Args for consistency?
+	}
+
+	obj.graph.AddEdge(f1, f2, fe) // replaces any existing edge here
 
 	// This shouldn't error, since the test graph didn't find a cycle.
 	if _, err := obj.graph.TopologicalSort(); err != nil {
@@ -379,22 +409,22 @@ func (obj *Engine) DeleteVertex(f interfaces.Func) error {
 
 // DeleteEdge is the thread-safe way to delete an edge. You will need to call
 // the engine Lock method before using this and the Unlock method afterwards.
-func (obj *Engine) DeleteEdge(e *interfaces.FuncEdge) error {
+func (obj *Engine) DeleteEdge(fe *interfaces.FuncEdge) error {
 	obj.graphMutex.Lock()
 	defer obj.graphMutex.Unlock()
 	if obj.Debug {
-		f1, f2, found := obj.graph.LookupEdge(e)
+		f1, f2, found := obj.graph.LookupEdge(fe)
 		if found {
 			obj.Logf("Engine:DeleteEdge: %p %s -> %p %s", f1, f1, f2, f2)
 		} else {
-			obj.Logf("Engine:DeleteEdge: not found %p %s", e, e)
+			obj.Logf("Engine:DeleteEdge: not found %p %s", fe, fe)
 		}
 	}
 
 	// Don't bother checking if edge exists first and don't error if it
 	// doesn't because it might have gotten deleted when a vertex did, and
 	// so there's no need to complain for nothing.
-	obj.graph.DeleteEdge(e)
+	obj.graph.DeleteEdge(fe)
 
 	return nil
 }
@@ -495,6 +525,28 @@ func (obj *Engine) LookupEdge(fe *interfaces.FuncEdge) (interfaces.Func, interfa
 		panic("not a Func")
 	}
 	return f1, f2, found
+}
+
+// FindEdge is the thread-safe way to check which edge (if any) exists between
+// two vertices in the graph. This is an important method in edge removal,
+// because it's what you really need to know for DeleteEdge to work. Requesting
+// a specific deletion isn't very sensical in this library when specified as the
+// edge pointer, since we might replace it with a new edge that has new arg
+// names. Instead, use this to look up what relationship you want, and then
+// DeleteEdge to remove it. You will need to call the engine Lock method before
+// using this and the Unlock method afterwards.
+func (obj *Engine) FindEdge(f1, f2 interfaces.Func) *interfaces.FuncEdge {
+	obj.graphMutex.Lock()         // XXX: should this be a RLock?
+	defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?
+
+	edge := obj.graph.FindEdge(f1, f2)
+
+	fe, ok := edge.(*interfaces.FuncEdge)
+	if !ok {
+		panic("edge is not a FuncEdge")
+	}
+
+	return fe
 }
 
 // Lock must be used before modifying the running graph. Make sure to Unlock

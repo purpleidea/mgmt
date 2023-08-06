@@ -262,9 +262,6 @@ func (obj *opAddEdge) Rev(opapi *opapi) error {
 		if count == 0 {
 			return fmt.Errorf("negative count")
 		}
-		if count > 1 {
-			continue
-		}
 	}
 
 	count1, _ := opapi.RefCount.Vertices[obj.F1]
@@ -730,17 +727,20 @@ func (obj *RefCount) DeleteEdge(f1, f2 interfaces.Func, arg string) error {
 }
 
 func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
-	fmt.Printf("start " + obj.String())
-	defer fmt.Printf("end " + obj.String())
-	m := make(map[interfaces.Func]map[interfaces.Func]string) // f1 -> f2
+	fmt.Printf("start %s", obj.String())
+	defer fmt.Printf("end %s", obj.String())
+	free := make(map[interfaces.Func]map[interfaces.Func][]string) // f1 -> f2
 	for x, count := range obj.Edges {
 		if count != 0 { // we only care about freed things
 			continue
 		}
-		if _, exists := m[x.f1]; !exists {
-			m[x.f1] = make(map[interfaces.Func]string)
+		if _, exists := free[x.f1]; !exists {
+			free[x.f1] = make(map[interfaces.Func][]string)
 		}
-		m[x.f1][x.f2] = x.arg // exists as refcount zero
+		if _, exists := free[x.f1][x.f2]; !exists {
+			free[x.f1][x.f2] = []string{}
+		}
+		free[x.f1][x.f2] = append(free[x.f1][x.f2], x.arg) // exists as refcount zero
 	}
 	//for x, count := range obj.Edges {
 	//	if count == 0 { // now skip the ones from before
@@ -760,27 +760,46 @@ func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
 	//}
 
 	// These edges have a refcount of zero.
-	for f1, x := range m {
-		for f2, arg := range x {
-			edge := graphAPI.FindEdge(f1, f2)
-			// any errors here are programming errors
-			if edge == nil {
+	for f1, x := range free {
+		for f2, args := range x {
+			for _, arg := range args {
+				edge := graphAPI.FindEdge(f1, f2)
+				// any errors here are programming errors
+				if edge == nil {
+					return fmt.Errorf("missing edge from %p %s -> %p %s", f1, f1, f2, f2)
+				}
+
+				sane := false // sanity check
+				newArgs := []string{}
+				for _, a := range edge.Args {
+					if arg == a {
+						if sane {
+							// programming error, duplicate arg
+							return fmt.Errorf("doubly sane is insane")
+						}
+						sane = true
+						continue
+					}
+					newArgs = append(newArgs, a)
+				}
+
+				if len(edge.Args) == 1 { // edge gets deleted
+					if a := edge.Args[0]; a != arg { // one arg
+						return fmt.Errorf("inconsistent arg: %s != %s", a, arg)
+					}
+
+					if err := graphAPI.DeleteEdge(edge); err != nil {
+						return errwrap.Wrapf(err, "edge deletion error")
+					}
+				} else {
+					// just remove the one arg for now
+					edge.Args = newArgs
+				}
+
+				// always free the database entry
 				if err := obj.DeleteEdge(f1, f2, arg); err != nil {
 					return err
 				}
-				// Here we continue, don't error. We deleted it
-				// previously if it was an edge that had two arg
-				// names. We're hitting this because the edge
-				// had two references on the arg name.
-				continue
-				//return fmt.Errorf("missing edge from %p %s -> %p %s", f1, f1, f2, f2)
-			}
-			if err := graphAPI.DeleteEdge(edge); err != nil {
-				return errwrap.Wrapf(err, "edge deletion error")
-			}
-			// free the database entry
-			if err := obj.DeleteEdge(f1, f2, arg); err != nil {
-				return err
 			}
 		}
 	}
@@ -788,16 +807,15 @@ func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
 	// Now vertices...
 	vs := []interfaces.Func{}
 	for vertex, count := range obj.Vertices {
-		fmt.Printf("11111111111: VERTICES[%d]: %+v\n", count, vertex)
 		if count != 0 {
 			continue
 		}
 
-		// safety check
+		// safety check, vertex is still in used by an edge
 		for x := range obj.Edges {
 			if x.f1 == vertex || x.f2 == vertex {
 				// programming error
-				//return fmt.Errorf("unexpected vertex still present")
+				return fmt.Errorf("vertex unexpectedly still in use: %p %s", vertex, vertex)
 			}
 		}
 

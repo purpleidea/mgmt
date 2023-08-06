@@ -291,8 +291,10 @@ type Txn interface {
 	// edge that is found between the two input vertices. The operation will
 	// get completed when Commit is run. The edge is part of the signature
 	// so that it is both symmetrical with AddEdge, and also easier to
-	//reverse.
-	DeleteEdge(Func, Func, *FuncEdge) Txn
+	// reverse in theory.
+	// NOTE: This is not supported since there's no sane Reverse with GC.
+	// XXX Add this in but just don't let it be reversible?
+	//DeleteEdge(Func, Func, *FuncEdge) Txn
 
 	// AddReverse appends to the commit queue anything that was staged for
 	// reverse. This also removes those operations from the reverse queue as

@@ -33,7 +33,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -336,27 +335,28 @@ func (obj *Engine) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) erro
 		obj.resend[f2] = struct{}{} // resend notification to me
 	}
 
-	if edge := obj.graph.FindEdge(f1, f2); edge != nil { // found an edge!
-		edge, ok := edge.(*interfaces.FuncEdge)
-		if !ok {
-			panic("edge is not a FuncEdge")
-		}
+	//if edge := obj.graph.FindEdge(f1, f2); edge != nil { // found an edge!
+	//fmt.Printf("11111111111111: WE SPLAT-ING IN TWO PLACES\n")
+	//	edge, ok := edge.(*interfaces.FuncEdge)
+	//	if !ok {
+	//		panic("edge is not a FuncEdge")
+	//	}
 
-		// Search for any existing args on the edge we want to add. Add
-		// only the new ones. No need to have duplicate edge names.
-		add := []string{}
-		for _, arg := range edge.Args {
-			if util.StrInList(arg, fe.Args) {
-				// XXX: should we error for the duplicate here?
-				continue
-			}
-			add = append(add, arg)
-		}
-		for _, arg := range add {
-			fe.Args = append(fe.Args, arg)
-		}
-		// TODO: sort fe.Args for consistency?
-	}
+	//	// Search for any existing args on the edge we want to add. Add
+	//	// only the new ones. No need to have duplicate edge names.
+	//	add := []string{}
+	//	for _, arg := range edge.Args {
+	//		if util.StrInList(arg, fe.Args) {
+	//			// XXX: should we error for the duplicate here?
+	//			continue
+	//		}
+	//		add = append(add, arg)
+	//	}
+	//	for _, arg := range add {
+	//		fe.Args = append(fe.Args, arg)
+	//	}
+	//	// TODO: sort fe.Args for consistency?
+	//}
 
 	obj.graph.AddEdge(f1, f2, fe) // replaces any existing edge here
 
@@ -547,7 +547,9 @@ func (obj *Engine) FindEdge(f1, f2 interfaces.Func) *interfaces.FuncEdge {
 	defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?
 
 	edge := obj.graph.FindEdge(f1, f2)
-
+	if edge == nil {
+		return nil
+	}
 	fe, ok := edge.(*interfaces.FuncEdge)
 	if !ok {
 		panic("edge is not a FuncEdge")

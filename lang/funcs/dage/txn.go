@@ -21,6 +21,7 @@ package dage
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -149,6 +150,7 @@ type opAddVertex struct {
 }
 
 func (obj *opAddVertex) Fn(opapi *opapi) error {
+	// XXX: replace these with a +1 and -1 API?
 	count, _ := opapi.RefCount.Vertices[obj.F]
 	opapi.RefCount.Vertices[obj.F] = count + 1
 	if count != 0 {
@@ -163,10 +165,8 @@ func (obj *opAddVertex) Rev(opapi *opapi) error {
 	if count == 0 {
 		return fmt.Errorf("negative count")
 	}
-	if count > 1 {
-		return nil
-	}
-	return opapi.GraphAPI.DeleteVertex(obj.F)
+	// any removal happens in gc
+	return nil
 }
 
 func (obj *opAddVertex) String() string {
@@ -211,9 +211,32 @@ func (obj *opAddEdge) Fn(opapi *opapi) error {
 		opapi.RefCount.Edges[r] = count + 1
 	}
 
+	fe := obj.FE // squish multiple edges together if one already exists
+	if edge := opapi.GraphAPI.FindEdge(obj.F1, obj.F2); edge != nil {
+		args := make(map[string]struct{})
+		for _, x := range obj.FE.Args {
+			args[x] = struct{}{}
+		}
+		for _, x := range edge.Args {
+			args[x] = struct{}{}
+		}
+		if len(args) != len(obj.FE.Args)+len(edge.Args) {
+			// programming error
+			return fmt.Errorf("duplicate arg found")
+		}
+		newArgs := []string{}
+		for x := range args {
+			newArgs = append(newArgs, x)
+		}
+		sort.Strings(newArgs) // for consistency?
+		fe = &interfaces.FuncEdge{
+			Args: newArgs,
+		}
+	}
+
 	// The dage API currently smooshes together any existing edge args with
 	// our new edge arg names.
-	if err := opapi.GraphAPI.AddEdge(obj.F1, obj.F2, obj.FE); err != nil {
+	if err := opapi.GraphAPI.AddEdge(obj.F1, obj.F2, fe); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -232,26 +255,16 @@ func (obj *opAddEdge) Fn(opapi *opapi) error {
 }
 
 func (obj *opAddEdge) Rev(opapi *opapi) error {
-	fns := []func() error{}
 	for _, arg := range obj.FE.Args { // ref count each arg
 		r := opapi.RefCount.MakeEdge(obj.F1, obj.F2, arg)
 		count := opapi.RefCount.Edges[r]
 		opapi.RefCount.Edges[r] = count - 1
-
 		if count == 0 {
 			return fmt.Errorf("negative count")
 		}
 		if count > 1 {
 			continue
 		}
-
-		edge := opapi.GraphAPI.FindEdge(obj.F1, obj.F2)
-		if edge == nil {
-			return fmt.Errorf("missing edge between %p %s and %p %s", obj.F1, obj.F1, obj.F2, obj.F2)
-		}
-
-		fn := func() error { return opapi.GraphAPI.DeleteEdge(edge) }
-		fns = append(fns, fn)
 	}
 
 	count1, _ := opapi.RefCount.Vertices[obj.F1]
@@ -259,40 +272,14 @@ func (obj *opAddEdge) Rev(opapi *opapi) error {
 	if count1 == 0 {
 		return fmt.Errorf("negative count")
 	}
-	if count1 == 1 {
-		fn := func() error { return opapi.GraphAPI.DeleteVertex(obj.F1) }
-		fns = append(fns, fn)
-	}
 
 	count2, _ := opapi.RefCount.Vertices[obj.F2]
 	opapi.RefCount.Vertices[obj.F2] = count2 - 1
 	if count1 == 0 {
 		return fmt.Errorf("negative count")
 	}
-	if count2 == 1 {
-		fn := func() error { return opapi.GraphAPI.DeleteVertex(obj.F2) }
-		fns = append(fns, fn)
-	}
 
-	errs := []error{} // check all errors at the same time to avoid partials
-	for _, fn := range fns {
-		if err := fn(); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(errs) == 0 {
-		return nil
-	}
-	if len(errs) == 1 {
-		return errs[0]
-	}
-
-	err := fmt.Errorf("the AddEdge rev op failed")
-	for _, e := range errs {
-		err = errwrap.Append(err, e)
-	}
-	return err
+	return nil
 }
 
 func (obj *opAddEdge) String() string {
@@ -315,6 +302,8 @@ func (obj *opDeleteVertex) Fn(opapi *opapi) error {
 	if count > 1 {
 		return nil
 	}
+
+	delete(opapi.RefCount.Vertices, obj.F) // don't GC this one
 	return opapi.GraphAPI.DeleteVertex(obj.F)
 }
 
@@ -329,95 +318,6 @@ func (obj *opDeleteVertex) Rev(opapi *opapi) error {
 
 func (obj *opDeleteVertex) String() string {
 	return fmt.Sprintf("DeleteVertex: %+v", obj.F)
-}
-
-type opDeleteEdge struct {
-	F1 interfaces.Func
-	F2 interfaces.Func
-	FE *interfaces.FuncEdge
-
-	*opSkip
-	*opFlag
-}
-
-func (obj *opDeleteEdge) Fn(opapi *opapi) error {
-	fe := opapi.GraphAPI.FindEdge(obj.F1, obj.F2)
-	if fe == nil {
-		return fmt.Errorf("no edge found") // TODO: error or ignore?
-	}
-	if obj.FE != nil { // if specified, make sure it's consistent
-		f1, f2, found := opapi.GraphAPI.LookupEdge(obj.FE)
-		if !found {
-			return fmt.Errorf("edge not found")
-		}
-		if f1 != obj.F1 || f2 != obj.F2 {
-			return fmt.Errorf("inconsistent edge deletion in vertex")
-		}
-		if fe != obj.FE {
-			return fmt.Errorf("inconsistent edge deletion in edge")
-		}
-	}
-
-	//fns := []func() error{}
-	for _, arg := range fe.Args { // ref count each arg
-		r := opapi.RefCount.MakeEdge(obj.F1, obj.F2, arg)
-		count := opapi.RefCount.Edges[r]
-		opapi.RefCount.Edges[r] = count - 1
-
-		if count == 0 {
-			return fmt.Errorf("negative count")
-		}
-		if count > 1 {
-			continue
-		}
-
-		//edge := opapi.GraphAPI.FindEdge(f1, f2)
-		//if edge == nil {
-		//	return fmt.Errorf("missing edge between %p %s and %p %s", f1, f2, f2, f2)
-		//}
-		//fn := func() error { return opapi.GraphAPI.DeleteEdge(edge) }
-		//fns = append(fns, fn)
-	}
-
-	err := opapi.GraphAPI.DeleteEdge(fe)
-	return errwrap.Wrapf(err, "the DeleteEdge op failed")
-}
-
-func (obj *opDeleteEdge) Rev(opapi *opapi) error {
-	fe := &interfaces.FuncEdge{Args: []string{"default"}} // TODO: arg name?
-	if obj.FE != nil {
-		fe = obj.FE
-	}
-
-	for _, arg := range fe.Args { // ref count each arg
-		r := opapi.RefCount.MakeEdge(obj.F1, obj.F2, arg)
-		count := opapi.RefCount.Edges[r]
-		opapi.RefCount.Edges[r] = count + 1
-	}
-
-	// The dage API currently smooshes together any existing edge args with
-	// our new edge arg names.
-	errs := []error{} // check all errors at the same time to avoid partials
-	if err := opapi.GraphAPI.AddEdge(obj.F1, obj.F2, fe); err != nil {
-		errs = append(errs, err)
-	}
-
-	if len(errs) == 0 {
-		return nil
-	}
-	if len(errs) == 1 {
-		return errs[0]
-	}
-
-	err := fmt.Errorf("the AddEdge op failed")
-	for _, e := range errs {
-		err = errwrap.Append(err, e)
-	}
-	return err
-}
-
-func (obj *opDeleteEdge) String() string {
-	return fmt.Sprintf("DeleteEdge: %+v -> %+v (%+v)", obj.F1, obj.F2, obj.FE)
 }
 
 // graphTxn holds the state of a transaction and runs it when needed. When this
@@ -534,27 +434,6 @@ func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 	return obj // return self so it can be called in a chain
 }
 
-// DeleteEdge adds a vertex to the running graph. The operation will get
-// completed when Commit is run. The edge is part of the signature so that it is
-// both symmetrical with AddEdge, and also easier to reverse.
-// XXX: should this be pgraph.Edge instead of *interfaces.FuncEdge ?
-func (obj *graphTxn) DeleteEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) interfaces.Txn {
-	obj.mutex.Lock()
-	defer obj.mutex.Unlock()
-
-	opfn := &opDeleteEdge{
-		F1: f1,
-		F2: f2,
-		FE: fe,
-
-		opSkip: &opSkip{},
-		opFlag: &opFlag{},
-	}
-	obj.ops = append(obj.ops, opfn)
-
-	return obj // return self so it can be called in a chain
-}
-
 // AddReverse appends to the commit queue anything that was staged for reverse.
 // This also removes those operations from the reverse queue as if you had
 // called Erase. Of note, these operations will not get used on subsequent calls
@@ -632,15 +511,7 @@ func (obj *graphTxn) commit() error {
 	for _, op := range obj.ops {
 		if err := op.Fn(opapi); err != nil { // call it
 			// something went wrong (we made a cycle?)
-			// so we reverse everything that succeeded...
-			for i := len(obj.rev) - 1; i >= 0; i-- {
-				if err := obj.rev[i].Rev(opapi); err != nil {
-					// programming error or ghosts
-					panic(err)
-				}
-			}
 			obj.rev = []opfn{} // clear it, we didn't succeed
-
 			return err
 		}
 
@@ -651,6 +522,14 @@ func (obj *graphTxn) commit() error {
 		}
 	}
 	obj.ops = []opfn{} // clear it
+
+	// garbage collect anything that hit zero!
+	// XXX: add gc function to this struct and pass in opapi instead?
+	if err := obj.RefCount.GC(obj.GraphAPI); err != nil {
+		// programming error or ghosts
+		return err
+	}
+
 	// XXX: running this on each commit has a huge performance hit.
 	// XXX: we could write out the .dot files and run graphviz afterwards
 	if engine, ok := obj.GraphAPI.(*Engine); ok && GraphvizDebug {
@@ -789,6 +668,20 @@ type RefCountEdge struct {
 	arg string
 }
 
+func (obj *RefCount) String() string {
+	s := "refs >>>\n"
+	s += fmt.Sprintf("vertices (%d):\n", len(obj.Vertices))
+	for vertex, count := range obj.Vertices {
+		s += fmt.Sprintf("\tvertex (%d): %p %s\n", count, vertex, vertex)
+	}
+	s += fmt.Sprintf("edges (%d):\n", len(obj.Edges))
+	for edge, count := range obj.Edges {
+		s += fmt.Sprintf("\tedge (%d): %p %s -> %p %s # %s\n", count, edge.f1, edge.f1, edge.f2, edge.f2, edge.arg)
+	}
+	s += "<<< refs\n"
+	return s
+}
+
 // Init must be called to initialized the struct before first use.
 func (obj *RefCount) Init() *RefCount {
 	obj.Mutex = &sync.Mutex{}
@@ -813,4 +706,111 @@ func (obj *RefCount) MakeEdge(f1, f2 interfaces.Func, arg string) *RefCountEdge 
 		f2:  f2,
 		arg: arg,
 	}
+}
+
+// DeleteEdge removes exactly one entry from the Edges list or it errors.
+func (obj *RefCount) DeleteEdge(f1, f2 interfaces.Func, arg string) error {
+	found := []*RefCountEdge{}
+	for k := range obj.Edges {
+		//if k == nil { // programming error
+		//	continue
+		//}
+		if k.f1 == f1 && k.f2 == f2 && k.arg == arg {
+			found = append(found, k)
+		}
+	}
+	if len(found) > 1 {
+		return fmt.Errorf("inconsistent ref count for edge")
+	}
+	if len(found) == 0 {
+		return fmt.Errorf("no edge found")
+	}
+	delete(obj.Edges, found[0]) // delete from map
+	return nil
+}
+
+func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
+	fmt.Printf("start " + obj.String())
+	defer fmt.Printf("end " + obj.String())
+	m := make(map[interfaces.Func]map[interfaces.Func]string) // f1 -> f2
+	for x, count := range obj.Edges {
+		if count != 0 { // we only care about freed things
+			continue
+		}
+		if _, exists := m[x.f1]; !exists {
+			m[x.f1] = make(map[interfaces.Func]string)
+		}
+		m[x.f1][x.f2] = x.arg // exists as refcount zero
+	}
+	//for x, count := range obj.Edges {
+	//	if count == 0 { // now skip the ones from before
+	//		continue
+	//	}
+
+	//	// XXX what is this code for?
+	//	// can't delete any of these
+	//	if mm, exists := m[x.f1]; exists {
+	//		if _, exists := mm[x.f2]; exists {
+	//			delete(m[x.f1], x.f2)
+	//			if len(m[x.f1]) == 0 {
+	//				delete(m, x.f1)
+	//			}
+	//		}
+	//	}
+	//}
+
+	// These edges have a refcount of zero.
+	for f1, x := range m {
+		for f2, arg := range x {
+			edge := graphAPI.FindEdge(f1, f2)
+			// any errors here are programming errors
+			if edge == nil {
+				if err := obj.DeleteEdge(f1, f2, arg); err != nil {
+					return err
+				}
+				// Here we continue, don't error. We deleted it
+				// previously if it was an edge that had two arg
+				// names. We're hitting this because the edge
+				// had two references on the arg name.
+				continue
+				//return fmt.Errorf("missing edge from %p %s -> %p %s", f1, f1, f2, f2)
+			}
+			if err := graphAPI.DeleteEdge(edge); err != nil {
+				return errwrap.Wrapf(err, "edge deletion error")
+			}
+			// free the database entry
+			if err := obj.DeleteEdge(f1, f2, arg); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Now vertices...
+	vs := []interfaces.Func{}
+	for vertex, count := range obj.Vertices {
+		fmt.Printf("11111111111: VERTICES[%d]: %+v\n", count, vertex)
+		if count != 0 {
+			continue
+		}
+
+		// safety check
+		for x := range obj.Edges {
+			if x.f1 == vertex || x.f2 == vertex {
+				// programming error
+				//return fmt.Errorf("unexpected vertex still present")
+			}
+		}
+
+		vs = append(vs, vertex)
+	}
+
+	for _, vertex := range vs {
+		if err := graphAPI.DeleteVertex(vertex); err != nil {
+			return errwrap.Wrapf(err, "vertex deletion error")
+		}
+		// free the database entry
+		delete(obj.Vertices, vertex)
+	}
+
+	return nil
 }

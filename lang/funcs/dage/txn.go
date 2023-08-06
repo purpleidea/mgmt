@@ -607,22 +607,22 @@ func (obj *graphTxn) Reverse() error {
 	//}
 	obj.rev = []opfn{} // clear
 
-	rollback := func() {
-		//for _, op := range rev { // from our safer copy
-		//for _, op := range obj.ops { // copy back out the rev stuff
-		for i := len(obj.ops) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
-			op := obj.rev[i]
-			obj.rev = append(obj.rev, op)
-		}
-		obj.ops = []opfn{}       // clear
-		for _, op := range ops { // copy the original ops back in
-			obj.ops = append(obj.ops, op)
-		}
-	}
+	//rollback := func() {
+	//	//for _, op := range rev { // from our safer copy
+	//	//for _, op := range obj.ops { // copy back out the rev stuff
+	//	for i := len(obj.ops) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
+	//		op := obj.rev[i]
+	//		obj.rev = append(obj.rev, op)
+	//	}
+	//	obj.ops = []opfn{}       // clear
+	//	for _, op := range ops { // copy the original ops back in
+	//		obj.ops = append(obj.ops, op)
+	//	}
+	//}
 	// first commit the reverse stuff
 	if err := obj.commit(); err != nil { // lockless version
 		// restore obj.rev and obj.ops
-		rollback()
+		//rollback() // probably not needed
 		return err
 	}
 
@@ -728,7 +728,7 @@ func (obj *RefCount) DeleteEdge(f1, f2 interfaces.Func, arg string) error {
 
 func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
 	fmt.Printf("start %s", obj.String())
-	defer fmt.Printf("end %s", obj.String())
+	defer func() { fmt.Printf("end %s", obj.String()) }()
 	free := make(map[interfaces.Func]map[interfaces.Func][]string) // f1 -> f2
 	for x, count := range obj.Edges {
 		if count != 0 { // we only care about freed things
@@ -742,22 +742,6 @@ func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
 		}
 		free[x.f1][x.f2] = append(free[x.f1][x.f2], x.arg) // exists as refcount zero
 	}
-	//for x, count := range obj.Edges {
-	//	if count == 0 { // now skip the ones from before
-	//		continue
-	//	}
-
-	//	// XXX what is this code for?
-	//	// can't delete any of these
-	//	if mm, exists := m[x.f1]; exists {
-	//		if _, exists := mm[x.f2]; exists {
-	//			delete(m[x.f1], x.f2)
-	//			if len(m[x.f1]) == 0 {
-	//				delete(m, x.f1)
-	//			}
-	//		}
-	//	}
-	//}
 
 	// These edges have a refcount of zero.
 	for f1, x := range free {

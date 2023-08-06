@@ -772,8 +772,6 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		Args: []string{channelBasedSinkFuncArgNameEdgeName},
 	})
 
-	edgeFns := []func(){}
-
 	for i := 0; i < obj.lastInputListLength; i++ {
 		i := i
 		inputElemFunc := simple.SimpleFnToDirectFunc(
@@ -802,21 +800,12 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.Call()")
 		}
 
-		fn := func() {
-			obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
-				Args: []string{"inputList"},
-			})
-			obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
-				Args: []string{fmt.Sprintf("outputElem%d", i)},
-			})
-		}
-
-		edgeFns = append(edgeFns, fn)
-	}
-
-	// Add edges last after all the AddVertex stuff.
-	for _, fn := range edgeFns {
-		fn()
+		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
+			Args: []string{"inputList"},
+		})
+		obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
+			Args: []string{fmt.Sprintf("outputElem%d", i)},
+		})
 	}
 
 	return obj.init.Txn.Commit()

@@ -123,7 +123,7 @@ const (
 
 var (
 	// orderingGraphSingleton is used for debugging the ordering graph.
-	orderingGraphSingleton = true
+	orderingGraphSingleton = false
 )
 
 // StmtBind is a representation of an assignment, which binds a variable to an

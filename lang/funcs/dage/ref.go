@@ -170,8 +170,9 @@ func (obj *RefCount) FreeEdge(f1, f2 interfaces.Func, arg string) error {
 // GC runs the garbage collector on any zeroed references. Note the distinction
 // between count == 0 (please delete now) and absent from the map.
 func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
-	fmt.Printf("start refs\n%s", obj.String())
-	defer func() { fmt.Printf("end refs\n%s", obj.String()) }()
+	// debug
+	//fmt.Printf("start refs\n%s", obj.String())
+	//defer func() { fmt.Printf("end refs\n%s", obj.String()) }()
 	free := make(map[interfaces.Func]map[interfaces.Func][]string) // f1 -> f2
 	for x, count := range obj.edges {
 		if count != 0 { // we only care about freed things

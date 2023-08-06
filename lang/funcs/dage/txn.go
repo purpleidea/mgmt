@@ -396,9 +396,6 @@ func (obj *graphTxn) commit() error {
 		return nil
 	}
 
-	fmt.Printf("YYY YYY YYY COMMIT(%p) START (PRE-LOCK)\n", obj)
-	defer fmt.Printf("YYY YYY YYY COMMIT(%p) DONE\n", obj)
-
 	// TODO: Instead of requesting the below locks, it's conceivable that we
 	// could either write an engine that doesn't require pausing the graph
 	// with a lock, or one that doesn't in the specific case being changed
@@ -411,9 +408,6 @@ func (obj *graphTxn) commit() error {
 	// Now request the lock from the actual graph engine.
 	obj.Lock()
 	defer obj.Unlock()
-
-	fmt.Printf("YYY YYY YYY COMMIT(%p) LOCKED\n", obj)
-	defer fmt.Printf("YYY YYY YYY COMMIT(%p) UNLOCKED\n", obj)
 
 	// Now request the ref count mutex. This may seem redundant, but it's
 	// not. The above graph engine Lock might allow more than one commit

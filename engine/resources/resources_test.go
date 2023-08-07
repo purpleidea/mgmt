@@ -20,6 +20,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -485,7 +486,9 @@ func TestResources1(t *testing.T) {
 			changedChan := make(chan bool, 1) // buffered!
 			readyChan := make(chan struct{})
 			eventChan := make(chan struct{})
-			doneChan := make(chan struct{})
+			doneCtx, doneCtxCancel := context.WithCancel(context.Background())
+			defer doneCtxCancel()
+
 			debug := testing.Verbose() // set via the -test.v flag to `go test`
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
@@ -507,9 +510,9 @@ func TestResources1(t *testing.T) {
 				},
 
 				// Watch listens on this for close/pause events.
-				Done:  doneChan,
-				Debug: debug,
-				Logf:  logf,
+				DoneCtx: doneCtx,
+				Debug:   debug,
+				Logf:    logf,
 
 				// unused
 				Send: func(st interface{}) error {
@@ -629,7 +632,7 @@ func TestResources1(t *testing.T) {
 					}
 				}
 				t.Logf("test #%d: shutting down Watch", index)
-				close(doneChan) // send Watch shutdown command
+				doneCtxCancel() // send Watch shutdown command
 			}()
 		Loop:
 			for {

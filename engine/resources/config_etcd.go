@@ -99,8 +99,7 @@ func (obj *ConfigEtcdRes) Watch() error {
 	obj.wg.Add(1)
 	defer obj.wg.Done()
 	// FIXME: add timeout to context
-	// The obj.init.Done channel is closed by the engine to signal shutdown.
-	ctx, cancel := util.ContextWithCloser(context.Background(), obj.init.Done)
+	ctx, cancel := context.WithCancel(obj.init.DoneCtx)
 	defer cancel()
 	ch, err := obj.init.World.IdealClusterSizeWatch(util.CtxWithWg(ctx, obj.wg))
 	if err != nil {
@@ -121,7 +120,7 @@ Loop:
 			}
 			// pass through and send an event
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 		}
 
 		obj.init.Event() // notify engine of an event (this can block)

@@ -18,6 +18,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/gob"
 	"fmt"
 
@@ -101,9 +102,10 @@ type Init struct {
 	// Event sends an event notifying the engine of a possible state change.
 	Event func()
 
-	// Done returns a channel that will close to signal to us that it's time
-	// for us to shutdown.
-	Done chan struct{}
+	// DoneCtx returns a context that will cancel to signal to us that it's
+	// time for us to shutdown.
+	// TODO: this is temporary until Watch supports context directly.
+	DoneCtx context.Context
 
 	// Called from within CheckApply:
 

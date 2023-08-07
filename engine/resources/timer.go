@@ -84,7 +84,7 @@ func (obj *TimerRes) Watch() error {
 			send = true
 			obj.init.Logf("received tick")
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

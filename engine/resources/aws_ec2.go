@@ -502,7 +502,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 				send = true
 			}
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -596,7 +596,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 			obj.init.Logf("State: %v", msg.event)
 			send = true
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

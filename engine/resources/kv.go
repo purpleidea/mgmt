@@ -26,7 +26,6 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -132,8 +131,8 @@ func (obj *KVRes) Close() error {
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *KVRes) Watch() error {
 	// FIXME: add timeout to context
-	// The obj.init.Done channel is closed by the engine to signal shutdown.
-	ctx, cancel := util.ContextWithCloser(context.Background(), obj.init.Done)
+	// The obj.init.DoneCtx context is closed by the engine to signal shutdown.
+	ctx, cancel := context.WithCancel(obj.init.DoneCtx)
 	defer cancel()
 
 	ch, err := obj.init.World.StrMapWatch(ctx, obj.getKey()) // get possible events!
@@ -159,7 +158,7 @@ func (obj *KVRes) Watch() error {
 			}
 			send = true
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

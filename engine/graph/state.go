@@ -18,6 +18,7 @@
 package graph
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -60,9 +61,12 @@ type State struct {
 	isStateOK bool  // is state OK or do we need to run CheckApply ?
 	workerErr error // did the Worker error?
 
-	// doneChan closes when Watch should shut down. When any of the
+	// doneCtx is cancelled when Watch should shut down. When any of the
 	// following channels close, it causes this to close.
-	doneChan chan struct{}
+	doneCtx context.Context
+
+	// doneCtxCancel is the cancel function for doneCtx.
+	doneCtxCancel func()
 
 	// processDone is closed when the Process/CheckApply function fails
 	// permanently, and wants to cause Watch to exit.
@@ -131,7 +135,7 @@ func (obj *State) Init() error {
 		return fmt.Errorf("the Logf function is missing")
 	}
 
-	obj.doneChan = make(chan struct{})
+	obj.doneCtx, obj.doneCtxCancel = context.WithCancel(context.Background())
 
 	obj.processDone = make(chan struct{})
 	obj.watchDone = make(chan struct{})
@@ -161,7 +165,7 @@ func (obj *State) Init() error {
 		// Watch:
 		Running: obj.event,
 		Event:   obj.event,
-		Done:    obj.doneChan,
+		DoneCtx: obj.doneCtx,
 
 		// CheckApply:
 		Refresh: func() bool {
@@ -338,7 +342,7 @@ func (obj *State) Pause() error {
 	select {
 	case <-obj.pausedAck.Wait(): // we got it!
 		// we're paused
-	case <-obj.doneChan:
+	case <-obj.doneCtx.Done():
 		return engine.ErrClosed
 	}
 	obj.paused = true
@@ -401,7 +405,7 @@ func (obj *State) poll(interval uint32) error {
 		case <-ticker.C: // received the timer event
 			obj.init.Logf("polling...")
 
-		case <-obj.init.Done: // signal for shutdown request
+		case <-obj.init.DoneCtx.Done(): // signal for shutdown request
 			return nil
 		}
 

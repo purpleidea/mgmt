@@ -441,7 +441,7 @@ func (obj *VirtRes) Watch() error {
 		case err := <-errorChan:
 			return errwrap.Wrapf(err, "unknown libvirt error")
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

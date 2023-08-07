@@ -162,10 +162,10 @@ func (obj *ConsulKVRes) Watch() error {
 				// Unexpected situation, bug in consul API...
 				select {
 				case ch <- fmt.Errorf("unexpected behaviour in Consul API"):
-				case <-obj.init.Done: // signal for shutdown request
+				case <-obj.init.DoneCtx.Done(): // signal for shutdown request
 				}
 
-			case <-obj.init.Done: // signal for shutdown request
+			case <-obj.init.DoneCtx.Done(): // signal for shutdown request
 			}
 			return
 		}
@@ -186,7 +186,7 @@ func (obj *ConsulKVRes) Watch() error {
 			}
 			obj.init.Event()
 
-		case <-obj.init.Done: // signal for shutdown request
+		case <-obj.init.DoneCtx.Done(): // signal for shutdown request
 			return nil
 		}
 	}

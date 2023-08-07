@@ -335,7 +335,7 @@ func (obj *HTTPServerRes) Watch() error {
 		case <-closeSignal: // something shut us down early
 			return closeError
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -725,7 +725,7 @@ func (obj *HTTPFileRes) Watch() error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
-	case <-obj.init.Done: // closed by the engine to signal shutdown
+	case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 	}
 
 	//obj.init.Event() // notify engine of an event (this can block)

@@ -461,7 +461,7 @@ func (obj *DHCPServerRes) Watch() error {
 		case <-closeSignal: // something shut us down early
 			return closeError
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -518,7 +518,7 @@ func (obj *DHCPServerRes) CheckApply(apply bool) (bool, error) {
 	//select {
 	//case <-ch:
 	////case <-obj.interruptChan: // TODO: if we ever support InterruptableRes
-	//case <-obj.init.Done: // closed by the engine to signal shutdown
+	//case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 	//}
 
 	// Cheap runtime validation!
@@ -1056,7 +1056,7 @@ func (obj *DHCPHostRes) Watch() error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
-	case <-obj.init.Done: // closed by the engine to signal shutdown
+	case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 	}
 
 	//obj.init.Event() // notify engine of an event (this can block)

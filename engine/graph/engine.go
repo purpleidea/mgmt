@@ -251,7 +251,7 @@ func (obj *Engine) Commit() error {
 	free := []func() error{} // functions to run after graphsync to reset...
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
 		// wait for exit before starting new graph!
-		close(obj.state[vertex].removeDone) // causes doneChan to close
+		close(obj.state[vertex].removeDone) // causes doneCtx to cancel
 		obj.state[vertex].Resume()          // unblock from resume
 		obj.waits[vertex].Wait()            // sync
 

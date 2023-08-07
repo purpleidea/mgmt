@@ -172,7 +172,7 @@ func (obj *SvcRes) Watch() error {
 				// loop so that we can see the changed invalid signal
 				obj.init.Logf("daemon reload")
 
-			case <-obj.init.Done: // closed by the engine to signal shutdown
+			case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 				return nil
 			}
 		} else {
@@ -215,7 +215,7 @@ func (obj *SvcRes) Watch() error {
 			case err := <-subErrors:
 				return errwrap.Wrapf(err, "unknown %s error", obj)
 
-			case <-obj.init.Done: // closed by the engine to signal shutdown
+			case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 				return nil
 			}
 		}

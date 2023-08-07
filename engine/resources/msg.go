@@ -99,7 +99,7 @@ func (obj *MsgRes) Watch() error {
 	//var send = false // send event?
 	for {
 		select {
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

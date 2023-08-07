@@ -252,7 +252,7 @@ func (obj *ExecRes) Watch() error {
 				send = true
 			}
 
-		case <-obj.init.Done: // closed by the engine to signal shutdown
+		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

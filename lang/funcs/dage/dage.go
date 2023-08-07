@@ -853,11 +853,11 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 		obj.wake("process ctx.Done()") // interrupted, so queue again
 		return ctx.Err()
 
-	default:
 		// XXX: should we even allow this default case?
-		// exit if we're not ready to send to ag
-		obj.leafSend = true // since we skipped the ag send!
-		obj.wake()          // interrupted, so queue again
+		//default:
+		//	// exit if we're not ready to send to ag
+		//	obj.leafSend = true // since we skipped the ag send!
+		//	obj.wake("process default")          // interrupted, so queue again
 	}
 
 	return nil

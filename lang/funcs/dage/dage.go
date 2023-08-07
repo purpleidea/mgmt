@@ -918,6 +918,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 	go func() {
 		defer wg.Done()
 		defer close(obj.streamChan)
+		drain := false
 		for {
 			var err error
 			var ok bool
@@ -926,6 +927,10 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				if !ok {
 					return // channel shutdown
 				}
+			}
+
+			if drain {
+				continue // no need to send more errors
 			}
 
 			// TODO: check obj.loaded first?
@@ -946,7 +951,8 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			}
 			if err != nil {
 				cancel() // cancel the context!
-				return
+				//return // let the obj.ag channel drain
+				drain = true
 			}
 		}
 	}()

@@ -273,6 +273,10 @@ type graphTxn struct {
 	// graph.
 	RefCount *RefCount
 
+	// FreeFunc is a function that will get called by a well-behaved user
+	// when we're done with this Txn.
+	FreeFunc func()
+
 	// ops is a list of operations to run on a graph
 	ops []opfn
 
@@ -296,12 +300,14 @@ func (obj *graphTxn) init() interfaces.Txn {
 // Copy returns a new child Txn that has the same handles, but a separate state.
 // This allows you to do an Add*/Commit/Reverse that isn't affected by a
 // different user of this transaction.
+// TODO: FreeFunc isn't well supported here. Replace or remove this entirely?
 func (obj *graphTxn) Copy() interfaces.Txn {
 	txn := &graphTxn{
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
 		GraphAPI: obj.GraphAPI,
 		RefCount: obj.RefCount, // this is shared across all txn's
+		// FreeFunc is shared with the parent.
 	}
 	return txn.init()
 }
@@ -574,4 +580,14 @@ func (obj *graphTxn) Erase() {
 	defer obj.mutex.Unlock()
 
 	obj.rev = []opfn{} // clear it
+}
+
+// Free releases the wait group that was used to lock around this Txn if needed.
+// It should get called when we're done with any Txn.
+// TODO: this is only used for the initial Txn. Consider expanding it's use. We
+// might need to allow Clear to call it as part of the clearing.
+func (obj *graphTxn) Free() {
+	if obj.FreeFunc != nil {
+		obj.FreeFunc()
+	}
 }

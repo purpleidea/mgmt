@@ -325,6 +325,10 @@ type Txn interface {
 	// Commit.
 	Erase()
 
+	// Free releases the wait group that was used to lock around this Txn if
+	// needed. It should get called when we're done with any Txn.
+	Free()
+
 	// Copy returns a new child Txn that has the same handles, but a
 	// separate state. This allows you to do an Add*/Commit/Reverse that
 	// isn't affected by a different user of this transaction.

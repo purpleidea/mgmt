@@ -71,6 +71,12 @@ type Engine struct {
 	// graph.
 	refCount *RefCount
 
+	// wgTxn blocks shutdown until the initial Txn has Reversed.
+	wgTxn *sync.WaitGroup
+
+	// firstTxn checks to make sure wgTxn is only used for the first Txn.
+	firstTxn bool
+
 	wg *sync.WaitGroup
 
 	// pause/resume state machine signals
@@ -149,6 +155,8 @@ func (obj *Engine) Setup() error {
 
 	obj.refCount = (&RefCount{}).Init()
 
+	obj.wgTxn = &sync.WaitGroup{}
+
 	obj.wg = &sync.WaitGroup{}
 
 	obj.pauseChan = make(chan struct{})
@@ -200,11 +208,23 @@ func (obj *Engine) Txn() interfaces.Txn {
 	if obj.refCount == nil {
 		panic("you must run setup before first use")
 	}
+	// The very first initial Txn must have a wait group to make sure if we
+	// shutdown (in error) that we can Reverse things before the Lock/Unlock
+	// loop shutsdown.
+	var free func()
+	if !obj.firstTxn {
+		obj.firstTxn = true
+		obj.wgTxn.Add(1)
+		free = func() {
+			obj.wgTxn.Done()
+		}
+	}
 	return (&graphTxn{
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
 		GraphAPI: obj,
 		RefCount: obj.refCount, // reference counting
+		FreeFunc: free,
 	}).init()
 }
 
@@ -365,7 +385,8 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 		// of a Commit.
 		obj.nodeWaitMutex.Lock()
 		obj.nodeWaitFns = append(obj.nodeWaitFns, func() {
-			node.wg.Wait() // While waiting, the Stream might cause a new Reverse Commit
+			node.wg.Wait()  // While waiting, the Stream might cause a new Reverse Commit
+			node.txn.Free() // Clean up when done!
 		})
 		obj.nodeWaitMutex.Unlock()
 	}
@@ -951,10 +972,11 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		}
 
 		// don't wait and close ag before we're really done with Run()
-		wgAg.Wait()   // wait for last ag user to close
-		mainCancel()  // only cancel after wgAg goroutines are done
-		wgFor.Wait()  // wait for process loop to close before closing
-		close(obj.ag) // last one closes the ag channel
+		wgAg.Wait()      // wait for last ag user to close
+		obj.wgTxn.Wait() // wait for first txn as well
+		mainCancel()     // only cancel after wgAg goroutines are done
+		wgFor.Wait()     // wait for process loop to close before closing
+		close(obj.ag)    // last one closes the ag channel
 	}()
 
 	wgFn := &sync.WaitGroup{} // wg for process function runner
@@ -965,6 +987,30 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 	wgFor.Add(1) // make sure we wait for the below process loop to exit...
 	defer wgFor.Done()
 
+	// errProcess and processBreakFn are used to help exit following an err.
+	// This approach is needed because if we simply exited, we'd block the
+	// main loop below because various Stream functions are waiting on the
+	// Lock/Unlock cycle to be able to finish cleanly, shutdown, and unblock
+	// all the waitgroups so we can exit.
+	var errProcess error
+	var pausedProcess bool
+	processBreakFn := func(err error /*, paused bool*/) {
+		if err == nil { // a nil error won't cause ag to shutdown below
+			panic("expected error, not nil")
+		}
+		obj.Logf("process break")
+		select {
+		case obj.ag <- err: // send error to aggregate channel
+		case <-ctx.Done():
+		}
+		cancel() // to unblock
+		//mainCancel() // NO!
+		errProcess = err // set above error
+		//pausedProcess = paused // set this inline directly
+	}
+	if obj.Debug {
+		defer obj.Logf("exited main loop")
+	}
 	// we start off "running", but we'll have an empty graph initially...
 	for {
 
@@ -974,12 +1020,18 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		// only closed when all the worker waitgroups close first!
 		select {
 		case <-mainCtx.Done(): // when asked to exit
-			return nil // we exit happily
+			return errProcess // we exit happily
 		default:
 		}
 
 		// run through our graph, check for pause request occasionally
 		for {
+			pausedProcess = false // reset
+			// if we're in errProcess, we skip the process loop!
+			if errProcess != nil {
+				break // skip this process loop
+			}
+
 			// Start the process run for this iteration of the loop.
 			ctxFn, cancelFn := context.WithCancel(context.Background())
 			// we run cancelFn() below to cleanup!
@@ -1034,13 +1086,22 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				ctxExit = true
 			}
 
+			//fmt.Printf("chPause: %+v\n", chPause) // debug
+			//fmt.Printf("ctxExit: %+v\n", ctxExit) // debug
+
 			cancelFn()  // cancel the process function
 			wgFn.Wait() // wait for the process function to return
+
+			pausedProcess = chPause // tell the below select
 			if errFn == nil {
-				return fmt.Errorf("unexpected nil error in process")
+				// break on errors (needs to know if paused)
+				processBreakFn(fmt.Errorf("unexpected nil error in process"))
+				break
 			}
 			if errFn != nil && errFn != context.Canceled {
-				return errwrap.Wrapf(errFn, "process error")
+				// break on errors (needs to know if paused)
+				processBreakFn(errwrap.Wrapf(errFn, "process error"))
+				break
 			}
 			//if errFn == context.Canceled {
 			//	// ignore, we asked for it
@@ -1053,7 +1114,20 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				break
 			}
 			// programming error
-			return fmt.Errorf("unhandled process state")
+			//return fmt.Errorf("unhandled process state")
+			processBreakFn(fmt.Errorf("unhandled process state"))
+			break
+		}
+		// if we're in errProcess, we need to add back in the pauseChan!
+		if errProcess != nil && !pausedProcess {
+			select {
+			case <-obj.pauseChan:
+				obj.Logf("lower pausing...")
+
+			// do we want this exit case? YES
+			case <-mainCtx.Done(): // when asked to exit
+				return errProcess
+			}
 		}
 
 		// Toposort for paused workers. We run this before the actual

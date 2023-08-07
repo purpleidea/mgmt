@@ -595,7 +595,7 @@ func (obj *Engine) Unlock() { // resume
 // which would otherwise spin unnecessarily. This can be called anytime, and
 // doesn't hurt, it only wastes cpu if there's nothing to do. This does NOT ever
 // block, and that's important so it can be called from anywhere.
-func (obj *Engine) wake() {
+func (obj *Engine) wake(name string) {
 	// The mutex guards the len check to avoid this function sending two
 	// messages down the channel, because the second would block if the
 	// consumer isn't fast enough. This mutex makes this method effectively
@@ -607,8 +607,9 @@ func (obj *Engine) wake() {
 	//}
 	select {
 	case obj.wakeChan <- struct{}{}: // send to chan of length 1
-		obj.Logf("wake sent")
+		obj.Logf("wake sent from: %s", name)
 	default: // this is a cheap alternative to avoid the mutex altogether!
+		obj.Logf("wake skip from: %s", name)
 		// skip sending, we already have a message pending!
 	}
 }
@@ -786,12 +787,12 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 			obj.statsMutex.Unlock()
 			// pass
 		case <-node.ctx.Done(): // node died
-			obj.wake() // interrupted, so queue again
+			obj.wake("node.ctx.Done()") // interrupted, so queue again
 			// XXX: can this happen now and should we continue or err?
 			return node.ctx.Err()
 			// continue // probably best to return and come finish later
 		case <-ctx.Done():
-			obj.wake() // interrupted, so queue again
+			obj.wake("node ctx.Done()") // interrupted, so queue again
 			return ctx.Err()
 		}
 
@@ -848,8 +849,8 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 		obj.leafSend = false // reset
 
 	case <-ctx.Done():
-		obj.leafSend = true // since we skipped the ag send!
-		obj.wake()          // interrupted, so queue again
+		obj.leafSend = true            // since we skipped the ag send!
+		obj.wake("process ctx.Done()") // interrupted, so queue again
 		return ctx.Err()
 
 	default:
@@ -1303,7 +1304,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 					obj.activity[node] = struct{}{}
 					obj.activityMutex.Unlock()
 
-					obj.wake() // new value, so send wake up
+					obj.wake("new value") // new value, so send wake up
 
 				} // end for
 
@@ -1338,7 +1339,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			go func(node *state) {
 				defer wg.Done()
 				obj.Logf("resend to func `%s`", node)
-				obj.wake() // new value, so send wake up
+				obj.wake("resend") // new value, so send wake up
 			}(node)
 		}
 		obj.resend = make(map[interfaces.Func]struct{}) // reset

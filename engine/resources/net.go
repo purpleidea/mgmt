@@ -188,16 +188,15 @@ func (obj *NetRes) Init(init *engine.Init) error {
 
 // Close cleans up when we're done.
 func (obj *NetRes) Close() error {
-	var errList error
-
 	if obj.socketFile == "/" {
 		return fmt.Errorf("socket file should not be the root path")
 	}
 	if obj.socketFile != "" { // safety
-		errList = errwrap.Append(errList, os.Remove(obj.socketFile))
+		if err := os.Remove(obj.socketFile); err != nil {
+			return err
+		}
 	}
-
-	return errList
+	return nil
 }
 
 // Watch listens for events from the specified interface via a netlink socket.

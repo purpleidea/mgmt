@@ -20,6 +20,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -125,7 +126,7 @@ func (obj *AugeasRes) Close() error {
 // Watch is the primary listener for this resource and it outputs events. This
 // was taken from the File resource.
 // FIXME: DRY - This is taken from the file resource
-func (obj *AugeasRes) Watch() error {
+func (obj *AugeasRes) Watch(ctx context.Context) error {
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(obj.File, false)
 	if err != nil {
@@ -154,7 +155,7 @@ func (obj *AugeasRes) Watch() error {
 			}
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

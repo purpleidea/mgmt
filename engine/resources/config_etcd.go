@@ -95,11 +95,11 @@ func (obj *ConfigEtcdRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *ConfigEtcdRes) Watch() error {
+func (obj *ConfigEtcdRes) Watch(ctx context.Context) error {
 	obj.wg.Add(1)
 	defer obj.wg.Done()
 	// FIXME: add timeout to context
-	ctx, cancel := context.WithCancel(obj.init.DoneCtx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ch, err := obj.init.World.IdealClusterSizeWatch(util.CtxWithWg(ctx, obj.wg))
 	if err != nil {
@@ -120,7 +120,7 @@ Loop:
 			}
 			// pass through and send an event
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 		}
 
 		obj.init.Event() // notify engine of an event (this can block)

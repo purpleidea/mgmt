@@ -20,6 +20,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -294,7 +295,7 @@ func (obj *VirtRes) connect() (conn *libvirt.Connect, err error) {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *VirtRes) Watch() error {
+func (obj *VirtRes) Watch(ctx context.Context) error {
 	// FIXME: how will this work if we're polling?
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()                               // wait until everyone has exited before we exit!
@@ -441,7 +442,7 @@ func (obj *VirtRes) Watch() error {
 		case err := <-errorChan:
 			return errwrap.Wrapf(err, "unknown libvirt error")
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

@@ -510,9 +510,8 @@ func TestResources1(t *testing.T) {
 				},
 
 				// Watch listens on this for close/pause events.
-				DoneCtx: doneCtx,
-				Debug:   debug,
-				Logf:    logf,
+				Debug: debug,
+				Logf:  logf,
 
 				// unused
 				Send: func(st interface{}) error {
@@ -591,7 +590,7 @@ func TestResources1(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				t.Logf("test #%d: running Watch", index)
-				if err := res.Watch(); err != nil {
+				if err := res.Watch(doneCtx); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: Watch failed: %s", index, err.Error())
 				}

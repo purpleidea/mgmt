@@ -170,11 +170,11 @@ func (obj *DockerContainerRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *DockerContainerRes) Watch() error {
-	ctx, cancel := context.WithCancel(context.Background())
+func (obj *DockerContainerRes) Watch(ctx context.Context) error {
+	innerCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	eventChan, errChan := obj.client.Events(ctx, types.EventsOptions{})
+	eventChan, errChan := obj.client.Events(innerCtx, types.EventsOptions{})
 
 	obj.init.Running() // when started, notify engine that we're running
 
@@ -196,7 +196,7 @@ func (obj *DockerContainerRes) Watch() error {
 			}
 			return err
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

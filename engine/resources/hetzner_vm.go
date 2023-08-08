@@ -371,7 +371,7 @@ func (obj *HetznerVMRes) Close() error {
 // Watch is not implemented for this resource, since the Hetzner API does not
 // provide any event streams. Instead, always use polling.
 // NOTE: HetznerPollLimit sets an explicit minimum on the polling interval.
-func (obj *HetznerVMRes) Watch() error {
+func (obj *HetznerVMRes) Watch(context.Context) error {
 	return fmt.Errorf("invalid Watch call: requires poll metaparam")
 }
 

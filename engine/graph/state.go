@@ -165,7 +165,6 @@ func (obj *State) Init() error {
 		// Watch:
 		Running: obj.event,
 		Event:   obj.event,
-		DoneCtx: obj.doneCtx,
 
 		// CheckApply:
 		Refresh: func() bool {
@@ -393,7 +392,7 @@ func (obj *State) setDirty() {
 }
 
 // poll is a replacement for Watch when the Poll metaparameter is used.
-func (obj *State) poll(interval uint32) error {
+func (obj *State) poll(ctx context.Context, interval uint32) error {
 	// create a time.Ticker for the given interval
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
@@ -405,7 +404,7 @@ func (obj *State) poll(interval uint32) error {
 		case <-ticker.C: // received the timer event
 			obj.init.Logf("polling...")
 
-		case <-obj.init.DoneCtx.Done(): // signal for shutdown request
+		case <-ctx.Done(): // signal for shutdown request
 			return nil
 		}
 

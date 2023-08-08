@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strings"
@@ -104,7 +105,7 @@ func (obj *PkgRes) Close() error {
 // uses the PackageKit UpdatesChanged signal to watch for changes.
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
-func (obj *PkgRes) Watch() error {
+func (obj *PkgRes) Watch(ctx context.Context) error {
 	bus := packagekit.NewBus()
 	if bus == nil {
 		return fmt.Errorf("can't connect to PackageKit bus")
@@ -143,7 +144,7 @@ func (obj *PkgRes) Watch() error {
 
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

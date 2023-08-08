@@ -221,7 +221,7 @@ func (obj *CronRes) Close() error {
 }
 
 // Watch for state changes and sends a message to the bus if there is a change.
-func (obj *CronRes) Watch() error {
+func (obj *CronRes) Watch(ctx context.Context) error {
 	var bus *dbus.Conn
 	var err error
 
@@ -296,7 +296,7 @@ func (obj *CronRes) Watch() error {
 			}
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 		// do all our event sending all together to avoid duplicate msgs

@@ -192,7 +192,7 @@ func (obj *MountRes) Close() error {
 
 // Watch listens for signals from the mount unit associated with the resource.
 // It also watch for changes to /etc/fstab, where mounts are defined.
-func (obj *MountRes) Watch() error {
+func (obj *MountRes) Watch(ctx context.Context) error {
 	// make sure systemd is running
 	if !systemdUtil.IsRunningSystemd() {
 		return fmt.Errorf("systemd is not running")
@@ -266,7 +266,7 @@ func (obj *MountRes) Watch() error {
 
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

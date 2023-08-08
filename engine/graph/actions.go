@@ -308,7 +308,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 						case <-timer.C: // the wait is over
 							return errDelayExpired // special
 
-						case <-obj.state[vertex].init.DoneCtx.Done():
+						case <-obj.state[vertex].doneCtx.Done():
 							return nil
 						}
 					}
@@ -319,12 +319,12 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 				}
 			} else if interval := res.MetaParams().Poll; interval > 0 { // poll instead of watching :(
 				obj.state[vertex].cuid.StartTimer()
-				err = obj.state[vertex].poll(interval)
+				err = obj.state[vertex].poll(obj.state[vertex].doneCtx, interval)
 				obj.state[vertex].cuid.StopTimer() // clean up nicely
 			} else {
 				obj.state[vertex].cuid.StartTimer()
 				obj.Logf("Watch(%s)", vertex)
-				err = res.Watch() // run the watch normally
+				err = res.Watch(obj.state[vertex].doneCtx) // run the watch normally
 				obj.Logf("Watch(%s): Exited(%+v)", vertex, err)
 				obj.state[vertex].cuid.StopTimer() // clean up nicely
 			}

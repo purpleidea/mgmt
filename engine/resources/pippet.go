@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -92,11 +93,11 @@ func (obj *PippetRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *PippetRes) Watch() error {
+func (obj *PippetRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
-	case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
 	//obj.init.Event() // notify engine of an event (this can block)

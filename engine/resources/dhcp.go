@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -385,7 +386,7 @@ func (obj *DHCPServerRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *DHCPServerRes) Watch() error {
+func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	addr, err := net.ResolveUDPAddr("udp", obj.getAddress()) // *net.UDPAddr
 	if err != nil {
 		return errwrap.Wrapf(err, "could not resolve address")
@@ -461,7 +462,7 @@ func (obj *DHCPServerRes) Watch() error {
 		case <-closeSignal: // something shut us down early
 			return closeError
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -1052,11 +1053,11 @@ func (obj *DHCPHostRes) Close() error {
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.
-func (obj *DHCPHostRes) Watch() error {
+func (obj *DHCPHostRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
-	case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
 	//obj.init.Event() // notify engine of an event (this can block)

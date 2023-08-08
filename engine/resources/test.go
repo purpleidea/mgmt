@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -124,11 +125,11 @@ func (obj *TestRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *TestRes) Watch() error {
+func (obj *TestRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
-	case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
 	//obj.init.Event() // notify engine of an event (this can block)

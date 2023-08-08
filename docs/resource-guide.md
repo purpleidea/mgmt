@@ -277,7 +277,7 @@ will likely find the state to now be correct.
 ### Watch
 
 ```golang
-Watch() error
+Watch(ctx context.Context) error
 ```
 
 `Watch` is a main loop that runs and sends messages when it detects that the
@@ -304,23 +304,25 @@ If the resource is activated in `polling` mode, the `Watch` method will not get
 executed. As a result, the resource must still work even if the main loop is not
 running.
 
+You must make sure to cleanup any running code or goroutines before Watch exits.
+
 #### Select
 
 The lifetime of most resources `Watch` method should be spent in an infinite
 loop that is bounded by a `select` call. The `select` call is the point where
 our method hands back control to the engine (and the kernel) so that we can
 sleep until something of interest wakes us up. In this loop we must wait until
-we get a shutdown event from the engine via the `<-obj.init.Done` channel, which
+we get a shutdown event from the engine via the `<-ctx.Done()` channel, which
 closes when we'd like to shut everything down. At this point you should cleanup,
 and let `Watch` close.
 
 #### Events
 
-If the  `<-obj.init.Done` channel closes, we should shutdown our resource. When
-When we want to send an event, we use the `Event` helper function. This
-automatically marks the resource state as `dirty`. If you're unsure, it's not
-harmful to send the event. This will ultimately cause `CheckApply` to run. This
-method can block if the resource is being paused.
+If the `<-ctx.Done()` channel closes, we should shutdown our resource. When we
+want to send an event, we use the `Event` helper function. This automatically
+marks the resource state as `dirty`. If you're unsure, it's not harmful to send
+the event. This will ultimately cause `CheckApply` to run. This method can block
+if the resource is being paused.
 
 #### Startup
 
@@ -347,7 +349,7 @@ sending out erroneous `Event` messages to keep things alive until it finishes.
 
 ```golang
 // Watch is the listener and main loop for this resource.
-func (obj *FooRes) Watch() error {
+func (obj *FooRes) Watch(ctx context.Context) error {
 	// setup the Foo resource
 	var err error
 	if err, obj.foo = OpenFoo(); err != nil {
@@ -371,7 +373,7 @@ func (obj *FooRes) Watch() error {
 		case err := <-obj.foo.Errors:
 			return err // will cause a retry or permanent failure
 
-		case <-obj.init.Done: // signal for shutdown request
+		case <-ctx.Done(): // signal for shutdown request
 			return nil
 		}
 
@@ -552,11 +554,6 @@ ready to detect changes.
 
 Event sends an event notifying the engine of a possible state change. It is
 only called from within `Watch`.
-
-### Done
-
-Done is a channel that closes when the engine wants us to shutdown. It is only
-called from within `Watch`.
 
 ### Refresh
 

@@ -20,6 +20,7 @@
 package autogroup
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -66,7 +67,7 @@ func (obj *NoopResTest) Close() error {
 	return nil
 }
 
-func (obj *NoopResTest) Watch() error {
+func (obj *NoopResTest) Watch(context.Context) error {
 	return nil // not needed
 }
 

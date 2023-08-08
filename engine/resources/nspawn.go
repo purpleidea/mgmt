@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -140,7 +141,7 @@ func (obj *NspawnRes) Close() error {
 }
 
 // Watch for state changes and sends a message to the bus if there is a change.
-func (obj *NspawnRes) Watch() error {
+func (obj *NspawnRes) Watch(ctx context.Context) error {
 	// this resource depends on systemd to ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return fmt.Errorf("systemd is not running")
@@ -184,7 +185,7 @@ func (obj *NspawnRes) Watch() error {
 				send = true
 			}
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

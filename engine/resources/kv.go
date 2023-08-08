@@ -129,10 +129,8 @@ func (obj *KVRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *KVRes) Watch() error {
-	// FIXME: add timeout to context
-	// The obj.init.DoneCtx context is closed by the engine to signal shutdown.
-	ctx, cancel := context.WithCancel(obj.init.DoneCtx)
+func (obj *KVRes) Watch(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	ch, err := obj.init.World.StrMapWatch(ctx, obj.getKey()) // get possible events!
@@ -158,7 +156,7 @@ func (obj *KVRes) Watch() error {
 			}
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

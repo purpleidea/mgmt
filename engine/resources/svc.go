@@ -20,6 +20,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"os/user"
 	"path"
@@ -81,7 +82,7 @@ func (obj *SvcRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *SvcRes) Watch() error {
+func (obj *SvcRes) Watch(ctx context.Context) error {
 	// obj.Name: svc name
 	if !systemdUtil.IsRunningSystemd() {
 		return fmt.Errorf("systemd is not running")
@@ -172,7 +173,7 @@ func (obj *SvcRes) Watch() error {
 				// loop so that we can see the changed invalid signal
 				obj.init.Logf("daemon reload")
 
-			case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+			case <-ctx.Done(): // closed by the engine to signal shutdown
 				return nil
 			}
 		} else {
@@ -215,7 +216,7 @@ func (obj *SvcRes) Watch() error {
 			case err := <-subErrors:
 				return errwrap.Wrapf(err, "unknown %s error", obj)
 
-			case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+			case <-ctx.Done(): // closed by the engine to signal shutdown
 				return nil
 			}
 		}

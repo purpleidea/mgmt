@@ -117,7 +117,7 @@ func (obj *ConsulKVRes) Close() error {
 }
 
 // Watch is the listener and main loop for this resource and it outputs events.
-func (obj *ConsulKVRes) Watch() error {
+func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
@@ -132,9 +132,9 @@ func (obj *ConsulKVRes) Watch() error {
 		defer wg.Done()
 
 		opts := &api.QueryOptions{RequireConsistent: true}
-		ctx, cancel := util.ContextWithCloser(context.Background(), exit)
+		innerCtx, cancel := util.ContextWithCloser(context.Background(), exit)
 		defer cancel()
-		opts = opts.WithContext(ctx)
+		opts = opts.WithContext(innerCtx)
 
 		for {
 			_, meta, err := kv.Get(obj.key, opts)
@@ -162,10 +162,10 @@ func (obj *ConsulKVRes) Watch() error {
 				// Unexpected situation, bug in consul API...
 				select {
 				case ch <- fmt.Errorf("unexpected behaviour in Consul API"):
-				case <-obj.init.DoneCtx.Done(): // signal for shutdown request
+				case <-ctx.Done(): // signal for shutdown request
 				}
 
-			case <-obj.init.DoneCtx.Done(): // signal for shutdown request
+			case <-ctx.Done(): // signal for shutdown request
 			}
 			return
 		}
@@ -186,7 +186,7 @@ func (obj *ConsulKVRes) Watch() error {
 			}
 			obj.init.Event()
 
-		case <-obj.init.DoneCtx.Done(): // signal for shutdown request
+		case <-ctx.Done(): // signal for shutdown request
 			return nil
 		}
 	}

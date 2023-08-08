@@ -409,16 +409,16 @@ func (obj *AwsEc2Res) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *AwsEc2Res) Watch() error {
+func (obj *AwsEc2Res) Watch(ctx context.Context) error {
 	if obj.WatchListenAddr != "" {
-		return obj.snsWatch()
+		return obj.snsWatch(ctx)
 	}
-	return obj.longpollWatch()
+	return obj.longpollWatch(ctx)
 }
 
 // longpollWatch uses the ec2 api's built in methods to watch ec2 resource
 // state.
-func (obj *AwsEc2Res) longpollWatch() error {
+func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 	send := false
 
 	// We tell the engine that we're running right away. This is not correct,
@@ -426,7 +426,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	// cancellable context used for exiting cleanly
-	ctx, cancel := context.WithCancel(context.TODO())
+	innerCtx, cancel := context.WithCancel(context.TODO())
 
 	// clean up when we're done
 	defer obj.wg.Wait()
@@ -461,7 +461,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 			}
 
 			// wait for the instance state to change
-			state, err := stateWaiter(ctx, instance, obj.client)
+			state, err := stateWaiter(innerCtx, instance, obj.client)
 			if err != nil {
 				select {
 				case obj.awsChan <- &chanStruct{
@@ -502,7 +502,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 				send = true
 			}
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -518,7 +518,7 @@ func (obj *AwsEc2Res) longpollWatch() error {
 // Init() a CloudWatch rule is created along with a corresponding SNS topic that
 // it can publish to. snsWatch creates an http server which listens for messages
 // published to the topic and processes them accordingly.
-func (obj *AwsEc2Res) snsWatch() error {
+func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 	send := false
 	defer obj.wg.Wait()
 	// create the sns listener
@@ -533,9 +533,9 @@ func (obj *AwsEc2Res) snsWatch() error {
 	}
 	// close the listener and shutdown the sns server when we're done
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.TODO(), SnsServerShutdownTimeout*time.Second)
+		innerCtx, cancel := context.WithTimeout(context.TODO(), SnsServerShutdownTimeout*time.Second)
 		defer cancel()
-		if err := snsServer.Shutdown(ctx); err != nil {
+		if err := snsServer.Shutdown(innerCtx); err != nil {
 			if err != context.Canceled {
 				obj.init.Logf("error stopping sns endpoint: %s", err)
 				return
@@ -596,7 +596,7 @@ func (obj *AwsEc2Res) snsWatch() error {
 			obj.init.Logf("State: %v", msg.event)
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -718,7 +718,7 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (bool, error) {
 	}
 
 	// context to cancel the waiter if it takes too long
-	ctx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
+	innerCtx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
 	defer cancel()
 
 	// wait until the state converges
@@ -727,11 +727,11 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (bool, error) {
 	}
 	switch obj.State {
 	case ec2.InstanceStateNameRunning:
-		err = obj.client.WaitUntilInstanceRunningWithContext(ctx, waitInput)
+		err = obj.client.WaitUntilInstanceRunningWithContext(innerCtx, waitInput)
 	case ec2.InstanceStateNameStopped:
-		err = obj.client.WaitUntilInstanceStoppedWithContext(ctx, waitInput)
+		err = obj.client.WaitUntilInstanceStoppedWithContext(innerCtx, waitInput)
 	case ec2.InstanceStateNameTerminated:
-		err = obj.client.WaitUntilInstanceTerminatedWithContext(ctx, waitInput)
+		err = obj.client.WaitUntilInstanceTerminatedWithContext(innerCtx, waitInput)
 	default:
 		return false, errwrap.Wrapf(err, "unrecognized instance state")
 	}

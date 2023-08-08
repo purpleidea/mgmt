@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os/exec"
@@ -110,7 +111,7 @@ func (obj *UserRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *UserRes) Watch() error {
+func (obj *UserRes) Watch(ctx context.Context) error {
 	var err error
 	obj.recWatcher, err = recwatch.NewRecWatcher(passwdFile, false)
 	if err != nil {
@@ -139,7 +140,7 @@ func (obj *UserRes) Watch() error {
 			}
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

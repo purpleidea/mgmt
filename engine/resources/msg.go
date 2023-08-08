@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -93,13 +94,13 @@ func (obj *MsgRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *MsgRes) Watch() error {
+func (obj *MsgRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	//var send = false // send event?
 	for {
 		select {
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

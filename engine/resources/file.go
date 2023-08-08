@@ -19,6 +19,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -359,7 +360,7 @@ func (obj *FileRes) Close() error {
 // probably important to write some test cases first! If the Watch returns an
 // error, it means that something has gone wrong, and it must be restarted. On a
 // clean exit it returns nil.
-func (obj *FileRes) Watch() error {
+func (obj *FileRes) Watch(ctx context.Context) error {
 	// TODO: chan *recwatch.Event instead?
 	inputEvents := make(chan recwatch.Event)
 	defer close(inputEvents)
@@ -497,7 +498,7 @@ func (obj *FileRes) Watch() error {
 			}
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

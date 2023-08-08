@@ -21,6 +21,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -202,7 +203,7 @@ func (obj *NetRes) Close() error {
 // Watch listens for events from the specified interface via a netlink socket.
 // TODO: currently gets events from ALL interfaces, would be nice to reject
 // events from other interfaces.
-func (obj *NetRes) Watch() error {
+func (obj *NetRes) Watch(ctx context.Context) error {
 	// create a netlink socket for receiving network interface events
 	conn, err := socketset.NewSocketSet(rtmGrps, obj.socketFile, unix.NETLINK_ROUTE)
 	if err != nil {
@@ -299,7 +300,7 @@ func (obj *NetRes) Watch() error {
 
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

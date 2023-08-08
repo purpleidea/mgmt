@@ -167,7 +167,7 @@ func (obj *ExecRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *ExecRes) Watch() error {
+func (obj *ExecRes) Watch(ctx context.Context) error {
 	ioChan := make(chan *cmdOutput)
 	defer obj.wg.Wait()
 
@@ -187,9 +187,9 @@ func (obj *ExecRes) Watch() error {
 			cmdArgs = []string{"-c", obj.WatchCmd}
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		innerCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+		cmd := exec.CommandContext(innerCtx, cmdName, cmdArgs...)
 		cmd.Dir = obj.WatchCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -203,7 +203,7 @@ func (obj *ExecRes) Watch() error {
 			return errwrap.Wrapf(err, "error while setting credential")
 		}
 
-		if ioChan, err = obj.cmdOutputRunner(ctx, cmd); err != nil {
+		if ioChan, err = obj.cmdOutputRunner(innerCtx, cmd); err != nil {
 			return errwrap.Wrapf(err, "error starting WatchCmd")
 		}
 	}
@@ -252,7 +252,7 @@ func (obj *ExecRes) Watch() error {
 				send = true
 			}
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -70,7 +71,7 @@ func (obj *TimerRes) newTicker() *time.Ticker {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *TimerRes) Watch() error {
+func (obj *TimerRes) Watch(ctx context.Context) error {
 	// create a time.Ticker for the given interval
 	obj.ticker = obj.newTicker()
 	defer obj.ticker.Stop()
@@ -84,7 +85,7 @@ func (obj *TimerRes) Watch() error {
 			send = true
 			obj.init.Logf("received tick")
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

@@ -102,11 +102,6 @@ type Init struct {
 	// Event sends an event notifying the engine of a possible state change.
 	Event func()
 
-	// DoneCtx returns a context that will cancel to signal to us that it's
-	// time for us to shutdown.
-	// TODO: this is temporary until Watch supports context directly.
-	DoneCtx context.Context
-
 	// Called from within CheckApply:
 
 	// Refresh returns whether the resource received a notification. This
@@ -200,8 +195,8 @@ type Res interface {
 
 	// Watch is run by the engine to monitor for state changes. If it
 	// detects any, it notifies the engine which will usually run CheckApply
-	// in response.
-	Watch() error
+	// in response. If the input context cancels, we must shutdown.
+	Watch(context.Context) error
 
 	// CheckApply determines if the state of the resource is correct and if
 	// asked to with the `apply` variable, applies the requested state.

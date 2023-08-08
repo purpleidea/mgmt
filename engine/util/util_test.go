@@ -20,6 +20,7 @@
 package util
 
 import (
+	"context"
 	"os/user"
 	"reflect"
 	"strconv"
@@ -201,7 +202,7 @@ func (t *testEngineRes) String() string { return "test-string" }
 
 func (t *testEngineRes) Validate() error { return nil }
 
-func (t *testEngineRes) Watch() error { return nil }
+func (t *testEngineRes) Watch(context.Context) error { return nil }
 
 func TestStructKindToFieldNameTypeMap(t *testing.T) {
 	k := "test-kind"

@@ -18,6 +18,7 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -106,7 +107,7 @@ func (obj *HostnameRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *HostnameRes) Watch() error {
+func (obj *HostnameRes) Watch(ctx context.Context) error {
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
@@ -135,7 +136,7 @@ func (obj *HostnameRes) Watch() error {
 		case <-signals:
 			send = true
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 

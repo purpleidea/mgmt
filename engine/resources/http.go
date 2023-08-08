@@ -230,7 +230,7 @@ func (obj *HTTPServerRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *HTTPServerRes) Watch() error {
+func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	// TODO: I think we could replace all this with:
 	//obj.conn, err := net.Listen("tcp", obj.getAddress())
 	// ...but what is the advantage?
@@ -304,13 +304,13 @@ func (obj *HTTPServerRes) Watch() error {
 	// exit and waits instead for Shutdown to return.
 	defer func() {
 		defer close(shutdownChan) // signal that shutdown is finished
-		ctx := context.Background()
+		innerCtx := context.Background()
 		if i := obj.getShutdownTimeout(); i != nil && *i > 0 {
 			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, time.Duration(*i)*time.Second)
+			innerCtx, cancel = context.WithTimeout(innerCtx, time.Duration(*i)*time.Second)
 			defer cancel()
 		}
-		err := obj.server.Shutdown(ctx) // shutdown gracefully
+		err := obj.server.Shutdown(innerCtx) // shutdown gracefully
 		if err == context.DeadlineExceeded {
 			// TODO: should we bubble up the error from Close?
 			// TODO: do we need a mutex around this Close?
@@ -335,7 +335,7 @@ func (obj *HTTPServerRes) Watch() error {
 		case <-closeSignal: // something shut us down early
 			return closeError
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -721,11 +721,11 @@ func (obj *HTTPFileRes) Close() error {
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.
-func (obj *HTTPFileRes) Watch() error {
+func (obj *HTTPFileRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
-	case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
 	//obj.init.Event() // notify engine of an event (this can block)

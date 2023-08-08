@@ -19,6 +19,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -139,7 +140,7 @@ func (obj *TFTPServerRes) Close() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *TFTPServerRes) Watch() error {
+func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 	addr, err := net.ResolveUDPAddr("udp", obj.getAddress())
 	if err != nil {
 		return errwrap.Wrapf(err, "could not resolve address")
@@ -200,7 +201,7 @@ func (obj *TFTPServerRes) Watch() error {
 		case <-closeSignal: // something shut us down early
 			return closeError
 
-		case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
@@ -547,11 +548,11 @@ func (obj *TFTPFileRes) Close() error {
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.
-func (obj *TFTPFileRes) Watch() error {
+func (obj *TFTPFileRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
-	case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
+	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
 	//obj.init.Event() // notify engine of an event (this can block)

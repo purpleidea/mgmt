@@ -57,7 +57,6 @@ type ConfigEtcdRes struct {
 	sizeFlag bool
 
 	interruptChan chan struct{}
-	wg            *sync.WaitGroup
 }
 
 // Default returns some sensible defaults for this resource.
@@ -83,25 +82,22 @@ func (obj *ConfigEtcdRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	obj.interruptChan = make(chan struct{})
-	obj.wg = &sync.WaitGroup{}
 
 	return nil
 }
 
 // Close is run by the engine to clean up after the resource is done.
 func (obj *ConfigEtcdRes) Close() error {
-	obj.wg.Wait() // bonus
 	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *ConfigEtcdRes) Watch(ctx context.Context) error {
-	obj.wg.Add(1)
-	defer obj.wg.Done()
-	// FIXME: add timeout to context
-	ctx, cancel := context.WithCancel(ctx)
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+	innerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	ch, err := obj.init.World.IdealClusterSizeWatch(util.CtxWithWg(ctx, obj.wg))
+	ch, err := obj.init.World.IdealClusterSizeWatch(util.CtxWithWg(innerCtx, wg))
 	if err != nil {
 		return errwrap.Wrapf(err, "could not watch ideal cluster size")
 	}

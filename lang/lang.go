@@ -252,7 +252,7 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
-	ctx, cancel := context.WithCancel(ctx)
+	runCtx, cancel := context.WithCancel(context.Background()) // Don't inherit from parent
 	defer cancel()
 
 	//obj.Logf("function engine validating...")
@@ -264,7 +264,7 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := obj.funcs.Run(ctx); err == nil {
+		if err := obj.funcs.Run(runCtx); err == nil {
 			reterr = errwrap.Append(reterr, err)
 		}
 		// Run() should only error if not a dag I think...
@@ -282,8 +282,11 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 			reterr = errwrap.Append(reterr, err)
 		}
 	}()
+	defer wg.Wait()
+	defer cancel() // now cancel Run only after Reverse and Free are done!
 
 	txn := obj.funcs.Txn()
+	defer txn.Free() // remember to call Free()
 	interfaces.AddGraphToTxn(txn, obj.graph)
 	if err := txn.Commit(); err != nil {
 		return errwrap.Wrapf(err, "error adding to function graph engine")
@@ -297,7 +300,9 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 	// wait for some activity
 	obj.Logf("stream...")
 
-	wg.Wait() // wait for Run to finish
+	select {
+	case <-ctx.Done():
+	}
 
 	return nil
 }

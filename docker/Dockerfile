@@ -1,4 +1,4 @@
-FROM golang:1.18
+FROM golang:1.19
 
 MAINTAINER Michał Czeraszkiewicz <contact@czerasz.com>
 

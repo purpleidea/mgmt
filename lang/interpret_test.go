@@ -1614,8 +1614,8 @@ func TestAstFunc2(t *testing.T) {
 					}
 
 				case <-time.After(10 * time.Second): // blocked functions XXX !!!
-					//t.Errorf("test #%d: unblocking because no event was sent by the function engine for a while", index)
-					t.Logf("test #%d: unblocking because no event was sent by the function engine for a while", index)
+					t.Errorf("test #%d: unblocking because no event was sent by the function engine for a while", index)
+					//t.Logf("test #%d: unblocking because no event was sent by the function engine for a while", index)
 					break Loop
 
 				case <-time.After(60 * time.Second): // blocked functions

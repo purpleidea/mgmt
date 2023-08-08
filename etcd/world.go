@@ -74,9 +74,14 @@ func (obj *World) IdealClusterSizeWatch(ctx context.Context) (chan error, error)
 	if err := c.Init(); err != nil {
 		return nil, err
 	}
-	util.WgFromCtx(ctx).Add(1)
+	wg := util.WgFromCtx(ctx)
+	if wg != nil {
+		wg.Add(1)
+	}
 	go func() {
-		defer util.WgFromCtx(ctx).Done()
+		if wg != nil {
+			defer wg.Done()
+		}
 		// This must get closed *after* because it will not finish until
 		// the Watcher returns, because it contains a wg.Wait() in it...
 		defer c.Close() // ignore error

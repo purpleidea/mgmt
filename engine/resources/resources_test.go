@@ -543,9 +543,9 @@ func TestResources1(t *testing.T) {
 				}
 			}()
 			closeFn := func() {
-				// run close (we don't ever expect an error on close!)
-				t.Logf("test #%d: running Close", index)
-				if err := res.Close(); err != nil {
+				// run cleanup (we don't ever expect an error on cleanup!)
+				t.Logf("test #%d: running Cleanup", index)
+				if err := res.Cleanup(); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: could not close Res: %+v", index, err)
 					//return
@@ -793,11 +793,11 @@ func TestResources2(t *testing.T) {
 		}
 		return resCheckApplyError(res, expCheckOK, errOK)
 	}
-	// resClose runs Close on the res.
-	resClose := func(res engine.Res) func() error {
-		// run Close
+	// resCleanup runs CLeanup on the res.
+	resCleanup := func(res engine.Res) func() error {
+		// run CLeanup
 		return func() error {
-			return res.Close()
+			return res.Cleanup()
 		}
 	}
 	// resReversal runs Reverse on the resource and stores the result in the
@@ -928,7 +928,7 @@ func TestResources2(t *testing.T) {
 			resCheckApply(r1, false), // changed
 			fileExpect(p, content),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 			fileExpect(p, content), // ensure it exists
 		}
 
@@ -960,7 +960,7 @@ func TestResources2(t *testing.T) {
 			resCheckApply(r1, false), // changed
 			fileExpect(p, content),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 			fileExpect(p, content), // ensure it exists
 		}
 
@@ -992,7 +992,7 @@ func TestResources2(t *testing.T) {
 			resInit(r1),
 			resCheckApplyError(r1, false, ErrIsNotExistOK), // should error
 			resCheckApplyError(r1, false, ErrIsNotExistOK), // double check
-			resClose(r1),
+			resCleanup(r1),
 			fileAbsent(p), // ensure it's absent
 		}
 
@@ -1021,7 +1021,7 @@ func TestResources2(t *testing.T) {
 			resInit(r1),
 			resCheckApply(r1, true),
 			resCheckApply(r1, true),
-			resClose(r1),
+			resCleanup(r1),
 			fileAbsent(p), // ensure it's absent
 		}
 
@@ -1050,7 +1050,7 @@ func TestResources2(t *testing.T) {
 			resInit(r1),
 			resCheckApply(r1, false),
 			resCheckApply(r1, true),
-			resClose(r1),
+			resCleanup(r1),
 			fileAbsent(p), // ensure it's absent
 		}
 
@@ -1094,7 +1094,7 @@ func TestResources2(t *testing.T) {
 			resCheckApply(r1, false), // changed
 			fileExpect(p, content),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 			//resValidate(r2), // no!!!
 			func() error {
 				// wrap it b/c it is currently nil
@@ -1110,7 +1110,7 @@ func TestResources2(t *testing.T) {
 				return resCheckApply(r2, true)()
 			},
 			func() error {
-				return resClose(r2)()
+				return resCleanup(r2)()
 			},
 			fileAbsent(p), // ensure it's absent
 		}
@@ -1156,7 +1156,7 @@ func TestResources2(t *testing.T) {
 			resCheckApply(r1, false), // changed
 			fileExpect(p, content),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 			//resValidate(r2),
 			func() error {
 				// wrap it b/c it is currently nil
@@ -1172,7 +1172,7 @@ func TestResources2(t *testing.T) {
 				return resCheckApply(r2, true)()
 			},
 			func() error {
-				return resClose(r2)()
+				return resCleanup(r2)()
 			},
 			fileExpect(p, original), // we restored the contents!
 			fileRemove(p),           // cleanup
@@ -1220,7 +1220,7 @@ func TestResources2(t *testing.T) {
 			resCheckApplyError(r1, false, ErrIsNotExistOK), // changed
 			//fileExpect(p, content),
 			//resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 			//func() error {
 			//	// wrap it b/c it is currently nil
 			//	return r2.Validate()
@@ -1232,7 +1232,7 @@ func TestResources2(t *testing.T) {
 			//	return resCheckApply(r2, true)()
 			//},
 			//func() error {
-			//	return resClose(r2)()
+			//	return resCleanup(r2)()
 			//},
 			//fileExpect(p, content), // we never changed it back...
 			//fileRemove(p),          // cleanup
@@ -1275,7 +1275,7 @@ func TestResources2(t *testing.T) {
 			resCheckApply(r1, false), // changed
 			fileAbsent(p),            // ensure it got removed
 			resCheckApply(r1, true),  // it's already good
-			resClose(r1),
+			resCleanup(r1),
 			//resValidate(r2), // no!!!
 			func() error {
 				// wrap it b/c it is currently nil
@@ -1291,7 +1291,7 @@ func TestResources2(t *testing.T) {
 				return resCheckApply(r2, true)()
 			},
 			func() error {
-				return resClose(r2)()
+				return resCleanup(r2)()
 			},
 			fileExpect(p, original), // ensure it's back to original
 		}
@@ -1357,7 +1357,7 @@ func TestResources2(t *testing.T) {
 			resCheckApply(r1, false), // changed
 			fileExpect(p, content),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 			fileExpect(p, content), // ensure it exists
 		}
 
@@ -1394,7 +1394,7 @@ func TestResources2(t *testing.T) {
 			resCheckApply(r1, true),  // it's already good
 			fileExpect(p, content),   // should already be like this
 			fileExpect(p2, content),  // should not change either
-			resClose(r1),
+			resCleanup(r1),
 		}
 
 		testCases = append(testCases, test{
@@ -1423,7 +1423,7 @@ func TestResources2(t *testing.T) {
 			fileExists(p, true),      // ensure it's a dir
 			resCheckApply(r1, true),  // it's already good
 			fileExists(p, true),      // ensure it's a dir
-			resClose(r1),
+			resCleanup(r1),
 		}
 
 		testCases = append(testCases, test{
@@ -1494,7 +1494,7 @@ func TestResources2(t *testing.T) {
 			fileExists(d2f2, false),
 			fileExists(d2f3, false),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 		}
 
 		testCases = append(testCases, test{
@@ -1560,7 +1560,7 @@ func TestResources2(t *testing.T) {
 			fileAbsent(d2f2),
 			fileAbsent(d2f3),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 		}
 
 		testCases = append(testCases, test{
@@ -1646,17 +1646,17 @@ func TestResources2(t *testing.T) {
 			resValidate(r2),
 			resInit(r2),
 			//resCheckApply(r2, false), // not really needed in test
-			resClose(r2),
+			resCleanup(r2),
 
 			resValidate(r3),
 			resInit(r3),
 			//resCheckApply(r3, false), // not really needed in test
-			resClose(r3),
+			resCleanup(r3),
 
 			resValidate(r4),
 			resInit(r4),
 			//resCheckApply(r4, false), // not really needed in test
-			resClose(r4),
+			resCleanup(r4),
 
 			resValidate(r1),
 			resInit(r1, addGraph(graph), addLogf(nil)), // show the full graph
@@ -1675,7 +1675,7 @@ func TestResources2(t *testing.T) {
 			fileExists(p3, true),  // ensure it's a dir
 			fileExists(p4, false),
 			resCheckApply(r1, true), // it's already good
-			resClose(r1),
+			resCleanup(r1),
 		}
 
 		testCases = append(testCases, test{

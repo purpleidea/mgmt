@@ -257,7 +257,7 @@ func (obj *Engine) Commit() error {
 
 		// close the state and resource
 		// FIXME: will this mess up the sync and block the engine?
-		if err := obj.state[vertex].Close(); err != nil {
+		if err := obj.state[vertex].Cleanup(); err != nil {
 			return errwrap.Wrapf(err, "the Res did not Close")
 		}
 

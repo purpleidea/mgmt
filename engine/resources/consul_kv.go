@@ -108,8 +108,8 @@ func (obj *ConsulKVRes) Init(init *engine.Init) error {
 	return errwrap.Wrapf(err, "could not create Consul client")
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *ConsulKVRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *ConsulKVRes) Cleanup() error {
 	if obj.config != nil && obj.config.Transport != nil {
 		obj.config.Transport.CloseIdleConnections()
 	}

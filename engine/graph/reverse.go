@@ -231,9 +231,9 @@ func (obj *State) ReversalInit() error {
 	return obj.ReversalWrite(str, res.ReversibleMeta().Overwrite) // Store!
 }
 
-// ReversalClose performs the reversal shutdown steps if necessary for this
+// ReversalCleanup performs the reversal shutdown steps if necessary for this
 // resource.
-func (obj *State) ReversalClose() error {
+func (obj *State) ReversalCleanup() error {
 	res, ok := obj.Vertex.(engine.ReversibleRes)
 	if !ok {
 		return nil // nothing to do

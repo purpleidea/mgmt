@@ -186,8 +186,8 @@ func (obj *NetRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close cleans up when we're done.
-func (obj *NetRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *NetRes) Cleanup() error {
 	if obj.socketFile == "/" {
 		return fmt.Errorf("socket file should not be the root path")
 	}

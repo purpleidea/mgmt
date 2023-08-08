@@ -89,8 +89,8 @@ func (obj *PasswordRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *PasswordRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *PasswordRes) Cleanup() error {
 	return nil
 }
 

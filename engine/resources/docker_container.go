@@ -164,8 +164,8 @@ func (obj *DockerContainerRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *DockerContainerRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *DockerContainerRes) Cleanup() error {
 	return obj.client.Close() // close the docker client
 }
 

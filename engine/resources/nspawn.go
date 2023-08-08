@@ -132,10 +132,10 @@ func (obj *NspawnRes) Init(init *engine.Init) error {
 	return obj.svc.Init(init)
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *NspawnRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *NspawnRes) Cleanup() error {
 	if obj.svc != nil {
-		return obj.svc.Close()
+		return obj.svc.Cleanup()
 	}
 	return nil
 }

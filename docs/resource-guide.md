@@ -177,10 +177,10 @@ this. In other words, you should expect `Validate` to have run first, but you
 shouldn't allow `Init` to dangerously `rm -rf /$the_world` if your code only
 checks `$the_world` in `Validate`. Remember to always program safely!
 
-### Close
+### Cleanup
 
 ```golang
-Close() error
+Cleanup() error
 ```
 
 This is called to cleanup after the resource. It is usually not necessary, but
@@ -192,8 +192,8 @@ loop.
 #### Example
 
 ```golang
-// Close runs some cleanup code for this resource.
-func (obj *FooRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *FooRes) Cleanup() error {
 	err := obj.conn.Close() // close some internal connection
 	obj.someMap = nil       // free up some large data structure from memory
 	return err
@@ -579,15 +579,15 @@ It is only called from within `CheckApply`.
 World provides a connection to the outside world. This is most often used for
 communicating with the distributed database. It can be used in `Init`,
 `CheckApply` and `Watch`. Use with discretion and understanding of the internals
-if needed in `Close`.
+if needed in `Cleanup`.
 
 ### VarDir
 
 VarDir is a facility for local storage. It is used to return a path to a
 directory which may be used for temporary storage. It should be cleaned up on
-resource `Close` if the resource would like to delete the contents. The resource
-should not assume that the initial directory is empty, and it should be cleaned
-on `Init` if that is a requirement.
+resource `Cleanup` if the resource would like to delete the contents. The
+resource should not assume that the initial directory is empty, and it should be
+cleaned on `Init` if that is a requirement.
 
 ### Debug
 
@@ -724,7 +724,7 @@ two calls, this is much more difficult. A common example is that a resource
 might want to open a connection to `dbus` or `http` to do resource state testing
 and applying. If the methods are combined, there's no need to open and close
 them twice. A counter argument might be that you could open the connection in
-`Init`, and close it in `Close`, however you might not want that open for the
+`Init`, and close it in `Cleanup`, however you might not want that open for the
 full lifetime of the resource if you only change state occasionally.
 2. Suppose you came up with a really good reason why you wanted the two methods
 to be separate. It turns out that the current `CheckApply` can wrap this easily.

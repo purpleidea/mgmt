@@ -63,7 +63,7 @@ func (obj *NoopResTest) Init(init *engine.Init) error {
 	return nil
 }
 
-func (obj *NoopResTest) Close() error {
+func (obj *NoopResTest) Cleanup() error {
 	return nil
 }
 

@@ -87,8 +87,8 @@ func (obj *PippetRes) Init(init *engine.Init) error {
 	return obj.runner.Register()
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *PippetRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *PippetRes) Cleanup() error {
 	return obj.runner.Unregister()
 }
 

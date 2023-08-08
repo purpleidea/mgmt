@@ -212,10 +212,10 @@ func (obj *CronRes) Init(init *engine.Init) error {
 	return obj.file.Init(init)
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *CronRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *CronRes) Cleanup() error {
 	if obj.file != nil {
-		return obj.file.Close()
+		return obj.file.Cleanup()
 	}
 	return nil
 }

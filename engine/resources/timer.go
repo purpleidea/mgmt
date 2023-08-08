@@ -60,8 +60,8 @@ func (obj *TimerRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *TimerRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *TimerRes) Cleanup() error {
 	return nil
 }
 

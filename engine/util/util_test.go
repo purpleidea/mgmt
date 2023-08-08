@@ -178,7 +178,7 @@ type testEngineRes struct {
 
 func (t *testEngineRes) CheckApply(bool) (bool, error) { return false, nil }
 
-func (t *testEngineRes) Close() error { return nil }
+func (t *testEngineRes) Cleanup() error { return nil }
 
 func (t *testEngineRes) Cmp(engine.Res) error { return nil }
 

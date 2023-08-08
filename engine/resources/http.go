@@ -224,8 +224,8 @@ func (obj *HTTPServerRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *HTTPServerRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *HTTPServerRes) Cleanup() error {
 	return nil
 }
 
@@ -713,8 +713,8 @@ func (obj *HTTPFileRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *HTTPFileRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *HTTPFileRes) Cleanup() error {
 	return nil
 }
 

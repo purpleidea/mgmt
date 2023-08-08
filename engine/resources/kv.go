@@ -123,8 +123,8 @@ func (obj *KVRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *KVRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *KVRes) Cleanup() error {
 	return nil
 }
 

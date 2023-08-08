@@ -190,8 +190,8 @@ type Res interface {
 	// and data from the engine.
 	Init(*Init) error
 
-	// Close is run by the engine to clean up after the resource is done.
-	Close() error
+	// Cleanup is run by the engine to clean up after the resource is done.
+	Cleanup() error
 
 	// Watch is run by the engine to monitor for state changes. If it
 	// detects any, it notifies the engine which will usually run CheckApply

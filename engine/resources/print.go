@@ -64,8 +64,8 @@ func (obj *PrintRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *PrintRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *PrintRes) Cleanup() error {
 	return nil
 }
 

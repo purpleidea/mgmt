@@ -57,8 +57,8 @@ func (obj *NoopRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *NoopRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *NoopRes) Cleanup() error {
 	return nil
 }
 

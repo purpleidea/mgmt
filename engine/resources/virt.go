@@ -239,8 +239,8 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close runs some cleanup code for this resource.
-func (obj *VirtRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *VirtRes) Cleanup() error {
 	// By the time that this Close method is called, the engine promises
 	// that the Watch loop has previously shutdown! (Assuming no bugs!)
 	// TODO: As a result, this is an extra check which shouldn't be needed,

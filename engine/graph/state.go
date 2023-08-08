@@ -263,9 +263,9 @@ func (obj *State) Init() error {
 	return nil
 }
 
-// Close shuts down and performs any cleanup. This is most akin to a "post" or
+// Cleanup shuts down and performs any cleanup. This is most akin to a "post" or
 // cleanup command as the initiator for closing a vertex happens in graph sync.
-func (obj *State) Close() error {
+func (obj *State) Cleanup() error {
 	res, isRes := obj.Vertex.(engine.Res)
 	if !isRes {
 		return fmt.Errorf("vertex is not a Res")
@@ -288,13 +288,13 @@ func (obj *State) Close() error {
 
 	var reverr error
 	// clear the reverse request from the disk...
-	if err := obj.ReversalClose(); err != nil {
+	if err := obj.ReversalCleanup(); err != nil {
 		// TODO: test this code path...
 		// TODO: should this be an error or a warning?
 		reverr = err
 	}
 
-	reterr := res.Close()
+	reterr := res.Cleanup()
 	if obj.Debug {
 		obj.Logf("Close(%s): Return(%+v)", res, reterr)
 	}

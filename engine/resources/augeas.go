@@ -118,8 +118,8 @@ func (obj *AugeasRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *AugeasRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *AugeasRes) Cleanup() error {
 	return nil
 }
 

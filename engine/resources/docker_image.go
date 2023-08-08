@@ -125,8 +125,8 @@ func (obj *DockerImageRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *DockerImageRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *DockerImageRes) Cleanup() error {
 	return obj.client.Close() // close the docker client
 }
 

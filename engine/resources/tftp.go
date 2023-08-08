@@ -134,8 +134,8 @@ func (obj *TFTPServerRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *TFTPServerRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *TFTPServerRes) Cleanup() error {
 	return nil
 }
 
@@ -540,8 +540,8 @@ func (obj *TFTPFileRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *TFTPFileRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *TFTPFileRes) Cleanup() error {
 	return nil
 }
 

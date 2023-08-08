@@ -361,8 +361,9 @@ func (obj *HetznerVMRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close deletes the authentication info before closing the resource.
-func (obj *HetznerVMRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done. It
+// deletes the authentication info before closing the resource.
+func (obj *HetznerVMRes) Cleanup() error {
 	obj.APIToken = ""
 	obj.client = nil
 	return nil

@@ -62,8 +62,8 @@ func TestExecSendRecv1(t *testing.T) {
 		t.Errorf("validate failed with: %v", err)
 	}
 	defer func() {
-		if err := r1.Close(); err != nil {
-			t.Errorf("close failed with: %v", err)
+		if err := r1.Cleanup(); err != nil {
+			t.Errorf("cleanup failed with: %v", err)
 		}
 	}()
 	init, execSends := fakeExecInit(t)
@@ -107,8 +107,8 @@ func TestExecSendRecv2(t *testing.T) {
 		t.Errorf("validate failed with: %v", err)
 	}
 	defer func() {
-		if err := r1.Close(); err != nil {
-			t.Errorf("close failed with: %v", err)
+		if err := r1.Cleanup(); err != nil {
+			t.Errorf("cleanup failed with: %v", err)
 		}
 	}()
 	init, execSends := fakeExecInit(t)
@@ -152,8 +152,8 @@ func TestExecSendRecv3(t *testing.T) {
 		t.Errorf("validate failed with: %v", err)
 	}
 	defer func() {
-		if err := r1.Close(); err != nil {
-			t.Errorf("close failed with: %v", err)
+		if err := r1.Cleanup(); err != nil {
+			t.Errorf("cleanup failed with: %v", err)
 		}
 	}()
 	init, execSends := fakeExecInit(t)

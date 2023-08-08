@@ -377,8 +377,8 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *DHCPServerRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *DHCPServerRes) Cleanup() error {
 	// NOTE: if this ever panics, it might mean the engine is running Close
 	// before Watch finishes exiting, which is an engine bug in that code...
 	//obj.mutex.RUnlock()
@@ -1045,8 +1045,8 @@ func (obj *DHCPHostRes) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close is run by the engine to clean up after the resource is done.
-func (obj *DHCPHostRes) Close() error {
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *DHCPHostRes) Cleanup() error {
 	return nil
 }
 

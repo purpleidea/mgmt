@@ -388,10 +388,11 @@ func (obj *AwsEc2Res) Init(init *engine.Init) error {
 	return nil
 }
 
-// Close cleans up when we're done. This is needed to delete some of the AWS
+// Cleanup cleans up when we're done. This is needed to delete some of the AWS
 // objects created for the SNS endpoint.
-func (obj *AwsEc2Res) Close() error {
+func (obj *AwsEc2Res) Cleanup() error {
 	var errList error
+	// XXX: do these in a defer of Watch instead.
 	// clean up sns objects created by Init/snsWatch
 	if obj.snsClient != nil {
 		// delete the topic and associated subscriptions

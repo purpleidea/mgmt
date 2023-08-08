@@ -121,6 +121,7 @@ Loop:
 			// pass through and send an event
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
+			return nil
 		}
 
 		obj.init.Event() // notify engine of an event (this can block)

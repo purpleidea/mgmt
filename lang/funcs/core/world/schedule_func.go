@@ -65,6 +65,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, ScheduleFuncName, func() interfaces.Func { return &ScheduleFunc{} })
 }
 
+var _ interfaces.PolyFunc = &ScheduleFunc{} // ensure it meets this expectation
+
 // ScheduleFunc is special function which determines where code should run in
 // the cluster.
 type ScheduleFunc struct {
@@ -398,43 +400,43 @@ func (obj *ScheduleFunc) Polymorphisms(partialType *types.Type, partialValues []
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *ScheduleFunc) Build(typ *types.Type) error {
+func (obj *ScheduleFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
 	if len(typ.Ord) != 1 && len(typ.Ord) != 2 {
-		return fmt.Errorf("the schedule function needs either one or two args")
+		return nil, fmt.Errorf("the schedule function needs either one or two args")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("invalid input type")
+		return nil, fmt.Errorf("invalid input type")
 	}
 
 	if err := typ.Out.Cmp(types.NewType("[]str")); err != nil {
-		return errwrap.Wrapf(err, "return type must be a list of strings")
+		return nil, errwrap.Wrapf(err, "return type must be a list of strings")
 	}
 
 	tNamespace, exists := typ.Map[typ.Ord[0]]
 	if !exists || tNamespace == nil {
-		return fmt.Errorf("first arg must be specified")
+		return nil, fmt.Errorf("first arg must be specified")
 	}
 
 	if len(typ.Ord) == 1 {
 		obj.Type = nil
 		obj.built = true
-		return nil // done early, 2nd arg is absent!
+		return obj.sig(), nil // done early, 2nd arg is absent!
 	}
 	tOpts, exists := typ.Map[typ.Ord[1]]
 	if !exists || tOpts == nil {
-		return fmt.Errorf("second argument was missing")
+		return nil, fmt.Errorf("second argument was missing")
 	}
 
 	if tOpts.Kind != types.KindStruct {
-		return fmt.Errorf("second argument must be of kind struct")
+		return nil, fmt.Errorf("second argument must be of kind struct")
 	}
 
 	validOpts := obj.validOpts()
@@ -445,11 +447,11 @@ func (obj *ScheduleFunc) Build(typ *types.Type) error {
 			t := tOpts.Map[name]
 			value, exists := validOpts[name]
 			if !exists {
-				return fmt.Errorf("unexpected opts field: `%s`", name)
+				return nil, fmt.Errorf("unexpected opts field: `%s`", name)
 			}
 
 			if err := t.Cmp(value); err != nil {
-				return errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
+				return nil, errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
 			}
 		}
 
@@ -470,14 +472,14 @@ func (obj *ScheduleFunc) Build(typ *types.Type) error {
 
 			// if it exists, check the type
 			if err := t.Cmp(value); err != nil {
-				return errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
+				return nil, errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
 			}
 		}
 	}
 
 	obj.Type = tOpts // type of opts struct, even an empty: `struct{}`
 	obj.built = true
-	return nil
+	return obj.sig(), nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -497,20 +499,26 @@ func (obj *ScheduleFunc) Validate() error {
 func (obj *ScheduleFunc) Info() *interfaces.Info {
 	// It's important that you don't return a non-nil sig if this is called
 	// before you're built. Type unification may call it opportunistically.
-	var typ *types.Type
+	var sig *types.Type
 	if obj.built {
-		typ = types.NewType(fmt.Sprintf("func(%s str) []str", scheduleArgNameNamespace)) // simplest form
-		if obj.Type != nil {
-			typ = types.NewType(fmt.Sprintf("func(%s str, %s %s) []str", scheduleArgNameNamespace, scheduleArgNameOpts, obj.Type.String()))
-		}
+		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
 		// output is list of hostnames chosen
-		Sig: typ, // func kind
+		Sig: sig, // func kind
 		Err: obj.Validate(),
 	}
+}
+
+// helper
+func (obj *ScheduleFunc) sig() *types.Type {
+	sig := types.NewType(fmt.Sprintf("func(%s str) []str", scheduleArgNameNamespace)) // simplest form
+	if obj.Type != nil {
+		sig = types.NewType(fmt.Sprintf("func(%s str, %s %s) []str", scheduleArgNameNamespace, scheduleArgNameOpts, obj.Type.String()))
+	}
+	return sig
 }
 
 // Init runs some startup code for this function.

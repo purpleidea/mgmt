@@ -41,6 +41,8 @@ func init() {
 	Register(StructLookupFuncName, func() interfaces.Func { return &StructLookupFunc{} }) // must register the func and name
 }
 
+var _ interfaces.PolyFunc = &StructLookupFunc{} // ensure it meets this expectation
+
 // StructLookupFunc is a struct field lookup function.
 type StructLookupFunc struct {
 	Type *types.Type // Kind == Struct, that is used as the struct we lookup
@@ -394,33 +396,33 @@ func (obj *StructLookupFunc) Polymorphisms(partialType *types.Type, partialValue
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *StructLookupFunc) Build(typ *types.Type) error {
+func (obj *StructLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
 	if len(typ.Ord) != 2 {
-		return fmt.Errorf("the structlookup function needs exactly two args")
+		return nil, fmt.Errorf("the structlookup function needs exactly two args")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("invalid input type")
+		return nil, fmt.Errorf("invalid input type")
 	}
 
 	tStruct, exists := typ.Map[typ.Ord[0]]
 	if !exists || tStruct == nil {
-		return fmt.Errorf("first arg must be specified")
+		return nil, fmt.Errorf("first arg must be specified")
 	}
 
 	tField, exists := typ.Map[typ.Ord[1]]
 	if !exists || tField == nil {
-		return fmt.Errorf("second arg must be specified")
+		return nil, fmt.Errorf("second arg must be specified")
 	}
 	if err := tField.Cmp(types.TypeStr); err != nil {
-		return errwrap.Wrapf(err, "field must be an str")
+		return nil, errwrap.Wrapf(err, "field must be an str")
 	}
 
 	// NOTE: We actually don't know which field this is, only its type! we
@@ -429,7 +431,8 @@ func (obj *StructLookupFunc) Build(typ *types.Type) error {
 	// struct.
 	obj.Type = tStruct // struct type
 	obj.Out = typ.Out  // type of return value
-	return nil
+
+	return obj.sig(), nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -458,7 +461,7 @@ func (obj *StructLookupFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		// TODO: can obj.Out be nil (a partial) ?
-		sig = types.NewType(fmt.Sprintf("func(%s %s, %s str) %s", structLookupArgNameStruct, obj.Type.String(), structLookupArgNameField, obj.Out.String()))
+		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
 		Pure: true,
@@ -466,6 +469,11 @@ func (obj *StructLookupFunc) Info() *interfaces.Info {
 		Sig:  sig, // func kind
 		Err:  obj.Validate(),
 	}
+}
+
+// helper
+func (obj *StructLookupFunc) sig() *types.Type {
+	return types.NewType(fmt.Sprintf("func(%s %s, %s str) %s", structLookupArgNameStruct, obj.Type.String(), structLookupArgNameField, obj.Out.String()))
 }
 
 // Init runs some startup code for this function.

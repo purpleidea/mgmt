@@ -336,6 +336,8 @@ func init() {
 	Register(OperatorFuncName, func() interfaces.Func { return &OperatorFunc{} }) // must register the func and name
 }
 
+var _ interfaces.PolyFunc = &OperatorFunc{} // ensure it meets this expectation
+
 // OperatorFuncs maps an operator to a list of callable function values.
 var OperatorFuncs = make(map[string][]*types.FuncValue) // must initialize
 
@@ -791,17 +793,46 @@ func (obj *OperatorFunc) Polymorphisms(partialType *types.Type, partialValues []
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *OperatorFunc) Build(typ *types.Type) error {
+func (obj *OperatorFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if len(typ.Ord) < 1 {
-		return fmt.Errorf("the operator function needs at least 1 arg")
+		return nil, fmt.Errorf("the operator function needs at least 1 arg")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
+	}
+	if typ.Kind != types.KindFunc {
+		return nil, fmt.Errorf("unexpected build kind of: %v", typ.Kind)
 	}
 
-	obj.Type = typ // func type
-	return nil
+	// Change arg names to be what we expect...
+	if _, exists := typ.Map[typ.Ord[0]]; !exists {
+		return nil, fmt.Errorf("invalid build type")
+	}
+
+	//newTyp := typ.Copy()
+	newTyp := &types.Type{
+		Kind: typ.Kind,                     // copy
+		Map:  make(map[string]*types.Type), // new
+		Ord:  []string{},                   // new
+		Out:  typ.Out,                      // copy
+	}
+	for i, x := range typ.Ord { // remap arg names
+		//argName := util.NumToAlpha(i - 1)
+		//if i == 0 {
+		//	argName = operatorArgName
+		//}
+		argName, err := obj.ArgGen(i)
+		if err != nil {
+			return nil, err
+		}
+
+		newTyp.Map[argName] = typ.Map[x]
+		newTyp.Ord = append(newTyp.Ord, argName)
+	}
+
+	obj.Type = newTyp // func type
+	return obj.Type, nil
 }
 
 // Validate tells us if the input struct takes a valid form.

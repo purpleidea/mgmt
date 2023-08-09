@@ -452,66 +452,67 @@ func (obj *MapFunc) Polymorphisms(partialType *types.Type, partialValues []types
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *MapFunc) Build(typ *types.Type) error {
+func (obj *MapFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
 	if len(typ.Ord) != 2 {
-		return fmt.Errorf("the map needs exactly two args")
+		return nil, fmt.Errorf("the map needs exactly two args")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("the map is nil")
+		return nil, fmt.Errorf("the map is nil")
 	}
 
 	tInputs, exists := typ.Map[typ.Ord[0]]
 	if !exists || tInputs == nil {
-		return fmt.Errorf("first argument was missing")
+		return nil, fmt.Errorf("first argument was missing")
 	}
 	tFunction, exists := typ.Map[typ.Ord[1]]
 	if !exists || tFunction == nil {
-		return fmt.Errorf("second argument was missing")
+		return nil, fmt.Errorf("second argument was missing")
 	}
 
 	if tInputs.Kind != types.KindList {
-		return fmt.Errorf("first argument must be of kind list")
+		return nil, fmt.Errorf("first argument must be of kind list")
 	}
 	if tFunction.Kind != types.KindFunc {
-		return fmt.Errorf("second argument must be of kind func")
+		return nil, fmt.Errorf("second argument must be of kind func")
 	}
 
 	if typ.Out == nil {
-		return fmt.Errorf("return type must be specified")
+		return nil, fmt.Errorf("return type must be specified")
 	}
 	if typ.Out.Kind != types.KindList {
-		return fmt.Errorf("return argument must be a list")
+		return nil, fmt.Errorf("return argument must be a list")
 	}
 
 	if len(tFunction.Ord) != 1 {
-		return fmt.Errorf("the functions map needs exactly one arg")
+		return nil, fmt.Errorf("the functions map needs exactly one arg")
 	}
 	if tFunction.Map == nil {
-		return fmt.Errorf("the functions map is nil")
+		return nil, fmt.Errorf("the functions map is nil")
 	}
 	tArg, exists := tFunction.Map[tFunction.Ord[0]]
 	if !exists || tArg == nil {
-		return fmt.Errorf("the functions first argument was missing")
+		return nil, fmt.Errorf("the functions first argument was missing")
 	}
 	if err := tArg.Cmp(tInputs.Val); err != nil {
-		return errwrap.Wrapf(err, "the functions arg type must match the input list contents type")
+		return nil, errwrap.Wrapf(err, "the functions arg type must match the input list contents type")
 	}
 
 	if tFunction.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if err := tFunction.Out.Cmp(typ.Out.Val); err != nil {
-		return errwrap.Wrapf(err, "return type of function must match returned list contents type")
+		return nil, errwrap.Wrapf(err, "return type of function must match returned list contents type")
 	}
 
 	obj.Type = tInputs.Val    // or tArg
 	obj.RType = tFunction.Out // or typ.Out.Val
-	return nil
+
+	return obj.sig(), nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -525,6 +526,18 @@ func (obj *MapFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *MapFunc) Info() *interfaces.Info {
+	sig := obj.sig() // helper
+
+	return &interfaces.Info{
+		Pure: false, // TODO: what if the input function isn't pure?
+		Memo: false,
+		Sig:  sig,
+		Err:  obj.Validate(),
+	}
+}
+
+// helper
+func (obj *MapFunc) sig() *types.Type {
 	// TODO: what do we put if this is unknown?
 	tIi := types.TypeVariant
 	if obj.Type != nil {
@@ -542,14 +555,7 @@ func (obj *MapFunc) Info() *interfaces.Info {
 	tF := types.NewType(fmt.Sprintf("func(%s) %s", tIi.String(), tOi.String()))
 
 	s := fmt.Sprintf("func(%s %s, %s %s) %s", argNameInputs, tI, argNameFunction, tF, tO)
-	typ := types.NewType(s) // yay!
-
-	return &interfaces.Info{
-		Pure: false, // TODO: what if the input function isn't pure?
-		Memo: false,
-		Sig:  typ,
-		Err:  obj.Validate(),
-	}
+	return types.NewType(s) // yay!
 }
 
 // Init runs some startup code for this function.

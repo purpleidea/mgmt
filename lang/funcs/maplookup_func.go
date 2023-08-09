@@ -42,6 +42,8 @@ func init() {
 	Register(MapLookupFuncName, func() interfaces.Func { return &MapLookupFunc{} }) // must register the func and name
 }
 
+var _ interfaces.PolyFunc = &MapLookupFunc{} // ensure it meets this expectation
+
 // MapLookupFunc is a key map lookup function.
 type MapLookupFunc struct {
 	Type *types.Type // Kind == Map, that is used as the map we lookup
@@ -467,51 +469,51 @@ func (obj *MapLookupFunc) Polymorphisms(partialType *types.Type, partialValues [
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *MapLookupFunc) Build(typ *types.Type) error {
+func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
 	if len(typ.Ord) != 3 {
-		return fmt.Errorf("the maplookup function needs exactly three args")
+		return nil, fmt.Errorf("the maplookup function needs exactly three args")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("invalid input type")
+		return nil, fmt.Errorf("invalid input type")
 	}
 
 	tMap, exists := typ.Map[typ.Ord[0]]
 	if !exists || tMap == nil {
-		return fmt.Errorf("first arg must be specified")
+		return nil, fmt.Errorf("first arg must be specified")
 	}
 
 	tKey, exists := typ.Map[typ.Ord[1]]
 	if !exists || tKey == nil {
-		return fmt.Errorf("second arg must be specified")
+		return nil, fmt.Errorf("second arg must be specified")
 	}
 
 	tDef, exists := typ.Map[typ.Ord[2]]
 	if !exists || tDef == nil {
-		return fmt.Errorf("third arg must be specified")
+		return nil, fmt.Errorf("third arg must be specified")
 	}
 
 	if err := tMap.Key.Cmp(tKey); err != nil {
-		return errwrap.Wrapf(err, "key must match map key type")
+		return nil, errwrap.Wrapf(err, "key must match map key type")
 	}
 
 	if err := tMap.Val.Cmp(tDef); err != nil {
-		return errwrap.Wrapf(err, "default must match map val type")
+		return nil, errwrap.Wrapf(err, "default must match map val type")
 	}
 
 	if err := tMap.Val.Cmp(typ.Out); err != nil {
-		return errwrap.Wrapf(err, "return type must match map val type")
+		return nil, errwrap.Wrapf(err, "return type must match map val type")
 	}
 
 	obj.Type = tMap // map type
-	return nil
+	return obj.sig(), nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -528,19 +530,24 @@ func (obj *MapLookupFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *MapLookupFunc) Info() *interfaces.Info {
-	var typ *types.Type
+	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		// TODO: can obj.Type.Key or obj.Type.Val be nil (a partial) ?
-		k := obj.Type.Key.String()
-		v := obj.Type.Val.String()
-		typ = types.NewType(fmt.Sprintf("func(%s %s, %s %s, %s %s) %s", mapLookupArgNameMap, obj.Type.String(), mapLookupArgNameKey, k, mapLookupArgNameDef, v, v))
+		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  typ, // func kind
+		Sig:  sig, // func kind
 		Err:  obj.Validate(),
 	}
+}
+
+// helper
+func (obj *MapLookupFunc) sig() *types.Type {
+	k := obj.Type.Key.String()
+	v := obj.Type.Val.String()
+	return types.NewType(fmt.Sprintf("func(%s %s, %s %s, %s %s) %s", mapLookupArgNameMap, obj.Type.String(), mapLookupArgNameKey, k, mapLookupArgNameDef, v, v))
 }
 
 // Init runs some startup code for this function.

@@ -3573,7 +3573,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// debugging visualizations
 	if obj.data.Debug && orderingGraphSingleton {
 		obj.data.Logf("running graphviz for ordering graph...")
-		if err := orderingGraph.ExecGraphviz("dot", "/tmp/graphviz-ordering.dot", ""); err != nil {
+		if err := orderingGraph.ExecGraphviz("/tmp/graphviz-ordering.dot"); err != nil {
 			obj.data.Logf("graphviz: errored: %+v", err)
 		}
 		// Only generate the top-level one, to prevent overwriting this!

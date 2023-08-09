@@ -773,11 +773,15 @@ func (obj *Main) Run() error {
 
 			Logf("graph: %+v", obj.ge.Graph()) // show graph
 			if obj.Graphviz != "" {
-				filter := obj.GraphvizFilter
-				if filter == "" {
-					filter = "dot" // directed graph default
+				gv := &pgraph.Graphviz{
+					Filter:   obj.GraphvizFilter,
+					Filename: obj.Graphviz,
+					Hostname: hostname,
+					Graphs: map[*pgraph.Graph]*pgraph.GraphvizOpts{
+						obj.ge.Graph(): nil,
+					},
 				}
-				if err := obj.ge.Graph().ExecGraphviz(filter, obj.Graphviz, hostname); err != nil {
+				if err := gv.Exec(); err != nil {
 					Logf("graphviz: %+v", err)
 				} else {
 					Logf("graphviz: successfully generated graph!")

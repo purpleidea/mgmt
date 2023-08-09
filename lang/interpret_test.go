@@ -951,7 +951,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if runGraphviz {
 				t.Logf("test #%d: Running graphviz...", index)
-				if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
+				if err := graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return
@@ -1458,7 +1458,7 @@ func TestAstFunc2(t *testing.T) {
 
 			if runGraphviz {
 				t.Logf("test #%d: Running graphviz...", index)
-				if err := graph.ExecGraphviz("dot", "/tmp/graphviz.dot", ""); err != nil {
+				if err := graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return

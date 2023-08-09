@@ -118,11 +118,19 @@ type PolyFunc interface {
 	// another way: the Expr input is the ExprFunc, not the ExprCall.
 	Unify(Expr) ([]Invariant, error)
 
-	// Build takes the known type signature for this function and finalizes
-	// this structure so that it is now determined, and ready to function as
-	// a normal function would. (The normal methods in the Func interface
-	// are all that should be needed or used after this point.)
-	Build(*types.Type) error // then, you can get argNames from Info()
+	// Build takes the known or unified type signature for this function and
+	// finalizes this structure so that it is now determined, and ready to
+	// function as a normal function would. (The normal methods in the Func
+	// interface are all that should be needed or used after this point.)
+	// Of note, the names of the specific input args shouldn't matter as
+	// long as they are unique. Their position doesn't matter. This is so
+	// that unification can use "arg0", "arg1", "argN"... if they can't be
+	// determined statically. Build can transform them into it's desired
+	// form, and must return the type (with the correct arg names) that it
+	// will use. These are used when constructing the function graphs. This
+	// means that when this is called from SetType, it can set the correct
+	// type arg names, and this will also match what's in function Info().
+	Build(*types.Type) (*types.Type, error)
 }
 
 // OldPolyFunc is an interface for functions which are statically polymorphic.
@@ -150,11 +158,19 @@ type OldPolyFunc interface {
 	// want to convert easily.
 	Polymorphisms(*types.Type, []types.Value) ([]*types.Type, error)
 
-	// Build takes the known type signature for this function and finalizes
-	// this structure so that it is now determined, and ready to function as
-	// a normal function would. (The normal methods in the Func interface
-	// are all that should be needed or used after this point.)
-	Build(*types.Type) error // then, you can get argNames from Info()
+	// Build takes the known or unified type signature for this function and
+	// finalizes this structure so that it is now determined, and ready to
+	// function as a normal function would. (The normal methods in the Func
+	// interface are all that should be needed or used after this point.)
+	// Of note, the names of the specific input args shouldn't matter as
+	// long as they are unique. Their position doesn't matter. This is so
+	// that unification can use "arg0", "arg1", "argN"... if they can't be
+	// determined statically. Build can transform them into it's desired
+	// form, and must return the type (with the correct arg names) that it
+	// will use. These are used when constructing the function graphs. This
+	// means that when this is called from SetType, it can set the correct
+	// type arg names, and this will also match what's in function Info().
+	Build(*types.Type) (*types.Type, error)
 }
 
 // NamedArgsFunc is a function that uses non-standard function arg names. If you

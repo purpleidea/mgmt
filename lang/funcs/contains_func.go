@@ -41,6 +41,8 @@ func init() {
 	Register(ContainsFuncName, func() interfaces.Func { return &ContainsFunc{} }) // must register the func and name
 }
 
+var _ interfaces.PolyFunc = &ContainsFunc{} // ensure it meets this expectation
+
 // ContainsFunc returns true if a value is found in a list. Otherwise false.
 type ContainsFunc struct {
 	Type *types.Type // this is the type of value stored in our list
@@ -291,46 +293,46 @@ func (obj *ContainsFunc) Polymorphisms(partialType *types.Type, partialValues []
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *ContainsFunc) Build(typ *types.Type) error {
+func (obj *ContainsFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
 	if len(typ.Ord) != 2 {
-		return fmt.Errorf("the contains function needs exactly two args")
+		return nil, fmt.Errorf("the contains function needs exactly two args")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("invalid input type")
+		return nil, fmt.Errorf("invalid input type")
 	}
 
 	tNeedle, exists := typ.Map[typ.Ord[0]]
 	if !exists || tNeedle == nil {
-		return fmt.Errorf("first arg must be specified")
+		return nil, fmt.Errorf("first arg must be specified")
 	}
 
 	tHaystack, exists := typ.Map[typ.Ord[1]]
 	if !exists || tHaystack == nil {
-		return fmt.Errorf("second arg must be specified")
+		return nil, fmt.Errorf("second arg must be specified")
 	}
 
 	if tHaystack.Kind != types.KindList {
-		return fmt.Errorf("second argument must be of kind list")
+		return nil, fmt.Errorf("second argument must be of kind list")
 	}
 
 	if err := tHaystack.Val.Cmp(tNeedle); err != nil {
-		return errwrap.Wrapf(err, "type of first arg must match type of list elements in second arg")
+		return nil, errwrap.Wrapf(err, "type of first arg must match type of list elements in second arg")
 	}
 
 	if err := typ.Out.Cmp(types.TypeBool); err != nil {
-		return errwrap.Wrapf(err, "return type must be a boolean")
+		return nil, errwrap.Wrapf(err, "return type must be a boolean")
 	}
 
 	obj.Type = tNeedle // type of value stored in our list
-	return nil
+	return obj.sig(), nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -346,8 +348,7 @@ func (obj *ContainsFunc) Validate() error {
 func (obj *ContainsFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
-		s := obj.Type.String()
-		sig = types.NewType(fmt.Sprintf("func(%s %s, %s []%s) bool", containsArgNameNeedle, s, containsArgNameHaystack, s))
+		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
 		Pure: true,
@@ -355,6 +356,12 @@ func (obj *ContainsFunc) Info() *interfaces.Info {
 		Sig:  sig, // func kind
 		Err:  obj.Validate(),
 	}
+}
+
+// helper
+func (obj *ContainsFunc) sig() *types.Type {
+	s := obj.Type.String()
+	return types.NewType(fmt.Sprintf("func(%s %s, %s []%s) bool", containsArgNameNeedle, s, containsArgNameHaystack, s))
 }
 
 // Init runs some startup code for this function.

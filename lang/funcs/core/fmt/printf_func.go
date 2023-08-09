@@ -53,6 +53,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, PrintfFuncName, func() interfaces.Func { return &PrintfFunc{} })
 }
 
+var _ interfaces.PolyFunc = &PrintfFunc{} // ensure it meets this expectation
+
 // PrintfFunc is a static polymorphic function that compiles a format string and
 // returns the output as a string. It bases its output on the values passed in
 // to it. It examines the type of the arguments at compile time and then
@@ -437,33 +439,49 @@ func (obj *PrintfFunc) Polymorphisms(partialType *types.Type, partialValues []ty
 // Build takes the now known function signature and stores it so that this
 // function can appear to be static. That type is used to build our function
 // statically.
-func (obj *PrintfFunc) Build(typ *types.Type) error {
+func (obj *PrintfFunc) Build(typ *types.Type) (*types.Type, error) {
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 	if len(typ.Ord) < 1 {
-		return fmt.Errorf("the printf function needs at least one arg")
+		return nil, fmt.Errorf("the printf function needs at least one arg")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if typ.Out.Cmp(types.TypeStr) != nil {
-		return fmt.Errorf("return type of function must be an str")
+		return nil, fmt.Errorf("return type of function must be an str")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("invalid input type")
+		return nil, fmt.Errorf("invalid input type")
 	}
 
 	t0, exists := typ.Map[typ.Ord[0]]
 	if !exists || t0 == nil {
-		return fmt.Errorf("first arg must be specified")
+		return nil, fmt.Errorf("first arg must be specified")
 	}
 	if t0.Cmp(types.TypeStr) != nil {
-		return fmt.Errorf("first arg for printf must be an str")
+		return nil, fmt.Errorf("first arg for printf must be an str")
 	}
 
-	obj.Type = typ // function type is now known!
-	return nil
+	//newTyp := typ.Copy()
+	newTyp := &types.Type{
+		Kind: typ.Kind,                     // copy
+		Map:  make(map[string]*types.Type), // new
+		Ord:  []string{},                   // new
+		Out:  typ.Out,                      // copy
+	}
+	for i, x := range typ.Ord { // remap arg names
+		argName, err := obj.ArgGen(i)
+		if err != nil {
+			return nil, err
+		}
+		newTyp.Map[argName] = typ.Map[x]
+		newTyp.Ord = append(newTyp.Ord, argName)
+	}
+
+	obj.Type = newTyp // function type is now known!
+	return obj.Type, nil
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

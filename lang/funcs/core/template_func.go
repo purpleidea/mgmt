@@ -55,6 +55,8 @@ func init() {
 	funcs.Register(TemplateFuncName, func() interfaces.Func { return &TemplateFunc{} })
 }
 
+var _ interfaces.PolyFunc = &TemplateFunc{} // ensure it meets this expectation
+
 // TemplateFunc is a static polymorphic function that compiles a template and
 // returns the output as a string. It bases its output on the values passed in
 // to it. It examines the type of the second argument (the input data vars) at
@@ -66,9 +68,8 @@ type TemplateFunc struct {
 	// Type is the type of the input vars (2nd) arg if one is specified. Nil
 	// is the special undetermined value that is used before type is known.
 	Type *types.Type // type of vars
-	// NoVars is set to true instead of specifying Type if we have a boring
-	// template that takes no args.
-	NoVars bool
+
+	built bool // was this function built yet?
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
@@ -296,50 +297,51 @@ func (obj *TemplateFunc) Polymorphisms(partialType *types.Type, partialValues []
 // function can appear to be static. It extracts the type of the vars argument,
 // which is the dynamic part which can change. That type is used to build our
 // function statically.
-func (obj *TemplateFunc) Build(typ *types.Type) error {
+func (obj *TemplateFunc) Build(typ *types.Type) (*types.Type, error) {
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 	if len(typ.Ord) != 2 && len(typ.Ord) != 1 {
-		return fmt.Errorf("the template function needs exactly one or two args")
+		return nil, fmt.Errorf("the template function needs exactly one or two args")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if typ.Out.Cmp(types.TypeStr) != nil {
-		return fmt.Errorf("return type of function must be an str")
+		return nil, fmt.Errorf("return type of function must be an str")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("invalid input type")
+		return nil, fmt.Errorf("invalid input type")
 	}
 
 	t0, exists := typ.Map[typ.Ord[0]]
 	if !exists || t0 == nil {
-		return fmt.Errorf("first arg must be specified")
+		return nil, fmt.Errorf("first arg must be specified")
 	}
 	if t0.Cmp(types.TypeStr) != nil {
-		return fmt.Errorf("first arg for template must be an str")
+		return nil, fmt.Errorf("first arg for template must be an str")
 	}
 
 	if len(typ.Ord) == 1 { // no args being passed in (boring template)
-		obj.NoVars = true
-		return nil
+		obj.built = true
+		return obj.sig(), nil
 	}
 
 	t1, exists := typ.Map[typ.Ord[1]]
 	if !exists || t1 == nil {
-		return fmt.Errorf("second arg must be specified")
+		return nil, fmt.Errorf("second arg must be specified")
 	}
 	obj.Type = t1 // extracted vars type is now known!
 
-	return nil
+	obj.built = true
+	return obj.sig(), nil
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
 func (obj *TemplateFunc) Validate() error {
-	if obj.Type == nil && !obj.NoVars { // build must be run first
-		return fmt.Errorf("type is still unspecified")
+	if !obj.built {
+		return fmt.Errorf("function wasn't built yet")
 	}
 	return nil
 }
@@ -347,13 +349,8 @@ func (obj *TemplateFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *TemplateFunc) Info() *interfaces.Info {
 	var sig *types.Type
-	if obj.NoVars {
-		str := fmt.Sprintf("func(%s str) str", templateArgNameTemplate)
-		sig = types.NewType(str)
-
-	} else if obj.Type != nil { // don't panic if called speculatively
-		str := fmt.Sprintf("func(%s str, %s %s) str", templateArgNameTemplate, templateArgNameVars, obj.Type.String())
-		sig = types.NewType(str)
+	if obj.built {
+		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
 		Pure: true,
@@ -361,6 +358,17 @@ func (obj *TemplateFunc) Info() *interfaces.Info {
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
+}
+
+// helper
+func (obj *TemplateFunc) sig() *types.Type {
+	if obj.Type != nil { // don't panic if called speculatively
+		str := fmt.Sprintf("func(%s str, %s %s) str", templateArgNameTemplate, templateArgNameVars, obj.Type.String())
+		return types.NewType(str)
+	}
+
+	str := fmt.Sprintf("func(%s str) str", templateArgNameTemplate)
+	return types.NewType(str)
 }
 
 // Init runs some startup code for this function.

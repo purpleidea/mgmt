@@ -6938,9 +6938,12 @@ func (obj *ExprFunc) SetType(typ *types.Type) error {
 	if obj.Function != nil {
 		polyFn, ok := obj.function.(interfaces.PolyFunc) // is it statically polymorphic?
 		if ok {
-			if err := polyFn.Build(typ); err != nil {
+			newTyp, err := polyFn.Build(typ)
+			if err != nil {
 				return errwrap.Wrapf(err, "could not build expr func")
 			}
+			// Cmp doesn't compare arg names.
+			typ = newTyp // check it's compatible down below...
 		}
 	}
 

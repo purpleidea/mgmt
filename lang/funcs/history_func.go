@@ -40,6 +40,8 @@ func init() {
 	Register(HistoryFuncName, func() interfaces.Func { return &HistoryFunc{} }) // must register the func and name
 }
 
+var _ interfaces.PolyFunc = &HistoryFunc{} // ensure it meets this expectation
+
 // HistoryFunc is special function which returns the Nth oldest value seen. It
 // must store up incoming values until it gets enough to return the desired one.
 // A restart of the program, will expunge the stored state. This obviously takes
@@ -299,35 +301,35 @@ func (obj *HistoryFunc) Polymorphisms(partialType *types.Type, partialValues []t
 // Build takes the now known function signature and stores it so that this
 // function can appear to be static. That type is used to build our function
 // statically.
-func (obj *HistoryFunc) Build(typ *types.Type) error {
+func (obj *HistoryFunc) Build(typ *types.Type) (*types.Type, error) {
 	if typ.Kind != types.KindFunc {
-		return fmt.Errorf("input type must be of kind func")
+		return nil, fmt.Errorf("input type must be of kind func")
 	}
 	if len(typ.Ord) != 2 {
-		return fmt.Errorf("the history function needs exactly two args")
+		return nil, fmt.Errorf("the history function needs exactly two args")
 	}
 	if typ.Out == nil {
-		return fmt.Errorf("return type of function must be specified")
+		return nil, fmt.Errorf("return type of function must be specified")
 	}
 	if typ.Map == nil {
-		return fmt.Errorf("invalid input type")
+		return nil, fmt.Errorf("invalid input type")
 	}
 
 	t1, exists := typ.Map[typ.Ord[1]]
 	if !exists || t1 == nil {
-		return fmt.Errorf("second arg must be specified")
+		return nil, fmt.Errorf("second arg must be specified")
 	}
 	if t1.Cmp(types.TypeInt) != nil {
-		return fmt.Errorf("second arg for history must be an int")
+		return nil, fmt.Errorf("second arg for history must be an int")
 	}
 
 	t0, exists := typ.Map[typ.Ord[0]]
 	if !exists || t0 == nil {
-		return fmt.Errorf("first arg must be specified")
+		return nil, fmt.Errorf("first arg must be specified")
 	}
 	obj.Type = t0 // type of historical value is now known!
 
-	return nil
+	return obj.sig(), nil
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for
@@ -343,8 +345,7 @@ func (obj *HistoryFunc) Validate() error {
 func (obj *HistoryFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
-		s := obj.Type.String()
-		sig = types.NewType(fmt.Sprintf("func(%s %s, %s int) %s", historyArgNameValue, s, historyArgNameIndex, s))
+		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
 		Pure: false, // definitely false
@@ -352,6 +353,12 @@ func (obj *HistoryFunc) Info() *interfaces.Info {
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
+}
+
+// helper
+func (obj *HistoryFunc) sig() *types.Type {
+	s := obj.Type.String()
+	return types.NewType(fmt.Sprintf("func(%s %s, %s int) %s", historyArgNameValue, s, historyArgNameIndex, s))
 }
 
 // Init runs some startup code for this function.

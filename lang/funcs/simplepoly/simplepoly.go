@@ -128,6 +128,8 @@ func consistentArgs(fns []*types.FuncValue) ([]string, error) {
 	return seq, nil
 }
 
+var _ interfaces.PolyFunc = &WrappedFunc{} // ensure it meets this expectation
+
 // WrappedFunc is a scaffolding function struct which fulfills the boiler-plate
 // for the function API, but that can run a very simple, static, pure,
 // polymorphic function.
@@ -478,23 +480,32 @@ func (obj *WrappedFunc) Polymorphisms(partialType *types.Type, partialValues []t
 // specific statically typed version. It is usually run after Unify completes,
 // and must be run before Info() and any of the other Func interface methods are
 // used.
-func (obj *WrappedFunc) Build(typ *types.Type) error {
+func (obj *WrappedFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 
 	index, err := langutil.FnMatch(typ, obj.Fns)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	obj.buildFunction(typ, index) // found match at this index
+	newTyp := obj.buildFunction(typ, index) // found match at this index
 
-	return nil
+	return newTyp, nil
 }
 
 // buildFunction builds our concrete static function, from the potentially
 // abstract, possibly variant containing list of functions.
-func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) {
-	obj.fn = obj.Fns[ix].Copy().(*types.FuncValue)
-	obj.fn.T = typ.Copy() // overwrites any contained "variant" type
+func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) *types.Type {
+	cp := obj.Fns[ix].Copy()
+	fn, ok := cp.(*types.FuncValue)
+	if !ok {
+		panic("unexpected type")
+	}
+	obj.fn = fn
+	if obj.fn.T == nil { // XXX: should this even ever happen? What about argnames here?
+		obj.fn.T = typ.Copy() // overwrites any contained "variant" type
+	}
+
+	return obj.fn.T
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for

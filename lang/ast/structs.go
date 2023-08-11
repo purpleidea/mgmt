@@ -103,6 +103,15 @@ const (
 
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
 	ErrNoStoredScope = interfaces.Error("scope is not stored in this node")
+
+	// ErrFuncPointerNil is an error that explains the function pointer for
+	// table lookup is missing. If this happens, it's most likely a
+	// programming error.
+	ErrFuncPointerNil = interfaces.Error("missing func pointer for table")
+
+	// ErrTableNoValue is an error that explains the table is missing a
+	// value. If this happens, it's most likely a programming error.
+	ErrTableNoValue = interfaces.Error("missing value in table")
 )
 
 var (
@@ -261,7 +270,7 @@ func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
 
 // Output for the bind statement produces no output. Any values of interest come
 // from the use of the var which this binds the expression to.
-func (obj *StmtBind) Output() (*interfaces.Output, error) {
+func (obj *StmtBind) Output(map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	return interfaces.EmptyOutput(), nil
 }
 
@@ -616,10 +625,13 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output. In
 // the case of this resource statement, this is definitely the case.
-func (obj *StmtRes) Output() (*interfaces.Output, error) {
-	nameValue, err := obj.Name.Value()
-	if err != nil {
-		return nil, err
+func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	if obj.namePtr == nil {
+		return nil, ErrFuncPointerNil
+	}
+	nameValue, exists := table[obj.namePtr]
+	if !exists {
+		return nil, ErrTableNoValue
 	}
 
 	names := []string{} // list of names to build
@@ -642,18 +654,18 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
 	for _, name := range names {
-		res, err := obj.resource(name)
+		res, err := obj.resource(table, name)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "error building resource")
 		}
 
-		edgeList, err := obj.edges(name)
+		edgeList, err := obj.edges(table, name)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "error building edges")
 		}
 		edges = append(edges, edgeList...)
 
-		if err := obj.metaparams(res); err != nil { // set metaparams
+		if err := obj.metaparams(table, res); err != nil { // set metaparams
 			return nil, errwrap.Wrapf(err, "error building meta params")
 		}
 		resources = append(resources, res)
@@ -667,7 +679,7 @@ func (obj *StmtRes) Output() (*interfaces.Output, error) {
 
 // resource is a helper function to generate the res that comes from this.
 // TODO: it could memoize some of the work to avoid re-computation when looped
-func (obj *StmtRes) resource(resName string) (engine.Res, error) {
+func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName string) (engine.Res, error) {
 	res, err := engine.NewNamedResource(obj.Kind, resName)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, resName)
@@ -692,9 +704,12 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 		}
 
 		if x.Condition != nil {
-			b, err := x.Condition.Value()
-			if err != nil {
-				return nil, err
+			if x.conditionPtr == nil {
+				return nil, ErrFuncPointerNil
+			}
+			b, exists := table[x.conditionPtr]
+			if !exists {
+				return nil, ErrTableNoValue
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -731,9 +746,12 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 			return nil, errwrap.Wrapf(err, "resource field `%s` of type `%+v`, cannot take type `%+v", x.Field, t, typ)
 		}
 
-		fv, err := x.Value.Value() // Value method on Expr
-		if err != nil {
-			return nil, err
+		if x.valuePtr == nil {
+			return nil, ErrFuncPointerNil
+		}
+		fv, exists := table[x.valuePtr]
+		if !exists {
+			return nil, ErrTableNoValue
 		}
 
 		// mutate the struct field f with the mcl data in fv
@@ -746,7 +764,7 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 }
 
 // edges is a helper function to generate the edges that come from the resource.
-func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
+func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string) ([]*interfaces.Edge, error) {
 	edges := []*interfaces.Edge{}
 
 	// to and from self, map of kind, name, notify
@@ -760,9 +778,12 @@ func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 		}
 
 		if x.Condition != nil {
-			b, err := x.Condition.Value()
-			if err != nil {
-				return nil, err
+			if x.conditionPtr == nil {
+				return nil, ErrFuncPointerNil
+			}
+			b, exists := table[x.conditionPtr]
+			if !exists {
+				return nil, ErrTableNoValue
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -770,9 +791,12 @@ func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 			}
 		}
 
-		nameValue, err := x.EdgeHalf.Name.Value()
-		if err != nil {
-			return nil, err
+		if x.EdgeHalf.namePtr == nil {
+			return nil, ErrFuncPointerNil
+		}
+		nameValue, exists := table[x.EdgeHalf.namePtr]
+		if !exists {
+			return nil, ErrTableNoValue
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -874,7 +898,7 @@ func (obj *StmtRes) edges(resName string) ([]*interfaces.Edge, error) {
 
 // metaparams is a helper function to set the metaparams that come from the
 // resource on to the individual resource we're working on.
-func (obj *StmtRes) metaparams(res engine.Res) error {
+func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine.Res) error {
 	meta := engine.DefaultMetaParams.Copy() // defaults
 
 	var rm *engine.ReversibleMeta
@@ -897,9 +921,12 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 		}
 
 		if x.Condition != nil {
-			b, err := x.Condition.Value()
-			if err != nil {
-				return err
+			if x.conditionPtr == nil {
+				return ErrFuncPointerNil
+			}
+			b, exists := table[x.conditionPtr]
+			if !exists {
+				return ErrTableNoValue
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -907,9 +934,12 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 			}
 		}
 
-		v, err := x.MetaExpr.Value()
-		if err != nil {
-			return err
+		if x.metaExprPtr == nil {
+			return ErrFuncPointerNil
+		}
+		v, exists := table[x.metaExprPtr]
+		if !exists {
+			return ErrTableNoValue
 		}
 
 		switch p := strings.ToLower(x.Property); p {
@@ -2168,13 +2198,17 @@ func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output. In
 // the case of this edge statement, this is definitely the case. This edge stmt
 // returns output consisting of edges.
-func (obj *StmtEdge) Output() (*interfaces.Output, error) {
+func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	edges := []*interfaces.Edge{}
 
+	// EdgeHalfList goes in a chain, so we increment like i++ and not i+=2.
 	for i := 0; i < len(obj.EdgeHalfList)-1; i++ {
-		nameValue1, err := obj.EdgeHalfList[i].Name.Value()
-		if err != nil {
-			return nil, err
+		if obj.EdgeHalfList[i].namePtr == nil {
+			return nil, ErrFuncPointerNil
+		}
+		nameValue1, exists := table[obj.EdgeHalfList[i].namePtr]
+		if !exists {
+			return nil, ErrTableNoValue
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -2196,9 +2230,12 @@ func (obj *StmtEdge) Output() (*interfaces.Output, error) {
 			return nil, fmt.Errorf("unhandled resource name type: %+v", nameValue1.Type())
 		}
 
-		nameValue2, err := obj.EdgeHalfList[i+1].Name.Value()
-		if err != nil {
-			return nil, err
+		if obj.EdgeHalfList[i+1].namePtr == nil {
+			return nil, ErrFuncPointerNil
+		}
+		nameValue2, exists := table[obj.EdgeHalfList[i+1].namePtr]
+		if !exists {
+			return nil, ErrTableNoValue
 		}
 
 		names2 := []string{} // list of names to build
@@ -2714,20 +2751,24 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 // is used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output.
-func (obj *StmtIf) Output() (*interfaces.Output, error) {
-	b, err := obj.Condition.Value()
-	if err != nil {
-		return nil, err
+func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	if obj.conditionPtr == nil {
+		return nil, ErrFuncPointerNil
+	}
+	b, exists := table[obj.conditionPtr]
+	if !exists {
+		return nil, ErrTableNoValue
 	}
 
 	var output *interfaces.Output
+	var err error
 	if b.Bool() { // must not panic!
 		if obj.ThenBranch != nil { // logically then branch is optional
-			output, err = obj.ThenBranch.Output()
+			output, err = obj.ThenBranch.Output(table)
 		}
 	} else {
 		if obj.ElseBranch != nil { // else branch is optional
-			output, err = obj.ElseBranch.Output()
+			output, err = obj.ElseBranch.Output(table)
 		}
 	}
 	if err != nil {
@@ -3793,7 +3834,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 // is used to build the output graph. This only exists for statements. The
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output.
-func (obj *StmtProg) Output() (*interfaces.Output, error) {
+func (obj *StmtProg) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
 
@@ -3813,7 +3854,7 @@ func (obj *StmtProg) Output() (*interfaces.Output, error) {
 			continue
 		}
 
-		output, err := stmt.Output()
+		output, err := stmt.Output(table)
 		if err != nil {
 			return nil, err
 		}
@@ -4009,7 +4050,7 @@ func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
 
 // Output for the func statement produces no output. Any values of interest come
 // from the use of the func which this binds the function to.
-func (obj *StmtFunc) Output() (*interfaces.Output, error) {
+func (obj *StmtFunc) Output(map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	return interfaces.EmptyOutput(), nil
 }
 
@@ -4181,8 +4222,8 @@ func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
 // come from the use of the include which this binds the statements to. This is
 // usually called from the parent in StmtProg, but it skips running it so that
 // it can be called from the StmtInclude Output method.
-func (obj *StmtClass) Output() (*interfaces.Output, error) {
-	return obj.Body.Output()
+func (obj *StmtClass) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	return obj.Body.Output(table)
 }
 
 // StmtInclude causes a user defined class to get used. It's effectively the way
@@ -4526,8 +4567,8 @@ func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output. The
 // ultimate source of this output comes from the previously defined StmtClass
 // which should be found in our scope.
-func (obj *StmtInclude) Output() (*interfaces.Output, error) {
-	return obj.class.Output()
+func (obj *StmtInclude) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	return obj.class.Output(table)
 }
 
 // StmtImport adds the exported scope definitions of a module into the current
@@ -4616,7 +4657,7 @@ func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output. This
 // import statement itself produces no output, as it is only used to populate
 // the scope so that others can use that to produce values and output.
-func (obj *StmtImport) Output() (*interfaces.Output, error) {
+func (obj *StmtImport) Output(map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	return interfaces.EmptyOutput(), nil
 }
 
@@ -4701,7 +4742,7 @@ func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
 }
 
 // Output for the comment statement produces no output.
-func (obj *StmtComment) Output() (*interfaces.Output, error) {
+func (obj *StmtComment) Output(map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	return interfaces.EmptyOutput(), nil
 }
 

@@ -25,16 +25,17 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-// Interpret runs the program and causes a graph generation as a side effect.
-// You should not run this on the AST if you haven't previously run the function
-// graph engine so that output values have been produced! Type unification is
-// another important aspect which needs to have been completed.
-func Interpret(ast interfaces.Stmt) (*pgraph.Graph, error) {
-	output, err := ast.Output() // contains resList, edgeList, etc...
+// Interpret runs the program and outputs a generated resource graph. It
+// requires an AST, and the table of values required to populate that AST. Type
+// unification, and earlier steps should obviously be run first so that you can
+// actually get a useful resource graph out of this instead of an error!
+func Interpret(ast interfaces.Stmt, table map[interfaces.Func]types.Value) (*pgraph.Graph, error) {
+	output, err := ast.Output(table) // contains resList, edgeList, etc...
 	if err != nil {
 		return nil, err
 	}

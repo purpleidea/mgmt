@@ -6601,7 +6601,7 @@ func (obj *ExprStruct) Graph(env map[string]interfaces.Func) (*pgraph.Graph, int
 
 		fieldName := x.Name
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(function, f, edge) // arg -> func
+		graph.AddEdge(f, function, edge) // field -> struct
 	}
 
 	return graph, function, nil

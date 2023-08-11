@@ -21,151 +21,59 @@ package dage
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
-	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // PostReverseCommit specifies that if we run Reverse, and we had previous items
 // pending for Commit, that we should Commit them after our Reverse runs.
 // Otherwise they remain on the pending queue and wait for you to run Commit.
-const PostReverseCommit = false
-
-// GraphvizDebug enables writing graphviz graphs on each commit. This is very
-// slow.
-const GraphvizDebug = false
-
-// opapi is the input for any op. This allows us to keeps things compact and it
-// also allows us to change API slightly without re-writing code.
-type opapi struct {
-	GraphAPI interfaces.GraphAPI
-	RefCount *RefCount
-}
+const PostReverseCommit = true
 
 // opfn is an interface that holds the normal op, and the reverse op if we need
 // to rollback from the forward fn. Implementations of each op can decide to
 // store some internal state when running the forward op which might be needed
 // for the possible future reverse op.
 type opfn interface {
-	fmt.Stringer
-
-	Fn(*opapi) error
-	Rev(*opapi) error
-}
-
-type opfnSkipRev interface {
-	opfn
-
-	// Skip tells us if this op should be skipped from reversing.
-	Skip() bool
-
-	// SetSkip specifies that this op should be skipped from reversing.
-	SetSkip(bool)
-}
-
-type opfnFlag interface {
-	opfn
-
-	// Flag reads some misc data.
-	Flag() interface{}
-
-	// SetFlag sets some misc data.
-	SetFlag(interface{})
+	Fn(interfaces.GraphAPI) error
+	Rev(interfaces.GraphAPI) error
 }
 
 // RevOp returns the reversed op from an op by packing or unpacking it.
 func RevOp(op opfn) opfn {
-	if skipOp, ok := op.(opfnSkipRev); ok && skipOp.Skip() {
-		return nil // skip
-	}
-
-	// XXX: is the reverse of a reverse just undoing it? maybe not but might not matter for us
 	if newOp, ok := op.(*opRev); ok {
-
-		if newFlagOp, ok := op.(opfnFlag); ok {
-			newFlagOp.SetFlag("does this rev of rev even happen?")
-		}
-
 		return newOp.Op // unpack it
 	}
 
-	return &opRev{
-		Op: op,
-
-		opFlag: &opFlag{},
-	} // pack it
+	return &opRev{Op: op} // pack it
 }
 
 // opRev switches the Fn and Rev methods by wrapping the contained op in each
 // other.
 type opRev struct {
 	Op opfn
-
-	*opFlag
 }
 
-func (obj *opRev) Fn(opapi *opapi) error {
-	return obj.Op.Rev(opapi)
+func (obj *opRev) Fn(g interfaces.GraphAPI) error {
+	return obj.Op.Rev(g)
 }
 
-func (obj *opRev) Rev(opapi *opapi) error {
-	return obj.Op.Fn(opapi)
-}
-
-func (obj *opRev) String() string {
-	return "rev(" + obj.Op.String() + ")" // TODO: is this correct?
-}
-
-type opSkip struct {
-	skip bool
-}
-
-func (obj *opSkip) Skip() bool {
-	return obj.skip
-}
-
-func (obj *opSkip) SetSkip(skip bool) {
-	obj.skip = skip
-}
-
-type opFlag struct {
-	flag interface{}
-}
-
-func (obj *opFlag) Flag() interface{} {
-	return obj.flag
-}
-
-func (obj *opFlag) SetFlag(flag interface{}) {
-	obj.flag = flag
+func (obj *opRev) Rev(g interfaces.GraphAPI) error {
+	return obj.Op.Fn(g)
 }
 
 type opAddVertex struct {
 	F interfaces.Func
-
-	*opSkip
-	*opFlag
 }
 
-func (obj *opAddVertex) Fn(opapi *opapi) error {
-	if opapi.RefCount.VertexInc(obj.F) {
-		// add if we're the first reference
-		return opapi.GraphAPI.AddVertex(obj.F)
-	}
-
-	return nil
+func (obj *opAddVertex) Fn(g interfaces.GraphAPI) error {
+	return g.AddVertex(obj.F)
 }
 
-func (obj *opAddVertex) Rev(opapi *opapi) error {
-	opapi.RefCount.VertexDec(obj.F)
-	// any removal happens in gc
-	return nil
-}
-
-func (obj *opAddVertex) String() string {
-	return fmt.Sprintf("AddVertex: %+v", obj.F)
+func (obj *opAddVertex) Rev(g interfaces.GraphAPI) error {
+	return g.DeleteVertex(obj.F)
 }
 
 type opAddEdge struct {
@@ -173,85 +81,76 @@ type opAddEdge struct {
 	F2 interfaces.Func
 	FE *interfaces.FuncEdge
 
-	*opSkip
-	*opFlag
+	has1 bool
+	has2 bool
 }
 
-func (obj *opAddEdge) Fn(opapi *opapi) error {
-	if obj.F1 == obj.F2 { // simplify below code/logic with this easy check
-		return fmt.Errorf("duplicate vertex cycle")
+func (obj *opAddEdge) Fn(g interfaces.GraphAPI) error {
+	// store state before op
+	obj.has1 = g.HasVertex(obj.F1)
+	obj.has2 = g.HasVertex(obj.F2)
+	return g.AddEdge(obj.F1, obj.F2, obj.FE)
+}
+
+func (obj *opAddEdge) Rev(g interfaces.GraphAPI) error {
+	err := g.DeleteEdge(obj.FE)
+
+	if !obj.has1 { // it was added by the fwd op!
+		if e := g.DeleteVertex(obj.F1); e != nil { // so we have to delete it
+			err = errwrap.Append(err, e)
+		}
 	}
-
-	opapi.RefCount.EdgeInc(obj.F1, obj.F2, obj.FE)
-
-	fe := obj.FE // squish multiple edges together if one already exists
-	if edge := opapi.GraphAPI.FindEdge(obj.F1, obj.F2); edge != nil {
-		args := make(map[string]struct{})
-		for _, x := range obj.FE.Args {
-			args[x] = struct{}{}
-		}
-		for _, x := range edge.Args {
-			args[x] = struct{}{}
-		}
-		if len(args) != len(obj.FE.Args)+len(edge.Args) {
-			// programming error
-			return fmt.Errorf("duplicate arg found")
-		}
-		newArgs := []string{}
-		for x := range args {
-			newArgs = append(newArgs, x)
-		}
-		sort.Strings(newArgs) // for consistency?
-		fe = &interfaces.FuncEdge{
-			Args: newArgs,
+	if !obj.has2 {
+		if e := g.DeleteVertex(obj.F2); e != nil {
+			err = errwrap.Append(err, e)
 		}
 	}
 
-	// The dage API currently smooshes together any existing edge args with
-	// our new edge arg names. It also adds the vertices if needed.
-	if err := opapi.GraphAPI.AddEdge(obj.F1, obj.F2, fe); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (obj *opAddEdge) Rev(opapi *opapi) error {
-	opapi.RefCount.EdgeDec(obj.F1, obj.F2, obj.FE)
-	return nil
-}
-
-func (obj *opAddEdge) String() string {
-	return fmt.Sprintf("AddEdge: %+v -> %+v (%+v)", obj.F1, obj.F2, obj.FE)
+	return err
 }
 
 type opDeleteVertex struct {
 	F interfaces.Func
-
-	*opSkip
-	*opFlag
 }
 
-func (obj *opDeleteVertex) Fn(opapi *opapi) error {
-	if opapi.RefCount.VertexDec(obj.F) {
-		//delete(opapi.RefCount.Vertices, obj.F)    // don't GC this one
-		if err := opapi.RefCount.FreeVertex(obj.F); err != nil {
-			panic("could not free vertex")
-		}
-		return opapi.GraphAPI.DeleteVertex(obj.F) // do it here instead
+func (obj *opDeleteVertex) Fn(g interfaces.GraphAPI) error {
+	return g.DeleteVertex(obj.F)
+}
+
+func (obj *opDeleteVertex) Rev(g interfaces.GraphAPI) error {
+	return g.AddVertex(obj.F)
+}
+
+type opDeleteEdge struct {
+	FE *interfaces.FuncEdge
+
+	f1    interfaces.Func
+	f2    interfaces.Func
+	found bool
+}
+
+func (obj *opDeleteEdge) Fn(g interfaces.GraphAPI) error {
+	// store state before op
+	if f1, f2, found := g.LookupEdge(obj.FE); found {
+		obj.f1 = f1
+		obj.f2 = f2
+		obj.found = found
 	}
-	return nil
+	// If !found, then don't error, we only care about erroring for that if
+	// we actually end up performing the reverse operation. Unlikely but do
+	// the error in there, not here where we don't care. This would only be
+	// not found if the person using the API didn't use it correctly.
+
+	return g.DeleteEdge(obj.FE)
 }
 
-func (obj *opDeleteVertex) Rev(opapi *opapi) error {
-	if opapi.RefCount.VertexInc(obj.F) {
-		return opapi.GraphAPI.AddVertex(obj.F)
+func (obj *opDeleteEdge) Rev(g interfaces.GraphAPI) error {
+	if !obj.found {
+		return fmt.Errorf("edge vertices not found") // fatal error
 	}
-	return nil
-}
 
-func (obj *opDeleteVertex) String() string {
-	return fmt.Sprintf("DeleteVertex: %+v", obj.F)
+	// if we reverse, we add back the original edge that we had found
+	return g.AddEdge(obj.f1, obj.f2, obj.FE)
 }
 
 // graphTxn holds the state of a transaction and runs it when needed. When this
@@ -259,24 +158,16 @@ func (obj *opDeleteVertex) String() string {
 // functions in their Stream method to modify the function graph while it is
 // "running".
 type graphTxn struct {
+	// GraphAPI is a handle pointing to the graph API implementation we're
+	// using for any txn operations.
+	GraphAPI interfaces.GraphAPI
+
 	// Lock is a handle to the lock function to call before the operation.
 	Lock func()
 
 	// Unlock is a handle to the unlock function to call before the
 	// operation.
 	Unlock func()
-
-	// GraphAPI is a handle pointing to the graph API implementation we're
-	// using for any txn operations.
-	GraphAPI interfaces.GraphAPI
-
-	// RefCount keeps track of vertex and edge references across the entire
-	// graph.
-	RefCount *RefCount
-
-	// FreeFunc is a function that will get called by a well-behaved user
-	// when we're done with this Txn.
-	FreeFunc func()
 
 	// ops is a list of operations to run on a graph
 	ops []opfn
@@ -301,14 +192,11 @@ func (obj *graphTxn) init() interfaces.Txn {
 // Copy returns a new child Txn that has the same handles, but a separate state.
 // This allows you to do an Add*/Commit/Reverse that isn't affected by a
 // different user of this transaction.
-// TODO: FreeFunc isn't well supported here. Replace or remove this entirely?
 func (obj *graphTxn) Copy() interfaces.Txn {
 	txn := &graphTxn{
+		GraphAPI: obj.GraphAPI,
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
-		GraphAPI: obj.GraphAPI,
-		RefCount: obj.RefCount, // this is shared across all txn's
-		// FreeFunc is shared with the parent.
 	}
 	return txn.init()
 }
@@ -322,9 +210,6 @@ func (obj *graphTxn) AddVertex(f interfaces.Func) interfaces.Txn {
 
 	opfn := &opAddVertex{
 		F: f,
-
-		opSkip: &opSkip{},
-		opFlag: &opFlag{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -343,9 +228,6 @@ func (obj *graphTxn) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) in
 		F1: f1,
 		F2: f2,
 		FE: fe,
-
-		opSkip: &opSkip{},
-		opFlag: &opFlag{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
@@ -365,65 +247,23 @@ func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 
 	opfn := &opDeleteVertex{
 		F: f,
-
-		opSkip: &opSkip{},
-		opFlag: &opFlag{},
 	}
 	obj.ops = append(obj.ops, opfn)
 
 	return obj // return self so it can be called in a chain
 }
 
-// AddGraph adds a graph to the running graph. The operation will get completed
-// when Commit is run. This function panics if your graph contains vertices that
-// are not of type interfaces.Func or if your edges are not of type
-// *interfaces.FuncEdge.
-func (obj *graphTxn) AddGraph(g *pgraph.Graph) interfaces.Txn {
+// DeleteEdge adds a vertex to the running graph. The operation will get
+// completed when Commit is run.
+// XXX: should this be pgraph.Edge instead of *interfaces.FuncEdge ?
+func (obj *graphTxn) DeleteEdge(fe *interfaces.FuncEdge) interfaces.Txn {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
-	for _, v := range g.Vertices() {
-		f, ok := v.(interfaces.Func)
-		if !ok {
-			panic("not a Func")
-		}
-		//obj.AddVertex(f) // easy
-		opfn := &opAddVertex{ // replicate AddVertex
-			F: f,
-
-			opSkip: &opSkip{},
-			opFlag: &opFlag{},
-		}
-		obj.ops = append(obj.ops, opfn)
+	opfn := &opDeleteEdge{
+		FE: fe,
 	}
-
-	for v1, m := range g.Adjacency() {
-		f1, ok := v1.(interfaces.Func)
-		if !ok {
-			panic("not a Func")
-		}
-		for v2, e := range m {
-			f2, ok := v2.(interfaces.Func)
-			if !ok {
-				panic("not a Func")
-			}
-			fe, ok := e.(*interfaces.FuncEdge)
-			if !ok {
-				panic("not a *FuncEdge")
-			}
-
-			//obj.AddEdge(f1, f2, fe) // easy
-			opfn := &opAddEdge{ // replicate AddEdge
-				F1: f1,
-				F2: f2,
-				FE: fe,
-
-				opSkip: &opSkip{},
-				opFlag: &opFlag{},
-			}
-			obj.ops = append(obj.ops, opfn)
-		}
-	}
+	obj.ops = append(obj.ops, opfn)
 
 	return obj // return self so it can be called in a chain
 }
@@ -448,14 +288,6 @@ func (obj *graphTxn) commit() error {
 	obj.Lock()
 	defer obj.Unlock()
 
-	// Now request the ref count mutex. This may seem redundant, but it's
-	// not. The above graph engine Lock might allow more than one commit
-	// through simultaneously depending on implementation. The actual count
-	// mathematics must not, and so it has a separate lock. We could lock it
-	// per-operation, but that would probably be a lot slower.
-	obj.RefCount.Lock()
-	defer obj.RefCount.Unlock()
-
 	// TODO: we don't need to do this anymore, because the engine does it!
 	// Copy the graph structure, perform the ops, check we didn't add a
 	// cycle, and if it's safe, do the real thing. Otherwise error here.
@@ -470,53 +302,25 @@ func (obj *graphTxn) commit() error {
 
 	// Now do it for real...
 	obj.rev = []opfn{} // clear it for safety
-	opapi := &opapi{
-		GraphAPI: obj.GraphAPI,
-		RefCount: obj.RefCount,
-	}
 	for _, op := range obj.ops {
-		if err := op.Fn(opapi); err != nil { // call it
+		if err := op.Fn(obj.GraphAPI); err != nil { // call it
 			// something went wrong (we made a cycle?)
+			// so we reverse everything that succeeded...
+			for i := len(obj.rev) - 1; i >= 0; i-- {
+				if err := obj.rev[i].Rev(obj.GraphAPI); err != nil {
+					// programming error or ghosts
+					panic(err)
+				}
+			}
 			obj.rev = []opfn{} // clear it, we didn't succeed
+
 			return err
 		}
 
-		op = RevOp(op) // reverse the op!
-		if op != nil {
-			obj.rev = append(obj.rev, op) // add the reverse op
-			//obj.rev = append([]opfn{op}, obj.rev...) // add to front
-		}
+		op = RevOp(op)                // reverse the op!
+		obj.rev = append(obj.rev, op) // add the reverse op
 	}
 	obj.ops = []opfn{} // clear it
-
-	// garbage collect anything that hit zero!
-	// XXX: add gc function to this struct and pass in opapi instead?
-	if err := obj.RefCount.GC(obj.GraphAPI); err != nil {
-		// programming error or ghosts
-		return err
-	}
-
-	// XXX: running this on each commit has a huge performance hit.
-	// XXX: we could write out the .dot files and run graphviz afterwards
-	if engine, ok := obj.GraphAPI.(*Engine); ok && GraphvizDebug {
-		//d := time.Now().Unix()
-		//if err := engine.graph.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
-		//	panic("no graphviz")
-		//}
-		if err := engine.Graphviz(""); err != nil {
-			panic(err) // XXX: improve me
-		}
-
-		//gv := &pgraph.Graphviz{
-		//	Filename: fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d),
-		//	Graphs: map[*pgraph.Graph]*pgraph.GraphvizOpts{
-		//		engine.graph: nil,
-		//	},
-		//}
-		//if err := gv.Exec(); err != nil {
-		//	panic("no graphviz")
-		//}
-	}
 	return nil
 }
 
@@ -560,13 +364,7 @@ func (obj *graphTxn) Reverse() error {
 	}
 	obj.ops = []opfn{} // clear
 
-	//for _, op := range obj.rev
-	for i := len(obj.rev) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
-		op := obj.rev[i]
-		// mark these as being not reversable (so skip them on reverse!)
-		if skipOp, ok := op.(opfnSkipRev); ok {
-			skipOp.SetSkip(true)
-		}
+	for _, op := range obj.rev { // copy in the rev stuff to commit!
 		obj.ops = append(obj.ops, op)
 	}
 
@@ -576,22 +374,20 @@ func (obj *graphTxn) Reverse() error {
 	//}
 	obj.rev = []opfn{} // clear
 
-	//rollback := func() {
-	//	//for _, op := range rev { // from our safer copy
-	//	//for _, op := range obj.ops { // copy back out the rev stuff
-	//	for i := len(obj.ops) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
-	//		op := obj.rev[i]
-	//		obj.rev = append(obj.rev, op)
-	//	}
-	//	obj.ops = []opfn{}       // clear
-	//	for _, op := range ops { // copy the original ops back in
-	//		obj.ops = append(obj.ops, op)
-	//	}
-	//}
+	rollback := func() {
+		//for _, op := range rev { // from our safer copy
+		for _, op := range obj.ops { // copy back out the rev stuff
+			obj.rev = append(obj.rev, op)
+		}
+		obj.ops = []opfn{}       // clear
+		for _, op := range ops { // copy the original ops back in
+			obj.ops = append(obj.ops, op)
+		}
+	}
 	// first commit the reverse stuff
 	if err := obj.commit(); err != nil { // lockless version
 		// restore obj.rev and obj.ops
-		//rollback() // probably not needed
+		rollback()
 		return err
 	}
 
@@ -613,14 +409,4 @@ func (obj *graphTxn) Erase() {
 	defer obj.mutex.Unlock()
 
 	obj.rev = []opfn{} // clear it
-}
-
-// Free releases the wait group that was used to lock around this Txn if needed.
-// It should get called when we're done with any Txn.
-// TODO: this is only used for the initial Txn. Consider expanding it's use. We
-// might need to allow Clear to call it as part of the clearing.
-func (obj *graphTxn) Free() {
-	if obj.FreeFunc != nil {
-		obj.FreeFunc()
-	}
 }

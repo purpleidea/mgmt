@@ -21,12 +21,14 @@ package lang
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,12 +38,14 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/dage"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/parser"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -1467,79 +1471,135 @@ func TestAstFunc2(t *testing.T) {
 
 			// XXX: temporary compatibility mapping for now...
 			// XXX: this could be a helper function eventually...
-			//// map the graph from interfaces.Expr to interfaces.Func
-			//mapExprFunc := make(map[interfaces.Expr]interfaces.Func)
-			//for v1, x := range graph.Adjacency() {
-			//	v1, ok := v1.(interfaces.Expr)
-			//	if !ok {
-			//		panic("programming error")
-			//	}
-			//	if _, exists := mapExprFunc[v1]; !exists {
-			//		var err error
-			//		mapExprFunc[v1], err = v1.Func()
-			//		if err != nil {
-			//			panic("programming error")
-			//		}
-			//	}
-			//	//funcs.AddVertex(v1)
-			//	for v2 := range x {
-			//		v2, ok := v2.(interfaces.Expr)
-			//		if !ok {
-			//			panic("programming error")
-			//		}
-			//		if _, exists := mapExprFunc[v2]; !exists {
-			//			var err error
-			//			mapExprFunc[v2], err = v2.Func()
-			//			if err != nil {
-			//				panic("programming error")
-			//			}
-			//
-			//		}
-			//		//funcs.AddEdge(v1, v2, edge)
-			//	}
-			//}
+			// map the graph from interfaces.Expr to interfaces.Func
+			mapExprFunc := make(map[interfaces.Expr]interfaces.Func)
+			for v1, x := range graph.Adjacency() {
+				v1, ok := v1.(interfaces.Expr)
+				if !ok {
+					panic("programming error")
+				}
+				if _, exists := mapExprFunc[v1]; !exists {
+					var err error
+					mapExprFunc[v1], err = v1.Func()
+					if err != nil {
+						panic("programming error")
+					}
+				}
+				//funcs.AddVertex(v1)
+				for v2 := range x {
+					v2, ok := v2.(interfaces.Expr)
+					if !ok {
+						panic("programming error")
+					}
+					if _, exists := mapExprFunc[v2]; !exists {
+						var err error
+						mapExprFunc[v2], err = v2.Func()
+						if err != nil {
+							panic("programming error")
+						}
+
+					}
+					//funcs.AddEdge(v1, v2, edge)
+				}
+			}
 
 			// run the function engine once to get some real output
-			funcs := &funcs.Engine{
-				Graph:    graph,             // not the same as the output graph!
+			funcs := &dage.Engine{
+				Name:     "test",
 				Hostname: "",                // NOTE: empty b/c not used
 				World:    world,             // used partially in some tests
 				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)
 				},
-				Glitch: false, // FIXME: verify this functionality is perfect!
 			}
 
 			logf("function engine initializing...")
-			if err := funcs.Init(); err != nil {
+			if err := funcs.Setup(); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: init error with func engine: %+v", index, err)
 				return
 			}
+			defer funcs.Cleanup()
 
-			logf("function engine validating...")
-			if err := funcs.Validate(); err != nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: validate error with func engine: %+v", index, err)
-				return
-			}
+			// XXX: can we type check things somehow?
+			//logf("function engine validating...")
+			//if err := funcs.Validate(); err != nil {
+			//	t.Errorf("test #%d: FAIL", index)
+			//	t.Errorf("test #%d: validate error with func engine: %+v", index, err)
+			//	return
+			//}
 
 			logf("function engine starting...")
-			// On failure, we expect the caller to run Close() to shutdown all of
-			// the currently initialized (and running) funcs... This is needed if
-			// we successfully ran `Run` but isn't needed only for Init/Validate.
-			if err := funcs.Run(); err != nil {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: run error with func engine: %+v", index, err)
-				return
+			wg := &sync.WaitGroup{}
+			defer wg.Wait()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := funcs.Run(ctx); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: run error with func engine: %+v", index, err)
+					return
+				}
+			}()
+
+			<-funcs.Started() // wait for startup (will not block forever)
+
+			// XXX: use Txn API
+			funcs.Lock()
+			// XXX: add an AddGraph API
+			for v1, x := range graph.Adjacency() {
+				v1, ok := v1.(interfaces.Expr)
+				if !ok {
+					panic("programming error")
+				}
+				f1, exists := mapExprFunc[v1]
+				if !exists {
+					panic("programming error")
+				}
+				funcs.AddVertex(f1)
+				for v2, edge := range x {
+					v2, ok := v2.(interfaces.Expr)
+					if !ok {
+						panic("programming error")
+					}
+					f2, exists := mapExprFunc[v2]
+					if !exists {
+						panic("programming error")
+					}
+					// XXX: should edge be *interfaces.FuncEdge or pgraph.Edge ?
+					fe, ok := edge.(*interfaces.FuncEdge)
+					if !ok {
+						panic("edge does not implement pgraph.Edge interface")
+					}
+					funcs.AddEdge(f1, f2, fe)
+				}
 			}
-			// TODO: cleanup before we print any test failures...
-			defer funcs.Close() // cleanup
+			funcs.Unlock()
 
 			// wait for some activity
 			logf("stream...")
 			stream := funcs.Stream()
+			//select {
+			//case err, ok := <-stream:
+			//	if !ok {
+			//		t.Errorf("test #%d: FAIL", index)
+			//		t.Errorf("test #%d: stream closed", index)
+			//		return
+			//	}
+			//	if err != nil {
+			//		t.Errorf("test #%d: FAIL", index)
+			//		t.Errorf("test #%d: stream errored: %+v", index, err)
+			//		return
+			//	}
+			//
+			//case <-time.After(60 * time.Second): // blocked functions
+			//	t.Errorf("test #%d: FAIL", index)
+			//	t.Errorf("test #%d: stream timeout", index)
+			//	return
+			//}
 
 			// sometimes the <-stream seems to constantly (or for a
 			// long time?) win the races against the <-time.After(),
@@ -1559,7 +1619,7 @@ func TestAstFunc2(t *testing.T) {
 						t.Errorf("test #%d: stream errored: %+v", index, err)
 						return
 					}
-					t.Logf("test #%d: stream...", index)
+					t.Logf("test #%d: got stream event!", index)
 					max--
 					if max == 0 {
 						break Loop
@@ -1576,48 +1636,49 @@ func TestAstFunc2(t *testing.T) {
 			}
 
 			// run interpret!
-			table := funcs.Table() // map[pgraph.Vertex]types.Value
-			fn := func(n interfaces.Node) error {
-				expr, ok := n.(interfaces.Expr)
-				if !ok {
-					return nil
-				}
-				//f, exists := mapExprFunc[expr]
-				//if !exists {
-				//	panic("programming error in mapExprFunc lookup")
-				//}
-				//val, exists := table[f]
-				//if !exists {
-				//	fmt.Printf("XXX missing value in table is pointer: %p\n", f)
-				//	return fmt.Errorf("missing value in table for: %s", f)
-				//}
+			//table := funcs.Table() // map[interfaces.Func]types.Value
 
-				v, ok := expr.(pgraph.Vertex)
-				if !ok {
-					panic("programming error in interfaces.Expr -> pgraph.Vertex lookup")
+			applyFn := func(table map[interfaces.Func]types.Value) error {
+
+				fn := func(n interfaces.Node) error {
+					expr, ok := n.(interfaces.Expr)
+					if !ok {
+						return nil
+					}
+					f, exists := mapExprFunc[expr]
+					if !exists {
+						fmt.Printf("XXX: missing value in mapExprFunc is pointer: %p\n", expr)
+						fmt.Printf("XXX: missing value in mapExprFunc is expr: %+v\n", expr)
+						//panic("programming error in mapExprFunc lookup")
+						return nil // XXX: workaround for now...
+					}
+					val, exists := table[f]
+					if !exists {
+						// XXX: we have values in the AST which aren't need...
+						// XXX: confirmed with: time go test -race github.com/purpleidea/mgmt/lang/ -v -run TestAstFunc2/test_#42 (func-math1) for example.
+						fmt.Printf("XXX: missing value in table is pointer: %p\n", f)
+						return nil // XXX: workaround for now...
+						//return fmt.Errorf("missing value in table for: %s", f)
+					}
+					return expr.SetValue(val) // set the value
 				}
-				val, exists := table[v]
-				if !exists {
-					// XXX: we have values in the AST which aren't need...
-					// XXX: confirmed with: time go test -race github.com/purpleidea/mgmt/lang/ -v -run TestAstFunc2/test_#42 (func-math1) for example.
-					fmt.Printf("XXX: missing value in table is pointer: %p\n", v)
-					return nil // XXX: workaround for now...
-					//return fmt.Errorf("missing value in table for: %s", v)
+
+				// XXX: apparently there are races between SetValue and reading obj.V values...
+				if err := iast.Apply(fn); err != nil {
+					for k, v := range table {
+						t.Errorf("test #%d: table: key: %+v ; value: %+v", index, k, v)
+					}
+					return err
 				}
-				return expr.SetValue(val) // set the value
+				return nil
 			}
-			funcs.Lock() // XXX: apparently there are races between SetValue and reading obj.V values...
-			if err := iast.Apply(fn); err != nil {
+
+			if err := funcs.Apply(applyFn); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: apply failed with: %+v", index, err)
 				t.Errorf("test #%d: table:", index)
-				for k, v := range table {
-					t.Errorf("test #%d: table: key: %+v ; value: %+v", index, k, v)
-				}
-				funcs.Unlock()
 				return
 			}
-			funcs.Unlock()
 
 			ograph, err := interpret.Interpret(iast)
 			if (!fail || !failInterpret) && err != nil {
@@ -1916,7 +1977,7 @@ func TestAstInterpret0(t *testing.T) {
 		// perform type unification, run the function graph engine, and
 		// only gives you limited results... don't expect normal code to
 		// run and produce meaningful things in this test...
-		graph, err := interpret.Interpret(xast)
+		graph, err := interpret.Interpret(xast, nil)
 
 		if !fail && err != nil {
 			t.Errorf("test #%d: interpret failed with: %+v", index, err)

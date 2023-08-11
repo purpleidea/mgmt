@@ -21,19 +21,21 @@ package lang
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/ast"
-	"github.com/purpleidea/mgmt/lang/funcs"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
+	"github.com/purpleidea/mgmt/lang/funcs/dage"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/parser"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -62,30 +64,21 @@ type Lang struct {
 	Logf     func(format string, v ...interface{})
 
 	ast   interfaces.Stmt // store main prog AST here
-	funcs *funcs.Engine   // function event engine
+	funcs *dage.Engine    // function event engine
 
-	loadedChan chan struct{} // loaded signal
+	mapExprFunc map[interfaces.Expr]interfaces.Func // temporary mapping
 
-	streamChan chan error // signals a new graph can be created or problem
+	streamChan <-chan error // signals a new graph can be created or problem
 	//streamBurst bool // should we try and be bursty with the stream events?
 
-	closeChan chan struct{} // close signal
-	wg        *sync.WaitGroup
+	wg *sync.WaitGroup
 }
 
-// Init initializes the lang struct, and starts up the initial data sources.
+// Init initializes the lang struct, and starts up the initial input parsing.
 // NOTE: The trick is that we need to get the list of funcs to watch AND start
 // watching them, *before* we pull their values, that way we'll know if they
 // changed from the values we wanted.
 func (obj *Lang) Init() error {
-	obj.loadedChan = make(chan struct{})
-	obj.streamChan = make(chan error)
-	obj.closeChan = make(chan struct{})
-	obj.wg = &sync.WaitGroup{}
-
-	once := &sync.Once{}
-	loadedSignal := func() { close(obj.loadedChan) } // only run once!
-
 	if obj.Debug {
 		obj.Logf("input: %s", obj.Input)
 		tree, err := util.FsTree(obj.Fs, "/") // should look like gapi
@@ -215,14 +208,17 @@ func (obj *Lang) Init() error {
 	obj.Logf("building function graph...")
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
-	graph, err := obj.ast.Graph() // build the graph of functions
+	obj.graph, err = obj.ast.Graph() // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}
 
 	if obj.Debug {
-		obj.Logf("function graph: %+v", graph)
-		graph.Logf(obj.Logf) // log graph output with this logger...
+		obj.Logf("function graph: %+v", obj.graph)
+		obj.graph.Logf(obj.Logf) // log graph output with this logger...
+		//if err := obj.graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
+		//	return errwrap.Wrapf(err, "writing graph failed")
+		//}
 	}
 
 	if graph.NumVertices() == 0 { // no funcs to load!
@@ -243,86 +239,126 @@ func (obj *Lang) Init() error {
 		return nil // exit early, no funcs to load!
 	}
 
-	obj.funcs = &funcs.Engine{
-		Graph:    graph, // not the same as the output graph!
+	// XXX: temporary compatibility mapping for now...
+	// XXX: this could be a helper function eventually...
+	// map the graph from interfaces.Expr to interfaces.Func
+	obj.mapExprFunc = make(map[interfaces.Expr]interfaces.Func)
+	for v1, x := range graph.Adjacency() {
+		v1, ok := v1.(interfaces.Expr)
+		if !ok {
+			panic("programming error")
+		}
+		if _, exists := obj.mapExprFunc[v1]; !exists {
+			var err error
+			obj.mapExprFunc[v1], err = v1.Func()
+			if err != nil {
+				panic("programming error")
+			}
+		}
+		//funcs.AddVertex(v1)
+		for v2 := range x {
+			v2, ok := v2.(interfaces.Expr)
+			if !ok {
+				panic("programming error")
+			}
+			if _, exists := obj.mapExprFunc[v2]; !exists {
+				var err error
+				obj.mapExprFunc[v2], err = v2.Func()
+				if err != nil {
+					panic("programming error")
+				}
+
+			}
+			//funcs.AddEdge(v1, v2, edge)
+		}
+	}
+
+	obj.funcs = &dage.Engine{
+		Name:     "lang", // TODO: arbitrary name for now
 		Hostname: obj.Hostname,
 		World:    obj.World,
 		Debug:    obj.Debug,
 		Logf: func(format string, v ...interface{}) {
 			obj.Logf("funcs: "+format, v...)
 		},
-		Glitch: false, // FIXME: verify this functionality is perfect!
 	}
 
 	obj.Logf("function engine initializing...")
-	if err := obj.funcs.Init(); err != nil {
+	if err := obj.funcs.Setup(); err != nil {
 		return errwrap.Wrapf(err, "init error with func engine")
 	}
+	//defer obj.funcs.Cleanup() // run in Close()?
 
-	obj.Logf("function engine validating...")
-	if err := obj.funcs.Validate(); err != nil {
-		return errwrap.Wrapf(err, "validate error with func engine")
-	}
+	//obj.Logf("function engine validating...")
+	//if err := obj.funcs.Validate(); err != nil {
+	//	return errwrap.Wrapf(err, "validate error with func engine")
+	//}
 
 	obj.Logf("function engine starting...")
-	// On failure, we expect the caller to run Close() to shutdown all of
-	// the currently initialized (and running) funcs... This is needed if
-	// we successfully ran `Run` but isn't needed only for Init/Validate.
-	if err := obj.funcs.Run(); err != nil {
-		return errwrap.Wrapf(err, "run error with func engine")
+	//XXX	// On failure, we expect the caller to run Close() to shutdown all of
+	//XXX	// the currently initialized (and running) funcs... This is needed if
+	//XXX	// we successfully ran `Run` but isn't needed only for Init/Validate.
+	//XXX: maybe instead on shutdown we Lock() and DeleteVertex everything from the graph?
+
+	errChan := make(chan error)
+	//wg := &sync.WaitGroup{}
+	//defer wg.Wait()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	//wg.Add(1)
+	obj.wg.Add(1)
+	go func() {
+		//defer close(errChan) // happens never!
+		defer obj.wg.Done()
+		//defer wg.Done()
+		err := obj.funcs.Run(ctx)
+		if err == nil {
+			return
+		}
+		// Run() should only error if not a dag I think...
+		select {
+		case errChan <- errwrap.Wrapf(err, "run error with func engine"):
+		case <-ctx.Done():
+			// unblock
+		}
+	}()
+
+	<-obj.funcs.Started() // wait for startup (will not block forever)
+
+	obj.funcs.Lock()
+	if err := obj.funcs.AddGraph(graph); err != nil { // add all of this graph into the func engine
+		return errwrap.Wrapf(err, "error adding to function graph engine")
 	}
+	obj.funcs.Unlock()
 
 	// wait for some activity
 	obj.Logf("stream...")
-	stream := obj.funcs.Stream()
-	obj.wg.Add(1)
-	go func() {
-		obj.Logf("loop...")
-		defer obj.wg.Done()
-		defer close(obj.streamChan) // no more events are coming!
-		for {
-			var err error
-			var ok bool
-			select {
-			case err, ok = <-stream:
+
+			case err, ok = <-errChan:
 				if !ok {
-					obj.Logf("stream closed")
-					return
-				}
-				if err == nil {
-					// only do this once, on the first event
-					once.Do(loadedSignal) // signal
+					obj.Logf("error chan closed")
+					//return
+					continue
 				}
 
 			case <-obj.closeChan:
 				return
 			}
 
-			select {
-			case obj.streamChan <- err: // send
-				if err != nil {
-					obj.Logf("stream error: %+v", err)
-					return
-				}
-
-			case <-obj.closeChan:
-				return
-			}
-		}
-	}()
 	return nil
 }
 
 // Stream returns a channel of graph change requests or errors. These are
 // usually sent when a func output changes.
-func (obj *Lang) Stream() chan error {
+func (obj *Lang) Stream() <-chan error {
 	return obj.streamChan
 }
 
 // Interpret runs the interpreter and returns a graph and corresponding error.
 func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	select {
-	case <-obj.loadedChan: // funcs are now loaded!
+	case <-obj.funcs.Loaded(): // funcs are now loaded!
 		// pass
 	default:
 		// if this is hit, someone probably called this too early!
@@ -331,38 +367,48 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	}
 
 	obj.Logf("running interpret...")
-	table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
-	fn := func(n interfaces.Node) error {
-		expr, ok := n.(interfaces.Expr)
-		if !ok {
-			return nil
-		}
-		v, ok := expr.(pgraph.Vertex)
-		if !ok {
-			panic("programming error in interfaces.Expr -> pgraph.Vertex lookup")
-		}
-		val, exists := table[v]
-		if !exists {
-			fmt.Printf("XXX: missing value in table is pointer: %p\n", v)
-			return nil // XXX: workaround for now...
-			//return fmt.Errorf("missing value in table for: %s", v)
-		}
-		return expr.SetValue(val) // set the value
-	}
-	obj.funcs.Lock() // XXX: apparently there are races between SetValue and reading obj.V values...
-	if err := obj.ast.Apply(fn); err != nil {
-		if obj.Debug {
-			for k, v := range table {
-				obj.Logf("table: key: %+v ; value: %+v", k, v)
+	//table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
+	applyFn := func(table map[interfaces.Func]types.Value) error {
+
+		fn := func(n interfaces.Node) error {
+			expr, ok := n.(interfaces.Expr)
+			if !ok {
+				return nil
 			}
+			f, exists := obj.mapExprFunc[expr]
+			if !exists {
+				fmt.Printf("XXX: missing value in mapExprFunc is pointer: %p\n", expr)
+				fmt.Printf("XXX: missing value in mapExprFunc is expr: %+v\n", expr)
+				//panic("programming error in interfaces.Expr -> pgraph.Vertex lookup")
+				return nil // XXX: workaround for now...
+			}
+			val, exists := table[f]
+			if !exists {
+				fmt.Printf("XXX: missing value in table is pointer: %p\n", f)
+				return nil // XXX: workaround for now...
+				//return fmt.Errorf("missing value in table for: %s", v)
+			}
+			return expr.SetValue(val) // set the value
 		}
-		obj.funcs.Unlock()
-		return nil, err
+
+		// XXX: apparently there are races between SetValue and reading obj.V values...
+		if err := obj.ast.Apply(fn); err != nil {
+			if obj.Debug {
+				for k, v := range table {
+					obj.Logf("table: key: %+v ; value: %+v", k, v)
+				}
+			}
+			return err
+		}
+		return nil
 	}
-	obj.funcs.Unlock()
+
+	if err := obj.funcs.Apply(applyFn); err != nil {
+		return nil, errwrap.Wrapf(err, "could not apply")
+	}
 
 	// this call returns the graph
-	graph, err := interpret.Interpret(obj.ast)
+	graph, err := interpret.Interpret(obj.ast, table)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpret")
 	}
@@ -375,7 +421,7 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 func (obj *Lang) Close() error {
 	var err error
 	if obj.funcs != nil {
-		err = obj.funcs.Close()
+		err = obj.funcs.Cleanup()
 	}
 	close(obj.closeChan)
 	obj.wg.Wait()

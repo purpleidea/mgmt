@@ -20,6 +20,7 @@ package gapi
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -61,7 +62,11 @@ func init() {
 type GAPI struct {
 	InputURI string // input URI of code file system to run
 
-	lang *lang.Lang // lang struct
+	lang   *lang.Lang // lang struct
+	wgRun  *sync.WaitGroup
+	ctx    context.Context
+	cancel func()
+	reterr error
 
 	// this data struct is only available *after* Init, so as a result, it
 	// can not be used inside the Cli(...) method.
@@ -472,13 +477,25 @@ func (obj *GAPI) LangInit() error {
 	if err := obj.lang.Init(); err != nil {
 		return errwrap.Wrapf(err, "can't init the lang")
 	}
+
+	obj.wgRun = &sync.WaitGroup{}
+	obj.ctx, obj.cancel = context.WithCancel(context.Background())
+	obj.wgRun.Add(1)
+	go func() {
+		defer obj.wgRun.Done()
+		obj.reterr = obj.lang.Run(obj.ctx)
+	}()
+
 	return nil
 }
 
 // LangClose is a wrapper around the lang Close method.
 func (obj *GAPI) LangClose() error {
 	if obj.lang != nil {
-		err := obj.lang.Close()
+		obj.cancel()
+		obj.wgRun.Wait()
+		err := obj.lang.Cleanup()
+		err = errwrap.Append(err, obj.reterr)             // from obj.lang.Run
 		obj.lang = nil                                    // clear it to avoid double closing
 		return errwrap.Wrapf(err, "can't close the lang") // nil passthrough
 	}
@@ -520,7 +537,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
 
-		streamChan := make(chan error)
+		streamChan := make(<-chan error)
 		//defer obj.LangClose() // close any old lang
 
 		var ok bool
@@ -545,6 +562,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 			obj.data.Logf("generating new graph...")
 
 			// skip this to pass through the err if present
+			// XXX: redo this old garbage code
 			if langSwap && err == nil {
 				obj.data.Logf("swap!")
 				// run up to these three but fail on err

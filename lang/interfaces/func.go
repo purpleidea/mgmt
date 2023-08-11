@@ -256,7 +256,6 @@ type GraphAPI interface {
 
 	//Adjacency() map[Func]map[Func]*FuncEdge
 	HasVertex(Func) bool
-	FindEdge(Func, Func) *FuncEdge
 	LookupEdge(*FuncEdge) (Func, Func, bool)
 }
 
@@ -283,24 +282,13 @@ type Txn interface {
 	// completed when Commit is run.
 	AddEdge(Func, Func, *FuncEdge) Txn
 
-	// DeleteVertex removes a vertex from the running graph. The operation
-	// will get completed when Commit is run.
+	// DeleteVertex adds a vertex to the running graph. The operation will
+	// get completed when Commit is run.
 	DeleteVertex(Func) Txn
 
-	// DeleteEdge removes an edge from the running graph. It removes the
-	// edge that is found between the two input vertices. The operation will
-	// get completed when Commit is run. The edge is part of the signature
-	// so that it is both symmetrical with AddEdge, and also easier to
-	// reverse in theory.
-	// NOTE: This is not supported since there's no sane Reverse with GC.
-	// XXX Add this in but just don't let it be reversible?
-	//DeleteEdge(Func, Func, *FuncEdge) Txn
-
-	// AddGraph adds a graph to the running graph. The operation will get
-	// completed when Commit is run. This function panics if your graph
-	// contains vertices that are not of type interfaces.Func or if your
-	// edges are not of type *interfaces.FuncEdge.
-	AddGraph(*pgraph.Graph) Txn
+	// DeleteEdge adds a vertex to the running graph. The operation will get
+	// completed when Commit is run.
+	DeleteEdge(*FuncEdge) Txn
 
 	// Commit runs the pending transaction.
 	Commit() error
@@ -323,10 +311,6 @@ type Txn interface {
 	// Erase removes the historical information that Reverse would run after
 	// Commit.
 	Erase()
-
-	// Free releases the wait group that was used to lock around this Txn if
-	// needed. It should get called when we're done with any Txn.
-	Free()
 
 	// Copy returns a new child Txn that has the same handles, but a
 	// separate state. This allows you to do an Add*/Commit/Reverse that

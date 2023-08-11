@@ -128,22 +128,6 @@ func (obj *ExprAny) Unify() ([]Invariant, error) {
 	return invariants, nil
 }
 
-// Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This returns a graph with a single vertex (itself) in it, and
-// the edges from all of the child graphs to this.
-func (obj *ExprAny) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("any")
-	if err != nil {
-		return nil, err
-	}
-	graph.AddVertex(obj)
-	return graph, nil
-}
-
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprAny) Func() (Func, error) {
 	//	// XXX: this could be a list too, so improve this code or improve the subgraph code...
@@ -152,6 +136,27 @@ func (obj *ExprAny) Func() (Func, error) {
 	//	}
 
 	return nil, fmt.Errorf("programming error using ExprAny") // this should not be called
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This returns a graph with a single vertex (itself) in it, and
+// the edges from all of the child graphs to this.
+func (obj *ExprAny) Graph() (*pgraph.Graph, Func, error) {
+	graph, err := pgraph.NewGraph("any")
+	if err != nil {
+		return nil, nil, err
+	}
+	function, err := obj.Func()
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(function)
+
+	return graph, function, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

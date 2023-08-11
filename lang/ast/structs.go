@@ -8397,7 +8397,7 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 
 	graph, err := pgraph.NewGraph("call")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 
 	ftyp, err := obj.expr.Type()
@@ -8848,7 +8848,7 @@ func (obj *ExprParam) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inte
 
 	graph, err := pgraph.NewGraph("ExprParam")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 	graph.AddVertex(paramFunc)
 	return graph, paramFunc, nil
@@ -9196,7 +9196,7 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not create graph")
+		return nil, nil, err
 	}
 
 	function, err := obj.Func()

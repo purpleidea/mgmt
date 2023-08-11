@@ -120,11 +120,9 @@ type Expr interface {
 	// returns the collection to the caller.
 	Unify() ([]Invariant, error)
 
-	// Graph returns the reactive function graph expressed by this node.
-	Graph() (*pgraph.Graph, error)
-
-	// Func returns a function that represents this reactively.
-	Func() (Func, error)
+	// Graph returns the reactive function graph expressed by this node. It
+	// also returns the function for this node.
+	Graph() (*pgraph.Graph, Func, error)
 
 	// SetValue stores the result of the last computation of this expression
 	// node.

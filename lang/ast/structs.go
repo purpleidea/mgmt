@@ -8259,6 +8259,7 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 		// the same struct that is being touched from multiple places...
 		return fn.function, nil
 		//return obj.fn.Func() // this is incorrect. see ExprVar comment
+		//return fn.Function(), nil // this is also incorrect.
 	}
 
 	// XXX: receive the ExprFunc properly, and use it in CallFunc...
@@ -8371,7 +8372,7 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	// Note: This can cause a panic if you get two NOT-connected vertices,
 	// in the source graph, because it tries to add two edges! Solution: add
 	// the missing edge between those in the source... Happy bug killing =D
-	graph.AddVertex(obj.expr) // duplicate additions are ignored and are harmless
+	//graph.AddVertex(obj.expr) // duplicate additions are ignored and are harmless
 
 	g, f, err := obj.expr.Graph()
 	if err != nil {
@@ -8638,7 +8639,7 @@ func (obj *ExprVar) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	}
 
 	// should already exist in graph (i think)...
-	graph.AddVertex(expr) // duplicate additions are ignored and are harmless
+	//graph.AddVertex(expr) // duplicate additions are ignored and are harmless
 
 	// the expr needs to point to the var lookup expression
 	g, f, err := expr.Graph()

@@ -287,7 +287,7 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 
 	txn := obj.funcs.Txn()
 	defer txn.Free() // remember to call Free()
-	interfaces.AddGraphToTxn(txn, obj.graph)
+	txn.AddGraph(obj.graph)
 	if err := txn.Commit(); err != nil {
 		return errwrap.Wrapf(err, "error adding to function graph engine")
 	}

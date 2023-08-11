@@ -7367,7 +7367,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
 				}
 
-				interfaces.AddGraphToTxn(innerTxn, subgraph)
+				innerTxn.AddGraph(subgraph)
 
 				return bodyFunc, nil
 			},

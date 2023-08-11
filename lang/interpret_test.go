@@ -1559,7 +1559,7 @@ func TestAstFunc2(t *testing.T) {
 
 			txn := funcs.Txn()
 			defer txn.Free() // remember to call Free()
-			interfaces.AddGraphToTxn(txn, graph)
+			txn.AddGraph(graph)
 			if err := txn.Commit(); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: run error with initial commit: %+v", index, err)

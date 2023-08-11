@@ -296,12 +296,11 @@ type Txn interface {
 	// XXX Add this in but just don't let it be reversible?
 	//DeleteEdge(Func, Func, *FuncEdge) Txn
 
-	// AddReverse appends to the commit queue anything that was staged for
-	// reverse. This also removes those operations from the reverse queue as
-	// if you had called Erase. Of note, these operations will not get used
-	// on subsequent calls to Reverse or AddReverse if either are called.
-	// The operation will get completed when Commit is run.
-	AddReverse() Txn
+	// AddGraph adds a graph to the running graph. The operation will get
+	// completed when Commit is run. This function panics if your graph
+	// contains vertices that are not of type interfaces.Func or if your
+	// edges are not of type *interfaces.FuncEdge.
+	AddGraph(*pgraph.Graph) Txn
 
 	// Commit runs the pending transaction.
 	Commit() error
@@ -333,16 +332,4 @@ type Txn interface {
 	// separate state. This allows you to do an Add*/Commit/Reverse that
 	// isn't affected by a different user of this transaction.
 	Copy() Txn
-}
-
-func AddGraphToTxn(txn Txn, g *pgraph.Graph) {
-	for _, v := range g.Vertices() {
-		txn.AddVertex(v.(Func))
-	}
-
-	for v1, m := range g.Adjacency() {
-		for v2, e := range m {
-			txn.AddEdge(v1.(Func), v2.(Func), e.(*FuncEdge))
-		}
-	}
 }

@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/pgraph"
 )
 
 // PostReverseCommit specifies that if we run Reverse, and we had previous items
@@ -373,24 +374,56 @@ func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 	return obj // return self so it can be called in a chain
 }
 
-// AddReverse appends to the commit queue anything that was staged for reverse.
-// This also removes those operations from the reverse queue as if you had
-// called Erase. Of note, these operations will not get used on subsequent calls
-// to Reverse or AddReverse if either are called. The operation will get
-// completed when Commit is run.
-func (obj *graphTxn) AddReverse() interfaces.Txn {
+// AddGraph adds a graph to the running graph. The operation will get completed
+// when Commit is run. This function panics if your graph contains vertices that
+// are not of type interfaces.Func or if your edges are not of type
+// *interfaces.FuncEdge.
+func (obj *graphTxn) AddGraph(g *pgraph.Graph) interfaces.Txn {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
-	for _, op := range obj.rev { // copy in the rev stuff to commit!
-		// mark these as being not reversable (so skip them on reverse!)
-		if skipOp, ok := op.(opfnSkipRev); ok {
-			skipOp.SetSkip(true)
+	for _, v := range g.Vertices() {
+		f, ok := v.(interfaces.Func)
+		if !ok {
+			panic("not a Func")
 		}
-		obj.ops = append(obj.ops, op)
+		//obj.AddVertex(f) // easy
+		opfn := &opAddVertex{ // replicate AddVertex
+			F: f,
+
+			opSkip: &opSkip{},
+			opFlag: &opFlag{},
+		}
+		obj.ops = append(obj.ops, opfn)
 	}
 
-	obj.rev = []opfn{} // clear
+	for v1, m := range g.Adjacency() {
+		f1, ok := v1.(interfaces.Func)
+		if !ok {
+			panic("not a Func")
+		}
+		for v2, e := range m {
+			f2, ok := v2.(interfaces.Func)
+			if !ok {
+				panic("not a Func")
+			}
+			fe, ok := e.(*interfaces.FuncEdge)
+			if !ok {
+				panic("not a *FuncEdge")
+			}
+
+			//obj.AddEdge(f1, f2, fe) // easy
+			opfn := &opAddEdge{ // replicate AddEdge
+				F1: f1,
+				F2: f2,
+				FE: fe,
+
+				opSkip: &opSkip{},
+				opFlag: &opFlag{},
+			}
+			obj.ops = append(obj.ops, opfn)
+		}
+	}
 
 	return obj // return self so it can be called in a chain
 }

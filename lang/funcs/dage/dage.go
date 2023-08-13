@@ -115,12 +115,18 @@ type Engine struct {
 	// activity at a leaf.
 	leafSend bool
 
+	// isClosed tracks nodes that have closed. This list is purged as they
+	// are removed from the graph.
+	isClosed map[*state]struct{}
+
 	// activity tracks nodes that are ready to send to ag. The main process
-	// loop decides if we have the correct set to do so.
+	// loop decides if we have the correct set to do so. A corresponding
+	// value of true means we have regular activity, and a value of false
+	// means the node closed.
 	activity map[*state]struct{}
 
-	// activityMutex wraps access to the activity map.
-	activityMutex *sync.Mutex
+	// stateMutex wraps access to the isClosed and activity maps.
+	stateMutex *sync.Mutex
 
 	// stats holds some statistics and other debugging information.
 	stats *stats // guarded by statsMutex
@@ -178,8 +184,10 @@ func (obj *Engine) Setup() error {
 
 	obj.ag = make(chan error)
 
+	obj.isClosed = make(map[*state]struct{})
+
 	obj.activity = make(map[*state]struct{})
-	obj.activityMutex = &sync.Mutex{}
+	obj.stateMutex = &sync.Mutex{}
 
 	obj.stats = &stats{
 		runningList: make(map[*state]struct{}),
@@ -387,6 +395,9 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 		obj.nodeWaitFns = append(obj.nodeWaitFns, func() {
 			node.wg.Wait()  // While waiting, the Stream might cause a new Reverse Commit
 			node.txn.Free() // Clean up when done!
+			obj.stateMutex.Lock()
+			delete(obj.isClosed, node) // avoid memory leak
+			obj.stateMutex.Unlock()
 		})
 		obj.nodeWaitMutex.Unlock()
 	}
@@ -617,16 +628,16 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 		incoming := obj.graph.IncomingGraphVertices(f) // []pgraph.Vertex
 
 		// no incoming edges, so no incoming data
-		if len(incoming) == 0 { // we do this below
-			if !node.closed {
-				node.closed = true
+		if len(incoming) == 0 || node.inputClosed { // we do this below
+			if !node.inputClosed {
+				node.inputClosed = true
 				close(node.input)
 			}
 			continue
 		} // else, process input data below...
 
-		ready := true  // assume all input values are ready for now...
-		closed := true // assume all inputs have closed for now...
+		ready := true       // assume all input values are ready for now...
+		inputClosed := true // assume all inputs have closed for now...
 		si := &types.Type{
 			// input to functions are structs
 			Kind: types.KindStruct,
@@ -653,8 +664,8 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 			value, exists := obj.table[ff]
 			obj.tableMutex.RUnlock()
 			if !exists {
-				ready = false  // nope!
-				closed = false // can't be, it's not even ready yet
+				ready = false       // nope!
+				inputClosed = false // can't be, it's not even ready yet
 				break
 			}
 			// XXX: do we need a lock around reading obj.state?
@@ -662,8 +673,8 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 			if !exists {
 				panic(fmt.Sprintf("missing node in notify: %s", ff))
 			}
-			if !fromNode.closed {
-				closed = false // if any still open, then we are
+			if !fromNode.outputClosed {
+				inputClosed = false // if any still open, then we are
 			}
 
 			// set each arg, since one value
@@ -697,7 +708,7 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 		}
 
 		// previously it was closed, skip sending
-		if node.closed {
+		if node.inputClosed {
 			continue
 		}
 
@@ -736,8 +747,8 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 		// theory be causing unnecessary graph changes (and locks which
 		// cause preemption here) if nodes that cause locks aren't
 		// skipping duplicate/identical input values!
-		if closed && !node.closed {
-			node.closed = true
+		if inputClosed && !node.inputClosed {
+			node.inputClosed = true
 			close(node.input)
 		}
 
@@ -758,12 +769,13 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 	// send anything to ag channel. In addition, we need at least one send
 	// message from any of the valid isLeaf nodes. Since this only runs if
 	// everyone is loaded, we just need to check for activty leaf nodes.
-	obj.activityMutex.Lock()
+	obj.stateMutex.Lock()
 	for node := range obj.activity {
 		if obj.leafSend {
 			break // early
 		}
 
+		// down here we need `true` activity!
 		if node.isLeaf { // calculated above in the previous loop
 			obj.leafSend = true
 			break
@@ -771,7 +783,13 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 	}
 	obj.activity = make(map[*state]struct{}) // clear
 	//clear(obj.activity) // new clear
-	obj.activityMutex.Unlock()
+
+	// This check happens here after the send loop to make sure one value
+	// got in and we didn't close it off too early.
+	for node := range obj.isClosed { // these are closed
+		node.outputClosed = true
+	}
+	obj.stateMutex.Unlock()
 
 	if !obj.leafSend {
 		return nil
@@ -1199,6 +1217,16 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			go func(f interfaces.Func, node *state) {
 				defer node.wg.Done()
 				defer wgAg.Done()
+				defer func() {
+					// We record the fact that output
+					// closed, so we can eventually close
+					// the downstream node's input.
+					obj.stateMutex.Lock()
+					obj.isClosed[node] = struct{}{} // closed!
+					obj.stateMutex.Unlock()
+					// TODO: is this wake necessary?
+					obj.wake("closed") // closed, so wake up
+				}()
 
 				for value := range node.output { // read from channel
 					if value == nil {
@@ -1240,9 +1268,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 					// message here. They should check if we
 					// are a leaf and if we glitch or not...
 					// Make sure we do this before the wake.
-					obj.activityMutex.Lock()
-					obj.activity[node] = struct{}{}
-					obj.activityMutex.Unlock()
+					obj.stateMutex.Lock()
+					obj.activity[node] = struct{}{} // activity!
+					obj.stateMutex.Unlock()
 
 					obj.wake("new value") // new value, so send wake up
 
@@ -1250,9 +1278,6 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 
 				// no more output values are coming...
 				//obj.Logf("func `%s` stopped", node)
-
-				// XXX shouldn't we record the fact that obj.output closed, and close
-				// the downstream node's obj.input?
 
 				// nodes that never loaded will cause the engine to hang
 				if !node.loaded {
@@ -1462,8 +1487,9 @@ type state struct {
 
 	//init   bool // have we run Init on our func?
 	//ready  bool // has it received all the args it needs at least once?
-	loaded bool // has the func run at least once ?
-	closed bool // is our input closed?
+	loaded       bool // has the func run at least once ?
+	inputClosed  bool // is our input closed?
+	outputClosed bool // is our output closed?
 
 	isLeaf bool // is my out degree zero?
 

@@ -1,0 +1,5 @@
+-- main.mcl --
+import "fmt"
+test fmt.printf("%d%d", 42) {} # should not pass, missing second int
+-- OUTPUT --
+# err: errUnify: only recursive solutions left

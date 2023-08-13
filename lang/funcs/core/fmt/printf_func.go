@@ -199,6 +199,11 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 					invariants = append(invariants, invar)
 				}
 
+				// catch situations like `printf("%d%d", 42)`
+				if len(cfavInvar.Args) <= i+1 {
+					return nil, fmt.Errorf("more specifiers (%d) than values (%d)", len(typList), len(cfavInvar.Args)-1)
+				}
+
 				// add the relationships to the called args
 				invar = &interfaces.EqualityInvariant{
 					Expr1: cfavInvar.Args[i+1],
@@ -556,6 +561,11 @@ func compileFormatToString(format string, values []types.Value) (string, error) 
 			return "", fmt.Errorf("invalid format string at %d", i)
 		}
 		inType = false // done
+
+		if ix >= len(values) {
+			// programming error, probably in type unification
+			return "", fmt.Errorf("more specifiers (%d) than values (%d)", ix+1, len(values))
+		}
 
 		// check the type (if not a variant) matches what we have...
 		if typ == types.TypeVariant {

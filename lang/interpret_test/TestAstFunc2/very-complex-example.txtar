@@ -1,5 +1,6 @@
 -- main.mcl --
 import "fmt"
+import "iter"
 
 # function expression
 $id1 = func($x) { # definition site
@@ -9,20 +10,20 @@ $id2 = func($x) {
 	$x + $x
 }
 
-$str = $id1("foo")
-$int = $id1(42)
+#$str = $id1("foo")
+#$int = $id1(42)
 
-func generate($idN) {
-	printf(
-		"%s %d",
-		$idN("foo"), # 1 call site, 2 calls
-		$idN(42),
+$generate = func($idn) {
+	fmt.printf("%s %d",
+		$idn("foo"), # 1 call site, 2 calls
+		$idn(42)
 	)
 }
 
 # this code should be rejected
-$foo = map($generate, [$id1, $id2])
+$foo = iter.map($generate, [$id1, $id2,])
 
-test $foo[0] {}
+#test $foo[0] {}
+test listlookup($foo, 0, "fail") {} # TODO: add syntactic sugar for listlookup
 -- OUTPUT --
-Vertex: test[foo]
+Vertex: test[foo 84]

@@ -1,5 +1,6 @@
 -- main.mcl --
 import "fmt"
+import "iter"
 
 # function expression
 $id1 = func($x str) { # definition site
@@ -9,11 +10,11 @@ $id2 = func($x str) {
 	$x + $x
 }
 
-func generate($idN) {
-	$idN("foo") # 1 call site, 2 calls
+$generate = func($idn) {
+	$idn("foo") # 1 call site, 2 calls
 }
 
-$foo = map($generate, [$id1, $id2])
+$foo = iter.map($generate, [$id1, $id2,])
 
 #test $foo[0] {}
 #test $foo[1] {}

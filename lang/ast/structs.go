@@ -5652,40 +5652,6 @@ func (obj *ExprList) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	return graph, function, nil
 }
 
-// Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This returns a graph with a single vertex (itself) in it, and
-// the edges from all of the child graphs to this.
-func (obj *ExprList) Graph() (*pgraph.Graph, interfaces.Func, error) {
-	graph, err := pgraph.NewGraph("list")
-	if err != nil {
-		return nil, nil, err
-	}
-	function, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddVertex(function)
-
-	// each list element needs to point to the final list expression
-	for index, x := range obj.Elements { // list elements in order
-		g, f, err := x.Graph()
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddGraph(g)
-
-		fieldName := fmt.Sprintf("%d", index) // argNames as integers!
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // element -> list
-	}
-
-	return graph, function, nil
-}
-
 // SetValue here is a no-op, because algorithmically when this is called from
 // the func engine, the child elements (the list elements) will have had this
 // done to them first, and as such when we try and retrieve the set value from
@@ -6153,60 +6119,12 @@ func (obj *ExprMap) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interf
 		// do the key names ever change? -- yes
 		fieldName := fmt.Sprintf("key:%d", index) // stringify map key
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // key -> func
-	}
-
-	// each map key value pair needs to point to the final map expression
-	for index, x := range obj.KVs { // map fields in order
-		g, f, err := x.Val.Graph(env)
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddGraph(g)
-
-		fieldName := fmt.Sprintf("val:%d", index) // stringify map val
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // val -> func
-	}
-
-	return graph, function, nil
-}
-
-// Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This returns a graph with a single vertex (itself) in it, and
-// the edges from all of the child graphs to this.
-func (obj *ExprMap) Graph() (*pgraph.Graph, interfaces.Func, error) {
-	graph, err := pgraph.NewGraph("map")
-	if err != nil {
-		return nil, nil, err
-	}
-	function, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddVertex(function)
-
-	// each map key value pair needs to point to the final map expression
-	for index, x := range obj.KVs { // map fields in order
-		g, f, err := x.Key.Graph()
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddGraph(g)
-
-		// do the key names ever change? -- yes
-		fieldName := fmt.Sprintf("key:%d", index) // stringify map key
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 		graph.AddEdge(f, function, edge) // key -> map
 	}
 
 	// each map key value pair needs to point to the final map expression
 	for index, x := range obj.KVs { // map fields in order
-		g, f, err := x.Val.Graph()
+		g, f, err := x.Val.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -6594,40 +6512,6 @@ func (obj *ExprStruct) Graph(env map[string]interfaces.Func) (*pgraph.Graph, int
 	// each struct field needs to point to the final struct expression
 	for _, x := range obj.Fields { // struct fields in order
 		g, f, err := x.Value.Graph(env)
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddGraph(g)
-
-		fieldName := x.Name
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // field -> struct
-	}
-
-	return graph, function, nil
-}
-
-// Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This returns a graph with a single vertex (itself) in it, and
-// the edges from all of the child graphs to this.
-func (obj *ExprStruct) Graph() (*pgraph.Graph, interfaces.Func, error) {
-	graph, err := pgraph.NewGraph("struct")
-	if err != nil {
-		return nil, nil, err
-	}
-	function, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddVertex(function)
-
-	// each struct field needs to point to the final struct expression
-	for _, x := range obj.Fields { // struct fields in order
-		g, f, err := x.Value.Graph()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -9198,7 +9082,6 @@ func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfa
 	if err != nil {
 		return nil, nil, err
 	}
-
 	function, err := obj.Func()
 	if err != nil {
 		return nil, nil, err
@@ -9212,46 +9095,6 @@ func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfa
 	for _, argName := range []string{"c", "a", "b"} { // deterministic order
 		x := exprs[argName]
 		g, f, err := x.Graph(env)
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddGraph(g)
-
-		edge := &interfaces.FuncEdge{Args: []string{argName}}
-		graph.AddEdge(f, function, edge) // branch -> if
-	}
-
-	return graph, function, nil
-}
-
-// Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This particular if expression doesn't do anything clever here
-// other than adding in both branches of the graph. Since we're functional, this
-// shouldn't have any ill effects.
-// XXX: is this completely true if we're running technically impure, but safe
-// built-in functions on both branches? Can we turn off half of this?
-func (obj *ExprIf) Graph() (*pgraph.Graph, interfaces.Func, error) {
-	graph, err := pgraph.NewGraph("if")
-	if err != nil {
-		return nil, nil, err
-	}
-	function, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	exprs := map[string]interfaces.Expr{
-		"c": obj.Condition,
-		"a": obj.ThenBranch,
-		"b": obj.ElseBranch,
-	}
-	for _, argName := range []string{"c", "a", "b"} { // deterministic order
-		x := exprs[argName]
-		g, f, err := x.Graph()
 		if err != nil {
 			return nil, nil, err
 		}

@@ -225,6 +225,9 @@ func (obj *Lang) Init() error {
 	if obj.Debug {
 		obj.Logf("function graph: %+v", obj.graph)
 		obj.graph.Logf(obj.Logf) // log graph output with this logger...
+		//if err := obj.graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
+		//	return errwrap.Wrapf(err, "writing graph failed")
+		//}
 	}
 
 	obj.funcs = &dage.Engine{

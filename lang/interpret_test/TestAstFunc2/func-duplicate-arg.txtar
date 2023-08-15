@@ -1,6 +1,4 @@
 -- main.mcl --
-import "fmt"
-
 # function statement
 func stradd($x) {
 	$x + $x

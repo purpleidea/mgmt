@@ -133,6 +133,10 @@ func (obj *Unifier) Unify() error {
 	// solver has found a solution, apply it...
 	// we're modifying the AST, so code can't error now...
 	for _, x := range solved.Solutions {
+		if x.Expr == nil {
+			// programming error ?
+			return fmt.Errorf("unexpected invalid solution at: %p", x)
+		}
 		if obj.Debug {
 			obj.Logf("solution: %p => %+v\t(%+v)", x.Expr, x.Type, x.Expr.String())
 		}

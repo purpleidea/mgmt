@@ -883,7 +883,6 @@ func (obj *OperatorFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-
 			// programming error safety check...
 			programmingError := false
 			keys := []string{}

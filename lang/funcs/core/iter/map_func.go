@@ -716,9 +716,9 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	}
 	typ := &types.Type{
 		Kind: types.KindFunc,
-		Map: m,
-		Ord: ord,
-		Out: obj.outputListType,
+		Map:  m,
+		Ord:  ord,
+		Out:  obj.outputListType,
 	}
 	outputListFunc := simple.SimpleFnToDirectFunc(&types.SimpleFn{
 		V: func(args []types.Value) (types.Value, error) {

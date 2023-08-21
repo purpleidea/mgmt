@@ -636,6 +636,16 @@ Loop:
 							typ, exists := funcPartials[eq.Expr1][rhsExpr]
 							if !exists {
 								funcPartials[eq.Expr1][rhsExpr] = lhsTyp // learn!
+
+								// Even though this is only a partial learn, we should still add it to the solved information!
+								if newTyp, exists := solved[rhsExpr]; !exists {
+									solved[rhsExpr] = lhsTyp // yay, we learned something!
+									//used = append(used, i) // mark equality as used up when complete!
+									logf("%s: solved partial rhs func arg equality", Name)
+								} else if err := newTyp.Cmp(lhsTyp); err != nil {
+									return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial rhs func arg equality")
+								}
+
 								continue
 							}
 							if err := typ.Cmp(lhsTyp); err != nil {
@@ -646,6 +656,16 @@ Loop:
 							typ, exists := funcPartials[eq.Expr1][lhsExpr]
 							if !exists {
 								funcPartials[eq.Expr1][lhsExpr] = rhsTyp // learn!
+
+								// Even though this is only a partial learn, we should still add it to the solved information!
+								if newTyp, exists := solved[lhsExpr]; !exists {
+									solved[lhsExpr] = rhsTyp // yay, we learned something!
+									//used = append(used, i) // mark equality as used up when complete!
+									logf("%s: solved partial lhs func arg equality", Name)
+								} else if err := newTyp.Cmp(rhsTyp); err != nil {
+									return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial lhs func arg equality")
+								}
+
 								continue
 							}
 							if err := typ.Cmp(rhsTyp); err != nil {
@@ -665,6 +685,16 @@ Loop:
 						typ, exists := funcPartials[eq.Expr1][rhsExpr]
 						if !exists {
 							funcPartials[eq.Expr1][rhsExpr] = lhsTyp // learn!
+
+							// Even though this is only a partial learn, we should still add it to the solved information!
+							if newTyp, exists := solved[rhsExpr]; !exists {
+								solved[rhsExpr] = lhsTyp // yay, we learned something!
+								//used = append(used, i) // mark equality as used up when complete!
+								logf("%s: solved partial rhs func return equality", Name)
+							} else if err := newTyp.Cmp(lhsTyp); err != nil {
+								return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial rhs func return equality")
+							}
+
 							continue
 						}
 						if err := typ.Cmp(lhsTyp); err != nil {
@@ -675,6 +705,16 @@ Loop:
 						typ, exists := funcPartials[eq.Expr1][lhsExpr]
 						if !exists {
 							funcPartials[eq.Expr1][lhsExpr] = rhsTyp // learn!
+
+							// Even though this is only a partial learn, we should still add it to the solved information!
+							if newTyp, exists := solved[lhsExpr]; !exists {
+								solved[lhsExpr] = rhsTyp // yay, we learned something!
+								//used = append(used, i) // mark equality as used up when complete!
+								logf("%s: solved partial lhs func return equality", Name)
+							} else if err := newTyp.Cmp(rhsTyp); err != nil {
+								return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial lhs func return equality")
+							}
+
 							continue
 						}
 						if err := typ.Cmp(rhsTyp); err != nil {

@@ -621,6 +621,16 @@ Loop:
 					t, exists := funcPartials[eq.Expr1][y]
 					if !exists {
 						funcPartials[eq.Expr1][y] = typ // learn!
+
+						// Even though this is only a partial learn, we should still add it to the solved information!
+						if newTyp, exists := solved[y]; !exists {
+							solved[y] = typ // yay, we learned something!
+							//used = append(used, i) // mark equality as used up when complete!
+							logf("%s: solved partial func arg equality", Name)
+						} else if err := newTyp.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func arg equality")
+						}
+
 						continue
 					}
 					if err := t.Cmp(typ); err != nil {
@@ -635,6 +645,16 @@ Loop:
 					t, exists := funcPartials[eq.Expr1][y]
 					if !exists {
 						funcPartials[eq.Expr1][y] = typ // learn!
+
+						// Even though this is only a partial learn, we should still add it to the solved information!
+						if newTyp, exists := solved[y]; !exists {
+							solved[y] = typ // yay, we learned something!
+							//used = append(used, i) // mark equality as used up when complete!
+							logf("%s: solved partial func return equality", Name)
+						} else if err := newTyp.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial func return equality")
+						}
+
 						continue
 					}
 					if err := t.Cmp(typ); err != nil {

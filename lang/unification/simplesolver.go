@@ -381,6 +381,16 @@ Loop:
 					t, exists := listPartials[eq.Expr1][y]
 					if !exists {
 						listPartials[eq.Expr1][y] = typ // learn!
+
+						// Even though this is only a partial learn, we should still add it to the solved information!
+						if newTyp, exists := solved[y]; !exists {
+							solved[y] = typ // yay, we learned something!
+							//used = append(used, i) // mark equality as used up when complete!
+							logf("%s: solved partial list val equality", Name)
+						} else if err := newTyp.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial list val equality")
+						}
+
 						continue
 					}
 					if err := t.Cmp(typ); err != nil {
@@ -440,6 +450,16 @@ Loop:
 					t, exists := mapPartials[eq.Expr1][y]
 					if !exists {
 						mapPartials[eq.Expr1][y] = typ // learn!
+
+						// Even though this is only a partial learn, we should still add it to the solved information!
+						if newTyp, exists := solved[y]; !exists {
+							solved[y] = typ // yay, we learned something!
+							//used = append(used, i) // mark equality as used up when complete!
+							logf("%s: solved partial map key/val equality", Name)
+						} else if err := newTyp.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial map key/val equality")
+						}
+
 						continue
 					}
 					if err := t.Cmp(typ); err != nil {
@@ -516,6 +536,16 @@ Loop:
 					t, exists := structPartials[eq.Expr1][y]
 					if !exists {
 						structPartials[eq.Expr1][y] = typ // learn!
+
+						// Even though this is only a partial learn, we should still add it to the solved information!
+						if newTyp, exists := solved[y]; !exists {
+							solved[y] = typ // yay, we learned something!
+							//used = append(used, i) // mark equality as used up when complete!
+							logf("%s: solved partial struct field equality", Name)
+						} else if err := newTyp.Cmp(typ); err != nil {
+							return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial struct field equality")
+						}
+
 						continue
 					}
 					if err := t.Cmp(typ); err != nil {

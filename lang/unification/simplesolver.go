@@ -358,18 +358,19 @@ Loop:
 			break // we're done, nothing left
 		}
 		used := []int{}
-		for i, x := range equalities {
-			logf("%s: match(%T): %+v", Name, x, x)
+		for eqi := 0; eqi < len(equalities); eqi++ {
+			eqx := equalities[eqi]
+			logf("%s: match(%T): %+v", Name, eqx, eqx)
 
 			// TODO: could each of these cases be implemented as a
 			// method on the Invariant type to simplify this code?
-			switch eq := x.(type) {
+			switch eq := eqx.(type) {
 			// trivials
 			case *interfaces.EqualsInvariant:
 				typ, exists := solved[eq.Expr]
 				if !exists {
 					solved[eq.Expr] = eq.Type // yay, we learned something!
-					used = append(used, i)    // mark equality as used up
+					used = append(used, eqi)  // mark equality as used up
 					logf("%s: solved trivial equality", Name)
 					continue
 				}
@@ -379,7 +380,7 @@ Loop:
 					// try to trick the solver, or we're in a recursive try
 					return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with equals")
 				}
-				used = append(used, i) // mark equality as duplicate
+				used = append(used, eqi) // mark equality as duplicate
 				logf("%s: duplicate trivial equality", Name)
 				continue
 
@@ -447,7 +448,7 @@ Loop:
 
 					solved[eq.Expr1] = typ        // yay, we learned something!
 					solved[eq.Expr2Val] = typ.Val // yay, we learned something!
-					used = append(used, i)        // mark equality as used up
+					used = append(used, eqi)      // mark equality as used up
 					logf("%s: solved list wrap partial", Name)
 					continue
 				}
@@ -528,7 +529,7 @@ Loop:
 					solved[eq.Expr1] = typ        // yay, we learned something!
 					solved[eq.Expr2Key] = typ.Key // yay, we learned something!
 					solved[eq.Expr2Val] = typ.Val // yay, we learned something!
-					used = append(used, i)        // mark equality as used up
+					used = append(used, eqi)      // mark equality as used up
 					logf("%s: solved map wrap partial", Name)
 					continue
 				}
@@ -612,7 +613,7 @@ Loop:
 					for name, y := range eq.Expr2Map {
 						solved[y] = typ.Map[name] // yay, we learned something!
 					}
-					used = append(used, i) // mark equality as used up
+					used = append(used, eqi) // mark equality as used up
 					logf("%s: solved struct wrap partial", Name)
 					continue
 				}
@@ -900,7 +901,7 @@ Loop:
 						solved[y] = typ.Map[name] // yay, we learned something!
 					}
 					solved[eq.Expr2Out] = typ.Out // yay, we learned something!
-					used = append(used, i)        // mark equality as used up
+					used = append(used, eqi)      // mark equality as used up
 					logf("%s: solved func wrap partial", Name)
 					continue
 				}
@@ -935,8 +936,8 @@ Loop:
 						}
 					}
 
-					solved[eq.Expr1] = typ // yay, we learned something!
-					used = append(used, i) // mark equality as used up
+					solved[eq.Expr1] = typ   // yay, we learned something!
+					used = append(used, eqi) // mark equality as used up
 					logf("%s: solved call wrap partial", Name)
 					continue
 				}
@@ -956,19 +957,19 @@ Loop:
 					if err := typ1.Cmp(typ2); err != nil {
 						return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with equality")
 					}
-					used = append(used, i) // mark equality as used up
+					used = append(used, eqi) // mark equality as used up
 					logf("%s: duplicate regular equality", Name)
 					continue
 				}
 				if exists1 && !exists2 { // first equality already connects
-					solved[eq.Expr2] = typ1 // yay, we learned something!
-					used = append(used, i)  // mark equality as used up
+					solved[eq.Expr2] = typ1  // yay, we learned something!
+					used = append(used, eqi) // mark equality as used up
 					logf("%s: solved regular equality", Name)
 					continue
 				}
 				if exists2 && !exists1 { // second equality already connects
-					solved[eq.Expr1] = typ2 // yay, we learned something!
-					used = append(used, i)  // mark equality as used up
+					solved[eq.Expr1] = typ2  // yay, we learned something!
+					used = append(used, eqi) // mark equality as used up
 					logf("%s: solved regular equality", Name)
 					continue
 				}
@@ -1005,7 +1006,7 @@ Loop:
 				equalities = append(equalities, eqs...)
 				exclusives = append(exclusives, exs...)
 
-				used = append(used, i) // mark equality as used up
+				used = append(used, eqi) // mark equality as used up
 				logf("%s: solved `generator` equality", Name)
 				continue
 
@@ -1013,7 +1014,7 @@ Loop:
 			case *interfaces.AnyInvariant:
 				// this basically ensures that the expr gets solved
 				if _, exists := solved[eq.Expr]; exists {
-					used = append(used, i) // mark equality as used up
+					used = append(used, eqi) // mark equality as used up
 					logf("%s: solved `any` equality", Name)
 				}
 				continue
@@ -1029,7 +1030,7 @@ Loop:
 				continue
 
 			default:
-				return nil, fmt.Errorf("unknown invariant type: %T", x)
+				return nil, fmt.Errorf("unknown invariant type: %T", eqx)
 			}
 		} // end inner for loop
 		if len(used) == 0 {

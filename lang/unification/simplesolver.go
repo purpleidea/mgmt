@@ -316,14 +316,37 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 		return unsolved, result
 	}
 
+	// list all the expr's connected to expr, use pairs as chains
+	listConnectedFn := func(expr interfaces.Expr, exprs []*interfaces.EqualityInvariant) []interfaces.Expr {
+		pairsType := pairs(exprs)
+		return pairsType.DFS(expr)
+	}
+
+	// does the equality invariant already exist in the set? order of expr1
+	// and expr2 doesn't matter
+	eqContains := func(eq *interfaces.EqualityInvariant, pairs []*interfaces.EqualityInvariant) bool {
+		for _, x := range pairs {
+			if eq.Expr1 == x.Expr1 && eq.Expr2 == x.Expr2 {
+				return true
+			}
+			if eq.Expr1 == x.Expr2 && eq.Expr2 == x.Expr1 { // reverse
+				return true
+			}
+		}
+		return false
+	}
+
 	// build a static list that won't get consumed
+	eqInvariants := []*interfaces.EqualityInvariant{}
 	fnInvariants := []*interfaces.EqualityWrapFuncInvariant{}
 	for _, x := range equalities {
-		eq, ok := x.(*interfaces.EqualityWrapFuncInvariant)
-		if !ok {
-			continue
+		if eq, ok := x.(*interfaces.EqualityInvariant); ok {
+			eqInvariants = append(eqInvariants, eq)
 		}
-		fnInvariants = append(fnInvariants, eq)
+
+		if eq, ok := x.(*interfaces.EqualityWrapFuncInvariant); ok {
+			fnInvariants = append(fnInvariants, eq)
+		}
 	}
 
 	logf("%s: starting loop with %d equalities", Name, len(equalities))
@@ -662,12 +685,39 @@ Loop:
 					}
 				}
 
+				equivs := listConnectedFn(eq.Expr1, eqInvariants) // or equivalent!
+				if debug && len(equivs) > 0 {
+					logf("%s: equiv %d: %p %+v", Name, len(equivs), eq.Expr1, eq.Expr1)
+					for i, x := range equivs {
+						logf("%s: equiv(%d): %p %+v", Name, i, x, x)
+					}
+				}
+				// This determines if a pointer is equivalent to
+				// a pointer we're interested to match against.
+				inEquiv := func(needle interfaces.Expr) bool {
+					for _, x := range equivs {
+						if x == needle {
+							return true
+						}
+					}
+					return false
+				}
 				// is there another EqualityWrapFuncInvariant with the same Expr1 pointer?
 				for _, fn := range fnInvariants {
-					if eq.Expr1 != fn.Expr1 {
+					// is this fn.Expr1 related by equivalency graph to eq.Expr1 ?
+					if (eq.Expr1 != fn.Expr1) && !inEquiv(fn.Expr1) {
+						if debug {
+							logf("%s: equiv skip: %p %+v", Name, fn.Expr1, fn.Expr1)
+						}
 						continue
 					}
-					// wow they match
+					if debug {
+						logf("%s: equiv used: %p %+v", Name, fn.Expr1, fn.Expr1)
+					}
+					//if eq.Expr1 != fn.Expr1 { // previously
+					//	continue
+					//}
+					// wow they match or are equivalent
 
 					if len(eq.Expr2Ord) != len(fn.Expr2Ord) {
 						return nil, fmt.Errorf("func arg count differs")
@@ -680,6 +730,20 @@ Loop:
 
 						lhsTyp, lhsExists := solved[lhsExpr]
 						rhsTyp, rhsExists := solved[rhsExpr]
+
+						// add to eqInvariants if not already there!
+						// TODO: If this parent func invariant gets solved,
+						// will being unable to add this later be an issue?
+						newEq := &interfaces.EqualityInvariant{
+							Expr1: lhsExpr,
+							Expr2: rhsExpr,
+						}
+						if !eqContains(newEq, eqInvariants) {
+							logf("%s: new equality: %p %+v <-> %p %+v", Name, newEq.Expr1, newEq.Expr1, newEq.Expr2, newEq.Expr2)
+							eqInvariants = append(eqInvariants, newEq)
+							// TODO: add to main invariant list too?
+							// TODO: add it as a generator or to the equalities array directly?
+						}
 
 						// both solved or both unsolved we skip
 						if lhsExists && !rhsExists { // teach rhs
@@ -729,6 +793,20 @@ Loop:
 
 					lhsTyp, lhsExists := solved[lhsExpr]
 					rhsTyp, rhsExists := solved[rhsExpr]
+
+					// add to eqInvariants if not already there!
+					// TODO: If this parent func invariant gets solved,
+					// will being unable to add this later be an issue?
+					newEq := &interfaces.EqualityInvariant{
+						Expr1: lhsExpr,
+						Expr2: rhsExpr,
+					}
+					if !eqContains(newEq, eqInvariants) {
+						logf("%s: new equality: %p %+v <-> %p %+v", Name, newEq.Expr1, newEq.Expr1, newEq.Expr2, newEq.Expr2)
+						eqInvariants = append(eqInvariants, newEq)
+						// TODO: add to main invariant list too?
+						// TODO: add it as a generator or to the equalities array directly?
+					}
 
 					// both solved or both unsolved we skip
 					if lhsExists && !rhsExists { // teach rhs

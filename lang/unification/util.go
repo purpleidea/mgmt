@@ -52,3 +52,73 @@ func UniqueExprList(exprList []interfaces.Expr) []interfaces.Expr {
 	exprMap := ExprListToExprMap(exprList)
 	return ExprMapToExprList(exprMap)
 }
+
+// ExprContains is an "in array" function to test for an expr in a slice of
+// expressions.
+func ExprContains(needle interfaces.Expr, haystack []interfaces.Expr) bool {
+	for _, v := range haystack {
+		if needle == v {
+			return true
+		}
+	}
+	return false
+}
+
+// pairs is a simple list of pairs of expressions which can be used as a simple
+// undirected graph structure, or as a simple list of equalities.
+type pairs []*interfaces.EqualityInvariant
+
+// Vertices returns the list of vertices that the input expr is directly
+// connected to.
+func (obj pairs) Vertices(expr interfaces.Expr) []interfaces.Expr {
+	m := make(map[interfaces.Expr]struct{})
+	for _, x := range obj {
+		if x.Expr1 == x.Expr2 { // skip circular
+			continue
+		}
+		if x.Expr1 == expr {
+			m[x.Expr2] = struct{}{}
+		}
+		if x.Expr2 == expr {
+			m[x.Expr1] = struct{}{}
+		}
+	}
+
+	out := []interfaces.Expr{}
+	// FIXME: can we do this loop in a deterministic, sorted way?
+	for k := range m {
+		out = append(out, k)
+	}
+
+	return out
+}
+
+// DFS returns a depth first search for the graph, starting at the input vertex.
+func (obj pairs) DFS(start interfaces.Expr) []interfaces.Expr {
+	var d []interfaces.Expr // discovered
+	var s []interfaces.Expr // stack
+	found := false
+	for _, x := range obj { // does the start exist?
+		if x.Expr1 == start || x.Expr2 == start {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil // TODO: error
+	}
+	v := start
+	s = append(s, v)
+	for len(s) > 0 {
+		v, s = s[len(s)-1], s[:len(s)-1] // s.pop()
+
+		if !ExprContains(v, d) { // if not discovered
+			d = append(d, v) // label as discovered
+
+			for _, w := range obj.Vertices(v) {
+				s = append(s, w)
+			}
+		}
+	}
+	return d
+}

@@ -501,9 +501,8 @@ func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) *types.Type {
 		panic("unexpected type")
 	}
 	obj.fn = fn
-	if obj.fn.T == nil { // XXX: should this even ever happen? What about argnames here?
-		obj.fn.T = typ.Copy() // overwrites any contained "variant" type
-	}
+	// FIXME: if obj.fn.T == nil {} // occasionally this is nil, is it a bug?
+	obj.fn.T = typ.Copy() // overwrites any contained "variant" type
 
 	return obj.fn.T
 }

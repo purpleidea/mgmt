@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+$zero = 0
+$one = $zero + 1
+$two = $one + 1 # needs a chain to panic
+
+test fmt.printf("%d%d%d", $zero, $one, $two) {}
+-- OUTPUT --
+Vertex: test[012]

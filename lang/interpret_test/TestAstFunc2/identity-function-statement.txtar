@@ -1,0 +1,9 @@
+-- main.mcl --
+# function statement
+func identity($x) {
+	$x
+}
+
+test identity("hey") {}
+-- OUTPUT --
+Vertex: test[hey]

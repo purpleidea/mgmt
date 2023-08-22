@@ -264,6 +264,9 @@ func Into(v Value, rv reflect.Value) error {
 		}
 		rv = rv.Elem() // un-nest rv from pointer
 	}
+	if !rv.CanSet() {
+		return fmt.Errorf("can't set value, is it unexported?")
+	}
 
 	// capture rv and v in a closure that is static for the scope of this Into() call
 	// mustInto ensures rv is in a list of compatible types before attempting to reflect it

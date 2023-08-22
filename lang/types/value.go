@@ -392,7 +392,12 @@ func Into(v Value, rv reflect.Value) error {
 			return err
 		}
 
+		keys := []string{}
 		for k := range v.T.Map {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys { // loop in deterministic order
 			mk := k
 			// map mcl field name -> go field name based on `lang:""` tag
 			if key, exists := mapping[k]; exists {

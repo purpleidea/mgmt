@@ -742,8 +742,8 @@ Loop:
 						if !eqContains(newEq, eqInvariants) {
 							logf("%s: new equality: %p %+v <-> %p %+v", Name, newEq.Expr1, newEq.Expr1, newEq.Expr2, newEq.Expr2)
 							eqInvariants = append(eqInvariants, newEq)
-							// TODO: add to main invariant list too?
-							// TODO: add it as a generator or to the equalities array directly?
+							// TODO: add it as a generator instead?
+							equalities = append(equalities, newEq)
 						}
 
 						// both solved or both unsolved we skip
@@ -805,8 +805,8 @@ Loop:
 					if !eqContains(newEq, eqInvariants) {
 						logf("%s: new equality: %p %+v <-> %p %+v", Name, newEq.Expr1, newEq.Expr1, newEq.Expr2, newEq.Expr2)
 						eqInvariants = append(eqInvariants, newEq)
-						// TODO: add to main invariant list too?
-						// TODO: add it as a generator or to the equalities array directly?
+						// TODO: add it as a generator instead?
+						equalities = append(equalities, newEq)
 					}
 
 					// both solved or both unsolved we skip

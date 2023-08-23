@@ -1,0 +1,19 @@
+-- main.mcl --
+$x = "top-level"
+func f1() {
+  $x + "1"
+}
+$f2 = func() {
+  $x + "2"
+}
+$call_f1 = func($x) {
+  f1() + $x
+}
+$call_f2 = func($x) {
+  $f2() + $x
+}
+test $call_f1("!") {}
+test $call_f2("?") {}
+-- OUTPUT --
+Vertex: test[top-level1!]
+Vertex: test[top-level2?]

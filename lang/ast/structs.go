@@ -8464,6 +8464,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 		// This ExprVar now has the only reference to monomorphicTarget, so it is our
 		// responsibility to scope-check it. But make sure monomorphicTarget does not
 		// refer to itself!
+		// FIXME: use the scope from the definition site, not the use site!
 		targetScope := obj.scope.Copy()
 		targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
 		err = monomorphicTarget.SetScope(targetScope, map[string]interfaces.Expr{})

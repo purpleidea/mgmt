@@ -53,10 +53,19 @@ type PasswordRes struct {
 
 	init *engine.Init
 
+	// Length is the number of characters to return.
 	// FIXME: is uint16 too big?
-	Length        uint16 `yaml:"length"` // number of characters to return
-	Saved         bool   // this caches the password in the clear locally
-	CheckRecovery bool   // recovery from integrity checks by re-generating
+	Length uint16 `lang:"length" yaml:"length"`
+
+	// Saved caches the password in the clear locally.
+	Saved bool
+
+	// CheckRecovery specifies that we should recover from, regenerate, and
+	// carry on casually without erroring the resource if the "check"
+	// facility fails. This can happen when loading a saved password from
+	// disk which is not of the expected length. In this case, we'd discard
+	// the old saved password and create a new one without erroring.
+	CheckRecovery bool
 
 	path       string // the path to local storage
 	recWatcher *recwatch.RecWatcher

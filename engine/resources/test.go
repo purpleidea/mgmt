@@ -55,7 +55,7 @@ type TestRes struct {
 	Uint32 uint32 `lang:"uint32" yaml:"uint32"`
 	Uint64 uint64 `lang:"uint64" yaml:"uint64"`
 
-	//Uintptr uintptr `yaml:"uintptr"`
+	//Uintptr uintptr `lang:"uintptr" yaml:"uintptr"`
 	Byte byte `lang:"byte" yaml:"byte"` // alias for uint8
 	Rune rune `lang:"rune" yaml:"rune"` // alias for int32, represents a Unicode code point
 
@@ -76,10 +76,11 @@ type TestRes struct {
 	SliceString []string          `lang:"slicestring" yaml:"slicestring"`
 	MapIntFloat map[int64]float64 `lang:"mapintfloat" yaml:"mapintfloat"`
 	MixedStruct struct {
-		somebool  bool
-		somestr   string
-		someint   int64
-		somefloat float64
+		SomeBool         bool    `lang:"somebool" yaml:"somebool"`
+		SomeStr          string  `lang:"somestr" yaml:"somestr"`
+		SomeInt          int64   `lang:"someint" yaml:"someint"`
+		SomeFloat        float64 `lang:"somefloat" yaml:"somefloat"`
+		somePrivatefield string
 	} `lang:"mixedstruct" yaml:"mixedstruct"`
 	Interface interface{} `lang:"interface" yaml:"interface"`
 
@@ -394,8 +395,8 @@ func (obj *TestRes) GroupCmp(r engine.GroupableRes) error {
 // TestSends is the struct of data which is sent after a successful Apply.
 type TestSends struct {
 	// Hello is some value being sent.
-	Hello  *string `lang:"hello"`
-	Answer int     `lang:"answer"` // some other value being sent
+	Hello  *string `lang:"hello" yaml:"hello"`
+	Answer int     `lang:"answer" yaml:"answer"` // some other value being sent
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.

@@ -108,9 +108,14 @@ type FileRes struct {
 	// Path, which defaults to the name if not specified, represents the
 	// destination path for the file or directory being managed. It must be
 	// an absolute path, and as a result must start with a slash.
-	Path     string `lang:"path" yaml:"path"`
-	Dirname  string `lang:"dirname" yaml:"dirname"`   // override the path dirname
-	Basename string `lang:"basename" yaml:"basename"` // override the path basename
+	Path string `lang:"path" yaml:"path"`
+
+	// Dirname is used to override the path dirname. (The directory
+	// portion.)
+	Dirname string `lang:"dirname" yaml:"dirname"`
+
+	// Basename is used to override the path basename. (The file portion.)
+	Basename string `lang:"basename" yaml:"basename"`
 
 	// State specifies the desired state of the file. It can be either
 	// `exists` or `absent`. If you do not specify this, we will not be able
@@ -123,6 +128,7 @@ type FileRes struct {
 	// left undefined. It cannot be combined with the Source or Fragments
 	// parameters.
 	Content *string `lang:"content" yaml:"content"`
+
 	// Source specifies the source contents for the file resource. It cannot
 	// be combined with the Content or Fragments parameters. It must be an
 	// absolute path, and it can point to a file or a directory. If it
@@ -139,6 +145,7 @@ type FileRes struct {
 	// combined with the Purge option too, then any unmanaged file in this
 	// dir will be removed.
 	Source string `lang:"source" yaml:"source"`
+
 	// Fragments specifies that the file is built from a list of individual
 	// files. If one of the files is a directory, then the list of files in
 	// that directory are the fragments to combine. Multiple of these can be
@@ -156,14 +163,25 @@ type FileRes struct {
 	// Owner specifies the file owner. You can specify either the string
 	// name, or a string representation of the owner integer uid.
 	Owner string `lang:"owner" yaml:"owner"`
+
 	// Group specifies the file group. You can specify either the string
 	// name, or a string representation of the group integer gid.
 	Group string `lang:"group" yaml:"group"`
+
 	// Mode is the mode of the file as a string representation of the octal
 	// form or symbolic form.
-	Mode    string `lang:"mode" yaml:"mode"`
-	Recurse bool   `lang:"recurse" yaml:"recurse"`
-	Force   bool   `lang:"force" yaml:"force"`
+	Mode string `lang:"mode" yaml:"mode"`
+
+	// Recurse specifies if you want to work recursively on the resource. It
+	// is used when copying a source directory, or to determine if a watch
+	// should be recursive or not.
+	// FIXME: There are some unimplemented cases where we should look at it.
+	Recurse bool `lang:"recurse" yaml:"recurse"`
+
+	// Force must be set if we want to perform an unusual operation, such as
+	// changing a file into a directory or vice-versa.
+	Force bool `lang:"force" yaml:"force"`
+
 	// Purge specifies that when true, any unmanaged file in this file
 	// directory will be removed. As a result, this file resource must be a
 	// directory. This isn't particularly meaningful if you don't also set

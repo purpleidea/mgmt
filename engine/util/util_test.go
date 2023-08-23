@@ -170,8 +170,8 @@ func TestStructTagToFieldName2(t *testing.T) {
 }
 
 type testEngineRes struct {
-	PublicProp1  string
-	PublicProp2  map[string][]map[string]int
+	PublicProp1  string                      `lang:"PublicProp1" yaml:"PublicProp1"`
+	PublicProp2  map[string][]map[string]int `lang:"PublicProp2" yaml:"PublicProp2"`
 	privateProp1 bool
 	privateProp2 []int
 }
@@ -204,11 +204,11 @@ func (t *testEngineRes) Validate() error { return nil }
 
 func (t *testEngineRes) Watch(context.Context) error { return nil }
 
-func TestStructKindToFieldNameTypeMap(t *testing.T) {
+func TestLangFieldNameToStructType(t *testing.T) {
 	k := "test-kind"
 
 	engine.RegisterResource(k, func() engine.Res { return &testEngineRes{} })
-	res, err := StructKindToFieldNameTypeMap(k)
+	res, err := LangFieldNameToStructType(k)
 
 	expected := map[string]*types.Type{
 		"PublicProp1": types.TypeStr,

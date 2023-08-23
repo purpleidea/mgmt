@@ -52,15 +52,17 @@ type PippetRes struct {
 	// from a module. The Puppet installation local to the mgmt agent
 	// machine must be able recognize it. It has to be a native type though,
 	// as opposed to defined types from your Puppet manifest code.
-	Type string `yaml:"type" json:"type"`
+	Type string `lang:"type" yaml:"type" json:"type"`
+
 	// Title is used by Puppet as the resource title. Puppet will often
 	// assign special meaning to the title, e.g. use it as the path for a
 	// file resource, or the name of a package.
-	Title string `yaml:"title" json:"title"`
+	Title string `lang:"title" yaml:"title" json:"title"`
+
 	// Params is expected to be a hash in YAML format, pairing resource
 	// parameter names with their respective values, e.g. { ensure: present
 	// }
-	Params string `yaml:"params" json:"params"`
+	Params string `lang:"params" yaml:"params" json:"params"`
 
 	runner *pippetReceiver
 }

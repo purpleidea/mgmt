@@ -46,28 +46,32 @@ const (
 var ErrResourceInsufficientParameters = errors.New("insufficient parameters for this resource")
 
 // HostnameRes is a resource that allows setting and watching the hostname.
-//
-// StaticHostname is the one configured in /etc/hostname or a similar file. It
-// is chosen by the local user. It is not always in sync with the current host
-// name as returned by the gethostname() system call.
-//
-// TransientHostname is the one configured via the kernel's sethostbyname(). It
-// can be different from the static hostname in case DHCP or mDNS have been
-// configured to change the name based on network information.
-//
-// PrettyHostname is a free-form UTF8 host name for presentation to the user.
-//
-// Hostname is the fallback value for all 3 fields above, if only Hostname is
-// specified, it will set all 3 fields to this value.
 type HostnameRes struct {
 	traits.Base // add the base methods without re-implementation
 
 	init *engine.Init
 
-	Hostname          string `yaml:"hostname"`
-	PrettyHostname    string `yaml:"pretty_hostname"`
-	StaticHostname    string `yaml:"static_hostname"`
-	TransientHostname string `yaml:"transient_hostname"`
+	// Hostname specifies the hostname we want to set in all of the places
+	// that it's possible. This is the fallback value for all the three
+	// fields below. If only this Hostname field is specified, this will set
+	// all tree fields (PrettyHostname, StaticHostname, TransientHostname)
+	// to this value.
+	Hostname string `lang:"hostname" yaml:"hostname"`
+
+	// PrettyHostname is a free-form UTF8 host name for presentation to the
+	// user.
+	PrettyHostname string `lang:"pretty_hostname" yaml:"pretty_hostname"`
+
+	// StaticHostname is the one configured in /etc/hostname or a similar
+	// file. It is chosen by the local user. It is not always in sync with
+	// the current host name as returned by the gethostname() system call.
+	StaticHostname string `lang:"static_hostname" yaml:"static_hostname"`
+
+	// TransientHostname is the one configured via the kernel's
+	// sethostbyname(). It can be different from the static hostname in case
+	// DHCP or mDNS have been configured to change the name based on network
+	// information.
+	TransientHostname string `lang:"transient_hostname" yaml:"transient_hostname"`
 
 	conn *dbus.Conn
 }

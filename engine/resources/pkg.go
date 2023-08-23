@@ -56,10 +56,25 @@ type PkgRes struct {
 
 	init *engine.Init
 
-	State            string `yaml:"state"`            // state: installed, uninstalled, newest, <version>
-	AllowUntrusted   bool   `yaml:"allowuntrusted"`   // allow untrusted packages to be installed?
-	AllowNonFree     bool   `yaml:"allownonfree"`     // allow nonfree packages to be found?
-	AllowUnsupported bool   `yaml:"allowunsupported"` // allow unsupported packages to be found?
+	// State determines if we want to install or uninstall the package, and
+	// what version we want to pin if any. Valid values include: installed,
+	// uninstalled, newest, and `version`, where you just put the raw
+	// version string desired.
+	State string `lang:"state" yaml:"state"`
+
+	// AllowUntrusted specifies if we want to allow untrusted packages to be
+	// installed. Please see the PackageKit documentation for more
+	// information.
+	AllowUntrusted bool `lang:"allowuntrusted" yaml:"allowuntrusted"`
+
+	// AllowNonFree specifies if we want to allow nonfree packages to be
+	// found? Please see the PackageKit documentation for more information.
+	AllowNonFree bool `lang:"allownonfree" yaml:"allownonfree"`
+
+	// AllowUnsupported specifies if we want to unsupported packages to be
+	// found? Please see the PackageKit documentation for more information.
+	AllowUnsupported bool `lang:"allowunsupported" yaml:"allowunsupported"`
+
 	//bus              *packagekit.Conn    // pk bus connection
 	fileList []string // FIXME: update if pkg changes
 }

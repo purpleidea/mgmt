@@ -49,51 +49,61 @@ type ExecRes struct {
 	init *engine.Init
 
 	// Cmd is the command to run. If this is not specified, we use the name.
-	Cmd string `yaml:"cmd"`
+	Cmd string `lang:"cmd" yaml:"cmd"`
+
 	// Args is a list of args to pass to Cmd. This can be used *instead* of
 	// passing the full command and args as a single string to Cmd. It can
 	// only be used when a Shell is *not* specified. The advantage of this
 	// is that you don't have to worry about escape characters.
-	Args []string `yaml:"args"`
+	Args []string `lang:"args" yaml:"args"`
+
 	// Cwd is the dir to run the command in. If empty, then this will use
 	// the working directory of the calling process. (This process is mgmt,
 	// not the process being run here.)
-	Cwd string `yaml:"cwd"`
+	Cwd string `lang:"cwd" yaml:"cwd"`
+
 	// Shell is the (optional) shell to use to run the cmd. If you specify
 	// this, then you can't use the Args parameter.
-	Shell string `yaml:"shell"`
+	Shell string `lang:"shell" yaml:"shell"`
+
 	// Timeout is the number of seconds to wait before sending a Kill to the
 	// running command. If the Kill is received before the process exits,
 	// then this be treated as an error.
-	Timeout uint64 `yaml:"timeout"`
+	Timeout uint64 `lang:"timeout" yaml:"timeout"`
+
 	// Env allows the user to specify environment variables for script
 	// execution. These are taken using a map of format of VAR_NAME -> value.
-	Env map[string]string `yaml:"env"`
+	Env map[string]string `lang:"env" yaml:"env"`
 
-	// Watch is the command to run to detect event changes. Each line of
+	// WatchCmd is the command to run to detect event changes. Each line of
 	// output from this command is treated as an event.
-	WatchCmd string `yaml:"watchcmd"`
+	WatchCmd string `lang:"watchcmd" yaml:"watchcmd"`
+
 	// WatchCwd is the Cwd for the WatchCmd. See the docs for Cwd.
-	WatchCwd string `yaml:"watchcwd"`
+	WatchCwd string `lang:"watchcwd" yaml:"watchcwd"`
+
 	// WatchShell is the Shell for the WatchCmd. See the docs for Shell.
-	WatchShell string `yaml:"watchshell"`
+	WatchShell string `lang:"watchshell" yaml:"watchshell"`
 
 	// IfCmd is the command that runs to guard against running the Cmd. If
 	// this command succeeds, then Cmd *will* be run. If this command
 	// returns a non-zero result, then the Cmd will not be run. Any error
 	// scenario or timeout will cause the resource to error.
-	IfCmd string `yaml:"ifcmd"`
+	IfCmd string `lang:"ifcmd" yaml:"ifcmd"`
+
 	// IfCwd is the Cwd for the IfCmd. See the docs for Cwd.
-	IfCwd string `yaml:"ifcwd"`
+	IfCwd string `lang:"ifcwd" yaml:"ifcwd"`
+
 	// IfShell is the Shell for the IfCmd. See the docs for Shell.
-	IfShell string `yaml:"ifshell"`
+	IfShell string `lang:"ifshell" yaml:"ifshell"`
 
 	// User is the (optional) user to use to execute the command. It is used
 	// for any command being run.
-	User string `yaml:"user"`
+	User string `lang:"user" yaml:"user"`
+
 	// Group is the (optional) group to use to execute the command. It is
 	// used for any command being run.
-	Group string `yaml:"group"`
+	Group string `lang:"group" yaml:"group"`
 
 	output *string // all cmd output, read only, do not set!
 	stdout *string // the cmd stdout, read only, do not set!

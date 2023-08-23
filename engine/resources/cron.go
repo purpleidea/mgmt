@@ -75,6 +75,7 @@ func init() {
 }
 
 // CronRes is a systemd-timer cron resource.
+// TODO: If we want to have an actual `crond` resource, name it LegacyCron.
 type CronRes struct {
 	traits.Base
 	traits.Edgeable
@@ -86,46 +87,52 @@ type CronRes struct {
 	// Unit is the name of the systemd service unit. It is only necessary to
 	// set if you want to specify a service with a different name than the
 	// resource.
-	Unit string `yaml:"unit"`
+	Unit string `lang:"unit" yaml:"unit"`
+
 	// State must be 'exists' or 'absent'.
-	State string `yaml:"state"`
+	State string `lang:"state" yaml:"state"`
 
 	// Session, if true, creates the timer as the current user, rather than
-	// root. The service it points to must also be a user unit. It defaults to
-	// false.
-	Session bool `yaml:"session"`
+	// root. The service it points to must also be a user unit. It defaults
+	// to false.
+	Session bool `lang:"session" yaml:"session"`
 
 	// Trigger is the type of timer. Valid types are 'OnCalendar',
 	// 'OnActiveSec'. 'OnBootSec'. 'OnStartupSec'. 'OnUnitActiveSec', and
 	// 'OnUnitInactiveSec'. For more information see 'man systemd.timer'.
-	Trigger string `yaml:"trigger"`
+	Trigger string `lang:"trigger" yaml:"trigger"`
+
 	// Time must be used with all triggers. For 'OnCalendar', it must be in
 	// the format defined in 'man systemd-time' under the heading 'Calendar
 	// Events'. For all other triggers, time should be a valid time span as
 	// defined in 'man systemd-time'
-	Time string `yaml:"time"`
+	Time string `lang:"time" yaml:"time"`
 
 	// AccuracySec is the accuracy of the timer in systemd-time time span
 	// format. It defaults to one minute.
-	AccuracySec string `yaml:"accuracysec"`
+	AccuracySec string `lang:"accuracysec" yaml:"accuracysec"`
+
 	// RandomizedDelaySec delays the timer by a randomly selected, evenly
-	// distributed amount of time between 0 and the specified time value. The
-	// value must be a valid systemd-time time span.
-	RandomizedDelaySec string `yaml:"randomizeddelaysec"`
+	// distributed amount of time between 0 and the specified time value.
+	// The value must be a valid systemd-time time span.
+	RandomizedDelaySec string `lang:"randomizeddelaysec" yaml:"randomizeddelaysec"`
 
 	// Persistent, if true, means the time when the service unit was last
 	// triggered is stored on disk. When the timer is activated, the service
-	// unit is triggered immediately if it would have been triggered at least
-	// once during the time when the timer was inactive. It defaults to false.
-	Persistent bool `yaml:"persistent"`
+	// unit is triggered immediately if it would have been triggered at
+	// least once during the time when the timer was inactive. It defaults
+	// to false.
+	Persistent bool `lang:"persistent" yaml:"persistent"`
+
 	// WakeSystem, if true, will cause the system to resume from suspend,
-	// should it be suspended and if the system supports this. It defaults to
-	// false.
-	WakeSystem bool `yaml:"wakesystem"`
-	// RemainAfterElapse, if true, means an elapsed timer will stay loaded, and
-	// its state remains queriable. If false, an elapsed timer unit that cannot
-	// elapse anymore is unloaded. It defaults to true.
-	RemainAfterElapse bool `yaml:"remainafterelapse"`
+	// should it be suspended and if the system supports this. It defaults
+	// to false.
+	WakeSystem bool `lang:"wakesystem" yaml:"wakesystem"`
+
+	// RemainAfterElapse, if true, means an elapsed timer will stay loaded,
+	// and its state remains queriable. If false, an elapsed timer unit that
+	// cannot elapse anymore is unloaded. It defaults to true.
+	RemainAfterElapse bool `lang:"remainafterelapse" yaml:"remainafterelapse"`
 
 	file       *FileRes             // nested file resource
 	recWatcher *recwatch.RecWatcher // recwatcher for nested file

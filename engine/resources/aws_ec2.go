@@ -147,26 +147,42 @@ var AwsRegions = []string{
 // http://docs.aws.amazon.com/cli/latest/userguide/cli-config-files.html
 type AwsEc2Res struct {
 	traits.Base // add the base methods without re-implementation
+	traits.Sendable
 
 	init *engine.Init
 
-	State   string `yaml:"state"`   // state: running, stopped, terminated
-	Region  string `yaml:"region"`  // region must match an element of AwsRegions
-	Type    string `yaml:"type"`    // type of ec2 instance, eg: t2.micro
-	ImageID string `yaml:"imageid"` // imageid must be available on the chosen region
+	// State must be running, stopped, or terminated.
+	State string `lang:"state" yaml:"state"`
 
-	WatchEndpoint   string `yaml:"watchendpoint"`   // the public url of the sns endpoint, eg: http://server:12345/
-	WatchListenAddr string `yaml:"watchlistenaddr"` // the local address or port that the sns listens on, eg: 10.0.0.0:23456 or 23456
+	// Region must match one of the AwsRegions. This list is static at the
+	// moment.
+	Region string `lang:"region" yaml:"region"`
+
+	// Type of ec2 instance, eg: t2.micro for example.
+	Type string `lang:"type" yaml:"type"`
+
+	// ImageID to use, and note that it must be available on the chosen
+	// region.
+	ImageID string `lang:"imageid" yaml:"imageid"`
+
+	// WatchEndpoint is the public url of the sns endpoint, eg:
+	// http://server:12345/ for example.
+	WatchEndpoint string `lang:"watchendpoint" yaml:"watchendpoint"`
+
+	// WatchListenAddr is the local address or port that the sns listens on,
+	// eg: 10.0.0.0:23456 or 23456.
+	WatchListenAddr string `lang:"watchlistenaddr" yaml:"watchlistenaddr"`
+
 	// ErrorOnMalformedPost controls whether or not malformed HTTP post
 	// requests, that cause JSON decoder errors, will also make the engine
 	// shut down. If ErrorOnMalformedPost set to true and an error occurs,
 	// Watch() will return the error and the engine will shut down.
-	ErrorOnMalformedPost bool `yaml:"erroronmalformedpost"`
+	ErrorOnMalformedPost bool `lang:"erroronmalformedpost" yaml:"erroronmalformedpost"`
 
 	// UserData is used to run bash and cloud-init commands on first launch.
 	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	// for documantation and examples.
-	UserData string `yaml:"userdata"`
+	UserData string `lang:"userdata" yaml:"userdata"`
 
 	client *ec2.EC2 // client session for AWS API calls
 

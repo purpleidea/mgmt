@@ -58,7 +58,10 @@ type NspawnRes struct {
 
 	init *engine.Init
 
-	State string `yaml:"state"`
+	// State specifies the desired state for this resource. This must be
+	// either `running` or `stopped`.
+	State string `lang:"state" yaml:"state"`
+
 	// We're using the svc resource to start and stop the machine because
 	// that's what machinectl does. We're not using svc.Watch because then we
 	// would have two watches potentially racing each other and producing

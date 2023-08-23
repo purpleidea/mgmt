@@ -40,11 +40,17 @@ type MsgRes struct {
 
 	init *engine.Init
 
-	Body           string            `yaml:"body"`
-	Priority       string            `yaml:"priority"`
-	Fields         map[string]string `yaml:"fields"`
-	Journal        bool              `yaml:"journal"` // enable systemd journal output
-	Syslog         bool              `yaml:"syslog"`  // enable syslog output
+	Body     string            `lang:"body" yaml:"body"`
+	Priority string            `lang:"priority" yaml:"priority"`
+	Fields   map[string]string `lang:"fields" yaml:"fields"`
+
+	// Journal should be true to enable systemd journaled (journald) output.
+	Journal bool `lang:"journal" yaml:"journal"`
+
+	// Syslog should be true to enable traditional syslog output. This is
+	// probably going to somewhere in `/var/log/` on your filesystem.
+	Syslog bool `lang:"syslog" yaml:"syslog"`
+
 	logStateOK     bool
 	journalStateOK bool
 	syslogStateOK  bool

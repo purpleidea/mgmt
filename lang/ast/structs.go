@@ -721,7 +721,7 @@ func (obj *StmtRes) resource(resName string) (engine.Res, error) {
 		}
 
 		// is expr type compatible with expected field type?
-		t, err := types.TypeOf(tf.Type)
+		t, err := types.ResTypeOf(tf.Type)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "resource field `%s` has no compatible type", x.Field)
 		}

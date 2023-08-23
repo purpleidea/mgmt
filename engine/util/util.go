@@ -252,87 +252,29 @@ func LangFieldNameToStructFieldName(kind string) (map[string]string, error) {
 	return mapping, nil // lang field name -> field name
 }
 
-// StructKindToFieldNameTypeMap returns a map from field name to expected type
-// in the lang type system.
-func StructKindToFieldNameTypeMap(kind string) (map[string]*types.Type, error) {
+// LangFieldNameToStructType returns the mapping from lang (AST) field names,
+// and the expected type in our type system for each.
+func LangFieldNameToStructType(kind string) (map[string]*types.Type, error) {
 	res, err := engine.NewResource(kind)
 	if err != nil {
 		return nil, err
 	}
 
-	sv := reflect.ValueOf(res).Elem() // pointer to struct, then struct
-	if k := sv.Kind(); k != reflect.Struct {
-		return nil, fmt.Errorf("expected struct, got: %s", k)
-	}
-
-	result := make(map[string]*types.Type)
-
-	st := reflect.TypeOf(res).Elem() // pointer to struct, then struct
-	for i := 0; i < st.NumField(); i++ {
-		field := st.Field(i)
-		name := field.Name
-		// TODO: in future, skip over fields that don't have a `lang` tag
-		//if name == "Base" { // TODO: hack!!!
-		//	continue
-		//}
-
-		// Skip unexported fields. These should never be mapped golang<->mcl.
-		//if field.PkgPath != "" { // pre-golang 1.17
-		if !field.IsExported() {
-			continue
-		}
-
-		typ, err := types.TypeOf(field.Type)
-		// some types (eg complex64) aren't convertible, so skip for now...
-		if err != nil {
-			continue
-			//return nil, errwrap.Wrapf(err, "could not identify type of field `%s`", name)
-		}
-		result[name] = typ
-	}
-
-	return result, nil
-}
-
-// LangFieldNameToStructType returns the mapping from lang (AST) field names,
-// and the expected type in our type system for each.
-func LangFieldNameToStructType(kind string) (map[string]*types.Type, error) {
-	// returns a mapping between fieldName and expected *types.Type
-	fieldNameTypMap, err := StructKindToFieldNameTypeMap(kind)
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not determine types for `%s` resource", kind)
-	}
-
-	mapping, err := LangFieldNameToStructFieldName(kind)
+	gtyp := reflect.TypeOf(res)
+	st, err := types.ResTypeOf(gtyp)
 	if err != nil {
 		return nil, err
 	}
-
-	// transform from field name to tag name
-	typMap := make(map[string]*types.Type)
-	for name, typ := range fieldNameTypMap {
-		if strings.Title(name) != name {
-			continue // skip private fields
-		}
-
-		found := false
-		for k, v := range mapping {
-			if v != name {
-				continue
-			}
-			// found
-			if found { // previously found!
-				return nil, fmt.Errorf("duplicate mapping for: %s", name)
-			}
-			typMap[k] = typ
-			found = true // :)
-		}
-		if !found {
-			return nil, fmt.Errorf("could not find mapping for: %s", name)
-		}
+	if st == nil {
+		return nil, fmt.Errorf("got empty type")
 	}
+	if st.Kind != types.KindStruct {
+		return nil, fmt.Errorf("not a struct kind")
+	}
+	// unpack the top-level struct, it should have the field names matching
+	// the parameters of the struct.
 
-	return typMap, nil
+	return st.Map, nil
 }
 
 // GetUID returns the UID of an user. It supports an UID or an username. Caller

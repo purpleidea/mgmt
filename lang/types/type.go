@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -81,6 +82,77 @@ type Type struct {
 // Type of KindList, and KindFunc names the arguments of a func sequentially.
 // The lossy inverse of this is Reflect.
 func TypeOf(t reflect.Type) (*Type, error) {
+	opts := []TypeOfOption{
+		StructTagOpt(StructTag),
+		StrictStructTagOpt(false),
+		SkipBadStructFieldsOpt(false),
+	}
+	return ConfigurableTypeOf(t, opts...)
+}
+
+// ResTypeOf is almost identical to TypeOf, except it behaves slightly
+// differently so that it can return what is needed for resources.
+func ResTypeOf(t reflect.Type) (*Type, error) {
+	opts := []TypeOfOption{
+		StructTagOpt(StructTag),
+		StrictStructTagOpt(true),
+		SkipBadStructFieldsOpt(true),
+	}
+	return ConfigurableTypeOf(t, opts...)
+}
+
+// TypeOfOption is a type that can be used to configure the ConfigurableTypeOf
+// function.
+type TypeOfOption func(*typeOfOptions)
+
+// typeOfOptions represents the different possible configurable options.
+type typeOfOptions struct {
+	structTag           string
+	strictStructTag     bool
+	skipBadStructFields bool
+	// TODO: add more options
+}
+
+// StructTagOpt specifies whether we should skip over struct fields that errored
+// when we tried to find their type. This is used by ResTypeOf.
+func StructTagOpt(structTag string) TypeOfOption {
+	return func(opt *typeOfOptions) {
+		opt.structTag = structTag
+	}
+}
+
+// StrictStructTagOpt specifies whether we require that a struct tag be present
+// to be able to use the field. If false, then the field is skipped if it is
+// missing a struct tag.
+func StrictStructTagOpt(strictStructTag bool) TypeOfOption {
+	return func(opt *typeOfOptions) {
+		opt.strictStructTag = strictStructTag
+	}
+}
+
+// SkipBadStructFieldsOpt specifies whether we should skip over struct fields
+// that errored when we tried to find their type. This is used by ResTypeOf.
+func SkipBadStructFieldsOpt(skipBadStructFields bool) TypeOfOption {
+	return func(opt *typeOfOptions) {
+		opt.skipBadStructFields = skipBadStructFields
+	}
+}
+
+// ConfigurableTypeOf is a configurable version of the TypeOf function to avoid
+// repeating code for the different variants of it that we want.
+func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
+	options := &typeOfOptions{ // default options
+		structTag:           "",
+		strictStructTag:     false,
+		skipBadStructFields: false,
+	}
+	for _, optionFunc := range opts { // apply the options
+		optionFunc(options)
+	}
+	if options.strictStructTag && options.structTag == "" {
+		return nil, fmt.Errorf("strict struct tag is set and struct tag is empty")
+	}
+
 	typ := t
 	kind := typ.Kind()
 	for kind == reflect.Ptr {
@@ -113,7 +185,7 @@ func TypeOf(t reflect.Type) (*Type, error) {
 		}, nil
 
 	case reflect.Array, reflect.Slice:
-		val, err := TypeOf(typ.Elem())
+		val, err := ConfigurableTypeOf(typ.Elem(), opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -124,11 +196,11 @@ func TypeOf(t reflect.Type) (*Type, error) {
 		}, nil
 
 	case reflect.Map:
-		key, err := TypeOf(typ.Key()) // Key returns a map type's key type.
+		key, err := ConfigurableTypeOf(typ.Key(), opts...) // Key returns a map type's key type.
 		if err != nil {
 			return nil, err
 		}
-		val, err := TypeOf(typ.Elem()) // Elem returns a type's element type.
+		val, err := ConfigurableTypeOf(typ.Elem(), opts...) // Elem returns a type's element type.
 		if err != nil {
 			return nil, err
 		}
@@ -145,17 +217,27 @@ func TypeOf(t reflect.Type) (*Type, error) {
 
 		for i := 0; i < typ.NumField(); i++ {
 			field := typ.Field(i)
-			tt, err := TypeOf(field.Type)
+			tt, err := ConfigurableTypeOf(field.Type, opts...)
 			if err != nil {
+				if options.skipBadStructFields {
+					continue // skip over bad fields!
+				}
 				return nil, err
 			}
 			// TODO: should we skip over fields with field.Anonymous ?
 
-			// TODO: make struct field name lookup consistent with a helper function
 			// if struct field has a `lang:""` tag, use that instead of the struct field name
 			fieldName := field.Name
-			if alias, ok := field.Tag.Lookup(StructTag); ok {
-				fieldName = alias
+			if options.structTag != "" {
+				if alias, ok := field.Tag.Lookup(options.structTag); ok {
+					fieldName = alias
+				} else if options.strictStructTag {
+					continue
+				}
+			}
+
+			if util.StrInList(fieldName, ord) {
+				return nil, fmt.Errorf("duplicate struct field name: `%s` alias: `%s`", field.Name, fieldName)
 			}
 
 			m[fieldName] = tt
@@ -173,7 +255,7 @@ func TypeOf(t reflect.Type) (*Type, error) {
 		ord := []string{}
 
 		for i := 0; i < typ.NumIn(); i++ {
-			tt, err := TypeOf(typ.In(i))
+			tt, err := ConfigurableTypeOf(typ.In(i), opts...)
 			if err != nil {
 				return nil, err
 			}
@@ -186,7 +268,7 @@ func TypeOf(t reflect.Type) (*Type, error) {
 		var err error
 		// we currently leave out nil if there are no return values
 		if c := typ.NumOut(); c == 1 {
-			out, err = TypeOf(typ.Out(0))
+			out, err = ConfigurableTypeOf(typ.Out(0), opts...)
 			if err != nil {
 				return nil, err
 			}

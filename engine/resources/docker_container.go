@@ -65,22 +65,27 @@ type DockerContainerRes struct {
 	traits.Edgeable
 
 	// State of the container must be running, stopped, or removed.
-	State string `yaml:"state"`
+	State string `lang:"state" yaml:"state"`
+
 	// Image is a docker image, or image:tag.
-	Image string `yaml:"image"`
+	Image string `lang:"image" yaml:"image"`
+
 	// Cmd is a command, or list of commands to run on the container.
-	Cmd []string `yaml:"cmd"`
+	Cmd []string `lang:"cmd" yaml:"cmd"`
+
 	// Env is a list of environment variables. E.g. ["VAR=val",].
-	Env []string `yaml:"env"`
+	Env []string `lang:"env" yaml:"env"`
+
 	// Ports is a map of port bindings. E.g. {"tcp" => {80 => 8080},}.
-	Ports map[string]map[int64]int64 `yaml:"ports"`
+	Ports map[string]map[int64]int64 `lang:"ports" yaml:"ports"`
+
 	// APIVersion allows you to override the host's default client API
 	// version.
-	APIVersion string `yaml:"apiversion"`
+	APIVersion string `lang:"apiversion" yaml:"apiversion"`
 
 	// Force, if true, this will destroy and redeploy the container if the
 	// image is incorrect.
-	Force bool `yaml:"force"`
+	Force bool `lang:"force" yaml:"force"`
 
 	client *client.Client // docker api client
 

@@ -3539,7 +3539,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 		binds[bind.Ident] = struct{}{} // mark as found in scope
 		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Variables[bind.Ident] = bind.Value
+		newScope.Variables[bind.Ident] = &ExprPoly{
+			Definition:    bind.Value,
+			CapturedScope: newScope,
+		}
 		if obj.data.Debug { // TODO: is this message ever useful?
 			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
 		}
@@ -3575,7 +3578,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		if len(fnList) == 1 {
 			fn := fnList[0].Func // local reference to avoid changing it in the loop...
 			// add to scope, (overwriting, aka shadowing is ok)
-			newScope.Functions[name] = fn // store the *ExprFunc
+			newScope.Functions[name] = &ExprPoly{
+				Definition:    fn, // store the *ExprFunc
+				CapturedScope: newScope,
+			}
 			continue
 		}
 
@@ -7685,86 +7691,72 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, context map[string]interf
 		}
 	}
 
-	// Some of the branches copy the function, we'll process it in similar ways
-	// below if this variable is set.
-	var copied interfaces.Expr
-
+	var prefixedName string
+	var target interfaces.Expr
 	if obj.Var {
 		// The call looks like $f().
-		if monomorphicTarget, exists := context[obj.Name]; exists {
+		prefixedName = "$" + obj.Name
+		if f, exists := context[obj.Name]; exists {
 			// $f refers to a parameter bound by an enclosing lambda definition.
-			// We do _not_ copy the definition, because it is already monomorphic.
-			obj.expr = monomorphicTarget
+			target = f
 		} else {
-			// $f refers to a top-level expression. Those expressions can be
-			// instantiated at different types in different parts of the program, so
-			// the definition we found has a "polymorphic" type.
-			polymorphicTarget, exists := obj.scope.Variables[obj.Name]
+			f, exists := obj.scope.Variables[obj.Name]
 			if !exists {
-				return fmt.Errorf("func `$%s` is not in scope", obj.Name)
+				return fmt.Errorf("func `%s` is not in scope", prefixedName)
 			}
-
-			// This particular call to $f is one of the parts of the program which
-			// uses the polymorphic expression at a single, "monomorphic" type. We
-			// make a copy of the definition, and later each copy will by type-checked
-			// separately.
-			var err error
-			copied, err = polymorphicTarget.Copy()
-			if err != nil {
-				return errwrap.Wrapf(err, "could not copy the function definition `$%s`", obj.Name)
-			}
-
-			if obj.data.Debug {
-				obj.data.Logf("call $%s(): set scope: func pointer: %p (polymorphic) -> %p (copy)", obj.Name, &polymorphicTarget, copied)
-			}
-
-			obj.expr = copied
+			target = f
 		}
 	} else {
-		// The call looks like f(). f refers to a top-level function definition.
-		// Those definitions can be instantiated at different types in different
-		// parts of the program, so the definition we found has a "polymorphic"
-		// type.
-		polymorphicTarget, exists := obj.scope.Functions[obj.Name]
+		// The call looks like f().
+		prefixedName = obj.Name
+		f, exists := obj.scope.Functions[obj.Name]
 		if !exists {
-			return fmt.Errorf("func `%s` is not in scope", obj.Name)
+			return fmt.Errorf("func `%s` is not in scope", prefixedName)
+		}
+		target = f
+	}
+
+	if polymorphicTarget, isPolymorphic := target.(*ExprPoly); isPolymorphic {
+		// This function call refers to a polymorphic function expression. Those
+		// expressions can be instantiated at different types in different parts
+		// of the program, so the the definition we found has a "polymorphic"
+		// type.
+		//
+		// This particular call is one of the parts of the program which uses the
+		// polymorphic expression at a single, "monomorphic" type. We make a copy of
+		// the definition, and later each copy will be type-checked separately.
+		monomorphicTarget, err := polymorphicTarget.Definition.Copy()
+		if err != nil {
+			return errwrap.Wrapf(err, "could not copy the function definition `%s`", prefixedName)
 		}
 
-		// This particular call to f is one of the parts of the program which uses
-		// the polymorphic expression at a single, "monomorphic" type. We make a
-		// copy of the definition, and later each copy will by type-checked
-		// separately.
-		var err error
-		copied, err = polymorphicTarget.Copy()
+		// This call now has the only reference to monomorphicTarget, so it is
+		// our responsibility to scope-check it. We must use the scope which was
+		// captured at the definition site, not the scope argument we received
+		// as input, as that is the scope which is available at the call site.
+		definitionScope := polymorphicTarget.CapturedScope.Copy()
+
+		// Make sure monomorphicTarget does not refer to itself!
+		if obj.Var {
+			definitionScope.Variables[obj.Name] = &ExprRecur{obj.Name}
+		} else {
+			definitionScope.Functions[obj.Name] = &ExprRecur{obj.Name}
+		}
+
+		err = monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{})
 		if err != nil {
-			return errwrap.Wrapf(err, "could not copy the function definition `%s`", obj.Name)
+			return errwrap.Wrapf(err, "scope-checking the function definition `%s`", prefixedName)
 		}
 
 		if obj.data.Debug {
-			obj.data.Logf("call %s(): set scope: func pointer: %p (polymorphic) -> %p (copy)", obj.Name, &polymorphicTarget, copied)
+			obj.data.Logf("call $%s(): set scope: func pointer: %p (polymorphic) -> %p (copy)", prefixedName, &polymorphicTarget, &monomorphicTarget)
 		}
 
-		obj.expr = copied
-	}
-
-	if copied != nil {
-		// This ExprCall now has the only reference to copied, so it is our
-		// responsibility to scope-check it. But make sure copied does not refer to
-		// itself!
-		copiedScope := scope.Copy()
-		if obj.Var {
-			copiedScope.Variables[obj.Name] = &ExprRecur{obj.Name}
-		} else {
-			copiedScope.Functions[obj.Name] = &ExprRecur{obj.Name}
-		}
-		err := copied.SetScope(copiedScope, context)
-		if err != nil {
-			if obj.Var {
-				return errwrap.Wrapf(err, "could not set scope for copied function definition `$%s`", obj.Name)
-			} else {
-				return errwrap.Wrapf(err, "could not set scope for copied function definition `%s`", obj.Name)
-			}
-		}
+		obj.expr = monomorphicTarget
+	} else {
+		// This call refers to a monomorphic expression which has already been
+		// scope-checked, so we don't need to scope-check it again.
+		obj.expr = target
 	}
 
 	return nil
@@ -8444,32 +8436,42 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 		// There is no need to scope-check the target, it's just a ParamExpr with no
 		// internal references.
 	} else {
-		// This ExprVar refers to a top-level expression. Those expressions can be
-		// instantiated at different types in different parts of the program, so the
-		// the definition we found has a "polymorphic" type.
-		polymorphicTarget, exists := obj.scope.Variables[obj.Name]
+		target, exists := obj.scope.Variables[obj.Name]
 		if !exists {
 			return fmt.Errorf("variable %s not in scope", obj.Name)
 		}
 
-		// This particular ExprVar is one of the parts of the program which uses the
-		// polymorphic expression at a single, "monomorphic" type. We make a copy of
-		// the definition, and later each copy will be type-checked separately.
-		monomorphicTarget, err := polymorphicTarget.Copy()
-		if err != nil {
-			return errwrap.Wrapf(err, "copying the expression to which an ExprVar refers")
-		}
-		obj.scope.Variables[obj.Name] = monomorphicTarget
+		if polymorphicTarget, isPolymorphic := target.(*ExprPoly); isPolymorphic {
+			// This ExprVar refers to a polymorphic expression. Those expressions can be
+			// instantiated at different types in different parts of the program, so the
+			// the definition we found has a "polymorphic" type.
+			//
+			// This particular ExprVar is one of the parts of the program which uses the
+			// polymorphic expression at a single, "monomorphic" type. We make a copy of
+			// the definition, and later each copy will be type-checked separately.
+			monomorphicTarget, err := polymorphicTarget.Definition.Copy()
+			if err != nil {
+				return errwrap.Wrapf(err, "copying the ExprPoly definition to which an ExprVar refers")
+			}
+			obj.scope.Variables[obj.Name] = monomorphicTarget
 
-		// This ExprVar now has the only reference to monomorphicTarget, so it is our
-		// responsibility to scope-check it. But make sure monomorphicTarget does not
-		// refer to itself!
-		// FIXME: use the scope from the definition site, not the use site!
-		targetScope := obj.scope.Copy()
-		targetScope.Variables[obj.Name] = &ExprRecur{obj.Name}
-		err = monomorphicTarget.SetScope(targetScope, map[string]interfaces.Expr{})
-		if err != nil {
-			return errwrap.Wrapf(err, "scope-checking the expression to which an ExprVar refers")
+			// This ExprVar now has the only reference to monomorphicTarget, so it is our
+			// responsibility to scope-check it. We must use the scope which was
+			// captured at the definition site, not the scope argument we received as
+			// input, as that is the scope which is available at the use site.
+			definitionScope := polymorphicTarget.CapturedScope.Copy()
+
+			// Make sure monomorphicTarget does not refer to itself!
+			definitionScope.Variables[obj.Name] = &ExprRecur{obj.Name}
+
+			err = monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{})
+			if err != nil {
+				return errwrap.Wrapf(err, "scope-checking the expression to which an ExprVar refers")
+			}
+		} else {
+			// This ExprVar refers to a monomorphic expression which has already been
+			// scope-checked, so we don't need to scope-check it again.
+			obj.scope.Variables[obj.Name] = target
 		}
 	}
 
@@ -8620,8 +8622,6 @@ func (obj *ExprParam) Init(*interfaces.Data) error {
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
-// Here it returns itself, since variable names cannot be interpolated. We don't
-// support variable, variables or anything crazy like that.
 func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 	return &ExprParam{
 		Name: obj.Name,
@@ -8748,6 +8748,119 @@ func (obj *ExprParam) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprParam) Value() (types.Value, error) {
+	return nil, nil
+}
+
+// Polymorphic expressions are definitions that can be used in multiple places
+// with different types. We must copy the definition at each call site in order
+// for the type checker to find a different type at each call site. We create
+// this copy inside SetScope, at which point we also recursively call SetScope
+// on the copy. We must be careful to use the scope captured at the definition
+// site, not scope which is available at the call site.
+type ExprPoly struct {
+	Definition    interfaces.Expr   // The definition.
+	CapturedScope *interfaces.Scope // The scope at the definition site.
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprPoly) String() string {
+	return fmt.Sprintf("polymorphic(%s)", obj.Definition.String())
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprPoly) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Definition.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprPoly) Init(data *interfaces.Data) error {
+	return obj.Definition.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *ExprPoly) Interpolate() (interfaces.Expr, error) {
+	definition, err := obj.Definition.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprPoly{
+		Definition:    definition,
+		CapturedScope: obj.CapturedScope,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+// This implementation intentionally does not copy anything, because the
+// Definition is already intended to be copied at each use site.
+func (obj *ExprPoly) Copy() (interfaces.Expr, error) {
+	return obj, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprPoly) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	return obj.Definition.Ordering(produces)
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprPoly) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
+	// Don't recur into the definition yet; instead, capture the scope for later,
+	// so that ExprVar can call SetScope on the definition at each use site.
+	obj.CapturedScope = scope
+	return nil
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprPoly) SetType(typ *types.Type) error {
+	panic("ExprPoly.SetType(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+}
+
+// Type returns the type of this expression.
+func (obj *ExprPoly) Type() (*types.Type, error) {
+	return nil, interfaces.ErrTypeCurrentlyUnknown
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *ExprPoly) Unify() ([]interfaces.Invariant, error) {
+	panic("ExprPoly.Unify(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprPoly) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	panic("ExprPoly.Unify(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+}
+
+func (obj *ExprPoly) SetValue(value types.Value) error {
+	// ignored, as we don't support ExprPoly.Value()
+	return nil
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprPoly) Value() (types.Value, error) {
 	return nil, nil
 }
 
@@ -9297,6 +9410,12 @@ func (obj *ExprVar) SetScopeGraphviz(g *pgraph.Graph) {
 
 func (obj *ExprParam) SetScopeGraphviz(g *pgraph.Graph) {
 	g.AddVertex(obj)
+}
+
+func (obj *ExprPoly) SetScopeGraphviz(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	obj.Definition.SetScopeGraphviz(g)
+	g.AddEdge(obj, obj.Definition, StringWrapper{"def"})
 }
 
 func (obj *ExprIf) SetScopeGraphviz(g *pgraph.Graph) {

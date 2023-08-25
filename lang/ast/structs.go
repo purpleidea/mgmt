@@ -4222,7 +4222,7 @@ func (obj *StmtClass) SetScope(scope *interfaces.Scope) error {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope // store for later
-	return obj.Body.SetScope(scope)
+	return nil
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -4513,7 +4513,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// need to use the original scope of the class as it was set as the
 	// basis for this scope, so that we overwrite it only with the arg
 	// changes.
-	if err := obj.class.SetScope(newScope); err != nil {
+	if err := obj.class.Body.SetScope(newScope); err != nil {
 		return err
 	}
 

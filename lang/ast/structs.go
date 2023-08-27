@@ -7702,7 +7702,7 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, context map[string]interf
 		} else {
 			f, exists := obj.scope.Variables[obj.Name]
 			if !exists {
-				return fmt.Errorf("func `%s` is not in scope", prefixedName)
+				return fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
 			}
 			target = f
 		}
@@ -7711,7 +7711,7 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, context map[string]interf
 		prefixedName = obj.Name
 		f, exists := obj.scope.Functions[obj.Name]
 		if !exists {
-			return fmt.Errorf("func `%s` is not in scope", prefixedName)
+			return fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
 		}
 		target = f
 	}
@@ -8466,7 +8466,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 
 			err = monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{})
 			if err != nil {
-				return errwrap.Wrapf(err, "scope-checking the expression to which an ExprVar refers")
+				return err
 			}
 		} else {
 			// This ExprVar refers to a monomorphic expression which has already been

@@ -7008,6 +7008,11 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 	}
 
 	if obj.Function != nil {
+		if obj.function == nil {
+			// TODO: should we return ErrTypeCurrentlyUnknown instead?
+			panic("unexpected empty function")
+			//return nil, interfaces.ErrTypeCurrentlyUnknown
+		}
 		sig := obj.function.Info().Sig
 		if sig != nil && !sig.HasVariant() && obj.typ == nil { // type is now known statically
 			return sig, nil

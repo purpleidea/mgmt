@@ -14,7 +14,7 @@ $generate = func($idn) {
 	$idn("foo") # 1 call site, 2 calls
 }
 
-$foo = iter.map($generate, [$id1, $id2,])
+$foo = iter.map([$id1, $id2,], $generate)
 
 #test $foo[0] {}
 #test $foo[1] {}

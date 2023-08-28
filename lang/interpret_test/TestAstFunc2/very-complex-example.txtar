@@ -21,7 +21,7 @@ $generate = func($idn) {
 }
 
 # this code should be rejected
-$foo = iter.map($generate, [$id1, $id2,])
+$foo = iter.map([$id1, $id2,], $generate)
 
 #test $foo[0] {}
 test listlookup($foo, 0, "fail") {} # TODO: add syntactic sugar for listlookup

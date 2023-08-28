@@ -1,0 +1,32 @@
+import "fmt"
+import "test"
+
+# XXX: Because our function engine is not synchronous, absurdly-fast function
+# changing will result in these four files having vastly different values after
+# a certain amount of time. We probably want to fix this eventually.
+$count = test.fastcount()
+
+file "/tmp/mgmt-count0" {
+	content => fmt.printf("count is: %d\n", $count + 0),
+	state => $const.res.file.state.exists,
+}
+
+file "/tmp/mgmt-count1" {
+	content => fmt.printf("count is: %d\n", $count + 1),
+	state => $const.res.file.state.exists,
+}
+
+file "/tmp/mgmt-count2" {
+	content => fmt.printf("count is: %d\n", $count + 2),
+	state => $const.res.file.state.exists,
+}
+
+file "/tmp/mgmt-count" {
+	content => fmt.printf("count is: %d\n", $count),
+	state => $const.res.file.state.exists,
+}
+
+File["/tmp/mgmt-count0"] -> File["/tmp/mgmt-count1"]
+File["/tmp/mgmt-count0"] -> File["/tmp/mgmt-count2"]
+File["/tmp/mgmt-count1"] -> File["/tmp/mgmt-count"]
+File["/tmp/mgmt-count2"] -> File["/tmp/mgmt-count"]

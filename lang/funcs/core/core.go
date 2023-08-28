@@ -35,6 +35,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/regexp"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/test"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
 )
 

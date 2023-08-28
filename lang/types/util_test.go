@@ -20,7 +20,7 @@ package types
 import "testing"
 
 func TestNextPowerOfTwo(t *testing.T) {
-	testCases := map[uint32]uint32{
+	testCases := map[uint]uint{
 		1: 1,
 		2: 2,
 		3: 4,

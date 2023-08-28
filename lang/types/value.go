@@ -333,7 +333,7 @@ func Into(v Value, rv reflect.Value) error {
 
 		switch kind {
 		case reflect.Slice:
-			pow := nextPowerOfTwo(uint32(count))
+			pow := nextPowerOfTwo(uint(count))
 			nval := reflect.MakeSlice(rv.Type(), count, int(pow))
 			rv.Set(nval)
 

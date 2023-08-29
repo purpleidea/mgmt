@@ -23,8 +23,8 @@
 #
 #	$foo = iter.map([$id1, $id2,], $generate)
 #
-# $generate is specialized to `func(func(str) str, str) XXX`, and $id1
-# and $id2 are specialized to `func(str) str`.
+# $generate is specialized to `func(func(str) str) str`, and $id1 and $id2 are
+# specialized to `func(str) str`.
 #
 # In:
 #

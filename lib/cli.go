@@ -390,6 +390,17 @@ func CLI(cliArgs *CLIArgs) error {
 		app.Commands = append(app.Commands, commandGet)
 	}
 
+	commandEtcd := &cli.Command{
+		Name: "etcd",
+		//Aliases: []string{"e"},
+		Usage: "Run standalone etcd",
+		Action: func(*cli.Context) error {
+			// this never runs, it gets preempted in the real main()
+			return nil
+		},
+	}
+	app.Commands = append(app.Commands, commandEtcd)
+
 	app.EnableBashCompletion = true
 	return app.Run(os.Args)
 }

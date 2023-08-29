@@ -23,6 +23,7 @@ import (
 	"os"
 
 	mgmt "github.com/purpleidea/mgmt/lib"
+	"go.etcd.io/etcd/server/v3/etcdmain"
 )
 
 // These constants are some global variables that are used throughout the code.
@@ -41,6 +42,19 @@ var (
 var copying string
 
 func main() {
+	// embed etcd completely
+	if len(os.Args) >= 2 && os.Args[1] == "etcd" {
+		args := []string{}
+		for i, s := range os.Args {
+			if i == 0 { // pop off our argv[0] and let `etcd` be it
+				continue
+			}
+			args = append(args, s)
+		}
+		etcdmain.Main(args) // this will os.Exit
+		return              // for safety
+	}
+
 	flags := mgmt.Flags{
 		Debug:   Debug,
 		Verbose: Verbose,

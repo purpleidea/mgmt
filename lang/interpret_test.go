@@ -514,7 +514,7 @@ func TestAstFunc0(t *testing.T) {
 			}
 
 			// build the function graph
-			graph, err := iast.Graph(nil)
+			graph, err := iast.Graph()
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -919,7 +919,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			// build the function graph
-			graph, err := iast.Graph(nil)
+			graph, err := iast.Graph()
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -1437,7 +1437,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 
 			// build the function graph
-			graph, err := iast.Graph(nil)
+			graph, err := iast.Graph()
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)

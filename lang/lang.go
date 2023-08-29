@@ -216,7 +216,7 @@ func (obj *Lang) Init() error {
 		obj.graph.AddGraph(g)
 		env[k] = builtinFunc
 	}
-	g, err := obj.ast.Graph(env) // build the graph of functions
+	g, err := obj.ast.Graph() // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}

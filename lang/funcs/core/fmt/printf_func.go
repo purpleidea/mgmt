@@ -33,6 +33,19 @@ const (
 	// FIXME: should this be named sprintf instead?
 	PrintfFuncName = "printf"
 
+	// PrintfAllowNonStaticFormat allows us to use printf when the zeroth
+	// argument (the format string) is not known statically at compile time.
+	// The downside of this is that if it changes while we are running, it
+	// could change from "hello %s" to "hello %d" or "%s %d...". If this
+	// happens we just generate ugly format strings, instead of preventing
+	// it all from even running at all. It's useful to allow dynamic strings
+	// if we were generating custom log messages (for example) where the
+	// format comes from a database lookup or similar. Of course if we knew
+	// that such a lookup could be done quickly and statically (maybe it's a
+	// read from a local key-value config file that's part of our deploy)
+	// then maybe we can do it before unification speculatively.
+	PrintfAllowNonStaticFormat = true
+
 	printfArgNameFormat = "format" // name of the first arg
 )
 
@@ -103,6 +116,96 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 	}
 	invariants = append(invariants, invar)
 
+	// dynamic generator function for when the format string is dynamic
+	dynamicFn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
+		for _, invariant := range fnInvariants {
+			// search for this special type of invariant
+			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
+			if !ok {
+				continue
+			}
+			// did we find the mapping from us to ExprCall ?
+			if cfavInvar.Func != expr {
+				continue
+			}
+			// cfavInvar.Expr is the ExprCall! (the return pointer)
+			// cfavInvar.Args are the args that ExprCall uses!
+			if len(cfavInvar.Args) == 0 {
+				return nil, fmt.Errorf("unable to build function with no args")
+			}
+
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
+			// add the relationship to the returned value
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// add the relationships to the called args
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Args[0],
+				Expr2: dummyFormat,
+			}
+			invariants = append(invariants, invar)
+
+			// first arg must be a string
+			invar = &interfaces.EqualsInvariant{
+				Expr: cfavInvar.Args[0],
+				Type: types.TypeStr,
+			}
+			invariants = append(invariants, invar)
+
+			// full function
+			mapped := make(map[string]interfaces.Expr)
+			ordered := []string{}
+			for i, x := range cfavInvar.Args {
+				argName, err := obj.ArgGen(i)
+				if err != nil {
+					return nil, err
+				}
+
+				dummyArg := &interfaces.ExprAny{}
+				if i == 0 {
+					dummyArg = dummyFormat // use parent one
+				}
+
+				invar = &interfaces.EqualityInvariant{
+					Expr1: x, // cfavInvar.Args[i]
+					Expr2: dummyArg,
+				}
+				invariants = append(invariants, invar)
+
+				mapped[argName] = dummyArg
+				ordered = append(ordered, argName)
+			}
+
+			invar = &interfaces.EqualityWrapFuncInvariant{
+				Expr1:    expr, // maps directly to us!
+				Expr2Map: mapped,
+				Expr2Ord: ordered,
+				Expr2Out: dummyOut,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: do we return this relationship with ExprCall?
+			invar = &interfaces.EqualityWrapCallInvariant{
+				// TODO: should Expr1 and Expr2 be reversed???
+				Expr1: cfavInvar.Expr,
+				//Expr2Func: cfavInvar.Func, // same as below
+				Expr2Func: expr,
+			}
+			invariants = append(invariants, invar)
+
+			// TODO: are there any other invariants we should build?
+			return invariants, nil // generator return
+		}
+		// We couldn't tell the solver anything it didn't already know!
+		return nil, fmt.Errorf("couldn't generate new invariants")
+	}
+
 	// generator function
 	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
 		for _, invariant := range fnInvariants {
@@ -145,24 +248,18 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 			}
 			invariants = append(invariants, invar)
 
-			// XXX: We could add an alternate mode for this
-			// function where instead of knowing args[0]
-			// statically, if we happen to know all of the input
-			// arg types, we build the function, without verifying
-			// that the format string is valid... In this case, if
-			// it was built dynamically or happened to not be in
-			// the right format, we'd just print out some yucky
-			// result. The golang printf does something similar
-			// when it can't catch things statically at compile
-			// time.
-			// XXX: In the above scenario, we'd have to also change
-			// the compileFormatToString function to handle a list
-			// of values with a badly matched string. Maybe best to
-			// just not allow this entirely? Or set this behaviour
-			// with a constant?
-
+			// Here we try to see if we know the format string
+			// statically. Perhaps more future Value() invocations
+			// on simple functions will also return before
+			// unification and before the function engine runs.
+			// If we happen to know the value, that's great and we
+			// can unify very easily. If we don't, then we can
+			// decide if we want to allow dynamic format strings.
 			value, err := cfavInvar.Args[0].Value() // is it known?
 			if err != nil {
+				if PrintfAllowNonStaticFormat {
+					return dynamicFn(fnInvariants, solved)
+				}
 				return nil, fmt.Errorf("format string is not known statically")
 			}
 
@@ -513,6 +610,9 @@ func parseFormatToTypeList(format string) ([]*types.Type, error) {
 // type in the format string. Of course the corresponding value to those %v
 // entries must have a static, fixed, precise type.
 // FIXME: add support for more types, and add tests!
+// XXX: depending on PrintfAllowNonStaticFormat, we should NOT error if we have
+// a mismatch between the format string and the available args. Return similar
+// to golang's EXTRA/MISSING, eg: https://pkg.go.dev/fmt#hdr-Format_errors
 func compileFormatToString(format string, values []types.Value) (string, error) {
 	output := ""
 	ix := 0

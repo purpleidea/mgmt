@@ -4,10 +4,16 @@ import "fmt"
 $str1 = "big"
 $str2 = "world"
 
-# FIXME: we'd like to pre-compute the interpolation if we can, so that we can
-# run this code properly... for now, we can't, so it's a compile time error...
+# FIXME: We'd like to pre-compute the interpolation if we can, so that we can
+# check this code statically... For now, we can't, so it's only possible with
+# the PrintfAllowNonStaticFormat option enabled. This isn't bad per se, however
+# any static compilation/optimization we can by "running early" would be great.
+test fmt.printf("hello ${str1} %s", $str2) {}
+test "hello " + "small" + " " + $str2 {}
 print "print1" {
 	msg => fmt.printf("hello ${str1} %s", $str2),
 }
 -- OUTPUT --
-# err: errUnify: only recursive solutions left
+Vertex: test[hello big world]
+Vertex: test[hello small world]
+Vertex: print[print1]

@@ -116,6 +116,12 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 	}
 	invariants = append(invariants, invar)
 
+	invar = &interfaces.EqualityInvariant{
+		Expr1: dummyFormat,
+		Expr2: dummyOut,
+	}
+	invariants = append(invariants, invar)
+
 	// dynamic generator function for when the format string is dynamic
 	dynamicFn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
 		for _, invariant := range fnInvariants {
@@ -136,6 +142,13 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 
 			var invariants []interfaces.Invariant
 			var invar interfaces.Invariant
+
+			// add the relationship to the format string arg
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyFormat,
+			}
+			invariants = append(invariants, invar)
 
 			// add the relationship to the returned value
 			invar = &interfaces.EqualityInvariant{
@@ -226,6 +239,13 @@ func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, erro
 
 			var invariants []interfaces.Invariant
 			var invar interfaces.Invariant
+
+			// add the relationship to the format string arg
+			invar = &interfaces.EqualityInvariant{
+				Expr1: cfavInvar.Expr,
+				Expr2: dummyFormat,
+			}
+			invariants = append(invariants, invar)
 
 			// add the relationship to the returned value
 			invar = &interfaces.EqualityInvariant{

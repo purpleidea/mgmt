@@ -143,7 +143,12 @@ func (obj *Unifier) Unify() error {
 		// apply this to each AST node
 		if err := x.Expr.SetType(x.Type); err != nil {
 			// programming error!
-			panic(fmt.Sprintf("error setting type: %+v, error: %+v", x.Expr, err))
+			// If we error here, it's probably a bug. Likely we
+			// should have caught something during type unification,
+			// but it slipped through and the function Build API is
+			// catching it instead. Try and root cause it to avoid
+			// leaving any ghosts in the code.
+			return fmt.Errorf("error setting type: %+v, error: %+v", x.Expr, err)
 		}
 	}
 	return nil

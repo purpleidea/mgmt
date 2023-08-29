@@ -671,6 +671,11 @@ type GeneratorInvariant struct {
 	// from the list. If we error, it's because we don't have any new
 	// information to provide at this time...
 	Func func(invariants []Invariant, solved map[Expr]*types.Type) ([]Invariant, error)
+
+	// Inactive specifies that we tried to run this, but it didn't help us
+	// progress forwards. It can be reset if needed. It should only be set
+	// or read by the solver itself.
+	Inactive bool
 }
 
 // String returns a representation of this invariant.

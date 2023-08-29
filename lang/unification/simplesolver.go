@@ -349,12 +349,39 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 		}
 	}
 
+	countGenerators := func() (int, int) {
+		active := 0
+		total := 0
+		for _, x := range equalities {
+			gen, ok := x.(*interfaces.GeneratorInvariant)
+			if !ok {
+				continue
+			}
+			total++ // total count
+			if gen.Inactive {
+				continue // skip inactive
+			}
+			active++ // active
+		}
+		return total, active
+	}
+	activeGenerators := func() int {
+		_, active := countGenerators()
+		return active
+	}
+
 	logf("%s: starting loop with %d equalities", Name, len(equalities))
 	// run until we're solved, stop consuming equalities, or type clash
 Loop:
 	for {
+		// Once we're done solving everything else except the generators
+		// then we can exit, but we want to make sure the generators had
+		// a chance to "speak up" and make sure they were part of Unify.
+		// Every generator gets to run once, and if that does not change
+		// the result, then we mark it as inactive.
+
 		logf("%s: iterate...", Name)
-		if len(equalities) == 0 && len(exclusives) == 0 {
+		if len(equalities) == 0 && len(exclusives) == 0 && activeGenerators() == 0 {
 			break // we're done, nothing left
 		}
 		used := []int{}
@@ -988,6 +1015,13 @@ Loop:
 					continue
 				}
 
+				// skip if the inactive flag has been set, as it
+				// won't produce any new (novel) inequalities we
+				// can use to progress to a result at this time.
+				if eq.Inactive {
+					continue
+				}
+
 				// If this returns nil, we add the invariants
 				// it returned and we remove it from the list.
 				// If we error, it's because we don't have any
@@ -995,6 +1029,8 @@ Loop:
 				// XXX: should we pass in `invariants` instead?
 				gi, err := eq.Func(equalities, solved)
 				if err != nil {
+					// set the inactive flag of this generator
+					eq.Inactive = true
 					continue
 				}
 
@@ -1008,6 +1044,15 @@ Loop:
 
 				used = append(used, eqi) // mark equality as used up
 				logf("%s: solved `generator` equality", Name)
+				// reset all other generator equality "inactive" flags
+				for _, x := range equalities {
+					gen, ok := x.(*interfaces.GeneratorInvariant)
+					if !ok {
+						continue
+					}
+					gen.Inactive = false
+				}
+
 				continue
 
 			// wtf matching
@@ -1033,7 +1078,7 @@ Loop:
 				return nil, fmt.Errorf("unknown invariant type: %T", eqx)
 			}
 		} // end inner for loop
-		if len(used) == 0 {
+		if len(used) == 0 && activeGenerators() == 0 {
 			// Looks like we're now ambiguous, but if we have any
 			// exclusives, recurse into each possibility to see if
 			// one of them can help solve this! first one wins. Add
@@ -1064,6 +1109,16 @@ Loop:
 						logf("%s: exclusive(%d) left: %s", Name, i, x)
 					}
 				}
+			}
+
+			total, active := countGenerators()
+			// we still have work to do for consistency
+			if active > 0 {
+				continue Loop
+			}
+
+			if total > 0 {
+				return nil, fmt.Errorf("%d unconsumed generators", total)
 			}
 
 			// check for consistency against remaining invariants

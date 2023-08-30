@@ -82,11 +82,15 @@ func (obj *EmbdEtcd) endpointApply(data *interfaces.WatcherData) error {
 	}
 
 	// is the endpoint list different?
-	if err := cmpURLsMap(obj.endpoints, endpoints); err != nil {
+	// TODO: do we want to use the skipEndpointApply here too?
+	skipEndpointApply := obj.NoServer && len(endpoints) == 0 && len(obj.endpoints) > 0
+	if err := cmpURLsMap(obj.endpoints, endpoints); err != nil && !skipEndpointApply {
 		obj.endpoints = endpoints // set
 		// can happen if a server drops out for example
 		obj.Logf("endpoint list changed to: %+v", endpoints)
 		obj.setEndpoints()
+	} else if err != nil && skipEndpointApply {
+		obj.Logf("skipping endpoints apply")
 	}
 	return nil
 }

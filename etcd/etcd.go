@@ -1283,6 +1283,26 @@ func (obj *EmbdEtcd) runEndpoints(ctx context.Context) error {
 					obj.err(errwrap.Wrapf(err, "get endpoints errored"))
 					continue
 				}
+
+				// If we're using an external etcd server, then
+				// we would not initially see any endpoints, and
+				// we'd erase our knowledge of our single
+				// endpoint, which would deadlock our etcd
+				// client. Instead, skip updates that take our
+				// list down to zero endpoints. We maintain this
+				// watch in case someone (an mgmt resource that
+				// is managing the etcd cluster for example?)
+				// wants to set these values for all of the mgmt
+				// clients connected to the etcd server pool.
+				if obj.NoServer && len(endpoints) == 0 && len(obj.endpoints) > 0 {
+					if obj.Debug {
+						obj.Logf("had %d endpoints: %+v", len(obj.endpoints), obj.endpoints)
+						obj.Logf("got %d endpoints: %+v", len(endpoints), endpoints)
+					}
+					obj.Logf("skipping endpoints update")
+					continue
+				}
+
 				obj.endpoints = endpoints
 				obj.setEndpoints()
 

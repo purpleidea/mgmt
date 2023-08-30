@@ -158,6 +158,7 @@ func TestCluster1(t *testing.T) {
 		name   string
 		code   string // mcl code
 		fail   bool
+		etcd   bool // standalone etcd?
 		hosts  []string
 		expect map[string]map[string]string // hostname, file, contents
 	}
@@ -178,6 +179,7 @@ func TestCluster1(t *testing.T) {
 			name:  "simple pair",
 			code:  code,
 			fail:  false,
+			etcd:  true,
 			hosts: []string{"h1", "h2"},
 			expect: map[string]map[string]string{
 				"h1": {
@@ -204,6 +206,7 @@ func TestCluster1(t *testing.T) {
 			name:  "hello world",
 			code:  code,
 			fail:  false,
+			etcd:  true,
 			hosts: []string{"h1", "h2", "h3"},
 			expect: map[string]map[string]string{
 				"h1": {
@@ -221,9 +224,10 @@ func TestCluster1(t *testing.T) {
 
 	for index, tc := range testCases { // run all the tests
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
-			code, fail, hosts, expect := tc.code, tc.fail, tc.hosts, tc.expect
+			code, fail, etcd, hosts, expect := tc.code, tc.fail, tc.etcd, tc.hosts, tc.expect
 
 			c := Cluster{
+				Etcd:      etcd,
 				Hostnames: hosts,
 				Preserve:  true,
 				Debug:     false, // TODO: set to true if not too wordy

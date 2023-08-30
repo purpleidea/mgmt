@@ -22,15 +22,24 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
+	"syscall"
 	"time"
 
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
+
+const etcdHostname = "etcd" // a unique hostname to use for a single etcd server
 
 // Cluster represents an mgmt cluster. It uses the instance building blocks to
 // run clustered tests.
 type Cluster struct {
+	// Etcd specifies if we should run a standalone etcd instance instead of
+	// using the automatic, built-in etcd clustering.
+	Etcd bool
+
 	// Hostnames is the list of unique identifiers for this cluster.
 	Hostnames []string
 
@@ -47,22 +56,52 @@ type Cluster struct {
 	// dir is the directory where all files will be written under.
 	dir string
 
+	etcdInstance *Instance
+
 	instances map[string]*Instance
 }
 
 // Init runs some initialization for this Cluster. It errors if the struct was
 // populated in an invalid way, or if it can't initialize correctly.
 func (obj *Cluster) Init() error {
-	obj.instances = make(map[string]*Instance)
+	var err error
 
 	// create temporary directory to use during testing
-	var err error
 	if obj.dir == "" {
 		obj.dir, err = ioutil.TempDir("", "mgmt-integration-cluster-")
 		if err != nil {
 			return errwrap.Wrapf(err, "can't create temporary directory")
 		}
 	}
+
+	if obj.Etcd {
+		if util.StrInList(etcdHostname, obj.Hostnames) {
+			return fmt.Errorf("can't use special `%s` hostname for regular hosts", etcdHostname)
+		}
+
+		h := etcdHostname
+		instancePrefix := path.Join(obj.dir, h)
+		if err := os.MkdirAll(instancePrefix, dirMode); err != nil {
+			return errwrap.Wrapf(err, "can't create instance directory")
+		}
+
+		obj.etcdInstance = &Instance{
+			Etcd:     true,
+			Hostname: h,
+			Preserve: obj.Preserve,
+			Logf: func(format string, v ...interface{}) {
+				obj.Logf(fmt.Sprintf("instance <%s>: ", h)+format, v...)
+			},
+			Debug: obj.Debug,
+
+			dir: instancePrefix,
+		}
+		if err := obj.etcdInstance.Init(); err != nil {
+			return errwrap.Wrapf(err, "can't create etcd instance")
+		}
+	}
+
+	obj.instances = make(map[string]*Instance)
 
 	for _, hostname := range obj.Hostnames {
 		h := hostname
@@ -72,8 +111,9 @@ func (obj *Cluster) Init() error {
 		}
 
 		obj.instances[h] = &Instance{
-			Hostname: h,
-			Preserve: obj.Preserve,
+			EtcdServer: obj.Etcd, // is the 0th instance an etcd?
+			Hostname:   h,
+			Preserve:   obj.Preserve,
 			Logf: func(format string, v ...interface{}) {
 				obj.Logf(fmt.Sprintf("instance <%s>: ", h)+format, v...)
 			},
@@ -99,6 +139,12 @@ func (obj *Cluster) Close() error {
 		}
 		err = errwrap.Append(err, instance.Close())
 	}
+	if obj.Etcd {
+		if err := obj.etcdInstance.Close(); err != nil {
+			return errwrap.Wrapf(err, "can't close etcd instance")
+		}
+	}
+
 	if !obj.Preserve {
 		if obj.dir == "" || obj.dir == "/" {
 			panic("obj.dir is set to a dangerous path")
@@ -112,6 +158,21 @@ func (obj *Cluster) Close() error {
 
 // RunLinear starts up each instance linearly, one at a time.
 func (obj *Cluster) RunLinear() error {
+	if obj.Etcd {
+		// Start etcd standalone via `mgmt etcd` built-in sub command.
+		if err := obj.etcdInstance.Run(nil); err != nil {
+			return errwrap.Wrapf(err, "trouble running etcd")
+		}
+
+		// FIXME: Do we need to wait for etcd to startup?
+		// wait for startup before continuing with the next one
+		//ctx, cancel := context.WithTimeout(context.Background(), longTimeout*time.Second)
+		//defer cancel()
+		//if err := obj.etcdInstance.Wait(ctx); err != nil { // wait to get a converged signal
+		//	return errwrap.Wrapf(err, "mgmt wait on etcd failed") // timeout expired
+		//}
+	}
+
 	for i, h := range obj.Hostnames {
 		// build a list of earlier instances that have already run
 		seeds := []*Instance{}
@@ -123,6 +184,10 @@ func (obj *Cluster) RunLinear() error {
 		instance, exists := obj.instances[h]
 		if !exists {
 			return fmt.Errorf("instance `%s` not found", h)
+		}
+
+		if obj.Etcd {
+			seeds = []*Instance{obj.etcdInstance} // use main etcd
 		}
 
 		if err := instance.Run(seeds); err != nil {
@@ -153,6 +218,9 @@ func (obj *Cluster) Kill() error {
 		}
 		err = errwrap.Append(err, instance.Kill())
 	}
+	if obj.Etcd {
+		err = errwrap.Append(err, obj.etcdInstance.Kill())
+	}
 	return err
 }
 
@@ -172,6 +240,40 @@ func (obj *Cluster) Quit(ctx context.Context) error {
 		}
 		err = errwrap.Append(err, instance.Quit(ctx))
 	}
+
+	isInterruptSignal := func(err error) bool {
+		if err == nil {
+			return false // not an error ;)
+		}
+		exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+		if !ok {
+			return false // not an ExitError
+		}
+
+		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
+		wStatus, ok := pStateSys.(syscall.WaitStatus)
+		if !ok {
+			return false // not what we're looking for
+		}
+		if !wStatus.Signaled() {
+			return false // not a timeout or cancel (no signal)
+		}
+		sig := wStatus.Signal()
+		//exitStatus := wStatus.ExitStatus() // exitStatus == -1
+
+		if sig != os.Interrupt {
+			return false // wrong signal
+		}
+
+		return true
+	}
+
+	if obj.Etcd {
+		// etcd exits non-zero if you ^C it, so ignore it if it's that!
+		if err := obj.etcdInstance.Quit(ctx); err != nil && !isInterruptSignal(err) {
+			err = errwrap.Append(err, obj.etcdInstance.Quit(ctx))
+		}
+	}
 	return err
 }
 
@@ -180,6 +282,10 @@ func (obj *Cluster) Quit(ctx context.Context) error {
 // to call wait on each member individually.
 func (obj *Cluster) Wait(ctx context.Context) error {
 	var err error
+	// TODO: not implemented
+	//if obj.Etcd {
+	//	err = errwrap.Append(err, obj.etcdInstance.Wait(ctx))
+	//}
 	for _, h := range obj.Hostnames {
 		instance, exists := obj.instances[h]
 		if !exists {
@@ -194,8 +300,12 @@ func (obj *Cluster) Wait(ctx context.Context) error {
 }
 
 // DeployLang deploys some code to the cluster. It arbitrarily picks the first
-// host to run the deploy on.
+// host to run the deploy on unless there is an etcd server running.
 func (obj *Cluster) DeployLang(code string) error {
+	if obj.Etcd {
+		return obj.etcdInstance.DeployLang(code)
+	}
+
 	if len(obj.Hostnames) == 0 {
 		return fmt.Errorf("must have at least one host to deploy")
 	}

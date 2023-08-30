@@ -66,7 +66,16 @@ const (
 
 // Instance represents a single running mgmt instance. It is a building block
 // that can be used to run standalone tests, or combined to run clustered tests.
+// It can also be used to run a standalone etcd server instance.
 type Instance struct {
+	// Etcd specifies that this is a pure etcd instance instead of an mgmt
+	// one.
+	Etcd bool
+
+	// EtcdServer specifies we're connecting to an etcd instance instead of
+	// a normal mgmt peer.
+	EtcdServer bool
+
 	// Hostname is a unique identifier for this instance.
 	Hostname string
 
@@ -97,6 +106,10 @@ type Instance struct {
 // Init runs some initialization for this instance. It errors if the struct was
 // populated in an invalid way, or if it can't initialize correctly.
 func (obj *Instance) Init() error {
+	if obj.Etcd && obj.EtcdServer {
+		return fmt.Errorf("if we're etcd, we're not connecting to one")
+	}
+
 	if obj.Hostname == "" {
 		return fmt.Errorf("must specify a hostname")
 	}
@@ -184,6 +197,42 @@ func (obj *Instance) Run(seeds []*Instance) error {
 	if err != nil {
 		return err
 	}
+
+	// run `mgmt etcd`
+	if obj.Etcd {
+		cmdArgs := []string{
+			"etcd", // mode
+			//fmt.Sprintf("--name=%s", obj.Hostname),
+			fmt.Sprintf("--listen-client-urls=%s", obj.clientURL),
+			fmt.Sprintf("--listen-peer-urls=%s", obj.serverURL),
+			fmt.Sprintf("--advertise-client-urls=%s", obj.clientURL),
+			//fmt.Sprintf("--advertise-peer-urls=%s", obj.serverURL),
+			fmt.Sprintf("--data-dir=%s", obj.tmpPrefixDirectory),
+		}
+
+		obj.Logf("run: %s %s", cmdName, strings.Join(cmdArgs, " "))
+		obj.cmd = exec.Command(cmdName, cmdArgs...)
+		//obj.cmd.Env = []string{
+		//	fmt.Sprintf("MGMT_TEST_ROOT=%s", obj.testRootDirectory),
+		//}
+		obj.cmd.Dir = obj.tmpPrefixDirectory // run program in pwd if ""
+
+		// output file for storing logs
+		file, err := os.Create(path.Join(obj.dir, StdoutStderrFile))
+		if err != nil {
+			return errwrap.Wrapf(err, "error creating log file")
+		}
+		defer file.Close()
+		obj.cmd.Stdout = file
+		obj.cmd.Stderr = file
+
+		if err := obj.cmd.Start(); err != nil {
+			return errwrap.Wrapf(err, "error starting etcd")
+		}
+
+		return nil
+	}
+
 	cmdArgs := []string{
 		"run", // mode
 		fmt.Sprintf("--hostname=%s", obj.Hostname),
@@ -206,6 +255,10 @@ func (obj *Instance) Run(seeds []*Instance) error {
 		// TODO: we could just add all the seeds instead...
 		//s := fmt.Sprintf("--seeds=%s", strings.Join(urls, ","))
 		cmdArgs = append(cmdArgs, s)
+	}
+	if obj.EtcdServer {
+		cmdArgs = append(cmdArgs, "--no-server")
+		cmdArgs = append(cmdArgs, "--ideal-cluster-size=1")
 	}
 	gapi := "empty" // empty GAPI (for now)
 	cmdArgs = append(cmdArgs, gapi)
@@ -290,6 +343,10 @@ func (obj *Instance) Wait(ctx context.Context) error {
 	//if obj.cmd == nil { // TODO: should we include this?
 	//	return fmt.Errorf("no process is running")
 	//}
+
+	if obj.Etcd {
+		return fmt.Errorf("etcd Wait not implemented")
+	}
 
 	recurse := false
 	recWatcher, err := recwatch.NewRecWatcher(obj.convergedStatusFile, recurse)

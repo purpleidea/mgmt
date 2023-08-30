@@ -36,6 +36,13 @@ ifeq ($(VERSION),$(SVERSION))
 else
 	RELEASE = untagged
 endif
+# debugging is harder if -trimpath is set, so disable it if env var is set
+# this is force enabled automatically when using the release target
+ifeq ($(MGMT_NOTRIMPATH),true)
+	TRIMPATH =
+else
+	TRIMPATH = -trimpath
+endif
 ARCH = $(uname -m)
 SPEC = rpmbuild/SPECS/$(PROGRAM).spec
 SOURCE = rpmbuild/SOURCES/$(PROGRAM)-$(VERSION).tar.bz2
@@ -151,7 +158,7 @@ $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for cur
 $(PROGRAM).static: $(GO_FILES) $(MCL_FILES) go.mod go.sum
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
-	go build -trimpath -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
+	go build $(TRIMPATH) -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
 
 build: LDFLAGS=-s -w ## build a fresh mgmt binary
 build: $(PROGRAM)
@@ -165,7 +172,7 @@ GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
 build/mgmt-%: $(GO_FILES) $(MCL_FILES) go.mod go.sum | lang funcgen
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
-	@time env GOOS=${GOOS} GOARCH=${GOARCH} go build -trimpath -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
+	time env GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 
 # create a list of binary file names to use as make targets
 # to use this you might want to run something like:
@@ -390,6 +397,7 @@ mkosi_archlinux: releases/$(VERSION)/.mkdir
 #
 #	release
 #
+release: TRIMPATH = -trimpath
 release: releases/$(VERSION)/mgmt-release.url ## generates and uploads a release
 
 releases_path:

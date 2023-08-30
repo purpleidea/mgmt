@@ -253,6 +253,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	// Chooser is the implementation of the algorithm that decides which
 	// hosts to add or remove to grow and shrink the cluster.
 	Chooser chooser.Chooser
+	chooser chooser.Chooser // the one we use if it's active
 
 	// Converger is a converged coordinator object that can be used to
 	// track the converged state.
@@ -496,7 +497,7 @@ func (obj *EmbdEtcd) Init() error {
 		}
 	}
 
-	if obj.Chooser != nil {
+	if !obj.NoServer { // you don't need a Chooser if there's no server...
 		data := &chooser.Data{
 			Hostname: obj.Hostname,
 			Debug:    obj.Debug,
@@ -504,7 +505,8 @@ func (obj *EmbdEtcd) Init() error {
 				obj.Logf("chooser: "+format, v...)
 			},
 		}
-		if err := obj.Chooser.Init(data); err != nil {
+		obj.chooser = obj.Chooser // copy
+		if err := obj.chooser.Init(data); err != nil {
 			return errwrap.Wrapf(err, "error initializing chooser")
 		}
 	}
@@ -578,8 +580,8 @@ func (obj *EmbdEtcd) Init() error {
 func (obj *EmbdEtcd) Close() error {
 	var reterr error
 
-	if obj.Chooser != nil {
-		reterr = errwrap.Append(reterr, obj.Chooser.Close())
+	if obj.chooser != nil {
+		reterr = errwrap.Append(reterr, obj.chooser.Close())
 	}
 
 	return reterr
@@ -890,7 +892,7 @@ func (obj *EmbdEtcd) Run() error {
 	go func() {
 		defer obj.wg.Done()
 		defer close(obj.errExit2) // multi-signal for errChan close op
-		if obj.Chooser == nil {
+		if obj.chooser == nil {
 			return
 		}
 
@@ -907,12 +909,12 @@ func (obj *EmbdEtcd) Run() error {
 			obj.err(errwrap.Wrapf(err, "error during chooser init"))
 			return
 		}
-		if err := obj.Chooser.Connect(exitCtx, c); err != nil {
+		if err := obj.chooser.Connect(exitCtx, c); err != nil {
 			obj.err(errwrap.Wrapf(err, "error during chooser connect"))
 			return
 		}
 
-		ch, err := obj.Chooser.Watch()
+		ch, err := obj.chooser.Watch()
 		if err != nil {
 			obj.err(errwrap.Wrapf(err, "error running chooser watch"))
 			return
@@ -920,10 +922,10 @@ func (obj *EmbdEtcd) Run() error {
 		chooserChan = ch // watch it
 	}()
 	defer func() {
-		if obj.Chooser == nil {
+		if obj.chooser == nil {
 			return
 		}
-		obj.Chooser.Disconnect() // ignore error if any
+		obj.chooser.Disconnect() // ignore error if any
 	}()
 
 	// call this once to start the server so we'll be able to connect

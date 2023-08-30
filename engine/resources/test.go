@@ -86,6 +86,9 @@ type TestRes struct {
 
 	AnotherStr string `lang:"anotherstr" yaml:"anotherstr"`
 
+	// Func1 passes the value 42 to the input and returns a string.
+	Func1 func(int) string `lang:"func1" yaml:"func1"`
+
 	ValidateBool  bool   `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
 	ValidateError string `lang:"validateerror" yaml:"validate_error"` // set to cause a validate error
 	AlwaysGroup   bool   `lang:"alwaysgroup" yaml:"always_group"`     // set to true to cause auto grouping
@@ -186,6 +189,10 @@ func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("%s: Interface:     %v", obj, obj.Interface)
 
 	obj.init.Logf("%s: AnotherStr:    %v", obj, obj.AnotherStr)
+
+	if obj.Func1 != nil {
+		obj.init.Logf("%s: Func1:         %v", obj, obj.Func1(42))
+	}
 
 	// send
 	hello := obj.SendValue

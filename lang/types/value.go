@@ -440,7 +440,7 @@ func Into(v Value, rv reflect.Value) error {
 		return Into(v.V, rv)
 
 	default:
-		return fmt.Errorf("cannot Into() %+v of type %s into %s", v, v.Type(), typ)
+		return fmt.Errorf("cannot Into() %+v of type (%T) %s into %s", v, v, v.Type(), typ)
 	}
 }
 

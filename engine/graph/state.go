@@ -99,13 +99,19 @@ type State struct {
 	// to send on since it is buffered.
 	pokeChan chan struct{} // outgoing from resource
 
-	// paused represents if this particular res is paused or not.
+	// paused represents if this particular res is paused or not. This is
+	// primarily used to avoid running an unnecessary Resume on the first
+	// run of this resource.
 	paused bool
-	// pauseSignal closes to request a pause of this resource.
+	// pauseSignal receives a message to request a pause of this resource.
 	pauseSignal chan struct{}
-	// resumeSignal closes to request a resume of this resource.
+	// resumeSignal receives a message to resume this resource. The channel
+	// closes when the resource is removed from the graph.
 	resumeSignal chan struct{}
 	// pausedAck is used to send an ack message saying that we've paused.
+	// This helps us know if the pause was actually received and when it was
+	// received. Otherwise we might not know if it errored or when it
+	// actually stopped being busy and go to the paused stage.
 	pausedAck *util.EasyAck
 
 	wg *sync.WaitGroup // used for all vertex specific processes
@@ -149,7 +155,7 @@ func (obj *State) Init() error {
 
 	//obj.paused = false // starts off as started
 	obj.pauseSignal = make(chan struct{})
-	//obj.resumeSignal = make(chan struct{}) // happens on pause
+	obj.resumeSignal = make(chan struct{})
 	//obj.pausedAck = util.NewEasyAck() // happens on pause
 
 	obj.wg = &sync.WaitGroup{}
@@ -311,11 +317,6 @@ func (obj *State) Cleanup() error {
 // callers are expected to make sure that they don't leave any of these running
 // by the time the Worker() shuts down.
 func (obj *State) Poke() {
-	// redundant
-	//if len(obj.pokeChan) > 0 {
-	//	return
-	//}
-
 	select {
 	case obj.pokeChan <- struct{}{}:
 	default: // if chan is now full because more than one poke happened...
@@ -329,19 +330,20 @@ func (obj *State) Poke() {
 // so only call these one at a time and alternate between the two.
 func (obj *State) Pause() error {
 	if obj.paused {
-		return fmt.Errorf("already paused")
+		panic("already paused")
 	}
 
 	obj.pausedAck = util.NewEasyAck()
-	obj.resumeSignal = make(chan struct{}) // build the resume signal
-	close(obj.pauseSignal)
-	obj.Poke() // unblock and notice the pause if necessary
+	select {
+	case obj.pauseSignal <- struct{}{}:
+	}
 
 	// wait for ack (or exit signal)
 	select {
 	case <-obj.pausedAck.Wait(): // we got it!
 		// we're paused
-	case <-obj.doneCtx.Done():
+
+	case <-obj.doneCtx.Done(): // gc cleans up the obj.pausedAck
 		return engine.ErrClosed
 	}
 	obj.paused = true
@@ -354,19 +356,17 @@ func (obj *State) Pause() error {
 // called concurrently with either the Pause() method or itself, so only call
 // these one at a time and alternate between the two.
 func (obj *State) Resume() {
-	// TODO: do we need a mutex around Resume?
+	// This paused check prevents unnecessary "resume" calls to the resource
+	// on its first run, since resources start in the running state!
 	if !obj.paused { // no need to unpause brand-new resources
 		return
 	}
 
-	obj.pauseSignal = make(chan struct{}) // rebuild for next pause
-	close(obj.resumeSignal)
-	//obj.Poke() // not needed, we're already waiting for resume
+	select {
+	case obj.resumeSignal <- struct{}{}:
+	}
 
 	obj.paused = false
-
-	// no need to wait for it to resume
-	//return // implied
 }
 
 // event is a helper function to send an event to the CheckApply process loop.
@@ -378,7 +378,7 @@ func (obj *State) event() {
 	obj.setDirty() // assume we're initially dirty
 
 	select {
-	case obj.eventsChan <- nil:
+	case obj.eventsChan <- nil: // blocks! (this is unbuffered)
 		// send!
 	}
 

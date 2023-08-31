@@ -255,9 +255,9 @@ func (obj *Engine) Commit() error {
 	free := []func() error{} // functions to run after graphsync to reset...
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
 		// wait for exit before starting new graph!
-		close(obj.state[vertex].removeDone) // causes doneCtx to cancel
-		obj.state[vertex].Resume()          // unblock from resume
-		obj.waits[vertex].Wait()            // sync
+		close(obj.state[vertex].removeDone)   // causes doneCtx to cancel
+		close(obj.state[vertex].resumeSignal) // unblock (it only closes here)
+		obj.waits[vertex].Wait()              // sync
 
 		// close the state and resource
 		// FIXME: will this mess up the sync and block the engine?
@@ -372,8 +372,22 @@ func (obj *Engine) Resume() error {
 	reversed := pgraph.Reverse(topoSort)
 
 	for _, vertex := range reversed {
+		// The very first resume is skipped as those resources are
+		// already running! We could do that by checking here, but it is
+		// more convenient to just have a state struct field (paused) to
+		// track things for this instead. As a bonus, it helps us know
+		// if a resource is paused or not if we print for debugging.
+		//if !obj.state[vertex].initialStartupDone {
+		//	obj.state[vertex].initialStartupDone = true
+		//	continue
+		//}
+
 		//obj.state[vertex].starter = (indegree[vertex] == 0)
 		obj.state[vertex].Resume() // doesn't error
+		// This always works because if a resource errored while it was
+		// paused, then we're in the paused state and we can still exit
+		// from there. If a resource errors when we're trying to Pause
+		// then it will only succeed without error if the resource ACKs.
 	}
 	// we wait for everyone to start before exiting!
 	obj.paused = false

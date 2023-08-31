@@ -364,8 +364,14 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	var reserv *rate.Reservation
 	var reterr error
 	var failed bool // has Process permanently failed?
+	var closed bool // has the resumeSignal channel closed?
 Loop:
 	for { // process loop
+		// This is the main select where things happen and where we exit
+		// from. It's similar to the two "satellite" select's which we
+		// might spend some time in if we're retrying or rate limiting.
+		// This select is also the main event receiver and is also the
+		// only place where we read from the poke channel.
 		select {
 		case err, ok := <-obj.state[vertex].eventsChan: // read from watch channel
 			if !ok {
@@ -394,9 +400,30 @@ Loop:
 				obj.Logf("poke received")
 			}
 			reserv = nil // we didn't receive a real event here...
-		}
-		if failed { // don't Process anymore if we've already failed...
-			continue Loop
+
+		case _, ok := <-obj.state[vertex].pauseSignal: // one message
+			if !ok {
+				obj.state[vertex].pauseSignal = nil
+				continue // this is not a new pause message
+			}
+			// NOTE: If we allowed a doneCtx below to let us out
+			// of the resumeSignal wait, then we could loop around
+			// and run this again, causing a panic. Instead of this
+			// being made safe with a sync.Once, we instead run a
+			// close() call inside of the vertexRemoveFn function,
+			// which should unblock resumeSignal so we can shutdown.
+			obj.state[vertex].pausedAck.Ack() // send ack
+			// we are paused now, and waiting for resume or exit...
+			select {
+			case _, closed = <-obj.state[vertex].resumeSignal: // channel closes
+				// resumed!
+				// pass through to allow a Process to try to run
+				// TODO: consider adding this fast pause here...
+				//if obj.fastPause {
+				//	obj.Logf("fast pausing on resume")
+				//	continue
+				//}
+			}
 		}
 
 		// drop redundant pokes
@@ -408,31 +435,8 @@ Loop:
 			}
 		}
 
-		// pause if one was requested...
-		select {
-		case <-obj.state[vertex].pauseSignal: // channel closes
-			// NOTE: If we allowed a doneCtx below to let us out
-			// of the resumeSignal wait, then we could loop around
-			// and run this again, causing a panic. Instead of this
-			// being made safe with a sync.Once, we instead run a
-			// Resume() call inside of the vertexRemoveFn function,
-			// which should unblock it when we're going to need to.
-			obj.state[vertex].pausedAck.Ack() // send ack
-			// we are paused now, and waiting for resume or exit...
-			select {
-			case <-obj.state[vertex].resumeSignal: // channel closes
-				// resumed!
-				// pass through to allow a Process to try to run
-				// TODO: consider adding this fast pause here...
-				//if obj.fastPause {
-				//	obj.Logf("fast pausing on resume")
-				//	continue
-				//}
-			}
-		default:
-			// no pause requested, keep going...
-		}
-		if failed { // don't Process anymore if we've already failed...
+		// don't Process anymore if we've already failed or shutdown...
+		if failed || closed {
 			continue Loop
 		}
 
@@ -446,6 +450,9 @@ Loop:
 			timer := time.NewTimer(time.Duration(d) * time.Millisecond)
 		LimitWait:
 			for {
+				// This "satellite" select doesn't need a poke
+				// channel because we're already in "event
+				// received" mode, and poke doesn't block.
 				select {
 				case <-timer.C: // the wait is over
 					break LimitWait
@@ -471,7 +478,8 @@ Loop:
 			timer.Stop() // it's nice to cleanup
 			obj.state[vertex].init.Logf("rate limiting expired!")
 		}
-		if failed { // don't Process anymore if we've already failed...
+		// don't Process anymore if we've already failed or shutdown...
+		if failed || closed {
 			continue Loop
 		}
 		// end of limit delay
@@ -486,6 +494,10 @@ Loop:
 				timer := time.NewTimer(time.Duration(delay) * time.Millisecond)
 			RetryWait:
 				for {
+					// This "satellite" select doesn't need
+					// a poke channel because we're already
+					// in "event received" mode, and poke
+					// doesn't block.
 					select {
 					case <-timer.C: // the wait is over
 						break RetryWait
@@ -512,7 +524,8 @@ Loop:
 				delay = 0    // reset
 				obj.state[vertex].init.Logf("the CheckApply delay expired!")
 			}
-			if failed { // don't Process anymore if we've already failed...
+			// don't Process anymore if we've already failed or shutdown...
+			if failed || closed {
 				continue Loop
 			}
 

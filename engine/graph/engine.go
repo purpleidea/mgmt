@@ -155,6 +155,10 @@ func (obj *Engine) Apply(fn func(*pgraph.Graph) error) error {
 // it errors, then the running graph wasn't changed. It is recommended that you
 // pause the engine before running this, and resume it after you're done.
 func (obj *Engine) Commit() error {
+	// It would be safer to lock this, but it would be slower and mask bugs.
+	//obj.mutex.Lock()
+	//defer obj.mutex.Unlock()
+
 	// TODO: Does this hurt performance or graph changes ?
 
 	start := []func() error{} // functions to run after graphsync to start...
@@ -349,8 +353,13 @@ func (obj *Engine) Commit() error {
 // Resume runs the currently active graph. It also un-pauses the graph if it was
 // paused. Very little that is interesting should happen here. It all happens in
 // the Commit method. After Commit, new things are already started, but we still
-// need to Resume any pre-existing resources.
+// need to Resume any pre-existing resources. Do not call this concurrently with
+// the Pause method.
 func (obj *Engine) Resume() error {
+	// It would be safer to lock this, but it would be slower and mask bugs.
+	//obj.mutex.Lock()
+	//defer obj.mutex.Unlock()
+
 	if !obj.paused {
 		return fmt.Errorf("already resumed")
 	}
@@ -385,6 +394,10 @@ func (obj *Engine) SetFastPause() {
 
 // Pause the active, running graph.
 func (obj *Engine) Pause(fastPause bool) error {
+	// It would be safer to lock this, but it would be slower and mask bugs.
+	//obj.mutex.Lock()
+	//defer obj.mutex.Unlock()
+
 	if obj.paused {
 		return fmt.Errorf("already paused")
 	}

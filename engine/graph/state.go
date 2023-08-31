@@ -322,11 +322,11 @@ func (obj *State) Poke() {
 	}
 }
 
-// Pause pauses this resource. It should not be called on any already paused
+// Pause pauses this resource. It must not be called on any already paused
 // resource. It will block until the resource pauses with an acknowledgment, or
 // until an exit for that resource is seen. If the latter happens it will error.
-// It is NOT thread-safe with the Resume() method so only call either one at a
-// time.
+// It must not be called concurrently with either the Resume() method or itself,
+// so only call these one at a time and alternate between the two.
 func (obj *State) Pause() error {
 	if obj.paused {
 		return fmt.Errorf("already paused")
@@ -349,9 +349,10 @@ func (obj *State) Pause() error {
 	return nil
 }
 
-// Resume unpauses this resource. It can be safely called on a brand-new
-// resource that has just started running without incident. It is NOT
-// thread-safe with the Pause() method, so only call either one at a time.
+// Resume unpauses this resource. It can be safely called once on a brand-new
+// resource that has just started running, without incident. It must not be
+// called concurrently with either the Pause() method or itself, so only call
+// these one at a time and alternate between the two.
 func (obj *State) Resume() {
 	// TODO: do we need a mutex around Resume?
 	if !obj.paused { // no need to unpause brand-new resources

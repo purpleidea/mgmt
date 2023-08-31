@@ -552,9 +552,13 @@ func (obj *Engine) wake(name string) {
 	//}
 	select {
 	case obj.wakeChan <- struct{}{}: // send to chan of length 1
-		obj.Logf("wake sent from: %s", name)
+		if obj.Debug {
+			obj.Logf("wake sent from: %s", name)
+		}
 	default: // this is a cheap alternative to avoid the mutex altogether!
-		obj.Logf("wake skip from: %s", name)
+		if obj.Debug {
+			obj.Logf("wake skip from: %s", name)
+		}
 		// skip sending, we already have a message pending!
 	}
 }

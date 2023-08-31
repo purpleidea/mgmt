@@ -258,7 +258,7 @@ func (obj *Engine) Commit() error {
 		// close the state and resource
 		// FIXME: will this mess up the sync and block the engine?
 		if err := obj.state[vertex].Cleanup(); err != nil {
-			return errwrap.Wrapf(err, "the Res did not Close")
+			return errwrap.Wrapf(err, "the Res did not Cleanup")
 		}
 
 		// delete to free up memory from old graphs

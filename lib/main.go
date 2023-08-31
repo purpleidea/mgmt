@@ -506,7 +506,7 @@ func (obj *Main) Run() error {
 		return errwrap.Wrapf(err, "engine Init failed")
 	}
 	defer func() {
-		err := errwrap.Wrapf(obj.ge.Close(), "engine Close failed")
+		err := errwrap.Wrapf(obj.ge.Shutdown(), "engine Shutdown failed")
 		if err != nil {
 			// TODO: cause the final exit code to be non-zero
 			Logf("cleanup error: %+v", err)
@@ -551,7 +551,7 @@ func (obj *Main) Run() error {
 						obj.ge.Pause(false)
 					}
 					// must be paused before this is run
-					//obj.ge.Close() // run in defer instead
+					//obj.ge.Shutdown() // run in defer instead
 
 					return // this is the only place we exit
 				}

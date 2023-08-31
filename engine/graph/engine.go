@@ -419,8 +419,10 @@ func (obj *Engine) Pause(fastPause bool) error {
 	return nil
 }
 
-// Close triggers a shutdown. Engine must be already paused before this is run.
-func (obj *Engine) Close() error {
+// Shutdown the engine. Engine must be already paused before this is run. It is
+// actually just a Load of an empty graph and a Commit. It waits for all the
+// resources to exit before returning.
+func (obj *Engine) Shutdown() error {
 	emptyGraph, reterr := pgraph.NewGraph("empty")
 
 	// this is a graph switch (graph sync) that switches to an empty graph!

@@ -481,6 +481,17 @@ Loop:
 					}
 					// TODO: does this get added in properly?
 					limiter.ReserveN(time.Now(), 1) // one event
+
+				// this pause/resume block is the same as the upper main one
+				case _, ok := <-obj.state[vertex].pauseSignal:
+					if !ok {
+						obj.state[vertex].pauseSignal = nil
+						break LimitWait
+					}
+					select {
+					case _, closed = <-obj.state[vertex].resumeSignal: // channel closes
+						// resumed!
+					}
 				}
 			}
 			timer.Stop() // it's nice to cleanup
@@ -526,6 +537,17 @@ Loop:
 						}
 						// TODO: does this get added in properly?
 						limiter.ReserveN(time.Now(), 1) // one event
+
+					// this pause/resume block is the same as the upper main one
+					case _, ok := <-obj.state[vertex].pauseSignal:
+						if !ok {
+							obj.state[vertex].pauseSignal = nil
+							break RetryWait
+						}
+						select {
+						case _, closed = <-obj.state[vertex].resumeSignal: // channel closes
+							// resumed!
+						}
 					}
 				}
 				timer.Stop() // it's nice to cleanup

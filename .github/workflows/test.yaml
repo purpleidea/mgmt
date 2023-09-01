@@ -34,7 +34,7 @@ jobs:
           - basic
           - shell
           - race
-      #fail-fast: false
+      fail-fast: false
 
     steps:
       # Do not shallow fetch. The path can't be absolute, so we need to move it

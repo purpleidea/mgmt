@@ -412,7 +412,7 @@ Loop:
 			// being made safe with a sync.Once, we instead run a
 			// close() call inside of the vertexRemoveFn function,
 			// which should unblock resumeSignal so we can shutdown.
-			obj.state[vertex].pausedAck.Ack() // send ack
+
 			// we are paused now, and waiting for resume or exit...
 			select {
 			case _, closed = <-obj.state[vertex].resumeSignal: // channel closes

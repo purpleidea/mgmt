@@ -26,7 +26,6 @@ import (
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -108,11 +107,6 @@ type State struct {
 	// resumeSignal receives a message to resume this resource. The channel
 	// closes when the resource is removed from the graph.
 	resumeSignal chan struct{}
-	// pausedAck is used to send an ack message saying that we've paused.
-	// This helps us know if the pause was actually received and when it was
-	// received. Otherwise we might not know if it errored or when it
-	// actually stopped being busy and go to the paused stage.
-	pausedAck *util.EasyAck
 
 	wg *sync.WaitGroup // used for all vertex specific processes
 
@@ -156,7 +150,6 @@ func (obj *State) Init() error {
 	//obj.paused = false // starts off as started
 	obj.pauseSignal = make(chan struct{})
 	obj.resumeSignal = make(chan struct{})
-	//obj.pausedAck = util.NewEasyAck() // happens on pause
 
 	obj.wg = &sync.WaitGroup{}
 
@@ -333,17 +326,12 @@ func (obj *State) Pause() error {
 		panic("already paused")
 	}
 
-	obj.pausedAck = util.NewEasyAck()
-	select {
-	case obj.pauseSignal <- struct{}{}:
-	}
-
 	// wait for ack (or exit signal)
 	select {
-	case <-obj.pausedAck.Wait(): // we got it!
+	case obj.pauseSignal <- struct{}{}:
 		// we're paused
 
-	case <-obj.doneCtx.Done(): // gc cleans up the obj.pausedAck
+	case <-obj.doneCtx.Done():
 		return engine.ErrClosed
 	}
 	obj.paused = true

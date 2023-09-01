@@ -37,7 +37,7 @@ var DefaultMetaParams = &MetaParams{
 	Limit: rate.Inf, // defaults to no limit
 	Burst: 0,        // no burst needed on an infinite rate
 	//Sema:  []string{},
-	Rewatch: true,
+	Rewatch: false,
 	Realize: false, // true would be more awesome, but unexpected for users
 }
 
@@ -90,7 +90,9 @@ type MetaParams struct {
 	// and add it back as a new vertex, thus causing it to run again. This
 	// is different from the Retry metaparam which applies during the normal
 	// execution. It is only when this is exhausted that we're in permanent
-	// worker failure, and only then can we rely on this metaparam.
+	// worker failure, and only then can we rely on this metaparam. This is
+	// false by default, as the frequency of graph changes makes it unlikely
+	// that you wanted this enabled on most resources.
 	Rewatch bool `yaml:"rewatch"`
 
 	// Realize ensures that the resource is guaranteed to converge at least

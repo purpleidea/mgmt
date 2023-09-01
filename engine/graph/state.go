@@ -25,6 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -253,7 +254,7 @@ func (obj *State) Init() error {
 
 	err := res.Init(obj.init)
 	if obj.Debug {
-		obj.Logf("Init(%s): Return(%+v)", res, err)
+		obj.Logf("Init(%s): Return(%s)", res, engineUtil.CleanError(err))
 	}
 	if err != nil {
 		return errwrap.Wrapf(err, "could not Init() resource")
@@ -295,7 +296,7 @@ func (obj *State) Cleanup() error {
 
 	reterr := res.Cleanup()
 	if obj.Debug {
-		obj.Logf("Close(%s): Return(%+v)", res, reterr)
+		obj.Logf("Close(%s): Return(%s)", res, engineUtil.CleanError(reterr))
 	}
 
 	reterr = errwrap.Append(reterr, reverr)

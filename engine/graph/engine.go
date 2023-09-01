@@ -183,7 +183,7 @@ func (obj *Engine) Commit() error {
 		}
 		err := engine.Validate(res)
 		if obj.Debug {
-			obj.Logf("Validate(%s): Return(%+v)", res, err)
+			obj.Logf("Validate(%s): Return(%s)", res, engineUtil.CleanError(err))
 		}
 		if err != nil {
 			return errwrap.Wrapf(err, "the Res did not Validate")
@@ -239,7 +239,7 @@ func (obj *Engine) Commit() error {
 				obj.Logf("Worker(%s)", v)
 				// contains the Watch and CheckApply loops
 				err := obj.Worker(v)
-				obj.Logf("Worker(%s): Exited(%+v)", v, err)
+				obj.Logf("Worker(%s): Exited(%s)", v, engineUtil.CleanError(err))
 				obj.state[v].workerErr = err // store the error
 				// If the Rewatch metaparam is true, then this will get
 				// restarted if we do a graph cmp swap. This is why the

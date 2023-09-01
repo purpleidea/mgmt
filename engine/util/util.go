@@ -400,3 +400,12 @@ func AutoEdgeCombiner(ae ...engine.AutoEdge) (engine.AutoEdge, error) {
 		ae: ae,
 	}, nil
 }
+
+// CleanError takes the engine errors and prints them on a single line.
+// TODO: maybe we can improve this here, it's a bit ugly.
+func CleanError(err error) string {
+	if err == nil {
+		return fmt.Sprintf("%v", err)
+	}
+	return strings.ReplaceAll(err.Error(), "\n", " ")
+}

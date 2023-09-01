@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -155,7 +156,7 @@ func (obj *Engine) Process(vertex pgraph.Vertex) error {
 		obj.Logf("%s: CheckApply(%t)", res, !noop)
 		// if this fails, don't UpdateTimestamp()
 		checkOK, err = res.CheckApply(!noop)
-		obj.Logf("%s: CheckApply(%t): Return(%t, %+v)", res, !noop, checkOK, err)
+		obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
 	}
 
 	if checkOK && err != nil { // should never return this way
@@ -325,7 +326,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 				obj.state[vertex].cuid.StartTimer()
 				obj.Logf("Watch(%s)", vertex)
 				err = res.Watch(obj.state[vertex].doneCtx) // run the watch normally
-				obj.Logf("Watch(%s): Exited(%+v)", vertex, err)
+				obj.Logf("Watch(%s): Exited(%s)", vertex, engineUtil.CleanError(err))
 				obj.state[vertex].cuid.StopTimer() // clean up nicely
 			}
 			if err == nil { // || err == engine.ErrClosed
@@ -534,7 +535,7 @@ Loop:
 			}
 			err = obj.Process(vertex)
 			if obj.Debug {
-				obj.Logf("Process(%s): Return(%+v)", vertex, err)
+				obj.Logf("Process(%s): Return(%s)", vertex, engineUtil.CleanError(err))
 			}
 			if err == nil {
 				break RetryLoop

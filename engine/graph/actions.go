@@ -454,7 +454,7 @@ Loop:
 			d = reserv.DelayFrom(time.Now())
 		}
 		if reserv != nil && d > 0 { // delay
-			obj.state[vertex].init.Logf("limited (rate: %v/sec, burst: %d, next: %v)", res.MetaParams().Limit, res.MetaParams().Burst, d)
+			obj.state[vertex].init.Logf("limited (rate: %v/sec, burst: %d, next: %dms)", res.MetaParams().Limit, res.MetaParams().Burst, d/time.Millisecond)
 			timer := time.NewTimer(time.Duration(d) * time.Millisecond)
 		LimitWait:
 			for {

@@ -292,6 +292,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 			case <-obj.state[vertex].processDone:
 			case <-obj.state[vertex].watchDone:
 			case <-obj.state[vertex].limitDone:
+			case <-obj.state[vertex].retryDone:
 			case <-obj.state[vertex].removeDone:
 			case <-obj.state[vertex].eventsDone:
 			}
@@ -528,7 +529,7 @@ Loop:
 						}
 						if e != nil {
 							failed = true
-							close(obj.state[vertex].limitDone) // causes doneCtx to cancel
+							close(obj.state[vertex].retryDone) // causes doneCtx to cancel
 							reterr = errwrap.Append(reterr, e) // permanent failure
 							break RetryWait
 						}

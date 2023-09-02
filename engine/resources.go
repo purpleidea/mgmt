@@ -221,13 +221,19 @@ func Stringer(res Res) string {
 }
 
 // ResPtrUID is a unique identifier that is consistent for the kind and name of
-// the resource only.
-type ResPtrUID string
+// the resource only. This was formerly a string, but a struct is more precise.
+// The result is suitable as a unique map key.
+type ResPtrUID struct {
+	kind string
+	name string
+}
 
-// PtrUID generates a ResPtrUID from a resource.
+// PtrUID generates a ResPtrUID from a resource. The result is suitable as a
+// unique map key.
 func PtrUID(res Res) ResPtrUID {
 	// the use of "repr" is kind of arbitrary as long as it's unique
-	return ResPtrUID(Repr(res.Kind(), res.Name()))
+	//return ResPtrUID(Repr(res.Kind(), res.Name()))
+	return ResPtrUID{kind: res.Kind(), name: res.Name()}
 }
 
 // Validate validates a resource by checking multiple aspects. This is the main

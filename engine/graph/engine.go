@@ -61,6 +61,8 @@ type Engine struct {
 	waits     map[pgraph.Vertex]*sync.WaitGroup // wg for the Worker func
 	wlock     *sync.Mutex                       // lock around waits map
 
+	metas map[engine.ResPtrUID]*engine.MetaState // meta state
+
 	slock *sync.Mutex // semaphore lock
 	semas map[string]*semaphore.Semaphore
 
@@ -96,6 +98,8 @@ func (obj *Engine) Init() error {
 	obj.state = make(map[pgraph.Vertex]*State)
 	obj.waits = make(map[pgraph.Vertex]*sync.WaitGroup)
 	obj.wlock = &sync.Mutex{}
+
+	obj.metas = make(map[engine.ResPtrUID]*engine.MetaState)
 
 	obj.slock = &sync.Mutex{}
 	obj.semas = make(map[string]*semaphore.Semaphore)
@@ -161,6 +165,15 @@ func (obj *Engine) Commit() error {
 
 	// TODO: Does this hurt performance or graph changes ?
 
+	activeMetas := make(map[engine.ResPtrUID]struct{})
+	for vertex := range obj.state {
+		res, ok := vertex.(engine.Res)
+		if !ok { // should not happen, previously validated
+			return fmt.Errorf("not a Res")
+		}
+		activeMetas[engine.PtrUID(res)] = struct{}{} // add
+	}
+
 	start := []func() error{} // functions to run after graphsync to start...
 	vertexAddFn := func(vertex pgraph.Vertex) error {
 		// some of these validation steps happen before this Commit step
@@ -177,6 +190,8 @@ func (obj *Engine) Commit() error {
 		if _, exists := obj.state[vertex]; exists {
 			return fmt.Errorf("the Res state already exists")
 		}
+
+		activeMetas[engine.PtrUID(res)] = struct{}{} // add
 
 		if obj.Debug {
 			obj.Logf("Validate(%s)", res)
@@ -254,6 +269,12 @@ func (obj *Engine) Commit() error {
 
 	free := []func() error{} // functions to run after graphsync to reset...
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
+		res, ok := vertex.(engine.Res)
+		if !ok { // should not happen, previously validated
+			return fmt.Errorf("not a Res")
+		}
+		delete(activeMetas, engine.PtrUID(res))
+
 		// wait for exit before starting new graph!
 		close(obj.state[vertex].removeDone)   // causes doneCtx to cancel
 		close(obj.state[vertex].resumeSignal) // unblock (it only closes here)
@@ -318,6 +339,21 @@ func (obj *Engine) Commit() error {
 	if err := obj.graph.GraphSync(obj.nextGraph, vertexCmpFn, vertexAddFn, vertexRemoveFn, engine.EdgeCmpFn); err != nil {
 		return errwrap.Wrapf(err, "error running graph sync")
 	}
+
+	// This happens after GraphSync when vertexRemoveFn and vertexAddFn are
+	// done running. Those two modified the activeMetas map. It's important
+	// that vertexRemoveFn runs before vertexAddFn, but GraphSync guarantees
+	// that, and it would be kind of illogical to not run things that way.
+	metaGC := make(map[engine.ResPtrUID]struct{}) // which metas should we garbage collect?
+	for ptrUID := range obj.metas {
+		if _, exists := activeMetas[ptrUID]; !exists {
+			metaGC[ptrUID] = struct{}{}
+		}
+	}
+	for ptrUID := range metaGC {
+		delete(obj.metas, ptrUID) // otherwise, this could grow forever
+	}
+
 	// We run these afterwards, so that we don't unnecessarily start anyone
 	// if GraphSync failed in some way. Otherwise we'd have to do clean up!
 	for _, fn := range start {

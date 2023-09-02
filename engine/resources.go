@@ -220,6 +220,16 @@ func Stringer(res Res) string {
 	return Repr(res.Kind(), res.Name())
 }
 
+// ResPtrUID is a unique identifier that is consistent for the kind and name of
+// the resource only.
+type ResPtrUID string
+
+// PtrUID generates a ResPtrUID from a resource.
+func PtrUID(res Res) ResPtrUID {
+	// the use of "repr" is kind of arbitrary as long as it's unique
+	return ResPtrUID(Repr(res.Kind(), res.Name()))
+}
+
 // Validate validates a resource by checking multiple aspects. This is the main
 // entry point for running all the validation steps on a resource.
 func Validate(res Res) error {

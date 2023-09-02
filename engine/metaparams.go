@@ -36,6 +36,7 @@ var DefaultMetaParams = &MetaParams{
 	Poll:  0,        // defaults to watching for events
 	Limit: rate.Inf, // defaults to no limit
 	Burst: 0,        // no burst needed on an infinite rate
+	Reset: false,
 	//Sema:  []string{},
 	Rewatch: false,
 	Realize: false, // true would be more awesome, but unexpected for users
@@ -77,6 +78,15 @@ type MetaParams struct {
 
 	// Burst is the number of events to allow in a burst.
 	Burst int `yaml:"burst"`
+
+	// Reset causes the meta param state to reset when the resource changes.
+	// What this means is if you have a resource of a specific kind and name
+	// and in the subsequent graph it changes because one of its params
+	// changed, normally the Retry, and other params will remember their
+	// state, and you'll not reset the retry counter, however if this is
+	// true, then it will get reset. Note that any normal reset mechanisms
+	// built into retry are not affected by this.
+	Reset bool `yaml:"reset"`
 
 	// Sema is a list of semaphore ids in the form `id` or `id:count`. If
 	// you don't specify a count, then 1 is assumed. The sema of `foo` which
@@ -135,6 +145,9 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	if obj.Burst != meta.Burst {
 		return fmt.Errorf("values for Burst are different")
 	}
+	if obj.Reset != meta.Reset {
+		return fmt.Errorf("values for Reset are different")
+	}
 
 	if err := util.SortedStrSliceCompare(obj.Sema, meta.Sema); err != nil {
 		return errwrap.Wrapf(err, "values for Sema are different")
@@ -182,6 +195,7 @@ func (obj *MetaParams) Copy() *MetaParams {
 		Poll:    obj.Poll,
 		Limit:   obj.Limit, // FIXME: can we copy this type like this? test me!
 		Burst:   obj.Burst,
+		Reset:   obj.Reset,
 		Sema:    sema,
 		Rewatch: obj.Rewatch,
 		Realize: obj.Realize,
@@ -201,4 +215,16 @@ func (obj *MetaParams) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = MetaParams(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// MetaState is some local meta param state that is saved between resources of
+// the same kind+name unique ID. Even though the vertex/resource pointer might
+// change during a graph switch (because the params changed) we might be
+// logically referring to the same resource, and we might want to preserve some
+// data across that switch. The common example is the resource retry count. If a
+// resource failed three times, and we had a limit of five before it would be a
+// permanent failure, then we don't want to reset this counter just because we
+// changed a parameter (field) of the resource. This doesn't mean we don't want
+// to ever reset these counts. For that, flip on the reset meta param.
+type MetaState struct {
 }

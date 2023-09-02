@@ -256,6 +256,11 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 		return fmt.Errorf("permanently limited (rate != Inf, burst = 0)")
 	}
 
+	// initialize or reinitialize the meta state for this resource uid
+	if _, exists := obj.metas[engine.PtrUID(res)]; !exists || res.MetaParams().Reset {
+		obj.metas[engine.PtrUID(res)] = &engine.MetaState{}
+	}
+
 	//defer close(obj.state[vertex].stopped) // done signal
 
 	obj.state[vertex].cuid = obj.Converger.Register()

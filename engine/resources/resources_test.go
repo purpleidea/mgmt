@@ -1749,3 +1749,20 @@ func TestResources2(t *testing.T) {
 		})
 	}
 }
+
+func TestResPtrUID1(t *testing.T) {
+	t1, err := engine.NewNamedResource("test", "test1")
+	if err != nil {
+		t.Errorf("could not build resource: %+v", err)
+		return
+	}
+	t2, err := engine.NewNamedResource("test", "test1")
+	if err != nil {
+		t.Errorf("could not build resource: %+v", err)
+		return
+	}
+
+	if uid1, uid2 := engine.PtrUID(t1), engine.PtrUID(t2); uid1 != uid2 {
+		t.Errorf("uid's don't match")
+	}
+}

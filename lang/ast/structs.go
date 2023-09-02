@@ -939,6 +939,9 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 			// TODO: check that it doesn't overflow
 			meta.Burst = int(x)
 
+		case "reset":
+			meta.Reset = v.Bool() // must not panic
+
 		case "sema": // []string
 			values := []string{}
 			for _, x := range v.List() { // must not panic
@@ -999,6 +1002,9 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow
 				meta.Burst = int(x)
+			}
+			if val, exists := v.Struct()["reset"]; exists {
+				meta.Reset = val.Bool() // must not panic
 			}
 			if val, exists := v.Struct()["sema"]; exists {
 				values := []string{}
@@ -1594,6 +1600,7 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "poll":
 	case "limit":
 	case "burst":
+	case "reset":
 	case "sema":
 	case "rewatch":
 	case "realize":
@@ -1792,6 +1799,9 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 	case "burst":
 		invar = static(types.TypeInt)
 
+	case "reset":
+		invar = static(types.TypeBool)
+
 	case "sema":
 		invar = static(types.NewType("[]str"))
 
@@ -1827,7 +1837,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; delay int; poll int; limit float; burst int; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		ors := []interfaces.Invariant{}
 		invarBool := static(wrap(types.TypeBool))

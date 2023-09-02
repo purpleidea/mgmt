@@ -151,8 +151,8 @@ func (obj *Engine) Process(vertex pgraph.Vertex) error {
 	} else if noop && (refresh && isRefreshableRes) { // had a refresh to do w/ noop!
 		checkOK, err = false, nil // therefore the state is wrong
 
-		// run the CheckApply!
 	} else {
+		// run the CheckApply!
 		obj.Logf("%s: CheckApply(%t)", res, !noop)
 		// if this fails, don't UpdateTimestamp()
 		checkOK, err = res.CheckApply(!noop)

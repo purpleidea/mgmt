@@ -187,7 +187,7 @@ func (obj *HostnameRes) updateHostnameProperty(object dbus.BusObject, expectedVa
 }
 
 // CheckApply method for Hostname resource.
-func (obj *HostnameRes) CheckApply(apply bool) (bool, error) {
+func (obj *HostnameRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	conn, err := util.SystemBusPrivateUsable()
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to connect to the private system bus")

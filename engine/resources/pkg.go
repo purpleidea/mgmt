@@ -278,7 +278,7 @@ func (obj *PkgRes) populateFileList() error {
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *PkgRes) CheckApply(apply bool) (bool, error) {
+func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("Check: %s", obj.fmtNames(obj.getNames()))
 
 	bus := packagekit.NewBus()

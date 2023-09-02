@@ -534,7 +534,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 // of computing the source data hash, and it returns the computed value if this
 // function reaches that stage. As usual, it respects the apply action variable,
 // and has some symmetry with the main CheckApply function.
-func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sha256sum string) (string, bool, error) {
+func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadSeeker, dst string, sha256sum string) (string, bool, error) {
 	// TODO: does it make sense to switch dst to an io.Writer ?
 	// TODO: use obj.Force when dealing with symlinks and other file types!
 	if obj.init.Debug {
@@ -674,7 +674,7 @@ func (obj *FileRes) fileCheckApply(apply bool, src io.ReadSeeker, dst string, sh
 }
 
 // dirCheckApply is the CheckApply operation for an empty directory.
-func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
+func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error) {
 	// check if the path exists and is a directory
 	fileInfo, err := os.Stat(obj.getPath())
 	if err != nil && !os.IsNotExist(err) {
@@ -726,7 +726,7 @@ func (obj *FileRes) dirCheckApply(apply bool) (bool, error) {
 // fileCheckApply method. It returns checkOK and error as is normally expected.
 // If excludes is specified, none of those files there will be deleted by this,
 // with the exception that a sync *can* convert a file to a dir, or vice-versa.
-func (obj *FileRes) syncCheckApply(apply bool, src, dst string, excludes []string) (bool, error) {
+func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst string, excludes []string) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("syncCheckApply: %s -> %s", src, dst)
 	}
@@ -760,7 +760,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string, excludes []strin
 			return false, err
 		}
 
-		_, checkOK, err := obj.fileCheckApply(apply, fin, dst, "")
+		_, checkOK, err := obj.fileCheckApply(ctx, apply, fin, dst, "")
 		if err != nil {
 			fin.Close()
 			return false, err
@@ -831,7 +831,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string, excludes []strin
 			obj.init.Logf("syncCheckApply: recurse: %s -> %s", absSrc, absDst)
 		}
 		if obj.Recurse {
-			if c, err := obj.syncCheckApply(apply, absSrc, absDst, excludes); err != nil { // recurse
+			if c, err := obj.syncCheckApply(ctx, apply, absSrc, absDst, excludes); err != nil { // recurse
 				return false, errwrap.Wrapf(err, "syncCheckApply: recurse failed")
 			} else if !c { // don't let subsequent passes make this true
 				checkOK = false
@@ -888,7 +888,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string, excludes []strin
 		}
 		_ = absSrc
 		//obj.init.Logf("syncCheckApply: recurse rm: %s -> %s", absSrc, absDst)
-		//if c, err := obj.syncCheckApply(apply, absSrc, absDst, excludes); err != nil {
+		//if c, err := obj.syncCheckApply(ctx, apply, absSrc, absDst, excludes); err != nil {
 		//	return false, errwrap.Wrapf(err, "syncCheckApply: recurse rm failed")
 		//} else if !c { // don't let subsequent passes make this true
 		//	checkOK = false
@@ -910,7 +910,7 @@ func (obj *FileRes) syncCheckApply(apply bool, src, dst string, excludes []strin
 
 // stateCheckApply performs a CheckApply of the file state to create or remove
 // an empty file or directory.
-func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
+func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.State == FileStateUndefined { // state is not specified
 		return true, nil
 	}
@@ -953,7 +953,7 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 	// we need to make a file or a directory now
 
 	if obj.isDir() {
-		return obj.dirCheckApply(apply)
+		return obj.dirCheckApply(ctx, apply)
 	}
 
 	// Optimization: we shouldn't even look at obj.Content here, but we can
@@ -979,7 +979,7 @@ func (obj *FileRes) stateCheckApply(apply bool) (bool, error) {
 }
 
 // contentCheckApply performs a CheckApply for the file content.
-func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
+func (obj *FileRes) contentCheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("contentCheckApply(%t)", apply)
 
 	// content is not defined, leave it alone...
@@ -989,7 +989,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 
 	// Actually write the file. This is similar to fragmentsCheckApply.
 	bufferSrc := bytes.NewReader([]byte(*obj.Content))
-	sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.getPath(), obj.sha256sum)
+	sha256sum, checkOK, err := obj.fileCheckApply(ctx, apply, bufferSrc, obj.getPath(), obj.sha256sum)
 	if sha256sum != "" { // empty values mean errored or didn't hash
 		// this can be valid even when the whole function errors
 		obj.sha256sum = sha256sum // cache value
@@ -1002,7 +1002,7 @@ func (obj *FileRes) contentCheckApply(apply bool) (bool, error) {
 }
 
 // sourceCheckApply performs a CheckApply for the file source.
-func (obj *FileRes) sourceCheckApply(apply bool) (bool, error) {
+func (obj *FileRes) sourceCheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("sourceCheckApply(%t)", apply)
 
 	// source is not defined, leave it alone...
@@ -1047,7 +1047,7 @@ func (obj *FileRes) sourceCheckApply(apply bool) (bool, error) {
 	}
 
 	// XXX: should this work with obj.Purge && obj.Source != "" or not?
-	checkOK, err := obj.syncCheckApply(apply, obj.Source, obj.getPath(), excludes)
+	checkOK, err := obj.syncCheckApply(ctx, apply, obj.Source, obj.getPath(), excludes)
 	if err != nil {
 		obj.init.Logf("syncCheckApply: error: %v", err)
 		return false, err
@@ -1057,7 +1057,7 @@ func (obj *FileRes) sourceCheckApply(apply bool) (bool, error) {
 }
 
 // fragmentsCheckApply performs a CheckApply for the file fragments.
-func (obj *FileRes) fragmentsCheckApply(apply bool) (bool, error) {
+func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("fragmentsCheckApply(%t)", apply)
 
 	// fragments is not defined, leave it alone...
@@ -1104,7 +1104,7 @@ func (obj *FileRes) fragmentsCheckApply(apply bool) (bool, error) {
 	// NOTE: We pass in an invalidated sha256sum cache since we don't cache
 	// all the individual files, and it could all change without us knowing.
 	// TODO: Is the sha256sum caching even having an effect at all here ???
-	sha256sum, checkOK, err := obj.fileCheckApply(apply, bufferSrc, obj.getPath(), "")
+	sha256sum, checkOK, err := obj.fileCheckApply(ctx, apply, bufferSrc, obj.getPath(), "")
 	if sha256sum != "" { // empty values mean errored or didn't hash
 		// this can be valid even when the whole function errors
 		obj.sha256sum = sha256sum // cache value
@@ -1117,7 +1117,7 @@ func (obj *FileRes) fragmentsCheckApply(apply bool) (bool, error) {
 }
 
 // chownCheckApply performs a CheckApply for the file ownership.
-func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
+func (obj *FileRes) chownCheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("chownCheckApply(%t)", apply)
 
 	if obj.Owner == "" && obj.Group == "" {
@@ -1177,7 +1177,7 @@ func (obj *FileRes) chownCheckApply(apply bool) (bool, error) {
 }
 
 // chmodCheckApply performs a CheckApply for the file permissions.
-func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
+func (obj *FileRes) chmodCheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("chmodCheckApply(%t)", apply)
 
 	if obj.Mode == "" {
@@ -1210,7 +1210,7 @@ func (obj *FileRes) chmodCheckApply(apply bool) (bool, error) {
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *FileRes) CheckApply(apply bool) (bool, error) {
+func (obj *FileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// NOTE: all send/recv change notifications *must* be processed before
 	// there is a possibility of failure in CheckApply. This is because if
 	// we fail (and possibly run again) the subsequent send->recv transfer
@@ -1227,33 +1227,33 @@ func (obj *FileRes) CheckApply(apply bool) (bool, error) {
 
 	// Run stateCheckApply before contentCheckApply, sourceCheckApply, and
 	// fragmentsCheckApply.
-	if c, err := obj.stateCheckApply(apply); err != nil {
+	if c, err := obj.stateCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
-	if c, err := obj.contentCheckApply(apply); err != nil {
+	if c, err := obj.contentCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
-	if c, err := obj.sourceCheckApply(apply); err != nil {
+	if c, err := obj.sourceCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
-	if c, err := obj.fragmentsCheckApply(apply); err != nil {
+	if c, err := obj.fragmentsCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
 
-	if c, err := obj.chownCheckApply(apply); err != nil {
+	if c, err := obj.chownCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
-	if c, err := obj.chmodCheckApply(apply); err != nil {
+	if c, err := obj.chmodCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false

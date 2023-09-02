@@ -18,6 +18,7 @@
 package graph
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -60,7 +61,7 @@ func (obj *Engine) BadTimestamps(vertex pgraph.Vertex) []pgraph.Vertex {
 }
 
 // Process is the primary function to execute a particular vertex in the graph.
-func (obj *Engine) Process(vertex pgraph.Vertex) error {
+func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	res, isRes := vertex.(engine.Res)
 	if !isRes {
 		return fmt.Errorf("vertex is not a Res")
@@ -155,7 +156,7 @@ func (obj *Engine) Process(vertex pgraph.Vertex) error {
 		// run the CheckApply!
 		obj.Logf("%s: CheckApply(%t)", res, !noop)
 		// if this fails, don't UpdateTimestamp()
-		checkOK, err = res.CheckApply(!noop)
+		checkOK, err = res.CheckApply(ctx, !noop)
 		obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
 	}
 
@@ -563,7 +564,7 @@ Loop:
 			if obj.Debug {
 				obj.Logf("Process(%s)", vertex)
 			}
-			err = obj.Process(vertex)
+			err = obj.Process(obj.state[vertex].doneCtx, vertex)
 			if obj.Debug {
 				obj.Logf("Process(%s): Return(%s)", vertex, engineUtil.CleanError(err))
 			}

@@ -71,7 +71,7 @@ func (obj *NoopResTest) Watch(context.Context) error {
 	return nil // not needed
 }
 
-func (obj *NoopResTest) CheckApply(apply bool) (checkOK bool, err error) {
+func (obj *NoopResTest) CheckApply(ctx context.Context, apply bool) (checkOK bool, err error) {
 	return true, nil // state is always okay
 }
 

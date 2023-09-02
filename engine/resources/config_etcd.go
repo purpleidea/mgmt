@@ -130,10 +130,10 @@ Loop:
 // to zero, then it *won't* try and change it away from zero, because it assumes
 // that someone has requested a shutdown. If the value is seen on first startup,
 // then it will change it, because it might be a zero from the previous cluster.
-func (obj *ConfigEtcdRes) sizeCheckApply(apply bool) (bool, error) {
+func (obj *ConfigEtcdRes) sizeCheckApply(ctx context.Context, apply bool) (bool, error) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait() // this must be above the defer cancel() call
-	ctx, cancel := context.WithTimeout(context.Background(), sizeCheckApplyTimeout)
+	ctx, cancel := context.WithTimeout(ctx, sizeCheckApplyTimeout)
 	defer cancel()
 	wg.Add(1)
 	go func() {
@@ -182,17 +182,17 @@ func (obj *ConfigEtcdRes) sizeCheckApply(apply bool) (bool, error) {
 }
 
 // CheckApply method for Noop resource. Does nothing, returns happy!
-func (obj *ConfigEtcdRes) CheckApply(apply bool) (bool, error) {
+func (obj *ConfigEtcdRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	checkOK := true
 
-	if c, err := obj.sizeCheckApply(apply); err != nil {
+	if c, err := obj.sizeCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
 
 	// TODO: add more config settings management here...
-	//if c, err := obj.TODOCheckApply(apply); err != nil {
+	//if c, err := obj.TODOCheckApply(ctx, apply); err != nil {
 	//	return false, err
 	//} else if !c {
 	//	checkOK = false

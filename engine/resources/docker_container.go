@@ -214,11 +214,11 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply method for Docker resource.
-func (obj *DockerContainerRes) CheckApply(apply bool) (bool, error) {
+func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	var id string
 	var destroy bool
 
-	ctx, cancel := context.WithTimeout(context.Background(), checkApplyCtxTimeout*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, checkApplyCtxTimeout*time.Second)
 	defer cancel()
 
 	// List any container whose name matches this resource.

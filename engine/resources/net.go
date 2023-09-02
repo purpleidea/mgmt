@@ -313,7 +313,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 
 // ifaceCheckApply checks the state of the network device and brings it up or
 // down as necessary.
-func (obj *NetRes) ifaceCheckApply(apply bool) (bool, error) {
+func (obj *NetRes) ifaceCheckApply(ctx context.Context, apply bool) (bool, error) {
 	// check the interface state
 	state, err := obj.iface.state()
 	if err != nil {
@@ -340,7 +340,7 @@ func (obj *NetRes) ifaceCheckApply(apply bool) (bool, error) {
 
 // addrCheckApply checks if the interface has the correct addresses and then
 // adds/deletes addresses as necessary.
-func (obj *NetRes) addrCheckApply(apply bool) (bool, error) {
+func (obj *NetRes) addrCheckApply(ctx context.Context, apply bool) (bool, error) {
 	// get the link's addresses
 	ifaceAddrs, err := obj.iface.getAddrs()
 	if err != nil {
@@ -388,7 +388,7 @@ func (obj *NetRes) addrCheckApply(apply bool) (bool, error) {
 
 // gatewayCheckApply checks if the interface has the correct default gateway and
 // adds/deletes routes as necessary.
-func (obj *NetRes) gatewayCheckApply(apply bool) (bool, error) {
+func (obj *NetRes) gatewayCheckApply(ctx context.Context, apply bool) (bool, error) {
 	// get all routes from the interface
 	routes, err := netlink.RouteList(obj.iface.link, netlink.FAMILY_V4)
 	if err != nil {
@@ -440,7 +440,7 @@ func (obj *NetRes) gatewayCheckApply(apply bool) (bool, error) {
 }
 
 // fileCheckApply checks and maintains the systemd-networkd unit file contents.
-func (obj *NetRes) fileCheckApply(apply bool) (bool, error) {
+func (obj *NetRes) fileCheckApply(ctx context.Context, apply bool) (bool, error) {
 	// check if the unit file exists
 	_, err := os.Stat(obj.unitFilePath)
 	if err != nil && !os.IsNotExist(err) {
@@ -475,11 +475,11 @@ func (obj *NetRes) fileCheckApply(apply bool) (bool, error) {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *NetRes) CheckApply(apply bool) (bool, error) {
+func (obj *NetRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	checkOK := true
 
 	// check the network device
-	if c, err := obj.ifaceCheckApply(apply); err != nil {
+	if c, err := obj.ifaceCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
@@ -491,14 +491,14 @@ func (obj *NetRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	// check the addresses
-	if c, err := obj.addrCheckApply(apply); err != nil {
+	if c, err := obj.addrCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
 
 	// check the gateway
-	if c, err := obj.gatewayCheckApply(apply); err != nil {
+	if c, err := obj.gatewayCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
@@ -510,7 +510,7 @@ func (obj *NetRes) CheckApply(apply bool) (bool, error) {
 	}
 
 	// check the networkd unit file
-	if c, err := obj.fileCheckApply(apply); err != nil {
+	if c, err := obj.fileCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false

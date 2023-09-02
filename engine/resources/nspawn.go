@@ -203,7 +203,7 @@ func (obj *NspawnRes) Watch(ctx context.Context) error {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *NspawnRes) CheckApply(apply bool) (bool, error) {
+func (obj *NspawnRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// this resource depends on systemd to ensure that it's running
 	if !systemdUtil.IsRunningSystemd() {
 		return false, errors.New("systemd is not running")
@@ -253,7 +253,7 @@ func (obj *NspawnRes) CheckApply(apply bool) (bool, error) {
 
 	obj.init.Logf("CheckApply() applying '%s' state", obj.State)
 	// use the embedded svc to apply the correct state
-	if _, err := obj.svc.CheckApply(apply); err != nil {
+	if _, err := obj.svc.CheckApply(ctx, apply); err != nil {
 		return false, errwrap.Wrapf(err, "nested svc failed")
 	}
 

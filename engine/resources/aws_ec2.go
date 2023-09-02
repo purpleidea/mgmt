@@ -625,7 +625,7 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 }
 
 // CheckApply method for AwsEc2 resource.
-func (obj *AwsEc2Res) CheckApply(apply bool) (bool, error) {
+func (obj *AwsEc2Res) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("CheckApply(%t)", apply)
 
 	// find the instance we need to check
@@ -735,7 +735,7 @@ func (obj *AwsEc2Res) CheckApply(apply bool) (bool, error) {
 	}
 
 	// context to cancel the waiter if it takes too long
-	innerCtx, cancel := context.WithTimeout(context.TODO(), waitTimeout*time.Second)
+	innerCtx, cancel := context.WithTimeout(ctx, waitTimeout*time.Second)
 	defer cancel()
 
 	// wait until the state converges

@@ -168,7 +168,7 @@ func (obj *AugeasRes) Watch(ctx context.Context) error {
 }
 
 // checkApplySet runs CheckApply for one element of the AugeasRes.Set
-func (obj *AugeasRes) checkApplySet(apply bool, ag *augeas.Augeas, set *AugeasSet) (bool, error) {
+func (obj *AugeasRes) checkApplySet(ctx context.Context, apply bool, ag *augeas.Augeas, set *AugeasSet) (bool, error) {
 	fullpath := fmt.Sprintf("/files/%v/%v", obj.File, set.Path)
 
 	// We do not check for errors because errors are also thrown when
@@ -193,7 +193,7 @@ func (obj *AugeasRes) checkApplySet(apply bool, ag *augeas.Augeas, set *AugeasSe
 }
 
 // CheckApply method for Augeas resource.
-func (obj *AugeasRes) CheckApply(apply bool) (bool, error) {
+func (obj *AugeasRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("CheckApply: %s", obj.File)
 	// By default we do not set any option to augeas, we use the defaults.
 	opts := augeas.None
@@ -230,7 +230,7 @@ func (obj *AugeasRes) CheckApply(apply bool) (bool, error) {
 
 	checkOK := true
 	for _, set := range obj.Sets {
-		if setCheckOK, err := obj.checkApplySet(apply, &ag, set); err != nil {
+		if setCheckOK, err := obj.checkApplySet(ctx, apply, &ag, set); err != nil {
 			return false, errwrap.Wrapf(err, "augeas: error during CheckApply of one Set")
 		} else if !setCheckOK {
 			checkOK = false

@@ -163,7 +163,7 @@ func (obj *MsgRes) journalPriority() journal.Priority {
 
 // CheckApply method for Msg resource. Every check leads to an apply, meaning
 // that the message is flushed to the journal.
-func (obj *MsgRes) CheckApply(apply bool) (bool, error) {
+func (obj *MsgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// isStateOK() done by engine, so we updateStateOK() to pass in value
 	//if obj.isAllStateOK() {
 	//	return true, nil

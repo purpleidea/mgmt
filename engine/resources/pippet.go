@@ -108,7 +108,7 @@ func (obj *PippetRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply synchronizes the resource if required.
-func (obj *PippetRes) CheckApply(apply bool) (bool, error) {
+func (obj *PippetRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if !apply {
 		return false, nil
 	}

@@ -291,7 +291,7 @@ func (obj *MountRes) Watch(ctx context.Context) error {
 
 // fstabCheckApply checks /etc/fstab for entries corresponding to the resource
 // definition, and adds or deletes the entry as needed.
-func (obj *MountRes) fstabCheckApply(apply bool) (bool, error) {
+func (obj *MountRes) fstabCheckApply(ctx context.Context, apply bool) (bool, error) {
 	exists, err := fstabEntryExists(fstabPath, obj.mount)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error checking if fstab entry exists")
@@ -321,7 +321,7 @@ func (obj *MountRes) fstabCheckApply(apply bool) (bool, error) {
 
 // mountCheckApply checks if the defined resource is mounted, and mounts or
 // unmounts it according to the defined state.
-func (obj *MountRes) mountCheckApply(apply bool) (bool, error) {
+func (obj *MountRes) mountCheckApply(ctx context.Context, apply bool) (bool, error) {
 	exists, err := mountExists(procPath, obj.mount)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error checking if mount exists")
@@ -340,7 +340,7 @@ func (obj *MountRes) mountCheckApply(apply bool) (bool, error) {
 	if obj.State == "exists" {
 		// Reload mounts from /etc/fstab by performing a `daemon-reload` and
 		// restarting `local-fs.target` and `remote-fs.target` units.
-		if err := mountReload(); err != nil {
+		if err := mountReload(ctx); err != nil {
 			return false, errwrap.Wrapf(err, "error reloading /etc/fstab")
 		}
 		return false, nil // we're done
@@ -355,16 +355,16 @@ func (obj *MountRes) mountCheckApply(apply bool) (bool, error) {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *MountRes) CheckApply(apply bool) (bool, error) {
+func (obj *MountRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	checkOK := true
 
-	if c, err := obj.fstabCheckApply(apply); err != nil {
+	if c, err := obj.fstabCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
 	}
 
-	if c, err := obj.mountCheckApply(apply); err != nil {
+	if c, err := obj.mountCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
@@ -584,7 +584,7 @@ func mountCompare(def, proc *fstab.Mount) (bool, error) {
 
 // mountReload performs a daemon-reload and restarts fs-local.target and
 // fs-remote.target, to let systemd mount any new entries in /etc/fstab.
-func mountReload() error {
+func mountReload(ctx context.Context) error {
 	// establish a godbus connection
 	conn, err := util.SystemBusPrivateUsable()
 	if err != nil {
@@ -598,12 +598,12 @@ func mountReload() error {
 	}
 
 	// systemctl restart local-fs.target
-	if err := restartUnit(conn, "local-fs.target"); err != nil {
+	if err := restartUnit(ctx, conn, "local-fs.target"); err != nil {
 		return errwrap.Wrapf(err, "error restarting unit")
 	}
 
 	// systemctl restart remote-fs.target
-	if err := restartUnit(conn, "remote-fs.target"); err != nil {
+	if err := restartUnit(ctx, conn, "remote-fs.target"); err != nil {
 		return errwrap.Wrapf(err, "error restarting unit")
 	}
 
@@ -612,9 +612,9 @@ func mountReload() error {
 
 // restartUnit restarts the given dbus unit and waits for it to finish starting
 // up. If restartTimeout is exceeded, it will return an error.
-func restartUnit(conn *dbus.Conn, unit string) error {
+func restartUnit(ctx context.Context, conn *dbus.Conn, unit string) error {
 	// timeout if we don't get the JobRemoved event
-	ctx, cancel := context.WithTimeout(context.TODO(), dbusRestartCtxTimeout*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, dbusRestartCtxTimeout*time.Second)
 	defer cancel()
 
 	// Add a dbus rule to watch the systemd1 JobRemoved signal used to wait

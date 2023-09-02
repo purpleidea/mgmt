@@ -206,7 +206,7 @@ on an error if something went wrong.
 ### CheckApply
 
 ```golang
-CheckApply(apply bool) (checkOK bool, err error)
+CheckApply(ctx context.Context, apply bool) (checkOK bool, err error)
 ```
 
 `CheckApply` is where the real _work_ is done. Under normal circumstances, this
@@ -215,7 +215,8 @@ should return: `(true, nil)`. If the `apply` variable is set to `true`, then
 this means that we should then proceed to run the changes required to bring the
 resource into the correct state. If the `apply` variable is set to `false`, then
 the resource is operating in _noop_ mode and _no operational changes_ should be
-made!
+made! The ctx should be monitored in case a shutdown has been requested. This
+may be used if a timeout occurred, or if the user shutdown the engine.
 
 After having executed the necessary operations to bring the resource back into
 the desired state, or after having detected that the state was incorrect, but
@@ -234,7 +235,7 @@ to `CheckApply`.
 
 ```golang
 // CheckApply does the idempotent work of checking and applying resource state.
-func (obj *FooRes) CheckApply(apply bool) (bool, error) {
+func (obj *FooRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// check the state
 	if state_is_okay { return true, nil } // done early! :)
 
@@ -731,9 +732,9 @@ to be separate. It turns out that the current `CheckApply` can wrap this easily.
 It would look approximately like this:
 
 ```golang
-func (obj *FooRes) CheckApply(apply bool) (bool, error) {
+func (obj *FooRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// my private split implementation of check and apply
-	if c, err := obj.check(); err != nil {
+	if c, err := obj.check(ctx); err != nil {
 		return false, err // we errored
 	} else if c {
 		return true, nil // state was good!
@@ -743,7 +744,7 @@ func (obj *FooRes) CheckApply(apply bool) (bool, error) {
 		return false, nil // state needs fixing, but apply is false
 	}
 
-	err := obj.apply() // errors if failure or unable to apply
+	err := obj.apply(ctx) // errors if failure or unable to apply
 
 	return false, err // always return false, with an optional error
 }

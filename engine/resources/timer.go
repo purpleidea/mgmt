@@ -98,7 +98,7 @@ func (obj *TimerRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply method for Timer resource. Triggers a timer reset on notify.
-func (obj *TimerRes) CheckApply(apply bool) (bool, error) {
+func (obj *TimerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// because there are no checks to run, this resource has a less
 	// traditional pattern than what is seen in most resources...
 	if !obj.init.Refresh() { // this works for apply || !apply

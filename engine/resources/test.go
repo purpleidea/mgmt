@@ -139,7 +139,7 @@ func (obj *TestRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply method for Test resource. Does nothing, returns happy!
-func (obj *TestRes) CheckApply(apply bool) (bool, error) {
+func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	for key, val := range obj.init.Recv() {
 		obj.init.Logf("CheckApply: Received `%s`, changed: %t", key, val.Changed)
 	}

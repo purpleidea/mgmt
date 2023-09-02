@@ -53,6 +53,18 @@ func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
 }
 
 func TestExecSendRecv1(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
 	r1 := &ExecRes{
 		Cmd:   "echo hello world",
 		Shell: "/bin/bash",
@@ -71,7 +83,7 @@ func TestExecSendRecv1(t *testing.T) {
 		t.Errorf("init failed with: %v", err)
 	}
 	// run artificially without the entire engine
-	if _, err := r1.CheckApply(true); err != nil {
+	if _, err := r1.CheckApply(ctx, true); err != nil {
 		t.Errorf("checkapply failed with: %v", err)
 	}
 
@@ -98,6 +110,18 @@ func TestExecSendRecv1(t *testing.T) {
 }
 
 func TestExecSendRecv2(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
 	r1 := &ExecRes{
 		Cmd:   "echo hello world 1>&2", // to stderr
 		Shell: "/bin/bash",
@@ -116,7 +140,7 @@ func TestExecSendRecv2(t *testing.T) {
 		t.Errorf("init failed with: %v", err)
 	}
 	// run artificially without the entire engine
-	if _, err := r1.CheckApply(true); err != nil {
+	if _, err := r1.CheckApply(ctx, true); err != nil {
 		t.Errorf("checkapply failed with: %v", err)
 	}
 
@@ -143,6 +167,18 @@ func TestExecSendRecv2(t *testing.T) {
 }
 
 func TestExecSendRecv3(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
 	r1 := &ExecRes{
 		Cmd:   "echo hello world && echo goodbye world 1>&2", // to stdout && stderr
 		Shell: "/bin/bash",
@@ -161,7 +197,7 @@ func TestExecSendRecv3(t *testing.T) {
 		t.Errorf("init failed with: %v", err)
 	}
 	// run artificially without the entire engine
-	if _, err := r1.CheckApply(true); err != nil {
+	if _, err := r1.CheckApply(ctx, true); err != nil {
 		t.Errorf("checkapply failed with: %v", err)
 	}
 
@@ -206,8 +242,20 @@ func TestExecSendRecv3(t *testing.T) {
 }
 
 func TestExecTimeoutBehaviour(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
 	// cmd.Process.Kill() is called on timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	cmdName := "/bin/sleep"    // it's /usr/bin/sleep on modern distros
 	cmdArgs := []string{"300"} // 5 min in seconds

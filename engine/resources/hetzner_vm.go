@@ -388,9 +388,8 @@ func (obj *HetznerVMRes) Watch(context.Context) error {
 // NOTE: this last assumption might still fail in case the same resource
 // instance is managed by multiple running mgmt instances!
 // TODO: possible to ensure safe concurrency?
-func (obj *HetznerVMRes) CheckApply(apply bool) (bool, error) {
+func (obj *HetznerVMRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	checkOK := true
-	ctx := context.TODO()
 	// Request up-to-date server info from the API.
 	if err := obj.getServerUpdate(ctx); err != nil {
 		return false, errwrap.Wrapf(err, "getServerUpdate failed")

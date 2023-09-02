@@ -476,7 +476,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 
 // sidCheckApply runs the server ID cache operation in CheckApply, which can
 // help CheckApply fail before the handler runs, so at least we see an error.
-func (obj *DHCPServerRes) sidCheckApply(apply bool) (bool, error) {
+func (obj *DHCPServerRes) sidCheckApply(ctx context.Context, apply bool) (bool, error) {
 	// Mutex guards the cached obj.serverID value.
 	defer obj.sidMutex.Unlock()
 	obj.sidMutex.Lock()
@@ -500,7 +500,7 @@ func (obj *DHCPServerRes) sidCheckApply(apply bool) (bool, error) {
 // CheckApply never has anything to do for this resource, so it always succeeds.
 // It does however check that certain runtime requirements (such as the Root dir
 // existing if one was specified) are fulfilled.
-func (obj *DHCPServerRes) CheckApply(apply bool) (bool, error) {
+func (obj *DHCPServerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
@@ -524,7 +524,7 @@ func (obj *DHCPServerRes) CheckApply(apply bool) (bool, error) {
 
 	// Cheap runtime validation!
 	checkOK := true
-	if c, err := obj.sidCheckApply(apply); err != nil {
+	if c, err := obj.sidCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
@@ -1066,7 +1066,7 @@ func (obj *DHCPHostRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
-func (obj *DHCPHostRes) CheckApply(apply bool) (bool, error) {
+func (obj *DHCPHostRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}

@@ -216,7 +216,7 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 // CheckApply never has anything to do for this resource, so it always succeeds.
 // It does however check that certain runtime requirements (such as the Root dir
 // existing if one was specified) are fulfilled.
-func (obj *TFTPServerRes) CheckApply(apply bool) (bool, error) {
+func (obj *TFTPServerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
@@ -561,7 +561,7 @@ func (obj *TFTPFileRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
-func (obj *TFTPFileRes) CheckApply(apply bool) (bool, error) {
+func (obj *TFTPFileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}

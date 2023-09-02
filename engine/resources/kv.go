@@ -207,12 +207,12 @@ func (obj *KVRes) lessThanCheck(value string) (bool, error) {
 }
 
 // CheckApply method for Password resource. Does nothing, returns happy!
-func (obj *KVRes) CheckApply(apply bool) (bool, error) {
+func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("CheckApply(%t)", apply)
 
 	wg := &sync.WaitGroup{}
 	defer wg.Wait() // this must be above the defer cancel() call
-	ctx, cancel := context.WithTimeout(context.Background(), kvCheckApplyTimeout)
+	ctx, cancel := context.WithTimeout(ctx, kvCheckApplyTimeout)
 	defer cancel()
 	wg.Add(1)
 	go func() {

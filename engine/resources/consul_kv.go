@@ -195,7 +195,8 @@ func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 // CheckApply is run to check the state and, if apply is true, to apply the
 // necessary changes to reach the desired state. This is run before Watch and
 // again if Watch finds a change occurring to the state.
-func (obj *ConsulKVRes) CheckApply(apply bool) (bool, error) {
+func (obj *ConsulKVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	// XXX: use ctx for get and put
 	if obj.init.Debug {
 		obj.init.Logf("consul key: %s", obj.key)
 	}

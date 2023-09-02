@@ -277,7 +277,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 // TODO: expand the IfCmd to be a list of commands
-func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
+func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// If we receive a refresh signal, then the engine skips the IsStateOK()
 	// check and this will run. It is still guarded by the IfCmd, but it can
 	// have a chance to execute, and all without the check of obj.Refresh()!
@@ -381,15 +381,15 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 
 	wg := &sync.WaitGroup{}
 	defer wg.Wait() // this must be above the defer cancel() call
-	var ctx context.Context
+	var innerCtx context.Context
 	var cancel context.CancelFunc
 	if obj.Timeout > 0 { // cmd.Process.Kill() is called on timeout
-		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(obj.Timeout)*time.Second)
+		innerCtx, cancel = context.WithTimeout(ctx, time.Duration(obj.Timeout)*time.Second)
 	} else { // zero timeout means no timer
-		ctx, cancel = context.WithCancel(context.Background())
+		innerCtx, cancel = context.WithCancel(ctx)
 	}
 	defer cancel()
-	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+	cmd := exec.CommandContext(innerCtx, cmdName, cmdArgs...)
 	cmd.Dir = obj.Cwd // run program in pwd if ""
 
 	envKeys := []string{}
@@ -432,7 +432,7 @@ func (obj *ExecRes) CheckApply(apply bool) (bool, error) {
 		select {
 		case <-obj.interruptChan:
 			cancel()
-		case <-ctx.Done():
+		case <-innerCtx.Done():
 			// let this exit
 		}
 	}()

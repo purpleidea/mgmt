@@ -199,8 +199,12 @@ type Res interface {
 	Watch(context.Context) error
 
 	// CheckApply determines if the state of the resource is correct and if
-	// asked to with the `apply` variable, applies the requested state.
-	CheckApply(apply bool) (checkOK bool, err error)
+	// asked to with the `apply` variable, applies the requested state. If
+	// the input context cancels, we must return as quickly as possible. We
+	// should never exit immediately if this would cause permanent
+	// corruption of some sort. However it doesn't mean that a resource was
+	// taken to the desired state.
+	CheckApply(ctx context.Context, apply bool) (checkOK bool, err error)
 
 	// Cmp compares itself to another resource and returns an error if they
 	// are not equivalent. This is more strict than the Adapts method of the

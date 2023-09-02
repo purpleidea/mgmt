@@ -505,7 +505,7 @@ func (obj *VirtRes) domainCreate() (*libvirt.Domain, bool, error) {
 }
 
 // stateCheckApply starts, stops, or pauses/unpauses the domain as needed.
-func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, error) {
+func (obj *VirtRes) stateCheckApply(ctx context.Context, apply bool, dom *libvirt.Domain) (bool, error) {
 	var checkOK = true
 	domInfo, err := dom.GetInfo()
 	if err != nil {
@@ -586,7 +586,7 @@ func (obj *VirtRes) stateCheckApply(apply bool, dom *libvirt.Domain) (bool, erro
 
 // attrCheckApply performs the CheckApply functions for CPU, Memory and others.
 // This shouldn't be called when the machine is absent; it won't be found!
-func (obj *VirtRes) attrCheckApply(apply bool, dom *libvirt.Domain) (bool, error) {
+func (obj *VirtRes) attrCheckApply(ctx context.Context, apply bool, dom *libvirt.Domain) (bool, error) {
 	var checkOK = true
 	domInfo, err := dom.GetInfo()
 	if err != nil {
@@ -752,7 +752,7 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
+func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.conn == nil { // programming error?
 		return false, fmt.Errorf("got called with nil connection")
 	}
@@ -843,7 +843,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	// FIXME: is doing this early check (therefore twice total) a good idea?
 	// run additional pre-emptive attr change checks here for hotplug stuff!
 	if !obj.absent {
-		if c, err := obj.attrCheckApply(apply, dom); err != nil {
+		if c, err := obj.attrCheckApply(ctx, apply, dom); err != nil {
 			return false, errwrap.Wrapf(err, "early attrCheckApply failed")
 		} else if !c {
 			checkOK = false
@@ -852,7 +852,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 	// TODO: do we need to run again below after we've booted up the domain?
 
 	// apply correct machine state, eg: startup/shutoff/pause as needed
-	if c, err := obj.stateCheckApply(apply, dom); err != nil {
+	if c, err := obj.stateCheckApply(ctx, apply, dom); err != nil {
 		return false, errwrap.Wrapf(err, "stateCheckApply failed")
 	} else if !c {
 		checkOK = false
@@ -863,7 +863,7 @@ func (obj *VirtRes) CheckApply(apply bool) (bool, error) {
 
 	// mem & cpu checks...
 	if !obj.absent {
-		if c, err := obj.attrCheckApply(apply, dom); err != nil {
+		if c, err := obj.attrCheckApply(ctx, apply, dom); err != nil {
 			return false, errwrap.Wrapf(err, "attrCheckApply failed")
 		} else if !c {
 			checkOK = false

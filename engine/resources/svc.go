@@ -238,7 +238,7 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
-func (obj *SvcRes) CheckApply(apply bool) (bool, error) {
+func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if !systemdUtil.IsRunningSystemd() {
 		return false, fmt.Errorf("systemd is not running")
 	}
@@ -338,6 +338,7 @@ func (obj *SvcRes) CheckApply(apply bool) (bool, error) {
 		refresh = false // we did a stop, so a reload is not needed
 	}
 
+	// XXX: use ctx here
 	status := <-result
 	if &status == nil {
 		return false, fmt.Errorf("systemd service action result is nil")

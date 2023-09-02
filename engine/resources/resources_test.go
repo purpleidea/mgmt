@@ -644,7 +644,7 @@ func TestResources1(t *testing.T) {
 				}
 
 				t.Logf("test #%d: running CheckApply", index)
-				checkOK, err := res.CheckApply(true) // no noop!
+				checkOK, err := res.CheckApply(doneCtx, true) // no noop!
 				if err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: CheckApply failed: %s", index, err.Error())
@@ -771,7 +771,7 @@ func TestResources2(t *testing.T) {
 	// the returned error.
 	resCheckApplyError := func(res engine.Res, expCheckOK bool, errOK func(e error) error) func() error {
 		return func() error {
-			checkOK, err := res.CheckApply(true) // no noop!
+			checkOK, err := res.CheckApply(context.TODO(), true) // no noop!
 			if e := errOK(err); e != nil {
 				return errwrap.Wrapf(e, "error from CheckApply did not match expected")
 			}

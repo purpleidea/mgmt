@@ -176,7 +176,7 @@ type testEngineRes struct {
 	privateProp2 []int
 }
 
-func (t *testEngineRes) CheckApply(bool) (bool, error) { return false, nil }
+func (t *testEngineRes) CheckApply(context.Context, bool) (bool, error) { return false, nil }
 
 func (t *testEngineRes) Cleanup() error { return nil }
 

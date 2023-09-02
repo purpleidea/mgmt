@@ -172,8 +172,8 @@ func (obj *DockerImageRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply method for Docker resource.
-func (obj *DockerImageRes) CheckApply(apply bool) (checkOK bool, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dockerImageCheckApplyCtxTimeout*time.Second)
+func (obj *DockerImageRes) CheckApply(ctx context.Context, apply bool) (checkOK bool, err error) {
+	ctx, cancel := context.WithTimeout(ctx, dockerImageCheckApplyCtxTimeout*time.Second)
 	defer cancel()
 
 	s, err := obj.client.ImageList(ctx, types.ImageListOptions{

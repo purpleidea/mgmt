@@ -258,7 +258,9 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 
 	// initialize or reinitialize the meta state for this resource uid
 	if _, exists := obj.metas[engine.PtrUID(res)]; !exists || res.MetaParams().Reset {
-		obj.metas[engine.PtrUID(res)] = &engine.MetaState{}
+		obj.metas[engine.PtrUID(res)] = &engine.MetaState{
+			CheckApplyRetry: res.MetaParams().Retry, // lookup the retry value
+		}
 	}
 
 	//defer close(obj.state[vertex].stopped) // done signal
@@ -492,7 +494,7 @@ Loop:
 
 		// retry...
 		var err error
-		var retry = res.MetaParams().Retry // lookup the retry value
+		//var retry = res.MetaParams().Retry // lookup the retry value
 		var delay uint64
 	RetryLoop:
 		for { // retry loop
@@ -542,21 +544,28 @@ Loop:
 			if obj.Debug {
 				obj.Logf("Process(%s): Return(%s)", vertex, engineUtil.CleanError(err))
 			}
+			if err == nil && res.MetaParams().RetryReset { // reset it on success!
+				obj.metas[engine.PtrUID(res)].CheckApplyRetry = res.MetaParams().Retry // lookup the retry value
+			}
 			if err == nil {
 				break RetryLoop
 			}
 			// we've got an error...
 			delay = res.MetaParams().Delay
 
-			if retry < 0 { // infinite retries
+			if obj.metas[engine.PtrUID(res)].CheckApplyRetry < 0 { // infinite retries
 				continue
 			}
-			if retry > 0 { // don't decrement past 0
-				retry--
-				obj.state[vertex].init.Logf("retrying CheckApply after %.4f seconds (%d left)", float64(delay)/1000, retry)
+			if obj.metas[engine.PtrUID(res)].CheckApplyRetry > 0 { // don't decrement past 0
+				obj.metas[engine.PtrUID(res)].CheckApplyRetry--
+				obj.state[vertex].init.Logf(
+					"retrying CheckApply after %.4f seconds (%d left)",
+					float64(delay)/1000,
+					obj.metas[engine.PtrUID(res)].CheckApplyRetry,
+				)
 				continue
 			}
-			//if retry == 0 { // optional
+			//if obj.metas[engine.PtrUID(res)].CheckApplyRetry == 0 { // optional
 			//	err = errwrap.Wrapf(err, "permanent process error")
 			//}
 

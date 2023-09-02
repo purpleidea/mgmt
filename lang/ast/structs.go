@@ -920,6 +920,9 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 			// TODO: check that it doesn't overflow
 			meta.Retry = int16(x)
 
+		case "retryreset":
+			meta.RetryReset = v.Bool() // must not panic
+
 		case "delay":
 			x := v.Int() // must not panic
 			// TODO: check that it isn't signed
@@ -983,6 +986,9 @@ func (obj *StmtRes) metaparams(res engine.Res) error {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow
 				meta.Retry = int16(x)
+			}
+			if val, exists := v.Struct()["retryreset"]; exists {
+				meta.RetryReset = val.Bool() // must not panic
 			}
 			if val, exists := v.Struct()["delay"]; exists {
 				x := val.Int() // must not panic
@@ -1596,6 +1602,7 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	// TODO: we could add these fields dynamically if we were fancy!
 	case "noop":
 	case "retry":
+	case "retryreset":
 	case "delay":
 	case "poll":
 	case "limit":
@@ -1787,6 +1794,9 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 	case "retry":
 		invar = static(types.TypeInt)
 
+	case "retryreset":
+		invar = static(types.TypeBool)
+
 	case "delay":
 		invar = static(types.TypeInt)
 
@@ -1837,7 +1847,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		ors := []interfaces.Invariant{}
 		invarBool := static(wrap(types.TypeBool))

@@ -5,6 +5,7 @@ test "test" {
 	Meta => true ?: struct{
 		noop => false,
 		retry => -1,
+		retryreset => false,
 		delay => 0,
 		poll => 5,
 		limit => 4.2,

@@ -65,9 +65,16 @@ type MetaParams struct {
 	// reason to want to do something differently for the Watch errors.
 
 	// Retry is the number of times to retry on error. Use -1 for infinite.
+	// This value is used for both Watch and CheckApply.
 	Retry int16 `yaml:"retry"`
 
-	// Delay is the number of milliseconds to wait between retries.
+	// RetryReset resets the retry count for CheckApply if it succeeds. This
+	// value is currently different from the count used for Watch.
+	// TODO: Consider resetting retry count for watch if it sends an event?
+	RetryReset bool `yaml:"retryreset"`
+
+	// Delay is the number of milliseconds to wait between retries. This
+	// value is used for both Watch and CheckApply.
 	Delay uint64 `yaml:"delay"`
 
 	// Poll is the number of seconds between poll intervals. Use 0 to Watch.
@@ -227,4 +234,7 @@ func (obj *MetaParams) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // changed a parameter (field) of the resource. This doesn't mean we don't want
 // to ever reset these counts. For that, flip on the reset meta param.
 type MetaState struct {
+
+	// CheckApplyRetry is the current retry count for CheckApply.
+	CheckApplyRetry int16
 }

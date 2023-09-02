@@ -109,6 +109,10 @@ func (obj *PippetRes) Watch(ctx context.Context) error {
 
 // CheckApply synchronizes the resource if required.
 func (obj *PippetRes) CheckApply(apply bool) (bool, error) {
+	if !apply {
+		return false, nil
+	}
+
 	changed, err := applyPippetRes(obj.runner, obj)
 	if err != nil {
 		return false, fmt.Errorf("pippet: %s[%s]: ERROR - %v", obj.Type, obj.Title, err)

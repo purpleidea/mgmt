@@ -24,6 +24,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/pgraph"
 )
 
 // FuncSig is the simple signature that is used throughout our implementations.
@@ -45,8 +46,20 @@ type Info struct {
 type Init struct {
 	Hostname string // uuid for the host
 	//Noop bool
-	Input  chan types.Value // Engine will close `input` chan
-	Output chan types.Value // Stream must close `output` chan
+
+	// Input is where a chan (stream) of values will get sent to this node.
+	// The engine will close this `input` chan.
+	Input chan types.Value
+
+	// Output is the chan (stream) of values to get sent out from this node.
+	// The Stream function must close this `output` chan.
+	Output chan types.Value
+
+	// Txn provides a transaction API that can be used to modify the
+	// function graph while it is "running". This should not be used by most
+	// nodes, and when it is used, it should be used carefully.
+	Txn Txn
+
 	// TODO: should we pass in a *Scope here for functions like template() ?
 	World engine.World
 	Debug bool
@@ -229,4 +242,94 @@ type FuncEdge struct {
 // property to be a valid pgraph.Edge.
 func (obj *FuncEdge) String() string {
 	return strings.Join(obj.Args, ", ")
+}
+
+// GraphAPI is a subset of the available graph operations that are possible on a
+// pgraph that is used for storing functions. The minimum subset are those which
+// are needed for implementing the Txn interface.
+type GraphAPI interface {
+	AddVertex(Func) error
+	AddEdge(Func, Func, *FuncEdge) error
+	DeleteVertex(Func) error
+	DeleteEdge(*FuncEdge) error
+	//AddGraph(*pgraph.Graph) error
+
+	//Adjacency() map[Func]map[Func]*FuncEdge
+	HasVertex(Func) bool
+	FindEdge(Func, Func) *FuncEdge
+	LookupEdge(*FuncEdge) (Func, Func, bool)
+}
+
+// Txn is the interface that the engine graph API makes available so that
+// functions can modify the function graph dynamically while it is "running".
+// This could be implemented in one of two methods.
+//
+// Method 1: Have a pair of graph Lock and Unlock methods. Queue up the work to
+// do and when we "commit" the transaction, we're just queuing up the work to do
+// and then we run it all surrounded by the lock.
+//
+// Method 2: It's possible that we might eventually be able to actually modify
+// the running graph without even causing it to pause at all. In this scenario,
+// the "commit" would just directly perform those operations without even using
+// the Lock and Unlock mutex operations. This is why we don't expose those in
+// the API. It's also safer because someone can't forget to run Unlock which
+// would block the whole code base.
+type Txn interface {
+	// AddVertex adds a vertex to the running graph. The operation will get
+	// completed when Commit is run.
+	AddVertex(Func) Txn
+
+	// AddEdge adds an edge to the running graph. The operation will get
+	// completed when Commit is run.
+	AddEdge(Func, Func, *FuncEdge) Txn
+
+	// DeleteVertex removes a vertex from the running graph. The operation
+	// will get completed when Commit is run.
+	DeleteVertex(Func) Txn
+
+	// DeleteEdge removes an edge from the running graph. It removes the
+	// edge that is found between the two input vertices. The operation will
+	// get completed when Commit is run. The edge is part of the signature
+	// so that it is both symmetrical with AddEdge, and also easier to
+	// reverse in theory.
+	// NOTE: This is not supported since there's no sane Reverse with GC.
+	// XXX: Add this in but just don't let it be reversible?
+	//DeleteEdge(Func, Func, *FuncEdge) Txn
+
+	// AddGraph adds a graph to the running graph. The operation will get
+	// completed when Commit is run. This function panics if your graph
+	// contains vertices that are not of type interfaces.Func or if your
+	// edges are not of type *interfaces.FuncEdge.
+	AddGraph(*pgraph.Graph) Txn
+
+	// Commit runs the pending transaction.
+	Commit() error
+
+	// Clear erases any pending transactions that weren't committed yet.
+	Clear()
+
+	// Reverse runs the reverse commit of the last successful operation to
+	// Commit. AddVertex is reversed by DeleteVertex, and vice-versa, and
+	// the same for AddEdge and DeleteEdge. Keep in mind that if AddEdge is
+	// called with either vertex not already part of the graph, it will
+	// implicitly add them, but the Reverse operation will not necessarily
+	// know that. As a result, it's recommended to not perform operations
+	// that have implicit Adds or Deletes. Notwithstanding the above, the
+	// initial Txn implementation can and does try to track these changes
+	// so that it can correctly reverse them, but this is not guaranteed by
+	// API, and it could contain bugs.
+	Reverse() error
+
+	// Erase removes the historical information that Reverse would run after
+	// Commit.
+	Erase()
+
+	// Free releases the wait group that was used to lock around this Txn if
+	// needed. It should get called when we're done with any Txn.
+	Free()
+
+	// Copy returns a new child Txn that has the same handles, but a
+	// separate state. This allows you to do an Add*/Commit/Reverse that
+	// isn't affected by a different user of this transaction.
+	Copy() Txn
 }

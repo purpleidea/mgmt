@@ -26,4 +26,7 @@ func (e Error) Error() string { return string(e) }
 const (
 	// ErrClosed means we couldn't complete a task because we had closed.
 	ErrClosed = Error("closed")
+
+	// ErrBackPoke means we're postponing due to a needed backpoke.
+	ErrBackPoke = Error("backpoke")
 )

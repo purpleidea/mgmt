@@ -85,7 +85,9 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 
 		}
 		wg.Wait()
-		return nil // can't continue until timestamp is in sequence
+
+		// can't continue until timestamp is in sequence, defer for now
+		return engine.ErrBackPoke
 	}
 
 	// semaphores!
@@ -564,14 +566,22 @@ Loop:
 			if obj.Debug {
 				obj.Logf("Process(%s)", vertex)
 			}
+			backPoke := false
 			err = obj.Process(obj.state[vertex].doneCtx, vertex)
-			if obj.Debug {
+			if err == engine.ErrBackPoke {
+				backPoke = true
+				err = nil // for future code safety
+			}
+			if obj.Debug && backPoke {
+				obj.Logf("Process(%s): BackPoke!", vertex)
+			}
+			if obj.Debug && !backPoke {
 				obj.Logf("Process(%s): Return(%s)", vertex, engineUtil.CleanError(err))
 			}
-			if err == nil && res.MetaParams().RetryReset { // reset it on success!
+			if err == nil && !backPoke && res.MetaParams().RetryReset { // reset it on success!
 				obj.metas[engine.PtrUID(res)].CheckApplyRetry = res.MetaParams().Retry // lookup the retry value
 			}
-			if err == nil {
+			if err == nil || backPoke {
 				break RetryLoop
 			}
 			// we've got an error...

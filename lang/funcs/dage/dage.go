@@ -756,9 +756,12 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 			close(node.input)
 		}
 
-		// XXX now we need to somehow wait to make sure that node has the time to send at least one output... no we don't or do we?
-		// XXX: we could add a counter to each input that gets passed through the function... Eg: if we pass in 4, we should wait until
-		// a 4 comes out the output side. But we'd need to change the signature of func for this... Wait for now.
+		// XXX: Do we need to somehow wait to make sure that node has
+		// the time to send at least one output?
+		// XXX: We could add a counter to each input that gets passed
+		// through the function... Eg: if we pass in 4, we should wait
+		// until a 4 comes out the output side. But we'd need to change
+		// the signature of func for this...
 
 	} // end topoSort loop
 
@@ -1097,16 +1100,11 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		// pause completes, because the second we are paused, the graph
 		// could then immediately change. We don't need a lock in here
 		// because the mutex only unlocks when pause is complete below.
-		topoSort1, err := obj.graph.TopologicalSort()
-		if err != nil {
-			return err
-		}
-		for _, v := range topoSort1 {
-			// XXX API
-			//v.Pause?()
-			//obj.state[vertex].whatever
-			_ = v // XXX
-		}
+		//topoSort1, err := obj.graph.TopologicalSort()
+		//if err != nil {
+		//	return err
+		//}
+		//for _, v := range topoSort1 {}
 
 		// pause is complete
 		// no exit case from here, must be fully running or paused...
@@ -1314,24 +1312,14 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		obj.resend = make(map[interfaces.Func]struct{}) // reset
 
 		// now check their states...
-		for _, v := range reversed {
-			v, ok := v.(interfaces.Func)
-			if !ok {
-				panic("not a Func")
-			}
-			_ = v
-			//close(obj.state[v].startup) XXX once?
-
-			// wait for startup XXX XXX XXX XXX
-			//select {
-			//case <-obj.state[v].startup:
-			////case XXX close?:
-			//}
-
-			// XXX API
-			//v.Resume?()
-			//obj.state[vertex].whatever
-		}
+		//for _, v := range reversed {
+		//	v, ok := v.(interfaces.Func)
+		//	if !ok {
+		//		panic("not a Func")
+		//	}
+		//	// wait for startup?
+		//	close(obj.state[v].startup) XXX: once?
+		//}
 
 		// resume is complete
 		// no exit case from here, must be fully running or paused...

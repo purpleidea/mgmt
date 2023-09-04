@@ -504,7 +504,7 @@ func (obj *graphTxn) commit() error {
 		//	panic("no graphviz")
 		//}
 		if err := engine.Graphviz(""); err != nil {
-			panic(err) // XXX
+			panic(err) // XXX: improve me
 		}
 
 		//gv := &pgraph.Graphviz{

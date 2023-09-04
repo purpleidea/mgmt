@@ -102,6 +102,19 @@ func (obj *testGraphAPI) LookupEdge(fe *interfaces.FuncEdge) (interfaces.Func, i
 	return f1, f2, true
 }
 
+func (obj *testGraphAPI) FindEdge(f1, f2 interfaces.Func) *interfaces.FuncEdge {
+	edge := obj.graph.FindEdge(f1, f2)
+	if edge == nil {
+		return nil
+	}
+	fe, ok := edge.(*interfaces.FuncEdge)
+	if !ok {
+		panic("edge is not a FuncEdge")
+	}
+
+	return fe
+}
+
 type testNullFunc struct {
 	name string
 }

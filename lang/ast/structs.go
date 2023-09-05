@@ -8421,58 +8421,59 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 
 // SetScope stores the scope for use in this resource.
 func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfaces.Expr) error {
-	if scope == nil {
-		obj.scope = interfaces.EmptyScope()
-	} else {
+	obj.scope = interfaces.EmptyScope()
+	if scope != nil {
 		obj.scope = scope.Copy()
 	}
 
 	if monomorphicTarget, exists := context[obj.Name]; exists {
-		// This ExprVar refers to a parameter bound by an enclosing lambda definition.
-		// We do _not_ copy the definition, because it is already monomorphic.
+		// This ExprVar refers to a parameter bound by an enclosing
+		// lambda definition. We do _not_ copy the definition, because
+		// it is already monomorphic.
 		obj.scope.Variables[obj.Name] = monomorphicTarget
 
-		// There is no need to scope-check the target, it's just a ExprParam with no
-		// internal references.
-	} else {
-		target, exists := obj.scope.Variables[obj.Name]
-		if !exists {
-			return fmt.Errorf("variable %s not in scope", obj.Name)
-		}
-
-		if polymorphicTarget, isPolymorphic := target.(*ExprPoly); isPolymorphic {
-			// This ExprVar refers to a polymorphic expression. Those expressions can be
-			// instantiated at different types in different parts of the program, so the
-			// the definition we found has a "polymorphic" type.
-			//
-			// This particular ExprVar is one of the parts of the program which uses the
-			// polymorphic expression at a single, "monomorphic" type. We make a copy of
-			// the definition, and later each copy will be type-checked separately.
-			monomorphicTarget, err := polymorphicTarget.Definition.Copy()
-			if err != nil {
-				return errwrap.Wrapf(err, "copying the ExprPoly definition to which an ExprVar refers")
-			}
-			obj.scope.Variables[obj.Name] = monomorphicTarget
-
-			// This ExprVar now has the only reference to monomorphicTarget, so it is our
-			// responsibility to scope-check it. We must use the scope which was
-			// captured at the definition site, not the scope argument we received as
-			// input, as that is the scope which is available at the use site.
-			definitionScope := polymorphicTarget.CapturedScope.Copy()
-
-			// Make sure monomorphicTarget does not refer to itself!
-			definitionScope.Variables[obj.Name] = &ExprRecur{obj.Name}
-
-			err = monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{})
-			if err != nil {
-				return err
-			}
-		} else {
-			// This ExprVar refers to a monomorphic expression which has already been
-			// scope-checked, so we don't need to scope-check it again.
-			obj.scope.Variables[obj.Name] = target
-		}
+		// There is no need to scope-check the target, it's just a
+		// an ExprParam with no internal references.
+		return nil
 	}
+
+	target, exists := obj.scope.Variables[obj.Name]
+	if !exists {
+		return fmt.Errorf("variable %s not in scope", obj.Name)
+	}
+
+	if polymorphicTarget, isPolymorphic := target.(*ExprPoly); isPolymorphic {
+		// This ExprVar refers to a polymorphic expression. Those
+		// expressions can be instantiated at different types in
+		// different parts of the program, so the definition we found
+		// has a "polymorphic" type.
+		//
+		// This particular ExprVar is one of the parts of the program
+		// which uses the polymorphic expression at a single,
+		// "monomorphic" type. We make a copy of the definition, and
+		// later each copy will be type-checked separately.
+		monomorphicTarget, err := polymorphicTarget.Definition.Copy()
+		if err != nil {
+			return errwrap.Wrapf(err, "copying the ExprPoly definition to which an ExprVar refers")
+		}
+		obj.scope.Variables[obj.Name] = monomorphicTarget
+
+		// This ExprVar now has the only reference to monomorphicTarget,
+		// so it is our responsibility to scope-check it. We must use
+		// the scope which was captured at the definition site, not the
+		// scope argument we received as input, as that is the scope
+		// which is available at the use site.
+		definitionScope := polymorphicTarget.CapturedScope.Copy()
+
+		// Make sure monomorphicTarget does not refer to itself!
+		definitionScope.Variables[obj.Name] = &ExprRecur{obj.Name}
+
+		return monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{})
+	}
+
+	// This ExprVar refers to a monomorphic expression which has already been
+	// scope-checked, so we don't need to scope-check it again.
+	obj.scope.Variables[obj.Name] = target
 
 	return nil
 }

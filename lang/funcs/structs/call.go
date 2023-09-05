@@ -21,9 +21,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/types/full"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -48,7 +48,7 @@ type CallFunc struct {
 
 	init *interfaces.Init
 
-	lastFuncValue *fancyfunc.FuncValue // remember the last function value
+	lastFuncValue *full.FuncValue // remember the last function value
 
 	// outputChan is an initially-nil channel from which we receive output
 	// lists from the subgraph. This channel is reset when the subgraph is
@@ -138,7 +138,7 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 				return fmt.Errorf("programming error, can't find edge")
 			}
 
-			newFuncValue, ok := value.(*fancyfunc.FuncValue)
+			newFuncValue, ok := value.(*full.FuncValue)
 			if !ok {
 				return fmt.Errorf("programming error, can't convert to *FuncValue")
 			}
@@ -184,7 +184,7 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 	}
 }
 
-func (obj *CallFunc) replaceSubGraph(newFuncValue *fancyfunc.FuncValue) error {
+func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	// Create a subgraph which looks as follows. Most of the nodes are
 	// elided because we don't know which nodes the FuncValues will create.
 	//

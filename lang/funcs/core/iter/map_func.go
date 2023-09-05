@@ -21,11 +21,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/types/full"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -62,8 +62,8 @@ type MapFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	lastFuncValue       *fancyfunc.FuncValue // remember the last function value
-	lastInputListLength int                  // remember the last input list length
+	lastFuncValue       *full.FuncValue // remember the last function value
+	lastInputListLength int             // remember the last input list length
 
 	inputListType  *types.Type
 	outputListType *types.Type
@@ -639,7 +639,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 				return fmt.Errorf("programming error, can't find edge")
 			}
 
-			newFuncValue, ok := value.(*fancyfunc.FuncValue)
+			newFuncValue, ok := value.(*full.FuncValue)
 			if !ok {
 				return fmt.Errorf("programming error, can't convert to *FuncValue")
 			}

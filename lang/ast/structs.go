@@ -29,13 +29,13 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
-	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/types/full"
 	langutil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -7233,7 +7233,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 
 	var funcValueFunc interfaces.Func
 	if obj.Body != nil {
-		funcValueFunc = structs.FuncValueToConstFunc(&fancyfunc.FuncValue{
+		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
 			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Extend the environment with the arguments.
 				extendedEnv := make(map[string]interfaces.Func)
@@ -7263,7 +7263,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
 
-		funcValueFunc = structs.FuncValueToConstFunc(&fancyfunc.FuncValue{
+		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Copy obj.function so that the underlying ExprFunc.function gets
 				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
@@ -7320,7 +7320,7 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 	//	return err
 	//}
 	//// FIXME: is this part necessary?
-	//funcValue, worked := value.(*fancyfunc.FuncValue)
+	//funcValue, worked := value.(*full.FuncValue)
 	//if !worked {
 	//	return fmt.Errorf("expected a FuncValue")
 	//}
@@ -7335,7 +7335,7 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 func (obj *ExprFunc) Value() (types.Value, error) {
 	panic("ExprFunc does not store its latest value because resources are not expected to have function fields.")
 	//// TODO: implement speculative value lookup (if not already sufficient)
-	//return &fancyfunc.FuncValue{
+	//return &full.FuncValue{
 	//	V: obj.V,
 	//	T: obj.typ,
 	//}, nil

@@ -1,4 +1,21 @@
-package fancyfunc
+// Mgmt
+// Copyright (C) 2013-2023+ James Shubin and the project contributors
+// Written by James Shubin <james@shubin.ca> and the project contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+package full
 
 import (
 	"fmt"
@@ -23,6 +40,7 @@ import (
 // The function can also return an error which could represent that something
 // went horribly wrong. (Think, an internal panic.)
 type FuncValue struct {
+	types.Base
 	V func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
 	T *types.Type // contains ordered field types, arg names are a bonus part
 }
@@ -73,19 +91,21 @@ func (obj *FuncValue) Cmp(val types.Value) error {
 
 // Copy returns a copy of this value.
 func (obj *FuncValue) Copy() types.Value {
-	panic("cannot implement Copy() for FuncValue, because FuncValue is a FancyValue, not a Value")
+	// TODO: can we do something useful here?
+	panic("cannot implement Copy() for FuncValue, because FuncValue is a full.FuncValue, not a Value")
 }
 
 // Value returns the raw value of this type.
 func (obj *FuncValue) Value() interface{} {
-	panic("TODO [SimpleFn] [Reflect]: what's all this reflection stuff for?")
+	// TODO: can we do something useful here?
+	panic("cannot implement Value() for FuncValue, because FuncValue is a full.FuncValue, not a Value")
 	//typ := obj.T.Reflect()
-
+	//
 	//// wrap our function with the translation that is necessary
 	//fn := func(args []reflect.Value) (results []reflect.Value) { // build
-	//	innerArgs := []Value{}
+	//	innerArgs := []types.Value{}
 	//	for _, x := range args {
-	//		v, err := ValueOf(x) // reflect.Value -> Value
+	//		v, err := types.ValueOf(x) // reflect.Value -> Value
 	//		if err != nil {
 	//			panic(fmt.Sprintf("can't determine value of %+v", x))
 	//		}
@@ -106,48 +126,6 @@ func (obj *FuncValue) Value() interface{} {
 	//return val.Interface()
 }
 
-// Bool represents the value of this type as a bool if it is one. If this is not
-// a bool, then this panics.
-func (obj *FuncValue) Bool() bool {
-	panic("not a bool")
-}
-
-// Str represents the value of this type as a string if it is one. If this is
-// not a string, then this panics.
-func (obj *FuncValue) Str() string {
-	panic("not an str") // yes, i think this is the correct grammar
-}
-
-// Int represents the value of this type as an integer if it is one. If this is
-// not an integer, then this panics.
-func (obj *FuncValue) Int() int64 {
-	panic("not an int")
-}
-
-// Float represents the value of this type as a float if it is one. If this is
-// not a float, then this panics.
-func (obj *FuncValue) Float() float64 {
-	panic("not a float")
-}
-
-// List represents the value of this type as a list if it is one. If this is not
-// a list, then this panics.
-func (obj *FuncValue) List() []types.Value {
-	panic("not a list")
-}
-
-// Map represents the value of this type as a dictionary if it is one. If this
-// is not a map, then this panics.
-func (obj *FuncValue) Map() map[types.Value]types.Value {
-	panic("not a list")
-}
-
-// Struct represents the value of this type as a struct if it is one. If this is
-// not a struct, then this panics.
-func (obj *FuncValue) Struct() map[string]types.Value {
-	panic("not a struct")
-}
-
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
 func (obj *FuncValue) Func() interface{} {
@@ -160,6 +138,7 @@ func (obj *FuncValue) Set(fn func(interfaces.Txn, []interfaces.Func) (interfaces
 	return nil // TODO: can we do any sort of checking here?
 }
 
+// Call calls the function with the provided txn and args.
 func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 	return obj.V(txn, args)
 }

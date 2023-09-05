@@ -426,54 +426,54 @@ func (vs ValueSlice) Len() int           { return len(vs) }
 func (vs ValueSlice) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
 func (vs ValueSlice) Less(i, j int) bool { return vs[i].Less(vs[j]) }
 
-// base implements the missing methods that all types need.
-type base struct{}
+// Base implements the missing methods that all types need.
+type Base struct{}
 
 // Bool represents the value of this type as a bool if it is one. If this is not
 // a bool, then this panics.
-func (obj *base) Bool() bool {
+func (obj *Base) Bool() bool {
 	panic("not a bool")
 }
 
 // Str represents the value of this type as a string if it is one. If this is
 // not a string, then this panics.
-func (obj *base) Str() string {
+func (obj *Base) Str() string {
 	panic("not an str") // yes, i think this is the correct grammar
 }
 
 // Int represents the value of this type as an integer if it is one. If this is
 // not an integer, then this panics.
-func (obj *base) Int() int64 {
+func (obj *Base) Int() int64 {
 	panic("not an int")
 }
 
 // Float represents the value of this type as a float if it is one. If this is
 // not a float, then this panics.
-func (obj *base) Float() float64 {
+func (obj *Base) Float() float64 {
 	panic("not a float")
 }
 
 // List represents the value of this type as a list if it is one. If this is not
 // a list, then this panics.
-func (obj *base) List() []Value {
+func (obj *Base) List() []Value {
 	panic("not a list")
 }
 
 // Map represents the value of this type as a dictionary if it is one. If this
 // is not a map, then this panics.
-func (obj *base) Map() map[Value]Value {
+func (obj *Base) Map() map[Value]Value {
 	panic("not a list")
 }
 
 // Struct represents the value of this type as a struct if it is one. If this is
 // not a struct, then this panics.
-func (obj *base) Struct() map[string]Value {
+func (obj *Base) Struct() map[string]Value {
 	panic("not a struct")
 }
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *base) Func() interface{} {
+func (obj *Base) Func() interface{} {
 	panic("not a func")
 }
 
@@ -481,7 +481,7 @@ func (obj *base) Func() interface{} {
 // that this base implementation of the method be replaced in the specific type.
 // This *may* panic if the two types aren't the same.
 // NOTE: this can be used as an example template to write your own function.
-//func (obj *base) Less(v Value) bool {
+//func (obj *Base) Less(v Value) bool {
 //	// TODO: cheap less, be smarter in each type eg: int's should cmp as int
 //	return obj.String() < v.String()
 //}
@@ -490,7 +490,7 @@ func (obj *base) Func() interface{} {
 // implementation uses the base Less implementation and should be replaced. It
 // is always nice to implement this properly so that we get better error output.
 // NOTE: this can be used as an example template to write your own function.
-//func (obj *base) Cmp(v Value) error {
+//func (obj *Base) Cmp(v Value) error {
 //	// if they're both true or both false, then they must be the same,
 //	// because we expect that if x < & && y < x then x == y
 //	if obj.Less(v) != v.Less(obj) {
@@ -501,7 +501,7 @@ func (obj *base) Func() interface{} {
 
 // BoolValue represents a boolean value.
 type BoolValue struct {
-	base
+	Base
 	V bool
 }
 
@@ -564,7 +564,7 @@ func (obj *BoolValue) Bool() bool {
 
 // StrValue represents a string value.
 type StrValue struct {
-	base
+	Base
 	V string
 }
 
@@ -619,7 +619,7 @@ func (obj *StrValue) Str() string {
 
 // IntValue represents an integer value.
 type IntValue struct {
-	base
+	Base
 	V int64
 }
 
@@ -673,7 +673,7 @@ func (obj *IntValue) Int() int64 {
 
 // FloatValue represents an integer value.
 type FloatValue struct {
-	base
+	Base
 	V float64
 }
 
@@ -730,7 +730,7 @@ func (obj *FloatValue) Float() float64 {
 
 // ListValue represents a list value.
 type ListValue struct {
-	base
+	Base
 	V []Value // all elements must have type T.Val
 	T *Type
 }
@@ -858,7 +858,7 @@ func (obj *ListValue) Contains(v Value) (index int, exists bool) {
 
 // MapValue represents a dictionary value.
 type MapValue struct {
-	base
+	Base
 	// the types of all keys and values are represented inside of T
 	V map[Value]Value
 	T *Type
@@ -991,7 +991,7 @@ func (obj *MapValue) Lookup(key Value) (value Value, exists bool) {
 // StructValue represents a struct value. The keys are ordered.
 // TODO: if all functions require arg names to call, we don't need to order!
 type StructValue struct {
-	base
+	Base
 	V map[string]Value // each field can have a different type
 	T *Type            // contains ordered field types
 }
@@ -1113,7 +1113,7 @@ func (obj *StructValue) Lookup(k string) (value Value, exists bool) {
 // SimpleFn is not a Value, but it is a useful building block for implementing
 // Func nodes.
 type SimpleFn struct {
-	base
+	Base
 	V func([]Value) (Value, error)
 	T *Type // contains ordered field types, arg names are a bonus part
 }
@@ -1189,7 +1189,7 @@ func (obj *SimpleFn) Copy() Value {
 
 // VariantValue represents a variant value.
 type VariantValue struct {
-	base
+	Base
 	V Value // formerly I experimented with using interface{} instead
 	T *Type
 }

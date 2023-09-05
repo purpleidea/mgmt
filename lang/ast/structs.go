@@ -234,9 +234,10 @@ func (obj *StmtBind) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
+// SetScope sets the scope of the child expression bound to it. If a variable
+// uses the value which this StmtBind binds, they will make a copy and call
+// SetScope on the copy.
 func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
-	// If a variable uses the value which this StmtBind binds, they will make a
-	// copy and call SetScope on the copy.
 	return nil
 }
 
@@ -270,7 +271,7 @@ func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
 	// It seems that adding this to the graph will end up including an
 	// expression in the case of an ExprFunc lambda, since we copy it and
 	// build a new ExprFunc when it's used by ExprCall.
-	//return obj.Value.Graph(env) // nope!
+	//return obj.Value.Graph(nil) // nope!
 	return pgraph.NewGraph("stmtbind") // empty graph
 }
 
@@ -4064,7 +4065,7 @@ func (obj *StmtFunc) Unify() ([]interfaces.Invariant, error) {
 // children might. This particular func statement adds its linked expression to
 // the graph.
 func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
-	//return obj.Func.Graph(env) // nope!
+	//return obj.Func.Graph(nil) // nope!
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
 
@@ -6617,9 +6618,12 @@ type ExprFunc struct {
 	// This can include a string name and a type, however the type might be
 	// absent here.
 	Args []*interfaces.Arg
-	// One ExprParam is created for each parameter, and the ExprVars which refer
-	// to those parameters are set to point to the corresponding ExprParam.
+
+	// One ExprParam is created for each parameter, and the ExprVars which
+	// refer to those parameters are set to point to the corresponding
+	// ExprParam.
 	params []*ExprParam
+
 	// Return is the return type of the function if it was defined.
 	Return *types.Type // return type if specified
 	// Body is the contents of the function. It can be any expression.
@@ -8428,7 +8432,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, context map[string]interfa
 		// We do _not_ copy the definition, because it is already monomorphic.
 		obj.scope.Variables[obj.Name] = monomorphicTarget
 
-		// There is no need to scope-check the target, it's just a ParamExpr with no
+		// There is no need to scope-check the target, it's just a ExprParam with no
 		// internal references.
 	} else {
 		target, exists := obj.scope.Variables[obj.Name]

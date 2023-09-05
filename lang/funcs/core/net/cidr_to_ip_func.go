@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "cidr_to_ip", &types.SimpleFn{
+	simple.ModuleRegister(ModuleName, "cidr_to_ip", &types.FuncValue{
 		T: types.NewType("func(a str) str"),
 		V: CidrToIP,
 	})

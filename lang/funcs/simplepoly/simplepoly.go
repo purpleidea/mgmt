@@ -45,7 +45,7 @@ const (
 )
 
 // RegisteredFuncs maps a function name to the corresponding static, pure funcs.
-var RegisteredFuncs = make(map[string][]*types.SimpleFn) // must initialize
+var RegisteredFuncs = make(map[string][]*types.FuncValue) // must initialize
 
 // Register registers a simple, static, pure, polymorphic function. It is easier
 // to use than the raw function API, but also limits you to small, finite
@@ -55,7 +55,7 @@ var RegisteredFuncs = make(map[string][]*types.SimpleFn) // must initialize
 // not possible with this API. Implementing a function like `printf` would not
 // be possible. Implementing a function which counts the number of elements in a
 // list would be.
-func Register(name string, fns []*types.SimpleFn) {
+func Register(name string, fns []*types.FuncValue) {
 	if _, exists := RegisteredFuncs[name]; exists {
 		panic(fmt.Sprintf("a simple polyfunc named %s is already registered", name))
 	}
@@ -96,13 +96,13 @@ func Register(name string, fns []*types.SimpleFn) {
 
 // ModuleRegister is exactly like Register, except that it registers within a
 // named module. This is a helper function.
-func ModuleRegister(module, name string, fns []*types.SimpleFn) {
+func ModuleRegister(module, name string, fns []*types.FuncValue) {
 	Register(module+funcs.ModuleSep+name, fns)
 }
 
 // consistentArgs returns the list of arg names across all the functions or
 // errors if one consistent list could not be found.
-func consistentArgs(fns []*types.SimpleFn) ([]string, error) {
+func consistentArgs(fns []*types.FuncValue) ([]string, error) {
 	if len(fns) == 0 {
 		return nil, fmt.Errorf("no functions specified for simple polyfunc")
 	}
@@ -136,9 +136,9 @@ var _ interfaces.PolyFunc = &WrappedFunc{} // ensure it meets this expectation
 type WrappedFunc struct {
 	Name string
 
-	Fns []*types.SimpleFn // list of possible functions
+	Fns []*types.FuncValue // list of possible functions
 
-	fn *types.SimpleFn // the concrete version of our chosen function
+	fn *types.FuncValue // the concrete version of our chosen function
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
@@ -496,7 +496,7 @@ func (obj *WrappedFunc) Build(typ *types.Type) (*types.Type, error) {
 // abstract, possibly variant containing list of functions.
 func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) *types.Type {
 	cp := obj.Fns[ix].Copy()
-	fn, ok := cp.(*types.SimpleFn)
+	fn, ok := cp.(*types.FuncValue)
 	if !ok {
 		panic("unexpected type")
 	}

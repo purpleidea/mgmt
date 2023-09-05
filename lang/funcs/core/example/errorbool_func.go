@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "errorbool", &types.SimpleFn{
+	simple.ModuleRegister(ModuleName, "errorbool", &types.FuncValue{
 		T: types.NewType("func(a bool) str"),
 		V: func(input []types.Value) (types.Value, error) {
 			if input[0].Bool() {

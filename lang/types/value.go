@@ -201,37 +201,36 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}, nil
 
 	case reflect.Func:
-		panic("TODO [SimpleFn] [Reflect]: what's all this reflection stuff for?")
-		//t, err := TypeOf(value.Type())
-		//if err != nil {
-		//	return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
-		//}
-		//if t.Out == nil {
-		//	return nil, fmt.Errorf("cannot only represent functions with one output value")
-		//}
+		t, err := TypeOf(value.Type())
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
+		}
+		if t.Out == nil {
+			return nil, fmt.Errorf("cannot only represent functions with one output value")
+		}
 
-		//f := func(args []Value) (Value, error) {
-		//	in := []reflect.Value{}
-		//	for _, x := range args {
-		//		// TODO: should we build this method instead?
-		//		//v := x.Reflect() // types.Value -> reflect.Value
-		//		v := reflect.ValueOf(x.Value())
-		//		in = append(in, v)
-		//	}
+		f := func(args []Value) (Value, error) {
+			in := []reflect.Value{}
+			for _, x := range args {
+				// TODO: should we build this method instead?
+				//v := x.Reflect() // types.Value -> reflect.Value
+				v := reflect.ValueOf(x.Value())
+				in = append(in, v)
+			}
 
-		//	// FIXME: can we trap panic's ?
-		//	out := value.Call(in) // []reflect.Value
-		//	if len(out) != 1 {    // TODO: panic, b/c already checked in TypeOf?
-		//		return nil, fmt.Errorf("cannot only represent functions with one output value")
-		//	}
+			// FIXME: can we trap panic's ?
+			out := value.Call(in) // []reflect.Value
+			if len(out) != 1 {    // TODO: panic, b/c already checked in TypeOf?
+				return nil, fmt.Errorf("cannot only represent functions with one output value")
+			}
 
-		//	return ValueOf(out[0]) // recurse
-		//}
+			return ValueOf(out[0]) // recurse
+		}
 
-		//return &FuncValue{
-		//	T: t,
-		//	V: f,
-		//}, nil
+		return &FuncValue{
+			T: t,
+			V: f,
+		}, nil
 
 	default:
 		return nil, fmt.Errorf("unable to represent value of %+v", v)
@@ -1103,43 +1102,48 @@ func (obj *StructValue) Lookup(k string) (value Value, exists bool) {
 	return v, exists
 }
 
-// SimpleFn represents a function which takes a list of Value arguments and
+// FuncValue represents a function which takes a list of Value arguments and
 // returns a Value. It can also return an error which could represent that
 // something went horribly wrong. (Think, an internal panic.)
 //
 // This is not general enough to represent all functions in the language (see
-// FuncValue above), but it is a useful common case.
+// the full.FuncValue), but it is a useful common case.
 //
-// SimpleFn is not a Value, but it is a useful building block for implementing
+// FuncValue is not a Value, but it is a useful building block for implementing
 // Func nodes.
-type SimpleFn struct {
+type FuncValue struct {
 	Base
 	V func([]Value) (Value, error)
 	T *Type // contains ordered field types, arg names are a bonus part
 }
 
-// Create a useless function which will get overwritten by something more useful later.
-func NewFunc(t *Type) *SimpleFn {
+// NewFunc creates a useless function which will get overwritten by something
+// more useful later.
+func NewFunc(t *Type) *FuncValue {
 	if t.Kind != KindFunc {
 		return nil // sanity check
 	}
+	v := func([]Value) (Value, error) {
+		// You were not supposed to call the temporary function, you
+		// were supposed to replace it with a real implementation!
+		return nil, fmt.Errorf("nil function")
+	}
 	// return an empty interface{}
-	return &SimpleFn{
-		V: func([]Value) (Value, error) {
-			panic("NewFunc: you were not supposed to call the temporary function, you were supposed to replace it with a real implementation")
-		},
+	return &FuncValue{
+		V: v,
 		T: t,
 	}
 }
 
-func (obj *SimpleFn) String() string {
-	return "some function (you can't print functions)"
+// String returns a visual representation of this value.
+func (obj *FuncValue) String() string {
+	return fmt.Sprintf("func(%+v)", obj.T) // TODO: can't print obj.V w/o vet warning
 }
 
 // Call runs the function value and returns its result. It returns an error if
 // something goes wrong during execution, and panic's if you call this with
 // inappropriate input types, or if it returns an inappropriate output type.
-func (obj *SimpleFn) Call(args []Value) (Value, error) {
+func (obj *FuncValue) Call(args []Value) (Value, error) {
 	// cmp input args type to obj.T
 	length := len(obj.T.Ord)
 	if length != len(args) {
@@ -1165,26 +1169,33 @@ func (obj *SimpleFn) Call(args []Value) (Value, error) {
 	return result, err
 }
 
-func (obj *SimpleFn) Type() *Type { return obj.T }
+// Type returns the type data structure that represents this type.
+func (obj *FuncValue) Type() *Type { return obj.T }
 
-func (obj *SimpleFn) Less(v Value) bool {
+// Less compares to value and returns true if we're smaller. This panics if the
+// two types aren't the same. In this situation, they can't be compared so we
+// panic.
+func (obj *FuncValue) Less(v Value) bool {
 	panic("you cannot compare functions")
 }
 
-func (obj *SimpleFn) Cmp(val Value) error {
+// Cmp returns an error if this value isn't the same as the arg passed in. In
+// this situation, they can't be compared so we panic.
+func (obj *FuncValue) Cmp(val Value) error {
 	panic("you cannot compare functions")
-}
-
-func (obj *SimpleFn) Value() interface{} {
-	return obj.V
 }
 
 // Copy returns a copy of this value.
-func (obj *SimpleFn) Copy() Value {
-	return &SimpleFn{
+func (obj *FuncValue) Copy() Value {
+	return &FuncValue{
 		V: obj.V,
 		T: obj.T.Copy(),
 	}
+}
+
+// Value returns the raw value of this type.
+func (obj *FuncValue) Value() interface{} {
+	return obj.V
 }
 
 // VariantValue represents a variant value.

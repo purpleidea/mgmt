@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "macfmt", &types.SimpleFn{
+	simple.ModuleRegister(ModuleName, "macfmt", &types.FuncValue{
 		T: types.NewType("func(a str) str"),
 		V: MacFmt,
 	})

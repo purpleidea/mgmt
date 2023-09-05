@@ -754,7 +754,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	}
 	outputListFunc := structs.SimpleFnToDirectFunc(
 		"mapOutputList",
-		&types.SimpleFn{
+		&types.FuncValue{
 			V: func(args []types.Value) (types.Value, error) {
 				listValue := &types.ListValue{
 					V: args,
@@ -776,7 +776,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		i := i
 		inputElemFunc := structs.SimpleFnToDirectFunc(
 			fmt.Sprintf("mapInputElem[%d]", i),
-			&types.SimpleFn{
+			&types.FuncValue{
 				V: func(args []types.Value) (types.Value, error) {
 					if len(args) != 1 {
 						return nil, fmt.Errorf("inputElemFunc: expected a single argument")

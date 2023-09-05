@@ -6632,7 +6632,7 @@ type ExprFunc struct {
 
 	// Values represents a list of simple functions. This means this can be
 	// polymorphic if more than one was specified!
-	Values []*types.SimpleFn
+	Values []*types.FuncValue
 
 	// XXX: is this necessary?
 	//V func(interfaces.Txn, []pgraph.Vertex) (pgraph.Vertex, error)
@@ -6928,7 +6928,7 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, context map[string]interf
 		// TODO: if interfaces.Func grows a SetScope method do it here
 	}
 	if len(obj.Values) > 0 {
-		// TODO: if *types.SimpleFn grows a SetScope method do it here
+		// TODO: if *types.FuncValue grows a SetScope method do it here
 	}
 
 	return nil

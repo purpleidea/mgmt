@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "plus", &types.SimpleFn{
+	simple.ModuleRegister(ModuleName, "plus", &types.FuncValue{
 		T: types.NewType("func(y str, z str) str"),
 		V: Plus,
 	})

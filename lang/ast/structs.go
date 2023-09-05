@@ -5608,7 +5608,7 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 	}
 
 	// composite func (list, map, struct)
-	return &CompositeFunc{
+	return &structs.CompositeFunc{
 		Type: typ,
 		Len:  len(obj.Elements),
 	}, nil
@@ -6080,7 +6080,7 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 	}
 
 	// composite func (list, map, struct)
-	return &CompositeFunc{
+	return &structs.CompositeFunc{
 		Type: typ, // the key/val types are known via this type
 		Len:  len(obj.KVs),
 	}, nil
@@ -6482,7 +6482,7 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 	}
 
 	// composite func (list, map, struct)
-	return &CompositeFunc{
+	return &structs.CompositeFunc{
 		Type: typ,
 	}, nil
 }
@@ -9171,7 +9171,7 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 		return nil, err
 	}
 
-	return &IfFunc{
+	return &structs.IfFunc{
 		Type: typ, // this is the output type of the expression
 	}, nil
 }

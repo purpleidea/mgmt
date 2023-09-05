@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -184,44 +183,4 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
-}
-
-// In the following set of conversion functions, a "constant" Func is a node
-// with in-degree zero which always outputs the same function value, while a
-// "direct" Func is a node with one upstream node for each of the function's
-// arguments.
-
-func FuncValueToConstFunc(obj *fancyfunc.FuncValue) interfaces.Func {
-	return &funcs.ConstFunc{
-		Value:    obj,
-		NameHint: "FuncValue",
-	}
-}
-
-func SimpleFnToDirectFunc(name string, obj *types.SimpleFn) interfaces.Func {
-	return &WrappedFunc{
-		Name: name,
-		Fn:   obj,
-	}
-}
-
-func SimpleFnToFuncValue(name string, obj *types.SimpleFn) *fancyfunc.FuncValue {
-	return &fancyfunc.FuncValue{
-		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-			wrappedFunc := SimpleFnToDirectFunc(name, obj)
-			txn.AddVertex(wrappedFunc)
-			for i, arg := range args {
-				argName := obj.T.Ord[i]
-				txn.AddEdge(arg, wrappedFunc, &interfaces.FuncEdge{
-					Args: []string{argName},
-				})
-			}
-			return wrappedFunc, nil
-		},
-		T: obj.T,
-	}
-}
-
-func SimpleFnToConstFunc(name string, obj *types.SimpleFn) interfaces.Func {
-	return FuncValueToConstFunc(SimpleFnToFuncValue(name, obj))
 }

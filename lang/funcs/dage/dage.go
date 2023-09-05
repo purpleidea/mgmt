@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -1436,14 +1436,14 @@ func (obj *Engine) Graphviz(dir string) error {
 	}
 	for _, v1 := range obj.graph.Vertices() {
 		// if it's a ChannelBasedSinkFunc...
-		if cb, ok := v1.(*simple.ChannelBasedSinkFunc); ok {
+		if cb, ok := v1.(*structs.ChannelBasedSinkFunc); ok {
 			// ...then add a dashed edge to its output
 			dashedEdges.AddEdge(v1, cb.Target, &pgraph.SimpleEdge{
 				Name: "channel", // secret channel
 			})
 		}
 		// if it's a ChannelBasedSourceFunc...
-		if cb, ok := v1.(*simple.ChannelBasedSourceFunc); ok {
+		if cb, ok := v1.(*structs.ChannelBasedSourceFunc); ok {
 			// ...then add a dashed edge from its input
 			dashedEdges.AddEdge(cb.Source, v1, &pgraph.SimpleEdge{
 				Name: "channel", // secret channel

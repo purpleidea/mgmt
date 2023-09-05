@@ -23,7 +23,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
@@ -591,7 +591,7 @@ func (obj *MapFunc) Stream(ctx context.Context) error {
 	// that this Func is not removed when the subgraph is recreated, so that the
 	// function graph can propagate the last list we received to the subgraph.
 	inputChan := make(chan types.Value)
-	subgraphInput := &simple.ChannelBasedSourceFunc{
+	subgraphInput := &structs.ChannelBasedSourceFunc{
 		Name:   "subgraphInput",
 		Source: obj,
 		Chan:   inputChan,
@@ -720,7 +720,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//   "outputListFunc" -> "subgraphOutput"
 	// }
 
-	const channelBasedSinkFuncArgNameEdgeName = simple.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
+	const channelBasedSinkFuncArgNameEdgeName = structs.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
 
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {
@@ -730,7 +730,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// create the new subgraph
 
 	obj.outputChan = make(chan types.Value)
-	subgraphOutput := &simple.ChannelBasedSinkFunc{
+	subgraphOutput := &structs.ChannelBasedSinkFunc{
 		Name:     "subgraphOutput",
 		Target:   obj,
 		EdgeName: channelBasedSinkFuncArgNameEdgeName,
@@ -752,7 +752,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		Ord:  ord,
 		Out:  obj.outputListType,
 	}
-	outputListFunc := simple.SimpleFnToDirectFunc(
+	outputListFunc := structs.SimpleFnToDirectFunc(
 		"mapOutputList",
 		&types.SimpleFn{
 			V: func(args []types.Value) (types.Value, error) {
@@ -774,7 +774,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	for i := 0; i < obj.lastInputListLength; i++ {
 		i := i
-		inputElemFunc := simple.SimpleFnToDirectFunc(
+		inputElemFunc := structs.SimpleFnToDirectFunc(
 			fmt.Sprintf("mapInputElem[%d]", i),
 			&types.SimpleFn{
 				V: func(args []types.Value) (types.Value, error) {

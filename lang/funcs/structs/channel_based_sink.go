@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2022+ James Shubin and the project contributors
+// Copyright (C) 2013-2023+ James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package simple
+package structs
 
 import (
 	"context"

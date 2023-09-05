@@ -32,7 +32,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/fancyfunc"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -4848,7 +4848,7 @@ func (obj *ExprBool) Unify() ([]interfaces.Invariant, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprBool) Func() (interfaces.Func, error) {
-	return &funcs.ConstFunc{
+	return &structs.ConstFunc{
 		Value: &types.BoolValue{V: obj.V},
 	}, nil
 }
@@ -5028,7 +5028,7 @@ func (obj *ExprStr) Unify() ([]interfaces.Invariant, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprStr) Func() (interfaces.Func, error) {
-	return &funcs.ConstFunc{
+	return &structs.ConstFunc{
 		Value: &types.StrValue{V: obj.V},
 	}, nil
 }
@@ -5158,7 +5158,7 @@ func (obj *ExprInt) Unify() ([]interfaces.Invariant, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprInt) Func() (interfaces.Func, error) {
-	return &funcs.ConstFunc{
+	return &structs.ConstFunc{
 		Value: &types.IntValue{V: obj.V},
 	}, nil
 }
@@ -5290,7 +5290,7 @@ func (obj *ExprFloat) Unify() ([]interfaces.Invariant, error) {
 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprFloat) Func() (interfaces.Func, error) {
-	return &funcs.ConstFunc{
+	return &structs.ConstFunc{
 		Value: &types.FloatValue{V: obj.V},
 	}, nil
 }
@@ -7233,7 +7233,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 
 	var funcValueFunc interfaces.Func
 	if obj.Body != nil {
-		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
+		funcValueFunc = structs.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Extend the environment with the arguments.
 				extendedEnv := make(map[string]interfaces.Func)
@@ -7263,7 +7263,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
 
-		funcValueFunc = simple.FuncValueToConstFunc(&fancyfunc.FuncValue{
+		funcValueFunc = structs.FuncValueToConstFunc(&fancyfunc.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Copy obj.function so that the underlying ExprFunc.function gets
 				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
@@ -7298,7 +7298,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		simpleFn := obj.Values[index]
 		simpleFn.T = obj.typ
 
-		funcValueFunc = simple.SimpleFnToConstFunc(fmt.Sprintf("title: %s", obj.Title), simpleFn)
+		funcValueFunc = structs.SimpleFnToConstFunc(fmt.Sprintf("title: %s", obj.Title), simpleFn)
 	}
 
 	outerGraph, err := pgraph.NewGraph("ExprFunc")
@@ -8299,8 +8299,8 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	}
 
 	// Add a vertex for the call itself.
-	edgeName := simple.CallFuncArgNameFunction
-	callFunc := &simple.CallFunc{
+	edgeName := structs.CallFuncArgNameFunction
+	callFunc := &structs.CallFunc{
 		Type:        obj.typ,
 		FuncType:    ftyp,
 		EdgeName:    edgeName,

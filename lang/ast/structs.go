@@ -8756,7 +8756,7 @@ func (obj *ExprParam) Value() (types.Value, error) {
 // for the type checker to find a different type at each call site. We create
 // this copy inside SetScope, at which point we also recursively call SetScope
 // on the copy. We must be careful to use the scope captured at the definition
-// site, not scope which is available at the call site.
+// site, not the scope which is available at the call site.
 type ExprPoly struct {
 	Definition    interfaces.Expr   // The definition.
 	CapturedScope *interfaces.Scope // The scope at the definition site.

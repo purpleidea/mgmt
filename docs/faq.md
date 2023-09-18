@@ -242,7 +242,7 @@ Similar logic applies for situations when you only specify the `mode` parameter.
 This all turns out to be more safe and "correct", in that it would error and
 prevent masking an error for a situation when you expected a file to already be
 at that location. It also turns out to simplify the internals significantly, and
-remove an ambiguous scenario with the reversable file resource.
+remove an ambiguous scenario with the reversible file resource.
 
 ### Why do function names inside of templates include underscores?
 

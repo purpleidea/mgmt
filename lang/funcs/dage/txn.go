@@ -563,7 +563,7 @@ func (obj *graphTxn) Reverse() error {
 	//for _, op := range obj.rev
 	for i := len(obj.rev) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
 		op := obj.rev[i]
-		// mark these as being not reversable (so skip them on reverse!)
+		// mark these as being not reversible (so skip them on reverse!)
 		if skipOp, ok := op.(opfnSkipRev); ok {
 			skipOp.SetSkip(true)
 		}

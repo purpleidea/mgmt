@@ -293,7 +293,7 @@ type Txn interface {
 	// so that it is both symmetrical with AddEdge, and also easier to
 	// reverse in theory.
 	// NOTE: This is not supported since there's no sane Reverse with GC.
-	// XXX Add this in but just don't let it be reversible?
+	// XXX: Add this in but just don't let it be reversible?
 	//DeleteEdge(Func, Func, *FuncEdge) Txn
 
 	// AddGraph adds a graph to the running graph. The operation will get

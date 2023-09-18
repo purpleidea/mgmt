@@ -4573,7 +4573,6 @@ func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	// XXX: add the included vars to the env
 	g, err := obj.class.Graph()
 	if err != nil {
 		return nil, err
@@ -7214,16 +7213,17 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
 func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
-	// This implementation produces a graph with a single node of in-degree zero
-	// which outputs a single FuncValue. The FuncValue is a closure, in that it holds both
-	// a lambda body and a captured environment. This environment, which we
-	// receive from the caller, gives information about the variables declared
-	// _outside_ of the lambda, at the time the lambda is returned.
+	// This implementation produces a graph with a single node of in-degree
+	// zero which outputs a single FuncValue. The FuncValue is a closure, in
+	// that it holds both a lambda body and a captured environment. This
+	// environment, which we receive from the caller, gives information
+	// about the variables declared _outside_ of the lambda, at the time the
+	// lambda is returned.
 	//
 	// Each time the FuncValue is called, it produces a separate graph, the
 	// subgraph which computes the lambda's output value from the lambda's
-	// argument values. The nodes created for that subgraph have a shorter life
-	// span than the nodes in the captured environment.
+	// argument values. The nodes created for that subgraph have a shorter
+	// life span than the nodes in the captured environment.
 
 	//graph, err := pgraph.NewGraph("func")
 	//if err != nil {
@@ -7297,7 +7297,8 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		index, err := langutil.FnMatch(obj.typ, obj.Values)
 		if err != nil {
 			// programming error
-			return nil, nil, errwrap.Wrapf(err, "since type checking succeeded at this point, there should only be one match")
+			// since type checking succeeded at this point, there should only be one match
+			return nil, nil, errwrap.Wrapf(err, "multiple matches found")
 		}
 		simpleFn := obj.Values[index]
 		simpleFn.T = obj.typ

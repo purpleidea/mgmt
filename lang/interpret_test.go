@@ -1395,7 +1395,13 @@ func TestAstFunc2(t *testing.T) {
 					t.Errorf("test #%d: could not create setScope graph: %+v", index, err)
 					return
 				}
-				iast.SetScopeGraphviz(graph)
+				ast, ok := iast.(interfaces.ScopeGrapher)
+				if !ok {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: can't graph scope", index)
+					return
+				}
+				ast.ScopeGraph(graph)
 
 				if err := graph.ExecGraphviz("/tmp/set-scope.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)

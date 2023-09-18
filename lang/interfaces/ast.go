@@ -66,7 +66,6 @@ type Stmt interface {
 
 	// SetScope sets the scope here and propagates it downwards.
 	SetScope(*Scope) error
-	SetScopeGraphviz(g *pgraph.Graph)
 
 	// Unify returns the list of invariants that this node produces. It does
 	// so recursively on any children elements that exist in the AST, and
@@ -110,7 +109,6 @@ type Expr interface {
 
 	// SetScope sets the scope here and propagates it downwards.
 	SetScope(*Scope, map[string]Expr) error
-	SetScopeGraphviz(g *pgraph.Graph)
 
 	// SetType sets the type definitively, and errors if it is incompatible.
 	SetType(*types.Type) error
@@ -135,6 +133,15 @@ type Expr interface {
 
 	// Value returns the value of this expression in our type system.
 	Value() (types.Value, error)
+}
+
+// ScopeGrapher adds a method to turn an AST (Expr or Stmt) into a graph so that
+// we can debug the SetScope compilation phase.
+type ScopeGrapher interface {
+	Node
+
+	// ScopeGraph adds nodes and vertices to the supplied graph.
+	ScopeGraph(g *pgraph.Graph)
 }
 
 // Data provides some data to the node that could be useful during its lifetime.

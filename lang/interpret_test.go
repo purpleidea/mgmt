@@ -1464,9 +1464,9 @@ func TestAstFunc2(t *testing.T) {
 			}
 
 			if graph.NumVertices() == 0 { // no funcs to load!
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: function graph is empty", index)
-				return
+				//t.Errorf("test #%d: FAIL", index)
+				t.Logf("test #%d: function graph is empty", index)
+				//return // let's test the engine on empty
 			}
 
 			t.Logf("test #%d: graph: %s", index, graph)
@@ -1571,6 +1571,11 @@ func TestAstFunc2(t *testing.T) {
 			}
 			defer txn.Reverse() // should remove everything we added
 
+			isEmpty := make(chan struct{})
+			if graph.NumVertices() == 0 { // no funcs to load!
+				close(isEmpty)
+			}
+
 			// wait for some activity
 			logf("stream...")
 			stream := funcs.Stream()
@@ -1617,9 +1622,11 @@ func TestAstFunc2(t *testing.T) {
 						break Loop
 					}
 
-				case <-time.After(10 * time.Second): // blocked functions XXX !!!
+				case <-isEmpty:
+					break Loop
+
+				case <-time.After(10 * time.Second): // blocked functions
 					t.Errorf("test #%d: unblocking because no event was sent by the function engine for a while", index)
-					//t.Logf("test #%d: unblocking because no event was sent by the function engine for a while", index)
 					break Loop
 
 				case <-time.After(60 * time.Second): // blocked functions

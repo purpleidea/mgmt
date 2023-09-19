@@ -83,6 +83,10 @@ func NewSocketSet(groups uint32, name string, proto int) (*SocketSet, error) {
 // to the message length. It will block until an event is produced, or shutdown
 // is called.
 func (obj *SocketSet) ReceiveBytes() ([]byte, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("nil object") // caller used this incorrectly
+	}
+
 	// Select will return when any fd in fdSet (fdEvents and fdPipe) is ready
 	// to read.
 	_, err := unix.Select(obj.nfd(), obj.fdSet(), nil, nil, nil)
@@ -180,6 +184,10 @@ Loop:
 // message to the pipe file descriptor. It must be called before close, and
 // should only be called once.
 func (obj *SocketSet) Shutdown() error {
+	if obj == nil {
+		return fmt.Errorf("nil object") // caller used this incorrectly
+	}
+
 	// close the event socket so no more events are produced
 	if err := unix.Close(obj.fdEvents); err != nil {
 		return err
@@ -193,6 +201,10 @@ func (obj *SocketSet) Shutdown() error {
 // Close closes the pipe file descriptor. It must only be called after Shutdown
 // has closed fdEvents, and unblocked receive. It should only be called once.
 func (obj *SocketSet) Close() error {
+	if obj == nil {
+		return fmt.Errorf("nil object") // caller used this incorrectly
+	}
+
 	if err := unix.Unlink(obj.pipeFile); err != nil {
 		return errwrap.Wrapf(err, "could not unbind %s", obj.pipeFile)
 	}

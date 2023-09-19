@@ -114,6 +114,7 @@ func TestShutdown(t *testing.T) {
 	ss, err := NewSocketSet(0, "pipe.sock", 0)
 	if err != nil {
 		t.Errorf("could not create SocketSet: %+v", err)
+		return
 	}
 	// waitgroup for netlink receive goroutine
 	wg := &sync.WaitGroup{}

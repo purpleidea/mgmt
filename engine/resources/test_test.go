@@ -161,6 +161,8 @@ func TestLowerStructFieldNameToFieldName2(t *testing.T) {
 
 		"anotherstr": "AnotherStr",
 
+		"func1": "Func1",
+
 		"validatebool":  "ValidateBool",
 		"validateerror": "ValidateError",
 		"alwaysgroup":   "AlwaysGroup",

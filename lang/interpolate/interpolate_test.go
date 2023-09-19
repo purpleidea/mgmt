@@ -217,7 +217,7 @@ func TestInterpolate0(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
-				StrInterpolater: InterpolateStr,
+				StrInterpolater: StrInterpolate,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -472,7 +472,7 @@ func TestInterpolateBasicStmt(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
-				StrInterpolater: InterpolateStr,
+				StrInterpolater: StrInterpolate,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -797,7 +797,7 @@ func TestInterpolateBasicExpr(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
-				StrInterpolater: InterpolateStr,
+				StrInterpolater: StrInterpolate,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {

@@ -452,7 +452,7 @@ func TestAstFunc0(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
-				StrInterpolater: interpolate.InterpolateStr,
+				StrInterpolater: interpolate.StrInterpolate,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -824,7 +824,7 @@ func TestAstFunc1(t *testing.T) {
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
 
 				LexParser:       parser.LexParse,
-				StrInterpolater: interpolate.InterpolateStr,
+				StrInterpolater: interpolate.StrInterpolate,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -1309,7 +1309,7 @@ func TestAstFunc2(t *testing.T) {
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
 
 				LexParser:       parser.LexParse,
-				StrInterpolater: interpolate.InterpolateStr,
+				StrInterpolater: interpolate.StrInterpolate,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {

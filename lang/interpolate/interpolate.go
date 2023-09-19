@@ -38,21 +38,21 @@ const (
 	UseHilInterpolation = false
 )
 
-// InterpolateStr interpolates a string and returns the representative AST.
-func InterpolateStr(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
+// StrInterpolate interpolates a string and returns the representative AST.
+func StrInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	if data.Debug {
 		data.Logf("interpolating: %s", str)
 	}
 
 	if UseHilInterpolation {
-		return InterpolateHil(str, pos, data)
+		return HilInterpolate(str, pos, data)
 	}
-	return InterpolateRagel(str, pos, data)
+	return RagelInterpolate(str, pos, data)
 }
 
-// InterpolateRagel interpolates a string and returns the representative AST. It
+// RagelInterpolate interpolates a string and returns the representative AST. It
 // uses the ragel parser to perform the string interpolation.
-func InterpolateRagel(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
+func RagelInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	sequence, err := Parse(str)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "parser failed")
@@ -101,9 +101,9 @@ func InterpolateRagel(str string, pos *interfaces.Pos, data *interfaces.Data) (i
 	return result, errwrap.Wrapf(result.Init(data), "init failed")
 }
 
-// InterpolateHil interpolates a string and returns the representative AST. This
+// HilInterpolate interpolates a string and returns the representative AST. This
 // particular implementation uses the hashicorp hil library and syntax to do so.
-func InterpolateHil(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
+func HilInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	var line, column int = -1, -1
 	var filename string
 	if pos != nil {

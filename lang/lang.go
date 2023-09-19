@@ -147,7 +147,7 @@ func (obj *Lang) Init() error {
 
 		LexParser:       parser.LexParse,
 		Downloader:      nil, // XXX: is this used here?
-		StrInterpolater: interpolate.InterpolateStr,
+		StrInterpolater: interpolate.StrInterpolate,
 		//World: obj.World, // TODO: do we need this?
 
 		Prefix: obj.Prefix,

@@ -253,7 +253,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 		LexParser:       parser.LexParse,
 		Downloader:      downloader,
-		StrInterpolater: interpolate.InterpolateStr,
+		StrInterpolater: interpolate.StrInterpolate,
 		//World: obj.World, // TODO: do we need this?
 
 		Prefix: prefix,
@@ -726,7 +726,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 
 		LexParser:       parser.LexParse,
 		Downloader:      downloader,
-		StrInterpolater: interpolate.InterpolateStr,
+		StrInterpolater: interpolate.StrInterpolate,
 		//World: obj.World, // TODO: do we need this?
 
 		Prefix: prefix,

@@ -1,0 +1,6 @@
+-- main.mcl --
+# self-referential vars
+$x = $y
+$y = $x
+-- OUTPUT --
+# err: errSetScope: recursive reference while setting scope: not a dag

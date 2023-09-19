@@ -1,0 +1,18 @@
+-- main.mcl --
+# nested resource and scoped var
+if true {
+	test "t" {
+		int64ptr => $x,
+	}
+	$x = 42 + $i
+}
+$i = 13
+-- OUTPUT --
+Edge: FuncValue -> call # fn
+Vertex: FuncValue
+Vertex: call
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const

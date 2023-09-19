@@ -1,0 +1,14 @@
+-- main.mcl --
+# duplicate resource
+# these two are allowed because they are compatible
+pkg "cowsay" {
+	state => "installed",
+}
+pkg "cowsay" {
+	state => "newest",
+}
+-- OUTPUT --
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const

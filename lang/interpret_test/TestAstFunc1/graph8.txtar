@@ -1,0 +1,9 @@
+-- main.mcl --
+# should be out of scope, and a compile error!
+if $b {
+}
+if true {
+	$b = true
+}
+-- OUTPUT --
+# err: errSetScope: variable b not in scope

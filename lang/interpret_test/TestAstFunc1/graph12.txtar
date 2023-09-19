@@ -1,0 +1,19 @@
+-- main.mcl --
+# variable shadowing both
+# this should be okay, because var is shadowed
+$x = "hello"
+if true {
+	$x = "world"	# shadowed
+	test "t2" {
+		stringptr => $x,
+	}
+}
+test "t1" {
+	stringptr => $x,
+}
+-- OUTPUT --
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const

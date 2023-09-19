@@ -1,0 +1,7 @@
+-- main.mcl --
+# simple bool
+if $b {
+}
+$b = true
+-- OUTPUT --
+Vertex: const

@@ -416,6 +416,210 @@ func TestDageTable(t *testing.T) {
 		})
 	}
 
+	// the following tests use the txn instead of direct locks
+	{
+		f1 := &testFunc{Name: "f1", Type: types.NewType("func() str")}
+
+		testCases = append(testCases, test{
+			name:     "txn simple add vertex",
+			vertices: []interfaces.Func{f1}, // so the test engine can pass in debug/observability handles
+			actions: []dageTestOp{
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					return txn.AddVertex(f1).Commit()
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					time.Sleep(1 * time.Second) // XXX: unfortunate
+					meta.Lock()
+					defer meta.Unlock()
+					if meta.EventCount < 1 {
+						return fmt.Errorf("didn't get any stream events")
+					}
+					return nil
+				},
+			},
+		})
+	}
+	{
+		f1 := &testFunc{Name: "f1", Type: types.NewType("func() str")}
+		// e1 arg name must match incoming edge to it
+		f2 := &testFunc{Name: "f2", Type: types.NewType("func(e1 str) str")}
+		e1 := testEdge("e1")
+
+		testCases = append(testCases, test{
+			name:     "txn simple add edge",
+			vertices: []interfaces.Func{f1, f2},
+			actions: []dageTestOp{
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					return txn.AddVertex(f1).Commit()
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					time.Sleep(1 * time.Second) // XXX: unfortunate
+					// This newly added node should get a notification after it starts.
+					return txn.AddEdge(f1, f2, e1).Commit()
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					time.Sleep(1 * time.Second) // XXX: unfortunate
+					meta.Lock()
+					defer meta.Unlock()
+					if meta.EventCount < 2 {
+						return fmt.Errorf("didn't get enough stream events")
+					}
+					return nil
+				},
+			},
+		})
+	}
+	{
+		// diamond
+		f1 := &testFunc{Name: "f1", Type: types.NewType("func() str")}
+		f2 := &testFunc{Name: "f2", Type: types.NewType("func(e1 str) str")}
+		f3 := &testFunc{Name: "f3", Type: types.NewType("func(e2 str) str")}
+		f4 := &testFunc{Name: "f4", Type: types.NewType("func(e3 str, e4 str) str")}
+		e1 := testEdge("e1")
+		e2 := testEdge("e2")
+		e3 := testEdge("e3")
+		e4 := testEdge("e4")
+
+		testCases = append(testCases, test{
+			name:     "txn simple add multiple edges",
+			vertices: []interfaces.Func{f1, f2, f3, f4},
+			actions: []dageTestOp{
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					return txn.AddVertex(f1).Commit()
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					return txn.AddEdge(f1, f2, e1).AddEdge(f1, f3, e2).Commit()
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					return txn.AddEdge(f2, f4, e3).AddEdge(f3, f4, e4).Commit()
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					//meta.Lock()
+					//defer meta.Unlock()
+					num := 1
+					for {
+						if num == 0 {
+							break
+						}
+						select {
+						case _, ok := <-meta.Event:
+							if !ok {
+								return fmt.Errorf("unexpectedly channel close")
+							}
+							num--
+							if meta.debug {
+								meta.logf("got an event!")
+							}
+						case <-meta.ctx.Done():
+							return meta.ctx.Err()
+						}
+					}
+					return nil
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					meta.Lock()
+					defer meta.Unlock()
+					if meta.EventCount < 1 {
+						return fmt.Errorf("didn't get enough stream events")
+					}
+					return nil
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					//meta.Lock()
+					//defer meta.Unlock()
+					num := 1
+					for {
+						if num == 0 {
+							break
+						}
+						bt := util.BlockedTimer{Seconds: 2}
+						defer bt.Cancel()
+						bt.Printf("waiting for f4...\n")
+						select {
+						case _, ok := <-meta.Events["f4"]:
+							bt.Cancel()
+							if !ok {
+								return fmt.Errorf("unexpectedly channel close")
+							}
+							num--
+							if meta.debug {
+								meta.logf("got an event from f4!")
+							}
+						case <-meta.ctx.Done():
+							return meta.ctx.Err()
+						}
+					}
+					return nil
+				},
+			},
+		})
+	}
+	{
+		f1 := &testFunc{Name: "f1", Type: types.NewType("func() str")}
+
+		testCases = append(testCases, test{
+			name:     "txn simple add/delete vertex",
+			vertices: []interfaces.Func{f1},
+			actions: []dageTestOp{
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					return txn.AddVertex(f1).Commit()
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					time.Sleep(1 * time.Second) // XXX: unfortunate
+					meta.Lock()
+					defer meta.Unlock()
+					if meta.EventCount < 1 {
+						return fmt.Errorf("didn't get enough stream events")
+					}
+					return nil
+				},
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+					//meta.Lock()
+					//defer meta.Unlock()
+					if meta.debug {
+						meta.logf("about to delete vertex f1!")
+						defer meta.logf("done deleting vertex f1!")
+					}
+
+					return txn.DeleteVertex(f1).Commit()
+				},
+			},
+		})
+	}
+	//{
+	//	f1 := &testFunc{Name: "f1", Type: types.NewType("func() str")}
+	//	// e1 arg name must match incoming edge to it
+	//	f2 := &testFunc{Name: "f2", Type: types.NewType("func(e1 str) str")}
+	//	e1 := testEdge("e1")
+	//
+	//	testCases = append(testCases, test{
+	//		name:     "txn simple add/delete edge",
+	//		vertices: []interfaces.Func{f1, f2},
+	//		actions: []dageTestOp{
+	//			func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+	//				return txn.AddVertex(f1).Commit()
+	//			},
+	//			func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+	//				time.Sleep(1 * time.Second) // XXX: unfortunate
+	//				// This newly added node should get a notification after it starts.
+	//				return txn.AddEdge(f1, f2, e1).Commit()
+	//			},
+	//			func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+	//				time.Sleep(1 * time.Second) // XXX: unfortunate
+	//				meta.Lock()
+	//				defer meta.Unlock()
+	//				if meta.EventCount < 2 {
+	//					return fmt.Errorf("didn't get enough stream events")
+	//				}
+	//				return nil
+	//			},
+	//			func(engine *Engine, txn interfaces.Txn, meta *meta) error {
+	//				return txn.DeleteEdge(e1).Commit() // XXX: not implemented
+	//			},
+	//		},
+	//	})
+	//}
+
 	if testing.Short() {
 		t.Logf("available tests:")
 	}

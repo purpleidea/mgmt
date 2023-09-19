@@ -144,7 +144,7 @@ type meta struct {
 func (obj *meta) Lock()   { obj.mutex.Lock() }
 func (obj *meta) Unlock() { obj.mutex.Unlock() }
 
-type dageTestOp func(*Engine, *meta) error
+type dageTestOp func(*Engine, interfaces.Txn, *meta) error
 
 func TestDageTable(t *testing.T) {
 
@@ -159,13 +159,13 @@ func TestDageTable(t *testing.T) {
 			name:     "empty graph",
 			vertices: []interfaces.Func{},
 			actions: []dageTestOp{
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					defer engine.Unlock()
 					return nil
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					meta.Lock()
 					defer meta.Unlock()
@@ -185,12 +185,12 @@ func TestDageTable(t *testing.T) {
 			name:     "simple add vertex",
 			vertices: []interfaces.Func{f1}, // so the test engine can pass in debug/observability handles
 			actions: []dageTestOp{
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					return engine.AddVertex(f1)
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					meta.Lock()
 					defer meta.Unlock()
@@ -212,19 +212,19 @@ func TestDageTable(t *testing.T) {
 			name:     "simple add edge",
 			vertices: []interfaces.Func{f1, f2},
 			actions: []dageTestOp{
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					return engine.AddVertex(f1)
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					engine.Lock()
 					defer engine.Unlock()
 					// This newly added node should get a notification after it starts.
 					return engine.AddEdge(f1, f2, e1)
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					meta.Lock()
 					defer meta.Unlock()
@@ -251,12 +251,12 @@ func TestDageTable(t *testing.T) {
 			name:     "simple add multiple edges",
 			vertices: []interfaces.Func{f1, f2, f3, f4},
 			actions: []dageTestOp{
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					return engine.AddVertex(f1)
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					if err := engine.AddEdge(f1, f2, e1); err != nil {
@@ -267,7 +267,7 @@ func TestDageTable(t *testing.T) {
 					}
 					return nil
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					if err := engine.AddEdge(f2, f4, e3); err != nil {
@@ -278,7 +278,7 @@ func TestDageTable(t *testing.T) {
 					}
 					return nil
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					//meta.Lock()
 					//defer meta.Unlock()
 					num := 1
@@ -301,7 +301,7 @@ func TestDageTable(t *testing.T) {
 					}
 					return nil
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					meta.Lock()
 					defer meta.Unlock()
 					if meta.EventCount < 1 {
@@ -309,7 +309,7 @@ func TestDageTable(t *testing.T) {
 					}
 					return nil
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					//meta.Lock()
 					//defer meta.Unlock()
 					num := 1
@@ -346,12 +346,12 @@ func TestDageTable(t *testing.T) {
 			name:     "simple add/delete vertex",
 			vertices: []interfaces.Func{f1},
 			actions: []dageTestOp{
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					return engine.AddVertex(f1)
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					meta.Lock()
 					defer meta.Unlock()
@@ -360,7 +360,7 @@ func TestDageTable(t *testing.T) {
 					}
 					return nil
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 
@@ -386,19 +386,19 @@ func TestDageTable(t *testing.T) {
 			name:     "simple add/delete edge",
 			vertices: []interfaces.Func{f1, f2},
 			actions: []dageTestOp{
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					return engine.AddVertex(f1)
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					engine.Lock()
 					defer engine.Unlock()
 					// This newly added node should get a notification after it starts.
 					return engine.AddEdge(f1, f2, e1)
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					time.Sleep(1 * time.Second) // XXX: unfortunate
 					meta.Lock()
 					defer meta.Unlock()
@@ -407,7 +407,7 @@ func TestDageTable(t *testing.T) {
 					}
 					return nil
 				},
-				func(engine *Engine, meta *meta) error {
+				func(engine *Engine, txn interfaces.Txn, meta *meta) error {
 					engine.Lock()
 					defer engine.Unlock()
 					return engine.DeleteEdge(e1)
@@ -571,7 +571,7 @@ func TestDageTable(t *testing.T) {
 			t.Logf("starting actions...")
 			for i, action := range actions {
 				t.Logf("running action %d...", i+1)
-				if err := action(engine, meta); err != nil {
+				if err := action(engine, txn, meta); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: action #%d failed with: %+v", index, i, err)
 					break // so that cancel runs

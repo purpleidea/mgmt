@@ -1034,6 +1034,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				}
 			}()
 
+			chFn := false
 			chPause := false
 			ctxExit := false
 			select {
@@ -1041,7 +1042,7 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			// this happens entirely in the process inner, inner loop now.
 
 			case <-chanFn: // process exited on it's own in error!
-				// pass
+				chFn = true
 
 			case <-obj.pauseChan:
 				obj.Logf("pausing...")
@@ -1079,6 +1080,10 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			if chPause {
 				break
 			}
+			if chFn && errFn == context.Canceled { // very rare case
+				return nil
+			}
+
 			// programming error
 			//return fmt.Errorf("unhandled process state")
 			processBreakFn(fmt.Errorf("unhandled process state"))

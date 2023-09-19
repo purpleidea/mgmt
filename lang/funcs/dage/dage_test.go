@@ -530,6 +530,9 @@ func TestDageTable(t *testing.T) {
 
 			<-engine.Started() // wait for startup (will not block forever)
 
+			txn := engine.Txn()
+			defer txn.Free() // remember to call Free()
+
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

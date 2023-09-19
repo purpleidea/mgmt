@@ -61,6 +61,7 @@ type Engine struct {
 	waits     map[pgraph.Vertex]*sync.WaitGroup // wg for the Worker func
 	wlock     *sync.Mutex                       // lock around waits map
 
+	mlock *sync.Mutex                            // metas lock
 	metas map[engine.ResPtrUID]*engine.MetaState // meta state
 
 	slock *sync.Mutex // semaphore lock
@@ -99,6 +100,7 @@ func (obj *Engine) Init() error {
 	obj.waits = make(map[pgraph.Vertex]*sync.WaitGroup)
 	obj.wlock = &sync.Mutex{}
 
+	obj.mlock = &sync.Mutex{}
 	obj.metas = make(map[engine.ResPtrUID]*engine.MetaState)
 
 	obj.slock = &sync.Mutex{}
@@ -345,6 +347,7 @@ func (obj *Engine) Commit() error {
 	// that vertexRemoveFn runs before vertexAddFn, but GraphSync guarantees
 	// that, and it would be kind of illogical to not run things that way.
 	metaGC := make(map[engine.ResPtrUID]struct{}) // which metas should we garbage collect?
+	obj.mlock.Lock()
 	for ptrUID := range obj.metas {
 		if _, exists := activeMetas[ptrUID]; !exists {
 			metaGC[ptrUID] = struct{}{}
@@ -353,6 +356,7 @@ func (obj *Engine) Commit() error {
 	for ptrUID := range metaGC {
 		delete(obj.metas, ptrUID) // otherwise, this could grow forever
 	}
+	obj.mlock.Unlock()
 
 	// We run these afterwards, so that we don't unnecessarily start anyone
 	// if GraphSync failed in some way. Otherwise we'd have to do clean up!

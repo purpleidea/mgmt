@@ -29,6 +29,8 @@ import (
 // "direct" Func is a node with one upstream node for each of the function's
 // arguments.
 
+// FuncValueToConstFunc transforms a *full.FuncValue into an interfaces.Func
+// which is implemented by &ConstFunc{}.
 func FuncValueToConstFunc(fv *full.FuncValue) interfaces.Func {
 	return &ConstFunc{
 		Value:    fv,
@@ -36,6 +38,8 @@ func FuncValueToConstFunc(fv *full.FuncValue) interfaces.Func {
 	}
 }
 
+// SimpleFnToDirectFunc transforms a name and *types.FuncValue into an
+// interfaces.Func which is implemented by &simple.WrappedFunc{}.
 func SimpleFnToDirectFunc(name string, fv *types.FuncValue) interfaces.Func {
 	return &simple.WrappedFunc{
 		Name: name,
@@ -43,6 +47,8 @@ func SimpleFnToDirectFunc(name string, fv *types.FuncValue) interfaces.Func {
 	}
 }
 
+// SimpleFnToFuncValue transforms a name and *types.FuncValue into a
+// *full.FuncValue.
 func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 	return &full.FuncValue{
 		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
@@ -60,6 +66,9 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 	}
 }
 
+// SimpleFnToConstFunc transforms a name and *types.FuncValue into an
+// interfaces.Func which is implemented by FuncValueToConstFunc and
+// SimpleFnToFuncValue.
 func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 	return FuncValueToConstFunc(SimpleFnToFuncValue(name, fv))
 }

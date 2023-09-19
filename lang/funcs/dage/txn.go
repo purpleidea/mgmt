@@ -75,8 +75,8 @@ type opfnFlag interface {
 	SetFlag(interface{})
 }
 
-// RevOp returns the reversed op from an op by packing or unpacking it.
-func RevOp(op opfn) opfn {
+// revOp returns the reversed op from an op by packing or unpacking it.
+func revOp(op opfn) opfn {
 	if skipOp, ok := op.(opfnSkipRev); ok && skipOp.Skip() {
 		return nil // skip
 	}
@@ -481,7 +481,7 @@ func (obj *graphTxn) commit() error {
 			return err
 		}
 
-		op = RevOp(op) // reverse the op!
+		op = revOp(op) // reverse the op!
 		if op != nil {
 			obj.rev = append(obj.rev, op) // add the reverse op
 			//obj.rev = append([]opfn{op}, obj.rev...) // add to front

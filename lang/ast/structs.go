@@ -7346,8 +7346,8 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 	//}, nil
 }
 
-// A dummy Expr implementation, used to detect recursion (which is not supported
-// in this language).
+// ExprRecur is a dummy Expr implementation, used to detect recursion, which is
+// not supported in this language.
 type ExprRecur struct {
 	Name string // name of the variable which refers to itself recursively
 }
@@ -8740,6 +8740,11 @@ func (obj *ExprParam) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inte
 	return graph, paramFunc, nil
 }
 
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
 func (obj *ExprParam) SetValue(value types.Value) error {
 	// ignored, as we don't support ExprParam.Value()
 	return nil
@@ -8752,12 +8757,12 @@ func (obj *ExprParam) Value() (types.Value, error) {
 	return nil, nil
 }
 
-// Polymorphic expressions are definitions that can be used in multiple places
-// with different types. We must copy the definition at each call site in order
-// for the type checker to find a different type at each call site. We create
-// this copy inside SetScope, at which point we also recursively call SetScope
-// on the copy. We must be careful to use the scope captured at the definition
-// site, not the scope which is available at the call site.
+// ExprPoly is a polymorphic expression that is a definition that can be used in
+// multiple places with different types. We must copy the definition at each
+// call site in order for the type checker to find a different type at each call
+// site. We create this copy inside SetScope, at which point we also recursively
+// call SetScope on the copy. We must be careful to use the scope captured at
+// the definition site, not the scope which is available at the call site.
 type ExprPoly struct {
 	Definition    interfaces.Expr   // The definition.
 	CapturedScope *interfaces.Scope // The scope at the definition site.
@@ -8853,6 +8858,11 @@ func (obj *ExprPoly) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	panic("ExprPoly.Unify(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
 }
 
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
 func (obj *ExprPoly) SetValue(value types.Value) error {
 	// ignored, as we don't support ExprPoly.Value()
 	return nil

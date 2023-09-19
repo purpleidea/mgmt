@@ -1398,7 +1398,7 @@ func (obj *Engine) NumVertices() int {
 	return obj.graph.NumVertices()
 }
 
-// Return some statistics in a human-readable form.
+// Stats returns some statistics in a human-readable form.
 func (obj *Engine) Stats() string {
 	defer obj.statsMutex.RUnlock()
 	obj.statsMutex.RLock()

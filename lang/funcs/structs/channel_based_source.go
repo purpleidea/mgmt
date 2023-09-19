@@ -25,8 +25,8 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
-// A Func which receives values from a Chan and emits them to the downstream
-// nodes.
+// ChannelBasedSourceFunc is a Func which receives values from a golang channel
+// and emits them to the downstream nodes.
 type ChannelBasedSourceFunc struct {
 	Name   string
 	Source interfaces.Func // for drawing dashed edges in the Graphviz visualization

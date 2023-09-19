@@ -26,11 +26,13 @@ import (
 )
 
 const (
-	// Suggestion for how to name the edge which connects the input value to ChannelBasedSinkFunc.
+	// ChannelBasedSinkFuncArgName is the name for the edge which connects
+	// the input value to ChannelBasedSinkFunc.
 	ChannelBasedSinkFuncArgName = "channelBasedSinkFuncArg"
 )
 
-// A Func which receives values from upstream nodes and emits them to a Chan.
+// ChannelBasedSinkFunc is a Func which receives values from upstream nodes and
+// emits them to a golang channel.
 type ChannelBasedSinkFunc struct {
 	Name     string
 	EdgeName string

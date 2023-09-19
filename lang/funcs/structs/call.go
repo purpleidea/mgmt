@@ -31,7 +31,8 @@ const (
 	// CallFuncName is the unique name identifier for this function.
 	CallFuncName = "call"
 
-	// Suggestion for how to name the edge which connects the input function to CallFunc.
+	// CallFuncArgNameFunction is the name for the edge which connects the
+	// input function to CallFunc.
 	CallFuncArgNameFunction = "fn"
 )
 

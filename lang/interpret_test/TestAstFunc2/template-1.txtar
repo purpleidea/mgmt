@@ -1,0 +1,8 @@
+-- main.mcl --
+$v = 42
+$x = template("hello", $v) # redirect var for harder unification
+test $x {
+	#anotherstr => $x,
+}
+-- OUTPUT --
+Vertex: test[hello]

@@ -148,11 +148,6 @@ func (obj *ExprFunc) ScopeGraph(g *pgraph.Graph) {
 }
 
 // ScopeGraph adds nodes and vertices to the supplied graph.
-func (obj *ExprRecur) ScopeGraph(g *pgraph.Graph) {
-	g.AddVertex(obj)
-}
-
-// ScopeGraph adds nodes and vertices to the supplied graph.
 func (obj *ExprCall) ScopeGraph(g *pgraph.Graph) {
 	g.AddVertex(obj)
 	expr, ok := obj.expr.(interfaces.ScopeGrapher)

@@ -7425,19 +7425,19 @@ func (obj *ExprRecur) SetScope(scope *interfaces.Scope, context map[string]inter
 // change on expressions, if you attempt to set a different type than what has
 // previously been set (when not initially known) this will error.
 func (obj *ExprRecur) SetType(typ *types.Type) error {
-	panic("ExprRecur node still present after SetScope()")
+	panic(fmt.Sprintf("ExprRecur node %s still present after SetScope()", obj.Name))
 }
 
 // Type returns the type of this expression.
 func (obj *ExprRecur) Type() (*types.Type, error) {
-	panic("ExprRecur node still present after SetScope()")
+	panic(fmt.Sprintf("ExprRecur node %s still present after SetScope()", obj.Name))
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
 // calls Unify on any children elements that exist in the AST, and returns the
 // collection to the caller.
 func (obj *ExprRecur) Unify() ([]interfaces.Invariant, error) {
-	panic("ExprRecur node still present after SetScope()")
+	panic(fmt.Sprintf("ExprRecur node %s still present after SetScope()", obj.Name))
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -7447,7 +7447,7 @@ func (obj *ExprRecur) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
 func (obj *ExprRecur) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
-	panic("ExprRecur node still present after SetScope()")
+	panic(fmt.Sprintf("ExprRecur node %s still present after SetScope()", obj.Name))
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
@@ -7455,7 +7455,7 @@ func (obj *ExprRecur) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inte
 // done to them first, and as such when we try and retrieve the set value from
 // this expression by calling `Value`, it will build it from scratch!
 func (obj *ExprRecur) SetValue(value types.Value) error {
-	panic("ExprRecur node still present after SetScope()")
+	panic(fmt.Sprintf("ExprRecur node %s still present after SetScope()", obj.Name))
 }
 
 // Value returns the value of this expression in our type system. This will
@@ -7465,7 +7465,7 @@ func (obj *ExprRecur) SetValue(value types.Value) error {
 // it can lookup in the previous set scope which expression this points to, and
 // then it can call Value on that expression.
 func (obj *ExprRecur) Value() (types.Value, error) {
-	panic("ExprRecur node still present after SetScope()")
+	panic(fmt.Sprintf("ExprRecur node %s still present after SetScope()", obj.Name))
 }
 
 // ExprCall is a representation of a function call. This does not represent the

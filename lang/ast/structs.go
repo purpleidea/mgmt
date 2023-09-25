@@ -35,6 +35,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/types/full"
 	langutil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -90,6 +91,9 @@ const (
 	// varOrderingPrefix is a magic prefix used for the Ordering graph.
 	varOrderingPrefix = "var:"
 
+	// paramOrderingPrefix is a magic prefix used for the Ordering graph.
+	paramOrderingPrefix = "param:"
+
 	// funcOrderingPrefix is a magic prefix used for the Ordering graph.
 	funcOrderingPrefix = "func:"
 
@@ -116,7 +120,7 @@ const (
 
 var (
 	// orderingGraphSingleton is used for debugging the ordering graph.
-	orderingGraphSingleton = true
+	orderingGraphSingleton = false
 )
 
 // StmtBind is a representation of an assignment, which binds a variable to an
@@ -227,11 +231,11 @@ func (obj *StmtBind) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
-// SetScope sets the scope of the child expression bound to it. It seems this is
-// necessary in order to reach this, in particular in situations when a bound
-// expression points to a previously bound expression.
+// SetScope sets the scope of the child expression bound to it. If a variable
+// uses the value which this StmtBind binds, they will make a copy and call
+// SetScope on the copy.
 func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
-	return obj.Value.SetScope(scope)
+	return nil
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -264,8 +268,8 @@ func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
 	// It seems that adding this to the graph will end up including an
 	// expression in the case of an ExprFunc lambda, since we copy it and
 	// build a new ExprFunc when it's used by ExprCall.
-	//return obj.Value.Graph() // nope!
-	return pgraph.NewGraph("stmtbind") // empty graph!
+	//return obj.Value.Graph(nil) // nope!
+	return pgraph.NewGraph("stmtbind") // empty graph
 }
 
 // Output for the bind statement produces no output. Any values of interest come
@@ -492,7 +496,7 @@ func (obj *StmtRes) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
-	if err := obj.Name.SetScope(scope); err != nil {
+	if err := obj.Name.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	for _, x := range obj.Contents {
@@ -602,7 +606,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.Name.Graph()
+	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
 	if err != nil {
 		return nil, err
 	}
@@ -1257,11 +1261,11 @@ func (obj *StmtResField) Ordering(produces map[string]interfaces.Node) (*pgraph.
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtResField) SetScope(scope *interfaces.Scope) error {
-	if err := obj.Value.SetScope(scope); err != nil {
+	if err := obj.Value.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	if obj.Condition != nil {
-		if err := obj.Condition.SetScope(scope); err != nil {
+		if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 			return err
 		}
 	}
@@ -1340,7 +1344,7 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.Value.Graph()
+	g, f, err := obj.Value.Graph(map[string]interfaces.Func{})
 	if err != nil {
 		return nil, err
 	}
@@ -1348,7 +1352,7 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	obj.valuePtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph()
+		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
 		if err != nil {
 			return nil, err
 		}
@@ -1522,7 +1526,7 @@ func (obj *StmtResEdge) SetScope(scope *interfaces.Scope) error {
 		return err
 	}
 	if obj.Condition != nil {
-		if err := obj.Condition.SetScope(scope); err != nil {
+		if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 			return err
 		}
 	}
@@ -1583,7 +1587,7 @@ func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
 	graph.AddGraph(g)
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph()
+		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
 		if err != nil {
 			return nil, err
 		}
@@ -1776,11 +1780,11 @@ func (obj *StmtResMeta) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtResMeta) SetScope(scope *interfaces.Scope) error {
-	if err := obj.MetaExpr.SetScope(scope); err != nil {
+	if err := obj.MetaExpr.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	if obj.Condition != nil {
-		if err := obj.Condition.SetScope(scope); err != nil {
+		if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 			return err
 		}
 	}
@@ -1922,7 +1926,7 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.MetaExpr.Graph()
+	g, f, err := obj.MetaExpr.Graph(map[string]interfaces.Func{})
 	if err != nil {
 		return nil, err
 	}
@@ -1930,7 +1934,7 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	obj.metaExprPtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph()
+		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
 		if err != nil {
 			return nil, err
 		}
@@ -2357,7 +2361,7 @@ func (obj *StmtEdgeHalf) Copy() (*StmtEdgeHalf, error) {
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtEdgeHalf) SetScope(scope *interfaces.Scope) error {
-	return obj.Name.SetScope(scope)
+	return obj.Name.SetScope(scope, map[string]interfaces.Expr{})
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -2418,7 +2422,7 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
 func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
-	g, f, err := obj.Name.Graph()
+	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
 	if err != nil {
 		return nil, err
 	}
@@ -2654,7 +2658,7 @@ func (obj *StmtIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph,
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
 func (obj *StmtIf) SetScope(scope *interfaces.Scope) error {
-	if err := obj.Condition.SetScope(scope); err != nil {
+	if err := obj.Condition.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 		return err
 	}
 	if obj.ThenBranch != nil {
@@ -2726,7 +2730,7 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.Condition.Graph()
+	g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
 	if err != nil {
 		return nil, err
 	}
@@ -3402,6 +3406,13 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 	if prog.scope.IsEmpty() {
 		return nil, fmt.Errorf("could not find any non-empty scope")
 	}
+	if obj.data.Debug {
+		obj.data.Logf("imported scope:")
+		for k, v := range prog.scope.Variables {
+			// print the type of v
+			obj.data.Logf("\t%s: %T", k, v)
+		}
+	}
 
 	// save a reference to the prog for future usage in Unify/Graph/Etc...
 	obj.importProgs = append(obj.importProgs, prog)
@@ -3530,7 +3541,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 		binds[bind.Ident] = struct{}{} // mark as found in scope
 		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Variables[bind.Ident] = bind.Value
+		newScope.Variables[bind.Ident] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
+			Definition:    bind.Value,
+			CapturedScope: newScope,
+		}
 		if obj.data.Debug { // TODO: is this message ever useful?
 			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
 		}
@@ -3566,7 +3580,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		if len(fnList) == 1 {
 			fn := fnList[0].Func // local reference to avoid changing it in the loop...
 			// add to scope, (overwriting, aka shadowing is ok)
-			newScope.Functions[name] = fn // store the *ExprFunc
+			newScope.Functions[name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
+				Definition:    fn, // store the *ExprFunc
+				CapturedScope: newScope,
+			}
 			continue
 		}
 
@@ -3819,13 +3836,13 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 	}
 
 	// add graphs from SetScope's imported child programs
-	for _, x := range obj.importProgs {
-		g, err := x.Graph()
-		if err != nil {
-			return nil, err
-		}
-		graph.AddGraph(g)
-	}
+	//for _, x := range obj.importProgs {
+	//	g, err := x.Graph(env)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	graph.AddGraph(g)
+	//}
 
 	return graph, nil
 }
@@ -4019,7 +4036,7 @@ func (obj *StmtFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // necessary in order to reach this, in particular in situations when a bound
 // expression points to a previously bound expression.
 func (obj *StmtFunc) SetScope(scope *interfaces.Scope) error {
-	return obj.Func.SetScope(scope)
+	return obj.Func.SetScope(scope, map[string]interfaces.Expr{})
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -4044,7 +4061,7 @@ func (obj *StmtFunc) Unify() ([]interfaces.Invariant, error) {
 // children might. This particular func statement adds its linked expression to
 // the graph.
 func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
-	//return obj.Func.Graph() // nope!
+	//return obj.Func.Graph(nil) // nope!
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
 
@@ -4192,7 +4209,7 @@ func (obj *StmtClass) SetScope(scope *interfaces.Scope) error {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope // store for later
-	return obj.Body.SetScope(scope)
+	return nil
 }
 
 // Unify returns the list of invariants that this node produces. It recursively
@@ -4426,7 +4443,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// make sure to propagate the scope to our input args!
 	if obj.Args != nil {
 		for _, x := range obj.Args {
-			if err := x.SetScope(scope); err != nil {
+			if err := x.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
 				return err
 			}
 		}
@@ -4483,7 +4500,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// need to use the original scope of the class as it was set as the
 	// basis for this scope, so that we overwrite it only with the arg
 	// changes.
-	if err := obj.class.SetScope(newScope); err != nil {
+	if err := obj.class.Body.SetScope(newScope); err != nil {
 		return err
 	}
 
@@ -4734,11 +4751,7 @@ func (obj *StmtComment) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular graph does nothing clever.
 func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("comment")
-	if err != nil {
-		return nil, err
-	}
-	return graph, nil
+	return pgraph.NewGraph("comment")
 }
 
 // Output for the comment statement produces no output.
@@ -4799,7 +4812,7 @@ func (obj *ExprBool) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprBool) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprBool) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -4842,7 +4855,7 @@ func (obj *ExprBool) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprBool) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprBool) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("bool")
 	if err != nil {
 		return nil, nil, err
@@ -4979,7 +4992,7 @@ func (obj *ExprStr) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprStr) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprStr) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -5022,7 +5035,7 @@ func (obj *ExprStr) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprStr) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprStr) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("str")
 	if err != nil {
 		return nil, nil, err
@@ -5109,7 +5122,7 @@ func (obj *ExprInt) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprInt) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprInt) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -5152,7 +5165,7 @@ func (obj *ExprInt) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprInt) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprInt) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("int")
 	if err != nil {
 		return nil, nil, err
@@ -5241,7 +5254,7 @@ func (obj *ExprFloat) Ordering(produces map[string]interfaces.Node) (*pgraph.Gra
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope. It does however store it for
 // later possible use.
-func (obj *ExprFloat) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprFloat) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -5284,7 +5297,7 @@ func (obj *ExprFloat) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprFloat) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprFloat) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("float")
 	if err != nil {
 		return nil, nil, err
@@ -5448,14 +5461,14 @@ func (obj *ExprList) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprList) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprList) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
 
 	for _, x := range obj.Elements {
-		if err := x.SetScope(scope); err != nil {
+		if err := x.SetScope(scope, sctx); err != nil {
 			return err
 		}
 	}
@@ -5604,7 +5617,7 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprList) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprList) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("list")
 	if err != nil {
 		return nil, nil, err
@@ -5617,7 +5630,7 @@ func (obj *ExprList) Graph() (*pgraph.Graph, interfaces.Func, error) {
 
 	// each list element needs to point to the final list expression
 	for index, x := range obj.Elements { // list elements in order
-		g, f, err := x.Graph()
+		g, f, err := x.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -5877,17 +5890,17 @@ func (obj *ExprMap) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprMap) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprMap) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
 
 	for _, x := range obj.KVs {
-		if err := x.Key.SetScope(scope); err != nil {
+		if err := x.Key.SetScope(scope, sctx); err != nil {
 			return err
 		}
-		if err := x.Val.SetScope(scope); err != nil {
+		if err := x.Val.SetScope(scope, sctx); err != nil {
 			return err
 		}
 	}
@@ -6076,7 +6089,7 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprMap) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprMap) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("map")
 	if err != nil {
 		return nil, nil, err
@@ -6089,7 +6102,7 @@ func (obj *ExprMap) Graph() (*pgraph.Graph, interfaces.Func, error) {
 
 	// each map key value pair needs to point to the final map expression
 	for index, x := range obj.KVs { // map fields in order
-		g, f, err := x.Key.Graph()
+		g, f, err := x.Key.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -6103,7 +6116,7 @@ func (obj *ExprMap) Graph() (*pgraph.Graph, interfaces.Func, error) {
 
 	// each map key value pair needs to point to the final map expression
 	for index, x := range obj.KVs { // map fields in order
-		g, f, err := x.Val.Graph()
+		g, f, err := x.Val.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -6352,14 +6365,14 @@ func (obj *ExprStruct) Ordering(produces map[string]interfaces.Node) (*pgraph.Gr
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprStruct) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprStruct) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
 
 	for _, x := range obj.Fields {
-		if err := x.Value.SetScope(scope); err != nil {
+		if err := x.Value.SetScope(scope, sctx); err != nil {
 			return err
 		}
 	}
@@ -6477,7 +6490,7 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprStruct) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprStruct) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("struct")
 	if err != nil {
 		return nil, nil, err
@@ -6490,7 +6503,7 @@ func (obj *ExprStruct) Graph() (*pgraph.Graph, interfaces.Func, error) {
 
 	// each struct field needs to point to the final struct expression
 	for _, x := range obj.Fields { // struct fields in order
-		g, f, err := x.Value.Graph()
+		g, f, err := x.Value.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -6577,17 +6590,14 @@ type ExprStructField struct {
 }
 
 // ExprFunc is a representation of a function value. This is not a function
-// call, that is represented by ExprCall. This can represent either the contents
-// of a StmtFunc, a lambda function, or a core system function. You may only use
-// one of the internal representations of a function to build this, if you use
-// more than one then the behaviour is not defined, and could conceivably panic.
-// The first possibility is to specify the function via the Args, Return, and
-// Body fields. This is used for native mcl code. The second possibility is to
-// specify the function via the Function field only. This is used for built-in
-// functions that implement the Func API. The third possibility is to specify a
-// list of function values via the Values field. This is used for built-in
-// functions that implement the simple function API or the simplepoly function
-// API and that aren't wrapped in the Func API. (This was the historical case.)
+// call, that is represented by ExprCall.
+//
+// There are several kinds of functions which can be represented:
+// 1. The contents of a StmtFunc (set Args, Return, and Body)
+// 2. A lambda function (also set Args, Return, and Body)
+// 3. A stateful built-in function (set Function)
+// 4. A pure built-in function (set Values to a singleton)
+// 5. A pure polymorphic built-in function (set Values to a list)
 type ExprFunc struct {
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
@@ -6603,6 +6613,12 @@ type ExprFunc struct {
 	// This can include a string name and a type, however the type might be
 	// absent here.
 	Args []*interfaces.Arg
+
+	// One ExprParam is created for each parameter, and the ExprVars which
+	// refer to those parameters are set to point to the corresponding
+	// ExprParam.
+	params []*ExprParam
+
 	// Return is the return type of the function if it was defined.
 	Return *types.Type // return type if specified
 	// Body is the contents of the function. It can be any expression.
@@ -6618,7 +6634,7 @@ type ExprFunc struct {
 	Values []*types.FuncValue
 
 	// XXX: is this necessary?
-	V func([]types.Value) (types.Value, error)
+	//V func(interfaces.Txn, []pgraph.Vertex) (pgraph.Vertex, error)
 }
 
 // String returns a short representation of this expression.
@@ -6756,7 +6772,7 @@ func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) {
 		Function: obj.Function,
 		function: obj.function,
 		Values:   obj.Values,
-		V:        obj.V,
+		//V:        obj.V,
 	}, nil
 }
 
@@ -6787,6 +6803,20 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 	var function interfaces.Func
 	if obj.Function != nil {
 		function = obj.Function() // force re-build a new pointer here!
+		// restore the type we previously set in SetType()
+		if obj.typ != nil {
+			polyFn, ok := function.(interfaces.PolyFunc) // is it statically polymorphic?
+			if ok {
+				newTyp, err := polyFn.Build(obj.typ)
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not build expr func")
+				}
+				// Cmp doesn't compare arg names. Check it's compatible...
+				if err := obj.typ.Cmp(newTyp); err != nil {
+					return nil, errwrap.Wrapf(err, "incompatible type")
+				}
+			}
+		}
 		// pass in some data to the function
 		// TODO: do we want to pass in the full obj.data instead ?
 		if dataFunc, ok := function.(interfaces.DataFunc); ok {
@@ -6820,7 +6850,7 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		Function: obj.Function,
 		function: function,
 		Values:   obj.Values, // XXX: do we need to force rebuild these?
-		V:        obj.V,
+		//V:        obj.V,
 	}, nil
 }
 
@@ -6869,48 +6899,29 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprFunc) SetScope(scope *interfaces.Scope) error {
-	// TODO: Should we merge the existing obj.scope with the new one? This
-	// gets called multiple times, maybe doing that would simplify other
-	// parts of the code.
+func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope // store for later
 
 	if obj.Body != nil {
-		newScope := scope.Copy()
-
-		if obj.data.Debug {
-			if obj.Title != "" {
-				obj.data.Logf("func: %s: scope: pull index 0", obj.Title)
-			} else {
-				obj.data.Logf("func: scope: pull index 0")
-			}
+		sctxBody := make(map[string]interfaces.Expr)
+		for k, v := range sctx {
+			sctxBody[k] = v
 		}
 
-		indexes, exists := newScope.PullIndexes()
-		if exists {
-			if i, j := len(indexes), len(obj.Args); i != j {
-				return fmt.Errorf("called with %d args, but function requires %d", i, j)
-			}
-			// this version is more future proof, but less logical...
-			// in particular, if there are no indices, then this is skipped!
-			for i, arg := range indexes { // unrename
-				name := obj.Args[i].Name
-				newScope.Variables[name] = arg
-			}
-			// this version is less future proof, but more logical...
-			//for i, arg := range obj.Args { // copy (unrename)
-			//	newScope.Variables[arg.Name] = indexes[i]
-			//}
+		// add the parameters to the context (sctx) for the body
+		// make a list as long as obj.Args
+		obj.params = make([]*ExprParam, len(obj.Args))
+		for i, arg := range obj.Args {
+			param := &ExprParam{Name: arg.Name, Typ: arg.Type}
+			obj.params[i] = param
+			sctxBody[arg.Name] = param
 		}
 
-		// We used to store newScope here as bodyScope for later lookup!
-		//obj.bodyScope = newScope // store for later
-		// Instead we just added a private getScope method for expr's...
-		if err := obj.Body.SetScope(newScope); err != nil {
-			return err
+		if err := obj.Body.SetScope(scope, sctxBody); err != nil {
+			return errwrap.Wrapf(err, "failed to set scope on function body")
 		}
 	}
 
@@ -6954,7 +6965,7 @@ func (obj *ExprFunc) SetType(typ *types.Type) error {
 			return errwrap.Wrapf(err, "could not build values func")
 		}
 		// TODO: build the function here for later use if that is wanted
-		//fn := obj.Values[index].Copy().(*types.FuncValue)
+		//fn := obj.Values[index].Copy()
 		//fn.T = typ.Copy() // overwrites any contained "variant" type
 	}
 
@@ -6988,6 +6999,11 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 	}
 
 	if obj.Function != nil {
+		if obj.function == nil {
+			// TODO: should we return ErrTypeCurrentlyUnknown instead?
+			panic("unexpected empty function")
+			//return nil, interfaces.ErrTypeCurrentlyUnknown
+		}
 		sig := obj.function.Info().Sig
 		if sig != nil && !sig.HasVariant() && obj.typ == nil { // type is now known statically
 			return sig, nil
@@ -7074,105 +7090,25 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 
 	// collect all the invariants of the body
 	if obj.Body != nil {
-		invars, err := obj.Body.Unify()
-		if err != nil {
-			return nil, err
+		expr2Ord := []string{}
+		expr2Map := map[string]interfaces.Expr{}
+		for i, arg := range obj.Args {
+			expr2Ord = append(expr2Ord, arg.Name)
+			expr2Map[arg.Name] = obj.params[i]
 		}
-		invariants = append(invariants, invars...)
-	}
-
-	if obj.Body != nil { // XXX: nuke this section?
-		invars, err := obj.Body.Unify()
-		if err != nil {
-			return nil, err
-		}
-		invariants = append(invariants, invars...)
-
-		mapped := make(map[string]interfaces.Expr)
-		ordered := []string{}
-
-		// If the args are passed in by index, then we can use this,
-		// otherwise we can try and look them up in the standard scope.
-		if indexes, exists := obj.scope.Indexes[0]; exists {
-			if i, j := len(indexes), len(obj.Args); i != j {
-				return nil, fmt.Errorf("called with %d args, but function requires %d", i, j)
-			}
-			// this version is more future proof, but less logical...
-			// in particular, if there are no indices, then this is skipped!
-			for i, arg := range indexes { // unrename
-				name := obj.Args[i].Name
-				mapped[name] = arg
-				ordered = append(ordered, name)
-
-				// if the arg's type is known statically...
-				if typ := obj.Args[i].Type; typ != nil {
-					invar := &interfaces.EqualsInvariant{
-						Expr: arg,
-						Type: typ,
-					}
-					invariants = append(invariants, invar)
-				}
-
-				// The scope that is built for the body, should
-				// have variables that correspond to the inputs.
-				bodyScope, err := getScope(obj.Body)
-				if err != nil {
-					// programming error?
-					return nil, errwrap.Wrapf(err, "can't get body scope")
-				}
-				if bodyScope != nil { // TODO: can this be nil?
-					invar := &interfaces.EqualityInvariant{
-						Expr1: arg,
-						Expr2: bodyScope.Variables[name],
-					}
-					invariants = append(invariants, invar)
-				}
-			}
-
-		} else {
-			// XXX: i don't think this branch is ever used...
-			return nil, fmt.Errorf("unexpected branch")
-			//for _, arg := range obj.Args {
-			//	expr, exists := obj.scope.Variables[arg.Name]
-			//	if !exists {
-			//		// programming error ?
-			//		return nil, fmt.Errorf("expected arg `%s` was missing from scope", arg.Name)
-			//	}
-			//	mapped[arg.Name] = expr
-			//	ordered = append(ordered, arg.Name)
-			//
-			//	// if the arg's type is known statically...
-			//	if typ := arg.Type; typ != nil {
-			//		invar := &interfaces.EqualsInvariant{
-			//			Expr: expr,
-			//			Type: typ,
-			//		}
-			//		invariants = append(invariants, invar)
-			//	}
-			//
-			//	// TODO: do we need to add something like this?
-			//	//bodyScope, err := getScope(obj.Body)
-			//	//if err != nil {
-			//	//	// programming error?
-			//	//	return nil, errwrap.Wrapf(err, "can't get body scope")
-			//	//}
-			//	//// The scoped variable should match the arg.
-			//	//invar := &interfaces.EqualityInvariant{
-			//	//	Expr1: expr,
-			//	//	Expr2: bodyScope.Variables[name], // ???
-			//	//}
-			//	//invariants = append(invariants, invar)
-			//}
-		}
-
-		// XXX: is this the right kind of invariant???
-		invariant := &interfaces.EqualityWrapFuncInvariant{
+		funcInvariant := &interfaces.EqualityWrapFuncInvariant{
 			Expr1:    obj,
-			Expr2Map: mapped,
-			Expr2Ord: ordered,
+			Expr2Map: expr2Map,
+			Expr2Ord: expr2Ord,
 			Expr2Out: obj.Body,
 		}
-		invariants = append(invariants, invariant)
+		invariants = append(invariants, funcInvariant)
+
+		invars, err := obj.Body.Unify()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
 	}
 
 	// return type must be equal to the body expression
@@ -7268,109 +7204,130 @@ func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
 	return invariants, nil
 }
 
-// Func returns the reactive stream of values that this expression produces. We
-// need this indirection, because our returned function that actually runs also
-// accepts the "body" of the function (an expr) as an input.
-func (obj *ExprFunc) Func() (interfaces.Func, error) {
-	typ, err := obj.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	if obj.Body != nil {
-		// TODO: i think this is unused
-		//f, err := obj.Body.Func()
-		//if err != nil {
-		//	return nil, err
-		//}
-
-		// direct func
-		return &structs.FunctionFunc{
-			Type: typ, // this is a KindFunc
-			//Func: f,
-			Edge: "body", // the edge name used above in Graph is this...
-		}, nil
-	}
-
-	if obj.Function != nil {
-		// XXX: is this correct?
-		return &structs.FunctionFunc{
-			Type: typ,          // this is a KindFunc
-			Func: obj.function, // pass it through
-			Edge: "",           // no edge, since nothing is incoming to the built-in
-		}, nil
-	}
-
-	// third kind
-	//if len(obj.Values) > 0
-	index, err := langutil.FnMatch(typ, obj.Values)
-	if err != nil {
-		// programming error ?
-		return nil, errwrap.Wrapf(err, "no valid function found")
-	}
-	// build
-	// TODO: this could probably be done in SetType and cached in the struct
-	fn := obj.Values[index].Copy().(*types.FuncValue)
-	fn.T = typ.Copy() // overwrites any contained "variant" type
-
-	return &structs.FunctionFunc{
-		Type: typ, // this is a KindFunc
-		Fn:   fn,  // pass it through
-		Edge: "",  // no edge, since nothing is incoming to the built-in
-	}, nil
-}
-
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprFunc) Graph() (*pgraph.Graph, interfaces.Func, error) {
-	graph, err := pgraph.NewGraph("func")
-	if err != nil {
-		return nil, nil, err
-	}
-	function, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddVertex(function)
+func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	// This implementation produces a graph with a single node of in-degree
+	// zero which outputs a single FuncValue. The FuncValue is a closure, in
+	// that it holds both a lambda body and a captured environment. This
+	// environment, which we receive from the caller, gives information
+	// about the variables declared _outside_ of the lambda, at the time the
+	// lambda is returned.
+	//
+	// Each time the FuncValue is called, it produces a separate graph, the
+	// subgraph which computes the lambda's output value from the lambda's
+	// argument values. The nodes created for that subgraph have a shorter
+	// life span than the nodes in the captured environment.
 
+	//graph, err := pgraph.NewGraph("func")
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	//function, err := obj.Func()
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	//graph.AddVertex(function)
+
+	var funcValueFunc interfaces.Func
 	if obj.Body != nil {
-		g, f, err := obj.Body.Graph()
+		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
+			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				// Extend the environment with the arguments.
+				extendedEnv := make(map[string]interfaces.Func)
+				for k, v := range env {
+					extendedEnv[k] = v
+				}
+				for i, arg := range obj.Args {
+					extendedEnv[arg.Name] = args[i]
+				}
+
+				// Create a subgraph from the lambda's body, instantiating the
+				// lambda's parameters with the args and the other variables
+				// with the nodes in the captured environment.
+				subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+				}
+
+				innerTxn.AddGraph(subgraph)
+
+				return bodyFunc, nil
+			},
+			T: obj.typ,
+		})
+	} else if obj.Function != nil {
+		// obj.function is a node which transforms input values into
+		// an output value, but we need to construct a node which takes no
+		// inputs and produces a FuncValue, so we need to wrap it.
+
+		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
+			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				// Copy obj.function so that the underlying ExprFunc.function gets
+				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
+				// calls to this function will share the same Func.
+				exprCopy, err := obj.Copy()
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not copy expression")
+				}
+				funcExprCopy, ok := exprCopy.(*ExprFunc)
+				if !ok {
+					// programming error
+					return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
+				}
+				valueTransformingFunc := funcExprCopy.function
+				txn.AddVertex(valueTransformingFunc)
+				for i, arg := range args {
+					argName := obj.typ.Ord[i]
+					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+						Args: []string{argName},
+					})
+				}
+				return valueTransformingFunc, nil
+			},
+			T: obj.typ,
+		})
+	} else /* len(obj.Values) > 0 */ {
+		index, err := langutil.FnMatch(obj.typ, obj.Values)
 		if err != nil {
-			return nil, nil, err
+			// programming error
+			// since type checking succeeded at this point, there should only be one match
+			return nil, nil, errwrap.Wrapf(err, "multiple matches found")
 		}
-		graph.AddGraph(g)
+		simpleFn := obj.Values[index]
+		simpleFn.T = obj.typ
 
-		// We need to add this edge, because if this isn't linked, then
-		// when we add an edge from this, then we'll get two because the
-		// contents aren't linked.
-		fieldName := "body" // TODO: what should we name this?
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // body -> func
+		funcValueFunc = structs.SimpleFnToConstFunc(fmt.Sprintf("title: %s", obj.Title), simpleFn)
 	}
 
-	if obj.Function != nil { // no input args are needed, func is built-in.
-		// TODO: is there anything to do ?
+	outerGraph, err := pgraph.NewGraph("ExprFunc")
+	if err != nil {
+		return nil, nil, err
 	}
-	if len(obj.Values) > 0 { // no input args are needed, func is built-in.
-		// TODO: is there anything to do ?
-	}
-
-	return graph, function, nil
+	outerGraph.AddVertex(funcValueFunc)
+	return outerGraph, funcValueFunc, nil
 }
 
 // SetValue for a func expression is always populated statically, and does not
 // ever receive any incoming values (no incoming edges) so this should never be
 // called. It has been implemented for uniformity.
 func (obj *ExprFunc) SetValue(value types.Value) error {
-	if err := obj.typ.Cmp(value.Type()); err != nil {
-		return err
-	}
-	// FIXME: is this part necessary?
-	obj.V = value.Func()
+	// We don't need to do anything because no resource has a function field and
+	// so nobody is going to call Value().
+
+	//if err := obj.typ.Cmp(value.Type()); err != nil {
+	//	return err
+	//}
+	//// FIXME: is this part necessary?
+	//funcValue, worked := value.(*full.FuncValue)
+	//if !worked {
+	//	return fmt.Errorf("expected a FuncValue")
+	//}
+	//obj.V = funcValue.V
 	return nil
 }
 
@@ -7379,11 +7336,12 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This might get called speculatively (early) during unification to learn more.
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
-	// TODO: implement speculative value lookup (if not already sufficient)
-	return &types.FuncValue{
-		V: obj.V,
-		T: obj.typ,
-	}, nil
+	panic("ExprFunc does not store its latest value because resources don't yet have function fields.")
+	//// TODO: implement speculative value lookup (if not already sufficient)
+	//return &full.FuncValue{
+	//	V: obj.V,
+	//	T: obj.typ,
+	//}, nil
 }
 
 // ExprCall is a representation of a function call. This does not represent the
@@ -7592,7 +7550,7 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // which it propagates this downwards to. This particular function has been
 // heavily optimized to work correctly with calling functions with the correct
 // args. Edit cautiously and with extensive testing.
-func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
@@ -7602,147 +7560,77 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope) error {
 		obj.data.Logf("call: %s(%t): scope: functions: %+v", obj.Name, obj.Var, obj.scope.Functions)
 	}
 
-	// Remember that we *want* to propagate this scope into the args that
-	// we use, but we DON'T want to propagate it into the function body...
-	// Only the args should get propagated into it that way.
+	// scope-check the arguments
 	for _, x := range obj.Args {
-		if err := x.SetScope(scope); err != nil {
+		if err := x.SetScope(scope, sctx); err != nil {
 			return err
 		}
 	}
 
-	// which scope should we look in for our function?
-	var funcScope map[string]interfaces.Expr
+	var prefixedName string
+	var target interfaces.Expr
 	if obj.Var {
-		funcScope = obj.scope.Variables // lambda value
+		// The call looks like $f().
+		prefixedName = interfaces.VarPrefix + obj.Name
+		if f, exists := sctx[obj.Name]; exists {
+			// $f refers to a parameter bound by an enclosing lambda definition.
+			target = f
+		} else {
+			f, exists := obj.scope.Variables[obj.Name]
+			if !exists {
+				return fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
+			}
+			target = f
+		}
 	} else {
-		funcScope = obj.scope.Functions // func statement
-	}
-
-	// Lookup function from scope...
-	f, exists := funcScope[obj.Name]
-	if !exists {
-		return fmt.Errorf("func `%s` does not exist in this scope", obj.Name)
-	}
-
-	// Whether or not this is an ExprCall or ExprFunc, we do the same thing!
-	fn, isFn := f.(*ExprFunc)
-	if !isFn {
-		// this logic is now combined into the main execution flow...
-		//_, ok := f.(*ExprCall)
-	}
-
-	if isFn && fn.Body != nil {
-		if i, j := len(obj.Args), len(fn.Args); i != j {
-			return fmt.Errorf("func `%s` is being called with %d args, but expected %d args", obj.Name, i, j)
+		// The call looks like f().
+		prefixedName = obj.Name
+		f, exists := obj.scope.Functions[obj.Name]
+		if !exists {
+			return fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
 		}
-	}
-	// XXX: is this check or the above one logical here before unification?
-	if isFn && fn.Function != nil {
-		//if i, j := len(obj.Args), len(???.Args); i != j {
-		//	return fmt.Errorf("func `%s` is being called with %d args, but expected %d args", obj.Name, i, j)
-		//}
+		target = f
 	}
 
-	if isFn && len(fn.Values) > 0 {
-		// XXX: what can we add here?
-	}
-
-	// XXX: we do this twice, so we should avoid the first one somehow...
-	// XXX: why do we do it twice???
-	if obj.expr != nil {
-		// possible programming error
-		//return fmt.Errorf("call already contains a func pointer")
-	}
-
-	// FIXME: do we want scope or obj.fn.scope (below, and after it's set) ?
-	for i := len(scope.Chain) - 1; i >= 0; i-- { // reverse order
-		x, ok := scope.Chain[i].(*ExprCall)
-		if !ok {
-			continue
+	if polymorphicTarget, isPolymorphic := target.(*ExprPoly); isPolymorphic {
+		// This function call refers to a polymorphic function
+		// expression. Those expressions can be instantiated at
+		// different types in different parts of the program, so that
+		// the definition we found has a "polymorphic" type.
+		//
+		// This particular call is one of the parts of the program which
+		// uses the polymorphic expression as a single, "monomorphic"
+		// type. We make a copy of the definition, and later each copy
+		// will be type-checked separately.
+		monomorphicTarget, err := polymorphicTarget.Definition.Copy()
+		if err != nil {
+			return errwrap.Wrapf(err, "could not copy the function definition `%s`", prefixedName)
 		}
 
-		if x == obj.orig { // look for my original self
-			// scope chain found!
-			obj.expr = f // same pointer, don't copy
-			return fmt.Errorf("recursive func `%s` found", obj.Name)
-			//return nil // if recursion was supported
+		// This call now has the only reference to monomorphicTarget, so
+		// it is our responsibility to scope-check it. We must use the
+		// scope which was captured at the definition site, not the
+		// scope argument we received as input, as that is the scope
+		// which is available at the call site.
+		definitionScope := polymorphicTarget.CapturedScope.Copy()
+
+		if err := monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{}); err != nil {
+			return errwrap.Wrapf(err, "scope-checking the function definition `%s`", prefixedName)
 		}
+
+		if obj.data.Debug {
+			obj.data.Logf("call $%s(): set scope: func pointer: %p (polymorphic) -> %p (copy)", prefixedName, &polymorphicTarget, &monomorphicTarget)
+		}
+
+		obj.expr = monomorphicTarget
+	} else {
+		// This call refers to a monomorphic expression which has
+		// already been scope-checked, so we don't need to scope-check
+		// it again.
+		obj.expr = target
 	}
 
-	// Don't copy using interpolate, because we don't want to recursively
-	// copy things. We copy it for each use of the call.
-	// TODO: We want to recursively copy, but do we want to keep all the
-	// pointers the same, except for the obj.Args[i] ones that we stick in
-	// the scope for lookups...?
-	copied, err := f.Copy() // this does a light copy
-	if err != nil {
-		return errwrap.Wrapf(err, "could not copy expr")
-	}
-	obj.expr = copied
-	if obj.data.Debug {
-		obj.data.Logf("call(%s): set scope: func pointer: %p (before) -> %p (after)", obj.Name, f, copied)
-	}
-
-	// Here, in the below loop, we want to do the equivalent of:
-	// `newScope.Variables["foo"] = obj.Args[i]`, which we can't because we
-	// only know the positional, indexed arguments. So, instead we build an
-	// indexed scope that is unpacked as such.
-	// Can't add the args `call:foo(42, "bar", true)` into the func scope...
-	//for i, arg := range obj.fn.Args { // copy
-	//	newScope.Variables[arg.Name] = obj.Args[i]
-	//}
-	// Instead we use the special indexes to do that...
-	indexes := []interfaces.Expr{}
-	for _, arg := range obj.Args {
-		indexes = append(indexes, arg)
-	}
-
-	// We start with the scope that the func had, and we augment it with our
-	// indexed arg variables, which will be needed in that scope. It is very
-	// important to *NOT* add the surrounding scope into the body because it
-	// shouldn't be able to jump into the function, only the args go into it
-	// from this point. We also need to extract the indexed args that are in
-	// the current scope that we've been building up via the SetScope stuff.
-	// FIXME: check I didn't pick the wrong scope in class/include...
-	s, err := getScope(obj.expr)
-	if err == ErrNoStoredScope {
-		s = interfaces.EmptyScope()
-		//s = scope // XXX: or this?
-	} else if err != nil {
-		// programming error?
-		return errwrap.Wrapf(err, "could not get scope from: %+v", obj.expr)
-	}
-	newScope := s.Copy()
-	//newScope := obj.fn.scope.Copy() // formerly
-	oldScope := scope.Copy()
-
-	// We need to keep the function's scope, because that's what matters,
-	// but we need to augment it with the indexes we have currently. Plan:
-	// 1) Push indexes of "travelling" scope onto existing function scope.
-	// 2) Append to indexes any args that we're currently calling.
-	// 3) Propagate this new scope into the function.
-	// 4) In case of a future bug, consider dealing with this edge case!
-	if len(newScope.Indexes) > 0 {
-		// programming error ?
-		// TODO: this happens when we don't copy a static function... Is
-		// it a problem that we overwrite it below? It seems to be ok...
-		//return fmt.Errorf("edge case in ExprCall:SetScope, newScope is non-zero")
-	}
-	newScope.Indexes = oldScope.Indexes
-	newScope.PushIndexes(indexes) // obj.Args added to [0]
-
-	if obj.data.Debug {
-		obj.data.Logf("call(%s): set scope: adding to indexes: %+v", obj.Name, newScope.Indexes)
-	}
-
-	// recursion detection
-	newScope.Chain = append(newScope.Chain, obj.orig) // add expr to list
-	// TODO: switch based on obj.Var ?
-	//newScope.Functions[obj.Name] = copied // overwrite with new pointer
-
-	err = obj.expr.SetScope(newScope)
-	return errwrap.Wrapf(err, "could not set call expr scope")
+	return nil
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -7898,14 +7786,24 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, anyInvar)
 
-	// our type should equal the return type of the called function
-	callInvar := &interfaces.EqualityWrapCallInvariant{
-		// TODO: should Expr1 and Expr2 be reversed???
-		Expr1:     obj, // return type expression from calling the function
-		Expr2Func: obj.expr,
-		// Expr2Args: obj.Args, XXX: ???
+	// our type should equal the return type of the called function, and our
+	// argument types should be equal to the types of the parameters of the
+	// function
+	// arg0, arg1, arg2
+	expr2Ord := []string{}
+	expr2Map := map[string]interfaces.Expr{}
+	for i, argExpr := range obj.Args {
+		argName := fmt.Sprintf("arg%d", i)
+		expr2Ord = append(expr2Ord, argName)
+		expr2Map[argName] = argExpr
 	}
-	invariants = append(invariants, callInvar)
+	funcInvar := &interfaces.EqualityWrapFuncInvariant{
+		Expr1:    obj.expr,
+		Expr2Map: expr2Map,
+		Expr2Ord: expr2Ord,
+		Expr2Out: obj,
+	}
+	invariants = append(invariants, funcInvar)
 
 	// function specific code follows...
 	fn, isFn := obj.expr.(*ExprFunc)
@@ -8231,56 +8129,6 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	return invariants, nil
 }
 
-// Func returns the reactive stream of values that this expression produces.
-// Reminder that this looks very similar to ExprVar...
-func (obj *ExprCall) Func() (interfaces.Func, error) {
-	if obj.expr == nil {
-		// possible programming error
-		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")
-	}
-
-	typ, err := obj.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	ftyp, err := obj.expr.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	// function specific code follows...
-	fn, isFn := obj.expr.(*ExprFunc)
-	if isFn && fn.Function != nil {
-		// NOTE: This has to be a unique pointer each time, which is why
-		// the ExprFunc builds a special unique copy into .function that
-		// is used here. If it was shared across the function graph, the
-		// function engine would error, because it would be operating on
-		// the same struct that is being touched from multiple places...
-		return fn.function, nil
-		//return obj.fn.Func() // this is incorrect. see ExprVar comment
-	}
-
-	// XXX: receive the ExprFunc properly, and use it in CallFunc...
-	//if isFn && len(fn.Values) > 0 {
-	//	return &structs.CallFunc{
-	//		Type:     typ, // this is the type of what the func returns
-	//		FuncType: ftyp,
-	//		Edge: "???",
-	//		Fn: ???,
-	//	}, nil
-	//}
-
-	// direct func
-	return &structs.CallFunc{
-		Type:     typ, // this is the type of what the func returns
-		FuncType: ftyp,
-		// the edge name used above in Graph is this...
-		Edge: fmt.Sprintf("call:%s", obj.Name),
-		//Indexed: true, // 0, 1, 2 ... TODO: is this useful?
-	}, nil
-}
-
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -8288,7 +8136,7 @@ func (obj *ExprCall) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprCall) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	if obj.expr == nil {
 		// possible programming error
 		return nil, nil, fmt.Errorf("call doesn't contain an expr pointer yet")
@@ -8298,92 +8146,48 @@ func (obj *ExprCall) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	function, err := obj.Func()
+
+	ftyp, err := obj.expr.Type()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
 	}
-	graph.AddVertex(function)
 
-	// argnames!
-	argNames := []string{}
-
-	typ, err := obj.expr.Type()
+	// Add the vertex which produces the FuncValue.
+	exprGraph, funcValueFunc, err := obj.expr.Graph(env)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
 	}
-	// TODO: can we use this method for all of the kinds of obj.expr?
-	// TODO: probably, but i've left in the expanded versions for now
-	argNames = typ.Ord
-	var inconsistentEdgeNames = false // probably better off with this off!
+	graph.AddGraph(exprGraph)
+	graph.AddVertex(funcValueFunc)
 
-	// function specific code follows...
-	fn, isFn := obj.expr.(*ExprFunc)
-	if isFn && inconsistentEdgeNames {
-		if fn.Body != nil {
-			// add arg names that are seen in the ExprFunc struct!
-			a := []string{}
-			for _, x := range fn.Args {
-				a = append(a, x.Name)
-			}
-			argNames = a
-		}
-		if fn.Function != nil {
-			argNames = fn.function.Info().Sig.Ord
-		}
-		if len(fn.Values) > 0 {
-			// add the expected arg names from the selected function
-			typ, err := fn.Type()
-			if err != nil {
-				return nil, nil, err
-			}
-			argNames = typ.Ord
-		}
-	}
-
-	if len(argNames) != len(obj.Args) { // extra safety...
-		return nil, nil, fmt.Errorf("func `%s` expected %d args, got %d", obj.Name, len(argNames), len(obj.Args))
-	}
-
-	// Each func argument needs to point to the final function expression.
-	for pos, x := range obj.Args { // function arguments in order
-		g, f, err := x.Graph()
+	// Loop over the arguments, add them to the graph, but do _not_ connect them
+	// to the function vertex. Instead, each time the call vertex (which we
+	// create below) receives a FuncValue from the function node, it creates the
+	// corresponding subgraph and connects these arguments to it.
+	var argFuncs []interfaces.Func
+	for i, arg := range obj.Args {
+		argGraph, argFunc, err := arg.Graph(env)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errwrap.Wrapf(err, "could not get graph for arg %d", i)
 		}
-		graph.AddGraph(g)
-
-		//fieldName := fmt.Sprintf("%d", pos) // indexed!
-		fieldName := argNames[pos]
-		// TODO: replace with:
-		//fieldName := fmt.Sprintf("arg:%s", fieldName)
-
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // arg -> call
+		graph.AddGraph(argGraph)
+		argFuncs = append(argFuncs, argFunc)
 	}
 
-	// This is important, because we don't want an extra, unnecessary edge!
-	if isFn && (fn.Function != nil || len(fn.Values) > 0) {
-		return graph, function, nil // built-in's don't need a vertex or an edge!
+	// Add a vertex for the call itself.
+	edgeName := structs.CallFuncArgNameFunction
+	callFunc := &structs.CallFunc{
+		Type:        obj.typ,
+		FuncType:    ftyp,
+		EdgeName:    edgeName,
+		ArgVertices: argFuncs,
 	}
+	graph.AddVertex(callFunc)
+	graph.AddEdge(funcValueFunc, callFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
 
-	// Add the graph of the expression which must proceed the call... This
-	// might already exist in graph (i think)...
-	// Note: This can cause a panic if you get two NOT-connected vertices,
-	// in the source graph, because it tries to add two edges! Solution: add
-	// the missing edge between those in the source... Happy bug killing =D
-	graph.AddVertex(obj.expr) // duplicate additions are ignored and are harmless
-
-	g, f, err := obj.expr.Graph()
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddGraph(g)
-
-	fieldName := fmt.Sprintf("call:%s", obj.Name)
-	edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-	graph.AddEdge(f, function, edge) // expr -> call
-
-	return graph, function, nil
+	return graph, callFunc, nil
 }
 
 // SetValue here is used to store the result of the last computation of this
@@ -8488,11 +8292,58 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 }
 
 // SetScope stores the scope for use in this resource.
-func (obj *ExprVar) SetScope(scope *interfaces.Scope) error {
-	if scope == nil {
-		scope = interfaces.EmptyScope()
+func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	obj.scope = interfaces.EmptyScope()
+	if scope != nil {
+		obj.scope = scope.Copy()
 	}
-	obj.scope = scope
+
+	if monomorphicTarget, exists := sctx[obj.Name]; exists {
+		// This ExprVar refers to a parameter bound by an enclosing
+		// lambda definition. We do _not_ copy the definition, because
+		// it is already monomorphic.
+		obj.scope.Variables[obj.Name] = monomorphicTarget
+
+		// There is no need to scope-check the target, it's just a
+		// an ExprParam with no internal references.
+		return nil
+	}
+
+	target, exists := obj.scope.Variables[obj.Name]
+	if !exists {
+		return fmt.Errorf("variable %s not in scope", obj.Name)
+	}
+
+	if polymorphicTarget, isPolymorphic := target.(*ExprPoly); isPolymorphic {
+		// This ExprVar refers to a polymorphic expression. Those
+		// expressions can be instantiated at different types in
+		// different parts of the program, so the definition we found
+		// has a "polymorphic" type.
+		//
+		// This particular ExprVar is one of the parts of the program
+		// which uses the polymorphic expression at a single,
+		// "monomorphic" type. We make a copy of the definition, and
+		// later each copy will be type-checked separately.
+		monomorphicTarget, err := polymorphicTarget.Definition.Copy()
+		if err != nil {
+			return errwrap.Wrapf(err, "copying the ExprPoly definition to which an ExprVar refers")
+		}
+		obj.scope.Variables[obj.Name] = monomorphicTarget
+
+		// This ExprVar now has the only reference to monomorphicTarget,
+		// so it is our responsibility to scope-check it. We must use
+		// the scope which was captured at the definition site, not the
+		// scope argument we received as input, as that is the scope
+		// which is available at the use site.
+		definitionScope := polymorphicTarget.CapturedScope.Copy()
+
+		return monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{})
+	}
+
+	// This ExprVar refers to a monomorphic expression which has already been
+	// scope-checked, so we don't need to scope-check it again.
+	obj.scope.Variables[obj.Name] = target
+
 	return nil
 }
 
@@ -8549,8 +8400,6 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 		invariants = append(invariants, invar)
 	}
 
-	// don't recurse because we already got this through the bind statement
-	// FIXME: see the comment in StmtBind... keep this in for now...
 	invars, err := expr.Unify()
 	if err != nil {
 		return nil, err
@@ -8568,44 +8417,6 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 	return invariants, nil
 }
 
-// Func returns a "pass-through" function which receives the bound value, and
-// passes it to the consumer. This is essential for satisfying the type checker
-// of the function graph engine. Reminder that this looks very similar to
-// ExprCall...
-func (obj *ExprVar) Func() (interfaces.Func, error) {
-	//expr, exists := obj.scope.Variables[obj.Name]
-	//if !exists {
-	//	return nil, fmt.Errorf("var `%s` does not exist in scope", obj.Name)
-	//}
-
-	// this is wrong, if we did it this way, this expr wouldn't exist as a
-	// distinct node in the function graph to relay values through, instead,
-	// it would be acting as a "substitution/lookup" function, which just
-	// copies the bound function over into here. As a result, we'd have N
-	// copies of that function (based on the number of times N that that
-	// variable is used) instead of having that single bound function as
-	// input which is sent via N different edges to the multiple locations
-	// where the variables are used. Since the bound function would still
-	// have a single unique pointer, this wouldn't actually exist more than
-	// once in the graph, although since it's illogical, it causes the graph
-	// type checking (the edge counting in the function graph engine) to
-	// notice a problem and error.
-	//return expr.Func() // recurse?
-
-	// instead, return a function which correctly does a lookup in the scope
-	// and returns *that* stream of values instead.
-	typ, err := obj.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	// var func
-	return &structs.VarFunc{
-		Type: typ,
-		Edge: fmt.Sprintf("var:%s", obj.Name), // the edge name used above in Graph is this...
-	}, nil
-}
-
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -8619,39 +8430,11 @@ func (obj *ExprVar) Func() (interfaces.Func, error) {
 // important for filling the logical requirements of the graph type checker, and
 // to avoid duplicating production of the incoming input value from the bound
 // expression.
-func (obj *ExprVar) Graph() (*pgraph.Graph, interfaces.Func, error) {
-	graph, err := pgraph.NewGraph("var")
-	if err != nil {
-		return nil, nil, err
-	}
-	function, err := obj.Func()
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddVertex(function)
-
-	// ??? = $foo (this is the foo)
-	// lookup value from scope
-	expr, exists := obj.scope.Variables[obj.Name]
-	if !exists {
-		return nil, nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
-	}
-
-	// should already exist in graph (i think)...
-	graph.AddVertex(expr) // duplicate additions are ignored and are harmless
-
-	// the expr needs to point to the var lookup expression
-	g, f, err := expr.Graph()
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddGraph(g)
-
-	fieldName := fmt.Sprintf("var:%s", obj.Name)
-	edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-	graph.AddEdge(f, function, edge) // expr -> var
-
-	return graph, function, nil
+func (obj *ExprVar) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	// Delegate to the target.
+	target := obj.scope.Variables[obj.Name]
+	graph, varFunc, err := target.Graph(env)
+	return graph, varFunc, err
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
@@ -8679,6 +8462,283 @@ func (obj *ExprVar) Value() (types.Value, error) {
 		return nil, fmt.Errorf("var `%s` does not exist in scope", obj.Name)
 	}
 	return expr.Value() // recurse
+}
+
+// ExprParam represents a parameter to a function.
+type ExprParam struct {
+	Name string // name of the parameter
+	Typ  *types.Type
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprParam) String() string {
+	return fmt.Sprintf("param(%s)", obj.Name)
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprParam) Apply(fn func(interfaces.Node) error) error { return fn(obj) }
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprParam) Init(*interfaces.Data) error {
+	return langutil.ValidateVarName(obj.Name)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
+	return &ExprParam{
+		Name: obj.Name,
+		Typ:  obj.Typ,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+// This intentionally returns a copy, because if a function (usually a lambda)
+// that is used more than once, contains this variable, we will want each
+// instantiation of it to be unique, otherwise they will be the same pointer,
+// and they won't be able to have different values.
+func (obj *ExprParam) Copy() (interfaces.Expr, error) {
+	return &ExprParam{
+		Name: obj.Name,
+		Typ:  obj.Typ,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprParam) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	if obj.Name == "" {
+		return nil, nil, fmt.Errorf("missing param name")
+	}
+	uid := paramOrderingPrefix + obj.Name // ordering id
+
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
+
+	node, exists := produces[uid]
+	if exists {
+		edge := &pgraph.SimpleEdge{Name: "exprparam"}
+		graph.AddEdge(node, obj, edge) // prod -> cons
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprParam) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	// ExprParam doesn't have a scope, because it is the node to which a VarExpr
+	// can point to, it doesn't point to anything itself.
+	return nil
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprParam) SetType(typ *types.Type) error {
+	if obj.Typ != nil {
+		return obj.Typ.Cmp(typ) // if not set, ensure it doesn't change
+	}
+	obj.Typ = typ // set
+	return nil
+}
+
+// Type returns the type of this expression.
+func (obj *ExprParam) Type() (*types.Type, error) {
+	// Return the type if it is already known statically... It is useful for
+	// type unification to have some extra info early.
+	if obj.Typ == nil {
+		return nil, interfaces.ErrTypeCurrentlyUnknown
+	}
+	return obj.Typ, nil
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *ExprParam) Unify() ([]interfaces.Invariant, error) {
+	var invariants []interfaces.Invariant
+
+	// if this was set explicitly by the parser
+	if obj.Typ != nil {
+		invar := &interfaces.EqualsInvariant{
+			Expr: obj,
+			Type: obj.Typ,
+		}
+		invariants = append(invariants, invar)
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprParam) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	// Since ExprParam represents a function parameter, we want to receive values
+	// from the arguments passed to the function. The caller of ExprParam.Graph()
+	// should already know what those arguments are, so we can simply look up the
+	// argument by name in the environment.
+	paramFunc, exists := env[obj.Name]
+	if !exists {
+		return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
+	}
+
+	graph, err := pgraph.NewGraph("ExprParam")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(paramFunc)
+	return graph, paramFunc, nil
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
+func (obj *ExprParam) SetValue(value types.Value) error {
+	// ignored, as we don't support ExprParam.Value()
+	return nil
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprParam) Value() (types.Value, error) {
+	return nil, nil
+}
+
+// ExprPoly is a polymorphic expression that is a definition that can be used in
+// multiple places with different types. We must copy the definition at each
+// call site in order for the type checker to find a different type at each call
+// site. We create this copy inside SetScope, at which point we also recursively
+// call SetScope on the copy. We must be careful to use the scope captured at
+// the definition site, not the scope which is available at the call site.
+type ExprPoly struct {
+	Definition    interfaces.Expr   // The definition.
+	CapturedScope *interfaces.Scope // The scope at the definition site.
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprPoly) String() string {
+	return fmt.Sprintf("polymorphic(%s)", obj.Definition.String())
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprPoly) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Definition.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprPoly) Init(data *interfaces.Data) error {
+	return obj.Definition.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *ExprPoly) Interpolate() (interfaces.Expr, error) {
+	definition, err := obj.Definition.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprPoly{
+		Definition:    definition,
+		CapturedScope: obj.CapturedScope,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+// This implementation intentionally does not copy anything, because the
+// Definition is already intended to be copied at each use site.
+func (obj *ExprPoly) Copy() (interfaces.Expr, error) {
+	return obj, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprPoly) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	return obj.Definition.Ordering(produces)
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprPoly) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	// Don't recur into the definition yet; instead, capture the scope for later,
+	// so that ExprVar can call SetScope on the definition at each use site.
+	obj.CapturedScope = scope
+	return nil
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprPoly) SetType(typ *types.Type) error {
+	panic("ExprPoly.SetType(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+}
+
+// Type returns the type of this expression.
+func (obj *ExprPoly) Type() (*types.Type, error) {
+	return nil, interfaces.ErrTypeCurrentlyUnknown
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *ExprPoly) Unify() ([]interfaces.Invariant, error) {
+	panic("ExprPoly.Unify(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprPoly) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	panic("ExprPoly.Unify(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
+func (obj *ExprPoly) SetValue(value types.Value) error {
+	// ignored, as we don't support ExprPoly.Value()
+	return nil
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprPoly) Value() (types.Value, error) {
+	return nil, nil
 }
 
 // ExprIf represents an if expression which *must* have both branches, and which
@@ -8874,18 +8934,18 @@ func (obj *ExprIf) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph,
 
 // SetScope stores the scope for later use in this resource and its children,
 // which it propagates this downwards to.
-func (obj *ExprIf) SetScope(scope *interfaces.Scope) error {
+func (obj *ExprIf) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
-	if err := obj.ThenBranch.SetScope(scope); err != nil {
+	if err := obj.ThenBranch.SetScope(scope, sctx); err != nil {
 		return err
 	}
-	if err := obj.ElseBranch.SetScope(scope); err != nil {
+	if err := obj.ElseBranch.SetScope(scope, sctx); err != nil {
 		return err
 	}
-	return obj.Condition.SetScope(scope)
+	return obj.Condition.SetScope(scope, sctx)
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -9032,7 +9092,7 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 // shouldn't have any ill effects.
 // XXX: is this completely true if we're running technically impure, but safe
 // built-in functions on both branches? Can we turn off half of this?
-func (obj *ExprIf) Graph() (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
 		return nil, nil, err
@@ -9049,7 +9109,7 @@ func (obj *ExprIf) Graph() (*pgraph.Graph, interfaces.Func, error) {
 	}
 	for _, argName := range []string{"c", "a", "b"} { // deterministic order
 		x := exprs[argName]
-		g, f, err := x.Graph()
+		g, f, err := x.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -32,7 +32,8 @@ const (
 
 // ConstFunc is a function that returns the constant value passed to Value.
 type ConstFunc struct {
-	Value types.Value
+	Value    types.Value
+	NameHint string
 
 	init *interfaces.Init
 }
@@ -40,7 +41,12 @@ type ConstFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *ConstFunc) String() string {
+	if obj.NameHint != "" {
+		return obj.NameHint
+	}
 	return ConstFuncName
+	//return fmt.Sprintf("%s: %s(%s)", ConstFuncName, obj.Value.Type().String(), obj.Value.String())
+	//return fmt.Sprintf("%s(%s)", obj.Value.Type().String(), obj.Value.String())
 }
 
 // Validate makes sure we've built our struct properly.

@@ -16,13 +16,13 @@ class xclass {
 	}
 }
 -- OUTPUT --
-Edge: call:os.is_debian() -> if( call:os.is_debian() ) { str("bbb") } else { str("ccc") } # c
-Edge: if( call:os.is_debian() ) { str("bbb") } else { str("ccc") } -> var(aaa) # var:aaa
-Edge: str("bbb") -> if( call:os.is_debian() ) { str("bbb") } else { str("ccc") } # a
-Edge: str("ccc") -> if( call:os.is_debian() ) { str("bbb") } else { str("ccc") } # b
-Vertex: call:os.is_debian()
-Vertex: if( call:os.is_debian() ) { str("bbb") } else { str("ccc") }
-Vertex: str("bbb")
-Vertex: str("ccc")
-Vertex: str("hello")
-Vertex: var(aaa)
+Edge: FuncValue -> call # fn
+Edge: call -> if # c
+Edge: const -> if # a
+Edge: const -> if # b
+Vertex: FuncValue
+Vertex: call
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: if

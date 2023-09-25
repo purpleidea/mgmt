@@ -1,0 +1,6 @@
+-- main.mcl --
+# this should fail b/c of variable re-declaration
+$x = "hello"
+$x = "world" # woops
+-- OUTPUT --
+# err: errSetScope: var `x` already exists in this scope

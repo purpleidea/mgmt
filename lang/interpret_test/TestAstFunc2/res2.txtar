@@ -1,0 +1,8 @@
+-- main.mcl --
+test "t1" {
+	int64ptr => 42,
+	stringptr => "okay cool",
+	int8ptrptrptr => 127,	# super nested
+}
+-- OUTPUT --
+Vertex: test[t1]

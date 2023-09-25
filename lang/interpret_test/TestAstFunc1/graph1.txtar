@@ -1,0 +1,5 @@
+-- main.mcl --
+# TODO: this should fail with an unused variable error!
+$x = 42
+$y = $x
+-- OUTPUT --

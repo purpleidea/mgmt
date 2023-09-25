@@ -6,7 +6,5 @@ if true {
 }
 test $x {}
 -- OUTPUT --
-Edge: str("hello") -> var(x) # var:x
-Vertex: bool(true)
-Vertex: str("hello")
-Vertex: var(x)
+Vertex: const
+Vertex: const

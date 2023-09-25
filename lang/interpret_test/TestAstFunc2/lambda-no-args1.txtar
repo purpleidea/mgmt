@@ -1,0 +1,8 @@
+-- main.mcl --
+$hey = func() {
+	"hello"
+}
+
+test $hey() {}
+-- OUTPUT --
+Vertex: test[hello]

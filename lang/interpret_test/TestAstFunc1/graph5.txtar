@@ -1,0 +1,13 @@
+-- main.mcl --
+# simple operator
+test "t" {
+	int64ptr => 42 + 13,
+}
+-- OUTPUT --
+Edge: FuncValue -> call # fn
+Vertex: FuncValue
+Vertex: call
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const

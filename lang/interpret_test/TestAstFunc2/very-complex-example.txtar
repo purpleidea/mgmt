@@ -1,0 +1,78 @@
+-- main.mcl --
+# This code should fail during type-checking.
+#
+# $id1 and $id2 are both polymorphic functions, which can be specialized to a
+# different monomorphic type at every use site. In simple code, this
+# specialization happens when the polymorphic function is called, but in more
+# complex code, the specialization happens earlier, when the polymorphic
+# function is passed as an argument to higher-order functions such as $generate
+# and iter.map.
+#
+# In:
+#
+#	$id1 = func($x str) { # definition site
+#		$x
+#	}
+#	$id2 = func($x str) {
+#		$x + $x
+#	}
+#
+#	$generate = func($idn) {
+#		$idn("foo") # 1 call site, 2 calls
+#	}
+#
+#	$foo = iter.map([$id1, $id2,], $generate)
+#
+# $generate is specialized to `func(func(str) str) str`, and $id1 and $id2 are
+# specialized to `func(str) str`.
+#
+# In:
+#
+#	$id1 = func($x) { # definition site
+#		$x
+#	}
+#	$id2 = func($x) {
+#		$x + $x
+#	}
+#
+#	$generate = func($idn) {
+#		fmt.printf("%s %d",
+#			$idn("foo"), # 1 call site, 2 calls
+#			$idn(42)
+#		)
+#	}
+#
+#	$foo = iter.map([$id1, $id2,], $generate)
+#
+# $idn cannot be given a monomorphic type, since it is used both as a
+# `func(str) str` and as a `func(int) int`. Therefore, $generate cannot be
+# given a monomorphic type either, and neither can the call to iter.map.
+
+import "fmt"
+import "iter"
+
+# function expression
+$id1 = func($x) { # definition site
+	$x
+}
+$id2 = func($x) {
+	$x + $x
+}
+
+#$str = $id1("foo")
+#$int = $id1(42)
+
+$generate = func($idn) {
+	fmt.printf("%s %d",
+		$idn("foo"), # 1 call site, 2 calls
+		$idn(42)
+	)
+}
+
+# this code should be rejected during type unification
+$foo = iter.map([$id1, $id2,], $generate)
+
+#test $foo[0] {}
+test listlookup($foo, 0, "fail") {} # TODO: add syntactic sugar for listlookup
+-- OUTPUT --
+# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Str != Int)

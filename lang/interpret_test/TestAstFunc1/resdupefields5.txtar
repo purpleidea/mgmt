@@ -1,24 +1,62 @@
 -- main.mcl --
-# XXX: should error at graph unification, but we have a type unification bug
-#test "test" {
-#	anotherstr => "test",
-#
-#	Meta => true ?: struct{
-#		noop => false,
-#		retry => -1,
-#		delay => 0,
-#		poll => 5,
-#		limit => 4.2,
-#		burst => 3,
-#		sema => ["foo:1", "bar:3",],
-#		rewatch => false,
-#		realize => true,
-#		reverse => true,
-#		autoedge => true,
-#		autogroup => true,
-#	},
-#	Meta => true ?: struct{
-#		noop => false,
-#	},
-#}
+test "test" {
+	anotherstr => "test",
+
+	Meta => true ?: struct{
+		noop => false,
+		retry => -1,
+		retryreset => false,
+		delay => 0,
+		poll => 5,
+		limit => 4.2,
+		burst => 3,
+		reset => false,
+		sema => ["foo:1", "bar:3",],
+		rewatch => false,
+		realize => true,
+		reverse => true,
+		autoedge => true,
+		autogroup => true,
+	},
+	# XXX: should error at graph unification, but we have a type unification bug
+	#Meta => true ?: struct{
+	#	noop => false,
+	#},
+}
 -- OUTPUT --
+Edge: composite -> composite # sema
+Edge: const -> composite # 0
+Edge: const -> composite # 1
+Edge: const -> composite # autoedge
+Edge: const -> composite # autogroup
+Edge: const -> composite # burst
+Edge: const -> composite # delay
+Edge: const -> composite # limit
+Edge: const -> composite # noop
+Edge: const -> composite # poll
+Edge: const -> composite # realize
+Edge: const -> composite # reset
+Edge: const -> composite # retry
+Edge: const -> composite # retryreset
+Edge: const -> composite # reverse
+Edge: const -> composite # rewatch
+Vertex: composite
+Vertex: composite
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const

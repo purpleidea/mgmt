@@ -1,0 +1,11 @@
+-- main.mcl --
+# function statement
+func stradd($x) {
+	$x + $x
+}
+
+$x1 = stradd("hey")
+
+test $x1 {}
+-- OUTPUT --
+Vertex: test[heyhey]

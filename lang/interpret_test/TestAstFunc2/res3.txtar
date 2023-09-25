@@ -1,0 +1,13 @@
+-- main.mcl --
+test "t1" {
+	int64ptr => 42,
+}
+test "t2" {
+	int64ptr => 13,
+}
+
+Test["t1"].hello -> Test["t2"].stringptr # send/recv
+-- OUTPUT --
+Edge: test[t1] -> test[t2] # test[t1] -> test[t2]
+Vertex: test[t1]
+Vertex: test[t2]

@@ -1,0 +1,6 @@
+-- main.mcl --
+import "fmt"
+
+test fmt.printf("hello: %d", 42) {}
+-- OUTPUT --
+Vertex: test[hello: 42]

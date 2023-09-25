@@ -1,0 +1,25 @@
+-- main.mcl --
+import "fmt"
+import "iter"
+
+# function expression
+$id1 = func($x str) { # definition site
+	$x
+}
+$id2 = func($x str) {
+	$x + $x
+}
+
+$generate = func($idn) {
+	$idn("foo") # 1 call site, 2 calls
+}
+
+$foo = iter.map([$id1, $id2,], $generate)
+
+#test $foo[0] {}
+#test $foo[1] {}
+test listlookup($foo, 0, "fail") {} # TODO: add syntactic sugar for listlookup
+test listlookup($foo, 1, "fail") {} # TODO: add syntactic sugar for listlookup
+-- OUTPUT --
+Vertex: test[foo]
+Vertex: test[foofoo]

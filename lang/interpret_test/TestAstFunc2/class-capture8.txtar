@@ -1,5 +1,6 @@
 -- main.mcl --
 $x1 = "bad1"
+$x2 = "also bad"
 include defs.foo
 
 import "defs.mcl" # out of order for fun

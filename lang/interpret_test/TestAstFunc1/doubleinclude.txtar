@@ -8,14 +8,7 @@ class c1($a) {
 }
 $foo = "hey"
 -- OUTPUT --
-Edge: str("hey") -> var(foo) # var:foo
-Edge: str("hey") -> var(foo) # var:foo
-Edge: str("t1") -> var(a) # var:a
-Edge: str("t2") -> var(a) # var:a
-Vertex: str("hey")
-Vertex: str("t1")
-Vertex: str("t2")
-Vertex: var(a)
-Vertex: var(a)
-Vertex: var(foo)
-Vertex: var(foo)
+Vertex: const
+Vertex: const
+Vertex: const
+Vertex: const

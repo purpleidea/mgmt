@@ -16,15 +16,15 @@ test "greeting3" {
 	anotherstr => $fn(),
 }
 -- OUTPUT --
-Edge: func() { str("hello world") } -> call:fn() # call:fn
-Edge: func() { str("hello world") } -> call:fn() # call:fn
-Edge: func() { str("hello world") } -> call:fn() # call:fn
-Edge: str("hello world") -> func() { str("hello world") } # body
-Vertex: call:fn()
-Vertex: call:fn()
-Vertex: call:fn()
-Vertex: func() { str("hello world") }
-Vertex: str("greeting1")
-Vertex: str("greeting2")
-Vertex: str("greeting3")
-Vertex: str("hello world")
+Edge: FuncValue -> call # fn
+Edge: FuncValue -> call # fn
+Edge: FuncValue -> call # fn
+Vertex: FuncValue
+Vertex: FuncValue
+Vertex: FuncValue
+Vertex: call
+Vertex: call
+Vertex: call
+Vertex: const
+Vertex: const
+Vertex: const

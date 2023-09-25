@@ -1,0 +1,11 @@
+-- main.mcl --
+# chained vars
+test "t" {
+	int64ptr => $c,
+}
+$c = $b
+$b = $a
+$a = 42
+-- OUTPUT --
+Vertex: const
+Vertex: const

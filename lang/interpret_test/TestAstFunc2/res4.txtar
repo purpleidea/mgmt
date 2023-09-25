@@ -1,0 +1,37 @@
+-- main.mcl --
+test "t1" {
+	stringptr => "this is meta",
+
+	#Meta => struct{
+	#	noop => false,
+	#	retry => -1,
+	#	retryreset => false,
+	#	delay => 0,
+	#	poll => 5,
+	#	limit => 4.2,
+	#	burst => 3,
+	#	reset => false,
+	#	sema => ["foo:1", "bar:3",],
+	#	rewatch => false,
+	#	realize => true,
+	#	reverse => true,
+	#	autoedge => true,
+	#	autogroup => true,
+	#},
+	Meta:noop => false,
+	Meta:retry => -1,
+	Meta:retryreset => false,
+	Meta:delay => 0,
+	Meta:poll => 5,
+	Meta:limit => 4.2,
+	Meta:burst => 3,
+	Meta:reset => false,
+	Meta:sema => ["foo:1", "bar:3",],
+	Meta:rewatch => false,
+	Meta:realize => true,
+	Meta:reverse => true,
+	Meta:autoedge => true,
+	Meta:autogroup => true,
+}
+-- OUTPUT --
+Vertex: test[t1]

@@ -1,0 +1,6 @@
+-- main.mcl --
+test "t1" {
+	stringptr => 42, # int, not str
+}
+-- OUTPUT --
+# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Int != Str)

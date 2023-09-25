@@ -107,7 +107,7 @@ type Expr interface {
 	Ordering(map[string]Node) (*pgraph.Graph, map[Node]string, error)
 
 	// SetScope sets the scope here and propagates it downwards.
-	SetScope(*Scope) error
+	SetScope(*Scope, map[string]Expr) error
 
 	// SetType sets the type definitively, and errors if it is incompatible.
 	SetType(*types.Type) error
@@ -122,8 +122,9 @@ type Expr interface {
 	Unify() ([]Invariant, error)
 
 	// Graph returns the reactive function graph expressed by this node. It
-	// also returns the function for this node.
-	Graph() (*pgraph.Graph, Func, error)
+	// takes in the environment of any functions in scope. It also returns
+	// the function for this node.
+	Graph(env map[string]Func) (*pgraph.Graph, Func, error)
 
 	// SetValue stores the result of the last computation of this expression
 	// node.

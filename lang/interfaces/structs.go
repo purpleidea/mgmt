@@ -76,7 +76,7 @@ func (obj *ExprAny) Ordering(produces map[string]Node) (*pgraph.Graph, map[Node]
 
 // SetScope does nothing for this struct, because it has no child nodes, and it
 // does not need to know about the parent scope.
-func (obj *ExprAny) SetScope(*Scope) error { return nil }
+func (obj *ExprAny) SetScope(*Scope, map[string]Expr) error { return nil }
 
 // SetType is used to set the type of this expression once it is known. This
 // usually happens during type unification, but it can also happen during
@@ -145,7 +145,7 @@ func (obj *ExprAny) Func() (Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprAny) Graph() (*pgraph.Graph, Func, error) {
+func (obj *ExprAny) Graph(env map[string]Func) (*pgraph.Graph, Func, error) {
 	graph, err := pgraph.NewGraph("any")
 	if err != nil {
 		return nil, nil, err

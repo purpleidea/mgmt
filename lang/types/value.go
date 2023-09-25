@@ -54,7 +54,7 @@ type Value interface {
 	List() []Value
 	Map() map[Value]Value // keys must all have same type, same for values
 	Struct() map[string]Value
-	Func() func([]Value) (Value, error)
+	Func() interface{} // func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
 }
 
 // ValueOfGolang is a helper that takes a golang value, and produces the mcl
@@ -410,39 +410,39 @@ func Into(v Value, rv reflect.Value) error {
 		}
 		return nil
 
-	case *FuncValue:
-		if err := mustInto(reflect.Func); err != nil {
-			return err
-		}
-
-		// wrap our function with the translation that is necessary
-		fn := func(args []reflect.Value) (results []reflect.Value) { // build
-			innerArgs := []Value{}
-			for _, x := range args {
-				v, err := ValueOf(x) // reflect.Value -> Value
-				if err != nil {
-					panic(fmt.Errorf("can't determine value of %+v", x))
-				}
-				innerArgs = append(innerArgs, v)
-			}
-			result, err := v.V(innerArgs) // call it
-			if err != nil {
-				// when calling our function with the Call method, then
-				// we get the error output and have a chance to decide
-				// what to do with it, but when calling it from within
-				// a normal golang function call, the error represents
-				// that something went horribly wrong, aka a panic...
-				panic(fmt.Errorf("function panic: %+v", err))
-			}
-			out := reflect.New(rv.Type().Out(0))
-			// convert the lang result back to a Go value
-			if err := Into(result, out); err != nil {
-				panic(fmt.Errorf("function return conversion panic: %+v", err))
-			}
-			return []reflect.Value{out} // only one result
-		}
-		rv.Set(reflect.MakeFunc(rv.Type(), fn))
-		return nil
+	//case *FuncValue:
+	//	if err := mustInto(reflect.Func); err != nil {
+	//		return err
+	//	}
+	//
+	//	// wrap our function with the translation that is necessary
+	//	fn := func(args []reflect.Value) (results []reflect.Value) { // build
+	//		innerArgs := []Value{}
+	//		for _, x := range args {
+	//			v, err := ValueOf(x) // reflect.Value -> Value
+	//			if err != nil {
+	//				panic(fmt.Errorf("can't determine value of %+v", x))
+	//			}
+	//			innerArgs = append(innerArgs, v)
+	//		}
+	//		result, err := v.V(innerArgs) // call it
+	//		if err != nil {
+	//			// when calling our function with the Call method, then
+	//			// we get the error output and have a chance to decide
+	//			// what to do with it, but when calling it from within
+	//			// a normal golang function call, the error represents
+	//			// that something went horribly wrong, aka a panic...
+	//			panic(fmt.Errorf("function panic: %+v", err))
+	//		}
+	//		out := reflect.New(rv.Type().Out(0))
+	//		// convert the lang result back to a Go value
+	//		if err := Into(result, out); err != nil {
+	//			panic(fmt.Errorf("function return conversion panic: %+v", err))
+	//		}
+	//		return []reflect.Value{out} // only one result
+	//	}
+	//	rv.Set(reflect.MakeFunc(rv.Type(), fn))
+	//	return nil
 
 	case *VariantValue:
 		return Into(v.V, rv)
@@ -506,7 +506,7 @@ func (obj *base) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *base) Func() func([]Value) (Value, error) {
+func (obj *base) Func() interface{} {
 	panic("not a func")
 }
 
@@ -1136,23 +1136,33 @@ func (obj *StructValue) Lookup(k string) (value Value, exists bool) {
 	return v, exists
 }
 
-// FuncValue represents a function value. The defined function takes a list of
-// Value arguments and returns a Value. It can also return an error which could
-// represent that something went horribly wrong. (Think, an internal panic.)
+// FuncValue represents a function which takes a list of Value arguments and
+// returns a Value. It can also return an error which could represent that
+// something went horribly wrong. (Think, an internal panic.)
+//
+// This is not general enough to represent all functions in the language (see
+// the full.FuncValue), but it is a useful common case.
+//
+// FuncValue is not a Value, but it is a useful building block for implementing
+// Func nodes.
 type FuncValue struct {
 	base
 	V func([]Value) (Value, error)
 	T *Type // contains ordered field types, arg names are a bonus part
 }
 
-// NewFunc creates a new function with the specified type.
+// NewFunc creates a useless function which will get overwritten by something
+// more useful later.
 func NewFunc(t *Type) *FuncValue {
 	if t.Kind != KindFunc {
 		return nil // sanity check
 	}
 	v := func([]Value) (Value, error) {
-		return nil, fmt.Errorf("nil function") // TODO: is this correct?
+		// You were not supposed to call the temporary function, you
+		// were supposed to replace it with a real implementation!
+		return nil, fmt.Errorf("nil function")
 	}
+	// return an empty interface{}
 	return &FuncValue{
 		V: v,
 		T: t,
@@ -1168,71 +1178,64 @@ func (obj *FuncValue) String() string {
 func (obj *FuncValue) Type() *Type { return obj.T }
 
 // Less compares to value and returns true if we're smaller. This panics if the
-// two types aren't the same.
+// two types aren't the same. In this situation, they can't be compared so we
+// panic.
 func (obj *FuncValue) Less(v Value) bool {
-	V := v.(*FuncValue)
-	return obj.String() < V.String() // FIXME: implement a proper less func
+	//V := v.(*FuncValue)
+	//return obj.String() < V.String() // FIXME: implement a proper less func
+	panic("you cannot compare functions")
 }
 
-// Cmp returns an error if this value isn't the same as the arg passed in.
+// Cmp returns an error if this value isn't the same as the arg passed in. In
+// this situation, they can't be compared so we panic.
 func (obj *FuncValue) Cmp(val Value) error {
-	if obj == nil || val == nil {
-		return fmt.Errorf("cannot cmp to nil")
-	}
-	if err := obj.Type().Cmp(val.Type()); err != nil {
-		return errwrap.Wrapf(err, "cannot cmp types")
-	}
-
-	return fmt.Errorf("cannot cmp funcs") // TODO: can we ?
+	//if obj == nil || val == nil {
+	//	return fmt.Errorf("cannot cmp to nil")
+	//}
+	//if err := obj.Type().Cmp(val.Type()); err != nil {
+	//	return errwrap.Wrapf(err, "cannot cmp types")
+	//}
+	//
+	//return fmt.Errorf("cannot cmp funcs") // TODO: can we ?
+	panic("you cannot compare functions")
 }
 
 // Copy returns a copy of this value.
 func (obj *FuncValue) Copy() Value {
 	return &FuncValue{
-		V: obj.V, // FIXME: can we copy the function, or do we need to?
+		V: obj.V,
 		T: obj.T.Copy(),
 	}
 }
 
 // Value returns the raw value of this type.
 func (obj *FuncValue) Value() interface{} {
-	typ := obj.T.Reflect()
-
-	// wrap our function with the translation that is necessary
-	fn := func(args []reflect.Value) (results []reflect.Value) { // build
-		innerArgs := []Value{}
-		for _, x := range args {
-			v, err := ValueOf(x) // reflect.Value -> Value
-			if err != nil {
-				panic(fmt.Sprintf("can't determine value of %+v", x))
-			}
-			innerArgs = append(innerArgs, v)
-		}
-		result, err := obj.V(innerArgs) // call it
-		if err != nil {
-			// when calling our function with the Call method, then
-			// we get the error output and have a chance to decide
-			// what to do with it, but when calling it from within
-			// a normal golang function call, the error represents
-			// that something went horribly wrong, aka a panic...
-			panic(fmt.Sprintf("function panic: %+v", err))
-		}
-		return []reflect.Value{reflect.ValueOf(result.Value())} // only one result
-	}
-	val := reflect.MakeFunc(typ, fn)
-	return val.Interface()
-}
-
-// Func represents the value of this type as a function if it is one. If this is
-// not a function, then this panics.
-func (obj *FuncValue) Func() func([]Value) (Value, error) {
+	//typ := obj.T.Reflect()
+	//
+	//// wrap our function with the translation that is necessary
+	//fn := func(args []reflect.Value) (results []reflect.Value) { // build
+	//	innerArgs := []Value{}
+	//	for _, x := range args {
+	//		v, err := ValueOf(x) // reflect.Value -> Value
+	//		if err != nil {
+	//			panic(fmt.Sprintf("can't determine value of %+v", x))
+	//		}
+	//		innerArgs = append(innerArgs, v)
+	//	}
+	//	result, err := obj.V(innerArgs) // call it
+	//	if err != nil {
+	//		// when calling our function with the Call method, then
+	//		// we get the error output and have a chance to decide
+	//		// what to do with it, but when calling it from within
+	//		// a normal golang function call, the error represents
+	//		// that something went horribly wrong, aka a panic...
+	//		panic(fmt.Sprintf("function panic: %+v", err))
+	//	}
+	//	return []reflect.Value{reflect.ValueOf(result.Value())} // only one result
+	//}
+	//val := reflect.MakeFunc(typ, fn)
+	//return val.Interface()
 	return obj.V
-}
-
-// Set sets the function value to be a new function.
-func (obj *FuncValue) Set(fn func([]Value) (Value, error)) error { // TODO: change method name?
-	obj.V = fn
-	return nil // TODO: can we do any sort of checking here?
 }
 
 // Call runs the function value and returns its result. It returns an error if
@@ -1385,6 +1388,6 @@ func (obj *VariantValue) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *VariantValue) Func() func([]Value) (Value, error) {
+func (obj *VariantValue) Func() interface{} {
 	return obj.V.Func()
 }

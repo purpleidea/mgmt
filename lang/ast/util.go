@@ -196,15 +196,15 @@ func ValueToExpr(val types.Value) (interfaces.Expr, error) {
 			Fields: fields,
 		}
 
-	case *types.FuncValue:
-		// TODO: this particular case is particularly untested!
-		expr = &ExprFunc{
-			Title: "<func from ValueToExpr>", // TODO: change this?
-			// TODO: symmetrically, it would have used x.Func() here
-			Values: []*types.FuncValue{
-				x, // just one!
-			},
-		}
+	//case *types.FuncValue:
+	//	// TODO: this particular case is particularly untested!
+	//	expr = &ExprFunc{
+	//		Title: "<func from ValueToExpr>", // TODO: change this?
+	//		// TODO: symmetrically, it would have used x.Func() here
+	//		Values: []*types.FuncValue{
+	//			x, // just one!
+	//		},
+	//	}
 
 	case *types.VariantValue:
 		// TODO: should this be allowed, or should we unwrap them?

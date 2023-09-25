@@ -5,3 +5,9 @@ for f in */main.mcl; do
 	cat $f | cat - $(dirname $f).txtar | sponge $(dirname $f).txtar
 	echo '-- main.mcl --' | cat - $(dirname $f).txtar | sponge $(dirname $f).txtar
 done
+
+#for f in *.txtar; do
+#	echo $f
+#	#cat $f | cat - $(dirname $f).txtar | sponge $(dirname $f).txtar
+#	echo '-- OUTPUT --' | cat - $f | sponge $f
+#done

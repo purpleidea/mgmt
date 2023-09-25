@@ -134,6 +134,15 @@ type Expr interface {
 	Value() (types.Value, error)
 }
 
+// ScopeGrapher adds a method to turn an AST (Expr or Stmt) into a graph so that
+// we can debug the SetScope compilation phase.
+type ScopeGrapher interface {
+	Node
+
+	// ScopeGraph adds nodes and vertices to the supplied graph.
+	ScopeGraph(g *pgraph.Graph)
+}
+
 // Data provides some data to the node that could be useful during its lifetime.
 type Data struct {
 	// Fs represents a handle to the filesystem that we're running on. This

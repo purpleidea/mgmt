@@ -187,3 +187,8 @@ func (obj *ExprAny) Value() (types.Value, error) {
 	}
 	return obj.V, nil
 }
+
+// ScopeGraph adds nodes and vertices to the supplied graph.
+func (obj *ExprAny) ScopeGraph(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}

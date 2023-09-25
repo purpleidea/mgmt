@@ -8903,22 +8903,46 @@ func (obj *ExprIf) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprIf) Type() (*types.Type, error) {
-	boolValue, err := obj.Condition.Value() // attempt early speculation
-	if err == nil && obj.typ == nil {
-		branch := obj.ElseBranch
-		if boolValue.Bool() { // must not panic
-			branch = obj.ThenBranch
-		}
-		return branch.Type()
+	if obj.typ != nil {
+		return obj.typ, nil
 	}
 
-	if obj.typ == nil {
-		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
+	var typ *types.Type
+	testAndSet := func(t *types.Type) error {
+		if t == nil {
+			return nil // skip
 		}
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		if typ == nil {
+			return nil // it's ok
+		}
+
+		if typ.Cmp(t) != nil {
+			return fmt.Errorf("inconsistent branch")
+		}
+		typ = t // save
+
+		return nil
 	}
-	return obj.typ, nil
+
+	if obj.ThenBranch != nil {
+		if t, err := obj.ThenBranch.Type(); err != nil {
+			if err := testAndSet(t); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if obj.ElseBranch != nil {
+		if t, err := obj.ElseBranch.Type(); err != nil {
+			if err := testAndSet(t); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if typ != nil {
+		return typ, nil
+	}
+	return nil, interfaces.ErrTypeCurrentlyUnknown
 }
 
 // Unify returns the list of invariants that this node produces. It recursively

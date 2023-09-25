@@ -22,8 +22,10 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/types/full"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -31,16 +33,17 @@ import (
 const (
 	// MapFuncName is the name this function is registered as.
 	MapFuncName = "map"
+
+	// arg names...
+	mapArgNameInputs   = "inputs"
+	mapArgNameFunction = "function"
 )
 
 func init() {
 	funcs.ModuleRegister(ModuleName, MapFuncName, func() interfaces.Func { return &MapFunc{} }) // must register the func and name
 }
 
-const (
-	argNameInputs   = "inputs"
-	argNameFunction = "function"
-)
+var _ interfaces.PolyFunc = &MapFunc{} // ensure it meets this expectation
 
 // MapFunc is the standard map iterator function that applies a function to each
 // element in a list. It returns a list with the same number of elements as the
@@ -59,10 +62,16 @@ type MapFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	inputs   types.Value
-	function func([]types.Value) (types.Value, error)
+	lastFuncValue       *full.FuncValue // remember the last function value
+	lastInputListLength int             // remember the last input list length
 
-	result types.Value // last calculated output
+	inputListType  *types.Type
+	outputListType *types.Type
+
+	// outputChan is an initially-nil channel from which we receive output
+	// lists from the subgraph. This channel is reset when the subgraph is
+	// recreated.
+	outputChan chan types.Value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -73,7 +82,7 @@ func (obj *MapFunc) String() string {
 
 // ArgGen returns the Nth arg name for this function.
 func (obj *MapFunc) ArgGen(index int) (string, error) {
-	seq := []string{argNameInputs, argNameFunction} // inverted for pretty!
+	seq := []string{mapArgNameInputs, mapArgNameFunction} // inverted for pretty!
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -439,7 +448,7 @@ func (obj *MapFunc) Polymorphisms(partialType *types.Type, partialValues []types
 	tI := types.NewType(fmt.Sprintf("[]%s", t1.String())) // in
 	tO := types.NewType(fmt.Sprintf("[]%s", t2.String())) // out
 	tF := types.NewType(fmt.Sprintf("func(%s) %s", t1.String(), t2.String()))
-	s := fmt.Sprintf("func(%s %s, %s %s) %s", argNameInputs, tI, argNameFunction, tF, tO)
+	s := fmt.Sprintf("func(%s %s, %s %s) %s", mapArgNameInputs, tI, mapArgNameFunction, tF, tO)
 	typ := types.NewType(s) // yay!
 
 	// TODO: type check that the partialValues are compatible
@@ -552,80 +561,251 @@ func (obj *MapFunc) sig() *types.Type {
 	tO := types.NewType(fmt.Sprintf("[]%s", tOi.String())) // return type
 
 	// type of 1st arg (the function)
-	tF := types.NewType(fmt.Sprintf("func(%s) %s", tIi.String(), tOi.String()))
+	tF := types.NewType(fmt.Sprintf("func(%s %s) %s", "name-which-can-vary-over-time", tIi.String(), tOi.String()))
 
-	s := fmt.Sprintf("func(%s %s, %s %s) %s", argNameInputs, tI, argNameFunction, tF, tO)
+	s := fmt.Sprintf("func(%s %s, %s %s) %s", mapArgNameInputs, tI, mapArgNameFunction, tF, tO)
 	return types.NewType(s) // yay!
 }
 
 // Init runs some startup code for this function.
 func (obj *MapFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.lastFuncValue = nil
+	obj.lastInputListLength = -1
+
+	obj.inputListType = types.NewType(fmt.Sprintf("[]%s", obj.Type))
+	obj.outputListType = types.NewType(fmt.Sprintf("[]%s", obj.RType))
+
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *MapFunc) Stream(ctx context.Context) error {
+	// Every time the FuncValue or the length of the list changes, recreate the
+	// subgraph, by calling the FuncValue N times on N nodes, each of which
+	// extracts one of the N values in the list.
+
 	defer close(obj.init.Output) // the sender closes
-	rtyp := types.NewType(fmt.Sprintf("[]%s", obj.RType.String()))
+
+	// A Func to send input lists to the subgraph. The Txn.Erase() call ensures
+	// that this Func is not removed when the subgraph is recreated, so that the
+	// function graph can propagate the last list we received to the subgraph.
+	inputChan := make(chan types.Value)
+	subgraphInput := &structs.ChannelBasedSourceFunc{
+		Name:   "subgraphInput",
+		Source: obj,
+		Chan:   inputChan,
+		Type:   obj.inputListType,
+	}
+	obj.init.Txn.AddVertex(subgraphInput)
+	if err := obj.init.Txn.Commit(); err != nil {
+		return errwrap.Wrapf(err, "commit error in Stream")
+	}
+	obj.init.Txn.Erase() // prevent the next Reverse() from removing subgraphInput
+	defer func() {
+		close(inputChan)
+		obj.init.Txn.Reverse()
+		obj.init.Txn.DeleteVertex(subgraphInput)
+		obj.init.Txn.Commit()
+	}()
+
+	obj.outputChan = nil
+
+	canReceiveMoreFuncValuesOrInputLists := true
+	canReceiveMoreOutputLists := true
 	for {
+
+		if !canReceiveMoreFuncValuesOrInputLists && !canReceiveMoreOutputLists {
+			//break
+			return nil
+		}
+
 		select {
 		case input, ok := <-obj.init.Input:
 			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
+				obj.init.Input = nil // block looping back here
+				canReceiveMoreFuncValuesOrInputLists = false
+				continue
 			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
 
 			if obj.last != nil && input.Cmp(obj.last) == nil {
 				continue // value didn't change, skip it
 			}
 			obj.last = input // store for next
 
-			function := input.Struct()[argNameFunction].Func() // func([]Value) (Value, error)
-			//if function == obj.function { // TODO: how can we cmp?
-			//	continue // nothing changed
-			//}
-			obj.function = function
-
-			inputs := input.Struct()[argNameInputs]
-			if obj.inputs != nil && obj.inputs.Cmp(inputs) == nil {
-				continue // nothing changed
+			value, exists := input.Struct()[mapArgNameFunction]
+			if !exists {
+				return fmt.Errorf("programming error, can't find edge")
 			}
-			obj.inputs = inputs
 
-			// run the function on each index
-			output := []types.Value{}
-			for ix, v := range inputs.List() { // []Value
-				args := []types.Value{v} // only one input arg!
-				x, err := function(args)
-				if err != nil {
-					return errwrap.Wrapf(err, "error running map function on index %d", ix)
+			newFuncValue, ok := value.(*full.FuncValue)
+			if !ok {
+				return fmt.Errorf("programming error, can't convert to *FuncValue")
+			}
+
+			newInputList, exists := input.Struct()[mapArgNameInputs]
+			if !exists {
+				return fmt.Errorf("programming error, can't find edge")
+			}
+
+			// If we have a new function or the length of the input
+			// list has changed, then we need to replace the
+			// subgraph with a new one that uses the new function
+			// the correct number of times.
+
+			// It's important to have this compare step to avoid
+			// redundant graph replacements which slow things down,
+			// but also cause the engine to lock, which can preempt
+			// the process scheduler, which can cause duplicate or
+			// unnecessary re-sending of values here, which causes
+			// the whole process to repeat ad-nauseum.
+			n := len(newInputList.List())
+			if newFuncValue != obj.lastFuncValue || n != obj.lastInputListLength {
+				obj.lastFuncValue = newFuncValue
+				obj.lastInputListLength = n
+				// replaceSubGraph uses the above two values
+				if err := obj.replaceSubGraph(subgraphInput); err != nil {
+					return errwrap.Wrapf(err, "could not replace subgraph")
 				}
-
-				output = append(output, x)
-			}
-			result := &types.ListValue{
-				V: output,
-				T: rtyp,
+				canReceiveMoreOutputLists = true
 			}
 
-			if obj.result != nil && obj.result.Cmp(result) == nil {
-				continue // result didn't change
+			// send the new input list to the subgraph
+			select {
+			case inputChan <- newInputList:
+			case <-ctx.Done():
+				return nil
 			}
-			obj.result = result // store new result
 
-		case <-ctx.Done():
-			return nil
-		}
+		case outputList, ok := <-obj.outputChan:
+			// send the new output list downstream
+			if !ok {
+				obj.outputChan = nil
+				canReceiveMoreOutputLists = false
+				continue
+			}
 
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
+			select {
+			case obj.init.Output <- outputList:
+			case <-ctx.Done():
+				return nil
+			}
+
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
+	// Create a subgraph which splits the input list into 'n' nodes, applies
+	// 'newFuncValue' to each, then combines the 'n' outputs back into a list.
+	//
+	// Here is what the subgraph looks like:
+	//
+	// digraph {
+	//   "subgraphInput" -> "inputElemFunc0"
+	//   "subgraphInput" -> "inputElemFunc1"
+	//   "subgraphInput" -> "inputElemFunc2"
+	//
+	//   "inputElemFunc0" -> "outputElemFunc0"
+	//   "inputElemFunc1" -> "outputElemFunc1"
+	//   "inputElemFunc2" -> "outputElemFunc2"
+	//
+	//   "outputElemFunc0" -> "outputListFunc"
+	//   "outputElemFunc1" -> "outputListFunc"
+	//   "outputElemFunc1" -> "outputListFunc"
+	//
+	//   "outputListFunc" -> "subgraphOutput"
+	// }
+
+	const channelBasedSinkFuncArgNameEdgeName = structs.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
+
+	// delete the old subgraph
+	if err := obj.init.Txn.Reverse(); err != nil {
+		return errwrap.Wrapf(err, "could not Reverse")
+	}
+
+	// create the new subgraph
+
+	obj.outputChan = make(chan types.Value)
+	subgraphOutput := &structs.ChannelBasedSinkFunc{
+		Name:     "subgraphOutput",
+		Target:   obj,
+		EdgeName: channelBasedSinkFuncArgNameEdgeName,
+		Chan:     obj.outputChan,
+		Type:     obj.outputListType,
+	}
+	obj.init.Txn.AddVertex(subgraphOutput)
+
+	m := make(map[string]*types.Type)
+	ord := []string{}
+	for i := 0; i < obj.lastInputListLength; i++ {
+		argName := fmt.Sprintf("outputElem%d", i)
+		m[argName] = obj.RType
+		ord = append(ord, argName)
+	}
+	typ := &types.Type{
+		Kind: types.KindFunc,
+		Map:  m,
+		Ord:  ord,
+		Out:  obj.outputListType,
+	}
+	outputListFunc := structs.SimpleFnToDirectFunc(
+		"mapOutputList",
+		&types.FuncValue{
+			V: func(args []types.Value) (types.Value, error) {
+				listValue := &types.ListValue{
+					V: args,
+					T: obj.outputListType,
+				}
+
+				return listValue, nil
+			},
+			T: typ,
+		},
+	)
+
+	obj.init.Txn.AddVertex(outputListFunc)
+	obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
+		Args: []string{channelBasedSinkFuncArgNameEdgeName},
+	})
+
+	for i := 0; i < obj.lastInputListLength; i++ {
+		i := i
+		inputElemFunc := structs.SimpleFnToDirectFunc(
+			fmt.Sprintf("mapInputElem[%d]", i),
+			&types.FuncValue{
+				V: func(args []types.Value) (types.Value, error) {
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElemFunc: expected a single argument")
+					}
+					arg := args[0]
+
+					list, ok := arg.(*types.ListValue)
+					if !ok {
+						return nil, fmt.Errorf("inputElemFunc: expected a ListValue argument")
+					}
+
+					return list.List()[i], nil
+				},
+				T: types.NewType(fmt.Sprintf("func(inputList %s) %s", obj.inputListType, obj.Type)),
+			},
+		)
+		obj.init.Txn.AddVertex(inputElemFunc)
+
+		outputElemFunc, err := obj.lastFuncValue.Call(obj.init.Txn, []interfaces.Func{inputElemFunc})
+		if err != nil {
+			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.Call()")
+		}
+
+		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
+			Args: []string{"inputList"},
+		})
+		obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
+			Args: []string{fmt.Sprintf("outputElem%d", i)},
+		})
+	}
+
+	return obj.init.Txn.Commit()
 }

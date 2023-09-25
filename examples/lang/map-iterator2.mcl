@@ -1,0 +1,49 @@
+import "datetime"
+import "iter"
+import "math"
+
+$now = datetime.now()
+
+# alternate every four seconds
+$mod0 = math.mod($now, 8) == 0
+$mod1 = math.mod($now, 8) == 1
+$mod2 = math.mod($now, 8) == 2
+$mod3 = math.mod($now, 8) == 3
+$moda = $mod0 || $mod1 || $mod2 || $mod3
+
+$mod4 = math.mod($now, 8) == 4
+$mod5 = math.mod($now, 8) == 5
+$mod6 = math.mod($now, 8) == 6
+$mod7 = math.mod($now, 8) == 7
+$modb = $mod4 || $mod5 || $mod6 || $mod7
+
+$fn = if $moda {
+	func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
+		len($x)
+	}
+} else {
+	func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
+		-1*len($x)
+	}
+}
+
+$in1 = if $modb {
+	["a", "bb", "ccc", "dddd", "eeeee",]
+} else {
+	["ffffff", "ggggggg", "hhhhhhhh", "iiiiiiiii", "jjjjjjjjjj",]
+}
+
+$out1 = iter.map($in1, $fn)
+
+$t1 = template("out1: {{ . }}", $out1)
+
+test $t1 {}
+
+file "/tmp/mgmt/map" {
+	state => $const.res.file.state.exists,
+	content => $t1,
+}
+
+file "/tmp/mgmt/" {
+	state => $const.res.file.state.exists,
+}

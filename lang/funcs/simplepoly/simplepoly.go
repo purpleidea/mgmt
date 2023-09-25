@@ -149,7 +149,7 @@ type WrappedFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *WrappedFunc) String() string {
-	return fmt.Sprintf("%s@%p", obj.Name, obj) // be more unique!
+	return fmt.Sprintf("%s @ %p", obj.Name, obj) // be more unique!
 }
 
 // ArgGen returns the Nth arg name for this function.
@@ -501,9 +501,8 @@ func (obj *WrappedFunc) buildFunction(typ *types.Type, ix int) *types.Type {
 		panic("unexpected type")
 	}
 	obj.fn = fn
-	if obj.fn.T == nil { // XXX: should this even ever happen? What about argnames here?
-		obj.fn.T = typ.Copy() // overwrites any contained "variant" type
-	}
+	// FIXME: if obj.fn.T == nil {} // occasionally this is nil, is it a bug?
+	obj.fn.T = typ.Copy() // overwrites any contained "variant" type
 
 	return obj.fn.T
 }

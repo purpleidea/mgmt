@@ -883,10 +883,27 @@ func (obj *OperatorFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
+			// programming error safety check...
+			programmingError := false
+			keys := []string{}
+			for k := range input.Struct() {
+				keys = append(keys, k)
+				if !util.StrInList(k, obj.Type.Ord) {
+					programmingError = true
+				}
+			}
+			if programmingError {
+				return fmt.Errorf("bad args, got: %v, want: %v", keys, obj.Type.Ord)
+			}
+
 			// build up arg list
 			args := []types.Value{}
 			for _, name := range obj.Type.Ord {
-				v := input.Struct()[name]
+				v, exists := input.Struct()[name]
+				if !exists {
+					// programming error
+					return fmt.Errorf("function engine was early, missing arg: %s", name)
+				}
 				if name == operatorArgName {
 					op = v.Str()
 					continue // skip over the operator arg
@@ -895,7 +912,8 @@ func (obj *OperatorFunc) Stream(ctx context.Context) error {
 			}
 
 			if op == "" {
-				return fmt.Errorf("operator cannot be empty")
+				// programming error
+				return fmt.Errorf("operator cannot be empty, args: %v", keys)
 			}
 			// operator selection is dynamic now, although mostly it
 			// should not change... to do so is probably uncommon...

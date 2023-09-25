@@ -84,7 +84,7 @@ type WrappedFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *WrappedFunc) String() string {
-	return fmt.Sprintf("%s@%p", obj.Name, obj) // be more unique!
+	return fmt.Sprintf("%s @ %p", obj.Name, obj) // be more unique!
 }
 
 // ArgGen returns the Nth arg name for this function.

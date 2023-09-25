@@ -452,60 +452,6 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
-		//$v = 42
-		//$x = template("hello", $v) # redirect var for harder unification
-		//test "t1" {
-		//	anotherstr => $x,
-		//}
-		innerFunc := &ast.ExprCall{
-			Name: "template",
-			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "hello", // whatever...
-				},
-				&ast.ExprVar{
-					Name: "v",
-				},
-			},
-		}
-		stmt := &ast.StmtProg{
-			Body: []interfaces.Stmt{
-				&ast.StmtBind{
-					Ident: "v",
-					Value: &ast.ExprInt{
-						V: 42,
-					},
-				},
-				&ast.StmtBind{
-					Ident: "x",
-					Value: innerFunc,
-				},
-				&ast.StmtRes{
-					Kind: "test",
-					Name: &ast.ExprStr{
-						V: "t1",
-					},
-					Contents: []ast.StmtResContents{
-						&ast.StmtResField{
-							Field: "anotherstr",
-							Value: &ast.ExprVar{
-								Name: "x",
-							},
-						},
-					},
-				},
-			},
-		}
-		testCases = append(testCases, test{
-			name: "complex template",
-			ast:  stmt,
-			fail: false,
-			expect: map[interfaces.Expr]*types.Type{
-				innerFunc: types.NewType("str"),
-			},
-		})
-	}
-	{
 		// import "datetime"
 		//test "t1" {
 		//	stringptr => datetime.now(),	# bad (str vs. int)

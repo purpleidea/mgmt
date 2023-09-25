@@ -20,7 +20,9 @@
 package lang
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -90,7 +92,7 @@ func edgeCmpFn(e1, e2 pgraph.Edge) (bool, error) {
 	return e1.String() == e2.String(), nil
 }
 
-func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
+func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: lang: "+format, v...)
 	}
@@ -123,31 +125,41 @@ func runInterpret(t *testing.T, code string) (*pgraph.Graph, error) {
 	if err := lang.Init(); err != nil {
 		return nil, errwrap.Wrapf(err, "init failed")
 	}
-	closeFn := func() error {
-		return errwrap.Wrapf(lang.Close(), "close failed")
-	}
+	defer lang.Cleanup()
+
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	ctx, cancel := context.WithCancel(context.Background()) // TODO: get it from parent
+	defer cancel()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := lang.Run(ctx); err != nil {
+			reterr = errwrap.Append(reterr, err)
+		}
+	}()
+	defer cancel() // shutdown the Run
 
 	// we only wait for the first event, instead of the continuous stream
 	select {
 	case err, ok := <-lang.Stream():
 		if !ok {
-			return nil, errwrap.Wrapf(closeFn(), "stream closed without event")
+			return nil, fmt.Errorf("stream closed without event")
 		}
 		if err != nil {
-			return nil, errwrap.Wrapf(err, "stream failed, close: %+v", closeFn())
+			return nil, errwrap.Wrapf(err, "stream failed")
 		}
 	}
 
 	// run artificially without the entire GAPI loop
 	graph, err := lang.Interpret()
 	if err != nil {
-		err := errwrap.Wrapf(err, "interpret failed")
-		e := closeFn()
-		err = errwrap.Append(err, e) // list of errors
-		return nil, err
+		return nil, errwrap.Wrapf(err, "interpret failed")
 	}
 
-	return graph, closeFn()
+	return graph, nil
 }
 
 // TODO: empty code is not currently allowed, should we allow it?

@@ -119,11 +119,13 @@ type GAPI interface {
 
 	// Next returns a stream of switch events. The engine will run Graph()
 	// to build a new graph after every Next event.
+	// TODO: add context for shutting down to the input and change Close to Cleanup
 	Next() chan Next
 
 	// Close shuts down the GAPI. It asks the GAPI to close, and must cause
 	// Next() to unblock even if is currently blocked and waiting to send a
 	// new event.
+	// TODO: change Close to Cleanup
 	Close() error
 }
 

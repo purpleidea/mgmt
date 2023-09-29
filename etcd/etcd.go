@@ -119,6 +119,7 @@ import (
 	"github.com/purpleidea/mgmt/etcd/chooser"
 	"github.com/purpleidea/mgmt/etcd/client"
 	"github.com/purpleidea/mgmt/etcd/interfaces"
+	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -405,7 +406,7 @@ func (obj *EmbdEtcd) Validate() error {
 		}
 	}
 
-	if _, err := copyURLs(obj.Seeds); err != nil { // this will validate
+	if _, err := etcdUtil.CopyURLs(obj.Seeds); err != nil { // this will validate
 		return errwrap.Wrapf(err, "the Seeds are not valid")
 	}
 
@@ -475,7 +476,7 @@ func (obj *EmbdEtcd) Init() error {
 
 		// TODO: if we don't have any localhost URLs, should we warn so
 		// that our local client can be able to connect more easily?
-		if len(localhostURLs(obj.ClientURLs)) == 0 {
+		if len(etcdUtil.LocalhostURLs(obj.ClientURLs)) == 0 {
 			u, err := url.Parse(DefaultClientURL)
 			if err != nil {
 				return err
@@ -592,9 +593,9 @@ func (obj *EmbdEtcd) Close() error {
 func (obj *EmbdEtcd) curls() (etcdtypes.URLs, error) {
 	// TODO: do we need the copy?
 	if len(obj.AClientURLs) > 0 {
-		return copyURLs(obj.AClientURLs)
+		return etcdUtil.CopyURLs(obj.AClientURLs)
 	}
-	return copyURLs(obj.ClientURLs)
+	return etcdUtil.CopyURLs(obj.ClientURLs)
 }
 
 // surls returns the server (peer) urls that we should use everywhere except for
@@ -602,9 +603,9 @@ func (obj *EmbdEtcd) curls() (etcdtypes.URLs, error) {
 func (obj *EmbdEtcd) surls() (etcdtypes.URLs, error) {
 	// TODO: do we need the copy?
 	if len(obj.AServerURLs) > 0 {
-		return copyURLs(obj.AServerURLs)
+		return etcdUtil.CopyURLs(obj.AServerURLs)
 	}
-	return copyURLs(obj.ServerURLs)
+	return etcdUtil.CopyURLs(obj.ServerURLs)
 }
 
 // err is an error helper that sends to the errChan.
@@ -1372,7 +1373,7 @@ func (obj *EmbdEtcd) Exited() <-chan struct{} { return obj.exitsSignal }
 // config returns the config struct to be used during the etcd client connect.
 func (obj *EmbdEtcd) config() etcd.Config {
 	// FIXME: filter out any urls which wouldn't resolve ?
-	endpoints := fromURLsMapToStringList(obj.endpoints) // flatten map
+	endpoints := etcdUtil.FromURLsMapToStringList(obj.endpoints) // flatten map
 	// We don't need to do any sort of priority sort here, since for initial
 	// connect we'd be the only one, so it doesn't matter, and subsequent
 	// changes are made with SetEndpoints, not here, so we never need to

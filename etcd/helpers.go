@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
+	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -41,13 +42,13 @@ func (obj *EmbdEtcd) setEndpoints() {
 		return
 	}
 
-	eps := fromURLsMapToStringList(obj.endpoints) // get flat list
-	sort.Strings(eps)                             // sort for determinism
+	eps := etcdUtil.FromURLsMapToStringList(obj.endpoints) // get flat list
+	sort.Strings(eps)                                      // sort for determinism
 
 	curls, _ := obj.curls() // ignore error, was already validated
 
 	// prio sort so we connect locally first
-	urls := fromURLsToStringList(curls)
+	urls := etcdUtil.FromURLsToStringList(curls)
 	headFn := func(x string) bool {
 		return !util.StrInList(x, urls)
 	}
@@ -113,7 +114,7 @@ func applyDeltaEvents(data *interfaces.WatcherData, urlsMap etcdtypes.URLsMap) (
 	if err := data.Err; err != nil {
 		return nil, errwrap.Wrapf(err, "data contains an error")
 	}
-	out, err := copyURLsMap(urlsMap)
+	out, err := etcdUtil.CopyURLsMap(urlsMap)
 	if err != nil {
 		return nil, err
 	}

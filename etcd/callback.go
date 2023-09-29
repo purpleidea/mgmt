@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
+	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -84,7 +85,7 @@ func (obj *EmbdEtcd) endpointApply(data *interfaces.WatcherData) error {
 	// is the endpoint list different?
 	// TODO: do we want to use the skipEndpointApply here too?
 	skipEndpointApply := obj.NoServer && len(endpoints) == 0 && len(obj.endpoints) > 0
-	if err := cmpURLsMap(obj.endpoints, endpoints); err != nil && !skipEndpointApply {
+	if err := etcdUtil.CmpURLsMap(obj.endpoints, endpoints); err != nil && !skipEndpointApply {
 		obj.endpoints = endpoints // set
 		// can happen if a server drops out for example
 		obj.Logf("endpoint list changed to: %+v", endpoints)
@@ -153,7 +154,7 @@ func (obj *EmbdEtcd) nominateCb(ctx context.Context) error {
 		var sendError = false
 		var serverErr error
 		obj.Logf("waiting for server...")
-		nominated, err := copyURLsMap(obj.nominated)
+		nominated, err := etcdUtil.CopyURLsMap(obj.nominated)
 		if err != nil {
 			return err
 		}
@@ -321,11 +322,11 @@ func (obj *EmbdEtcd) volunteerCb(ctx context.Context) error {
 	}
 
 	// TODO: do we really need to check these errors?
-	m, err := copyURLsMap(obj.membermap) // list of members...
+	m, err := etcdUtil.CopyURLsMap(obj.membermap) // list of members...
 	if err != nil {
 		return err
 	}
-	v, err := copyURLsMap(obj.volunteers)
+	v, err := etcdUtil.CopyURLsMap(obj.volunteers)
 	if err != nil {
 		return err
 	}

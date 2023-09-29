@@ -24,6 +24,7 @@ import (
 	"sort"
 	"time"
 
+	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
@@ -216,14 +217,14 @@ func (obj *EmbdEtcd) isLeader(ctx context.Context) (bool, error) {
 	var ep, backup *url.URL
 	if len(obj.ClientURLs) > 0 {
 		// heuristic, but probably correct
-		addresses := localhostURLs(obj.ClientURLs)
+		addresses := etcdUtil.LocalhostURLs(obj.ClientURLs)
 		if len(addresses) > 0 {
 			ep = &addresses[0] // arbitrarily pick the first one
 		}
 		backup = &obj.ClientURLs[0] // backup
 	}
 	if ep == nil && len(obj.AClientURLs) > 0 {
-		addresses := localhostURLs(obj.AClientURLs)
+		addresses := etcdUtil.LocalhostURLs(obj.AClientURLs)
 		if len(addresses) > 0 {
 			ep = &addresses[0]
 		}

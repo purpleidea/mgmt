@@ -17,7 +17,7 @@
 
 //go:build !root
 
-package etcd
+package util
 
 import (
 	"net/url"
@@ -94,7 +94,7 @@ func TestCopyURLs0(t *testing.T) {
 			urls1 = append(urls1, *u)
 		}
 
-		urls2, err := copyURLs(urls1)
+		urls2, err := CopyURLs(urls1)
 		if err != nil {
 			t.Errorf("urls did not copy: %+v", err)
 			continue
@@ -176,13 +176,13 @@ func TestCopyURLsMap0(t *testing.T) {
 			urlsMap1[key] = urls
 		}
 
-		urlsMap2, err := copyURLsMap(urlsMap1)
+		urlsMap2, err := CopyURLsMap(urlsMap1)
 		if err != nil {
 			t.Errorf("urlsMap did not copy: %+v", err)
 			continue
 		}
 
-		if err := cmpURLsMap(urlsMap1, urlsMap2); err != nil {
+		if err := CmpURLsMap(urlsMap1, urlsMap2); err != nil {
 			t.Errorf("urlsMap did not cmp, err: %+v", err)
 		}
 	}

@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -116,7 +117,7 @@ func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (
 	if len(obj.ServerURLs) > 0 {
 		peerURLs = obj.ServerURLs
 	}
-	initialPeerURLsMap, err := copyURLsMap(peerURLsMap)
+	initialPeerURLsMap, err := etcdUtil.CopyURLsMap(peerURLsMap)
 	if err != nil {
 		return errwrap.Wrapf(err, "error copying URLsMap")
 	}

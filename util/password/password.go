@@ -69,7 +69,8 @@ func ReadPasswordCtxFdPrompt(ctx context.Context, fd int, prompt string) ([]byte
 	if err := syscall.SetNonblock(fd, true); err != nil {
 		return nil, err
 	}
-	file := os.NewFile(uintptr(fd), "") // XXX: name?
+	defer syscall.SetNonblock(fd, false) // TODO: is this necessary?
+	file := os.NewFile(uintptr(fd), "")  // XXX: name?
 
 	// We do some term magic to not print the password. This is taken from:
 	// golang.org/x/term/term_unix.go:readPassword

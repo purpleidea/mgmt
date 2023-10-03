@@ -2488,6 +2488,22 @@ func TestImportParsing0(t *testing.T) {
 		path:    "foo/",
 	})
 	testCases = append(testCases, test{
+		name:     "foo/bar/",
+		alias:    "bar",
+		isSystem: false,
+		isLocal:  true,
+		isFile:   false,
+		path:     "foo/bar/",
+	})
+	testCases = append(testCases, test{
+		name:     "foo/bar/baz/",
+		alias:    "baz",
+		isSystem: false,
+		isLocal:  true,
+		isFile:   false,
+		path:     "foo/bar/baz/",
+	})
+	testCases = append(testCases, test{
 		// import foo.mcl # import a file next to me
 		name:     "foo.mcl",
 		alias:    "foo",

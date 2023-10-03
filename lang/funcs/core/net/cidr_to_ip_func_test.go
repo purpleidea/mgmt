@@ -35,7 +35,7 @@ func TestCidrToIP(t *testing.T) {
 		{"IPv4 cidr", "192.0.2.12/24", "192.0.2.12", nil},
 		{"spaced IPv4 cidr ", "  192.168.42.13/24  ", "192.168.42.13", nil},
 
-		//IPv4 failure - tests error.
+		// IPv4 failure - tests error.
 		{"invalid IPv4 cidr", "192.168.42.13/33", "", fmt.Errorf("invalid CIDR address: 192.168.42.13/33")},
 
 		// IPV6 success.
@@ -62,7 +62,7 @@ func TestCidrToIP(t *testing.T) {
 				t.Errorf("input: %s, did not expect error but got: %#v", test.input, err)
 				return
 			}
-			if err1 := output.Cmp(expectedStr); err1 != nil {
+			if err := output.Cmp(expectedStr); err != nil {
 				t.Errorf("input: %s, expected: %s, got: %s", test.input, expectedStr, output)
 				return
 			}

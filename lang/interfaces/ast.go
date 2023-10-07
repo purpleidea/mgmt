@@ -85,6 +85,11 @@ type Stmt interface {
 	// child statements, and Infer/Check for child expressions.
 	TypeCheck() ([]*UnificationInvariant, error)
 
+	// TimeCheck validates that every resource which receives a function is
+	// guaranteed to always receive a timeless function. See the definition of
+	// Timeless for details.
+	TimeCheck() error
+
 	// Graph returns the reactive function graph expressed by this node. It
 	// takes in the environment of any functions in scope.
 	Graph(env *Env) (*pgraph.Graph, error)

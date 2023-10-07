@@ -339,6 +339,10 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtBind) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -657,6 +661,10 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	invariants = append(invariants, invar)
 
 	return invariants, nil
+}
+
+func (obj *StmtRes) TimeCheck() error {
+	panic("TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -1218,6 +1226,7 @@ type StmtResContents interface {
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
 	TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error)
+	TimeCheck() error
 	Graph(env *interfaces.Env) (*pgraph.Graph, error)
 }
 
@@ -1472,6 +1481,10 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 	return invariants, nil
 }
 
+func (obj *StmtResField) TimeCheck() error {
+	panic("TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -1717,6 +1730,10 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtResEdge) TimeCheck() error {
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -2069,6 +2086,10 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	return invariants, nil
 }
 
+func (obj *StmtResMeta) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -2341,6 +2362,10 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtEdge) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -2606,6 +2631,10 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 	invariants = append(invariants, invar)
 
 	return invariants, nil
+}
+
+func (obj *StmtEdgeHalf) TimeCheck() error {
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -2917,6 +2946,10 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtIf) TimeCheck() error {
+	panic("TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -5404,6 +5437,10 @@ func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtProg) TimeCheck() error {
+	panic("TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -5798,6 +5835,10 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtFunc) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -6006,6 +6047,10 @@ func (obj *StmtClass) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtClass) TimeCheck() error {
+	panic("TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -6419,6 +6464,10 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 	return invariants, nil
 }
 
+func (obj *StmtInclude) TimeCheck() error {
+	panic("TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -6608,6 +6657,10 @@ func (obj *StmtImport) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return []*interfaces.UnificationInvariant{}, nil
 }
 
+func (obj *StmtImport) TimeCheck() error {
+	panic("TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -6697,6 +6750,10 @@ func (obj *StmtComment) SetScope(*interfaces.Scope) error { return nil }
 // Infer/Check for child expressions.
 func (obj *StmtComment) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return []*interfaces.UnificationInvariant{}, nil
+}
+
+func (obj *StmtComment) TimeCheck() error {
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

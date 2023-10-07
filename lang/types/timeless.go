@@ -162,13 +162,96 @@ var (
 	}
 )
 
-func ApplyTimeless(funcT *Timeless, inputs []*Timeless) (*Timeless, error) {
-	if funcT.IsTimeless != nil {
-		return funcT, nil
-	} else if funcT.PropagatesTimeless != nil {
-		return (*funcT.PropagatesTimeless)(inputs)
+func IsCompletelyTimeless(timeless *Timeless, typ *Type) (bool, error) {
+	if timeless.IsTimeless != nil {
+		return *timeless.IsTimeless, nil
+	}
+
+	if timeless.PropagatesTimeless != nil {
+		switch typ.Kind {
+		case KindBool:
+			return false, fmt.Errorf("IsCompletelyTimeless: timeless is invalid for the given type")
+		case KindStr:
+			return false, fmt.Errorf("IsCompletelyTimeless: timeless is invalid for the given type")
+		case KindInt:
+			return false, fmt.Errorf("IsCompletelyTimeless: timeless is invalid for the given type")
+		case KindFloat:
+			return false, fmt.Errorf("IsCompletelyTimeless: timeless is invalid for the given type")
+
+		case KindList:
+			return IsCompletelyTimeless(timeless, typ.Val)
+
+		case KindMap:
+			// We are assuming that maps cannot contain functions as keys.
+			if typ.Key == nil || typ.Val == nil {
+				panic("malformed map type")
+			}
+			return IsCompletelyTimeless(timeless, typ.Val)
+
+		case KindStruct: // {a bool; b int}
+			if typ.Map == nil {
+				panic("malformed struct type")
+			}
+			if len(typ.Map) != len(typ.Ord) {
+				panic("malformed struct length")
+			}
+			for _, k := range typ.Ord {
+				t, ok := typ.Map[k]
+				if !ok {
+					panic("malformed struct order")
+				}
+				if t == nil {
+					panic("malformed struct field")
+				}
+				r, err := IsCompletelyTimeless(timeless, t)
+				if err != nil {
+					return false, err
+				}
+				if !r {
+					return false, nil
+				}
+			}
+			return true, nil
+
+		case KindFunc:
+			if typ.Map == nil {
+				panic("malformed func type")
+			}
+			if len(typ.Map) != len(typ.Ord) {
+				panic("malformed func length")
+			}
+
+			timelessArgs := []*Timeless{}
+			for _ = range typ.Ord {
+				timelessArgs = append(timelessArgs, AlwaysTimeless)
+			}
+
+			timelessOutput, err := ApplyTimeless(timeless, timelessArgs)
+			if err != nil {
+				return false, err
+			}
+
+			return IsCompletelyTimeless(timelessOutput, typ.Out)
+
+		case KindVariant:
+			// Pessimistically assume that variants are timeful
+			return false, nil
+
+		default:
+			panic("unknown type kind")
+		}
+	}
+
+	return false, fmt.Errorf("IsCompletelyTimeless: timeless is invalid")
+}
+
+func ApplyTimeless(timelessFn *Timeless, inputs []*Timeless) (*Timeless, error) {
+	if timelessFn.IsTimeless != nil {
+		return timelessFn, nil
+	} else if timelessFn.PropagatesTimeless != nil {
+		return (*timelessFn.PropagatesTimeless)(inputs)
 	} else {
-		return nil, fmt.Errorf("ApplyTimeless: func1 is invalid")
+		return nil, fmt.Errorf("ApplyTimeless: timelessFn is invalid")
 	}
 }
 
@@ -177,9 +260,9 @@ func ApplyTimeless(funcT *Timeless, inputs []*Timeless) (*Timeless, error) {
 // example, the list ["1", os.system(...)] is timeful because one of its
 // elements is timeful, and the function func($x) { if ... { "1" } else {
 // os.system(...) } } is timeful because it sometimes returns a timeful value.
-func CombineTimeless(time1, time2 *Timeless) (*Timeless, error) {
-	if time1.IsTimeless != nil && time2.IsTimeless != nil {
-		if *time1.IsTimeless && *time2.IsTimeless {
+func CombineTimeless(timeless1, timeless2 *Timeless) (*Timeless, error) {
+	if timeless1.IsTimeless != nil && timeless2.IsTimeless != nil {
+		if *timeless1.IsTimeless && *timeless2.IsTimeless {
 			return AlwaysTimeless, nil
 		} else {
 			return AlwaysTimeful, nil
@@ -190,11 +273,11 @@ func CombineTimeless(time1, time2 *Timeless) (*Timeless, error) {
 		// combineTimeless(func($x) { $x }, func($x) { timeful }) => func($x) { timeful }
 
 		propagatesTimeless := func(inputs []*Timeless) (*Timeless, error) {
-			output1, err1 := ApplyTimeless(time1, inputs)
+			output1, err1 := ApplyTimeless(timeless1, inputs)
 			if err1 != nil {
 				return nil, err1
 			}
-			output2, err2 := ApplyTimeless(time2, inputs)
+			output2, err2 := ApplyTimeless(timeless2, inputs)
 			if err2 != nil {
 				return nil, err2
 			}

@@ -664,7 +664,16 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 }
 
 func (obj *StmtRes) TimeCheck() error {
-	panic("TODO")
+	// no need to check obj.Name because that Expr is always a string, never a
+	// function
+
+	for _, x := range obj.Contents {
+		if err := x.TimeCheck(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -1482,7 +1491,29 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 }
 
 func (obj *StmtResField) TimeCheck() error {
-	panic("TODO")
+	timelessFn, err := obj.Value.TimeCheck(map[string]*types.Timeless{})
+	if err != nil {
+		return err
+	}
+	typeFn, err := obj.Value.Type()
+	if err != nil {
+		return err
+	}
+	if typeFn.Kind != types.KindFunc {
+		// We only care about timelessness for functions
+		return nil
+	}
+
+	isCompletelyTimeless, err := types.IsCompletelyTimeless(timelessFn, typeFn)
+	if err != nil {
+		return err
+	}
+
+	if !isCompletelyTimeless {
+		return fmt.Errorf("resource field `%s` is not timeless", obj.Field)
+	}
+
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

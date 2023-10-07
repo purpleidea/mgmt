@@ -38,9 +38,9 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/socketset"
 
-	// XXX: Do NOT use subscribe methods from this lib, as they are racey and
-	// do not clean up spawned goroutines. Should be replaced when a suitable
-	// alternative is available.
+	// XXX: Do NOT use subscribe methods from this lib, as they are racey
+	// and do not clean up spawned goroutines. Should be replaced when a
+	// suitable alternative is available.
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -50,18 +50,23 @@ func init() {
 }
 
 const (
-	// IfacePrefix is the prefix used to identify unit files for managed links.
+	// IfacePrefix is the prefix used to identify unit files for managed
+	// links.
 	IfacePrefix = "mgmt-"
-	// networkdUnitFileDir is the location of networkd unit files which define
-	// the systemd network connections.
+
+	// networkdUnitFileDir is the location of networkd unit files which
+	// define the systemd network connections.
 	networkdUnitFileDir = "/etc/systemd/network/"
+
 	// networkdUnitFileExt is the file extension for networkd unit files.
 	networkdUnitFileExt = ".network"
+
 	// networkdUnitFileUmask sets the permissions on the systemd unit file.
 	networkdUnitFileUmask = 0644
 
 	// ifaceUp is the up (on) interface state.
 	ifaceUp = "up"
+
 	// ifaceDown is the down (off) interface state.
 	ifaceDown = "down"
 

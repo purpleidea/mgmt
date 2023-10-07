@@ -8181,13 +8181,29 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
 	}
 
-	// Add the vertex which produces the FuncValue.
-	exprGraph, funcValueFunc, err := obj.expr.Graph(env)
-	if err != nil {
-		return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
+	// Find the vertex which produces the FuncValue.
+	var funcValueFunc interfaces.Func
+	if _, isParam := obj.expr.(*ExprParam); isParam {
+		// The function being called is a parameter from the surrounding function.
+		// We should be able to find this parameter in the environment.
+		paramFunc, exists := env[obj.Name]
+		if !exists {
+			return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
+		}
+		graph.AddVertex(paramFunc)
+		funcValueFunc = paramFunc
+	} else {
+		// The function being called is a top-level definition. The parameters which
+		// are visible at this use site must not be visible at the definition site,
+		// so we pass an empty environment.
+		emptyEnv := map[string]interfaces.Func{}
+		exprGraph, topLevelFunc, err := obj.expr.Graph(emptyEnv)
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
+		}
+		graph.AddGraph(exprGraph)
+		funcValueFunc = topLevelFunc
 	}
-	graph.AddGraph(exprGraph)
-	graph.AddVertex(funcValueFunc)
 
 	// Loop over the arguments, add them to the graph, but do _not_ connect them
 	// to the function vertex. Instead, each time the call vertex (which we

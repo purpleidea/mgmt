@@ -17,6 +17,8 @@
 
 package types
 
+import "fmt"
+
 // This next struct is used to determine whether an expression which has a
 // function type can be given to a resource, like this:
 //
@@ -144,5 +146,64 @@ package types
 // The following struct can represent all of the types above.
 type Timeless struct {
 	IsTimeless         *bool
-	PropagatesTimeless *func([]*Timeless) *Timeless
+	PropagatesTimeless *func([]*Timeless) (*Timeless, error)
+}
+
+var (
+	alwaysTrue     = true
+	alwaysFalse    = false
+	AlwaysTimeless = &Timeless{
+		IsTimeless:         &alwaysTrue,
+		PropagatesTimeless: nil,
+	}
+	AlwaysTimeful = &Timeless{
+		IsTimeless:         &alwaysFalse,
+		PropagatesTimeless: nil,
+	}
+)
+
+func ApplyTimeless(funcT *Timeless, inputs []*Timeless) (*Timeless, error) {
+	if funcT.IsTimeless != nil {
+		return funcT, nil
+	} else if funcT.PropagatesTimeless != nil {
+		return (*funcT.PropagatesTimeless)(inputs)
+	} else {
+		return nil, fmt.Errorf("ApplyTimeless: func1 is invalid")
+	}
+}
+
+// The timelessness analysis must be pessimistic: when combining a timeless
+// expression with a timeful expression, the overall result is timeful. For
+// example, the list ["1", os.system(...)] is timeful because one of its
+// elements is timeful, and the function func($x) { if ... { "1" } else {
+// os.system(...) } } is timeful because it sometimes returns a timeful value.
+func CombineTimeless(time1, time2 *Timeless) (*Timeless, error) {
+	if time1.IsTimeless != nil && time2.IsTimeless != nil {
+		if *time1.IsTimeless && *time2.IsTimeless {
+			return AlwaysTimeless, nil
+		} else {
+			return AlwaysTimeful, nil
+		}
+	} else {
+		// combineTimeless(func($x) { $x }, func($x) { $x }) => func($x) { $x }
+		// combineTimeless(func($x) { $x }, func($x) { timeless }) => func($x) { $x }
+		// combineTimeless(func($x) { $x }, func($x) { timeful }) => func($x) { timeful }
+
+		propagatesTimeless := func(inputs []*Timeless) (*Timeless, error) {
+			output1, err1 := ApplyTimeless(time1, inputs)
+			if err1 != nil {
+				return nil, err1
+			}
+			output2, err2 := ApplyTimeless(time2, inputs)
+			if err2 != nil {
+				return nil, err2
+			}
+
+			return CombineTimeless(output1, output2)
+		}
+		return &Timeless{
+			IsTimeless:         nil,
+			PropagatesTimeless: &propagatesTimeless,
+		}, nil
+	}
 }

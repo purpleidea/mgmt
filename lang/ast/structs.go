@@ -6820,7 +6820,7 @@ func (obj *ExprBool) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 }
 
 func (obj *ExprBool) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	return types.AlwaysTimeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7027,7 +7027,7 @@ func (obj *ExprStr) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 }
 
 func (obj *ExprStr) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	return types.AlwaysTimeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7183,7 +7183,7 @@ func (obj *ExprInt) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 }
 
 func (obj *ExprInt) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	return types.AlwaysTimeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7341,7 +7341,7 @@ func (obj *ExprFloat) Check(typ *types.Type) ([]*interfaces.UnificationInvariant
 }
 
 func (obj *ExprFloat) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	return types.AlwaysTimeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7649,7 +7649,21 @@ func (obj *ExprList) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 }
 
 func (obj *ExprList) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	// We want to return whether the elements are all timeless.
+	timeless := types.AlwaysTimeless
+	for _, expr := range obj.Elements {
+		t, err := expr.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+
+		timeless, err = types.CombineTimeless(timeless, t)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return timeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -8104,7 +8118,29 @@ func (obj *ExprMap) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 }
 
 func (obj *ExprMap) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	// We want to return whether the keys and values are all timeless.
+	timeless := types.AlwaysTimeless
+	for _, x := range obj.KVs {
+		timeK, err := x.Key.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+		timeless, err = types.CombineTimeless(timeless, timeK)
+		if err != nil {
+			return nil, err
+		}
+
+		timeV, err := x.Val.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+		timeless, err = types.CombineTimeless(timeless, timeV)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return timeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -8544,7 +8580,21 @@ func (obj *ExprStruct) Check(typ *types.Type) ([]*interfaces.UnificationInvarian
 }
 
 func (obj *ExprStruct) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	// We want to return whether the elements are all timeless.
+	timeless := types.AlwaysTimeless
+	for _, x := range obj.Fields {
+		t, err := x.Value.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+
+		timeless, err = types.CombineTimeless(timeless, t)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return timeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -9304,7 +9354,33 @@ func (obj *ExprFunc) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 }
 
 func (obj *ExprFunc) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	if obj.Body != nil {
+		propagatesTimeless := func(inputs []*types.Timeless) (*types.Timeless, error) {
+			extendedEnv := make(map[string]*types.Timeless)
+			for k, v := range env {
+				extendedEnv[k] = v
+			}
+			for i, arg := range obj.Args {
+				extendedEnv[arg.Name] = inputs[i]
+			}
+
+			return obj.Body.TimeCheck(extendedEnv)
+		}
+		return &types.Timeless{
+			IsTimeless:         nil,
+			PropagatesTimeless: &propagatesTimeless,
+		}, nil
+	}
+
+	if obj.Function != nil {
+		panic("TODO: check the info field")
+	}
+
+	if len(obj.Values) > 0 {
+		panic("TODO")
+	}
+
+	return nil, fmt.Errorf("TimeCheck: invalid ExprFunc")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -10202,7 +10278,26 @@ func (obj *ExprCall) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 }
 
 func (obj *ExprCall) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	if obj.expr == nil {
+		// possible programming error
+		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")
+	}
+
+	timeF, err := obj.expr.TimeCheck(map[string]*types.Timeless{})
+	if err != nil {
+		return nil, err
+	}
+
+	inputs := []*types.Timeless{}
+	for _, arg := range obj.Args {
+		input, err := arg.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input)
+	}
+
+	return types.ApplyTimeless(timeF, inputs)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -10590,7 +10685,13 @@ func (obj *ExprVar) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 }
 
 func (obj *ExprVar) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	// Delegate to the target.
+	expr, exists := obj.scope.Variables[obj.Name]
+	if !exists {
+		return nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
+	}
+
+	return expr.TimeCheck(map[string]*types.Timeless{})
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -10838,7 +10939,12 @@ func (obj *ExprParam) Check(typ *types.Type) ([]*interfaces.UnificationInvariant
 }
 
 func (obj *ExprParam) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	time, exists := env[obj.Name]
+	if !exists {
+		return nil, fmt.Errorf("param `%s` does not exist in the environment", obj.Name)
+	}
+
+	return time, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -11160,7 +11266,7 @@ func (obj *ExprPoly) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 }
 
 func (obj *ExprPoly) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	panic("ExprPoly.TimeCheck(): should not happen, all ExprPoly expressions should be gone by the time time-checking starts")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -11919,7 +12025,25 @@ func (obj *ExprIf) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, e
 }
 
 func (obj *ExprIf) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
-	panic("TODO")
+	v, err := obj.Condition.Value()
+	if err == nil {
+		// optimization: we know which branch will be taken
+		if v.Bool() {
+			return obj.ThenBranch.TimeCheck(env)
+		}
+		return obj.ElseBranch.TimeCheck(env)
+	}
+
+	// we don't know whether the then or else branch will be taken
+	time1, err1 := obj.ThenBranch.TimeCheck(env)
+	if err1 != nil {
+		return nil, err1
+	}
+	time2, err2 := obj.ElseBranch.TimeCheck(env)
+	if err2 != nil {
+		return nil, err2
+	}
+	return types.CombineTimeless(time1, time2)
 }
 
 // Func returns a function which returns the correct branch based on the ever

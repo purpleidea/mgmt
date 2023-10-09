@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	// HistoryFuncName is the name this function is registered as. This
-	// starts with an underscore so that it cannot be used from the lexer.
-	HistoryFuncName = "_history"
+	// HistoryFuncName is the name this function is registered as.
+	// TODO: move this into a separate package
+	HistoryFuncName = "history"
 
 	// arg names...
 	historyArgNameValue = "value"

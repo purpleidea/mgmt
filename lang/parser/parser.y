@@ -86,7 +86,6 @@ func init() {
 %token ELVIS ROCKET ARROW DOT
 %token BOOL_IDENTIFIER STR_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER
-%token VAR_IDENTIFIER_HX
 %token RES_IDENTIFIER
 %token IDENTIFIER CAPITALIZED_IDENTIFIER
 %token FUNC_IDENTIFIER
@@ -703,40 +702,6 @@ call:
 			},
 		}
 	}
-|	VAR_IDENTIFIER_HX
-	// get the N-th historical value, eg: $foo{3} is equivalent to: history($foo, 3)
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.expr = &ast.ExprCall{
-			Name: funcs.HistoryFuncName,
-			Args: []interfaces.Expr{
-				&ast.ExprVar{
-					Name: $1.str,
-				},
-				&ast.ExprInt{
-					V: $1.int,
-				},
-			},
-		}
-	}
-// TODO: fix conflicts with this method, and replace the above VAR_IDENTIFIER_HX
-// TODO: allow $pkg.ns.foo{4}, instead of $foo = $pkg.ns.foo ; $foo{4}
-// TODO: use this: dotted_var_identifier OPEN_BRACK INTEGER CLOSE_BRACK instead?
-//|	dotted_var_identifier OPEN_CURLY INTEGER CLOSE_CURLY
-//	{
-//		posLast(yylex, yyDollar) // our pos
-//		$$.expr = &ast.ExprCall{
-//			Name: funcs.HistoryFuncName,
-//			Args: []interfaces.Expr{
-//				&ast.ExprVar{
-//					Name: $1.str,
-//				},
-//				&ast.ExprInt{
-//					V: $3.int,
-//				},
-//			},
-//		}
-//	}
 |	expr IN expr
 	{
 		posLast(yylex, yyDollar) // our pos

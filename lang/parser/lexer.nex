@@ -295,40 +295,6 @@
 				panic(fmt.Sprintf("error lexing FLOAT, got: %v", err))
 			}
 		}
-/\$[a-z]+([a-z0-9_]*[a-z0-9]+)?{[0-9]+}/
-		{
-			// we have this as a single token, because otherwise the
-			// parser can get confused by the curly brackets :/
-			yylex.pos(lval) // our pos
-			s := yylex.Text()
-			s = s[1:len(s)] // remove the leading $
-			s = s[0:len(s)-1] // remove the trailing close curly
-			// XXX: nex has a bug that it gets confused by the
-			// following single curly brace. Please see:
-			// https://github.com/blynn/nex/issues/48
-			a := strings.Split(s, "{") // XXX: close match here: }
-			if len(a) != 2 {
-				panic(fmt.Sprintf("error lexing VAR_IDENTIFIER_HX: %v", a))
-			}
-			lval.str = a[0]
-			var err error
-			lval.int, err = strconv.ParseInt(a[1], 10, 64) // int64
-			if err == nil {
-				return VAR_IDENTIFIER_HX
-			} else if e := err.(*strconv.NumError); e.Err == strconv.ErrRange {
-				// this catches range errors for very large ints
-				lp := yylex.cast()
-				lp.lexerErr = &LexParseErr{
-					Err: ErrLexerIntegerOverflow,
-					Str: a[1],
-					Row: yylex.Line(),
-					Col: yylex.Column(),
-				}
-				return ERROR
-			} else {
-				panic(fmt.Sprintf("error lexing VAR_IDENTIFIER_HX, got: %v", err))
-			}
-		}
 /\$[a-z]([a-z0-9_]*[a-z0-9]+)?/
 		{
 			// an alternate pattern: /\$[a-z](|[a-z0-9_]*[a-z0-9])/

@@ -4,7 +4,7 @@ $ns = "estate"
 $exchanged = world.kvlookup($ns)
 $state = maplookup($exchanged, $hostname, "default")
 
-if $state == "one" || $state == "default" {
+if $state == "one" or $state == "default" {
 
 	file "/tmp/mgmt/state" {
 		state => $const.res.file.state.exists,

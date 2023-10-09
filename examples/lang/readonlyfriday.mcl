@@ -9,7 +9,7 @@ $s1 = template("Hello! It is now: {{ datetime_print . }}\n", $now)
 $s2 = if $is_friday {
 	"It's friday!!! (don't break anything, read-only)"
 } else {
-	if $day == "saturday" || $day == "sunday" {
+	if $day == "saturday" or $day == "sunday" {
 		"It's the weekend!"
 	} else {
 		fmt.printf("Unfortunately, it is %s. Go to work!", $day)

@@ -14,7 +14,7 @@ $threshold = 1.5	# change me if you like
 $h1 = $theload > $threshold
 $h2 = $theload{1} > $threshold
 $h3 = $theload{2} > $threshold
-$unload = $h1 || $h2 || $h3
+$unload = $h1 or $h2 or $h3
 
 virt "mgmt1" {
 	uri => "qemu:///session",

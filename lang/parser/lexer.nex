@@ -119,17 +119,17 @@
 			lval.str = yylex.Text()
 			return GTE
 		}
-/&&/		{
+/and/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
 			return AND
 		}
-/\|\|/		{
+/or/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
 			return OR
 		}
-/!/		{
+/not/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
 			return NOT

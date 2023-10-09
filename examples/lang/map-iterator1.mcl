@@ -9,7 +9,7 @@ $mod0 = math.mod($now, 8) == 0
 $mod1 = math.mod($now, 8) == 1
 $mod2 = math.mod($now, 8) == 2
 $mod3 = math.mod($now, 8) == 3
-$mod = $mod0 || $mod1 || $mod2 || $mod3
+$mod = $mod0 or $mod1 or $mod2 or $mod3
 
 $fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
 	len($x)

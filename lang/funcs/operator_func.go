@@ -295,7 +295,7 @@ func init() {
 	// logical and
 	// TODO: is there a way for the engine to have
 	// short-circuit operators, and does it matter?
-	RegisterOperator("&&", &types.FuncValue{
+	RegisterOperator("and", &types.FuncValue{
 		T: types.NewType("func(a bool, b bool) bool"),
 		V: func(input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -304,7 +304,7 @@ func init() {
 		},
 	})
 	// logical or
-	RegisterOperator("||", &types.FuncValue{
+	RegisterOperator("or", &types.FuncValue{
 		T: types.NewType("func(a bool, b bool) bool"),
 		V: func(input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -314,7 +314,7 @@ func init() {
 	})
 
 	// logical not (unary operator)
-	RegisterOperator("!", &types.FuncValue{
+	RegisterOperator("not", &types.FuncValue{
 		T: types.NewType("func(a bool) bool"),
 		V: func(input []types.Value) (types.Value, error) {
 			return &types.BoolValue{

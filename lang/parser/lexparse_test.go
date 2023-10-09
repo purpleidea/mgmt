@@ -945,7 +945,7 @@ func TestLexParse0(t *testing.T) {
 										Name: funcs.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
-												V: "!",
+												V: "not",
 											},
 											&ast.ExprInt{
 												V: 3,
@@ -966,7 +966,7 @@ func TestLexParse0(t *testing.T) {
 			name: "order of operations with not",
 			code: `
 			test "t1" {
-				boolptr => ! 3 > 4, # should parse, but not compile
+				boolptr => not 3 > 4, # should parse, but not compile
 			}
 			`,
 			fail: false,
@@ -988,7 +988,7 @@ func TestLexParse0(t *testing.T) {
 								Name: funcs.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
-										V: "&&",
+										V: "and",
 									},
 									&ast.ExprCall{
 										Name: funcs.OperatorFuncName,
@@ -1018,7 +1018,7 @@ func TestLexParse0(t *testing.T) {
 			name: "order of operations logical",
 			code: `
 			test "t1" {
-				boolptr => 7 < 4 && true, # should be false
+				boolptr => 7 < 4 and true, # should be false
 			}
 			`,
 			fail: false,

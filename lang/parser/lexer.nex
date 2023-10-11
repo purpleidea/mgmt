@@ -295,14 +295,6 @@
 				panic(fmt.Sprintf("error lexing FLOAT, got: %v", err))
 			}
 		}
-/\$[a-z]([a-z0-9_]*[a-z0-9]+)?/
-		{
-			// an alternate pattern: /\$[a-z](|[a-z0-9_]*[a-z0-9])/
-			yylex.pos(lval) // our pos
-			s := yylex.Text()
-			lval.str = s[1:len(s)] // remove the leading $
-			return VAR_IDENTIFIER
-		}
 /[a-z]([a-z0-9_]*[a-z0-9]+)?/
 		{
 			yylex.pos(lval) // our pos

@@ -85,7 +85,7 @@ func init() {
 %token COMMA COLON SEMICOLON
 %token ELVIS ROCKET ARROW DOT
 %token BOOL_IDENTIFIER STR_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
-%token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER VAR_IDENTIFIER
+%token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER
 %token RES_IDENTIFIER
 %token IDENTIFIER CAPITALIZED_IDENTIFIER
 %token FUNC_IDENTIFIER
@@ -112,10 +112,10 @@ func init() {
 %error IDENTIFIER STRING OPEN_CURLY IDENTIFIER ROCKET INTEGER CLOSE_CURLY: errstrParseExpectingComma
 %error IDENTIFIER STRING OPEN_CURLY IDENTIFIER ROCKET FLOAT CLOSE_CURLY: errstrParseExpectingComma
 
-%error VAR_IDENTIFIER EQ BOOL: errstrParseAdditionalEquals
-%error VAR_IDENTIFIER EQ STRING: errstrParseAdditionalEquals
-%error VAR_IDENTIFIER EQ INTEGER: errstrParseAdditionalEquals
-%error VAR_IDENTIFIER EQ FLOAT: errstrParseAdditionalEquals
+%error var_identifier EQ BOOL: errstrParseAdditionalEquals
+%error var_identifier EQ STRING: errstrParseAdditionalEquals
+%error var_identifier EQ INTEGER: errstrParseAdditionalEquals
+%error var_identifier EQ FLOAT: errstrParseAdditionalEquals
 
 %%
 top:
@@ -510,7 +510,7 @@ call:
 	}
 	// calling a function that's stored in a variable (a lambda)
 	// `$foo(4, "hey")` # call function value
-|	VAR_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
+|	dotted_var_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
@@ -811,14 +811,14 @@ args:
 ;
 arg:
 	// `$x`
-	VAR_IDENTIFIER
+	var_identifier
 	{
 		$$.arg = &interfaces.Arg{
 			Name: $1.str,
 		}
 	}
 	// `$x <type>`
-|	VAR_IDENTIFIER type
+|	var_identifier type
 	{
 		$$.arg = &interfaces.Arg{
 			Name: $1.str,
@@ -828,7 +828,7 @@ arg:
 ;
 bind:
 	// `$s = "hey"`
-	VAR_IDENTIFIER EQUALS expr
+	var_identifier EQUALS expr
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtBind{
@@ -838,7 +838,7 @@ bind:
 	}
 	// `$x bool = true`
 	// `$x int = if true { 42 } else { 13 }`
-|	VAR_IDENTIFIER type EQUALS expr
+|	var_identifier type EQUALS expr
 	{
 		posLast(yylex, yyDollar) // our pos
 		var expr interfaces.Expr = $4.expr
@@ -855,7 +855,7 @@ bind:
 /* TODO: do we want to include this?
 // resource bind
 rbind:
-	VAR_IDENTIFIER EQUALS resource
+	var_identifier EQUALS resource
 	{
 		posLast(yylex, yyDollar) // our pos
 		// XXX: this kind of bind is different than the others, because
@@ -1261,7 +1261,7 @@ type_func_arg:
 	}
 	// `$x <type>`
 	// XXX: should we allow specifying the arg name here?
-|	VAR_IDENTIFIER type
+|	var_identifier type
 	{
 		$$.arg = &interfaces.Arg{
 			Name: $1.str,
@@ -1282,6 +1282,14 @@ undotted_identifier:
 		$$.str = $1.str
 	}
 ;
+var_identifier:
+	// eg: $ foo (dollar prefix + identifier)
+	DOLLAR undotted_identifier
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $2.str // don't include the leading $
+	}
+;
 dotted_identifier:
 	undotted_identifier
 	{
@@ -1296,23 +1304,11 @@ dotted_identifier:
 ;
 // there are different ways the lexer/parser might choose to represent this...
 dotted_var_identifier:
-	// eg: $foo (no dots)
-	VAR_IDENTIFIER
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.str = $1.str
-	}
-	// eg: $foo . bar.baz (identifier + dotted identifier)
-|	VAR_IDENTIFIER DOT dotted_identifier
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.str = $1.str + interfaces.ModuleSep + $3.str
-	}
 	// eg: $ foo.bar.baz (dollar prefix + dotted identifier)
-|	DOLLAR dotted_identifier
+	DOLLAR dotted_identifier
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.str = $2.str
+		$$.str = $2.str // don't include the leading $
 	}
 ;
 capitalized_res_identifier:

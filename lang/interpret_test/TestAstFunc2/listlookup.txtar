@@ -1,7 +1,4 @@
 -- main.mcl --
-import "fmt"
-import "iter"
-
 $l1 = ["a", "b", "c",]
 
 $l2 = [$l1, ["hello", "world",],]

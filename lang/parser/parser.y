@@ -83,7 +83,7 @@ func init() {
 %token BOOL STRING INTEGER FLOAT
 %token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
-%token ELVIS ROCKET ARROW DOT
+%token ELVIS DEFAULT ROCKET ARROW DOT
 %token BOOL_IDENTIFIER STR_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER
 %token RES_IDENTIFIER
@@ -105,7 +105,10 @@ func init() {
 %left MULTIPLY DIVIDE
 %right NOT
 //%right EXP	// exponentiation
-%nonassoc IN	// TODO: is %nonassoc correct for this?
+%nonassoc ARROW		// XXX: is %nonassoc correct for this?
+%nonassoc DEFAULT	// XXX: is %nonassoc correct for this?
+%nonassoc OPEN_BRACK	// XXX: is %nonassoc correct for this?
+%nonassoc IN		// XXX: is %nonassoc correct for this?
 
 %error IDENTIFIER STRING OPEN_CURLY IDENTIFIER ROCKET BOOL CLOSE_CURLY: errstrParseExpectingComma
 %error IDENTIFIER STRING OPEN_CURLY IDENTIFIER ROCKET STRING CLOSE_CURLY: errstrParseExpectingComma
@@ -699,6 +702,70 @@ call:
 					V: $1.str,
 				},
 				$2.expr,
+			},
+		}
+	}
+	// lookup an index in a list or a key in a map
+	// lookup($foo, $key)
+	// `$foo[$key]` // no default specifier
+|	expr OPEN_BRACK expr CLOSE_BRACK
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ast.ExprCall{
+			Name: funcs.LookupFuncName,
+			Args: []interfaces.Expr{
+				$1.expr, // the list or map
+				$3.expr, // the index or key is an expr
+				//$6.expr, // the default
+			},
+		}
+	}
+	// lookup an index in a list or a key in a map with a default
+	// lookup_default($foo, $key, $default)
+	// `$foo[$key] || "default"`
+|	expr OPEN_BRACK expr CLOSE_BRACK DEFAULT expr
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ast.ExprCall{
+			Name: funcs.LookupDefaultFuncName,
+			Args: []interfaces.Expr{
+				$1.expr, // the list or map
+				$3.expr, // the index or key is an expr
+				$6.expr, // the default
+			},
+		}
+	}
+	// lookup a field in a struct
+	// _struct_lookup($foo, "field")
+	// $foo->field
+|	expr ARROW IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ast.ExprCall{
+			Name: funcs.StructLookupFuncName,
+			Args: []interfaces.Expr{
+				$1.expr, // the struct
+				&ast.ExprStr{
+					V: $3.str, // the field is always an str
+				},
+				//$5.expr, // the default
+			},
+		}
+	}
+	// lookup a field in a struct with a default
+	// _struct_lookup_optional($foo, "field", "default")
+	// $foo->field || "default"
+|	expr ARROW IDENTIFIER DEFAULT expr
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ast.ExprCall{
+			Name: funcs.StructLookupOptionalFuncName,
+			Args: []interfaces.Expr{
+				$1.expr, // the struct
+				&ast.ExprStr{
+					V: $3.str, // the field is always an str
+				},
+				$5.expr, // the default
 			},
 		}
 	}

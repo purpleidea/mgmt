@@ -2,7 +2,7 @@ import "world"
 
 $ns = "estate"
 $exchanged = world.kvlookup($ns)
-$state = maplookup($exchanged, $hostname, "default")
+$state = map_lookup_optional($exchanged, $hostname, "default")
 
 if $state == "one" or $state == "default" {
 

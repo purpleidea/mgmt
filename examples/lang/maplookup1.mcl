@@ -2,13 +2,13 @@ import "fmt"
 
 $m = {"k1" => 42, "k2" => 13,}
 
-$found = maplookup($m, "k1", 99)
+$found = map_lookup_optional($m, "k1", 99)
 
 print "print1" {
 	msg => fmt.printf("found value of: %d", $found),
 }
 
-$notfound = maplookup($m, "k3", 99)
+$notfound = map_lookup_optional($m, "k3", 99)
 
 print "print2" {
 	msg => fmt.printf("notfound value of: %d", $notfound),

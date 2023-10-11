@@ -5,10 +5,10 @@ $l2 = [$l1, ["hello", "world",],]
 
 #test $l1[0] {}
 #test $l1[1] {}
-test listlookup($l1, 0, "fail") {} # TODO: add syntactic sugar for listlookup
-test listlookup($l1, 2, "fail") {} # TODO: add syntactic sugar for listlookup
-test listlookup($l1, 3, "pass") {} # TODO: add syntactic sugar for listlookup
-test listlookup($l2, 1, ["fail",]) {} # TODO: add syntactic sugar for listlookup
+test list_lookup_optional($l1, 0, "fail") {} # TODO: add syntactic sugar for list_lookup_optional
+test list_lookup_optional($l1, 2, "fail") {} # TODO: add syntactic sugar for list_lookup_optional
+test list_lookup_optional($l1, 3, "pass") {} # TODO: add syntactic sugar for list_lookup_optional
+test list_lookup_optional($l2, 1, ["fail",]) {} # TODO: add syntactic sugar for list_lookup_optional
 -- OUTPUT --
 Vertex: test[a]
 Vertex: test[c]

@@ -27,25 +27,24 @@ import (
 )
 
 const (
-	// MapLookupFuncName is the name this function is registered as. This
-	// starts with an underscore so that it cannot be used from the lexer.
-	// XXX: change to _maplookup and add syntax in the lexer/parser
-	MapLookupFuncName = "maplookup"
+	// MapLookupDefaultFuncName is the name this function is registered as.
+	MapLookupDefaultFuncName = "map_lookup_default"
 
 	// arg names...
-	mapLookupArgNameMap = "map"
-	mapLookupArgNameKey = "key"
-	mapLookupArgNameDef = "default"
+	mapLookupDefaultArgNameMap = "map"
+	mapLookupDefaultArgNameKey = "key"
+	mapLookupDefaultArgNameDef = "default"
 )
 
 func init() {
-	Register(MapLookupFuncName, func() interfaces.Func { return &MapLookupFunc{} }) // must register the func and name
+	Register(MapLookupDefaultFuncName, func() interfaces.Func { return &MapLookupDefaultFunc{} }) // must register the func and name
 }
 
-var _ interfaces.PolyFunc = &MapLookupFunc{} // ensure it meets this expectation
+var _ interfaces.PolyFunc = &MapLookupDefaultFunc{} // ensure it meets this expectation
 
-// MapLookupFunc is a key map lookup function.
-type MapLookupFunc struct {
+// MapLookupDefaultFunc is a key map lookup function. If you provide a missing
+// key, then it will return the default value you specified for this function.
+type MapLookupDefaultFunc struct {
 	Type *types.Type // Kind == Map, that is used as the map we lookup
 
 	init *interfaces.Init
@@ -56,13 +55,13 @@ type MapLookupFunc struct {
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *MapLookupFunc) String() string {
-	return MapLookupFuncName
+func (obj *MapLookupDefaultFunc) String() string {
+	return MapLookupDefaultFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *MapLookupFunc) ArgGen(index int) (string, error) {
-	seq := []string{mapLookupArgNameMap, mapLookupArgNameKey, mapLookupArgNameDef}
+func (obj *MapLookupDefaultFunc) ArgGen(index int) (string, error) {
+	seq := []string{mapLookupDefaultArgNameMap, mapLookupDefaultArgNameKey, mapLookupDefaultArgNameDef}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -70,7 +69,7 @@ func (obj *MapLookupFunc) ArgGen(index int) (string, error) {
 }
 
 // Unify returns the list of invariants that this func produces.
-func (obj *MapLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
+func (obj *MapLookupDefaultFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
@@ -370,7 +369,7 @@ func (obj *MapLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, e
 // Polymorphisms returns the list of possible function signatures available for
 // this static polymorphic function. It relies on type and value hints to limit
 // the number of returned possibilities.
-func (obj *MapLookupFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
+func (obj *MapLookupDefaultFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
 	// TODO: return `variant` as arg for now -- maybe there's a better way?
 	variant := []*types.Type{types.NewType("func(map variant, key variant, default variant) variant")}
 
@@ -435,20 +434,20 @@ func (obj *MapLookupFunc) Polymorphisms(partialType *types.Type, partialValues [
 	typFunc := &types.Type{
 		Kind: types.KindFunc, // function type
 		Map:  make(map[string]*types.Type),
-		Ord:  []string{mapLookupArgNameMap, mapLookupArgNameKey, mapLookupArgNameDef},
+		Ord:  []string{mapLookupDefaultArgNameMap, mapLookupDefaultArgNameKey, mapLookupDefaultArgNameDef},
 		Out:  nil,
 	}
-	typFunc.Map[mapLookupArgNameMap] = typ
-	typFunc.Map[mapLookupArgNameKey] = typ.Key
-	typFunc.Map[mapLookupArgNameDef] = typ.Val
+	typFunc.Map[mapLookupDefaultArgNameMap] = typ
+	typFunc.Map[mapLookupDefaultArgNameKey] = typ.Key
+	typFunc.Map[mapLookupDefaultArgNameDef] = typ.Val
 	typFunc.Out = typ.Val
 
 	// TODO: don't include partial internal func map's for now, allow in future?
 	if typ.Key == nil || typ.Val == nil {
 		typFunc.Map = make(map[string]*types.Type) // erase partial
-		typFunc.Map[mapLookupArgNameMap] = types.TypeVariant
-		typFunc.Map[mapLookupArgNameKey] = types.TypeVariant
-		typFunc.Map[mapLookupArgNameDef] = types.TypeVariant
+		typFunc.Map[mapLookupDefaultArgNameMap] = types.TypeVariant
+		typFunc.Map[mapLookupDefaultArgNameKey] = types.TypeVariant
+		typFunc.Map[mapLookupDefaultArgNameDef] = types.TypeVariant
 	}
 	if typ.Val == nil {
 		typFunc.Out = types.TypeVariant
@@ -469,7 +468,7 @@ func (obj *MapLookupFunc) Polymorphisms(partialType *types.Type, partialValues [
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
+func (obj *MapLookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
 		return nil, fmt.Errorf("input type must be of kind func")
@@ -517,7 +516,7 @@ func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *MapLookupFunc) Validate() error {
+func (obj *MapLookupDefaultFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -529,7 +528,7 @@ func (obj *MapLookupFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *MapLookupFunc) Info() *interfaces.Info {
+func (obj *MapLookupDefaultFunc) Info() *interfaces.Info {
 	var sig *types.Type
 	if obj.Type != nil { // don't panic if called speculatively
 		// TODO: can obj.Type.Key or obj.Type.Val be nil (a partial) ?
@@ -544,20 +543,20 @@ func (obj *MapLookupFunc) Info() *interfaces.Info {
 }
 
 // helper
-func (obj *MapLookupFunc) sig() *types.Type {
+func (obj *MapLookupDefaultFunc) sig() *types.Type {
 	k := obj.Type.Key.String()
 	v := obj.Type.Val.String()
-	return types.NewType(fmt.Sprintf("func(%s %s, %s %s, %s %s) %s", mapLookupArgNameMap, obj.Type.String(), mapLookupArgNameKey, k, mapLookupArgNameDef, v, v))
+	return types.NewType(fmt.Sprintf("func(%s %s, %s %s, %s %s) %s", mapLookupDefaultArgNameMap, obj.Type.String(), mapLookupDefaultArgNameKey, k, mapLookupDefaultArgNameDef, v, v))
 }
 
 // Init runs some startup code for this function.
-func (obj *MapLookupFunc) Init(init *interfaces.Init) error {
+func (obj *MapLookupDefaultFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *MapLookupFunc) Stream(ctx context.Context) error {
+func (obj *MapLookupDefaultFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -574,9 +573,9 @@ func (obj *MapLookupFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			m := (input.Struct()[mapLookupArgNameMap]).(*types.MapValue)
-			key := input.Struct()[mapLookupArgNameKey]
-			def := input.Struct()[mapLookupArgNameDef]
+			m := (input.Struct()[mapLookupDefaultArgNameMap]).(*types.MapValue)
+			key := input.Struct()[mapLookupDefaultArgNameKey]
+			def := input.Struct()[mapLookupDefaultArgNameDef]
 
 			var result types.Value
 			val, exists := m.Lookup(key)

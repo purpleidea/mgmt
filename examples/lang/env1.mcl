@@ -2,7 +2,7 @@ import "fmt"
 import "sys"
 
 $env = sys.env()
-$m = maplookup($env, "GOPATH", "")
+$m = map_lookup_optional($env, "GOPATH", "")
 
 print "print0" {
 	msg => if sys.hasenv("GOPATH") {

@@ -18,8 +18,8 @@ $foo = iter.map([$id1, $id2,], $generate)
 
 #test $foo[0] {}
 #test $foo[1] {}
-test listlookup($foo, 0, "fail") {} # TODO: add syntactic sugar for listlookup
-test listlookup($foo, 1, "fail") {} # TODO: add syntactic sugar for listlookup
+test list_lookup_optional($foo, 0, "fail") {} # TODO: add syntactic sugar for list_lookup_optional
+test list_lookup_optional($foo, 1, "fail") {} # TODO: add syntactic sugar for list_lookup_optional
 -- OUTPUT --
 Vertex: test[foo]
 Vertex: test[foofoo]

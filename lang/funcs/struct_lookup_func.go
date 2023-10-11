@@ -29,8 +29,7 @@ import (
 const (
 	// StructLookupFuncName is the name this function is registered as. This
 	// starts with an underscore so that it cannot be used from the lexer.
-	// XXX: change to _structlookup and add syntax in the lexer/parser
-	StructLookupFuncName = "structlookup"
+	StructLookupFuncName = "_struct_lookup"
 
 	// arg names...
 	structLookupArgNameStruct = "struct"

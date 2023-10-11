@@ -76,8 +76,8 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 	var invariants []interfaces.Invariant
 	var invar interfaces.Invariant
 
-	// func(list T1, index int, default T2) T2
-	// (list: []T2 => T2 aka T1 => T2)
+	// func(list T1, index int, default T3) T3
+	// (list: []T3 => T3 aka T1 => T3)
 
 	listName, err := obj.ArgGen(0)
 	if err != nil {
@@ -106,7 +106,7 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 	}
 	invariants = append(invariants, invar)
 
-	// relationship between T1 and T2
+	// relationship between T1 and T3
 	invar = &interfaces.EqualityWrapListInvariant{
 		Expr1:    dummyList,
 		Expr2Val: dummyDefault,
@@ -185,7 +185,7 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 			// If we figure out either of these types, we'll know
 			// the full type...
 			var t1 *types.Type // list type
-			var t2 *types.Type // list val type
+			var t3 *types.Type // list val type
 
 			// validateArg0 checks: list T1
 			validateArg0 := func(typ *types.Type) error {
@@ -206,13 +206,13 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 				if err := typ.Cmp(t1); t1 != nil && err != nil {
 					return errwrap.Wrapf(err, "input type was inconsistent")
 				}
-				if err := typ.Val.Cmp(t2); t2 != nil && err != nil {
+				if err := typ.Val.Cmp(t3); t3 != nil && err != nil {
 					return errwrap.Wrapf(err, "input val type was inconsistent")
 				}
 
 				// learn!
 				t1 = typ
-				t2 = typ.Val
+				t3 = typ.Val
 				return nil
 			}
 
@@ -227,13 +227,13 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 				return nil
 			}
 
-			// validateArg2 checks: list val T2
+			// validateArg2 checks: list val T3
 			validateArg2 := func(typ *types.Type) error {
 				if typ == nil { // unknown so far
 					return nil
 				}
 
-				if err := typ.Cmp(t2); t2 != nil && err != nil {
+				if err := typ.Cmp(t3); t3 != nil && err != nil {
 					return errwrap.Wrapf(err, "input val type was inconsistent")
 				}
 				if t1 != nil {
@@ -243,9 +243,9 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 				}
 				t := &types.Type{ // build t1
 					Kind: types.KindList,
-					Val:  typ, // t2
+					Val:  typ, // t3
 				}
-				if t2 != nil {
+				if t3 != nil {
 					if err := t.Cmp(t1); t1 != nil && err != nil {
 						return errwrap.Wrapf(err, "input type was inconsistent")
 					}
@@ -254,18 +254,18 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 
 				// learn!
 				t1 = t
-				t2 = typ
+				t3 = typ
 				return nil
 			}
 
 			if typ, err := cfavInvar.Args[0].Type(); err == nil { // is it known?
-				// this sets t1 and t2 on success if it learned
+				// this sets t1 and t3 on success if it learned
 				if err := validateArg0(typ); err != nil {
 					return nil, errwrap.Wrapf(err, "first list arg type is inconsistent")
 				}
 			}
 			if typ, exists := solved[cfavInvar.Args[0]]; exists { // alternate way to lookup type
-				// this sets t1 and t2 on success if it learned
+				// this sets t1 and t3 on success if it learned
 				if err := validateArg0(typ); err != nil {
 					return nil, errwrap.Wrapf(err, "first list arg type is inconsistent")
 				}
@@ -285,13 +285,13 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 			}
 
 			if typ, err := cfavInvar.Args[2].Type(); err == nil { // is it known?
-				// this sets t1 and t2 on success if it learned
+				// this sets t1 and t3 on success if it learned
 				if err := validateArg2(typ); err != nil {
 					return nil, errwrap.Wrapf(err, "third default arg type is inconsistent")
 				}
 			}
 			if typ, exists := solved[cfavInvar.Args[2]]; exists { // alternate way to lookup type
-				// this sets t1 and t2 on success if it learned
+				// this sets t1 and t3 on success if it learned
 				if err := validateArg2(typ); err != nil {
 					return nil, errwrap.Wrapf(err, "third default arg type is inconsistent")
 				}
@@ -306,10 +306,10 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 				}
 				invariants = append(invariants, invar)
 			}
-			if t2 != nil {
+			if t3 != nil {
 				invar := &interfaces.EqualsInvariant{
 					Expr: dummyDefault,
-					Type: t2,
+					Type: t3,
 				}
 				invariants = append(invariants, invar)
 			}

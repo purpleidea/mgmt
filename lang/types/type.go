@@ -550,8 +550,12 @@ func NewType(s string) *Type {
 	return nil // error (this also matches the empty string as input)
 }
 
-// New creates a new Value of this type.
+// New creates a new Value of this type. It will represent the "zero" value. It
+// panics if you give it a malformed type.
 func (obj *Type) New() Value {
+	if obj == nil {
+		panic("malformed type")
+	}
 	switch obj.Kind {
 	case KindBool:
 		return NewBool()

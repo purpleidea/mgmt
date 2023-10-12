@@ -774,6 +774,7 @@ func NewList(t *Type) *ListValue {
 		return nil // sanity check
 	}
 	return &ListValue{
+		V: []Value{},
 		T: t,
 	}
 }

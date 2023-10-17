@@ -1,0 +1,36 @@
+-- main.mcl --
+$l1 = ["a", "b", "c",]
+
+$l2 = [$l1, ["hello", "world",],]
+
+test $l1[0] {}
+test $l1[2] {}
+test $l1[3] || "pass" {}
+test $l2[1] {}
+
+$map1 map{int: str} = {42 => "hello1",}
+test $map1[42] {}
+
+$map2 map{int: str} = {42 => "hello2",}
+test $map2[13] || "world2" {}
+
+$map3 = {42 => "hello3",}
+test $map3[42] {}
+
+$map4 = {42 => "hello4",}
+test $map4[13] || "world4" {}
+
+$map5 = {"wow" => "pass1",}
+test $map5["wow"] {}
+
+-- OUTPUT --
+Vertex: test[a]
+Vertex: test[c]
+Vertex: test[hello1]
+Vertex: test[hello3]
+Vertex: test[hello]
+Vertex: test[pass1]
+Vertex: test[pass]
+Vertex: test[world2]
+Vertex: test[world4]
+Vertex: test[world]

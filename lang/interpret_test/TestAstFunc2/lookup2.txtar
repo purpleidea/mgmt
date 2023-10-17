@@ -1,0 +1,24 @@
+-- main.mcl --
+
+$st1 = struct{
+	a => 42,
+	b => true,
+	c => "pass1",
+}
+
+test $st1->c || "default" {}
+test $st1->missing || "pass2" {}
+
+$st2 = struct{
+	a => 42,
+	b => true,
+	c => "pass3",
+}
+
+test $st2->c {}
+#test $st2->missing + "fail" {}	# this can't unify! (by design!)
+
+-- OUTPUT --
+Vertex: test[pass1]
+Vertex: test[pass2]
+Vertex: test[pass3]

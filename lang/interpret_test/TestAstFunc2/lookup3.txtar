@@ -1,0 +1,14 @@
+-- main.mcl --
+
+$st = struct{
+	a => 42,
+	b => true,
+	c => "wow",
+}
+
+# Since there is no field named "missing", we can't guess what the zero value
+# would be for this field, and as a result, we can't unify or compile this code!
+test $st->missing + "fail" {}	# this can't unify!
+
+-- OUTPUT --
+# err: errUnify: 2 unconsumed generators

@@ -153,6 +153,9 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 				return nil, fmt.Errorf("unable to build function with %d args", l)
 			}
 
+			var invariants []interfaces.Invariant
+			var invar interfaces.Invariant
+
 			// add the relationship to the returned value
 			invar = &interfaces.EqualityInvariant{
 				Expr1: cfavInvar.Expr,
@@ -178,9 +181,6 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 				Expr2: dummyDefault,
 			}
 			invariants = append(invariants, invar)
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
 
 			// If we figure out either of these types, we'll know
 			// the full type...
@@ -316,7 +316,7 @@ func (obj *ListLookupFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, 
 
 			// XXX: if t{1..2} are missing, we could also return a
 			// new generator for later if we learn new information,
-			// but we'd have to be careful to not do the infinitely
+			// but we'd have to be careful to not do it infinitely.
 
 			// TODO: do we return this relationship with ExprCall?
 			invar = &interfaces.EqualityWrapCallInvariant{

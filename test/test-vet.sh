@@ -19,7 +19,10 @@ function parser-indentation() {
 	if grep $'\t|' "$1"; then	# indent the pipe too
 		return 1
 	fi
-	if grep ' |' "$1"; then	# indent the pipe too (no spaces!)
+	# indent the pipe too (no spaces!)
+	# skip over any lines with leading comments
+	# the $ before the \t magically makes grep match the tab somehow...
+	if grep ' |' "$1" | grep -v '^['$'\t'']*// '; then
 		return 1
 	fi
 	if grep '^ ' "$1"; then	# format with tabs, no leading spaces

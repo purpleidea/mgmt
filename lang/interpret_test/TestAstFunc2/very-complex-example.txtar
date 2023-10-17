@@ -72,7 +72,6 @@ $generate = func($idn) {
 # this code should be rejected during type unification
 $foo = iter.map([$id1, $id2,], $generate)
 
-#test $foo[0] {}
-test list_lookup_optional($foo, 0, "fail") {} # TODO: add syntactic sugar for list_lookup_optional
+test $foo[0] || "fail" {}
 -- OUTPUT --
 # err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Str != Int)

@@ -15,7 +15,7 @@ $t = sys.hasenv("TEST")
 $f = sys.hasenv("DOESNOTEXIST")
 
 $env = sys.env()
-$m = map_lookup_optional($env, "TEST", "321")
+$m = $env["TEST"] || "321"
 
 file "${tmpdir}/environ" {
 	state => $const.res.file.state.exists,

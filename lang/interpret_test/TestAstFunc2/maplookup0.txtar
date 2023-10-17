@@ -1,15 +1,15 @@
 -- main.mcl --
 $map1 map{int: str} = {42 => "hello1",}
-test map_lookup_optional($map1, 42, "not found") {}
+test $map1[42] || "not found" {}
 
 $map2 map{int: str} = {42 => "hello2",}
-test map_lookup_optional($map2, 13, "world2") {}
+test $map2[13] || "world2" {}
 
 $map3 = {42 => "hello3",}
-test map_lookup_optional($map3, 42, "not found") {}
+test $map3[42] || "not found" {}
 
 $map4 = {42 => "hello4",}
-test map_lookup_optional($map4, 13, "world4") {}
+test $map4[13] || "world4" {}
 -- OUTPUT --
 Vertex: test[hello1]
 Vertex: test[hello3]

@@ -3,7 +3,7 @@ import "world"
 
 $ns = "estate"
 $exchanged = world.kvlookup($ns)
-$state = map_lookup_optional($exchanged, $hostname, "default")
+$state = $exchanged[$hostname] || "default"
 
 exec "exec0" {
 	cmd => "echo hello world && echo goodbye world 1>&2", # to stdout && stderr

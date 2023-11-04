@@ -1,18 +1,18 @@
 -- main.mcl --
 $st0 = struct{x1 => 1.0, x5 => 2.1, x15 => 3.2,}
-$s0a = if structlookup($st0, "x1") == 1.0 {
+$s0a = if $st0->x1 == 1.0 {
 	"passed0a"
 } else {
 	"failed"
 }
 test $s0a {}
-$s0b = if structlookup($st0, "x5") == 2.1 {
+$s0b = if $st0->x5 == 2.1 {
 	"passed0b"
 } else {
 	"failed"
 }
 test $s0b {}
-$s0c = if structlookup($st0, "x15") == 3.2 {
+$s0c = if $st0->x15 == 3.2 {
 	"passed0c"
 } else {
 	"failed"
@@ -20,7 +20,7 @@ $s0c = if structlookup($st0, "x15") == 3.2 {
 test $s0c {}
 
 $st1 struct{x1 float; x5 float; x15 float} = struct{x1 => 1.0, x5 => 2.1, x15 => 3.2,}
-$s1 = if structlookup($st1, "x5") == 2.1 {
+$s1 = if $st1->x5 == 2.1 {
 	"passed1"
 } else {
 	"failed"
@@ -28,7 +28,7 @@ $s1 = if structlookup($st1, "x5") == 2.1 {
 test $s1 {}
 
 $st2 = struct{x1 => 1.0, x5 => 2.1, x15 => 3.2,}
-$s2 = if structlookup($st2, "x5") == 2.1 {
+$s2 = if $st2->x5 == 2.1 {
 	"passed2"
 } else {
 	"failed"

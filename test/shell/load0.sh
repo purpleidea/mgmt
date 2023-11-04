@@ -27,9 +27,9 @@ import "sys"
 
 \$theload = sys.load()
 
-\$x1 = structlookup(\$theload, "x1")
-\$x5 = structlookup(\$theload, "x5")
-\$x15 = structlookup(\$theload, "x15")
+\$x1 = \$theload->x1
+\$x5 = \$theload->x5
+\$x15 = \$theload->x15
 
 file "${tmpdir}/loadavg" {
 	content => fmt.printf("load average: %f, %f, %f\n", \$x1, \$x5, \$x15),

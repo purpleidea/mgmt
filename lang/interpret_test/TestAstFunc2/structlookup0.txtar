@@ -1,12 +1,12 @@
 -- main.mcl --
 $st0 struct{x str} = struct{x => "hello",}
-test structlookup($st0, "x") {}
+test $st0->x {}
 
 $st1 = struct{y => "world",}
-test structlookup($st1, "y") {}
+test $st1->y {}
 
 $st2 = struct{x => true, y=> 42, z => "hello world",}
-test structlookup($st2, "z") {}
+test $st2->z {}
 -- OUTPUT --
 Vertex: test[hello world]
 Vertex: test[hello]

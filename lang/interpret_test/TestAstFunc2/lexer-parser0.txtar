@@ -1,0 +1,16 @@
+-- main.mcl --
+import "fmt"
+
+$map = 55
+$fn = func($in) { # in is a special keyword
+	13
+}
+test fmt.printf("%d", $fn(0)) {}
+func fn($in) { # in is a special keyword
+	42 + $map
+}
+test fmt.printf("%d", $fn(0)) {}
+test fmt.printf("%d", fn(0)) {}
+-- OUTPUT --
+Vertex: test[13]
+Vertex: test[97]

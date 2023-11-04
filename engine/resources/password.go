@@ -58,14 +58,14 @@ type PasswordRes struct {
 	Length uint16 `lang:"length" yaml:"length"`
 
 	// Saved caches the password in the clear locally.
-	Saved bool
+	Saved bool `lang:"saved" yaml:"saved"`
 
 	// CheckRecovery specifies that we should recover from, regenerate, and
 	// carry on casually without erroring the resource if the "check"
 	// facility fails. This can happen when loading a saved password from
 	// disk which is not of the expected length. In this case, we'd discard
 	// the old saved password and create a new one without erroring.
-	CheckRecovery bool
+	CheckRecovery bool `lang:"check_recovery" yaml:"check_recovery"`
 
 	path       string // the path to local storage
 	recWatcher *recwatch.RecWatcher

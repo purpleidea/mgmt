@@ -747,7 +747,7 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 			return nil, errwrap.Wrapf(err, "resource field `%s` has no compatible type", x.Field)
 		}
 		if err := t.Cmp(typ); err != nil {
-			return nil, errwrap.Wrapf(err, "resource field `%s` of type `%+v`, cannot take type `%+v", x.Field, t, typ)
+			return nil, errwrap.Wrapf(err, "resource field `%s` of type `%+v`, cannot take type `%+v`", x.Field, t, typ)
 		}
 
 		if x.valuePtr == nil {

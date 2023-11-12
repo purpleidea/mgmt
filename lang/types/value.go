@@ -233,7 +233,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}, nil
 
 	default:
-		return nil, fmt.Errorf("unable to represent value of %+v", v)
+		return nil, fmt.Errorf("unable to represent value of %+v which has kind: %v", v, kind)
 	}
 }
 
@@ -278,6 +278,10 @@ func Into(v Value, rv reflect.Value) error {
 		}
 		// No matching kind found, must be an incompatible conversion
 		return fmt.Errorf("cannot Into() %+v of type %s into %s", v, v.Type(), typ)
+	}
+
+	if typ == nil {
+		return fmt.Errorf("cannot Into() %+v of type %s into a nil type", v, v.Type())
 	}
 
 	switch v := v.(type) {

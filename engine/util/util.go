@@ -193,7 +193,7 @@ func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 strin
 	}
 
 	if kind1 != kind2 {
-		return fmt.Errorf("kind mismatch between %s and %s", kind1, kind2)
+		return fmt.Errorf("field kind mismatch between %s and %s", kind1, kind2)
 	}
 
 	if t1, t2 := value1.Type(), value2.Type(); t1 != t2 {

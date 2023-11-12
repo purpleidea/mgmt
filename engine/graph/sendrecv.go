@@ -100,7 +100,7 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 
 		// i think we probably want the same kind, at least for now...
 		if kind1 != kind2 {
-			e := fmt.Errorf("kind mismatch between %s: %s and %s: %s", v.Res, kind1, res, kind2)
+			e := fmt.Errorf("send/recv kind mismatch between %s: %s and %s: %s", v.Res, kind1, res, kind2)
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}

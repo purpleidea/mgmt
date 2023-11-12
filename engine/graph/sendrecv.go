@@ -128,13 +128,16 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		}
 
 		// if the values aren't equal, we're changing the receiver
-		if !reflect.DeepEqual(value1.Interface(), value2.Interface()) {
-			// TODO: can we catch the panics here in case they happen?
-			value2.Set(value1) // do it for all types that match
-			updated[k] = true  // we updated this key!
-			v.Changed = true   // tag this key as updated!
-			obj.Logf("SendRecv: %s.%s -> %s.%s", v.Res, v.Key, res, k)
+		if reflect.DeepEqual(value1.Interface(), value2.Interface()) {
+			continue // skip as they're the same, no error needed
 		}
+
+		// TODO: can we catch the panics here in case they happen?
+
+		value2.Set(value1) // do it for all types that match
+		updated[k] = true  // we updated this key!
+		v.Changed = true   // tag this key as updated!
+		obj.Logf("SendRecv: %s.%s -> %s.%s", v.Res, v.Key, res, k)
 	}
 	return updated, err
 }

@@ -202,6 +202,10 @@ func (obj *Lang) Init() error {
 	if err := unifier.Unify(); err != nil {
 		return errwrap.Wrapf(err, "could not unify types")
 	}
+	// XXX: Should we do a kind of SetType on resources here to tell the
+	// ones with variant fields what their concrete field types are? They
+	// should only be dynamic in implementation and before unification, and
+	// static once we've unified the specific resource.
 
 	obj.Logf("building function graph...")
 	// we assume that for some given code, the list of funcs doesn't change

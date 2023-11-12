@@ -942,6 +942,11 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: unification passed, expected fail", index)
 				return
 			}
+			// XXX: Should we do a kind of SetType on resources here
+			// to tell the ones with variant fields what their
+			// concrete field types are? They should only be dynamic
+			// in implementation and before unification, and static
+			// once we've unified the specific resource.
 
 			// build the function graph
 			graph, err := iast.Graph()

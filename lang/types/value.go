@@ -283,6 +283,15 @@ func Into(v Value, rv reflect.Value) error {
 	if typ == nil {
 		return fmt.Errorf("cannot Into() %+v of type %s into a nil type", v, v.Type())
 	}
+	// This is used when we are setting a resource field which has type of
+	// interface{} instead of a string, bool, list, etc...
+	if isInterface := typ.Kind() == reflect.Interface; isInterface {
+		//x := reflect.ValueOf(v) // no!
+		// use the value with type interface{}, not types.Value
+		x := reflect.ValueOf(v.Value())
+		rv.Set(x)
+		return nil
+	}
 
 	switch v := v.(type) {
 	case *BoolValue:

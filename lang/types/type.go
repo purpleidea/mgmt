@@ -98,6 +98,7 @@ func ResTypeOf(t reflect.Type) (*Type, error) {
 		StructTagOpt(StructTag),
 		StrictStructTagOpt(true),
 		SkipBadStructFieldsOpt(true),
+		AllowInterfaceTypeOpt(true),
 	}
 	return ConfigurableTypeOf(t, opts...)
 }

@@ -746,7 +746,13 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "resource field `%s` has no compatible type", x.Field)
 		}
-		if err := t.Cmp(typ); err != nil {
+		if t == nil {
+			// possible programming error
+			return nil, fmt.Errorf("resource field `%s` of nil type cannot match type `%+v`", x.Field, typ)
+		}
+
+		// Let the variants pass through...
+		if err := t.Cmp(typ); err != nil && t.Kind != types.KindVariant {
 			return nil, errwrap.Wrapf(err, "resource field `%s` of type `%+v`, cannot take type `%+v`", x.Field, t, typ)
 		}
 
@@ -1320,6 +1326,29 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 	if !exists {
 		return nil, fmt.Errorf("field `%s` does not exist in `%s`", obj.Field, kind)
 	}
+	if typ == nil {
+		// possible programming error
+		return nil, fmt.Errorf("type for field `%s` in `%s` is nil", obj.Field, kind)
+	}
+	if typ.Kind == types.KindVariant { // special path, res field has interface{}
+		if typ.Var == nil {
+			invar := &interfaces.AnyInvariant{
+				Expr: obj.Value,
+			}
+			invariants = append(invariants, invar)
+			return invariants, nil
+		}
+
+		// in case it is present (nil is okay too)
+		invar := &interfaces.EqualsInvariant{
+			Expr: obj.Value,
+			Type: typ.Var, // in case it is present (nil is okay too)
+		}
+		invariants = append(invariants, invar)
+		return invariants, nil
+	}
+
+	// regular scenario
 	invar := &interfaces.EqualsInvariant{
 		Expr: obj.Value,
 		Type: typ,

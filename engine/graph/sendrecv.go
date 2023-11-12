@@ -93,6 +93,13 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		value2 := obj2.FieldByName(key2)
 		kind2 := value2.Kind()
 
+		// For situations where we send a variant to the resource!
+		// TODO: should this be a for loop to un-nest multiple times?
+		if kind1 == reflect.Interface {
+			value1 = value1.Elem() // un-nest one interface
+			kind1 = value1.Kind()
+		}
+
 		if obj.Debug {
 			obj.Logf("Send(%s) has %v: %v", type1, kind1, value1)
 			obj.Logf("Recv(%s) has %v: %v", type2, kind2, value2)

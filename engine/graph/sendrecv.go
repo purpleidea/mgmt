@@ -93,11 +93,17 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		value2 := obj2.FieldByName(key2)
 		kind2 := value2.Kind()
 
+		dest := value2 // save the o.g. because we need the real dest!
+
 		// For situations where we send a variant to the resource!
 		// TODO: should this be a for loop to un-nest multiple times?
 		if kind1 == reflect.Interface {
 			value1 = value1.Elem() // un-nest one interface
 			kind1 = value1.Kind()
+		}
+		if kind2 == reflect.Interface {
+			value2 = value2.Elem() // un-nest one interface
+			kind2 = value2.Kind()
 		}
 
 		if obj.Debug {
@@ -121,7 +127,7 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		}
 
 		// if we can't set, then well this is pointless!
-		if !value2.CanSet() {
+		if !dest.CanSet() {
 			e := fmt.Errorf("can't set %s.%s", res, k)
 			err = errwrap.Append(err, e) // list of errors
 			continue
@@ -141,9 +147,9 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 
 		// TODO: can we catch the panics here in case they happen?
 
-		value2.Set(value1) // do it for all types that match
-		updated[k] = true  // we updated this key!
-		v.Changed = true   // tag this key as updated!
+		dest.Set(value1)  // do it for all types that match
+		updated[k] = true // we updated this key!
+		v.Changed = true  // tag this key as updated!
 		obj.Logf("SendRecv: %s.%s -> %s.%s", v.Res, v.Key, res, k)
 	}
 	return updated, err

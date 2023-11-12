@@ -197,6 +197,11 @@ func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 strin
 		// TODO: Can we do more checks instead of only returning early?
 		return nil
 	}
+	// If we're sending _to_ an interface...
+	//if kind2 == reflect.Interface {
+	//	// TODO: Can we do more checks instead of only returning early?
+	//	return nil
+	//}
 
 	if kind1 != kind2 {
 		return fmt.Errorf("field kind mismatch between %s and %s", kind1, kind2)

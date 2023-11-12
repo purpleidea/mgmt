@@ -86,6 +86,7 @@ func TypeOf(t reflect.Type) (*Type, error) {
 		StructTagOpt(StructTag),
 		StrictStructTagOpt(false),
 		SkipBadStructFieldsOpt(false),
+		AllowInterfaceTypeOpt(false),
 	}
 	return ConfigurableTypeOf(t, opts...)
 }
@@ -110,6 +111,7 @@ type typeOfOptions struct {
 	structTag           string
 	strictStructTag     bool
 	skipBadStructFields bool
+	allowInterfaceType  bool
 	// TODO: add more options
 }
 
@@ -138,6 +140,14 @@ func SkipBadStructFieldsOpt(skipBadStructFields bool) TypeOfOption {
 	}
 }
 
+// AllowInterfaceTypeOpt specifies whether we should allow matching on an
+// interface kind. This is used by ResTypeOf.
+func AllowInterfaceTypeOpt(allowInterfaceType bool) TypeOfOption {
+	return func(opt *typeOfOptions) {
+		opt.allowInterfaceType = allowInterfaceType
+	}
+}
+
 // ConfigurableTypeOf is a configurable version of the TypeOf function to avoid
 // repeating code for the different variants of it that we want.
 func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
@@ -145,6 +155,7 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 		structTag:           "",
 		strictStructTag:     false,
 		skipBadStructFields: false,
+		allowInterfaceType:  false,
 	}
 	for _, optionFunc := range opts { // apply the options
 		optionFunc(options)
@@ -289,7 +300,15 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 		}, nil
 
 	// TODO: should this return a variant type?
-	//case reflect.Interface:
+	case reflect.Interface:
+		if !options.allowInterfaceType {
+			return nil, fmt.Errorf("unable to represent type of %s without AllowInterfaceTypeOpt", typ.String())
+		}
+
+		return &Type{
+			Kind: KindVariant,
+			Var:  nil, // TODO: can we set this?
+		}, nil
 
 	default:
 		return nil, fmt.Errorf("unable to represent type of %s", typ.String())

@@ -17,6 +17,10 @@
 
 package engine
 
+import (
+	"fmt"
+)
+
 // SendableRes is the interface a resource must implement to support sending
 // named parameters. You must specify to the engine what kind of values (and
 // with their types) you will be sending. This is used for static type checking.
@@ -77,7 +81,7 @@ func GenerateSendFunc(res Res) func(interface{}) error {
 		//fmt.Printf("send: %+v\n", st)
 		r, ok := res.(SendableRes)
 		if !ok {
-			panic("res does not support the Sendable trait")
+			panic(fmt.Sprintf("res of kind `%s` does not support the Sendable trait", res.Kind()))
 		}
 		// XXX: type check this
 		//expected := r.Sends()
@@ -95,7 +99,7 @@ func GenerateRecvFunc(res Res) func() map[string]*Send {
 	return func() map[string]*Send { // TODO: change this API?
 		r, ok := res.(RecvableRes)
 		if !ok {
-			panic("res does not support the Recvable trait")
+			panic(fmt.Sprintf("res of kind `%s` does not support the Recvable trait", res.Kind()))
 		}
 		return r.Recv()
 	}

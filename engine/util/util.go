@@ -148,7 +148,8 @@ func StructTagToFieldName(stptr interface{}) (map[string]string, error) {
 
 // StructFieldCompat returns whether a send struct and key is compatible with a
 // recv struct and key. This inputs must both be a ptr to a string, and a valid
-// key that can be found in the struct tag.
+// key that can be found in the struct tag. The (1) first values are for send,
+// and the (2) second values are for recv.
 // TODO: add a bool to decide if *string to string or string to *string is okay.
 func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 string) error {
 	m1, err := StructTagToFieldName(st1)
@@ -179,14 +180,6 @@ func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 strin
 	value2 := obj2.FieldByName(k2)
 	kind2 := value2.Kind()
 
-	if kind1 != kind2 {
-		return fmt.Errorf("kind mismatch between %s and %s", kind1, kind2)
-	}
-
-	if t1, t2 := value1.Type(), value2.Type(); t1 != t2 {
-		return fmt.Errorf("type mismatch between %s and %s", t1, t2)
-	}
-
 	if !value2.CanSet() { // if we can't set, then this is pointless!
 		return fmt.Errorf("can't set")
 	}
@@ -197,6 +190,14 @@ func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 strin
 	}
 	if !value2.CanInterface() {
 		return fmt.Errorf("can't interface the recv")
+	}
+
+	if kind1 != kind2 {
+		return fmt.Errorf("kind mismatch between %s and %s", kind1, kind2)
+	}
+
+	if t1, t2 := value1.Type(), value2.Type(); t1 != t2 {
+		return fmt.Errorf("type mismatch between %s and %s", t1, t2)
 	}
 
 	return nil

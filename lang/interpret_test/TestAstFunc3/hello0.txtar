@@ -1,0 +1,16 @@
+-- main.mcl --
+test "hello" {
+	boolptr => true,
+	anotherstr => "bye",
+	mixedstruct => struct{
+		somebool => true,
+		somestr => "inside struct",
+		someint => 42,
+		somefloat => 3.14,
+	},
+}
+-- OUTPUT --
+Field: test[hello].AnotherStr = "bye"
+Field: test[hello].BoolPtr = true
+Field: test[hello].MixedStruct = struct{somebool: true; somestr: "inside struct"; someint: 42; somefloat: 3.14; somePrivatefield: ""}
+Vertex: test[hello]

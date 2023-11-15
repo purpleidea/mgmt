@@ -289,6 +289,52 @@ func LangFieldNameToStructType(kind string) (map[string]*types.Type, error) {
 	return st.Map, nil
 }
 
+// ResToParamValues returns a list of field names and their corresponding values
+// if they are non-zero. This is meant for testing, and should be improved for
+// robustness or with tests if it's ever used for value extraction.
+func ResToParamValues(res engine.Res) (map[string]types.Value, error) {
+
+	ret := make(map[string]types.Value)
+	st := reflect.ValueOf(res).Elem() // pointer to struct, then struct
+	tt := reflect.TypeOf(res).Elem()  // pointer to struct, then struct
+
+	fields := []string{}
+	// TODO: private fields inside of a struct are still printed
+	vf := reflect.VisibleFields(tt) // []reflect.StructField
+	for _, field := range vf {
+		if field.Tag == "" {
+			continue // skip
+		}
+		if _, ok := field.Tag.Lookup(types.StructTag); !ok {
+			continue
+		}
+
+		fields = append(fields, field.Name)
+	}
+
+	for _, name := range fields {
+		rval := st.FieldByName(name) // exported field type
+
+		// TODO: zero fields inside of a struct are still printed
+		if rval.IsZero() {
+			continue // skip zero values
+		}
+
+		val, err := types.ValueOf(rval)
+		if err != nil {
+			// This can happen for bad fields like "Base" and so on.
+			// They are supposed to be skipped by the struct tag,
+			// but if this changes and we need to label them, then
+			// we can improve our above heuristic.
+			return nil, fmt.Errorf("field `%s` does not have a valid value: %+v", name, err)
+		}
+
+		ret[name] = val
+	}
+
+	return ret, nil
+}
+
 // GetUID returns the UID of an user. It supports an UID or an username. Caller
 // should first check user is not empty. It will return an error if it can't
 // lookup the UID or username.

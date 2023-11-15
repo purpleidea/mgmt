@@ -291,7 +291,10 @@ func LangFieldNameToStructType(kind string) (map[string]*types.Type, error) {
 
 // ResToParamValues returns a list of field names and their corresponding values
 // if they are non-zero. This is meant for testing, and should be improved for
-// robustness or with tests if it's ever used for value extraction.
+// robustness or with tests if it's ever used for value extraction. This also
+// contains a hack to specifically print from resources that contain interface
+// fields too. Consider moving that into types.ValueOf after testing if that
+// doesn't break other code paths.
 func ResToParamValues(res engine.Res) (map[string]types.Value, error) {
 
 	ret := make(map[string]types.Value)
@@ -318,6 +321,17 @@ func ResToParamValues(res engine.Res) (map[string]types.Value, error) {
 		// TODO: zero fields inside of a struct are still printed
 		if rval.IsZero() {
 			continue // skip zero values
+		}
+
+		// hack to support Value resource
+		// TODO: consider letting types.ValueOf turn an interface into a variant
+		typ := rval.Type()
+		kind := typ.Kind()
+		if kind == reflect.Interface && rval.CanInterface() && !rval.IsNil() {
+			s := fmt.Sprintf("%v", rval) // magic concrete value printer
+			val, _ := types.ValueOfGolang(s)
+			ret[name] = val
+			continue
 		}
 
 		val, err := types.ValueOf(rval)

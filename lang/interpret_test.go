@@ -420,7 +420,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			// build the function graph
-			graph, err := iast.Graph()
+			fgraph, err := iast.Graph()
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -442,25 +442,25 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 
-			t.Logf("test #%d: graph: %s", index, graph)
-			for i, v := range graph.Vertices() {
+			t.Logf("test #%d: graph: %s", index, fgraph)
+			for i, v := range fgraph.Vertices() {
 				t.Logf("test #%d: vertex(%d): %+v", index, i, v)
 			}
-			for v1 := range graph.Adjacency() {
-				for v2, e := range graph.Adjacency()[v1] {
+			for v1 := range fgraph.Adjacency() {
+				for v2, e := range fgraph.Adjacency()[v1] {
 					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
 				}
 			}
 			if runGraphviz {
 				t.Logf("test #%d: Running graphviz...", index)
-				if err := graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
+				if err := fgraph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return
 				}
 			}
 
-			str := strings.Trim(graph.Sprint(), "\n") // text format of graph
+			str := strings.Trim(fgraph.Sprint(), "\n") // text format of graph
 			if expstr == magicEmpty {
 				expstr = ""
 			}
@@ -484,11 +484,11 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 
-			for i, v := range graph.Vertices() {
+			for i, v := range fgraph.Vertices() {
 				t.Logf("test #%d: vertex(%d): %+v", index, i, v)
 			}
-			for v1 := range graph.Adjacency() {
-				for v2, e := range graph.Adjacency()[v1] {
+			for v1 := range fgraph.Adjacency() {
+				for v2, e := range fgraph.Adjacency()[v1] {
 					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
 				}
 			}
@@ -949,7 +949,7 @@ func TestAstFunc2(t *testing.T) {
 			// once we've unified the specific resource.
 
 			// build the function graph
-			graph, err := iast.Graph()
+			fgraph, err := iast.Graph()
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -971,25 +971,25 @@ func TestAstFunc2(t *testing.T) {
 				return
 			}
 
-			if graph.NumVertices() == 0 { // no funcs to load!
+			if fgraph.NumVertices() == 0 { // no funcs to load!
 				//t.Errorf("test #%d: FAIL", index)
 				t.Logf("test #%d: function graph is empty", index)
 				//return // let's test the engine on empty
 			}
 
-			t.Logf("test #%d: graph: %s", index, graph)
-			for i, v := range graph.Vertices() {
+			t.Logf("test #%d: graph: %s", index, fgraph)
+			for i, v := range fgraph.Vertices() {
 				t.Logf("test #%d: vertex(%d): %+v", index, i, v)
 			}
-			for v1 := range graph.Adjacency() {
-				for v2, e := range graph.Adjacency()[v1] {
+			for v1 := range fgraph.Adjacency() {
+				for v2, e := range fgraph.Adjacency()[v1] {
 					t.Logf("test #%d: edge(%+v): %+v -> %+v", index, e, v1, v2)
 				}
 			}
 
 			if runGraphviz {
 				t.Logf("test #%d: Running graphviz...", index)
-				if err := graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
+				if err := fgraph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return
@@ -1071,7 +1071,7 @@ func TestAstFunc2(t *testing.T) {
 
 			txn := funcs.Txn()
 			defer txn.Free() // remember to call Free()
-			txn.AddGraph(graph)
+			txn.AddGraph(fgraph)
 			if err := txn.Commit(); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: run error with initial commit: %+v", index, err)
@@ -1080,7 +1080,7 @@ func TestAstFunc2(t *testing.T) {
 			defer txn.Reverse() // should remove everything we added
 
 			isEmpty := make(chan struct{})
-			if graph.NumVertices() == 0 { // no funcs to load!
+			if fgraph.NumVertices() == 0 { // no funcs to load!
 				close(isEmpty)
 			}
 

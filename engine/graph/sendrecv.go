@@ -134,7 +134,12 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		}
 
 		// if we can't interface, we can't compare...
-		if !value1.CanInterface() || !value2.CanInterface() {
+		if !value1.CanInterface() {
+			e := fmt.Errorf("can't interface %s.%s", v.Res, v.Key)
+			err = errwrap.Append(err, e) // list of errors
+			continue
+		}
+		if !value2.CanInterface() {
 			e := fmt.Errorf("can't interface %s.%s", res, k)
 			err = errwrap.Append(err, e) // list of errors
 			continue

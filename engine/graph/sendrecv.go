@@ -23,6 +23,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -93,15 +94,15 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 		value2 := obj2.FieldByName(key2)
 		kind2 := value2.Kind()
 
+		//orig := value1
 		dest := value2 // save the o.g. because we need the real dest!
 
 		// For situations where we send a variant to the resource!
-		// TODO: should this be a for loop to un-nest multiple times?
-		if kind1 == reflect.Interface {
+		for kind1 == reflect.Interface || kind1 == reflect.Ptr {
 			value1 = value1.Elem() // un-nest one interface
 			kind1 = value1.Kind()
 		}
-		if kind2 == reflect.Interface {
+		for kind2 == reflect.Interface || kind2 == reflect.Ptr {
 			value2 = value2.Elem() // un-nest one interface
 			kind2 = value2.Kind()
 		}
@@ -152,7 +153,20 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 
 		// TODO: can we catch the panics here in case they happen?
 
-		dest.Set(value1)  // do it for all types that match
+		fv, e := types.ValueOf(value1)
+		if e != nil {
+			e := errwrap.Wrapf(e, "bad value %s.%s", v.Res, v.Key)
+			err = errwrap.Append(err, e) // list of errors
+			continue
+		}
+
+		// mutate the struct field dest with the mcl data in fv
+		if e := types.Into(fv, dest); e != nil {
+			e := errwrap.Wrapf(e, "bad dest %s.%s", v.Res, v.Key)
+			err = errwrap.Append(err, e) // list of errors
+			continue
+		}
+		//dest.Set(orig)  // do it for all types that match
 		updated[k] = true // we updated this key!
 		v.Changed = true  // tag this key as updated!
 		obj.Logf("SendRecv: %s.%s -> %s.%s", v.Res, v.Key, res, k)

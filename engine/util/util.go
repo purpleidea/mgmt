@@ -193,7 +193,7 @@ func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 strin
 	}
 
 	// If we're sending _from_ an interface...
-	if kind1 == reflect.Interface {
+	if kind1 == reflect.Interface || kind1 == reflect.Ptr {
 		// TODO: Can we do more checks instead of only returning early?
 		return nil
 	}

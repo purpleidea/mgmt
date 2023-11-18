@@ -234,16 +234,28 @@ func ValueOf(v reflect.Value) (Value, error) {
 
 	// TODO: should this return a variant value?
 	// TODO: add this into ConfigurableValueOf like ConfigurableTypeOf ?
-	//case reflect.Interface:
-	//	t, err := TypeOf(value.Type())
-	//	if err != nil {
-	//		return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
-	//	}
-	//
-	//	return &VariantValue{
-	//		T: NewType(?),
-	//		V: ?,
-	//	}, nil
+	case reflect.Interface:
+		opts := []TypeOfOption{
+			//StructTagOpt(StructTag),
+			//StrictStructTagOpt(false),
+			//SkipBadStructFieldsOpt(false),
+			AllowInterfaceTypeOpt(true),
+		}
+		t, err := ConfigurableTypeOf(value.Type(), opts...)
+		//t, err := TypeOf(value.Type())
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine type of %+v", value)
+		}
+
+		v, err := ValueOf(value.Elem()) // recurse
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine value of %+v", value)
+		}
+
+		return &VariantValue{
+			T: t,
+			V: v,
+		}, nil
 
 	default:
 		return nil, fmt.Errorf("unable to represent value of %+v which has kind: %v", v, kind)

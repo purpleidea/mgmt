@@ -46,15 +46,15 @@ type ValueRes struct {
 
 	init *engine.Init
 
-	// Value is an arbitrary value to store in this resource. It can also be
+	// Any is an arbitrary value to store in this resource. It can also be
 	// sent via send/recv and received by the same mechanism as well. The
 	// received value overwrites this value for the lifetime of the
 	// resource. It is interface{} because it can hold any type. It has
 	// pointer because it is only set if an actual value exists.
-	Value *interface{} `lang:"value" yaml:"value"`
+	Any *interface{} `lang:"any" yaml:"any"`
 
-	cachedValue *interface{}
-	isSet       bool
+	cachedAny *interface{}
+	isSet     bool
 }
 
 // Default returns some sensible defaults for this resource.
@@ -64,7 +64,7 @@ func (obj *ValueRes) Default() engine.Res {
 	// zero values of those types for those fields here... This will allow
 	// send/recv to not require an empty placeholder to type check.
 	return &ValueRes{
-		Value: nil, // XXX: use the zero value of the actual chosen type
+		Any: nil, // XXX: use the zero value of the actual chosen type
 	}
 }
 
@@ -107,19 +107,19 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// notification of change. Therefore, it is important to process these
 	// promptly, if they must not be lost, such as for cache invalidation.
 	if !obj.isSet {
-		obj.cachedValue = obj.Value // store anything we have if any
+		obj.cachedAny = obj.Any // store anything we have if any
 	}
-	if val, exists := obj.init.Recv()["Value"]; exists && val.Changed {
-		// if we received on Value, and it changed, invalidate the cache!
-		obj.init.Logf("CheckApply: received on `Value`")
+	if val, exists := obj.init.Recv()["Any"]; exists && val.Changed {
+		// if we received on Any, and it changed, invalidate the cache!
+		obj.init.Logf("CheckApply: received on `Any`")
 		obj.isSet = true // we received something
-		obj.cachedValue = obj.Value
+		obj.cachedAny = obj.Any
 	}
 
 	// send
-	if obj.cachedValue != nil {
+	if obj.cachedAny != nil {
 		if err := obj.init.Send(&ValueSends{
-			Value: obj.cachedValue,
+			Any: obj.cachedAny,
 		}); err != nil {
 			return false, err
 		}
@@ -136,8 +136,8 @@ func (obj *ValueRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
-	if !reflect.DeepEqual(obj.Value, res.Value) {
-		return fmt.Errorf("the Value differs")
+	if !reflect.DeepEqual(obj.Any, res.Any) {
+		return fmt.Errorf("the Any field differs")
 	}
 
 	return nil
@@ -145,16 +145,16 @@ func (obj *ValueRes) Cmp(r engine.Res) error {
 
 // ValueSends is the struct of data which is sent after a successful Apply.
 type ValueSends struct {
-	// Value is the generated value being sent. It is interface{} because it
+	// Any is the generated value being sent. It is interface{} because it
 	// can hold any type. It has pointer because it is only set if an actual
 	// value is actually being sent.
-	Value *interface{} `lang:"value"`
+	Any *interface{} `lang:"any"`
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
 func (obj *ValueRes) Sends() interface{} {
 	return &ValueSends{
-		Value: nil,
+		Any: nil,
 	}
 }
 

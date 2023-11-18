@@ -1,0 +1,15 @@
+value "hello1" {
+	#value => 42,	# can be any type
+	value => "wow",	# can be any type
+}
+value "hello2" {
+	value => "whatever",	# TODO: remove the temporary placeholder here
+	#value => "",	# XXX: remove any placeholder to see the bug when absent
+}
+
+test "test" {
+	#anotherstr => "", # get it from send/recv
+}
+
+Value["hello1"].value -> Value["hello2"].value
+Value["hello2"].value -> Test["test"].anotherstr

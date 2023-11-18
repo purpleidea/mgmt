@@ -323,17 +323,8 @@ func ResToParamValues(res engine.Res) (map[string]types.Value, error) {
 			continue // skip zero values
 		}
 
-		// hack to support Value resource
-		// TODO: consider letting types.ValueOf turn an interface into a variant
-		typ := rval.Type()
-		kind := typ.Kind()
-		if kind == reflect.Interface && rval.CanInterface() && !rval.IsNil() {
-			s := fmt.Sprintf("%v", rval) // magic concrete value printer
-			val, _ := types.ValueOfGolang(s)
-			ret[name] = val
-			continue
-		}
-
+		// TODO: consider turning this into types.ConfigurableValueOf
+		// and allowing the `kind == reflect.Interface` option?
 		val, err := types.ValueOf(rval)
 		if err != nil {
 			// This can happen for bad fields like "Base" and so on.

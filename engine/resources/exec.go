@@ -253,10 +253,10 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 
 			// each time we get a line of output, we loop!
 			if s := data.text; s == "" {
-				obj.init.Logf("watch output is empty!")
+				obj.init.Logf("watch out empty!")
 			} else {
-				obj.init.Logf("watch output is:")
-				obj.init.Logf(s)
+				obj.init.Logf("watch out:")
+				obj.init.Logf("%s", s)
 			}
 			if data.text != "" {
 				send = true
@@ -335,18 +335,18 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 			obj.init.Logf("ifcmd exited with: %d", exitStatus)
 			if s := out.String(); s == "" {
-				obj.init.Logf("ifcmd output is empty!")
+				obj.init.Logf("ifcmd out empty!")
 			} else {
-				obj.init.Logf("ifcmd output is:")
-				obj.init.Logf(s)
+				obj.init.Logf("ifcmd out:")
+				obj.init.Logf("%s", s)
 			}
 			return true, nil // don't run
 		}
 		if s := out.String(); s == "" {
-			obj.init.Logf("ifcmd output is empty!")
+			obj.init.Logf("ifcmd out empty!")
 		} else {
-			obj.init.Logf("ifcmd output is:")
-			obj.init.Logf(s)
+			obj.init.Logf("ifcmd out:")
+			obj.init.Logf("%s", s)
 		}
 	}
 
@@ -422,6 +422,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	cmd.Stdout = out.Stdout
 	cmd.Stderr = out.Stderr
 
+	obj.init.Logf("cmd: %s", strings.Join(cmd.Args, " "))
 	if err := cmd.Start(); err != nil {
 		return false, errwrap.Wrapf(err, "error starting cmd")
 	}
@@ -464,7 +465,14 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		exitStatus := wStatus.ExitStatus()
 		if !wStatus.Signaled() { // not a timeout or cancel (no signal)
-			return false, errwrap.Wrapf(err, "cmd error, exit status: %d", exitStatus)
+			// most commands error in this way
+			if s := out.String(); s == "" {
+				obj.init.Logf("exit status %d", exitStatus)
+			} else {
+				obj.init.Logf("cmd error: %s", s)
+			}
+
+			return false, errwrap.Wrapf(err, "cmd error") // exit status will be in the error
 		}
 		sig := wStatus.Signal()
 
@@ -483,10 +491,11 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// would be nice, but it would require terminal log output that doesn't
 	// interleave all the parallel parts which would mix it all up...
 	if s := out.String(); s == "" {
-		obj.init.Logf("command output is empty!")
+		obj.init.Logf("cmd out empty!")
 	} else {
-		obj.init.Logf("command output is:")
-		obj.init.Logf(s)
+		obj.init.Logf("cmd out:")
+		obj.init.Logf("%s", s)
+
 	}
 
 	if err := obj.init.Send(&ExecSends{

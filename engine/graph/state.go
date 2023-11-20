@@ -243,7 +243,7 @@ func (obj *State) Init() error {
 
 		Debug: obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			obj.Logf("resource: "+format, v...)
+			obj.Logf(format, v...)
 		},
 	}
 

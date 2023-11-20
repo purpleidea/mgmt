@@ -702,14 +702,11 @@ func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error)
 	}
 
 	// create the empty directory
-	var mode os.FileMode
+	mode := os.ModePerm
 	if obj.Mode != "" {
-		mode, err = obj.mode()
-		if err != nil {
+		if mode, err = obj.mode(); err != nil {
 			return false, err
 		}
-	} else {
-		mode = os.ModePerm
 	}
 
 	if obj.Force {

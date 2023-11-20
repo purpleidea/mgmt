@@ -174,7 +174,9 @@ type FileRes struct {
 
 	// Recurse specifies if you want to work recursively on the resource. It
 	// is used when copying a source directory, or to determine if a watch
-	// should be recursive or not.
+	// should be recursive or not. When making a directory, this is required
+	// if you'd need the parent directories to be made as well. (Analogous
+	// to the `mkdir -p` option.)
 	// FIXME: There are some unimplemented cases where we should look at it.
 	Recurse bool `lang:"recurse" yaml:"recurse"`
 
@@ -709,8 +711,7 @@ func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error)
 		}
 	}
 
-	if obj.Force {
-		// FIXME: respect obj.Recurse here...
+	if obj.Recurse {
 		// TODO: add recurse limit here
 		return false, os.MkdirAll(obj.getPath(), mode)
 	}
@@ -941,10 +942,11 @@ func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, erro
 			return false, fmt.Errorf("don't want to remove root") // safety
 		}
 		obj.init.Logf("stateCheckApply: removing: %s", p)
-		// FIXME: respect obj.Recurse here...
 		// TODO: add recurse limit here
-		err := os.RemoveAll(p) // dangerous ;)
-		return false, err      // either nil or not
+		if obj.Recurse {
+			return false, os.RemoveAll(p) // dangerous ;)
+		}
+		return false, os.Remove(p)
 	}
 
 	// we need to make a file or a directory now

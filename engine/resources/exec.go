@@ -49,6 +49,15 @@ type ExecRes struct {
 	init *engine.Init
 
 	// Cmd is the command to run. If this is not specified, we use the name.
+	// Remember that if you're not using `Shell` (the default) then adding
+	// single quotes around args make them part of the actual values. IOW,
+	// if your command is: "touch '/tmp/foo'", then (1) it probably won't be
+	// able to find the "touch" command (use /usr/bin/touch instead) and (2)
+	// the file won't be in the /tmp/ directory, it will be an oddly named
+	// file that contains two single quotes, and it will likely error since
+	// the dir path doesn't exist. In general, it's best to use the `Args`
+	// field instead of including them here.
+	// XXX: if not using shell, don't allow args here, force them to args!
 	Cmd string `lang:"cmd" yaml:"cmd"`
 
 	// Args is a list of args to pass to Cmd. This can be used *instead* of

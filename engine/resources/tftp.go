@@ -34,7 +34,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	securefilepath "github.com/cyphar/filepath-securejoin"
-	"github.com/pin/tftp"
+	tftp "github.com/pin/tftp/v3"
 )
 
 func init() {

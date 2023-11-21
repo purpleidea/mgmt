@@ -144,7 +144,7 @@ func (obj *Engine) Validate() error {
 		}
 
 		if err := engine.Validate(res); err != nil {
-			return errwrap.Wrapf(err, "the Res did not Validate")
+			return fmt.Errorf("%s did not Validate: %v", res, err)
 		}
 	}
 	return nil

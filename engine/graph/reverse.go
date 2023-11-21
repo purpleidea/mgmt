@@ -275,7 +275,7 @@ func (obj *State) ReversalWrite(str string, overwrite bool) error {
 		if str != oldStr {
 			obj.Logf("existing, pending, reversible resource exists")
 			//obj.Logf("diff:")
-			//obj.Logf("") // TODO: print the diff w/o and secret values
+			//obj.Logf("") // TODO: print the diff w/o secret values
 			return fmt.Errorf("existing, pending, reversible resource exists")
 		}
 	}

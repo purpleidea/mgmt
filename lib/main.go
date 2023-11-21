@@ -661,7 +661,7 @@ func (obj *Main) Run() error {
 
 			if err := obj.ge.Validate(); err != nil { // validate the new graph
 				obj.ge.Abort() // delete graph
-				Logf("error validating the new graph: %+v", err)
+				Logf("graph validate failed: %+v", err)
 				continue
 			}
 
@@ -966,6 +966,9 @@ func (obj *Main) Run() error {
 	Logf("running...")
 
 	reterr := obj.exit.Error() // wait for exit signal (block until arrival)
+
+	// XXX: The reversals don't get a chance to run if we ^C things.
+	// XXX: Add a singular deploy of those before we shut down completely.
 
 	Logf("destroy...")
 

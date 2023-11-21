@@ -129,9 +129,11 @@ const (
 // of a network link. Configuration is also stored in a networkd configuration
 // file, so the network is available upon reboot. The name of the resource is
 // the string representing the network interface name. This could be "eth0" for
-// example.
+// example. It supports flipping the state if you ask for it to be reversible.
 type NetRes struct {
 	traits.Base // add the base methods without re-implementation
+
+	traits.Reversible
 
 	init *engine.Init
 
@@ -653,6 +655,55 @@ func (obj *NetRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = NetRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
+// TODO: should this copy internal state?
+func (obj *NetRes) Copy() engine.CopyableRes {
+	addrs := []string{}
+	for _, addr := range obj.Addrs {
+		addrs = append(addrs, addr)
+	}
+	var ipforward *bool
+	if obj.IPForward != nil { // copy the content, not the pointer...
+		b := *obj.IPForward
+		ipforward = &b
+	}
+	return &NetRes{
+		State:     obj.State,
+		Addrs:     addrs,
+		Gateway:   obj.Gateway,
+		IPForward: ipforward,
+	}
+}
+
+// Reversed returns the "reverse" or "reciprocal" resource. This is used to
+// "clean" up after a previously defined resource has been removed.
+func (obj *NetRes) Reversed() (engine.ReversibleRes, error) {
+	cp, err := engine.ResCopy(obj)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy")
+	}
+	rev, ok := cp.(engine.ReversibleRes)
+	if !ok {
+		return nil, fmt.Errorf("not reversible")
+	}
+	rev.ReversibleMeta().Disabled = true // the reverse shouldn't run again
+
+	res, ok := cp.(*NetRes)
+	if !ok {
+		return nil, fmt.Errorf("copied res was not our kind")
+	}
+
+	// Only one field to reverse for now. It also removes the config file.
+	if obj.State == NetStateUp {
+		res.State = NetStateDown
+	}
+	if obj.State == NetStateDown {
+		res.State = NetStateUp
+	}
+
+	return res, nil
 }
 
 // unitFileContents builds the unit file contents from the definition.

@@ -486,24 +486,38 @@ func (obj *NetRes) gatewayCheckApply(ctx context.Context, apply bool) (bool, err
 }
 
 // fileCheckApply checks and maintains the systemd-networkd unit file contents.
+// TODO: replace this with a file resource if we can do so cleanly.
 func (obj *NetRes) fileCheckApply(ctx context.Context, apply bool) (bool, error) {
+	// if the state is unspecified, we're done
+	if obj.State == "" {
+		return true, nil
+	}
+
 	// check if the unit file exists
 	_, err := os.Stat(obj.unitFilePath)
 	if err != nil && !os.IsNotExist(err) {
 		return false, errwrap.Wrapf(err, "error checking file")
 	}
-	// build the unit file contents from the definition
-	contents := obj.unitFileContents()
-	// check the file contents
-	if err == nil {
-		unitFile, err := ioutil.ReadFile(obj.unitFilePath)
+
+	exists := err == nil
+	if obj.State == NetStateDown && !exists {
+		return true, nil
+	}
+
+	fileContents := []byte{}
+	if exists {
+		// check the file contents
+		byt, err := ioutil.ReadFile(obj.unitFilePath)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error reading file")
 		}
-		// return if the file is good
-		if bytes.Equal(unitFile, contents) {
-			return true, nil
-		}
+		fileContents = byt
+	}
+	// build the unit file contents from the definition
+	contents := obj.unitFileContents()
+
+	if obj.State == NetStateUp && exists && bytes.Equal(fileContents, contents) {
+		return true, nil
 	}
 
 	if !apply {
@@ -511,7 +525,14 @@ func (obj *NetRes) fileCheckApply(ctx context.Context, apply bool) (bool, error)
 	}
 	obj.init.Logf("fileCheckApply(%t)", apply)
 
-	// write the file
+	if obj.State == NetStateDown && exists {
+		if err := os.Remove(obj.unitFilePath); err != nil {
+			return false, errwrap.Wrapf(err, "error removing configuration file")
+		}
+		return false, nil
+	}
+
+	// all other situations, we write the file
 	if err := ioutil.WriteFile(obj.unitFilePath, contents, networkdUnitFileUmask); err != nil {
 		return false, errwrap.Wrapf(err, "error writing configuration file")
 	}
@@ -523,6 +544,13 @@ func (obj *NetRes) fileCheckApply(ctx context.Context, apply bool) (bool, error)
 // again if Watch finds a change occurring to the state.
 func (obj *NetRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	checkOK := true
+
+	// check the networkd unit file
+	if c, err := obj.fileCheckApply(ctx, apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
+	}
 
 	// check the network device
 	if c, err := obj.ifaceCheckApply(ctx, apply); err != nil {
@@ -545,18 +573,6 @@ func (obj *NetRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	// check the gateway
 	if c, err := obj.gatewayCheckApply(ctx, apply); err != nil {
-		return false, err
-	} else if !c {
-		checkOK = false
-	}
-
-	// if the state is unspecified, we're done
-	if obj.State == "" {
-		return checkOK, nil
-	}
-
-	// check the networkd unit file
-	if c, err := obj.fileCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false

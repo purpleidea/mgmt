@@ -92,16 +92,16 @@ func main() {
 	// TODO: add modifiers
 
 	log.Printf("Requesting...")
-	ctx := context.Background()                     // TODO: add to ^C handler
-	offer, ack, err := c.Request(ctx, modifiers...) // (offer, ack *dhcpv4.DHCPv4, err error)
+	ctx := context.Background()                // TODO: add to ^C handler
+	lease, err := c.Request(ctx, modifiers...) // (lease *Lease, err error)
 	if err != nil {
 		log.Printf("Error requesting from server: %v", err)
 		return
 	}
 
 	// Show the results of the D-O-R-A exchange.
-	log.Printf("Offer: %+v", offer)
-	log.Printf("Ack: %+v", ack)
+	log.Printf("Offer: %+v", lease.Offer)
+	log.Printf("Ack: %+v", lease.ACK)
 
 	log.Printf("Done!")
 }

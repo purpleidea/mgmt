@@ -33,6 +33,9 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/lang/funcs/vars"
+	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -46,10 +49,51 @@ import (
 )
 
 func init() {
-	engine.RegisterResource("net", func() engine.Res { return &NetRes{} })
+	engine.RegisterResource(KindNet, func() engine.Res { return &NetRes{} })
+
+	// const.res.net.state.up = "up"
+	// const.res.net.state.down = "down"
+	vars.RegisterResourceParams(KindNet, map[string]map[string]func() interfaces.Var{
+		ParamNetState: {
+			NetStateUp: func() interfaces.Var {
+				return &types.StrValue{
+					V: NetStateUp,
+				}
+			},
+			NetStateDown: func() interfaces.Var {
+				return &types.StrValue{
+					V: NetStateDown,
+				}
+			},
+			// TODO: consider removing this field entirely
+			"undefined": func() interfaces.Var {
+				return &types.StrValue{
+					V: NetStateUndefined, // empty string
+				}
+			},
+		},
+	})
 }
 
 const (
+	// KindNet is the kind string used to identify this resource.
+	KindNet = "net"
+
+	// ParamNetState is the name of the state field parameter.
+	ParamNetState = "state"
+
+	// NetStateUp is the string that represents that the net state should be
+	// up. This is the on interface state.
+	NetStateUp = "up"
+
+	// NetStateDown is the string that represents that the net state should
+	// be down. This is the off interface state.
+	NetStateDown = "down"
+
+	// NetStateUndefined means the net state has not been specified.
+	// TODO: consider moving to *string and express this state as a nil.
+	NetStateUndefined = ""
+
 	// IfacePrefix is the prefix used to identify unit files for managed
 	// links.
 	IfacePrefix = "mgmt-"
@@ -63,12 +107,6 @@ const (
 
 	// networkdUnitFileUmask sets the permissions on the systemd unit file.
 	networkdUnitFileUmask = 0644
-
-	// ifaceUp is the up (on) interface state.
-	ifaceUp = "up"
-
-	// ifaceDown is the down (off) interface state.
-	ifaceDown = "down"
 
 	// Netlink multicast groups to watch for events. For all groups see:
 	// https://github.com/torvalds/linux/blob/master/include/uapi/linux/rtnetlink.h
@@ -135,7 +173,7 @@ func (obj *NetRes) Default() engine.Res {
 // Validate if the params passed in are valid data.
 func (obj *NetRes) Validate() error {
 	// validate state
-	if obj.State != ifaceUp && obj.State != ifaceDown && obj.State != "" {
+	if obj.State != NetStateUp && obj.State != NetStateDown && obj.State != "" {
 		return fmt.Errorf("state must be up, down or empty")
 	}
 
@@ -494,7 +532,7 @@ func (obj *NetRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	// if the interface is supposed to be down, we're done
-	if obj.State == ifaceDown {
+	if obj.State == NetStateDown {
 		return checkOK, nil
 	}
 
@@ -638,18 +676,18 @@ func (obj *iface) state() (string, error) {
 	}
 	// if the interface's "up" flag is 0, it's down
 	if obj.iface.Flags&net.FlagUp == 0 {
-		return ifaceDown, nil
+		return NetStateDown, nil
 	}
 	// otherwise it's up
-	return ifaceUp, nil
+	return NetStateUp, nil
 }
 
 // linkUpDown brings the interface up or down, depending on input value.
 func (obj *iface) linkUpDown(state string) error {
-	if state != ifaceUp && state != ifaceDown {
+	if state != NetStateUp && state != NetStateDown {
 		return fmt.Errorf("state must be up or down")
 	}
-	if state == ifaceUp {
+	if state == NetStateUp {
 		return netlink.LinkSetUp(obj.link)
 	}
 	return netlink.LinkSetDown(obj.link)

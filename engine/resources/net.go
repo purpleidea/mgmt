@@ -238,7 +238,7 @@ func (obj *NetRes) Cleanup() error {
 		return fmt.Errorf("socket file should not be the root path")
 	}
 	if obj.socketFile != "" { // safety
-		if err := os.Remove(obj.socketFile); err != nil {
+		if err := os.Remove(obj.socketFile); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}

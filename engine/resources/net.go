@@ -141,9 +141,12 @@ func (obj *NetRes) Validate() error {
 
 	// validate network address input
 	if obj.Addrs != nil {
-		for _, addr := range obj.Addrs {
+		for i, addr := range obj.Addrs {
 			if _, _, err := net.ParseCIDR(addr); err != nil {
-				return errwrap.Wrapf(err, "error parsing address: %s", addr)
+				if len(obj.Addrs) == 1 {
+					return errwrap.Wrapf(err, "error parsing addr")
+				}
+				return errwrap.Wrapf(err, "error parsing addrs[%d]", i)
 			}
 		}
 	}
@@ -678,11 +681,14 @@ func (obj *iface) kernelCheck(addrs []string) (bool, error) {
 		return false, errwrap.Wrapf(err, "error getting routes")
 	}
 	// check each route against each addr
-	for _, addr := range addrs {
+	for i, addr := range addrs {
 		routeOK = false
 		ip, ipNet, err := net.ParseCIDR(addr)
 		if err != nil {
-			return false, errwrap.Wrapf(err, "error parsing addr: %s", addr)
+			if len(addrs) == 1 {
+				return false, errwrap.Wrapf(err, "error parsing addr")
+			}
+			return false, errwrap.Wrapf(err, "error parsing addrs[%d]", i)
 		}
 		for _, r := range routes {
 			// if src, dst and protocol are correct, the kernel route exists
@@ -702,10 +708,13 @@ func (obj *iface) kernelCheck(addrs []string) (bool, error) {
 // kernelApply adds or replaces each address' kernel route as necessary.
 func (obj *iface) kernelApply(addrs []string) error {
 	// for each addr, add or replace the corresponding kernel route
-	for _, addr := range addrs {
+	for i, addr := range addrs {
 		ip, ipNet, err := net.ParseCIDR(addr)
 		if err != nil {
-			return errwrap.Wrapf(err, "error parsing addr: %s", addr)
+			if len(addrs) == 1 {
+				return errwrap.Wrapf(err, "error parsing addr")
+			}
+			return errwrap.Wrapf(err, "error parsing addrs[%d]", i)
 		}
 		// kernel route needed for the network to be reachable from a given ip
 		if err := netlink.RouteReplace(&netlink.Route{

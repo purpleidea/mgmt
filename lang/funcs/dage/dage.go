@@ -727,7 +727,9 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 		// preempted and that future executions of this function can be
 		// resumed. We must return with an error to let folks know that
 		// we were interrupted.
-		obj.Logf("send to func `%s`", node)
+		if obj.Debug {
+			obj.Logf("send to func `%s`", node)
+		}
 		select {
 		case node.input <- st: // send to function
 			obj.statsMutex.Lock()
@@ -968,7 +970,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		if err == nil { // a nil error won't cause ag to shutdown below
 			panic("expected error, not nil")
 		}
-		obj.Logf("process break")
+		if obj.Debug {
+			obj.Logf("process break")
+		}
 		select {
 		case obj.ag <- err: // send error to aggregate channel
 		case <-ctx.Done():
@@ -1029,7 +1033,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 					// run again from a wake-up, or we exit.
 					select {
 					case <-obj.wakeChan: // wait until something has actually woken up...
-						obj.Logf("process wakeup...")
+						if obj.Debug {
+							obj.Logf("process wakeup...")
+						}
 						// loop!
 					case <-ctxFn.Done():
 						errFn = context.Canceled
@@ -1049,7 +1055,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				chFn = true
 
 			case <-obj.pauseChan:
-				obj.Logf("pausing...")
+				if obj.Debug {
+					obj.Logf("pausing...")
+				}
 				chPause = true
 
 			case <-mainCtx.Done(): // when asked to exit
@@ -1105,7 +1113,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		if errProcess != nil && !pausedProcess {
 			select {
 			case <-obj.pauseChan:
-				obj.Logf("lower pausing...")
+				if obj.Debug {
+					obj.Logf("lower pausing...")
+				}
 
 			// do we want this exit case? YES
 			case <-mainCtx.Done(): // when asked to exit
@@ -1127,7 +1137,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		// no exit case from here, must be fully running or paused...
 		select {
 		case obj.pausedChan <- struct{}{}:
-			obj.Logf("paused!")
+			if obj.Debug {
+				obj.Logf("paused!")
+			}
 		}
 
 		//
@@ -1137,7 +1149,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		// wait until resumed/unlocked
 		select {
 		case <-obj.resumeChan:
-			obj.Logf("resuming...")
+			if obj.Debug {
+				obj.Logf("resuming...")
+			}
 		}
 
 		// Do any cleanup needed from delete vertex. Or do we?
@@ -1260,14 +1274,18 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 					if !exists { // first value received
 						// RACE: do this AFTER value is present!
 						//node.loaded = true // not yet please
-						obj.Logf("func `%s` started", node)
+						if obj.Debug {
+							obj.Logf("func `%s` started", node)
+						}
 					} else if value.Cmp(cached) == nil {
 						// skip if new value is same as previous
 						// if this happens often, it *might* be
 						// a bug in the function implementation
 						// FIXME: do we need to disable engine
 						// caching when using hysteresis?
-						obj.Logf("func `%s` skipped", node)
+						if obj.Debug {
+							obj.Logf("func `%s` skipped", node)
+						}
 						continue
 					}
 					obj.tableMutex.Lock()
@@ -1322,7 +1340,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 			wg.Add(1)
 			go func(node *state) {
 				defer wg.Done()
-				obj.Logf("resend to func `%s`", node)
+				if obj.Debug {
+					obj.Logf("resend to func `%s`", node)
+				}
 				obj.wake("resend") // new value, so send wake up
 			}(node)
 		}
@@ -1342,7 +1362,9 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		// no exit case from here, must be fully running or paused...
 		select {
 		case obj.resumedChan <- struct{}{}:
-			obj.Logf("resumed!")
+			if obj.Debug {
+				obj.Logf("resumed!")
+			}
 		}
 
 	} // end for

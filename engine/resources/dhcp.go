@@ -19,6 +19,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -449,7 +450,10 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 		defer close(closeSignal)
 
 		err := server.Serve() // blocks until Close() is called I hope!
-		if err == nil {
+		// TODO: getting this error is probably a bug, please see:
+		// https://github.com/insomniacslk/dhcp/issues/376
+		isClosing := errors.Is(err, net.ErrClosed)
+		if err == nil || isClosing {
 			return
 		}
 		// if this returned on its own, then closeSignal can be used...

@@ -108,6 +108,18 @@ type DHCPServerRes struct {
 	// is most common to only specify one unless you know what you're doing.
 	Routers []string `lang:"routers" yaml:"routers"`
 
+	// NBP is the network boot program URL. This is used for the tftp server
+	// name and the boot file name. For example, you might use:
+	// tftp://192.0.2.13/pxelinux.0 for a common bios, pxe boot setup. Note
+	// that the "scheme" prefix is required, and that it's impossible to
+	// specify a file that doesn't begin with a leading slash. If you wish
+	// to specify a "root less" file (common for legacy tftp setups) then
+	// you can use this feature in conjunction with the NBPPath parameter.
+	// For DHCPv4, the scheme must be "tftp". This values is used as the
+	// default for all dhcp:host resources. You can specify this here, and
+	// the NBPPath per-resource and they will successfully combine.
+	NBP string `lang:"nbp" yaml:"nbp"`
+
 	// These private fields are ordered in the handler order, the above
 	// public fields are ordered in the human logical order.
 	leaseTime   time.Duration
@@ -614,6 +626,10 @@ func (obj *DHCPServerRes) Cmp(r engine.Res) error {
 		}
 	}
 
+	if len(obj.NBP) != len(res.NBP) {
+		return fmt.Errorf("the NBP field differs")
+	}
+
 	return nil
 }
 
@@ -645,6 +661,7 @@ func (obj *DHCPServerRes) Copy() engine.CopyableRes {
 		LeaseTime: leaseTime,
 		DNS:       dns,
 		Routers:   routers,
+		NBP:       obj.NBP,
 	}
 }
 
@@ -852,7 +869,18 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 
 			switch res := x.(type) { // convert from Res
 			case *DHCPHostRes:
-				h := res.handler4()
+				// NOTE: this is not changed if we do send/recv.
+				// If we want to support that, we need to patch!
+				data := &HostData{
+					NBP: obj.NBP,
+				}
+				h, err := res.handler4(data)
+				if err != nil {
+					// This should rarely error, so a log
+					// message and skipping the handler is
+					// good enough here.
+					obj.init.Logf("%s: invalid handler: %v", x.String(), err)
+				}
 				hostHandlers = append(hostHandlers, h)
 
 			//case *DhcpRangeRes:
@@ -1028,20 +1056,6 @@ func (obj *DHCPHostRes) Init(init *engine.Init) error {
 	obj.ipv4Addr = ipv4Addr
 	obj.ipv4Mask = ipv4Net.Mask
 
-	result, err := url.Parse(obj.NBP)
-	if err != nil {
-		// this should have been checked in Validate :/
-		return errwrap.Wrapf(err, "unexpected invalid nbp URL")
-	}
-	otsn := dhcpv4.OptTFTPServerName(result.Host)
-	obj.opt66 = &otsn
-	p := result.Path
-	if obj.NBPPath != "" { // override the path if this is specified
-		p = obj.NBPPath
-	}
-	obfn := dhcpv4.OptBootFileName(p)
-	obj.opt67 = &obfn
-
 	return nil
 }
 
@@ -1125,7 +1139,30 @@ func (obj *DHCPHostRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // main handler4 function in the dhcp server resource. This combines the concept
 // of multiple "plugins" inside of coredhcp. It includes "file" and also "nbp"
 // and others.
-func (obj *DHCPHostRes) handler4() func(*dhcpv4.DHCPv4, *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
+func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool), error) {
+	nbp := ""
+	if data != nil {
+		nbp = data.NBP // from server
+	}
+	if obj.NBP != "" { // host-specific override
+		nbp = obj.NBP
+	}
+	result, err := url.Parse(nbp)
+	if err != nil {
+		// this should have been checked in Validate :/
+		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
+	}
+	otsn := dhcpv4.OptTFTPServerName(result.Host)
+	obj.opt66 = &otsn
+	p := result.Path
+	if obj.NBPPath != "" { // override the path if this is specified
+		p = obj.NBPPath
+	}
+	obfn := dhcpv4.OptBootFileName(p)
+	if p != "" {
+		obj.opt67 = &obfn
+	}
+
 	return func(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
 		// Might not be *this* reservation, but another one...
 		if obj.init.Debug {
@@ -1159,7 +1196,13 @@ func (obj *DHCPHostRes) handler4() func(*dhcpv4.DHCPv4, *dhcpv4.DHCPv4) (*dhcpv4
 		}
 
 		return resp, true
-	}
+	}, nil
+}
+
+// HostData is some data that each host will get made available to its handler.
+type HostData struct {
+	// NBP is the network boot program URL. See the resources for more docs.
+	NBP string
 }
 
 // overEngineeredLogger is a helper struct that fulfills the over-engineered

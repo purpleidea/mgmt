@@ -979,7 +979,9 @@ func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, erro
 
 // contentCheckApply performs a CheckApply for the file content.
 func (obj *FileRes) contentCheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("contentCheckApply(%t)", apply)
+	if obj.init.Debug {
+		obj.init.Logf("contentCheckApply(%t)", apply)
+	}
 
 	// content is not defined, leave it alone...
 	if obj.Content == nil {
@@ -1002,7 +1004,9 @@ func (obj *FileRes) contentCheckApply(ctx context.Context, apply bool) (bool, er
 
 // sourceCheckApply performs a CheckApply for the file source.
 func (obj *FileRes) sourceCheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("sourceCheckApply(%t)", apply)
+	if obj.init.Debug {
+		obj.init.Logf("sourceCheckApply(%t)", apply)
+	}
 
 	// source is not defined, leave it alone...
 	if obj.Source == "" && !obj.Purge {
@@ -1057,7 +1061,9 @@ func (obj *FileRes) sourceCheckApply(ctx context.Context, apply bool) (bool, err
 
 // fragmentsCheckApply performs a CheckApply for the file fragments.
 func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("fragmentsCheckApply(%t)", apply)
+	if obj.init.Debug {
+		obj.init.Logf("fragmentsCheckApply(%t)", apply)
+	}
 
 	// fragments is not defined, leave it alone...
 	if len(obj.Fragments) == 0 {
@@ -1117,7 +1123,9 @@ func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, 
 
 // chownCheckApply performs a CheckApply for the file ownership.
 func (obj *FileRes) chownCheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("chownCheckApply(%t)", apply)
+	if obj.init.Debug {
+		obj.init.Logf("chownCheckApply(%t)", apply)
+	}
 
 	if obj.Owner == "" && obj.Group == "" {
 		// no owner or group specified, everything is ok
@@ -1177,7 +1185,9 @@ func (obj *FileRes) chownCheckApply(ctx context.Context, apply bool) (bool, erro
 
 // chmodCheckApply performs a CheckApply for the file permissions.
 func (obj *FileRes) chmodCheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("chmodCheckApply(%t)", apply)
+	if obj.init.Debug {
+		obj.init.Logf("chmodCheckApply(%t)", apply)
+	}
 
 	if obj.Mode == "" {
 		// no mode specified, everything is ok

@@ -423,7 +423,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 
 	newLogger := &overEngineeredLogger{
 		logf: func(format string, v ...interface{}) {
-			obj.init.Logf("dhcpv4: "+format, v...)
+			obj.init.Logf(format, v...)
 		},
 	}
 	logOpt := server4.WithLogger(newLogger)

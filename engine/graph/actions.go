@@ -338,9 +338,17 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 				obj.state[vertex].cuid.StopTimer() // clean up nicely
 			} else {
 				obj.state[vertex].cuid.StartTimer()
-				obj.Logf("Watch(%s)", vertex)
+				if obj.Debug {
+					obj.Logf("%s: Watch...", vertex)
+				}
 				err = res.Watch(obj.state[vertex].doneCtx) // run the watch normally
-				obj.Logf("Watch(%s): Exited(%s)", vertex, engineUtil.CleanError(err))
+				if obj.Debug {
+					if s := engineUtil.CleanError(err); err != nil {
+						obj.Logf("%s: Watch Error: %s", vertex, s)
+					} else {
+						obj.Logf("%s: Watch Exited...", vertex)
+					}
+				}
 				obj.state[vertex].cuid.StopTimer() // clean up nicely
 			}
 			if err == nil { // || err == engine.ErrClosed

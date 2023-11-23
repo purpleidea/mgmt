@@ -253,10 +253,18 @@ func (obj *Engine) Commit() error {
 					obj.wlock.Unlock()
 				}()
 
-				obj.Logf("Worker(%s)", v)
+				if obj.Debug || true {
+					obj.Logf("%s: Working...", v)
+				}
 				// contains the Watch and CheckApply loops
 				err := obj.Worker(v)
-				obj.Logf("Worker(%s): Exited(%s)", v, engineUtil.CleanError(err))
+				if obj.Debug || true {
+					if s := engineUtil.CleanError(err); err != nil {
+						obj.Logf("%s: Error: %s", v, s)
+					} else {
+						obj.Logf("%s: Exited...", v)
+					}
+				}
 				obj.state[v].workerErr = err // store the error
 				// If the Rewatch metaparam is true, then this will get
 				// restarted if we do a graph cmp swap. This is why the

@@ -284,6 +284,32 @@ an instance of mgmt running, or if a related file locking issue occurred. To
 solve this, shutdown and running mgmt process, run `rm mgmt` to remove the file,
 and then get a new one by running `make` again.
 
+### Type unification error: "could not unify types: 2 unconsumed generators".
+
+Look carefully at the following code:
+
+```
+$num = 42
+print "hello" {
+	msg => "My favourite number is ${num}",
+}
+```
+
+What's actually happening is that we can't unify `str + int`, because our
+addition operator only supports `str + str`, `int + int`, and `float + float`.
+The string interpolation feature can only combine strings. One solution is to
+instead write:
+
+```
+$num = "42" # now this is a string
+print "hello" {
+	msg => "My favourite number is ${num}",
+}
+```
+
+Yes we know the compiler gives horrible error messages, and yes we would
+absolutely love your help improving this.
+
 ### The docs speaks of `--remote` but the CLI errors out?
 
 The `--remote` flag existed in an earlier version of mgmt. It was removed and

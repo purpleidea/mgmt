@@ -101,14 +101,17 @@ func (obj *golangPackage) parsefuncs() (functions, error) {
 func (obj *golangPackage) extractFuncs(doc string, getHelp bool) (functions, error) {
 	var funcs []function
 	for _, line := range strings.Split(doc, "\n") {
-		if validSignature.MatchString(line) {
-			f, err := obj.parseFunctionLine(line, getHelp)
-			if err != nil && err != errExcluded {
-				return funcs, err
-			}
-			if f != nil {
-				funcs = append(funcs, *f)
-			}
+		if !validSignature.MatchString(line) {
+			// TODO: improve validSignature regexp for this?
+			fmt.Printf("invalid: %s\n", line)
+			continue
+		}
+		f, err := obj.parseFunctionLine(line, getHelp)
+		if err != nil && err != errExcluded {
+			return funcs, err
+		}
+		if f != nil {
+			funcs = append(funcs, *f)
 		}
 	}
 

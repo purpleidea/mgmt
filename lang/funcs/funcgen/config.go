@@ -68,8 +68,9 @@ func (obj *arg) ToMcl() (string, error) {
 	}
 }
 
-// ToGo prints the arg signature as expected by golang.
-func (obj *arg) ToGolang() (string, error) {
+// OldToGolang prints the arg signature as expected by golang. This is only used
+// for returns.
+func (obj *arg) OldToGolang() (string, error) {
 	switch obj.Type {
 	case "bool":
 		return "Bool", nil
@@ -79,6 +80,8 @@ func (obj *arg) ToGolang() (string, error) {
 		return "Int", nil
 	case "float64":
 		return "Float", nil
+	//case "[]string":
+	// XXX: Lists don't fit well with this code design. Refactor!
 	default:
 		return "", fmt.Errorf("cannot convert %v to golang", obj)
 	}

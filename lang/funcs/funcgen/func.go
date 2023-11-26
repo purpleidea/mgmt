@@ -143,7 +143,7 @@ func (obj *function) Signature() (string, error) {
 
 // MakeGoReturn returns the golang signature of the return.
 func (obj *function) MakeGoReturn() (string, error) {
-	return obj.Return[0].ToGolang()
+	return obj.Return[0].OldToGolang()
 }
 
 // ConvertStart returns the start of a casting function required to convert from

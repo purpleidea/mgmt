@@ -20,6 +20,7 @@ package core
 import (
 	"testpkg"
 
+	"github.com/purpleidea/mgmt/lang/funcs/funcgen/util"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )

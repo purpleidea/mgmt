@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	validSignature = regexp.MustCompile(`^func (?P<name>[A-Z][a-zA-Z0-9]+)\((?P<args>([a-zA-Z]+( (bool|string|int|int64|float64|\[\]byte))?(, )?){0,})\) (?P<return>(bool|string|int|int64|float64|\[\]byte|)|\((bool|string|int|int64|float64|\[\]byte), error\))$`)
+	validSignature = regexp.MustCompile(`^func (?P<name>[A-Z][a-zA-Z0-9]+)\((?P<args>([a-zA-Z]+( (bool|string|int|int64|float64|\[\]byte|\[\]string))?(, )?){0,})\) (?P<return>(bool|string|int|int64|float64|\[\]byte|)|\((bool|string|int|int64|float64|\[\]byte|), error\))$`)
 	errExcluded    = errors.New("function is excluded")
 )
 

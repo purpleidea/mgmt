@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"math/bits"
 
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -63,6 +64,8 @@ func (obj *arg) ToMcl() (string, error) {
 		return fmt.Sprintf("%s%s", prefix, types.TypeInt.String()), nil
 	case "float64":
 		return fmt.Sprintf("%s%s", prefix, types.TypeFloat.String()), nil
+	case "[]string":
+		return fmt.Sprintf("%s%s", prefix, types.NewType("[]str").String()), nil
 	default:
 		return "", fmt.Errorf("cannot convert %v to mcl", obj.Type)
 	}
@@ -82,6 +85,37 @@ func (obj *arg) OldToGolang() (string, error) {
 		return "Float", nil
 	//case "[]string":
 	// XXX: Lists don't fit well with this code design. Refactor!
+	default:
+		return "", fmt.Errorf("cannot convert %v to golang", obj)
+	}
+}
+
+// ToGolang prints the arg signature as expected by golang.
+func (obj *arg) ToGolang(val string) (string, error) {
+	switch obj.Type {
+	case "bool":
+		return fmt.Sprintf("%s.Bool()", val), nil
+
+	case "string", "[]byte":
+		return fmt.Sprintf("%s.Str()", val), nil
+
+	case "int":
+		// TODO: consider switching types.Value int64 to int everywhere
+		if bits.UintSize == 32 { // special case for 32 bit golang
+			return fmt.Sprintf("int(%s.Int())", val), nil
+		}
+		fallthrough
+	case "int64":
+		return fmt.Sprintf("%s.Int()", val), nil
+
+	case "float64":
+		return fmt.Sprintf("%s.Float()", val), nil
+
+	case "[]string":
+		// This function is in the child util package and is imported by
+		// the template.
+		return fmt.Sprintf("util.MclListToGolang(%s)", val), nil
+
 	default:
 		return "", fmt.Errorf("cannot convert %v to golang", obj)
 	}

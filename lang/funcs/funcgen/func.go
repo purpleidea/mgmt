@@ -101,18 +101,19 @@ func generateTemplate(c config, f functions, path, templateFile, finalName strin
 func (obj *function) MakeGolangArgs() (string, error) {
 	var args []string
 	for i, a := range obj.Args {
-		gol, err := a.ToGolang()
+		input := fmt.Sprintf("input[%d]", i)
+		gol, err := a.ToGolang(input)
 		if err != nil {
 			return "", err
 		}
-		input := fmt.Sprintf("input[%d].%s()", i, gol)
+
 		switch a.Type {
 		case "int":
-			input = fmt.Sprintf("int(%s)", input)
+			gol = fmt.Sprintf("int(%s)", gol)
 		case "[]byte":
-			input = fmt.Sprintf("[]byte(%s)", input)
+			gol = fmt.Sprintf("[]byte(%s)", gol)
 		}
-		args = append(args, input)
+		args = append(args, gol)
 	}
 	for _, a := range obj.ExtraGolangArgs {
 		args = append(args, a.Value)

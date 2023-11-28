@@ -193,7 +193,8 @@ func cleanup() error {
 	}
 
 	if len(l) > 0 {
-		if err := res.client.ContainerStop(ctx, id, nil); err != nil {
+		stopOpts := container.StopOptions{}
+		if err := res.client.ContainerStop(ctx, id, stopOpts); err != nil {
 			return fmt.Errorf("error stopping container: %s", err)
 		}
 		if err := res.client.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {

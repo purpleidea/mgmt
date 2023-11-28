@@ -141,10 +141,10 @@ func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (
 	cfg := embed.NewConfig()
 	cfg.Name = memberName // hostname
 	cfg.Dir = dataDir
-	cfg.LPUrls = peerURLs
-	cfg.LCUrls = obj.ClientURLs
-	cfg.APUrls = aPUrls
-	cfg.ACUrls = aCUrls
+	cfg.ListenPeerUrls = peerURLs
+	cfg.ListenClientUrls = obj.ClientURLs
+	cfg.AdvertisePeerUrls = aPUrls
+	cfg.AdvertiseClientUrls = aCUrls
 	cfg.StrictReconfigCheck = false // XXX: workaround https://github.com/etcd-io/etcd/issues/6305
 	cfg.MaxTxnOps = DefaultMaxTxnOps
 	cfg.Logger = "zap"

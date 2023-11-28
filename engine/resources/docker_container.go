@@ -349,9 +349,12 @@ func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, op
 }
 
 // containerStop stops the specified container and waits for it to stop.
-func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, timeout *time.Duration) error {
+func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, timeout *int) error {
 	ch, errCh := obj.client.ContainerWait(ctx, id, container.WaitConditionNotRunning)
-	obj.client.ContainerStop(ctx, id, timeout)
+	stopOpts := container.StopOptions{
+		Timeout: timeout,
+	}
+	obj.client.ContainerStop(ctx, id, stopOpts)
 	select {
 	case <-ch:
 	case err := <-errCh:

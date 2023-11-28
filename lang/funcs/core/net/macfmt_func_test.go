@@ -52,3 +52,33 @@ func TestMacFmt(t *testing.T) {
 		})
 	}
 }
+
+func TestOldMacFmt(t *testing.T) {
+	var tests = []struct {
+		name    string
+		in      string
+		out     string
+		wantErr bool
+	}{
+		{"Valid mac with hyphens", "01:23:45:67:89:AB", "01-23-45-67-89-AB", false},
+		{"Valid mac with colons", "01-23-45-67-89-AB", "01-23-45-67-89-AB", false},
+		{"Incorrect mac length with hyphens", "01-23-45-67-89-AB-01-23-45-67-89-AB", "01-23-45-67-89-AB-01-23-45-67-89-AB", true},
+		{"Invalid mac", "", "", true},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := OldMacFmt([]types.Value{&types.StrValue{V: tt.in}})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("func MacFmt() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if m != nil {
+				if err := m.Cmp(&types.StrValue{V: tt.out}); err != nil {
+					t.Errorf("got %q, want %q", m.Value(), tt.out)
+				}
+			}
+		})
+	}
+}

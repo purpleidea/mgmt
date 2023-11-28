@@ -31,6 +31,10 @@ func init() {
 		T: types.NewType("func(a str) str"),
 		V: MacFmt,
 	})
+	simple.ModuleRegister(ModuleName, "oldmacfmt", &types.FuncValue{
+		T: types.NewType("func(a str) str"),
+		V: OldMacFmt,
+	})
 }
 
 // MacFmt takes a MAC address with hyphens and converts it to a format with
@@ -49,5 +53,24 @@ func MacFmt(input []types.Value) (types.Value, error) {
 
 	return &types.StrValue{
 		V: strings.Replace(mac, "-", ":", -1),
+	}, nil
+}
+
+// OldMacFmt takes a MAC address with colons and converts it to a format with
+// hyphens. This is the old deprecated style that nobody likes.
+func OldMacFmt(input []types.Value) (types.Value, error) {
+	mac := input[0].Str()
+
+	// Check if the MAC address is valid.
+	if len(mac) != len("00:00:00:00:00:00") {
+		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
+	}
+	_, err := net.ParseMAC(mac)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.StrValue{
+		V: strings.Replace(mac, ":", "-", -1),
 	}, nil
 }

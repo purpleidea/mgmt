@@ -504,7 +504,6 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	} else {
 		obj.init.Logf("cmd out:")
 		obj.init.Logf("%s", s)
-
 	}
 
 	if err := obj.init.Send(&ExecSends{
@@ -763,18 +762,19 @@ func (obj *ExecRes) cmdFiles() []string {
 	var paths []string
 	if obj.Shell != "" {
 		paths = append(paths, obj.Shell)
-	} else if cmdSplit := strings.Fields(obj.getCmd()); len(cmdSplit) > 0 {
-		paths = append(paths, cmdSplit[0])
+	} else if sp := strings.Fields(obj.getCmd()); len(sp) > 0 {
+		paths = append(paths, sp[0])
 	}
 	if obj.WatchShell != "" {
 		paths = append(paths, obj.WatchShell)
-	} else if watchSplit := strings.Fields(obj.WatchCmd); len(watchSplit) > 0 {
-		paths = append(paths, watchSplit[0])
+	} else if sp := strings.Fields(obj.WatchCmd); len(sp) > 0 {
+		paths = append(paths, sp[0])
 	}
 	if obj.IfShell != "" {
 		paths = append(paths, obj.IfShell)
-	} else if ifSplit := strings.Fields(obj.IfCmd); len(ifSplit) > 0 {
-		paths = append(paths, ifSplit[0])
+	} else if sp := strings.Fields(obj.IfCmd); len(sp) > 0 {
+		paths = append(paths, sp[0])
+	}
 	}
 	return paths
 }

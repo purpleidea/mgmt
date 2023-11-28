@@ -591,8 +591,9 @@ func (obj *ExecRes) Interrupt() error {
 // ExecUID is the UID struct for ExecRes.
 type ExecUID struct {
 	engine.BaseUID
-	Cmd   string
-	IfCmd string
+	Cmd      string
+	WatchCmd string
+	IfCmd    string
 	// TODO: add more elements here
 }
 
@@ -678,9 +679,10 @@ func (obj *ExecRes) AutoEdges() (engine.AutoEdge, error) {
 // resources only return one, although some resources can return multiple.
 func (obj *ExecRes) UIDs() []engine.ResUID {
 	x := &ExecUID{
-		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		Cmd:     obj.getCmd(),
-		IfCmd:   obj.IfCmd,
+		BaseUID:  engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+		Cmd:      obj.getCmd(),
+		WatchCmd: obj.WatchCmd,
+		IfCmd:    obj.IfCmd,
 		// TODO: add more params here
 	}
 	return []engine.ResUID{x}

@@ -2,5 +2,5 @@
 # This should not panic.
 panic("")
 panic("")
+# Empty graph, no output.
 -- OUTPUT --
-Vertex: _panic[panic]

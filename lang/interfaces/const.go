@@ -28,7 +28,4 @@ const (
 
 	// PanicResKind is the kind string used for the panic resource.
 	PanicResKind = "_panic"
-
-	// PanicVarName is the magic name used for the panic output var.
-	PanicVarName = "_panic"
 )

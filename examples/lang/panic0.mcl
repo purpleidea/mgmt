@@ -12,7 +12,6 @@ test "test" {
 }
 
 # this is what we're simulating:
-#$_panic1 = panic("whatever1")	# this is a function
-#_panic $_panic1 {}		# this is a resource
-#$_panic2 = panic("whatever2")
-#_panic $_panic2 {}
+#if panic("whatever1") {	# this is a function (and an if statement)
+#	_panic "panic" {}	# this is a resource
+#}

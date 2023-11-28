@@ -291,8 +291,6 @@ type StmtRes struct {
 	Name     interfaces.Expr   // unique name for the res of this kind
 	namePtr  interfaces.Func   // ptr for table lookup
 	Contents []StmtResContents // list of fields/edges in parsed order
-
-	allowUnderscores bool // secret flag to bypass some validation
 }
 
 // String returns a short representation of this statement.
@@ -321,10 +319,7 @@ func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtRes) Init(data *interfaces.Data) error {
-
-	isPanic := obj.allowUnderscores && obj.Kind == interfaces.PanicResKind
-
-	if strings.Contains(obj.Kind, "_") && !isPanic {
+	if strings.Contains(obj.Kind, "_") && obj.Kind != interfaces.PanicResKind {
 		return fmt.Errorf("kind must not contain underscores")
 	}
 
@@ -384,11 +379,10 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtRes{
-		data:             obj.data,
-		Kind:             obj.Kind,
-		Name:             name,
-		Contents:         contents,
-		allowUnderscores: obj.allowUnderscores,
+		data:     obj.data,
+		Kind:     obj.Kind,
+		Name:     name,
+		Contents: contents,
 	}, nil
 }
 
@@ -425,11 +419,10 @@ func (obj *StmtRes) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtRes{
-		data:             obj.data,
-		Kind:             obj.Kind,
-		Name:             name,
-		Contents:         contents,
-		allowUnderscores: obj.allowUnderscores,
+		data:     obj.data,
+		Kind:     obj.Kind,
+		Name:     name,
+		Contents: contents,
 	}, nil
 }
 
@@ -2840,8 +2833,6 @@ type StmtProg struct {
 	importProgs []*StmtProg // list of child programs after running SetScope
 	importFiles []string    // list of files seen during the SetScope import
 
-	panicCounter uint // number of possible different panics
-
 	Body []interfaces.Stmt
 }
 
@@ -2896,36 +2887,6 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 			return nil, err
 		}
 		body = append(body, interpolated)
-
-		// If we have the magic bind statement, then add the res.
-		// NOTE: We could have used a custom StmtPanic instead here...
-		if bind, ok := interpolated.(*StmtBind); ok && bind.Ident == interfaces.PanicVarName {
-			// TODO: does it still work if we have multiple StmtProg's?
-			obj.panicCounter++
-			name := fmt.Sprintf("%s%d", interfaces.PanicVarName, obj.panicCounter)
-			bind.Ident = name // change name to magic name
-			exprVar := &ExprVar{
-				Name: name, // use magic name to match
-
-				allowUnderscores: true, // allow our magic name
-			}
-			if err := exprVar.Init(obj.data); err != nil {
-				return nil, errwrap.Wrapf(err, "special panic ExprVar Init error during interpolate")
-			}
-			stmtRes := &StmtRes{
-				Kind:     interfaces.PanicResKind, // special resource kind
-				Name:     exprVar,
-				Contents: []StmtResContents{},
-
-				allowUnderscores: true, // allow our magic kind
-			}
-			if err := stmtRes.Init(obj.data); err != nil {
-				return nil, errwrap.Wrapf(err, "special panic StmtRes Init error during interpolate")
-			}
-
-			body = append(body, stmtRes)
-			continue
-		}
 	}
 	return &StmtProg{
 		data:        obj.data,
@@ -8289,8 +8250,6 @@ type ExprVar struct {
 	typ   *types.Type
 
 	Name string // name of the variable
-
-	allowUnderscores bool // secret flag to bypass some validation
 }
 
 // String returns a short representation of this expression.
@@ -8306,9 +8265,6 @@ func (obj *ExprVar) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprVar) Init(*interfaces.Data) error {
-	if obj.allowUnderscores && strings.HasPrefix(obj.Name, interfaces.PanicVarName) {
-		return nil
-	}
 	return langutil.ValidateVarName(obj.Name)
 }
 
@@ -8319,10 +8275,9 @@ func (obj *ExprVar) Init(*interfaces.Data) error {
 // support variable, variables or anything crazy like that.
 func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 	return &ExprVar{
-		scope:            obj.scope,
-		typ:              obj.typ,
-		Name:             obj.Name,
-		allowUnderscores: obj.allowUnderscores,
+		scope: obj.scope,
+		typ:   obj.typ,
+		Name:  obj.Name,
 	}, nil
 }
 
@@ -8333,10 +8288,9 @@ func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprVar) Copy() (interfaces.Expr, error) {
 	return &ExprVar{
-		scope:            obj.scope,
-		typ:              obj.typ,
-		Name:             obj.Name,
-		allowUnderscores: obj.allowUnderscores,
+		scope: obj.scope,
+		typ:   obj.typ,
+		Name:  obj.Name,
 	}, nil
 }
 

@@ -927,17 +927,30 @@ bind:
 ;
 panic:
 	// panic("some error")
+	// generates:
+	// if panic("some error") {
+	//	_panic "_panic" {} # resource
+	//}
 	PANIC_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
 	{
 		posLast(yylex, yyDollar) // our pos
 		call := &ast.ExprCall{
-			Name: $1.str,
+			Name: $1.str, // the function name
 			Args: $3.exprs,
 			//Var: false, // default
 		}
-		$$.stmt = &ast.StmtBind{
-			Ident: interfaces.PanicVarName, // make up a placeholder var
-			Value: call,
+		name := &ast.ExprStr{
+			V: $1.str, // any constant, non-empty name
+		}
+		res := &ast.StmtRes{
+			Kind:     interfaces.PanicResKind,
+			Name:     name,
+			Contents: []ast.StmtResContents{},
+		}
+		$$.stmt = &ast.StmtIf{
+			Condition:  call,
+			ThenBranch: res,
+			//ElseBranch: nil,
 		}
 	}
 ;

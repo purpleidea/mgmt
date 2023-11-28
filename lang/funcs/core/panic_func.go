@@ -26,21 +26,18 @@ import (
 
 func init() {
 	simple.Register("panic", &types.FuncValue{
-		T: types.NewType("func(x str) str"),
+		T: types.NewType("func(x str) bool"),
 		V: Panic,
 	})
 }
 
 // Panic returns an error when it receives a non-empty string. The error should
-// cause the function engine to shutdown.
+// cause the function engine to shutdown. If there's no error, it returns false.
 func Panic(input []types.Value) (types.Value, error) {
 	if s := input[0].Str(); s != "" {
-		// This StrValue not really used here, since we error...
-		return &types.StrValue{
-			V: s,
-		}, fmt.Errorf("panic occurred: %s", s)
+		return nil, fmt.Errorf("panic occurred: %s", s)
 	}
-	return &types.StrValue{
-		V: "panic", // name can't be empty
+	return &types.BoolValue{
+		V: false,
 	}, nil
 }

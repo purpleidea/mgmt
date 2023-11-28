@@ -1,4 +1,10 @@
 class foo() {
+	panic(false) # should NOT panic
+	panic(false) # should NOT panic
+	panic("") # should NOT panic
+	panic("") # should NOT panic
+	panic(true) # should panic
+	panic(true) # should panic
 	panic("fail3") # should panic
 	panic("fail4") # should panic
 

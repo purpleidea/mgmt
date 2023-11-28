@@ -1,7 +1,11 @@
 import "panic/" as nested # local, relative module to prove it can nest
 
+panic(false) # should NOT panic
+panic(false) # should NOT panic
 panic("") # should NOT panic
 panic("") # should NOT panic
+panic(true) # should panic
+panic(true) # should panic
 panic("fail1") # should panic
 panic("fail2") # should panic
 

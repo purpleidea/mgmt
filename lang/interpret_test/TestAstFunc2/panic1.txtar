@@ -1,5 +1,6 @@
 -- main.mcl --
 # This should not panic.
+panic(false)
 panic("")
 test "hello" {}
 -- OUTPUT --

@@ -20,23 +20,40 @@ package core
 import (
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	simple.Register("panic", &types.FuncValue{
-		T: types.NewType("func(x str) bool"),
-		V: Panic,
+	simplepoly.Register("panic", []*types.FuncValue{
+		{
+			T: types.NewType("func(x bool) bool"),
+			V: Panic,
+		},
+		{
+			T: types.NewType("func(x str) bool"),
+			V: Panic,
+		},
 	})
 }
 
-// Panic returns an error when it receives a non-empty string. The error should
-// cause the function engine to shutdown. If there's no error, it returns false.
+// Panic returns an error when it receives a non-empty string or a true boolean.
+// The error should cause the function engine to shutdown. If there's no error,
+// it returns false.
 func Panic(input []types.Value) (types.Value, error) {
-	if s := input[0].Str(); s != "" {
-		return nil, fmt.Errorf("panic occurred: %s", s)
+	switch k := input[0].Type().Kind; k {
+	case types.KindBool:
+		if input[0].Bool() {
+			return nil, fmt.Errorf("bool panic occurred")
+		}
+	case types.KindStr:
+		if s := input[0].Str(); s != "" {
+			return nil, fmt.Errorf("str panic occurred: %s", s)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported kind: %+v", k)
 	}
+
 	return &types.BoolValue{
 		V: false,
 	}, nil

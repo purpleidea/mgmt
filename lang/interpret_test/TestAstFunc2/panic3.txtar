@@ -1,6 +1,6 @@
 -- main.mcl --
 # This should panic!
-panic(true)
+panic("please panic")
 test "hello" {}
 -- OUTPUT --
 # err: errStream: func `panic @ 0x0000000000` stopped before it was loaded

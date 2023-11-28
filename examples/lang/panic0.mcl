@@ -1,0 +1,18 @@
+import "panic/" as nested # local, relative module to prove it can nest
+
+panic("") # should NOT panic
+panic("") # should NOT panic
+panic("fail1") # should panic
+panic("fail2") # should panic
+
+include nested.foo()
+
+test "test" {
+	anotherstr => "hello!\n",
+}
+
+# this is what we're simulating:
+#$_panic1 = panic("whatever1")	# this is a function
+#_panic $_panic1 {}		# this is a resource
+#$_panic2 = panic("whatever2")
+#_panic $_panic2 {}

@@ -1,0 +1,7 @@
+-- main.mcl --
+# This should not panic.
+panic("")
+test "hello" {}
+-- OUTPUT --
+Vertex: _panic[panic]
+Vertex: test[hello]

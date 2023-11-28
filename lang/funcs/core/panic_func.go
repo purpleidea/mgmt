@@ -15,20 +15,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package interfaces
+package core
 
-const (
-	// ModuleSep is the character used for the module scope separation. For
-	// example when using `fmt.printf` or `math.sin` this is the char used.
-	ModuleSep = "."
+import (
+	"fmt"
 
-	// VarPrefix is the prefix character that precedes the variables
-	// identifier. For example, `$foo` or for a lambda, `$fn(42)`.
-	VarPrefix = "$"
-
-	// PanicResKind is the kind string used for the panic resource.
-	PanicResKind = "_panic"
-
-	// PanicVarName is the magic name used for the panic output var.
-	PanicVarName = "_panic"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/types"
 )
+
+func init() {
+	simple.Register("panic", &types.FuncValue{
+		T: types.NewType("func(x str) str"),
+		V: Panic,
+	})
+}
+
+// Panic returns an error when it receives a non-empty string. The error should
+// cause the function engine to shutdown.
+func Panic(input []types.Value) (types.Value, error) {
+	if s := input[0].Str(); s != "" {
+		// This StrValue not really used here, since we error...
+		return &types.StrValue{
+			V: s,
+		}, fmt.Errorf("panic occurred: %s", s)
+	}
+	return &types.StrValue{
+		V: "panic", // name can't be empty
+	}, nil
+}

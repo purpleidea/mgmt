@@ -1,0 +1,8 @@
+class foo() {
+	panic("fail3") # should panic
+	panic("fail4") # should panic
+
+	test "nested-test" {
+		anotherstr => "hello!\n",
+	}
+}

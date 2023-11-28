@@ -514,6 +514,7 @@ func TestAstFunc2(t *testing.T) {
 	const magicErrorSetScope = "errSetScope: "
 	const magicErrorUnify = "errUnify: "
 	const magicErrorGraph = "errGraph: "
+	const magicErrorStream = "errStream: "
 	const magicErrorInterpret = "errInterpret: "
 	const magicErrorAutoEdge = "errAutoEdge: "
 	const magicEmpty = "# empty!"
@@ -650,6 +651,7 @@ func TestAstFunc2(t *testing.T) {
 			failSetScope := false
 			failUnify := false
 			failGraph := false
+			failStream := false
 			failInterpret := false
 			failAutoEdge := false
 			if strings.HasPrefix(expstr, magicError) {
@@ -685,6 +687,11 @@ func TestAstFunc2(t *testing.T) {
 					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
 					expstr = errStr
 					failGraph = true
+				}
+				if strings.HasPrefix(expstr, magicErrorStream) {
+					errStr = strings.TrimPrefix(expstr, magicErrorStream)
+					expstr = errStr
+					failStream = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInterpret) {
 					errStr = strings.TrimPrefix(expstr, magicErrorInterpret)
@@ -1124,8 +1131,28 @@ func TestAstFunc2(t *testing.T) {
 						return
 					}
 					if err != nil {
-						t.Errorf("test #%d: FAIL", index)
-						t.Errorf("test #%d: stream errored: %+v", index, err)
+						if (!fail || !failStream) && err != nil {
+							t.Errorf("test #%d: FAIL", index)
+							t.Errorf("test #%d: stream errored: %+v", index, err)
+							return
+						}
+						if failStream && err != nil {
+							t.Logf("test #%d: stream errored: %+v", index, err)
+							// Stream errors often have pointers in them, so don't compare for now.
+							//s := err.Error() // convert to string
+							//if s != expstr {
+							//	t.Errorf("test #%d: FAIL", index)
+							//	t.Errorf("test #%d: expected different error", index)
+							//	t.Logf("test #%d: err: %s", index, s)
+							//	t.Logf("test #%d: exp: %s", index, expstr)
+							//}
+							return
+						}
+						if failStream && err == nil {
+							t.Errorf("test #%d: FAIL", index)
+							t.Errorf("test #%d: stream passed, expected fail", index)
+							return
+						}
 						return
 					}
 					t.Logf("test #%d: got stream event!", index)

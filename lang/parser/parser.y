@@ -92,6 +92,7 @@ func init() {
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
 %token IMPORT_IDENTIFIER AS_IDENTIFIER
 %token COMMENT ERROR
+%token PANIC_IDENTIFIER
 
 // precedence table
 // "Operator precedence is determined by the line ordering of the declarations;
@@ -165,6 +166,11 @@ stmt:
 		}
 	}
 |	bind
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = $1.stmt
+	}
+|	panic
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = $1.stmt
@@ -916,6 +922,22 @@ bind:
 		$$.stmt = &ast.StmtBind{
 			Ident: $1.str,
 			Value: expr,
+		}
+	}
+;
+panic:
+	// panic("some error")
+	PANIC_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
+	{
+		posLast(yylex, yyDollar) // our pos
+		call := &ast.ExprCall{
+			Name: $1.str,
+			Args: $3.exprs,
+			//Var: false, // default
+		}
+		$$.stmt = &ast.StmtBind{
+			Ident: interfaces.PanicVarName, // make up a placeholder var
+			Value: call,
 		}
 	}
 ;

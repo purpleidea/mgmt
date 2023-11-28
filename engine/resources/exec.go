@@ -106,6 +106,18 @@ type ExecRes struct {
 	// IfShell is the Shell for the IfCmd. See the docs for Shell.
 	IfShell string `lang:"ifshell" yaml:"ifshell"`
 
+	// DoneCmd is the command that runs after the regular Cmd runs
+	// successfully. This is a useful pattern to avoid the shelling out to
+	// bash simply to do `$cmd && echo done > /tmp/donefile`. If this
+	// command errors, it behaves as if the normal Cmd had errored.
+	DoneCmd string `lang:"donecmd" yaml:"donecmd"`
+
+	// DoneCwd is the Cwd for the DoneCmd. See the docs for Cwd.
+	DoneCwd string `lang:"donecwd" yaml:"donecwd"`
+
+	// DoneShell is the Shell for the DoneCmd. See the docs for Shell.
+	DoneShell string `lang:"doneshell" yaml:"doneshell"`
+
 	// User is the (optional) user to use to execute the command. It is used
 	// for any command being run.
 	User string `lang:"user" yaml:"user"`
@@ -506,6 +518,72 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		obj.init.Logf("%s", s)
 	}
 
+	if obj.DoneCmd != "" {
+		var cmdName string
+		var cmdArgs []string
+		if obj.DoneShell == "" {
+			// call without a shell
+			// FIXME: are there still whitespace splitting issues?
+			split := strings.Fields(obj.DoneCmd)
+			cmdName = split[0]
+			//d, _ := os.Getwd() // TODO: how does this ever error ?
+			//cmdName = path.Join(d, cmdName)
+			cmdArgs = split[1:]
+		} else {
+			cmdName = obj.DoneShell // usually bash, or sh
+			cmdArgs = []string{"-c", obj.DoneCmd}
+		}
+		cmd := exec.Command(cmdName, cmdArgs...)
+		cmd.Dir = obj.DoneCwd // run program in pwd if ""
+		// ignore signals sent to parent process (we're in our own group)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+			Pgid:    0,
+		}
+
+		// if we have an user and group, use them
+		var err error
+		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
+			return false, errwrap.Wrapf(err, "error while setting credential")
+		}
+
+		var out splitWriter
+		out.Init()
+		cmd.Stdout = out.Stdout
+		cmd.Stderr = out.Stderr
+
+		if err := cmd.Run(); err != nil {
+			exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+			if !ok {
+				// command failed in some bad way
+				return false, errwrap.Wrapf(err, "donecmd failed in some bad way")
+			}
+			pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
+			wStatus, ok := pStateSys.(syscall.WaitStatus)
+			if !ok {
+				return false, errwrap.Wrapf(err, "could not get exit status of donecmd")
+			}
+			exitStatus := wStatus.ExitStatus()
+			if exitStatus == 0 {
+				// i'm not sure if this could happen
+				return false, errwrap.Wrapf(err, "unexpected donecmd exit status of zero")
+			}
+
+			if s := out.String(); s == "" {
+				obj.init.Logf("donecmd exit status %d", exitStatus)
+			} else {
+				obj.init.Logf("donecmd error: %s", s)
+			}
+			return false, errwrap.Wrapf(err, "cmd error") // exit status will be in the error
+		}
+		if s := out.String(); s == "" {
+			obj.init.Logf("donecmd out empty!")
+		} else {
+			obj.init.Logf("donecmd out:")
+			obj.init.Logf("%s", s)
+		}
+	}
+
 	if err := obj.init.Send(&ExecSends{
 		Output: obj.output,
 		Stdout: obj.stdout,
@@ -571,6 +649,16 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the IfShell differs")
 	}
 
+	if obj.DoneCmd != res.DoneCmd {
+		return fmt.Errorf("the DoneCmd differs")
+	}
+	if obj.DoneCwd != res.DoneCwd {
+		return fmt.Errorf("the DoneCwd differs")
+	}
+	if obj.DoneShell != res.DoneShell {
+		return fmt.Errorf("the DoneShell differs")
+	}
+
 	if obj.User != res.User {
 		return fmt.Errorf("the User differs")
 	}
@@ -593,6 +681,7 @@ type ExecUID struct {
 	Cmd      string
 	WatchCmd string
 	IfCmd    string
+	DoneCmd  string
 	// TODO: add more elements here
 }
 
@@ -682,6 +771,7 @@ func (obj *ExecRes) UIDs() []engine.ResUID {
 		Cmd:      obj.getCmd(),
 		WatchCmd: obj.WatchCmd,
 		IfCmd:    obj.IfCmd,
+		DoneCmd:  obj.DoneCmd,
 		// TODO: add more params here
 	}
 	return []engine.ResUID{x}
@@ -775,6 +865,10 @@ func (obj *ExecRes) cmdFiles() []string {
 	} else if sp := strings.Fields(obj.IfCmd); len(sp) > 0 {
 		paths = append(paths, sp[0])
 	}
+	if obj.DoneShell != "" {
+		paths = append(paths, obj.DoneShell)
+	} else if sp := strings.Fields(obj.DoneCmd); len(sp) > 0 {
+		paths = append(paths, sp[0])
 	}
 	return paths
 }

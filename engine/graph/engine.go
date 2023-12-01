@@ -45,15 +45,15 @@ type Engine struct {
 	Program  string
 	Version  string
 	Hostname string
-	World    engine.World
+
+	Converger *converger.Coordinator
+	World     engine.World
 
 	// Prefix is a unique directory prefix which can be used. It should be
 	// created if needed.
-	Prefix    string
-	Converger *converger.Coordinator
-
-	Debug bool
-	Logf  func(format string, v ...interface{})
+	Prefix string
+	Debug  bool
+	Logf   func(format string, v ...interface{})
 
 	graph     *pgraph.Graph
 	nextGraph *pgraph.Graph
@@ -223,9 +223,9 @@ func (obj *Engine) Commit() error {
 			Version:  obj.Version,
 			Hostname: obj.Hostname,
 
+			//Converger: obj.Converger,
 			World:  obj.World,
 			Prefix: statePrefix,
-			//Converger: obj.Converger,
 
 			Debug: obj.Debug,
 			Logf: func(format string, v ...interface{}) {

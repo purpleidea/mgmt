@@ -43,13 +43,14 @@ type State struct {
 	Program  string
 	Version  string
 	Hostname string
-	World    engine.World
+
+	//Converger *converger.Coordinator
+
+	World engine.World
 
 	// Prefix is a unique directory prefix which can be used. It should be
 	// created if needed.
 	Prefix string
-
-	//Converger *converger.Coordinator
 
 	// Debug turns on additional output and behaviours.
 	Debug bool

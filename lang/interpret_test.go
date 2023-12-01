@@ -2001,9 +2001,9 @@ func TestAstFunc3(t *testing.T) {
 				Program: "testing", // TODO: name it mgmt?
 				//Version:   obj.Version,
 				Hostname:  "localhost",
+				Converger: converger,
 				World:     world,
 				Prefix:    fmt.Sprintf("%s/", filepath.Join(tmpdir, "engine")),
-				Converger: converger,
 				Debug:     testing.Verbose(),
 				Logf: func(format string, v ...interface{}) {
 					logf("engine: "+format, v...)

@@ -492,9 +492,9 @@ func (obj *Main) Run() error {
 		Program:   obj.Program,
 		Version:   obj.Version,
 		Hostname:  hostname,
+		Converger: converger,
 		World:     world,
 		Prefix:    fmt.Sprintf("%s/", path.Join(prefix, "engine")),
-		Converger: converger,
 		//Prometheus: prom, // TODO: implement this via a general Status API
 		Debug: obj.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {

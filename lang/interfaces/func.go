@@ -62,6 +62,7 @@ type Init struct {
 
 	// TODO: should we pass in a *Scope here for functions like template() ?
 	World engine.World
+
 	Debug bool
 	Logf  func(format string, v ...interface{})
 }

@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/pgraph"
 
 	"github.com/urfave/cli/v2"
@@ -72,6 +73,7 @@ type Data struct {
 	Program       string // name of the originating program
 	Version       string // version of the originating program
 	Hostname      string // uuid for the host, required for GAPI
+	Local         *local.API
 	World         engine.World
 	Noop          bool
 	NoStreamWatch bool

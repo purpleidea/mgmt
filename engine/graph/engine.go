@@ -28,6 +28,7 @@ import (
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -47,6 +48,7 @@ type Engine struct {
 	Hostname string
 
 	Converger *converger.Coordinator
+	Local     *local.API
 	World     engine.World
 
 	// Prefix is a unique directory prefix which can be used. It should be
@@ -224,6 +226,7 @@ func (obj *Engine) Commit() error {
 			Hostname: obj.Hostname,
 
 			//Converger: obj.Converger,
+			Local:  obj.Local,
 			World:  obj.World,
 			Prefix: statePrefix,
 

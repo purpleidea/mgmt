@@ -36,6 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/graph"
 	"github.com/purpleidea/mgmt/engine/graph/autoedge"
+	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/lang/ast"
@@ -717,6 +718,15 @@ func TestAstFunc2(t *testing.T) {
 			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
 			fs := &util.Fs{Afero: afs}
 
+			// implementation of the Local API (we only expect just this single one)
+			localAPI := &local.API{
+				Prefix: fmt.Sprintf("%s/", filepath.Join(tmpdir, "local")),
+				Debug:  testing.Verbose(), // set via the -test.v flag to `go test`
+				Logf: func(format string, v ...interface{}) {
+					logf("local: api: "+format, v...)
+				},
+			}
+
 			// implementation of the World API (alternatives can be substituted in)
 			world := &etcd.World{
 				//Hostname:       hostname,
@@ -1011,6 +1021,7 @@ func TestAstFunc2(t *testing.T) {
 			funcs := &dage.Engine{
 				Name:     "test",
 				Hostname: "",                // NOTE: empty b/c not used
+				Local:    localAPI,          // used partially in some tests
 				World:    world,             // used partially in some tests
 				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
 				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
@@ -1479,6 +1490,15 @@ func TestAstFunc3(t *testing.T) {
 			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
 			fs := &util.Fs{Afero: afs}
 
+			// implementation of the Local API (we only expect just this single one)
+			localAPI := &local.API{
+				Prefix: fmt.Sprintf("%s/", filepath.Join(tmpdir, "local")),
+				Debug:  testing.Verbose(), // set via the -test.v flag to `go test`
+				Logf: func(format string, v ...interface{}) {
+					logf("local: api: "+format, v...)
+				},
+			}
+
 			// implementation of the World API (alternatives can be substituted in)
 			world := &etcd.World{
 				//Hostname:       hostname,
@@ -1773,6 +1793,7 @@ func TestAstFunc3(t *testing.T) {
 			funcs := &dage.Engine{
 				Name:     "test",
 				Hostname: "",                // NOTE: empty b/c not used
+				Local:    localAPI,          // used partially in some tests
 				World:    world,             // used partially in some tests
 				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
 				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
@@ -2004,6 +2025,7 @@ func TestAstFunc3(t *testing.T) {
 				//Version:   obj.Version,
 				Hostname:  "localhost",
 				Converger: converger,
+				Local:     localAPI,
 				World:     world,
 				Prefix:    fmt.Sprintf("%s/", filepath.Join(tmpdir, "engine")),
 				Debug:     testing.Verbose(),

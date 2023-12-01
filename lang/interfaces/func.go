@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 )
@@ -61,6 +62,8 @@ type Init struct {
 	Txn Txn
 
 	// TODO: should we pass in a *Scope here for functions like template() ?
+
+	Local *local.API
 	World engine.World
 
 	Debug bool

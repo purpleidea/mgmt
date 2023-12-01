@@ -36,6 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/graph"
 	"github.com/purpleidea/mgmt/engine/graph/autogroup"
+	"github.com/purpleidea/mgmt/engine/local"
 	_ "github.com/purpleidea/mgmt/engine/resources" // let register's run
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/etcd/chooser"
@@ -475,6 +476,15 @@ func (obj *Main) Run() error {
 		}
 	}()
 
+	// implementation of the Local API (we only expect just this single one)
+	localAPI := &local.API{
+		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "local")),
+		Debug:  obj.Flags.Debug,
+		Logf: func(format string, v ...interface{}) {
+			log.Printf("local: api: "+format, v...)
+		},
+	}
+
 	// implementation of the World API (alternatives can be substituted in)
 	world := &etcd.World{
 		Hostname:       hostname,
@@ -493,6 +503,7 @@ func (obj *Main) Run() error {
 		Version:   obj.Version,
 		Hostname:  hostname,
 		Converger: converger,
+		Local:     localAPI,
 		World:     world,
 		Prefix:    fmt.Sprintf("%s/", path.Join(prefix, "engine")),
 		//Prometheus: prom, // TODO: implement this via a general Status API
@@ -582,6 +593,7 @@ func (obj *Main) Run() error {
 					Program:  obj.Program,
 					Version:  obj.Version,
 					Hostname: hostname,
+					Local:    localAPI,
 					World:    world,
 					Noop:     mainDeploy.Noop,
 					// FIXME: should the below flags come from the deploy struct?

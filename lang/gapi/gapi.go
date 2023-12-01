@@ -259,6 +259,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		LexParser:       parser.LexParse,
 		Downloader:      downloader,
 		StrInterpolater: interpolate.StrInterpolate,
+		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 
 		Prefix: prefix,
@@ -467,6 +468,7 @@ func (obj *GAPI) LangInit() error {
 		Input: input,
 
 		Hostname: obj.data.Hostname,
+		Local:    obj.data.Local,
 		World:    obj.data.World,
 		Debug:    obj.data.Debug,
 		Logf: func(format string, v ...interface{}) {
@@ -747,6 +749,7 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 		LexParser:       parser.LexParse,
 		Downloader:      downloader,
 		StrInterpolater: interpolate.StrInterpolate,
+		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 
 		Prefix: prefix,

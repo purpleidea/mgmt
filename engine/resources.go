@@ -22,6 +22,7 @@ import (
 	"encoding/gob"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -134,6 +135,11 @@ type Init struct {
 	FilteredGraph func() (*pgraph.Graph, error)
 
 	// TODO: GraphQuery offers an interface to query the resource graph.
+
+	// Local has a bunch of methods and properties which are useful for
+	// operations on the local machine and for communication between
+	// functions and resources.
+	Local *local.API
 
 	// World provides a connection to the outside world. This is most often
 	// used for communicating with the distributed database.

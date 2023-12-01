@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/lang/ast"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/funcs/dage"
@@ -57,6 +58,7 @@ type Lang struct {
 	Input string
 
 	Hostname string
+	Local    *local.API
 	World    engine.World
 	Prefix   string
 	Debug    bool
@@ -139,6 +141,7 @@ func (obj *Lang) Init() error {
 		LexParser:       parser.LexParse,
 		Downloader:      nil, // XXX: is this used here?
 		StrInterpolater: interpolate.StrInterpolate,
+		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 
 		Prefix: obj.Prefix,
@@ -237,6 +240,7 @@ func (obj *Lang) Init() error {
 	obj.funcs = &dage.Engine{
 		Name:     "lang", // TODO: arbitrary name for now
 		Hostname: obj.Hostname,
+		Local:    obj.Local,
 		World:    obj.World,
 		//Prefix:   fmt.Sprintf("%s/", path.Join(obj.Prefix, "funcs")),
 		Debug:    obj.Debug,

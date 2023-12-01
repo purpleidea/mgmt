@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -44,6 +45,7 @@ type Engine struct {
 	Name string
 
 	Hostname string
+	Local    *local.API
 	World    engine.World
 
 	Debug bool
@@ -289,6 +291,7 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 		Input:    node.input,
 		Output:   node.output,
 		Txn:      node.txn,
+		Local:    obj.Local,
 		World:    obj.World,
 		Debug:    obj.Debug,
 		Logf: func(format string, v ...interface{}) {

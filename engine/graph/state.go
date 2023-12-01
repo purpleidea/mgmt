@@ -25,6 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -46,6 +47,7 @@ type State struct {
 
 	//Converger *converger.Coordinator
 
+	Local *local.API
 	World engine.World
 
 	// Prefix is a unique directory prefix which can be used. It should be
@@ -239,6 +241,7 @@ func (obj *State) Init() error {
 			return graph, nil // we return in a func so it's fresh!
 		},
 
+		Local:  obj.Local,
 		World:  obj.World,
 		VarDir: obj.varDir,
 

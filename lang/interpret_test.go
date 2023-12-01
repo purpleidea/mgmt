@@ -1012,6 +1012,7 @@ func TestAstFunc2(t *testing.T) {
 				Name:     "test",
 				Hostname: "",                // NOTE: empty b/c not used
 				World:    world,             // used partially in some tests
+				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
 				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)
@@ -1773,6 +1774,7 @@ func TestAstFunc3(t *testing.T) {
 				Name:     "test",
 				Hostname: "",                // NOTE: empty b/c not used
 				World:    world,             // used partially in some tests
+				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
 				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)

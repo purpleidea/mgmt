@@ -1,0 +1,24 @@
+-- main.mcl --
+import "test"
+# one_instance_a should only produce one value, and will error if initialized twice
+$x = test.one_instance_a()
+test "test1" {
+	anotherstr => $x,
+}
+test "test2" {
+	anotherstr => $x,
+}
+
+# one_instance_b should only produce one value, and will error if initialized twice
+$y = test.one_instance_b()
+test "test3" {
+	anotherstr => $y,
+}
+test "test4" {
+	anotherstr => $y,
+}
+-- OUTPUT --
+Vertex: test[test1]
+Vertex: test[test2]
+Vertex: test[test3]
+Vertex: test[test4]

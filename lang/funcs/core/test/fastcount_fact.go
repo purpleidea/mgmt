@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	// FastCountFuncName is the name this fact is registered as. It's still a
-	// Func Name because this is the name space the fact is actually using.
+	// FastCountFuncName is the name this fact is registered as. It's still
+	// a Func Name because this is the name space the fact is actually
+	// using.
 	FastCountFuncName = "fastcount"
 )
 

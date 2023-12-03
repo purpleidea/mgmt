@@ -202,6 +202,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 	ioChan := make(chan *cmdOutput)
 	defer obj.wg.Wait()
 
+	var watchCmd *exec.Cmd
 	if obj.WatchCmd != "" {
 		var cmdName string
 		var cmdArgs []string
@@ -227,6 +228,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 			Setpgid: true,
 			Pgid:    0,
 		}
+		watchCmd = cmd // store for errors
 
 		// if we have a user and group, use them
 		var err error
@@ -268,6 +270,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 					return errwrap.Wrapf(err, "unexpected watchcmd exit status of zero")
 				}
 
+				obj.init.Logf("watchcmd: %s", strings.Join(watchCmd.Args, " "))
 				obj.init.Logf("watchcmd exited with: %d", exitStatus)
 				return errwrap.Wrapf(err, "watchcmd errored")
 			}
@@ -354,6 +357,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 				return false, errwrap.Wrapf(err, "unexpected ifcmd exit status of zero")
 			}
 
+			obj.init.Logf("ifcmd: %s", strings.Join(cmd.Args, " "))
 			obj.init.Logf("ifcmd exited with: %d", exitStatus)
 			if s := out.String(); s == "" {
 				obj.init.Logf("ifcmd out empty!")
@@ -569,6 +573,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 				return false, errwrap.Wrapf(err, "unexpected donecmd exit status of zero")
 			}
 
+			obj.init.Logf("donecmd: %s", strings.Join(cmd.Args, " "))
 			if s := out.String(); s == "" {
 				obj.init.Logf("donecmd exit status %d", exitStatus)
 			} else {

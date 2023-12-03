@@ -19,7 +19,10 @@
 package util
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/gob"
 	"fmt"
 	"path"
 	"sort"
@@ -27,6 +30,7 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // NumToAlpha returns a lower case string of letters representing a number. If
@@ -681,4 +685,34 @@ func SortMapStringValuesByUInt64Keys(m map[uint64]string) []string {
 	}
 
 	return result
+}
+
+// ValueToB64 encodes a value to a base64 encoded string (after serialization).
+func ValueToB64(value interface{}) (string, error) {
+	b := bytes.Buffer{}
+	e := gob.NewEncoder(&b)
+	if err := e.Encode(&value); err != nil { // pass with &
+		return "", errwrap.Wrapf(err, "gob failed to encode")
+	}
+	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+}
+
+// B64ToValue decodes a value from a base64 encoded string (after
+// deserialization).
+func B64ToValue(str string) (interface{}, error) {
+	var output interface{}
+	bb, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "base64 failed to decode")
+	}
+	b := bytes.NewBuffer(bb)
+	d := gob.NewDecoder(b)
+	if err := d.Decode(&output); err != nil { // pass with &
+		return nil, errwrap.Wrapf(err, "gob failed to decode")
+	}
+	value, ok := output.(interface{})
+	if !ok {
+		return nil, fmt.Errorf("output `%v` is not a value", output)
+	}
+	return value, nil
 }

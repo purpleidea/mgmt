@@ -477,13 +477,13 @@ func (obj *Main) Run() error {
 	}()
 
 	// implementation of the Local API (we only expect just this single one)
-	localAPI := &local.API{
+	localAPI := (&local.API{
 		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "local")),
 		Debug:  obj.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
 			log.Printf("local: api: "+format, v...)
 		},
-	}
+	}).Init()
 
 	// implementation of the World API (alternatives can be substituted in)
 	world := &etcd.World{

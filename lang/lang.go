@@ -243,7 +243,7 @@ func (obj *Lang) Init() error {
 		Local:    obj.Local,
 		World:    obj.World,
 		//Prefix:   fmt.Sprintf("%s/", path.Join(obj.Prefix, "funcs")),
-		Debug:    obj.Debug,
+		Debug: obj.Debug,
 		Logf: func(format string, v ...interface{}) {
 			obj.Logf("funcs: "+format, v...)
 		},

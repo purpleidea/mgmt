@@ -719,13 +719,13 @@ func TestAstFunc2(t *testing.T) {
 			fs := &util.Fs{Afero: afs}
 
 			// implementation of the Local API (we only expect just this single one)
-			localAPI := &local.API{
+			localAPI := (&local.API{
 				Prefix: fmt.Sprintf("%s/", filepath.Join(tmpdir, "local")),
 				Debug:  testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("local: api: "+format, v...)
 				},
-			}
+			}).Init()
 
 			// implementation of the World API (alternatives can be substituted in)
 			world := &etcd.World{
@@ -1020,11 +1020,11 @@ func TestAstFunc2(t *testing.T) {
 			// run the function engine once to get some real output
 			funcs := &dage.Engine{
 				Name:     "test",
-				Hostname: "",                // NOTE: empty b/c not used
-				Local:    localAPI,          // used partially in some tests
-				World:    world,             // used partially in some tests
+				Hostname: "",       // NOTE: empty b/c not used
+				Local:    localAPI, // used partially in some tests
+				World:    world,    // used partially in some tests
 				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
-				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)
 				},
@@ -1491,13 +1491,13 @@ func TestAstFunc3(t *testing.T) {
 			fs := &util.Fs{Afero: afs}
 
 			// implementation of the Local API (we only expect just this single one)
-			localAPI := &local.API{
+			localAPI := (&local.API{
 				Prefix: fmt.Sprintf("%s/", filepath.Join(tmpdir, "local")),
 				Debug:  testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("local: api: "+format, v...)
 				},
-			}
+			}).Init()
 
 			// implementation of the World API (alternatives can be substituted in)
 			world := &etcd.World{
@@ -1792,11 +1792,11 @@ func TestAstFunc3(t *testing.T) {
 			// run the function engine once to get some real output
 			funcs := &dage.Engine{
 				Name:     "test",
-				Hostname: "",                // NOTE: empty b/c not used
-				Local:    localAPI,          // used partially in some tests
-				World:    world,             // used partially in some tests
+				Hostname: "",       // NOTE: empty b/c not used
+				Local:    localAPI, // used partially in some tests
+				World:    world,    // used partially in some tests
 				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
-				Debug:    testing.Verbose(), // set via the -test.v flag to `go test`
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)
 				},

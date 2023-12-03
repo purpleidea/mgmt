@@ -36,6 +36,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/test"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/value"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/world"
 )
 

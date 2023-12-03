@@ -1,0 +1,19 @@
+value "hello" {
+	any => "whatever",
+}
+
+test "test" {
+	#anotherstr => "", # get it from send/recv
+	onlyshow => ["AnotherStr",], # displays nicer
+}
+
+Value["hello"].any -> Test["test"].anotherstr
+
+import "value"
+
+$ret = value.get_str("hello")	# name of value resource
+
+test "get" {
+	anotherstr => $ret->value,
+	onlyshow => ["AnotherStr",], # displays nicer
+}

@@ -38,6 +38,8 @@ func init() {
 // be fixed eventually when we expand the resource API. See the Default method
 // of this resource for more information.
 type ValueRes struct {
+	// This is similar to the KV resource, but it makes sense not to merge.
+
 	traits.Base // add the base methods without re-implementation
 
 	//traits.Groupable // TODO: this is doable, but probably not very useful
@@ -52,6 +54,18 @@ type ValueRes struct {
 	// resource. It is interface{} because it can hold any type. It has
 	// pointer because it is only set if an actual value exists.
 	Any *interface{} `lang:"any" yaml:"any"`
+
+	// Store specifies that we should store this value locally in our cache,
+	// so that if we have a cold startup, that it comes back instantly, even
+	// before we might get the current value from send/recv. This does not
+	// override any value passed in directly as a field parameter. This is
+	// mostly useful if we're using the value.get() function, and we don't
+	// want an initial stale value for a subsequent run. Remember that
+	// functions run before resources do!
+	//
+	// At the moment, this is permanently enabled until someone has a good
+	// reason why we wouldn't want it on.
+	//Store bool
 
 	cachedAny *interface{}
 	isSet     bool
@@ -109,23 +123,69 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if !obj.isSet {
 		obj.cachedAny = obj.Any // store anything we have if any
 	}
+	received := false
+	different := false
+	checkOK := false
 	if val, exists := obj.init.Recv()["Any"]; exists && val.Changed {
 		// if we received on Any, and it changed, invalidate the cache!
 		obj.init.Logf("CheckApply: received on `Any`")
 		obj.isSet = true // we received something
 		obj.cachedAny = obj.Any
+		received = true // we'll always need to send below when we recv
 	}
 
-	// send
-	if obj.cachedAny != nil {
-		if err := obj.init.Send(&ValueSends{
-			Any: obj.cachedAny,
-		}); err != nil {
-			return false, err
+	// TODO: can we ever return before `if !apply` because "state is okay"?
+
+	if val, err := obj.init.Local.ValueGet(ctx, obj.Name()); err != nil {
+		return false, err
+
+	} else if obj.cachedAny == nil {
+		different = !(val == nil)
+		if !different && !received {
+			//return true, nil // no values, state is okay
+			checkOK = true
+		}
+
+	} else if different = !reflect.DeepEqual(val, *obj.cachedAny); !different && !received {
+		//return true, nil // same values, state is okay
+		// If we return early here, then we won't run the Send/Recv and
+		// we'll get an engine error like:
+		// `could not SendRecv: received nil value from: value[hello]`
+		// so instead, make sure we always send/recv at the end.
+		// XXX: verify this is a reasonable behaviour of the send/recv
+		// engine; that is, that we require to always send on each
+		// CheckApply. It seems it might be sensible that if our state
+		// doesn't change, we shouldn't need to re-send.
+		checkOK = true
+	}
+
+	if !apply { // XXX: does this break send/recv if we end early?
+		return checkOK, nil
+	}
+
+	if different { // don't cause unnecessary events!
+		if obj.cachedAny == nil {
+			// pass nil to delete!
+			if err := obj.init.Local.ValueSet(ctx, obj.Name(), nil); err != nil {
+				return false, err
+			}
+		} else {
+			if err := obj.init.Local.ValueSet(ctx, obj.Name(), *obj.cachedAny); err != nil {
+				return false, err
+			}
 		}
 	}
 
-	return true, nil // state is always okay
+	// send
+	//if obj.cachedAny != nil { // TODO: okay to send if value got removed too?
+	if err := obj.init.Send(&ValueSends{
+		Any: obj.cachedAny,
+	}); err != nil {
+		return false, err
+	}
+	//}
+
+	return checkOK, nil
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
@@ -139,6 +199,10 @@ func (obj *ValueRes) Cmp(r engine.Res) error {
 	if !reflect.DeepEqual(obj.Any, res.Any) {
 		return fmt.Errorf("the Any field differs")
 	}
+
+	//if obj.Store != res.Store {
+	//	return fmt.Errorf("the Store field differs")
+	//}
 
 	return nil
 }

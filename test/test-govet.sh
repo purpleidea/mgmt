@@ -60,10 +60,10 @@ function naked-error() {
 
 # catch errors that start with a capital
 function lowercase-errors() {
-	if grep -E 'errors\.New\(\"[A-Z]' "$1"; then
+	if grep -E 'errors\.New\("[A-Z]' "$1"; then
 		return 1
 	fi
-	if grep -E 't\.Errorf\(\"[A-Z]' "$1"; then # t.Errorf or fmt.Errorf
+	if grep -E 't\.Errorf\("[A-Z]' "$1"; then # t.Errorf or fmt.Errorf
 		return 1
 	fi
 	# TODO: add errwrap.Wrap* related matching

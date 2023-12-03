@@ -21,9 +21,11 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 )
 
 func init() {
@@ -89,11 +91,12 @@ type TestRes struct {
 	// Func1 passes the value 42 to the input and returns a string.
 	Func1 func(int) string `lang:"func1" yaml:"func1"`
 
-	ValidateBool  bool   `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
-	ValidateError string `lang:"validateerror" yaml:"validate_error"` // set to cause a validate error
-	AlwaysGroup   bool   `lang:"alwaysgroup" yaml:"always_group"`     // set to true to cause auto grouping
-	CompareFail   bool   `lang:"comparefail" yaml:"compare_fail"`     // will compare fail?
-	SendValue     string `lang:"sendvalue" yaml:"send_value"`         // what value should we send?
+	ValidateBool  bool     `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
+	ValidateError string   `lang:"validateerror" yaml:"validate_error"` // set to cause a validate error
+	AlwaysGroup   bool     `lang:"alwaysgroup" yaml:"always_group"`     // set to true to cause auto grouping
+	CompareFail   bool     `lang:"comparefail" yaml:"compare_fail"`     // will compare fail?
+	SendValue     string   `lang:"sendvalue" yaml:"send_value"`         // what value should we send?
+	OnlyShow      []string `lang:"onlyshow" yaml:"only_show"`           // what values do we show?
 
 	// TODO: add more fun properties!
 
@@ -151,47 +154,54 @@ func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		obj.init.Logf("Received a notification!")
 	}
 
-	obj.init.Logf("%s: Bool:          %v", obj, obj.Bool)
-	obj.init.Logf("%s: Str:           %v", obj, obj.Str)
+	fakeLogf := func(format string, v ...interface{}) {
+		key := format[0:strings.LastIndex(format, ":")]
+		if len(obj.OnlyShow) == 0 || util.StrInList(key, obj.OnlyShow) {
+			obj.init.Logf(format, v...)
+		}
+	}
 
-	obj.init.Logf("%s: Int:           %v", obj, obj.Int)
-	obj.init.Logf("%s: Int8:          %v", obj, obj.Int8)
-	obj.init.Logf("%s: Int16:         %v", obj, obj.Int16)
-	obj.init.Logf("%s: Int32:         %v", obj, obj.Int32)
-	obj.init.Logf("%s: Int64:         %v", obj, obj.Int64)
+	fakeLogf("Bool:          %v", obj.Bool)
+	fakeLogf("Str:           %v", obj.Str)
 
-	obj.init.Logf("%s: Uint:          %v", obj, obj.Uint)
-	obj.init.Logf("%s: Uint8:         %v", obj, obj.Uint)
-	obj.init.Logf("%s: Uint16:        %v", obj, obj.Uint)
-	obj.init.Logf("%s: Uint32:        %v", obj, obj.Uint)
-	obj.init.Logf("%s: Uint64:        %v", obj, obj.Uint)
+	fakeLogf("Int:           %v", obj.Int)
+	fakeLogf("Int8:          %v", obj.Int8)
+	fakeLogf("Int16:         %v", obj.Int16)
+	fakeLogf("Int32:         %v", obj.Int32)
+	fakeLogf("Int64:         %v", obj.Int64)
 
-	//obj.init.Logf("%s: Uintptr:       %v", obj, obj.Uintptr)
-	obj.init.Logf("%s: Byte:          %v", obj, obj.Byte)
-	obj.init.Logf("%s: Rune:          %v", obj, obj.Rune)
+	fakeLogf("Uint:          %v", obj.Uint)
+	fakeLogf("Uint8:         %v", obj.Uint)
+	fakeLogf("Uint16:        %v", obj.Uint)
+	fakeLogf("Uint32:        %v", obj.Uint)
+	fakeLogf("Uint64:        %v", obj.Uint)
 
-	obj.init.Logf("%s: Float32:       %v", obj, obj.Float32)
-	obj.init.Logf("%s: Float64:       %v", obj, obj.Float64)
-	obj.init.Logf("%s: Complex64:     %v", obj, obj.Complex64)
-	obj.init.Logf("%s: Complex128:    %v", obj, obj.Complex128)
+	//fakeLogf("Uintptr:       %v", obj.Uintptr)
+	fakeLogf("Byte:          %v", obj.Byte)
+	fakeLogf("Rune:          %v", obj.Rune)
 
-	obj.init.Logf("%s: BoolPtr:       %v", obj, obj.BoolPtr)
-	obj.init.Logf("%s: StringPtr:     %v", obj, obj.StringPtr)
-	obj.init.Logf("%s: Int64Ptr:      %v", obj, obj.Int64Ptr)
-	obj.init.Logf("%s: Int8Ptr:       %v", obj, obj.Int8Ptr)
-	obj.init.Logf("%s: Uint8Ptr:      %v", obj, obj.Uint8Ptr)
+	fakeLogf("Float32:       %v", obj.Float32)
+	fakeLogf("Float64:       %v", obj.Float64)
+	fakeLogf("Complex64:     %v", obj.Complex64)
+	fakeLogf("Complex128:    %v", obj.Complex128)
 
-	obj.init.Logf("%s: Int8PtrPtrPtr: %v", obj, obj.Int8PtrPtrPtr)
+	fakeLogf("BoolPtr:       %v", obj.BoolPtr)
+	fakeLogf("StringPtr:     %v", obj.StringPtr)
+	fakeLogf("Int64Ptr:      %v", obj.Int64Ptr)
+	fakeLogf("Int8Ptr:       %v", obj.Int8Ptr)
+	fakeLogf("Uint8Ptr:      %v", obj.Uint8Ptr)
 
-	obj.init.Logf("%s: SliceString:   %v", obj, obj.SliceString)
-	obj.init.Logf("%s: MapIntFloat:   %v", obj, obj.MapIntFloat)
-	obj.init.Logf("%s: MixedStruct:   %v", obj, obj.MixedStruct)
-	obj.init.Logf("%s: Interface:     %v", obj, obj.Interface)
+	fakeLogf("Int8PtrPtrPtr: %v", obj.Int8PtrPtrPtr)
 
-	obj.init.Logf("%s: AnotherStr:    %v", obj, obj.AnotherStr)
+	fakeLogf("SliceString:   %v", obj.SliceString)
+	fakeLogf("MapIntFloat:   %v", obj.MapIntFloat)
+	fakeLogf("MixedStruct:   %v", obj.MixedStruct)
+	fakeLogf("Interface:     %v", obj.Interface)
+
+	fakeLogf("AnotherStr:    %v", obj.AnotherStr)
 
 	if obj.Func1 != nil {
-		obj.init.Logf("%s: Func1:         %v", obj, obj.Func1(42))
+		fakeLogf("Func1:         %v", obj.Func1(42))
 	}
 
 	// send
@@ -361,6 +371,14 @@ func (obj *TestRes) Cmp(r engine.Res) error {
 	}
 	if obj.SendValue != res.SendValue {
 		return fmt.Errorf("the SendValue differs")
+	}
+	if len(obj.OnlyShow) != len(res.OnlyShow) {
+		return fmt.Errorf("the length of OnlyShow differs")
+	}
+	for i, x := range obj.OnlyShow {
+		if x != res.OnlyShow[i] {
+			return fmt.Errorf("the item at OnlyShow index %d differs", i)
+		}
 	}
 
 	if obj.Comment != res.Comment {

@@ -17,7 +17,7 @@ BREW=`command -v brew 2>/dev/null`
 PACMAN=`command -v pacman 2>/dev/null`
 
 # set minimum golang version and installed golang version
-mingolangversion=16
+mingolangversion=20
 golangversion=0
 if [ -x "$GO" ]; then
 	# capture the minor version number
@@ -143,7 +143,7 @@ fi
 
 # if golang is too old, we don't want to fail with an obscure error later
 if [ "$golangversion" -lt "$mingolangversion" ]; then
-	echo "mgmt recommends go1.$mingolangversion or higher."
+	echo "mgmt recommends golang 1.$mingolangversion or higher. (got: 1.${golangversion})"
 	exit 1
 fi
 

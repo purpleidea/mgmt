@@ -242,18 +242,7 @@ func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
 // calls Unify on any children elements that exist in the AST, and returns the
 // collection to the caller.
 func (obj *StmtBind) Unify() ([]interfaces.Invariant, error) {
-	// Invariants from an ExprFunc come in from the copy of it in ExprCall.
-	// We could exclude *all* recursion here, however when multiple ExprVar
-	// expressions use a bound variable from here, they'd end up calling it
-	// multiple times so it's better to do it here even if it's not elegant
-	// symmetrically.
-	// FIXME: There must be a way to keep this symmetrical, isn't there?
-	// FIXME: Keep it symmetrical and inefficient for now...
-	//if _, ok := obj.Value.(*ExprFunc); !ok {
-	//	return obj.Value.Unify()
-	//}
-
-	return []interfaces.Invariant{}, nil
+	return obj.Value.Unify()
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

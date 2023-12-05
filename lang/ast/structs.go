@@ -231,6 +231,8 @@ func (obj *StmtBind) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
 func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
 	emptyContext := map[string]interfaces.Expr{}
 	return obj.Value.SetScope(scope, emptyContext)

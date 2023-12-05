@@ -231,11 +231,9 @@ func (obj *StmtBind) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, cons, nil
 }
 
-// SetScope sets the scope of the child expression bound to it. If a variable
-// uses the value which this StmtBind binds, they will make a copy and call
-// SetScope on the copy.
 func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
-	return nil
+	emptyContext := map[string]interfaces.Expr{}
+	return obj.Value.SetScope(scope, emptyContext)
 }
 
 // Unify returns the list of invariants that this node produces. It recursively

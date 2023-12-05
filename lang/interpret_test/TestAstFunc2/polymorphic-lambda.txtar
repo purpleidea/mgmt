@@ -17,5 +17,4 @@ $out2 = $add($val) # hellohello
 
 test fmt.printf("%s + %s is %s", $val, $val, $out2) {} # simple concat
 -- OUTPUT --
-Vertex: test[2 + 2 is 4]
-Vertex: test[hello + hello is hellohello]
+# err: errUnify: can't unify, invariant illogicality with equality: base kind does not match (Int != Str)

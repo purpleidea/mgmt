@@ -3570,10 +3570,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 		binds[bind.Ident] = struct{}{} // mark as found in scope
 		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Variables[bind.Ident] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
-			Definition:    bind.Value,
-			CapturedScope: newScope,
-		}
+		newScope.Variables[bind.Ident] = bind.Value
 		if obj.data.Debug { // TODO: is this message ever useful?
 			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
 		}

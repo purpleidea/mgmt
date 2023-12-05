@@ -22,8 +22,6 @@ Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
 Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
 Vertex: call
 Vertex: call
 Vertex: call

@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+class double($to_str, $x) {
+	test $to_str($x + $x) {}
+}
+include double(func($x) {fmt.printf("%d", $x)}, 42)
+include double(func($x) {fmt.printf("%s", $x)}, "hello")
+-- OUTPUT --
+Vertex: test[84]
+Vertex: test[hellohello]

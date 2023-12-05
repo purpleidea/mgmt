@@ -1,0 +1,15 @@
+-- main.mcl --
+# $id could theoretically have type func(int) int or func(str) str, but it
+# can't be both because it is bound to a class parameter, which must have a
+# single type.
+class use_polymorphically($id) {
+	test "test1" {
+		int8 => $id(42),
+	}
+	test "test2" {
+		anotherstr => $id("hello"),
+	}
+}
+include use_polymorphically(func($x) {$x})
+-- OUTPUT --
+# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Int != Str)

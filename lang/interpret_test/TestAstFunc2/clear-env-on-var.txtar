@@ -6,4 +6,4 @@ $f = func($x) {
 
 test $f("foo") {}
 -- OUTPUT --
-# err: errSetScope: scope-checking the function definition `$f`: failed to set scope on function body: variable x not in scope
+# err: errSetScope: variable x not in scope

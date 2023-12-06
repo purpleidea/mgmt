@@ -581,24 +581,18 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 				obj.last = input // store for next
 			}
 
-			values := []types.Value{}
+			// Use the existing implementation instead of this one
+			// which can't handle this case at the moment.
+			//args, err := interfaces.StructToCallableArgs(input)
+			args := []types.Value{}
 			for _, name := range obj.fn.Type().Ord {
 				x := input.Struct()[name]
-				values = append(values, x)
+				args = append(args, x)
 			}
 
-			if obj.init.Debug {
-				obj.init.Logf("Calling function with: %+v", values)
-			}
-			result, err := obj.fn.Call(values) // (Value, error)
+			result, err := obj.Call(args)
 			if err != nil {
-				if obj.init.Debug {
-					obj.init.Logf("Function returned error: %+v", err)
-				}
-				return errwrap.Wrapf(err, "simple poly function errored")
-			}
-			if obj.init.Debug {
-				obj.init.Logf("Function returned with: %+v", result)
+				return err
 			}
 
 			// TODO: do we want obj.result to be a pointer instead?
@@ -620,4 +614,14 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call means this function implements the CallableFunc interface and can be
+// called statically if we want to do it speculatively or from a resource.
+func (obj *WrappedFunc) Call(args []types.Value) (types.Value, error) {
+	result, err := obj.fn.Call(args) // (Value, error)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "simple poly function errored")
+	}
+	return result, err
 }

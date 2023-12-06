@@ -86,3 +86,16 @@ type Fact interface {
 	Init(*Init) error
 	Stream(context.Context) error
 }
+
+// CallableFunc is a function that can be called statically if we want to do it
+// speculatively or from a resource.
+type CallableFact interface {
+	Fact // implement everything in Fact but add the additional requirements
+
+	// Call this function with the input args and return the value if it is
+	// possible to do so at this time. To transform from the single value,
+	// graph representation of the callable values into a linear, standard
+	// args list for use here, you can use the StructToCallableArgs
+	// function.
+	Call() (types.Value, error)
+}

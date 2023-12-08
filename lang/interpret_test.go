@@ -2165,7 +2165,7 @@ func TestAstFunc3(t *testing.T) {
 }
 
 // stringResFields is a helper function to store a resource graph as a text
-// format for test comparisons.
+// format for test comparisons. This also adds a line for each vertex as well!
 func stringResFields(res engine.Res) (string, error) {
 	m, err := engineUtil.ResToParamValues(res)
 	if err != nil {
@@ -2191,6 +2191,8 @@ func stringResFields(res engine.Res) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		s += fmt.Sprintf("Vertex: %s\n", x) // add one for the res itself!
+
 		// add a prefix to each line?
 		s = strings.Trim(s, "\n") // trim trailing newlines
 		for _, f := range strings.Split(s, "\n") {

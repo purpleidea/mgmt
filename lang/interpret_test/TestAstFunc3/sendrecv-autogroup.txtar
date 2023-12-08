@@ -41,6 +41,7 @@ Field: value[value1].Any = "i am value1"
 Field: value[value2].Any = "i am value2"
 Field: value[value3].Any = "i am value3"
 Group: print[print2]: Field: print[print3].Msg = "i am value3"
+Group: print[print2]: Vertex: print[print3]
 Vertex: print[print1]
 Vertex: print[print2]
 Vertex: value[value1]

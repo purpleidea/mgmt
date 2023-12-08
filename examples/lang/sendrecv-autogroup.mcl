@@ -1,0 +1,32 @@
+# send/recv of value1.any into print1.msg works!
+value "value1" {
+	any => "i am value1",
+}
+print "print1" {
+	msg => "i am print1",
+
+	Meta:autogroup => false,
+}
+Value["value1"].any -> Print["print1"].msg
+
+# One of these will be autogrouped into the other! The inner one can receive!
+# send/recv from value2.any into print2.msg works
+# send/recv from value3.any into (the usually autogrouped) print3 works too!
+value "value2" {
+	any => "i am value2",
+}
+value "value3" {
+	any => "i am value3",
+}
+print "print2" {
+	msg => "i am print2",
+
+	Meta:autogroup => true,
+}
+print "print3" {
+	msg => "i am print3",
+
+	Meta:autogroup => true,
+}
+Value["value2"].any -> Print["print2"].msg
+Value["value3"].any -> Print["print3"].msg

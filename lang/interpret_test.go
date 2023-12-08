@@ -36,6 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/graph"
 	"github.com/purpleidea/mgmt/engine/graph/autoedge"
+	"github.com/purpleidea/mgmt/engine/graph/autogroup"
 	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/etcd"
@@ -50,6 +51,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/spf13/afero"
@@ -2061,6 +2063,15 @@ func TestAstFunc3(t *testing.T) {
 
 			// TODO: apply the global metaparams to the graph
 
+			// XXX: can we change this into a ge.Apply operation?
+			// run autogroup; modifies the graph
+			if err := ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
+				//ge.Abort() // delete graph
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: error running autogrouping: %+v", index, err)
+				return
+			}
+
 			fastPause := false
 			ge.Pause(fastPause) // sync
 			if err := ge.Commit(); err != nil {
@@ -2091,34 +2102,24 @@ func TestAstFunc3(t *testing.T) {
 			t.Logf("test #%d: graph: %+v", index, ngraph)
 			str := strings.Trim(ngraph.Sprint(), "\n") // text format of output graph
 
-			for i, v := range ngraph.Vertices() {
+			for _, v := range ngraph.Vertices() {
 				res, ok := v.(engine.Res)
 				if !ok {
 					t.Errorf("test #%d: FAIL\n\n", index)
 					t.Logf("test #%d: unexpected non-resource: %+v", index, v)
 					return
 				}
-				m, err := engineUtil.ResToParamValues(res)
+
+				s, err := stringResFields(res)
 				if err != nil {
 					t.Errorf("test #%d: FAIL\n\n", index)
 					t.Logf("test #%d: can't read resource: %+v", index, err)
 					return
 				}
-				if i == 0 {
+				if str != "" {
 					str += "\n"
 				}
-				keys := []string{}
-				for k := range m {
-					keys = append(keys, k)
-				}
-				sort.Strings(keys) // sort for determinism
-				for _, field := range keys {
-					v := m[field]
-					str += fmt.Sprintf("Field: %s[%s].%s = %s\n", res.Kind(), res.Name(), field, v)
-				}
-				if i < len(ngraph.Vertices()) {
-					str += "\n"
-				}
+				str += s
 			}
 
 			if expstr == magicEmpty {
@@ -2161,4 +2162,41 @@ func TestAstFunc3(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping all tests...")
 	}
+}
+
+// stringResFields is a helper function to store a resource graph as a text
+// format for test comparisons.
+func stringResFields(res engine.Res) (string, error) {
+	m, err := engineUtil.ResToParamValues(res)
+	if err != nil {
+		return "", errwrap.Wrapf(err, "can't read resource %s", res)
+	}
+	str := ""
+	keys := []string{}
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys) // sort for determinism
+	for _, field := range keys {
+		v := m[field]
+		str += fmt.Sprintf("Field: %s[%s].%s = %s\n", res.Kind(), res.Name(), field, v)
+	}
+
+	groupableRes, ok := res.(engine.GroupableRes)
+	if !ok {
+		return str, nil
+	}
+	for _, x := range groupableRes.GetGroup() { // grouped elements
+		s, err := stringResFields(x) // recurse
+		if err != nil {
+			return "", err
+		}
+		// add a prefix to each line?
+		s = strings.Trim(s, "\n") // trim trailing newlines
+		for _, f := range strings.Split(s, "\n") {
+			str += fmt.Sprintf("Group: %s: ", res) + f + "\n"
+		}
+		//str += s
+	}
+	return str, nil
 }

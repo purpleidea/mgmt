@@ -20,6 +20,8 @@ package graph
 import (
 	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
@@ -29,18 +31,67 @@ import (
 
 // SendRecv pulls in the sent values into the receive slots. It is called by the
 // receiver and must be given as input the full resource struct to receive on.
-// It applies the loaded values to the resource.
-func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
-	recv := res.Recv()
+// It applies the loaded values to the resource. It is called recursively, as it
+// recurses into any grouped resources found within the first receiver. It
+// returns a map of resource pointer, to resource field key, to changed boolean.
+func (obj *Engine) SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[string]bool, error) {
+	updated := make(map[engine.RecvableRes]map[string]bool) // list of updated keys
 	if obj.Debug {
-		// NOTE: this could expose private resource data like passwords
-		obj.Logf("%s: SendRecv: %+v", res, recv)
+		obj.Logf("SendRecv: %s", res) // receiving here
 	}
-	var updated = make(map[string]bool) // list of updated keys
+	if groupableRes, ok := res.(engine.GroupableRes); ok {
+		for _, x := range groupableRes.GetGroup() { // grouped elements
+			recvableRes, ok := x.(engine.RecvableRes)
+			if !ok {
+				continue
+			}
+			if obj.Debug {
+				obj.Logf("SendRecv: %s: grouped: %s", res, x) // receiving here
+			}
+			// We need to recurse here so that autogrouped resources
+			// inside autogrouped resources would work... In case we
+			// work correctly. We just need to make sure that things
+			// are grouped in the correct order, but that is not our
+			// problem! Recurse and merge in the changed results...
+			innerUpdated, err := obj.SendRecv(recvableRes)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "recursive SendRecv error")
+			}
+			for r, m := range innerUpdated { // res ptr, map
+				if _, exists := updated[r]; !exists {
+					updated[r] = make(map[string]bool)
+				}
+				for s, b := range m {
+					// don't overwrite in case one exists...
+					if old, exists := updated[r][s]; exists {
+						b = b || old // unlikely i think
+					}
+					updated[r][s] = b
+				}
+			}
+		}
+	}
+
+	recv := res.Recv()
+	keys := []string{}
+	for k := range recv { // map[string]*Send
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if obj.Debug && len(keys) > 0 {
+		// NOTE: this could expose private resource data like passwords
+		obj.Logf("SendRecv: %s recv: %+v", res, strings.Join(keys, ", "))
+	}
 	var err error
-	for k, v := range recv {
-		updated[k] = false // default
-		v.Changed = false  // reset to the default
+	for k, v := range recv { // map[string]*Send
+		// v.Res // SendableRes // a handle to the resource which is sending a value
+		// v.Key // string      // the key in the resource that we're sending
+		if _, exists := updated[res]; !exists {
+			updated[res] = make(map[string]bool)
+		}
+
+		updated[res][k] = false // default
+		v.Changed = false       // reset to the default
 
 		var st interface{} = v.Res // old style direct send/recv
 		if true {                  // new style send/recv API
@@ -167,8 +218,8 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[string]bool, error) {
 			continue
 		}
 		//dest.Set(orig)  // do it for all types that match
-		updated[k] = true // we updated this key!
-		v.Changed = true  // tag this key as updated!
+		updated[res][k] = true // we updated this key!
+		v.Changed = true       // tag this key as updated!
 		obj.Logf("SendRecv: %s.%s -> %s.%s", v.Res, v.Key, res, k)
 	}
 	return updated, err

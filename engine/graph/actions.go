@@ -112,21 +112,35 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 
 	// sendrecv!
 	// connect any senders to receivers and detect if values changed
+	// this actually checks and sends into resource trees recursively...
 	if res, ok := vertex.(engine.RecvableRes); ok {
 		if updated, err := obj.SendRecv(res); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv")
 		} else if len(updated) > 0 {
-			for _, changed := range updated {
-				if changed { // at least one was updated
-					// invalidate cache, mark as dirty
-					obj.state[vertex].tuid.StopTimer()
-					obj.state[vertex].isStateOK = false
-					break
+			for r, m := range updated { // map[engine.RecvableRes]map[string]bool
+				v, ok := r.(pgraph.Vertex)
+				if !ok {
+					continue
 				}
-			}
-			// re-validate after we change any values
-			if err := engine.Validate(res); err != nil {
-				return errwrap.Wrapf(err, "failed Validate after SendRecv")
+				_, stateExists := obj.state[v] // autogrouped children probably don't have a state
+				if !stateExists {
+					continue
+				}
+				for _, changed := range m {
+					if !changed {
+						continue
+					}
+					// if changed == true, at least one was updated
+					// invalidate cache, mark as dirty
+					obj.state[v].tuid.StopTimer()
+					obj.state[v].isStateOK = false
+					//break // we might have more vertices now
+				}
+
+				// re-validate after we change any values
+				if err := engine.Validate(r); err != nil {
+					return errwrap.Wrapf(err, "failed Validate after SendRecv")
+				}
 			}
 		}
 	}

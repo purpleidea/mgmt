@@ -1,0 +1,10 @@
+-- main.mcl --
+import "test"
+func double($x) {
+  $x + $x
+}
+test printf("%d", double(42)) {}
+test double("hello") {}
+-- OUTPUT --
+Vertex: test[84]
+Vertex: test[hellohello]

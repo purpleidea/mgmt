@@ -1,0 +1,14 @@
+-- main.mcl --
+import "test"
+# $id could theoretically have type func(int) int or func(str) str, but it
+# can't be both because it is bound to a variable, which must have a single
+# type.
+$id = func($x) {$x}
+test "test1" {
+	int => $id(42),
+}
+test "test2" {
+	anotherstr => $id("hello"),
+}
+-- OUTPUT --
+type error

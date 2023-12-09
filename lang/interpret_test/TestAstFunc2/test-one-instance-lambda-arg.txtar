@@ -1,0 +1,19 @@
+-- main.mcl --
+import "test"
+
+$double = func($x) {
+  $x + $x
+}
+
+# one_instance_a should only produce one value, and will error if initialized twice
+test "test1" {
+	anotherstr => $double(test.one_instance_a()),
+}
+
+# one_instance_b should only produce one value, and will error if initialized twice
+test "test2" {
+	anotherstr => $double(test.one_instance_b()),
+}
+-- OUTPUT --
+Vertex: test[test1]
+Vertex: test[test2]

@@ -1,0 +1,22 @@
+-- main.mcl --
+import "test"
+
+class use_twice($test1, $test2, $x) {
+  test $test1 {
+          anotherstr => $x,
+  }
+  test $test2 {
+          anotherstr => $x,
+  }
+}
+
+# one_instance_a should only produce one value, and will error if initialized twice
+include use_twice("test1", "test2", test.one_instance_a())
+
+# one_instance_b should only produce one value, and will error if initialized twice
+include use_twice("test3", "test4", test.one_instance_b())
+-- OUTPUT --
+Vertex: test[test1]
+Vertex: test[test2]
+Vertex: test[test3]
+Vertex: test[test4]

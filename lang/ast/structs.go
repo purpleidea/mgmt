@@ -254,11 +254,9 @@ func (obj *StmtBind) Unify() ([]interfaces.Invariant, error) {
 // the graph. It is not logically done in the ExprVar since that could exist
 // multiple times for the single binding operation done here.
 func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
-	// It seems that adding this to the graph will end up including an
-	// expression in the case of an ExprFunc lambda, since we copy it and
-	// build a new ExprFunc when it's used by ExprCall.
-	//return obj.Value.Graph(nil) // nope!
-	return pgraph.NewGraph("stmtbind") // empty graph
+	emptyContext := map[string]interfaces.Func{}
+	g, _, err := obj.Value.Graph(emptyContext)
+	return g, err
 }
 
 // Output for the bind statement produces no output. Any values of interest come

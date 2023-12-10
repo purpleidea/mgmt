@@ -1,5 +1,4 @@
 -- main.mcl --
-import "test"
 class double($to_str, $x) {
   test $to_str($x + $x) {}
 }

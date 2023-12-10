@@ -1,5 +1,4 @@
 -- main.mcl --
-import "test"
 # $id could theoretically have type func(int) int or func(str) str, but it
 # can't be both because it is bound to a lambda parameter, which must have a
 # single type.

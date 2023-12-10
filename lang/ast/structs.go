@@ -3786,9 +3786,6 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 		if _, ok := x.(*StmtFunc); ok { // TODO: is this correct?
 			continue
 		}
-		if _, ok := x.(*StmtBind); ok { // TODO: is this correct?
-			continue
-		}
 
 		invars, err := x.Unify()
 		if err != nil {

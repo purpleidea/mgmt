@@ -1,0 +1,6 @@
+-- main.mcl --
+test $out {}
+$out = $x + $x
+$x = "hello"
+-- OUTPUT --
+Vertex: test[hellohello]

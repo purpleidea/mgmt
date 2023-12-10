@@ -3745,27 +3745,22 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		obj.data.Logf("prog: set scope: ordering: %+v", stmts)
 	}
 
+	// save the order for later use in obj.Graph()
+	obj.Body = stmts
+
 	// Optimization: In addition to importantly skipping the parts of the
 	// graph that don't belong in this StmtProg, this also causes
 	// un-consumed statements to be skipped. As a result, this simplifies
 	// the graph significantly in cases of unused code, because they're not
 	// given a chance to SetScope even though they're in the StmtProg list.
-	for _, x := range nodeOrder { // these are in the correct order for SetScope
-		stmt, ok := x.(interfaces.Stmt)
-		if !ok {
-			continue
-		}
+	for _, x := range obj.Body { // these are in the correct order for SetScope
 		if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
 			continue
 		}
-		if !stmtInList(stmt, obj.Body) {
-			// Skip any unwanted additions that we pulled in.
-			continue
-		}
 		if obj.data.Debug {
-			obj.data.Logf("prog: set scope: order: %+v", stmt)
+			obj.data.Logf("prog: set scope: order: %+v", x)
 		}
-		if err := stmt.SetScope(newScope); err != nil {
+		if err := x.SetScope(newScope); err != nil {
 			return err
 		}
 	}
@@ -3826,6 +3821,8 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
+	env := make(map[string]interfaces.Func)
+
 	// collect all graphs that need to be included
 	for _, x := range obj.Body {
 		// skip over *StmtClass here
@@ -3836,8 +3833,15 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 		if _, ok := x.(*StmtFunc); ok {
 			continue
 		}
-		// skip over StmtBind, even though it doesn't produce anything!
-		if _, ok := x.(*StmtBind); ok {
+
+		// add variables to the environment so that ExprVar can find them
+		if bind, ok := x.(*StmtBind); ok {
+			g, f, err := bind.Value.Graph(env)
+			if err != nil {
+				return nil, err
+			}
+			env[bind.Ident] = f
+			graph.AddGraph(g)
 			continue
 		}
 

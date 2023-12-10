@@ -8412,12 +8412,6 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 		invariants = append(invariants, invar)
 	}
 
-	invars, err := expr.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, invars...)
-
 	// this expression's type must be the type of what the var is bound to!
 	// TODO: does this always cause an identical duplicate invariant?
 	invar := &interfaces.EqualityInvariant{

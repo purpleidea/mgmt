@@ -3595,6 +3595,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			newScope.Functions[name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
 				Definition:    fn, // store the *ExprFunc
 				CapturedScope: newScope,
+				CapturedEnv:   nil,
 			}
 			continue
 		}
@@ -3829,8 +3830,16 @@ func (obj *StmtProg) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error
 		if _, ok := x.(*StmtClass); ok {
 			continue
 		}
-		// skip over StmtFunc, even though it doesn't produce anything!
-		if _, ok := x.(*StmtFunc); ok {
+
+		if stmtFunc, ok := x.(*StmtFunc); ok {
+			exprFunc := obj.scope.Functions[stmtFunc.Name]
+			if exprPoly, ok := exprFunc.(*ExprPoly); ok {
+				// capture the environment so that the ExprVars in the function body can
+				// be resolved
+				exprPoly.CapturedEnv = localEnv
+			}
+
+			// don't add any nodes in the graph, each call site will generate its own
 			continue
 		}
 
@@ -8194,8 +8203,23 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		// The function being called is a top-level definition. The parameters which
 		// are visible at this use site must not be visible at the definition site,
 		// so we pass an empty environment.
-		emptyEnv := map[string]interfaces.Func{}
-		exprGraph, topLevelFunc, err := obj.expr.Graph(emptyEnv)
+		definitionEnv := map[string]interfaces.Func{}
+
+		// Or even better, the environment which was captured at the definition
+		// site.
+
+		// if obj.expr is an ExprPoly
+		if exprPoly, isPoly := obj.expr.(*ExprPoly); isPoly {
+			definitionEnv = exprPoly.CapturedEnv
+
+			// print the environmnet
+			fmt.Printf("ExprCall.Graph\n")
+			for k, v := range definitionEnv {
+				fmt.Printf("env: %s -> %s\n", k, v)
+			}
+		}
+
+		exprGraph, topLevelFunc, err := obj.expr.Graph(definitionEnv)
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
 		}
@@ -8638,8 +8662,9 @@ func (obj *ExprParam) Value() (types.Value, error) {
 // call SetScope on the copy. We must be careful to use the scope captured at
 // the definition site, not the scope which is available at the call site.
 type ExprPoly struct {
-	Definition    interfaces.Expr   // The definition.
-	CapturedScope *interfaces.Scope // The scope at the definition site.
+	Definition    interfaces.Expr            // The definition.
+	CapturedScope *interfaces.Scope          // The scope at the definition site.
+	CapturedEnv   map[string]interfaces.Func // The variables at the definition site.
 }
 
 // String returns a short representation of this expression.
@@ -8677,6 +8702,7 @@ func (obj *ExprPoly) Interpolate() (interfaces.Expr, error) {
 	return &ExprPoly{
 		Definition:    definition,
 		CapturedScope: obj.CapturedScope,
+		CapturedEnv:   obj.CapturedEnv,
 	}, nil
 }
 

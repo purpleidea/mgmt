@@ -2745,7 +2745,7 @@ func (obj *StmtIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) 
 		return nil, err
 	}
 
-	g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Condition.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -3825,9 +3825,6 @@ func (obj *StmtProg) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error
 
 	// collect all graphs that need to be included
 	for _, x := range obj.Body {
-		// print x
-		obj.data.Logf("DEBUG: %+v", x)
-
 		// skip over *StmtClass here
 		if _, ok := x.(*StmtClass); ok {
 			continue
@@ -8450,7 +8447,7 @@ func (obj *ExprVar) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interf
 	// environment.
 	targetFunc, exists := env[obj.Name]
 	if !exists {
-		return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
+		return nil, nil, fmt.Errorf("variable `%s` is not in the environment", obj.Name)
 	}
 
 	graph, err := pgraph.NewGraph("ExprVar")

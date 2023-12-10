@@ -8437,30 +8437,21 @@ func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
 // to avoid duplicating production of the incoming input value from the bound
 // expression.
 func (obj *ExprVar) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
-	// Delegate to the targetExpr.
-	targetExpr := obj.scope.Variables[obj.Name]
-	if _, isParam := targetExpr.(*ExprParam); isParam {
-		// The variable points to a function parameter. We should be able to find
-		// this parameter in the environment.
-		targetFunc, exists := env[obj.Name]
-		if !exists {
-			return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
-		}
-
-		graph, err := pgraph.NewGraph("ExprParam")
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddVertex(targetFunc)
-		return graph, targetFunc, nil
+	// The target is obj.scopeVariables[obj.Name], but we must not make a
+	// recursive call to target.Graph(), as that would create a duplicate Func for
+	// each use site of this target. Instead, we must look up the target in the
+	// environment.
+	targetFunc, exists := env[obj.Name]
+	if !exists {
+		return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
 	}
 
-	// The variable points to a top-level expression. The parameters which are
-	// visible at this use site must not be visible at the definition site, so
-	// we pass an empty environment.
-	emptyEnv := map[string]interfaces.Func{}
-	graph, varFunc, err := targetExpr.Graph(emptyEnv)
-	return graph, varFunc, err
+	graph, err := pgraph.NewGraph("ExprVar")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(targetFunc)
+	return graph, targetFunc, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

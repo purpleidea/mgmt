@@ -253,9 +253,8 @@ func (obj *StmtBind) Unify() ([]interfaces.Invariant, error) {
 // children might. This particular bind statement adds its linked expression to
 // the graph. It is not logically done in the ExprVar since that could exist
 // multiple times for the single binding operation done here.
-func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
-	emptyContext := map[string]interfaces.Func{}
-	g, _, err := obj.Value.Graph(emptyContext)
+func (obj *StmtBind) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	g, _, err := obj.Value.Graph(env)
 	return g, err
 }
 
@@ -553,7 +552,7 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 // Since I don't think it's worth extending the Stmt API for this, we can do the
 // checks here at the beginning, and error out if something was invalid. In this
 // particular case, the issue is one of catching duplicate meta fields.
-func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
+func (obj *StmtRes) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	metaNames := make(map[string]struct{})
 	for _, x := range obj.Contents {
 		line, ok := x.(*StmtResMeta)
@@ -593,7 +592,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +600,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 	obj.namePtr = f
 
 	for _, x := range obj.Contents {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1098,7 +1097,7 @@ type StmtResContents interface {
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
 	Unify(kind string) ([]interfaces.Invariant, error) // different!
-	Graph() (*pgraph.Graph, error)
+	Graph(env map[string]interfaces.Func) (*pgraph.Graph, error)
 }
 
 // StmtResField represents a single field in the parsed resource representation.
@@ -1354,13 +1353,13 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResField) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resfield")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.Value.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Value.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1368,7 +1367,7 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	obj.valuePtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1590,20 +1589,20 @@ func (obj *StmtResEdge) Unify(kind string) ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResEdge) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resedge")
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := obj.EdgeHalf.Graph()
+	g, err := obj.EdgeHalf.Graph(env)
 	if err != nil {
 		return nil, err
 	}
 	graph.AddGraph(g)
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1936,13 +1935,13 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResMeta) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resmeta")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.MetaExpr.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.MetaExpr.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1950,7 +1949,7 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	obj.metaExprPtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2195,14 +2194,14 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 // to the edges created, but rather, once all the values (expressions) with no
 // outgoing function graph edges have produced at least a single value, then the
 // edges know they're able to be built.
-func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtEdge) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("edge")
 	if err != nil {
 		return nil, err
 	}
 
 	for _, x := range obj.EdgeHalfList {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2437,8 +2436,8 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
-	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
+func (obj *StmtEdgeHalf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2740,7 +2739,7 @@ func (obj *StmtIf) Unify() ([]interfaces.Invariant, error) {
 // shouldn't have any ill effects.
 // XXX: is this completely true if we're running technically impure, but safe
 // built-in functions on both branches? Can we turn off half of this?
-func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
+func (obj *StmtIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
 		return nil, err
@@ -2757,7 +2756,7 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 		if x == nil {
 			continue
 		}
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -3812,16 +3811,23 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
+func (obj *StmtProg) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("prog")
 	if err != nil {
 		return nil, err
 	}
 
-	env := make(map[string]interfaces.Func)
+	// copy env
+	localEnv := make(map[string]interfaces.Func)
+	for k, v := range env {
+		localEnv[k] = v
+	}
 
 	// collect all graphs that need to be included
 	for _, x := range obj.Body {
+		// print x
+		obj.data.Logf("DEBUG: %+v", x)
+
 		// skip over *StmtClass here
 		if _, ok := x.(*StmtClass); ok {
 			continue
@@ -3833,16 +3839,16 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 
 		// add variables to the environment so that ExprVar can find them
 		if bind, ok := x.(*StmtBind); ok {
-			g, f, err := bind.Value.Graph(env)
+			g, f, err := bind.Value.Graph(localEnv)
 			if err != nil {
 				return nil, err
 			}
-			env[bind.Ident] = f
+			localEnv[bind.Ident] = f
 			graph.AddGraph(g)
 			continue
 		}
 
-		g, err := x.Graph()
+		g, err := x.Graph(localEnv)
 		if err != nil {
 			return nil, err
 		}
@@ -4074,7 +4080,7 @@ func (obj *StmtFunc) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
+func (obj *StmtFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	//return obj.Func.Graph(nil) // nope!
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
@@ -4245,8 +4251,8 @@ func (obj *StmtClass) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
-	return obj.Body.Graph()
+func (obj *StmtClass) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	return obj.Body.Graph(env)
 }
 
 // Output for the class statement produces no output. Any values of interest
@@ -4577,13 +4583,13 @@ func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
+func (obj *StmtInclude) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("include")
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := obj.class.Graph()
+	g, err := obj.class.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -4678,7 +4684,7 @@ func (obj *StmtImport) Unify() ([]interfaces.Invariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular statement just returns an empty graph.
-func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
+func (obj *StmtImport) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	return pgraph.NewGraph("import") // empty graph
 }
 
@@ -4764,7 +4770,7 @@ func (obj *StmtComment) Unify() ([]interfaces.Invariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular graph does nothing clever.
-func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
+func (obj *StmtComment) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	return pgraph.NewGraph("comment")
 }
 

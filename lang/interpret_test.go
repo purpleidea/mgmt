@@ -427,7 +427,8 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			// build the function graph
-			fgraph, err := iast.Graph()
+			emptyEnv := make(map[string]interfaces.Func)
+			fgraph, err := iast.Graph(emptyEnv)
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -972,7 +973,8 @@ func TestAstFunc2(t *testing.T) {
 			// once we've unified the specific resource.
 
 			// build the function graph
-			fgraph, err := iast.Graph()
+			emptyEnv := make(map[string]interfaces.Func)
+			fgraph, err := iast.Graph(emptyEnv)
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -1744,7 +1746,8 @@ func TestAstFunc3(t *testing.T) {
 			// once we've unified the specific resource.
 
 			// build the function graph
-			fgraph, err := iast.Graph()
+			emptyEnv := make(map[string]interfaces.Func)
+			fgraph, err := iast.Graph(emptyEnv)
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)

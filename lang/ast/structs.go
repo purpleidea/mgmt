@@ -8835,7 +8835,21 @@ func (obj *ExprTopLevel) Type() (*types.Type, error) {
 // calls Unify on any children elements that exist in the AST, and returns the
 // collection to the caller.
 func (obj *ExprTopLevel) Unify() ([]interfaces.Invariant, error) {
-	return obj.Definition.Unify()
+	var invariants []interfaces.Invariant
+
+	defInvariants, err := obj.Definition.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, defInvariants...)
+
+	invar := &interfaces.EqualityInvariant{
+		Expr1: obj,
+		Expr2: obj.Definition,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -8954,7 +8968,21 @@ func (obj *ExprSingleton) Type() (*types.Type, error) {
 // calls Unify on any children elements that exist in the AST, and returns the
 // collection to the caller.
 func (obj *ExprSingleton) Unify() ([]interfaces.Invariant, error) {
-	return obj.Definition.Unify()
+	var invariants []interfaces.Invariant
+
+	defInvariants, err := obj.Definition.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, defInvariants...)
+
+	invar := &interfaces.EqualityInvariant{
+		Expr1: obj,
+		Expr2: obj.Definition,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

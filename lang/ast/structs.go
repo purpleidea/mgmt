@@ -3557,7 +3557,11 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 		binds[bind.Ident] = struct{}{} // mark as found in scope
 		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Variables[bind.Ident] = bind.Value
+		newScope.Variables[bind.Ident] = &ExprTopLevel{
+			Definition: &ExprSingleton{
+				Definition: bind.Value,
+			},
+		}
 		if obj.data.Debug { // TODO: is this message ever useful?
 			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
 		}
@@ -8853,15 +8857,143 @@ func (obj *ExprTopLevel) Graph(env map[string]interfaces.Func) (*pgraph.Graph, i
 // done to them first, and as such when we try and retrieve the set value from
 // this expression by calling `Value`, it will build it from scratch!
 func (obj *ExprTopLevel) SetValue(value types.Value) error {
-	// ignored, as we don't support ExprPoly.Value()
-	return nil
+	return obj.Definition.SetValue(value)
 }
 
 // Value returns the value of this expression in our type system. This will
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprTopLevel) Value() (types.Value, error) {
-	return nil, nil
+	return obj.Definition.Value()
+}
+
+// ExprSingleton is intended to wrap top-level variable definitions. It ensures
+// that a single Func is created even if multiple use sites call
+// ExprSingleton.Graph().
+type ExprSingleton struct {
+	Definition     interfaces.Expr
+	singletonGraph *pgraph.Graph
+	singletonExpr  interfaces.Func
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprSingleton) String() string {
+	return fmt.Sprintf("singleton(%s)", obj.Definition.String())
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprSingleton) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Definition.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprSingleton) Init(data *interfaces.Data) error {
+	return obj.Definition.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *ExprSingleton) Interpolate() (interfaces.Expr, error) {
+	definition, err := obj.Definition.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprSingleton{
+		Definition:     definition,
+		singletonGraph: nil, // each copy should have its own Graph
+		singletonExpr:  nil, // each copy should have its own Func
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *ExprSingleton) Copy() (interfaces.Expr, error) {
+	definition, err := obj.Definition.Copy()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprSingleton{
+		Definition:     definition,
+		singletonGraph: nil, // each copy should have its own Graph
+		singletonExpr:  nil, // each copy should have its own Func
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprSingleton) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	return obj.Definition.Ordering(produces)
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprSingleton) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	return obj.Definition.SetScope(scope, sctx)
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprSingleton) SetType(typ *types.Type) error {
+	return obj.Definition.SetType(typ)
+}
+
+// Type returns the type of this expression.
+func (obj *ExprSingleton) Type() (*types.Type, error) {
+	return obj.Definition.Type()
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *ExprSingleton) Unify() ([]interfaces.Invariant, error) {
+	return obj.Definition.Unify()
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprSingleton) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	if obj.singletonExpr == nil {
+		g, f, err := obj.Definition.Graph(env)
+		if err != nil {
+			return nil, nil, err
+		}
+		obj.singletonGraph = g
+		obj.singletonExpr = f
+		return g, f, nil
+	}
+
+	return obj.singletonGraph, obj.singletonExpr, nil
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
+func (obj *ExprSingleton) SetValue(value types.Value) error {
+	return obj.Definition.SetValue(value)
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprSingleton) Value() (types.Value, error) {
+	return obj.Definition.Value()
 }
 
 // ExprIf represents an if expression which *must* have both branches, and which

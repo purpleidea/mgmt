@@ -73,7 +73,7 @@ type Stmt interface {
 	Unify() ([]Invariant, error)
 
 	// Graph returns the reactive function graph expressed by this node.
-	Graph(map[string]Func) (*pgraph.Graph, error)
+	Graph() (*pgraph.Graph, error)
 
 	// Output returns the output that this "program" produces. This output
 	// is what is used to build the output graph. It requires the input

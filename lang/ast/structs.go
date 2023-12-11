@@ -3825,9 +3825,6 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 
 	// collect all graphs that need to be included
 	for _, x := range obj.Body {
-		// print x
-		obj.data.Logf("DEBUG: %+v", x)
-
 		// skip over *StmtClass here
 		if _, ok := x.(*StmtClass); ok {
 			continue

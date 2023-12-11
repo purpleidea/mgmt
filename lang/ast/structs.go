@@ -8453,12 +8453,8 @@ func (obj *ExprVar) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interf
 		return graph, targetFunc, nil
 	}
 
-	// The variable points to a top-level expression. The parameters which are
-	// visible at this use site must not be visible at the definition site, so
-	// we pass an empty environment.
-	emptyEnv := map[string]interfaces.Func{}
-	graph, varFunc, err := targetExpr.Graph(emptyEnv)
-	return graph, varFunc, err
+	// The variable points to a top-level expression.
+	return targetExpr.Graph(env)
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

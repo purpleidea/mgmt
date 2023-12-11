@@ -3594,8 +3594,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			fn := fnList[0].Func // local reference to avoid changing it in the loop...
 			// add to scope, (overwriting, aka shadowing is ok)
 			newScope.Functions[name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
-				Definition:    fn, // store the *ExprFunc
-				CapturedScope: newScope,
+				Definition: &ExprTopLevel{
+					Definition:    fn, // store the *ExprFunc
+					CapturedScope: newScope,
+				},
 			}
 			continue
 		}
@@ -7628,13 +7630,8 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		}
 
 		// This call now has the only reference to monomorphicTarget, so
-		// it is our responsibility to scope-check it. We must use the
-		// scope which was captured at the definition site, not the
-		// scope argument we received as input, as that is the scope
-		// which is available at the call site.
-		definitionScope := polymorphicTarget.CapturedScope.Copy()
-
-		if err := monomorphicTarget.SetScope(definitionScope, map[string]interfaces.Expr{}); err != nil {
+		// it is our responsibility to scope-check it.
+		if err := monomorphicTarget.SetScope(scope, sctx); err != nil {
 			return errwrap.Wrapf(err, "scope-checking the function definition `%s`", prefixedName)
 		}
 
@@ -8640,8 +8637,7 @@ func (obj *ExprParam) Value() (types.Value, error) {
 // call SetScope on the copy. We must be careful to use the scope captured at
 // the definition site, not the scope which is available at the call site.
 type ExprPoly struct {
-	Definition    interfaces.Expr   // The definition.
-	CapturedScope *interfaces.Scope // The scope at the definition site.
+	Definition interfaces.Expr // The definition.
 }
 
 // String returns a short representation of this expression.
@@ -8677,8 +8673,7 @@ func (obj *ExprPoly) Interpolate() (interfaces.Expr, error) {
 	}
 
 	return &ExprPoly{
-		Definition:    definition,
-		CapturedScope: obj.CapturedScope,
+		Definition: definition,
 	}, nil
 }
 
@@ -8697,10 +8692,7 @@ func (obj *ExprPoly) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 // SetScope stores the scope for use in this resource.
 func (obj *ExprPoly) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
-	// Don't recur into the definition yet; instead, capture the scope for later,
-	// so that ExprVar can call SetScope on the definition at each use site.
-	obj.CapturedScope = scope
-	return nil
+	panic("ExprPoly.SetScope(): should not happen, ExprVar should replace ExprPoly with a copy of its definition before calling SetScope")
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -8747,6 +8739,128 @@ func (obj *ExprPoly) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprPoly) Value() (types.Value, error) {
+	return nil, nil
+}
+
+// ExprTopLevel is intended to wrap top-level definitions. It captures the
+// variables which are in scope at the the top-level, so that when use sites
+// call ExprTopLevel.SetScope() with the variables which are in scope at the use
+// site, ExprTopLevel can automatically correct this by using the variables
+// which are in scope at the definition site.
+type ExprTopLevel struct {
+	Definition    interfaces.Expr   // The definition.
+	CapturedScope *interfaces.Scope // The scope at the definition site.
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprTopLevel) String() string {
+	return fmt.Sprintf("topLevel(%s)", obj.Definition.String())
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprTopLevel) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Definition.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprTopLevel) Init(data *interfaces.Data) error {
+	return obj.Definition.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *ExprTopLevel) Interpolate() (interfaces.Expr, error) {
+	definition, err := obj.Definition.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprTopLevel{
+		Definition:    definition,
+		CapturedScope: obj.CapturedScope,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *ExprTopLevel) Copy() (interfaces.Expr, error) {
+	definition, err := obj.Definition.Copy()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprTopLevel{
+		Definition:    definition,
+		CapturedScope: obj.CapturedScope,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprTopLevel) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	return obj.Definition.Ordering(produces)
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprTopLevel) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	// Use the scope captured at the definition site. The parameters from
+	// functions enclosing the use site are not visible at the top-level either,
+	// so we must clear sctx.
+	return obj.Definition.SetScope(obj.CapturedScope, make(map[string]interfaces.Expr))
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprTopLevel) SetType(typ *types.Type) error {
+	return obj.Definition.SetType(typ)
+}
+
+// Type returns the type of this expression.
+func (obj *ExprTopLevel) Type() (*types.Type, error) {
+	return obj.Definition.Type()
+}
+
+// Unify returns the list of invariants that this node produces. It recursively
+// calls Unify on any children elements that exist in the AST, and returns the
+// collection to the caller.
+func (obj *ExprTopLevel) Unify() ([]interfaces.Invariant, error) {
+	return obj.Definition.Unify()
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprTopLevel) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	return obj.Definition.Graph(env)
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
+func (obj *ExprTopLevel) SetValue(value types.Value) error {
+	// ignored, as we don't support ExprPoly.Value()
+	return nil
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprTopLevel) Value() (types.Value, error) {
 	return nil, nil
 }
 

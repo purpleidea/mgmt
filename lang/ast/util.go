@@ -77,8 +77,10 @@ func FuncPrefixToFunctionsScope(prefix string) map[string]interfaces.Expr {
 	exprPolys := make(map[string]interfaces.Expr)
 	for name, expr := range exprs {
 		exprPolys[name] = &ExprPoly{
-			Definition:    expr,
-			CapturedScope: interfaces.EmptyScope(),
+			Definition: &ExprTopLevel{
+				Definition:    expr,
+				CapturedScope: interfaces.EmptyScope(),
+			},
 		}
 	}
 

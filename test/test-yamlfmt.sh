@@ -5,7 +5,7 @@ exit 0	# i give up, we're skipping this entirely, help wanted to fix this
 
 echo running "$0"
 set -o errexit
-set -o nounset
+#set -o nounset
 set -o pipefail
 
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!

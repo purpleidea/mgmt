@@ -4,7 +4,7 @@
 
 echo running "$0"
 set -o errexit
-set -o nounset
+#set -o nounset
 set -o pipefail
 
 #ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!

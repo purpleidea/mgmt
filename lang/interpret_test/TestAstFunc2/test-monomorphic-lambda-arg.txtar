@@ -9,4 +9,4 @@ test "test1" {
 	anotherstr => $use_polymorphically(func($x) {$x}),
 }
 -- OUTPUT --
-type error
+# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Int != Str)

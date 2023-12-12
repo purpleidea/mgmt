@@ -10,4 +10,4 @@ test "test2" {
 	anotherstr => $id("hello"),
 }
 -- OUTPUT --
-type error
+# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Int != Str)

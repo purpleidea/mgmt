@@ -23,3 +23,6 @@ indent_style = tab
 
 [*.mcl]
 indent_style = tab
+
+[*.txtar]
+indent_style = tab

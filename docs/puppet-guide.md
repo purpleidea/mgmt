@@ -95,7 +95,8 @@ For example, translating a plain `file` resource will lead to a warning message:
 
 ```
 $ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": }'
-Warning: File[/tmp/mgmt-test] uses the 'puppet' file bucket, which mgmt cannot do. There will be no backup copies!
+Warning: File[/tmp/mgmt-test] uses the 'puppet' file bucket, which mgmt cannot
+do. There will be no backup copies!
 ```
 
 The reason is that per default, Puppet assumes the following parameter value

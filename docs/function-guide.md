@@ -342,7 +342,9 @@ method instead.
 
 ```golang
 // moduleName is already set to "math" by the math package. Do this in `init`.
-funcs.ModuleRegister(moduleName, "cos", func() interfaces.Func { return &CosFunc{} })
+funcs.ModuleRegister(moduleName, "cos", func() interfaces.Func {
+	return &CosFunc{}
+})
 ```
 
 ### Composite functions

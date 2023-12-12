@@ -1,7 +1,7 @@
 pkg "cowsay" {
-        state => "newest",
+	state => "newest",
 }
 
 pkg "cowsay" {
-        state => "installed",
+	state => "installed",
 }

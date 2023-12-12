@@ -58,6 +58,7 @@ if label-block "basic"; then
 	run-testsuite ./test/test-vet.sh
 	run-testsuite ./test/test-misc.sh
 	run-testsuite ./test/test-gofmt.sh
+	run-testsuite ./test/test-mclfmt.sh
 	run-testsuite ./test/test-yamlfmt.sh
 	run-testsuite ./test/test-bashfmt.sh
 	run-testsuite ./test/test-headerfmt.sh

@@ -3561,6 +3561,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			Definition: &ExprSingleton{
 				Definition: bind.Value,
 			},
+			CapturedScope: newScope,
 		}
 		if obj.data.Debug { // TODO: is this message ever useful?
 			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)

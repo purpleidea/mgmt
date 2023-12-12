@@ -22,8 +22,8 @@ bad_files=$(
 		echo "$M"
 	fi
 	for i in $(find_files); do
-		# search for more than one leading space, to ensure we use tabs
-		if grep -q '^  ' "$i"; then
+		# search for at least one leading space, to ensure we use tabs
+		if grep -q '^ ' "$i"; then
 			echo "$i"
 		fi
 

@@ -7789,7 +7789,7 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	}
 	invar := &interfaces.CallFuncArgsValueInvariant{
 		Expr: obj,
-		Func: obj.expr,
+		Func: trueCallee(obj.expr),
 		Args: argsCopy,
 	}
 	invariants = append(invariants, invar)
@@ -8740,6 +8740,21 @@ func (obj *ExprPoly) SetValue(value types.Value) error {
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprPoly) Value() (types.Value, error) {
 	return nil, nil
+}
+
+// ExprTopLevel and ExprSingleton are sometimes added around builtins. This
+// makes it difficult for the type checker to check if a particular builtin is
+// the callee or not. This function removes the ExprTopLevel and ExprSingleton
+// wrappers, if they exist.
+func trueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
+	switch x := apparentCallee.(type) {
+	case *ExprTopLevel:
+		return trueCallee(x.Definition)
+	case *ExprSingleton:
+		return trueCallee(x.Definition)
+	default:
+		return apparentCallee
+	}
 }
 
 // ExprTopLevel is intended to wrap top-level definitions. It captures the

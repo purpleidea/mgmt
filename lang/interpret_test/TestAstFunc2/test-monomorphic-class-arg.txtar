@@ -4,7 +4,7 @@
 # single type.
 class use_polymorphically($id) {
 	test "test1" {
-		int => $id(42),
+		int8 => $id(42),
 	}
 	test "test2" {
 		anotherstr => $id("hello"),

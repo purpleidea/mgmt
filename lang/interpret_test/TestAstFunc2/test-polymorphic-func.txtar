@@ -1,8 +1,9 @@
 -- main.mcl --
+import "fmt"
 func double($x) {
   $x + $x
 }
-test printf("%d", double(42)) {}
+test fmt.printf("%d", double(42)) {}
 test double("hello") {}
 -- OUTPUT --
 Vertex: test[84]

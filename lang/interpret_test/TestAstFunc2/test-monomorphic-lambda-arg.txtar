@@ -1,9 +1,10 @@
 -- main.mcl --
+import "fmt"
 # $id could theoretically have type func(int) int or func(str) str, but it
 # can't be both because it is bound to a lambda parameter, which must have a
 # single type.
 $use_polymorphically = func($id) {
-	printf("%d %s", $id(42), $id("hello"))
+	fmt.printf("%d %s", $id(42), $id("hello"))
 }
 test "test1" {
 	anotherstr => $use_polymorphically(func($x) {$x}),

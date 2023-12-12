@@ -4504,7 +4504,13 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	newScope := obj.class.scope.Copy()
 	// Add our args `include foo(42, "bar", true)` into the class scope.
 	for i, arg := range obj.class.Args { // copy
-		newScope.Variables[arg.Name] = obj.Args[i]
+		newScope.Variables[arg.Name] = &ExprTopLevel{
+			Definition: &ExprSingleton{
+				Definition: obj.Args[i],
+			},
+			CapturedScope: newScope,
+		}
+
 	}
 
 	// recursion detection

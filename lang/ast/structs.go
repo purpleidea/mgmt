@@ -3557,12 +3557,14 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 		binds[bind.Ident] = struct{}{} // mark as found in scope
 		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Variables[bind.Ident] = &ExprTopLevel{
+		newValue := &ExprTopLevel{
 			Definition: &ExprSingleton{
 				Definition: bind.Value,
 			},
 			CapturedScope: newScope,
 		}
+		bind.Value = newValue
+		newScope.Variables[bind.Ident] = newValue
 		if obj.data.Debug { // TODO: is this message ever useful?
 			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
 		}

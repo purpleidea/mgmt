@@ -4502,16 +4502,19 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// We start with the scope that the class had, and we augment it with
 	// our parameterized arg variables, which will be needed in that scope.
 	newScope := obj.class.scope.Copy()
+	newArgs := []interfaces.Expr{}
 	// Add our args `include foo(42, "bar", true)` into the class scope.
 	for i, arg := range obj.class.Args { // copy
-		newScope.Variables[arg.Name] = &ExprTopLevel{
+		newArg := &ExprTopLevel{
 			Definition: &ExprSingleton{
 				Definition: obj.Args[i],
 			},
 			CapturedScope: newScope,
 		}
-
+		newArgs = append(newArgs, newArg)
+		newScope.Variables[arg.Name] = newArg
 	}
+	obj.Args = newArgs
 
 	// recursion detection
 	newScope.Chain = append(newScope.Chain, obj.orig) // add stmt to list

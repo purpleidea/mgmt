@@ -8833,7 +8833,42 @@ func (obj *ExprTopLevel) Copy() (interfaces.Expr, error) {
 // Ordering returns a graph of the scope ordering that represents the data flow.
 // This can be used in SetScope so that it knows the correct order to run it in.
 func (obj *ExprTopLevel) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
-	return obj.Definition.Ordering(produces)
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraint: We know the Definition has to be satisfied before
+	// this ExprTopLevel expression itself can be used, since ExprTopLevel
+	// delegates to the Definition.
+	edge := &pgraph.SimpleEdge{Name: "exprtoplevel"}
+	graph.AddEdge(obj.Definition, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Definition.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "exprtopleveldefinition"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	return graph, cons, nil
 }
 
 // SetScope stores the scope for use in this resource.
@@ -8969,7 +9004,42 @@ func (obj *ExprSingleton) Copy() (interfaces.Expr, error) {
 // Ordering returns a graph of the scope ordering that represents the data flow.
 // This can be used in SetScope so that it knows the correct order to run it in.
 func (obj *ExprSingleton) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
-	return obj.Definition.Ordering(produces)
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraint: We know the Definition has to be satisfied before
+	// this ExprSingleton expression itself can be used, since ExprSingleton
+	// delegates to the Definition.
+	edge := &pgraph.SimpleEdge{Name: "exprsingleton"}
+	graph.AddEdge(obj.Definition, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Definition.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "exprsingletondefinition"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	return graph, cons, nil
 }
 
 // SetScope stores the scope for use in this resource.

@@ -7,4 +7,4 @@ import "fmt"
 test fmt.printf() {}
 
 -- OUTPUT --
-# err: errUnify: 2 unconsumed generators
+# err: errUnify: 1 unconsumed generators

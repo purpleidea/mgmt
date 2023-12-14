@@ -11,4 +11,4 @@ $st = struct{
 test $st->missing + "fail" {}	# this can't unify!
 
 -- OUTPUT --
-# err: errUnify: 2 unconsumed generators
+# err: errUnify: 1 unconsumed generators

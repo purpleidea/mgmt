@@ -199,3 +199,23 @@ func (obj *ExprPoly) ScopeGraph(g *pgraph.Graph) {
 func (obj *ExprIf) ScopeGraph(g *pgraph.Graph) {
 	g.AddVertex(obj)
 }
+
+func (obj *ExprTopLevel) ScopeGraph(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	definition, ok := obj.Definition.(interfaces.ScopeGrapher)
+	if !ok {
+		panic("can't graph scope") // programming error
+	}
+	definition.ScopeGraph(g)
+	g.AddEdge(obj, obj.Definition, &pgraph.SimpleEdge{Name: "def"})
+}
+
+func (obj *ExprSingleton) ScopeGraph(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	definition, ok := obj.Definition.(interfaces.ScopeGrapher)
+	if !ok {
+		panic("can't graph scope") // programming error
+	}
+	definition.ScopeGraph(g)
+	g.AddEdge(obj, obj.Definition, &pgraph.SimpleEdge{Name: "def"})
+}

@@ -1,0 +1,26 @@
+-- metadata.yaml --
+#files: "files/"	# these are some extra files we can use (is the default)
+-- main.mcl --
+import "golang/strings"
+import "deploy"
+
+$f1 = "/files/file1"
+
+# the abspath method shouldn't be used often, it's here for testing...
+if $f1 != deploy.abspath($f1) { # should be the same, since we're in the same dir
+	test "f1 error" {}
+}
+
+# the readfileabs method shouldn't be used often, it's here for testing...
+$x1 = deploy.readfileabs($f1)
+
+if $x1 != deploy.readfile($f1) {
+	test "x1 error" {}
+}
+
+# hide the newlines from our output
+test strings.trim_space($x1) {}
+-- files/file1 --
+This is file1 in the files/ folder.
+-- OUTPUT --
+Vertex: test[This is file1 in the files/ folder.]

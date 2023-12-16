@@ -1,0 +1,16 @@
+-- metadata.yaml --
+#files: "files/"	# these are some extra files we can use (is the default)
+-- main.mcl --
+import "deploy"
+
+$f1 = "/files/file1"
+
+# the readfileabs method shouldn't be used often, it's here for testing...
+$x1 = deploy.readfileabs($f1)
+
+# hide the newlines from our output
+test $x1 {}
+-- files/file1 --
+This is file1 in the files/ folder.
+-- OUTPUT --
+Vertex: test[This is file1 in the files/ folder.]

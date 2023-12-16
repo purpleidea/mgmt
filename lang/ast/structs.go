@@ -8886,7 +8886,7 @@ func (obj *ExprTopLevel) SetScope(scope *interfaces.Scope, sctx map[string]inter
 // change on expressions, if you attempt to set a different type than what has
 // previously been set (when not initially known) this will error.
 func (obj *ExprTopLevel) SetType(typ *types.Type) error {
-	return obj.Definition.SetType(typ)
+	return nil
 }
 
 // Type returns the type of this expression.
@@ -9054,7 +9054,7 @@ func (obj *ExprSingleton) SetScope(scope *interfaces.Scope, sctx map[string]inte
 // change on expressions, if you attempt to set a different type than what has
 // previously been set (when not initially known) this will error.
 func (obj *ExprSingleton) SetType(typ *types.Type) error {
-	return obj.Definition.SetType(typ)
+	return nil
 }
 
 // Type returns the type of this expression.

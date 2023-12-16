@@ -99,7 +99,12 @@ func VarPrefixToVariablesScope(prefix string) map[string]interfaces.Expr {
 		if err != nil {
 			panic(fmt.Sprintf("could not build expr: %+v", err))
 		}
-		exprs[name] = expr
+		exprs[name] = &ExprTopLevel{
+			Definition: &ExprSingleton{
+				Definition: expr,
+			},
+			CapturedScope: interfaces.EmptyScope(),
+		}
 	}
 	return exprs
 }

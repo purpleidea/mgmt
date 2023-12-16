@@ -6984,6 +6984,16 @@ func (obj *ExprFunc) SetType(typ *types.Type) error {
 			}
 			// Cmp doesn't compare arg names.
 			typ = newTyp // check it's compatible down below...
+		} else {
+			// Even if it's not polymorphic, we'd like to use the
+			// real arg names of that function, in case they don't
+			// get passed through type unification somehow...
+			// (There can be an AST bug that this would prevent.)
+			sig := obj.function.Info().Sig
+			if sig == nil {
+				return fmt.Errorf("could not read nil expr func sig")
+			}
+			typ = sig // check it's compatible down below...
 		}
 	}
 

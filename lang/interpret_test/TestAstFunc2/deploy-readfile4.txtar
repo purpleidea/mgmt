@@ -13,4 +13,5 @@ test $x1 {}
 -- files/file1 --
 This is file1 in the files/ folder.
 -- OUTPUT --
-Vertex: test[This is file1 in the files/ folder.]
+Vertex: test[This is file1 in the files/ folder.
+]

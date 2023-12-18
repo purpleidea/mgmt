@@ -8682,7 +8682,7 @@ func (obj *ExprParam) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprParam) Value() (types.Value, error) {
-	return nil, nil
+	return nil, fmt.Errorf("no value for ExprParam")
 }
 
 // ExprPoly is a polymorphic expression that is a definition that can be used in
@@ -8799,7 +8799,7 @@ func (obj *ExprPoly) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprPoly) Value() (types.Value, error) {
-	return nil, nil
+	return nil, fmt.Errorf("no value for ExprPoly")
 }
 
 // ExprIf represents an if expression which *must* have both branches, and which

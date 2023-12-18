@@ -170,6 +170,9 @@ func DebugSolverState(solved map[interfaces.Expr]*types.Type, equalities []inter
 		case *interfaces.AnyInvariant:
 			// skip, not used in the examples I care about
 
+		case *interfaces.SkipInvariant:
+			// we don't care about this one
+
 		default:
 			s += fmt.Sprintf("%v\n", equality)
 		}
@@ -249,6 +252,10 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 			case *interfaces.CallFuncArgsValueInvariant:
 				equalities = append(equalities, invariant)
 
+			case *interfaces.SkipInvariant:
+				// drop it for now
+				//equalities = append(equalities, invariant)
+
 			default:
 				return nil, nil, fmt.Errorf("unknown invariant type: %T", x)
 			}
@@ -295,6 +302,8 @@ func SimpleInvariantSolver(invariants []interfaces.Invariant, expected []interfa
 	if err != nil {
 		return nil, err
 	}
+
+	//skipExprs := make(map[interfaces.Expr]struct{})
 
 	// XXX: if these partials all shared the same variable definition, would
 	// it all work??? Maybe we don't even need the first map prefix...
@@ -1074,6 +1083,11 @@ Loop:
 				// a generator invariant wants to read them...
 				continue
 
+			case *interfaces.SkipInvariant:
+				//skipExprs[eq.Expr] = struct{}{} // save
+				used = append(used, eqi) // mark equality as used up
+				continue
+
 			default:
 				return nil, fmt.Errorf("unknown invariant type: %T", eqx)
 			}
@@ -1334,6 +1348,12 @@ Loop:
 	solutions := []*interfaces.EqualsInvariant{}
 	// FIXME: can we do this loop in a deterministic, sorted way?
 	for expr, typ := range solved {
+		// Don't do this here, or the current Unifier struct machinery
+		// will see it as a bug. Do it there until we change the API.
+		//if _, exists := skipExprs[expr]; exists {
+		//	continue
+		//}
+
 		invar := &interfaces.EqualsInvariant{
 			Expr: expr,
 			Type: typ,

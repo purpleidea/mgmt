@@ -72,7 +72,13 @@ func (obj *Unifier) Unify() error {
 
 	// build a list of what we think we need to solve for to succeed
 	exprs := []interfaces.Expr{}
+	skips := make(map[interfaces.Expr]struct{})
 	for _, x := range invariants {
+		if si, ok := x.(*interfaces.SkipInvariant); ok {
+			skips[si.Expr] = struct{}{}
+			continue
+		}
+
 		exprs = append(exprs, x.ExprList()...)
 	}
 	exprMap := ExprListToExprMap(exprs)    // makes searching faster
@@ -137,6 +143,10 @@ func (obj *Unifier) Unify() error {
 			// programming error ?
 			return fmt.Errorf("unexpected invalid solution at: %p", x)
 		}
+		if _, exists := skips[x.Expr]; exists {
+			continue
+		}
+
 		if obj.Debug {
 			obj.Logf("solution: %p => %+v\t(%+v)", x.Expr, x.Type, x.Expr.String())
 		}

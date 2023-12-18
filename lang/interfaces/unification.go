@@ -28,6 +28,8 @@ import (
 // Invariant represents a constraint that is described by the Expr's and Stmt's,
 // and which is passed into the unification solver to describe what is known by
 // the AST.
+// XXX: add the extended methods into sub-interfaces since not each invariant
+// uses them...
 type Invariant interface {
 	// TODO: should we add any other methods to this type?
 	fmt.Stringer
@@ -1048,4 +1050,35 @@ func (obj *CallFuncArgsValueInvariant) Matches(solved map[Expr]*types.Type) (boo
 func (obj *CallFuncArgsValueInvariant) Possible(partials []Invariant) error {
 	// XXX: not implemented
 	return nil // safer to return nil than error
+}
+
+// SkipInvariant expresses that a particular expression does must not be part of
+// the final solution, and should be skipped. It can be part of the solving
+// process though.
+type SkipInvariant struct {
+	Expr Expr
+}
+
+// String returns a representation of this invariant.
+func (obj *SkipInvariant) String() string {
+	return fmt.Sprintf("skip(%p)", obj.Expr)
+}
+
+// ExprList returns the list of valid expressions in this invariant. It is not
+// used for this invariant.
+func (obj *SkipInvariant) ExprList() []Expr {
+	// XXX: not used
+	return []Expr{obj.Expr}
+}
+
+// Matches is not used for this invariant.
+func (obj *SkipInvariant) Matches(solved map[Expr]*types.Type) (bool, error) {
+	// XXX: not used
+	panic("not used")
+}
+
+// Possible is not used for this invariant.
+func (obj *SkipInvariant) Possible(partials []Invariant) error {
+	// XXX: not used
+	panic("not used")
 }

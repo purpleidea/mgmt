@@ -1,0 +1,11 @@
+-- main.mcl --
+$f1 = func($x) { $x }
+$f2 = func($x) { $x + $x }
+$id = func($y) { $y }
+$f = if ($id(true)) {$f1} else {$f2}
+
+# $f is always $f1, so in theory, this call does not need a sub-graph.
+# But does our optimization support this corner case yet?
+test $f("foo") {}
+-- OUTPUT --
+Vertex: test[foo]

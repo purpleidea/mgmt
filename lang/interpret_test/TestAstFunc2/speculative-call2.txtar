@@ -1,0 +1,12 @@
+-- main.mcl --
+$x = "not this x"
+$add = func($x) {
+	func($y) {$x + $y}
+}
+$addfoo = $add("foo")
+
+# making sure that $x correctly refers to the lambda parameter rather than the
+# top-level "not this x", even in the Value() codepath.
+test $addfoo("bar") {}
+-- OUTPUT --
+Vertex: test[foobar]

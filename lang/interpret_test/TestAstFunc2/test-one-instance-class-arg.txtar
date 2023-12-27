@@ -10,11 +10,11 @@ class use_twice($test1, $test2, $x) {
 	}
 }
 
-# one_instance_a should only produce one value, and will error if initialized twice
-include use_twice("test1", "test2", test.one_instance_a())
+# one_instance_e should only produce one value, and will error if initialized twice
+include use_twice("test1", "test2", test.one_instance_e())
 
-# one_instance_b should only produce one value, and will error if initialized twice
-include use_twice("test3", "test4", test.one_instance_b())
+# one_instance_f should only produce one value, and will error if initialized twice
+include use_twice("test3", "test4", test.one_instance_f())
 -- OUTPUT --
 Vertex: test[test1]
 Vertex: test[test2]

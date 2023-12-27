@@ -37,14 +37,77 @@ const (
 	// using.
 	OneInstanceBFuncName = "one_instance_b"
 
+	// OneInstanceCFuncName is the name this fact is registered as. It's
+	// still a Func Name because this is the name space the fact is actually
+	// using.
+	OneInstanceCFuncName = "one_instance_c"
+
+	// OneInstanceDFuncName is the name this fact is registered as. It's
+	// still a Func Name because this is the name space the fact is actually
+	// using.
+	OneInstanceDFuncName = "one_instance_d"
+
+	// OneInstanceEFuncName is the name this fact is registered as. It's
+	// still a Func Name because this is the name space the fact is actually
+	// using.
+	OneInstanceEFuncName = "one_instance_e"
+
+	// OneInstanceFFuncName is the name this fact is registered as. It's
+	// still a Func Name because this is the name space the fact is actually
+	// using.
+	OneInstanceFFuncName = "one_instance_f"
+
+	// OneInstanceGFuncName is the name this fact is registered as. It's
+	// still a Func Name because this is the name space the fact is actually
+	// using.
+	OneInstanceGFuncName = "one_instance_g"
+
+	// OneInstanceHFuncName is the name this fact is registered as. It's
+	// still a Func Name because this is the name space the fact is actually
+	// using.
+	OneInstanceHFuncName = "one_instance_h"
+
 	msg = "hello"
 )
 
 func init() {
 	oneInstanceAMutex = &sync.Mutex{}
 	oneInstanceBMutex = &sync.Mutex{}
+	oneInstanceCMutex = &sync.Mutex{}
+	oneInstanceDMutex = &sync.Mutex{}
+	oneInstanceEMutex = &sync.Mutex{}
+	oneInstanceFMutex = &sync.Mutex{}
+	oneInstanceGMutex = &sync.Mutex{}
+	oneInstanceHMutex = &sync.Mutex{}
 
-	facts.ModuleRegister(ModuleName, OneInstanceAFuncName, func() facts.Fact { return &OneInstanceFact{} }) // must register the fact and name
+	facts.ModuleRegister(ModuleName, OneInstanceAFuncName, func() facts.Fact {
+		return &OneInstanceFact{
+			Name:  OneInstanceAFuncName,
+			Mutex: oneInstanceAMutex,
+			Flag:  &oneInstanceAFlag,
+		}
+	}) // must register the fact and name
+	facts.ModuleRegister(ModuleName, OneInstanceCFuncName, func() facts.Fact {
+		return &OneInstanceFact{
+			Name:  OneInstanceCFuncName,
+			Mutex: oneInstanceCMutex,
+			Flag:  &oneInstanceCFlag,
+		}
+	})
+	facts.ModuleRegister(ModuleName, OneInstanceEFuncName, func() facts.Fact {
+		return &OneInstanceFact{
+			Name:  OneInstanceEFuncName,
+			Mutex: oneInstanceEMutex,
+			Flag:  &oneInstanceEFlag,
+		}
+	})
+	facts.ModuleRegister(ModuleName, OneInstanceGFuncName, func() facts.Fact {
+		return &OneInstanceFact{
+			Name:  OneInstanceGFuncName,
+			Mutex: oneInstanceGMutex,
+			Flag:  &oneInstanceGFlag,
+		}
+	})
 
 	simple.ModuleRegister(ModuleName, OneInstanceBFuncName, &types.FuncValue{
 		T: types.NewType("func() str"),
@@ -58,13 +121,61 @@ func init() {
 			return &types.StrValue{V: msg}, nil
 		},
 	})
+	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &types.FuncValue{
+		T: types.NewType("func() str"),
+		V: func([]types.Value) (types.Value, error) {
+			oneInstanceDMutex.Lock()
+			if oneInstanceDFlag {
+				panic("should not get called twice")
+			}
+			oneInstanceDFlag = true
+			oneInstanceDMutex.Unlock()
+			return &types.StrValue{V: msg}, nil
+		},
+	})
+	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &types.FuncValue{
+		T: types.NewType("func() str"),
+		V: func([]types.Value) (types.Value, error) {
+			oneInstanceFMutex.Lock()
+			if oneInstanceFFlag {
+				panic("should not get called twice")
+			}
+			oneInstanceFFlag = true
+			oneInstanceFMutex.Unlock()
+			return &types.StrValue{V: msg}, nil
+		},
+	})
+	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &types.FuncValue{
+		T: types.NewType("func() str"),
+		V: func([]types.Value) (types.Value, error) {
+			oneInstanceHMutex.Lock()
+			if oneInstanceHFlag {
+				panic("should not get called twice")
+			}
+			oneInstanceHFlag = true
+			oneInstanceHMutex.Unlock()
+			return &types.StrValue{V: msg}, nil
+		},
+	})
 }
 
 var (
 	oneInstanceAFlag  bool
 	oneInstanceBFlag  bool
+	oneInstanceCFlag  bool
+	oneInstanceDFlag  bool
+	oneInstanceEFlag  bool
+	oneInstanceFFlag  bool
+	oneInstanceGFlag  bool
+	oneInstanceHFlag  bool
 	oneInstanceAMutex *sync.Mutex
 	oneInstanceBMutex *sync.Mutex
+	oneInstanceCMutex *sync.Mutex
+	oneInstanceDMutex *sync.Mutex
+	oneInstanceEMutex *sync.Mutex
+	oneInstanceFMutex *sync.Mutex
+	oneInstanceGMutex *sync.Mutex
+	oneInstanceHMutex *sync.Mutex
 )
 
 // OneInstanceFact is a fact which flips a bool repeatedly. This is an example
@@ -72,12 +183,16 @@ var (
 // flip function which you could specify an interval for.
 type OneInstanceFact struct {
 	init *facts.Init
+
+	Name  string
+	Mutex *sync.Mutex
+	Flag  *bool
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *OneInstanceFact) String() string {
-	return OneInstanceAFuncName
+	return obj.Name
 }
 
 // Validate makes sure we've built our struct properly. It is usually unused for
@@ -96,20 +211,21 @@ func (obj *OneInstanceFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *OneInstanceFact) Init(init *facts.Init) error {
 	obj.init = init
-	obj.init.Logf("Init of `%s` @ %p", OneInstanceAFuncName, obj)
+	obj.init.Logf("Init of `%s` @ %p", obj.Name, obj)
 
-	oneInstanceAMutex.Lock()
-	if oneInstanceAFlag {
+	obj.Mutex.Lock()
+	if *obj.Flag {
 		panic("should not get called twice")
 	}
-	oneInstanceAFlag = true
-	oneInstanceAMutex.Unlock()
+	b := true
+	obj.Flag = &b
+	obj.Mutex.Unlock()
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
 func (obj *OneInstanceFact) Stream(ctx context.Context) error {
-	obj.init.Logf("Stream of `%s` @ %p", OneInstanceAFuncName, obj)
+	obj.init.Logf("Stream of `%s` @ %p", obj.Name, obj)
 	defer close(obj.init.Output) // always signal when we're done
 	select {
 	case obj.init.Output <- &types.StrValue{

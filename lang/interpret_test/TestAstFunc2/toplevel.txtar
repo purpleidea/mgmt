@@ -1,0 +1,10 @@
+-- main.mcl --
+$pass = $purpleidea != ""
+$result = if $pass {
+	"pass"
+} else {
+	"fail"
+}
+test $result {}
+-- OUTPUT --
+Vertex: test[pass]

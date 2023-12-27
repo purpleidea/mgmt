@@ -5,14 +5,14 @@ func double($x) {
 	$x + $x
 }
 
-# one_instance_a should only produce one value, and will error if initialized twice
+# one_instance_c should only produce one value, and will error if initialized twice
 test "test1" {
-	anotherstr => double(test.one_instance_a()),
+	anotherstr => double(test.one_instance_c()),
 }
 
-# one_instance_b should only produce one value, and will error if initialized twice
+# one_instance_d should only produce one value, and will error if initialized twice
 test "test2" {
-	anotherstr => double(test.one_instance_b()),
+	anotherstr => double(test.one_instance_d()),
 }
 -- OUTPUT --
 Vertex: test[test1]

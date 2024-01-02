@@ -41,14 +41,18 @@ func (obj *Engine) OKTimestamp(vertex pgraph.Vertex) bool {
 // be bad.
 func (obj *Engine) BadTimestamps(vertex pgraph.Vertex) []pgraph.Vertex {
 	vs := []pgraph.Vertex{}
-	ts := obj.state[vertex].timestamp
+	obj.state[vertex].mutex.RLock()   // concurrent read start
+	ts := obj.state[vertex].timestamp // race
+	obj.state[vertex].mutex.RUnlock() // concurrent read end
 	// these are all the vertices pointing TO vertex, eg: ??? -> vertex
 	for _, v := range obj.graph.IncomingGraphVertices(vertex) {
 		// If the vertex has a greater timestamp than any prerequisite,
 		// then we can't run right now. If they're equal (eg: initially
 		// with a value of 0) then we also can't run because we should
 		// let our pre-requisites go first.
-		t := obj.state[v].timestamp
+		obj.state[v].mutex.RLock()   // concurrent read start
+		t := obj.state[v].timestamp  // race
+		obj.state[v].mutex.RUnlock() // concurrent read end
 		if obj.Debug {
 			obj.Logf("OKTimestamp: %d >= %d (%s): !%t", ts, t, v.String(), ts >= t)
 		}
@@ -132,8 +136,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 					}
 					// if changed == true, at least one was updated
 					// invalidate cache, mark as dirty
-					obj.state[v].tuid.StopTimer()
-					obj.state[v].isStateOK = false
+					obj.state[v].setDirty()
 					//break // we might have more vertices now
 				}
 
@@ -227,7 +230,9 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		wg := &sync.WaitGroup{}
 		// update this timestamp *before* we poke or the poked
 		// nodes might fail due to having a too old timestamp!
-		obj.state[vertex].timestamp = time.Now().UnixNano() // update timestamp
+		obj.state[vertex].mutex.Lock()                      // concurrent write start
+		obj.state[vertex].timestamp = time.Now().UnixNano() // update timestamp (race)
+		obj.state[vertex].mutex.Unlock()                    // concurrent write end
 		for _, v := range obj.graph.OutgoingGraphVertices(vertex) {
 			if !obj.OKTimestamp(v) {
 				// there is at least another one that will poke this...

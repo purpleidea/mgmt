@@ -1,0 +1,21 @@
+-- main.mcl --
+# check for timestamp or other state races in the resource engine
+print "print1" {
+	msg => "i am print1",
+
+	Meta:autogroup => false,
+}
+
+print "print2" {
+	msg => "i am print2",
+
+	Meta:autogroup => false,
+
+	Depend => Print["print1"],
+}
+-- OUTPUT --
+Edge: print[print1] -> print[print2] # print[print1] -> print[print2]
+Field: print[print1].Msg = "i am print1"
+Field: print[print2].Msg = "i am print2"
+Vertex: print[print1]
+Vertex: print[print2]

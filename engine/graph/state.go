@@ -64,6 +64,8 @@ type State struct {
 	isStateOK bool  // is state OK or do we need to run CheckApply ?
 	workerErr error // did the Worker error?
 
+	mutex *sync.RWMutex // used for editing state properties
+
 	// doneCtx is cancelled when Watch should shut down. When any of the
 	// following channels close, it causes this to close.
 	doneCtx context.Context
@@ -143,6 +145,7 @@ func (obj *State) Init() error {
 		return fmt.Errorf("the Logf function is missing")
 	}
 
+	obj.mutex = &sync.RWMutex{}
 	obj.doneCtx, obj.doneCtxCancel = context.WithCancel(context.Background())
 
 	obj.processDone = make(chan struct{})
@@ -387,7 +390,9 @@ func (obj *State) event() {
 // CheckApply will have some work to do in order to converge it.
 func (obj *State) setDirty() {
 	obj.tuid.StopTimer()
-	obj.isStateOK = false
+	obj.mutex.Lock()
+	obj.isStateOK = false // concurrent write
+	obj.mutex.Unlock()
 }
 
 // poll is a replacement for Watch when the Poll metaparameter is used.

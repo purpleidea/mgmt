@@ -36,6 +36,10 @@ const (
 	// This can't properly escape a $ in the standard way. It's here in case
 	// someone wants to play with it and examine how the AST stuff worked...
 	UseHilInterpolation = false
+
+	// UseOptimizedConcat uses a simpler to unify concat operator instead of
+	// the normal + operator which uses fancy polymorphic type unification.
+	UseOptimizedConcat = true
 )
 
 // StrInterpolate interpolates a string and returns the representative AST.
@@ -310,6 +314,20 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 	grouped, err := concatExprListIntoCall(tail)
 	if err != nil {
 		return nil, err
+	}
+
+	// Faster variant, but doesn't allow potential future more exotic string
+	// interpolation which would need a more expressive plus operator. I do
+	// not think we'll ever need that, but leave it in for now as a const.
+	if UseOptimizedConcat {
+		return &ast.ExprCall{
+			// NOTE: if we don't set the data field we need Init() called on it!
+			Name: funcs.ConcatFuncName, // concatenate the two strings with concat function
+			Args: []interfaces.Expr{
+				head,    // string arg
+				grouped, // nested function call which returns a string
+			},
+		}, nil
 	}
 
 	return &ast.ExprCall{

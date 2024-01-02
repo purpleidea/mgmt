@@ -44,6 +44,11 @@ const (
 
 	// CoreDir is the directory prefix where core mcl code is embedded.
 	CoreDir = "core/"
+
+	// ConcatFuncName is the name the concat function is registered as. It
+	// is listed here because it needs a well-known name that can be used by
+	// the string interpolation code.
+	ConcatFuncName = "concat"
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You

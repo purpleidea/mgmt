@@ -90,11 +90,8 @@ func TestInterpolate0(t *testing.T) {
 	}
 	{
 		fieldName := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: funcs.ConcatFuncName,
 			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "+",
-				},
 				&ast.ExprStr{
 					V: "foo-",
 				},
@@ -365,11 +362,8 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			},
 		}
 		resName := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: funcs.ConcatFuncName,
 			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "+",
-				},
 				&ast.ExprStr{
 					V: "t",
 				},
@@ -421,12 +415,9 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			},
 		}
 		resName := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: funcs.ConcatFuncName,
 			// incorrect sig for this function, and now invalid interpolation
 			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "+",
-				},
 				&ast.ExprStr{
 					V: "t",
 				},
@@ -561,11 +552,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 			V: "hello ${person_name}",
 		}
 		exp := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: funcs.ConcatFuncName,
 			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "+",
-				},
 				&ast.ExprStr{
 					V: "hello ",
 				},
@@ -611,11 +599,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 			V: "sweetie${3.14159}", // invalid
 		}
 		exp := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: funcs.ConcatFuncName,
 			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "+",
-				},
 				&ast.ExprStr{
 					V: "sweetie",
 				},
@@ -636,11 +621,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 			V: "i am: ${sys.hostname()}",
 		}
 		exp := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: funcs.ConcatFuncName,
 			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "+",
-				},
 				&ast.ExprStr{
 					V: "i am: ",
 				},
@@ -662,11 +644,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 			V: "i am: ${blah(21, 12.3)}",
 		}
 		exp := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: funcs.ConcatFuncName,
 			Args: []interfaces.Expr{
-				&ast.ExprStr{
-					V: "+",
-				},
 				&ast.ExprStr{
 					V: "i am: ",
 				},
@@ -696,11 +675,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	//		V: "i am: ${blah(21, -12.3)}",
 	//	}
 	//	exp := &ast.ExprCall{
-	//		Name: funcs.OperatorFuncName,
+	//		Name: funcs.ConcatFuncName,
 	//		Args: []interfaces.Expr{
-	//			&ast.ExprStr{
-	//				V: "+",
-	//			},
 	//			&ast.ExprStr{
 	//				V: "i am: ",
 	//			},
@@ -730,11 +706,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	//		V: "sweetie${-3.14159}", // FIXME: only the negative breaks this
 	//	}
 	//	exp := &ast.ExprCall{
-	//		Name: funcs.OperatorFuncName,
+	//		Name: funcs.ConcatFuncName,
 	//		Args: []interfaces.Expr{
-	//			&ast.ExprStr{
-	//				V: "+",
-	//			},
 	//			&ast.ExprStr{
 	//				V: "sweetie",
 	//			},
@@ -756,11 +729,8 @@ func TestInterpolateBasicExpr(t *testing.T) {
 	//		V: `i am: ${blah(42, "${foo}")}`,
 	//	}
 	//	exp := &ast.ExprCall{
-	//		Name: funcs.OperatorFuncName,
+	//		Name: funcs.ConcatFuncName,
 	//		Args: []interfaces.Expr{
-	//			&ast.ExprStr{
-	//				V: "+",
-	//			},
 	//			&ast.ExprStr{
 	//				V: "i am: ",
 	//			},

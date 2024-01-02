@@ -79,6 +79,9 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	if err != nil {
 		return errwrap.Wrapf(err, "cli parse error")
 	}
+	if c.Bool("only-unify") && deploy == nil {
+		return nil // we end early
+	}
 	obj.Deploy = deploy
 	if obj.Deploy == nil {
 		// nobody activated, but we'll still watch the etcd deploy chan,

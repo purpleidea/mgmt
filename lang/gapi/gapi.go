@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lang"
@@ -96,6 +97,10 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 			&cli.BoolFlag{
 				Name:  "update",
 				Usage: "update all dependencies to the latest versions",
+			},
+			&cli.BoolFlag{
+				Name:  "only-unify",
+				Usage: "stop after type unification",
 			},
 		}
 		result = append(result, runFlags...)
@@ -318,14 +323,25 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		}
 	}
 	logf("running type unification...")
+	startTime := time.Now()
 	unifier := &unification.Unifier{
 		AST:    iast,
 		Solver: unification.SimpleInvariantSolverLogger(unificationLogf),
 		Debug:  debug,
 		Logf:   unificationLogf,
 	}
-	if err := unifier.Unify(); err != nil {
-		return nil, errwrap.Wrapf(err, "could not unify types")
+	unifyErr := unifier.Unify()
+	delta := time.Since(startTime)
+	if unifyErr != nil {
+		if c.Bool("only-unify") {
+			logf("type unification failed after %s", delta)
+		}
+		return nil, errwrap.Wrapf(unifyErr, "could not unify types")
+	}
+
+	if c.Bool("only-unify") {
+		logf("type unification succeeded in %s", delta)
+		return nil, nil // we end early
 	}
 
 	// get the list of needed files (this is available after SetScope)

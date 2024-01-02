@@ -216,6 +216,21 @@ requires a number of seconds as an argument.
 ./mgmt run lang examples/lang/hello0.mcl --converged-timeout=5
 ```
 
+### Can I run `mgmt` for type-checking only?
+
+Yes, you can, add the `--only-unify` option to the lang frontend while using the
+`run` command, and it will exit after type unification.
+
+#### Example:
+
+```
+./mgmt run --tmp-prefix lang --only-unify examples/lang/hello0.mcl
+```
+
+It will also print how long it took on either success or failure. Keep in mind
+that even if you pass type unification, an `mgmt` run can still fail later on
+for other reasons, although these are mostly runtime considerations.
+
 ### Why does my file resource error with `no such file or directory`?
 
 If you create a file resource and only specify the content like this:

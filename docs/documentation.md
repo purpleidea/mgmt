@@ -364,26 +364,10 @@ collision with this globally defined semaphore. The size value must be greater
 than zero at this time. The traditional non-parallel execution found in config
 management tools such as `Puppet` can be obtained with `--sema 1`.
 
-#### `--allow-interactive`
-
-Allow interactive prompting for SSH passwords if there is no authentication
-method that works.
-
 #### `--ssh-priv-id-rsa`
 
 Specify the path for finding SSH keys. This defaults to `~/.ssh/id_rsa`. To
 never use this method of authentication, set this to the empty string.
-
-#### `--cconns`
-
-The maximum number of concurrent remote ssh connections to run. This defaults
-to `0`, which means unlimited.
-
-#### `--no-caching`
-
-Don't allow remote caching of the remote execution binary. This will require
-the binary to be copied over for every remote execution, but it limits the
-likelihood that there is leftover information from the configuration process.
 
 #### `--prefix <path>`
 

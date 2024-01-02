@@ -54,8 +54,8 @@ func CLI(cliArgs *CLIArgs) error {
 	}
 
 	// All of these flags can be accessed in your GAPI implementation with
-	// the `c.Lineage()[1].Type` and `c.Lineage()[1].IsSet` functions. Their own
-	// flags can be accessed with `c.Type` and `c.IsSet` directly.
+	// the `c.Lineage()[1].Type` and `c.Lineage()[1].IsSet` functions. Their
+	// own flags can be accessed with `c.Type` and `c.IsSet` directly.
 	runFlags := []cli.Flag{
 		// common flags which all can use
 

@@ -332,15 +332,19 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	}
 	unifyErr := unifier.Unify()
 	delta := time.Since(startTime)
+	formatted := delta.String()
+	if delta.Milliseconds() > 1000 { // 1 second
+		formatted = delta.Truncate(time.Millisecond).String()
+	}
 	if unifyErr != nil {
 		if c.Bool("only-unify") {
-			logf("type unification failed after %s", delta)
+			logf("type unification failed after %s", formatted)
 		}
 		return nil, errwrap.Wrapf(unifyErr, "could not unify types")
 	}
 
 	if c.Bool("only-unify") {
-		logf("type unification succeeded in %s", delta)
+		logf("type unification succeeded in %s", formatted)
 		return nil, nil // we end early
 	}
 

@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
@@ -8941,6 +8942,7 @@ func (obj *ExprTopLevel) Value() (types.Value, error) {
 type ExprSingleton struct {
 	Definition interfaces.Expr
 
+	mutex          *sync.Mutex // protect singletonGraph and singletonExpr
 	singletonGraph *pgraph.Graph
 	singletonExpr  interfaces.Func
 }
@@ -8965,6 +8967,7 @@ func (obj *ExprSingleton) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprSingleton) Init(data *interfaces.Data) error {
+	obj.mutex = &sync.Mutex{}
 	return obj.Definition.Init(data)
 }
 
@@ -8979,6 +8982,7 @@ func (obj *ExprSingleton) Interpolate() (interfaces.Expr, error) {
 
 	return &ExprSingleton{
 		Definition:     definition,
+		mutex:          &sync.Mutex{},
 		singletonGraph: nil, // each copy should have its own Graph
 		singletonExpr:  nil, // each copy should have its own Func
 	}, nil
@@ -8993,6 +8997,7 @@ func (obj *ExprSingleton) Copy() (interfaces.Expr, error) {
 
 	return &ExprSingleton{
 		Definition:     definition,
+		mutex:          &sync.Mutex{},
 		singletonGraph: nil, // each copy should have its own Graph
 		singletonExpr:  nil, // each copy should have its own Func
 	}, nil
@@ -9093,6 +9098,9 @@ func (obj *ExprSingleton) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
 func (obj *ExprSingleton) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
 	if obj.singletonExpr == nil {
 		g, f, err := obj.Definition.Graph(env)
 		if err != nil {

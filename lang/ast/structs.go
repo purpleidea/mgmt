@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
@@ -3560,6 +3561,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		newScope.Variables[bind.Ident] = &ExprTopLevel{
 			Definition: &ExprSingleton{
 				Definition: bind.Value,
+
+				mutex: &sync.Mutex{}, // TODO: call Init instead
 			},
 			CapturedScope: newScope,
 		}
@@ -4510,6 +4513,8 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 		newScope.Variables[arg.Name] = &ExprTopLevel{
 			Definition: &ExprSingleton{
 				Definition: obj.Args[i],
+
+				mutex: &sync.Mutex{}, // TODO: call Init instead
 			},
 			CapturedScope: newScope,
 		}
@@ -8943,6 +8948,7 @@ type ExprSingleton struct {
 
 	singletonGraph *pgraph.Graph
 	singletonExpr  interfaces.Func
+	mutex          *sync.Mutex // protects singletonGraph and singletonExpr
 }
 
 // String returns a short representation of this expression.
@@ -8965,6 +8971,7 @@ func (obj *ExprSingleton) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprSingleton) Init(data *interfaces.Data) error {
+	obj.mutex = &sync.Mutex{}
 	return obj.Definition.Init(data)
 }
 
@@ -8981,6 +8988,7 @@ func (obj *ExprSingleton) Interpolate() (interfaces.Expr, error) {
 		Definition:     definition,
 		singletonGraph: nil, // each copy should have its own Graph
 		singletonExpr:  nil, // each copy should have its own Func
+		mutex:          &sync.Mutex{},
 	}, nil
 }
 
@@ -8995,6 +9003,7 @@ func (obj *ExprSingleton) Copy() (interfaces.Expr, error) {
 		Definition:     definition,
 		singletonGraph: nil, // each copy should have its own Graph
 		singletonExpr:  nil, // each copy should have its own Func
+		mutex:          &sync.Mutex{},
 	}, nil
 }
 
@@ -9093,6 +9102,9 @@ func (obj *ExprSingleton) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
 func (obj *ExprSingleton) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
 	if obj.singletonExpr == nil {
 		g, f, err := obj.Definition.Graph(env)
 		if err != nil {

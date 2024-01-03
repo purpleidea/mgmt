@@ -169,6 +169,7 @@ func (obj *Lang) Init() error {
 		// TODO: change to a func when we can change hostname dynamically!
 		"hostname": &ast.ExprStr{V: obj.Hostname},
 	}
+	// TODO: pass `data` into ast.VarPrefixToVariablesScope ?
 	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
 	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
 	variables, err = ast.MergeExprMaps(variables, consts, addback)

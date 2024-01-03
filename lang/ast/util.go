@@ -20,6 +20,7 @@ package ast
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -90,6 +91,7 @@ func FuncPrefixToFunctionsScope(prefix string) map[string]interfaces.Expr {
 // VarPrefixToVariablesScope is a helper function to return the variables
 // portion of the scope from a variable prefix lookup. Basically this is useful
 // to pull out a portion of the variables we've defined by API.
+// TODO: pass `data` into here so we can plumb it into Init for Expr's ?
 func VarPrefixToVariablesScope(prefix string) map[string]interfaces.Expr {
 	fns := vars.LookupPrefix(prefix) // map[string]func() interfaces.Var
 	exprs := make(map[string]interfaces.Expr)
@@ -102,6 +104,8 @@ func VarPrefixToVariablesScope(prefix string) map[string]interfaces.Expr {
 		exprs[name] = &ExprTopLevel{
 			Definition: &ExprSingleton{
 				Definition: expr,
+
+				mutex: &sync.Mutex{}, // TODO: call Init instead
 			},
 			CapturedScope: interfaces.EmptyScope(),
 		}

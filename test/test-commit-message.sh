@@ -111,6 +111,46 @@ test_commit_message_common_bugs() {
 	fi
 }
 
+test_commit_message_body() {
+	echo "Testing commit message body $1"
+	if git show --no-patch --format=%B $1 | grep -q "^Co-Authored-By:"
+	then
+		echo 'FAIL: Commit message includes `Co-Authored-By:`, did you mean `Co-authored-by:` ?'
+		exit 1
+	fi
+	if git show --no-patch --format=%B $1 | grep -q "^Co-Authored-by:"
+	then
+		echo 'FAIL: Commit message includes `Co-Authored-by:`, did you mean `Co-authored-by:` ?'
+		exit 1
+	fi
+	if git show --no-patch --format=%B $1 | grep -q "^co-authored-by:"
+	then
+		echo 'FAIL: Commit message includes `co-authored-by:`, did you mean `Co-authored-by:` ?'
+		exit 1
+	fi
+	if git show --no-patch --format=%B $1 | grep -q "^Authored-By:"	# wat?
+	then
+		echo 'FAIL: Commit message includes `Authored-By:`, did you mean `Co-authored-by:` ?'
+		exit 1
+	fi
+
+	if git show --no-patch --format=%B $1 | grep -q "^Signed-Off-By:"
+	then
+		echo 'FAIL: Commit message includes `Signed-Off-By:`, did you mean `Signed-off-by:` ?'
+		exit 1
+	fi
+	if git show --no-patch --format=%B $1 | grep -q "^Signed-Off-by:"
+	then
+		echo 'FAIL: Commit message includes `Signed-Off-by:`, did you mean `Signed-off-by:` ?'
+		exit 1
+	fi
+	if git show --no-patch --format=%B $1 | grep -q "^signed-off-by:"
+	then
+		echo 'FAIL: Commit message includes `signed-off-by:`, did you mean `Signed-off-by:` ?'
+		exit 1
+	fi
+}
+
 if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]
 then
 	commits=$(git log --format=%H origin/${TRAVIS_BRANCH}..${TRAVIS_PULL_REQUEST_SHA})
@@ -119,6 +159,7 @@ then
 	for commit in $commits
 	do
 		test_commit_message $commit
+		test_commit_message_body $commit
 		test_commit_message_common_bugs $commit
 	done
 elif [[ -n "$GITHUB_SHA" ]]
@@ -138,6 +179,7 @@ then
 		for commit in $commits
 		do
 			test_commit_message $commit
+			test_commit_message_body $commit
 			test_commit_message_common_bugs $commit
 		done
 	fi

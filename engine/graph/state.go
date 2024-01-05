@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/purpleidea/mgmt/converger"
@@ -60,9 +61,9 @@ type State struct {
 	// Logf is the logging function that should be used to display messages.
 	Logf func(format string, v ...interface{})
 
-	timestamp int64 // last updated timestamp
-	isStateOK bool  // is state OK or do we need to run CheckApply ?
-	workerErr error // did the Worker error?
+	timestamp int64        // last updated timestamp
+	isStateOK *atomic.Bool // is state OK or do we need to run CheckApply ?
+	workerErr error        // did the Worker error?
 
 	mutex *sync.RWMutex // used for editing state properties
 
@@ -144,6 +145,8 @@ func (obj *State) Init() error {
 	if obj.Logf == nil {
 		return fmt.Errorf("the Logf function is missing")
 	}
+
+	obj.isStateOK = &atomic.Bool{}
 
 	obj.mutex = &sync.RWMutex{}
 	obj.doneCtx, obj.doneCtxCancel = context.WithCancel(context.Background())
@@ -390,9 +393,9 @@ func (obj *State) event() {
 // CheckApply will have some work to do in order to converge it.
 func (obj *State) setDirty() {
 	obj.tuid.StopTimer()
-	obj.mutex.Lock()
-	obj.isStateOK = false // concurrent write
-	obj.mutex.Unlock()
+	//obj.mutex.Lock()
+	obj.isStateOK.Store(false) // concurrent write
+	//obj.mutex.Unlock()
 }
 
 // poll is a replacement for Watch when the Poll metaparameter is used.

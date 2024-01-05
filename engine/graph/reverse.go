@@ -246,7 +246,7 @@ func (obj *State) ReversalCleanup() error {
 		return nil // nothing to erase, we're not a reversal resource
 	}
 
-	if !obj.isStateOK { // did we successfully reverse?
+	if !obj.isStateOK.Load() { // did we successfully reverse? (mutex RLock/RUnlock)
 		obj.Logf("did not complete reversal") // warn
 		return nil
 	}

@@ -165,7 +165,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	// Check cached state, to skip CheckApply, but can't skip if refreshing!
 	// If the resource doesn't implement refresh, skip the refresh test.
 	// FIXME: if desired, check that we pass through refresh notifications!
-	if (!refresh || !isRefreshableRes) && obj.state[vertex].isStateOK {
+	if (!refresh || !isRefreshableRes) && obj.state[vertex].isStateOK.Load() { // mutex RLock/RUnlock
 		checkOK, err = true, nil
 
 	} else if noop && (refresh && isRefreshableRes) { // had a refresh to do w/ noop!
@@ -193,7 +193,9 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	// if CheckApply ran without noop and without error, state should be good
 	if !noop && err == nil { // aka !noop || checkOK
 		obj.state[vertex].tuid.StartTimer()
-		obj.state[vertex].isStateOK = true // reset
+		//obj.state[vertex].mutex.Lock()
+		obj.state[vertex].isStateOK.Store(true) // reset
+		//obj.state[vertex].mutex.Unlock()
 		if refresh {
 			obj.SetUpstreamRefresh(vertex, false) // refresh happened, clear the request
 			if isRefreshableRes {

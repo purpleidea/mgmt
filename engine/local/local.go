@@ -235,11 +235,17 @@ func (obj *Value) ValueWatch(ctx context.Context, key string) (chan struct{}, er
 // getPrefix gets the prefix dir to use, or errors if it can't make one. It
 // makes it on first use, and returns quickly from any future calls to it.
 func (obj *Value) getPrefix() (string, error) {
-	if obj.prefixExists {
-		return obj.prefix, nil
-	}
+	// NOTE: Moving this mutex to just below the first early return, would
+	// be a benign race, but as it turns out, it's possible that a compiler
+	// would see this behaviour as "undefined" and things might not work as
+	// intended. It could perhaps be replaced with a sync/atomic primitive
+	// if we wanted better performance here.
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
+
+	if obj.prefixExists { // former race read
+		return obj.prefix, nil
+	}
 
 	// MkdirAll instead of Mkdir because we have no idea if the parent
 	// local/ directory was already made yet or not. (If at all.) If path is
@@ -249,7 +255,7 @@ func (obj *Value) getPrefix() (string, error) {
 	if err := os.MkdirAll(obj.prefix, 0755); err != nil {
 		return "", err
 	}
-	obj.prefixExists = true
+	obj.prefixExists = true // former race write
 
 	return obj.prefix, nil
 }

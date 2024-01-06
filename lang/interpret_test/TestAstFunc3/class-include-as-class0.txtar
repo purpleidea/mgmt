@@ -1,0 +1,21 @@
+-- main.mcl --
+class c1 {
+	test "t1" {}
+	$x = "hello"
+	class c0 {
+		test "t2" {}
+		$y = "goodbye"
+	}
+}
+include c1 as i1
+include i1.c0 as i0
+
+test $i0.x {}
+test $i1.y {}
+panic($i0.x != "hello")
+panic($i1.y != "goodbye")
+-- OUTPUT --
+Vertex: test[goodbye]
+Vertex: test[hello]
+Vertex: test[t1]
+Vertex: test[t2]

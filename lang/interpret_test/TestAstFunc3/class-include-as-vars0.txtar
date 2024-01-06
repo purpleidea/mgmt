@@ -1,0 +1,11 @@
+-- main.mcl --
+class c1 {
+	test "t1" {}
+	$x = "hello"
+}
+include c1 as i1
+
+test $i1.x {}
+-- OUTPUT --
+Vertex: test[hello]
+Vertex: test[t1]

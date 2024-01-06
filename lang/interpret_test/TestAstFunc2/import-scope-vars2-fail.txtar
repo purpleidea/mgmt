@@ -1,0 +1,14 @@
+-- metadata.yaml --
+#files: "files/"	# these are some extra files we can use (is the default)
+-- main.mcl --
+import "y.mcl" as g
+#test $g.y {}	# should work
+test $g.x {}	# should fail
+test $g.f.x {}	# should maybe work
+-- x.mcl --
+$x = "this is x.mcl"
+-- y.mcl --
+import "x.mcl" as f
+$y = $f.x + " and this is y.mcl"
+-- OUTPUT --
+# err: errSetScope: variable g.x not in scope

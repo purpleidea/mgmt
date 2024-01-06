@@ -65,6 +65,46 @@ const (
 	// MetaField is the prefix used to specify a meta parameter for the res.
 	MetaField = "meta"
 
+	// AllowBareClassIncluding specifies that a simple include without an
+	// `as` suffix, will be pulled in under the name of the included class.
+	// We want this on if it turns out to be common to pull in values from
+	// classes.
+	//
+	// If we allow bare including of classes, then we have to also prevent
+	// duplicate class inclusion for many cases. For example:
+	//
+	//	class c1($s) {
+	//		test $s {}
+	//		$x = "${s}"
+	//	}
+	//	include c1("hey")
+	//	include c1("there")
+	//	test $x {}
+	//
+	// What value should $x have? We want to import two useful `test`
+	// resources, but with a bare import this makes `$x` ambiguous. We'd
+	// have to detect this and ensure this is a compile time error to use
+	// it. Being able to allow compatible, duplicate classes is a key
+	// important feature of the language, and as a result, enabling this
+	// would probably be disastrous. The fact that the import statement
+	// allows bare imports is an ergonomic consideration that is allowed
+	// because duplicate imports aren't essential. As an aside, the use of
+	// bare imports isn't recommended because it makes it more difficult to
+	// know where certain things are coming from.
+	AllowBareClassIncluding = false
+
+	// AllowBareIncludes specifies that you're allowed to use an include
+	// which flattens the included scope on top of the current scope. This
+	// means includes of the form: `include foo as *`. These are unlikely to
+	// get enabled for many reasons.
+	AllowBareIncludes = false
+
+	// AllowBareImports specifies that you're allowed to use an import which
+	// flattens the imported scope on top of the current scope. This means
+	// imports of the form: `import foo as *`. These are being provisionally
+	// enabled, despite being less explicit and harder to parse.
+	AllowBareImports = true
+
 	// AllowUserDefinedPolyFunc specifies if we allow user-defined
 	// polymorphic functions or not. At the moment this is not implemented.
 	// XXX: not implemented
@@ -101,10 +141,9 @@ const (
 	// classOrderingPrefix is a magic prefix used for the Ordering graph.
 	classOrderingPrefix = "class:"
 
-	// legacyProgSetScope enables an old version of the SetScope function
-	// in StmtProg. Use it for experimentation if you don't want to use the
-	// Ordering function for some reason. In general, this should be false!
-	legacyProgSetScope = false
+	// scopedOrderingPrefix is a magic prefix used for the Ordering graph.
+	// It is shared between imports and include as.
+	scopedOrderingPrefix = "scoped:"
 
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
 	ErrNoStoredScope = interfaces.Error("scope is not stored in this node")
@@ -2949,17 +2988,43 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 	prod := make(map[string]interfaces.Node)
 	for _, x := range obj.Body {
-		if stmt, ok := x.(*StmtClass); ok {
+		if stmt, ok := x.(*StmtImport); ok {
 			if stmt.Name == "" {
 				return nil, nil, fmt.Errorf("missing class name")
 			}
-			uid := classOrderingPrefix + stmt.Name // ordering id
+			uid := scopedOrderingPrefix + stmt.Name // ordering id
+
+			if stmt.Alias == interfaces.BareSymbol {
+				// XXX: I think we need to parse these first...
+				// XXX: Somehow make sure these appear at the
+				// top of the topo-sort for the StmtProg...
+				// XXX: Maybe add edges between StmtProg and me?
+				continue
+			}
+
+			if stmt.Alias != "" {
+				uid = scopedOrderingPrefix + stmt.Alias // ordering id
+			}
+
 			n, exists := prod[uid]
 			if exists {
 				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
 			}
 			prod[uid] = stmt // store
 		}
+
+		if stmt, ok := x.(*StmtBind); ok {
+			if stmt.Ident == "" {
+				return nil, nil, fmt.Errorf("missing bind name")
+			}
+			uid := varOrderingPrefix + stmt.Ident // ordering id
+			n, exists := prod[uid]
+			if exists {
+				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+			}
+			prod[uid] = stmt // store
+		}
+
 		if stmt, ok := x.(*StmtFunc); ok {
 			if stmt.Name == "" {
 				return nil, nil, fmt.Errorf("missing func name")
@@ -2971,11 +3036,27 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			}
 			prod[uid] = stmt // store
 		}
-		if stmt, ok := x.(*StmtBind); ok {
-			if stmt.Ident == "" {
-				return nil, nil, fmt.Errorf("missing bind name")
+
+		if stmt, ok := x.(*StmtClass); ok {
+			if stmt.Name == "" {
+				return nil, nil, fmt.Errorf("missing class name")
 			}
-			uid := varOrderingPrefix + stmt.Ident // ordering id
+			uid := classOrderingPrefix + stmt.Name // ordering id
+			n, exists := prod[uid]
+			if exists {
+				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+			}
+			prod[uid] = stmt // store
+		}
+
+		if stmt, ok := x.(*StmtInclude); ok {
+			if stmt.Name == "" {
+				return nil, nil, fmt.Errorf("missing include name")
+			}
+			if stmt.Alias == "" { // not consumed
+				continue
+			}
+			uid := scopedOrderingPrefix + stmt.Alias // ordering id
 			n, exists := prod[uid]
 			if exists {
 				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
@@ -3482,6 +3563,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	newVariables := make(map[string]string)
 	newFunctions := make(map[string]string)
 	newClasses := make(map[string]string)
+	// TODO: If we added .Ordering() for *StmtImport, we could combine this
+	// loop with the main nodeOrder sorted topological ordering loop below!
 	for _, x := range obj.Body {
 		imp, ok := x.(*StmtImport)
 		if !ok {
@@ -3518,7 +3601,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		// TODO: do this in a deterministic (sorted) order
 		for name, x := range importedScope.Variables {
 			newName := alias + interfaces.ModuleSep + name
-			if alias == "*" {
+			if alias == interfaces.BareSymbol {
+				if !AllowBareImports {
+					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+				}
 				newName = name
 			}
 			if previous, exists := newVariables[newName]; exists {
@@ -3530,7 +3616,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		}
 		for name, x := range importedScope.Functions {
 			newName := alias + interfaces.ModuleSep + name
-			if alias == "*" {
+			if alias == interfaces.BareSymbol {
+				if !AllowBareImports {
+					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+				}
 				newName = name
 			}
 			if previous, exists := newFunctions[newName]; exists {
@@ -3542,7 +3631,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		}
 		for name, x := range importedScope.Classes {
 			newName := alias + interfaces.ModuleSep + name
-			if alias == "*" {
+			if alias == interfaces.BareSymbol {
+				if !AllowBareImports {
+					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+				}
 				newName = name
 			}
 			if previous, exists := newClasses[newName]; exists {
@@ -3556,147 +3648,6 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		// everything has been merged, move on to next import...
 		imports[imp.Name] = struct{}{} // mark as found in scope
 		aliases[alias] = struct{}{}
-	}
-
-	// collect all the bind statements in the first pass
-	// this allows them to appear out of order in this scope
-	binds := make(map[string]struct{}) // bind existence in this scope
-	for _, x := range obj.Body {
-		bind, ok := x.(*StmtBind)
-		if !ok {
-			continue
-		}
-		// check for duplicates *in this scope*
-		if _, exists := binds[bind.Ident]; exists {
-			return fmt.Errorf("var `%s` already exists in this scope", bind.Ident)
-		}
-
-		binds[bind.Ident] = struct{}{} // mark as found in scope
-		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Variables[bind.Ident] = &ExprTopLevel{
-			Definition: &ExprSingleton{
-				Definition: bind.Value,
-
-				mutex: &sync.Mutex{}, // TODO: call Init instead
-			},
-			CapturedScope: newScope,
-		}
-		if obj.data.Debug { // TODO: is this message ever useful?
-			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
-		}
-	}
-
-	// now collect all the functions, and group by name (if polyfunc is ok)
-	functions := make(map[string][]*StmtFunc)
-	for _, x := range obj.Body {
-		fn, ok := x.(*StmtFunc)
-		if !ok {
-			continue
-		}
-
-		_, exists := functions[fn.Name]
-		if !exists {
-			functions[fn.Name] = []*StmtFunc{} // initialize
-		}
-
-		// check for duplicates *in this scope*
-		if exists && !AllowUserDefinedPolyFunc {
-			return fmt.Errorf("func `%s` already exists in this scope", fn.Name)
-		}
-
-		// collect functions (if multiple, this is a polyfunc)
-		functions[fn.Name] = append(functions[fn.Name], fn)
-	}
-
-	for name, fnList := range functions {
-		if obj.data.Debug { // TODO: is this message ever useful?
-			obj.data.Logf("prog: set scope: collect: (%+v -> %d): %+v (%T)", name, len(fnList), fnList[0].Func, fnList[0].Func)
-		}
-		// add to scope, (overwriting, aka shadowing is ok)
-		if len(fnList) == 1 {
-			fn := fnList[0].Func // local reference to avoid changing it in the loop...
-			// add to scope, (overwriting, aka shadowing is ok)
-			newScope.Functions[name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
-				Definition: &ExprTopLevel{
-					Definition:    fn, // store the *ExprFunc
-					CapturedScope: newScope,
-				},
-			}
-			continue
-		}
-
-		// build polyfunc's
-		// XXX: not implemented
-		return fmt.Errorf("user-defined polyfuncs of length %d are not supported", len(fnList))
-	}
-
-	// now collect any classes
-	// TODO: if we ever allow poly classes, then group in lists by name
-	classes := make(map[string]struct{})
-	for _, x := range obj.Body {
-		class, ok := x.(*StmtClass)
-		if !ok {
-			continue
-		}
-		// check for duplicates *in this scope*
-		if _, exists := classes[class.Name]; exists {
-			return fmt.Errorf("class `%s` already exists in this scope", class.Name)
-		}
-
-		classes[class.Name] = struct{}{} // mark as found in scope
-		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Classes[class.Name] = class
-	}
-
-	obj.scope = newScope // save a reference in case we're read by an import
-
-	// This is the legacy variant of this function that doesn't allow
-	// out-of-order code. It also returns obscure error messages for some
-	// cases, such as double-recursion. It's left here for reference.
-	if legacyProgSetScope {
-		// first set the scope on the classes, since it gets used in include...
-		for _, stmt := range obj.Body {
-			//if _, ok := stmt.(*StmtClass); !ok {
-			//	continue
-			//}
-			_, ok1 := stmt.(*StmtClass)
-			_, ok2 := stmt.(*StmtFunc) // TODO: is this correct?
-			_, ok3 := stmt.(*StmtBind) // TODO: is this correct?
-			if !ok1 && !ok2 && !ok3 {  // if all are false, we skip
-				continue
-			}
-
-			if obj.data.Debug {
-				obj.data.Logf("prog: set scope: pass 1: %+v", stmt)
-			}
-			if err := stmt.SetScope(newScope); err != nil {
-				return err
-			}
-		}
-
-		// now set the child scopes...
-		for _, stmt := range obj.Body {
-			// NOTE: We used to skip over *StmtClass here for recursion...
-			// Skip over *StmtClass here, since we already did it above...
-			if _, ok := stmt.(*StmtClass); ok {
-				continue
-			}
-			if _, ok := stmt.(*StmtFunc); ok { // TODO: is this correct?
-				continue
-			}
-			if _, ok := stmt.(*StmtBind); ok { // TODO: is this correct?
-				continue
-			}
-
-			if obj.data.Debug {
-				obj.data.Logf("prog: set scope: pass 2: %+v", stmt)
-			}
-			if err := stmt.SetScope(newScope); err != nil {
-				return err
-			}
-		}
-
-		return nil
 	}
 
 	// TODO: this could be called once at the top-level, and then cached...
@@ -3713,22 +3664,27 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		if err := orderingGraph.ExecGraphviz("/tmp/graphviz-ordering.dot"); err != nil {
 			obj.data.Logf("graphviz: errored: %+v", err)
 		}
+		//if err := orderingGraphFiltered.ExecGraphviz("/tmp/graphviz-ordering-filtered.dot"); err != nil {
+		//	obj.data.Logf("graphviz: errored: %+v", err)
+		//}
 		// Only generate the top-level one, to prevent overwriting this!
 		orderingGraphSingleton = false
 	}
 
+	//nodeOrder, err := orderingGraphFiltered.TopologicalSort()
 	nodeOrder, err := orderingGraph.TopologicalSort()
 	if err != nil {
 		// TODO: print the cycle in a prettier way (with names?)
 		if obj.data.Debug {
 			obj.data.Logf("set scope: not a dag:\n%s", orderingGraph.Sprint())
+			//obj.data.Logf("set scope: not a dag:\n%s", orderingGraphFiltered.Sprint())
 		}
 		return errwrap.Wrapf(err, "recursive reference while setting scope")
 	}
 
 	// XXX: implement ValidTopoSortOrder!
 	//topoSanity := (RequireTopologicalOrdering || TopologicalOrderingWarning)
-	//if topoSanity && !orderingGraph.ValidTopoSortOrder(nodeOrder) {
+	//if topoSanity && !orderingGraphFiltered.ValidTopoSortOrder(nodeOrder) {
 	//	msg := "code is out of order, you're insane!"
 	//	if TopologicalOrderingWarning {
 	//		obj.data.Logf(msg)
@@ -3770,12 +3726,29 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		obj.data.Logf("prog: set scope: ordering: %+v", stmts)
 	}
 
+	// Track all the bind statements, functions, and classes. This is used
+	// for duplicate checking. These might appear out-of-order as code, but
+	// are iterated in the topoligically sorted node order. When we collect
+	// all the functions, we group by name (if polyfunc is ok) and we also
+	// do something similar for classes.
+	// TODO: if we ever allow poly classes, then group in lists by name
+	binds := make(map[string]struct{}) // bind existence in this scope
+	functions := make(map[string][]*StmtFunc)
+	classes := make(map[string]struct{})
+	//includes := make(map[string]struct{}) // duplicates are allowed
+
 	// Optimization: In addition to importantly skipping the parts of the
 	// graph that don't belong in this StmtProg, this also causes
 	// un-consumed statements to be skipped. As a result, this simplifies
 	// the graph significantly in cases of unused code, because they're not
 	// given a chance to SetScope even though they're in the StmtProg list.
-	for _, x := range nodeOrder { // these are in the correct order for SetScope
+
+	// In the below loop which we iterate over in the correct scope order,
+	// we build up the scope (loopScope) as we go, so that subsequent uses
+	// of the scope include earlier definitions and scope additions.
+	loopScope := newScope.Copy()
+	funcCount := make(map[string]int) // count the occurrences of a func
+	for _, x := range nodeOrder {     // these are in the correct order for SetScope
 		stmt, ok := x.(interfaces.Stmt)
 		if !ok {
 			continue
@@ -3787,13 +3760,212 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			// Skip any unwanted additions that we pulled in.
 			continue
 		}
-		if obj.data.Debug {
-			obj.data.Logf("prog: set scope: order: %+v", stmt)
-		}
-		if err := stmt.SetScope(newScope); err != nil {
+
+		capturedScope := loopScope.Copy()
+		if err := stmt.SetScope(capturedScope); err != nil {
 			return err
 		}
+
+		if bind, ok := x.(*StmtBind); ok {
+			// check for duplicates *in this scope*
+			if _, exists := binds[bind.Ident]; exists {
+				return fmt.Errorf("var `%s` already exists in this scope", bind.Ident)
+			}
+
+			binds[bind.Ident] = struct{}{} // mark as found in scope
+			// add to scope, (overwriting, aka shadowing is ok)
+			loopScope.Variables[bind.Ident] = &ExprTopLevel{
+				Definition: &ExprSingleton{
+					Definition: bind.Value,
+
+					mutex: &sync.Mutex{}, // TODO: call Init instead
+				},
+				CapturedScope: capturedScope,
+			}
+			if obj.data.Debug { // TODO: is this message ever useful?
+				obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
+			}
+
+			continue // optional
+		}
+
+		if fn, ok := x.(*StmtFunc); ok {
+			_, exists := functions[fn.Name]
+			if !exists {
+				functions[fn.Name] = []*StmtFunc{} // initialize
+			}
+
+			// check for duplicates *in this scope*
+			if exists && !AllowUserDefinedPolyFunc {
+				return fmt.Errorf("func `%s` already exists in this scope", fn.Name)
+			}
+
+			count := 1 // XXX: number of overloaded definitions of the same name (get from ordering eventually)
+			funcCount[fn.Name]++
+
+			// collect functions (if multiple, this is a polyfunc)
+			functions[fn.Name] = append(functions[fn.Name], fn)
+
+			if funcCount[fn.Name] < count {
+				continue // delay SetScope for later...
+			}
+
+			fnList := functions[fn.Name] // []*StmtFunc
+
+			if obj.data.Debug { // TODO: is this message ever useful?
+				obj.data.Logf("prog: set scope: collect: (%+v -> %d): %+v (%T)", fn.Name, len(fnList), fnList[0].Func, fnList[0].Func)
+			}
+
+			// add to scope, (overwriting, aka shadowing is ok)
+			if len(fnList) == 1 {
+				f := fnList[0].Func // local reference to avoid changing it in the loop...
+				// add to scope, (overwriting, aka shadowing is ok)
+				loopScope.Functions[fn.Name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
+					Definition: &ExprTopLevel{
+						Definition:    f, // store the *ExprFunc
+						CapturedScope: capturedScope,
+					},
+				}
+				continue
+			}
+
+			// build polyfunc's
+			// XXX: not implemented
+			return fmt.Errorf("user-defined polyfuncs of length %d are not supported", len(fnList))
+		}
+
+		if class, ok := x.(*StmtClass); ok {
+			// check for duplicates *in this scope*
+			if _, exists := classes[class.Name]; exists {
+				return fmt.Errorf("class `%s` already exists in this scope", class.Name)
+			}
+
+			classes[class.Name] = struct{}{} // mark as found in scope
+
+			// add to scope, (overwriting, aka shadowing is ok)
+			loopScope.Classes[class.Name] = class
+
+			continue
+		}
+
+		// now collect any include contents
+		if include, ok := x.(*StmtInclude); ok {
+			// We actually don't want to check for duplicates, that
+			// is allowed, if we `include foo as bar` twice it will
+			// currently not work, but if possible, we can allow it.
+			// check for duplicates *in this scope*
+			//if _, exists := includes[include.Name]; exists {
+			//	return fmt.Errorf("include `%s` already exists in this scope", include.Name)
+			//}
+
+			alias := ""
+			if AllowBareClassIncluding {
+				alias = include.Name // this is what we would call the include
+			}
+			if include.Alias != "" { // this is what the user decided as the name
+				alias = include.Alias // use alias if specified
+			}
+			if alias == "" {
+				continue // there isn't anything to do here
+			}
+
+			// NOTE: This gets caught in ordering instead of here...
+			// deal with alias duplicates and * includes and so on...
+			if _, exists := aliases[alias]; exists {
+				// TODO: track separately to give a better error message here
+				return fmt.Errorf("import/include alias `%s` already exists in this scope", alias)
+			}
+
+			if include.class == nil {
+				// programming error
+				return fmt.Errorf("programming error: class `%s` not found", include.Name)
+			}
+			// This includes any variable from the top-level scope
+			// that is visible (and captured) inside the class, and
+			// re-exported when included with `as`. This is the
+			// "tricky case", but it turns out it's better this way.
+			// Example:
+			//
+			//	$x = "i am x"	# i am now top-level
+			//	class c1() {
+			//		$whatever = fmt.printf("i can see: %s", $x)
+			//	}
+			//	include c1 as i1
+			//	test $i1.x {}		# tricky
+			//	test $i1.whatever {}	# easy
+			//
+			// We want to allow the tricky case to prevent needing
+			// to write code like: `$x = $x` inside of class c1 to
+			// get the same effect.
+
+			//includedScope := include.class.Body.scope // conceptually
+			prog, ok := include.class.Body.(*StmtProg)
+			if !ok {
+				return fmt.Errorf("programming error: prog not found in class Body")
+			}
+			// XXX: .Copy() ?
+			includedScope := prog.scope
+
+			// read from stored scope which was previously saved in SetScope
+			// add to scope, (overwriting, aka shadowing is ok)
+			// rename scope values, adding the alias prefix
+			// check that we don't overwrite a new value from another include
+			// TODO: do this in a deterministic (sorted) order
+			for name, x := range includedScope.Variables {
+				newName := alias + interfaces.ModuleSep + name
+				if alias == interfaces.BareSymbol { // not supported by parser atm!
+					if !AllowBareIncludes {
+						return fmt.Errorf("bare includes disabled at compile time for include of `%s`", include.Name)
+					}
+					newName = name
+				}
+				if previous, exists := newVariables[newName]; exists {
+					// don't overwrite in same scope
+					return fmt.Errorf("can't squash variable `%s` from `%s` by include of `%s`", newName, previous, include.Name)
+				}
+				newVariables[newName] = include.Name
+				loopScope.Variables[newName] = x // merge
+			}
+			for name, x := range includedScope.Functions {
+				newName := alias + interfaces.ModuleSep + name
+				if alias == interfaces.BareSymbol { // not supported by parser atm!
+					if !AllowBareIncludes {
+						return fmt.Errorf("bare includes disabled at compile time for include of `%s`", include.Name)
+					}
+					newName = name
+				}
+				if previous, exists := newFunctions[newName]; exists {
+					// don't overwrite in same scope
+					return fmt.Errorf("can't squash function `%s` from `%s` by include of `%s`", newName, previous, include.Name)
+				}
+				newFunctions[newName] = include.Name
+				loopScope.Functions[newName] = x
+			}
+			for name, x := range includedScope.Classes {
+				newName := alias + interfaces.ModuleSep + name
+				if alias == interfaces.BareSymbol { // not supported by parser atm!
+					if !AllowBareIncludes {
+						return fmt.Errorf("bare includes disabled at compile time for include of `%s`", include.Name)
+					}
+					newName = name
+				}
+				if previous, exists := newClasses[newName]; exists {
+					// don't overwrite in same scope
+					return fmt.Errorf("can't squash class `%s` from `%s` by include of `%s`", newName, previous, include.Name)
+				}
+				newClasses[newName] = include.Name
+				loopScope.Classes[newName] = x
+			}
+
+			// everything has been merged, move on to next include...
+			//includes[include.Name] = struct{}{} // don't mark as found in scope
+			aliases[alias] = struct{}{} // do track these as a bonus
+		}
+
 	}
+
+	obj.scope = loopScope // save a reference in case we're read by an import
+
 	if obj.data.Debug {
 		obj.data.Logf("prog: set scope: finished")
 	}
@@ -4254,7 +4426,13 @@ func (obj *StmtClass) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
+
+	// We want to capture what was in scope at the definition site of the
+	// class so that when we `include` the class, the body of the class is
+	// expanded with the variables which were in scope at the definition
+	// site and not the variables which were in scope at the include site.
 	obj.scope = scope // store for later
+
 	return nil
 }
 
@@ -4296,8 +4474,9 @@ type StmtInclude struct {
 	class *StmtClass   // copy of class that we're using
 	orig  *StmtInclude // original pointer to this
 
-	Name string
-	Args []interfaces.Expr
+	Name  string
+	Args  []interfaces.Expr
+	Alias string
 }
 
 // String returns a short representation of this statement.
@@ -4368,9 +4547,10 @@ func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
 	}
 	return &StmtInclude{
 		//class: obj.class, // TODO: is this necessary?
-		orig: orig,
-		Name: obj.Name,
-		Args: args,
+		orig:  orig,
+		Name:  obj.Name,
+		Args:  args,
+		Alias: obj.Alias,
 	}, nil
 }
 
@@ -4403,9 +4583,10 @@ func (obj *StmtInclude) Copy() (interfaces.Stmt, error) {
 	}
 	return &StmtInclude{
 		//class: obj.class, // TODO: is this necessary?
-		orig: orig,
-		Name: obj.Name,
-		Args: args,
+		orig:  orig,
+		Name:  obj.Name,
+		Args:  args,
+		Alias: obj.Alias,
 	}, nil
 }
 
@@ -4422,16 +4603,33 @@ func (obj *StmtInclude) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 	if obj.Name == "" {
 		return nil, nil, fmt.Errorf("missing class name")
 	}
-	uid := classOrderingPrefix + obj.Name // ordering id
 
-	cons := make(map[interfaces.Node]string)
-	cons[obj] = uid
+	uid := classOrderingPrefix + obj.Name // ordering id
 
 	node, exists := produces[uid]
 	if exists {
-		edge := &pgraph.SimpleEdge{Name: "stmtinclude"}
+		edge := &pgraph.SimpleEdge{Name: "stmtinclude1"}
 		graph.AddEdge(node, obj, edge) // prod -> cons
 	}
+
+	// equivalent to: strings.Contains(obj.Name, interfaces.ModuleSep)
+	if split := strings.Split(obj.Name, interfaces.ModuleSep); len(split) > 1 {
+		// we contain a dot
+		uid = scopedOrderingPrefix + split[0] // just the first prefix
+
+		// TODO: do we also want this second edge??
+		node, exists := produces[uid]
+		if exists {
+			edge := &pgraph.SimpleEdge{Name: "stmtinclude2"}
+			graph.AddEdge(node, obj, edge) // prod -> cons
+		}
+	}
+	// It's okay to replace the normal `class` prefix, because we have the
+	// fancier `scoped:` prefix which matches more generally...
+
+	// TODO: we _can_ produce two uid's here, is it okay we only offer one?
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
 
 	for _, node := range obj.Args {
 		g, c, err := node.Ordering(produces)
@@ -4545,7 +4743,6 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 			},
 			CapturedScope: newScope,
 		}
-
 	}
 
 	// recursion detection
@@ -4701,6 +4898,12 @@ func (obj *StmtImport) Ordering(produces map[string]interfaces.Node) (*pgraph.Gr
 		return nil, nil, err
 	}
 	graph.AddVertex(obj)
+
+	// Since we always run the imports before anything else in the StmtProg,
+	// we don't need to do anything special in here.
+	// TODO: If this statement is true, add this in so that imports can be
+	// done in the same iteration through StmtProg in SetScope with all of
+	// the other statements.
 
 	cons := make(map[interfaces.Node]string)
 	return graph, cons, nil
@@ -7580,14 +7783,30 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		uid = varOrderingPrefix + obj.Name // ordering id
 	}
 
-	cons := make(map[interfaces.Node]string)
-	cons[obj] = uid
-
 	node, exists := produces[uid]
 	if exists {
-		edge := &pgraph.SimpleEdge{Name: "exprcallname"}
+		edge := &pgraph.SimpleEdge{Name: "exprcallname1"}
 		graph.AddEdge(node, obj, edge) // prod -> cons
 	}
+
+	// equivalent to: strings.Contains(obj.Name, interfaces.ModuleSep)
+	if split := strings.Split(obj.Name, interfaces.ModuleSep); len(split) > 1 {
+		// we contain a dot
+		uid = scopedOrderingPrefix + split[0] // just the first prefix
+
+		// TODO: do we also want this second edge??
+		node, exists := produces[uid]
+		if exists {
+			edge := &pgraph.SimpleEdge{Name: "exprcallname2"}
+			graph.AddEdge(node, obj, edge) // prod -> cons
+		}
+	}
+	// It's okay to replace the normal `func` or `var` prefix, because we
+	// have the fancier `scoped:` prefix which matches more generally...
+
+	// TODO: we _can_ produce two uid's here, is it okay we only offer one?
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
 
 	for _, node := range obj.Args {
 		g, c, err := node.Ordering(produces)
@@ -8363,14 +8582,30 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 	}
 	uid := varOrderingPrefix + obj.Name // ordering id
 
-	cons := make(map[interfaces.Node]string)
-	cons[obj] = uid
-
 	node, exists := produces[uid]
 	if exists {
-		edge := &pgraph.SimpleEdge{Name: "exprvar"}
+		edge := &pgraph.SimpleEdge{Name: "exprvar1"}
 		graph.AddEdge(node, obj, edge) // prod -> cons
 	}
+
+	// equivalent to: strings.Contains(obj.Name, interfaces.ModuleSep)
+	if split := strings.Split(obj.Name, interfaces.ModuleSep); len(split) > 1 {
+		// we contain a dot
+		uid = scopedOrderingPrefix + split[0] // just the first prefix
+
+		// TODO: do we also want this second edge??
+		node, exists := produces[uid]
+		if exists {
+			edge := &pgraph.SimpleEdge{Name: "exprvar2"}
+			graph.AddEdge(node, obj, edge) // prod -> cons
+		}
+	}
+	// It's okay to replace the normal `var` prefix, because we have the
+	// fancier `scoped:` prefix which matches more generally...
+
+	// TODO: we _can_ produce two uid's here, is it okay we only offer one?
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
 
 	return graph, cons, nil
 }

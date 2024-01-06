@@ -1,0 +1,21 @@
+import "fmt"
+class c1 {
+	test "t1" {}	# gets pulled out
+	$x = "hello"	# gets exported
+
+	class c0 {
+		test "t2" {}
+		$x = "goodbye"
+	}
+}
+include c1 as i1
+include i1.c0 as i0
+
+test "print0" {
+	anotherstr => fmt.printf("%s", $i1.x),	# hello
+	onlyshow => ["AnotherStr",], # displays nicer
+}
+test "print1" {
+	anotherstr => fmt.printf("%s", $i0.x),	# goodbye
+	onlyshow => ["AnotherStr",], # displays nicer
+}

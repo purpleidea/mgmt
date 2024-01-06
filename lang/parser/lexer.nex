@@ -85,8 +85,14 @@
 			return MINUS
 		}
 /\*/		{
+			// This is used as the multiplication symbol, but also
+			// (for now) the bare import feature, eg: `import as *`.
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
+			// sanity check... these should be the same!
+			if x, y := lval.str, interfaces.BareSymbol; x != y {
+				panic(fmt.Sprintf("MULTIPLY does not match BareSymbol (%s != %s)", x, y))
+			}
 			return MULTIPLY
 		}
 /\//		{

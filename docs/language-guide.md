@@ -414,6 +414,57 @@ parameters, then the same class can even be called with different signatures.
 Whether the output is useful and whether there is a unique type unification
 solution is dependent on your code.
 
+Classes can be included under a new scoped prefix by using the `as` field and an
+identifier. When used in this manner, the captured scope of the class at its
+definition site are made available in the scope of the include. Variables,
+functions, and child classes are all exported.
+
+Variables are available in the include scope:
+
+```mcl
+import "fmt"
+
+class c1 {
+	test "t1" {}	# gets pulled out
+	$x = "hello"	# gets exported
+}
+include c1 as i1
+
+test "print0" {
+	anotherstr => fmt.printf("%s", $i1.x),	# hello
+	onlyshow => ["AnotherStr",], # displays nicer
+}
+```
+
+Classes are also available in the new scope:
+
+```mcl
+import "fmt"
+class c1 {
+	test "t1" {}	# gets pulled out
+	$x = "hello"	# gets exported
+
+	class c0 {
+		test "t2" {}
+		$x = "goodbye"
+	}
+}
+include c1 as i1
+include i1.c0 as i0
+
+test "print0" {
+	anotherstr => fmt.printf("%s", $i1.x),	# hello
+	onlyshow => ["AnotherStr",], # displays nicer
+}
+test "print1" {
+	anotherstr => fmt.printf("%s", $i0.x),	# goodbye
+	onlyshow => ["AnotherStr",], # displays nicer
+}
+```
+
+Of course classes can be parameterized too, and those variables specified during
+the `include`.
+
 #### Import
 
 The `import` statement imports a scope into the specified namespace. A scope can

@@ -1,0 +1,42 @@
+-- main.mcl --
+class c0($b) {
+	test "t1" {}
+	if $b {
+		test "t2" {}
+	} else {
+		test "t3" {}
+	}
+	func f0() {
+		if $b {
+			"hello"
+		} else {
+			"goodbye"
+		}
+	}
+}
+class c1($b) {
+	test "t4" {}
+	if $b {
+		test "t5" {}
+	} else {
+		test "t6" {}
+	}
+	include c0($b) as i0
+	func f1() { i0.f0() }
+}
+include c1(true) as i1
+include c1(false) as i2
+
+test i1.f1() {}
+test i2.f1() {}
+test i1.i0.f0() {}	# I think these might work directly too. Do we want them to?
+test i2.i0.f0() {}
+-- OUTPUT --
+Vertex: test[goodbye]
+Vertex: test[hello]
+Vertex: test[t1]
+Vertex: test[t2]
+Vertex: test[t3]
+Vertex: test[t4]
+Vertex: test[t5]
+Vertex: test[t6]

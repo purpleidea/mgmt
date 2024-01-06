@@ -1,0 +1,30 @@
+-- main.mcl --
+class c1 {
+	test "t1" {}
+	$y = "hello"
+	class c0 {
+		test "t2" {}
+		$x = "goodbye"
+	}
+}
+include c1 as i1	# has $y
+include i1.c0 as i0	# has $x ...and $y
+
+test $i0.x {}	# ok
+test $i1.y {}	# ok
+panic($i0.x != "goodbye")
+panic($i1.y != "hello")
+
+# the really tricky case
+# XXX: works atm, but not supported for now: could not set scope: variable i0.y not in scope
+# We currently re-export anything in the parent scope as available from our
+# current child scope, which makes this variable visible. Unfortunately, it does
+# not have the correct dependency (edge) present in the Ordering system, so it
+# is flaky depending on luck of the toposort.
+#test $i0.y {}
+
+-- OUTPUT --
+Vertex: test[goodbye]
+Vertex: test[hello]
+Vertex: test[t1]
+Vertex: test[t2]

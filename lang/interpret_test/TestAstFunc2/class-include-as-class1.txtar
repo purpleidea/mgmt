@@ -1,0 +1,39 @@
+-- main.mcl --
+class c1($b) {
+	test "t1" {}
+	if $b {
+		test "t2" {}
+	} else {
+		test "t3" {}
+	}
+	class c0 {
+		test "t4" {}
+		if $b {
+			test "t5" {}
+		} else {
+			test "t6" {}
+		}
+		$x = if $b {
+			"hello"
+		} else {
+			"goodbye"
+		}
+	}
+}
+include c1(true) as i1
+include i1.c0 as i01
+
+include c1(false) as i2
+include i2.c0 as i02
+
+test $i01.x {}
+test $i02.x {}
+-- OUTPUT --
+Vertex: test[hello]
+Vertex: test[goodbye]
+Vertex: test[t1]
+Vertex: test[t2]
+Vertex: test[t3]
+Vertex: test[t4]
+Vertex: test[t5]
+Vertex: test[t6]

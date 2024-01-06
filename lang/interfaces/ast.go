@@ -235,7 +235,7 @@ type Data struct {
 // from the variables, which could actually contain lambda functions.
 type Scope struct {
 	Variables map[string]Expr
-	Functions map[string]Expr // the Expr will usually be an *ExprFunc
+	Functions map[string]Expr // the Expr will usually be an *ExprFunc (actually it's usually (or always) an *ExprSingleton, which wraps an *ExprFunc now)
 	Classes   map[string]Stmt
 
 	Chain []Node // chain of previously seen node's

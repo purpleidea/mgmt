@@ -1,0 +1,8 @@
+-- main.mcl --
+$wat = "bad1"
+class c1($wat) {
+	test $wat {}
+}
+include c1("hello")
+-- OUTPUT --
+Vertex: test[hello]

@@ -1,0 +1,20 @@
+-- main.mcl --
+$x = "i am x"	# i am top-level
+
+class c2() {
+	#$y = "i am y"
+	$z = "i am y and " + $x
+
+	$newx = $x + " and hello"
+}
+
+include c2 as f1
+
+test $f1.z {}
+test $f1.x {}	# tricky
+test $f1.newx {}
+
+-- OUTPUT --
+Vertex: test[i am x]
+Vertex: test[i am x and hello]
+Vertex: test[i am y and i am x]

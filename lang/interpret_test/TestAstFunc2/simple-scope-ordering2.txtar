@@ -1,0 +1,7 @@
+-- main.mcl --
+# set scope ordering test
+$y = $x
+$x = "hey"
+test $y {}
+-- OUTPUT --
+Vertex: test[hey]

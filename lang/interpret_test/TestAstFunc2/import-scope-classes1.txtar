@@ -1,0 +1,22 @@
+-- main.mcl --
+
+class c1() {
+	$x = "i am x"
+}
+
+class c2() {
+	include c1 as g1
+
+	#$y = "i am y"
+	$z = "i am y and " + $g1.x
+}
+
+include c2 as f1
+
+test $f1.z {}		# yep
+#test $f1.x {}		# no
+test $f1.g1.x {}	# yep
+
+-- OUTPUT --
+Vertex: test[i am y and i am x]
+Vertex: test[i am x]

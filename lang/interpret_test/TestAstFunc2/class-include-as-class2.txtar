@@ -1,0 +1,17 @@
+-- main.mcl --
+class c1($b) {
+	if $b {	# scope doesn't leak up and out of `if` statement!
+		class inner() {
+			test "t1" {}
+		}
+	} else {
+		class inner() {
+			test "t2" {}
+		}
+	}
+}
+
+include c1 as i1
+include i1.inner
+-- OUTPUT --
+# err: errSetScope: class `c1` expected 1 args but got 0

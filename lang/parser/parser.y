@@ -295,6 +295,27 @@ stmt:
 			Args: $4.exprs,
 		}
 	}
+	// `include name as foo`
+	// TODO: should we support: `include name as *`
+|	INCLUDE_IDENTIFIER dotted_identifier AS_IDENTIFIER IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &ast.StmtInclude{
+			Name:  $2.str,
+			Alias: $4.str,
+		}
+	}
+	// `include name(...) as foo`
+	// TODO: should we support: `include name(...) as *`
+|	INCLUDE_IDENTIFIER dotted_identifier OPEN_PAREN call_args CLOSE_PAREN AS_IDENTIFIER IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &ast.StmtInclude{
+			Name:  $2.str,
+			Args:  $4.exprs,
+			Alias: $7.str,
+		}
+	}
 	// `import "name"`
 |	IMPORT_IDENTIFIER STRING
 	{

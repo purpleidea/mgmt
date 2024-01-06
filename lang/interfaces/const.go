@@ -28,6 +28,12 @@ const (
 	// also used with `ModuleSep` for scoped variables like `$foo.bar.baz`.
 	VarPrefix = "$"
 
+	// BareSymbol is the character used primarily for imports to specify
+	// that we want to import the entire contents and flatten them into our
+	// current scope. It should probably be removed entirely to force
+	// explicit imports.
+	BareSymbol = "*"
+
 	// PanicResKind is the kind string used for the panic resource.
 	PanicResKind = "_panic"
 )

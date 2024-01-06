@@ -1,0 +1,40 @@
+-- main.mcl --
+class c0($b) {
+	test "t1" {}
+	if $b {
+		test "t2" {}
+	} else {
+		test "t3" {}
+	}
+	$y = if $b {
+		"hello"
+	} else {
+		"goodbye"
+	}
+}
+class c1($b) {
+	test "t4" {}
+	if $b {
+		test "t5" {}
+	} else {
+		test "t6" {}
+	}
+	include c0($b) as i0
+	$x = $i0.y
+}
+include c1(true) as i1
+include c1(false) as i2
+
+test $i1.x {}
+test $i2.x {}
+test $i1.i0.y {}	# I think these should work directly too. Do we want them to?
+test $i2.i0.y {}
+-- OUTPUT --
+Vertex: test[goodbye]
+Vertex: test[hello]
+Vertex: test[t1]
+Vertex: test[t2]
+Vertex: test[t3]
+Vertex: test[t4]
+Vertex: test[t5]
+Vertex: test[t6]

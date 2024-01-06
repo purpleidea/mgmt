@@ -1,0 +1,31 @@
+-- main.mcl --
+$x = "i am x"	# i am top-level
+
+class c2() {
+	$y = "i am y and " + $x
+
+	#$x = $x	# might be allowed, i don't _really_ care, but i prefer not
+
+	# We need to be able to re-define our new $x that shadows the parent $x,
+	# but it should be able to incorporate the parent (top-level) $x into
+	# the new value that this new $x here becomes.
+	# XXX: not supported for now: could not set scope: not a dag
+	# Sam suggested the RHS $x should have a special keyword to make it
+	# refer to the parent scope. I suggested when $x is also on the LHS,
+	# then this magic keyword should be implied. And only possible in the
+	# case for variables on the RHS that are the same var as on the LHS.
+	#$x = $x + " and this is shadowed"	# this is important
+}
+
+include c2 as f1
+
+test $x {}
+test $f1.y {}
+
+# the really tricky case
+# XXX: not supported for now: could not set scope: not a dag
+#test $f1.x {}
+
+-- OUTPUT --
+Vertex: test[i am x]
+Vertex: test[i am y and i am x]

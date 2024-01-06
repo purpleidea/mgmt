@@ -1,0 +1,20 @@
+-- main.mcl --
+$x = "i am x"	# i am top-level
+
+class c2() {
+	$z = "i am y and " + $x
+
+	#$x = $x		# not allowed
+	$tmpx = $x		# this $x is actually from below, not from the parent scope!
+	#$x = $x + "wow"	# allowed?
+	$x = $tmpx + "wow"	# circular with itself ($x) in this scope!
+}
+
+include c2 as f1
+
+test $f1.z {}
+test $f1.x {}	# tricky
+test $f1.newx {}
+
+-- OUTPUT --
+# err: errSetScope: recursive reference while setting scope: not a dag

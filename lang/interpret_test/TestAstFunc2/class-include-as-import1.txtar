@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt" as i1
+class c1($s) {
+	$x = fmt.printf("got: %s", $s)
+}
+
+include c1("hey") as i1
+test $i1.x {}
+-- OUTPUT --
+# err: errSetScope: could not generate ordering: duplicate assignment to `scoped:i1`, have: import(fmt)

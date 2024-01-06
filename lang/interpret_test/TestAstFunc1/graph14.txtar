@@ -4,4 +4,4 @@
 $x = "wow"
 $x = 99	# woops, but also a change of type :P
 -- OUTPUT --
-# err: errSetScope: var `x` already exists in this scope
+# err: errSetScope: could not generate ordering: duplicate assignment to `var:x`, have: bind(x)

@@ -1,0 +1,13 @@
+-- main.mcl --
+class c1 {
+	test "t1" {}
+	$f1 = func() {
+		"hello"
+	}
+}
+include c1 as i1
+
+test $i1.f1() {}
+-- OUTPUT --
+Vertex: test[hello]
+Vertex: test[t1]

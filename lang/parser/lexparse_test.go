@@ -1670,12 +1670,12 @@ func TestLexParse0(t *testing.T) {
 			exp:  exp,
 		})
 	}
-	{
+	if ast.AllowBareImports {
 		exp := &ast.StmtProg{
 			Body: []interfaces.Stmt{
 				&ast.StmtImport{
 					Name:  "foo1",
-					Alias: "*",
+					Alias: interfaces.BareSymbol,
 				},
 			},
 		}

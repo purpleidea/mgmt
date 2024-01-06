@@ -3731,6 +3731,24 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			continue
 		}
 
+		// This is here before SetScope because we *don't* want to go
+		// into StmtClass, because we don't want to call SetScope on the
+		// body of the class because we don't know anything about the
+		// arguments. (Says Sam.)
+		if class, ok := x.(*StmtClass); ok {
+			// check for duplicates *in this scope*
+			if _, exists := classes[class.Name]; exists {
+				return fmt.Errorf("class `%s` already exists in this scope", class.Name)
+			}
+
+			classes[class.Name] = struct{}{} // mark as found in scope
+
+			// add to scope, (overwriting, aka shadowing is ok)
+			loopScope.Classes[class.Name] = class
+
+			continue
+		}
+
 		capturedScope := loopScope.Copy()
 		if err := stmt.SetScope(capturedScope); err != nil {
 			return err
@@ -3803,20 +3821,6 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			// build polyfunc's
 			// XXX: not implemented
 			return fmt.Errorf("user-defined polyfuncs of length %d are not supported", len(fnList))
-		}
-
-		if class, ok := x.(*StmtClass); ok {
-			// check for duplicates *in this scope*
-			if _, exists := classes[class.Name]; exists {
-				return fmt.Errorf("class `%s` already exists in this scope", class.Name)
-			}
-
-			classes[class.Name] = struct{}{} // mark as found in scope
-
-			// add to scope, (overwriting, aka shadowing is ok)
-			loopScope.Classes[class.Name] = class
-
-			continue
 		}
 
 		// now collect any include contents
@@ -4366,7 +4370,17 @@ func (obj *StmtClass) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
-	obj.scope = scope // store for later
+	// obj.scope = scope // XXX NOPE
+
+	if err := obj.Body.SetScope(scope); err != nil {
+		return err
+	}
+	prog, ok := obj.Body.(*StmtProg)
+	if !ok {
+		return fmt.Errorf("expected a prog")
+	}
+	obj.scope = prog.scope // store for later
+
 	return nil
 }
 
@@ -4661,7 +4675,6 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 			},
 			CapturedScope: newScope,
 		}
-
 	}
 
 	// recursion detection
@@ -4674,7 +4687,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// need to use the original scope of the class as it was set as the
 	// basis for this scope, so that we overwrite it only with the arg
 	// changes.
-	if err := obj.class.Body.SetScope(newScope); err != nil {
+	if err := obj.class.SetScope(newScope); err != nil {
 		return err
 	}
 

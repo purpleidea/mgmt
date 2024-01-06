@@ -33,8 +33,6 @@ test i1.i0.f0() {}	# I think these might work directly too. Do we want them to?
 test i2.i0.f0() {}
 -- OUTPUT --
 Vertex: test[goodbye]
-Vertex: test[goodbye]
-Vertex: test[hello]
 Vertex: test[hello]
 Vertex: test[t1]
 Vertex: test[t2]

@@ -11,7 +11,7 @@ include c1 as i1
 include i1.c0 as i0
 
 test $i0.x {}
-test $i1.y {}
+test $i1.y {}	# XXX sam says it's wrong should not exist
 panic($i0.x != "hello")
 panic($i1.y != "goodbye")
 -- OUTPUT --

@@ -31,8 +31,6 @@ test $i1.i0.y {}	# I think these should work directly too. Do we want them to?
 test $i2.i0.y {}
 -- OUTPUT --
 Vertex: test[goodbye]
-Vertex: test[goodbye]
-Vertex: test[hello]
 Vertex: test[hello]
 Vertex: test[t1]
 Vertex: test[t2]

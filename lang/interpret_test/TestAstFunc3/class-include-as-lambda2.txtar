@@ -22,7 +22,7 @@ class c1($b) {
 		test "t6" {}
 	}
 	include c0($b) as i0
-	$x = i0.f0
+	$x = $i0.f0
 }
 include c1(true) as i1
 include c1(false) as i2

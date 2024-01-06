@@ -3561,143 +3561,61 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// collect all the bind statements in the first pass
 	// this allows them to appear out of order in this scope
 	binds := make(map[string]struct{}) // bind existence in this scope
-	for _, x := range obj.Body {
-		bind, ok := x.(*StmtBind)
-		if !ok {
-			continue
-		}
-		// check for duplicates *in this scope*
-		if _, exists := binds[bind.Ident]; exists {
-			return fmt.Errorf("var `%s` already exists in this scope", bind.Ident)
-		}
-
-		binds[bind.Ident] = struct{}{} // mark as found in scope
-		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Variables[bind.Ident] = &ExprTopLevel{
-			Definition: &ExprSingleton{
-				Definition: bind.Value,
-
-				mutex: &sync.Mutex{}, // TODO: call Init instead
-			},
-			CapturedScope: newScope,
-		}
-		if obj.data.Debug { // TODO: is this message ever useful?
-			obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
-		}
-	}
-
 	// now collect all the functions, and group by name (if polyfunc is ok)
 	functions := make(map[string][]*StmtFunc)
-	for _, x := range obj.Body {
-		fn, ok := x.(*StmtFunc)
-		if !ok {
-			continue
-		}
-
-		_, exists := functions[fn.Name]
-		if !exists {
-			functions[fn.Name] = []*StmtFunc{} // initialize
-		}
-
-		// check for duplicates *in this scope*
-		if exists && !AllowUserDefinedPolyFunc {
-			return fmt.Errorf("func `%s` already exists in this scope", fn.Name)
-		}
-
-		// collect functions (if multiple, this is a polyfunc)
-		functions[fn.Name] = append(functions[fn.Name], fn)
-	}
-
-	for name, fnList := range functions {
-		if obj.data.Debug { // TODO: is this message ever useful?
-			obj.data.Logf("prog: set scope: collect: (%+v -> %d): %+v (%T)", name, len(fnList), fnList[0].Func, fnList[0].Func)
-		}
-		// add to scope, (overwriting, aka shadowing is ok)
-		if len(fnList) == 1 {
-			fn := fnList[0].Func // local reference to avoid changing it in the loop...
-			// add to scope, (overwriting, aka shadowing is ok)
-			newScope.Functions[name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
-				Definition: &ExprTopLevel{
-					Definition:    fn, // store the *ExprFunc
-					CapturedScope: newScope,
-				},
-			}
-			continue
-		}
-
-		// build polyfunc's
-		// XXX: not implemented
-		return fmt.Errorf("user-defined polyfuncs of length %d are not supported", len(fnList))
-	}
 
 	// now collect any classes
 	// TODO: if we ever allow poly classes, then group in lists by name
 	classes := make(map[string]struct{})
-	for _, x := range obj.Body {
-		class, ok := x.(*StmtClass)
-		if !ok {
-			continue
-		}
-		// check for duplicates *in this scope*
-		if _, exists := classes[class.Name]; exists {
-			return fmt.Errorf("class `%s` already exists in this scope", class.Name)
-		}
 
-		classes[class.Name] = struct{}{} // mark as found in scope
-		// add to scope, (overwriting, aka shadowing is ok)
-		newScope.Classes[class.Name] = class
-	}
+	//	// This is the legacy variant of this function that doesn't allow
+	//	// out-of-order code. It also returns obscure error messages for some
+	//	// cases, such as double-recursion. It's left here for reference.
+	//	if legacyProgSetScope {
+	//		// first set the scope on the classes, since it gets used in include...
+	//		for _, stmt := range obj.Body {
+	//			//if _, ok := stmt.(*StmtClass); !ok {
+	//			//	continue
+	//			//}
+	//			_, ok1 := stmt.(*StmtClass)
+	//			_, ok2 := stmt.(*StmtFunc) // TODO: is this correct?
+	//			_, ok3 := stmt.(*StmtBind) // TODO: is this correct?
+	//			if !ok1 && !ok2 && !ok3 {  // if all are false, we skip
+	//				continue
+	//			}
 
-	obj.scope = newScope // save a reference in case we're read by an import
+	//			if obj.data.Debug {
+	//				obj.data.Logf("prog: set scope: pass 1: %+v", stmt)
+	//			}
+	//			if err := stmt.SetScope(newScope); err != nil {
+	//				return err
+	//			}
+	//		}
 
-	// This is the legacy variant of this function that doesn't allow
-	// out-of-order code. It also returns obscure error messages for some
-	// cases, such as double-recursion. It's left here for reference.
-	if legacyProgSetScope {
-		// first set the scope on the classes, since it gets used in include...
-		for _, stmt := range obj.Body {
-			//if _, ok := stmt.(*StmtClass); !ok {
-			//	continue
-			//}
-			_, ok1 := stmt.(*StmtClass)
-			_, ok2 := stmt.(*StmtFunc) // TODO: is this correct?
-			_, ok3 := stmt.(*StmtBind) // TODO: is this correct?
-			if !ok1 && !ok2 && !ok3 {  // if all are false, we skip
-				continue
-			}
+	//		// now set the child scopes...
+	//		for _, stmt := range obj.Body {
+	//			// NOTE: We used to skip over *StmtClass here for recursion...
+	//			// Skip over *StmtClass here, since we already did it above...
+	//			if _, ok := stmt.(*StmtClass); ok {
+	//				continue
+	//			}
+	//			if _, ok := stmt.(*StmtFunc); ok { // TODO: is this correct?
+	//				continue
+	//			}
+	//			if _, ok := stmt.(*StmtBind); ok { // TODO: is this correct?
+	//				continue
+	//			}
 
-			if obj.data.Debug {
-				obj.data.Logf("prog: set scope: pass 1: %+v", stmt)
-			}
-			if err := stmt.SetScope(newScope); err != nil {
-				return err
-			}
-		}
+	//			if obj.data.Debug {
+	//				obj.data.Logf("prog: set scope: pass 2: %+v", stmt)
+	//			}
+	//			if err := stmt.SetScope(newScope); err != nil {
+	//				return err
+	//			}
+	//		}
 
-		// now set the child scopes...
-		for _, stmt := range obj.Body {
-			// NOTE: We used to skip over *StmtClass here for recursion...
-			// Skip over *StmtClass here, since we already did it above...
-			if _, ok := stmt.(*StmtClass); ok {
-				continue
-			}
-			if _, ok := stmt.(*StmtFunc); ok { // TODO: is this correct?
-				continue
-			}
-			if _, ok := stmt.(*StmtBind); ok { // TODO: is this correct?
-				continue
-			}
-
-			if obj.data.Debug {
-				obj.data.Logf("prog: set scope: pass 2: %+v", stmt)
-			}
-			if err := stmt.SetScope(newScope); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}
+	//		return nil
+	//	}
 
 	// TODO: this could be called once at the top-level, and then cached...
 	// TODO: it currently gets called inside child programs, which is slow!
@@ -3775,6 +3693,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// un-consumed statements to be skipped. As a result, this simplifies
 	// the graph significantly in cases of unused code, because they're not
 	// given a chance to SetScope even though they're in the StmtProg list.
+	loopScope := newScope.Copy()
+	funcCount := make(map[string]int)
 	for _, x := range nodeOrder { // these are in the correct order for SetScope
 		stmt, ok := x.(interfaces.Stmt)
 		if !ok {
@@ -3787,13 +3707,96 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			// Skip any unwanted additions that we pulled in.
 			continue
 		}
-		if obj.data.Debug {
-			obj.data.Logf("prog: set scope: order: %+v", stmt)
-		}
-		if err := stmt.SetScope(newScope); err != nil {
+
+		capturedScope := loopScope.Copy()
+		if err := stmt.SetScope(capturedScope); err != nil {
 			return err
 		}
+
+		if bind, ok := x.(*StmtBind); ok {
+			// check for duplicates *in this scope*
+			if _, exists := binds[bind.Ident]; exists {
+				return fmt.Errorf("var `%s` already exists in this scope", bind.Ident)
+			}
+
+			binds[bind.Ident] = struct{}{} // mark as found in scope
+			// add to scope, (overwriting, aka shadowing is ok)
+			loopScope.Variables[bind.Ident] = &ExprTopLevel{
+				Definition: &ExprSingleton{
+					Definition: bind.Value,
+
+					mutex: &sync.Mutex{}, // TODO: call Init instead
+				},
+				CapturedScope: capturedScope,
+			}
+			if obj.data.Debug { // TODO: is this message ever useful?
+				obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
+			}
+
+			continue // optional
+		}
+
+		if fn, ok := x.(*StmtFunc); ok {
+			_, exists := functions[fn.Name]
+			if !exists {
+				functions[fn.Name] = []*StmtFunc{} // initialize
+			}
+
+			// check for duplicates *in this scope*
+			if exists && !AllowUserDefinedPolyFunc {
+				return fmt.Errorf("func `%s` already exists in this scope", fn.Name)
+			}
+
+			count := 1 // XXX: number of overloaded definitions of the same name (get from ordering eventually)
+			funcCount[fn.Name]++
+
+			// collect functions (if multiple, this is a polyfunc)
+			functions[fn.Name] = append(functions[fn.Name], fn)
+
+			if funcCount[fn.Name] < count {
+				continue // delay SetScope for later...
+			}
+
+			fnList := functions[fn.Name] // []*StmtFunc
+			name := fn.Name              // XXX PORT
+
+			if obj.data.Debug { // TODO: is this message ever useful?
+				obj.data.Logf("prog: set scope: collect: (%+v -> %d): %+v (%T)", name, len(fnList), fnList[0].Func, fnList[0].Func)
+			}
+
+			// add to scope, (overwriting, aka shadowing is ok)
+			if len(fnList) == 1 {
+				fn := fnList[0].Func // local reference to avoid changing it in the loop...
+				// add to scope, (overwriting, aka shadowing is ok)
+				loopScope.Functions[name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
+					Definition: &ExprTopLevel{
+						Definition:    fn, // store the *ExprFunc
+						CapturedScope: capturedScope,
+					},
+				}
+				continue
+			}
+
+			// build polyfunc's
+			// XXX: not implemented
+			return fmt.Errorf("user-defined polyfuncs of length %d are not supported", len(fnList))
+		}
+
+		if class, ok := x.(*StmtClass); ok {
+			// check for duplicates *in this scope*
+			if _, exists := classes[class.Name]; exists {
+				return fmt.Errorf("class `%s` already exists in this scope", class.Name)
+			}
+
+			classes[class.Name] = struct{}{} // mark as found in scope
+
+			// add to scope, (overwriting, aka shadowing is ok)
+			loopScope.Classes[class.Name] = class
+		}
 	}
+
+	obj.scope = loopScope // save a reference in case we're read by an import
+
 	if obj.data.Debug {
 		obj.data.Logf("prog: set scope: finished")
 	}

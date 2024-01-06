@@ -3589,6 +3589,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// TODO: if we ever allow poly classes, then group in lists by name
 	classes := make(map[string]struct{})
 
+	//includes := make(map[string]struct{})
+
 	//	// This is the legacy variant of this function that doesn't allow
 	//	// out-of-order code. It also returns obscure error messages for some
 	//	// cases, such as double-recursion. It's left here for reference.
@@ -3813,7 +3815,93 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 			// add to scope, (overwriting, aka shadowing is ok)
 			loopScope.Classes[class.Name] = class
+
+			continue
 		}
+
+		// now collect any include contents
+		if include, ok := x.(*StmtInclude); ok {
+			// XXX: actually we don't want to check for duplicates, that's allowed... What about include foo as bar twice?
+			// XXX: or what about `include foo(true) as bar; include foo(false) as bar` ?
+			// check for duplicates *in this scope*
+			//if _, exists := includes[include.Name]; exists {
+			//	return fmt.Errorf("include `%s` already exists in this scope", include.Name)
+			//}
+
+			alias := ""
+			if AllowBareIncluding {
+				alias = include.Name // this is what we would call the include
+			}
+			if include.Alias != "" { // this is what the user decided as the name
+				alias = include.Alias // use alias if specified
+			}
+			if alias == "" {
+				continue // there isn't anything to do here
+			}
+
+			// XXX: deal with alias duplicates and * includes and so on...
+			//if _, exists := aliases[alias]; exists {
+			// TODO: track separately to give a better error message here
+			//	return fmt.Errorf("import/include alias `%s` already exists in this scope", alias)
+			//}
+
+			// XXX: is this failing because this code should be in StmtInclude:SetScope ?
+			// XXX: fundamentally this happens because we didn't do SetScope on StmtInclude yet?
+			if include.class == nil {
+				// programming error
+				return fmt.Errorf("programming error: class `%s` not found", include.Name)
+			}
+			//scope := include.class.scope  // this includes the $x in the tricky case, but we'll allow that for now
+			//includedScope := scope.Copy() // XXX ???
+			includedScope := include.class.scope
+
+			// read from stored scope which was previously saved in SetScope
+			// add to scope, (overwriting, aka shadowing is ok)
+			// rename scope values, adding the alias prefix
+			// check that we don't overwrite a new value from another include
+			// TODO: do this in a deterministic (sorted) order
+			for name, x := range includedScope.Variables {
+				newName := alias + interfaces.ModuleSep + name
+				if alias == "*" { // XXX: not supported by parser atm!
+					newName = name
+				}
+				if previous, exists := newVariables[newName]; exists {
+					// don't overwrite in same scope
+					return fmt.Errorf("can't squash variable `%s` from `%s` by include of `%s`", newName, previous, include.Name)
+				}
+				newVariables[newName] = include.Name
+				loopScope.Variables[newName] = x // merge
+			}
+			for name, x := range includedScope.Functions {
+				newName := alias + interfaces.ModuleSep + name
+				if alias == "*" { // XXX: not supported by parser atm!
+					newName = name
+				}
+				if previous, exists := newFunctions[newName]; exists {
+					// don't overwrite in same scope
+					return fmt.Errorf("can't squash function `%s` from `%s` by include of `%s`", newName, previous, include.Name)
+				}
+				newFunctions[newName] = include.Name
+				loopScope.Functions[newName] = x
+			}
+			for name, x := range includedScope.Classes {
+				newName := alias + interfaces.ModuleSep + name
+				if alias == "*" { // XXX: not supported by parser atm!
+					newName = name
+				}
+				if previous, exists := newClasses[newName]; exists {
+					// don't overwrite in same scope
+					return fmt.Errorf("can't squash class `%s` from `%s` by include of `%s`", newName, previous, include.Name)
+				}
+				newClasses[newName] = include.Name
+				loopScope.Classes[newName] = x
+			}
+
+			// everything has been merged, move on to next include...
+			//includes[include.Name] = struct{}{} // mark as found in scope
+			//aliases[alias] = struct{}{}
+		}
+
 	}
 
 	obj.scope = loopScope // save a reference in case we're read by an import

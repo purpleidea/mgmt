@@ -65,6 +65,12 @@ const (
 	// MetaField is the prefix used to specify a meta parameter for the res.
 	MetaField = "meta"
 
+	// AllowBareIncluding specifies that a simple include without an `as`
+	// suffix, will be pulled in under the name of the included class. We
+	// want this on if it turns out to be common to pull in values from
+	// classes.
+	AllowBareIncluding = false
+
 	// AllowUserDefinedPolyFunc specifies if we allow user-defined
 	// polymorphic functions or not. At the moment this is not implemented.
 	// XXX: not implemented
@@ -4299,8 +4305,9 @@ type StmtInclude struct {
 	class *StmtClass   // copy of class that we're using
 	orig  *StmtInclude // original pointer to this
 
-	Name string
-	Args []interfaces.Expr
+	Name  string
+	Args  []interfaces.Expr
+	Alias string
 }
 
 // String returns a short representation of this statement.
@@ -4371,9 +4378,10 @@ func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
 	}
 	return &StmtInclude{
 		//class: obj.class, // TODO: is this necessary?
-		orig: orig,
-		Name: obj.Name,
-		Args: args,
+		orig:  orig,
+		Name:  obj.Name,
+		Args:  args,
+		Alias: obj.Alias,
 	}, nil
 }
 
@@ -4406,9 +4414,10 @@ func (obj *StmtInclude) Copy() (interfaces.Stmt, error) {
 	}
 	return &StmtInclude{
 		//class: obj.class, // TODO: is this necessary?
-		orig: orig,
-		Name: obj.Name,
-		Args: args,
+		orig:  orig,
+		Name:  obj.Name,
+		Args:  args,
+		Alias: obj.Alias,
 	}, nil
 }
 
@@ -4425,6 +4434,7 @@ func (obj *StmtInclude) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 	if obj.Name == "" {
 		return nil, nil, fmt.Errorf("missing class name")
 	}
+	// TODO: do we want obj.Alias added in here?
 	uid := classOrderingPrefix + obj.Name // ordering id
 
 	cons := make(map[interfaces.Node]string)

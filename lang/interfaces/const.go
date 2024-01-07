@@ -20,10 +20,12 @@ package interfaces
 const (
 	// ModuleSep is the character used for the module scope separation. For
 	// example when using `fmt.printf` or `math.sin` this is the char used.
+	// It is also used for variable scope separation such as `$foo.bar.baz`.
 	ModuleSep = "."
 
 	// VarPrefix is the prefix character that precedes the variables
-	// identifier. For example, `$foo` or for a lambda, `$fn(42)`.
+	// identifier. For example, `$foo` or for a lambda, `$fn(42)`. It is
+	// also used with `ModuleSep` for scoped variables like `$foo.bar.baz`.
 	VarPrefix = "$"
 
 	// PanicResKind is the kind string used for the panic resource.

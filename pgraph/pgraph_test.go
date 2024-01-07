@@ -191,6 +191,28 @@ func TestFilterGraph1(t *testing.T) {
 	}
 }
 
+func TestFilterGraph2(t *testing.T) {
+	G, _ := NewGraph("g5")
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	e1 := NE("e1")
+	G.AddEdge(v1, v2, e1)
+	G.AddVertex(v3)
+	G.AddVertex(v4)
+
+	save := []Vertex{v1, v2, v3}
+	out, err := G.FilterGraph("new g5", save)
+	if err != nil {
+		t.Errorf("failed with: %v", err)
+	}
+
+	if c, i := len(save), out.NumVertices(); c != i {
+		t.Errorf("should have %d vertices instead of: %d", c, i)
+	}
+}
+
 func TestDisconnectedGraphs1(t *testing.T) {
 	G, _ := NewGraph("g6")
 	v1 := NV("v1")

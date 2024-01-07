@@ -506,9 +506,13 @@ func (g *Graph) FilterGraph(name string, vertices []Vertex) (*Graph, error) {
 		return nil, errwrap.Wrapf(err, "could not run FilterGraph() properly")
 	}
 	for k1, x := range g.adjacency {
+		contains := VertexContains(k1, vertices)
+		if contains {
+			newGraph.AddVertex(k1)
+		}
 		for k2, e := range x {
 			//log.Printf("Filter: %s -> %s # %s", k1.Name, k2.Name, e.Name)
-			if VertexContains(k1, vertices) || VertexContains(k2, vertices) {
+			if contains || VertexContains(k2, vertices) {
 				newGraph.AddEdge(k1, k2, e)
 			}
 		}

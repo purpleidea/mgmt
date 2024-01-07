@@ -512,7 +512,7 @@ func (g *Graph) FilterGraph(name string, vertices []Vertex) (*Graph, error) {
 		}
 		for k2, e := range x {
 			//log.Printf("Filter: %s -> %s # %s", k1.Name, k2.Name, e.Name)
-			if contains || VertexContains(k2, vertices) {
+			if contains && VertexContains(k2, vertices) {
 				newGraph.AddEdge(k1, k2, e)
 			}
 		}
@@ -538,7 +538,8 @@ func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 		// dfs through the graph
 		dfs := g.DFS(start)
 		// filter all the collected elements into a new graph
-		newgraph, err := g.FilterGraph(g.Name, dfs)
+		// TODO: is this method of filtering correct here? && or || ?
+		newGraph, err := g.FilterGraph(g.Name, dfs)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not run DisconnectedGraphs() properly")
 		}
@@ -546,7 +547,7 @@ func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 		d = append(d, dfs...) // extend
 
 		// append this new graph to the list
-		graphs = append(graphs, newgraph)
+		graphs = append(graphs, newGraph)
 
 		// if we've found all the elements, then we're done
 		// otherwise loop through to continue...

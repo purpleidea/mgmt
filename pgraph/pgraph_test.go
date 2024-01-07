@@ -181,7 +181,7 @@ func TestFilterGraph1(t *testing.T) {
 	//G.AddEdge(v6, v4, e6)
 
 	save := []Vertex{v1, v2, v3}
-	out, err := G.FilterGraph("new g5", save)
+	out, err := G.FilterGraph(save)
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestFilterGraph2(t *testing.T) {
 	G.AddVertex(v4)
 
 	save := []Vertex{v1, v2, v3}
-	out, err := G.FilterGraph("new g5", save)
+	out, err := G.FilterGraph(save)
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestFilterGraph3(t *testing.T) {
 	G.AddVertex(v5)
 
 	save := []Vertex{v1, v2, v3}
-	out, err := G.FilterGraph("new g5", save)
+	out, err := G.FilterGraph(save)
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}

@@ -500,10 +500,10 @@ func (g *Graph) DFS(start Vertex) []Vertex {
 }
 
 // FilterGraph builds a new graph containing only vertices from the list.
-func (g *Graph) FilterGraph(name string, vertices []Vertex) (*Graph, error) {
-	newGraph := &Graph{Name: name}
-	if err := newGraph.Init(); err != nil {
-		return nil, errwrap.Wrapf(err, "could not run FilterGraph() properly")
+func (g *Graph) FilterGraph(vertices []Vertex) (*Graph, error) {
+	newGraph, err := NewGraph(g.Name)
+	if err != nil {
+		return nil, err
 	}
 	for k1, x := range g.adjacency {
 		contains := VertexContains(k1, vertices)
@@ -539,7 +539,7 @@ func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 		dfs := g.DFS(start)
 		// filter all the collected elements into a new graph
 		// TODO: is this method of filtering correct here? && or || ?
-		newGraph, err := g.FilterGraph(g.Name, dfs)
+		newGraph, err := g.FilterGraph(dfs)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not run DisconnectedGraphs() properly")
 		}

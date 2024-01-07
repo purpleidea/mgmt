@@ -143,7 +143,7 @@ const (
 
 	// scopedOrderingPrefix is a magic prefix used for the Ordering graph.
 	// It is shared between imports and include as.
-	scopedOrderingPrefix = "prefix:"
+	scopedOrderingPrefix = "scoped:"
 
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
 	ErrNoStoredScope = interfaces.Error("scope is not stored in this node")
@@ -3024,6 +3024,7 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			}
 			prod[uid] = stmt // store
 		}
+
 		if stmt, ok := x.(*StmtFunc); ok {
 			if stmt.Name == "" {
 				return nil, nil, fmt.Errorf("missing func name")
@@ -3665,18 +3666,46 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		orderingGraphSingleton = false
 	}
 
-	nodeOrder, err := orderingGraph.TopologicalSort()
+	// Filter ordering graph before toposort! This prevents ambiguity
+	// between ordering strings in different scopes when it's not relevant.
+	allowStmts := make(map[interfaces.Stmt]struct{})
+	for _, x := range obj.Body {
+		stmt, ok := x.(interfaces.Stmt)
+		if !ok {
+			continue
+		}
+		//if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
+		//	continue
+		//}
+		allowStmts[stmt] = struct{}{}
+	}
+	filterFn := func(v pgraph.Vertex) (bool, error) {
+		stmt, ok := v.(interfaces.Stmt)
+		if !ok {
+			return false, nil // skip non statements
+		}
+		if _, exists := allowStmts[stmt]; !exists {
+			return false, nil // skip statements not in body
+		}
+		return true, nil
+	}
+	orderingGraphFiltered, err := orderingGraph.FilterGraphWithFn(filterFn)
+	if err != nil {
+		return errwrap.Wrapf(err, "could not filter ordering graph")
+	}
+
+	nodeOrder, err := orderingGraphFiltered.TopologicalSort()
 	if err != nil {
 		// TODO: print the cycle in a prettier way (with names?)
 		if obj.data.Debug {
-			obj.data.Logf("set scope: not a dag:\n%s", orderingGraph.Sprint())
+			obj.data.Logf("set scope: not a dag:\n%s", orderingGraphFiltered.Sprint())
 		}
 		return errwrap.Wrapf(err, "recursive reference while setting scope")
 	}
 
 	// XXX: implement ValidTopoSortOrder!
 	//topoSanity := (RequireTopologicalOrdering || TopologicalOrderingWarning)
-	//if topoSanity && !orderingGraph.ValidTopoSortOrder(nodeOrder) {
+	//if topoSanity && !orderingGraphFiltered.ValidTopoSortOrder(nodeOrder) {
 	//	msg := "code is out of order, you're insane!"
 	//	if TopologicalOrderingWarning {
 	//		obj.data.Logf(msg)
@@ -4593,17 +4622,33 @@ func (obj *StmtInclude) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 	if obj.Name == "" {
 		return nil, nil, fmt.Errorf("missing class name")
 	}
-	// TODO: do we want obj.Alias added in here?
-	uid := classOrderingPrefix + obj.Name // ordering id
 
-	cons := make(map[interfaces.Node]string)
-	cons[obj] = uid
+	uid := classOrderingPrefix + obj.Name // ordering id
 
 	node, exists := produces[uid]
 	if exists {
-		edge := &pgraph.SimpleEdge{Name: "stmtinclude"}
+		edge := &pgraph.SimpleEdge{Name: "stmtinclude1"}
 		graph.AddEdge(node, obj, edge) // prod -> cons
 	}
+
+	// equivalent to: strings.Contains(obj.Name, interfaces.ModuleSep)
+	if split := strings.Split(obj.Name, interfaces.ModuleSep); len(split) > 1 {
+		// we contain a dot
+		uid = scopedOrderingPrefix + split[0] // just the first prefix
+
+		// TODO: do we also want this second edge??
+		node, exists := produces[uid]
+		if exists {
+			edge := &pgraph.SimpleEdge{Name: "stmtinclude2"}
+			graph.AddEdge(node, obj, edge) // prod -> cons
+		}
+	}
+	// It's okay to replace the normal `class` prefix, because we have the
+	// fancier `scoped:` prefix which matches more generally...
+
+	// TODO: we _can_ produce two uid's here, is it okay we only offer one?
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
 
 	for _, node := range obj.Args {
 		g, c, err := node.Ordering(produces)
@@ -7751,14 +7796,30 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		uid = varOrderingPrefix + obj.Name // ordering id
 	}
 
-	cons := make(map[interfaces.Node]string)
-	cons[obj] = uid
-
 	node, exists := produces[uid]
 	if exists {
-		edge := &pgraph.SimpleEdge{Name: "exprcallname"}
+		edge := &pgraph.SimpleEdge{Name: "exprcallname1"}
 		graph.AddEdge(node, obj, edge) // prod -> cons
 	}
+
+	// equivalent to: strings.Contains(obj.Name, interfaces.ModuleSep)
+	if split := strings.Split(obj.Name, interfaces.ModuleSep); len(split) > 1 {
+		// we contain a dot
+		uid = scopedOrderingPrefix + split[0] // just the first prefix
+
+		// TODO: do we also want this second edge??
+		node, exists := produces[uid]
+		if exists {
+			edge := &pgraph.SimpleEdge{Name: "exprcallname2"}
+			graph.AddEdge(node, obj, edge) // prod -> cons
+		}
+	}
+	// It's okay to replace the normal `func` or `var` prefix, because we
+	// have the fancier `scoped:` prefix which matches more generally...
+
+	// TODO: we _can_ produce two uid's here, is it okay we only offer one?
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
 
 	for _, node := range obj.Args {
 		g, c, err := node.Ordering(produces)
@@ -8553,7 +8614,7 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 		}
 	}
 	// It's okay to replace the normal `var` prefix, because we have the
-	// fancier `include` prefix which matches more generally...
+	// fancier `scoped:` prefix which matches more generally...
 
 	// TODO: we _can_ produce two uid's here, is it okay we only offer one?
 	cons := make(map[interfaces.Node]string)

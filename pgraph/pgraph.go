@@ -501,23 +501,10 @@ func (g *Graph) DFS(start Vertex) []Vertex {
 
 // FilterGraph builds a new graph containing only vertices from the list.
 func (g *Graph) FilterGraph(vertices []Vertex) (*Graph, error) {
-	newGraph, err := NewGraph(g.Name)
-	if err != nil {
-		return nil, err
+	fn := func(v Vertex) (bool, error) {
+		return VertexContains(v, vertices), nil
 	}
-	for k1, x := range g.adjacency {
-		contains := VertexContains(k1, vertices)
-		if contains {
-			newGraph.AddVertex(k1)
-		}
-		for k2, e := range x {
-			//log.Printf("Filter: %s -> %s # %s", k1.Name, k2.Name, e.Name)
-			if contains && VertexContains(k2, vertices) {
-				newGraph.AddEdge(k1, k2, e)
-			}
-		}
-	}
-	return newGraph, nil
+	return g.FilterGraphWithFn(fn)
 }
 
 // FilterGraphWithFn builds a new graph containing only vertices which match. It

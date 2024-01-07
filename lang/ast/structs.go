@@ -71,6 +71,12 @@ const (
 	// classes.
 	AllowBareIncluding = false
 
+	// AllowBareImports specifies that you're allowed to use an import which
+	// flattens the imported scope on top of the current scope. This means
+	// imports of the form: `import foo as *`. These are being provisionally
+	// enabled, despite being less explicit and harder to parse.
+	AllowBareImports = true
+
 	// AllowUserDefinedPolyFunc specifies if we allow user-defined
 	// polymorphic functions or not. At the moment this is not implemented.
 	// XXX: not implemented
@@ -3524,7 +3530,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		// TODO: do this in a deterministic (sorted) order
 		for name, x := range importedScope.Variables {
 			newName := alias + interfaces.ModuleSep + name
-			if alias == "*" {
+			if alias == interfaces.BareSymbol {
+				if !AllowBareImports {
+					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+				}
 				newName = name
 			}
 			if previous, exists := newVariables[newName]; exists {
@@ -3536,7 +3545,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		}
 		for name, x := range importedScope.Functions {
 			newName := alias + interfaces.ModuleSep + name
-			if alias == "*" {
+			if alias == interfaces.BareSymbol {
+				if !AllowBareImports {
+					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+				}
 				newName = name
 			}
 			if previous, exists := newFunctions[newName]; exists {
@@ -3548,7 +3560,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		}
 		for name, x := range importedScope.Classes {
 			newName := alias + interfaces.ModuleSep + name
-			if alias == "*" {
+			if alias == interfaces.BareSymbol {
+				if !AllowBareImports {
+					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+				}
 				newName = name
 			}
 			if previous, exists := newClasses[newName]; exists {

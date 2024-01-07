@@ -93,6 +93,12 @@ const (
 	// know where certain things are coming from.
 	AllowBareClassIncluding = false
 
+	// AllowBareIncludes specifies that you're allowed to use an include
+	// which flattens the included scope on top of the current scope. This
+	// means includes of the form: `include foo as *`. These are unlikely to
+	// get enabled for many reasons.
+	AllowBareIncludes = false
+
 	// AllowBareImports specifies that you're allowed to use an import which
 	// flattens the imported scope on top of the current scope. This means
 	// imports of the form: `import foo as *`. These are being provisionally
@@ -134,6 +140,10 @@ const (
 
 	// classOrderingPrefix is a magic prefix used for the Ordering graph.
 	classOrderingPrefix = "class:"
+
+	// scopedOrderingPrefix is a magic prefix used for the Ordering graph.
+	// It is shared between imports and include as.
+	scopedOrderingPrefix = "prefix:"
 
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
 	ErrNoStoredScope = interfaces.Error("scope is not stored in this node")
@@ -2978,11 +2988,36 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 	prod := make(map[string]interfaces.Node)
 	for _, x := range obj.Body {
-		if stmt, ok := x.(*StmtClass); ok {
+		if stmt, ok := x.(*StmtImport); ok {
 			if stmt.Name == "" {
 				return nil, nil, fmt.Errorf("missing class name")
 			}
-			uid := classOrderingPrefix + stmt.Name // ordering id
+			uid := scopedOrderingPrefix + stmt.Name // ordering id
+
+			if stmt.Alias == interfaces.BareSymbol {
+				// XXX: I think we need to parse these first...
+				// XXX: Somehow make sure these appear at the
+				// top of the topo-sort for the StmtProg...
+				// XXX: Maybe add edges between StmtProg and me?
+				continue
+			}
+
+			if stmt.Alias != "" {
+				uid = scopedOrderingPrefix + stmt.Alias // ordering id
+			}
+
+			n, exists := prod[uid]
+			if exists {
+				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+			}
+			prod[uid] = stmt // store
+		}
+
+		if stmt, ok := x.(*StmtBind); ok {
+			if stmt.Ident == "" {
+				return nil, nil, fmt.Errorf("missing bind name")
+			}
+			uid := varOrderingPrefix + stmt.Ident // ordering id
 			n, exists := prod[uid]
 			if exists {
 				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
@@ -3000,11 +3035,27 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			}
 			prod[uid] = stmt // store
 		}
-		if stmt, ok := x.(*StmtBind); ok {
-			if stmt.Ident == "" {
-				return nil, nil, fmt.Errorf("missing bind name")
+
+		if stmt, ok := x.(*StmtClass); ok {
+			if stmt.Name == "" {
+				return nil, nil, fmt.Errorf("missing class name")
 			}
-			uid := varOrderingPrefix + stmt.Ident // ordering id
+			uid := classOrderingPrefix + stmt.Name // ordering id
+			n, exists := prod[uid]
+			if exists {
+				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+			}
+			prod[uid] = stmt // store
+		}
+
+		if stmt, ok := x.(*StmtInclude); ok {
+			if stmt.Name == "" {
+				return nil, nil, fmt.Errorf("missing include name")
+			}
+			if stmt.Alias == "" { // not consumed
+				continue
+			}
+			uid := scopedOrderingPrefix + stmt.Alias // ordering id
 			n, exists := prod[uid]
 			if exists {
 				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
@@ -3683,8 +3734,12 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// un-consumed statements to be skipped. As a result, this simplifies
 	// the graph significantly in cases of unused code, because they're not
 	// given a chance to SetScope even though they're in the StmtProg list.
+
+	// In the below loop which we iterate over in the correct scope order,
+	// we build up the scope (loopScope) as we go, so that subsequent uses
+	// of the scope include earlier definitions and scope additions.
 	loopScope := newScope.Copy()
-	funcCount := make(map[string]int)
+	funcCount := make(map[string]int) // count the occurrences of a func
 	for _, x := range nodeOrder { // these are in the correct order for SetScope
 		stmt, ok := x.(interfaces.Stmt)
 		if !ok {
@@ -3848,7 +3903,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			// TODO: do this in a deterministic (sorted) order
 			for name, x := range includedScope.Variables {
 				newName := alias + interfaces.ModuleSep + name
-				if alias == "*" { // XXX: not supported by parser atm!
+				if alias == interfaces.BareSymbol { // not supported by parser atm!
+					if !AllowBareIncludes {
+						return fmt.Errorf("bare includes disabled at compile time for include of `%s`", include.Name)
+					}
 					newName = name
 				}
 				if previous, exists := newVariables[newName]; exists {
@@ -3860,7 +3918,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			}
 			for name, x := range includedScope.Functions {
 				newName := alias + interfaces.ModuleSep + name
-				if alias == "*" { // XXX: not supported by parser atm!
+				if alias == interfaces.BareSymbol { // not supported by parser atm!
+					if !AllowBareIncludes {
+						return fmt.Errorf("bare includes disabled at compile time for include of `%s`", include.Name)
+					}
 					newName = name
 				}
 				if previous, exists := newFunctions[newName]; exists {
@@ -3872,7 +3933,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			}
 			for name, x := range includedScope.Classes {
 				newName := alias + interfaces.ModuleSep + name
-				if alias == "*" { // XXX: not supported by parser atm!
+				if alias == interfaces.BareSymbol { // not supported by parser atm!
+					if !AllowBareIncludes {
+						return fmt.Errorf("bare includes disabled at compile time for include of `%s`", include.Name)
+					}
 					newName = name
 				}
 				if previous, exists := newClasses[newName]; exists {
@@ -8470,14 +8534,30 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 	}
 	uid := varOrderingPrefix + obj.Name // ordering id
 
-	cons := make(map[interfaces.Node]string)
-	cons[obj] = uid
-
 	node, exists := produces[uid]
 	if exists {
-		edge := &pgraph.SimpleEdge{Name: "exprvar"}
+		edge := &pgraph.SimpleEdge{Name: "exprvar1"}
 		graph.AddEdge(node, obj, edge) // prod -> cons
 	}
+
+	// equivalent to: strings.Contains(obj.Name, interfaces.ModuleSep)
+	if split := strings.Split(obj.Name, interfaces.ModuleSep); len(split) > 1 {
+		// we contain a dot
+		uid = scopedOrderingPrefix + split[0] // just the first prefix
+
+		// TODO: do we also want this second edge??
+		node, exists := produces[uid]
+		if exists {
+			edge := &pgraph.SimpleEdge{Name: "exprvar2"}
+			graph.AddEdge(node, obj, edge) // prod -> cons
+		}
+	}
+	// It's okay to replace the normal `var` prefix, because we have the
+	// fancier `include` prefix which matches more generally...
+
+	// TODO: we _can_ produce two uid's here, is it okay we only offer one?
+	cons := make(map[interfaces.Node]string)
+	cons[obj] = uid
 
 	return graph, cons, nil
 }

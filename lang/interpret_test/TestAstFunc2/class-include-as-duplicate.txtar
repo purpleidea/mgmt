@@ -1,0 +1,10 @@
+-- main.mcl --
+class c1($s) {
+	$x = "got: ${s}"
+}
+
+include c1("hey") as i1
+include c1("there") as ii
+test $i1.x {}
+-- OUTPUT --
+# err: can't use the same `as`...

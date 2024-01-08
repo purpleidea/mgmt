@@ -1,0 +1,22 @@
+-- main.mcl --
+
+$x = "i am x"	# i am now top-level
+
+class c2() {
+	#$y = "i am y"
+	$z = "i am y and " + $x
+
+	$x = $x	# is this allowed? it should be right? but.... --- it should not be allowed because $x will already be inside the scope as it gets copied in from the top-level.
+}
+
+include c2 as f1
+
+#test $f1.z {}		# ok		-
+#test $f1.x {}		# ??? tricky		-  the correct answer is it should not work, but it might already be
+#test $f1.newx {}		# ok		-
+
+# the really tricky case
+#test $f1.g1.x {}	# 		-
+
+-- OUTPUT --
+Vertex: test[this is x.mcl and this is y.mcl]

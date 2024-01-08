@@ -3660,31 +3660,31 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 	// Filter ordering graph before toposort! This prevents ambiguity
 	// between ordering strings in different scopes when it's not relevant.
-	allowStmts := make(map[interfaces.Stmt]struct{})
-	for _, x := range obj.Body {
-		stmt, ok := x.(interfaces.Stmt)
-		if !ok {
-			continue
-		}
-		//if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
-		//	continue
-		//}
-		allowStmts[stmt] = struct{}{}
-	}
-	filterFn := func(v pgraph.Vertex) (bool, error) {
-		stmt, ok := v.(interfaces.Stmt)
-		if !ok {
-			return false, nil // skip non statements
-		}
-		if _, exists := allowStmts[stmt]; !exists {
-			return false, nil // skip statements not in body
-		}
-		return true, nil
-	}
-	orderingGraphFiltered, err := orderingGraph.FilterGraphWithFn(filterFn)
-	if err != nil {
-		return errwrap.Wrapf(err, "could not filter ordering graph")
-	}
+	//allowStmts := make(map[interfaces.Stmt]struct{})
+	//for _, x := range obj.Body {
+	//	stmt, ok := x.(interfaces.Stmt)
+	//	if !ok {
+	//		continue
+	//	}
+	//	//if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
+	//	//	continue
+	//	//}
+	//	allowStmts[stmt] = struct{}{}
+	//}
+	//filterFn := func(v pgraph.Vertex) (bool, error) {
+	//	stmt, ok := v.(interfaces.Stmt)
+	//	if !ok {
+	//		return false, nil // skip non statements
+	//	}
+	//	if _, exists := allowStmts[stmt]; !exists {
+	//		return false, nil // skip statements not in body
+	//	}
+	//	return true, nil
+	//}
+	//orderingGraphFiltered, err := orderingGraph.FilterGraphWithFn(filterFn)
+	//if err != nil {
+	//	return errwrap.Wrapf(err, "could not filter ordering graph")
+	//}
 
 	// debugging visualizations
 	if obj.data.Debug && orderingGraphSingleton {
@@ -3692,19 +3692,21 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		if err := orderingGraph.ExecGraphviz("/tmp/graphviz-ordering.dot"); err != nil {
 			obj.data.Logf("graphviz: errored: %+v", err)
 		}
-		if err := orderingGraphFiltered.ExecGraphviz("/tmp/graphviz-ordering-filtered.dot"); err != nil {
-			obj.data.Logf("graphviz: errored: %+v", err)
-		}
+		//if err := orderingGraphFiltered.ExecGraphviz("/tmp/graphviz-ordering-filtered.dot"); err != nil {
+		//	obj.data.Logf("graphviz: errored: %+v", err)
+		//}
 		// Only generate the top-level one, to prevent overwriting this!
 		orderingGraphSingleton = false
 	}
 
 
-	nodeOrder, err := orderingGraphFiltered.TopologicalSort()
+	//nodeOrder, err := orderingGraphFiltered.TopologicalSort()
+	nodeOrder, err := orderingGraph.TopologicalSort()
 	if err != nil {
 		// TODO: print the cycle in a prettier way (with names?)
 		if obj.data.Debug {
-			obj.data.Logf("set scope: not a dag:\n%s", orderingGraphFiltered.Sprint())
+			obj.data.Logf("set scope: not a dag:\n%s", orderingGraph.Sprint())
+			//obj.data.Logf("set scope: not a dag:\n%s", orderingGraphFiltered.Sprint())
 		}
 		return errwrap.Wrapf(err, "recursive reference while setting scope")
 	}

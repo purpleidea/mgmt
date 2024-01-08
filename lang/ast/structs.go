@@ -3563,6 +3563,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	newVariables := make(map[string]string)
 	newFunctions := make(map[string]string)
 	newClasses := make(map[string]string)
+	// TODO: If we added .Ordering() for *StmtImport, we could combine this
+	// loop with the main nodeOrder sorted topological ordering loop below!
 	for _, x := range obj.Body {
 		imp, ok := x.(*StmtImport)
 		if !ok {
@@ -3656,16 +3658,6 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		return errwrap.Wrapf(err, "could not generate ordering")
 	}
 
-	// debugging visualizations
-	if obj.data.Debug && orderingGraphSingleton {
-		obj.data.Logf("running graphviz for ordering graph...")
-		if err := orderingGraph.ExecGraphviz("/tmp/graphviz-ordering.dot"); err != nil {
-			obj.data.Logf("graphviz: errored: %+v", err)
-		}
-		// Only generate the top-level one, to prevent overwriting this!
-		orderingGraphSingleton = false
-	}
-
 	// Filter ordering graph before toposort! This prevents ambiguity
 	// between ordering strings in different scopes when it's not relevant.
 	allowStmts := make(map[interfaces.Stmt]struct{})
@@ -3693,6 +3685,20 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	if err != nil {
 		return errwrap.Wrapf(err, "could not filter ordering graph")
 	}
+
+	// debugging visualizations
+	if obj.data.Debug && orderingGraphSingleton {
+		obj.data.Logf("running graphviz for ordering graph...")
+		if err := orderingGraph.ExecGraphviz("/tmp/graphviz-ordering.dot"); err != nil {
+			obj.data.Logf("graphviz: errored: %+v", err)
+		}
+		if err := orderingGraphFiltered.ExecGraphviz("/tmp/graphviz-ordering-filtered.dot"); err != nil {
+			obj.data.Logf("graphviz: errored: %+v", err)
+		}
+		// Only generate the top-level one, to prevent overwriting this!
+		orderingGraphSingleton = false
+	}
+
 
 	nodeOrder, err := orderingGraphFiltered.TopologicalSort()
 	if err != nil {
@@ -4917,6 +4923,12 @@ func (obj *StmtImport) Ordering(produces map[string]interfaces.Node) (*pgraph.Gr
 		return nil, nil, err
 	}
 	graph.AddVertex(obj)
+
+	// Since we always run the imports before anything else in the StmtProg,
+	// we don't need to do anything special in here.
+	// TODO: If this statement is true, add this in so that imports can be
+	// done in the same iteration through StmtProg in SetScope with all of
+	// the other statements.
 
 	cons := make(map[interfaces.Node]string)
 	return graph, cons, nil

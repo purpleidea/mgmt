@@ -1,0 +1,9 @@
+-- main.mcl --
+# reverse order
+test $i0.f0 {}
+include c0("hello") as i0
+class c0($s) {
+	$f0 = $s
+}
+-- OUTPUT --
+Vertex: test[hello]

@@ -151,6 +151,10 @@ func (obj *StmtBind) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtBind) Init(data *interfaces.Data) error {
+	if obj.Ident == "" {
+		return fmt.Errorf("bind ident is empty")
+	}
+
 	return obj.Value.Init(data)
 }
 
@@ -307,6 +311,10 @@ func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtRes) Init(data *interfaces.Data) error {
+	if obj.Kind == "" {
+		return fmt.Errorf("res kind is empty")
+	}
+
 	if strings.Contains(obj.Kind, "_") && obj.Kind != interfaces.PanicResKind {
 		return fmt.Errorf("kind must not contain underscores")
 	}
@@ -1138,6 +1146,10 @@ func (obj *StmtResField) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResField) Init(data *interfaces.Data) error {
+	if obj.Field == "" {
+		return fmt.Errorf("res field name is empty")
+	}
+
 	if obj.Condition != nil {
 		if err := obj.Condition.Init(data); err != nil {
 			return err
@@ -1416,7 +1428,7 @@ func (obj *StmtResEdge) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtResEdge) Init(data *interfaces.Data) error {
 	if obj.Property == "" {
-		return fmt.Errorf("empty property")
+		return fmt.Errorf("res edge property is empty")
 	}
 	if obj.Property != EdgeNotify && obj.Property != EdgeBefore && obj.Property != EdgeListen && obj.Property != EdgeDepend {
 		return fmt.Errorf("invalid property: `%s`", obj.Property)
@@ -1656,7 +1668,7 @@ func (obj *StmtResMeta) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	if obj.Property == "" {
-		return fmt.Errorf("empty property")
+		return fmt.Errorf("res meta property is empty")
 	}
 
 	switch p := strings.ToLower(obj.Property); p {
@@ -2329,6 +2341,9 @@ func (obj *StmtEdgeHalf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
+	if obj.Kind == "" {
+		return fmt.Errorf("edge half kind is empty")
+	}
 	if strings.Contains(obj.Kind, "_") {
 		return fmt.Errorf("kind must not contain underscores")
 	}
@@ -3968,6 +3983,10 @@ func (obj *StmtFunc) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtFunc) Init(data *interfaces.Data) error {
+	if obj.Name == "" {
+		return fmt.Errorf("func name is empty")
+	}
+
 	//obj.data = data // TODO: ???
 	if err := obj.Func.Init(data); err != nil {
 		return err
@@ -4126,6 +4145,10 @@ func (obj *StmtClass) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtClass) Init(data *interfaces.Data) error {
+	if obj.Name == "" {
+		return fmt.Errorf("class name is empty")
+	}
+
 	return obj.Body.Init(data)
 }
 
@@ -4310,6 +4333,10 @@ func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtInclude) Init(data *interfaces.Data) error {
+	if obj.Name == "" {
+		return fmt.Errorf("include name is empty")
+	}
+
 	if obj.Args != nil {
 		for _, x := range obj.Args {
 			if err := x.Init(data); err != nil {
@@ -4643,7 +4670,12 @@ func (obj *StmtImport) Apply(fn func(interfaces.Node) error) error { return fn(o
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *StmtImport) Init(*interfaces.Data) error { return nil }
+func (obj *StmtImport) Init(*interfaces.Data) error {
+	if obj.Name == "" {
+		return fmt.Errorf("import name is empty")
+	}
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate

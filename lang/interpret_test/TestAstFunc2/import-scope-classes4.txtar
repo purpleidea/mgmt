@@ -1,22 +1,24 @@
 -- main.mcl --
-
-$x = "i am x"	# i am now top-level
+$x1 = "i am x1"	# i am top-level
+$x2 = "i am x2"	# i am top-level
 
 class c2() {
-	#$y = "i am y"
-	$z = "i am y and " + $x
+	$z = "i am y and " + $x1
 
-	$x = "hey"	# shadow
+	$x1 = "hey"	# shadow
 }
 
 include c2 as f1
 
-#test $f1.z {}		# ok		-
-#test $f1.x {}		# ok should be hey		-
-#test $f1.newx {}		# ok		-
+test $f1.z {}
+test $f1.x1 {}
 
 # the really tricky case
-#test $f1.g1.x {}	# 		-
+test $f1.x2 {}
 
 -- OUTPUT --
-Vertex: test[this is x.mcl and this is y.mcl]
+XXX ORDERING BUG, SOMETIMES PASSES, SOMETIMES FAILS
+
+Vertex: test[hey]
+Vertex: test[i am x2]
+Vertex: test[i am y and hey]

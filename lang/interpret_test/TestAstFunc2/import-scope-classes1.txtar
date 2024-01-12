@@ -13,9 +13,10 @@ class c2() {
 
 include c2 as f1
 
-#test $f1.z {}		# yep		-
-#test $f1.x {}		# no		-
-#test $f1.g1.x {}	# yep		-
+test $f1.z {}		# yep
+#test $f1.x {}		# no
+test $f1.g1.x {}	# yep
 
 -- OUTPUT --
-Vertex: test[this is x.mcl and this is y.mcl]
+Vertex: test[i am y and i am x]
+Vertex: test[i am x]

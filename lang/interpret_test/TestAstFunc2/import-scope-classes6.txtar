@@ -6,8 +6,10 @@ class c2() {
 
 	# Since $x is pulled in from top-level automatically, we don't allow the
 	# re-definition by shadowing of the same variable.
-	$x = $x	# not allowed
+	#$x = $x	# not allowed
+	$tmpx = $x
 	#$x = $x + "wow"	# allowed?
+	$x = $tmpx + "wow"	# allowed!
 }
 
 include c2 as f1
@@ -17,4 +19,4 @@ test $f1.x {}	# tricky
 test $f1.newx {}
 
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+XXX Should be allowed!

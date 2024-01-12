@@ -1,6 +1,6 @@
 -- main.mcl --
 class c1($b) {
-	if $b {	# Scope doesn't leak up and out of `if` statement!
+	if $b {	# scope doesn't leak up and out of `if` statement!
 		class inner() {
 			test "t1" {}
 		}
@@ -14,4 +14,4 @@ class c1($b) {
 include c1 as i1
 include i1.inner
 -- OUTPUT --
-# err: XXX
+# err: errSetScope: class `c1` expected 1 args but got 0

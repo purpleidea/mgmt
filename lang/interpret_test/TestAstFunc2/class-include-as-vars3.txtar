@@ -1,5 +1,5 @@
 -- main.mcl --
-#$wat = "bad1"
+$wat = "bad1"
 class c1($wat) {
 	test $wat {}
 }

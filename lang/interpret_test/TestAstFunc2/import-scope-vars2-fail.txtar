@@ -2,8 +2,8 @@
 #files: "files/"	# these are some extra files we can use (is the default)
 -- main.mcl --
 import "y.mcl" as g
-test $g.y {}	# should work
-#test $g.x {}	# should fail
+#test $g.y {}	# should work
+test $g.x {}	# should fail
 test $g.f.x {}	# should maybe work
 -- x.mcl --
 $x = "this is x.mcl"
@@ -11,5 +11,4 @@ $x = "this is x.mcl"
 import "x.mcl" as f
 $y = $f.x + " and this is y.mcl"
 -- OUTPUT --
-Vertex: test[this is x.mcl and this is y.mcl]
-Vertex: test[this is x.mcl]
+# err: errSetScope: variable g.x not in scope

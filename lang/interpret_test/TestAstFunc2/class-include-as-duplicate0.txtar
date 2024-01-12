@@ -1,0 +1,11 @@
+-- main.mcl --
+class c1() {
+	$x = "got: ${s}"
+}
+
+# TODO: can this be allowed?
+include c1 as i1
+include c1 as i1
+test $i1.x {}
+-- OUTPUT --
+# err: errSetScope: could not generate ordering: duplicate assignment to `scoped:i1`, have: include(c1)

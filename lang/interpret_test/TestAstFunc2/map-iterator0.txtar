@@ -5,12 +5,12 @@ $fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
 	len($x)
 }
 
-$in1 = ["a", "bb", "ccc", "dddd", "eeeee",]
+$ins = ["a", "bb", "ccc", "dddd", "eeeee",]
 
-$out1 = iter.map($in1, $fn)
+$out = iter.map($ins, $fn)
 
-$t1 = template("out1: {{ . }}", $out1)
+$t = template("out: {{ . }}", $out)
 
-test $t1 {}
+test $t {}
 -- OUTPUT --
-Vertex: test[out1: [1 2 3 4 5]]
+Vertex: test[out: [1 2 3 4 5]]

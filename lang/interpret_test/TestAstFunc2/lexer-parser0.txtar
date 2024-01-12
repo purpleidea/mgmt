@@ -1,6 +1,7 @@
 -- main.mcl --
 import "fmt"
-
+# unfortunately, for now `in` is a reserved keyword, see:
+# https://github.com/purpleidea/mgmt/issues/728
 $map = 55
 $fn = func($in) { # in is a special keyword
 	13
@@ -12,5 +13,4 @@ func fn($in) { # in is a special keyword
 test fmt.printf("%d", $fn(0)) {}
 test fmt.printf("%d", fn(0)) {}
 -- OUTPUT --
-Vertex: test[13]
-Vertex: test[97]
+# err: errLexParse: parser: `syntax error: unexpected IN, expecting MAP_IDENTIFIER or IDENTIFIER` @5:2

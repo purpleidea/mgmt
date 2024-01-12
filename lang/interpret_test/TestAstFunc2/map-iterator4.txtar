@@ -1,10 +1,10 @@
 -- main.mcl --
 import "iter"
 
-$in = ["a", "bb", "ccc", "dddd", "eeeee",]
+$ins = ["a", "bb", "ccc", "dddd", "eeeee",]
 
 # the inline lambda format is more readable with the func as the second arg
-$out = iter.map($in, func($x) {
+$out = iter.map($ins, func($x) {
 	len($x)
 
 })

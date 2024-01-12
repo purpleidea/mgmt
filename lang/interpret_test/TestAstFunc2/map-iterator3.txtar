@@ -5,9 +5,9 @@ $fn = func($x) { # type changes from str to int
 	len($x)
 }
 
-$in = ["a", "bb", "ccc", "dddd", "eeeee",]
+$ins = ["a", "bb", "ccc", "dddd", "eeeee",]
 
-$out = iter.map($in, $fn)
+$out = iter.map($ins, $fn)
 
 $t = template("out: {{ . }}", $out)
 

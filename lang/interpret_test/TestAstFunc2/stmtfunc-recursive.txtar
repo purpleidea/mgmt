@@ -2,14 +2,14 @@
 import "fmt"
 
 # recursive function (not supported!)
-func sum($in) {
-	if $in < 0 {
-		-1 * sum(-1 * $in)
+func sum($i) {
+	if $i < 0 {
+		-1 * sum(-1 * $i)
 	} else {
-		if $in == 0 {
+		if $i == 0 {
 			0 # terminate recursion
 		} else {
-			$in + sum($in - 1)
+			$i + sum($i - 1)
 		}
 	}
 }

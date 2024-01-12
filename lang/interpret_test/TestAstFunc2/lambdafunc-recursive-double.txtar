@@ -2,25 +2,25 @@
 import "fmt"
 
 # recursive function (not supported!)
-$sum1 = func($in) {
-	if $in < 0 {
-		-1 * $sum2(-1 * $in)
+$sum1 = func($i) {
+	if $i < 0 {
+		-1 * $sum2(-1 * $i)
 	} else {
-		if $in == 0 {
+		if $i == 0 {
 			0 # terminate recursion
 		} else {
-			$in + $sum2($in - 1)
+			$i + $sum2($i - 1)
 		}
 	}
 }
-$sum2 = func($in) {
-	if $in < 0 {
-		-1 * $sum1(-1 * $in)
+$sum2 = func($i) {
+	if $i < 0 {
+		-1 * $sum1(-1 * $i)
 	} else {
-		if $in == 0 {
+		if $i == 0 {
 			0 # terminate recursion
 		} else {
-			$in + $sum1($in - 1)
+			$i + $sum1($i - 1)
 		}
 	}
 }

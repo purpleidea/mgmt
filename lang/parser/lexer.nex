@@ -139,6 +139,11 @@
 			lval.str = yylex.Text()
 			return NOT
 		}
+/in/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return IN
+		}
 /\->/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
@@ -305,11 +310,6 @@
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
 			return IDENTIFIER
-		}
-/in/		{
-			yylex.pos(lval) // our pos
-			lval.str = yylex.Text()
-			return IN
 		}
 /[A-Z]([a-z0-9_]*[a-z0-9]+)?/
 		{

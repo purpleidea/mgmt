@@ -402,6 +402,38 @@ time.
 Recursive classes are not currently supported and it is not clear if they will
 be in the future. Discussion about this topic is welcome on the mailing list.
 
+A class names can contain colons to indicate it is nested inside of the class in
+the same scope which is named with the prefix indicated by colon separation.
+Instead of needing to repeatedly indent the child classes, we can instead prefix
+them at the definition site (where created with the class keyword) with the name
+of the parent class, followed by a colon, to get the desired embedded sugar.
+
+For example, instead of writing:
+
+```mcl
+class base() {
+	class inner() {
+		class deepest() {
+		}
+	}
+}
+```
+
+You can instead write:
+
+```mcl
+class base() {
+}
+class base:inner() {
+}
+class base:inner:deepest() {
+}
+```
+
+Of course, you can only access any of the inner classes by first including
+(with the include keyword) a parent class, and then subsequently including the
+inner one.
+
 #### Include
 
 The `include` statement causes the previously defined class to produce the
@@ -552,6 +584,10 @@ which might contain expressions to be interpolated (eg: `"the answer is: ${foo}"
 and can be used for other scenarios in which one statement or expression would
 be better represented by a larger AST. Most nodes in the AST simply return their
 own node address, and do not modify the AST.
+
+This stage also implements the class nesting when it finds class names with
+colons that should be nested inside of a base class. Currently this does modify
+the AST for efficiency and simplicity.
 
 #### Scope propagation
 

@@ -62,6 +62,10 @@
 /:/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
+			// sanity check... these should be the same!
+			if x, y := lval.str, interfaces.ClassSep; x != y {
+				panic(fmt.Sprintf("COLON does not match ClassSep (%s != %s)", x, y))
+			}
 			return COLON
 		}
 /;/		{

@@ -2921,7 +2921,67 @@ func (obj *StmtProg) Init(data *interfaces.Data) error {
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
+// This particular implementation can currently modify the source AST in-place,
+// and then finally return a copy. This isn't ideal, but it is much more optimal
+// as it avoids a lot of copying, and the code is simpler. If we need our AST to
+// be static, then we can improve this.
 func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
+	// First, make a list of class name to class pointer.
+	classes := make(map[string]*StmtClass)
+	for _, x := range obj.Body {
+		stmt, ok := x.(*StmtClass)
+		if !ok {
+			continue
+		}
+		if _, exists := classes[stmt.Name]; exists {
+			return nil, fmt.Errorf("duplicate class name of: `%s`", stmt.Name)
+		}
+		// if it contains a colon we could skip it (perf busy work)
+		//if strings.Contains(stmt.Name, interfaces.ClassSep) {
+		//	continue
+		//}
+		classes[stmt.Name] = stmt
+	}
+
+	// Now, loop through (in reverse so that remove will work without
+	// breaking the index offset) the body and pull any colon prefixed class
+	// into the base class that it belongs inside. We also rename it to pop
+	// off the front prefix name once it's inside the new base class. This
+	// is all syntactic sugar to implement the class child nesting.
+	for i := len(obj.Body) - 1; i >= 0; i-- { // reverse order for remove
+		stmt, ok := obj.Body[i].(*StmtClass)
+		if !ok || stmt.Name == "" {
+			continue
+		}
+
+		// equivalent to: strings.Contains(stmt.Name, interfaces.ClassSep)
+		split := strings.Split(stmt.Name, interfaces.ClassSep)
+		if len(split) == 0 || len(split) == 1 {
+			continue
+		}
+		if split[0] == "" { // prefix, eg: `:foo:bar`
+			return nil, fmt.Errorf("class name prefix is empty")
+		}
+
+		class, exists := classes[split[0]]
+		if !exists {
+			continue
+		}
+		prog, ok := class.Body.(*StmtProg) // probably a *StmtProg
+		if !ok {
+			// TODO: print warning or error?
+			continue
+		}
+
+		// It's not ideal to modify things here, but we do since it's so
+		// much easier and faster to do it like this. We can use copies
+		// if it turns out we need to preserve the original input AST.
+		stmt.Name = strings.Join(split[1:], interfaces.ClassSep) // new name w/o prefix
+		prog.Body = append(prog.Body, stmt)                      // append it to child body
+		obj.Body = append(obj.Body[:i], obj.Body[i+1:]...)       // remove it (from the end)
+	}
+
+	// Now perform the normal recursive interpolation calls.
 	body := []interfaces.Stmt{}
 	for _, x := range obj.Body {
 		interpolated, err := x.Interpolate()

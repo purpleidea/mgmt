@@ -257,7 +257,7 @@ stmt:
 		}
 	}
 	// `class name { <prog> }`
-|	CLASS_IDENTIFIER IDENTIFIER OPEN_CURLY prog CLOSE_CURLY
+|	CLASS_IDENTIFIER colon_identifier OPEN_CURLY prog CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtClass{
@@ -268,7 +268,7 @@ stmt:
 	}
 	// `class name(<arg>) { <prog> }`
 	// `class name(<arg>, <arg>) { <prog> }`
-|	CLASS_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY prog CLOSE_CURLY
+|	CLASS_IDENTIFIER colon_identifier OPEN_PAREN args CLOSE_PAREN OPEN_CURLY prog CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtClass{
@@ -1408,7 +1408,7 @@ colon_identifier:
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $1.str
 	}
-	// eg: `foo:bar` (used in `docker:image`)
+	// eg: `foo:bar` (used in `docker:image` or `class base:inner:deeper`)
 |	colon_identifier COLON IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos

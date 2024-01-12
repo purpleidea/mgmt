@@ -23,6 +23,10 @@ const (
 	// It is also used for variable scope separation such as `$foo.bar.baz`.
 	ModuleSep = "."
 
+	// ClassSep is the character used for the class embedding separation.
+	// For example when defining `class base:inner` this is the char used.
+	ClassSep = ":"
+
 	// VarPrefix is the prefix character that precedes the variables
 	// identifier. For example, `$foo` or for a lambda, `$fn(42)`. It is
 	// also used with `ModuleSep` for scoped variables like `$foo.bar.baz`.

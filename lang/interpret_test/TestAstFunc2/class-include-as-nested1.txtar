@@ -1,0 +1,47 @@
+-- main.mcl --
+$top = "top-level"
+class base($s) {
+	test "middle " + $s {}
+	$middle = "inside base"
+}
+
+# syntactic sugar for the equivalent of defining a class `inner` inside of base.
+class base:inner1($s) {
+	test "inner1 " + $s {}
+
+	$last = "i am inner1 and i can see " + $middle
+}
+
+class base:inner2($s) {
+	test "inner2 " + $s {}
+
+	$last = "i am inner2 and i can see " + $middle
+}
+
+# three deep!
+class base:inner1:deep($s, $b) {
+	test "deep is " + $s {}
+
+	$end = "i am deep and i can see " + $middle + " and last says " + $last
+}
+
+include base("world") as b0
+include b0.inner1("hello") as b1	# inner comes out of `base`
+include b0.inner2("hello") as b2	# inner comes out of `base`
+include b1.deep("deep", true) as d	# deep comes out of `inner1`
+
+test $top {}
+test $b0.middle {}
+test $b1.last {}
+test $b2.last {}
+test $d.end {}
+-- OUTPUT --
+Vertex: test[deep is deep]
+Vertex: test[i am deep and i can see inside base and last says i am inner1 and i can see inside base]
+Vertex: test[i am inner1 and i can see inside base]
+Vertex: test[i am inner2 and i can see inside base]
+Vertex: test[inner1 hello]
+Vertex: test[inner2 hello]
+Vertex: test[inside base]
+Vertex: test[middle world]
+Vertex: test[top-level]

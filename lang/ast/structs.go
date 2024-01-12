@@ -3658,34 +3658,6 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		return errwrap.Wrapf(err, "could not generate ordering")
 	}
 
-	// Filter ordering graph before toposort! This prevents ambiguity
-	// between ordering strings in different scopes when it's not relevant.
-	//allowStmts := make(map[interfaces.Stmt]struct{})
-	//for _, x := range obj.Body {
-	//	stmt, ok := x.(interfaces.Stmt)
-	//	if !ok {
-	//		continue
-	//	}
-	//	//if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
-	//	//	continue
-	//	//}
-	//	allowStmts[stmt] = struct{}{}
-	//}
-	//filterFn := func(v pgraph.Vertex) (bool, error) {
-	//	stmt, ok := v.(interfaces.Stmt)
-	//	if !ok {
-	//		return false, nil // skip non statements
-	//	}
-	//	if _, exists := allowStmts[stmt]; !exists {
-	//		return false, nil // skip statements not in body
-	//	}
-	//	return true, nil
-	//}
-	//orderingGraphFiltered, err := orderingGraph.FilterGraphWithFn(filterFn)
-	//if err != nil {
-	//	return errwrap.Wrapf(err, "could not filter ordering graph")
-	//}
-
 	// debugging visualizations
 	if obj.data.Debug && orderingGraphSingleton {
 		obj.data.Logf("running graphviz for ordering graph...")
@@ -3698,7 +3670,6 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		// Only generate the top-level one, to prevent overwriting this!
 		orderingGraphSingleton = false
 	}
-
 
 	//nodeOrder, err := orderingGraphFiltered.TopologicalSort()
 	nodeOrder, err := orderingGraph.TopologicalSort()
@@ -3777,7 +3748,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// of the scope include earlier definitions and scope additions.
 	loopScope := newScope.Copy()
 	funcCount := make(map[string]int) // count the occurrences of a func
-	for _, x := range nodeOrder { // these are in the correct order for SetScope
+	for _, x := range nodeOrder {     // these are in the correct order for SetScope
 		stmt, ok := x.(interfaces.Stmt)
 		if !ok {
 			continue
@@ -3879,8 +3850,9 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 		// now collect any include contents
 		if include, ok := x.(*StmtInclude); ok {
-			// XXX: actually we don't want to check for duplicates, that's allowed... What about include foo as bar twice?
-			// XXX: or what about `include foo(true) as bar; include foo(false) as bar` ?
+			// We actually don't want to check for duplicates, that
+			// is allowed, if we `include foo as bar` twice it will
+			// currently not work, but if possible, we can allow it.
 			// check for duplicates *in this scope*
 			//if _, exists := includes[include.Name]; exists {
 			//	return fmt.Errorf("include `%s` already exists in this scope", include.Name)
@@ -3897,11 +3869,12 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 				continue // there isn't anything to do here
 			}
 
-			// XXX: deal with alias duplicates and * includes and so on...
-			//if _, exists := aliases[alias]; exists {
-			// TODO: track separately to give a better error message here
-			//	return fmt.Errorf("import/include alias `%s` already exists in this scope", alias)
-			//}
+			// NOTE: This gets caught in ordering instead of here...
+			// deal with alias duplicates and * includes and so on...
+			if _, exists := aliases[alias]; exists {
+				// TODO: track separately to give a better error message here
+				return fmt.Errorf("import/include alias `%s` already exists in this scope", alias)
+			}
 
 			if include.class == nil {
 				// programming error
@@ -3985,8 +3958,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			}
 
 			// everything has been merged, move on to next include...
-			//includes[include.Name] = struct{}{} // mark as found in scope
-			//aliases[alias] = struct{}{}
+			//includes[include.Name] = struct{}{} // don't mark as found in scope
+			aliases[alias] = struct{}{} // do track these as a bonus
 		}
 
 	}

@@ -86,7 +86,6 @@ func init() {
 %token ELVIS DEFAULT ROCKET ARROW DOT
 %token BOOL_IDENTIFIER STR_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER
-%token RES_IDENTIFIER
 %token IDENTIFIER CAPITALIZED_IDENTIFIER
 %token FUNC_IDENTIFIER
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
@@ -993,18 +992,7 @@ rbind:
 */
 resource:
 	// `file "/tmp/hello" { ... }` or `aws:ec2 "/tmp/hello" { ... }`
-	RES_IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &ast.StmtRes{
-			Kind:     $1.str,
-			Name:     $2.expr,
-			Contents: $4.resContents,
-		}
-	}
-	// note: this is a simplified version of the above if the lexer picks it
-	// note: must not include underscores, but that is checked after parsing
-|	IDENTIFIER expr OPEN_CURLY resource_body CLOSE_CURLY
+	colon_identifier expr OPEN_CURLY resource_body CLOSE_CURLY
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtRes{
@@ -1413,6 +1401,20 @@ var_identifier:
 		$$.str = $2.str // don't include the leading $
 	}
 ;
+colon_identifier:
+	// eg: `foo`
+	IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
+	// eg: `foo:bar` (used in `docker:image`)
+|	colon_identifier COLON IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str + $2.str + $3.str
+	}
+;
 dotted_identifier:
 	undotted_identifier
 	{
@@ -1443,7 +1445,7 @@ capitalized_res_identifier:
 |	capitalized_res_identifier COLON IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.str = $1.str + ":" + $3.str
+		$$.str = $1.str + $2.str + $3.str
 	}
 ;
 %%

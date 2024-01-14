@@ -40,14 +40,14 @@ jobs:
       # Do not shallow fetch. The path can't be absolute, so we need to move it
       # to the expected location later.
       - name: Clone mgmt
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
           path: ./go/src/github.com/purpleidea/mgmt
 
       - name: Install Go ${{ matrix.golang_version }}
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.golang_version }}
 

@@ -45,7 +45,6 @@ type KVLookupFunc struct {
 	init *interfaces.Init
 
 	namespace string
-	value     string
 
 	last   types.Value
 	result types.Value // last calculated output

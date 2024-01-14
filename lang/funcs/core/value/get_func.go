@@ -438,7 +438,7 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 			if key == "" {
 				return fmt.Errorf("can't use an empty key")
 			}
-			if obj.init.Debug || true {
+			if obj.init.Debug {
 				obj.init.Logf("key: %s", key)
 			}
 

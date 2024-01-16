@@ -13,6 +13,7 @@ exec "exec0" {
 kv "kv0" {
 	key => $ns,
 	#value => "two",
+	mapped = true,
 }
 
 Exec["exec0"].output -> Kv["kv0"].value

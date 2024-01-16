@@ -1,0 +1,19 @@
+# etcdctl --endpoints=localhost:2379 get --prefix / # to see all the values
+# etcdctl --endpoints=localhost:2379 put /somekey somevalue	# to put a value
+import "world"
+
+$key = "somekey"
+$st = world.getval($key)
+
+$val = $st->value
+$exists = $st->exists
+
+# stores a value in: /_mgmt/strings/${key}
+kv "kv" {
+	key => $key,
+	value => "three",
+}
+file "/tmp/val" {
+	state => $const.res.file.state.exists,
+	content => "val: ${val}\n",
+}

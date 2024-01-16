@@ -128,6 +128,8 @@ func (obj *World) StrGet(ctx context.Context, namespace string) (string, error) 
 }
 
 // StrSet sets the namespace value to a particular string.
+// XXX: This can overwrite another hosts value that was set with StrMapSet. Add
+// possible cryptographic signing or special namespacing to prevent such things.
 func (obj *World) StrSet(ctx context.Context, namespace, value string) error {
 	return str.SetStr(ctx, obj.Client, namespace, &value)
 }

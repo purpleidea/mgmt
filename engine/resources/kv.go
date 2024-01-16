@@ -239,7 +239,7 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, errwrap.Wrapf(err, "check error during StrGet")
 	}
 
-	if value, ok := keyMap[hostname]; ok && obj.Value != nil {
+	if value, exists := keyMap[hostname]; exists && obj.Value != nil {
 		if value == *obj.Value {
 			return true, nil
 		}
@@ -250,10 +250,10 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			return true, nil
 		}
 
-	} else if !ok && obj.Value == nil {
+	} else if !exists && obj.Value == nil {
 		return true, nil // nothing to delete, we're good!
 
-	} else if ok && obj.Value == nil { // delete
+	} else if exists && obj.Value == nil { // delete
 		if !apply {
 			return false, nil
 		}

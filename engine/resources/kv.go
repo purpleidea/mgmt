@@ -67,11 +67,14 @@ type KVRes struct {
 	// Key represents the key to set. If it is not specified, the Name value
 	// is used instead.
 	Key string `lang:"key" yaml:"key"`
+
 	// Value represents the string value to set. If this value is nil or,
 	// undefined, then this will delete that key.
 	Value *string `lang:"value" yaml:"value"`
+
 	// SkipLessThan causes the value to be updated as long as it is greater.
 	SkipLessThan bool `lang:"skiplessthan" yaml:"skiplessthan"`
+
 	// SkipCmpStyle is the type of compare function used when determining if
 	// the value is greater when using the SkipLessThan parameter.
 	SkipCmpStyle KVResSkipCmpStyle `lang:"skipcmpstyle" yaml:"skipcmpstyle"`

@@ -138,7 +138,7 @@ func (obj *KVRes) Watch(ctx context.Context) error {
 
 	ch, err := obj.init.World.StrMapWatch(ctx, obj.getKey()) // get possible events!
 	if err != nil {
-		return err
+		return errwrap.Wrapf(err, "error during watch")
 	}
 
 	obj.init.Running() // when started, notify engine that we're running
@@ -236,7 +236,7 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	hostname := obj.init.Hostname // me
 	keyMap, err := obj.init.World.StrMapGet(ctx, obj.getKey())
 	if err != nil {
-		return false, errwrap.Wrapf(err, "check error during StrGet")
+		return false, errwrap.Wrapf(err, "error during get")
 	}
 
 	if value, exists := keyMap[hostname]; exists && obj.Value != nil {
@@ -258,7 +258,7 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			return false, nil
 		}
 		err := obj.kvDel(ctx, obj.getKey())
-		return false, errwrap.Wrapf(err, "apply error during StrDel")
+		return false, errwrap.Wrapf(err, "error during del")
 	}
 
 	if !apply {
@@ -266,7 +266,7 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if err := obj.init.World.StrMapSet(ctx, obj.getKey(), *obj.Value); err != nil {
-		return false, errwrap.Wrapf(err, "apply error during StrSet")
+		return false, errwrap.Wrapf(err, "error during set")
 	}
 
 	return false, nil

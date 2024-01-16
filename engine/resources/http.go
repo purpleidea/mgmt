@@ -37,16 +37,20 @@ import (
 	securefilepath "github.com/cyphar/filepath-securejoin"
 )
 
-func init() {
-	engine.RegisterResource("http:server", func() engine.Res { return &HTTPServerRes{} })
-	engine.RegisterResource("http:file", func() engine.Res { return &HTTPFileRes{} })
-}
-
 const (
 	// HTTPUseSecureJoin specifies that we should add in a "secure join" lib
 	// so that we avoid the ../../etc/passwd and symlink problems.
 	HTTPUseSecureJoin = true
+
+	httpKind       = "http"
+	httpServerKind = httpKind + ":server"
+	httpFileKind   = httpKind + ":file"
 )
+
+func init() {
+	engine.RegisterResource(httpServerKind, func() engine.Res { return &HTTPServerRes{} })
+	engine.RegisterResource(httpFileKind, func() engine.Res { return &HTTPFileRes{} })
+}
 
 // HTTPServerRes is an http server resource. It serves files, but does not
 // actually apply any state. The name is used as the address to listen on,

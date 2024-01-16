@@ -254,7 +254,10 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return true, nil // nothing to delete, we're good!
 
 	} else if ok && obj.Value == nil { // delete
-		err := obj.init.World.StrMapDel(ctx, obj.getKey())
+		if !apply {
+			return false, nil
+		}
+		err := obj.kvDel(ctx, obj.getKey())
 		return false, errwrap.Wrapf(err, "apply error during StrDel")
 	}
 

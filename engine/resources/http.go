@@ -353,7 +353,8 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
 // It does however check that certain runtime requirements (such as the Root dir
-// existing if one was specified) are fulfilled.
+// existing if one was specified) are fulfilled. If there are any autogrouped
+// resources, those will be recursively called so that they can send/recv.
 func (obj *HTTPServerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
@@ -363,6 +364,7 @@ func (obj *HTTPServerRes) CheckApply(ctx context.Context, apply bool) (bool, err
 	// Watch has started up, so we must block here until that's the case...
 
 	// Cheap runtime validation!
+	// XXX: maybe only do this only once to avoid repeated, unnecessary checks?
 	if obj.Root != "" {
 		fileInfo, err := os.Stat(obj.Root)
 		if err != nil {
@@ -373,7 +375,16 @@ func (obj *HTTPServerRes) CheckApply(ctx context.Context, apply bool) (bool, err
 		}
 	}
 
-	return true, nil // always succeeds, with nothing to do!
+	checkOK := true
+	for _, res := range obj.GetGroup() { // grouped elements
+		if c, err := res.CheckApply(ctx, apply); err != nil {
+			return false, errwrap.Wrapf(err, "autogrouped CheckApply failed")
+		} else if !c {
+			checkOK = false
+		}
+	}
+
+	return checkOK, nil
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.

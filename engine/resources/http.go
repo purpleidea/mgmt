@@ -53,6 +53,28 @@ func init() {
 	engine.RegisterResource(httpFileKind, func() engine.Res { return &HTTPFileRes{} })
 }
 
+// HTTPServerGroupableRes is the interface that you must implement if you want
+// to allow a resource the ability to be grouped into the http server resource.
+// As an added safety, the Kind must also begin with "http:", and not have more
+// than one colon, or it must begin with http:server:, and not have any further
+// colons to avoid accidents of unwanted grouping.
+type HTTPServerGroupableRes interface {
+	engine.Res
+
+	// ParentName is used to limit which resources autogroup into this one.
+	// If it's empty then it's ignored, otherwise it must match the Name of
+	// the parent to get grouped.
+	ParentName() string
+
+	// AcceptHTTP determines whether this will respond to this request.
+	// Return nil to accept, or any error to pass. This should be
+	// deterministic (pure) and fast.
+	AcceptHTTP(req *http.Request) error
+
+	// ServeHTTP is the standard HTTP handler that will be used for this.
+	http.Handler // ServeHTTP(w http.ResponseWriter, req *http.Request)
+}
+
 // HTTPServerRes is an http server resource. It serves files, but does not
 // actually apply any state. The name is used as the address to listen on,
 // unless the Address field is specified, and in that case it is used instead.
@@ -75,7 +97,7 @@ func init() {
 type HTTPServerRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
-	traits.Groupable // can have HTTPFileRes grouped into it
+	traits.Groupable // can have HTTPFileRes and others grouped into it
 
 	init *engine.Init
 
@@ -169,6 +191,75 @@ func (obj *HTTPServerRes) getShutdownTimeout() *uint64 {
 		return obj.ShutdownTimeout
 	}
 	return obj.Timeout // might be nil
+}
+
+// AcceptHTTP determines whether we will respond to this request. Return nil to
+// accept, or any error to pass. In this particular case, it accepts for the
+// Root directory handler, but it happens to be implemented with this signature
+// in case it gets moved. It doesn't intentionally match the
+// HTTPServerGroupableRes interface.
+func (obj *HTTPServerRes) AcceptHTTP(req *http.Request) error {
+	// Look in root if we have one, and we haven't got a file yet...
+	if obj.Root == "" {
+		return fmt.Errorf("no Root directory")
+	}
+	return nil
+}
+
+// ServeHTTP is the standard HTTP handler that will be used here. In this
+// particular case, it serves the Root directory handler, but it happens to be
+// implemented with this signature in case it gets moved. It doesn't
+// intentionally match the HTTPServerGroupableRes interface.
+func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// We only allow GET at the moment.
+	if req.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	requestPath := req.URL.Path // TODO: is this what we want here?
+
+	p := filepath.Join(obj.Root, requestPath) // normal unsafe!
+	if !strings.HasPrefix(p, obj.Root) {      // root ends with /
+		// user might have tried a ../../etc/passwd hack
+		obj.init.Logf("join inconsistency: %s", p)
+		http.NotFound(w, req) // lie to them...
+		return
+	}
+	if HTTPUseSecureJoin {
+		var err error
+		p, err = securefilepath.SecureJoin(obj.Root, requestPath)
+		if err != nil {
+			obj.init.Logf("secure join fail: %s", p)
+			http.NotFound(w, req) // lie to them...
+			return
+		}
+	}
+	if obj.init.Debug {
+		obj.init.Logf("Got file at root: %s", p)
+	}
+
+	handle, err := os.Open(p)
+	if err != nil {
+		obj.init.Logf("could not open: %s", p)
+		msg, httpStatus := toHTTPError(err)
+		http.Error(w, msg, httpStatus)
+		return
+	}
+
+	// Determine the last-modified time if we can.
+	modtime := time.Now()
+	fi, err := handle.Stat()
+	if err == nil {
+		modtime = fi.ModTime()
+	}
+	// TODO: if Stat errors, should we fail the whole thing?
+
+	// XXX: is requestPath what we want for the name field?
+	http.ServeContent(w, req, requestPath, modtime, handle)
+	//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
+
+	return
 }
 
 // Validate checks if the resource data structure was populated correctly.
@@ -305,6 +396,8 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	defer obj.conn.Close()
 
 	obj.serveMux = http.NewServeMux() // do it here in case Watch restarts!
+	// TODO: We could consider having the obj.GetGroup loop here, instead of
+	// essentially having our own "router" API with AcceptHTTP.
 	obj.serveMux.HandleFunc("/", obj.handler())
 
 	readTimeout := uint64(0)
@@ -622,19 +715,37 @@ func (obj *HTTPServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error
 // these two resources be merged, aka, does this resource support doing so? Will
 // resource allow itself to be grouped _into_ this obj?
 func (obj *HTTPServerRes) GroupCmp(r engine.GroupableRes) error {
-	res1, ok1 := r.(*HTTPFileRes) // different from what we usually do!
-	if ok1 {
-		// If the http file resource has the Server field specified,
-		// then it must match against our name field if we want it to
-		// group with us.
-		if res1.Server != "" && res1.Server != obj.Name() {
-			return fmt.Errorf("resource groups with a different server name")
-		}
-
-		return nil
+	res, ok := r.(HTTPServerGroupableRes) // different from what we usually do!
+	if !ok {
+		return fmt.Errorf("resource is not the right kind")
 	}
 
-	return fmt.Errorf("resource is not the right kind")
+	// If the http resource has the parent name field specified, then it
+	// must match against our name field if we want it to group with us.
+	if pn := res.ParentName(); pn != "" && pn != obj.Name() {
+		return fmt.Errorf("resource groups with a different parent name")
+	}
+
+	// http:foo is okay, but file or config:etcd is not
+	if !strings.HasPrefix(r.Kind(), httpKind+":") {
+		return fmt.Errorf("not one of our children")
+	}
+
+	// http:server:foo is okay, but http:server:foo:bar is not
+	p1 := httpServerKind + ":"
+	s1 := strings.TrimPrefix(r.Kind(), p1)
+	if len(s1) != len(r.Kind()) && strings.Count(s1, ":") > 0 { // has prefix
+		return fmt.Errorf("maximum one resource after `%s` prefix", httpServerKind)
+	}
+
+	// http:foo is okay, but http:foo:bar is not
+	p2 := httpKind + ":"
+	s2 := strings.TrimPrefix(r.Kind(), p2)
+	if len(s2) != len(r.Kind()) && strings.Count(s2, ":") > 0 { // has prefix
+		return fmt.Errorf("maximum one resource after `%s` prefix", httpKind)
+	}
+
+	return nil
 }
 
 // readHandler handles all the incoming download requests from clients.
@@ -648,101 +759,49 @@ func (obj *HTTPServerRes) handler() func(http.ResponseWriter, *http.Request) {
 		}
 		// TODO: would this leak anything security sensitive in our log?
 		obj.init.Logf("URL: %s", req.URL)
-		if obj.init.Debug {
-			obj.init.Logf("Path: %s", req.URL.Path)
-		}
-
-		// We only allow GET at the moment.
-		if req.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
 		requestPath := req.URL.Path // TODO: is this what we want here?
-
-		//var handle io.Reader // TODO: simplify?
-		var handle io.ReadSeeker
+		if obj.init.Debug {
+			obj.init.Logf("Path: %s", requestPath)
+		}
 
 		// Look through the autogrouped resources!
 		// TODO: can we improve performance by only searching here once?
 		for _, x := range obj.GetGroup() { // grouped elements
-			res, ok := x.(*HTTPFileRes) // convert from Res
+			res, ok := x.(HTTPServerGroupableRes) // convert from Res
 			if !ok {
 				continue
 			}
-			if requestPath != res.getPath() {
-				continue // not me
+			if obj.init.Debug {
+				obj.init.Logf("Got grouped resource: %s", res.String())
 			}
 
-			if obj.init.Debug {
-				obj.init.Logf("Got grouped file: %s", res.String())
-			}
-			var err error
-			handle, err = res.getContent()
-			if err != nil {
-				obj.init.Logf("could not get content for: %s", requestPath)
-				msg, httpStatus := toHTTPError(err)
-				http.Error(w, msg, httpStatus)
+			err := res.AcceptHTTP(req)
+			if err == nil {
+				res.ServeHTTP(w, req)
 				return
 			}
-			break
+			if obj.init.Debug {
+				obj.init.Logf("Could not serve: %+v", err)
+			}
+
+			//continue // not me
 		}
 
 		// Look in root if we have one, and we haven't got a file yet...
-		if obj.Root != "" && handle == nil {
-
-			p := filepath.Join(obj.Root, requestPath) // normal unsafe!
-			if !strings.HasPrefix(p, obj.Root) {      // root ends with /
-				// user might have tried a ../../etc/passwd hack
-				obj.init.Logf("join inconsistency: %s", p)
-				http.NotFound(w, req) // lie to them...
-				return
-			}
-			if HTTPUseSecureJoin {
-				var err error
-				p, err = securefilepath.SecureJoin(obj.Root, requestPath)
-				if err != nil {
-					obj.init.Logf("secure join fail: %s", p)
-					http.NotFound(w, req) // lie to them...
-					return
-				}
-			}
-			if obj.init.Debug {
-				obj.init.Logf("Got file at root: %s", p)
-			}
-			var err error
-			handle, err = os.Open(p)
-			if err != nil {
-				obj.init.Logf("could not open: %s", p)
-				msg, httpStatus := toHTTPError(err)
-				http.Error(w, msg, httpStatus)
-				return
-			}
-		}
-
-		// We never found a file...
-		if handle == nil {
-			if obj.init.Debug || true { // XXX: maybe we should always do this?
-				obj.init.Logf("File not found: %s", requestPath)
-			}
-			http.NotFound(w, req)
+		err := obj.AcceptHTTP(req)
+		if err == nil {
+			obj.ServeHTTP(w, req)
 			return
 		}
-
-		// Determine the last-modified time if we can.
-		modtime := time.Now()
-		if f, ok := handle.(*os.File); ok {
-			fi, err := f.Stat()
-			if err == nil {
-				modtime = fi.ModTime()
-			}
-			// TODO: if Stat errors, should we fail the whole thing?
+		if obj.init.Debug {
+			obj.init.Logf("Could not serve Root: %+v", err)
 		}
 
-		// XXX: is requestPath what we want for the name field?
-		http.ServeContent(w, req, requestPath, modtime, handle)
-		//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
-
+		// We never found something to serve...
+		if obj.init.Debug || true { // XXX: maybe we should always do this?
+			obj.init.Logf("File not found: %s", requestPath)
+		}
+		http.NotFound(w, req)
 		return
 	}
 }
@@ -810,6 +869,56 @@ func (obj *HTTPFileRes) getContent() (io.ReadSeeker, error) {
 	}
 
 	return bytes.NewReader([]byte(obj.Data)), nil
+}
+
+// ParentName is used to limit which resources autogroup into this one. If it's
+// empty then it's ignored, otherwise it must match the Name of the parent to
+// get grouped.
+func (obj *HTTPFileRes) ParentName() string {
+	return obj.Server
+}
+
+// AcceptHTTP determines whether we will respond to this request. Return nil to
+// accept, or any error to pass.
+func (obj *HTTPFileRes) AcceptHTTP(req *http.Request) error {
+	requestPath := req.URL.Path // TODO: is this what we want here?
+	if requestPath != obj.getPath() {
+		return fmt.Errorf("unhandled path")
+	}
+	return nil
+}
+
+// ServeHTTP is the standard HTTP handler that will be used here.
+func (obj *HTTPFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// We only allow GET at the moment.
+	if req.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	requestPath := req.URL.Path // TODO: is this what we want here?
+
+	handle, err := obj.getContent()
+	if err != nil {
+		obj.init.Logf("could not get content for: %s", requestPath)
+		msg, httpStatus := toHTTPError(err)
+		http.Error(w, msg, httpStatus)
+		return
+	}
+
+	// Determine the last-modified time if we can.
+	modtime := time.Now()
+	if f, ok := handle.(*os.File); ok {
+		fi, err := f.Stat()
+		if err == nil {
+			modtime = fi.ModTime()
+		}
+		// TODO: if Stat errors, should we fail the whole thing?
+	}
+
+	// XXX: is requestPath what we want for the name field?
+	http.ServeContent(w, req, requestPath, modtime, handle)
+	//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
 }
 
 // Validate checks if the resource data structure was populated correctly.

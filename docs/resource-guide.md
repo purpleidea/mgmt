@@ -678,10 +678,10 @@ receiving one. This can _only_ be done inside of the `CheckApply` function!
 
 ```golang
 // inside CheckApply, probably near the top
-if val, exists := obj.init.Recv()["SomeKey"]; exists {
-	obj.init.Logf("the SomeKey param was sent to us from: %s.%s", val.Res, val.Key)
+if val, exists := obj.init.Recv()["some_key"]; exists {
+	obj.init.Logf("the some_key param was sent to us from: %s.%s", val.Res, val.Key)
 	if val.Changed {
-		obj.init.Logf("the SomeKey param was just updated!")
+		obj.init.Logf("the some_key param was just updated!")
 		// you may want to invalidate some local cache
 	}
 }

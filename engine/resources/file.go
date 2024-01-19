@@ -1226,9 +1226,9 @@ func (obj *FileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// might not have a new value to copy, and therefore we won't see this
 	// notification of change. Therefore, it is important to process these
 	// promptly, if they must not be lost, such as for cache invalidation.
-	if val, exists := obj.init.Recv()["Content"]; exists && val.Changed {
+	if val, exists := obj.init.Recv()["content"]; exists && val.Changed {
 		// if we received on Content, and it changed, invalidate the cache!
-		obj.init.Logf("contentCheckApply: invalidating sha256sum of `Content`")
+		obj.init.Logf("contentCheckApply: invalidating sha256sum of `content`")
 		obj.sha256sum = "" // invalidate!!
 	}
 

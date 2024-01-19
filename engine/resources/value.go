@@ -126,9 +126,9 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	received := false
 	different := false
 	checkOK := false
-	if val, exists := obj.init.Recv()["Any"]; exists && val.Changed {
+	if val, exists := obj.init.Recv()["any"]; exists && val.Changed {
 		// if we received on Any, and it changed, invalidate the cache!
-		obj.init.Logf("CheckApply: received on `Any`")
+		obj.init.Logf("CheckApply: received on `any`")
 		obj.isSet = true // we received something
 		obj.cachedAny = obj.Any
 		received = true // we'll always need to send below when we recv

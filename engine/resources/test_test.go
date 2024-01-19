@@ -168,6 +168,7 @@ func TestLowerStructFieldNameToFieldName2(t *testing.T) {
 		"alwaysgroup":   "AlwaysGroup",
 		"comparefail":   "CompareFail",
 		"sendvalue":     "SendValue",
+		"expectrecv":    "ExpectRecv",
 		"onlyshow":      "OnlyShow",
 
 		"comment": "Comment",

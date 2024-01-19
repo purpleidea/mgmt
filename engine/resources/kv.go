@@ -282,9 +282,9 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 	}()
 
-	if val, exists := obj.init.Recv()["Value"]; exists && val.Changed {
+	if val, exists := obj.init.Recv()["value"]; exists && val.Changed {
 		// if we received on Value, and it changed, wooo, nothing to do.
-		obj.init.Logf("CheckApply: `Value` was updated!")
+		obj.init.Logf("CheckApply: `value` was updated!")
 	}
 
 	value, exists, err := obj.kvGet(ctx, obj.getKey())

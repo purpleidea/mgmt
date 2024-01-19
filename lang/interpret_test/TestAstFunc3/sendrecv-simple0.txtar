@@ -1,0 +1,27 @@
+-- main.mcl --
+# send/recv of value1.any into test.msg works!
+value "value1" {
+	any => "i am value1",
+}
+test "test1" {
+	sendvalue => "hello from test",
+	expectrecv => ["anotherstr",],	# expecting to recv on these keys!
+
+	Meta:autogroup => false,
+}
+print "print1" {
+	#msg => "",	# gets value from send_value above
+}
+Value["value1"].any -> Test["test1"].anotherstr
+Test["test1"].hello -> Print["print1"].msg
+-- OUTPUT --
+Edge: test[test1] -> print[print1] # test[test1] -> print[print1]
+Edge: value[value1] -> test[test1] # value[value1] -> test[test1]
+Field: print[print1].Msg = "hello from test"
+Field: test[test1].AnotherStr = "i am value1"
+Field: test[test1].ExpectRecv = ["anotherstr"]
+Field: test[test1].SendValue = "hello from test"
+Field: value[value1].Any = "i am value1"
+Vertex: print[print1]
+Vertex: test[test1]
+Vertex: value[value1]

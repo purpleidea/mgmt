@@ -91,12 +91,13 @@ type TestRes struct {
 	// Func1 passes the value 42 to the input and returns a string.
 	Func1 func(int) string `lang:"func1" yaml:"func1"`
 
-	ValidateBool  bool     `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
-	ValidateError string   `lang:"validateerror" yaml:"validate_error"` // set to cause a validate error
-	AlwaysGroup   bool     `lang:"alwaysgroup" yaml:"always_group"`     // set to true to cause auto grouping
-	CompareFail   bool     `lang:"comparefail" yaml:"compare_fail"`     // will compare fail?
-	SendValue     string   `lang:"sendvalue" yaml:"send_value"`         // what value should we send?
-	OnlyShow      []string `lang:"onlyshow" yaml:"only_show"`           // what values do we show?
+	ValidateBool  bool      `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
+	ValidateError string    `lang:"validateerror" yaml:"validate_error"` // set to cause a validate error
+	AlwaysGroup   bool      `lang:"alwaysgroup" yaml:"always_group"`     // set to true to cause auto grouping
+	CompareFail   bool      `lang:"comparefail" yaml:"compare_fail"`     // will compare fail?
+	SendValue     string    `lang:"sendvalue" yaml:"send_value"`         // what value should we send?
+	ExpectRecv    *[]string `lang:"expectrecv" yaml:"expect_recv"`       // what keys should we expect from send/recv?
+	OnlyShow      []string  `lang:"onlyshow" yaml:"only_show"`           // what values do we show?
 
 	// TODO: add more fun properties!
 
@@ -146,12 +147,18 @@ func (obj *TestRes) Watch(ctx context.Context) error {
 
 // CheckApply method for Test resource. Does nothing, returns happy!
 func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	expectRecv := []string{}
 	for key, val := range obj.init.Recv() {
 		obj.init.Logf("CheckApply: Received `%s`, changed: %t", key, val.Changed)
+		expectRecv = append(expectRecv, key)
 	}
 
 	if obj.init.Refresh() {
 		obj.init.Logf("Received a notification!")
+	}
+
+	if obj.ExpectRecv != nil && len(*obj.ExpectRecv) != len(expectRecv) {
+		return false, fmt.Errorf("the received keys differ from expected, got: %+v", expectRecv)
 	}
 
 	fakeLogf := func(format string, v ...interface{}) {
@@ -371,6 +378,19 @@ func (obj *TestRes) Cmp(r engine.Res) error {
 	}
 	if obj.SendValue != res.SendValue {
 		return fmt.Errorf("the SendValue differs")
+	}
+	if (obj.ExpectRecv == nil) != (res.ExpectRecv == nil) { // xor
+		return fmt.Errorf("the ExpectRecv differs")
+	}
+	if obj.ExpectRecv != nil && res.ExpectRecv != nil {
+		if len(*obj.ExpectRecv) != len(*res.ExpectRecv) {
+			return fmt.Errorf("the length of ExpectRecv differs")
+		}
+		for i, x := range *obj.ExpectRecv {
+			if x != (*res.ExpectRecv)[i] {
+				return fmt.Errorf("the item at ExpectRecv index %d differs", i)
+			}
+		}
 	}
 	if len(obj.OnlyShow) != len(res.OnlyShow) {
 		return fmt.Errorf("the length of OnlyShow differs")

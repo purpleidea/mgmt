@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
@@ -34,39 +33,45 @@ import (
 // It applies the loaded values to the resource. It is called recursively, as it
 // recurses into any grouped resources found within the first receiver. It
 // returns a map of resource pointer, to resource field key, to changed boolean.
-func (obj *Engine) SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[string]bool, error) {
-	updated := make(map[engine.RecvableRes]map[string]bool) // list of updated keys
-	if obj.Debug {
-		obj.Logf("SendRecv: %s", res) // receiving here
-	}
+func SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[string]*engine.Send, error) {
+	updated := make(map[engine.RecvableRes]map[string]*engine.Send) // list of updated keys
 	if groupableRes, ok := res.(engine.GroupableRes); ok {
 		for _, x := range groupableRes.GetGroup() { // grouped elements
 			recvableRes, ok := x.(engine.RecvableRes)
 			if !ok {
 				continue
 			}
-			if obj.Debug {
-				obj.Logf("SendRecv: %s: grouped: %s", res, x) // receiving here
-			}
+			//if obj.Debug {
+			//	obj.Logf("SendRecv: %s: grouped: %s", res, x) // receiving here
+			//}
 			// We need to recurse here so that autogrouped resources
 			// inside autogrouped resources would work... In case we
 			// work correctly. We just need to make sure that things
 			// are grouped in the correct order, but that is not our
 			// problem! Recurse and merge in the changed results...
-			innerUpdated, err := obj.SendRecv(recvableRes)
+			innerUpdated, err := SendRecv(recvableRes)
 			if err != nil {
 				return nil, errwrap.Wrapf(err, "recursive SendRecv error")
 			}
 			for r, m := range innerUpdated { // res ptr, map
 				if _, exists := updated[r]; !exists {
-					updated[r] = make(map[string]bool)
+					updated[r] = make(map[string]*engine.Send)
 				}
-				for s, b := range m {
+				for s, send := range m { // map[string]*engine.Send
+					b := send.Changed
 					// don't overwrite in case one exists...
 					if old, exists := updated[r][s]; exists {
-						b = b || old // unlikely i think
+						b = b || old.Changed // unlikely i think
 					}
-					updated[r][s] = b
+					if _, exists := updated[r][s]; !exists {
+						newSend := &engine.Send{
+							Res:     send.Res,
+							Key:     send.Key,
+							Changed: b,
+						}
+						updated[r][s] = newSend
+					}
+					updated[r][s].Changed = b
 				}
 			}
 		}
@@ -78,20 +83,21 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	if obj.Debug && len(keys) > 0 {
-		// NOTE: this could expose private resource data like passwords
-		obj.Logf("SendRecv: %s recv: %+v", res, strings.Join(keys, ", "))
-	}
+	//if obj.Debug && len(keys) > 0 {
+	//	// NOTE: this could expose private resource data like passwords
+	//	obj.Logf("SendRecv: %s recv: %+v", res, strings.Join(keys, ", "))
+	//}
 	var err error
 	for k, v := range recv { // map[string]*Send
 		// v.Res // SendableRes // a handle to the resource which is sending a value
 		// v.Key // string      // the key in the resource that we're sending
 		if _, exists := updated[res]; !exists {
-			updated[res] = make(map[string]bool)
+			updated[res] = make(map[string]*engine.Send)
 		}
 
-		updated[res][k] = false // default
-		v.Changed = false       // reset to the default
+		//updated[res][k] = false // default
+		v.Changed = false   // reset to the default
+		updated[res][k] = v // default
 
 		var st interface{} = v.Res // old style direct send/recv
 		if true {                  // new style send/recv API
@@ -123,7 +129,7 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[
 		}
 
 		obj1 := reflect.Indirect(reflect.ValueOf(st))
-		type1 := obj1.Type()
+		//type1 := obj1.Type()
 		value1 := obj1.FieldByName(key1)
 		kind1 := value1.Kind()
 
@@ -141,7 +147,7 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[
 		}
 
 		obj2 := reflect.Indirect(reflect.ValueOf(res)) // pass in full struct
-		type2 := obj2.Type()
+		//type2 := obj2.Type()
 		value2 := obj2.FieldByName(key2)
 		kind2 := value2.Kind()
 
@@ -158,10 +164,10 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[
 			kind2 = value2.Kind()
 		}
 
-		if obj.Debug {
-			obj.Logf("Send(%s) has %v: %v", type1, kind1, value1)
-			obj.Logf("Recv(%s) has %v: %v", type2, kind2, value2)
-		}
+		//if obj.Debug {
+		//	obj.Logf("Send(%s) has %v: %v", type1, kind1, value1)
+		//	obj.Logf("Recv(%s) has %v: %v", type2, kind2, value2)
+		//}
 
 		// i think we probably want the same kind, at least for now...
 		if kind1 != kind2 {
@@ -218,9 +224,10 @@ func (obj *Engine) SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[
 			continue
 		}
 		//dest.Set(orig)  // do it for all types that match
-		updated[res][k] = true // we updated this key!
-		v.Changed = true       // tag this key as updated!
-		obj.Logf("SendRecv: %s.%s -> %s.%s", v.Res, v.Key, res, k)
+		//updated[res][k] = true // we updated this key!
+		v.Changed = true    // tag this key as updated!
+		updated[res][k] = v // we updated this key!
+		//obj.Logf("SendRecv: %s.%s -> %s.%s (%+v)", v.Res, v.Key, res, k, fv) // fv may be private data
 	}
 	return updated, err
 }

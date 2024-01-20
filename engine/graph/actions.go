@@ -118,10 +118,13 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	// connect any senders to receivers and detect if values changed
 	// this actually checks and sends into resource trees recursively...
 	if res, ok := vertex.(engine.RecvableRes); ok {
-		if updated, err := obj.SendRecv(res); err != nil {
+		if obj.Debug {
+			obj.Logf("SendRecv: %s", res) // receiving here
+		}
+		if updated, err := SendRecv(res); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv")
 		} else if len(updated) > 0 {
-			for r, m := range updated { // map[engine.RecvableRes]map[string]bool
+			for r, m := range updated { // map[engine.RecvableRes]map[string]*engine.Send
 				v, ok := r.(pgraph.Vertex)
 				if !ok {
 					continue
@@ -130,11 +133,12 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 				if !stateExists {
 					continue
 				}
-				for _, changed := range m {
-					if !changed {
+				for s, send := range m {
+					if !send.Changed {
 						continue
 					}
-					// if changed == true, at least one was updated
+					obj.Logf("Send/Recv: %v.%s -> %v.%s", send.Res, send.Key, r, s)
+					// if send.Changed == true, at least one was updated
 					// invalidate cache, mark as dirty
 					obj.state[v].setDirty()
 					//break // we might have more vertices now

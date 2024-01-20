@@ -243,3 +243,19 @@ func TypeCmp(a, b reflect.Value) error {
 
 	return nil // identical Type()'s
 }
+
+// UpdatedStrings returns a list of strings showing what was updated after a
+// Send/Recv run returned the updated datastructure. This is useful for logs.
+func UpdatedStrings(updated map[engine.RecvableRes]map[string]*engine.Send) []string {
+	out := []string{}
+	for r, m := range updated { // map[engine.RecvableRes]map[string]*engine.Send
+		for s, send := range m {
+			if !send.Changed {
+				continue
+			}
+			x := fmt.Sprintf("%v.%s -> %v.%s", send.Res, send.Key, r, s)
+			out = append(out, x)
+		}
+	}
+	return out
+}

@@ -124,6 +124,9 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		if updated, err := SendRecv(res); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv")
 		} else if len(updated) > 0 {
+			//for _, s := range graph.UpdatedStrings(updated) {
+			//	obj.Logf("SendRecv: %s", s)
+			//}
 			for r, m := range updated { // map[engine.RecvableRes]map[string]*engine.Send
 				v, ok := r.(pgraph.Vertex)
 				if !ok {

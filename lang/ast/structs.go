@@ -7714,12 +7714,14 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This might get called speculatively (early) during unification to learn more.
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
-	panic("ExprFunc does not store its latest value because resources don't yet have function fields.")
-	//// TODO: implement speculative value lookup (if not already sufficient)
-	//return &full.FuncValue{
-	//	V: obj.V,
-	//	T: obj.typ,
-	//}, nil
+	// MCL case: copy the code from ExprFunc.Graph which creates this FuncValue
+	// builtin case: look up the full.FuncValue or the FuncValue somewhere?
+        // polymorphic case: figure out which one has the correct type and wrap
+        // it in a full.FuncValue.
+	return &full.FuncValue{
+		V: obj.V,
+		T: obj.typ,
+	}, nil
 }
 
 // ExprCall is a representation of a function call. This does not represent the

@@ -459,7 +459,10 @@ Loop:
 
 			// we are paused now, and waiting for resume or exit...
 			select {
-			case _, closed = <-obj.state[vertex].resumeSignal: // channel closes
+			case _, ok := <-obj.state[vertex].resumeSignal: // channel closes
+				if !ok {
+					closed = true
+				}
 				// resumed!
 				// pass through to allow a Process to try to run
 				// TODO: consider adding this fast pause here...
@@ -525,7 +528,10 @@ Loop:
 						break LimitWait
 					}
 					select {
-					case _, closed = <-obj.state[vertex].resumeSignal: // channel closes
+					case _, ok := <-obj.state[vertex].resumeSignal: // channel closes
+						if !ok {
+							closed = true
+						}
 						// resumed!
 					}
 				}
@@ -581,7 +587,10 @@ Loop:
 							break RetryWait
 						}
 						select {
-						case _, closed = <-obj.state[vertex].resumeSignal: // channel closes
+						case _, ok := <-obj.state[vertex].resumeSignal: // channel closes
+							if !ok {
+								closed = true
+							}
 							// resumed!
 						}
 					}

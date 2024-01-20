@@ -7718,6 +7718,39 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 	// builtin case: look up the full.FuncValue or the FuncValue somewhere?
         // polymorphic case: figure out which one has the correct type and wrap
         // it in a full.FuncValue.
+	if obj.Body != nil {
+		env := make(map[string]interfaces.Func) XXX ???
+		return &full.FuncValue{
+			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				// Extend the environment with the arguments.
+				extendedEnv := make(map[string]interfaces.Func)
+				for k, v := range env {
+					extendedEnv[k] = v
+				}
+				for i, arg := range obj.Args {
+					extendedEnv[arg.Name] = args[i]
+				}
+
+				// Create a subgraph from the lambda's body, instantiating the
+				// lambda's parameters with the args and the other variables
+				// with the nodes in the captured environment.
+				subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+				}
+
+				innerTxn.AddGraph(subgraph)
+
+				return bodyFunc, nil
+			},
+			T: obj.typ,
+		}, nil
+	} else if obj.Function != nil {
+
+	} else /* len(obj.Values) > 0 */ {
+
+	}
+
 	return &full.FuncValue{
 		V: obj.V,
 		T: obj.typ,

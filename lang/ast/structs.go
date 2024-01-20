@@ -8556,31 +8556,48 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		funcValueFunc = paramFunc
 	} else {
 		// The function being called is a top-level definition.
-                
+
 		// Optimization: in the common case in which the function is
 		// statically-known, generate a single static sub-graph.
-                exprValue, err := obj.expr.Value()
-                if err == nil {
+		exprValue, err := obj.expr.Value()
+		if err == nil {
 			exprFuncValue, ok := exprValue.(*full.FuncValue)
 			if ok {
-				struct GraphTxn {
-					Graph pgraph.Graph
+
+// XXX JAMES TODO
+//				return (&graphTxn{
+//					Lock:     obj.Lock,
+//					Unlock:   obj.Unlock,
+//					GraphAPI: obj,
+//					RefCount: obj.refCount, // reference counting
+//					FreeFunc: free,
+//				}).init()
+
+				txn := (&interfaces.GraphTxn{}).Init() // XXX no, we want a different implementation of Txn
+				args := []interfaces.Func{}
+				for _, x := range obj.Args { // []interfaces.Expr
+					g, f, err := obj.expr.Graph(env)
+					if err != nil {
+						return nil, nil, errwap.Wrapf(err, "could not even XXX")
+					}
+					args = append(args, f)
+					txn.AddGraph(g)
 				}
-				txn := GraphTxn()
-				outputFunc, err := exprFuncValue.Call(txn, []Func)
+				outputFunc, err := exprFuncValue.Call(txn, args)
 				if err != nil {
 					return nil, nil, errwap.Wrapf(err, "could not construct the static graph for a function call")
 				}
-				return txn.Graph, outputFunc, nil
+
+				return txn.Graph(), outputFunc, nil
 			}
 		}
 
 		// Otherwise, generate a CallFunc node, which will dynamically
 		// re-create the sub-graph as needed.
-                
-                // The parameters which are visible at this use site must not
-                // be visible at the definition site, so we pass an empty
-                // environment.
+
+		// The parameters which are visible at this use site must not
+		// be visible at the definition site, so we pass an empty
+		// environment.
 		emptyEnv := map[string]interfaces.Func{}
 		exprGraph, topLevelFunc, err := obj.expr.Graph(emptyEnv)
 		if err != nil {

@@ -8691,6 +8691,12 @@ func (obj *ExprCall) Value() (types.Value, error) {
 	if obj.V == nil {
 		return nil, fmt.Errorf("func value does not yet exist")
 	}
+
+        // speculatively call Value() on obj.Expr and each arg.
+        // if all successful, we will have a full.FuncValue and a []Value.
+        // full.FuncValue _also_ needs a speculative Call([]Value) Value
+        // method, in addition to its existing Call([]Func) Func method.
+        // call it.
 	return obj.V, nil
 }
 

@@ -28,12 +28,17 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+// RecvFn represents a custom Recv function which can be used in place of the
+// stock, built-in one. This is needed if we want to receive from a different
+// resource data source than our own. (Only for special occasions of course!)
+type RecvFn func(engine.RecvableRes) (map[string]*engine.Send, error)
+
 // SendRecv pulls in the sent values into the receive slots. It is called by the
 // receiver and must be given as input the full resource struct to receive on.
 // It applies the loaded values to the resource. It is called recursively, as it
 // recurses into any grouped resources found within the first receiver. It
 // returns a map of resource pointer, to resource field key, to changed boolean.
-func SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[string]*engine.Send, error) {
+func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[string]*engine.Send, error) {
 	updated := make(map[engine.RecvableRes]map[string]*engine.Send) // list of updated keys
 	if groupableRes, ok := res.(engine.GroupableRes); ok {
 		for _, x := range groupableRes.GetGroup() { // grouped elements
@@ -49,7 +54,7 @@ func SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[string]*engine
 			// work correctly. We just need to make sure that things
 			// are grouped in the correct order, but that is not our
 			// problem! Recurse and merge in the changed results...
-			innerUpdated, err := SendRecv(recvableRes)
+			innerUpdated, err := SendRecv(recvableRes, fn)
 			if err != nil {
 				return nil, errwrap.Wrapf(err, "recursive SendRecv error")
 			}
@@ -77,7 +82,14 @@ func SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[string]*engine
 		}
 	}
 
+	var err error
 	recv := res.Recv()
+	if fn != nil {
+		recv, err = fn(res) // use a custom Recv function
+		if err != nil {
+			return nil, err
+		}
+	}
 	keys := []string{}
 	for k := range recv { // map[string]*Send
 		keys = append(keys, k)
@@ -87,7 +99,6 @@ func SendRecv(res engine.RecvableRes) (map[engine.RecvableRes]map[string]*engine
 	//	// NOTE: this could expose private resource data like passwords
 	//	obj.Logf("SendRecv: %s recv: %+v", res, strings.Join(keys, ", "))
 	//}
-	var err error
 	for k, v := range recv { // map[string]*Send
 		// v.Res // SendableRes // a handle to the resource which is sending a value
 		// v.Key // string      // the key in the resource that we're sending

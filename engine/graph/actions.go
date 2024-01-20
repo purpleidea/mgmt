@@ -121,7 +121,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		if obj.Debug {
 			obj.Logf("SendRecv: %s", res) // receiving here
 		}
-		if updated, err := SendRecv(res); err != nil {
+		if updated, err := SendRecv(res, nil); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv")
 		} else if len(updated) > 0 {
 			//for _, s := range graph.UpdatedStrings(updated) {

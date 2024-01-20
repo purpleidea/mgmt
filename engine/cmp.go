@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // ResCmp compares two resources by checking multiple aspects. This is the main
@@ -340,4 +341,56 @@ func EdgeCmpFn(e1, e2 pgraph.Edge) (bool, error) {
 		return false, fmt.Errorf("e2 is not an Edge")
 	}
 	return edge1.Cmp(edge2) == nil, nil
+}
+
+// ResGraphMapper compares two graphs, and gives us a mapping from new to old
+// based on the resource kind and name only. This allows us to know which
+// previous resource might have data to pass on to the new version in the next
+// generation.
+// FIXME: Optimize this for performance since it runs a lot...
+func ResGraphMapper(oldGraph, newGraph *pgraph.Graph) (map[RecvableRes]RecvableRes, error) {
+	mapper := make(map[RecvableRes]RecvableRes) // new -> old based on name and kind only?
+	cmp := func(r1, r2 Res) error {
+		if r1.Kind() != r2.Kind() {
+			return fmt.Errorf("kind differs")
+		}
+		if r1.Name() != r2.Name() {
+			return fmt.Errorf("name differs")
+		}
+		return nil
+	}
+
+	// XXX: run this as a topological sort or reverse topological sort?
+	for v := range newGraph.Adjacency() { // loop through the vertices (resources)
+		r, ok := v.(RecvableRes)
+		if !ok {
+			continue // skip
+		}
+		fn := func(vv pgraph.Vertex) (bool, error) {
+			rr, ok := vv.(Res)
+			if !ok {
+				return false, fmt.Errorf("not a Res")
+			}
+
+			if err := cmp(rr, r); err != nil {
+				return false, nil
+			}
+			return true, nil
+		}
+		vertex, err := oldGraph.VertexMatchFn(fn)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "VertexMatchFn failed")
+		}
+		if vertex == nil {
+			continue // skip (error?)
+		}
+		res, ok := vertex.(RecvableRes)
+		if !ok {
+			continue // skip (error?)
+		}
+
+		mapper[r] = res
+	}
+
+	return mapper, nil
 }

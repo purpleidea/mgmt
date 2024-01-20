@@ -1,0 +1,9 @@
+-- main.mcl --
+# test that ordering works and doesn't produce a dag in this tricky scenario
+$id = func($x) {
+	$x
+}
+$x = $id("hello")
+test $x {}
+-- OUTPUT --
+Vertex: test[hello]

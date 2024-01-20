@@ -3173,7 +3173,17 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		}
 	}
 
-	return graph, cons, nil
+	// The consumes which have already been matched to one of our produces
+	// must not be also matched to a produce from our caller. Is that clear?
+	newCons := make(map[interfaces.Node]string) // don't modify the input map!
+	for k, v := range cons {
+		if _, exists := prod[v]; exists {
+			continue
+		}
+		newCons[k] = v // "remaining" values from cons
+	}
+
+	return graph, newCons, nil
 }
 
 // importScope is a helper function called from SetScope. If it can't find a
@@ -4295,6 +4305,18 @@ func (obj *StmtFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		graph.AddEdge(n, k, edge)
 	}
 
+	// The consumes which have already been matched to one of our produces
+	// must not be also matched to a produce from our caller. Is that clear?
+	//newCons := make(map[interfaces.Node]string) // don't modify the input map!
+	//for k, v := range cons {
+	//	if _, exists := prod[v]; exists {
+	//		continue
+	//	}
+	//	newCons[k] = v // "remaining" values from cons
+	//}
+	//
+	//return graph, newCons, nil
+
 	return graph, cons, nil
 }
 
@@ -4441,34 +4463,47 @@ func (obj *StmtClass) Ordering(produces map[string]interfaces.Node) (*pgraph.Gra
 	}
 	graph.AddVertex(obj)
 
+	prod := make(map[string]interfaces.Node)
+	for _, arg := range obj.Args {
+		uid := varOrderingPrefix + arg.Name // ordering id
+		//node, exists := produces[uid]
+		//if exists {
+		//	edge := &pgraph.SimpleEdge{Name: "stmtclassarg"}
+		//	graph.AddEdge(node, obj, edge) // prod -> cons
+		//}
+		prod[uid] = &ExprParam{Name: arg.Name} // placeholder
+	}
+
+	newProduces := CopyNodeMapping(produces) // don't modify the input map!
+
+	// Overwrite anything in this scope with the shadowed parent variable!
+	for key, val := range prod {
+		newProduces[key] = val // copy, and overwrite (shadow) any parent var
+	}
+
 	// additional constraint...
 	edge := &pgraph.SimpleEdge{Name: "stmtclassbody"}
 	graph.AddEdge(obj.Body, obj, edge) // prod -> cons
 
 	cons := make(map[interfaces.Node]string)
 
-	g, c, err := obj.Body.Ordering(produces)
+	g, cons, err := obj.Body.Ordering(newProduces)
 	if err != nil {
 		return nil, nil, err
 	}
 	graph.AddGraph(g) // add in the child graph
 
-	for k, v := range c { // c is consumes
-		x, exists := cons[k]
-		if exists && v != x {
-			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
-		}
-		cons[k] = v // add to map
-
-		n, exists := produces[v]
-		if !exists {
+	// The consumes which have already been matched to one of our produces
+	// must not be also matched to a produce from our caller. Is that clear?
+	newCons := make(map[interfaces.Node]string) // don't modify the input map!
+	for k, v := range cons {
+		if _, exists := prod[v]; exists {
 			continue
 		}
-		edge := &pgraph.SimpleEdge{Name: "stmtclass"}
-		graph.AddEdge(n, k, edge)
+		newCons[k] = v // "remaining" values from cons
 	}
 
-	return graph, cons, nil
+	return graph, newCons, nil
 }
 
 // SetScope sets the scope of the child expression bound to it. It seems this is
@@ -7182,11 +7217,29 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	}
 	graph.AddVertex(obj)
 
+	prod := make(map[string]interfaces.Node)
+	for _, arg := range obj.Args {
+		uid := varOrderingPrefix + arg.Name // ordering id
+		//node, exists := produces[uid]
+		//if exists {
+		//	edge := &pgraph.SimpleEdge{Name: "stmtexprfuncarg"}
+		//	graph.AddEdge(node, obj, edge) // prod -> cons
+		//}
+		prod[uid] = &ExprParam{Name: arg.Name} // placeholder
+	}
+
+	newProduces := CopyNodeMapping(produces) // don't modify the input map!
+
+	// Overwrite anything in this scope with the shadowed parent variable!
+	for key, val := range prod {
+		newProduces[key] = val // copy, and overwrite (shadow) any parent var
+	}
+
 	cons := make(map[interfaces.Node]string)
 
-	// TODO: do we need ordering for other aspects of ExprFunc ?
+	// XXX: do we need ordering for other aspects of ExprFunc ?
 	if obj.Body != nil {
-		g, c, err := obj.Body.Ordering(produces)
+		g, c, err := obj.Body.Ordering(newProduces)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -7196,23 +7249,20 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		edge := &pgraph.SimpleEdge{Name: "exprfuncbody"}
 		graph.AddEdge(obj.Body, obj, edge) // prod -> cons
 
-		for k, v := range c { // c is consumes
-			x, exists := cons[k]
-			if exists && v != x {
-				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
-			}
-			cons[k] = v // add to map
-
-			n, exists := produces[v]
-			if !exists {
-				continue
-			}
-			edge := &pgraph.SimpleEdge{Name: "exprfunc"}
-			graph.AddEdge(n, k, edge)
-		}
+		cons = c
 	}
 
-	return graph, cons, nil
+	// The consumes which have already been matched to one of our produces
+	// must not be also matched to a produce from our caller. Is that clear?
+	newCons := make(map[interfaces.Node]string) // don't modify the input map!
+	for k, v := range cons {
+		if _, exists := prod[v]; exists {
+			continue
+		}
+		newCons[k] = v // "remaining" values from cons
+	}
+
+	return graph, newCons, nil
 }
 
 // SetScope stores the scope for later use in this resource and its children,

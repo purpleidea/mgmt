@@ -1,0 +1,10 @@
+-- main.mcl --
+# test that ordering works and doesn't produce a dag in this tricky scenario
+class c1($x) {
+	$y = $x
+}
+include c1("hello") as c
+$x = $c.y
+test $x {}
+-- OUTPUT --
+Vertex: test[hello]

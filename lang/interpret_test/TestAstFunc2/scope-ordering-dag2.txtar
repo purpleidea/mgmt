@@ -1,0 +1,13 @@
+-- main.mcl --
+# test that ordering works and doesn't produce a dag in this tricky scenario
+class foo() {
+	$y = $x # would this also work with the Ordering(depth) idea?
+	test $y + "a" {}
+}
+$x = "hello"
+include foo() as c
+$z = $c.y
+test $z + "b" {}
+-- OUTPUT --
+Vertex: test[helloa]
+Vertex: test[hellob]

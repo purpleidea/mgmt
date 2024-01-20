@@ -1,0 +1,16 @@
+-- main.mcl --
+# test that ordering works and doesn't produce a dag in this tricky scenario
+class bar($z) {
+	$zz = $z
+}
+class foo() {
+	include bar("hello") as x	# bind to x
+	$y = $x.zz
+	test $y + "a" {}
+}
+include foo() as c
+include bar($c.y) as x
+test $x.zz + "b" {}
+-- OUTPUT --
+Vertex: test[helloa]
+Vertex: test[hellob]

@@ -1,0 +1,7 @@
+func apply($f, $x) {
+  $f($x)
+}
+$add1 = fn($x) {
+  $x + 1
+}
+$z = apply($add, 1)

@@ -163,7 +163,9 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 			comment := strings.TrimSpace(string(archive.Comment))
-			t.Logf("comment: %s\n", comment)
+			if comment != "" {
+				t.Logf("comment: %s\n", comment)
+			}
 
 			// copy files out into the test temp directory
 			var testOutput []byte
@@ -616,7 +618,9 @@ func TestAstFunc2(t *testing.T) {
 				return
 			}
 			comment := strings.TrimSpace(string(archive.Comment))
-			t.Logf("comment: %s\n", comment)
+			if comment != "" {
+				t.Logf("comment: %s\n", comment)
+			}
 
 			// copy files out into the test temp directory
 			var testOutput []byte
@@ -1394,7 +1398,9 @@ func TestAstFunc3(t *testing.T) {
 				return
 			}
 			comment := strings.TrimSpace(string(archive.Comment))
-			t.Logf("comment: %s\n", comment)
+			if comment != "" {
+				t.Logf("comment: %s\n", comment)
+			}
 
 			// copy files out into the test temp directory
 			var testOutput []byte

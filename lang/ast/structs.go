@@ -149,6 +149,16 @@ const (
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
 	ErrNoStoredScope = interfaces.Error("scope is not stored in this node")
 
+	// ErrCantSpeculate is an error that explains that we can't speculate
+	// when trying to run the Value() method of Expr. This can be useful if
+	// we want to distinguish between "something is broken" and "I can't
+	// produce a value at this time" which can be identified and we can
+	// continue. If we don't get this error, then it's okay to shut
+	// everything down.
+	// XXX: SAM HERE IS A SENTINEL ERROR IN CASE YOU WANT TO USE IT. I THINK
+	// IT MIGHT ACTUALLY NOT BE NECESSARY, BUT LET'S SEE IF IT'S USEFUL...
+	ErrCantSpeculate = interfaces.Error("can't speculate for value")
+
 	// ErrFuncPointerNil is an error that explains the function pointer for
 	// table lookup is missing. If this happens, it's most likely a
 	// programming error.

@@ -115,6 +115,10 @@ func (obj *testGraphAPI) FindEdge(f1, f2 interfaces.Func) *interfaces.FuncEdge {
 	return fe
 }
 
+func (obj *testGraphAPI) Graph() *pgraph.Graph {
+	return obj.graph.Copy()
+}
+
 type testNullFunc struct {
 	name string
 }

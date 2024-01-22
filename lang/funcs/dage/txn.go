@@ -510,7 +510,7 @@ func (obj *graphTxn) commit() error {
 		//gv := &pgraph.Graphviz{
 		//	Filename: fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d),
 		//	Graphs: map[*pgraph.Graph]*pgraph.GraphvizOpts{
-		//		engine.graph: nil,
+		//		obj.Graph(): nil,
 		//	},
 		//}
 		//if err := gv.Exec(); err != nil {

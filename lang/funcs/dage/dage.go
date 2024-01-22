@@ -504,6 +504,14 @@ func (obj *Engine) FindEdge(f1, f2 interfaces.Func) *interfaces.FuncEdge {
 	return fe
 }
 
+// Graph returns a copy of the contained graph.
+func (obj *Engine) Graph() *pgraph.Graph {
+	//obj.graphMutex.Lock()         // XXX: should this be a RLock?
+	//defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?
+
+	return obj.graph.Copy()
+}
+
 // Lock must be used before modifying the running graph. Make sure to Unlock
 // when done.
 // XXX: should Lock take a context if we want to bail mid-way?

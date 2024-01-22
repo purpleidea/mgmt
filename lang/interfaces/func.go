@@ -262,6 +262,9 @@ type GraphAPI interface {
 	HasVertex(Func) bool
 	FindEdge(Func, Func) *FuncEdge
 	LookupEdge(*FuncEdge) (Func, Func, bool)
+
+	// Graph returns a copy of the current graph.
+	Graph() *pgraph.Graph
 }
 
 // Txn is the interface that the engine graph API makes available so that

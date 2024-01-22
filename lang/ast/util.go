@@ -265,3 +265,12 @@ func CollectFiles(ast interfaces.Stmt) ([]string, error) {
 	}
 	return fileList, nil
 }
+
+// CopyNodeMapping copies the map of string to node and is used in Ordering.
+func CopyNodeMapping(in map[string]interfaces.Node) map[string]interfaces.Node {
+	out := make(map[string]interfaces.Node)
+	for k, v := range in {
+		out[k] = v // copy the map, not the Node's
+	}
+	return out
+}

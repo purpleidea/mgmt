@@ -3125,15 +3125,7 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		}
 	}
 
-	// TODO: move to a util package?
-	cp := func(in map[string]interfaces.Node) map[string]interfaces.Node {
-		out := make(map[string]interfaces.Node)
-		for k, v := range in {
-			out[k] = v // copy the map, not the Node's
-		}
-		return out
-	}
-	newProduces := cp(produces) // don't modify the input map!
+	newProduces := CopyNodeMapping(produces) // don't modify the input map!
 
 	// Overwrite anything in this scope with the shadowed parent variable!
 	for key, val := range prod {

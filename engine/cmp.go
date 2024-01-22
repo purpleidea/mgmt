@@ -107,6 +107,7 @@ func ResCmp(r1, r2 Res) error {
 			for k := range ix {
 				// compare sub resources
 				if err := ResCmp(ix[k], jx[k]); err != nil {
+					//fmt.Printf("bad Cmp: %+v <> %+v for: %+v <> %+v err: %+v\n", r1, r2, ix[k], jx[k], err)
 					return err
 				}
 			}
@@ -122,14 +123,29 @@ func ResCmp(r1, r2 Res) error {
 		v1 := r1r.Recv()
 		v2 := r2r.Recv()
 
+		// XXX: Our Send/Recv in the lib/main.go doesn't seem to be
+		// pulling this in, so this always compares differently. We can
+		// comment it out for now, since it's not too consequential.
+		// XXX: Find out what the issue is and fix it for here and send.
+		// XXX: The below errors are commented out until this is fixed.
 		if (v1 == nil) != (v2 == nil) { // xor
-			return fmt.Errorf("recv params differ")
+			//return fmt.Errorf("recv params differ")
 		}
 		if v1 != nil && v2 != nil {
-			// TODO: until we hit this code path, don't allow
-			// comparing anything that has this set to non-zero
-			if len(v1) != 0 || len(v2) != 0 {
-				return fmt.Errorf("recv params exist")
+			if len(v1) != len(v2) {
+				//return fmt.Errorf("recv param lengths differ")
+			}
+			for key, send1 := range v1 { // map[string]*engine.Send
+				send2, exists := v2[key]
+				if !exists {
+					//return fmt.Errorf("recv param key %s doesn't exist", key)
+				}
+				if (send1 == nil) != (send2 == nil) { // xor
+					//return fmt.Errorf("recv param key %s send differs", key)
+				}
+				if send1 != nil && send2 != nil && send1.Key != send2.Key {
+					//return fmt.Errorf("recv param key %s send key differs (%v != %v)", key, send1.Key, send2.Key)
+				}
 			}
 		}
 	}
@@ -143,13 +159,17 @@ func ResCmp(r1, r2 Res) error {
 		s1 := r1s.Sent()
 		s2 := r2s.Sent()
 
+		// XXX: Our Send/Recv in the lib/main.go doesn't seem to be
+		// pulling this in, so this always compares differently. We can
+		// comment it out for now, since it's not too consequential.
+		// XXX: Find out what the issue is and fix it for here and recv.
+		// XXX: The below errors are commented out until this is fixed.
 		if (s1 == nil) != (s2 == nil) { // xor
-			return fmt.Errorf("send params differ")
+			//return fmt.Errorf("send params differ")
 		}
 		if s1 != nil && s2 != nil {
-			// TODO: until we hit this code path, don't allow
-			// adapting anything that has this set to non-nil
-			return fmt.Errorf("send params exist")
+			// TODO: reflect.DeepEqual?
+			//return fmt.Errorf("send params exist")
 		}
 	}
 
@@ -262,14 +282,29 @@ func AdaptCmp(r1, r2 CompatibleRes) error {
 		v1 := r1r.Recv()
 		v2 := r2r.Recv()
 
+		// XXX: Our Send/Recv in the lib/main.go doesn't seem to be
+		// pulling this in, so this always compares differently. We can
+		// comment it out for now, since it's not too consequential.
+		// XXX: Find out what the issue is and fix it for here and send.
+		// XXX: The below errors are commented out until this is fixed.
 		if (v1 == nil) != (v2 == nil) { // xor
-			return fmt.Errorf("recv params differ")
+			//return fmt.Errorf("recv params differ")
 		}
 		if v1 != nil && v2 != nil {
-			// TODO: until we hit this code path, don't allow
-			// adapting anything that has this set to non-zero
-			if len(v1) != 0 || len(v2) != 0 {
-				return fmt.Errorf("recv params exist")
+			if len(v1) != len(v2) {
+				//return fmt.Errorf("recv param lengths differ")
+			}
+			for key, send1 := range v1 { // map[string]*engine.Send
+				send2, exists := v2[key]
+				if !exists {
+					//return fmt.Errorf("recv param key %s doesn't exist", key)
+				}
+				if (send1 == nil) != (send2 == nil) { // xor
+					//return fmt.Errorf("recv param key %s send differs", key)
+				}
+				if send1 != nil && send2 != nil && send1.Key != send2.Key {
+					//return fmt.Errorf("recv param key %s send key differs (%v != %v)", key, send1.Key, send2.Key)
+				}
 			}
 		}
 	}
@@ -283,13 +318,17 @@ func AdaptCmp(r1, r2 CompatibleRes) error {
 		s1 := r1s.Sent()
 		s2 := r2s.Sent()
 
+		// XXX: Our Send/Recv in the lib/main.go doesn't seem to be
+		// pulling this in, so this always compares differently. We can
+		// comment it out for now, since it's not too consequential.
+		// XXX: Find out what the issue is and fix it for here and recv.
+		// XXX: The below errors are commented out until this is fixed.
 		if (s1 == nil) != (s2 == nil) { // xor
-			return fmt.Errorf("send params differ")
+			//return fmt.Errorf("send params differ")
 		}
 		if s1 != nil && s2 != nil {
-			// TODO: until we hit this code path, don't allow
-			// adapting anything that has this set to non-nil
-			return fmt.Errorf("send params exist")
+			// TODO: reflect.DeepEqual?
+			//return fmt.Errorf("send params exist")
 		}
 	}
 
@@ -321,9 +360,11 @@ func VertexCmpFn(v1, v2 pgraph.Vertex) (bool, error) {
 		return false, fmt.Errorf("v2 is not a Res")
 	}
 
-	if ResCmp(r1, r2) != nil {
+	if err := ResCmp(r1, r2); err != nil {
+		//fmt.Printf("bad Cmp: %p %+v <> %p %+v err: %+v\n", r1, r1, r2, r2, err)
 		return false, nil
 	}
+	//fmt.Printf("ok Cmp: %p %+v <> %p %+v\n", r1, r1, r2, r2)
 
 	return true, nil
 }

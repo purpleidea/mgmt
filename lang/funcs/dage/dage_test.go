@@ -29,6 +29,8 @@ import (
 	"github.com/purpleidea/mgmt/util"
 )
 
+var _ interfaces.GraphAPI = &Engine{} // ensure it meets this expectation
+
 type testFunc struct {
 	Name string
 	Type *types.Type

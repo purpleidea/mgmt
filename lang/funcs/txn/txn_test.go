@@ -17,7 +17,7 @@
 
 //go:build !root
 
-package dage
+package txn
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -138,13 +139,13 @@ func TestTxn1(t *testing.T) {
 	testGraphAPI := &testGraphAPI{graph: graph}
 	mutex := &sync.Mutex{}
 
-	graphTxn := &graphTxn{
+	graphTxn := &GraphTxn{
 		GraphAPI: testGraphAPI,
 		Lock:     mutex.Lock,
 		Unlock:   mutex.Unlock,
 		RefCount: (&ref.Count{}).Init(),
 	}
-	txn := graphTxn.init()
+	txn := graphTxn.Init()
 
 	f1 := &testNullFunc{"f1"}
 
@@ -481,13 +482,13 @@ func TestTxnTable(t *testing.T) {
 			testGraphAPI := &testGraphAPI{graph: graph}
 			mutex := &sync.Mutex{}
 
-			graphTxn := &graphTxn{
+			graphTxn := &GraphTxn{
 				GraphAPI: testGraphAPI,
 				Lock:     mutex.Lock,
 				Unlock:   mutex.Unlock,
 				RefCount: (&ref.Count{}).Init(),
 			}
-			txn := graphTxn.init()
+			txn := graphTxn.Init()
 
 			// Run a list of actions, passing the returned txn (if
 			// any) to the next action. Any error kills it all.

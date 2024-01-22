@@ -15,9 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package dage implements a DAG function engine.
-// TODO: can we rename this to something more interesting?
-package dage
+// Package txn contains the implementation of the graph transaction system.
+package txn
 
 import (
 	"fmt"
@@ -255,11 +254,11 @@ func (obj *opDeleteVertex) String() string {
 	return fmt.Sprintf("DeleteVertex: %+v", obj.F)
 }
 
-// graphTxn holds the state of a transaction and runs it when needed. When this
+// GraphTxn holds the state of a transaction and runs it when needed. When this
 // has been setup and initialized, it implements the Txn API that can be used by
 // functions in their Stream method to modify the function graph while it is
 // "running".
-type graphTxn struct {
+type GraphTxn struct {
 	// Lock is a handle to the lock function to call before the operation.
 	Lock func()
 
@@ -289,9 +288,9 @@ type graphTxn struct {
 	mutex *sync.Mutex
 }
 
-// init must be called to initialized the struct before first use. This is
-// private because the creator, not the user should run it.
-func (obj *graphTxn) init() interfaces.Txn {
+// Init must be called to initialized the struct before first use. This should
+// be called by the struct creator, not the user.
+func (obj *GraphTxn) Init() interfaces.Txn {
 	obj.ops = []opfn{}
 	obj.rev = []opfn{}
 	obj.mutex = &sync.Mutex{}
@@ -303,21 +302,21 @@ func (obj *graphTxn) init() interfaces.Txn {
 // This allows you to do an Add*/Commit/Reverse that isn't affected by a
 // different user of this transaction.
 // TODO: FreeFunc isn't well supported here. Replace or remove this entirely?
-func (obj *graphTxn) Copy() interfaces.Txn {
-	txn := &graphTxn{
+func (obj *GraphTxn) Copy() interfaces.Txn {
+	txn := &GraphTxn{
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
 		GraphAPI: obj.GraphAPI,
 		RefCount: obj.RefCount, // this is shared across all txn's
 		// FreeFunc is shared with the parent.
 	}
-	return txn.init()
+	return txn.Init()
 }
 
 // AddVertex adds a vertex to the running graph. The operation will get
 // completed when Commit is run.
 // XXX: should this be pgraph.Vertex instead of interfaces.Func ?
-func (obj *graphTxn) AddVertex(f interfaces.Func) interfaces.Txn {
+func (obj *GraphTxn) AddVertex(f interfaces.Func) interfaces.Txn {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -336,7 +335,7 @@ func (obj *graphTxn) AddVertex(f interfaces.Func) interfaces.Txn {
 // when Commit is run.
 // XXX: should this be pgraph.Vertex instead of interfaces.Func ?
 // XXX: should this be pgraph.Edge instead of *interfaces.FuncEdge ?
-func (obj *graphTxn) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) interfaces.Txn {
+func (obj *GraphTxn) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) interfaces.Txn {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -360,7 +359,7 @@ func (obj *graphTxn) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) in
 // DeleteVertex adds a vertex to the running graph. The operation will get
 // completed when Commit is run.
 // XXX: should this be pgraph.Vertex instead of interfaces.Func ?
-func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
+func (obj *GraphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -379,7 +378,7 @@ func (obj *graphTxn) DeleteVertex(f interfaces.Func) interfaces.Txn {
 // when Commit is run. This function panics if your graph contains vertices that
 // are not of type interfaces.Func or if your edges are not of type
 // *interfaces.FuncEdge.
-func (obj *graphTxn) AddGraph(g *pgraph.Graph) interfaces.Txn {
+func (obj *GraphTxn) AddGraph(g *pgraph.Graph) interfaces.Txn {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -431,7 +430,7 @@ func (obj *graphTxn) AddGraph(g *pgraph.Graph) interfaces.Txn {
 
 // commit runs the pending transaction. This is the lockless version that is
 // only used internally.
-func (obj *graphTxn) commit() error {
+func (obj *GraphTxn) commit() error {
 	if len(obj.ops) == 0 { // nothing to do
 		return nil
 	}
@@ -526,7 +525,7 @@ func (obj *graphTxn) commit() error {
 // Commit success) then this will erase that transaction. Usually you run cycles
 // of Commit, followed by Reverse, or only Commit. (You obviously have to
 // populate operations before the Commit is run.)
-func (obj *graphTxn) Commit() error {
+func (obj *GraphTxn) Commit() error {
 	// Lock our internal state mutex first... this prevents other AddVertex
 	// or similar calls from interferring with our work here.
 	obj.mutex.Lock()
@@ -536,7 +535,7 @@ func (obj *graphTxn) Commit() error {
 }
 
 // Clear erases any pending transactions that weren't committed yet.
-func (obj *graphTxn) Clear() {
+func (obj *GraphTxn) Clear() {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -549,7 +548,7 @@ func (obj *graphTxn) Clear() {
 // run at the end of a successful Reverse. It is generally recommended to not
 // queue any operations for Commit if you plan on doing a Reverse, or to run a
 // Clear before running Reverse if you want to discard the pending commits.
-func (obj *graphTxn) Reverse() error {
+func (obj *GraphTxn) Reverse() error {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -609,7 +608,7 @@ func (obj *graphTxn) Reverse() error {
 }
 
 // Erase removes the historical information that Reverse would run after Commit.
-func (obj *graphTxn) Erase() {
+func (obj *GraphTxn) Erase() {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -620,7 +619,7 @@ func (obj *graphTxn) Erase() {
 // It should get called when we're done with any Txn.
 // TODO: this is only used for the initial Txn. Consider expanding it's use. We
 // might need to allow Clear to call it as part of the clearing.
-func (obj *graphTxn) Free() {
+func (obj *GraphTxn) Free() {
 	if obj.FreeFunc != nil {
 		obj.FreeFunc()
 	}

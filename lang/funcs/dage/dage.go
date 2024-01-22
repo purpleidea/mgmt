@@ -32,6 +32,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
+	"github.com/purpleidea/mgmt/lang/funcs/txn"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -230,13 +231,13 @@ func (obj *Engine) Txn() interfaces.Txn {
 			obj.wgTxn.Done()
 		}
 	}
-	return (&graphTxn{
+	return (&txn.GraphTxn{
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
 		GraphAPI: obj,
 		RefCount: obj.refCount, // reference counting
 		FreeFunc: free,
-	}).init()
+	}).Init()
 }
 
 // addVertex is the lockless version of the AddVertex function. This is needed
@@ -1526,7 +1527,7 @@ type state struct {
 
 	input  chan types.Value // the top level type must be a struct
 	output chan types.Value
-	txn    interfaces.Txn // API of graphTxn struct to pass to each function
+	txn    interfaces.Txn // API of GraphTxn struct to pass to each function
 
 	//init   bool // have we run Init on our func?
 	//ready  bool // has it received all the args it needs at least once?

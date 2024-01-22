@@ -1,3 +1,7 @@
+-- CONFIG --
+{
+	"maximum-count": 1
+}
 -- main.mcl --
 import "test"
 

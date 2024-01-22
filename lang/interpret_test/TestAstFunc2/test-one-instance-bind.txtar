@@ -1,3 +1,7 @@
+-- CONFIG --
+{
+	"maximum-count": 1
+}
 -- main.mcl --
 import "test"
 # one_instance_a should only produce one value, and will error if initialized twice

@@ -22,6 +22,7 @@ package lang
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -61,6 +62,24 @@ import (
 const (
 	runGraphviz = false // run graphviz in tests?
 )
+
+var (
+	testMutex   *sync.Mutex     // guards testCounter
+	testCounter map[string]uint // counts how many times each test ran
+)
+
+func init() {
+	testMutex = &sync.Mutex{}
+	testCounter = make(map[string]uint)
+}
+
+// ConfigProperties are some values that are used to specify how each test runs.
+type ConfigProperties struct {
+
+	// MaximumCount specifies how many times this test can run safely in a
+	// single iteration. If zero then this means infinite.
+	MaximumCount uint `json:"maximum-count"`
+}
 
 // TestAstFunc1 is a more advanced version which pulls code from physical dirs.
 func TestAstFunc1(t *testing.T) {
@@ -169,11 +188,16 @@ func TestAstFunc1(t *testing.T) {
 
 			// copy files out into the test temp directory
 			var testOutput []byte
+			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
+					continue
+				}
+				if file.Name == "CONFIG" {
+					testConfig = file.Data
 					continue
 				}
 
@@ -187,6 +211,29 @@ func TestAstFunc1(t *testing.T) {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
+			}
+
+			var c ConfigProperties // add pointer to get nil if empty
+			if len(testConfig) > 0 {
+				if err := json.Unmarshal(testConfig, &c); err != nil {
+					t.Errorf("err parsing txtar(%s) config: %+v", txtarFile, err)
+					return
+				}
+			}
+			if testing.Verbose() {
+				t.Logf("config: %+v", c)
+			}
+
+			testMutex.Lock()               // global
+			count := testCounter[t.Name()] // global
+			testCounter[t.Name()]++
+			testMutex.Unlock()
+
+			if c.MaximumCount != 0 && count >= c.MaximumCount {
+				if count == c.MaximumCount { // logf once
+					t.Logf("Skipping test after count: %d", count)
+				}
+				return
 			}
 
 			if !found { // skip missing tests
@@ -624,11 +671,16 @@ func TestAstFunc2(t *testing.T) {
 
 			// copy files out into the test temp directory
 			var testOutput []byte
+			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
+					continue
+				}
+				if file.Name == "CONFIG" {
+					testConfig = file.Data
 					continue
 				}
 
@@ -642,6 +694,29 @@ func TestAstFunc2(t *testing.T) {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
+			}
+
+			var c ConfigProperties // add pointer to get nil if empty
+			if len(testConfig) > 0 {
+				if err := json.Unmarshal(testConfig, &c); err != nil {
+					t.Errorf("err parsing txtar(%s) config: %+v", txtarFile, err)
+					return
+				}
+			}
+			if testing.Verbose() {
+				t.Logf("config: %+v", c)
+			}
+
+			testMutex.Lock()               // global
+			count := testCounter[t.Name()] // global
+			testCounter[t.Name()]++
+			testMutex.Unlock()
+
+			if c.MaximumCount != 0 && count >= c.MaximumCount {
+				if count == c.MaximumCount { // logf once
+					t.Logf("Skipping test after count: %d", count)
+				}
+				return
 			}
 
 			if !found { // skip missing tests
@@ -1404,11 +1479,16 @@ func TestAstFunc3(t *testing.T) {
 
 			// copy files out into the test temp directory
 			var testOutput []byte
+			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
+					continue
+				}
+				if file.Name == "CONFIG" {
+					testConfig = file.Data
 					continue
 				}
 
@@ -1422,6 +1502,29 @@ func TestAstFunc3(t *testing.T) {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
+			}
+
+			var c ConfigProperties // add pointer to get nil if empty
+			if len(testConfig) > 0 {
+				if err := json.Unmarshal(testConfig, &c); err != nil {
+					t.Errorf("err parsing txtar(%s) config: %+v", txtarFile, err)
+					return
+				}
+			}
+			if testing.Verbose() {
+				t.Logf("config: %+v", c)
+			}
+
+			testMutex.Lock()               // global
+			count := testCounter[t.Name()] // global
+			testCounter[t.Name()]++
+			testMutex.Unlock()
+
+			if c.MaximumCount != 0 && count >= c.MaximumCount {
+				if count == c.MaximumCount { // logf once
+					t.Logf("Skipping test after count: %d", count)
+				}
+				return
 			}
 
 			if !found { // skip missing tests

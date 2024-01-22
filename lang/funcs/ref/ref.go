@@ -15,9 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Package dage implements a DAG function engine.
-// TODO: can we rename this to something more interesting?
-package dage
+// Package ref implements reference counting for the graph API and function
+// engine.
+package ref
 
 import (
 	"fmt"
@@ -27,9 +27,9 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-// RefCount keeps track of vertex and edge references across the entire graph.
-// Make sure to lock access somehow, ideally with the provided Locker interface.
-type RefCount struct {
+// Count keeps track of vertex and edge references across the entire graph. Make
+// sure to lock access somehow, ideally with the provided Locker interface.
+type Count struct {
 	// mutex locks this database for read or write.
 	mutex *sync.Mutex
 
@@ -37,18 +37,18 @@ type RefCount struct {
 	vertices map[interfaces.Func]int64
 
 	// edges is a reference count of the number of edges used.
-	edges map[*RefCountEdge]int64 // TODO: hash *RefCountEdge as a key instead
+	edges map[*CountEdge]int64 // TODO: hash *CountEdge as a key instead
 }
 
-// RefCountEdge is a virtual "hash" entry for the RefCount edges map key.
-type RefCountEdge struct {
+// CountEdge is a virtual "hash" entry for the Count edges map key.
+type CountEdge struct {
 	f1  interfaces.Func
 	f2  interfaces.Func
 	arg string
 }
 
 // String prints a representation of the references held.
-func (obj *RefCount) String() string {
+func (obj *Count) String() string {
 	s := ""
 	s += fmt.Sprintf("vertices (%d):\n", len(obj.vertices))
 	for vertex, count := range obj.vertices {
@@ -62,18 +62,18 @@ func (obj *RefCount) String() string {
 }
 
 // Init must be called to initialized the struct before first use.
-func (obj *RefCount) Init() *RefCount {
+func (obj *Count) Init() *Count {
 	obj.mutex = &sync.Mutex{}
 	obj.vertices = make(map[interfaces.Func]int64)
-	obj.edges = make(map[*RefCountEdge]int64)
+	obj.edges = make(map[*CountEdge]int64)
 	return obj // return self so it can be called in a chain
 }
 
 // Lock the mutex that should be used when reading or writing from this.
-func (obj *RefCount) Lock() { obj.mutex.Lock() }
+func (obj *Count) Lock() { obj.mutex.Lock() }
 
 // Unlock the mutex that should be used when reading or writing from this.
-func (obj *RefCount) Unlock() { obj.mutex.Unlock() }
+func (obj *Count) Unlock() { obj.mutex.Unlock() }
 
 // VertexInc increments the reference count for the input vertex. It returns
 // true if the reference count for this vertex was previously undefined or zero.
@@ -81,7 +81,7 @@ func (obj *RefCount) Unlock() { obj.mutex.Unlock() }
 // to increment a vertex which already has a less than zero count, then this
 // will panic. This situation is likely impossible unless someone modified the
 // reference counting struct directly.
-func (obj *RefCount) VertexInc(f interfaces.Func) bool {
+func (obj *Count) VertexInc(f interfaces.Func) bool {
 	count, _ := obj.vertices[f]
 	obj.vertices[f] = count + 1
 	if count == -1 { // unlikely, but catch any bugs
@@ -94,7 +94,7 @@ func (obj *RefCount) VertexInc(f interfaces.Func) bool {
 // true if the reference count for this vertex is now zero. True usually means
 // we'd want to actually remove this vertex now. If you attempt to decrement a
 // vertex which already has a zero count, then this will panic.
-func (obj *RefCount) VertexDec(f interfaces.Func) bool {
+func (obj *Count) VertexDec(f interfaces.Func) bool {
 	count, _ := obj.vertices[f]
 	obj.vertices[f] = count - 1
 	if count == 0 {
@@ -107,7 +107,7 @@ func (obj *RefCount) VertexDec(f interfaces.Func) bool {
 // reference for each arg name in the edge. Since this also increments the
 // references for the two input vertices, it returns the corresponding two
 // boolean values for these calls. (This function makes two calls to VertexInc.)
-func (obj *RefCount) EdgeInc(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (bool, bool) {
+func (obj *Count) EdgeInc(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (bool, bool) {
 	for _, arg := range fe.Args { // ref count each arg
 		r := obj.makeEdge(f1, f2, arg)
 		count := obj.edges[r]
@@ -124,7 +124,7 @@ func (obj *RefCount) EdgeInc(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (b
 // reference for each arg name in the edge. Since this also decrements the
 // references for the two input vertices, it returns the corresponding two
 // boolean values for these calls. (This function makes two calls to VertexDec.)
-func (obj *RefCount) EdgeDec(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (bool, bool) {
+func (obj *Count) EdgeDec(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (bool, bool) {
 	for _, arg := range fe.Args { // ref count each arg
 		r := obj.makeEdge(f1, f2, arg)
 		count := obj.edges[r]
@@ -138,7 +138,7 @@ func (obj *RefCount) EdgeDec(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (b
 }
 
 // FreeVertex removes exactly one entry from the Vertices list or it errors.
-func (obj *RefCount) FreeVertex(f interfaces.Func) error {
+func (obj *Count) FreeVertex(f interfaces.Func) error {
 	if count, exists := obj.vertices[f]; !exists || count != 0 {
 		return fmt.Errorf("no vertex of count zero found")
 	}
@@ -147,8 +147,8 @@ func (obj *RefCount) FreeVertex(f interfaces.Func) error {
 }
 
 // FreeEdge removes exactly one entry from the Edges list or it errors.
-func (obj *RefCount) FreeEdge(f1, f2 interfaces.Func, arg string) error {
-	found := []*RefCountEdge{}
+func (obj *Count) FreeEdge(f1, f2 interfaces.Func, arg string) error {
+	found := []*CountEdge{}
 	for k, count := range obj.edges {
 		//if k == nil { // programming error
 		//	continue
@@ -169,7 +169,7 @@ func (obj *RefCount) FreeEdge(f1, f2 interfaces.Func, arg string) error {
 
 // GC runs the garbage collector on any zeroed references. Note the distinction
 // between count == 0 (please delete now) and absent from the map.
-func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
+func (obj *Count) GC(graphAPI interfaces.GraphAPI) error {
 	// debug
 	//fmt.Printf("start refs\n%s", obj.String())
 	//defer func() { fmt.Printf("end refs\n%s", obj.String()) }()
@@ -265,7 +265,7 @@ func (obj *RefCount) GC(graphAPI interfaces.GraphAPI) error {
 
 // makeEdge looks up an edge with the "hash" input we are seeking. If it doesn't
 // find a match, it returns a new one with those fields.
-func (obj *RefCount) makeEdge(f1, f2 interfaces.Func, arg string) *RefCountEdge {
+func (obj *Count) makeEdge(f1, f2 interfaces.Func, arg string) *CountEdge {
 	for k := range obj.edges {
 		//if k == nil { // programming error
 		//	continue
@@ -274,7 +274,7 @@ func (obj *RefCount) makeEdge(f1, f2 interfaces.Func, arg string) *RefCountEdge 
 			return k
 		}
 	}
-	return &RefCountEdge{ // not found, so make a new one!
+	return &CountEdge{ // not found, so make a new one!
 		f1:  f1,
 		f2:  f2,
 		arg: arg,

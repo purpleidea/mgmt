@@ -142,7 +142,7 @@ func TestTxn1(t *testing.T) {
 		GraphAPI: testGraphAPI,
 		Lock:     mutex.Lock,
 		Unlock:   mutex.Unlock,
-		RefCount: (&RefCount{}).Init(),
+		RefCount: (&ref.Count{}).Init(),
 	}
 	txn := graphTxn.init()
 
@@ -485,7 +485,7 @@ func TestTxnTable(t *testing.T) {
 				GraphAPI: testGraphAPI,
 				Lock:     mutex.Lock,
 				Unlock:   mutex.Unlock,
-				RefCount: (&RefCount{}).Init(),
+				RefCount: (&ref.Count{}).Init(),
 			}
 			txn := graphTxn.init()
 

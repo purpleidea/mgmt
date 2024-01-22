@@ -24,6 +24,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
 )
@@ -41,7 +42,7 @@ const GraphvizDebug = false
 // also allows us to change API slightly without re-writing code.
 type opapi struct {
 	GraphAPI interfaces.GraphAPI
-	RefCount *RefCount
+	RefCount *ref.Count
 }
 
 // opfn is an interface that holds the normal op, and the reverse op if we need
@@ -272,7 +273,7 @@ type graphTxn struct {
 
 	// RefCount keeps track of vertex and edge references across the entire
 	// graph.
-	RefCount *RefCount
+	RefCount *ref.Count
 
 	// FreeFunc is a function that will get called by a well-behaved user
 	// when we're done with this Txn.

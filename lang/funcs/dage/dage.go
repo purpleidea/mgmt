@@ -30,6 +30,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/local"
+	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -71,7 +72,7 @@ type Engine struct {
 
 	// refCount keeps track of vertex and edge references across the entire
 	// graph.
-	refCount *RefCount
+	refCount *ref.Count
 
 	// wgTxn blocks shutdown until the initial Txn has Reversed.
 	wgTxn *sync.WaitGroup
@@ -161,7 +162,7 @@ func (obj *Engine) Setup() error {
 	obj.graphMutex = &sync.Mutex{} // TODO: &sync.RWMutex{} ?
 	obj.tableMutex = &sync.RWMutex{}
 
-	obj.refCount = (&RefCount{}).Init()
+	obj.refCount = (&ref.Count{}).Init()
 
 	obj.wgTxn = &sync.WaitGroup{}
 

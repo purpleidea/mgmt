@@ -1451,10 +1451,10 @@ func (obj *Engine) Stats() string {
 	return obj.stats.String()
 }
 
-// Graphviz writes out the diagram of a graph to be used for visualization and
-// debugging. You must not modify the graph (eg: during Lock) when calling this
-// method.
-func (obj *Engine) Graphviz(dir string) error {
+// ExecGraphviz writes out the diagram of a graph to be used for visualization
+// and debugging. You must not modify the graph (eg: during Lock) when calling
+// this method.
+func (obj *Engine) ExecGraphviz(dir string) error {
 	// XXX: would this deadlock if we added this?
 	//obj.graphMutex.Lock()         // XXX: should this be a RLock?
 	//defer obj.graphMutex.Unlock() // XXX: should this be an RUnlock?

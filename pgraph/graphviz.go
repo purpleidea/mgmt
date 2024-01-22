@@ -40,6 +40,23 @@ const (
 	ptrLabelsSize = 10
 )
 
+// Graphvizable is a simple interface to handle the common signature for this
+// useful graphviz exec method that is used in debugging. Expect that this
+// signature might change if the authors find a different variant more useful.
+type Graphvizable interface {
+
+	// ExecGraphviz runs graphviz and stores the result at this absolute
+	// path. It (awkwardly) can be used by someone expecting either a
+	// filename, or a directory. The filename scenario should be used if you
+	// are expecting a single .dot output file. The directory scenario
+	// should be used if you are expecting a series of .dot graphs.
+	// Directories must end with a trailing slash. A filename passed will
+	// get this location overwritten if there is something already there. If
+	// the string is empty, it might create a file in a temporary directory
+	// somewhere.
+	ExecGraphviz(filename string) error
+}
+
 // Graphviz adds some visualization features for pgraph.
 type Graphviz struct {
 	// Name is the display name of the graph. If specified it overrides an

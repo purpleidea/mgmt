@@ -498,12 +498,12 @@ func (obj *graphTxn) commit() error {
 
 	// XXX: running this on each commit has a huge performance hit.
 	// XXX: we could write out the .dot files and run graphviz afterwards
-	if engine, ok := obj.GraphAPI.(*Engine); ok && GraphvizDebug {
+	if g, ok := obj.GraphAPI.(pgraph.Graphvizable); ok && GraphvizDebug {
 		//d := time.Now().Unix()
-		//if err := engine.graph.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
+		//if err := g.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
 		//	panic("no graphviz")
 		//}
-		if err := engine.Graphviz(""); err != nil {
+		if err := g.ExecGraphviz(""); err != nil {
 			panic(err) // XXX: improve me
 		}
 

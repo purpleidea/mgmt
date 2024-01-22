@@ -33,6 +33,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
+	"github.com/purpleidea/mgmt/lang/funcs/txn"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -7716,10 +7717,10 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 func (obj *ExprFunc) Value() (types.Value, error) {
 	// MCL case: copy the code from ExprFunc.Graph which creates this FuncValue
 	// builtin case: look up the full.FuncValue or the FuncValue somewhere?
-        // polymorphic case: figure out which one has the correct type and wrap
-        // it in a full.FuncValue.
+	// polymorphic case: figure out which one has the correct type and wrap
+	// it in a full.FuncValue.
 	if obj.Body != nil {
-		env := make(map[string]interfaces.Func) XXX ???
+		env := make(map[string]interfaces.Func) // XXX ??? SAM will decide what to do here
 		return &full.FuncValue{
 			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Extend the environment with the arguments.
@@ -7745,14 +7746,17 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			},
 			T: obj.typ,
 		}, nil
-	} else if obj.Function != nil {
 
-	} else /* len(obj.Values) > 0 */ {
+	} else if obj.Function != nil {
+		// builtin case: look up the full.FuncValue or the FuncValue somewhere?
+		return structs.FuncToFullFuncValue(obj.function, obj.typ), nil
 
 	}
+	// else if /* len(obj.Values) > 0 */
+	panic("what to do here")
 
 	return &full.FuncValue{
-		V: obj.V,
+		//V: obj.V, // XXX ???
 		T: obj.typ,
 	}, nil
 }
@@ -8596,29 +8600,25 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		if err == nil {
 			exprFuncValue, ok := exprValue.(*full.FuncValue)
 			if ok {
-
-// XXX JAMES TODO
-//				return (&graphTxn{
-//					Lock:     obj.Lock,
-//					Unlock:   obj.Unlock,
-//					GraphAPI: obj,
-//					RefCount: obj.refCount, // reference counting
-//					FreeFunc: free,
-//				}).init()
-
-				txn := (&interfaces.GraphTxn{}).Init() // XXX no, we want a different implementation of Txn
+				txn := (&txn.Graph{
+					Debug: obj.data.debug,
+					Logf: func(format string, v ...interface{}) {
+						obj.data.Logf(format, v...)
+					},
+				}.Init())
 				args := []interfaces.Func{}
-				for _, x := range obj.Args { // []interfaces.Expr
+				for _, arg := range obj.Args { // []interfaces.Expr
+					_ = arg // XXX: ??? obj.expr or arg.Graph ?
 					g, f, err := obj.expr.Graph(env)
 					if err != nil {
-						return nil, nil, errwap.Wrapf(err, "could not even XXX")
+						return nil, nil, errwrap.Wrapf(err, "could not even XXX")
 					}
 					args = append(args, f)
 					txn.AddGraph(g)
 				}
 				outputFunc, err := exprFuncValue.Call(txn, args)
 				if err != nil {
-					return nil, nil, errwap.Wrapf(err, "could not construct the static graph for a function call")
+					return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
 				}
 
 				return txn.Graph(), outputFunc, nil
@@ -8688,16 +8688,44 @@ func (obj *ExprCall) SetValue(value types.Value) error {
 // This particular implementation of the function returns the previously stored
 // and cached value as received by SetValue.
 func (obj *ExprCall) Value() (types.Value, error) {
-	if obj.V == nil {
+	if obj.expr == nil {
 		return nil, fmt.Errorf("func value does not yet exist")
 	}
 
-        // speculatively call Value() on obj.Expr and each arg.
-        // if all successful, we will have a full.FuncValue and a []Value.
-        // full.FuncValue _also_ needs a speculative Call([]Value) Value
-        // method, in addition to its existing Call([]Func) Func method.
-        // call it.
-	return obj.V, nil
+	// speculatively call Value() on obj.expr and each arg.
+	value, err := obj.expr.Value() // speculative
+	if err != nil {
+		return nil, err
+	}
+
+	funcValue, ok := value.(*full.FuncValue)
+	if !ok {
+		return nil, fmt.Errorf("not a func value")
+	}
+
+	args := []types.Value{}
+	for _, arg := range obj.Args { // []interfaces.Expr
+		a, err := arg.Value() // speculative
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, a)
+	}
+
+	//callable, ok := v.(*XXX) // XXX ???
+
+	// if all successful, we will have a full.FuncValue and a []Value.
+	// full.FuncValue _also_ needs a speculative Call([]Value) Value
+	// method, in addition to its existing Call([]Func) Func method.
+	// call it.
+
+	//if !ok {
+	//	return nil, fmt.Errorf("not callable")
+	//}
+
+	//XXX: full: func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error)
+
+	return funcValue.Call(args) // XXX ???
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression

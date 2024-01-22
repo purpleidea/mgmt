@@ -72,3 +72,19 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 	return FuncValueToConstFunc(SimpleFnToFuncValue(name, fv))
 }
+
+// XXX sam comment here
+func FuncToFullFuncValue(valueTransformingFunc interfaces.Func, typ *types.Type) *full.FuncValue {
+	return &full.FuncValue{
+		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			for i, arg := range args {
+				argName := typ.Ord[i]
+				txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+					Args: []string{argName},
+				})
+			}
+			return valueTransformingFunc, nil
+		},
+		T: typ,
+	}
+}

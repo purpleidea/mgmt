@@ -7247,7 +7247,6 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 	cons := make(map[interfaces.Node]string)
 
-	// XXX: do we need ordering for other aspects of ExprFunc ?
 	if obj.Body != nil {
 		g, c, err := obj.Body.Ordering(newProduces)
 		if err != nil {

@@ -8716,20 +8716,11 @@ func (obj *ExprCall) Value() (types.Value, error) {
 		args = append(args, a)
 	}
 
-	//callable, ok := v.(*XXX) // XXX ???
-
-	// if all successful, we will have a full.FuncValue and a []Value.
-	// full.FuncValue _also_ needs a speculative Call([]Value) Value
-	// method, in addition to its existing Call([]Func) Func method.
-	// call it.
-
-	//if !ok {
-	//	return nil, fmt.Errorf("not callable")
-	//}
-
-	//XXX: full: func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error)
-
-	return funcValue.Call(args) // XXX ???
+	// we now have a full.FuncValue and a []Value. We can't call the existing
+	//   Call([]Func) Func
+	// method on the FuncValue, we need a speculative
+	//   Call([]Value) Value
+	// method. so the next step is to implement that method.
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression

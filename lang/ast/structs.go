@@ -7723,10 +7723,6 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This might get called speculatively (early) during unification to learn more.
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
-	// MCL case: copy the code from ExprFunc.Graph which creates this FuncValue
-	// builtin case: look up the full.FuncValue or the FuncValue somewhere?
-	// polymorphic case: figure out which one has the correct type and wrap
-	// it in a full.FuncValue.
 	if obj.Body != nil {
 		env := make(map[string]interfaces.Func) // XXX ??? SAM will decide what to do here
 		return &full.FuncValue{
@@ -7756,12 +7752,13 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 		}, nil
 
 	} else if obj.Function != nil {
-		// builtin case: look up the full.FuncValue or the FuncValue somewhere?
 		return structs.FuncToFullFuncValue(obj.function, obj.typ), nil
 
 	}
 	// else if /* len(obj.Values) > 0 */
 	panic("what to do here")
+	// polymorphic case: figure out which one has the correct type and wrap
+	// it in a full.FuncValue.
 
 	return &full.FuncValue{
 		//V: obj.V, // XXX ???

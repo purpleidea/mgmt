@@ -73,7 +73,9 @@ func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 	return FuncValueToConstFunc(SimpleFnToFuncValue(name, fv))
 }
 
-// XXX sam comment here
+// FuncToFullFuncValue creates a *full.FuncValue which adds the given
+// interfaces.Func to the graph. Note that this means the *full.FuncValue
+// can only be called once.
 func FuncToFullFuncValue(valueTransformingFunc interfaces.Func, typ *types.Type) *full.FuncValue {
 	return &full.FuncValue{
 		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {

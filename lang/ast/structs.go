@@ -5184,6 +5184,10 @@ func (obj *ExprBool) SetScope(scope *interfaces.Scope, sctx map[string]interface
 	return nil
 }
 
+func (obj *ExprBool) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return nil
+}
+
 // SetType will make no changes if called here. It will error if anything other
 // than a Bool is passed in, and doesn't need to be called for this expr to
 // work.
@@ -5364,6 +5368,10 @@ func (obj *ExprStr) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 	return nil
 }
 
+func (obj *ExprStr) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return nil
+}
+
 // SetType will make no changes if called here. It will error if anything other
 // than an Str is passed in, and doesn't need to be called for this expr to
 // work.
@@ -5491,6 +5499,10 @@ func (obj *ExprInt) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
+	return nil
+}
+
+func (obj *ExprInt) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
 	return nil
 }
 
@@ -5623,6 +5635,10 @@ func (obj *ExprFloat) SetScope(scope *interfaces.Scope, sctx map[string]interfac
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
+	return nil
+}
+
+func (obj *ExprFloat) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
 	return nil
 }
 
@@ -5833,6 +5849,15 @@ func (obj *ExprList) SetScope(scope *interfaces.Scope, sctx map[string]interface
 
 	for _, x := range obj.Elements {
 		if err := x.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *ExprList) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	for _, x := range obj.Elements {
+		if err := x.CheckParamScope(freeVars); err != nil {
 			return err
 		}
 	}
@@ -6265,6 +6290,18 @@ func (obj *ExprMap) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 			return err
 		}
 		if err := x.Val.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *ExprMap) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	for _, x := range obj.KVs {
+		if err := x.Key.CheckParamScope(freeVars); err != nil {
+			return err
+		}
+		if err := x.Val.CheckParamScope(freeVars); err != nil {
 			return err
 		}
 	}
@@ -6737,6 +6774,15 @@ func (obj *ExprStruct) SetScope(scope *interfaces.Scope, sctx map[string]interfa
 
 	for _, x := range obj.Fields {
 		if err := x.Value.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *ExprStruct) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	for _, x := range obj.Fields {
+		if err := x.Value.CheckParamScope(freeVars); err != nil {
 			return err
 		}
 	}
@@ -7309,6 +7355,23 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		// TODO: if *types.FuncValue grows a SetScope method do it here
 	}
 
+	return nil
+}
+
+func (obj *ExprFunc) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if obj.Body != nil {
+		newFreeVars := make(map[interfaces.Expr]struct{})
+		for k, v := range freeVars {
+			newFreeVars[k] = v
+		}
+		for _, param := range obj.params {
+			newFreeVars[param] = struct{}{}
+		}
+
+		if err := obj.Body.CheckParamScope(newFreeVars); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -8061,6 +8124,22 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		// already been scope-checked, so we don't need to scope-check
 		// it again.
 		obj.expr = target
+	}
+
+	return nil
+}
+
+func (obj *ExprCall) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if obj.expr != nil {
+		if err := obj.expr.CheckParamScope(freeVars); err != nil {
+			return err
+		}
+	}
+
+	for _, x := range obj.Args {
+		if err := x.CheckParamScope(freeVars); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -8845,6 +8924,14 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 	return nil
 }
 
+func (obj *ExprVar) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	target := obj.scope.Variables[obj.Name]
+	if err := target.CheckParamScope(freeVars); err != nil {
+		return err
+	}
+	return nil
+}
+
 // SetType is used to set the type of this expression once it is known. This
 // usually happens during type unification, but it can also happen during
 // parsing if a type is specified explicitly. Since types are static and don't
@@ -9057,6 +9144,14 @@ func (obj *ExprParam) SetScope(scope *interfaces.Scope, sctx map[string]interfac
 	return nil
 }
 
+func (obj *ExprParam) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if _, exists := freeVars[obj]; !exists {
+		return fmt.Errorf("the body uses parameter $%s", obj.Name)
+	}
+
+	return nil
+}
+
 // SetType is used to set the type of this expression once it is known. This
 // usually happens during type unification, but it can also happen during
 // parsing if a type is specified explicitly. Since types are static and don't
@@ -9187,6 +9282,10 @@ func (obj *ExprPoly) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // SetScope stores the scope for use in this resource.
 func (obj *ExprPoly) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	panic("ExprPoly.SetScope(): should not happen, ExprVar should replace ExprPoly with a copy of its definition before calling SetScope")
+}
+
+func (obj *ExprPoly) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	panic("ExprPoly.CheckParamScope(): should not happen, ExprVar should replace ExprPoly with a copy of its definition before calling SetScope")
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -9344,6 +9443,10 @@ func (obj *ExprTopLevel) SetScope(scope *interfaces.Scope, sctx map[string]inter
 	// functions enclosing the use site are not visible at the top-level either,
 	// so we must clear sctx.
 	return obj.Definition.SetScope(obj.CapturedScope, make(map[string]interfaces.Expr))
+}
+
+func (obj *ExprTopLevel) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return obj.Definition.CheckParamScope(freeVars)
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -9524,6 +9627,10 @@ func (obj *ExprSingleton) Ordering(produces map[string]interfaces.Node) (*pgraph
 // SetScope stores the scope for use in this resource.
 func (obj *ExprSingleton) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	return obj.Definition.SetScope(scope, sctx)
+}
+
+func (obj *ExprSingleton) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return obj.Definition.CheckParamScope(freeVars)
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -9811,6 +9918,19 @@ func (obj *ExprIf) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.
 		return err
 	}
 	return obj.Condition.SetScope(scope, sctx)
+}
+
+func (obj *ExprIf) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if err := obj.Condition.CheckParamScope(freeVars); err != nil {
+		return err
+	}
+	if err := obj.ThenBranch.CheckParamScope(freeVars); err != nil {
+		return err
+	}
+	if err := obj.ElseBranch.CheckParamScope(freeVars); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetType is used to set the type of this expression once it is known. This

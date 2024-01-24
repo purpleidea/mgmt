@@ -8613,8 +8613,7 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 				}.Init())
 				args := []interfaces.Func{}
 				for _, arg := range obj.Args { // []interfaces.Expr
-					_ = arg // XXX: ??? obj.expr or arg.Graph ?
-					g, f, err := obj.expr.Graph(env)
+					g, f, err := arg.Graph(env)
 					if err != nil {
 						return nil, nil, errwrap.Wrapf(err, "could not even XXX")
 					}

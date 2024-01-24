@@ -7787,14 +7787,19 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
 	if obj.Body != nil {
-		env := make(map[string]interfaces.Func) // XXX ??? SAM will decide what to do here
+		// We can only return a Value if we know the value of all the ExprParams.
+		// We don't have an environment, so this is only possible if there are no
+		// ExprParams at all.
+		if err := obj.CheckParamScope(make(map[interfaces.Expr]struct{})); err != nil {
+			// return the sentinel value
+			return nil, ErrCantSpeculate
+		}
+
 		return &full.FuncValue{
 			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// Extend the environment with the arguments.
+				// There are no ExprParams, so we start with the empty environment.
+				// Extend that environment with the arguments.
 				extendedEnv := make(map[string]interfaces.Func)
-				for k, v := range env {
-					extendedEnv[k] = v
-				}
 				for i, arg := range obj.Args {
 					extendedEnv[arg.Name] = args[i]
 				}
@@ -7813,7 +7818,6 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			},
 			T: obj.typ,
 		}, nil
-
 	} else if obj.Function != nil {
 		return structs.FuncToFullFuncValue(obj.function, obj.typ), nil
 

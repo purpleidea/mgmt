@@ -8612,10 +8612,10 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 					},
 				}.Init())
 				args := []interfaces.Func{}
-				for _, arg := range obj.Args { // []interfaces.Expr
+				for i, arg := range obj.Args { // []interfaces.Expr
 					g, f, err := arg.Graph(env)
 					if err != nil {
-						return nil, nil, errwrap.Wrapf(err, "could not even XXX")
+						return nil, nil, errwrap.Wrapf(err, "could not get graph for arg %d", i)
 					}
 					args = append(args, f)
 					txn.AddGraph(g)

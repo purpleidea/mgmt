@@ -339,4 +339,8 @@ type Txn interface {
 	// separate state. This allows you to do an Add*/Commit/Reverse that
 	// isn't affected by a different user of this transaction.
 	Copy() Txn
+
+	// Graph returns a copy of the graph. It returns what has been already
+	// committed.
+	Graph() *pgraph.Graph
 }

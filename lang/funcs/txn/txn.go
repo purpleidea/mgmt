@@ -624,3 +624,12 @@ func (obj *GraphTxn) Free() {
 		obj.FreeFunc()
 	}
 }
+
+// Graph returns a copy of the contained graph. It returns what has been already
+// committed.
+func (obj *GraphTxn) Graph() *pgraph.Graph {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	return obj.GraphAPI.Graph() // returns a copy
+}

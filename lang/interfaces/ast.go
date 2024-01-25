@@ -110,6 +110,7 @@ type Expr interface {
 	SetScope(*Scope, map[string]Expr) error
 
 	// Ensure that only the specified ExprParams are free in this expression.
+	// XXX: JAMES: REPLACE WITH WITH A CALL TO APPLY() AFTER EVERYTHING WORKS.
 	CheckParamScope(map[Expr]struct{}) error
 
 	// SetType sets the type definitively, and errors if it is incompatible.

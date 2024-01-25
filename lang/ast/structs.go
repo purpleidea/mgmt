@@ -32,6 +32,7 @@ import (
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/core"
+	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/funcs/txn"
 	"github.com/purpleidea/mgmt/lang/inputs"
@@ -8688,12 +8689,17 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		if err == nil {
 			exprFuncValue, ok := exprValue.(*full.FuncValue)
 			if ok {
-				txn := (&txn.Graph{
-					Debug: obj.data.debug,
-					Logf: func(format string, v ...interface{}) {
-						obj.data.Logf(format, v...)
-					},
-				}.Init())
+				txn := (&txn.GraphTxn{
+					GraphAPI: (&txn.Graph{
+						Debug: obj.data.Debug,
+						Logf: func(format string, v ...interface{}) {
+							obj.data.Logf(format, v...)
+						},
+					}).Init(),
+					Lock:     func() {},
+					Unlock:   func() {},
+					RefCount: (&ref.Count{}).Init(),
+				}).Init()
 				args := []interfaces.Func{}
 				for i, arg := range obj.Args { // []interfaces.Expr
 					g, f, err := arg.Graph(env)
@@ -8799,6 +8805,8 @@ func (obj *ExprCall) Value() (types.Value, error) {
 		args = append(args, a)
 	}
 
+	_ = funcValue
+	panic("IMPLEMENT THIS")
 	// we now have a full.FuncValue and a []Value. We can't call the existing
 	//   Call([]Func) Func
 	// method on the FuncValue, we need a speculative

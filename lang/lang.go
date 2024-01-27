@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/local"
@@ -40,6 +41,14 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+)
+
+const (
+	// EngineStartupStatsTimeout is the amount of time in seconds to wait
+	// between engine startup, and loaded event before printing some
+	// debugging stats. This is useful for finding bugs in the function
+	// engine. Set to zero to disable.
+	EngineStartupStatsTimeout = 10
 )
 
 // Lang is the main language lexer/parser object.
@@ -312,6 +321,21 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 
 	// wait for some activity
 	obj.Logf("stream...")
+
+	// print some stats if the engine takes too long to startup
+	if EngineStartupStatsTimeout > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-obj.funcs.Loaded(): // funcs are now loaded!
+			case <-time.After(time.Duration(EngineStartupStatsTimeout) * time.Second):
+				obj.Logf("stats...")
+				obj.Logf("%s", obj.funcs.Stats())
+			case <-ctx.Done():
+			}
+		}()
+	}
 
 	select {
 	case <-ctx.Done():

@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/pin/tftp"
+	"github.com/pin/tftp/v3"
 )
 
 func main() {

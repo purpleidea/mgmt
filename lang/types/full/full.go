@@ -112,12 +112,6 @@ func (obj *FuncValue) Value() interface{} {
 	//return val.Interface()
 }
 
-// Set sets the function value to be a new function.
-func (obj *FuncValue) Set(fn func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)) error { // TODO: change method name?
-	obj.V = fn
-	return nil // TODO: can we do any sort of checking here?
-}
-
 // Call calls the function with the provided txn and args.
 func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 	return obj.V(txn, args)

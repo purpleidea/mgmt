@@ -641,6 +641,213 @@ func UnsafeParseIntoRelDir(path string) RelDir {
 	return relDir
 }
 
+// AbsPath represents an absolute file or dir path.
+type AbsPath struct {
+	path string
+}
+
+func (obj AbsPath) isAbs()  {}
+func (obj AbsPath) isPath() {}
+
+// String returns the canonical "friendly" representation of this path. If it is
+// a directory, then it will end with a slash.
+func (obj AbsPath) String() string { return obj.path }
+
+// Path returns the cleaned version of this path. It is what you expect after
+// running the golang path cleaner on the internal representation.
+func (obj AbsPath) Path() string { return stdlibPath.Clean(obj.path) }
+
+// IsDir returns true if this is a dir, and false if it's not based on the path
+// stored within and the parsing criteria in the IsDir helper function.
+func (obj AbsPath) IsDir() bool { return IsDir(obj.path) }
+
+// IsAbs returns true for this struct.
+func (obj AbsPath) IsAbs() bool { return true }
+
+// Validate returns an error if the path was not specified correctly.
+func (obj AbsPath) Validate() error {
+	if !strings.HasPrefix(obj.path, "/") {
+		return fmt.Errorf("path is not absolute")
+	}
+
+	return nil
+}
+
+// PanicValidate panics if the path was not specified correctly.
+func (obj AbsPath) PanicValidate() {
+	if err := obj.Validate(); err != nil {
+		panic(err.Error())
+	}
+}
+
+// Cmp compares two AbsPath's and returns nil if they have the same path.
+func (obj AbsPath) Cmp(absPath AbsPath) error {
+	if obj.path != absPath.path {
+		return fmt.Errorf("paths differ")
+	}
+	return nil
+}
+
+// Dir returns the head component of the AbsPath, in this case, the directory.
+func (obj AbsPath) Dir() AbsDir {
+	obj.PanicValidate()
+	ix := strings.LastIndex(obj.path, "/")
+	if ix == 0 {
+		return AbsDir{
+			path: "/",
+		}
+	}
+	return AbsDir{
+		path: obj.path[0:ix],
+	}
+}
+
+// HasDir returns true if the input relative dir is present in the path.
+// TODO: write tests for this and ensure it doesn't have a bug
+func (obj AbsPath) HasDir(relDir RelDir) bool {
+	obj.PanicValidate()
+	relDir.PanicValidate()
+	//if obj.path == "/" {
+	//	return false
+	//}
+	// TODO: test with ""
+
+	i := strings.Index(obj.path, relDir.path)
+	if i == -1 {
+		return false // not found
+	}
+	if i == 0 {
+		// not possible unless relDir is /
+		//return false // found the root dir
+		panic("relDir was root which isn't relative")
+	}
+	// We want to make sure we land on a split char, or we didn't match it.
+	// We don't need to check the last char, because we know it's a /
+	return obj.path[i-1] == '/' // check if the char before is a /
+}
+
+// ParseIntoAbsPath takes an input path and ensures it's an AbsPath. It doesn't
+// do anything particularly magical. It then runs Validate to ensure the path
+// was valid overall. It also runs the stdlib path Clean function on it. Please
+// note, that passing in the root slash / will cause this to fail.
+func ParseIntoAbsPath(path string) (AbsPath, error) {
+	if path == "" {
+		return AbsPath{}, fmt.Errorf("path is empty")
+	}
+
+	path = stdlibPath.Clean(path)
+
+	absPath := AbsPath{path: path}
+	return absPath, absPath.Validate()
+}
+
+// UnsafeParseIntoAbsPath performs exactly as ParseIntoAbsPath does, but it
+// panics if the latter would have returned an error.
+func UnsafeParseIntoAbsPath(path string) AbsPath {
+	absPath, err := ParseIntoAbsPath(path)
+	if err != nil {
+		panic(err.Error())
+	}
+	return absPath
+}
+
+// RelPath represents a relative file or dir path.
+type RelPath struct {
+	path string
+}
+
+func (obj RelPath) isRel()  {}
+func (obj RelPath) isPath() {}
+
+// String returns the canonical "friendly" representation of this path. If it is
+// a directory, then it will end with a slash.
+func (obj RelPath) String() string { return obj.path }
+
+// Path returns the cleaned version of this path. It is what you expect after
+// running the golang path cleaner on the internal representation.
+func (obj RelPath) Path() string { return stdlibPath.Clean(obj.path) }
+
+// IsDir returns true if this is a dir, and false if it's not based on the path
+// stored within and the parsing criteria in the IsDir helper function.
+func (obj RelPath) IsDir() bool { return IsDir(obj.path) }
+
+// IsAbs returns false for this struct.
+func (obj RelPath) IsAbs() bool { return false }
+
+// Validate returns an error if the path was not specified correctly.
+func (obj RelPath) Validate() error {
+	if strings.HasPrefix(obj.path, "/") {
+		return fmt.Errorf("path is not relative")
+	}
+
+	if obj.path == "" {
+		return fmt.Errorf("path is empty")
+	}
+
+	return nil
+}
+
+// PanicValidate panics if the path was not specified correctly.
+func (obj RelPath) PanicValidate() {
+	if err := obj.Validate(); err != nil {
+		panic(err.Error())
+	}
+}
+
+// Cmp compares two RelPath's and returns nil if they have the same path.
+func (obj RelPath) Cmp(relpath RelPath) error {
+	if obj.path != relpath.path {
+		return fmt.Errorf("paths differ")
+	}
+	return nil
+}
+
+// HasDir returns true if the input relative dir is present in the path.
+// TODO: write tests for this and ensure it doesn't have a bug
+func (obj RelPath) HasDir(relDir RelDir) bool {
+	obj.PanicValidate()
+	relDir.PanicValidate()
+	//if obj.path == "/" {
+	//	return false
+	//}
+	// TODO: test with ""
+
+	i := strings.Index(obj.path, relDir.path)
+	if i == -1 {
+		return false // not found
+	}
+	if i == 0 {
+		return true // found at the beginning
+	}
+	// We want to make sure we land on a split char, or we didn't match it.
+	// We don't need to check the last char, because we know it's a /
+	return obj.path[i-1] == '/' // check if the char before is a /
+}
+
+// ParseIntoRelPath takes an input path and ensures it's an RelPath. It doesn't
+// do anything particularly magical. It then runs Validate to ensure the path
+// was valid overall. It also runs the stdlib path Clean function on it.
+func ParseIntoRelPath(path string) (RelPath, error) {
+	if path == "" {
+		return RelPath{}, fmt.Errorf("path is empty")
+	}
+
+	path = stdlibPath.Clean(path)
+
+	relPath := RelPath{path: path}
+	return relPath, relPath.Validate()
+}
+
+// UnsafeParseIntoRelPath performs exactly as ParseIntoRelPath does, but it
+// panics if the latter would have returned an error.
+func UnsafeParseIntoRelPath(path string) RelPath {
+	relPath, err := ParseIntoRelPath(path)
+	if err != nil {
+		panic(err.Error())
+	}
+	return relPath
+}
+
 // ParseIntoPath takes an input path and a boolean that specifies if it is a dir
 // and returns a type that fulfills the Path interface. The isDir boolean
 // usually comes from the io/fs.FileMode IsDir() method. The returned underlying

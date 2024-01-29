@@ -8796,8 +8796,6 @@ func (obj *ExprCall) Value() (types.Value, error) {
 		return nil, fmt.Errorf("not a func value")
 	}
 
-	funcList := []interfaces.Func{}
-
 	args := []types.Value{}
 	for _, arg := range obj.Args { // []interfaces.Expr
 		a, err := arg.Value() // speculative
@@ -8805,48 +8803,15 @@ func (obj *ExprCall) Value() (types.Value, error) {
 			return nil, err
 		}
 		args = append(args, a)
-
-		// XXX COMPLETELY GUESSING:
-		_, argFunc, err := arg.Graph(nil) // env XXX ???
-		if err != nil {
-			return nil, err
-		}
-		funcList = append(funcList, argFunc)
 	}
 
+	_ = funcValue
+	panic("IMPLEMENT THIS")
 	// we now have a full.FuncValue and a []Value. We can't call the existing
 	//   Call([]Func) Func
 	// method on the FuncValue, we need a speculative
 	//   Call([]Value) Value
 	// method. so the next step is to implement that method.
-	//
-	// XXX: we do have 	`Call(args []types.Value) (types.Value, error)`
-	// XXX: which is a `CallableFunc` interface, but that's based off of Func...
-	// XXX: this is based off of full.FuncValue ...
-	// XXX: this is just a dimensional analysis attempt, probably wrong:
-	// XXX COMPLETELY GUESSING:
-	txn := (&txn.GraphTxn{
-		GraphAPI: (&txn.Graph{
-			Debug: obj.data.Debug,
-			Logf: func(format string, v ...interface{}) {
-				obj.data.Logf(format, v...)
-			},
-		}).Init(),
-		Lock:     func() {},
-		Unlock:   func() {},
-		RefCount: (&ref.Count{}).Init(),
-	}).Init()
-	//txn := ??? // interfaces.Txn
-	//funcList := ??? // []interfaces.Func
-	f, err := funcValue.Call(txn, funcList) // (interfaces.Func, error)
-	if err != nil {
-		return nil, err
-	}
-	callableFunc, ok := f.(interfaces.CallableFunc)
-	if !ok {
-		return nil, fmt.Errorf("not a CallableFunc")
-	}
-	return callableFunc.Call(args)
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression

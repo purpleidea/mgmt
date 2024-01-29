@@ -112,12 +112,6 @@ func (obj *FuncValue) Value() interface{} {
 	//return val.Interface()
 }
 
-// Func represents the value of this type as a function if it is one. If this is
-// not a function, then this panics.
-func (obj *FuncValue) Func() interface{} {
-	return obj.V
-}
-
 // Set sets the function value to be a new function.
 func (obj *FuncValue) Set(fn func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)) error { // TODO: change method name?
 	obj.V = fn

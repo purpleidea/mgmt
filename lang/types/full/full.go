@@ -45,20 +45,6 @@ type FuncValue struct {
 	T *types.Type // contains ordered field types, arg names are a bonus part
 }
 
-// NewFunc creates a new function with the specified type.
-func NewFunc(t *types.Type) *FuncValue {
-	if t.Kind != types.KindFunc {
-		return nil // sanity check
-	}
-	v := func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error) {
-		return nil, fmt.Errorf("nil function") // TODO: is this correct?
-	}
-	return &FuncValue{
-		V: v,
-		T: t,
-	}
-}
-
 // String returns a visual representation of this value.
 func (obj *FuncValue) String() string {
 	return fmt.Sprintf("func(%+v)", obj.T) // TODO: can't print obj.V w/o vet warning

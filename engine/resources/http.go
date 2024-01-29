@@ -34,6 +34,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/safepath"
 
 	securefilepath "github.com/cyphar/filepath-securejoin"
 )
@@ -831,6 +832,9 @@ type HTTPFileRes struct {
 
 	// Path is the absolute path to a file that should be used as the source
 	// for this file resource. It must not be combined with the data field.
+	// If this corresponds to a directory, then it will used as a root dir
+	// that will be served as long as the resource name or Filename are also
+	// a directory ending with a slash.
 	Path string `lang:"path" yaml:"path"`
 
 	// Data is the file content that should be used as the source for this
@@ -858,17 +862,63 @@ func (obj *HTTPFileRes) getPath() string {
 // getContent returns the content that we expect from this resource. It depends
 // on whether the user specified the Path or Data fields, and whether the Path
 // exists or not.
-func (obj *HTTPFileRes) getContent() (io.ReadSeeker, error) {
+func (obj *HTTPFileRes) getContent(requestPath safepath.AbsPath) (io.ReadSeeker, error) {
 	if obj.Path != "" && obj.Data != "" {
 		// programming error! this should have been caught in Validate!
 		return nil, fmt.Errorf("must not specify Path and Data")
 	}
 
-	if obj.Path != "" {
+	if obj.Data != "" {
+		return bytes.NewReader([]byte(obj.Data)), nil
+	}
+
+	absFile, err := obj.getContentRelative(requestPath)
+	if err != nil { // on error, we just assume no root/prefix stuff happens
 		return os.Open(obj.Path)
 	}
 
-	return bytes.NewReader([]byte(obj.Data)), nil
+	return os.Open(absFile.Path())
+}
+
+// getContentRelative takes a request, and returns the absolute path to the file
+// that we want to request, if it's safely under what we can provide.
+func (obj *HTTPFileRes) getContentRelative(requestPath safepath.AbsPath) (safepath.AbsFile, error) {
+	// the location on disk of the data
+	srcPath, err := safepath.SmartParseIntoPath(obj.Path) // (safepath.Path, error)
+	if err != nil {
+		return safepath.AbsFile{}, err
+	}
+	srcAbsDir, ok := srcPath.(safepath.AbsDir)
+	if !ok {
+		return safepath.AbsFile{}, fmt.Errorf("the Path is not an abs dir")
+	}
+
+	// the public path we respond to (might be a dir prefix or just a file)
+	pubPath, err := safepath.SmartParseIntoPath(obj.getPath()) // (safepath.Path, error)
+	if err != nil {
+		return safepath.AbsFile{}, err
+	}
+	pubAbsDir, ok := pubPath.(safepath.AbsDir)
+	if !ok {
+		return safepath.AbsFile{}, fmt.Errorf("the name is not an abs dir")
+	}
+
+	// is the request underneath what we're providing?
+	if !safepath.HasPrefix(requestPath, pubAbsDir) {
+		return safepath.AbsFile{}, fmt.Errorf("wrong prefix")
+	}
+
+	// make the delta
+	delta, err := safepath.StripPrefix(requestPath, pubAbsDir) // (safepath.Path, error)
+	if err != nil {
+		return safepath.AbsFile{}, err
+	}
+	relFile, ok := delta.(safepath.RelFile)
+	if !ok {
+		return safepath.AbsFile{}, fmt.Errorf("the delta is not a rel file")
+	}
+
+	return safepath.JoinToAbsFile(srcAbsDir, relFile), nil // AbsFile
 }
 
 // ParentName is used to limit which resources autogroup into this one. If it's
@@ -882,6 +932,14 @@ func (obj *HTTPFileRes) ParentName() string {
 // accept, or any error to pass.
 func (obj *HTTPFileRes) AcceptHTTP(req *http.Request) error {
 	requestPath := req.URL.Path // TODO: is this what we want here?
+
+	if strings.HasSuffix(obj.Path, "/") { // a dir!
+		if strings.HasPrefix(requestPath, obj.getPath()) {
+			// relative dir root
+			return nil
+		}
+	}
+
 	if requestPath != obj.getPath() {
 		return fmt.Errorf("unhandled path")
 	}
@@ -898,7 +956,15 @@ func (obj *HTTPFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	requestPath := req.URL.Path // TODO: is this what we want here?
 
-	handle, err := obj.getContent()
+	absPath, err := safepath.ParseIntoAbsPath(requestPath)
+	if err != nil {
+		obj.init.Logf("invalid input path: %s", requestPath)
+		msg, httpStatus := toHTTPError(err)
+		http.Error(w, msg, httpStatus)
+		return
+	}
+
+	handle, err := obj.getContent(absPath)
 	if err != nil {
 		obj.init.Logf("could not get content for: %s", requestPath)
 		msg, httpStatus := toHTTPError(err)

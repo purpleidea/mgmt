@@ -1,0 +1,46 @@
+$root = "/tmp/httproot/"
+file $root {
+	state => $const.res.file.state.exists,
+}
+file "${root}file0" {
+	content => "i'm file0 in ${root}\n",
+	state => $const.res.file.state.exists,
+}
+file "${root}file1" {
+	content => "i'm file1 in ${root}\n",
+	state => $const.res.file.state.exists,
+}
+
+file "${root}dir1/" {
+	state => $const.res.file.state.exists,
+}
+file "${root}dir2/" {
+	state => $const.res.file.state.exists,
+}
+file "${root}dir1/file2" {
+	content => "i'm file2 in ${root}dir1/\n",
+	state => $const.res.file.state.exists,
+}
+file "${root}dir2/file3" {
+	content => "i'm file3 in ${root}dir2/\n",
+	state => $const.res.file.state.exists,
+}
+
+# test with: wget -q -O - http://127.0.0.1:8080/secret/folder/file1
+http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+	#address => ":8080",	# you can override the name like this
+	#timeout => 60,		# add a timeout (seconds)
+	#root => $root,		# add a httproot (optional)
+}
+
+# you can add a raw file like this...
+http:file "/file1" {
+	data => "hello, world, i'm file1 and i don't exist on disk!\n",
+}
+
+# this pulls in a whole folder, since path is a folder!
+http:file "/secret/folder/" {
+	path => "${root}",
+
+	Depend => File["${root}"],	# TODO: add autoedges
+}

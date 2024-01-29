@@ -41,8 +41,10 @@ import (
 // went horribly wrong. (Think, an internal panic.)
 type FuncValue struct {
 	types.Base
-	V func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
-	T *types.Type // contains ordered field types, arg names are a bonus part
+	Name     *string
+	Timeful  func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
+	Timeless *types.FuncValue
+	T        *types.Type // contains ordered field types, arg names are a bonus part
 }
 
 // String returns a visual representation of this value.
@@ -110,9 +112,4 @@ func (obj *FuncValue) Value() interface{} {
 	//}
 	//val := reflect.MakeFunc(typ, fn)
 	//return val.Interface()
-}
-
-// Call calls the function with the provided txn and args.
-func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-	return obj.V(txn, args)
 }

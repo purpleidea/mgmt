@@ -27,6 +27,10 @@ clean:
 
 kind_stringer.go: type.go
 	@echo "Generating: type kind strings..."
-	@# workaround `stringer` regression in golang 1.11
+	@# stringer fails if run from GOROOT.
 	@# see: https://github.com/golang/go/issues/31843
-	@unset GOCACHE && go generate # GOCACHE is returned to normal on exit...
+	@if which stringer | grep `go env GOROOT`; then \
+		echo "stringer cannot run from GOROOT"; \
+		exit 1; \
+	fi
+	@go generate

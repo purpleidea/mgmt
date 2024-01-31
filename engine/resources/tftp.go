@@ -340,6 +340,7 @@ func (obj *TFTPServerRes) readHandler() func(string, io.ReaderFrom) error {
 			handle, err = res.getContent()
 			if err != nil {
 				obj.init.Logf("could not get content for: %s", filename)
+				obj.init.Logf("error: %v", err)
 				// don't leak additional information to client!
 				return fmt.Errorf("could not get content for: %s", filename)
 			}

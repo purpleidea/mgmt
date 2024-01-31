@@ -818,6 +818,7 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 	return func(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) {
 		// req is the incoming message from the dhcp client
 		// peer is who we're replying to (often a broadcast address)
+		obj.init.Logf("received a DHCPv4 packet from: %s", req.ClientHWAddr.String())
 		if obj.init.Debug {
 			obj.init.Logf("received from DHCPv4 peer: %s", peer)
 			obj.init.Logf("received a DHCPv4 packet: %s", req.Summary())

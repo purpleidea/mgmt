@@ -1,0 +1,27 @@
+import "datetime"
+import "iter"
+import "math"
+
+$now = datetime.now()
+
+# alternate every two seconds
+$mod = math.mod($now, 2) == 0
+
+$fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
+	len($x)
+}
+
+$in1 = if $mod {
+	["a", "bb", "ccc",]
+} else {
+	["zzzzzz", "yyyyy", "xxxx",]
+}
+
+$out1 = iter.map($in1, $fn)
+
+$t1 = template("out1: {{ . }}", $out1)
+
+test "example1" {
+	anotherstr => $t1,
+	onlyshow => ["AnotherStr",], # displays nicer
+}

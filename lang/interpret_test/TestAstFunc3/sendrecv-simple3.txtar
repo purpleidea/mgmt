@@ -1,0 +1,44 @@
+-- main.mcl --
+# send/recv of value1.any into test.msg works!
+value "value1" {
+	any => "i am value1",
+}
+test "test1" {
+	sendvalue => "hello from test",
+
+	Meta:autogroup => false,
+}
+value "value2" {
+	any => "",	# gets value from send_value above
+}
+value "value3" {
+	# XXX: This works because this value gets overwritten, but it really
+	# should get caught at type unification if possible. It is caught at
+	# runtime and we allow it for now since we want the escape hatch with
+	# the `any` types for the moment. The error looks like:
+	# print[print1]: Error: could not SendRecv:
+	# mismatch: value[value3].any (ptr) -> print[print1].msg (string):
+	# cannot Into() 42 of type int into string
+	any => "NOPE",	# gets 42
+}
+print "print1" {}
+
+Value["value1"].any -> Test["test1"].anotherstr
+Test["test1"].hello -> Value["value2"].any
+Test["test1"].answer -> Value["value3"].any
+Value["value3"].any -> Print["print1"].msg
+-- OUTPUT --
+Edge: test[test1] -> value[value2] # test[test1] -> value[value2]
+Edge: test[test1] -> value[value3] # test[test1] -> value[value3]
+Edge: value[value1] -> test[test1] # value[value1] -> test[test1]
+Edge: value[value3] -> print[print1] # value[value3] -> print[print1]
+Field: test[test1].AnotherStr = "i am value1"
+Field: test[test1].SendValue = "hello from test"
+Field: value[value1].Any = "i am value1"
+Field: value[value2].Any = "hello from test"
+Field: value[value3].Any = 42
+Vertex: print[print1]
+Vertex: test[test1]
+Vertex: value[value1]
+Vertex: value[value2]
+Vertex: value[value3]

@@ -165,12 +165,35 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 		//orig := value1
 		dest := value2 // save the o.g. because we need the real dest!
 
-		// For situations where we send a variant to the resource!
-		for kind1 == reflect.Interface || kind1 == reflect.Ptr {
+		// NOTE: Reminder: obj1 comes from st and it is the *<Res>Sends
+		// struct which contains whichever fields that resource sends.
+		// For example, this might be *TestSends for the Test resource.
+		// The receiver is obj2 and that is actually the resource struct
+		// which is a *<Res> and which gets it's fields directly set on.
+		// For example, this might be *TestRes for the Test resource.
+		//fmt.Printf("obj1(%T): %+v\n", obj1, obj1)
+		//fmt.Printf("obj2(%T): %+v\n", obj2, obj2)
+		// Lastly, remember that many of the type incompatibilities are
+		// caught during type unification, and so we might have overly
+		// relaxed the checks here and something could slip by. If we
+		// find something, this code will need new checks added back.
+
+		// Here we unpack one-level, and then leave the complex stuff
+		// for the Into() method below.
+		// for kind1 == reflect.Interface || kind1 == reflect.Ptr // wrong
+		// if kind1 == reflect.Interface || kind1 == reflect.Ptr  // wrong
+		// for kind1 == reflect.Interface // wrong
+		if kind1 == reflect.Interface {
 			value1 = value1.Elem() // un-nest one interface
 			kind1 = value1.Kind()
 		}
-		for kind2 == reflect.Interface || kind2 == reflect.Ptr {
+
+		// This second block is identical, but it's just accidentally
+		// symmetrical. The types of input structs are different shapes.
+		// for kind2 == reflect.Interface || kind2 == reflect.Ptr // wrong
+		// if kind2 == reflect.Interface || kind2 == reflect.Ptr  // wrong
+		// for kind2 == reflect.Interface // wrong
+		if kind2 == reflect.Interface {
 			value2 = value2.Elem() // un-nest one interface
 			kind2 = value2.Kind()
 		}
@@ -180,20 +203,19 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 		//	obj.Logf("Recv(%s) has %v: %v", type2, kind2, value2)
 		//}
 
-		// i think we probably want the same kind, at least for now...
-		if kind1 != kind2 {
-			e := fmt.Errorf("send/recv kind mismatch between %s: %s and %s: %s", v.Res, kind1, res, kind2)
-			err = errwrap.Append(err, e) // list of errors
-			continue
-		}
+		// Skip this check in favour of the more complex Into() below...
+		//if kind1 != kind2 {
+		//	e := fmt.Errorf("send/recv kind mismatch between %s: %s and %s: %s", v.Res, kind1, res, kind2)
+		//	err = errwrap.Append(err, e) // list of errors
+		//	continue
+		//}
 
-		// if the types don't match, we can't use send->recv
-		// FIXME: do we want to relax this for string -> *string ?
-		if e := TypeCmp(value1, value2); e != nil {
-			e := errwrap.Wrapf(e, "type mismatch between %s and %s", v.Res, res)
-			err = errwrap.Append(err, e) // list of errors
-			continue
-		}
+		// Skip this check in favour of the more complex Into() below...
+		//if e := TypeCmp(value1, value2); e != nil {
+		//	e := errwrap.Wrapf(e, "type mismatch between %s and %s", v.Res, res)
+		//	err = errwrap.Append(err, e) // list of errors
+		//	continue
+		//}
 
 		// if we can't set, then well this is pointless!
 		if !dest.CanSet() {
@@ -230,7 +252,8 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 
 		// mutate the struct field dest with the mcl data in fv
 		if e := types.Into(fv, dest); e != nil {
-			e := errwrap.Wrapf(e, "bad dest %s.%s", v.Res, v.Key)
+			// runtime error, probably from using value res
+			e := errwrap.Wrapf(e, "mismatch: %s.%s (%s) -> %s.%s (%s)", v.Res, v.Key, kind1, res, k, kind2)
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}

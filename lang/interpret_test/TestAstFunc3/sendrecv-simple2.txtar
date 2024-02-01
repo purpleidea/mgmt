@@ -1,0 +1,15 @@
+-- main.mcl --
+# send/recv of value1.any into test.msg works!
+value "value1" {
+	any => "i am value1",
+}
+print "print1" {
+	#msg => "",	# gets value from send_value above
+}
+Value["value1"].any -> Print["print1"].msg
+-- OUTPUT --
+Edge: value[value1] -> print[print1] # value[value1] -> print[print1]
+Field: print[print1].Msg = "i am value1"
+Field: value[value1].Any = "i am value1"
+Vertex: print[print1]
+Vertex: value[value1]

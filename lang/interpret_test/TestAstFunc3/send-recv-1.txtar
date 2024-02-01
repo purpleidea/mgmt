@@ -1,0 +1,18 @@
+-- main.mcl --
+test "send" {
+	sendvalue => "this is hello",	# sends on key of `hello`
+	# we also secret send on key of `answer` the int value of 42
+
+	Meta:autogroup => false,
+}
+
+test "recv" {
+	expectrecv => ["anotherstr",],	# expecting to recv on these keys!
+
+	Meta:autogroup => false,
+}
+
+# must error, incompatible types
+Test["send"].answer -> Test["recv"].anotherstr
+-- OUTPUT --
+# err: errUnify: cannot send/recv from test[send].answer to test[recv].anotherstr: field kind mismatch between int and string

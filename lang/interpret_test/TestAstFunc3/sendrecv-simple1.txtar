@@ -1,0 +1,32 @@
+-- main.mcl --
+# send/recv of value1.any into test.msg works!
+value "value1" {
+	any => "i am value1",
+}
+test "test1" {
+	sendvalue => "hello from test",
+
+	Meta:autogroup => false,
+}
+value "value2" {
+	any => "",	# gets value from send_value above
+}
+value "value3" {
+	any => 0,	# gets 42
+}
+Value["value1"].any -> Test["test1"].anotherstr
+Test["test1"].hello -> Value["value2"].any
+Test["test1"].answer -> Value["value3"].any
+-- OUTPUT --
+Edge: test[test1] -> value[value2] # test[test1] -> value[value2]
+Edge: test[test1] -> value[value3] # test[test1] -> value[value3]
+Edge: value[value1] -> test[test1] # value[value1] -> test[test1]
+Field: test[test1].AnotherStr = "i am value1"
+Field: test[test1].SendValue = "hello from test"
+Field: value[value1].Any = "i am value1"
+Field: value[value2].Any = "hello from test"
+Field: value[value3].Any = 42
+Vertex: test[test1]
+Vertex: value[value1]
+Vertex: value[value2]
+Vertex: value[value3]

@@ -5,6 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/purpleidea/mgmt?style=flat-square)](https://goreportcard.com/report/github.com/purpleidea/mgmt)
 [![Build Status](https://github.com/purpleidea/mgmt/workflows/.github/workflows/test.yaml/badge.svg)](https://github.com/purpleidea/mgmt/actions/)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godocs.io/github.com/purpleidea/mgmt)
+[![Matrix](https://img.shields.io/badge/matrix-%23mgmtconfig-orange.svg?style=flat-square)](https://matrix.to/#/#mgmtconfig:matrix.org)
 [![IRC](https://img.shields.io/badge/irc-%23mgmtconfig-orange.svg?style=flat-square)](https://web.libera.chat/?channels=#mgmtconfig)
 [![Patreon](https://img.shields.io/badge/patreon-donate-yellow.svg?style=flat-square)](https://www.patreon.com/purpleidea)
 [![Liberapay](https://img.shields.io/badge/liberapay-donate-yellow.svg?style=flat-square)](https://liberapay.com/purpleidea/donate)
@@ -65,11 +66,11 @@ Come join us in the `mgmt` community!
 
 | Medium | Link |
 |---|---|
+| Matrix | [#mgmtconfig](https://matrix.to/#/#mgmtconfig:matrix.org) on Matrix.org |
 | IRC | [#mgmtconfig](https://web.libera.chat/?channels=#mgmtconfig) on Libera.Chat |
 | Twitter | [@mgmtconfig](https://twitter.com/mgmtconfig) & [#mgmtconfig](https://twitter.com/hashtag/mgmtconfig) |
-| Mailing list | [mgmtconfig-list@redhat.com](https://www.redhat.com/mailman/listinfo/mgmtconfig-list) |
+| Mailing list | [looking for a new home, suggestions welcome](https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082) |
 | Patreon | [purpleidea](https://www.patreon.com/purpleidea) on Patreon |
-| Liberapay | [purpleidea](https://liberapay.com/purpleidea/donate) on Liberapay |
 
 ## Status:
 

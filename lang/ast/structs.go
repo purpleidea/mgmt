@@ -7687,7 +7687,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	var funcValueFunc interfaces.Func
 	if obj.Body != nil {
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
-			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			Timeful: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Extend the environment with the arguments.
 				extendedEnv := make(map[string]interfaces.Func)
 				for k, v := range env {
@@ -7716,8 +7716,10 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
 
+		// TODO: if the builtin function is known to be timeless, use Timeless
+		// instead of Timeful
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
-			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			Timeful: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Copy obj.function so that the underlying ExprFunc.function gets
 				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
 				// calls to this function will share the same Func.
@@ -7797,7 +7799,7 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 		}
 
 		return &full.FuncValue{
-			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			Timeful: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// There are no ExprParams, so we start with the empty environment.
 				// Extend that environment with the arguments.
 				extendedEnv := make(map[string]interfaces.Func)
@@ -7820,8 +7822,9 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			T: obj.typ,
 		}, nil
 	} else if obj.Function != nil {
-		return structs.FuncToFullFuncValue(obj.function, obj.typ), nil
-
+		// TODO: if the builtin is timeless, use SimpleFnToFuncValue instead of
+		// FuncToFullFuncValue
+		return structs.FuncToFullFuncValue(obj.Title, obj.function, obj.typ), nil
 	}
 	// else if /* len(obj.Values) > 0 */
 	panic("what to do here")
@@ -8709,7 +8712,7 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 					args = append(args, f)
 					txn.AddGraph(g)
 				}
-				outputFunc, err := exprFuncValue.Call(txn, args)
+				outputFunc, err := structs.CallFuncValue(exprFuncValue, txn, args)
 				if err != nil {
 					return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
 				}

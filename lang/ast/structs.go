@@ -8809,13 +8809,7 @@ func (obj *ExprCall) Value() (types.Value, error) {
 		args = append(args, a)
 	}
 
-	_ = funcValue
-	panic("IMPLEMENT THIS")
-	// we now have a full.FuncValue and a []Value. We can't call the existing
-	//   Call([]Func) Func
-	// method on the FuncValue, we need a speculative
-	//   Call([]Value) Value
-	// method. so the next step is to implement that method.
+	return structs.CallTimelessFuncValue(funcValue, args) // speculative
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression

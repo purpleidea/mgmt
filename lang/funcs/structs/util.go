@@ -18,6 +18,8 @@
 package structs
 
 import (
+	"fmt"
+
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -108,5 +110,5 @@ func CallTimelessFuncValue(obj *full.FuncValue, args []types.Value) (types.Value
 		return obj.Timeless.V(args)
 	}
 
-	panic("cannot call CallIfTimeless on a Timeful function")
+	return nil, fmt.Errorf("cannot call CallIfTimeless on a Timeful function")
 }

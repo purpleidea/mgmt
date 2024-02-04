@@ -8717,6 +8717,7 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 					return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
 				}
 
+				txn.Commit()
 				return txn.Graph(), outputFunc, nil
 			}
 		}

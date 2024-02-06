@@ -7824,7 +7824,21 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 	} else if obj.Function != nil {
 		// TODO: if the builtin is timeless, use SimpleFnToFuncValue instead of
 		// FuncToFullFuncValue
-		return structs.FuncToFullFuncValue(obj.Title, obj.function, obj.typ), nil
+
+		// Copy obj.function so that the underlying ExprFunc.function gets
+		// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
+		// calls to this function will share the same Func.
+		exprCopy, err := obj.Copy()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not copy expression")
+		}
+		funcExprCopy, ok := exprCopy.(*ExprFunc)
+		if !ok {
+			// programming error
+			return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
+		}
+		valueTransformingFunc := funcExprCopy.function
+		return structs.FuncToFullFuncValue(obj.Title, valueTransformingFunc, obj.typ), nil
 	}
 	// else if /* len(obj.Values) > 0 */
 	panic("what to do here")

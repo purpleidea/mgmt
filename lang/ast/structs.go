@@ -4586,11 +4586,9 @@ func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
 			return err
 		}
 	}
-	if obj.Args != nil {
-		for _, x := range obj.Args {
-			if err := x.Apply(fn); err != nil {
-				return err
-			}
+	for _, x := range obj.Args {
+		if err := x.Apply(fn); err != nil {
+			return err
 		}
 	}
 	return fn(obj)
@@ -4603,11 +4601,9 @@ func (obj *StmtInclude) Init(data *interfaces.Data) error {
 		return fmt.Errorf("include name is empty")
 	}
 
-	if obj.Args != nil {
-		for _, x := range obj.Args {
-			if err := x.Init(data); err != nil {
-				return err
-			}
+	for _, x := range obj.Args {
+		if err := x.Init(data); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -4618,14 +4614,12 @@ func (obj *StmtInclude) Init(data *interfaces.Data) error {
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
 	args := []interfaces.Expr{}
-	if obj.Args != nil {
-		for _, x := range obj.Args {
-			interpolated, err := x.Interpolate()
-			if err != nil {
-				return nil, err
-			}
-			args = append(args, interpolated)
+	for _, x := range obj.Args {
+		interpolated, err := x.Interpolate()
+		if err != nil {
+			return nil, err
 		}
+		args = append(args, interpolated)
 	}
 
 	orig := obj
@@ -4645,17 +4639,15 @@ func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
 func (obj *StmtInclude) Copy() (interfaces.Stmt, error) {
 	copied := false
 	args := []interfaces.Expr{}
-	if obj.Args != nil {
-		for _, x := range obj.Args {
-			cp, err := x.Copy()
-			if err != nil {
-				return nil, err
-			}
-			if cp != x { // must have been copied, or pointer would be same
-				copied = true
-			}
-			args = append(args, cp)
+	for _, x := range obj.Args {
+		cp, err := x.Copy()
+		if err != nil {
+			return nil, err
 		}
+		if cp != x { // must have been copied, or pointer would be same
+			copied = true
+		}
+		args = append(args, cp)
 	}
 
 	// TODO: is this necessary? (I doubt it even gets used.)
@@ -4776,11 +4768,9 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	}
 
 	// make sure to propagate the scope to our input args!
-	if obj.Args != nil {
-		for _, x := range obj.Args {
-			if err := x.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
-				return err
-			}
+	for _, x := range obj.Args {
+		if err := x.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
+			return err
 		}
 	}
 

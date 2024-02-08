@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"sync"
 
 	"github.com/purpleidea/mgmt/converger"
@@ -420,9 +421,9 @@ func (obj *Engine) Resume() error {
 		return err
 	}
 	//indegree := obj.graph.InDegree() // compute all of the indegree's
-	reversed := pgraph.Reverse(topoSort)
+	slices.Reverse(topoSort)
 
-	for _, vertex := range reversed {
+	for _, vertex := range topoSort {
 		// The very first resume is skipped as those resources are
 		// already running! We could do that by checking here, but it is
 		// more convenient to just have a state struct field (paused) to

@@ -231,6 +231,27 @@ It will also print how long it took on either success or failure. Keep in mind
 that even if you pass type unification, an `mgmt` run can still fail later on
 for other reasons, although these are mostly runtime considerations.
 
+### Why is type unification happening twice with `mgmt run`?
+
+When you use the `run` action, it runs all of the compile time checks (including
+type unification) that are possible, and then packages everything up into a
+deployable object and runs the same mechanism that `mgmt deploy` uses, sending
+the deploy to itself. At this point, mgmt starts up as a server, and receives
+the deploy. It will then need to run type unification again before running the
+code.
+
+You can skip the first type unification check by adding the `--skip-unify`
+option to the lang frontend when using the `run` command.
+
+You can also skip this check when running the `deploy` action, but if your code
+doesn't pass, you might be deploying broken code. This is not recommended.
+
+#### Example:
+
+```
+./mgmt run --tmp-prefix lang --skip-unify examples/lang/hello0.mcl
+```
+
 ### Why does my file resource error with `no such file or directory`?
 
 If you create a file resource and only specify the content like this:

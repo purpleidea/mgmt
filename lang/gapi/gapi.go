@@ -106,6 +106,16 @@ func (obj *GAPI) CliFlags(command string) []cli.Flag {
 		result = append(result, runFlags...)
 	}
 
+	if command == gapi.CommandRun || command == gapi.CommandDeploy {
+		flags := []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "skip-unify",
+				Usage: "skip type unification",
+			},
+		}
+		result = append(result, flags...)
+	}
+
 	switch command {
 	case gapi.CommandGet:
 		flags := []cli.Flag{
@@ -316,36 +326,38 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		return nil, errwrap.Wrapf(err, "could not set scope")
 	}
 
-	// apply type unification
-	unificationLogf := func(format string, v ...interface{}) {
-		if debug { // unification only has debug messages...
-			logf("unification: "+format, v...)
+	if !c.Bool("skip-unify") {
+		// apply type unification
+		unificationLogf := func(format string, v ...interface{}) {
+			if debug { // unification only has debug messages...
+				logf("unification: "+format, v...)
+			}
 		}
-	}
-	logf("running type unification...")
-	startTime := time.Now()
-	unifier := &unification.Unifier{
-		AST:    iast,
-		Solver: unification.SimpleInvariantSolverLogger(unificationLogf),
-		Debug:  debug,
-		Logf:   unificationLogf,
-	}
-	unifyErr := unifier.Unify()
-	delta := time.Since(startTime)
-	formatted := delta.String()
-	if delta.Milliseconds() > 1000 { // 1 second
-		formatted = delta.Truncate(time.Millisecond).String()
-	}
-	if unifyErr != nil {
-		if c.Bool("only-unify") {
-			logf("type unification failed after %s", formatted)
+		logf("running type unification...")
+		startTime := time.Now()
+		unifier := &unification.Unifier{
+			AST:    iast,
+			Solver: unification.SimpleInvariantSolverLogger(unificationLogf),
+			Debug:  debug,
+			Logf:   unificationLogf,
 		}
-		return nil, errwrap.Wrapf(unifyErr, "could not unify types")
-	}
+		unifyErr := unifier.Unify()
+		delta := time.Since(startTime)
+		formatted := delta.String()
+		if delta.Milliseconds() > 1000 { // 1 second
+			formatted = delta.Truncate(time.Millisecond).String()
+		}
+		if unifyErr != nil {
+			if c.Bool("only-unify") {
+				logf("type unification failed after %s", formatted)
+			}
+			return nil, errwrap.Wrapf(unifyErr, "could not unify types")
+		}
 
-	if c.Bool("only-unify") {
-		logf("type unification succeeded in %s", formatted)
-		return nil, nil // we end early
+		if c.Bool("only-unify") {
+			logf("type unification succeeded in %s", formatted)
+			return nil, nil // we end early
+		}
 	}
 
 	// get the list of needed files (this is available after SetScope)

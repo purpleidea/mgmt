@@ -141,6 +141,24 @@ that variable (often with a `const`) rather than leaving a naked `bool` in the
 code. For example, `x := MyFoo("blah", false)` is less clear than
 `const useMagic = false; x := MyFoo("blah", useMagic)`.
 
+### Empty slice declarations
+
+When declaring a new empty slice, there are three different mechanisms:
+
+1. `a := []string{}`
+
+2. `var a []string`
+
+3. `a := make([]string, 0)`
+
+In general, we prefer the first method because we find that it is succinct, and
+very readable. The third method is the least recommended because you're adding
+extra data that a smart compiler could probably figure out on its own. There are
+performance implications between these three methods, so unless your code is in
+a fast path or memory constrained environment where this matters (and that you
+ideally have proof of this) please use the methods as ordered as much as
+possible.
+
 ### Consistent ordering
 
 In general we try to preserve a logical ordering in source files which usually

@@ -57,3 +57,5 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from FOSDEM 2020, Minimalistic Languages Devroom](https://video.fosdem.org/2020/AW1.125/mgmtconfigmore.webm) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2020](https://www.youtube.com/watch?v=Kd7FAORFtsc) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2023](https://www.youtube.com/watch?v=FeRGRj8w0BU) |
+| James Shubin | video | [Recording from FOSDEM 2024, Golang Devroom](https://video.fosdem.org/2024/ud2218a/fosdem-2024-2575-single-binary-full-stack-provisioning.mp4) |
+| James Shubin | video | [Recording from CfgMgmtCamp.eu 2024](https://www.youtube.com/watch?v=vBt9lpGD4bc) |

@@ -794,7 +794,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
 
-		outputElemFunc, err := obj.lastFuncValue.Call(obj.init.Txn, []interfaces.Func{inputElemFunc})
+		outputElemFunc, err := structs.CallFuncValue(obj.lastFuncValue, obj.init.Txn, []interfaces.Func{inputElemFunc})
 		if err != nil {
 			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.Call()")
 		}

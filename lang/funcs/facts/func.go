@@ -79,3 +79,15 @@ func (obj *FactFunc) Init(init *interfaces.Init) error {
 func (obj *FactFunc) Stream(ctx context.Context) error {
 	return obj.Fact.Stream(ctx)
 }
+
+// Call means this function implements the CallableFunc interface and can be
+// called statically if we want to do it speculatively or from a resource.
+func (obj *FactFunc) Call() (types.Value, error) {
+
+	callableFact, ok := obj.Fact.(CallableFact)
+	if !ok {
+		return nil, fmt.Errorf("fact is not a CallableFact")
+	}
+
+	return callableFact.Call()
+}

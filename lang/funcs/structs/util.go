@@ -18,6 +18,8 @@
 package structs
 
 import (
+	"fmt"
+
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -51,18 +53,9 @@ func SimpleFnToDirectFunc(name string, fv *types.FuncValue) interfaces.Func {
 // *full.FuncValue.
 func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 	return &full.FuncValue{
-		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-			wrappedFunc := SimpleFnToDirectFunc(name, fv)
-			txn.AddVertex(wrappedFunc)
-			for i, arg := range args {
-				argName := fv.T.Ord[i]
-				txn.AddEdge(arg, wrappedFunc, &interfaces.FuncEdge{
-					Args: []string{argName},
-				})
-			}
-			return wrappedFunc, nil
-		},
-		T: fv.T,
+		Name:     &name,
+		Timeless: fv,
+		T:        fv.T,
 	}
 }
 
@@ -71,4 +64,51 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 // SimpleFnToFuncValue.
 func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 	return FuncValueToConstFunc(SimpleFnToFuncValue(name, fv))
+}
+
+// FuncToFullFuncValue creates a *full.FuncValue which adds the given
+// interfaces.Func to the graph. Note that this means the *full.FuncValue
+// can only be called once.
+func FuncToFullFuncValue(name string, valueTransformingFunc interfaces.Func, typ *types.Type) *full.FuncValue {
+	return &full.FuncValue{
+		Name: &name,
+		Timeful: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			for i, arg := range args {
+				argName := typ.Ord[i]
+				txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+					Args: []string{argName},
+				})
+			}
+			return valueTransformingFunc, nil
+		},
+		T: typ,
+	}
+}
+
+// Call calls the function with the provided txn and args.
+func CallFuncValue(obj *full.FuncValue, txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+	if obj.Timeful != nil {
+		return obj.Timeful(txn, args)
+	}
+
+	wrappedFunc := SimpleFnToDirectFunc(*obj.Name, obj.Timeless)
+	txn.AddVertex(wrappedFunc)
+	for i, arg := range args {
+		argName := obj.T.Ord[i]
+		txn.AddEdge(arg, wrappedFunc, &interfaces.FuncEdge{
+			Args: []string{argName},
+		})
+	}
+	return wrappedFunc, nil
+}
+
+// Speculatively call the function with the provided arguments.
+// Only makes sense if the function is timeless (produces a single Value, not a
+// stream of values).
+func CallTimelessFuncValue(obj *full.FuncValue, args []types.Value) (types.Value, error) {
+	if obj.Timeless != nil {
+		return obj.Timeless.V(args)
+	}
+
+	return nil, fmt.Errorf("cannot call CallIfTimeless on a Timeful function")
 }

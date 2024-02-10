@@ -90,3 +90,19 @@ func (obj *ConstFunc) Stream(ctx context.Context) error {
 	close(obj.init.Output) // signal that we're done sending
 	return nil
 }
+
+// Call means this function implements the CallableFunc interface and can be
+// called statically if we want to do it speculatively or from a resource.
+func (obj *ConstFunc) Call(args []types.Value) (types.Value, error) {
+	if obj.Info() == nil {
+		return nil, fmt.Errorf("info is empty")
+	}
+	if obj.Info().Sig == nil {
+		return nil, fmt.Errorf("sig is empty")
+	}
+	if i, j := len(args), len(obj.Info().Sig.Ord); i != j {
+		return nil, fmt.Errorf("arg length doesn't match, got %d, exp: %d", i, j)
+	}
+
+	return obj.Value, nil
+}

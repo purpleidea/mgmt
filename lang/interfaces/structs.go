@@ -78,6 +78,8 @@ func (obj *ExprAny) Ordering(produces map[string]Node) (*pgraph.Graph, map[Node]
 // does not need to know about the parent scope.
 func (obj *ExprAny) SetScope(*Scope, map[string]Expr) error { return nil }
 
+func (obj *ExprAny) CheckParamScope(freeVars map[Expr]struct{}) error { return nil }
+
 // SetType is used to set the type of this expression once it is known. This
 // usually happens during type unification, but it can also happen during
 // parsing if a type is specified explicitly. Since types are static and don't

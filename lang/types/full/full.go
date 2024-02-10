@@ -41,22 +41,10 @@ import (
 // went horribly wrong. (Think, an internal panic.)
 type FuncValue struct {
 	types.Base
-	V func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
-	T *types.Type // contains ordered field types, arg names are a bonus part
-}
-
-// NewFunc creates a new function with the specified type.
-func NewFunc(t *types.Type) *FuncValue {
-	if t.Kind != types.KindFunc {
-		return nil // sanity check
-	}
-	v := func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error) {
-		return nil, fmt.Errorf("nil function") // TODO: is this correct?
-	}
-	return &FuncValue{
-		V: v,
-		T: t,
-	}
+	Name     *string
+	Timeful  func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
+	Timeless *types.FuncValue
+	T        *types.Type // contains ordered field types, arg names are a bonus part
 }
 
 // String returns a visual representation of this value.
@@ -124,21 +112,4 @@ func (obj *FuncValue) Value() interface{} {
 	//}
 	//val := reflect.MakeFunc(typ, fn)
 	//return val.Interface()
-}
-
-// Func represents the value of this type as a function if it is one. If this is
-// not a function, then this panics.
-func (obj *FuncValue) Func() interface{} {
-	return obj.V
-}
-
-// Set sets the function value to be a new function.
-func (obj *FuncValue) Set(fn func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)) error { // TODO: change method name?
-	obj.V = fn
-	return nil // TODO: can we do any sort of checking here?
-}
-
-// Call calls the function with the provided txn and args.
-func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-	return obj.V(txn, args)
 }

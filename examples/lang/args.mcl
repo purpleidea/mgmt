@@ -1,0 +1,7 @@
+import "fmt"
+import "os"
+
+# show the argv of this process
+print "print" {
+	msg => fmt.printf("args(%d): %v", len(os.args()), os.args()),
+}

@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1087,6 +1088,18 @@ func (obj *HTTPFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// httpError represents a specific HTTP error to send, but can be stored as an
+// internal golang `error` type.
+type httpError struct {
+	msg  string
+	code int
+}
+
+// Error is required to implement the `error` type interface.
+func (obj *httpError) Error() string {
+	return strconv.Itoa(obj.code) + " " + obj.msg
+}
+
 // toHTTPError returns a non-specific HTTP error message and status code for a
 // given non-nil error value. It's important that toHTTPError does not actually
 // return err.Error(), since msg and httpStatus are returned to users, and
@@ -1095,6 +1108,9 @@ func (obj *HTTPFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // NOTE: This was copied and modified slightly from the golang net/http package.
 // See: https://github.com/golang/go/issues/38375
 func toHTTPError(err error) (msg string, httpStatus int) {
+	if e, ok := err.(*httpError); ok {
+		return e.msg, e.code
+	}
 	if os.IsNotExist(err) {
 		//return "404 page not found", http.StatusNotFound
 		return http.StatusText(http.StatusNotFound), http.StatusNotFound

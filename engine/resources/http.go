@@ -247,6 +247,7 @@ func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		sendHTTPError(w, err)
 		return
 	}
+	defer handle.Close() // ignore error
 
 	// Determine the last-modified time if we can.
 	modtime := time.Now()
@@ -968,6 +969,12 @@ func (obj *HTTPFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		obj.init.Logf("could not get content for: %s", requestPath)
 		sendHTTPError(w, err)
 		return
+	}
+	//if readSeekCloser, ok := handle.(io.ReadSeekCloser); ok { // same
+	//	defer readSeekCloser.Close() // ignore error
+	//}
+	if closer, ok := handle.(io.Closer); ok {
+		defer closer.Close() // ignore error
 	}
 
 	// Determine the last-modified time if we can.

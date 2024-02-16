@@ -122,8 +122,7 @@ func (obj *HTTPFlagRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	//requestPath := req.URL.Path
 	//if err := req.ParseForm(); err != nil { // needed to access querystring
-	//	msg, httpStatus := toHTTPError(err)
-	//	http.Error(w, msg, httpStatus)
+	//	sendHTTPError(w, err)
 	//	return
 	//}
 	if obj.Key != "" {

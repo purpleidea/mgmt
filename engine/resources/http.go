@@ -244,8 +244,7 @@ func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handle, err := os.Open(p)
 	if err != nil {
 		obj.init.Logf("could not open: %s", p)
-		msg, httpStatus := toHTTPError(err)
-		http.Error(w, msg, httpStatus)
+		sendHTTPError(w, err)
 		return
 	}
 
@@ -960,16 +959,14 @@ func (obj *HTTPFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	absPath, err := safepath.ParseIntoAbsPath(requestPath)
 	if err != nil {
 		obj.init.Logf("invalid input path: %s", requestPath)
-		msg, httpStatus := toHTTPError(err)
-		http.Error(w, msg, httpStatus)
+		sendHTTPError(w, err)
 		return
 	}
 
 	handle, err := obj.getContent(absPath)
 	if err != nil {
 		obj.init.Logf("could not get content for: %s", requestPath)
-		msg, httpStatus := toHTTPError(err)
-		http.Error(w, msg, httpStatus)
+		sendHTTPError(w, err)
 		return
 	}
 
@@ -1122,4 +1119,10 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 	// Default:
 	//return "500 Internal Server Error", http.StatusInternalServerError
 	return http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError
+}
+
+// sendHTTPError is a helper function for sending an http error response.
+func sendHTTPError(w http.ResponseWriter, err error) {
+	msg, httpStatus := toHTTPError(err)
+	http.Error(w, msg, httpStatus)
 }

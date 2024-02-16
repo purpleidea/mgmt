@@ -183,8 +183,9 @@ func (obj *HTTPFlagRes) Cleanup() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events. This
-// particular one does absolutely nothing but block until we've received a done
-// signal.
+// particular one listens for events from incoming http requests to the flag,
+// and notifies the engine so that CheckApply can then run and return the
+// correct value on send/recv.
 func (obj *HTTPFlagRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 

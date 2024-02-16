@@ -1097,6 +1097,15 @@ func (obj *httpError) Error() string {
 	return strconv.Itoa(obj.code) + " " + obj.msg
 }
 
+// newHTTPError generates a new httpError based on a single status code. It gets
+// the msg text from the http.StatusText method.
+func newHTTPError(code int) error {
+	return &httpError{
+		msg:  http.StatusText(code),
+		code: code,
+	}
+}
+
 // toHTTPError returns a non-specific HTTP error message and status code for a
 // given non-nil error value. It's important that toHTTPError does not actually
 // return err.Error(), since msg and httpStatus are returned to users, and

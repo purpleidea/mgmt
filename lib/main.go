@@ -655,13 +655,16 @@ func (obj *Main) Run() error {
 				Logf("gapi is empty!")
 				continue
 			}
+			var timing time.Time
 
 			// make the graph from yaml, lib, puppet->yaml, or dsl!
+			timing = time.Now()
 			newGraph, err := gapiImpl.Graph() // generate graph!
 			if err != nil {
 				Logf("error creating new graph: %+v", err)
 				continue
 			}
+			Logf("new graph took: %s", time.Since(timing))
 			if obj.Flags.Debug {
 				Logf("new graph: %+v", newGraph)
 			}
@@ -709,19 +712,23 @@ func (obj *Main) Run() error {
 
 			// XXX: can we change this into a ge.Apply operation?
 			// add autoedges; modifies the graph only if no error
+			timing = time.Now()
 			if err := obj.ge.AutoEdge(); err != nil {
 				obj.ge.Abort() // delete graph
 				Logf("error running auto edges: %+v", err)
 				continue
 			}
+			Logf("auto edges took: %s", time.Since(timing))
 
 			// XXX: can we change this into a ge.Apply operation?
 			// run autogroup; modifies the graph
+			timing = time.Now()
 			if err := obj.ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
 				obj.ge.Abort() // delete graph
 				Logf("error running auto grouping: %+v", err)
 				continue
 			}
+			Logf("auto grouping took: %s", time.Since(timing))
 
 			// XXX: can we change this into a ge.Apply operation?
 			// run reversals; modifies the graph
@@ -737,6 +744,7 @@ func (obj *Main) Run() error {
 			// a resource that had previously received some data and
 			// is now different than the equivalent resource in this
 			// new incoming graph!
+			timing = time.Now()
 			if err := obj.ge.Apply(func(g *pgraph.Graph) error { // apply runs on nextGraph (new)
 				old := obj.ge.Graph()
 				if old.NumVertices() == 0 { // skip initial empty graph
@@ -800,6 +808,7 @@ func (obj *Main) Run() error {
 				Logf("error applying operation to the new graph: %+v", err)
 				continue
 			}
+			Logf("send/recv building took: %s", time.Since(timing))
 
 			// Double check before we commit.
 			if err := obj.ge.Apply(func(graph *pgraph.Graph) error {

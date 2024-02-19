@@ -32,6 +32,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/math"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/net"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/os"
+	_ "github.com/purpleidea/mgmt/lang/funcs/core/prometheus"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/regexp"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/strings"
 	_ "github.com/purpleidea/mgmt/lang/funcs/core/sys"

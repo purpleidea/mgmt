@@ -1,0 +1,12 @@
+import "prometheus"
+import "datetime"
+import "golang/math"
+
+$now = math.mod(datetime.now(), 30)
+$prometheus_server = struct{address => "http://127.0.0.1:9090",}
+
+$s1 = prometheus.instant_query("up", $now, $prometheus_server)
+file "/tmp/prometheus" {
+	state => "exists",
+    content => $s1,
+}

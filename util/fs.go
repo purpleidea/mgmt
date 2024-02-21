@@ -25,13 +25,22 @@ import (
 
 // AferoFs is a simple wrapper to a file system to be used for standalone
 // deploys. This is basically a pass-through so that we fulfill the same
-// interface that the deploy mechanism uses. To use this, wrap it with the
-// implied field name, which will prevent `go vet` warnings, eg:
-// `fs := &util.AferoFs{Afero: afs}`. NOTE: This struct is here, since I don't
-// know where else to put it for now.
+// interface that the deploy mechanism uses. If you give it Scheme and Path
+// fields it will use those to build the URI. NOTE: This struct is here, since I
+// don't know where else to put it for now.
 type AferoFs struct {
 	*afero.Afero
+
+	Scheme string
+	Path   string
 }
 
 // URI returns the unique URI of this filesystem. It returns the root path.
-func (obj *AferoFs) URI() string { return fmt.Sprintf("%s://"+"/", obj.Name()) }
+func (obj *AferoFs) URI() string {
+	if obj.Scheme != "" {
+		// if obj.Path is not empty and doesn't start with a slash, then
+		// the first chunk will dissappear when being parsed with stdlib
+		return obj.Scheme + "://" + obj.Path
+	}
+	return fmt.Sprintf("%s://"+"/", obj.Name()) // old
+}

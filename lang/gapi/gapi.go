@@ -201,9 +201,9 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	readOnlyOsFs := afero.NewReadOnlyFs(osFs) // can't be readonly to dl!
 	//bp := afero.NewBasePathFs(osFs, base) // TODO: can this prevent parent dir access?
 	afs := &afero.Afero{Fs: readOnlyOsFs} // wrap so that we're implementing ioutil
-	localFs := &util.Fs{Afero: afs}       // always the local fs
+	localFs := &util.AferoFs{Afero: afs}  // always the local fs
 	downloadAfs := &afero.Afero{Fs: osFs}
-	downloadFs := &util.Fs{Afero: downloadAfs} // TODO: use with a parent path preventer?
+	downloadFs := &util.AferoFs{Afero: downloadAfs} // TODO: use with a parent path preventer?
 
 	// the fs input here is the local fs we're reading to get the files from
 	// this is different from the fs variable which is our output dest!!!
@@ -716,9 +716,9 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	readOnlyOsFs := afero.NewReadOnlyFs(osFs) // can't be readonly to dl!
 	//bp := afero.NewBasePathFs(osFs, base) // TODO: can this prevent parent dir access?
 	afs := &afero.Afero{Fs: readOnlyOsFs} // wrap so that we're implementing ioutil
-	localFs := &util.Fs{Afero: afs}       // always the local fs
+	localFs := &util.AferoFs{Afero: afs}  // always the local fs
 	downloadAfs := &afero.Afero{Fs: osFs}
-	downloadFs := &util.Fs{Afero: downloadAfs} // TODO: use with a parent path preventer?
+	downloadFs := &util.AferoFs{Afero: downloadAfs} // TODO: use with a parent path preventer?
 
 	// the fs input here is the local fs we're reading to get the files from
 	// this is different from the fs variable which is our output dest!!!

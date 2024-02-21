@@ -23,14 +23,15 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Fs is a simple wrapper to a file system to be used for standalone deploys.
-// This is basically a pass-through so that we fulfill the same interface that
-// the deploy mechanism uses. To use this, wrap it with the implied field name,
-// which will prevent `go vet` warnings, eg: `fs := &util.Fs{Afero: afs}`.
-// NOTE: This struct is here, since I don't know where else to put it for now.
-type Fs struct {
+// AferoFs is a simple wrapper to a file system to be used for standalone
+// deploys. This is basically a pass-through so that we fulfill the same
+// interface that the deploy mechanism uses. To use this, wrap it with the
+// implied field name, which will prevent `go vet` warnings, eg:
+// `fs := &util.AferoFs{Afero: afs}`. NOTE: This struct is here, since I don't
+// know where else to put it for now.
+type AferoFs struct {
 	*afero.Afero
 }
 
 // URI returns the unique URI of this filesystem. It returns the root path.
-func (obj *Fs) URI() string { return fmt.Sprintf("%s://"+"/", obj.Name()) }
+func (obj *AferoFs) URI() string { return fmt.Sprintf("%s://"+"/", obj.Name()) }

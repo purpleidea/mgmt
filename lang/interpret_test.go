@@ -290,7 +290,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			mmFs := afero.NewMemMapFs()
 			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-			fs := &util.Fs{Afero: afs}
+			fs := &util.AferoFs{Afero: afs}
 
 			// use this variant, so that we don't copy the dir name
 			// this is the equivalent to running `rsync -a src/ /`
@@ -797,7 +797,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			mmFs := afero.NewMemMapFs()
 			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-			fs := &util.Fs{Afero: afs}
+			fs := &util.AferoFs{Afero: afs}
 
 			// implementation of the Local API (we only expect just this single one)
 			localAPI := (&local.API{
@@ -1599,7 +1599,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			mmFs := afero.NewMemMapFs()
 			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-			fs := &util.Fs{Afero: afs}
+			fs := &util.AferoFs{Afero: afs}
 
 			// implementation of the Local API (we only expect just this single one)
 			localAPI := (&local.API{

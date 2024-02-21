@@ -98,7 +98,7 @@ func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 	}
 	mmFs := afero.NewMemMapFs()
 	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-	fs := &util.Fs{Afero: afs}
+	fs := &util.AferoFs{Afero: afs}
 
 	output, err := inputs.ParseInput(code, fs) // raw code can be passed in
 	if err != nil {

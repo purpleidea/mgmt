@@ -62,7 +62,7 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	// create a memory backed temporary filesystem for storing runtime data
 	mmFs := afero.NewMemMapFs()
 	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-	standaloneFs := &util.Fs{Afero: afs}
+	standaloneFs := &util.AferoFs{Afero: afs}
 	obj.DeployFs = standaloneFs
 
 	cliInfo := &gapi.CliInfo{

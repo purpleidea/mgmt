@@ -157,7 +157,7 @@ func TestCopyDiskToFs1(t *testing.T) {
 
 		mmFs := afero.NewMemMapFs()
 		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-		fs := &Fs{afs}
+		fs := &AferoFs{afs}
 
 		if err := CopyDiskToFs(fs, dir+f+"/", "/", false); err != nil {
 			t.Errorf("copying to fs failed: %+v", err)
@@ -218,7 +218,7 @@ func TestCopyDiskToFs2(t *testing.T) {
 
 		mmFs := afero.NewMemMapFs()
 		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-		fs := &Fs{afs}
+		fs := &AferoFs{afs}
 
 		src := dir + f + "/"
 		dst := "/dest/"
@@ -282,7 +282,7 @@ func TestCopyDiskContentsToFs1(t *testing.T) {
 
 		mmFs := afero.NewMemMapFs()
 		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-		fs := &Fs{afs}
+		fs := &AferoFs{afs}
 
 		if err := CopyDiskContentsToFs(fs, dir+f+"/", "/", false); err != nil {
 			t.Errorf("copying to fs failed: %+v", err)

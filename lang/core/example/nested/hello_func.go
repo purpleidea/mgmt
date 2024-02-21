@@ -18,7 +18,7 @@
 package corenested
 
 import (
-	coreexample "github.com/purpleidea/mgmt/lang/funcs/core/example"
+	coreexample "github.com/purpleidea/mgmt/lang/core/example"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )

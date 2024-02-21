@@ -40,9 +40,9 @@ from looking at example code.
 To implement a function, you'll need to create a file that imports the
 [`lang/funcs/simple/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simple/)
 module. It should probably get created in the correct directory inside of:
-[`lang/funcs/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
-The function should be implemented as a `FuncValue` in our type system. It is
-then registered with the engine during `init()`. An example explains it best:
+[`lang/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/core/). The
+function should be implemented as a `FuncValue` in our type system. It is then
+registered with the engine during `init()`. An example explains it best:
 
 ### Example
 
@@ -115,11 +115,11 @@ re-evaluated as needed when their input values change.
 To implement a function, you'll need to create a file that imports the
 [`lang/funcs/simplepoly/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simplepoly/)
 module. It should probably get created in the correct directory inside of:
-[`lang/funcs/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
-The function should be implemented as a list of `FuncValue`'s in our type
-system. It is then registered with the engine during `init()`. You may also use
-the `variant` type in your type definitions. This special type will never be
-seen inside a running program, and will get converted to a concrete type if a
+[`lang/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/core/). The
+function should be implemented as a list of `FuncValue`'s in our type system. It
+is then registered with the engine during `init()`. You may also use the
+`variant` type in your type definitions. This special type will never be seen
+inside a running program, and will get converted to a concrete type if a
 suitable match to this signature can be found. Be warned that signatures which
 contain too many variants, or which are very general, might be hard for the
 compiler to match, and ambiguous type graphs make for user compiler errors. The

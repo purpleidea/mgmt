@@ -27,7 +27,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
+	_ "github.com/purpleidea/mgmt/lang/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"

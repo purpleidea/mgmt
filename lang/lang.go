@@ -29,7 +29,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/lang/ast"
-	_ "github.com/purpleidea/mgmt/lang/funcs/core" // import so the funcs register
+	_ "github.com/purpleidea/mgmt/lang/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/funcs/dage"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"

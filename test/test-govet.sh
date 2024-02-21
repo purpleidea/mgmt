@@ -97,7 +97,7 @@ function consistent-imports() {
 }
 
 function reflowed-comments() {
-	if [ "$1" = './lang/funcs/core/generated_funcs.go' ]; then
+	if [ "$1" = './lang/core/generated_funcs.go' ]; then
 		return 0
 	fi
 

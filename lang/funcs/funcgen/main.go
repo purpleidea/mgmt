@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	pkg       = flag.String("package", "lang/funcs/core", "path to the package")
+	pkg       = flag.String("package", "lang/core", "path to the package")
 	filename  = flag.String("filename", "funcgen.yaml", "path to the config")
 	templates = flag.String("templates", "lang/funcs/funcgen/templates/*.tpl", "path to the templates")
 )

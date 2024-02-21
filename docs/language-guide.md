@@ -763,7 +763,7 @@ one value must be produced.
 
 ```golang
 Please see the example functions in
-[lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
+[lang/core/](https://github.com/purpleidea/mgmt/tree/master/lang/core/).
 ```
 
 ### Stream
@@ -785,7 +785,7 @@ context cancels.
 
 ```golang
 Please see the example functions in
-[lang/funcs/core/](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/core/).
+[lang/core/](https://github.com/purpleidea/mgmt/tree/master/lang/core/).
 ```
 
 ### Polymorphic Function API

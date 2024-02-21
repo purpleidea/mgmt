@@ -52,7 +52,9 @@ func FuncPrefixToFunctionsScope(prefix string) map[string]interfaces.Expr {
 			// XXX: should we run fn.SetType(st.Fn.Type()) ?
 			exprs[name] = fn
 			continue
-		} else if st, ok := x.(*simplepoly.WrappedFunc); simplepoly.DirectInterface && ok {
+		}
+
+		if st, ok := x.(*simplepoly.WrappedFunc); simplepoly.DirectInterface && ok {
 			fn := &ExprFunc{
 				Title: name,
 
@@ -73,8 +75,8 @@ func FuncPrefixToFunctionsScope(prefix string) map[string]interfaces.Expr {
 	}
 
 	// Wrap every Expr in ExprPoly, so that the function can be used with
-	// different types. Those functions are all builtins, so they don't need to
-	// access the surrounding scope.
+	// different types. Those functions are all builtins, so they don't need
+	// to access the surrounding scope.
 	exprPolys := make(map[string]interfaces.Expr)
 	for name, expr := range exprs {
 		exprPolys[name] = &ExprPoly{

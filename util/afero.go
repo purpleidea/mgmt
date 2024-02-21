@@ -29,6 +29,9 @@ import (
 // FsTree returns a string representation of the file system tree similar to the
 // well-known `tree` command.
 func FsTree(fs afero.Fs, name string) (string, error) {
+	if fs == nil {
+		return "", fmt.Errorf("nil fs")
+	}
 	clean := path.Clean(name)
 	str := clean + "/\n" // named dir
 	if name == "" {

@@ -3479,6 +3479,12 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 		return nil, errwrap.Wrapf(err, "could not activate an input parser")
 	}
 
+	return obj.importScopeWithParsedInputs(input, scope, parentVertex)
+}
+
+// importScopeWithParsedInputs returns a local or remote scope from an already
+// parsed inputs string which presents as a parsed input struct.
+func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scope *interfaces.Scope, parentVertex *pgraph.SelfVertex) (*interfaces.Scope, error) {
 	// TODO: rm this old, and incorrect, linear file duplicate checking...
 	// recursion detection (i guess following the imports has to be a dag!)
 	// run recursion detection by checking for duplicates in the seen files

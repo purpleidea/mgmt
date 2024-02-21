@@ -374,10 +374,10 @@ func TestAstFunc1(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
-				Fs:       fs,
-				FsURI:    fs.URI(),     // TODO: is this right?
-				Base:     output.Base,  // base dir (absolute path) the metadata file is in
-				Files:    output.Files, // no really needed here afaict
+				Fs:       output.FS,       // formerly: fs
+				FsURI:    output.FS.URI(), // formerly: fs.URI() // TODO: is this right?
+				Base:     output.Base,     // base dir (absolute path) the metadata file is in
+				Files:    output.Files,    // no really needed here afaict
 				Imports:  importVertex,
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
@@ -904,10 +904,10 @@ func TestAstFunc2(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
-				Fs:       fs,
-				FsURI:    "memmapfs:///", // we're in standalone mode
-				Base:     output.Base,    // base dir (absolute path) the metadata file is in
-				Files:    output.Files,   // no really needed here afaict
+				Fs:       output.FS, // formerly: fs
+				FsURI:    output.FS.URI(),
+				Base:     output.Base,  // base dir (absolute path) the metadata file is in
+				Files:    output.Files, // no really needed here afaict
 				Imports:  importVertex,
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict
@@ -1706,10 +1706,10 @@ func TestAstFunc3(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
-				Fs:       fs,
-				FsURI:    "memmapfs:///", // we're in standalone mode
-				Base:     output.Base,    // base dir (absolute path) the metadata file is in
-				Files:    output.Files,   // no really needed here afaict
+				Fs:       output.FS, // formerly: fs
+				FsURI:    output.FS.URI(),
+				Base:     output.Base,  // base dir (absolute path) the metadata file is in
+				Files:    output.Files, // no really needed here afaict
 				Imports:  importVertex,
 				Metadata: output.Metadata,
 				Modules:  "/" + interfaces.ModuleDirectory, // not really needed here afaict

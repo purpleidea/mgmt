@@ -263,9 +263,9 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:       localFs,       // the local fs!
-		FsURI:    localFs.URI(), // TODO: is this right?
-		Base:     output.Base,   // base dir (absolute path) that this is rooted in
+		Fs:       output.FS,       // formerly: localFs // the local fs!
+		FsURI:    output.FS.URI(), // formerly: localFs.URI() // TODO: is this right?
+		Base:     output.Base,     // base dir (absolute path) that this is rooted in
 		Files:    output.Files,
 		Imports:  importVertex,
 		Metadata: output.Metadata,
@@ -770,9 +770,9 @@ func (obj *GAPI) Get(getInfo *gapi.GetInfo) error {
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:       localFs,       // the local fs!
-		FsURI:    localFs.URI(), // TODO: is this right?
-		Base:     output.Base,   // base dir (absolute path) that this is rooted in
+		Fs:       output.FS,       // formerly: localFs // the local fs!
+		FsURI:    output.FS.URI(), // formerly: localFs.URI() // TODO: is this right?
+		Base:     output.Base,     // base dir (absolute path) that this is rooted in
 		Files:    output.Files,
 		Imports:  importVertex,
 		Metadata: output.Metadata,

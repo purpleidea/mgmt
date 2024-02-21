@@ -66,9 +66,10 @@ var (
 // ParsedInput is the output struct which contains all the information we need.
 type ParsedInput struct {
 	//activated bool // if struct is not nil we're activated
-	Base     string   // base path (abs path with trailing slash)
-	Main     []byte   // contents of main entry mcl code
-	Files    []string // files and dirs to copy to fs (abs paths)
+	FS       engine.Fs // reference to the engine.Fs used to call the parse
+	Base     string    // base path (abs path with trailing slash)
+	Main     []byte    // contents of main entry mcl code
+	Files    []string  // files and dirs to copy to fs (abs paths)
 	Metadata *interfaces.Metadata
 	Workers  []func(engine.Fs) error // copy files here that aren't listed!
 }
@@ -214,6 +215,7 @@ func inputMetadata(s string, fs engine.Fs) (*ParsedInput, error) {
 		return nil, errwrap.Wrapf(err, "could not build metadata")
 	}
 	return &ParsedInput{
+		FS:       fs,
 		Base:     basePath,
 		Main:     b,
 		Files:    files,
@@ -261,6 +263,7 @@ func inputMcl(s string, fs engine.Fs) (*ParsedInput, error) {
 		},
 	}
 	return &ParsedInput{
+		FS:   fs,
 		Base: dirify(filepath.Dir(s)), // base path with trailing slash
 		Main: b,
 		Files: []string{
@@ -363,6 +366,7 @@ func inputCode(s string, fs engine.Fs) (*ParsedInput, error) {
 	}
 
 	return &ParsedInput{
+		FS:       fs,
 		Base:     dirify(wd),
 		Main:     b,
 		Files:    []string{}, // they're already copied in

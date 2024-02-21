@@ -139,9 +139,9 @@ func (obj *Lang) Init() error {
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:       obj.Fs,
-		FsURI:    obj.FsURI,
-		Base:     output.Base, // base dir (absolute path) the metadata file is in
+		Fs:       output.FS,       // formerly: obj.Fs
+		FsURI:    output.FS.URI(), // formerly: obj.FsURI
+		Base:     output.Base,     // base dir (absolute path) the metadata file is in
 		Files:    output.Files,
 		Imports:  importVertex,
 		Metadata: output.Metadata,

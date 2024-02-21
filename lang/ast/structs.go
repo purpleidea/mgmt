@@ -3474,7 +3474,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 // importScopeWithInputs returns a local or remote scope from an inputs string.
 // The inputs string is the common frontend for a lot of our parsing decisions.
 func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, parentVertex *pgraph.SelfVertex) (*interfaces.Scope, error) {
-	output, err := inputs.ParseInput(s, obj.data.Fs)
+	input, err := inputs.ParseInput(s, obj.data.Fs)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not activate an input parser")
 	}
@@ -3484,12 +3484,12 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 	// run recursion detection by checking for duplicates in the seen files
 	// TODO: do the paths need to be cleaned for "../", etc before compare?
 	//for _, name := range obj.data.Files { // existing seen files
-	//	if util.StrInList(name, output.Files) {
+	//	if util.StrInList(name, input.Files) {
 	//		return nil, fmt.Errorf("recursive import of: `%s`", name)
 	//	}
 	//}
 
-	reader := bytes.NewReader(output.Main)
+	reader := bytes.NewReader(input.Main)
 
 	// nested logger
 	logf := func(format string, v ...interface{}) {
@@ -3498,11 +3498,11 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 
 	// build new list of files
 	files := []string{}
-	files = append(files, output.Files...)
+	files = append(files, input.Files...)
 	files = append(files, obj.data.Files...)
 
 	// store a reference to the parent metadata
-	metadata := output.Metadata
+	metadata := input.Metadata
 	metadata.Metadata = obj.data.Metadata
 
 	// now run the lexer/parser to do the import
@@ -3518,9 +3518,9 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
-		Fs:       obj.data.Fs,
-		FsURI:    obj.data.FsURI,
-		Base:     output.Base, // new base dir (absolute path)
+		Fs:       input.FS,       // formerly: obj.data.Fs,
+		FsURI:    input.FS.URI(), // formerly: obj.data.FsURI,
+		Base:     input.Base,     // new base dir (absolute path)
 		Files:    files,
 		Imports:  parentVertex, // the parent vertex that imported me
 		Metadata: metadata,
@@ -3593,7 +3593,7 @@ func (obj *StmtProg) importScopeWithInputs(s string, scope *interfaces.Scope, pa
 	obj.importProgs = append(obj.importProgs, prog)
 
 	// collecting these here is more elegant (and possibly more efficient!)
-	obj.importFiles = append(obj.importFiles, output.Files...) // save for CollectFiles
+	obj.importFiles = append(obj.importFiles, input.Files...) // save for CollectFiles
 
 	return prog.scope, nil
 }

@@ -51,6 +51,9 @@ type World interface { // TODO: is there a better name for this interface?
 
 	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
 
+	// Fs takes a URI and returns the filesystem that corresponds to that.
+	// This is a way to turn a unique string handle into an appropriate
+	// filesystem object that we can interact with.
 	Fs(uri string) (Fs, error)
 
 	// WatchMembers returns a channel of changing members in the cluster.

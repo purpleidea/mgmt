@@ -23,41 +23,50 @@ import (
 	"github.com/spf13/afero"
 )
 
-// from the ioutil package:
-// NopCloser(r io.Reader) io.ReadCloser // not implemented here
-// ReadAll(r io.Reader) ([]byte, error)
-// ReadDir(dirname string) ([]os.FileInfo, error)
-// ReadFile(filename string) ([]byte, error)
-// TempDir(dir, prefix string) (name string, err error)
-// TempFile(dir, prefix string) (f *os.File, err error) // slightly different here
-// WriteFile(filename string, data []byte, perm os.FileMode) error
-
-// Fs is an interface that represents this file system API that we support.
-// TODO: this should be in the gapi package or elsewhere.
+// Fs is an interface that represents the file system API that we support.
+// TODO: rename this to FS for consistency with the io/fs.FS naming scheme
 type Fs interface {
 	//fmt.Stringer // TODO: add this method?
-	afero.Fs     // TODO: why doesn't this interface exist in the os pkg?
+
+	// URI returns a unique string handle to access this filesystem.
 	URI() string // returns the URI for this file system
 
-	//DirExists(path string) (bool, error)
-	//Exists(path string) (bool, error)
-	//FileContainsAnyBytes(filename string, subslices [][]byte) (bool, error)
-	//FileContainsBytes(filename string, subslice []byte) (bool, error)
-	//FullBaseFsPath(basePathFs *BasePathFs, relativePath string) string
-	//GetTempDir(subPath string) string
-	//IsDir(path string) (bool, error)
-	//IsEmpty(path string) (bool, error)
-	//NeuterAccents(s string) string
-	//ReadAll(r io.Reader) ([]byte, error) // not needed, same as ioutil
+	afero.Fs // TODO: why doesn't this interface exist in the os pkg?
+
+	// FS is the read-only filesystem interface from the io/fs.FS package.
+	//fs.FS // io/fs.FS
+
+	// ReadDir reads the named directory and returns a list of directory
+	// entries sorted by filename.
+	//
+	// This mimics the signature from io/fs.ReadDirFS and has the same docs.
+	//
+	// XXX: Not currently implemented because of legacy Afero.Fs above
+	//ReadDir(name string) ([]fs.DirEntry, error) // io/fs.ReadDirFS
+
+	// ReadFile reads the named file and returns its contents. A successful
+	// call returns a nil error, not io.EOF. (Because ReadFile reads the
+	// whole file, the expected EOF from the final Read is not treated as an
+	// error to be reported.)
+	//
+	// The caller is permitted to modify the returned byte slice. This
+	// method should return a copy of the underlying data.
+	//
+	// This mimics the signature from io/fs.ReadFileFS and has the same
+	// docs.
+	ReadFile(name string) ([]byte, error) // io/fs.ReadFileFS
+
+	// Stat returns a FileInfo describing the file. If there is an error, it
+	// should be of type *fs.PathError.
+	//
+	// This mimics the signature from io/fs.StatFS and has the same docs.
+	//
+	// XXX: Not currently implemented because of legacy Afero.Fs above
+	//Stat(name string) (FileInfo, error) // io/fs.StatFS
+
+	// afero.Fs versions:
+
 	ReadDir(dirname string) ([]os.FileInfo, error)
-	ReadFile(filename string) ([]byte, error)
-	//SafeWriteReader(path string, r io.Reader) (err error)
-	TempDir(dir, prefix string) (name string, err error)
-	TempFile(dir, prefix string) (f afero.File, err error) // slightly different from upstream
-	//UnicodeSanitize(s string) string
-	//Walk(root string, walkFn filepath.WalkFunc) error
-	//WriteFile(filename string, data []byte, perm os.FileMode) error
-	//WriteReader(path string, r io.Reader) (err error)
 }
 
 // WriteableFS is our internal filesystem interface for filesystems we write to.

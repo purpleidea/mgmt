@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -86,8 +87,13 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		return nil, fmt.Errorf("input yaml is empty")
 	}
 
+	writeableFS, ok := fs.(engine.WriteableFS)
+	if !ok {
+		return nil, fmt.Errorf("the FS was not writeable")
+	}
+
 	// single file input only
-	if err := gapi.CopyFileToFs(fs, s, Start); err != nil {
+	if err := gapi.CopyFileToFs(writeableFS, s, Start); err != nil {
 		return nil, errwrap.Wrapf(err, "can't copy yaml from `%s` to `%s`", s, Start)
 	}
 

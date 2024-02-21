@@ -56,6 +56,22 @@ type Fs interface {
 	TempFile(dir, prefix string) (f afero.File, err error) // slightly different from upstream
 	//UnicodeSanitize(s string) string
 	//Walk(root string, walkFn filepath.WalkFunc) error
-	WriteFile(filename string, data []byte, perm os.FileMode) error
+	//WriteFile(filename string, data []byte, perm os.FileMode) error
 	//WriteReader(path string, r io.Reader) (err error)
+}
+
+// WriteableFS is our internal filesystem interface for filesystems we write to.
+// It can wrap whatever implementations we want.
+type WriteableFS interface {
+	Fs
+
+	// WriteFile writes data to the named file, creating it if necessary. If
+	// the file does not exist, WriteFile creates it with permissions perm
+	// (before umask); otherwise WriteFile truncates it before writing,
+	// without changing permissions. Since Writefile requires multiple
+	// system calls to complete, a failure mid-operation can leave the file
+	// in a partially written state.
+	//
+	// This mimics the internal os.WriteFile function and has the same docs.
+	WriteFile(name string, data []byte, perm os.FileMode) error
 }

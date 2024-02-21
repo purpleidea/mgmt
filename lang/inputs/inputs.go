@@ -71,7 +71,7 @@ type ParsedInput struct {
 	Main     []byte    // contents of main entry mcl code
 	Files    []string  // files and dirs to copy to fs (abs paths)
 	Metadata *interfaces.Metadata
-	Workers  []func(engine.Fs) error // copy files here that aren't listed!
+	Workers  []func(engine.WriteableFS) error // copy files here that aren't listed!
 }
 
 // ParseInput runs the list if input parsers to know how to run the lexer,
@@ -256,8 +256,8 @@ func inputMcl(s string, fs engine.Fs) (*ParsedInput, error) {
 		return nil, errwrap.Wrapf(err, "can't built metadata file")
 	}
 	dst := "/" + interfaces.MetadataFilename // eg: /metadata.yaml
-	workers := []func(engine.Fs) error{
-		func(fs engine.Fs) error {
+	workers := []func(engine.WriteableFS) error{
+		func(fs engine.WriteableFS) error {
 			err := gapi.CopyBytesToFs(fs, byt, dst)
 			return errwrap.Wrapf(err, "could not copy metadata file to fs")
 		},
@@ -354,12 +354,12 @@ func inputCode(s string, fs engine.Fs) (*ParsedInput, error) {
 	dst2 := "/" + metadata.Main               // eg: /main.mcl
 	b := []byte(s)                            // unfortunately we convert things back and forth :/
 
-	workers := []func(engine.Fs) error{
-		func(fs engine.Fs) error {
+	workers := []func(engine.WriteableFS) error{
+		func(fs engine.WriteableFS) error {
 			err := gapi.CopyBytesToFs(fs, byt, dst1)
 			return errwrap.Wrapf(err, "could not copy metadata file to fs")
 		},
-		func(fs engine.Fs) error {
+		func(fs engine.WriteableFS) error {
 			err := gapi.CopyBytesToFs(fs, b, dst2)
 			return errwrap.Wrapf(err, "could not copy main file to fs")
 		},

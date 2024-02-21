@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -105,6 +106,11 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 		return nil, fmt.Errorf("%s input is empty", Name)
 	}
 
+	writeableFS, ok := fs.(engine.WriteableFS)
+	if !ok {
+		return nil, fmt.Errorf("the FS was not writeable")
+	}
+
 	isDir := func(p string) (bool, error) {
 		if !strings.HasPrefix(p, "/") {
 			return false, nil
@@ -125,7 +131,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	} else if strings.HasSuffix(s, ".pp") {
 		mode = "file"
-		if err := gapi.CopyFileToFs(fs, s, PuppetFile); err != nil {
+		if err := gapi.CopyFileToFs(writeableFS, s, PuppetFile); err != nil {
 			return nil, errwrap.Wrapf(err, "can't copy code from `%s` to `%s`", s, PuppetFile)
 		}
 
@@ -142,14 +148,14 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 
 	} else {
 		mode = "string"
-		if err := gapi.CopyStringToFs(fs, s, PuppetFile); err != nil {
+		if err := gapi.CopyStringToFs(writeableFS, s, PuppetFile); err != nil {
 			return nil, errwrap.Wrapf(err, "can't copy code to `%s`", PuppetFile)
 		}
 	}
 
 	// TODO: do we want to include this if we have mode == "dir" ?
 	if pc := c.String("puppet-conf"); c.IsSet("puppet-conf") {
-		if err := gapi.CopyFileToFs(fs, pc, PuppetConf); err != nil {
+		if err := gapi.CopyFileToFs(writeableFS, pc, PuppetConf); err != nil {
 			return nil, errwrap.Wrapf(err, "can't copy puppet conf from `%s` to '%s'", pc, PuppetConf)
 
 		}

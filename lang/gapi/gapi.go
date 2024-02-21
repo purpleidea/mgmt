@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lang"
 	"github.com/purpleidea/mgmt/lang/ast"
@@ -373,9 +374,14 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	files = append(files, output.Files...)
 	files = append(files, fileList...)
 
+	writeableFS, ok := fs.(engine.WriteableFS)
+	if !ok {
+		return nil, fmt.Errorf("the FS was not writeable")
+	}
+
 	// run some copy operations to add data into the filesystem
 	for _, fn := range output.Workers {
-		if err := fn(fs); err != nil {
+		if err := fn(writeableFS); err != nil {
 			return nil, err
 		}
 	}
@@ -437,7 +443,7 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 			continue
 		}
 		// it's a regular file path
-		if err := gapi.CopyFileToFs(fs, src, dst); err != nil {
+		if err := gapi.CopyFileToFs(writeableFS, src, dst); err != nil {
 			return nil, errwrap.Wrapf(err, "can't copy file from `%s` to `%s`", src, dst)
 		}
 	}

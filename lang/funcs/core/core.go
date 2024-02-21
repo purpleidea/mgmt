@@ -50,7 +50,7 @@ var mcl embed.FS
 func AssetNames() ([]string, error) {
 	fileSystem := mcl
 	paths := []string{}
-	err := fs.WalkDir(fileSystem, ".", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(fileSystem, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -59,8 +59,7 @@ func AssetNames() ([]string, error) {
 		}
 		paths = append(paths, path)
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return paths, nil

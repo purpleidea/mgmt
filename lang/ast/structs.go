@@ -3186,24 +3186,8 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	return graph, newCons, nil
 }
 
-// importScope is a helper function called from SetScope. If it can't find a
-// particular scope, then it can also run the downloader if it is available.
-func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.Scope) (*interfaces.Scope, error) {
-	if obj.data.Debug {
-		obj.data.Logf("import: %s", info.Name)
-	}
-	// the abs file path that we started actively running SetScope on is:
-	// obj.data.Base + obj.data.Metadata.Main
-	// but recursive imports mean this is not always the active file...
-
-	if info.IsSystem { // system imports are the exact name, eg "fmt"
-		systemScope, err := obj.importSystemScope(info.Name)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "system import of `%s` failed", info.Name)
-		}
-		return systemScope, nil
-	}
-
+// nextVertex is a helper function that builds a vertex for recursion detection.
+func (obj *StmtProg) nextVertex(info *interfaces.ImportData) (*pgraph.SelfVertex, error) {
 	// graph-based recursion detection
 	// TODO: is this sufficiently unique, but not incorrectly unique?
 	// TODO: do we need to clean uvid for consistency so the compare works?
@@ -3236,6 +3220,32 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 		// TODO: print the cycle in a prettier way (with file names?)
 		obj.data.Logf("import: not a dag:\n%s", importGraph.Sprint())
 		return nil, errwrap.Wrapf(err, "recursive import of: `%s`", info.Name)
+	}
+
+	return nextVertex, nil
+}
+
+// importScope is a helper function called from SetScope. If it can't find a
+// particular scope, then it can also run the downloader if it is available.
+func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.Scope) (*interfaces.Scope, error) {
+	if obj.data.Debug {
+		obj.data.Logf("import: %s", info.Name)
+	}
+	// the abs file path that we started actively running SetScope on is:
+	// obj.data.Base + obj.data.Metadata.Main
+	// but recursive imports mean this is not always the active file...
+
+	if info.IsSystem { // system imports are the exact name, eg "fmt"
+		systemScope, err := obj.importSystemScope(info.Name)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "system import of `%s` failed", info.Name)
+		}
+		return systemScope, nil
+	}
+
+	nextVertex, err := obj.nextVertex(info) // everyone below us uses this!
+	if err != nil {
+		return nil, err
 	}
 
 	if info.IsLocal {

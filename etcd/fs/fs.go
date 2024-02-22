@@ -47,6 +47,9 @@ func init() {
 }
 
 const (
+	// Scheme is the unique name for this filesystem type.
+	Scheme = "etcdfs"
+
 	// EtcdTimeout is the timeout to wait before erroring.
 	EtcdTimeout = 5 * time.Second // FIXME: chosen arbitrarily
 	// DefaultDataPrefix is the default path for data storage in etcd.
@@ -331,7 +334,7 @@ func (obj *Fs) find(absPath string) (*File, error) { // TODO: function naming?
 }
 
 // Name returns the name of this filesystem.
-func (obj *Fs) Name() string { return "etcdfs" }
+func (obj *Fs) Name() string { return Scheme }
 
 // URI returns a URI representing this particular filesystem.
 func (obj *Fs) URI() string {

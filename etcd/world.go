@@ -191,7 +191,7 @@ func (obj *World) Fs(uri string) (engine.Fs, error) {
 		return obj.StandaloneFs, nil
 	}
 
-	if u.Scheme != "etcdfs" {
+	if u.Scheme != etcdfs.Scheme {
 		return nil, fmt.Errorf("unknown scheme: `%s`", u.Scheme)
 	}
 	if u.Path == "" {

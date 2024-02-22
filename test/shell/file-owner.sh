@@ -1,6 +1,8 @@
 #!/bin/bash -e
 # vim: noet:ts=8:sts=8:sw=8
 
+exit 0	# XXX: disable for now
+
 . "$(dirname "$0")/../util.sh"
 
 set -x

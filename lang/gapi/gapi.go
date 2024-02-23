@@ -419,6 +419,14 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	util.PathSlice(files).Sort() // sort it
 	for _, src := range files {  // absolute paths
 		// rebase path src to root file system of "/" for etcdfs...
+
+		// everywhere we expect absolute, but we should use relative :/
+		//tree, err := util.FsTree(fs, "/")
+		//if err != nil {
+		//	return nil, err
+		//}
+		//logf("tree:\n%s", tree)
+
 		dst, err := util.Rebase(src, output.Base, "/")
 		if err != nil {
 			// possible programming error

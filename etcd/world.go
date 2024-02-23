@@ -32,6 +32,7 @@ import (
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/etcd/scheduler"
+	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/util"
 )
 
@@ -189,6 +190,11 @@ func (obj *World) Fs(uri string) (engine.Fs, error) {
 	// we're in standalone mode
 	if u.Scheme == "memmapfs" && u.Path == "/" {
 		return obj.StandaloneFs, nil
+	}
+
+	if u.Scheme == embedded.Scheme {
+		path := strings.TrimPrefix(u.Path, "/") // expect a leading slash
+		return embedded.Lookup(path)            // does not expect a leading slash
 	}
 
 	if u.Scheme != etcdfs.Scheme {

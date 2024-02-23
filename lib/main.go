@@ -486,6 +486,9 @@ func (obj *Main) Run() error {
 	}).Init()
 
 	// implementation of the World API (alternatives can be substituted in)
+	// XXX: The "implementation of the World API" should have more than just
+	// etcd in it, so this could live elsewhere package wise and just have
+	// an etcd component from the etcd package added in.
 	world := &etcd.World{
 		Hostname:       hostname,
 		Client:         etcdClient,

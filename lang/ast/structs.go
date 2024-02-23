@@ -31,6 +31,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/core"
+	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/inputs"
@@ -3234,6 +3235,37 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 	// the abs file path that we started actively running SetScope on is:
 	// obj.data.Base + obj.data.Metadata.Main
 	// but recursive imports mean this is not always the active file...
+
+	// attempt to load an embedded system import first (pure mcl rather than golang)
+	if fs, err := embedded.Lookup(info.Name); info.IsSystem && err == nil {
+		nextVertex, err := obj.nextVertex(info)
+		if err != nil {
+			return nil, err
+		}
+
+		//tree, err := util.FsTree(fs, "/")
+		//if err != nil {
+		//	return nil, err
+		//}
+		//obj.data.Logf("tree:\n%s", tree)
+
+		s := "/" + interfaces.MetadataFilename // standard entry point
+		//s := "/" // would this directory parser approach be better?
+		input, err := inputs.ParseInput(s, fs) // use my FS
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "embedded could not activate an input parser")
+		}
+
+		// The files we're pulling in are already embedded, so we must
+		// not try to copy them in from disk or it won't succeed.
+		input.Files = []string{} // clear
+
+		embeddedScope, err := obj.importScopeWithParsedInputs(input, scope, nextVertex)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "embedded import of `%s` failed", info.Name)
+		}
+		return embeddedScope, nil
+	}
 
 	if info.IsSystem { // system imports are the exact name, eg "fmt"
 		systemScope, err := obj.importSystemScope(info.Name)

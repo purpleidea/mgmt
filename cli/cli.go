@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lib
+// Package cli handles all of the core command line parsing. It's the first
+// entry point after the real main function, and it imports and runs our core
+// "lib".
+package cli
 
 import (
 	"fmt"
@@ -31,6 +34,12 @@ import (
 
 	"github.com/urfave/cli/v2"
 )
+
+// Flags are some constant flags which are used throughout the program.
+type Flags struct {
+	Debug   bool // add additional log messages
+	Verbose bool // add extra log message output
+}
 
 // CLIArgs is a struct of values that we pass to the main CLI function.
 type CLIArgs struct {

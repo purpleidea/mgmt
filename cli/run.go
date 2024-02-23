@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lib
+package cli
 
 import (
 	"fmt"
@@ -26,6 +26,7 @@ import (
 	"syscall"
 
 	"github.com/purpleidea/mgmt/gapi"
+	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -40,14 +41,25 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		return fmt.Errorf("could not get cli context")
 	}
 
-	obj := &Main{}
+	obj := &lib.Main{}
 
 	obj.Program, obj.Version = safeProgram(c.App.Name), c.App.Version
+	var flags Flags
 	if val, exists := c.App.Metadata["flags"]; exists {
-		if flags, ok := val.(Flags); ok {
-			obj.Flags = flags
+		if f, ok := val.(Flags); ok {
+			flags = f
+			obj.Flags = lib.Flags{
+				Debug:   f.Debug,
+				Verbose: f.Verbose,
+			}
 		}
 	}
+	Logf := func(format string, v ...interface{}) {
+		log.Printf("main: "+format, v...)
+	}
+
+	hello(obj.Program, obj.Version, flags) // say hello!
+	defer Logf("goodbye!")
 
 	if h := cliContext.String("hostname"); cliContext.IsSet("hostname") && h != "" {
 		obj.Hostname = &h

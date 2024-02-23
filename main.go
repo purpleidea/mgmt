@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"os"
 
-	mgmt "github.com/purpleidea/mgmt/lib"
+	"github.com/purpleidea/mgmt/cli"
 	"go.etcd.io/etcd/server/v3/etcdmain"
 )
 
@@ -55,17 +55,16 @@ func main() {
 		return              // for safety
 	}
 
-	flags := mgmt.Flags{
-		Debug:   Debug,
-		Verbose: Verbose,
-	}
-	cliArgs := &mgmt.CLIArgs{
+	cliArgs := &cli.CLIArgs{
 		Program: program,
 		Version: version,
 		Copying: copying,
-		Flags:   flags,
+		Flags: cli.Flags{
+			Debug:   Debug,
+			Verbose: Verbose,
+		},
 	}
-	if err := mgmt.CLI(cliArgs); err != nil {
+	if err := cli.CLI(cliArgs); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return

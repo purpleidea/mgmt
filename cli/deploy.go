@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lib
+package cli
 
 import (
 	"context"
@@ -27,18 +27,12 @@ import (
 	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
+	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/pborman/uuid"
 	"github.com/urfave/cli/v2"
 	git "gopkg.in/src-d/go-git.v4"
-)
-
-const (
-	// MetadataPrefix is the etcd prefix where all our fs superblocks live.
-	MetadataPrefix = "/fs"
-	// StoragePrefix is the etcd prefix where all our fs data lives.
-	StoragePrefix = "/storage"
 )
 
 // deploy is the cli target to manage deploys to our cluster.
@@ -111,7 +105,7 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 
 	etcdClient := client.NewClientFromSeedsNamespace(
 		cliContext.StringSlice("seeds"), // endpoints
-		NS,
+		lib.NS,
 	)
 	if err := etcdClient.Init(); err != nil {
 		return errwrap.Wrapf(err, "client Init failed")
@@ -154,8 +148,8 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	etcdFs := &etcdfs.Fs{
 		Client: etcdClient,
 		// TODO: using a uuid is meant as a temporary measure, i hate them
-		Metadata:   MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid),
-		DataPrefix: StoragePrefix,
+		Metadata:   lib.MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid),
+		DataPrefix: lib.StoragePrefix,
 
 		Debug: debug,
 		Logf: func(format string, v ...interface{}) {

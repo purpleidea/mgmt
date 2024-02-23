@@ -15,21 +15,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package lib
+package cli
 
 import (
-	"strings"
+	"fmt"
+	"log"
+	"os"
+	"time"
 )
 
-// safeProgram returns the correct program string when given a buggy variant.
-func safeProgram(program string) string {
-	// FIXME: in sub commands, the cli package appends a space and the sub
-	// command name at the end. hack around this by only using the first bit
-	// see: https://github.com/urfave/cli/issues/783 for more details...
-	split := strings.Split(program, " ")
-	program = split[0]
-	//if program == "" {
-	//	program = "<unknown>"
-	//}
-	return program
+func hello(program, version string, flags Flags) {
+	var start = time.Now().UnixNano()
+
+	logFlags := log.LstdFlags
+	if flags.Debug {
+		logFlags = logFlags + log.Lshortfile
+	}
+	logFlags = logFlags - log.Ldate // remove the date for now
+	log.SetFlags(logFlags)
+
+	log.SetOutput(os.Stderr)
+
+	if program == "" {
+		program = "<unknown>"
+	}
+	fmt.Println(fmt.Sprintf("This is: %s, version: %s", program, version))
+	fmt.Println("Copyright (C) 2013-2024+ James Shubin and the project contributors")
+	fmt.Println("Written by James Shubin <james@shubin.ca> and the project contributors")
+	log.Printf("main: start: %v", start)
 }

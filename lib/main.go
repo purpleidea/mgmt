@@ -55,6 +55,12 @@ import (
 const (
 	// NS is the root namespace for etcd operations. All keys must use it!
 	NS = "/_mgmt" // must not end with a slash!
+
+	// MetadataPrefix is the etcd prefix where all our fs superblocks live.
+	MetadataPrefix = "/fs"
+
+	// StoragePrefix is the etcd prefix where all our fs data lives.
+	StoragePrefix = "/storage"
 )
 
 // Flags are some constant flags which are used throughout the program.
@@ -201,9 +207,6 @@ func (obj *Main) Run() error {
 	Logf := func(format string, v ...interface{}) {
 		log.Printf("main: "+format, v...)
 	}
-
-	hello(obj.Program, obj.Version, obj.Flags) // say hello!
-	defer Logf("goodbye!")
 
 	exitCtx := obj.exit.Context() // local exit signal
 	defer obj.exit.Done(nil)      // ensure this gets called even if Exit doesn't

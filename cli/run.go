@@ -41,14 +41,14 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		return fmt.Errorf("could not get cli context")
 	}
 
-	obj := &lib.Main{}
+	main := &lib.Main{}
 
-	obj.Program, obj.Version = safeProgram(c.App.Name), c.App.Version
+	main.Program, main.Version = safeProgram(c.App.Name), c.App.Version
 	var flags Flags
 	if val, exists := c.App.Metadata["flags"]; exists {
 		if f, ok := val.(Flags); ok {
 			flags = f
-			obj.Flags = lib.Flags{
+			main.Flags = lib.Flags{
 				Debug:   f.Debug,
 				Verbose: f.Verbose,
 			}
@@ -58,30 +58,30 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		log.Printf("main: "+format, v...)
 	}
 
-	hello(obj.Program, obj.Version, flags) // say hello!
+	hello(main.Program, main.Version, flags) // say hello!
 	defer Logf("goodbye!")
 
 	if h := cliContext.String("hostname"); cliContext.IsSet("hostname") && h != "" {
-		obj.Hostname = &h
+		main.Hostname = &h
 	}
 
 	if s := cliContext.String("prefix"); cliContext.IsSet("prefix") && s != "" {
-		obj.Prefix = &s
+		main.Prefix = &s
 	}
-	obj.TmpPrefix = cliContext.Bool("tmp-prefix")
-	obj.AllowTmpPrefix = cliContext.Bool("allow-tmp-prefix")
+	main.TmpPrefix = cliContext.Bool("tmp-prefix")
+	main.AllowTmpPrefix = cliContext.Bool("allow-tmp-prefix")
 
 	// create a memory backed temporary filesystem for storing runtime data
 	mmFs := afero.NewMemMapFs()
 	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
 	standaloneFs := &util.AferoFs{Afero: afs}
-	obj.DeployFs = standaloneFs
+	main.DeployFs = standaloneFs
 
 	cliInfo := &gapi.CliInfo{
 		CliContext: c, // don't pass in the parent context
 
 		Fs:    standaloneFs,
-		Debug: obj.Flags.Debug,
+		Debug: main.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
 			log.Printf("cli: "+format, v...)
 		},
@@ -94,53 +94,53 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	if c.Bool("only-unify") && deploy == nil {
 		return nil // we end early
 	}
-	obj.Deploy = deploy
-	if obj.Deploy == nil {
+	main.Deploy = deploy
+	if main.Deploy == nil {
 		// nobody activated, but we'll still watch the etcd deploy chan,
 		// and if there is deployed code that's ready to run, we'll run!
 		log.Printf("main: no frontend selected (no GAPI activated)")
 	}
 
-	obj.NoWatch = cliContext.Bool("no-watch")
-	obj.NoStreamWatch = cliContext.Bool("no-stream-watch")
-	obj.NoDeployWatch = cliContext.Bool("no-deploy-watch")
+	main.NoWatch = cliContext.Bool("no-watch")
+	main.NoStreamWatch = cliContext.Bool("no-stream-watch")
+	main.NoDeployWatch = cliContext.Bool("no-deploy-watch")
 
-	obj.Noop = cliContext.Bool("noop")
-	obj.Sema = cliContext.Int("sema")
-	obj.Graphviz = cliContext.String("graphviz")
-	obj.GraphvizFilter = cliContext.String("graphviz-filter")
-	obj.ConvergedTimeout = cliContext.Int64("converged-timeout")
-	obj.ConvergedTimeoutNoExit = cliContext.Bool("converged-timeout-no-exit")
-	obj.ConvergedStatusFile = cliContext.String("converged-status-file")
-	obj.MaxRuntime = uint(cliContext.Int("max-runtime"))
+	main.Noop = cliContext.Bool("noop")
+	main.Sema = cliContext.Int("sema")
+	main.Graphviz = cliContext.String("graphviz")
+	main.GraphvizFilter = cliContext.String("graphviz-filter")
+	main.ConvergedTimeout = cliContext.Int64("converged-timeout")
+	main.ConvergedTimeoutNoExit = cliContext.Bool("converged-timeout-no-exit")
+	main.ConvergedStatusFile = cliContext.String("converged-status-file")
+	main.MaxRuntime = uint(cliContext.Int("max-runtime"))
 
-	obj.Seeds = cliContext.StringSlice("seeds")
-	obj.ClientURLs = cliContext.StringSlice("client-urls")
-	obj.ServerURLs = cliContext.StringSlice("server-urls")
-	obj.AdvertiseClientURLs = cliContext.StringSlice("advertise-client-urls")
-	obj.AdvertiseServerURLs = cliContext.StringSlice("advertise-server-urls")
-	obj.IdealClusterSize = cliContext.Int("ideal-cluster-size")
-	obj.NoServer = cliContext.Bool("no-server")
-	obj.NoNetwork = cliContext.Bool("no-network")
+	main.Seeds = cliContext.StringSlice("seeds")
+	main.ClientURLs = cliContext.StringSlice("client-urls")
+	main.ServerURLs = cliContext.StringSlice("server-urls")
+	main.AdvertiseClientURLs = cliContext.StringSlice("advertise-client-urls")
+	main.AdvertiseServerURLs = cliContext.StringSlice("advertise-server-urls")
+	main.IdealClusterSize = cliContext.Int("ideal-cluster-size")
+	main.NoServer = cliContext.Bool("no-server")
+	main.NoNetwork = cliContext.Bool("no-network")
 
-	obj.NoPgp = cliContext.Bool("no-pgp")
+	main.NoPgp = cliContext.Bool("no-pgp")
 
 	if kp := cliContext.String("pgp-key-path"); cliContext.IsSet("pgp-key-path") {
-		obj.PgpKeyPath = &kp
+		main.PgpKeyPath = &kp
 	}
 
 	if us := cliContext.String("pgp-identity"); cliContext.IsSet("pgp-identity") {
-		obj.PgpIdentity = &us
+		main.PgpIdentity = &us
 	}
 
-	obj.Prometheus = cliContext.Bool("prometheus")
-	obj.PrometheusListen = cliContext.String("prometheus-listen")
+	main.Prometheus = cliContext.Bool("prometheus")
+	main.PrometheusListen = cliContext.String("prometheus-listen")
 
-	if err := obj.Validate(); err != nil {
+	if err := main.Validate(); err != nil {
 		return err
 	}
 
-	if err := obj.Init(); err != nil {
+	if err := main.Init(); err != nil {
 		return err
 	}
 
@@ -163,20 +163,20 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 			case sig := <-signals: // any signal will do
 				if sig != os.Interrupt {
 					log.Printf("interrupted by signal")
-					obj.Interrupt(fmt.Errorf("killed by %v", sig))
+					main.Interrupt(fmt.Errorf("killed by %v", sig))
 					return
 				}
 
 				switch count {
 				case 0:
 					log.Printf("interrupted by ^C")
-					obj.Exit(nil)
+					main.Exit(nil)
 				case 1:
 					log.Printf("interrupted by ^C (fast pause)")
-					obj.FastExit(nil)
+					main.FastExit(nil)
 				case 2:
 					log.Printf("interrupted by ^C (hard interrupt)")
-					obj.Interrupt(nil)
+					main.Interrupt(nil)
 				}
 				count++
 
@@ -186,16 +186,16 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		}
 	}()
 
-	reterr := obj.Run()
+	reterr := main.Run()
 	if reterr != nil {
 		// log the error message returned
-		if obj.Flags.Debug {
+		if main.Flags.Debug {
 			log.Printf("main: %+v", reterr)
 		}
 	}
 
-	if err := obj.Close(); err != nil {
-		if obj.Flags.Debug {
+	if err := main.Close(); err != nil {
+		if main.Flags.Debug {
 			log.Printf("main: Close: %+v", err)
 		}
 		if reterr == nil {

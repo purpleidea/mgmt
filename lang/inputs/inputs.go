@@ -74,6 +74,18 @@ type ParsedInput struct {
 	Workers  []func(engine.WriteableFS) error // copy files here that aren't listed!
 }
 
+// String adds a pretty-printing facility to make it easier to visualize these.
+func (obj *ParsedInput) String() string {
+	s := "&ParsedInput{\n"
+	s += "\tFS: " + obj.FS.URI() + "\n" // don't print directly
+	s += "\tBase: " + obj.Base + "\n"
+	//s += "\tMain: " + obj.Main + "\n" // messy
+	s += fmt.Sprintf("\tFiles: %+v\n", obj.Files)
+	s += fmt.Sprintf("\tMetadata: %+v\n", obj.Metadata)
+	s += fmt.Sprintf("\tWorkers: %d\n", len(obj.Workers))
+	return s + "}"
+}
+
 // ParseInput runs the list if input parsers to know how to run the lexer,
 // parser, and so on... The fs input is the source filesystem to look in.
 func ParseInput(s string, fs engine.Fs) (*ParsedInput, error) {

@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+// Package core contains core functions and other related facilities which are
+// used in programs.
 package core
 
 import (

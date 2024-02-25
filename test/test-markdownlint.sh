@@ -11,9 +11,9 @@ ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 cd "${ROOT}" || exit 1
 . test/util.sh
 
-MDL=$(command -v mdl 2>/dev/null) || true
-if [ -z "$MDL" ]; then
-	fail_test "The 'mdl' utility can't be found."
+linter="pipenv run pymarkdownlnt"
+if ! $linter -h >/dev/null ; then
+	fail_test "The 'pymarkdownlnt' utility can't be found."
 fi
 
 STYLE=$($mktemp)
@@ -42,6 +42,12 @@ exclude_rule 'MD039'	# Spaces inside link text
 rule 'MD013', :line_length => 80, :ignore_code_blocks => true, :tables => false
 EOF
 
+disable_arg=$( grep exclude_rule $STYLE | cut -d\' -f2 | tr A-Z\\n a-z, )
+options="--set plugins.line-length.code_blocks=False"
+
+all_rules_except_long_lines=$( $linter plugins list \
+	| awk '/md013/ { next } /md[01]/ { print $1 }' | tr \\n , )
+
 #STYLE="test/mdl.style"	# style file
 
 CHECK_LINKS=false
@@ -69,14 +75,32 @@ bad_files=$(
 		fi
 
 		# search for more than one leading space, to ensure we use tabs
-		if grep -q '^  ' "$i"; then
+		# ONLY in ``` blocks
+		if sed -n '/```/,/```/p' <$i | grep -q '^  ' ; then
 			echo "$i: MDX042: Leading spaces found instead of tabs" 1>&2
 			echo "$i"
 		fi
 
 		# check the markdown format with the linter
-		if ! "$MDL" --style "$STYLE" "$i" 1>&2; then
+		# currently we replace leading tabs with spaces until
+		# https://github.com/jackdewinter/pymarkdown/issues/1015
+		# is fixed
+
+		# first: ignore the long-lines check
+		#if ! "$linter" -d ${disable_arg},md013 $options scan "$i" 1>&2; then
+		if ! sed 's/\t/    /g' <"$i" | $linter -d ${disable_arg},md013 $options scan-stdin 1>&2; then
 			echo "$i"
+			continue
+		fi
+
+		# second, long-lines check only, but filter out all tables
+		# (required because the linter currently has no tables support
+		#  so we cannot configure an exception)
+		if ! grep -v '^|' "$i" \
+		   | sed 's/\t/    /g' \
+		   | $linter -d $all_rules_except_long_lines $options scan-stdin 1>&2; then
+			echo "$i"
+			continue
 		fi
 
 		# check links in docs

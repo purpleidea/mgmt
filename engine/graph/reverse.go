@@ -19,7 +19,6 @@ package graph
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -161,7 +160,7 @@ func (obj *Engine) ReversalList() (map[string]string, error) {
 	result := make(map[string]string) // some key to contents
 
 	dir := obj.statePrefix() // loop through this dir...
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, errwrap.Wrapf(err, "error reading list of state dirs")
 	} else if err != nil {
@@ -171,7 +170,7 @@ func (obj *Engine) ReversalList() (map[string]string, error) {
 	for _, x := range files {
 		key := x.Name() // some uid for the resource
 		file := path.Join(dir, key, ReverseFile)
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil && !os.IsNotExist(err) {
 			return nil, errwrap.Wrapf(err, "could not read reverse file: %s", file)
 		} else if err != nil {
@@ -263,7 +262,7 @@ func (obj *State) ReversalWrite(str string, overwrite bool) error {
 	}
 	file := path.Join(dir, ReverseFile) // return a unique file
 
-	content, err := ioutil.ReadFile(file)
+	content, err := os.ReadFile(file)
 	if err != nil && !os.IsNotExist(err) {
 		return errwrap.Wrapf(err, "could not read reverse file: %s", file)
 	}
@@ -280,7 +279,7 @@ func (obj *State) ReversalWrite(str string, overwrite bool) error {
 		}
 	}
 
-	return ioutil.WriteFile(file, []byte(str), ReversePerm)
+	return os.WriteFile(file, []byte(str), ReversePerm)
 }
 
 // ReversalDelete removes the reversal state information for this resource.

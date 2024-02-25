@@ -7,7 +7,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -46,7 +46,7 @@ func main() {
 	}
 	log.Printf("Event received: %+v", result)
 
-	s, err := ioutil.ReadAll(result.Body) // TODO: apparently we can stream
+	s, err := io.ReadAll(result.Body) // TODO: apparently we can stream
 	result.Body.Close()
 	log.Printf("Response: %+v", string(s))
 	log.Printf("Error: %+v", err)

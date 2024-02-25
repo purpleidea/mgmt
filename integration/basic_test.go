@@ -21,7 +21,6 @@ package integration
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -136,7 +135,7 @@ func TestInstance1(t *testing.T) {
 			sort.Strings(files) // loop in a deterministic order
 			for _, f := range files {
 				filename := path.Join(d, RootDirectory, f)
-				b, err := ioutil.ReadFile(filename)
+				b, err := os.ReadFile(filename)
 				if err != nil {
 					t.Errorf("could not read file: `%s`", filename)
 					continue
@@ -274,7 +273,7 @@ func TestCluster1(t *testing.T) {
 				sort.Strings(files) // loop in a deterministic order
 				for _, f := range files {
 					filename := path.Join(d, RootDirectory, f)
-					b, err := ioutil.ReadFile(filename)
+					b, err := os.ReadFile(filename)
 					if err != nil {
 						t.Errorf("could not read file: `%s`", filename)
 						continue

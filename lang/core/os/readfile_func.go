@@ -20,7 +20,7 @@ package coreos
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -203,7 +203,7 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 			}
 
 			// read file...
-			content, err := ioutil.ReadFile(*obj.filename)
+			content, err := os.ReadFile(*obj.filename)
 			if err != nil {
 				return errwrap.Wrapf(err, "error reading file")
 			}

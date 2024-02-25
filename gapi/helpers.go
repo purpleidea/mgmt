@@ -18,7 +18,7 @@
 package gapi
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/util"
@@ -31,7 +31,7 @@ const Umask = 0666
 
 // CopyFileToFs copies a file from src path on the local fs to a dst path on fs.
 func CopyFileToFs(fs engine.WriteableFS, src, dst string) error {
-	data, err := ioutil.ReadFile(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return errwrap.Wrapf(err, "can't read from file `%s`", src)
 	}

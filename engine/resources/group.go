@@ -20,7 +20,7 @@ package resources
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os/exec"
 	"os/user"
 	"strconv"
@@ -210,7 +210,7 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, errwrap.Wrapf(err, "cmd failed to start")
 	}
 	// capture any error messages
-	slurp, err := ioutil.ReadAll(stderr)
+	slurp, err := io.ReadAll(stderr)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error slurping error message")
 	}

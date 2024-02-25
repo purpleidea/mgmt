@@ -22,7 +22,7 @@ package resources
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"testing"
@@ -155,7 +155,7 @@ func setup() error {
 	if err != nil {
 		return fmt.Errorf("error pulling image: %s", err)
 	}
-	if _, err := ioutil.ReadAll(p); err != nil {
+	if _, err := io.ReadAll(p); err != nil {
 		return fmt.Errorf("error reading image pull result: %s", err)
 	}
 

@@ -20,7 +20,6 @@ package interfaces
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -196,7 +195,7 @@ func ParseMetadata(reader io.Reader) (*Metadata, error) {
 	//if err := decoder.Decode(metadata); err != nil {
 	//	return nil, errwrap.Wrapf(err, "can't parse metadata")
 	//}
-	b, err := ioutil.ReadAll(reader)
+	b, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read metadata")
 	}

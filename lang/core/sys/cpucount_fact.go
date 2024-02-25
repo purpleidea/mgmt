@@ -21,7 +21,7 @@ package coresys
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -173,7 +173,7 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 
 // getCPUCount looks in sysfs to get the number of CPUs that are online.
 func getCPUCount() (int64, error) {
-	dat, err := ioutil.ReadFile("/sys/devices/system/cpu/online")
+	dat, err := os.ReadFile("/sys/devices/system/cpu/online")
 	if err != nil {
 		return 0, err
 	}

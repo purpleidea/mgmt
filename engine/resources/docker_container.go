@@ -22,7 +22,7 @@ package resources
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"regexp"
 	"strings"
 	"time"
@@ -287,7 +287,7 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 			return false, errwrap.Wrapf(err, "error pulling image")
 		}
 		// Wait for the image to download, EOF signals that it's done.
-		if _, err := ioutil.ReadAll(p); err != nil {
+		if _, err := io.ReadAll(p); err != nil {
 			return false, errwrap.Wrapf(err, "error reading image pull result")
 		}
 

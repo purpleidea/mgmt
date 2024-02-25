@@ -24,7 +24,7 @@ import (
 	"bytes"
 	"crypto"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -155,7 +155,7 @@ func (obj *PGP) Encrypt(to *openpgp.Entity, msg string) (string, error) {
 	}
 
 	// encode to base64
-	bytes, err := ioutil.ReadAll(buf)
+	bytes, err := io.ReadAll(buf)
 	if err != nil {
 		return "", errwrap.Wrapf(err, "can't read unverified body")
 	}
@@ -199,7 +199,7 @@ func (obj *PGP) Decrypt(encString string) (string, error) {
 		return "", errwrap.Wrapf(err, "can't read message")
 	}
 
-	bytes, err := ioutil.ReadAll(md.UnverifiedBody)
+	bytes, err := io.ReadAll(md.UnverifiedBody)
 	if err != nil {
 		return "", errwrap.Wrapf(err, "can't read unverified body")
 	}

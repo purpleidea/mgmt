@@ -94,6 +94,11 @@ function consistent-imports() {
 	if grep '"golang.org/x/net/context"' "$1"; then	# use built-in context
 		return 1
 	fi
+
+	# deprecated import
+	if grep $'\t"io/ioutil"' "$1"; then # use the documented replacements
+		return 1
+	fi
 }
 
 function reflowed-comments() {

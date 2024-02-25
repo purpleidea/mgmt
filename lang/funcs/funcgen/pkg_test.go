@@ -19,7 +19,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -36,7 +36,7 @@ func testParseFuncsWithFixture(t *testing.T, fixture string) {
 		Exclude: []string{"ToLower"},
 	}
 
-	signatures, err := ioutil.ReadFile(fmt.Sprintf("fixtures/func_%s.txt", fixture))
+	signatures, err := os.ReadFile(fmt.Sprintf("fixtures/func_%s.txt", fixture))
 	if err != nil {
 		t.Fatalf("Fixtures (txt) unreadable!\n%v", err)
 	}
@@ -46,7 +46,7 @@ func testParseFuncsWithFixture(t *testing.T, fixture string) {
 	}
 
 	expected := &functions{}
-	fixtures, err := ioutil.ReadFile(fmt.Sprintf("fixtures/func_%s.yaml", fixture))
+	fixtures, err := os.ReadFile(fmt.Sprintf("fixtures/func_%s.yaml", fixture))
 	if err != nil {
 		t.Fatalf("Fixtures (yaml) unreadable!\n%v", err)
 	}

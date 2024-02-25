@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"regexp"
@@ -980,7 +980,7 @@ func (obj *AwsEc2Res) snsGetCert(url string) (*x509.Certificate, error) {
 		return nil, errwrap.Wrapf(err, "http get error")
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error reading post body")
 	}

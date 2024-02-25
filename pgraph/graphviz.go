@@ -20,7 +20,6 @@ package pgraph // TODO: this should be a subpackage
 import (
 	"fmt"
 	"html"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"sort"
@@ -168,7 +167,7 @@ func (obj *Graphviz) Exec() error {
 	uid, err1 := strconv.Atoi(os.Getenv("SUDO_UID"))
 	gid, err2 := strconv.Atoi(os.Getenv("SUDO_GID"))
 
-	if err := ioutil.WriteFile(filename, []byte(obj.Text()), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(obj.Text()), 0644); err != nil {
 		return errwrap.Wrapf(err, "error writing to filename")
 	}
 

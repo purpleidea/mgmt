@@ -22,7 +22,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -166,7 +165,7 @@ func FileExpect(p, s string) Step { // path & string
 	return &manualStep{
 		action: func() error { return nil },
 		expect: func() error {
-			content, err := ioutil.ReadFile(p)
+			content, err := os.ReadFile(p)
 			if err != nil {
 				return err
 			}
@@ -207,7 +206,7 @@ func FileWrite(p, s string) Step { // path & string
 		action: func() error {
 			// TODO: apparently using 0666 is equivalent to respecting the current umask
 			const umask = 0666
-			return ioutil.WriteFile(p, []byte(s), umask)
+			return os.WriteFile(p, []byte(s), umask)
 		},
 		expect: func() error { return nil },
 	}
@@ -318,7 +317,7 @@ func TestResources1(t *testing.T) {
 			timeline: timeline,
 			expect:   func() error { return nil },
 			// build file for inotifywait
-			startup: func() error { return ioutil.WriteFile(f, []byte("starting...\n"), 0666) },
+			startup: func() error { return os.WriteFile(f, []byte("starting...\n"), 0666) },
 			cleanup: func() error { return os.Remove(f) },
 		})
 	}
@@ -354,7 +353,7 @@ func TestResources1(t *testing.T) {
 			timeline: timeline,
 			expect:   func() error { return nil },
 			// build file for inotifywait
-			startup: func() error { return ioutil.WriteFile(f, []byte("starting...\n"), 0666) },
+			startup: func() error { return os.WriteFile(f, []byte("starting...\n"), 0666) },
 			cleanup: func() error { return os.Remove(f) },
 		})
 	}
@@ -402,7 +401,7 @@ func TestResources1(t *testing.T) {
 			fail:     false,
 			timeline: timeline,
 			expect:   func() error { return nil },
-			startup:  func() error { return ioutil.WriteFile(p, []byte(content), 0666) },
+			startup:  func() error { return os.WriteFile(p, []byte(content), 0666) },
 			cleanup:  func() error { return os.Remove(p) },
 		})
 	}
@@ -429,7 +428,7 @@ func TestResources1(t *testing.T) {
 			fail:     false,
 			timeline: timeline,
 			expect:   func() error { return nil },
-			startup:  func() error { return ioutil.WriteFile(p, []byte(content), 0666) },
+			startup:  func() error { return os.WriteFile(p, []byte(content), 0666) },
 			cleanup:  func() error { return os.Remove(p) },
 		})
 	}
@@ -841,13 +840,13 @@ func TestResources2(t *testing.T) {
 	fileWrite := func(p, s string) func() error {
 		// write the file to path
 		return func() error {
-			return ioutil.WriteFile(p, []byte(s), 0666)
+			return os.WriteFile(p, []byte(s), 0666)
 		}
 	}
 	fileExpect := func(p, s string) func() error {
 		// check the contents at the path match the string we expect
 		return func() error {
-			content, err := ioutil.ReadFile(p)
+			content, err := os.ReadFile(p)
 			if err != nil {
 				return err
 			}

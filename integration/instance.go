@@ -20,7 +20,6 @@ package integration
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -117,7 +116,7 @@ func (obj *Instance) Init() error {
 	// create temporary directory to use during testing
 	if obj.dir == "" {
 		var err error
-		obj.dir, err = ioutil.TempDir("", fmt.Sprintf("mgmt-integration-%s-", obj.Hostname))
+		obj.dir, err = os.MkdirTemp("", fmt.Sprintf("mgmt-integration-%s-", obj.Hostname))
 		if err != nil {
 			return errwrap.Wrapf(err, "can't create temporary directory")
 		}
@@ -379,7 +378,7 @@ func (obj *Instance) Wait(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		contents, err := ioutil.ReadFile(obj.convergedStatusFile)
+		contents, err := os.ReadFile(obj.convergedStatusFile)
 		if err != nil {
 			continue // file might not exist yet, wait for an event
 		}
@@ -418,7 +417,7 @@ func (obj *Instance) DeployLang(code string) error {
 
 	filename := path.Join(obj.dir, "deploy.mcl")
 	data := []byte(code)
-	if err := ioutil.WriteFile(filename, data, fileMode); err != nil {
+	if err := os.WriteFile(filename, data, fileMode); err != nil {
 		return err
 	}
 
@@ -451,7 +450,7 @@ func (obj *Instance) Dir() string {
 
 // CombinedOutput returns the logged output from the instance.
 func (obj *Instance) CombinedOutput() (string, error) {
-	contents, err := ioutil.ReadFile(path.Join(obj.dir, StdoutStderrFile))
+	contents, err := os.ReadFile(path.Join(obj.dir, StdoutStderrFile))
 	if err != nil {
 		return "", err
 	}

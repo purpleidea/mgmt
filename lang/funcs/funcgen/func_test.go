@@ -19,7 +19,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -37,7 +37,7 @@ func testRenderFuncsWithFixture(t *testing.T, fixture string) {
 	}
 
 	funcs := &functions{}
-	fixtures, err := ioutil.ReadFile(fmt.Sprintf("fixtures/func_%s.yaml", fixture))
+	fixtures, err := os.ReadFile(fmt.Sprintf("fixtures/func_%s.yaml", fixture))
 	if err != nil {
 		t.Fatalf("Fixtures (yaml) unreadable!\n%v", err)
 	}
@@ -46,7 +46,7 @@ func testRenderFuncsWithFixture(t *testing.T, fixture string) {
 		t.Fatalf("Fixtures (yaml) unreadable!\n%v", err)
 	}
 
-	golangFixtures, err := ioutil.ReadFile(fmt.Sprintf("fixtures/func_%s.tpl", fixture))
+	golangFixtures, err := os.ReadFile(fmt.Sprintf("fixtures/func_%s.tpl", fixture))
 	if err != nil {
 		t.Fatalf("Fixtures (tpl) unreadable!\n%v", err)
 	}
@@ -60,7 +60,7 @@ func testRenderFuncsWithFixture(t *testing.T, fixture string) {
 	if err != nil {
 		t.Fatalf("Not generating template!\n%v", err)
 	}
-	result, err := ioutil.ReadFile(fmt.Sprintf("fixtures/%s", dstFileName))
+	result, err := os.ReadFile(fmt.Sprintf("fixtures/%s", dstFileName))
 	if err != nil {
 		t.Fatalf("Result unreadable!\n%v", err)
 	}

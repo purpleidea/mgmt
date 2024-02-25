@@ -22,7 +22,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"sync"
@@ -489,7 +488,7 @@ func TestLiveFuncExec0(t *testing.T) {
 			funcname: "os.readfile",
 			timeline: timeline,
 			expect:   func() error { return nil },
-			startup:  func() error { return ioutil.WriteFile(p, []byte(content), 0666) },
+			startup:  func() error { return os.WriteFile(p, []byte(content), 0666) },
 			cleanup:  func() error { return os.Remove(p) },
 		})
 	}

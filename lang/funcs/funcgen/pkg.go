@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -55,7 +55,7 @@ func parsePkg(path, filename, templates string) error {
 	var c config
 	filePath := filepath.Join(path, filename)
 	log.Printf("Data: %s", filePath)
-	cfgFile, err := ioutil.ReadFile(filePath)
+	cfgFile, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}

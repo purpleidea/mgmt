@@ -20,7 +20,6 @@ package integration
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -68,7 +67,7 @@ func (obj *Cluster) Init() error {
 
 	// create temporary directory to use during testing
 	if obj.dir == "" {
-		obj.dir, err = ioutil.TempDir("", "mgmt-integration-cluster-")
+		obj.dir, err = os.MkdirTemp("", "mgmt-integration-cluster-")
 		if err != nil {
 			return errwrap.Wrapf(err, "can't create temporary directory")
 		}

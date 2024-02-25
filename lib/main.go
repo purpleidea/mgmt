@@ -23,7 +23,6 @@ package lib
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -258,7 +257,7 @@ func (obj *Main) Run() error {
 	if obj.TmpPrefix || os.MkdirAll(prefix, 0770) != nil {
 		if obj.TmpPrefix || obj.AllowTmpPrefix {
 			var err error
-			if prefix, err = ioutil.TempDir("", obj.Program+"-"+hostname+"-"); err != nil {
+			if prefix, err = os.MkdirTemp("", obj.Program+"-"+hostname+"-"); err != nil {
 				return fmt.Errorf("can't create temporary prefix")
 			}
 			Logf("warning: working prefix directory is temporary!")

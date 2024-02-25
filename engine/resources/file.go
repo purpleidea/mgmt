@@ -24,7 +24,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -1076,7 +1076,7 @@ func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, 
 	for _, frag := range obj.Fragments {
 		// It's a single file. Add it to what we're building...
 		if isDir := strings.HasSuffix(frag, "/"); !isDir {
-			out, err := ioutil.ReadFile(frag)
+			out, err := os.ReadFile(frag)
 			if err != nil {
 				return false, errwrap.Wrapf(err, "could not read file fragment")
 			}
@@ -1085,7 +1085,7 @@ func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, 
 		}
 
 		// We're a dir, peer inside...
-		files, err := ioutil.ReadDir(frag)
+		files, err := os.ReadDir(frag)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "could not read fragment directory")
 		}
@@ -1096,7 +1096,7 @@ func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, 
 				continue
 			}
 			f := path.Join(frag, file.Name())
-			out, err := ioutil.ReadFile(f)
+			out, err := os.ReadFile(f)
 			if err != nil {
 				return false, errwrap.Wrapf(err, "could not read directory file fragment")
 			}
@@ -1571,7 +1571,7 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 	// We do this whether we specified content with Content or w/ Fragments.
 	// The `res.State != FileStateAbsent` check is an optional optimization.
 	if ((obj.Content != nil || len(obj.Fragments) > 0) || obj.State == FileStateAbsent) && res.State != FileStateAbsent {
-		content, err := ioutil.ReadFile(obj.getPath())
+		content, err := os.ReadFile(obj.getPath())
 		if err != nil && !os.IsNotExist(err) {
 			return nil, errwrap.Wrapf(err, "could not read file for reversal storage")
 		}
@@ -1598,8 +1598,8 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 	}
 
 	// There is a race if the operating system is adding/changing/removing
-	// the file between the ioutil.Readfile at the top and here. If there is
-	// a discrepancy between the two, then you might get an unexpected
+	// the file between the os.ReadFile at the top and here. If there is a
+	// discrepancy between the two, then you might get an unexpected
 	// reverse, but in reality, your perspective is pretty absurd. This is a
 	// user error, and not an issue we actually care about, afaict.
 	fileInfo, err := os.Stat(obj.getPath())
@@ -1647,9 +1647,9 @@ func (obj *FileRes) GraphQueryAllowed(opts ...engine.GraphQueryableOption) error
 }
 
 // smartPath adds a trailing slash to the path if it is a directory.
-func smartPath(fileInfo os.FileInfo) string {
-	smartPath := fileInfo.Name() // absolute path
-	if fileInfo.IsDir() {
+func smartPath(dirEntry fs.DirEntry) string {
+	smartPath := dirEntry.Name() // absolute path
+	if dirEntry.IsDir() {
 		smartPath += "/" // add a trailing slash for dirs
 	}
 	return smartPath
@@ -1670,24 +1670,30 @@ func ReadDir(path string) ([]FileInfo, error) {
 		return nil, fmt.Errorf("path must be a directory")
 	}
 	output := []FileInfo{} // my file info
-	fileInfos, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if os.IsNotExist(err) {
 		return output, err // return empty list
 	}
 	if err != nil {
 		return nil, err
 	}
-	for _, fi := range fileInfos {
-		abs := path + smartPath(fi)
+	for _, file := range files {
+		abs := path + smartPath(file)
 		rel, err := filepath.Rel(path, abs) // NOTE: calls Clean()
 		if err != nil {                     // shouldn't happen
 			return nil, errwrap.Wrapf(err, "unhandled error in ReadDir")
 		}
-		if fi.IsDir() {
+		if file.IsDir() {
 			rel += "/" // add a trailing slash for dirs
 		}
+
+		fileInfo, err := file.Info()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "unhandled error in FileInfo")
+		}
+
 		x := FileInfo{
-			FileInfo: fi,
+			FileInfo: fileInfo,
 			AbsPath:  abs,
 			RelPath:  rel,
 		}

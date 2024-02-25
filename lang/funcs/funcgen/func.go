@@ -19,7 +19,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -72,7 +71,7 @@ func parseFuncs(c config, f functions, path, templates string) error {
 func generateTemplate(c config, f functions, path, templateFile, finalName string) error {
 	log.Printf("Reading: %s", templateFile)
 	basename := filepath.Base(templateFile)
-	tplFile, err := ioutil.ReadFile(templateFile)
+	tplFile, err := os.ReadFile(templateFile)
 	if err != nil {
 		return err
 	}

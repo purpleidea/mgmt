@@ -19,7 +19,6 @@ package puppet
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -202,7 +201,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 
 		// store the puppet file on disk for other binaries to see and use
 		prefix := fmt.Sprintf("%s-%s-%s", data.Program, data.Hostname, strings.Replace(PuppetFile, "/", "", -1))
-		tmpfile, err := ioutil.TempFile("", prefix)
+		tmpfile, err := os.CreateTemp("", prefix)
 		if err != nil {
 			return errwrap.Wrapf(err, "can't create temp file")
 		}
@@ -222,7 +221,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 	} else if obj.Mode == "dir" {
 		// store the puppet files on disk for other binaries to see and use
 		prefix := fmt.Sprintf("%s-%s-%s", data.Program, data.Hostname, strings.Replace(PuppetSite, "/", "", -1))
-		tmpdirName, err := ioutil.TempDir("", prefix)
+		tmpdirName, err := os.MkdirTemp("", prefix)
 		if err != nil {
 			return errwrap.Wrapf(err, "can't create temp dir")
 		}
@@ -244,7 +243,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 
 		// store the puppet conf on disk for other binaries to see and use
 		prefix := fmt.Sprintf("%s-%s-%s", data.Program, data.Hostname, strings.Replace(PuppetConf, "/", "", -1))
-		tmpfile, err := ioutil.TempFile("", prefix)
+		tmpfile, err := os.CreateTemp("", prefix)
 		if err != nil {
 			return errwrap.Wrapf(err, "can't create temp file")
 		}

@@ -21,7 +21,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"os"
 	"path"
@@ -109,7 +109,7 @@ func (obj *PasswordRes) read() (string, error) {
 		return "", err
 	}
 	defer file.Close()
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return "", errwrap.Wrapf(err, "could not read from file")
 	}

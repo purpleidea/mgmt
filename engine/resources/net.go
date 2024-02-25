@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
@@ -509,7 +508,7 @@ func (obj *NetRes) fileCheckApply(ctx context.Context, apply bool) (bool, error)
 	fileContents := []byte{}
 	if exists {
 		// check the file contents
-		byt, err := ioutil.ReadFile(obj.unitFilePath)
+		byt, err := os.ReadFile(obj.unitFilePath)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error reading file")
 		}
@@ -535,7 +534,7 @@ func (obj *NetRes) fileCheckApply(ctx context.Context, apply bool) (bool, error)
 	}
 
 	// all other situations, we write the file
-	if err := ioutil.WriteFile(obj.unitFilePath, contents, networkdUnitFileUmask); err != nil {
+	if err := os.WriteFile(obj.unitFilePath, contents, networkdUnitFileUmask); err != nil {
 		return false, errwrap.Wrapf(err, "error writing configuration file")
 	}
 	return false, nil

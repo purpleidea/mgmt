@@ -24,7 +24,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -123,7 +122,7 @@ func TestAstFunc1(t *testing.T) {
 	testCases := []test{}
 
 	// build test array automatically from reading the dir
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
@@ -207,7 +206,7 @@ func TestAstFunc1(t *testing.T) {
 					t.Errorf("err making dir(%s): %+v", dir, err)
 					return
 				}
-				if err := ioutil.WriteFile(name, file.Data, 0660); err != nil {
+				if err := os.WriteFile(name, file.Data, 0660); err != nil {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
@@ -289,7 +288,7 @@ func TestAstFunc1(t *testing.T) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
 			mmFs := afero.NewMemMapFs()
-			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+			afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
 			fs := &util.AferoFs{Afero: afs}
 
 			// use this variant, so that we don't copy the dir name
@@ -603,7 +602,7 @@ func TestAstFunc2(t *testing.T) {
 	testCases := []test{}
 
 	// build test array automatically from reading the dir
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
@@ -690,7 +689,7 @@ func TestAstFunc2(t *testing.T) {
 					t.Errorf("err making dir(%s): %+v", dir, err)
 					return
 				}
-				if err := ioutil.WriteFile(name, file.Data, 0660); err != nil {
+				if err := os.WriteFile(name, file.Data, 0660); err != nil {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
@@ -796,7 +795,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
 			mmFs := afero.NewMemMapFs()
-			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+			afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
 			fs := &util.AferoFs{Afero: afs}
 
 			// implementation of the Local API (we only expect just this single one)
@@ -1411,7 +1410,7 @@ func TestAstFunc3(t *testing.T) {
 	testCases := []test{}
 
 	// build test array automatically from reading the dir
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
@@ -1498,7 +1497,7 @@ func TestAstFunc3(t *testing.T) {
 					t.Errorf("err making dir(%s): %+v", dir, err)
 					return
 				}
-				if err := ioutil.WriteFile(name, file.Data, 0660); err != nil {
+				if err := os.WriteFile(name, file.Data, 0660); err != nil {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
@@ -1598,7 +1597,7 @@ func TestAstFunc3(t *testing.T) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
 			mmFs := afero.NewMemMapFs()
-			afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+			afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
 			fs := &util.AferoFs{Afero: afs}
 
 			// implementation of the Local API (we only expect just this single one)

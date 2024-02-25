@@ -20,7 +20,6 @@
 package resources
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -65,7 +64,7 @@ var fstabWriteTests = []struct {
 }
 
 func (obj *MountRes) TestFstabWrite(t *testing.T) {
-	file, err := ioutil.TempFile("", "fstab")
+	file, err := os.CreateTemp("", "fstab")
 	if err != nil {
 		t.Errorf("error creating temp file: %v", err)
 		return
@@ -117,7 +116,7 @@ var fstabEntryAddTests = []struct {
 }
 
 func (obj *MountRes) TestFstabEntryAdd(t *testing.T) {
-	file, err := ioutil.TempFile("", "fstab")
+	file, err := os.CreateTemp("", "fstab")
 	if err != nil {
 		t.Errorf("error creating temp file: %v", err)
 		return
@@ -125,7 +124,7 @@ func (obj *MountRes) TestFstabEntryAdd(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	for _, test := range fstabEntryAddTests {
-		if err := ioutil.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
+		if err := os.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
 			t.Errorf("error writing fstab file: %s: %v", file.Name(), err)
 			return
 		}
@@ -163,7 +162,7 @@ var fstabEntryRemoveTests = []struct {
 }
 
 func (obj *MountRes) TestFstabEntryRemove(t *testing.T) {
-	file, err := ioutil.TempFile("", "fstab")
+	file, err := os.CreateTemp("", "fstab")
 	if err != nil {
 		t.Errorf("error creating temp file: %v", err)
 		return
@@ -171,7 +170,7 @@ func (obj *MountRes) TestFstabEntryRemove(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	for _, test := range fstabEntryRemoveTests {
-		if err := ioutil.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
+		if err := os.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
 			t.Errorf("error writing fstab file: %s: %v", file.Name(), err)
 			return
 		}
@@ -258,7 +257,7 @@ var fstabEntryExistsTests = []struct {
 }
 
 func TestFstabEntryExists(t *testing.T) {
-	file, err := ioutil.TempFile("", "fstab")
+	file, err := os.CreateTemp("", "fstab")
 	if err != nil {
 		t.Errorf("error creating temp file: %v", err)
 		return
@@ -266,7 +265,7 @@ func TestFstabEntryExists(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	for _, test := range fstabEntryExistsTests {
-		if err := ioutil.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
+		if err := os.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
 			t.Errorf("error writing fstab file: %s: %v", file.Name(), err)
 			return
 		}

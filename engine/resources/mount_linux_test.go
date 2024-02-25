@@ -20,7 +20,6 @@
 package resources
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -49,18 +48,18 @@ func TestMountExists(t *testing.T) {
 		},
 	}
 
-	file, err := ioutil.TempFile("", "proc")
+	file, err := os.CreateTemp("", "proc")
 	if err != nil {
 		t.Errorf("error creating temp file: %v", err)
 		return
 	}
 	defer os.Remove(file.Name())
 	for _, test := range mountExistsTests {
-		if err := ioutil.WriteFile(file.Name(), test.procMock, 0664); err != nil {
+		if err := os.WriteFile(file.Name(), test.procMock, 0664); err != nil {
 			t.Errorf("error writing proc file: %s: %v", file.Name(), err)
 			return
 		}
-		if err := ioutil.WriteFile(test.in.Spec, []byte{}, 0664); err != nil {
+		if err := os.WriteFile(test.in.Spec, []byte{}, 0664); err != nil {
 			t.Errorf("error writing fstab file: %s: %v", file.Name(), err)
 			return
 		}

@@ -25,7 +25,7 @@ package inputs
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -162,7 +162,7 @@ func inputStdin(s string, fs engine.Fs) (*ParsedInput, error) {
 	// TODO: yes, we could pass a reader directly, but we'd
 	// need to have a convention for it to get closed after
 	// and we need to save it to disk for deploys to use it
-	b, err := ioutil.ReadAll(os.Stdin) // doesn't need fs
+	b, err := io.ReadAll(os.Stdin) // doesn't need fs
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read in stdin")
 	}
@@ -202,8 +202,8 @@ func inputMetadata(s string, fs engine.Fs) (*ParsedInput, error) {
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read from file: `%s`", m)
 	}
-	defer fm.Close()             // we're done reading by the time this runs
-	b, err := ioutil.ReadAll(fm) // doesn't need fs
+	defer fm.Close()         // we're done reading by the time this runs
+	b, err := io.ReadAll(fm) // doesn't need fs
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read in file: `%s`", m)
 	}
@@ -251,8 +251,8 @@ func inputMcl(s string, fs engine.Fs) (*ParsedInput, error) {
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read from file: `%s`", s)
 	}
-	defer fm.Close()             // we're done reading by the time this runs
-	b, err := ioutil.ReadAll(fm) // doesn't need fs
+	defer fm.Close()         // we're done reading by the time this runs
+	b, err := io.ReadAll(fm) // doesn't need fs
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read in file: `%s`", s)
 	}

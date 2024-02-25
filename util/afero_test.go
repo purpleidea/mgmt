@@ -21,7 +21,6 @@ package util
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"sort"
 	"testing"
@@ -125,7 +124,7 @@ func TestCopyDiskToFs1(t *testing.T) {
 		return
 	}
 	t.Logf("tests directory is: %s", dir)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
@@ -146,7 +145,7 @@ func TestCopyDiskToFs1(t *testing.T) {
 			//t.Logf("skipping: %s -> %+v", treeFile, err)
 			continue
 		}
-		content, err := ioutil.ReadFile(treeFileFull)
+		content, err := os.ReadFile(treeFileFull)
 		if err != nil {
 			t.Errorf("could not read tree file: %+v", err)
 			return
@@ -156,7 +155,7 @@ func TestCopyDiskToFs1(t *testing.T) {
 		t.Logf("testing: %s", treeFile)
 
 		mmFs := afero.NewMemMapFs()
-		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+		afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
 		fs := &AferoFs{Afero: afs}
 
 		if err := CopyDiskToFs(fs, dir+f+"/", "/", false); err != nil {
@@ -186,7 +185,7 @@ func TestCopyDiskToFs2(t *testing.T) {
 		return
 	}
 	t.Logf("tests directory is: %s", dir)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
@@ -207,7 +206,7 @@ func TestCopyDiskToFs2(t *testing.T) {
 			//t.Logf("skipping: %s -> %+v", treeFile, err)
 			continue
 		}
-		content, err := ioutil.ReadFile(treeFileFull)
+		content, err := os.ReadFile(treeFileFull)
 		if err != nil {
 			t.Errorf("could not read tree file: %+v", err)
 			return
@@ -217,7 +216,7 @@ func TestCopyDiskToFs2(t *testing.T) {
 		t.Logf("testing: %s", treeFile)
 
 		mmFs := afero.NewMemMapFs()
-		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+		afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
 		fs := &AferoFs{Afero: afs}
 
 		src := dir + f + "/"
@@ -250,7 +249,7 @@ func TestCopyDiskContentsToFs1(t *testing.T) {
 		return
 	}
 	t.Logf("tests directory is: %s", dir)
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		t.Errorf("could not read through tests directory: %+v", err)
 		return
@@ -271,7 +270,7 @@ func TestCopyDiskContentsToFs1(t *testing.T) {
 			//t.Logf("skipping: %s -> %+v", treeFile, err)
 			continue
 		}
-		content, err := ioutil.ReadFile(treeFileFull)
+		content, err := os.ReadFile(treeFileFull)
 		if err != nil {
 			t.Errorf("could not read tree file: %+v", err)
 			return
@@ -281,7 +280,7 @@ func TestCopyDiskContentsToFs1(t *testing.T) {
 		t.Logf("testing: %s", treeFile)
 
 		mmFs := afero.NewMemMapFs()
-		afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
+		afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
 		fs := &AferoFs{Afero: afs}
 
 		if err := CopyDiskContentsToFs(fs, dir+f+"/", "/", false); err != nil {

@@ -30,7 +30,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	langutil "github.com/purpleidea/mgmt/lang/util"
+	langUtil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/davecgh/go-spew/spew"
@@ -2568,7 +2568,7 @@ func TestImportParsing0(t *testing.T) {
 		fail: true, // don't allow double root slash
 	})
 
-	t.Logf("ModuleMagicPrefix: %s", langutil.ModuleMagicPrefix)
+	t.Logf("ModuleMagicPrefix: %s", langUtil.ModuleMagicPrefix)
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
 		if util.StrInList(tc.name, names) {
@@ -2579,7 +2579,7 @@ func TestImportParsing0(t *testing.T) {
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
 			name, fail, alias, isSystem, isLocal, isFile, path, url := tc.name, tc.fail, tc.alias, tc.isSystem, tc.isLocal, tc.isFile, tc.path, tc.url
 
-			output, err := langutil.ParseImportName(name)
+			output, err := langUtil.ParseImportName(name)
 			if !fail && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: ParseImportName failed with: %+v", index, err)

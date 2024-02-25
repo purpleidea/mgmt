@@ -38,7 +38,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/types/full"
-	langutil "github.com/purpleidea/mgmt/lang/util"
+	langUtil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -3685,7 +3685,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			return fmt.Errorf("import `%s` already exists in this scope", imp.Name)
 		}
 
-		result, err := langutil.ParseImportName(imp.Name)
+		result, err := langUtil.ParseImportName(imp.Name)
 		if err != nil {
 			return errwrap.Wrapf(err, "import `%s` is not valid", imp.Name)
 		}
@@ -7125,7 +7125,7 @@ func (obj *ExprFunc) Init(data *interfaces.Data) error {
 			}
 			typs = append(typs, f.T)
 		}
-		if err := langutil.HasDuplicateTypes(typs); err != nil {
+		if err := langUtil.HasDuplicateTypes(typs); err != nil {
 			return errwrap.Wrapf(err, "func list contains a duplicate signature")
 		}
 	}
@@ -7376,7 +7376,7 @@ func (obj *ExprFunc) SetType(typ *types.Type) error {
 
 	if len(obj.Values) > 0 {
 		// search for the compatible type
-		_, err := langutil.FnMatch(typ, obj.Values)
+		_, err := langUtil.FnMatch(typ, obj.Values)
 		if err != nil {
 			return errwrap.Wrapf(err, "could not build values func")
 		}
@@ -7708,7 +7708,7 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 			T: obj.typ,
 		})
 	} else /* len(obj.Values) > 0 */ {
-		index, err := langutil.FnMatch(obj.typ, obj.Values)
+		index, err := langUtil.FnMatch(obj.typ, obj.Values)
 		if err != nil {
 			// programming error
 			// since type checking succeeded at this point, there should only be one match
@@ -8679,7 +8679,7 @@ func (obj *ExprVar) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprVar) Init(*interfaces.Data) error {
-	return langutil.ValidateVarName(obj.Name)
+	return langUtil.ValidateVarName(obj.Name)
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
@@ -8933,7 +8933,7 @@ func (obj *ExprParam) Apply(fn func(interfaces.Node) error) error { return fn(ob
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprParam) Init(*interfaces.Data) error {
-	return langutil.ValidateVarName(obj.Name)
+	return langUtil.ValidateVarName(obj.Name)
 }
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This

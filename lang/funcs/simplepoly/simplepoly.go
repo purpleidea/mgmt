@@ -24,7 +24,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	langutil "github.com/purpleidea/mgmt/lang/util"
+	langUtil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -79,7 +79,7 @@ func Register(name string, fns []*types.FuncValue) {
 		typs = append(typs, f.T)
 	}
 
-	if err := langutil.HasDuplicateTypes(typs); err != nil {
+	if err := langUtil.HasDuplicateTypes(typs); err != nil {
 		panic(fmt.Sprintf("polyfunc %s has a duplicate implementation: %+v", name, err))
 	}
 
@@ -483,7 +483,7 @@ func (obj *WrappedFunc) Polymorphisms(partialType *types.Type, partialValues []t
 func (obj *WrappedFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 
-	index, err := langutil.FnMatch(typ, obj.Fns)
+	index, err := langUtil.FnMatch(typ, obj.Fns)
 	if err != nil {
 		return nil, err
 	}
@@ -523,7 +523,7 @@ func (obj *WrappedFunc) Validate() error {
 		typs = append(typs, f.T)
 	}
 
-	if err := langutil.HasDuplicateTypes(typs); err != nil {
+	if err := langUtil.HasDuplicateTypes(typs); err != nil {
 		return errwrap.Wrapf(err, "duplicate implementation found")
 	}
 

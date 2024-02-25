@@ -83,11 +83,15 @@ function consistent-imports() {
 	if grep $'\t"github.com/hashicorp/go-multierror"' "$1"; then
 		return 1
 	fi
-	# import as langutil
+	# import as *Util (should be fooUtil) with util capitalized
+	if grep $'util "github.com/purpleidea/mgmt"' "$1"; then
+		return 1
+	fi
+	# import as langUtil
 	if grep $'\t"github.com/purpleidea/mgmt/lang/util"' "$1"; then
 		return 1
 	fi
-	# import as engineutil
+	# import as engineUtil
 	if grep $'\t"github.com/purpleidea/mgmt/engine/util"' "$1"; then
 		return 1
 	fi

@@ -1,0 +1,9 @@
+---
+extends: default
+rules:
+  line-length: disable
+  indentation:
+    indent-sequences: consistent
+  truthy:
+    # for the on: in github workflows. yes, really
+    check-keys: false

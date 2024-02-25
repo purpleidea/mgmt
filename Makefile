@@ -271,7 +271,7 @@ gofmt:
 	find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec goimports -w {} \;
 
 yamlfmt:
-	find . -maxdepth 3 -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' | xargs pipenv run yamlfix
+	find . -maxdepth 3 -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' | xargs pipenv run yamlfix -c yamlfix.toml
 
 format: gofmt yamlfmt ## format yaml and golang code
 

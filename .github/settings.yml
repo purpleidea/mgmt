@@ -1,3 +1,4 @@
+---
 # These settings are synced to GitHub by https://probot.github.io/apps/settings/
 
 repository:
@@ -77,7 +78,7 @@ labels:
 #    oldname: Help Wanted
 
 # Collaborators: give specific users access to this repository.
-#collaborators:
+# collaborators:
 #  - username: purpleidea
 #    # Note: Only valid on organization-owned repositories.
 #    # The permission to grant the collaborator. Can be one of:
@@ -91,7 +92,7 @@ labels:
 
 # NOTE: The APIs needed for teams are not supported yet by GitHub Apps
 # https://developer.github.com/v3/apps/available-endpoints/
-#teams:
+# teams:
 #  - name: core
 #    permission: admin
 #  - name: docs

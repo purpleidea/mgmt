@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 
+	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
 
 	"github.com/urfave/cli/v2"
@@ -33,16 +34,16 @@ func get(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		return fmt.Errorf("could not get cli context")
 	}
 
-	program, version := safeProgram(c.App.Name), c.App.Version
-	var flags Flags
+	program, version := cliUtil.SafeProgram(c.App.Name), c.App.Version
+	var flags cliUtil.Flags
 	var debug bool
 	if val, exists := c.App.Metadata["flags"]; exists {
-		if f, ok := val.(Flags); ok {
+		if f, ok := val.(cliUtil.Flags); ok {
 			flags = f
 			debug = flags.Debug
 		}
 	}
-	hello(program, version, flags) // say hello!
+	cliUtil.Hello(program, version, flags) // say hello!
 
 	gettable, ok := gapiObj.(gapi.GettableGAPI)
 	if !ok {

@@ -95,6 +95,10 @@ function consistent-imports() {
 	if grep $'\t"github.com/purpleidea/mgmt/engine/util"' "$1"; then
 		return 1
 	fi
+	# import as cliUtil
+	if grep $'\t"github.com/purpleidea/mgmt/cli/util"' "$1"; then
+		return 1
+	fi
 	if grep '"golang.org/x/net/context"' "$1"; then	# use built-in context
 		return 1
 	fi

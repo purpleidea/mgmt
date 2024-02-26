@@ -23,6 +23,7 @@ import (
 	"log"
 	"os"
 
+	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/etcd/client"
 	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
@@ -43,11 +44,11 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		return fmt.Errorf("could not get cli context")
 	}
 
-	program, version := safeProgram(c.App.Name), c.App.Version
-	var flags Flags
+	program, version := cliUtil.SafeProgram(c.App.Name), c.App.Version
+	var flags cliUtil.Flags
 	var debug bool
 	if val, exists := c.App.Metadata["flags"]; exists {
-		if f, ok := val.(Flags); ok {
+		if f, ok := val.(cliUtil.Flags); ok {
 			flags = f
 			debug = flags.Debug
 		}
@@ -56,7 +57,7 @@ func deploy(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		log.Printf("deploy: "+format, v...)
 	}
 
-	hello(program, version, flags) // say hello!
+	cliUtil.Hello(program, version, flags) // say hello!
 	defer Logf("goodbye!")
 
 	var hash, pHash string

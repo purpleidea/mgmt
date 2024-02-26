@@ -26,6 +26,7 @@ import (
 	"os"
 	"sort"
 
+	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
 	_ "github.com/purpleidea/mgmt/lang" // import so the GAPI registers
 	_ "github.com/purpleidea/mgmt/langpuppet"
@@ -35,18 +36,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// Flags are some constant flags which are used throughout the program.
-type Flags struct {
-	Debug   bool // add additional log messages
-	Verbose bool // add extra log message output
-}
-
 // CLIArgs is a struct of values that we pass to the main CLI function.
 type CLIArgs struct {
 	Program string
 	Version string
 	Copying string
-	Flags   Flags
+	Flags   cliUtil.Flags
 }
 
 // CLI is the entry point for using mgmt normally from the CLI.

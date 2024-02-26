@@ -23,6 +23,7 @@ import (
 	"os"
 
 	"github.com/purpleidea/mgmt/cli"
+	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"go.etcd.io/etcd/server/v3/etcdmain"
 )
 
@@ -59,7 +60,7 @@ func main() {
 		Program: program,
 		Version: version,
 		Copying: copying,
-		Flags: cli.Flags{
+		Flags: cliUtil.Flags{
 			Debug:   Debug,
 			Verbose: Verbose,
 		},

@@ -25,6 +25,7 @@ import (
 	"sync"
 	"syscall"
 
+	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
@@ -43,10 +44,10 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 
 	main := &lib.Main{}
 
-	main.Program, main.Version = safeProgram(c.App.Name), c.App.Version
-	var flags Flags
+	main.Program, main.Version = cliUtil.SafeProgram(c.App.Name), c.App.Version
+	var flags cliUtil.Flags
 	if val, exists := c.App.Metadata["flags"]; exists {
-		if f, ok := val.(Flags); ok {
+		if f, ok := val.(cliUtil.Flags); ok {
 			flags = f
 			main.Flags = lib.Flags{
 				Debug:   f.Debug,
@@ -58,7 +59,7 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		log.Printf("main: "+format, v...)
 	}
 
-	hello(main.Program, main.Version, flags) // say hello!
+	cliUtil.Hello(main.Program, main.Version, flags) // say hello!
 	defer Logf("goodbye!")
 
 	if h := cliContext.String("hostname"); cliContext.IsSet("hostname") && h != "" {

@@ -28,6 +28,15 @@ type Flags struct {
 	Verbose bool // add extra log message output
 }
 
+// Data is a struct of values that we usually pass to the main CLI function.
+type Data struct {
+	Program string
+	Version string
+	Copying string
+	Flags   Flags
+	Args    []string // os.Args usually
+}
+
 // SafeProgram returns the correct program string when given a buggy variant.
 func SafeProgram(program string) string {
 	// FIXME: in sub commands, the cli package appends a space and the sub

@@ -23,7 +23,6 @@ package cli
 import (
 	"fmt"
 	"log"
-	"os"
 	"sort"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
@@ -36,24 +35,16 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// CLIArgs is a struct of values that we pass to the main CLI function.
-type CLIArgs struct {
-	Program string
-	Version string
-	Copying string
-	Flags   cliUtil.Flags
-}
-
 // CLI is the entry point for using mgmt normally from the CLI.
-func CLI(cliArgs *CLIArgs) error {
+func CLI(data *cliUtil.Data) error {
 	// test for sanity
-	if cliArgs == nil {
+	if data == nil {
 		return fmt.Errorf("this CLI was not run correctly")
 	}
-	if cliArgs.Program == "" || cliArgs.Version == "" {
+	if data.Program == "" || data.Version == "" {
 		return fmt.Errorf("program was not compiled correctly, see Makefile")
 	}
-	if cliArgs.Copying == "" {
+	if data.Copying == "" {
 		return fmt.Errorf("program copyrights we're removed, can't run")
 	}
 
@@ -319,18 +310,18 @@ func CLI(cliArgs *CLIArgs) error {
 	}
 
 	app := cli.NewApp()
-	app.Name = cliArgs.Program // App.name and App.version pass these values through
-	app.Version = cliArgs.Version
+	app.Name = data.Program // App.name and App.version pass these values through
+	app.Version = data.Version
 	app.Usage = "next generation config management"
 	app.Metadata = map[string]interface{}{ // additional flags
-		"flags": cliArgs.Flags,
+		"flags": data.Flags,
 	}
 
 	// if no app.Command is specified
 	app.Action = func(c *cli.Context) error {
 		// print the license
 		if c.Bool("license") {
-			fmt.Printf("%s", cliArgs.Copying)
+			fmt.Printf("%s", data.Copying)
 			return nil
 		}
 
@@ -406,5 +397,5 @@ func CLI(cliArgs *CLIArgs) error {
 	app.Commands = append(app.Commands, commandEtcd)
 
 	app.EnableBashCompletion = true
-	return app.Run(os.Args)
+	return app.Run(data.Args)
 }

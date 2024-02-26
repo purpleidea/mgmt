@@ -56,7 +56,7 @@ func main() {
 		return              // for safety
 	}
 
-	cliArgs := &cli.CLIArgs{
+	data := &cliUtil.Data{
 		Program: program,
 		Version: version,
 		Copying: copying,
@@ -64,8 +64,9 @@ func main() {
 			Debug:   Debug,
 			Verbose: Verbose,
 		},
+		Args: os.Args,
 	}
-	if err := cli.CLI(cliArgs); err != nil {
+	if err := cli.CLI(data); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return

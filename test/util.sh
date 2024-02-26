@@ -45,9 +45,9 @@ in_env() {
 
 fail_test() {
 	if in_env github; then
-		echo "::error::$@"
+		echo "::error::$@" >&2
 	else
-		echo -e "FAIL: $@"
+		echo -e "FAIL: $@" >&2
 	fi
 	exit 1
 }

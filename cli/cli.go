@@ -45,7 +45,7 @@ func CLI(data *cliUtil.Data) error {
 		return fmt.Errorf("program was not compiled correctly, see Makefile")
 	}
 	if data.Copying == "" {
-		return fmt.Errorf("program copyrights we're removed, can't run")
+		return fmt.Errorf("program copyrights were removed, can't run")
 	}
 
 	// All of these flags can be accessed in your GAPI implementation with

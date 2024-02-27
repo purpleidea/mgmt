@@ -20,6 +20,7 @@
 package errwrap
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -27,6 +28,20 @@ import (
 func TestWrapfErr1(t *testing.T) {
 	if err := Wrapf(nil, "whatever: %d", 42); err != nil {
 		t.Errorf("expected nil result")
+	}
+}
+
+func TestWrapfErr2(t *testing.T) {
+	reterr := fmt.Errorf("reterr")
+	if err := Wrapf(reterr, "whatever: %d", 42); err == nil {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWrapfErr3(t *testing.T) {
+	reterr := fmt.Errorf("reterr")
+	if err := Wrapf(reterr, "whatever: %d", 42); !errors.Is(err, reterr) {
+		t.Errorf("expected matching err")
 	}
 }
 

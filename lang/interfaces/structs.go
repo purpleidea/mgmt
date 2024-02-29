@@ -128,6 +128,10 @@ func (obj *ExprAny) Unify() ([]Invariant, error) {
 	return invariants, nil
 }
 
+func (obj *ExprAny) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("TimeCheck: ExprAny still in the AST after Unify()")
+}
+
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprAny) Func() (Func, error) {
 	//	// XXX: this could be a list too, so improve this code or improve the subgraph code...

@@ -103,12 +103,13 @@ func (obj *IfFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			var result types.Value
-
-			if input.Struct()["c"].Bool() {
-				result = input.Struct()["a"] // true branch
-			} else {
-				result = input.Struct()["b"] // false branch
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error
+			if err != nil {
+				return err
+			}
+			result, err := obj.Call(args)
+			if err != nil {
+				return err
 			}
 
 			// skip sending an update...
@@ -128,4 +129,23 @@ func (obj *IfFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call means this function implements the CallableFunc interface and can be
+// called statically if we want to do it speculatively or from a resource.
+func (obj *IfFunc) Call(args []types.Value) (types.Value, error) {
+	if obj.Info() == nil {
+		return nil, fmt.Errorf("info is empty")
+	}
+	if obj.Info().Sig == nil {
+		return nil, fmt.Errorf("sig is empty")
+	}
+	if i, j := len(args), len(obj.Info().Sig.Ord); i != j {
+		return nil, fmt.Errorf("arg length doesn't match, got %d, exp: %d", i, j)
+	}
+
+	if args[0].Bool() { // condition
+		return args[1], nil // true branch
+	}
+	return args[2], nil // false branch
 }

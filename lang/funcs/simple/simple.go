@@ -153,15 +153,18 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 				obj.last = input // store for next
 			}
 
-			values := []types.Value{}
+			// Use the existing implementation instead of this one
+			// which can't handle this case at the moment.
+			//args, err := interfaces.StructToCallableArgs(input)
+			args := []types.Value{}
 			for _, name := range obj.Fn.Type().Ord {
 				x := input.Struct()[name]
-				values = append(values, x)
+				args = append(args, x)
 			}
 
-			result, err := obj.Fn.Call(values) // (Value, error)
+			result, err := obj.Call(args)
 			if err != nil {
-				return errwrap.Wrapf(err, "simple function errored")
+				return err
 			}
 
 			// TODO: do we want obj.result to be a pointer instead?
@@ -183,4 +186,14 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call means this function implements the CallableFunc interface and can be
+// called statically if we want to do it speculatively or from a resource.
+func (obj *WrappedFunc) Call(args []types.Value) (types.Value, error) {
+	result, err := obj.Fn.Call(args) // (Value, error)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "simple function errored")
+	}
+	return result, err
 }

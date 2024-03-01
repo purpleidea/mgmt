@@ -668,10 +668,10 @@ func TestValueOf2(t *testing.T) {
 	pstr2 := &str2
 	ppstr2 := &pstr2
 	st := struct {
-		Num  int      `lang:"num"`
-		Name string   `lang:"name"`
-		Ptr  *string  `lang:"ptr"`
-		Ptr2 **string `lang:"ptr2"`
+		Num  int      `mcl:"num"`
+		Name string   `mcl:"name"`
+		Ptr  *string  `mcl:"ptr"`
+		Ptr2 **string `mcl:"ptr2"`
 	}{42, "mgmt", pstr, ppstr2}
 
 	value := &StructValue{
@@ -697,8 +697,8 @@ func TestValueOf2(t *testing.T) {
 
 func TestValueOf3(t *testing.T) {
 	st := struct {
-		Ptr  *string  `lang:"ptr"`
-		Ptr2 **string `lang:"ptr2"`
+		Ptr  *string  `mcl:"ptr"`
+		Ptr2 **string `mcl:"ptr2"`
 	}{nil, nil}
 
 	// cannot represent nil pointers, expect an err
@@ -720,10 +720,10 @@ func TestValueOf4(t *testing.T) {
 	pstr2 := &str2
 	ppstr2 := &pstr2
 	st := struct {
-		Num  int      `lang:"num"`
-		Name string   `lang:"name"`
-		Ptr  *string  `lang:"ptr"`
-		Ptr2 **string `lang:"ptr2"`
+		Num  int      `mcl:"num"`
+		Name string   `mcl:"name"`
+		Ptr  *string  `mcl:"ptr"`
+		Ptr2 **string `mcl:"ptr2"`
 	}{0, "", pstr, ppstr2}
 
 	value := &StructValue{
@@ -1082,8 +1082,8 @@ func TestValueIntoStructNameMapping(t *testing.T) {
 	}
 
 	var compare struct {
-		Word  string `lang:"word"`
-		Magic int    `lang:"magic"`
+		Word  string `mcl:"word"`
+		Magic int    `mcl:"magic"`
 	}
 	err := Into(st, reflect.ValueOf(&compare))
 	if err != nil {

@@ -110,22 +110,22 @@ type MountRes struct {
 
 	// State must be exists or absent. If absent, remaining fields are
 	// ignored.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// Device is the location of the device or image.
-	Device string `lang:"device" yaml:"device"`
+	Device string `mcl:"device" yaml:"device"`
 
 	// Type of the filesystem.
-	Type string `lang:"type" yaml:"type"`
+	Type string `mcl:"type" yaml:"type"`
 
 	// Options are mount options.
-	Options map[string]string `lang:"options" yaml:"options"`
+	Options map[string]string `mcl:"options" yaml:"options"`
 
 	// Freq is the dump frequency.
-	Freq int `lang:"freq" yaml:"freq"`
+	Freq int `mcl:"freq" yaml:"freq"`
 
 	// PassNo is the verification order.
-	PassNo int `lang:"passno" yaml:"passno"`
+	PassNo int `mcl:"passno" yaml:"passno"`
 
 	mount *fstab.Mount // struct representing the mount
 }

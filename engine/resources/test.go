@@ -42,66 +42,66 @@ type TestRes struct {
 
 	init *engine.Init
 
-	Bool bool   `lang:"bool" yaml:"bool"`
-	Str  string `lang:"str" yaml:"str"` // can't name it String because of String()
+	Bool bool   `mcl:"bool" yaml:"bool"`
+	Str  string `mcl:"str" yaml:"str"` // can't name it String because of String()
 
-	Int   int   `lang:"int" yaml:"int"`
-	Int8  int8  `lang:"int8" yaml:"int8"`
-	Int16 int16 `lang:"int16" yaml:"int16"`
-	Int32 int32 `lang:"int32" yaml:"int32"`
-	Int64 int64 `lang:"int64" yaml:"int64"`
+	Int   int   `mcl:"int" yaml:"int"`
+	Int8  int8  `mcl:"int8" yaml:"int8"`
+	Int16 int16 `mcl:"int16" yaml:"int16"`
+	Int32 int32 `mcl:"int32" yaml:"int32"`
+	Int64 int64 `mcl:"int64" yaml:"int64"`
 
-	Uint   uint   `lang:"uint" yaml:"uint"`
-	Uint8  uint8  `lang:"uint8" yaml:"uint8"`
-	Uint16 uint16 `lang:"uint16" yaml:"uint16"`
-	Uint32 uint32 `lang:"uint32" yaml:"uint32"`
-	Uint64 uint64 `lang:"uint64" yaml:"uint64"`
+	Uint   uint   `mcl:"uint" yaml:"uint"`
+	Uint8  uint8  `mcl:"uint8" yaml:"uint8"`
+	Uint16 uint16 `mcl:"uint16" yaml:"uint16"`
+	Uint32 uint32 `mcl:"uint32" yaml:"uint32"`
+	Uint64 uint64 `mcl:"uint64" yaml:"uint64"`
 
-	//Uintptr uintptr `lang:"uintptr" yaml:"uintptr"`
-	Byte byte `lang:"byte" yaml:"byte"` // alias for uint8
-	Rune rune `lang:"rune" yaml:"rune"` // alias for int32, represents a Unicode code point
+	//Uintptr uintptr `mcl:"uintptr" yaml:"uintptr"`
+	Byte byte `mcl:"byte" yaml:"byte"` // alias for uint8
+	Rune rune `mcl:"rune" yaml:"rune"` // alias for int32, represents a Unicode code point
 
-	Float32    float32    `lang:"float32" yaml:"float32"`
-	Float64    float64    `lang:"float64" yaml:"float64"`
-	Complex64  complex64  `lang:"complex64" yaml:"complex64"`
-	Complex128 complex128 `lang:"complex128" yaml:"complex128"`
+	Float32    float32    `mcl:"float32" yaml:"float32"`
+	Float64    float64    `mcl:"float64" yaml:"float64"`
+	Complex64  complex64  `mcl:"complex64" yaml:"complex64"`
+	Complex128 complex128 `mcl:"complex128" yaml:"complex128"`
 
-	BoolPtr   *bool   `lang:"boolptr" yaml:"bool_ptr"`
-	StringPtr *string `lang:"stringptr" yaml:"string_ptr"` // TODO: tag name?
-	Int64Ptr  *int64  `lang:"int64ptr" yaml:"int64ptr"`
-	Int8Ptr   *int8   `lang:"int8ptr" yaml:"int8ptr"`
-	Uint8Ptr  *uint8  `lang:"uint8ptr" yaml:"uint8ptr"`
+	BoolPtr   *bool   `mcl:"boolptr" yaml:"bool_ptr"`
+	StringPtr *string `mcl:"stringptr" yaml:"string_ptr"` // TODO: tag name?
+	Int64Ptr  *int64  `mcl:"int64ptr" yaml:"int64ptr"`
+	Int8Ptr   *int8   `mcl:"int8ptr" yaml:"int8ptr"`
+	Uint8Ptr  *uint8  `mcl:"uint8ptr" yaml:"uint8ptr"`
 
 	// probably makes no sense, but is legal
-	Int8PtrPtrPtr ***int8 `lang:"int8ptrptrptr" yaml:"int8ptrptrptr"`
+	Int8PtrPtrPtr ***int8 `mcl:"int8ptrptrptr" yaml:"int8ptrptrptr"`
 
-	SliceString []string          `lang:"slicestring" yaml:"slicestring"`
-	MapIntFloat map[int64]float64 `lang:"mapintfloat" yaml:"mapintfloat"`
+	SliceString []string          `mcl:"slicestring" yaml:"slicestring"`
+	MapIntFloat map[int64]float64 `mcl:"mapintfloat" yaml:"mapintfloat"`
 	MixedStruct struct {
-		SomeBool         bool    `lang:"somebool" yaml:"somebool"`
-		SomeStr          string  `lang:"somestr" yaml:"somestr"`
-		SomeInt          int64   `lang:"someint" yaml:"someint"`
-		SomeFloat        float64 `lang:"somefloat" yaml:"somefloat"`
+		SomeBool         bool    `mcl:"somebool" yaml:"somebool"`
+		SomeStr          string  `mcl:"somestr" yaml:"somestr"`
+		SomeInt          int64   `mcl:"someint" yaml:"someint"`
+		SomeFloat        float64 `mcl:"somefloat" yaml:"somefloat"`
 		somePrivatefield string
-	} `lang:"mixedstruct" yaml:"mixedstruct"`
-	Interface interface{} `lang:"interface" yaml:"interface"`
+	} `mcl:"mixedstruct" yaml:"mixedstruct"`
+	Interface interface{} `mcl:"interface" yaml:"interface"`
 
-	AnotherStr string `lang:"anotherstr" yaml:"anotherstr"`
+	AnotherStr string `mcl:"anotherstr" yaml:"anotherstr"`
 
 	// Func1 passes the value 42 to the input and returns a string.
-	Func1 func(int) string `lang:"func1" yaml:"func1"`
+	Func1 func(int) string `mcl:"func1" yaml:"func1"`
 
-	ValidateBool  bool      `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
-	ValidateError string    `lang:"validateerror" yaml:"validate_error"` // set to cause a validate error
-	AlwaysGroup   bool      `lang:"alwaysgroup" yaml:"always_group"`     // set to true to cause auto grouping
-	CompareFail   bool      `lang:"comparefail" yaml:"compare_fail"`     // will compare fail?
-	SendValue     string    `lang:"sendvalue" yaml:"send_value"`         // what value should we send?
-	ExpectRecv    *[]string `lang:"expectrecv" yaml:"expect_recv"`       // what keys should we expect from send/recv?
-	OnlyShow      []string  `lang:"onlyshow" yaml:"only_show"`           // what values do we show?
+	ValidateBool  bool      `mcl:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
+	ValidateError string    `mcl:"validateerror" yaml:"validate_error"` // set to cause a validate error
+	AlwaysGroup   bool      `mcl:"alwaysgroup" yaml:"always_group"`     // set to true to cause auto grouping
+	CompareFail   bool      `mcl:"comparefail" yaml:"compare_fail"`     // will compare fail?
+	SendValue     string    `mcl:"sendvalue" yaml:"send_value"`         // what value should we send?
+	ExpectRecv    *[]string `mcl:"expectrecv" yaml:"expect_recv"`       // what keys should we expect from send/recv?
+	OnlyShow      []string  `mcl:"onlyshow" yaml:"only_show"`           // what values do we show?
 
 	// TODO: add more fun properties!
 
-	Comment string `lang:"comment" yaml:"comment"`
+	Comment string `mcl:"comment" yaml:"comment"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -440,8 +440,8 @@ func (obj *TestRes) GroupCmp(r engine.GroupableRes) error {
 // TestSends is the struct of data which is sent after a successful Apply.
 type TestSends struct {
 	// Hello is some value being sent.
-	Hello  *string `lang:"hello" yaml:"hello"`
-	Answer int     `lang:"answer" yaml:"answer"` // some other value being sent
+	Hello  *string `mcl:"hello" yaml:"hello"`
+	Answer int     `mcl:"answer" yaml:"answer"` // some other value being sent
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.

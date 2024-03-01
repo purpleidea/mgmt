@@ -152,37 +152,37 @@ type AwsEc2Res struct {
 	init *engine.Init
 
 	// State must be running, stopped, or terminated.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// Region must match one of the AwsRegions. This list is static at the
 	// moment.
-	Region string `lang:"region" yaml:"region"`
+	Region string `mcl:"region" yaml:"region"`
 
 	// Type of ec2 instance, eg: t2.micro for example.
-	Type string `lang:"type" yaml:"type"`
+	Type string `mcl:"type" yaml:"type"`
 
 	// ImageID to use, and note that it must be available on the chosen
 	// region.
-	ImageID string `lang:"imageid" yaml:"imageid"`
+	ImageID string `mcl:"imageid" yaml:"imageid"`
 
 	// WatchEndpoint is the public url of the sns endpoint, eg:
 	// http://server:12345/ for example.
-	WatchEndpoint string `lang:"watchendpoint" yaml:"watchendpoint"`
+	WatchEndpoint string `mcl:"watchendpoint" yaml:"watchendpoint"`
 
 	// WatchListenAddr is the local address or port that the sns listens on,
 	// eg: 10.0.0.0:23456 or 23456.
-	WatchListenAddr string `lang:"watchlistenaddr" yaml:"watchlistenaddr"`
+	WatchListenAddr string `mcl:"watchlistenaddr" yaml:"watchlistenaddr"`
 
 	// ErrorOnMalformedPost controls whether or not malformed HTTP post
 	// requests, that cause JSON decoder errors, will also make the engine
 	// shut down. If ErrorOnMalformedPost set to true and an error occurs,
 	// Watch() will return the error and the engine will shut down.
-	ErrorOnMalformedPost bool `lang:"erroronmalformedpost" yaml:"erroronmalformedpost"`
+	ErrorOnMalformedPost bool `mcl:"erroronmalformedpost" yaml:"erroronmalformedpost"`
 
 	// UserData is used to run bash and cloud-init commands on first launch.
 	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	// for documantation and examples.
-	UserData string `lang:"userdata" yaml:"userdata"`
+	UserData string `mcl:"userdata" yaml:"userdata"`
 
 	client *ec2.EC2 // client session for AWS API calls
 

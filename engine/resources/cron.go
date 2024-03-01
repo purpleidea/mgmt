@@ -87,52 +87,52 @@ type CronRes struct {
 	// Unit is the name of the systemd service unit. It is only necessary to
 	// set if you want to specify a service with a different name than the
 	// resource.
-	Unit string `lang:"unit" yaml:"unit"`
+	Unit string `mcl:"unit" yaml:"unit"`
 
 	// State must be 'exists' or 'absent'.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// Session, if true, creates the timer as the current user, rather than
 	// root. The service it points to must also be a user unit. It defaults
 	// to false.
-	Session bool `lang:"session" yaml:"session"`
+	Session bool `mcl:"session" yaml:"session"`
 
 	// Trigger is the type of timer. Valid types are 'OnCalendar',
 	// 'OnActiveSec'. 'OnBootSec'. 'OnStartupSec'. 'OnUnitActiveSec', and
 	// 'OnUnitInactiveSec'. For more information see 'man systemd.timer'.
-	Trigger string `lang:"trigger" yaml:"trigger"`
+	Trigger string `mcl:"trigger" yaml:"trigger"`
 
 	// Time must be used with all triggers. For 'OnCalendar', it must be in
 	// the format defined in 'man systemd-time' under the heading 'Calendar
 	// Events'. For all other triggers, time should be a valid time span as
 	// defined in 'man systemd-time'
-	Time string `lang:"time" yaml:"time"`
+	Time string `mcl:"time" yaml:"time"`
 
 	// AccuracySec is the accuracy of the timer in systemd-time time span
 	// format. It defaults to one minute.
-	AccuracySec string `lang:"accuracysec" yaml:"accuracysec"`
+	AccuracySec string `mcl:"accuracysec" yaml:"accuracysec"`
 
 	// RandomizedDelaySec delays the timer by a randomly selected, evenly
 	// distributed amount of time between 0 and the specified time value.
 	// The value must be a valid systemd-time time span.
-	RandomizedDelaySec string `lang:"randomizeddelaysec" yaml:"randomizeddelaysec"`
+	RandomizedDelaySec string `mcl:"randomizeddelaysec" yaml:"randomizeddelaysec"`
 
 	// Persistent, if true, means the time when the service unit was last
 	// triggered is stored on disk. When the timer is activated, the service
 	// unit is triggered immediately if it would have been triggered at
 	// least once during the time when the timer was inactive. It defaults
 	// to false.
-	Persistent bool `lang:"persistent" yaml:"persistent"`
+	Persistent bool `mcl:"persistent" yaml:"persistent"`
 
 	// WakeSystem, if true, will cause the system to resume from suspend,
 	// should it be suspended and if the system supports this. It defaults
 	// to false.
-	WakeSystem bool `lang:"wakesystem" yaml:"wakesystem"`
+	WakeSystem bool `mcl:"wakesystem" yaml:"wakesystem"`
 
 	// RemainAfterElapse, if true, means an elapsed timer will stay loaded,
 	// and its state remains queriable. If false, an elapsed timer unit that
 	// cannot elapse anymore is unloaded. It defaults to true.
-	RemainAfterElapse bool `lang:"remainafterelapse" yaml:"remainafterelapse"`
+	RemainAfterElapse bool `mcl:"remainafterelapse" yaml:"remainafterelapse"`
 
 	file       *FileRes             // nested file resource
 	recWatcher *recwatch.RecWatcher // recwatcher for nested file

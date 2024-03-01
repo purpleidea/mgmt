@@ -51,15 +51,15 @@ type SvcRes struct {
 
 	// State is the desired state for this resource. Valid values include:
 	// running, stopped, and undefined (empty string).
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// Startup specifies what should happen on startup. Values can be:
 	// enabled, disabled, and undefined (empty string).
-	Startup string `lang:"startup" yaml:"startup"`
+	Startup string `mcl:"startup" yaml:"startup"`
 
 	// Session specifies if this is for a system service (false) or a user
 	// session specific service (true).
-	Session bool `lang:"session" yaml:"session"` // user session (true) or system?
+	Session bool `mcl:"session" yaml:"session"` // user session (true) or system?
 }
 
 // Default returns some sensible defaults for this resource.

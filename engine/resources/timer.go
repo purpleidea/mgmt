@@ -39,7 +39,7 @@ type TimerRes struct {
 	init *engine.Init
 
 	// Interval between runs in seconds.
-	Interval uint32 `lang:"interval" yaml:"interval"`
+	Interval uint32 `mcl:"interval" yaml:"interval"`
 
 	ticker *time.Ticker
 }

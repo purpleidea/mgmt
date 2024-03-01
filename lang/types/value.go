@@ -437,7 +437,7 @@ func Into(v Value, rv reflect.Value) error {
 		sort.Strings(keys)
 		for _, k := range keys { // loop in deterministic order
 			mk := k
-			// map mcl field name -> go field name based on `lang:""` tag
+			// map mcl field name -> go field name based on `mcl:""` tag
 			if key, exists := mapping[k]; exists {
 				mk = key
 			}

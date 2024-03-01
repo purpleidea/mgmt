@@ -75,45 +75,45 @@ type VirtRes struct {
 	init *engine.Init
 
 	// URI is the libvirt connection URI, eg: `qemu:///session`.
-	URI string `lang:"uri" yaml:"uri"`
+	URI string `mcl:"uri" yaml:"uri"`
 	// State is the desired vm state. Possible values include: `running`,
 	// `paused` and `shutoff`.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 	// Transient is whether the vm is defined (false) or undefined (true).
-	Transient bool `lang:"transient" yaml:"transient"`
+	Transient bool `mcl:"transient" yaml:"transient"`
 
 	// CPUs is the desired cpu count of the machine.
-	CPUs uint `lang:"cpus" yaml:"cpus"`
+	CPUs uint `mcl:"cpus" yaml:"cpus"`
 	// MaxCPUs is the maximum number of cpus allowed in the machine. You
 	// need to set this so that on boot the `hardware` knows how many cpu
 	// `slots` it might need to make room for.
-	MaxCPUs uint `lang:"maxcpus" yaml:"maxcpus"`
+	MaxCPUs uint `mcl:"maxcpus" yaml:"maxcpus"`
 	// HotCPUs specifies whether we can hot plug and unplug cpus.
-	HotCPUs bool `lang:"hotcpus" yaml:"hotcpus"`
+	HotCPUs bool `mcl:"hotcpus" yaml:"hotcpus"`
 	// Memory is the size in KBytes of memory to include in the machine.
-	Memory uint64 `lang:"memory" yaml:"memory"`
+	Memory uint64 `mcl:"memory" yaml:"memory"`
 
 	// OSInit is the init used by lxc.
-	OSInit string `lang:"osinit" yaml:"osinit"`
+	OSInit string `mcl:"osinit" yaml:"osinit"`
 	// Boot is the boot order. Values are `fd`, `hd`, `cdrom` and `network`.
-	Boot []string `lang:"boot" yaml:"boot"`
+	Boot []string `mcl:"boot" yaml:"boot"`
 	// Disk is the list of disk devices to include.
-	Disk []*DiskDevice `lang:"disk" yaml:"disk"`
+	Disk []*DiskDevice `mcl:"disk" yaml:"disk"`
 	// CdRom is the list of cdrom devices to include.
-	CDRom []*CDRomDevice `lang:"cdrom" yaml:"cdrom"`
+	CDRom []*CDRomDevice `mcl:"cdrom" yaml:"cdrom"`
 	// Network is the list of network devices to include.
-	Network []*NetworkDevice `lang:"network" yaml:"network"`
+	Network []*NetworkDevice `mcl:"network" yaml:"network"`
 	// Filesystem is the list of file system devices to include.
-	Filesystem []*FilesystemDevice `lang:"filesystem" yaml:"filesystem"`
+	Filesystem []*FilesystemDevice `mcl:"filesystem" yaml:"filesystem"`
 
 	// Auth points to the libvirt credentials to use if any are necessary.
-	Auth *VirtAuth `lang:"auth" yaml:"auth"`
+	Auth *VirtAuth `mcl:"auth" yaml:"auth"`
 
 	// RestartOnDiverge is the restart policy, and can be: `ignore`,
 	// `ifneeded` or `error`.
-	RestartOnDiverge string `lang:"restartondiverge" yaml:"restartondiverge"`
+	RestartOnDiverge string `mcl:"restartondiverge" yaml:"restartondiverge"`
 	// RestartOnRefresh specifies if we restart on refresh signal.
-	RestartOnRefresh bool `lang:"restartonrefresh" yaml:"restartonrefresh"`
+	RestartOnRefresh bool `mcl:"restartonrefresh" yaml:"restartonrefresh"`
 
 	wg                  *sync.WaitGroup
 	conn                *libvirt.Connect
@@ -128,8 +128,8 @@ type VirtRes struct {
 
 // VirtAuth is used to pass credentials to libvirt.
 type VirtAuth struct {
-	Username string `lang:"username" yaml:"username"`
-	Password string `lang:"password" yaml:"password"`
+	Username string `mcl:"username" yaml:"username"`
+	Password string `mcl:"password" yaml:"password"`
 }
 
 // Cmp compares two VirtAuth structs. It errors if they are not identical.
@@ -998,8 +998,8 @@ type virtDevice interface {
 
 // DiskDevice represents a disk that is attached to the virt machine.
 type DiskDevice struct {
-	Source string `lang:"source" yaml:"source"`
-	Type   string `lang:"type" yaml:"type"`
+	Source string `mcl:"source" yaml:"source"`
+	Type   string `mcl:"type" yaml:"type"`
 }
 
 // GetXML returns the XML representation of this device.
@@ -1036,8 +1036,8 @@ func (obj *DiskDevice) Cmp(dev *DiskDevice) error {
 
 // CDRomDevice represents a CDRom device that is attached to the virt machine.
 type CDRomDevice struct {
-	Source string `lang:"source" yaml:"source"`
-	Type   string `lang:"type" yaml:"type"`
+	Source string `mcl:"source" yaml:"source"`
+	Type   string `mcl:"type" yaml:"type"`
 }
 
 // GetXML returns the XML representation of this device.
@@ -1075,8 +1075,8 @@ func (obj *CDRomDevice) Cmp(dev *CDRomDevice) error {
 
 // NetworkDevice represents a network card that is attached to the virt machine.
 type NetworkDevice struct {
-	Name string `lang:"name" yaml:"name"`
-	MAC  string `lang:"mac" yaml:"mac"`
+	Name string `mcl:"name" yaml:"name"`
+	MAC  string `mcl:"mac" yaml:"mac"`
 }
 
 // GetXML returns the XML representation of this device.
@@ -1115,10 +1115,10 @@ func (obj *NetworkDevice) Cmp(dev *NetworkDevice) error {
 // FilesystemDevice represents a filesystem that is attached to the virt
 // machine.
 type FilesystemDevice struct {
-	Access   string `lang:"access" yaml:"access"`
-	Source   string `lang:"source" yaml:"source"`
-	Target   string `lang:"target" yaml:"target"`
-	ReadOnly bool   `lang:"read_only" yaml:"read_only"`
+	Access   string `mcl:"access" yaml:"access"`
+	Source   string `mcl:"source" yaml:"source"`
+	Target   string `mcl:"target" yaml:"target"`
+	ReadOnly bool   `mcl:"read_only" yaml:"read_only"`
 }
 
 // GetXML returns the XML representation of this device.

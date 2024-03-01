@@ -58,73 +58,73 @@ type ExecRes struct {
 	// the dir path doesn't exist. In general, it's best to use the `Args`
 	// field instead of including them here.
 	// XXX: if not using shell, don't allow args here, force them to args!
-	Cmd string `lang:"cmd" yaml:"cmd"`
+	Cmd string `mcl:"cmd" yaml:"cmd"`
 
 	// Args is a list of args to pass to Cmd. This can be used *instead* of
 	// passing the full command and args as a single string to Cmd. It can
 	// only be used when a Shell is *not* specified. The advantage of this
 	// is that you don't have to worry about escape characters.
-	Args []string `lang:"args" yaml:"args"`
+	Args []string `mcl:"args" yaml:"args"`
 
 	// Cwd is the dir to run the command in. If empty, then this will use
 	// the working directory of the calling process. (This process is mgmt,
 	// not the process being run here.)
-	Cwd string `lang:"cwd" yaml:"cwd"`
+	Cwd string `mcl:"cwd" yaml:"cwd"`
 
 	// Shell is the (optional) shell to use to run the cmd. If you specify
 	// this, then you can't use the Args parameter.
-	Shell string `lang:"shell" yaml:"shell"`
+	Shell string `mcl:"shell" yaml:"shell"`
 
 	// Timeout is the number of seconds to wait before sending a Kill to the
 	// running command. If the Kill is received before the process exits,
 	// then this be treated as an error.
-	Timeout uint64 `lang:"timeout" yaml:"timeout"`
+	Timeout uint64 `mcl:"timeout" yaml:"timeout"`
 
 	// Env allows the user to specify environment variables for script
 	// execution. These are taken using a map of format of VAR_NAME -> value.
-	Env map[string]string `lang:"env" yaml:"env"`
+	Env map[string]string `mcl:"env" yaml:"env"`
 
 	// WatchCmd is the command to run to detect event changes. Each line of
 	// output from this command is treated as an event.
-	WatchCmd string `lang:"watchcmd" yaml:"watchcmd"`
+	WatchCmd string `mcl:"watchcmd" yaml:"watchcmd"`
 
 	// WatchCwd is the Cwd for the WatchCmd. See the docs for Cwd.
-	WatchCwd string `lang:"watchcwd" yaml:"watchcwd"`
+	WatchCwd string `mcl:"watchcwd" yaml:"watchcwd"`
 
 	// WatchShell is the Shell for the WatchCmd. See the docs for Shell.
-	WatchShell string `lang:"watchshell" yaml:"watchshell"`
+	WatchShell string `mcl:"watchshell" yaml:"watchshell"`
 
 	// IfCmd is the command that runs to guard against running the Cmd. If
 	// this command succeeds, then Cmd *will* be run. If this command
 	// returns a non-zero result, then the Cmd will not be run. Any error
 	// scenario or timeout will cause the resource to error.
-	IfCmd string `lang:"ifcmd" yaml:"ifcmd"`
+	IfCmd string `mcl:"ifcmd" yaml:"ifcmd"`
 
 	// IfCwd is the Cwd for the IfCmd. See the docs for Cwd.
-	IfCwd string `lang:"ifcwd" yaml:"ifcwd"`
+	IfCwd string `mcl:"ifcwd" yaml:"ifcwd"`
 
 	// IfShell is the Shell for the IfCmd. See the docs for Shell.
-	IfShell string `lang:"ifshell" yaml:"ifshell"`
+	IfShell string `mcl:"ifshell" yaml:"ifshell"`
 
 	// DoneCmd is the command that runs after the regular Cmd runs
 	// successfully. This is a useful pattern to avoid the shelling out to
 	// bash simply to do `$cmd && echo done > /tmp/donefile`. If this
 	// command errors, it behaves as if the normal Cmd had errored.
-	DoneCmd string `lang:"donecmd" yaml:"donecmd"`
+	DoneCmd string `mcl:"donecmd" yaml:"donecmd"`
 
 	// DoneCwd is the Cwd for the DoneCmd. See the docs for Cwd.
-	DoneCwd string `lang:"donecwd" yaml:"donecwd"`
+	DoneCwd string `mcl:"donecwd" yaml:"donecwd"`
 
 	// DoneShell is the Shell for the DoneCmd. See the docs for Shell.
-	DoneShell string `lang:"doneshell" yaml:"doneshell"`
+	DoneShell string `mcl:"doneshell" yaml:"doneshell"`
 
 	// User is the (optional) user to use to execute the command. It is used
 	// for any command being run.
-	User string `lang:"user" yaml:"user"`
+	User string `mcl:"user" yaml:"user"`
 
 	// Group is the (optional) group to use to execute the command. It is
 	// used for any command being run.
-	Group string `lang:"group" yaml:"group"`
+	Group string `mcl:"group" yaml:"group"`
 
 	output *string // all cmd output, read only, do not set!
 	stdout *string // the cmd stdout, read only, do not set!
@@ -785,11 +785,11 @@ func (obj *ExecRes) UIDs() []engine.ResUID {
 // ExecSends is the struct of data which is sent after a successful Apply.
 type ExecSends struct {
 	// Output is the combined stdout and stderr of the command.
-	Output *string `lang:"output"`
+	Output *string `mcl:"output"`
 	// Stdout is the stdout of the command.
-	Stdout *string `lang:"stdout"`
+	Stdout *string `mcl:"stdout"`
 	// Stderr is the stderr of the command.
-	Stderr *string `lang:"stderr"`
+	Stderr *string `mcl:"stderr"`
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.

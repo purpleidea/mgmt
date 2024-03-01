@@ -69,16 +69,16 @@ type TFTPServerRes struct {
 	// Address is the listen address to use for the tftp server. It is
 	// common to use `:69` (the standard) to listen on UDP port 69 on all
 	// addresses.
-	Address string `lang:"address" yaml:"address"`
+	Address string `mcl:"address" yaml:"address"`
 
 	// Timeout is the timeout in seconds to use for server connections.
-	Timeout uint64 `lang:"timeout" yaml:"timeout"`
+	Timeout uint64 `mcl:"timeout" yaml:"timeout"`
 
 	// Root is the root directory that we should serve files from. If it is
 	// not specified, then it is not used. Any tftp file resources will have
 	// precedence over anything in here, in case the same path exists twice.
 	// TODO: should we have a flag to determine the precedence rules here?
-	Root string `lang:"root" yaml:"root"`
+	Root string `mcl:"root" yaml:"root"`
 
 	// TODO: should we allow adding a list of one-of files directly here?
 }
@@ -466,20 +466,20 @@ type TFTPFileRes struct {
 	// be grouped into it automatically. If there is more than one main tftp
 	// resource being used, then the grouping behaviour is *undefined* when
 	// this is not specified, and it is not recommended to leave this blank!
-	Server string `lang:"server" yaml:"server"`
+	Server string `mcl:"server" yaml:"server"`
 
 	// Filename is the name of the file this data should appear as on the
 	// tftp server.
-	Filename string `lang:"filename" yaml:"filename"`
+	Filename string `mcl:"filename" yaml:"filename"`
 
 	// Path is the absolute path to a file that should be used as the source
 	// for this file resource. It must not be combined with the data field.
-	Path string `lang:"path" yaml:"path"`
+	Path string `mcl:"path" yaml:"path"`
 
 	// Data is the file content that should be used as the source for this
 	// file resource. It must not be combined with the path field.
 	// TODO: should this be []byte instead?
-	Data string `lang:"data" yaml:"data"`
+	Data string `mcl:"data" yaml:"data"`
 }
 
 // Default returns some sensible defaults for this resource.

@@ -58,16 +58,16 @@ type HTTPFlagRes struct {
 	// be grouped into it automatically. If there is more than one main http
 	// resource being used, then the grouping behaviour is *undefined* when
 	// this is not specified, and it is not recommended to leave this blank!
-	Server string `lang:"server" yaml:"server"`
+	Server string `mcl:"server" yaml:"server"`
 
 	// Path is the path that this will present as on the http server.
-	Path string `lang:"path" yaml:"path"`
+	Path string `mcl:"path" yaml:"path"`
 
 	// Key is the querystring name that is used to capture a value as.
-	Key string `lang:"key" yaml:"key"`
+	Key string `mcl:"key" yaml:"key"`
 
 	// TODO: consider adding a method selection field
-	//Method string `lang:"method" yaml:"method"`
+	//Method string `mcl:"method" yaml:"method"`
 
 	mutex         *sync.Mutex // guard the value
 	value         *string     // cached value
@@ -302,7 +302,7 @@ func (obj *HTTPFlagRes) Cmp(r engine.Res) error {
 // HTTPFlagSends is the struct of data which is sent after a successful Apply.
 type HTTPFlagSends struct {
 	// Value is the received value being sent.
-	Value *string `lang:"value"`
+	Value *string `mcl:"value"`
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.

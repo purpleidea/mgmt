@@ -113,9 +113,9 @@ func TestCurrentUserGroupById(t *testing.T) {
 
 func TestStructTagToFieldName0(t *testing.T) {
 	type foo struct {
-		A string `lang:"aaa"`
-		B bool   `lang:"bbb"`
-		C int64  `lang:"ccc"`
+		A string `mcl:"aaa"`
+		B bool   `mcl:"bbb"`
+		C int64  `mcl:"ccc"`
 	}
 	f := &foo{ // a ptr!
 		A: "hello",
@@ -141,9 +141,9 @@ func TestStructTagToFieldName0(t *testing.T) {
 
 func TestStructTagToFieldName1(t *testing.T) {
 	type foo struct {
-		A string `lang:"aaa"`
-		B bool   `lang:"bbb"`
-		C int64  `lang:"ccc"`
+		A string `mcl:"aaa"`
+		B bool   `mcl:"bbb"`
+		C int64  `mcl:"ccc"`
 	}
 	f := foo{ // not a ptr!
 		A: "hello",
@@ -170,8 +170,8 @@ func TestStructTagToFieldName2(t *testing.T) {
 }
 
 type testEngineRes struct {
-	PublicProp1  string                      `lang:"PublicProp1" yaml:"PublicProp1"`
-	PublicProp2  map[string][]map[string]int `lang:"PublicProp2" yaml:"PublicProp2"`
+	PublicProp1  string                      `mcl:"PublicProp1" yaml:"PublicProp1"`
+	PublicProp2  map[string][]map[string]int `mcl:"PublicProp2" yaml:"PublicProp2"`
 	privateProp1 bool
 	privateProp2 []int
 }

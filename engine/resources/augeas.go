@@ -50,24 +50,24 @@ type AugeasRes struct {
 	init *engine.Init
 
 	// File is the path to the file targeted by this resource.
-	File string `lang:"file" yaml:"file"`
+	File string `mcl:"file" yaml:"file"`
 
 	// Lens is the lens used by this resource. If specified, mgmt
 	// will lower the augeas overhead by only loading that lens.
-	Lens string `lang:"lens" yaml:"lens"`
+	Lens string `mcl:"lens" yaml:"lens"`
 
 	// Sets is a list of changes that will be applied to the file, in the
 	// form of ["path", "value"]. mgmt will run augeas.Get() before
 	// augeas.Set(), to prevent changing the file when it is not needed.
-	Sets []*AugeasSet `lang:"sets" yaml:"sets"`
+	Sets []*AugeasSet `mcl:"sets" yaml:"sets"`
 
 	recWatcher *recwatch.RecWatcher // used to watch the changed files
 }
 
 // AugeasSet represents a key/value pair of settings to be applied.
 type AugeasSet struct {
-	Path  string `lang:"path" yaml:"path"`   // The relative path to the value to be changed.
-	Value string `lang:"value" yaml:"value"` // The value to be set on the given Path.
+	Path  string `mcl:"path" yaml:"path"`   // The relative path to the value to be changed.
+	Value string `mcl:"value" yaml:"value"` // The value to be set on the given Path.
 }
 
 // Cmp compares this set with another one.

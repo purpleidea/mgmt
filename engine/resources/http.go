@@ -106,26 +106,26 @@ type HTTPServerRes struct {
 	// Address is the listen address to use for the http server. It is
 	// common to use `:80` (the standard) to listen on TCP port 80 on all
 	// addresses.
-	Address string `lang:"address" yaml:"address"`
+	Address string `mcl:"address" yaml:"address"`
 
 	// Timeout is the maximum duration in seconds to use for unspecified
 	// timeouts. In other words, when this value is specified, it is used as
 	// the value for the other *Timeout values when they aren't used. Put
 	// another way, this makes it easy to set all the different timeouts
 	// with a single parameter.
-	Timeout *uint64 `lang:"timeout" yaml:"timeout"`
+	Timeout *uint64 `mcl:"timeout" yaml:"timeout"`
 
 	// ReadTimeout is the maximum duration in seconds for reading during the
 	// http request. If it is zero, then there is no timeout. If this is
 	// unspecified, then the value of Timeout is used instead if it is set.
 	// For more information, see the golang net/http Server documentation.
-	ReadTimeout *uint64 `lang:"read_timeout" yaml:"read_timeout"`
+	ReadTimeout *uint64 `mcl:"read_timeout" yaml:"read_timeout"`
 
 	// WriteTimeout is the maximum duration in seconds for writing during
 	// the http request. If it is zero, then there is no timeout. If this is
 	// unspecified, then the value of Timeout is used instead if it is set.
 	// For more information, see the golang net/http Server documentation.
-	WriteTimeout *uint64 `lang:"write_timeout" yaml:"write_timeout"`
+	WriteTimeout *uint64 `mcl:"write_timeout" yaml:"write_timeout"`
 
 	// ShutdownTimeout is the maximum duration in seconds to wait for the
 	// server to shutdown gracefully before calling Close. By default it is
@@ -136,13 +136,13 @@ type HTTPServerRes struct {
 	// indefinitely. The shutdown process can also be cancelled by the
 	// interrupt handler which this resource supports. If this is
 	// unspecified, then the value of Timeout is used instead if it is set.
-	ShutdownTimeout *uint64 `lang:"shutdown_timeout" yaml:"shutdown_timeout"`
+	ShutdownTimeout *uint64 `mcl:"shutdown_timeout" yaml:"shutdown_timeout"`
 
 	// Root is the root directory that we should serve files from. If it is
 	// not specified, then it is not used. Any http file resources will have
 	// precedence over anything in here, in case the same path exists twice.
 	// TODO: should we have a flag to determine the precedence rules here?
-	Root string `lang:"root" yaml:"root"`
+	Root string `mcl:"root" yaml:"root"`
 
 	// TODO: should we allow adding a list of one-of files directly here?
 
@@ -825,23 +825,23 @@ type HTTPFileRes struct {
 	// be grouped into it automatically. If there is more than one main http
 	// resource being used, then the grouping behaviour is *undefined* when
 	// this is not specified, and it is not recommended to leave this blank!
-	Server string `lang:"server" yaml:"server"`
+	Server string `mcl:"server" yaml:"server"`
 
 	// Filename is the name of the file this data should appear as on the
 	// http server.
-	Filename string `lang:"filename" yaml:"filename"`
+	Filename string `mcl:"filename" yaml:"filename"`
 
 	// Path is the absolute path to a file that should be used as the source
 	// for this file resource. It must not be combined with the data field.
 	// If this corresponds to a directory, then it will used as a root dir
 	// that will be served as long as the resource name or Filename are also
 	// a directory ending with a slash.
-	Path string `lang:"path" yaml:"path"`
+	Path string `mcl:"path" yaml:"path"`
 
 	// Data is the file content that should be used as the source for this
 	// file resource. It must not be combined with the path field.
 	// TODO: should this be []byte instead?
-	Data string `lang:"data" yaml:"data"`
+	Data string `mcl:"data" yaml:"data"`
 }
 
 // Default returns some sensible defaults for this resource.

@@ -108,26 +108,26 @@ type FileRes struct {
 	// Path, which defaults to the name if not specified, represents the
 	// destination path for the file or directory being managed. It must be
 	// an absolute path, and as a result must start with a slash.
-	Path string `lang:"path" yaml:"path"`
+	Path string `mcl:"path" yaml:"path"`
 
 	// Dirname is used to override the path dirname. (The directory
 	// portion.)
-	Dirname string `lang:"dirname" yaml:"dirname"`
+	Dirname string `mcl:"dirname" yaml:"dirname"`
 
 	// Basename is used to override the path basename. (The file portion.)
-	Basename string `lang:"basename" yaml:"basename"`
+	Basename string `mcl:"basename" yaml:"basename"`
 
 	// State specifies the desired state of the file. It can be either
 	// `exists` or `absent`. If you do not specify this, we will not be able
 	// to create or remove a file if it might be logical for another
 	// param to require that. Instead it will error. This means that this
 	// field is not implied by specifying some content or a mode.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// Content specifies the file contents to use. If this is nil, they are
 	// left undefined. It cannot be combined with the Source or Fragments
 	// parameters.
-	Content *string `lang:"content" yaml:"content"`
+	Content *string `mcl:"content" yaml:"content"`
 
 	// Source specifies the source contents for the file resource. It cannot
 	// be combined with the Content or Fragments parameters. It must be an
@@ -144,7 +144,7 @@ type FileRes struct {
 	// directory, then a directory will be created. If left undefined, and
 	// combined with the Purge option too, then any unmanaged file in this
 	// dir will be removed.
-	Source string `lang:"source" yaml:"source"`
+	Source string `mcl:"source" yaml:"source"`
 
 	// Fragments specifies that the file is built from a list of individual
 	// files. If one of the files is a directory, then the list of files in
@@ -158,19 +158,19 @@ type FileRes struct {
 	// Automatic edges will be added from these fragments. This currently
 	// isn't recursive in that if a fragment is a directory, this only
 	// searches one level deep at the moment.
-	Fragments []string `lang:"fragments" yaml:"fragments"`
+	Fragments []string `mcl:"fragments" yaml:"fragments"`
 
 	// Owner specifies the file owner. You can specify either the string
 	// name, or a string representation of the owner integer uid.
-	Owner string `lang:"owner" yaml:"owner"`
+	Owner string `mcl:"owner" yaml:"owner"`
 
 	// Group specifies the file group. You can specify either the string
 	// name, or a string representation of the group integer gid.
-	Group string `lang:"group" yaml:"group"`
+	Group string `mcl:"group" yaml:"group"`
 
 	// Mode is the mode of the file as a string representation of the octal
 	// form or symbolic form.
-	Mode string `lang:"mode" yaml:"mode"`
+	Mode string `mcl:"mode" yaml:"mode"`
 
 	// Recurse specifies if you want to work recursively on the resource. It
 	// is used when copying a source directory, or to determine if a watch
@@ -178,17 +178,17 @@ type FileRes struct {
 	// if you'd need the parent directories to be made as well. (Analogous
 	// to the `mkdir -p` option.)
 	// FIXME: There are some unimplemented cases where we should look at it.
-	Recurse bool `lang:"recurse" yaml:"recurse"`
+	Recurse bool `mcl:"recurse" yaml:"recurse"`
 
 	// Force must be set if we want to perform an unusual operation, such as
 	// changing a file into a directory or vice-versa.
-	Force bool `lang:"force" yaml:"force"`
+	Force bool `mcl:"force" yaml:"force"`
 
 	// Purge specifies that when true, any unmanaged file in this file
 	// directory will be removed. As a result, this file resource must be a
 	// directory. This isn't particularly meaningful if you don't also set
 	// Recurse to true. This doesn't work with Content or Fragments.
-	Purge bool `lang:"purge" yaml:"purge"`
+	Purge bool `mcl:"purge" yaml:"purge"`
 
 	sha256sum string
 }

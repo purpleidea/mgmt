@@ -60,20 +60,20 @@ type PkgRes struct {
 	// what version we want to pin if any. Valid values include: installed,
 	// uninstalled, newest, and `version`, where you just put the raw
 	// version string desired.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// AllowUntrusted specifies if we want to allow untrusted packages to be
 	// installed. Please see the PackageKit documentation for more
 	// information.
-	AllowUntrusted bool `lang:"allowuntrusted" yaml:"allowuntrusted"`
+	AllowUntrusted bool `mcl:"allowuntrusted" yaml:"allowuntrusted"`
 
 	// AllowNonFree specifies if we want to allow nonfree packages to be
 	// found? Please see the PackageKit documentation for more information.
-	AllowNonFree bool `lang:"allownonfree" yaml:"allownonfree"`
+	AllowNonFree bool `mcl:"allownonfree" yaml:"allownonfree"`
 
 	// AllowUnsupported specifies if we want to unsupported packages to be
 	// found? Please see the PackageKit documentation for more information.
-	AllowUnsupported bool `lang:"allowunsupported" yaml:"allowunsupported"`
+	AllowUnsupported bool `mcl:"allowunsupported" yaml:"allowunsupported"`
 
 	//bus              *packagekit.Conn    // pk bus connection
 	fileList []string // FIXME: update if pkg changes

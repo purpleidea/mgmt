@@ -138,20 +138,20 @@ type NetRes struct {
 
 	// State is the desired state of the interface. It can be "up", "down",
 	// or the empty string to leave that unspecified.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// Addrs is the list of addresses to set on the interface. They must
 	// each be in CIDR notation such as: 192.0.2.42/24 for example.
-	Addrs []string `lang:"addrs" yaml:"addrs"`
+	Addrs []string `mcl:"addrs" yaml:"addrs"`
 
 	// Gateway represents the default route to set for the interface.
-	Gateway string `lang:"gateway" yaml:"gateway"`
+	Gateway string `mcl:"gateway" yaml:"gateway"`
 
 	// IPForward is a boolean that sets whether we should forward incoming
 	// packets onward when this is set. It default to unspecified, which
 	// downstream (in the systemd-networkd configuration) defaults to false.
 	// XXX: this could also be "ipv4" or "ipv6", add those as a second option?
-	IPForward *bool `lang:"ip_forward" yaml:"ip_forward"`
+	IPForward *bool `mcl:"ip_forward" yaml:"ip_forward"`
 
 	iface        *iface // a struct containing the net.Interface and netlink.Link
 	unitFilePath string // the interface unit file path

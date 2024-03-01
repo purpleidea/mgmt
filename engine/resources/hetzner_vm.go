@@ -148,7 +148,7 @@ type HetznerVMRes struct {
 	// a local file or the mgmt deploy, or provide it directly as a string.
 	// NOTE: It must be generated manually via https://console.hetzner.cloud/.
 	// NOTE: This token is usually a 64 character alphanumeric string.
-	APIToken string `lang:"apitoken"`
+	APIToken string `mcl:"apitoken"`
 
 	// State specifies the desired state of the server instance. The supported
 	// options are "" (undefined), "absent", "exists", "off" and "running".
@@ -160,7 +160,7 @@ type HetznerVMRes struct {
 	// NOTE: any other inputs will not pass Validate and result in an error.
 	// NOTE: setting the state of a live server to "absent" will delete all data
 	// and services that are located on that instance! Use with caution.
-	State string `lang:"state"`
+	State string `mcl:"state"`
 
 	// AllowRebuild provides flexible protection against unexpected server
 	// rebuilds. Any changes to the "servertype", "datacenter" or "image" params
@@ -173,7 +173,7 @@ type HetznerVMRes struct {
 	// NOTE: Soft updates related to power and rescue mode are always allowed,
 	// because they are only required for explicit changes to resource fields.
 	// TODO: add AllowReboot if any indirect poweroffs are ever implemented.
-	AllowRebuild string `lang:"allowrebuild"`
+	AllowRebuild string `mcl:"allowrebuild"`
 
 	// ServerType determines the machine type as defined by Hetzner. A complete
 	// and up-to-date list of options must be requested from the Hetzner API,
@@ -184,25 +184,25 @@ type HetznerVMRes struct {
 	// can also be dependent on the selected datacenter.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
 	// TODO: set some kind of cost-based protection policy?
-	ServerType string `lang:"servertype"`
+	ServerType string `mcl:"servertype"`
 
 	// Datacenter determines where the resource is hosted.  A complete and
 	// up-to-date list of options must be requested from the Hetzner API, but
 	// hcloud-go-getopts (url) provides a static reference. The datacenter
 	// options include "nbg1-dc3", "fsn1-dc14", "hel1-dc2" etc.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
-	Datacenter string `lang:"datacenter"`
+	Datacenter string `mcl:"datacenter"`
 
 	// Image determines the operating system to be installed. A complete and
 	// up-to-date list of options must be requested from the Hetzner API, but
 	// hcloud-go-getopts (url) provides a static reference. The image type
 	// options include "centos-7", "ubuntu-18.04", "debian-10" etc.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
-	Image string `lang:"image"`
+	Image string `mcl:"image"`
 
 	// UserData can be used to run commands on the server instance at creation.
 	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html.
-	UserData string `lang:"userdata"`
+	UserData string `mcl:"userdata"`
 
 	// ServerRescueMode specifies the image type used when enabling rescue mode.
 	// The supported image types are "linux32", "linux64" and "freebsd64".
@@ -211,7 +211,7 @@ type HetznerVMRes struct {
 	// NOTE: rescue mode can not be enabled if the server is absent.
 	// NOTE: Rescue mode can be used to log into the server over SSH and access
 	// the disks when the normal OS has trouble booting on its own.
-	ServerRescueMode string `lang:"serverrescuemode"`
+	ServerRescueMode string `mcl:"serverrescuemode"`
 
 	// ServerRescueSSHKeys can be used to select a subset of keys that should be
 	// enabled for rescue mode operations over SSH. From all SSH keys known to
@@ -221,7 +221,7 @@ type HetznerVMRes struct {
 	// NOTE: live changes to this keylist while rescue mode is already enabled
 	// are not (yet) detected or applied by CheckApply.
 	// TODO: improve ssh key handling at checkApplyRescueMode and serverRebuild.
-	ServerRescueSSHKeys []string `lang:"serverrescuekeys"`
+	ServerRescueSSHKeys []string `mcl:"serverrescuekeys"`
 
 	// WaitInterval is the interval in seconds that is used when waiting for
 	// transient states to converge between intermediate operations. A zero
@@ -231,12 +231,12 @@ type HetznerVMRes struct {
 	// these factors into account: polling rate "Meta:poll", number of active
 	// resources under the same Hetzner project, and the expected rate of param
 	// updates. This will help to prevent rate limit errors.
-	WaitInterval uint32 `lang:"waitinterval"`
+	WaitInterval uint32 `mcl:"waitinterval"`
 
 	// WaitTimeout will cancel wait loops if they do not exit cleanly before
 	// the expected time in seconds, in order to detect defective loops and
 	// avoid unnecessary consumption of computational resources.
-	WaitTimeout uint32 `lang:"waittimeout"`
+	WaitTimeout uint32 `mcl:"waittimeout"`
 
 	// client is required for hcloud-go to interact with the Hetzner API.
 	client *hcloud.Client

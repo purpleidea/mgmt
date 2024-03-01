@@ -73,13 +73,13 @@ type DHCPServerRes struct {
 	// Address is the listen address to use for the dhcp server. It is
 	// common to use `:67` (the standard) to listen on UDP port 67 on all
 	// addresses.
-	Address string `lang:"address" yaml:"address"`
+	Address string `mcl:"address" yaml:"address"`
 
 	// Interface is interface to bind to. For example `eth0` for the common
 	// case. You may leave this field blank to not run any specific binding.
 	// XXX: You need to actually specify an interface here at the moment. :(
 	// BUG: https://github.com/insomniacslk/dhcp/issues/372
-	Interface string `lang:"interface" yaml:"interface"`
+	Interface string `mcl:"interface" yaml:"interface"`
 
 	// ServerID is a unique IPv4 identifier for this server as specified in
 	// the DHCPv4 protocol. It is almost always the IP address of the DHCP
@@ -92,22 +92,22 @@ type DHCPServerRes struct {
 	// the specified interface, then this only happens at runtime when the
 	// first DHCP request needs this or during CheckApply, either of which
 	// could fail if for some reason it is not available.
-	ServerID *string `lang:"serverid" yaml:"serverid"`
+	ServerID *string `mcl:"serverid" yaml:"serverid"`
 
 	// LeaseTime is the default lease duration in a format that is parseable
 	// by the golang time.ParseDuration function, for example "60s" or "10m"
 	// or "1h42m13s". If it is unspecified, then a default will be used. If
 	// the empty string is specified, then no lease time will be set in the
 	// DHCP protocol, and your DHCP server might not work as you intend.
-	LeaseTime *string `lang:"leasetime" yaml:"leasetime"`
+	LeaseTime *string `mcl:"leasetime" yaml:"leasetime"`
 
 	// DNS represents a list of DNS servers to offer to the DHCP client.
 	// XXX: Is it mandatory? https://github.com/insomniacslk/dhcp/issues/359
-	DNS []string `lang:"dns" yaml:"dns"`
+	DNS []string `mcl:"dns" yaml:"dns"`
 
 	// Routers represents a list of routers to offer to the DHCP client. It
 	// is most common to only specify one unless you know what you're doing.
-	Routers []string `lang:"routers" yaml:"routers"`
+	Routers []string `mcl:"routers" yaml:"routers"`
 
 	// NBP is the network boot program URL. This is used for the tftp server
 	// name and the boot file name. For example, you might use:
@@ -119,7 +119,7 @@ type DHCPServerRes struct {
 	// For DHCPv4, the scheme must be "tftp". This values is used as the
 	// default for all dhcp:host resources. You can specify this here, and
 	// the NBPPath per-resource and they will successfully combine.
-	NBP string `lang:"nbp" yaml:"nbp"`
+	NBP string `mcl:"nbp" yaml:"nbp"`
 
 	// These private fields are ordered in the handler order, the above
 	// public fields are ordered in the human logical order.
@@ -964,17 +964,17 @@ type DHCPHostRes struct {
 	// be grouped into it automatically. If there is more than one main dhcp
 	// resource being used, then the grouping behaviour is *undefined* when
 	// this is not specified, and it is not recommended to leave this blank!
-	Server string `lang:"server" yaml:"server"`
+	Server string `mcl:"server" yaml:"server"`
 
 	// Mac is the mac address of the host in lower case and separated with
 	// colons.
-	Mac string `lang:"mac" yaml:"mac"`
+	Mac string `mcl:"mac" yaml:"mac"`
 
 	// IP is the IPv4 address with the CIDR suffix. The suffix is required
 	// because it specifies the netmask to be used in the DHCPv4 protocol.
 	// For example, you might specify 192.0.2.42/24 which represents a mask
 	// of 255.255.255.0 that will be sent.
-	IP string `lang:"ip" yaml:"ip"`
+	IP string `mcl:"ip" yaml:"ip"`
 
 	// NBP is the network boot program URL. This is used for the tftp server
 	// name and the boot file name. For example, you might use:
@@ -984,13 +984,13 @@ type DHCPHostRes struct {
 	// to specify a "root less" file (common for legacy tftp setups) then
 	// you can use this feature in conjunction with the NBPPath parameter.
 	// For DHCPv4, the scheme must be "tftp".
-	NBP string `lang:"nbp" yaml:"nbp"`
+	NBP string `mcl:"nbp" yaml:"nbp"`
 
 	// NBPPath overrides the path that is sent for the nbp protocols. By
 	// default it is taken from parsing a URL in NBP, but this can override
 	// that. This is useful if you require a path that doesn't start with a
 	// slash. This is sometimes desirable for legacy tftp setups.
-	NBPPath string `lang:"nbp_path" yaml:"nbp_path"`
+	NBPPath string `mcl:"nbp_path" yaml:"nbp_path"`
 
 	ipv4Addr net.IP
 	ipv4Mask net.IPMask

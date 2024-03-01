@@ -55,17 +55,17 @@ type PasswordRes struct {
 
 	// Length is the number of characters to return.
 	// FIXME: is uint16 too big?
-	Length uint16 `lang:"length" yaml:"length"`
+	Length uint16 `mcl:"length" yaml:"length"`
 
 	// Saved caches the password in the clear locally.
-	Saved bool `lang:"saved" yaml:"saved"`
+	Saved bool `mcl:"saved" yaml:"saved"`
 
 	// CheckRecovery specifies that we should recover from, regenerate, and
 	// carry on casually without erroring the resource if the "check"
 	// facility fails. This can happen when loading a saved password from
 	// disk which is not of the expected length. In this case, we'd discard
 	// the old saved password and create a new one without erroring.
-	CheckRecovery bool `lang:"check_recovery" yaml:"check_recovery"`
+	CheckRecovery bool `mcl:"check_recovery" yaml:"check_recovery"`
 
 	path       string // the path to local storage
 	recWatcher *recwatch.RecWatcher
@@ -345,7 +345,7 @@ func (obj *PasswordRes) UIDs() []engine.ResUID {
 // PasswordSends is the struct of data which is sent after a successful Apply.
 type PasswordSends struct {
 	// Password is the generated password being sent.
-	Password *string `lang:"password"`
+	Password *string `mcl:"password"`
 	// Hashing is the algorithm used for this password. Empty is plain text.
 	Hashing string // TODO: implement me
 }

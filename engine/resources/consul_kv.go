@@ -46,19 +46,19 @@ type ConsulKVRes struct {
 	init *engine.Init
 
 	// Key is the name of the key. Defaults to the name of the resource.
-	Key string `lang:"key" yaml:"key"`
+	Key string `mcl:"key" yaml:"key"`
 
 	// Value is the value for the key.
-	Value string `lang:"value" yaml:"value"`
+	Value string `mcl:"value" yaml:"value"`
 
 	// Scheme is the URI scheme for the Consul server. Default: http.
-	Scheme string `lang:"scheme" yaml:"scheme"`
+	Scheme string `mcl:"scheme" yaml:"scheme"`
 
 	// Address is the address of the Consul server. Default: 127.0.0.1:8500.
-	Address string `lang:"address" yaml:"address"`
+	Address string `mcl:"address" yaml:"address"`
 
 	// Token is used to provide an ACL token to use for this resource.
-	Token string `lang:"token" yaml:"token"`
+	Token string `mcl:"token" yaml:"token"`
 
 	client *api.Client
 	config *api.Config // needed to close the idle connections

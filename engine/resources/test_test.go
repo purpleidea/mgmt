@@ -29,10 +29,10 @@ import (
 func TestStructTagToFieldName0(t *testing.T) {
 	type TestStruct struct {
 		TestRes        // so that this struct implements `Res`
-		Alpha   bool   `lang:"alpha" yaml:"nope"`
+		Alpha   bool   `mcl:"alpha" yaml:"nope"`
 		Beta    string `yaml:"beta"`
 		Gamma   string
-		Delta   int `lang:"surprise"`
+		Delta   int `mcl:"surprise"`
 	}
 
 	mapping, err := engineUtil.StructTagToFieldName(&TestStruct{})
@@ -71,7 +71,7 @@ func TestLowerStructFieldNameToFieldName0(t *testing.T) {
 	}
 
 	expected := map[string]string{
-		"testres": "TestRes", // hide by specifying `lang:""` on it
+		"testres": "TestRes", // hide by specifying `mcl:""` on it
 		"alpha":   "Alpha",
 		//"skipme": "skipMe",
 		"beta":      "Beta",

@@ -66,11 +66,11 @@ type KVRes struct {
 
 	// Key represents the key to set. If it is not specified, the Name value
 	// is used instead.
-	Key string `lang:"key" yaml:"key"`
+	Key string `mcl:"key" yaml:"key"`
 
 	// Value represents the string value to set. If this value is nil or,
 	// undefined, then this will delete that key.
-	Value *string `lang:"value" yaml:"value"`
+	Value *string `mcl:"value" yaml:"value"`
 
 	// Mapped specifies that we will store the value in a map with each
 	// hostname as part of the key. This is very useful for exchanging
@@ -85,11 +85,11 @@ type KVRes struct {
 	Mapped bool
 
 	// SkipLessThan causes the value to be updated as long as it is greater.
-	SkipLessThan bool `lang:"skiplessthan" yaml:"skiplessthan"`
+	SkipLessThan bool `mcl:"skiplessthan" yaml:"skiplessthan"`
 
 	// SkipCmpStyle is the type of compare function used when determining if
 	// the value is greater when using the SkipLessThan parameter.
-	SkipCmpStyle KVResSkipCmpStyle `lang:"skipcmpstyle" yaml:"skipcmpstyle"`
+	SkipCmpStyle KVResSkipCmpStyle `mcl:"skipcmpstyle" yaml:"skipcmpstyle"`
 
 	interruptChan chan struct{}
 

@@ -75,8 +75,8 @@ type FooRes struct {
 
 	init *engine.Init
 
-	Whatever string `lang:"whatever" yaml:"whatever"` // you pick!
-	Baz      bool   `lang:"baz" yaml:"baz"`           // something else
+	Whatever string `mcl:"whatever" yaml:"whatever"` // you pick!
+	Baz      bool   `mcl:"baz" yaml:"baz"`           // something else
 
 	something string // some private field
 }

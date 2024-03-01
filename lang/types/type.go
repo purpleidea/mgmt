@@ -28,7 +28,7 @@ import (
 
 const (
 	// StructTag is the key we use in struct field names for key mapping.
-	StructTag = "lang"
+	StructTag = "mcl"
 )
 
 // Basic types defined here as a convenience for use with Type.Cmp(X).
@@ -238,7 +238,7 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 			}
 			// TODO: should we skip over fields with field.Anonymous ?
 
-			// if struct field has a `lang:""` tag, use that instead of the struct field name
+			// if struct field has a `mcl:""` tag, use that instead of the struct field name
 			fieldName := field.Name
 			if options.structTag != "" {
 				if alias, ok := field.Tag.Lookup(options.structTag); ok {

@@ -56,11 +56,11 @@ type DockerImageRes struct {
 	traits.Edgeable
 
 	// State of the image must be exists or absent.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// APIVersion allows you to override the host's default client API
 	// version.
-	APIVersion string `lang:"apiversion" yaml:"apiversion"`
+	APIVersion string `mcl:"apiversion" yaml:"apiversion"`
 
 	image  string         // full image:tag format
 	client *client.Client // docker api client

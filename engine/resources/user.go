@@ -48,28 +48,28 @@ type UserRes struct {
 	init *engine.Init
 
 	// State is either exists or absent.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// UID specifies the usually unique user ID. It must be unique unless
 	// AllowDuplicateUID is true.
-	UID *uint32 `lang:"uid" yaml:"uid"`
+	UID *uint32 `mcl:"uid" yaml:"uid"`
 
 	// GID of the user's primary group.
-	GID *uint32 `lang:"gid" yaml:"gid"`
+	GID *uint32 `mcl:"gid" yaml:"gid"`
 
 	// Group is the name of the user's primary group.
-	Group *string `lang:"group" yaml:"group"`
+	Group *string `mcl:"group" yaml:"group"`
 
 	// Groups are a list of supplemental groups.
-	Groups []string `lang:"groups" yaml:"groups"`
+	Groups []string `mcl:"groups" yaml:"groups"`
 
 	// HomeDir is the path to the user's home directory.
-	HomeDir *string `lang:"homedir" yaml:"homedir"`
+	HomeDir *string `mcl:"homedir" yaml:"homedir"`
 
 	// AllowDuplicateUID is needed for a UID to be non-unique. This is rare
 	// but happens if you want more than one username to access the
 	// resources of the same UID. See the --non-unique flag in `useradd`.
-	AllowDuplicateUID bool `lang:"allowduplicateuid" yaml:"allowduplicateuid"`
+	AllowDuplicateUID bool `mcl:"allowduplicateuid" yaml:"allowduplicateuid"`
 
 	recWatcher *recwatch.RecWatcher
 }

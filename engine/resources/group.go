@@ -46,10 +46,10 @@ type GroupRes struct {
 	init *engine.Init
 
 	// State is `exists` or `absent`.
-	State string `lang:"state" yaml:"state"`
+	State string `mcl:"state" yaml:"state"`
 
 	// GID is the group's gid.
-	GID *uint32 `lang:"gid" yaml:"gid"`
+	GID *uint32 `mcl:"gid" yaml:"gid"`
 
 	recWatcher *recwatch.RecWatcher
 }

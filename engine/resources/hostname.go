@@ -56,22 +56,22 @@ type HostnameRes struct {
 	// fields below. If only this Hostname field is specified, this will set
 	// all tree fields (PrettyHostname, StaticHostname, TransientHostname)
 	// to this value.
-	Hostname string `lang:"hostname" yaml:"hostname"`
+	Hostname string `mcl:"hostname" yaml:"hostname"`
 
 	// PrettyHostname is a free-form UTF8 host name for presentation to the
 	// user.
-	PrettyHostname string `lang:"pretty_hostname" yaml:"pretty_hostname"`
+	PrettyHostname string `mcl:"pretty_hostname" yaml:"pretty_hostname"`
 
 	// StaticHostname is the one configured in /etc/hostname or a similar
 	// file. It is chosen by the local user. It is not always in sync with
 	// the current host name as returned by the gethostname() system call.
-	StaticHostname string `lang:"static_hostname" yaml:"static_hostname"`
+	StaticHostname string `mcl:"static_hostname" yaml:"static_hostname"`
 
 	// TransientHostname is the one configured via the kernel's
 	// sethostbyname(). It can be different from the static hostname in case
 	// DHCP or mDNS have been configured to change the name based on network
 	// information.
-	TransientHostname string `lang:"transient_hostname" yaml:"transient_hostname"`
+	TransientHostname string `mcl:"transient_hostname" yaml:"transient_hostname"`
 
 	conn *dbus.Conn
 }

@@ -53,7 +53,7 @@ type ValueRes struct {
 	// received value overwrites this value for the lifetime of the
 	// resource. It is interface{} because it can hold any type. It has
 	// pointer because it is only set if an actual value exists.
-	Any *interface{} `lang:"any" yaml:"any"`
+	Any *interface{} `mcl:"any" yaml:"any"`
 
 	// Store specifies that we should store this value locally in our cache,
 	// so that if we have a cold startup, that it comes back instantly, even
@@ -212,7 +212,7 @@ type ValueSends struct {
 	// Any is the generated value being sent. It is interface{} because it
 	// can hold any type. It has pointer because it is only set if an actual
 	// value is actually being sent.
-	Any *interface{} `lang:"any"`
+	Any *interface{} `mcl:"any"`
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.

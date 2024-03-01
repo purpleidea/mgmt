@@ -10,11 +10,12 @@ echo running "$0"
 ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}" || exit 1
 
-commit_title_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
+commit_title_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)*[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
 
 # Testing the regex itself.
 
 # Correct patterns.
+[[ $(echo "ci: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
 [[ $(echo "foo, bar: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
 [[ $(echo "foo: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
 [[ $(echo "f1oo, b2ar: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
@@ -183,5 +184,13 @@ then
 			test_commit_message_common_bugs $commit
 		done
 	fi
+else # assume local branch
+	commits=$(git log --no-merges --format=%H origin/master..HEAD)
+	for commit in $commits
+	do
+		test_commit_message $commit
+		test_commit_message_body $commit
+		test_commit_message_common_bugs $commit
+	done
 fi
 echo 'PASS'

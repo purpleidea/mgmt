@@ -26,20 +26,20 @@ failures=""
 count=0
 
 # loop through tests
-for i in $DIR/test/shell/*.sh; do
-	[ -x "$i" ] || continue	# file must be executable
-	ii=`basename "$i"`	# short name
+for test_script in $DIR/test/shell/*.sh; do
+	[ -x "$test_script" ] || continue	# file must be executable
+	test_name=`basename "$test_script"`	# short name
 	# if ARGV has test names, only execute those!
 	if [ "$1" != '' ]; then
-		[ "$ii" != "$1" ] && continue
+		[ "$test_name" != "$1" ] && continue
 	fi
 	cd $DIR/test/shell/ >/dev/null	# shush the cd operation
 	mkdir -p '/tmp/mgmt/'	# directory for mgmt to put files in
-	#echo "Running: $ii"
+	#echo "Running: $test_name"
 	export MGMT_TMPDIR='/tmp/mgmt/'	# we can add to env like this
 	count=`expr $count + 1`
 	set +o errexit	# don't kill script on test failure
-	out=$($i 2>&1)	# run and capture stdout & stderr
+	out=$($test_script 2>&1)	# run and capture stdout & stderr
 	e=$?	# save exit code
 	set -o errexit	# re-enable killing on script failure
 	cd - >/dev/null
@@ -48,12 +48,12 @@ for i in $DIR/test/shell/*.sh; do
 	fi
 	rm -rf '/tmp/mgmt/'	# clean up after test
 	if [ $e -ne 0 ]; then
-		echo -e "FAIL\t$ii"	# fail
+		echo -e "FAIL\t$test_name"	# fail
 		# store failures...
 		failures=$(
 			# prepend previous failures if any
 			[ -n "${failures}" ] && echo "$failures" && echo "$LINE"
-			echo "Script: $ii"
+			echo "Script: $test_name"
 			# if we see 124, it might be the exit value of timeout!
 			[ $e -eq 124 ] && echo "Exited: $e (timeout?)" || echo "Exited: $e"
 			if [ "$out" = "" ]; then
@@ -64,7 +64,7 @@ for i in $DIR/test/shell/*.sh; do
 			fi
 		)
 	else
-		echo -e "ok\t$ii"	# pass
+		echo -e "ok\t$test_name"	# pass
 	fi
 done
 

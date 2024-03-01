@@ -31,7 +31,8 @@ function run-testsuite() {
 	# if not running all tests or if this test is not explicitly selected, skip it
 	if test -z "$testsuite" || test "test-$testsuite" = "$testname"; then
 		fold_start "$testname"
-		"$@" || failures=$([ -n "$failures" ] && echo "$failures\\n$@" || echo "$@")
+		description="$testname ($@)"
+		"$@" || failures=$([ -n "$failures" ] && echo "$failures\\n$description" || echo "$description")
 		fold_end "$testname"
 	fi
 }

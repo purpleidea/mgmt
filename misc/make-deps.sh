@@ -112,6 +112,7 @@ if ! in_env; then
 fi
 
 if in_env; then
+	fold_start "Build ragel"
 	# TODO: consider bumping to new package manager version
 	RAGEL_VERSION='6.10'	# current stable version
 	RAGEL_TMP='/tmp/ragel/'
@@ -127,6 +128,7 @@ if in_env; then
 	make
 	sudo make install
 	cd -
+	fold_end "Build ragel"
 fi
 
 # attempt to workaround old ubuntu

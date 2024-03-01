@@ -27,7 +27,6 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/sanity-io/litter v1.5.5
 	github.com/spf13/afero v1.10.0
-	github.com/urfave/cli/v2 v2.25.7
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	go.etcd.io/etcd/api/v3 v3.5.10
 	go.etcd.io/etcd/client/pkg/v3 v3.5.10
@@ -44,6 +43,8 @@ require (
 require (
 	cloud.google.com/go v0.110.4 // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
+	github.com/alexflint/go-arg v1.4.3 // indirect
+	github.com/alexflint/go-scalar v1.1.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect

@@ -18,6 +18,7 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"os"
@@ -29,8 +30,9 @@ import (
 
 // These constants are some global variables that are used throughout the code.
 const (
-	Debug   = false // add additional log messages
-	Verbose = false // add extra log message output
+	tagline = "next generation config management"
+	debug   = false // add additional log messages
+	verbose = false // add extra log message output
 )
 
 // set at compile time
@@ -60,13 +62,14 @@ func main() {
 		Program: program,
 		Version: version,
 		Copying: copying,
+		Tagline: tagline,
 		Flags: cliUtil.Flags{
-			Debug:   Debug,
-			Verbose: Verbose,
+			Debug:   debug,
+			Verbose: verbose,
 		},
 		Args: os.Args,
 	}
-	if err := cli.CLI(data); err != nil {
+	if err := cli.CLI(context.Background(), data); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 		return

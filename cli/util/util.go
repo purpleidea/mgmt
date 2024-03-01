@@ -20,9 +20,29 @@ package util
 
 import (
 	"strings"
+
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+// Error is a constant error type that implements error.
+type Error string
+
+// Error fulfills the error interface of this type.
+func (e Error) Error() string { return string(e) }
+
+const (
+	// MissingEquals means we probably hit the parsing bug.
+	// XXX: see: https://github.com/alexflint/go-arg/issues/239
+	MissingEquals = Error("missing equals sign for list element")
+)
+
+// CliParseError returns a consistent error if we have a CLI parsing issue.
+func CliParseError(err error) error {
+	return errwrap.Wrapf(err, "cli parse error")
+}
+
 // Flags are some constant flags which are used throughout the program.
+// TODO: Unify this with Debug and Logf ?
 type Flags struct {
 	Debug   bool // add additional log messages
 	Verbose bool // add extra log message output
@@ -33,6 +53,7 @@ type Data struct {
 	Program string
 	Version string
 	Copying string
+	Tagline string
 	Flags   Flags
 	Args    []string // os.Args usually
 }

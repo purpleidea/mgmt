@@ -29,7 +29,7 @@ import (
 )
 
 // New builds a new converger coordinator.
-func New(timeout int64) *Coordinator {
+func New(timeout int) *Coordinator {
 	return &Coordinator{
 		timeout: timeout,
 
@@ -61,7 +61,7 @@ func New(timeout int64) *Coordinator {
 type Coordinator struct {
 	// timeout must be zero (instant) or greater seconds to run. If it's -1
 	// then this is disabled, and we never run stateFns.
-	timeout int64
+	timeout int
 
 	// mutex is used for controlling access to status and lastid.
 	mutex *sync.RWMutex
@@ -365,7 +365,7 @@ func (obj *Coordinator) Status() map[*UID]bool {
 // Timeout returns the timeout in seconds that converger was created with. This
 // is useful to avoid passing in the timeout value separately when you're
 // already passing in the Coordinator struct.
-func (obj *Coordinator) Timeout() int64 {
+func (obj *Coordinator) Timeout() int {
 	return obj.timeout
 }
 
@@ -375,7 +375,7 @@ func (obj *Coordinator) Timeout() int64 {
 type UID struct {
 	// timeout is a copy of the main timeout. It could eventually be used
 	// for per-UID timeouts too.
-	timeout int64
+	timeout int
 	// isConverged stores the convergence state of this particular UID.
 	isConverged bool
 

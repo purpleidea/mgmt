@@ -16,8 +16,6 @@ import (
 	mgmt "github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	"github.com/urfave/cli/v2"
 )
 
 // XXX: this has not been updated to latest GAPI/Deploy API. Patches welcome!
@@ -51,31 +49,20 @@ func NewMyGAPI(data *gapi.Data, name string, interval uint) (*MyGAPI, error) {
 	return obj, obj.Init(data)
 }
 
-// CliFlags returns a list of flags used by the passed in subcommand.
-func (obj *MyGAPI) CliFlags(string) []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:  obj.Name,
-			Value: "",
-			Usage: "run",
-		},
-	}
-}
-
-// Cli takes a cli.Context and some other info, and returns our GAPI. If there
-// are any validation problems, you should return an error.
-func (obj *MyGAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
-	c := cliInfo.CliContext
-	//fs := cliInfo.Fs // copy files from local filesystem *into* this fs...
-	//debug := cliInfo.Debug
+// Cli takes an *Info struct, and returns our deploy if activated, and if there
+// are any validation problems, you should return an error. If there is no
+// deploy, then you should return a nil deploy and a nil error.
+func (obj *MyGAPI) Cli(info *gapi.CliInfo) (*gapi.Deploy, error) {
+	//fs := info.Fs // copy files from local filesystem *into* this fs...
+	//debug := info.Debug
 	//logf := func(format string, v ...interface{}) {
-	//	cliInfo.Logf(Name+": "+format, v...)
+	//	info.Logf(Name+": "+format, v...)
 	//}
 
 	return &gapi.Deploy{
 		Name: obj.Name,
-		Noop: c.Bool("noop"),
-		Sema: c.Int("sema"),
+		Noop: info.Flags.Noop,
+		Sema: info.Flags.Sema,
 		GAPI: &MyGAPI{},
 	}, nil
 }

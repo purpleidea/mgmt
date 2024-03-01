@@ -25,20 +25,6 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/pgraph"
-
-	"github.com/urfave/cli/v2"
-)
-
-const (
-	// CommandRun is the identifier for the "run" command. It is distinct
-	// from the other commands, because it can run with any front-end.
-	CommandRun = "run"
-
-	// CommandDeploy is the identifier for the "deploy" command.
-	CommandDeploy = "deploy"
-
-	// CommandGet is the identifier for the "get" (download) command.
-	CommandGet = "get"
 )
 
 // RegisteredGAPIs is a global map of all possible GAPIs which can be used. You
@@ -55,15 +41,32 @@ func Register(name string, fn func() GAPI) {
 	RegisteredGAPIs[name] = fn
 }
 
-// CliInfo is the set of input values passed into the Cli method so that the
-// GAPI can decide if it wants to activate, and if it does, the initial handles
-// it needs to use to do so.
-type CliInfo struct {
-	// CliContext is the struct that is used to transfer in user input.
-	CliContext *cli.Context
+// Flags is some common data that comes from a higher-level command, and is used
+// by a subcommand. By type circularity, the subcommands can't easily access the
+// data in the parent command struct, so instead, the data that the parent wants
+// to pass down, it wraps up in a struct (for API convenience) and sends it out.
+type Flags struct {
+	Hostname *string
+
+	Noop bool
+	Sema int
+}
+
+// Info is the set of input values passed into the Cli method so that the GAPI
+// can decide if it wants to activate, and if it does, the initial handles it
+// needs to use to do so.
+type Info struct {
+	// Args are the CLI args that are populated after parsing the args list.
+	// They need to be converted to the struct you are expecting to read it.
+	Args interface{}
+
+	// Flags are the common data which is passed down into the sub command.
+	Flags *Flags
+
 	// Fs is the filesystem the Cli method should copy data into. It usually
 	// copies *from* the local filesystem using standard io functionality.
-	Fs    engine.Fs
+	Fs engine.Fs
+
 	Debug bool
 	Logf  func(format string, v ...interface{})
 }
@@ -99,18 +102,11 @@ type Next struct {
 // GAPI is a Graph API that represents incoming graphs and change streams. It is
 // the frontend interface that needs to be implemented to use the engine.
 type GAPI interface {
-	// CliFlags is passed a Command constant specifying which command it is
-	// requesting the flags for. If an invalid or unsupported command is
-	// passed in, simply return an empty list. Similarly, it is not required
-	// to ever return any flags, and the GAPI may always return an empty
-	// list.
-	CliFlags(string) []cli.Flag
-
 	// Cli is run on each GAPI to give it a chance to decide if it wants to
 	// activate, and if it does, then it will return a deploy struct. During
-	// this time, it uses the CliInfo struct as useful information to decide
+	// this time, it uses the Info struct as useful information to decide
 	// what to do.
-	Cli(*CliInfo) (*Deploy, error)
+	Cli(*Info) (*Deploy, error)
 
 	// Init initializes the GAPI and passes in some useful data.
 	Init(*Data) error
@@ -129,29 +125,4 @@ type GAPI interface {
 	// new event.
 	// TODO: change Close to Cleanup
 	Close() error
-}
-
-// GetInfo is the set of input values passed into the Get method for it to run.
-type GetInfo struct {
-	// CliContext is the struct that is used to transfer in user input.
-	CliContext *cli.Context
-
-	Noop   bool
-	Sema   int
-	Update bool
-
-	Debug bool
-	Logf  func(format string, v ...interface{})
-}
-
-// GettableGAPI represents additional methods that need to be implemented in
-// this GAPI so that it can be used with the `get` Command. The methods in this
-// interface are called independently from the rest of the GAPI interface, and
-// you must not rely on shared state from those methods. Logically, this should
-// probably be named "Getable", however the correct modern word is "Gettable".
-type GettableGAPI interface {
-	GAPI // the base interface must be implemented
-
-	// Get runs the get/download method.
-	Get(*GetInfo) error
 }

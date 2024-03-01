@@ -346,6 +346,32 @@ print "hello" {
 Yes we know the compiler gives horrible error messages, and yes we would
 absolutely love your help improving this.
 
+### The run and deploy commands don't parse correctly when used with `--seeds`.
+
+If you're running a command with `--seeds`, `--server-urls`, or `--client-urls`,
+then make sure you are using an equals sign between the flag name and the value.
+For example, if you were to run:
+
+```
+# wrong invocation!
+mgmt deploy --no-git --seeds http://127.0.0.1:2379 lang code/test.mcl
+```
+
+Then the `--seeds` flag would interpret `lang` and `code/test.mcl` as additional
+seeds. This flag as well as the other aforementioned ones all accept multiple
+values. Use an equals sign to guarantee you enter the correct data, eg:
+
+```
+# better invocation! (note the equals sign)
+mgmt deploy --no-git --seeds=http://127.0.0.1:2379 lang code/test.mcl
+```
+
+This is caused by a parsing peculiarity of the CLI library that we are using.
+This is tracked upstream at: [https://github.com/alexflint/go-arg/issues/239](https://github.com/alexflint/go-arg/issues/239).
+We have a workaround in place to mitigate it and attempt to show you a helpful
+error message, but it's also documented here in the meantime. The error you will
+see is: `cli parse error: missing equals sign for list element`.
+
 ### The docs speaks of `--remote` but the CLI errors out?
 
 The `--remote` flag existed in an earlier version of mgmt. It was removed and

@@ -92,7 +92,7 @@ type Main struct {
 	Sema                   int    // add a semaphore with this lock count to each resource
 	Graphviz               string // output file for graphviz data
 	GraphvizFilter         string // graphviz filter to use
-	ConvergedTimeout       int64  // approximately this many seconds of inactivity means we're in a converged state; -1 to disable
+	ConvergedTimeout       int    // approximately this many seconds of inactivity means we're in a converged state; -1 to disable
 	ConvergedTimeoutNoExit bool   // don't exit on converged timeout
 	ConvergedStatusFile    string // file to append converged status to
 	MaxRuntime             uint   // exit after a maximum of approximately this many seconds

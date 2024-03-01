@@ -14,16 +14,16 @@ set -o pipefail
 $TIMEOUT "$MGMT" run --hostname h1 --tmp-prefix --no-pgp empty &
 pid1=$!
 sleep 10s
-$TIMEOUT "$MGMT" run --hostname h2 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 --tmp-prefix --no-pgp empty &
+$TIMEOUT "$MGMT" run --hostname h2 --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2381 --server-urls=http://127.0.0.1:2382 --tmp-prefix --no-pgp empty &
 pid2=$!
 sleep 10s
-$TIMEOUT "$MGMT" run --hostname h3 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 --tmp-prefix --no-pgp empty &
+$TIMEOUT "$MGMT" run --hostname h3 --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2383 --server-urls=http://127.0.0.1:2384 --tmp-prefix --no-pgp empty &
 pid3=$!
 sleep 10s
-$TIMEOUT "$MGMT" run --hostname h4 --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 --tmp-prefix --no-pgp empty &
+$TIMEOUT "$MGMT" run --hostname h4 --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2385 --server-urls=http://127.0.0.1:2386 --tmp-prefix --no-pgp empty &
 pid4=$!
 sleep 10s
-$TIMEOUT "$MGMT" deploy --no-git --seeds http://127.0.0.1:2379 lang exchange0.mcl
+$TIMEOUT "$MGMT" deploy --no-git --seeds=http://127.0.0.1:2379 lang exchange0.mcl
 
 # kill servers on error/exit
 #trap 'pkill -9 mgmt' EXIT

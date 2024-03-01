@@ -428,7 +428,7 @@ func (obj *Instance) DeployLang(code string) error {
 	cmdArgs := []string{
 		"deploy", // mode
 		"--no-git",
-		"--seeds", obj.clientURL,
+		fmt.Sprintf("--seeds=%s", obj.clientURL),
 		"lang", filename,
 	}
 	obj.Logf("run: %s %s", cmdName, strings.Join(cmdArgs, " "))

@@ -23,8 +23,6 @@ import (
 
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
-
-	"github.com/urfave/cli/v2"
 )
 
 const (
@@ -36,6 +34,9 @@ func init() {
 	gapi.Register(Name, func() gapi.GAPI { return &GAPI{} }) // register
 }
 
+// Args is the CLI parsing structure and type of the parsed result.
+type Args struct{}
+
 // GAPI implements the main lang GAPI interface.
 type GAPI struct {
 	data        *gapi.Data
@@ -44,16 +45,10 @@ type GAPI struct {
 	wg          *sync.WaitGroup // sync group for tunnel go routines
 }
 
-// CliFlags returns a list of flags used by the specified subcommand.
-func (obj *GAPI) CliFlags(command string) []cli.Flag {
-	return []cli.Flag{}
-}
-
-// Cli takes a cli.Context, and returns our GAPI if activated. All arguments
-// should take the prefix of the registered name. On activation, if there are
-// any validation problems, you should return an error. If this was not
-// activated, then you should return a nil GAPI and a nil error.
-func (obj *GAPI) Cli(*gapi.CliInfo) (*gapi.Deploy, error) {
+// Cli takes an *Info struct, and returns our deploy if activated, and if there
+// are any validation problems, you should return an error. If there is no
+// deploy, then you should return a nil deploy and a nil error.
+func (obj *GAPI) Cli(*gapi.Info) (*gapi.Deploy, error) {
 	return &gapi.Deploy{
 		Name: Name,
 		//Noop: false,

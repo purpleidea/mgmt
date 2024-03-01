@@ -2107,7 +2107,7 @@ func TestAstFunc3(t *testing.T) {
 			t.Logf("test #%d: graph: %+v", index, ograph)
 
 			// setup converger
-			convergedTimeout := int64(5)
+			convergedTimeout := 5
 			converger := converger.New(
 				convergedTimeout,
 			)

@@ -21,379 +21,127 @@
 package cli
 
 import (
+	"context"
 	"fmt"
-	"log"
-	"sort"
+	"os"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
-	"github.com/purpleidea/mgmt/gapi"
-	_ "github.com/purpleidea/mgmt/lang" // import so the GAPI registers
-	_ "github.com/purpleidea/mgmt/yamlgraph"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/urfave/cli/v2"
+	"github.com/alexflint/go-arg"
 )
 
 // CLI is the entry point for using mgmt normally from the CLI.
-func CLI(data *cliUtil.Data) error {
+func CLI(ctx context.Context, data *cliUtil.Data) error {
 	// test for sanity
 	if data == nil {
 		return fmt.Errorf("this CLI was not run correctly")
 	}
 	if data.Program == "" || data.Version == "" {
-		return fmt.Errorf("program was not compiled correctly, see Makefile")
+		return fmt.Errorf("program was not compiled correctly")
 	}
 	if data.Copying == "" {
 		return fmt.Errorf("program copyrights were removed, can't run")
 	}
 
-	// All of these flags can be accessed in your GAPI implementation with
-	// the `c.Lineage()[1].Type` and `c.Lineage()[1].IsSet` functions. Their
-	// own flags can be accessed with `c.Type` and `c.IsSet` directly.
-	runFlags := []cli.Flag{
-		// common flags which all can use
+	args := Args{}
+	args.version = data.Version // copy this in
+	args.description = data.Tagline
 
-		// useful for testing multiple instances on same machine
-		&cli.StringFlag{
-			Name:  "hostname",
-			Value: "",
-			Usage: "hostname to use",
-		},
-
-		&cli.StringFlag{
-			Name:    "prefix",
-			Usage:   "specify a path to the working prefix directory",
-			EnvVars: []string{"MGMT_PREFIX"},
-		},
-		&cli.BoolFlag{
-			Name:  "tmp-prefix",
-			Usage: "request a pseudo-random, temporary prefix to be used",
-		},
-		&cli.BoolFlag{
-			Name:  "allow-tmp-prefix",
-			Usage: "allow creation of a new temporary prefix if main prefix is unavailable",
-		},
-
-		&cli.BoolFlag{
-			Name:  "no-watch",
-			Usage: "do not update graph under any switch events",
-		},
-		&cli.BoolFlag{
-			Name:  "no-stream-watch",
-			Usage: "do not update graph on stream switch events",
-		},
-		&cli.BoolFlag{
-			Name:  "no-deploy-watch",
-			Usage: "do not change deploys after an initial deploy",
-		},
-
-		&cli.BoolFlag{
-			Name:  "noop",
-			Usage: "globally force all resources into no-op mode",
-		},
-		&cli.IntFlag{
-			Name:  "sema",
-			Value: -1,
-			Usage: "globally add a semaphore to all resources with this lock count",
-		},
-		&cli.StringFlag{
-			Name:  "graphviz, g",
-			Value: "",
-			Usage: "output file for graphviz data",
-		},
-		&cli.StringFlag{
-			Name:  "graphviz-filter, gf",
-			Value: "",
-			Usage: "graphviz filter to use",
-		},
-		&cli.Int64Flag{
-			Name:    "converged-timeout, t",
-			Value:   -1,
-			Usage:   "after approximately this many seconds without activity, we're considered to be in a converged state",
-			EnvVars: []string{"MGMT_CONVERGED_TIMEOUT"},
-		},
-		&cli.BoolFlag{
-			Name:  "converged-timeout-no-exit",
-			Usage: "don't exit on converged-timeout",
-		},
-		&cli.StringFlag{
-			Name:  "converged-status-file",
-			Value: "",
-			Usage: "file to append the current converged state to, mostly used for testing",
-		},
-		&cli.IntFlag{
-			Name:    "max-runtime",
-			Value:   0,
-			Usage:   "exit after a maximum of approximately this many seconds",
-			EnvVars: []string{"MGMT_MAX_RUNTIME"},
-		},
-
-		// if empty, it will startup a new server
-		&cli.StringSliceFlag{
-			Name:    "seeds, s",
-			Value:   &cli.StringSlice{}, // empty slice
-			Usage:   "default etc client endpoint",
-			EnvVars: []string{"MGMT_SEEDS"},
-		},
-		// port 2379 and 4001 are common
-		&cli.StringSliceFlag{
-			Name:    "client-urls",
-			Value:   &cli.StringSlice{},
-			Usage:   "list of URLs to listen on for client traffic",
-			EnvVars: []string{"MGMT_CLIENT_URLS"},
-		},
-		// port 2380 and 7001 are common
-		&cli.StringSliceFlag{
-			Name:    "server-urls, peer-urls",
-			Value:   &cli.StringSlice{},
-			Usage:   "list of URLs to listen on for server (peer) traffic",
-			EnvVars: []string{"MGMT_SERVER_URLS"},
-		},
-		// port 2379 and 4001 are common
-		&cli.StringSliceFlag{
-			Name:    "advertise-client-urls",
-			Value:   &cli.StringSlice{},
-			Usage:   "list of URLs to listen on for client traffic",
-			EnvVars: []string{"MGMT_ADVERTISE_CLIENT_URLS"},
-		},
-		// port 2380 and 7001 are common
-		&cli.StringSliceFlag{
-			Name:    "advertise-server-urls, advertise-peer-urls",
-			Value:   &cli.StringSlice{},
-			Usage:   "list of URLs to listen on for server (peer) traffic",
-			EnvVars: []string{"MGMT_ADVERTISE_SERVER_URLS"},
-		},
-		&cli.IntFlag{
-			Name:    "ideal-cluster-size",
-			Value:   -1,
-			Usage:   "ideal number of server peers in cluster; only read by initial server",
-			EnvVars: []string{"MGMT_IDEAL_CLUSTER_SIZE"},
-		},
-		&cli.BoolFlag{
-			Name:  "no-server",
-			Usage: "do not start embedded etcd server (do not promote from client to peer)",
-		},
-		&cli.BoolFlag{
-			Name:    "no-network",
-			Usage:   "run single node instance without clustering or opening tcp ports to the outside",
-			EnvVars: []string{"MGMT_NO_NETWORK"},
-		},
-		&cli.BoolFlag{
-			Name:  "no-pgp",
-			Usage: "don't create pgp keys",
-		},
-		&cli.StringFlag{
-			Name:  "pgp-key-path",
-			Value: "",
-			Usage: "path for instance key pair",
-		},
-		&cli.StringFlag{
-			Name:  "pgp-identity",
-			Value: "",
-			Usage: "default identity used for generation",
-		},
-		&cli.BoolFlag{
-			Name:  "prometheus",
-			Usage: "start a prometheus instance",
-		},
-		&cli.StringFlag{
-			Name:  "prometheus-listen",
-			Value: "",
-			Usage: "specify prometheus instance binding",
-		},
+	config := arg.Config{
+		Program: data.Program,
 	}
-	deployFlags := []cli.Flag{
-		// common flags which all can use
-		&cli.StringSliceFlag{
-			Name:    "seeds, s",
-			Value:   &cli.StringSlice{}, // empty slice
-			Usage:   "default etc client endpoint",
-			EnvVars: []string{"MGMT_SEEDS"},
-		},
-		&cli.BoolFlag{
-			Name:  "noop",
-			Usage: "globally force all resources into no-op mode",
-		},
-		&cli.IntFlag{
-			Name:  "sema",
-			Value: -1,
-			Usage: "globally add a semaphore to all resources with this lock count",
-		},
-
-		&cli.BoolFlag{
-			Name:  "no-git",
-			Usage: "don't look at git commit id for safe deploys",
-		},
-		&cli.BoolFlag{
-			Name:  "force",
-			Usage: "force a new deploy, even if the safety chain would break",
-		},
+	parser, err := arg.NewParser(config, &args)
+	if err != nil {
+		// programming error
+		return errwrap.Wrapf(err, "cli config error")
 	}
-	getFlags := []cli.Flag{
-		// common flags which all can use
-		&cli.BoolFlag{
-			Name:  "noop",
-			Usage: "simulate the download (can't recurse)",
-		},
-		&cli.IntFlag{
-			Name:  "sema",
-			Value: -1, // maximum parallelism
-			Usage: "globally add a semaphore to downloads with this lock count",
-		},
-		&cli.BoolFlag{
-			Name:  "update",
-			Usage: "update all dependencies to the latest versions",
-		},
+	err = parser.Parse(data.Args[1:]) // XXX: args[0] needs to be dropped
+	if err == arg.ErrHelp {
+		parser.WriteHelp(os.Stdout)
+		return nil
+	}
+	if err == arg.ErrVersion {
+		fmt.Printf("%s\n", data.Version) // byon: bring your own newline
+		return nil
+	}
+	if err != nil {
+		//parser.WriteHelp(os.Stdout) // TODO: is doing this helpful?
+		return cliUtil.CliParseError(err) // consistent errors
 	}
 
-	subCommandsRun := []*cli.Command{}    // run sub commands
-	subCommandsDeploy := []*cli.Command{} // deploy sub commands
-	subCommandsGet := []*cli.Command{}    // get (download) sub commands
-
-	names := []string{}
-	for name := range gapi.RegisteredGAPIs {
-		names = append(names, name)
-	}
-	sort.Strings(names) // ensure deterministic order when parsing
-	for _, x := range names {
-		name := x // create a copy in this scope
-		fn := gapi.RegisteredGAPIs[name]
-		gapiObj := fn()
-
-		commandRun := &cli.Command{
-			Name:  name,
-			Usage: fmt.Sprintf("run using the `%s` frontend", name),
-			Action: func(c *cli.Context) error {
-				if err := run(c, name, gapiObj); err != nil {
-					log.Printf("run: error: %v", err)
-					//return cli.NewExitError(err.Error(), 1) // TODO: ?
-					return cli.NewExitError("", 1)
-				}
-				return nil
-			},
-			Flags: gapiObj.CliFlags(gapi.CommandRun),
-		}
-		subCommandsRun = append(subCommandsRun, commandRun)
-
-		commandDeploy := &cli.Command{
-			Name:  name,
-			Usage: fmt.Sprintf("deploy using the `%s` frontend", name),
-			Action: func(c *cli.Context) error {
-				if err := deploy(c, name, gapiObj); err != nil {
-					log.Printf("deploy: error: %v", err)
-					//return cli.NewExitError(err.Error(), 1) // TODO: ?
-					return cli.NewExitError("", 1)
-				}
-				return nil
-			},
-			Flags: gapiObj.CliFlags(gapi.CommandDeploy),
-		}
-		subCommandsDeploy = append(subCommandsDeploy, commandDeploy)
-
-		if _, ok := gapiObj.(gapi.GettableGAPI); ok {
-			commandGet := &cli.Command{
-				Name:  name,
-				Usage: fmt.Sprintf("get (download) using the `%s` frontend", name),
-				Action: func(c *cli.Context) error {
-					if err := get(c, name, gapiObj); err != nil {
-						log.Printf("get: error: %v", err)
-						//return cli.NewExitError(err.Error(), 1) // TODO: ?
-						return cli.NewExitError("", 1)
-					}
-					return nil
-				},
-				Flags: gapiObj.CliFlags(gapi.CommandGet),
-			}
-			subCommandsGet = append(subCommandsGet, commandGet)
-		}
-	}
-
-	app := cli.NewApp()
-	app.Name = data.Program // App.name and App.version pass these values through
-	app.Version = data.Version
-	app.Usage = "next generation config management"
-	app.Metadata = map[string]interface{}{ // additional flags
-		"flags": data.Flags,
-	}
-
-	// if no app.Command is specified
-	app.Action = func(c *cli.Context) error {
-		// print the license
-		if c.Bool("license") {
-			fmt.Printf("%s", data.Copying)
-			return nil
-		}
-
-		// print help if no flags are set
-		cli.ShowAppHelp(c)
+	// display the license
+	if args.License {
+		fmt.Printf("%s", data.Copying) // file comes with a trailing nl
 		return nil
 	}
 
-	// global flags
-	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name:  "license",
-			Usage: "prints the software license",
-		},
+	if ok, err := args.Run(ctx, data); err != nil {
+		return err
+	} else if ok { // did we activate one of the commands?
+		return nil
 	}
 
-	app.Commands = []*cli.Command{
-		//{
-		//	Name:    gapi.CommandTODO,
-		//	Aliases: []string{"TODO"},
-		//	Usage:   "TODO",
-		//	Action:  TODO,
-		//	Flags:   TODOFlags,
-		//},
-	}
+	// print help if no subcommands are set
+	parser.WriteHelp(os.Stdout)
 
-	// run always requires a frontend to start the engine, but if you don't
-	// want a graph, you can use the `empty` frontend. The engine backend is
-	// agnostic to which frontend is running, in fact, you can deploy with
-	// multiple different frontends, one after another, on the same engine.
-	if len(subCommandsRun) > 0 {
-		commandRun := &cli.Command{
-			Name:        gapi.CommandRun,
-			Aliases:     []string{"r"},
-			Usage:       "Run code on this machine",
-			Subcommands: subCommandsRun,
-			Flags:       runFlags,
-		}
-		app.Commands = append(app.Commands, commandRun)
-	}
-
-	if len(subCommandsDeploy) > 0 {
-		commandDeploy := &cli.Command{
-			Name:        gapi.CommandDeploy,
-			Aliases:     []string{"d"},
-			Usage:       "Deploy code into the cluster",
-			Subcommands: subCommandsDeploy,
-			Flags:       deployFlags,
-		}
-		app.Commands = append(app.Commands, commandDeploy)
-	}
-
-	if len(subCommandsGet) > 0 {
-		commandGet := &cli.Command{
-			Name:        gapi.CommandGet,
-			Aliases:     []string{"g"},
-			Usage:       "Download code from the internet",
-			Subcommands: subCommandsGet,
-			Flags:       getFlags,
-		}
-		app.Commands = append(app.Commands, commandGet)
-	}
-
-	commandEtcd := &cli.Command{
-		Name: "etcd",
-		//Aliases: []string{"e"},
-		Usage: "Run standalone etcd",
-		Action: func(*cli.Context) error {
-			// this never runs, it gets preempted in the real main()
-			return nil
-		},
-	}
-	app.Commands = append(app.Commands, commandEtcd)
-
-	app.EnableBashCompletion = true
-	return app.Run(data.Args)
+	return nil
 }
+
+// Args is the CLI parsing structure and type of the parsed result. This
+// particular struct is the top-most one.
+type Args struct {
+	// XXX: We cannot have both subcommands and a positional argument.
+	// XXX: I think it's a bug of this library that it can't handle argv[0].
+	//Argv0 string `arg:"positional"`
+
+	License bool `arg:"--license" help:"display the license and exit"`
+
+	RunCmd *RunArgs `arg:"subcommand:run" help:"run code on this machine"`
+
+	DeployCmd *DeployArgs `arg:"subcommand:deploy" help:"deploy code into a cluster"`
+
+	// This never runs, it gets preempted in the real main() function.
+	// XXX: Can we do it nicely with the new arg parser? can it ignore all args?
+	EtcdCmd *EtcdArgs `arg:"subcommand:etcd" help:"run standalone etcd"`
+
+	// version is a private handle for our version string.
+	version string `arg:"-"` // ignored from parsing
+
+	// description is a private handle for our description string.
+	description string `arg:"-"` // ignored from parsing
+}
+
+// Version returns the version string. Implementing this signature is part of
+// the API for the cli library.
+func (obj *Args) Version() string {
+	return obj.version
+}
+
+// Description returns a description string. Implementing this signature is part
+// of the API for the cli library.
+func (obj *Args) Description() string {
+	return obj.description
+}
+
+// Run executes the correct subcommand. It errors if there's ever an error. It
+// returns true if we did activate one of the subcommands. It returns false if
+// we did not. This information is used so that the top-level parser can return
+// usage or help information if no subcommand activates.
+func (obj *Args) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
+	if cmd := obj.RunCmd; cmd != nil {
+		return cmd.Run(ctx, data)
+	}
+
+	if cmd := obj.DeployCmd; cmd != nil {
+		return cmd.Run(ctx, data)
+	}
+
+	// NOTE: we could return true, fmt.Errorf("...") if more than one did
+	return false, nil // nobody activated
+}
+
+// EtcdArgs is the CLI parsing structure and type of the parsed result. This
+// particular one is empty because the `etcd` subcommand is preempted in the
+// real main() function.
+type EtcdArgs struct{}

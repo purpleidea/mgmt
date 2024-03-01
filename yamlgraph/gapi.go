@@ -26,19 +26,24 @@ import (
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	"github.com/urfave/cli/v2"
 )
 
 const (
 	// Name is the name of this frontend.
 	Name = "yaml"
+
 	// Start is the entry point filename that we use. It is arbitrary.
 	Start = "/start.yaml"
 )
 
 func init() {
 	gapi.Register(Name, func() gapi.GAPI { return &GAPI{} }) // register
+}
+
+// Args is the CLI parsing structure and type of the parsed result.
+type Args struct {
+	// Input is the input yaml code or file path or any input specification.
+	Input string `arg:"positional,required"`
 }
 
 // GAPI implements the main yamlgraph GAPI interface.
@@ -51,41 +56,21 @@ type GAPI struct {
 	wg          sync.WaitGroup // sync group for tunnel go routines
 }
 
-// CliFlags returns a list of flags used by the specified subcommand.
-func (obj *GAPI) CliFlags(command string) []cli.Flag {
-	switch command {
-	case gapi.CommandRun:
-		fallthrough
-	case gapi.CommandDeploy:
-		return []cli.Flag{}
-	//case gapi.CommandGet:
-	default:
-		return []cli.Flag{}
+// Cli takes an *Info struct, and returns our deploy if activated, and if there
+// are any validation problems, you should return an error. If there is no
+// deploy, then you should return a nil deploy and a nil error.
+func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
+	args, ok := info.Args.(*Args)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("could not convert to our struct")
 	}
-}
 
-// Cli takes a cli.Context, and returns our GAPI if activated. All arguments
-// should take the prefix of the registered name. On activation, if there are
-// any validation problems, you should return an error. If this was not
-// activated, then you should return a nil GAPI and a nil error.
-func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
-	c := cliInfo.CliContext
-	fs := cliInfo.Fs
-	//debug := cliInfo.Debug
+	fs := info.Fs
+	//debug := info.Debug
 	//logf := func(format string, v ...interface{}) {
-	//	 cliInfo.Logf(Name + ": "+format, v...)
+	//	 info.Logf(Name + ": "+format, v...)
 	//}
-
-	if l := c.NArg(); l != 1 {
-		if l > 1 {
-			return nil, fmt.Errorf("input program must be a single arg")
-		}
-		return nil, fmt.Errorf("must specify input program")
-	}
-	s := c.Args().Get(0)
-	if s == "" {
-		return nil, fmt.Errorf("input yaml is empty")
-	}
 
 	writeableFS, ok := fs.(engine.WriteableFS)
 	if !ok {
@@ -93,14 +78,14 @@ func (obj *GAPI) Cli(cliInfo *gapi.CliInfo) (*gapi.Deploy, error) {
 	}
 
 	// single file input only
-	if err := gapi.CopyFileToFs(writeableFS, s, Start); err != nil {
-		return nil, errwrap.Wrapf(err, "can't copy yaml from `%s` to `%s`", s, Start)
+	if err := gapi.CopyFileToFs(writeableFS, args.Input, Start); err != nil {
+		return nil, errwrap.Wrapf(err, "can't copy yaml from `%s` to `%s`", args.Input, Start)
 	}
 
 	return &gapi.Deploy{
 		Name: Name,
-		Noop: c.Bool("noop"),
-		Sema: c.Int("sema"),
+		Noop: info.Flags.Noop,
+		Sema: info.Flags.Sema,
 		GAPI: &GAPI{
 			InputURI: fs.URI(),
 			// TODO: add properties here...

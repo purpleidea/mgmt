@@ -18,6 +18,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -27,50 +28,140 @@ import (
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
+	emptyGAPI "github.com/purpleidea/mgmt/gapi/empty"
+	langGAPI "github.com/purpleidea/mgmt/lang/gapi"
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	yamlGAPI "github.com/purpleidea/mgmt/yamlgraph"
 
 	"github.com/spf13/afero"
-	"github.com/urfave/cli/v2"
 )
 
-// run is the main run target.
-func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
-	cliContext := c.Lineage()[1] // these are the flags from `run`
-	if cliContext == nil {
-		return fmt.Errorf("could not get cli context")
+// RunArgs is the CLI parsing structure and type of the parsed result. This
+// particular one contains all the common flags for the `run` subcommand which
+// all frontends can use.
+type RunArgs struct {
+
+	// useful for testing multiple instances on same machine
+	Hostname       *string `arg:"--hostname" help:"hostname to use"`
+	Prefix         *string `arg:"--prefix,env:MGMT_PREFIX" help:"specify a path to the working prefix directory"`
+	TmpPrefix      bool    `arg:"--tmp-prefix" help:"request a pseudo-random, temporary prefix to be used"`
+	AllowTmpPrefix bool    `arg:"--allow-tmp-prefix" help:"allow creation of a new temporary prefix if main prefix is unavailable"`
+
+	NoWatch       bool `arg:"--no-watch" help:"do not update graph under any switch events"`
+	NoStreamWatch bool `arg:"--no-stream-watch" help:"do not update graph on stream switch events"`
+	NoDeployWatch bool `arg:"--no-deploy-watch" help:"do not change deploys after an initial deploy"`
+
+	Noop bool `arg:"--noop" help:"globally force all resources into no-op mode"`
+	Sema int  `arg:"--sema" default:"-1" help:"globally add a semaphore to downloads with this lock count"`
+
+	Graphviz               string `arg:"--graphviz" help:"output file for graphviz data"`
+	GraphvizFilter         string `arg:"--graphviz-filter" help:"graphviz filter to use"`
+	ConvergedTimeout       int    `arg:"--converged-timeout,env:MGMT_CONVERGED_TIMEOUT" default:"-1" help:"after approximately this many seconds without activity, we're considered to be in a converged state"`
+	ConvergedTimeoutNoExit bool   `arg:"--converged-timeout-no-exit" help:"don't exit on converged-timeout"`
+	ConvergedStatusFile    string `arg:"--converged-status-file" help:"file to append the current converged state to, mostly used for testing"`
+	MaxRuntime             uint   `arg:"--max-runtime,env:MGMT_MAX_RUNTIME" help:"exit after a maximum of approximately this many seconds"`
+
+	// if empty, it will startup a new server
+	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etc client endpoint"`
+
+	// port 2379 and 4001 are common
+	ClientURLs []string `arg:"--client-urls,env:MGMT_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
+
+	// port 2380 and 7001 are common
+	// etcd now uses --peer-urls
+	ServerURLs []string `arg:"--server-urls,env:MGMT_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
+
+	// port 2379 and 4001 are common
+	AdvertiseClientURLs []string `arg:"--advertise-client-urls,env:MGMT_ADVERTISE_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
+
+	// port 2380 and 7001 are common
+	// etcd now uses --advertise-peer-urls
+	AdvertiseServerURLs []string `arg:"--advertise-server-urls,env:MGMT_ADVERTISE_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
+
+	IdealClusterSize int  `arg:"--ideal-cluster-size,env:MGMT_IDEAL_CLUSTER_SIZE" default:"-1" help:"ideal number of server peers in cluster; only read by initial server"`
+	NoServer         bool `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
+	NoNetwork        bool `arg:"--no-network,env:MGMT_NO_NETWORK" help:"run single node instance without clustering or opening tcp ports to the outside"`
+
+	NoPgp       bool    `arg:"--no-pgp" help:"don't create pgp keys"`
+	PgpKeyPath  *string `arg:"--pgp-key-path" help:"path for instance key pair"`
+	PgpIdentity *string `arg:"--pgp-identity" help:"default identity used for generation"`
+
+	Prometheus       bool   `arg:"--prometheus" help:"start a prometheus instance"`
+	PrometheusListen string `arg:"--prometheus-listen" help:"specify prometheus instance binding"`
+
+	RunEmpty *emptyGAPI.Args `arg:"subcommand:empty" help:"run empty payload"`
+	RunLang  *langGAPI.Args  `arg:"subcommand:lang" help:"run lang (mcl) payload"`
+	RunYaml  *yamlGAPI.Args  `arg:"subcommand:yaml" help:"run yaml graph payload"`
+}
+
+// Run executes the correct subcommand. It errors if there's ever an error. It
+// returns true if we did activate one of the subcommands. It returns false if
+// we did not. This information is used so that the top-level parser can return
+// usage or help information if no subcommand activates. This particular Run is
+// the run for the main `run` subcommand. This always requires a frontend to
+// start the engine, but if you don't want a graph, you can use the `empty`
+// frontend. The engine backend is agnostic to which frontend is running, in
+// fact, you can deploy with multiple different frontends, one after another, on
+// the same engine.
+func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
+	var name string
+	var args interface{}
+	if cmd := obj.RunEmpty; cmd != nil {
+		name = emptyGAPI.Name
+		args = cmd
 	}
+	if cmd := obj.RunLang; cmd != nil {
+		name = langGAPI.Name
+		args = cmd
+	}
+	if cmd := obj.RunYaml; cmd != nil {
+		name = yamlGAPI.Name
+		args = cmd
+	}
+
+	// XXX: workaround https://github.com/alexflint/go-arg/issues/239
+	lists := [][]string{
+		obj.Seeds,
+		obj.ClientURLs,
+		obj.ServerURLs,
+		obj.AdvertiseClientURLs,
+		obj.AdvertiseServerURLs,
+	}
+	for _, list := range lists {
+		if l := len(list); name == "" && l > 1 {
+			elem := list[l-2] // second to last element
+			if elem == emptyGAPI.Name || elem == langGAPI.Name || elem == yamlGAPI.Name {
+				return false, cliUtil.CliParseError(cliUtil.MissingEquals) // consistent errors
+			}
+		}
+	}
+
+	fn, exists := gapi.RegisteredGAPIs[name]
+	if !exists {
+		return false, nil // did not activate
+	}
+	gapiObj := fn()
 
 	main := &lib.Main{}
 
-	main.Program, main.Version = cliUtil.SafeProgram(c.App.Name), c.App.Version
-	var flags cliUtil.Flags
-	if val, exists := c.App.Metadata["flags"]; exists {
-		if f, ok := val.(cliUtil.Flags); ok {
-			flags = f
-			main.Flags = lib.Flags{
-				Debug:   f.Debug,
-				Verbose: f.Verbose,
-			}
-		}
+	main.Program, main.Version = data.Program, data.Version
+	main.Flags = lib.Flags{
+		Debug:   data.Flags.Debug,
+		Verbose: data.Flags.Verbose,
 	}
 	Logf := func(format string, v ...interface{}) {
 		log.Printf("main: "+format, v...)
 	}
 
-	cliUtil.Hello(main.Program, main.Version, flags) // say hello!
+	cliUtil.Hello(main.Program, main.Version, data.Flags) // say hello!
 	defer Logf("goodbye!")
 
-	if h := cliContext.String("hostname"); cliContext.IsSet("hostname") && h != "" {
-		main.Hostname = &h
-	}
-
-	if s := cliContext.String("prefix"); cliContext.IsSet("prefix") && s != "" {
-		main.Prefix = &s
-	}
-	main.TmpPrefix = cliContext.Bool("tmp-prefix")
-	main.AllowTmpPrefix = cliContext.Bool("allow-tmp-prefix")
+	main.Hostname = obj.Hostname
+	main.Prefix = obj.Prefix
+	main.TmpPrefix = obj.TmpPrefix
+	main.AllowTmpPrefix = obj.AllowTmpPrefix
 
 	// create a memory backed temporary filesystem for storing runtime data
 	mmFs := afero.NewMemMapFs()
@@ -78,8 +169,14 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 	standaloneFs := &util.AferoFs{Afero: afs}
 	main.DeployFs = standaloneFs
 
-	cliInfo := &gapi.CliInfo{
-		CliContext: c, // don't pass in the parent context
+	info := &gapi.Info{
+		Args: args,
+		Flags: &gapi.Flags{
+			Hostname: obj.Hostname,
+			Noop:     obj.Noop,
+			Sema:     obj.Sema,
+			//Update: obj.Update,
+		},
 
 		Fs:    standaloneFs,
 		Debug: main.Flags.Debug,
@@ -88,12 +185,16 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		},
 	}
 
-	deploy, err := gapiObj.Cli(cliInfo)
+	deploy, err := gapiObj.Cli(info)
 	if err != nil {
-		return errwrap.Wrapf(err, "cli parse error")
+		return false, cliUtil.CliParseError(err) // consistent errors
 	}
-	if c.Bool("only-unify") && deploy == nil {
-		return nil // we end early
+
+	if cmd := obj.RunLang; cmd != nil && cmd.OnlyUnify && deploy == nil {
+		return true, nil // we end early
+	}
+	if cmd := obj.RunLang; cmd != nil && cmd.OnlyDownload && deploy == nil {
+		return true, nil // we end early
 	}
 	main.Deploy = deploy
 	if main.Deploy == nil {
@@ -102,47 +203,41 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 		log.Printf("main: no frontend selected (no GAPI activated)")
 	}
 
-	main.NoWatch = cliContext.Bool("no-watch")
-	main.NoStreamWatch = cliContext.Bool("no-stream-watch")
-	main.NoDeployWatch = cliContext.Bool("no-deploy-watch")
+	main.NoWatch = obj.NoWatch
+	main.NoStreamWatch = obj.NoStreamWatch
+	main.NoDeployWatch = obj.NoDeployWatch
 
-	main.Noop = cliContext.Bool("noop")
-	main.Sema = cliContext.Int("sema")
-	main.Graphviz = cliContext.String("graphviz")
-	main.GraphvizFilter = cliContext.String("graphviz-filter")
-	main.ConvergedTimeout = cliContext.Int64("converged-timeout")
-	main.ConvergedTimeoutNoExit = cliContext.Bool("converged-timeout-no-exit")
-	main.ConvergedStatusFile = cliContext.String("converged-status-file")
-	main.MaxRuntime = uint(cliContext.Int("max-runtime"))
+	main.Noop = obj.Noop
+	main.Sema = obj.Sema
+	main.Graphviz = obj.Graphviz
+	main.GraphvizFilter = obj.GraphvizFilter
+	main.ConvergedTimeout = obj.ConvergedTimeout
+	main.ConvergedTimeoutNoExit = obj.ConvergedTimeoutNoExit
+	main.ConvergedStatusFile = obj.ConvergedStatusFile
+	main.MaxRuntime = obj.MaxRuntime
 
-	main.Seeds = cliContext.StringSlice("seeds")
-	main.ClientURLs = cliContext.StringSlice("client-urls")
-	main.ServerURLs = cliContext.StringSlice("server-urls")
-	main.AdvertiseClientURLs = cliContext.StringSlice("advertise-client-urls")
-	main.AdvertiseServerURLs = cliContext.StringSlice("advertise-server-urls")
-	main.IdealClusterSize = cliContext.Int("ideal-cluster-size")
-	main.NoServer = cliContext.Bool("no-server")
-	main.NoNetwork = cliContext.Bool("no-network")
+	main.Seeds = obj.Seeds
+	main.ClientURLs = obj.ClientURLs
+	main.ServerURLs = obj.ServerURLs
+	main.AdvertiseClientURLs = obj.AdvertiseClientURLs
+	main.AdvertiseServerURLs = obj.AdvertiseServerURLs
+	main.IdealClusterSize = obj.IdealClusterSize
+	main.NoServer = obj.NoServer
+	main.NoNetwork = obj.NoNetwork
 
-	main.NoPgp = cliContext.Bool("no-pgp")
+	main.NoPgp = obj.Prometheus
+	main.PgpKeyPath = obj.PgpKeyPath
+	main.PgpIdentity = obj.PgpIdentity
 
-	if kp := cliContext.String("pgp-key-path"); cliContext.IsSet("pgp-key-path") {
-		main.PgpKeyPath = &kp
-	}
-
-	if us := cliContext.String("pgp-identity"); cliContext.IsSet("pgp-identity") {
-		main.PgpIdentity = &us
-	}
-
-	main.Prometheus = cliContext.Bool("prometheus")
-	main.PrometheusListen = cliContext.String("prometheus-listen")
+	main.Prometheus = obj.Prometheus
+	main.PrometheusListen = obj.PrometheusListen
 
 	if err := main.Validate(); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := main.Init(); err != nil {
-		return err
+		return false, err
 	}
 
 	// install the exit signal handler
@@ -200,10 +295,13 @@ func run(c *cli.Context, name string, gapiObj gapi.GAPI) error {
 			log.Printf("main: Close: %+v", err)
 		}
 		if reterr == nil {
-			return err
+			return false, err
 		}
 		reterr = errwrap.Append(reterr, err)
 	}
 
-	return reterr
+	if reterr != nil {
+		return false, reterr
+	}
+	return true, nil
 }

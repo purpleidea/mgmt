@@ -16,16 +16,16 @@ fi
 trap 'pkill -9 mgmt' EXIT
 
 $TIMEOUT "$MGMT" run --hostname h1 --tmp-prefix --no-pgp empty &
-$TIMEOUT "$MGMT" run --hostname h2 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2381 --server-urls http://127.0.0.1:2382 empty &
-$TIMEOUT "$MGMT" run --hostname h3 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2383 --server-urls http://127.0.0.1:2384 empty &
+$TIMEOUT "$MGMT" run --hostname h2 --tmp-prefix --no-pgp --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2381 --server-urls=http://127.0.0.1:2382 empty &
+$TIMEOUT "$MGMT" run --hostname h3 --tmp-prefix --no-pgp --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2383 --server-urls=http://127.0.0.1:2384 empty &
 
 # wait for everything to converge
 sleep 30s
 
 ETCDCTL_API=3 etcdctl --endpoints 127.0.0.1:2379 put /_mgmt/chooser/dynamicsize/idealclustersize 3
 
-$TIMEOUT "$MGMT" run --hostname h4 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2385 --server-urls http://127.0.0.1:2386 empty &
-$TIMEOUT "$MGMT" run --hostname h5 --tmp-prefix --no-pgp --seeds http://127.0.0.1:2379 --client-urls http://127.0.0.1:2387 --server-urls http://127.0.0.1:2388 empty &
+$TIMEOUT "$MGMT" run --hostname h4 --tmp-prefix --no-pgp --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2385 --server-urls=http://127.0.0.1:2386 empty &
+$TIMEOUT "$MGMT" run --hostname h5 --tmp-prefix --no-pgp --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2387 --server-urls=http://127.0.0.1:2388 empty &
 
 # wait for everything to converge
 sleep 30s

@@ -60,10 +60,7 @@ it is not specified, but others cannot, and some might poorly infer if the
 struct name is ambiguous.
 
 If you'd like your resource to be accessible by the `YAML` graph API (GAPI),
-then you'll need to include the appropriate YAML fields as shown below. This is
-used by the `Puppet` compiler as well, so make sure you include these struct
-tags if you want existing `Puppet` code to be able to run using the `mgmt`
-engine.
+then you'll need to include the appropriate YAML fields as shown below.
 
 #### Example
 
@@ -623,7 +620,7 @@ func init() { // special golang method that runs once
 
 To support YAML unmarshalling for your resource, you must implement an
 additional method. It is recommended if you want to use your resource with the
-`Puppet` compiler.
+`yaml` compiler.
 
 ```golang
 UnmarshalYAML(unmarshal func(interface{}) error) error // optional

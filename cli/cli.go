@@ -28,8 +28,6 @@ import (
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
 	_ "github.com/purpleidea/mgmt/lang" // import so the GAPI registers
-	_ "github.com/purpleidea/mgmt/langpuppet"
-	_ "github.com/purpleidea/mgmt/puppet"
 	_ "github.com/purpleidea/mgmt/yamlgraph"
 
 	"github.com/urfave/cli/v2"

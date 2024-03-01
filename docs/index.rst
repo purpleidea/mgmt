@@ -14,4 +14,3 @@ Welcome to mgmt's documentation!
    quick-start-guide
    resource-guide
    prometheus
-   puppet-guide

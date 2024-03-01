@@ -35,7 +35,7 @@ func init() {
 // TODO: add proper authentication with gpg key signing
 type Deploy struct {
 	ID   uint64
-	Name string // lang, puppet, yaml, etc...
+	Name string // lang, yaml, etc...
 	//Sync bool // wait for everyone to close previous GAPI before switching
 	Noop bool
 	Sema int // sema override

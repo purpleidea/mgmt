@@ -131,33 +131,6 @@ execute via a `remote` resource.
 You can read the introductory blog post about this topic here:
 [https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/](https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/)
 
-### Puppet support
-
-You can supply a Puppet manifest instead of creating the (YAML) graph manually.
-Puppet must be installed and in `mgmt`'s search path. You also need the
-[ffrank-mgmtgraph Puppet module](https://forge.puppet.com/ffrank/mgmtgraph).
-
-Invoke `mgmt` with the `--puppet` switch, which supports 3 variants:
-
-1. Request the configuration from the Puppet Master (like `puppet agent` does)
-
-	`mgmt run puppet --puppet agent`
-
-2. Compile a local manifest file (like `puppet apply`)
-
-	`mgmt run puppet --puppet /path/to/my/manifest.pp`
-
-3. Compile an ad hoc manifest from the commandline (like `puppet apply -e`)
-
-	`mgmt run puppet --puppet 'file { "/etc/ntp.conf": ensure => file }'`
-
-For more details and caveats see [puppet-guide.md](puppet-guide.md).
-
-#### Blog post
-
-An introductory post on the Puppet support is on
-[Felix's blog](http://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/).
-
 ## Reference
 
 Please note that there are a number of undocumented options. For more

@@ -109,15 +109,15 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	var name string
 	var args interface{}
 	if cmd := obj.RunEmpty; cmd != nil {
-		name = emptyGAPI.Name
+		name = cliUtil.LookupSubcommand(obj, cmd) // "empty"
 		args = cmd
 	}
 	if cmd := obj.RunLang; cmd != nil {
-		name = langGAPI.Name
+		name = cliUtil.LookupSubcommand(obj, cmd) // "lang"
 		args = cmd
 	}
 	if cmd := obj.RunYaml; cmd != nil {
-		name = yamlGAPI.Name
+		name = cliUtil.LookupSubcommand(obj, cmd) // "yaml"
 		args = cmd
 	}
 

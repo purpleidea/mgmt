@@ -68,15 +68,15 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	var name string
 	var args interface{}
 	if cmd := obj.DeployEmpty; cmd != nil {
-		name = emptyGAPI.Name
+		name = cliUtil.LookupSubcommand(obj, cmd) // "empty"
 		args = cmd
 	}
 	if cmd := obj.DeployLang; cmd != nil {
-		name = langGAPI.Name
+		name = cliUtil.LookupSubcommand(obj, cmd) // "lang"
 		args = cmd
 	}
 	if cmd := obj.DeployYaml; cmd != nil {
-		name = yamlGAPI.Name
+		name = cliUtil.LookupSubcommand(obj, cmd) // "yaml"
 		args = cmd
 	}
 

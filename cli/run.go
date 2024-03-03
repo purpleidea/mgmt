@@ -28,12 +28,9 @@ import (
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
-	emptyGAPI "github.com/purpleidea/mgmt/gapi/empty"
-	langGAPI "github.com/purpleidea/mgmt/lang/gapi"
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-	yamlGAPI "github.com/purpleidea/mgmt/yamlgraph"
 
 	"github.com/spf13/afero"
 )
@@ -91,9 +88,9 @@ type RunArgs struct {
 	Prometheus       bool   `arg:"--prometheus" help:"start a prometheus instance"`
 	PrometheusListen string `arg:"--prometheus-listen" help:"specify prometheus instance binding"`
 
-	RunEmpty *emptyGAPI.Args `arg:"subcommand:empty" help:"run empty payload"`
-	RunLang  *langGAPI.Args  `arg:"subcommand:lang" help:"run lang (mcl) payload"`
-	RunYaml  *yamlGAPI.Args  `arg:"subcommand:yaml" help:"run yaml graph payload"`
+	RunEmpty *cliUtil.EmptyArgs `arg:"subcommand:empty" help:"run empty payload"`
+	RunLang  *cliUtil.LangArgs  `arg:"subcommand:lang" help:"run lang (mcl) payload"`
+	RunYaml  *cliUtil.YamlArgs  `arg:"subcommand:yaml" help:"run yaml graph payload"`
 }
 
 // Run executes the correct subcommand. It errors if there's ever an error. It

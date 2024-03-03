@@ -56,3 +56,35 @@ func LookupSubcommand(obj interface{}, st interface{}) string {
 	}
 	return "" // not found
 }
+
+// EmptyArgs is the empty CLI parsing structure and type of the parsed result.
+type EmptyArgs struct{}
+
+// LangArgs is the lang CLI parsing structure and type of the parsed result.
+type LangArgs struct {
+	// Input is the input mcl code or file path or any input specification.
+	Input string `arg:"positional,required"`
+
+	// TODO: removed (temporarily?)
+	//Stdin bool `arg:"--stdin" help:"use passthrough stdin"`
+
+	Download     bool `arg:"--download" help:"download any missing imports"`
+	OnlyDownload bool `arg:"--only-download" help:"stop after downloading any missing imports"`
+	Update       bool `arg:"--update" help:"update all dependencies to the latest versions"`
+
+	OnlyUnify bool `arg:"--only-unify" help:"stop after type unification"`
+	SkipUnify bool `arg:"--skip-unify" help:"skip type unification"`
+
+	Depth int `arg:"--depth" default:"-1" help:"max recursion depth limit (-1 is unlimited)"`
+
+	// The default of 0 means any error is a failure by default.
+	Retry int `arg:"--depth" help:"max number of retries (-1 is unlimited)"`
+
+	ModulePath string `arg:"--module-path,env:MGMT_MODULE_PATH" help:"choose the modules path (absolute)"`
+}
+
+// YamlArgs is the yaml CLI parsing structure and type of the parsed result.
+type YamlArgs struct {
+	// Input is the input yaml code or file path or any input specification.
+	Input string `arg:"positional,required"`
+}

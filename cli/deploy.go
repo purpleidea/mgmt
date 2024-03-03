@@ -29,12 +29,9 @@ import (
 	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
-	emptyGAPI "github.com/purpleidea/mgmt/gapi/empty"
-	langGAPI "github.com/purpleidea/mgmt/lang/gapi"
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-	yamlGAPI "github.com/purpleidea/mgmt/yamlgraph"
 
 	"github.com/pborman/uuid"
 	git "gopkg.in/src-d/go-git.v4"
@@ -50,9 +47,9 @@ type DeployArgs struct {
 	NoGit bool     `arg:"--no-git" help:"don't look at git commit id for safe deploys"`
 	Force bool     `arg:"--force" help:"force a new deploy, even if the safety chain would break"`
 
-	DeployEmpty *emptyGAPI.Args `arg:"subcommand:empty" help:"deploy empty payload"`
-	DeployLang  *langGAPI.Args  `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
-	DeployYaml  *yamlGAPI.Args  `arg:"subcommand:yaml" help:"deploy yaml graph payload"`
+	DeployEmpty *cliUtil.EmptyArgs `arg:"subcommand:empty" help:"deploy empty payload"`
+	DeployLang  *cliUtil.LangArgs  `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
+	DeployYaml  *cliUtil.YamlArgs  `arg:"subcommand:yaml" help:"deploy yaml graph payload"`
 }
 
 // Run executes the correct subcommand. It errors if there's ever an error. It

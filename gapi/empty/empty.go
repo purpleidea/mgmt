@@ -34,9 +34,6 @@ func init() {
 	gapi.Register(Name, func() gapi.GAPI { return &GAPI{} }) // register
 }
 
-// Args is the CLI parsing structure and type of the parsed result.
-type Args struct{}
-
 // GAPI implements the main lang GAPI interface.
 type GAPI struct {
 	data        *gapi.Data

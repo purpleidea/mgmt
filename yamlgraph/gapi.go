@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sync"
 
+	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -40,12 +41,6 @@ func init() {
 	gapi.Register(Name, func() gapi.GAPI { return &GAPI{} }) // register
 }
 
-// Args is the CLI parsing structure and type of the parsed result.
-type Args struct {
-	// Input is the input yaml code or file path or any input specification.
-	Input string `arg:"positional,required"`
-}
-
 // GAPI implements the main yamlgraph GAPI interface.
 type GAPI struct {
 	InputURI string // input URI of file system containing yaml graph to use
@@ -60,7 +55,7 @@ type GAPI struct {
 // are any validation problems, you should return an error. If there is no
 // deploy, then you should return a nil deploy and a nil error.
 func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
-	args, ok := info.Args.(*Args)
+	args, ok := info.Args.(*cliUtil.YamlArgs)
 	if !ok {
 		// programming error
 		return nil, fmt.Errorf("could not convert to our struct")

@@ -68,43 +68,125 @@ type Flags struct {
 	Verbose bool // add extra log message output
 }
 
+// Config is a struct of all the configuration values for the Main struct. By
+// including this as a separate struct, it can be used as part of the API. This
+// API is not considered stable at this time, and is subject to change.
+type Config struct {
+	// Program is the name of this program, usually set at compile time.
+	Program string
+
+	// Version is the version of this program, usually set at compile time.
+	Version string
+
+	// Flags are some static global flags that are set at compile time.
+	Flags Flags
+
+	// Hostname to use; nil if undefined. Useful for testing multiple
+	// instances on same machine or for overriding a bad automatic hostname.
+	Hostname *string
+
+	// Prefix passed in; nil if undefined.
+	Prefix *string
+
+	// TmpPrefix requests a pseudo-random, temporary prefix to be used.
+	TmpPrefix bool
+
+	// AllowTmpPrefix allows creation of a new temporary prefix if main
+	// prefix is unavailable.
+	AllowTmpPrefix bool
+
+	// NoWatch tells engine to not change graph under any circumstances.
+	// TODO: We should consider deprecating this feature.
+	NoWatch bool
+
+	// NoStreamWatch tells engine to not update graph due to stream changes.
+	// TODO: We should consider deprecating this feature.
+	NoStreamWatch bool
+
+	// NoDeployWatch tells engine to not change deploys after an initial
+	// deploy.
+	// TODO: We should consider deprecating this feature.
+	NoDeployWatch bool
+
+	// Noop globally forces all resources into no-op mode.
+	Noop bool
+
+	// Sema adds a semaphore with this lock count to each resource. This is
+	// useful for reducing parallelism.
+	Sema int
+
+	// Graphviz is the output file for graphviz data.
+	Graphviz string
+
+	// GraphvizFilter is the graphviz filter to use, such as `dot` or
+	// `neato`.
+	GraphvizFilter string
+
+	// ConvergedTimeout of approximately this many seconds of inactivity
+	// means we're in a converged state; -1 to disable.
+	ConvergedTimeout int
+
+	// ConvergedTimeoutNoExit means we don't exit on converged timeout.
+	ConvergedTimeoutNoExit bool
+
+	// ConvergedStatusFile is a file we append converged status to.
+	ConvergedStatusFile string
+
+	// MaxRuntime tells the engine to exit after a maximum of approximately
+	// this many seconds. Use 0 to disable this.
+	MaxRuntime uint
+
+	// Seeds are the list of default etc client endpoints.
+	Seeds []string
+
+	// ClientURLs are a list of URLs to listen on for client traffic.
+	ClientURLs []string
+
+	// ServerURLs are a list of URLs to listen on for server (peer) traffic.
+	ServerURLs []string
+
+	// AdvertiseClientURLs are a list of URLs to advertise for client
+	// traffic.
+	AdvertiseClientURLs []string
+
+	// AdvertiseServerURLs are a list of URLs to advertise for server (peer)
+	// traffic.
+	AdvertiseServerURLs []string
+
+	// IdealClusterSize is the ideal number of server peers in cluster. This
+	// value is only read by the initial server.
+	IdealClusterSize int
+
+	// NoServer tells the engine to not let other servers peer with me.
+	NoServer bool
+
+	// NoNetwork tells the engine to run a single node instance without
+	// clustering or opening tcp ports to the outside.
+	NoNetwork bool
+
+	// NoPgp disables pgp functionality.
+	NoPgp bool
+
+	// PgpKeyPath is used to import a pre-made key pair.
+	PgpKeyPath *string
+
+	// PgpIdentity is the user string used for pgp identity.
+	PgpIdentity *string
+
+	// Prometheus enables prometheus metrics.
+	Prometheus bool
+
+	// PrometheusListen is the prometheus instance bind specification.
+	PrometheusListen string
+}
+
 // Main is the main struct for running the mgmt logic.
 type Main struct {
-	Program string // the name of this program, usually set at compile time
-	Version string // the version of this program, usually set at compile time
-
-	Flags Flags // static global flags that are set at compile time
-
-	Hostname *string // hostname to use; nil if undefined
-
-	Prefix         *string // prefix passed in; nil if undefined
-	TmpPrefix      bool    // request a pseudo-random, temporary prefix to be used
-	AllowTmpPrefix bool    // allow creation of a new temporary prefix if main prefix is unavailable
+	// Config is all of our data embedded directly for reusability.
+	*Config // embedded config
 
 	Deploy   *gapi.Deploy // deploy object including GAPI for static deploys
 	DeployFs engine.Fs    // used for static deploys
-
-	NoWatch       bool // do not change graph under any circumstances
-	NoStreamWatch bool // do not update graph due to stream changes
-	NoDeployWatch bool // do not change deploys after an initial deploy
-
-	Noop                   bool   // globally force all resources into no-op mode
-	Sema                   int    // add a semaphore with this lock count to each resource
-	Graphviz               string // output file for graphviz data
-	GraphvizFilter         string // graphviz filter to use
-	ConvergedTimeout       int    // approximately this many seconds of inactivity means we're in a converged state; -1 to disable
-	ConvergedTimeoutNoExit bool   // don't exit on converged timeout
-	ConvergedStatusFile    string // file to append converged status to
-	MaxRuntime             uint   // exit after a maximum of approximately this many seconds
-
-	Seeds               []string // default etc client endpoint
-	ClientURLs          []string // list of URLs to listen on for client traffic
-	ServerURLs          []string // list of URLs to listen on for server (peer) traffic
-	AdvertiseClientURLs []string // list of URLs to advertise for client traffic
-	AdvertiseServerURLs []string // list of URLs to advertise for server (peer) traffic
-	IdealClusterSize    int      // ideal number of server peers in cluster; only read by initial server
-	NoServer            bool     // do not let other servers peer with me
-	NoNetwork           bool     // run single node instance without clustering or opening tcp ports to the outside
 
 	seeds               etcdtypes.URLs // processed seeds value
 	clientURLs          etcdtypes.URLs // processed client urls value
@@ -113,13 +195,7 @@ type Main struct {
 	advertiseServerURLs etcdtypes.URLs // processed advertise server urls value
 	idealClusterSize    uint16         // processed ideal cluster size value
 
-	NoPgp       bool    // disallow pgp functionality
-	PgpKeyPath  *string // import a pre-made key pair
-	PgpIdentity *string
-	pgpKeys     *pgp.PGP // agent key pair
-
-	Prometheus       bool   // enable prometheus metrics
-	PrometheusListen string // prometheus instance bind specification
+	pgpKeys *pgp.PGP // agent key pair
 
 	embdEtcd *etcd.EmbdEtcd // TODO: can be an interface in the future...
 	ge       *graph.Engine
@@ -130,6 +206,10 @@ type Main struct {
 
 // Validate validates the main structure without making any modifications to it.
 func (obj *Main) Validate() error {
+	if obj.Config == nil {
+		return fmt.Errorf("config struct is nil")
+	}
+
 	if obj.Program == "" || obj.Version == "" {
 		return fmt.Errorf("you must set the Program and Version strings")
 	}

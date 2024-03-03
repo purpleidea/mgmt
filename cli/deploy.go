@@ -32,6 +32,7 @@ import (
 	emptyGAPI "github.com/purpleidea/mgmt/gapi/empty"
 	langGAPI "github.com/purpleidea/mgmt/lang/gapi"
 	"github.com/purpleidea/mgmt/lib"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	yamlGAPI "github.com/purpleidea/mgmt/yamlgraph"
 
@@ -80,9 +81,10 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	}
 
 	// XXX: workaround https://github.com/alexflint/go-arg/issues/239
+	gapiNames := gapi.Names() // list of registered names
 	if l := len(obj.Seeds); name == "" && l > 1 {
 		elem := obj.Seeds[l-2] // second to last element
-		if elem == emptyGAPI.Name || elem == langGAPI.Name || elem == yamlGAPI.Name {
+		if util.StrInList(elem, gapiNames) {
 			return false, cliUtil.CliParseError(cliUtil.MissingEquals) // consistent errors
 		}
 	}

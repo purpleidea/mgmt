@@ -129,10 +129,11 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 		obj.AdvertiseClientURLs,
 		obj.AdvertiseServerURLs,
 	}
+	gapiNames := gapi.Names() // list of registered names
 	for _, list := range lists {
 		if l := len(list); name == "" && l > 1 {
 			elem := list[l-2] // second to last element
-			if elem == emptyGAPI.Name || elem == langGAPI.Name || elem == yamlGAPI.Name {
+			if util.StrInList(elem, gapiNames) {
 				return false, cliUtil.CliParseError(cliUtil.MissingEquals) // consistent errors
 			}
 		}

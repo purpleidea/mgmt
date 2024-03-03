@@ -41,6 +41,15 @@ func Register(name string, fn func() GAPI) {
 	RegisteredGAPIs[name] = fn
 }
 
+// Names returns a list of the names of all registered GAPIs.
+func Names() []string {
+	names := []string{}
+	for name := range RegisteredGAPIs {
+		names = append(names, name)
+	}
+	return names
+}
+
 // Flags is some common data that comes from a higher-level command, and is used
 // by a subcommand. By type circularity, the subcommands can't easily access the
 // data in the parent command struct, so instead, the data that the parent wants

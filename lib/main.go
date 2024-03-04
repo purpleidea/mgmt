@@ -73,111 +73,115 @@ type Flags struct {
 // API is not considered stable at this time, and is subject to change.
 type Config struct {
 	// Program is the name of this program, usually set at compile time.
-	Program string
+	Program string `arg:"-"` // cli should ignore
 
 	// Version is the version of this program, usually set at compile time.
-	Version string
+	Version string `arg:"-"` // cli should ignore
 
 	// Flags are some static global flags that are set at compile time.
-	Flags Flags
+	Flags Flags `arg:"-"` // cli should ignore
 
 	// Hostname to use; nil if undefined. Useful for testing multiple
 	// instances on same machine or for overriding a bad automatic hostname.
-	Hostname *string
+	Hostname *string `arg:"--hostname" help:"hostname to use"`
 
 	// Prefix passed in; nil if undefined.
-	Prefix *string
+	Prefix *string `arg:"--prefix,env:MGMT_PREFIX" help:"specify a path to the working prefix directory"`
 
 	// TmpPrefix requests a pseudo-random, temporary prefix to be used.
-	TmpPrefix bool
+	TmpPrefix bool `arg:"--tmp-prefix" help:"request a pseudo-random, temporary prefix to be used"`
 
 	// AllowTmpPrefix allows creation of a new temporary prefix if main
 	// prefix is unavailable.
-	AllowTmpPrefix bool
+	AllowTmpPrefix bool `arg:"--allow-tmp-prefix" help:"allow creation of a new temporary prefix if main prefix is unavailable"`
 
 	// NoWatch tells engine to not change graph under any circumstances.
 	// TODO: We should consider deprecating this feature.
-	NoWatch bool
+	NoWatch bool `arg:"--no-watch" help:"do not update graph under any switch events"`
 
 	// NoStreamWatch tells engine to not update graph due to stream changes.
 	// TODO: We should consider deprecating this feature.
-	NoStreamWatch bool
+	NoStreamWatch bool `arg:"--no-stream-watch" help:"do not update graph on stream switch events"`
 
 	// NoDeployWatch tells engine to not change deploys after an initial
 	// deploy.
 	// TODO: We should consider deprecating this feature.
-	NoDeployWatch bool
+	NoDeployWatch bool `arg:"--no-deploy-watch" help:"do not change deploys after an initial deploy"`
 
 	// Noop globally forces all resources into no-op mode.
-	Noop bool
+	Noop bool `arg:"--noop" help:"globally force all resources into no-op mode"`
 
 	// Sema adds a semaphore with this lock count to each resource. This is
 	// useful for reducing parallelism.
-	Sema int
+	Sema int `arg:"--sema" default:"-1" help:"globally add a semaphore to downloads with this lock count"`
 
 	// Graphviz is the output file for graphviz data.
-	Graphviz string
+	Graphviz string `arg:"--graphviz" help:"output file for graphviz data"`
 
 	// GraphvizFilter is the graphviz filter to use, such as `dot` or
 	// `neato`.
-	GraphvizFilter string
+	GraphvizFilter string `arg:"--graphviz-filter" help:"graphviz filter to use"`
 
 	// ConvergedTimeout of approximately this many seconds of inactivity
 	// means we're in a converged state; -1 to disable.
-	ConvergedTimeout int
+	ConvergedTimeout int `arg:"--converged-timeout,env:MGMT_CONVERGED_TIMEOUT" default:"-1" help:"after approximately this many seconds without activity, we're considered to be in a converged state"`
 
 	// ConvergedTimeoutNoExit means we don't exit on converged timeout.
-	ConvergedTimeoutNoExit bool
+	ConvergedTimeoutNoExit bool `arg:"--converged-timeout-no-exit" help:"don't exit on converged-timeout"`
 
 	// ConvergedStatusFile is a file we append converged status to.
-	ConvergedStatusFile string
+	ConvergedStatusFile string `arg:"--converged-status-file" help:"file to append the current converged state to, mostly used for testing"`
 
 	// MaxRuntime tells the engine to exit after a maximum of approximately
 	// this many seconds. Use 0 to disable this.
-	MaxRuntime uint
+	MaxRuntime uint `arg:"--max-runtime,env:MGMT_MAX_RUNTIME" help:"exit after a maximum of approximately this many seconds"`
 
-	// Seeds are the list of default etc client endpoints.
-	Seeds []string
+	// Seeds are the list of default etc client endpoints. If empty, it will
+	// startup a new server.
+	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etc client endpoint"`
 
-	// ClientURLs are a list of URLs to listen on for client traffic.
-	ClientURLs []string
+	// ClientURLs are a list of URLs to listen on for client traffic. Ports
+	// 2379 and 4001 are common.
+	ClientURLs []string `arg:"--client-urls,env:MGMT_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
 
 	// ServerURLs are a list of URLs to listen on for server (peer) traffic.
-	ServerURLs []string
+	// Ports 2380 and 7001 are common. Etcd now uses --peer-urls instead.
+	ServerURLs []string `arg:"--server-urls,env:MGMT_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
 
 	// AdvertiseClientURLs are a list of URLs to advertise for client
-	// traffic.
-	AdvertiseClientURLs []string
+	// traffic. Ports 2379 and 4001 are common.
+	AdvertiseClientURLs []string `arg:"--advertise-client-urls,env:MGMT_ADVERTISE_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
 
 	// AdvertiseServerURLs are a list of URLs to advertise for server (peer)
-	// traffic.
-	AdvertiseServerURLs []string
+	// traffic. Ports 2380 and 7001 are common. Etcd now uses
+	// --advertise-peer-urls instead.
+	AdvertiseServerURLs []string `arg:"--advertise-server-urls,env:MGMT_ADVERTISE_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
 
 	// IdealClusterSize is the ideal number of server peers in cluster. This
 	// value is only read by the initial server.
-	IdealClusterSize int
+	IdealClusterSize int `arg:"--ideal-cluster-size,env:MGMT_IDEAL_CLUSTER_SIZE" default:"-1" help:"ideal number of server peers in cluster; only read by initial server"`
 
 	// NoServer tells the engine to not let other servers peer with me.
-	NoServer bool
+	NoServer bool `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
 
 	// NoNetwork tells the engine to run a single node instance without
 	// clustering or opening tcp ports to the outside.
-	NoNetwork bool
+	NoNetwork bool `arg:"--no-network,env:MGMT_NO_NETWORK" help:"run single node instance without clustering or opening tcp ports to the outside"`
 
 	// NoPgp disables pgp functionality.
-	NoPgp bool
+	NoPgp bool `arg:"--no-pgp" help:"don't create pgp keys"`
 
 	// PgpKeyPath is used to import a pre-made key pair.
-	PgpKeyPath *string
+	PgpKeyPath *string `arg:"--pgp-key-path" help:"path for instance key pair"`
 
 	// PgpIdentity is the user string used for pgp identity.
-	PgpIdentity *string
+	PgpIdentity *string `arg:"--pgp-identity" help:"default identity used for generation"`
 
 	// Prometheus enables prometheus metrics.
-	Prometheus bool
+	Prometheus bool `arg:"--prometheus" help:"start a prometheus instance"`
 
 	// PrometheusListen is the prometheus instance bind specification.
-	PrometheusListen string
+	PrometheusListen string `arg:"--prometheus-listen" help:"specify prometheus instance binding"`
 }
 
 // Main is the main struct for running the mgmt logic.

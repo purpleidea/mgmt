@@ -39,54 +39,7 @@ import (
 // particular one contains all the common flags for the `run` subcommand which
 // all frontends can use.
 type RunArgs struct {
-
-	// useful for testing multiple instances on same machine
-	Hostname       *string `arg:"--hostname" help:"hostname to use"`
-	Prefix         *string `arg:"--prefix,env:MGMT_PREFIX" help:"specify a path to the working prefix directory"`
-	TmpPrefix      bool    `arg:"--tmp-prefix" help:"request a pseudo-random, temporary prefix to be used"`
-	AllowTmpPrefix bool    `arg:"--allow-tmp-prefix" help:"allow creation of a new temporary prefix if main prefix is unavailable"`
-
-	NoWatch       bool `arg:"--no-watch" help:"do not update graph under any switch events"`
-	NoStreamWatch bool `arg:"--no-stream-watch" help:"do not update graph on stream switch events"`
-	NoDeployWatch bool `arg:"--no-deploy-watch" help:"do not change deploys after an initial deploy"`
-
-	Noop bool `arg:"--noop" help:"globally force all resources into no-op mode"`
-	Sema int  `arg:"--sema" default:"-1" help:"globally add a semaphore to downloads with this lock count"`
-
-	Graphviz               string `arg:"--graphviz" help:"output file for graphviz data"`
-	GraphvizFilter         string `arg:"--graphviz-filter" help:"graphviz filter to use"`
-	ConvergedTimeout       int    `arg:"--converged-timeout,env:MGMT_CONVERGED_TIMEOUT" default:"-1" help:"after approximately this many seconds without activity, we're considered to be in a converged state"`
-	ConvergedTimeoutNoExit bool   `arg:"--converged-timeout-no-exit" help:"don't exit on converged-timeout"`
-	ConvergedStatusFile    string `arg:"--converged-status-file" help:"file to append the current converged state to, mostly used for testing"`
-	MaxRuntime             uint   `arg:"--max-runtime,env:MGMT_MAX_RUNTIME" help:"exit after a maximum of approximately this many seconds"`
-
-	// if empty, it will startup a new server
-	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etc client endpoint"`
-
-	// port 2379 and 4001 are common
-	ClientURLs []string `arg:"--client-urls,env:MGMT_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
-
-	// port 2380 and 7001 are common
-	// etcd now uses --peer-urls
-	ServerURLs []string `arg:"--server-urls,env:MGMT_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
-
-	// port 2379 and 4001 are common
-	AdvertiseClientURLs []string `arg:"--advertise-client-urls,env:MGMT_ADVERTISE_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
-
-	// port 2380 and 7001 are common
-	// etcd now uses --advertise-peer-urls
-	AdvertiseServerURLs []string `arg:"--advertise-server-urls,env:MGMT_ADVERTISE_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
-
-	IdealClusterSize int  `arg:"--ideal-cluster-size,env:MGMT_IDEAL_CLUSTER_SIZE" default:"-1" help:"ideal number of server peers in cluster; only read by initial server"`
-	NoServer         bool `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
-	NoNetwork        bool `arg:"--no-network,env:MGMT_NO_NETWORK" help:"run single node instance without clustering or opening tcp ports to the outside"`
-
-	NoPgp       bool    `arg:"--no-pgp" help:"don't create pgp keys"`
-	PgpKeyPath  *string `arg:"--pgp-key-path" help:"path for instance key pair"`
-	PgpIdentity *string `arg:"--pgp-identity" help:"default identity used for generation"`
-
-	Prometheus       bool   `arg:"--prometheus" help:"start a prometheus instance"`
-	PrometheusListen string `arg:"--prometheus-listen" help:"specify prometheus instance binding"`
+	lib.Config // embedded config (can't be a pointer) https://github.com/alexflint/go-arg/issues/240
 
 	RunEmpty *cliUtil.EmptyArgs `arg:"subcommand:empty" help:"run empty payload"`
 	RunLang  *cliUtil.LangArgs  `arg:"subcommand:lang" help:"run lang (mcl) payload"`
@@ -143,6 +96,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	gapiObj := fn()
 
 	main := &lib.Main{}
+	main.Config = &obj.Config // pass in all the parsed data
 
 	main.Program, main.Version = data.Program, data.Version
 	main.Flags = lib.Flags{
@@ -155,11 +109,6 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 
 	cliUtil.Hello(main.Program, main.Version, data.Flags) // say hello!
 	defer Logf("goodbye!")
-
-	main.Hostname = obj.Hostname
-	main.Prefix = obj.Prefix
-	main.TmpPrefix = obj.TmpPrefix
-	main.AllowTmpPrefix = obj.AllowTmpPrefix
 
 	// create a memory backed temporary filesystem for storing runtime data
 	mmFs := afero.NewMemMapFs()
@@ -200,35 +149,6 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 		// and if there is deployed code that's ready to run, we'll run!
 		log.Printf("main: no frontend selected (no GAPI activated)")
 	}
-
-	main.NoWatch = obj.NoWatch
-	main.NoStreamWatch = obj.NoStreamWatch
-	main.NoDeployWatch = obj.NoDeployWatch
-
-	main.Noop = obj.Noop
-	main.Sema = obj.Sema
-	main.Graphviz = obj.Graphviz
-	main.GraphvizFilter = obj.GraphvizFilter
-	main.ConvergedTimeout = obj.ConvergedTimeout
-	main.ConvergedTimeoutNoExit = obj.ConvergedTimeoutNoExit
-	main.ConvergedStatusFile = obj.ConvergedStatusFile
-	main.MaxRuntime = obj.MaxRuntime
-
-	main.Seeds = obj.Seeds
-	main.ClientURLs = obj.ClientURLs
-	main.ServerURLs = obj.ServerURLs
-	main.AdvertiseClientURLs = obj.AdvertiseClientURLs
-	main.AdvertiseServerURLs = obj.AdvertiseServerURLs
-	main.IdealClusterSize = obj.IdealClusterSize
-	main.NoServer = obj.NoServer
-	main.NoNetwork = obj.NoNetwork
-
-	main.NoPgp = obj.Prometheus
-	main.PgpKeyPath = obj.PgpKeyPath
-	main.PgpIdentity = obj.PgpIdentity
-
-	main.Prometheus = obj.Prometheus
-	main.PrometheusListen = obj.PrometheusListen
 
 	if err := main.Validate(); err != nil {
 		return false, err

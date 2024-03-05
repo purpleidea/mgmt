@@ -31,6 +31,12 @@ import (
 	"github.com/alexflint/go-arg"
 )
 
+func init() {
+	if _, err := arg.NewParser(arg.Config{}, &Args{}); err != nil { // sanity check
+		panic(errwrap.Wrapf(err, "invalid args cli struct"))
+	}
+}
+
 // CLI is the entry point for using mgmt normally from the CLI.
 func CLI(ctx context.Context, data *cliUtil.Data) error {
 	// test for sanity

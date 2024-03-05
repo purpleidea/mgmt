@@ -25,6 +25,7 @@ import (
 
 	"github.com/purpleidea/mgmt/cli"
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
+	"github.com/purpleidea/mgmt/entry"
 	_ "github.com/purpleidea/mgmt/gapi/empty" // import so the gapi registers
 	_ "github.com/purpleidea/mgmt/lang/gapi"  // import so the gapi registers
 	_ "github.com/purpleidea/mgmt/yamlgraph"  // import so the gapi registers
@@ -72,6 +73,17 @@ func main() {
 		},
 		Args: os.Args,
 	}
+
+	// is there an alternate entry point for the cli?
+	if cli, err := entry.Lookup(); err == nil {
+		if err := cli.CLI(context.Background(), data); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+			//return // redundant
+		}
+		return
+	}
+
 	if err := cli.CLI(context.Background(), data); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

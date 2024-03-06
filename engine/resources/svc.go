@@ -72,6 +72,14 @@ type SvcRes struct {
 	// Session specifies if this is for a system service (false) or a user
 	// session specific service (true).
 	Session bool `lang:"session" yaml:"session"` // user session (true) or system?
+
+	// The type of systemd unit to manage. See systemd.unit(5) for available types.
+	// If left empty, will assume the default of "service"
+	// Not all systemd unit types are supported. Valid values include:
+	// service, mount
+	Type string `lang:"type" yaml:"type"`
+
+	systemdName string
 }
 
 // Default returns some sensible defaults for this resource.
@@ -87,12 +95,19 @@ func (obj *SvcRes) Validate() error {
 	if obj.Startup != "enabled" && obj.Startup != "disabled" && obj.Startup != "" {
 		return fmt.Errorf("startup must be either `enabled` or `disabled` or undefined")
 	}
+	if obj.Type == "" {
+		obj.Type = "service"
+	}
+	if obj.Type != "service" && obj.Type != "mount" {
+		return fmt.Errorf("type must be either `service` (default) or `mount`")
+	}
 	return nil
 }
 
 // Init runs some startup code for this resource.
 func (obj *SvcRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
+	obj.systemdName = fmt.Sprintf("%s.%s", obj.Name(), obj.Type)
 	return nil
 }
 
@@ -143,10 +158,10 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var svc = fmt.Sprintf("%s.service", obj.Name()) // systemd name
-	var send = false                                // send event?
-	var invalid = false                             // does the svc exist or not?
-	var previous bool                               // previous invalid value
+	var svc = obj.systemdName
+	var send = false    // send event?
+	var invalid = false // does the svc exist or not?
+	var previous bool   // previous invalid value
 
 	// TODO: do we first need to call conn.Subscribe() ?
 	set := conn.NewSubscriptionSet() // no error should be returned
@@ -268,7 +283,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 	defer conn.Close()
 
-	var svc = fmt.Sprintf("%s.service", obj.Name()) // systemd name
+	var svc = obj.systemdName
 
 	loadstate, err := conn.GetUnitProperty(svc, "LoadState")
 	if err != nil {
@@ -495,8 +510,8 @@ func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
 	var svcFiles []string
 	svcFiles = []string{
 		// root svc
-		fmt.Sprintf("/etc/systemd/system/%s.service", obj.Name()),     // takes precedence
-		fmt.Sprintf("/usr/lib/systemd/system/%s.service", obj.Name()), // pkg default
+		fmt.Sprintf("/etc/systemd/system/%s", obj.systemdName),     // takes precedence
+		fmt.Sprintf("/usr/lib/systemd/system/%s", obj.systemdName), // pkg default
 	}
 	if obj.Session {
 		// user svc
@@ -508,7 +523,7 @@ func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
 			return nil, fmt.Errorf("user has no home directory")
 		}
 		svcFiles = []string{
-			path.Join(u.HomeDir, "/.config/systemd/user/", fmt.Sprintf("%s.service", obj.Name())),
+			path.Join(u.HomeDir, "/.config/systemd/user/", obj.systemdName),
 		}
 	}
 	for _, x := range svcFiles {
@@ -530,7 +545,7 @@ func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
 	}
 	cronEdge := &SvcResAutoEdgesCron{
 		session: obj.Session,
-		unit:    fmt.Sprintf("%s.service", obj.Name()),
+		unit:    obj.systemdName,
 	}
 
 	return engineUtil.AutoEdgeCombiner(fileEdge, cronEdge)

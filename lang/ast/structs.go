@@ -3255,6 +3255,18 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 			return nil, err
 		}
 
+		// Our embedded scope might also have some functions to add in!
+		systemScope, err := obj.importSystemScope(info.Name)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "embedded system import of `%s` failed", info.Name)
+		}
+		newScope := scope.Copy()
+		if err := newScope.Merge(systemScope); err != nil { // errors if something was overwritten
+			// XXX: we get a false positive b/c we overwrite the initial scope!
+			// XXX: when we switch to append, this problem will go away...
+			//return nil, errwrap.Wrapf(err, "duplicate scope element(s) in module found")
+		}
+
 		//tree, err := util.FsTree(fs, "/")
 		//if err != nil {
 		//	return nil, err
@@ -3272,7 +3284,7 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 		// not try to copy them in from disk or it won't succeed.
 		input.Files = []string{} // clear
 
-		embeddedScope, err := obj.importScopeWithParsedInputs(input, scope, nextVertex)
+		embeddedScope, err := obj.importScopeWithParsedInputs(input, newScope, nextVertex)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "embedded import of `%s` failed", info.Name)
 		}

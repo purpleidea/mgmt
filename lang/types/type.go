@@ -31,6 +31,7 @@ package types
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"strings"
 
@@ -183,6 +184,14 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 		typ = typ.Elem() // un-nest one pointer
 		kind = typ.Kind()
 	}
+
+	// Special cases:
+	if reflect.TypeOf(net.HardwareAddr{}) == typ {
+		return &Type{
+			Kind: KindStr,
+		}, nil
+	}
+	// TODO: net/url.URL, time.Duration, etc. Note: avoid net/mail.Address
 
 	switch kind { // match on destination field kind
 	case reflect.Bool:

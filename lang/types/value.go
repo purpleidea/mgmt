@@ -32,6 +32,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strconv"
@@ -110,6 +111,14 @@ func ValueOf(v reflect.Value) (Value, error) {
 		// un-nest value from pointer
 		value = value.Elem() // XXX: is this correct?
 	}
+
+	// Special cases:
+	if value.CanInterface() {
+		if v, ok := (value.Interface()).(net.HardwareAddr); ok {
+			return &StrValue{V: v.String()}, nil
+		}
+	}
+	// TODO: net/url.URL, time.Duration, etc. Note: avoid net/mail.Address
 
 	switch kind { // match on destination field kind
 	case reflect.Bool:

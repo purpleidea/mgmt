@@ -442,7 +442,7 @@ func (obj *GAPI) LangInit() error {
 	// the lang always tries to load from this standard path: /metadata.yaml
 	input := "/" + interfaces.MetadataFilename // path in remote fs
 
-	obj.lang = &lang.Lang{
+	lang := &lang.Lang{
 		Fs:    fs,
 		FsURI: obj.InputURI,
 		Input: input,
@@ -456,9 +456,10 @@ func (obj *GAPI) LangInit() error {
 			obj.data.Logf(Name+": "+format, v...)
 		},
 	}
-	if err := obj.lang.Init(); err != nil {
+	if err := lang.Init(); err != nil {
 		return errwrap.Wrapf(err, "can't init the lang")
 	}
+	obj.lang = lang // once we can't fail, store the struct...
 
 	// XXX: I'm certain I've probably got a deadlock or race somewhere here
 	// or in lib/main.go so we'll fix it with an API fixup and rewrite soon

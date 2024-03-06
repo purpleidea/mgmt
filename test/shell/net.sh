@@ -18,10 +18,7 @@ set -x
 set -o pipefail
 
 # can't test net without sudo
-if ! timeout 1s sudo -A true; then
-	echo "sudo disabled: not checking net"
-	exit
-fi
+assert_sudo "not checking net"
 
 # values from net0.yaml
 IFACE="mgmtnet0"

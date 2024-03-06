@@ -5,10 +5,7 @@
 
 set -x
 
-if ! timeout 1s sudo -A true; then
-	echo "sudo disabled: not checking file owner and group"
-	exit
-fi
+assert_sudo "not checking file source"
 
 # run till completion
 $TIMEOUT sudo -A "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix lang file-source.mcl &

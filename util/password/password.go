@@ -36,10 +36,12 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	sha512Crypt "github.com/tredoe/osutil/v2/userutil/crypt/sha512_crypt"
 	"golang.org/x/sys/unix"
 )
 
@@ -151,4 +153,32 @@ func ReadPasswordCtxFdPrompt(ctx context.Context, fd int, prompt string) ([]byte
 			return ret, err // XXX: why ret and not nil?
 		}
 	}
+}
+
+// SaltedSHA512Password is meant to generate Ulrich Drepper's salted SHA512 unix
+// crypt password hash as seen at https://www.akkadia.org/drepper/SHA-crypt.txt
+// and used for /etc/shadow and anaconda kickstart files. Please read the
+// following disclaimer carefully before using this: XXX: I have no idea if I am
+// doing this correctly, and I have no idea if the library I am using is doing
+// this correctly. Please check! Also: https://github.com/golang/go/issues/21865
+func SaltedSHA512Password(password []byte) (string, error) {
+	crypter := sha512Crypt.New()
+	saltObj := sha512Crypt.GetSalt() // New() builds us one, this is another
+	crypter.SetSalt(saltObj)
+	salt := saltObj.GenerateWRounds(sha512Crypt.SaltLenMax, sha512Crypt.RoundsDefault)
+	// NOTE: We could pass an empty salt and the above should happen, but we
+	// wouldn't notice it if the API changed and no longer did this magic...
+	hash, err := crypter.Generate(password, salt)
+	if err != nil {
+		return "", err
+	}
+	if len(hash) != 106 { // XXX: the rounds=? stuff feels not part of spec
+		return "", fmt.Errorf("password was not generated correctly")
+	}
+	if !strings.HasPrefix(hash, sha512Crypt.MagicPrefix) {
+		// programming error
+		return "", fmt.Errorf("magic prefix was missing")
+	}
+
+	return hash, nil
 }

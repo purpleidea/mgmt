@@ -118,6 +118,7 @@ require (
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
+	github.com/tredoe/osutil/v2 v2.0.0-rc.16 // indirect
 	github.com/u-root/uio v0.0.0-20230305220412-3e8cd9d6bf63 // indirect
 	github.com/vishvananda/netns v0.0.0-20220913150850-18c4f4234207 // indirect
 	github.com/xanzy/ssh-agent v0.3.2 // indirect

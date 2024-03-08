@@ -1,0 +1,46 @@
+test:
+  title: File mode
+  inputs:
+    yaml0: yamlfile
+  vars:
+    stat: stat # TODO: in OSX use a different value
+               # or just supply these in mgmtest itself
+timeline:
+  - input:
+      target: yaml0
+      content: |
+        ---
+        graph: mygraph
+        resources:
+          file:
+          - name: dir
+            path: /tmp/mgmt/
+            state: exists
+          - name: file1
+            path: "/tmp/mgmt/f1"
+            content: |
+              i am f1
+            state: exists
+          - name: file2
+            path: "/tmp/mgmt/f2"
+            content: |
+              i am f2
+            state: exists
+            mode: 0741
+          - name: file3
+            path: "/tmp/mgmt/f3"
+            content: |
+              i am f3
+            state: exists
+            mode: '0614'
+  - launch:
+      command: "./mgmt run --no-watch --tmp-prefix yaml {{.yaml0}}"
+  - converge:
+      time: 5
+      checks:
+        - shell: ls -l /tmp/mgmt
+        - shell: test -e /tmp/mgmt/f1
+        - shell: test -e /tmp/mgmt/f2
+        - shell: test -e /tmp/mgmt/f3
+        - shell: test $({{.stat}} -c%a /tmp/mgmt/f2) = 741
+        - shell: test $({{.stat}} -c%a /tmp/mgmt/f3) = 614

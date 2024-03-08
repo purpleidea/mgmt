@@ -1,0 +1,50 @@
+test:
+  title: Mount resource basic functionality
+  inputs:
+    lang0: langfile
+  sudo: yes
+  vars:
+    mountpoint: /tmp/mgmt.test.mount
+    unit: tmp-mgmt.test.mount.mount
+timeline:
+  - input:
+      target: lang0
+      content: |
+        mount "{{.mountpoint}}" {
+          state => "exists",
+          device => "tmpfs",
+          type => "tmpfs",
+        }
+  - launch:
+      command: "./mgmt run --tmp-prefix lang {{.lang0}}"
+  - converge:
+      time: 3
+      checks:
+        - name: Mount point exists
+          shell: 'test -d "{{.mountpoint}}"'
+        - name: Systemd unit is running
+          shell: 'systemctl status "{{.unit}}"'
+        - name: Filesystem is listed as a mount
+          shell: 'grep "{{.mountpoint}}" /proc/mounts'
+  - terminate: true
+  - input:
+      target: lang0
+      content: |
+        mount "{{.mountpoint}}" {
+          state => "absent",
+        }
+  - launch:
+      command: "./mgmt run --tmp-prefix lang {{.lang0}}"
+  - converge:
+      time: 5
+      checks:
+        - name: Unit is not running
+          shell: 'systemctl status "{{.unit}}"'
+          result: 4
+        - name: Filesystem not in mounts
+          shell: 'grep "{{.mountpoint}}" /proc/mounts'
+          result: 1
+  - terminate: true
+  - cleanup:
+      steps:
+        - shell: 'sudo -A rmdir "{{.mountpoint}}"'

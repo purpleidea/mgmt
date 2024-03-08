@@ -58,9 +58,11 @@ type DeployArgs struct {
 	NoGit bool     `arg:"--no-git" help:"don't look at git commit id for safe deploys"`
 	Force bool     `arg:"--force" help:"force a new deploy, even if the safety chain would break"`
 
-	DeployEmpty *cliUtil.EmptyArgs `arg:"subcommand:empty" help:"deploy empty payload"`
-	DeployLang  *cliUtil.LangArgs  `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
-	DeployYaml  *cliUtil.YamlArgs  `arg:"subcommand:yaml" help:"deploy yaml graph payload"`
+	DeployEmpty      *cliUtil.EmptyArgs      `arg:"subcommand:empty" help:"deploy empty payload"`
+	DeployLang       *cliUtil.LangArgs       `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
+	DeployYaml       *cliUtil.YamlArgs       `arg:"subcommand:yaml" help:"deploy yaml graph payload"`
+	DeployPuppet     *cliUtil.PuppetArgs     `arg:"subcommand:puppet" help:"deploy puppet graph payload"`
+	DeployLangPuppet *cliUtil.LangPuppetArgs `arg:"subcommand:langpuppet" help:"deploy langpuppet graph payload"`
 }
 
 // Run executes the correct subcommand. It errors if there's ever an error. It
@@ -85,6 +87,14 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	}
 	if cmd := obj.DeployYaml; cmd != nil {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "yaml"
+		args = cmd
+	}
+	if cmd := obj.DeployPuppet; cmd != nil {
+		name = cliUtil.LookupSubcommand(obj, cmd) // "puppet"
+		args = cmd
+	}
+	if cmd := obj.DeployLangPuppet; cmd != nil {
+		name = cliUtil.LookupSubcommand(obj, cmd) // "langpuppet"
 		args = cmd
 	}
 

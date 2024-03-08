@@ -39,9 +39,11 @@ import (
 	"github.com/purpleidea/mgmt/cli"
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/entry"
-	_ "github.com/purpleidea/mgmt/gapi/empty" // import so the gapi registers
-	_ "github.com/purpleidea/mgmt/lang/gapi"  // import so the gapi registers
-	_ "github.com/purpleidea/mgmt/yamlgraph"  // import so the gapi registers
+	_ "github.com/purpleidea/mgmt/gapi/empty"        // import so the gapi registers
+	_ "github.com/purpleidea/mgmt/lang/gapi"         // import so the gapi registers
+	_ "github.com/purpleidea/mgmt/puppet"            // import so the gapi registers
+	_ "github.com/purpleidea/mgmt/puppet/langpuppet" // import so the gapi registers
+	_ "github.com/purpleidea/mgmt/yamlgraph"         // import so the gapi registers
 	"go.etcd.io/etcd/server/v3/etcdmain"
 )
 

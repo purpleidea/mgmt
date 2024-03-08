@@ -47,11 +47,14 @@ import (
 const (
 	// Name is the name of this frontend.
 	Name = "puppet"
+
 	// PuppetFile is the entry point filename that we use. It is arbitrary.
 	PuppetFile = "/file.pp"
+
 	// PuppetConf is the entry point config filename that we use.
 	PuppetConf = "/puppet.conf"
-	// PuppetSite is the entry point folder that we use.
+
+	// PuppetSite is the entry point folder that we use. It is arbitrary.
 	PuppetSite = "/puppet/"
 )
 
@@ -62,16 +65,18 @@ func init() {
 // GAPI implements the main puppet GAPI interface.
 type GAPI struct {
 	InputURI string
-	Mode     string // agent, file, string, dir
+	// The mode of operation can be: agent, file, string, dir
+	Mode string
 
 	puppetFile   string
 	puppetString string
 	puppetDir    string
-	puppetConf   string // the path to an alternate puppet.conf file
-	data         *gapi.Data
-	initialized  bool
-	closeChan    chan struct{}
-	wg           sync.WaitGroup // sync group for tunnel go routines
+	// The path to a dedicated puppet.conf file for mgmt.
+	puppetConf  string
+	data        *gapi.Data
+	initialized bool
+	closeChan   chan struct{}
+	wg          sync.WaitGroup
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there

@@ -44,8 +44,6 @@ import (
 const (
 	// Name is the name of this frontend.
 	Name = "langpuppet"
-	// FlagPrefix gets prepended to each flag of both the puppet and lang GAPI.
-	FlagPrefix = "lp-"
 )
 
 func init() {
@@ -58,14 +56,20 @@ func init() {
 // vertices are merged using a naming convention. Details can be found in the
 // langpuppet.mergeGraphs function.
 type GAPI struct {
-	langGAPI   gapi.GAPI // the wrapped lang entrypoint
-	puppetGAPI gapi.GAPI // the wrapped puppet entrypoint
+	// the wrapped lang entrypoint
+	langGAPI gapi.GAPI
+	// the wrapped puppet entrypoint
+	puppetGAPI gapi.GAPI
 
-	currentLangGraph   *pgraph.Graph // the most recent graph received from lang
-	currentPuppetGraph *pgraph.Graph // the most recent graph received from puppet
+	// the most recent graph received from lang
+	currentLangGraph *pgraph.Graph
+	// the most recent graph received from puppet
+	currentPuppetGraph *pgraph.Graph
 
-	langGraphReady   bool // flag to indicate that a new graph from lang is ready
-	puppetGraphReady bool // flag to indicate that a new graph from puppet is ready
+	// flag to indicate that a new graph from lang is ready
+	langGraphReady bool
+	// flag to indicate that a new graph from puppet is ready
+	puppetGraphReady bool
 	graphFlagMutex   *sync.Mutex
 
 	data        *gapi.Data

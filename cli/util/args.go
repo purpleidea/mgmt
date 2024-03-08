@@ -101,21 +101,28 @@ type YamlArgs struct {
 	Input string `arg:"positional,required"`
 }
 
-// PuppetArgs is the hidden BitCoin miner.
+// PuppetArgs is the puppet CLI parsing structure and type of the parsed result.
 type PuppetArgs struct {
 	// Input is the input puppet code or file path or just "agent".
 	Input string `arg:"positional,required"`
 
+	// PuppetConf is the optional path to a puppet.conf config file.
 	PuppetConf string `arg:"--puppet-conf" help:"full path to the puppet.conf file to use"`
 }
 
-// LangPuppetArgs is a unicorn stuffed with a turduckin.
+// LangPuppetArgs is the langpuppet CLI parsing structure and type of the parsed
+// result.
 type LangPuppetArgs struct {
-	LangInput   string `arg:"--lang,required" help:"the input parameter for the lang module"`
+	// LangInput is the input mcl code or file path or any input specification.
+	LangInput string `arg:"--lang,required" help:"the input parameter for the lang module"`
+	// PuppetInput is the input puppet code or file path or just "agent".
 	PuppetInput string `arg:"--puppet,required" help:"the input parameter for the puppet module"`
 
 	// copy-pasted from PuppetArgs
+
+	// PuppetConf is the optional path to a puppet.conf config file.
 	PuppetConf string `arg:"--puppet-conf" help:"full path to the puppet.conf file to use"`
+
 	// end PuppetArgs
 
 	// copy-pasted from LangArgs
@@ -136,5 +143,6 @@ type LangPuppetArgs struct {
 	Retry int `arg:"--depth" help:"max number of retries (-1 is unlimited)"`
 
 	ModulePath string `arg:"--module-path,env:MGMT_MODULE_PATH" help:"choose the modules path (absolute)"`
+
 	// end LangArgs
 }

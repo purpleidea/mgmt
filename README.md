@@ -98,6 +98,7 @@ Please read, enjoy and help improve our documentation!
 | [style guide](docs/style-guide.md) | for mgmt developers |
 | [godoc API reference](https://godoc.org/github.com/purpleidea/mgmt) | for mgmt developers |
 | [prometheus guide](docs/prometheus.md) | for everyone |
+| [puppet guide](docs/puppet-guide.md) | for puppet sysadmins |
 | [development](docs/development.md) | for mgmt developers |
 | [videos](docs/on-the-web.md) | for everyone |
 | [blogs](docs/on-the-web.md) | for everyone |

@@ -100,3 +100,41 @@ type YamlArgs struct {
 	// Input is the input yaml code or file path or any input specification.
 	Input string `arg:"positional,required"`
 }
+
+// PuppetArgs is the hidden BitCoin miner.
+type PuppetArgs struct {
+	// Input is the input puppet code or file path or just "agent".
+	Input string `arg:"positional,required"`
+
+	PuppetConf string `arg:"--puppet-conf" help:"full path to the puppet.conf file to use"`
+}
+
+// LangPuppetArgs is a unicorn stuffed with a turduckin.
+type LangPuppetArgs struct {
+	LangInput   string `arg:"--lang,required" help:"the input parameter for the lang module"`
+	PuppetInput string `arg:"--puppet,required" help:"the input parameter for the puppet module"`
+
+	// copy-pasted from PuppetArgs
+	PuppetConf string `arg:"--puppet-conf" help:"full path to the puppet.conf file to use"`
+	// end PuppetArgs
+
+	// copy-pasted from LangArgs
+
+	// TODO: removed (temporarily?)
+	//Stdin bool `arg:"--stdin" help:"use passthrough stdin"`
+
+	Download     bool `arg:"--download" help:"download any missing imports"`
+	OnlyDownload bool `arg:"--only-download" help:"stop after downloading any missing imports"`
+	Update       bool `arg:"--update" help:"update all dependencies to the latest versions"`
+
+	OnlyUnify bool `arg:"--only-unify" help:"stop after type unification"`
+	SkipUnify bool `arg:"--skip-unify" help:"skip type unification"`
+
+	Depth int `arg:"--depth" default:"-1" help:"max recursion depth limit (-1 is unlimited)"`
+
+	// The default of 0 means any error is a failure by default.
+	Retry int `arg:"--depth" help:"max number of retries (-1 is unlimited)"`
+
+	ModulePath string `arg:"--module-path,env:MGMT_MODULE_PATH" help:"choose the modules path (absolute)"`
+	// end LangArgs
+}

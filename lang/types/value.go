@@ -44,7 +44,7 @@ import (
 var (
 	// ErrNilValue is returned when ValueOf() attempts to represent a nil
 	// pointer as an mcl value. This is not supported in mcl.
-	ErrNilValue = errors.New("cannot represent a nil Golang value in mcl")
+	ErrNilValue = errors.New("cannot represent a nil golang value in mcl")
 
 	// ErrInvalidValue is returned when ValueOf() is called on an invalid or
 	// zero reflect.Value.

@@ -34,6 +34,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"os/user"
 	"sort"
@@ -905,10 +906,17 @@ type cmdOutput struct {
 // Cancelling the context merely unblocks the sending on the output channel, it
 // does not Kill the cmd process. For that you must do it yourself elsewhere.
 func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *cmdOutput, error) {
-	cmdReader, err := cmd.StdoutPipe()
+	stdoutReader, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error creating StdoutPipe for Cmd")
 	}
+	stderrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error creating StderrPipe for Cmd")
+	}
+	// XXX: Can io.MultiReader when one of these is still open? Is there an
+	// issue or race here about calling cmd.Wait() if only one of them dies?
+	cmdReader := io.MultiReader(stdoutReader, stderrReader)
 	scanner := bufio.NewScanner(cmdReader)
 	if err := cmd.Start(); err != nil {
 		return nil, errwrap.Wrapf(err, "error starting Cmd")

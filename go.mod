@@ -32,8 +32,8 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.10
 	go.etcd.io/etcd/client/v3 v3.5.10
 	go.etcd.io/etcd/server/v3 v3.5.10
-	golang.org/x/crypto v0.16.0
-	golang.org/x/sys v0.15.0
+	golang.org/x/crypto v0.21.0
+	golang.org/x/sys v0.18.0
 	golang.org/x/time v0.5.0
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -65,7 +65,8 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/nftables v0.2.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/mux v1.7.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -92,9 +93,10 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118 // indirect
+	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/packet v1.0.0 // indirect
 	github.com/mdlayher/raw v0.1.0 // indirect
-	github.com/mdlayher/socket v0.2.3 // indirect
+	github.com/mdlayher/socket v0.5.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -148,8 +150,8 @@ require (
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sync v0.5.0 // indirect
+	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.16.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect

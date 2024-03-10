@@ -1,0 +1,9 @@
+firewalld "misc" { # name is irrelevant
+	services => [
+		"dhcp",
+		"tftp",
+	],
+	ports => ["4280/tcp",],
+
+	state => $const.res.firewalld.state.absent,
+}

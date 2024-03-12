@@ -54,6 +54,7 @@ const (
 	ErrParseError             = interfaces.Error("parser")
 	ErrParseSetType           = interfaces.Error("can't set return type in parser")
 	ErrParseResFieldInvalid   = interfaces.Error("can't use unknown resource field")
+	ErrInvalidVariableName    = interfaces.Error("invalid variable name")
 	ErrParseAdditionalEquals  = interfaces.Error(errstrParseAdditionalEquals)
 	ErrParseExpectingComma    = interfaces.Error(errstrParseExpectingComma)
 )

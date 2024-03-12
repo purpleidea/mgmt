@@ -159,6 +159,15 @@
 			lval.str = yylex.Text()
 			return ARROW
 		}
+/\$[a-z0-9_\.]+/	{
+			yylex.pos(lval) // our pos
+			// drop the dollar sign
+			lval.str = strings.TrimLeft(yylex.Text(), "$")
+			if strings.Contains(lval.str, ".") {
+				return DOTTED_VARNAME
+			}
+			return UNDOTTED_VARNAME
+		}
 /\./		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
@@ -168,11 +177,7 @@
 			}
 			return DOT
 		}
-/\$/		{
-			yylex.pos(lval) // our pos
-			lval.str = yylex.Text()
-			return DOLLAR
-		}
+
 /bool/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

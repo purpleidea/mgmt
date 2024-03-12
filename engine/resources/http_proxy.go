@@ -80,7 +80,9 @@ func init() {
 // the same path. This particular implementation stores some file data in memory
 // as a convenience instead of streaming directly to clients. This makes locking
 // much easier, but is wasteful. If you plan on using this for huge files and on
-// systems with low amounts of memory, you might want to optimize this.
+// systems with low amounts of memory, you might want to optimize this. The
+// resultant proxy path is determined by subtracting the `Sub` field from the
+// `Path` (and request path) and then appending the result to the `Head` field.
 type HTTPProxyRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
@@ -100,10 +102,12 @@ type HTTPProxyRes struct {
 	// overrides the Name var if specified.
 	Path string `lang:"path" yaml:"path"`
 
-	// Sub is the string to remove from the end of the Name/Path field when
-	// translating from the matched resource to the resultant proxy URL. If
-	// this is empty, then nothing is subtracted. This is used in
-	// combination with the Head field which is prepended.
+	// Sub is the string to remove from the start of the request, the path
+	// of which is looking at the Name/Path field to see if it matches. If
+	// it matches, it then translates to the destination server by removing
+	// this `Sub` string from the start of the path request, and then
+	// prepending on the `Head` field to get to the resultant proxy URL. If
+	// this is empty, then nothing is subtracted.
 	Sub string `lang:"sub" yaml:"sub"`
 
 	// Head is the string to add on as a prefix to the new URL we are
@@ -125,6 +129,9 @@ type HTTPProxyRes struct {
 	// TODO: Add a Force param to let a dir in cache folder get converted to a file or vice-versa
 	// TODO: Add an alternate API that consumes a "mapping" function instead
 	// of Sub/Head. Eg: mapping => func($s) { {"/fedora/" => "https://example.com/foo/" }[$s] }
+
+	// pathParser is the local instantiation of our parser that gets reused.
+	pathParser *pathParser
 }
 
 // Default returns some sensible defaults for this resource.
@@ -146,33 +153,12 @@ func (obj *HTTPProxyRes) getPath() string {
 func (obj *HTTPProxyRes) serveHTTP(ctx context.Context, requestPath string) (http.HandlerFunc, error) {
 	// TODO: switch requestPath to use safepath.AbsPath instead of a string
 
-	if !strings.HasPrefix(requestPath, "/") {
-		return nil, fmt.Errorf("request was not absolute") // unexpected!
+	result, err := obj.pathParser.parse(requestPath)
+	if err != nil {
+		return nil, err
 	}
 
-	if strings.HasSuffix(requestPath, "/") {
-		// TODO: can we handle paths that look like dirs?
-	}
-
-	if obj.Sub != "" && !strings.HasPrefix(requestPath, obj.Sub) {
-		return nil, newHTTPError(http.StatusNotFound) // 404
-	}
-
-	// start building new proxyURL and cachePath
-	tailPath := strings.TrimPrefix(requestPath, obj.Sub) // relFile or relDir (if we get a dir-like requestPath)
-
-	if !strings.HasPrefix(obj.getPath(), obj.Sub) { // if empty this is noop
-		return nil, newHTTPError(http.StatusNotFound) // 404
-	}
-	rel := strings.TrimPrefix(obj.getPath(), obj.Sub)
-
-	if !strings.HasPrefix(tailPath, rel) {
-		return nil, newHTTPError(http.StatusNotFound) // 404
-	}
-	relPath := strings.TrimPrefix(tailPath, rel)
-
-	//cachePath := obj.Cache + tailPath // wrong
-	cachePath := obj.Cache + relPath
+	cachePath := result.cachePath
 
 	if obj.Cache != "" { // check in the cache...
 		// TODO: do cache invalidation here
@@ -192,7 +178,7 @@ func (obj *HTTPProxyRes) serveHTTP(ctx context.Context, requestPath string) (htt
 		return nil, fmt.Errorf("can't proxy") // NOT a 404 error!
 	}
 
-	proxyURL := obj.Head + tailPath
+	proxyURL := result.proxyURL
 
 	// XXX: consider streaming the download into both the client requesting
 	// it indirectly through this proxy, and also into the cache if we want
@@ -400,6 +386,13 @@ func (obj *HTTPProxyRes) Validate() error {
 func (obj *HTTPProxyRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	obj.pathParser = &pathParser{
+		path:  obj.getPath(),
+		sub:   obj.Sub,
+		head:  obj.Head, // mirror
+		cache: obj.Cache,
+	}
+
 	return nil
 }
 
@@ -492,4 +485,79 @@ func (obj *HTTPProxyRes) UnmarshalYAML(unmarshal func(interface{}) error) error 
 
 	*obj = HTTPProxyRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// pathResult is the output resultant paths.
+type pathResult struct {
+	proxyURL  string
+	cachePath string
+}
+
+// pathParser is the input data that is used by parse.
+type pathParser struct {
+	path  string // obj.getPath() (name field)
+	sub   string // obj.Sub (???)
+	head  string // obj.Head (mirror)
+	cache string // obj.Cache (destination dir)
+}
+
+// parse handles the logic of transforming the input settings and data into the
+// resultant paths. It is implemented as a standalone function to facilitate
+// testing.
+func (obj *pathParser) parse(requestPath string) (*pathResult, error) {
+	if !strings.HasPrefix(requestPath, "/") {
+		return nil, fmt.Errorf("request was not absolute") // unexpected!
+	}
+
+	tail := "" // !isDir
+	if strings.HasSuffix(requestPath, "/") {
+		tail = "/" // isDir
+		// TODO: can we handle paths that look like dirs?
+	}
+
+	// check for ../ type stuff?
+	if requestPath+tail != filepath.Clean(requestPath) {
+		return nil, fmt.Errorf("request was not clean")
+	}
+
+	// request path must have our configured path as a base
+	if !strings.HasPrefix(requestPath, obj.path) {
+		return nil, newHTTPError(http.StatusNotFound) // 404
+	}
+
+	// Does our request path (which we now know has the same prefix as
+	// obj.path) have sub as a prefix? If not, we can't sub it and we error.
+	if obj.sub != "" && !strings.HasPrefix(requestPath, obj.sub) {
+		return nil, newHTTPError(http.StatusNotFound) // 404
+	}
+
+	// start building new proxyURL and cachePath
+	tailPath := strings.TrimPrefix(requestPath, obj.sub) // relFile or relDir (if we get a dir-like requestPath)
+
+	proxyURL := obj.head + tailPath // good!
+	result := &pathResult{
+		proxyURL: proxyURL,
+		//cachePath: cachePath,
+	}
+	if obj.head == "" { // we might _only_ have a cache and no proxyURL
+		result = nil
+	}
+
+	if obj.cache != "" {
+		if !strings.HasPrefix(obj.cache, "/") {
+			return result, fmt.Errorf("cache was not absolute")
+		}
+		if !strings.HasSuffix(obj.cache, "/") {
+			return result, fmt.Errorf("cache was not a dir")
+		}
+	}
+
+	if result == nil { // we have a cachePath, but no proxyURL
+		result = &pathResult{}
+	}
+
+	rel := strings.TrimPrefix(requestPath, obj.path) // we already checked
+	result.cachePath = obj.cache + rel
+
+	return result, nil
 }

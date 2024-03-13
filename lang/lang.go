@@ -108,6 +108,7 @@ func (obj *Lang) Init() error {
 		}
 		obj.Logf("run tree:\n%s", tree)
 	}
+	var timing time.Time
 
 	// we used to support stdin passthrough, but we we got rid of it for now
 	// the fs input here is the local fs we're reading to get the files from
@@ -128,11 +129,13 @@ func (obj *Lang) Init() error {
 
 	// run the lexer/parser and build an AST
 	obj.Logf("lexing/parsing...")
+	timing = time.Now()
 	// this reads an io.Reader, which might be a stream of multiple files...
 	xast, err := parser.LexParse(reader)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate AST")
 	}
+	obj.Logf("lexing/parsing took: %s", time.Since(timing))
 	if obj.Debug {
 		obj.Logf("behold, the AST: %+v", xast)
 	}
@@ -178,11 +181,13 @@ func (obj *Lang) Init() error {
 	}
 
 	obj.Logf("interpolating...")
+	timing = time.Now()
 	// interpolate strings and other expansionable nodes in AST
 	iast, err := xast.Interpolate()
 	if err != nil {
 		return errwrap.Wrapf(err, "could not interpolate AST")
 	}
+	obj.Logf("interpolating took: %s", time.Since(timing))
 	obj.ast = iast
 
 	variables := map[string]interfaces.Expr{
@@ -206,10 +211,12 @@ func (obj *Lang) Init() error {
 	}
 
 	obj.Logf("scope building...")
+	timing = time.Now()
 	// propagate the scope down through the AST...
 	if err := obj.ast.SetScope(scope); err != nil {
 		return errwrap.Wrapf(err, "could not set scope")
 	}
+	obj.Logf("scope building took: %s", time.Since(timing))
 
 	// apply type unification
 	logf := func(format string, v ...interface{}) {
@@ -218,21 +225,26 @@ func (obj *Lang) Init() error {
 		}
 	}
 	obj.Logf("running type unification...")
+	timing = time.Now()
 	unifier := &unification.Unifier{
 		AST:    obj.ast,
 		Solver: unification.SimpleInvariantSolverLogger(logf),
 		Debug:  obj.Debug,
 		Logf:   logf,
 	}
-	if err := unifier.Unify(); err != nil {
-		return errwrap.Wrapf(err, "could not unify types")
+	unifyErr := unifier.Unify()
+	obj.Logf("type unification took: %s", time.Since(timing))
+	if unifyErr != nil {
+		return errwrap.Wrapf(unifyErr, "could not unify types")
 	}
+
 	// XXX: Should we do a kind of SetType on resources here to tell the
 	// ones with variant fields what their concrete field types are? They
 	// should only be dynamic in implementation and before unification, and
 	// static once we've unified the specific resource.
 
 	obj.Logf("building function graph...")
+	timing = time.Now()
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
 	obj.graph = &pgraph.Graph{Name: "functionGraph"}
@@ -275,6 +287,7 @@ func (obj *Lang) Init() error {
 	if err := obj.funcs.Setup(); err != nil {
 		return errwrap.Wrapf(err, "init error with func engine")
 	}
+	obj.Logf("function setup took: %s", time.Since(timing))
 
 	obj.streamChan = obj.funcs.Stream() // after obj.funcs.Setup runs
 

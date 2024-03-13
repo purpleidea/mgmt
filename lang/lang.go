@@ -205,7 +205,7 @@ func (obj *Lang) Init() error {
 		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
-	obj.Logf("building scope...")
+	obj.Logf("scope building...")
 	// propagate the scope down through the AST...
 	if err := obj.ast.SetScope(scope); err != nil {
 		return errwrap.Wrapf(err, "could not set scope")

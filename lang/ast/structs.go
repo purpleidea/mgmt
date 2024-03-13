@@ -3480,7 +3480,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 			return nil, errwrap.Wrapf(err, "could not interpolate AST from import `%s`", name)
 		}
 
-		obj.data.Logf("building scope...")
+		obj.data.Logf("scope building...")
 		// propagate the scope down through the AST...
 		// most importantly, we ensure that the child imports will run!
 		// we pass in *our* parent scope, which will include the globals
@@ -3619,7 +3619,7 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		return nil, errwrap.Wrapf(err, "could not interpolate AST from import")
 	}
 
-	logf("building scope...")
+	logf("scope building...")
 	// propagate the scope down through the AST...
 	// most importantly, we ensure that the child imports will run!
 	// we pass in *our* parent scope, which will include the globals

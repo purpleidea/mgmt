@@ -245,7 +245,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
-	logf("building scope...")
+	logf("scope building...")
 	// propagate the scope down through the AST...
 	// We use SetScope because it follows all of the imports through. I did
 	// not think we needed to pass in an initial scope because the download

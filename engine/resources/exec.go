@@ -371,7 +371,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			}
 
 			obj.init.Logf("ifcmd: %s", strings.Join(cmd.Args, " "))
-			obj.init.Logf("ifcmd exited with: %d", exitStatus)
+			obj.init.Logf("ifcmd exited with: %d, skipping cmd", exitStatus)
 			if s := out.String(); s == "" {
 				obj.init.Logf("ifcmd out empty!")
 			} else {

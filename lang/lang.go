@@ -99,7 +99,7 @@ type Lang struct {
 // NOTE: The trick is that we need to get the list of funcs to watch AND start
 // watching them, *before* we pull their values, that way we'll know if they
 // changed from the values we wanted.
-func (obj *Lang) Init() error {
+func (obj *Lang) Init(ctx context.Context) error {
 	if obj.Debug {
 		obj.Logf("input: %s", obj.Input)
 		tree, err := util.FsTree(obj.Fs, "/") // should look like gapi
@@ -232,7 +232,7 @@ func (obj *Lang) Init() error {
 		Debug:  obj.Debug,
 		Logf:   logf,
 	}
-	unifyErr := unifier.Unify(context.TODO())
+	unifyErr := unifier.Unify(ctx)
 	obj.Logf("type unification took: %s", time.Since(timing))
 	if unifyErr != nil {
 		return errwrap.Wrapf(unifyErr, "could not unify types")

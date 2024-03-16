@@ -128,22 +128,22 @@ func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 	}
 	logf("tree:\n%s", tree)
 
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	ctx, cancel := context.WithCancel(context.Background()) // TODO: get it from parent
+	defer cancel()
+
 	lang := &Lang{
 		Fs:    fs,
 		Input: "/" + interfaces.MetadataFilename, // start path in fs
 		Debug: testing.Verbose(),                 // set via the -test.v flag to `go test`
 		Logf:  logf,
 	}
-	if err := lang.Init(); err != nil {
+	if err := lang.Init(ctx); err != nil {
 		return nil, errwrap.Wrapf(err, "init failed")
 	}
 	defer lang.Cleanup()
-
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
-	ctx, cancel := context.WithCancel(context.Background()) // TODO: get it from parent
-	defer cancel()
 
 	wg.Add(1)
 	go func() {

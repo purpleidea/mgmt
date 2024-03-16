@@ -427,7 +427,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 }
 
 // LangInit is a wrapper around the lang Init method.
-func (obj *GAPI) LangInit() error {
+func (obj *GAPI) LangInit(ctx context.Context) error {
 	if obj.lang != nil {
 		return nil // already ran init, close first!
 	}
@@ -456,7 +456,7 @@ func (obj *GAPI) LangInit() error {
 			obj.data.Logf(Name+": "+format, v...)
 		},
 	}
-	if err := lang.Init(); err != nil {
+	if err := lang.Init(ctx); err != nil {
 		return errwrap.Wrapf(err, "can't init the lang")
 	}
 	obj.lang = lang // once we can't fail, store the struct...
@@ -553,7 +553,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 				// run up to these three but fail on err
 				if e := obj.LangClose(); e != nil { // close any old lang
 					err = e // pass through the err
-				} else if e := obj.LangInit(); e != nil { // init the new one!
+				} else if e := obj.LangInit(context.TODO()); e != nil { // init the new one!
 					err = e // pass through the err
 
 					// Always run LangClose after LangInit

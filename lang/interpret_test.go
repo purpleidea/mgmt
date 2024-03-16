@@ -464,7 +464,7 @@ func TestAstFunc1(t *testing.T) {
 				Debug:  testing.Verbose(),
 				Logf:   xlogf,
 			}
-			err = unifier.Unify()
+			err = unifier.Unify(context.TODO())
 			if (!fail || !failUnify) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
@@ -1034,7 +1034,7 @@ func TestAstFunc2(t *testing.T) {
 				Debug:  testing.Verbose(),
 				Logf:   xlogf,
 			}
-			err = unifier.Unify()
+			err = unifier.Unify(context.TODO())
 			if (!fail || !failUnify) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)
@@ -1836,7 +1836,7 @@ func TestAstFunc3(t *testing.T) {
 				Debug:  testing.Verbose(),
 				Logf:   xlogf,
 			}
-			err = unifier.Unify()
+			err = unifier.Unify(context.TODO())
 			if (!fail || !failUnify) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not unify types: %+v", index, err)

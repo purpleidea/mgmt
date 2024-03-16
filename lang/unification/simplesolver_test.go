@@ -32,6 +32,7 @@
 package unification
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -265,7 +266,7 @@ func TestSimpleSolver1(t *testing.T) {
 
 			solver := SimpleInvariantSolverLogger(logf) // generates a solver with built-in logging
 
-			solution, err := solver(invariants, expected)
+			solution, err := solver(context.TODO(), invariants, expected)
 			t.Logf("test #%d: solver completed with: %+v", index, err)
 
 			if !fail && err != nil {

@@ -32,6 +32,7 @@
 package lang // XXX: move this to the unification package
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -856,7 +857,7 @@ func TestUnification1(t *testing.T) {
 				Debug:  testing.Verbose(),
 				Logf:   logf,
 			}
-			err = unifier.Unify()
+			err = unifier.Unify(context.TODO())
 
 			// TODO: print out the AST's so that we can see the types
 			t.Logf("\n\ntest #%d: AST (after): %+v\n", index, xast)

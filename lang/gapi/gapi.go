@@ -276,7 +276,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			Debug:  debug,
 			Logf:   unificationLogf,
 		}
-		unifyErr := unifier.Unify()
+		unifyErr := unifier.Unify(context.TODO())
 		delta := time.Since(startTime)
 		formatted := delta.String()
 		if delta.Milliseconds() > 1000 { // 1 second

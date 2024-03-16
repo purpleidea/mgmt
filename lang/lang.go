@@ -232,7 +232,7 @@ func (obj *Lang) Init() error {
 		Debug:  obj.Debug,
 		Logf:   logf,
 	}
-	unifyErr := unifier.Unify()
+	unifyErr := unifier.Unify(context.TODO())
 	obj.Logf("type unification took: %s", time.Since(timing))
 	if unifyErr != nil {
 		return errwrap.Wrapf(unifyErr, "could not unify types")

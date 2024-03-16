@@ -32,6 +32,7 @@
 package unification
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -45,7 +46,8 @@ type Unifier struct {
 	AST interfaces.Stmt
 
 	// Solver is the solver algorithm implementation to use.
-	Solver func([]interfaces.Invariant, []interfaces.Expr) (*InvariantSolution, error)
+	// XXX: Solver should be a solver interface, not a function signature.
+	Solver func(context.Context, []interfaces.Invariant, []interfaces.Expr) (*InvariantSolution, error)
 
 	Debug bool
 	Logf  func(format string, v ...interface{})
@@ -63,7 +65,7 @@ type Unifier struct {
 // type. This function and logic was invented after the author could not find
 // any proper literature or examples describing a well-known implementation of
 // this process. Improvements and polite recommendations are welcome.
-func (obj *Unifier) Unify() error {
+func (obj *Unifier) Unify(ctx context.Context) error {
 	if obj.AST == nil {
 		return fmt.Errorf("the AST is nil")
 	}
@@ -96,7 +98,7 @@ func (obj *Unifier) Unify() error {
 	exprMap := ExprListToExprMap(exprs)    // makes searching faster
 	exprList := ExprMapToExprList(exprMap) // makes it unique (no duplicates)
 
-	solved, err := obj.Solver(invariants, exprList)
+	solved, err := obj.Solver(ctx, invariants, exprList)
 	if err != nil {
 		return err
 	}

@@ -899,6 +899,11 @@ func (obj *Type) Reflect() reflect.Type {
 			if t == nil {
 				panic("malformed struct field")
 			}
+			if strings.Title(k) != k { // is exported?
+				//k = strings.Title(k) // TODO: is this helpful?
+				// reflect.StructOf would panic on anything unexported
+				panic(fmt.Sprintf("struct has unexported field: %s", k))
+			}
 
 			fields = append(fields, reflect.StructField{
 				Name: k, // struct field name

@@ -425,8 +425,12 @@ func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, err
 		// parameter types. Functions meant to apply to arguments of
 		// arbitrary type can use parameters of type interface{} or of
 		// type reflect.Value.
-		f := wrap(name, fn) // wrap it so that it meets API expectations
-		funcMap[name] = f   // add it
+		f, err := wrap(name, fn) // wrap it so that it meets API expectations
+		if err != nil {
+			obj.init.Logf("warning, skipping function named: `%s`, err: %v", name, err)
+			continue
+		}
+		funcMap[name] = f // add it
 	}
 
 	var err error
@@ -581,7 +585,14 @@ func safename(name string) string {
 // function API with what is expected from the reflection API. It returns a
 // version that includes the optional second error return value so that our
 // functions can return errors without causing a panic.
-func wrap(name string, fn *types.FuncValue) interface{} {
+func wrap(name string, fn *types.FuncValue) (_ interface{}, reterr error) {
+	defer func() {
+		// catch unhandled panics
+		if r := recover(); r != nil {
+			reterr = fmt.Errorf("panic in template wrap of `%s` function: %+v", name, r)
+		}
+	}()
+
 	if fn.T.Map == nil {
 		panic("malformed func type")
 	}
@@ -600,7 +611,8 @@ func wrap(name string, fn *types.FuncValue) interface{} {
 
 		in = append(in, t.Reflect())
 	}
-	out := []reflect.Type{fn.T.Out.Reflect(), errorType}
+	ret := fn.T.Out.Reflect() // this can panic!
+	out := []reflect.Type{ret, errorType}
 	var variadic = false // currently not supported in our function value
 	typ := reflect.FuncOf(in, out, variadic)
 
@@ -640,5 +652,5 @@ func wrap(name string, fn *types.FuncValue) interface{} {
 		return []reflect.Value{reflect.ValueOf(result.Value()), nilError}
 	}
 	val := reflect.MakeFunc(typ, f)
-	return val.Interface()
+	return val.Interface(), nil
 }

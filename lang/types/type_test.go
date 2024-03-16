@@ -1502,3 +1502,25 @@ func TestTypeOf0(t *testing.T) {
 	// TODO: implement testing of the TypeOf function
 	// TODO: implement testing TypeOf for struct field name mappings
 }
+
+func TestReflect0(t *testing.T) {
+	mustPanic := func() (reterr error) {
+		defer func() {
+			// catch unhandled panics
+			if r := recover(); r != nil {
+				reterr = fmt.Errorf("panic: %+v", r)
+			}
+		}()
+
+		// It's unclear if we want this behaviour forever, but it is the
+		// current behaviour, and I'd at least like to know if it
+		// changes so we can understand where (if at all) it's required.
+		typ := NewType("struct{field1 str}")
+		_ = typ.Reflect()
+		return nil
+	}
+
+	if err := mustPanic(); err == nil {
+		t.Errorf("expected panic, got nil")
+	}
+}

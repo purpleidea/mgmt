@@ -42,8 +42,8 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 )
 
 func init() {

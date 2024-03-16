@@ -47,9 +47,9 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 	"github.com/purpleidea/mgmt/util/socketset"
 
 	// XXX: Do NOT use subscribe methods from this lib, as they are racey

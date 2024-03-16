@@ -41,9 +41,9 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 
 	sdbus "github.com/coreos/go-systemd/v22/dbus"
 	"github.com/coreos/go-systemd/v22/unit"

@@ -51,9 +51,9 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 )
 
 func init() {

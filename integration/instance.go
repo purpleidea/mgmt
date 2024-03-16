@@ -39,8 +39,8 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/purpleidea/mgmt/recwatch"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 )
 
 const (

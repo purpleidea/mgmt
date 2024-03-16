@@ -35,14 +35,56 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 )
 
 const (
+	// FedoraDownloadURL is the default fedora releases and updates download
+	// URL. If you try to use this, you will get redirected to a mirror near
+	// you.
+	FedoraDownloadURL = "https://download.fedoraproject.org/pub/fedora/linux/"
+
 	// FedoraReleasesEndpointJSON is the location of the fedora release data
 	// as specified in json format.
 	FedoraReleasesEndpointJSON = "https://fedoraproject.org/releases.json"
 )
+
+// GetFedoraDownloadURL gets an https base path of a mirror to use for
+// downloading both the fedora release and updates. It is supposed to find
+// something nearest to you.
+// TODO: Do we need to specify version and arch to make sure mirror has those?
+func GetFedoraDownloadURL(ctx context.Context) (string, error) {
+	var out *url.URL
+	checkRedirectFunc := func(req *http.Request, via []*http.Request) error {
+		out = req.URL
+		if len(via) > 1 {
+			return fmt.Errorf("too many redirects")
+		}
+		return nil
+	}
+	client := &http.Client{
+		CheckRedirect: checkRedirectFunc,
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", FedoraDownloadURL, nil)
+	if err != nil {
+		return "", err
+	}
+	result, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer result.Body.Close()
+
+	if out == nil {
+		return "", fmt.Errorf("no url found")
+	}
+	if out.Scheme != "https" {
+		return "", fmt.Errorf("bad scheme, got: %s", out.Scheme)
+	}
+
+	return out.String(), nil
+}
 
 // FedoraRelease is a partial struct of the available data in the json releases
 // file found. This was determined by inspection.

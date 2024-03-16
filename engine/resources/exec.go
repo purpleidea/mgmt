@@ -35,6 +35,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"os/user"
 	"sort"
@@ -47,6 +48,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 )
 
 func init() {
@@ -119,6 +121,13 @@ type ExecRes struct {
 	// IfShell is the Shell for the IfCmd. See the docs for Shell.
 	IfShell string `lang:"ifshell" yaml:"ifshell"`
 
+	// Creates is the absolute file path to check for before running the
+	// main cmd. If this path exists, then the cmd will not run. More
+	// precisely we attempt to `stat` the file, so it must succeed for a
+	// skip. This also adds a watch on this path which re-checks things when
+	// it changes.
+	Creates string `lang:"creates" yaml:"creates"`
+
 	// DoneCmd is the command that runs after the regular Cmd runs
 	// successfully. This is a useful pattern to avoid the shelling out to
 	// bash simply to do `$cmd && echo done > /tmp/donefile`. If this
@@ -175,6 +184,10 @@ func (obj *ExecRes) Validate() error {
 		return fmt.Errorf("the Args param can't be used when Cmd has args")
 	}
 
+	if obj.Creates != "" && !strings.HasPrefix(obj.Creates, "/") {
+		return fmt.Errorf("the Creates param must be an absolute path")
+	}
+
 	// check that, if an user or a group is set, we're running as root
 	if obj.User != "" || obj.Group != "" {
 		currentUser, err := user.Current()
@@ -212,9 +225,10 @@ func (obj *ExecRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *ExecRes) Watch(ctx context.Context) error {
-	ioChan := make(chan *cmdOutput)
 	defer obj.wg.Wait()
 
+	ioChan := make(chan *cmdOutput)
+	rwChan := make(chan recwatch.Event)
 	var watchCmd *exec.Cmd
 	if obj.WatchCmd != "" {
 		var cmdName string
@@ -252,6 +266,15 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 		if ioChan, err = obj.cmdOutputRunner(innerCtx, cmd); err != nil {
 			return errwrap.Wrapf(err, "error starting WatchCmd")
 		}
+	}
+
+	if obj.Creates != "" {
+		recWatcher, err := recwatch.NewRecWatcher(obj.Creates, false)
+		if err != nil {
+			return err
+		}
+		defer recWatcher.Close()
+		rwChan = recWatcher.Events()
 	}
 
 	obj.init.Running() // when started, notify engine that we're running
@@ -298,6 +321,15 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 			if data.text != "" {
 				send = true
 			}
+
+		case event, ok := <-rwChan:
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected recwatch shutdown")
+			}
+			if err := event.Error; err != nil {
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
+			}
+			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
@@ -385,6 +417,13 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		} else {
 			obj.init.Logf("ifcmd out:")
 			obj.init.Logf("%s", s)
+		}
+	}
+
+	if obj.Creates != "" { // gate the extra syscall
+		if _, err := os.Stat(obj.Creates); err == nil {
+			obj.init.Logf("creates file exists, skipping cmd")
+			return true, nil // don't run
 		}
 	}
 
@@ -665,6 +704,10 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	}
 	if obj.IfShell != res.IfShell {
 		return fmt.Errorf("the IfShell differs")
+	}
+
+	if obj.Creates != res.Creates {
+		return fmt.Errorf("the Creates differs")
 	}
 
 	if obj.DoneCmd != res.DoneCmd {

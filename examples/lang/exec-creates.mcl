@@ -1,0 +1,6 @@
+exec "exec0" {
+	cmd => "echo hello world > /tmp/whatever",
+	shell => "/bin/bash",
+
+	creates => "/tmp/whatever", # a watch event is taken on this file path!
+}

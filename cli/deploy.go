@@ -45,7 +45,7 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 	git "gopkg.in/src-d/go-git.v4"
 )
 

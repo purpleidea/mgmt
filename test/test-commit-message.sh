@@ -10,11 +10,12 @@ echo running "$0"
 ROOT=$(dirname "${BASH_SOURCE}")/..
 cd "${ROOT}" || exit 1
 
-commit_title_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
+commit_title_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)*[a-z0-9]: \)\+[A-Z0-9][^:]\+[^:.]$'
 
 # Testing the regex itself.
 
 # Correct patterns.
+[[ $(echo "ci: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
 [[ $(echo "foo, bar: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
 [[ $(echo "foo: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
 [[ $(echo "f1oo, b2ar: Bar" | grep -c "$commit_title_regex") -eq 1 ]]
@@ -56,11 +57,13 @@ commit_title_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)\+[a-z0-9]: \)\+[A-Z0-9][^:]\
 
 test_commit_message() {
 	echo "Testing commit message $1"
-	if ! git log --format=%s $1 | head -n 1 | grep -q "$commit_title_regex"
+	title=$(git log --format=%s $1 | head -n 1)
+	if ! echo "$title" | grep -q "$commit_title_regex"
 	then
 		echo "FAIL: Commit message should match the following regex: '$commit_title_regex'"
+		echo "('$title' does not match)"
 		echo
-		echo "eg:"
+		echo "valid examples:"
 		echo "prometheus: Implement rest api"
 		echo "resources: svc: Fix a race condition with reloads"
 		exit 1
@@ -154,34 +157,30 @@ test_commit_message_body() {
 if [[ -n "$TRAVIS_PULL_REQUEST_SHA" ]]
 then
 	commits=$(git log --format=%H origin/${TRAVIS_BRANCH}..${TRAVIS_PULL_REQUEST_SHA})
-	[[ -n "$commits" ]]
+elif [[ -n "$GITHUB_SHA" ]]
+then
+	# GITHUB_SHA is the HEAD of the branch
+	# GITHUB_REF: The branch or tag ref that triggered the workflow. For example, refs/heads/feature-branch-1. If neither a branch or tag is available for the event type, the variable will not exist. (Not used.)
+	# GITHUB_BASE_REF: Only set for pull request events. The name of the base branch.
+	head=${GITHUB_SHA}
+	if [[ -n "${GITHUB_BASE_REF}" ]]; then
+		ref=${GITHUB_BASE_REF}
+	else
+		# this is just a push, no PR. Check commits outside origin/master
+		ref=master
+	fi
+	commits=$(git log --no-merges --format=%H origin/${ref}..${head})
+else # assume local branch
+	commits=$(git log --no-merges --format=%H origin/master..HEAD)
+fi
 
+if [[ -n "$commits" ]]; then
 	for commit in $commits
 	do
 		test_commit_message $commit
 		test_commit_message_body $commit
 		test_commit_message_common_bugs $commit
 	done
-elif [[ -n "$GITHUB_SHA" ]]
-then
-	# GITHUB_SHA is the HEAD of the branch
-	# GITHUB_REF: The branch or tag ref that triggered the workflow. For example, refs/heads/feature-branch-1. If neither a branch or tag is available for the event type, the variable will not exist.
-	# GITHUB_BASE_REF: Only set for pull request events. The name of the base branch.
-	if [[ -n "${GITHUB_BASE_REF}" ]]; then
-		ref=${GITHUB_BASE_REF}
-		head=${GITHUB_SHA}
-	else
-		ref=$(echo $GITHUB_REF | cut -d/ -f3-)
-		head=""
-	fi
-	commits=$(git log --no-merges --format=%H origin/${ref}..${head})
-	if [[ -n "$commits" ]]; then
-		for commit in $commits
-		do
-			test_commit_message $commit
-			test_commit_message_body $commit
-			test_commit_message_common_bugs $commit
-		done
-	fi
 fi
+
 echo 'PASS'

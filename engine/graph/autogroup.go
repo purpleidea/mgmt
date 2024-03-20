@@ -121,6 +121,7 @@ func (obj *wrappedGrouper) VertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, e
 	if err = r1.GroupRes(r2); err != nil { // GroupRes skips stupid groupings
 		return // return early on error
 	}
+	r2.SetParent(r1) // store who my parent is
 
 	// merging two resources into one should yield the sum of their semas
 	if semas := r2.MetaParams().Sema; len(semas) > 0 {

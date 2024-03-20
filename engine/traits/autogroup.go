@@ -45,6 +45,7 @@ type Groupable struct {
 
 	isGrouped bool                  // am i contained within a group?
 	grouped   []engine.GroupableRes // list of any grouped resources
+	parent    engine.GroupableRes   // resource i am grouped inside of
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -74,7 +75,8 @@ func (obj *Groupable) GroupCmp(res engine.GroupableRes) error {
 	return fmt.Errorf("the default grouping compare is not nil")
 }
 
-// GroupRes groups resource argument (res) into self.
+// GroupRes groups resource argument (res) into self. Callers of this method
+// should probably also run SetParent.
 func (obj *Groupable) GroupRes(res engine.GroupableRes) error {
 	if l := len(res.GetGroup()); l > 0 {
 		return fmt.Errorf("the `%s` resource already contains %d grouped resources", res, l)
@@ -103,7 +105,18 @@ func (obj *Groupable) GetGroup() []engine.GroupableRes {
 	return obj.grouped
 }
 
-// SetGroup sets the grouped resources into me.
+// SetGroup sets the grouped resources into me. Callers of this method should
+// probably also run SetParent.
 func (obj *Groupable) SetGroup(grouped []engine.GroupableRes) {
 	obj.grouped = grouped
+}
+
+// Parent returns the parent groupable resource that I am inside of.
+func (obj *Groupable) Parent() engine.GroupableRes {
+	return obj.parent
+}
+
+// SetParent tells a particular grouped resource who their parent is.
+func (obj *Groupable) SetParent(res engine.GroupableRes) {
+	obj.parent = res
 }

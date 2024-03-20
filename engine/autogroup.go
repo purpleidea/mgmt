@@ -54,7 +54,8 @@ type GroupableRes interface {
 	// grouping. This usually needs to be unique to your resource.
 	GroupCmp(res GroupableRes) error
 
-	// GroupRes groups resource argument (res) into self.
+	// GroupRes groups resource argument (res) into self. Callers of this
+	// method should probably also run SetParent.
 	GroupRes(res GroupableRes) error
 
 	// IsGrouped determines if we are grouped.
@@ -66,8 +67,15 @@ type GroupableRes interface {
 	// GetGroup returns everyone grouped inside me.
 	GetGroup() []GroupableRes // return everyone grouped inside me
 
-	// SetGroup sets the grouped resources into me.
+	// SetGroup sets the grouped resources into me. Callers of this method
+	// should probably also run SetParent.
 	SetGroup([]GroupableRes)
+
+	// Parent returns the parent groupable resource that I am inside of.
+	Parent() GroupableRes
+
+	// SetParent tells a particular grouped resource who their parent is.
+	SetParent(res GroupableRes)
 }
 
 // AutoGroupMeta provides some parameters specific to automatic grouping.

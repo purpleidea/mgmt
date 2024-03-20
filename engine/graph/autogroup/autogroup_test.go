@@ -202,6 +202,8 @@ func (obj *testGrouper) VertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err 
 	if err := r1.GroupRes(r2); err != nil { // group them first
 		return nil, err
 	}
+	r2.SetParent(r1) // store who my parent is
+
 	// HACK: update the name so it matches full list of self+grouped
 	res := v1.(engine.GroupableRes)
 	names := strings.Split(res.Name(), ",") // load in stored names

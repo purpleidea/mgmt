@@ -93,6 +93,7 @@ func ResCopy(r CopyableRes) (CopyableRes, error) {
 			if !ok {
 				return nil, fmt.Errorf("resource wasn't groupable")
 			}
+			g2.SetParent(dst) // store who my parent is
 			grouped = append(grouped, g2)
 		}
 		dst.SetGroup(grouped)

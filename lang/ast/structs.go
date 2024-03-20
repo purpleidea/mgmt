@@ -561,32 +561,6 @@ func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
 func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 	var invariants []interfaces.Invariant
 
-	invars, err := obj.Name.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, invars...)
-
-	// name must be a string or a list
-	ors := []interfaces.Invariant{}
-
-	invarStr := &interfaces.EqualsInvariant{
-		Expr: obj.Name,
-		Type: types.TypeStr,
-	}
-	ors = append(ors, invarStr)
-
-	invarListStr := &interfaces.EqualsInvariant{
-		Expr: obj.Name,
-		Type: types.NewType("[]str"),
-	}
-	ors = append(ors, invarListStr)
-
-	invar := &interfaces.ExclusiveInvariant{
-		Invariants: ors, // one and only one of these should be true
-	}
-	invariants = append(invariants, invar)
-
 	// collect all the invariants of each field and edge
 	for _, x := range obj.Contents {
 		invars, err := x.Unify(obj.Kind) // pass in the resource kind
@@ -595,6 +569,47 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 		}
 		invariants = append(invariants, invars...)
 	}
+
+	invars, err := obj.Name.Unify()
+	if err != nil {
+		return nil, err
+	}
+	invariants = append(invariants, invars...)
+
+	invarStr := &interfaces.EqualsInvariant{
+		Expr: obj.Name,
+		Type: types.TypeStr,
+	}
+
+	// Optimization: If we know it's an str, no need for exclusives!
+	if _, ok := obj.Name.(*ExprStr); ok {
+		invariants = append(invariants, invarStr)
+		return invariants, nil
+	}
+
+	invarListStr := &interfaces.EqualsInvariant{
+		Expr: obj.Name,
+		Type: types.NewType("[]str"),
+	}
+
+	// Optimization: If we know it's a []str, no need for exclusives!
+	if expr, ok := obj.Name.(*ExprList); ok {
+		typ, err := expr.Type()
+		if err == nil && typ.Cmp(types.NewType("[]str")) == nil {
+			invariants = append(invariants, invarListStr)
+			return invariants, nil
+		}
+	}
+
+	// name must be a string or a list
+	ors := []interfaces.Invariant{}
+	ors = append(ors, invarStr)
+	ors = append(ors, invarListStr)
+
+	invar := &interfaces.ExclusiveInvariant{
+		Invariants: ors, // one and only one of these should be true
+	}
+	invariants = append(invariants, invar)
 
 	return invariants, nil
 }
@@ -2473,19 +2488,34 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, invars...)
 
-	// name must be a string or a list
-	ors := []interfaces.Invariant{}
-
 	invarStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.TypeStr,
 	}
-	ors = append(ors, invarStr)
+
+	// Optimization: If we know it's an str, no need for exclusives!
+	if _, ok := obj.Name.(*ExprStr); ok {
+		invariants = append(invariants, invarStr)
+		return invariants, nil
+	}
 
 	invarListStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.NewType("[]str"),
 	}
+
+	// Optimization: If we know it's a []str, no need for exclusives!
+	if expr, ok := obj.Name.(*ExprList); ok {
+		typ, err := expr.Type()
+		if err == nil && typ.Cmp(types.NewType("[]str")) == nil {
+			invariants = append(invariants, invarListStr)
+			return invariants, nil
+		}
+	}
+
+	// name must be a string or a list
+	ors := []interfaces.Invariant{}
+	ors = append(ors, invarStr)
 	ors = append(ors, invarListStr)
 
 	invar := &interfaces.ExclusiveInvariant{

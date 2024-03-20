@@ -1,0 +1,9 @@
+noop "puppet_first_handover" {}
+noop "puppet_second_handover" {}
+
+print "first message" {}
+print "third message" {}
+
+Print["first message"] -> Noop["puppet_first_handover"]
+
+Noop["puppet_second_handover"] -> Print["third message"]

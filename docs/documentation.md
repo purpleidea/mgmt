@@ -131,6 +131,33 @@ execute via a `remote` resource.
 You can read the introductory blog post about this topic here:
 [https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/](https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/)
 
+### Puppet support
+
+You can supply a puppet manifest instead of creating the (YAML) graph manually.
+Puppet must be installed and in `mgmt`'s search path. You also need the
+[ffrank-mgmtgraph puppet module](https://forge.puppet.com/ffrank/mgmtgraph).
+
+Invoke `mgmt` with the `--puppet` switch, which supports 3 variants:
+
+1. Request the configuration from the puppet server (like `puppet agent` does)
+
+	`mgmt run puppet --puppet agent`
+
+2. Compile a local manifest file (like `puppet apply`)
+
+	`mgmt run puppet --puppet /path/to/my/manifest.pp`
+
+3. Compile an ad hoc manifest from the commandline (like `puppet apply -e`)
+
+	`mgmt run puppet --puppet 'file { "/etc/ntp.conf": ensure => file }'`
+
+For more details and caveats see [puppet-guide.md](puppet-guide.md).
+
+#### Blog post
+
+An introductory post on the puppet support is on
+[Felix's blog](http://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/).
+
 ## Reference
 
 Please note that there are a number of undocumented options. For more
@@ -335,7 +362,7 @@ size of 42, you can expect a semaphore if named: `:42`. It is expected that
 consumers of the semaphore metaparameter always include a prefix to avoid a
 collision with this globally defined semaphore. The size value must be greater
 than zero at this time. The traditional non-parallel execution found in config
-management tools such as `Puppet` can be obtained with `--sema 1`.
+management tools such as `puppet` can be obtained with `--sema 1`.
 
 #### `--ssh-priv-id-rsa`
 

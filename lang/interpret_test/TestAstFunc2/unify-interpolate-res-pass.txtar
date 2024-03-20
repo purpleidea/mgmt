@@ -1,0 +1,10 @@
+-- main.mcl --
+$name = ["a", "bb", "ccc",]
+
+test $name {}      # must pass
+#test "${name}" {} # must fail
+
+-- OUTPUT --
+Vertex: test[a]
+Vertex: test[bb]
+Vertex: test[ccc]

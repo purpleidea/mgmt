@@ -1,0 +1,8 @@
+-- main.mcl --
+$name = ["a", "bb", "ccc",]
+
+#test $name {}    # must pass
+test "${name}" {} # must fail
+
+-- OUTPUT --
+# err: errUnify: can't unify, invariant illogicality with equality: base kind does not match (Str != List)

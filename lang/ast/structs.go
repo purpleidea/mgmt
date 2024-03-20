@@ -5408,6 +5408,10 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 		}, nil
 	}
 	// we got something, overwrite the existing static str
+	// ensure str, to avoid a pass-through list in a simple interpolation
+	if err := result.SetType(types.TypeStr); err != nil {
+		return nil, errwrap.Wrapf(err, "interpolated string expected a different type")
+	}
 	return result, nil // replacement
 }
 

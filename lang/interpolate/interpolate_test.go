@@ -41,6 +41,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/parser"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/davecgh/go-spew/spew"
@@ -384,6 +385,9 @@ func TestInterpolateBasicStmt(t *testing.T) {
 				},
 			},
 		}
+		if err := resName.SetType(types.TypeStr); err != nil {
+			panic("could not set type")
+		}
 		exp := &ast.StmtProg{
 			Body: []interfaces.Stmt{
 				&ast.StmtRes{
@@ -573,6 +577,9 @@ func TestInterpolateBasicExpr(t *testing.T) {
 					Name: "person_name",
 				},
 			},
+		}
+		if err := exp.SetType(types.TypeStr); err != nil {
+			panic("could not set type")
 		}
 		testCases = append(testCases, test{
 			name: "basic expansion",

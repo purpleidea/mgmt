@@ -72,3 +72,10 @@ fold_end() {
 		echo "::endgroup::"
 	fi
 }
+
+assert_sudo() {
+	if ! timeout 1s sudo -A true; then
+		echo "sudo disabled: $@"
+		exit
+	fi
+}

@@ -32,6 +32,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -88,7 +89,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		// back poke in parallel (sync b/c of waitgroup)
 		wg := &sync.WaitGroup{}
 		for _, v := range obj.graph.IncomingGraphVertices(vertex) {
-			if !pgraph.VertexContains(v, vs) { // only poke what's needed
+			if !slices.Contains(vs, v) { // only poke what's needed
 				continue
 			}
 

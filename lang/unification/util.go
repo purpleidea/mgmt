@@ -30,6 +30,8 @@
 package unification
 
 import (
+	"slices"
+
 	"github.com/purpleidea/mgmt/lang/interfaces"
 )
 
@@ -63,17 +65,6 @@ func ExprMapToExprList(exprMap map[interfaces.Expr]struct{}) []interfaces.Expr {
 func UniqueExprList(exprList []interfaces.Expr) []interfaces.Expr {
 	exprMap := ExprListToExprMap(exprList)
 	return ExprMapToExprList(exprMap)
-}
-
-// ExprContains is an "in array" function to test for an expr in a slice of
-// expressions.
-func ExprContains(needle interfaces.Expr, haystack []interfaces.Expr) bool {
-	for _, v := range haystack {
-		if needle == v {
-			return true
-		}
-	}
-	return false
 }
 
 // pairs is a simple list of pairs of expressions which can be used as a simple
@@ -124,7 +115,7 @@ func (obj pairs) DFS(start interfaces.Expr) []interfaces.Expr {
 	for len(s) > 0 {
 		v, s = s[len(s)-1], s[:len(s)-1] // s.pop()
 
-		if !ExprContains(v, d) { // if not discovered
+		if !slices.Contains(d, v) { // if not discovered
 			d = append(d, v) // label as discovered
 
 			for _, w := range obj.Vertices(v) {

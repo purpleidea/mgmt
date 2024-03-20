@@ -335,34 +335,6 @@ func TestDeleteVertex2(t *testing.T) {
 	}
 }
 
-func TestVertexContains1(t *testing.T) {
-	v1 := NV("v1")
-	v2 := NV("v2")
-	v3 := NV("v3")
-	if VertexContains(v1, []Vertex{v1, v2, v3}) != true {
-		t.Errorf("should be true instead of false.")
-	}
-
-	v4 := NV("v4")
-	v5 := NV("v5")
-	v6 := NV("v6")
-	if VertexContains(v4, []Vertex{v5, v6}) != false {
-		t.Errorf("should be false instead of true.")
-	}
-
-	v7 := NV("v7")
-	v8 := NV("v8")
-	v9 := NV("v9")
-	if VertexContains(v8, []Vertex{v7, v8, v9}) != true {
-		t.Errorf("should be true instead of false.")
-	}
-
-	v1b := NV("v1") // same value, different objects
-	if VertexContains(v1b, []Vertex{v1, v2, v3}) != false {
-		t.Errorf("should be false instead of true.")
-	}
-}
-
 func TestTopoSort1(t *testing.T) {
 	G, _ := NewGraph("g9")
 	v1 := NV("v1")
@@ -695,31 +667,6 @@ func TestReachability4(t *testing.T) {
 	}
 }
 
-func TestReverse1(t *testing.T) {
-	v1 := NV("v1")
-	v2 := NV("v2")
-	v3 := NV("v3")
-	v4 := NV("v4")
-	v5 := NV("v5")
-	v6 := NV("v6")
-
-	if rev := Reverse([]Vertex{}); !reflect.DeepEqual(rev, []Vertex{}) {
-		t.Errorf("reverse of vertex slice failed (empty)")
-	}
-
-	if rev := Reverse([]Vertex{v1}); !reflect.DeepEqual(rev, []Vertex{v1}) {
-		t.Errorf("reverse of vertex slice failed (single)")
-	}
-
-	if rev := Reverse([]Vertex{v1, v2, v3, v4, v5, v6}); !reflect.DeepEqual(rev, []Vertex{v6, v5, v4, v3, v2, v1}) {
-		t.Errorf("reverse of vertex slice failed (1..6)")
-	}
-
-	if rev := Reverse([]Vertex{v6, v5, v4, v3, v2, v1}); !reflect.DeepEqual(rev, []Vertex{v1, v2, v3, v4, v5, v6}) {
-		t.Errorf("reverse of vertex slice failed (6..1)")
-	}
-}
-
 func TestCopy1(t *testing.T) {
 	g1 := &Graph{}
 	g2 := g1.Copy() // check this doesn't panic
@@ -761,54 +708,6 @@ func TestGraphCmp1(t *testing.T) {
 //		t.Errorf("should have no error during GraphCmp, but got: %v", err)
 //	}
 //}
-
-func TestSort0(t *testing.T) {
-	vs := []Vertex{}
-	s := Sort(vs)
-
-	if !reflect.DeepEqual(s, []Vertex{}) {
-		t.Errorf("sort failed!")
-		if s == nil {
-			t.Logf("output is nil!")
-		} else {
-			str := "Got:"
-			for _, v := range s {
-				str += " " + v.String()
-			}
-			t.Errorf(str)
-		}
-	}
-}
-
-func TestSort1(t *testing.T) {
-	v1 := NV("v1")
-	v2 := NV("v2")
-	v3 := NV("v3")
-	v4 := NV("v4")
-	v5 := NV("v5")
-	v6 := NV("v6")
-
-	vs := []Vertex{v3, v2, v6, v1, v5, v4}
-	s := Sort(vs)
-
-	if !reflect.DeepEqual(s, []Vertex{v1, v2, v3, v4, v5, v6}) {
-		t.Errorf("sort failed!")
-		str := "Got:"
-		for _, v := range s {
-			str += " " + v.String()
-		}
-		t.Errorf(str)
-	}
-
-	if !reflect.DeepEqual(vs, []Vertex{v3, v2, v6, v1, v5, v4}) {
-		t.Errorf("sort modified input!")
-		str := "Got:"
-		for _, v := range vs {
-			str += " " + v.String()
-		}
-		t.Errorf(str)
-	}
-}
 
 func TestSprint1(t *testing.T) {
 	g, _ := NewGraph("graph1")

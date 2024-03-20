@@ -33,6 +33,7 @@ package pgraph
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -374,11 +375,11 @@ func (vs VertexSlice) Sort() { sort.Sort(vs) }
 // VerticesSorted returns a sorted slice of all vertices in the graph. The order
 // is sorted by String() to avoid the non-determinism in the map type.
 func (g *Graph) VerticesSorted() []Vertex {
-	var vertices []Vertex
+	var vertices VertexSlice
 	for k := range g.adjacency {
 		vertices = append(vertices, k)
 	}
-	sort.Sort(VertexSlice(vertices)) // add determinism
+	sort.Sort(vertices) // add determinism
 	return vertices
 }
 
@@ -399,11 +400,11 @@ func (g *Graph) Sprint() string {
 		str += fmt.Sprintf("Vertex: %s\n", v)
 	}
 	for _, v1 := range g.VerticesSorted() {
-		vs := []Vertex{}
+		var vs VertexSlice
 		for v2 := range g.Adjacency()[v1] {
 			vs = append(vs, v2)
 		}
-		sort.Sort(VertexSlice(vs)) // deterministic order
+		sort.Sort(vs) // deterministic order
 		for _, v2 := range vs {
 			e := g.Adjacency()[v1][v2]
 			str += fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e)
@@ -500,7 +501,7 @@ func (g *Graph) DFS(start Vertex) []Vertex {
 	for len(s) > 0 {
 		v, s = s[len(s)-1], s[:len(s)-1] // s.pop()
 
-		if !VertexContains(v, d) { // if not discovered
+		if !slices.Contains(d, v) { // if not discovered
 			d = append(d, v) // label as discovered
 
 			for _, w := range g.GraphVertices(v) {
@@ -514,7 +515,7 @@ func (g *Graph) DFS(start Vertex) []Vertex {
 // FilterGraph builds a new graph containing only vertices from the list.
 func (g *Graph) FilterGraph(vertices []Vertex) (*Graph, error) {
 	fn := func(v Vertex) (bool, error) {
-		return VertexContains(v, vertices), nil
+		return slices.Contains(vertices, v), nil
 	}
 	return g.FilterGraphWithFn(fn)
 }
@@ -557,7 +558,7 @@ func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 
 		// get an undiscovered vertex to start from
 		for _, s := range g.Vertices() {
-			if !VertexContains(s, d) {
+			if !slices.Contains(d, s) {
 				start = s
 			}
 		}
@@ -687,7 +688,7 @@ func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 	if len(vertices) == 0 {
 		return []Vertex{}, nil // nope
 	}
-	if VertexContains(b, vertices) {
+	if slices.Contains(vertices, b) {
 		return []Vertex{a, b}, nil // found
 	}
 	// TODO: parallelize this with go routines?
@@ -776,10 +777,10 @@ Loop:
 	m1 := []Vertex{}
 	m2 := []Vertex{}
 	for k, v := range m {
-		if VertexContains(k, m1) {
+		if slices.Contains(m1, k) {
 			return fmt.Errorf("mapping from %s is used more than once to: %s", k, m1)
 		}
-		if VertexContains(v, m2) {
+		if slices.Contains(m2, v) {
 			return fmt.Errorf("mapping to %s is used more than once from: %s", v, m2)
 		}
 		m1 = append(m1, k)
@@ -815,48 +816,4 @@ Loop:
 	}
 
 	return nil // success!
-}
-
-// VertexContains is an "in array" function to test for a vertex in a slice of
-// vertices.
-func VertexContains(needle Vertex, haystack []Vertex) bool {
-	for _, v := range haystack {
-		if needle == v {
-			return true
-		}
-	}
-	return false
-}
-
-// EdgeContains is an "in array" function to test for an edge in a slice of
-// edges.
-func EdgeContains(needle Edge, haystack []Edge) bool {
-	for _, v := range haystack {
-		if needle == v {
-			return true
-		}
-	}
-	return false
-}
-
-// Reverse reverses a list of vertices.
-func Reverse(vs []Vertex) []Vertex {
-	out := []Vertex{}
-	l := len(vs)
-	for i := range vs {
-		out = append(out, vs[l-i-1])
-	}
-	return out
-}
-
-// Sort the list of vertices and return a copy without modifying the input.
-func Sort(vs []Vertex) []Vertex {
-	vertices := []Vertex{}
-	for _, v := range vs { // copy
-		vertices = append(vertices, v)
-	}
-	sort.Sort(VertexSlice(vertices))
-	return vertices
-	// sort.Sort(VertexSlice(vs)) // this is wrong, it would modify input!
-	//return vs
 }

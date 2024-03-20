@@ -35,6 +35,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1197,8 +1198,8 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 		if err != nil {
 			return err
 		}
-		reversed := pgraph.Reverse(topoSort2)
-		for _, v := range reversed {
+		slices.Reverse(topoSort2)
+		for _, v := range topoSort2 {
 			f, ok := v.(interfaces.Func)
 			if !ok {
 				panic("not a Func")

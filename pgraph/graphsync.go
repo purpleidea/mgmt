@@ -31,6 +31,7 @@ package pgraph
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -117,7 +118,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 	}
 	// get rid of any vertices we shouldn't keep (that aren't in new graph)
 	for v := range oldGraph.Adjacency() {
-		if !VertexContains(v, vertexKeep) {
+		if !slices.Contains(vertexKeep, v) {
 			vertexDels = append(vertexDels, v) // append
 		}
 	}
@@ -175,7 +176,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 	for v1 := range oldGraph.Adjacency() {
 		for _, e := range oldGraph.Adjacency()[v1] {
 			// we have an edge!
-			if !EdgeContains(e, edgeKeep) {
+			if !slices.Contains(edgeKeep, e) {
 				oldGraph.DeleteEdge(e)
 			}
 		}

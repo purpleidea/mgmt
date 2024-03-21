@@ -152,7 +152,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 
 	deploy, err := gapiObj.Cli(info)
 	if err != nil {
-		return false, cliUtil.CliParseError(err) // consistent errors
+		return false, cliUtil.CliParseError(err) // TODO: it seems unlikely that parsing the CLI failed at this stage, and then the error will be misleading
 	}
 
 	if cmd := obj.RunLang; cmd != nil && cmd.OnlyUnify && deploy == nil {

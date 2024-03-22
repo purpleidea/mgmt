@@ -66,10 +66,18 @@ func ReadPassword() ([]byte, error) {
 // ReadPasswordCtx reads a password from stdin and returns the result. It hides
 // the display of the password typed. It cancels reading when the context
 // closes. For more options try ReadPasswordCtxFdPrompt instead. If interrupted
-// by an uncaught signal during read, then this can bork your terminal. It's
-// best to use a version with a context instead.
+// by an uncaught signal during read, then this can bork your terminal.
 func ReadPasswordCtx(ctx context.Context) ([]byte, error) {
 	return ReadPasswordCtxFdPrompt(ctx, int(os.Stdin.Fd()), StdPrompt)
+}
+
+// ReadPasswordCtxPrompt reads a password stdin and returns the result. It hides
+// the display of the password typed. It cancels reading when the context
+// closes. If specified, it will prompt the user with the prompt message. If
+// interrupted by an uncaught signal during read, then this can bork your
+// terminal.
+func ReadPasswordCtxPrompt(ctx context.Context, prompt string) ([]byte, error) {
+	return ReadPasswordCtxFdPrompt(ctx, int(os.Stdin.Fd()), prompt)
 }
 
 // ReadPasswordCtxFdPrompt reads a password from the file descriptor and returns

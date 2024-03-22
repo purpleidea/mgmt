@@ -31,25 +31,12 @@ package util
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"time"
 )
 
 // Hello is a simple helper function to print a hello message and time.
 func Hello(program, version string, flags Flags) {
 	var start = time.Now().UnixNano()
-
-	// TODO: Move these log package initialization steps to the top main.go?
-	logFlags := log.LstdFlags
-	if flags.Debug {
-		logFlags = logFlags + log.Lshortfile
-	}
-	logFlags = logFlags - log.Ldate // remove the date for now
-	log.SetFlags(logFlags)
-
-	log.SetOutput(os.Stderr)
-
 	if program == "" {
 		program = "<unknown>"
 	}

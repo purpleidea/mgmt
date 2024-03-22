@@ -74,6 +74,7 @@ func main() {
 		return              // for safety
 	}
 
+	cliUtil.LogSetup(debug)
 	data := &cliUtil.Data{
 		Program: program,
 		Version: version,

@@ -31,6 +31,8 @@
 package util
 
 import (
+	"log"
+	"os"
 	"strings"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -80,4 +82,17 @@ func SafeProgram(program string) string {
 	//	program = "<unknown>"
 	//}
 	return program
+}
+
+// LogSetup changes some of the core logger package settings.
+func LogSetup(debug bool) {
+	// TODO: Move these log package initialization steps to the top main.go?
+	logFlags := log.LstdFlags
+	if debug {
+		logFlags = logFlags + log.Lshortfile
+	}
+	logFlags = logFlags - log.Ldate // remove the date for now
+	log.SetFlags(logFlags)
+
+	log.SetOutput(os.Stderr)
 }

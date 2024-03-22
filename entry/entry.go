@@ -170,6 +170,12 @@ type Runner struct {
 	data *Data
 }
 
+// Name returns the name of the program, which should match the argv[1] of what
+// we want to use to call this from the top-level main.
+func (obj *Runner) Name() string {
+	return obj.data.Program
+}
+
 // CLI is the entry point for using any embedded package from the CLI. It is
 // used as the main entry point from the top-level main function and kicks-off
 // the CLI parser.

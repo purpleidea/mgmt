@@ -32,7 +32,6 @@ package recwatch
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"path"
@@ -54,11 +53,13 @@ type Event struct {
 
 // RecWatcher is the struct for the recursive watcher. Run Init() on it.
 type RecWatcher struct {
-	Path     string // computed path
-	Recurse  bool   // should we watch recursively?
-	Flags    Flags
-	isDir    bool   // computed isDir
-	safename string // safe path
+	Path    string   // computed path
+	Recurse bool     // should we watch recursively?
+	Opts    []Option // list of options we use
+
+	options  *recwatchOptions // computed options
+	isDir    bool             // computed isDir
+	safename string           // safe path
 	watcher  *fsnotify.Watcher
 	watches  map[string]struct{}
 	events   chan Event // one channel for events and err...
@@ -69,10 +70,11 @@ type RecWatcher struct {
 }
 
 // NewRecWatcher creates an initializes a new recursive watcher.
-func NewRecWatcher(path string, recurse bool) (*RecWatcher, error) {
+func NewRecWatcher(path string, recurse bool, opts ...Option) (*RecWatcher, error) {
 	obj := &RecWatcher{
 		Path:    path,
 		Recurse: recurse,
+		Opts:    opts,
 	}
 	return obj, obj.Init()
 }
@@ -85,6 +87,19 @@ func (obj *RecWatcher) Init() error {
 	obj.exit = make(chan struct{})
 	obj.isDir = strings.HasSuffix(obj.Path, "/") // dirs have trailing slashes
 	obj.safename = path.Clean(obj.Path)          // no trailing slash
+	obj.options = &recwatchOptions{              // default recwatch options
+		debug: false,
+		logf: func(format string, v ...interface{}) {
+			// noop
+		},
+	}
+	for _, optionFunc := range obj.Opts { // apply the recwatch options
+		optionFunc(obj.options)
+	}
+
+	if obj.options.logf == nil {
+		return fmt.Errorf("recwatch: logf must not be nil")
+	}
 
 	var err error
 	obj.watcher, err = fsnotify.NewWatcher()
@@ -163,13 +178,13 @@ func (obj *RecWatcher) Watch() error {
 		if current == "" { // the empty string top is the root dir ("/")
 			current = "/"
 		}
-		if obj.Flags.Debug {
-			log.Printf("watching: %s", current) // attempting to watch...
+		if obj.options.debug {
+			obj.options.logf("watching: %s", current) // attempting to watch...
 		}
 		// initialize in the loop so that we can reset on rm-ed handles
 		if err := obj.watcher.Add(current); err != nil {
-			if obj.Flags.Debug {
-				log.Printf("watcher.Add(%s): Error: %v", current, err)
+			if obj.options.debug {
+				obj.options.logf("watcher.Add(%s): Error: %v", current, err)
 			}
 			// ENOENT for linux, etc and IsNotExist for macOS
 			if err == syscall.ENOENT || os.IsNotExist(err) {
@@ -191,8 +206,8 @@ func (obj *RecWatcher) Watch() error {
 
 		select {
 		case event := <-obj.watcher.Events:
-			if obj.Flags.Debug {
-				log.Printf("watch(%s), event(%s): %v", current, event.Name, event.Op)
+			if obj.options.debug {
+				obj.options.logf("watch(%s), event(%s): %v", current, event.Name, event.Op)
 			}
 			// the deeper you go, the bigger the deltaDepth is...
 			// this is the difference between what we're watching,
@@ -228,11 +243,11 @@ func (obj *RecWatcher) Watch() error {
 				// event.Name: /tmp/mgmt/f3 and current: /tmp/mgmt/f2
 				continue
 			}
-			//log.Printf("the delta depth is: %v", deltaDepth)
+			//obj.options.logf("the delta depth is: %v", deltaDepth)
 
 			// if we have what we wanted, awesome, send an event...
 			if event.Name == obj.safename {
-				//log.Printf("event!")
+				//obj.options.logf("event!")
 				// FIXME: should all these below cases trigger?
 				send = true
 
@@ -244,7 +259,7 @@ func (obj *RecWatcher) Watch() error {
 
 				// file removed, move the watch upwards
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					//log.Printf("removal!")
+					//obj.options.logf("removal!")
 					obj.watcher.Remove(current)
 					index--
 				}
@@ -265,16 +280,16 @@ func (obj *RecWatcher) Watch() error {
 
 				// if safename starts with event.Name, we're above, and no event should be sent
 			} else if util.HasPathPrefix(obj.safename, event.Name) {
-				//log.Printf("above!")
+				//obj.options.logf("above!")
 
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					log.Printf("removal!")
+					//obj.options.logf("removal!")
 					obj.watcher.Remove(current)
 					index--
 				}
 
 				if deltaDepth < 0 {
-					log.Printf("parent!")
+					//obj.options.logf("parent!")
 					if util.PathPrefixDelta(obj.safename, event.Name) == 1 { // we're the parent dir
 						send = true
 					}
@@ -284,7 +299,7 @@ func (obj *RecWatcher) Watch() error {
 
 				// if event.Name startswith safename, send event, we're already deeper
 			} else if util.HasPathPrefix(event.Name, obj.safename) {
-				//log.Printf("event2!")
+				//obj.options.logf("event2!")
 				send = true
 			}
 
@@ -317,8 +332,8 @@ func (obj *RecWatcher) addSubFolders(p string) error {
 	}
 	// look at all subfolders...
 	walkFn := func(path string, info os.FileInfo, err error) error {
-		if obj.Flags.Debug {
-			log.Printf("walk: %s (%v): %v", path, info, err)
+		if obj.options.debug {
+			obj.options.logf("walk: %s (%v): %v", path, info, err)
 		}
 		if err != nil {
 			return nil
@@ -334,6 +349,29 @@ func (obj *RecWatcher) addSubFolders(p string) error {
 	}
 	err := filepath.Walk(p, walkFn)
 	return err
+}
+
+// Option is a type that can be used to configure the recwatcher.
+type Option func(*recwatchOptions)
+
+type recwatchOptions struct {
+	debug bool
+	logf  func(format string, v ...interface{})
+	// TODO: add more options
+}
+
+// Debug specifies whether we should run in debug mode or not.
+func Debug(debug bool) Option {
+	return func(rwo *recwatchOptions) {
+		rwo.debug = debug
+	}
+}
+
+// Logf passes a logger function that we can use if so desired.
+func Logf(logf func(format string, v ...interface{})) Option {
+	return func(rwo *recwatchOptions) {
+		rwo.logf = logf
+	}
 }
 
 func isDir(path string) bool {

@@ -151,9 +151,9 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 			obj.recWatcher = &recwatch.RecWatcher{
 				Path:    *obj.filename,
 				Recurse: false,
-				Flags: recwatch.Flags{
-					// TODO: add Logf
-					Debug: obj.init.Debug,
+				Opts: []recwatch.Option{
+					recwatch.Logf(obj.init.Logf),
+					recwatch.Debug(obj.init.Debug),
 				},
 			}
 			if err := obj.recWatcher.Init(); err != nil {

@@ -53,9 +53,15 @@ type Event struct {
 
 // RecWatcher is the struct for the recursive watcher. Run Init() on it.
 type RecWatcher struct {
-	Path    string   // computed path
-	Recurse bool     // should we watch recursively?
-	Opts    []Option // list of options we use
+	// Path is the computer path that we're watching.
+	Path string
+
+	// Recurse specifies if we should watch recursively.
+	// TODO: Should this get converted into an Option?
+	Recurse bool
+
+	// Opts are the list of options that we are using this with.
+	Opts []Option
 
 	options  *recwatchOptions // computed options
 	isDir    bool             // computed isDir

@@ -32,7 +32,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -111,12 +110,9 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	main.Config = &obj.Config // pass in all the parsed data
 
 	main.Program, main.Version = data.Program, data.Version
-	main.Flags = lib.Flags{
-		Debug:   data.Flags.Debug,
-		Verbose: data.Flags.Verbose,
-	}
+	main.Debug, main.Logf = data.Flags.Debug, data.Flags.Logf // no prefix
 	Logf := func(format string, v ...interface{}) {
-		log.Printf("main: "+format, v...)
+		data.Flags.Logf("main: "+format, v...)
 	}
 
 	cliUtil.Hello(main.Program, main.Version, data.Flags) // say hello!
@@ -138,9 +134,9 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 		},
 
 		Fs:    standaloneFs,
-		Debug: main.Flags.Debug,
+		Debug: data.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf("cli: "+format, v...)
+			data.Flags.Logf("cli: "+format, v...)
 		},
 	}
 
@@ -159,7 +155,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	if main.Deploy == nil {
 		// nobody activated, but we'll still watch the etcd deploy chan,
 		// and if there is deployed code that's ready to run, we'll run!
-		log.Printf("main: no frontend selected (no GAPI activated)")
+		data.Flags.Logf("main: no frontend selected (no GAPI activated)")
 	}
 
 	if err := main.Validate(); err != nil {
@@ -188,20 +184,20 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 			select {
 			case sig := <-signals: // any signal will do
 				if sig != os.Interrupt {
-					log.Printf("interrupted by signal")
+					data.Flags.Logf("interrupted by signal")
 					main.Interrupt(fmt.Errorf("killed by %v", sig))
 					return
 				}
 
 				switch count {
 				case 0:
-					log.Printf("interrupted by ^C")
+					data.Flags.Logf("interrupted by ^C")
 					main.Exit(nil)
 				case 1:
-					log.Printf("interrupted by ^C (fast pause)")
+					data.Flags.Logf("interrupted by ^C (fast pause)")
 					main.FastExit(nil)
 				case 2:
-					log.Printf("interrupted by ^C (hard interrupt)")
+					data.Flags.Logf("interrupted by ^C (hard interrupt)")
 					main.Interrupt(nil)
 				}
 				count++
@@ -215,14 +211,14 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	reterr := main.Run()
 	if reterr != nil {
 		// log the error message returned
-		if main.Flags.Debug {
-			log.Printf("main: %+v", reterr)
+		if data.Flags.Debug {
+			data.Flags.Logf("main: %+v", reterr)
 		}
 	}
 
 	if err := main.Close(); err != nil {
-		if main.Flags.Debug {
-			log.Printf("main: Close: %+v", err)
+		if data.Flags.Debug {
+			data.Flags.Logf("main: Close: %+v", err)
 		}
 		if reterr == nil {
 			return false, err

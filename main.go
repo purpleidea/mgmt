@@ -33,6 +33,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/purpleidea/mgmt/cli"
@@ -48,7 +49,6 @@ import (
 const (
 	tagline = "next generation config management"
 	debug   = false // add additional log messages
-	verbose = false // add extra log message output
 )
 
 // set at compile time
@@ -80,8 +80,10 @@ func main() {
 		Copying: copying,
 		Tagline: tagline,
 		Flags: cliUtil.Flags{
-			Debug:   debug,
-			Verbose: verbose,
+			Debug: debug,
+			Logf: func(format string, v ...interface{}) {
+				log.Printf(format, v...) // the top-level log!
+			},
 		},
 		Args: os.Args,
 	}

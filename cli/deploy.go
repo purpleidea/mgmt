@@ -32,7 +32,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 
@@ -106,7 +105,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	program, version := data.Program, data.Version
 	Logf := func(format string, v ...interface{}) {
-		log.Printf("deploy: "+format, v...)
+		data.Flags.Logf("deploy: "+format, v...)
 	}
 
 	// TODO: consider adding a timeout based on an args.Timeout flag ?
@@ -226,7 +225,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		Debug: data.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
 			// TODO: is this a sane prefix to use here?
-			log.Printf("cli: "+format, v...)
+			data.Flags.Logf("cli: "+format, v...)
 		},
 	}
 

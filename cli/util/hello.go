@@ -40,6 +40,7 @@ import (
 func Hello(program, version string, flags Flags) {
 	var start = time.Now().UnixNano()
 
+	// TODO: Move these log package initialization steps to the top main.go?
 	logFlags := log.LstdFlags
 	if flags.Debug {
 		logFlags = logFlags + log.Lshortfile
@@ -55,5 +56,5 @@ func Hello(program, version string, flags Flags) {
 	fmt.Println(fmt.Sprintf("This is: %s, version: %s", program, version))
 	fmt.Println("Copyright (C) 2013-2024+ James Shubin and the project contributors")
 	fmt.Println("Written by James Shubin <james@shubin.ca> and the project contributors")
-	log.Printf("main: start: %v", start)
+	flags.Logf("main: start: %v", start)
 }

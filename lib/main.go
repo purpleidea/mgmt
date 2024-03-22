@@ -35,7 +35,6 @@ package lib
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"path"
@@ -74,12 +73,6 @@ const (
 	StoragePrefix = "/storage"
 )
 
-// Flags are some constant flags which are used throughout the program.
-type Flags struct {
-	Debug   bool // add additional log messages
-	Verbose bool // add extra log message output
-}
-
 // Config is a struct of all the configuration values for the Main struct. By
 // including this as a separate struct, it can be used as part of the API. This
 // API is not considered stable at this time, and is subject to change.
@@ -90,8 +83,11 @@ type Config struct {
 	// Version is the version of this program, usually set at compile time.
 	Version string `arg:"-"` // cli should ignore
 
-	// Flags are some static global flags that are set at compile time.
-	Flags Flags `arg:"-"` // cli should ignore
+	// Debug represents if we're running in debug mode or not.
+	Debug bool `arg:"-"` // cli should ignore
+
+	// Logf is a logger which should be used.
+	Logf func(format string, v ...interface{}) `arg:"-"` // cli should ignore
 
 	// Hostname to use; nil if undefined. Useful for testing multiple
 	// instances on same machine or for overriding a bad automatic hostname.
@@ -300,7 +296,7 @@ func (obj *Main) Init() error {
 // Run is the main execution entrypoint to run mgmt.
 func (obj *Main) Run() error {
 	Logf := func(format string, v ...interface{}) {
-		log.Printf("main: "+format, v...)
+		obj.Logf("main: "+format, v...)
 	}
 
 	exitCtx := obj.exit.Context() // local exit signal
@@ -509,9 +505,9 @@ func (obj *Main) Run() error {
 		NS:     NS, // namespace
 		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "etcd")),
 
-		Debug: obj.Flags.Debug,
+		Debug: obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf("etcd: "+format, v...)
+			obj.Logf("etcd: "+format, v...)
 		},
 	}
 	if err := obj.embdEtcd.Init(); err != nil {
@@ -558,9 +554,9 @@ func (obj *Main) Run() error {
 	}
 	simpleDeploy := &deployer.SimpleDeploy{
 		Client: etcdClient,
-		Debug:  obj.Flags.Debug,
+		Debug:  obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf("deploy: "+format, v...)
+			obj.Logf("deploy: "+format, v...)
 		},
 	}
 	if err := simpleDeploy.Init(); err != nil {
@@ -577,9 +573,9 @@ func (obj *Main) Run() error {
 	// implementation of the Local API (we only expect just this single one)
 	localAPI := (&local.API{
 		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "local")),
-		Debug:  obj.Flags.Debug,
+		Debug:  obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf("local: api: "+format, v...)
+			obj.Logf("local: api: "+format, v...)
 		},
 	}).Init()
 
@@ -593,9 +589,9 @@ func (obj *Main) Run() error {
 		MetadataPrefix: MetadataPrefix,
 		StoragePrefix:  StoragePrefix,
 		StandaloneFs:   obj.DeployFs, // used for static deploys
-		Debug:          obj.Flags.Debug,
+		Debug:          obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf("world: etcd: "+format, v...)
+			obj.Logf("world: etcd: "+format, v...)
 		},
 	}
 
@@ -608,9 +604,9 @@ func (obj *Main) Run() error {
 		World:     world,
 		Prefix:    fmt.Sprintf("%s/", path.Join(prefix, "engine")),
 		//Prometheus: prom, // TODO: implement this via a general Status API
-		Debug: obj.Flags.Debug,
+		Debug: obj.Debug,
 		Logf: func(format string, v ...interface{}) {
-			log.Printf("engine: "+format, v...)
+			obj.Logf("engine: "+format, v...)
 		},
 	}
 
@@ -701,19 +697,19 @@ func (obj *Main) Run() error {
 					//NoWatch:  obj.NoWatch,
 					NoStreamWatch: obj.NoStreamWatch,
 					Prefix:        fmt.Sprintf("%s/", path.Join(prefix, "gapi")),
-					Debug:         obj.Flags.Debug,
+					Debug:         obj.Debug,
 					Logf: func(format string, v ...interface{}) {
-						log.Printf("gapi: "+format, v...)
+						obj.Logf("gapi: "+format, v...)
 					},
 				}
-				if obj.Flags.Debug {
+				if obj.Debug {
 					Logf("gapi: init...")
 				}
 				if err := gapiImpl.Init(data); err != nil {
 					Logf("gapi: init failed: %+v", err)
 					// TODO: consider running previous GAPI?
 				} else {
-					if obj.Flags.Debug {
+					if obj.Debug {
 						Logf("gapi: next...")
 					}
 					// this must generate at least one event for it to work
@@ -723,7 +719,7 @@ func (obj *Main) Run() error {
 
 			case next, ok := <-gapiChan:
 				if !ok { // channel closed
-					if obj.Flags.Debug {
+					if obj.Debug {
 						Logf("gapi exited")
 					}
 					gapiChan = nil // disable it
@@ -766,7 +762,7 @@ func (obj *Main) Run() error {
 				continue
 			}
 			Logf("new graph took: %s", time.Since(timing))
-			if obj.Flags.Debug {
+			if obj.Debug {
 				Logf("new graph: %+v", newGraph)
 			}
 
@@ -862,7 +858,7 @@ func (obj *Main) Run() error {
 						continue // we'll catch the error later!
 					}
 
-					if obj.Flags.Debug {
+					if obj.Debug {
 						Logf("SendRecv: %s", res) // receiving here
 					}
 
@@ -1013,7 +1009,7 @@ func (obj *Main) Run() error {
 			select {
 			case deployChan <- deploy:
 				// send
-				if obj.Flags.Debug {
+				if obj.Debug {
 					Logf("deploy: sending new gapi")
 				}
 			case <-exitchan:
@@ -1071,7 +1067,7 @@ func (obj *Main) Run() error {
 					obj.exit.Done(errwrap.Wrapf(err, "deploy: watch error"))
 					continue
 				}
-				if obj.Flags.Debug {
+				if obj.Debug {
 					Logf("deploy: got activity")
 				}
 
@@ -1123,7 +1119,7 @@ func (obj *Main) Run() error {
 				select {
 				case deployChan <- deploy:
 					// send
-					if obj.Flags.Debug {
+					if obj.Debug {
 						Logf("deploy: sending empty deploy")
 					}
 
@@ -1145,7 +1141,7 @@ func (obj *Main) Run() error {
 			case deployChan <- deploy:
 				last = latest // update last deployed
 				// send
-				if obj.Flags.Debug {
+				if obj.Debug {
 					Logf("deploy: sent new gapi")
 				}
 

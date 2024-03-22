@@ -232,6 +232,7 @@ func (obj *Lang) Init(ctx context.Context) error {
 		Debug:  obj.Debug,
 		Logf:   logf,
 	}
+	// NOTE: This is the "real" Unify that runs. (This is not for deploy.)
 	unifyErr := unifier.Unify(ctx)
 	obj.Logf("type unification took: %s", time.Since(timing))
 	if unifyErr != nil {

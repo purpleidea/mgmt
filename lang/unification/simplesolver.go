@@ -771,6 +771,13 @@ Loop:
 				}
 				// is there another EqualityWrapFuncInvariant with the same Expr1 pointer?
 				for _, fn := range fnInvariants {
+					// XXX: I think we're busy in this loop a lot.
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					default:
+						// pass
+					}
 					// is this fn.Expr1 related by equivalency graph to eq.Expr1 ?
 					if (eq.Expr1 != fn.Expr1) && !inEquiv(fn.Expr1) {
 						if obj.Debug {

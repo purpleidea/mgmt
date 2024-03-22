@@ -503,6 +503,16 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 
 // Next returns nil errors every time there could be a new graph.
 func (obj *GAPI) Next() chan gapi.Next {
+	// TODO: This ctx stuff is temporary until we improve the Next() API.
+	ctx, cancel := context.WithCancel(context.Background())
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		select {
+		case <-obj.closeChan:
+			cancel() // close the ctx to unblock type unification
+		}
+	}()
 	ch := make(chan gapi.Next)
 	obj.wg.Add(1)
 	go func() {
@@ -553,7 +563,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 				// run up to these three but fail on err
 				if e := obj.LangClose(); e != nil { // close any old lang
 					err = e // pass through the err
-				} else if e := obj.LangInit(context.TODO()); e != nil { // init the new one!
+				} else if e := obj.LangInit(ctx); e != nil { // init the new one!
 					err = e // pass through the err
 
 					// Always run LangClose after LangInit

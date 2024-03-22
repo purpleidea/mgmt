@@ -391,7 +391,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	}
 
 	// display the deploy fs tree
-	if debug || true { // TODO: should this only be shown on debug?
+	if debug { // this should only be shown on debug, or `entry` looks messy!
 		logf("input: %s", args.Input)
 		tree, err := util.FsTree(fs, "/")
 		if err != nil {

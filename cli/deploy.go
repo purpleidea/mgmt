@@ -44,8 +44,8 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
+	git "github.com/go-git/go-git/v5"
 	"github.com/google/uuid"
-	git "gopkg.in/src-d/go-git.v4"
 )
 
 // DeployArgs is the CLI parsing structure and type of the parsed result. This

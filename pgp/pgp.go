@@ -37,7 +37,6 @@ import (
 	"crypto"
 	"encoding/base64"
 	"io"
-	"log"
 	"os"
 	"strings"
 
@@ -81,7 +80,6 @@ func Import(privKeyPath string) (*PGP, error) {
 		Entity: entity,
 	}
 
-	log.Printf("PGP: Imported key: %s", obj.Entity.PrivateKey.KeyIdShortString())
 	return obj, nil
 }
 
@@ -101,7 +99,6 @@ func Generate(name, comment, email string, hash *crypto.Hash) (*PGP, error) {
 		Entity: entity,
 	}
 
-	log.Printf("PGP: Created key: %s", obj.Entity.PrivateKey.KeyIdShortString())
 	return obj, nil
 }
 

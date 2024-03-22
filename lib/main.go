@@ -388,6 +388,9 @@ func (obj *Main) Run() error {
 	}
 
 	if !obj.NoPgp {
+		pgpLogf := func(format string, v ...interface{}) {
+			obj.Logf("pgp: "+format, v...)
+		}
 		pgpPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgp"))
 		if err := os.MkdirAll(pgpPrefix, 0770); err != nil {
 			return errwrap.Wrapf(err, "can't create pgp prefix")
@@ -402,6 +405,9 @@ func (obj *Main) Run() error {
 		var err error
 		if obj.pgpKeys, err = pgp.Import(pgpKeyringPath); err != nil && !os.IsNotExist(err) {
 			return errwrap.Wrapf(err, "can't import pgp key")
+		}
+		if obj.pgpKeys != nil { // it might have not been created!
+			pgpLogf("imported key: %s", obj.pgpKeys.Entity.PrivateKey.KeyIdShortString())
 		}
 
 		if obj.pgpKeys == nil {
@@ -420,6 +426,7 @@ func (obj *Main) Run() error {
 			if obj.pgpKeys, err = pgp.Generate(name, comment, email, nil); err != nil {
 				return errwrap.Wrapf(err, "can't create pgp key")
 			}
+			pgpLogf("created key: %s", obj.pgpKeys.Entity.PrivateKey.KeyIdShortString())
 
 			if err := obj.pgpKeys.SaveKey(pgpKeyringPath); err != nil {
 				return errwrap.Wrapf(err, "can't save pgp key")

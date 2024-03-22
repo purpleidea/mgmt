@@ -76,9 +76,11 @@ type Data struct {
 	// Version is the version of this program, usually set at compile time.
 	Version string
 
-	// TODO: flags struct API here?
+	// Debug represents if we're running in debug mode or not.
 	Debug bool
-	//Verbose bool
+
+	// Logf is a logger which should be used.
+	Logf func(format string, v ...interface{})
 
 	// Args is the CLI struct to use. This takes the format of the go-arg
 	// API. Keep in mind that these values will be added on to the normal
@@ -260,7 +262,25 @@ func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) error {
 	}
 	_ = args
 
+	//debug := data.Flags.Debug // this one comes from main
+	debug := obj.data.Debug // this one comes from entry
+	logf := func(format string, v ...interface{}) {
+		//data.Flags.Logf(obj.data.Program+": "+format, v...)
+		obj.data.Logf(obj.data.Program+": "+format, v...)
+	}
 	if obj.data.Custom != nil {
+		if x, ok := obj.data.Custom.(Initable); ok {
+			init := &Init{
+				Data:  data,
+				Debug: debug,
+				Logf:  logf,
+				// TODO: add more?
+			}
+			if err := x.Init(init); err != nil {
+				return errwrap.Wrapf(err, "can't init custom struct")
+			}
+		}
+
 		// The obj.data.Args value is our own Args struct which we can
 		// already have access to by holding on to it ourselves when we
 		// create it! So no need to pass it back in to ourselves...
@@ -294,6 +314,24 @@ func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) error {
 	}
 
 	return nil
+}
+
+// Init is some data and handles to pass in.
+type Init struct {
+	// Data is the original data that we get from the core compilation.
+	Data *cliUtil.Data
+
+	Debug bool
+	Logf  func(format string, v ...interface{})
+}
+
+// Initable lets us have a way to pass in some data and handles if the struct
+// wants them. Implementing this is optional.
+type Initable interface {
+	Customizable
+
+	// Init passes in some data and handles.
+	Init(*Init) error
 }
 
 // Customizable is an additional API you can implement to have tighter control

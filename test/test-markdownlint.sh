@@ -82,13 +82,9 @@ bad_files=$(
 		fi
 
 		# check the markdown format with the linter
-		# currently we replace leading tabs with spaces until
-		# https://github.com/jackdewinter/pymarkdown/issues/1015
-		# is fixed
 
 		# first: ignore the long-lines check
-		#if ! "$linter" -d ${disable_arg},md013 $options scan "$i" 1>&2; then
-		if ! sed 's/\t/    /g' <"$i" | $linter -d ${disable_arg},md013 $options scan-stdin 1>&2; then
+		if ! $linter -d ${disable_arg},md013 $options scan "$i" 1>&2; then
 			echo "$i"
 			continue
 		fi
@@ -97,7 +93,6 @@ bad_files=$(
 		# (required because the linter currently has no tables support
 		#  so we cannot configure an exception)
 		if ! grep -v '^|' "$i" \
-		   | sed 's/\t/    /g' \
 		   | $linter -d $all_rules_except_long_lines $options scan-stdin 1>&2; then
 			echo "$i"
 			continue

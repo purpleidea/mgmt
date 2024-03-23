@@ -1490,16 +1490,15 @@ func cast(y yyLexer) *lexParseAST {
 // node.
 func locate(y yyLexer, dollars []yySymType, node interfaces.Node) {
 	posLast(y, dollars)
-	var (
-		ok bool
-		ln ast.LocalNode
-	)
-	if ln, ok = node.(ast.LocalNode) ; !ok {
+	if ln, ok := node.(ast.LocalNode) ; !ok {
 		return
+	} else {
+		first := dollars[0]
+		last := dollars[len(dollars)-1]
+		ln.Locate(first.row, first.col, last.row, last.col)
+		fmt.Printf("Located a node: %v at (%v:%v-%v:%v) it has %i symbols\n", ln,
+			first.row, first.col, last.row, last.col, len(dollars))
 	}
-	first := dollars[0]
-	last := dollars[len(dollars)-1]
-	ln.Locate(first.row, first.col, last.row, last.col)
 }
 
 // postLast runs pos on the first and last token of the current stmt/expr.
@@ -1516,9 +1515,8 @@ func (yylex *Lexer) cast() *lexParseAST {
 
 // pos is a helper function used to track the position in the lexer.
 func (yylex *Lexer) pos(lval *yySymType) {
-	// add 1 because the lexer starts counting from 0
-	lval.row = yylex.Line() + 1
-	lval.col = yylex.Column() + 1
+	lval.row = yylex.Line()
+	lval.col = yylex.Column()
 	// TODO: we could use: `s := yylex.Text()` to calculate a delta length!
 	//log.Printf("lexer: %d x %d", lval.row, lval.col)
 }

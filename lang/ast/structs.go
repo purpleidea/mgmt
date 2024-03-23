@@ -197,13 +197,21 @@ func (a *TextArea) Locate(line int, col int, endline int, endcol int) {
 	a.endColumn = endcol
 }
 
+// LocalNode is the interface implemented by AST nodes that store their code
+// position. It is implemented by node types that embed TextArea.
+type LocalNode interface {
+	Locate(int, int, int, int)
+	GetPosition() (int, int)
+	GetEndPosition() (int, int)
+}
+
 // GetPosition returns the starting line/column of an AST node
-func (a *TextArea) GetPosition() (int, int) {
+func (a TextArea) GetPosition() (int, int) {
 	return a.startLine, a.startColumn
 }
 
 // GetEndPosition returns the end line/column of an AST node
-func (a *TextArea) GetEndPosition() (int, int) {
+func (a TextArea) GetEndPosition() (int, int) {
 	return a.endLine, a.endColumn
 }
 
@@ -251,11 +259,9 @@ func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &StmtBind{
-		Ident: obj.Ident,
-		Value: interpolated,
-		Type:  obj.Type,
-	}, nil
+	result := *obj
+	result.Value = interpolated
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -2676,11 +2682,11 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 			return nil, errwrap.Wrapf(err, "could not interpolate ElseBranch")
 		}
 	}
-	return &StmtIf{
-		Condition:  condition,
-		ThenBranch: thenBranch,
-		ElseBranch: elseBranch,
-	}, nil
+	result := *obj
+	result.Condition = condition
+	result.ThenBranch = thenBranch
+	result.ElseBranch = elseBranch
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.

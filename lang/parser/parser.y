@@ -199,12 +199,13 @@ stmt:
 	}
 |	IF expr OPEN_CURLY prog CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
-		$$.stmt = &ast.StmtIf{
+		result := &ast.StmtIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			//ElseBranch: nil,
 		}
+		posLastAndStore(yylex, yyDollar, &result.TextArea)
+		$$.stmt = result
 	}
 |	IF expr OPEN_CURLY prog CLOSE_CURLY ELSE OPEN_CURLY prog CLOSE_CURLY
 	{
@@ -1486,10 +1487,19 @@ func cast(y yyLexer) *lexParseAST {
 	return x.(*lexParseAST)
 }
 
-// postLast pulls out the "last token" and does a pos with that. This is a hack!
+// The posLast variant that specifies a node will store the coordinates in the
+// node.
+func posLastAndStore(y yyLexer, dollars []yySymType, node *ast.TextArea) {
+	posLast(y, dollars)
+	first := dollars[0]
+	last := dollars[len(dollars)-1]
+	node.Locate(first.row, first.col, last.row, last.col)
+}
+
+// postLast runs pos on the first and last token of the current stmt/expr.
 func posLast(y yyLexer, dollars []yySymType) {
-	// pick the last token in the set matched by the parser
-	pos(y, dollars[len(dollars)-1]) // our pos
+	pos(y, dollars[0])
+	pos(y, dollars[len(dollars)-1])
 }
 
 // cast is used to pull out the parser run-specific struct we store our AST in.
@@ -1500,8 +1510,9 @@ func (yylex *Lexer) cast() *lexParseAST {
 
 // pos is a helper function used to track the position in the lexer.
 func (yylex *Lexer) pos(lval *yySymType) {
-	lval.row = yylex.Line()
-	lval.col = yylex.Column()
+	// add 1 because the lexer starts counting from 0
+	lval.row = yylex.Line() + 1
+	lval.col = yylex.Column() + 1
 	// TODO: we could use: `s := yylex.Text()` to calculate a delta length!
 	//log.Printf("lexer: %d x %d", lval.row, lval.col)
 }

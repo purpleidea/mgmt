@@ -177,12 +177,51 @@ var (
 	orderingGraphSingleton = false
 )
 
+// TextArea stores the coordinates of a statement or expression in the form of
+// starting line/column and ending line/column
+type TextArea struct {
+	startLine int
+	startColumn int
+	endLine int
+	endColumn int
+
+	// Bug5819 works around issue https://github.com/golang/go/issues/5819
+	Bug5819 interface{} // XXX: workaround
+}
+
+// Locate is used by the parser to store the token positions in AST nodes
+func (a *TextArea) Locate(line int, col int, endline int, endcol int) {
+	a.startLine = line
+	a.startColumn = col
+	a.endLine = endline
+	a.endColumn = endcol
+}
+
+// LocalNode is the interface implemented by AST nodes that store their code
+// position. It is implemented by node types that embed TextArea.
+type LocalNode interface {
+	Locate(int, int, int, int)
+	GetPosition() (int, int)
+	GetEndPosition() (int, int)
+}
+
+// GetPosition returns the starting line/column of an AST node
+func (a TextArea) GetPosition() (int, int) {
+	return a.startLine, a.startColumn
+}
+
+// GetEndPosition returns the end line/column of an AST node
+func (a TextArea) GetEndPosition() (int, int) {
+	return a.endLine, a.endColumn
+}
+
 // StmtBind is a representation of an assignment, which binds a variable to an
 // expression.
 type StmtBind struct {
 	Ident string
 	Value interfaces.Expr
 	Type  *types.Type
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -220,11 +259,9 @@ func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &StmtBind{
-		Ident: obj.Ident,
-		Value: interpolated,
-		Type:  obj.Type,
-	}, nil
+	result := *obj
+	result.Value = interpolated
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -365,6 +402,7 @@ type StmtRes struct {
 	Name     interfaces.Expr   // unique name for the res of this kind
 	namePtr  interfaces.Func   // ptr for table lookup
 	Contents []StmtResContents // list of fields/edges in parsed order
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -2059,6 +2097,7 @@ type StmtEdge struct {
 
 	// TODO: should notify be an Expr?
 	Notify bool // specifies that this edge sends a notification as well
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -2561,6 +2600,7 @@ type StmtIf struct {
 	conditionPtr interfaces.Func // ptr for table lookup
 	ThenBranch   interfaces.Stmt // optional, but usually present
 	ElseBranch   interfaces.Stmt // optional
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -2642,11 +2682,11 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 			return nil, errwrap.Wrapf(err, "could not interpolate ElseBranch")
 		}
 	}
-	return &StmtIf{
-		Condition:  condition,
-		ThenBranch: thenBranch,
-		ElseBranch: elseBranch,
-	}, nil
+	result := *obj
+	result.Condition = condition
+	result.ThenBranch = thenBranch
+	result.ElseBranch = elseBranch
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -2923,6 +2963,7 @@ type StmtProg struct {
 	importFiles []string    // list of files seen during the SetScope import
 
 	Body []interfaces.Stmt
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4329,6 +4370,7 @@ type StmtFunc struct {
 	Name string
 	Func interfaces.Expr
 	Type *types.Type
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4535,6 +4577,7 @@ type StmtClass struct {
 	Name string
 	Args []*interfaces.Arg
 	Body interfaces.Stmt // probably a *StmtProg
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4737,6 +4780,7 @@ type StmtInclude struct {
 	Name  string
 	Args  []interfaces.Expr
 	Alias string
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -5102,6 +5146,7 @@ func (obj *StmtInclude) Output(table map[interfaces.Func]types.Value) (*interfac
 type StmtImport struct {
 	Name  string
 	Alias string
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -5283,6 +5328,7 @@ type ExprBool struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V bool
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5428,6 +5474,7 @@ type ExprStr struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V string // value of this string
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5623,6 +5670,7 @@ type ExprInt struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V int64
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5766,6 +5814,7 @@ type ExprFloat struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V float64
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5913,6 +5962,7 @@ type ExprList struct {
 
 	//Elements []*ExprListElement
 	Elements []interfaces.Expr
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6266,6 +6316,7 @@ type ExprMap struct {
 	typ   *types.Type
 
 	KVs []*ExprMapKV
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6751,6 +6802,7 @@ type ExprStruct struct {
 	typ   *types.Type
 
 	Fields []*ExprStructField // the list (fields) are intentionally ordered!
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -7183,6 +7235,7 @@ type ExprFunc struct {
 
 	// XXX: is this necessary?
 	//V func(interfaces.Txn, []pgraph.Vertex) (pgraph.Vertex, error)
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -7933,6 +7986,7 @@ type ExprCall struct {
 	// Anon is an *ExprFunc which is used if we are calling anonymously. If
 	// this is specified, Name must be the empty string.
 	Anon interfaces.Expr
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -8748,6 +8802,7 @@ type ExprVar struct {
 	typ   *types.Type
 
 	Name string // name of the variable
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -9011,6 +9066,7 @@ type ExprParam struct {
 	typ *types.Type
 
 	Name string // name of the parameter
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -9723,6 +9779,7 @@ type ExprIf struct {
 	Condition  interfaces.Expr
 	ThenBranch interfaces.Expr // could be an ExprBranch
 	ElseBranch interfaces.Expr // could be an ExprBranch
+	TextArea
 }
 
 // String returns a short representation of this expression.

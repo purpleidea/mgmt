@@ -190,7 +190,7 @@ type TextArea struct {
 }
 
 // Locate is used by the parser to store the token positions in AST nodes
-func (a TextArea) Locate(line int, col int, endline int, endcol int) {
+func (a *TextArea) Locate(line int, col int, endline int, endcol int) {
 	a.startLine = line
 	a.startColumn = col
 	a.endLine = endline
@@ -201,6 +201,8 @@ func (a TextArea) Locate(line int, col int, endline int, endcol int) {
 // position. It is implemented by node types that embed TextArea.
 type LocalNode interface {
 	Locate(int, int, int, int)
+	GetPosition() (int, int)
+	GetEndPosition() (int, int)
 }
 
 // GetPosition returns the starting line/column of an AST node
@@ -224,7 +226,7 @@ type StmtBind struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtBind) String() string {
-	return fmt.Sprintf("bind(%s)", obj.Ident)
+	return fmt.Sprintf("bind(%s) @ (%d %d)", obj.Ident, obj.startLine+1, obj.startColumn+1)
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -257,11 +259,9 @@ func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &StmtBind{
-		Ident: obj.Ident,
-		Value: interpolated,
-		Type:  obj.Type,
-	}, nil
+	result := *obj
+	result.Value = interpolated
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -2616,6 +2616,8 @@ func (obj *StmtIf) String() string {
 		s += fmt.Sprintf(" else { %s }", obj.ElseBranch.String())
 	}
 
+	s += fmt.Sprintf(" @ (%d %d)", obj.startLine+1, obj.startColumn+1)
+
 	return s
 }
 
@@ -2682,11 +2684,11 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 			return nil, errwrap.Wrapf(err, "could not interpolate ElseBranch")
 		}
 	}
-	return &StmtIf{
-		Condition:  condition,
-		ThenBranch: thenBranch,
-		ElseBranch: elseBranch,
-	}, nil
+	result := *obj
+	result.Condition = condition
+	result.ThenBranch = thenBranch
+	result.ElseBranch = elseBranch
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.

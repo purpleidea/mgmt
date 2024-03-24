@@ -274,6 +274,12 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		unificationStrategy[unification.StrategyOptimizationsKey] = strings.Join(args.UnifyOptimizations, ",")
 	}
 
+	fmt.Println("The Interpolated Tree: %+v")
+	iast.Apply(func (n interfaces.Node) error {
+		fmt.Println(n)
+		return nil
+	})
+
 	if !args.SkipUnify {
 		// apply type unification
 		unificationLogf := func(format string, v ...interface{}) {

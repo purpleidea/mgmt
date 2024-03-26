@@ -452,7 +452,16 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(
 		|| rm -f releases/$(VERSION)/mgmt-release.url
 
 releases/$(VERSION)/.mkdir:
-	mkdir -p releases/$(VERSION)/{$(TOKEN_BINARY_AMD64),$(TOKEN_BINARY_ARM64),$(TOKEN_FEDORA-39),$(TOKEN_FEDORA-38),$(TOKEN_CENTOS-7),$(TOKEN_DEBIAN-10),$(TOKEN_UBUNTU-BIONIC),$(TOKEN_ARCHLINUX)}/ && touch releases/$(VERSION)/.mkdir
+	mkdir -p \
+	releases/$(VERSION)/$(TOKEN_BINARY_AMD64)/ \
+	releases/$(VERSION)/$(TOKEN_BINARY_ARM64)/ \
+	releases/$(VERSION)/$(TOKEN_FEDORA-39)/ \
+	releases/$(VERSION)/$(TOKEN_FEDORA-38)/ \
+	releases/$(VERSION)/$(TOKEN_CENTOS-7)/ \
+	releases/$(VERSION)/$(TOKEN_DEBIAN-10)/ \
+	releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/ \
+	releases/$(VERSION)/$(TOKEN_ARCHLINUX)/ \
+	&& touch releases/$(VERSION)/.mkdir
 
 $(PKG_BINARY_AMD64): build/mgmt-linux-amd64 releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."

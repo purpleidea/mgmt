@@ -1,6 +1,6 @@
 [Distribution]
 Distribution=fedora
-Release=29
+Release=38
 
 [Output]
 Format=raw_btrfs

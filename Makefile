@@ -30,8 +30,8 @@
 SHELL = /usr/bin/env bash
 .PHONY: all art cleanart version program lang path deps run race generate build build-debug crossbuild clean test gofmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
-.PHONY: mkosi mkosi_fedora-30 mkosi_fedora-29 mkosi_centos-7 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux
-.PHONY: release releases_path release_binary_amd64 release_binary_arm64 release_fedora-30 release_fedora-29 release_centos-7 release_debian-10 release_ubuntu-bionic release_archlinux
+.PHONY: mkosi mkosi_fedora-39 mkosi_fedora-38 mkosi_centos-7 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux
+.PHONY: release releases_path release_binary_amd64 release_binary_arm64 release_fedora-39 release_fedora-38 release_centos-7 release_debian-10 release_ubuntu-bionic release_archlinux
 .PHONY: funcgen
 .SILENT: clean
 
@@ -74,8 +74,8 @@ GOHOSTARCH = $(shell go env GOHOSTARCH)
 
 TOKEN_BINARY_AMD64 = binary-linux-amd64
 TOKEN_BINARY_ARM64 = binary-linux-arm64
-TOKEN_FEDORA-30 = fedora-30
-TOKEN_FEDORA-29 = fedora-29
+TOKEN_FEDORA-39 = fedora-39
+TOKEN_FEDORA-38 = fedora-38
 TOKEN_CENTOS-7 = centos-7
 TOKEN_DEBIAN-10 = debian-10
 TOKEN_UBUNTU-BIONIC = ubuntu-bionic
@@ -83,8 +83,8 @@ TOKEN_ARCHLINUX = archlinux
 
 FILE_BINARY_AMD64 = mgmt-linux-amd64-$(VERSION)
 FILE_BINARY_ARM64 = mgmt-linux-arm64-$(VERSION)
-FILE_FEDORA-30 = mgmt-$(TOKEN_FEDORA-30)-$(VERSION)-1.x86_64.rpm
-FILE_FEDORA-29 = mgmt-$(TOKEN_FEDORA-29)-$(VERSION)-1.x86_64.rpm
+FILE_FEDORA-39 = mgmt-$(TOKEN_FEDORA-39)-$(VERSION)-1.x86_64.rpm
+FILE_FEDORA-38 = mgmt-$(TOKEN_FEDORA-38)-$(VERSION)-1.x86_64.rpm
 FILE_CENTOS-7 = mgmt-$(TOKEN_CENTOS-7)-$(VERSION)-1.x86_64.rpm
 FILE_DEBIAN-10 = mgmt_$(TOKEN_DEBIAN-10)_$(VERSION)_amd64.deb
 FILE_UBUNTU-BIONIC = mgmt_$(TOKEN_UBUNTU-BIONIC)_$(VERSION)_amd64.deb
@@ -92,8 +92,8 @@ FILE_ARCHLINUX = mgmt-$(TOKEN_ARCHLINUX)-$(VERSION)-1-x86_64.pkg.tar.xz
 
 PKG_BINARY_AMD64 = releases/$(VERSION)/$(TOKEN_BINARY_AMD64)/$(FILE_BINARY_AMD64)
 PKG_BINARY_ARM64 = releases/$(VERSION)/$(TOKEN_BINARY_ARM64)/$(FILE_BINARY_ARM64)
-PKG_FEDORA-30 = releases/$(VERSION)/$(TOKEN_FEDORA-30)/$(FILE_FEDORA-30)
-PKG_FEDORA-29 = releases/$(VERSION)/$(TOKEN_FEDORA-29)/$(FILE_FEDORA-29)
+PKG_FEDORA-39 = releases/$(VERSION)/$(TOKEN_FEDORA-39)/$(FILE_FEDORA-39)
+PKG_FEDORA-38 = releases/$(VERSION)/$(TOKEN_FEDORA-38)/$(FILE_FEDORA-38)
 PKG_CENTOS-7 = releases/$(VERSION)/$(TOKEN_CENTOS-7)/$(FILE_CENTOS-7)
 PKG_DEBIAN-10 = releases/$(VERSION)/$(TOKEN_DEBIAN-10)/$(FILE_DEBIAN-10)
 PKG_UBUNTU-BIONIC = releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/$(FILE_UBUNTU-BIONIC)
@@ -386,13 +386,13 @@ tag: ## tags a new release
 #
 #	mkosi
 #
-mkosi: mkosi_fedora-30 mkosi_fedora-29 mkosi_centos-7 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux ## builds distro packages via mkosi
+mkosi: mkosi_fedora-39 mkosi_fedora-38 mkosi_centos-7 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux ## builds distro packages via mkosi
 
-mkosi_fedora-30: releases/$(VERSION)/.mkdir
+mkosi_fedora-39: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
-mkosi_fedora-29: releases/$(VERSION)/.mkdir
+mkosi_fedora-38: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
@@ -424,14 +424,14 @@ releases_path:
 
 release_binary_amd64: $(PKG_BINARY_AMD64)
 release_binary_arm64: $(PKG_BINARY_ARM64)
-release_fedora-30: $(PKG_FEDORA-30)
-release_fedora-29: $(PKG_FEDORA-29)
+release_fedora-39: $(PKG_FEDORA-39)
+release_fedora-38: $(PKG_FEDORA-38)
 release_centos-7: $(PKG_CENTOS-7)
 release_debian-10: $(PKG_DEBIAN-10)
 release_ubuntu-bionic: $(PKG_UBUNTU-BIONIC)
 release_archlinux: $(PKG_ARCHLINUX)
 
-releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-30) $(PKG_FEDORA-29) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
+releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-39) $(PKG_FEDORA-38) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
 	@echo "Pushing git tag $(VERSION) to origin..."
 	git push origin $(VERSION)
 	@echo "Creating github release..."
@@ -439,8 +439,8 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(
 		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
 		-a $(PKG_BINARY_AMD64) \
 		-a $(PKG_BINARY_ARM64) \
-		-a $(PKG_FEDORA-30) \
-		-a $(PKG_FEDORA-29) \
+		-a $(PKG_FEDORA-39) \
+		-a $(PKG_FEDORA-38) \
 		-a $(PKG_CENTOS-7) \
 		-a $(PKG_DEBIAN-10) \
 		-a $(PKG_UBUNTU-BIONIC) \
@@ -452,7 +452,7 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(
 		|| rm -f releases/$(VERSION)/mgmt-release.url
 
 releases/$(VERSION)/.mkdir:
-	mkdir -p releases/$(VERSION)/{$(TOKEN_BINARY_AMD64),$(TOKEN_BINARY_ARM64),$(TOKEN_FEDORA-30),$(TOKEN_FEDORA-29),$(TOKEN_CENTOS-7),$(TOKEN_DEBIAN-10),$(TOKEN_UBUNTU-BIONIC),$(TOKEN_ARCHLINUX)}/ && touch releases/$(VERSION)/.mkdir
+	mkdir -p releases/$(VERSION)/{$(TOKEN_BINARY_AMD64),$(TOKEN_BINARY_ARM64),$(TOKEN_FEDORA-39),$(TOKEN_FEDORA-38),$(TOKEN_CENTOS-7),$(TOKEN_DEBIAN-10),$(TOKEN_UBUNTU-BIONIC),$(TOKEN_ARCHLINUX)}/ && touch releases/$(VERSION)/.mkdir
 
 $(PKG_BINARY_AMD64): build/mgmt-linux-amd64 releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
@@ -462,21 +462,21 @@ $(PKG_BINARY_ARM64): build/mgmt-linux-arm64 releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; cp -a build/mgmt-linux-arm64 $(PKG_BINARY_ARM64)
 
-releases/$(VERSION)/$(TOKEN_FEDORA-30)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+releases/$(VERSION)/$(TOKEN_FEDORA-39)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-rpm-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_FEDORA-30): releases/$(VERSION)/$(TOKEN_FEDORA-30)/changelog
+$(PKG_FEDORA-39): releases/$(VERSION)/$(TOKEN_FEDORA-39)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-30)" libvirt-devel augeas-devel
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-39)" libvirt-devel augeas-devel
 
-releases/$(VERSION)/$(TOKEN_FEDORA-29)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+releases/$(VERSION)/$(TOKEN_FEDORA-38)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-rpm-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_FEDORA-29): releases/$(VERSION)/$(TOKEN_FEDORA-29)/changelog
+$(PKG_FEDORA-38): releases/$(VERSION)/$(TOKEN_FEDORA-38)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-29)" libvirt-devel augeas-devel
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-38)" libvirt-devel augeas-devel
 
 releases/$(VERSION)/$(TOKEN_CENTOS-7)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
@@ -506,10 +506,10 @@ $(PKG_ARCHLINUX): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_ARCHLINUX)" libvirt augeas
 
-$(SHA256SUMS): $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-30) $(PKG_FEDORA-29) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX)
+$(SHA256SUMS): $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-39) $(PKG_FEDORA-38) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX)
 	@# remove the directory separator in the SHA256SUMS file
 	@echo "Generating: sha256 sum..."
-	sha256sum $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-30) $(PKG_FEDORA-29) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
+	sha256sum $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-39) $(PKG_FEDORA-38) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
 
 $(SHA256SUMS_ASC): $(SHA256SUMS)
 	@echo "Signing sha256 sum..."

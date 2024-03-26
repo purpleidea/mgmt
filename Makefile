@@ -437,14 +437,14 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(
 	@echo "Creating github release..."
 	hub release create \
 		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
-		-a $(PKG_BINARY_AMD64) \
-		-a $(PKG_BINARY_ARM64) \
-		-a $(PKG_FEDORA-39) \
-		-a $(PKG_FEDORA-38) \
-		-a $(PKG_CENTOS-7) \
-		-a $(PKG_DEBIAN-10) \
-		-a $(PKG_UBUNTU-BIONIC) \
-		-a $(PKG_ARCHLINUX) \
+		` [ -e $(PKG_BINARY_AMD64) ] && printf -- "-a $(PKG_BINARY_AMD64)" ` \
+		` [ -e $(PKG_BINARY_ARM64) ] && printf -- "-a $(PKG_BINARY_ARM64)" ` \
+		` [ -e $(PKG_FEDORA-39) ] && printf -- "-a $(PKG_FEDORA-39)" ` \
+		` [ -e $(PKG_FEDORA-38) ] && printf -- "-a $(PKG_FEDORA-38)" ` \
+		` [ -e $(PKG_CENTOS-7) ] && printf -- "-a $(PKG_CENTOS-7)" ` \
+		` [ -e $(PKG_DEBIAN-10) ] && printf -- "-a $(PKG_DEBIAN-10)" ` \
+		` [ -e $(PKG_UBUNTU-BIONIC) ] && printf -- "-a $(PKG_UBUNTU-BIONIC)" ` \
+		` [ -e $(PKG_ARCHLINUX) ] && printf -- "-a $(PKG_ARCHLINUX)" ` \
 		-a $(SHA256SUMS_ASC) \
 		$(VERSION) \
 		> releases/$(VERSION)/mgmt-release.url \
@@ -509,7 +509,16 @@ $(PKG_ARCHLINUX): $(PROGRAM) releases/$(VERSION)/.mkdir
 $(SHA256SUMS): $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-39) $(PKG_FEDORA-38) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX)
 	@# remove the directory separator in the SHA256SUMS file
 	@echo "Generating: sha256 sum..."
-	sha256sum $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-39) $(PKG_FEDORA-38) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) | awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
+	sha256sum \
+	` [ -e $(PKG_BINARY_AMD64) ] && printf -- "$(PKG_BINARY_AMD64)" ` \
+	` [ -e $(PKG_BINARY_ARM64) ] && printf -- "$(PKG_BINARY_ARM64)" ` \
+	` [ -e $(PKG_FEDORA-39) ] && printf -- "$(PKG_FEDORA-39)" ` \
+	` [ -e $(PKG_FEDORA-38) ] && printf -- "$(PKG_FEDORA-38)" ` \
+	` [ -e $(PKG_CENTOS-7) ] && printf -- "$(PKG_CENTOS-7)" ` \
+	` [ -e $(PKG_DEBIAN-10) ] && printf -- "$(PKG_DEBIAN-10)" ` \
+	` [ -e $(PKG_UBUNTU-BIONIC) ] && printf -- "$(PKG_UBUNTU-BIONIC)" ` \
+	` [ -e $(PKG_ARCHLINUX) ] && printf -- "$(PKG_ARCHLINUX)" ` \
+	| awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
 
 $(SHA256SUMS_ASC): $(SHA256SUMS)
 	@echo "Signing sha256 sum..."

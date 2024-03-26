@@ -1,0 +1,133 @@
+I've just released version 0.0.21 of mgmt!
+
+> 178 files changed, 4351 insertions(+), 829 deletions(-)
+
+This was a very lonely release but it includes some very useful
+additions since 0.0.20, including:
+
+* The first mgmt meme!
+* Working distro packages for Fedora, Debian, Ubuntu and Arch!
+* Reversible resources!
+* A deploy package to let you read files from the active deploy
+* Improved file resource behaviours
+
+And much more...
+
+DOWNLOAD
+
+Prebuilt binaries are available here:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.21
+
+NEWS
+
+* Someone made a cool mgmt meme. Look in art/mgmt_*_meme.jpg
+
+* Distro packages are now built properly, so they should all work now.
+We have builds for Fedora-30, Fedora-29, Debian-10, Ubuntu-Bionic, and
+Archlinux. If you'd like a build for a different distro/version please
+let me know.
+
+* We finally got rid of the old `Compare(...) bool` API, and moved to
+`Cmp(...) error`. We'll now get more useful information from Res
+compares when they differ. Thanks to new contributor Donald Bakong for
+working on this. He's ramping up his golang contributions, so we expect
+to see more from him in the future!
+
+* We now have reversible resources. Basically if you create a resource
+and specify the reverse metaparam, eg: `Meta:reverse => true`, then if
+a resource is removed (either because a new version of code doesn't
+have it anymore OR more importantly if it was inside an `if` block that
+became false) then the engine will perform some "reverse" action for
+it. For a file, if it was added, we'll remove it. If it was edited,
+we'll undo the edit. If we added ugo+w, we'll remove that. And so on.
+The engine bits are done, and as well so have the file resource bits.
+It should be easy to add this for any other resource where it makes
+sense. This will likely be a very powerful feature that we use a lot.
+
+* The file resource was changed slightly so that by default the "state"
+is undefined. As a result, if you want a file to be created and none is
+present, you need to specify the state. Otherwise specifying "content"
+will only edit a file if it already exists, and otherwise be an error.
+It turns out this is actually a better behaviour, even if it's not
+necessarily intuitive for puppet users. It turns out it simplifies the
+code drastically and makes the reversible file resource much more
+logical. It seems that Puppet and Ansible got this wrong, but Cfengine
+got it right. IIRC. Do you agree? (Look at the code!)
+
+* We now catch CR \r characters in code so that you don't wonder why
+the compiler is telling you about unexpected whitespace. This should
+make your life easier.
+
+* You can now read files from within the deploy. This can be used for
+templates or anything else. This was one of the last missing things
+that was blocking me from writing useful mcl modules.
+
+* Fixed a copy-pasta bug where the != operator (for strings only) was
+actually doing an ==. Woops! The good news is that we've been shaking
+out silly bugs because I've been using mgmt more and more. Hopefully
+there aren't any woops ones like this left!
+
+* A bunch of function, class, and include tests were added. We're
+getting really well tested!
+
+* We're looking for help writing Amazon, Google, DigitalOcean, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+BUGS
+
+* Function values as args don't work yet. This is blocking us from
+implementing functions like map/reduce/filter, because they'd want to
+receive a function as input. TBH, I'm a bit tunnel-visioned on this,
+because I'm not the compilers genius that you are. If you can help,
+please let me know. I'll be posting a bunch of test cases that show
+what's needed shortly.
+
+* Three patches have been submitted to mkosi to support the image
+building I've been doing. They're not merged yet, so you'll have to
+apply them yourself if you want to make your own distro images. This
+isn't a major requirement anyone should have, but if they're not
+merged, we'll store them here and apply them as needed.
+
+TALKS
+
+I'll be in Belgium for FOSDEM and CfgMgmtCamp in 2020. If I'm lucky
+I'll have at least one mgmt presentation. I might also consider going
+to DevConf.cz if I get a talk accepted. Feel to ping me if you'd like
+to hack, get consulting, training, etc while I'm in Europe!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+bjanssens, Donald Bakong, James Shubin
+We had 3 unique committers since 0.0.20, and have had 69 overall.
+run 'git log 0.0.20..0.0.21' to see what has changed since 0.0.20
+
+Happy hacking,
+James
+@purpleidea

@@ -1,0 +1,111 @@
+I've just released version 0.0.17 of mgmt!
+
+> 269 files changed, 13281 insertions(+), 1633 deletions(-)
+
+There's some very useful stuff that landed since 0.0.16, including:
+
+* Modules and import system now exists!
+* A lot of tests, fixes and a huge new test infra was added
+* Merging puppet with mcl code is now possible (madness!)
+* We made a small change to the cli UI
+* Bump to golang 1.10 (please update your environments)
+
+And much more...
+
+DOWNLOAD
+
+Prebuilt binaries are available here:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.17
+
+NEWS
+
+* One of the biggest missing features was the lack of a module/import
+system. After some initial exploration on what turned out to be a dead-
+end, I found what I think is a very elegant approach, which is now in
+this release. Please try it out, there are docs available. I hope to
+write a blog post about it soon.
+
+(There's one additional "kind" of import that I'm considering, similar
+to a macro "#include", that I might add. To be determined. Let me know
+if you find anything missing as of today.)
+
+* Felix added the first version of his mcl+puppet frontend. This should
+allow you to more cleverly merge legacy puppet environments with mcl
+code. It's fantastic, take a look.
+
+* Jonathan added a systemd-timer resource. This is a great replacement
+for cron.
+
+* We changed the CLI ui to improve the determinism of the frontend
+selection. Basically we changed from: `mgmt run --lang code.mcl` to:
+`mgmt run lang --lang code.mcl`. Remember to put --tmp-prefix after
+`run` directly where it is used.
+
+* We made a whole bunch of cleanups to the test infra, added new test
+infra for testing complex mcl modules and the import/module system, and
+of course added new tests.
+
+* You can pass a list of strings as the resource name to build that
+many resources. (Looping/iteration!)
+
+* You can specify all the metaparams and auto-* properties in mcl now.
+
+* Native mcl code can be used to write imported core code.
+
+* There was a bug that snuck into the pkg res. This has now been fixed.
+
+* A small, long-time copy+pasta error bug was fixed in Exec.
+
+* Virtually all the imports of the "log" package are at the top-level
+now. This will make moving to a new logger easier in the future. I have
+an innovative logger idea that I have a design for that I'll eventually
+get to.
+
+* A few workarounds for occasional test failures were added. Some
+legacy code needs a cleanup, and it's not done yet. Fortunately, none
+of these issues seem to occur in real-life as far as I can tell, and
+are caused by closing down mgmt at weird times.
+
+* Found a bug (now fixed) in the upstream lexer Yikes! See:
+57ce3fa587897d74634c1216af67dd42252c64e5
+
+* We're looking for help writing Amazon, Google, DigitalOcean, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many new tagged #mgmtlove issues were tagged:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Felix Frank, James Shubin, Jonathan Gold, Kevin Kuehler, Michael Lesko-
+Krleza, Tom Payne, Vincent Membré
+We had 7 unique committers since 0.0.16, and have had 56 overall.
+run 'git log 0.0.16..0.0.17' to see what has changed since 0.0.16
+
+Happy hacking,
+James
+@purpleidea

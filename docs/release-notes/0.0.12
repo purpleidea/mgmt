@@ -1,0 +1,87 @@
+I've just released version 0.0.12 of mgmt!
+
+Sorry if I've been more quiet than usual, I've had to focus a lot of my
+time on GlusterFS related features ($dayjob official directives) and
+work there.
+
+One goal is to try and use libmgmt to either wholly or partially re-
+implement glusterd. As a result, a lot of my upstream focus has been
+re-prioritized to features needed for that effort.
+
+I wrote a PoC called gd3: https://github.com/purpleidea/gd3
+(It has now bit-rotted compared to upstream mgmt, but is easy to fix.)
+The initial scope looks like it will be much smaller, but hopefully
+this is interesting to you too. Ping me if you'd like to help.
+
+We desperately need your contributions if we're going to get mgmt
+standalone into a MVP. To motivate you, there's some great new stuff
+that landed since 0.0.11, including:
+
+* a great new YAML parser from contributor Mildred
+
+* a huge pgraph refactor (to remove internal deps and cycles)
+
+* a great amount of new tests and testing
+
+and so much more...
+
+NEWS
+
+ 76 files changed, 7549 insertions(+), 4269 deletions(-)
+
+* The svc resource now also supports user services
+
+* There's a fabulous new yaml parser that fixes a longstanding issue in
+my original code. Try it with --yaml2. I'll remove the old one
+eventually. Thanks to contributor Mildred for this great work!
+
+* Refactored the lib/ etcd usage into the GAPI's for a cleaner main
+
+* World API grew some new methods for libmgmt users
+
+* pgraph refactor and cleanup, now it's a fairly clean standalone pkg
+
+* pgraph functions to flatten/merge in subgraphs along with examples
+
+* Giant resource refactor to hopefully make things more logical, and to
+simplify the resource API. This also introduces the mgraph struct to
+add the higher level graph knowledge outside of pgraph.
+
+* A partial implementation of a "Graph" (recursive subgraph?) resource!
+See the code for details, as help is wanted to finish this. This should
+help elucidate what the most elegant design for the mgmt core should
+be.
+
+* Send/Recv support for the exec resource as output, stdout, and stderr
+
+* GAPI improvements to support exit requests and fast pausing
+
+* AutoEdge API improvements including a fix+test for a regression
+
+* A possible fix for the possible etcd server startup race
+
+* A fun amount of new tests all over including for gometalinter
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+BUGS
+
+* We fixed a bunch of stuff, and added more tests!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started!
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+James Shubin, Julien Pivotto, Mildred Ki'Lya
+We had 3 unique committers since 0.0.11, and have had 30 overall.
+
+Happy hacking,
+James
+@purpleidea

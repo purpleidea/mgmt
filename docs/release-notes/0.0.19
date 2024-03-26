@@ -1,0 +1,131 @@
+I've just released version 0.0.19 of mgmt!
+
+> 361 files changed, 10451 insertions(+), 3919 deletions(-)
+
+This is a very important (and huge) release and has some important
+fixes that landed since 0.0.18, including:
+
+* A huge re-write of the elastic etcd clustering code base
+* A significant improvement in the type unification algorithm
+* An important import/class scoping bug was discovered and fixed
+* New mcl functions and resource improvements
+
+And much more...
+
+What comes next is just polish, new features and small bug fixes!
+
+DOWNLOAD
+
+Prebuilt binaries are available here:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.19
+
+NEWS
+
+* A giant etcd re-write was completed and merged. The elastic
+clustering algorithm is not perfect, however it should suffice for most
+use cases, and it's always possible to point mgmt at an external etcd
+cluster if you don't understand the limitations of the automatic
+clustering algorithm. The important part is that the core code is much
+cleaner now, so hopefully races and bugs of ignorance are gone now. :)
+
+* I found an unfortunate bug in the type unification algorithm that
+severely impacted performance for some types of code bases. This is now
+fixed, and I hope we should not experience problems again! Special
+thanks to Sam for talking me through the problem and understanding the
+space better! Woo \o/
+
+* An important import/class scoping bug was fixed. Thanks to Nicolas
+for the bug report. We also added tests for this too!
+
+* Nicolas also added our first os detection function. os.is_debian and
+os.is_redhat are now in core. Get your favourite os added today!
+
+* The polymorphic len function can also check str length.
+
+* The exec resource got a big cleanup. It also learned the interrupt
+trait so that long running commands can be forcefully killed if need
+be.
+
+* A fancy new test infra for testing functions over time was added.
+Anytime we want to check our individual FRP functions are working as
+expected, this is an easy way to add a test. This way, if we ever find
+a bug, we can drop in a test with the fix. This actually helped find a
+very subtle bug in readfile that nobody had experienced yet!
+
+* File res with state => exists but no content now performs as
+expected.
+
+* Improved send/recv, since it was neglected a bit. Hopefully it ends
+up being a useful primitive.
+
+* Added a new synchronization primitive that I'm called
+SubscribedSignal. I found it very useful for building some of my code,
+and I hope you'll find it useful too. I'd offer it upstream to the sync
+package if Google didn't force their crappy CLA nonsense on everyone
+who wanted to send a patch. :/ Death by 1000 paper cuts, I guess.
+
+* Added a match function in the new regexp core package. Try it out and
+add some more functions!
+
+* Wouter has been testing mgmt and filling all sorts of useful bug
+reports. We fixed at least one related to a report, and more are
+planned for the next release. Wouter also sent in one cleanup patch to
+remove some dead code. Welcome to the project!
+
+* We're looking for help writing Amazon, Google, DigitalOcean, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+BUGS
+
+* There are a few known issues, in particular with some over eager
+checking done in the Validate portion of two resources, that should
+actually be runtime checks in CheckApply. As a result, if you intend to
+change some state during the graph execution, the resource won't see
+it. These should be very easy to fix if someone is interested in
+writing the patch!
+
+TALKS
+
+* James will be presenting at this year's OSDC in Berlin. There will be
+a workshop: https://osdc.de/events/mgmt-config-workshop/
+and a talk:
+https://osdc.de/events/mgmt-config-the-future-of-your-autonomous-datacentre/
+Sign up soon if you want to guarantee a spot, as they're limited!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Adam Sigal, Felix Frank, James Shubin, Jonathan Gold, Michael Schubert,
+Mitch Fossen, Nicolas Charles, Wouter Dullaert
+We had 8 unique committers since 0.0.18, and have had 63 overall.
+run 'git log 0.0.18..0.0.19' to see what has changed since 0.0.18
+
+Happy hacking,
+James
+@purpleidea

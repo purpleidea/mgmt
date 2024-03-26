@@ -1,0 +1,51 @@
+I've just released version 0.0.10 of mgmt!
+
+NEWS
+
+57 files changed, 1991 insertions(+), 752 deletions(-)
+
+* There's a new resource called `KV`. Short examples exist, but I
+haven't yet published a whole integration showing the usefulness.
+
+* A major race was fixed. The issue of what to do with BackPokes during
+start/pause was never previously solved. I had this as an open issue on
+my whiteboard for a while, and I finally got some time to work through
+it. The answer wasn't that difficult, but I think it was shrouded in
+some tunnel vision. See the commit messages and source comments for the
+details.
+
+* The GAPI grew four new associated World API methods: StrWatch,
+StrGet, StrSet, StrDel, and the associated etcd backed implementations.
+These are quite useful when combined with the KV resource.
+
+* There are now P/V style counting semaphores available as metaparams.
+This is particularly cool because the implementation is (AFAIK,
+assuming no bugs) dead-lock free! This is mentioned in my recent blog
+post.
+
+* See the git log for more NEWS, and sorry for anything notable I left
+out!
+
+BUGS
+
+* There's a `concurrent map write` bug in the semaphore implementation
+which is fixed in git master. Since it was a race, it was only caught
+after this release was made. I should also figure out if the sema check
+should go after the BackPoke or not.
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started!
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+James Shubin, Julien Pivotto, Michael Borden.
+We had 3 unique committers since 0.0.9, and have had 30 overall.
+
+Happy hacking,
+James

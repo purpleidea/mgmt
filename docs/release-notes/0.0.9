@@ -1,0 +1,71 @@
+I've just released 0.0.9!
+
+Release tags are now signed with my GPG key.
+
+From now on, I'm going to try and write a release email to the list
+with information about each release. Here we go!
+
+NEWS
+
+* There were far more commits that went into this release than I was
+expecting. I delayed a while because of some nasty races and deadlocks
+I encountered when cleaning some cruft out of the engine.
+
+134 files changed, 5394 insertions(+), 2168 deletions(-)
+
+* We grew initial integration with Prometheus thanks to new contributor
+`roidelapluie`.
+
+* The file resource can now chown/chmod files! Thanks to new
+contributor `mildred`.
+
+* The virt resource can now hotplug/hotunplug cpus. This made for some
+dope demos at CfgMgmtCamp. Special thanks to pkrempa for helping me
+with the libvirt API.
+
+* Native testing of all the golang code is now enabled again. I broke
+this when I split mgmt up into multiple packages. (Sorry!) Golang tests
+in foo_test.go should now run and be tested automatically. I'd
+especially like it if someone wrote some for pgraph/pgraph.go:
+GraphSync().
+
+* Documentation has been significantly improved. We have a resource
+guide (for writing new native resources) and much more. We also now
+build the docs as a RTD project:
+https://mgmt.readthedocs.io/en/master/
+Patches welcome to make it style as pretty as GitHub markdown does.
+
+* See the git log for more NEWS, and sorry for anything notable I left
+out!
+
+BUGS
+
+* I hope to resolve this soon, but it shouldn't block further
+development on git master for now. The issue: if you make extremely
+high speed graph changes to graphs involving the virt resource, it can
+eventually cause a panic. This is being tracked here:
+https://github.com/libvirt/libvirt-go/issues/7 (help welcome!)
+
+GLUSTERFS
+
+I've started working on some stuff for Glusterd so that it can embed
+mgmt as a lib, and use the resource model to simplify cluster
+management. This will involve writing Gluster resources in mgmt
+(volume, brick, etc...) and all sorts of other fun stuff. If you'd like
+to participate, please LMK!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium and hard issues available! You're also welcome to suggest your own! Please join us in #mgmtconfig on Freenode IRC, or ping this list if you'd like help getting started!
+
+THANKS
+
+We had 12 unique committers since 0.0.8, and have had 29 overall.
+Thanks (alphabetically) to everyone who contributed to the latest
+release: Daniele Sluijters, Daniel P. Berrange, Felix Frank, goberghen,
+James Shubin, Julien Pivotto, Kaushal M, Lars Kulseng, Mildred Ki'Lya,
+Sean Jones, Steve Milner, Tom Ritserveldt.
+
+Happy hacking,
+James
+@purpleidea

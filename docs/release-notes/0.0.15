@@ -1,0 +1,116 @@
+I've just released version 0.0.15 of mgmt!
+
+> 328 files changed, 29869 insertions(+), 943 deletions(-)
+
+(Yeah, that's almost 30k+ LOC)
+
+There's some great new stuff that landed since 0.0.14, including:
+
+* THE LANGUAGE (mcl)
+
+* "Deploys": a distributed way to push code into your cluster
+
+* Scheduling (as a reactive function)
+
+* Better testing
+
+* a move to etcd 3.3+ and golang 1.9+
+
+and so much more... This is a monster release. Please try out the
+language and all the other new features today :)
+
+NEWS
+
+* We released the language. Please play around with it :) It's time to
+get used to this cool new paradigm. Learn more from the...
+
+Blog post:
+https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/
+
+Video:
+https://www.youtube.com/watch?v=NxObmwZDyrI
+
+Docs:
+https://github.com/purpleidea/mgmt/blob/master/docs/language-guide.md
+
+Function guide:
+https://github.com/purpleidea/mgmt/blob/master/docs/function-guide.md
+
+And tons of code all over git master. Check the lang/ folder.
+
+* There is a reactive scheduler in the language. Use your imagination,
+or play around with:
+https://github.com/purpleidea/mgmt/blob/3ad7097c8aa7eab7f895aab9af22338
+c0cf82986/lang/funcs/core/schedule_polyfunc.go#L18
+
+* There is a "deploys" feature. It's not documented yet. You should
+poke around if you're curious. Consider this an early soft release.
+
+* There is a FS implementation to store files in a POSIX-like layer on
+top of etcd. It's used by deploys. It needs more tests though :)
+
+* The language grew two "simple" API's for implementing functions, so
+that new functionality can be exposed in the mgmt language.
+
+* The language grew two ways to specify edges between resources: either
+internal to the resource, or externally as standalone edges.
+
+* The language now supports optional resource parameters via the
+"elvis" operator. This keeps things type safe and avoids needing an
+"undef" or "nil" in the language. This operator also works for edge
+declarations.
+
+* New contributor Johan Bloemberg has been on fire sending patches!
+He has already made some great improvements to our Makefile for
+testing, and the addition of the env* functions in the language, with
+much more code pending in open PR's.
+
+* Initial debian packaging has been added. It now needs a maintainer to
+build, upload, and love it :)
+
+* We have an early emacs major mode for "mcl", our language.
+
+* Lots of new documentation has been added. Particularly for developers
+wanting to contribute to the project.
+
+* We're looking for help writing Google, DigitalOcean, Rackspace, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many new tagged #mgmtlove issues were tagged:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved.
+This is free and friendly. You get to improve your skills,
+and we get
+some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Carsten Thiel, dsx, James Shubin, Joe Julian, Johan Bloemberg, Jonathan
+Gold, jonathangold, karimb, Oliver Frommel, Peter Oliver, Toshaan
+Bharvani, Wim
+We had 12 unique committers since 0.0.14, and have had 48 overall.
+run 'git log 0.0.14..0.0.15' to see what has changed since 0.0.14
+
+Happy hacking,
+James
+@purpleidea

@@ -1,0 +1,145 @@
+I've just released version 0.0.20 of mgmt!
+
+> 295 files changed, 8585 insertions(+), 1413 deletions(-)
+
+This was a very challenging release but it includes many useful changes
+since 0.0.19, including:
+
+* Function values / lambdas exist and are first-class
+* Over 70 new tests have been added!
+* Core functions, classes, and globals can now be written in mcl code
+* A new compiler "Ordering" step was added
+
+And much more...
+
+DOWNLOAD
+
+Prebuilt binaries are available here:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.20
+
+NEWS
+
+* After a long and challenging road, I finally got function values and
+lambdas merged. If you find any bugs, please let me know! You can now
+treat functions as first-class values, and even use them as closures by
+capturing variable state.
+
+* Over 70 new tests were added, most of which test the behaviour of the
+new functions.
+
+* Core packages always allowed you to write new functions in pure
+golang, but now you can implement new functions, classes, and even
+variables in native mcl code! It's still desirable and perhaps
+efficient in some cases to want native golang implementations, but all
+good programs self-host some of their stdlib in their own language
+eventually.
+
+* A new compiler step called "Ordering" was added. It's hidden inside
+the SetScope step, but now lets us generate code ordering graphs and
+determine exactly what to run first.
+
+* Light copying of Node's allows more correct and efficient function
+graphs that can share common vertices and edges. For example, if two
+different closures capture a variable $x, they'll both use the same
+copy when running the function, since the compiler can prove if they're
+identical.
+
+* Improved the type system slightly to allow advanced type comparisons.
+
+* The type unification algorithm was improved. Hopefully it should
+solve all scenarios without needing the recursive solver which was very
+slow. If you find a case that isn't speedy, please let us know!
+
+* Added subtest listing by using -short and -v in a test. This lets you
+know what's available and how to run individual sub tests easily.
+
+* Support for the systemd STATE_DIRECTORY and xdg cache dir was added
+by new contributor John! Thanks!
+
+* New contributor Adam added a pgraph test.
+
+* A bug in the systemd mount resource was fixed. Hopefully it should
+work correctly now.
+
+* A bug that prevented us from allowing nested system imports was
+fixed. Nest away! This will pave the way for us to automatically import
+most of the golang standard library by doing: import "golang/regexp" or
+golang/whatever".
+
+* Added an example showing that unicode is allowed in strings.
+
+* Fixed a rare race in the engine.
+
+* Added some new core functions including math.mod and datetime
+improvements.
+
+* Changed the API to remove the use of --lang. This avoids the
+stuttering.
+
+* Moved to golang 1.11 and etcd 3.3.13. The later includes a fix for an
+un-catchable error scenario which we fixed in etcd.
+
+* Improved the pgraph library significantly so that we can generate
+better graphs with accurate vertices based on the vertex pointers.
+
+* Added ArchLinux OS family detection.
+
+* We're looking for help writing Amazon, Google, DigitalOcean, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+BUGS
+
+* There are a few known issues with some disabled code paths in the new
+function value code. These issues don't *need* to be fixed, but if they
+are, then we should see a slight performance increase. Happy to have
+someone dig into these, and they shouldn't bother anyone.
+
+* Some of the pre-built binaries might not work on your system. We need
+to start building them with the right dependencies so that `ldd`
+related things are happy. For now, please try building yourself if the
+build doesn't work for you, or help improve our build system.
+
+TALKS
+
+I'll be giving a talk at an upcoming mini-conference in Montreal. If
+you're interested in attending, please let me know.
+If you'd like to give an mgmt talk somewhere, please let me know!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Adam Sigal, Christian Rebischke, Felix Frank, James Shubin, Jan
+Martens, Johan Bloemberg, John Hooks, Ward Vandewege
+We had 8 unique committers since 0.0.19, and have had 67 overall.
+run 'git log 0.0.19..0.0.20' to see what has changed since 0.0.19
+
+
+Happy hacking,
+James
+@purpleidea

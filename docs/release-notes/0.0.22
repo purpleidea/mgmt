@@ -1,0 +1,160 @@
+I've just released version 0.0.22 of mgmt!
+
+> 579 files changed, 17984 insertions(+), 3136 deletions(-)
+
+Compared to the last release, this is a monster. Previously:
+
+> 178 files changed, 4351 insertions(+), 829 deletions(-)
+
+I apologize for not doing a release earlier, but to be quite honest,
+I've been busy, the people who are playing with mgmt are doing their
+own builds anyways, and there are still some unimplemented, pre-
+production features missing.
+
+Also, I started a new job. News on my blog and how (if at all) it
+affects mgmt is there.
+
+This is still an incredibly important release, so let's cover some of
+the points!
+
+* This is the last release before we switch to go.mod
+* IRC channel moved to #mgmtconfig on libera.chat after Freenode died
+* New resources including tftp, dhcp, and http (all as servers, wow!)
+* New string interpolation implementation with many tests
+* Resource fields can accept complex structs and other types now
+* Improved type unification solver and new invariants like generator
+* A new polymorphic function API interface
+
+And much more...
+
+DOWNLOAD
+
+Prebuilt binaries are NOT available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.22
+
+NEWS
+
+* The file resource supports building files from other "fragments".
+This is magic and automatic and real-time. Docs and examples are in the
+repo.
+
+* The file resource (and others) have a new trait and queryable API to
+make decisions based on what other resources are in the graph.
+
+* The file resource has a "purge" option to remove unmanaged files from
+a managed directory.
+
+* A lot of built-in functions are auto-generated from the stdlib. Most
+things you would want are now present, particularly if they're pure
+functions.
+
+* There's a new consul KV resource.
+
+* File resources support symbolic modes now!
+
+* New tftp related resources are now present. They're great and I use
+them to provision things!
+
+* A docker image resource was added.
+
+* First-class constants now exist. So you can do
+$const.res.file.state.exists instead of typing "exists" which is prone
+to typos. This is more verbose, but it's safer if that's your priority.
+
+* We found a bug with fuzzing! Cool, thanks Patrick!
+
+* We have dhcp server related resources. This is pretty cool when
+combined with the tftp resource and you can provision a lot of stuff
+from your laptop and one binary now.
+
+* We also have http server resources. Combined with the tftp and dhcp
+resources mgmt starts to look like a powerful tool to greenfield a new
+datacentre and then take over and manage it continuous. All from a
+single, type-safe, code base. Of course you can do other things with
+this, and I'm looking forward to seeing the ideas that I haven't
+thought of yet! PS: An http:ui has been partially implemented too. Ping
+if you want to know more.
+
+* Resource fields couldn't previously accept anonymous structs as types
+because of how golang built its reflect library. Joe found an elegant
+workaround, thanks!
+
+* The type unification solver was improved to support some new
+invariants. This makes a lot of new things possible, and was done to
+support new complex functions including the eventual addition of map,
+reduce, and filter. One of the new invariants is a "generator"
+invariant, so that unification can take into account the entire
+relevant parts of the AST. It's not a textbook CS implementation, but
+it's based on sound theory I think, and it seems to work great. If you
+find an edge case, please let us know.
+
+* The polymorphic function interface was changed to use the new
+unification logic. This makes a lot more sense. All the functions have
+been ported to the new interface.
+
+* 42
+
+* We're looking for help writing Amazon, Google, DigitalOcean, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+BUGS
+
+* Function values as args don't work yet. This is blocking us from
+implementing functions like map/reduce/filter, because they'd want to
+receive a function as input. TBH, I'm a bit tunnel-visioned on this,
+because I'm not the compilers genius that you are. If you can help,
+please let me know. I'll be posting a bunch of test cases that show
+what's needed shortly.
+
+(This is the exact message I wrote last time. I've made a lot of
+progress since then, but motivation here has been low. Reach out if you
+can help.)
+
+TALKS
+
+Hopefully CfgMgmtCamp in 2022 will be back on. If we're lucky and safe,
+maybe I can travel there. TBD... Feel to ping me if you'd like to hack,
+talk, whatever if I'm in Europe.
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Libera IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+Although asking in IRC is the best way to find something to work on.
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Adam Sigal, Ahmed Al-Hulaibi, David Randall, Derek Buckley, Donald
+Bakong, Felix Frank, Francois Rompre-Lanctot, Ivan Pejić, James Shubin,
+Jean-Philippe Evrard, Jimmy Tang, Joe Groocock, Jonathan Gold, Julien
+Pivotto, Kenneth Hoste, Matthew Lesko-Krleza, Patrick Meyer, viq, Yohan
+Belval
+We had 19 unique committers since 0.0.21, and have had 82 overall.
+run 'git log 0.0.21..0.0.22' to see what has changed since 0.0.21
+
+Happy hacking,
+James
+@purpleidea

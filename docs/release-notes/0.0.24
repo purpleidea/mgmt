@@ -1,0 +1,161 @@
+I've just released version 0.0.24 of mgmt!
+
+
+> 600 files changed, 13622 insertions(+), 6907 deletions(-)
+
+This is a huge and hugely important release! It has been a long time
+coming. We have lambdas! I could not have done this without the
+unrelentingly supportive and brilliant Samuel Gélineau.
+
+Getting past the blockers and tricky code changes was all thanks to
+him. Cleanups, polish and making it more golang idiomatic was my doing.
+(The easy stuff.) If Sam wanted to be a golang expert, he could have
+done it all, but it was more sensible than I do all the mundane and
+filler stuff.
+
+With that, here are a few highlights from the release:
+
+* We have working lambdas, including iter.map =D
+
+* We have a new function engine!
+
+* We have improved type unification!
+
+* We have an improved resource engine!
+
+* We have improved many of the internal API's.
+
+* We have so many tests.
+
+And much more...
+
+DOWNLOAD
+
+Prebuilt binaries are NOT available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.24
+
+NEWS
+
+* Our main tests are now in the excellent .txtar format. This makes
+things much easier to manage.
+
+* The iter.map function can be named as such due to parser tricks! No
+need to name it xmap anymore!
+
+* The unification solver has been greatly improved. We can infer a lot
+more about function types.
+
+* The resources API uses the context package for closing Watch and
+returning early from CheckApply. The next step would be to remove all
+the resource-specific timeout code and make that a metaparam.
+
+* A new sync primitive has been added in case you'd like to use it
+somewhere. We'd love help adding an even more complex one. Look in
+util/sync.go for more information.
+
+* Sam added some beautiful type inference debugging that makes things
+easier for those familiar with the standard literature.
+
+* An important bug in standalone etcd has been fixed. While embedded
+etcd and automatic clustering isn't "supported" (it's buggy) the
+status-quo of using your own etcd cluster is stable, and you can even
+use the embedded etcd server in standalone mode...
+
+* This means you can run `mgmt etcd` and get the standard etcd binary
+behviour that you'd get from running `etcd` normally. This makes it
+easy to use both together since you only need to transport one binary
+around. (And maybe mgmt will do that for you!)
+
+* I fixed and cleaned up some sketchy code in the resource engine. I
+had been unmotivated to fix this for a while because I really wanted
+lambdas first, but now that they are in, I took a good look at the
+code, made some fixes, and I'm really happy with it now.
+
+* Metaparams are appropriately stateful between graph switches now.
+Retry is the easy example. Limit/Burst need to be ported if you care
+about these fine details.
+
+* A RetryReset metaparam has been added. This is another good example
+of how powerful metaparams are and how much potential there is for
+building systems with these and future ones.
+
+* A bunch of internal API's have been updated. This makes it better for
+function and resource writers! Some GAPI changes also got pushed
+through that make things clearer for those reading code.
+
+* We have a listlookup function. It's still missing syntactic sugar
+though!
+
+* Our new function graph engine is called "dage". I think it's pretty
+clever. There's a chance there is still a bug inside, but it's unclear.
+Please report any issues. If you have some large machines I can test
+very large and fast graphs on, please let me know.
+
+* Lambdas really work now! The txn and ref/gc code is pretty fantastic.
+
+* Many bugs have been killed!
+
+* We're looking for help writing Amazon, Google, DigitalOcean, Hetzner,
+etc, resources if anyone is interested, reach out to us. Particularly
+if there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but
+it's not a blocker, but it would definitely be useful. We're looking
+into it.
+
+* Function graphs are unnecessarily dynamic. We might make them more
+static so that we don't need as many transactions. This is really a
+compiler optimization and not a bug, but it's something important we'd
+like to have.
+
+* Running two Txn's during the same pause would be really helpful. I'm
+not sure how much of a performance improvement we'd get from this, but
+it would sure be interesting to build. If you want to build a fancy
+synchronization primitive, then let us know! Again this is not a bug.
+
+TALKS
+
+I don't have anything planned until CfgMgmtCamp 2024. If you'd like to
+book me for a private event, or sponsor my travel for your conference,
+please let me know.
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Libera IRC or Matrix, or ping this
+list if you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+Although asking in IRC/matrix is the best way to find something to work
+on.
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+James Shubin, Kaushal, Laurent Indermuehle, Ofek Atar, Samuel Gélineau
+We had 5 unique committers since 0.0.23, and have had 88 overall.
+run 'git log 0.0.23..0.0.24' to see what has changed since 0.0.23
+
+Happy hacking,
+James
+@purpleidea

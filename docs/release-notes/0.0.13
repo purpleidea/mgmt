@@ -1,0 +1,89 @@
+I've just released version 0.0.13 of mgmt!
+
+I guess this is an appropriate number for a scary October release.
+
+We recently re-licensed to the more permissive GPL. I put a lot of
+thought into it, and also wrote up a short blog post about some of the
+reasoning. It's here:
+
+https://ttboj.wordpress.com/2017/10/17/copyleft-is-dead-long-live-copyl
+eft/
+
+If you read to the end you'll also see that Red Hat is not funding my
+mgmt work anymore. This is too bad, and means I'll only have small
+amounts of personal time available to work on this. If you'd like to
+help fund my work, or know someone who'd like to, please let me know!
+
+Having said that, there's some great new stuff that landed since
+0.0.12, including:
+
+* new resources from new contributor Jonathan Gold (aws, group, user)
+
+* an HCL frontend from new contributor Chris McKenzie
+
+* polish in a number of places including in the nspawn resource
+
+and so much more... If you'd prefer to have releases more often, then
+please let me know! Lastly, the language and a number of associated
+parts are on its way. I hope to push this monster patch to git master
+before February.
+
+It's also worth mentioning that we have 17 resources now! wow.
+
+NEWS
+
+ 140 files changed, 3921 insertions(+), 848 deletions(-)
+
+* Many improvements to tests, testing and small fixes to avoid false-
+failures on travis.
+
+* golint now reports 0 issues.
+
+* An HCL frontend if you'd prefer that to the YAML. Also a great
+example of how to plug in a new frontend.
+
+* An update to golang 1.8 as the minimum version required.
+
+* Bump the etcd version to 3.2.6+ -- Looking forward to a 3.3 release
+which should probably include some patches we upstreamed.
+
+* Addition of new user and group resources. These also include a bunch
+of automatic edges.
+
+* Addition of an AWS resource! I've wanted this for a while, as it
+demonstrates nicely how event based cloud resources can fit nicely into
+our design. There's still a lot to do, and we have some suggestions for
+Amazon too. If you have a contact there, please put me in touch!
+
+* Our nspawn resource is more polished now.
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started!
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is free and friendly. You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+AdnanLFC, Arthur Mello, ChrisMcKenzie, Dennis Kliban, Ismael Puerto,
+James Shubin, Jonathan Gold, Juan Luis de Sousa-Valadas Castaño, Juan-
+Luis de Sousa-Valadas Castaño (although I suspect the last two are the
+same ;))
+
+We had 9 unique committers since 0.0.12, and have had 38 overall.
+Run 'git log 0.0.12..0.0.13' to see what has changed since 0.0.12
+
+Happy hacking,
+James
+@purpleidea

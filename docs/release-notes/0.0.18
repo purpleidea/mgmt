@@ -1,0 +1,106 @@
+I've just released version 0.0.18 of mgmt!
+
+> 202 files changed, 5606 insertions(+), 1880 deletions(-)
+
+There's some great stuff that landed since 0.0.17, including:
+
+* A re-write of the core engine algorithm
+* Tests are very stable
+* At least three old bugs were killed
+* An infra to write tests for individual resources was added
+
+And much more...
+
+This adds a significant amount of polish and bug fixes to mgmt. We're
+on the home stretch to MVP!
+
+DOWNLOAD
+
+Prebuilt binaries are available here:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.18
+
+NEWS
+
+* There was a rare race that would panic the engine on shutdown. This
+only seemed to happen in CPU/system call starved environments like
+travis-ci. This was due to some ignorance when writing this early part
+of the code base. The algorithm has been re-written, and this also
+removed the use of at least one mutex. Things should be stable now, and
+also much faster. (Although perf was never an issue.)
+
+* A hidden race/deadlock in the exec resource was found and killed.
+Woo! Some new tools to help find these and other problems are in misc/
+
+* The early converger code was re-written. I was not as knowledgeable
+about golang in the very beginning, and this code needed refreshing. It
+contained a rare deadlock which needed to be killed.
+
+* Toshaan added an uptime() function.
+
+* Julien added a method for generating some simple functions for the
+language.
+
+* Lander added two new functions.
+
+* James added a new readfile() function, and other examples.
+
+* The template function now allows you to use imported functions. They
+use underscores instead of periods for namespace separation due to a
+limitation in the template library.
+
+* Kevin and I killed a tricky race in the SocketSet code! Woo :) Kevin
+also added a great cpucount() fact!
+
+* James gave a number of presentations at FOSDEM. Some recordings are
+available: https://purpleidea.com/talks/
+
+* We're looking for help writing Amazon, Google, DigitalOcean, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+BUGS
+
+* An unfortunate bug in the type unification code was found. This can
+cause small code bases to take a lot of ram/cpu to run. This will be
+prioritized in an upcoming release. Until then you'll have to avoid
+fancy type unification. (Specify types you know when it has to guess.)
+
+If efficient type unification algorithms are your specialty, please let
+us know, we'd like your help!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Felix Frank, James Shubin, Jeff Waugh, Johan Bloemberg, Julien Pivotto,
+Kevin Kuehler, Lander Van den Bulcke, Toshaan Bharvani
+We had 8 unique committers since 0.0.17, and have had 58 overall.
+run 'git log 0.0.17..0.0.18' to see what has changed since 0.0.17
+
+Happy hacking,
+James
+@purpleidea

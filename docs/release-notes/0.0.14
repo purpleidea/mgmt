@@ -1,0 +1,81 @@
+I've just released version 0.0.14 of mgmt!
+
+> 118 files changed, 2688 insertions(+), 974 deletions(-)
+
+There's some great new stuff that landed since
+0.0.13, including:
+
+* amazon AWS EC2 resource is now in git master.
+
+* more automatic edges from new contributor Guillaume Herail (xiu)
+
+* a move to golang 1.8 or higher
+
+and so much more... This will probably be the last release before the
+language lands in git master. It's a pretty giant patch coming :/
+
+NEWS
+
+* We're > 1k stars on GitHub now. It's a silly metric, but ¯\_(ツ)_/¯
+
+* Jonathan Gold has done a lot of hard work on the AWS EC2 resource,
+and it's now in git master. There are still many things we'd like to
+do, but it's a great start on what is a *monster* resource, and
+hopefully it will inspire others to get involved.
+
+In particular, it was a great learning experience (for me in
+particular!) about how bad the EC2 golang API is. There are some
+notable design bugs we found, and if anyone from Amazon engineering
+would like to reach out to us, we'd love to provide some constructive
+ideas.
+
+* Guillaume Herail (xiu) wrote some really nice patches, and picked up
+on the autoedges API very quickly. Hopefully he'll have time to work on
+even more!
+
+* Paul Morgan sent us some nice shell fixups-- many more exist in an
+open PR that didn't make it into this release. Hopefully we'll get
+those merged by 0.0.15
+
+* Felix Frank did a few Puppet compiler fix ups. I think he's been
+refreshing his work with new resources recently...
+
+* We're looking for help writing Google, DigitalOcean, Rackspace, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+EVENTS
+
+There are a bunch of upcoming mgmt talks and events! Stay tuned for
+details in the coming email, but TL;DR: Linux Conf Australia, FOSDEM, &
+CfgMgmtCamp.eu -- from three different speakers, and including a
+hackathon too!
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! Expect many new tagged #mgmtlove
+issues within the month.
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is free and friendly. You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Felix Frank, Guillaume Herail, James Shubin, Jonathan Gold,
+jonathangold, Julien Pivotto, Paul Morgan, Toshaan Bharvani
+We had 8 unique committers since 0.0.13, and have had 41 overall.
+run 'git log 0.0.13..0.0.14' to see what has changed since 0.0.13
+
+Happy hacking,
+James
+@purpleidea

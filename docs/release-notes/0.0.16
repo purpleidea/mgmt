@@ -1,0 +1,104 @@
+I've just released version 0.0.16 of mgmt!
+
+> 220 files changed, 14243 insertions(+), 9491 deletions(-)
+
+Woo...
+
+There's some great new stuff that landed since 0.0.15, including:
+
+* A giant engine re-write! (Makes resource writing more elegant too.)
+
+* New resources!!
+
+* New language features!!!
+
+and so much more... This is a monster release. Please try out the new
+features today :)
+
+NEWS
+
+* New resources include: net, mount and docker:container. Jonathan was
+responsible for all of these. Please take them for a spin! He's looking
+for a job too, and would probably be happy to get paid to work on mgmt.
+
+* We're > 1.5k stars on GitHub now. It's a silly metric, but ¯\_(ツ)_/¯
+
+* A giant engine refactoring/re-write was done. This cleaned up the
+code significantly, and made it more elegant to write resources.
+Unfortunately there is one small bug that I missed and that I haven't
+fixed yet. It rarely happens except during some of our tests during
+shutdown, which causes intermittent failures. It shouldn't block you
+playing with mgmt.
+
+* The language "class" and "include" statements have been added. These
+are important pieces for writing reusable modules which are coming
+soon. Try them out! (This comes with a bunch of tests too.)
+
+* We have an integration testing framework. It's pretty cool, it spins
+up a full mgmt cluster and runs stuff. Try it out or add some tests.
+
+* I had fun fixing a big bug: 06ee05026b0c743d19c7d62675f8ddeabdc8dd4f
+
+* I removed the remote execution functionality from core. I realized it
+could be re-written as a resource, and it was also in the way from some
+other cleanups that were more important. Half the new code is done,
+ping me if this is a priority for you or you want to help.
+
+* I also removed the HCL front-end, because mcl is usable enough to be
+more fun to play with, and I wanted to refactor some code. If someone
+really wants it back, let me know.
+
+* We have some release building scripts in git master, so you can now
+download pre-built (with fpm) RPM, DEB, or PACMAN packages! They're
+signed too. https://github.com/purpleidea/mgmt/releases/tag/0.0.16
+
+* We're looking for help writing Google, DigitalOcean, Rackspace, etc
+resources if anyone is interested, reach out to us. Particularly if
+there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+MISC
+
+I took a bit of a break recently to catch up on some life stuff, but I
+think I'm back on track. While git master hasn't been especially busy,
+there's an active feature branch at feat/import which contains some fun
+stuff, with a very WIP giant patch still sitting on my machine. I hope
+to finish it up soon and then do another release. That branch contains
+one of the last big features before I'll really be ready to run mgmt on
+my personal servers!
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many new tagged #mgmtlove issues were tagged:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved.
+This is free and friendly. You get to improve your skills,
+and we get
+some patches in return. Ping me off-list for details.
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Alan Jenkins, James Shubin, jesus m. rodriguez, Jonathan Gold,
+jonathangold, Lauri Ojansivu, phaer
+We had 7 unique committers since 0.0.15, and have had 52 overall.
+run 'git log 0.0.15..0.0.16' to see what has changed since 0.0.15
+
+Happy hacking,
+James
+@purpleidea

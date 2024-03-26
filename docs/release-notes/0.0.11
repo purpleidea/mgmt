@@ -1,0 +1,59 @@
+I've just released version 0.0.11 of mgmt!
+
+NEWS
+
+ 20 files changed, 579 insertions(+), 126 deletions(-)
+
+* Added a missing mutex around the semaphore map which prevents
+occasional panics
+
+* Removed exec pollint param which is not needed because of the poll
+metaparam
+
+* Fixed a state rechecking bug in exec resource (things are faster now)
+
+* Fixed the major annoyance of exec resources receiving main's signals.
+If we would ^C the main mgmt, the child processes would receive this
+too which was incorrect.
+
+* Fixed the deadlock on resource errors. This meant that previously if
+a resource failed, we would deadlock the graph from shutting down. This
+was bad and I'm glad it's now fixed. Sorry about that!
+
+* Improved the backpoke logic to not require semaphores since we used
+to take the lock even when we were going to backpoke which was
+unnecessary.
+
+* Added fast pausing to the graph. This means that a ^C or a pause
+transition used to wait for the whole graph to roll through, but it now
+finishes after the currently running resources finish executing. Read
+the commit messages for more background here including the discussion
+about a possible Interrupt() addition to the resource API.
+
+* Prometheus support has been updated!
+
+* See the git log for more NEWS, and sorry for anything notable I left
+out!
+
+BUGS
+
+* We're in pretty good shape now. There are some small issues, but
+nothing major that I don't know about.
+
+MISC
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Freenode IRC, or ping this list if
+you'd like help getting started!
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+James Shubin, Julien Pivotto
+We had 2 unique committers since 0.0.10, and have had 30 overall.
+
+Happy hacking,
+James
+@purpleidea

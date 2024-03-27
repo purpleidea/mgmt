@@ -30,8 +30,8 @@
 SHELL = /usr/bin/env bash
 .PHONY: all art cleanart version program lang path deps run race generate build build-debug crossbuild clean test gofmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
-.PHONY: mkosi mkosi_fedora-39 mkosi_fedora-38 mkosi_centos-7 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux
-.PHONY: release releases_path release_binary_amd64 release_binary_arm64 release_fedora-39 release_fedora-38 release_centos-7 release_debian-10 release_ubuntu-bionic release_archlinux
+.PHONY: mkosi mkosi_fedora-latest mkosi_fedora-older mkosi_stream-latest mkosi_debian-stable mkosi_ubuntu-latest mkosi_archlinux
+.PHONY: release release_test releases_path release_binary_amd64 release_binary_arm64 release_fedora-latest release_fedora-older release_stream-latest release_debian-stable release_ubuntu-latest release_archlinux
 .PHONY: funcgen
 .SILENT: clean
 
@@ -72,32 +72,68 @@ GOOSARCHES ?= linux/amd64 linux/ppc64 linux/ppc64le linux/arm64 darwin/amd64
 GOHOSTOS = $(shell go env GOHOSTOS)
 GOHOSTARCH = $(shell go env GOHOSTARCH)
 
-TOKEN_BINARY_AMD64 = binary-linux-amd64
-TOKEN_BINARY_ARM64 = binary-linux-arm64
-TOKEN_FEDORA-39 = fedora-39
-TOKEN_FEDORA-38 = fedora-38
-TOKEN_CENTOS-7 = centos-7
-TOKEN_DEBIAN-10 = debian-10
-TOKEN_UBUNTU-BIONIC = ubuntu-bionic
-TOKEN_ARCHLINUX = archlinux
+# The underscores separate the prefix name ("TOKEN") the distro ("BINARY",
+# "FEDORA-LATEST", etc...) and the arch ("AMD64"). The distro can have a dash.
+TOKEN_BINARY_AMD64 = $(shell grep -v '#' releases/binary-amd64.release)
+TOKEN_BINARY_ARM64 = $(shell grep -v '#' releases/binary-arm64.release)
+TOKEN_FEDORA-LATEST = $(shell grep -v '#' releases/fedora-latest.release)
+TOKEN_FEDORA-OLDER = $(shell grep -v '#' releases/fedora-older.release)
+TOKEN_STREAM-LATEST = $(shell grep -v '#' releases/stream-latest.release)
+TOKEN_DEBIAN-STABLE = $(shell grep -v '#' releases/debian-stable.release)
+TOKEN_UBUNTU-LATEST = $(shell grep -v '#' releases/ubuntu-latest.release)
+TOKEN_ARCHLINUX = $(shell grep -v '#' releases/archlinux.release)
 
 FILE_BINARY_AMD64 = mgmt-linux-amd64-$(VERSION)
 FILE_BINARY_ARM64 = mgmt-linux-arm64-$(VERSION)
-FILE_FEDORA-39 = mgmt-$(TOKEN_FEDORA-39)-$(VERSION)-1.x86_64.rpm
-FILE_FEDORA-38 = mgmt-$(TOKEN_FEDORA-38)-$(VERSION)-1.x86_64.rpm
-FILE_CENTOS-7 = mgmt-$(TOKEN_CENTOS-7)-$(VERSION)-1.x86_64.rpm
-FILE_DEBIAN-10 = mgmt_$(TOKEN_DEBIAN-10)_$(VERSION)_amd64.deb
-FILE_UBUNTU-BIONIC = mgmt_$(TOKEN_UBUNTU-BIONIC)_$(VERSION)_amd64.deb
+# TODO: add ARCH onto these at the end, eg _AMD64
+FILE_FEDORA-LATEST = mgmt-$(TOKEN_FEDORA-LATEST)-$(VERSION)-1.x86_64.rpm
+FILE_FEDORA-OLDER = mgmt-$(TOKEN_FEDORA-OLDER)-$(VERSION)-1.x86_64.rpm
+FILE_STREAM-LATEST = mgmt-$(TOKEN_STREAM-LATEST)-$(VERSION)-1.x86_64.rpm
+FILE_DEBIAN-STABLE = mgmt_$(TOKEN_DEBIAN-STABLE)_$(VERSION)_amd64.deb
+FILE_UBUNTU-LATEST = mgmt_$(TOKEN_UBUNTU-LATEST)_$(VERSION)_amd64.deb
 FILE_ARCHLINUX = mgmt-$(TOKEN_ARCHLINUX)-$(VERSION)-1-x86_64.pkg.tar.xz
 
 PKG_BINARY_AMD64 = releases/$(VERSION)/$(TOKEN_BINARY_AMD64)/$(FILE_BINARY_AMD64)
 PKG_BINARY_ARM64 = releases/$(VERSION)/$(TOKEN_BINARY_ARM64)/$(FILE_BINARY_ARM64)
-PKG_FEDORA-39 = releases/$(VERSION)/$(TOKEN_FEDORA-39)/$(FILE_FEDORA-39)
-PKG_FEDORA-38 = releases/$(VERSION)/$(TOKEN_FEDORA-38)/$(FILE_FEDORA-38)
-PKG_CENTOS-7 = releases/$(VERSION)/$(TOKEN_CENTOS-7)/$(FILE_CENTOS-7)
-PKG_DEBIAN-10 = releases/$(VERSION)/$(TOKEN_DEBIAN-10)/$(FILE_DEBIAN-10)
-PKG_UBUNTU-BIONIC = releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/$(FILE_UBUNTU-BIONIC)
+PKG_FEDORA-LATEST = releases/$(VERSION)/$(TOKEN_FEDORA-LATEST)/$(FILE_FEDORA-LATEST)
+PKG_FEDORA-OLDER = releases/$(VERSION)/$(TOKEN_FEDORA-OLDER)/$(FILE_FEDORA-OLDER)
+PKG_STREAM-LATEST = releases/$(VERSION)/$(TOKEN_STREAM-LATEST)/$(FILE_STREAM-LATEST)
+PKG_DEBIAN-STABLE = releases/$(VERSION)/$(TOKEN_DEBIAN-STABLE)/$(FILE_DEBIAN-STABLE)
+PKG_UBUNTU-LATEST = releases/$(VERSION)/$(TOKEN_UBUNTU-LATEST)/$(FILE_UBUNTU-LATEST)
 PKG_ARCHLINUX = releases/$(VERSION)/$(TOKEN_ARCHLINUX)/$(FILE_ARCHLINUX)
+
+DEP_BINARY_AMD64 =
+ifneq ($(TOKEN_BINARY_AMD64),)
+	DEP_BINARY_AMD64 = $(PKG_BINARY_AMD64)
+endif
+DEP_BINARY_ARM64 =
+ifneq ($(TOKEN_BINARY_ARM64),)
+	DEP_BINARY_ARM64 = $(PKG_BINARY_ARM64)
+endif
+DEP_FEDORA-LATEST =
+ifneq ($(TOKEN_FEDORA-LATEST),)
+	DEP_FEDORA-LATEST = $(PKG_FEDORA-LATEST)
+endif
+DEP_FEDORA-OLDER =
+ifneq ($(TOKEN_FEDORA-OLDER),)
+	DEP_FEDORA-OLDER = $(PKG_FEDORA-OLDER)
+endif
+DEP_STREAM-LATEST =
+ifneq ($(TOKEN_STREAM-LATEST),)
+	DEP_STREAM-LATEST = $(PKG_STREAM-LATEST)
+endif
+DEP_DEBIAN-STABLE =
+ifneq ($(TOKEN_DEBIAN-STABLE),)
+	DEP_DEBIAN-STABLE = $(PKG_DEBIAN-STABLE)
+endif
+DEP_UBUNTU-LATEST =
+ifneq ($(TOKEN_UBUNTU-LATEST),)
+	DEP_UBUNTU-LATEST = $(PKG_UBUNTU-LATEST)
+endif
+DEP_ARCHLINUX =
+ifneq ($(TOKEN_ARCHLINUX),)
+	DEP_ARCHLINUX = $(PKG_ARCHLINUX)
+endif
 
 SHA256SUMS = releases/$(VERSION)/SHA256SUMS
 SHA256SUMS_ASC = $(SHA256SUMS).asc
@@ -386,25 +422,25 @@ tag: ## tags a new release
 #
 #	mkosi
 #
-mkosi: mkosi_fedora-39 mkosi_fedora-38 mkosi_centos-7 mkosi_debian-10 mkosi_ubuntu-bionic mkosi_archlinux ## builds distro packages via mkosi
+mkosi: mkosi_fedora-latest mkosi_fedora-older mkosi_stream-latest mkosi_debian-stable mkosi_ubuntu-latest mkosi_archlinux ## builds distro packages via mkosi
 
-mkosi_fedora-39: releases/$(VERSION)/.mkdir
+mkosi_fedora-latest: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
-mkosi_fedora-38: releases/$(VERSION)/.mkdir
+mkosi_fedora-older: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
-mkosi_centos-7: releases/$(VERSION)/.mkdir
+mkosi_stream-latest: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
-mkosi_debian-10: releases/$(VERSION)/.mkdir
+mkosi_debian-stable: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
-mkosi_ubuntu-bionic: releases/$(VERSION)/.mkdir
+mkosi_ubuntu-latest: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
 
@@ -422,16 +458,53 @@ releases_path:
 	@#Don't put any other output or dependencies in here or they'll show!
 	@echo "releases/$(VERSION)/"
 
+release_test: $(DEP_BINARY_AMD64) $(DEP_BINARY_ARM64) $(DEP_FEDORA-LATEST) $(DEP_FEDORA-OLDER) $(DEP_STREAM-LATEST) $(DEP_DEBIAN-STABLE) $(DEP_UBUNTU-LATEST) $(DEP_ARCHLINUX) $(SHA256SUMS_ASC)
+	@echo '$$< denotes ‘the first dependency of the current rule’.'
+	@echo '> '"$<"
+	@echo
+	@echo '$$@ denotes ‘the target of the current rule’.'
+	@echo '> '"$@"
+	@echo
+	@echo '$$^ denotes ‘the dependencies of the current rule’.'
+	@echo '> '"$^"
+	@echo
+	@echo '$$* denotes ‘the stem with which the pattern of the current rule matched’.'
+	@echo '> '"$*"
+	@echo
+	@echo "TOKEN_BINARY_AMD64: $(TOKEN_BINARY_AMD64)"
+	@echo "DEP_BINARY_AMD64: $(DEP_BINARY_AMD64)"
+	@echo
+	@echo "TOKEN_BINARY_ARM64: $(TOKEN_BINARY_ARM64)"
+	@echo "DEP_BINARY_ARM64: $(DEP_BINARY_ARM64)"
+	@echo
+	@echo "TOKEN_FEDORA-LATEST: $(TOKEN_FEDORA-LATEST)"
+	@echo "DEP_FEDORA-LATEST: $(DEP_FEDORA-LATEST)"
+	@echo
+	@echo "TOKEN_FEDORA-OLDER: $(TOKEN_FEDORA-OLDER)"
+	@echo "DEP_FEDORA-OLDER: $(DEP_FEDORA-OLDER)"
+	@echo
+	@echo "TOKEN_STREAM-LATEST: $(TOKEN_STREAM-LATEST)"
+	@echo "DEP_STREAM-LATEST: $(DEP_STREAM-LATEST)"
+	@echo
+	@echo "TOKEN_DEBIAN-STABLE: $(TOKEN_DEBIAN-STABLE)"
+	@echo "DEP_DEBIAN-STABLE: $(DEP_DEBIAN-STABLE)"
+	@echo
+	@echo "TOKEN_UBUNTU-LATEST: $(TOKEN_UBUNTU-LATEST)"
+	@echo "DEP_UBUNTU-LATEST: $(DEP_UBUNTU-LATEST)"
+	@echo
+	@echo "TOKEN_ARCHLINUX: $(TOKEN_ARCHLINUX)"
+	@echo "DEP_ARCHLINUX: $(DEP_ARCHLINUX)"
+
 release_binary_amd64: $(PKG_BINARY_AMD64)
 release_binary_arm64: $(PKG_BINARY_ARM64)
-release_fedora-39: $(PKG_FEDORA-39)
-release_fedora-38: $(PKG_FEDORA-38)
-release_centos-7: $(PKG_CENTOS-7)
-release_debian-10: $(PKG_DEBIAN-10)
-release_ubuntu-bionic: $(PKG_UBUNTU-BIONIC)
+release_fedora-latest: $(PKG_FEDORA-LATEST)
+release_fedora-older: $(PKG_FEDORA-OLDER)
+release_stream-latest: $(PKG_STREAM-LATEST)
+release_debian-stable: $(PKG_DEBIAN-STABLE)
+release_ubuntu-latest: $(PKG_UBUNTU-LATEST)
 release_archlinux: $(PKG_ARCHLINUX)
 
-releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-39) $(PKG_FEDORA-38) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX) $(SHA256SUMS_ASC)
+releases/$(VERSION)/mgmt-release.url: $(DEP_BINARY_AMD64) $(DEP_BINARY_ARM64) $(DEP_FEDORA-LATEST) $(DEP_FEDORA-OLDER) $(DEP_STREAM-LATEST) $(DEP_DEBIAN-STABLE) $(DEP_UBUNTU-LATEST) $(DEP_ARCHLINUX) $(SHA256SUMS_ASC)
 	@echo "Pushing git tag $(VERSION) to origin..."
 	git push origin $(VERSION)
 	@echo "Creating github release..."
@@ -439,11 +512,11 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(
 		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
 		` [ -e $(PKG_BINARY_AMD64) ] && printf -- "-a $(PKG_BINARY_AMD64)" ` \
 		` [ -e $(PKG_BINARY_ARM64) ] && printf -- "-a $(PKG_BINARY_ARM64)" ` \
-		` [ -e $(PKG_FEDORA-39) ] && printf -- "-a $(PKG_FEDORA-39)" ` \
-		` [ -e $(PKG_FEDORA-38) ] && printf -- "-a $(PKG_FEDORA-38)" ` \
-		` [ -e $(PKG_CENTOS-7) ] && printf -- "-a $(PKG_CENTOS-7)" ` \
-		` [ -e $(PKG_DEBIAN-10) ] && printf -- "-a $(PKG_DEBIAN-10)" ` \
-		` [ -e $(PKG_UBUNTU-BIONIC) ] && printf -- "-a $(PKG_UBUNTU-BIONIC)" ` \
+		` [ -e $(PKG_FEDORA-LATEST) ] && printf -- "-a $(PKG_FEDORA-LATEST)" ` \
+		` [ -e $(PKG_FEDORA-OLDER) ] && printf -- "-a $(PKG_FEDORA-OLDER)" ` \
+		` [ -e $(PKG_STREAM-LATEST) ] && printf -- "-a $(PKG_STREAM-LATEST)" ` \
+		` [ -e $(PKG_DEBIAN-STABLE) ] && printf -- "-a $(PKG_DEBIAN-STABLE)" ` \
+		` [ -e $(PKG_UBUNTU-LATEST) ] && printf -- "-a $(PKG_UBUNTU-LATEST)" ` \
 		` [ -e $(PKG_ARCHLINUX) ] && printf -- "-a $(PKG_ARCHLINUX)" ` \
 		-a $(SHA256SUMS_ASC) \
 		$(VERSION) \
@@ -453,79 +526,89 @@ releases/$(VERSION)/mgmt-release.url: $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(
 
 releases/$(VERSION)/.mkdir:
 	mkdir -p \
-	releases/$(VERSION)/$(TOKEN_BINARY_AMD64)/ \
-	releases/$(VERSION)/$(TOKEN_BINARY_ARM64)/ \
-	releases/$(VERSION)/$(TOKEN_FEDORA-39)/ \
-	releases/$(VERSION)/$(TOKEN_FEDORA-38)/ \
-	releases/$(VERSION)/$(TOKEN_CENTOS-7)/ \
-	releases/$(VERSION)/$(TOKEN_DEBIAN-10)/ \
-	releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/ \
-	releases/$(VERSION)/$(TOKEN_ARCHLINUX)/ \
+	` [ "$(TOKEN_BINARY_AMD64)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_BINARY_AMD64)/" ` \
+	` [ "$(TOKEN_BINARY_ARM64)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_BINARY_ARM64)/" ` \
+	` [ "$(TOKEN_FEDORA-LATEST)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_FEDORA-LATEST)/" ` \
+	` [ "$(TOKEN_FEDORA-OLDER)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_FEDORA-OLDER)/" ` \
+	` [ "$(TOKEN_STREAM-LATEST)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_STREAM-LATEST)/" ` \
+	` [ "$(TOKEN_DEBIAN-STABLE)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_DEBIAN-STABLE)/" ` \
+	` [ "$(TOKEN_UBUNTU-LATEST)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_UBUNTU-LATEST)/" ` \
+	` [ "$(TOKEN_ARCHLINUX)" != "" ] && printf -- "releases/$(VERSION)/$(TOKEN_ARCHLINUX)/" ` \
 	&& touch releases/$(VERSION)/.mkdir
 
+# These are defined conditionally, since if the token is empty, they warn!
+ifneq ($(TOKEN_BINARY_AMD64),)
 $(PKG_BINARY_AMD64): build/mgmt-linux-amd64 releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; cp -a build/mgmt-linux-amd64 $(PKG_BINARY_AMD64)
-
+endif
+ifneq ($(TOKEN_BINARY_ARM64),)
 $(PKG_BINARY_ARM64): build/mgmt-linux-arm64 releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; cp -a build/mgmt-linux-arm64 $(PKG_BINARY_ARM64)
-
-releases/$(VERSION)/$(TOKEN_FEDORA-39)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+endif
+ifneq ($(TOKEN_FEDORA-LATEST),)
+releases/$(VERSION)/$(TOKEN_FEDORA-LATEST)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-rpm-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_FEDORA-39): releases/$(VERSION)/$(TOKEN_FEDORA-39)/changelog
+$(PKG_FEDORA-LATEST): releases/$(VERSION)/$(TOKEN_FEDORA-LATEST)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-39)" libvirt-devel augeas-devel
-
-releases/$(VERSION)/$(TOKEN_FEDORA-38)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-LATEST)" libvirt-devel augeas-devel
+endif
+ifneq ($(TOKEN_FEDORA-OLDER),)
+releases/$(VERSION)/$(TOKEN_FEDORA-OLDER)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-rpm-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_FEDORA-38): releases/$(VERSION)/$(TOKEN_FEDORA-38)/changelog
+$(PKG_FEDORA-OLDER): releases/$(VERSION)/$(TOKEN_FEDORA-OLDER)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-38)" libvirt-devel augeas-devel
-
-releases/$(VERSION)/$(TOKEN_CENTOS-7)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_FEDORA-OLDER)" libvirt-devel augeas-devel
+endif
+ifneq ($(TOKEN_STREAM-LATEST),)
+releases/$(VERSION)/$(TOKEN_STREAM-LATEST)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-rpm-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_CENTOS-7): releases/$(VERSION)/$(TOKEN_CENTOS-7)/changelog
+$(PKG_STREAM-LATEST): releases/$(VERSION)/$(TOKEN_STREAM-LATEST)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_CENTOS-7)" libvirt-devel augeas-devel
-
-releases/$(VERSION)/$(TOKEN_DEBIAN-10)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_STREAM-LATEST)" libvirt-devel augeas-devel
+endif
+ifneq ($(TOKEN_DEBIAN-STABLE),)
+releases/$(VERSION)/$(TOKEN_DEBIAN-STABLE)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-deb-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_DEBIAN-10): releases/$(VERSION)/$(TOKEN_DEBIAN-10)/changelog
+$(PKG_DEBIAN-STABLE): releases/$(VERSION)/$(TOKEN_DEBIAN-STABLE)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_DEBIAN-10)" libvirt-dev libaugeas-dev
-
-releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_DEBIAN-STABLE)" libvirt-dev libaugeas-dev
+endif
+ifneq ($(TOKEN_UBUNTU-LATEST),)
+releases/$(VERSION)/$(TOKEN_UBUNTU-LATEST)/changelog: $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Generating: $${distro} changelog..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/make-deb-changelog.sh "$${distro}" $(VERSION)
 
-$(PKG_UBUNTU-BIONIC): releases/$(VERSION)/$(TOKEN_UBUNTU-BIONIC)/changelog
+$(PKG_UBUNTU-LATEST): releases/$(VERSION)/$(TOKEN_UBUNTU-LATEST)/changelog
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
-	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_UBUNTU-BIONIC)" libvirt-dev libaugeas-dev
-
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_UBUNTU-LATEST)" libvirt-dev libaugeas-dev
+endif
+ifneq ($(TOKEN_ARCHLINUX),)
 $(PKG_ARCHLINUX): $(PROGRAM) releases/$(VERSION)/.mkdir
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; ./misc/fpm-pack.sh $${distro} $(VERSION) "$(FILE_ARCHLINUX)" libvirt augeas
+endif
 
-$(SHA256SUMS): $(PKG_BINARY_AMD64) $(PKG_BINARY_ARM64) $(PKG_FEDORA-39) $(PKG_FEDORA-38) $(PKG_CENTOS-7) $(PKG_DEBIAN-10) $(PKG_UBUNTU-BIONIC) $(PKG_ARCHLINUX)
+$(SHA256SUMS): $(DEP_BINARY_AMD64) $(DEP_BINARY_ARM64) $(DEP_FEDORA-LATEST) $(DEP_FEDORA-OLDER) $(DEP_STREAM-LATEST) $(DEP_DEBIAN-STABLE) $(DEP_UBUNTU-LATEST) $(DEP_ARCHLINUX)
 	@# remove the directory separator in the SHA256SUMS file
 	@echo "Generating: sha256 sum..."
 	sha256sum \
 	` [ -e $(PKG_BINARY_AMD64) ] && printf -- "$(PKG_BINARY_AMD64)" ` \
 	` [ -e $(PKG_BINARY_ARM64) ] && printf -- "$(PKG_BINARY_ARM64)" ` \
-	` [ -e $(PKG_FEDORA-39) ] && printf -- "$(PKG_FEDORA-39)" ` \
-	` [ -e $(PKG_FEDORA-38) ] && printf -- "$(PKG_FEDORA-38)" ` \
-	` [ -e $(PKG_CENTOS-7) ] && printf -- "$(PKG_CENTOS-7)" ` \
-	` [ -e $(PKG_DEBIAN-10) ] && printf -- "$(PKG_DEBIAN-10)" ` \
-	` [ -e $(PKG_UBUNTU-BIONIC) ] && printf -- "$(PKG_UBUNTU-BIONIC)" ` \
+	` [ -e $(PKG_FEDORA-LATEST) ] && printf -- "$(PKG_FEDORA-LATEST)" ` \
+	` [ -e $(PKG_FEDORA-OLDER) ] && printf -- "$(PKG_FEDORA-OLDER)" ` \
+	` [ -e $(PKG_STREAM-LATEST) ] && printf -- "$(PKG_STREAM-LATEST)" ` \
+	` [ -e $(PKG_DEBIAN-STABLE) ] && printf -- "$(PKG_DEBIAN-STABLE)" ` \
+	` [ -e $(PKG_UBUNTU-LATEST) ] && printf -- "$(PKG_UBUNTU-LATEST)" ` \
 	` [ -e $(PKG_ARCHLINUX) ] && printf -- "$(PKG_ARCHLINUX)" ` \
 	| awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS)
 

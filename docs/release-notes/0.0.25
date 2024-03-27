@@ -1,0 +1,343 @@
+I've just released version 0.0.25 of mgmt!
+
+> 686 files changed, 28391 insertions(+), 6935 deletions(-)
+
+This is the first release that I consider to be generally useful at
+solving real-world problems, without needing to be an mgmt expert. It's
+also the first release that includes a very real `mcl` codebase. An
+accompanying blog post is also available:
+https://purpleidea.com/blog/2024/03/27/a-new-provisioning-tool/
+
+With that, here are a few highlights from the release:
+
+* We have a new mgmt partner program. Please sign-up for early access
+to these release notes, along with other special privileges. Details
+at: https://bit.ly/mgmt-partner-program
+
+* You can build self-contained mgmt binaries that contain a custom
+application. An initial "provisioning tool" has been built in this way.
+Please see the blog post for more details.
+
+* Default lookup functions exist in the language, with syntactic sugar
+(the || operator) , so you can get a default value if one doesn't
+exist, eg: $some_struct->some_struct_field || "some_default_value".
+
+* Resource fields can now accept interface{} (any) types.
+
+* A panic feature now exists in the language.
+
+* The exec resource has new `donecmd` and `creates` fields. Of note,
+`creates` supports watches too!
+
+* Send/recv now works for autogrouped resources!
+
+* Added `include as` (for classes) to the language. Nested
+(sugar/hierarchical) classes are now supported to make this more
+powerful!
+
+* Stats are printed if the function engine is waiting for too long.
+
+* There's a new http:flag resource, and also an http:proxy resource so
+that we can have caching http proxies!
+
+* Added a firewalld resource for opening ports!
+
+* Added a dhcp:range resource which is very powerful and has a fun API!
+
+* Added the "embedded" and "entry" packages, for building standalone
+tools. This goes perfectly with the new CLI library that we ported
+everything to.
+
+And much more...
+
+
+DOWNLOAD
+
+Prebuilt binaries are available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.25
+
+They can also be found on the Fedora mirror:
+https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/0.0.25/
+
+
+NEWS
+
+* We changed the logical operators in mcl to use well-known English
+tokens: OR, AND, NOT. (but in lowercase of course)
+
+* The history function has been temporarily removed from the syntactic
+core. We'll add it back if we find it's useful to have sugar!
+
+* A bunch of lexer/parser cleanups and improvements were made.
+
+* Default lookup functions for lists, maps, and structs have been
+added. These come with syntactic sugar as mentioned above. (We plan to
+keep this syntax, but we're open to feedback and changes if they're
+good.)
+
+* Resources can accept the interface{} (any) type, although this should
+be used sparingly.
+
+* We added a new mcl test suite that checks resource output too!
+
+* Added a new `value` resource. This is a special resource kind that
+can be used for building some powerful state machines. Recommended for
+experienced users only.
+
+* Improved the golang function generation to allow functions that take
+[]str, so now we have a bunch more functions (like join) in our stdlib
+for free.
+
+* Add some mac address formatting functions. (core/net)
+
+* Added a panic resource and panic function into the core language.
+This is useful for safely shutting down a running mcl program to
+prevent something disastrous or unhandled.
+
+* Added a `donecmd` field to the exec resource. This runs a command
+after a successful CheckApply. This replaces the `&& echo foo > done`
+pattern that you'd see in some code.
+
+* Added a new internal `local` API that can be used for local machine
+operations. So far, read/writing/watching values that are stored
+locally.
+
+* Added `value` functions which bridge the `value` resource via the
+`local` API. To be used sparingly!
+
+* Bumped to golang 1.20, and we'll probably move again before the next
+release.
+
+* Allow send/recv with autogrouped resources. This adds many
+possibilities, in particular with the server style resources.
+
+* Added a bunch of tests for sneaky corner cases. Some of these were
+hard to write, but I think they're worth it.
+
+* ExprBind is now monomorphic! This was a design mistake that we
+introduced, but have since repaired. We now have far fewer copies
+running in the function graph, and things are much more efficient. This
+means lambdas can only have one type when used at two different call
+sites, which is much more logical, safer, faster and memory efficient.
+
+* Added an --only-unify option if you want to test your code but not
+run it.
+
+* Added a concat function for the common case of interpolation. This
+makes type unification significantly faster.
+
+* Eliminated some "benign" races. You might find this commit
+interesting to read: bc63b7608e84f60bf9d568188814d411a0688738
+
+* A pgraph bug was found and fixed. A test was added too! It's amazing
+this was here for so long, it just shows how subtle graph
+datastructures can be.
+
+* Added `include as` (for classes) to the language which lets our
+classes produce values which can then be used elsewhere. I decided this
+feature would be necessary after writing a bunch of mcl. It does have
+an extraneous scoping bug, but not anything that causes problems.
+
+* Nested classes are now supported. This lets you write the equivalent
+of nested classes, without actually having to nest them! This is not
+inheritance, but rather a way of handling scope and passing it
+downwards.
+
+* Improved the Ordering compiler step to catch a bunch of unhandled
+bugs. Sam is a genius and was able to figure out some of these using
+wizardry.
+
+* Added some convert functions to the mcl package.
+
+* Allow edges with colons...
+
+* ...Because we now support a new hierarchical autogrouping algorithm!
+This let's us have some very powerful resources.
+
+* ...Like http:*, dhcp:*, and so on, but we could even go deeper!
+
+* Fixed a super sneaky bug with resource swapping. Due to how we Cmp,
+this now preserves state more often, and in particular when we need it.
+I'm fairly certain that some code in a WIP branch of mine was actually
+blocked because of this issue. Pleased to run into it again, but now
+with a fix in place!
+
+* Added an http:flag resource. This let's a `wget` or similar call back
+to the http:server to kick off an action.
+
+* The http:flag resource supports directories now.
+
+* Stats are printed if the function engine is waiting for too long.
+This is mostly useful for developers who are building new functions and
+have a bug in their midst!
+
+* We added a --skip-unify option to prevent the double unification when
+running locally. When using `mgmt run` to test locally, we type check,
+and then deploy to ourselves, which then naturally type checks again.
+This skips the first one, which would be unsafe generally, but is
+perfectly safe when we're running a single instance.
+
+* Added a new http:proxy resource, and then tweaked it's API, and then
+added http streaming. This is an incredibly powerful resource that lets
+us build a caching http proxy with a single resource. I can't wait to
+see what else it gets used for. I'm using it for provisioning. It's not
+performance optimized at the moment as it uses a single mutex for
+everything, but this could be extended if we wanted to scale this out.
+
+* Added a ton of measuring/timing of common operations. This confirmed
+my belief that autoedges were slower than necessary. There are two ways
+to improve this. We might end up doing either one or both. Autogrouping
+is currently much faster than needed, so no improvements planned for
+now!
+
+* Started to clean up the internal FS API's. It would be really great
+if the core golang team would add something so we could get rid of the
+afero external interfaces.
+
+* Added an "embedded" package to offer API's related to embedded mcl
+programs! This lets us build standalone binaries which are powered by
+mcl.
+
+* Moved to a new CLI (go-arg) library. This has a few downsides, but
+they are fixable upstream, and this vastly improved our code quality
+and API's. This needed to happen, what with the mess that was
+urfave/cli. Look at our diff's, they're really elegant! This let us
+clean up our lib structs as well!
+
+* Added an "entry" package to kick-off the embedded API stuff. This
+uses the new CLI API's that we just built. The end-user now has a
+really easy time building new tools.
+
+* Added a bunch of util functions to aid in building certain standalone
+tools. I'm willing to accept more contributions in this space if
+they're sane, and related to our general mission. Please ask and then
+send patches if you're unsure.
+
+* Added a firewalld resource which makes opening up ports automatic
+when we need them. Perfect for the standalone laptop use-case.
+
+* Made type unification cancellable in case you get into a long-running
+scenario and want to end early.
+
+* Added a `creates` field to the exec resource. Very useful, and also
+supports watches! This is very useful for the common uses of exec.
+
+* Added a dhcp:range resource to offer any number of IP addresses to
+devices that we don't know the mac addresses of in advance. This makes
+building a provisioning tool even more ergonomic.
+
+* Optimized the name invariants since we can usually avoid an exclusive
+invariant in the common case. This roughly halved the type unification
+time. More improvements coming too!
+
+* Caught a sneaky list type that could get through type unification
+when it was interpolated alone. This now enforces the string invariant
+when we specify it, which is an important language design distinction.
+We added tests for this of course too!
+
+* The "log" package has been entirely refactored and is only visible in
+one place at the top of the program. Nice! I have a design for a
+"better logger / user interface" if we ever want to improve on this.
+
+* Added release targets for standalone binary builds. I also improved
+the Makefile release magic significantly.
+
+* Made a lot of small "polish" improvements to various resources.
+
+* Most interestingly, an embedded provisioner application has been
+built and made available in full. Please test and share with others.
+Hopefully this will encourage more interest in the project.
+
+* We're looking for help writing Amazon, Google, DigitalOcean, Hetzner,
+etc, resources if anyone is interested, reach out to us. Particularly
+if there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but
+it's not a blocker, but it would definitely be useful. We're looking
+into it.
+
+* Function graphs are unnecessarily dynamic. We might make them more
+static so that we don't need as many transactions. This is really a
+compiler optimization and not a bug, but it's something important we'd
+like to have.
+
+* Running two Txn's during the same pause would be really helpful. I'm
+not sure how much of a performance improvement we'd get from this, but
+it would sure be interesting to build. If you want to build a fancy
+synchronization primitive, then let us know! Again this is not a bug.
+
+* Type unification performance can be improved drastically. I will have
+to implement the fast algorithm so that we can scale to very large mcl
+programs. Help is wanted if you are familiar with "unionfind" and/or
+type unification.
+
+
+TALKS
+
+I don't have anything planned until CfgMgmtCamp 2025. If you'd like to
+book me for a private event, or sponsor my travel for your conference,
+please let me know.
+
+I recently gave two talks: one at CfgMgmtCamp 2024, and one at FOSDEM
+in the golang room. Both are available online and demonstrated an
+earlier version of the provisioning tool which is fully available
+today. The talks can be found here: https://purpleidea.com/talks/
+
+
+PARTNER PROGRAM
+
+We have a new mgmt partner program which gets you early access to
+releases, bug fixes, support, and many other goodies. Please sign-up
+today: https://bit.ly/mgmt-partner-program
+
+
+MISC
+
+Our mailing list host (Red Hat) is no longer letting non-Red Hat
+employees use their infrastructure. We're looking for a new home. I've
+opened a ticket with Freedesktop. If you have any sway with them or
+other recommendations, please let me know:
+https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Libera IRC or Matrix (preferred) and
+ping us if you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+Although asking in IRC/matrix is the best way to find something to work
+on.
+
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+Eng Zer Jun, James Shubin, Oliver Lowe, Samuel Gélineau
+We had 4 unique committers since 0.0.24, and have had 90 overall.
+run 'git log 0.0.24..0.0.25' to see what has changed since 0.0.24
+
+
+Happy hacking,
+James
+@purpleidea

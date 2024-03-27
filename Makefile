@@ -63,7 +63,7 @@ SRPM_BASE = $(PROGRAM)-$(VERSION)-$(RELEASE).src.rpm
 RPM = rpmbuild/RPMS/$(PROGRAM)-$(VERSION)-$(RELEASE).$(ARCH).rpm
 USERNAME := $(shell cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' '{print $$2}' | tr -d ' ')
 SERVER = 'dl.fedoraproject.org'
-REMOTE_PATH = 'pub/alt/$(USERNAME)/$(PROGRAM)'
+REMOTE_PATH = '/srv/pub/alt/$(USERNAME)/$(PROGRAM)'
 ifneq ($(GOTAGS),)
 	BUILD_FLAGS = -tags '$(GOTAGS)'
 endif

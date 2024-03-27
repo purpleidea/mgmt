@@ -1,0 +1,642 @@
+# Mgmt
+# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+# Run `sudo setcap CAP_NET_BIND_SERVICE=+eip mgmt` first to avoid running as root.
+# based on: https://docs.fedoraproject.org/en-US/fedora/f36/install-guide/advanced/Network_based_Installations/
+
+import "convert"
+import "deploy"
+import "fmt"
+import "golang/strings"
+import "net"
+import "os"
+import "value"
+import "world"
+
+$http_suffix = "http/"
+$tftp_suffix = "tftp/"
+$uefi_suffix = "uefi/"
+$kickstart_suffix = "kickstart/"
+
+# The base class is the core provisioner which can also spawn child classes.
+class base($config) {
+	#
+	#	variables
+	#
+	$interface = $config->interface || "eth0"	# XXX: what if no interface exists?
+	#$interface = _struct_lookup_optional($config, "interface", "eth0")
+
+	$http_port = $config->http_port || 4280	# using :4280 avoids needing root and isn't in /etc/services
+	$http_port_str = fmt.printf("%d", $http_port)
+
+	$network = $config->network || "192.168.42.0/24"
+	$router = $config->router || "192.168.42.1/24"
+	$router_ip = net.cidr_to_ip($router) # removes cidr suffix
+
+	$dns = $config->dns || ["8.8.8.8", "1.1.1.1",] # maybe google/cloudflare will sponsor!
+
+	$prefix = $config->prefix || ""
+	panic($prefix == "") # panic if prefix is empty
+	panic(not strings.has_suffix($prefix, "/"))
+
+	file $prefix {	# dir
+		state => $const.res.file.state.exists,
+	}
+	$tftp_prefix = "${prefix}${tftp_suffix}"
+	$http_prefix = "${prefix}${http_suffix}"
+	$uefi_prefix = "${prefix}${uefi_suffix}"
+
+	$firewalld = $config->firewalld || true
+
+	# eg: equivalent of: https://download.fedoraproject.org/pub/fedora/linux/
+	$inst_repo_base = "http://${router_ip}:${http_port_str}/fedora/" # private lan online, no https!
+
+	$syslinux_root = "/usr/share/syslinux/"
+
+	$nbp_bios = "tftp://${router_ip}/pxelinux.0"	# for bios clients
+	$nbp_uefi = "tftp://${router_ip}/uefi/shim.efi"	# for uefi clients
+
+	#
+	#	network
+	#
+	net $interface {
+		state => $const.res.net.state.up,
+		addrs => [$router,],	# has cidr suffix
+		#gateway => "192.168.42.1",	# TODO: get upstream public gateway with new function
+
+		ip_forward => true,	# XXX: does this work?
+
+		Meta:reverse => true,	# XXX: ^C doesn't reverse atm. Fix that!
+
+		Before => Dhcp:Server[":67"], # TODO: add autoedges
+	}
+
+	#
+	#	packages
+	#
+	# TODO: do we need "syslinux-nonlinux" ?
+	$pkgs_bios = ["syslinux", "syslinux-nonlinux",]
+	$pkgs_uefi = ["shim-x64", "grub2-efi-x64",]
+	pkg $pkgs_bios {
+		state => "installed",
+	}
+	#pkg $pkgs_uefi {
+	#	state => "installed",
+	#}
+
+	$pkgs_kickstart = ["fedora-kickstarts", "spin-kickstarts",]
+	pkg $pkgs_kickstart {
+		state => "installed",
+	}
+
+	#
+	#	firewalld
+	#
+	if $firewalld {
+		firewalld "tftp" { # name is irrelevant
+			services => [
+				"tftp",
+				"dhcp",
+			],
+			ports => ["${http_port_str}/tcp",],
+
+			state => $const.res.firewalld.state.exists,
+		}
+	}
+
+	file $tftp_prefix {	# dir
+		state => $const.res.file.state.exists,
+	}
+	file $uefi_prefix {	# dir
+		state => $const.res.file.state.exists,
+	}
+
+	#
+	#	tftp
+	#
+	tftp:server ":69" {
+		timeout => 60, # increase the timeout
+		#root => $root, # we're running in memory without needing a root!
+		#debug => true, # XXX: print out a `tree` representation in tmp prefix for the user
+
+		Depend => Pkg[$pkgs_bios],	# hosted by tftp
+		#Depend => Pkg[$pkgs_uefi],
+	}
+
+	#
+	#	bios bootloader images
+	#
+
+	# XXX: should this also be part of repo too?
+	class tftp_root_file($f) {
+		#tftp:file $f {	# without root slash
+		tftp:file "/${f}" {	# with root slash
+			path => $syslinux_root + $f,		# TODO: add autoedges
+
+			Depend => Pkg[$pkgs_bios],
+		}
+	}
+	include tftp_root_file("pxelinux.0")
+	include tftp_root_file("vesamenu.c32")
+	include tftp_root_file("ldlinux.c32")
+	include tftp_root_file("libcom32.c32")
+	include tftp_root_file("libutil.c32")
+
+	#
+	#	dhcp
+	#
+	dhcp:server ":67" {
+		interface => $interface, # required for now
+		leasetime => "60s",
+		dns => $dns,	# pick your own better ones!
+		routers => [$router_ip,],
+
+		serverid => $router_ip, # XXX: test automatic mode
+
+		#Depend => Net[$interface], # TODO: add autoedges
+	}
+
+	#
+	#	http
+	#
+	file $http_prefix {	# dir
+		state => $const.res.file.state.exists,
+	}
+
+	http:server ":${http_port_str}" {
+		#address => ":${http_port_str}",	# you can override the name like this
+		#timeout => 60,		# add a timeout (seconds)
+	}
+
+	$kickstart_http_prefix = "${http_prefix}${kickstart_suffix}"
+	file $kickstart_http_prefix {
+		state => $const.res.file.state.exists,
+		#source => "", # this default means empty directory
+		recurse => true,
+		purge => true, # remove unmanaged files in here
+	}
+
+	print "ready" {
+		msg => "ready to provision!",
+
+		Depend => Tftp:Server[":69"],
+		Depend => Dhcp:Server[":67"],
+		Depend => Http:Server[":${http_port_str}"],
+	}
+
+	# we're effectively returning a new class definition...
+}
+
+# The repo class which is a child of base, defines the distro repo to use.
+class base:repo($config) {
+
+	$distro = $config->distro || "fedora"
+	$version = $config->version || "39" # not an int!
+	$arch = $config->arch || "x86_64"
+	#$flavour = $config->flavour || "" # is flavour needed for repo sync?
+
+	# export this value to parent scope for base:host to consume
+	$uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64
+
+	# TODO: We need a way to pick a good default because if a lot of people
+	# use this, then most won't change it to one in their country...
+	$mirror = $config->mirror || "" # TODO: how do we pick a default?
+	$rsync = $config->rsync || ""
+
+	$is_fedora = $distro == "fedora"
+
+	$distroarch_tftp_prefix = "${tftp_prefix}${uid}/"
+	$distroarch_uefi_prefix = "${uefi_prefix}${uid}/"
+	$distroarch_http_prefix = "${http_prefix}${uid}/"
+	$distroarch_release_http_prefix = "${distroarch_http_prefix}release/"
+	$distroarch_updates_http_prefix = "${distroarch_http_prefix}updates/"
+
+	file $distroarch_tftp_prefix {	# dir
+		state => $const.res.file.state.exists,
+
+		#Meta:quiet => true,	# TODO
+	}
+	file $distroarch_uefi_prefix {	# dir
+		state => $const.res.file.state.exists,
+	}
+	file $distroarch_http_prefix {	# root http dir
+		state => $const.res.file.state.exists,
+	}
+	file $distroarch_release_http_prefix {
+		state => $const.res.file.state.exists,
+	}
+	file $distroarch_updates_http_prefix {
+		state => $const.res.file.state.exists,
+	}
+
+	#
+	#	uefi bootloader images
+	#
+	$uefi_download_dir = "${distroarch_uefi_prefix}download/"
+	$uefi_extract_dir = "${distroarch_uefi_prefix}extract/"
+
+	file $uefi_extract_dir { # mkdir
+		state => $const.res.file.state.exists,
+
+		Depend => Exec["uefi-download-${uid}"],
+		Before => Exec["uefi-extract-${uid}"],
+	}
+
+	# Download the shim and grub2-efi packages. If your server is a BIOS
+	# system, you must download the packages to a temporary install root.
+	# Installing them directly on a BIOS machine will attempt to configure
+	# the system for UEFI booting and cause problems.
+	$pkgs_uefi_string = strings.join($pkgs_uefi, " ")
+	$repoidname = "local"
+	# eg: https://mirror.csclub.uwaterloo.ca/fedora/linux/releases/39/Everything/x86_64/os/
+	$repo_url = "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/"
+
+	exec "uefi-download-${uid}" {
+		# no inner quotes because it's not bash handling this!
+		# the dnf download command makes the download destination dir
+		cmd => "/usr/bin/dnf download ${pkgs_uefi_string} --assumeyes --disablerepo=* --repofrompath ${repoidname},${repo_url} --downloaddir=${uefi_download_dir} --releasever ${version}",
+
+		# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
+		ifcmd => "! test -s '${uefi_download_dir}shim-x64'*",
+		ifshell => "/usr/bin/bash",
+
+		Depend => Http:Server[":${http_port_str}"],
+	}
+
+	exec "uefi-extract-${uid}" {
+		# we use rpm2archive instead of cpio since the latter is deprecated for big files
+		# we do this in a loop for all the rpm files
+		cmd => "for i in ${uefi_download_dir}*.rpm; do /usr/bin/rpm2archive \$i | /usr/bin/tar -xvz --directory ${uefi_extract_dir} --exclude ./etc; done",
+		shell => "/usr/bin/bash",
+
+		# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
+		creates => $uefi_shim,
+
+		Depend => Exec["uefi-download-${uid}"],
+		Before => Tftp:Server[":69"],
+	}
+
+	$uefi_root = "${uefi_extract_dir}/boot/efi/EFI/fedora/"
+	$uefi_shim = "${uefi_root}shim.efi"
+	tftp:file "/uefi/shim.efi" { # needs leading slash
+		path => $uefi_shim,		# TODO: add autoedges
+
+		Depend => Exec["uefi-extract-${uid}"],
+	}
+	#tftp:file "/uefi/grubx64.efi" {	# not used
+	#	path => "${uefi_root}grubx64.efi",		# TODO: add autoedges
+	#
+	#	Depend => Exec["uefi-extract-${uid}"],
+	#}
+	tftp:file "grubx64.efi" {	# no leading slash
+		path => "${uefi_root}grubx64.efi",		# TODO: add autoedges
+
+		Depend => Exec["uefi-extract-${uid}"],
+	}
+
+	# XXX: replace with a download resource
+	# XXX: allow send->recv to pass this file to tftp:file->data to keep it in mem!
+	$vmlinuz_file = "${distroarch_tftp_prefix}vmlinuz"
+	exec "vmlinuz-${uid}" {
+		cmd => "/usr/bin/wget",
+		args => [
+			"--no-verbose",
+			"${repo_url}images/pxeboot/vmlinuz",
+			"-O",
+			$vmlinuz_file,
+		],
+		creates => $vmlinuz_file,
+
+		Depend => File[$distroarch_tftp_prefix],
+		Depend => Http:Server[":${http_port_str}"],
+		Before => Print["ready"],
+	}
+
+	tftp:file "/${uid}/vmlinuz" {
+		path => $vmlinuz_file,		# TODO: add autoedges
+
+		#Depend => Pkg[$pkgs],
+	}
+
+	$initrd_file = "${distroarch_tftp_prefix}initrd.img"
+	exec "initrd-${uid}" {
+		cmd => "/usr/bin/wget",
+		args => [
+			"--no-verbose",
+			"${repo_url}images/pxeboot/initrd.img",
+			"-O",
+			$initrd_file,
+		],
+		creates => $initrd_file,
+
+		Depend => File[$distroarch_tftp_prefix],
+		Depend => Http:Server[":${http_port_str}"],
+		Before => Print["ready"],
+	}
+
+	tftp:file "/${uid}/initrd.img" {
+		path => $initrd_file,		# TODO: add autoedges
+
+		#Depend => Pkg[$pkgs],
+	}
+
+	# this file resource serves the entire rsync directory over http
+	if $mirror == "" { # and $rsync != ""
+		http:file "/fedora/releases/${version}/Everything/${arch}/os/" {
+			path => $distroarch_release_http_prefix,
+		}
+		http:file "/fedora/updates/${version}/Everything/${arch}/" {
+			path => $distroarch_updates_http_prefix,
+		}
+	} else {
+		# same as the above http:file path would have been
+		http:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {
+			sub => "/fedora/", # we remove this from the name!
+			head => $mirror,
+
+			cache => $distroarch_release_http_prefix, # $prefix/http/fedora39-x86_64/release/
+		}
+
+		# XXX: if we had both of these in the same http_prefix, we could overlap them with an rsync :/ hmm...
+		http:proxy "/fedora/updates/${version}/Everything/${arch}/" { # no os/ dir at the end
+			sub => "/fedora/", # we remove this from the name!
+			head => $mirror,
+
+			cache => $distroarch_updates_http_prefix, # $prefix/http/fedora39-x86_64/updates/
+		}
+	}
+
+	#
+	#	rsync
+	#
+	#$source_pattern = if $is_fedora {
+	#	"${rsync}releases/${version}/Everything/${arch}/os/"	# source
+	#} else {
+	#	"" # XXX: not implemented
+	#}
+	#panic($source_pattern == "") # distro is not specified
+	# TODO: combine release and updates?
+	#$is_safe = $distroarch_release_http_prefix != "" and $distroarch_release_http_prefix != "/"
+	#if $rsync != "" and $source_pattern != "" and $is_safe {
+	#
+	#	$mtime_file = "${http_prefix}rsync-${uid}.mtime"
+	#	$delta = convert.int_to_str(60 * 60 * 24 * 7) # ~1 week in seconds: 604800
+	#	exec "rsync-${uid}" {
+	#		cmd => "/usr/bin/rsync",
+	#		args => [
+	#			"-avSH",
+	#			"--progress",
+	#			# This flavour must always be Everything to work.
+	#			# The Workstation flavour doesn't have an os/ dir.
+	#			$source_pattern,	# source
+	#			$distroarch_release_http_prefix,	# dest
+	#		],
+	#
+	#		# run this when cmd completes successfully
+	#		donecmd => "/usr/bin/date --utc > ${mtime_file}",
+	#		doneshell => "/usr/bin/bash",
+	#
+	#		# Run if the difference between the current date and the
+	#		# saved date (both converted to sec) is greater than the
+	#		# delta! (Or if the mtime file does not even exist yet.)
+	#		ifcmd => "! /usr/bin/test -e ${mtime_file} || /usr/bin/test \$((`/usr/bin/date +%s` - `/usr/bin/stat -c %Y '${mtime_file}'`)) -gt ${delta}",
+	#
+	#		ifshell => "/usr/bin/bash",
+	#
+	#		Before => Http:Server[":${http_port_str}"],
+	#		Before => File[$distroarch_release_http_prefix],
+	#	}
+	#}
+}
+
+# The host class is used for each physical host we want to provision.
+class base:host($name, $config) {
+	#print $name {
+	#	msg => "host: ${name}",
+	#
+	#	Meta:autogroup => false,
+	#}
+	$repouid = $config->repo || ""
+	$uidst = os.parse_distro_uid($repouid)
+	$distro = $uidst->distro
+	$version = $uidst->version # not an int!
+	$arch = $uidst->arch
+	panic($distro == "")
+	panic($version == "")
+	panic($arch == "")
+	$flavour = $config->flavour || ""
+
+	$mac = $config->mac || ""
+	#panic($mac == "") # provision anyone by default
+	$ip = $config->ip || "" # XXX: auto-generate it inside of the above network somehow (see below)
+	panic($ip == "")
+	#$ns = if $config->ip == "" {
+	#	""
+	#} else {
+	#	"" + get_value("network") # XXX: implement some sort of lookup function
+	#}
+	#$ip = $config->ip || magic.pool($ns, [1,2,3,4], $name) # XXX: if $ns is "", then don't allocate. Otherwise get from list. Re-use based on $name hash.
+	$bios = $config->bios || false
+	$password = $config->password || ""	# empty means disabled
+	panic(len($password) != 0 and len($password) != 106) # length of salted password
+
+	$part = $config->part || ""	# partitioning scheme
+
+	$empty_list_str []str = []	# need an explicit type on empty list definition
+	$packages = $config->packages || $empty_list_str
+
+	# should we provision this host by default?
+	$provision_default = $config->provision || false # false is safest!
+
+	# unique host key which is usually a mac address unless it's a default
+	$hkey = if $mac == "" {
+		"default"
+	} else {
+		$mac
+	}
+	$provision_key = $hkey	# XXX: what unique id should we use for the host? mac? name? hkey?
+
+	#$ret = world.getval($provision_key) # has it previously been provisioned?
+	#$val = if $ret->value == "" {	# avoid an invalid string killing the parse_bool function
+	#	convert.format_bool(false) # "false"
+	#} else {
+	#	$ret->value
+	#}
+	#$provision = if not $ret->exists {
+	#	$provision_default
+	#} else {
+	#	not convert.parse_bool($val)	# XXX: should an invalid string return false or error here?
+	#}
+	$provision = true
+
+	$nbp_path = if $bios {
+		"/pxelinux.0"		# for bios clients
+	} else {
+		"/uefi/shim.efi"	# for uefi clients
+	}
+
+	if $mac != "" {
+		dhcp:host "${name}" {	# the hostname
+			mac => $mac,
+			ip => $ip,	# cidr notation is required
+
+			nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
+				$nbp_bios	# from base class
+			} else {
+				$nbp_uefi	# from base class
+			},
+			nbp_path => $provision ?: $nbp_path, # with leading slash
+
+			Depend => Tftp:Server[":69"],
+		}
+	} else {
+		# Handle ANY mac address since we don't have one specified!
+		# TODO: Our dhcp:range could send/recv a map from ip => mac address!
+		dhcp:range "${name}" {
+			network => "${network}", # eg: 192.168.42.0/24
+			skip => [$router,], # eg: 192.168.42.1/24
+
+			nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
+				$nbp_bios	# from base class
+			} else {
+				$nbp_uefi	# from base class
+			},
+			nbp_path => $provision ?: $nbp_path, # with leading slash
+
+			Depend => Tftp:Server[":69"],
+		}
+	}
+
+	$tftp_menu_template = struct{
+		distro => $distro,
+		version => $version,		# 39 for fedora 39
+		arch => $arch,			# could also be aarch64
+		flavour => "Everything",	# The install repo uses "Everything" even for "Workstation" or "Server"
+
+		ks => "http://${router_ip}:${http_port_str}/fedora/kickstart/${hkey}.ks", # usually $mac or `default`
+		inst_repo_base => $inst_repo_base,
+	}
+
+	#
+	#	default menus
+	#
+	$safe_mac = if $mac == "" {
+		"00:00:00:00:00:00"
+	} else {
+		$mac
+	}
+	$old_mac = net.oldmacfmt($safe_mac)
+	# no idea why these need a 01- prefix
+	$bios_menu = if $mac == "" {
+		"/pxelinux.cfg/default"
+	} else {
+		# /pxelinux.cfg/01-00-11-22-33-44-55-66
+		"/pxelinux.cfg/01-${old_mac}"
+	}
+	$uefi_menu = if $mac == "" {
+		# XXX: add the front slash!?
+		#"pxelinux/uefi" # TODO: Did some machines use this?
+		"/uefi/grub.cfg"
+	} else {
+		# /uefi/grub.cfg-01-00-11-22-33-44-55-66
+		"/uefi/grub.cfg-01-${old_mac}"
+	}
+
+	if $bios {
+		tftp:file "${bios_menu}" {	# for bios
+			data => template(deploy.readfile("/files/bios-menu.tmpl"), $tftp_menu_template),
+		}
+	} else {
+		tftp:file "${uefi_menu}" {	# for uefi
+			# XXX: linuxefi & initrdefi VS. kernel & append ?
+			data => template(deploy.readfile("/files/uefi-menu.tmpl"), $tftp_menu_template),
+
+			#Depend => Pkg[$pkgs_uefi],
+			#Depend => Exec["uefi-extract"],
+		}
+	}
+
+	$http_kickstart_template = struct{
+		comment => "hello!",
+		lang => [
+			"en_CA.UTF-8",
+			"fr_CA.UTF-8",
+			"en_US.UTF-8",
+		],
+		password => $password,	# salted
+		bios => $bios,
+		part => $part,
+		flavour => $flavour,
+		url => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/",
+		repos => {
+			#"fedora" => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/", # TODO: this vs url ?
+			"updates" => "http://${router_ip}:${http_port_str}/fedora/updates/${version}/Everything/${arch}/",
+		},
+		#repos => { # needs internet or blocks at storage https://bugzilla.redhat.com/show_bug.cgi?id=2269752
+		#	"fedora" => "https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-\$releasever&arch=\$basearch",
+		#	"updates" => "https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f\$releasever&arch=\$basearch",
+		#},
+		packages => $packages,
+		post => [
+			"/usr/bin/wget --post-data 'done=true&password=sha1TODO' -O - 'http://${router_ip}:${http_port_str}/action/done/mac=${provision_key}'",
+		],
+	}
+
+	$kickstart_file = "${kickstart_http_prefix}${hkey}.ks"
+	file $kickstart_file {
+		state => $const.res.file.state.exists,
+		content => template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
+	}
+
+	http:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`
+		#data => template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
+		path => $kickstart_file,
+
+		Before => Print["ready"],
+	}
+
+	##$str_true = convert.format_bool(true)
+	##$str_false = convert.format_bool(false)
+	#http:flag "${name}" {
+	#	key => "done",
+	#	path => "/action/done/mac=${provision_key}",
+	#	#mapped => {$str_true => $str_true, $str_false => $str_false,},
+	#}
+	#kv "${name}" {
+	#	key => $provision_key,
+	#}
+	#value $provision_key {
+	#	#any => true,	# bool
+	#}
+	#Http:Flag["${name}"].value -> Kv["${name}"].value
+	#Http:Flag["${name}"].value -> Value[$provision_key].any
+	##$st_provisioned = value.get_bool($provision_key)
+	#$st_provisioned = value.get_str($provision_key)
+	#$provisioned = $st_provisioned->ready and $st_provisioned->value == "true" # export this value to parent scope
+}

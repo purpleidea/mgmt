@@ -1,0 +1,186 @@
+{{ if .comment -}}
+#
+#	{{ .comment }}
+#
+{{- end }}
+#
+#	readme
+#
+# All of this is based on reading docs, experimentation, and the kickstarts repo
+# at: https://pagure.io/fedora-kickstarts which I am not an expert at reading.
+# If you have recommendations for improvements, please let us know! Thanks.
+#
+# flavour: {{ .flavour }}
+# part: {{ .part }}
+# bios: {{ .bios }}
+
+#
+#	system
+#
+text	# text based install (not graphical)
+{{ if .lang -}}
+{{- $length_minus1 := math_minus1 (len .lang | printf "%d" | golang_strconv_atoi ) -}}
+lang {{ index .lang 0 }}
+{{- if gt (len .lang) 1 }} --addsupport=
+{{- range $i, $x := .lang -}}
+{{ if eq $i 0 }}{{ continue }}{{ end }}
+{{- $x -}}
+{{- if lt $i $length_minus1 -}},{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+keyboard us
+{{ if .timezone -}}
+# System timezone
+timezone {{ .timezone }} --isUtc
+{{- if .ntp_servers }} --ntpservers={{ golang_strings_join .ntp_servers "," }}{{ end -}}
+{{- end }}
+
+#
+#	security
+#
+{{ if .password -}}
+# password can be crypted with:
+# python3 -c 'import crypt; print(crypt.crypt("password", crypt.mksalt(crypt.METHOD_SHA512)))'
+# or
+# openssl passwd -6 -salt <YOUR_SALT> (salt can be omitted to generate one)
+rootpw --iscrypted --allow-ssh {{ .password }}
+{{ else }}
+rootpw --iscrypted --lock
+{{- end }}
+selinux --enforcing
+services --enabled=sshd,NetworkManager,chronyd
+{{ if .sshkeys -}}
+# TODO: sort in a deterministic order
+{{ range $user, $pubkey := .sshkeys -}}
+sshkey --username {{ $user }} "{{ $pubkey }}"
+{{- end -}}
+{{- end }}
+
+#
+#	networking
+#
+# --device=link
+#	specifies the first interface with its link in the up state
+# --activate
+#	any matching devices beyond the first will also be activated
+#
+network --bootproto=dhcp --device=link --activate
+
+firewall --enabled --service=mdns
+
+#
+#	partitioning
+#
+# TODO: add more magic partitioning schemes
+zerombr
+clearpart --all --initlabel --disklabel={{ if .bios }}msdos{{ else }}gpt{{ end }}
+{{ if eq .part "btrfs" -}}
+autopart --type=btrfs --noswap
+{{- else if eq .part "plain" -}}
+autopart --type=plain
+{{- else -}}
+autopart --type=plain
+{{- end }}
+
+#
+#	repositories
+#
+{{ if .url -}}
+url --url="{{ .url }}"
+{{- end }}
+
+{{ if .repos -}}
+# TODO: sort in a deterministic order
+{{- range $name, $baseurl := .repos }}
+repo --name="{{ $name }}" --baseurl="{{ $baseurl }}"
+{{- end }}
+{{- end }}
+
+#
+#	packages
+#
+%packages
+@core
+@standard
+@hardware-support
+{{ if eq .flavour "Workstation" -}}
+# Packages for Workstation:
+-initial-setup
+-initial-setup-gui
+gnome-initial-setup
+#anaconda-webui
+@base-x
+@fonts
+@input-methods
+@multimedia
+@printing
+-@guest-desktop-agents
+#initial-setup-gui
+glibc-all-langpacks
+-@dial-up
+-@input-methods
+-@standard
+# Install workstation-product-environment to resolve RhBug:1891500
+@^workstation-product-environment
+# Exclude unwanted packages from @anaconda-tools group
+-gfs2-utils
+-reiserfs-utils
+{{- else if eq .flavour "Server" -}}
+# Packages for Server:
+fedora-release-server
+# install the default groups for the server environment since installing the environment is not working
+@server-product
+@headless-management
+@networkmanager-submodules
+@container-management
+@domain-client
+@guest-agents
+@server-hardware-support
+-initial-setup-gui
+-generic-release*
+{{- end }}
+# User packages:
+{{ range $i, $x := .packages -}}
+{{ $x }}
+{{ end -}}
+%end
+
+#
+#	misc
+#
+bootloader --timeout=1
+
+# make sure that initial-setup runs and lets us do all the configuration bits
+firstboot --reconfig
+
+#
+#	flavour
+#
+{{ if eq .flavour "Workstation" -}}
+%post
+# Explicitly set graphical.target as default as this is how initial-setup detects which version to run
+systemctl set-default graphical.target
+%end
+{{ else if eq .flavour "Server" -}}
+%post
+# setup systemd to boot to the right runlevel
+echo -n "Setting default runlevel to multiuser text mode"
+systemctl set-default multi-user.target
+echo .
+%end
+{{ end -}}
+
+#
+#	post
+#
+%post
+{{ range $i, $x := .post -}}
+{{ $x }}
+{{ end -}}
+%end
+
+#
+#	reboot after installation
+#
+reboot

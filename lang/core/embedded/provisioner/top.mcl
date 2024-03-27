@@ -1,0 +1,80 @@
+# Mgmt
+# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+# sudo setcap CAP_NET_BIND_SERVICE=+eip mgmt
+# ./mgmt provisioner --mac 01:23:45:67:89:ab
+
+import "fmt"
+import "os"
+import "golang/strings"
+import "embedded/provisioner" # embedded import
+
+# TODO: get all of the values first from the cli config file, and then a webui
+include provisioner.base(struct{
+	interface => provisioner.cli_interface(),
+	network => provisioner.cli_network(),
+	router => provisioner.cli_router(),
+	dns => provisioner.cli_dns(),
+
+	prefix => provisioner.cli_prefix(),
+	firewalld => provisioner.cli_firewalld(),
+}) as base
+
+include base.repo(struct{
+	distro => provisioner.cli_distro(),
+	version => provisioner.cli_version(),	# not an int!
+	arch => provisioner.cli_arch(),
+	flavour => provisioner.cli_flavour(),
+
+	# pick one from: https://admin.fedoraproject.org/mirrormanager/
+	mirror => provisioner.cli_mirror(), # eg: https://mirror.csclub.uwaterloo.ca/fedora/linux/
+	rsync => provisioner.cli_rsync(), # eg: rsync://mirror.csclub.uwaterloo.ca/fedora-enchilada/linux/
+}) #as repo
+$distro = provisioner.cli_distro()
+$version = provisioner.cli_version()
+$arch = provisioner.cli_arch()
+$uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64
+include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
+	#repo => $repo.uid, # type unification performance is very slow here
+	repo => $uid,
+	flavour => provisioner.cli_flavour(),
+	mac => provisioner.cli_mac(),
+	ip => provisioner.cli_ip(),
+	bios => provisioner.cli_bios(), # false or absent means use uefi
+	password => provisioner.cli_password(),	# openssl passwd -6
+	part => provisioner.cli_part(),
+	packages => provisioner.cli_packages(),
+	#provision => true,	# default if unspecified
+}) as host0
+
+#if $host0.provisioned {
+#	print "provisioned" {
+#		msg => fmt.printf("%s is provisioned!", $host0.name),
+#	}
+#}

@@ -1,0 +1,18 @@
+default vesamenu.c32
+prompt 1
+timeout 150
+
+label kickstart
+menu label ^Install {{ .distro }} {{ .version }} {{ .arch }} ( kickstart )
+menu default
+kernel {{ .distro }}{{ .version }}-{{ .arch }}/vmlinuz
+append initrd={{ .distro }}{{ .version }}-{{ .arch }}/initrd.img inst.stage2={{ .inst_repo_base }}releases/{{ .version }}/{{ .flavour }}/{{ .arch }}/os/ ip=dhcp inst.ks={{ .ks }}
+
+label manual
+menu label ^Install {{ .distro }} {{ .version }} {{ .arch }} ( manual )
+kernel {{ .distro }}{{ .version }}-{{ .arch }}/vmlinuz
+append initrd={{ .distro }}{{ .version }}-{{ .arch }}/initrd.img inst.stage2={{ .inst_repo_base }}releases/{{ .version }}/{{ .flavour }}/{{ .arch }}/os/ ip=dhcp
+
+label local
+menu label Boot from ^local drive
+localboot 0xffff

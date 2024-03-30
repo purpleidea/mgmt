@@ -1,0 +1,142 @@
+I've just released version 0.0.26 of mgmt!
+
+> 16 files changed, 869 insertions(+), 181 deletions(-)
+
+Hot off the heels of the recent large release (0.0.25) I've just
+released an incremental update...
+
+See more here:
+
+https://purpleidea.com/blog/2024/03/27/a-new-provisioning-tool/
+
+With that, here are a few highlights from the release:
+
+* We have a new mgmt partner program. Please sign-up for early access
+to these release notes, along with other special privileges. Details
+at: https://bit.ly/mgmt-partner-program
+
+* Type unification for the provisioning tool is about 40x faster.
+
+* We fix a small bug related to the upcoming fedora 40 release.
+
+And much more...
+
+
+DOWNLOAD
+
+Prebuilt binaries are available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.26
+
+They can also be found on the Fedora mirror:
+https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/0.0.26/
+
+
+NEWS
+
+* Added old release notes into git
+
+* We now skip over unreleased Fedora versions (like "40 Beta") when
+trying to automatically determine the latest stable release.
+
+* Type unification was structurally refactored to make way for a bunch
+of future improvements and generally to modernize the code.
+
+* Added some unification optimizations and a unification flag
+optimizations system to allow solvers to support special flags. One of
+these new flags was used for the provisioner code with a substantial
+improvement in type unification time by about 40x.
+
+* New cli args are also available for using these flags.
+
+* We're looking for help writing Amazon, Google, DigitalOcean, Hetzner,
+etc, resources if anyone is interested, reach out to us. Particularly
+if there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but
+it's not a blocker, but it would definitely be useful. We're looking
+into it.
+
+* Function graphs are unnecessarily dynamic. We might make them more
+static so that we don't need as many transactions. This is really a
+compiler optimization and not a bug, but it's something important we'd
+like to have.
+
+* Running two Txn's during the same pause would be really helpful. I'm
+not sure how much of a performance improvement we'd get from this, but
+it would sure be interesting to build. If you want to build a fancy
+synchronization primitive, then let us know! Again this is not a bug.
+
+* General type unification performance can be improved drastically. I
+will have to implement the fast algorithm so that we can scale to very
+large mcl programs. Help is wanted if you are familiar with "unionfind"
+and/or type unification.
+
+
+TALKS
+
+I don't have anything planned until CfgMgmtCamp 2025. If you'd like to
+book me for a private event, or sponsor my travel for your conference,
+please let me know.
+
+I recently gave two talks: one at CfgMgmtCamp 2024, and one at FOSDEM
+in the golang room. Both are available online and demonstrated an
+earlier version of the provisioning tool which is fully available
+today. The talks can be found here: https://purpleidea.com/talks/
+
+
+PARTNER PROGRAM
+
+We have a new mgmt partner program which gets you early access to
+releases, bug fixes, support, and many other goodies. Please sign-up
+today: https://bit.ly/mgmt-partner-program
+
+
+MISC
+
+Our mailing list host (Red Hat) is no longer letting non-Red Hat
+employees use their infrastructure. We're looking for a new home. I've
+opened a ticket with Freedesktop. If you have any sway with them or
+other recommendations, please let me know:
+https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082
+
+We're still looking for new contributors, and there are easy, medium
+and hard issues available! You're also welcome to suggest your own!
+Please join us in #mgmtconfig on Libera IRC or Matrix (preferred) and
+ping us if you'd like help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-con
+tribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%
+3Amgmtlove
+
+Although asking in IRC/matrix is the best way to find something to work
+on.
+
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get
+involved. This is fun and friendly! You get to improve your skills,
+and we get some patches in return. Ping me off-list for details.
+
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest
+release:
+James Shubin
+We had 1 unique committers since 0.0.25, and have had 90 overall.
+
+
+Happy hacking,
+James
+@purpleidea

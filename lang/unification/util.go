@@ -76,13 +76,13 @@ func ExprContains(needle interfaces.Expr, haystack []interfaces.Expr) bool {
 	return false
 }
 
-// pairs is a simple list of pairs of expressions which can be used as a simple
+// Pairs is a simple list of pairs of expressions which can be used as a simple
 // undirected graph structure, or as a simple list of equalities.
-type pairs []*interfaces.EqualityInvariant
+type Pairs []*interfaces.EqualityInvariant
 
 // Vertices returns the list of vertices that the input expr is directly
 // connected to.
-func (obj pairs) Vertices(expr interfaces.Expr) []interfaces.Expr {
+func (obj Pairs) Vertices(expr interfaces.Expr) []interfaces.Expr {
 	m := make(map[interfaces.Expr]struct{})
 	for _, x := range obj {
 		if x.Expr1 == x.Expr2 { // skip circular
@@ -106,7 +106,7 @@ func (obj pairs) Vertices(expr interfaces.Expr) []interfaces.Expr {
 }
 
 // DFS returns a depth first search for the graph, starting at the input vertex.
-func (obj pairs) DFS(start interfaces.Expr) []interfaces.Expr {
+func (obj Pairs) DFS(start interfaces.Expr) []interfaces.Expr {
 	var d []interfaces.Expr // discovered
 	var s []interfaces.Expr // stack
 	found := false

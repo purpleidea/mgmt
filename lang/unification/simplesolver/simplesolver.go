@@ -27,25 +27,21 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package unification // TODO: can we put this solver in a sub-package?
+package simplesolver
 
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
 	// Name is the prefix for our solver log messages.
-	Name = "solver: simple"
-
-	// ErrAmbiguous means we couldn't find a solution, but we weren't
-	// inconsistent.
-	ErrAmbiguous = interfaces.Error("can't unify, no equalities were consumed, we're ambiguous")
+	Name = "simple"
 
 	// AllowRecursion specifies whether we're allowed to use the recursive
 	// solver or not. It uses an absurd amount of memory, and might hang
@@ -61,154 +57,32 @@ const (
 	RecursionInvariantLimit = 5 // TODO: pick a better value ?
 )
 
-// SimpleInvariantSolverLogger is a wrapper which returns a
-// SimpleInvariantSolver with the log parameter of your choice specified. The
-// result satisfies the correct signature for the solver parameter of the
-// Unification function.
-// TODO: Get rid of this function and consider just using the struct directly.
-func SimpleInvariantSolverLogger(logf func(format string, v ...interface{})) func(context.Context, []interfaces.Invariant, []interfaces.Expr) (*InvariantSolution, error) {
-	return func(ctx context.Context, invariants []interfaces.Invariant, expected []interfaces.Expr) (*InvariantSolution, error) {
-		sis := &SimpleInvariantSolver{
-			Debug: false, // TODO: consider plumbing this through
-			Logf:  logf,
-		}
-		return sis.Solve(ctx, invariants, expected)
-	}
-}
-
-// DebugSolverState helps us in understanding the state of the type unification
-// solver in a more mainstream format.
-// Example:
-//
-// solver state:
-//
-// *	str("foo") :: str
-// *	call:f(str("foo")) [0xc000ac9f10] :: ?1
-// *	var(x) [0xc00088d840] :: ?2
-// *	param(x) [0xc00000f950] :: ?3
-// *	func(x) { var(x) } [0xc0000e9680] :: ?4
-// *	?2 = ?3
-// *	?4 = func(arg0 str) ?1
-// *	?4 = func(x str) ?2
-// *	?1 = ?2
-func DebugSolverState(solved map[interfaces.Expr]*types.Type, equalities []interfaces.Invariant) string {
-	s := ""
-
-	// all the relevant Exprs
-	count := 0
-	exprs := make(map[interfaces.Expr]int)
-	for _, equality := range equalities {
-		for _, expr := range equality.ExprList() {
-			count++
-			exprs[expr] = count // for sorting
-		}
-	}
-
-	// print the solved Exprs first
-	for expr, typ := range solved {
-		s += fmt.Sprintf("%v :: %v\n", expr, typ)
-		delete(exprs, expr)
-	}
-
-	sortedExprs := []interfaces.Expr{}
-	for k := range exprs {
-		sortedExprs = append(sortedExprs, k)
-	}
-	sort.Slice(sortedExprs, func(i, j int) bool { return exprs[sortedExprs[i]] < exprs[sortedExprs[j]] })
-
-	// for each remaining expr, generate a shorter name than the full pointer
-	nextVar := 1
-	shortNames := map[interfaces.Expr]string{}
-	for _, expr := range sortedExprs {
-		shortNames[expr] = fmt.Sprintf("?%d", nextVar)
-		nextVar++
-		s += fmt.Sprintf("%p %v :: %s\n", expr, expr, shortNames[expr])
-	}
-
-	// print all the equalities using the short names
-	for _, equality := range equalities {
-		switch e := equality.(type) {
-		case *interfaces.EqualsInvariant:
-			_, ok := solved[e.Expr]
-			if !ok {
-				s += fmt.Sprintf("%s = %v\n", shortNames[e.Expr], e.Type)
-			} else {
-				// if solved, then this is redundant, don't print anything
-			}
-
-		case *interfaces.EqualityInvariant:
-			type1, ok1 := solved[e.Expr1]
-			type2, ok2 := solved[e.Expr2]
-			if !ok1 && !ok2 {
-				s += fmt.Sprintf("%s = %s\n", shortNames[e.Expr1], shortNames[e.Expr2])
-			} else if ok1 && !ok2 {
-				s += fmt.Sprintf("%s = %s\n", type1, shortNames[e.Expr2])
-			} else if !ok1 && ok2 {
-				s += fmt.Sprintf("%s = %s\n", shortNames[e.Expr1], type2)
-			} else {
-				// if completely solved, then this is redundant, don't print anything
-			}
-
-		case *interfaces.EqualityWrapFuncInvariant:
-			funcType, funcOk := solved[e.Expr1]
-
-			args := ""
-			argsOk := true
-			for i, argName := range e.Expr2Ord {
-				if i > 0 {
-					args += ", "
-				}
-				argExpr := e.Expr2Map[argName]
-				argType, ok := solved[argExpr]
-				if !ok {
-					args += fmt.Sprintf("%s %s", argName, shortNames[argExpr])
-					argsOk = false
-				} else {
-					args += fmt.Sprintf("%s %s", argName, argType)
-				}
-			}
-
-			outType, outOk := solved[e.Expr2Out]
-
-			if !funcOk || !argsOk || !outOk {
-				if !funcOk && !outOk {
-					s += fmt.Sprintf("%s = func(%s) %s\n", shortNames[e.Expr1], args, shortNames[e.Expr2Out])
-				} else if !funcOk && outOk {
-					s += fmt.Sprintf("%s = func(%s) %s\n", shortNames[e.Expr1], args, outType)
-				} else if funcOk && !outOk {
-					s += fmt.Sprintf("%s = func(%s) %s\n", funcType, args, shortNames[e.Expr2Out])
-				} else {
-					s += fmt.Sprintf("%s = func(%s) %s\n", funcType, args, outType)
-				}
-			}
-
-		case *interfaces.CallFuncArgsValueInvariant:
-			// skip, not used in the examples I care about
-
-		case *interfaces.AnyInvariant:
-			// skip, not used in the examples I care about
-
-		case *interfaces.SkipInvariant:
-			// we don't care about this one
-
-		default:
-			s += fmt.Sprintf("%v\n", equality)
-		}
-	}
-
-	return s
+func init() {
+	unification.Register(Name, func() unification.Solver { return &SimpleInvariantSolver{} })
 }
 
 // SimpleInvariantSolver is an iterative invariant solver for AST expressions.
 // It is intended to be very simple, even if it's computationally inefficient.
 // TODO: Move some of the global solver constants into this struct as params.
 type SimpleInvariantSolver struct {
+	// Strategy is a series of methodologies to heuristically improve the
+	// solver.
+	Strategy map[string]string
+
 	Debug bool
 	Logf  func(format string, v ...interface{})
 }
 
+// Init contains some handles that are used to initialize the solver.
+func (obj *SimpleInvariantSolver) Init(init *unification.Init) error {
+	obj.Debug = init.Debug
+	obj.Logf = init.Logf
+
+	return nil
+}
+
 // Solve is the actual solve implementation of the solver.
-func (obj *SimpleInvariantSolver) Solve(ctx context.Context, invariants []interfaces.Invariant, expected []interfaces.Expr) (*InvariantSolution, error) {
+func (obj *SimpleInvariantSolver) Solve(ctx context.Context, invariants []interfaces.Invariant, expected []interfaces.Expr) (*unification.InvariantSolution, error) {
 	process := func(invariants []interfaces.Invariant) ([]interfaces.Invariant, []*interfaces.ExclusiveInvariant, error) {
 		equalities := []interfaces.Invariant{}
 		exclusives := []*interfaces.ExclusiveInvariant{}
@@ -351,7 +225,7 @@ func (obj *SimpleInvariantSolver) Solve(ctx context.Context, invariants []interf
 
 	// list all the expr's connected to expr, use pairs as chains
 	listConnectedFn := func(expr interfaces.Expr, exprs []*interfaces.EqualityInvariant) []interfaces.Expr {
-		pairsType := pairs(exprs)
+		pairsType := unification.Pairs(exprs)
 		return pairsType.DFS(expr)
 	}
 
@@ -1272,7 +1146,7 @@ Loop:
 					obj.Logf("%s: unsolved: %+v", Name, x)
 				}
 			}
-			obj.Logf("%s: solver state:\n%s", Name, DebugSolverState(solved, equalities))
+			obj.Logf("%s: solver state:\n%s", Name, unification.DebugSolverState(solved, equalities))
 
 			// Lastly, we could loop through each exclusive and see
 			// if it only has a single, easy solution. For example,
@@ -1338,7 +1212,7 @@ Loop:
 			}
 
 			// let's try each combination, one at a time...
-			for i, ex := range exclusivesProduct(exclusives) { // [][]interfaces.Invariant
+			for i, ex := range unification.ExclusivesProduct(exclusives) { // [][]interfaces.Invariant
 				select {
 				case <-ctx.Done():
 					return nil, ctx.Err()
@@ -1378,7 +1252,7 @@ Loop:
 			for expr, typ := range solved {
 				obj.Logf("%s: solved: (%p) => %+v", Name, expr, typ)
 			}
-			return nil, ErrAmbiguous
+			return nil, unification.ErrAmbiguous
 		}
 		// delete used equalities, in reverse order to preserve indexing!
 		for i := len(used) - 1; i >= 0; i-- {
@@ -1403,7 +1277,7 @@ Loop:
 		}
 		solutions = append(solutions, invar)
 	}
-	return &InvariantSolution{
+	return &unification.InvariantSolution{
 		Solutions: solutions,
 	}, nil
 }

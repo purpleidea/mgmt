@@ -29,7 +29,7 @@
 
 //go:build !root
 
-package lang // XXX: move this to the unification package
+package solvers
 
 import (
 	"context"
@@ -37,6 +37,7 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/purpleidea/mgmt/engine/resources" // import so the resources register
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
@@ -848,13 +849,21 @@ func TestUnification1(t *testing.T) {
 			}
 
 			// apply type unification
+			debug := testing.Verbose()
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": unification: "+format, v...)
 			}
+
+			solver, err := unification.LookupDefault()
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: solver lookup failed with: %+v", index, err)
+				return
+			}
 			unifier := &unification.Unifier{
 				AST:    xast,
-				Solver: unification.SimpleInvariantSolverLogger(logf),
-				Debug:  testing.Verbose(),
+				Solver: solver,
+				Debug:  debug,
 				Logf:   logf,
 			}
 			err = unifier.Unify(context.TODO())

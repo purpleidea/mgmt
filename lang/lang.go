@@ -50,6 +50,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/parser"
 	"github.com/purpleidea/mgmt/lang/unification"
+	_ "github.com/purpleidea/mgmt/lang/unification/solvers" // import so the solvers register
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -225,13 +226,18 @@ func (obj *Lang) Init(ctx context.Context) error {
 		}
 	}
 	obj.Logf("running type unification...")
-	timing = time.Now()
+
+	solver, err := unification.LookupDefault()
+	if err != nil {
+		return errwrap.Wrapf(err, "could not get default solver")
+	}
 	unifier := &unification.Unifier{
 		AST:    obj.ast,
-		Solver: unification.SimpleInvariantSolverLogger(logf),
+		Solver: solver,
 		Debug:  obj.Debug,
 		Logf:   logf,
 	}
+	timing = time.Now()
 	// NOTE: This is the "real" Unify that runs. (This is not for deploy.)
 	unifyErr := unifier.Unify(ctx)
 	obj.Logf("type unification took: %s", time.Since(timing))

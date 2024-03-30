@@ -46,8 +46,7 @@ type Unifier struct {
 	AST interfaces.Stmt
 
 	// Solver is the solver algorithm implementation to use.
-	// XXX: Solver should be a solver interface, not a function signature.
-	Solver func(context.Context, []interfaces.Invariant, []interfaces.Expr) (*InvariantSolution, error)
+	Solver Solver
 
 	Debug bool
 	Logf  func(format string, v ...interface{})
@@ -76,6 +75,14 @@ func (obj *Unifier) Unify(ctx context.Context) error {
 		return fmt.Errorf("the Logf function is missing")
 	}
 
+	init := &Init{
+		Logf:  obj.Logf,
+		Debug: obj.Debug,
+	}
+	if err := obj.Solver.Init(init); err != nil {
+		return err
+	}
+
 	if obj.Debug {
 		obj.Logf("tree: %+v", obj.AST)
 	}
@@ -98,7 +105,7 @@ func (obj *Unifier) Unify(ctx context.Context) error {
 	exprMap := ExprListToExprMap(exprs)    // makes searching faster
 	exprList := ExprMapToExprList(exprMap) // makes it unique (no duplicates)
 
-	solved, err := obj.Solver(ctx, invariants, exprList)
+	solved, err := obj.Solver.Solve(ctx, invariants, exprList)
 	if err != nil {
 		return err
 	}
@@ -194,14 +201,14 @@ func (obj *InvariantSolution) ExprList() []interfaces.Expr {
 	return exprs
 }
 
-// exclusivesProduct returns a list of different products produced from the
+// ExclusivesProduct returns a list of different products produced from the
 // combinatorial product of the list of exclusives. Each ExclusiveInvariant must
 // contain between one and more Invariants. This takes every combination of
 // Invariants (choosing one from each ExclusiveInvariant) and returns that list.
 // In other words, if you have three exclusives, with invariants named (A1, B1),
 // (A2), and (A3, B3, C3) you'll get: (A1, A2, A3), (A1, A2, B3), (A1, A2, C3),
 // (B1, A2, A3), (B1, A2, B3), (B1, A2, C3) as results for this function call.
-func exclusivesProduct(exclusives []*interfaces.ExclusiveInvariant) [][]interfaces.Invariant {
+func ExclusivesProduct(exclusives []*interfaces.ExclusiveInvariant) [][]interfaces.Invariant {
 	if len(exclusives) == 0 {
 		return nil
 	}

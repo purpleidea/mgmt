@@ -29,7 +29,7 @@
 
 //go:build !root
 
-package unification
+package solvers
 
 import (
 	"context"
@@ -40,6 +40,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/util"
 )
 
@@ -259,14 +260,27 @@ func TestSimpleSolver1(t *testing.T) {
 		t.Run(fmt.Sprintf("test #%d (%s)", index, tc.name), func(t *testing.T) {
 			invariants, expected, fail, expect, experr, experrstr := tc.invariants, tc.expected, tc.fail, tc.expect, tc.experr, tc.experrstr
 
+			debug := testing.Verbose()
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
-			debug := testing.Verbose()
 
-			solver := SimpleInvariantSolverLogger(logf) // generates a solver with built-in logging
-
-			solution, err := solver(context.TODO(), invariants, expected)
+			solver, err := unification.LookupDefault()
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: solver lookup failed with: %+v", index, err)
+				return
+			}
+			init := &unification.Init{
+				Debug: debug,
+				Logf:  logf,
+			}
+			if err := solver.Init(init); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: solver init failed with: %+v", index, err)
+				return
+			}
+			solution, err := solver.Solve(context.TODO(), invariants, expected)
 			t.Logf("test #%d: solver completed with: %+v", index, err)
 
 			if !fail && err != nil {

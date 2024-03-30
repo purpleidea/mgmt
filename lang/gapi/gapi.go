@@ -269,13 +269,18 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			}
 		}
 		logf("running type unification...")
-		startTime := time.Now()
+
+		solver, err := unification.LookupDefault()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not get default solver")
+		}
 		unifier := &unification.Unifier{
 			AST:    iast,
-			Solver: unification.SimpleInvariantSolverLogger(unificationLogf),
+			Solver: solver,
 			Debug:  debug,
 			Logf:   unificationLogf,
 		}
+		startTime := time.Now()
 		unifyErr := unifier.Unify(context.TODO())
 		delta := time.Since(startTime)
 		formatted := delta.String()

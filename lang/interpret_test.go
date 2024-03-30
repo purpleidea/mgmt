@@ -458,9 +458,15 @@ func TestAstFunc1(t *testing.T) {
 			xlogf := func(format string, v ...interface{}) {
 				logf("unification: "+format, v...)
 			}
+			solver, err := unification.LookupDefault()
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: solver lookup failed with: %+v", index, err)
+				return
+			}
 			unifier := &unification.Unifier{
 				AST:    iast,
-				Solver: unification.SimpleInvariantSolverLogger(xlogf),
+				Solver: solver,
 				Debug:  testing.Verbose(),
 				Logf:   xlogf,
 			}
@@ -1028,9 +1034,15 @@ func TestAstFunc2(t *testing.T) {
 			xlogf := func(format string, v ...interface{}) {
 				logf("unification: "+format, v...)
 			}
+			solver, err := unification.LookupDefault()
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: solver lookup failed with: %+v", index, err)
+				return
+			}
 			unifier := &unification.Unifier{
 				AST:    iast,
-				Solver: unification.SimpleInvariantSolverLogger(xlogf),
+				Solver: solver,
 				Debug:  testing.Verbose(),
 				Logf:   xlogf,
 			}
@@ -1830,9 +1842,15 @@ func TestAstFunc3(t *testing.T) {
 			xlogf := func(format string, v ...interface{}) {
 				logf("unification: "+format, v...)
 			}
+			solver, err := unification.LookupDefault()
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: solver lookup failed with: %+v", index, err)
+				return
+			}
 			unifier := &unification.Unifier{
 				AST:    iast,
-				Solver: unification.SimpleInvariantSolverLogger(xlogf),
+				Solver: solver,
 				Debug:  testing.Verbose(),
 				Logf:   xlogf,
 			}

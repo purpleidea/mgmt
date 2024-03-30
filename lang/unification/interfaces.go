@@ -45,6 +45,11 @@ const (
 
 	// StrategyNameKey is the string key used when choosing a solver name.
 	StrategyNameKey = "name"
+
+	// StrategyOptimizationsKey is the string key used to tell the solver
+	// about the specific optimizations you'd like to request. The format
+	// can be specific to each solver.
+	StrategyOptimizationsKey = "optimizations"
 )
 
 // Init contains some handles that are used to initialize every solver. Each

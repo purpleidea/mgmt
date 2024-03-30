@@ -268,6 +268,10 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	if name := args.UnifySolver; name != nil && *name != "" {
 		unificationStrategy[unification.StrategyNameKey] = *name
 	}
+	if len(args.UnifyOptimizations) > 0 {
+		// TODO: use a query string parser instead?
+		unificationStrategy[unification.StrategyOptimizationsKey] = strings.Join(args.UnifyOptimizations, ",")
+	}
 
 	if !args.SkipUnify {
 		// apply type unification

@@ -32,6 +32,8 @@ package simplesolver
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -42,6 +44,17 @@ import (
 const (
 	// Name is the prefix for our solver log messages.
 	Name = "simple"
+
+	// OptimizationSkipFuncCmp is the magic flag name to include the skip
+	// func cmp optimization which can speed up some simple programs. If
+	// this is specified, then OptimizationHeuristicalDrop is redundant.
+	OptimizationSkipFuncCmp = "skip-func-cmp"
+
+	// OptimizationHeuristicalDrop is the magic flag name to include to tell
+	// the solver to drop some func compares. This is a less aggressive form
+	// of OptimizationSkipFuncCmp. This is redundant if
+	// OptimizationSkipFuncCmp is true.
+	OptimizationHeuristicalDrop = "heuristical-drop"
 
 	// AllowRecursion specifies whether we're allowed to use the recursive
 	// solver or not. It uses an absurd amount of memory, and might hang
@@ -71,6 +84,19 @@ type SimpleInvariantSolver struct {
 
 	Debug bool
 	Logf  func(format string, v ...interface{})
+
+	// skipFuncCmp tells the solver to skip the slow loop entirely. This may
+	// prevent some correct programs from completing type unification.
+	skipFuncCmp bool
+
+	// heuristicalDrop tells the solver to drop some func compares. This was
+	// determined heuristically and needs checking to see if it's even a
+	// sensible algorithmic approach. This is a less aggressive form of
+	// skipFuncCmp. This is redundant if skipFuncCmp is true.
+	heuristicalDrop bool
+
+	// zTotal is a heuristic counter to measure the size of the slow loop.
+	zTotal int
 }
 
 // Init contains some handles that are used to initialize the solver.
@@ -79,6 +105,22 @@ func (obj *SimpleInvariantSolver) Init(init *unification.Init) error {
 
 	obj.Debug = init.Debug
 	obj.Logf = init.Logf
+
+	optimizations, exists := init.Strategy[unification.StrategyOptimizationsKey]
+	if !exists {
+		return nil
+	}
+	// TODO: use a query string parser instead?
+	for _, x := range strings.Split(optimizations, ",") {
+		if x == OptimizationSkipFuncCmp {
+			obj.skipFuncCmp = true
+			continue
+		}
+		if x == OptimizationHeuristicalDrop {
+			obj.heuristicalDrop = true
+			continue
+		}
+	}
 
 	return nil
 }
@@ -646,7 +688,12 @@ Loop:
 					return false
 				}
 				// is there another EqualityWrapFuncInvariant with the same Expr1 pointer?
-				for _, fn := range fnInvariants {
+				fnDone := make(map[int]struct{})
+				for z, fn := range fnInvariants {
+					if obj.skipFuncCmp {
+						break
+					}
+					obj.zTotal++
 					// XXX: I think we're busy in this loop a lot.
 					select {
 					case <-ctx.Done():
@@ -693,6 +740,7 @@ Loop:
 							eqInvariants = append(eqInvariants, newEq)
 							// TODO: add it as a generator instead?
 							equalities = append(equalities, newEq)
+							fnDone[z] = struct{}{} // XXX: heuristical drop
 						}
 
 						// both solved or both unsolved we skip
@@ -706,6 +754,7 @@ Loop:
 									solved[rhsExpr] = lhsTyp // yay, we learned something!
 									//used = append(used, i) // mark equality as used up when complete!
 									obj.Logf("%s: solved partial rhs func arg equality", Name)
+									fnDone[z] = struct{}{} // XXX: heuristical drop
 								} else if err := newTyp.Cmp(lhsTyp); err != nil {
 									return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial rhs func arg equality")
 								}
@@ -726,6 +775,7 @@ Loop:
 									solved[lhsExpr] = rhsTyp // yay, we learned something!
 									//used = append(used, i) // mark equality as used up when complete!
 									obj.Logf("%s: solved partial lhs func arg equality", Name)
+									fnDone[z] = struct{}{} // XXX: heuristical drop
 								} else if err := newTyp.Cmp(rhsTyp); err != nil {
 									return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial lhs func arg equality")
 								}
@@ -756,6 +806,7 @@ Loop:
 						eqInvariants = append(eqInvariants, newEq)
 						// TODO: add it as a generator instead?
 						equalities = append(equalities, newEq)
+						fnDone[z] = struct{}{} // XXX: heuristical drop
 					}
 
 					// both solved or both unsolved we skip
@@ -769,6 +820,7 @@ Loop:
 								solved[rhsExpr] = lhsTyp // yay, we learned something!
 								//used = append(used, i) // mark equality as used up when complete!
 								obj.Logf("%s: solved partial rhs func return equality", Name)
+								fnDone[z] = struct{}{} // XXX: heuristical drop
 							} else if err := newTyp.Cmp(lhsTyp); err != nil {
 								return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial rhs func return equality")
 							}
@@ -789,6 +841,7 @@ Loop:
 								solved[lhsExpr] = rhsTyp // yay, we learned something!
 								//used = append(used, i) // mark equality as used up when complete!
 								obj.Logf("%s: solved partial lhs func return equality", Name)
+								fnDone[z] = struct{}{} // XXX: heuristical drop
 							} else if err := newTyp.Cmp(rhsTyp); err != nil {
 								return nil, errwrap.Wrapf(err, "can't unify, invariant illogicality with partial lhs func return equality")
 							}
@@ -800,6 +853,21 @@ Loop:
 						}
 					}
 
+				} // end big slow loop
+				if obj.heuristicalDrop {
+					fnDoneList := []int{}
+					for k := range fnDone {
+						fnDoneList = append(fnDoneList, k)
+					}
+					sort.Ints(fnDoneList)
+
+					for z := len(fnDoneList) - 1; z >= 0; z-- {
+						zx := fnDoneList[z] // delete index that was marked as done!
+						fnInvariants = append(fnInvariants[:zx], fnInvariants[zx+1:]...)
+						if obj.Debug {
+							obj.Logf("zTotal: %d, had: %d, removing: %d", obj.zTotal, len(fnInvariants), len(fnDoneList))
+						}
+					}
 				}
 
 				// can we solve anything?
@@ -1279,6 +1347,7 @@ Loop:
 		}
 		solutions = append(solutions, invar)
 	}
+	obj.Logf("zTotal: %d", obj.zTotal)
 	return &unification.InvariantSolution{
 		Solutions: solutions,
 	}, nil

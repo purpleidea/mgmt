@@ -46,6 +46,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/lang/unification/simplesolver" // TODO: remove me!
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/password"
@@ -383,6 +384,12 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 
 	// Make any changes here that we want to...
 	runArgs.RunLang.SkipUnify = true // speed things up for known good code
+	name := simplesolver.Name
+	// TODO: Remove these optimizations when the solver is faster overall.
+	runArgs.RunLang.UnifySolver = &name
+	runArgs.RunLang.UnifyOptimizations = []string{
+		simplesolver.OptimizationSkipFuncCmp,
+	}
 	libConfig.TmpPrefix = true
 	libConfig.NoPgp = true
 

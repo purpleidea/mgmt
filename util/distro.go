@@ -126,8 +126,8 @@ func LatestFedoraVersion(ctx context.Context, arch string) (string, error) {
 	m := 0
 	for _, r := range data {
 		version, err := strconv.Atoi(r.Version)
-		if err != nil {
-			return "", err
+		if err != nil { // skip strings like "40 Beta"
+			continue
 		}
 		if arch != "" && arch != r.Arch { // skip others
 			continue

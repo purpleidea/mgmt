@@ -42,11 +42,18 @@ const (
 	// ErrAmbiguous means we couldn't find a solution, but we weren't
 	// inconsistent.
 	ErrAmbiguous = interfaces.Error("can't unify, no equalities were consumed, we're ambiguous")
+
+	// StrategyNameKey is the string key used when choosing a solver name.
+	StrategyNameKey = "name"
 )
 
 // Init contains some handles that are used to initialize every solver. Each
 // individual solver can choose to omit using some of the fields.
 type Init struct {
+	// Strategy is a hack to tune unification performance until we have an
+	// overall cleaner unification algorithm in place.
+	Strategy map[string]string
+
 	Debug bool
 	Logf  func(format string, v ...interface{})
 }

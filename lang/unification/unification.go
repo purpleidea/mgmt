@@ -48,6 +48,10 @@ type Unifier struct {
 	// Solver is the solver algorithm implementation to use.
 	Solver Solver
 
+	// Strategy is a hack to tune unification performance until we have an
+	// overall cleaner unification algorithm in place.
+	Strategy map[string]string
+
 	Debug bool
 	Logf  func(format string, v ...interface{})
 }
@@ -76,8 +80,9 @@ func (obj *Unifier) Unify(ctx context.Context) error {
 	}
 
 	init := &Init{
-		Logf:  obj.Logf,
-		Debug: obj.Debug,
+		Strategy: obj.Strategy,
+		Logf:     obj.Logf,
+		Debug:    obj.Debug,
 	}
 	if err := obj.Solver.Init(init); err != nil {
 		return err

@@ -84,8 +84,9 @@ type LangArgs struct {
 	OnlyDownload bool `arg:"--only-download" help:"stop after downloading any missing imports"`
 	Update       bool `arg:"--update" help:"update all dependencies to the latest versions"`
 
-	OnlyUnify bool `arg:"--only-unify" help:"stop after type unification"`
-	SkipUnify bool `arg:"--skip-unify" help:"skip type unification"`
+	OnlyUnify   bool    `arg:"--only-unify" help:"stop after type unification"`
+	SkipUnify   bool    `arg:"--skip-unify" help:"skip type unification"`
+	UnifySolver *string `arg:"--unify-name" help:"pick a specific unification solver"`
 
 	Depth int `arg:"--depth" default:"-1" help:"max recursion depth limit (-1 is unlimited)"`
 

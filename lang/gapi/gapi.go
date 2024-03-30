@@ -70,6 +70,9 @@ func init() {
 type GAPI struct {
 	InputURI string // input URI of code file system to run
 
+	// Data is some additional data for the lang struct.
+	Data *lang.Data
+
 	lang   *lang.Lang // lang struct
 	wgRun  *sync.WaitGroup
 	ctx    context.Context
@@ -261,6 +264,11 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		return nil, nil // success!
 	}
 
+	unificationStrategy := make(map[string]string)
+	if name := args.UnifySolver; name != nil && *name != "" {
+		unificationStrategy[unification.StrategyNameKey] = *name
+	}
+
 	if !args.SkipUnify {
 		// apply type unification
 		unificationLogf := func(format string, v ...interface{}) {
@@ -275,10 +283,11 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			return nil, errwrap.Wrapf(err, "could not get default solver")
 		}
 		unifier := &unification.Unifier{
-			AST:    iast,
-			Solver: solver,
-			Debug:  debug,
-			Logf:   unificationLogf,
+			AST:      iast,
+			Solver:   solver,
+			Strategy: unificationStrategy,
+			Debug:    debug,
+			Logf:     unificationLogf,
 		}
 		startTime := time.Now()
 		unifyErr := unifier.Unify(context.TODO())
@@ -411,7 +420,10 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		Sema: info.Flags.Sema,
 		GAPI: &GAPI{
 			InputURI: fs.URI(),
-			// TODO: add properties here...
+			Data: &lang.Data{
+				UnificationStrategy: unificationStrategy,
+				// TODO: add properties here...
+			},
 		},
 	}, nil
 }
@@ -451,6 +463,7 @@ func (obj *GAPI) LangInit(ctx context.Context) error {
 		Fs:    fs,
 		FsURI: obj.InputURI,
 		Input: input,
+		Data:  obj.Data,
 
 		Hostname: obj.data.Hostname,
 		Local:    obj.data.Local,

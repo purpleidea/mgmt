@@ -75,6 +75,8 @@ type SimpleInvariantSolver struct {
 
 // Init contains some handles that are used to initialize the solver.
 func (obj *SimpleInvariantSolver) Init(init *unification.Init) error {
+	obj.Strategy = init.Strategy
+
 	obj.Debug = init.Debug
 	obj.Logf = init.Logf
 

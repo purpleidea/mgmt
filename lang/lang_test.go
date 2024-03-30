@@ -137,7 +137,10 @@ func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 	lang := &Lang{
 		Fs:    fs,
 		Input: "/" + interfaces.MetadataFilename, // start path in fs
-		Debug: testing.Verbose(),                 // set via the -test.v flag to `go test`
+		Data: &Data{
+			UnificationStrategy: make(map[string]string), // empty
+		},
+		Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 		Logf:  logf,
 	}
 	if err := lang.Init(ctx); err != nil {

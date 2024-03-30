@@ -64,6 +64,18 @@ const (
 	EngineStartupStatsTimeout = 10
 )
 
+// Data is some data that is passed into the Lang struct. It is presented here
+// as a single struct with room for multiple fields so that it can be changed or
+// extended in the future without having to re-plumb through all the fields it
+// contains
+type Data struct {
+	// UnificationStrategy is a hack to tune unification performance until
+	// we have an overall cleaner unification algorithm in place.
+	UnificationStrategy map[string]string
+
+	// TODO: Add other fields here if necessary.
+}
+
 // Lang is the main language lexer/parser object.
 type Lang struct {
 	Fs    engine.Fs // connected fs where input dir or metadata exists
@@ -78,6 +90,9 @@ type Lang struct {
 	// from that specification. If none of those match, it will attempt to
 	// run the raw string as mcl code.
 	Input string
+
+	// Data is some additional data for the lang struct.
+	Data *Data
 
 	Hostname string
 	Local    *local.API
@@ -101,6 +116,12 @@ type Lang struct {
 // watching them, *before* we pull their values, that way we'll know if they
 // changed from the values we wanted.
 func (obj *Lang) Init(ctx context.Context) error {
+	if obj.Data == nil {
+		return fmt.Errorf("lang struct was not built properly")
+	}
+	if obj.Data.UnificationStrategy == nil {
+		return fmt.Errorf("lang struct was not built properly")
+	}
 	if obj.Debug {
 		obj.Logf("input: %s", obj.Input)
 		tree, err := util.FsTree(obj.Fs, "/") // should look like gapi
@@ -227,15 +248,20 @@ func (obj *Lang) Init(ctx context.Context) error {
 	}
 	obj.Logf("running type unification...")
 
-	solver, err := unification.LookupDefault()
-	if err != nil {
+	var solver unification.Solver
+	if name, exists := obj.Data.UnificationStrategy["solver"]; exists && name != "" {
+		if solver, err = unification.Lookup(name); err != nil {
+			return errwrap.Wrapf(err, "could not get solver: %s", name)
+		}
+	} else if solver, err = unification.LookupDefault(); err != nil {
 		return errwrap.Wrapf(err, "could not get default solver")
 	}
 	unifier := &unification.Unifier{
-		AST:    obj.ast,
-		Solver: solver,
-		Debug:  obj.Debug,
-		Logf:   logf,
+		AST:      obj.ast,
+		Solver:   solver,
+		Strategy: obj.Data.UnificationStrategy,
+		Debug:    obj.Debug,
+		Logf:     logf,
 	}
 	timing = time.Now()
 	// NOTE: This is the "real" Unify that runs. (This is not for deploy.)

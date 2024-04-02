@@ -21,8 +21,6 @@ to build your own.
 
 ### Downloading a pre-built release:
 
-This method is not recommended because those packages are now very old.
-
 The latest releases can be found [here](https://github.com/purpleidea/mgmt/releases/).
 An alternate mirror is available [here](https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/).
 

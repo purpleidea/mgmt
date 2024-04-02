@@ -101,13 +101,13 @@ This method avoids polluting your workstation with the dependencies for the
 build. Here is an example using Fedora, Podman and Buildah:
 
 ```shell
-git clone --recursive https://github.com/purpleidea/mgmt/ ~/mgmt/
-cd ~/mgmt/docker
-buildah build -f Dockerfile-fedora.build -t mgmt_build
-podman run -d -it --name mgmt_build localhost/mgmt_build
-podman cp mgmt_build:/src/github.com/purpleidea/mgmt/mgmt /tmp/mgmt
-sudo mv /tmp/mgmt /usr/local/bin  # be sure this is in your $PATH
-sudo chown root:root /usr/local/bin/mgmt
+git clone --recursive https://github.com/purpleidea/mgmt/
+cd mgmt
+docker build -t mgmt -f docker/Dockerfile .
+docker run --rm --entrypoint cat mgmt mgmt > mgmt
+chmod +x mgmt
+./mgmt --version
+# you could now copy the mgmt binary somewhere into your $PATH, e.g., /usr/local/bin/ to make it accessible from anywhere
 ```
 
 ## Running mgmt

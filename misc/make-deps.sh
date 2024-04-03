@@ -48,7 +48,6 @@ fold_start "Install dependencies"
 if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
-	$sudo_command $YUM install -y ruby-devel rubygems
 	$sudo_command $YUM install -y time
 	if ! in_env; then
 		$sudo_command $YUM install -y ragel
@@ -62,7 +61,6 @@ if [ -n "$APT" ]; then
 	$sudo_command $APT update -y
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
-	$sudo_command $APT install -y ruby ruby-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
 	if ! in_env; then
 		$sudo_command $APT install -y ragel || true
@@ -86,7 +84,7 @@ if [ -n "$BREW" -a "$RUNNER_OS" != "Linux" ]; then
 fi
 
 if [ -n "$PACMAN" ]; then
-	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap ragel
+	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas libpcap ragel
 fi
 fold_end "Install dependencies"
 
@@ -114,6 +112,7 @@ if ! in_env; then
 fi
 
 if in_env; then
+	fold_start "Build ragel"
 	# TODO: consider bumping to new package manager version
 	RAGEL_VERSION='6.10'	# current stable version
 	RAGEL_TMP='/tmp/ragel/'
@@ -129,6 +128,7 @@ if in_env; then
 	make
 	sudo make install
 	cd -
+	fold_end "Build ragel"
 fi
 
 # attempt to workaround old ubuntu
@@ -164,8 +164,12 @@ fi
 fold_end "Install golang tools"
 
 fold_start "Install miscellaneous tools"
-command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files
-command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
+cd "$ROOT"
+command -v pipenv &>/dev/null || $sudo_command pip3 install pipenv || true
+pipenv install && pipenv sync || true
+if command -v gem &>/dev/null ; then
+	command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
+fi
 fold_end "Install miscellaneous tools"
 
 cd "$XPWD" >/dev/null

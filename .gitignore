@@ -9,6 +9,7 @@ tmp/
 *_stringer.go
 mgmt
 mgmt.static
+Pipfile.lock
 # crossbuild artifacts
 build/mgmt-*
 mgmt.iml

@@ -4859,7 +4859,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 		return fmt.Errorf("class scope of `%s` does not contain a class", obj.Name)
 	}
 
-	// is it even possible for the signatures to match?
+	// Is it even possible for the signatures to not match?
 	if len(class.Args) != len(obj.Args) {
 		return fmt.Errorf("class `%s` expected %d args but got %d", obj.Name, len(class.Args), len(obj.Args))
 	}
@@ -4954,7 +4954,7 @@ func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
 		return nil, fmt.Errorf("include doesn't contain a class pointer yet")
 	}
 
-	// is it even possible for the signatures to match?
+	// Is it even possible for the signatures to not match?
 	if len(obj.class.Args) != len(obj.Args) {
 		return nil, fmt.Errorf("class `%s` expected %d args but got %d", obj.Name, len(obj.class.Args), len(obj.Args))
 	}
@@ -9209,7 +9209,7 @@ func (obj *ExprPoly) Unify() ([]interfaces.Invariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
 func (obj *ExprPoly) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
-	panic("ExprPoly.Unify(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+	panic("ExprPoly.Graph(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

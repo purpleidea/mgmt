@@ -119,7 +119,7 @@ class base($config) {
 	#	firewalld
 	#
 	if $firewalld {
-		firewalld "tftp" { # name is irrelevant
+		firewalld "provisioner" { # name is irrelevant
 			services => [
 				"tftp",
 				"dhcp",

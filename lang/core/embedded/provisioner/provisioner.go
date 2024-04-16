@@ -166,6 +166,10 @@ type localArgs struct {
 	// to the user to make sure they exist and don't conflict with each
 	// other or the base installation packages.
 	Packages []string `arg:"--packages" help:"list of additional distro packages to install (comma separated)" func:"cli_packages"`
+
+	// OnlyUnify tells the compiler to stop after type unification. This is
+	// used for testing.
+	OnlyUnify bool `arg:"--only-unify" help:"stop after type unification"`
 }
 
 // provisioner is our cli parser translator and general frontend object.
@@ -384,6 +388,12 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 
 	// Make any changes here that we want to...
 	runArgs.RunLang.SkipUnify = true // speed things up for known good code
+	if obj.localArgs.OnlyUnify {
+		obj.init.Logf("stopping after type unification...")
+		runArgs.RunLang.OnlyUnify = true
+		runArgs.RunLang.SkipUnify = false // can't skip if we only unify
+	}
+
 	name := simplesolver.Name
 	// TODO: Remove these optimizations when the solver is faster overall.
 	runArgs.RunLang.UnifySolver = &name

@@ -77,7 +77,7 @@ func (obj *arg) ToMcl() (string, error) {
 	case "float64":
 		return fmt.Sprintf("%s%s", prefix, types.TypeFloat.String()), nil
 	case "[]string":
-		return fmt.Sprintf("%s%s", prefix, types.NewType("[]str").String()), nil
+		return fmt.Sprintf("%s%s", prefix, types.TypeListStr.String()), nil
 	default:
 		return "", fmt.Errorf("cannot convert %v to mcl", obj.Type)
 	}

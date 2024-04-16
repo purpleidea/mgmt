@@ -54,6 +54,6 @@ func Args([]types.Value) (types.Value, error) {
 	}
 	return &types.ListValue{
 		V: values,
-		T: types.NewType("[]str"),
+		T: types.TypeListStr,
 	}, nil
 }

@@ -125,7 +125,7 @@ func TestUnification1(t *testing.T) {
 				v1:   types.TypeStr,
 				v2:   types.TypeStr,
 				v3:   types.TypeStr,
-				expr: types.NewType("[]str"),
+				expr: types.TypeListStr,
 			},
 		})
 	}

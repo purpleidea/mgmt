@@ -149,7 +149,7 @@ func (obj *ScheduleFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, er
 	// return type of []string
 	invar = &interfaces.EqualsInvariant{
 		Expr: dummyOut,
-		Type: types.NewType("[]str"),
+		Type: types.TypeListStr,
 	}
 	invariants = append(invariants, invar)
 
@@ -345,7 +345,7 @@ func (obj *ScheduleFunc) Polymorphisms(partialType *types.Type, partialValues []
 	var typ *types.Type
 
 	if tOut := partialType.Out; tOut != nil {
-		if err := tOut.Cmp(types.NewType("[]str")); err != nil {
+		if err := tOut.Cmp(types.TypeListStr); err != nil {
 			return nil, errwrap.Wrapf(err, "return type must be a list of strings")
 		}
 	}
@@ -428,7 +428,7 @@ func (obj *ScheduleFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("invalid input type")
 	}
 
-	if err := typ.Out.Cmp(types.NewType("[]str")); err != nil {
+	if err := typ.Out.Cmp(types.TypeListStr); err != nil {
 		return nil, errwrap.Wrapf(err, "return type must be a list of strings")
 	}
 

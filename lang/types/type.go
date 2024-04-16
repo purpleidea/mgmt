@@ -50,6 +50,7 @@ var (
 	TypeStr     = NewType("str")
 	TypeInt     = NewType("int")
 	TypeFloat   = NewType("float")
+	TypeListStr = NewType("[]str")
 	TypeVariant = NewType("variant")
 )
 

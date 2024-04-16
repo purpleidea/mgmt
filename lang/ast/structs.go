@@ -589,13 +589,13 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 
 	invarListStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
-		Type: types.NewType("[]str"),
+		Type: types.TypeListStr,
 	}
 
 	// Optimization: If we know it's a []str, no need for exclusives!
 	if expr, ok := obj.Name.(*ExprList); ok {
 		typ, err := expr.Type()
-		if err == nil && typ.Cmp(types.NewType("[]str")) == nil {
+		if err == nil && typ.Cmp(types.TypeListStr) == nil {
 			invariants = append(invariants, invarListStr)
 			return invariants, nil
 		}
@@ -707,7 +707,7 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 		name := nameValue.Str() // must not panic
 		names = append(names, name)
 
-	case types.NewType("[]str").Cmp(nameValue.Type()) == nil:
+	case types.TypeListStr.Cmp(nameValue.Type()) == nil:
 		for _, x := range nameValue.List() { // must not panic
 			name := x.Str() // must not panic
 			names = append(names, name)
@@ -880,7 +880,7 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 			name := nameValue.Str() // must not panic
 			names = append(names, name)
 
-		case types.NewType("[]str").Cmp(nameValue.Type()) == nil:
+		case types.TypeListStr.Cmp(nameValue.Type()) == nil:
 			for _, x := range nameValue.List() { // must not panic
 				name := x.Str() // must not panic
 				names = append(names, name)
@@ -1953,7 +1953,7 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		invar = static(types.TypeBool)
 
 	case "sema":
-		invar = static(types.NewType("[]str"))
+		invar = static(types.TypeListStr)
 
 	case "rewatch":
 		invar = static(types.TypeBool)
@@ -2235,14 +2235,14 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 					// display something nicer
 					if v.Type().Kind == types.KindStr {
 						p1 = engine.Repr(k1, v.Str())
-					} else if v.Type().Cmp(types.NewType("[]str")) == nil {
+					} else if v.Type().Cmp(types.TypeListStr) == nil {
 						p1 = engine.Repr(k1, v.String())
 					}
 				}
 				if v, err := obj.EdgeHalfList[1].Name.Value(); err == nil {
 					if v.Type().Kind == types.KindStr {
 						p2 = engine.Repr(k2, v.Str())
-					} else if v.Type().Cmp(types.NewType("[]str")) == nil {
+					} else if v.Type().Cmp(types.TypeListStr) == nil {
 						p2 = engine.Repr(k2, v.String())
 					}
 				}
@@ -2319,7 +2319,7 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 			name := nameValue1.Str() // must not panic
 			names1 = append(names1, name)
 
-		case types.NewType("[]str").Cmp(nameValue1.Type()) == nil:
+		case types.TypeListStr.Cmp(nameValue1.Type()) == nil:
 			for _, x := range nameValue1.List() { // must not panic
 				name := x.Str() // must not panic
 				names1 = append(names1, name)
@@ -2344,7 +2344,7 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 			name := nameValue2.Str() // must not panic
 			names2 = append(names2, name)
 
-		case types.NewType("[]str").Cmp(nameValue2.Type()) == nil:
+		case types.TypeListStr.Cmp(nameValue2.Type()) == nil:
 			for _, x := range nameValue2.List() { // must not panic
 				name := x.Str() // must not panic
 				names2 = append(names2, name)
@@ -2501,13 +2501,13 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 
 	invarListStr := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
-		Type: types.NewType("[]str"),
+		Type: types.TypeListStr,
 	}
 
 	// Optimization: If we know it's a []str, no need for exclusives!
 	if expr, ok := obj.Name.(*ExprList); ok {
 		typ, err := expr.Type()
-		if err == nil && typ.Cmp(types.NewType("[]str")) == nil {
+		if err == nil && typ.Cmp(types.TypeListStr) == nil {
 			invariants = append(invariants, invarListStr)
 			return invariants, nil
 		}

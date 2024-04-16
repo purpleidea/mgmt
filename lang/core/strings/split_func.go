@@ -50,7 +50,7 @@ func Split(input []types.Value) (types.Value, error) {
 
 	segments := strings.Split(str, sep)
 
-	listVal := types.NewList(types.NewType("[]str"))
+	listVal := types.NewList(types.TypeListStr)
 
 	for _, segment := range segments {
 		listVal.Add(&types.StrValue{

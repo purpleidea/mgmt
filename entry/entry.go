@@ -45,27 +45,27 @@ import (
 	"github.com/alexflint/go-arg"
 )
 
-// registeredData is the single "registered" entry point that we built with. You
-// cannot have more than one currently.
-// TODO: In the future we could have more than one registered and each could
-// appear under a top-level "embedded" subcommand if we decided not to have a
-// "default" singleton registered.
-var registeredData *Data
+// registeredData is the map of "registered" entry points that we built with.
+// You can have more than one registered. Each will appear under the top-level
+// binary name as a subcommand.
+var registeredData = make(map[string]*Data) // must initialize
 
-// Register takes input data and stores it for lookup by the top-level main
-// function. Register is commonly called in the init() method of the module that
-// defined it, which happens at program startup. Build flags should be used to
-// determine which Register gets to run. Only one entry can be registered at a
-// time. There is no matching Unregister function at this time.
-func Register(data *Data) {
-	if registeredData != nil {
-		panic("an entry is already registered")
+// Register takes a data struct and stores a reference to it in our entry system
+// along with a name. Future lookups to that name will pull out that data.
+// Register is commonly called in the init() method of the module that defined
+// it, which happens at program startup. Build flags should be used to determine
+// which Register functions should run. Multiple entry data struct can be
+// registered at a time. There is no matching Unregister function at this time.
+func Register(name string, data *Data) {
+	if _, exists := registeredData[name]; exists {
+		panic(fmt.Sprintf("an entry named %s is already registered", name))
 	}
+
 	if err := data.Validate(); err != nil {
 		panic(err)
 	}
 
-	registeredData = data
+	registeredData[name] = data
 }
 
 // Data is what a prospective standalone entry program must specify to our API.
@@ -128,15 +128,21 @@ func (obj *Data) Validate() error {
 	return nil
 }
 
-// Lookup returns the runner that implements the complex plumbing to kick off
-// the run. If one has not been registered, then this will error.
-func Lookup() (*Runner, error) {
-	if registeredData == nil {
-		return nil, fmt.Errorf("could not find a registered entry")
+// Lookup takes a name and returns the runner that implements the complex
+// plumbing to kick off the run. If one has not been registered under that name,
+// then this will error.
+func Lookup(name string) (*Runner, error) {
+	data, exists := registeredData[name]
+	if !exists {
+		return nil, fmt.Errorf("could not lookup entry named: %s", name)
+	}
+
+	if data == nil {
+		return nil, fmt.Errorf("registered entry data was nil")
 	}
 
 	return &Runner{
-		data: registeredData, // *Data
+		data: data, // *Data
 	}, nil
 }
 

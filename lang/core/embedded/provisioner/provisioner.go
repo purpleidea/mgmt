@@ -27,7 +27,7 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-//go:build embedded_provisioner
+//go:build !noembedded_provisioner
 
 package coreprovisioner
 
@@ -434,7 +434,7 @@ func init() {
 		localArgs: a.(*localArgs), // force the correct type
 	}
 
-	entry.Register(&entry.Data{
+	entry.Register(ModuleName, &entry.Data{
 		Program: ModuleName,
 		Version: Version, // TODO: get from git?
 

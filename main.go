@@ -91,8 +91,12 @@ func main() {
 		Args: os.Args,
 	}
 
+	name := ""
+	if len(data.Args) > 1 {
+		name = data.Args[1]
+	}
 	// is there an alternate entry point for the cli?
-	if cli, err := entry.Lookup(); err == nil && len(data.Args) > 1 && cli.Name() == data.Args[1] {
+	if cli, err := entry.Lookup(name); err == nil && cli.Name() == name {
 		data.Args = data.Args[1:] // pop off "argv[0]"
 		if err := cli.CLI(context.Background(), data); err != nil {
 			fmt.Println(err)

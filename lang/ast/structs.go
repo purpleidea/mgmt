@@ -1065,12 +1065,8 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 			meta.Realize = v.Bool() // must not panic
 
 		case "reverse":
-			if v.Type().Cmp(types.TypeBool) == nil {
-				if rm != nil {
-					rm.Disabled = !v.Bool() // must not panic
-				}
-			} else {
-				// TODO: read values from struct into rm.XXX
+			if rm != nil {
+				rm.Disabled = !v.Bool() // must not panic
 			}
 
 		case "autoedge":
@@ -1132,11 +1128,7 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 				meta.Realize = val.Bool() // must not panic
 			}
 			if val, exists := v.Struct()["reverse"]; exists && rm != nil {
-				if val.Type().Cmp(types.TypeBool) == nil {
-					rm.Disabled = !val.Bool() // must not panic
-				} else {
-					// TODO: read values from struct into rm.XXX
-				}
+				rm.Disabled = !val.Bool() // must not panic
 			}
 			if val, exists := v.Struct()["autoedge"]; exists && aem != nil {
 				aem.Disabled = !val.Bool() // must not panic
@@ -1962,18 +1954,8 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		invar = static(types.TypeBool)
 
 	case "reverse":
-		ors := []interfaces.Invariant{}
-
-		invarBool := static(types.TypeBool)
-		ors = append(ors, invarBool)
-
-		// TODO: decide what fields we might want here
-		//invarStruct := static(types.NewType("struct{edges str}"))
-		//ors = append(ors, invarStruct)
-
-		invar = &interfaces.ExclusiveInvariant{
-			Invariants: ors, // one and only one of these should be true
-		}
+		// TODO: We might want more parameters about how to reverse.
+		invar = static(types.TypeBool)
 
 	case "autoedge":
 		invar = static(types.TypeBool)
@@ -1989,15 +1971,8 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 		wrap := func(reverse *types.Type) *types.Type {
 			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
-		ors := []interfaces.Invariant{}
-		invarBool := static(wrap(types.TypeBool))
-		ors = append(ors, invarBool)
-		// TODO: decide what fields we might want here
-		//invarStruct := static(wrap(types.NewType("struct{edges str}")))
-		//ors = append(ors, invarStruct)
-		invar = &interfaces.ExclusiveInvariant{
-			Invariants: ors, // one and only one of these should be true
-		}
+		// TODO: We might want more parameters about how to reverse.
+		invar = static(wrap(types.TypeBool))
 
 	default:
 		return nil, fmt.Errorf("unknown property: %s", p)

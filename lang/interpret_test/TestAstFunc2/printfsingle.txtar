@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-test fmt.printf("single") {} # just a format string without identifiers
+test [fmt.printf("single"),] {} # just a format string without identifiers
 
 -- OUTPUT --
 Vertex: test[single]

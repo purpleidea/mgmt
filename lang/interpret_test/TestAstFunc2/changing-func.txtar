@@ -18,8 +18,8 @@ $fn2 = funcgen(false)
 $out1 = $fn1()
 $out2 = $fn2()
 
-test $out1 {}
-test $out2 {}
+test "${out1}" {}
+test "${out2}" {}
 -- OUTPUT --
 Vertex: test[hello]
 Vertex: test[world]

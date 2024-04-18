@@ -15,6 +15,6 @@ $fn2 = $fn1()
 $fn3 = $fn2()
 $out = $fn3()
 
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Vertex: test[hello]

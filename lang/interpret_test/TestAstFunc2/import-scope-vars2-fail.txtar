@@ -2,9 +2,9 @@
 #files: "files/"	# these are some extra files we can use (is the default)
 -- main.mcl --
 import "y.mcl" as g
-#test $g.y {}	# should work
-test $g.x {}	# should fail
-test $g.f.x {}	# should maybe work
+#test "${g.y}" {}	# should work
+test "${g.x}" {}	# should fail
+test "${g.f.x}" {}	# should maybe work
 -- x.mcl --
 $x = "this is x.mcl"
 -- y.mcl --

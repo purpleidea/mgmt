@@ -8,6 +8,6 @@ func stradd($x) {
 
 $x1 = stradd("hey")
 
-test $x1 {}
+test "${x1}" {}
 -- OUTPUT --
 Vertex: test[heythere]

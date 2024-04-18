@@ -3,25 +3,30 @@ $l1 = ["a", "b", "c",]
 
 $l2 = [$l1, ["hello", "world",],]
 
-test $l1[0] {}
-test $l1[2] {}
-test $l1[3] || "pass" {}
+test [$l1[0],] {}
+test [$l1[2],] {}
+test [$l1[3] || "pass",] {}
 test $l2[1] {}
 
 $map1 map{int: str} = {42 => "hello1",}
-test $map1[42] {}
+$name1 = $map1[42]
+test "${name1}" {}
 
 $map2 map{int: str} = {42 => "hello2",}
-test $map2[13] || "world2" {}
+$name2 = $map2[13] || "world2"
+test "${name2}" {}
 
 $map3 = {42 => "hello3",}
-test $map3[42] {}
+$name3 = $map3[42]
+test "${name3}" {}
 
 $map4 = {42 => "hello4",}
-test $map4[13] || "world4" {}
+$name4 = $map4[13] || "world4"
+test "${name4}" {}
 
 $map5 = {"wow" => "pass1",}
-test $map5["wow"] {}
+$name5 = $map5["wow"]
+test "${name5}" {}
 
 -- OUTPUT --
 Vertex: test[a]

@@ -326,6 +326,10 @@ func (obj *StmtBind) Output(map[interfaces.Func]types.Value) (*interfaces.Output
 // value can be a single string or a list of strings. The former will produce a
 // single resource, the latter produces a list of resources. Using this list
 // mechanism is a safe alternative to traditional flow control like `for` loops.
+// The `Name` value can only be a single string when it can be detected
+// statically. Otherwise, it is assumed that a list of strings should be
+// expected. More mechanisms to determine if the value is static may be added
+// over time.
 // TODO: Consider expanding Name to have this return a list of Res's in the
 // Output function if it is a map[name]struct{}, or even a map[[]name]struct{}.
 type StmtRes struct {
@@ -576,38 +580,34 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, invars...)
 
-	invarStr := &interfaces.EqualsInvariant{
-		Expr: obj.Name,
-		Type: types.TypeStr,
-	}
-
 	// Optimization: If we know it's an str, no need for exclusives!
+	// TODO: Check other cases, like if it's a function call, and we know it
+	// can only return a single string. (Eg: fmt.printf for example.)
+	isString := false
 	if _, ok := obj.Name.(*ExprStr); ok {
-		invariants = append(invariants, invarStr)
+		// It's a string! (A plain string was specified.)
+		isString = true
+	}
+	if typ, err := obj.Name.Type(); err == nil {
+		// It has type of string! (Might be an interpolation specified.)
+		if typ.Cmp(types.TypeStr) == nil {
+			isString = true
+		}
+	}
+	if isString {
+		invar := &interfaces.EqualsInvariant{
+			Expr: obj.Name,
+			Type: types.TypeStr,
+		}
+		invariants = append(invariants, invar)
+
 		return invariants, nil
 	}
 
-	invarListStr := &interfaces.EqualsInvariant{
+	// Down here, we only allow []str, no need for exclusives!
+	invar := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.TypeListStr,
-	}
-
-	// Optimization: If we know it's a []str, no need for exclusives!
-	if expr, ok := obj.Name.(*ExprList); ok {
-		typ, err := expr.Type()
-		if err == nil && typ.Cmp(types.TypeListStr) == nil {
-			invariants = append(invariants, invarListStr)
-			return invariants, nil
-		}
-	}
-
-	// name must be a string or a list
-	ors := []interfaces.Invariant{}
-	ors = append(ors, invarStr)
-	ors = append(ors, invarListStr)
-
-	invar := &interfaces.ExclusiveInvariant{
-		Invariants: ors, // one and only one of these should be true
 	}
 	invariants = append(invariants, invar)
 
@@ -2379,7 +2379,13 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 }
 
 // StmtEdgeHalf represents half of an edge in the parsed edge representation.
-// This does not satisfy the Stmt interface.
+// This does not satisfy the Stmt interface. The `Name` value can be a single
+// string or a list of strings. The former will produce a single edge half, the
+// latter produces a list of resources. Using this list mechanism is a safe
+// alternative to traditional flow control like `for` loops. The `Name` value
+// can only be a single string when it can be detected statically. Otherwise, it
+// is assumed that a list of strings should be expected. More mechanisms to
+// determine if the value is static may be added over time.
 type StmtEdgeHalf struct {
 	Kind     string          // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr // unique name for the res of this kind
@@ -2488,38 +2494,34 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 	}
 	invariants = append(invariants, invars...)
 
-	invarStr := &interfaces.EqualsInvariant{
-		Expr: obj.Name,
-		Type: types.TypeStr,
-	}
-
 	// Optimization: If we know it's an str, no need for exclusives!
+	// TODO: Check other cases, like if it's a function call, and we know it
+	// can only return a single string. (Eg: fmt.printf for example.)
+	isString := false
 	if _, ok := obj.Name.(*ExprStr); ok {
-		invariants = append(invariants, invarStr)
+		// It's a string! (A plain string was specified.)
+		isString = true
+	}
+	if typ, err := obj.Name.Type(); err == nil {
+		// It has type of string! (Might be an interpolation specified.)
+		if typ.Cmp(types.TypeStr) == nil {
+			isString = true
+		}
+	}
+	if isString {
+		invar := &interfaces.EqualsInvariant{
+			Expr: obj.Name,
+			Type: types.TypeStr,
+		}
+		invariants = append(invariants, invar)
+
 		return invariants, nil
 	}
 
-	invarListStr := &interfaces.EqualsInvariant{
+	// Down here, we only allow []str, no need for exclusives!
+	invar := &interfaces.EqualsInvariant{
 		Expr: obj.Name,
 		Type: types.TypeListStr,
-	}
-
-	// Optimization: If we know it's a []str, no need for exclusives!
-	if expr, ok := obj.Name.(*ExprList); ok {
-		typ, err := expr.Type()
-		if err == nil && typ.Cmp(types.TypeListStr) == nil {
-			invariants = append(invariants, invarListStr)
-			return invariants, nil
-		}
-	}
-
-	// name must be a string or a list
-	ors := []interfaces.Invariant{}
-	ors = append(ors, invarStr)
-	ors = append(ors, invarListStr)
-
-	invar := &interfaces.ExclusiveInvariant{
-		Invariants: ors, // one and only one of these should be true
 	}
 	invariants = append(invariants, invar)
 

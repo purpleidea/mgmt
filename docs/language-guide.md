@@ -283,6 +283,14 @@ one of many ways you can perform iterative tasks that you might have
 traditionally used a `for` loop for instead. This is preferred, because flow
 control is error-prone and can make for less readable code.
 
+The single `str` variation, may only be used when it is possible for the
+compiler to determine statically that the value is of that type. Otherwise, it
+will assume it to be a list of strings. Programmers should explicitly wrap their
+variables in a string by interpolation to force this static `str` determination,
+or in square brackets to force a list. The former is generally preferable
+because it generates a smaller function graph since it doesn't need to build a
+list.
+
 ##### Internal edges
 
 Resources may also declare edges internally. The edges may point to or from
@@ -336,6 +344,28 @@ Pkg["drbd"] -> File["/etc/drbd.conf"] -> Svc["drbd"]
 to express a relationship between three resources. The first character in the
 resource kind must be capitalized so that the parser can't ascertain
 unambiguously that we are referring to a dependency relationship.
+
+##### Edge naming
+
+Each edge must have a unique name of type `str` that is used to uniquely
+identify that edge, and can be used in the functioning of the edge at its
+discretion.
+
+Alternatively, the name value may be a list of strings `[]str` to build a list
+of edges, each with a name from that list.
+
+Using this construct is a veiled form of looping (iteration). This technique is
+one of many ways you can perform iterative tasks that you might have
+traditionally used a `for` loop for instead. This is preferred, because flow
+control is error-prone and can make for less readable code.
+
+The single `str` variation, may only be used when it is possible for the
+compiler to determine statically that the value is of that type. Otherwise, it
+will assume it to be a list of strings. Programmers should explicitly wrap their
+variables in a string by interpolation to force this static `str` determination,
+or in square brackets to force a list. The former is generally preferable
+because it generates a smaller function graph since it doesn't need to build a
+list.
 
 #### Class
 

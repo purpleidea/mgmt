@@ -8,8 +8,8 @@ $str2 = "world"
 # check this code statically... For now, we can't, so it's only possible with
 # the PrintfAllowNonStaticFormat option enabled. This isn't bad per se, however
 # any static compilation/optimization we can by "running early" would be great.
-test fmt.printf("hello ${str1} %s", $str2) {}
-test "hello " + "small" + " " + $str2 {}
+test [fmt.printf("hello ${str1} %s", $str2),] {}
+test ["hello " + "small" + " " + $str2,] {}
 print "print1" {
 	msg => fmt.printf("hello ${str1} %s", $str2),
 }

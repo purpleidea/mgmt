@@ -9,8 +9,8 @@ $prefixer = func($x) {
 $out1 = $prefixer("world")
 $out2 = $prefixer($out1)
 
-test $out1 {}
-test $out2 {}
+test "${out1}" {}
+test "${out2}" {}
 -- OUTPUT --
 Vertex: test[hello:world]
 Vertex: test[hello:hello:world]

@@ -7,6 +7,7 @@ $addfoo = $add("foo")
 
 # making sure that $x correctly refers to the lambda parameter rather than the
 # top-level "not this x", even in the Value() codepath.
-test $addfoo("bar") {}
+$name = $addfoo("bar")
+test "${name}" {}
 -- OUTPUT --
 Vertex: test[foobar]

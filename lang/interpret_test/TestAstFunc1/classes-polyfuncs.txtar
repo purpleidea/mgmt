@@ -3,11 +3,12 @@ import "fmt"
 
 include c1([13, 42, 0, -37,])
 class c1($b) {
-	test fmt.printf("len is: %d", len($b)) {}	# len is 4
+	test [fmt.printf("len is: %d", len($b)),] {}	# len is 4
 }
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
+Edge: call -> composite # 0
 Edge: const -> composite # 0
 Edge: const -> composite # 1
 Edge: const -> composite # 2
@@ -16,6 +17,7 @@ Vertex: FuncValue
 Vertex: FuncValue
 Vertex: call
 Vertex: call
+Vertex: composite
 Vertex: composite
 Vertex: const
 Vertex: const

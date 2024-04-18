@@ -8,7 +8,7 @@ $answer = func() {
 
 $out = $answer()
 
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Vertex: FuncValue

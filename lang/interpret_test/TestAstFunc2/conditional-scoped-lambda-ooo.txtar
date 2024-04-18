@@ -24,8 +24,8 @@ $funcgen = func() {
 	}
 }
 
-test $out1 {}
-test $out2 {}
+test "${out1}" {}
+test "${out2}" {}
 -- OUTPUT --
 Vertex: test[so true]
 Vertex: test[so false]

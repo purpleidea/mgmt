@@ -17,6 +17,6 @@ $funcgen2 = func() {
 	}
 }
 $out = $fn("wide")
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Vertex: test[worldwide]

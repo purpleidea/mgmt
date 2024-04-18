@@ -3,9 +3,9 @@ $l1 = ["a", "b", "c",]
 
 $l2 = [$l1, ["hello", "world",],]
 
-test $l1[0] || "fail" {}
-test $l1[2] || "fail" {}
-test $l1[3] || "pass" {}
+test [$l1[0] || "fail",] {}
+test [$l1[2] || "fail",] {}
+test [$l1[3] || "pass",] {}
 test $l2[1] || ["fail",] {}
 -- OUTPUT --
 Vertex: test[a]

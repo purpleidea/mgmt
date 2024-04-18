@@ -4,6 +4,6 @@ func id($x) {
 	$x
 }
 $x = id("hello")
-test $x {}
+test "${x}" {}
 -- OUTPUT --
 Vertex: test[hello]

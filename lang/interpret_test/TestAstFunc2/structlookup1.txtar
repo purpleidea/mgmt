@@ -5,19 +5,19 @@ $s0a = if $st0->x1 == 1.0 {
 } else {
 	"failed"
 }
-test $s0a {}
+test "${s0a}" {}
 $s0b = if $st0->x5 == 2.1 {
 	"passed0b"
 } else {
 	"failed"
 }
-test $s0b {}
+test "${s0b}" {}
 $s0c = if $st0->x15 == 3.2 {
 	"passed0c"
 } else {
 	"failed"
 }
-test $s0c {}
+test "${s0c}" {}
 
 $st1 struct{x1 float; x5 float; x15 float} = struct{x1 => 1.0, x5 => 2.1, x15 => 3.2,}
 $s1 = if $st1->x5 == 2.1 {
@@ -25,7 +25,7 @@ $s1 = if $st1->x5 == 2.1 {
 } else {
 	"failed"
 }
-test $s1 {}
+test "${s1}" {}
 
 $st2 = struct{x1 => 1.0, x5 => 2.1, x15 => 3.2,}
 $s2 = if $st2->x5 == 2.1 {
@@ -33,7 +33,7 @@ $s2 = if $st2->x5 == 2.1 {
 } else {
 	"failed"
 }
-test $s2 {}
+test "${s2}" {}
 -- OUTPUT --
 Vertex: test[passed0a]
 Vertex: test[passed0b]

@@ -26,8 +26,11 @@ include i1.c0 as i01
 include c1(false) as i2
 include i2.c0 as i02
 
-test $i01.x {}
-test $i02.x {}
+$name1 = $i01.x
+$name2 = $i02.x
+
+test "${name1}" {}
+test "${name2}" {}
 -- OUTPUT --
 Vertex: test[hello]
 Vertex: test[goodbye]

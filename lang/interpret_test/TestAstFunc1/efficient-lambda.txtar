@@ -7,8 +7,8 @@ $prefixer = func($x) {
 $out1 = $prefixer("a")
 $out2 = $prefixer("b")
 
-test $out1 {} # helloa
-test $out2 {} # hellob
+test "${out1}" {} # helloa
+test "${out2}" {} # hellob
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn

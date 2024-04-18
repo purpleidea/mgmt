@@ -11,7 +11,7 @@ func sq1($x) {
 
 $x1 = sq1(math.fortytwo())
 
-test fmt.printf("sq1: %d", $x1) {}
+test [fmt.printf("sq1: %d", $x1),] {}
 
 -- OUTPUT --
 Vertex: test[sq1: 45]

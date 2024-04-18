@@ -11,6 +11,6 @@ $fn1 = funcgen()
 $fn2 = $fn1()
 $out = $fn2()
 
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Vertex: test[hello]

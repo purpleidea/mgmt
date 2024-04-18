@@ -6,7 +6,7 @@ include defs.foo
 import "defs.mcl" # out of order for fun
 -- defs.mcl --
 class foo {
-	test $x1 {} # capture the var
+	test "${x1}" {} # capture the var
 }
 $x1 = "t1"
 -- OUTPUT --

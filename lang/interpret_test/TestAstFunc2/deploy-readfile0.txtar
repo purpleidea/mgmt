@@ -41,9 +41,9 @@ if $x3 != $mod1.x3 {
 }
 
 # hide the newlines from our output
-test strings.trim_space($x1) {}
-test strings.trim_space($x2) {}
-test strings.trim_space($x3) {}
+test [strings.trim_space($x1),] {}
+test [strings.trim_space($x2),] {}
+test [strings.trim_space($x3),] {}
 # debugging:
 #test "f1" {
 #	anotherstr => $x1,

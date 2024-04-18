@@ -9,6 +9,6 @@ class funcgen1 {
 }
 include funcgen1
 $x1 = fun1()	# not funcgen1.fun1 since it's *not* an import!
-test $x1 {}	# hi
+test "${x1}" {}	# hi
 -- OUTPUT --
 # err: errSetScope: func `fun1` does not exist in this scope

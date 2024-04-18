@@ -5,7 +5,7 @@ class shadowme($msg) {
 	if true {
 		$msg = "d"
 	}
-	test $msg {}
+	test "${msg}" {}
 }
 
 include shadowme("b")

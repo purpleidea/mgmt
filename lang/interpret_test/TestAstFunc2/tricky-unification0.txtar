@@ -1,6 +1,7 @@
 -- main.mcl --
 import "fmt"
 $ints = [13, 42, 0, -37,]
-test fmt.printf("len is: %d", len($ints)) {} # len is 4
+$name = fmt.printf("len is: %d", len($ints))
+test [$name,] {} # len is 4
 -- OUTPUT --
 Vertex: test[len is: 4]

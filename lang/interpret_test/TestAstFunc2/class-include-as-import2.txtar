@@ -5,6 +5,6 @@ class c1($s) {
 }
 
 include c1("hey") as fmt
-test $fmt.x {}
+test "${fmt.x}" {}
 -- OUTPUT --
 # err: errSetScope: could not generate ordering: duplicate assignment to `scoped:fmt`, have: import(fmt)

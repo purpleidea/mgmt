@@ -5,6 +5,6 @@ class c1($s) {
 
 include c1("hey") as i1
 include c1("there") as i1
-test $i1.x {}
+test "${i1.x}" {}
 -- OUTPUT --
 # err: errSetScope: could not generate ordering: duplicate assignment to `scoped:i1`, have: include(c1)

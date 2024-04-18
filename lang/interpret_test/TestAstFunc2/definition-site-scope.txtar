@@ -12,8 +12,10 @@ $call_f1 = func($x) {
 $call_f2 = func($x) {
 	$f2() + $x
 }
-test $call_f1("!") {}
-test $call_f2("?") {}
+$name1 = $call_f1("!")
+$name2 = $call_f2("?")
+test "${name1}" {}
+test "${name2}" {}
 -- OUTPUT --
 Vertex: test[top-level1!]
 Vertex: test[top-level2?]

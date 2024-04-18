@@ -5,6 +5,6 @@ $s = if 42 in [13, -5, 42, 0,] {	# make sure the `in` operator works
 	"fail"
 }
 
-test $s {}
+test "${s}" {}
 -- OUTPUT --
 Vertex: test[pass]

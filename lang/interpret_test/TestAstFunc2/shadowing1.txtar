@@ -4,6 +4,6 @@ $x = "hello"
 if true {
 	$x = "world"	# shadowed
 }
-test $x {}
+test "${x}" {}
 -- OUTPUT --
 Vertex: test[hello]

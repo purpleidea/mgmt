@@ -3,6 +3,6 @@ import "example/nested"
 
 $x = nested.hello()
 
-test $x {}
+test "${x}" {}
 -- OUTPUT --
 Vertex: test[Hello!]

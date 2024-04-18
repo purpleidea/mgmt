@@ -1,12 +1,15 @@
 -- main.mcl --
 $st0 struct{x str} = struct{x => "hello",}
-test $st0->x {}
+$name0 = $st0->x
+test "${name0}" {}
 
 $st1 = struct{y => "world",}
-test $st1->y {}
+$name1 = $st1->y
+test "${name1}" {}
 
 $st2 = struct{x => true, y=> 42, z => "hello world",}
-test $st2->z {}
+$name2 = $st2->z
+test "${name2}" {}
 -- OUTPUT --
 Vertex: test[hello world]
 Vertex: test[hello]

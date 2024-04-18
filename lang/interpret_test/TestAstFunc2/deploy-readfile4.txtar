@@ -9,7 +9,7 @@ $f1 = "/files/file1"
 $x1 = deploy.readfileabs($f1)
 
 # hide the newlines from our output
-test $x1 {}
+test "${x1}" {}
 -- files/file1 --
 This is file1 in the files/ folder.
 -- OUTPUT --

@@ -9,6 +9,6 @@ $answer = func() {
 
 $out = $answer()
 
-test fmt.printf("the answer is %d", $out) {}
+test [fmt.printf("the answer is %d", $out),] {}
 -- OUTPUT --
 Vertex: test[the answer is 42]

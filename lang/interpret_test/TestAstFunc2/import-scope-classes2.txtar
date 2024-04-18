@@ -10,9 +10,9 @@ class c2() {
 
 include c2 as f1
 
-test $f1.z {}
-test $f1.x {}	# tricky
-test $f1.newx {}
+test "${f1.z}" {}
+test "${f1.x}" {}	# tricky
+test "${f1.newx}" {}
 
 -- OUTPUT --
 Vertex: test[i am x]

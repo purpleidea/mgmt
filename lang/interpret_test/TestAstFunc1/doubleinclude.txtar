@@ -2,7 +2,7 @@
 include c1("t1")
 include c1("t2")
 class c1($a) {
-	test $a {
+	test "${a}" {
 		stringptr => $foo,
 	}
 }

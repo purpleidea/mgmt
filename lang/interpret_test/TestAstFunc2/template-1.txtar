@@ -1,7 +1,7 @@
 -- main.mcl --
 $v = 42
 $x = template("hello", $v) # redirect var for harder unification
-test $x {
+test "${x}" {
 	#anotherstr => $x,
 }
 -- OUTPUT --

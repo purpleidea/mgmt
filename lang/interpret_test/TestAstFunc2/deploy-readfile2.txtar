@@ -31,8 +31,8 @@ if $x2 != $second.x2 {
 }
 
 # hide the newlines from our output
-test strings.trim_space($x1) {}
-test strings.trim_space($x2) {}
+test [strings.trim_space($x1),] {}
+test [strings.trim_space($x2),] {}
 -- second.mcl --
 import "deploy"
 

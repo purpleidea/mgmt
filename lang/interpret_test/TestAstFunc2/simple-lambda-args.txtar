@@ -9,6 +9,6 @@ $square = func($x) {
 $num = 4
 $out = $square($num)
 
-test fmt.printf("%d * %d is %d", $num, $num, $out) {}
+test [fmt.printf("%d * %d is %d", $num, $num, $out),] {}
 -- OUTPUT --
 Vertex: test[4 * 4 is 16]

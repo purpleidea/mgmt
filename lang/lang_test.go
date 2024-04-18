@@ -629,7 +629,7 @@ func TestInterpretMany(t *testing.T) {
 			include c1($foo + "1")
 			include c1($foo + "2")
 			class c1($a) {
-				test $a {
+				test "${a}" {
 					stringptr => $foo,
 				}
 			}

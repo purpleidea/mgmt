@@ -15,8 +15,8 @@ class c1($b) {
 include c1(true) as i1
 include c1(false) as i2
 
-test $i1.x {}
-test $i2.x {}
+test "${i1.x}" {}
+test "${i2.x}" {}
 -- OUTPUT --
 Vertex: test[hello]
 Vertex: test[goodbye]

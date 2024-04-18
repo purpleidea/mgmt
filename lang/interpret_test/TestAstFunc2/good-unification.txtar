@@ -31,15 +31,16 @@ $funcgen3 = func() {
 
 $fn1 = $funcgen1()
 $out1 = $fn1("hello")
-test $out1 {}
+test "${out1}" {}
 
 $fn2 = $funcgen2()
 $out2 = $fn2("hello")
-test $out2 {}
+test "${out2}" {}
 
 $fn3 = $funcgen3()
 $out3 = $fn3("goodbye")
-test $out3() {}
+$name3 = $out3()
+test "${name3}" {}
 -- OUTPUT --
 Vertex: test[goodbye]
 Vertex: test[hello world]

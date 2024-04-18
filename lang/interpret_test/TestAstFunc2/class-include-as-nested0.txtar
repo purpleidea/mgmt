@@ -1,13 +1,13 @@
 -- main.mcl --
 $top = "top-level"
 class base($s) {
-	test "middle " + $s {}
+	test ["middle " + $s,] {}
 	$middle = "inside base"
 }
 
 # syntactic sugar for the equivalent of defining a class `inner` inside of base.
 class base:inner($s) {
-	test "inner " + $s {}
+	test ["inner " + $s,] {}
 
 	$last = "i am inner and i can see " + $middle
 }
@@ -15,9 +15,9 @@ class base:inner($s) {
 include base("world") as b1
 include b1.inner("hello") as b2	# inner comes out of `base`
 
-test $top {}
-test $b1.middle {}
-test $b2.last {}
+test "${top}" {}
+test "${b1.middle}" {}
+test "${b2.last}" {}
 -- OUTPUT --
 Vertex: test[inner hello]
 Vertex: test[middle world]

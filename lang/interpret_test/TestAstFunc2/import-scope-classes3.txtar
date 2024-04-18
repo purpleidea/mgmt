@@ -12,9 +12,9 @@ class c2() {
 
 include c2 as f1
 
-test $f1.z {}
-test $f1.x {}	# tricky
-test $f1.newx {}
+test "${f1.z}" {}
+test "${f1.x}" {}	# tricky
+test "${f1.newx}" {}
 
 -- OUTPUT --
 # err: errSetScope: recursive reference while setting scope: not a dag

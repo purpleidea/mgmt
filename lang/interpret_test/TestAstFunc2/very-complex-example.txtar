@@ -72,6 +72,7 @@ $generate = func($idn) {
 # this code should be rejected during type unification
 $foo = iter.map([$id1, $id2,], $generate)
 
-test $foo[0] || "fail" {}
+$name = $foo[0] || "fail"
+test "${name}" {}
 -- OUTPUT --
 # err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Str != Int)

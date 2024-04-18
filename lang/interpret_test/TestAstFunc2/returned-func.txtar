@@ -9,6 +9,6 @@ func funcgen() {
 $fn = funcgen()
 $out = $fn()
 
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Vertex: test[hello]

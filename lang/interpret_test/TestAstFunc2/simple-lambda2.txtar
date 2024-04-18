@@ -9,6 +9,8 @@ $answer = func() {
 $out1 = $answer()
 $out2 = $answer()
 
-test $out1 + $out2 {}
+$name = $out1 + $out2
+
+test "${name}" {}
 -- OUTPUT --
 Vertex: test[the answer is 42the answer is 42]

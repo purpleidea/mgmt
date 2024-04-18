@@ -8,6 +8,6 @@ $add = func($x) {
 $num = 2
 $out = $add($num) # 4
 
-test fmt.printf("%d + %d is %d", $num, $num, $out) {} # simple math
+test [fmt.printf("%d + %d is %d", $num, $num, $out),] {} # simple math
 -- OUTPUT --
 Vertex: test[2 + 2 is 4]

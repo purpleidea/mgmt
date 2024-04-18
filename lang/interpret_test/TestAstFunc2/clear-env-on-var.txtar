@@ -4,6 +4,7 @@ $f = func($x) {
 	$wat
 }
 
-test $f("foo") {}
+$name = $f("foo")
+test "${name}" {}
 -- OUTPUT --
 # err: errSetScope: variable x not in scope

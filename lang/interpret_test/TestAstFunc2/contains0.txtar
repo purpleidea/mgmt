@@ -32,10 +32,10 @@ $s4 = if contains([42, 13, 0,], $intlists) {
 	"passed4"
 }
 
-test $s1 {} # passed
-test $s2 {} # passed
-test $s3 {} # passed
-test $s4 {} # passed
+test "${s1}" {} # passed
+test "${s2}" {} # passed
+test "${s3}" {} # passed
+test "${s4}" {} # passed
 -- OUTPUT --
 Vertex: test[passed1]
 Vertex: test[passed2]

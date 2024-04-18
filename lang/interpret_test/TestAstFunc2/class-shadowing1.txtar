@@ -4,7 +4,7 @@ class shadowme($msg) {
 	$msg = "c"
 	if true {
 		$msg = "d" # this is used!
-		test $msg {}
+		test "${msg}" {}
 	}
 }
 

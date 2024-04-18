@@ -9,7 +9,7 @@ func funcgen() {
 $fn = funcgen()
 $out = $fn()
 
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Edge: call -> call # fn

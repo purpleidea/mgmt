@@ -5,7 +5,7 @@ $funcgen1 = func() {
 		"hello" + $b
 	}
 }
-test $out {}
+test "${out}" {}
 $out = $fn("wide")
 $fn = if $some_bool {
 	$funcgen1()

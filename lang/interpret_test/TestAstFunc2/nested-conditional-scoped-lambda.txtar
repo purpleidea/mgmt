@@ -44,9 +44,9 @@ $out1 = $fn1(1)
 $out2 = $fn2(22)
 $out3 = $fn3(0)
 
-test $out1 {}
-test $out2 {}
-test $out3 {}
+test "${out1}" {}
+test "${out2}" {}
+test "${out3}" {}
 -- OUTPUT --
 Vertex: test[text: hello james, count: 35]
 Vertex: test[text: hello magic number, count: 42]

@@ -1,5 +1,6 @@
 -- main.mcl --
 $st struct{x str} = struct{x => "hello", x => "world",}
-test $st->x {}
+$name = $st->x
+test "${name}" {}
 -- OUTPUT --
 # err: errInit: duplicate struct field name of: `x`

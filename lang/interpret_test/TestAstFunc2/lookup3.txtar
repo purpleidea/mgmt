@@ -8,7 +8,8 @@ $st = struct{
 
 # Since there is no field named "missing", we can't guess what the zero value
 # would be for this field, and as a result, we can't unify or compile this code!
-test $st->missing + "fail" {}	# this can't unify!
+$name = $st->missing + "fail"
+test "${name}" {}	# this can't unify!
 
 -- OUTPUT --
-# err: errUnify: 1 unconsumed generators
+# err: errUnify: 2 unconsumed generators

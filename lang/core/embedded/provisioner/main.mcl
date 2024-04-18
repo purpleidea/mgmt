@@ -65,7 +65,7 @@ class base($config) {
 	panic($prefix == "") # panic if prefix is empty
 	panic(not strings.has_suffix($prefix, "/"))
 
-	file $prefix {	# dir
+	file "${prefix}" {	# dir
 		state => $const.res.file.state.exists,
 	}
 	$tftp_prefix = "${prefix}${tftp_suffix}"
@@ -85,7 +85,7 @@ class base($config) {
 	#
 	#	network
 	#
-	net $interface {
+	net "${interface}" {
 		state => $const.res.net.state.up,
 		addrs => [$router,],	# has cidr suffix
 		#gateway => "192.168.42.1",	# TODO: get upstream public gateway with new function
@@ -130,10 +130,10 @@ class base($config) {
 		}
 	}
 
-	file $tftp_prefix {	# dir
+	file "${tftp_prefix}" {	# dir
 		state => $const.res.file.state.exists,
 	}
-	file $uefi_prefix {	# dir
+	file "${uefi_prefix}" {	# dir
 		state => $const.res.file.state.exists,
 	}
 
@@ -155,7 +155,7 @@ class base($config) {
 
 	# XXX: should this also be part of repo too?
 	class tftp_root_file($f) {
-		#tftp:file $f {	# without root slash
+		#tftp:file "${f}" {	# without root slash
 		tftp:file "/${f}" {	# with root slash
 			path => $syslinux_root + $f,		# TODO: add autoedges
 
@@ -185,7 +185,7 @@ class base($config) {
 	#
 	#	http
 	#
-	file $http_prefix {	# dir
+	file "${http_prefix}" {	# dir
 		state => $const.res.file.state.exists,
 	}
 
@@ -195,7 +195,7 @@ class base($config) {
 	}
 
 	$kickstart_http_prefix = "${http_prefix}${kickstart_suffix}"
-	file $kickstart_http_prefix {
+	file "${kickstart_http_prefix}" {
 		state => $const.res.file.state.exists,
 		#source => "", # this default means empty directory
 		recurse => true,
@@ -237,21 +237,21 @@ class base:repo($config) {
 	$distroarch_release_http_prefix = "${distroarch_http_prefix}release/"
 	$distroarch_updates_http_prefix = "${distroarch_http_prefix}updates/"
 
-	file $distroarch_tftp_prefix {	# dir
+	file "${distroarch_tftp_prefix}" {	# dir
 		state => $const.res.file.state.exists,
 
 		#Meta:quiet => true,	# TODO
 	}
-	file $distroarch_uefi_prefix {	# dir
+	file "${distroarch_uefi_prefix}" {	# dir
 		state => $const.res.file.state.exists,
 	}
-	file $distroarch_http_prefix {	# root http dir
+	file "${distroarch_http_prefix}" {	# root http dir
 		state => $const.res.file.state.exists,
 	}
-	file $distroarch_release_http_prefix {
+	file "${distroarch_release_http_prefix}" {
 		state => $const.res.file.state.exists,
 	}
-	file $distroarch_updates_http_prefix {
+	file "${distroarch_updates_http_prefix}" {
 		state => $const.res.file.state.exists,
 	}
 
@@ -261,7 +261,7 @@ class base:repo($config) {
 	$uefi_download_dir = "${distroarch_uefi_prefix}download/"
 	$uefi_extract_dir = "${distroarch_uefi_prefix}extract/"
 
-	file $uefi_extract_dir { # mkdir
+	file "${uefi_extract_dir}" { # mkdir
 		state => $const.res.file.state.exists,
 
 		Depend => Exec["uefi-download-${uid}"],
@@ -609,7 +609,7 @@ class base:host($name, $config) {
 	}
 
 	$kickstart_file = "${kickstart_http_prefix}${hkey}.ks"
-	file $kickstart_file {
+	file "${kickstart_file}" {
 		state => $const.res.file.state.exists,
 		content => template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
 	}
@@ -631,11 +631,11 @@ class base:host($name, $config) {
 	#kv "${name}" {
 	#	key => $provision_key,
 	#}
-	#value $provision_key {
+	#value "${provision_key}" {
 	#	#any => true,	# bool
 	#}
 	#Http:Flag["${name}"].value -> Kv["${name}"].value
-	#Http:Flag["${name}"].value -> Value[$provision_key].any
+	#Http:Flag["${name}"].value -> Value["${provision_key}"].any
 	##$st_provisioned = value.get_bool($provision_key)
 	#$st_provisioned = value.get_str($provision_key)
 	#$provisioned = $st_provisioned->ready and $st_provisioned->value == "true" # export this value to parent scope

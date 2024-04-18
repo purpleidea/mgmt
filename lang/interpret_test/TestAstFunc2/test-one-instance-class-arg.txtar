@@ -6,10 +6,10 @@
 import "test"
 
 class use_twice($test1, $test2, $x) {
-	test $test1 {
+	test "${test1}" {
 		anotherstr => $x,
 	}
-	test $test2 {
+	test "${test2}" {
 		anotherstr => $x,
 	}
 }

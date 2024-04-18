@@ -1,7 +1,8 @@
 -- main.mcl --
 import "fmt"
 class double($to_str, $x) {
-	test $to_str($x + $x) {}
+	$name = $to_str($x + $x)
+	test [$name,] {}
 }
 include double(func($x) {fmt.printf("%d", $x)}, 42)
 include double(func($x) {fmt.printf("%s", $x)}, "hello")

@@ -1,7 +1,7 @@
 -- main.mcl --
 $x1 = "t1"
 class foo {
-	test $x1 {}
+	test "${x1}" {}
 }
 include foo
 -- OUTPUT --

@@ -6,6 +6,6 @@ func greeting($w) {
 
 $out = greeting("world")
 
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Vertex: test[hello world]

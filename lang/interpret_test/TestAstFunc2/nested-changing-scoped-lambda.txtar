@@ -45,12 +45,11 @@ $out2 = $fn1("world")
 $out3 = $fn2("hello")
 $out4 = $fn2("world")
 
-
-test $out1(10) {}
-test if true { $out2(20) } else { $out2(-20) } {}
-test if false { $out2(20) } else { $out2(-20) } {}
-test $out3(30) {}
-test $out4(40) {}
+test [$out1(10),] {}
+test [if true { $out2(20) } else { $out2(-20) },] {}
+test [if false { $out2(20) } else { $out2(-20) },] {}
+test [$out3(30),] {}
+test [$out4(40),] {}
 -- OUTPUT --
 Vertex: test[true-true-10]
 Vertex: test[true-false-20]

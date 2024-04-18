@@ -6,8 +6,8 @@ $st1 = struct{
 	c => "pass1",
 }
 
-test $st1->c || "default" {}
-test $st1->missing || "pass2" {}
+test [$st1->c || "default",] {}
+test [$st1->missing || "pass2",] {}
 
 $st2 = struct{
 	a => 42,
@@ -15,8 +15,8 @@ $st2 = struct{
 	c => "pass3",
 }
 
-test $st2->c {}
-#test $st2->missing + "fail" {}	# this can't unify! (by design!)
+test [$st2->c,] {}
+#test [$st2->missing + "fail",] {}	# this can't unify! (by design!)
 
 -- OUTPUT --
 Vertex: test[pass1]

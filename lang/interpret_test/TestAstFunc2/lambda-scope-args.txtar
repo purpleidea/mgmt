@@ -11,6 +11,6 @@ $c2 = 37 # put this after to confirm any-order rules
 $num = 13
 $out = $constmult($num) # 20202
 
-test fmt.printf("%d * %d * %d is %d", $c1, $num, $c2, $out) {}
+test [fmt.printf("%d * %d * %d is %d", $c1, $num, $c2, $out),] {}
 -- OUTPUT --
 Vertex: test[42 * 13 * 37 is 20202]

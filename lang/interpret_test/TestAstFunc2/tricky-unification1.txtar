@@ -2,6 +2,7 @@
 import "fmt"
 $ints = [13, 42, 0, -37,]
 $l int = len($ints)	# return type is known statically!
-test fmt.printf("len is: %d", $l) {} # len is 4
+$name = fmt.printf("len is: %d", $l)
+test [$name,] {} # len is 4
 -- OUTPUT --
 Vertex: test[len is: 4]

@@ -5,6 +5,6 @@ $result = if $pass {
 } else {
 	"fail"
 }
-test $result {}
+test [$result,] {}
 -- OUTPUT --
 Vertex: test[pass]

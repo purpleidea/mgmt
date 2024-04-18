@@ -4,6 +4,6 @@ func identity($x) {
 	$x
 }
 
-test identity("hey") {}
+test [identity("hey"),] {}
 -- OUTPUT --
 Vertex: test[hey]

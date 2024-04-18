@@ -12,6 +12,7 @@ $id = func($y) { $y }
 # since $apply changes over time, this call needs a dynamic sub-graph. In
 # theory, the $f calls above do not need a sub-graph, but does our optimization
 # support this corner case yet?
-test $apply($id, "foo") {}
+$name = $apply($id, "foo")
+test "${name}" {}
 -- OUTPUT --
 Vertex: test[foo]

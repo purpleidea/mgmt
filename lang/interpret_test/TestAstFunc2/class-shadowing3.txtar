@@ -15,7 +15,7 @@ include c1(true)
 # error prone, and also require a higher-order FRP, which would add complexity
 # but little value.
 
-test $foo {}
+test "${foo}" {}
 -- OUTPUT --
 Vertex: test[a]
 Vertex: test[hello]

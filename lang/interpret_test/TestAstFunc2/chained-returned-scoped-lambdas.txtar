@@ -33,10 +33,15 @@ $out2 = $fn1("there")
 $out3 = $fn2("hello")
 $out4 = $fn2("world")
 
-test $out1() {} # hey
-test $out2() {} # there
-test $out3() {} # wow: hello
-test $out4() {} # wow: world
+$name1 = $out1()
+$name2 = $out2()
+$name3 = $out3()
+$name4 = $out4()
+
+test [$name1,] {} # hey
+test [$name2,] {} # there
+test [$name3,] {} # wow: hello
+test [$name4,] {} # wow: world
 -- OUTPUT --
 Vertex: test[hey]
 Vertex: test[there]

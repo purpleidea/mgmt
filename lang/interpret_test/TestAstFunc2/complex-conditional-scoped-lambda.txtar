@@ -26,9 +26,9 @@ $out1 = $fn("user")
 $out2 = $fn("james")
 $out3 = $fn("")
 
-test $out1 {}
-test $out2 {}
-test $out3 {}
+test "${out1}" {}
+test "${out2}" {}
+test "${out3}" {}
 -- OUTPUT --
 Vertex: test[hello purpleidea]
 Vertex: test[hello user]

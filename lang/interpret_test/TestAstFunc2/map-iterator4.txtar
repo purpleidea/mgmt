@@ -11,6 +11,6 @@ $out = iter.map($ins, func($x) {
 
 $t = template("out: {{ . }}", $out)
 
-test $t {}
+test "${t}" {}
 -- OUTPUT --
 Vertex: test[out: [1 2 3 4 5]]

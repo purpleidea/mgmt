@@ -6,6 +6,6 @@ func answer() {
 
 $out = answer()
 
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Vertex: test[the answer is 42]

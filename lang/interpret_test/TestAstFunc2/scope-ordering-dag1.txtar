@@ -3,11 +3,11 @@
 class foo() {
 	$x = "hello"
 	$y = $x
-	test $y + "a" {}
+	test [$y + "a",] {}
 }
 include foo() as c
 $x = $c.y
-test $x + "b" {}
+test [$x + "b",] {}
 -- OUTPUT --
 Vertex: test[helloa]
 Vertex: test[hellob]

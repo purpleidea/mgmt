@@ -2,6 +2,6 @@
 # set scope ordering test
 $x = "hey"
 $y = $x
-test $y {}
+test "${y}" {}
 -- OUTPUT --
 Vertex: test[hey]

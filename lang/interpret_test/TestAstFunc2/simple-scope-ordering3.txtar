@@ -1,6 +1,6 @@
 -- main.mcl --
 # reverse order
-test $i0.f0 {}
+test "${i0.f0}" {}
 include c0 as i0
 class c0() {
 	$f0 = "hello"

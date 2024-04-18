@@ -5,6 +5,6 @@ class c1($x) {
 }
 include c1("hello") as c
 $x = $c.y
-test $x {}
+test "${x}" {}
 -- OUTPUT --
 Vertex: test[hello]

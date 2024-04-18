@@ -19,12 +19,12 @@ class c2() {
 
 include c2 as f1
 
-test $x {}
-test $f1.y {}
+test "${x}" {}
+test "${f1.y}" {}
 
 # the really tricky case
 # XXX: not supported for now: could not set scope: not a dag
-#test $f1.x {}
+#test "${f1.x}" {}
 
 -- OUTPUT --
 Vertex: test[i am x]

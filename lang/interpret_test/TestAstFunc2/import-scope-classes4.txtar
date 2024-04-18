@@ -10,8 +10,8 @@ class c2() {
 
 include c2 as f1
 
-test $f1.z {}
-test $f1.x1 {}
+test "${f1.z}" {}
+test "${f1.x1}" {}
 
 # the really tricky case
 # XXX: works atm, but not supported for now: could not set scope: variable f1.x2 not in scope
@@ -19,7 +19,7 @@ test $f1.x1 {}
 # current child scope, which makes this variable visible. Unfortunately, it does
 # not have the correct dependency (edge) present in the Ordering system, so it
 # is flaky depending on luck of the toposort.
-#test $f1.x2 {}
+#test "${f1.x2}" {}
 
 -- OUTPUT --
 Vertex: test[hey]

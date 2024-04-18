@@ -5,6 +5,6 @@ $out1 = if true {
 	"world"
 }
 
-test $out1 {}
+test "${out1}" {}
 -- OUTPUT --
 Vertex: test[hello]

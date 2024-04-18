@@ -3,6 +3,6 @@ import "example/nested" as foo
 
 $x = foo.hello()
 
-test $x {}
+test "${x}" {}
 -- OUTPUT --
 Vertex: test[Hello!]

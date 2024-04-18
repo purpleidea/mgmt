@@ -14,8 +14,8 @@ $fn = $funcgen()
 $out1 = $fn(true)
 $out2 = $fn(false)
 
-test $out1 {}
-test $out2 {}
+test "${out1}" {}
+test "${out2}" {}
 -- OUTPUT --
 Vertex: test[hello]
 Vertex: test[world]

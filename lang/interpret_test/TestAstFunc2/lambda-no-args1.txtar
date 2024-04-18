@@ -3,6 +3,7 @@ $hey = func() {
 	"hello"
 }
 
-test $hey() {}
+$name = $hey()
+test "${name}" {}
 -- OUTPUT --
 Vertex: test[hello]

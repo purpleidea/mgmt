@@ -8,8 +8,8 @@ func prefixer($x) {
 $out1 = prefixer("a")
 $out2 = prefixer("b")
 
-test $out1 {} # hello:a
-test $out2 {} # hello:b
+test "${out1}" {} # hello:a
+test "${out2}" {} # hello:b
 -- OUTPUT --
 Vertex: test[hello:a]
 Vertex: test[hello:b]

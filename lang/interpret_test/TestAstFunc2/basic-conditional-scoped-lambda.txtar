@@ -11,6 +11,6 @@ $fn = if $some_bool {
 }
 
 $out = $fn(false)
-test $out {}
+test "${out}" {}
 -- OUTPUT --
 Vertex: test[world]

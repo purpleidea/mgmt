@@ -144,11 +144,3 @@ func LatestFedoraVersion(ctx context.Context, arch string) (string, error) {
 	//fmt.Printf("max: %d\n", m)
 	return strconv.Itoa(m), nil
 }
-
-// TODO: remove this once golang 1.21 is out and it's a built-in.
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}

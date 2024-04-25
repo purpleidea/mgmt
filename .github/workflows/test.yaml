@@ -27,9 +27,9 @@ jobs:
           # macos tests are currently failing in CI
           #- macos-latest
         golang_version:
-          # TODO: add 1.21.x and tip
+          # TODO: add 1.22.x and tip
           # minimum required and latest published go_version
-          - "1.20"
+          - "1.21"
         test_block:
           - basic
           - shell

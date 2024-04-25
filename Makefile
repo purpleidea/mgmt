@@ -225,6 +225,8 @@ build-debug: $(PROGRAM)
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
 build/mgmt-%: $(GO_FILES) $(MCL_FILES) go.mod go.sum | lang funcgen
+	@# If you need to run `go mod tidy` then this can trigger.
+	@if [ "$(PKGNAME)" = "" ]; then echo "\$$(PKGNAME) is empty, test with: go list ."; exit 42; fi
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
 	time env GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 

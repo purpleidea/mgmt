@@ -44,6 +44,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	errwrap "github.com/pkg/errors"
 )
@@ -188,7 +189,7 @@ func (obj *DockerImageRes) CheckApply(ctx context.Context, apply bool) (checkOK 
 	ctx, cancel := context.WithTimeout(ctx, dockerImageCheckApplyCtxTimeout*time.Second)
 	defer cancel()
 
-	s, err := obj.client.ImageList(ctx, types.ImageListOptions{
+	s, err := obj.client.ImageList(ctx, image.ListOptions{
 		Filters: filters.NewArgs(filters.Arg("reference", obj.image)),
 	})
 	if err != nil {
@@ -211,14 +212,14 @@ func (obj *DockerImageRes) CheckApply(ctx context.Context, apply bool) (checkOK 
 
 	if obj.State == "absent" {
 		// TODO: force? prune children?
-		if _, err := obj.client.ImageRemove(ctx, obj.image, types.ImageRemoveOptions{}); err != nil {
+		if _, err := obj.client.ImageRemove(ctx, obj.image, image.RemoveOptions{}); err != nil {
 			return false, errwrap.Wrapf(err, "error removing image")
 		}
 		return false, nil
 	}
 
 	// pull the image
-	p, err := obj.client.ImagePull(ctx, obj.image, types.ImagePullOptions{})
+	p, err := obj.client.ImagePull(ctx, obj.image, image.PullOptions{})
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error pulling image")
 	}

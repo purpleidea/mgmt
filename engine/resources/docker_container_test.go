@@ -40,9 +40,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 )
 
 var res *DockerContainerRes
@@ -75,14 +75,14 @@ func BrokenTestContainerStart(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := res.containerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
+	if err := res.containerStart(ctx, id, container.StartOptions{}); err != nil {
 		t.Errorf("containerStart() error: %s", err)
 		return
 	}
 
 	l, err := res.client.ContainerList(
 		ctx,
-		types.ContainerListOptions{
+		container.ListOptions{
 			Filters: filters.NewArgs(
 				filters.KeyValuePair{Key: "id", Value: id},
 				filters.KeyValuePair{Key: "status", Value: "running"},
@@ -110,7 +110,7 @@ func BrokenTestContainerStop(t *testing.T) {
 
 	l, err := res.client.ContainerList(
 		ctx,
-		types.ContainerListOptions{
+		container.ListOptions{
 			Filters: filters.NewArgs(
 				filters.KeyValuePair{Key: "id", Value: id},
 			),
@@ -130,14 +130,14 @@ func BrokenTestContainerRemove(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := res.containerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
+	if err := res.containerRemove(ctx, id, container.RemoveOptions{}); err != nil {
 		t.Errorf("containerRemove() error: %s", err)
 		return
 	}
 
 	l, err := res.client.ContainerList(
 		ctx,
-		types.ContainerListOptions{
+		container.ListOptions{
 			All: true,
 			Filters: filters.NewArgs(
 				filters.KeyValuePair{Key: "id", Value: id},
@@ -163,7 +163,7 @@ func setup() error {
 	res = &DockerContainerRes{}
 	res.Init(res.init)
 
-	p, err := res.client.ImagePull(ctx, "alpine", types.ImagePullOptions{})
+	p, err := res.client.ImagePull(ctx, "alpine", image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("error pulling image: %s", err)
 	}
@@ -195,7 +195,7 @@ func cleanup() error {
 
 	l, err := res.client.ContainerList(
 		ctx,
-		types.ContainerListOptions{
+		container.ListOptions{
 			All:     true,
 			Filters: filters.NewArgs(filters.KeyValuePair{Key: "id", Value: id}),
 		},
@@ -209,7 +209,7 @@ func cleanup() error {
 		if err := res.client.ContainerStop(ctx, id, stopOpts); err != nil {
 			return fmt.Errorf("error stopping container: %s", err)
 		}
-		if err := res.client.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
+		if err := res.client.ContainerRemove(ctx, id, container.RemoveOptions{}); err != nil {
 			return fmt.Errorf("error removing container: %s", err)
 		}
 	}

@@ -47,6 +47,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
@@ -234,7 +235,7 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 	defer cancel()
 
 	// List any container whose name matches this resource.
-	opts := types.ContainerListOptions{
+	opts := container.ListOptions{
 		All:     true,
 		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: obj.Name()}),
 	}
@@ -279,14 +280,14 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 		if err := obj.containerStop(ctx, id, nil); err != nil {
 			return false, err
 		}
-		return false, obj.containerRemove(ctx, id, types.ContainerRemoveOptions{})
+		return false, obj.containerRemove(ctx, id, container.RemoveOptions{})
 	}
 
 	if destroy {
 		if err := obj.containerStop(ctx, id, nil); err != nil {
 			return false, err
 		}
-		if err := obj.containerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
+		if err := obj.containerRemove(ctx, id, container.RemoveOptions{}); err != nil {
 			return false, err
 		}
 		containerList = []types.Container{} // zero the list
@@ -294,7 +295,7 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 
 	if len(containerList) == 0 { // no container was found
 		// Download the specified image if it doesn't exist locally.
-		p, err := obj.client.ImagePull(ctx, obj.Image, types.ImagePullOptions{})
+		p, err := obj.client.ImagePull(ctx, obj.Image, image.PullOptions{})
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error pulling image")
 		}
@@ -334,11 +335,11 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 		id = c.ID
 	}
 
-	return false, obj.containerStart(ctx, id, types.ContainerStartOptions{})
+	return false, obj.containerStart(ctx, id, container.StartOptions{})
 }
 
 // containerStart starts the specified container, and waits for it to start.
-func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, opts types.ContainerStartOptions) error {
+func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, opts container.StartOptions) error {
 	// Get an events channel for the container we're about to start.
 	eventOpts := types.EventsOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{Key: "container", Value: id}),
@@ -377,7 +378,7 @@ func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, tim
 
 // containerRemove removes the specified container and waits for it to be
 // removed.
-func (obj *DockerContainerRes) containerRemove(ctx context.Context, id string, opts types.ContainerRemoveOptions) error {
+func (obj *DockerContainerRes) containerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
 	ch, errCh := obj.client.ContainerWait(ctx, id, container.WaitConditionRemoved)
 	obj.client.ContainerRemove(ctx, id, opts)
 	select {

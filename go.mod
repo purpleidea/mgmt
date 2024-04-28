@@ -167,3 +167,6 @@ require (
 replace github.com/u-root/u-root v7.0.0+incompatible => github.com/u-root/u-root v1.0.1
 
 replace github.com/insomniacslk/dhcp => github.com/insomniacslk/dhcp v0.0.0-20221001123530-5308ebe5334c
+
+// https://github.com/tredoe/osutil/issues/15
+replace github.com/tredoe/osutil => github.com/tredoe/osutil v2.0.0-rc.16+incompatible

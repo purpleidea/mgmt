@@ -67,6 +67,37 @@ Whenever a constant or function parameter is defined, try and have the safer or
 default value be the `zero` value. For example, instead of `const NoDanger`, use
 `const AllowDanger` so that the `false` value is the safe scenario.
 
+### Method receiver pointers
+
+You almost always want any method receivers to be declared on the pointer to the
+struct. There are only a few rare situations where this is not the case. This
+makes it easier to merge future changes that mutate the state without wondering
+why you now have two different copies of a struct. When you do need to copy a
+a struct, you can add a `Copy()` method to it. It's true that in many situations
+adding the pointer adds a small performance penalty, but we haven't found them
+to be significant in practice. If you do have a performance sensitive patch
+which benefits from skipping the pointer, please demonstrate this need with
+data first.
+
+#### Example
+
+```golang
+type Foo struct {
+	Whatever string
+	// ...
+}
+
+// Bar is implemented correctly as a pointer on Foo.
+func (obj *Foo) Bar(baz string) int {
+	// ...
+}
+
+// Bar is implemented *incorrectly* without a pointer to Foo.
+func (obj Foo) Bar(baz string) int {
+	// ...
+}
+```
+
 ### Method receiver naming
 
 [Contrary](https://github.com/golang/go/wiki/CodeReviewComments#receiver-names)

@@ -1,0 +1,25 @@
+5506 5311 0:128 / / rw,relatime master:1033 - overlay overlay rw,lowerdir=/var/lib/docker/overlay2/l/63JAQQCX4D3NBNCC7SA6BZF2BE:/var/lib/docker/overlay2/l/XPPMIFKZ6ZOPFZ4C5CA3UDPB2L:/var/lib/docker/overlay2/l/OSFZQIGTTGV2QU5LKW2M7WMVA6:/var/lib/docker/overlay2/l/5MHTHXY5TGQ3JKJQH7OJIFJO6M:/var/lib/docker/overlay2/l/K5MF443DO5FWT5PM3HTV5YBOCU:/var/lib/docker/overlay2/l/B2GGQI44SJ4VBZO6PEGHJJJOK6:/var/lib/docker/overlay2/l/LQH7WAAUSIW73MQSKJQTY3BB7R:/var/lib/docker/overlay2/l/574UAOLEE54CNNFP4HENM4E7JB:/var/lib/docker/overlay2/l/7XGVBS2LAAVXUVB6FRJN2KRDRD,upperdir=/var/lib/docker/overlay2/3feeb9390c590acc670a8f71e2a82dbaeb4313bfe93cdff0855cb1e4ed895929/diff,workdir=/var/lib/docker/overlay2/3feeb9390c590acc670a8f71e2a82dbaeb4313bfe93cdff0855cb1e4ed895929/work,nouserxattr
+5507 5506 0:154 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw
+5508 5506 0:155 / /dev rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5509 5508 0:156 / /dev/pts rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
+5510 5506 0:157 / /sys ro,nosuid,nodev,noexec,relatime - sysfs sysfs ro
+5511 5510 0:28 / /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime - cgroup2 cgroup rw
+5512 5508 0:152 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw
+5513 5508 0:158 / /dev/shm rw,nosuid,nodev,noexec,relatime - tmpfs shm rw,size=65536k,inode64
+5514 5506 259:2 /var/lib/docker/containers/f939857cb4cc282d0a4687249c47d5cd2b92ae827486a7c5b00be3b2cea58a11/resolv.conf /etc/resolv.conf rw,relatime - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+5515 5506 259:2 /var/lib/docker/containers/f939857cb4cc282d0a4687249c47d5cd2b92ae827486a7c5b00be3b2cea58a11/hostname /etc/hostname rw,relatime - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+5516 5506 259:2 /var/lib/docker/containers/f939857cb4cc282d0a4687249c47d5cd2b92ae827486a7c5b00be3b2cea58a11/hosts /etc/hosts rw,relatime - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+5517 5506 259:2 /var/lib/docker/volumes/ae5c71da1f9b03b586fec23f61f421d0e1e3cc59363d36c8c7eebbd727efa6fd/_data /var/lib/postgresql/data rw,relatime master:1 - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+5312 5508 0:156 /0 /dev/console rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
+5313 5507 0:154 /bus /proc/bus ro,nosuid,nodev,noexec,relatime - proc proc rw
+5314 5507 0:154 /fs /proc/fs ro,nosuid,nodev,noexec,relatime - proc proc rw
+5315 5507 0:154 /irq /proc/irq ro,nosuid,nodev,noexec,relatime - proc proc rw
+5316 5507 0:154 /sys /proc/sys ro,nosuid,nodev,noexec,relatime - proc proc rw
+5317 5507 0:154 /sysrq-trigger /proc/sysrq-trigger ro,nosuid,nodev,noexec,relatime - proc proc rw
+5318 5507 0:159 / /proc/asound ro,relatime - tmpfs tmpfs ro,inode64
+5319 5507 0:160 / /proc/acpi ro,relatime - tmpfs tmpfs ro,inode64
+5320 5507 0:155 /null /proc/kcore rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5321 5507 0:155 /null /proc/keys rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5322 5507 0:155 /null /proc/timer_list rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5323 5507 0:161 / /proc/scsi ro,relatime - tmpfs tmpfs ro,inode64
+5324 5510 0:162 / /sys/firmware ro,relatime - tmpfs tmpfs ro,inode64

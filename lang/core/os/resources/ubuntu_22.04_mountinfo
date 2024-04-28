@@ -1,0 +1,14 @@
+177 29 7:27 / /snap/snapd-desktop-integration/83 ro,nodev,relatime shared:102 - squashfs /dev/loop27 ro,errors=continue,threads=single
+180 29 259:1 / /boot/efi rw,relatime shared:104 - vfat /dev/nvme0n1p1 rw,fmask=0077,dmask=0077,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro
+183 36 0:36 / /proc/sys/fs/binfmt_misc rw,nosuid,nodev,noexec,relatime shared:106 - binfmt_misc binfmt_misc rw
+2102 27 0:24 /snapd/ns /run/snapd/ns rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw,size=3257120k,mode=755,inode64
+2143 2102 0:4 mnt:[4026532755] /run/snapd/ns/lxd.mnt rw - nsfs nsfs rw
+2488 29 0:62 / /var/snap/lxd/common/ns rw,relatime - tmpfs tmpfs rw,size=1024k,mode=700,inode64
+2528 2488 0:4 mnt:[4026532936] /var/snap/lxd/common/ns/shmounts rw - nsfs nsfs rw
+2447 2488 0:4 mnt:[4026532755] /var/snap/lxd/common/ns/mntns rw - nsfs nsfs rw
+3049 2102 0:4 mnt:[4026533029] /run/snapd/ns/snapd-desktop-integration.mnt rw - nsfs nsfs rw
+2623 27 0:56 / /run/user/1000 rw,nosuid,nodev,relatime shared:1025 - tmpfs tmpfs rw,size=3257116k,nr_inodes=814279,mode=700,uid=1000,gid=1000,inode64
+3158 2623 0:78 / /run/user/1000/gvfs rw,nosuid,nodev,relatime shared:1337 - fuse.gvfsd-fuse gvfsd-fuse rw,user_id=1000,group_id=1000
+3204 2623 0:79 / /run/user/1000/doc rw,nosuid,nodev,relatime shared:1359 - fuse.portal portal rw,user_id=1000,group_id=1000
+987 29 8:1 / /media/bstrausser/USB\040DISK rw,nosuid,nodev,relatime shared:946 - vfat /dev/sda1 rw,uid=1000,gid=1000,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,showexec,utf8,flush,errors=remount-ro
+5264 29 0:128 / /var/lib/docker/overlay2/3feeb9390c590acc670a8f71e2a82dbaeb4313bfe93cdff0855cb1e4ed895929/merged rw,relatime shared:1033 - overlay overlay rw,lowerdir=/var/lib/docker/overlay2/l/63JAQQCX4D3NBNCC7SA6BZF2BE:/var/lib/docker/overlay2/l/XPPMIFKZ6ZOPFZ4C5CA3UDPB2L:/var/lib/docker/overlay2/l/OSFZQIGTTGV2QU5LKW2M7WMVA6:/var/lib/docker/overlay2/l/5MHTHXY5TGQ3JKJQH7OJIFJO6M:/var/lib/docker/overlay2/l/K5MF443DO5FWT5PM3HTV5YBOCU:/var/lib/docker/overlay2/l/B2GGQI44SJ4VBZO6PEGHJJJOK6:/var/lib/docker/overlay2/l/LQH7WAAUSIW73MQSKJQTY3BB7R:/var/lib/docker/overlay2/l/574UAOLEE54CNNFP4HENM4E7JB:/var/lib/docker/overlay2/l/7XGVBS2LAAVXUVB6FRJN2KRDRD,upperdir=/var/lib/docker/overlay2/3feeb9390c590acc670a8f71e2a82dbaeb4313bfe93cdff0855cb1e4ed895929/diff,workdir=/var/lib/docker/overlay2/3feeb9390c590acc670a8f71e2a82dbaeb4313bfe93cdff0855cb1e4ed895929/work,nouserxattr

@@ -52,7 +52,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
-	github.com/armon/go-metrics v0.4.1 // indirect
+	github.com/armon/go-metrics v0.5.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -170,3 +170,7 @@ replace github.com/insomniacslk/dhcp => github.com/insomniacslk/dhcp v0.0.0-2022
 
 // https://github.com/tredoe/osutil/issues/15
 replace github.com/tredoe/osutil => github.com/tredoe/osutil v2.0.0-rc.16+incompatible
+
+// https://github.com/hashicorp/serf/issues/707
+// https://github.com/hashicorp/serf/pull/693
+replace github.com/armon/go-metrics => github.com/hashicorp/go-metrics v0.4.1

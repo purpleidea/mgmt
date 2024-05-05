@@ -107,7 +107,8 @@ docker build -t mgmt -f docker/Dockerfile .
 docker run --rm --entrypoint cat mgmt mgmt > mgmt
 chmod +x mgmt
 ./mgmt --version
-# you could now copy the mgmt binary somewhere into your $PATH, e.g., /usr/local/bin/ to make it accessible from anywhere
+# you could now copy the mgmt binary somewhere into your $PATH
+# e.g., /usr/local/bin/ to make it accessible from anywhere
 ```
 
 ## Running mgmt

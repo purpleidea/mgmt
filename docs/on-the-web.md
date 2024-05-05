@@ -21,15 +21,15 @@ if we missed something that you think is relevant!
 | Felix Frank | blog | [Puppet Powered Mgmt (puppet to mgmt tl;dr)](https://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/) |
 | James Shubin | blog | [Automatic clustering in mgmt](https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/) |
 | James Shubin | video | [Recording from CoreOSFest 2016](https://www.youtube.com/watch?v=KVmDCUA42wc&html5=1) |
-| James Shubin | video | [Recording from DebConf16](http://meetings-archive.debian.net/pub/debian-meetings/2016/debconf16/Next_Generation_Config_Mgmt.webm) ([Slides](https://annex.debconf.org//debconf-share/debconf16/slides/15-next-generation-config-mgmt.pdf)) |
+| James Shubin | video | [Recording from DebConf16](http://meetings-archive.debian.net/pub/debian-meetings/2016/debconf16/Next_Generation_Config_Mgmt.webm) |
 | Felix Frank | blog | [Edging It All In (puppet and mgmt edges)](https://ffrank.github.io/features/2016/07/12/edging-it-all-in/) |
 | Felix Frank | blog | [Translating All The Things (puppet to mgmt translation warnings)](https://ffrank.github.io/features/2016/08/19/translating-all-the-things/) |
-| James Shubin | video | [Recording from systemd.conf 2016](https://www.youtube.com/watch?v=jB992Zb3nH0&html5=1) |
+| James Shubin | video | [Recording from systemd.conf 2016](https://www.youtube.com/watch?v=_TowsFAWWRA) |
 | James Shubin | blog | [Remote execution in mgmt](https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/) |
-| James Shubin | video | [Recording from High Load Strategy 2016](https://vimeo.com/191493409) |
-| James Shubin | video | [Recording from NLUUG 2016](https://www.youtube.com/watch?v=MmpwOQAb_SE&html5=1) |
+| James Shubin | video | [Recording from High Load Strategy 2016](https://www.youtube.com/watch?v=-4g14KUVPVk) |
+| James Shubin | video | [Recording from NLUUG 2016](https://www.youtube.com/watch?v=0vO93ni1zos) |
 | James Shubin | blog | [Send/Recv in mgmt](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/) |
-| Julien Pivotto | blog | [Augeas resource for mgmt](https://roidelapluie.be/blog/2017/02/14/mgmt-augeas/) |
+| Julien Pivotto | blog | [Augeas resource for mgmt](https://purpleidea.com/cached/mgmt-augeas.html) (Cached from: https://roidelapluie.be/blog/2017/02/14/mgmt-augeas/) |
 | James Shubin | blog | [Metaparameters in mgmt](https://purpleidea.com/blog/2017/03/01/metaparameters-in-mgmt/) |
 | James Shubin | video | [Recording from Incontro DevOps 2017](https://vimeo.com/212241877) |
 | Yves Brissaud | blog | [mgmt aux HumanTalks Grenoble (french)](http://log.winsos.net/2017/04/12/mgmt-aux-human-talks-grenoble.html) |

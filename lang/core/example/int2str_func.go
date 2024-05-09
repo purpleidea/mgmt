@@ -30,6 +30,7 @@
 package coreexample
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -39,7 +40,7 @@ import (
 func init() {
 	simple.ModuleRegister(ModuleName, "int2str", &types.FuncValue{
 		T: types.NewType("func(a int) str"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.StrValue{
 				V: fmt.Sprintf("%d", input[0].Int()),
 			}, nil

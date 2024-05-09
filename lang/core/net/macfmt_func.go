@@ -30,6 +30,7 @@
 package corenet
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -51,7 +52,7 @@ func init() {
 
 // MacFmt takes a MAC address with hyphens and converts it to a format with
 // colons.
-func MacFmt(input []types.Value) (types.Value, error) {
+func MacFmt(ctx context.Context, input []types.Value) (types.Value, error) {
 	mac := input[0].Str()
 
 	// Check if the MAC address is valid.
@@ -70,7 +71,7 @@ func MacFmt(input []types.Value) (types.Value, error) {
 
 // OldMacFmt takes a MAC address with colons and converts it to a format with
 // hyphens. This is the old deprecated style that nobody likes.
-func OldMacFmt(input []types.Value) (types.Value, error) {
+func OldMacFmt(ctx context.Context, input []types.Value) (types.Value, error) {
 	mac := input[0].Str()
 
 	// Check if the MAC address is valid.

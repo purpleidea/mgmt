@@ -30,6 +30,7 @@
 package coreregexp
 
 import (
+	"context"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/types"
@@ -76,7 +77,7 @@ func TestMatch0(t *testing.T) {
 	for i, x := range values {
 		pattern := &types.StrValue{V: x.pattern}
 		s := &types.StrValue{V: x.s}
-		val, err := Match([]types.Value{pattern, s})
+		val, err := Match(context.Background(), []types.Value{pattern, s})
 		if err != nil {
 			t.Errorf("test index %d failed with: %+v", i, err)
 		}

@@ -55,7 +55,7 @@ func init() {
 	// concatenation
 	RegisterOperator("+", &types.FuncValue{
 		T: types.NewType("func(a str, b str) str"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.StrValue{
 				V: input[0].Str() + input[1].Str(),
 			}, nil
@@ -64,7 +64,7 @@ func init() {
 	// addition
 	RegisterOperator("+", &types.FuncValue{
 		T: types.NewType("func(a int, b int) int"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			//if l := len(input); l != 2 {
 			//	return nil, fmt.Errorf("expected two inputs, got: %d", l)
 			//}
@@ -77,7 +77,7 @@ func init() {
 	// floating-point addition
 	RegisterOperator("+", &types.FuncValue{
 		T: types.NewType("func(a float, b float) float"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.FloatValue{
 				V: input[0].Float() + input[1].Float(),
 			}, nil
@@ -87,7 +87,7 @@ func init() {
 	// subtraction
 	RegisterOperator("-", &types.FuncValue{
 		T: types.NewType("func(a int, b int) int"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.IntValue{
 				V: input[0].Int() - input[1].Int(),
 			}, nil
@@ -96,7 +96,7 @@ func init() {
 	// floating-point subtraction
 	RegisterOperator("-", &types.FuncValue{
 		T: types.NewType("func(a float, b float) float"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.FloatValue{
 				V: input[0].Float() - input[1].Float(),
 			}, nil
@@ -106,7 +106,7 @@ func init() {
 	// multiplication
 	RegisterOperator("*", &types.FuncValue{
 		T: types.NewType("func(a int, b int) int"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			// FIXME: check for overflow?
 			return &types.IntValue{
 				V: input[0].Int() * input[1].Int(),
@@ -116,7 +116,7 @@ func init() {
 	// floating-point multiplication
 	RegisterOperator("*", &types.FuncValue{
 		T: types.NewType("func(a float, b float) float"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.FloatValue{
 				V: input[0].Float() * input[1].Float(),
 			}, nil
@@ -127,7 +127,7 @@ func init() {
 	// division
 	RegisterOperator("/", &types.FuncValue{
 		T: types.NewType("func(a int, b int) float"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			divisor := input[1].Int()
 			if divisor == 0 {
 				return nil, fmt.Errorf("can't divide by zero")
@@ -140,7 +140,7 @@ func init() {
 	// floating-point division
 	RegisterOperator("/", &types.FuncValue{
 		T: types.NewType("func(a float, b float) float"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			divisor := input[1].Float()
 			if divisor == 0.0 {
 				return nil, fmt.Errorf("can't divide by zero")
@@ -154,7 +154,7 @@ func init() {
 	// string equality
 	RegisterOperator("==", &types.FuncValue{
 		T: types.NewType("func(a str, b str) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Str() == input[1].Str(),
 			}, nil
@@ -163,7 +163,7 @@ func init() {
 	// bool equality
 	RegisterOperator("==", &types.FuncValue{
 		T: types.NewType("func(a bool, b bool) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Bool() == input[1].Bool(),
 			}, nil
@@ -172,7 +172,7 @@ func init() {
 	// int equality
 	RegisterOperator("==", &types.FuncValue{
 		T: types.NewType("func(a int, b int) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Int() == input[1].Int(),
 			}, nil
@@ -181,7 +181,7 @@ func init() {
 	// floating-point equality
 	RegisterOperator("==", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			// TODO: should we do an epsilon check?
 			return &types.BoolValue{
 				V: input[0].Float() == input[1].Float(),
@@ -192,7 +192,7 @@ func init() {
 	// string in-equality
 	RegisterOperator("!=", &types.FuncValue{
 		T: types.NewType("func(a str, b str) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Str() != input[1].Str(),
 			}, nil
@@ -201,7 +201,7 @@ func init() {
 	// bool in-equality
 	RegisterOperator("!=", &types.FuncValue{
 		T: types.NewType("func(a bool, b bool) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Bool() != input[1].Bool(),
 			}, nil
@@ -210,7 +210,7 @@ func init() {
 	// int in-equality
 	RegisterOperator("!=", &types.FuncValue{
 		T: types.NewType("func(a int, b int) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Int() != input[1].Int(),
 			}, nil
@@ -219,7 +219,7 @@ func init() {
 	// floating-point in-equality
 	RegisterOperator("!=", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			// TODO: should we do an epsilon check?
 			return &types.BoolValue{
 				V: input[0].Float() != input[1].Float(),
@@ -230,7 +230,7 @@ func init() {
 	// less-than
 	RegisterOperator("<", &types.FuncValue{
 		T: types.NewType("func(a int, b int) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Int() < input[1].Int(),
 			}, nil
@@ -239,7 +239,7 @@ func init() {
 	// floating-point less-than
 	RegisterOperator("<", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			// TODO: should we do an epsilon check?
 			return &types.BoolValue{
 				V: input[0].Float() < input[1].Float(),
@@ -249,7 +249,7 @@ func init() {
 	// greater-than
 	RegisterOperator(">", &types.FuncValue{
 		T: types.NewType("func(a int, b int) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Int() > input[1].Int(),
 			}, nil
@@ -258,7 +258,7 @@ func init() {
 	// floating-point greater-than
 	RegisterOperator(">", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			// TODO: should we do an epsilon check?
 			return &types.BoolValue{
 				V: input[0].Float() > input[1].Float(),
@@ -268,7 +268,7 @@ func init() {
 	// less-than-equal
 	RegisterOperator("<=", &types.FuncValue{
 		T: types.NewType("func(a int, b int) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Int() <= input[1].Int(),
 			}, nil
@@ -277,7 +277,7 @@ func init() {
 	// floating-point less-than-equal
 	RegisterOperator("<=", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			// TODO: should we do an epsilon check?
 			return &types.BoolValue{
 				V: input[0].Float() <= input[1].Float(),
@@ -287,7 +287,7 @@ func init() {
 	// greater-than-equal
 	RegisterOperator(">=", &types.FuncValue{
 		T: types.NewType("func(a int, b int) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Int() >= input[1].Int(),
 			}, nil
@@ -296,7 +296,7 @@ func init() {
 	// floating-point greater-than-equal
 	RegisterOperator(">=", &types.FuncValue{
 		T: types.NewType("func(a float, b float) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			// TODO: should we do an epsilon check?
 			return &types.BoolValue{
 				V: input[0].Float() >= input[1].Float(),
@@ -309,7 +309,7 @@ func init() {
 	// short-circuit operators, and does it matter?
 	RegisterOperator("and", &types.FuncValue{
 		T: types.NewType("func(a bool, b bool) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Bool() && input[1].Bool(),
 			}, nil
@@ -318,7 +318,7 @@ func init() {
 	// logical or
 	RegisterOperator("or", &types.FuncValue{
 		T: types.NewType("func(a bool, b bool) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: input[0].Bool() || input[1].Bool(),
 			}, nil
@@ -328,7 +328,7 @@ func init() {
 	// logical not (unary operator)
 	RegisterOperator("not", &types.FuncValue{
 		T: types.NewType("func(a bool) bool"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
 				V: !input[0].Bool(),
 			}, nil
@@ -338,7 +338,7 @@ func init() {
 	// pi operator (this is an easter egg to demo a zero arg operator)
 	RegisterOperator("π", &types.FuncValue{
 		T: types.NewType("func() float"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.FloatValue{
 				V: math.Pi,
 			}, nil
@@ -938,7 +938,7 @@ func (obj *OperatorFunc) Stream(ctx context.Context) error {
 			lastOp = op
 
 			var result types.Value
-			result, err := fn.Call(args) // run the function
+			result, err := fn.Call(ctx, args) // run the function
 			if err != nil {
 				return errwrap.Wrapf(err, "problem running function")
 			}

@@ -30,6 +30,7 @@
 package coreos
 
 import (
+	"context"
 	"os"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -54,8 +55,9 @@ func init() {
 
 // IsDebian detects if the os family is debian.
 // TODO: Detect OS changes.
-func IsDebian(input []types.Value) (types.Value, error) {
+func IsDebian(ctx context.Context, input []types.Value) (types.Value, error) {
 	exists := true
+	// TODO: use ctx around io operations
 	_, err := os.Stat("/etc/debian_version")
 	if os.IsNotExist(err) {
 		exists = false
@@ -67,8 +69,9 @@ func IsDebian(input []types.Value) (types.Value, error) {
 
 // IsRedHat detects if the os family is redhat.
 // TODO: Detect OS changes.
-func IsRedHat(input []types.Value) (types.Value, error) {
+func IsRedHat(ctx context.Context, input []types.Value) (types.Value, error) {
 	exists := true
+	// TODO: use ctx around io operations
 	_, err := os.Stat("/etc/redhat-release")
 	if os.IsNotExist(err) {
 		exists = false
@@ -80,8 +83,9 @@ func IsRedHat(input []types.Value) (types.Value, error) {
 
 // IsArchLinux detects if the os family is archlinux.
 // TODO: Detect OS changes.
-func IsArchLinux(input []types.Value) (types.Value, error) {
+func IsArchLinux(ctx context.Context, input []types.Value) (types.Value, error) {
 	exists := true
+	// TODO: use ctx around io operations
 	_, err := os.Stat("/etc/arch-release")
 	if os.IsNotExist(err) {
 		exists = false

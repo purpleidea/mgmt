@@ -30,6 +30,7 @@
 package coremath
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -40,7 +41,7 @@ import (
 func testSqrtSuccess(input, sqrt float64) error {
 	inputVal := &types.FloatValue{V: input}
 
-	val, err := Sqrt([]types.Value{inputVal})
+	val, err := Sqrt(context.Background(), []types.Value{inputVal})
 	if err != nil {
 		return err
 	}
@@ -52,7 +53,7 @@ func testSqrtSuccess(input, sqrt float64) error {
 
 func testSqrtError(input float64) error {
 	inputVal := &types.FloatValue{V: input}
-	_, err := Sqrt([]types.Value{inputVal})
+	_, err := Sqrt(context.Background(), []types.Value{inputVal})
 	if err == nil {
 		return fmt.Errorf("expected error for input %f, got nil", input)
 	}

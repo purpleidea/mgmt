@@ -30,6 +30,7 @@
 package coredatetime
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -48,7 +49,7 @@ func init() {
 // has to be defined like specified by the golang "time" package. The time is
 // the number of seconds since the epoch, and matches what comes from our Now
 // function. Golang documentation: https://golang.org/pkg/time/#Time.Format
-func Format(input []types.Value) (types.Value, error) {
+func Format(ctx context.Context, input []types.Value) (types.Value, error) {
 	epochDelta := input[0].Int()
 	if epochDelta < 0 {
 		return nil, fmt.Errorf("epoch delta must be positive")

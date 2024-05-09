@@ -30,6 +30,8 @@
 package coreexample
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -42,7 +44,7 @@ func init() {
 }
 
 // Plus returns y + z.
-func Plus(input []types.Value) (types.Value, error) {
+func Plus(ctx context.Context, input []types.Value) (types.Value, error) {
 	y, z := input[0].Str(), input[1].Str()
 	return &types.StrValue{
 		V: y + z,

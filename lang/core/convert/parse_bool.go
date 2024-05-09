@@ -30,6 +30,7 @@
 package convert
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -48,7 +49,7 @@ func init() {
 // it an invalid value. Valid values match what is accepted by the golang
 // strconv.ParseBool function. It's recommended to use the strings `true` or
 // `false` if you are undecided about what string representation to choose.
-func ParseBool(input []types.Value) (types.Value, error) {
+func ParseBool(ctx context.Context, input []types.Value) (types.Value, error) {
 	s := input[0].Str()
 	b, err := strconv.ParseBool(s)
 	if err != nil {

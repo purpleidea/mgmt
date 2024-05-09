@@ -30,6 +30,7 @@
 package coremath
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
@@ -57,8 +58,8 @@ func init() {
 // in a sig field, like how we demonstrate in the implementation of FortyTwo. If
 // the API doesn't change, then this is an example of how to build this as a
 // wrapper.
-func fortyTwo(sig *types.Type) func([]types.Value) (types.Value, error) {
-	return func(input []types.Value) (types.Value, error) {
+func fortyTwo(sig *types.Type) func(context.Context, []types.Value) (types.Value, error) {
+	return func(ctx context.Context, input []types.Value) (types.Value, error) {
 		return FortyTwo(sig, input)
 	}
 }

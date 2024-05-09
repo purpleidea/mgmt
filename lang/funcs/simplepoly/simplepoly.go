@@ -602,7 +602,7 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("Calling function with: %+v", values)
 			}
-			result, err := obj.fn.Call(values) // (Value, error)
+			result, err := obj.fn.Call(ctx, values) // (Value, error)
 			if err != nil {
 				if obj.init.Debug {
 					obj.init.Logf("Function returned error: %+v", err)

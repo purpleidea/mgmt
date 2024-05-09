@@ -30,6 +30,7 @@
 package corenet
 
 import (
+	"context"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/types"
@@ -51,7 +52,7 @@ func TestMacFmt(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			m, err := MacFmt([]types.Value{&types.StrValue{V: tt.in}})
+			m, err := MacFmt(context.Background(), []types.Value{&types.StrValue{V: tt.in}})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("func MacFmt() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -81,7 +82,7 @@ func TestOldMacFmt(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			m, err := OldMacFmt([]types.Value{&types.StrValue{V: tt.in}})
+			m, err := OldMacFmt(context.Background(), []types.Value{&types.StrValue{V: tt.in}})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("func MacFmt() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -30,6 +30,8 @@
 package core
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -48,7 +50,7 @@ func init() {
 }
 
 // Concat concatenates two strings together.
-func Concat(input []types.Value) (types.Value, error) {
+func Concat(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: input[0].Str() + input[1].Str(),
 	}, nil

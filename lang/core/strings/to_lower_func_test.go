@@ -30,6 +30,7 @@
 package corestrings
 
 import (
+	"context"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/types"
@@ -37,7 +38,7 @@ import (
 
 func testToLower(t *testing.T, input, expected string) {
 	inputStr := &types.StrValue{V: input}
-	value, err := ToLower([]types.Value{inputStr})
+	value, err := ToLower(context.Background(), []types.Value{inputStr})
 	if err != nil {
 		t.Error(err)
 		return

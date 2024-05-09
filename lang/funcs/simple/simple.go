@@ -173,7 +173,7 @@ func (obj *WrappedFunc) Stream(ctx context.Context) error {
 				values = append(values, x)
 			}
 
-			result, err := obj.Fn.Call(values) // (Value, error)
+			result, err := obj.Fn.Call(ctx, values) // (Value, error)
 			if err != nil {
 				return errwrap.Wrapf(err, "simple function errored")
 			}
@@ -244,7 +244,7 @@ func StructRegister(moduleName string, args interface{}) error {
 
 		ModuleRegister(moduleName, name, &types.FuncValue{
 			T: types.NewType(fmt.Sprintf("func() %s", typed.String())),
-			V: func(input []types.Value) (types.Value, error) {
+			V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 				//if args == nil {
 				//	// programming error
 				//	return nil, fmt.Errorf("could not convert/access our struct")

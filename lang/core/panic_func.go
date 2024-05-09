@@ -30,6 +30,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
@@ -52,7 +53,7 @@ func init() {
 // Panic returns an error when it receives a non-empty string or a true boolean.
 // The error should cause the function engine to shutdown. If there's no error,
 // it returns false.
-func Panic(input []types.Value) (types.Value, error) {
+func Panic(ctx context.Context, input []types.Value) (types.Value, error) {
 	switch k := input[0].Type().Kind; k {
 	case types.KindBool:
 		if input[0].Bool() {

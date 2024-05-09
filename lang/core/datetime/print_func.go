@@ -30,6 +30,7 @@
 package coredatetime
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -41,7 +42,7 @@ func init() {
 	// FIXME: consider renaming this to printf, and add in a format string?
 	simple.ModuleRegister(ModuleName, "print", &types.FuncValue{
 		T: types.NewType("func(a int) str"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			epochDelta := input[0].Int()
 			if epochDelta < 0 {
 				return nil, fmt.Errorf("epoch delta must be positive")

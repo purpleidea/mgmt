@@ -123,7 +123,7 @@ func init() {
 
 	simple.ModuleRegister(ModuleName, OneInstanceBFuncName, &types.FuncValue{
 		T: types.NewType("func() str"),
-		V: func([]types.Value) (types.Value, error) {
+		V: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceBMutex.Lock()
 			if oneInstanceBFlag {
 				panic("should not get called twice")
@@ -135,7 +135,7 @@ func init() {
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &types.FuncValue{
 		T: types.NewType("func() str"),
-		V: func([]types.Value) (types.Value, error) {
+		V: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceDMutex.Lock()
 			if oneInstanceDFlag {
 				panic("should not get called twice")
@@ -147,7 +147,7 @@ func init() {
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &types.FuncValue{
 		T: types.NewType("func() str"),
-		V: func([]types.Value) (types.Value, error) {
+		V: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceFMutex.Lock()
 			if oneInstanceFFlag {
 				panic("should not get called twice")
@@ -159,7 +159,7 @@ func init() {
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &types.FuncValue{
 		T: types.NewType("func() str"),
-		V: func([]types.Value) (types.Value, error) {
+		V: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceHMutex.Lock()
 			if oneInstanceHFlag {
 				panic("should not get called twice")

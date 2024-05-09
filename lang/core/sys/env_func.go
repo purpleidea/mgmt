@@ -30,6 +30,7 @@
 package coresys
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -58,7 +59,7 @@ func init() {
 
 // GetEnv gets environment variable by name or returns empty string if non
 // existing.
-func GetEnv(input []types.Value) (types.Value, error) {
+func GetEnv(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: os.Getenv(input[0].Str()),
 	}, nil
@@ -66,7 +67,7 @@ func GetEnv(input []types.Value) (types.Value, error) {
 
 // DefaultEnv gets environment variable by name or returns default if non
 // existing.
-func DefaultEnv(input []types.Value) (types.Value, error) {
+func DefaultEnv(ctx context.Context, input []types.Value) (types.Value, error) {
 	value, exists := os.LookupEnv(input[0].Str())
 	if !exists {
 		value = input[1].Str()
@@ -77,7 +78,7 @@ func DefaultEnv(input []types.Value) (types.Value, error) {
 }
 
 // HasEnv returns true if environment variable exists.
-func HasEnv(input []types.Value) (types.Value, error) {
+func HasEnv(ctx context.Context, input []types.Value) (types.Value, error) {
 	_, exists := os.LookupEnv(input[0].Str())
 	return &types.BoolValue{
 		V: exists,
@@ -85,7 +86,7 @@ func HasEnv(input []types.Value) (types.Value, error) {
 }
 
 // Env returns a map of all keys and their values.
-func Env(input []types.Value) (types.Value, error) {
+func Env(ctx context.Context, input []types.Value) (types.Value, error) {
 	environ := make(map[types.Value]types.Value)
 	for _, keyval := range os.Environ() {
 		if i := strings.IndexRune(keyval, '='); i != -1 {

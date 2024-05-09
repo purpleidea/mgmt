@@ -32,6 +32,7 @@
 package coredatetime
 
 import (
+	"context"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/types"
@@ -41,7 +42,7 @@ func TestFormat(t *testing.T) {
 	inputVal := &types.IntValue{V: 1443158163}
 	inputFormat := &types.StrValue{V: "2006"}
 
-	val, err := Format([]types.Value{inputVal, inputFormat})
+	val, err := Format(context.Background(), []types.Value{inputVal, inputFormat})
 	if err != nil {
 		t.Error(err)
 	}

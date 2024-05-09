@@ -30,6 +30,7 @@
 package convert
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -45,7 +46,7 @@ func init() {
 
 // FormatBool converts a boolean to a string representation that can be consumed
 // by ParseBool. This value will be `"true"` or `"false"`.
-func FormatBool(input []types.Value) (types.Value, error) {
+func FormatBool(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: strconv.FormatBool(input[0].Bool()),
 	}, nil

@@ -30,6 +30,7 @@
 package coreexample
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -39,7 +40,7 @@ import (
 func init() {
 	simple.ModuleRegister(ModuleName, "str2int", &types.FuncValue{
 		T: types.NewType("func(a str) int"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			var i int64
 			if val, err := strconv.ParseInt(input[0].Str(), 10, 64); err == nil {
 				i = val

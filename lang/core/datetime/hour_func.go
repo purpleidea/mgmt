@@ -30,6 +30,7 @@
 package coredatetime
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -47,7 +48,7 @@ func init() {
 // Hour returns the hour of the day corresponding to the input time. The time is
 // the number of seconds since the epoch, and matches what comes from our Now
 // function.
-func Hour(input []types.Value) (types.Value, error) {
+func Hour(ctx context.Context, input []types.Value) (types.Value, error) {
 	epochDelta := input[0].Int()
 	if epochDelta < 0 {
 		return nil, fmt.Errorf("epoch delta must be positive")

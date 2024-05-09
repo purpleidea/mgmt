@@ -30,6 +30,7 @@
 package core
 
 import (
+	"context"
 	"testpkg"
 
 	"github.com/purpleidea/mgmt/lang/funcs/funcgen/util"
@@ -65,25 +66,25 @@ func init() {
 
 }
 
-func TestpkgAllKind(input []types.Value) (types.Value, error) {
+func TestpkgAllKind(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.FloatValue{
 		V: testpkg.AllKind(input[0].Int(), input[1].Str()),
 	}, nil
 }
 
-func TestpkgToUpper(input []types.Value) (types.Value, error) {
+func TestpkgToUpper(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: testpkg.ToUpper(input[0].Str()),
 	}, nil
 }
 
-func TestpkgMax(input []types.Value) (types.Value, error) {
+func TestpkgMax(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.FloatValue{
 		V: testpkg.Max(input[0].Float(), input[1].Float()),
 	}, nil
 }
 
-func TestpkgWithError(input []types.Value) (types.Value, error) {
+func TestpkgWithError(ctx context.Context, input []types.Value) (types.Value, error) {
 	v, err := testpkg.WithError(input[0].Str())
 	if err != nil {
 		return nil, err
@@ -93,13 +94,13 @@ func TestpkgWithError(input []types.Value) (types.Value, error) {
 	}, nil
 }
 
-func TestpkgWithInt(input []types.Value) (types.Value, error) {
+func TestpkgWithInt(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: testpkg.WithInt(input[0].Float(), int(input[1].Int()), input[2].Int(), int(input[3].Int()), int(input[4].Int()), input[5].Bool(), input[6].Str()),
 	}, nil
 }
 
-func TestpkgSuperByte(input []types.Value) (types.Value, error) {
+func TestpkgSuperByte(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: string(testpkg.SuperByte([]byte(input[0].Str()), input[1].Str())),
 	}, nil

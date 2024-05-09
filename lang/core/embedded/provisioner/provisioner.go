@@ -418,11 +418,14 @@ func (obj *provisioner) Register(moduleName string) error {
 	// Build a few separately...
 	simple.ModuleRegister(moduleName, "cli_password", &types.FuncValue{
 		T: types.NewType("func() str"),
-		V: func(input []types.Value) (types.Value, error) {
+		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			if obj.localArgs == nil {
 				// programming error
 				return nil, fmt.Errorf("could not convert/access our struct")
 			}
+
+			// TODO: plumb through the password lookup here instead?
+
 			//localArgs := *obj.localArgs // optional
 			return &types.StrValue{
 				V: obj.password,

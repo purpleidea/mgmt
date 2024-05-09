@@ -390,7 +390,7 @@ func (obj *TemplateFunc) Init(init *interfaces.Init) error {
 }
 
 // run runs a template and returns the result.
-func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, error) {
+func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars types.Value) (string, error) {
 	// see: https://golang.org/pkg/text/template/#FuncMap for more info
 	// note: we can override any other functions by adding them here...
 	funcMap := map[string]interface{}{
@@ -425,7 +425,7 @@ func (obj *TemplateFunc) run(templateText string, vars types.Value) (string, err
 		// parameter types. Functions meant to apply to arguments of
 		// arbitrary type can use parameters of type interface{} or of
 		// type reflect.Value.
-		f, err := wrap(name, fn) // wrap it so that it meets API expectations
+		f, err := wrap(ctx, name, fn) // wrap it so that it meets API expectations
 		if err != nil {
 			obj.init.Logf("warning, skipping function named: `%s`, err: %v", name, err)
 			continue
@@ -538,7 +538,7 @@ func (obj *TemplateFunc) Stream(ctx context.Context) error {
 				vars = nil
 			}
 
-			result, err := obj.run(tmpl, vars)
+			result, err := obj.run(ctx, tmpl, vars)
 			if err != nil {
 				return err // no errwrap needed b/c helper func
 			}
@@ -585,7 +585,7 @@ func safename(name string) string {
 // function API with what is expected from the reflection API. It returns a
 // version that includes the optional second error return value so that our
 // functions can return errors without causing a panic.
-func wrap(name string, fn *types.FuncValue) (_ interface{}, reterr error) {
+func wrap(ctx context.Context, name string, fn *types.FuncValue) (_ interface{}, reterr error) {
 	defer func() {
 		// catch unhandled panics
 		if r := recover(); r != nil {
@@ -633,8 +633,8 @@ func wrap(name string, fn *types.FuncValue) (_ interface{}, reterr error) {
 			innerArgs = append(innerArgs, v)
 		}
 
-		result, err := fn.Call(innerArgs) // call it
-		if err != nil {                   // function errored :(
+		result, err := fn.Call(ctx, innerArgs) // call it
+		if err != nil {                        // function errored :(
 			// errwrap is a better way to report errors, if allowed!
 			r := reflect.ValueOf(errwrap.Wrapf(err, "function `%s` errored", name))
 			if !r.Type().ConvertibleTo(errorType) { // for fun!

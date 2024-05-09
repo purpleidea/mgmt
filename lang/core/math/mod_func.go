@@ -30,6 +30,7 @@
 package coremath
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -54,7 +55,7 @@ func init() {
 // both of KindInt or both of KindFloat, and it will return the same kind. If
 // you pass in a divisor of zero, this will error, eg: mod(x, 0) = NaN.
 // TODO: consider returning zero instead of erroring?
-func Mod(input []types.Value) (types.Value, error) {
+func Mod(ctx context.Context, input []types.Value) (types.Value, error) {
 	var x, y float64
 	var float bool
 	k := input[0].Type().Kind

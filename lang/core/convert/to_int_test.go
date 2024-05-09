@@ -30,6 +30,7 @@
 package convert
 
 import (
+	"context"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/types"
@@ -37,7 +38,7 @@ import (
 
 func testToInt(t *testing.T, input float64, expected int64) {
 
-	got, err := ToInt([]types.Value{&types.FloatValue{V: input}})
+	got, err := ToInt(context.Background(), []types.Value{&types.FloatValue{V: input}})
 	if err != nil {
 		t.Error(err)
 		return

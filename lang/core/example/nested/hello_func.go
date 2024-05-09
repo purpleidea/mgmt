@@ -30,6 +30,8 @@
 package corenested
 
 import (
+	"context"
+
 	coreexample "github.com/purpleidea/mgmt/lang/core/example"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -43,7 +45,7 @@ func init() {
 }
 
 // Hello returns some string. This is just to test nesting.
-func Hello(input []types.Value) (types.Value, error) {
+func Hello(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: "Hello!",
 	}, nil

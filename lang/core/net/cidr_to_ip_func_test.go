@@ -30,6 +30,7 @@
 package corenet
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -61,7 +62,7 @@ func TestCidrToIP(t *testing.T) {
 	for _, ts := range cidrtests {
 		test := ts
 		t.Run(test.name, func(t *testing.T) {
-			output, err := CidrToIP([]types.Value{&types.StrValue{V: test.input}})
+			output, err := CidrToIP(context.Background(), []types.Value{&types.StrValue{V: test.input}})
 			expectedStr := &types.StrValue{V: test.expected}
 
 			if test.err != nil && err.Error() != test.err.Error() {

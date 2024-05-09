@@ -30,6 +30,7 @@
 package coreos
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -51,7 +52,7 @@ func init() {
 // ParseDistroUID parses a distro UID into its component values. If it cannot
 // parse correctly, all the struct fields have the zero values.
 // NOTE: The UID pattern is subject to change.
-func ParseDistroUID(input []types.Value) (types.Value, error) {
+func ParseDistroUID(ctx context.Context, input []types.Value) (types.Value, error) {
 	fn := func(distro, version, arch string) (types.Value, error) {
 		st := types.NewStruct(types.NewType(structDistroUID))
 		if err := st.Set("distro", &types.StrValue{V: distro}); err != nil {

@@ -30,6 +30,7 @@
 package corestrings
 
 import (
+	"context"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -45,7 +46,7 @@ func init() {
 
 // Split splits the input string using the separator and returns the segments as
 // a list.
-func Split(input []types.Value) (types.Value, error) {
+func Split(ctx context.Context, input []types.Value) (types.Value, error) {
 	str, sep := input[0].Str(), input[1].Str()
 
 	segments := strings.Split(str, sep)

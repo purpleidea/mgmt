@@ -30,6 +30,7 @@
 package coreos
 
 import (
+	"context"
 	"os"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -47,7 +48,7 @@ func init() {
 // return different values depending on how this is deployed, so don't expect a
 // result on your deploy client to behave the same as a server receiving code.
 // FIXME: Sanitize any command-line secrets we might pass in by cli.
-func Args([]types.Value) (types.Value, error) {
+func Args(context.Context, []types.Value) (types.Value, error) {
 	values := []types.Value{}
 	for _, s := range os.Args {
 		values = append(values, &types.StrValue{V: s})

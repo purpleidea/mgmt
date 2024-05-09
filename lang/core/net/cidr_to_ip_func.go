@@ -30,6 +30,7 @@
 package corenet
 
 import (
+	"context"
 	"net"
 	"strings"
 
@@ -45,7 +46,7 @@ func init() {
 }
 
 // CidrToIP returns the IP from a CIDR address
-func CidrToIP(input []types.Value) (types.Value, error) {
+func CidrToIP(ctx context.Context, input []types.Value) (types.Value, error) {
 	cidr := input[0].Str()
 	ip, _, err := net.ParseCIDR(strings.TrimSpace(cidr))
 	if err != nil {

@@ -30,6 +30,8 @@
 package convert
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -42,7 +44,7 @@ func init() {
 }
 
 // ToFloat converts an integer to a float.
-func ToFloat(input []types.Value) (types.Value, error) {
+func ToFloat(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.FloatValue{
 		V: float64(input[0].Int()),
 	}, nil

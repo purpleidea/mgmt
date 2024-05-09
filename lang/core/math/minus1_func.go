@@ -30,6 +30,8 @@
 package coremath
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -42,7 +44,7 @@ func init() {
 }
 
 // Minus1 takes an int and subtracts one from it.
-func Minus1(input []types.Value) (types.Value, error) {
+func Minus1(ctx context.Context, input []types.Value) (types.Value, error) {
 	// TODO: check for overflow
 	return &types.IntValue{
 		V: input[0].Int() - 1,

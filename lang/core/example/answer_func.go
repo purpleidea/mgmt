@@ -30,6 +30,8 @@
 package coreexample
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -40,7 +42,7 @@ const Answer = 42
 func init() {
 	simple.ModuleRegister(ModuleName, "answer", &types.FuncValue{
 		T: types.NewType("func() int"),
-		V: func([]types.Value) (types.Value, error) {
+		V: func(context.Context, []types.Value) (types.Value, error) {
 			return &types.IntValue{V: Answer}, nil
 		},
 	})

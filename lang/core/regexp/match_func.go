@@ -30,6 +30,7 @@
 package coreregexp
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -45,7 +46,7 @@ func init() {
 }
 
 // Match matches whether a string matches the regexp pattern.
-func Match(input []types.Value) (types.Value, error) {
+func Match(ctx context.Context, input []types.Value) (types.Value, error) {
 	pattern := input[0].Str()
 	s := input[1].Str()
 

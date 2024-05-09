@@ -30,6 +30,7 @@
 package corestrings
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -40,7 +41,7 @@ import (
 func testSplit(input, sep string, output []string) error {
 	inputVal, sepVal := &types.StrValue{V: input}, &types.StrValue{V: sep}
 
-	val, err := Split([]types.Value{inputVal, sepVal})
+	val, err := Split(context.Background(), []types.Value{inputVal, sepVal})
 	if err != nil {
 		return err
 	}

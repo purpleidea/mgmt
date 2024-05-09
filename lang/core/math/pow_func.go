@@ -30,6 +30,7 @@
 package coremath
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -45,7 +46,7 @@ func init() {
 }
 
 // Pow returns x ^ y, the base-x exponential of y.
-func Pow(input []types.Value) (types.Value, error) {
+func Pow(ctx context.Context, input []types.Value) (types.Value, error) {
 	x, y := input[0].Float(), input[1].Float()
 	// FIXME: check for overflow
 	z := math.Pow(x, y)

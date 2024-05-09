@@ -30,6 +30,7 @@
 package corestrings
 
 import (
+	"context"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -44,7 +45,7 @@ func init() {
 }
 
 // ToLower turns a string to lowercase.
-func ToLower(input []types.Value) (types.Value, error) {
+func ToLower(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: strings.ToLower(input[0].Str()),
 	}, nil

@@ -30,6 +30,7 @@
 package coremath
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -45,7 +46,7 @@ func init() {
 }
 
 // Sqrt returns sqrt(x), the square root of x.
-func Sqrt(input []types.Value) (types.Value, error) {
+func Sqrt(ctx context.Context, input []types.Value) (types.Value, error) {
 	x := input[0].Float()
 	y := math.Sqrt(x)
 	if math.IsNaN(y) {

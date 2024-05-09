@@ -30,6 +30,7 @@
 package convert
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -49,7 +50,7 @@ func init() {
 }
 
 // IntToStr converts an integer to a string.
-func IntToStr(input []types.Value) (types.Value, error) {
+func IntToStr(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: strconv.Itoa(int(input[0].Int())),
 	}, nil

@@ -30,6 +30,7 @@
 package coredatetime
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ func init() {
 // Weekday returns the lowercased day of the week corresponding to the input
 // time. The time is the number of seconds since the epoch, and matches what
 // comes from our Now function.
-func Weekday(input []types.Value) (types.Value, error) {
+func Weekday(ctx context.Context, input []types.Value) (types.Value, error) {
 	epochDelta := input[0].Int()
 	if epochDelta < 0 {
 		return nil, fmt.Errorf("epoch delta must be positive")

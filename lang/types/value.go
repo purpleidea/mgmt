@@ -30,6 +30,7 @@
 package types
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -230,7 +231,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 			return nil, fmt.Errorf("cannot only represent functions with one output value")
 		}
 
-		f := func(args []Value) (Value, error) {
+		f := func(ctx context.Context, args []Value) (Value, error) {
 			in := []reflect.Value{}
 			for _, x := range args {
 				// TODO: should we build this method instead?
@@ -239,6 +240,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 				in = append(in, v)
 			}
 
+			// FIXME: can we pass in ctx ?
 			// FIXME: can we trap panic's ?
 			out := value.Call(in) // []reflect.Value
 			if len(out) != 1 {    // TODO: panic, b/c already checked in TypeOf?
@@ -1207,7 +1209,7 @@ func (obj *StructValue) Lookup(k string) (value Value, exists bool) {
 // Func nodes.
 type FuncValue struct {
 	Base
-	V func([]Value) (Value, error)
+	V func(context.Context, []Value) (Value, error)
 	T *Type // contains ordered field types, arg names are a bonus part
 }
 
@@ -1217,7 +1219,7 @@ func NewFunc(t *Type) *FuncValue {
 	if t.Kind != KindFunc {
 		return nil // sanity check
 	}
-	v := func([]Value) (Value, error) {
+	v := func(context.Context, []Value) (Value, error) {
 		// You were not supposed to call the temporary function, you
 		// were supposed to replace it with a real implementation!
 		return nil, fmt.Errorf("nil function")
@@ -1301,7 +1303,7 @@ func (obj *FuncValue) Value() interface{} {
 // Call runs the function value and returns its result. It returns an error if
 // something goes wrong during execution, and panic's if you call this with
 // inappropriate input types, or if it returns an inappropriate output type.
-func (obj *FuncValue) Call(args []Value) (Value, error) {
+func (obj *FuncValue) Call(ctx context.Context, args []Value) (Value, error) {
 	// cmp input args type to obj.T
 	length := len(obj.T.Ord)
 	if length != len(args) {
@@ -1313,7 +1315,7 @@ func (obj *FuncValue) Call(args []Value) (Value, error) {
 		}
 	}
 
-	result, err := obj.V(args) // call it
+	result, err := obj.V(ctx, args) // call it
 	if result == nil {
 		if err == nil {
 			return nil, fmt.Errorf("function returned nil result")

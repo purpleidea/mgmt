@@ -30,6 +30,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
@@ -56,7 +57,7 @@ func init() {
 
 // Len returns the number of elements in a list or the number of key pairs in a
 // map. It can operate on either of these types.
-func Len(input []types.Value) (types.Value, error) {
+func Len(ctx context.Context, input []types.Value) (types.Value, error) {
 	var length int
 	switch k := input[0].Type().Kind; k {
 	case types.KindStr:

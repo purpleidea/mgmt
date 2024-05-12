@@ -591,7 +591,7 @@ Lexing is done using [nex](https://github.com/blynn/nex). It is a pure-golang
 implementation which is similar to _Lex_ or _Flex_, but which produces golang
 code instead of C. It integrates reasonably well with golang's _yacc_ which is
 used for parsing. The token definitions are in:
-[lang/lexer.nex](https://github.com/purpleidea/mgmt/tree/master/lang/lexer.nex).
+[lang/lexer.nex](https://github.com/purpleidea/mgmt/tree/master/lang/parser/lexer.nex).
 Lexing and parsing run together by calling the `LexParse` method.
 
 #### Parsing
@@ -603,7 +603,7 @@ and trial and error. One small advantage yacc has over standard yacc is that it
 can produce error messages from examples. The best documentation is to examine
 the source. There is a short write up available [here](https://research.swtch.com/yyerror).
 The yacc file exists at:
-[lang/parser.y](https://github.com/purpleidea/mgmt/tree/master/lang/parser.y).
+[lang/parser.y](https://github.com/purpleidea/mgmt/tree/master/lang/parser/parser.y).
 Lexing and parsing run together by calling the `LexParse` method.
 
 #### Interpolation

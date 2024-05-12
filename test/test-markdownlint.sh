@@ -42,6 +42,13 @@ EOF
 
 #STYLE="test/mdl.style"	# style file
 
+LYCHEE=$(command -v lychee 2>/dev/null) || true
+if [ -z "$LYCHEE" ]; then
+	fail_test "The 'lychee' utility can't be found.
+	Installation guide:
+	https://github.com/lycheeverse/lychee/blob/master/README.md#installation"
+fi
+
 find_files() {
 	git ls-files | grep '\.md$'
 }
@@ -62,6 +69,12 @@ bad_files=$(
 
 		# check the markdown format with the linter
 		if ! "$MDL" --style "$STYLE" "$i" 1>&2; then
+			echo "$i"
+		fi
+
+		# check links in docs
+		# if file is from the directory docs/ then check links
+		if [[ "$i" == docs/* ]] && ! "$LYCHEE" -n "$i" 1>&2; then
 			echo "$i"
 		fi
 	done

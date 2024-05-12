@@ -16,7 +16,7 @@ be working properly.
 
 ## Using Docker
 
-Alternatively, you can check out the [docker-guide](docker-guide.md) in order to
+Alternatively, you can check out the [docker folder](../docker/) in order to
 develop or deploy using docker. This method is not endorsed or supported, so use
 at your own risk, as it might not be working properly.
 

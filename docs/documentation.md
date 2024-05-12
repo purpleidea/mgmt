@@ -437,7 +437,7 @@ directory in the git source repository. It is available from:
 
 ### Systemd:
 
-See [`misc/mgmt.service`](misc/mgmt.service) for a sample systemd unit file.
+See [`misc/mgmt.service`](../misc/mgmt.service) for a sample systemd unit file.
 This unit file is part of the RPM.
 
 To specify your custom options for `mgmt` on a systemd distro:

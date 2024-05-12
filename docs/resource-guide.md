@@ -716,7 +716,7 @@ Higher level resource collections will be possible once the `mgmt` DSL is ready.
 ### Why does the resource API have `CheckApply` instead of two separate methods?
 
 In an early version we actually had both "parts" as separate methods, namely:
-`StateOK` (Check) and `Apply`, but the [decision](58f41eddd9c06b183f889f15d7c97af81b0331cc)
+`StateOK` (Check) and `Apply`, but the [decision](https://github.com/purpleidea/mgmt/commit/58f41eddd9c06b183f889f15d7c97af81b0331cc)
 was made to merge the two into a single method. There are two reasons for this:
 
 1. Many situations would involve the engine running both `Check` and `Apply`. If

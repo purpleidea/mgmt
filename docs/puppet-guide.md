@@ -69,7 +69,7 @@ be avoided.
 ### Unsupported resources
 
 Puppet has a fairly large number of
-[built-in types](https://docs.puppet.com/puppet/latest/reference/type.html),
+[built-in types](https://www.puppet.com/docs/puppet/8/cheatsheet_core_types.html),
 and countless more are available through
 [modules](https://forge.puppet.com/). It's unlikely that all of them will
 eventually receive native counterparts in `mgmt`.
@@ -115,7 +115,7 @@ puppet mgmtgraph print --code 'file { "/tmp/mgmt-test": backup => false }'
 ```
 
 This is tedious in a more complex manifest. A good simplification is the
-following [resource default](https://docs.puppet.com/puppet/latest/reference/lang_defaults.html)
+following [resource default](https://www.puppet.com/docs/puppet/8/lang_defaults)
 anywhere on the top scope of your manifest:
 
 ```puppet

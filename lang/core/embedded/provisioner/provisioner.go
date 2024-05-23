@@ -108,7 +108,7 @@ type localArgs struct {
 	Distro string `arg:"--distro" default:"fedora" help:"distribution to use" func:"cli_distro"`
 
 	// Version is the distribution version. This is a string, not an int.
-	Version string `arg:"--version" help:"distribution version" func:"cli_version"` // eg: "38"
+	Version string `arg:"--dversion" help:"distribution version" func:"cli_version"` // eg: "38"
 
 	// Arch is the distro architecture to use. Only x86_64 and aarch64 are
 	// currently supported. Patches welcome.

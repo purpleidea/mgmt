@@ -81,6 +81,183 @@ func TestFileAutoEdge1(t *testing.T) {
 	}
 }
 
+func TestFileAutoEdgeOwnerUID(t *testing.T) {
+	g, err := pgraph.NewGraph("TestGraph")
+	if err != nil {
+		t.Errorf("error creating graph: %v", err)
+		return
+	}
+
+	fname := &FileRes{
+		Path:  "/tmp/user_owned",
+		Owner: "test_user",
+	}
+
+	fid := &FileRes{
+		Path:  "/tmp/uid_owned",
+		Owner: "1234",
+	}
+
+	uid := uint32(1234)
+
+	user := &UserRes{
+		UID: &uid,
+	}
+
+	// Name cannot be set directly in the struct definition
+	user.SetName("test_user")
+
+	g.AddVertex(fname, fid, user)
+
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("should have 0 edges instead of: %d", i)
+	}
+
+	debug := testing.Verbose() // set via the -test.v flag to `go test`
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+	// run artificially without the entire engine
+	if err := autoedge.AutoEdge(g, debug, logf); err != nil {
+		t.Errorf("error running autoedges: %v", err)
+	}
+
+	if e := g.FindEdge(user, fname); e == nil {
+		t.Errorf("should have an edge from user name -> file, got nil")
+	}
+
+	if e := g.FindEdge(user, fid); e == nil {
+		t.Errorf("should have an edge from uid -> file, got nil")
+	}
+}
+
+func TestFileAutoEdgeGroup(t *testing.T) {
+	g, err := pgraph.NewGraph("TestGraph")
+	if err != nil {
+		t.Errorf("error creating graph: %v", err)
+		return
+	}
+
+	fname := &FileRes{
+		Path:  "/tmp/group_owned",
+		Group: "test_group",
+	}
+
+	fid := &FileRes{
+		Path:  "/tmp/gid_owned",
+		Group: "1234",
+	}
+
+	gid := uint32(1234)
+
+	group := &GroupRes{
+		GID: &gid,
+	}
+
+	// Name cannot be set directly in the struct definition
+	group.SetName("test_group")
+
+	g.AddVertex(fname, fid, group)
+
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("should have 0 edges instead of: %d", i)
+	}
+
+	debug := testing.Verbose() // set via the -test.v flag to `go test`
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+	// run artificially without the entire engine
+	if err := autoedge.AutoEdge(g, debug, logf); err != nil {
+		t.Errorf("error running autoedges: %v", err)
+	}
+
+	if e := g.FindEdge(group, fname); e == nil {
+		t.Errorf("should have an edge from group name -> file, got nil")
+	}
+
+	if e := g.FindEdge(group, fid); e == nil {
+		t.Errorf("should have an edge from gid -> file, got nil")
+	}
+}
+
+func TestFileAutoEdgeOwnerGroup(t *testing.T) {
+	g, err := pgraph.NewGraph("TestGraph")
+	if err != nil {
+		t.Errorf("error creating graph: %v", err)
+		return
+	}
+
+	fname := &FileRes{
+		Path:  "/tmp/name_owned",
+		Owner: "test_user",
+		Group: "test_group",
+	}
+
+	fid := &FileRes{
+		Path:  "/tmp/id_owned",
+		Owner: "1234",
+		Group: "5678",
+	}
+
+	fnameid := &FileRes{
+		Path:  "/tmp/nameid_owned",
+		Owner: "1234",
+		Group: "test_group",
+	}
+
+	fidname := &FileRes{
+		Path:  "/tmp/idname_owned",
+		Owner: "test_user",
+		Group: "5678",
+	}
+
+	uid := uint32(1234)
+
+	user := &UserRes{
+		UID: &uid,
+	}
+
+	// Name cannot be set directly in the struct definition
+	user.SetName("test_user")
+
+	gid := uint32(5678)
+
+	group := &GroupRes{
+		GID: &gid,
+	}
+
+	// Name cannot be set directly in the struct definition
+	group.SetName("test_group")
+
+	g.AddVertex(fname, fid, fnameid, fidname, user, group)
+
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("should have 0 edges instead of: %d", i)
+	}
+
+	debug := testing.Verbose() // set via the -test.v flag to `go test`
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+	// run artificially without the entire engine
+	if err := autoedge.AutoEdge(g, debug, logf); err != nil {
+		t.Errorf("error running autoedges: %v", err)
+	}
+
+	resources := []engine.Res{fname, fid, fnameid, fidname}
+
+	for _, fres := range resources {
+		if e := g.FindEdge(user, fres); e == nil {
+			t.Errorf("should have an edge from user -> file, got nil")
+		}
+
+		if e := g.FindEdge(group, fres); e == nil {
+			t.Errorf("should have an edge from group -> file, got nil")
+		}
+	}
+}
+
 func TestMiscEncodeDecode1(t *testing.T) {
 	var err error
 

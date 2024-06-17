@@ -1438,6 +1438,54 @@ func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
 		}) // build list
 	}
 
+	if obj.Owner != "" {
+		var reversed = true // cheat by passing a pointer
+		if uid, err := strconv.ParseInt(obj.Owner, 10, 0); err == nil {
+			var uint32_uid = uint32(uid)
+			data = append(data, &UserUID{
+				BaseUID: engine.BaseUID{
+					Name:     obj.Name(),
+					Kind:     obj.Kind(),
+					Reversed: &reversed,
+				},
+				uid: &uint32_uid,
+			})
+		} else {
+			data = append(data, &UserUID{
+				BaseUID: engine.BaseUID{
+					Name:     obj.Name(),
+					Kind:     obj.Kind(),
+					Reversed: &reversed,
+				},
+				name: obj.Owner,
+			})
+		}
+	}
+
+	if obj.Group != "" {
+		var reversed = true // cheat by passing a pointer
+		if gid, err := strconv.ParseInt(obj.Group, 10, 0); err == nil {
+			var uint32_gid = uint32(gid)
+			data = append(data, &GroupUID{
+				BaseUID: engine.BaseUID{
+					Name:     obj.Name(),
+					Kind:     obj.Kind(),
+					Reversed: &reversed,
+				},
+				gid: &uint32_gid,
+			})
+		} else {
+			data = append(data, &GroupUID{
+				BaseUID: engine.BaseUID{
+					Name:     obj.Name(),
+					Kind:     obj.Kind(),
+					Reversed: &reversed,
+				},
+				name: obj.Group,
+			})
+		}
+	}
+
 	// Ensure any file or dir fragments come first.
 	frags := []engine.ResUID{}
 	for _, frag := range obj.Fragments {
@@ -1450,7 +1498,6 @@ func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
 			},
 			path: frag, // what matters
 		}) // build list
-
 	}
 
 	return &FileResAutoEdges{

@@ -352,13 +352,6 @@ func (obj *FileRes) Validate() error {
 			return fmt.Errorf("can't set Owner or Group on this platform")
 		}
 	}
-	if _, err := engineUtil.GetUID(obj.Owner); obj.Owner != "" && err != nil {
-		return err
-	}
-
-	if _, err := engineUtil.GetGID(obj.Group); obj.Group != "" && err != nil {
-		return err
-	}
 
 	// TODO: should we silently ignore this error or include it?
 	//if obj.State == FileStateAbsent && obj.Mode != "" {

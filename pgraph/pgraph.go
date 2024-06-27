@@ -394,6 +394,9 @@ func (g *Graph) String() string {
 // might want to use Logf, which will keep everything aligned with whatever your
 // logging prefix is. This function returns the result in a deterministic order.
 func (g *Graph) Sprint() string {
+	if g == nil {
+		return ""
+	}
 	var str string
 	for _, v := range g.VerticesSorted() {
 		str += fmt.Sprintf("Vertex: %s\n", v)

@@ -879,7 +879,7 @@ func (obj *ListValue) Cmp(val Value) error {
 	cmp := val.(*ListValue)
 
 	if len(obj.V) != len(cmp.V) {
-		return fmt.Errorf("values have different lengths")
+		return fmt.Errorf("lists have different lengths")
 	}
 
 	for i := range obj.V {
@@ -1007,13 +1007,13 @@ func (obj *MapValue) Cmp(val Value) error {
 	cmp := val.(*MapValue)
 
 	if len(obj.V) != len(cmp.V) {
-		return fmt.Errorf("values have different lengths")
+		return fmt.Errorf("maps have different lengths")
 	}
 
 	for k := range obj.V {
 		v, exists := cmp.V[k]
 		if !exists {
-			return fmt.Errorf("index %s does not exist", k)
+			return fmt.Errorf("key %s does not exist", k)
 		}
 
 		if err := obj.V[k].Cmp(v); err != nil {

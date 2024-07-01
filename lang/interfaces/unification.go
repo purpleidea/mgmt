@@ -37,6 +37,46 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+// UnificationInvariant is the only type of invariant that we currently support.
+// It always lets you specify an `Expr` so that we know what we're referring to.
+// It always lets you specify two types which must get unified for a successful
+// solution. Those two types are symmetrical in that it doesn't matter which is
+// used where, it only affects how we print out error messages.
+type UnificationInvariant struct { // formerly the SamInvariant
+	// Expr is the expression we are determining the type for. This improves
+	// our error messages.
+	Expr Expr
+
+	// Expect is one of the two types to unify.
+	Expect *types.Type
+
+	// Actual is one of the two types to unify.
+	Actual *types.Type
+}
+
+// GenericCheck is the generic implementation of the Check Expr interface call.
+// It is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func GenericCheck(obj Expr, typ *types.Type) ([]*UnificationInvariant, error) {
+	// Generic implementation of Check:
+	// This wants to be inferred, because it always knows its type.
+	actual, invariants, err := obj.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	invar := &UnificationInvariant{
+		Expr:   obj,
+		Expect: typ, // sam says not backwards
+		Actual: actual,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
 // Invariant represents a constraint that is described by the Expr's and Stmt's,
 // and which is passed into the unification solver to describe what is known by
 // the AST.

@@ -75,3 +75,100 @@ func TypeStructTagToFieldName(st reflect.Type) (map[string]string, error) {
 	}
 	return result, nil
 }
+
+// Iter applies a function to each type in the top-level type. It stops if that
+// function errors, and returns that error to the top-level caller. It panics if
+// it encounters an invalid or partial type struct. This version starts at the
+// top and works its way deeper.
+func Iter(typ *Type, fn func(*Type) error) error {
+	if err := fn(typ); err != nil {
+		return err
+	}
+
+	switch typ.Kind {
+	case KindBool:
+	case KindStr:
+	case KindInt:
+	case KindFloat:
+
+	case KindList:
+		if typ.Val == nil {
+			panic("malformed list type")
+		}
+		if err := Iter(typ.Val, fn); err != nil {
+			return err
+		}
+
+	case KindMap:
+		if typ.Key == nil || typ.Val == nil {
+			panic("malformed map type")
+		}
+		if err := Iter(typ.Key, fn); err != nil {
+			return err
+		}
+		if err := Iter(typ.Val, fn); err != nil {
+			return err
+		}
+
+	case KindStruct: // {a bool; b int}
+		if typ.Map == nil {
+			panic("malformed struct type")
+		}
+		if len(typ.Map) != len(typ.Ord) {
+			panic("malformed struct length")
+		}
+		for _, k := range typ.Ord {
+			t, ok := typ.Map[k]
+			if !ok {
+				panic("malformed struct order")
+			}
+			if t == nil {
+				panic("malformed struct field")
+			}
+			if err := Iter(t, fn); err != nil {
+				return err
+			}
+		}
+
+	case KindFunc:
+		if typ.Map == nil {
+			panic("malformed func type")
+		}
+		if len(typ.Map) != len(typ.Ord) {
+			panic("malformed func length")
+		}
+		for _, k := range typ.Ord {
+			t, ok := typ.Map[k]
+			if !ok {
+				panic("malformed func order")
+			}
+			if t == nil {
+				panic("malformed func field")
+			}
+			if err := Iter(t, fn); err != nil {
+				return err
+			}
+		}
+		//if typ.Out != nil {
+		if err := Iter(typ.Out, fn); err != nil {
+			return err
+		}
+		//}
+
+	case KindVariant:
+		if err := Iter(typ.Var, fn); err != nil {
+			return err
+		}
+
+	case KindUnification:
+		if typ.Uni == nil {
+			panic("malformed unification variable")
+		}
+		// nothing to do
+
+	default:
+		panic("malformed type")
+	}
+
+	return nil
+}

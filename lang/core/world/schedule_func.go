@@ -77,7 +77,7 @@ func init() {
 	funcs.ModuleRegister(ModuleName, ScheduleFuncName, func() interfaces.Func { return &ScheduleFunc{} })
 }
 
-var _ interfaces.PolyFunc = &ScheduleFunc{} // ensure it meets this expectation
+var _ interfaces.BuildableFunc = &ScheduleFunc{} // ensure it meets this expectation
 
 // ScheduleFunc is special function which determines where code should run in
 // the cluster.
@@ -122,289 +122,37 @@ func (obj *ScheduleFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
-// Unify returns the list of invariants that this func produces.
-func (obj *ScheduleFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
-
-	// func(namespace str) []str
-	// OR
-	// func(namespace str, opts T1) []str
-
-	namespaceName, err := obj.ArgGen(0)
-	if err != nil {
-		return nil, err
+// helper
+func (obj *ScheduleFunc) sig() *types.Type {
+	sig := types.NewType(fmt.Sprintf("func(%s str) []str", scheduleArgNameNamespace)) // simplest form
+	if obj.Type != nil {
+		sig = types.NewType(fmt.Sprintf("func(%s str, %s %s) []str", scheduleArgNameNamespace, scheduleArgNameOpts, obj.Type.String()))
 	}
-
-	dummyNamespace := &interfaces.ExprAny{} // corresponds to the namespace type
-	dummyOut := &interfaces.ExprAny{}       // corresponds to the out string
-
-	// namespace arg type of string
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyNamespace,
-		Type: types.TypeStr,
-	}
-	invariants = append(invariants, invar)
-
-	// return type of []string
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyOut,
-		Type: types.TypeListStr,
-	}
-	invariants = append(invariants, invar)
-
-	// generator function
-	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
-				continue
-			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
-				continue
-			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if len(cfavInvar.Args) == 0 {
-				return nil, fmt.Errorf("unable to build function with no args")
-			}
-			if l := len(cfavInvar.Args); l > 2 {
-				return nil, fmt.Errorf("unable to build function with %d args", l)
-			}
-			// we can either have one arg or two
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			// add the relationship to the returned value
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationships to the called args
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[0],
-				Expr2: dummyNamespace,
-			}
-			invariants = append(invariants, invar)
-
-			// first arg must be a string
-			invar = &interfaces.EqualsInvariant{
-				Expr: cfavInvar.Args[0],
-				Type: types.TypeStr,
-			}
-			invariants = append(invariants, invar)
-
-			// full function
-			mapped := make(map[string]interfaces.Expr)
-			ordered := []string{namespaceName}
-			mapped[namespaceName] = dummyNamespace
-
-			if len(cfavInvar.Args) == 2 { // two args is more complex
-				dummyOpts := &interfaces.ExprAny{}
-
-				optsTypeKnown := false
-
-				// speculate about the type?
-				if typ, exists := solved[cfavInvar.Args[1]]; exists {
-					optsTypeKnown = true
-					if typ.Kind != types.KindStruct {
-						return nil, fmt.Errorf("second arg must be of kind struct")
-					}
-
-					// XXX: the problem is that I can't
-					// currently express the opts struct as
-					// an invariant, without building a big
-					// giant, unusable exclusive...
-					validOpts := obj.validOpts()
-
-					if StrictScheduleOpts {
-						// strict opts field checking!
-						for _, name := range typ.Ord {
-							t := typ.Map[name]
-							value, exists := validOpts[name]
-							if !exists {
-								return nil, fmt.Errorf("unexpected opts field: `%s`", name)
-							}
-
-							if err := t.Cmp(value); err != nil {
-								return nil, errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
-							}
-						}
-
-					} else {
-						// permissive field checking...
-						validOptsSorted := []string{}
-						for name := range validOpts {
-							validOptsSorted = append(validOptsSorted, name)
-						}
-						sort.Strings(validOptsSorted)
-						for _, name := range validOptsSorted {
-							value := validOpts[name] // type
-
-							t, exists := typ.Map[name]
-							if !exists {
-								continue // ignore it
-							}
-
-							// if it exists, check the type
-							if err := t.Cmp(value); err != nil {
-								return nil, errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
-							}
-						}
-					}
-
-					invar := &interfaces.EqualsInvariant{
-						Expr: dummyOpts,
-						Type: typ,
-					}
-					invariants = append(invariants, invar)
-				}
-				// redundant?
-				if typ, err := cfavInvar.Args[1].Type(); err == nil {
-					invar := &interfaces.EqualsInvariant{
-						Expr: cfavInvar.Args[1],
-						Type: typ,
-					}
-					invariants = append(invariants, invar)
-				}
-
-				// If we're strict, require it, otherwise let
-				// in whatever, and let Build() deal with it.
-				if StrictScheduleOpts && !optsTypeKnown {
-					return nil, fmt.Errorf("the type of the opts struct is not known")
-				}
-
-				// expression must match type of the input arg
-				invar := &interfaces.EqualityInvariant{
-					Expr1: dummyOpts,
-					Expr2: cfavInvar.Args[1],
-				}
-				invariants = append(invariants, invar)
-
-				mapped[scheduleArgNameOpts] = dummyOpts
-				ordered = append(ordered, scheduleArgNameOpts)
-			}
-
-			invar = &interfaces.EqualityWrapFuncInvariant{
-				Expr1:    expr, // maps directly to us!
-				Expr2Map: mapped,
-				Expr2Ord: ordered,
-				Expr2Out: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: do we return this relationship with ExprCall?
-			invar = &interfaces.EqualityWrapCallInvariant{
-				// TODO: should Expr1 and Expr2 be reversed???
-				Expr1: cfavInvar.Expr,
-				//Expr2Func: cfavInvar.Func, // same as below
-				Expr2Func: expr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: are there any other invariants we should build?
-			return invariants, nil // generator return
-		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
-	}
-	invar = &interfaces.GeneratorInvariant{
-		Func: fn,
-	}
-	invariants = append(invariants, invar)
-
-	return invariants, nil
+	return sig
 }
 
-// Polymorphisms returns the list of possible function signatures available for
-// this static polymorphic function. It relies on type and value hints to limit
-// the number of returned possibilities.
-func (obj *ScheduleFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
-	// TODO: technically, we could generate all permutations of the struct!
-	//variant := []*types.Type{}
-	//t0 := types.NewType("func(namespace str) []str")
-	//variant = append(variant, t0)
-	//validOpts := obj.validOpts()
-	//for ? := ? range { // generate all permutations of the struct...
-	//	t := types.NewType(fmt.Sprintf("func(namespace str, opts %s) []str", ?))
-	//	variant = append(variant, t)
-	//}
-	//if partialType == nil {
-	//	return variant, nil
-	//}
+// FuncInfer takes partial type and value information from the call site of this
+// function so that it can build an appropriate type signature for it. The type
+// signature may include unification variables.
+func (obj *ScheduleFunc) FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// func(namespace str) []str
+	// OR
+	// func(namespace str, opts ?1) []str
 
-	if partialType == nil {
-		return nil, fmt.Errorf("zero type information given")
+	if l := len(partialValues); l < 1 || l > 2 {
+		return nil, nil, fmt.Errorf("must have at either one or two args")
 	}
 
 	var typ *types.Type
-
-	if tOut := partialType.Out; tOut != nil {
-		if err := tOut.Cmp(types.TypeListStr); err != nil {
-			return nil, errwrap.Wrapf(err, "return type must be a list of strings")
-		}
+	if len(partialValues) == 1 {
+		typ = types.NewType(fmt.Sprintf("func(%s str) []str", scheduleArgNameNamespace))
 	}
 
-	ord := partialType.Ord
-	if partialType.Map != nil {
-		if len(ord) == 0 {
-			return nil, fmt.Errorf("must have at least one arg in schedule func")
-		}
-
-		if tNamespace, exists := partialType.Map[ord[0]]; exists && tNamespace != nil {
-			if err := tNamespace.Cmp(types.TypeStr); err != nil {
-				return nil, errwrap.Wrapf(err, "first arg must be an str")
-			}
-		}
-		if len(ord) == 1 {
-			return []*types.Type{types.NewType("func(namespace str) []str")}, nil // done!
-		}
-
-		if len(ord) != 2 {
-			return nil, fmt.Errorf("must have either one or two args in schedule func")
-		}
-
-		if tOpts, exists := partialType.Map[ord[1]]; exists {
-			if tOpts == nil { // usually a `struct{}`
-				typFunc := types.NewType("func(namespace str, opts variant) []str")
-				return []*types.Type{typFunc}, nil // solved!
-			}
-
-			if tOpts.Kind != types.KindStruct {
-				return nil, fmt.Errorf("second arg must be of kind struct")
-			}
-
-			validOpts := obj.validOpts()
-			for _, name := range tOpts.Ord {
-				t := tOpts.Map[name]
-				value, exists := validOpts[name]
-				if !exists {
-					return nil, fmt.Errorf("unexpected opts field: `%s`", name)
-				}
-
-				if err := t.Cmp(value); err != nil {
-					return nil, errwrap.Wrapf(err, "expected different type for opts field: `%s`", name)
-				}
-			}
-
-			typ = tOpts // solved
-		}
+	if len(partialValues) == 2 {
+		typ = types.NewType(fmt.Sprintf("func(%s str, %s ?1) []str", scheduleArgNameNamespace, scheduleArgNameOpts))
 	}
 
-	if typ == nil {
-		return nil, fmt.Errorf("not enough type information")
-	}
-
-	typFunc := types.NewType(fmt.Sprintf("func(namespace str, opts %s) []str", typ.String()))
-
-	// TODO: type check that the partialValues are compatible
-
-	return []*types.Type{typFunc}, nil // solved!
+	return typ, []*interfaces.UnificationInvariant{}, nil
 }
 
 // Build is run to turn the polymorphic, undetermined function, into the
@@ -509,8 +257,9 @@ func (obj *ScheduleFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *ScheduleFunc) Info() *interfaces.Info {
-	// It's important that you don't return a non-nil sig if this is called
-	// before you're built. Type unification may call it opportunistically.
+	// Since this function implements FuncInfer we want sig to return nil to
+	// avoid an accidental return of unification variables when we should be
+	// getting them from FuncInfer, and not from here. (During unification!)
 	var sig *types.Type
 	if obj.built {
 		sig = obj.sig() // helper
@@ -522,15 +271,6 @@ func (obj *ScheduleFunc) Info() *interfaces.Info {
 		Sig: sig, // func kind
 		Err: obj.Validate(),
 	}
-}
-
-// helper
-func (obj *ScheduleFunc) sig() *types.Type {
-	sig := types.NewType(fmt.Sprintf("func(%s str) []str", scheduleArgNameNamespace)) // simplest form
-	if obj.Type != nil {
-		sig = types.NewType(fmt.Sprintf("func(%s str, %s %s) []str", scheduleArgNameNamespace, scheduleArgNameOpts, obj.Type.String()))
-	}
-	return sig
 }
 
 // Init runs some startup code for this function.

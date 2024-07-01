@@ -38,9 +38,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "split", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "split", &simple.Scaffold{
 		T: types.NewType("func(a str, b str) []str"),
-		V: Split,
+		F: Split,
 	})
 }
 

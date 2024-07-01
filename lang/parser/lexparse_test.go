@@ -39,7 +39,7 @@ import (
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/ast"
-	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/operators"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	langUtil "github.com/purpleidea/mgmt/lang/util"
@@ -595,7 +595,7 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "int64ptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: "+",
@@ -636,13 +636,13 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "float32",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: "+",
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "+",
@@ -688,7 +688,7 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "int64ptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: "+",
@@ -697,7 +697,7 @@ func TestLexParse0(t *testing.T) {
 										V: 4,
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "*",
@@ -740,13 +740,13 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "int64ptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: "+",
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "*",
@@ -792,7 +792,7 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "int64ptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: "*",
@@ -801,7 +801,7 @@ func TestLexParse0(t *testing.T) {
 										V: 3,
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "+",
@@ -844,13 +844,13 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "boolptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: ">",
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "+",
@@ -896,7 +896,7 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "boolptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: ">",
@@ -905,7 +905,7 @@ func TestLexParse0(t *testing.T) {
 										V: 3,
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "+",
@@ -948,13 +948,13 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "boolptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: ">",
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "not",
@@ -997,13 +997,13 @@ func TestLexParse0(t *testing.T) {
 						&ast.StmtResField{
 							Field: "boolptr",
 							Value: &ast.ExprCall{
-								Name: funcs.OperatorFuncName,
+								Name: operators.OperatorFuncName,
 								Args: []interfaces.Expr{
 									&ast.ExprStr{
 										V: "and",
 									},
 									&ast.ExprCall{
-										Name: funcs.OperatorFuncName,
+										Name: operators.OperatorFuncName,
 										Args: []interfaces.Expr{
 											&ast.ExprStr{
 												V: "<",
@@ -1766,7 +1766,7 @@ func TestLexParse0(t *testing.T) {
 			Args:   []*interfaces.Arg{},
 			Return: types.TypeInt,
 			Body: &ast.ExprCall{
-				Name: funcs.OperatorFuncName,
+				Name: operators.OperatorFuncName,
 				Args: []interfaces.Expr{
 					&ast.ExprStr{
 						V: "+",
@@ -1781,7 +1781,8 @@ func TestLexParse0(t *testing.T) {
 			},
 		}
 		// sometimes, the type can get set by the parser when it's known
-		if err := fn.SetType(types.NewType("func() int")); err != nil {
+		typ := types.NewType("func() int")
+		if err := fn.SetType(typ); err != nil {
 			t.Fatal("could not build type")
 		}
 		exp := &ast.StmtProg{
@@ -1789,6 +1790,7 @@ func TestLexParse0(t *testing.T) {
 				&ast.StmtFunc{
 					Name: "f2",
 					Func: fn,
+					Type: typ,
 				},
 			},
 		}
@@ -1817,7 +1819,7 @@ func TestLexParse0(t *testing.T) {
 			},
 			Return: types.TypeInt,
 			Body: &ast.ExprCall{
-				Name: funcs.OperatorFuncName,
+				Name: operators.OperatorFuncName,
 				Args: []interfaces.Expr{
 					&ast.ExprStr{
 						V: "+",
@@ -1864,7 +1866,7 @@ func TestLexParse0(t *testing.T) {
 			},
 			Return: types.TypeStr,
 			Body: &ast.ExprCall{
-				Name: funcs.OperatorFuncName,
+				Name: operators.OperatorFuncName,
 				Args: []interfaces.Expr{
 					&ast.ExprStr{
 						V: "+",
@@ -1878,7 +1880,8 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 		}
-		if err := fn.SetType(types.NewType("func(x str) str")); err != nil {
+		typ := types.NewType("func(x str) str")
+		if err := fn.SetType(typ); err != nil {
 			t.Fatal("could not build type")
 		}
 		exp := &ast.StmtProg{
@@ -1886,6 +1889,7 @@ func TestLexParse0(t *testing.T) {
 				&ast.StmtFunc{
 					Name: "f4",
 					Func: fn,
+					Type: typ,
 				},
 			},
 		}
@@ -1938,7 +1942,7 @@ func TestLexParse0(t *testing.T) {
 			},
 			Return: types.TypeStr,
 			Body: &ast.ExprCall{
-				Name: funcs.OperatorFuncName,
+				Name: operators.OperatorFuncName,
 				Args: []interfaces.Expr{
 					&ast.ExprStr{
 						V: "+",
@@ -1985,7 +1989,7 @@ func TestLexParse0(t *testing.T) {
 			},
 			Return: types.TypeStr,
 			Body: &ast.ExprCall{
-				Name: funcs.OperatorFuncName,
+				Name: operators.OperatorFuncName,
 				Args: []interfaces.Expr{
 					&ast.ExprStr{
 						V: "+",
@@ -2095,7 +2099,7 @@ func TestLexParse0(t *testing.T) {
 			},
 			//Return: types.TypeInt,
 			Body: &ast.ExprCall{
-				Name: funcs.OperatorFuncName,
+				Name: operators.OperatorFuncName,
 				Args: []interfaces.Expr{
 					&ast.ExprStr{
 						V: "*",

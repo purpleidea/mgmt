@@ -39,9 +39,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "match", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "match", &simple.Scaffold{
 		T: types.NewType("func(pattern str, s str) bool"),
-		V: Match,
+		F: Match,
 	})
 }
 

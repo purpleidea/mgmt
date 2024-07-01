@@ -639,23 +639,27 @@ so that each `Expr` node in the AST knows what to expect. Type annotation is
 allowed in situations when you want to explicitly specify a type, or when the
 compiler cannot deduce it, however, most of it can usually be inferred.
 
-For type inferrence to work, each node in the AST implements a `Unify` method
-which is able to return a list of invariants that must hold true. This starts at
-the top most AST node, and gets called through to it's children to assemble a
-giant list of invariants. The invariants can take different forms. They can
-specify that a particular expression must have a particular type, or they can
-specify that two expressions must have the same types. More complex invariants
-allow you to specify relationships between different types and expressions.
-Furthermore, invariants can allow you to specify that only one invariant out of
-a set must hold true.
+For type inference to work, each `Stmt` node in the AST implements a `TypeCheck`
+method which is able to return a list of invariants that must hold true. This
+starts at the top most AST node, and gets called through to it's children to
+assemble a giant list of invariants. The invariants all have the same form. They
+specify that a particular expression corresponds to two particular types which
+may both contain unification variables.
+
+Each `Expr` node in the AST implements an `Infer` and `Check` method. The
+`Infer` method returns the type of that node along with a list of invariants as
+described above. Unification variables can of course be used throughout. The
+`Check` method always uses a generic check implementation and generally doesn't
+need to be implemented by the user.
 
 Once the list of invariants has been collected, they are run through an
 invariant solver. The solver can return either return successfully or with an
-error. If the solver returns successfully, it means that it has found a trivial
+error. If the solver returns successfully, it means that it has found a single
 mapping between every expression and it's corresponding type. At this point it
 is a simple task to run `SetType` on every expression so that the types are
-known. If the solver returns in error, it is usually due to one of two
-possibilities:
+known. During this stage, each SetType method verifies that it's a compatible
+type that it can use. If either that method or if the solver returns in error,
+it is usually due to one of two possibilities:
 
 1. Ambiguity
 
@@ -675,8 +679,8 @@ possibilities:
 	always happens if the user has made a type error in their program.
 
 Only one solver currently exists, but it is possible to easily plug in an
-alternate implementation if someone more skilled in the art of solver design
-would like to propose a more logical or performant variant.
+alternate implementation if someone wants to experiment with the art of solver
+design and would like to propose a more logical or performant variant.
 
 #### Function graph generation
 
@@ -717,8 +721,9 @@ If you'd like to create a built-in, core function, you'll need to implement the
 function API interface named `Func`. It can be found in
 [lang/interfaces/func.go](https://github.com/purpleidea/mgmt/tree/master/lang/interfaces/func.go).
 Your function must have a specific type. For example, a simple math function
-might have a signature of `func(x int, y int) int`. As you can see, all the
-types are known _before_ compile time.
+might have a signature of `func(x int, y int) int`. The simple functions have
+their types known _before_ compile time. You may also include unification
+variables in the function signature as long as the top-level type is a function.
 
 A separate discussion on this matter can be found in the [function guide](function-guide.md).
 
@@ -746,12 +751,30 @@ added in the future. This method is usually called before any other, and should
 not depend on any other method being called first. Other methods must not depend
 on this method being called first.
 
+If you use any unification variables in the function signature, then your
+function will *not* be made available for use inside templates. This is a
+limitation of the `golang` templating library. In the future if this limitation
+proves to be significantly annoying, we might consider writing our own template
+library.
+
 #### Example
 
 ```golang
 func (obj *FooFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Sig: types.NewType("func(a str, b int) float"),
+	}
+}
+```
+
+#### Example
+
+This example contains unification variables.
+
+```golang
+func (obj *FooFunc) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Sig: types.NewType("func(a ?1, b ?2, foo [?3]) ?1"),
 	}
 }
 ```
@@ -818,43 +841,46 @@ Please see the example functions in
 [lang/core/](https://github.com/purpleidea/mgmt/tree/master/lang/core/).
 ```
 
-### Polymorphic Function API
+### BuildableFunc Function API
 
-For some functions, it might be helpful to be able to implement a function once,
-but to have multiple polymorphic variants that can be chosen at compile time.
-For this more advanced topic, you will need to use the
-[Polymorphic Function API](#polymorphic-function-api). This will help with code
-reuse when you have a small, finite number of possible type signatures, and also
-for more complicated cases where you might have an infinite number of possible
-type signatures. (eg: `[]str`, or `[][]str`, or `[][][]str`, etc...)
+For some functions, it might be helpful to have a function which needs a "build"
+step which is run after type unification. This step can be used to build the
+function using the determined type, but it may also just be used for checking
+that unification picked a valid solution.
 
 Suppose you want to implement a function which can assume different type
 signatures. The mgmt language does not support polymorphic types-- you must use
 static types throughout the language, however, it is legal to implement a
 function which can take different specific type signatures based on how it is
 used. For example, you might wish to add a math function which could take the
-form of `func(x int, x int) int` or `func(x float, x float) float` depending on
-the input values. You might also want to implement a function which takes an
-arbitrary number of input arguments (the number must be statically fixed at the
-compile time of your program though) and which returns a string.
+form of `func(x int, y int) int` or `func(x float, y float) float` depending on
+the input values. For this case you could use a signature containing unification
+variables, eg: `func(x ?1, y ?1) ?1`. At the end the buildable function would
+need to check that it received a `?1` type of either `int` or `float`, since
+this function might not support doing math on strings. Remember that type
+unification can only return zero or one solutions, it's not possible to return
+more than one, which is why this secondary validation step is a brilliant way to
+filter out invalid solutions without needing to encode them as algebraic
+conditions during the solver state, which would otherwise make it exponential.
 
-The `PolyFunc` interface adds additional methods which you must implement to
-satisfy such a function implementation. If you'd like to implement such a
-function, then please notify the project authors, and they will expand this
-section with a longer description of the process.
+### InferableFunc Function API
 
-#### Examples
+You might also want to implement a function which takes an arbitrary number of
+input arguments (the number must be statically fixed at the compile time of your
+program though) and which returns a string or something else.
 
-What follows are a few examples that might help you understand some of the
-language details.
+The `InferableFunc` interface adds ad additional `FuncInfer` method which you
+must implement to satisfy such a function implementation. This lets you
+dynamically generate a type signature (including unification variables) and a
+list of invariants before running the type unification solver. It takes as input
+a list of the statically known input types and input values (if any) and as well
+the number of input arguments specified. This is usually enough information to
+generate a fixed type signature of a fixed size.
 
-##### Example Foo
-
-TODO: please add an example here!
-
-##### Example Bar
-
-TODO: please add an example here!
+Using this API should generally be pretty rare, but it is how certain special
+functions such as `fmt.printf` are built. If you'd like to implement such a
+function, then please notify the project authors as we're curious about your
+use case.
 
 ## Frequently asked questions
 

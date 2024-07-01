@@ -3,4 +3,4 @@ test "t1" {
 	stringptr => 42, # int, not str
 }
 -- OUTPUT --
-# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Int != Str)
+# err: errUnify: unify error with: int(42): type error: Str != Int

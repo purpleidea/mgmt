@@ -33,20 +33,40 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	simplepoly.Register("panic", []*types.FuncValue{
-		{
-			T: types.NewType("func(x bool) bool"),
-			V: Panic,
-		},
-		{
-			T: types.NewType("func(x str) bool"),
-			V: Panic,
-		},
+	simple.Register("panic", &simple.Scaffold{
+		T: types.NewType("func(x ?1) bool"), // ?1 is bool or str
+		C: simple.TypeMatch([]string{
+			"func(x bool) bool",
+			"func(x str) bool",
+		}),
+		//C: func(typ *types.Type) error {
+		//	if typ == nil {
+		//		return fmt.Errorf("nil type")
+		//	}
+		//	if typ.Kind != types.KindFunc {
+		//		return fmt.Errorf("not a func")
+		//	}
+		//	if len(typ.Map) != 1 || len(typ.Ord) != 1 {
+		//		return fmt.Errorf("arg count wrong")
+		//	}
+		//	if err := typ.Out.Cmp(types.TypeBool); err != nil {
+		//		return err
+		//	}
+		//	t := typ.Map[typ.Ord[0]]
+		//	if t.Cmp(types.TypeBool) == nil {
+		//		return nil // func(bool) int
+		//	}
+		//	if t.Cmp(types.TypeStr) == nil {
+		//		return nil // func(str) int
+		//	}
+		//	return fmt.Errorf("can't check type of: %s", t)
+		//},
+		F: Panic,
 	})
 }
 

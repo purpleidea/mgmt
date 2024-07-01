@@ -39,9 +39,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "sqrt", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "sqrt", &simple.Scaffold{
 		T: types.NewType("func(x float) float"),
-		V: Sqrt,
+		F: Sqrt,
 	})
 }
 

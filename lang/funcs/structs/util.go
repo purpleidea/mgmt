@@ -30,7 +30,7 @@
 package structs
 
 import (
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/types/full"
@@ -53,7 +53,7 @@ func FuncValueToConstFunc(fv *full.FuncValue) interfaces.Func {
 // SimpleFnToDirectFunc transforms a name and *types.FuncValue into an
 // interfaces.Func which is implemented by &simple.WrappedFunc{}.
 func SimpleFnToDirectFunc(name string, fv *types.FuncValue) interfaces.Func {
-	return &simple.WrappedFunc{
+	return &wrapped.Func{
 		Name: name,
 		Fn:   fv,
 	}

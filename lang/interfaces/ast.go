@@ -79,10 +79,11 @@ type Stmt interface {
 	// SetScope sets the scope here and propagates it downwards.
 	SetScope(*Scope) error
 
-	// Unify returns the list of invariants that this node produces. It does
-	// so recursively on any children elements that exist in the AST, and
-	// returns the collection to the caller.
-	Unify() ([]Invariant, error)
+	// TypeCheck returns the list of invariants that this node produces. It
+	// does so recursively on any children elements that exist in the AST,
+	// and returns the collection to the caller. It calls TypeCheck for
+	// child statements, and Infer/Check for child expressions.
+	TypeCheck() ([]*UnificationInvariant, error)
 
 	// Graph returns the reactive function graph expressed by this node.
 	Graph() (*pgraph.Graph, error)
@@ -128,10 +129,21 @@ type Expr interface {
 	// determine it statically. This errors if it is not yet known.
 	Type() (*types.Type, error)
 
-	// Unify returns the list of invariants that this node produces. It does
-	// so recursively on any children elements that exist in the AST, and
-	// returns the collection to the caller.
-	Unify() ([]Invariant, error)
+	// Infer returns the type of itself and a collection of invariants. The
+	// returned type may contain unification variables. It collects the
+	// invariants by calling Check on its children expressions. In making
+	// those calls, it passes in the known type for that child to get it to
+	// "Check" it. When the type is not known, it should create a new
+	// unification variable to pass in to the child Check calls. Infer
+	// usually only calls Check on things inside of it, and often does not
+	// call another Infer.
+	Infer() (*types.Type, []*UnificationInvariant, error)
+
+	// Check is checking that the input type is equal to the object that
+	// Check is running on. In doing so, it adds any invariants that are
+	// necessary. Check must always call Infer to produce the invariant. The
+	// implementation can be generic for all expressions.
+	Check(typ *types.Type) ([]*UnificationInvariant, error)
 
 	// Graph returns the reactive function graph expressed by this node. It
 	// takes in the environment of any functions in scope. It also returns

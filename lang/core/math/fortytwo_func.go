@@ -33,32 +33,48 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
+	"github.com/purpleidea/mgmt/lang/funcs/multi"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
 	typInt := types.NewType("func() int")
 	typFloat := types.NewType("func() float")
-	simplepoly.ModuleRegister(ModuleName, "fortytwo", []*types.FuncValue{
-		{
-			T: typInt,
-			V: fortyTwo(typInt), // generate the correct function here
-		},
-		{
-			T: typFloat,
-			V: fortyTwo(typFloat),
-		},
+	multi.ModuleRegister(ModuleName, "fortytwo", &multi.Scaffold{
+		T: types.NewType("func() ?1"),
+		M: multi.TypeMatch(map[string]interfaces.FuncSig{
+			"func() int":   fortyTwo(typInt),
+			"func() float": fortyTwo(typFloat),
+		}),
+		//M: func(typ *types.Type) (interfaces.FuncSig, error) {
+		//	if typ == nil {
+		//		return nil, fmt.Errorf("nil type")
+		//	}
+		//	if typ.Kind != types.KindFunc {
+		//		return nil, fmt.Errorf("not a func")
+		//	}
+		//	if len(typ.Map) != 0 || len(typ.Ord) != 0 {
+		//		return nil, fmt.Errorf("arg count wrong")
+		//	}
+		//	if err := typ.Out.Cmp(types.TypeInt); err == nil {
+		//		return fortyTwo(typInt), nil
+		//	}
+		//	if err := typ.Out.Cmp(types.TypeFloat); err == nil {
+		//		return fortyTwo(typFloat), nil
+		//	}
+		//	return nil, fmt.Errorf("can't use return type of: %s", typ.Out)
+		//},
 	})
 }
 
 // fortyTwo is a helper function to build the correct function for the desired
-// signature, because the simplepoly API doesn't tell the implementing function
+// signature, because the multi func API doesn't tell the implementing function
 // what its signature should be! In the next version of this API, we could pass
 // in a sig field, like how we demonstrate in the implementation of FortyTwo. If
 // the API doesn't change, then this is an example of how to build this as a
 // wrapper.
-func fortyTwo(sig *types.Type) func(context.Context, []types.Value) (types.Value, error) {
+func fortyTwo(sig *types.Type) interfaces.FuncSig {
 	return func(ctx context.Context, input []types.Value) (types.Value, error) {
 		return FortyTwo(sig, input)
 	}

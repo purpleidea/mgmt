@@ -12,4 +12,4 @@ $name = $st->missing + "fail"
 test "${name}" {}	# this can't unify!
 
 -- OUTPUT --
-# err: errUnify: 2 unconsumed generators
+# err: errUnify: error setting type: func() { <built-in:_struct_lookup> }, error: field missing was not found in struct

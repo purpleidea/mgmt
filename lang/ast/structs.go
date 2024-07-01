@@ -50,6 +50,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/types/full"
+	unificationUtil "github.com/purpleidea/mgmt/lang/unification/util"
 	langUtil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -181,6 +182,7 @@ var (
 type StmtBind struct {
 	Ident string
 	Value interfaces.Expr
+	Type  *types.Type
 }
 
 // String returns a short representation of this statement.
@@ -221,6 +223,7 @@ func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
 	return &StmtBind{
 		Ident: obj.Ident,
 		Value: interpolated,
+		Type:  obj.Type,
 	}, nil
 }
 
@@ -241,6 +244,7 @@ func (obj *StmtBind) Copy() (interfaces.Stmt, error) {
 	return &StmtBind{
 		Ident: obj.Ident,
 		Value: value,
+		Type:  obj.Type,
 	}, nil
 }
 
@@ -295,11 +299,33 @@ func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
 	return obj.Value.SetScope(scope, emptyContext)
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtBind) Unify() ([]interfaces.Invariant, error) {
-	return obj.Value.Unify()
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	// Don't call obj.Value.Check here!
+	typ, invariants, err := obj.Value.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	typExpr := obj.Type
+	if obj.Type == nil {
+		typExpr = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.Value,
+		Expect: typExpr, // obj.Type
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -559,26 +585,25 @@ func (obj *StmtRes) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
-	// collect all the invariants of each field and edge
+	// Don't call obj.Name.Check here!
+	typ, invariants, err := obj.Name.Infer()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, x := range obj.Contents {
-		invars, err := x.Unify(obj.Kind) // pass in the resource kind
+		invars, err := x.TypeCheck(obj.Kind) // pass in the resource kind
 		if err != nil {
 			return nil, err
 		}
 		invariants = append(invariants, invars...)
 	}
-
-	invars, err := obj.Name.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, invars...)
 
 	// Optimization: If we know it's an str, no need for exclusives!
 	// TODO: Check other cases, like if it's a function call, and we know it
@@ -594,20 +619,18 @@ func (obj *StmtRes) Unify() ([]interfaces.Invariant, error) {
 			isString = true
 		}
 	}
-	if isString {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj.Name,
-			Type: types.TypeStr,
-		}
-		invariants = append(invariants, invar)
 
-		return invariants, nil
+	typExpr := types.TypeListStr // default
+
+	// If we pass here, we only allow []str, no need for exclusives!
+	if isString {
+		typExpr = types.TypeStr
 	}
 
-	// Down here, we only allow []str, no need for exclusives!
-	invar := &interfaces.EqualsInvariant{
-		Expr: obj.Name,
-		Type: types.TypeListStr,
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.Name,
+		Expect: typExpr, // the name
+		Actual: typ,
 	}
 	invariants = append(invariants, invar)
 
@@ -1165,7 +1188,7 @@ type StmtResContents interface {
 	Copy() (StmtResContents, error)
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
-	Unify(kind string) ([]interfaces.Invariant, error) // different!
+	TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error)
 	Graph() (*pgraph.Graph, error)
 }
 
@@ -1337,37 +1360,38 @@ func (obj *StmtResField) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller. It is different from the Unify found in the Expr
-// and Stmt interfaces because it adds an input parameter.
-func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-
-	invars, err := obj.Value.Unify()
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions. It is different from the TypeCheck method
+// found in the Stmt interface because it adds an input parameter.
+func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error) {
+	typ, invariants, err := obj.Value.Infer()
 	if err != nil {
 		return nil, err
 	}
-	invariants = append(invariants, invars...)
 
-	// conditional expression might have some children invariants to share
+	//invars, err := obj.Value.Check(typ) // don't call this here!
+
 	if obj.Condition != nil {
-		condition, err := obj.Condition.Unify()
+		typ, invars, err := obj.Condition.Infer()
 		if err != nil {
 			return nil, err
 		}
-		invariants = append(invariants, condition...)
+		invariants = append(invariants, invars...)
 
-		// the condition must ultimately be a boolean
-		conditionInvar := &interfaces.EqualsInvariant{
-			Expr: obj.Condition,
-			Type: types.TypeBool,
+		// XXX: Is this needed?
+		invar := &interfaces.UnificationInvariant{
+			Expr:   obj.Condition,
+			Expect: types.TypeBool,
+			Actual: typ,
 		}
-		invariants = append(invariants, conditionInvar)
+		invariants = append(invariants, invar)
 	}
 
 	// TODO: unfortunately this gets called separately for each field... if
 	// we could cache this, it might be worth looking into for performance!
+	// XXX: Should this return unification variables instead of variant types?
 	typMap, err := engineUtil.LangFieldNameToStructType(kind)
 	if err != nil {
 		return nil, err
@@ -1381,36 +1405,26 @@ func (obj *StmtResField) Unify(kind string) ([]interfaces.Invariant, error) {
 		return nil, fmt.Errorf("field was empty or contained spaces")
 	}
 
-	typ, exists := typMap[obj.Field]
+	typExpr, exists := typMap[obj.Field]
 	if !exists {
 		return nil, fmt.Errorf("field `%s` does not exist in `%s`", obj.Field, kind)
 	}
-	if typ == nil {
+	if typExpr == nil {
 		// possible programming error
 		return nil, fmt.Errorf("type for field `%s` in `%s` is nil", obj.Field, kind)
 	}
-	if typ.Kind == types.KindVariant { // special path, res field has interface{}
-		if typ.Var == nil {
-			invar := &interfaces.AnyInvariant{
-				Expr: obj.Value,
-			}
-			invariants = append(invariants, invar)
-			return invariants, nil
+	if typExpr.Kind == types.KindVariant { // special path, res field has interface{}
+		typExpr = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
 		}
-
-		// in case it is present (nil is okay too)
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj.Value,
-			Type: typ.Var, // in case it is present (nil is okay too)
-		}
-		invariants = append(invariants, invar)
-		return invariants, nil
 	}
 
 	// regular scenario
-	invar := &interfaces.EqualsInvariant{
-		Expr: obj.Value,
-		Type: typ,
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.Value,
+		Expect: typExpr,
+		Actual: typ,
 	}
 	invariants = append(invariants, invar)
 
@@ -1621,33 +1635,33 @@ func (obj *StmtResEdge) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller. It is different from the Unify found in the Expr
-// and Stmt interfaces because it adds an input parameter.
-func (obj *StmtResEdge) Unify(kind string) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-
-	invars, err := obj.EdgeHalf.Unify()
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions. It is different from the TypeCheck method
+// found in the Stmt interface because it adds an input parameter.
+func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error) {
+	invariants, err := obj.EdgeHalf.TypeCheck()
 	if err != nil {
 		return nil, err
 	}
-	invariants = append(invariants, invars...)
 
-	// conditional expression might have some children invariants to share
+	//invars, err := obj.Value.Check(typ) // don't call this here!
+
 	if obj.Condition != nil {
-		condition, err := obj.Condition.Unify()
+		typ, invars, err := obj.Condition.Infer()
 		if err != nil {
 			return nil, err
 		}
-		invariants = append(invariants, condition...)
+		invariants = append(invariants, invars...)
 
-		// the condition must ultimately be a boolean
-		conditionInvar := &interfaces.EqualsInvariant{
-			Expr: obj.Condition,
-			Type: types.TypeBool,
+		// XXX: Is this needed?
+		invar := &interfaces.UnificationInvariant{
+			Expr:   obj.Condition,
+			Expect: types.TypeBool,
+			Actual: typ,
 		}
-		invariants = append(invariants, conditionInvar)
+		invariants = append(invariants, invar)
 	}
 
 	return invariants, nil
@@ -1879,89 +1893,88 @@ func (obj *StmtResMeta) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller. It is different from the Unify found in the Expr
-// and Stmt interfaces because it adds an input parameter.
-// XXX: Allow specifying partial meta param structs and unify the subset type.
-// XXX: The resource fields have the same limitation with field structs.
-func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions. It is different from the TypeCheck method
+// found in the Stmt interface because it adds an input parameter.
+func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error) {
 
-	invars, err := obj.MetaExpr.Unify()
+	typ, invariants, err := obj.MetaExpr.Infer()
 	if err != nil {
 		return nil, err
 	}
-	invariants = append(invariants, invars...)
 
-	// conditional expression might have some children invariants to share
+	//invars, err := obj.MetaExpr.Check(typ) // don't call this here!
+
 	if obj.Condition != nil {
-		condition, err := obj.Condition.Unify()
+		typ, invars, err := obj.Condition.Infer()
 		if err != nil {
 			return nil, err
 		}
-		invariants = append(invariants, condition...)
 
-		// the condition must ultimately be a boolean
-		conditionInvar := &interfaces.EqualsInvariant{
-			Expr: obj.Condition,
-			Type: types.TypeBool,
+		invariants = append(invariants, invars...)
+
+		// XXX: Is this needed?
+		invar := &interfaces.UnificationInvariant{
+			Expr:   obj.Condition,
+			Expect: types.TypeBool,
+			Actual: typ,
 		}
-		invariants = append(invariants, conditionInvar)
+		invariants = append(invariants, invar)
 	}
+
+	var typExpr *types.Type
+	//typExpr = &types.Type{
+	//	Kind: types.KindUnification,
+	//	Uni:  types.NewElem(), // unification variable, eg: ?1
+	//}
 
 	// add additional invariants based on what's in obj.Property !!!
-	var invar interfaces.Invariant
-	static := func(typ *types.Type) interfaces.Invariant {
-		return &interfaces.EqualsInvariant{
-			Expr: obj.MetaExpr,
-			Type: typ,
-		}
-	}
 	switch p := strings.ToLower(obj.Property); p {
 	// TODO: we could add these fields dynamically if we were fancy!
 	case "noop":
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	case "retry":
-		invar = static(types.TypeInt)
+		typExpr = types.TypeInt
 
 	case "retryreset":
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	case "delay":
-		invar = static(types.TypeInt)
+		typExpr = types.TypeInt
 
 	case "poll":
-		invar = static(types.TypeInt)
+		typExpr = types.TypeInt
 
 	case "limit": // rate.Limit
-		invar = static(types.TypeFloat)
+		typExpr = types.TypeFloat
 
 	case "burst":
-		invar = static(types.TypeInt)
+		typExpr = types.TypeInt
 
 	case "reset":
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	case "sema":
-		invar = static(types.TypeListStr)
+		typExpr = types.TypeListStr
 
 	case "rewatch":
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	case "realize":
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	case "reverse":
 		// TODO: We might want more parameters about how to reverse.
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	case "autoedge":
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	case "autogroup":
-		invar = static(types.TypeBool)
+		typExpr = types.TypeBool
 
 	// autoedge and autogroup aren't part of the `MetaRes` interface, but we
 	// can merge them in here for simplicity in the public user interface...
@@ -1972,10 +1985,16 @@ func (obj *StmtResMeta) Unify(kind string) ([]interfaces.Invariant, error) {
 			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		// TODO: We might want more parameters about how to reverse.
-		invar = static(wrap(types.TypeBool))
+		typExpr = wrap(types.TypeBool)
 
 	default:
 		return nil, fmt.Errorf("unknown property: %s", p)
+	}
+
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.MetaExpr,
+		Expect: typExpr,
+		Actual: typ,
 	}
 	invariants = append(invariants, invar)
 
@@ -2162,11 +2181,12 @@ func (obj *StmtEdge) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	// XXX: Should we check the edge lengths here?
 
 	// TODO: this sort of sideloaded validation could happen in a dedicated
 	// Validate() function, but for now is here for lack of a better place!
@@ -2226,12 +2246,14 @@ func (obj *StmtEdge) Unify() ([]interfaces.Invariant, error) {
 		}
 	}
 
+	invariants := []*interfaces.UnificationInvariant{}
+
 	for _, x := range obj.EdgeHalfList {
-		if x.SendRecv != "" && len(obj.EdgeHalfList) != 2 {
+		if x.SendRecv != "" && len(obj.EdgeHalfList) != 2 { // XXX: mod 2?
 			return nil, fmt.Errorf("send/recv edges must come in pairs")
 		}
 
-		invars, err := x.Unify()
+		invars, err := x.TypeCheck()
 		if err != nil {
 			return nil, err
 		}
@@ -2444,14 +2466,19 @@ func (obj *StmtEdgeHalf) SetScope(scope *interfaces.Scope) error {
 	return obj.Name.SetScope(scope, map[string]interfaces.Expr{})
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	if obj.Kind == "" {
 		return nil, fmt.Errorf("missing resource kind in edge")
+	}
+
+	typ, invariants, err := obj.Name.Infer()
+	if err != nil {
+		return nil, err
 	}
 
 	if obj.SendRecv != "" {
@@ -2462,12 +2489,6 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 		//}
 		//invariants = append(invariants, invar...)
 	}
-
-	invars, err := obj.Name.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, invars...)
 
 	// Optimization: If we know it's an str, no need for exclusives!
 	// TODO: Check other cases, like if it's a function call, and we know it
@@ -2483,20 +2504,18 @@ func (obj *StmtEdgeHalf) Unify() ([]interfaces.Invariant, error) {
 			isString = true
 		}
 	}
-	if isString {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj.Name,
-			Type: types.TypeStr,
-		}
-		invariants = append(invariants, invar)
 
-		return invariants, nil
+	typExpr := types.TypeListStr // default
+
+	// If we pass here, we only allow []str, no need for exclusives!
+	if isString {
+		typExpr = types.TypeStr
 	}
 
-	// Down here, we only allow []str, no need for exclusives!
-	invar := &interfaces.EqualsInvariant{
-		Expr: obj.Name,
-		Type: types.TypeListStr,
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.Name,
+		Expect: typExpr, // the name
+		Actual: typ,
 	}
 	invariants = append(invariants, invar)
 
@@ -2765,41 +2784,39 @@ func (obj *StmtIf) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtIf) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-
-	// conditional expression might have some children invariants to share
-	condition, err := obj.Condition.Unify()
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	// Don't call obj.Condition.Check here!
+	typ, invariants, err := obj.Condition.Infer()
 	if err != nil {
 		return nil, err
 	}
-	invariants = append(invariants, condition...)
 
-	// the condition must ultimately be a boolean
-	conditionInvar := &interfaces.EqualsInvariant{
-		Expr: obj.Condition,
-		Type: types.TypeBool,
+	typExpr := types.TypeBool // default
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.Condition,
+		Expect: typExpr, // the condition
+		Actual: typ,
 	}
-	invariants = append(invariants, conditionInvar)
+	invariants = append(invariants, invar)
 
-	// recurse into the two branches
 	if obj.ThenBranch != nil {
-		thenBranch, err := obj.ThenBranch.Unify()
+		invars, err := obj.ThenBranch.TypeCheck()
 		if err != nil {
 			return nil, err
 		}
-		invariants = append(invariants, thenBranch...)
+		invariants = append(invariants, invars...)
 	}
 
 	if obj.ElseBranch != nil {
-		elseBranch, err := obj.ElseBranch.Unify()
+		invars, err := obj.ElseBranch.TypeCheck()
 		if err != nil {
 			return nil, err
 		}
-		invariants = append(invariants, elseBranch...)
+		invariants = append(invariants, invars...)
 	}
 
 	return invariants, nil
@@ -3475,7 +3492,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 
 		obj.data.Logf("init...")
 		// init and validate the structure of the AST
-		// some of this might happen *after* interpolate in SetScope or Unify...
+		// some of this might happen *after* interpolate in SetScope or later...
 		if err := ast.Init(obj.data); err != nil {
 			return nil, errwrap.Wrapf(err, "could not init and validate AST")
 		}
@@ -3515,7 +3532,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 			isEmpty = false // this module/scope isn't empty
 		}
 
-		// save a reference to the prog for future usage in Unify/Graph/Etc...
+		// save a reference to the prog for future usage in TypeCheck/Graph/Etc...
 		// XXX: we don't need to do this if we can combine with Append!
 		obj.importProgs = append(obj.importProgs, prog)
 
@@ -3614,7 +3631,7 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		Debug: obj.data.Debug,
 		Logf:  logf,
 	}
-	// some of this might happen *after* interpolate in SetScope or Unify...
+	// some of this might happen *after* interpolate in SetScope or later...
 	if err := ast.Init(data); err != nil {
 		return nil, errwrap.Wrapf(err, "could not init and validate AST")
 	}
@@ -3668,7 +3685,7 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		}
 	}
 
-	// save a reference to the prog for future usage in Unify/Graph/Etc...
+	// save a reference to the prog for future usage in TypeCheck/Graph/Etc...
 	obj.importProgs = append(obj.importProgs, prog)
 
 	// collecting these here is more elegant (and possibly more efficient!)
@@ -4114,26 +4131,32 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
 
-	// collect all the invariants of each sub-expression
 	for _, x := range obj.Body {
-		// skip over *StmtClass here
+		// We skip this because it will be instantiated potentially with
+		// different types.
 		if _, ok := x.(*StmtClass); ok {
 			continue
 		}
-		if _, ok := x.(*StmtFunc); ok { // TODO: is this correct?
+
+		// We skip this because it will be instantiated potentially with
+		// different types.
+		if _, ok := x.(*StmtFunc); ok {
 			continue
 		}
-		//if _, ok := x.(*StmtBind); ok { // TODO: is this correct?
-		//	continue
-		//}
 
-		invars, err := x.Unify()
+		// We skip this one too since we pull it in at the use site.
+		if _, ok := x.(*StmtBind); ok {
+			continue
+		}
+
+		invars, err := x.TypeCheck()
 		if err != nil {
 			return nil, err
 		}
@@ -4142,7 +4165,7 @@ func (obj *StmtProg) Unify() ([]interfaces.Invariant, error) {
 
 	// add invariants from SetScope's imported child programs
 	for _, x := range obj.importProgs {
-		invars, err := x.Unify()
+		invars, err := x.TypeCheck()
 		if err != nil {
 			return nil, err
 		}
@@ -4272,8 +4295,8 @@ func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
 // definition.
 type StmtFunc struct {
 	Name string
-	//Func *ExprFunc // TODO: should it be this instead?
-	Func interfaces.Expr // TODO: is this correct?
+	Func interfaces.Expr
+	Type *types.Type
 }
 
 // String returns a short representation of this statement.
@@ -4320,6 +4343,7 @@ func (obj *StmtFunc) Interpolate() (interfaces.Stmt, error) {
 	return &StmtFunc{
 		Name: obj.Name,
 		Func: interpolated,
+		Type: obj.Type,
 	}, nil
 }
 
@@ -4340,6 +4364,7 @@ func (obj *StmtFunc) Copy() (interfaces.Stmt, error) {
 	return &StmtFunc{
 		Name: obj.Name,
 		Func: fn,
+		Type: obj.Type,
 	}, nil
 }
 
@@ -4406,18 +4431,48 @@ func (obj *StmtFunc) SetScope(scope *interfaces.Scope) error {
 	return obj.Func.SetScope(scope, map[string]interfaces.Expr{})
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtFunc) Unify() ([]interfaces.Invariant, error) {
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	if obj.Name == "" {
 		return nil, fmt.Errorf("missing function name")
 	}
+
+	// Don't call obj.Func.Check here!
+	typ, invariants, err := obj.Func.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	typExpr := obj.Type
+	if obj.Type == nil {
+		typExpr = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.Func,
+		Expect: typExpr, // obj.Type
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
 	// I think the invariants should come in from ExprCall instead, because
 	// ExprCall operates on an instatiated copy of the contained ExprFunc
 	// which will have different pointers than what is seen here.
-	//return obj.Func.Unify() // nope!
-	return []interfaces.Invariant{}, nil
+
+	// nope!
+	// Don't call obj.Func.Check here!
+	//typ, invariants, err := obj.Func.Infer()
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	return invariants, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -4602,16 +4657,23 @@ func (obj *StmtClass) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtClass) Unify() ([]interfaces.Invariant, error) {
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtClass) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	if obj.Name == "" {
 		return nil, fmt.Errorf("missing class name")
 	}
 
 	// TODO: do we need to add anything else here because of the obj.Args ?
-	return obj.Body.Unify()
+
+	invariants, err := obj.Body.TypeCheck()
+	if err != nil {
+		return nil, err
+	}
+
+	return invariants, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -4919,10 +4981,11 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	return nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	if obj.Name == "" {
 		return nil, fmt.Errorf("missing include name")
 	}
@@ -4936,29 +4999,29 @@ func (obj *StmtInclude) Unify() ([]interfaces.Invariant, error) {
 		return nil, fmt.Errorf("class `%s` expected %d args but got %d", obj.Name, len(obj.class.Args), len(obj.Args))
 	}
 
-	var invariants []interfaces.Invariant
-
 	// do this here because we skip doing it in the StmtProg parent
-	invars, err := obj.class.Unify()
+	invariants, err := obj.class.TypeCheck()
 	if err != nil {
 		return nil, err
 	}
-	invariants = append(invariants, invars...)
 
-	// collect all the invariants of each sub-expression
 	for i, x := range obj.Args {
-		invars, err := x.Unify()
+		// Don't call x.Check here!
+		typ, invars, err := x.Infer()
 		if err != nil {
 			return nil, err
 		}
 		invariants = append(invariants, invars...)
 
+		// XXX: Should we be doing this stuff here?
+
 		// TODO: are additional invariants required?
 		// add invariants between the args and the class
-		if typ := obj.class.Args[i].Type; typ != nil {
-			invar := &interfaces.EqualsInvariant{
-				Expr: obj.Args[i],
-				Type: typ, // type of arg
+		if typExpr := obj.class.Args[i].Type; typExpr != nil {
+			invar := &interfaces.UnificationInvariant{
+				Expr:   x,
+				Expect: typExpr, // type of arg
+				Actual: typ,
 			}
 			invariants = append(invariants, invar)
 		}
@@ -5069,15 +5132,16 @@ func (obj *StmtImport) Ordering(produces map[string]interfaces.Node) (*pgraph.Gr
 // which it propagates this downwards to.
 func (obj *StmtImport) SetScope(*interfaces.Scope) error { return nil }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtImport) Unify() ([]interfaces.Invariant, error) {
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtImport) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	if obj.Name == "" {
 		return nil, fmt.Errorf("missing import name")
 	}
 
-	return []interfaces.Invariant{}, nil
+	return []*interfaces.UnificationInvariant{}, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -5159,11 +5223,12 @@ func (obj *StmtComment) Ordering(produces map[string]interfaces.Node) (*pgraph.G
 // does not need to know about the parent scope.
 func (obj *StmtComment) SetScope(*interfaces.Scope) error { return nil }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *StmtComment) Unify() ([]interfaces.Invariant, error) {
-	return []interfaces.Invariant{}, nil
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtComment) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	return []*interfaces.UnificationInvariant{}, nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -5251,17 +5316,30 @@ func (obj *ExprBool) SetType(typ *types.Type) error { return types.TypeBool.Cmp(
 // here.
 func (obj *ExprBool) Type() (*types.Type, error) { return types.TypeBool, nil }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprBool) Unify() ([]interfaces.Invariant, error) {
-	invariants := []interfaces.Invariant{
-		&interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: types.TypeBool,
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprBool) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	return types.TypeBool, []*interfaces.UnificationInvariant{
+		{
+			Expr:   obj,
+			Expect: types.TypeBool,
+			Actual: types.TypeBool,
 		},
-	}
-	return invariants, nil
+	}, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprBool) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -5435,17 +5513,30 @@ func (obj *ExprStr) SetType(typ *types.Type) error { return types.TypeStr.Cmp(ty
 // here.
 func (obj *ExprStr) Type() (*types.Type, error) { return types.TypeStr, nil }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprStr) Unify() ([]interfaces.Invariant, error) {
-	invariants := []interfaces.Invariant{
-		&interfaces.EqualsInvariant{
-			Expr: obj, // unique id for this expression (a pointer)
-			Type: types.TypeStr,
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprStr) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	return types.TypeStr, []*interfaces.UnificationInvariant{
+		{
+			Expr:   obj,
+			Expect: types.TypeStr,
+			Actual: types.TypeStr,
 		},
-	}
-	return invariants, nil
+	}, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprStr) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -5565,17 +5656,30 @@ func (obj *ExprInt) SetType(typ *types.Type) error { return types.TypeInt.Cmp(ty
 // here.
 func (obj *ExprInt) Type() (*types.Type, error) { return types.TypeInt, nil }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprInt) Unify() ([]interfaces.Invariant, error) {
-	invariants := []interfaces.Invariant{
-		&interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: types.TypeInt,
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprInt) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	return types.TypeInt, []*interfaces.UnificationInvariant{
+		{
+			Expr:   obj,
+			Expect: types.TypeInt,
+			Actual: types.TypeInt,
 		},
-	}
-	return invariants, nil
+	}, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprInt) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -5697,17 +5801,30 @@ func (obj *ExprFloat) SetType(typ *types.Type) error { return types.TypeFloat.Cm
 // here.
 func (obj *ExprFloat) Type() (*types.Type, error) { return types.TypeFloat, nil }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprFloat) Unify() ([]interfaces.Invariant, error) {
-	invariants := []interfaces.Invariant{
-		&interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: types.TypeFloat,
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprFloat) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	return types.TypeFloat, []*interfaces.UnificationInvariant{
+		{
+			Expr:   obj,
+			Expect: types.TypeFloat,
+			Actual: types.TypeFloat,
 		},
-	}
-	return invariants, nil
+	}, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprFloat) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -5949,77 +6066,59 @@ func (obj *ExprList) Type() (*types.Type, error) {
 	return obj.typ, nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprList) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprList) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
 
-	// if this was set explicitly by the parser
-	if obj.typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.typ,
-		}
-		invariants = append(invariants, invar)
+	// Same unification var because all values in the list have same type.
+	typ := &types.Type{
+		Kind: types.KindUnification,
+		Uni:  types.NewElem(), // unification variable, eg: ?1
+	}
+	typExpr := &types.Type{
+		Kind: types.KindList,
+		Val:  typ,
 	}
 
-	// collect all the invariants of each sub-expression
 	for _, x := range obj.Elements {
-		invars, err := x.Unify()
+		invars, err := x.Check(typ) // typ of the list element
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		invariants = append(invariants, invars...)
 	}
 
-	// each element must be equal to each other
-	if len(obj.Elements) > 1 {
-		invariant := &interfaces.EqualityInvariantList{
-			Exprs: obj.Elements,
-		}
-		invariants = append(invariants, invariant)
+	// Every infer call must have this section, because expr var needs this.
+	typType := typExpr
+	//if obj.typ == nil { // optional says sam
+	//	obj.typ = typExpr // sam says we could unconditionally do this
+	//}
+	if obj.typ != nil {
+		typType = obj.typ
 	}
-
-	// we should be type list of (type of element)
-	if len(obj.Elements) > 0 {
-		invariant := &interfaces.EqualityWrapListInvariant{
-			Expr1:    obj, // unique id for this expression (a pointer)
-			Expr2Val: obj.Elements[0],
-		}
-		invariants = append(invariants, invariant)
+	// This must be added even if redundant, so that we collect the obj ptr.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typExpr, // This is the type that we return.
+		Actual: typType,
 	}
+	invariants = append(invariants, invar)
 
-	// make sure this empty list gets an element type somehow
-	if len(obj.Elements) == 0 {
-		invariant := &interfaces.AnyInvariant{
-			Expr: obj,
-		}
-		invariants = append(invariants, invariant)
+	return typExpr, invariants, nil
+}
 
-		// build a placeholder expr to represent a contained element...
-		exprAny := &interfaces.ExprAny{}
-		invars, err := exprAny.Unify()
-		if err != nil {
-			return nil, err
-		}
-		invariants = append(invariants, invars...)
-
-		// FIXME: instead of using `ExprAny`, we could actually teach
-		// our unification engine to ensure that our expr kind is list,
-		// eg:
-		//&interfaces.EqualityKindInvariant{
-		//	Expr1: obj,
-		//	Kind:  types.KindList,
-		//}
-		invar := &interfaces.EqualityWrapListInvariant{
-			Expr1:    obj,
-			Expr2Val: exprAny, // hack
-		}
-		invariants = append(invariants, invar)
-	}
-
-	return invariants, nil
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprList) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -6397,101 +6496,70 @@ func (obj *ExprMap) Type() (*types.Type, error) {
 	return obj.typ, nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprMap) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprMap) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
 
-	// if this was set explicitly by the parser
-	if obj.typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.typ,
-		}
-		invariants = append(invariants, invar)
+	// Same unification var because all key/val's in the map have same type.
+	ktyp := &types.Type{
+		Kind: types.KindUnification,
+		Uni:  types.NewElem(), // unification variable, eg: ?1
+	}
+	vtyp := &types.Type{
+		Kind: types.KindUnification,
+		Uni:  types.NewElem(), // unification variable, eg: ?2
+	}
+	typExpr := &types.Type{
+		Kind: types.KindMap,
+		Key:  ktyp,
+		Val:  vtyp,
 	}
 
-	// collect all the invariants of each sub-expression
 	for _, x := range obj.KVs {
-		keyInvars, err := x.Key.Unify()
+		keyInvars, err := x.Key.Check(ktyp) // typ of the map key
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		invariants = append(invariants, keyInvars...)
 
-		valInvars, err := x.Val.Unify()
+		valInvars, err := x.Val.Check(vtyp) // typ of the map val
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		invariants = append(invariants, valInvars...)
 	}
 
-	// all keys must have the same type, all vals must have the same type
-	if len(obj.KVs) > 1 {
-		keyExprs, valExprs := []interfaces.Expr{}, []interfaces.Expr{}
-		for i := range obj.KVs {
-			keyExprs = append(keyExprs, obj.KVs[i].Key)
-			valExprs = append(valExprs, obj.KVs[i].Val)
-		}
-
-		keyInvariant := &interfaces.EqualityInvariantList{
-			Exprs: keyExprs,
-		}
-		invariants = append(invariants, keyInvariant)
-
-		valInvariant := &interfaces.EqualityInvariantList{
-			Exprs: valExprs,
-		}
-		invariants = append(invariants, valInvariant)
+	// Every infer call must have this section, because expr var needs this.
+	typType := typExpr
+	//if obj.typ == nil { // optional says sam
+	//	obj.typ = typExpr // sam says we could unconditionally do this
+	//}
+	if obj.typ != nil {
+		typType = obj.typ
 	}
-
-	// we should be type map of (type of element)
-	if len(obj.KVs) > 0 {
-		invariant := &interfaces.EqualityWrapMapInvariant{
-			Expr1:    obj, // unique id for this expression (a pointer)
-			Expr2Key: obj.KVs[0].Key,
-			Expr2Val: obj.KVs[0].Val,
-		}
-		invariants = append(invariants, invariant)
+	// This must be added even if redundant, so that we collect the obj ptr.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typExpr, // This is the type that we return.
+		Actual: typType,
 	}
+	invariants = append(invariants, invar)
 
-	// make sure this empty map gets a type for its key/value somehow
-	if len(obj.KVs) == 0 {
-		invariant := &interfaces.AnyInvariant{
-			Expr: obj,
-		}
-		invariants = append(invariants, invariant)
+	return typExpr, invariants, nil
+}
 
-		// build a placeholder expr to represent a contained key...
-		exprAnyKey, exprAnyVal := &interfaces.ExprAny{}, &interfaces.ExprAny{}
-		invarsKey, err := exprAnyKey.Unify()
-		if err != nil {
-			return nil, err
-		}
-		invariants = append(invariants, invarsKey...)
-		invarsVal, err := exprAnyVal.Unify()
-		if err != nil {
-			return nil, err
-		}
-		invariants = append(invariants, invarsVal...)
-
-		// FIXME: instead of using `ExprAny`, we could actually teach
-		// our unification engine to ensure that our expr kind is list,
-		// eg:
-		//&interfaces.EqualityKindInvariant{
-		//	Expr1: obj,
-		//	Kind:  types.KindMap,
-		//}
-		invar := &interfaces.EqualityWrapMapInvariant{
-			Expr1:    obj,
-			Expr2Key: exprAnyKey, // hack
-			Expr2Val: exprAnyVal, // hack
-		}
-		invariants = append(invariants, invar)
-	}
-
-	return invariants, nil
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprMap) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -6855,45 +6923,67 @@ func (obj *ExprStruct) Type() (*types.Type, error) {
 	return obj.typ, nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprStruct) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprStruct) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
 
-	// if this was set explicitly by the parser
-	if obj.typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.typ,
-		}
-		invariants = append(invariants, invar)
-	}
+	m := make(map[string]*types.Type)
+	ord := []string{}
 
-	// collect all the invariants of each sub-expression
+	// Different unification var for each field in the struct.
 	for _, x := range obj.Fields {
-		invars, err := x.Value.Unify()
+		typ := &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+
+		m[x.Name] = typ
+		ord = append(ord, x.Name)
+
+		invars, err := x.Value.Check(typ) // typ of the struct field
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		invariants = append(invariants, invars...)
 	}
 
-	// build the reference to ourself if we have undetermined field types
-	mapped := make(map[string]interfaces.Expr)
-	ordered := []string{}
-	for _, x := range obj.Fields {
-		mapped[x.Name] = x.Value
-		ordered = append(ordered, x.Name)
+	typExpr := &types.Type{
+		Kind: types.KindStruct,
+		Map:  m,
+		Ord:  ord,
 	}
-	invariant := &interfaces.EqualityWrapStructInvariant{
-		Expr1:    obj, // unique id for this expression (a pointer)
-		Expr2Map: mapped,
-		Expr2Ord: ordered,
-	}
-	invariants = append(invariants, invariant)
 
-	return invariants, nil
+	// Every infer call must have this section, because expr var needs this.
+	typType := typExpr
+	//if obj.typ == nil { // optional says sam
+	//	obj.typ = typExpr // sam says we could unconditionally do this
+	//}
+	if obj.typ != nil {
+		typType = obj.typ
+	}
+	// This must be added even if redundant, so that we collect the obj ptr.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typExpr, // This is the type that we return.
+		Actual: typType,
+	}
+	invariants = append(invariants, invar)
+
+	return typExpr, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprStruct) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7228,14 +7318,31 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 
 	var function interfaces.Func
 	if obj.Function != nil {
-		function = obj.Function() // force re-build a new pointer here!
+		// We sometimes copy the ExprFunc because we're using the same
+		// one in two places, and it might have a different type and
+		// type unification needs to solve for it in more than one way.
+		// It also turns out that some functions such as the struct
+		// lookup function store information that they learned during
+		// `FuncInfer`, and as a result, if we re-build this, then we
+		// lose that information and the function can then fail during
+		// `Build`. As a result, those functions can implement a `Copy`
+		// method which we will use instead, so they can preserve any
+		// internal state that they would like to keep.
+		copyableFunc, isCopyableFunc := obj.function.(interfaces.CopyableFunc)
+		if obj.function == nil || !isCopyableFunc {
+			function = obj.Function() // force re-build a new pointer here!
+		} else {
+			// is copyable!
+			function = copyableFunc.Copy()
+		}
+
 		// restore the type we previously set in SetType()
 		if obj.typ != nil {
-			polyFn, ok := function.(interfaces.PolyFunc) // is it statically polymorphic?
+			buildableFn, ok := function.(interfaces.BuildableFunc) // is it statically polymorphic?
 			if ok {
-				newTyp, err := polyFn.Build(obj.typ)
+				newTyp, err := buildableFn.Build(obj.typ)
 				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not build expr func")
+					return nil, err // don't wrap, err is ok
 				}
 				// Cmp doesn't compare arg names. Check it's compatible...
 				if err := obj.typ.Cmp(newTyp); err != nil {
@@ -7356,7 +7463,10 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		// make a list as long as obj.Args
 		obj.params = make([]*ExprParam, len(obj.Args))
 		for i, arg := range obj.Args {
-			param := &ExprParam{Name: arg.Name, Typ: arg.Type}
+			param := &ExprParam{
+				typ:  arg.Type,
+				Name: arg.Name,
+			}
 			obj.params[i] = param
 			sctxBody[arg.Name] = param
 		}
@@ -7388,16 +7498,17 @@ func (obj *ExprFunc) SetType(typ *types.Type) error {
 
 	// TODO: should we ensure this is set to a KindFunc ?
 	if obj.Function != nil {
-		polyFn, ok := obj.function.(interfaces.PolyFunc) // is it statically polymorphic?
+		// is it buildable? (formerly statically polymorphic)
+		buildableFn, ok := obj.function.(interfaces.BuildableFunc)
 		if ok {
-			newTyp, err := polyFn.Build(typ)
+			newTyp, err := buildableFn.Build(typ)
 			if err != nil {
-				return errwrap.Wrapf(err, "could not build expr func")
+				return err // don't wrap, err is ok
 			}
 			// Cmp doesn't compare arg names.
 			typ = newTyp // check it's compatible down below...
 		} else {
-			// Even if it's not polymorphic, we'd like to use the
+			// Even if it's not a buildable, we'd like to use the
 			// real arg names of that function, in case they don't
 			// get passed through type unification somehow...
 			// (There can be an AST bug that this would prevent.)
@@ -7514,145 +7625,113 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 	return obj.typ, nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprFunc) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprFunc) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
 
-	// if this was set explicitly by the parser
-	if obj.typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.typ,
+	if i, j := len(obj.Args), len(obj.params); i != j {
+		// programming error?
+		if obj.Title == "" {
+			return nil, nil, fmt.Errorf("func args and params mismatch %d != %d", i, j)
 		}
-		invariants = append(invariants, invar)
+		return nil, nil, fmt.Errorf("func `%s` args and params mismatch %d != %d", obj.Title, i, j)
 	}
 
-	// if we know the type statically...
-	// TODO: is this redundant, or do we need something similar elsewhere?
-	if typ, err := obj.Type(); err == nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: typ,
-		}
-		invariants = append(invariants, invar)
-	}
+	m := make(map[string]*types.Type)
+	ord := []string{}
+	var out *types.Type
 
-	// collect all the invariants of the body
-	if obj.Body != nil {
-		expr2Ord := []string{}
-		expr2Map := map[string]interfaces.Expr{}
-		for i, arg := range obj.Args {
-			expr2Ord = append(expr2Ord, arg.Name)
-			expr2Map[arg.Name] = obj.params[i]
+	// This obj.Args stuff is only used for the obj.Body lambda case.
+	for i, arg := range obj.Args {
+		typArg := arg.Type // maybe it's nil
+		if arg.Type == nil {
+			typArg = &types.Type{
+				Kind: types.KindUnification,
+				Uni:  types.NewElem(), // unification variable, eg: ?1
+			}
 		}
-		funcInvariant := &interfaces.EqualityWrapFuncInvariant{
-			Expr1:    obj,
-			Expr2Map: expr2Map,
-			Expr2Ord: expr2Ord,
-			Expr2Out: obj.Body,
-		}
-		invariants = append(invariants, funcInvariant)
 
-		invars, err := obj.Body.Unify()
+		invars, err := obj.params[i].Check(typArg)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		invariants = append(invariants, invars...)
+
+		m[arg.Name] = typArg
+		ord = append(ord, arg.Name)
+	}
+
+	out = obj.Return
+	if obj.Return == nil {
+		out = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+
+	if obj.Body != nil {
+		invars, err := obj.Body.Check(out) // typ of the func body
+		if err != nil {
+			return nil, nil, err
 		}
 		invariants = append(invariants, invars...)
 	}
 
-	// return type must be equal to the body expression
-	if obj.Body != nil && obj.Return != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj.Body,
-			Type: obj.Return,
-		}
-		invariants = append(invariants, invar)
+	typExpr := &types.Type{
+		Kind: types.KindFunc,
+		Map:  m,
+		Ord:  ord,
+		Out:  out,
 	}
 
-	// TODO: should we try and add invariants for obj.Args?
-
-	// We don't want to Unify against the *original* ExprFunc pointer, since
-	// we want the copy of it which is what ExprCall points to. We don't
-	// call this Unify() method from anywhere except from when it's within
-	// an ExprCall. We don't call it from StmtFunc which is just a container
-	// for it. This is basically used as a helper function! By the time this
-	// is called, we've already made an obj.function which is the copied,
-	// instantiated version of obj.Function that we are going to use.
 	if obj.Function != nil {
-		fn := obj.function                     // instantiated copy of obj.Function
-		polyFn, ok := fn.(interfaces.PolyFunc) // is it statically polymorphic?
-		if ok {
-			// We just run the Unify() method of the ExprFunc if it
-			// happens to have one. Get the list of Invariants, and
-			// return them directly.
-			invars, err := polyFn.Unify(obj)
-			if err != nil {
-				return nil, err
-			}
-			invariants = append(invariants, invars...)
-		}
-
-		// It's okay to attempt to get a static signature too, if it's
-		// nil or has a variant (polymorphic funcs) then it's ignored.
-		sig := fn.Info().Sig
-		if sig != nil && !sig.HasVariant() {
-			invar := &interfaces.EqualsInvariant{
-				Expr: obj,
-				Type: sig,
-			}
-			invariants = append(invariants, invar)
+		// Don't call obj.function.(interfaces.InferableFunc).Infer here
+		// because we wouldn't have information about how we call it
+		// anyways. This happens in ExprCall instead. We only need to
+		// ensure this ExprFunc returns a valid unification variable.
+		typExpr = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
 		}
 	}
 
 	//if len(obj.Values) > 0
-	ors := []interfaces.Invariant{} // solve only one from this list
-	once := false
 	for _, fn := range obj.Values {
-		typ := fn.Type()
-		if typ.Kind != types.KindFunc {
-			// programming error
-			return nil, fmt.Errorf("overloaded value was not of kind func")
-		}
-
-		// NOTE: if we have more than one possibility here, *and* at
-		// least one of them contains a variant, *and* at least one does
-		// not, then we *can't* use any of these until the unification
-		// engine supports variants, because instead of an "OR" between
-		// multiple possibilities, this will look like fewer
-		// possibilities exist, and that the answer must be one of them!
-		// TODO: Previously, we just skipped all of these invariants! If
-		// we get examples that don't work well, just abandon this part.
-		if !typ.HasVariant() {
-			invar := &interfaces.EqualsInvariant{
-				Expr: obj,
-				Type: typ,
-			}
-			ors = append(ors, invar) // one solution added!
-		} else if !once {
-			// Add at *most* only one any invariant in an exclusive
-			// set, otherwise two or more possibilities will have
-			// equivalent answers.
-			anyInvar := &interfaces.AnyInvariant{
-				Expr: obj,
-			}
-			ors = append(ors, anyInvar)
-			once = true
-		}
-
-	} // end results loop
-	if len(ors) > 0 {
-		var invar interfaces.Invariant = &interfaces.ExclusiveInvariant{
-			Invariants: ors, // one and only one of these should be true
-		}
-		if len(ors) == 1 {
-			invar = ors[0] // there should only be one
-		}
-		invariants = append(invariants, invar)
+		_ = fn
+		panic("not implemented") // XXX: not implemented!
 	}
 
-	return invariants, nil
+	// Every infer call must have this section, because expr var needs this.
+	typType := typExpr
+	//if obj.typ == nil { // optional says sam
+	//	obj.typ = typExpr // sam says we could unconditionally do this
+	//}
+	if obj.typ != nil {
+		typType = obj.typ
+	}
+	// This must be added even if redundant, so that we collect the obj ptr.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typExpr, // This is the type that we return.
+		Actual: typType,
+	}
+	invariants = append(invariants, invar)
+
+	return typExpr, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprFunc) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -7787,7 +7866,9 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This might get called speculatively (early) during unification to learn more.
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
-	panic("ExprFunc does not store its latest value because resources don't yet have function fields.")
+	// Don't panic because we call Value speculatively for partial values!
+	// XXX: Not implemented
+	return nil, fmt.Errorf("error: ExprFunc does not store its latest value because resources don't yet have function fields")
 	//// TODO: implement speculative value lookup (if not already sufficient)
 	//return &full.FuncValue{
 	//	V: obj.V,
@@ -8119,7 +8200,7 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	}
 
 	// function specific code follows...
-	fn, isFn := obj.expr.(*ExprFunc)
+	exprFunc, isFn := obj.expr.(*ExprFunc)
 	if !isFn {
 		if obj.typ == nil {
 			return nil, interfaces.ErrTypeCurrentlyUnknown
@@ -8127,7 +8208,7 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 		return obj.typ, nil
 	}
 
-	sig, err := fn.Type()
+	sig, err := exprFunc.Type()
 	if err != nil {
 		return nil, err
 	}
@@ -8136,21 +8217,21 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	}
 
 	// speculate if a partial return type is known
-	if fn.Body != nil {
-		if fn.Return != nil && obj.typ == nil {
-			return fn.Return, nil
+	if exprFunc.Body != nil {
+		if exprFunc.Return != nil && obj.typ == nil {
+			return exprFunc.Return, nil
 		}
 
-		if typ, err := fn.Body.Type(); err == nil && obj.typ == nil {
+		if typ, err := exprFunc.Body.Type(); err == nil && obj.typ == nil {
 			return typ, nil
 		}
 	}
 
-	if fn.Function != nil {
-		// is it statically polymorphic or not?
-		_, isPoly := fn.function.(interfaces.PolyFunc)
-		if !isPoly && obj.typ == nil {
-			if info := fn.function.Info(); info != nil {
+	if exprFunc.Function != nil {
+		// is it buildable? (formerly statically polymorphic)
+		_, isBuildable := exprFunc.function.(interfaces.BuildableFunc)
+		if !isBuildable && obj.typ == nil {
+			if info := exprFunc.function.Info(); info != nil {
 				if sig := info.Sig; sig != nil {
 					if typ := sig.Out; typ != nil && !typ.HasVariant() {
 						return typ, nil // speculate!
@@ -8162,9 +8243,9 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 		// consistent return values across all possibilities available
 	}
 
-	//if len(fn.Values) > 0
+	//if len(exprFunc.Values) > 0
 	// check to see if we have a unique return type
-	for _, fn := range fn.Values {
+	for _, fn := range exprFunc.Values {
 		typ := fn.Type()
 		if typ == nil || typ.Out == nil {
 			continue // skip, not available yet
@@ -8180,194 +8261,10 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	return obj.typ, nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
-	if obj.expr == nil {
-		// possible programming error
-		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")
-	}
-
-	var invariants []interfaces.Invariant
-
-	// if this was set explicitly by the parser
-	if obj.typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.typ,
-		}
-		invariants = append(invariants, invar)
-	}
-
-	//if obj.typ != nil { // XXX: i think this is probably incorrect...
-	//	invar := &interfaces.EqualsInvariant{
-	//		Expr: obj.expr,
-	//		Type: obj.typ,
-	//	}
-	//	invariants = append(invariants, invar)
-	//}
-
-	// collect all the invariants of each sub-expression
-	for _, x := range obj.Args {
-		invars, err := x.Unify()
-		if err != nil {
-			return nil, err
-		}
-		invariants = append(invariants, invars...)
-	}
-
-	// I think I need to associate the func call with the actual func
-	// expression somehow... This is because when I try to do unification in
-	// a function like printf, I need to be able to know which args (values)
-	// this particular version of the function I'm calling is associated
-	// with. So I need to know the linkage. It has to be added here, since
-	// ExprFunc doesn't know who's calling it. And why would it even want to
-	// know who's calling it?
-	argsCopy := []interfaces.Expr{}
-	for _, arg := range obj.Args {
-		argsCopy = append(argsCopy, arg)
-	}
-	invar := &interfaces.CallFuncArgsValueInvariant{
-		Expr: obj,
-		Func: trueCallee(obj.expr),
-		Args: argsCopy,
-	}
-	invariants = append(invariants, invar)
-
-	// add the invariants from the actual function that we'll be using...
-	// don't add them from the pre-copied function, which is never used...
-	invars, err := obj.expr.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, invars...)
-
-	anyInvar := &interfaces.AnyInvariant{ // TODO: maybe this isn't needed?
-		Expr: obj.expr,
-	}
-	invariants = append(invariants, anyInvar)
-
-	// our type should equal the return type of the called function, and our
-	// argument types should be equal to the types of the parameters of the
-	// function
-	// arg0, arg1, arg2
-	expr2Ord := []string{}
-	expr2Map := map[string]interfaces.Expr{}
-	for i, argExpr := range obj.Args {
-		argName := fmt.Sprintf("arg%d", i)
-		expr2Ord = append(expr2Ord, argName)
-		expr2Map[argName] = argExpr
-	}
-	funcInvar := &interfaces.EqualityWrapFuncInvariant{
-		Expr1:    obj.expr,
-		Expr2Map: expr2Map,
-		Expr2Ord: expr2Ord,
-		Expr2Out: obj,
-	}
-	invariants = append(invariants, funcInvar)
-
-	// function specific code follows...
-	fn, isFn := obj.expr.(*ExprFunc)
-	if !isFn {
-		return invariants, nil
-	}
-
-	// if we know the return type, it should match our type
-	if fn.Body != nil && fn.Return != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,       // return type from calling the function
-			Type: fn.Return, // specified return type
-		}
-		invariants = append(invariants, invar)
-	}
-
-	// If ExprFunc is built from mcl code. Note: Unify on fn.Body is called
-	// from within StmtBind or StmtFunc, depending on whether it's a lambda.
-	// Instead, we'll block it there, and run it from here instead...
-	if fn.Body != nil {
-		if i, j := len(obj.Args), len(fn.Args); i != j {
-			return nil, fmt.Errorf("func `%s` is being called with %d args, but expected %d args", obj.Name, i, j)
-		}
-
-		// do the specified args match any specified arg types?
-		for i, x := range fn.Args {
-			if x.Type == nil { // unknown type
-				continue
-			}
-			invar := &interfaces.EqualsInvariant{
-				Expr: obj.Args[i],
-				Type: x.Type,
-			}
-			invariants = append(invariants, invar)
-		}
-
-		// do the variables in the body match the arg types ?
-		// XXX: test this section to ensure it's the right scope (should
-		// it be getScope(fn) ?) and is it what we want...
-		for _, x := range fn.Args {
-			expr, exists := obj.scope.Variables[x.Name] // XXX: test!
-			if !exists || x.Type == nil {
-				continue
-			}
-			invar := &interfaces.EqualsInvariant{
-				Expr: expr,
-				Type: x.Type,
-			}
-			invariants = append(invariants, invar)
-		}
-
-		// build the reference to ourself if we have undetermined field types
-		mapped := make(map[string]interfaces.Expr)
-		ordered := []string{}
-		for i, x := range fn.Args {
-			mapped[x.Name] = obj.Args[i]
-			ordered = append(ordered, x.Name)
-		}
-
-		// determine the type of the function itself
-		invariant := &interfaces.EqualityWrapFuncInvariant{
-			Expr1:    fn, // unique id for this expression (a pointer)
-			Expr2Map: mapped,
-			Expr2Ord: ordered,
-			Expr2Out: fn.Body,
-		}
-		invariants = append(invariants, invariant)
-
-		//if fn.Return != nil {
-		//	invariant := &interfaces.EqualityWrapFuncInvariant{
-		//		Expr1:    fn, // unique id for this expression (a pointer)
-		//		Expr2Map: mapped,
-		//		Expr2Ord: ordered,
-		//		Expr2Out: fn.Return, // XXX: ???
-		//	}
-		//	invariants = append(invariants, invariant)
-		//}
-
-		// TODO: Do we need to add an EqualityWrapCallInvariant here?
-
-		// the return type of this call expr, should match the body type
-		invar := &interfaces.EqualityInvariant{
-			Expr1: obj,
-			Expr2: fn.Body,
-		}
-		invariants = append(invariants, invar)
-
-		//if fn.Return != nil {
-		//	invar := &interfaces.EqualityInvariant{
-		//		Expr1: obj,
-		//		Expr2: fn.Return, XXX: ???
-		//	}
-		//	invariants = append(invariants, invar)
-		//}
-
-		return invariants, nil
-	}
-
-	//if fn.Function != nil ...
-
-	var results []*types.Type
-
+// getPartials is a helper function to aid in building partial types and values.
+// Remember that it's not legal to run many of the normal methods like .String()
+// on a partial type.
+func (obj *ExprCall) getPartials(fn *ExprFunc) (*types.Type, []types.Value, error) {
 	argGen := func(x int) (string, error) {
 		// assume (incorrectly?) for now...
 		return util.NumToAlpha(x), nil
@@ -8380,38 +8277,37 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 	}
 
 	// build partial type and partial input values to aid in filtering...
-	argNames := []string{}
 	mapped := make(map[string]*types.Type)
-	partialValues := []types.Value{}
-	for i := range obj.Args {
+	//argNames := []string{}
+	//partialValues := []types.Value{}
+	argNames := make([]string, len(obj.Args))
+	partialValues := make([]types.Value, len(obj.Args))
+	for i, arg := range obj.Args {
 		name, err := argGen(i) // get the Nth arg name
 		if err != nil {
-			return nil, errwrap.Wrapf(err, "error getting arg name #%d for func `%s`", i, obj.Name)
+			return nil, nil, errwrap.Wrapf(err, "error getting arg #%d for func `%s`", i, obj.Name)
 		}
 		if name == "" {
 			// possible programming error
-			return nil, fmt.Errorf("can't get arg name #%d for func `%s`", i, obj.Name)
+			return nil, nil, fmt.Errorf("can't get arg #%d for func `%s`", i, obj.Name)
 		}
-		argNames = append(argNames, name)
-		mapped[name] = nil                         // unknown type
-		partialValues = append(partialValues, nil) // XXX: is this safe?
+		//mapped[name] = nil // unknown type
+		//argNames = append(argNames, name)
+		//partialValues = append(partialValues, nil) // placeholder value
 
-		// optimization: if zeroth arg is a static string, specify this!
-		// TODO: this is a more specialized version of the next check...
-		if x, ok := obj.Args[0].(*ExprStr); i == 0 && ok { // is static?
-			mapped[name], _ = x.Type()
-			partialValues[i], _ = x.Value() // store value
-		}
-
-		// optimization: if type is already known, specify it now!
-		if t, err := obj.Args[i].Type(); err == nil { // is known?
-			mapped[name] = t
-			// if value is completely static, pass it in now!
-			if v, err := obj.Args[i].Value(); err == nil {
-				partialValues[i] = v // store value
-			}
+		// optimization: if type/value is already known, specify it now!
+		var err1, err2 error
+		mapped[name], err1 = arg.Type()      // nil type on error
+		partialValues[i], err2 = arg.Value() // nil value on error
+		if err1 == nil && err2 == nil && mapped[name].Cmp(partialValues[i].Type()) != nil {
+			// This can happen when we statically find an issue like
+			// a printf scenario where it's wrong statically...
+			t1 := mapped[name]
+			t2 := partialValues[i].Type()
+			return nil, nil, fmt.Errorf("type/value inconsistent at arg #%d for func `%s`: %v != %v", i, obj.Name, t1, t2)
 		}
 	}
+
 	out, err := obj.Type() // do we know the return type yet?
 	if err != nil {
 		out = nil // just to make sure...
@@ -8425,170 +8321,190 @@ func (obj *ExprCall) Unify() ([]interfaces.Invariant, error) {
 		Out:  out, // possibly nil
 	}
 
-	var polyFn interfaces.PolyFunc
-	var ok bool
-	if fn.Function != nil {
-		polyFn, ok = fn.function.(interfaces.PolyFunc) // is it statically polymorphic?
+	return partialType, partialValues, nil
+}
+
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	if obj.expr == nil {
+		// possible programming error
+		return nil, nil, fmt.Errorf("call doesn't contain an expr pointer yet")
 	}
 
-	if fn.Function != nil && ok {
-		// We just run the Unify() method of the ExprFunc if it happens
-		// to have one. Get the list of Invariants, and return them
-		// directly. We want to run this unification inside of ExprCall
-		// and not in ExprFunc, because it's only in ExprCall that we
-		// have the instantiated copy of the ExprFunc that we actually
-		// build and unify against and which has the correct pointer
-		// now, where as the ExprFunc pointer isn't what we unify with!
-		invars, err := polyFn.Unify(obj.expr)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "polymorphic unification for func `%s` could not be done", obj.Name)
+	invariants := []*interfaces.UnificationInvariant{}
+
+	mapped := make(map[string]*types.Type)
+	ordered := []string{}
+	var typExpr *types.Type // out
+
+	// Look at what kind of function we are calling...
+	callee := trueCallee(obj.expr)
+	exprFunc, isFn := callee.(*ExprFunc)
+
+	argGen := func(x int) (string, error) {
+		// assume (incorrectly?) for now...
+		return util.NumToAlpha(x), nil
+	}
+	if isFn && exprFunc.Function != nil {
+		namedArgsFn, ok := exprFunc.function.(interfaces.NamedArgsFunc) // are the args named?
+		if ok {
+			argGen = namedArgsFn.ArgGen // func(int) string
 		}
+	}
+
+	for i, arg := range obj.Args { // []interfaces.Expr
+		name, err := argGen(i) // get the Nth arg name
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "error getting arg name #%d for func `%s`", i, obj.Name)
+		}
+		if name == "" {
+			// possible programming error
+			return nil, nil, fmt.Errorf("can't get arg name #%d for func `%s`", i, obj.Name)
+		}
+
+		typ, invars, err := arg.Infer()
+		if err != nil {
+			return nil, nil, err
+		}
+		// Equivalent:
+		//typ := &types.Type{
+		//	Kind: types.KindUnification,
+		//	Uni:  types.NewElem(), // unification variable, eg: ?1
+		//}
+		//invars, err := arg.Check(typ) // typ of the arg
+		//if err != nil {
+		//	return nil, nil, err
+		//}
 		invariants = append(invariants, invars...)
 
-	} else if fn.Function != nil && !ok {
-		sig := fn.function.Info().Sig
-		if sig == nil {
-			// this can happen if it's incorrectly implemented
-			return nil, errwrap.Wrapf(err, "unification for func `%s` returned nil signature", obj.Name)
-		}
-		results = []*types.Type{sig} // only one (non-polymorphic)
+		mapped[name] = typ
+		ordered = append(ordered, name)
 	}
 
-	// if len(fn.Values) > 0
-	for _, f := range fn.Values {
-		// FIXME: can we filter based on partialValues too?
-		// TODO: if status is "both", should we skip as too difficult?
-		_, err := f.T.ComplexCmp(partialType)
-		if err != nil {
-			continue
-		}
-		results = append(results, f.T)
+	typExpr = &types.Type{
+		Kind: types.KindUnification,
+		Uni:  types.NewElem(), // unification variable, eg: ?1
 	}
 
-	// build invariants from a list of possible types
-	ors := []interfaces.Invariant{} // solve only one from this list
-	// each of these is a different possible signature
+	typFunc := &types.Type{
+		Kind: types.KindFunc,
+		Map:  mapped,
+		Ord:  ordered,
+		Out:  typExpr,
+	}
 
-	for _, typ := range results {
-		if typ.Kind != types.KindFunc {
-			panic("overloaded result was not of kind func")
-		}
-
-		// XXX: how do we deal with template returning a variant?
-		// XXX: i think we need more invariant types, and if it's
-		// going to be a variant, just return no results, and the
-		// defaults from the engine should just match it anyways!
-		if typ.HasVariant() { // XXX: ¯\_(ツ)_/¯
-			//continue // XXX: alternate strategy...
-			//return nil, fmt.Errorf("variant type not yet supported, got: %+v", typ) // XXX: old strategy
-		}
-		if typ.Kind == types.KindVariant { // XXX: ¯\_(ツ)_/¯
-			// XXX: maybe needed to avoid an oversimplified exclusive!
-			anyInvar := &interfaces.AnyInvariant{
-				Expr: fn, // TODO: fn or obj ?
-			}
-			ors = append(ors, anyInvar)
-			continue // can't deal with raw variant a.t.m.
-		}
-
-		if i, j := len(typ.Ord), len(obj.Args); i != j {
-			continue // this signature won't work for us, skip!
-		}
-
-		// what would a set of invariants for this sig look like?
-		var invars []interfaces.Invariant
-
-		// use Map and Ord for Input (Kind == Function)
-		for i, x := range typ.Ord {
-			if typ.Map[x].HasVariant() { // XXX: ¯\_(ツ)_/¯
-				// TODO: maybe this isn't needed?
-				invar := &interfaces.AnyInvariant{
-					Expr: obj.Args[i],
-				}
-				invars = append(invars, invar)
-				continue
-			}
-			invar := &interfaces.EqualsInvariant{
-				Expr: obj.Args[i],
-				Type: typ.Map[x], // type of arg
-			}
-			invars = append(invars, invar)
-		}
-		if typ.Out != nil {
-			// this expression should equal the output type of the function
-			if typ.Out.HasVariant() { // XXX: ¯\_(ツ)_/¯
-				// TODO: maybe this isn't needed?
-				invar := &interfaces.AnyInvariant{
-					Expr: obj,
-				}
-				invars = append(invars, invar)
-			} else {
-				invar := &interfaces.EqualsInvariant{
-					Expr: obj,
-					Type: typ.Out,
-				}
-				invars = append(invars, invar)
-			}
-		}
-
-		// add more invariants to link the partials...
-		mapped := make(map[string]interfaces.Expr)
-		ordered := []string{}
-		for pos, x := range obj.Args {
-			name := argNames[pos]
-			mapped[name] = x
-			ordered = append(ordered, name)
-		}
-
-		if !typ.HasVariant() { // XXX: ¯\_(ツ)_/¯
-			funcInvariant := &interfaces.EqualsInvariant{
-				Expr: fn,
-				Type: typ,
-			}
-			invars = append(invars, funcInvariant)
-		} else {
-			// XXX: maybe needed to avoid an oversimplified exclusive!
-			anyInvar := &interfaces.AnyInvariant{
-				Expr: fn, // TODO: fn or obj ?
-			}
-			invars = append(invars, anyInvar)
-		}
-		// Note: The usage of this invariant is different from the other
-		// wrap* invariants, because in this case, the expression type
-		// is the return type which is produced, where as the entire
-		// function itself has its own type which includes the types of
-		// the input arguments...
-		invar := &interfaces.EqualityWrapFuncInvariant{
-			Expr1:    fn,
-			Expr2Map: mapped,
-			Expr2Ord: ordered,
-			Expr2Out: obj, // type of expression is return type of function
-		}
-		invars = append(invars, invar)
-
-		// all of these need to be true together
-		and := &interfaces.ConjunctionInvariant{
-			Invariants: invars,
-		}
-
-		ors = append(ors, and) // one solution added!
-	} // end results loop
-
-	// don't error here, we might not want to add any invariants!
-	//if len(results) == 0 {
-	//	return nil, fmt.Errorf("can't find any valid signatures that match func `%s`", obj.Name)
+	// Every infer call must have this section, because expr var needs this.
+	typType := typExpr
+	//if obj.typ == nil { // optional says sam
+	//	obj.typ = typExpr // sam says we could unconditionally do this
 	//}
-	if len(ors) > 0 {
-		var invar interfaces.Invariant = &interfaces.ExclusiveInvariant{
-			Invariants: ors, // one and only one of these should be true
+	if obj.typ != nil {
+		typType = obj.typ
+	}
+	// This must be added even if redundant, so that we collect the obj ptr.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typExpr, // This is the type that we return.
+		Actual: typType,
+	}
+	invariants = append(invariants, invar)
+
+	// We run this Check for all cases. (So refactor it to here.)
+	invars, err := obj.expr.Check(typFunc)
+	if err != nil {
+		return nil, nil, err
+	}
+	invariants = append(invariants, invars...)
+
+	if !isFn {
+		// legacy case (does this even happen?)
+		return typExpr, invariants, nil
+	}
+
+	// Just get ExprFunc.Check to figure it out...
+	//if exprFunc.Body != nil {}
+
+	if exprFunc.Function != nil {
+		var typFn *types.Type
+		fn := exprFunc.function // instantiated copy of exprFunc.Function
+		// is it inferable? (formerly statically polymorphic)
+		inferableFn, ok := fn.(interfaces.InferableFunc)
+		if info := fn.Info(); !ok && info != nil && info.Sig != nil {
+			if info.Sig.HasVariant() { // XXX: legacy, remove me
+				// XXX: Look up the obj.Title for obj.expr instead?
+				return nil, nil, fmt.Errorf("func `%s` contains a variant: %s", obj.Name, info.Sig)
+			}
+
+			// It's important that we copy the type signature, since
+			// it may otherwise get used in more than one place for
+			// type unification when in fact there should be two or
+			// more different solutions if it's polymorphic and used
+			// more than once. We could be more careful when passing
+			// this in here, but it's simple and safe to just always
+			// do this copy. Sam prefers this approach.
+			typFn = info.Sig.Copy()
+
+		} else if ok {
+			partialType, partialValues, err := obj.getPartials(exprFunc)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			// We just run the Infer() method of the ExprFunc if it
+			// happens to have one. Get the list of Invariants, and
+			// return them directly.
+			typ, invars, err := inferableFn.FuncInfer(partialType, partialValues)
+			if err != nil {
+				return nil, nil, errwrap.Wrapf(err, "func `%s` infer error", exprFunc.Title)
+			}
+			invariants = append(invariants, invars...)
+
+			// It's important that we copy the type signature here.
+			// See the above comment which explains the reasoning.
+			typFn = typ.Copy()
+
+		} else {
+			// programming error
+			return nil, nil, fmt.Errorf("incorrectly built `%s` function", exprFunc.Title)
 		}
-		if len(ors) == 1 {
-			invar = ors[0] // there should only be one
+
+		invar := &interfaces.UnificationInvariant{
+			Expr:   obj.expr, // this should NOT be obj
+			Expect: typFunc,  // TODO: are these two reversed here?
+			Actual: typFn,
 		}
 		invariants = append(invariants, invar)
+
+		// TODO: Do we need to link obj.expr to exprFunc, eg:
+		//invar2 := &interfaces.UnificationInvariant{
+		//	Expr:   exprFunc, // trueCallee variant
+		//	Expect: typFunc,
+		//	Actual: typFn,
+		//}
+		//invariants = append(invariants, invar2)
 	}
 
-	return invariants, nil
+	// if len(exprFunc.Values) > 0
+	for _, fn := range exprFunc.Values {
+		_ = fn
+		panic("not implemented") // XXX: not implemented!
+	}
+
+	return typExpr, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprCall) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -8846,42 +8762,45 @@ func (obj *ExprVar) Type() (*types.Type, error) {
 	return obj.typ, nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprVar) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer is an exception to that pattern.
+func (obj *ExprVar) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
 	// lookup value from scope
 	expr, exists := obj.scope.Variables[obj.Name]
 	if !exists {
-		return nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
+		return nil, nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
 	}
 
-	// if this was set explicitly by the parser
-	if obj.typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.typ,
-		}
-		invariants = append(invariants, invar)
-	}
+	// This child call to Infer is an outlier to the common pattern where
+	// "Infer does not call Infer". We really want the indirection here.
 
-	invars, err := expr.Unify()
+	typ, invariants, err := expr.Infer() // this is usually a top level expr
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	invariants = append(invariants, invars...)
 
-	// this expression's type must be the type of what the var is bound to!
-	// TODO: does this always cause an identical duplicate invariant?
-	invar := &interfaces.EqualityInvariant{
-		Expr1: obj,
-		Expr2: expr,
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typ,
+		Actual: typ,
 	}
 	invariants = append(invariants, invar)
 
-	return invariants, nil
+	return typ, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprVar) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -8949,8 +8868,9 @@ func (obj *ExprVar) Value() (types.Value, error) {
 
 // ExprParam represents a parameter to a function.
 type ExprParam struct {
+	typ *types.Type
+
 	Name string // name of the parameter
-	Typ  *types.Type
 }
 
 // String returns a short representation of this expression.
@@ -8976,8 +8896,8 @@ func (obj *ExprParam) Init(*interfaces.Data) error {
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 	return &ExprParam{
+		typ:  obj.typ,
 		Name: obj.Name,
-		Typ:  obj.Typ,
 	}, nil
 }
 
@@ -8988,8 +8908,8 @@ func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprParam) Copy() (interfaces.Expr, error) {
 	return &ExprParam{
+		typ:  obj.typ,
 		Name: obj.Name,
-		Typ:  obj.Typ,
 	}, nil
 }
 
@@ -9032,10 +8952,26 @@ func (obj *ExprParam) SetScope(scope *interfaces.Scope, sctx map[string]interfac
 // change on expressions, if you attempt to set a different type than what has
 // previously been set (when not initially known) this will error.
 func (obj *ExprParam) SetType(typ *types.Type) error {
-	if obj.Typ != nil {
-		return obj.Typ.Cmp(typ) // if not set, ensure it doesn't change
+	if obj.typ != nil {
+		if obj.typ.Cmp(typ) == nil { // if not set, ensure it doesn't change
+			return nil
+		}
+
+		// Redundant: just as expensive as running UnifyCmp below and it
+		// would fail in that case since we did the above Cmp anyways...
+		//if !obj.typ.HasUni() {
+		//	return err // err from above obj.Typ
+		//}
+
+		// Here, obj.typ might be a unification variable, so if we're
+		// setting it to overwrite it, we need to at least make sure
+		// that it's compatible.
+		if err := unificationUtil.UnifyCmp(obj.typ, typ); err != nil {
+			return err
+		}
+		//obj.typ = typ // fallthrough below and set
 	}
-	obj.Typ = typ // set
+	obj.typ = typ // set
 	return nil
 }
 
@@ -9043,28 +8979,56 @@ func (obj *ExprParam) SetType(typ *types.Type) error {
 func (obj *ExprParam) Type() (*types.Type, error) {
 	// Return the type if it is already known statically... It is useful for
 	// type unification to have some extra info early.
-	if obj.Typ == nil {
+	if obj.typ == nil {
 		return nil, interfaces.ErrTypeCurrentlyUnknown
 	}
-	return obj.Typ, nil
+	return obj.typ, nil
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprParam) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer returns a quasi-equivalent to my
+// ExprAny invariant idea.
+func (obj *ExprParam) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
 
-	// if this was set explicitly by the parser
-	if obj.Typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.Typ,
+	// We know this has to be something, but we don't know what. Return
+	// anything, just like my ExprAny invariant would have.
+	typ := obj.typ
+	if obj.typ == nil { // XXX: is this correct?
+		typ = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+
+		// XXX: Every time we call ExprParam.Infer it is generating a
+		// new unification variable... So we want ?1 the first time, ?2
+		// the second... but we never get ?1 solved... SO we want to
+		// cache this so it only happens once I think.
+		obj.typ = typ // cache for now
+
+		// This adds the obj ptr, so it's seen as an expr that we need to solve.
+		invar := &interfaces.UnificationInvariant{
+			Expr:   obj,
+			Expect: typ,
+			Actual: typ,
 		}
 		invariants = append(invariants, invar)
 	}
 
-	return invariants, nil
+	return typ, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprParam) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -9172,11 +9136,23 @@ func (obj *ExprPoly) Type() (*types.Type, error) {
 	return nil, interfaces.ErrTypeCurrentlyUnknown
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprPoly) Unify() ([]interfaces.Invariant, error) {
-	panic("ExprPoly.Unify(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer should never be called.
+func (obj *ExprPoly) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	panic("ExprPoly.Infer(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprPoly) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -9329,32 +9305,36 @@ func (obj *ExprTopLevel) Type() (*types.Type, error) {
 	return obj.Definition.Type()
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprTopLevel) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
-
-	invars, err := obj.Definition.Unify()
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer is an exception to that pattern.
+func (obj *ExprTopLevel) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	typ, invariants, err := obj.Definition.Infer()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	invariants = append(invariants, invars...)
 
-	invar = &interfaces.EqualityInvariant{
-		Expr1: obj,
-		Expr2: obj.Definition,
-	}
-	invariants = append(invariants, invar)
-
-	// We don't want this to have it's SetType run in the unified solution.
-	invar = &interfaces.SkipInvariant{
-		Expr: obj,
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typ,
+		Actual: typ,
 	}
 	invariants = append(invariants, invar)
 
-	return invariants, nil
+	return typ, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprTopLevel) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -9388,6 +9368,7 @@ func (obj *ExprTopLevel) Value() (types.Value, error) {
 type ExprSingleton struct {
 	Definition interfaces.Expr
 
+	singletonType  *types.Type
 	singletonGraph *pgraph.Graph
 	singletonExpr  interfaces.Func
 	mutex          *sync.Mutex // protects singletonGraph and singletonExpr
@@ -9428,6 +9409,7 @@ func (obj *ExprSingleton) Interpolate() (interfaces.Expr, error) {
 
 	return &ExprSingleton{
 		Definition:     definition,
+		singletonType:  nil, // each copy should have its own Type
 		singletonGraph: nil, // each copy should have its own Graph
 		singletonExpr:  nil, // each copy should have its own Func
 		mutex:          &sync.Mutex{},
@@ -9443,6 +9425,7 @@ func (obj *ExprSingleton) Copy() (interfaces.Expr, error) {
 
 	return &ExprSingleton{
 		Definition:     definition,
+		singletonType:  nil, // each copy should have its own Type
 		singletonGraph: nil, // each copy should have its own Graph
 		singletonExpr:  nil, // each copy should have its own Func
 		mutex:          &sync.Mutex{},
@@ -9509,32 +9492,47 @@ func (obj *ExprSingleton) Type() (*types.Type, error) {
 	return obj.Definition.Type()
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprSingleton) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer is an exception to that pattern.
+func (obj *ExprSingleton) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// shouldn't run in parallel...
+	//obj.mutex.Lock()
+	//defer obj.mutex.Unlock()
 
-	invars, err := obj.Definition.Unify()
-	if err != nil {
-		return nil, err
+	if obj.singletonType == nil {
+		typ, invariants, err := obj.Definition.Infer()
+		if err != nil {
+			return nil, nil, err
+		}
+		obj.singletonType = typ
+
+		// This adds the obj ptr, so it's seen as an expr that we need
+		// to solve.
+		invar := &interfaces.UnificationInvariant{
+			Expr:   obj,
+			Expect: typ,
+			Actual: typ,
+		}
+		invariants = append(invariants, invar)
+
+		return obj.singletonType, invariants, nil
 	}
-	invariants = append(invariants, invars...)
 
-	invar = &interfaces.EqualityInvariant{
-		Expr1: obj,
-		Expr2: obj.Definition,
-	}
-	invariants = append(invariants, invar)
+	// We only need to return the invariants the first time, as done above!
+	return obj.singletonType, []*interfaces.UnificationInvariant{}, nil
+}
 
-	// We don't want this to have it's SetType run in the unified solution.
-	invar = &interfaces.SkipInvariant{
-		Expr: obj,
-	}
-	invariants = append(invariants, invar)
-
-	return invariants, nil
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprSingleton) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -9839,68 +9837,65 @@ func (obj *ExprIf) Type() (*types.Type, error) {
 	return nil, interfaces.ErrTypeCurrentlyUnknown
 }
 
-// Unify returns the list of invariants that this node produces. It recursively
-// calls Unify on any children elements that exist in the AST, and returns the
-// collection to the caller.
-func (obj *ExprIf) Unify() ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprIf) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
 
-	// if this was set explicitly by the parser
+	conditionInvars, err := obj.Condition.Check(types.TypeBool) // bool, yes!
+	if err != nil {
+		return nil, nil, err
+	}
+	invariants = append(invariants, conditionInvars...)
+
+	// Same unification var because both branches must have the same type.
+	typExpr := &types.Type{
+		Kind: types.KindUnification,
+		Uni:  types.NewElem(), // unification variable, eg: ?1
+	}
+
+	thenInvars, err := obj.ThenBranch.Check(typExpr)
+	if err != nil {
+		return nil, nil, err
+	}
+	invariants = append(invariants, thenInvars...)
+
+	elseInvars, err := obj.ElseBranch.Check(typExpr)
+	if err != nil {
+		return nil, nil, err
+	}
+	invariants = append(invariants, elseInvars...)
+
+	// Every infer call must have this section, because expr var needs this.
+	typType := typExpr
+	//if obj.typ == nil { // optional says sam
+	//	obj.typ = typExpr // sam says we could unconditionally do this
+	//}
 	if obj.typ != nil {
-		invar := &interfaces.EqualsInvariant{
-			Expr: obj,
-			Type: obj.typ,
-		}
-		invariants = append(invariants, invar)
+		typType = obj.typ
 	}
+	// This must be added even if redundant, so that we collect the obj ptr.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typExpr, // This is the type that we return.
+		Actual: typType,
+	}
+	invariants = append(invariants, invar)
 
-	// conditional expression might have some children invariants to share
-	condition, err := obj.Condition.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, condition...)
+	return typExpr, invariants, nil
+}
 
-	// the condition must ultimately be a boolean
-	conditionInvar := &interfaces.EqualsInvariant{
-		Expr: obj.Condition,
-		Type: types.TypeBool,
-	}
-	invariants = append(invariants, conditionInvar)
-
-	// recurse into the two branches
-	thenBranch, err := obj.ThenBranch.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, thenBranch...)
-
-	elseBranch, err := obj.ElseBranch.Unify()
-	if err != nil {
-		return nil, err
-	}
-	invariants = append(invariants, elseBranch...)
-
-	// the two branches must be equally typed
-	branchesInvar := &interfaces.EqualityInvariant{
-		Expr1: obj.ThenBranch,
-		Expr2: obj.ElseBranch,
-	}
-	invariants = append(invariants, branchesInvar)
-
-	// the two branches must match the type of the whole expression
-	thenInvar := &interfaces.EqualityInvariant{
-		Expr1: obj,
-		Expr2: obj.ThenBranch,
-	}
-	invariants = append(invariants, thenInvar)
-	elseInvar := &interfaces.EqualityInvariant{
-		Expr1: obj,
-		Expr2: obj.ElseBranch,
-	}
-	invariants = append(invariants, elseInvar)
-
-	return invariants, nil
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprIf) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
 }
 
 // Func returns a function which returns the correct branch based on the ever
@@ -10018,7 +10013,6 @@ func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
 	case *ExprIf:
 		return expr.scope, nil
 
-	//case *ExprAny: // unexpected!
 	default:
 		return nil, fmt.Errorf("unexpected: %+v", node)
 	}

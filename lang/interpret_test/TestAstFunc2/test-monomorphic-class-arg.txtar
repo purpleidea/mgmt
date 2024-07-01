@@ -12,4 +12,4 @@ class use_polymorphically($id) {
 }
 include use_polymorphically(func($x) {$x})
 -- OUTPUT --
-# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Int != Str)
+# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: Str != Int

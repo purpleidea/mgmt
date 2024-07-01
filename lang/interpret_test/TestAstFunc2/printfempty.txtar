@@ -7,4 +7,4 @@ import "fmt"
 test fmt.printf() {}
 
 -- OUTPUT --
-# err: errUnify: 1 unconsumed generators
+# err: errUnify: func `printf` infer error: must have at least one arg

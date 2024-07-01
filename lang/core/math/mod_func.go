@@ -34,20 +34,18 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	simplepoly.ModuleRegister(ModuleName, "mod", []*types.FuncValue{
-		{
-			T: types.NewType("func(int, int) int"),
-			V: Mod,
-		},
-		{
-			T: types.NewType("func(float, float) float"),
-			V: Mod,
-		},
+	simple.ModuleRegister(ModuleName, "mod", &simple.Scaffold{
+		T: types.NewType("func(?1, ?1) ?1"), // all int or float
+		C: simple.TypeMatch([]string{
+			"func(int, int) int",
+			"func(float, float) float",
+		}),
+		F: Mod,
 	})
 }
 

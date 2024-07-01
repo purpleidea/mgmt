@@ -39,21 +39,21 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "getenv", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "getenv", &simple.Scaffold{
 		T: types.NewType("func(str) str"),
-		V: GetEnv,
+		F: GetEnv,
 	})
-	simple.ModuleRegister(ModuleName, "defaultenv", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "defaultenv", &simple.Scaffold{
 		T: types.NewType("func(str, str) str"),
-		V: DefaultEnv,
+		F: DefaultEnv,
 	})
-	simple.ModuleRegister(ModuleName, "hasenv", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "hasenv", &simple.Scaffold{
 		T: types.NewType("func(str) bool"),
-		V: HasEnv,
+		F: HasEnv,
 	})
-	simple.ModuleRegister(ModuleName, "env", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "env", &simple.Scaffold{
 		T: types.NewType("func() map{str: str}"),
-		V: Env,
+		F: Env,
 	})
 }
 

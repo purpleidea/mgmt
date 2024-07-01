@@ -32,7 +32,6 @@ package unification
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -66,6 +65,12 @@ type Init struct {
 	Logf  func(format string, v ...interface{})
 }
 
+// Data contains the input data for the solver to process.
+type Data struct {
+	// UnificationInvariants is an alternate data representation for Solve.
+	UnificationInvariants []*interfaces.UnificationInvariant
+}
+
 // Solver is the general interface that any solver needs to implement.
 type Solver interface {
 	// Init initializes the solver struct before first use.
@@ -73,7 +78,7 @@ type Solver interface {
 
 	// Solve performs the actual solving. It must return as soon as possible
 	// if the context is closed.
-	Solve(ctx context.Context, invariants []interfaces.Invariant, expected []interfaces.Expr) (*InvariantSolution, error)
+	Solve(context.Context, *Data) (*InvariantSolution, error)
 }
 
 // registeredSolvers is a global map of all possible unification solvers which
@@ -120,127 +125,4 @@ func LookupDefault() (Solver, error) {
 	}
 
 	return nil, fmt.Errorf("no registered default solver")
-}
-
-// DebugSolverState helps us in understanding the state of the type unification
-// solver in a more mainstream format.
-// Example:
-//
-// solver state:
-//
-// *	str("foo") :: str
-// *	call:f(str("foo")) [0xc000ac9f10] :: ?1
-// *	var(x) [0xc00088d840] :: ?2
-// *	param(x) [0xc00000f950] :: ?3
-// *	func(x) { var(x) } [0xc0000e9680] :: ?4
-// *	?2 = ?3
-// *	?4 = func(arg0 str) ?1
-// *	?4 = func(x str) ?2
-// *	?1 = ?2
-func DebugSolverState(solved map[interfaces.Expr]*types.Type, equalities []interfaces.Invariant) string {
-	s := ""
-
-	// all the relevant Exprs
-	count := 0
-	exprs := make(map[interfaces.Expr]int)
-	for _, equality := range equalities {
-		for _, expr := range equality.ExprList() {
-			count++
-			exprs[expr] = count // for sorting
-		}
-	}
-
-	// print the solved Exprs first
-	for expr, typ := range solved {
-		s += fmt.Sprintf("%v :: %v\n", expr, typ)
-		delete(exprs, expr)
-	}
-
-	sortedExprs := []interfaces.Expr{}
-	for k := range exprs {
-		sortedExprs = append(sortedExprs, k)
-	}
-	sort.Slice(sortedExprs, func(i, j int) bool { return exprs[sortedExprs[i]] < exprs[sortedExprs[j]] })
-
-	// for each remaining expr, generate a shorter name than the full pointer
-	nextVar := 1
-	shortNames := map[interfaces.Expr]string{}
-	for _, expr := range sortedExprs {
-		shortNames[expr] = fmt.Sprintf("?%d", nextVar)
-		nextVar++
-		s += fmt.Sprintf("%p %v :: %s\n", expr, expr, shortNames[expr])
-	}
-
-	// print all the equalities using the short names
-	for _, equality := range equalities {
-		switch e := equality.(type) {
-		case *interfaces.EqualsInvariant:
-			_, ok := solved[e.Expr]
-			if !ok {
-				s += fmt.Sprintf("%s = %v\n", shortNames[e.Expr], e.Type)
-			} else {
-				// if solved, then this is redundant, don't print anything
-			}
-
-		case *interfaces.EqualityInvariant:
-			type1, ok1 := solved[e.Expr1]
-			type2, ok2 := solved[e.Expr2]
-			if !ok1 && !ok2 {
-				s += fmt.Sprintf("%s = %s\n", shortNames[e.Expr1], shortNames[e.Expr2])
-			} else if ok1 && !ok2 {
-				s += fmt.Sprintf("%s = %s\n", type1, shortNames[e.Expr2])
-			} else if !ok1 && ok2 {
-				s += fmt.Sprintf("%s = %s\n", shortNames[e.Expr1], type2)
-			} else {
-				// if completely solved, then this is redundant, don't print anything
-			}
-
-		case *interfaces.EqualityWrapFuncInvariant:
-			funcType, funcOk := solved[e.Expr1]
-
-			args := ""
-			argsOk := true
-			for i, argName := range e.Expr2Ord {
-				if i > 0 {
-					args += ", "
-				}
-				argExpr := e.Expr2Map[argName]
-				argType, ok := solved[argExpr]
-				if !ok {
-					args += fmt.Sprintf("%s %s", argName, shortNames[argExpr])
-					argsOk = false
-				} else {
-					args += fmt.Sprintf("%s %s", argName, argType)
-				}
-			}
-
-			outType, outOk := solved[e.Expr2Out]
-
-			if !funcOk || !argsOk || !outOk {
-				if !funcOk && !outOk {
-					s += fmt.Sprintf("%s = func(%s) %s\n", shortNames[e.Expr1], args, shortNames[e.Expr2Out])
-				} else if !funcOk && outOk {
-					s += fmt.Sprintf("%s = func(%s) %s\n", shortNames[e.Expr1], args, outType)
-				} else if funcOk && !outOk {
-					s += fmt.Sprintf("%s = func(%s) %s\n", funcType, args, shortNames[e.Expr2Out])
-				} else {
-					s += fmt.Sprintf("%s = func(%s) %s\n", funcType, args, outType)
-				}
-			}
-
-		case *interfaces.CallFuncArgsValueInvariant:
-			// skip, not used in the examples I care about
-
-		case *interfaces.AnyInvariant:
-			// skip, not used in the examples I care about
-
-		case *interfaces.SkipInvariant:
-			// we don't care about this one
-
-		default:
-			s += fmt.Sprintf("%v\n", equality)
-		}
-	}
-
-	return s
 }

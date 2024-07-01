@@ -36,6 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	unificationUtil "github.com/purpleidea/mgmt/lang/unification/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -49,14 +50,23 @@ const (
 	// argument (the format string) is not known statically at compile time.
 	// The downside of this is that if it changes while we are running, it
 	// could change from "hello %s" to "hello %d" or "%s %d...". If this
-	// happens we just generate ugly format strings, instead of preventing
-	// it all from even running at all. It's useful to allow dynamic strings
-	// if we were generating custom log messages (for example) where the
-	// format comes from a database lookup or similar. Of course if we knew
-	// that such a lookup could be done quickly and statically (maybe it's a
-	// read from a local key-value config file that's part of our deploy)
-	// then maybe we can do it before unification speculatively.
+	// happens we can generate ugly format strings, instead of preventing it
+	// from even running at all. The behaviour if this happens is determined
+	// by PrintfAllowFormatError.
+	//
+	// NOTE: It's useful to allow dynamic strings if we were generating
+	// custom log messages (for example) where the format comes from a
+	// database lookup or similar. Of course if we knew that such a lookup
+	// could be done quickly and statically (maybe it's a read from a local
+	// key-value config file that's part of our deploy) then maybe we can do
+	// it before unification speculatively.
 	PrintfAllowNonStaticFormat = true
+
+	// PrintfAllowFormatError will cause the function to shutdown if it has
+	// an invalid format string. Otherwise this will cause the output of the
+	// function to return a garbled message. This is similar to golang's
+	// format errors, eg: https://pkg.go.dev/fmt#hdr-Format_errors
+	PrintfAllowFormatError = true
 
 	printfArgNameFormat = "format" // name of the first arg
 )
@@ -65,7 +75,7 @@ func init() {
 	funcs.ModuleRegister(ModuleName, PrintfFuncName, func() interfaces.Func { return &PrintfFunc{} })
 }
 
-var _ interfaces.PolyFunc = &PrintfFunc{} // ensure it meets this expectation
+var _ interfaces.InferableFunc = &PrintfFunc{} // ensure it meets this expectation
 
 // PrintfFunc is a static polymorphic function that compiles a format string and
 // returns the output as a string. It bases its output on the values passed in
@@ -101,351 +111,124 @@ func (obj *PrintfFunc) ArgGen(index int) (string, error) {
 	return util.NumToAlpha(index - 1), nil
 }
 
-// Unify returns the list of invariants that this func produces.
-func (obj *PrintfFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
+// FuncInfer takes partial type and value information from the call site of this
+// function so that it can build an appropriate type signature for it. The type
+// signature may include unification variables.
+func (obj *PrintfFunc) FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// func(format str, args... variant) string
 
-	// func(format string, args... variant) string
-
-	formatName, err := obj.ArgGen(0)
-	if err != nil {
-		return nil, err
+	if len(partialValues) < 1 {
+		return nil, nil, fmt.Errorf("must have at least one arg")
+	}
+	if len(partialType.Map) < 1 {
+		// programming error?
+		return nil, nil, fmt.Errorf("must have at least one arg")
+	}
+	if typ := partialType.Map[partialType.Ord[0]]; typ != nil && typ.Cmp(types.TypeStr) != nil {
+		return nil, nil, fmt.Errorf("format string was a %s", typ)
 	}
 
-	dummyFormat := &interfaces.ExprAny{} // corresponds to the format type
-	dummyOut := &interfaces.ExprAny{}    // corresponds to the out string
-
-	// format arg type of string
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyFormat,
-		Type: types.TypeStr,
+	getType := func(i int) *types.Type { // get Nth type, doesn't bound check
+		if partialValues[i] != nil {
+			// We don't check that this is consistent with
+			// partialType, because that's a compiler job.
+			return partialValues[i].Type() // got it!
+		}
+		if partialType == nil || partialType.Map == nil {
+			return nil // no more information
+		}
+		return partialType.Map[partialType.Ord[i]]
 	}
-	invariants = append(invariants, invar)
 
-	// return type of string
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyOut,
-		Type: types.TypeStr,
+	getFormat := func() *string {
+		if partialValues[0] == nil {
+			return nil // no more information
+		}
+		typ := partialValues[0].Type()
+		if typ == nil || typ.Cmp(types.TypeStr) != nil {
+			return nil // no more information
+		}
+
+		formatString := partialValues[0].Str()
+		return &formatString
 	}
-	invariants = append(invariants, invar)
 
-	invar = &interfaces.EqualityInvariant{
-		Expr1: dummyFormat,
-		Expr2: dummyOut,
+	typList := make([]*types.Type, len(partialValues)) // number of args at call site
+
+	for i := range partialValues { // populate initial expected types
+		typList[i] = getType(i) // nil if missing
 	}
-	invariants = append(invariants, invar)
 
-	// dynamic generator function for when the format string is dynamic
-	dynamicFn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
+	// Do we have type information from the format string? (If it exists!)
+	if format := getFormat(); format != nil {
+		// formatList doesn't contain zeroth arg in our typList!
+		formatList, err := parseFormatToTypeList(*format)
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "could not parse format string")
+		}
+		for i, x := range typList {
+			if i == 0 { // format string
 				continue
 			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
+			if x == nil { // nothing to check against
+				typList[i] = formatList[i-1] // use this!
 				continue
 			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if len(cfavInvar.Args) == 0 {
-				return nil, fmt.Errorf("unable to build function with no args")
+
+			// Assume x does not contain unification variables!
+			if x.HasUni() {
+				// programming error (did the compiler change?)
+				return nil, nil, errwrap.Wrapf(err, "programming error at arg index %d", i)
 			}
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			// add the relationship to the format string arg
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyFormat,
+			if err := unificationUtil.UnifyCmp(x, formatList[i-1]); err != nil {
+				return nil, nil, errwrap.Wrapf(err, "inconsistent type at arg index %d", i)
 			}
-			invariants = append(invariants, invar)
-
-			// add the relationship to the returned value
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationships to the called args
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[0],
-				Expr2: dummyFormat,
-			}
-			invariants = append(invariants, invar)
-
-			// first arg must be a string
-			invar = &interfaces.EqualsInvariant{
-				Expr: cfavInvar.Args[0],
-				Type: types.TypeStr,
-			}
-			invariants = append(invariants, invar)
-
-			// full function
-			mapped := make(map[string]interfaces.Expr)
-			ordered := []string{}
-			for i, x := range cfavInvar.Args {
-				argName, err := obj.ArgGen(i)
-				if err != nil {
-					return nil, err
-				}
-
-				dummyArg := &interfaces.ExprAny{}
-				if i == 0 {
-					dummyArg = dummyFormat // use parent one
-				}
-
-				invar = &interfaces.EqualityInvariant{
-					Expr1: x, // cfavInvar.Args[i]
-					Expr2: dummyArg,
-				}
-				invariants = append(invariants, invar)
-
-				mapped[argName] = dummyArg
-				ordered = append(ordered, argName)
-			}
-
-			invar = &interfaces.EqualityWrapFuncInvariant{
-				Expr1:    expr, // maps directly to us!
-				Expr2Map: mapped,
-				Expr2Ord: ordered,
-				Expr2Out: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: do we return this relationship with ExprCall?
-			invar = &interfaces.EqualityWrapCallInvariant{
-				// TODO: should Expr1 and Expr2 be reversed???
-				Expr1: cfavInvar.Expr,
-				//Expr2Func: cfavInvar.Func, // same as below
-				Expr2Func: expr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: are there any other invariants we should build?
-			return invariants, nil // generator return
+			// Less general version of the above...
+			//if err := x.Cmp(formatList[i-1]); err != nil {
+			//	return nil, nil, errwrap.Wrapf(err, "inconsistent type at arg index %d", i)
+			//}
 		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
+	} else if !PrintfAllowNonStaticFormat {
+		return nil, nil, fmt.Errorf("format string is not known statically")
 	}
 
-	// generator function
-	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
-				continue
-			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
-				continue
-			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if len(cfavInvar.Args) == 0 {
-				return nil, fmt.Errorf("unable to build function with no args")
-			}
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			// add the relationship to the format string arg
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyFormat,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationship to the returned value
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationships to the called args
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[0],
-				Expr2: dummyFormat,
-			}
-			invariants = append(invariants, invar)
-
-			// first arg must be a string
-			invar = &interfaces.EqualsInvariant{
-				Expr: cfavInvar.Args[0],
-				Type: types.TypeStr,
-			}
-			invariants = append(invariants, invar)
-
-			// Here we try to see if we know the format string
-			// statically. Perhaps more future Value() invocations
-			// on simple functions will also return before
-			// unification and before the function engine runs.
-			// If we happen to know the value, that's great and we
-			// can unify very easily. If we don't, then we can
-			// decide if we want to allow dynamic format strings.
-			value, err := cfavInvar.Args[0].Value() // is it known?
-			if err != nil {
-				if PrintfAllowNonStaticFormat {
-					return dynamicFn(fnInvariants, solved)
-				}
-				return nil, fmt.Errorf("format string is not known statically")
-			}
-
-			if k := value.Type().Kind; k != types.KindStr {
-				return nil, fmt.Errorf("unable to build function with 0th arg of kind: %s", k)
-			}
-			format := value.Str() // must not panic
-			typList, err := parseFormatToTypeList(format)
-			if err != nil {
-				return nil, errwrap.Wrapf(err, "could not parse format string")
-			}
-
-			// full function
-			mapped := make(map[string]interfaces.Expr)
-			ordered := []string{formatName}
-			mapped[formatName] = dummyFormat
-
-			for i, x := range typList {
-				argName, err := obj.ArgGen(i + 1) // skip 0th
-				if err != nil {
-					return nil, err
-				}
-				if argName == printfArgNameFormat {
-					return nil, fmt.Errorf("could not build function with %d args", i+1) // +1 for format arg
-				}
-
-				dummyArg := &interfaces.ExprAny{}
-				// if it's a variant, we can't add the invariant
-				if x != types.TypeVariant {
-					invar = &interfaces.EqualsInvariant{
-						Expr: dummyArg,
-						Type: x,
-					}
-					invariants = append(invariants, invar)
-				}
-
-				// catch situations like `printf("%d%d", 42)`
-				if len(cfavInvar.Args) <= i+1 {
-					return nil, fmt.Errorf("more specifiers (%d) than values (%d)", len(typList), len(cfavInvar.Args)-1)
-				}
-
-				// add the relationships to the called args
-				invar = &interfaces.EqualityInvariant{
-					Expr1: cfavInvar.Args[i+1],
-					Expr2: dummyArg,
-				}
-				invariants = append(invariants, invar)
-
-				mapped[argName] = dummyArg
-				ordered = append(ordered, argName)
-			}
-
-			invar = &interfaces.EqualityWrapFuncInvariant{
-				Expr1:    expr, // maps directly to us!
-				Expr2Map: mapped,
-				Expr2Ord: ordered,
-				Expr2Out: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: do we return this relationship with ExprCall?
-			invar = &interfaces.EqualityWrapCallInvariant{
-				// TODO: should Expr1 and Expr2 be reversed???
-				Expr1: cfavInvar.Expr,
-				//Expr2Func: cfavInvar.Func, // same as below
-				Expr2Func: expr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: are there any other invariants we should build?
-			return invariants, nil // generator return
-		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
+	// Check the format string is consistent with what we've found earlier!
+	if i := 0; typList[i] != nil && typList[i].Cmp(types.TypeStr) != nil {
+		return nil, nil, fmt.Errorf("inconsistent type at arg index %d (format string)", i)
 	}
-	invar = &interfaces.GeneratorInvariant{
-		Func: fn,
-	}
-	invariants = append(invariants, invar)
+	typList[0] = types.TypeStr // format string (zeroth arg)
 
-	return invariants, nil
-}
-
-// Polymorphisms returns the possible type signature for this function. In this
-// case, since the number of arguments can be infinite, it returns the final
-// precise type if it can be gleamed from the format argument. If it cannot, it
-// is because either the format argument was not known statically, or because it
-// had an invalid format string.
-// XXX: This version of the function does not handle any variants returned from
-// the parseFormatToTypeList helper function.
-func (obj *PrintfFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
-	if partialType == nil || len(partialValues) < 1 {
-		return nil, fmt.Errorf("first argument must be a static format string")
-	}
-
-	if partialType.Out != nil && partialType.Out.Cmp(types.TypeStr) != nil {
-		return nil, fmt.Errorf("return value of printf must be str")
-	}
-
-	ord := partialType.Ord
-	if partialType.Map != nil {
-		if len(ord) < 1 {
-			return nil, fmt.Errorf("must have at least one arg in printf func")
-		}
-		if t, exists := partialType.Map[ord[0]]; exists && t != nil {
-			if t.Cmp(types.TypeStr) != nil {
-				return nil, fmt.Errorf("first arg for printf must be an str")
-			}
-		}
-	}
-
-	// FIXME: we'd like to pre-compute the interpolation if we can, so that
-	// we can run this code properly... for now, we can't, so it's a compile
-	// time error...
-	if partialValues[0] == nil {
-		return nil, fmt.Errorf("could not determine type from format string")
-	}
-
-	format := partialValues[0].Str() // must not panic
-	typList, err := parseFormatToTypeList(format)
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not parse format string")
-	}
-
-	typ := &types.Type{
-		Kind: types.KindFunc, // function type
-		Map:  make(map[string]*types.Type),
-		Ord:  []string{},
-		Out:  types.TypeStr,
-	}
-	// add first arg
-	typ.Map[printfArgNameFormat] = types.TypeStr
-	typ.Ord = append(typ.Ord, printfArgNameFormat)
+	mapped := map[string]*types.Type{}
+	ordered := []string{}
 
 	for i, x := range typList {
-		name := util.NumToAlpha(i) // start with a...
-		if name == printfArgNameFormat {
-			return nil, fmt.Errorf("could not build function with %d args", i+1) // +1 for format arg
+		argName, err := obj.ArgGen(i)
+		if err != nil {
+			return nil, nil, err
 		}
 
-		// if we also had even more partial type information, check it!
-		if t, exists := partialType.Map[ord[i+1]]; exists && t != nil {
-			if err := t.Cmp(x); err != nil {
-				return nil, errwrap.Wrapf(err, "arg %d does not match expected type", i+1)
+		//if x.HasVariant() {
+		//	x = x.VariantToUni() // converts %[]v style things
+		//}
+		if x == nil || x == types.TypeVariant { // a %v or something unknown
+			x = &types.Type{
+				Kind: types.KindUnification,
+				Uni:  types.NewElem(), // unification variable, eg: ?1
 			}
 		}
 
-		typ.Map[name] = x
-		typ.Ord = append(typ.Ord, name)
+		mapped[argName] = x
+		ordered = append(ordered, argName)
 	}
 
-	return []*types.Type{typ}, nil // return a list with a single possibility
+	typ := &types.Type{ // this full function
+		Kind: types.KindFunc,
+		Map:  mapped,
+		Ord:  ordered,
+		Out:  types.TypeStr,
+	}
+
+	return typ, []*interfaces.UnificationInvariant{}, nil
 }
 
 // Build takes the now known function signature and stores it so that this
@@ -507,6 +290,9 @@ func (obj *PrintfFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *PrintfFunc) Info() *interfaces.Info {
+	// Since this function implements FuncInfer we want sig to return nil to
+	// avoid an accidental return of unification variables when we should be
+	// getting them from FuncInfer, and not from here. (During unification!)
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
@@ -644,7 +430,8 @@ func parseFormatToTypeList(format string) ([]*types.Type, error) {
 
 		// special!
 		case 'v':
-			typList = append(typList, types.TypeVariant)
+			//typList = append(typList, types.TypeVariant) // old
+			typList = append(typList, types.NewType("?1")) // uni!
 
 		default:
 			return nil, fmt.Errorf("invalid format string at %d", i)
@@ -658,11 +445,13 @@ func parseFormatToTypeList(format string) ([]*types.Type, error) {
 // compileFormatToString takes a format string and a list of values and returns
 // the compiled/templated output. This can also handle the %v special variant
 // type in the format string. Of course the corresponding value to those %v
-// entries must have a static, fixed, precise type.
+// entries must have a static, fixed, precise type. If someone changes the
+// format string during runtime, then that's their fault, and this could error.
+// Depending on PrintfAllowFormatError, we should NOT error if we have a
+// mismatch between the format string and the available args. Return similar to
+// golang's EXTRA/MISSING, eg: https://pkg.go.dev/fmt#hdr-Format_errors
+// TODO: implement better format errors support
 // FIXME: add support for more types, and add tests!
-// XXX: depending on PrintfAllowNonStaticFormat, we should NOT error if we have
-// a mismatch between the format string and the available args. Return similar
-// to golang's EXTRA/MISSING, eg: https://pkg.go.dev/fmt#hdr-Format_errors
 func compileFormatToString(format string, values []types.Value) (string, error) {
 	output := ""
 	ix := 0
@@ -708,12 +497,19 @@ func compileFormatToString(format string, values []types.Value) (string, error) 
 			typ = types.TypeVariant
 
 		default:
+			// TODO: improve the output of this
+			if !PrintfAllowFormatError {
+				return fmt.Sprintf("<invalid format `%v` at %d>", format[i], i), nil
+			}
 			return "", fmt.Errorf("invalid format string at %d", i)
 		}
 		inType = false // done
 
 		if ix >= len(values) {
-			// programming error, probably in type unification
+			// TODO: improve the output of this
+			if !PrintfAllowFormatError {
+				return fmt.Sprintf("<invalid format length `%d` at %d>", ix, i), nil
+			}
 			return "", fmt.Errorf("more specifiers (%d) than values (%d)", ix+1, len(values))
 		}
 

@@ -243,10 +243,7 @@ func (obj *Lang) Init(ctx context.Context) error {
 
 	// apply type unification
 	logf := func(format string, v ...interface{}) {
-		// TODO: Remove the masked logger here when unification is clean!
-		if obj.Debug { // unification only has debug messages...
-			obj.Logf("unification: "+format, v...)
-		}
+		obj.Logf("unification: "+format, v...)
 	}
 	obj.Logf("running type unification...")
 

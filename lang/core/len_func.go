@@ -33,25 +33,45 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	simplepoly.Register("len", []*types.FuncValue{
-		{
-			T: types.NewType("func(str) int"),
-			V: Len,
-		},
-		{
-			T: types.NewType("func([]variant) int"),
-			V: Len,
-		},
-		{
-			T: types.NewType("func(map{variant: variant}) int"),
-			V: Len,
-		},
+	simple.Register("len", &simple.Scaffold{
+		T: types.NewType("func(?1) int"),
 		// TODO: should we add support for struct or func lengths?
+		C: simple.TypeMatch([]string{
+			"func(str) int",
+			"func([]?1) int",
+			"func(map{?1: ?2}) int",
+		}),
+		//C: func(typ *types.Type) error {
+		//	if typ == nil {
+		//		return fmt.Errorf("nil type")
+		//	}
+		//	if typ.Kind != types.KindFunc {
+		//		return fmt.Errorf("not a func")
+		//	}
+		//	if len(typ.Map) != 1 || len(typ.Ord) != 1 {
+		//		return fmt.Errorf("arg count wrong")
+		//	}
+		//	if err := typ.Out.Cmp(types.TypeInt); err != nil {
+		//		return err
+		//	}
+		//	t := typ.Map[typ.Ord[0]]
+		//	if t.Cmp(types.TypeStr) == nil {
+		//		return nil // func(str) int
+		//	}
+		//	if t.Kind == types.KindList {
+		//		return nil // func([]?1) int
+		//	}
+		//	if t.Kind == types.KindMap {
+		//		return nil // func(map{?1: ?2}) int
+		//	}
+		//	return fmt.Errorf("can't determine length of %s", t)
+		//},
+		F: Len,
 	})
 }
 

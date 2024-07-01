@@ -54,7 +54,7 @@ func init() {
 	Register(StructLookupOptionalFuncName, func() interfaces.Func { return &StructLookupOptionalFunc{} }) // must register the func and name
 }
 
-var _ interfaces.PolyFunc = &StructLookupOptionalFunc{} // ensure it meets this expectation
+var _ interfaces.InferableFunc = &StructLookupOptionalFunc{} // ensure it meets this expectation
 
 // StructLookupOptionalFunc is a struct field lookup function. It does a special
 // trick in that it will unify on a struct that doesn't have the specified field
@@ -64,6 +64,8 @@ var _ interfaces.PolyFunc = &StructLookupOptionalFunc{} // ensure it meets this 
 type StructLookupOptionalFunc struct {
 	Type *types.Type // Kind == Struct, that is used as the struct we lookup
 	Out  *types.Type // type of field we're extracting (also the type of optional)
+
+	built bool // was this function built yet?
 
 	init  *interfaces.Init
 	last  types.Value // last value received to use for diff
@@ -87,315 +89,54 @@ func (obj *StructLookupOptionalFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
-// Unify returns the list of invariants that this func produces.
-func (obj *StructLookupOptionalFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
-
-	// func(struct T1, field str, optional T2) T2
-
-	structName, err := obj.ArgGen(0)
-	if err != nil {
-		return nil, err
+// helper
+func (obj *StructLookupOptionalFunc) sig() *types.Type {
+	st := "?1"
+	out := "?2"
+	if obj.Type != nil {
+		st = obj.Type.String()
+	}
+	if obj.Out != nil {
+		out = obj.Out.String()
 	}
 
-	fieldName, err := obj.ArgGen(1)
-	if err != nil {
-		return nil, err
+	return types.NewType(fmt.Sprintf(
+		"func(%s %s, %s str, %s %s) %s",
+		structLookupOptionalArgNameStruct, st,
+		structLookupOptionalArgNameField,
+		structLookupOptionalArgNameOptional, out,
+		out,
+	))
+}
+
+// FuncInfer takes partial type and value information from the call site of this
+// function so that it can build an appropriate type signature for it. The type
+// signature may include unification variables.
+func (obj *StructLookupOptionalFunc) FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// func(struct ?1, field str, optional ?2) ?2
+
+	// This particular function should always get called with a known string
+	// for the second argument. Without it being known statically, we refuse
+	// to build this function.
+
+	if l := 3; len(partialValues) != l {
+		return nil, nil, fmt.Errorf("function must have %d args", l)
 	}
-
-	optionalName, err := obj.ArgGen(2)
-	if err != nil {
-		return nil, err
+	if err := partialValues[1].Type().Cmp(types.TypeStr); err != nil {
+		return nil, nil, errwrap.Wrapf(err, "function field name must be a str")
 	}
-
-	dummyStruct := &interfaces.ExprAny{}   // corresponds to the struct type
-	dummyField := &interfaces.ExprAny{}    // corresponds to the field type
-	dummyOptional := &interfaces.ExprAny{} // corresponds to the optional type
-	dummyOut := &interfaces.ExprAny{}      // corresponds to the out string
-
-	// field arg type of string
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyField,
-		Type: types.TypeStr,
+	s := partialValues[1].Str() // must not panic
+	if s == "" {
+		return nil, nil, fmt.Errorf("function must not have an empty field name")
 	}
-	invariants = append(invariants, invar)
+	// This can happen at runtime too, but we save it here for Build()!
+	//obj.field = s // don't store for this optional lookup version!
 
-	// XXX: we could use this relationship *if* our solver could understand
-	// different fields, and partial struct matches. I guess we'll leave it
-	// for another day!
-	//mapped := make(map[string]interfaces.Expr)
-	//ordered := []string{???}
-	//mapped[???] = dummyField
-	//invar = &interfaces.EqualityWrapStructInvariant{
-	//	Expr1:    dummyStruct,
-	//	Expr2Map: mapped,
-	//	Expr2Ord: ordered,
-	//}
-	//invariants = append(invariants, invar)
+	// This isn't precise enough because we must guarantee that the field is
+	// in the struct and that ?1 is actually a struct, but that's okay it is
+	// something that we'll verify at build time! (Or skip it for optional!)
 
-	// These two types should be identical. This is the safest approach. In
-	// the case where the struct field is missing, then this should be true,
-	// and when it is present, we'll never use the optional value, but we
-	// can still enforce it's the same type.
-	invar = &interfaces.EqualityInvariant{
-		Expr1: dummyOptional,
-		Expr2: dummyOut,
-	}
-	invariants = append(invariants, invar)
-
-	// full function
-	mapped := make(map[string]interfaces.Expr)
-	ordered := []string{structName, fieldName, optionalName}
-	mapped[structName] = dummyStruct
-	mapped[fieldName] = dummyField
-	mapped[optionalName] = dummyOptional
-
-	invar = &interfaces.EqualityWrapFuncInvariant{
-		Expr1:    expr, // maps directly to us!
-		Expr2Map: mapped,
-		Expr2Ord: ordered,
-		Expr2Out: dummyOut,
-	}
-	invariants = append(invariants, invar)
-
-	// generator function
-	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
-				continue
-			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
-				continue
-			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if l := len(cfavInvar.Args); l != 3 {
-				return nil, fmt.Errorf("unable to build function with %d args", l)
-			}
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			// add the relationship to the returned value
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationships to the called args
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[0],
-				Expr2: dummyStruct,
-			}
-			invariants = append(invariants, invar)
-
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[1],
-				Expr2: dummyField,
-			}
-			invariants = append(invariants, invar)
-
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[2],
-				Expr2: dummyOptional,
-			}
-			invariants = append(invariants, invar)
-
-			// second arg must be a string
-			invar = &interfaces.EqualsInvariant{
-				Expr: cfavInvar.Args[1],
-				Type: types.TypeStr,
-			}
-			invariants = append(invariants, invar)
-
-			// Not necessary for the field to be known or be static!
-			var field string
-			value, err := cfavInvar.Args[1].Value() // is it known?
-			if err == nil {
-				if k := value.Type().Kind; k != types.KindStr {
-					return nil, fmt.Errorf("unable to build function with 1st arg of kind: %s", k)
-				}
-				field = value.Str() // must not panic
-			}
-
-			// If we figure out both of these types, we'll know the
-			var t1 *types.Type // struct type
-			var t2 *types.Type // optional / return type
-
-			// validateArg0 checks: struct T1
-			validateArg0 := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-
-				// we happen to have a struct!
-				if k := typ.Kind; k != types.KindStruct {
-					return fmt.Errorf("unable to build function with 0th arg of kind: %s", k)
-				}
-
-				// check both Ord and Map for safety
-				found := false
-				for _, s := range typ.Ord {
-					if s == field {
-						found = true
-						break
-					}
-				}
-				t, exists := typ.Map[field] // type found is T2
-				if field != "" {
-					if !exists || !found {
-						//fmt.Printf("might be using optional arg, struct is missing field: %s\n", field)
-					} else if err := t.Cmp(t2); t2 != nil && err != nil {
-						return errwrap.Wrapf(err, "input type was inconsistent")
-					}
-
-					// learn!
-					t2 = t
-				}
-
-				if err := typ.Cmp(t1); t1 != nil && err != nil {
-					return errwrap.Wrapf(err, "input type was inconsistent")
-				}
-
-				// learn!
-				t1 = typ
-				return nil
-			}
-
-			validateArg2OrOut := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-
-				if err := typ.Cmp(t2); t2 != nil && err != nil {
-					return errwrap.Wrapf(err, "input type was inconsistent")
-				}
-
-				// learn!
-				t2 = typ
-				return nil
-			}
-
-			if typ, err := cfavInvar.Args[0].Type(); err == nil { // is it known?
-				// this sets t1 (and sometimes t2) on success if it learned
-				if err := validateArg0(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "first struct arg type is inconsistent")
-				}
-			}
-			if typ, exists := solved[cfavInvar.Args[0]]; exists { // alternate way to lookup type
-				// this sets t1 (and sometimes t2) on success if it learned
-				if err := validateArg0(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "first struct arg type is inconsistent")
-				}
-			}
-
-			if typ, err := cfavInvar.Args[2].Type(); err == nil { // is it known?
-				// this sets t2 on success if it learned
-				if err := validateArg2OrOut(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "third struct arg type is inconsistent")
-				}
-			}
-			if typ, exists := solved[cfavInvar.Args[2]]; exists { // alternate way to lookup type
-				// this sets t2 on success if it learned
-				if err := validateArg2OrOut(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "third struct arg type is inconsistent")
-				}
-			}
-
-			// look at the return type too (if known)
-			if typ, err := cfavInvar.Expr.Type(); err == nil { // is it known?
-				// this sets t2 on success if it learned
-				if err := validateArg2OrOut(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "third struct arg type is inconsistent")
-				}
-			}
-			if typ, exists := solved[cfavInvar.Expr]; exists { // alternate way to lookup type
-				// this sets t2 on success if it learned
-				if err := validateArg2OrOut(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "third struct arg type is inconsistent")
-				}
-			}
-
-			// XXX: if the struct type/value isn't know statically?
-
-			if t1 != nil {
-				invar = &interfaces.EqualsInvariant{
-					Expr: dummyStruct,
-					Type: t1,
-				}
-				invariants = append(invariants, invar)
-
-				// We know *some* information about the struct!
-				// Let's hope the unusedField expr won't trip
-				// up the solver...
-				mapped := make(map[string]interfaces.Expr)
-				ordered := []string{}
-				for _, x := range t1.Ord {
-					// We *don't* need to solve unusedField
-					unusedField := &interfaces.ExprAny{}
-					mapped[x] = unusedField
-					if x == field { // the one we care about
-						mapped[x] = dummyOut
-					}
-					ordered = append(ordered, x)
-				}
-				// We map to dummyOut which is the return type
-				// and has the same type of the field we want!
-				mapped[field] = dummyOut // redundant =D
-				invar = &interfaces.EqualityWrapStructInvariant{
-					Expr1:    dummyStruct,
-					Expr2Map: mapped,
-					Expr2Ord: ordered,
-				}
-				// We only want to add this weird thing if the
-				// field actually exists. Otherwise ignore it.
-				if _, exists := t1.Map[field]; field != "" && exists {
-					invariants = append(invariants, invar)
-				}
-			}
-			if t2 != nil {
-				invar = &interfaces.EqualsInvariant{
-					Expr: dummyOptional,
-					Type: t2,
-				}
-				invariants = append(invariants, invar)
-				invar = &interfaces.EqualsInvariant{
-					Expr: dummyOut,
-					Type: t2,
-				}
-				invariants = append(invariants, invar)
-			}
-
-			// XXX: if t1 or t2 are missing, we could also return a
-			// new generator for later if we learn new information,
-			// but we'd have to be careful to not do it infinitely.
-
-			// TODO: do we return this relationship with ExprCall?
-			invar = &interfaces.EqualityWrapCallInvariant{
-				// TODO: should Expr1 and Expr2 be reversed???
-				Expr1: cfavInvar.Expr,
-				//Expr2Func: cfavInvar.Func, // same as below
-				Expr2Func: expr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: are there any other invariants we should build?
-			return invariants, nil // generator return
-		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
-	}
-	invar = &interfaces.GeneratorInvariant{
-		Func: fn,
-	}
-	invariants = append(invariants, invar)
-
-	return invariants, nil
+	return obj.sig(), []*interfaces.UnificationInvariant{}, nil
 }
 
 // Build is run to turn the polymorphic, undetermined function, into the
@@ -440,18 +181,26 @@ func (obj *StructLookupOptionalFunc) Build(typ *types.Type) (*types.Type, error)
 		return nil, errwrap.Wrapf(err, "optional arg must match return type")
 	}
 
-	// NOTE: We actually don't know which field this is, only its type! we
-	// could have cached the discovered field during Polymorphisms(), but it
-	// turns out it's not actually necessary for us to know it to build the
-	// struct.
+	// NOTE: We actually don't know which field this is yet, only its type!
+	// We don't care, because that's a runtime issue and doesn't need to be
+	// our problem as long as this is a struct. The only optimization we can
+	// add is to know statically if we're returning the optional value.
+	if tStruct.Kind != types.KindStruct {
+		return nil, fmt.Errorf("first arg must be of kind struct, got: %s", tStruct.Kind)
+	}
+
 	obj.Type = tStruct // struct type
 	obj.Out = typ.Out  // type of return value
+	obj.built = true
 
 	return obj.sig(), nil
 }
 
 // Validate tells us if the input struct takes a valid form.
 func (obj *StructLookupOptionalFunc) Validate() error {
+	if !obj.built {
+		return fmt.Errorf("function wasn't built yet")
+	}
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -470,22 +219,19 @@ func (obj *StructLookupOptionalFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *StructLookupOptionalFunc) Info() *interfaces.Info {
+	// Since this function implements FuncInfer we want sig to return nil to
+	// avoid an accidental return of unification variables when we should be
+	// getting them from FuncInfer, and not from here. (During unification!)
 	var sig *types.Type
-	if obj.Type != nil { // don't panic if called speculatively
-		// TODO: can obj.Out be nil (a partial) ?
+	if obj.built {
 		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  sig, // func kind
+		Sig:  sig,
 		Err:  obj.Validate(),
 	}
-}
-
-// helper
-func (obj *StructLookupOptionalFunc) sig() *types.Type {
-	return types.NewType(fmt.Sprintf("func(%s %s, %s str, %s %s) %s", structLookupOptionalArgNameStruct, obj.Type.String(), structLookupOptionalArgNameField, structLookupOptionalArgNameOptional, obj.Out.String(), obj.Out.String()))
 }
 
 // Init runs some startup code for this function.
@@ -520,6 +266,7 @@ func (obj *StructLookupOptionalFunc) Stream(ctx context.Context) error {
 				return fmt.Errorf("received empty field")
 			}
 			if obj.field == "" {
+				// This can happen at compile time too. Bonus!
 				obj.field = field // store first field
 			}
 			if field != obj.field {
@@ -531,7 +278,7 @@ func (obj *StructLookupOptionalFunc) Stream(ctx context.Context) error {
 			// here anyways. Maybe one day there will be a fancy
 			// reason why this might vary over time.
 			var result types.Value
-			val, exists := st.Lookup(field)
+			val, exists := st.Lookup(obj.field)
 			if exists {
 				result = val
 			} else {

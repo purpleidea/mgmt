@@ -38,9 +38,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "to_lower", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "to_lower", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
-		V: ToLower,
+		F: ToLower,
 	})
 }
 

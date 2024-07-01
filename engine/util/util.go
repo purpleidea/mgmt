@@ -278,6 +278,7 @@ func LangFieldNameToStructFieldName(kind string) (map[string]string, error) {
 
 // LangFieldNameToStructType returns the mapping from lang (AST) field names,
 // and the expected type in our type system for each.
+// XXX: Should this return unification variables instead of variant types?
 func LangFieldNameToStructType(kind string) (map[string]*types.Type, error) {
 	res, err := engine.NewResource(kind)
 	if err != nil {

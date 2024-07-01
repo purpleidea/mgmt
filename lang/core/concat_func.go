@@ -43,9 +43,9 @@ const (
 )
 
 func init() {
-	simple.Register(ConcatFuncName, &types.FuncValue{
+	simple.Register(ConcatFuncName, &simple.Scaffold{
 		T: types.NewType("func(a str, b str) str"),
-		V: Concat,
+		F: Concat,
 	})
 }
 

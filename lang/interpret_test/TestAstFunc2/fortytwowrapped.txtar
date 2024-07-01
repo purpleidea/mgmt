@@ -1,0 +1,15 @@
+-- main.mcl --
+import "fmt"
+import "math"
+# FIXME: floats don't print nicely: https://github.com/golang/go/issues/46118
+# FIXME: This means that we see "42" for both, instead of 42.0 ...
+
+func myfortytwo() {
+	math.fortytwo()
+}
+
+test [fmt.printf("int: %d", myfortytwo()),] {}
+test [fmt.printf("float: %f", myfortytwo()),] {}
+-- OUTPUT --
+Vertex: test[float: 42]
+Vertex: test[int: 42]

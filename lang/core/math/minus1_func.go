@@ -37,9 +37,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "minus1", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "minus1", &simple.Scaffold{
 		T: types.NewType("func(x int) int"),
-		V: Minus1,
+		F: Minus1,
 	})
 }
 

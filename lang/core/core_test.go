@@ -526,16 +526,30 @@ func TestLiveFuncExec0(t *testing.T) {
 				t.Errorf("test #%d: func lookup failed with: %+v", index, err)
 				return
 			}
+			sig := handle.Info().Sig
+			if sig.Kind != types.KindFunc {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: must be kind func", index)
+				return
+			}
+			if sig.HasUni() {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: func contains unification vars", index)
+				return
+			}
+
+			if buildableFunc, ok := handle.(interfaces.BuildableFunc); ok {
+				if _, err := buildableFunc.Build(sig); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: can't build function: %v", index, err)
+					return
+				}
+			}
+
 			// run validate!
 			if err := handle.Validate(); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: could not validate Func: %+v", index, err)
-				return
-			}
-			sig := handle.Info().Sig
-			if sig.Kind != types.KindFunc {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: must be kind func: %+v", index, err)
 				return
 			}
 

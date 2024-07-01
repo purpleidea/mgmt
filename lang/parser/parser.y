@@ -36,6 +36,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/operators"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
@@ -251,13 +252,15 @@ stmt:
 			m[a.Name] = a.Type
 			ord = append(ord, a.Name)
 		}
+		var typ *types.Type
 		if isFullyTyped {
-			typ := &types.Type{
+			typ = &types.Type{
 				Kind: types.KindFunc,
 				Map:  m,
 				Ord:  ord,
 				Out:  $6.typ,
 			}
+			// XXX: We might still need to do this for now...
 			if err := fn.SetType(typ); err != nil {
 				// this will ultimately cause a parser error to occur...
 				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
@@ -266,6 +269,7 @@ stmt:
 		$$.stmt = &ast.StmtFunc{
 			Name: $2.str,
 			Func: fn,
+			Type: typ, // sam says add the type here instead...
 		}
 	}
 	// `class name { <prog> }`
@@ -566,7 +570,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{          // operator first
 					V: $2.str,     // for PLUS this is a `+` character
@@ -580,7 +584,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -594,7 +598,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -608,7 +612,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -622,7 +626,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -636,7 +640,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -650,7 +654,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -664,7 +668,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -678,7 +682,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -692,7 +696,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -706,7 +710,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -720,7 +724,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $2.str,
@@ -734,7 +738,7 @@ call:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{ // operator first
 					V: $1.str,
@@ -947,6 +951,7 @@ bind:
 	{
 		posLast(yylex, yyDollar) // our pos
 		var expr interfaces.Expr = $4.expr
+		// XXX: We still need to do this for now it seems...
 		if err := expr.SetType($2.typ); err != nil {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
@@ -954,6 +959,7 @@ bind:
 		$$.stmt = &ast.StmtBind{
 			Ident: $1.str,
 			Value: expr,
+			Type:  $2.typ, // sam says add the type here instead...
 		}
 	}
 ;

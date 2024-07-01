@@ -39,9 +39,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "parse_bool", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "parse_bool", &simple.Scaffold{
 		T: types.NewType("func(a str) bool"),
-		V: ParseBool,
+		F: ParseBool,
 	})
 }
 

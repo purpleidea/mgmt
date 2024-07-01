@@ -12,4 +12,4 @@ class c1($a, $b []str) {
 	}
 }
 -- OUTPUT --
-# err: errUnify: can't unify, invariant illogicality with equals: base kind does not match (Str != List)
+# err: errUnify: unify error with: str("hello"): type error: List != Str

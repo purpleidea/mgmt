@@ -41,7 +41,10 @@ import (
 )
 
 // FuncSig is the simple signature that is used throughout our implementations.
-type FuncSig = func([]types.Value) (types.Value, error)
+type FuncSig = func(context.Context, []types.Value) (types.Value, error)
+
+// Compile-time guarantee that *types.FuncValue accepts a func of type FuncSig.
+var _ = &types.FuncValue{V: FuncSig(nil)}
 
 // Info is a static representation of some information about the function. It is
 // used for static analysis and type checking. If you break this contract, you
@@ -90,14 +93,16 @@ type Init struct {
 type Func interface {
 	fmt.Stringer // so that this can be stored as a Vertex
 
-	Validate() error // FIXME: this is only needed for PolyFunc. Get it moved and used!
+	// Validate ensures that our struct implementing this function was built
+	// correctly.
+	Validate() error
 
 	// Info returns some information about the function in question, which
 	// includes the function signature. For a polymorphic function, this
 	// might not be known until after Build was called. As a result, the
-	// sig should be allowed to return a partial or variant type if it is
-	// not known yet. This is because the Info method might be called
-	// speculatively to aid in type unification.
+	// sig should be allowed to return a type that includes unification
+	// variables if it is not known yet. This is because the Info method
+	// might be called speculatively to aid in type unification elsewhere.
 	Info() *Info
 
 	// Init passes some important values and references to the function.
@@ -113,9 +118,11 @@ type Func interface {
 	Stream(context.Context) error
 }
 
-// PolyFunc is an interface for functions which are statically polymorphic. In
-// other words, they are functions which before compile time are polymorphic,
-// but after a successful compilation have a fixed static signature. This makes
+// BuildableFunc is an interface for functions which need a Build or Check step.
+// These functions need that method called after type unification to either tell
+// them the precise type, and/or Check if it's a valid solution. These functions
+// are usually polymorphic before compile time. After a successful compilation,
+// every function include these, must have a fixed static signature. This makes
 // implementing what would appear to be generic or polymorphic instead something
 // that is actually static and that still has the language safety properties.
 // Our engine requires that by the end of compilation, everything is static.
@@ -123,29 +130,12 @@ type Func interface {
 // their execution. If the types could change, then we wouldn't be able to
 // safely pass values around.
 //
-// NOTE: This interface is similar to OldPolyFunc, except that it uses a Unify
-// method that works differently than the original Polymorphisms method. This
-// allows us to build invariants that are used directly by the type unification
-// solver.
-type PolyFunc interface {
+// NOTE: This interface doesn't require any Infer/Check methods because simple
+// polymorphism can be achieved by having a type signature that contains
+// unification variables. Variants that require fancier extensions can implement
+// the InferableFunc interface as well.
+type BuildableFunc interface {
 	Func // implement everything in Func but add the additional requirements
-
-	// Unify returns the list of invariants that this func produces. It is a
-	// way for a polymorphic function to describe its type requirements. It
-	// would be expected for this function to return at least one
-	// ExclusiveInvariant or GeneratorInvariant, since these are two common
-	// mechanisms for polymorphic functions to describe their constraints.
-	// The important realization behind this method is that the collecting
-	// of possible invariants, must happen *before* the solver runs so that
-	// the solver can look at all the available logic *simultaneously* to
-	// find a solution if we want to be able to reliably solve for things.
-	// The input argument that it receives is the expression pointer that it
-	// is unifying against-- in other words, the pointer is its own handle.
-	// This is different than the `obj` reference of this function
-	// implementation because _that_ handle is not the object/pointer in the
-	// AST that we're discussing when performing type unification. Put
-	// another way: the Expr input is the ExprFunc, not the ExprCall.
-	Unify(Expr) ([]Invariant, error)
 
 	// Build takes the known or unified type signature for this function and
 	// finalizes this structure so that it is now determined, and ready to
@@ -159,52 +149,80 @@ type PolyFunc interface {
 	// will use. These are used when constructing the function graphs. This
 	// means that when this is called from SetType, it can set the correct
 	// type arg names, and this will also match what's in function Info().
+	// This can also be used as a "check" method to make sure that the
+	// unification result for this function is one of the valid
+	// possibilities. This can happen if the specified unification variables
+	// do not guarantee a valid type. (For example: the sig for the len()
+	// function is `func(?1) int`, but we can't build the function if ?1 is
+	// an int or a float. That is checked during Build.
 	Build(*types.Type) (*types.Type, error)
 }
 
-// OldPolyFunc is an interface for functions which are statically polymorphic.
-// In other words, they are functions which before compile time are polymorphic,
-// but after a successful compilation have a fixed static signature. This makes
-// implementing what would appear to be generic or polymorphic instead something
-// that is actually static and that still has the language safety properties.
-type OldPolyFunc interface {
+// InferableFunc is an interface which extends the BuildableFunc interface by
+// adding a new function that can give the user more control over how function
+// inference runs. This allows the user to return more precise information for
+// type unification from compile-time information, than would otherwise be
+// possible.
+//
+// NOTE: This is the third iteration of this interface which is now incredibly
+// well-polished.
+type InferableFunc interface { // TODO: Is there a better name for this?
+	BuildableFunc // includes Build and the base Func stuff...
+
+	// FuncInfer returns the type and the list of invariants that this func
+	// produces. That type may include unification variables. This is a
+	// fancy way for a polymorphic function to describe its type
+	// requirements. It uses compile-time information to help it build the
+	// correct signature and constraints. This compile time information is
+	// passed into this method as a list of partial "hints" that take the
+	// form of a (possible partial) function type signature (with as many
+	// types in it specified and the rest set to nil) and any known static
+	// values for the input args. If the partial type is not nil, then the
+	// Ord parameter must be of the correct arg length. If any types are
+	// specified, then the array of partial values must be of that length as
+	// well, with the known ones filled in. Some static polymorphic
+	// functions require a minimal amount of hinting or they will be unable
+	// to return any possible unambiguous result. Remember that your result
+	// can include unification variables, but it should not be a standalone
+	// ?1 variable. It should at the minimum be of the form `func(?1) ?2`.
+	// Since this is almost always called by an ExprCall when building
+	// invariants for type unification, we'll know the precise number of
+	// args the function is being called with, so you can use this
+	// information to more correctly discern the correct function you want
+	// to build. The arg names in your returned func type signatures can be
+	// in the standardized "a..b..c" format. Use util.NumToAlpha if you want
+	// to convert easily. These arg names will be replaced by the correct
+	// ones during the Build step. All of these features and limitations are
+	// this way so that we can use the standard Union-Fund type unification
+	// algorithm which runs fairly quickly.
+	// TODO: Do we ever need to return any invariants?
+	FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*UnificationInvariant, error)
+}
+
+// CopyableFunc is an interface which extends the base Func interface with the
+// ability to let our compiler know how to copy a Func if that func deems it's
+// needed to be able to do so.
+type CopyableFunc interface {
 	Func // implement everything in Func but add the additional requirements
 
-	// Polymorphisms returns a list of possible function type signatures. It
-	// takes as input a list of partial "hints" as to limit the number of
-	// possible results it returns. These partial hints take the form of a
-	// function type signature (with as many types in it specified and the
-	// rest set to nil) and any known static values for the input args. If
-	// the partial type is not nil, then the Ord parameter must be of the
-	// correct arg length. If any types are specified, then the array must
-	// be of that length as well, with the known ones filled in. Some
-	// static polymorphic functions require a minimal amount of hinting or
-	// they will be unable to return any possible result that is not
-	// infinite in length. If you expect to need to return an infinite (or
-	// very large) amount of results, then you should return an error
-	// instead. The arg names in your returned func type signatures should
-	// be in the standardized "a..b..c" format. Use util.NumToAlpha if you
-	// want to convert easily.
-	Polymorphisms(*types.Type, []types.Value) ([]*types.Type, error)
-
-	// Build takes the known or unified type signature for this function and
-	// finalizes this structure so that it is now determined, and ready to
-	// function as a normal function would. (The normal methods in the Func
-	// interface are all that should be needed or used after this point.)
-	// Of note, the names of the specific input args shouldn't matter as
-	// long as they are unique. Their position doesn't matter. This is so
-	// that unification can use "arg0", "arg1", "argN"... if they can't be
-	// determined statically. Build can transform them into it's desired
-	// form, and must return the type (with the correct arg names) that it
-	// will use. These are used when constructing the function graphs. This
-	// means that when this is called from SetType, it can set the correct
-	// type arg names, and this will also match what's in function Info().
-	Build(*types.Type) (*types.Type, error)
+	// Copy is used because we sometimes copy the ExprFunc with its Copy
+	// method because we're using the same ExprFunc in two places, and it
+	// might have a different type and type unification needs to solve for
+	// it in more than one way. It also turns out that some functions such
+	// as the struct lookup function store information that they learned
+	// during `FuncInfer`, and as a result, if we re-build this, then we
+	// lose that information and the function can then fail during `Build`.
+	// As a result, those functions can implement a `Copy` method which we
+	// will use instead, so they can preserve any internal state that they
+	// would like to keep.
+	Copy() Func
 }
 
 // NamedArgsFunc is a function that uses non-standard function arg names. If you
 // don't implement this, then the argnames (if specified) must correspond to the
 // a, b, c...z, aa, ab...az, ba...bz, and so on sequence.
+// XXX: I expect that we can get rid of this since type unification doesn't care
+// what the arguments are named, and at the end, we get them from Info or Build.
 type NamedArgsFunc interface {
 	Func // implement everything in Func but add the additional requirements
 

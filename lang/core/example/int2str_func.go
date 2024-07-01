@@ -38,9 +38,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "int2str", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "int2str", &simple.Scaffold{
 		T: types.NewType("func(a int) str"),
-		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
+		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.StrValue{
 				V: fmt.Sprintf("%d", input[0].Int()),
 			}, nil

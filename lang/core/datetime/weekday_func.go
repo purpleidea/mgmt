@@ -40,9 +40,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "weekday", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "weekday", &simple.Scaffold{
 		T: types.NewType("func(a int) str"),
-		V: Weekday,
+		F: Weekday,
 	})
 }
 

@@ -67,7 +67,7 @@ func init() {
 	funcs.Register(TemplateFuncName, func() interfaces.Func { return &TemplateFunc{} })
 }
 
-var _ interfaces.PolyFunc = &TemplateFunc{} // ensure it meets this expectation
+var _ interfaces.InferableFunc = &TemplateFunc{} // ensure it meets this expectation
 
 // TemplateFunc is a static polymorphic function that compiles a template and
 // returns the output as a string. It bases its output on the values passed in
@@ -104,205 +104,39 @@ func (obj *TemplateFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
-// Unify returns the list of invariants that this func produces.
-func (obj *TemplateFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
-
-	// func(format string) string
-	// OR
-	// func(format string, arg variant) string
-
-	formatName, err := obj.ArgGen(0)
-	if err != nil {
-		return nil, err
+// helper
+func (obj *TemplateFunc) sig() *types.Type {
+	if obj.Type != nil {
+		typ := fmt.Sprintf("func(%s str, %s %s) str", templateArgNameTemplate, templateArgNameVars, obj.Type.String())
+		return types.NewType(typ)
 	}
 
-	dummyFormat := &interfaces.ExprAny{} // corresponds to the format type
-	dummyOut := &interfaces.ExprAny{}    // corresponds to the out string
-
-	// format arg type of string
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyFormat,
-		Type: types.TypeStr,
-	}
-	invariants = append(invariants, invar)
-
-	// return type of string
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyOut,
-		Type: types.TypeStr,
-	}
-	invariants = append(invariants, invar)
-
-	// generator function
-	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
-				continue
-			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
-				continue
-			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if len(cfavInvar.Args) == 0 {
-				return nil, fmt.Errorf("unable to build function with no args")
-			}
-			if l := len(cfavInvar.Args); l > 2 {
-				return nil, fmt.Errorf("unable to build function with %d args", l)
-			}
-			// we can either have one arg or two
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			// add the relationship to the returned value
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationships to the called args
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[0],
-				Expr2: dummyFormat,
-			}
-			invariants = append(invariants, invar)
-
-			// first arg must be a string
-			invar = &interfaces.EqualsInvariant{
-				Expr: cfavInvar.Args[0],
-				Type: types.TypeStr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: if the template is known statically, we could
-			// parse it to check for variable safety if we wanted!
-			//value, err := cfavInvar.Args[0].Value() // is it known?
-			//if err != nil {
-			//}
-
-			// full function
-			mapped := make(map[string]interfaces.Expr)
-			ordered := []string{formatName}
-			mapped[formatName] = dummyFormat
-
-			if len(cfavInvar.Args) == 2 { // two args is more complex
-				argName, err := obj.ArgGen(1) // 1st arg after 0
-				if err != nil {
-					return nil, err
-				}
-				if argName == templateArgNameTemplate {
-					return nil, fmt.Errorf("could not build function with %d args", 1)
-				}
-
-				dummyArg := &interfaces.ExprAny{}
-
-				// speculate about the type? (maybe redundant)
-				if typ, err := cfavInvar.Args[1].Type(); err == nil {
-					invar := &interfaces.EqualsInvariant{
-						Expr: dummyArg,
-						Type: typ,
-					}
-					invariants = append(invariants, invar)
-				}
-
-				if typ, exists := solved[cfavInvar.Args[1]]; exists { // alternate way to lookup type
-					invar := &interfaces.EqualsInvariant{
-						Expr: dummyArg,
-						Type: typ,
-					}
-					invariants = append(invariants, invar)
-				}
-
-				// expression must match type of the input arg
-				invar := &interfaces.EqualityInvariant{
-					Expr1: dummyArg,
-					Expr2: cfavInvar.Args[1],
-				}
-				invariants = append(invariants, invar)
-
-				mapped[argName] = dummyArg
-				ordered = append(ordered, argName)
-			}
-
-			invar = &interfaces.EqualityWrapFuncInvariant{
-				Expr1:    expr, // maps directly to us!
-				Expr2Map: mapped,
-				Expr2Ord: ordered,
-				Expr2Out: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: do we return this relationship with ExprCall?
-			invar = &interfaces.EqualityWrapCallInvariant{
-				// TODO: should Expr1 and Expr2 be reversed???
-				Expr1: cfavInvar.Expr,
-				//Expr2Func: cfavInvar.Func, // same as below
-				Expr2Func: expr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: are there any other invariants we should build?
-			return invariants, nil // generator return
-		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
-	}
-	invar = &interfaces.GeneratorInvariant{
-		Func: fn,
-	}
-	invariants = append(invariants, invar)
-
-	return invariants, nil
+	typ := fmt.Sprintf("func(%s str) str", templateArgNameTemplate)
+	return types.NewType(typ)
 }
 
-// Polymorphisms returns the possible type signatures for this template. In this
-// case, since the second argument can be an infinite number of values, it
-// instead returns either the final precise type (if it can be gleamed from the
-// input partials) or if it cannot, it returns a single entry with the complete
-// type but with the variable second argument specified as a `variant` type. If
-// it encounters any partial type specifications which are not possible, then it
-// errors out. This could happen if you specified a non string template arg.
-// XXX: is there a better API than returning a buried `variant` type?
-func (obj *TemplateFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
-	// TODO: return `variant` as second arg for now -- maybe there's a better way?
-	str := fmt.Sprintf("func(%s str, %s variant) str", templateArgNameTemplate, templateArgNameVars)
-	variant := []*types.Type{types.NewType(str)}
+// FuncInfer takes partial type and value information from the call site of this
+// function so that it can build an appropriate type signature for it. The type
+// signature may include unification variables.
+func (obj *TemplateFunc) FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// func(format str) str
+	// OR
+	// func(format str, arg ?1) str
 
-	if partialType == nil {
-		return variant, nil
+	if l := len(partialValues); l < 1 || l > 2 {
+		return nil, nil, fmt.Errorf("must have at either one or two args")
 	}
 
-	if partialType.Out != nil && partialType.Out.Cmp(types.TypeStr) != nil {
-		return nil, fmt.Errorf("return value of template must be str")
+	var typ *types.Type
+	if len(partialValues) == 1 {
+		typ = types.NewType(fmt.Sprintf("func(%s str) str", templateArgNameTemplate))
 	}
 
-	ord := partialType.Ord
-	if partialType.Map != nil {
-		if len(ord) != 2 && len(ord) != 1 {
-			return nil, fmt.Errorf("must have exactly one or two args in template func")
-		}
-		if t, exists := partialType.Map[ord[0]]; exists && t != nil {
-			if t.Cmp(types.TypeStr) != nil {
-				return nil, fmt.Errorf("first arg for template must be an str")
-			}
-		}
-		if len(ord) == 1 { // no args being passed in (boring template)
-			return []*types.Type{types.NewType(fmt.Sprintf("func(%s str) str", templateArgNameTemplate))}, nil
-
-		} else if t, exists := partialType.Map[ord[1]]; exists && t != nil {
-			// known vars type! w00t!
-			return []*types.Type{types.NewType(fmt.Sprintf("func(%s str, %s %s) str", templateArgNameTemplate, templateArgNameVars, t.String()))}, nil
-		}
+	if len(partialValues) == 2 {
+		typ = types.NewType(fmt.Sprintf("func(%s str, %s ?1) str", templateArgNameTemplate, templateArgNameVars))
 	}
 
-	return variant, nil
+	return typ, []*interfaces.UnificationInvariant{}, nil
 }
 
 // Build takes the now known function signature and stores it so that this
@@ -360,6 +194,9 @@ func (obj *TemplateFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *TemplateFunc) Info() *interfaces.Info {
+	// Since this function implements FuncInfer we want sig to return nil to
+	// avoid an accidental return of unification variables when we should be
+	// getting them from FuncInfer, and not from here. (During unification!)
 	var sig *types.Type
 	if obj.built {
 		sig = obj.sig() // helper
@@ -370,17 +207,6 @@ func (obj *TemplateFunc) Info() *interfaces.Info {
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
-}
-
-// helper
-func (obj *TemplateFunc) sig() *types.Type {
-	if obj.Type != nil { // don't panic if called speculatively
-		str := fmt.Sprintf("func(%s str, %s %s) str", templateArgNameTemplate, templateArgNameVars, obj.Type.String())
-		return types.NewType(str)
-	}
-
-	str := fmt.Sprintf("func(%s str) str", templateArgNameTemplate)
-	return types.NewType(str)
 }
 
 // Init runs some startup code for this function.
@@ -413,7 +239,11 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 	// function in the simple package?
 	// TODO: loop through this map in a sorted, deterministic order
 	// XXX: should this use the scope instead (so imports are used properly) ?
-	for name, fn := range simple.RegisteredFuncs {
+	for name, scaffold := range simple.RegisteredFuncs {
+		if scaffold.T == nil || scaffold.T.HasUni() {
+			obj.init.Logf("warning, function named: `%s` is not unified", name)
+			continue
+		}
 		name = safename(name) // TODO: rename since we can't include dot
 		if _, exists := funcMap[name]; exists {
 			obj.init.Logf("warning, existing function named: `%s` exists", name)
@@ -425,7 +255,7 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 		// parameter types. Functions meant to apply to arguments of
 		// arbitrary type can use parameters of type interface{} or of
 		// type reflect.Value.
-		f, err := wrap(ctx, name, fn) // wrap it so that it meets API expectations
+		f, err := wrap(ctx, name, scaffold) // wrap it so that it meets API expectations
 		if err != nil {
 			obj.init.Logf("warning, skipping function named: `%s`, err: %v", name, err)
 			continue
@@ -585,7 +415,7 @@ func safename(name string) string {
 // function API with what is expected from the reflection API. It returns a
 // version that includes the optional second error return value so that our
 // functions can return errors without causing a panic.
-func wrap(ctx context.Context, name string, fn *types.FuncValue) (_ interface{}, reterr error) {
+func wrap(ctx context.Context, name string, scaffold *simple.Scaffold) (_ interface{}, reterr error) {
 	defer func() {
 		// catch unhandled panics
 		if r := recover(); r != nil {
@@ -593,15 +423,21 @@ func wrap(ctx context.Context, name string, fn *types.FuncValue) (_ interface{},
 		}
 	}()
 
-	if fn.T.Map == nil {
+	if scaffold.T == nil {
+		panic("malformed type")
+	}
+	if scaffold.T.HasUni() {
+		panic("type not unified")
+	}
+	if scaffold.T.Map == nil {
 		panic("malformed func type")
 	}
-	if len(fn.T.Map) != len(fn.T.Ord) {
+	if len(scaffold.T.Map) != len(scaffold.T.Ord) {
 		panic("malformed func length")
 	}
 	in := []reflect.Type{}
-	for _, k := range fn.T.Ord {
-		t, ok := fn.T.Map[k]
+	for _, k := range scaffold.T.Ord {
+		t, ok := scaffold.T.Map[k]
 		if !ok {
 			panic("malformed func order")
 		}
@@ -611,7 +447,7 @@ func wrap(ctx context.Context, name string, fn *types.FuncValue) (_ interface{},
 
 		in = append(in, t.Reflect())
 	}
-	ret := fn.T.Out.Reflect() // this can panic!
+	ret := scaffold.T.Out.Reflect() // this can panic!
 	out := []reflect.Type{ret, errorType}
 	var variadic = false // currently not supported in our function value
 	typ := reflect.FuncOf(in, out, variadic)
@@ -619,7 +455,7 @@ func wrap(ctx context.Context, name string, fn *types.FuncValue) (_ interface{},
 	// wrap our function with the translation that is necessary
 	f := func(args []reflect.Value) (results []reflect.Value) { // build
 		innerArgs := []types.Value{}
-		zeroValue := reflect.Zero(fn.T.Out.Reflect()) // zero value of return type
+		zeroValue := reflect.Zero(scaffold.T.Out.Reflect()) // zero value of return type
 		for _, x := range args {
 			v, err := types.ValueOf(x) // reflect.Value -> Value
 			if err != nil {
@@ -633,8 +469,8 @@ func wrap(ctx context.Context, name string, fn *types.FuncValue) (_ interface{},
 			innerArgs = append(innerArgs, v)
 		}
 
-		result, err := fn.Call(ctx, innerArgs) // call it
-		if err != nil {                        // function errored :(
+		result, err := scaffold.F(ctx, innerArgs) // call it
+		if err != nil {                           // function errored :(
 			// errwrap is a better way to report errors, if allowed!
 			r := reflect.ValueOf(errwrap.Wrapf(err, "function `%s` errored", name))
 			if !r.Type().ConvertibleTo(errorType) { // for fun!

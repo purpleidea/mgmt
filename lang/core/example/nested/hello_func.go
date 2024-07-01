@@ -38,9 +38,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(coreexample.ModuleName+"/"+ModuleName, "hello", &types.FuncValue{
+	simple.ModuleRegister(coreexample.ModuleName+"/"+ModuleName, "hello", &simple.Scaffold{
 		T: types.NewType("func() str"),
-		V: Hello,
+		F: Hello,
 	})
 }
 

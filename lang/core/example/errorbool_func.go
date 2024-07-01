@@ -38,9 +38,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "errorbool", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "errorbool", &simple.Scaffold{
 		T: types.NewType("func(a bool) str"),
-		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
+		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			if input[0].Bool() {
 				return nil, fmt.Errorf("we errored on request")
 			}

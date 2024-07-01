@@ -35,7 +35,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
@@ -53,7 +52,7 @@ func init() {
 	Register(ContainsFuncName, func() interfaces.Func { return &ContainsFunc{} }) // must register the func and name
 }
 
-var _ interfaces.PolyFunc = &ContainsFunc{} // ensure it meets this expectation
+var _ interfaces.BuildableFunc = &ContainsFunc{} // ensure it meets this expectation
 
 // ContainsFunc returns true if a value is found in a list. Otherwise false.
 type ContainsFunc struct {
@@ -80,224 +79,14 @@ func (obj *ContainsFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
-// Unify returns the list of invariants that this func produces.
-func (obj *ContainsFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
-
-	// func(needle variant, haystack variant) bool
-	// func(needle %s, haystack []%s) bool
-
-	needleName, err := obj.ArgGen(0)
-	if err != nil {
-		return nil, err
+// helper
+func (obj *ContainsFunc) sig() *types.Type {
+	// func(needle ?1, haystack []?1) bool
+	s := "?1"
+	if obj.Type != nil { // don't panic if called speculatively
+		s = obj.Type.String() // if solved
 	}
-	haystackName, err := obj.ArgGen(1)
-	if err != nil {
-		return nil, err
-	}
-
-	dummyNeedle := &interfaces.ExprAny{}   // corresponds to the needle type
-	dummyHaystack := &interfaces.ExprAny{} // corresponds to the haystack type
-	//dummyHaystackValue := &interfaces.ExprAny{} // corresponds to the haystack list type
-	dummyOut := &interfaces.ExprAny{} // corresponds to the out boolean
-
-	//invar = &unification.EqualityInvariant{
-	//	Expr1: dummyNeedle,
-	//	Expr2: dummyHaystackValue,
-	//}
-	//invariants = append(invariants, invar)
-
-	// list relationship between needle and haystack
-	// TODO: did I get this equality backwards?
-	invar = &interfaces.EqualityWrapListInvariant{
-		Expr1:    dummyHaystack,
-		Expr2Val: dummyNeedle,
-	}
-	invariants = append(invariants, invar)
-
-	// full function
-	mapped := make(map[string]interfaces.Expr)
-	ordered := []string{needleName, haystackName}
-	mapped[needleName] = dummyNeedle
-	mapped[haystackName] = dummyHaystack
-
-	invar = &interfaces.EqualityWrapFuncInvariant{
-		Expr1:    expr, // maps directly to us!
-		Expr2Map: mapped,
-		Expr2Ord: ordered,
-		Expr2Out: dummyOut,
-	}
-	invariants = append(invariants, invar)
-
-	// return type of bool
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyOut,
-		Type: types.TypeBool,
-	}
-	invariants = append(invariants, invar)
-
-	// generator function to link this to the right type
-	fn := obj.fnBuilder(false, expr, dummyNeedle, dummyHaystack, dummyOut)
-	invar = &interfaces.GeneratorInvariant{
-		Func: fn,
-	}
-	invariants = append(invariants, invar)
-
-	return invariants, nil
-}
-
-// fnBuilder builds the function for the generator invariant. It is unique in
-// that it can recursively call itself to build a second generation generator
-// invariant. This can only happen once, because by then we'll have given all
-// the new information we can, and falsely producing redundant information is a
-// good way to stall the solver if it thinks it keeps learning more things!
-func (obj *ContainsFunc) fnBuilder(recurse bool, expr, dummyNeedle, dummyHaystack, dummyOut interfaces.Expr) func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-	return func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
-				continue
-			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
-				continue
-			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if l := len(cfavInvar.Args); l != 2 {
-				return nil, fmt.Errorf("unable to build function with %d args", l)
-			}
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			if !recurse { // only do this once!
-				// add the relationship to the returned value
-				invar = &interfaces.EqualityInvariant{
-					Expr1: dummyOut,
-					Expr2: cfavInvar.Expr,
-				}
-				invariants = append(invariants, invar)
-
-				// add the relationships to the called args
-				invar = &interfaces.EqualityInvariant{
-					Expr1: dummyNeedle,
-					Expr2: cfavInvar.Args[0],
-				}
-				invariants = append(invariants, invar)
-
-				invar = &interfaces.EqualityInvariant{
-					Expr1: dummyHaystack,
-					Expr2: cfavInvar.Args[1],
-				}
-				invariants = append(invariants, invar)
-
-				// TODO: do we return this relationship with ExprCall?
-				invar = &interfaces.EqualityWrapCallInvariant{
-					// TODO: should Expr1 and Expr2 be reversed???
-					Expr1: cfavInvar.Expr,
-					//Expr2Func: cfavInvar.Func, // same as below
-					Expr2Func: expr,
-				}
-				invariants = append(invariants, invar)
-			}
-
-			var needleTyp *types.Type
-
-			// Instead of using cfavInvar.Args[*].Type() I think we
-			// can probably rely on the solved to find this for us!
-			if typ, exists := solved[cfavInvar.Args[1]]; exists {
-				if k := typ.Kind; k == types.KindList {
-					needleTyp = typ.Val // contained element type
-				}
-			}
-
-			if typ, exists := solved[cfavInvar.Args[0]]; exists {
-				if err := needleTyp.Cmp(typ); needleTyp != nil && err != nil {
-					// inconsistent types!
-					return nil, errwrap.Wrapf(err, "inconsistent type")
-				}
-
-				needleTyp = typ
-			}
-
-			// We only want to recurse once.
-			if recurse && needleTyp == nil {
-				// nothing new we can do
-				return nil, fmt.Errorf("couldn't generate new invariants")
-			}
-
-			if needleTyp == nil {
-				// recurse-- we build a new one!
-				fn := obj.fnBuilder(true, expr, dummyNeedle, dummyHaystack, dummyOut)
-				invar = &interfaces.GeneratorInvariant{
-					Func: fn,
-				}
-				invariants = append(invariants, invar)
-			}
-
-			invar = &interfaces.EqualsInvariant{
-				Expr: dummyNeedle,
-				Type: needleTyp,
-			}
-			invariants = append(invariants, invar)
-
-			return invariants, nil // generator return
-		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
-	}
-}
-
-// Polymorphisms returns the list of possible function signatures available for
-// this static polymorphic function. It relies on type and value hints to limit
-// the number of returned possibilities.
-func (obj *ContainsFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
-	// TODO: return `variant` as arg for now -- maybe there's a better way?
-	variant := []*types.Type{types.NewType("func(needle variant, haystack variant) bool")}
-
-	if partialType == nil {
-		return variant, nil
-	}
-
-	var typ *types.Type
-
-	ord := partialType.Ord
-	if partialType.Map != nil {
-		if len(ord) != 2 {
-			return nil, fmt.Errorf("must have exactly three args in contains func")
-		}
-		if tNeedle, exists := partialType.Map[ord[0]]; exists && tNeedle != nil {
-			typ = tNeedle // solved
-		}
-		if tHaystack, exists := partialType.Map[ord[1]]; exists && tHaystack != nil {
-			if tHaystack.Kind != types.KindList {
-				return nil, fmt.Errorf("second arg must be of kind list")
-			}
-			if typ != nil && typ.Cmp(tHaystack.Val) != nil {
-				return nil, fmt.Errorf("list contents in second arg for contains must match search type")
-			}
-			typ = tHaystack.Val // solved
-		}
-	}
-
-	if tOut := partialType.Out; tOut != nil {
-		if tOut.Kind != types.KindBool {
-			return nil, fmt.Errorf("return type must be a bool")
-		}
-	}
-
-	if typ == nil {
-		return variant, nil
-	}
-
-	typFunc := types.NewType(fmt.Sprintf("func(needle %s, haystack []%s) bool", typ.String(), typ.String()))
-
-	// TODO: type check that the partialValues are compatible
-
-	return []*types.Type{typFunc}, nil // solved!
+	return types.NewType(fmt.Sprintf("func(%s %s, %s []%s) bool", containsArgNameNeedle, s, containsArgNameHaystack, s))
 }
 
 // Build is run to turn the polymorphic, undetermined function, into the
@@ -306,44 +95,15 @@ func (obj *ContainsFunc) Polymorphisms(partialType *types.Type, partialValues []
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
 func (obj *ContainsFunc) Build(typ *types.Type) (*types.Type, error) {
-	// typ is the KindFunc signature we're trying to build...
-	if typ.Kind != types.KindFunc {
-		return nil, fmt.Errorf("input type must be of kind func")
-	}
-
-	if len(typ.Ord) != 2 {
-		return nil, fmt.Errorf("the contains function needs exactly two args")
-	}
-	if typ.Out == nil {
-		return nil, fmt.Errorf("return type of function must be specified")
-	}
-	if typ.Map == nil {
-		return nil, fmt.Errorf("invalid input type")
-	}
-
-	tNeedle, exists := typ.Map[typ.Ord[0]]
-	if !exists || tNeedle == nil {
-		return nil, fmt.Errorf("first arg must be specified")
-	}
-
-	tHaystack, exists := typ.Map[typ.Ord[1]]
-	if !exists || tHaystack == nil {
-		return nil, fmt.Errorf("second arg must be specified")
-	}
-
-	if tHaystack.Kind != types.KindList {
-		return nil, fmt.Errorf("second argument must be of kind list")
-	}
-
-	if err := tHaystack.Val.Cmp(tNeedle); err != nil {
-		return nil, errwrap.Wrapf(err, "type of first arg must match type of list elements in second arg")
-	}
-
-	if err := typ.Out.Cmp(types.TypeBool); err != nil {
-		return nil, errwrap.Wrapf(err, "return type must be a boolean")
-	}
-
-	obj.Type = tNeedle // type of value stored in our list
+	// We don't need to check that this matches, or that .Map has the right
+	// length, because otherwise it would mean type unification is giving a
+	// bad solution, which would be a major bug. Check to avoid any panics.
+	// Other functions might need to check something if they only accept a
+	// limited subset of the original type unification variables signature.
+	//if err := unificationUtil.UnifyCmp(typ, obj.sig()); err != nil {
+	//	return nil, err
+	//}
+	obj.Type = typ.Map[typ.Ord[0]] // type of value stored in our list
 	return obj.sig(), nil
 }
 
@@ -358,22 +118,12 @@ func (obj *ContainsFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *ContainsFunc) Info() *interfaces.Info {
-	var sig *types.Type
-	if obj.Type != nil { // don't panic if called speculatively
-		sig = obj.sig() // helper
-	}
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  sig, // func kind
+		Sig:  obj.sig(), // helper, func kind
 		Err:  obj.Validate(),
 	}
-}
-
-// helper
-func (obj *ContainsFunc) sig() *types.Type {
-	s := obj.Type.String()
-	return types.NewType(fmt.Sprintf("func(%s %s, %s []%s) bool", containsArgNameNeedle, s, containsArgNameHaystack, s))
 }
 
 // Init runs some startup code for this function.

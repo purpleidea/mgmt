@@ -39,29 +39,29 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister("golang/testpkg", "all_kind", &types.FuncValue{
+	simple.ModuleRegister("golang/testpkg", "all_kind", &simple.Scaffold{
 		T: types.NewType("func(x int, y str) float"),
-		V: TestpkgAllKind,
+		F: TestpkgAllKind,
 	})
-	simple.ModuleRegister("golang/testpkg", "to_upper", &types.FuncValue{
+	simple.ModuleRegister("golang/testpkg", "to_upper", &simple.Scaffold{
 		T: types.NewType("func(s str) str"),
-		V: TestpkgToUpper,
+		F: TestpkgToUpper,
 	})
-	simple.ModuleRegister("golang/testpkg", "max", &types.FuncValue{
+	simple.ModuleRegister("golang/testpkg", "max", &simple.Scaffold{
 		T: types.NewType("func(x float, y float) float"),
-		V: TestpkgMax,
+		F: TestpkgMax,
 	})
-	simple.ModuleRegister("golang/testpkg", "with_error", &types.FuncValue{
+	simple.ModuleRegister("golang/testpkg", "with_error", &simple.Scaffold{
 		T: types.NewType("func(s str) str"),
-		V: TestpkgWithError,
+		F: TestpkgWithError,
 	})
-	simple.ModuleRegister("golang/testpkg", "with_int", &types.FuncValue{
+	simple.ModuleRegister("golang/testpkg", "with_int", &simple.Scaffold{
 		T: types.NewType("func(s float, i int, x int, j int, k int, b bool, t str) str"),
-		V: TestpkgWithInt,
+		F: TestpkgWithInt,
 	})
-	simple.ModuleRegister("golang/testpkg", "super_byte", &types.FuncValue{
+	simple.ModuleRegister("golang/testpkg", "super_byte", &simple.Scaffold{
 		T: types.NewType("func(s str, t str) str"),
-		V: TestpkgSuperByte,
+		F: TestpkgSuperByte,
 	})
 
 }

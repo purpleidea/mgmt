@@ -38,9 +38,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "format_bool", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "format_bool", &simple.Scaffold{
 		T: types.NewType("func(a bool) str"),
-		V: FormatBool,
+		F: FormatBool,
 	})
 }
 

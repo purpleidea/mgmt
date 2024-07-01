@@ -39,17 +39,17 @@ import (
 
 func init() {
 	// TODO: Create a family method that will return a giant struct.
-	simple.ModuleRegister(ModuleName, "is_debian", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "is_debian", &simple.Scaffold{
 		T: types.NewType("func() bool"),
-		V: IsDebian,
+		F: IsDebian,
 	})
-	simple.ModuleRegister(ModuleName, "is_redhat", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "is_redhat", &simple.Scaffold{
 		T: types.NewType("func() bool"),
-		V: IsRedHat,
+		F: IsRedHat,
 	})
-	simple.ModuleRegister(ModuleName, "is_archlinux", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "is_archlinux", &simple.Scaffold{
 		T: types.NewType("func() bool"),
-		V: IsArchLinux,
+		F: IsArchLinux,
 	})
 }
 

@@ -395,8 +395,8 @@ func OccursCheck(elem *types.Elem, typ *types.Type) error {
 // written based on the realization that something of this shape was needed
 // after looking at post-unification unification variables and realizing that
 // the data needed to be "bubbled upwards". It turns out the GHC Haskell has a
-// similar function for this which is called "zonk". "zonk" is the name which
-// it uses for this transformation, whimsically claiming that "zonk" is named
+// similar function for this which is called "zonk". "zonk" is the name which it
+// uses for this transformation, whimsically claiming that "zonk" is named
 // "after the sound it makes". (Thanks to Sam for the fun trivia!)
 // TODO: Untested alternate version that copies everything if anything changes.
 func Extract(typ *types.Type) *types.Type {

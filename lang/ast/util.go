@@ -36,7 +36,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
-	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -66,15 +65,15 @@ func FuncPrefixToFunctionsScope(prefix string) map[string]interfaces.Expr {
 			continue
 		}
 
-		if st, ok := x.(*simplepoly.WrappedFunc); simplepoly.DirectInterface && ok {
-			fn := &ExprFunc{
-				Title: name,
+		//if st, ok := x.(*simplepoly.WrappedFunc); simplepoly.DirectInterface && ok {
+		//	fn := &ExprFunc{
+		//		Title: name,
 
-				Values: st.Fns,
-			}
-			exprs[name] = fn
-			continue
-		}
+		//		Values: st.Fns,
+		//	}
+		//	exprs[name] = fn
+		//	continue
+		//}
 
 		fn := &ExprFunc{
 			Title: name,

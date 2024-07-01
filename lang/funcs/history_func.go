@@ -35,7 +35,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
@@ -52,7 +51,7 @@ func init() {
 	Register(HistoryFuncName, func() interfaces.Func { return &HistoryFunc{} }) // must register the func and name
 }
 
-var _ interfaces.PolyFunc = &HistoryFunc{} // ensure it meets this expectation
+var _ interfaces.BuildableFunc = &HistoryFunc{} // ensure it meets this expectation
 
 // HistoryFunc is special function which returns the Nth oldest value seen. It
 // must store up incoming values until it gets enough to return the desired one.
@@ -90,224 +89,14 @@ func (obj *HistoryFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
-// Unify returns the list of invariants that this func produces.
-func (obj *HistoryFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
-
-	// func(value T1, index int) T1
-
-	valueName, err := obj.ArgGen(0)
-	if err != nil {
-		return nil, err
+// helper
+func (obj *HistoryFunc) sig() *types.Type {
+	// func(value ?1, index int) ?1
+	s := "?1"
+	if obj.Type != nil {
+		s = obj.Type.String()
 	}
-
-	indexName, err := obj.ArgGen(1)
-	if err != nil {
-		return nil, err
-	}
-
-	dummyValue := &interfaces.ExprAny{} // corresponds to the value type
-	dummyIndex := &interfaces.ExprAny{} // corresponds to the index type
-	dummyOut := &interfaces.ExprAny{}   // corresponds to the out string
-
-	// index arg type of int
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyIndex,
-		Type: types.TypeInt,
-	}
-	invariants = append(invariants, invar)
-
-	// index and return are the same type
-	invar = &interfaces.EqualityInvariant{
-		Expr1: dummyValue,
-		Expr2: dummyOut,
-	}
-	invariants = append(invariants, invar)
-
-	// full function
-	mapped := make(map[string]interfaces.Expr)
-	ordered := []string{valueName, indexName}
-	mapped[valueName] = dummyValue
-	mapped[indexName] = dummyIndex
-
-	invar = &interfaces.EqualityWrapFuncInvariant{
-		Expr1:    expr, // maps directly to us!
-		Expr2Map: mapped,
-		Expr2Ord: ordered,
-		Expr2Out: dummyOut,
-	}
-	invariants = append(invariants, invar)
-
-	// generator function
-	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
-				continue
-			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
-				continue
-			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if l := len(cfavInvar.Args); l != 2 {
-				return nil, fmt.Errorf("unable to build function with %d args", l)
-			}
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			// add the relationship to the returned value
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// second arg must be an int
-			invar = &interfaces.EqualsInvariant{
-				Expr: cfavInvar.Args[1],
-				Type: types.TypeInt,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationships to the called args
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[0],
-				Expr2: dummyValue,
-			}
-			invariants = append(invariants, invar)
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[1],
-				Expr2: dummyIndex,
-			}
-			invariants = append(invariants, invar)
-
-			if typ, err := cfavInvar.Args[1].Type(); err == nil { // is it known?
-				if k := typ.Kind; k != types.KindInt {
-					return nil, fmt.Errorf("unable to build function with 1st arg of kind: %s", k)
-				}
-			}
-
-			// We just need to figure out one type to know the full
-			// type...
-			var t1 *types.Type // the value type
-
-			// validateArg0 checks: value T1
-			validateArg0 := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-
-				if err := typ.Cmp(t1); t1 != nil && err != nil {
-					return errwrap.Wrapf(err, "input type was inconsistent")
-				}
-
-				// learn!
-				t1 = typ
-				return nil
-			}
-
-			if typ, err := cfavInvar.Args[0].Type(); err == nil { // is it known?
-				// this sets t1 and t2 on success if it learned
-				if err := validateArg0(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "first struct arg type is inconsistent")
-				}
-			}
-			if typ, exists := solved[cfavInvar.Args[0]]; exists { // alternate way to lookup type
-				// this sets t1 and t2 on success if it learned
-				if err := validateArg0(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "first struct arg type is inconsistent")
-				}
-			}
-
-			// XXX: if the struct type/value isn't know statically?
-
-			if t1 != nil {
-				invar = &interfaces.EqualsInvariant{
-					Expr: dummyValue,
-					Type: t1,
-				}
-				invariants = append(invariants, invar)
-
-				invar = &interfaces.EqualsInvariant{ // bonus
-					Expr: dummyOut,
-					Type: t1,
-				}
-				invariants = append(invariants, invar)
-			}
-
-			// TODO: do we return this relationship with ExprCall?
-			invar = &interfaces.EqualityWrapCallInvariant{
-				// TODO: should Expr1 and Expr2 be reversed???
-				Expr1: cfavInvar.Expr,
-				//Expr2Func: cfavInvar.Func, // same as below
-				Expr2Func: expr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: are there any other invariants we should build?
-			return invariants, nil // generator return
-		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
-	}
-	invar = &interfaces.GeneratorInvariant{
-		Func: fn,
-	}
-	invariants = append(invariants, invar)
-
-	return invariants, nil
-}
-
-// Polymorphisms returns the possible type signature for this function. In this
-// case, since the number of possible types for the first arg can be infinite,
-// it returns the final precise type only if it can be gleamed statically. If
-// not, it returns that unknown as a variant, which is hopefully solved during
-// unification.
-func (obj *HistoryFunc) Polymorphisms(partialType *types.Type, partialValues []types.Value) ([]*types.Type, error) {
-	// TODO: return `variant` as first & return arg for now -- maybe there's a better way?
-	variant := []*types.Type{types.NewType("func(value variant, index int) variant")}
-
-	if partialType == nil {
-		return variant, nil
-	}
-
-	var typ *types.Type // = nil is implied
-
-	ord := partialType.Ord
-	if partialType.Map != nil {
-		if len(ord) != 2 {
-			return nil, fmt.Errorf("must have at exactly two args in history func")
-		}
-		if t, exists := partialType.Map[ord[1]]; exists && t != nil {
-			if t.Cmp(types.TypeInt) != nil {
-				return nil, fmt.Errorf("second arg for history must be an int")
-			}
-		}
-
-		if t, exists := partialType.Map[ord[0]]; exists && t != nil && partialType.Out != nil {
-			if t.Cmp(partialType.Out) != nil {
-				return nil, fmt.Errorf("type of first arg for history must match return type")
-			}
-			typ = t // it has been found :)
-		}
-	}
-
-	if partialType.Out != nil {
-		typ = partialType.Out // it has been found :)
-	}
-
-	if typ == nil {
-		return variant, nil
-	}
-
-	t := types.NewType(fmt.Sprintf("func(value %s, index int) %s", typ.String(), typ.String()))
-
-	return []*types.Type{t}, nil // return a list with a single possibility
+	return types.NewType(fmt.Sprintf("func(%s %s, %s int) %s", historyArgNameValue, s, historyArgNameIndex, s))
 }
 
 // Build takes the now known function signature and stores it so that this
@@ -355,22 +144,12 @@ func (obj *HistoryFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *HistoryFunc) Info() *interfaces.Info {
-	var sig *types.Type
-	if obj.Type != nil { // don't panic if called speculatively
-		sig = obj.sig() // helper
-	}
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
-		Sig:  sig,
+		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}
-}
-
-// helper
-func (obj *HistoryFunc) sig() *types.Type {
-	s := obj.Type.String()
-	return types.NewType(fmt.Sprintf("func(%s %s, %s int) %s", historyArgNameValue, s, historyArgNameIndex, s))
 }
 
 // Init runs some startup code for this function.

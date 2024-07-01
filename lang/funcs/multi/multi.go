@@ -27,13 +27,11 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package simple
+package multi
 
 import (
-	"context"
 	"fmt"
-	"reflect"
-	"strings"
+	"sort"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
@@ -41,13 +39,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	unificationUtil "github.com/purpleidea/mgmt/lang/unification/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-)
-
-const (
-	// DirectInterface specifies whether we should use the direct function
-	// API or not. If we don't use it, then these simple functions are
-	// wrapped with the struct below.
-	DirectInterface = false // XXX: fix any bugs and set to true!
 )
 
 // RegisteredFuncs maps a function name to the corresponding function scaffold.
@@ -61,17 +52,14 @@ type Scaffold struct {
 	// allowed. (TODO: Because of ArgGen.)
 	T *types.Type
 
-	// C is a check function to run after type unification. It will get
+	// M is a build function to run after type unification. It will get
 	// passed the solved type of this function. It should error if this is
-	// not an acceptable option. This function can be omitted.
-	C func(typ *types.Type) error
-
-	// F is the implementation of the function. The input type can be
-	// determined by inspecting the values. Of note, this API does not tell
-	// the implementation what the correct return type should be. If it
-	// can't be determined from the input types, then a different function
-	// API needs to be used. XXX: Should we extend this here?
-	F interfaces.FuncSig
+	// not an acceptable option. On success, it should return the
+	// implementing function to use. Of note, this API does not tell the
+	// implementation what the correct return type should be. If it can't be
+	// determined from the input types, then a different function API needs
+	// to be used. XXX: Should we extend this here?
+	M func(typ *types.Type) (interfaces.FuncSig, error)
 }
 
 // Register registers a simple, static, pure, polymorphic function. It is easier
@@ -83,14 +71,14 @@ type Scaffold struct {
 // list would be.
 func Register(name string, scaffold *Scaffold) {
 	if _, exists := RegisteredFuncs[name]; exists {
-		panic(fmt.Sprintf("a simple func named %s is already registered", name))
+		panic(fmt.Sprintf("a simple polyfunc named %s is already registered", name))
 	}
 
 	if scaffold == nil {
-		panic("no scaffold specified for simple func")
+		panic("no scaffold specified for simple polyfunc")
 	}
 	if scaffold.T == nil {
-		panic("no type specified for simple func")
+		panic("no type specified for simple polyfunc")
 	}
 	if scaffold.T.Kind != types.KindFunc {
 		panic("type must be a func")
@@ -98,9 +86,8 @@ func Register(name string, scaffold *Scaffold) {
 	if scaffold.T.HasVariant() {
 		panic("func contains a variant type signature")
 	}
-	// It's okay if scaffold.C is nil.
-	if scaffold.F == nil {
-		panic("no implementation specified for simple func")
+	if scaffold.M == nil {
+		panic("no implementation specified for simple polyfunc")
 	}
 
 	RegisteredFuncs[name] = scaffold // store a copy for ourselves
@@ -118,8 +105,7 @@ func Register(name string, scaffold *Scaffold) {
 				// need to do AFAICT.
 				Type: scaffold.T, // .Copy(),
 			},
-			Check: scaffold.C,
-			Func:  scaffold.F,
+			Make: scaffold.M,
 		}
 	})
 }
@@ -138,125 +124,64 @@ var _ interfaces.BuildableFunc = &Func{} // ensure it meets this expectation
 
 // Func is a scaffolding function struct which fulfills the boiler-plate for the
 // function API, but that can run a very simple, static, pure, polymorphic
-// function.
+// function. This function API is unique in that it lets you provide your own
+// `Make` builder function to create the function implementation.
 type Func struct {
 	*WrappedFunc // *wrapped.Func as a type alias to pull in the base impl.
 
-	// Check is a check function to run after type unification. It will get
+	// Make is a build function to run after type unification. It will get
 	// passed the solved type of this function. It should error if this is
-	// not an acceptable option. This function can be omitted.
-	Check func(typ *types.Type) error
-
-	// Func is the implementation of the function. The input type can be
-	// determined by inspecting the values. Of note, this API does not tell
-	// the implementation what the correct return type should be. If it
-	// can't be determined from the input types, then a different function
-	// API needs to be used. XXX: Should we extend this here?
-	Func interfaces.FuncSig
+	// not an acceptable option. On success, it should return the
+	// implementing function to use. Of note, this API does not tell the
+	// implementation what the correct return type should be. If it can't be
+	// determined from the input types, then a different function API needs
+	// to be used. XXX: Should we extend this here?
+	Make func(typ *types.Type) (interfaces.FuncSig, error)
 }
 
 // Build is run to turn the maybe polymorphic, undetermined function, into the
 // specific statically typed version. It is usually run after unification
 // completes, and must be run before Info() and any of the other Func interface
-// methods are used. For this function API, it just runs the Check function to
-// make sure that the type found during unification is one of the valid ones.
+// methods are used.
 func (obj *Func) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 
-	if obj.Check != nil {
-		if err := obj.Check(typ); err != nil {
-			return nil, errwrap.Wrapf(err, "can't build %s with %s", obj.Name, typ)
-		}
+	f, err := obj.Make(typ)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't build %s with %s", obj.Name, typ)
 	}
 
 	fn := &types.FuncValue{
 		T: typ,
-		V: obj.Func, // implementation
+		V: f, // implementation
 	}
 	obj.Fn = fn
 	return obj.Fn.T, nil
 }
 
-// TypeMatch accepts a list of possible type signatures that we want to check
-// against after type unification. This helper function returns a function which
-// is suitable for use in the scaffold check function field.
-func TypeMatch(typeList []string) func(*types.Type) error {
-	return func(typ *types.Type) error {
-		for _, s := range typeList {
+// TypeMatch accepts a map of possible type signatures to corresponding
+// implementing functions that we want to check against after type unification.
+// On success it returns the function who's corresponding signature matched.
+// This helper function returns a function which is suitable for use in the
+// scaffold make function field.
+func TypeMatch(m map[string]interfaces.FuncSig) func(*types.Type) (interfaces.FuncSig, error) {
+	return func(typ *types.Type) (interfaces.FuncSig, error) {
+		// sort for determinism in debugging
+		keys := []string{}
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, s := range keys {
 			t := types.NewType(s)
 			if t == nil {
 				// TODO: should we panic?
 				continue // skip
 			}
 			if unificationUtil.UnifyCmp(typ, t) == nil {
-				return nil
+				return m[s], nil
 			}
 		}
-		return fmt.Errorf("did not match")
-
+		return nil, fmt.Errorf("did not match")
 	}
-}
-
-// StructRegister takes an CLI args struct with optional struct tags, and
-// generates simple functions from the contained fields in the specified
-// namespace. If no struct field named `func` is included, then a default
-// function name which is the lower case representation of the field name will
-// be used, otherwise the struct tag contents are used. If the struct tag
-// contains the `-` character, then the field will be skipped.
-// TODO: An alternative version of this might choose to return all of the values
-// as a single giant struct.
-func StructRegister(moduleName string, args interface{}) error {
-	if args == nil {
-		// programming error
-		return fmt.Errorf("could not convert/access our struct")
-	}
-	//fmt.Printf("A: %+v\n", args)
-
-	val := reflect.ValueOf(args)
-	if val.Kind() == reflect.Ptr { // max one de-referencing
-		val = val.Elem()
-	}
-	typ := val.Type()
-
-	for i := 0; i < typ.NumField(); i++ {
-		v := val.Field(i) // value of the field
-		t := typ.Field(i) // struct type, get real type with .Type
-
-		name := strings.ToLower(t.Name) // default
-		if alias, ok := t.Tag.Lookup("func"); ok {
-			if alias == "-" { // skip
-				continue
-			}
-			name = alias
-		}
-		//fmt.Printf("N: %+v\n", name) // debug
-		if len(strings.Trim(name, "abcdefghijklmnopqrstuvwxyz_")) > 0 {
-			return fmt.Errorf("struct field index(%d) has invalid char(s) in function name", i)
-		}
-
-		typed, err := types.TypeOf(t.Type) // reflect.Type -> (*types.Type, error)
-		if err != nil {
-			return err
-		}
-		//fmt.Printf("T: %+v\n", typed.String()) // debug
-
-		ModuleRegister(moduleName, name, &Scaffold{
-			T: types.NewType(fmt.Sprintf("func() %s", typed.String())),
-			F: func(ctx context.Context, input []types.Value) (types.Value, error) {
-				//if args == nil {
-				//	// programming error
-				//	return nil, fmt.Errorf("could not convert/access our struct")
-				//}
-
-				value, err := types.ValueOf(v) // reflect.Value -> (types.Value, error)
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "func `%s.%s()` has nil value", moduleName, name)
-				}
-				//fmt.Printf("V: %+v\n", value) // debug
-				return value, nil
-			},
-		})
-	}
-
-	return nil
 }

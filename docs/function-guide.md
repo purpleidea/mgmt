@@ -41,7 +41,7 @@ To implement a function, you'll need to create a file that imports the
 [`lang/funcs/simple/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simple/)
 module. It should probably get created in the correct directory inside of:
 [`lang/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/core/). The
-function should be implemented as a `FuncValue` in our type system. It is then
+function should be implemented as a `simple.Scaffold` in our API. It is then
 registered with the engine during `init()`. An example explains it best:
 
 ### Example
@@ -50,6 +50,7 @@ registered with the engine during `init()`. An example explains it best:
 package simple
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -59,9 +60,10 @@ import (
 // you must register your functions in init when the program starts up
 func init() {
 	// Example function that squares an int and prints out answer as an str.
-	simple.ModuleRegister(ModuleName, "talkingsquare", &types.FuncValue{
+
+	simple.ModuleRegister(ModuleName, "talkingsquare", &simple.Scaffold{
 		T: types.NewType("func(int) str"), // declare the signature
-		V: func(input []types.Value) (types.Value, error) {
+		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			i := input[0].Int() // get first arg as an int64
 			// must return the above specified value
 			return &types.StrValue{
@@ -87,109 +89,41 @@ mgmt engine to shutdown. It should be seen as the equivalent to calling a
 Ideally, your functions should never need to error. You should never cause a
 real `panic()`, since this could have negative consequences to the system.
 
-## Simple Polymorphic Function API
-
-Most functions should be implemented using the simple function API. If they need
-to have multiple polymorphic forms under the same name, then you can use this
-API. This is useful for situations when it would be unhelpful to name the
-functions differently, or when the number of possible signatures for the
-function would be infinite.
-
-The canonical example of this is the `len` function which returns the number of
-elements in either a `list` or a `map`. Since lists and maps are two different
-types, you can see that polymorphism is more convenient than requiring a
-`listlen` and `maplen` function. Nevertheless, it is also required because a
-`list of int` is a different type than a `list of str`, which is a different
-type than a `list of list of str` and so on. As you can see the number of
-possible input types for such a `len` function is infinite.
-
-Another downside to implementing your functions with this API is that they will
-*not* be made available for use inside templates. This is a limitation of the
-`golang` template library. In the future if this limitation proves to be
-significantly annoying, we might consider writing our own template library.
-
-As with the simple, non-polymorphic API, you can only implement [pure](https://en.wikipedia.org/wiki/Pure_function)
-functions, without writing too much boilerplate code. They will be automatically
-re-evaluated as needed when their input values change.
-
-To implement a function, you'll need to create a file that imports the
-[`lang/funcs/simplepoly/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simplepoly/)
-module. It should probably get created in the correct directory inside of:
-[`lang/core/`](https://github.com/purpleidea/mgmt/tree/master/lang/core/). The
-function should be implemented as a list of `FuncValue`'s in our type system. It
-is then registered with the engine during `init()`. You may also use the
-`variant` type in your type definitions. This special type will never be seen
-inside a running program, and will get converted to a concrete type if a
-suitable match to this signature can be found. Be warned that signatures which
-contain too many variants, or which are very general, might be hard for the
-compiler to match, and ambiguous type graphs make for user compiler errors. The
-top-level type must still be a function type, it may only contain variants as
-part of its signature. It is probably more difficult to unify a function if its
-return type is a variant, as opposed to if one of its args was.
-
-An example explains it best:
-
 ### Example
 
 ```golang
+package simple
+
 import (
+	"context"
 	"fmt"
 
-	"github.com/purpleidea/mgmt/lang/funcs/simplepoly"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	// You may use the simplepoly.ModuleRegister method to register your
-	// function if it's in a module, as seen in the simple function example.
-	simplepoly.Register("len", []*types.FuncValue{
-		{
-			T: types.NewType("func([]variant) int"),
-			V: Len,
-		},
-		{
-			T: types.NewType("func({variant: variant}) int"),
-			V: Len,
-		},
+	// This is the actual definition of the `len` function.
+	simple.Register("len", &simple.Scaffold{
+		T: types.NewType("func(?1) int"), // contains a unification var
+		C: simple.TypeMatch([]string{     // match on any of these sigs
+			"func(str) int",
+			"func([]?1) int",
+			"func(map{?1: ?2}) int",
+		}),
+		// The implementation is left as an exercise for the reader.
+		F: Len,
 	})
-}
-
-// Len returns the number of elements in a list or the number of key pairs in a
-// map. It can operate on either of these types.
-func Len(input []types.Value) (types.Value, error) {
-	var length int
-	switch k := input[0].Type().Kind; k {
-	case types.KindList:
-		length = len(input[0].List())
-	case types.KindMap:
-		length = len(input[0].Map())
-
-	default:
-		return nil, fmt.Errorf("unsupported kind: %+v", k)
-	}
-
-	return &types.IntValue{
-		V: int64(length),
-	}, nil
 }
 ```
 
-This simple polymorphic function can accept an infinite number of signatures, of
-which there are two basic forms. Both forms return an `int` as is seen above.
-The first form takes a `[]variant` which means a `list` of `variant`'s, which
-means that it can be a list of any type, since `variant` itself is not a
-concrete type. The second form accepts a `{variant: variant}`, which means that
-it accepts any form of `map` as input.
+## Simple Polymorphic Function API
 
-The implementation for both of these forms is the same: it is handled by the
-same `Len` function which is clever enough to be able to deal with any of the
-type signatures possible from those two patterns.
-
-At compile time, if your `mcl` code type checks correctly, a concrete type will
-be known for each and every usage of the `len` function, and specific values
-will be passed in for this code to compute the length of. As usual, make sure to
-only write safe code that will not panic! A panic is a bug. If you really cannot
-continue, then you must return an error.
+Most functions should be implemented using the simple function API. If they need
+to have multiple polymorphic forms under the same name, with each resultant type
+match needing to be paired to a different implementation, then you can use this
+API. This is useful for situations when the functions differ in output type
+only.
 
 ## Function API
 
@@ -357,23 +291,6 @@ work on a function that uses this feature, or to add it to an existing one!
 We don't expect this functionality to be particularly useful or common, as it's
 probably easier and preferable to simply import common golang library code into
 multiple different functions instead.
-
-## Polymorphic Function API
-
-The polymorphic function API is an API that lets you implement functions which
-do not necessarily have a single static function signature. After compile time,
-all functions must have a static function signature. We also know that there
-might be different ways you would want to call `printf`, such as:
-`printf("the %s is %d", "answer", 42)` or `printf("3 * 2 = %d", 3 * 2)`. Since
-you couldn't implement the infinite number of possible signatures, this API lets
-you write code which can be coerced into different forms. This makes
-implementing what would appear to be generic or polymorphic, instead of
-something that is actually static and that still has the static type safety
-properties that were guaranteed by the mgmt language.
-
-Since this is an advanced topic, it is not described in full at this time. For
-more information please have a look at the source code comments, some of the
-existing implementations, and ask around in the community.
 
 ## Frequently asked questions
 

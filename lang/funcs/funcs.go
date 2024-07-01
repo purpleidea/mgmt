@@ -65,15 +65,17 @@ const (
 
 // registeredFuncs is a global map of all possible funcs which can be used. You
 // should never touch this map directly. Use methods like Register instead. It
-// includes implementations which also satisfy PolyFunc as well.
+// includes implementations which also satisfy BuildableFunc and InferableFunc
+// as well.
 var registeredFuncs = make(map[string]func() interfaces.Func) // must initialize
 
 // Register takes a func and its name and makes it available for use. It is
 // commonly called in the init() method of the func at program startup. There is
 // no matching Unregister function. You may also register functions which
-// satisfy the PolyFunc interface. To register a function which lives in a
-// module, you must join the module name to the function name with the ModuleSep
-// character. It is defined as a const and is probably the period character.
+// satisfy the BuildableFunc and InferableFunc interfaces. To register a
+// function which lives in a module, you must join the module name to the
+// function name with the ModuleSep character. It is defined as a const and is
+// probably the period character.
 func Register(name string, fn func() interfaces.Func) {
 	if _, exists := registeredFuncs[name]; exists {
 		panic(fmt.Sprintf("a func named %s is already registered", name))
@@ -93,13 +95,6 @@ func Register(name string, fn func() interfaces.Func) {
 	//	panic(fmt.Sprintf("a func named %s is invalid", name))
 	//}
 
-	fnx := fn() // check that all functions have migrated to the new API!
-	if _, ok := fnx.(interfaces.OldPolyFunc); ok {
-		if _, ok := fnx.(interfaces.PolyFunc); !ok {
-			panic(fmt.Sprintf("a func named %s implements OldPolyFunc but not PolyFunc", name))
-		}
-	}
-
 	//gob.Register(fn())
 	registeredFuncs[name] = fn
 }
@@ -111,7 +106,8 @@ func ModuleRegister(module, name string, fn func() interfaces.Func) {
 }
 
 // Lookup returns a pointer to the function's struct. It may be convertible to a
-// PolyFunc if the particular function implements those additional methods.
+// BuildableFunc or InferableFunc if the particular function implements those
+// additional methods.
 func Lookup(name string) (interfaces.Func, error) {
 	f, exists := registeredFuncs[name]
 	if !exists {
@@ -180,13 +176,22 @@ func PureFuncExec(handle interfaces.Func, args []types.Value) (types.Value, erro
 		return nil, fmt.Errorf("func is slow")
 	}
 
-	if err := handle.Validate(); err != nil {
-		return nil, errwrap.Wrapf(err, "could not validate func")
-	}
-
 	sig := handle.Info().Sig
 	if sig.Kind != types.KindFunc {
 		return nil, fmt.Errorf("must be kind func")
+	}
+	if sig.HasUni() {
+		return nil, fmt.Errorf("func contains unification vars")
+	}
+
+	if buildableFunc, ok := handle.(interfaces.BuildableFunc); ok {
+		if _, err := buildableFunc.Build(sig); err != nil {
+			return nil, fmt.Errorf("can't build function: %v", err)
+		}
+	}
+
+	if err := handle.Validate(); err != nil {
+		return nil, errwrap.Wrapf(err, "could not validate func")
 	}
 
 	ord := handle.Info().Sig.Ord

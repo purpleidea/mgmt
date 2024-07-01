@@ -277,9 +277,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	if !args.SkipUnify {
 		// apply type unification
 		unificationLogf := func(format string, v ...interface{}) {
-			if debug { // unification only has debug messages...
-				logf("unification: "+format, v...)
-			}
+			logf("unification: "+format, v...)
 		}
 		logf("running type unification...")
 

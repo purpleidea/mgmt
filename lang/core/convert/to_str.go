@@ -38,14 +38,14 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "int_to_str", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "int_to_str", &simple.Scaffold{
 		T: types.NewType("func(a int) str"),
-		V: IntToStr,
+		F: IntToStr,
 	})
 	// TODO: more complicated because of precision, etc...
-	//simple.ModuleRegister(ModuleName, "float_to_str", &types.FuncValue{
+	//simple.ModuleRegister(ModuleName, "float_to_str", &simple.Scaffold{
 	//	T: types.NewType("func(a float, ???) str"),
-	//	V: FloatToStr,
+	//	F: FloatToStr,
 	//})
 }
 

@@ -40,13 +40,13 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "macfmt", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "macfmt", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
-		V: MacFmt,
+		F: MacFmt,
 	})
-	simple.ModuleRegister(ModuleName, "oldmacfmt", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "oldmacfmt", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
-		V: OldMacFmt,
+		F: OldMacFmt,
 	})
 }
 

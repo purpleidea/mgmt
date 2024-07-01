@@ -39,7 +39,7 @@ import (
 
 	_ "github.com/purpleidea/mgmt/engine/resources" // import so the resources register
 	"github.com/purpleidea/mgmt/lang/ast"
-	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/operators"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -217,7 +217,7 @@ func TestUnification1(t *testing.T) {
 		//	int64ptr => 13 + 42,
 		//}
 		expr := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{
 					V: "+",
@@ -261,7 +261,7 @@ func TestUnification1(t *testing.T) {
 		//	int64ptr => 13 + 42 - 4,
 		//}
 		innerFunc := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{
 					V: "-",
@@ -275,7 +275,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		expr := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{
 					V: "+",
@@ -317,7 +317,7 @@ func TestUnification1(t *testing.T) {
 		//	float32 => -25.38789 + 32.6 + 13.7,
 		//}
 		innerFunc := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{
 					V: "+",
@@ -331,7 +331,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		expr := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{
 					V: "+",
@@ -374,7 +374,7 @@ func TestUnification1(t *testing.T) {
 		//	int64 => $x,
 		//}
 		innerFunc := &ast.ExprCall{
-			Name: funcs.OperatorFuncName,
+			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
 				&ast.ExprStr{
 					V: "-",
@@ -718,7 +718,7 @@ func TestUnification1(t *testing.T) {
 			name:      "typed if expr",
 			ast:       stmt,
 			fail:      true,
-			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (Str != Int)",
+			experrstr: "type/value inconsistent at arg #1 for func `fmt.printf`: str != int",
 		})
 	}
 	{
@@ -771,7 +771,60 @@ func TestUnification1(t *testing.T) {
 			name:      "typed var expr",
 			ast:       stmt,
 			fail:      true,
-			experrstr: "can't unify, invariant illogicality with equality: base kind does not match (Str != Bool)",
+			experrstr: "type/value inconsistent at arg #1 for func `fmt.printf`: str != bool",
+		})
+	}
+	{
+		//import "fmt"
+		//$w = true
+		//$x str = $w	# should fail unification
+		//test "t1" {
+		//	stringptr => fmt.printf("hello %v", $x),
+		//}
+		wvar := &ast.ExprBool{V: true}
+		xvar := &ast.ExprVar{Name: "w"}
+		xvar.SetType(types.TypeStr) // should fail unification
+		expr := &ast.ExprCall{
+			Name: "fmt.printf",
+			Args: []interfaces.Expr{
+				&ast.ExprStr{
+					V: "hello %s",
+				},
+				&ast.ExprVar{
+					Name: "x", // the var
+				},
+			},
+		}
+		stmt := &ast.StmtProg{
+			Body: []interfaces.Stmt{
+				&ast.StmtImport{
+					Name: "fmt",
+				},
+				&ast.StmtBind{
+					Ident: "w",
+					Value: wvar,
+				},
+				&ast.StmtBind{
+					Ident: "x", // the var
+					Value: xvar,
+				},
+				&ast.StmtRes{
+					Kind: "test",
+					Name: &ast.ExprStr{V: "t1"},
+					Contents: []ast.StmtResContents{
+						&ast.StmtResField{
+							Field: "anotherstr",
+							Value: expr,
+						},
+					},
+				},
+			},
+		}
+		testCases = append(testCases, test{
+			name:      "typed var expr again",
+			ast:       stmt,
+			fail:      true,
+			experrstr: "type/value inconsistent at arg #1 for func `fmt.printf`: str != bool",
 		})
 	}
 

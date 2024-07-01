@@ -33,5 +33,6 @@ package solvers
 
 import (
 	// import so the solver registers
-	_ "github.com/purpleidea/mgmt/lang/unification/simplesolver"
+	_ "github.com/purpleidea/mgmt/lang/unification/fastsolver"
+	//_ "github.com/purpleidea/mgmt/lang/unification/simplesolver"
 )

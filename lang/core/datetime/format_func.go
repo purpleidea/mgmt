@@ -39,9 +39,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "format", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "format", &simple.Scaffold{
 		T: types.NewType("func(a int, b str) str"),
-		V: Format,
+		F: Format,
 	})
 }
 

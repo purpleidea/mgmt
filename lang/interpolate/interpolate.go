@@ -36,6 +36,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/operators"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -312,7 +313,7 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 	//		V: "", // empty str
 	//	}
 	//	return &ast.ExprCall{
-	//		Name: funcs.OperatorFuncName, // concatenate the two strings with + operator
+	//		Name: operators.OperatorFuncName, // concatenate the two strings with + operator
 	//		Args: []interfaces.Expr{
 	//			operator, // operator first
 	//			arg,      // string arg
@@ -344,7 +345,7 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 
 	return &ast.ExprCall{
 		// NOTE: if we don't set the data field we need Init() called on it!
-		Name: funcs.OperatorFuncName, // concatenate the two strings with + operator
+		Name: operators.OperatorFuncName, // concatenate the two strings with + operator
 		Args: []interfaces.Expr{
 			operator, // operator first
 			head,     // string arg

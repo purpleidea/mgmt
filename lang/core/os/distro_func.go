@@ -43,9 +43,9 @@ const structDistroUID = "struct{distro str; version str; arch str}"
 var typeParseDistroUID = types.NewType(fmt.Sprintf("func(str) %s", structDistroUID))
 
 func init() {
-	simple.ModuleRegister(ModuleName, "parse_distro_uid", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "parse_distro_uid", &simple.Scaffold{
 		T: typeParseDistroUID,
-		V: ParseDistroUID,
+		F: ParseDistroUID,
 	})
 }
 

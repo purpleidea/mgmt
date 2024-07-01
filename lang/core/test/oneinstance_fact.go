@@ -121,9 +121,9 @@ func init() {
 		}
 	})
 
-	simple.ModuleRegister(ModuleName, OneInstanceBFuncName, &types.FuncValue{
+	simple.ModuleRegister(ModuleName, OneInstanceBFuncName, &simple.Scaffold{
 		T: types.NewType("func() str"),
-		V: func(context.Context, []types.Value) (types.Value, error) {
+		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceBMutex.Lock()
 			if oneInstanceBFlag {
 				panic("should not get called twice")
@@ -133,9 +133,9 @@ func init() {
 			return &types.StrValue{V: msg}, nil
 		},
 	})
-	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &types.FuncValue{
+	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &simple.Scaffold{
 		T: types.NewType("func() str"),
-		V: func(context.Context, []types.Value) (types.Value, error) {
+		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceDMutex.Lock()
 			if oneInstanceDFlag {
 				panic("should not get called twice")
@@ -145,9 +145,9 @@ func init() {
 			return &types.StrValue{V: msg}, nil
 		},
 	})
-	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &types.FuncValue{
+	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &simple.Scaffold{
 		T: types.NewType("func() str"),
-		V: func(context.Context, []types.Value) (types.Value, error) {
+		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceFMutex.Lock()
 			if oneInstanceFFlag {
 				panic("should not get called twice")
@@ -157,9 +157,9 @@ func init() {
 			return &types.StrValue{V: msg}, nil
 		},
 	})
-	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &types.FuncValue{
+	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &simple.Scaffold{
 		T: types.NewType("func() str"),
-		V: func(context.Context, []types.Value) (types.Value, error) {
+		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceHMutex.Lock()
 			if oneInstanceHFlag {
 				panic("should not get called twice")

@@ -39,9 +39,9 @@ import (
 )
 
 func init() {
-	simple.ModuleRegister(ModuleName, "cidr_to_ip", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "cidr_to_ip", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
-		V: CidrToIP,
+		F: CidrToIP,
 	})
 }
 

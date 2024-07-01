@@ -35,7 +35,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
@@ -54,7 +53,7 @@ func init() {
 	Register(LookupDefaultFuncName, func() interfaces.Func { return &LookupDefaultFunc{} }) // must register the func and name
 }
 
-var _ interfaces.PolyFunc = &LookupDefaultFunc{} // ensure it meets this expectation
+var _ interfaces.BuildableFunc = &LookupDefaultFunc{} // ensure it meets this expectation
 
 // LookupDefaultFunc is a list index or map key lookup function. It does both
 // because the current syntax in the parser is identical, so it's convenient to
@@ -62,11 +61,13 @@ var _ interfaces.PolyFunc = &LookupDefaultFunc{} // ensure it meets this expecta
 // ListLookupDefaultFunc and MapLookupDefaultFunc implementations. If the index
 // or key for this input doesn't exist, then it will return the default value
 // you specified for this function.
+// TODO: Eventually we will deprecate this function when the function engine can
+// support passing a value for erroring functions. (Bad index could be an err!)
 type LookupDefaultFunc struct {
 	Type *types.Type // Kind == List OR Map, that is used as the list/map we lookup in
 
 	//init *interfaces.Init
-	fn interfaces.PolyFunc // handle to ListLookupDefaultFunc or MapLookupDefaultFunc
+	fn interfaces.BuildableFunc // handle to ListLookupDefaultFunc or MapLookupDefaultFunc
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -82,402 +83,6 @@ func (obj *LookupDefaultFunc) ArgGen(index int) (string, error) {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
 	return seq[index], nil
-}
-
-// Unify returns the list of invariants that this func produces.
-func (obj *LookupDefaultFunc) Unify(expr interfaces.Expr) ([]interfaces.Invariant, error) {
-	var invariants []interfaces.Invariant
-	var invar interfaces.Invariant
-
-	// func(list T1, index int, default T3) T3
-	// (list: []T3 => T3 aka T1 => T3)
-	// OR
-	// func(map T1, key T2, default T3) T3
-	// (map: T2 => T3)
-
-	listOrMapName, err := obj.ArgGen(0)
-	if err != nil {
-		return nil, err
-	}
-
-	indexOrKeyName, err := obj.ArgGen(1)
-	if err != nil {
-		return nil, err
-	}
-
-	defaultName, err := obj.ArgGen(2)
-	if err != nil {
-		return nil, err
-	}
-
-	dummyListOrMap := &interfaces.ExprAny{}  // corresponds to the list or map type
-	dummyIndexOrKey := &interfaces.ExprAny{} // corresponds to the index or key type
-	dummyDefault := &interfaces.ExprAny{}    // corresponds to the default type
-	dummyOut := &interfaces.ExprAny{}        // corresponds to the out string
-
-	// default type and out are the same
-	invar = &interfaces.EqualityInvariant{
-		Expr1: dummyDefault,
-		Expr2: dummyOut,
-	}
-	invariants = append(invariants, invar)
-
-	ors := []interfaces.Invariant{} // solve only one from this list
-
-	var listInvariants []interfaces.Invariant
-
-	// relationship between T1 and T3
-	invar = &interfaces.EqualityWrapListInvariant{
-		Expr1:    dummyListOrMap,
-		Expr2Val: dummyDefault,
-	}
-	listInvariants = append(listInvariants, invar)
-
-	// the index has to be an int
-	invar = &interfaces.EqualsInvariant{
-		Expr: dummyIndexOrKey,
-		Type: types.TypeInt,
-	}
-	listInvariants = append(listInvariants, invar)
-
-	// all of these need to be true together
-	and := &interfaces.ConjunctionInvariant{
-		Invariants: listInvariants,
-	}
-	ors = append(ors, and) // one solution added!
-
-	// OR
-
-	// relationship between T1, T2 and T3
-	mapInvariant := &interfaces.EqualityWrapMapInvariant{
-		Expr1:    dummyListOrMap,
-		Expr2Key: dummyIndexOrKey,
-		Expr2Val: dummyDefault,
-	}
-	ors = append(ors, mapInvariant) // one solution added!
-
-	invar = &interfaces.ExclusiveInvariant{
-		Invariants: ors, // one and only one of these should be true
-	}
-	invariants = append(invariants, invar)
-
-	// full function
-	mapped := make(map[string]interfaces.Expr)
-	ordered := []string{listOrMapName, indexOrKeyName, defaultName}
-	mapped[listOrMapName] = dummyListOrMap
-	mapped[indexOrKeyName] = dummyIndexOrKey
-	mapped[defaultName] = dummyDefault
-
-	invar = &interfaces.EqualityWrapFuncInvariant{
-		Expr1:    expr, // maps directly to us!
-		Expr2Map: mapped,
-		Expr2Ord: ordered,
-		Expr2Out: dummyOut,
-	}
-	invariants = append(invariants, invar)
-
-	// generator function
-	fn := func(fnInvariants []interfaces.Invariant, solved map[interfaces.Expr]*types.Type) ([]interfaces.Invariant, error) {
-		for _, invariant := range fnInvariants {
-			// search for this special type of invariant
-			cfavInvar, ok := invariant.(*interfaces.CallFuncArgsValueInvariant)
-			if !ok {
-				continue
-			}
-			// did we find the mapping from us to ExprCall ?
-			if cfavInvar.Func != expr {
-				continue
-			}
-			// cfavInvar.Expr is the ExprCall! (the return pointer)
-			// cfavInvar.Args are the args that ExprCall uses!
-			if l := len(cfavInvar.Args); l != 3 {
-				return nil, fmt.Errorf("unable to build function with %d args", l)
-			}
-
-			var invariants []interfaces.Invariant
-			var invar interfaces.Invariant
-
-			// add the relationship to the returned value
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Expr,
-				Expr2: dummyOut,
-			}
-			invariants = append(invariants, invar)
-
-			// add the relationships to the called args
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[0],
-				Expr2: dummyListOrMap,
-			}
-			invariants = append(invariants, invar)
-
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[1],
-				Expr2: dummyIndexOrKey,
-			}
-			invariants = append(invariants, invar)
-
-			invar = &interfaces.EqualityInvariant{
-				Expr1: cfavInvar.Args[2],
-				Expr2: dummyDefault,
-			}
-			invariants = append(invariants, invar)
-
-			// If we figure out all of these types, we'll know the
-			// full type...
-			var t1 *types.Type // list or map type
-			var t2 *types.Type // list or map index/key type
-			var t3 *types.Type // list or map val type
-
-			// validateArg0 checks: list or map T1
-			validateArg0 := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-
-				// we happen to have a list or a map!
-				if k := typ.Kind; k != types.KindList && k != types.KindMap {
-					return fmt.Errorf("unable to build function with 0th arg of kind: %s", k)
-				}
-				//isList := typ.Kind == types.KindList
-				isMap := typ.Kind == types.KindMap
-
-				if isMap && typ.Key == nil {
-					// programming error
-					return fmt.Errorf("map is missing type")
-				}
-				if typ.Val == nil { // used for list or map
-					// programming error
-					return fmt.Errorf("map/list is missing type")
-				}
-
-				if err := typ.Cmp(t1); t1 != nil && err != nil {
-					return errwrap.Wrapf(err, "input type was inconsistent")
-				}
-				if isMap {
-					if err := typ.Key.Cmp(t2); t2 != nil && err != nil {
-						return errwrap.Wrapf(err, "input key type was inconsistent")
-					}
-				}
-				if err := typ.Val.Cmp(t3); t3 != nil && err != nil {
-					return errwrap.Wrapf(err, "input val type was inconsistent")
-				}
-
-				// learn!
-				t1 = typ
-				if isMap {
-					t2 = typ.Key
-				} else if t1 != nil && t3 != nil {
-					t2 = types.TypeInt
-				}
-				t3 = typ.Val
-				return nil
-			}
-
-			// validateArg1 checks: list index
-			validateListArg1 := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-				if typ.Kind != types.KindInt {
-					return errwrap.Wrapf(err, "input index type was inconsistent")
-				}
-
-				// learn!
-				t2 = typ
-				return nil
-			}
-
-			// validateArg1 checks: map key T2
-			validateMapArg1 := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-
-				if err := typ.Cmp(t2); t2 != nil && err != nil {
-					return errwrap.Wrapf(err, "input key type was inconsistent")
-				}
-				if t1 != nil {
-					if err := typ.Cmp(t1.Key); err != nil {
-						return errwrap.Wrapf(err, "input key type was inconsistent")
-					}
-				}
-				if t3 != nil {
-					t := &types.Type{ // build t1
-						Kind: types.KindMap,
-						Key:  typ, // t2
-						Val:  t3,
-					}
-
-					if err := t.Cmp(t1); t1 != nil && err != nil {
-						return errwrap.Wrapf(err, "input type was inconsistent")
-					}
-					t1 = t // learn!
-				}
-
-				// learn!
-				t2 = typ
-				return nil
-			}
-
-			// validateArg1 checks: list index
-			validateArg1 := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-				isList := typ.Kind == types.KindList
-				isMap := typ.Kind == types.KindMap
-
-				if isList {
-					return validateListArg1(typ)
-				}
-				if isMap {
-					return validateMapArg1(typ)
-				}
-
-				return nil
-			}
-
-			// validateArg2 checks: list or map val T3
-			validateArg2 := func(typ *types.Type) error {
-				if typ == nil { // unknown so far
-					return nil
-				}
-
-				if err := typ.Cmp(t3); t3 != nil && err != nil {
-					return errwrap.Wrapf(err, "input val type was inconsistent")
-				}
-				if t1 != nil {
-					if err := typ.Cmp(t1.Val); err != nil {
-						return errwrap.Wrapf(err, "input val type was inconsistent")
-					}
-				}
-				isList := typ.Kind == types.KindList
-				isMap := typ.Kind == types.KindMap
-
-				if isMap && t2 != nil {
-					t := &types.Type{ // build t1
-						Kind: types.KindMap,
-						Key:  t2,
-						Val:  typ, // t3
-					}
-
-					if err := t.Cmp(t1); t1 != nil && err != nil {
-						return errwrap.Wrapf(err, "input type was inconsistent")
-					}
-					t1 = t // learn!
-				}
-
-				t := &types.Type{ // build t1 (for lists)
-					Kind: types.KindList,
-					Val:  typ, // t3
-				}
-				if isList && t3 != nil {
-					if err := t.Cmp(t1); t1 != nil && err != nil {
-						return errwrap.Wrapf(err, "input type was inconsistent")
-					}
-					//t1 = t // learn!
-				}
-
-				// learn!
-				if isList {
-					t1 = t
-					if t1 != nil && t3 != nil {
-						t2 = types.TypeInt
-					}
-				}
-				t3 = typ
-				return nil
-			}
-
-			if typ, err := cfavInvar.Args[0].Type(); err == nil { // is it known?
-				// this sets t1 and t3 on success (and sometimes t2) if it learned
-				if err := validateArg0(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "first arg type is inconsistent")
-				}
-			}
-			if typ, exists := solved[cfavInvar.Args[0]]; exists { // alternate way to lookup type
-				// this sets t1 and t3 on success (and sometimes t2) if it learned
-				if err := validateArg0(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "first arg type is inconsistent")
-				}
-			}
-
-			if typ, err := cfavInvar.Args[1].Type(); err == nil { // is it known?
-				// this sets t2 (and sometimes t1) on success if it learned
-				if err := validateArg1(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "second arg type is inconsistent")
-				}
-			}
-			if typ, exists := solved[cfavInvar.Args[1]]; exists { // alternate way to lookup type
-				// this sets t2 (and sometimes t1) on success if it learned
-				if err := validateArg1(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "second arg type is inconsistent")
-				}
-			}
-
-			if typ, err := cfavInvar.Args[2].Type(); err == nil { // is it known?
-				// this sets t3 (and sometimes t1 (and sometimes t2)) on success if it learned
-				if err := validateArg2(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "third default arg type is inconsistent")
-				}
-			}
-			if typ, exists := solved[cfavInvar.Args[2]]; exists { // alternate way to lookup type
-				// this sets t3 (and sometimes t1 (and sometimes t2)) on success if it learned
-				if err := validateArg2(typ); err != nil {
-					return nil, errwrap.Wrapf(err, "third default arg type is inconsistent")
-				}
-			}
-
-			// XXX: if the types aren't know statically?
-
-			if t1 != nil {
-				invar := &interfaces.EqualsInvariant{
-					Expr: dummyListOrMap,
-					Type: t1,
-				}
-				invariants = append(invariants, invar)
-			}
-			if t2 != nil {
-				invar := &interfaces.EqualsInvariant{
-					Expr: dummyIndexOrKey,
-					Type: t2,
-				}
-				invariants = append(invariants, invar)
-			}
-			if t3 != nil {
-				invar := &interfaces.EqualsInvariant{
-					Expr: dummyDefault,
-					Type: t3,
-				}
-				invariants = append(invariants, invar)
-			}
-
-			// XXX: if t{1..2} are missing, we could also return a
-			// new generator for later if we learn new information,
-			// but we'd have to be careful to not do it infinitely.
-
-			// TODO: do we return this relationship with ExprCall?
-			invar = &interfaces.EqualityWrapCallInvariant{
-				// TODO: should Expr1 and Expr2 be reversed???
-				Expr1: cfavInvar.Expr,
-				//Expr2Func: cfavInvar.Func, // same as below
-				Expr2Func: expr,
-			}
-			invariants = append(invariants, invar)
-
-			// TODO: are there any other invariants we should build?
-			return invariants, nil // generator return
-		}
-		// We couldn't tell the solver anything it didn't already know!
-		return nil, fmt.Errorf("couldn't generate new invariants")
-	}
-	invar = &interfaces.GeneratorInvariant{
-		Func: fn,
-	}
-	invariants = append(invariants, invar)
-
-	return invariants, nil
 }
 
 // Build is run to turn the polymorphic, undetermined function, into the
@@ -525,11 +130,14 @@ func (obj *LookupDefaultFunc) Validate() error {
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
 func (obj *LookupDefaultFunc) Info() *interfaces.Info {
+	// func(list []?1, index int, default ?1) ?1
+	// OR
+	// func(map map{?1: ?2}, key ?1, default ?2) ?2
 	if obj.fn == nil {
 		return &interfaces.Info{
 			Pure: true,
 			Memo: false,
-			Sig:  nil, // func kind
+			Sig:  types.NewType("func(?1, ?2, ?3) ?3"), // func kind
 			Err:  obj.Validate(),
 		}
 	}

@@ -40,9 +40,9 @@ import (
 const Answer = 42
 
 func init() {
-	simple.ModuleRegister(ModuleName, "answer", &types.FuncValue{
+	simple.ModuleRegister(ModuleName, "answer", &simple.Scaffold{
 		T: types.NewType("func() int"),
-		V: func(context.Context, []types.Value) (types.Value, error) {
+		F: func(context.Context, []types.Value) (types.Value, error) {
 			return &types.IntValue{V: Answer}, nil
 		},
 	})

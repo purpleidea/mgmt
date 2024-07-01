@@ -46,7 +46,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/lang/unification/simplesolver" // TODO: remove me!
+	"github.com/purpleidea/mgmt/lang/unification/fastsolver"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/password"
@@ -394,12 +394,12 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		runArgs.RunLang.SkipUnify = false // can't skip if we only unify
 	}
 
-	name := simplesolver.Name
+	name := fastsolver.Name
 	// TODO: Remove these optimizations when the solver is faster overall.
 	runArgs.RunLang.UnifySolver = &name
-	runArgs.RunLang.UnifyOptimizations = []string{
-		simplesolver.OptimizationSkipFuncCmp,
-	}
+	//runArgs.RunLang.UnifyOptimizations = []string{
+	//	fastsolver.TODO,
+	//}
 	libConfig.TmpPrefix = true
 	libConfig.NoPgp = true
 
@@ -416,9 +416,9 @@ func (obj *provisioner) Register(moduleName string) error {
 	}
 
 	// Build a few separately...
-	simple.ModuleRegister(moduleName, "cli_password", &types.FuncValue{
+	simple.ModuleRegister(moduleName, "cli_password", &simple.Scaffold{
 		T: types.NewType("func() str"),
-		V: func(ctx context.Context, input []types.Value) (types.Value, error) {
+		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			if obj.localArgs == nil {
 				// programming error
 				return nil, fmt.Errorf("could not convert/access our struct")

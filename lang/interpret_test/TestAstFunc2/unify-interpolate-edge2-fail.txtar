@@ -7,4 +7,4 @@ test "test" {}
 Test["test"] -> Test["${name}"] # must fail
 
 -- OUTPUT --
-# err: errUnify: can't unify, invariant illogicality with equality: base kind does not match (Str != List)
+# err: errUnify: unify error with: var(name): type error: Str != List

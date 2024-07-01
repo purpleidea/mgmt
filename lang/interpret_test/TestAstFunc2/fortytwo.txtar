@@ -3,6 +3,9 @@ import "fmt"
 import "math"
 # FIXME: floats don't print nicely: https://github.com/golang/go/issues/46118
 # FIXME: This means that we see "42" for both, instead of 42.0 ...
+# NOTE: It's important that we have both of these in the same test so that we
+# can catch old unification bugs that saw ExprTopLevel as the same for both!
+# This happened because we weren't copying the type signature being unified!
 test [fmt.printf("int: %d", math.fortytwo()),] {}
 test [fmt.printf("float: %f", math.fortytwo()),] {}
 -- OUTPUT --

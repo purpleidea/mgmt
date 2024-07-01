@@ -1498,6 +1498,270 @@ func TestTypeCopy0(t *testing.T) {
 	}
 }
 
+func TestUni0(t *testing.T) {
+	// good type strings
+	if NewType("?1") == nil {
+		t.Errorf("unexpected nil type")
+	}
+	if NewType("?123") == nil {
+		t.Errorf("unexpected nil type")
+	}
+	if NewType("[]?123") == nil {
+		t.Errorf("unexpected nil type")
+	}
+	if NewType("map{?123: ?123}") == nil {
+		t.Errorf("unexpected nil type")
+	}
+
+	// bad type strings
+	if typ := NewType("?0"); typ != nil {
+		t.Errorf("expected nil type, got: %v", typ)
+	}
+	if typ := NewType("?00"); typ != nil {
+		t.Errorf("expected nil type, got: %v", typ)
+	}
+	if typ := NewType("?000000000000000000000"); typ != nil {
+		t.Errorf("expected nil type, got: %v", typ)
+	}
+}
+
+func TestUni1(t *testing.T) {
+	// functions with named types...
+	testCases := map[string]*Type{
+		// good type strings
+		"?1": {
+			Kind: KindUnification,
+			Uni:  NewElem(),
+		},
+		"?123": {
+			Kind: KindUnification,
+			Uni:  NewElem(),
+		},
+		"[]?123": {
+			Kind: KindList,
+			Val: &Type{
+				Kind: KindUnification,
+				Uni:  NewElem(),
+			},
+		},
+
+		// bad type strings
+		"?0":     nil,
+		"?00":    nil,
+		"?00000": nil,
+		"?-1":    nil,
+		"?-42":   nil,
+		"?0x42":  nil, // hexadecimal
+		"?013":   nil, // octal
+	}
+
+	for str, val := range testCases { // run all the tests
+		// for debugging
+		//if str != "?0" {
+		//continue
+		//}
+
+		// check the type
+		typ := NewType(str)
+		//t.Logf("str: %+v", str)
+		//t.Logf("typ: %+v", typ)
+
+		if val == nil { // catch error cases
+			if typ != nil {
+				t.Errorf("invalid type: `%s` did not match expected nil", str)
+			}
+			continue
+		}
+
+		if err := typ.Cmp(val); err != nil {
+			t.Errorf("type: `%s` did not match expected: `%v`", str, err)
+			return
+		}
+	}
+}
+
+func TestUniCmp0(t *testing.T) {
+	type test struct { // an individual test
+		name string
+		typ1 *Type
+		typ2 *Type
+		err  bool   // expected err ?
+		str  string // expected output str
+	}
+	testCases := []test{}
+
+	testCases = append(testCases, test{
+		name: "simple ?1 compare",
+		typ1: NewType("?1"),
+		typ2: NewType("?1"),
+		err:  false,
+	})
+	testCases = append(testCases, test{
+		name: "different ?1 compare",
+		typ1: NewType("?13"), // they don't need to be the same
+		typ2: NewType("?42"),
+		err:  false,
+	})
+	testCases = append(testCases, test{
+		name: "duplicate type unification variables",
+		// the type unification variables should be the same
+		typ1: NewType("map{?123:?123}"),
+		typ2: &Type{
+			Kind: KindMap,
+			Key: &Type{
+				Kind: KindUnification,
+				Uni:  NewElem(),
+			},
+			Val: &Type{
+				Kind: KindUnification,
+				Uni:  NewElem(),
+			},
+		},
+		err: true,
+	})
+	{
+		uni0 := NewElem()
+		testCases = append(testCases, test{
+			name: "same type unification variables in map",
+			// the type unification variables should be the same
+			typ1: NewType("map{?123:?123}"),
+			typ2: &Type{
+				Kind: KindMap,
+				Key: &Type{
+					Kind: KindUnification,
+					Uni:  uni0,
+				},
+				Val: &Type{
+					Kind: KindUnification,
+					Uni:  uni0,
+				},
+			},
+			err: false,
+		})
+	}
+	{
+		uni1 := NewElem()
+		uni2 := NewElem()
+		uni3 := NewElem()
+		// XXX: should we instead have uni0 for the return type and
+		// .Union() it with uni2 ?
+		//uni0 := NewElem()
+		//uni2.Union(uni0)
+		testCases = append(testCases, test{
+			name: "duplicate type unification variables in functions",
+			// the type unification variables should be the same
+			typ1: NewType("func(?13, ?42, ?4, int) ?42"),
+			typ2: &Type{
+				Kind: KindFunc,
+				Map: map[string]*Type{
+					"a": {
+						Kind: KindUnification,
+						Uni:  uni1,
+					},
+					"b": {
+						Kind: KindUnification,
+						Uni:  uni2,
+					},
+					"c": {
+						Kind: KindUnification,
+						Uni:  uni3,
+					},
+					"d": TypeInt,
+				},
+				Ord: []string{"a", "b", "c", "d"},
+				Out: &Type{
+					Kind: KindUnification,
+					Uni:  uni2, // same as the second arg
+				},
+			},
+			err: false,
+		})
+	}
+	{
+		uni1 := NewElem()
+		uni2 := NewElem()
+		// XXX: should we instead have uni0 for the return type and
+		// .Union() it with uni2 ?
+		//uni0 := NewElem()
+		//uni2.Union(uni0)
+		testCases = append(testCases, test{
+			name: "duplicate type unification variables in functions unbalanced",
+			// the type unification variables should be the same
+			typ1: NewType("func(?13, ?42, ?4, int) ?42"),
+			typ2: &Type{
+				Kind: KindFunc,
+				Map: map[string]*Type{
+					"a": {
+						Kind: KindUnification,
+						Uni:  uni1,
+					},
+					"b": {
+						Kind: KindUnification,
+						Uni:  uni2,
+					},
+					"c": {
+						Kind: KindUnification,
+						Uni:  uni1, // must not match!
+					},
+					"d": TypeInt,
+				},
+				Ord: []string{"a", "b", "c", "d"},
+				Out: &Type{
+					Kind: KindUnification,
+					Uni:  uni2, // same as the second arg
+				},
+			},
+			err: true,
+		})
+	}
+
+	if testing.Short() {
+		t.Logf("available tests:")
+	}
+	names := []string{}
+	for index, tc := range testCases { // run all the tests
+		if tc.name == "" {
+			t.Errorf("test #%d: not named", index)
+			continue
+		}
+		if util.StrInList(tc.name, names) {
+			t.Errorf("test #%d: duplicate sub test name of: %s", index, tc.name)
+			continue
+		}
+		names = append(names, tc.name)
+
+		testName := fmt.Sprintf("test #%d (%s)", index, tc.name)
+		if testing.Short() { // make listing tests easier
+			t.Logf("%s", testName)
+			continue
+		}
+		t.Run(testName, func(t *testing.T) {
+			typ1, typ2, err := tc.typ1, tc.typ2, tc.err
+
+			// the reverse should probably match the forward version
+			err1 := typ1.Cmp(typ2)
+			err2 := typ2.Cmp(typ1)
+
+			if err && err1 == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expected error, got nil", index)
+			}
+			if !err && err1 != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unexpected error: %+v", index, err1)
+			}
+			if err && err2 == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: expected error, got nil", index)
+			}
+			if !err && err2 != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: unexpected error: %+v", index, err2)
+			}
+		})
+	}
+}
+
 func TestTypeOf0(t *testing.T) {
 	// TODO: implement testing of the TypeOf function
 	// TODO: implement testing TypeOf for struct field name mappings

@@ -76,6 +76,31 @@ func TypeStructTagToFieldName(st reflect.Type) (map[string]string, error) {
 	return result, nil
 }
 
+// IsComparableKind returns true if you pass it a comparable kind. These have a
+// Cmp method on the Value interface that won't panic. Notably KindFunc and any
+// other special kinds are not present in this list.
+func IsComparableKind(kind Kind) bool {
+	switch kind {
+	case KindBool:
+		return true
+	case KindStr:
+		return true
+	case KindInt:
+		return true
+	case KindFloat:
+		return true
+	case KindList:
+		return true
+	case KindMap:
+		return true
+	case KindStruct:
+		return true
+	case KindFunc:
+		return false // not comparable!
+	}
+	return false // others
+}
+
 // Iter applies a function to each type in the top-level type. It stops if that
 // function errors, and returns that error to the top-level caller. It panics if
 // it encounters an invalid or partial type struct. This version starts at the

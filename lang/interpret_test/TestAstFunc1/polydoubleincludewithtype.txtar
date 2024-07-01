@@ -12,4 +12,4 @@ class c1($a, $b []str) {
 	}
 }
 -- OUTPUT --
-# err: errUnify: unify error with: str("hello"): type error: List != Str
+# err: errUnify: unify error with: str("hello"): type error: list != str

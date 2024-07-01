@@ -33,11 +33,8 @@ SHELL = /usr/bin/env bash
 all: build
 
 build: parser/lexer.nn.go parser/y.go interpolate/parse.generated.go
-	@# recursively run make in child dir named types
-	@$(MAKE) --quiet -C types
 
 clean:
-	$(MAKE) --quiet -C types clean
 	@rm -f parser/lexer.nn.go parser/y.go parser/y.output interpolate/parse.generated.go || true
 
 parser/lexer.nn.go: parser/lexer.nex

@@ -10,4 +10,4 @@ test "${name}" {}
 # TODO: I would expect that if the "%s" and "%d" swapped, that speculatively we
 # would be able to run this at compile time and know the result statically.
 -- OUTPUT --
-# err: errStream: func `printf@??????????` stopped before it was loaded: base kind does not match (Str != Int)
+# err: errStream: func `printf@??????????` stopped before it was loaded: base kind does not match (str != int)

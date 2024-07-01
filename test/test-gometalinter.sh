@@ -47,7 +47,6 @@ gml="$gml --enable=misspell"
 # TODO: at least until https://github.com/alecthomas/gometalinter/issues/270
 gml="$gml --exclude=lang/parser/lexer.nn.go"
 gml="$gml --exclude=lang/parser/y.go"
-gml="$gml --exclude=lang/types/kind_stringer.go"
 gml="$gml --exclude=lang/interpolate/parse.generated.go"
 
 gometalinter="$gml"	# final

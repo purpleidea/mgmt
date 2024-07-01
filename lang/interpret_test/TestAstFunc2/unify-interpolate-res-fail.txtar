@@ -5,4 +5,4 @@ $name = ["a", "bb", "ccc",]
 test "${name}" {} # must fail
 
 -- OUTPUT --
-# err: errUnify: unify error with: var(name): type error: Str != List
+# err: errUnify: unify error with: var(name): type error: str != list

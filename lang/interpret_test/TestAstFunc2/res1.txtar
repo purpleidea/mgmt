@@ -3,4 +3,4 @@ test "t1" {
 	stringptr => 42, # int, not str
 }
 -- OUTPUT --
-# err: errUnify: unify error with: int(42): type error: Str != Int
+# err: errUnify: unify error with: int(42): type error: str != int

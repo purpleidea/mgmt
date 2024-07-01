@@ -10,4 +10,4 @@ print "msg" {
 	msg => fmt.printf("notfn: %d", $x),
 }
 -- OUTPUT --
-# err: errUnify: unify error with: topLevel(singleton(int(42))): type error: Func != Int
+# err: errUnify: unify error with: topLevel(singleton(int(42))): type error: func != int

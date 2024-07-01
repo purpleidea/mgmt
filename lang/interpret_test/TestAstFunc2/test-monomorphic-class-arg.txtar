@@ -12,4 +12,4 @@ class use_polymorphically($id) {
 }
 include use_polymorphically(func($x) {$x})
 -- OUTPUT --
-# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: Int != Str
+# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: int != str

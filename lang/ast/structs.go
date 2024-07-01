@@ -3830,7 +3830,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	}
 
 	// If we don't do this deterministically the type unification errors can
-	// flip from `type error: Int != Str` to `type error: Str != Int` etc...
+	// flip from `type error: int != str` to `type error: str != int` etc...
 	nodeOrder, err := orderingGraph.DeterministicTopologicalSort() // sorted!
 
 	if err != nil {

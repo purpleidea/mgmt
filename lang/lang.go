@@ -49,6 +49,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/parser"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
 	_ "github.com/purpleidea/mgmt/lang/unification/solvers" // import so the solvers register
 	"github.com/purpleidea/mgmt/pgraph"
@@ -258,11 +259,12 @@ func (obj *Lang) Init(ctx context.Context) error {
 		return errwrap.Wrapf(err, "could not get default solver")
 	}
 	unifier := &unification.Unifier{
-		AST:      obj.ast,
-		Solver:   solver,
-		Strategy: obj.Data.UnificationStrategy,
-		Debug:    obj.Debug,
-		Logf:     logf,
+		AST:          obj.ast,
+		Solver:       solver,
+		Strategy:     obj.Data.UnificationStrategy,
+		UnifiedState: types.NewUnifiedState(),
+		Debug:        obj.Debug,
+		Logf:         logf,
 	}
 	timing = time.Now()
 	// NOTE: This is the "real" Unify that runs. (This is not for deploy.)

@@ -38,6 +38,7 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
 // Unifier holds all the data that the Unify function will need for it to run.
@@ -51,6 +52,9 @@ type Unifier struct {
 	// Strategy is a hack to tune unification performance until we have an
 	// overall cleaner unification algorithm in place.
 	Strategy map[string]string
+
+	// UnifiedState stores a common representation of our unification vars.
+	UnifiedState *types.UnifiedState
 
 	Debug bool
 	Logf  func(format string, v ...interface{})
@@ -75,14 +79,18 @@ func (obj *Unifier) Unify(ctx context.Context) error {
 	if obj.Solver == nil {
 		return fmt.Errorf("the Solver is missing")
 	}
+	if obj.UnifiedState == nil {
+		return fmt.Errorf("the UnifiedState table is missing")
+	}
 	if obj.Logf == nil {
 		return fmt.Errorf("the Logf function is missing")
 	}
 
 	init := &Init{
-		Strategy: obj.Strategy,
-		Logf:     obj.Logf,
-		Debug:    obj.Debug,
+		Strategy:     obj.Strategy,
+		UnifiedState: obj.UnifiedState,
+		Logf:         obj.Logf,
+		Debug:        obj.Debug,
 	}
 	if err := obj.Solver.Init(init); err != nil {
 		return err

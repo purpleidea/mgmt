@@ -60,6 +60,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/parser"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -465,10 +466,11 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 			unifier := &unification.Unifier{
-				AST:    iast,
-				Solver: solver,
-				Debug:  testing.Verbose(),
-				Logf:   xlogf,
+				AST:          iast,
+				Solver:       solver,
+				UnifiedState: types.NewUnifiedState(),
+				Debug:        testing.Verbose(),
+				Logf:         xlogf,
 			}
 			err = unifier.Unify(context.TODO())
 			if (!fail || !failUnify) && err != nil {
@@ -1041,10 +1043,11 @@ func TestAstFunc2(t *testing.T) {
 				return
 			}
 			unifier := &unification.Unifier{
-				AST:    iast,
-				Solver: solver,
-				Debug:  testing.Verbose(),
-				Logf:   xlogf,
+				AST:          iast,
+				Solver:       solver,
+				UnifiedState: types.NewUnifiedState(),
+				Debug:        testing.Verbose(),
+				Logf:         xlogf,
 			}
 			err = unifier.Unify(context.TODO())
 			if (!fail || !failUnify) && err != nil {
@@ -1849,10 +1852,11 @@ func TestAstFunc3(t *testing.T) {
 				return
 			}
 			unifier := &unification.Unifier{
-				AST:    iast,
-				Solver: solver,
-				Debug:  testing.Verbose(),
-				Logf:   xlogf,
+				AST:          iast,
+				Solver:       solver,
+				UnifiedState: types.NewUnifiedState(),
+				Debug:        testing.Verbose(),
+				Logf:         xlogf,
 			}
 			err = unifier.Unify(context.TODO())
 			if (!fail || !failUnify) && err != nil {

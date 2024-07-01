@@ -861,10 +861,11 @@ func TestUnification1(t *testing.T) {
 				return
 			}
 			unifier := &unification.Unifier{
-				AST:    xast,
-				Solver: solver,
-				Debug:  debug,
-				Logf:   logf,
+				AST:          xast,
+				Solver:       solver,
+				UnifiedState: types.NewUnifiedState(),
+				Debug:        debug,
+				Logf:         logf,
 			}
 			err = unifier.Unify(context.TODO())
 

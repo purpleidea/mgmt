@@ -49,6 +49,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/interpolate"
 	"github.com/purpleidea/mgmt/lang/parser"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -287,11 +288,12 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			return nil, errwrap.Wrapf(err, "could not get default solver")
 		}
 		unifier := &unification.Unifier{
-			AST:      iast,
-			Solver:   solver,
-			Strategy: unificationStrategy,
-			Debug:    debug,
-			Logf:     unificationLogf,
+			AST:          iast,
+			Solver:       solver,
+			Strategy:     unificationStrategy,
+			UnifiedState: types.NewUnifiedState(),
+			Debug:        debug,
+			Logf:         unificationLogf,
 		}
 		startTime := time.Now()
 		unifyErr := unifier.Unify(context.TODO())

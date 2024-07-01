@@ -59,6 +59,9 @@ type Init struct {
 	// overall cleaner unification algorithm in place.
 	Strategy map[string]string
 
+	// UnifiedState stores a common representation of our unification vars.
+	UnifiedState *types.UnifiedState
+
 	Debug bool
 	Logf  func(format string, v ...interface{})
 }

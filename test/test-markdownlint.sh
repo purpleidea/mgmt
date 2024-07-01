@@ -42,11 +42,16 @@ EOF
 
 #STYLE="test/mdl.style"	# style file
 
-LYCHEE=$(command -v lychee 2>/dev/null) || true
-if [ -z "$LYCHEE" ]; then
-	fail_test "The 'lychee' utility can't be found.
-	Installation guide:
-	https://github.com/lycheeverse/lychee/blob/master/README.md#installation"
+CHECK_LINKS=false
+if [ "$1" = "--check-links" ]; then
+	shift # pop the $1 arg
+	CHECK_LINKS=true
+	LYCHEE=$(command -v lychee 2>/dev/null) || true
+	if [ -z "$LYCHEE" ]; then
+		fail_test "The 'lychee' utility can't be found.
+		Installation guide:
+		https://github.com/lycheeverse/lychee/blob/master/README.md#installation"
+	fi
 fi
 
 find_files() {
@@ -73,9 +78,11 @@ bad_files=$(
 		fi
 
 		# check links in docs
-		# if file is from the directory docs/ then check links
-		if [[ "$i" == docs/* ]] && ! "$LYCHEE" -n "$i" 1>&2; then
-			echo "$i"
+		if $CHECK_LINKS; then
+			# if file is from the directory docs/ then check links
+			if [[ "$i" == docs/* ]] && ! "$LYCHEE" -n "$i" 1>&2; then
+				echo "$i"
+			fi
 		fi
 	done
 )

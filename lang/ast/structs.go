@@ -3829,8 +3829,10 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		orderingGraphSingleton = false
 	}
 
-	//nodeOrder, err := orderingGraphFiltered.TopologicalSort()
-	nodeOrder, err := orderingGraph.TopologicalSort()
+	// If we don't do this deterministically the type unification errors can
+	// flip from `type error: Int != Str` to `type error: Str != Int` etc...
+	nodeOrder, err := orderingGraph.DeterministicTopologicalSort() // sorted!
+
 	if err != nil {
 		// TODO: print the cycle in a prettier way (with names?)
 		if obj.data.Debug {

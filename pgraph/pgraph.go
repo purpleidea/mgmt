@@ -669,6 +669,65 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	return L, nil
 }
 
+// DeterministicTopologicalSort returns the sort of graph vertices in a stable
+// topological sort order. It's slower than the TopologicalSort implementation,
+// but guarantees that two identical graphs produce the same sort each time.
+// TODO: add memoization, and cache invalidation to speed this up :)
+func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's algorithm
+	var L []Vertex                    // empty list that will contain the sorted elements
+	var S []Vertex                    // set of all nodes with no incoming edges
+	remaining := make(map[Vertex]int) // amount of edges remaining
+
+	var vertices []Vertex
+	indegree := g.InDegree()
+	for k := range indegree {
+		vertices = append(vertices, k)
+	}
+	sort.Sort(VertexSlice(vertices)) // add determinism
+	//for v, d := range g.InDegree()
+	for _, v := range vertices { // map[Vertex]int
+		d := indegree[v]
+		if d == 0 {
+			// accumulate set of all nodes with no incoming edges
+			S = append(S, v)
+		} else {
+			// initialize remaining edge count from indegree
+			remaining[v] = d
+		}
+	}
+
+	for len(S) > 0 {
+		last := len(S) - 1 // remove a node v from S
+		v := S[last]
+		S = S[:last]
+		L = append(L, v) // add v to tail of L
+		// This doesn't need to loop in a deterministically sorted order.
+		for n := range g.adjacency[v] { // map[Vertex]Edge
+			// for each node n remaining in the graph, consume from
+			// remaining, so for remaining[n] > 0
+			if remaining[n] > 0 {
+				remaining[n]--         // remove edge from the graph
+				if remaining[n] == 0 { // if n has no other incoming edges
+					S = append(S, n) // insert n into S
+				}
+			}
+		}
+	}
+
+	// if graph has edges, eg if any value in rem is > 0
+	for c, in := range remaining {
+		if in > 0 {
+			for n := range g.adjacency[c] {
+				if remaining[n] > 0 {
+					return nil, ErrNotAcyclic
+				}
+			}
+		}
+	}
+
+	return L, nil
+}
+
 // Reachability finds the shortest path in a DAG from a to b, and returns the
 // slice of vertices that matched this particular path including both a and b.
 // It returns nil if a or b is nil, and returns empty list if no path is found.

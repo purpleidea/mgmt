@@ -197,3 +197,22 @@ func Iter(typ *Type, fn func(*Type) error) error {
 
 	return nil
 }
+
+// NewUnifiedState builds a new unified state store.
+func NewUnifiedState() *UnifiedState {
+	return &UnifiedState{
+		table: make(map[*Elem]uint),
+	}
+}
+
+// UnifiedState stores a mapping of unification variable to unique id. This is
+// most often used for printing consistent unification variables in your logs.
+// It must be built with NewUnifiedState before it can be used or it will panic.
+type UnifiedState struct {
+	table map[*Elem]uint
+}
+
+// String returns a representation of the input type using the specified state.
+func (obj *UnifiedState) String(typ *Type) string {
+	return typ.string(obj.table)
+}

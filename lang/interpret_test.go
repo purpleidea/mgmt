@@ -109,25 +109,6 @@ func TestAstFunc1(t *testing.T) {
 	}
 	t.Logf("tests directory is: %s", dir)
 
-	variables := map[string]interfaces.Expr{
-		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
-		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
-	}
-	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
-	variables, err = ast.MergeExprMaps(variables, consts, addback)
-	if err != nil {
-		t.Errorf("couldn't merge in consts: %+v", err)
-		return
-	}
-
-	scope := &interfaces.Scope{ // global scope
-		Variables: variables,
-		// all the built-in top-level, core functions enter here...
-		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
-	}
-
 	type test struct { // an individual test
 		name string
 		path string // relative txtar path inside tests dir
@@ -303,6 +284,25 @@ func TestAstFunc1(t *testing.T) {
 			mmFs := afero.NewMemMapFs()
 			afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
 			fs := &util.AferoFs{Afero: afs}
+
+			variables := map[string]interfaces.Expr{
+				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
+				// TODO: change to a func when we can change hostname dynamically!
+				"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
+			}
+			consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+			addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
+			variables, err = ast.MergeExprMaps(variables, consts, addback)
+			if err != nil {
+				t.Errorf("couldn't merge in consts: %+v", err)
+				return
+			}
+
+			scope := &interfaces.Scope{ // global scope
+				Variables: variables,
+				// all the built-in top-level, core functions enter here...
+				Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
+			}
 
 			// use this variant, so that we don't copy the dir name
 			// this is the equivalent to running `rsync -a src/ /`
@@ -596,25 +596,6 @@ func TestAstFunc2(t *testing.T) {
 	}
 	t.Logf("tests directory is: %s", dir)
 
-	variables := map[string]interfaces.Expr{
-		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
-		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
-	}
-	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
-	variables, err = ast.MergeExprMaps(variables, consts, addback)
-	if err != nil {
-		t.Errorf("couldn't merge in consts: %+v", err)
-		return
-	}
-
-	scope := &interfaces.Scope{ // global scope
-		Variables: variables,
-		// all the built-in top-level, core functions enter here...
-		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
-	}
-
 	type test struct { // an individual test
 		name string
 		path string // relative txtar path inside tests dir
@@ -839,6 +820,25 @@ func TestAstFunc2(t *testing.T) {
 				Logf: func(format string, v ...interface{}) {
 					logf("world: etcd: "+format, v...)
 				},
+			}
+
+			variables := map[string]interfaces.Expr{
+				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
+				// TODO: change to a func when we can change hostname dynamically!
+				"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
+			}
+			consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+			addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
+			variables, err = ast.MergeExprMaps(variables, consts, addback)
+			if err != nil {
+				t.Errorf("couldn't merge in consts: %+v", err)
+				return
+			}
+
+			scope := &interfaces.Scope{ // global scope
+				Variables: variables,
+				// all the built-in top-level, core functions enter here...
+				Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 			}
 
 			// use this variant, so that we don't copy the dir name
@@ -1411,25 +1411,6 @@ func TestAstFunc3(t *testing.T) {
 	}
 	t.Logf("tests directory is: %s", dir)
 
-	variables := map[string]interfaces.Expr{
-		"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
-		// TODO: change to a func when we can change hostname dynamically!
-		"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
-	}
-	consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
-	addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
-	variables, err = ast.MergeExprMaps(variables, consts, addback)
-	if err != nil {
-		t.Errorf("couldn't merge in consts: %+v", err)
-		return
-	}
-
-	scope := &interfaces.Scope{ // global scope
-		Variables: variables,
-		// all the built-in top-level, core functions enter here...
-		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
-	}
-
 	type test struct { // an individual test
 		name string
 		path string // relative txtar path inside tests dir
@@ -1648,6 +1629,25 @@ func TestAstFunc3(t *testing.T) {
 				Logf: func(format string, v ...interface{}) {
 					logf("world: etcd: "+format, v...)
 				},
+			}
+
+			variables := map[string]interfaces.Expr{
+				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
+				// TODO: change to a func when we can change hostname dynamically!
+				"hostname": &ast.ExprStr{V: ""}, // NOTE: empty b/c not used
+			}
+			consts := ast.VarPrefixToVariablesScope(vars.ConstNamespace) // strips prefix!
+			addback := vars.ConstNamespace + interfaces.ModuleSep        // add it back...
+			variables, err = ast.MergeExprMaps(variables, consts, addback)
+			if err != nil {
+				t.Errorf("couldn't merge in consts: %+v", err)
+				return
+			}
+
+			scope := &interfaces.Scope{ // global scope
+				Variables: variables,
+				// all the built-in top-level, core functions enter here...
+				Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 			}
 
 			// use this variant, so that we don't copy the dir name

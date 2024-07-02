@@ -141,12 +141,12 @@ func Check(filename string) error {
 
 			// TODO: how do we deal with multiline comments?
 			if strings.HasPrefix(s, CommentMultilinePrefix) {
-				break // skip
+				break // skip to the end of this block
 			}
 
 			// skip the magic compiler comments
 			if strings.HasPrefix(s, CommentGolangPrefix) {
-				break // skip
+				break // skip to the end of this block
 			}
 
 			if s != commentPrefixTrimmed && !strings.HasPrefix(s, CommentPrefix) {
@@ -265,6 +265,9 @@ func IsNewStart(word string) bool {
 	if IsNumberBullet(word) {
 		return true
 	}
+	if IsCodeBlock(word) {
+		return true
+	}
 
 	return false
 }
@@ -292,4 +295,12 @@ func IsNumberBullet(word string) bool {
 		return false
 	}
 	return matched
+}
+
+// IsCodeBlock returns true if the word starts with a code block backtick.
+func IsCodeBlock(word string) bool {
+	if strings.HasPrefix(word, "`") {
+		return true
+	}
+	return false
 }

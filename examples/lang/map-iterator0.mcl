@@ -10,4 +10,4 @@ $out1 = iter.map($in1, $fn)
 
 $t1 = template("out1: {{ . }}", $out1)
 
-test $t1 {}
+test [$t1,] {}

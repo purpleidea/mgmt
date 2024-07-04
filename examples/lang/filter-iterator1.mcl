@@ -1,0 +1,14 @@
+import "iter"
+import "math"
+
+$fn1 = func($x) {
+	math.mod(len($x), 2) == 0 # is length even ?
+}
+
+$in1 = ["xxxxxx", "a", "bb", "ccc", "dddd", "eeeee",]
+
+$out1 = iter.filter($in1, $fn1)
+
+$t1 = template("out1: {{ . }}", $out1)
+
+test [$t1,] {}

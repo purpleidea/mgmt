@@ -4,20 +4,20 @@
 import "fmt"
 import "sys"
 
-$x = sys.getenv("TEST", "321")
+$x = sys.getenv("TEST")
 
 print "print1" {
 	msg => fmt.printf("the value of the environment variable TEST is: %s", $x),
 }
 
-$y = sys.getenv("DOESNOTEXIT", "321")
+$y = sys.defaultenv("DOESNOTEXIT", "321")
 
 print "print2" {
 	msg => fmt.printf("environment variable DOESNOTEXIT does not exist, defaulting to: %s", $y),
 }
 
-$z = sys.getenv("EMPTY", "456")
+$z = sys.defaultenv("EMPTY", "456")
 
 print "print3" {
-	msg => fmt.printf("same goes for epmty variables like EMPTY: %s", $z),
+	msg => fmt.printf("same goes for empty variables like EMPTY: %s", $z),
 }

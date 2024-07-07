@@ -27,6 +27,10 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
+// Package password has some utility functions for dealing with misc passwords.
+// XXX: Please note, the "github.com/tredoe/osutil/user/crypt/sha512_crypt"
+// dependency is slightly suspicious and we should investigate it further to
+// make sure there are no supply chain issues with it.
 package password
 
 import (
@@ -41,7 +45,7 @@ import (
 	"syscall"
 	"time"
 
-	sha512Crypt "github.com/tredoe/osutil/v2/userutil/crypt/sha512_crypt"
+	sha512Crypt "github.com/tredoe/osutil/user/crypt/sha512_crypt"
 	"golang.org/x/sys/unix"
 )
 

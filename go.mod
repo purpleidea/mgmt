@@ -31,7 +31,6 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/sanity-io/litter v1.5.5
 	github.com/spf13/afero v1.11.0
-	github.com/tredoe/osutil/v2 v2.0.0-rc.16
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/yalue/merged_fs v1.3.0
 	go.etcd.io/etcd/api/v3 v3.5.13
@@ -128,6 +127,7 @@ require (
 	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
+	github.com/tredoe/osutil v1.5.0 // indirect
 	github.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect

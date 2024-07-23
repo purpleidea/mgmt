@@ -280,6 +280,73 @@ prevent masking an error for a situation when you expected a file to already be
 at that location. It also turns out to simplify the internals significantly, and
 remove an ambiguous scenario with the reversible file resource.
 
+### Package resources error with: "The name is not activatable", what's wrong?
+
+You may see an error like:
+
+`main: error running auto edges: The name is not activatable`
+
+This can happen because the mgmt `pkg` resource uses a library and daemon called
+`PackageKit` to install packages. If it is not installed, then it cannot do its
+work. On Fedora system you may wish to run `dnf install /usr/bin/pkcon` or on a
+Debian system you may wish to run `apt install packagekit-tools`.
+
+PackageKit is excellent because it provides both an API and an event system to
+watch the package database for changes, and it abstracts away the differences
+between the various package managers. If you'd prefer to not need to install
+this tool, then you can contribute a native `pkg:rpm` and `pkg:deb` resource to
+mgmt!
+
+### When running mgmt, it says: "module path error: can't find a module path".
+
+You might get an error along the lines of:
+
+```
+could not set scope: import scope `git://github.com/purpleidea/mgmt/modules/some_module_name/` failed: module path error: can't find a module path
+```
+
+This usually means that you haven't specified the directory that mgmt should use
+when looking for modules. This could happen when using mgmt interactively or
+when it's being run as a service. In such cases you may want the main invocation
+to look something like:
+
+```
+mgmt run lang --module-path '/etc/mgmt/modules/' /etc/mgmt/main.mcl
+```
+
+### I get an error: "cannot open shared object file: No such file or directory".
+
+Mgmt currently uses two libraries that depend on `.so` files being installed on
+the host. Those are for `augeas` and `libvirt`. If those dependencies are not
+present, then mgmt will not run. The complete error might look like:
+
+```
+mgmt: error while loading shared libraries: libvirt-lxc.so.0: cannot open shared object file: No such file or directory
+```
+
+or:
+
+```
+mgmt: error while loading shared libraries: libaugeas.so.0: cannot open shared object file: No such file or directory
+```
+
+or something similar. There are two solutions to this:
+
+1. Use a build that doesn't include one or both of those features. You can build
+that like: `GOTAGS="noaugeas novirt nodocker" make build`.
+
+2. Install those dependencies. On a Fedora machine you might want to run:
+
+```
+dnf install libvirt-devel augeas-devel
+```
+
+On a Debian machine you might want to run:
+
+```
+apt install libvirt-dev libaugeas-dev
+```
+
 ### Why do function names inside of templates include underscores?
 
 The golang template library which we use to implement the template() function
@@ -320,7 +387,7 @@ an instance of mgmt running, or if a related file locking issue occurred. To
 solve this, shutdown and running mgmt process, run `rm mgmt` to remove the file,
 and then get a new one by running `make` again.
 
-### Type unification error: "could not unify types: 2 unconsumed generators".
+### Type unification error with string interpolation.
 
 Look carefully at the following code:
 
@@ -343,8 +410,13 @@ print "hello" {
 }
 ```
 
-Yes we know the compiler gives horrible error messages, and yes we would
-absolutely love your help improving this.
+The first example will usually error with something along the lines of:
+
+`unify error with: topLevel(func() { <built-in:concat> }): type error: int != str`
+
+Now you know why this specific case doesn't work! We may reconsider allowing
+other types to be pulled into interpolation in the future. If you have a good
+case for this, then let us know.
 
 ### The run and deploy commands don't parse correctly when used with `--seeds`.
 

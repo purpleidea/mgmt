@@ -37,6 +37,8 @@ exclude_rule 'MD029'	# Ordered list item prefix
 exclude_rule 'MD039'	# Spaces inside link text
 
 # Line length
+# FIXME: Note this doesn't prevent a long word from being over 80, it only stops
+# new words from starting after you've already passed the 80 char limit.
 rule 'MD013', :line_length => 80, :ignore_code_blocks => true, :tables => false
 EOF
 

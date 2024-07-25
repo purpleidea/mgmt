@@ -51,7 +51,7 @@ type AferoFs struct {
 func (obj *AferoFs) URI() string {
 	if obj.Scheme != "" {
 		// if obj.Path is not empty and doesn't start with a slash, then
-		// the first chunk will dissappear when being parsed with stdlib
+		// the first chunk will disappear when being parsed with stdlib
 		return obj.Scheme + "://" + obj.Path
 	}
 	return fmt.Sprintf("%s://"+"/", obj.Name()) // old

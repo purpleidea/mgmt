@@ -539,7 +539,7 @@ func (obj *GraphTxn) commit() error {
 // populate operations before the Commit is run.)
 func (obj *GraphTxn) Commit() error {
 	// Lock our internal state mutex first... this prevents other AddVertex
-	// or similar calls from interferring with our work here.
+	// or similar calls from interfering with our work here.
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 

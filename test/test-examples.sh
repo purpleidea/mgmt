@@ -24,7 +24,7 @@ cd `basename "$linkto"`
 # loop through individual *.go files in working dir
 for file in `find . -maxdepth 9 -type f -name '*.go'`; do
 	#echo "running test on: $file"
-	run-test go build -i -o "$buildout" "$file" || fail_test "could not build: $file"
+	run-test go build -o "$buildout" "$file" || fail_test "could not build: $file"
 done
 rm "$buildout" || true	# clean up build mess
 

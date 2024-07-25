@@ -66,8 +66,7 @@ if label-block "basic"; then
 	run-testsuite ./test/test-markdownlint.sh
 	run-testsuite ./test/test-commit-message.sh
 	run-testsuite ./test/test-govet.sh
-	# FIXME: this fails with go.mod
-	skip-testsuite ./test/test-examples.sh
+	run-testsuite ./test/test-examples.sh
 	run-testsuite ./test/test-gotest.sh
 	# FIXME: this fails with go.mod
 	skip-testsuite ./test/test-gometalinter.sh

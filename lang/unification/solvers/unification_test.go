@@ -34,10 +34,13 @@ package solvers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/purpleidea/mgmt/engine"
 	_ "github.com/purpleidea/mgmt/engine/resources" // import so the resources register
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs/operators"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
@@ -980,5 +983,43 @@ func TestUnification1(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+func TestLangFieldNameToStructType1(t *testing.T) {
+	for _, kind := range engine.RegisteredResourcesNames() {
+		t.Logf("res.Kind(): %s", kind)
+
+		res, err := engineUtil.LangFieldNameToStructType(kind)
+		if err != nil {
+			t.Errorf("error trying to inspect kind %s: %s", kind, err.Error())
+			continue
+		}
+		if res == nil {
+			t.Errorf("got nil when trying to inspect kind: %s", kind)
+			continue
+		}
+	}
+}
+
+func TestLangFieldNameToStructType2(t *testing.T) {
+	// This tests that we don't infinitely recurse inside of this function.
+	k := "consul:kv"
+	res, err := engineUtil.LangFieldNameToStructType(k)
+
+	expected := map[string]*types.Type{
+		"address": types.TypeStr,
+		"key":     types.TypeStr,
+		"scheme":  types.TypeStr,
+		"token":   types.TypeStr,
+		"value":   types.TypeStr,
+	}
+	if err != nil {
+		t.Errorf("error trying to get the field name type map: %s", err.Error())
+		return
+	}
+	if !reflect.DeepEqual(res, expected) {
+		t.Errorf("unexpected result: %+v", res)
+		return
 	}
 }

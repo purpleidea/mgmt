@@ -120,6 +120,7 @@ func TypeOf(t reflect.Type) (*Type, error) {
 		StructTagOpt(StructTag),
 		StrictStructTagOpt(false),
 		SkipBadStructFieldsOpt(false),
+		SkipPrivateFieldsOpt(false),
 		AllowInterfaceTypeOpt(false),
 	}
 	return ConfigurableTypeOf(t, opts...)
@@ -132,6 +133,7 @@ func ResTypeOf(t reflect.Type) (*Type, error) {
 		StructTagOpt(StructTag),
 		StrictStructTagOpt(true),
 		SkipBadStructFieldsOpt(true),
+		SkipPrivateFieldsOpt(true),
 		AllowInterfaceTypeOpt(true),
 	}
 	return ConfigurableTypeOf(t, opts...)
@@ -146,6 +148,7 @@ type typeOfOptions struct {
 	structTag           string
 	strictStructTag     bool
 	skipBadStructFields bool
+	skipPrivateFields   bool
 	allowInterfaceType  bool
 	// TODO: add more options
 }
@@ -175,6 +178,14 @@ func SkipBadStructFieldsOpt(skipBadStructFields bool) TypeOfOption {
 	}
 }
 
+// SkipPrivateFieldsOpt specifies whether we should skip over struct fields that
+// are private or unexported. This is used by ResTypeOf.
+func SkipPrivateFieldsOpt(skipPrivateFields bool) TypeOfOption {
+	return func(opt *typeOfOptions) {
+		opt.skipPrivateFields = skipPrivateFields
+	}
+}
+
 // AllowInterfaceTypeOpt specifies whether we should allow matching on an
 // interface kind. This is used by ResTypeOf.
 func AllowInterfaceTypeOpt(allowInterfaceType bool) TypeOfOption {
@@ -190,6 +201,7 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 		structTag:           "",
 		strictStructTag:     false,
 		skipBadStructFields: false,
+		skipPrivateFields:   false,
 		allowInterfaceType:  false,
 	}
 	for _, optionFunc := range opts { // apply the options
@@ -271,6 +283,9 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 
 		for i := 0; i < typ.NumField(); i++ {
 			field := typ.Field(i)
+			if options.skipPrivateFields && !field.IsExported() { // prevent infinite recursion
+				continue
+			}
 			tt, err := ConfigurableTypeOf(field.Type, opts...)
 			if err != nil {
 				if options.skipBadStructFields {

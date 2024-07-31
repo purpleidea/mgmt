@@ -17,7 +17,7 @@ if $state == "one" or $state == "default" {
 	kv "${ns}" {
 		key => $ns,
 		value => "two",
-		mapped = true,
+		#mapped => true,
 	}
 	Exec["timer"] -> Kv["${ns}"]
 }
@@ -34,7 +34,7 @@ if $state == "two" {
 	kv "${ns}" {
 		key => $ns,
 		value => "three",
-		mapped = true,
+		#mapped => true,
 	}
 	Exec["timer"] -> Kv["${ns}"]
 }
@@ -51,7 +51,7 @@ if $state == "three" {
 	kv "${ns}" {
 		key => $ns,
 		value => "one",
-		mapped = true,
+		#mapped => true,
 	}
 	Exec["timer"] -> Kv["${ns}"]
 }

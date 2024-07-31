@@ -11,7 +11,16 @@ cd "${ROOT}"
 
 failures=''
 
-# TODO: test examples/lang/ directory to see if the .mcl files compile correctly
+# Test examples/lang/ directory to see if the .mcl files compile correctly.
+
+find_mcl_examples() {
+	git ls-files | grep '\.mcl$' | grep '^examples/lang/' | grep -v 'modules/'
+}
+
+for file in $(find_mcl_examples); do
+	#echo "mcl: $file"
+	run-test ./mgmt run --tmp-prefix lang --only-unify "$file" &> /dev/null || fail_test "could not compile: $file"
+done
 
 buildout='test-examples.out'
 # make symlink to outside of package

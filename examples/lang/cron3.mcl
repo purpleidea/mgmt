@@ -1,4 +1,7 @@
-$home = getenv("HOME")
+import "fmt"
+import "sys"
+
+$home = sys.getenv("HOME")
 
 cron "purpleidea-oneshot" {
 	session => true,
@@ -11,4 +14,4 @@ svc "purpleidea-oneshot" {
 }
 
 # TODO: do we need a state => $const.res.file.state.exists specified here?
-file printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home) {}
+file [fmt.printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home),] {}

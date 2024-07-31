@@ -1,4 +1,7 @@
-$home = getenv("HOME")
+import "fmt"
+import "sys"
+
+$home = sys.getenv("HOME")
 
 cron "purpleidea-oneshot" {
 	state => "absent",
@@ -12,6 +15,6 @@ svc "purpleidea-oneshot" {
 	session => true,
 }
 
-file printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home) {
+file [fmt.printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home),] {
 	state => $const.res.file.state.absent,
 }

@@ -8,7 +8,7 @@ $ayear = 60 * 60 * 24 * 365	# is a year in seconds (31536000)
 
 $tmplvalues = struct{year => $secplusone, load => $theload,}
 
-$theload = sys.load()->x1
+$theload float = sys.load()->x1	# ambiguous so we specify the type!
 
 if 5 > 3 {
 	file "/tmp/mgmt/datetime" {

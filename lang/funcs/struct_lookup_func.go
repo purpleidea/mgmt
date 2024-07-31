@@ -193,6 +193,14 @@ func (obj *StructLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 	if ix == -1 {
 		return nil, fmt.Errorf("field %s was not found in struct", obj.field)
 	}
+	tF, exists := tStruct.Map[tStruct.Ord[ix]]
+	if !exists {
+		return nil, fmt.Errorf("field %s was not found in struct", obj.field)
+	}
+	// The return value must match the type of the field we're pulling out!
+	if err := typ.Out.Cmp(tF); err != nil {
+		return nil, fmt.Errorf("field %s type error: %+v", obj.field, err)
+	}
 
 	obj.Type = tStruct // struct type
 	obj.Out = typ.Out  // type of return value

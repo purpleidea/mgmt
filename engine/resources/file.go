@@ -40,6 +40,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -780,7 +781,7 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 			return false, err
 		}
 		smartSrc = mapPaths(srcFiles)
-		obj.init.Logf("syncCheckApply: srcFiles: %v", srcFiles)
+		obj.init.Logf("syncCheckApply: srcFiles: %v", printFiles(smartSrc))
 	}
 
 	dstFiles, err := ReadDir(dst)
@@ -788,7 +789,7 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 		return false, err
 	}
 	smartDst := mapPaths(dstFiles)
-	obj.init.Logf("syncCheckApply: dstFiles: %v", dstFiles)
+	obj.init.Logf("syncCheckApply: dstFiles: %v", printFiles(smartDst))
 
 	for relPath, fileInfo := range smartSrc {
 		absSrc := fileInfo.AbsPath // absolute path
@@ -1716,4 +1717,21 @@ func mapPaths(fileInfos []FileInfo) map[string]FileInfo {
 		paths[fileInfo.RelPath] = fileInfo
 	}
 	return paths
+}
+
+// printFiles is a pretty print function to make log messages less ugly.
+func printFiles(fileInfos map[string]FileInfo) string {
+	s := ""
+	keys := []string{}
+	for k := range fileInfos {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for i, k := range keys {
+		s += fileInfos[k].RelPath
+		if i < len(keys)-1 {
+			s += ", "
+		}
+	}
+	return s
 }

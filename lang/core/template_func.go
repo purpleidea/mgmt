@@ -241,7 +241,9 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 	// XXX: should this use the scope instead (so imports are used properly) ?
 	for name, scaffold := range simple.RegisteredFuncs {
 		if scaffold.T == nil || scaffold.T.HasUni() {
-			obj.init.Logf("warning, function named: `%s` is not unified", name)
+			if obj.init.Debug {
+				obj.init.Logf("warning, function named: `%s` is not unified", name)
+			}
 			continue
 		}
 		name = safename(name) // TODO: rename since we can't include dot
@@ -257,7 +259,9 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 		// type reflect.Value.
 		f, err := wrap(ctx, name, scaffold) // wrap it so that it meets API expectations
 		if err != nil {
-			obj.init.Logf("warning, skipping function named: `%s`, err: %v", name, err)
+			if obj.init.Debug {
+				obj.init.Logf("warning, skipping function named: `%s`, err: %v", name, err)
+			}
 			continue
 		}
 		funcMap[name] = f // add it

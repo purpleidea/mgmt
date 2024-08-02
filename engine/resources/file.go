@@ -1186,6 +1186,7 @@ func (obj *FileRes) chownCheckApply(ctx context.Context, apply bool) (bool, erro
 		return false, nil
 	}
 
+	obj.init.Logf("chown %s:%s %s", obj.Owner, obj.Group, obj.getPath())
 	return false, os.Chown(obj.getPath(), expectedUID, expectedGID)
 }
 
@@ -1220,6 +1221,7 @@ func (obj *FileRes) chmodCheckApply(ctx context.Context, apply bool) (bool, erro
 		return false, nil
 	}
 
+	obj.init.Logf("chmod %s %s", obj.Mode, obj.getPath())
 	return false, os.Chmod(obj.getPath(), mode)
 }
 

@@ -407,12 +407,37 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, fmt.Errorf("unknown systemd return string: %v", status)
 	}
 
-	if refresh { // we need to reload the service
-		// XXX: run a svc reload here!
-		obj.init.Logf("Reloading...")
+	// XXX: also set enabled on boot
+
+	if !refresh { // Do we need to reload the service?
+		return false, nil // success
 	}
 
-	// XXX: also set enabled on boot
+	obj.init.Logf("Reloading...")
+
+	// From: https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html
+	// If a service is restarted that isn't running, it will be started
+	// unless the "Try" flavor is used in which case a service that isn't
+	// running is not affected by the restart. The "ReloadOrRestart" flavors
+	// attempt a reload if the unit supports it and use a restart otherwise.
+	if _, err := conn.ReloadOrTryRestartUnitContext(ctx, svc, SystemdUnitModeFail, result); err != nil {
+		return false, errwrap.Wrapf(err, "failed to reload unit")
+	}
+
+	// TODO: Do we need a timeout here?
+	select {
+	case status = <-result:
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+	switch status {
+	case SystemdUnitResultDone:
+		// pass
+	case SystemdUnitResultFailed:
+		return false, fmt.Errorf("svc reload failed (selinux?)")
+	default:
+		return false, fmt.Errorf("unknown systemd return string: %v", status)
+	}
 
 	return false, nil // success
 }

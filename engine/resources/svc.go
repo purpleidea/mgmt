@@ -52,6 +52,25 @@ func init() {
 	engine.RegisterResource("svc", func() engine.Res { return &SvcRes{} })
 }
 
+// The SystemdUnitMode* constants do the following from the docs:
+//
+// The mode needs to be one of replace, fail, isolate, ignore-dependencies,
+// ignore-requirements. If "replace" the call will start the unit and its
+// dependencies, possibly replacing already queued jobs that conflict with this.
+// If "fail" the call will start the unit and its dependencies, but will fail if
+// this would change an already queued job. If "isolate" the call will start the
+// unit in question and terminate all units that aren't dependencies of it. If
+// "ignore-dependencies" it will start a unit but ignore all its dependencies.
+// If "ignore-requirements" it will start a unit but only ignore the requirement
+// dependencies. It is not recommended to make use of the latter two options.
+const (
+	SystemdUnitModeReplace            = "replace"
+	SystemdUnitModeFail               = "fail"
+	SystemdUnitModeIsolate            = "isolate"
+	SystemdUnitModeIgnoreDependencies = "ignore-dependencies"
+	SystemdUnitModeIgnoreRequirements = "ignore-requirements"
+)
+
 // SvcRes is a service resource for systemd units.
 type SvcRes struct {
 	traits.Base // add the base methods without re-implementation
@@ -331,7 +350,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	result := make(chan string, 1) // catch result information
 
 	if obj.State == "running" {
-		_, err = conn.StartUnit(svc, "fail", result)
+		_, err = conn.StartUnit(svc, SystemdUnitModeFail, result)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "failed to start unit")
 		}
@@ -340,7 +359,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		refresh = false // we did a start, so a reload is not needed
 	} else if obj.State == "stopped" {
-		_, err = conn.StopUnit(svc, "fail", result)
+		_, err = conn.StopUnit(svc, SystemdUnitModeFail, result)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "failed to stop unit")
 		}

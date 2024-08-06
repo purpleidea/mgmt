@@ -239,18 +239,19 @@ func (obj *FileRes) isDir() bool {
 // the case where the mode is not specified. The caller should check obj.Mode is
 // not empty.
 func (obj *FileRes) mode() (os.FileMode, error) {
+	// First check if this is an octal number.
 	if n, err := strconv.ParseInt(obj.Mode, 8, 32); err == nil {
 		return os.FileMode(n), nil
 	}
 
 	// Try parsing symbolically by first getting the files current mode.
-	stat, err := os.Stat(obj.getPath())
-	if err != nil {
-		return os.FileMode(0), errwrap.Wrapf(err, "failed to get the current file mode")
+	from := os.FileMode(0) // default
+	if stat, err := os.Stat(obj.getPath()); err == nil {
+		from = stat.Mode()
 	}
 
 	modes := strings.Split(obj.Mode, ",")
-	m, err := engineUtil.ParseSymbolicModes(modes, stat.Mode(), FileModeAllowAssign)
+	m, err := engineUtil.ParseSymbolicModes(modes, from, FileModeAllowAssign)
 	if err != nil {
 		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number or symbolic mode (%s)", obj.Mode)
 	}

@@ -71,6 +71,25 @@ const (
 	SystemdUnitModeIgnoreRequirements = "ignore-requirements"
 )
 
+// The SystemdUnitResult* constants do the following from the docs:
+//
+// If the provided channel is non-nil, a result string will be sent to it upon
+// job completion: one of done, canceled, timeout, failed, dependency, skipped.
+// "done" indicates successful execution of a job. "canceled" indicates that a
+// job has been canceled before it finished execution. "timeout" indicates that
+// the job timeout was reached. "failed" indicates that the job failed.
+// "dependency" indicates that a job this job has been depending on failed and
+// the job hence has been removed too. "skipped" indicates that a job was
+// skipped because it didn't apply to the units current state.
+const (
+	SystemdUnitResultDone       = "done"
+	SystemdUnitResultCanceled   = "canceled"
+	SystemdUnitResultTimeout    = "timeout"
+	SystemdUnitResultFailed     = "failed"
+	SystemdUnitResultDependency = "dependency"
+	SystemdUnitResultSkipped    = "skipped"
+)
+
 // SvcRes is a service resource for systemd units.
 type SvcRes struct {
 	traits.Base // add the base methods without re-implementation
@@ -369,15 +388,20 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		refresh = false // we did a stop, so a reload is not needed
 	}
 
-	// XXX: use ctx here
-	status := <-result
+	var status string
+	// TODO: Do we need a timeout here?
+	select {
+	case status = <-result:
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
 	if &status == nil {
 		return false, fmt.Errorf("systemd service action result is nil")
 	}
 	switch status {
-	case "done":
+	case SystemdUnitResultDone:
 		// pass
-	case "failed":
+	case SystemdUnitResultFailed:
 		return false, fmt.Errorf("svc failed (selinux?)")
 	default:
 		return false, fmt.Errorf("unknown systemd return string: %v", status)

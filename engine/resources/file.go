@@ -550,10 +550,15 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 		obj.init.Logf("fileCheckApply: %v -> %s", src, dst)
 	}
 
+	length := int64(-1)
+
 	srcFile, isFile := src.(*os.File)
-	_, isBytes := src.(*bytes.Reader) // supports seeking!
+	srcReader, isBytes := src.(*bytes.Reader) // supports seeking!
 	if !isFile && !isBytes {
 		return "", false, fmt.Errorf("can't open src as either file or buffer")
+	}
+	if isBytes {
+		length = int64(srcReader.Len())
 	}
 
 	var srcStat os.FileInfo
@@ -567,6 +572,8 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 		if !srcStat.Mode().IsRegular() { // can't copy non-regular files or dirs
 			return "", false, fmt.Errorf("non-regular src file: %s (%q)", srcStat.Name(), srcStat.Mode())
 		}
+
+		length = srcStat.Size()
 	}
 
 	dstFile, err := os.Open(dst)
@@ -671,9 +678,12 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 	// syscall.Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n int64, err error)
 
 	// TODO: should we offer a way to cancel the copy on ^C ?
-	if obj.init.Debug {
-		obj.init.Logf("copy: %v -> %s", src, dst)
+	if isFile {
+		obj.init.Logf("copy %d bytes from: %v", length, src)
+	} else if isBytes {
+		obj.init.Logf("copy %d bytes", length)
 	}
+
 	if n, err := io.Copy(dstFile, src); err != nil {
 		return sha256sum, false, err
 	} else if obj.init.Debug {

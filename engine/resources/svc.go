@@ -201,7 +201,7 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 		invalid = false
 
 		// firstly, does svc even exist or not?
-		loadstate, err := conn.GetUnitProperty(svc, "LoadState")
+		loadstate, err := conn.GetUnitPropertyContext(ctx, svc, "LoadState")
 		if err != nil {
 			obj.init.Logf("failed to get property: %+v", err)
 			invalid = true
@@ -308,7 +308,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	var svc = fmt.Sprintf("%s.service", obj.Name()) // systemd name
 
-	loadstate, err := conn.GetUnitProperty(svc, "LoadState")
+	loadstate, err := conn.GetUnitPropertyContext(ctx, svc, "LoadState")
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to get load state")
 	}
@@ -321,8 +321,8 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	// XXX: check svc "enabled at boot" or not status...
 
-	//conn.GetUnitProperties(svc)
-	activestate, err := conn.GetUnitProperty(svc, "ActiveState")
+	//conn.GetUnitPropertiesContexts(svc)
+	activestate, err := conn.GetUnitPropertyContext(ctx, svc, "ActiveState")
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to get active state")
 	}
@@ -353,42 +353,33 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	// apply portion
 	obj.init.Logf("Apply")
-	var files = []string{svc} // the svc represented in a list
+	files := []string{svc} // the svc represented in a list
 	if obj.Startup == "enabled" {
-		_, _, err = conn.EnableUnitFiles(files, false, true)
-
+		_, _, err = conn.EnableUnitFilesContext(ctx, files, false, true)
 	} else if obj.Startup == "disabled" {
-		_, err = conn.DisableUnitFiles(files, false)
+		_, err = conn.DisableUnitFilesContext(ctx, files, false)
 	}
-
 	if err != nil {
 		return false, errwrap.Wrapf(err, "unable to change startup status")
 	}
 
 	// XXX: do we need to use a buffered channel here?
 	result := make(chan string, 1) // catch result information
+	var status string
 
 	if obj.State == "running" {
-		_, err = conn.StartUnit(svc, SystemdUnitModeFail, result)
-		if err != nil {
-			return false, errwrap.Wrapf(err, "failed to start unit")
-		}
-		if refresh {
-			obj.init.Logf("Skipping reload, due to pending start")
-		}
-		refresh = false // we did a start, so a reload is not needed
+		_, err = conn.StartUnitContext(ctx, svc, SystemdUnitModeFail, result)
 	} else if obj.State == "stopped" {
-		_, err = conn.StopUnit(svc, SystemdUnitModeFail, result)
-		if err != nil {
-			return false, errwrap.Wrapf(err, "failed to stop unit")
-		}
-		if refresh {
-			obj.init.Logf("Skipping reload, due to pending stop")
-		}
-		refresh = false // we did a stop, so a reload is not needed
+		_, err = conn.StopUnitContext(ctx, svc, SystemdUnitModeFail, result)
 	}
+	if err != nil {
+		return false, errwrap.Wrapf(err, "unable to change running status")
+	}
+	if refresh {
+		obj.init.Logf("Skipping reload, due to pending start/stop")
+	}
+	refresh = false // We did a start or stop, so a reload is not needed.
 
-	var status string
 	// TODO: Do we need a timeout here?
 	select {
 	case status = <-result:

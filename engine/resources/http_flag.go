@@ -238,12 +238,8 @@ func (obj *HTTPFlagRes) Watch(ctx context.Context) error {
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
 func (obj *HTTPFlagRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	if obj.init.Debug {
-		obj.init.Logf("CheckApply")
-	}
-
 	if obj.init.Debug || true { // XXX: maybe we should always do this?
-		obj.init.Logf("CheckApply: value: %+v", obj.value)
+		obj.init.Logf("value: %+v", obj.value)
 	}
 
 	// TODO: can we send an empty (nil) value to show it has been removed?

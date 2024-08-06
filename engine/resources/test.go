@@ -161,7 +161,7 @@ func (obj *TestRes) Watch(ctx context.Context) error {
 func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	expectRecv := []string{}
 	for key, val := range obj.init.Recv() {
-		obj.init.Logf("CheckApply: Received `%s`, changed: %t", key, val.Changed)
+		obj.init.Logf("received `%s`, changed: %t", key, val.Changed)
 		expectRecv = append(expectRecv, key)
 	}
 

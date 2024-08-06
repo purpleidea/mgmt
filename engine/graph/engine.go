@@ -268,7 +268,7 @@ func (obj *Engine) Commit() error {
 					obj.wlock.Unlock()
 				}()
 
-				if obj.Debug || true {
+				if obj.Debug {
 					obj.Logf("%s: Working...", v)
 				}
 				// contains the Watch and CheckApply loops

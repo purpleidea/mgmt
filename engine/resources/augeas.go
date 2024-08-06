@@ -206,7 +206,6 @@ func (obj *AugeasRes) checkApplySet(ctx context.Context, apply bool, ag *augeas.
 
 // CheckApply method for Augeas resource.
 func (obj *AugeasRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("CheckApply: %s", obj.File)
 	// By default we do not set any option to augeas, we use the defaults.
 	opts := augeas.None
 	if obj.Lens != "" {

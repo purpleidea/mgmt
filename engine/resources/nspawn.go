@@ -253,7 +253,7 @@ func (obj *NspawnRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	// be stopped or the state matches we're done
 	if !exists && obj.State == stopped || properties["State"] == obj.State {
 		if obj.init.Debug {
-			obj.init.Logf("CheckApply() in valid state")
+			obj.init.Logf("in valid state")
 		}
 		return true, nil
 	}
@@ -263,7 +263,7 @@ func (obj *NspawnRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 		return false, nil
 	}
 
-	obj.init.Logf("CheckApply() applying '%s' state", obj.State)
+	obj.init.Logf("applying '%s' state", obj.State)
 	// use the embedded svc to apply the correct state
 	if _, err := obj.svc.CheckApply(ctx, apply); err != nil {
 		return false, errwrap.Wrapf(err, "nested svc failed")

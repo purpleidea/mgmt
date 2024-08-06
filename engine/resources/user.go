@@ -182,8 +182,6 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 
 // CheckApply method for User resource.
 func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("CheckApply(%t)", apply)
-
 	var exists = true
 	usr, err := user.Lookup(obj.Name())
 	if err != nil {

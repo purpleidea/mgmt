@@ -638,7 +638,7 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 
 // CheckApply method for AwsEc2 resource.
 func (obj *AwsEc2Res) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("CheckApply(%t)", apply)
+	obj.init.Logf("CheckApply(%t)", apply) // XXX: replace with logf on change
 
 	// find the instance we need to check
 	instance, err := describeInstanceByName(obj.client, obj.prependName())

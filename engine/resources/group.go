@@ -135,8 +135,6 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 
 // CheckApply method for Group resource.
 func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("CheckApply(%t)", apply)
-
 	// check if the group exists
 	exists := true
 	group, err := user.LookupGroup(obj.Name())

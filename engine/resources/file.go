@@ -605,7 +605,7 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 		}
 		// FIXME: respect obj.Recurse here...
 		// there is a dir here, where we want a file...
-		obj.init.Logf("fileCheckApply: removing (force): %s", cleanDst)
+		obj.init.Logf("removing (force): %s", cleanDst)
 		if err := os.RemoveAll(cleanDst); err != nil { // dangerous ;)
 			return "", false, err
 		}
@@ -651,7 +651,7 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 		return sha256sum, false, nil
 	}
 	if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: apply: %v -> %s", src, dst)
+		obj.init.Logf("apply: %v -> %s", src, dst)
 	}
 
 	dstClose() // unlock file usage so we can write to it
@@ -672,12 +672,12 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 
 	// TODO: should we offer a way to cancel the copy on ^C ?
 	if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: copy: %v -> %s", src, dst)
+		obj.init.Logf("copy: %v -> %s", src, dst)
 	}
 	if n, err := io.Copy(dstFile, src); err != nil {
 		return sha256sum, false, err
 	} else if obj.init.Debug {
-		obj.init.Logf("fileCheckApply: copied: %v", n)
+		obj.init.Logf("copied: %v", n)
 	}
 	return sha256sum, false, dstFile.Sync()
 }
@@ -704,7 +704,7 @@ func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error)
 	// the path exists and is not a directory
 	// delete the file if force is given
 	if err == nil && !fileInfo.IsDir() {
-		obj.init.Logf("dirCheckApply: removing (force): %s", obj.getPath())
+		obj.init.Logf("removing (force): %s", obj.getPath())
 		if err := os.Remove(obj.getPath()); err != nil {
 			return false, err
 		}
@@ -720,6 +720,7 @@ func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error)
 
 	if obj.Recurse {
 		// TODO: add recurse limit here
+		obj.init.Logf("mkdir -p -m %s", mode)
 		return false, os.MkdirAll(obj.getPath(), mode)
 	}
 
@@ -733,7 +734,7 @@ func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error)
 // with the exception that a sync *can* convert a file to a dir, or vice-versa.
 func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst string, excludes []string) (bool, error) {
 	if obj.init.Debug {
-		obj.init.Logf("syncCheckApply: %s -> %s", src, dst)
+		obj.init.Logf("sync: %s -> %s", src, dst)
 	}
 	// an src of "" is now supported, if dst is a dir
 	if dst == "" {
@@ -755,12 +756,12 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 
 	if !srcIsDir && !dstIsDir && src != "" {
 		if obj.init.Debug {
-			obj.init.Logf("syncCheckApply: %s -> %s", src, dst)
+			obj.init.Logf("sync: %s -> %s", src, dst)
 		}
 		fin, err := os.Open(src)
 		if err != nil {
 			if obj.init.Debug && os.IsNotExist(err) { // if we get passed an empty src
-				obj.init.Logf("syncCheckApply: missing src: %s", src)
+				obj.init.Logf("missing src: %s", src)
 			}
 			return false, err
 		}
@@ -782,7 +783,9 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 			return false, err
 		}
 		smartSrc = mapPaths(srcFiles)
-		obj.init.Logf("syncCheckApply: srcFiles: %v", printFiles(smartSrc))
+		if obj.init.Debug {
+			obj.init.Logf("srcFiles: %v", printFiles(smartSrc))
+		}
 	}
 
 	dstFiles, err := ReadDir(dst)
@@ -790,7 +793,9 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 		return false, err
 	}
 	smartDst := mapPaths(dstFiles)
-	obj.init.Logf("syncCheckApply: dstFiles: %v", printFiles(smartDst))
+	if obj.init.Debug {
+		obj.init.Logf("dstFiles: %v", printFiles(smartDst))
+	}
 
 	for relPath, fileInfo := range smartSrc {
 		absSrc := fileInfo.AbsPath // absolute path
@@ -814,7 +819,7 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 					if absCleanDst == "" || absCleanDst == "/" {
 						return false, fmt.Errorf("don't want to remove root") // safety
 					}
-					obj.init.Logf("syncCheckApply: removing (force): %s", absCleanDst)
+					obj.init.Logf("removing (force): %s", absCleanDst)
 					if err := os.Remove(absCleanDst); err != nil {
 						return false, err
 					}
@@ -822,7 +827,7 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 				}
 
 				if obj.init.Debug {
-					obj.init.Logf("syncCheckApply: mkdir -m %s '%s'", fileInfo.Mode(), absDst)
+					obj.init.Logf("mkdir -m %s '%s'", fileInfo.Mode(), absDst)
 				}
 				if err := os.Mkdir(absDst, fileInfo.Mode()); err != nil {
 					return false, err
@@ -833,11 +838,11 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 		}
 
 		if obj.init.Debug {
-			obj.init.Logf("syncCheckApply: recurse: %s -> %s", absSrc, absDst)
+			obj.init.Logf("recurse: %s -> %s", absSrc, absDst)
 		}
 		if obj.Recurse {
 			if c, err := obj.syncCheckApply(ctx, apply, absSrc, absDst, excludes); err != nil { // recurse
-				return false, errwrap.Wrapf(err, "syncCheckApply: recurse failed")
+				return false, errwrap.Wrapf(err, "recurse failed")
 			} else if !c { // don't let subsequent passes make this true
 				checkOK = false
 			}
@@ -882,7 +887,7 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 			if isExcluded(absDst) { // skip removing excluded files
 				continue
 			}
-			obj.init.Logf("syncCheckApply: removing: %s", absCleanDst)
+			obj.init.Logf("removing: %s", absCleanDst)
 			if apply {
 				if err := os.RemoveAll(absCleanDst); err != nil { // dangerous ;)
 					return false, err
@@ -892,16 +897,16 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 			continue
 		}
 		_ = absSrc
-		//obj.init.Logf("syncCheckApply: recurse rm: %s -> %s", absSrc, absDst)
+		//obj.init.Logf("recurse rm: %s -> %s", absSrc, absDst)
 		//if c, err := obj.syncCheckApply(ctx, apply, absSrc, absDst, excludes); err != nil {
-		//	return false, errwrap.Wrapf(err, "syncCheckApply: recurse rm failed")
+		//	return false, errwrap.Wrapf(err, "recurse rm failed")
 		//} else if !c { // don't let subsequent passes make this true
 		//	checkOK = false
 		//}
 		//if isExcluded(absDst) { // skip removing excluded files
 		//	continue
 		//}
-		//obj.init.Logf("syncCheckApply: removing: %s", absCleanDst)
+		//obj.init.Logf("removing: %s", absCleanDst)
 		//if apply { // safety
 		//	if err := os.Remove(absCleanDst); err != nil {
 		//		return false, err
@@ -948,7 +953,7 @@ func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, erro
 		if p == "/" {
 			return false, fmt.Errorf("don't want to remove root") // safety
 		}
-		obj.init.Logf("stateCheckApply: removing: %s", p)
+		obj.init.Logf("removing: %s", p)
 		// TODO: add recurse limit here
 		if obj.Recurse {
 			return false, os.RemoveAll(p) // dangerous ;)
@@ -1053,13 +1058,13 @@ func (obj *FileRes) sourceCheckApply(ctx context.Context, apply bool) (bool, err
 		}
 	}
 	if obj.init.Debug {
-		obj.init.Logf("syncCheckApply: excludes: %+v", excludes)
+		obj.init.Logf("excludes: %+v", excludes)
 	}
 
 	// XXX: should this work with obj.Purge && obj.Source != "" or not?
 	checkOK, err := obj.syncCheckApply(ctx, apply, obj.Source, obj.getPath(), excludes)
 	if err != nil {
-		obj.init.Logf("syncCheckApply: error: %v", err)
+		obj.init.Logf("error: %v", err)
 		return false, err
 	}
 
@@ -1187,7 +1192,7 @@ func (obj *FileRes) chownCheckApply(ctx context.Context, apply bool) (bool, erro
 		return false, nil
 	}
 
-	obj.init.Logf("chown %s:%s %s", obj.Owner, obj.Group, obj.getPath())
+	obj.init.Logf("chown %s:%s", obj.Owner, obj.Group)
 	return false, os.Chown(obj.getPath(), expectedUID, expectedGID)
 }
 
@@ -1222,7 +1227,7 @@ func (obj *FileRes) chmodCheckApply(ctx context.Context, apply bool) (bool, erro
 		return false, nil
 	}
 
-	obj.init.Logf("chmod %s %s", obj.Mode, obj.getPath())
+	obj.init.Logf("chmod %s", obj.Mode)
 	return false, os.Chmod(obj.getPath(), mode)
 }
 

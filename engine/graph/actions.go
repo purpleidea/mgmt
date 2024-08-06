@@ -192,10 +192,14 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 
 	} else {
 		// run the CheckApply!
-		obj.Logf("%s: CheckApply(%t)", res, !noop)
+		if obj.Debug {
+			obj.Logf("%s: CheckApply(%t)", res, !noop)
+		}
 		// if this fails, don't UpdateTimestamp()
 		checkOK, err = res.CheckApply(ctx, !noop)
-		obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
+		if !checkOK && obj.Debug { // don't log on (checkOK == true)
+			obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
+		}
 	}
 
 	if checkOK && err != nil { // should never return this way

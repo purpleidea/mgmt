@@ -277,8 +277,6 @@ func (obj *KVRes) lessThanCheck(value string) (bool, error) {
 
 // CheckApply method for Password resource. Does nothing, returns happy!
 func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	obj.init.Logf("CheckApply(%t)", apply)
-
 	wg := &sync.WaitGroup{}
 	defer wg.Wait() // this must be above the defer cancel() call
 	ctx, cancel := context.WithTimeout(ctx, kvCheckApplyTimeout)
@@ -296,7 +294,7 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	if val, exists := obj.init.Recv()["value"]; exists && val.Changed {
 		// if we received on Value, and it changed, wooo, nothing to do.
-		obj.init.Logf("CheckApply: `value` was updated!")
+		obj.init.Logf("`value` was received!")
 	}
 
 	value, exists, err := obj.kvGet(ctx, obj.getKey())
@@ -321,8 +319,11 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		if !apply {
 			return false, nil
 		}
-		err := obj.kvDel(ctx, obj.getKey())
-		return false, errwrap.Wrapf(err, "error during del")
+		if err := obj.kvDel(ctx, obj.getKey()); err != nil {
+			return false, errwrap.Wrapf(err, "error during del")
+		}
+		obj.init.Logf("`value` was deleted!")
+		return false, nil
 	}
 
 	if !apply {
@@ -332,6 +333,7 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if err := obj.kvSet(ctx, obj.getKey(), *obj.Value); err != nil {
 		return false, errwrap.Wrapf(err, "error during set")
 	}
+	obj.init.Logf("`value` was changed!")
 
 	return false, nil
 }

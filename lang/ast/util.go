@@ -287,3 +287,56 @@ func CopyNodeMapping(in map[string]interfaces.Node) map[string]interfaces.Node {
 	}
 	return out
 }
+
+// getScope pulls the local stored scope out of an Expr, without needing to add
+// a similarly named method to the Expr interface. This is private and not part
+// of the interface, because it is only used internally.
+// TODO: we could extend this to include Stmt's if it was ever useful
+func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
+	//if _, ok := node.(interfaces.Expr); !ok {
+	//	return nil, fmt.Errorf("unexpected: %+v", node)
+	//}
+
+	switch expr := node.(type) {
+	case *ExprBool:
+		return expr.scope, nil
+	case *ExprStr:
+		return expr.scope, nil
+	case *ExprInt:
+		return expr.scope, nil
+	case *ExprFloat:
+		return expr.scope, nil
+	case *ExprList:
+		return expr.scope, nil
+	case *ExprMap:
+		return expr.scope, nil
+	case *ExprStruct:
+		return expr.scope, nil
+	case *ExprFunc:
+		return expr.scope, nil
+	case *ExprCall:
+		return expr.scope, nil
+	case *ExprVar:
+		return expr.scope, nil
+	case *ExprIf:
+		return expr.scope, nil
+
+	default:
+		return nil, fmt.Errorf("unexpected: %+v", node)
+	}
+}
+
+// trueCallee is a helper function because ExprTopLevel and ExprSingleton are
+// sometimes added around builtins. This makes it difficult for the type checker
+// to check if a particular builtin is the callee or not. This function removes
+// the ExprTopLevel and ExprSingleton wrappers, if they exist.
+func trueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
+	switch x := apparentCallee.(type) {
+	case *ExprTopLevel:
+		return trueCallee(x.Definition)
+	case *ExprSingleton:
+		return trueCallee(x.Definition)
+	default:
+		return apparentCallee
+	}
+}

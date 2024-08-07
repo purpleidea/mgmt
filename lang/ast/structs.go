@@ -8613,6 +8613,7 @@ func (obj *ExprCall) Value() (types.Value, error) {
 // ExprVar is a representation of a variable lookup. It returns the expression
 // that that variable refers to.
 type ExprVar struct {
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -8631,7 +8632,9 @@ func (obj *ExprVar) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *ExprVar) Init(*interfaces.Data) error {
+func (obj *ExprVar) Init(data *interfaces.Data) error {
+	obj.data = data
+
 	return langUtil.ValidateVarName(obj.Name)
 }
 
@@ -8642,6 +8645,7 @@ func (obj *ExprVar) Init(*interfaces.Data) error {
 // support variable, variables or anything crazy like that.
 func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 	return &ExprVar{
+		data:  obj.data,
 		scope: obj.scope,
 		typ:   obj.typ,
 		Name:  obj.Name,
@@ -8655,6 +8659,7 @@ func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprVar) Copy() (interfaces.Expr, error) {
 	return &ExprVar{
+		data:  obj.data,
 		scope: obj.scope,
 		typ:   obj.typ,
 		Name:  obj.Name,

@@ -3433,10 +3433,13 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 		// TODO: do we want to run Interpolate or SetScope?
 	}
 
+	// TODO: pass `data` into ast.VarPrefixToVariablesScope ?
+	variables := VarPrefixToVariablesScope(name) // strips prefix!
+
 	// initial scope, built from core golang code
 	scope := &interfaces.Scope{
 		// TODO: we could use the core API for variables somehow...
-		//Variables: make(map[string]interfaces.Expr),
+		Variables: variables,
 		Functions: functions, // map[string]interfaces.Expr
 		// TODO: we could add a core API for classes too!
 		//Classes: make(map[string]interfaces.Stmt),

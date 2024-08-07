@@ -46,6 +46,11 @@ const (
 	ResourceNamespace = "res"
 )
 
+// Value is a shortcut to using this type.
+// XXX: Eventually we might get rid of this entirely and use types.Value instead
+// of interfaces.Var which seems to be unnecessary at the moment.
+type Value = interfaces.Var
+
 // registeredVars is a global map of all possible vars which can be used. You
 // should never touch this map directly. Use methods like Register instead.
 var registeredVars = make(map[string]func() interfaces.Var) // must initialize
@@ -63,9 +68,9 @@ func Register(name string, fn func() interfaces.Var) {
 
 // ModuleRegister is exactly like Register, except that it registers within a
 // named module. This is a helper function.
-//func ModuleRegister(module, name string, v func() interfaces.Var) {
-//	Register(module+interfaces.ModuleSep+name, v)
-//}
+func ModuleRegister(module, name string, v func() interfaces.Var) {
+	Register(module+interfaces.ModuleSep+name, v)
+}
 
 // resourceConstHelper is a helper function to manage the const topology.
 func resourceConstHelper(kind, param, field string) string {

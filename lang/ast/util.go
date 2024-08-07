@@ -31,6 +31,7 @@ package ast
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -338,5 +339,57 @@ func trueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
 		return trueCallee(x.Definition)
 	default:
 		return apparentCallee
+	}
+}
+
+// variableScopeFeedback logs some messages about what is actually in scope so
+// that the user gets a hint about what's going on. This is useful for catching
+// bugs in our programming or in user code!
+func variableScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+	logf("variables in scope:")
+	names := []string{}
+	for name := range scope.Variables {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		logf("$%s", name)
+	}
+}
+
+// functionScopeFeedback logs some messages about what is actually in scope so
+// that the user gets a hint about what's going on. This is useful for catching
+// bugs in our programming or in user code!
+func functionScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+	logf("functions in scope:")
+	names := []string{}
+	for name := range scope.Functions {
+		if strings.HasPrefix(name, "_") { // hidden function
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		logf("%s(...)", name)
+	}
+}
+
+// lambdaScopeFeedback logs some messages about what is actually in scope so
+// that the user gets a hint about what's going on. This is useful for catching
+// bugs in our programming or in user code!
+func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+	logf("lambdas in scope:")
+	names := []string{}
+	for name, val := range scope.Variables {
+		// XXX: Is this a valid way to filter?
+		if _, ok := trueCallee(val).(*ExprFunc); !ok {
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		logf("$%s(...)", name)
 	}
 }

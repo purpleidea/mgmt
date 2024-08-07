@@ -297,6 +297,13 @@ between the various package managers. If you'd prefer to not need to install
 this tool, then you can contribute a native `pkg:rpm` and `pkg:deb` resource to
 mgmt!
 
+### Latest vs Installed for packages.
+
+You have multiple options to install a package using mgmt, it might be tempting
+to use `latest`, and it could be the case for some packages, but using `installed`
+is better as it is better to use an mgmt module to manage the versions of the
+installed packages, rather than let mgmt itself install the latest packages.
+
 ### When running mgmt, it says: "module path error: can't find a module path".
 
 You might get an error along the lines of:

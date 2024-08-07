@@ -34,18 +34,40 @@ import (
 	"os"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	// TODO: Create a family method that will return a giant struct.
-	simple.ModuleRegister(ModuleName, "is_debian", &simple.Scaffold{
-		T: types.NewType("func() bool"),
-		F: IsDebian,
+	simple.ModuleRegister(ModuleName, "family", &simple.Scaffold{
+		T: types.NewType("func() str"),
+		F: Family,
 	})
+
+	vars.ModuleRegister(ModuleName, "family_redhat", func() vars.Value {
+		return &types.StrValue{
+			V: familyRedHat,
+		}
+	})
+	vars.ModuleRegister(ModuleName, "family_debian", func() vars.Value {
+		return &types.StrValue{
+			V: familyDebian,
+		}
+	})
+	vars.ModuleRegister(ModuleName, "family_archlinux", func() vars.Value {
+		return &types.StrValue{
+			V: familyArchLinux,
+		}
+	})
+
+	// TODO: Create a family method that will return a giant struct.
 	simple.ModuleRegister(ModuleName, "is_redhat", &simple.Scaffold{
 		T: types.NewType("func() bool"),
 		F: IsRedHat,
+	})
+	simple.ModuleRegister(ModuleName, "is_debian", &simple.Scaffold{
+		T: types.NewType("func() bool"),
+		F: IsDebian,
 	})
 	simple.ModuleRegister(ModuleName, "is_archlinux", &simple.Scaffold{
 		T: types.NewType("func() bool"),
@@ -53,44 +75,100 @@ func init() {
 	})
 }
 
-// IsDebian detects if the os family is debian.
+const (
+	familyRedHat    = "redhat"
+	familyDebian    = "debian"
+	familyArchLinux = "archlinux"
+)
+
+// Family returns the distro family.
 // TODO: Detect OS changes.
-func IsDebian(ctx context.Context, input []types.Value) (types.Value, error) {
-	exists := true
-	// TODO: use ctx around io operations
-	_, err := os.Stat("/etc/debian_version")
-	if os.IsNotExist(err) {
-		exists = false
+func Family(ctx context.Context, input []types.Value) (types.Value, error) {
+	if b, err := isRedHat(ctx); err != nil {
+		return nil, err
+	} else if b {
+		return &types.StrValue{
+			V: familyRedHat,
+		}, nil
 	}
-	return &types.BoolValue{
-		V: exists,
+	if b, err := isDebian(ctx); err != nil {
+		return nil, err
+	} else if b {
+		return &types.StrValue{
+			V: familyDebian,
+		}, nil
+	}
+	if b, err := isArchLinux(ctx); err != nil {
+		return nil, err
+	} else if b {
+		return &types.StrValue{
+			V: familyArchLinux,
+		}, nil
+	}
+	return &types.StrValue{
+		V: "", // unknown
 	}, nil
 }
 
 // IsRedHat detects if the os family is redhat.
 // TODO: Detect OS changes.
 func IsRedHat(ctx context.Context, input []types.Value) (types.Value, error) {
-	exists := true
-	// TODO: use ctx around io operations
-	_, err := os.Stat("/etc/redhat-release")
-	if os.IsNotExist(err) {
-		exists = false
-	}
+	b, err := isRedHat(ctx)
 	return &types.BoolValue{
-		V: exists,
-	}, nil
+		V: b,
+	}, err
+}
+
+// IsDebian detects if the os family is debian.
+// TODO: Detect OS changes.
+func IsDebian(ctx context.Context, input []types.Value) (types.Value, error) {
+	b, err := isDebian(ctx)
+	return &types.BoolValue{
+		V: b,
+	}, err
 }
 
 // IsArchLinux detects if the os family is archlinux.
 // TODO: Detect OS changes.
 func IsArchLinux(ctx context.Context, input []types.Value) (types.Value, error) {
-	exists := true
+	b, err := isArchLinux(ctx)
+	return &types.BoolValue{
+		V: b,
+	}, err
+}
+
+func isRedHat(ctx context.Context) (bool, error) {
+	// TODO: use ctx around io operations
+	_, err := os.Stat("/etc/redhat-release")
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func isDebian(ctx context.Context) (bool, error) {
+	// TODO: use ctx around io operations
+	_, err := os.Stat("/etc/debian_version")
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func isArchLinux(ctx context.Context) (bool, error) {
 	// TODO: use ctx around io operations
 	_, err := os.Stat("/etc/arch-release")
 	if os.IsNotExist(err) {
-		exists = false
+		return false, nil
 	}
-	return &types.BoolValue{
-		V: exists,
-	}, nil
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

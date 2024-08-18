@@ -35,7 +35,6 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 var _ interfaces.Func = &Func{} // ensure it meets this expectation
@@ -154,7 +153,7 @@ func (obj *Func) Stream(ctx context.Context) error {
 				if obj.init.Debug {
 					obj.init.Logf("Function returned error: %+v", err)
 				}
-				return errwrap.Wrapf(err, "wrapped function errored")
+				return err
 			}
 			if obj.init.Debug {
 				obj.init.Logf("Function returned with: %+v", result)

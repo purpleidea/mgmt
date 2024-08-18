@@ -1320,7 +1320,7 @@ func (obj *FuncValue) Call(ctx context.Context, args []Value) (Value, error) {
 		if err == nil {
 			return nil, fmt.Errorf("function returned nil result")
 		}
-		return nil, errwrap.Wrapf(err, "function returned nil result during error")
+		return nil, err
 	}
 	if err := result.Type().Cmp(obj.T.Out); err != nil {
 		return nil, errwrap.Wrapf(err, "cannot cmp return types")

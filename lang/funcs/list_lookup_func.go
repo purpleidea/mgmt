@@ -190,7 +190,7 @@ func (obj *ListLookupFunc) Stream(ctx context.Context) error {
 
 			// TODO: should we handle overflow by returning zero?
 			if index > math.MaxInt { // max int size varies by arch
-				return fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt32)
+				return fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
 			}
 
 			// negative index values are "not found" here!

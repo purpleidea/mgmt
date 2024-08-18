@@ -35,6 +35,7 @@ import (
 	"math"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -63,6 +64,8 @@ var _ interfaces.BuildableFunc = &ListLookupFunc{} // ensure it meets this expec
 // omitted, then this function errors if the list index is not present. Passing
 // a negative index will always result in an error.
 type ListLookupFunc struct {
+	*wrapped.Func // *wrapped.Func as a type alias to pull in the base impl.
+
 	Type *types.Type // Kind == List, that is used as the list we lookup in
 
 	hasDefault *bool // does this function take a third arg?
@@ -197,7 +200,18 @@ func (obj *ListLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 		}
 	}
 
+	obj.Func = &wrapped.Func{
+		Name: obj.String(),
+		Type: typ, // .Copy(),
+	}
+
 	obj.Type = tList // list type
+	fn := &types.FuncValue{
+		T: typ,
+		V: obj.Function, // implementation
+	}
+	obj.Fn = fn // inside wrapper.Func
+	//return obj.Fn.T, nil
 	return obj.sig(), nil
 }
 
@@ -211,6 +225,33 @@ func (obj *ListLookupFunc) Copy() interfaces.Func {
 
 		init: obj.init, // likely gets overwritten anyways
 	}
+}
+
+// Function is the actual implementation here. This is used in lieu of the
+// Stream function which we'd have these contents within.
+func (obj *ListLookupFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
+	l := (input[0]).(*types.ListValue)
+	index := input[1].Int()
+	//zero := l.Type().New() // the zero value
+
+	// TODO: should we handle overflow by returning zero?
+	if index > math.MaxInt { // max int size varies by arch
+		return nil, fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
+	}
+	if index < 0 {
+		return nil, fmt.Errorf("list index was negative, got: %d", index)
+	}
+
+	// negative index values are "not found" here!
+	val, exists := l.Lookup(int(index))
+	if exists {
+		return val, nil
+	}
+	if len(input) == 3 { // default value since lookup is missing
+		return input[2], nil
+	}
+
+	return nil, fmt.Errorf("list index not present, got: %d, len is: %d", index, len(l.List()))
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -235,72 +276,5 @@ func (obj *ListLookupFunc) Info() *interfaces.Info {
 		Memo: false,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
-	}
-}
-
-// Init runs some startup code for this function.
-func (obj *ListLookupFunc) Init(init *interfaces.Init) error {
-	obj.init = init
-	return nil
-}
-
-// Stream returns the changing values that this func has over time.
-func (obj *ListLookupFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			l := (input.Struct()[listLookupArgNameList]).(*types.ListValue)
-			index := input.Struct()[listLookupArgNameIndex].Int()
-			//zero := l.Type().New() // the zero value
-
-			// TODO: should we handle overflow by returning zero?
-			if index > math.MaxInt { // max int size varies by arch
-				return fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
-			}
-			if index < 0 {
-				return fmt.Errorf("list index was negative, got: %d", index)
-			}
-
-			// negative index values are "not found" here!
-			var result types.Value
-			val, exists := l.Lookup(int(index))
-			if exists {
-				result = val
-			} else if *obj.hasDefault {
-				result = input.Struct()[listLookupArgNameDefault]
-			} else {
-				return fmt.Errorf("list index not present, got: %d, len is: %d", index, len(l.List()))
-			}
-
-			// if previous input was `2 + 4`, but now it
-			// changed to `1 + 5`, the result is still the
-			// same, so we can skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-		case <-ctx.Done():
-			return nil
-		}
 	}
 }

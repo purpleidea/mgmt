@@ -34,6 +34,7 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -61,6 +62,8 @@ var _ interfaces.BuildableFunc = &MapLookupFunc{} // ensure it meets this expect
 // will be returned if the map key is not present. If the third argument is
 // omitted, then this function errors if the map key is not present.
 type MapLookupFunc struct {
+	*wrapped.Func // *wrapped.Func as a type alias to pull in the base impl.
+
 	Type *types.Type // Kind == Map, that is used as the map we lookup
 
 	hasDefault *bool // does this function take a third arg?
@@ -199,7 +202,18 @@ func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 		}
 	}
 
+	obj.Func = &wrapped.Func{
+		Name: obj.String(),
+		Type: typ, // .Copy(),
+	}
+
 	obj.Type = tMap // map type
+	fn := &types.FuncValue{
+		T: typ,
+		V: obj.Function, // implementation
+	}
+	obj.Fn = fn // inside wrapper.Func
+	//return obj.Fn.T, nil
 	return obj.sig(), nil
 }
 
@@ -213,6 +227,24 @@ func (obj *MapLookupFunc) Copy() interfaces.Func {
 
 		init: obj.init, // likely gets overwritten anyways
 	}
+}
+
+// Function is the actual implementation here. This is used in lieu of the
+// Stream function which we'd have these contents within.
+func (obj *MapLookupFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
+	m := (input[0]).(*types.MapValue)
+	key := input[1]
+	//zero := m.Type().New() // the zero value
+
+	val, exists := m.Lookup(key)
+	if exists {
+		return val, nil
+	}
+	if len(input) == 3 { // default value since lookup is missing
+		return input[2], nil
+	}
+
+	return nil, fmt.Errorf("map key not present, got: %v", key)
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -237,63 +269,5 @@ func (obj *MapLookupFunc) Info() *interfaces.Info {
 		Memo: false,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
-	}
-}
-
-// Init runs some startup code for this function.
-func (obj *MapLookupFunc) Init(init *interfaces.Init) error {
-	obj.init = init
-	return nil
-}
-
-// Stream returns the changing values that this func has over time.
-func (obj *MapLookupFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			m := (input.Struct()[mapLookupArgNameMap]).(*types.MapValue)
-			key := input.Struct()[mapLookupArgNameKey]
-			//zero := m.Type().New() // the zero value
-
-			var result types.Value
-			val, exists := m.Lookup(key)
-			if exists {
-				result = val
-			} else if *obj.hasDefault {
-				result = input.Struct()[mapLookupArgNameDef]
-			} else {
-				return fmt.Errorf("map key not present, got: %v", key)
-			}
-
-			// if previous input was `2 + 4`, but now it
-			// changed to `1 + 5`, the result is still the
-			// same, so we can skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-		case <-ctx.Done():
-			return nil
-		}
 	}
 }

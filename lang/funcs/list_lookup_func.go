@@ -186,7 +186,7 @@ func (obj *ListLookupFunc) Stream(ctx context.Context) error {
 
 			l := (input.Struct()[listLookupArgNameList]).(*types.ListValue)
 			index := input.Struct()[listLookupArgNameIndex].Int()
-			zero := l.Type().New() // the zero value
+			zero := l.Type().Val.New() // the zero value
 
 			// TODO: should we handle overflow by returning zero?
 			if index > math.MaxInt { // max int size varies by arch

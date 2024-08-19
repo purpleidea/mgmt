@@ -189,7 +189,7 @@ func (obj *MapLookupFunc) Stream(ctx context.Context) error {
 
 			m := (input.Struct()[mapLookupArgNameMap]).(*types.MapValue)
 			key := input.Struct()[mapLookupArgNameKey]
-			zero := m.Type().New() // the zero value
+			zero := m.Type().Val.New() // the zero value
 
 			var result types.Value
 			val, exists := m.Lookup(key)

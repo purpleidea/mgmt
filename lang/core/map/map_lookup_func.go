@@ -234,7 +234,7 @@ func (obj *MapLookupFunc) Copy() interfaces.Func {
 func (obj *MapLookupFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
 	m := (input[0]).(*types.MapValue)
 	key := input[1]
-	//zero := m.Type().New() // the zero value
+	//zero := m.Type().Val.New() // the zero value
 
 	val, exists := m.Lookup(key)
 	if exists {

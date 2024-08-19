@@ -232,7 +232,7 @@ func (obj *ListLookupFunc) Copy() interfaces.Func {
 func (obj *ListLookupFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
 	l := (input[0]).(*types.ListValue)
 	index := input[1].Int()
-	//zero := l.Type().New() // the zero value
+	//zero := l.Type().Val.New() // the zero value
 
 	// TODO: should we handle overflow by returning zero?
 	if index > math.MaxInt { // max int size varies by arch

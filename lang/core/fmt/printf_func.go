@@ -124,7 +124,7 @@ func (obj *PrintfFunc) FuncInfer(partialType *types.Type, partialValues []types.
 		// programming error?
 		return nil, nil, fmt.Errorf("must have at least one arg")
 	}
-	if typ := partialType.Map[partialType.Ord[0]]; typ != nil && typ.Cmp(types.TypeStr) != nil {
+	if typ := partialType.Map[partialType.Ord[0]]; typ != nil && typ.Cmp(types.TypeStr) != nil && !typ.HasUni() {
 		return nil, nil, fmt.Errorf("format string was a %s", typ)
 	}
 
@@ -193,7 +193,7 @@ func (obj *PrintfFunc) FuncInfer(partialType *types.Type, partialValues []types.
 	}
 
 	// Check the format string is consistent with what we've found earlier!
-	if i := 0; typList[i] != nil && typList[i].Cmp(types.TypeStr) != nil {
+	if i := 0; typList[i] != nil && typList[i].Cmp(types.TypeStr) != nil && !typList[i].HasUni() {
 		return nil, nil, fmt.Errorf("inconsistent type at arg index %d (format string)", i)
 	}
 	typList[0] = types.TypeStr // format string (zeroth arg)

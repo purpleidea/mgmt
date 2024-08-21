@@ -125,6 +125,16 @@ func (obj *StructLookupFunc) FuncInfer(partialType *types.Type, partialValues []
 	// This can happen at runtime too, but we save it here for Build()!
 	obj.field = s // store for later
 
+	// Figure out more about the sig if any information is known statically.
+	if len(partialType.Ord) > 0 && partialType.Map[partialType.Ord[0]] != nil {
+		obj.Type = partialType.Map[partialType.Ord[0]] // assume this
+		if obj.Type.Kind == types.KindStruct && obj.Type.Map != nil {
+			if typ, exists := obj.Type.Map[s]; exists {
+				obj.Out = typ
+			}
+		}
+	}
+
 	// This isn't precise enough because we must guarantee that the field is
 	// in the struct and that ?1 is actually a struct, but that's okay it is
 	// something that we'll verify at build time!

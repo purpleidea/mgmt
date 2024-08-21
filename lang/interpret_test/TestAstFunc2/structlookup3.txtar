@@ -1,0 +1,15 @@
+-- main.mcl --
+import "fmt"
+
+$st = struct{
+	field1 => "value1",
+	field2 => "value2",
+}
+
+class test_struct_lookup($v1, $v2) {
+	test "test-${v1}-${v2}" {}
+}
+
+include test_struct_lookup($st->field1, $st->field2)
+-- OUTPUT --
+Vertex: test[test-value1-value2]

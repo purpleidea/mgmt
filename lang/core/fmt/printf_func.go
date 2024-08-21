@@ -178,7 +178,7 @@ func (obj *PrintfFunc) FuncInfer(partialType *types.Type, partialValues []types.
 			// Assume x does not contain unification variables!
 			if x.HasUni() {
 				// programming error (did the compiler change?)
-				return nil, nil, errwrap.Wrapf(err, "programming error at arg index %d", i)
+				return nil, nil, fmt.Errorf("programming error at arg index %d", i)
 			}
 			if err := unificationUtil.UnifyCmp(x, formatList[i-1]); err != nil {
 				return nil, nil, errwrap.Wrapf(err, "inconsistent type at arg index %d", i)

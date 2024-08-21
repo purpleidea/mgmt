@@ -8474,6 +8474,10 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 				return nil, nil, errwrap.Wrapf(err, "func `%s` infer error", exprFunc.Title)
 			}
 			invariants = append(invariants, invars...)
+			if typ == nil { // should get a sig, not a nil!
+				// programming error
+				return nil, nil, fmt.Errorf("func `%s` infer type was nil", exprFunc.Title)
+			}
 
 			// It's important that we copy the type signature here.
 			// See the above comment which explains the reasoning.

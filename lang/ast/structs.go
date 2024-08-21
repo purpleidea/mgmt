@@ -8289,9 +8289,8 @@ func (obj *ExprCall) getPartials(fn *ExprFunc) (*types.Type, []types.Value, erro
 
 	// build partial type and partial input values to aid in filtering...
 	mapped := make(map[string]*types.Type)
-	//argNames := []string{}
+	argNames := []string{}
 	//partialValues := []types.Value{}
-	argNames := make([]string, len(obj.Args))
 	partialValues := make([]types.Value, len(obj.Args))
 	for i, arg := range obj.Args {
 		name, err := argGen(i) // get the Nth arg name
@@ -8303,7 +8302,7 @@ func (obj *ExprCall) getPartials(fn *ExprFunc) (*types.Type, []types.Value, erro
 			return nil, nil, fmt.Errorf("can't get arg #%d for func `%s`", i, obj.Name)
 		}
 		//mapped[name] = nil // unknown type
-		//argNames = append(argNames, name)
+		argNames = append(argNames, name)
 		//partialValues = append(partialValues, nil) // placeholder value
 
 		// optimization: if type/value is already known, specify it now!

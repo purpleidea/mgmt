@@ -8307,6 +8307,7 @@ func (obj *ExprCall) getPartials(fn *ExprFunc) (*types.Type, []types.Value, erro
 
 		// optimization: if type/value is already known, specify it now!
 		var err1, err2 error
+		// NOTE: This _can_ return unification variables now. Is it ok?
 		mapped[name], err1 = arg.Type()      // nil type on error
 		partialValues[i], err2 = arg.Value() // nil value on error
 		if err1 == nil && err2 == nil && mapped[name].Cmp(partialValues[i].Type()) != nil {

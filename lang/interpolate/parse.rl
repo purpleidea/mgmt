@@ -41,6 +41,7 @@ import (
 // Parse performs string interpolation on the input. It returns the list of
 // tokens found. It looks for variables of the format ${foo}. The curly braces
 // are required.
+// XXX: Pull dollar sign and curly chars from VarPrefix and other constants.
 func Parse(data string) (out Stream, _ error) {
 	var (
 		// variables used by Ragel

@@ -14,6 +14,7 @@ test "test" {
 		sema => ["foo:1", "bar:3",],
 		rewatch => false,
 		realize => true,
+		dollar => false,
 		reverse => true,
 		autoedge => true,
 		autogroup => true,
@@ -31,6 +32,7 @@ Edge: const -> composite # autoedge
 Edge: const -> composite # autogroup
 Edge: const -> composite # burst
 Edge: const -> composite # delay
+Edge: const -> composite # dollar
 Edge: const -> composite # limit
 Edge: const -> composite # noop
 Edge: const -> composite # poll
@@ -42,6 +44,7 @@ Edge: const -> composite # reverse
 Edge: const -> composite # rewatch
 Vertex: composite
 Vertex: composite
+Vertex: const
 Vertex: const
 Vertex: const
 Vertex: const

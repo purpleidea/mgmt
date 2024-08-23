@@ -33,6 +33,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"strings"
 
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -270,6 +271,12 @@ func Validate(res Res) error {
 
 	if err := res.MetaParams().Validate(); err != nil {
 		return errwrap.Wrapf(err, "the Res has an invalid meta param")
+	}
+
+	// TODO: pull dollar prefix from a constant
+	// This catches typos where the user meant to use ${var} interpolation.
+	if !res.MetaParams().Dollar && strings.HasPrefix(res.Name(), "$") {
+		return fmt.Errorf("the Res name starts with a $")
 	}
 
 	return res.Validate()

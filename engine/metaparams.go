@@ -52,6 +52,7 @@ var DefaultMetaParams = &MetaParams{
 	//Sema:  []string{},
 	Rewatch: false,
 	Realize: false, // true would be more awesome, but unexpected for users
+	Dollar:  false,
 }
 
 // MetaRes is the interface a resource must implement to support meta params.
@@ -132,6 +133,13 @@ type MetaParams struct {
 	// the resource is blocked because of a failed pre-requisite resource.
 	// XXX: Not implemented!
 	Realize bool `yaml:"realize"`
+
+	// Dollar allows you to name a resource to start with the dollar
+	// character. We don't allow this by default since it's probably not
+	// needed, and is more likely to be a typo where the user forgot to
+	// interpolate a variable name. In the rare case when it's needed, you
+	// can disable that check with this meta param.
+	Dollar bool `yaml:"dollar"`
 }
 
 // Cmp compares two AutoGroupMeta structs and determines if they're equivalent.
@@ -178,6 +186,9 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	if obj.Realize != meta.Realize {
 		return fmt.Errorf("values for Realize are different")
 	}
+	if obj.Dollar != meta.Dollar {
+		return fmt.Errorf("values for Dollar are different")
+	}
 
 	return nil
 }
@@ -218,6 +229,7 @@ func (obj *MetaParams) Copy() *MetaParams {
 		Sema:    sema,
 		Rewatch: obj.Rewatch,
 		Realize: obj.Realize,
+		Dollar:  obj.Dollar,
 	}
 }
 

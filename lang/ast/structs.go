@@ -1087,6 +1087,9 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 		case "realize":
 			meta.Realize = v.Bool() // must not panic
 
+		case "dollar":
+			meta.Dollar = v.Bool() // must not panic
+
 		case "reverse":
 			if rm != nil {
 				rm.Disabled = !v.Bool() // must not panic
@@ -1149,6 +1152,9 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 			}
 			if val, exists := v.Struct()["realize"]; exists {
 				meta.Realize = val.Bool() // must not panic
+			}
+			if val, exists := v.Struct()["dollar"]; exists {
+				meta.Dollar = val.Bool() // must not panic
 			}
 			if val, exists := v.Struct()["reverse"]; exists && rm != nil {
 				rm.Disabled = !val.Bool() // must not panic
@@ -1757,6 +1763,7 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "sema":
 	case "rewatch":
 	case "realize":
+	case "dollar":
 	case "reverse":
 	case "autoedge":
 	case "autogroup":
@@ -1966,6 +1973,9 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	case "realize":
 		typExpr = types.TypeBool
 
+	case "dollar":
+		typExpr = types.TypeBool
+
 	case "reverse":
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = types.TypeBool
@@ -1982,7 +1992,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = wrap(types.TypeBool)

@@ -1,0 +1,7 @@
+-- main.mcl --
+$foo = "/tmp/file1"
+test "$foo" {
+	Meta:dollar => true, # allow what would normally be a typo!
+}
+-- OUTPUT --
+Vertex: test[$foo]

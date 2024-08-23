@@ -274,6 +274,29 @@ and it can't guarantee it if the resource is blocked because of a failed
 pre-requisite resource.
 *XXX: This is currently not implemented!*
 
+#### Dollar
+
+Boolean. Dollar allows you to have a resource name that starts with a `$` sign.
+This is false by default. This helps you catch cases when you write code like:
+
+```mcl
+$foo = "/tmp/file1"
+file "$foo" {} # incorrect!
+```
+
+The above code would ignore the `$foo` variable and attempt to make a file named
+`$foo` which would obviously not work. To correctly interpolate a variable, you
+need to surround the name with curly braces.
+
+```mcl
+$foo = "/tmp/file1"
+file "${foo}" {} # correct!
+```
+
+This meta param is a safety measure to make your life easier. It works for all
+resources. If someone comes up with a resource which would routinely start with
+a dollar sign, then we can revisit the default for this resource kind.
+
 #### Reverse
 
 Boolean. Reverse is a property that some resources can implement that specifies

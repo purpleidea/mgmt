@@ -14,6 +14,7 @@ test "test" {
 		sema => ["foo:1", "bar:3",],
 		rewatch => false,
 		realize => true,
+		dollar => false,
 		reverse => true,
 		autoedge => true,
 		autogroup => true,

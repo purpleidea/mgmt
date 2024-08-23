@@ -1403,6 +1403,7 @@ func TestAstFunc3(t *testing.T) {
 	const magicErrorGraph = "errGraph: "
 	const magicErrorInterpret = "errInterpret: "
 	const magicErrorAutoEdge = "errAutoEdge: "
+	const magicErrorValidate = "errValidate: "
 	const magicEmpty = "# empty!"
 	dir, err := util.TestDirFull()
 	if err != nil {
@@ -1550,6 +1551,7 @@ func TestAstFunc3(t *testing.T) {
 			failGraph := false
 			failInterpret := false
 			failAutoEdge := false
+			failValidate := false
 			if strings.HasPrefix(expstr, magicError) {
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
@@ -1593,6 +1595,11 @@ func TestAstFunc3(t *testing.T) {
 					errStr = strings.TrimPrefix(expstr, magicErrorAutoEdge)
 					expstr = errStr
 					failAutoEdge = true
+				}
+				if strings.HasPrefix(expstr, magicErrorValidate) {
+					errStr = strings.TrimPrefix(expstr, magicErrorValidate)
+					expstr = errStr
+					failValidate = true
 				}
 			}
 
@@ -2183,7 +2190,9 @@ func TestAstFunc3(t *testing.T) {
 				return
 			}
 			defer func() {
-				if err := ge.Shutdown(); err != nil {
+				// skip errors if failValidate is true since it
+				// would cause an error here too as well...
+				if err := ge.Shutdown(); err != nil && !failValidate {
 					// TODO: cause the final exit code to be non-zero
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: engine Shutdown failed with: %+v", index, err)
@@ -2197,9 +2206,25 @@ func TestAstFunc3(t *testing.T) {
 				return
 			}
 
-			if err := ge.Validate(); err != nil { // validate the new graph
+			err = ge.Validate() // validate the new graph
+			if (!fail || !failValidate) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: error validating the new graph: %+v", index, err)
+				return
+			}
+			if failValidate && err != nil {
+				s := err.Error() // convert to string
+				if s != expstr {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return
+			}
+			if failValidate && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: validate passed, expected fail", index)
 				return
 			}
 

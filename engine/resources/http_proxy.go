@@ -196,7 +196,8 @@ func (obj *HTTPProxyRes) serveHTTP(ctx context.Context, requestPath string) (han
 
 		// Tell the client right away, that we're working on things...
 		// TODO: Is this valuable to give us more time to block?
-		w.WriteHeader(http.StatusProcessing) // http 102, RFC 2518, 10.1
+		// NOTE: Using this header breaks wget2!
+		//w.WriteHeader(http.StatusProcessing) // http 102, RFC 2518, 10.1
 
 		response, err := client.Do(request) // (*Response, error)
 		if err != nil {

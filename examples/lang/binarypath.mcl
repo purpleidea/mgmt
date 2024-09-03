@@ -1,0 +1,5 @@
+import "deploy"
+
+print "debug" {
+	msg => deploy.binary_path(),
+}

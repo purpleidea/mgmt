@@ -894,6 +894,10 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 			tmp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeOffer))
 		case dhcpv4.MessageTypeRequest:
 			tmp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
+		case dhcpv4.MessageTypeDecline:
+			// XXX: Why did one PXE/UEFI netboot client send this?
+			obj.init.Logf("handler4: Unhandled decline message: %+v", req)
+			return
 		default:
 			obj.init.Logf("handler4: Unhandled message type: %v", mt)
 			return

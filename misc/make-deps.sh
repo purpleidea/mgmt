@@ -48,6 +48,7 @@ fold_start "Install dependencies"
 if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
+	$sudo_command $YUM install -y pipx
 	$sudo_command $YUM install -y time
 	if ! in_env; then
 		$sudo_command $YUM install -y ragel
@@ -62,6 +63,7 @@ if [ -n "$APT" ]; then
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
+	$sudo_command $APT install -y pipx
 	if ! in_env; then
 		$sudo_command $APT install -y ragel || true
 	fi
@@ -175,7 +177,8 @@ if [ -z "$LYCHEE" ]; then
 fi
 
 cd "$ROOT"
-command -v pipenv &>/dev/null || $sudo_command pip3 install pipenv || true
+pipx ensurepath
+command -v pipenv &>/dev/null || pipx install pipenv || true
 pipenv install && pipenv sync || true
 if command -v gem &>/dev/null ; then
 	command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging

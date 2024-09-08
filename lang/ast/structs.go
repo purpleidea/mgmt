@@ -7974,7 +7974,9 @@ func (obj *ExprCall) String() string {
 	for _, x := range obj.Args {
 		s = append(s, fmt.Sprintf("%s", x.String()))
 	}
-	return fmt.Sprintf("call:%s(%s)", obj.Name, strings.Join(s, ", "))
+	result := fmt.Sprintf("call:%s(%s)", obj.Name, strings.Join(s, ", "))
+	result += fmt.Sprintf(" @ (%d %d)", obj.startLine+1, obj.startColumn+1)
+	return result
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It

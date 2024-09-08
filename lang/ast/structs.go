@@ -8023,19 +8023,11 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 		orig = obj.orig
 	}
 
-	return &ExprCall{
-		data:  obj.data,
-		scope: obj.scope,
-		typ:   obj.typ,
-		// XXX: Copy copies this, do we want to here as well? (or maybe
-		// we want to do it here, but not in Copy?)
-		expr: obj.expr,
-		orig: orig,
-		V:    obj.V,
-		Name: obj.Name,
-		Args: args,
-		Var:  obj.Var,
-	}, nil
+	result := *obj
+	result.orig = orig
+	result.Args = args
+
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.

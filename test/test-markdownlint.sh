@@ -43,7 +43,7 @@ rule 'MD013', :line_length => 80, :ignore_code_blocks => true, :tables => false
 EOF
 
 disable_arg=$( grep exclude_rule $STYLE | cut -d\' -f2 | tr A-Z\\n a-z, )
-options="--set plugins.line-length.code_blocks=False"
+options='--set plugins.line-length.code_blocks=$!False'
 
 all_rules_except_long_lines=$( $linter plugins list \
 	| awk '/md013/ { next } /md[01]/ { print $1 }' | tr \\n , )

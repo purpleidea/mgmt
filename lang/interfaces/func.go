@@ -199,6 +199,19 @@ type InferableFunc interface { // TODO: Is there a better name for this?
 	FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*UnificationInvariant, error)
 }
 
+// CallableFunc is a function that can be called statically if we want to do it
+// speculatively or from a resource.
+type CallableFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// Call this function with the input args and return the value if it is
+	// possible to do so at this time. To transform from the single value,
+	// graph representation of the callable values into a linear, standard
+	// args list for use here, you can use the StructToCallableArgs
+	// function.
+	Call(ctx context.Context, args []types.Value) (types.Value, error)
+}
+
 // CopyableFunc is an interface which extends the base Func interface with the
 // ability to let our compiler know how to copy a Func if that func deems it's
 // needed to be able to do so.
@@ -373,4 +386,34 @@ type Txn interface {
 	// Graph returns a copy of the graph. It returns what has been already
 	// committed.
 	Graph() *pgraph.Graph
+}
+
+// StructToCallableArgs transforms the single value, graph representation of the
+// callable values into a linear, standard args list.
+func StructToCallableArgs(st types.Value) ([]types.Value, error) {
+	if st == nil {
+		return nil, fmt.Errorf("empty struct")
+	}
+	typ := st.Type()
+	if typ == nil {
+		return nil, fmt.Errorf("empty type")
+	}
+	if kind := typ.Kind; kind != types.KindStruct {
+		return nil, fmt.Errorf("incorrect kind, got: %s", kind)
+	}
+	structValues := st.Struct() // map[string]types.Value
+	if structValues == nil {
+		return nil, fmt.Errorf("empty values")
+	}
+
+	args := []types.Value{}
+	for i, x := range typ.Ord { // in the correct order
+		v, exists := structValues[x]
+		if !exists {
+			return nil, fmt.Errorf("invalid input value at %d", i)
+		}
+
+		args = append(args, v)
+	}
+	return args, nil
 }

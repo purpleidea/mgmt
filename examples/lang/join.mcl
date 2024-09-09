@@ -1,0 +1,9 @@
+import "fmt"
+import "golang/strings"
+
+$l = ["a", "b", "c",]
+$joined = strings.join($l, ", ")
+
+print "debug" {
+	msg => "${joined}",
+}

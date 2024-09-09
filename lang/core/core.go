@@ -45,6 +45,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/core/fmt"
 	_ "github.com/purpleidea/mgmt/lang/core/iter"
 	_ "github.com/purpleidea/mgmt/lang/core/list"
+	_ "github.com/purpleidea/mgmt/lang/core/local"
 	_ "github.com/purpleidea/mgmt/lang/core/map"
 	_ "github.com/purpleidea/mgmt/lang/core/math"
 	_ "github.com/purpleidea/mgmt/lang/core/net"

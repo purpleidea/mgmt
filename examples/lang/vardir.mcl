@@ -1,0 +1,6 @@
+import "fmt"
+import "local"
+
+print "debug" {
+	msg => local.vardir("foo1/"),
+}

@@ -310,7 +310,8 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			if args.OnlyUnify {
 				logf("type unification failed after %s", formatted)
 			}
-			return nil, errwrap.Wrapf(unifyErr, "could not unify types")
+			callee := ast.TrueCallee(unifyErr.(*interfaces.UnificationInvariant).Expr)
+			return nil, errwrap.Wrapf(unifyErr, "could not unify types [[ in expression: %s ]]", callee)
 		}
 
 		if args.OnlyUnify {

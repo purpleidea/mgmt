@@ -71,6 +71,7 @@ type Unifier struct {
 // any proper literature or examples describing a well-known implementation of
 // this process. Improvements and polite recommendations are welcome.
 func (obj *Unifier) Unify(ctx context.Context) error {
+	obj.Debug = true
 	if obj.AST == nil {
 		return fmt.Errorf("the AST is nil")
 	}

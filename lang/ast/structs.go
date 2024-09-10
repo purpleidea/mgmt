@@ -8415,7 +8415,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	var typExpr *types.Type // out
 
 	// Look at what kind of function we are calling...
-	callee := trueCallee(obj.expr)
+	callee := TrueCallee(obj.expr)
 	exprFunc, isFn := callee.(*ExprFunc)
 
 	argGen := func(x int) (string, error) {

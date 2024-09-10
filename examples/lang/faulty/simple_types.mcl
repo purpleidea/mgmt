@@ -1,0 +1,9 @@
+
+$string = "hi"
+$number = 7
+
+if $string == $number {
+	test "faulty" {
+		anotherstr => "this should not run through type checking",
+	}
+}

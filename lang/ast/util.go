@@ -393,3 +393,37 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 		logf("$%s(...)", name)
 	}
 }
+
+// AreaParentOf is a (flawed) heuristic that tries to find the parent of the
+// given node (needle) in a tree (haystack), in the case that the given node
+// does not store its own line/column location (i.e., the node struct does not
+// embed the TextArea struct, and hence does not implement the LocalNode
+// interface). This makes two assumptions:
+// a) the immediate parent of needle is a LocalNode and
+// b) any siblings to the left of needle (nor their children) are LocalNode
+// Basically it only works in a subtree like
+//
+//     L
+//    / \
+//   x   n
+//
+// where L is the LocalNode parent of x and n, and n is the needle.
+func AreaParentOf(needle, haystack interfaces.Node) LocalNode {
+	var LastArea LocalNode
+
+	err := haystack.Apply(func(n interfaces.Node) error {
+		ln, ok := n.(LocalNode)
+		if ok {
+			LastArea = ln
+		}
+		if n == needle {
+			return fmt.Errorf("found")
+		}
+		return nil
+	})
+
+	if err != nil && err.Error() == "found" {
+		return LastArea
+	}
+	return haystack.(LocalNode)
+}

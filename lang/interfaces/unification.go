@@ -43,11 +43,22 @@ type UnificationInvariant struct { // formerly the SamInvariant
 	// our error messages.
 	Expr Expr
 
+	// Node is the AST node holding that expression. This improves our error
+	// messages more.
+	Node Node
+
 	// Expect is one of the two types to unify.
 	Expect *types.Type
 
 	// Actual is one of the two types to unify.
 	Actual *types.Type
+
+	// An error string to pass along with this
+	Err string
+}
+
+func (obj *UnificationInvariant) Error() string {
+	return obj.Err
 }
 
 // GenericCheck is the generic implementation of the Check Expr interface call.

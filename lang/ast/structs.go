@@ -190,6 +190,8 @@ type TextArea struct {
 }
 
 // Locate is used by the parser to store the token positions in AST nodes
+// TODO: also note down the file name containing the statement/expression
+// ...this is currently hard because the parser is blissfully unaware
 func (a *TextArea) Locate(line int, col int, endline int, endcol int) {
 	a.startLine = line
 	a.startColumn = col
@@ -357,6 +359,7 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Value,
+		Node:   obj,
 		Expect: typExpr, // obj.Type
 		Actual: typ,
 	}
@@ -667,6 +670,7 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Name,
+		Node:   obj,
 		Expect: typExpr, // the name
 		Actual: typ,
 	}
@@ -1427,6 +1431,7 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.Condition,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: typ,
 		}
@@ -1467,6 +1472,7 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 	// regular scenario
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Value,
+		Node:   obj,
 		Expect: typExpr,
 		Actual: typ,
 	}
@@ -1702,6 +1708,7 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.Condition,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: typ,
 		}
@@ -1963,6 +1970,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.Condition,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: typ,
 		}
@@ -2041,6 +2049,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.MetaExpr,
+		Node:   obj,
 		Expect: typExpr,
 		Actual: typ,
 	}
@@ -2563,6 +2572,7 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Name,
+		Node:   obj,
 		Expect: typExpr, // the name
 		Actual: typ,
 	}
@@ -2848,6 +2858,7 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	typExpr := types.TypeBool // default
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Condition,
+		Node:   obj,
 		Expect: typExpr, // the condition
 		Actual: typ,
 	}
@@ -4526,6 +4537,7 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Func,
+		Node:   obj,
 		Expect: typExpr, // obj.Type
 		Actual: typ,
 	}
@@ -5092,6 +5104,7 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 		if typExpr := obj.class.Args[i].Type; typExpr != nil {
 			invar := &interfaces.UnificationInvariant{
 				Expr:   x,
+				Node:   obj,
 				Expect: typExpr, // type of arg
 				Actual: typ,
 			}
@@ -5402,6 +5415,7 @@ func (obj *ExprBool) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	return types.TypeBool, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: types.TypeBool,
 		},
@@ -5600,6 +5614,7 @@ func (obj *ExprStr) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	return types.TypeStr, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeStr,
 			Actual: types.TypeStr,
 		},
@@ -5744,6 +5759,7 @@ func (obj *ExprInt) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	return types.TypeInt, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeInt,
 			Actual: types.TypeInt,
 		},
@@ -5890,6 +5906,7 @@ func (obj *ExprFloat) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 	return types.TypeFloat, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeFloat,
 			Actual: types.TypeFloat,
 		},
@@ -6183,6 +6200,7 @@ func (obj *ExprList) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -6625,6 +6643,7 @@ func (obj *ExprMap) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -7050,6 +7069,7 @@ func (obj *ExprStruct) Infer() (*types.Type, []*interfaces.UnificationInvariant,
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -7799,6 +7819,7 @@ func (obj *ExprFunc) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -8490,6 +8511,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -8560,6 +8582,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.expr, // this should NOT be obj
+			Node:   obj,
 			Expect: typFunc,  // TODO: are these two reversed here?
 			Actual: typFn,
 		}
@@ -8880,6 +8903,7 @@ func (obj *ExprVar) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typ,
 		Actual: typ,
 	}
@@ -9108,6 +9132,7 @@ func (obj *ExprParam) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 		// This adds the obj ptr, so it's seen as an expr that we need to solve.
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj,
+			Node:   obj,
 			Expect: typ,
 			Actual: typ,
 		}
@@ -9415,6 +9440,7 @@ func (obj *ExprTopLevel) Infer() (*types.Type, []*interfaces.UnificationInvarian
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typ,
 		Actual: typ,
 	}
@@ -9609,6 +9635,7 @@ func (obj *ExprSingleton) Infer() (*types.Type, []*interfaces.UnificationInvaria
 		// to solve.
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj,
+			Node:   obj,
 			Expect: typ,
 			Actual: typ,
 		}
@@ -9977,6 +10004,7 @@ func (obj *ExprIf) Infer() (*types.Type, []*interfaces.UnificationInvariant, err
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}

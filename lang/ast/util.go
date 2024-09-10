@@ -393,3 +393,23 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 		logf("$%s(...)", name)
 	}
 }
+
+func AreaParentOf(needle, haystack interfaces.Node) LocalNode {
+	var LastArea LocalNode
+
+	err := haystack.Apply(func(n interfaces.Node) error {
+		ln, ok := n.(LocalNode)
+		if ok {
+			LastArea = ln
+		}
+		if n == needle {
+			return fmt.Errorf("found")
+		}
+		return nil
+	})
+
+	if err != nil && err.Error() == "found" {
+		return LastArea
+	}
+	return haystack.(LocalNode)
+}

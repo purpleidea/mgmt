@@ -391,7 +391,9 @@ func (obj *GzipRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	// NOTE: Must run this before hashing so that it includes the footer!
-	gzipWriter.Close()
+	if err := gzipWriter.Close(); err != nil {
+		return false, err
+	}
 	sha256sum := hex.EncodeToString(hash.Sum(nil))
 
 	obj.init.Logf("wrote %d gzipped bytes", count)

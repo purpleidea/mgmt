@@ -33,6 +33,7 @@
 import "convert"
 import "deploy"
 import "fmt"
+import "golang"
 import "golang/strings"
 import "net"
 import "os"
@@ -570,12 +571,12 @@ class base:host($name, $config) {
 
 	if $bios {
 		tftp:file "${bios_menu}" {	# for bios
-			data => template(deploy.readfile("/files/bios-menu.tmpl"), $tftp_menu_template),
+			data => golang.template(deploy.readfile("/files/bios-menu.tmpl"), $tftp_menu_template),
 		}
 	} else {
 		tftp:file "${uefi_menu}" {	# for uefi
 			# XXX: linuxefi & initrdefi VS. kernel & append ?
-			data => template(deploy.readfile("/files/uefi-menu.tmpl"), $tftp_menu_template),
+			data => golang.template(deploy.readfile("/files/uefi-menu.tmpl"), $tftp_menu_template),
 
 			#Depend => Pkg[$pkgs_uefi],
 			#Depend => Exec["uefi-extract"],
@@ -611,11 +612,11 @@ class base:host($name, $config) {
 	$kickstart_file = "${kickstart_http_prefix}${hkey}.ks"
 	file "${kickstart_file}" {
 		state => $const.res.file.state.exists,
-		content => template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
+		content => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
 	}
 
 	http:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`
-		#data => template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
+		#data => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
 		path => $kickstart_file,
 
 		Before => Print["ready"],

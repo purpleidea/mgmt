@@ -1,7 +1,8 @@
 import "datetime"
+import "golang"
 
 $d = datetime.now()
 consul:kv "love" {
 	key   => "mgmt/time",
-	value => template("hello! it is now: {{ datetime_print . }}\n", $d),
+	value => golang.template("hello! it is now: {{ datetime_print . }}\n", $d),
 }

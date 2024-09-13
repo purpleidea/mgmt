@@ -1,4 +1,5 @@
 -- main.mcl --
+import "golang"
 import "iter"
 
 $fn = func($x) { # ignore arg
@@ -9,7 +10,7 @@ $ins = [5, 4, 3, 2, 1,]
 
 $out = iter.map($ins, $fn)
 
-$t = template("out: {{ . }}", $out)
+$t = golang.template("out: {{ . }}", $out)
 
 test "${t}" {}
 -- OUTPUT --

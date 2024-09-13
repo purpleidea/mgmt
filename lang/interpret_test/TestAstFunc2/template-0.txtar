@@ -1,5 +1,6 @@
 -- main.mcl --
 import "datetime"
+import "golang"
 
 $secplus42 = 42 + $ayear
 
@@ -9,7 +10,7 @@ $ayear = 60 * 60 * 24 * 365	# is a year in seconds (31536000)
 $tmplvalues = struct{time => $secplus42, hello => "world",}
 
 print "template-0" {
-	msg => template("Hello: {{ .hello }}, 42 sec + 1 year is: {{ .time }} seconds, aka: {{ datetime_print .time }}", $tmplvalues),
+	msg => golang.template("Hello: {{ .hello }}, 42 sec + 1 year is: {{ .time }} seconds, aka: {{ datetime_print .time }}", $tmplvalues),
 }
 -- OUTPUT --
 Vertex: print[template-0]

@@ -1,3 +1,4 @@
+import "golang"
 import "sys"
 import "world"
 
@@ -19,5 +20,5 @@ $set = world.schedule("xsched", $opts)
 $host = sys.hostname()
 file "/tmp/mgmt/scheduled-${host}" {
 	state => $const.res.file.state.exists,
-	content => template("set: {{ . }}\n", $set),
+	content => golang.template("set: {{ . }}\n", $set),
 }

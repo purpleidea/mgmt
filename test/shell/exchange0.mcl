@@ -6,6 +6,7 @@
 # time ./mgmt run --hostname h4 --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2385 --server-urls=http://127.0.0.1:2386 --tmp-prefix --no-pgp empty
 # time ./mgmt deploy --no-git --seeds=http://127.0.0.1:2379 lang examples/lang/exchange0.mcl
 
+import "golang"
 import "sys"
 import "world"
 
@@ -15,5 +16,5 @@ $host = sys.hostname()
 
 file "/tmp/mgmt/exchange-${host}" {
 	state => $const.res.file.state.exists,
-	content => template("Found: {{ . }}\n", $exchanged),
+	content => golang.template("Found: {{ . }}\n", $exchanged),
 }

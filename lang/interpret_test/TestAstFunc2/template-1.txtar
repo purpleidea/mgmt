@@ -1,6 +1,8 @@
 -- main.mcl --
+import "golang"
+
 $v = 42
-$x = template("hello", $v) # redirect var for harder unification
+$x = golang.template("hello", $v) # redirect var for harder unification
 test "${x}" {
 	#anotherstr => $x,
 }

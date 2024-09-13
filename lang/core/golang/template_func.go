@@ -27,7 +27,7 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package core // TODO: should this be in its own individual package?
+package coregolang
 
 import (
 	"bytes"
@@ -64,7 +64,7 @@ var (
 )
 
 func init() {
-	funcs.Register(TemplateFuncName, func() interfaces.Func { return &TemplateFunc{} })
+	funcs.ModuleRegister(ModuleName, TemplateFuncName, func() interfaces.Func { return &TemplateFunc{} })
 }
 
 var _ interfaces.InferableFunc = &TemplateFunc{} // ensure it meets this expectation

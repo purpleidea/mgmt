@@ -1,4 +1,5 @@
 -- main.mcl --
+import "golang"
 import "iter"
 
 func itermap($a, $b) {
@@ -29,14 +30,14 @@ $out6 = iter.map($in4, func($x) { $x + $x })
 $out7 = itermap($in3, func($x) { $x + $x })
 $out8 = itermap($in4, func($x) { $x + $x })
 
-$t1 = template("out1: {{ . }}", $out1)
-$t2 = template("out2: {{ . }}", $out2)
-$t3 = template("out3: {{ . }}", $out3)
-$t4 = template("out4: {{ . }}", $out4)
-$t5 = template("out5: {{ . }}", $out5)
-$t6 = template("out6: {{ . }}", $out6)
-$t7 = template("out7: {{ . }}", $out7)
-$t8 = template("out8: {{ . }}", $out8)
+$t1 = golang.template("out1: {{ . }}", $out1)
+$t2 = golang.template("out2: {{ . }}", $out2)
+$t3 = golang.template("out3: {{ . }}", $out3)
+$t4 = golang.template("out4: {{ . }}", $out4)
+$t5 = golang.template("out5: {{ . }}", $out5)
+$t6 = golang.template("out6: {{ . }}", $out6)
+$t7 = golang.template("out7: {{ . }}", $out7)
+$t8 = golang.template("out8: {{ . }}", $out8)
 
 test "${t1}" {}
 test "${t2}" {}

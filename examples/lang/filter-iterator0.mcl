@@ -1,3 +1,4 @@
+import "golang"
 import "iter"
 import "math"
 
@@ -9,6 +10,6 @@ $in1 = [8, -1, 0, 2, 4, 5, 13,]
 
 $out1 = iter.filter($in1, $fn1)
 
-$t1 = template("out1: {{ . }}", $out1)
+$t1 = golang.template("out1: {{ . }}", $out1)
 
 test [$t1,] {}

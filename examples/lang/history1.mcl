@@ -1,4 +1,5 @@
 import "datetime"
+import "golang"
 
 $dt = datetime.now()
 
@@ -6,5 +7,5 @@ $hystvalues = {"ix0" => $dt, "ix1" => history($dt, 1), "ix2" => history($dt, 2),
 
 file "/tmp/mgmt/history" {
 	state => $const.res.file.state.exists,
-	content => template("Index(0) {{.ix0}}: {{ datetime_print .ix0 }}\nIndex(1) {{.ix1}}: {{ datetime_print .ix1 }}\nIndex(2) {{.ix2}}: {{ datetime_print .ix2 }}\nIndex(3) {{.ix3}}: {{ datetime_print .ix3 }}\n", $hystvalues),
+	content => golang.template("Index(0) {{.ix0}}: {{ datetime_print .ix0 }}\nIndex(1) {{.ix1}}: {{ datetime_print .ix1 }}\nIndex(2) {{.ix2}}: {{ datetime_print .ix2 }}\nIndex(3) {{.ix3}}: {{ datetime_print .ix3 }}\n", $hystvalues),
 }

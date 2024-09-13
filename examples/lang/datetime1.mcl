@@ -1,9 +1,10 @@
 import "datetime"
+import "golang"
 
 $d = datetime.now()
 file "/tmp/mgmt/datetime" {
 	state => $const.res.file.state.exists,
-	content => template("Hello! It is now: {{ datetime_print . }}\n", $d),
+	content => golang.template("Hello! It is now: {{ datetime_print . }}\n", $d),
 }
 
 file "/tmp/mgmt/" {

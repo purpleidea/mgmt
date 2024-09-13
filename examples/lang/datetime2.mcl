@@ -1,4 +1,5 @@
 import "datetime"
+import "golang"
 import "sys"
 
 $secplusone = datetime.now() + $ayear
@@ -13,6 +14,6 @@ $theload float = sys.load()->x1	# ambiguous so we specify the type!
 if 5 > 3 {
 	file "/tmp/mgmt/datetime" {
 		state => $const.res.file.state.exists,
-		content => template("Now + 1 year is: {{ .year }} seconds, aka: {{ datetime_print .year }}\n\nload average: {{ .load }}\n", $tmplvalues),
+		content => golang.template("Now + 1 year is: {{ .year }} seconds, aka: {{ datetime_print .year }}\n\nload average: {{ .load }}\n", $tmplvalues),
 	}
 }

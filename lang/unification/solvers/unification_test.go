@@ -422,12 +422,12 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
-		//$x = template("hello", 42)
+		//$x = golang.template("hello", 42)
 		//test "t1" {
 		//	anotherstr => $x,
 		//}
 		innerFunc := &ast.ExprCall{
-			Name: "template",
+			Name: "golang.template",
 			Args: []interfaces.Expr{
 				&ast.ExprStr{
 					V: "hello",
@@ -439,6 +439,9 @@ func TestUnification1(t *testing.T) {
 		}
 		stmt := &ast.StmtProg{
 			Body: []interfaces.Stmt{
+				&ast.StmtImport{
+					Name: "golang",
+				},
 				&ast.StmtBind{
 					Ident: "x",
 					Value: innerFunc,

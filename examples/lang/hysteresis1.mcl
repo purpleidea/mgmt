@@ -1,8 +1,9 @@
+import "golang"
 import "sys"
 
 file "/tmp/mgmt/systemload" {
 	state => $const.res.file.state.exists,
-	content => template("load average: {{ .load }} threshold: {{ .threshold }}\n", $tmplvalues),
+	content => golang.template("load average: {{ .load }} threshold: {{ .threshold }}\n", $tmplvalues),
 }
 
 $tmplvalues = struct{load => $theload, threshold => $threshold,}

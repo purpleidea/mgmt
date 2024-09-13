@@ -1,11 +1,12 @@
 import "datetime"
 import "fmt"
+import "golang"
 
 $now = datetime.now()
 $day = datetime.weekday($now)
 $is_friday = $day == "friday"
 
-$s1 = template("Hello! It is now: {{ datetime_print . }}\n", $now)
+$s1 = golang.template("Hello! It is now: {{ datetime_print . }}\n", $now)
 $s2 = if $is_friday {
 	"It's friday!!! (don't break anything, read-only)"
 } else {

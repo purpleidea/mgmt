@@ -349,7 +349,7 @@ apt install libvirt-dev libaugeas-dev
 
 ### Why do function names inside of templates include underscores?
 
-The golang template library which we use to implement the template() function
+The golang template library which we use to implement the golang.template() func
 doesn't support the dot notation, so we import all our normal functions, and
 just replace dots with underscores. As an example, the standard `datetime.print`
 function is shown within mcl scripts as datetime_print after being imported.

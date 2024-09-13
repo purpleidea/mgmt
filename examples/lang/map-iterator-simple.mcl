@@ -1,4 +1,5 @@
 import "datetime"
+import "golang"
 import "iter"
 import "math"
 
@@ -19,7 +20,7 @@ $in1 = if $mod {
 
 $out1 = iter.map($in1, $fn)
 
-$t1 = template("out1: {{ . }}", $out1)
+$t1 = golang.template("out1: {{ . }}", $out1)
 
 test "example1" {
 	anotherstr => $t1,

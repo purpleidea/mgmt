@@ -1,4 +1,5 @@
 -- main.mcl --
+import "golang"
 import "sys"
 
 $tmplvalues = struct{num => 42, load => $theload,}
@@ -7,7 +8,7 @@ $theload bool = sys.load()->x1 # wrong type, make sure the compiler catches it!
 
 file "/tmp/datetime" {
 	state => $const.res.file.state.exists,
-	content => template("num: {{ .num }} seconds\nload average: {{ .load }}\n", $tmplvalues),
+	content => golang.template("num: {{ .num }} seconds\nload average: {{ .load }}\n", $tmplvalues),
 }
 -- OUTPUT --
 # err: errUnify: error setting type: func() { <built-in:_struct_lookup> }, error: field x1 type error: base kind does not match (bool != float)

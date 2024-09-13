@@ -1,4 +1,5 @@
 import "fmt"
+import "golang"
 import "example"
 
 $answer = 42
@@ -9,5 +10,5 @@ print "print1" {
 }
 
 print "print2" {
-	msg => template("an str is: {{ int2str . }}", $answer),
+	msg => golang.template("an str is: {{ int2str . }}", $answer),
 }

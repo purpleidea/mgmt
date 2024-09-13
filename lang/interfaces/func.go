@@ -76,7 +76,7 @@ type Init struct {
 	// nodes, and when it is used, it should be used carefully.
 	Txn Txn
 
-	// TODO: should we pass in a *Scope here for functions like template() ?
+	// TODO: should we pass in a *Scope here for functions like golang.template() ?
 
 	Local *local.API
 	World engine.World

@@ -39,7 +39,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -223,9 +222,6 @@ func (obj *GzipRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *GzipRes) Watch(ctx context.Context) error {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
 	recurse := false // single file
 
 	recWatcher, err := recwatch.NewRecWatcher(obj.getPath(), recurse)

@@ -387,3 +387,27 @@ func isDir(path string) bool {
 	}
 	return finfo.IsDir()
 }
+
+// MergeChannels is a helper function to combine different recwatch events. It
+// would be preferable to actually fix the horrible recwatch code to allow it to
+// monitor more than one path from the start.
+func MergeChannels(chanList ...<-chan Event) <-chan Event {
+	out := make(chan Event)
+	wg := &sync.WaitGroup{}
+	wg.Add(len(chanList)) // do them all together
+	for _, ch := range chanList {
+		//wg.Add(1)
+		go func(ch <-chan Event) {
+			defer wg.Done()
+			for v := range ch {
+				out <- v
+			}
+		}(ch)
+	}
+	go func() {
+		// Last one closes!
+		wg.Wait()
+		close(out)
+	}()
+	return out
+}

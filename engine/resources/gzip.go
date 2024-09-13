@@ -93,7 +93,7 @@ func init() {
 // can either come from a file path if specified with Input or it looks at the
 // Content field for raw data. It uses hashes to determine if something was
 // changed, so as a result, this may not be suitable if you can create a sha256
-// has collision.
+// hash collision.
 // TODO: support send/recv to send the output instead of writing to a file?
 type GzipRes struct {
 	traits.Base // add the base methods without re-implementation

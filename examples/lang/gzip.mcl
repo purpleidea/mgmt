@@ -1,0 +1,17 @@
+# gzip a file!
+file "/tmp/input" {
+	state => "exists",
+	content => "hello world from purpleidea!\n",
+}
+
+gzip "/tmp/input.gz" {
+	input => "/tmp/input",
+	level => $const.res.gzip.level.no_compression,
+
+	Depend => File["/tmp/input"], # TODO: add autoedges
+}
+
+gzip "/tmp/data.gz" {
+	content => "hello world from purpleidea!\n",
+	level => $const.res.gzip.level.best_compression,
+}

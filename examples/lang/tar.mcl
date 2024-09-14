@@ -1,0 +1,52 @@
+# make a tar archive!
+file "/tmp/tar/" {
+	state => "exists",
+}
+
+file ["/tmp/tar/a", "/tmp/tar/bb", "/tmp/tar/cccc",] {
+	state => "exists",
+	content => "some file\n",
+
+	Before => Tar["/tmp/foo.tar"],
+}
+
+file "/tmp/tar/hello" {
+	state => "exists",
+	content => "hello world from purpleidea!\n",
+
+	Before => Tar["/tmp/foo.tar"],
+}
+
+file "/tmp/tar/dir/" {
+	state => "exists",
+}
+
+file "/tmp/tar/dir/deep_file" {
+	state => "exists",
+	content => "this is a deeply nested file!\n",
+
+	Before => Tar["/tmp/foo.tar"],
+}
+
+file "/tmp/standalone" {
+	state => "exists",
+	content => "this is some standalone file!\n",
+
+	Before => Tar["/tmp/foo.tar"],
+}
+
+
+tar "/tmp/foo.tar" {
+	inputs => [
+		"/tmp/tar/",
+		"/tmp/standalone",
+	],
+	format => $const.res.tar.format.gnu,
+
+	Depend => File["/tmp/tar/"], # TODO: add autoedges
+}
+
+# bonus
+gzip "/tmp/foo.tar.gz" {
+	input => "/tmp/foo.tar",
+}

@@ -1,0 +1,16 @@
+import "fmt"
+import "os"
+import "strings"
+
+$s = os.readfile("/etc/hosts")
+$substr = "127.0.0.1"
+$b = strings.contains($s, $substr)
+
+print "print1" {
+	msg => $b,
+}
+
+file "/tmp/mgmt/checklist" {
+	state => $const.res.file.state.exists,
+	content => fmt.printf("/etc/hosts %s: %s", $substr,  $b),
+}

@@ -1,0 +1,9 @@
+# To know where this value is, just prepend /proc/sys/ and then replace the dots
+# with slashes, so this becomes /proc/sys/net/ipv4/ip_forward which you can cat!
+sysctl "net.ipv4.ip_forward" { # firewalls love this!
+	value => "1",
+}
+
+#sysctl "kernel.hostname" {
+#	value => "example.com",
+#}

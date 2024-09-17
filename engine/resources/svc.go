@@ -220,7 +220,7 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 		}
 
 		if invalid {
-			obj.init.Logf("waiting fo service") // waiting for svc to appear...
+			obj.init.Logf("waiting for service") // waiting for svc to appear...
 			if activeSet {
 				activeSet = false
 				set.Remove(svc) // no return value should ever occur

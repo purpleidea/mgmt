@@ -1697,6 +1697,52 @@ func TestResources2(t *testing.T) {
 			cleanup:  func() error { return os.RemoveAll(p) },
 		})
 	}
+	{
+		//mount "/tmp/test-mountpoint/" {
+		//	state => "exists",
+		//	device => "tmpfs",
+		//	type => "tmpfs",
+		//}
+		mountPoint := "/tmp/test-mountpoint"
+		r1 := makeRes("mount", mountPoint)
+		res := r1.(*MountRes) // if this panics, the test will panic
+		res.Device = "tmpfs"
+		res.Type = "tmpfs"
+		res.State = "exists"
+
+		graph, err := pgraph.NewGraph("test")
+		if err != nil {
+			panic("can't make graph")
+		}
+		graph.AddVertex(res)
+
+		timeline := []func() error{
+			fileMkdir(mountPoint, true),
+
+			resValidate(r1),
+			resInit(r1),
+			// resCheckApply(r1, false), <- this needs root permissions :(
+
+			// TODO: find a way to checkApply this, then check results
+
+			// TODO: run unit tests on the initialized resource
+
+			resCleanup(r1),
+		}
+
+		testCases = append(testCases, test{
+			name:     "mount a tmpfs",
+			timeline: timeline,
+			expect:   func() error { return nil },
+			startup:  func() error { return nil },
+			cleanup: func() error {
+				if err := os.Remove(mountPoint); err != nil {
+					return err
+				}
+				return nil // return exec.Command("umount", mountPoint).Run()
+			},
+		})
+	}
 	names := []string{}
 	for index, tc := range testCases { // run all the tests
 		if tc.name == "" {

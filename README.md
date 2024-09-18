@@ -15,7 +15,7 @@
 `Mgmt` is a real-time automation tool. It is familiar to existing configuration
 management software, but is drastically more powerful as it can allow you to
 build real-time, closed-loop feedback systems, in a very safe way, and with a
-surprisingly small amout of our `mcl` code. For example, the following code will
+surprisingly small amount of our `mcl` code. For example, the following code will
 ensure that your file server is set to read-only when it's friday.
 
 ```mcl

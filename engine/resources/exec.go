@@ -83,7 +83,10 @@ type ExecRes struct {
 
 	// Cwd is the dir to run the command in. If empty, then this will use
 	// the working directory of the calling process. (This process is mgmt,
-	// not the process being run here.)
+	// not the process being run here.) Keep in mind that if you're running
+	// this command as a user that does not have perms to the current
+	// directory, you may wish to set this to `/` to avoid hitting an error
+	// such as: `could not change directory to "/root": Permission denied`.
 	Cwd string `lang:"cwd" yaml:"cwd"`
 
 	// Shell is the (optional) shell to use to run the cmd. If you specify

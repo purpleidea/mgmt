@@ -887,6 +887,21 @@ use case.
 (Send your questions as a patch to this FAQ! I'll review it, merge it, and
 respond by commit with the answer.)
 
+### Why am I getting a deploy.readfile error when the file actually exists?
+
+You may be seeing an error like:
+
+`readfile`: open /*/files/foo: file does not exist can't read file `/files/foo`?
+
+If you look, the `foo` file is indeed in the `files/` directory. The problem is
+that the `files/` directory won't be seen if you didn't specify to include it as
+part of your deploy. To do so, chances are that all you need to do is add a
+`metadata.yaml` file into the parent directory to that files folder. This will
+be used as the entrypoint instead of the naked `main.mcl` file that you have
+there, and with that metadata entrypoint, you get a default `files/` directory
+added. You can of course change the `files/` path by setting a key in the
+`metadata.yaml` file, but we recommend you leave it as the default.
+
 ### What is the difference between `ExprIf` and `StmtIf`?
 
 The language contains both an `if` expression, and and `if` statement. An `if`

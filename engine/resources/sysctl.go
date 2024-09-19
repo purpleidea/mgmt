@@ -47,6 +47,9 @@ import (
 func init() {
 	engine.RegisterResource("sysctl", func() engine.Res { return &SysctlRes{} })
 
+	if !strings.HasPrefix(SysctlConfDir, "/") {
+		panic("the SysctlConfDir does not start with a slash")
+	}
 	if !strings.HasSuffix(SysctlConfDir, "/") {
 		panic("the SysctlConfDir does not end with a slash")
 	}

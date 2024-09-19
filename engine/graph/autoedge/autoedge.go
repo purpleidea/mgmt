@@ -63,7 +63,9 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 			continue
 		}
 		if autoEdgeObj == nil {
-			logf("no auto edges were found for: %s", res)
+			if debug {
+				logf("no auto edges were found for: %s", res)
+			}
 			continue // next vertex
 		}
 		autoEdgeObjMap[res] = autoEdgeObj // save for next loop

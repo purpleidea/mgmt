@@ -220,7 +220,9 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 		}
 
 		if invalid {
-			obj.init.Logf("waiting for service") // waiting for svc to appear...
+			if obj.init.Debug {
+				obj.init.Logf("waiting for service") // waiting for svc to appear...
+			}
 			if activeSet {
 				activeSet = false
 				set.Remove(svc) // no return value should ever occur
@@ -240,11 +242,13 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 				set.Add(svc) // no return value should ever occur
 			}
 
-			obj.init.Logf("watching...") // attempting to watch...
+			//obj.init.Logf("watching...") // attempting to watch...
 			select {
 			case event := <-subChannel:
 
-				obj.init.Logf("event: %+v", event)
+				if obj.init.Debug {
+					obj.init.Logf("event: %+v", event)
+				}
 				// NOTE: the value returned is a map for some reason...
 				if event[svc] != nil {
 					// event[svc].ActiveState is not nil
@@ -352,7 +356,6 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	// apply portion
-	obj.init.Logf("Apply")
 	files := []string{svc} // the svc represented in a list
 	if obj.Startup == "enabled" {
 		_, _, err = conn.EnableUnitFilesContext(ctx, files, false, true)

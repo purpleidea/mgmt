@@ -346,11 +346,16 @@ func (obj *Main) Run() error {
 		prefix = *p
 	}
 	// make sure the working directory prefix exists
-	if obj.TmpPrefix || os.MkdirAll(prefix, 0770) != nil {
+	if obj.TmpPrefix || os.MkdirAll(prefix, 0775) != nil { // 0775 =D
 		if obj.TmpPrefix || obj.AllowTmpPrefix {
 			var err error
+			// This temp dir always gets created with 0700 mode. :(
 			if prefix, err = os.MkdirTemp("", obj.Program+"-"+hostname+"-"); err != nil {
 				return fmt.Errorf("can't create temporary prefix")
+			}
+			// 0775 since we want children to be able to read this!
+			if err := os.Chmod(prefix, 0775); err != nil {
+				return fmt.Errorf("can't set mode correctly")
 			}
 			Logf("warning: working prefix directory is temporary!")
 
@@ -392,7 +397,8 @@ func (obj *Main) Run() error {
 			obj.Logf("pgp: "+format, v...)
 		}
 		pgpPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgp"))
-		if err := os.MkdirAll(pgpPrefix, 0770); err != nil {
+		// 0700 since we DON'T want anyone else to be able to read this!
+		if err := os.MkdirAll(pgpPrefix, 0700); err != nil {
 			return errwrap.Wrapf(err, "can't create pgp prefix")
 		}
 

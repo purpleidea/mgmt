@@ -54,7 +54,8 @@ func (obj *State) varDir(extra string) (string, error) {
 
 	// an empty string at the end has no effect
 	p := fmt.Sprintf("%s/", path.Join(obj.Prefix, extra))
-	if err := os.MkdirAll(p, 0770); err != nil {
+	// 0775 since we want children to be able to read this!
+	if err := os.MkdirAll(p, 0775); err != nil {
 		return "", errwrap.Wrapf(err, "can't create prefix in: %s", p)
 	}
 

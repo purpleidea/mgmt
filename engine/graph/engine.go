@@ -106,7 +106,8 @@ func (obj *Engine) Init() error {
 	if obj.Prefix == "" || obj.Prefix == "/" {
 		return fmt.Errorf("the prefix of `%s` is invalid", obj.Prefix)
 	}
-	if err := os.MkdirAll(obj.Prefix, 0770); err != nil {
+	// 0775 since we want children to be able to read this!
+	if err := os.MkdirAll(obj.Prefix, 0775); err != nil {
 		return errwrap.Wrapf(err, "can't create prefix")
 	}
 
@@ -224,7 +225,7 @@ func (obj *Engine) Commit() error {
 		statePrefix := fmt.Sprintf("%s/", path.Join(obj.statePrefix(), pathUID))
 
 		// don't create this unless it *will* be used
-		//if err := os.MkdirAll(statePrefix, 0770); err != nil {
+		//if err := os.MkdirAll(statePrefix, 0775); err != nil {
 		//	return errwrap.Wrapf(err, "can't create state prefix")
 		//}
 

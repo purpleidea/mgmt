@@ -706,3 +706,36 @@ func ReturnSvcInFileList(fileList []string) []string {
 func stateIsVersion(state string) bool {
 	return (state != PkgStateInstalled && state != PkgStateUninstalled && state != PkgStateNewest) // must be a ver. string
 }
+
+// InstallOnePackage is a helper function which uses the minimum resource
+// mechanics to install a single package. Keep this up-to-date with the resource
+// internals since we may make some concessions in this helper function in that
+// we don't call the full API.
+func InstallOnePackage(ctx context.Context, name string) error {
+	res, err := engine.NewNamedResource("pkg", name)
+	if err != nil {
+		return err
+	}
+	pkg, ok := res.(*PkgRes)
+	if !ok {
+		return fmt.Errorf("error casting PkgRes")
+	}
+	pkg.State = PkgStateInstalled
+
+	init := &engine.Init{
+		Debug: false,
+		Logf: func(format string, v ...interface{}) {
+			// noop
+		},
+	}
+	if err := res.Init(init); err != nil {
+		return err
+	}
+
+	apply := true
+	if _, err := res.CheckApply(ctx, apply); err != nil {
+		return err
+	}
+
+	return res.Cleanup()
+}

@@ -39,6 +39,7 @@ import (
 
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
+	archUtil "github.com/purpleidea/mgmt/util/arch"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/godbus/dbus/v5"
@@ -60,28 +61,6 @@ const (
 	PkPath                 = "/org/freedesktop/PackageKit"
 	PkIface                = "org.freedesktop.PackageKit"
 	PkIfaceTransaction     = PkIface + ".Transaction"
-)
-
-var (
-	// PkArchMap contains the mapping from PackageKit arch to GOARCH.
-	// GOARCH's: 386, amd64, arm, arm64, mips64, mips64le, ppc64, ppc64le
-	PkArchMap = map[string]string{ // map of PackageKit arch to GOARCH
-		// TODO: add more values
-		// noarch
-		"noarch": "ANY", // special value "ANY" (noarch as seen in Fedora)
-		"any":    "ANY", // special value "ANY" ('any' as seen in ArchLinux)
-		"all":    "ANY", // special value "ANY" ('all' as seen in Debian)
-		// fedora
-		"x86_64":  "amd64",
-		"aarch64": "arm64",
-		// debian, from: https://www.debian.org/ports/
-		"amd64": "amd64",
-		"arm64": "arm64",
-		"i386":  "386",
-		"i486":  "386",
-		"i586":  "386",
-		"i686":  "386",
-	}
 )
 
 // type enum_filter uint64
@@ -985,12 +964,12 @@ func FmtTransactionMethod(method string) string {
 
 // IsMyArch determines if a PackageKit architecture matches the current os arch.
 func IsMyArch(arch string) (bool, error) {
-	goarch, ok := PkArchMap[arch]
+	goarch, ok := archUtil.MapPackageKitArchToGoArch[arch]
 	if !ok {
 		// if you get this error, please update the PkArchMap const
 		return false, fmt.Errorf("arch '%s', not found", arch)
 	}
-	if goarch == "ANY" { // special value that corresponds to noarch
+	if goarch == archUtil.Any { // special value that corresponds to noarch
 		return true, nil
 	}
 	return goarch == runtime.GOARCH, nil

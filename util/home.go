@@ -39,14 +39,19 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-// ExpandHome does an expansion of ~/ or ~james/ into user's home dir value.
+// ExpandHome does an expansion of ~/ or ~james/ into user's home dir value. If
+// the input path ends in a slash, the result does too.
 func ExpandHome(p string) (string, error) {
+	suffix := "" // If it the input ends with a slash, so should the output.
+	if strings.HasSuffix(p, "/") {
+		suffix = "/"
+	}
 	if strings.HasPrefix(p, "~/") {
 		usr, err := user.Current()
 		if err != nil {
 			return p, fmt.Errorf("can't expand ~ into home directory")
 		}
-		return path.Join(usr.HomeDir, p[len("~/"):]), nil
+		return path.Join(usr.HomeDir, p[len("~/"):]) + suffix, nil
 	}
 
 	// check if provided path is in format ~username and keep track of provided username
@@ -60,7 +65,7 @@ func ExpandHome(p string) (string, error) {
 		if err != nil {
 			return p, fmt.Errorf("can't expand %s into home directory", match[0])
 		}
-		return path.Join(usr.HomeDir, p[len(match[0]):]), nil
+		return path.Join(usr.HomeDir, p[len(match[0]):]) + suffix, nil
 	}
 
 	return p, nil

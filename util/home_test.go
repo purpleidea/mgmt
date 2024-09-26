@@ -42,11 +42,14 @@ func TestExpandHome(t *testing.T) {
 		path     string
 		expanded string
 	}{
+		// If it the input ends with a slash, so should the output.
 		{"/some/random/path", "/some/random/path"},
-		{"~/", usr.HomeDir},
+		{"~/", usr.HomeDir + "/"},
 		{"~/some/path", usr.HomeDir + "/some/path"},
-		{"~" + usr.Username + "/", usr.HomeDir},
+		{"~/some/path/", usr.HomeDir + "/some/path/"},
+		{"~" + usr.Username + "/", usr.HomeDir + "/"},
 		{"~" + usr.Username + "/some/path", usr.HomeDir + "/some/path"},
+		{"~" + usr.Username + "/some/path/", usr.HomeDir + "/some/path/"},
 	}
 
 	for _, test := range expandHomeTests {

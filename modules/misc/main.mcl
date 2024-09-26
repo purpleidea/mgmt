@@ -1,0 +1,19 @@
+import "os"
+
+# ssh_keygen creates an ssh key pair in the user's home directory if the private
+# key doesn't exist.
+# TODO: add more parameters such as key size and type in the future
+class ssh_keygen($user) {
+	panic($user == "") # panic if $user is empty
+	$p = os.expand_home("~${user}/") # eg: ~james/
+	exec "ssh-keygen-${user}" {
+		cmd => "/usr/bin/ssh-keygen",
+		args => [
+		        "-t", "rsa", # type
+		        "-f", "${p}.ssh/id_rsa", # private key file
+		        "-N", "", # empty password
+		],
+		creates => "${p}.ssh/id_rsa",
+		user => $user,
+	}
+}

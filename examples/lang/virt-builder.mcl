@@ -1,0 +1,11 @@
+import "os"
+
+virt:builder "/var/lib/libvirt/images/vmtest1.raw" {
+	os_version => "fedora-40",
+	size => 1024*1024*1024*100, # 100G
+	packages => [
+		"@minimal-environment",
+		"screen",
+		"vim-enhanced",
+	],
+}

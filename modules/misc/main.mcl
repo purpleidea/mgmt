@@ -15,5 +15,13 @@ class ssh_keygen($user) {
 		],
 		creates => "${p}.ssh/id_rsa",
 		user => $user,
+
+		Before => File["${p}.ssh/id_rsa"],
+	}
+	# This also serves as a "handle" so that other resources can depend on
+	# this file getting created before they run.
+	file "${p}.ssh/id_rsa" {
+		mode => "u=rw,go=",
+		owner => $user,
 	}
 }

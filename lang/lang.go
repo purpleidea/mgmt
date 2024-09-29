@@ -173,7 +173,8 @@ func (obj *Lang) Init(ctx context.Context) error {
 	}
 	importGraph.AddVertex(importVertex)
 
-	obj.Logf("init...")
+	//obj.Logf("init...")
+	obj.Logf("import: %s", output.Base)
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
@@ -203,7 +204,9 @@ func (obj *Lang) Init(ctx context.Context) error {
 		return errwrap.Wrapf(err, "could not init and validate AST")
 	}
 
-	obj.Logf("interpolating...")
+	if obj.Debug {
+		obj.Logf("interpolating...")
+	}
 	timing = time.Now()
 	// interpolate strings and other expansionable nodes in AST
 	iast, err := xast.Interpolate()
@@ -233,7 +236,9 @@ func (obj *Lang) Init(ctx context.Context) error {
 		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
-	obj.Logf("scope building...")
+	if obj.Debug {
+		obj.Logf("scope building...")
+	}
 	timing = time.Now()
 	// propagate the scope down through the AST...
 	if err := obj.ast.SetScope(scope); err != nil {

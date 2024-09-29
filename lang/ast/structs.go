@@ -3503,21 +3503,26 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 			obj.data.Logf("behold, the AST: %+v", ast)
 		}
 
-		obj.data.Logf("init...")
+		//obj.data.Logf("init...")
+		//obj.data.Logf("import: %s", ?) // TODO: add this for symmetry?
 		// init and validate the structure of the AST
 		// some of this might happen *after* interpolate in SetScope or later...
 		if err := ast.Init(obj.data); err != nil {
 			return nil, errwrap.Wrapf(err, "could not init and validate AST")
 		}
 
-		obj.data.Logf("interpolating...")
+		if obj.data.Debug {
+			obj.data.Logf("interpolating...")
+		}
 		// interpolate strings and other expansionable nodes in AST
 		interpolated, err := ast.Interpolate()
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not interpolate AST from import `%s`", name)
 		}
 
-		obj.data.Logf("scope building...")
+		if obj.data.Debug {
+			obj.data.Logf("scope building...")
+		}
 		// propagate the scope down through the AST...
 		// most importantly, we ensure that the child imports will run!
 		// we pass in *our* parent scope, which will include the globals
@@ -3602,7 +3607,8 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 
 	// nested logger
 	logf := func(format string, v ...interface{}) {
-		obj.data.Logf("import: "+format, v...)
+		//obj.data.Logf("import: "+format, v...) // don't nest!
+		obj.data.Logf(format, v...)
 	}
 
 	// build new list of files
@@ -3623,7 +3629,8 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		logf("behold, the AST: %+v", ast)
 	}
 
-	logf("init...")
+	//logf("init...")
+	logf("import: %s", input.Base)
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
@@ -3649,14 +3656,18 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		return nil, errwrap.Wrapf(err, "could not init and validate AST")
 	}
 
-	logf("interpolating...")
+	if obj.data.Debug {
+		logf("interpolating...")
+	}
 	// interpolate strings and other expansionable nodes in AST
 	interpolated, err := ast.Interpolate()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpolate AST from import")
 	}
 
-	logf("scope building...")
+	if obj.data.Debug {
+		logf("scope building...")
+	}
 	// propagate the scope down through the AST...
 	// most importantly, we ensure that the child imports will run!
 	// we pass in *our* parent scope, which will include the globals

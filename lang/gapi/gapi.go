@@ -189,7 +189,8 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	}
 	importGraph.AddVertex(importVertex)
 
-	logf("init...")
+	//logf("init...")
+	logf("import: %s", output.Base)
 	// init and validate the structure of the AST
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
@@ -219,7 +220,9 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		return nil, errwrap.Wrapf(err, "could not init and validate AST")
 	}
 
-	logf("interpolating...")
+	if debug {
+		logf("interpolating...")
+	}
 	// interpolate strings and other expansionable nodes in AST
 	iast, err := xast.Interpolate()
 	if err != nil {
@@ -249,7 +252,9 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		Functions: ast.FuncPrefixToFunctionsScope(""), // runs funcs.LookupPrefix
 	}
 
-	logf("scope building...")
+	if debug {
+		logf("scope building...")
+	}
 	// propagate the scope down through the AST...
 	// We use SetScope because it follows all of the imports through. I did
 	// not think we needed to pass in an initial scope because the download

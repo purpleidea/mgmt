@@ -65,16 +65,78 @@ func TestCidrToIP(t *testing.T) {
 			output, err := CidrToIP(context.Background(), []types.Value{&types.StrValue{V: test.input}})
 			expectedStr := &types.StrValue{V: test.expected}
 
-			if test.err != nil && err.Error() != test.err.Error() {
-				t.Errorf("input: %s, expected error: %q, got: %q", test.input, test.err, err)
-				return
-			} else if test.err != nil && err == nil {
-				t.Errorf("input: %s, expected error: %v, but got nil", test.input, test.err)
-				return
-			} else if test.err == nil && err != nil {
+			if (test.err == nil) && err != nil {
 				t.Errorf("input: %s, did not expect error but got: %#v", test.input, err)
 				return
 			}
+			if (test.err != nil) && err != nil {
+				s := err.Error() // convert to string
+				if s == test.err.Error() {
+					return
+				}
+				t.Errorf("input: %s, expected error: %q, got: %q", test.input, test.err, err)
+				return
+			}
+			if (test.err != nil) && err == nil {
+				t.Errorf("input: %s, expected error: %v, but got nil", test.input, test.err)
+				return
+			}
+
+			if err := output.Cmp(expectedStr); err != nil {
+				t.Errorf("input: %s, expected: %s, got: %s", test.input, expectedStr, output)
+				return
+			}
+		})
+	}
+}
+
+func TestCidrToMask(t *testing.T) {
+	cidrtests := []struct {
+		name     string
+		input    string
+		expected string
+		err      error
+	}{
+		// IPv4 success.
+		{"IPv4 cidr", "192.0.2.12/24", "255.255.255.0", nil},
+		{"Another IPv4 cidr", "192.0.2.12/13", "255.248.0.0", nil},
+		{"spaced IPv4 cidr ", "  192.168.42.13/24  ", "255.255.255.0", nil},
+
+		// IPv4 failure - tests error.
+		{"invalid IPv4 cidr", "192.168.42.13/33", "", fmt.Errorf("invalid CIDR address: 192.168.42.13/33")},
+
+		// IPV6 success.
+		// TODO: nobody knows how this should work
+		//{"IPv6 cidr", "2001:db8::/32", "ffff:ffff::", nil},
+		//{"spaced IPv6 cidr ", "   2001:db8::/32   ", "ffff:ffff::", nil},
+
+		// IPv6 failure - tests error.
+		{"invalid IPv6 cidr", "2001:db8::/333", "", fmt.Errorf("invalid CIDR address: 2001:db8::/333")},
+	}
+
+	for _, ts := range cidrtests {
+		test := ts
+		t.Run(test.name, func(t *testing.T) {
+			output, err := CidrToMask(context.Background(), []types.Value{&types.StrValue{V: test.input}})
+			expectedStr := &types.StrValue{V: test.expected}
+
+			if (test.err == nil) && err != nil {
+				t.Errorf("input: %s, did not expect error but got: %#v", test.input, err)
+				return
+			}
+			if (test.err != nil) && err != nil {
+				s := err.Error() // convert to string
+				if s == test.err.Error() {
+					return
+				}
+				t.Errorf("input: %s, expected error: %q, got: %q", test.input, test.err, err)
+				return
+			}
+			if (test.err != nil) && err == nil {
+				t.Errorf("input: %s, expected error: %v, but got nil", test.input, test.err)
+				return
+			}
+
 			if err := output.Cmp(expectedStr); err != nil {
 				t.Errorf("input: %s, expected: %s, got: %s", test.input, expectedStr, output)
 				return

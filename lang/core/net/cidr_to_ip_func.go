@@ -43,16 +43,32 @@ func init() {
 		T: types.NewType("func(a str) str"),
 		F: CidrToIP,
 	})
+	simple.ModuleRegister(ModuleName, "cidr_to_mask", &simple.Scaffold{
+		T: types.NewType("func(a str) str"),
+		F: CidrToMask,
+	})
 }
 
-// CidrToIP returns the IP from a CIDR address
+// CidrToIP returns the IP from a CIDR address.
 func CidrToIP(ctx context.Context, input []types.Value) (types.Value, error) {
 	cidr := input[0].Str()
 	ip, _, err := net.ParseCIDR(strings.TrimSpace(cidr))
 	if err != nil {
-		return &types.StrValue{}, err
+		return nil, err
 	}
 	return &types.StrValue{
 		V: ip.String(),
+	}, nil
+}
+
+// CidrToMask returns the subnet mask from a CIDR address.
+func CidrToMask(ctx context.Context, input []types.Value) (types.Value, error) {
+	cidr := input[0].Str()
+	_, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
+	if err != nil {
+		return nil, err
+	}
+	return &types.StrValue{
+		V: net.IP(ipnet.Mask).String(),
 	}, nil
 }

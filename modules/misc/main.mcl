@@ -20,6 +20,11 @@ class ssh_keygen($user) {
 	}
 	# This also serves as a "handle" so that other resources can depend on
 	# this file getting created before they run.
+	file "${p}.ssh/" {
+		state => "exists",
+		mode => "u=rwx,go=",
+		owner => $user,
+	}
 	file "${p}.ssh/id_rsa" {
 		mode => "u=rw,go=",
 		owner => $user,

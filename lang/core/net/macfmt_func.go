@@ -81,13 +81,13 @@ func MacFmt(ctx context.Context, input []types.Value) (types.Value, error) {
 	if len(mac) != len("00:00:00:00:00:00") {
 		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
 	}
-	_, err := net.ParseMAC(mac)
+	hw, err := net.ParseMAC(mac)
 	if err != nil {
 		return nil, err
 	}
 
 	return &types.StrValue{
-		V: strings.Replace(mac, "-", ":", -1),
+		V: hw.String(), // makes it lowercase and everything
 	}, nil
 }
 
@@ -100,12 +100,12 @@ func OldMacFmt(ctx context.Context, input []types.Value) (types.Value, error) {
 	if len(mac) != len("00:00:00:00:00:00") {
 		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
 	}
-	_, err := net.ParseMAC(mac)
+	hw, err := net.ParseMAC(mac)
 	if err != nil {
 		return nil, err
 	}
 
 	return &types.StrValue{
-		V: strings.Replace(mac, ":", "-", -1),
+		V: strings.Replace(hw.String(), ":", "-", -1),
 	}, nil
 }

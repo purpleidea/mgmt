@@ -43,8 +43,8 @@ func TestMacFmt(t *testing.T) {
 		out     string
 		wantErr bool
 	}{
-		{"Valid mac with hyphens", "01-23-45-67-89-AB", "01:23:45:67:89:AB", false},
-		{"Valid mac with colons", "01:23:45:67:89:AB", "01:23:45:67:89:AB", false},
+		{"Valid mac with hyphens", "01-23-45-67-89-AB", "01:23:45:67:89:ab", false},
+		{"Valid mac with colons", "01:23:45:67:89:AB", "01:23:45:67:89:ab", false},
 		{"Incorrect mac length with colons", "01:23:45:67:89:AB:01:23:45:67:89:AB", "01:23:45:67:89:AB:01:23:45:67:89:AB", true},
 		{"Invalid mac", "", "", true},
 	}
@@ -73,8 +73,9 @@ func TestOldMacFmt(t *testing.T) {
 		out     string
 		wantErr bool
 	}{
-		{"Valid mac with hyphens", "01:23:45:67:89:AB", "01-23-45-67-89-AB", false},
-		{"Valid mac with colons", "01-23-45-67-89-AB", "01-23-45-67-89-AB", false},
+		{"Valid mac with hyphens", "01:23:45:67:89:AB", "01-23-45-67-89-ab", false},
+		{"Valid lowercase mac with hyphens", "01:23:45:67:89:ab", "01-23-45-67-89-ab", false},
+		{"Valid mac with colons", "01-23-45-67-89-AB", "01-23-45-67-89-ab", false},
 		{"Incorrect mac length with hyphens", "01-23-45-67-89-AB-01-23-45-67-89-AB", "01-23-45-67-89-AB-01-23-45-67-89-AB", true},
 		{"Invalid mac", "", "", true},
 	}

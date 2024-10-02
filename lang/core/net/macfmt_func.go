@@ -40,6 +40,10 @@ import (
 )
 
 func init() {
+	simple.ModuleRegister(ModuleName, "is_mac", &simple.Scaffold{
+		T: types.NewType("func(a str) bool"),
+		F: IsMac,
+	})
 	simple.ModuleRegister(ModuleName, "macfmt", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
 		F: MacFmt,
@@ -48,6 +52,24 @@ func init() {
 		T: types.NewType("func(a str) str"),
 		F: OldMacFmt,
 	})
+}
+
+// IsMac takes a string and returns true if it's a mac in the standard format.
+func IsMac(ctx context.Context, input []types.Value) (types.Value, error) {
+	mac := input[0].Str()
+
+	// Check if the MAC address is valid.
+	if len(mac) != len("00:00:00:00:00:00") {
+		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
+	}
+	hw, err := net.ParseMAC(mac)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.BoolValue{
+		V: hw.String() == mac,
+	}, nil
 }
 
 // MacFmt takes a MAC address with hyphens and converts it to a format with

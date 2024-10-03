@@ -1,0 +1,9 @@
+import "fmt"
+import "strings"
+
+$s = "hello"
+$sub = strings.substr($s, 0, 4)
+
+print "debug" {
+	msg => "${sub}",
+}

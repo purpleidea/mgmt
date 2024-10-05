@@ -795,6 +795,117 @@ func TestUtilT11(t *testing.T) {
 	}
 }
 
+func TestSegmentedPathSplit(t *testing.T) {
+	if ex, out := []string{}, SegmentedPathSplit(
+		"",
+	); !reflect.DeepEqual(out, ex) {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+
+	if ex, out := []string{"/"}, SegmentedPathSplit(
+		"/",
+	); !reflect.DeepEqual(out, ex) {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+
+	if ex, out := []string{"/", "foo/", "bar/"}, SegmentedPathSplit(
+		"/foo/bar/",
+	); !reflect.DeepEqual(out, ex) {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+
+	if ex, out := []string{"/", "foo/", "bar"}, SegmentedPathSplit(
+		"/foo/bar",
+	); !reflect.DeepEqual(out, ex) {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+}
+
+func TestCommonPathPrefix1(t *testing.T) {
+	if ex, out := "/foo/whatever2/", CommonPathPrefix(
+		"/foo/whatever2/",
+		"/foo/whatever2/",
+		"/foo/whatever2/",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+}
+
+func TestCommonPathPrefix2(t *testing.T) {
+	if ex, out := "/whatever1", CommonPathPrefix(
+		"/whatever1",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+	if ex, out := "/whatever2", CommonPathPrefix(
+		"/whatever2",
+		"/whatever2",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+	if ex, out := "/foo/whatever1", CommonPathPrefix(
+		"/foo/whatever1",
+		"/foo/whatever1",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+	if ex, out := "/foo/whatever2", CommonPathPrefix(
+		"/foo/whatever2",
+		"/foo/whatever2",
+		"/foo/whatever2",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+
+	if ex, out := "/whatever3/", CommonPathPrefix(
+		"/whatever3/",
+		"/whatever3/",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+	if ex, out := "/foo/whatever3/", CommonPathPrefix(
+		"/foo/whatever3/",
+		"/foo/whatever3/",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+	if ex, out := "/foo/whatever4/", CommonPathPrefix(
+		"/foo/whatever4/",
+		"/foo/whatever4/",
+		"/foo/whatever4/",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+
+	if ex, out := "/", CommonPathPrefix(
+		"/foo/bar",
+		"/bar/baz/",
+		"/baz/bing/wow",
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+
+	if ex, out := "/foo/", CommonPathPrefix(
+		"/foo/bar/",
+		"/foo/bar/dude",
+		"/foo/bar", // this is not the same as /foo/bar/ !
+	); out != ex {
+		t.Errorf("expected: %v got: %v", ex, out)
+	}
+
+	// If we want to "safe clean" each path, then this test should be added.
+	//if ex, out := "/home/james/tmp/", CommonPathPrefix(
+	//	"/home/james/tmp/coverage/test",
+	//	"/home/james/tmp/covert/operator",
+	//	"/home/james/tmp/coven/members",
+	//	"/home//james/tmp/coventry",
+	//	"/home/james/././tmp/covertly/foo",
+	//	"/home/luser/../james/tmp/coved/bar",
+	//); out != ex {
+	//	t.Errorf("expected: %v got: %v", ex, out)
+	//}
+}
+
 func TestUtilFlattenListWithSplit1(t *testing.T) {
 	{
 		in := []string{} // input

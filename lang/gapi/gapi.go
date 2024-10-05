@@ -384,9 +384,27 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		//}
 		//logf("tree:\n%s", tree)
 
-		dst, err := util.Rebase(src, output.Base, "/")
+		commonBase := util.CommonPathPrefix(src, output.Base)
+		//logf("src:\n%s", src)
+		//logf("base:\n%s", output.Base)
+		//logf("common:\n%s", commonBase)
+		//commonBase = output.Base // old method!
+		// NOTE: Instead of commonBase, we used to use output.Base here,
+		// but it seems this breaks if the modules path is not inside
+		// the normal code base. Such as if the src is:
+		// /etc/mgmt/modules/github.com/purpleidea/mgmt/modules/misc/main.mcl
+		// and the base is: /etc/mgmt/main/ if we run the mgmt binary
+		// with: mgmt run lang --module-path '/etc/mgmt/modules/' /etc/mgmt/main/
+		// for example.
+		// NOTE: We could possibly always rebase onto "/", but we'd like
+		// to eliminate the local path structure from our deploys for a
+		// weak kind of privacy of that users directory structure.
+		dst, err := util.Rebase(src, commonBase, "/")
 		if err != nil {
 			// possible programming error
+			logf("src:\n%s", src)
+			logf("base:\n%s", output.Base)
+			logf("common:\n%s", commonBase)
 			return nil, errwrap.Wrapf(err, "malformed source file path: `%s`", src)
 		}
 

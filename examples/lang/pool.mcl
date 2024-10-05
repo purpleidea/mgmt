@@ -1,0 +1,19 @@
+# Remember that across runs if you use --tmp-prefix, this will give you new
+# values each time! The local prefix is where the pool of values is taken from!
+import "fmt"
+import "local"
+
+$ns = "my_namespace"
+$i = local.pool($ns, "james") # the uid "james" will always return the same int
+$j = local.pool($ns, "purple") # this is like a pool based allocator
+
+print "value:i" {
+	msg => fmt.printf("i: %d", $i),
+
+	Meta:autogroup => false,
+}
+print "value:j" {
+	msg => fmt.printf("j: %d", $j),
+
+	Meta:autogroup => false,
+}

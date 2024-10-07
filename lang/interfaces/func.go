@@ -391,8 +391,9 @@ type Txn interface {
 // StructToCallableArgs transforms the single value, graph representation of the
 // callable values into a linear, standard args list.
 func StructToCallableArgs(st types.Value) ([]types.Value, error) {
-	if st == nil {
-		return nil, fmt.Errorf("empty struct")
+	args := []types.Value{}
+	if st == nil { // for functions that take no args
+		return args, nil
 	}
 	typ := st.Type()
 	if typ == nil {
@@ -406,7 +407,6 @@ func StructToCallableArgs(st types.Value) ([]types.Value, error) {
 		return nil, fmt.Errorf("empty values")
 	}
 
-	args := []types.Value{}
 	for i, x := range typ.Ord { // in the correct order
 		v, exists := structValues[x]
 		if !exists {

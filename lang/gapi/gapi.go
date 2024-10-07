@@ -384,11 +384,13 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		//}
 		//logf("tree:\n%s", tree)
 
-		commonBase := util.CommonPathPrefix(src, output.Base)
+		// XXX: Should we have output.Base and output.ModulesBase?
+		// XXX: Maybe we should rebase to whichever the src starts with?
+		//commonBase := util.CommonPathPrefix(src, output.Base)
 		//logf("src:\n%s", src)
 		//logf("base:\n%s", output.Base)
 		//logf("common:\n%s", commonBase)
-		//commonBase = output.Base // old method!
+		commonBase := output.Base // old method!
 		// NOTE: Instead of commonBase, we used to use output.Base here,
 		// but it seems this breaks if the modules path is not inside
 		// the normal code base. Such as if the src is:
@@ -401,11 +403,31 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		// weak kind of privacy of that users directory structure.
 		dst, err := util.Rebase(src, commonBase, "/")
 		if err != nil {
-			// possible programming error
-			logf("src:\n%s", src)
-			logf("base:\n%s", output.Base)
-			logf("common:\n%s", commonBase)
-			return nil, errwrap.Wrapf(err, "malformed source file path: `%s`", src)
+			if modules == "" || !strings.HasPrefix(src, modules) {
+				// possible programming error
+				logf("src:\n%s", src)
+				logf("base:\n%s", output.Base)
+				//logf("common:\n%s", commonBase)
+				return nil, errwrap.Wrapf(err, "malformed source file path: `%s`", src)
+			}
+			// HACK: maybe it's a module?
+			// If we have a different base path, it might be a
+			// module dir. Maybe this hack covers all scenarios.
+
+			// Remove the actual "modules/" dir from the end...
+			m, err := util.RemovePathSuffix(modules)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "malformed source module dir: `%s`", modules)
+			}
+
+			// ...so that we keep `/modules/` as the new module dir.
+			dst, err = util.Rebase(src, m, "/")
+			if err != nil {
+				// possible programming error
+				logf("src:\n%s", src)
+				logf("base:\n%s", m)
+				return nil, errwrap.Wrapf(err, "malformed source module path: `%s`", src)
+			}
 		}
 
 		if strings.HasSuffix(src, "/") { // it's a dir

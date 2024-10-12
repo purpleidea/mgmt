@@ -1,3 +1,4 @@
+---
 - mgmtPackage: golang/testpkg
   mclName: all_kind
   internalName: TestpkgAllKind
@@ -6,7 +7,7 @@
     exclude: [ToLower]
   golangFunc: AllKind
   errorful: false
-  args: [{name: x, type: int64},{name: y, type: string}]
+  args: [{name: x, type: int64}, {name: y, type: string}]
   return: [{type: float64}]
 - mgmtPackage: golang/testpkg
   mclName: to_upper
@@ -22,7 +23,7 @@
   golangPackage: *pkg
   golangFunc: Max
   errorful: false
-  args: [{name: x, type: float64},{name: y, type: float64}]
+  args: [{name: x, type: float64}, {name: y, type: float64}]
   return: [{type: float64}]
 - mgmtPackage: golang/testpkg
   mclName: with_error

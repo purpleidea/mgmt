@@ -120,6 +120,13 @@ type Next struct {
 	Err  error // if something goes wrong (use with or without exit!)
 }
 
+// InfoResult is some data that a GAPI can return on request.
+type InfoResult struct {
+	// URI is the FS URI that we pass around everywhere.
+	// TODO: can this be deprecated?
+	URI string
+}
+
 // GAPI is a Graph API that represents incoming graphs and change streams. It is
 // the frontend interface that needs to be implemented to use the engine.
 type GAPI interface {
@@ -131,6 +138,9 @@ type GAPI interface {
 
 	// Init initializes the GAPI and passes in some useful data.
 	Init(*Data) error
+
+	// Info returns some data about the GAPI implementation.
+	Info() *InfoResult
 
 	// Graph returns the most recent pgraph. This is called by the engine on
 	// every event from Next().

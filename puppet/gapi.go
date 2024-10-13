@@ -244,6 +244,13 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 	return nil
 }
 
+// Info returns some data about the GAPI implementation.
+func (obj *GAPI) Info() *gapi.InfoResult {
+	return &gapi.InfoResult{
+		URI: obj.InputURI,
+	}
+}
+
 // Graph returns a current Graph.
 func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 	if !obj.initialized {

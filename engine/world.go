@@ -63,6 +63,10 @@ type World interface { // TODO: is there a better name for this interface?
 
 	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
 
+	// URI returns the current FS URI.
+	// TODO: Can we improve this API or deprecate it entirely?
+	URI() string
+
 	// Fs takes a URI and returns the filesystem that corresponds to that.
 	// This is a way to turn a unique string handle into an appropriate
 	// filesystem object that we can interact with.

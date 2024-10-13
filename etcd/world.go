@@ -55,6 +55,7 @@ type World struct {
 	MetadataPrefix string    // expected metadata prefix
 	StoragePrefix  string    // storage prefix for etcdfs storage
 	StandaloneFs   engine.Fs // store an fs here for local usage
+	GetURI         func() string
 	Debug          bool
 	Logf           func(format string, v ...interface{})
 }
@@ -187,6 +188,12 @@ func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*schedu
 
 	path := fmt.Sprintf(schedulerPathFmt, namespace)
 	return scheduler.Schedule(obj.Client.GetClient(), path, obj.Hostname, modifiedOpts...)
+}
+
+// URI returns the current FS URI.
+// TODO: Can we improve this API or deprecate it entirely?
+func (obj *World) URI() string {
+	return obj.GetURI()
 }
 
 // Fs returns a distributed file system from a unique URI. For single host

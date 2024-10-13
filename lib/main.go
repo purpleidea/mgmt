@@ -592,6 +592,8 @@ func (obj *Main) Run() error {
 		},
 	}).Init()
 
+	var gapiInfoResult *gapi.InfoResult
+
 	// implementation of the World API (alternatives can be substituted in)
 	// XXX: The "implementation of the World API" should have more than just
 	// etcd in it, so this could live elsewhere package wise and just have
@@ -605,6 +607,12 @@ func (obj *Main) Run() error {
 		Debug:          obj.Debug,
 		Logf: func(format string, v ...interface{}) {
 			obj.Logf("world: etcd: "+format, v...)
+		},
+		GetURI: func() string {
+			if gapiInfoResult == nil {
+				return ""
+			}
+			return gapiInfoResult.URI
 		},
 	}
 
@@ -727,6 +735,7 @@ func (obj *Main) Run() error {
 					}
 					// this must generate at least one event for it to work
 					gapiChan = gapiImpl.Next() // stream of graph switch events!
+					gapiInfoResult = gapiImpl.Info()
 				}
 				continue
 
@@ -789,6 +798,9 @@ func (obj *Main) Run() error {
 				Logf("graph validate failed: %+v", err)
 				continue
 			}
+
+			// TODO: Apply/push gapiInfoResult into resources and/or
+			// engine in the future if we decide we need to do that!
 
 			// apply the global metaparams to the graph
 			if err := obj.ge.Apply(func(graph *pgraph.Graph) error {

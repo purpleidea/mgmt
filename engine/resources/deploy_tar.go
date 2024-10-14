@@ -61,6 +61,8 @@ func init() {
 // TODO: support send/recv to send the output instead of writing to a file?
 // TODO: This resource is very similar to the tar resource. Update that one if
 // this changes, or consider porting this to use that as a composite resource.
+// TODO: consider using a `deploy.get_archive()` function to make a .tar, and a
+// file resource to store those contents on disk with whatever mode we want...
 type DeployTar struct {
 	traits.Base // add the base methods without re-implementation
 

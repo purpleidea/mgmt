@@ -1,3 +1,30 @@
-# This builds a tar archive with a copy of our deploy.
-deploy:tar "/tmp/somedeploy.tar" {
+import "deploy"
+
+file "/tmp/mgmt/" {
+	state => $const.res.file.state.exists,
+	recurse => true, # XXX: BUG: deploy:tar is purged without a file tag
+	purge => true,
+	#owner => "root",
+	#group => "root",
+	#mode => "u=rwx,g=rx,o=", # dir
 }
+
+# This builds a tar archive with a copy of our deploy.
+deploy:tar "/tmp/mgmt/somedeploy1.tar" {
+
+	Depend => File["/tmp/mgmt/"], # make the dir first!
+}
+
+# Tag this so that the folder purge doesn't remove it.
+file "/tmp/mgmt/somedeploy1.tar" {
+	mode => "u=rw,g=rw,o=rw", # file
+
+	Meta:retry => -1, # changing the mode on this file can be racy
+}
+
+# Alternatively:
+#file "/tmp/mgmt/somedeploy2.tar" {
+#	state => $const.res.file.state.exists,
+#	content => deploy.get_archive(), # TODO: implement me
+#	mode => "u=rw,g=rw,o=rw", # file
+#}

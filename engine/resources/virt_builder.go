@@ -48,6 +48,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	archUtil "github.com/purpleidea/mgmt/util/arch"
+	distroUtil "github.com/purpleidea/mgmt/util/distro"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 )
@@ -217,25 +218,14 @@ func (obj *VirtBuilderRes) getGuestfs() (string, error) {
 // that we can easily run mgmt.
 func (obj *VirtBuilderRes) getDeps() ([]string, error) {
 	// TODO: Improve this function as things evolve.
-
-	if strings.HasPrefix(obj.OSVersion, "fedora-") {
-		return []string{
-			"augeas-devel",
-			"libvirt-devel",
-			"PackageKit",
-		}, nil
+	distro := strings.TrimSuffix(obj.OSVersion, "-") // fedora- or debian-
+	packages, exists := distroUtil.DistroToBootstrapPackages(distro)
+	if !exists {
+		// TODO: patches welcome!
+		return nil, fmt.Errorf("os version is not supported")
 	}
 
-	if strings.HasPrefix(obj.OSVersion, "debian-") {
-		return []string{
-			"libaugeas-dev",
-			"libvirt-dev",
-			"packagekit-tools",
-		}, nil
-	}
-
-	// TODO: patches welcome!
-	return nil, fmt.Errorf("os version is not supported")
+	return packages, nil
 }
 
 // Default returns some sensible defaults for this resource.

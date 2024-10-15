@@ -31,17 +31,39 @@
 // these all in one place so that adding this data happens all in the same file.
 package distro
 
+import (
+	"context"
+	"os"
+)
+
+const (
+	// FamilyRedHat represents distros like Fedora and RHEL.
+	FamilyRedHat = "redhat"
+
+	// FamilyDebian represents distros like Debian and Ubuntu.
+	FamilyDebian = "debian"
+
+	// FamilyArchLinux represents primarily ArchLinux.
+	FamilyArchLinux = "archlinux"
+
+	// DistroDebian is the Debian distro.
+	DistroDebian = "debian"
+
+	// DistroFedora is the Fedora distro.
+	DistroFedora = "fedora"
+)
+
 var (
 	// MapDistroToBootstrapPackages is a map of distro to packages needed to
 	// run our software.
 	MapDistroToBootstrapPackages = map[string][]string{
 		// TODO: add more values
-		"debian": {
+		DistroDebian: {
 			"libaugeas-dev",
 			"libvirt-dev",
 			"packagekit-tools",
 		},
-		"fedora": {
+		DistroFedora: {
 			"augeas-devel",
 			"libvirt-devel",
 			"PackageKit",
@@ -54,4 +76,63 @@ var (
 func DistroToBootstrapPackages(distro string) ([]string, bool) {
 	l, exists := MapDistroToBootstrapPackages[distro]
 	return l, exists
+}
+
+// Family returns the distro family.
+func Family(ctx context.Context) (string, error) {
+	if b, err := IsFamilyRedHat(ctx); err != nil {
+		return "", err
+	} else if b {
+		return FamilyRedHat, nil
+	}
+	if b, err := IsFamilyDebian(ctx); err != nil {
+		return "", err
+	} else if b {
+		return FamilyDebian, nil
+	}
+	if b, err := IsFamilyArchLinux(ctx); err != nil {
+		return "", err
+	} else if b {
+		return FamilyArchLinux, nil
+	}
+	return "", nil // unknown
+}
+
+// IsFamilyRedHat detects if the os family is redhat.
+func IsFamilyRedHat(ctx context.Context) (bool, error) {
+	// TODO: use ctx around io operations
+	_, err := os.Stat("/etc/redhat-release")
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// IsFamilyDebian detects if the os family is debian.
+func IsFamilyDebian(ctx context.Context) (bool, error) {
+	// TODO: use ctx around io operations
+	_, err := os.Stat("/etc/debian_version")
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// IsFamilyArchLinux detects if the os family is archlinux.
+func IsFamilyArchLinux(ctx context.Context) (bool, error) {
+	// TODO: use ctx around io operations
+	_, err := os.Stat("/etc/arch-release")
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

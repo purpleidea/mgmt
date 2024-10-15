@@ -31,7 +31,7 @@ import "os"
 
 # base contains the personal tweaks and utilities of james (purpleidea)
 class base() {
-	if os.is_redhat() {
+	if os.is_family_redhat() {
 		pkg [
 			"ack",
 			"bash-completion",
@@ -53,7 +53,7 @@ class base() {
 			state => "installed",
 		}
 	}
-	if os.is_debian() {
+	if os.is_family_debian() {
 		pkg [
 			"ack",
 			"bash-completion",

@@ -31,11 +31,11 @@ package coreos
 
 import (
 	"context"
-	"os"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/types"
+	distroUtil "github.com/purpleidea/mgmt/util/distro"
 )
 
 func init() {
@@ -46,129 +46,70 @@ func init() {
 
 	vars.ModuleRegister(ModuleName, "family_redhat", func() vars.Value {
 		return &types.StrValue{
-			V: familyRedHat,
+			V: distroUtil.FamilyRedHat,
 		}
 	})
 	vars.ModuleRegister(ModuleName, "family_debian", func() vars.Value {
 		return &types.StrValue{
-			V: familyDebian,
+			V: distroUtil.FamilyDebian,
 		}
 	})
 	vars.ModuleRegister(ModuleName, "family_archlinux", func() vars.Value {
 		return &types.StrValue{
-			V: familyArchLinux,
+			V: distroUtil.FamilyArchLinux,
 		}
 	})
 
 	// TODO: Create a family method that will return a giant struct.
-	simple.ModuleRegister(ModuleName, "is_redhat", &simple.Scaffold{
+	simple.ModuleRegister(ModuleName, "is_family_redhat", &simple.Scaffold{
 		T: types.NewType("func() bool"),
-		F: IsRedHat,
+		F: IsFamilyRedHat,
 	})
-	simple.ModuleRegister(ModuleName, "is_debian", &simple.Scaffold{
+	simple.ModuleRegister(ModuleName, "is_family_debian", &simple.Scaffold{
 		T: types.NewType("func() bool"),
-		F: IsDebian,
+		F: IsFamilyDebian,
 	})
-	simple.ModuleRegister(ModuleName, "is_archlinux", &simple.Scaffold{
+	simple.ModuleRegister(ModuleName, "is_family_archlinux", &simple.Scaffold{
 		T: types.NewType("func() bool"),
-		F: IsArchLinux,
+		F: IsFamilyArchLinux,
 	})
 }
-
-const (
-	familyRedHat    = "redhat"
-	familyDebian    = "debian"
-	familyArchLinux = "archlinux"
-)
 
 // Family returns the distro family.
 // TODO: Detect OS changes.
 func Family(ctx context.Context, input []types.Value) (types.Value, error) {
-	if b, err := isRedHat(ctx); err != nil {
+	s, err := distroUtil.Family(ctx)
+	if err != nil {
 		return nil, err
-	} else if b {
-		return &types.StrValue{
-			V: familyRedHat,
-		}, nil
-	}
-	if b, err := isDebian(ctx); err != nil {
-		return nil, err
-	} else if b {
-		return &types.StrValue{
-			V: familyDebian,
-		}, nil
-	}
-	if b, err := isArchLinux(ctx); err != nil {
-		return nil, err
-	} else if b {
-		return &types.StrValue{
-			V: familyArchLinux,
-		}, nil
 	}
 	return &types.StrValue{
-		V: "", // unknown
+		V: s, // empty if unknown
 	}, nil
 }
 
-// IsRedHat detects if the os family is redhat.
+// IsFamilyRedHat detects if the os family is redhat.
 // TODO: Detect OS changes.
-func IsRedHat(ctx context.Context, input []types.Value) (types.Value, error) {
-	b, err := isRedHat(ctx)
+func IsFamilyRedHat(ctx context.Context, input []types.Value) (types.Value, error) {
+	b, err := distroUtil.IsFamilyRedHat(ctx)
 	return &types.BoolValue{
 		V: b,
 	}, err
 }
 
-// IsDebian detects if the os family is debian.
+// IsFamilyDebian detects if the os family is debian.
 // TODO: Detect OS changes.
-func IsDebian(ctx context.Context, input []types.Value) (types.Value, error) {
-	b, err := isDebian(ctx)
+func IsFamilyDebian(ctx context.Context, input []types.Value) (types.Value, error) {
+	b, err := distroUtil.IsFamilyDebian(ctx)
 	return &types.BoolValue{
 		V: b,
 	}, err
 }
 
-// IsArchLinux detects if the os family is archlinux.
+// IsFamilyArchLinux detects if the os family is archlinux.
 // TODO: Detect OS changes.
-func IsArchLinux(ctx context.Context, input []types.Value) (types.Value, error) {
-	b, err := isArchLinux(ctx)
+func IsFamilyArchLinux(ctx context.Context, input []types.Value) (types.Value, error) {
+	b, err := distroUtil.IsFamilyArchLinux(ctx)
 	return &types.BoolValue{
 		V: b,
 	}, err
-}
-
-func isRedHat(ctx context.Context) (bool, error) {
-	// TODO: use ctx around io operations
-	_, err := os.Stat("/etc/redhat-release")
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func isDebian(ctx context.Context) (bool, error) {
-	// TODO: use ctx around io operations
-	_, err := os.Stat("/etc/debian_version")
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func isArchLinux(ctx context.Context) (bool, error) {
-	// TODO: use ctx around io operations
-	_, err := os.Stat("/etc/arch-release")
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
 }

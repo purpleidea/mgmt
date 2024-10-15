@@ -9,11 +9,11 @@ import "fmt"
 
 class xclass {
 	# note that `os` is not imported here
-	$aaa = if os.is_debian() { "bbb" }  else { "ccc" }
+	$aaa = if os.is_family_debian() { "bbb" }  else { "ccc" }
 
 	print "${aaa}" {
 		msg => "hello",
 	}
 }
 -- OUTPUT --
-# err: errSetScope: func `os.is_debian` does not exist in this scope
+# err: errSetScope: func `os.is_family_debian` does not exist in this scope

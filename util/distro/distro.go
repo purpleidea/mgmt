@@ -71,12 +71,32 @@ var (
 			"PackageKit",
 		},
 	}
+
+	// MapDistroToGuestfsPackages is a map of distro to packages needed to
+	// run the virt-builder software and guestfs suite.
+	MapDistroToGuestfsPackages = map[string][]string{
+		// TODO: add more values
+		DistroDebian: {
+			"guestfs-tools",
+		},
+		DistroFedora: {
+			"guestfs-tools",
+		},
+	}
 )
 
 // DistroToBootstrapPackages returns the list of packages corresponding to the
 // distro for bootstrapping. This returns false if the value doesn't exist.
 func DistroToBootstrapPackages(distro string) ([]string, bool) {
 	l, exists := MapDistroToBootstrapPackages[distro]
+	return l, exists
+}
+
+// DistroToGuestfsPackages returns the list of packages corresponding to the
+// distro for running the virt-builder software and guestfs suite. This returns
+// false if the value doesn't exist.
+func DistroToGuestfsPackages(distro string) ([]string, bool) {
+	l, exists := MapDistroToGuestfsPackages[distro]
 	return l, exists
 }
 

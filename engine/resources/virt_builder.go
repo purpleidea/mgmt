@@ -199,19 +199,20 @@ func (obj *VirtBuilderRes) getBinaryPath() (string, error) {
 
 // getGuestfs returns the package to install for our os so that we can run
 // virt-builder.
-func (obj *VirtBuilderRes) getGuestfs() (string, error) {
+func (obj *VirtBuilderRes) getGuestfs() ([]string, error) {
 	// TODO: Improve this function as things evolve.
-
-	if _, err := os.Stat("/etc/redhat-release"); err == nil { // fedora
-		return "guestfs-tools", nil
+	distro, err := distroUtil.Distro(context.TODO()) // what is this resource running in?
+	if err != nil {
+		return nil, nil
 	}
 
-	if _, err := os.Stat("/etc/debian_version"); err == nil { // debian
-		return "guestfs-tools", nil
+	packages, exists := distroUtil.DistroToGuestfsPackages(distro)
+	if !exists {
+		// TODO: patches welcome!
+		return nil, fmt.Errorf("os/version is not supported")
 	}
 
-	// TODO: patches welcome!
-	return "", fmt.Errorf("os/version is not supported")
+	return packages, nil
 }
 
 // getDeps returns a list of packages to install for the specific os-version so
@@ -307,7 +308,7 @@ func (obj *VirtBuilderRes) Init(init *engine.Init) error {
 		return nil
 	}
 
-	// Try to get the package of the binary...
+	// Try to get the packages for the binary...
 	p, err := obj.getGuestfs()
 	if err != nil {
 		return err
@@ -317,9 +318,11 @@ func (obj *VirtBuilderRes) Init(init *engine.Init) error {
 	defer virtBuilderMutex.Unlock()
 
 	// Try to install the binary...
-	obj.init.Logf("installing: %s", p)
-	if err := InstallOnePackage(context.TODO(), p); err != nil {
-		return err
+	for _, x := range p {
+		obj.init.Logf("installing: %s", x)
+		if err := InstallOnePackage(context.TODO(), x); err != nil {
+			return err
+		}
 	}
 
 	return nil

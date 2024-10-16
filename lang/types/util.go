@@ -216,3 +216,16 @@ type UnifiedState struct {
 func (obj *UnifiedState) String(typ *Type) string {
 	return typ.string(obj.table)
 }
+
+// ListStrToValue is a simple helper function to convert from a list of strings
+// in golang to the equivalent in our type system.
+func ListStrToValue(input []string) Value {
+	l := NewList(TypeListStr)
+	for _, x := range input {
+		v := &StrValue{
+			V: x,
+		}
+		l.V = append(l.V, v) // be more efficient than using .Add(...)
+	}
+	return l
+}

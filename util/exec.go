@@ -82,7 +82,7 @@ func SimpleCmd(ctx context.Context, name string, args []string, opts *SimpleCmdO
 	err := cmd.Wait() // we can unblock this with the timeout
 	out := b.String()
 
-	if opts.LogOutput != "" {
+	if opts != nil && opts.LogOutput != "" {
 		if err := os.WriteFile(opts.LogOutput, b.Bytes(), 0600); err != nil {
 			logf("unable to store log: %v", err)
 		} else {

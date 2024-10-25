@@ -111,10 +111,11 @@ class base($config) {
 	#	state => "installed",
 	#}
 
-	$pkgs_kickstart = ["fedora-kickstarts", "spin-kickstarts",]
-	pkg $pkgs_kickstart {
-		state => "installed",
-	}
+	# TODO: not in F39+ it seems
+	#$pkgs_kickstart = ["fedora-kickstarts", "spin-kickstarts",]
+	#pkg $pkgs_kickstart {
+	#	state => "installed",
+	#}
 
 	#
 	#	firewalld

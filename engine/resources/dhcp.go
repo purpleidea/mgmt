@@ -1719,7 +1719,7 @@ func (obj *DHCPRangeRes) Init(init *engine.Init) error {
 
 	obj.init.Logf("from: %s", obj.from)
 	obj.init.Logf("  to: %s", obj.to)
-	obj.init.Logf("mask: %s", obj.mask) // TODO: print as cidr or dotted quad
+	obj.init.Logf("mask: %s", netmaskAsQuadString(obj.mask))
 
 	return nil
 }
@@ -2053,4 +2053,10 @@ func checkValidNetmask(netmask net.IPMask) bool {
 	x := ^netmaskInt
 	y := x + 1
 	return (y & x) == 0
+}
+
+// netmaskAsQuadString returns a dotted-quad string giving you something like:
+// 255.255.255.0 instead of ffffff00 which is what's seen when you print it now.
+func netmaskAsQuadString(netmask net.IPMask) string {
+	return fmt.Sprintf("%d.%d.%d.%d", netmask[0], netmask[1], netmask[2], netmask[3])
 }

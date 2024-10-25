@@ -49,7 +49,7 @@ func init() {
 // for bootstrapping new machines which will need these installed before they
 // can run mgmt.
 func BootstrapPackages(ctx context.Context, input []types.Value) (types.Value, error) {
-	packages, exists := distroUtil.DistroToBootstrapPackages(input[0].Str())
+	packages, exists := distroUtil.ToBootstrapPackages(input[0].Str())
 	if !exists {
 		return nil, fmt.Errorf("missing distro")
 	}

@@ -206,7 +206,7 @@ func (obj *VirtBuilderRes) getGuestfs() ([]string, error) {
 		return nil, nil
 	}
 
-	packages, exists := distroUtil.DistroToGuestfsPackages(distro)
+	packages, exists := distroUtil.ToGuestfsPackages(distro)
 	if !exists {
 		// TODO: patches welcome!
 		return nil, fmt.Errorf("os/version is not supported")
@@ -220,7 +220,7 @@ func (obj *VirtBuilderRes) getGuestfs() ([]string, error) {
 func (obj *VirtBuilderRes) getDeps() ([]string, error) {
 	// TODO: Improve this function as things evolve.
 	distro := strings.TrimSuffix(obj.OSVersion, "-") // fedora- or debian-
-	packages, exists := distroUtil.DistroToBootstrapPackages(distro)
+	packages, exists := distroUtil.ToBootstrapPackages(distro)
 	if !exists {
 		// TODO: patches welcome!
 		return nil, fmt.Errorf("os version is not supported")

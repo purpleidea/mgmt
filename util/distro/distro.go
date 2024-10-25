@@ -85,17 +85,17 @@ var (
 	}
 )
 
-// DistroToBootstrapPackages returns the list of packages corresponding to the
-// distro for bootstrapping. This returns false if the value doesn't exist.
-func DistroToBootstrapPackages(distro string) ([]string, bool) {
+// ToBootstrapPackages returns the list of packages corresponding to the distro
+// for bootstrapping. This returns false if the value doesn't exist.
+func ToBootstrapPackages(distro string) ([]string, bool) {
 	l, exists := MapDistroToBootstrapPackages[distro]
 	return l, exists
 }
 
-// DistroToGuestfsPackages returns the list of packages corresponding to the
-// distro for running the virt-builder software and guestfs suite. This returns
-// false if the value doesn't exist.
-func DistroToGuestfsPackages(distro string) ([]string, bool) {
+// ToGuestfsPackages returns the list of packages corresponding to the distro
+// for running the virt-builder software and guestfs suite. This returns false
+// if the value doesn't exist.
+func ToGuestfsPackages(distro string) ([]string, bool) {
 	l, exists := MapDistroToGuestfsPackages[distro]
 	return l, exists
 }

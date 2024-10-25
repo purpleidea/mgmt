@@ -35,6 +35,7 @@ import "deploy"
 import "fmt"
 import "golang"
 import "golang/strings"
+import "local"
 import "net"
 import "os"
 import "value"
@@ -202,6 +203,53 @@ class base($config) {
 		#source => "", # this default means empty directory
 		recurse => true,
 		purge => true, # remove unmanaged files in here
+	}
+
+	$vardir = local.vardir("provisioner/")
+	$binary_path = deploy.binary_path()
+
+	http:file "/mgmt/binary" { # TODO: support different architectures
+		path => $binary_path, # TODO: As long as binary doesn't contain private data!
+
+		Before => Print["ready"],
+	}
+
+	# XXX: don't put anything private in your code this isn't authenticated!
+	$abs_tar = "${vardir}deploys/deploy.tar"
+	$abs_gz = "${abs_tar}.gz"
+
+	file "${vardir}deploys/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+	# Tag this so that the folder purge doesn't remove it. (XXX: bug!)
+	file "${abs_tar}" {
+		owner => "root",
+		group => "root",
+		mode => "u=rw,g=rw,o=", # file
+
+		Meta:retry => -1, # changing the mode on this file can be racy
+	}
+	file "${abs_gz}" {
+		owner => "root",
+		group => "root",
+		mode => "u=rw,g=rw,o=", # file
+
+		Meta:retry => -1, # changing the mode on this file can be racy
+	}
+	deploy:tar "${abs_tar}" {
+		Before => Gzip["${abs_gz}"],
+		Depend => File["${vardir}deploys/"], # make the dir first!
+	}
+	gzip "${abs_gz}" {
+		input => "${abs_tar}",
+	}
+	http:file "/mgmt/deploy.tar.gz" {
+		path => "${abs_gz}",
 	}
 
 	print "ready" {

@@ -27,32 +27,29 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package coredeploy
+package util
 
 import (
-	"context"
-
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
-	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util"
+	"os"
+	"path/filepath"
 )
 
-func init() {
-	simple.ModuleRegister(ModuleName, "binary_path", &simple.Scaffold{
-		T: types.NewType("func() str"),
-		F: BinaryPath,
-	})
-}
-
-// BinaryPath returns the path to the binary of this program. This is useful for
-// bootstrapping new machines when we want to get the path to copy it over from.
-func BinaryPath(ctx context.Context, input []types.Value) (types.Value, error) {
-	p, err := util.ExecutablePath()
+// ExecutablePath returns the absolute path to this binary if it can find it.
+func ExecutablePath() (string, error) {
+	p1, err := os.Executable()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &types.StrValue{
-		V: p,
-	}, nil
+	p2, err := filepath.EvalSymlinks(p1)
+	if err != nil {
+		return "", err
+	}
+
+	p3, err := filepath.Abs(p2)
+	if err != nil {
+		return "", err
+	}
+
+	return p3, nil
 }

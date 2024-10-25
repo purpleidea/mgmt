@@ -895,7 +895,7 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 		case dhcpv4.MessageTypeRequest:
 			tmp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
 		case dhcpv4.MessageTypeDecline:
-			// XXX: Why did one PXE/UEFI netboot client send this?
+			// If mask is not set, some DHCP clients will DECLINE.
 			obj.init.Logf("handler4: Unhandled decline message: %+v", req)
 			return
 		default:
@@ -983,6 +983,7 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 
 		if resp != nil {
 			if obj.init.Debug {
+				// NOTE: This is very useful for debugging!
 				obj.init.Logf("sending a DHCPv4 packet: %s", resp.Summary())
 			}
 			var peer net.Addr
@@ -1255,7 +1256,7 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 		// XXX: https://tools.ietf.org/html/rfc2132#section-3.3
 		// If both the subnet mask and the router option are specified
 		// in a DHCP reply, the subnet mask option MUST be first.
-		// XXX: Should we do this? Does it matter? Does the lib do it?
+		// If mask is not set, some DHCP clients will DECLINE.
 		resp.Options.Update(dhcpv4.OptSubnetMask(obj.ipv4Mask)) // net.IPMask
 
 		// nbp section
@@ -1936,8 +1937,8 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 		// XXX: https://tools.ietf.org/html/rfc2132#section-3.3
 		// If both the subnet mask and the router option are specified
 		// in a DHCP reply, the subnet mask option MUST be first.
-		// XXX: Should we do this? Does it matter? Does the lib do it?
-		//resp.Options.Update(dhcpv4.OptSubnetMask(obj.mask)) // net.IPMask
+		// If mask is not set, some DHCP clients will DECLINE.
+		resp.Options.Update(dhcpv4.OptSubnetMask(obj.mask)) // net.IPMask
 
 		// nbp section
 		if obj.opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {

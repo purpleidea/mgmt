@@ -175,7 +175,7 @@ class base($config) {
 	#
 	dhcp:server ":67" {
 		interface => $interface, # required for now
-		leasetime => "60s",
+		leasetime => "10m", # seems some clients refresh half way at 5m
 		dns => $dns,	# pick your own better ones!
 		routers => [$router_ip,],
 

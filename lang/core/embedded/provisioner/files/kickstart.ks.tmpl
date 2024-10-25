@@ -174,7 +174,7 @@ echo .
 #
 #	post
 #
-%post
+%post --log /root/post_ks.log --erroronfail
 {{ range $i, $x := .post -}}
 {{ $x }}
 {{ end -}}

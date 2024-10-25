@@ -119,6 +119,10 @@ type Args struct {
 
 	DeployCmd *DeployArgs `arg:"subcommand:deploy" help:"deploy code into a cluster"`
 
+	SetupCmd *SetupArgs `arg:"subcommand:setup" help:"setup some bootstrapping tasks"`
+
+	FirstbootCmd *FirstbootArgs `arg:"subcommand:firstboot" help:"run some tasks on first boot"`
+
 	// This never runs, it gets preempted in the real main() function.
 	// XXX: Can we do it nicely with the new arg parser? can it ignore all args?
 	EtcdCmd *EtcdArgs `arg:"subcommand:etcd" help:"run standalone etcd"`
@@ -152,6 +156,14 @@ func (obj *Args) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	}
 
 	if cmd := obj.DeployCmd; cmd != nil {
+		return cmd.Run(ctx, data)
+	}
+
+	if cmd := obj.SetupCmd; cmd != nil {
+		return cmd.Run(ctx, data)
+	}
+
+	if cmd := obj.FirstbootCmd; cmd != nil {
 		return cmd.Run(ctx, data)
 	}
 

@@ -149,3 +149,41 @@ type LangPuppetArgs struct {
 
 	// end LangArgs
 }
+
+// SetupPkgArgs is the setup service CLI parsing structure and type of the
+// parsed result.
+type SetupPkgArgs struct {
+	Distro string `arg:"--distro" help:"build for this distro"`
+	Sudo   bool   `arg:"--sudo" help:"include sudo in the command"`
+	Exec   bool   `arg:"--exec" help:"actually run these commands"`
+}
+
+// SetupSvcArgs is the setup service CLI parsing structure and type of the
+// parsed result.
+type SetupSvcArgs struct {
+	BinaryPath string `arg:"--binary-path" help:"path to the binary"`
+	Install    bool   `arg:"--install" help:"install the systemd mgmt service"`
+	Start      bool   `arg:"--start" help:"start the mgmt service"`
+	Enable     bool   `arg:"--enable" help:"enable the mgmt service"`
+}
+
+// SetupFirstbootArgs is the setup service CLI parsing structure and type of the
+// parsed result.
+type SetupFirstbootArgs struct {
+	BinaryPath string `arg:"--binary-path" help:"path to the binary"`
+	Mkdir      bool   `arg:"--mkdir" help:"make the necessary firstboot dirs"`
+	Install    bool   `arg:"--install" help:"install the systemd firstboot service"`
+	Start      bool   `arg:"--start" help:"start the firstboot service (typically not used)"`
+	Enable     bool   `arg:"--enable" help:"enable the firstboot service"`
+
+	FirstbootStartArgs // Include these options if we want to specify them.
+}
+
+// FirstbootStartArgs is the firstboot service CLI parsing structure and type of
+// the parsed result.
+type FirstbootStartArgs struct {
+	LockFilePath string `arg:"--lock-file-path" help:"path to the lock file"`
+	ScriptsDir   string `arg:"--scripts-dir" help:"path to the scripts dir"`
+	DoneDir      string `arg:"--done-dir" help:"dir to move done scripts to"`
+	LoggingDir   string `arg:"--logging-dir" help:"directory to store logs in"`
+}

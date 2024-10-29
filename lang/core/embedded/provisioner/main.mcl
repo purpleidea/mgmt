@@ -257,6 +257,8 @@ class base($config) {
 	print "ready" {
 		msg => "ready to provision!",
 
+		Meta:autogroup => false,
+
 		Depend => Tftp:Server[":69"],
 		Depend => Dhcp:Server[":67"],
 		Depend => Http:Server[":${http_port_str}"],

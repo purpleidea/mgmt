@@ -105,7 +105,7 @@ class base($config) {
 	#	packages
 	#
 	# TODO: do we need "syslinux-nonlinux" ?
-	$pkgs_bios = ["syslinux", "syslinux-nonlinux",]
+	$pkgs_bios = ["syslinux",]
 	$pkgs_uefi = ["shim-x64", "grub2-efi-x64",]
 	pkg $pkgs_bios {
 		state => "installed",

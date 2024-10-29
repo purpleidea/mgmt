@@ -444,6 +444,34 @@ class base:repo($config) {
 		}
 	}
 
+	# .repo files
+	#$fedora_repo_template = struct{
+	#	name => "fedora",
+	#	distro => $distro,
+	#	version => $version,		# 39 for fedora 39
+	#	arch => $arch,			# could also be aarch64
+	#	#flavour => "Everything",	# The install repo uses "Everything" even for "Workstation" or "Server"
+	#	extra => "releases",
+	#
+	#	baseurl => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/",
+	#}
+	#$updates_repo_template = struct{
+	#	name => "updates",
+	#	distro => $distro,
+	#	version => $version,		# 39 for fedora 39
+	#	arch => $arch,			# could also be aarch64
+	#	#flavour => "Everything",	# The install repo uses "Everything" even for "Workstation" or "Server"
+	#	extra => "updates",
+	#
+	#	baseurl => "http://${router_ip}:${http_port_str}/fedora/updates/${version}/Everything/${arch}/",
+	#}
+	#http:file "/fedora/${uid}/fedora.repo" {
+	#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $fedora_repo_template),
+	#}
+	#http:file "/fedora/${uid}/updates.repo" {
+	#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $updates_repo_template),
+	#}
+
 	#
 	#	rsync
 	#
@@ -686,6 +714,7 @@ class base:host($name, $config) {
 	# TODO: we can customize these more precisely based on $handoff_type
 	$handoff_packages = deploy.bootstrap_packages($distro) # TODO: catch errors here with || []
 	panic($handoff_type != "" and len($handoff_packages) == 0)
+	#$handoff_packages_string = strings.join($handoff_packages, " ")
 
 	$handoff_binary = if $handoff_type == "" {
 		""
@@ -758,6 +787,13 @@ class base:host($name, $config) {
 		# We need $handoff_packages installed in the _KICKSTART_ environ
 		# so that we can actually run mgmt to do our work for us below!
 		packages => list.concat($packages, $handoff_packages),
+		# XXX: is wget segfaulting in the kickstart environment? curl is OK.
+		#pre => [
+		#	"/usr/bin/mkdir /etc/yum.repos.d/",
+		#	"/usr/bin/wget 'http://${router_ip}:${http_port_str}/fedora/${repouid}/fedora.repo' -O /etc/yum.repos.d/fedora.repo",
+		#	"/usr/bin/wget 'http://${router_ip}:${http_port_str}/fedora/${repouid}/updates.repo' -O /etc/yum.repos.d/updates.repo",
+		#	"/usr/bin/dnf --enablerepo=fedora,updates install --assumeyes ${handoff_packages_string}",
+		#],
 		post => [
 			$handoff_binary, # copy over the binary
 			$handoff_cpcode, # copy over a bundle of code

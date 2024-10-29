@@ -32,7 +32,6 @@ package util
 import (
 	"bytes"
 	"context"
-	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -83,7 +82,7 @@ func SimpleCmd(ctx context.Context, name string, args []string, opts *SimpleCmdO
 	out := b.String()
 
 	if opts != nil && opts.LogOutput != "" {
-		if err := os.WriteFile(opts.LogOutput, b.Bytes(), 0600); err != nil {
+		if err := AppendFile(opts.LogOutput, b.Bytes(), 0600); err != nil {
 			logf("unable to store log: %v", err)
 		} else {
 			logf("wrote log to: %s", opts.LogOutput)

@@ -60,6 +60,11 @@ $distro = provisioner.cli_distro()
 $version = provisioner.cli_version()
 $arch = provisioner.cli_arch()
 $uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64
+$handoff = if provisioner.cli_handoff_code() == "" { # TODO: check other types
+	""
+} else {
+	"code" # some non-empty word
+}
 include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	#repo => $repo.uid, # type unification performance is very slow here
 	repo => $uid,
@@ -71,6 +76,9 @@ include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	part => provisioner.cli_part(),
 	packages => provisioner.cli_packages(),
 	#provision => true,	# default if unspecified
+	handoff => $handoff, # alternatively some code word or querystring
+	#handoff_code => "/etc/mgmt/", # one way to do it
+	handoff_code => provisioner.cli_handoff_code(),
 }) as host0
 
 #if $host0.provisioned {

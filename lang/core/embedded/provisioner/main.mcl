@@ -34,7 +34,9 @@ import "convert"
 import "deploy"
 import "fmt"
 import "golang"
+import "golang/path/filepath"
 import "golang/strings"
+import "list"
 import "local"
 import "net"
 import "os"
@@ -524,6 +526,10 @@ class base:host($name, $config) {
 	# should we provision this host by default?
 	$provision_default = $config->provision || false # false is safest!
 
+	$handoff_type = $config->handoff || ""
+	$handoff_code = $config->handoff_code || ""
+	panic(not strings.has_prefix($handoff_code, "/"))
+
 	# unique host key which is usually a mac address unless it's a default
 	$hkey = if $mac == "" {
 		"default"
@@ -632,6 +638,103 @@ class base:host($name, $config) {
 		}
 	}
 
+	# If it's a dir we don't need a suffix, otherwise return the last chunk.
+	$handoff_code_chunk = if strings.has_suffix($prefix, "/") {
+		""
+	} else {
+		filepath.base($handoff_code)
+	}
+	if $handoff_code != "" { # it's a file path or dir!
+		$abs_tar = "${vardir}deploys/deploy-${provision_key}.tar"
+		$abs_gz = "${abs_tar}.gz"
+
+		# Tag this so that the folder purge doesn't remove it. (XXX: bug!)
+		file "${abs_tar}" {
+			owner => "root",
+			group => "root",
+			mode => "u=rw,g=rw,o=", # file
+
+			Meta:retry => -1, # changing the mode on this file can be racy
+		}
+		file "${abs_gz}" {
+			owner => "root",
+			group => "root",
+			mode => "u=rw,g=rw,o=", # file
+
+			Meta:retry => -1, # changing the mode on this file can be racy
+		}
+		tar "${abs_tar}" {
+			inputs => [
+				$handoff_code, # code comes in here!
+			],
+
+			Before => Gzip["${abs_gz}"],
+			Depend => File["${vardir}deploys/"], # make the dir first!
+		}
+		gzip "${abs_gz}" {
+			input => "${abs_tar}",
+		}
+		http:file "/mgmt/deploy-${provision_key}.tar.gz" {
+			path => "${abs_gz}",
+		}
+	}
+
+	$handoff_binary_path = "/usr/local/bin/mgmt" # we install it here
+	$firstboot_scripts_dir = "/var/lib/mgmt-firstboot/" # TODO: /usr/lib/ instead?
+	$firstboot_done_dir = "/var/lib/mgmt-firstboot/done/"
+	$deploy_dir = "/root/mgmt-deploy/" # deploy code dir
+	# TODO: we can customize these more precisely based on $handoff_type
+	$handoff_packages = deploy.bootstrap_packages($distro) # TODO: catch errors here with || []
+	panic($handoff_type != "" and len($handoff_packages) == 0)
+
+	$handoff_binary = if $handoff_type == "" {
+		""
+	} else {
+		# Copy over the actual mgmt binary. This enables a lot below...
+		"/usr/bin/wget -O '${handoff_binary_path}' 'http://${router_ip}:${http_port_str}/mgmt/binary' && /usr/bin/chmod u+x '${handoff_binary_path}'"
+	}
+	$handoff_cpcode = if $handoff_type == "" {
+		""
+	} else {
+		# Download a tar ball of our code.
+		# TODO: Alternate mechanisms of getting the code are possible.
+		if $handoff_code != "" {
+			"/usr/bin/wget -O /root/mgmt-deploy.tar.gz 'http://${router_ip}:${http_port_str}/mgmt/deploy-${provision_key}.tar.gz' && /usr/bin/mkdir '${deploy_dir}' && /usr/bin/tar -xf /root/mgmt-deploy.tar.gz --directory '${deploy_dir}'"
+		} else {
+			"/usr/bin/wget -O /root/mgmt-deploy.tar.gz 'http://${router_ip}:${http_port_str}/mgmt/deploy.tar.gz' && /usr/bin/mkdir '${deploy_dir}' && /usr/bin/tar -xf /root/mgmt-deploy.tar.gz --directory '${deploy_dir}'"
+		}
+	}
+	$handoff_service = if $handoff_type == "" {
+		""
+	} else {
+		# Setup the mgmt service, which starts on firstboot.
+		"${handoff_binary_path} setup svc --binary-path='${handoff_binary_path}' --install --enable"
+	}
+	$handoff_firstboot = if $handoff_type == "" {
+		""
+	} else {
+		# Setup the firstboot service itself.
+		"${handoff_binary_path} setup firstboot --binary-path='${handoff_binary_path}' --mkdir --install --enable --scripts-dir='${firstboot_scripts_dir}' --done-dir='${firstboot_done_dir}'"
+	}
+	$handoff_deploy = if $handoff_type == "" {
+		""
+	} else {
+		# Add a script that will run by our firstboot service on boot.
+		# It seems that the deploy will hang until mgmt is started...
+		# NOTE: We need to add the $handoff_code arg the same way it was
+		# passed into the provisioner. It's just now in a deploy subdir.
+		# If it's a dir, then this becomes the empty strings.
+		# XXX: The deploy could instead happen over the network to etcd.
+		"echo '#!/bin/bash' > ${firstboot_scripts_dir}mgmt-deploy.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-deploy.sh && chmod u+x ${firstboot_scripts_dir}mgmt-deploy.sh"
+	}
+
+	# TODO: Do we want to signal an http:flag if we're a "default" host?
+	$provisioning_done = if $provision_key == "default" {
+		""
+	} else {
+		"/usr/bin/wget --post-data 'done=true&password=sha1TODO' -O - 'http://${router_ip}:${http_port_str}/action/done/mac=${provision_key}'"
+	}
+
 	$http_kickstart_template = struct{
 		comment => "hello!",
 		lang => [
@@ -652,9 +755,16 @@ class base:host($name, $config) {
 		#	"fedora" => "https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-\$releasever&arch=\$basearch",
 		#	"updates" => "https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f\$releasever&arch=\$basearch",
 		#},
-		packages => $packages,
+		# We need $handoff_packages installed in the _KICKSTART_ environ
+		# so that we can actually run mgmt to do our work for us below!
+		packages => list.concat($packages, $handoff_packages),
 		post => [
-			"/usr/bin/wget --post-data 'done=true&password=sha1TODO' -O - 'http://${router_ip}:${http_port_str}/action/done/mac=${provision_key}'",
+			$handoff_binary, # copy over the binary
+			$handoff_cpcode, # copy over a bundle of code
+			$handoff_service, # install a service for mgmt
+			$handoff_firstboot, # install firstboot service
+			$handoff_deploy, # install a firstboot script to deploy
+			$provisioning_done, # send a done signal back here
 		],
 	}
 

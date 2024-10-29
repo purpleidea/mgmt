@@ -167,6 +167,10 @@ type localArgs struct {
 	// other or the base installation packages.
 	Packages []string `arg:"--packages" help:"list of additional distro packages to install (comma separated)" func:"cli_packages"`
 
+	// HandoffCode specifies that we want to handoff to this machine with a
+	// static code deploy bolus. This is useful for isolated, one-time runs.
+	HandoffCode string `arg:"--handoff-code" help:"code dir to handoff to host" func:"cli_handoff_code"` // eg: /etc/mgmt/
+
 	// OnlyUnify tells the compiler to stop after type unification. This is
 	// used for testing.
 	OnlyUnify bool `arg:"--only-unify" help:"stop after type unification"`
@@ -360,6 +364,60 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 	obj.init.Logf("mirror: %+v", obj.localArgs.Mirror)
 	if len(obj.localArgs.Packages) > 0 {
 		obj.init.Logf("packages: %+v", strings.Join(obj.localArgs.Packages, ","))
+	}
+
+	if p := obj.localArgs.HandoffCode; p != "" {
+		if strings.HasPrefix(p, "~") {
+			expanded, err := util.ExpandHome(p)
+			if err != nil {
+				return nil, err
+			}
+			obj.localArgs.HandoffCode = expanded
+		}
+
+		// Make path absolute.
+		if !strings.HasPrefix(obj.localArgs.HandoffCode, "/") {
+			dir, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			dir = dir + "/" // dir's should have a trailing slash!
+			obj.localArgs.HandoffCode = dir + obj.localArgs.HandoffCode
+		}
+
+		// Does this path actually exist?
+		if _, err := os.Stat(obj.localArgs.HandoffCode); err != nil {
+			return nil, err
+		}
+
+		binary, err := util.ExecutablePath() // path to mgmt binary
+		if err != nil {
+			return nil, err
+		}
+
+		// Type check this path before we provision?
+		out := ""
+		cmdOpts := &util.SimpleCmdOpts{
+			Debug: true,
+			Logf: func(format string, v ...interface{}) {
+				// XXX: HACK to make output more beautiful!
+				errorText := "cli parse error: "
+				s := fmt.Sprintf(format+"\n", v...)
+				for _, x := range strings.Split(s, "\n") {
+					if !strings.HasPrefix(x, errorText) {
+						continue
+					}
+					out = strings.TrimPrefix(x, errorText)
+				}
+			},
+		}
+		// TODO: Add a --quiet flag instead of the above filter hack.
+		cmdArgs := []string{"run", "--tmp-prefix", "lang", "--only-unify", obj.localArgs.HandoffCode}
+		if err := util.SimpleCmd(ctx, binary, cmdArgs, cmdOpts); err != nil {
+			return nil, fmt.Errorf("handoff code didn't type check: %s", out)
+		}
+
+		obj.init.Logf("handoff: %s", obj.localArgs.HandoffCode)
 	}
 
 	// Do this last to let others fail early b/c this has user interaction.

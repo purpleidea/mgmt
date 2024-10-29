@@ -100,7 +100,7 @@ repo --name="{{ $name }}" --baseurl="{{ $baseurl }}"
 #
 #	packages
 #
-%packages --retries 3 # handle spurious failures
+%packages --timeout 60 --retries 3 # handle spurious failures
 @core
 @standard
 @hardware-support

@@ -1,0 +1,21 @@
+import "fmt"
+import "map"
+
+$some_map = {
+	"ottawa" => 6,
+	"toronto" => 7,
+	"montreal" => 8,
+	"vancouver" => 9,
+}
+
+print "keys" {
+	msg => fmt.printf("keys: %v", map.keys($some_map)),
+
+	Meta:autogroup => false,
+}
+
+print "values" {
+	msg => fmt.printf("values: %v", map.values($some_map)),
+
+	Meta:autogroup => false,
+}

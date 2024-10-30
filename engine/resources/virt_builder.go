@@ -219,7 +219,12 @@ func (obj *VirtBuilderRes) getGuestfs() ([]string, error) {
 // that we can easily run mgmt.
 func (obj *VirtBuilderRes) getDeps() ([]string, error) {
 	// TODO: Improve this function as things evolve.
-	distro := strings.TrimSuffix(obj.OSVersion, "-") // fedora- or debian-
+	ix := strings.Index(obj.OSVersion, "-") // fedora- or debian-
+	if ix == -1 {
+		return nil, fmt.Errorf("os version is not supported")
+	}
+
+	distro := obj.OSVersion[0:ix] // everything before the dash, eg: fedora
 	packages, exists := distroUtil.ToBootstrapPackages(distro)
 	if !exists {
 		// TODO: patches welcome!

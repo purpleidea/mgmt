@@ -1,0 +1,107 @@
+{
+    "@odata.context": "/redfish/v1/$metadata#ComputerSystem.ComputerSystem",
+    "@odata.type": "#ComputerSystem.v1_3_0.ComputerSystem",
+    "@odata.id": "/redfish/v1/Systems/1",
+    "Id": "1",
+    "Name": "System",
+    "Description": "Description of server",
+    "Status": {
+        "State": "Enabled",
+        "Health": "Critical"
+    },
+    "SerialNumber": "          ",
+    "PartNumber": "",
+    "SystemType": "Physical",
+    "BiosVersion": "3.3",
+    "Manufacturer": "Supermicro",
+    "Model": "Super Server",
+    "SKU": "To be filled by O.E.M.",
+    "UUID": "00000000-0000-0000-0000-0CC47A847624",
+    "ProcessorSummary": {
+        "Count": 1,
+        "Model": "Intel(R) Xeon(R) processor",
+        "Status": {
+            "State": "Enabled",
+            "Health": "OK"
+        }
+    },
+    "MemorySummary": {
+        "TotalSystemMemoryGiB": 16,
+        "Status": {
+            "State": "Enabled",
+            "Health": "OK"
+        }
+    },
+    "IndicatorLED": "Off",
+    "PowerState": "Off",
+    "Boot": {
+        "BootSourceOverrideEnabled": "Disabled",
+        "BootSourceOverrideTarget": "None",
+        "BootSourceOverrideTarget@Redfish.AllowableValues": [
+            "None",
+            "Pxe",
+            "Hdd",
+            "Diags",
+            "CD/DVD",
+            "BiosSetup",
+            "FloppyRemovableMedia",
+            "UsbKey",
+            "UsbHdd",
+            "UsbFloppy",
+            "UsbCd",
+            "UefiUsbKey",
+            "UefiCd",
+            "UefiHdd",
+            "UefiUsbHdd",
+            "UefiUsbCd"
+        ]
+    },
+    "Processors": {
+        "@odata.id": "/redfish/v1/Systems/1/Processors"
+    },
+    "Memory": {
+        "@odata.id": "/redfish/v1/Systems/1/Memory"
+    },
+    "EthernetInterfaces": {
+        "@odata.id": "/redfish/v1/Systems/1/EthernetInterfaces"
+    },
+    "SimpleStorage": {
+        "@odata.id": "/redfish/v1/Systems/1/SimpleStorage"
+    },
+    "Storage": {
+        "@odata.id": "/redfish/v1/Systems/1/Storage"
+    },
+    "LogServices": {
+        "@odata.id": "/redfish/v1/Systems/1/LogServices"
+    },
+    "Links": {
+        "Chassis": [
+            {
+                "@odata.id": "/redfish/v1/Chassis/1"
+            }
+        ],
+        "ManagedBy": [
+            {
+                "@odata.id": "/redfish/v1/Managers/1"
+            }
+        ],
+        "Oem": {}
+    },
+    "Actions": {
+        "#ComputerSystem.Reset": {
+            "target": "/redfish/v1/Systems/1/Actions/ComputerSystem.Reset",
+            "ResetType@Redfish.AllowableValues": [
+                "On",
+                "ForceOff",
+                "GracefulShutdown",
+                "GracefulRestart",
+                "ForceRestart",
+                "Nmi",
+                "ForceOn"
+            ]
+        }
+    },
+    "Oem": {
+        "Supermicro": {}
+    }
+}

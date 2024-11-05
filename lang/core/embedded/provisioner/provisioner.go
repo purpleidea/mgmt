@@ -171,6 +171,10 @@ type localArgs struct {
 	// static code deploy bolus. This is useful for isolated, one-time runs.
 	HandoffCode string `arg:"--handoff-code" help:"code dir to handoff to host" func:"cli_handoff_code"` // eg: /etc/mgmt/
 
+	// BmcURI specifies the BMC connect string we want to use for this host.
+	// This is a giant driver://user:password@host:port/whatever URL...
+	BmcURI string `arg:"--bmc-uri" help:"bmc connect string to use for this host" func:"cli_bmc_uri"`
+
 	// OnlyUnify tells the compiler to stop after type unification. This is
 	// used for testing.
 	OnlyUnify bool `arg:"--only-unify" help:"stop after type unification"`

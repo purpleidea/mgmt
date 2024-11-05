@@ -1,0 +1,12 @@
+import "util"
+
+$m = {
+	"00:11:22:33:44:55" => "hostname1",
+	"00:11:22:33:44:56" => "hostname1",
+	"aa:bb:cc:dd:ee:fe" => "hostname2",
+	"aa:bb:cc:dd:ee:ff" => "hostname2",
+}
+
+print "mapper" {
+	msg => util.hostname_mapper($m),
+}

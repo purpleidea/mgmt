@@ -33,6 +33,20 @@ import (
 	"fmt"
 )
 
+// StrPtrCmp compares two pointers to strings. If they aren't both nil or aren't
+// both of the same value, then this errors.
+func StrPtrCmp(x, y *string) error {
+	if (x == nil) != (y == nil) { // xor
+		return fmt.Errorf("the Content differs")
+	}
+	if x != nil && y != nil {
+		if *x != *y { // compare the strings
+			return fmt.Errorf("the contents of ptr differ")
+		}
+	}
+	return nil
+}
+
 // StrListCmp compares two lists of strings. If they are not the same length or
 // do not contain identical strings in the same order, then this errors.
 func StrListCmp(x, y []string) error {

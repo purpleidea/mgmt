@@ -39,6 +39,7 @@ import (
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 
 	"github.com/godbus/dbus/v5"
 )
@@ -57,7 +58,10 @@ const (
 // resource is insufficient for the resource to do any useful work.
 var ErrResourceInsufficientParameters = errors.New("insufficient parameters for this resource")
 
-// HostnameRes is a resource that allows setting and watching the hostname.
+// HostnameRes is a resource that allows setting and watching the hostname. If
+// you don't specify any parameters, the Name is used. The Hostname field is
+// used if none of the other parameters are used. If the parameters are set to
+// the empty string, then those variants are not managed by the resource.
 type HostnameRes struct {
 	traits.Base // add the base methods without re-implementation
 
@@ -72,20 +76,52 @@ type HostnameRes struct {
 
 	// PrettyHostname is a free-form UTF8 host name for presentation to the
 	// user.
-	PrettyHostname string `lang:"pretty_hostname" yaml:"pretty_hostname"`
+	PrettyHostname *string `lang:"pretty_hostname" yaml:"pretty_hostname"`
 
 	// StaticHostname is the one configured in /etc/hostname or a similar
 	// file. It is chosen by the local user. It is not always in sync with
 	// the current host name as returned by the gethostname() system call.
-	StaticHostname string `lang:"static_hostname" yaml:"static_hostname"`
+	StaticHostname *string `lang:"static_hostname" yaml:"static_hostname"`
 
 	// TransientHostname is the one configured via the kernel's
 	// sethostbyname(). It can be different from the static hostname in case
 	// DHCP or mDNS have been configured to change the name based on network
 	// information.
-	TransientHostname string `lang:"transient_hostname" yaml:"transient_hostname"`
+	TransientHostname *string `lang:"transient_hostname" yaml:"transient_hostname"`
 
 	conn *dbus.Conn
+}
+
+func (obj *HostnameRes) getHostname() string {
+	if obj.Hostname != "" {
+		return obj.Hostname
+	}
+
+	return obj.Name()
+}
+
+func (obj *HostnameRes) getPrettyHostname() string {
+	if obj.PrettyHostname != nil {
+		return *obj.PrettyHostname // this may be empty!
+	}
+
+	return obj.getHostname()
+}
+
+func (obj *HostnameRes) getStaticHostname() string {
+	if obj.StaticHostname != nil {
+		return *obj.StaticHostname // this may be empty!
+	}
+
+	return obj.getHostname()
+}
+
+func (obj *HostnameRes) getTransientHostname() string {
+	if obj.TransientHostname != nil {
+		return *obj.TransientHostname // this may be empty!
+	}
+
+	return obj.getHostname()
 }
 
 // Default returns some sensible defaults for this resource.
@@ -95,7 +131,10 @@ func (obj *HostnameRes) Default() engine.Res {
 
 // Validate if the params passed in are valid data.
 func (obj *HostnameRes) Validate() error {
-	if obj.PrettyHostname == "" && obj.StaticHostname == "" && obj.TransientHostname == "" {
+	a := obj.getPrettyHostname() == ""
+	b := obj.getStaticHostname() == ""
+	c := obj.getTransientHostname() == ""
+	if a && b && c && obj.getHostname() == "" {
 		return ErrResourceInsufficientParameters
 	}
 	return nil
@@ -105,15 +144,6 @@ func (obj *HostnameRes) Validate() error {
 func (obj *HostnameRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
-	if obj.PrettyHostname == "" {
-		obj.PrettyHostname = obj.Hostname
-	}
-	if obj.StaticHostname == "" {
-		obj.StaticHostname = obj.Hostname
-	}
-	if obj.TransientHostname == "" {
-		obj.TransientHostname = obj.Hostname
-	}
 	return nil
 }
 
@@ -124,6 +154,13 @@ func (obj *HostnameRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *HostnameRes) Watch(ctx context.Context) error {
+	recurse := false // single file
+	recWatcher, err := recwatch.NewRecWatcher("/etc/hostname", recurse)
+	if err != nil {
+		return err
+	}
+	defer recWatcher.Close()
+
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
@@ -149,7 +186,23 @@ func (obj *HostnameRes) Watch(ctx context.Context) error {
 	var send = false // send event?
 	for {
 		select {
-		case <-signals:
+		case _, ok := <-signals:
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected close")
+			}
+			//signals = nil
+			send = true
+
+		case event, ok := <-recWatcher.Events():
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected close")
+			}
+			if err := event.Error; err != nil {
+				return err
+			}
+			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
+			}
 			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
@@ -209,22 +262,22 @@ func (obj *HostnameRes) CheckApply(ctx context.Context, apply bool) (bool, error
 	hostnameObject := conn.Object(hostname1Iface, hostname1Path)
 
 	checkOK := true
-	if obj.PrettyHostname != "" {
-		propertyCheckOK, err := obj.updateHostnameProperty(hostnameObject, obj.PrettyHostname, "PrettyHostname", "SetPrettyHostname", apply)
+	if h := obj.getPrettyHostname(); h != "" {
+		propertyCheckOK, err := obj.updateHostnameProperty(hostnameObject, h, "PrettyHostname", "SetPrettyHostname", apply)
 		if err != nil {
 			return false, err
 		}
 		checkOK = checkOK && propertyCheckOK
 	}
-	if obj.StaticHostname != "" {
-		propertyCheckOK, err := obj.updateHostnameProperty(hostnameObject, obj.StaticHostname, "StaticHostname", "SetStaticHostname", apply)
+	if h := obj.getStaticHostname(); h != "" {
+		propertyCheckOK, err := obj.updateHostnameProperty(hostnameObject, h, "StaticHostname", "SetStaticHostname", apply)
 		if err != nil {
 			return false, err
 		}
 		checkOK = checkOK && propertyCheckOK
 	}
-	if obj.TransientHostname != "" {
-		propertyCheckOK, err := obj.updateHostnameProperty(hostnameObject, obj.TransientHostname, "Hostname", "SetHostname", apply)
+	if h := obj.getTransientHostname(); h != "" {
+		propertyCheckOK, err := obj.updateHostnameProperty(hostnameObject, h, "Hostname", "SetHostname", apply)
 		if err != nil {
 			return false, err
 		}
@@ -242,13 +295,13 @@ func (obj *HostnameRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
-	if obj.PrettyHostname != res.PrettyHostname {
+	if engineUtil.StrPtrCmp(obj.PrettyHostname, res.PrettyHostname) != nil {
 		return fmt.Errorf("the PrettyHostname differs")
 	}
-	if obj.StaticHostname != res.StaticHostname {
+	if engineUtil.StrPtrCmp(obj.StaticHostname, res.StaticHostname) != nil {
 		return fmt.Errorf("the StaticHostname differs")
 	}
-	if obj.TransientHostname != res.TransientHostname {
+	if engineUtil.StrPtrCmp(obj.TransientHostname, res.TransientHostname) != nil {
 		return fmt.Errorf("the TransientHostname differs")
 	}
 
@@ -271,9 +324,9 @@ func (obj *HostnameRes) UIDs() []engine.ResUID {
 	x := &HostnameUID{
 		BaseUID:           engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
 		name:              obj.Name(),
-		prettyHostname:    obj.PrettyHostname,
-		staticHostname:    obj.StaticHostname,
-		transientHostname: obj.TransientHostname,
+		prettyHostname:    obj.getPrettyHostname(),
+		staticHostname:    obj.getStaticHostname(),
+		transientHostname: obj.getTransientHostname(),
 	}
 	return []engine.ResUID{x}
 }

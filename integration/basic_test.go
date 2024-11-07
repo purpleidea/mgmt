@@ -179,7 +179,7 @@ func TestCluster1(t *testing.T) {
 		code := util.Code(`
 		import "sys"
 		$root = sys.getenv("MGMT_TEST_ROOT")
-		$host = sys.hostname()
+		$host = $hostname #sys.hostname()
 
 		file "${root}/mgmt-hostname" {
 			content => "i am ${host}\n",
@@ -206,7 +206,7 @@ func TestCluster1(t *testing.T) {
 		code := util.Code(`
 		import "sys"
 		$root = sys.getenv("MGMT_TEST_ROOT")
-		$host = sys.hostname()
+		$host = $hostname #sys.hostname()
 
 		file "${root}/mgmt-hostname" {
 			content => "i am ${host}\n",

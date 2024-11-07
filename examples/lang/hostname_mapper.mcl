@@ -1,3 +1,4 @@
+import "sys"
 import "util"
 
 $m = {
@@ -7,6 +8,12 @@ $m = {
 	"aa:bb:cc:dd:ee:ff" => "hostname2",
 }
 
-print "mapper" {
-	msg => util.hostname_mapper($m),
+$h = util.hostname_mapper($m)
+
+print "hostname_mapper" {
+	msg => $h,
+}
+
+if $h != "" and sys.hostname() != $h {
+	hostname "${h}" {} # set it correctly!
 }

@@ -31,15 +31,26 @@ package coresys
 
 import (
 	"context"
+	"fmt"
 
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
+
+	"github.com/godbus/dbus/v5"
 )
 
 const (
 	// HostnameFuncName is the name this fact is registered as. It's still a
 	// Func Name because this is the name space the fact is actually using.
 	HostnameFuncName = "hostname"
+
+	hostname1Path       = "/org/freedesktop/hostname1"
+	hostname1Iface      = "org.freedesktop.hostname1"
+	dbusPropertiesIface = "org.freedesktop.DBus.Properties"
 )
 
 func init() {
@@ -79,14 +90,113 @@ func (obj *HostnameFact) Init(init *facts.Init) error {
 
 // Stream returns the single value that this fact has, and then closes.
 func (obj *HostnameFact) Stream(ctx context.Context) error {
-	select {
-	case obj.init.Output <- &types.StrValue{
-		V: obj.init.Hostname,
-	}:
-		// pass
-	case <-ctx.Done():
-		return nil
+	defer close(obj.init.Output) // signal that we're done sending
+
+	recurse := false // single file
+	recWatcher, err := recwatch.NewRecWatcher("/etc/hostname", recurse)
+	if err != nil {
+		return err
 	}
-	close(obj.init.Output) // signal that we're done sending
-	return nil
+	defer recWatcher.Close()
+
+	// if we share the bus with others, we will get each others messages!!
+	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
+	if err != nil {
+		return errwrap.Wrapf(err, "failed to connect to bus")
+	}
+	defer bus.Close()
+	// watch the PropertiesChanged signal on the hostname1 dbus path
+	args := fmt.Sprintf(
+		"type='signal', path='%s', interface='%s', member='PropertiesChanged'",
+		hostname1Path,
+		dbusPropertiesIface,
+	)
+	if call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0, args); call.Err != nil {
+		return errwrap.Wrapf(call.Err, "failed to subscribe to DBus events for hostname1")
+	}
+	defer bus.BusObject().Call(engineUtil.DBusRemoveMatch, 0, args) // ignore the error
+
+	signals := make(chan *dbus.Signal, 10) // closed by dbus package
+	bus.Signal(signals)
+
+	// streams must generate an initial event on startup
+	startChan := make(chan struct{}) // start signal
+	close(startChan)                 // kick it off!
+
+	for {
+		select {
+		case <-startChan: // kick the loop once at start
+			startChan = nil // disable
+
+		case _, ok := <-signals:
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected close")
+			}
+
+		case event, ok := <-recWatcher.Events():
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected close")
+			}
+			if err := event.Error; err != nil {
+				return err
+			}
+			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
+			}
+
+		case <-ctx.Done(): // closed by the engine to signal shutdown
+			return nil
+		}
+
+		// NOTE: We ask the actual machine instead of using obj.init.Hostname
+		value, err := obj.Call(ctx)
+		if err != nil {
+			return err
+		}
+
+		select {
+		case obj.init.Output <- value:
+			// pass
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+// Call returns the result of this function.
+func (obj *HostnameFact) Call(ctx context.Context) (types.Value, error) {
+	conn, err := util.SystemBusPrivateUsable()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "failed to connect to the private system bus")
+	}
+	defer conn.Close()
+
+	hostnameObject := conn.Object(hostname1Iface, hostname1Path)
+
+	h, err := obj.getHostnameProperty(hostnameObject, "Hostname")
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.StrValue{
+		V: h,
+	}, nil
+}
+
+func (obj *HostnameFact) getHostnameProperty(object dbus.BusObject, property string) (string, error) {
+	propertyObject, err := object.GetProperty("org.freedesktop.hostname1." + property)
+	if err != nil {
+		return "", errwrap.Wrapf(err, "failed to get org.freedesktop.hostname1.%s", property)
+	}
+	if propertyObject.Value() == nil {
+		return "", fmt.Errorf("unexpected nil value received when reading property %s", property)
+	}
+
+	propertyValue, ok := propertyObject.Value().(string)
+	if !ok {
+		return "", fmt.Errorf("received unexpected type as %s value, expected string got '%T'", property, propertyValue)
+	}
+
+	// expected value and actual value match => checkOk
+	return propertyValue, nil
 }

@@ -342,9 +342,6 @@ func (obj *VirtBuilderRes) Cleanup() error {
 // one watches the on disk filename if it creates one, as well as the runtime
 // value the kernel has stored!
 func (obj *VirtBuilderRes) Watch(ctx context.Context) error {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
 	recurse := false // single file
 	recWatcher, err := recwatch.NewRecWatcher(obj.getOutput(), recurse)
 	if err != nil {

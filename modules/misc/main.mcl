@@ -1,3 +1,5 @@
+import "golang"
+import "net"
 import "os"
 
 # ssh_keygen creates an ssh key pair in the user's home directory if the private
@@ -28,5 +30,78 @@ class ssh_keygen($user) {
 	file "${p}.ssh/id_rsa" {
 		mode => "u=rw,go=",
 		owner => $user,
+	}
+}
+
+# network_rename takes the device with the $mac address and renames it to $dev.
+class network_rename($mac, $dev) {
+	#panic(not net.is_mac("${mac}"))
+
+	file "/etc/systemd/network/70-rename-${dev}.link" {
+		state => "exists",
+		content => "
+# Pick the device name based on the mac address.
+[Match]
+MACAddress=${mac}
+
+[Link]
+Name=${dev}
+",
+		mode => "u=rw,go=r",
+		owner => "root",
+		group => "root",
+
+		Notify => Exec["udevadm trigger"],
+	}
+
+	# TODO: we only want to run this once, but it's harmless for now
+	exec "udevadm trigger" {
+		cmd => "/usr/sbin/udevadm trigger --type=all --action=add --prioritized-subsystem=net --settle",
+	}
+}
+
+# network_manager_static sets up a static ip address with network manager.
+# NOTE: to see what it's using run: nmcli -f name,uuid,filename connection
+class network_manager_static($st) {
+	$uuid = $st->uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	$dev = $st->dev || "eth0"
+	$cidr = $st->cidr # cidr
+	$ip = net.cidr_to_ip($cidr)
+	$prefix = net.cidr_to_prefix($cidr)
+	$router = $st->router
+	$dns = $st->dns || "8.8.8.8"
+
+	$tmpl =
+"
+[connection]
+id=${dev}
+{{ if .uuid -}}
+uuid=${uuid}
+{{ end -}}
+type=ethernet
+interface-name=${dev}
+
+[ipv4]
+address1=${ip}/${prefix},${router}
+dns=${dns};
+dns-search=
+may-fail=false
+method=manual
+"
+
+	$args = struct{
+		uuid => $uuid,
+	}
+
+	file "/etc/NetworkManager/system-connections/${dev}.nmconnection" {
+		state => "exists",
+		content => golang.template($tmpl, $args),
+		mode => "u=rw,go=",
+		owner => "root",
+
+		Notify => Svc["NetworkManager"],
+	}
+
+	svc "NetworkManager" {
 	}
 }

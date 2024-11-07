@@ -32,6 +32,7 @@ package corenet
 import (
 	"context"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
@@ -42,6 +43,10 @@ func init() {
 	simple.ModuleRegister(ModuleName, "cidr_to_ip", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
 		F: CidrToIP,
+	})
+	simple.ModuleRegister(ModuleName, "cidr_to_prefix", &simple.Scaffold{
+		T: types.NewType("func(a str) str"),
+		F: CidrToPrefix,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_mask", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
@@ -58,6 +63,22 @@ func CidrToIP(ctx context.Context, input []types.Value) (types.Value, error) {
 	}
 	return &types.StrValue{
 		V: ip.String(),
+	}, nil
+}
+
+// CidrToPrefix returns the prefix from a CIDR address. For example, if you give
+// us 192.0.2.0/24 then we will return "24" as a string.
+func CidrToPrefix(ctx context.Context, input []types.Value) (types.Value, error) {
+	cidr := input[0].Str()
+	_, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
+	if err != nil {
+		return nil, err
+	}
+
+	ones, _ := ipnet.Mask.Size()
+
+	return &types.StrValue{
+		V: strconv.Itoa(ones),
 	}, nil
 }
 

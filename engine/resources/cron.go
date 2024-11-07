@@ -390,7 +390,7 @@ func (obj *CronRes) unitCheckApply(ctx context.Context, apply bool) (bool, error
 	}
 
 	// systemctl daemon-reload
-	if err := conn.Reload(); err != nil {
+	if err := conn.ReloadContext(ctx); err != nil {
 		return false, errwrap.Wrapf(err, "error reloading daemon")
 	}
 

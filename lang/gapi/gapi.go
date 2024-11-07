@@ -343,12 +343,8 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		}
 	}
 
-	// TODO: do we still need this, now that we have the Imports DAG?
-	noDuplicates := util.StrRemoveDuplicatesInList(files)
-	if len(noDuplicates) != len(files) {
-		// programming error here or in this logical test
-		return nil, fmt.Errorf("duplicates in file list found")
-	}
+	// There are duplicates if in our dag we use the same import twice.
+	files = util.StrRemoveDuplicatesInList(files)
 
 	// Add any missing dirs, so that we don't need to use `MkdirAll`...
 	// FIXME: It's possible that the dirs get generated upstream, but it's

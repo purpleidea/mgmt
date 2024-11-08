@@ -61,14 +61,15 @@ Name=${dev}
 }
 
 # network_manager_static sets up a static ip address with network manager.
-# NOTE: to see what it's using run: nmcli -f name,uuid,filename connection
+# NOTE: To see what it's using run: `nmcli -f name,uuid,filename connection`.
 class network_manager_static($st) {
 	$uuid = $st->uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	$mac = $st->mac || ""
 	$dev = $st->dev || "eth0"
 	$cidr = $st->cidr # cidr
 	$ip = net.cidr_to_ip($cidr)
 	$prefix = net.cidr_to_prefix($cidr)
-	$router = $st->router
+	$router = $st->router || ""
 	$dns = $st->dns || "8.8.8.8"
 
 	$tmpl =
@@ -80,13 +81,23 @@ uuid=${uuid}
 {{ end -}}
 type=ethernet
 interface-name=${dev}
+autoconnect=true
 
 [ipv4]
+{{ if .router -}}
 address1=${ip}/${prefix},${router}
+{{ else -}}
+address1=${ip}/${prefix}
+{{ end -}}
 dns=${dns};
 dns-search=
 may-fail=false
 method=manual
+
+[ethernet]
+{{ if .mac -}}
+mac-address=${mac}
+{{ end -}}
 "
 
 	$args = struct{

@@ -336,7 +336,7 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // children might. This particular bind statement adds its linked expression to
 // the graph. It is not logically done in the ExprVar since that could exist
 // multiple times for the single binding operation done here.
-func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
+func (obj *StmtBind) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
 	emptyContext := map[string]interfaces.Func{}
 	g, _, err := obj.Value.Graph(emptyContext)
 	return g, err
@@ -652,7 +652,7 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // Since I don't think it's worth extending the Stmt API for this, we can do the
 // checks here at the beginning, and error out if something was invalid. In this
 // particular case, the issue is one of catching duplicate meta fields.
-func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
+func (obj *StmtRes) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	metaNames := make(map[string]struct{})
 	for _, x := range obj.Contents {
 		line, ok := x.(*StmtResMeta)
@@ -692,7 +692,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -700,7 +700,7 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 	obj.namePtr = f
 
 	for _, x := range obj.Contents {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1195,7 +1195,7 @@ type StmtResContents interface {
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
 	TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error)
-	Graph() (*pgraph.Graph, error)
+	Graph(env map[string]interfaces.Func) (*pgraph.Graph, error)
 }
 
 // StmtResField represents a single field in the parsed resource representation.
@@ -1446,13 +1446,13 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResField) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resfield")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.Value.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Value.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1460,7 +1460,7 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	obj.valuePtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1682,20 +1682,20 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResEdge) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resedge")
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := obj.EdgeHalf.Graph()
+	g, err := obj.EdgeHalf.Graph(env)
 	if err != nil {
 		return nil, err
 	}
 	graph.AddGraph(g)
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2020,13 +2020,13 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResMeta) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resmeta")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.MetaExpr.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.MetaExpr.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2034,7 +2034,7 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	obj.metaExprPtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2282,14 +2282,14 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // to the edges created, but rather, once all the values (expressions) with no
 // outgoing function graph edges have produced at least a single value, then the
 // edges know they're able to be built.
-func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtEdge) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("edge")
 	if err != nil {
 		return nil, err
 	}
 
 	for _, x := range obj.EdgeHalfList {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2541,8 +2541,8 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
-	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
+func (obj *StmtEdgeHalf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2842,13 +2842,13 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // shouldn't have any ill effects.
 // XXX: is this completely true if we're running technically impure, but safe
 // built-in functions on both branches? Can we turn off half of this?
-func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
+func (obj *StmtIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Condition.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2859,7 +2859,7 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 		if x == nil {
 			continue
 		}
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2902,6 +2902,493 @@ func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Ou
 	if output != nil {
 		resources = append(resources, output.Resources...)
 		edges = append(edges, output.Edges...)
+	}
+
+	return &interfaces.Output{
+		Resources: resources,
+		Edges:     edges,
+	}, nil
+}
+
+// StmtFor represents an iteration over a list. The body contains statements.
+type StmtFor struct {
+	scope *interfaces.Scope // store for referencing this later
+
+	Index string // no $ prefix
+	Value string // no $ prefix
+
+	TypeIndex *types.Type
+	TypeValue *types.Type
+
+	indexParam *ExprParam
+	valueParam *ExprParam
+
+	Expr    interfaces.Expr
+	exprPtr interfaces.Func // ptr for table lookup
+	Body    interfaces.Stmt // optional, but usually present
+
+	iterBody []interfaces.Stmt
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtFor) String() string {
+	// TODO: improve/change this if needed
+	s := fmt.Sprintf("for($%s, $%s)", obj.Index, obj.Value)
+	s += fmt.Sprintf(" in %s", obj.Expr.String())
+	if obj.Body != nil {
+		s += fmt.Sprintf(" { %s }", obj.Body.String())
+	}
+	return s
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtFor) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Expr.Apply(fn); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtFor) Init(data *interfaces.Data) error {
+	obj.iterBody = []interfaces.Stmt{}
+
+	if err := obj.Expr.Init(data); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Init(data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtFor) Interpolate() (interfaces.Stmt, error) {
+	expr, err := obj.Expr.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate Expr")
+	}
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Interpolate()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not interpolate Body")
+		}
+	}
+	return &StmtFor{
+		Index:     obj.Index,
+		Value:     obj.Value,
+		TypeIndex: obj.TypeIndex,
+		TypeValue: obj.TypeValue,
+
+		indexParam: obj.indexParam, // XXX: ???
+		valueParam: obj.valueParam, // XXX: ???
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: ???
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: ???
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *StmtFor) Copy() (interfaces.Stmt, error) {
+	copied := false
+	expr, err := obj.Expr.Copy()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy Expr")
+	}
+	if expr != obj.Expr { // must have been copied, or pointer would be same
+		copied = true
+	}
+
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Copy()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not copy Body")
+		}
+		if body != obj.Body {
+			copied = true
+		}
+	}
+
+	if !copied { // it's static
+		return obj, nil
+	}
+	return &StmtFor{
+		Index:     obj.Index,
+		Value:     obj.Value,
+		TypeIndex: obj.TypeIndex,
+		TypeValue: obj.TypeValue,
+
+		indexParam: obj.indexParam, // XXX: ???
+		valueParam: obj.valueParam, // XXX: ???
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: ???
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: ???
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *StmtFor) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraints: We know the condition has to be satisfied
+	// before this for statement itself can be used, since we depend on that
+	// value.
+	edge := &pgraph.SimpleEdge{Name: "stmtfor"}
+	graph.AddEdge(obj.Expr, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Expr.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "stmtforexpr"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	if obj.Body == nil { // return early
+		return graph, cons, nil
+	}
+
+	// additional constraints...
+	edge1 := &pgraph.SimpleEdge{Name: "stmtforbodyexpr"}
+	graph.AddEdge(obj.Expr, obj.Body, edge1) // prod -> cons
+	edge2 := &pgraph.SimpleEdge{Name: "stmtforbody"}
+	graph.AddEdge(obj.Body, obj, edge2) // prod -> cons
+
+	nodes := []interfaces.Expr{obj.Expr} // XXX: are there more to add?
+
+	for _, node := range nodes { // "dry"
+		g, c, err := node.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "stmtforprog"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
+	if scope == nil {
+		scope = interfaces.EmptyScope()
+	}
+	obj.scope = scope // store for later
+
+	//		newScope.Variables[arg.Name] = &ExprTopLevel{
+	//			Definition: &ExprSingleton{
+	//				Definition: obj.Args[i],
+
+	//				mutex: &sync.Mutex{}, // TODO: call Init instead
+	//			},
+	//			CapturedScope: newScope,
+	//		}
+
+	if err := obj.Expr.SetScope(scope, map[string]interfaces.Expr{}); err != nil { // XXX: empty sctx?
+		return err
+	}
+
+	if obj.Body == nil { // no loop body, we're done early
+		return nil
+	}
+
+	// We need to build the two ExprParam's here, and those will contain the
+	// type unification variables, so we might as well populate those parts
+	// now, rather than waiting for the subsequent TypeCheck step.
+
+	typExprIndex := obj.TypeIndex
+	if obj.TypeIndex == nil {
+		typExprIndex = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	// We know this one is types.TypeInt, but we only officially determine
+	// that in the subsequent TypeCheck step since we need to relate things
+	// to the input param so it can be easily solved if it's a variable...
+	obj.indexParam = &ExprParam{
+		Name: obj.Index,
+		typ:  typExprIndex,
+	}
+
+	typExprValue := obj.TypeValue
+	if obj.TypeValue == nil {
+		typExprValue = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	obj.valueParam = &ExprParam{
+		Name: obj.Value,
+		typ:  typExprValue,
+	}
+
+	sctxBody := make(map[string]interfaces.Expr)
+	sctxBody[obj.Index] = obj.indexParam
+	sctxBody[obj.Value] = obj.valueParam
+
+	newScope := scope.Copy()
+	newScope.Variables = sctxBody // XXX: ???
+
+	return obj.Body.SetScope(newScope)
+}
+
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtFor) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	// Don't call obj.Expr.Check here!
+	typ, invariants, err := obj.Expr.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	// The type unification variables get created in SetScope! (If needed!)
+	typExprIndex := obj.indexParam.typ
+	typExprValue := obj.valueParam.typ
+
+	typExpr := &types.Type{
+		Kind: types.KindList,
+		Val:  typExprValue,
+	}
+
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj.Expr,
+		Expect: typExpr, // the list
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	// The following two invariants are needed to ensure the ExprParam's are
+	// added to the unification solver so that we actually benefit from that
+	// relationship and solution!
+	invarIndex := &interfaces.UnificationInvariant{
+		Expr:   obj.indexParam,
+		Expect: typExprIndex,  // the list index type
+		Actual: types.TypeInt, // here we finally also say it's an int!
+	}
+	invariants = append(invariants, invarIndex)
+
+	invarValue := &interfaces.UnificationInvariant{
+		Expr:   obj.valueParam,
+		Expect: typExprValue, // the list element type
+		Actual: typExprValue,
+	}
+	invariants = append(invariants, invarValue)
+
+	if obj.Body != nil {
+		invars, err := obj.Body.TypeCheck()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular for statement has lots of complex magic to
+// make it all work.
+func (obj *StmtFor) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("for")
+	if err != nil {
+		return nil, err
+	}
+
+	g, f, err := obj.Expr.Graph(env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+	obj.exprPtr = f
+
+	if obj.Body == nil { // no loop body, we're done early
+		return graph, nil
+	}
+
+	mutex := &sync.Mutex{}
+
+	// This gets called once per iteration, each time the list changes.
+	appendToIterBody := func(innerTxn interfaces.Txn, index int, value interfaces.Func) error {
+		// Extend the environment with the two loop variables.
+		extendedEnv := make(map[string]interfaces.Func)
+		for k, v := range env {
+			extendedEnv[k] = v
+		}
+
+		// calling convention
+		// XXX: don't we need to Init() structs.ConstFunc ?
+		extendedEnv[obj.Index] = &structs.ConstFunc{
+			Value: &types.IntValue{
+				V: int64(index),
+			},
+			NameHint: "", // XXX: ???
+		}
+		//extendedEnv[obj.Index] = index // XXX: create the function in ForFunc instead?
+		extendedEnv[obj.Value] = value
+
+		body, err := obj.Body.Copy()
+		if err != nil {
+			return err
+		}
+
+		mutex.Lock()
+		//		if len(obj.iterBody) <= 0 {
+		//			for i:=0; i < index; i++ {
+		//				obj.iterBody[0] = nil // allocate
+		//			}
+		//		}
+		obj.iterBody = append(obj.iterBody, body)
+		//obj.iterBody[index] = body // XXX just do this instead...???
+		mutex.Unlock()
+
+		// Create a subgraph from the lambda's body, instantiating the
+		// lambda's parameters with the args and the other variables
+		// with the nodes in the captured environment.
+		subgraph, err := body.Graph(extendedEnv)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+		}
+
+		innerTxn.AddGraph(subgraph)
+
+		// We don't need an output func because body.Graph is a
+		// statement and it doesn't return an interfaces.Func,
+		// only the expression versions return those!
+		return nil
+	}
+
+	//obj.????Ptr = f // XXX
+
+	// Add a vertex for the list passing itself.
+	edgeName := structs.ForFuncArgNameList
+	forFunc := &structs.ForFunc{
+		IndexType: obj.indexParam.typ,
+		ValueType: obj.valueParam.typ,
+
+		EdgeName: edgeName,
+
+		AppendToIterBody: appendToIterBody, // XXX RENAME
+		ClearIterBody: func(length int) { // XXX USE LENGTH?
+			mutex.Lock()
+			obj.iterBody = []interfaces.Stmt{}
+			mutex.Unlock()
+		},
+	}
+	graph.AddVertex(forFunc)
+	graph.AddEdge(f, forFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
+
+	return graph, nil
+}
+
+// Output returns the output that this "program" produces. This output is what
+// is used to build the output graph. This only exists for statements. The
+// analogous function for expressions is Value. Those Value functions might get
+// called by this Output function if they are needed to produce the output.
+func (obj *StmtFor) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	if obj.exprPtr == nil {
+		return nil, ErrFuncPointerNil
+	}
+	expr, exists := table[obj.exprPtr]
+	if !exists {
+		return nil, ErrTableNoValue
+	}
+
+	if obj.Body == nil { // logically body is optional
+		return &interfaces.Output{}, nil // XXX: test this doesn't panic anything
+	}
+
+	resources := []engine.Res{}
+	edges := []*interfaces.Edge{}
+
+	for k, v := range table {
+		fmt.Printf("XXX: STMTFOR TABLE: %+v => %+v\n", k, v)
+	}
+
+	list := expr.List() // must not panic!
+
+	for index, value := range list {
+		// index is a golang int, value is an mcl types.Value
+		fmt.Printf("FOR: (%d, %v)\n", index, value) // XXX
+		// XXX: Do we need a mutex around this iterBody access?
+		output, err := obj.iterBody[index].Output(table)
+		if err != nil {
+			return nil, err
+		}
+
+		for i, r := range output.Resources { // XXX DEBUG
+			fmt.Printf("RES(%d): %v\n", i, r)
+		}
+
+		if output != nil {
+			resources = append(resources, output.Resources...)
+			edges = append(edges, output.Edges...)
+		}
 	}
 
 	return &interfaces.Output{
@@ -3964,6 +4451,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 					mutex: &sync.Mutex{}, // TODO: call Init instead
 				},
+				//Definition: bind.Value, // XXX testing workaround confirms forloop thing
+
 				CapturedScope: capturedScope,
 			}
 			if obj.data.Debug { // TODO: is this message ever useful?
@@ -4207,7 +4696,7 @@ func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
+func (obj *StmtProg) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("prog")
 	if err != nil {
 		return nil, err
@@ -4228,7 +4717,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 			continue
 		}
 
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -4508,7 +4997,7 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
+func (obj *StmtFunc) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
 	//return obj.Func.Graph(nil) // nope!
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
@@ -4709,8 +5198,8 @@ func (obj *StmtClass) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
-	return obj.Body.Graph()
+func (obj *StmtClass) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
+	return obj.Body.Graph(env)
 }
 
 // Output for the class statement produces no output. Any values of interest
@@ -5063,13 +5552,13 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
+func (obj *StmtInclude) Graph(env map[string]interfaces.Func) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("include")
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := obj.class.Graph()
+	g, err := obj.class.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -5176,7 +5665,7 @@ func (obj *StmtImport) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular statement just returns an empty graph.
-func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
+func (obj *StmtImport) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
 	return pgraph.NewGraph("import") // empty graph
 }
 
@@ -5263,7 +5752,7 @@ func (obj *StmtComment) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular graph does nothing clever.
-func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
+func (obj *StmtComment) Graph(map[string]interfaces.Func) (*pgraph.Graph, error) {
 	return pgraph.NewGraph("comment")
 }
 

@@ -1240,13 +1240,14 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				}
 
 				fn := func(nodeCtx context.Context) (reterr error) {
-					defer func() {
-						// catch programming errors
-						if r := recover(); r != nil {
-							obj.Logf("Panic in Stream of func `%s`: %+v", node, r)
-							reterr = fmt.Errorf("panic in Stream of func `%s`: %+v", node, r)
-						}
-					}()
+					// XXX TEMPORARILY DISABLE TO MAKE DEBUGGING EASIER
+					//defer func() {
+					//	// catch programming errors
+					//	if r := recover(); r != nil {
+					//		obj.Logf("Panic in Stream of func `%s`: %+v", node, r)
+					//		reterr = fmt.Errorf("panic in Stream of func `%s`: %+v", node, r)
+					//	}
+					//}()
 					return f.Stream(nodeCtx)
 				}
 				runErr := fn(node.ctx) // wrap with recover()

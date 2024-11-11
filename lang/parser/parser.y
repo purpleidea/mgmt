@@ -92,7 +92,7 @@ func init() {
 %token OPEN_CURLY CLOSE_CURLY
 %token OPEN_PAREN CLOSE_PAREN
 %token OPEN_BRACK CLOSE_BRACK
-%token IF ELSE
+%token IF ELSE FOR FORKV
 %token BOOL STRING INTEGER FLOAT
 %token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
@@ -215,6 +215,30 @@ stmt:
 			ElseBranch: $8.stmt,
 		}
 	}
+	// iterate over lists
+	// `for $index, $value in $list { <body> }`
+|	FOR var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.stmt = &ast.StmtFor{
+			Index: $2.str, // no $ prefix
+			Value: $4.str, // no $ prefix
+			Expr:  $6.expr, // XXX: name this List ?
+			Body:  $8.stmt,
+		}
+	}
+//	// iterate over maps
+//	// `forkv $key, $val in $map { <body> }` XXX: name it loop or something else?
+//|	FORKV var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
+//	{
+//		posLast(yylex, yyDollar) // our pos
+//		$$.stmt = &ast.StmtForKV{
+//			Key:  $2.str, // no $ prefix
+//			Val:  $4.str, // no $ prefix
+//			Expr: $6.expr, // XXX: name this Map ?
+//			Body: $8.stmt,
+//		}
+//	}
 	// this is the named version, iow, a user-defined function (statement)
 	// `func name() { <expr> }`
 	// `func name(<arg>) { <expr> }`

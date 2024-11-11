@@ -47,7 +47,7 @@ const PostReverseCommit = false
 
 // GraphvizDebug enables writing graphviz graphs on each commit. This is very
 // slow.
-const GraphvizDebug = false
+const GraphvizDebug = true
 
 // opapi is the input for any op. This allows us to keeps things compact and it
 // also allows us to change API slightly without re-writing code.
@@ -207,6 +207,15 @@ func (obj *opAddEdge) Fn(opapi *opapi) error {
 		}
 		if len(args) != len(obj.FE.Args)+len(edge.Args) {
 			// programming error
+			fmt.Printf("DUPE FE.Args: %+v\n", obj.FE.Args)
+			fmt.Printf("DUPE edge.Args: %+v\n", edge.Args)
+			// XXX I disabled this error to make debugging easier...
+			// XXX I think this check like this is actually the bug...
+			// XXX It seems to happen if a vertex in the function engine
+			// XXX has more than one edge going out to at least two
+			// XXX different places but those edges are named the same...
+			// XXX (Which should be allowed, shouldn't it?)
+			// XXX The workaround is to add a unique int to each...
 			return fmt.Errorf("duplicate arg found")
 		}
 		newArgs := []string{}

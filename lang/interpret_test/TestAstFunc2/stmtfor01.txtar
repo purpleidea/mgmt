@@ -1,0 +1,15 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+for $index, $value in $list {
+	$s = $value # our first major bug was triggered by this!
+	test [$s,] {}
+}
+
+# The buggy version would return "test[a]" three times!
+-- OUTPUT --
+Vertex: test[a]
+Vertex: test[b]
+Vertex: test[c]

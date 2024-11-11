@@ -85,8 +85,10 @@ type Stmt interface {
 	// child statements, and Infer/Check for child expressions.
 	TypeCheck() ([]*UnificationInvariant, error)
 
-	// Graph returns the reactive function graph expressed by this node.
-	Graph() (*pgraph.Graph, error)
+	// Graph returns the reactive function graph expressed by this node. It
+	// takes in the environment of any functions in scope. It also returns
+	// the function for this node.
+	Graph(env map[string]Func) (*pgraph.Graph, error)
 
 	// Output returns the output that this "program" produces. This output
 	// is what is used to build the output graph. It requires the input

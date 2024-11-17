@@ -1,0 +1,5 @@
+mount "/tmp/mgmt.test.mount" {
+	state => "exists",
+	device => "tmpfs",
+	type => "tmpfs",
+}

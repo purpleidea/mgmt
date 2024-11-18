@@ -1,0 +1,10 @@
+{{/*
+###############################################################################
+#SOURCE		DEST		POLICY	LOGLEVEL	RATE	CONNLIMIT
+*/ -}}
+{{ if .comment -}}
+#
+#	{{ .comment }}
+#
+{{ end -}}
+{{ .source }}		{{ .dest }}	{{ .policy }}{{ if .log_level }}	$LOG_LEVEL{{ end }}

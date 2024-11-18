@@ -1,0 +1,13 @@
+#
+# Shorewall -- /etc/shorewall/stoppedrules
+#
+# For information about entries in this file, type "man shorewall-stoppedrules"
+#
+# The manpage is also online at
+# https://shorewall.org/manpages/shorewall-stoppedrules.html
+#
+# See https://shorewall.org/starting_and_stopping_shorewall.htm for additional
+# information.
+#
+###############################################################################
+#ACTION		SOURCE			DEST		PROTO	DPORT	SPORT

@@ -1,0 +1,529 @@
+# Mgmt
+# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "deploy"
+import "fmt"
+import "golang"
+import "local"
+import "golang/strings"
+
+# XXX: The templates need a padding function to line up columns.
+class firewall() {
+	pkg "shorewall" {
+		state => "installed",
+
+		Before => File["/etc/shorewall/"],
+	}
+
+	file "/etc/shorewall/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "/etc/shorewall/shorewall.conf" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/shorewall.conf.tmpl")),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+
+	svc "shorewall" {
+		state => "running",
+		startup => "enabled",
+	}
+
+	$vardir = local.vardir("shorewall/")
+
+	# Add the default fw zone.
+	include zone("fw", struct{
+		type => "firewall",
+	})
+
+	include params_base # TODO: Do we need the base file present?
+}
+
+class firewall:zone_base() {
+	file "${vardir}zones.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}zones.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/zones"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/shorewall/zones" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}zones.header", # also pull this one file
+			"${vardir}zones.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+}
+
+# NOTE: the firewall type is added automatically by this module
+class firewall:zone($name, $st) {
+	print "zone: ${name}" {}
+	# XXX: document why this is named zone_base instead of base:zone_base or
+	# change the compiler to use the second version?
+	include zone_base
+
+	$type = $st->type || "ipv4"
+	#$options = [] # TODO: add option validation?
+	$comment = $st->comment || ""
+
+	# TODO: Test type is valid from:
+	#$valid_types = [
+	#	"bport",
+	#	"bport4",
+	#	"bport6",
+	#	"firewall",
+	#	"ip",
+	#	"ipsec",
+	#	"ipsec4",
+	#	"ipsec6",
+	#	"ipv4",
+	#	"ipv6",
+	#	"local"
+	#	"loopback"
+	#	"vserver",
+	#]
+
+	$tmpl = struct{
+		name => "${name}",
+		type => "${type}",
+		comment => "${comment}",
+	}
+	file "${vardir}zones.d/${name}.zone" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/zones.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class firewall:interface_base() {
+	file "${vardir}interfaces.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}interfaces.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/interfaces"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/shorewall/interfaces" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}interfaces.header", # also pull this one file
+			"${vardir}interfaces.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+}
+
+class firewall:interface($name, $zone, $st) {
+	print "interface: ${name}" {}
+	include interface_base
+
+	$interface = $st->interface || (strings.to_upper($zone) + "_IF") # eg: NET_IF
+	$physical = $st->physical || $name
+	$options []str = $st->options || [] # TODO: add option validation?
+	$comment = $st->comment || ""
+
+	$tmpl = struct{
+		zone => "${zone}",
+		interface => "${interface}",
+		physical => "${physical}",
+		options => $options,
+		comment => "${comment}",
+	}
+	file "${vardir}interfaces.d/${name}.interface" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/interfaces.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class firewall:policy_base() {
+	file "${vardir}policy.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}policy.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/policy"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/shorewall/policy" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}policy.header", # also pull this one file
+			"${vardir}policy.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+}
+
+class firewall:policy($name, $st) {
+	print "policy: ${name}" {}
+	include policy_base
+
+	$source = $st->source
+	$dest = $st->dest
+	$policy = $st->policy
+	$log = $st->log || false
+	$comment = $st->comment || ""
+
+	$tmpl = struct{
+		source => "${source}",
+		dest => "${dest}",
+		policy => "${policy}",
+		log_level => $log,
+		comment => "${comment}",
+	}
+	file "${vardir}policy.d/${name}.policy" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/policy.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class firewall:rule_base() {
+	file "${vardir}rules.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}rules.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/rules"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/shorewall/rules" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}rules.header", # also pull this one file
+			"${vardir}rules.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+}
+
+class firewall:rule($name, $st) {
+	print "rule: ${name}" {}
+	include rule_base
+
+	$rule = $st->rule || "" # entire rule contents OR use the below values
+
+	$action = $st->action # REJECT or SSH(ACCEPT) or Ping(DROP)
+	$source = $st->source # source zone
+	$source_ips []str = $st->source_ips || []
+	$dest = $st->dest || "" # dest zone
+	$dest_ips []str = $st->dest_ips || []
+	$proto = $st->proto || "" # protocol
+	# TODO: port doesn't support ranges atm
+	$port = $st->port || 0
+	#$sport = $st->sport || 0 # TODO
+	#$original = $st->original || [] # TODO
+	$comment = $st->comment || ""
+
+	$source_ips_joined = strings.join($source_ips, ",")
+	$valid_source = if $source_ips_joined == "" {
+		"${source}"
+	} else {
+		"${source}:${source_ips_joined}"
+	}
+
+	$dest_ips_joined = strings.join($dest_ips, ",")
+	$valid_dest = if $dest_ips_joined == "" {
+		"${dest}"
+	} else {
+		"${dest}:${dest_ips_joined}"
+	}
+
+	$valid_proto = if $proto == "" {
+		"-"
+	} else {
+		"${proto}"
+	}
+
+	# TODO: type switch here if we ever support doing that
+	$valid_port = if $port == 0 {
+		"-"
+	} else {
+		fmt.printf("%d", $port)
+	}
+
+	# TODO: tabs for beautifying, replace with a padding function eventually.
+	$full_rule = if $proto == "" and $port == 0 {
+		"${action}\t${valid_source}\t\t${valid_dest}"
+	} else {
+		"${action}\t${valid_source}\t\t${valid_dest}\t\t${valid_proto}\t${valid_port}"
+	}
+
+	$valid_rule = if $rule == "" {
+		$full_rule
+	} else {
+		$rule
+	}
+
+	$tmpl = struct{
+		rule => "${valid_rule}",
+		comment => "${comment}",
+	}
+	file "${vardir}rules.d/${name}.rule" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/rules.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class firewall:stoppedrule_base() {
+	file "${vardir}stoppedrules.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}stoppedrules.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/stoppedrules"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/shorewall/stoppedrules" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}stoppedrules.header", # also pull this one file
+			"${vardir}stoppedrules.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+}
+
+class firewall:stoppedrule($name, $st) {
+	print "stoppedrule: ${name}" {}
+	include stoppedrule_base
+
+	$rule = $st->rule || "" # entire rule contents OR use the below values
+
+	$action = $st->action # REJECT or SSH(ACCEPT) or Ping(DROP)
+	$source = $st->source # source zone
+	$dest = $st->dest # dest zone
+
+	$comment = $st->comment || ""
+
+	# TODO: tabs for beautifying, replace with a padding function eventually.
+	$valid_rule = if $rule == "" {
+		"${action}\t${source}\t\t${dest}"
+	} else {
+		$rule
+	}
+
+	$tmpl = struct{
+		rule => "${valid_rule}",
+		comment => "${comment}",
+	}
+	file "${vardir}stoppedrules.d/${name}.stoppedrule" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/stoppedrules.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class firewall:snat_base() {
+	file "${vardir}snat.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}snat.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/snat"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/shorewall/snat" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}snat.header", # also pull this one file
+			"${vardir}snat.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+}
+
+class firewall:snat($name, $st) {
+	print "snat: ${name}" {}
+	include snat_base
+
+	$action = $st->action # "MASQUERADE" usually
+	$source = $st->source # list of ip/cidr
+	$dest = $st->dest
+	$comment = $st->comment || ""
+
+	$valid_source = strings.join($source, ",")
+
+	$tmpl = struct{
+		action => "${action}",
+		source => "${valid_source}",
+		dest => "${dest}",
+		comment => "${comment}",
+	}
+	file "${vardir}snat.d/${name}.snat" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/snat.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class firewall:params_base() {
+	file "${vardir}params.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}params.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/params"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/shorewall/params" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}params.header", # also pull this one file
+			"${vardir}params.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["shorewall"],
+	}
+}
+
+class firewall:params($name, $st) {
+	print "params: ${name}" {}
+	include params_base
+
+	# TODO: add params
+}

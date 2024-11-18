@@ -1,0 +1,10 @@
+{{/*
+###############################################################################
+#ZONE		INTERFACE		OPTIONS
+*/ -}}
+{{ if .comment -}}
+#
+#	{{ .comment }}
+#
+{{ end -}}
+{{ .zone }}		{{ .interface }}		physical={{ .physical }}{{ if .options }},{{ golang_strings_join .options "," }}{{ end }}

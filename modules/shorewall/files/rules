@@ -1,0 +1,17 @@
+#
+# Shorewall -- /etc/shorewall/rules
+#
+# For information on the settings in this file, type "man shorewall-rules"
+#
+# The manpage is also online at
+# https://shorewall.org/manpages/shorewall-rules.html
+#
+##############################################################################################################################################################
+#ACTION		SOURCE		DEST		PROTO	DPORT	SPORT	ORIGDEST	RATE	USER	MARK	CONNLIMIT	TIME	HEADERS	SWITCH	HELPER
+
+?SECTION ALL
+?SECTION ESTABLISHED
+?SECTION RELATED
+?SECTION INVALID
+?SECTION UNTRACKED
+?SECTION NEW

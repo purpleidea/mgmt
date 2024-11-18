@@ -1,0 +1,10 @@
+{{/*
+###################################################################################################################################################
+#ACTION			SOURCE			DEST		PROTO	DPORT	SPORT	IPSEC	MARK	USER	SWITCH	ORIGDEST	PROBABILITY
+*/ -}}
+{{ if .comment -}}
+#
+#	{{ .comment }}
+#
+{{ end -}}
+{{ .action }}		{{ .source }}	{{ .dest }}

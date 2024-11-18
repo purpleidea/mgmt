@@ -1,0 +1,213 @@
+# Mgmt
+# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "deploy"
+import "fmt"
+import "golang"
+import "local"
+import "golang/strings"
+
+class server($st) {
+	$defaultleasetime = $st->defaultleasetime || 600
+	$maxleasetime = $st->maxleasetime || 7200
+
+	$tmpl = struct{
+		defaultleasetime => $defaultleasetime,
+		maxleasetime => $maxleasetime,
+	}
+
+	pkg "dhcp-server" {
+		state => "installed",
+
+		Before => File["/etc/dhcp/"],
+	}
+
+	file "/etc/dhcp/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+
+	file "/etc/dhcp/dhcpd.conf" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/dhcpd.conf.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+
+		Notify => Svc["dhcpd"],
+	}
+
+	svc "dhcpd" {
+		state => "running",
+		startup => "enabled",
+	}
+
+	$vardir = local.vardir("dhcp/")
+}
+
+class server:subnet_base() {
+	file "${vardir}subnets.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+
+	file "${vardir}subnets.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/subnets.header"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+
+	file "/etc/dhcp/subnets.conf" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}subnets.header",
+			"${vardir}subnets.d/",
+		],
+
+		Notify => Svc["dhcpd"],
+	}
+}
+
+class server:subnet($name, $st) {
+	print "subnet: ${name}" {}
+	include subnet_base
+
+	# TODO: We could compute many defaults from a single network CIDR.
+
+	$network str = $st->network # TODO: improve type unification
+	$netmask = $st->netmask || "255.255.255.0"
+	$broadcast = $st->broadcast || ""
+	$router = $st->router || "" # TODO: eventually this could be a list
+	$dns = $st->dns || [] # []str, local 'option domain-name-servers'
+	$range = $st->range || struct{start => "", end => "",} # struct with start, end fields
+	$range_start = $range->start || ""
+	$range_end = $range->end || ""
+
+	$comment = $st->comment || ""
+
+	$valid_range = if $range_start != "" and $range_end != "" {
+		"${range_start} ${range_end}"
+	} else {
+		"" # invalid
+	}
+
+	$tmpl = struct{
+		name => "${name}",
+		network => "${network}", # the subnet
+		netmask => "${netmask}",
+		broadcast => "${broadcast}",
+		router => "${router}", # TODO: support multiple
+		dns => strings.join($dns, ", "),
+		range => $valid_range,
+		#nextserver => "${nextserver}",
+		#filename => "${filename}",
+		comment => "${comment}",
+	}
+
+	file "${vardir}subnets.d/${name}.subnet" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/subnet.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,g=rx,o=",
+	}
+}
+
+class server:host_base() {
+	file "${vardir}hosts.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+
+	file "${vardir}hosts.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/hosts.header"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+
+	file "/etc/dhcp/hosts.conf" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}hosts.header",
+			"${vardir}hosts.d/",
+		],
+
+		Notify => Svc["dhcpd"],
+	}
+}
+
+class server:host($name, $st) {
+	print "host: ${name}" {}
+	include host_base
+
+	$macaddress = $st->macaddress
+	$fixedaddress = $st->fixedaddress # []str
+	$hostname = $st->hostname || ""
+	$nextserver = $st->nextserver || ""
+	$filename = $st->filename || ""
+	$comment = $st->comment || ""
+
+	$tmpl = struct{
+		name => "${name}",
+		macaddress => "${macaddress}",
+		valid_fixedaddress => strings.join($fixedaddress, ","),
+		#fixedaddress => $fixedaddress, # TODO: when it's a list
+		hostname => "${hostname}",
+		nextserver => "${nextserver}",
+		filename => "${filename}",
+		veo => false, # TODO
+		comment => "${comment}",
+	}
+
+	file "${vardir}hosts.d/${name}.host" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/host.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,g=rx,o=",
+	}
+}

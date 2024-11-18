@@ -1,0 +1,19 @@
+{{/* newline for host spacing */}}
+# host: {{ .name }}
+host {{ .name }} {
+	hardware ethernet {{ .macaddress }};
+	fixed-address {{ .valid_fixedaddress }};
+{{- if .hostname }}
+	option host-name "{{ .hostname }}";
+{{ end -}}
+{{- if .nextserver }}
+	next-server {{ .nextserver }};
+{{ end -}}
+{{- if .filename }}
+	filename "{{ .filename }}";
+{{ end -}}
+{{- if .veo }}
+	filename "{{ .filename }}";
+	option vendor-encapsulated-options {{ .veo }};
+{{ end -}}
+}

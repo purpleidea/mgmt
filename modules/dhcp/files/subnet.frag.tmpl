@@ -1,0 +1,34 @@
+{{/* newline for subnet spacing */}}
+#
+#	{{ .name }} subnet
+#
+subnet {{ .network }} netmask {{ .netmask }} {
+	option subnet-mask {{ .netmask }};
+{{- if .broadcast }}
+	option broadcast-address {{ .broadcast }};
+{{ end -}}
+{{- if .router }}
+	option routers {{ .router }};
+{{ end -}}
+{{- if .dns }}
+	option domain-name-servers {{ .dns }};
+{{ end -}}
+{{- if .nextserver }}
+	next-server {{ .nextserver }};
+{{ end -}}
+{{- if .filename }}
+	filename "{{ .filename }}";
+{{ end -}}
+{{- if .serveridentifier }}
+	server-identifier {{ .serveridentifier }};
+{{ end -}}
+{{- if .defaultleasetime }}
+	default-lease-time {{ .defaultleasetime }};
+{{ end -}}
+{{- if .maxleasetime }}
+	max-lease-time {{ .maxleasetime }};
+{{ end -}}
+{{- if .range }}
+	range {{ .range }};
+{{ end -}}
+}

@@ -548,6 +548,13 @@ func (obj *Generate) genFunctions() (map[string]*FunctionInfo, error) {
 		//fi.Desc = desc
 		fi.Signature = sig
 
+		// Hack for golang generated functions!
+		if strings.HasPrefix(fi.Package, "golang/") && fi.File == "generated_funcs.go" {
+			pkg := fi.Package[len("golang/"):]
+			frag := strings.TrimPrefix(fi.Name, strings.Title(strings.Join(strings.Split(pkg, "/"), ""))) // yuck
+			fi.File = fmt.Sprintf("https://pkg.go.dev/%s#%s", pkg, frag)
+		}
+
 		if fi.Func == "" {
 			return nil, fmt.Errorf("empty function name: %s", name)
 		}

@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"strings"
 
+	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -277,6 +278,16 @@ type DataFunc interface {
 	// SetData is used by the language to pass our function some code-level
 	// context.
 	SetData(*FuncData)
+}
+
+// MetadataFunc is a function that can return some extraneous information about
+// itself, which is usually used for documentation generation and so on.
+type MetadataFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// Metadata returns some metadata about the func. It can be called at
+	// any time, and doesn't require you run Init() or anything else first.
+	GetMetadata() *docsUtil.Metadata
 }
 
 // FuncEdge links an output vertex (value) to an input vertex with a named

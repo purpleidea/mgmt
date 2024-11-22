@@ -42,14 +42,17 @@ func init() {
 	// FIXME: consider renaming this to printf, and add in a format string?
 	simple.ModuleRegister(ModuleName, "print", &simple.Scaffold{
 		T: types.NewType("func(a int) str"),
-		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
-			epochDelta := input[0].Int()
-			if epochDelta < 0 {
-				return nil, fmt.Errorf("epoch delta must be positive")
-			}
-			return &types.StrValue{
-				V: time.Unix(epochDelta, 0).String(),
-			}, nil
-		},
+		F: Print,
 	})
+}
+
+// Print takes an epoch int and returns a string in unix format.
+func Print(ctx context.Context, input []types.Value) (types.Value, error) {
+	epochDelta := input[0].Int()
+	if epochDelta < 0 {
+		return nil, fmt.Errorf("epoch delta must be positive")
+	}
+	return &types.StrValue{
+		V: time.Unix(epochDelta, 0).String(),
+	}, nil
 }

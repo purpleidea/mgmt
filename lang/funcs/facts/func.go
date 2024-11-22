@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 
+	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -40,6 +41,8 @@ import (
 // FactFunc is a wrapper for the fact interface. It implements the fact
 // interface in terms of Func to reduce the two down to a single mechanism.
 type FactFunc struct { // implements `interfaces.Func`
+	*docsUtil.Metadata
+
 	Fact Fact
 }
 

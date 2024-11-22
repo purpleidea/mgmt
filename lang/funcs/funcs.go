@@ -33,9 +33,12 @@ package funcs
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 
+	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -56,6 +59,10 @@ const (
 
 	// CoreDir is the directory prefix where core mcl code is embedded.
 	CoreDir = "core/"
+
+	// FunctionsRelDir is the path where the functions are kept, relative to
+	// the main source code root.
+	FunctionsRelDir = "lang/core/"
 
 	// ConcatFuncName is the name the concat function is registered as. It
 	// is listed here because it needs a well-known name that can be used by
@@ -119,6 +126,22 @@ func Register(name string, fn func() interfaces.Func) {
 
 	//gob.Register(fn())
 	registeredFuncs[name] = fn
+
+	f := fn() // Remember: If we modify this copy, it gets thrown away!
+
+	if _, ok := f.(interfaces.MetadataFunc); ok { // If it does it itself...
+		return
+	}
+
+	// We have to do it manually...
+	metadata, err := GetFunctionMetadata(f)
+	if err != nil {
+		panic(fmt.Sprintf("could not get function metadata for %s: %v", name, err))
+	}
+
+	if err := docsUtil.RegisterFunction(name, metadata); err != nil {
+		panic(fmt.Sprintf("could not register function metadata for %s", name))
+	}
 }
 
 // ModuleRegister is exactly like Register, except that it registers within a
@@ -176,6 +199,71 @@ func Map() map[string]func() interfaces.Func {
 		m[name] = fn
 	}
 	return m
+}
+
+// GetFunctionName reads the handle to find the underlying real function name.
+// The function can be an actual function or a struct which implements one.
+func GetFunctionName(fn interface{}) string {
+	pc := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
+	if pc == nil {
+		// This part works for structs, the other parts work for funcs.
+		t := reflect.TypeOf(fn)
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+
+		return t.Name()
+	}
+
+	// if pc.Name() is: github.com/purpleidea/mgmt/lang/core/math.Pow
+	sp := strings.Split(pc.Name(), "/")
+
+	// ...this will be: math.Pow
+	s := sp[len(sp)-1]
+
+	ix := strings.LastIndex(s, ".")
+	if ix == -1 { // standalone
+		return s
+	}
+
+	// ... this will be: Pow
+	return s[ix+1:]
+}
+
+// GetFunctionMetadata builds a metadata struct with everything about this func.
+func GetFunctionMetadata(fn interface{}) (*docsUtil.Metadata, error) {
+	nested := 1 // because this is wrapped in a function
+	// Additional metadata for documentation generation!
+	_, self, _, ok := runtime.Caller(0 + nested)
+	if !ok {
+		return nil, fmt.Errorf("could not locate function filename (1)")
+	}
+	depth := 1 + nested
+	// If this is ModuleRegister, we look deeper! Normal Register is depth 1
+	filename := self // initial condition to start the loop
+	for filename == self {
+		_, filename, _, ok = runtime.Caller(depth)
+		if !ok {
+			return nil, fmt.Errorf("could not locate function filename (2)")
+		}
+		depth++
+	}
+
+	// Get the function implementation path relative to FunctionsRelDir.
+	// FIXME: Technically we should split this by dirs instead of using
+	// string indexing, which is less correct, but we control the dirs.
+	ix := strings.LastIndex(filename, FunctionsRelDir)
+	if ix == -1 {
+		return nil, fmt.Errorf("could not locate function filename (3): %s", filename)
+	}
+	filename = filename[ix+len(FunctionsRelDir):]
+
+	funcname := GetFunctionName(fn)
+
+	return &docsUtil.Metadata{
+		Filename: filename,
+		Typename: funcname,
+	}, nil
 }
 
 // PureFuncExec is usually used to provisionally speculate about the result of a

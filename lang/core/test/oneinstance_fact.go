@@ -132,6 +132,7 @@ func init() {
 			oneInstanceBMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
+		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &simple.Scaffold{
 		T: types.NewType("func() str"),
@@ -144,6 +145,7 @@ func init() {
 			oneInstanceDMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
+		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &simple.Scaffold{
 		T: types.NewType("func() str"),
@@ -156,6 +158,7 @@ func init() {
 			oneInstanceFMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
+		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &simple.Scaffold{
 		T: types.NewType("func() str"),
@@ -168,6 +171,7 @@ func init() {
 			oneInstanceHMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
+		D: &OneInstanceFact{},
 	})
 }
 

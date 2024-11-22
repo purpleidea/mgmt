@@ -51,10 +51,19 @@ func Register(name string, fn func() Fact) {
 	if _, ok := RegisteredFacts[name]; ok {
 		panic(fmt.Sprintf("a fact named %s is already registered", name))
 	}
+	f := fn()
+
+	metadata, err := funcs.GetFunctionMetadata(f)
+	if err != nil {
+		panic(fmt.Sprintf("could not locate fact filename for %s", name))
+	}
+
 	//gob.Register(fn())
 	funcs.Register(name, func() interfaces.Func { // implement in terms of func interface
 		return &FactFunc{
-			Fact: fn(),
+			Fact: f,
+
+			Metadata: metadata,
 		}
 	})
 	RegisteredFacts[name] = fn

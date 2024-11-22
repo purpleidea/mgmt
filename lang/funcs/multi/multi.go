@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"sort"
 
+	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -60,6 +61,10 @@ type Scaffold struct {
 	// determined from the input types, then a different function API needs
 	// to be used. XXX: Should we extend this here?
 	M func(typ *types.Type) (interfaces.FuncSig, error)
+
+	// D is the documentation handle for this function. We look on that
+	// struct or function for the doc string.
+	D interface{}
 }
 
 // Register registers a simple, static, pure, polymorphic function. It is easier
@@ -92,9 +97,15 @@ func Register(name string, scaffold *Scaffold) {
 
 	RegisteredFuncs[name] = scaffold // store a copy for ourselves
 
+	metadata, err := funcs.GetFunctionMetadata(scaffold.D)
+	if err != nil {
+		panic(fmt.Sprintf("could not locate function filename for %s", name))
+	}
+
 	// register a copy in the main function database
 	funcs.Register(name, func() interfaces.Func {
 		return &Func{
+			Metadata: metadata,
 			WrappedFunc: &wrapped.Func{
 				Name: name,
 				// NOTE: It might be more correct to Copy here,
@@ -127,6 +138,7 @@ var _ interfaces.BuildableFunc = &Func{} // ensure it meets this expectation
 // function. This function API is unique in that it lets you provide your own
 // `Make` builder function to create the function implementation.
 type Func struct {
+	*docsUtil.Metadata
 	*WrappedFunc // *wrapped.Func as a type alias to pull in the base impl.
 
 	// Make is a build function to run after type unification. It will get

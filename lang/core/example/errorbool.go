@@ -40,13 +40,17 @@ import (
 func init() {
 	simple.ModuleRegister(ModuleName, "errorbool", &simple.Scaffold{
 		T: types.NewType("func(a bool) str"),
-		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
-			if input[0].Bool() {
-				return nil, fmt.Errorf("we errored on request")
-			}
-			return &types.StrValue{
-				V: "set input to true to generate an error",
-			}, nil
-		},
+		F: ErrorBool,
 	})
+}
+
+// ErrorBool causes this function to error if you pass it true. Otherwise it
+// returns a string reminding you how to use it.
+func ErrorBool(ctx context.Context, input []types.Value) (types.Value, error) {
+	if input[0].Bool() {
+		return nil, fmt.Errorf("we errored on request")
+	}
+	return &types.StrValue{
+		V: "set input to true to generate an error",
+	}, nil
 }

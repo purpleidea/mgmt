@@ -27,27 +27,24 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package coreexample
+// Package docs provides a tool that generates documentation from the source.
+//
+// ./mgmt docs generate --output /tmp/docs.json && cat /tmp/docs.json | jq
+package docs
 
 import (
 	"context"
-
-	"github.com/purpleidea/mgmt/lang/funcs/simple"
-	"github.com/purpleidea/mgmt/lang/types"
 )
 
-// Answer is the Answer to Life, the Universe and Everything.
-const Answer = 42
-
-func init() {
-	simple.ModuleRegister(ModuleName, "answer", &simple.Scaffold{
-		T: types.NewType("func() int"),
-		F: TheAnswerToLifeTheUniverseAndEverything,
-	})
+// API is the simple interface we expect for any setup items.
+type API interface {
+	// Main runs everything for this setup item.
+	Main(context.Context) error
 }
 
-// TheAnswerToLifeTheUniverseAndEverything returns the Answer to Life, the
-// Universe and Everything.
-func TheAnswerToLifeTheUniverseAndEverything(context.Context, []types.Value) (types.Value, error) {
-	return &types.IntValue{V: Answer}, nil
+// Config is a struct of all the configuration values which are shared by all of
+// the setup utilities. By including this as a separate struct, it can be used
+// as part of the API if we want.
+type Config struct {
+	//Foo string `arg:"--foo,env:MGMT_DOCGEN_FOO" help:"Foo..."` // TODO: foo
 }

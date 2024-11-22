@@ -40,14 +40,18 @@ import (
 func init() {
 	simple.ModuleRegister(ModuleName, "str2int", &simple.Scaffold{
 		T: types.NewType("func(a str) int"),
-		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
-			var i int64
-			if val, err := strconv.ParseInt(input[0].Str(), 10, 64); err == nil {
-				i = val
-			}
-			return &types.IntValue{
-				V: i,
-			}, nil
-		},
+		F: Str2Int,
 	})
+}
+
+// Str2Int takes an str, and returns it as an int. If it can't convert it, it
+// returns 0.
+func Str2Int(ctx context.Context, input []types.Value) (types.Value, error) {
+	var i int64
+	if val, err := strconv.ParseInt(input[0].Str(), 10, 64); err == nil {
+		i = val
+	}
+	return &types.IntValue{
+		V: i,
+	}, nil
 }

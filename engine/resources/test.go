@@ -70,6 +70,7 @@ type TestRes struct {
 	Uint64 uint64 `lang:"uint64" yaml:"uint64"`
 
 	//Uintptr uintptr `lang:"uintptr" yaml:"uintptr"`
+
 	Byte byte `lang:"byte" yaml:"byte"` // alias for uint8
 	Rune rune `lang:"rune" yaml:"rune"` // alias for int32, represents a Unicode code point
 
@@ -84,7 +85,7 @@ type TestRes struct {
 	Int8Ptr   *int8   `lang:"int8ptr" yaml:"int8ptr"`
 	Uint8Ptr  *uint8  `lang:"uint8ptr" yaml:"uint8ptr"`
 
-	// probably makes no sense, but is legal
+	// Int8PtrPtrPtr probably makes no sense, but is legal.
 	Int8PtrPtrPtr ***int8 `lang:"int8ptrptrptr" yaml:"int8ptrptrptr"`
 
 	SliceString []string          `lang:"slicestring" yaml:"slicestring"`

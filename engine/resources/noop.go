@@ -49,7 +49,8 @@ type NoopRes struct {
 
 	init *engine.Init
 
-	Comment string `lang:"comment" yaml:"comment"` // extra field for example purposes
+	// Comment is a useless comment field that you can use however you like.
+	Comment string `lang:"comment" yaml:"comment"`
 }
 
 // Default returns some sensible defaults for this resource.

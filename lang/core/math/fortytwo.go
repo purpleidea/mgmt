@@ -65,6 +65,7 @@ func init() {
 		//	}
 		//	return nil, fmt.Errorf("can't use return type of: %s", typ.Out)
 		//},
+		D: FortyTwo, // get the docs from this
 	})
 }
 

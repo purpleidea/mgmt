@@ -52,9 +52,15 @@ type MsgRes struct {
 
 	init *engine.Init
 
-	Body     string            `lang:"body" yaml:"body"`
-	Priority string            `lang:"priority" yaml:"priority"`
-	Fields   map[string]string `lang:"fields" yaml:"fields"`
+	// Body is the body of the message to send.
+	Body string `lang:"body" yaml:"body"`
+
+	// Priority is the priority of the message. Currently this is one of:
+	// Emerg, Alert, Crit, Err, Warning, Notice, Info, Debug.
+	Priority string `lang:"priority" yaml:"priority"`
+
+	// Fields are the key/value pairs set in the journal if we are using it.
+	Fields map[string]string `lang:"fields" yaml:"fields"`
 
 	// Journal should be true to enable systemd journaled (journald) output.
 	Journal bool `lang:"journal" yaml:"journal"`

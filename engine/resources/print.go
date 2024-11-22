@@ -52,7 +52,9 @@ type PrintRes struct {
 
 	init *engine.Init
 
-	Msg string `lang:"msg" yaml:"msg"` // the message to display
+	// Msg is the message to display.
+	Msg string `lang:"msg" yaml:"msg"`
+
 	// RefreshOnly is an option that causes the message to be printed only
 	// when notified by another resource. When set to true, this resource
 	// cannot be autogrouped.

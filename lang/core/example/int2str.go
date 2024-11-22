@@ -40,10 +40,13 @@ import (
 func init() {
 	simple.ModuleRegister(ModuleName, "int2str", &simple.Scaffold{
 		T: types.NewType("func(a int) str"),
-		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
-			return &types.StrValue{
-				V: fmt.Sprintf("%d", input[0].Int()),
-			}, nil
-		},
+		F: Int2Str,
 	})
+}
+
+// Int2Str takes an int, and returns it as a string.
+func Int2Str(ctx context.Context, input []types.Value) (types.Value, error) {
+	return &types.StrValue{
+		V: fmt.Sprintf("%d", input[0].Int()),
+	}, nil
 }

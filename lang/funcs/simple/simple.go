@@ -35,6 +35,7 @@ import (
 	"reflect"
 	"strings"
 
+	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -72,6 +73,11 @@ type Scaffold struct {
 	// can't be determined from the input types, then a different function
 	// API needs to be used. XXX: Should we extend this here?
 	F interfaces.FuncSig
+
+	// D is the documentation handle for this function. We look on that
+	// struct or function for the doc string instead of the F field if this
+	// is specified. (This is used for facts.)
+	D interface{}
 }
 
 // Register registers a simple, static, pure, polymorphic function. It is easier
@@ -105,9 +111,23 @@ func Register(name string, scaffold *Scaffold) {
 
 	RegisteredFuncs[name] = scaffold // store a copy for ourselves
 
+	// TODO: Do we need to special case either of these?
+	//if strings.HasPrefix(name, "embedded/") {}
+	//if strings.HasPrefix(name, "golang/") {}
+
+	var f interface{} = scaffold.F
+	if scaffold.D != nil { // override the doc lookup location if specified
+		f = scaffold.D
+	}
+	metadata, err := funcs.GetFunctionMetadata(f)
+	if err != nil {
+		panic(fmt.Sprintf("could not locate function filename for %s", name))
+	}
+
 	// register a copy in the main function database
 	funcs.Register(name, func() interfaces.Func {
 		return &Func{
+			Metadata: metadata,
 			WrappedFunc: &wrapped.Func{
 				Name: name,
 				// NOTE: It might be more correct to Copy here,
@@ -140,6 +160,7 @@ var _ interfaces.BuildableFunc = &Func{} // ensure it meets this expectation
 // function API, but that can run a very simple, static, pure, polymorphic
 // function.
 type Func struct {
+	*docsUtil.Metadata
 	*WrappedFunc // *wrapped.Func as a type alias to pull in the base impl.
 
 	// Check is a check function to run after type unification. It will get

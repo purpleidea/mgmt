@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"math"
 
+	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -468,6 +469,8 @@ func LookupOperator(operator string, size int) (*types.Type, error) {
 // OperatorFunc is an operator function that performs an operation on N values.
 // XXX: Can we wrap SimpleFunc instead of having the boilerplate here ourselves?
 type OperatorFunc struct {
+	*docsUtil.Metadata
+
 	Type *types.Type // Kind == Function, including operator arg
 
 	init *interfaces.Init

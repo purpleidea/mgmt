@@ -33,13 +33,23 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 
+	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	// ResourcesRelDir is the path where the resources are kept, relative to
+	// the main source code root.
+	ResourcesRelDir = "engine/resources/"
 )
 
 // TODO: should each resource be a sub-package?
@@ -57,6 +67,23 @@ func RegisterResource(kind string, fn func() Res) {
 	}
 	gob.Register(f)
 	registeredResources[kind] = fn
+
+	// Additional metadata for documentation generation!
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		panic(fmt.Sprintf("could not locate resource filename for %s", kind))
+	}
+	sp := strings.Split(reflect.TypeOf(f).String(), ".")
+	if len(sp) != 2 {
+		panic(fmt.Sprintf("could not parse resource struct name for %s", kind))
+	}
+
+	if err := docsUtil.RegisterResource(kind, &docsUtil.Metadata{
+		Filename: filepath.Base(filename),
+		Typename: sp[1],
+	}); err != nil {
+		panic(fmt.Sprintf("could not register resource metadata for %s", kind))
+	}
 }
 
 // RegisteredResourcesNames returns the kind of the registered resources.

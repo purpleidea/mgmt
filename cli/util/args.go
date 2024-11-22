@@ -187,3 +187,12 @@ type FirstbootStartArgs struct {
 	DoneDir      string `arg:"--done-dir" help:"dir to move done scripts to"`
 	LoggingDir   string `arg:"--logging-dir" help:"directory to store logs in"`
 }
+
+// DocsGenerateArgs is the docgen utility CLI parsing structure and type of the
+// parsed result.
+type DocsGenerateArgs struct {
+	Output      string `arg:"--output" help:"output path to write to"`
+	RootDir     string `arg:"--root-dir" help:"path to mgmt source dir"`
+	NoResources bool   `arg:"--no-resources" help:"skip resource doc generation"`
+	NoFunctions bool   `arg:"--no-functions" help:"skip function doc generation"`
+}

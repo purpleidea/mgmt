@@ -25,7 +25,7 @@ done
 
 if [[ -n "$failures" ]]; then
 	echo 'FAIL'
-	echo "The following tests (in: ${linkto}) have failed:"
+	echo "The following tests have failed:"
 	echo -e "$failures"
 	echo
 	exit 1

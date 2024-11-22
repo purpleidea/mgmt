@@ -27,42 +27,35 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package funcs
+package core
 
 import (
 	"context"
 	"fmt"
-	"math"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	// ListLookupDefaultFuncName is the name this function is registered as.
-	ListLookupDefaultFuncName = "list_lookup_default"
+	// ContainsFuncName is the name this function is registered as.
+	ContainsFuncName = funcs.ContainsFuncName
 
 	// arg names...
-	listLookupDefaultArgNameList    = "list"
-	listLookupDefaultArgNameIndex   = "index"
-	listLookupDefaultArgNameDefault = "default"
+	containsArgNameNeedle   = "needle"
+	containsArgNameHaystack = "haystack"
 )
 
 func init() {
-	Register(ListLookupDefaultFuncName, func() interfaces.Func { return &ListLookupDefaultFunc{} }) // must register the func and name
+	funcs.Register(ContainsFuncName, func() interfaces.Func { return &ContainsFunc{} }) // must register the func and name
 }
 
-var _ interfaces.BuildableFunc = &ListLookupDefaultFunc{} // ensure it meets this expectation
+var _ interfaces.BuildableFunc = &ContainsFunc{} // ensure it meets this expectation
 
-// ListLookupDefaultFunc is a list index lookup function. If you provide a
-// negative index, then it will return the default value you specified for this
-// function.
-// TODO: Eventually we will deprecate this function when the function engine can
-// support passing a value for erroring functions. (Bad index could be an err!)
-type ListLookupDefaultFunc struct {
-	// TODO: Logically should this be ported to be the type of the elements?
-	Type *types.Type // Kind == List, that is used as the list we lookup in
+// ContainsFunc returns true if a value is found in a list. Otherwise false.
+type ContainsFunc struct {
+	Type *types.Type // this is the type of value stored in our list
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
@@ -72,13 +65,13 @@ type ListLookupDefaultFunc struct {
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *ListLookupDefaultFunc) String() string {
-	return ListLookupDefaultFuncName
+func (obj *ContainsFunc) String() string {
+	return ContainsFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *ListLookupDefaultFunc) ArgGen(index int) (string, error) {
-	seq := []string{listLookupDefaultArgNameList, listLookupDefaultArgNameIndex, listLookupDefaultArgNameDefault}
+func (obj *ContainsFunc) ArgGen(index int) (string, error) {
+	seq := []string{containsArgNameNeedle, containsArgNameHaystack}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -86,19 +79,13 @@ func (obj *ListLookupDefaultFunc) ArgGen(index int) (string, error) {
 }
 
 // helper
-func (obj *ListLookupDefaultFunc) sig() *types.Type {
-	// func(list []?1, index int, default ?1) ?1
-	v := "?1"
+func (obj *ContainsFunc) sig() *types.Type {
+	// func(needle ?1, haystack []?1) bool
+	s := "?1"
 	if obj.Type != nil { // don't panic if called speculatively
-		v = obj.Type.Val.String()
+		s = obj.Type.String() // if solved
 	}
-	return types.NewType(fmt.Sprintf(
-		"func(%s []%s, %s int, %s %s) %s",
-		listLookupDefaultArgNameList, v,
-		listLookupDefaultArgNameIndex,
-		listLookupDefaultArgNameDefault, v,
-		v,
-	))
+	return types.NewType(fmt.Sprintf("func(%s %s, %s []%s) bool", containsArgNameNeedle, s, containsArgNameHaystack, s))
 }
 
 // Build is run to turn the polymorphic, undetermined function, into the
@@ -106,83 +93,46 @@ func (obj *ListLookupDefaultFunc) sig() *types.Type {
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *ListLookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
-	// typ is the KindFunc signature we're trying to build...
-	if typ.Kind != types.KindFunc {
-		return nil, fmt.Errorf("input type must be of kind func")
-	}
-
-	if len(typ.Ord) != 3 {
-		return nil, fmt.Errorf("the listlookup function needs exactly three args")
-	}
-	if typ.Out == nil {
-		return nil, fmt.Errorf("return type of function must be specified")
-	}
-	if typ.Map == nil {
-		return nil, fmt.Errorf("invalid input type")
-	}
-
-	tList, exists := typ.Map[typ.Ord[0]]
-	if !exists || tList == nil {
-		return nil, fmt.Errorf("first arg must be specified")
-	}
-
-	tIndex, exists := typ.Map[typ.Ord[1]]
-	if !exists || tIndex == nil {
-		return nil, fmt.Errorf("second arg must be specified")
-	}
-
-	tDefault, exists := typ.Map[typ.Ord[2]]
-	if !exists || tDefault == nil {
-		return nil, fmt.Errorf("third arg must be specified")
-	}
-
-	if tIndex != nil && tIndex.Kind != types.KindInt {
-		return nil, fmt.Errorf("index must be int kind")
-	}
-
-	if err := tList.Val.Cmp(tDefault); err != nil {
-		return nil, errwrap.Wrapf(err, "default must match list val type")
-	}
-
-	if err := tList.Val.Cmp(typ.Out); err != nil {
-		return nil, errwrap.Wrapf(err, "return type must match list val type")
-	}
-
-	obj.Type = tList // list type
+func (obj *ContainsFunc) Build(typ *types.Type) (*types.Type, error) {
+	// We don't need to check that this matches, or that .Map has the right
+	// length, because otherwise it would mean type unification is giving a
+	// bad solution, which would be a major bug. Check to avoid any panics.
+	// Other functions might need to check something if they only accept a
+	// limited subset of the original type unification variables signature.
+	//if err := unificationUtil.UnifyCmp(typ, obj.sig()); err != nil {
+	//	return nil, err
+	//}
+	obj.Type = typ.Map[typ.Ord[0]] // type of value stored in our list
 	return obj.sig(), nil
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *ListLookupDefaultFunc) Validate() error {
+func (obj *ContainsFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
-	}
-	if obj.Type.Kind != types.KindList {
-		return fmt.Errorf("type must be a kind of list")
 	}
 	return nil
 }
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *ListLookupDefaultFunc) Info() *interfaces.Info {
+func (obj *ContainsFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
-		Sig:  obj.sig(), // helper
+		Sig:  obj.sig(), // helper, func kind
 		Err:  obj.Validate(),
 	}
 }
 
 // Init runs some startup code for this function.
-func (obj *ListLookupDefaultFunc) Init(init *interfaces.Init) error {
+func (obj *ContainsFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *ListLookupDefaultFunc) Stream(ctx context.Context) error {
+func (obj *ContainsFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -199,23 +149,11 @@ func (obj *ListLookupDefaultFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			l := (input.Struct()[listLookupDefaultArgNameList]).(*types.ListValue)
-			index := input.Struct()[listLookupDefaultArgNameIndex].Int()
-			def := input.Struct()[listLookupDefaultArgNameDefault]
+			needle := input.Struct()[containsArgNameNeedle]
+			haystack := (input.Struct()[containsArgNameHaystack]).(*types.ListValue)
 
-			// TODO: should we handle overflow by returning default?
-			if index > math.MaxInt { // max int size varies by arch
-				return fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
-			}
-
-			// negative index values are "not found" here!
-			var result types.Value
-			val, exists := l.Lookup(int(index))
-			if exists {
-				result = val
-			} else {
-				result = def
-			}
+			_, exists := haystack.Contains(needle)
+			var result types.Value = &types.BoolValue{V: exists}
 
 			// if previous input was `2 + 4`, but now it
 			// changed to `1 + 5`, the result is still the

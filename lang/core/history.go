@@ -27,12 +27,13 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package funcs // TODO: should this be in its own individual package?
+package core // TODO: should this be in its own individual package?
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -48,7 +49,7 @@ const (
 )
 
 func init() {
-	Register(HistoryFuncName, func() interfaces.Func { return &HistoryFunc{} }) // must register the func and name
+	funcs.Register(HistoryFuncName, func() interfaces.Func { return &HistoryFunc{} }) // must register the func and name
 }
 
 var _ interfaces.BuildableFunc = &HistoryFunc{} // ensure it meets this expectation

@@ -27,35 +27,39 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package funcs
+package core
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	// MapLookupFuncName is the name this function is registered as.
-	MapLookupFuncName = "map_lookup"
+	// MapLookupDefaultFuncName is the name this function is registered as.
+	MapLookupDefaultFuncName = "map_lookup_default"
 
 	// arg names...
-	mapLookupArgNameMap = "map"
-	mapLookupArgNameKey = "key"
+	mapLookupDefaultArgNameMap = "map"
+	mapLookupDefaultArgNameKey = "key"
+	mapLookupDefaultArgNameDef = "default"
 )
 
 func init() {
-	Register(MapLookupFuncName, func() interfaces.Func { return &MapLookupFunc{} }) // must register the func and name
+	funcs.Register(MapLookupDefaultFuncName, func() interfaces.Func { return &MapLookupDefaultFunc{} }) // must register the func and name
 }
 
-var _ interfaces.BuildableFunc = &MapLookupFunc{} // ensure it meets this expectation
+var _ interfaces.BuildableFunc = &MapLookupDefaultFunc{} // ensure it meets this expectation
 
-// MapLookupFunc is a key map lookup function. If you provide a missing key,
-// then it will return the zero value for that type.
-type MapLookupFunc struct {
+// MapLookupDefaultFunc is a key map lookup function. If you provide a missing
+// key, then it will return the default value you specified for this function.
+// TODO: Eventually we will deprecate this function when the function engine can
+// support passing a value for erroring functions. (Bad index could be an err!)
+type MapLookupDefaultFunc struct {
 	Type *types.Type // Kind == Map, that is used as the map we lookup
 
 	init *interfaces.Init
@@ -66,13 +70,13 @@ type MapLookupFunc struct {
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *MapLookupFunc) String() string {
-	return MapLookupFuncName
+func (obj *MapLookupDefaultFunc) String() string {
+	return MapLookupDefaultFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *MapLookupFunc) ArgGen(index int) (string, error) {
-	seq := []string{mapLookupArgNameMap, mapLookupArgNameKey}
+func (obj *MapLookupDefaultFunc) ArgGen(index int) (string, error) {
+	seq := []string{mapLookupDefaultArgNameMap, mapLookupDefaultArgNameKey, mapLookupDefaultArgNameDef}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -80,7 +84,7 @@ func (obj *MapLookupFunc) ArgGen(index int) (string, error) {
 }
 
 // helper
-func (obj *MapLookupFunc) sig() *types.Type {
+func (obj *MapLookupDefaultFunc) sig() *types.Type {
 	// func(map map{?1: ?2}, key ?1) ?2
 	k := "?1"
 	v := "?2"
@@ -91,9 +95,10 @@ func (obj *MapLookupFunc) sig() *types.Type {
 		m = obj.Type.String()
 	}
 	return types.NewType(fmt.Sprintf(
-		"func(%s %s, %s %s) %s",
-		mapLookupArgNameMap, m,
-		mapLookupArgNameKey, k,
+		"func(%s %s, %s %s, %s %s) %s",
+		mapLookupDefaultArgNameMap, m,
+		mapLookupDefaultArgNameKey, k,
+		mapLookupDefaultArgNameDef, v,
 		v,
 	))
 }
@@ -103,14 +108,14 @@ func (obj *MapLookupFunc) sig() *types.Type {
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
+func (obj *MapLookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
 		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
-	if len(typ.Ord) != 2 {
-		return nil, fmt.Errorf("the maplookup function needs exactly two args")
+	if len(typ.Ord) != 3 {
+		return nil, fmt.Errorf("the maplookup function needs exactly three args")
 	}
 	if typ.Out == nil {
 		return nil, fmt.Errorf("return type of function must be specified")
@@ -129,8 +134,17 @@ func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("second arg must be specified")
 	}
 
+	tDef, exists := typ.Map[typ.Ord[2]]
+	if !exists || tDef == nil {
+		return nil, fmt.Errorf("third arg must be specified")
+	}
+
 	if err := tMap.Key.Cmp(tKey); err != nil {
 		return nil, errwrap.Wrapf(err, "key must match map key type")
+	}
+
+	if err := tMap.Val.Cmp(tDef); err != nil {
+		return nil, errwrap.Wrapf(err, "default must match map val type")
 	}
 
 	if err := tMap.Val.Cmp(typ.Out); err != nil {
@@ -142,7 +156,7 @@ func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *MapLookupFunc) Validate() error {
+func (obj *MapLookupDefaultFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -154,7 +168,7 @@ func (obj *MapLookupFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *MapLookupFunc) Info() *interfaces.Info {
+func (obj *MapLookupDefaultFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
@@ -164,13 +178,13 @@ func (obj *MapLookupFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *MapLookupFunc) Init(init *interfaces.Init) error {
+func (obj *MapLookupDefaultFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *MapLookupFunc) Stream(ctx context.Context) error {
+func (obj *MapLookupDefaultFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -187,16 +201,16 @@ func (obj *MapLookupFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			m := (input.Struct()[mapLookupArgNameMap]).(*types.MapValue)
-			key := input.Struct()[mapLookupArgNameKey]
-			zero := m.Type().Val.New() // the zero value
+			m := (input.Struct()[mapLookupDefaultArgNameMap]).(*types.MapValue)
+			key := input.Struct()[mapLookupDefaultArgNameKey]
+			def := input.Struct()[mapLookupDefaultArgNameDef]
 
 			var result types.Value
 			val, exists := m.Lookup(key)
 			if exists {
 				result = val
 			} else {
-				result = zero
+				result = def
 			}
 
 			// if previous input was `2 + 4`, but now it

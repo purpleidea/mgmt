@@ -27,12 +27,13 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package funcs
+package core
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -41,7 +42,7 @@ const (
 	// LookupDefaultFuncName is the name this function is registered as.
 	// This starts with an underscore so that it cannot be used from the
 	// lexer.
-	LookupDefaultFuncName = "_lookup_default"
+	LookupDefaultFuncName = funcs.LookupDefaultFuncName
 
 	// arg names...
 	lookupDefaultArgNameListOrMap  = "listormap"
@@ -50,7 +51,7 @@ const (
 )
 
 func init() {
-	Register(LookupDefaultFuncName, func() interfaces.Func { return &LookupDefaultFunc{} }) // must register the func and name
+	funcs.Register(LookupDefaultFuncName, func() interfaces.Func { return &LookupDefaultFunc{} }) // must register the func and name
 }
 
 var _ interfaces.BuildableFunc = &LookupDefaultFunc{} // ensure it meets this expectation

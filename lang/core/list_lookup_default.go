@@ -27,36 +27,42 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package funcs
+package core
 
 import (
 	"context"
 	"fmt"
 	"math"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	// ListLookupFuncName is the name this function is registered as.
-	ListLookupFuncName = "list_lookup"
+	// ListLookupDefaultFuncName is the name this function is registered as.
+	ListLookupDefaultFuncName = "list_lookup_default"
 
 	// arg names...
-	listLookupArgNameList  = "list"
-	listLookupArgNameIndex = "index"
+	listLookupDefaultArgNameList    = "list"
+	listLookupDefaultArgNameIndex   = "index"
+	listLookupDefaultArgNameDefault = "default"
 )
 
 func init() {
-	Register(ListLookupFuncName, func() interfaces.Func { return &ListLookupFunc{} }) // must register the func and name
+	funcs.Register(ListLookupDefaultFuncName, func() interfaces.Func { return &ListLookupDefaultFunc{} }) // must register the func and name
 }
 
-var _ interfaces.BuildableFunc = &ListLookupFunc{} // ensure it meets this expectation
+var _ interfaces.BuildableFunc = &ListLookupDefaultFunc{} // ensure it meets this expectation
 
-// ListLookupFunc is a list index lookup function. If you provide a negative
-// index, then it will return the zero value for that type.
-type ListLookupFunc struct {
+// ListLookupDefaultFunc is a list index lookup function. If you provide a
+// negative index, then it will return the default value you specified for this
+// function.
+// TODO: Eventually we will deprecate this function when the function engine can
+// support passing a value for erroring functions. (Bad index could be an err!)
+type ListLookupDefaultFunc struct {
+	// TODO: Logically should this be ported to be the type of the elements?
 	Type *types.Type // Kind == List, that is used as the list we lookup in
 
 	init *interfaces.Init
@@ -67,13 +73,13 @@ type ListLookupFunc struct {
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *ListLookupFunc) String() string {
-	return ListLookupFuncName
+func (obj *ListLookupDefaultFunc) String() string {
+	return ListLookupDefaultFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
-func (obj *ListLookupFunc) ArgGen(index int) (string, error) {
-	seq := []string{listLookupArgNameList, listLookupArgNameIndex}
+func (obj *ListLookupDefaultFunc) ArgGen(index int) (string, error) {
+	seq := []string{listLookupDefaultArgNameList, listLookupDefaultArgNameIndex, listLookupDefaultArgNameDefault}
 	if l := len(seq); index >= l {
 		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
 	}
@@ -81,16 +87,17 @@ func (obj *ListLookupFunc) ArgGen(index int) (string, error) {
 }
 
 // helper
-func (obj *ListLookupFunc) sig() *types.Type {
+func (obj *ListLookupDefaultFunc) sig() *types.Type {
 	// func(list []?1, index int, default ?1) ?1
 	v := "?1"
 	if obj.Type != nil { // don't panic if called speculatively
 		v = obj.Type.Val.String()
 	}
 	return types.NewType(fmt.Sprintf(
-		"func(%s []%s, %s int) %s",
-		listLookupArgNameList, v,
-		listLookupArgNameIndex,
+		"func(%s []%s, %s int, %s %s) %s",
+		listLookupDefaultArgNameList, v,
+		listLookupDefaultArgNameIndex,
+		listLookupDefaultArgNameDefault, v,
 		v,
 	))
 }
@@ -100,14 +107,14 @@ func (obj *ListLookupFunc) sig() *types.Type {
 // and must be run before Info() and any of the other Func interface methods are
 // used. This function is idempotent, as long as the arg isn't changed between
 // runs.
-func (obj *ListLookupFunc) Build(typ *types.Type) (*types.Type, error) {
+func (obj *ListLookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
 	if typ.Kind != types.KindFunc {
 		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
-	if len(typ.Ord) != 2 {
-		return nil, fmt.Errorf("the listlookup function needs exactly two args")
+	if len(typ.Ord) != 3 {
+		return nil, fmt.Errorf("the listlookup function needs exactly three args")
 	}
 	if typ.Out == nil {
 		return nil, fmt.Errorf("return type of function must be specified")
@@ -126,8 +133,17 @@ func (obj *ListLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("second arg must be specified")
 	}
 
+	tDefault, exists := typ.Map[typ.Ord[2]]
+	if !exists || tDefault == nil {
+		return nil, fmt.Errorf("third arg must be specified")
+	}
+
 	if tIndex != nil && tIndex.Kind != types.KindInt {
 		return nil, fmt.Errorf("index must be int kind")
+	}
+
+	if err := tList.Val.Cmp(tDefault); err != nil {
+		return nil, errwrap.Wrapf(err, "default must match list val type")
 	}
 
 	if err := tList.Val.Cmp(typ.Out); err != nil {
@@ -139,7 +155,7 @@ func (obj *ListLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *ListLookupFunc) Validate() error {
+func (obj *ListLookupDefaultFunc) Validate() error {
 	if obj.Type == nil { // build must be run first
 		return fmt.Errorf("type is still unspecified")
 	}
@@ -151,7 +167,7 @@ func (obj *ListLookupFunc) Validate() error {
 
 // Info returns some static info about itself. Build must be called before this
 // will return correct data.
-func (obj *ListLookupFunc) Info() *interfaces.Info {
+func (obj *ListLookupDefaultFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
 		Memo: false,
@@ -161,13 +177,13 @@ func (obj *ListLookupFunc) Info() *interfaces.Info {
 }
 
 // Init runs some startup code for this function.
-func (obj *ListLookupFunc) Init(init *interfaces.Init) error {
+func (obj *ListLookupDefaultFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *ListLookupFunc) Stream(ctx context.Context) error {
+func (obj *ListLookupDefaultFunc) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -184,11 +200,11 @@ func (obj *ListLookupFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			l := (input.Struct()[listLookupArgNameList]).(*types.ListValue)
-			index := input.Struct()[listLookupArgNameIndex].Int()
-			zero := l.Type().Val.New() // the zero value
+			l := (input.Struct()[listLookupDefaultArgNameList]).(*types.ListValue)
+			index := input.Struct()[listLookupDefaultArgNameIndex].Int()
+			def := input.Struct()[listLookupDefaultArgNameDefault]
 
-			// TODO: should we handle overflow by returning zero?
+			// TODO: should we handle overflow by returning default?
 			if index > math.MaxInt { // max int size varies by arch
 				return fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
 			}
@@ -199,7 +215,7 @@ func (obj *ListLookupFunc) Stream(ctx context.Context) error {
 			if exists {
 				result = val
 			} else {
-				result = zero
+				result = def
 			}
 
 			// if previous input was `2 + 4`, but now it

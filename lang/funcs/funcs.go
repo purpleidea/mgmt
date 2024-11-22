@@ -61,6 +61,28 @@ const (
 	// is listed here because it needs a well-known name that can be used by
 	// the string interpolation code.
 	ConcatFuncName = "concat"
+
+	// ContainsFuncName is the name the contains function is registered as.
+	ContainsFuncName = "contains"
+
+	// LookupDefaultFuncName is the name this function is registered as.
+	// This starts with an underscore so that it cannot be used from the
+	// lexer.
+	LookupDefaultFuncName = "_lookup_default"
+
+	// LookupFuncName is the name this function is registered as.
+	// This starts with an underscore so that it cannot be used from the
+	// lexer.
+	LookupFuncName = "_lookup"
+
+	// StructLookupFuncName is the name this function is registered as. This
+	// starts with an underscore so that it cannot be used from the lexer.
+	StructLookupFuncName = "_struct_lookup"
+
+	// StructLookupOptionalFuncName is the name this function is registered
+	// as. This starts with an underscore so that it cannot be used from the
+	// lexer.
+	StructLookupOptionalFuncName = "_struct_lookup_optional"
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You

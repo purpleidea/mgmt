@@ -59,3 +59,4 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2023](https://www.youtube.com/watch?v=FeRGRj8w0BU) |
 | James Shubin | video | [Recording from FOSDEM 2024, Golang Devroom](https://video.fosdem.org/2024/ud2218a/fosdem-2024-2575-single-binary-full-stack-provisioning.mp4) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2024](https://www.youtube.com/watch?v=vBt9lpGD4bc) |
+| James Shubin | blog | [Mgmt Configuration Language: Functions](https://purpleidea.com/blog/2024/11/22/functions-in-mgmt/) |

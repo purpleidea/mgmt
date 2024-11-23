@@ -10,6 +10,12 @@
 [![Patreon](https://img.shields.io/badge/patreon-donate-yellow.svg?style=flat-square)](https://www.patreon.com/purpleidea)
 [![Liberapay](https://img.shields.io/badge/liberapay-donate-yellow.svg?style=flat-square)](https://liberapay.com/purpleidea/donate)
 
+> [!TIP]
+> [Resource reference guide now available!](https://mgmtconfig.com/docs/resources/)
+
+> [!TIP]
+> [Function reference guide now available!](https://mgmtconfig.com/docs/functions/)
+
 ## About:
 
 `Mgmt` is a real-time automation tool. It is familiar to existing configuration
@@ -92,6 +98,8 @@ Please read, enjoy and help improve our documentation!
 | [quick start guide](docs/quick-start-guide.md) | for everyone |
 | [frequently asked questions](docs/faq.md) | for everyone |
 | [general documentation](docs/documentation.md) | for everyone |
+| [resource reference](https://mgmtconfig.com/docs/resources/) | for everyone |
+| [function reference](https://mgmtconfig.com/docs/functions/) | for everyone |
 | [language guide](docs/language-guide.md) | for everyone |
 | [function guide](docs/function-guide.md) | for mgmt developers |
 | [resource guide](docs/resource-guide.md) | for mgmt developers |

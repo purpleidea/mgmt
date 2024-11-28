@@ -34,6 +34,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -117,8 +119,15 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 
 	// empty by default (don't set for deploy, only download)
 	modules := args.ModulePath
-	if modules != "" && (!strings.HasPrefix(modules, "/") || !strings.HasSuffix(modules, "/")) {
-		return nil, fmt.Errorf("module path is not an absolute directory")
+	if modules != "" && !strings.HasSuffix(modules, "/") {
+		return nil, fmt.Errorf("module path does not end with a slash")
+	}
+	if modules != "" && !strings.HasPrefix(modules, "/") {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		modules = filepath.Join(wd, modules) + "/"
 	}
 
 	// TODO: while reading through trees of metadata files, we could also

@@ -31,18 +31,20 @@
 // these all in one place so that adding this data happens all in the same file.
 package arch
 
-var (
+const (
 	// Any is a special value meaning noarch or any arch.
 	Any = "*"
+)
 
+var (
 	// MapPackageKitArchToGoArch contains the mapping from PackageKit arch
 	// to GOARCH.
 	MapPackageKitArchToGoArch = map[string]string{
 		// TODO: add more values
 		// noarch
-		"noarch": "ANY", // as seen in Fedora
-		"any":    "ANY", // as seen in ArchLinux
-		"all":    "ANY", // as seen in Debian
+		"noarch": Any, // as seen in Fedora
+		"any":    Any, // as seen in ArchLinux
+		"all":    Any, // as seen in Debian
 		// fedora
 		"x86_64":  "amd64",
 		"aarch64": "arm64",

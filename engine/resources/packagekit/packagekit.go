@@ -970,7 +970,4 @@ func IsMyArch(arch string) (bool, error) {
 		return false, fmt.Errorf("arch '%s', not found", arch)
 	}
 	return goarch == runtime.GOARCH || goarch == "ANY" || goarch == archUtil.Any, nil
-		return true, nil
-	}
-	return goarch == runtime.GOARCH || goarch == "ANY", nil
 }

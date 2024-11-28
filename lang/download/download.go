@@ -31,6 +31,7 @@
 package download
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -105,6 +106,7 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 		URL: info.URL,
 		// TODO: do we want to add an option for infinite recursion here?
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+		Progress:          os.Stdout,
 	}
 
 	msg := fmt.Sprintf("downloading `%s` to: `%s`", info.URL, dir)
@@ -124,8 +126,16 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 	// that uses an `fs engine.Fs` wrapped to the git Filesystem interface:
 	// `billyFs := desfacer.New(obj.info.Fs)`
 	// TODO: repo, err := git.Clone(??? storage.Storer, billyFs, options)
-	repo, err := git.PlainClone(path.Clean(dir), isBare, options)
+	gitDir := path.Clean(dir)
+	obj.info.Logf("cloning...")
+	repo, err := git.PlainCloneContext(context.TODO(), gitDir, isBare, options)
 	if err == git.ErrRepositoryAlreadyExists {
+		repo, err = git.PlainOpen(gitDir)
+		if err != nil {
+			return errwrap.Wrapf(err, "can't open existing repo at: `%s`", dir)
+		}
+		obj.info.Logf("repo already exists!")
+
 		if obj.info.Update {
 			pull = true // make sure to pull latest...
 		}
@@ -147,8 +157,10 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 		options := &git.PullOptions{
 			// TODO: do we want to add an option for infinite recursion here?
 			RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+			Progress:          os.Stdout,
 		}
-		err := worktree.Pull(options)
+		obj.info.Logf("pulling...")
+		err := worktree.PullContext(context.TODO(), options)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return errwrap.Wrapf(err, "can't pull latest from: `%s`", info.URL)
 		}

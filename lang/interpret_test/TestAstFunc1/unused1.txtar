@@ -19,4 +19,4 @@ print "unused" {
 	msg => "i'm unused because i'm inside an imported module",
 }
 -- OUTPUT --
-# err: errSetScope: import scope `something.mcl` failed: local import of `something.mcl` failed: module contains unused statements: found stmt: res(print)
+# err: errSetScope: local import of `something.mcl` failed: module contains unused statements: found stmt: res(print)

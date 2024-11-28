@@ -86,7 +86,7 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 		if err == nil {
 			return fmt.Errorf("module path (`%s`) must be a dir", modulesPath)
 		}
-		if err == os.ErrNotExist {
+		if os.IsNotExist(err) {
 			return fmt.Errorf("module path (`%s`) must exist", modulesPath)
 		}
 		return errwrap.Wrapf(err, "could not read module path (`%s`)", modulesPath)
@@ -163,6 +163,9 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 		err := worktree.PullContext(context.TODO(), options)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
 			return errwrap.Wrapf(err, "can't pull latest from: `%s`", info.URL)
+		}
+		if err == git.NoErrAlreadyUpToDate {
+			obj.info.Logf("repo already up to date!")
 		}
 	}
 

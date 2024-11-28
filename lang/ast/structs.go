@@ -3403,7 +3403,8 @@ func (obj *StmtProg) importScope(info *interfaces.ImportData, scope *interfaces.
 	if obj.data.Downloader != nil {
 		// run downloader stuff first
 		if err := obj.data.Downloader.Get(info, modulesPath); err != nil {
-			return nil, errwrap.Wrapf(err, "download of `%s` failed", info.Name)
+			obj.data.Logf("download of `%s` failed", info.Name)
+			return nil, err
 		}
 	}
 
@@ -3773,7 +3774,8 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		// run the scope importer...
 		importedScope, err := obj.importScope(result, scope)
 		if err != nil {
-			return errwrap.Wrapf(err, "import scope `%s` failed", imp.Name)
+			obj.data.Logf("import scope `%s` failed", imp.Name)
+			return err
 		}
 
 		// read from stored scope which was previously saved in SetScope

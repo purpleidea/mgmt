@@ -424,6 +424,16 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 				logf("base:\n%s", m)
 				return nil, errwrap.Wrapf(err, "malformed source module path: `%s`", src)
 			}
+		} else if modules != "" && strings.HasPrefix(src, modules) {
+			// Here we've succeeded in the above rebase, but before
+			// we accept it completely, let's first check if it's
+			// actually a MODULE_PATH situation. If so, let's rebase
+			// it only the `/modules/` directory which is used in
+			// the deploy.
+			dst, err = util.Rebase(src, modules, "/"+interfaces.ModuleDirectory)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "malformed src path: `%s`", src)
+			}
 		}
 
 		if strings.HasSuffix(src, "/") { // it's a dir

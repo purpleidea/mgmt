@@ -969,7 +969,7 @@ func IsMyArch(arch string) (bool, error) {
 		// if you get this error, please update the PkArchMap const
 		return false, fmt.Errorf("arch '%s', not found", arch)
 	}
-	if goarch == archUtil.Any { // special value that corresponds to noarch
+	return goarch == runtime.GOARCH || goarch == "ANY" || goarch == archUtil.Any, nil
 		return true, nil
 	}
 	return goarch == runtime.GOARCH || goarch == "ANY", nil

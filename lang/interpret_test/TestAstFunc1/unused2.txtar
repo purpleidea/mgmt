@@ -1,0 +1,19 @@
+-- main.mcl --
+import "fmt"
+import "something.mcl"
+
+print "p1" {
+	msg => fmt.printf("someint: %d", $something.someint),
+}
+-- something.mcl --
+$someint = 42
+class someclass {
+	print "p2" {
+		msg => "i'm inside of someclass",
+	}
+}
+
+# this should generate a compile error
+include someclass
+-- OUTPUT --
+# err: errSetScope: local import of `something.mcl` failed: module contains unused statements: found stmt: include(someclass)

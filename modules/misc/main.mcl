@@ -106,7 +106,7 @@ class network_manager_static($st) {
 [connection]
 id=${dev}
 {{ if .uuid -}}
-uuid=${uuid}
+uuid={{ .uuid }}
 {{ end -}}
 type=ethernet
 interface-name=${dev}
@@ -114,7 +114,7 @@ autoconnect=true
 
 [ipv4]
 {{ if .router -}}
-address1=${ip}/${prefix},${router}
+address1=${ip}/${prefix},{{ .router }}
 {{ else -}}
 address1=${ip}/${prefix}
 {{ end -}}
@@ -125,12 +125,14 @@ method=manual
 
 [ethernet]
 {{ if .mac -}}
-mac-address=${mac}
+mac-address={{ .mac }}
 {{ end -}}
 "
 
 	$args = struct{
 		uuid => $uuid,
+		mac => $mac,
+		router => $router,
 	}
 
 	file "/etc/NetworkManager/system-connections/${dev}.nmconnection" {

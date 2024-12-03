@@ -48,7 +48,7 @@ fold_start "Install dependencies"
 if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y libvirt-devel
 	$sudo_command $YUM install -y augeas-devel
-	$sudo_command $YUM install -y ruby-devel rubygems
+	$sudo_command $YUM install -y pipx
 	$sudo_command $YUM install -y time
 	if ! in_env; then
 		$sudo_command $YUM install -y ragel
@@ -62,8 +62,8 @@ if [ -n "$APT" ]; then
 	$sudo_command $APT update -y
 	$sudo_command $APT install -y libvirt-dev || true
 	$sudo_command $APT install -y libaugeas-dev || true
-	$sudo_command $APT install -y ruby ruby-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
+	$sudo_command $APT install -y pipx
 	if ! in_env; then
 		$sudo_command $APT install -y ragel || true
 	fi
@@ -86,7 +86,7 @@ if [ -n "$BREW" -a "$RUNNER_OS" != "Linux" ]; then
 fi
 
 if [ -n "$PACMAN" ]; then
-	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas rubygems libpcap ragel
+	$sudo_command $PACMAN -S --noconfirm --asdeps --needed libvirt augeas libpcap ragel
 fi
 fold_end "Install dependencies"
 
@@ -166,8 +166,6 @@ fi
 fold_end "Install golang tools"
 
 fold_start "Install miscellaneous tools"
-command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files
-command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
 # for checking links
 LYCHEE=$(command -v lychee 2>/dev/null) || true
 if [ -z "$LYCHEE" ]; then
@@ -176,6 +174,14 @@ if [ -z "$LYCHEE" ]; then
 	LYCHEE_FILE="${LYCHEE_TMP}lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
 	wget "https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -O "$LYCHEE_FILE"
 	tar -C /usr/local/bin -xzvf "$LYCHEE_FILE"
+fi
+
+cd "$ROOT"
+pipx ensurepath
+command -v pipenv &>/dev/null || pipx install pipenv || true
+pipenv install && pipenv sync || true
+if command -v gem &>/dev/null ; then
+	command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
 fi
 fold_end "Install miscellaneous tools"
 

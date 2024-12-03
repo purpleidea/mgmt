@@ -36,7 +36,6 @@ import (
 	"os/user"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -76,10 +75,6 @@ const (
 	// in 'man systemd-timer', and whose format is a time span as defined in
 	// 'man systemd-time'.
 	OnUnitInactiveSec = "OnUnitInactiveSec"
-
-	// ctxTimeout is the delay, in seconds, before the calls to restart or stop
-	// the systemd unit will error due to timeout.
-	ctxTimeout = 30
 )
 
 func init() {
@@ -103,6 +98,11 @@ type CronRes struct {
 
 	// State must be 'exists' or 'absent'.
 	State string `lang:"state" yaml:"state"`
+
+	// Startup specifies what should happen on startup. Values can be:
+	// enabled, disabled, and undefined (empty string). We default to
+	// enabled.
+	Startup string `lang:"startup" yaml:"startup"`
 
 	// Session, if true, creates the timer as the current user, rather than
 	// root. The service it points to must also be a user unit. It defaults
@@ -154,6 +154,7 @@ type CronRes struct {
 func (obj *CronRes) Default() engine.Res {
 	return &CronRes{
 		State:             "exists",
+		Startup:           "enabled",
 		RemainAfterElapse: true,
 	}
 }
@@ -187,6 +188,9 @@ func (obj *CronRes) Validate() error {
 	// validate state
 	if obj.State != "absent" && obj.State != "exists" {
 		return fmt.Errorf("state must be 'absent' or 'exists'")
+	}
+	if obj.Startup != "enabled" && obj.Startup != "disabled" && obj.Startup != "" {
+		return fmt.Errorf("startup must be either `enabled` or `disabled` or undefined")
 	}
 
 	// validate trigger
@@ -264,12 +268,12 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 	args := []string{}
 	args = append(args, "type='signal'")
 	args = append(args, "interface='org.freedesktop.systemd1.Manager'")
-	args = append(args, "eavesdrop='true'")
+	//args = append(args, "eavesdrop='true'") // XXX: not allowed anymore?
 	args = append(args, fmt.Sprintf("arg2='%s.timer'", obj.Name()))
 
 	// match dbus messsages
 	if call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0, strings.Join(args, ",")); call.Err != nil {
-		return err
+		return call.Err
 	}
 	defer bus.BusObject().Call(engineUtil.DBusRemoveMatch, 0, args) // ignore the error
 
@@ -394,10 +398,6 @@ func (obj *CronRes) unitCheckApply(ctx context.Context, apply bool) (bool, error
 		return false, errwrap.Wrapf(err, "error reloading daemon")
 	}
 
-	// context for stopping/restarting the unit
-	ctx, cancel := context.WithTimeout(ctx, ctxTimeout*time.Second)
-	defer cancel()
-
 	// godbus connection for stopping/restarting the unit
 	if obj.Session {
 		godbusConn, err = util.SessionBusPrivateUsable()
@@ -408,6 +408,18 @@ func (obj *CronRes) unitCheckApply(ctx context.Context, apply bool) (bool, error
 		return false, errwrap.Wrapf(err, "error making godbus connection")
 	}
 	defer godbusConn.Close()
+
+	// We probably always want to enable this...
+	svc := fmt.Sprintf("%s.timer", obj.Name()) // systemd name
+	files := []string{svc}                     // the svc represented in a list
+	if obj.Startup == "enabled" {
+		_, _, err = conn.EnableUnitFilesContext(ctx, files, false, true)
+	} else if obj.Startup == "disabled" {
+		_, err = conn.DisableUnitFilesContext(ctx, files, false)
+	}
+	if err != nil {
+		return false, errwrap.Wrapf(err, "unable to change startup status")
+	}
 
 	// stop or restart the unit
 	if obj.State == "absent" {
@@ -425,6 +437,9 @@ func (obj *CronRes) Cmp(r engine.Res) error {
 
 	if obj.State != res.State {
 		return fmt.Errorf("state differs: %s vs %s", obj.State, res.State)
+	}
+	if obj.Startup != res.Startup {
+		return fmt.Errorf("the Startup differs")
 	}
 	if obj.Trigger != res.Trigger {
 		return fmt.Errorf("trigger differs: %s vs %s", obj.Trigger, res.Trigger)

@@ -39,7 +39,7 @@ import (
 
 // AutoEdge adds the automatic edges to the graph.
 func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) error {
-	logf("adding autoedges...")
+	logf("building...")
 
 	// initially get all of the autoedges to seek out all possible errors
 	var err error
@@ -88,9 +88,9 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 				break // inner loop
 			}
 			if debug {
-				logf("autoedge: UIDS:")
+				logf("UIDS:")
 				for i, u := range uids {
-					logf("autoedge: UID%d: %v", i, u)
+					logf("UID%d: %v", i, u)
 				}
 			}
 
@@ -131,7 +131,7 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, graph 
 				continue
 			}
 			if debug {
-				logf("autoedge: Match: %s with UID: %s", r, uid)
+				logf("match: %s with UID: %s", r, uid)
 			}
 			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful
@@ -140,13 +140,13 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, graph 
 			if UIDExistsInUIDs(uid, r.UIDs()) {
 				// add edge from: r -> res
 				if uid.IsReversed() {
-					txt := fmt.Sprintf("%s -> %s (autoedge)", r, res)
-					logf("autoedge: adding: %s", txt)
+					txt := fmt.Sprintf("%s -> %s", r, res)
+					logf("adding: %s", txt)
 					edge := &engine.Edge{Name: txt}
 					graph.AddEdge(r, res, edge)
 				} else { // edges go the "normal" way, eg: pkg resource
-					txt := fmt.Sprintf("%s -> %s (autoedge)", res, r)
-					logf("autoedge: adding: %s", txt)
+					txt := fmt.Sprintf("%s -> %s", res, r)
+					logf("adding: %s", txt)
 					edge := &engine.Edge{Name: txt}
 					graph.AddEdge(res, r, edge)
 				}

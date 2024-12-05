@@ -327,16 +327,16 @@ func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
 	}
 }
 
-// trueCallee is a helper function because ExprTopLevel and ExprSingleton are
+// TrueCallee is a helper function because ExprTopLevel and ExprSingleton are
 // sometimes added around builtins. This makes it difficult for the type checker
 // to check if a particular builtin is the callee or not. This function removes
 // the ExprTopLevel and ExprSingleton wrappers, if they exist.
-func trueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
+func TrueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
 	switch x := apparentCallee.(type) {
 	case *ExprTopLevel:
-		return trueCallee(x.Definition)
+		return TrueCallee(x.Definition)
 	case *ExprSingleton:
-		return trueCallee(x.Definition)
+		return TrueCallee(x.Definition)
 	default:
 		return apparentCallee
 	}
@@ -383,7 +383,7 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 	names := []string{}
 	for name, val := range scope.Variables {
 		// XXX: Is this a valid way to filter?
-		if _, ok := trueCallee(val).(*ExprFunc); !ok {
+		if _, ok := TrueCallee(val).(*ExprFunc); !ok {
 			continue
 		}
 		names = append(names, name)

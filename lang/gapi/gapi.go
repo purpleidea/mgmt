@@ -288,6 +288,12 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		unificationStrategy[unification.StrategyOptimizationsKey] = strings.Join(args.UnifyOptimizations, ",")
 	}
 
+	fmt.Println("The Interpolated Tree: %+v")
+	iast.Apply(func (n interfaces.Node) error {
+		fmt.Println(n)
+		return nil
+	})
+
 	if !args.SkipUnify {
 		// apply type unification
 		unificationLogf := func(format string, v ...interface{}) {
@@ -318,7 +324,8 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			if args.OnlyUnify {
 				logf("type unification failed after %s", formatted)
 			}
-			return nil, errwrap.Wrapf(unifyErr, "could not unify types")
+			callee := ast.TrueCallee(unifyErr.(*interfaces.UnificationInvariant).Expr)
+			return nil, errwrap.Wrapf(unifyErr, "could not unify types [[ in expression: %s ]]", callee)
 		}
 
 		if args.OnlyUnify {

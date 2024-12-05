@@ -78,7 +78,7 @@ type FastInvariantSolver struct {
 func (obj *FastInvariantSolver) Init(init *unification.Init) error {
 	obj.Strategy = init.Strategy
 	obj.UnifiedState = init.UnifiedState
-	obj.Debug = init.Debug
+	obj.Debug = true //init.Debug
 	obj.Logf = init.Logf
 
 	optimizations, exists := init.Strategy[unification.StrategyOptimizationsKey]
@@ -135,7 +135,8 @@ func (obj *FastInvariantSolver) Solve(ctx context.Context, data *unification.Dat
 			// Storing the Expr with this invariant is so that we
 			// can generate this more helpful error message here.
 			// TODO: Improve this error message!
-			return nil, errwrap.Wrapf(err, "unify error with: %s", x.Expr)
+			x.Err = errwrap.Wrapf(err, "unify error with: %s", x.Expr).Error()
+			return nil, x
 		}
 		if obj.Debug {
 			e1, e2 := unificationUtil.Extract(x.Expect), unificationUtil.Extract(x.Actual)

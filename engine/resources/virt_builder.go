@@ -163,6 +163,17 @@ func (obj *VirtBuilderRes) getOutput() string {
 	return obj.Name()
 }
 
+// getDistro returns the distro of the guest that we want to use. If not
+// specified, or if we don't have a mapping for it, we return the empty string.
+func (obj *VirtBuilderRes) getDistro() string {
+	ix := strings.Index(obj.OSVersion, "-") // fedora- or debian-
+	if ix == -1 {
+		return "" // os version is not supported
+	}
+
+	return obj.OSVersion[0:ix] // everything before the dash, eg: fedora
+}
+
 // getArch returns the architecture that we want to use. If not specified, or if
 // we don't have a mapping for it, we return the empty string.
 func (obj *VirtBuilderRes) getArch() string {
@@ -219,12 +230,10 @@ func (obj *VirtBuilderRes) getGuestfs() ([]string, error) {
 // that we can easily run mgmt.
 func (obj *VirtBuilderRes) getDeps() ([]string, error) {
 	// TODO: Improve this function as things evolve.
-	ix := strings.Index(obj.OSVersion, "-") // fedora- or debian-
-	if ix == -1 {
+	distro := obj.getDistro()
+	if distro == "" {
 		return nil, fmt.Errorf("os version is not supported")
 	}
-
-	distro := obj.OSVersion[0:ix] // everything before the dash, eg: fedora
 	packages, exists := distroUtil.ToBootstrapPackages(distro)
 	if !exists {
 		// TODO: patches welcome!

@@ -151,6 +151,10 @@ type VirtBuilderRes struct {
 	// in these logs in cleartext!
 	LogOutput bool `lang:"log_output" yaml:"log_output"`
 
+	// Tweaks adds some random tweaks to work around common bugs. This
+	// defaults to true.
+	Tweaks bool `lang:"tweaks" yaml:"tweaks"`
+
 	varDir string
 }
 
@@ -251,6 +255,7 @@ func (obj *VirtBuilderRes) Default() engine.Res {
 		RootSSHInject:  true,
 		Bootstrap:      true,
 		LogOutput:      true,
+		Tweaks:         true,
 	}
 }
 
@@ -445,9 +450,19 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 		cmdArgs = append(cmdArgs, args...)
 	}
 
+	// XXX: Tweak for debian grub-pc bug:
+	// https://www.mail-archive.com/guestfs@lists.libguestfs.org/msg00062.html
+	if obj.Tweaks && obj.Update && obj.getDistro() == "debian" {
+		args := []string{"--run-command", "apt-mark hold grub-pc"}
+		cmdArgs = append(cmdArgs, args...)
+	}
 	if obj.Update {
 		arg := "--update"
 		cmdArgs = append(cmdArgs, arg)
+	}
+	if obj.Tweaks && obj.Update && obj.getDistro() == "debian" {
+		args := []string{"--firstboot-command", "apt-mark unhold grub-pc"}
+		cmdArgs = append(cmdArgs, args...)
 	}
 
 	if obj.SelinuxRelabel {
@@ -621,6 +636,9 @@ func (obj *VirtBuilderRes) Cmp(r engine.Res) error {
 
 	if obj.LogOutput != res.LogOutput {
 		return fmt.Errorf("the LogOutput value differs")
+	}
+	if obj.Tweaks != res.Tweaks {
+		return fmt.Errorf("the Tweaks value differs")
 	}
 
 	return nil

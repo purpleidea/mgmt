@@ -4,4 +4,4 @@
 # unification solving, but now we can support it without that.
 test [] {}
 -- OUTPUT --
-Vertex: composite
+Vertex: composite: []str

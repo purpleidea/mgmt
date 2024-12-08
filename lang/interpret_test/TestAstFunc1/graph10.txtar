@@ -8,6 +8,6 @@ test "t" {
 	stringptr => $x,
 }
 -- OUTPUT --
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: bool(true)
+Vertex: const: str("hello")
+Vertex: const: str("t")

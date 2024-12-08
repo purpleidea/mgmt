@@ -10,6 +10,6 @@ test "greeting" {
 Edge: FuncValue -> call # fn
 Vertex: FuncValue
 Vertex: call
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: str("greeting")
+Vertex: const: str("hello: %s")
+Vertex: const: str("world")

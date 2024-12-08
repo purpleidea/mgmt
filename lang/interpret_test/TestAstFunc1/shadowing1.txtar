@@ -6,5 +6,5 @@ if true {
 }
 test "${x}" {}
 -- OUTPUT --
-Vertex: const
-Vertex: const
+Vertex: const: bool(true)
+Vertex: const: str("hello")

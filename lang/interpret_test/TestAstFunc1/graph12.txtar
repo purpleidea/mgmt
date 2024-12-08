@@ -12,8 +12,8 @@ test "t1" {
 	stringptr => $x,
 }
 -- OUTPUT --
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: bool(true)
+Vertex: const: str("hello")
+Vertex: const: str("t1")
+Vertex: const: str("t2")
+Vertex: const: str("world")

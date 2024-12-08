@@ -8,6 +8,6 @@ class c1($a) {
 }
 $foo = "hey"
 -- OUTPUT --
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: str("hey")
+Vertex: const: str("t1")
+Vertex: const: str("t2")

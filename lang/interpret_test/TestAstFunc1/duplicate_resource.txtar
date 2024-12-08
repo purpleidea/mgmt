@@ -20,11 +20,11 @@ pkg "cowsay" {
 Edge: FuncValue -> call # fn
 Vertex: FuncValue
 Vertex: call
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: str("/tmp/foo")
+Vertex: const: str("/tmp/foo")
+Vertex: const: str("cowsay")
+Vertex: const: str("cowsay")
+Vertex: const: str("hello world")
+Vertex: const: str("hello world")
+Vertex: const: str("installed")
+Vertex: const: str("newest")

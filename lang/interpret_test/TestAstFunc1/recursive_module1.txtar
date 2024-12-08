@@ -81,21 +81,21 @@ Vertex: call
 Vertex: call
 Vertex: call
 Vertex: call
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: int(3)
+Vertex: const: int(42)
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("hello")
+Vertex: const: str("hello2")
+Vertex: const: str("hello3")
+Vertex: const: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ")
+Vertex: const: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ")
+Vertex: const: str("i imported local: %s")
+Vertex: const: str("i imported remote: %s and %s")
+Vertex: const: str("the answer is: %d")
+Vertex: const: str("this is module mod1 which contains: ")
+Vertex: const: str("this is the nested git module mod1")
+Vertex: const: str("this is the nested git module mod1")
+Vertex: const: str("this is the nested local module mod1")

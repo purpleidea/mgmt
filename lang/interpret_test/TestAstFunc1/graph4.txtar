@@ -4,4 +4,4 @@ if $b {
 }
 $b = true
 -- OUTPUT --
-Vertex: const
+Vertex: const: bool(true)

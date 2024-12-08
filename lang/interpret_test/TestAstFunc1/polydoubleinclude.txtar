@@ -14,10 +14,10 @@ Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
-Edge: const -> composite # 0
-Edge: const -> composite # 1
-Edge: const -> composite # 2
-Edge: const -> composite # 3
+Edge: const: int(-37) -> composite: []int # 3
+Edge: const: int(0) -> composite: []int # 2
+Edge: const: int(13) -> composite: []int # 0
+Edge: const: int(42) -> composite: []int # 1
 Vertex: FuncValue
 Vertex: FuncValue
 Vertex: FuncValue
@@ -26,13 +26,13 @@ Vertex: call
 Vertex: call
 Vertex: call
 Vertex: call
-Vertex: composite
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: composite: []int
+Vertex: const: int(-37)
+Vertex: const: int(0)
+Vertex: const: int(13)
+Vertex: const: int(42)
+Vertex: const: str("hello")
+Vertex: const: str("len is: %d")
+Vertex: const: str("len is: %d")
+Vertex: const: str("t1")
+Vertex: const: str("t2")

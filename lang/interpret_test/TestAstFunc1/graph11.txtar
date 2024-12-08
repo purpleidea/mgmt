@@ -9,6 +9,6 @@ if true {
 	}
 }
 -- OUTPUT --
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: bool(true)
+Vertex: const: str("t")
+Vertex: const: str("world")

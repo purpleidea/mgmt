@@ -59,6 +59,9 @@ type CompositeFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *CompositeFunc) String() string {
+	if obj.Type != nil {
+		return fmt.Sprintf("%s: %s", CompositeFuncName, obj.Type.String())
+	}
 	return CompositeFuncName
 }
 

@@ -31,5 +31,5 @@ Vertex: call
 Vertex: call
 Vertex: call
 Vertex: call
-Vertex: const
-Vertex: const
+Vertex: const: bool(false)
+Vertex: const: bool(true)

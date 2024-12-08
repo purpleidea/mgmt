@@ -11,8 +11,8 @@ $i = 13
 Edge: FuncValue -> call # fn
 Vertex: FuncValue
 Vertex: call
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: bool(true)
+Vertex: const: int(13)
+Vertex: const: int(42)
+Vertex: const: str("+")
+Vertex: const: str("t")

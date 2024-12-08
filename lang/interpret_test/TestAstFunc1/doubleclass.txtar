@@ -24,9 +24,9 @@ Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
-Edge: call -> composite # 0
-Edge: call -> composite # 0
-Edge: call -> composite # 0
+Edge: call -> composite: []str # 0
+Edge: call -> composite: []str # 0
+Edge: call -> composite: []str # 0
 Vertex: FuncValue
 Vertex: FuncValue
 Vertex: FuncValue
@@ -45,23 +45,23 @@ Vertex: call
 Vertex: call
 Vertex: call
 Vertex: call
-Vertex: composite
-Vertex: composite
-Vertex: composite
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: composite: []str
+Vertex: composite: []str
+Vertex: composite: []str
+Vertex: const: int(1)
+Vertex: const: int(13)
+Vertex: const: int(2)
+Vertex: const: int(3)
+Vertex: const: int(4)
+Vertex: const: int(4)
+Vertex: const: int(4)
+Vertex: const: int(42)
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("test-%d-%d")
+Vertex: const: str("test-%d-%d")
+Vertex: const: str("test-%d-%d")

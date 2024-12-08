@@ -11,12 +11,12 @@ test [$out1 + $out2,] {}
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
 Edge: FuncValue -> call # fn
-Edge: call -> composite # 0
+Edge: call -> composite: []str # 0
 Vertex: FuncValue
 Vertex: FuncValue
 Vertex: FuncValue
 Vertex: call
 Vertex: call
 Vertex: call
-Vertex: composite
-Vertex: const
+Vertex: composite: []str
+Vertex: const: str("+")

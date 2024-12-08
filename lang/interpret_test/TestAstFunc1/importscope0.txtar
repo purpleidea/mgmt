@@ -18,11 +18,11 @@ class xclass {
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Edge: call -> if # c
-Edge: const -> if # a
-Edge: const -> if # b
+Edge: const: str("bbb") -> if # a
+Edge: const: str("ccc") -> if # b
 Vertex: FuncValue
 Vertex: call
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: str("bbb")
+Vertex: const: str("ccc")
+Vertex: const: str("hello")
 Vertex: if

@@ -23,6 +23,6 @@ Vertex: FuncValue
 Vertex: call
 Vertex: call
 Vertex: call
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: str("greeting1")
+Vertex: const: str("greeting2")
+Vertex: const: str("greeting3")

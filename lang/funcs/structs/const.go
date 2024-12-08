@@ -56,9 +56,10 @@ func (obj *ConstFunc) String() string {
 	if obj.NameHint != "" {
 		return obj.NameHint
 	}
+	if obj.Value != nil && obj.Value.Type() != nil {
+		return fmt.Sprintf("%s: %s(%s)", ConstFuncName, obj.Value.Type().String(), obj.Value.String())
+	}
 	return ConstFuncName
-	//return fmt.Sprintf("%s: %s(%s)", ConstFuncName, obj.Value.Type().String(), obj.Value.String())
-	//return fmt.Sprintf("%s(%s)", obj.Value.Type().String(), obj.Value.String())
 }
 
 // Validate makes sure we've built our struct properly.

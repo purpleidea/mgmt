@@ -73,33 +73,33 @@ Vertex: call
 Vertex: call
 Vertex: call
 Vertex: call
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: str("")
+Vertex: const: str("/tmp/mgmt/state")
+Vertex: const: str("/tmp/mgmt/state")
+Vertex: const: str("/tmp/mgmt/state")
+Vertex: const: str("/usr/bin/sleep 1s")
+Vertex: const: str("/usr/bin/sleep 1s")
+Vertex: const: str("/usr/bin/sleep 1s")
+Vertex: const: str("==")
+Vertex: const: str("==")
+Vertex: const: str("==")
+Vertex: const: str("==")
+Vertex: const: str("default")
+Vertex: const: str("default")
+Vertex: const: str("estate")
+Vertex: const: str("one")
+Vertex: const: str("one")
+Vertex: const: str("or")
+Vertex: const: str("state: one\n")
+Vertex: const: str("state: three\n")
+Vertex: const: str("state: two\n")
+Vertex: const: str("three")
+Vertex: const: str("three")
+Vertex: const: str("timer")
+Vertex: const: str("timer")
+Vertex: const: str("timer")
+Vertex: const: str("timer")
+Vertex: const: str("timer")
+Vertex: const: str("timer")
+Vertex: const: str("two")
+Vertex: const: str("two")

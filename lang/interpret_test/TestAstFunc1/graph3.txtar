@@ -7,5 +7,5 @@ $c = $b
 $b = $a
 $a = 42
 -- OUTPUT --
-Vertex: const
-Vertex: const
+Vertex: const: int(42)
+Vertex: const: str("t")

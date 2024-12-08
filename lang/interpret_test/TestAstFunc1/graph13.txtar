@@ -8,7 +8,7 @@ pkg "cowsay" {
 	state => "newest",
 }
 -- OUTPUT --
-Vertex: const
-Vertex: const
-Vertex: const
-Vertex: const
+Vertex: const: str("cowsay")
+Vertex: const: str("cowsay")
+Vertex: const: str("installed")
+Vertex: const: str("newest")

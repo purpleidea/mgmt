@@ -17,4 +17,4 @@ Edge: FuncValue -> call # fn
 Vertex: FuncValue
 Vertex: call
 Vertex: call
-Vertex: const
+Vertex: const: str("world")

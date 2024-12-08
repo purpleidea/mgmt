@@ -73,6 +73,8 @@ import (
 
 const (
 	runGraphviz = false // run graphviz in tests?
+
+	doOverwriteTest = false // overwrite tests (hacker mode)
 )
 
 var (
@@ -549,6 +551,10 @@ func TestAstFunc1(t *testing.T) {
 			str = sortHack(str)
 			expstr = sortHack(expstr)
 			if expstr != str {
+				if overwriteTest(t, index, txtarFile, archive, str) {
+					return
+				}
+
 				t.Errorf("test #%d: FAIL\n\n", index)
 				t.Logf("test #%d:   actual (g1):\n%s\n\n", index, str)
 				t.Logf("test #%d: expected (g2):\n%s\n\n", index, expstr)
@@ -1361,6 +1367,10 @@ func TestAstFunc2(t *testing.T) {
 			str = sortHack(str)
 			expstr = sortHack(expstr)
 			if expstr != str {
+				if overwriteTest(t, index, txtarFile, archive, str) {
+					return
+				}
+
 				t.Errorf("test #%d: FAIL\n\n", index)
 				t.Logf("test #%d:   actual (g1):\n%s\n\n", index, str)
 				t.Logf("test #%d: expected (g2):\n%s\n\n", index, expstr)
@@ -2302,6 +2312,10 @@ func TestAstFunc3(t *testing.T) {
 			str = sortHack(str)
 			expstr = sortHack(expstr)
 			if expstr != str {
+				if overwriteTest(t, index, txtarFile, archive, str) {
+					return
+				}
+
 				t.Errorf("test #%d: FAIL\n\n", index)
 				t.Logf("test #%d:   actual (g1):\n%s\n\n", index, str)
 				t.Logf("test #%d: expected (g2):\n%s\n\n", index, expstr)
@@ -2329,6 +2343,29 @@ func TestAstFunc3(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping all tests...")
 	}
+}
+
+// overwriteTest is a hack to update existing tests if their expected output
+// changes. This should only be used when all tests pass and we edit the format
+// of the expected output in some way.
+func overwriteTest(t *testing.T, index int, txtarFile string, archive *txtar.Archive, str string) bool {
+	if !doOverwriteTest {
+		return false // skip!
+	}
+	for i, x := range archive.Files {
+		if x.Name == "OUTPUT" {
+			// Set directly, no ptr!
+			archive.Files[i].Data = []byte(str)
+		}
+	}
+	data := txtar.Format(archive)
+	if err := os.WriteFile(txtarFile, data, 0644); err != nil {
+		t.Errorf("test #%d: FAIL", index)
+		t.Errorf("test #%d: error: %+v", index, err)
+		return false
+	}
+	t.Logf("test #%d: wrote new test to: %s", index, txtarFile)
+	return true
 }
 
 // stringResFields is a helper function to store a resource graph as a text

@@ -91,6 +91,21 @@ func (obj *CompositeFunc) Info() *interfaces.Info {
 		Out:  obj.Type, // this is the output type for the expression
 	}
 
+	// This populates the .Map and .Ord fields of the above type.
+	obj.makeStructType(typ) // hack =D
+
+	return &interfaces.Info{
+		Pure: true,
+		Memo: false, // TODO: ???
+		Sig:  typ,
+		Err:  obj.Validate(),
+	}
+}
+
+// makeStructType is a helper that adds the map/ord properties onto a type. This
+// should match the type we expect for this composite struct.
+func (obj *CompositeFunc) makeStructType(typ *types.Type) {
+
 	switch obj.Type.Kind {
 	case types.KindList: // wrapped in a struct with `length` many keys
 		for i := 0; i < obj.Len; i++ {
@@ -119,13 +134,6 @@ func (obj *CompositeFunc) Info() *interfaces.Info {
 		typ.Map = obj.Type.Map
 		typ.Ord = obj.Type.Ord
 	}
-
-	return &interfaces.Info{
-		Pure: true,
-		Memo: false, // TODO: ???
-		Sig:  typ,
-		Err:  obj.Validate(),
-	}
 }
 
 // Init runs some startup code for this composite function.
@@ -146,8 +154,11 @@ func (obj *CompositeFunc) Stream(ctx context.Context) error {
 				obj.init.Input = nil // don't infinite loop back
 
 				if obj.last == nil {
-					// FIXME: can we get an empty struct?
-					result := obj.Type.New() // new list or map
+					result, err := obj.StructCall(ctx, obj.last)
+					if err != nil {
+						return err
+					}
+
 					obj.result = result
 					select {
 					case obj.init.Output <- result: // send
@@ -167,51 +178,18 @@ func (obj *CompositeFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			var result types.Value
-			switch obj.Type.Kind {
-			case types.KindList:
-				// XXX: this duplicates the same logic that exists in Value() as implemented on *ExprList
-				// XXX: have this call that function to get the result?
-				result = obj.Type.New()             // new list
-				input := input.(*types.StructValue) // must be!
-				for i := 0; i < obj.Len; i++ {      // build it
-					value, exists := input.Lookup(fmt.Sprintf("%d", i)) // argNames as integers!
-					if !exists {
-						return fmt.Errorf("missing input index `%d`", i)
-					}
-					if err := result.(*types.ListValue).Add(value); err != nil {
-						return errwrap.Wrapf(err, "can't build list index `%d`", i)
-					}
-				}
-
-			case types.KindMap:
-				result = obj.Type.New()                        // new map
-				input := (input.(*types.StructValue)).Struct() // must be!
-				l := len(input)
-				if l%2 != 0 {
-					return fmt.Errorf("expected even number of inputs for a map, got: %d", l)
-				}
-
-				// each key should be named `key:0`, `val:0`, `key:1`, `val:1`,
-				// and so on for as many key pairs as we have... remember that
-				// the number of keys pairs is known statically in this case!
-				for i := 0; i < l/2; i++ { // build it
-					key, exists := input[fmt.Sprintf("key:%d", i)]
-					if !exists {
-						return fmt.Errorf("missing input key `key:%d`", i)
-					}
-					val, exists := input[fmt.Sprintf("val:%d", i)]
-					if !exists {
-						return fmt.Errorf("missing input val `val:%d`", i)
-					}
-
-					if err := result.(*types.MapValue).Add(key, val); err != nil {
-						return errwrap.Wrapf(err, "can't build map key with index `%d`", i)
-					}
-				}
-
-			case types.KindStruct:
-				result = input
+			// TODO: use the normal Call interface instead?
+			//args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			//if err != nil {
+			//	return err
+			//}
+			//result, err := obj.Call(ctx, args)
+			//if err != nil {
+			//	return err
+			//}
+			result, err := obj.StructCall(ctx, input)
+			if err != nil {
+				return err
 			}
 
 			// skip sending an update...
@@ -231,4 +209,103 @@ func (obj *CompositeFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// StructCall is a different Call API which is sometimes easier to implement.
+func (obj *CompositeFunc) StructCall(ctx context.Context, st types.Value) (types.Value, error) {
+	if st == nil {
+		// FIXME: can we get an empty struct?
+		result := obj.Type.New() // new list or map
+		return result, nil
+	}
+
+	var result types.Value
+	switch obj.Type.Kind {
+	case types.KindList:
+		// XXX: this duplicates the same logic that exists in Value() as implemented on *ExprList
+		// XXX: have this call that function to get the result?
+		result = obj.Type.New()          // new list
+		input := st.(*types.StructValue) // must be!
+		for i := 0; i < obj.Len; i++ {   // build it
+			value, exists := input.Lookup(fmt.Sprintf("%d", i)) // argNames as integers!
+			if !exists {
+				return nil, fmt.Errorf("missing input index `%d`", i)
+			}
+			if err := result.(*types.ListValue).Add(value); err != nil {
+				return nil, errwrap.Wrapf(err, "can't build list index `%d`", i)
+			}
+		}
+
+	case types.KindMap:
+		result = obj.Type.New()                     // new map
+		input := (st.(*types.StructValue)).Struct() // must be!
+		l := len(input)
+		if l%2 != 0 {
+			return nil, fmt.Errorf("expected even number of inputs for a map, got: %d", l)
+		}
+
+		// each key should be named `key:0`, `val:0`, `key:1`, `val:1`,
+		// and so on for as many key pairs as we have... remember that
+		// the number of keys pairs is known statically in this case!
+		for i := 0; i < l/2; i++ { // build it
+			key, exists := input[fmt.Sprintf("key:%d", i)]
+			if !exists {
+				return nil, fmt.Errorf("missing input key `key:%d`", i)
+			}
+			val, exists := input[fmt.Sprintf("val:%d", i)]
+			if !exists {
+				return nil, fmt.Errorf("missing input val `val:%d`", i)
+			}
+
+			if err := result.(*types.MapValue).Add(key, val); err != nil {
+				return nil, errwrap.Wrapf(err, "can't build map key with index `%d`", i)
+			}
+		}
+
+	case types.KindStruct:
+		result = st
+	}
+
+	return result, nil
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *CompositeFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+
+	typ := &types.Type{
+		Kind: types.KindStruct,
+		Map:  make(map[string]*types.Type),
+		Ord:  []string{},
+	}
+	obj.makeStructType(typ) // hack =D
+
+	st := (typ.New().(*types.StructValue)) // new struct
+
+	switch obj.Type.Kind {
+	case types.KindList:
+		for i, arg := range args {
+			key := fmt.Sprintf("%d", i)
+			st.V[key] = arg
+		}
+
+	case types.KindMap:
+		for i, arg := range args {
+			if i%2 == 0 {
+				key1 := fmt.Sprintf("key:%d", i)
+				st.V[key1] = arg
+			} else {
+				key2 := fmt.Sprintf("val:%d", i)
+				st.V[key2] = arg
+			}
+		}
+
+	case types.KindStruct:
+		for i, arg := range args {
+			key := obj.Type.Ord[i]
+			st.V[key] = arg
+		}
+	}
+
+	return obj.StructCall(ctx, st)
 }

@@ -88,7 +88,8 @@ type GetFunc struct {
 
 	init *interfaces.Init
 
-	key string
+	key  string
+	args []types.Value
 
 	last   types.Value
 	result types.Value // last calculated output
@@ -229,7 +230,13 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			key := input.Struct()[getArgNameKey].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			key := args[0].Str()
 			if key == "" {
 				return fmt.Errorf("can't use an empty key")
 			}
@@ -263,7 +270,7 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 			//	return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.key)
 			//}
 
-			result, err := obj.getValue(ctx) // get the value...
+			result, err := obj.Call(ctx, obj.args) // get the value...
 			if err != nil {
 				return err
 			}
@@ -287,8 +294,12 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 	}
 }
 
-// getValue gets the value we're looking for.
-func (obj *GetFunc) getValue(ctx context.Context) (types.Value, error) {
+// Call this function with the input args and return the value if it is possible
+// to do so at this time. This was previously getValue which gets the value
+// we're looking for.
+func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	key := args[0].Str()
+
 	typ, exists := obj.Info().Sig.Out.Map[getFieldNameValue] // type of value field
 	if !exists || typ == nil {
 		// programming error
@@ -303,9 +314,9 @@ func (obj *GetFunc) getValue(ctx context.Context) (types.Value, error) {
 	// step that might be needed if the value started out empty...
 	// TODO: We could even add a stored: bool field in the returned struct!
 	isReady := true // assume true
-	val, err := obj.init.Local.ValueGet(ctx, obj.key)
+	val, err := obj.init.Local.ValueGet(ctx, key)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", obj.key)
+		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", key)
 	}
 	if val == nil { // val doesn't exist
 		isReady = false
@@ -324,7 +335,7 @@ func (obj *GetFunc) getValue(ctx context.Context) (types.Value, error) {
 			// an str for example, this error happens... Do we want
 			// to: (1) coerce? -- no; (2) error? -- yep for now; (3)
 			// improve type unification? -- if it's possible, yes.
-			return nil, errwrap.Wrapf(err, "type mismatch, check type in Value[%s]", obj.key)
+			return nil, errwrap.Wrapf(err, "type mismatch, check type in Value[%s]", key)
 		}
 	}
 

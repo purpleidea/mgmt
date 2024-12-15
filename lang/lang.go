@@ -62,7 +62,7 @@ const (
 	// between engine startup, and loaded event before printing some
 	// debugging stats. This is useful for finding bugs in the function
 	// engine. Set to zero to disable.
-	EngineStartupStatsTimeout = 10
+	EngineStartupStatsTimeout = 60
 )
 
 // Data is some data that is passed into the Lang struct. It is presented here

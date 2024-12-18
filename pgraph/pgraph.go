@@ -208,6 +208,9 @@ func (g *Graph) AddVertex(xv ...Vertex) {
 		g.adjacency = make(map[Vertex]map[Vertex]Edge)
 	}
 	for _, v := range xv {
+		if v == nil {
+			panic("nil vertex")
+		}
 		if _, exists := g.adjacency[v]; !exists {
 			g.adjacency[v] = make(map[Vertex]Edge)
 		}
@@ -219,6 +222,9 @@ func (g *Graph) AddVertex(xv ...Vertex) {
 func (g *Graph) DeleteVertex(xv ...Vertex) {
 	if len(xv) == 1 {
 		v := xv[0]
+		if v == nil {
+			panic("nil vertex")
+		}
 		delete(g.adjacency, v)
 		for k := range g.adjacency {
 			delete(g.adjacency[k], v)

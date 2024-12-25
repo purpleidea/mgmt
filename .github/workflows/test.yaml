@@ -1,18 +1,18 @@
+---
 # Docs: https://help.github.com/en/articles/workflow-syntax-for-github-actions
-
 # If the name is omitted, it uses the filename instead.
-#name: Test
+# name: Test
 on:
   # Run on all pull requests.
   pull_request:
-    #branches:
-    #- master
+  # branches:
+  # - master
+
   # Run on all pushes.
   push:
   # Run daily at 4am.
   schedule:
   - cron: 0 4 * * *
-
 jobs:
   maketest:
     name: Test (${{ matrix.test_block }}) on ${{ matrix.os }} with golang ${{ matrix.golang_version }}
@@ -23,46 +23,36 @@ jobs:
       matrix:
         # TODO: Add tip when it's supported: https://github.com/actions/setup-go/issues/21
         os:
-          - ubuntu-latest
-          # macos tests are currently failing in CI
-          #- macos-latest
+        - ubuntu-latest
+        # macos tests are currently failing in CI
+        # - macos-latest
         golang_version:
-          # TODO: add 1.22.x and tip
-          # minimum required and latest published go_version
-          - "1.21"
+        # TODO: add 1.22.x and tip
+        # minimum required and latest published go_version
+        - "1.21"
         test_block:
-          - basic
-          - shell
-          - race
+        - basic
+        - shell
+        - race
       fail-fast: false
-
     steps:
-      # Do not shallow fetch. The path can't be absolute, so we need to move it
-      # to the expected location later.
-      - name: Clone mgmt
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-          path: ./go/src/github.com/purpleidea/mgmt
-
-      - name: Install Go ${{ matrix.golang_version }}
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.golang_version }}
-
-      # Install & configure ruby, fixes gem permissions error
-      - name: Install Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: head
-
-      - name: Install dependencies
-        working-directory: ./go/src/github.com/purpleidea/mgmt
-        run: |
-          make deps
-
-      - name: Run test
-        working-directory: ./go/src/github.com/purpleidea/mgmt
-        run: |
-          TEST_BLOCK="${{ matrix.test_block }}" make test
+    # Do not shallow fetch. The path can't be absolute, so we need to move it
+    # to the expected location later.
+    - name: Clone mgmt
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+        path: ./go/src/github.com/purpleidea/mgmt
+    - name: Install Go ${{ matrix.golang_version }}
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.golang_version }}
+    - name: Install dependencies
+      working-directory: ./go/src/github.com/purpleidea/mgmt
+      run: |
+        make deps
+    - name: Run test
+      working-directory: ./go/src/github.com/purpleidea/mgmt
+      run: |-
+        TEST_BLOCK="${{ matrix.test_block }}" make test

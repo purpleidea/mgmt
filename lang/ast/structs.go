@@ -180,10 +180,10 @@ var (
 // TextArea stores the coordinates of a statement or expression in the form of
 // starting line/column and ending line/column
 type TextArea struct {
-	startLine int
+	startLine   int
 	startColumn int
-	endLine int
-	endColumn int
+	endLine     int
+	endColumn   int
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -8677,7 +8677,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.expr, // this should NOT be obj
 			Node:   obj,
-			Expect: typFunc,  // TODO: are these two reversed here?
+			Expect: typFunc, // TODO: are these two reversed here?
 			Actual: typFn,
 		}
 		invariants = append(invariants, invar)

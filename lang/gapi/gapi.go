@@ -319,7 +319,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 				logf("type unification failed after %s", formatted)
 			}
 			cause := unifyErr.(*interfaces.UnificationInvariant).Node
-			parent := ast.AreaParentOf(cause,iast)
+			parent := ast.AreaParentOf(cause, iast)
 			line, col := parent.GetPosition()
 			logf("possible type issue found at line %d column %d", line, col)
 			return nil, errwrap.Wrapf(unifyErr, "could not unify types")

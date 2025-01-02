@@ -100,6 +100,7 @@ class network_manager_static($st) {
 	$prefix = net.cidr_to_prefix($cidr)
 	$router = $st->router || ""
 	$dns = $st->dns || "8.8.8.8"
+	$vips []str = $st->vips || [] # []cidr
 
 	$tmpl =
 "
@@ -118,6 +119,12 @@ address1=${ip}/${prefix},{{ .router }}
 {{ else -}}
 address1=${ip}/${prefix}
 {{ end -}}
+{{ if .vips -}}
+{{ range $index, $ip := .vips }}
+{{ $ix := len (printf \"xx%*s\" $index \"\") -}}
+address{{ $ix }}={{ $ip }}
+{{ end -}}
+{{ end -}}
 dns=${dns};
 dns-search=
 may-fail=false
@@ -133,6 +140,7 @@ mac-address={{ .mac }}
 		uuid => $uuid,
 		mac => $mac,
 		router => $router,
+		vips => $vips,
 	}
 
 	file "/etc/NetworkManager/system-connections/${dev}.nmconnection" {

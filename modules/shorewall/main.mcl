@@ -33,6 +33,20 @@ import "golang"
 import "local"
 import "golang/strings"
 
+
+# Class prepare adds some common things you probably want to run when using this
+# module.
+class prepare() {
+	sysctl "net.ipv4.ip_forward" { # firewalls love this!
+		value => "1",
+	}
+
+	svc "firewalld" { # we don't want this
+		state => "stopped",
+		startup => "disabled",
+	}
+}
+
 # XXX: The templates need a padding function to line up columns.
 class firewall() {
 	pkg "shorewall" {
@@ -302,8 +316,8 @@ class firewall:rule($name, $st) {
 
 	$rule = $st->rule || "" # entire rule contents OR use the below values
 
-	$action = $st->action # REJECT or SSH(ACCEPT) or Ping(DROP)
-	$source = $st->source # source zone
+	$action = $st->action || "" # REJECT or SSH(ACCEPT) or Ping(DROP)
+	$source = $st->source || "" # source zone
 	$source_ips []str = $st->source_ips || []
 	$dest = $st->dest || "" # dest zone
 	$dest_ips []str = $st->dest_ips || []

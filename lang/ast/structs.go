@@ -177,12 +177,53 @@ var (
 	orderingGraphSingleton = false
 )
 
+// TextArea stores the coordinates of a statement or expression in the form of
+// starting line/column and ending line/column
+type TextArea struct {
+	startLine   int
+	startColumn int
+	endLine     int
+	endColumn   int
+
+	// Bug5819 works around issue https://github.com/golang/go/issues/5819
+	Bug5819 interface{} // XXX: workaround
+}
+
+// Locate is used by the parser to store the token positions in AST nodes
+// TODO: also note down the file name containing the statement/expression
+// ...this is currently hard because the parser is blissfully unaware
+func (a *TextArea) Locate(line int, col int, endline int, endcol int) {
+	a.startLine = line
+	a.startColumn = col
+	a.endLine = endline
+	a.endColumn = endcol
+}
+
+// LocalNode is the interface implemented by AST nodes that store their code
+// position. It is implemented by node types that embed TextArea.
+type LocalNode interface {
+	Locate(int, int, int, int)
+	GetPosition() (int, int)
+	GetEndPosition() (int, int)
+}
+
+// GetPosition returns the starting line/column of an AST node
+func (a TextArea) GetPosition() (int, int) {
+	return a.startLine, a.startColumn
+}
+
+// GetEndPosition returns the end line/column of an AST node
+func (a TextArea) GetEndPosition() (int, int) {
+	return a.endLine, a.endColumn
+}
+
 // StmtBind is a representation of an assignment, which binds a variable to an
 // expression.
 type StmtBind struct {
 	Ident string
 	Value interfaces.Expr
 	Type  *types.Type
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -220,11 +261,9 @@ func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &StmtBind{
-		Ident: obj.Ident,
-		Value: interpolated,
-		Type:  obj.Type,
-	}, nil
+	result := *obj
+	result.Value = interpolated
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -320,6 +359,7 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Value,
+		Node:   obj,
 		Expect: typExpr, // obj.Type
 		Actual: typ,
 	}
@@ -365,6 +405,7 @@ type StmtRes struct {
 	Name     interfaces.Expr   // unique name for the res of this kind
 	namePtr  interfaces.Func   // ptr for table lookup
 	Contents []StmtResContents // list of fields/edges in parsed order
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -629,6 +670,7 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Name,
+		Node:   obj,
 		Expect: typExpr, // the name
 		Actual: typ,
 	}
@@ -1389,6 +1431,7 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.Condition,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: typ,
 		}
@@ -1429,6 +1472,7 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 	// regular scenario
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Value,
+		Node:   obj,
 		Expect: typExpr,
 		Actual: typ,
 	}
@@ -1664,6 +1708,7 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.Condition,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: typ,
 		}
@@ -1925,6 +1970,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.Condition,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: typ,
 		}
@@ -2003,6 +2049,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.MetaExpr,
+		Node:   obj,
 		Expect: typExpr,
 		Actual: typ,
 	}
@@ -2059,6 +2106,7 @@ type StmtEdge struct {
 
 	// TODO: should notify be an Expr?
 	Notify bool // specifies that this edge sends a notification as well
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -2524,6 +2572,7 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Name,
+		Node:   obj,
 		Expect: typExpr, // the name
 		Actual: typ,
 	}
@@ -2561,6 +2610,7 @@ type StmtIf struct {
 	conditionPtr interfaces.Func // ptr for table lookup
 	ThenBranch   interfaces.Stmt // optional, but usually present
 	ElseBranch   interfaces.Stmt // optional
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -2642,11 +2692,11 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 			return nil, errwrap.Wrapf(err, "could not interpolate ElseBranch")
 		}
 	}
-	return &StmtIf{
-		Condition:  condition,
-		ThenBranch: thenBranch,
-		ElseBranch: elseBranch,
-	}, nil
+	result := *obj
+	result.Condition = condition
+	result.ThenBranch = thenBranch
+	result.ElseBranch = elseBranch
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -2808,6 +2858,7 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	typExpr := types.TypeBool // default
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Condition,
+		Node:   obj,
 		Expect: typExpr, // the condition
 		Actual: typ,
 	}
@@ -2923,6 +2974,7 @@ type StmtProg struct {
 	importFiles []string    // list of files seen during the SetScope import
 
 	Body []interfaces.Stmt
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4325,6 +4377,7 @@ type StmtFunc struct {
 	Name string
 	Func interfaces.Expr
 	Type *types.Type
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4484,6 +4537,7 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj.Func,
+		Node:   obj,
 		Expect: typExpr, // obj.Type
 		Actual: typ,
 	}
@@ -4531,6 +4585,7 @@ type StmtClass struct {
 	Name string
 	Args []*interfaces.Arg
 	Body interfaces.Stmt // probably a *StmtProg
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4733,6 +4788,7 @@ type StmtInclude struct {
 	Name  string
 	Args  []interfaces.Expr
 	Alias string
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -5048,6 +5104,7 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 		if typExpr := obj.class.Args[i].Type; typExpr != nil {
 			invar := &interfaces.UnificationInvariant{
 				Expr:   x,
+				Node:   obj,
 				Expect: typExpr, // type of arg
 				Actual: typ,
 			}
@@ -5098,6 +5155,7 @@ func (obj *StmtInclude) Output(table map[interfaces.Func]types.Value) (*interfac
 type StmtImport struct {
 	Name  string
 	Alias string
+	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -5279,6 +5337,7 @@ type ExprBool struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V bool
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5356,6 +5415,7 @@ func (obj *ExprBool) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	return types.TypeBool, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeBool,
 			Actual: types.TypeBool,
 		},
@@ -5424,6 +5484,7 @@ type ExprStr struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V string // value of this string
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5553,6 +5614,7 @@ func (obj *ExprStr) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	return types.TypeStr, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeStr,
 			Actual: types.TypeStr,
 		},
@@ -5619,6 +5681,7 @@ type ExprInt struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V int64
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5696,6 +5759,7 @@ func (obj *ExprInt) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	return types.TypeInt, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeInt,
 			Actual: types.TypeInt,
 		},
@@ -5762,6 +5826,7 @@ type ExprFloat struct {
 	scope *interfaces.Scope // store for referencing this later
 
 	V float64
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5841,6 +5906,7 @@ func (obj *ExprFloat) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 	return types.TypeFloat, []*interfaces.UnificationInvariant{
 		{
 			Expr:   obj,
+			Node:   obj,
 			Expect: types.TypeFloat,
 			Actual: types.TypeFloat,
 		},
@@ -5909,6 +5975,7 @@ type ExprList struct {
 
 	//Elements []*ExprListElement
 	Elements []interfaces.Expr
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6133,6 +6200,7 @@ func (obj *ExprList) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -6262,6 +6330,7 @@ type ExprMap struct {
 	typ   *types.Type
 
 	KVs []*ExprMapKV
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6574,6 +6643,7 @@ func (obj *ExprMap) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -6747,6 +6817,7 @@ type ExprStruct struct {
 	typ   *types.Type
 
 	Fields []*ExprStructField // the list (fields) are intentionally ordered!
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6998,6 +7069,7 @@ func (obj *ExprStruct) Infer() (*types.Type, []*interfaces.UnificationInvariant,
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -7179,6 +7251,7 @@ type ExprFunc struct {
 
 	// XXX: is this necessary?
 	//V func(interfaces.Txn, []pgraph.Vertex) (pgraph.Vertex, error)
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -7746,6 +7819,7 @@ func (obj *ExprFunc) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -7923,6 +7997,7 @@ type ExprCall struct {
 	Args []interfaces.Expr // list of args in parsed order
 	// Var specifies whether the function being called is a lambda in a var.
 	Var bool
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -7978,19 +8053,11 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 		orig = obj.orig
 	}
 
-	return &ExprCall{
-		data:  obj.data,
-		scope: obj.scope,
-		typ:   obj.typ,
-		// XXX: Copy copies this, do we want to here as well? (or maybe
-		// we want to do it here, but not in Copy?)
-		expr: obj.expr,
-		orig: orig,
-		V:    obj.V,
-		Name: obj.Name,
-		Args: args,
-		Var:  obj.Var,
-	}, nil
+	result := *obj
+	result.orig = orig
+	result.Args = args
+
+	return &result, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -8444,6 +8511,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}
@@ -8514,7 +8582,8 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj.expr, // this should NOT be obj
-			Expect: typFunc,  // TODO: are these two reversed here?
+			Node:   obj,
+			Expect: typFunc, // TODO: are these two reversed here?
 			Actual: typFn,
 		}
 		invariants = append(invariants, invar)
@@ -8654,6 +8723,7 @@ type ExprVar struct {
 	typ   *types.Type
 
 	Name string // name of the variable
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -8833,6 +8903,7 @@ func (obj *ExprVar) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typ,
 		Actual: typ,
 	}
@@ -8917,6 +8988,7 @@ type ExprParam struct {
 	typ *types.Type
 
 	Name string // name of the parameter
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -9060,6 +9132,7 @@ func (obj *ExprParam) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 		// This adds the obj ptr, so it's seen as an expr that we need to solve.
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj,
+			Node:   obj,
 			Expect: typ,
 			Actual: typ,
 		}
@@ -9367,6 +9440,7 @@ func (obj *ExprTopLevel) Infer() (*types.Type, []*interfaces.UnificationInvarian
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typ,
 		Actual: typ,
 	}
@@ -9561,6 +9635,7 @@ func (obj *ExprSingleton) Infer() (*types.Type, []*interfaces.UnificationInvaria
 		// to solve.
 		invar := &interfaces.UnificationInvariant{
 			Expr:   obj,
+			Node:   obj,
 			Expect: typ,
 			Actual: typ,
 		}
@@ -9629,6 +9704,7 @@ type ExprIf struct {
 	Condition  interfaces.Expr
 	ThenBranch interfaces.Expr // could be an ExprBranch
 	ElseBranch interfaces.Expr // could be an ExprBranch
+	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -9928,6 +10004,7 @@ func (obj *ExprIf) Infer() (*types.Type, []*interfaces.UnificationInvariant, err
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
 	}

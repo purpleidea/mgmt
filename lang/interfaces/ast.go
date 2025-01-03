@@ -85,6 +85,11 @@ type Stmt interface {
 	// child statements, and Infer/Check for child expressions.
 	TypeCheck() ([]*UnificationInvariant, error)
 
+	// Optimize is a step that optimizes or simplifies the AST. This step
+	// should only change performance aspects of the program and its
+	// behaviour should remain functionally equivalent.
+	Optimize() (Stmt, error)
+
 	// Graph returns the reactive function graph expressed by this node.
 	Graph() (*pgraph.Graph, error)
 
@@ -144,6 +149,11 @@ type Expr interface {
 	// necessary. Check must always call Infer to produce the invariant. The
 	// implementation can be generic for all expressions.
 	Check(typ *types.Type) ([]*UnificationInvariant, error)
+
+	// Optimize is a step that optimizes or simplifies the AST. This step
+	// should only change performance aspects of the program and its
+	// behaviour should remain functionally equivalent.
+	Optimize() (Expr, error)
 
 	// Graph returns the reactive function graph expressed by this node. It
 	// takes in the environment of any functions in scope. It also returns

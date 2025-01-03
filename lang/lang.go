@@ -281,6 +281,12 @@ func (obj *Lang) Init(ctx context.Context) error {
 	// should only be dynamic in implementation and before unification, and
 	// static once we've unified the specific resource.
 
+	obj.Logf("optimizing ast...")
+	obj.ast, err = obj.ast.Optimize() // run the optimizer/simplifier
+	if err != nil {
+		return errwrap.Wrapf(err, "could not optimize ast")
+	}
+
 	obj.Logf("building function graph...")
 	timing = time.Now()
 	// we assume that for some given code, the list of funcs doesn't change

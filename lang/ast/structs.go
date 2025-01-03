@@ -328,6 +328,13 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtBind) Optimize() (interfaces.Stmt, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -635,6 +642,13 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	invariants = append(invariants, invar)
 
 	return invariants, nil
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtRes) Optimize() (interfaces.Stmt, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -1195,6 +1209,7 @@ type StmtResContents interface {
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
 	TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error)
+	Optimize() (StmtResContents, error)
 	Graph() (*pgraph.Graph, error)
 }
 
@@ -1437,6 +1452,13 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 	return invariants, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtResField) Optimize() (StmtResContents, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -1671,6 +1693,13 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	}
 
 	return invariants, nil
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtResEdge) Optimize() (StmtResContents, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -2011,6 +2040,13 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	return invariants, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtResMeta) Optimize() (StmtResContents, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -2273,6 +2309,33 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtEdge) Optimize() (interfaces.Stmt, error) {
+	// TODO: is there an optimization to perform here?
+	optimized := false
+	edgeHalfList := []*StmtEdgeHalf{}
+	for _, x := range obj.EdgeHalfList {
+		edgeHalf, err := x.Optimize()
+		if err != nil {
+			return nil, err
+		}
+		if edgeHalf != x { // must have been optimized, or pointer would be same
+			optimized = true
+		}
+		edgeHalfList = append(edgeHalfList, edgeHalf)
+	}
+
+	if !optimized { // it's static
+		return obj, nil
+	}
+	return &StmtEdge{
+		EdgeHalfList: edgeHalfList,
+		Notify:       obj.Notify,
+	}, nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -2530,6 +2593,13 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 	invariants = append(invariants, invar)
 
 	return invariants, nil
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtEdgeHalf) Optimize() (*StmtEdgeHalf, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -2830,6 +2900,83 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+//
+// XXX: Should we call this Simplify instead?
+// XXX: I'm doing this later than SetScope since we want the entire AST there.
+// XXX: I'm doing this later than type unification in case we'd need extra info?
+// XXX: Doing it before type unification would be better, make sure to write
+// defensive Optimize functions that don't assume the type in case we move it.
+// XXX: Limiting unused imports would be nice if we could do this earlier.
+// XXX: We can always run this type of step twice in different ways if needed.
+func (obj *StmtIf) Optimize() (interfaces.Stmt, error) {
+	condition, err := obj.Condition.Value()
+	if err != nil {
+		// can't get value statically, skip
+		// try to optimize the condition first
+
+		optimized := false
+		condition, err := obj.Condition.Optimize()
+		if err != nil {
+			return nil, err
+		}
+		if condition != obj.Condition { // must have been optimized, or pointer would be same
+			optimized = true
+		}
+
+		var thenBranch interfaces.Stmt
+		if obj.ThenBranch != nil {
+			thenBranch, err = obj.ThenBranch.Optimize()
+			if err != nil {
+				return nil, err
+			}
+			if thenBranch != obj.ThenBranch {
+				optimized = true
+			}
+		}
+		var elseBranch interfaces.Stmt
+		if obj.ElseBranch != nil {
+			elseBranch, err = obj.ElseBranch.Optimize()
+			if err != nil {
+				return nil, err
+			}
+			if elseBranch != obj.ElseBranch {
+				optimized = true
+			}
+		}
+
+		if !optimized { // it's static
+			return obj, nil
+		}
+		return &StmtIf{
+			Condition:  condition,
+			ThenBranch: thenBranch,
+			ElseBranch: elseBranch,
+		}, nil
+	}
+
+	// We have a value! Is it a bool?
+	if err := condition.Type().Cmp(types.TypeBool); err != nil {
+		// can't get type (unexpected since we have a value)
+		// possible programming error
+		// skip for now, unification should have caught this
+		return obj, nil
+	}
+	b := condition.Bool() // should not panic
+
+	if b && obj.ThenBranch != nil {
+		return obj.ThenBranch.Optimize() // recurse!
+	}
+	if !b && obj.ElseBranch != nil {
+		return obj.ElseBranch.Optimize() // recurse!
+	}
+
+	// The branch we want to descend into is nil.
+	return nil, nil // XXX: Test that returning a nil AST is handled!
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -4203,6 +4350,36 @@ func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtProg) Optimize() (interfaces.Stmt, error) {
+	// TODO: is there an optimization to perform here?
+	optimized := false
+	body := []interfaces.Stmt{}
+	for _, x := range obj.Body {
+		b, err := x.Optimize()
+		if err != nil {
+			return nil, err
+		}
+		if b != x { // must have been optimized, or pointer would be same
+			optimized = true
+		}
+		body = append(body, b)
+	}
+
+	if !optimized { // it's static
+		return obj, nil
+	}
+	return &StmtProg{
+		data:        obj.data,
+		scope:       obj.scope,
+		importProgs: obj.importProgs,
+		importFiles: obj.importFiles,
+		Body:        body,
+	}, nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -4503,6 +4680,13 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtFunc) Optimize() (interfaces.Stmt, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -4702,6 +4886,13 @@ func (obj *StmtClass) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtClass) Optimize() (interfaces.Stmt, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -5058,6 +5249,13 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 	return invariants, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtInclude) Optimize() (interfaces.Stmt, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -5172,6 +5370,13 @@ func (obj *StmtImport) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return []*interfaces.UnificationInvariant{}, nil
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtImport) Optimize() (interfaces.Stmt, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -5257,6 +5462,13 @@ func (obj *StmtComment) SetScope(*interfaces.Scope) error { return nil }
 // Infer/Check for child expressions.
 func (obj *StmtComment) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return []*interfaces.UnificationInvariant{}, nil
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *StmtComment) Optimize() (interfaces.Stmt, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -5368,6 +5580,13 @@ func (obj *ExprBool) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprBool) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprBool) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -5567,6 +5786,13 @@ func (obj *ExprStr) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 	return interfaces.GenericCheck(obj, typ)
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprStr) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprStr) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
@@ -5708,6 +5934,13 @@ func (obj *ExprInt) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 // generic for all expressions.
 func (obj *ExprInt) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprInt) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -5853,6 +6086,13 @@ func (obj *ExprFloat) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 // generic for all expressions.
 func (obj *ExprFloat) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprFloat) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -6147,6 +6387,13 @@ func (obj *ExprList) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprList) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprList) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -6590,6 +6837,13 @@ func (obj *ExprMap) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 	return interfaces.GenericCheck(obj, typ)
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprMap) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprMap) Func() (interfaces.Func, error) {
 	typ, err := obj.Type()
@@ -7012,6 +7266,13 @@ func (obj *ExprStruct) Infer() (*types.Type, []*interfaces.UnificationInvariant,
 // generic for all expressions.
 func (obj *ExprStruct) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprStruct) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7760,6 +8021,13 @@ func (obj *ExprFunc) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprFunc) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprFunc) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -8545,6 +8813,13 @@ func (obj *ExprCall) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 	return interfaces.GenericCheck(obj, typ)
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprCall) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -8849,6 +9124,13 @@ func (obj *ExprVar) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 	return interfaces.GenericCheck(obj, typ)
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprVar) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -9077,6 +9359,13 @@ func (obj *ExprParam) Check(typ *types.Type) ([]*interfaces.UnificationInvariant
 	return interfaces.GenericCheck(obj, typ)
 }
 
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprParam) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -9199,6 +9488,13 @@ func (obj *ExprPoly) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprPoly) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprPoly) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -9381,6 +9677,13 @@ func (obj *ExprTopLevel) Infer() (*types.Type, []*interfaces.UnificationInvarian
 // generic for all expressions.
 func (obj *ExprTopLevel) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprTopLevel) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -9579,6 +9882,13 @@ func (obj *ExprSingleton) Infer() (*types.Type, []*interfaces.UnificationInvaria
 // generic for all expressions.
 func (obj *ExprSingleton) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprSingleton) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -9942,6 +10252,13 @@ func (obj *ExprIf) Infer() (*types.Type, []*interfaces.UnificationInvariant, err
 // generic for all expressions.
 func (obj *ExprIf) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+// Optimize is a step that optimizes or simplifies the AST. This step should
+// only change performance aspects of the program and its behaviour should
+// remain functionally equivalent.
+func (obj *ExprIf) Optimize() (interfaces.Expr, error) {
+	return obj, nil // TODO: is there an optimization to perform here?
 }
 
 // Func returns a function which returns the correct branch based on the ever

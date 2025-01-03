@@ -496,6 +496,14 @@ func TestAstFunc1(t *testing.T) {
 				return
 			}
 
+			//logf("optimizing ast...")
+			iast, err = iast.Optimize() // run the optimizer/simplifier
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: optimize failed with: %+v", index, err)
+				return
+			}
+
 			// build the function graph
 			fgraph, err := iast.Graph()
 			if (!fail || !failGraph) && err != nil {
@@ -1081,6 +1089,14 @@ func TestAstFunc2(t *testing.T) {
 			// concrete field types are? They should only be dynamic
 			// in implementation and before unification, and static
 			// once we've unified the specific resource.
+
+			//logf("optimizing ast...")
+			iast, err = iast.Optimize() // run the optimizer/simplifier
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: optimize failed with: %+v", index, err)
+				return
+			}
 
 			// build the function graph
 			fgraph, err := iast.Graph()
@@ -1901,6 +1917,14 @@ func TestAstFunc3(t *testing.T) {
 			// concrete field types are? They should only be dynamic
 			// in implementation and before unification, and static
 			// once we've unified the specific resource.
+
+			//logf("optimizing ast...")
+			iast, err = iast.Optimize() // run the optimizer/simplifier
+			if err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: optimize failed with: %+v", index, err)
+				return
+			}
 
 			// build the function graph
 			fgraph, err := iast.Graph()

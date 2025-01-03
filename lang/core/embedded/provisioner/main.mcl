@@ -560,6 +560,9 @@ class base:host($name, $config) {
 	$handoff_code = $config->handoff_code || ""
 	panic(not strings.has_prefix($handoff_code, "/"))
 
+	# This is a giant driver://user:password@host:port/whatever URL...
+	$bmc_uri = $config->bmc_uri || ""
+
 	# unique host key which is usually a mac address unless it's a default
 	$hkey = if $mac == "" {
 		"default"
@@ -817,6 +820,15 @@ class base:host($name, $config) {
 		path => $kickstart_file,
 
 		Before => Print["ready"],
+	}
+
+	bmc:power "${bmc_uri}" { # TODO: Name() API is not yet stable
+		#password => "hunter2",
+		insecure_password => true, # XXX: get from uri for now
+
+		state => "on",
+
+		Meta:poll => 60, # required until BMC's support real events!
 	}
 
 	##$str_true = convert.format_bool(true)

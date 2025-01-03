@@ -79,6 +79,7 @@ include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	handoff => $handoff, # alternatively some code word or querystring
 	#handoff_code => "/etc/mgmt/", # one way to do it
 	handoff_code => provisioner.cli_handoff_code(),
+	bmc_uri => provisioner.cli_bmc_uri(),
 }) as host0
 
 #if $host0.provisioned {

@@ -1,0 +1,12 @@
+# A standard bmc might connect with:
+bmc:power "gofishs://ADMIN@127.0.0.1:8800" {
+	#username => "ADMIN",
+	password => "ADMIN",
+	#driver => "gofishs", # https gofish
+
+	state => "on",
+
+	Meta:poll => 10, # required until BMC's support real events!
+}
+
+# The testing rpc example can connect to: rpcs://127.0.0.1:8800 instead.

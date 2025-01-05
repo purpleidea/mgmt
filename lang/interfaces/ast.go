@@ -276,47 +276,33 @@ func EmptyScope() *Scope {
 	}
 }
 
-// InitScope initializes any uninitialized part of the struct. It is safe to use
-// on scopes with existing data.
-func (obj *Scope) InitScope() {
-	if obj.Variables == nil {
-		obj.Variables = make(map[string]Expr)
-	}
-	if obj.Functions == nil {
-		obj.Functions = make(map[string]Expr)
-	}
-	if obj.Classes == nil {
-		obj.Classes = make(map[string]Stmt)
-	}
-	if obj.Chain == nil {
-		obj.Chain = []Node{}
-	}
-}
-
 // Copy makes a copy of the Scope struct. This ensures that if the internal map
 // is changed, it doesn't affect other copies of the Scope. It does *not* copy
 // or change the Expr pointers contained within, since these are references, and
 // we need those to be consistently pointing to the same things after copying.
 func (obj *Scope) Copy() *Scope {
+	if obj == nil { // allow copying nil scopes
+		return EmptyScope()
+	}
+
 	variables := make(map[string]Expr)
 	functions := make(map[string]Expr)
 	classes := make(map[string]Stmt)
 	chain := []Node{}
-	if obj != nil { // allow copying nil scopes
-		obj.InitScope()                   // safety
-		for k, v := range obj.Variables { // copy
-			variables[k] = v // we don't copy the expr's!
-		}
-		for k, v := range obj.Functions { // copy
-			functions[k] = v // we don't copy the generator func's
-		}
-		for k, v := range obj.Classes { // copy
-			classes[k] = v // we don't copy the StmtClass!
-		}
-		for _, x := range obj.Chain { // copy
-			chain = append(chain, x) // we don't copy the Stmt pointer!
-		}
+
+	for k, v := range obj.Variables { // copy
+		variables[k] = v // we don't copy the expr's!
 	}
+	for k, v := range obj.Functions { // copy
+		functions[k] = v // we don't copy the generator func's
+	}
+	for k, v := range obj.Classes { // copy
+		classes[k] = v // we don't copy the StmtClass!
+	}
+	for _, x := range obj.Chain { // copy
+		chain = append(chain, x) // we don't copy the Stmt pointer!
+	}
+
 	return &Scope{
 		Variables: variables,
 		Functions: functions,
@@ -349,8 +335,6 @@ func (obj *Scope) Merge(scope *Scope) error {
 	sort.Strings(namedVariables)
 	sort.Strings(namedFunctions)
 	sort.Strings(namedClasses)
-
-	obj.InitScope() // safety
 
 	for _, name := range namedVariables {
 		if _, exists := obj.Variables[name]; exists {

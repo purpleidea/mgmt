@@ -1486,7 +1486,7 @@ func cast(y yyLexer) *lexParseAST {
 	return x.(*lexParseAST)
 }
 
-// postLast pulls out the "last token" and does a pos with that. This is a hack!
+// posLast pulls out the "last token" and does a pos with that. This is a hack!
 func posLast(y yyLexer, dollars []yySymType) {
 	// pick the last token in the set matched by the parser
 	pos(y, dollars[len(dollars)-1]) // our pos

@@ -569,13 +569,13 @@ cause a conflict with another identifier.
 ### Stages
 
 The mgmt compiler runs in a number of stages. In order of execution they are:
-* [Lexing](#lexing)
-* [Parsing](#parsing)
-* [Interpolation](#interpolation)
-* [Scope propagation](#scope-propagation)
-* [Type unification](#type-unification)
-* [Function graph generation](#function-graph-generation)
-* [Function engine creation and validation](#function-engine-creation-and-validation)
+- [Lexing](#lexing)
+- [Parsing](#parsing)
+- [Interpolation](#interpolation)
+- [Scope propagation](#scope-propagation)
+- [Type unification](#type-unification)
+- [Function graph generation](#function-graph-generation)
+- [Function engine creation and validation](#function-engine-creation-and-validation)
 
 All of the above needs to be done every time the source code changes. After this
 point, the [function engine runs](#function-engine-running-and-interpret) and

@@ -1,0 +1,8 @@
+-- main.mcl --
+$s = func($x) {
+	"hello" + $x
+}("world") # inline lambda call
+
+test [$s,] {}
+-- OUTPUT --
+Vertex: test[helloworld]

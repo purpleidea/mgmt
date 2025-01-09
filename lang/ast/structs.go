@@ -7923,10 +7923,16 @@ type ExprCall struct {
 
 	// Name of the function to be called. We look for it in the scope.
 	Name string
+
 	// Args are the list of inputs to this function.
 	Args []interfaces.Expr // list of args in parsed order
+
 	// Var specifies whether the function being called is a lambda in a var.
 	Var bool
+
+	// Anon is an *ExprFunc which is used if we are calling anonymously. If
+	// this is specified, Name must be the empty string.
+	Anon interfaces.Expr
 }
 
 // String returns a short representation of this expression.
@@ -7935,7 +7941,11 @@ func (obj *ExprCall) String() string {
 	for _, x := range obj.Args {
 		s = append(s, fmt.Sprintf("%s", x.String()))
 	}
-	return fmt.Sprintf("call:%s(%s)", obj.Name, strings.Join(s, ", "))
+	name := obj.Name
+	if obj.Name == "" && obj.Anon != nil {
+		name = "<anon>"
+	}
+	return fmt.Sprintf("call:%s(%s)", name, strings.Join(s, ", "))
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -7949,6 +7959,11 @@ func (obj *ExprCall) Apply(fn func(interfaces.Node) error) error {
 			return err
 		}
 	}
+	if obj.Anon != nil {
+		if err := obj.Anon.Apply(fn); err != nil {
+			return err
+		}
+	}
 	return fn(obj)
 }
 
@@ -7956,8 +7971,18 @@ func (obj *ExprCall) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprCall) Init(data *interfaces.Data) error {
 	obj.data = data
+
+	if obj.Name == "" && obj.Anon == nil {
+		return fmt.Errorf("missing call name")
+	}
+
 	for _, x := range obj.Args {
 		if err := x.Init(data); err != nil {
+			return err
+		}
+	}
+	if obj.Anon != nil {
+		if err := obj.Anon.Init(data); err != nil {
 			return err
 		}
 	}
@@ -7975,6 +8000,14 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 			return nil, err
 		}
 		args = append(args, interpolated)
+	}
+	var anon interfaces.Expr
+	if obj.Anon != nil {
+		f, err := obj.Anon.Interpolate()
+		if err != nil {
+			return nil, err
+		}
+		anon = f
 	}
 
 	orig := obj
@@ -7994,6 +8027,7 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 		Name: obj.Name,
 		Args: args,
 		Var:  obj.Var,
+		Anon: anon,
 	}, nil
 }
 
@@ -8016,6 +8050,18 @@ func (obj *ExprCall) Copy() (interfaces.Expr, error) {
 		copied = true
 	} else {
 		args = obj.Args // don't re-package it unnecessarily!
+	}
+
+	var anon interfaces.Expr
+	if obj.Anon != nil {
+		cp, err := obj.Anon.Copy()
+		if err != nil {
+			return nil, err
+		}
+		if cp != obj.Anon { // must have been copied, or pointer would be same
+			copied = true
+		}
+		anon = cp
 	}
 
 	var err error
@@ -8051,6 +8097,7 @@ func (obj *ExprCall) Copy() (interfaces.Expr, error) {
 		Name:  obj.Name,
 		Args:  args,
 		Var:   obj.Var,
+		Anon:  anon,
 	}, nil
 }
 
@@ -8063,7 +8110,7 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	}
 	graph.AddVertex(obj)
 
-	if obj.Name == "" {
+	if obj.Name == "" && obj.Anon == nil {
 		return nil, nil, fmt.Errorf("missing call name")
 	}
 	uid := funcOrderingPrefix + obj.Name // ordering id
@@ -8123,6 +8170,33 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		}
 	}
 
+	if obj.Anon != nil {
+		g, c, err := obj.Anon.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		// additional constraints...
+		edge := &pgraph.SimpleEdge{Name: "exprcallanon1"}
+		graph.AddEdge(obj.Anon, obj, edge) // prod -> cons
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "exprcallanon2"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
 	return graph, cons, nil
 }
 
@@ -8147,6 +8221,12 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		}
 	}
 
+	if obj.Anon != nil {
+		if err := obj.Anon.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+
 	var prefixedName string
 	var target interfaces.Expr
 	if obj.Var {
@@ -8165,6 +8245,10 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 			}
 			target = f
 		}
+	} else if obj.Name == "" && obj.Anon != nil {
+		// The call looks like <anon>().
+
+		target = obj.Anon
 	} else {
 		// The call looks like f().
 		prefixedName = obj.Name
@@ -8226,12 +8310,18 @@ func (obj *ExprCall) SetType(typ *types.Type) error {
 		return obj.typ.Cmp(typ) // if not set, ensure it doesn't change
 	}
 	obj.typ = typ // set
+
+	// XXX: Do we need to do something to obj.Anon ?
+
 	return nil
 }
 
 // Type returns the type of this expression, which is the return type of the
 // function call.
 func (obj *ExprCall) Type() (*types.Type, error) {
+
+	// XXX: If we have the function statically in obj.Anon, run this?
+
 	if obj.expr == nil {
 		// possible programming error
 		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")

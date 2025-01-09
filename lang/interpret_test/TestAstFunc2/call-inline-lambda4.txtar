@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+$s = fmt.printf("%v", func($x) {
+	len($x)
+}(func($x){ $x }("helloworld"))) # inline lambda call as an arg to another
+
+test [$s,] {}
+-- OUTPUT --
+Vertex: test[10]

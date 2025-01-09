@@ -566,6 +566,16 @@ call:
 			Var: true, // lambda
 		}
 	}
+	// calling an inline function
+|	func OPEN_PAREN call_args CLOSE_PAREN
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.expr = &ast.ExprCall{
+			Name: "", // anonymous!
+			Args: $3.exprs,
+			Anon: $1.expr,
+		}
+	}
 |	expr PLUS expr
 	{
 		posLast(yylex, yyDollar) // our pos

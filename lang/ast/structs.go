@@ -217,6 +217,21 @@ func (a TextArea) GetEndPosition() (int, int) {
 	return a.endLine, a.endColumn
 }
 
+// NodeData will be embedded in node types that hold metadata.
+type NodeData struct {
+	data *interfaces.Data
+}
+
+// MetadataNode is the interface implemented by node types that have metadata.
+type MetadataNode interface {
+	Data() interfaces.Data
+}
+
+// Metadata returns the metadata stored with an AST node.
+func (n NodeData) Data() interfaces.Data {
+	return *n.data
+}
+
 // StmtBind is a representation of an assignment, which binds a variable to an
 // expression.
 type StmtBind struct {
@@ -399,7 +414,7 @@ func (obj *StmtBind) Output(map[interfaces.Func]types.Value) (*interfaces.Output
 // TODO: Consider expanding Name to have this return a list of Res's in the
 // Output function if it is a map[name]struct{}, or even a map[[]name]struct{}.
 type StmtRes struct {
-	data *interfaces.Data
+	NodeData
 
 	Kind     string            // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr   // unique name for the res of this kind
@@ -498,7 +513,7 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtRes{
-		data:     obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
@@ -538,7 +553,7 @@ func (obj *StmtRes) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtRes{
-		data:     obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
@@ -2966,7 +2981,7 @@ func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Ou
 // the bind statement's are correctly applied in this scope, and irrespective of
 // their order of definition.
 type StmtProg struct {
-	data  *interfaces.Data
+	NodeData
 	scope *interfaces.Scope // store for use by imports
 
 	// TODO: should this be a map? if so, how would we sort it to loop it?
@@ -3090,7 +3105,7 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 		body = append(body, interpolated)
 	}
 	return &StmtProg{
-		data:        obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
@@ -3117,7 +3132,7 @@ func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtProg{
-		data:        obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
@@ -5484,7 +5499,7 @@ func (obj *ExprBool) Value() (types.Value, error) {
 
 // ExprStr is a representation of a string.
 type ExprStr struct {
-	data  *interfaces.Data
+	NodeData
 	scope *interfaces.Scope // store for referencing this later
 
 	V string // value of this string
@@ -5550,7 +5565,7 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 	}
 	if result == nil {
 		return &ExprStr{
-			data:  obj.data,
+			NodeData: NodeData{ data: obj.data, },
 			scope: obj.scope,
 			V:     obj.V,
 		}, nil
@@ -7219,7 +7234,7 @@ type ExprStructField struct {
 // 4. A pure built-in function (set Values to a singleton)
 // 5. A pure polymorphic built-in function (set Values to a list)
 type ExprFunc struct {
-	data  *interfaces.Data
+	NodeData
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -7383,7 +7398,7 @@ func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) {
 	}
 
 	return &ExprFunc{
-		data:     obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		scope:    obj.scope,
 		typ:      obj.typ,
 		Title:    obj.Title,
@@ -7478,7 +7493,7 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprFunc{
-		data:     obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		scope:    obj.scope, // TODO: copy?
 		typ:      obj.typ,
 		Title:    obj.Title,
@@ -7986,7 +8001,7 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 // declaration or implementation of a new function value. This struct has an
 // analogous symmetry with ExprVar.
 type ExprCall struct {
-	data  *interfaces.Data
+	NodeData
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -8155,7 +8170,7 @@ func (obj *ExprCall) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprCall{
-		data:  obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		scope: obj.scope,
 		typ:   obj.typ,
 		expr:  expr, // it seems that we need to copy this for it to work
@@ -8812,7 +8827,7 @@ func (obj *ExprCall) Value() (types.Value, error) {
 // ExprVar is a representation of a variable lookup. It returns the expression
 // that that variable refers to.
 type ExprVar struct {
-	data  *interfaces.Data
+	NodeData
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -8845,7 +8860,7 @@ func (obj *ExprVar) Init(data *interfaces.Data) error {
 // support variable, variables or anything crazy like that.
 func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 	return &ExprVar{
-		data:  obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		scope: obj.scope,
 		typ:   obj.typ,
 		Name:  obj.Name,
@@ -8859,7 +8874,7 @@ func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprVar) Copy() (interfaces.Expr, error) {
 	return &ExprVar{
-		data:  obj.data,
+		NodeData: NodeData{ data: obj.data, },
 		scope: obj.scope,
 		typ:   obj.typ,
 		Name:  obj.Name,

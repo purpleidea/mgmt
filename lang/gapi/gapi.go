@@ -318,10 +318,17 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			if args.OnlyUnify {
 				logf("type unification failed after %s", formatted)
 			}
-			cause := unifyErr.(*interfaces.UnificationInvariant).Node
-			parent := ast.AreaParentOf(cause, iast)
+			cause, ok := unifyErr.(*interfaces.UnificationInvariant)
+			if ! ok {
+				return nil, errwrap.Wrapf(unifyErr, "could not unify types")
+			}
+			parent := ast.AreaParentOf(cause.Node, iast)
+			mdnode, ok := parent.(ast.MetadataNode)
 			line, col := parent.GetPosition()
 			logf("possible type issue found at line %d column %d", line, col)
+			if ok {
+				logf("it's in one of these files: %v", mdnode.Data().Files)
+			}
 			return nil, errwrap.Wrapf(unifyErr, "could not unify types")
 		}
 

@@ -822,13 +822,15 @@ class base:host($name, $config) {
 		Before => Print["ready"],
 	}
 
-	bmc:power "${bmc_uri}" { # TODO: Name() API is not yet stable
-		#password => "hunter2",
-		insecure_password => true, # XXX: get from uri for now
+	if "${bmc_uri}" != "" {
+		bmc:power "${bmc_uri}" { # TODO: Name() API is not yet stable
+			#password => "hunter2",
+			insecure_password => true, # XXX: get from uri for now
 
-		state => "on",
+			state => "on",
 
-		Meta:poll => 60, # required until BMC's support real events!
+			Meta:poll => 60, # required until BMC's support real events!
+		}
 	}
 
 	##$str_true = convert.format_bool(true)

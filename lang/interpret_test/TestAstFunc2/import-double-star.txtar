@@ -1,0 +1,19 @@
+-- metadata.yaml --
+#files: "files/"	# these are some extra files we can use (is the default)
+-- main.mcl --
+import "foo.mcl" as *
+import "bar.mcl" as *
+
+include foo("hello")
+include bar("world")
+-- foo.mcl --
+class foo($s) {
+	test "${s}" {}
+}
+-- bar.mcl --
+class bar($s) {
+	test "${s}" {}
+}
+-- OUTPUT --
+Vertex: test[hello]
+Vertex: test[world]

@@ -1,0 +1,21 @@
+-- metadata.yaml --
+#files: "files/"	# these are some extra files we can use (is the default)
+-- main.mcl --
+# XXX: When using multiple star imports, a subsequent one may overwrite the
+# earlier one. We should probably make this a compile error.
+import "foo.mcl" as *
+import "bar.mcl" as *
+
+include foo("hello")
+include foo("world")
+-- foo.mcl --
+class foo($s) {
+	test "foo:${s}" {}
+}
+-- bar.mcl --
+class foo($s) {
+	test "bar:${s}" {}
+}
+-- OUTPUT --
+Vertex: test[bar:hello]
+Vertex: test[bar:world]

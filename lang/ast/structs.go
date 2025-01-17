@@ -3791,7 +3791,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 				}
 				newName = name
 			}
-			if previous, exists := newVariables[newName]; exists {
+			if previous, exists := newVariables[newName]; exists && alias != interfaces.BareSymbol {
 				// don't overwrite in same scope
 				return fmt.Errorf("can't squash variable `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
 			}
@@ -3806,7 +3806,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 				}
 				newName = name
 			}
-			if previous, exists := newFunctions[newName]; exists {
+			if previous, exists := newFunctions[newName]; exists && alias != interfaces.BareSymbol {
 				// don't overwrite in same scope
 				return fmt.Errorf("can't squash function `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
 			}
@@ -3821,7 +3821,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 				}
 				newName = name
 			}
-			if previous, exists := newClasses[newName]; exists {
+			if previous, exists := newClasses[newName]; exists && alias != interfaces.BareSymbol {
 				// don't overwrite in same scope
 				return fmt.Errorf("can't squash class `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
 			}
@@ -3831,7 +3831,9 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 		// everything has been merged, move on to next import...
 		imports[imp.Name] = struct{}{} // mark as found in scope
-		aliases[alias] = struct{}{}
+		if alias != interfaces.BareSymbol {
+			aliases[alias] = struct{}{}
+		}
 	}
 
 	// TODO: this could be called once at the top-level, and then cached...
@@ -4105,7 +4107,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 					}
 					newName = name
 				}
-				if previous, exists := newVariables[newName]; exists {
+				if previous, exists := newVariables[newName]; exists && alias != interfaces.BareSymbol {
 					// don't overwrite in same scope
 					return fmt.Errorf("can't squash variable `%s` from `%s` by include of `%s`", newName, previous, include.Name)
 				}
@@ -4120,7 +4122,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 					}
 					newName = name
 				}
-				if previous, exists := newFunctions[newName]; exists {
+				if previous, exists := newFunctions[newName]; exists && alias != interfaces.BareSymbol {
 					// don't overwrite in same scope
 					return fmt.Errorf("can't squash function `%s` from `%s` by include of `%s`", newName, previous, include.Name)
 				}
@@ -4135,7 +4137,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 					}
 					newName = name
 				}
-				if previous, exists := newClasses[newName]; exists {
+				if previous, exists := newClasses[newName]; exists && alias != interfaces.BareSymbol {
 					// don't overwrite in same scope
 					return fmt.Errorf("can't squash class `%s` from `%s` by include of `%s`", newName, previous, include.Name)
 				}
@@ -4145,7 +4147,9 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 			// everything has been merged, move on to next include...
 			//includes[include.Name] = struct{}{} // don't mark as found in scope
-			aliases[alias] = struct{}{} // do track these as a bonus
+			if alias != interfaces.BareSymbol { // XXX: check if this one and the above ones in this collection are needed too
+				aliases[alias] = struct{}{} // do track these as a bonus
+			}
 		}
 
 	}

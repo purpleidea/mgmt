@@ -41,14 +41,16 @@ class base() {
 			"htop",
 			"lshw",
 			"nethogs",
+			"net-tools", # for netstat
 			"nmap",
+			"psmisc", # for pstree
 			"screen",
 			"socat",
 			"strace",
 			"telnet",
 			"tree",
 			"vim-enhanced",
-			"wget2-wget",
+			"wget2-wget", # TODO: get a wget1.x package
 		] {
 			state => "installed",
 		}
@@ -63,7 +65,9 @@ class base() {
 			"htop",
 			"lshw",
 			"nethogs",
+			"net-tools", # for netstat
 			"nmap",
+			"psmisc", # for pstree
 			"screen",
 			"socat",
 			"strace",

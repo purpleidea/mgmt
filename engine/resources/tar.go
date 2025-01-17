@@ -104,7 +104,10 @@ type TarRes struct {
 	// Inputs represents the list of files to be compressed. They must each
 	// be absolute paths of either single files or directories, and as a
 	// result, each must start with a slash. Directories must end with a
-	// slash and files must not.
+	// slash and files must not for standard behaviour. As a special
+	// exception, if you omit the trailing slash on a directory path, then
+	// this will include that directory name as a prefix. This is similar to
+	// how rsync chooses if it copies in the base directory or not.
 	Inputs []string `lang:"inputs" yaml:"inputs"`
 
 	// Format is the header format to use. If you change this, then the
@@ -197,7 +200,12 @@ func (obj *TarRes) Watch(ctx context.Context) error {
 
 	chanList := []<-chan recwatch.Event{}
 	for _, x := range obj.Inputs {
-		recurse := strings.HasSuffix(x, "/") // recurse for dirs
+		fi, err := os.Stat(x)
+		if err != nil {
+			return err
+		}
+		//recurse := strings.HasSuffix(x, "/") // recurse for dirs
+		recurse := fi.IsDir()
 		recWatcher, err := recwatch.NewRecWatcher(x, recurse)
 		if err != nil {
 			return err
@@ -270,11 +278,19 @@ func (obj *TarRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, err
 	}
 
+	isDirCache := make(map[string]bool)
+
 	i1 := ""
 	i1 = obj.formatPrefix() + "\n" // add the prefix so it is considered
 	for _, x := range obj.Inputs {
+		fi, err := os.Stat(x)
+		if err != nil {
+			return false, err
+		}
+		isDirCache[x] = fi.IsDir() // cache
 
-		if !strings.HasSuffix(x, "/") { // not dir
+		//if !strings.HasSuffix(x, "/") // not dir
+		if !fi.IsDir() {
 			h, err := obj.hashFile(x)
 			if err != nil {
 				return false, err
@@ -370,11 +386,23 @@ func (obj *TarRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	defer tarWriter.Close()                 // Might as well always close if we error early!
 
 	for _, x := range obj.Inputs {
+		isDir, exists := isDirCache[x]
+		if !exists {
+			// programming error
+			return false, fmt.Errorf("is dir cache miss")
+		}
 
-		if strings.HasSuffix(x, "/") { // dir
+		if isDir {
+			// If strings.HasSuffix(x, "/") is true, it's the normal
+			// way and prefix will be empty.
+			ix := strings.LastIndex(x, "/")
+			prefix := x[ix+1:]
+			if prefix != "" {
+				prefix += "/" // add the separator
+			}
 			fsys := os.DirFS(x) // fs.FS
 			// TODO: formerly tarWriter.AddFS(fsys) // buggy!
-			if err := obj.addFS(tarWriter, fsys); err != nil {
+			if err := obj.addFS(tarWriter, fsys, prefix); err != nil {
 				return false, errwrap.Wrapf(err, "error writing: %s", x)
 			}
 			continue
@@ -510,7 +538,7 @@ func (obj *TarRes) readHashFile(file string, trim bool) (string, error) {
 
 // addFS is an edited copy of archive/tar's *Writer.AddFs function. This version
 // correctly adds the directories too! https://github.com/golang/go/issues/69459
-func (obj *TarRes) addFS(tw *tar.Writer, fsys fs.FS) error {
+func (obj *TarRes) addFS(tw *tar.Writer, fsys fs.FS, prefix string) error {
 	return fs.WalkDir(fsys, ".", func(name string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -530,7 +558,7 @@ func (obj *TarRes) addFS(tw *tar.Writer, fsys fs.FS) error {
 		if err != nil {
 			return err
 		}
-		h.Name = name
+		h.Name = prefix + name
 		h.Format = tar.Format(obj.Format)
 		if d.IsDir() {
 			h.Name += "/" // dir

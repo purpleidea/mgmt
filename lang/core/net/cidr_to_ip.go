@@ -31,7 +31,10 @@ package corenet
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
@@ -51,6 +54,14 @@ func init() {
 	simple.ModuleRegister(ModuleName, "cidr_to_mask", &simple.Scaffold{
 		T: types.NewType("func(a str) str"),
 		F: CidrToMask,
+	})
+	simple.ModuleRegister(ModuleName, "cidr_to_first", &simple.Scaffold{
+		T: types.NewType("func(a str) str"),
+		F: CidrToFirst,
+	})
+	simple.ModuleRegister(ModuleName, "cidr_to_last", &simple.Scaffold{
+		T: types.NewType("func(a str) str"),
+		F: CidrToLast,
 	})
 }
 
@@ -92,4 +103,92 @@ func CidrToMask(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: net.IP(ipnet.Mask).String(),
 	}, nil
+}
+
+// CidrToFirst returns the first usable IP from a CIDR address.
+func CidrToFirst(ctx context.Context, input []types.Value) (types.Value, error) {
+	cidr := input[0].Str()
+	prefix, err := netip.ParsePrefix(cidr)
+	if err != nil {
+		return nil, err
+	}
+
+	// prefix.Addr() gives the network address, the "first usable" is
+	// typically the next address after the network address.
+	networkAddr := prefix.Addr()
+	firstUsable := networkAddr.Next()
+
+	// Check if it's still within the prefix range.
+	if !prefix.Contains(firstUsable) {
+		// e.g. for a /32, there's no "next" usable address
+		return nil, fmt.Errorf("no usable next address")
+	}
+
+	return &types.StrValue{
+		V: firstUsable.String(),
+	}, nil
+}
+
+// CidrToLast returns the last IP from a CIDR address. It's often used as the
+// "broadcast" ip.
+func CidrToLast(ctx context.Context, input []types.Value) (types.Value, error) {
+	cidr := input[0].Str()
+	prefix, err := netip.ParsePrefix(cidr)
+	if err != nil {
+		return nil, err
+	}
+
+	// get the network address (masked)
+	networkAddr := prefix.Masked()
+	s := ""
+
+	// check if the address is IPv4 or IPv6
+	if networkAddr.Addr().Is4() {
+		s = lastAddrIPv4(networkAddr.Addr(), prefix.Bits()).String()
+	} else if networkAddr.Addr().Is6() {
+		s = lastAddrIPv6(networkAddr.Addr(), prefix.Bits()).String()
+	}
+
+	if s == "" {
+		return nil, fmt.Errorf("no usable last address")
+	}
+	return &types.StrValue{
+		V: s,
+	}, nil
+}
+
+// lastAddrIPv4 calculates the last IPv4 address given a masked network address
+// and a prefix size.
+func lastAddrIPv4(networkAddr netip.Addr, prefixBits int) netip.Addr {
+	ipv4 := networkAddr.As4()
+	ipAsUint32 := binary.BigEndian.Uint32(ipv4[:])
+
+	hostBits := 32 - prefixBits
+	// set all these host bits to 1
+	ipAsUint32 |= (1 << hostBits) - 1
+
+	// convert back to netip.Addr
+	var out [4]byte
+	binary.BigEndian.PutUint32(out[:], ipAsUint32)
+	return netip.AddrFrom4(out)
+}
+
+// lastAddrIPv6 calculates the last IPv6 address given a masked network address
+// and a prefix size.
+func lastAddrIPv6(networkAddr netip.Addr, prefixBits int) netip.Addr {
+	ipv6 := networkAddr.As16()
+	hostBits := 128 - prefixBits
+
+	// flip the lowest hostBits to 1
+	// bit 0 is the highest bit, bit 127 is the lowest in the 128-bit addr
+	for i := 0; i < hostBits; i++ {
+		bitPos := 127 - i       // which bit from the left (0-based)
+		bytePos := bitPos / 8   // which byte in the array
+		bitInByte := bitPos % 8 // which bit within that byte
+
+		// set that bit to 1
+		ipv6[bytePos] |= 1 << (7 - bitInByte)
+	}
+
+	return netip.AddrFrom16(ipv6)
 }

@@ -334,7 +334,9 @@ class base:repo($config) {
 	exec "uefi-download-${uid}" {
 		# no inner quotes because it's not bash handling this!
 		# the dnf download command makes the download destination dir
-		cmd => "/usr/bin/dnf download ${pkgs_uefi_string} --assumeyes --disablerepo=* --repofrompath ${repoidname},${repo_url} --downloaddir=${uefi_download_dir} --releasever ${version}",
+		# With DNF5 (provisioning OS Fedora 41+) it's --destdir.
+		# Previously it's --downloaddir and no idea why the API break.
+		cmd => "/usr/bin/dnf download ${pkgs_uefi_string} --assumeyes --disablerepo=* --repofrompath ${repoidname},${repo_url} --destdir=${uefi_download_dir} --releasever ${version}",
 
 		# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
 		ifcmd => "! test -s '${uefi_download_dir}shim-x64'*",

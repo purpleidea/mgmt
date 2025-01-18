@@ -1,0 +1,204 @@
+# Mgmt
+# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "net"
+
+import "git://github.com/purpleidea/mgmt/modules/dhcp/"
+import "git://github.com/purpleidea/mgmt/modules/misc/"
+import "git://github.com/purpleidea/mgmt/modules/purpleidea/"
+import "git://github.com/purpleidea/mgmt/modules/shorewall/"
+
+class router($st) {
+	$net_dev = $st->net_dev || "eth0"
+	$net_mac = $st->net_mac
+
+	$loc_dev = $st->loc_dev || ""
+	$loc_mac = $st->loc_mac || ""
+
+	$loc_uuid = $st->loc_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	$loc_network = $st->loc_network # cidr
+
+	$loc_ip = $st->loc_ip || net.cidr_to_first($loc_network) # no cidr
+	$loc_broadcast = $st->loc_broadcast || net.cidr_to_last($loc_network)
+
+	$loc_range = $st->loc_range || struct{start => "", end => "",} # struct with start, end fields
+	$dns = $st->dns
+
+	include misc.network_rename($net_mac, $net_dev)
+	if $loc_dev != "" and $loc_mac != "" {
+		include misc.network_rename($loc_mac, $loc_dev)
+	}
+
+	if $loc_dev != "" {
+		$prefix = net.cidr_to_prefix($loc_network)
+		include misc.network_manager_static(struct{
+			uuid => $loc_uuid,
+			dev => $loc_dev, # formerly enp0s2
+			cidr => "${loc_ip}/${prefix}",
+			dns => $dns,
+		})
+	}
+
+	include purpleidea.base() # adds some utility packages
+
+	include shorewall.prepare()
+
+	include dhcp.server(struct{
+		authoritative => true,
+	}) as dhcp_server # good!
+
+	include dhcp_server.subnet("loc", struct{
+		network => net.cidr_to_ip($loc_network), # network address
+		netmask => net.cidr_to_mask($loc_network), # eg: 255.255.255.0
+		router => $loc_ip, # first address
+		broadcast => $loc_broadcast, # last address
+		range => $loc_range,
+		dns => $dns,
+		comment => "internal network",
+	})
+
+	#include dhcp_server.host("computer1", struct{
+	#	macaddress => "00:11:22:33:44:55",
+	#	fixedaddress => ["192.168.100.13",],
+	#	hostname => "computer1",
+	#})
+
+	include shorewall.prepare() # add sysctl and disable firewalld
+	include shorewall.firewall() as firewall
+
+	# TODO: can I pass a list in instead?
+	include firewall.zone("net", struct{})
+	include firewall.zone("loc", struct{})
+
+	# eg: eth0
+	include firewall.interface("${net_dev}", "net", struct{
+		interface => "NET_IF",	# default if not specified
+		options => [
+			"dhcp",
+			"tcpflags",
+			"nosmurfs",
+			"routefilter",
+			"sourceroute=0",
+			"logmartians",
+		],
+	})
+
+	include firewall.interface("${loc_dev}", "loc", struct{
+		interface => "LOC_IF",	# default if not specified
+		options => [
+			"dhcp",
+			"tcpflags",
+			"nosmurfs",
+			"routefilter",
+			"logmartians",
+		],
+	})
+
+	include firewall.policy("000-fw-net-ACCEPT", struct{
+		source => "fw",
+		dest => "net",
+		policy => "ACCEPT",
+	})
+
+	include firewall.policy("000-loc-net-ACCEPT", struct{
+		source => "loc",
+		dest => "net",
+		policy => "ACCEPT",
+	})
+
+	include firewall.policy("888-net-all-DROP", struct{
+		source => "net",
+		dest => "all",
+		policy => "DROP",
+		log => true,
+	})
+	include firewall.policy("999-all-all-REJECT", struct{
+		source => "all",
+		dest => "all",
+		policy => "REJECT",
+		log => true,
+		comment => "THE FOLLOWING POLICY MUST BE LAST",
+	})
+
+	include firewall.snat("masq", struct{
+		action => "MASQUERADE",
+		source => ["${loc_network}",], # ip/cidr of the LOC network, eg: 192.168.100.0/24
+		dest => "NET_IF",
+		log => true,
+	})
+
+	include firewall.stoppedrule("loc-all", struct{
+		action => "ACCEPT",
+		source => "LOC_IF",
+		dest => "-", # all
+	})
+	include firewall.stoppedrule("all-loc", struct{
+		action => "ACCEPT",
+		source => "-", # all
+		dest => "LOC_IF",
+	})
+
+	include firewall.rule("ssh-from-loc-to-fw", struct{
+		action => "SSH(ACCEPT)",
+		source => "loc",
+		dest => "$FW",
+		#proto => "",
+		#port => "",
+		comment => "local administration",
+	})
+
+	include firewall.rule("ssh-from-net-to-fw", struct{
+		action => "SSH(ACCEPT)",
+		source => "net",
+		dest => "$FW",
+		#proto => "",
+		#port => "",
+		comment => "remote administration",
+	})
+}
+
+class router:dhcp_host($st) {
+	$h = $st->hostname
+	$m = $st->macaddress
+	$i = $st->ipaddress
+
+	# TODO: add these checks
+	#fail(not net.in_network($loc_network, $i))
+	#$range_start = $loc_range->start || ""
+	#$range_end = $loc_range->end || ""
+	#if $range_start != "" and $range_end != "" {
+	#	fail(net.in_range($range_start, $range_end, $i))
+	#}
+
+	include dhcp_server.host("${h}", struct{
+		macaddress => "${m}",
+		fixedaddress => ["${i}",],
+		hostname => "${h}",
+	})
+}

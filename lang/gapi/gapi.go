@@ -463,6 +463,11 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			continue
 		}
 		// it's a regular file path
+
+		// Occasionally, we need the dir to exist first or we'll error.
+		if err := gapi.MkdirAllOnFs(writeableFS, util.Dirname(dst), 0700); err != nil {
+			return nil, errwrap.Wrapf(err, "can't mkdir at `%s`", dst)
+		}
 		if err := gapi.CopyFileToFs(writeableFS, src, dst); err != nil {
 			return nil, errwrap.Wrapf(err, "can't copy file from `%s` to `%s`", src, dst)
 		}

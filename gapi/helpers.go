@@ -89,3 +89,9 @@ func CopyDirToFsForceAll(fs engine.Fs, src, dst string) error {
 func CopyDirContentsToFs(fs engine.Fs, src, dst string) error {
 	return util.CopyDiskContentsToFs(fs, src, dst, false)
 }
+
+// MkdirAllOnFs writes a dir to a dst path on fs. It makes the parent dirs if
+// they don't exist.
+func MkdirAllOnFs(fs engine.WriteableFS, dst string, perm os.FileMode) error {
+	return fs.MkdirAll(dst, perm)
+}

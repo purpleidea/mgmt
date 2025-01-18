@@ -558,6 +558,7 @@ class base:host($name, $config) {
 
 	$handoff_type = $config->handoff || ""
 	$handoff_code = $config->handoff_code || ""
+	$handoff_module_path = $config->handoff_module_path || ""
 	panic($handoff_code != "" and not strings.has_prefix($handoff_code, "/"))
 	$handoff_hostname = $config->handoff_hostname || ""
 
@@ -700,6 +701,7 @@ class base:host($name, $config) {
 		tar "${abs_tar}" {
 			inputs => [
 				$handoff_code, # code comes in here!
+				strings.trim_suffix($handoff_module_path, "/"), # remove trailing slash to include the dir name
 			],
 
 			Before => Gzip["${abs_gz}"],
@@ -717,6 +719,8 @@ class base:host($name, $config) {
 	$firstboot_scripts_dir = "/var/lib/mgmt-firstboot/" # TODO: /usr/lib/ instead?
 	$firstboot_done_dir = "/var/lib/mgmt-firstboot/done/"
 	$deploy_dir = "/root/mgmt-deploy/" # deploy code dir
+	$modules_chunk = filepath.base(strings.trim_suffix($handoff_module_path, "/")) # "modules" typically
+	$deploy_dir_modules = "${deploy_dir}${modules_chunk}/"
 	# TODO: we can customize these more precisely based on $handoff_type
 	$handoff_packages = deploy.bootstrap_packages($distro) # TODO: catch errors here with || []
 	panic($handoff_type != "" and len($handoff_packages) == 0)
@@ -760,7 +764,7 @@ class base:host($name, $config) {
 		# passed into the provisioner. It's just now in a deploy subdir.
 		# If it's a dir, then this becomes the empty strings.
 		# XXX: The deploy could instead happen over the network to etcd.
-		"echo '#!/bin/bash' > ${firstboot_scripts_dir}mgmt-deploy.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-deploy.sh && chmod u+x ${firstboot_scripts_dir}mgmt-deploy.sh"
+		"echo '#!/bin/bash' > ${firstboot_scripts_dir}mgmt-deploy.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git --module-path=${deploy_dir_modules} ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-deploy.sh && chmod u+x ${firstboot_scripts_dir}mgmt-deploy.sh"
 	}
 
 	# TODO: Do we want to signal an http:flag if we're a "default" host?

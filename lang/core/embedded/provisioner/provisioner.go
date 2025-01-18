@@ -171,6 +171,10 @@ type localArgs struct {
 	// static code deploy bolus. This is useful for isolated, one-time runs.
 	HandoffCode string `arg:"--handoff-code" help:"code dir to handoff to host" func:"cli_handoff_code"` // eg: /etc/mgmt/
 
+	// HandoffModulePath is the code handoff module path dir that we use.
+	// It's an absolute path on this local machine. (The provisioner!)
+	HandoffModulePath string `arg:"--handoff-module-path" help:"module path dir to use for handoff" func:"cli_handoff_module_path"` // eg: /etc/mgmt/modules/
+
 	// HandoffHostname specifies that we want to handoff a hostname to set
 	// on this machine. This is useful to make initial code handoff easier.
 	HandoffHostname string `arg:"--handoff-hostname" help:"hostname to handoff to host" func:"cli_handoff_hostname"` // eg: server1
@@ -374,6 +378,35 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		obj.init.Logf("packages: %+v", strings.Join(obj.localArgs.Packages, ","))
 	}
 
+	modulePathArgs := []string{}
+	if p := obj.localArgs.HandoffModulePath; p != "" {
+		if strings.HasPrefix(p, "~") {
+			expanded, err := util.ExpandHome(p)
+			if err != nil {
+				return nil, err
+			}
+			obj.localArgs.HandoffModulePath = expanded
+		}
+
+		// Make path absolute.
+		if !strings.HasPrefix(obj.localArgs.HandoffModulePath, "/") {
+			dir, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			dir = dir + "/" // dir's should have a trailing slash!
+			obj.localArgs.HandoffModulePath = dir + obj.localArgs.HandoffModulePath
+		}
+
+		// Does this path actually exist?
+		if _, err := os.Stat(obj.localArgs.HandoffModulePath); err != nil {
+			return nil, err
+		}
+
+		s := fmt.Sprintf("--module-path=%s", obj.localArgs.HandoffModulePath)
+		modulePathArgs = append(modulePathArgs, s)
+	}
+
 	if p := obj.localArgs.HandoffCode; p != "" {
 		if strings.HasPrefix(p, "~") {
 			expanded, err := util.ExpandHome(p)
@@ -420,12 +453,17 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 			},
 		}
 		// TODO: Add a --quiet flag instead of the above filter hack.
-		cmdArgs := []string{"run", "--tmp-prefix", "lang", "--only-unify", obj.localArgs.HandoffCode}
+		cmdArgs := []string{"run", "--tmp-prefix", "lang", "--only-unify"}
+		cmdArgs = append(cmdArgs, modulePathArgs...)
+		cmdArgs = append(cmdArgs, obj.localArgs.HandoffCode)
 		if err := util.SimpleCmd(ctx, binary, cmdArgs, cmdOpts); err != nil {
 			return nil, fmt.Errorf("handoff code didn't type check: %s", out)
 		}
 
 		obj.init.Logf("handoff: %s", obj.localArgs.HandoffCode)
+		if len(modulePathArgs) > 0 {
+			obj.init.Logf("handoff module path: %s", obj.localArgs.HandoffModulePath)
+		}
 	}
 	if h := obj.localArgs.HandoffHostname; h != "" {
 		obj.init.Logf("handoff hostname: %s", h)

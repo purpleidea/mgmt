@@ -427,7 +427,9 @@ func (obj *NetRes) addrCheckApply(ctx context.Context, apply bool) (bool, error)
 	if !apply {
 		return false, nil
 	}
-	obj.init.Logf("addrCheckApply(%t)", apply)
+	if obj.init.Debug {
+		obj.init.Logf("addrCheckApply(%t)", apply)
+	}
 
 	// check each address and delete the ones that aren't in the definition
 	if err := obj.iface.addrApplyDelete(obj.Addrs); err != nil {

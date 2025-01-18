@@ -318,7 +318,9 @@ func (obj *FirewalldRes) CheckApply(ctx context.Context, apply bool) (bool, erro
 		if obj.zone == "" {
 			return false, fmt.Errorf("unexpected empty zone")
 		}
-		obj.init.Logf("zone: %s\n", obj.zone)
+		if obj.init.Debug {
+			obj.init.Logf("zone: %s", obj.zone)
+		}
 	}
 
 	checkOK := true

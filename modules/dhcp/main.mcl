@@ -34,12 +34,14 @@ import "local"
 import "golang/strings"
 
 class server($st) {
+	$authoritative = $st->authoritative || true
 	$defaultleasetime = $st->defaultleasetime || 600
 	$maxleasetime = $st->maxleasetime || 7200
 
 	$tmpl = struct{
 		defaultleasetime => $defaultleasetime,
 		maxleasetime => $maxleasetime,
+		authoritative => $authoritative,
 	}
 
 	pkg "dhcp-server" {

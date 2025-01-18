@@ -80,6 +80,7 @@ class base($config) {
 
 	# eg: equivalent of: https://download.fedoraproject.org/pub/fedora/linux/
 	$inst_repo_base = "http://${router_ip}:${http_port_str}/fedora/" # private lan online, no https!
+	$server_base = "http://${router_ip}:${http_port_str}/" # private lan online, no https!
 
 	$syslinux_root = "/usr/share/syslinux/"
 
@@ -360,8 +361,14 @@ class base:repo($config) {
 
 	$uefi_root = "${uefi_extract_dir}/boot/efi/EFI/fedora/"
 	$uefi_shim = "${uefi_root}shim.efi"
+	$uefi_shimx64 = "${uefi_root}shimx64.efi"
 	tftp:file "/uefi/shim.efi" { # needs leading slash
 		path => $uefi_shim,		# TODO: add autoedges
+
+		Depend => Exec["uefi-extract-${uid}"],
+	}
+	tftp:file "/uefi/shimx64.efi" { # needs leading slash
+		path => $uefi_shimx64,		# TODO: add autoedges
 
 		Depend => Exec["uefi-extract-${uid}"],
 	}
@@ -399,6 +406,11 @@ class base:repo($config) {
 
 		#Depend => Pkg[$pkgs],
 	}
+	http:file "/${uid}/vmlinuz" {		# when using ipxe
+		path => $vmlinuz_file,		# TODO: add autoedges
+
+		#Depend => Pkg[$pkgs],
+	}
 
 	$initrd_file = "${distroarch_tftp_prefix}initrd.img"
 	exec "initrd-${uid}" {
@@ -417,6 +429,11 @@ class base:repo($config) {
 	}
 
 	tftp:file "/${uid}/initrd.img" {
+		path => $initrd_file,		# TODO: add autoedges
+
+		#Depend => Pkg[$pkgs],
+	}
+	http:file "/${uid}/initrd.img" {	# when using ipxe
 		path => $initrd_file,		# TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
@@ -626,7 +643,7 @@ class base:host($name, $config) {
 		}
 	}
 
-	$tftp_menu_template = struct{
+	$menu_template = struct{
 		distro => $distro,
 		version => $version,		# 39 for fedora 39
 		arch => $arch,			# could also be aarch64
@@ -634,6 +651,7 @@ class base:host($name, $config) {
 
 		ks => "http://${router_ip}:${http_port_str}/fedora/kickstart/${hkey}.ks", # usually $mac or `default`
 		inst_repo_base => $inst_repo_base,
+		server_base => $server_base,
 	}
 
 	#
@@ -661,18 +679,28 @@ class base:host($name, $config) {
 		"/uefi/grub.cfg-01-${old_mac}"
 	}
 
+	$ipxe_menu = if $mac == "" {
+		"menu.ipxe"
+	} else {
+		"${old_mac}.ipxe"
+	}
+
 	if $bios {
 		tftp:file "${bios_menu}" {	# for bios
-			data => golang.template(deploy.readfile("/files/bios-menu.tmpl"), $tftp_menu_template),
+			data => golang.template(deploy.readfile("/files/bios-menu.tmpl"), $menu_template),
 		}
 	} else {
 		tftp:file "${uefi_menu}" {	# for uefi
 			# XXX: linuxefi & initrdefi VS. kernel & append ?
-			data => golang.template(deploy.readfile("/files/uefi-menu.tmpl"), $tftp_menu_template),
+			data => golang.template(deploy.readfile("/files/uefi-menu.tmpl"), $menu_template),
 
 			#Depend => Pkg[$pkgs_uefi],
 			#Depend => Exec["uefi-extract"],
 		}
+	}
+
+	http:file "/${ipxe_menu}" {	# for ipxe
+		data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
 	}
 
 	# If it's a dir we don't need a suffix, otherwise return the last chunk.

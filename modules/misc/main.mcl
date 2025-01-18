@@ -28,6 +28,7 @@
 # additional permission.
 
 import "golang"
+import "golang/strings"
 import "net"
 import "os"
 
@@ -99,9 +100,10 @@ class network_manager_static($st) {
 	$ip = net.cidr_to_ip($cidr)
 	$prefix = net.cidr_to_prefix($cidr)
 	$router = $st->router || ""
-	$dns = $st->dns || "8.8.8.8"
+	$dns = $st->dns || ["8.8.8.8",]
 	$vips []str = $st->vips || [] # []cidr
 
+	$dns_str = strings.join($dns, ";") # the line also ends with a semicolon
 	$tmpl =
 "
 [connection]
@@ -125,7 +127,9 @@ address1=${ip}/${prefix}
 address{{ $ix }}={{ $ip }}
 {{ end -}}
 {{ end -}}
-dns=${dns};
+{{ if .dns -}}
+dns=${dns_str};
+{{ end -}}
 dns-search=
 may-fail=false
 method=manual
@@ -140,6 +144,7 @@ mac-address={{ .mac }}
 		uuid => $uuid,
 		mac => $mac,
 		router => $router,
+		dns => $dns,
 		vips => $vips,
 	}
 

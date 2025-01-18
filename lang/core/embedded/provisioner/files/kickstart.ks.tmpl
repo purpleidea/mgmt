@@ -65,7 +65,7 @@ sshkey --username {{ $user }} "{{ $pubkey }}"
 # --activate
 #	any matching devices beyond the first will also be activated
 #
-network --bootproto=dhcp --device=link --activate
+network --bootproto=dhcp --device=link --activate{{ if .hostname }} --hostname={{ .hostname }}{{ end }}
 
 firewall --enabled --service=mdns
 

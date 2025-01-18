@@ -171,6 +171,10 @@ type localArgs struct {
 	// static code deploy bolus. This is useful for isolated, one-time runs.
 	HandoffCode string `arg:"--handoff-code" help:"code dir to handoff to host" func:"cli_handoff_code"` // eg: /etc/mgmt/
 
+	// HandoffHostname specifies that we want to handoff a hostname to set
+	// on this machine. This is useful to make initial code handoff easier.
+	HandoffHostname string `arg:"--handoff-hostname" help:"hostname to handoff to host" func:"cli_handoff_hostname"` // eg: server1
+
 	// BmcURI specifies the BMC connect string we want to use for this host.
 	// This is a giant driver://user:password@host:port/whatever URL...
 	BmcURI string `arg:"--bmc-uri" help:"bmc connect string to use for this host" func:"cli_bmc_uri"`
@@ -422,6 +426,9 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		}
 
 		obj.init.Logf("handoff: %s", obj.localArgs.HandoffCode)
+	}
+	if h := obj.localArgs.HandoffHostname; h != "" {
+		obj.init.Logf("handoff hostname: %s", h)
 	}
 
 	// Do this last to let others fail early b/c this has user interaction.

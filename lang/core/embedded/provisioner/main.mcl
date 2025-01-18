@@ -559,6 +559,7 @@ class base:host($name, $config) {
 	$handoff_type = $config->handoff || ""
 	$handoff_code = $config->handoff_code || ""
 	panic($handoff_code != "" and not strings.has_prefix($handoff_code, "/"))
+	$handoff_hostname = $config->handoff_hostname || ""
 
 	# This is a giant driver://user:password@host:port/whatever URL...
 	$bmc_uri = $config->bmc_uri || ""
@@ -799,6 +800,7 @@ class base:host($name, $config) {
 		#	"/usr/bin/wget 'http://${router_ip}:${http_port_str}/fedora/${repouid}/updates.repo' -O /etc/yum.repos.d/updates.repo",
 		#	"/usr/bin/dnf --enablerepo=fedora,updates install --assumeyes ${handoff_packages_string}",
 		#],
+		hostname => $handoff_hostname,
 		post => [
 			$handoff_binary, # copy over the binary
 			$handoff_cpcode, # copy over a bundle of code

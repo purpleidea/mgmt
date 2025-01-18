@@ -242,10 +242,10 @@ func (obj *HostnameRes) updateHostnameProperty(object dbus.BusObject, expectedVa
 	}
 
 	// attempting to apply the changes
-	obj.init.Logf("Changing %s: %s => %s", property, propertyValue, expectedValue)
 	if err := object.Call("org.freedesktop.hostname1."+setterName, 0, expectedValue, false).Err; err != nil {
 		return false, errwrap.Wrapf(err, "failed to call org.freedesktop.hostname1.%s", setterName)
 	}
+	obj.init.Logf("changed %s: `%s` => `%s`", property, propertyValue, expectedValue)
 
 	// all good changes should now be applied again
 	return false, nil

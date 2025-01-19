@@ -11,10 +11,7 @@ fi
 set -x
 set -o pipefail
 
-if ! timeout 1s sudo -A true; then
-	echo "sudo disabled: not checking exec user and group"
-	exit
-fi
+assert_sudo "not checking exec user and group"
 
 BASE_PATH="/tmp/mgmt/"
 BASE_PATH_TEST="${BASE_PATH}test-exec-usergroup/"

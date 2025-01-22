@@ -1636,3 +1636,52 @@ func TestSortMapStringValuesByUInt64Keys(t *testing.T) {
 		t.Errorf("input slice reordered to: %v", slice2)
 	}
 }
+
+func TestFirstToUpper(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "empty string",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "lowercase word",
+			input: "small",
+			want:  "Small",
+		},
+		{
+			name:  "capitalized word",
+			input: "CAPITAL",
+			want:  "CAPITAL",
+		},
+		{
+			name:  "capitalized first letter",
+			input: "First",
+			want:  "First",
+		},
+		{
+			name:  "lowercase first letter",
+			input: "fIRST",
+			want:  "FIRST",
+		},
+		{
+			name:  "number",
+			input: "0number",
+			want:  "0number",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FirstToUpper(tt.input)
+
+			if got != tt.want {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}

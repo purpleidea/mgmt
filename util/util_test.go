@@ -1685,3 +1685,67 @@ func TestFirstToUpper(t *testing.T) {
 		})
 	}
 }
+
+func TestUint64KeyFromStrInMap(t *testing.T) {
+	type input struct {
+		needle   string
+		haystack map[uint64]string
+	}
+	type want struct {
+		key   uint64
+		exist bool
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  want
+	}{
+		{
+			name: `needle "n" in empty haystack`,
+			input: input{
+				needle:   "n",
+				haystack: make(map[uint64]string),
+			},
+			want: want{
+				key:   0,
+				exist: false,
+			},
+		},
+		{
+			name: `needle "n" in haystack doesn't contain "n"`,
+			input: input{
+				needle:   "n",
+				haystack: map[uint64]string{0: "a", 1: "b"},
+			},
+			want: want{
+				key:   0,
+				exist: false,
+			},
+		},
+		{
+			name: `needle "n" in haystack contain "n"`,
+			input: input{
+				needle:   "n",
+				haystack: map[uint64]string{0: "a", 1: "b", 2: "n"},
+			},
+			want: want{
+				key:   2,
+				exist: true,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotKey, gotExist := Uint64KeyFromStrInMap(tt.input.needle, tt.input.haystack)
+
+			if gotKey != tt.want.key {
+				t.Errorf("got key: %d, want key: %d", gotKey, tt.want.key)
+			}
+
+			if gotExist != tt.want.exist {
+				t.Errorf("got exist: %t, want exist: %t", gotExist, tt.want.exist)
+			}
+		})
+	}
+}

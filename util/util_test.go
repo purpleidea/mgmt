@@ -1895,3 +1895,37 @@ func TestStrMapKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestStrMapKeysUint64(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]uint64
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]uint64{},
+			want:  []string{},
+		},
+		{
+			name:  "returns sorted keys",
+			input: map[string]uint64{"key1": 1, "key2": 2},
+			want:  []string{"key1", "key2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrMapKeysUint64(tt.input)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}

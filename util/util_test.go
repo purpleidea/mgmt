@@ -1861,3 +1861,37 @@ func TestStrListIntersection(t *testing.T) {
 		})
 	}
 }
+
+func TestStrMapKeys(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]string
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]string{},
+			want:  []string{},
+		},
+		{
+			name:  "returns sorted keys",
+			input: map[string]string{"key1": "value1", "key2": "value2"},
+			want:  []string{"key1", "key2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrMapKeys(tt.input)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}

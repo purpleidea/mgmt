@@ -229,3 +229,15 @@ func ListStrToValue(input []string) Value {
 	}
 	return l
 }
+
+// ValueToListStr is a simple helper function to convert from a list of strings
+// in our type system to the equivalent in golang. This panics if the input is
+// not of the correct type.
+func ValueToListStr(input Value) []string {
+	l := []string{}
+	for _, x := range input.List() {
+		s := x.Str()
+		l = append(l, s)
+	}
+	return l
+}

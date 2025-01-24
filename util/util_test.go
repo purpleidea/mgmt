@@ -1806,3 +1806,58 @@ func TestStrFilterElementsInList(t *testing.T) {
 		})
 	}
 }
+
+func TestStrListIntersection(t *testing.T) {
+	type input struct {
+		list1 []string
+		list2 []string
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  []string
+	}{
+		{
+			name: "nil",
+			input: input{
+				list1: nil,
+				list2: nil,
+			},
+			want: []string{},
+		},
+		{
+			name: "no intersection elements",
+			input: input{
+				list1: []string{"one", "two"},
+				list2: []string{"three", "four"},
+			},
+			want: []string{},
+		},
+		{
+			name: "contains intersection element",
+			input: input{
+				list1: []string{"one", "two"},
+				list2: []string{"two", "three"},
+			},
+			want: []string{"two"},
+		},
+		{
+			name: "all intersection elements",
+			input: input{
+				list1: []string{"one", "two"},
+				list2: []string{"one", "two"},
+			},
+			want: []string{"one", "two"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrListIntersection(tt.input.list1, tt.input.list2)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}

@@ -33,6 +33,7 @@ package util
 
 import (
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -1745,6 +1746,62 @@ func TestUint64KeyFromStrInMap(t *testing.T) {
 
 			if gotExist != tt.want.exist {
 				t.Errorf("got exist: %t, want exist: %t", gotExist, tt.want.exist)
+			}
+		})
+	}
+}
+
+func TestStrFilterElementsInList(t *testing.T) {
+	type input struct {
+		filter []string
+		list   []string
+	}
+
+	tests := []struct {
+		name  string
+		input input
+		want  []string
+	}{
+		{
+			name: "empty filter",
+			input: input{
+				filter: []string{},
+				list:   []string{"first", "second"},
+			},
+			want: []string{"first", "second"},
+		},
+		{
+			name: "empty list",
+			input: input{
+				filter: []string{"filter"},
+				list:   []string{},
+			},
+			want: []string{},
+		},
+		{
+			name: "nil",
+			input: input{
+				filter: nil,
+				list:   nil,
+			},
+			want: []string{},
+		},
+		{
+			name: "filter",
+			input: input{
+				filter: []string{"filter"},
+				list:   []string{"first", "second", "filter"},
+			},
+			want: []string{"first", "second"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrFilterElementsInList(tt.input.filter, tt.input.list)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
 			}
 		})
 	}

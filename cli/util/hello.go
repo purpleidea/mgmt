@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -41,7 +41,7 @@ func Hello(program, version string, flags Flags) {
 		program = "<unknown>"
 	}
 	fmt.Println(fmt.Sprintf("This is: %s, version: %s", program, version))
-	fmt.Println("Copyright (C) 2013-2024+ James Shubin and the project contributors")
+	fmt.Println("Copyright (C) James Shubin and the project contributors")
 	fmt.Println("Written by James Shubin <james@shubin.ca> and the project contributors")
 	flags.Logf("main: start: %v", start)
 }

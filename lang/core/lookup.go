@@ -53,7 +53,7 @@ func init() {
 	funcs.Register(LookupFuncName, func() interfaces.Func { return &LookupFunc{} }) // must register the func and name
 }
 
-var _ interfaces.BuildableFunc = &LookupFunc{} // ensure it meets this expectation
+var _ interfaces.InferableFunc = &LookupFunc{} // ensure it meets this expectation
 
 // LookupFunc is a list index or map key lookup function. It does both because
 // the current syntax in the parser is identical, so it's convenient to mix the
@@ -84,6 +84,63 @@ func (obj *LookupFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
+// FuncInfer takes partial type and value information from the call site of this
+// function so that it can build an appropriate type signature for it. The type
+// signature may include unification variables.
+func (obj *LookupFunc) FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// func(?1, ?2) ?3
+	//
+	// UNLESS we can be more precise, in which case it's
+	//
+	// func(list []?1, index int) ?1
+	// OR
+	// func(map map{?1: ?2}, key ?1) ?2
+
+	// FIXME: We'd instead love to do this during type unification with a
+	// callback or similar, but at least for now this handles some cases.
+
+	var sig *types.Type
+	listSig := types.NewType("func(list []?1, index int) ?1")
+	mapSig := types.NewType("func(map map{?1: ?2}, key ?1) ?2")
+
+	// If first arg is a list or map, then we know which sig to use.
+	if len(partialType.Ord) == 2 && partialType.Map[partialType.Ord[0]] != nil {
+		typ, exists := partialType.Map[partialType.Ord[0]]
+		// don't overwrite earlier determinations
+		if exists && typ.Kind == types.KindList && sig == nil {
+			sig = listSig
+		}
+		if exists && typ.Kind == types.KindMap && sig == nil {
+			sig = mapSig
+		}
+	}
+
+	// If second arg is not an int, then it must be a map lookup.
+	if len(partialType.Ord) == 2 && partialType.Map[partialType.Ord[1]] != nil {
+		typ, exists := partialType.Map[partialType.Ord[1]]
+		// don't overwrite earlier determinations
+		if exists && typ.Kind != types.KindInt && sig == nil {
+			sig = mapSig
+		}
+	}
+
+	// If second arg is not an int, then it must be a map lookup.
+	if len(partialValues) == 2 && partialValues[1] != nil {
+		typ := partialValues[1].Type()
+		// don't overwrite earlier determinations
+		if typ != nil && typ.Kind != types.KindInt && sig == nil {
+			sig = mapSig
+		}
+	}
+
+	// If we haven't found a precise sig, use the less specific type.
+	if sig == nil {
+		sig = types.NewType("func(?1, ?2) ?3")
+	}
+
+	return sig, []*interfaces.UnificationInvariant{}, nil
+}
+
 // Build is run to turn the polymorphic, undetermined function, into the
 // specific statically typed version. It is usually run after Unify completes,
 // and must be run before Info() and any of the other Func interface methods are
@@ -95,8 +152,8 @@ func (obj *LookupFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
-	if len(typ.Ord) < 1 {
-		return nil, fmt.Errorf("the lookup function needs at least one arg") // actually 2 or 3
+	if len(typ.Ord) != 2 {
+		return nil, fmt.Errorf("the lookup function needs two args")
 	}
 	tListOrMap, exists := typ.Map[typ.Ord[0]]
 	if !exists || tListOrMap == nil {

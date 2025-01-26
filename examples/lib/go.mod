@@ -1,6 +1,6 @@
 module main
 
-go 1.22.5
+go 1.23.5
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect

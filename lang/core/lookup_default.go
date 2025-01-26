@@ -97,8 +97,8 @@ func (obj *LookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
-	if len(typ.Ord) < 1 {
-		return nil, fmt.Errorf("the lookup function needs at least one arg") // actually 2 or 3
+	if len(typ.Ord) != 3 {
+		return nil, fmt.Errorf("the lookup function needs three args")
 	}
 	tListOrMap, exists := typ.Map[typ.Ord[0]]
 	if !exists || tListOrMap == nil {

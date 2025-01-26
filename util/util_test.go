@@ -1929,3 +1929,36 @@ func TestStrMapKeysUint64(t *testing.T) {
 		})
 	}
 }
+
+func TestBoolMapValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]bool
+		want  []bool
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []bool{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]bool{},
+			want:  []bool{},
+		},
+		{
+			name:  "return values",
+			input: map[string]bool{"key1": true, "key2": false},
+			want:  []bool{true, false},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BoolMapValues(tt.input)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}

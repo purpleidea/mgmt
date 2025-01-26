@@ -2072,3 +2072,42 @@ func TestBoolMapTrue(t *testing.T) {
 		})
 	}
 }
+
+func TestSafePathClean(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "empty",
+			input: "",
+			want:  ".",
+		},
+		{
+			name:  "slash",
+			input: "/",
+			want:  "//", // TODO(ahmad-abuziad): check slash case output with @purpleidea
+		},
+		{
+			name:  "end with slash",
+			input: "a//b/",
+			want:  "a/b/",
+		},
+		{
+			name:  "end without slash",
+			input: "a//b",
+			want:  "a/b",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SafePathClean(tt.input)
+
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}

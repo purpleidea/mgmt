@@ -1962,3 +1962,37 @@ func TestBoolMapValues(t *testing.T) {
 		})
 	}
 }
+
+func TestStrMapValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]string
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]string{},
+			want:  []string{},
+		},
+		{
+			name:  "return values",
+			input: map[string]string{"key1": "value1", "key2": "value2"},
+			want:  []string{"value1", "value2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrMapValues(tt.input)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}

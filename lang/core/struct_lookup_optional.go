@@ -131,7 +131,7 @@ func (obj *StructLookupOptionalFunc) FuncInfer(partialType *types.Type, partialV
 		return nil, nil, fmt.Errorf("function must not have an empty field name")
 	}
 	// This can happen at runtime too, but we save it here for Build()!
-	//obj.field = s // don't store for this optional lookup version!
+	obj.field = s
 
 	// Figure out more about the sig if any information is known statically.
 	if len(partialType.Ord) > 0 && partialType.Map[partialType.Ord[0]] != nil {
@@ -200,11 +200,38 @@ func (obj *StructLookupOptionalFunc) Build(typ *types.Type) (*types.Type, error)
 		return nil, fmt.Errorf("first arg must be of kind struct, got: %s", tStruct.Kind)
 	}
 
+	if obj.field == "" {
+		// programming error
+		return nil, fmt.Errorf("got an empty field name")
+	}
+
+	// If the field exists, then it MUST match typ.Out of course!
+	tFoundField, exists := tStruct.Map[obj.field]
+	if exists {
+		if err := typ.Out.Cmp(tFoundField); err != nil {
+			return nil, errwrap.Wrapf(err, "non-optional arg must match return type")
+		}
+	}
+
 	obj.Type = tStruct // struct type
 	obj.Out = typ.Out  // type of return value
 	obj.built = true
 
 	return obj.sig(), nil
+}
+
+// Copy is implemented so that the obj.field value is not lost if we copy this
+// function. That value is learned during FuncInfer, and previously would have
+// been lost by the time we used it in Build.
+func (obj *StructLookupOptionalFunc) Copy() interfaces.Func {
+	return &StructLookupOptionalFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+		Out:  obj.Out,
+
+		built: obj.built,
+		init:  obj.init,  // likely gets overwritten anyways
+		field: obj.field, // this we really need!
+	}
 }
 
 // Validate tells us if the input struct takes a valid form.

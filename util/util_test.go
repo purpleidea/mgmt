@@ -2028,3 +2028,47 @@ func TestStrMapValuesUint64(t *testing.T) {
 		}
 	}
 }
+
+func TestBoolMapTrue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []bool
+		want  bool
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  true,
+		},
+		{
+			name:  "empty slice",
+			input: []bool{},
+			want:  true,
+		},
+		{
+			name:  "all true return true",
+			input: []bool{true, true, true},
+			want:  true,
+		},
+		{
+			name:  "contain false return false",
+			input: []bool{true, false, true},
+			want:  false,
+		},
+		{
+			name:  "all false return false",
+			input: []bool{false, false, false},
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BoolMapTrue(tt.input)
+
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}

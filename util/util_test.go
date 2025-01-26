@@ -1996,3 +1996,35 @@ func TestStrMapValues(t *testing.T) {
 		})
 	}
 }
+
+func TestStrMapValuesUint64(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[uint64]string
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[uint64]string{},
+			want:  []string{},
+		},
+		{
+			name:  "return values",
+			input: map[uint64]string{1: "value1", 2: "value2"},
+			want:  []string{"value1", "value2"},
+		},
+	}
+
+	for _, tt := range tests {
+		got := StrMapValuesUint64(tt.input)
+
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("got: %v, want: %v", got, tt.want)
+		}
+	}
+}

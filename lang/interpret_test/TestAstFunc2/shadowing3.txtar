@@ -1,0 +1,9 @@
+-- main.mcl --
+class foo($x) {
+	$x = "hello" # test shadowing again
+
+	test ["${x}",] {}
+}
+include foo("nope")
+-- OUTPUT --
+Vertex: test[hello]

@@ -2262,3 +2262,70 @@ func TestRebase(t *testing.T) {
 		}
 	})
 }
+
+func TestRemovePathPrefix(t *testing.T) {
+	t.Run("removes path prefix", func(t *testing.T) {
+		gotStr, gotErr := RemovePathPrefix("/removed/path/to")
+
+		if gotStr != "/path/to" {
+			t.Errorf("got: %v, want: %v", gotStr, gotErr)
+		}
+
+		if gotErr != nil {
+			t.Errorf("got error: %v, want nil error", gotErr)
+		}
+	})
+
+	t.Run("relative path", func(t *testing.T) {
+		gotStr, gotErr := RemovePathPrefix("path/to")
+
+		if gotStr != "" {
+			t.Errorf("got: %v, want empty string", gotStr)
+		}
+
+		if gotErr.Error() != "must be absolute" {
+			t.Errorf(`got error: %v, want error "must be absolute"`, gotErr.Error())
+		}
+	})
+
+	//TODO(ahmadabuziad): edge cases currently panic, handle edge cases. "/", ""
+}
+
+func TestRemovePathSuffix(t *testing.T) {
+	t.Run("removes path prefix", func(t *testing.T) {
+		gotStr, gotErr := RemovePathSuffix("/path/to/removed")
+
+		if gotStr != "/path/to/" {
+			t.Errorf("got: %v, want: %v", gotStr, "/path/to/")
+		}
+
+		if gotErr != nil {
+			t.Errorf("got error: %v, want nil error", gotErr)
+		}
+	})
+
+	t.Run("relative path", func(t *testing.T) {
+		gotStr, gotErr := RemovePathSuffix("path/to")
+
+		if gotStr != "" {
+			t.Errorf("got: %v, want empty string", gotStr)
+		}
+
+		if gotErr.Error() != "must be absolute" {
+			t.Errorf(`got error: %v, want error "must be absolute"`, gotErr.Error())
+		}
+	})
+
+	t.Run("/", func(t *testing.T) {
+		gotStr, gotErr := RemovePathSuffix("/")
+
+		if gotStr != "" {
+			t.Errorf("got: %v, want empty string", gotStr)
+		}
+
+		if gotErr.Error() != "input is /" {
+			t.Errorf(`got error: %v, want error "input is /"`, gotErr.Error())
+		}
+	})
+	//TODO(ahmadabuziad): double check desired behavior for edge cases. "/", ""
+}

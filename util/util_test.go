@@ -2193,3 +2193,72 @@ func TestFlattenListWithSplit(t *testing.T) {
 		})
 	}
 }
+
+func TestRebase(t *testing.T) {
+	type input struct {
+		path string
+		base string
+		root string
+	}
+	type want struct {
+		rebasedPath string
+		err         error
+	}
+
+	tests := []struct {
+		name  string
+		input input
+		want  want
+	}{
+		{
+			name: "rebased to absolute directory",
+			input: input{
+				path: "/usr/bin/foo",
+				base: "/usr/",
+				root: "/usr/local/",
+			},
+			want: want{
+				rebasedPath: "/usr/local/bin/foo",
+				err:         nil,
+			},
+		},
+		{
+			name: "rebased to relative directory",
+			input: input{
+				path: "/var/lib/dir/file.conf",
+				base: "/var/lib/",
+				root: "",
+			},
+			want: want{
+				rebasedPath: "dir/file.conf",
+				err:         nil,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		gotStr, gotErr := Rebase(tt.input.path, tt.input.base, tt.input.root)
+
+		if gotStr != tt.want.rebasedPath {
+			t.Errorf("got rebased path: %v, want rebased path: %v", gotStr, tt.want.rebasedPath)
+		}
+		if gotErr != tt.want.err {
+			t.Errorf("got error: %v, want error to be: %v", gotErr, tt.want.err)
+		}
+	}
+
+	t.Run("root doesn't end with /", func(t *testing.T) {
+		// TODO(ahmadabuziad) in Rebase return predefined error instead e.g.
+		// e.g. var ErrRootNotDirectory = errors.New("root is not a directory")
+		// so it would be clearer and easier to test
+		gotStr, gotErr := Rebase("/usr/bin/foo", "/user/", "/usr/local")
+
+		if gotStr != "" {
+			t.Errorf("rebased path should be empty")
+		}
+
+		if gotErr.Error() != "root is not a directory" {
+			t.Errorf(`should receive error: "root is not a directory"`)
+		}
+	})
+}

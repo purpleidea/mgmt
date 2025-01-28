@@ -2154,3 +2154,42 @@ func TestCommonPathPrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestFlattenListWithSplit(t *testing.T) {
+	type input struct {
+		input []string
+		split []string
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  []string
+	}{
+		{
+			name: "split by spaces and dots",
+			input: input{
+				input: []string{"a b.c"},
+				split: []string{" ", "."},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "empty split",
+			input: input{
+				input: []string{"a b.c"},
+				split: []string{},
+			},
+			want: []string{"a b.c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FlattenListWithSplit(tt.input.input, tt.input.split)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -2111,3 +2111,46 @@ func TestSafePathClean(t *testing.T) {
 		})
 	}
 }
+
+func TestCommonPathPrefix(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []string
+		want  string
+	}{
+		{
+			name:  "common path",
+			input: []string{"/common/uncommon1", "/common/uncommon2"},
+			want:  "/common/",
+		},
+		{
+			name:  "empty",
+			input: []string{},
+			want:  "",
+		},
+		{
+			name:  "single path",
+			input: []string{"/path/to"},
+			want:  "/path/to",
+		},
+		{
+			name:  "single path doesn't start with /", // TODO(ahmadabuziad): need to double check the desired output with @purple idea
+			input: []string{"path/to"},
+			want:  "path/to",
+		},
+		{
+			name:  "one of the paths doesn't contain /",
+			input: []string{"/path/with/slash", "path/without/slash"},
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CommonPathPrefix(tt.input...)
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}

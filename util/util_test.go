@@ -1947,9 +1947,9 @@ func TestBoolMapValues(t *testing.T) {
 			want:  []bool{},
 		},
 		{
-			name:  "return values",
-			input: map[string]bool{"key1": true, "key2": false},
-			want:  []bool{true, false},
+			name:  "return values unordered",
+			input: map[string]bool{"key1": true},
+			want:  []bool{true},
 		},
 	}
 

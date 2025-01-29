@@ -2450,3 +2450,18 @@ func TestSystemBusPrivateUsable(t *testing.T) {
 	})
 	//TODO(ahmadabuziad): testing other cases require refactoring(dependency injection, mock provider)
 }
+
+func TestSessionBusPrivateUsable(t *testing.T) {
+	t.Run("return conn", func(t *testing.T) {
+		conn, err := SessionBusPrivateUsable()
+
+		if conn == nil {
+			t.Errorf("got conn %v", conn)
+		}
+
+		if err != nil {
+			t.Errorf("got error %v", err)
+		}
+	})
+	//TODO(ahmadabuziad): testing other cases require refactoring(dependency injection, mock provider)
+}

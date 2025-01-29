@@ -2435,3 +2435,18 @@ func TestCloseAfter(t *testing.T) {
 		}
 	})
 }
+
+func TestSystemBusPrivateUsable(t *testing.T) {
+	t.Run("return conn", func(t *testing.T) {
+		conn, err := SystemBusPrivateUsable()
+
+		if conn == nil {
+			t.Errorf("got conn %v", conn)
+		}
+
+		if err != nil {
+			t.Errorf("got error %v", err)
+		}
+	})
+	//TODO(ahmadabuziad): testing other cases require refactoring(dependency injection, mock provider)
+}

@@ -2404,3 +2404,34 @@ func TestTimeAfterOrBlockCtx(t *testing.T) {
 		}
 	})
 }
+
+func TestCloseAfter(t *testing.T) {
+	t.Run("close after", func(t *testing.T) {
+		timeout := time.Duration(1 * time.Second)
+		start := time.Now()
+		ch := CloseAfter(context.Background(), timeout)
+
+		select {
+		case <-ch:
+			elapsed := time.Since(start).Seconds()
+			if elapsed < 1 || elapsed > 1.5 {
+				t.Errorf("expected wait time around 1 second, but got %.2f seconds", elapsed)
+			}
+		case <-time.After(2 * time.Second):
+			t.Errorf("expected to receive a value, but timed out")
+		}
+	})
+
+	t.Run("cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		defer cancel()
+		ch := CloseAfter(ctx, 5*time.Second)
+
+		select {
+		case <-ch:
+
+		case <-time.After(1 * time.Second):
+			t.Errorf("expected to receive a value when context is canceled, but timed out")
+		}
+	})
+}

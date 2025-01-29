@@ -37,6 +37,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNumToAlpha(t *testing.T) {
@@ -2328,4 +2329,34 @@ func TestRemovePathSuffix(t *testing.T) {
 		}
 	})
 	//TODO(ahmadabuziad): double check desired behavior for edge cases. "/", ""
+}
+
+func TestTimeAfterOrBlock(t *testing.T) {
+
+	t.Run("time after", func(t *testing.T) {
+		timeout := 1
+		start := time.Now()
+		ch := TimeAfterOrBlock(timeout)
+
+		select {
+		case <-ch:
+			elapsed := time.Since(start).Seconds()
+			if elapsed < 1 || elapsed > 1.5 {
+				t.Errorf("expected wait time around 1 second, but got %.2f seconds", elapsed)
+			}
+		case <-time.After(2 * time.Second):
+			t.Errorf("expected to receive a value, but timed out")
+		}
+	})
+
+	t.Run("block", func(t *testing.T) {
+		ch := TimeAfterOrBlock(-1)
+
+		select {
+		case <-ch:
+			t.Errorf("expected channel to block, but received a value")
+
+		case <-time.After(2 * time.Second):
+		}
+	})
 }

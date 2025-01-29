@@ -2465,3 +2465,21 @@ func TestSessionBusPrivateUsable(t *testing.T) {
 	})
 	//TODO(ahmadabuziad): testing other cases require refactoring(dependency injection, mock provider)
 }
+
+func TestPathSliceSortMethod(t *testing.T) {
+	s := PathSlice{"/c", "/b", "/a"}
+	s.Sort()
+
+	if s[0] != "/a" || s[1] != "/b" || s[2] != "/c" {
+		t.Errorf("PathSlice.Sort did not sort correctly, got: %v", s)
+	}
+}
+
+func TestUInt64SliceSortMethod(t *testing.T) {
+	s := UInt64Slice{3, 2, 1}
+	s.Sort()
+
+	if s[0] != 1 || s[1] != 2 || s[2] != 3 {
+		t.Errorf("UInt64Slice.Sort did not sort correctly, got: %v", s)
+	}
+}

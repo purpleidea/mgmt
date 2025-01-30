@@ -2483,3 +2483,46 @@ func TestUInt64SliceSortMethod(t *testing.T) {
 		t.Errorf("UInt64Slice.Sort did not sort correctly, got: %v", s)
 	}
 }
+
+func TestPathSliceLessMethod(t *testing.T) {
+	type input struct {
+		s PathSlice
+		i int
+		j int
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  bool
+	}{
+		{
+			name: "less",
+			input: input{
+				s: PathSlice{"/a", "/b"},
+				i: 0,
+				j: 1,
+			},
+			want: true,
+		},
+		{
+			name: "not less",
+			input: input{
+				s: PathSlice{"/b", "/a"},
+				i: 0,
+				j: 1,
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.input.s.Less(tt.input.i, tt.input.j)
+
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+	// TODO(ahmadabuziad): check other test cases with @purple idea
+}

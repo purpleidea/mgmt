@@ -2524,5 +2524,75 @@ func TestPathSliceLessMethod(t *testing.T) {
 			}
 		})
 	}
-	// TODO(ahmadabuziad): check other test cases with @purple idea
+	// TODO(ahmadabuziad): check other test cases with @purple idea (unable to reach the code)
+}
+
+func TestValueToB64(t *testing.T) {
+	t.Run("value to b64", func(t *testing.T) {
+		v := "value"
+		str, err := ValueToB64(v)
+
+		valueInB64 := "EhAABnN0cmluZwwHAAV2YWx1ZQ=="
+		if str != valueInB64 {
+			t.Errorf("got: %v, want: %v", str, valueInB64)
+		}
+
+		if err != nil {
+			t.Errorf("didn't expect error, got %v", err)
+		}
+	})
+
+	t.Run("passing function", func(t *testing.T) {
+		str, err := ValueToB64(func() {})
+
+		if str != "" {
+			t.Errorf("wanted empty string, got: %v", str)
+		}
+
+		if !strings.Contains(err.Error(), "gob failed to encode") {
+			t.Errorf(`expected error to contain "gob failed to encode", got: %v`, err.Error())
+		}
+	})
+}
+
+func TestB64ToValue(t *testing.T) {
+	t.Run("b64 to value", func(t *testing.T) {
+		b64 := "EhAABnN0cmluZwwHAAV2YWx1ZQ=="
+		str, err := B64ToValue(b64)
+
+		value := "value"
+		if str != value {
+			t.Errorf("got: %v, want: %v", str, value)
+		}
+
+		if err != nil {
+			t.Errorf("didn't expect error, got %v", err)
+		}
+	})
+
+	t.Run("invalid b64", func(t *testing.T) {
+		i, err := B64ToValue("invalid value")
+
+		if i != nil {
+			t.Errorf("wanted empty string, got: %v", i)
+		}
+
+		if !strings.Contains(err.Error(), "base64 failed to decode") {
+			t.Errorf(`expected error to contain "base64 failed to decode", got: %v`, err.Error())
+		}
+	})
+
+	t.Run("invalid gob", func(t *testing.T) {
+		i, err := B64ToValue("dmFsdWU=")
+
+		if i != nil {
+			t.Errorf("wanted empty string, got: %v", i)
+		}
+
+		if !strings.Contains(err.Error(), "gob failed to decode") {
+			t.Errorf(`expected error to contain "gob failed to decode", got: %v`, err.Error())
+		}
+	})
+
+	// TODO(ahmadabuziad): check unreachable case: "output `%v` is not a value" with @purpleidea
 }

@@ -136,6 +136,10 @@ type VirtBuilderRes struct {
 	// If one is not present, then nothing is done.	This defaults to true.
 	RootSSHInject bool `lang:"root_ssh_inject" yaml:"root_ssh_inject"`
 
+	// RootPasswordSelector is a string in the virt-builder format. See the
+	// manual page "USERS AND PASSWORDS" section for more information.
+	RootPasswordSelector string `lang:"root_password_selector" yaml:"root_password_selector"`
+
 	// Bootstrap can be set to false to disable any automatic bootstrapping
 	// of running the mgmt binary on first boot. If this is set, we will
 	// attempt to copy the mgmt binary in, and then run it. This also adds
@@ -250,12 +254,13 @@ func (obj *VirtBuilderRes) getDeps() ([]string, error) {
 // Default returns some sensible defaults for this resource.
 func (obj *VirtBuilderRes) Default() engine.Res {
 	return &VirtBuilderRes{
-		Update:         true,
-		SelinuxRelabel: true,
-		RootSSHInject:  true,
-		Bootstrap:      true,
-		LogOutput:      true,
-		Tweaks:         true,
+		Update:               true,
+		SelinuxRelabel:       true,
+		RootSSHInject:        true,
+		RootPasswordSelector: "disabled",
+		Bootstrap:            true,
+		LogOutput:            true,
+		Tweaks:               true,
 	}
 }
 
@@ -481,8 +486,10 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 	}
 
 	// TODO: consider changing this behaviour to get password from send/recv
-	passwordArgs := []string{"--root-password", "disabled"}
-	cmdArgs = append(cmdArgs, passwordArgs...)
+	if obj.RootPasswordSelector != "" {
+		passwordArgs := []string{"--root-password", obj.RootPasswordSelector}
+		cmdArgs = append(cmdArgs, passwordArgs...)
+	}
 
 	if obj.Bootstrap {
 		p, err := obj.getBinaryPath()
@@ -629,6 +636,9 @@ func (obj *VirtBuilderRes) Cmp(r engine.Res) error {
 
 	if obj.RootSSHInject != res.RootSSHInject {
 		return fmt.Errorf("the RootSSHInject value differs")
+	}
+	if obj.RootPasswordSelector != res.RootPasswordSelector {
+		return fmt.Errorf("the RootPasswordSelector value differs")
 	}
 	if obj.Bootstrap != res.Bootstrap {
 		return fmt.Errorf("the Bootstrap value differs")

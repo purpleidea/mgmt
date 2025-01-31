@@ -1,0 +1,171 @@
+# Mgmt
+# Copyright (C) James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "local"
+import "golang/strconv" as golang_strconv
+import "strings"
+import "os"
+
+class base() {
+	if os.is_family_redhat() { # we only use fedora atm
+		pkg [
+			"libvirt",
+			"qemu-kvm",
+			"bridge-utils", # for brctl
+		] {
+			state => "installed",
+
+			Before => Svc["virtqemud"],
+			Before => Svc["virtnetworkd"],
+		}
+	}
+	#if os.is_family_debian() {
+	#	panic("debian is not yet supported")
+	#}
+
+	# We want to use qemu of course!
+	# XXX: I had to run `systemctl start virtqemud` to get things working...
+	svc "virtqemud" {
+		state => "running",
+		startup => "enabled",
+	}
+
+	# We want networking to work!
+	svc "virtnetworkd" {
+		state => "running",
+		startup => "enabled",
+	}
+}
+
+# Create a vm for the system.
+class vm($name, $config) {
+	# TODO: fix secondary auto-indexing with tmp-prefix (let it mutate old machines)
+	$i = local.pool("libvirt-vm", $name) # the uid will always return the same int
+
+	# TODO: qcow2?
+	$format = $config->format || "raw" # used for file extension and parameter name
+	$index = $config->index || $i
+	$distro_uid = $config->distro_uid || "fedora41-x86_64"
+	$sshkey struct{ssh_type str; ssh_key str; ssh_comment str} = $config->sshkey # TODO: unification
+	$root_password_selector = $config->root_password_selector || "disabled"
+
+	$st = os.parse_distro_uid("${distro_uid}") # eg: fedora41-x86_64
+	$distro = $st->distro
+	$version = $st->version
+	$arch = $st->arch
+	$filename = "/var/lib/libvirt/images/${name}.${format}"
+	$packages = if $distro == "fedora" {
+		if $version == "40" {
+			[
+				"@minimal-environment",
+				"screen",
+				"vim-enhanced",
+			]
+		} else {
+			[
+				"screen",
+				"vim-enhanced",
+			]
+		}
+
+	} else { # other distros TODO: add a switch or else if?
+		[]
+	}
+
+	virt:builder "${filename}" {
+		hostname => $name,
+		os_version => "${distro}-${version}",
+		size => 1024*1024*1024*100, # 100G
+		format => $format,
+		# TODO: What's the debian equivalent of these minimal packages?
+		packages => $packages,
+		root_ssh_inject => true,
+		ssh_keys => [
+			struct{
+				user => "root", # give the user root access to their vm
+				type => $sshkey->ssh_type,
+				key => $sshkey->ssh_key,
+				comment => $sshkey->ssh_comment,
+			},
+		],
+		root_password_selector => $root_password_selector,
+
+		# make sure key exists so that's it's available for injection!
+		Depend => File["/root/.ssh/id_rsa"],
+		Depend => Svc["virtqemud"],
+		Depend => Svc["virtnetworkd"],
+	}
+
+	panic($index < 0 or $index > 65535) # 0xffffh is the maximum
+	$hex = strings.left_pad(golang_strconv.format_int($index, 16), "0", 4)
+	$mac_5 = strings.substr($hex, 0, 1) + strings.substr($hex, 1, 2) # TODO: support $hex[0] or $hex[0:2] ?
+	$mac_6 = strings.substr($hex, 2, 3) + strings.substr($hex, 3, 4) # TODO: support $hex[2] or $hex[2:2] ?
+	$mac_tail = "01:" + $mac_5 + ":" + $mac_6
+
+	# XXX: with hotcpus => true AND cpus => 2 I get:
+	# domainCreate failed: virError(Code=67, Domain=10, Message='unsupported configuration: all vcpus must have either set or unset order')
+	virt "${name}" {
+		uri => "qemu:///session",
+		cpus => 2,
+		maxcpus => 8,
+		memory => 1024*1024*16, # 16G of RAM
+		state => "running",
+		transient => false,
+		boot => ["hd", ],
+		disk => [
+			struct{
+				source => $filename,
+				type => $format,
+			},
+		],
+		osinit => "",
+		cdrom => [
+		],
+		network => [
+			struct{
+				# TODO: network name and mac prefix should be $const's
+				name => "default", # this network comes with the service
+				mac => "52:54:00:" + $mac_tail,
+			},
+		],
+		filesystem => [
+		],
+		auth => struct{
+			username => "",
+			password => "",
+		},
+		hotcpus => false, # no fun today!
+		restartondiverge => "",
+		restartonrefresh => false,
+
+		Depend => Svc["virtqemud"],
+		Depend => Svc["virtnetworkd"],
+		Depend => Virt:Builder["${filename}"],
+	}
+}

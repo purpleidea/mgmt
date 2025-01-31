@@ -1,0 +1,51 @@
+import "git://github.com/purpleidea/mgmt/modules/cups/"
+
+$default_printer = {
+	"ws1" => "Foo-Laboratory-Brother",
+	"lappy2" => "Bar-Office-Canon",
+}
+$subset_printers = {
+	"Foo-Laboratory-Brother" => ["ws1",],
+}
+include cups.base() as printers
+
+# helper function
+# make sure you add your .ppd files
+class printer($name, $st) {
+	$default = $default_printer[$hostname] || ""
+	$subset = $subset_printers[$name] || []
+
+	$location = $st->location || ""
+	$makemodel = $st->makemodel || ""
+	$uri str = $st->uri
+
+	$comment = $st->comment || ""
+
+	# XXX: if we had a method that took a struct, and added a field and returned it, that would be helpful!
+	# XXX: this would need to have language sugar so that we guarantee the field name string is static.
+	# XXX: eg: $new_st = $old_st.foo => "bar"
+	# XXX: eg: $new_st = { $old_st with foo => "bar" }
+	if $subset == [] or $hostname in $subset {
+		include printers.printer($name, struct{
+			default => $name == $default,
+			info => $name, # since the name is descriptive
+			location => $location,
+			makemodel => $makemodel,
+			uri => $uri,
+			ppd => deploy.readfile("/files/ppd/${name}.ppd"),
+			comment => $comment,
+		})
+	}
+}
+
+include printer("Foo-Laboratory-Brother", struct{
+	location => "Foo's Office",
+	makemodel => "Brother Printer, driverless, 2.1b1",
+	uri => "lpd://192.168.201.108:515/PASSTHRU",	# TODO: change me?
+})
+
+include printer("Bar-Office-Canon", struct{
+	location => "Bar's Office",
+	makemodel => "Canon iR-ADV C351 PPD",
+	uri => "lpd://192.168.201.120",
+})

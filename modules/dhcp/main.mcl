@@ -75,6 +75,8 @@ class server($st) {
 	}
 
 	$vardir = local.vardir("dhcp/")
+
+	include host_base
 }
 
 class server:subnet_base() {

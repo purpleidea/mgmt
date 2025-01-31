@@ -77,16 +77,6 @@ func main() {
 		return              // for safety
 	}
 
-	// Run profiling if it's activated.
-	// TODO: Should we pass a logger into this?
-	ctx, cancel := context.WithCancel(context.Background())
-	if err := pprof.Run(ctx); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-		//return // redundant
-	}
-	defer cancel()
-
 	cliUtil.LogSetup(debug)
 	data := &cliUtil.Data{
 		Program: program,
@@ -101,6 +91,16 @@ func main() {
 		},
 		Args: os.Args,
 	}
+
+	// Run profiling if it's activated.
+	// TODO: Should we pass a logger into this?
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := pprof.Run(ctx); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+		//return // redundant
+	}
+	defer cancel()
 
 	name := ""
 	if len(data.Args) > 1 {

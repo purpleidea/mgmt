@@ -46,7 +46,7 @@ import (
 // var, it returns nil. If this is not able to start logging, then it errors. If
 // it starts logging, this waits for an exit signal in a goroutine and returns
 // nil. The magic env name is MGMT_PPROF_PATH. Example usage:
-// MGMT_PPROF_PATH="~/pprof/out.pprof" ./mgmt run lang examples/lang/hello.mcl
+// MGMT_PPROF_PATH=~/pprof/"out.pprof" ./mgmt run lang examples/lang/hello0.mcl
 // go tool pprof -no_browser -http :10000 ~/pprof/out.pprof
 func Run(ctx context.Context) error {
 	s := os.Getenv("MGMT_PPROF_PATH")
@@ -55,10 +55,12 @@ func Run(ctx context.Context) error {
 		log.Printf(format, v...) // XXX: use parent logger when available
 	}
 
-	if s == "" || !strings.HasPrefix(s, "/") {
+	if s == "" {
 		return nil // not activated
 	}
-	logf("pprof logging to: %s", s)
+	if !strings.HasPrefix(s, "/") {
+		return fmt.Errorf("pprof path is not absolute")
+	}
 
 	f, err := os.Create(s)
 	if err != nil {
@@ -67,6 +69,7 @@ func Run(ctx context.Context) error {
 	if err := pprof.StartCPUProfile(f); err != nil {
 		return fmt.Errorf("could not start CPU profile: %v", err)
 	}
+	logf("pprof logging to: %s", s)
 
 	signals := make(chan os.Signal, 1+1) // 1 * ^C + 1 * SIGTERM
 	signal.Notify(signals, os.Interrupt) // catch ^C

@@ -37,6 +37,12 @@ import "strings"
 class base() {
 	$vardir = local.vardir("cups/")
 
+	pkg "cups" {
+		state => "installed",
+
+		Before => File["/etc/cups/"],
+	}
+
 	file "/etc/cups/" {
 		state => $const.res.file.state.exists,
 		recurse => false, # not completely managed!
@@ -64,12 +70,13 @@ class base() {
 		cmd => "/usr/sbin/restorecon -rv /etc/cups/",
 		# XXX: make some magic snippets which turn into ./mgmt snippet <type> /etc/cups/ (for example) and get substituted in here!
 		# XXX: or even better, instead of snippets which exec mgmt stuff, they turn into pure golang equivalents...
-		ifcmd => "mgmt:changed /etc/cups/",
-		watchcmd => "mgmt:dir /etc/cups/",
+		#ifcmd => "mgmt:changed /etc/cups/", # XXX: implement this
+		#watchcmd => "mgmt:dir /etc/cups/", # XXX: implement this
 	}
 
 	svc "cups" {
-		# TODO: manage this
+		state => "running",
+		startup => "enabled",
 	}
 }
 

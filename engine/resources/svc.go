@@ -333,7 +333,15 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
 	var stateOK = ((obj.State == "") || (obj.State == "running" && running) || (obj.State == "stopped" && !running))
-	var startupOK = true // XXX: DETECT AND SET
+
+	startupstate, err := conn.GetUnitPropertyContext(ctx, svc, "UnitFileState")
+	if err != nil {
+		return false, errwrap.Wrapf(err, "failed to get unit file state")
+	}
+
+	enabled := (startupstate.Value == dbus.MakeVariant("enabled"))
+	disabled := (startupstate.Value == dbus.MakeVariant("disabled"))
+	startupOK := ((obj.Startup == "") || (obj.Startup == "enabled" && enabled) || (obj.Startup == "disabled" && disabled))
 
 	// NOTE: if this svc resource is embedded as a composite resource inside
 	// of another resource using a technique such as `makeComposite()`, then

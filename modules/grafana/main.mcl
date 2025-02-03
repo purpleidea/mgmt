@@ -1,0 +1,85 @@
+import "deploy"
+import "golang"
+
+class server() {
+	pkg "grafana" { # on fedora
+		state => "installed",
+	}
+
+	file "/etc/grafana/" {
+		state => $const.res.file.state.exists,
+		#recurse => true,
+		#purge => true,
+		owner => "root",
+		group => "grafana",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+
+	file "/etc/grafana/ldap.toml" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/ldap.toml"), # XXX: eventually template
+		owner => "root",
+		group => "grafana",
+		mode => "u=rw,g=r,o=",
+
+		Notify => Svc["grafana-server"],
+	}
+
+	file "/etc/grafana/grafana.ini" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/grafana.ini.tmpl")),
+		owner => "root",
+		group => "grafana",
+		mode => "u=rw,g=r,o=",
+
+		Notify => Svc["grafana-server"],
+	}
+
+	file "/etc/grafana/provisioning/" {
+		state => $const.res.file.state.exists,
+		#recurse => true,
+		#purge => true,
+		owner => "root",
+		group => "grafana",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+
+
+	svc "grafana-server" {
+		state => "running",
+		startup => "enabled",
+	}
+}
+
+class server:prometheus_base() {
+
+	file "/etc/grafana/provisioning/datasources/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "grafana",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+}
+
+# XXX: if selinux is enabled, this wasn't connecting!
+class server:prometheus($name, $st) {
+	include prometheus_base
+
+	$url = $st->url || "http://localhost:9090"
+	$comment = $st->comment || ""
+
+	$tmpl = struct{
+		name => "${name}",
+		url => "${url}",
+		comment => "${comment}",
+	}
+	file "/etc/grafana/provisioning/datasources/${name}.yaml" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/prometheus.yaml.tmpl"), $tmpl),
+		owner => "root",
+		group => "grafana",
+		mode => "u=rw,g=r,o=",
+	}
+}

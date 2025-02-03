@@ -1,0 +1,251 @@
+import "deploy"
+import "fmt"
+import "golang"
+import "golang/strings" as golang_strings
+import "golang/strconv" as golang_strconv
+import "local"
+import "os"
+import "strings"
+
+class server() {
+	pkg "golang-github-prometheus" { # fedora
+		state => "installed",
+
+		Before => File["/etc/prometheus/"],
+		Before => Svc["prometheus"],
+	}
+
+	file "/etc/prometheus/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "prometheus",
+		group => "root",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+
+	file "${vardir}prometheus.yml.header" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/prometheus.yml.tmpl")),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/prometheus/prometheus.yml" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}prometheus.yml.header", # also pull this one file
+			"${vardir}jobs.d/", # pull from this dir
+		],
+		owner => "prometheus",
+		group => "root",
+		mode => "u=rw,g=r,o=",
+
+		Notify => Svc["prometheus"],
+	}
+
+	svc "prometheus" {
+		state => "running",
+		startup => "enabled",
+	}
+
+	# permissions are important for this dir, make sure they're correct
+	file "/var/lib/prometheus/" {
+		state => $const.res.file.state.exists,
+		owner => "prometheus",
+		group => "root",
+		mode => "u=rwx,g=rx,o=", # dir
+	}
+
+	$vardir = local.vardir("prometheus/")
+
+	# Add the default exporter.
+	include job("node", struct{
+		#host => "localhost",
+		#port => 9100,
+	})
+}
+
+class server:job_base() {
+	file "${vardir}jobs.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+}
+
+class server:job($name, $st) {
+	# XXX: document why this is named job_base instead of base:job_base or
+	# change the compiler to use the second version?
+	include job_base
+
+	$host = $st->host || "localhost"
+	$port = $st->port || 9100
+	$comment = $st->comment || ""
+
+	$tmpl = struct{
+		name => "${name}",
+		host => "${host}",
+		port => fmt.printf("%d", $port),
+		comment => "${comment}",
+	}
+
+	file "${vardir}jobs.d/${name}.job" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/prometheus.yml.frag.tmpl"), $tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class exporter() {
+	if os.is_family_redhat() { # we only use fedora atm
+		pkg "node-exporter" { # fedora
+			state => "installed",
+
+			#Before => File["/etc/default/prometheus-node-exporter"],
+			Before => Svc["prometheus-node-exporter"],
+		}
+	}
+	if os.is_family_debian() {
+		pkg "prometheus-node-exporter" { # debian
+			state => "installed",
+
+			#Before => File["/etc/default/prometheus-node-exporter"],
+			Before => Svc["prometheus-node-exporter"],
+		}
+	}
+
+	# TODO: manage /etc/default/prometheus-node-exporter
+
+	svc "prometheus-node-exporter" {
+		state => "running",
+		startup => "enabled",
+	}
+}
+
+class postgresql_base() {
+
+	#if os.is_family_redhat() {
+	#	pkg [
+	#		"", # XXX: No obvious Fedora package available
+	#	] {
+	#		state => "installed",
+	#	}
+	#}
+	if os.is_family_debian() {
+		pkg [
+			"prometheus-postgres-exporter",
+		] {
+			state => "installed",
+
+			Before => Svc["prometheus-postgres-exporter"],
+		}
+	}
+
+	# systemd service template file to allow for multiple of these
+	file "/etc/systemd/system/prometheus-postgres-exporter@.service" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/prometheus-postgres-exporter.service.tmpl"),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=r",
+
+#		Depend => Pkg["prometheus-postgres-exporter"],
+#		Before => Svc["prometheus-postgres-exporter"],
+	}
+
+}
+
+# We call this postgresql instead of postgres.
+# XXX: you may not wish to have spaces in your passwords
+class postgresql($config) {
+
+	include postgresql_base
+
+	$host = $config->host || "127.0.0.1"
+	$port = $config->port || 5432
+	$user = $config->user || "prometheus"
+	$pass = $config->pass || ""
+	$dbname = $config->dbname || ""
+	$sslmode = $config->sslmode || false
+	$listen_port = $config->listen_port || 9187
+
+	panic($port <= 0)
+
+	$h = if $host == "" {
+		""
+	} else {
+		"host=${host}"
+	}
+	$o = fmt.printf("port=%d", $port)
+	$u = if $user == "" {
+		""
+	} else {
+		"user=${user}"
+	}
+	$p = if $pass == "" {
+		""
+	} else {
+		"password=${pass}"
+	}
+	$d = if $dbname == "" {
+		""
+	} else {
+		"dbname=${dbname}"
+	}
+	$m = if $sslmode {
+		""
+	} else {
+		"sslmode=disable"
+	}
+
+	$l = [$h, $o, $u, $p, $d, $m,] # filter out empties first (IT'S REQUIRED)
+	$dsn = strings.join_nonempty($l, " ") # trailing spaces break this exporter
+
+	$str_port = golang_strconv.itoa($port)
+	$str_listen_port = golang_strconv.itoa($listen_port)
+
+	$args = "--web.listen-address=:${str_listen_port}"
+
+	$tmpl = struct{
+		# DATA_SOURCE_NAME='postgresql://login:password@hostname:port/' # untested?
+		# DATA_SOURCE_NAME='user=prometheus host=/run/postgresql dbname=postgres' # untested?
+		# DATA_SOURCE_NAME='host=127.0.0.1 port=5432 user=prometheus password=hunter2 dbname=postgres sslmode=disable' # works
+		port => $port,
+		dsn => $dsn,
+		args => $args,
+	}
+
+	file "/etc/default/prometheus-postgres-exporter-${str_port}" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/prometheus-postgres-exporter.default.tmpl"), $tmpl),
+		owner => "prometheus",
+		group => "root",
+		mode => "ug=rw,o=",
+
+		Depend => Pkg["prometheus-postgres-exporter"],
+		Before => Svc["prometheus-postgres-exporter@${str_port}"],
+	}
+
+	svc "prometheus-postgres-exporter@${str_port}" {
+		state => "running",
+		startup => "enabled",
+	}
+
+	$vardir = local.vardir("prometheus/")
+	# there can only be one on each listen port!
+	# if more than one of these is set on the same machine we'd error
+	file "${vardir}postgresql-${str_listen_port}" {
+		state => $const.res.file.state.exists,
+		content => "${str_port}",
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}

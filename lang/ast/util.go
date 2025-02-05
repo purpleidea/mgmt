@@ -393,3 +393,98 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 		logf("$%s(...)", name)
 	}
 }
+
+// AreaParentOf is a (flawed) heuristic that tries to find the parent of the
+// given node (needle) in a tree (haystack), in the case that the given node
+// does not store its own line/column location (i.e., the node struct does not
+// embed the TextArea struct, and hence does not implement the LocalNode
+// interface). This makes two assumptions:
+// a) the immediate parent of needle is a LocalNode and
+// b) any siblings to the left of needle (nor their children) are LocalNode
+// Basically it only works in a subtree like
+//
+//	L
+//	|\
+//	x n
+//
+// where L is the LocalNode parent of x and n, and n is the needle.
+func AreaParentOf(needle, haystack interfaces.Node) LocalNode {
+	var LastArea LocalNode
+
+	err := haystack.Apply(func(n interfaces.Node) error {
+		ln, ok := n.(LocalNode)
+		if ok {
+			LastArea = ln
+		}
+		if n == needle {
+			return fmt.Errorf("found")
+		}
+		return nil
+	})
+
+	if err != nil && err.Error() == "found" {
+		return LastArea
+	}
+	return haystack.(LocalNode)
+}
+
+// TextArea stores the coordinates of a statement or expression in the form of a
+// starting line/column and ending line/column.
+type TextArea struct {
+	startLine   int
+	startColumn int
+	endLine     int
+	endColumn   int
+
+	path string
+
+	// Bug5819 works around issue https://github.com/golang/go/issues/5819
+	Bug5819 interface{} // XXX: workaround
+}
+
+// Locate is used by the parser to store the token positions in AST nodes.
+// XXX: also note down the file name containing the statement/expression
+func (obj *TextArea) Locate(line int, col int, endline int, endcol int) {
+	obj.startLine = line
+	obj.startColumn = col
+	obj.endLine = endline
+	obj.endColumn = endcol
+
+	//obj.path = path
+}
+
+// XXX is used by the parser to store the XXX
+func (obj *TextArea) SetPath(path string) {
+	obj.path = path
+}
+
+// XXX print this
+func (obj *TextArea) String() string {
+	return fmt.Sprintf("%s:%d:%d", obj.path, obj.startLine, obj.startColumn) // XXX: +1 ?
+}
+
+// LocalNode is the interface implemented by AST nodes that store their code
+// position. It is implemented by node types that embed TextArea.
+type LocalNode interface {
+	Locate(int, int, int, int)
+	GetPosition() (int, int)
+	GetEndPosition() (int, int)
+	String() string
+}
+
+// GetPosition returns the starting line/column of an AST node.
+// XXX: rename to Pos
+func (obj *TextArea) GetPosition() (int, int) {
+	return obj.startLine, obj.startColumn
+}
+
+// GetEndPosition returns the end line/column of an AST node.
+// XXX: rename to End
+func (obj *TextArea) GetEndPosition() (int, int) {
+	return obj.endLine, obj.endColumn
+}
+
+// Path returns the path where this XXX...
+func (obj *TextArea) Path() string {
+	return obj.path
+}

@@ -1,0 +1,5 @@
+import "fmt"
+
+$format = "it's %t"
+
+$answer = fmt.printf($format, 1 > "a")

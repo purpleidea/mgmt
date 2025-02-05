@@ -56,6 +56,20 @@ func init() {
 }
 
 // ExecRes is an exec resource for running commands.
+//
+// This resource attempts to minimise the effects of the execution environment,
+// and, in particular, will start the new process with an empty environment
+// (as would `execve` with an empty `envp` array). If you want the environment
+// to inherit the mgmt process' environment, you can import it from "sys":
+//
+// import "sys"
+//
+//  exec "build" {
+//    cmd => "/bin/bash",
+//    args => ["-c", "which ls > /tmp/ls.txt",],
+//    env => sys.env(),
+//    creates => "/tmp/ls.txt",
+//  }
 type ExecRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
@@ -90,7 +104,9 @@ type ExecRes struct {
 	Cwd string `lang:"cwd" yaml:"cwd"`
 
 	// Shell is the (optional) shell to use to run the cmd. If you specify
-	// this, then you can't use the Args parameter.
+	// this, then you can't use the Args parameter. Note that unless you
+	// use absolute paths, or set the PATH variable, the shell may be
+	// unable to find the program you're trying to run.
 	Shell string `lang:"shell" yaml:"shell"`
 
 	// Timeout is the number of seconds to wait before sending a Kill to the
@@ -100,6 +116,8 @@ type ExecRes struct {
 
 	// Env allows the user to specify environment variables for script
 	// execution. These are taken using a map of format of VAR_NAME -> value.
+	// Omitting this value or setting it to an empty array will cause the
+	// program to be run with empty environment.
 	Env map[string]string `lang:"env" yaml:"env"`
 
 	// WatchCmd is the command to run to detect event changes. Each line of

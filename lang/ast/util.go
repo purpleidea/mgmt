@@ -30,8 +30,11 @@
 package ast
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -426,4 +429,39 @@ func AreaParentOf(needle, haystack interfaces.Node) LocalNode {
 		return LastArea
 	}
 	return haystack.(LocalNode)
+}
+
+// HighlightTextarea prints a line from a file, along with a message, and
+// visually indicates part of the line. If the coordinates that are passed
+// span multiple lines, don't show those lines, but just a description of the
+// area.
+func HighlightTextarea(metadata *interfaces.Metadata, basepath string, area LocalNode,
+		logf func(format string, v ...interface{})) error {
+	filename := basepath + "/" + metadata.Path + "/" + metadata.Main
+	first, left := area.GetPosition()
+	//last, right := area.GetEndPosition()
+	last, _ := area.GetEndPosition()
+	if first != last {
+		logf("in %s L%d-%d\n", filename, first, last)
+		return nil
+	}
+
+	readFile, err := os.Open(filename)
+	if err != nil {
+		return errwrap.Wrapf(err, "could not open file %s", filename)
+	}
+	defer readFile.Close()
+	scanner := bufio.NewScanner(readFile)
+	for i := 0 ; i <= first ; i++ {
+		scanner.Scan()
+	}
+	if err := scanner.Err() ; err != nil {
+		return errwrap.Wrapf(err, "could not read file %s", filename)
+	}
+	format := "%" + strconv.Itoa(left+1) + "s\n"
+	//logf("coordinates are %d/%d %d/%d (node %v)", first, left, last, right, area)
+	//logf("debug: using format %s, right is %d, and will repeat ~ %d times", format, right, right-left)
+	logf("%s\n", scanner.Text())
+	logf(format, "^")
+	return nil
 }

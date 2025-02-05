@@ -327,7 +327,11 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			line, col := parent.GetPosition()
 			logf("possible type issue found at line %d column %d", line, col)
 			if ok {
-				logf("it's in one of these files: %v", mdnode.Data().Files)
+				logf("it's probably near here (in %s/%s):", output.Base, mdnode.Data().Metadata.Main)
+				logf("--")
+				if err := ast.HighlightTextarea(mdnode.Data().Metadata, output.Base, parent, logf) ; err != nil {
+					return nil, errwrap.Wrapf(err, "failed to show error source")
+				}
 			}
 			return nil, errwrap.Wrapf(unifyErr, "could not unify types")
 		}

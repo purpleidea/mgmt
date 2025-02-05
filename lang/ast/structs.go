@@ -224,12 +224,12 @@ type NodeData struct {
 
 // MetadataNode is the interface implemented by node types that have metadata.
 type MetadataNode interface {
-	Data() interfaces.Data
+	Data() *interfaces.Data
 }
 
 // Metadata returns the metadata stored with an AST node.
-func (n NodeData) Data() interfaces.Data {
-	return *n.data
+func (n *NodeData) Data() *interfaces.Data {
+	return n.data
 }
 
 // StmtBind is a representation of an assignment, which binds a variable to an

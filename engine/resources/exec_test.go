@@ -35,6 +35,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -249,6 +250,122 @@ func TestExecSendRecv3(t *testing.T) {
 	} else {
 		if out := *execSends.Stderr; out != "goodbye world\n" {
 			t.Errorf("got wrong stderr(%d): %s", len(out), out)
+		}
+	}
+}
+
+func TestExecEnv_Empty(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
+	r1 := &ExecRes{
+		Cmd:   "env",
+		Shell: "/bin/bash",
+	}
+
+	if err := r1.Validate(); err != nil {
+		t.Errorf("validate failed with: %v", err)
+	}
+	defer func() {
+		if err := r1.Cleanup(); err != nil {
+			t.Errorf("cleanup failed with: %v", err)
+		}
+	}()
+	init, execSends := fakeExecInit(t)
+	if err := r1.Init(init); err != nil {
+		t.Errorf("init failed with: %v", err)
+	}
+	// run artificially without the entire engine
+	if _, err := r1.CheckApply(ctx, true); err != nil {
+		t.Errorf("checkapply failed with: %v", err)
+	}
+
+	if execSends.Stdout == nil {
+		t.Errorf("stdout is nil")
+		return
+	}
+	for _, v := range strings.Split(*execSends.Stdout, "\n") {
+		if v == "" {
+			continue
+		}
+		s := strings.SplitN(v, "=", 2)
+		if s[0] == "_" || s[0] == "PWD" || s[0] == "SHLVL" {
+			// these variables are set by bash and are expected
+			continue
+		}
+		t.Errorf("executed process had an unexpected env variable: %v", s[0])
+	}
+}
+
+func TestExecEnv_SetByResource(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
+	r1 := &ExecRes{
+		Cmd:   "env",
+		Shell: "/bin/bash",
+		Env: map[string]string{
+			"PURPLE":               "idea",
+			"CONTAINS_UNDERSCORES": "and=equal=signs",
+		},
+	}
+
+	if err := r1.Validate(); err != nil {
+		t.Errorf("validate failed with: %v", err)
+	}
+	defer func() {
+		if err := r1.Cleanup(); err != nil {
+			t.Errorf("cleanup failed with: %v", err)
+		}
+	}()
+	init, execSends := fakeExecInit(t)
+	if err := r1.Init(init); err != nil {
+		t.Errorf("init failed with: %v", err)
+	}
+	// run artificially without the entire engine
+	if _, err := r1.CheckApply(ctx, true); err != nil {
+		t.Errorf("checkapply failed with: %v", err)
+	}
+
+	if execSends.Stdout == nil {
+		t.Errorf("stdout is nil")
+		return
+	}
+	for _, v := range strings.Split(*execSends.Stdout, "\n") {
+		if v == "" {
+			continue
+		}
+		s := strings.SplitN(v, "=", 2)
+		if s[0] == "_" || s[0] == "PWD" || s[0] == "SHLVL" {
+			// these variables are set by bash and are expected
+		} else if s[0] == "PURPLE" {
+			if s[1] != "idea" {
+				t.Errorf("executed process had an unexpected value for env variable: %v", v)
+			}
+		} else if s[0] == "CONTAINS_UNDERSCORES" {
+			if s[1] != "and=equal=signs" {
+				t.Errorf("executed process had an unexpected value for env variable: %v", v)
+			}
+		} else {
+			t.Errorf("executed process had an unexpected env variable: %v", s[0])
 		}
 	}
 }

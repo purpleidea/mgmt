@@ -34,7 +34,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -439,8 +438,7 @@ func HighlightTextarea(metadata *interfaces.Metadata, basepath string, area Loca
 		logf func(format string, v ...interface{})) error {
 	filename := basepath + "/" + metadata.Path + "/" + metadata.Main
 	first, left := area.GetPosition()
-	//last, right := area.GetEndPosition()
-	last, _ := area.GetEndPosition()
+	last, right := area.GetEndPosition()
 	if first != last {
 		logf("in %s L%d-%d\n", filename, first, last)
 		return nil
@@ -458,10 +456,9 @@ func HighlightTextarea(metadata *interfaces.Metadata, basepath string, area Loca
 	if err := scanner.Err() ; err != nil {
 		return errwrap.Wrapf(err, "could not read file %s", filename)
 	}
-	format := "%" + strconv.Itoa(left+1) + "s\n"
 	//logf("coordinates are %d/%d %d/%d (node %v)", first, left, last, right, area)
 	//logf("debug: using format %s, right is %d, and will repeat ~ %d times", format, right, right-left)
 	logf("%s\n", scanner.Text())
-	logf(format, "^")
+	logf("%s%s", strings.Repeat(" ", left), strings.Repeat("^", right-left+1))
 	return nil
 }

@@ -3,3 +3,15 @@ import "fmt"
 $format = "it's %t"
 
 $answer = fmt.printf($format, 1 > "a")
+
+class worker {
+	if $answer == "oops" {
+		file "/tmp/oops-log" {
+			state => $const.res.file.state.exists,
+		}
+	} else {
+		file "/tmp/oops-log" {
+			state => $const.res.file.state.absent,
+		}
+	}
+}

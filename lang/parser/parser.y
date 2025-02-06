@@ -94,7 +94,7 @@ func init() {
 %token OPEN_BRACK CLOSE_BRACK
 %token IF ELSE
 %token BOOL STRING INTEGER FLOAT
-%token EQUALS DOLLAR
+%token EQUALS DOTTED_VARNAME UNDOTTED_VARNAME
 %token COMMA COLON SEMICOLON
 %token ELVIS DEFAULT ROCKET ARROW DOT
 %token BOOL_IDENTIFIER STR_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
@@ -1422,11 +1422,13 @@ undotted_identifier:
 	}
 ;
 var_identifier:
-	// eg: $ foo (dollar prefix + identifier)
-	DOLLAR undotted_identifier
+	UNDOTTED_VARNAME
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.str = $2.str // don't include the leading $
+		if $1.str == "" || strings.HasPrefix($1.str, "_") || strings.HasSuffix($1.str, "_") {
+			yylex.Error(fmt.Sprintf("%s: %s", ErrInvalidVariableName, $1.str))
+		}
+		$$.str = $1.str
 	}
 ;
 colon_identifier:
@@ -1455,13 +1457,24 @@ dotted_identifier:
 		$$.str = $1.str + interfaces.ModuleSep + $3.str
 	}
 ;
-// there are different ways the lexer/parser might choose to represent this...
 dotted_var_identifier:
-	// eg: $ foo.bar.baz (dollar prefix + dotted identifier)
-	DOLLAR dotted_identifier
+	DOTTED_VARNAME
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.str = $2.str // don't include the leading $
+		for _, ident := range strings.Split($1.str, ".") {
+			if ident == "" || strings.HasPrefix(ident, "_") || strings.HasSuffix(ident, "_") {
+				yylex.Error(fmt.Sprintf("%s: %s", ErrInvalidVariableName, $1.str))
+			}
+		}
+		$$.str = $1.str
+	}
+|	UNDOTTED_VARNAME
+	{
+		posLast(yylex, yyDollar) // our pos
+		if $1.str == "" || strings.HasPrefix($1.str, "_") || strings.HasSuffix($1.str, "_") {
+			yylex.Error(fmt.Sprintf("%s: %s", ErrInvalidVariableName, $1.str))
+		}
+		$$.str = $1.str
 	}
 ;
 capitalized_res_identifier:

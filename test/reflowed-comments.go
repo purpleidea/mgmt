@@ -39,6 +39,10 @@ const (
 	// CommentPrefix is the prefix we look for at the beginning of comments.
 	CommentPrefix = "// "
 
+	// CommentPrefixTab is the prefix we look for at the beginning of
+	// comments when we have a tab instead of a space.
+	CommentPrefixTab = "//\t"
+
 	// CommentGolangPrefix is the magic golang prefix that tools use.
 	CommentGolangPrefix = "//go:"
 
@@ -149,14 +153,20 @@ func Check(filename string) error {
 				break // skip to the end of this block
 			}
 
-			if s != commentPrefixTrimmed && !strings.HasPrefix(s, CommentPrefix) {
-				return fmt.Errorf("location (%s) missing comment prefix", ident)
+			// Allow a comment prefix that starts with a space or
+			// one that starts with a tab. (Common for code blocks!)
+			if s != commentPrefixTrimmed && !strings.HasPrefix(s, CommentPrefix) && !strings.HasPrefix(s, CommentPrefixTab) {
+				return fmt.Errorf("location (%s) missing comment prefix, has: %s", ident, s)
 			}
 			if s == commentPrefixTrimmed { // blank lines
 				s = ""
 			}
 
-			s = strings.TrimPrefix(s, CommentPrefix)
+			if strings.HasPrefix(s, CommentPrefix) {
+				s = strings.TrimPrefix(s, CommentPrefix)
+			} else if strings.HasPrefix(s, CommentPrefixTab) {
+				s = strings.TrimPrefix(s, CommentPrefixTab)
+			}
 
 			block = append(block, s)
 		}
@@ -196,7 +206,7 @@ func IsWrappedProperly(lines []string, length int) error {
 		blank = false
 
 		if line != strings.TrimSpace(line) {
-			return fmt.Errorf("line %d wasn't trimmed properly", lineno)
+			return fmt.Errorf("line %d wasn't trimmed properly: %s", lineno, line)
 		}
 
 		if strings.Contains(line, "  ") { // double spaces

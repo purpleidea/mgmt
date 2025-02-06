@@ -122,7 +122,8 @@ function reflowed-comments() {
 		return 0
 	fi
 
-	./test/comment_parser "$1"
+	# Name this to match the function so it's easy to run this by itself.
+	./test/reflowed-comments "$1"
 }
 
 # run go vet on a per-package basis

@@ -32,11 +32,11 @@ SHELL = /usr/bin/env bash
 
 all: build
 
-build: comment_parser
+build: reflowed-comments
 
 clean:
-	@rm -f comment_parser || true
+	@rm -f reflowed-comments || true
 
-comment_parser: comment_parser.go
-	@echo "Generating: comment_parser..."
-	go build comment_parser.go
+reflowed-comments: reflowed-comments.go
+	@echo "Generating: reflowed-comments..."
+	go build reflowed-comments.go

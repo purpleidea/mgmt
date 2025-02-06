@@ -1504,7 +1504,7 @@ func locate(y yyLexer, first yySymType, last yySymType, node interfaces.Node) {
 		return
 	// only run Locate on nodes that look like they have not received locations yet
 	// otherwise the parser will come back and overwrite with faux end positions
-	} else if row, col := ln.GetPosition() ; row == 0 && col == 0 {
+	} else if row, col := ln.Pos() ; row == 0 && col == 0 {
 		ln.Locate(first.row+1, first.col+1, last.row+1, last.col+1)
 	}
 }

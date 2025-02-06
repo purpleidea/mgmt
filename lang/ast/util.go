@@ -445,22 +445,23 @@ type TextArea struct {
 }
 
 // Locate is used by the parser to store the token positions in AST nodes.
-// XXX: also note down the file name containing the statement/expression
+// The path will be filled during AST node initialization usually, because
+// the parser does not know the name of the file it is processing.
 func (obj *TextArea) Locate(line int, col int, endline int, endcol int) {
 	obj.startLine = line
 	obj.startColumn = col
 	obj.endLine = endline
 	obj.endColumn = endcol
-
-	//obj.path = path
 }
 
-// XXX is used by the parser to store the XXX
+// SetPath is used during AST initialization in order to store in each AST node
+// the name of the source file from which it was generated.
 func (obj *TextArea) SetPath(path string) {
 	obj.path = path
 }
 
-// XXX print this
+// String gives a succinct representation of the TextArea, but is useful only
+// in debugging. In order to generate pretty error messages, see HighlightText.
 func (obj *TextArea) String() string {
 	return fmt.Sprintf("%s:%d:%d", obj.path, obj.startLine, obj.startColumn) // XXX: +1 ?
 }
@@ -469,24 +470,22 @@ func (obj *TextArea) String() string {
 // position. It is implemented by node types that embed TextArea.
 type LocalNode interface {
 	Locate(int, int, int, int)
-	GetPosition() (int, int)
-	GetEndPosition() (int, int)
+	Pos() (int, int)
+	End() (int, int)
 	String() string
 }
 
-// GetPosition returns the starting line/column of an AST node.
-// XXX: rename to Pos
-func (obj *TextArea) GetPosition() (int, int) {
+// Pos returns the starting line/column of an AST node.
+func (obj *TextArea) Pos() (int, int) {
 	return obj.startLine, obj.startColumn
 }
 
-// GetEndPosition returns the end line/column of an AST node.
-// XXX: rename to End
-func (obj *TextArea) GetEndPosition() (int, int) {
+// End returns the end line/column of an AST node.
+func (obj *TextArea) End() (int, int) {
 	return obj.endLine, obj.endColumn
 }
 
-// Path returns the path where this XXX...
+// Path returns the name of the source file that holds the code for an AST node.
 func (obj *TextArea) Path() string {
 	return obj.path
 }

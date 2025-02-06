@@ -177,68 +177,15 @@ var (
 	orderingGraphSingleton = false
 )
 
-// TextArea stores the coordinates of a statement or expression in the form of
-// starting line/column and ending line/column
-type TextArea struct {
-	startLine   int
-	startColumn int
-	endLine     int
-	endColumn   int
-
-	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
-}
-
-// Locate is used by the parser to store the token positions in AST nodes
-// TODO: also note down the file name containing the statement/expression
-// ...this is currently hard because the parser is blissfully unaware
-func (a *TextArea) Locate(line int, col int, endline int, endcol int) {
-	a.startLine = line
-	a.startColumn = col
-	a.endLine = endline
-	a.endColumn = endcol
-}
-
-// LocalNode is the interface implemented by AST nodes that store their code
-// position. It is implemented by node types that embed TextArea.
-type LocalNode interface {
-	Locate(int, int, int, int)
-	GetPosition() (int, int)
-	GetEndPosition() (int, int)
-}
-
-// GetPosition returns the starting line/column of an AST node
-func (a TextArea) GetPosition() (int, int) {
-	return a.startLine, a.startColumn
-}
-
-// GetEndPosition returns the end line/column of an AST node
-func (a TextArea) GetEndPosition() (int, int) {
-	return a.endLine, a.endColumn
-}
-
-// NodeData will be embedded in node types that hold metadata.
-type NodeData struct {
-	data *interfaces.Data
-}
-
-// MetadataNode is the interface implemented by node types that have metadata.
-type MetadataNode interface {
-	Data() *interfaces.Data
-}
-
-// Metadata returns the metadata stored with an AST node.
-func (n *NodeData) Data() *interfaces.Data {
-	return n.data
-}
-
 // StmtBind is a representation of an assignment, which binds a variable to an
 // expression.
 type StmtBind struct {
+	TextArea
+	data *interfaces.Data
+
 	Ident string
 	Value interfaces.Expr
 	Type  *types.Type
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -261,6 +208,9 @@ func (obj *StmtBind) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtBind) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Ident == "" {
 		return fmt.Errorf("bind ident is empty")
 	}
@@ -276,9 +226,14 @@ func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := *obj
-	result.Value = interpolated
-	return &result, nil
+
+	return &StmtBind{
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		Ident:    obj.Ident,
+		Value:    interpolated,
+		Type:     obj.Type,
+	}, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -296,9 +251,11 @@ func (obj *StmtBind) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtBind{
-		Ident: obj.Ident,
-		Value: value,
-		Type:  obj.Type,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		Ident:    obj.Ident,
+		Value:    value,
+		Type:     obj.Type,
 	}, nil
 }
 
@@ -414,13 +371,13 @@ func (obj *StmtBind) Output(map[interfaces.Func]types.Value) (*interfaces.Output
 // TODO: Consider expanding Name to have this return a list of Res's in the
 // Output function if it is a map[name]struct{}, or even a map[[]name]struct{}.
 type StmtRes struct {
-	NodeData
+	TextArea
+	data *interfaces.Data
 
 	Kind     string            // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr   // unique name for the res of this kind
 	namePtr  interfaces.Func   // ptr for table lookup
 	Contents []StmtResContents // list of fields/edges in parsed order
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -449,6 +406,9 @@ func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtRes) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Kind == "" {
 		return fmt.Errorf("res kind is empty")
 	}
@@ -457,7 +417,6 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 		return fmt.Errorf("kind must not contain underscores")
 	}
 
-	obj.data = data
 	if err := obj.Name.Init(data); err != nil {
 		return err
 	}
@@ -513,7 +472,8 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtRes{
-		NodeData: NodeData{ data: obj.data, },
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
@@ -553,7 +513,8 @@ func (obj *StmtRes) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtRes{
-		NodeData: NodeData{ data: obj.data, },
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
@@ -1258,6 +1219,9 @@ type StmtResContents interface {
 // StmtResField represents a single field in the parsed resource representation.
 // This does not satisfy the Stmt interface.
 type StmtResField struct {
+	TextArea
+	data *interfaces.Data
+
 	Field        string
 	Value        interfaces.Expr
 	valuePtr     interfaces.Func // ptr for table lookup
@@ -1291,6 +1255,9 @@ func (obj *StmtResField) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResField) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Field == "" {
 		return fmt.Errorf("res field name is empty")
 	}
@@ -1321,6 +1288,8 @@ func (obj *StmtResField) Interpolate() (StmtResContents, error) {
 		}
 	}
 	return &StmtResField{
+		TextArea:  obj.TextArea,
+		data:      obj.data,
 		Field:     obj.Field,
 		Value:     interpolated,
 		Condition: condition,
@@ -1354,6 +1323,8 @@ func (obj *StmtResField) Copy() (StmtResContents, error) {
 		return obj, nil
 	}
 	return &StmtResField{
+		TextArea:  obj.TextArea,
+		data:      obj.data,
 		Field:     obj.Field,
 		Value:     value,
 		Condition: condition,
@@ -1533,6 +1504,9 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 // StmtResEdge represents a single edge property in the parsed resource
 // representation. This does not satisfy the Stmt interface.
 type StmtResEdge struct {
+	TextArea
+	data *interfaces.Data
+
 	Property     string // TODO: iota constant instead?
 	EdgeHalf     *StmtEdgeHalf
 	Condition    interfaces.Expr // the value will be used if nil or true
@@ -1565,6 +1539,9 @@ func (obj *StmtResEdge) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResEdge) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Property == "" {
 		return fmt.Errorf("res edge property is empty")
 	}
@@ -1598,6 +1575,8 @@ func (obj *StmtResEdge) Interpolate() (StmtResContents, error) {
 		}
 	}
 	return &StmtResEdge{
+		TextArea:  obj.TextArea,
+		data:      obj.data,
 		Property:  obj.Property,
 		EdgeHalf:  interpolated,
 		Condition: condition,
@@ -1630,6 +1609,8 @@ func (obj *StmtResEdge) Copy() (StmtResContents, error) {
 		return obj, nil
 	}
 	return &StmtResEdge{
+		TextArea:  obj.TextArea,
+		data:      obj.data,
 		Property:  obj.Property,
 		EdgeHalf:  edgeHalf,
 		Condition: condition,
@@ -1773,6 +1754,9 @@ func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
 // correspond to the particular meta parameter specified. This does not satisfy
 // the Stmt interface.
 type StmtResMeta struct {
+	TextArea
+	data *interfaces.Data
+
 	Property     string // TODO: iota constant instead?
 	MetaExpr     interfaces.Expr
 	metaExprPtr  interfaces.Func // ptr for table lookup
@@ -1806,6 +1790,9 @@ func (obj *StmtResMeta) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResMeta) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Property == "" {
 		return fmt.Errorf("res meta property is empty")
 	}
@@ -1859,6 +1846,8 @@ func (obj *StmtResMeta) Interpolate() (StmtResContents, error) {
 		}
 	}
 	return &StmtResMeta{
+		TextArea:  obj.TextArea,
+		data:      obj.data,
 		Property:  obj.Property,
 		MetaExpr:  interpolated,
 		Condition: condition,
@@ -1891,6 +1880,8 @@ func (obj *StmtResMeta) Copy() (StmtResContents, error) {
 		return obj, nil
 	}
 	return &StmtResMeta{
+		TextArea:  obj.TextArea,
+		data:      obj.data,
 		Property:  obj.Property,
 		MetaExpr:  metaExpr,
 		Condition: condition,
@@ -2117,11 +2108,13 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 // names are compatible and listed. In this case of Send/Recv, only lists of
 // length two are legal.
 type StmtEdge struct {
+	TextArea
+	data *interfaces.Data
+
 	EdgeHalfList []*StmtEdgeHalf // represents a chain of edges
 
 	// TODO: should notify be an Expr?
 	Notify bool // specifies that this edge sends a notification as well
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -2146,6 +2139,9 @@ func (obj *StmtEdge) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdge) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	for _, x := range obj.EdgeHalfList {
 		if err := x.Init(data); err != nil {
 			return err
@@ -2172,6 +2168,8 @@ func (obj *StmtEdge) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtEdge{
+		TextArea:     obj.TextArea,
+		data:         obj.data,
 		EdgeHalfList: edgeHalfList,
 		Notify:       obj.Notify,
 	}, nil
@@ -2196,6 +2194,8 @@ func (obj *StmtEdge) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtEdge{
+		TextArea:     obj.TextArea,
+		data:         obj.data,
 		EdgeHalfList: edgeHalfList,
 		Notify:       obj.Notify,
 	}, nil
@@ -2457,6 +2457,9 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 // is assumed that a list of strings should be expected. More mechanisms to
 // determine if the value is static may be added over time.
 type StmtEdgeHalf struct {
+	TextArea
+	data *interfaces.Data
+
 	Kind     string          // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr // unique name for the res of this kind
 	namePtr  interfaces.Func // ptr for table lookup
@@ -2484,6 +2487,8 @@ func (obj *StmtEdgeHalf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
 	if obj.Kind == "" {
 		return fmt.Errorf("edge half kind is empty")
 	}
@@ -2621,11 +2626,12 @@ func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
 // optional, it is the else branch, although this struct allows either to be
 // optional, even if it is not commonly used.
 type StmtIf struct {
+	TextArea
+	data         *interfaces.Data
 	Condition    interfaces.Expr
 	conditionPtr interfaces.Func // ptr for table lookup
 	ThenBranch   interfaces.Stmt // optional, but usually present
 	ElseBranch   interfaces.Stmt // optional
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -2669,6 +2675,9 @@ func (obj *StmtIf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtIf) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if err := obj.Condition.Init(data); err != nil {
 		return err
 	}
@@ -2707,11 +2716,14 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 			return nil, errwrap.Wrapf(err, "could not interpolate ElseBranch")
 		}
 	}
-	result := *obj
-	result.Condition = condition
-	result.ThenBranch = thenBranch
-	result.ElseBranch = elseBranch
-	return &result, nil
+
+	return &StmtIf{
+		TextArea:   obj.TextArea,
+		data:       obj.data,
+		Condition:  condition,
+		ThenBranch: thenBranch,
+		ElseBranch: elseBranch,
+	}, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -2750,6 +2762,8 @@ func (obj *StmtIf) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtIf{
+		TextArea:   obj.TextArea,
+		data:       obj.data,
 		Condition:  condition,
 		ThenBranch: thenBranch,
 		ElseBranch: elseBranch,
@@ -2981,7 +2995,8 @@ func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Ou
 // the bind statement's are correctly applied in this scope, and irrespective of
 // their order of definition.
 type StmtProg struct {
-	NodeData
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for use by imports
 
 	// TODO: should this be a map? if so, how would we sort it to loop it?
@@ -2989,7 +3004,6 @@ type StmtProg struct {
 	importFiles []string    // list of files seen during the SetScope import
 
 	Body []interfaces.Stmt
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -3105,7 +3119,8 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 		body = append(body, interpolated)
 	}
 	return &StmtProg{
-		NodeData: NodeData{ data: obj.data, },
+		TextArea:    obj.TextArea,
+		data:        obj.data,
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
@@ -3132,7 +3147,8 @@ func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtProg{
-		NodeData: NodeData{ data: obj.data, },
+		TextArea:    obj.TextArea,
+		data:        obj.data,
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
@@ -4393,10 +4409,12 @@ func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
 // the supplied function in the current scope and irrespective of the order of
 // definition.
 type StmtFunc struct {
+	TextArea
+	data *interfaces.Data
+
 	Name string
 	Func interfaces.Expr
 	Type *types.Type
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4419,6 +4437,9 @@ func (obj *StmtFunc) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtFunc) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Name == "" {
 		return fmt.Errorf("func name is empty")
 	}
@@ -4441,9 +4462,11 @@ func (obj *StmtFunc) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtFunc{
-		Name: obj.Name,
-		Func: interpolated,
-		Type: obj.Type,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		Name:     obj.Name,
+		Func:     interpolated,
+		Type:     obj.Type,
 	}, nil
 }
 
@@ -4462,9 +4485,11 @@ func (obj *StmtFunc) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtFunc{
-		Name: obj.Name,
-		Func: fn,
-		Type: obj.Type,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		Name:     obj.Name,
+		Func:     fn,
+		Type:     obj.Type,
 	}, nil
 }
 
@@ -4599,12 +4624,13 @@ func (obj *StmtFunc) Output(map[interfaces.Func]types.Value) (*interfaces.Output
 // TODO: We don't currently support defining polymorphic classes (eg: different
 // signatures for the same class name) but it might be something to consider.
 type StmtClass struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	Name string
 	Args []*interfaces.Arg
 	Body interfaces.Stmt // probably a *StmtProg
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4627,6 +4653,9 @@ func (obj *StmtClass) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtClass) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Name == "" {
 		return fmt.Errorf("class name is empty")
 	}
@@ -4649,10 +4678,12 @@ func (obj *StmtClass) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtClass{
-		scope: obj.scope,
-		Name:  obj.Name,
-		Args:  args, // ensure this has length == 0 instead of nil
-		Body:  interpolated,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		Name:     obj.Name,
+		Args:     args, // ensure this has length == 0 instead of nil
+		Body:     interpolated,
 	}, nil
 }
 
@@ -4676,10 +4707,12 @@ func (obj *StmtClass) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtClass{
-		scope: obj.scope,
-		Name:  obj.Name,
-		Args:  args, // ensure this has length == 0 instead of nil
-		Body:  body,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		Name:     obj.Name,
+		Args:     args, // ensure this has length == 0 instead of nil
+		Body:     body,
 	}, nil
 }
 
@@ -4801,13 +4834,15 @@ func (obj *StmtClass) Output(table map[interfaces.Func]types.Value) (*interfaces
 // to call a class except that it produces output instead of a value. Most of
 // the interesting logic for classes happens here or in StmtProg.
 type StmtInclude struct {
+	TextArea
+	data *interfaces.Data
+
 	class *StmtClass   // copy of class that we're using
 	orig  *StmtInclude // original pointer to this
 
 	Name  string
 	Args  []interfaces.Expr
 	Alias string
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -4841,6 +4876,9 @@ func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtInclude) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if obj.Name == "" {
 		return fmt.Errorf("include name is empty")
 	}
@@ -4871,6 +4909,8 @@ func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
 		orig = obj.orig
 	}
 	return &StmtInclude{
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		//class: obj.class, // TODO: is this necessary?
 		orig:  orig,
 		Name:  obj.Name,
@@ -4905,6 +4945,8 @@ func (obj *StmtInclude) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtInclude{
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		//class: obj.class, // TODO: is this necessary?
 		orig:  orig,
 		Name:  obj.Name,
@@ -5172,9 +5214,11 @@ func (obj *StmtInclude) Output(table map[interfaces.Func]types.Value) (*interfac
 // file. As with any statement, it produces output, but that output is empty. To
 // benefit from its inclusion, reference the scope definitions you want.
 type StmtImport struct {
+	TextArea
+	data *interfaces.Data
+
 	Name  string
 	Alias string
-	TextArea
 }
 
 // String returns a short representation of this statement.
@@ -5203,8 +5247,10 @@ func (obj *StmtImport) Init(*interfaces.Data) error {
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtImport) Interpolate() (interfaces.Stmt, error) {
 	return &StmtImport{
-		Name:  obj.Name,
-		Alias: obj.Alias,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		Name:     obj.Name,
+		Alias:    obj.Alias,
 	}, nil
 }
 
@@ -5353,10 +5399,11 @@ func (obj *StmtComment) Output(map[interfaces.Func]types.Value) (*interfaces.Out
 
 // ExprBool is a representation of a boolean.
 type ExprBool struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	V bool
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5379,8 +5426,10 @@ func (obj *ExprBool) Init(*interfaces.Data) error { return nil }
 // Here it simply returns itself, as no interpolation is possible.
 func (obj *ExprBool) Interpolate() (interfaces.Expr, error) {
 	return &ExprBool{
-		scope: obj.scope,
-		V:     obj.V,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		V:        obj.V,
 	}, nil
 }
 
@@ -5499,11 +5548,11 @@ func (obj *ExprBool) Value() (types.Value, error) {
 
 // ExprStr is a representation of a string.
 type ExprStr struct {
-	NodeData
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	V string // value of this string
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5520,6 +5569,7 @@ func (obj *ExprStr) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 // validate.
 func (obj *ExprStr) Init(data *interfaces.Data) error {
 	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
 	return nil
 }
 
@@ -5531,6 +5581,7 @@ func (obj *ExprStr) Init(data *interfaces.Data) error {
 // a function which returns a string as its root. Otherwise it returns itself.
 func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 	pos := &interfaces.Pos{
+		// XXX !!!
 		// column/line number, starting at 1
 		//Column: -1, // TODO
 		//Line: -1, // TODO
@@ -5565,9 +5616,10 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 	}
 	if result == nil {
 		return &ExprStr{
-			NodeData: NodeData{ data: obj.data, },
-			scope: obj.scope,
-			V:     obj.V,
+			TextArea: obj.TextArea,
+			data:     obj.data,
+			scope:    obj.scope,
+			V:        obj.V,
 		}, nil
 	}
 	// we got something, overwrite the existing static str
@@ -5697,10 +5749,11 @@ func (obj *ExprStr) Value() (types.Value, error) {
 
 // ExprInt is a representation of an int.
 type ExprInt struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	V int64
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5723,8 +5776,10 @@ func (obj *ExprInt) Init(*interfaces.Data) error { return nil }
 // Here it simply returns itself, as no interpolation is possible.
 func (obj *ExprInt) Interpolate() (interfaces.Expr, error) {
 	return &ExprInt{
-		scope: obj.scope,
-		V:     obj.V,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		V:        obj.V,
 	}, nil
 }
 
@@ -5842,10 +5897,11 @@ func (obj *ExprInt) Value() (types.Value, error) {
 
 // ExprFloat is a representation of a float.
 type ExprFloat struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	V float64
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -5870,8 +5926,10 @@ func (obj *ExprFloat) Init(*interfaces.Data) error { return nil }
 // Here it simply returns itself, as no interpolation is possible.
 func (obj *ExprFloat) Interpolate() (interfaces.Expr, error) {
 	return &ExprFloat{
-		scope: obj.scope,
-		V:     obj.V,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		V:        obj.V,
 	}, nil
 }
 
@@ -5989,12 +6047,13 @@ func (obj *ExprFloat) Value() (types.Value, error) {
 
 // ExprList is a representation of a list.
 type ExprList struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
 	//Elements []*ExprListElement
 	Elements []interfaces.Expr
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6023,6 +6082,9 @@ func (obj *ExprList) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprList) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	for _, x := range obj.Elements {
 		if err := x.Init(data); err != nil {
 			return err
@@ -6044,6 +6106,8 @@ func (obj *ExprList) Interpolate() (interfaces.Expr, error) {
 		elements = append(elements, interpolated)
 	}
 	return &ExprList{
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		scope:    obj.scope,
 		typ:      obj.typ,
 		Elements: elements,
@@ -6069,6 +6133,8 @@ func (obj *ExprList) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprList{
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		scope:    obj.scope,
 		typ:      obj.typ,
 		Elements: elements,
@@ -6345,11 +6411,12 @@ func (obj *ExprList) Value() (types.Value, error) {
 
 // ExprMap is a representation of a (dictionary) map.
 type ExprMap struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
 	KVs []*ExprMapKV
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6381,6 +6448,9 @@ func (obj *ExprMap) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprMap) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	// XXX: Can we check that there aren't any duplicate keys? Can we Cmp?
 	for _, x := range obj.KVs {
 		if err := x.Key.Init(data); err != nil {
@@ -6414,9 +6484,11 @@ func (obj *ExprMap) Interpolate() (interfaces.Expr, error) {
 		kvs = append(kvs, kv)
 	}
 	return &ExprMap{
-		scope: obj.scope,
-		typ:   obj.typ,
-		KVs:   kvs,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		KVs:      kvs,
 	}, nil
 }
 
@@ -6457,9 +6529,11 @@ func (obj *ExprMap) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprMap{
-		scope: obj.scope,
-		typ:   obj.typ,
-		KVs:   kvs,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		KVs:      kvs,
 	}, nil
 }
 
@@ -6832,11 +6906,12 @@ type ExprMapKV struct {
 
 // ExprStruct is a representation of a struct.
 type ExprStruct struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
 	Fields []*ExprStructField // the list (fields) are intentionally ordered!
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -6865,6 +6940,9 @@ func (obj *ExprStruct) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprStruct) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	fields := make(map[string]struct{})
 	for _, x := range obj.Fields {
 		// Validate field names and ensure no duplicates!
@@ -6897,9 +6975,11 @@ func (obj *ExprStruct) Interpolate() (interfaces.Expr, error) {
 		fields = append(fields, field)
 	}
 	return &ExprStruct{
-		scope:  obj.scope,
-		typ:    obj.typ,
-		Fields: fields,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Fields:   fields,
 	}, nil
 }
 
@@ -6928,9 +7008,11 @@ func (obj *ExprStruct) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprStruct{
-		scope:  obj.scope,
-		typ:    obj.typ,
-		Fields: fields,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Fields:   fields,
 	}, nil
 }
 
@@ -7234,7 +7316,8 @@ type ExprStructField struct {
 // 4. A pure built-in function (set Values to a singleton)
 // 5. A pure polymorphic built-in function (set Values to a list)
 type ExprFunc struct {
-	NodeData
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -7270,7 +7353,6 @@ type ExprFunc struct {
 
 	// XXX: is this necessary?
 	//V func(interfaces.Txn, []pgraph.Vertex) (pgraph.Vertex, error)
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -7398,7 +7480,8 @@ func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) {
 	}
 
 	return &ExprFunc{
-		NodeData: NodeData{ data: obj.data, },
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		scope:    obj.scope,
 		typ:      obj.typ,
 		Title:    obj.Title,
@@ -7493,7 +7576,8 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprFunc{
-		NodeData: NodeData{ data: obj.data, },
+		TextArea: obj.TextArea,
+		data:     obj.data,
 		scope:    obj.scope, // TODO: copy?
 		typ:      obj.typ,
 		Title:    obj.Title,
@@ -8001,7 +8085,8 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 // declaration or implementation of a new function value. This struct has an
 // analogous symmetry with ExprVar.
 type ExprCall struct {
-	NodeData
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -8022,7 +8107,6 @@ type ExprCall struct {
 	// Anon is an *ExprFunc which is used if we are calling anonymously. If
 	// this is specified, Name must be the empty string.
 	Anon interfaces.Expr
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -8061,6 +8145,7 @@ func (obj *ExprCall) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprCall) Init(data *interfaces.Data) error {
 	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
 
 	if obj.Name == "" && obj.Anon == nil {
 		return fmt.Errorf("missing call name")
@@ -8105,12 +8190,21 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 		orig = obj.orig
 	}
 
-	result := *obj
-	result.orig = orig
-	result.Args = args
-	result.Anon = anon
-
-	return &result, nil
+	return &ExprCall{
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		// XXX: Copy copies this, do we want to here as well? (or maybe
+		// we want to do it here, but not in Copy?)
+		expr: obj.expr,
+		orig: orig,
+		V:    obj.V,
+		Name: obj.Name,
+		Args: args,
+		Var:  obj.Var,
+		Anon: anon,
+	}, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -8170,16 +8264,17 @@ func (obj *ExprCall) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprCall{
-		NodeData: NodeData{ data: obj.data, },
-		scope: obj.scope,
-		typ:   obj.typ,
-		expr:  expr, // it seems that we need to copy this for it to work
-		orig:  orig,
-		V:     obj.V,
-		Name:  obj.Name,
-		Args:  args,
-		Var:   obj.Var,
-		Anon:  anon,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		expr:     expr, // it seems that we need to copy this for it to work
+		orig:     orig,
+		V:        obj.V,
+		Name:     obj.Name,
+		Args:     args,
+		Var:      obj.Var,
+		Anon:     anon,
 	}, nil
 }
 
@@ -8827,12 +8922,12 @@ func (obj *ExprCall) Value() (types.Value, error) {
 // ExprVar is a representation of a variable lookup. It returns the expression
 // that that variable refers to.
 type ExprVar struct {
-	NodeData
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
 	Name string // name of the variable
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -8860,10 +8955,11 @@ func (obj *ExprVar) Init(data *interfaces.Data) error {
 // support variable, variables or anything crazy like that.
 func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 	return &ExprVar{
-		NodeData: NodeData{ data: obj.data, },
-		scope: obj.scope,
-		typ:   obj.typ,
-		Name:  obj.Name,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Name:     obj.Name,
 	}, nil
 }
 
@@ -8874,10 +8970,11 @@ func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprVar) Copy() (interfaces.Expr, error) {
 	return &ExprVar{
-		NodeData: NodeData{ data: obj.data, },
-		scope: obj.scope,
-		typ:   obj.typ,
-		Name:  obj.Name,
+		TextArea: obj.TextArea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Name:     obj.Name,
 	}, nil
 }
 
@@ -9094,10 +9191,11 @@ func (obj *ExprVar) Value() (types.Value, error) {
 
 // ExprParam represents a parameter to a function.
 type ExprParam struct {
+	//TextArea
+	//data *interfaces.Data
 	typ *types.Type
 
 	Name string // name of the parameter
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -9315,6 +9413,7 @@ func (obj *ExprPoly) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprPoly) Init(data *interfaces.Data) error {
+	//obj.data = data
 	return obj.Definition.Init(data)
 }
 
@@ -9439,6 +9538,7 @@ func (obj *ExprTopLevel) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprTopLevel) Init(data *interfaces.Data) error {
+	//obj.data = data
 	return obj.Definition.Init(data)
 }
 
@@ -9623,6 +9723,7 @@ func (obj *ExprSingleton) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprSingleton) Init(data *interfaces.Data) error {
+	//obj.data = data
 	obj.mutex = &sync.Mutex{}
 	return obj.Definition.Init(data)
 }
@@ -9807,13 +9908,14 @@ func (obj *ExprSingleton) Value() (types.Value, error) {
 // returns a value. As a result, it has a type. This is different from a StmtIf,
 // which does not need to have both branches, and which does not return a value.
 type ExprIf struct {
+	TextArea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
 	Condition  interfaces.Expr
 	ThenBranch interfaces.Expr // could be an ExprBranch
 	ElseBranch interfaces.Expr // could be an ExprBranch
-	TextArea
 }
 
 // String returns a short representation of this expression.
@@ -9845,6 +9947,9 @@ func (obj *ExprIf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprIf) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetPath(data.Base + data.Metadata.Main)
+
 	if err := obj.Condition.Init(data); err != nil {
 		return err
 	}
@@ -9876,6 +9981,8 @@ func (obj *ExprIf) Interpolate() (interfaces.Expr, error) {
 		return nil, errwrap.Wrapf(err, "could not interpolate ElseBranch")
 	}
 	return &ExprIf{
+		TextArea:   obj.TextArea,
+		data:       obj.data,
 		scope:      obj.scope,
 		typ:        obj.typ,
 		Condition:  condition,
@@ -9914,6 +10021,8 @@ func (obj *ExprIf) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprIf{
+		TextArea:   obj.TextArea,
+		data:       obj.data,
 		scope:      obj.scope,
 		typ:        obj.typ,
 		Condition:  condition,

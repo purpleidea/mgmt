@@ -405,9 +405,9 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 // b) any siblings to the left of needle (nor their children) are LocalNode
 // Basically it only works in a subtree like
 //
-//     L
-//    / \
-//   x   n
+//	L
+//	|\
+//	x n
 //
 // where L is the LocalNode parent of x and n, and n is the needle.
 func AreaParentOf(needle, haystack interfaces.Node) LocalNode {
@@ -430,35 +430,112 @@ func AreaParentOf(needle, haystack interfaces.Node) LocalNode {
 	return haystack.(LocalNode)
 }
 
-// HighlightTextarea prints a line from a file, along with a message, and
-// visually indicates part of the line. If the coordinates that are passed
+// TextArea stores the coordinates of a statement or expression in the form of a
+// starting line/column and ending line/column.
+type TextArea struct {
+	startLine   int
+	startColumn int
+	endLine     int
+	endColumn   int
+
+	path string
+
+	// Bug5819 works around issue https://github.com/golang/go/issues/5819
+	Bug5819 interface{} // XXX: workaround
+}
+
+// Locate is used by the parser to store the token positions in AST nodes.
+// XXX: also note down the file name containing the statement/expression
+func (obj *TextArea) Locate(line int, col int, endline int, endcol int) {
+	obj.startLine = line
+	obj.startColumn = col
+	obj.endLine = endline
+	obj.endColumn = endcol
+
+	//obj.path = path
+}
+
+// XXX is used by the parser to store the XXX
+func (obj *TextArea) SetPath(path string) {
+	obj.path = path
+}
+
+// XXX print this
+func (obj *TextArea) String() string {
+	return fmt.Sprintf("%s:%d:%d", obj.path, obj.startLine, obj.startColumn) // XXX: +1 ?
+}
+
+// LocalNode is the interface implemented by AST nodes that store their code
+// position. It is implemented by node types that embed TextArea.
+type LocalNode interface {
+	Locate(int, int, int, int)
+	GetPosition() (int, int)
+	GetEndPosition() (int, int)
+	String() string
+}
+
+// GetPosition returns the starting line/column of an AST node.
+// XXX: rename to Pos
+func (obj *TextArea) GetPosition() (int, int) {
+	return obj.startLine, obj.startColumn
+}
+
+// GetEndPosition returns the end line/column of an AST node.
+// XXX: rename to End
+func (obj *TextArea) GetEndPosition() (int, int) {
+	return obj.endLine, obj.endColumn
+}
+
+// Path returns the path where this XXX...
+func (obj *TextArea) Path() string {
+	return obj.path
+}
+
+// HighlightText generates a generic description that just visually indicates
+// part of the line described by a TextArea. If the coordinates that are passed
 // span multiple lines, don't show those lines, but just a description of the
 // area.
-func HighlightTextarea(metadata *interfaces.Metadata, basepath string, area LocalNode,
-		logf func(format string, v ...interface{})) error {
-	filename := basepath + "/" + metadata.Path + "/" + metadata.Main
-	first, left := area.GetPosition()
-	last, right := area.GetEndPosition()
+func (obj *TextArea) HighlightText() (string, error) {
+	first := obj.startLine
+	left := obj.startColumn
+	last := obj.endLine
+	right := obj.endColumn
+	filename := obj.path
+
+	if filename == "" {
+		return "unknown source file", nil
+	}
+
+	if first == 0 {
+		return "in " + filename, nil
+	}
+
 	if first != last {
-		logf("in %s L%d-%d\n", filename, first, last)
-		return nil
+		return fmt.Sprintf("in %s L%d-%d\n", filename, first, last), nil
 	}
 
 	readFile, err := os.Open(filename)
 	if err != nil {
-		return errwrap.Wrapf(err, "could not open file %s", filename)
+		return "", errwrap.Wrapf(err, "could not open file %s", filename)
 	}
 	defer readFile.Close()
 	scanner := bufio.NewScanner(readFile)
-	for i := 0 ; i <= first ; i++ {
+	for i := 0 ; i < first ; i++ {
 		scanner.Scan()
 	}
 	if err := scanner.Err() ; err != nil {
-		return errwrap.Wrapf(err, "could not read file %s", filename)
+		return "", errwrap.Wrapf(err, "could not read file %s", filename)
 	}
-	//logf("coordinates are %d/%d %d/%d (node %v)", first, left, last, right, area)
-	//logf("debug: using format %s, right is %d, and will repeat ~ %d times", format, right, right-left)
-	logf("%s\n", scanner.Text())
-	logf("%s%s", strings.Repeat(" ", left), strings.Repeat("^", right-left+1))
-	return nil
+
+	// handle indentation correctly, even if it mixes spaces and tabs
+	line := scanner.Text() + "\n"
+	text := strings.TrimLeft(line, " \t")
+	indent := strings.TrimSuffix(line, text)
+	offset := len(indent)
+
+	result := fmt.Sprintf("in %s L%d:\n--\n", filename, first)
+	result += scanner.Text() + "\n"
+	result += indent + strings.Repeat(" ", left-1-offset) + strings.Repeat("^", right-left+1)
+	return result, nil
 }
+

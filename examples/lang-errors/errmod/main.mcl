@@ -1,0 +1,3 @@
+import "issue.mcl"
+
+$nice_boolean = 1 < 2

@@ -1,0 +1,14 @@
+
+$string = if 1 < 0 {
+	"hi"
+} else {
+	# silly spacing just because we can
+	  	 41 + 1
+}
+
+if $string == "hi" {
+	test "faulty" {
+		anotherstr => "this should not run through type checking",
+	}
+}
+

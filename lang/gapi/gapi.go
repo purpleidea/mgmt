@@ -318,21 +318,6 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			if args.OnlyUnify {
 				logf("type unification failed after %s", formatted)
 			}
-			cause, ok := unifyErr.(*interfaces.UnificationInvariant)
-			if ! ok {
-				return nil, errwrap.Wrapf(unifyErr, "could not unify types")
-			}
-			parent := ast.AreaParentOf(cause.Node, iast)
-			mdnode, ok := parent.(ast.MetadataNode)
-			line, col := parent.GetPosition()
-			logf("possible type issue found at line %d column %d", line, col)
-			if ok {
-				logf("it's probably near here (in %s/%s):", output.Base, mdnode.Data().Metadata.Main)
-				logf("--")
-				if err := ast.HighlightTextarea(mdnode.Data().Metadata, output.Base, parent, logf) ; err != nil {
-					return nil, errwrap.Wrapf(err, "failed to show error source")
-				}
-			}
 			return nil, errwrap.Wrapf(unifyErr, "could not unify types")
 		}
 

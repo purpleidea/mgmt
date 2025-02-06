@@ -158,6 +158,14 @@ type Expr interface {
 	Value() (types.Value, error)
 }
 
+// TextDisplayer is a graph node that is aware of its position in the source
+// code, and can emit a textual representation of that part of the source.
+type TextDisplayer interface {
+	// HighlightText returns a textual representation of this definition
+	// for this node in source.
+	HighlightText() (string, error)
+}
+
 // ScopeGrapher adds a method to turn an AST (Expr or Stmt) into a graph so that
 // we can debug the SetScope compilation phase.
 type ScopeGrapher interface {

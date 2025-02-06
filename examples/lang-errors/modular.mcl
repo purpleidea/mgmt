@@ -1,0 +1,7 @@
+import "errmod/"
+
+if $errmod.issue.naughty_boolean {
+	print "hey" {
+		msg => "This should not work",
+	}
+}

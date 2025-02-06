@@ -172,48 +172,48 @@ prog:
 stmt:
 	COMMENT
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtComment{
 			Value: $1.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	bind
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	panic
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	resource
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	edge
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	IF expr OPEN_CURLY prog CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			//ElseBranch: nil,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	IF expr OPEN_CURLY prog CLOSE_CURLY ELSE OPEN_CURLY prog CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			ElseBranch: $8.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// this is the named version, iow, a user-defined function (statement)
 	// `func name() { <expr> }`
@@ -221,7 +221,6 @@ stmt:
 	// `func name(<arg>, <arg>) { <expr> }`
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtFunc{
 			Name: $2.str,
 			Func: &ast.ExprFunc{
@@ -230,11 +229,11 @@ stmt:
 				Body: $7.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `func name(...) <type> { <expr> }`
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		fn := &ast.ExprFunc{
 			Args:   $4.args,
 			Return: $6.typ, // return type is known
@@ -271,191 +270,192 @@ stmt:
 			Func: fn,
 			Type: typ, // sam says add the type here instead...
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `class name { <prog> }`
 |	CLASS_IDENTIFIER colon_identifier OPEN_CURLY prog CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtClass{
 			Name: $2.str,
 			Args: nil,
 			Body: $4.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `class name(<arg>) { <prog> }`
 	// `class name(<arg>, <arg>) { <prog> }`
 |	CLASS_IDENTIFIER colon_identifier OPEN_PAREN args CLOSE_PAREN OPEN_CURLY prog CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtClass{
 			Name: $2.str,
 			Args: $4.args,
 			Body: $7.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name`
 |	INCLUDE_IDENTIFIER dotted_identifier
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtInclude{
 			Name: $2.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name(...)`
 |	INCLUDE_IDENTIFIER dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtInclude{
 			Name: $2.str,
 			Args: $4.exprs,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name as foo`
 	// TODO: should we support: `include name as *`
 |	INCLUDE_IDENTIFIER dotted_identifier AS_IDENTIFIER IDENTIFIER
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtInclude{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name(...) as foo`
 	// TODO: should we support: `include name(...) as *`
 |	INCLUDE_IDENTIFIER dotted_identifier OPEN_PAREN call_args CLOSE_PAREN AS_IDENTIFIER IDENTIFIER
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtInclude{
 			Name:  $2.str,
 			Args:  $4.exprs,
 			Alias: $7.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `import "name"`
 |	IMPORT_IDENTIFIER STRING
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtImport{
 			Name: $2.str,
 			//Alias: "",
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `import "name" as alias`
 |	IMPORT_IDENTIFIER STRING AS_IDENTIFIER IDENTIFIER
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtImport{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `import "name" as *`
 |	IMPORT_IDENTIFIER STRING AS_IDENTIFIER MULTIPLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtImport{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 /*
 	// resource bind
 |	rbind
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 */
 ;
 expr:
 	BOOL
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprBool{
 			V: $1.bool,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	STRING
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprStr{
 			V: $1.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	INTEGER
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprInt{
 			V: $1.int,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	FLOAT
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprFloat{
 			V: $1.float,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	list
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		// TODO: list could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	map
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		// TODO: map could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	struct
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		// TODO: struct could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	call
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		// TODO: call could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	var
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		// TODO: var could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	func
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		// TODO: var could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	IF expr OPEN_CURLY expr CLOSE_CURLY ELSE OPEN_CURLY expr CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.expr,
 			ElseBranch: $8.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// parenthesis wrap an expression for precedence
 |	OPEN_PAREN expr CLOSE_PAREN
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = $2.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 list:
 	// `[42, 0, -13]`
 	OPEN_BRACK list_elements CLOSE_BRACK
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprList{
 			Elements: $2.exprs,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 list_elements:
@@ -473,18 +473,18 @@ list_elements:
 list_element:
 	expr COMMA
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 map:
 	// `{"hello" => "there", "world" => "big",}`
 	OPEN_CURLY map_kvs CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprMap{
 			KVs: $2.mapKVs,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 map_kvs:
@@ -513,10 +513,10 @@ struct:
 	// `struct{answer => 0, truth => false, hello => "world",}`
 	STRUCT_IDENTIFIER OPEN_CURLY struct_fields CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprStruct{
 			Fields: $3.structFields,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 struct_fields:
@@ -546,18 +546,17 @@ call:
 	// iter.map(...)
 	dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
 			//Var: false, // default
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// calling a function that's stored in a variable (a lambda)
 	// `$foo(4, "hey")` # call function value
 |	dotted_var_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
@@ -565,20 +564,20 @@ call:
 			// prefix to the Name, but I felt this was more elegant.
 			Var: true, // lambda
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// calling an inline function
 |	func OPEN_PAREN call_args CLOSE_PAREN
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: "", // anonymous!
 			Args: $3.exprs,
 			Anon: $1.expr,
 		}
+		posLast(yylex, yyDollar) // our pos
 	}
 |	expr PLUS expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -589,10 +588,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr MINUS expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -603,10 +602,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr MULTIPLY expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -617,10 +616,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr DIVIDE expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -631,10 +630,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr EQ expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -645,10 +644,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr NEQ expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -659,10 +658,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr LT expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -673,10 +672,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr GT expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -687,10 +686,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr LTE expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -701,10 +700,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr GTE expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -715,10 +714,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr AND expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -729,10 +728,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr OR expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -743,10 +742,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	NOT expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -756,13 +755,13 @@ call:
 				$2.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup an index in a list or a key in a map
 	// lookup($foo, $key)
 	// `$foo[$key]` // no default specifier
 |	expr OPEN_BRACK expr CLOSE_BRACK
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: funcs.LookupFuncName,
 			Args: []interfaces.Expr{
@@ -771,13 +770,13 @@ call:
 				//$6.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup an index in a list or a key in a map with a default
 	// lookup_default($foo, $key, $default)
 	// `$foo[$key] || "default"`
 |	expr OPEN_BRACK expr CLOSE_BRACK DEFAULT expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: funcs.LookupDefaultFuncName,
 			Args: []interfaces.Expr{
@@ -786,13 +785,13 @@ call:
 				$6.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup a field in a struct
 	// _struct_lookup($foo, "field")
 	// $foo->field
 |	expr ARROW IDENTIFIER
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: funcs.StructLookupFuncName,
 			Args: []interfaces.Expr{
@@ -803,13 +802,13 @@ call:
 				//$5.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup a field in a struct with a default
 	// _struct_lookup_optional($foo, "field", "default")
 	// $foo->field || "default"
 |	expr ARROW IDENTIFIER DEFAULT expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: funcs.StructLookupOptionalFuncName,
 			Args: []interfaces.Expr{
@@ -820,10 +819,10 @@ call:
 				$5.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr IN expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprCall{
 			Name: funcs.ContainsFuncName,
 			Args: []interfaces.Expr{
@@ -831,6 +830,7 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 // list order gets us the position of the arg, but named params would work too!
@@ -856,10 +856,10 @@ call_args:
 var:
 	dotted_var_identifier
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprVar{
 			Name: $1.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 func:
@@ -869,17 +869,16 @@ func:
 	// `func(<arg>, <arg>) { <expr> }`
 	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprFunc{
 			Args: $3.args,
 			//Return: nil,
 			Body: $6.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// `func(...) <type> { <expr> }`
 |	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		$$.expr = &ast.ExprFunc{
 			Args:   $3.args,
 			Return: $5.typ, // return type is known
@@ -909,6 +908,7 @@ func:
 				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
 			}
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 args:
@@ -949,17 +949,16 @@ bind:
 	// `$s = "hey"`
 	var_identifier EQUALS expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtBind{
 			Ident: $1.str,
 			Value: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `$x bool = true`
 	// `$x int = if true { 42 } else { 13 }`
 |	var_identifier type EQUALS expr
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		var expr interfaces.Expr = $4.expr
 		// XXX: We still need to do this for now it seems...
 		if err := expr.SetType($2.typ); err != nil {
@@ -971,6 +970,7 @@ bind:
 			Value: expr,
 			Type:  $2.typ, // sam says add the type here instead...
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 panic:
@@ -981,7 +981,6 @@ panic:
 	//}
 	PANIC_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		call := &ast.ExprCall{
 			Name: $1.str, // the function name
 			Args: $3.exprs,
@@ -1000,6 +999,7 @@ panic:
 			ThenBranch: res,
 			//ElseBranch: nil,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 /* TODO: do we want to include this?
@@ -1007,7 +1007,6 @@ panic:
 rbind:
 	var_identifier EQUALS resource
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 		// XXX: this kind of bind is different than the others, because
 		// it can only really be used for send->recv stuff, eg:
 		// foo.SomeString -> bar.SomeOtherString
@@ -1015,6 +1014,7 @@ rbind:
 			Ident: $1.str,
 			Value: $3.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 */
@@ -1022,12 +1022,12 @@ resource:
 	// `file "/tmp/hello" { ... }` or `aws:ec2 "/tmp/hello" { ... }`
 	colon_identifier expr OPEN_CURLY resource_body CLOSE_CURLY
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtRes{
 			Kind:     $1.str,
 			Name:     $2.expr,
 			Contents: $4.resContents,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 resource_body:
@@ -1190,16 +1190,15 @@ edge:
 	// Test["t1"] -> Test["t2"] -> Test["t3"] # chain or pair
 	edge_half_list
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtEdge{
 			EdgeHalfList: $1.edgeHalfList,
 			//Notify: false, // unused here
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// Test["t1"].foo_send -> Test["t2"].blah_recv # send/recv
 |	edge_half_sendrecv ARROW edge_half_sendrecv
 	{
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		$$.stmt = &ast.StmtEdge{
 			EdgeHalfList: []*ast.StmtEdgeHalf{
 				$1.edgeHalf,
@@ -1207,6 +1206,7 @@ edge:
 			},
 			//Notify: false, // unused here, it is implied (i think)
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 edge_half_list:

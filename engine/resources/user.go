@@ -77,6 +77,11 @@ type UserRes struct {
 	// HomeDir is the path to the user's home directory.
 	HomeDir *string `lang:"homedir" yaml:"homedir"`
 
+	// Shell is the users login shell. Many options may exist in the
+	// `/etc/shells` file. If you set this, you most likely want to pick
+	// `/bin/bash` or `/usr/sbin/nologin`.
+	Shell *string `lang:"shell" yaml:"shell"`
+
 	// AllowDuplicateUID is needed for a UID to be non-unique. This is rare
 	// but happens if you want more than one username to access the
 	// resources of the same UID. See the --non-unique flag in `useradd`.
@@ -206,6 +211,10 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if usercheck := true; exists && obj.State == "exists" {
+		shell, err := util.UserShell(ctx, obj.Name())
+		if err != nil {
+			return false, err
+		}
 		intUID, err := strconv.Atoi(usr.Uid)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error casting UID to int")
@@ -221,6 +230,9 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			usercheck = false
 		}
 		if obj.HomeDir != nil && *obj.HomeDir != usr.HomeDir {
+			usercheck = false
+		}
+		if obj.Shell != nil && *obj.Shell != shell {
 			usercheck = false
 		}
 		if usercheck {
@@ -259,6 +271,9 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		if obj.HomeDir != nil {
 			args = append(args, "--home", *obj.HomeDir)
+		}
+		if obj.Shell != nil {
+			args = append(args, "--shell", *obj.Shell)
 		}
 	}
 	if obj.State == "absent" {
@@ -350,6 +365,15 @@ func (obj *UserRes) Cmp(r engine.Res) error {
 			return fmt.Errorf("the HomeDir differs")
 		}
 	}
+	if (obj.Shell == nil) != (res.Shell == nil) {
+		return fmt.Errorf("the Shell differs")
+	}
+	if obj.Shell != nil && res.Shell != nil {
+		if *obj.Shell != *res.Shell {
+			return fmt.Errorf("the Shell differs")
+		}
+	}
+
 	if obj.AllowDuplicateUID != res.AllowDuplicateUID {
 		return fmt.Errorf("the AllowDuplicateUID differs")
 	}

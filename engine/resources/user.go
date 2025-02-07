@@ -152,7 +152,7 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 	var send = false // send event?
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("Watching: %s", passwdFile) // attempting to watch...
+			obj.init.Logf("watching: %s", passwdFile) // attempting to watch...
 		}
 
 		select {
@@ -161,10 +161,10 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s watcher error", obj)
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
-				obj.init.Logf("Event(%s): %v", event.Body.Name, event.Body.Op)
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
 			send = true
 
@@ -182,7 +182,7 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 
 // CheckApply method for User resource.
 func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	var exists = true
+	exists := true
 	usr, err := user.Lookup(obj.Name())
 	if err != nil {
 		if _, ok := err.(user.UnknownUserError); !ok {
@@ -238,38 +238,39 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.State == "exists" {
 		if exists {
 			cmdName = "usermod"
-			obj.init.Logf("Modifying user: %s", obj.Name())
+			obj.init.Logf("modifying user: %s", obj.Name())
 		} else {
 			cmdName = "useradd"
-			obj.init.Logf("Adding user: %s", obj.Name())
+			obj.init.Logf("adding user: %s", obj.Name())
 		}
 		if obj.AllowDuplicateUID {
 			args = append(args, "--non-unique")
 		}
 		if obj.UID != nil {
-			args = append(args, "-u", fmt.Sprintf("%d", *obj.UID))
+			args = append(args, "--uid", fmt.Sprintf("%d", *obj.UID))
 		}
 		if obj.GID != nil {
-			args = append(args, "-g", fmt.Sprintf("%d", *obj.GID))
+			args = append(args, "--gid", fmt.Sprintf("%d", *obj.GID))
 		}
 		if obj.Group != nil {
-			args = append(args, "-g", *obj.Group)
+			args = append(args, "--gid", *obj.Group)
 		}
 		if obj.Groups != nil {
-			args = append(args, "-G", strings.Join(obj.Groups, ","))
+			args = append(args, "--groups", strings.Join(obj.Groups, ","))
 		}
 		if obj.HomeDir != nil {
-			args = append(args, "-d", *obj.HomeDir)
+			args = append(args, "--home", *obj.HomeDir)
 		}
 	}
 	if obj.State == "absent" {
 		cmdName = "userdel"
-		obj.init.Logf("Deleting user: %s", obj.Name())
+		args = []string{}
+		obj.init.Logf("deleting user: %s", obj.Name())
 	}
 
 	args = append(args, obj.Name())
 
-	cmd := exec.Command(cmdName, args...)
+	cmd := exec.CommandContext(ctx, cmdName, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,
@@ -343,7 +344,7 @@ func (obj *UserRes) Cmp(r engine.Res) error {
 		}
 	}
 	if (obj.HomeDir == nil) != (res.HomeDir == nil) {
-		return fmt.Errorf("the HomeDirs differs")
+		return fmt.Errorf("the HomeDir differs")
 	}
 	if obj.HomeDir != nil && res.HomeDir != nil {
 		if *obj.HomeDir != *res.HomeDir {

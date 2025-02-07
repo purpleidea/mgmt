@@ -35,12 +35,13 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util"
 )
 
 const (
 	// ErrAmbiguous means we couldn't find a solution, but we weren't
 	// inconsistent.
-	ErrAmbiguous = interfaces.Error("can't unify, no equalities were consumed, we're ambiguous")
+	ErrAmbiguous = util.Error("can't unify, no equalities were consumed, we're ambiguous")
 
 	// StrategyNameKey is the string key used when choosing a solver name.
 	StrategyNameKey = "name"

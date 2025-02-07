@@ -30,10 +30,10 @@
 package etcd
 
 import (
-	"github.com/purpleidea/mgmt/etcd/interfaces"
+	"github.com/purpleidea/mgmt/util"
 )
 
 const (
 	// errInconsistentApply means applyDeltaEvents wasn't consistent.
-	errInconsistentApply = interfaces.Error("inconsistent apply")
+	errInconsistentApply = util.Error("inconsistent apply")
 )

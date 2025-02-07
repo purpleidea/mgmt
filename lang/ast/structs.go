@@ -160,16 +160,16 @@ const (
 	scopedOrderingPrefix = "scoped:"
 
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
-	ErrNoStoredScope = interfaces.Error("scope is not stored in this node")
+	ErrNoStoredScope = util.Error("scope is not stored in this node")
 
 	// ErrFuncPointerNil is an error that explains the function pointer for
 	// table lookup is missing. If this happens, it's most likely a
 	// programming error.
-	ErrFuncPointerNil = interfaces.Error("missing func pointer for table")
+	ErrFuncPointerNil = util.Error("missing func pointer for table")
 
 	// ErrTableNoValue is an error that explains the table is missing a
 	// value. If this happens, it's most likely a programming error.
-	ErrTableNoValue = interfaces.Error("missing value in table")
+	ErrTableNoValue = util.Error("missing value in table")
 )
 
 var (

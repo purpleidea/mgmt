@@ -27,19 +27,10 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package interfaces
+package util
 
-import (
-	"github.com/purpleidea/mgmt/util"
-)
+// Error is a constant error type that implements error.
+type Error string
 
-const (
-	// ErrTypeCurrentlyUnknown is returned from the Type() call on Expr if
-	// unification didn't run successfully and the type isn't obvious yet.
-	ErrTypeCurrentlyUnknown = util.Error("type is currently unknown")
-
-	// ErrExpectedFileMissing is returned when a file that is used by an
-	// import is missing. This might signal the downloader, or it might
-	// signal a permanent error.
-	ErrExpectedFileMissing = util.Error("file is currently missing")
-)
+// Error fulfills the error interface of this type.
+func (e Error) Error() string { return string(e) }

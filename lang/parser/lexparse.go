@@ -46,21 +46,21 @@ import (
 
 // These constants represent the different possible lexer/parser errors.
 const (
-	ErrLexerUnrecognized      = interfaces.Error("unrecognized")
-	ErrLexerUnrecognizedCR    = interfaces.Error("unrecognized carriage return")
-	ErrLexerStringBadEscaping = interfaces.Error("string: bad escaping")
-	ErrLexerIntegerOverflow   = interfaces.Error("integer: overflow")
-	ErrLexerFloatOverflow     = interfaces.Error("float: overflow")
-	ErrParseError             = interfaces.Error("parser")
-	ErrParseSetType           = interfaces.Error("can't set return type in parser")
-	ErrParseResFieldInvalid   = interfaces.Error("can't use unknown resource field")
-	ErrParseAdditionalEquals  = interfaces.Error(errstrParseAdditionalEquals)
-	ErrParseExpectingComma    = interfaces.Error(errstrParseExpectingComma)
+	ErrLexerUnrecognized      = util.Error("unrecognized")
+	ErrLexerUnrecognizedCR    = util.Error("unrecognized carriage return")
+	ErrLexerStringBadEscaping = util.Error("string: bad escaping")
+	ErrLexerIntegerOverflow   = util.Error("integer: overflow")
+	ErrLexerFloatOverflow     = util.Error("float: overflow")
+	ErrParseError             = util.Error("parser")
+	ErrParseSetType           = util.Error("can't set return type in parser")
+	ErrParseResFieldInvalid   = util.Error("can't use unknown resource field")
+	ErrParseAdditionalEquals  = util.Error(errstrParseAdditionalEquals)
+	ErrParseExpectingComma    = util.Error(errstrParseExpectingComma)
 )
 
 // LexParseErr is a permanent failure error to notify about borkage.
 type LexParseErr struct {
-	Err interfaces.Error
+	Err util.Error
 	Str string
 	Row int // this is zero-indexed (the first line is 0)
 	Col int // this is zero-indexed (the first char is 0)

@@ -1,0 +1,14 @@
+-- main.mcl --
+import "fmt"
+
+$y = func($fn) {
+	$fn($fn)
+}(
+	func($fn) {
+		$fn($fn)
+	}
+)
+
+test [fmt.printf("y: %v", $y),] {}
+-- OUTPUT --
+# err: errUnify: unify error with: param(fn): directly in the same set

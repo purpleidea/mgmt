@@ -42,6 +42,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 )
@@ -49,8 +50,6 @@ import (
 func init() {
 	engine.RegisterResource("user", func() engine.Res { return &UserRes{} })
 }
-
-const passwdFile = "/etc/passwd"
 
 // UserRes is a user account resource.
 type UserRes struct {
@@ -141,7 +140,7 @@ func (obj *UserRes) Cleanup() error {
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *UserRes) Watch(ctx context.Context) error {
 	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(passwdFile, false)
+	obj.recWatcher, err = recwatch.NewRecWatcher(util.EtcPasswdFile, false)
 	if err != nil {
 		return err
 	}
@@ -152,7 +151,7 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 	var send = false // send event?
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("watching: %s", passwdFile) // attempting to watch...
+			obj.init.Logf("watching: %s", util.EtcPasswdFile) // attempting to watch...
 		}
 
 		select {

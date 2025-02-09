@@ -2136,7 +2136,7 @@ func TestCommonPathPrefix(t *testing.T) {
 			want:  "/path/to",
 		},
 		{
-			name:  "single path doesn't start with /", // TODO(ahmadabuziad): need to double check the desired output with @purple idea
+			name:  "single path doesn't start with /", // XXX: It should return empty string, same as sending multiple paths and one of them is not absolute path
 			input: []string{"path/to"},
 			want:  "path/to",
 		},

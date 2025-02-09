@@ -2089,7 +2089,7 @@ func TestSafePathClean(t *testing.T) {
 		{
 			name:  "slash",
 			input: "/",
-			want:  "//", // TODO(ahmad-abuziad): check slash case output with @purpleidea
+			want:  "//", // XXX: check slash desired output
 		},
 		{
 			name:  "end with slash",
@@ -2250,7 +2250,7 @@ func TestRebase(t *testing.T) {
 	}
 
 	t.Run("root doesn't end with /", func(t *testing.T) {
-		// TODO(ahmadabuziad) in Rebase return predefined error instead e.g.
+		// XXX: in Rebase function return a predefined error
 		// e.g. var ErrRootNotDirectory = errors.New("root is not a directory")
 		// so it would be clearer and easier to test
 		gotStr, gotErr := Rebase("/usr/bin/foo", "/user/", "/usr/local")
@@ -2290,7 +2290,7 @@ func TestRemovePathPrefix(t *testing.T) {
 		}
 	})
 
-	//TODO(ahmadabuziad): edge cases currently panic, handle edge cases. "/", ""
+	// XXX: edge cases currently panic, handle edge cases. "/", ""
 }
 
 func TestRemovePathSuffix(t *testing.T) {
@@ -2329,7 +2329,7 @@ func TestRemovePathSuffix(t *testing.T) {
 			t.Errorf(`got error: %v, want error "input is /"`, gotErr.Error())
 		}
 	})
-	//TODO(ahmadabuziad): double check desired behavior for edge cases. "/", ""
+	// XXX: double check desired behavior for edge cases. "/", ""
 }
 
 func TestTimeAfterOrBlock(t *testing.T) {
@@ -2448,7 +2448,7 @@ func TestSystemBusPrivateUsable(t *testing.T) {
 			t.Errorf("got error %v", err)
 		}
 	})
-	//TODO(ahmadabuziad): testing other cases require refactoring(dependency injection, mock provider)
+	// XXX: testing other cases require refactoring(dependency injection, mock provider)
 }
 
 func TestSessionBusPrivateUsable(t *testing.T) {
@@ -2463,7 +2463,7 @@ func TestSessionBusPrivateUsable(t *testing.T) {
 			t.Errorf("got error %v", err)
 		}
 	})
-	//TODO(ahmadabuziad): testing other cases require refactoring(dependency injection, mock provider)
+	// XXX: testing other cases require refactoring(dependency injection, mock provider)
 }
 
 func TestPathSliceSortMethod(t *testing.T) {
@@ -2524,7 +2524,7 @@ func TestPathSliceLessMethod(t *testing.T) {
 			}
 		})
 	}
-	// TODO(ahmadabuziad): check other test cases with @purple idea (unable to reach the code)
+	// XXX: check other test cases (unable to reach the code)
 }
 
 func TestValueToB64(t *testing.T) {
@@ -2594,5 +2594,5 @@ func TestB64ToValue(t *testing.T) {
 		}
 	})
 
-	// TODO(ahmadabuziad): check unreachable case: "output `%v` is not a value" with @purpleidea
+	// XXX: check unreachable case: "output `%v` is not a value"
 }

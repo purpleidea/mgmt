@@ -61,3 +61,5 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2024](https://www.youtube.com/watch?v=vBt9lpGD4bc) |
 | James Shubin | blog | [Mgmt Configuration Language: Functions](https://purpleidea.com/blog/2024/11/22/functions-in-mgmt/) |
 | James Shubin | blog | [Modules and imports in mgmt](https://purpleidea.com/blog/2024/12/03/modules-and-imports-in-mgmt/) |
+| James Shubin | video | [Recording from FOSDEM 2025, Docs Devroom](https://video.fosdem.org/2025/k4201/fosdem-2025-6143-docs-straight-from-the-code-ast-powered-automation.mp4) |
+| James Shubin | video | [Recording from CfgMgmtCamp.eu 2025](https://www.youtube.com/watch?v=0Oa7CWx4TEA) |

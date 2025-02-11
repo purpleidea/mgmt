@@ -1,0 +1,6 @@
+import "net"
+import "fmt"
+
+$url1 = "https://www.example.com/search?q=mgmt"
+
+print [fmt.printf("%s", net.url_parser($url1)->scheme),] {}

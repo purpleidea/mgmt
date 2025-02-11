@@ -36,12 +36,16 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"path"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/godbus/dbus/v5"
+	"github.com/pkg/errors"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -805,4 +809,25 @@ func B64ToValue(str string) (interface{}, error) {
 		return nil, fmt.Errorf("output `%v` is not a value", output)
 	}
 	return value, nil
+}
+
+func DownloadFile(url, filePath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return errors.Wrapf(err, "DownloadFile: unable to download a resource. url: %q", url)
+	}
+	defer resp.Body.Close()
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return errors.Wrapf(err, "DownloadFile: unable to create a file. filepath: %q", filePath)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		return errors.Wrapf(err, "DownloadFile: unable to copy downloaded data to a file. url: %q, filepath: %q", url, filePath)
+	}
+
+	return nil
 }

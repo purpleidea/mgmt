@@ -32,10 +32,16 @@
 package util
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNumToAlpha(t *testing.T) {
@@ -1635,4 +1641,84 @@ func TestSortMapStringValuesByUInt64Keys(t *testing.T) {
 	if slice2[0] != "d" || slice2[1] != "c" || slice2[2] != "b" {
 		t.Errorf("input slice reordered to: %v", slice2)
 	}
+}
+
+func TestDownloadFile(t *testing.T) {
+	t.Run("empty url", func(t *testing.T) {
+		err := DownloadFile("", "/tmp/file.pdf")
+
+		wantErrMsg := `DownloadFile: unable to download a resource. url: ""`
+		if !strings.Contains(err.Error(), wantErrMsg) {
+			t.Errorf("wanted error to contain %q, but got %q", wantErrMsg, err.Error())
+		}
+	})
+
+	t.Run("empty filepath", func(t *testing.T) {
+		err := DownloadFile("https://fedoraproject.org/", "")
+
+		wantErrMsg := `DownloadFile: unable to create a file. filepath: ""`
+		if !strings.Contains(err.Error(), wantErrMsg) {
+			t.Errorf("wanted error to contain %q, but got %q", wantErrMsg, err.Error())
+		}
+	})
+
+	t.Run("unable to copy downloaded file due to closed connection", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.(http.Flusher).Flush()
+			time.Sleep(5 * time.Second)
+			w.Write([]byte("some data"))
+		}))
+		defer server.Close()
+
+		http.DefaultClient.Timeout = 1 * time.Second
+
+		err := DownloadFile(server.URL, "/tmp/file.pdf")
+
+		wantErrMsg := `DownloadFile: unable to copy downloaded data to a file.`
+		if !strings.Contains(err.Error(), wantErrMsg) {
+			t.Errorf("wanted error to contain %q, but got %q", wantErrMsg, err.Error())
+		}
+	})
+
+	t.Run("download file", func(t *testing.T) {
+		wantContent := []byte("this is a test file for DownloadFile function")
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(wantContent)
+		}))
+		defer server.Close()
+
+		testDir := "testtemp"
+		err := os.Mkdir(testDir, 0755)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.RemoveAll(testDir)
+
+		fp := filepath.Join(testDir, "file.txt")
+		err = DownloadFile(server.URL, fp)
+
+		if err != nil {
+			t.Errorf("didn't expect error during downloading the file. got: %q", err.Error())
+		}
+
+		info, err := os.Stat(fp)
+		if err != nil {
+			t.Errorf("expected file to exist at %q", fp)
+		}
+
+		if info.Size() == 0 {
+			t.Error("expected non-empty file")
+		}
+
+		gotContent, err := os.ReadFile(fp)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !slices.Equal(gotContent, wantContent) {
+			t.Errorf("content mismatch, got: %q, want: %q", gotContent, wantContent)
+		}
+	})
 }

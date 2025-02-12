@@ -859,6 +859,7 @@ func TestUnification1(t *testing.T) {
 
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
+				Metadata: &interfaces.Metadata{},
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					t.Logf(fmt.Sprintf("test #%d", index)+": ast: "+format, v...)

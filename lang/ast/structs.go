@@ -209,7 +209,7 @@ func (obj *StmtBind) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtBind) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Ident == "" {
 		return fmt.Errorf("bind ident is empty")
@@ -407,7 +407,7 @@ func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtRes) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Kind == "" {
 		return fmt.Errorf("res kind is empty")
@@ -1256,7 +1256,7 @@ func (obj *StmtResField) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtResField) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Field == "" {
 		return fmt.Errorf("res field name is empty")
@@ -1540,7 +1540,7 @@ func (obj *StmtResEdge) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtResEdge) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Property == "" {
 		return fmt.Errorf("res edge property is empty")
@@ -1791,7 +1791,7 @@ func (obj *StmtResMeta) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Property == "" {
 		return fmt.Errorf("res meta property is empty")
@@ -2140,7 +2140,7 @@ func (obj *StmtEdge) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtEdge) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	for _, x := range obj.EdgeHalfList {
 		if err := x.Init(data); err != nil {
@@ -2488,7 +2488,7 @@ func (obj *StmtEdgeHalf) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 	if obj.Kind == "" {
 		return fmt.Errorf("edge half kind is empty")
 	}
@@ -2511,6 +2511,7 @@ func (obj *StmtEdgeHalf) Interpolate() (*StmtEdgeHalf, error) {
 	}
 
 	return &StmtEdgeHalf{
+		TextArea: obj.TextArea,
 		Kind:     obj.Kind,
 		Name:     name,
 		SendRecv: obj.SendRecv,
@@ -2532,6 +2533,7 @@ func (obj *StmtEdgeHalf) Copy() (*StmtEdgeHalf, error) {
 		return obj, nil
 	}
 	return &StmtEdgeHalf{
+		TextArea: obj.TextArea,
 		Kind:     obj.Kind,
 		Name:     name,
 		SendRecv: obj.SendRecv,
@@ -2676,7 +2678,7 @@ func (obj *StmtIf) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtIf) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if err := obj.Condition.Init(data); err != nil {
 		return err
@@ -3732,8 +3734,9 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		//World: obj.data.World, // TODO: do we need this?
 
 		//Prefix: obj.Prefix, // TODO: add a path on?
-		Debug: obj.data.Debug,
-		Logf:  logf,
+		ProgSource: string(input.Main),
+		Debug:      obj.data.Debug,
+		Logf:       logf,
 	}
 	// some of this might happen *after* interpolate in SetScope or later...
 	if err := ast.Init(data); err != nil {
@@ -4438,7 +4441,7 @@ func (obj *StmtFunc) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtFunc) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Name == "" {
 		return fmt.Errorf("func name is empty")
@@ -4654,7 +4657,7 @@ func (obj *StmtClass) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtClass) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Name == "" {
 		return fmt.Errorf("class name is empty")
@@ -4877,7 +4880,7 @@ func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtInclude) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Name == "" {
 		return fmt.Errorf("include name is empty")
@@ -5418,7 +5421,11 @@ func (obj *ExprBool) Apply(fn func(interfaces.Node) error) error { return fn(obj
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *ExprBool) Init(*interfaces.Data) error { return nil }
+func (obj *ExprBool) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -5569,7 +5576,7 @@ func (obj *ExprStr) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 // validate.
 func (obj *ExprStr) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 	return nil
 }
 
@@ -5768,7 +5775,11 @@ func (obj *ExprInt) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *ExprInt) Init(*interfaces.Data) error { return nil }
+func (obj *ExprInt) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -5918,7 +5929,11 @@ func (obj *ExprFloat) Apply(fn func(interfaces.Node) error) error { return fn(ob
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *ExprFloat) Init(*interfaces.Data) error { return nil }
+func (obj *ExprFloat) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -6083,7 +6098,7 @@ func (obj *ExprList) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprList) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	for _, x := range obj.Elements {
 		if err := x.Init(data); err != nil {
@@ -6449,7 +6464,7 @@ func (obj *ExprMap) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprMap) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	// XXX: Can we check that there aren't any duplicate keys? Can we Cmp?
 	for _, x := range obj.KVs {
@@ -6941,7 +6956,7 @@ func (obj *ExprStruct) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprStruct) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	fields := make(map[string]struct{})
 	for _, x := range obj.Fields {
@@ -8145,7 +8160,7 @@ func (obj *ExprCall) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprCall) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if obj.Name == "" && obj.Anon == nil {
 		return fmt.Errorf("missing call name")
@@ -9948,7 +9963,7 @@ func (obj *ExprIf) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprIf) Init(data *interfaces.Data) error {
 	obj.data = data
-	obj.SetPath(data.Base + data.Metadata.Main)
+	obj.SetContent(data.Base+data.Metadata.Main, data.ProgSource)
 
 	if err := obj.Condition.Init(data); err != nil {
 		return err

@@ -12,4 +12,9 @@ class c1($a, $b []str) {
 	}
 }
 -- OUTPUT --
-# err: errUnify: unify error with: str("hello"): type error: list != str
+# err: errUnify: type unification error here: in /main.mcl @4:1-4:25
+--
+include c1("t1", "hello") # len is 5
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ERROR: type error: list != str

@@ -30,9 +30,7 @@
 package ast
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -438,7 +436,8 @@ type TextArea struct {
 	endLine     int
 	endColumn   int
 
-	path string
+	path        string
+	textcontent string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -456,8 +455,11 @@ func (obj *TextArea) Locate(line int, col int, endline int, endcol int) {
 
 // SetPath is used during AST initialization in order to store in each AST node
 // the name of the source file from which it was generated.
-func (obj *TextArea) SetPath(path string) {
+// Also stores the content of the file in question, as seen in data.Main of the
+// associated AST node.
+func (obj *TextArea) SetContent(path string, textcontent string) {
 	obj.path = path
+	obj.textcontent = textcontent
 }
 
 // String gives a succinct representation of the TextArea, but is useful only
@@ -494,47 +496,72 @@ func (obj *TextArea) Path() string {
 // part of the line described by a TextArea. If the coordinates that are passed
 // span multiple lines, don't show those lines, but just a description of the
 // area.
-func (obj *TextArea) HighlightText() (string, error) {
+func (obj *TextArea) HighlightText() string {
 	first := obj.startLine
 	left := obj.startColumn
 	last := obj.endLine
 	right := obj.endColumn
 	filename := obj.path
+	contents := obj.textcontent
+
+	var result strings.Builder
+
+	result.WriteString("in ")
 
 	if filename == "" {
-		return "unknown source file", nil
+		result.WriteString("an unknown file")
+	} else {
+		result.WriteString(filename)
 	}
 
 	if first == 0 {
-		return "in " + filename, nil
+		return result.String()
 	}
 
-	if first != last {
-		return fmt.Sprintf("in %s L%d-%d\n", filename, first, last), nil
+	fmt.Fprintf(&result, " @%d:%d-%d:%d", first, left, last, right)
+
+	lines := strings.Split(contents, "\n")
+	if len(lines) < last {
+		result.WriteString(" (out of bounds!)\n")
+		return result.String()
 	}
 
-	readFile, err := os.Open(filename)
-	if err != nil {
-		return "", errwrap.Wrapf(err, "could not open file %s", filename)
-	}
-	defer readFile.Close()
-	scanner := bufio.NewScanner(readFile)
-	for i := 0 ; i < first ; i++ {
-		scanner.Scan()
-	}
-	if err := scanner.Err() ; err != nil {
-		return "", errwrap.Wrapf(err, "could not read file %s", filename)
+	result.WriteString("\n--\n")
+
+	if first == last {
+		line := lines[first-1] + "\n"
+		text := strings.TrimLeft(line, " \t")
+		indent := strings.TrimSuffix(line, text)
+		offset := len(indent)
+
+		result.WriteString(line)
+		result.WriteString(indent)
+		result.WriteString(strings.Repeat(" ", left-1-offset))
+		result.WriteString(strings.Repeat("^", right-left+1))
+		result.WriteString("\n")
+
+		return result.String()
 	}
 
-	// handle indentation correctly, even if it mixes spaces and tabs
-	line := scanner.Text() + "\n"
+	line := lines[first-1] + "\n"
 	text := strings.TrimLeft(line, " \t")
 	indent := strings.TrimSuffix(line, text)
 	offset := len(indent)
 
-	result := fmt.Sprintf("in %s L%d:\n--\n", filename, first)
-	result += scanner.Text() + "\n"
-	result += indent + strings.Repeat(" ", left-1-offset) + strings.Repeat("^", right-left+1)
-	return result, nil
-}
+	result.WriteString(line)
+	result.WriteString(indent)
+	result.WriteString(strings.Repeat(" ", left-1-offset))
+	result.WriteString("^ from here ...\n")
 
+	line = lines[last-1] + "\n"
+	text = strings.TrimLeft(line, " \t")
+	indent = strings.TrimSuffix(line, text)
+	offset = len(indent)
+
+	result.WriteString(line)
+	result.WriteString(indent)
+	result.WriteString(strings.Repeat(" ", left-1-offset))
+	result.WriteString("^ ... to here\n")
+
+	return result.String()
+}

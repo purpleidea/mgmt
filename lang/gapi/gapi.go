@@ -217,8 +217,9 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 
-		Prefix: prefix,
-		Debug:  debug,
+		Prefix:     prefix,
+		ProgSource: string(output.Main),
+		Debug:      debug,
 		Logf: func(format string, v ...interface{}) {
 			// TODO: is this a sane prefix to use here?
 			logf("ast: "+format, v...)

@@ -133,15 +133,12 @@ func (obj *FastInvariantSolver) Solve(ctx context.Context, data *unification.Dat
 		}
 		if err := unificationUtil.Unify(x.Expect, x.Actual); err != nil {
 			displayer, ok := x.Node.(interfaces.TextDisplayer)
-			if ! ok {
+			if !ok {
 				fmt.Printf("not displayable: %v\n", x.Node)
 				return nil, errwrap.Wrapf(err, "unify error with: %s", x.Expr)
 			}
-			if highlight, e := displayer.HighlightText() ; e != nil {
-				return nil, errwrap.Append(err, errwrap.Wrapf(e, "could not look up error location"))
-			} else {
-				return nil, fmt.Errorf("type unification error here: " + highlight + "\nERROR: %s", err.Error())
-			}
+			highlight := displayer.HighlightText()
+			return nil, fmt.Errorf("type unification error here: %s\nERROR: %s", highlight, err.Error())
 		}
 		if obj.Debug {
 			e1, e2 := unificationUtil.Extract(x.Expect), unificationUtil.Extract(x.Actual)

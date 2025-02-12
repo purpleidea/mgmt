@@ -5,4 +5,9 @@ $name = ["a", "bb", "ccc",]
 test "${name}" {} # must fail
 
 -- OUTPUT --
-# err: errUnify: unify error with: var(name): type error: str != list
+# err: errUnify: type unification error here: in /main.mcl @4:1-4:17
+--
+test "${name}" {} # must fail
+^^^^^^^^^^^^^^^^^
+
+ERROR: type error: str != list

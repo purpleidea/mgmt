@@ -166,6 +166,7 @@ prog:
 			$$.stmt = &ast.StmtProg{
 				Body: stmts,
 			}
+			locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		}
 	}
 ;
@@ -516,7 +517,6 @@ struct:
 		$$.expr = &ast.ExprStruct{
 			Fields: $3.structFields,
 		}
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 struct_fields:
@@ -574,7 +574,7 @@ call:
 			Args: $3.exprs,
 			Anon: $1.expr,
 		}
-		posLast(yylex, yyDollar) // our pos
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr PLUS expr
 	{
@@ -1080,53 +1080,52 @@ resource_body:
 resource_field:
 	IDENTIFIER ROCKET expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resField = &ast.StmtResField{
 			Field: $1.str,
 			Value: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resField)
 	}
 ;
 conditional_resource_field:
 	// content => $present ?: "hello",
 	IDENTIFIER ROCKET expr ELVIS expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resField = &ast.StmtResField{
 			Field:     $1.str,
 			Value:     $5.expr,
 			Condition: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resField)
 	}
 ;
 resource_edge:
 	// Before => Test["t1"],
 	CAPITALIZED_IDENTIFIER ROCKET edge_half COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resEdge = &ast.StmtResEdge{
 			Property: $1.str,
 			EdgeHalf: $3.edgeHalf,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resEdge)
 	}
 ;
 conditional_resource_edge:
 	// Before => $present ?: Test["t1"],
 	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS edge_half COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resEdge = &ast.StmtResEdge{
 			Property:  $1.str,
 			EdgeHalf:  $5.edgeHalf,
 			Condition: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resEdge)
 	}
 ;
 resource_meta:
 	// Meta:noop => true,
 	CAPITALIZED_IDENTIFIER COLON IDENTIFIER ROCKET expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
@@ -1135,6 +1134,7 @@ resource_meta:
 			Property: $3.str,
 			MetaExpr: $5.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 conditional_resource_meta:
@@ -1151,13 +1151,13 @@ conditional_resource_meta:
 			MetaExpr:  $7.expr,
 			Condition: $5.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 resource_meta_struct:
 	// Meta => struct{meta => true, retry => 3,},
 	CAPITALIZED_IDENTIFIER ROCKET expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
@@ -1166,13 +1166,13 @@ resource_meta_struct:
 			Property: $1.str,
 			MetaExpr: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 conditional_resource_meta_struct:
 	// Meta => $present ?: struct{poll => 60, sema => ["foo:1", "bar:3",],},
 	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
@@ -1182,6 +1182,7 @@ conditional_resource_meta_struct:
 			MetaExpr:  $5.expr,
 			Condition: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 edge:
@@ -1225,24 +1226,24 @@ edge_half:
 	// eg: Test["t1"]
 	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &ast.StmtEdgeHalf{
 			Kind: $1.str,
 			Name: $3.expr,
 			//SendRecv: "", // unused
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.edgeHalf)
 	}
 ;
 edge_half_sendrecv:
 	// eg: Test["t1"].foo_send
 	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &ast.StmtEdgeHalf{
 			Kind: $1.str,
 			Name: $3.expr,
 			SendRecv: $6.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.edgeHalf)
 	}
 ;
 type:
@@ -1496,10 +1497,10 @@ func cast(y yyLexer) *lexParseAST {
 	return x.(*lexParseAST)
 }
 
-// The posLast variant that specifies a node will store the coordinates in the
-// node.
+// locate should be called after creating AST nodes from lexer tokens to store
+// the positions of the involved tokens in the AST node.
 func locate(y yyLexer, first yySymType, last yySymType, node interfaces.Node) {
-	posLast(y, []yySymType{last}) // TODO: is it really useful to store this in the Lexer? the values are erratic and likely unhelpful
+	pos(y, last)
 	if ln, ok := node.(ast.LocalNode) ; !ok {
 		return
 	// only run Locate on nodes that look like they have not received locations yet
@@ -1509,7 +1510,7 @@ func locate(y yyLexer, first yySymType, last yySymType, node interfaces.Node) {
 	}
 }
 
-// postLast runs pos on the last token of the current stmt/expr.
+// posLast runs pos on the last token of the current stmt/expr.
 func posLast(y yyLexer, dollars []yySymType) {
 	pos(y, dollars[len(dollars)-1])
 }

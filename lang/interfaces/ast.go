@@ -163,7 +163,7 @@ type Expr interface {
 type TextDisplayer interface {
 	// HighlightText returns a textual representation of this definition
 	// for this node in source.
-	HighlightText() (string, error)
+	HighlightText() string
 }
 
 // ScopeGrapher adds a method to turn an AST (Expr or Stmt) into a graph so that
@@ -244,6 +244,12 @@ type Data struct {
 	// currently shared identically across the whole AST. Nodes should be
 	// careful to not write on top of other nodes data.
 	Prefix string
+
+	// ProgSource holds a copy of the source code that was sent to the
+	// parser originally, once the AST is indeed parsed. This allows us to
+	// access the code again to produce helpful error messages, even if the
+	// source code is transient (read from stdin, held in memory, etc.)
+	ProgSource string
 
 	// Debug represents if we're running in debug mode or not.
 	Debug bool

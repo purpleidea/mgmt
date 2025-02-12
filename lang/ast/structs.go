@@ -5588,7 +5588,7 @@ func (obj *ExprStr) Init(data *interfaces.Data) error {
 // a function which returns a string as its root. Otherwise it returns itself.
 func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 	pos := &interfaces.Pos{
-		// XXX !!!
+		// XXX: will it make sense to somehow make hashicorp/hil work with this?
 		// column/line number, starting at 1
 		//Column: -1, // TODO
 		//Line: -1, // TODO

@@ -399,8 +399,11 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 // does not store its own line/column location (i.e., the node struct does not
 // embed the TextArea struct, and hence does not implement the LocalNode
 // interface). This makes two assumptions:
+//
 // a) the immediate parent of needle is a LocalNode and
-// b) any siblings to the left of needle (nor their children) are LocalNode
+//
+// b) any siblings to the left of needle (nor their children) are LocalNode.
+//
 // Basically it only works in a subtree like
 //
 //	L

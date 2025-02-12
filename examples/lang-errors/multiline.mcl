@@ -11,4 +11,3 @@ if $string == "hi" {
 		anotherstr => "this should not run through type checking",
 	}
 }
-

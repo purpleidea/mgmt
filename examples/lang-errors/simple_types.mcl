@@ -6,4 +6,3 @@ if $string == $number {
 		anotherstr => "this should not run through type checking",
 	}
 }
-

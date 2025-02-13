@@ -67,8 +67,6 @@ class router($st) {
 
 	include purpleidea.base() # adds some utility packages
 
-	include shorewall.prepare()
-
 	include dhcp.server(struct{
 		authoritative => true,
 	}) as dhcp_server # good!

@@ -1,0 +1,24 @@
+5548 5305 0:128 / / rw,relatime master:1033 - overlay overlay rw,lowerdir=/var/lib/docker/overlay2/l/EJ6MD7X7WZGYTRVU4XOFHOFOH7:/var/lib/docker/overlay2/l/YPTEQOEUARUJLT3442LPJIFTGQ,upperdir=/var/lib/docker/overlay2/9f137cc576eb5e346c32c97c89c59c2131135c0f8f6d3b1a882e506d69b6e0a9/diff,workdir=/var/lib/docker/overlay2/9f137cc576eb5e346c32c97c89c59c2131135c0f8f6d3b1a882e506d69b6e0a9/work,nouserxattr
+5549 5548 0:154 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw
+5550 5548 0:155 / /dev rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5551 5550 0:156 / /dev/pts rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
+5552 5548 0:157 / /sys ro,nosuid,nodev,noexec,relatime - sysfs sysfs ro
+5553 5552 0:28 / /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime - cgroup2 cgroup rw
+5555 5550 0:152 / /dev/mqueue rw,nosuid,nodev,noexec,relatime - mqueue mqueue rw
+5556 5550 0:158 / /dev/shm rw,nosuid,nodev,noexec,relatime - tmpfs shm rw,size=65536k,inode64
+5557 5548 259:2 /var/lib/docker/containers/663379e342690801630c8fc5760d7942e5236b3a4aa0229ad58f182d14f88a9f/resolv.conf /etc/resolv.conf rw,relatime - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+5558 5548 259:2 /var/lib/docker/containers/663379e342690801630c8fc5760d7942e5236b3a4aa0229ad58f182d14f88a9f/hostname /etc/hostname rw,relatime - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+5559 5548 259:2 /var/lib/docker/containers/663379e342690801630c8fc5760d7942e5236b3a4aa0229ad58f182d14f88a9f/hosts /etc/hosts rw,relatime - ext4 /dev/nvme0n1p2 rw,errors=remount-ro
+5306 5550 0:156 /0 /dev/console rw,nosuid,noexec,relatime - devpts devpts rw,gid=5,mode=620,ptmxmode=666
+5307 5549 0:154 /bus /proc/bus ro,nosuid,nodev,noexec,relatime - proc proc rw
+5308 5549 0:154 /fs /proc/fs ro,nosuid,nodev,noexec,relatime - proc proc rw
+5309 5549 0:154 /irq /proc/irq ro,nosuid,nodev,noexec,relatime - proc proc rw
+5311 5549 0:154 /sys /proc/sys ro,nosuid,nodev,noexec,relatime - proc proc rw
+5312 5549 0:154 /sysrq-trigger /proc/sysrq-trigger ro,nosuid,nodev,noexec,relatime - proc proc rw
+5313 5549 0:159 / /proc/asound ro,relatime - tmpfs tmpfs ro,inode64
+5314 5549 0:160 / /proc/acpi ro,relatime - tmpfs tmpfs ro,inode64
+5315 5549 0:155 /null /proc/kcore rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5316 5549 0:155 /null /proc/keys rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5317 5549 0:155 /null /proc/timer_list rw,nosuid - tmpfs tmpfs rw,size=65536k,mode=755,inode64
+5318 5549 0:161 / /proc/scsi ro,relatime - tmpfs tmpfs ro,inode64
+5319 5552 0:162 / /sys/firmware ro,relatime - tmpfs tmpfs ro,inode64

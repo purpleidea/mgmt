@@ -123,5 +123,5 @@ project!
 
 ## Examples
 
-Please look in the [examples/lang/](../examples/lang/) folder for some more
-examples!
+Please look in the [examples/lang/](https://github.com/purpleidea/mgmt/tree/master/examples/lang)
+folder for some more examples!

@@ -1,0 +1,16 @@
+-- main.mcl --
+file "/tmp/frags/" {
+	state => "exists",
+}
+file "/tmp/frags/f1" {
+	state => "exists",
+	content => "f1 contents\n",
+}
+file "/tmp/frags/all" {
+	state => "exists",
+	fragments => [
+		"/tmp/frags/",
+	],
+}
+-- OUTPUT --
+# err: errValidate: file[/tmp/frags/all] did not Validate: inside a frag (`/tmp/frags/`)

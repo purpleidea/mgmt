@@ -327,6 +327,13 @@ func (obj *FileRes) Validate() error {
 		if !strings.HasPrefix(frag, "/") {
 			return fmt.Errorf("the frag (`%s`) isn't an absolute path", frag)
 		}
+		// If the file is inside one of our fragment dirs, then this
+		// would make an infinite loop mess. We can't prevent this
+		// happening in other ways with multiple dirs doing this for
+		// each other, but we can at least catch the common case.
+		if util.HasPathPrefix(obj.getPath(), frag) {
+			return fmt.Errorf("inside a frag (`%s`)", frag)
+		}
 	}
 
 	if obj.Purge && (isContent || isFrag) {

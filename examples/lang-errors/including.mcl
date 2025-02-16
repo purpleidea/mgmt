@@ -1,0 +1,5 @@
+import "includable.mcl"
+
+test "faulty" {
+	anotherstr => $includable.answer,
+}

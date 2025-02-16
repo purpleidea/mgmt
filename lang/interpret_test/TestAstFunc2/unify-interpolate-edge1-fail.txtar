@@ -7,4 +7,9 @@ test "test" {}
 Test["${name}"] -> Test["test"] # must fail
 
 -- OUTPUT --
-# err: errUnify: unify error with: var(name): type error: str != list
+# err: errUnify: type unification error here: in /main.mcl @6:1-6:15
+--
+Test["${name}"] -> Test["test"] # must fail
+^^^^^^^^^^^^^^^
+
+ERROR: type error: str != list

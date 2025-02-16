@@ -247,6 +247,7 @@ func TestAstFunc1(t *testing.T) {
 			if strings.HasPrefix(expstr, magicError) {
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
+				t.Logf("errStr has length %d", len(errStr))
 
 				if strings.HasPrefix(expstr, magicErrorLexParse) {
 					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
@@ -398,6 +399,7 @@ func TestAstFunc1(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
+				ProgSource:      string(output.Main),
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -939,6 +941,7 @@ func TestAstFunc2(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
+				ProgSource:      string(output.Main),
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -1759,6 +1762,7 @@ func TestAstFunc3(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
+				ProgSource:      string(output.Main),
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {

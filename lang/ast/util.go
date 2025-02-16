@@ -393,3 +393,178 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 		logf("$%s(...)", name)
 	}
 }
+
+// AreaParentOf is a (flawed) heuristic that tries to find the parent of the
+// given node (needle) in a tree (haystack), in the case that the given node
+// does not store its own line/column location (i.e., the node struct does not
+// embed the TextArea struct, and hence does not implement the LocalNode
+// interface). This makes two assumptions:
+//
+// a) the immediate parent of needle is a LocalNode and
+//
+// b) any siblings to the left of needle (nor their children) are LocalNode.
+//
+// Basically it only works in a subtree like
+//
+//	L
+//	|\
+//	x n
+//
+// where L is the LocalNode parent of x and n, and n is the needle.
+func AreaParentOf(needle, haystack interfaces.Node) LocalNode {
+	var LastArea LocalNode
+
+	err := haystack.Apply(func(n interfaces.Node) error {
+		ln, ok := n.(LocalNode)
+		if ok {
+			LastArea = ln
+		}
+		if n == needle {
+			return fmt.Errorf("found")
+		}
+		return nil
+	})
+
+	if err != nil && err.Error() == "found" {
+		return LastArea
+	}
+	return haystack.(LocalNode)
+}
+
+// TextArea stores the coordinates of a statement or expression in the form of a
+// starting line/column and ending line/column.
+type TextArea struct {
+	startLine   int
+	startColumn int
+	endLine     int
+	endColumn   int
+
+	path        string
+	textcontent string
+
+	// Bug5819 works around issue https://github.com/golang/go/issues/5819
+	Bug5819 interface{} // XXX: workaround
+}
+
+// Locate is used by the parser to store the token positions in AST nodes.
+// The path will be filled during AST node initialization usually, because
+// the parser does not know the name of the file it is processing.
+func (obj *TextArea) Locate(line int, col int, endline int, endcol int) {
+	obj.startLine = line
+	obj.startColumn = col
+	obj.endLine = endline
+	obj.endColumn = endcol
+}
+
+// SetPath is used during AST initialization in order to store in each AST node
+// the name of the source file from which it was generated.
+// Also stores the content of the file in question, as seen in data.Main of the
+// associated AST node.
+func (obj *TextArea) SetContent(path string, textcontent string) {
+	obj.path = path
+	obj.textcontent = textcontent
+}
+
+// String gives a succinct representation of the TextArea, but is useful only
+// in debugging. In order to generate pretty error messages, see HighlightText.
+func (obj *TextArea) String() string {
+	return fmt.Sprintf("%s:%d:%d", obj.path, obj.startLine, obj.startColumn) // XXX: +1 ?
+}
+
+// LocalNode is the interface implemented by AST nodes that store their code
+// position. It is implemented by node types that embed TextArea.
+type LocalNode interface {
+	Locate(int, int, int, int)
+	Pos() (int, int)
+	End() (int, int)
+	String() string
+}
+
+// Pos returns the starting line/column of an AST node.
+func (obj *TextArea) Pos() (int, int) {
+	return obj.startLine, obj.startColumn
+}
+
+// End returns the end line/column of an AST node.
+func (obj *TextArea) End() (int, int) {
+	return obj.endLine, obj.endColumn
+}
+
+// Path returns the name of the source file that holds the code for an AST node.
+func (obj *TextArea) Path() string {
+	return obj.path
+}
+
+// HighlightText generates a generic description that just visually indicates
+// part of the line described by a TextArea. If the coordinates that are passed
+// span multiple lines, don't show those lines, but just a description of the
+// area.
+func (obj *TextArea) HighlightText() string {
+	first := obj.startLine
+	left := obj.startColumn
+	last := obj.endLine
+	right := obj.endColumn
+	filename := obj.path
+	contents := obj.textcontent
+
+	var result strings.Builder
+
+	result.WriteString("in ")
+
+	if filename == "" {
+		result.WriteString("an unknown file")
+	} else {
+		result.WriteString(filename)
+	}
+
+	if first == 0 {
+		return result.String()
+	}
+
+	fmt.Fprintf(&result, " @%d:%d-%d:%d", first, left, last, right)
+
+	lines := strings.Split(contents, "\n")
+	if len(lines) < last {
+		result.WriteString(" (out of bounds!)\n")
+		return result.String()
+	}
+
+	result.WriteString("\n--\n")
+
+	if first == last {
+		line := lines[first-1] + "\n"
+		text := strings.TrimLeft(line, " \t")
+		indent := strings.TrimSuffix(line, text)
+		offset := len(indent)
+
+		result.WriteString(line)
+		result.WriteString(indent)
+		result.WriteString(strings.Repeat(" ", left-1-offset))
+		result.WriteString(strings.Repeat("^", right-left+1))
+		result.WriteString("\n")
+
+		return result.String()
+	}
+
+	line := lines[first-1] + "\n"
+	text := strings.TrimLeft(line, " \t")
+	indent := strings.TrimSuffix(line, text)
+	offset := len(indent)
+
+	result.WriteString(line)
+	result.WriteString(indent)
+	result.WriteString(strings.Repeat(" ", left-1-offset))
+	result.WriteString("^ from here ...\n")
+
+	line = lines[last-1] + "\n"
+	text = strings.TrimLeft(line, " \t")
+	indent = strings.TrimSuffix(line, text)
+	offset = len(indent)
+
+	result.WriteString(line)
+	result.WriteString(indent)
+	result.WriteString(strings.Repeat(" ", left-1-offset))
+	result.WriteString("^ ... to here\n")
+
+	return result.String()
+}
